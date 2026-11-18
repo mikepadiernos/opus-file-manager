@@ -14,6 +14,7 @@ class KFilePlacesView;
 class KNewFileMenu;
 class KToggleAction;
 class Pane;
+class QDockWidget;
 class QLabel;
 class QSplitter;
 
@@ -51,6 +52,7 @@ public:
 
 protected:
     bool queryClose() override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
     void readProperties(const KConfigGroup &group) override;
     void saveProperties(KConfigGroup &group) override;
 
@@ -91,12 +93,15 @@ private:
     void showSettings();
     /// Applies the settings that only take effect in a new window.
     void applyViewDefaults();
+    /// Stores whether the user left the Places panel shown.
+    void rememberPlacesShown(bool shown);
     void toggleViewMode();
     void setShowHiddenFiles(bool show);
     void setPreviewsEnabled(bool enabled);
 
     KFilePlacesModel *m_placesModel = nullptr;
     KFilePlacesView *m_placesView = nullptr;
+    QDockWidget *m_placesDock = nullptr;
     KFileItemActions *m_fileItemActions = nullptr;
     KNewFileMenu *m_newFileMenu = nullptr;
     QSplitter *m_splitter = nullptr;

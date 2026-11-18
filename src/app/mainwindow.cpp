@@ -160,12 +160,12 @@ void MainWindow::setupPlaces()
     m_placesView->setDropOnPlaceEnabled(true);
     m_placesView->setAutoResizeItemsEnabled(false);
 
-    auto *dock = new QDockWidget(i18nc("@title:window", "Places"), this);
-    dock->setObjectName(QStringLiteral("placesDock"));
-    dock->setWidget(m_placesView);
-    dock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-    dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetClosable);
-    addDockWidget(Qt::LeftDockWidgetArea, dock);
+    m_placesDock = new QDockWidget(i18nc("@title:window", "Places"), this);
+    m_placesDock->setObjectName(QStringLiteral("placesDock"));
+    m_placesDock->setWidget(m_placesView);
+    m_placesDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+    m_placesDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetClosable);
+    addDockWidget(Qt::LeftDockWidgetArea, m_placesDock);
 
     connect(m_placesView, &KFilePlacesView::urlChanged, this, [this](const QUrl &url) {
         activePane()->setUrl(url);
@@ -182,8 +182,10 @@ void MainWindow::setupPlaces()
 void MainWindow::setupStatusBar()
 {
     m_itemsLabel = new QLabel(this);
+    m_itemsLabel->setObjectName(QStringLiteral("itemsLabel"));
     m_messageLabel = new QLabel(this);
     m_freeSpaceLabel = new QLabel(this);
+    m_freeSpaceLabel->setObjectName(QStringLiteral("freeSpaceLabel"));
     statusBar()->addWidget(m_itemsLabel);
     statusBar()->addWidget(m_messageLabel, 1);
     statusBar()->addPermanentWidget(m_freeSpaceLabel);
@@ -288,6 +290,14 @@ void MainWindow::setupActions()
     m_stackedLayoutAction = new KToggleAction(QIcon::fromTheme(QStringLiteral("view-split-top-bottom")), i18nc("@action", "Stacked Panes"), this);
     actions->addAction(QStringLiteral("stacked_layout"), m_stackedLayoutAction);
     connect(m_stackedLayoutAction, &KToggleAction::toggled, this, &MainWindow::setStackedLayout);
+
+    QAction *showPlaces = m_placesDock->toggleViewAction();
+    showPlaces->setText(i18nc("@action", "Show Places Panel"));
+    showPlaces->setIcon(QIcon::fromTheme(QStringLiteral("compass")));
+    actions->addAction(QStringLiteral("show_places"), showPlaces);
+    actions->setDefaultShortcut(showPlaces, Qt::Key_F9);
+    connect(showPlaces, &QAction::triggered, this, &MainWindow::rememberPlacesShown);
+    m_placesDock->installEventFilter(this);
 
     m_viewModeAction = actions->addAction(QStringLiteral("toggle_view_mode"), this, &MainWindow::toggleViewMode);
     m_viewModeAction->setText(i18nc("@action", "Icons View"));
@@ -589,7 +599,7 @@ void MainWindow::updateStatusBar()
         }
         const int files = selected.size() - folders;
         QString text = i18ncp("@info:status", "%1 of %2 selected", "%1 of %2 selected", selected.size(), total);
-        if (files > 0) {
+        if (files > 0 && Settings::showSelectionSize()) {
             text += QStringLiteral(" (%1)").arg(KIO::convertSize(size));
         }
         m_itemsLabel->setText(text);
@@ -615,7 +625,7 @@ void MainWindow::updateStatusBar()
 void MainWindow::updateFreeSpace()
 {
     const QUrl url = activePane()->url();
-    if (!url.isValid()) {
+    if (!url.isValid() || !Settings::showFreeSpace()) {
         m_freeSpaceLabel->clear();
         return;
     }
@@ -846,6 +856,11 @@ void MainWindow::applySettings()
         view->setRemotePreviewsEnabled(Settings::showRemotePreviews());
     }
     updateTabBars();
+    m_placesDock->setVisible(Settings::showPlaces());
+    m_itemsLabel->setVisible(Settings::showItemCounts());
+    m_freeSpaceLabel->setVisible(Settings::showFreeSpace());
+    updateStatusBar();
+    updateFreeSpace();
 
     QAction *switchPane = actionCollection()->action(QStringLiteral("switch_pane"));
     QList<QKeySequence> shortcuts = switchPane->shortcuts();
@@ -854,6 +869,20 @@ void MainWindow::applySettings()
         shortcuts.prepend(QKeySequence(Qt::Key_Tab));
     }
     switchPane->setShortcuts(shortcuts);
+}
+
+void MainWindow::rememberPlacesShown(bool shown)
+{
+    Settings::setShowPlaces(shown);
+    Settings::self()->save();
+}
+
+bool MainWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_placesDock && event->type() == QEvent::Close) {
+        rememberPlacesShown(false);
+    }
+    return KXmlGuiWindow::eventFilter(watched, event);
 }
 
 void MainWindow::applyViewDefaults()
@@ -874,7 +903,7 @@ void MainWindow::showSettings()
     if (KConfigDialog::showDialog(QLatin1String(SettingsDialog::Name))) {
         return;
     }
-    auto *dialog = new SettingsDialog(this);
+    auto *dialog = new SettingsDialog(m_placesModel, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(dialog, &KConfigDialog::settingsChanged, this, &MainWindow::applySettings);
     dialog->show();

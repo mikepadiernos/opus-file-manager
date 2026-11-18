@@ -69,8 +69,8 @@ Dolphin fork for power users, and stored in KConfig (`opus-file-managerrc`):
   or custom) and height of the toolbars, location bars and status bar
 - ~~Previews: on or off, which preview plugins run, largest file to preview,
   previews in remote folders~~
-- Places panel: shown or hidden, which sections appear
-- Status bar: free space, item counts and selection size
+- ~~Places panel: shown or hidden, which sections appear~~
+- ~~Status bar: free space, item counts and selection size~~
 - Opening files: what opening an executable does (ask, open in its application,
   run, or run in a terminal that stays open or closes)
 - File operations: confirm trash, delete and closing multiple tabs; default drop

@@ -9,6 +9,8 @@
 
 #include <KActionCollection>
 #include <KDirModel>
+#include <KFilePlacesModel>
+#include <KFilePlacesView>
 #include <KSharedConfig>
 #include <KUrlNavigator>
 #include <KUrlRequester>
@@ -18,7 +20,9 @@
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDir>
+#include <QDockWidget>
 #include <QFile>
+#include <QLabel>
 #include <QListWidget>
 #include <QPushButton>
 #include <QSpinBox>
@@ -43,6 +47,11 @@ private:
         return QUrl::fromLocalFile(m_root.filePath(relative));
     }
 
+    static KFilePlacesModel *placesOf(MainWindow &window)
+    {
+        return qobject_cast<KFilePlacesModel *>(window.findChild<KFilePlacesView *>()->model());
+    }
+
     static QAction *action(MainWindow &window, const QString &name)
     {
         return window.actionCollection()->action(name);
@@ -56,6 +65,10 @@ private Q_SLOTS:
         QVERIFY(QDir(m_root.path()).mkpath(QStringLiteral("a")));
         QVERIFY(QDir(m_root.path()).mkpath(QStringLiteral("b")));
         QVERIFY(QDir(m_root.path()).mkpath(QStringLiteral("c")));
+        QFile file(m_root.filePath(QStringLiteral("a/file.txt")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("hello");
+        file.close();
         QVERIFY(QFile::link(m_root.filePath(QStringLiteral("a")), m_root.filePath(QStringLiteral("link"))));
         m_a = url(QStringLiteral("a"));
         m_b = url(QStringLiteral("b"));
@@ -72,7 +85,7 @@ private Q_SLOTS:
     void dialogHasAWidgetForEverySetting()
     {
         MainWindow window;
-        SettingsDialog dialog(&window);
+        SettingsDialog dialog(placesOf(window), &window);
         const auto items = Settings::self()->items();
         for (const KConfigSkeletonItem *item : items) {
             QVERIFY2(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + item->name()), qPrintable(item->name()));
@@ -82,7 +95,7 @@ private Q_SLOTS:
     void dialogApplyWritesSettings()
     {
         MainWindow window;
-        SettingsDialog dialog(&window);
+        SettingsDialog dialog(placesOf(window), &window);
         dialog.findChild<QComboBox *>(QStringLiteral("kcfg_StartupMode"))->setCurrentIndex(Settings::EnumStartupMode::FixedFolders);
         dialog.findChild<KUrlRequester *>(QStringLiteral("kcfg_LeftStartUrl"))->setUrl(m_b);
         dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_FollowSymlinks"))->setChecked(true);
@@ -289,7 +302,7 @@ private Q_SLOTS:
     void previewSizeSpinBoxMapsZeroToNoLimit()
     {
         MainWindow window;
-        SettingsDialog dialog(&window);
+        SettingsDialog dialog(placesOf(window), &window);
         auto *size = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_MaximumPreviewSize"));
         QVERIFY(size);
         size->setValue(10);
@@ -304,7 +317,7 @@ private Q_SLOTS:
     void previewPluginListWritesCheckedPlugins()
     {
         MainWindow window;
-        SettingsDialog dialog(&window);
+        SettingsDialog dialog(placesOf(window), &window);
         auto *list = dialog.findChild<QListWidget *>(QStringLiteral("kcfg_PreviewPlugins"));
         QVERIFY(list);
         if (list->count() < 2) {
@@ -315,6 +328,76 @@ private Q_SLOTS:
         }
         dialog.button(QDialogButtonBox::Apply)->click();
         QCOMPARE(Settings::previewPlugins(), QStringList{list->item(0)->data(Qt::UserRole).toString()});
+    }
+
+    void placesPanelVisibility()
+    {
+        MainWindow window;
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        auto *dock = window.findChild<QDockWidget *>(QStringLiteral("placesDock"));
+        QVERIFY(dock->isVisible());
+
+        Settings::setShowPlaces(false);
+        window.applySettings();
+        QVERIFY(!dock->isVisible());
+
+        action(window, QStringLiteral("show_places"))->trigger();
+        QVERIFY(dock->isVisible());
+        QVERIFY(Settings::showPlaces());
+
+        // Closing the window hides the dock without turning the panel off.
+        window.close();
+        QVERIFY(Settings::showPlaces());
+    }
+
+    void closingPlacesPanelIsRemembered()
+    {
+        MainWindow window;
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        window.findChild<QDockWidget *>(QStringLiteral("placesDock"))->close();
+        QVERIFY(!Settings::showPlaces());
+    }
+
+    void placesSectionsAreHiddenThroughTheDialog()
+    {
+        MainWindow window;
+        KFilePlacesModel *places = placesOf(window);
+        QVERIFY(places);
+        places->setGroupHidden(KFilePlacesModel::RemoteType, false);
+
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *remote = dialog.findChild<QCheckBox *>(QStringLiteral("placesGroup_RemoteType"));
+        QVERIFY(remote);
+        QVERIFY(remote->isChecked());
+        remote->setChecked(false);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(places->isGroupHidden(KFilePlacesModel::RemoteType));
+
+        places->setGroupHidden(KFilePlacesModel::RemoteType, false);
+    }
+
+    void statusBarContents()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        auto *items = window.findChild<QLabel *>(QStringLiteral("itemsLabel"));
+        auto *freeSpace = window.findChild<QLabel *>(QStringLiteral("freeSpaceLabel"));
+        view->selectAll();
+        QVERIFY(items->text().contains(QLatin1Char('(')));
+
+        Settings::setShowSelectionSize(false);
+        Settings::setShowFreeSpace(false);
+        window.applySettings();
+        QVERIFY(!items->text().contains(QLatin1Char('(')));
+        QVERIFY(freeSpace->isHidden());
+
+        Settings::setShowItemCounts(false);
+        window.applySettings();
+        QVERIFY(items->isHidden());
     }
 
     void goHomeUsesHomeSetting()

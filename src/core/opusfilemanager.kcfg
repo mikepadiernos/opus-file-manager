@@ -157,4 +157,24 @@
       <default code="true">std::numeric_limits&lt;qulonglong&gt;::max()</default>
     </entry>
   </group>
+  <group name="Places">
+    <entry name="ShowPlaces" type="Bool">
+      <label>Show the Places panel</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <group name="StatusBar">
+    <entry name="ShowItemCounts" type="Bool">
+      <label>Show the number of items and selected items</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowSelectionSize" type="Bool">
+      <label>Show the total size of the selected files</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowFreeSpace" type="Bool">
+      <label>Show the free space of the current folder's disk</label>
+      <default>true</default>
+    </entry>
+  </group>
 </kcfg>

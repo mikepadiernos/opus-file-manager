@@ -11,6 +11,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFormLayout>
+#include <QMetaEnum>
 #include <QSpinBox>
 
 namespace
@@ -56,14 +57,18 @@ KUrlRequester *folderRequester(const QString &entry)
 }
 }
 
-SettingsDialog::SettingsDialog(QWidget *parent)
+SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     : KConfigDialog(parent, QLatin1String(Name), Settings::self())
+    , m_places(places)
 {
     setFaceType(KPageDialog::List);
     addPage(createStartupPage(), i18nc("@title:tab", "Startup"), QStringLiteral("go-home"));
     addPage(createPanesPage(), i18nc("@title:tab", "Panes and Tabs"), QStringLiteral("view-split-left-right"));
     addPage(createViewsPage(), i18nc("@title:tab", "Views"), QStringLiteral("view-list-details"));
     addPage(createPreviewsPage(), i18nc("@title:tab", "Previews"), QStringLiteral("view-preview"));
+    addPage(createPlacesPage(), i18nc("@title:tab", "Places Panel"), QStringLiteral("compass"));
+    addPage(createStatusBarPage(), i18nc("@title:tab", "Status Bar"), QStringLiteral("data-information"));
+    updateWidgets();
 }
 
 QWidget *SettingsDialog::createStartupPage()
@@ -147,4 +152,83 @@ QWidget *SettingsDialog::createPreviewsPage()
     form->addRow(i18nc("@label:spinbox", "Skip files larger than:"), bound(new PreviewSizeSpinBox, QStringLiteral("MaximumPreviewSize"), "bytes"));
     form->addRow(i18nc("@label", "Show previews for:"), bound(new PreviewPluginList, QStringLiteral("PreviewPlugins"), "plugins"));
     return page;
+}
+
+QWidget *SettingsDialog::createPlacesPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(QString(), checkBox(QStringLiteral("ShowPlaces"), i18nc("@option:check", "Show the Places panel")));
+
+    const QList<std::pair<KFilePlacesModel::GroupType, QString>> groups{
+        {KFilePlacesModel::PlacesType, i18nc("@option:check places section", "Places")},
+        {KFilePlacesModel::RemoteType, i18nc("@option:check places section", "Remote")},
+        {KFilePlacesModel::RecentlySavedType, i18nc("@option:check places section", "Recent")},
+        {KFilePlacesModel::SearchForType, i18nc("@option:check places section", "Search For")},
+        {KFilePlacesModel::DevicesType, i18nc("@option:check places section", "Devices")},
+        {KFilePlacesModel::RemovableDevicesType, i18nc("@option:check places section", "Removable Devices")},
+        {KFilePlacesModel::TagsType, i18nc("@option:check places section", "Tags")},
+    };
+    const QMetaEnum groupType = QMetaEnum::fromType<KFilePlacesModel::GroupType>();
+    QString label = i18nc("@title:group", "Sections (shared with Dolphin):");
+    for (const auto &[type, text] : groups) {
+        auto *check = new QCheckBox(text);
+        check->setObjectName(QStringLiteral("placesGroup_") + QLatin1String(groupType.valueToKey(type)));
+        connect(check, &QCheckBox::toggled, this, &SettingsDialog::updateButtons);
+        m_placesGroups.insert(type, check);
+        form->addRow(label, check);
+        label.clear();
+    }
+    return page;
+}
+
+QWidget *SettingsDialog::createStatusBarPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(QString(), checkBox(QStringLiteral("ShowItemCounts"), i18nc("@option:check", "Number of items and selected items")));
+    form->addRow(QString(), checkBox(QStringLiteral("ShowSelectionSize"), i18nc("@option:check", "Size of the selected files")));
+    form->addRow(QString(), checkBox(QStringLiteral("ShowFreeSpace"), i18nc("@option:check", "Free space")));
+    return page;
+}
+
+void SettingsDialog::updateSettings()
+{
+    for (auto it = m_placesGroups.cbegin(); it != m_placesGroups.cend(); ++it) {
+        m_places->setGroupHidden(it.key(), !it.value()->isChecked());
+    }
+}
+
+void SettingsDialog::updateWidgets()
+{
+    for (auto it = m_placesGroups.cbegin(); it != m_placesGroups.cend(); ++it) {
+        it.value()->setChecked(!m_places->isGroupHidden(it.key()));
+    }
+}
+
+void SettingsDialog::updateWidgetsDefault()
+{
+    for (QCheckBox *check : std::as_const(m_placesGroups)) {
+        check->setChecked(true);
+    }
+}
+
+bool SettingsDialog::hasChanged()
+{
+    for (auto it = m_placesGroups.cbegin(); it != m_placesGroups.cend(); ++it) {
+        if (it.value()->isChecked() == m_places->isGroupHidden(it.key())) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool SettingsDialog::isDefault()
+{
+    for (const QCheckBox *check : std::as_const(m_placesGroups)) {
+        if (!check->isChecked()) {
+            return false;
+        }
+    }
+    return true;
 }
