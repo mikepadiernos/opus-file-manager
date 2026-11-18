@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE gui SYSTEM "kpartgui.dtd">
+<gui name="opus-file-manager" version="2" translationDomain="opus-file-manager">
+  <MenuBar>
+    <Menu name="file">
+      <text>&amp;File</text>
+      <Action name="new_menu"/>
+      <Action name="new_folder"/>
+      <Separator/>
+      <Action name="copy_to_other_pane"/>
+      <Action name="move_to_other_pane"/>
+      <Action name="rename"/>
+      <Action name="move_to_trash"/>
+      <Action name="delete"/>
+      <Separator/>
+      <Action name="open_terminal"/>
+      <Action name="properties"/>
+      <Separator/>
+      <Action name="file_quit"/>
+    </Menu>
+    <Menu name="edit">
+      <text>&amp;Edit</text>
+      <Action name="edit_undo"/>
+      <Separator/>
+      <Action name="edit_cut"/>
+      <Action name="edit_copy"/>
+      <Action name="edit_paste"/>
+      <Action name="copy_path"/>
+      <Separator/>
+      <Action name="edit_select_all"/>
+    </Menu>
+    <Menu name="view">
+      <text>&amp;View</text>
+      <Action name="dual_layout"/>
+      <Action name="stacked_layout"/>
+      <Action name="toggle_view_mode"/>
+      <Action name="show_previews"/>
+      <Action name="show_hidden_files"/>
+      <Separator/>
+      <Action name="view_redisplay"/>
+    </Menu>
+    <Menu name="go">
+      <text>&amp;Go</text>
+      <Action name="go_back"/>
+      <Action name="go_forward"/>
+      <Action name="go_up"/>
+      <Action name="go_home"/>
+      <Separator/>
+      <Action name="edit_location"/>
+      <Action name="switch_pane"/>
+      <Separator/>
+      <Action name="new_tab"/>
+      <Action name="close_tab"/>
+      <Action name="reopen_closed_tab"/>
+      <Action name="next_tab"/>
+      <Action name="previous_tab"/>
+    </Menu>
+    <Menu name="settings">
+      <text>&amp;Settings</text>
+    </Menu>
+  </MenuBar>
+  <ToolBar name="mainToolBar" noMerge="1">
+    <text>Main Toolbar</text>
+    <Action name="new_menu"/>
+    <Action name="copy_to_other_pane"/>
+    <Action name="move_to_other_pane"/>
+    <Action name="rename"/>
+    <Action name="move_to_trash"/>
+    <Separator/>
+    <Action name="edit_undo"/>
+    <Action name="new_tab"/>
+    <Separator/>
+    <Action name="dual_layout"/>
+    <Action name="toggle_view_mode"/>
+    <Action name="show_previews"/>
+    <Action name="show_hidden_files"/>
+    <Spacer/>
+    <Action name="open_terminal"/>
+    <Action name="hamburger_menu"/>
+  </ToolBar>
+</gui>
