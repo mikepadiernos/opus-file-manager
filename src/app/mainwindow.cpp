@@ -6,6 +6,9 @@
 #include "folderview.h"
 #include "pane.h"
 #include "session.h"
+#include "settings.h"
+#include "settingsdialog.h"
+#include "startup.h"
 #include "tabmodel.h"
 
 #include <KActionCollection>
@@ -88,6 +91,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(QApplication::clipboard(), &QClipboard::dataChanged, this, &MainWindow::updateActions);
 
     setActivePane(m_left);
+    applySettings();
     updateActions();
 }
 
@@ -332,7 +336,7 @@ void MainWindow::setupActions()
     KStandardAction::home(
         this,
         [this] {
-            activePane()->setUrl(QUrl::fromLocalFile(QDir::homePath()));
+            activePane()->setUrl(Settings::homeUrl());
         },
         actions);
 
@@ -392,6 +396,7 @@ void MainWindow::setupActions()
     }
 
     // Settings
+    KStandardAction::preferences(this, &MainWindow::showSettings, actions);
     QAction *showMenuBar = KStandardAction::showMenubar(menuBar(), &QMenuBar::setVisible, actions);
     KHamburgerMenu *hamburger = KStandardAction::hamburgerMenu(nullptr, nullptr, actions);
     hamburger->setMenuBar(menuBar());
@@ -459,9 +464,8 @@ void MainWindow::openUrls(const QList<QUrl> &urls)
 void MainWindow::restoreSession()
 {
     m_sessionRestored = true;
-    const QUrl home = QUrl::fromLocalFile(QDir::homePath());
     const KConfigGroup group = KSharedConfig::openStateConfig()->group(QLatin1String(SessionGroup));
-    const WindowSession session = Session::load(group).sanitized(home);
+    const WindowSession session = Startup::resolve(Session::load(group), Startup::fromSettings());
 
     const auto apply = [](Pane *pane, const PaneSession &state) {
         for (const QUrl &url : state.tabs) {
@@ -472,6 +476,7 @@ void MainWindow::restoreSession()
     apply(m_left, session.left);
     apply(m_right, session.right);
     setActivePane(session.activePane == 1 ? m_right : m_left);
+    m_dualLayoutAction->setChecked(session.dual);
     setStackedLayout(session.stacked);
 }
 
@@ -483,6 +488,7 @@ void MainWindow::saveSession()
     session.right.tabs = m_right->tabs()->urls();
     session.right.currentTab = m_right->tabs()->currentIndex();
     session.activePane = activePane() == m_right ? 1 : 0;
+    session.dual = isDualLayout();
     session.stacked = isStackedLayout();
 
     KSharedConfig::Ptr state = KSharedConfig::openStateConfig();
@@ -510,6 +516,7 @@ void MainWindow::readProperties(const KConfigGroup &group)
     m_left->tabs()->setCurrentIndex(session.left.currentTab);
     m_right->tabs()->setCurrentIndex(session.right.currentTab);
     setActivePane(session.activePane == 1 ? m_right : m_left);
+    m_dualLayoutAction->setChecked(session.dual);
     setStackedLayout(session.stacked);
 }
 
@@ -521,6 +528,7 @@ void MainWindow::saveProperties(KConfigGroup &group)
     session.right.tabs = m_right->tabs()->urls();
     session.right.currentTab = m_right->tabs()->currentIndex();
     session.activePane = activePane() == m_right ? 1 : 0;
+    session.dual = isDualLayout();
     session.stacked = isStackedLayout();
     Session::save(session, group);
 }
@@ -630,7 +638,7 @@ void MainWindow::updateWindowTitle()
 
 void MainWindow::updateTabBars()
 {
-    const bool force = m_left->tabs()->count() > 1 || m_right->tabs()->count() > 1;
+    const bool force = Settings::alwaysShowTabBar() || m_left->tabs()->count() > 1 || m_right->tabs()->count() > 1;
     m_left->setTabBarForcedVisible(force);
     m_right->setTabBarForcedVisible(force);
 }
@@ -808,6 +816,40 @@ void MainWindow::setStackedLayout(bool stacked)
 bool MainWindow::isStackedLayout() const
 {
     return m_splitter->orientation() == Qt::Vertical;
+}
+
+bool MainWindow::isDualLayout() const
+{
+    return m_dualLayoutAction->isChecked();
+}
+
+void MainWindow::applySettings()
+{
+    for (Pane *pane : {m_left, m_right}) {
+        pane->setNavigationBarVisible(Settings::showNavigationBar());
+        pane->setNewTabsAfterCurrent(Settings::newTabsAfterCurrent());
+        pane->setFollowSymlinks(Settings::followSymlinks());
+    }
+    updateTabBars();
+
+    QAction *switchPane = actionCollection()->action(QStringLiteral("switch_pane"));
+    QList<QKeySequence> shortcuts = switchPane->shortcuts();
+    shortcuts.removeAll(QKeySequence(Qt::Key_Tab));
+    if (Settings::tabSwitchesPanes()) {
+        shortcuts.prepend(QKeySequence(Qt::Key_Tab));
+    }
+    switchPane->setShortcuts(shortcuts);
+}
+
+void MainWindow::showSettings()
+{
+    if (KConfigDialog::showDialog(QLatin1String(SettingsDialog::Name))) {
+        return;
+    }
+    auto *dialog = new SettingsDialog(this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &KConfigDialog::settingsChanged, this, &MainWindow::applySettings);
+    dialog->show();
 }
 
 void MainWindow::toggleViewMode()

@@ -3,6 +3,7 @@
 #include "pane.h"
 
 #include "folderview.h"
+#include "symlinks.h"
 #include "tabmodel.h"
 
 #include <KFilePlacesModel>
@@ -67,7 +68,8 @@ Pane::Pane(KFilePlacesModel *places, QWidget *parent)
 
     m_navigator->setPlacesSelectorVisible(false);
 
-    auto *pathRow = new QHBoxLayout;
+    m_navigationBar = new QWidget(this);
+    auto *pathRow = new QHBoxLayout(m_navigationBar);
     pathRow->setContentsMargins(0, 0, 0, 0);
     pathRow->setSpacing(0);
     pathRow->addWidget(m_back);
@@ -80,7 +82,7 @@ Pane::Pane(KFilePlacesModel *places, QWidget *parent)
     m_layout->setContentsMargins(0, 0, 0, 0);
     m_layout->setSpacing(0);
     m_layout->addWidget(m_tabStrip);
-    m_layout->addLayout(pathRow);
+    m_layout->addWidget(m_navigationBar);
     m_layout->addWidget(m_view, 1);
 
     // Model -> widgets
@@ -125,7 +127,7 @@ Pane::Pane(KFilePlacesModel *places, QWidget *parent)
     connect(m_tabBar, &QTabBar::tabBarClicked, this, &Pane::activated);
 
     connect(m_navigator, &KUrlNavigator::urlChanged, this, [this](const QUrl &url) {
-        m_tabs->setCurrentUrl(url);
+        setUrl(url);
     });
     connect(m_navigator, &KUrlNavigator::tabRequested, this, [this](const QUrl &url) {
         openInNewTab(url);
@@ -204,20 +206,41 @@ bool Pane::isTabBarAtBottom() const
     return m_tabBar->shape() == QTabBar::RoundedSouth;
 }
 
+void Pane::setNavigationBarVisible(bool visible)
+{
+    m_navigationBar->setVisible(visible);
+}
+
+bool Pane::isNavigationBarVisible() const
+{
+    return !m_navigationBar->isHidden();
+}
+
+void Pane::setNewTabsAfterCurrent(bool afterCurrent)
+{
+    m_newTabsAfterCurrent = afterCurrent;
+}
+
+void Pane::setFollowSymlinks(bool follow)
+{
+    m_followSymlinks = follow;
+}
+
 void Pane::setUrl(const QUrl &url)
 {
-    m_tabs->setCurrentUrl(url);
+    m_tabs->setCurrentUrl(m_followSymlinks ? Symlinks::resolve(url) : url);
 }
 
 void Pane::openInNewTab(const QUrl &url, bool activate)
 {
-    m_tabs->addTab(url, activate);
+    const int index = m_newTabsAfterCurrent ? m_tabs->currentIndex() + 1 : m_tabs->count();
+    m_tabs->insertTab(index, m_followSymlinks ? Symlinks::resolve(url) : url, activate);
 }
 
 void Pane::newTab()
 {
     const QUrl url = m_tabs->currentUrl().isValid() ? m_tabs->currentUrl() : QUrl::fromLocalFile(QDir::homePath());
-    m_tabs->addTab(url, true);
+    openInNewTab(url, true);
 }
 
 void Pane::closeCurrentTab()

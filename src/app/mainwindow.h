@@ -41,6 +41,14 @@ public:
     void setStackedLayout(bool stacked);
     bool isStackedLayout() const;
 
+    bool isDualLayout() const;
+
+    /**
+     * Applies the current Settings to the panes, actions and status bar.
+     * Called on start and whenever the settings dialog saves.
+     */
+    void applySettings();
+
 protected:
     bool queryClose() override;
     void readProperties(const KConfigGroup &group) override;
@@ -80,6 +88,7 @@ private:
     void newFolder();
     void showNewMenu();
     void toggleLayout(bool dual);
+    void showSettings();
     void toggleViewMode();
     void setShowHiddenFiles(bool show);
     void setPreviewsEnabled(bool enabled);

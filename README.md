@@ -26,6 +26,10 @@ The architecture, Plasma-native decisions and milestones live in
 
 Struck-through items are implemented. Everything else is planned.
 
+Milestones alternate between features and settings: each odd-numbered milestone
+adds features, and the even-numbered milestone after it adds the settings for
+those features.
+
 ### M01 Core dual pane
 
 - ~~KXmlGui main window with hamburger menu, editable toolbar and shortcuts~~
@@ -48,17 +52,17 @@ Struck-through items are implemented. Everything else is planned.
   in the middle (top pane's tabs along its bottom edge, bottom pane's tabs along
   its top edge)~~
 
-### M02 Settings
+### M02 Core dual pane settings
 
 Settings for each M01 feature, modelled on Dolphin's settings and on Orcinus, a
-Dolphin fork for power users, and stored in KConfig (`opusfilemanagerrc`):
+Dolphin fork for power users, and stored in KConfig (`opus-file-managerrc`):
 
 - Preferences dialog with one page per feature
-- Startup: home folder, restore the last session or open fixed folders
-- Panes and tabs: open new windows and tabs in one or two panes (as last used,
+- ~~Startup: home folder, restore the last session or open fixed folders~~
+- ~~Panes and tabs: open new windows and tabs in one or two panes (as last used,
   always or never), always show the tab bar, Tab switches panes, where new tabs
-  open, show or hide each pane's navigation bar
-- Navigation: always follow symbolic links to their target
+  open, show or hide each pane's navigation bar~~
+- ~~Navigation: always follow symbolic links to their target~~
 - Views: default view mode, icon and preview sizes, visible columns, sort order,
   folders first, hidden files, tooltips
 - Density: space around items for each view mode (normal, compact, very compact
@@ -87,19 +91,46 @@ Dolphin fork for power users, and stored in KConfig (`opusfilemanagerrc`):
 - Bookmarks with custom titles
 - Tab pin, lock and colour
 
-### M04 Preview and gallery
+### M04 Listing depth settings
+
+- Default visible columns and grouping
+- Size format (human or bytes), date format and seconds
+- Name lines and metadata shown in icon view
+- Ignore list entries
+- File type colours by extension
+- Tree pane position (off, left or right) and auto-focus
+- Archive compression level
+- Tab icons
+
+### M05 Preview and gallery
 
 - Preview panel: images, PDF and office via KParts, text, media
 - Gallery with zoom, slideshow and filmstrip
 - Image info, edits and convert
 
-### M05 Editor
+### M06 Preview and gallery settings
+
+- What double-click opens (application, gallery or preview)
+- Size limit for text in the preview panel
+- Slideshow interval and looping
+- Image info panel shown by default
+- Default format and quality for image convert
+
+### M07 Editor
 
 - KTextEditor-based editor (docked, maximised, standalone)
 - Drafts
 - Markdown preview and PDF export
 
-### M06 Tools
+### M08 Editor settings
+
+- Where files open (docked, maximised or own window)
+- Font size and word wrap
+- Default markdown mode (visual or source)
+- Drafts on or off
+- KTextEditor's own configuration pages
+
+### M09 Tools
 
 - Live search and indexed search
 - Duplicate finder
@@ -120,7 +151,15 @@ Dolphin fork for power users, and stored in KConfig (`opusfilemanagerrc`):
   Opus as the default folder handler, and cleanly uninstalls~~
 - Distro packages (AUR, Flatpak)
 
-### M07 Desktop integration
+### M10 Tools settings
+
+- Search shortcut (double Shift), search folders and exclusions
+- Folder sync: skip existing, newer only, speed limit
+- Default applications by extension
+- Scripts and custom commands
+- Presets
+
+### M11 Desktop integration
 
 - `org.freedesktop.FileManager1` D-Bus service
 - Default file manager registration
@@ -129,6 +168,15 @@ Dolphin fork for power users, and stored in KConfig (`opusfilemanagerrc`):
   so Open and Save dialogs across the desktop are replaced by Opus
 - MCP server
 - Persian translation, RTL layout and Jalali dates
+
+### M12 Desktop integration settings
+
+- Minimise and close to tray
+- Global shortcut on or off and its key combination
+- Serve the XDG portal file chooser on or off
+- Set as default file manager
+- MCP server access (off, read or write), token and audit log
+- Language and calendar (Gregorian or Jalali)
 
 ## Installing
 

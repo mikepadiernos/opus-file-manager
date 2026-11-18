@@ -7,6 +7,8 @@ add_library(opusfm_app STATIC
     mainwindow.h
     pane.cpp
     pane.h
+    settingsdialog.cpp
+    settingsdialog.h
     opusfm.qrc
 )
 

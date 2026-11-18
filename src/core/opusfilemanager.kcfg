@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0 http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+  <include>QDir</include>
+  <kcfgfile/>
+  <group name="Startup">
+    <entry name="StartupMode" type="Enum">
+      <label>What the window shows when Opus starts</label>
+      <choices>
+        <choice name="RestoreSession"/>
+        <choice name="HomeFolder"/>
+        <choice name="FixedFolders"/>
+      </choices>
+      <default>RestoreSession</default>
+    </entry>
+    <entry name="HomeUrl" type="Url">
+      <label>Folder opened by Go Home</label>
+      <default code="true">QUrl::fromLocalFile(QDir::homePath())</default>
+    </entry>
+    <entry name="LeftStartUrl" type="Url">
+      <label>Folder of the first pane when starting with fixed folders</label>
+      <default code="true">QUrl::fromLocalFile(QDir::homePath())</default>
+    </entry>
+    <entry name="RightStartUrl" type="Url">
+      <label>Folder of the second pane when starting with fixed folders</label>
+      <default code="true">QUrl::fromLocalFile(QDir::homePath())</default>
+    </entry>
+  </group>
+  <group name="Panes">
+    <entry name="DualPaneAtStartup" type="Enum">
+      <label>Whether the window starts with one or two panes</label>
+      <choices>
+        <choice name="AsLastUsed"/>
+        <choice name="Always"/>
+        <choice name="Never"/>
+      </choices>
+      <default>AsLastUsed</default>
+    </entry>
+    <entry name="AlwaysShowTabBar" type="Bool">
+      <label>Show the tab bars even when each pane has one tab</label>
+      <default>false</default>
+    </entry>
+    <entry name="TabSwitchesPanes" type="Bool">
+      <label>The Tab key switches between the panes</label>
+      <default>true</default>
+    </entry>
+    <entry name="NewTabsAfterCurrent" type="Bool">
+      <label>Open new tabs next to the current tab instead of at the end</label>
+      <default>false</default>
+    </entry>
+    <entry name="ShowNavigationBar" type="Bool">
+      <label>Show the navigation bar of each pane</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <group name="Navigation">
+    <entry name="FollowSymlinks" type="Bool">
+      <label>Show folders opened through a symbolic link at their real location</label>
+      <default>false</default>
+    </entry>
+  </group>
+</kcfg>
