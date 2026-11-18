@@ -63,12 +63,12 @@ Dolphin fork for power users, and stored in KConfig (`opus-file-managerrc`):
   always or never), always show the tab bar, Tab switches panes, where new tabs
   open, show or hide each pane's navigation bar~~
 - ~~Navigation: always follow symbolic links to their target~~
-- Views: default view mode, icon and preview sizes, visible columns, sort order,
-  folders first, hidden files, tooltips
+- ~~Views: default view mode, icon and preview sizes, visible columns, sort
+  order, folders first, hidden files, tooltips~~
 - Density: space around items for each view mode (normal, compact, very compact
   or custom) and height of the toolbars, location bars and status bar
-- Previews: on or off, which preview plugins run, size limits for local and
-  remote files
+- ~~Previews: on or off, which preview plugins run, largest file to preview,
+  previews in remote folders~~
 - Places panel: shown or hidden, which sections appear
 - Status bar: free space, item counts and selection size
 - Opening files: what opening an executable does (ask, open in its application,

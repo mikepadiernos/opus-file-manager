@@ -13,6 +13,7 @@
 
 #include <KActionCollection>
 #include <KConfigGroup>
+#include <KDirModel>
 #include <KFileItemActions>
 #include <KFileItemListProperties>
 #include <KFilePlacesModel>
@@ -90,6 +91,7 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(QApplication::clipboard(), &QClipboard::dataChanged, this, &MainWindow::updateActions);
 
+    applyViewDefaults();
     setActivePane(m_left);
     applySettings();
     updateActions();
@@ -829,6 +831,19 @@ void MainWindow::applySettings()
         pane->setNavigationBarVisible(Settings::showNavigationBar());
         pane->setNewTabsAfterCurrent(Settings::newTabsAfterCurrent());
         pane->setFollowSymlinks(Settings::followSymlinks());
+
+        FolderView *view = pane->view();
+        view->setIconSizes(Settings::detailsIconSize(), Settings::iconsIconSize());
+        view->setColumnVisible(KDirModel::Size, Settings::showSizeColumn());
+        view->setColumnVisible(KDirModel::ModifiedTime, Settings::showModifiedColumn());
+        view->setColumnVisible(KDirModel::Permissions, Settings::showPermissionsColumn());
+        view->setColumnVisible(KDirModel::Owner, Settings::showOwnerColumn());
+        view->setColumnVisible(KDirModel::Group, Settings::showGroupColumn());
+        view->setColumnVisible(KDirModel::Type, Settings::showTypeColumn());
+        view->setSortFoldersFirst(Settings::foldersFirst());
+        view->setShowToolTips(Settings::showToolTips());
+        view->setPreviewPlugins(Settings::previewPlugins());
+        view->setRemotePreviewsEnabled(Settings::showRemotePreviews());
     }
     updateTabBars();
 
@@ -839,6 +854,19 @@ void MainWindow::applySettings()
         shortcuts.prepend(QKeySequence(Qt::Key_Tab));
     }
     switchPane->setShortcuts(shortcuts);
+}
+
+void MainWindow::applyViewDefaults()
+{
+    const auto mode = Settings::defaultViewMode() == Settings::EnumDefaultViewMode::Icons ? FolderView::ViewMode::Icons : FolderView::ViewMode::Details;
+    const Qt::SortOrder order = Settings::sortDescending() ? Qt::DescendingOrder : Qt::AscendingOrder;
+    for (Pane *pane : {m_left, m_right}) {
+        pane->view()->setViewMode(mode);
+        pane->view()->setSorting(Settings::sortColumn(), order);
+        pane->view()->setShowHiddenFiles(Settings::showHiddenFiles());
+    }
+    m_previewsAction->setChecked(Settings::showPreviews());
+    setPreviewsEnabled(Settings::showPreviews());
 }
 
 void MainWindow::showSettings()

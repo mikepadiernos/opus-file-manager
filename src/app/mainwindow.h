@@ -89,6 +89,8 @@ private:
     void showNewMenu();
     void toggleLayout(bool dual);
     void showSettings();
+    /// Applies the settings that only take effect in a new window.
+    void applyViewDefaults();
     void toggleViewMode();
     void setShowHiddenFiles(bool show);
     void setPreviewsEnabled(bool enabled);

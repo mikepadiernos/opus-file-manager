@@ -56,9 +56,9 @@ KConfig.
    Dolphin and its fork Orcinus: preferences dialog; startup folders and
    session; one or two panes for new windows and tabs, tab bar, per-pane
    navigation bar; following symbolic links; view mode, sizes, columns, sorting,
-   hidden files; item and bar density; previews and their plugins and size
-   limits; Places panel; status bar contents; what opening an executable does;
-   confirmations, default drop action and dragging from anywhere in a row;
+   hidden files; item and bar density; previews, their plugins, size limit and
+   remote folders; Places panel; status bar contents; what opening an executable
+   does; confirmations, default drop action and dragging from anywhere in a row;
    context menu contents.
 3. **M03 listing depth.** Extra columns, Dolphin-style grouping, filter syntax,
    type-ahead, per-folder format, labels, ratings, notes, pins, colours, folder

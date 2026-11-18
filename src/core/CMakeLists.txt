@@ -20,4 +20,5 @@ target_link_libraries(opusfm_core
         Qt6::Core
         KF6::ConfigCore
         KF6::ConfigGui
+        KF6::KIOGui
 )

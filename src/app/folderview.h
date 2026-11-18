@@ -10,6 +10,7 @@
 class KDirLister;
 class KDirModel;
 class KDirSortFilterProxyModel;
+class KFileItemDelegate;
 class KFilePreviewGenerator;
 class QAbstractItemView;
 class QListView;
@@ -48,6 +49,56 @@ public:
     bool previewsEnabled() const;
     void setPreviewsEnabled(bool enabled);
 
+    /**
+     * Allows previews in folders that are not local files. Previews show
+     * only when previewsEnabled() and the folder is local or this is set.
+     * @param enabled true to allow previews in remote folders
+     */
+    void setRemotePreviewsEnabled(bool enabled);
+    /// Whether previews are being generated for the current folder.
+    bool previewsShown() const;
+
+    /**
+     * Sets the KIO thumbnailer plugins used for previews.
+     * @param plugins plugin ids as listed by KIO::PreviewJob
+     */
+    void setPreviewPlugins(const QStringList &plugins);
+    QStringList previewPlugins() const;
+
+    /**
+     * Sets the icon size of each view mode; previews use the same size.
+     * @param details icon size of the details view in pixels
+     * @param icons icon size of the icons view in pixels
+     */
+    void setIconSizes(int details, int icons);
+
+    /**
+     * Shows or hides a details view column. The Name column always shows.
+     * @param column a KDirModel::ModelColumns value
+     * @param visible true to show the column
+     */
+    void setColumnVisible(int column, bool visible);
+    bool isColumnVisible(int column) const;
+
+    /**
+     * Sorts the listing.
+     * @param column a KDirModel::ModelColumns value
+     * @param order ascending or descending
+     */
+    void setSorting(int column, Qt::SortOrder order);
+    int sortColumn() const;
+    Qt::SortOrder sortOrder() const;
+
+    void setSortFoldersFirst(bool foldersFirst);
+    bool sortFoldersFirst() const;
+
+    /**
+     * Shows the full name of shortened items in a tooltip.
+     * @param show true to show the tooltips
+     */
+    void setShowToolTips(bool show);
+    bool showToolTips() const;
+
     /// The folder being listed, or a null item while loading.
     KFileItem rootItem() const;
     KFileItemList items() const;
@@ -80,11 +131,12 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
-    void setupView(QAbstractItemView *view);
+    void setupView(QAbstractItemView *view, KFileItemDelegate *delegate);
     void onActivated(const QModelIndex &index);
     void onContextMenu(const QPoint &pos);
     bool handleDrop(QAbstractItemView *view, QEvent *event);
     KFileItem itemAt(QAbstractItemView *view, const QPoint &viewportPos) const;
+    void updatePreviews();
 
     KDirLister *m_lister = nullptr;
     KDirModel *m_model = nullptr;
@@ -92,8 +144,11 @@ private:
     QStackedWidget *m_stack = nullptr;
     QTreeView *m_details = nullptr;
     QListView *m_icons = nullptr;
+    KFileItemDelegate *m_detailsDelegate = nullptr;
+    KFileItemDelegate *m_iconsDelegate = nullptr;
     KFilePreviewGenerator *m_detailsPreviews = nullptr;
     KFilePreviewGenerator *m_iconPreviews = nullptr;
     ViewMode m_viewMode = ViewMode::Details;
     bool m_previewsEnabled = true;
+    bool m_remotePreviewsEnabled = false;
 };

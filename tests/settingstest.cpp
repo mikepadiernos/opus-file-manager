@@ -8,6 +8,7 @@
 #include "tabmodel.h"
 
 #include <KActionCollection>
+#include <KDirModel>
 #include <KSharedConfig>
 #include <KUrlNavigator>
 #include <KUrlRequester>
@@ -18,11 +19,15 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
+#include <QListWidget>
 #include <QPushButton>
+#include <QSpinBox>
 #include <QStandardPaths>
 #include <QTabBar>
 #include <QTemporaryDir>
 #include <QTest>
+
+#include <limits>
 
 class SettingsTest : public QObject
 {
@@ -214,6 +219,102 @@ private Q_SLOTS:
         Settings::setTabSwitchesPanes(false);
         window.applySettings();
         QVERIFY(!switchPane->shortcuts().contains(QKeySequence(Qt::Key_Tab)));
+    }
+
+    void viewDefaultsApplyToNewWindow()
+    {
+        Settings::setDefaultViewMode(Settings::EnumDefaultViewMode::Icons);
+        Settings::setSortColumn(Settings::EnumSortColumn::Size);
+        Settings::setSortDescending(true);
+        Settings::setShowHiddenFiles(true);
+        Settings::setShowPreviews(false);
+
+        MainWindow window;
+        window.openUrls({m_a});
+        for (Pane *pane : {window.activePane(), window.inactivePane()}) {
+            FolderView *view = pane->view();
+            QCOMPARE(view->viewMode(), FolderView::ViewMode::Icons);
+            QCOMPARE(view->sortColumn(), int(KDirModel::Size));
+            QCOMPARE(view->sortOrder(), Qt::DescendingOrder);
+            QVERIFY(view->showHiddenFiles());
+            QVERIFY(!view->previewsEnabled());
+        }
+        QVERIFY(!action(window, QStringLiteral("show_previews"))->isChecked());
+    }
+
+    void liveViewSettings()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        FolderView *view = window.activePane()->view();
+        QVERIFY(!view->isColumnVisible(KDirModel::Owner));
+
+        Settings::setDetailsIconSize(32);
+        Settings::setIconsIconSize(128);
+        Settings::setShowOwnerColumn(true);
+        Settings::setShowSizeColumn(false);
+        Settings::setFoldersFirst(false);
+        Settings::setShowToolTips(false);
+        window.applySettings();
+
+        QCOMPARE(view->currentView()->iconSize(), QSize(32, 32));
+        view->setViewMode(FolderView::ViewMode::Icons);
+        QCOMPARE(view->currentView()->iconSize(), QSize(128, 128));
+        QVERIFY(view->isColumnVisible(KDirModel::Owner));
+        QVERIFY(!view->isColumnVisible(KDirModel::Size));
+        QVERIFY(view->isColumnVisible(KDirModel::Name));
+        QVERIFY(!view->sortFoldersFirst());
+        QVERIFY(!view->showToolTips());
+    }
+
+    void previewSettings()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        FolderView *view = window.activePane()->view();
+        QVERIFY(view->previewsShown());
+
+        Settings::setPreviewPlugins({QStringLiteral("imagethumbnail")});
+        window.applySettings();
+        QCOMPARE(view->previewPlugins(), QStringList{QStringLiteral("imagethumbnail")});
+
+        window.activePane()->setUrl(QUrl(QStringLiteral("trash:/")));
+        QVERIFY(view->previewsEnabled());
+        QVERIFY(!view->previewsShown());
+        Settings::setShowRemotePreviews(true);
+        window.applySettings();
+        QVERIFY(view->previewsShown());
+    }
+
+    void previewSizeSpinBoxMapsZeroToNoLimit()
+    {
+        MainWindow window;
+        SettingsDialog dialog(&window);
+        auto *size = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_MaximumPreviewSize"));
+        QVERIFY(size);
+        size->setValue(10);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::maximumPreviewSize(), 10ULL * 1024 * 1024);
+
+        size->setValue(0);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::maximumPreviewSize(), std::numeric_limits<qulonglong>::max());
+    }
+
+    void previewPluginListWritesCheckedPlugins()
+    {
+        MainWindow window;
+        SettingsDialog dialog(&window);
+        auto *list = dialog.findChild<QListWidget *>(QStringLiteral("kcfg_PreviewPlugins"));
+        QVERIFY(list);
+        if (list->count() < 2) {
+            QSKIP("needs at least two KIO thumbnailer plugins installed");
+        }
+        for (int row = 0; row < list->count(); ++row) {
+            list->item(row)->setCheckState(row == 0 ? Qt::Checked : Qt::Unchecked);
+        }
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::previewPlugins(), QStringList{list->item(0)->data(Qt::UserRole).toString()});
     }
 
     void goHomeUsesHomeSetting()

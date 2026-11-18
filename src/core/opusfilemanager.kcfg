@@ -3,6 +3,8 @@
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0 http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
   <include>QDir</include>
+  <include>KIO/PreviewJob</include>
+  <include>limits</include>
   <kcfgfile/>
   <group name="Startup">
     <entry name="StartupMode" type="Enum">
@@ -58,6 +60,101 @@
     <entry name="FollowSymlinks" type="Bool">
       <label>Show folders opened through a symbolic link at their real location</label>
       <default>false</default>
+    </entry>
+  </group>
+  <group name="Views">
+    <entry name="DefaultViewMode" type="Enum">
+      <label>View mode of the panes in a new window</label>
+      <choices>
+        <choice name="Details"/>
+        <choice name="Icons"/>
+      </choices>
+      <default>Details</default>
+    </entry>
+    <entry name="DetailsIconSize" type="Int">
+      <label>Icon size in the details view</label>
+      <default>16</default>
+      <min>16</min>
+      <max>64</max>
+    </entry>
+    <entry name="IconsIconSize" type="Int">
+      <label>Icon and preview size in the icons view</label>
+      <default>64</default>
+      <min>32</min>
+      <max>256</max>
+    </entry>
+    <entry name="SortColumn" type="Enum">
+      <label>Sort key of the panes in a new window</label>
+      <choices>
+        <choice name="Name"/>
+        <choice name="Size"/>
+        <choice name="ModifiedTime"/>
+        <choice name="Permissions"/>
+        <choice name="Owner"/>
+        <choice name="Group"/>
+        <choice name="Type"/>
+      </choices>
+      <default>Name</default>
+    </entry>
+    <entry name="SortDescending" type="Bool">
+      <label>Sort in descending order in a new window</label>
+      <default>false</default>
+    </entry>
+    <entry name="FoldersFirst" type="Bool">
+      <label>Sort folders before files</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowHiddenFiles" type="Bool">
+      <label>Show hidden files in a new window</label>
+      <default>false</default>
+    </entry>
+    <entry name="ShowToolTips" type="Bool">
+      <label>Show the full name of shortened items in a tooltip</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowSizeColumn" type="Bool">
+      <label>Show the Size column</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowModifiedColumn" type="Bool">
+      <label>Show the Modified column</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowPermissionsColumn" type="Bool">
+      <label>Show the Permissions column</label>
+      <default>false</default>
+    </entry>
+    <entry name="ShowOwnerColumn" type="Bool">
+      <label>Show the Owner column</label>
+      <default>false</default>
+    </entry>
+    <entry name="ShowGroupColumn" type="Bool">
+      <label>Show the Group column</label>
+      <default>false</default>
+    </entry>
+    <entry name="ShowTypeColumn" type="Bool">
+      <label>Show the Type column</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <group name="Previews">
+    <entry name="ShowPreviews" type="Bool">
+      <label>Show previews in a new window</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowRemotePreviews" type="Bool">
+      <label>Show previews in folders that are not on this computer</label>
+      <default>false</default>
+    </entry>
+  </group>
+  <group name="PreviewSettings">
+    <entry name="PreviewPlugins" key="Plugins" type="StringList">
+      <label>Preview plugins that run, read by KIO</label>
+      <default code="true">KIO::PreviewJob::defaultPlugins()</default>
+    </entry>
+    <entry name="MaximumPreviewSize" key="MaximumSize" type="ULongLong">
+      <label>Largest file, in bytes, that gets a preview, read by KIO</label>
+      <default code="true">std::numeric_limits&lt;qulonglong&gt;::max()</default>
     </entry>
   </group>
 </kcfg>

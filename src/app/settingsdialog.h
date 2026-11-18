@@ -21,4 +21,6 @@ public:
 private:
     QWidget *createStartupPage();
     QWidget *createPanesPage();
+    QWidget *createViewsPage();
+    QWidget *createPreviewsPage();
 };
