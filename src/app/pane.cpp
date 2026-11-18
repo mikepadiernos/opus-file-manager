@@ -3,6 +3,7 @@
 #include "pane.h"
 
 #include "folderview.h"
+#include "symbolicicon.h"
 #include "tabmodel.h"
 
 #include <KFilePlacesModel>
@@ -44,7 +45,7 @@ Pane::Pane(KFilePlacesModel *places, QWidget *parent)
 
     auto *addTab = new QToolButton(m_tabStrip);
     addTab->setAutoRaise(true);
-    addTab->setIcon(QIcon::fromTheme(QStringLiteral("tab-new")));
+    addTab->setIcon(SymbolicIcon::fromTheme(QStringLiteral("tab-new")));
     addTab->setToolTip(i18nc("@info:tooltip", "Open a new tab"));
     connect(addTab, &QToolButton::clicked, this, &Pane::newTab);
 
@@ -56,7 +57,7 @@ Pane::Pane(KFilePlacesModel *places, QWidget *parent)
 
     const auto configureButton = [](QToolButton *button, const QString &icon, const QString &tooltip) {
         button->setAutoRaise(true);
-        button->setIcon(QIcon::fromTheme(icon));
+        button->setIcon(SymbolicIcon::fromTheme(icon));
         button->setToolTip(tooltip);
         button->setFocusPolicy(Qt::NoFocus);
     };
@@ -318,7 +319,7 @@ void Pane::updateTabText(int index)
     const QUrl url = m_tabs->urlAt(index);
     m_tabBar->setTabText(index, tabTitle(url));
     m_tabBar->setTabToolTip(index, url.toDisplayString(QUrl::PreferLocalFile));
-    m_tabBar->setTabIcon(index, QIcon::fromTheme(KIO::iconNameForUrl(url)));
+    m_tabBar->setTabIcon(index, SymbolicIcon::fromTheme(KIO::iconNameForUrl(url)));
 }
 
 void Pane::updateNavigationButtons()
