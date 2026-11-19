@@ -9,6 +9,8 @@ add_library(opusfm_core STATIC
     batchrenamepresets.h
     checksums.cpp
     checksums.h
+    customcommands.cpp
+    customcommands.h
     filecolorrules.cpp
     filecolorrules.h
     filesplitter.cpp

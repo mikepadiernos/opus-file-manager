@@ -5,6 +5,7 @@
 #include "checksumdialog.h"
 #include "combinedpanel.h"
 #include "contentchartdialog.h"
+#include "customcommanddialog.h"
 #include "duplicatefinderdialog.h"
 #include "filediffdialog.h"
 #include "fileoperations.h"
@@ -85,6 +86,20 @@ private Q_SLOTS:
         m_a = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("a")));
         m_b = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("b")));
         m_c = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("c")));
+    }
+
+    void opensCustomCommandForLocalFolder()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(root.path())});
+        QAction *action = window.actionCollection()->action(QStringLiteral("custom_command"));
+        QVERIFY(action && action->isEnabled());
+        action->trigger();
+        auto *dialog = window.findChild<CustomCommandDialog *>(QStringLiteral("customCommandDialog"));
+        QVERIFY(dialog);
+        dialog->close();
     }
 
     void opensBatchRenameForMultipleLocalItems()

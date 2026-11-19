@@ -40,6 +40,8 @@ for file operations, Places, properties, settings and desktop integration.
   parent, excluded folders and recursion depth.
 - Preview local batch renames with numbering, metadata tokens, regex rules and
   named presets.
+- Preview and run scripts or commands with selection placeholders and saved
+  command presets.
 - Preview local duplicates, select candidates by date or folder, and move
   checked files to Trash after confirmation.
 
@@ -62,7 +64,8 @@ entries by metadata, and combined files cannot be checked for missing or
 misordered parts. The embedded terminal requires the Konsole KPart, and linked
 navigation supports local folders only. Duplicate-finder results require manual
 review and verification. Live search is local-only and has scan and content
-limits. See [caveats and limitations](docs/CAVEATS.md) for details.
+limits. Custom commands run with the user's permissions and have local-context
+and output limits. See [caveats and limitations](docs/CAVEATS.md) for details.
 
 ## Build and run
 

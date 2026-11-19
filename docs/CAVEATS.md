@@ -252,6 +252,26 @@ open archives with 7-Zip or another trusted external tool when needed.
   entries as appropriate.
   ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/372#issuecomment-7024683530))
 
+## Custom commands
+
+- Commands require a local working folder and local selections. Placeholders
+  occupy whole arguments; a single empty literal argument and line breaks in
+  templates or defaults cannot be represented in the editor. Commands launch
+  directly without an implicit shell, but chosen programs may interpret
+  arguments as code. Preset defaults are stored as plaintext. Displayed output
+  is limited to 256 KiB. Stop terminates the launched process but may leave
+  descendants running; closing the application can terminate the child.
+  Commands run with the user's permissions and are not registered with KIO
+  undo. ([#373](https://github.com/mikepadiernos/opus-file-manager/issues/373))
+
+  **Recommendation:** Copy remote inputs locally. Review the executable and
+  every argument, run only trusted programs, and avoid passing untrusted paths
+  to code-evaluating arguments or saving credentials in presets. Redirect large
+  output to a file if needed, and inspect or stop remaining descendants after
+  cancellation. Back up files before destructive commands and use external tools
+  for unsupported argument templates or undo.
+  ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/373#issuecomment-7024944292))
+
 ## File comparison
 
 File comparison requires the `diff` executable and two local regular files.

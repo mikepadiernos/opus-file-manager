@@ -324,10 +324,10 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 - ~~Listing export to CSV and PDF (Max)~~
 - Edit supported audio tags and image metadata, including a preview of changes
   and clear reporting when a format cannot be written (Directory Opus)
-- Scripts and custom commands
-- Command presets: save named script or custom-command configurations and
+- ~~Scripts and custom commands~~
+- ~~Command presets: save named script or custom-command configurations and
   placeholder defaults; let users review commands and arguments before
-  running. Keep rename and synchronization profiles specific to their tools.
+  running. Keep rename and synchronization profiles specific to their tools.~~
 - ~~Compare folders across the two panes (Krusader)~~
 - ~~Create and verify checksum files (Krusader)~~
 - ~~Split and combine files (Krusader)~~
@@ -336,7 +336,7 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
   Max)
 - ~~Embedded terminal alongside both panes: below them or at the right of the app
   for portrait/stacked layouts; showing it never replaces either pane~~
-- Placeholders for scripts and custom commands
+- ~~Placeholders for scripts and custom commands~~
 - ~~Linked panes and cushion treemap (Orcinus)~~
 
 **Caveats:** [File comparison](CAVEATS.md#file-comparison), tracked in #311;
@@ -350,7 +350,8 @@ tracked in #314; [folder content chart](CAVEATS.md#folder-content-chart), tracke
 [cushion treemap](CAVEATS.md#cushion-treemap), tracked in #335;
 [duplicate finder](CAVEATS.md#duplicate-finder), tracked in #336;
 [search](CAVEATS.md#search), tracked in #362;
-[batch rename](CAVEATS.md#batch-rename), tracked in #372.
+[batch rename](CAVEATS.md#batch-rename), tracked in #372;
+[custom commands](CAVEATS.md#custom-commands), tracked in #373.
 
 ### M10 Tools settings
 

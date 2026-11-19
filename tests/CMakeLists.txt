@@ -5,6 +5,7 @@ ecm_add_tests(
     batchrenametest.cpp
     batchrenamepresetstest.cpp
     checksumstest.cpp
+    customcommandstest.cpp
     favoritesmodeltest.cpp
     filesplittertest.cpp
     foldermetadatatest.cpp
@@ -47,6 +48,12 @@ ecm_add_test(galleryeditingtest.cpp
 )
 
 ecm_add_test(batchrenamedialogtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
+ecm_add_test(customcommanddialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
     GUI

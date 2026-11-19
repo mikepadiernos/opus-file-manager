@@ -9,6 +9,7 @@
 #include "combinedpanel.h"
 #include "compressdialog.h"
 #include "contentchartdialog.h"
+#include "customcommanddialog.h"
 #include "density.h"
 #include "duplicatefinderdialog.h"
 #include "editorpanel.h"
@@ -959,6 +960,9 @@ void MainWindow::setupActions()
     terminal->setText(i18nc("@action", "Open Terminal Here"));
     terminal->setIcon(QIcon::fromTheme(QStringLiteral("utilities-terminal")));
     actions->setDefaultShortcut(terminal, Qt::SHIFT | Qt::Key_F4);
+    QAction *customCommand = actions->addAction(QStringLiteral("custom_command"), this, &MainWindow::showCustomCommand);
+    customCommand->setText(i18nc("@action", "Scripts and Custom Commands…"));
+    customCommand->setIcon(QIcon::fromTheme(QStringLiteral("system-run")));
     QAction *editor = actions->addAction(QStringLiteral("open_editor"), this, &MainWindow::openEditor);
     editor->setText(i18nc("@action", "Open Editor"));
     editor->setIcon(QIcon::fromTheme(QStringLiteral("accessories-text-editor")));
@@ -1530,6 +1534,10 @@ void MainWindow::updateActions()
     actions->action(stdName(KStandardAction::Cut))->setEnabled(hasSelection && props.supportsMoving());
     actions->action(stdName(KStandardAction::Copy))->setEnabled(hasSelection);
     actions->action(QStringLiteral("open_terminal"))->setEnabled(activePane()->url().isLocalFile());
+    actions->action(QStringLiteral("custom_command"))
+        ->setEnabled(activePane()->url().isLocalFile() && std::all_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
+                         return item.url().isLocalFile();
+                     }));
     actions->action(QStringLiteral("content_chart"))->setEnabled(activePane()->url().isValid() && !activePane()->url().isEmpty());
     actions->action(QStringLiteral("find_duplicates"))->setEnabled(activePane()->url().isLocalFile());
     actions->action(QStringLiteral("compare_pane_folders"))
@@ -2684,6 +2692,27 @@ void MainWindow::batchRename()
         return;
     }
     auto *dialog = new BatchRenameDialog(paths, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
+void MainWindow::showCustomCommand()
+{
+    const QUrl folder = activePane()->url();
+    if (!folder.isLocalFile()) {
+        showStatusMessage(i18nc("@info", "Commands require a local working folder."));
+        return;
+    }
+    QStringList paths;
+    for (const KFileItem &item : activePane()->view()->selectedItems()) {
+        if (!item.url().isLocalFile()) {
+            showStatusMessage(i18nc("@info", "Commands require local selected items."));
+            return;
+        }
+        paths.append(item.url().toLocalFile());
+    }
+    paths.sort();
+    auto *dialog = new CustomCommandDialog(folder.toLocalFile(), paths, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
 }
