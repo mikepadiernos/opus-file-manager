@@ -57,26 +57,20 @@ Each milestone ends with a working, tested app.
    limits; Places panel; status bar contents; what opening an executable does;
    confirmations, default drop action and dragging from anywhere in a row;
    context menu contents.
-3. ~~**M03 listing depth.** A combined panel that replaces the separate Places
-   and Folders panels by default, in one scrolling column: a Favorites section
-   (favourite folders with custom titles, renamed, reordered and dropped onto
-   it, in place of bookmarks), the KDE Places sections, and a folder tree with
-   Home and Root that follows the active pane's folder, shows hidden folders
-   when the pane does, and takes drops. Collapsed sections and expanded folders
-   are remembered, and View > Panels switches back to separate Places and
-   Folders panels. Also extra columns, Dolphin-style grouping, filter syntax,
-   type-ahead, per-folder format, labels, ratings, notes, pins, colours, folder
-   look dialog, ignore list, flat view, archive browsing and extract/compress,
-   tab pin/lock/colour.~~
-
-   ~~**Complete.** The combined panel; configurable columns and grouping in
-   Details and Icon views; per-folder view, sort and column formats; file labels,
-   ratings, notes, pins and colours (Rating uses the Details view's Group column);
-   folder icons and colours; filter syntax, type-ahead and matching-name
-   highlighting; the ignore list; expandable folders; tab pin/lock/colour and
-   names; archive browsing, extraction and compression (zip, stored zip,
-   tar.gz, tar.xz or tar.zst; KArchive has no compression levels, so the format
-   stands in for one); and Show Flat with a Relative Path column.~~
+3. **M03 listing depth.** ~~A combined panel replaces the separate Places and
+   Folders panels by default: Favorites with custom titles that can be renamed,
+   reordered and dropped onto; KDE Places; and a Home/Root folder tree that
+   follows the active pane, reflects its hidden-folder setting and accepts
+   drops. Collapsed sections and expanded folders are remembered, and View >
+   Panels switches back to separate Places and Folders panels.~~
+   ~~Configurable columns and grouping in Details and Icon views; per-folder
+   view, sort and column formats; file labels, ratings, notes, pins and colours
+   (Rating uses the Details view's Group column); folder icons and colours;
+   filter syntax, type-ahead and matching-name highlighting; the ignore list;
+   expandable folders; tab pin/lock/colour and names; archive browsing,
+   extraction and compression (zip, stored zip, tar.gz, tar.xz or tar.zst;
+   KArchive has no compression levels, so the format stands in for one); and
+   Show Flat with a Relative Path column.~~
 
 4. **M04 preview and gallery.** Preview panel (images, PDF and office via
    KParts, text, media), gallery with zoom, slideshow, filmstrip, image info,
