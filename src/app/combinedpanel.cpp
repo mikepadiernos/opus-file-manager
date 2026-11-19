@@ -15,12 +15,19 @@
 #include <QMenu>
 #include <QMouseEvent>
 #include <QScrollArea>
+#include <QScrollBar>
 #include <QToolButton>
 #include <QTreeView>
 #include <QVBoxLayout>
 
 namespace
 {
+void setSectionExpanded(QToolButton *header, QWidget *content, bool expanded)
+{
+    header->setArrowType(expanded ? Qt::DownArrow : Qt::RightArrow);
+    content->setVisible(expanded);
+}
+
 /// A flat section title, dimmed like the Places section titles, that shows or hides @p content.
 QToolButton *sectionHeader(const QString &title, QWidget *content)
 {
@@ -34,9 +41,7 @@ QToolButton *sectionHeader(const QString &title, QWidget *content)
     palette.setColor(QPalette::ButtonText, palette.color(QPalette::Disabled, QPalette::WindowText));
     header->setPalette(palette);
     QObject::connect(header, &QToolButton::clicked, content, [header, content] {
-        const bool expand = content->isHidden();
-        header->setArrowType(expand ? Qt::DownArrow : Qt::RightArrow);
-        content->setVisible(expand);
+        setSectionExpanded(header, content, content->isHidden());
     });
     return header;
 }
@@ -64,7 +69,8 @@ CombinedPanel::CombinedPanel(KFilePlacesModel *places, FavoritesModel *favorites
         Q_EMIT urlActivated(index.data(FavoritesModel::UrlRole).toUrl());
     });
     connect(m_favoritesView, &QListView::customContextMenuRequested, this, &CombinedPanel::showFavoriteMenu);
-    column->addWidget(sectionHeader(i18nc("@title:group", "Favorites"), m_favoritesView));
+    m_favoritesHeader = sectionHeader(i18nc("@title:group", "Favorites"), m_favoritesView);
+    column->addWidget(m_favoritesHeader);
     column->addWidget(m_favoritesView);
 
     auto *placesView = new KFilePlacesView(content);
@@ -82,29 +88,68 @@ CombinedPanel::CombinedPanel(KFilePlacesModel *places, FavoritesModel *favorites
     m_folderTree = new FolderTree({QUrl::fromLocalFile(QDir::homePath()), QUrl::fromLocalFile(QStringLiteral("/"))}, content);
     connect(m_folderTree, &FolderTree::urlActivated, this, &CombinedPanel::urlActivated);
     connect(m_folderTree, &FolderTree::tabRequested, this, &CombinedPanel::tabRequested);
+    connect(m_folderTree, &FolderTree::contextMenuRequested, this, &CombinedPanel::folderContextMenuRequested);
+    connect(m_folderTree, &FolderTree::urlsDropped, this, &CombinedPanel::urlsDropped);
+    connect(m_folderTree, &FolderTree::revealed, this, [this] {
+        m_followRevealed = true;
+        scrollToRevealed();
+    });
     // Match the Places view, which draws on the window colour.
     const auto trees = m_folderTree->findChildren<QTreeView *>();
     for (QAbstractItemView *view : trees) {
         view->viewport()->setBackgroundRole(QPalette::Window);
     }
     m_favoritesView->viewport()->setBackgroundRole(QPalette::Window);
-    column->addWidget(sectionHeader(i18nc("@title:group", "Tree"), m_folderTree));
+    m_treeHeader = sectionHeader(i18nc("@title:group", "Tree"), m_folderTree);
+    column->addWidget(m_treeHeader);
     column->addWidget(m_folderTree);
     column->addStretch();
 
-    auto *scroll = new QScrollArea(this);
-    scroll->setWidgetResizable(true);
-    scroll->setFrameShape(QFrame::NoFrame);
-    scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    scroll->setWidget(content);
+    m_scroll = new QScrollArea(this);
+    m_scroll->setWidgetResizable(true);
+    m_scroll->setFrameShape(QFrame::NoFrame);
+    m_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_scroll->setWidget(content);
+    connect(m_scroll->verticalScrollBar(), &QScrollBar::rangeChanged, this, &CombinedPanel::scrollToRevealed);
+    connect(m_scroll->verticalScrollBar(), &QScrollBar::actionTriggered, this, [this] {
+        m_followRevealed = false;
+    });
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(scroll);
+    layout->addWidget(m_scroll);
 }
 
 FolderTree *CombinedPanel::folderTree() const
 {
     return m_folderTree;
+}
+
+QStringList CombinedPanel::collapsedSections() const
+{
+    QStringList sections;
+    if (m_favoritesView->isHidden()) {
+        sections.append(QStringLiteral("favorites"));
+    }
+    if (m_folderTree->isHidden()) {
+        sections.append(QStringLiteral("tree"));
+    }
+    return sections;
+}
+
+void CombinedPanel::setCollapsedSections(const QStringList &sections)
+{
+    setSectionExpanded(m_favoritesHeader, m_favoritesView, !sections.contains(QStringLiteral("favorites")));
+    setSectionExpanded(m_treeHeader, m_folderTree, !sections.contains(QStringLiteral("tree")));
+}
+
+void CombinedPanel::scrollToRevealed()
+{
+    const QRect revealed = m_folderTree->revealedArea();
+    if (!m_followRevealed || revealed.isNull()) {
+        return;
+    }
+    const QPoint center = m_folderTree->mapTo(m_scroll->widget(), revealed.center());
+    m_scroll->ensureVisible(center.x(), center.y(), 0, revealed.height());
 }
 
 void CombinedPanel::showFavoriteMenu(const QPoint &pos)

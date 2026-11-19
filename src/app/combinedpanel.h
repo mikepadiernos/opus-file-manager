@@ -10,6 +10,8 @@ class FolderTree;
 class KFilePlacesModel;
 class QDropEvent;
 class QListView;
+class QScrollArea;
+class QToolButton;
 
 /**
  * One panel in place of the separate Places and Folders panels: a
@@ -31,23 +33,42 @@ public:
 
     FolderTree *folderTree() const;
 
+    /// Keys of the collapsed sections: "favorites" and "tree".
+    QStringList collapsedSections() const;
+    /// @param sections keys of the sections to collapse; the others expand
+    void setCollapsedSections(const QStringList &sections);
+
 Q_SIGNALS:
     /// A favorite, place or folder was clicked.
     void urlActivated(const QUrl &url);
     /// A favorite, place or folder was middle-clicked.
     void tabRequested(const QUrl &url);
-    /// Files were dropped on a place.
+    /// Files were dropped on a place or a tree folder.
     void urlsDropped(const QUrl &destination, QDropEvent *event);
+    /// A tree folder was right-clicked.
+    void folderContextMenuRequested(const QUrl &url, const QPoint &globalPos);
 
 protected:
     /// Turns a middle-click on a favorite into tabRequested().
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
+    /**
+     * Scrolls the revealed tree folder into view. While the tree is still
+     * listing, rows above it move it, so this repeats as the scroll range
+     * changes until the user scrolls the panel.
+     */
+    void scrollToRevealed();
+
     /// Offers Open in New Tab, Rename and Remove for the favorite at @p pos.
     void showFavoriteMenu(const QPoint &pos);
 
     FavoritesModel *m_favorites = nullptr;
     QListView *m_favoritesView = nullptr;
     FolderTree *m_folderTree = nullptr;
+    QToolButton *m_favoritesHeader = nullptr;
+    QToolButton *m_treeHeader = nullptr;
+    QScrollArea *m_scroll = nullptr;
+    /// Whether the panel keeps the revealed folder in view.
+    bool m_followRevealed = false;
 };

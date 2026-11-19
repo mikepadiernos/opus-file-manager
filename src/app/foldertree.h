@@ -6,6 +6,7 @@
 #include <QUrl>
 #include <QWidget>
 
+class QDropEvent;
 class QTreeView;
 
 /**
@@ -36,17 +37,47 @@ public:
      */
     void setExpandedUrls(const QList<QUrl> &urls);
 
+    /**
+     * Expands the folders leading to @p url and selects it, in the tree of
+     * the innermost root that holds it, then emits revealed(). Does nothing
+     * for a URL outside every root.
+     * @param url the folder to show
+     */
+    void reveal(const QUrl &url);
+
+    /// The row of the last revealed folder, in this widget's coordinates; null when none is selected.
+    QRect revealedArea() const;
+
+    bool showHiddenFolders() const;
+    /// @param show true to list folders whose names start with a dot
+    void setShowHiddenFolders(bool show);
+
 Q_SIGNALS:
     /// A folder was clicked.
     void urlActivated(const QUrl &url);
     /// A folder was middle-clicked.
     void tabRequested(const QUrl &url);
+    /// A revealed folder is selected; revealedArea() gives its row.
+    void revealed();
+    /// A folder was right-clicked.
+    void contextMenuRequested(const QUrl &url, const QPoint &globalPos);
+    /// Files were dropped on a folder.
+    void urlsDropped(const QUrl &destination, QDropEvent *event);
 
 protected:
-    /// Turns a middle-click on a folder into tabRequested().
+    /// Turns middle-clicks into tabRequested() and drops on folders into urlsDropped().
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     QList<QTreeView *> m_trees;
+    /// Selects the pending reveal in its tree once that tree has listed it.
+    void tryReveal();
+    /// Returns the tree whose viewport is @p viewport, or nullptr.
+    QTreeView *treeForViewport(const QObject *viewport) const;
+
     QList<QUrl> m_roots;
+    QUrl m_pendingReveal;
+    int m_pendingTree = -1;
+    QTreeView *m_revealedTree = nullptr;
+    bool m_showHiddenFolders = false;
 };

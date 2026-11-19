@@ -12,7 +12,9 @@
 #include <KSharedConfig>
 
 #include <QDir>
+#include <QDropEvent>
 #include <QHeaderView>
+#include <QMimeData>
 #include <QMouseEvent>
 #include <QTreeView>
 #include <QVBoxLayout>
@@ -104,9 +106,22 @@ FolderTree::FolderTree(const QList<QUrl> &roots, QWidget *parent)
         connect(tree, &QTreeView::clicked, this, [this](const QModelIndex &index) {
             Q_EMIT urlActivated(urlAt(index));
         });
-        connect(model, &KDirModel::expand, tree, [tree, proxy](const QModelIndex &index) {
-            tree->expand(proxy->mapFromSource(index));
+        connect(model, &KDirModel::expand, this, [this, tree, proxy, model](const QModelIndex &index) {
+            if (normalized(model->itemForIndex(index).url()) == normalized(m_pendingReveal)) {
+                tryReveal();
+            } else {
+                tree->expand(proxy->mapFromSource(index));
+            }
         });
+        connect(model, &KDirModel::rowsInserted, this, &FolderTree::tryReveal);
+        tree->setContextMenuPolicy(Qt::CustomContextMenu);
+        connect(tree, &QTreeView::customContextMenuRequested, this, [this, tree](const QPoint &pos) {
+            const QModelIndex index = tree->indexAt(pos);
+            if (index.isValid()) {
+                Q_EMIT contextMenuRequested(urlAt(index), tree->viewport()->mapToGlobal(pos));
+            }
+        });
+        tree->viewport()->setAcceptDrops(true);
         model->openUrl(root, KDirModel::ShowRoot);
         m_trees.append(tree);
     }
@@ -150,18 +165,117 @@ void FolderTree::setExpandedUrls(const QList<QUrl> &urls)
     }
 }
 
+void FolderTree::reveal(const QUrl &url)
+{
+    int innermost = -1;
+    for (int i = 0; i < m_roots.size(); ++i) {
+        if (isAtOrBelow(url, m_roots.at(i)) && (innermost < 0 || m_roots.at(innermost).isParentOf(m_roots.at(i)))) {
+            innermost = i;
+        }
+    }
+    if (innermost < 0) {
+        return;
+    }
+    for (QTreeView *tree : std::as_const(m_trees)) {
+        tree->selectionModel()->clear();
+    }
+    m_pendingReveal = url;
+    m_pendingTree = innermost;
+    auto *proxy = static_cast<KDirSortFilterProxyModel *>(m_trees.at(innermost)->model());
+    static_cast<KDirModel *>(proxy->sourceModel())->expandToUrl(url);
+    tryReveal();
+}
+
+void FolderTree::tryReveal()
+{
+    if (m_pendingTree < 0) {
+        return;
+    }
+    QTreeView *tree = m_trees.at(m_pendingTree);
+    auto *proxy = static_cast<KDirSortFilterProxyModel *>(tree->model());
+    const QModelIndex source = static_cast<KDirModel *>(proxy->sourceModel())->indexForUrl(m_pendingReveal);
+    if (!source.isValid()) {
+        return;
+    }
+    const QModelIndex index = proxy->mapFromSource(source);
+    m_pendingTree = -1;
+    m_pendingReveal.clear();
+    tree->setCurrentIndex(index);
+    m_revealedTree = tree;
+    Q_EMIT revealed();
+}
+
+QRect FolderTree::revealedArea() const
+{
+    if (!m_revealedTree || !m_revealedTree->currentIndex().isValid()) {
+        return {};
+    }
+    const QRect row = m_revealedTree->visualRect(m_revealedTree->currentIndex());
+    return QRect(m_revealedTree->viewport()->mapTo(this, row.topLeft()), row.size());
+}
+
+QTreeView *FolderTree::treeForViewport(const QObject *viewport) const
+{
+    for (QTreeView *tree : m_trees) {
+        if (tree->viewport() == viewport) {
+            return tree;
+        }
+    }
+    return nullptr;
+}
+
+bool FolderTree::showHiddenFolders() const
+{
+    return m_showHiddenFolders;
+}
+
+void FolderTree::setShowHiddenFolders(bool show)
+{
+    if (show == m_showHiddenFolders) {
+        return;
+    }
+    m_showHiddenFolders = show;
+    for (const QTreeView *tree : std::as_const(m_trees)) {
+        auto *proxy = static_cast<KDirSortFilterProxyModel *>(tree->model());
+        KDirLister *lister = static_cast<KDirModel *>(proxy->sourceModel())->dirLister();
+        lister->setShowHiddenFiles(show);
+        lister->emitChanges();
+    }
+}
+
 bool FolderTree::eventFilter(QObject *watched, QEvent *event)
 {
-    if (event->type() == QEvent::MouseButtonRelease && static_cast<QMouseEvent *>(event)->button() == Qt::MiddleButton) {
-        for (const QTreeView *tree : std::as_const(m_trees)) {
-            if (watched == tree->viewport()) {
-                const QModelIndex index = tree->indexAt(static_cast<QMouseEvent *>(event)->position().toPoint());
-                if (index.isValid()) {
-                    Q_EMIT tabRequested(urlAt(index));
-                    return true;
-                }
-            }
+    QTreeView *tree = treeForViewport(watched);
+    if (!tree) {
+        return QWidget::eventFilter(watched, event);
+    }
+    switch (event->type()) {
+    case QEvent::MouseButtonRelease: {
+        auto *mouse = static_cast<QMouseEvent *>(event);
+        const QModelIndex index = tree->indexAt(mouse->position().toPoint());
+        if (mouse->button() == Qt::MiddleButton && index.isValid()) {
+            Q_EMIT tabRequested(urlAt(index));
+            return true;
         }
+        break;
+    }
+    case QEvent::DragEnter:
+    case QEvent::DragMove:
+    case QEvent::Drop: {
+        auto *drop = static_cast<QDropEvent *>(event);
+        const QModelIndex index = tree->indexAt(drop->position().toPoint());
+        if (!drop->mimeData()->hasUrls() || !index.isValid()) {
+            drop->ignore();
+            return true;
+        }
+        drop->acceptProposedAction();
+        if (event->type() == QEvent::Drop) {
+            Q_EMIT urlsDropped(urlAt(index), drop);
+        }
+        return true;
+    }
+    default:
+        break;
     }
     return QWidget::eventFilter(watched, event);
 }

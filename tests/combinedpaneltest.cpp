@@ -7,14 +7,18 @@
 #include "pane.h"
 
 #include <KActionCollection>
+#include <KDirModel>
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
 #include <KSharedConfig>
 
+#include <QContextMenuEvent>
 #include <QDir>
 #include <QDockWidget>
+#include <QDropEvent>
 #include <QFile>
 #include <QListView>
+#include <QMimeData>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -125,6 +129,93 @@ private Q_SLOTS:
         QTRY_COMPARE(tree.expandedUrls(), QList<QUrl>({m_a, url(QStringLiteral("a/sub"))}));
     }
 
+    void revealExpandsToAndSelectsTheFolder()
+    {
+        FolderTree tree({QUrl::fromLocalFile(m_root.path())});
+        tree.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&tree));
+        QSignalSpy revealed(&tree, &FolderTree::revealed);
+        const QUrl deeper = url(QStringLiteral("a/sub/deeper"));
+        tree.reveal(deeper);
+
+        auto *view = tree.findChild<QTreeView *>();
+        QTRY_COMPARE(view->currentIndex().data(KDirModel::FileItemRole).value<KFileItem>().url(), deeper);
+        QVERIFY(tree.expandedUrls().contains(url(QStringLiteral("a/sub"))));
+        QTRY_VERIFY(!revealed.isEmpty());
+    }
+
+    void revealUsesTheInnermostRoot()
+    {
+        FolderTree tree({QUrl::fromLocalFile(m_root.path()), m_a});
+        tree.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&tree));
+        tree.reveal(url(QStringLiteral("a/sub")));
+
+        const auto views = tree.findChildren<QTreeView *>();
+        QTRY_COMPARE(views.at(1)->currentIndex().data(KDirModel::FileItemRole).value<KFileItem>().url(), url(QStringLiteral("a/sub")));
+        QVERIFY(!views.at(0)->currentIndex().isValid());
+    }
+
+    void hiddenFoldersFollowTheSetting()
+    {
+        QVERIFY(QDir(m_root.path()).mkpath(QStringLiteral("b/.secret")));
+        FolderTree tree({m_b});
+        tree.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&tree));
+        auto *view = tree.findChild<QTreeView *>();
+        QTRY_COMPARE(view->model()->rowCount(), 1);
+        const QModelIndex root = view->model()->index(0, 0);
+        view->expand(root);
+        QTest::qWait(200);
+        QVERIFY(!childNamed(view->model(), root, QStringLiteral(".secret")).isValid());
+
+        tree.setShowHiddenFolders(true);
+        QVERIFY(tree.showHiddenFolders());
+        QTRY_VERIFY(childNamed(view->model(), view->model()->index(0, 0), QStringLiteral(".secret")).isValid());
+    }
+
+    void treeFoldersOfferAMenuAndTakeDrops()
+    {
+        FolderTree tree({m_a});
+        tree.resize(300, 300);
+        tree.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&tree));
+        auto *view = tree.findChild<QTreeView *>();
+        QTRY_COMPARE(view->model()->rowCount(), 1);
+        const QPoint onRoot = view->visualRect(view->model()->index(0, 0)).center();
+
+        QSignalSpy menu(&tree, &FolderTree::contextMenuRequested);
+        QContextMenuEvent rightClick(QContextMenuEvent::Mouse, onRoot, view->viewport()->mapToGlobal(onRoot));
+        QApplication::sendEvent(view->viewport(), &rightClick);
+        QCOMPARE(menu.size(), 1);
+        QCOMPARE(menu.first().first().toUrl(), m_a);
+
+        QSignalSpy dropped(&tree, &FolderTree::urlsDropped);
+        QMimeData mime;
+        mime.setUrls({url(QStringLiteral("a/file.txt"))});
+        QDragEnterEvent enter(onRoot, Qt::CopyAction, &mime, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(view->viewport(), &enter);
+        QDragMoveEvent move(onRoot, Qt::CopyAction, &mime, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(view->viewport(), &move);
+        QVERIFY(move.isAccepted());
+        QDropEvent drop(onRoot, Qt::CopyAction, &mime, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(view->viewport(), &drop);
+        QCOMPARE(dropped.size(), 1);
+        QCOMPARE(dropped.first().first().toUrl(), m_a);
+    }
+
+    void collapsedSectionsCanBeSetAndRead()
+    {
+        KFilePlacesModel places;
+        FavoritesModel favorites(KSharedConfig::openConfig()->group(QStringLiteral("Favorites")));
+        CombinedPanel panel(&places, &favorites);
+        panel.setCollapsedSections({QStringLiteral("tree")});
+        QCOMPARE(panel.collapsedSections(), QStringList({QStringLiteral("tree")}));
+        QVERIFY(panel.folderTree()->isHidden());
+        panel.setCollapsedSections({});
+        QVERIFY(!panel.folderTree()->isHidden());
+    }
+
     void combinedPanelHasFavoritesPlacesAndTree()
     {
         KFilePlacesModel places;
@@ -224,6 +315,40 @@ private Q_SLOTS:
         window.openUrls({m_a});
         window.actionCollection()->action(QStringLiteral("add_to_favorites"))->trigger();
         QVERIFY(window.favorites()->contains(m_a));
+    }
+
+    void treeFollowsTheActivePane()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        const auto views = window.findChild<CombinedPanel *>()->folderTree()->findChildren<QTreeView *>();
+        // m_a is below Root, not Home, so the Root tree reveals it.
+        QTRY_COMPARE(views.at(1)->currentIndex().data(KDirModel::FileItemRole).value<KFileItem>().url(), m_a);
+    }
+
+    void treeShowsHiddenFoldersWithThePane()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        window.actionCollection()->action(QStringLiteral("show_hidden_files"))->trigger();
+        QVERIFY(window.findChild<CombinedPanel *>()->folderTree()->showHiddenFolders());
+    }
+
+    void collapsedSectionsAreRemembered()
+    {
+        {
+            MainWindow window;
+            window.openUrls({m_a});
+            window.findChild<CombinedPanel *>()->setCollapsedSections({QStringLiteral("favorites")});
+            window.show();
+            QVERIFY(QTest::qWaitForWindowExposed(&window));
+            QVERIFY(window.close());
+        }
+        MainWindow window;
+        window.openUrls({});
+        QCOMPARE(window.findChild<CombinedPanel *>()->collapsedSections(), QStringList({QStringLiteral("favorites")}));
     }
 
     void favoriteNavigatesActivePane()

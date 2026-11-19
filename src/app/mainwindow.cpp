@@ -138,6 +138,7 @@ void MainWindow::connectPane(Pane *pane)
             updateStatusBar();
             updateFreeSpace();
             updateWindowTitle();
+            syncFolderTrees();
         }
     });
     connect(pane, &Pane::tabCountChanged, this, &MainWindow::updateTabBars);
@@ -214,6 +215,11 @@ void MainWindow::setupPanels()
     m_folderTree->setExpandedUrls(panels.readEntry("FoldersExpanded", QList<QUrl>()));
     connect(m_folderTree, &FolderTree::urlActivated, this, navigate);
     connect(m_folderTree, &FolderTree::tabRequested, this, openInTab);
+    connect(m_folderTree, &FolderTree::contextMenuRequested, this, &MainWindow::showFolderTreeMenu);
+    connect(m_folderTree, &FolderTree::urlsDropped, this, [this](const QUrl &destination, QDropEvent *event) {
+        KIO::DropJob *job = KIO::drop(event, destination);
+        KJobWidgets::setWindow(job, this);
+    });
     auto *treeScroll = new QScrollArea;
     treeScroll->setWidgetResizable(true);
     treeScroll->setWidget(m_folderTree);
@@ -224,6 +230,8 @@ void MainWindow::setupPanels()
     m_combinedPanel->folderTree()->setExpandedUrls(panels.readEntry("CombinedExpanded", QList<QUrl>()));
     connect(m_combinedPanel, &CombinedPanel::urlActivated, this, navigate);
     connect(m_combinedPanel, &CombinedPanel::tabRequested, this, openInTab);
+    connect(m_combinedPanel, &CombinedPanel::folderContextMenuRequested, this, &MainWindow::showFolderTreeMenu);
+    m_combinedPanel->setCollapsedSections(panels.readEntry("CollapsedSections", QStringList()));
     connect(m_combinedPanel, &CombinedPanel::urlsDropped, this, [this](const QUrl &destination, QDropEvent *event) {
         KIO::DropJob *job = KIO::drop(event, destination);
         KJobWidgets::setWindow(job, this);
@@ -603,6 +611,7 @@ void MainWindow::setActivePane(Pane *pane)
         m_right->setVisible(m_active == m_right);
     }
     m_hiddenFilesAction->setChecked(pane->view()->showHiddenFiles());
+    syncFolderTrees();
     updateActions();
     updateStatusBar();
     updateFreeSpace();
@@ -660,6 +669,7 @@ void MainWindow::saveSession()
     KConfigGroup panels = state->group(QLatin1String(PanelsGroup));
     panels.writeEntry("FoldersExpanded", m_folderTree->expandedUrls());
     panels.writeEntry("CombinedExpanded", m_combinedPanel->folderTree()->expandedUrls());
+    panels.writeEntry("CollapsedSections", m_combinedPanel->collapsedSections());
     state->sync();
 }
 
@@ -995,9 +1005,45 @@ void MainWindow::toggleViewMode()
     updateActions();
 }
 
+void MainWindow::syncFolderTrees()
+{
+    const QUrl url = activePane()->url();
+    const bool hidden = activePane()->view()->showHiddenFiles();
+    for (FolderTree *tree : {m_folderTree, m_combinedPanel->folderTree()}) {
+        tree->setShowHiddenFolders(hidden);
+        tree->reveal(url);
+    }
+}
+
+void MainWindow::showFolderTreeMenu(const QUrl &url, const QPoint &globalPos)
+{
+    QMenu menu(this);
+    QAction *openInTab = menu.addAction(QIcon::fromTheme(QStringLiteral("tab-new")), i18nc("@action:inmenu", "Open in New Tab"));
+    QAction *openInOther = nullptr;
+    if (m_dualLayoutAction->isChecked()) {
+        openInOther = menu.addAction(QIcon::fromTheme(QStringLiteral("view-split-left-right")), i18nc("@action:inmenu", "Open in Other Pane"));
+    }
+    QAction *favorite = menu.addAction(QIcon::fromTheme(QStringLiteral("bookmark-new")), i18nc("@action:inmenu", "Add to Favorites"));
+    favorite->setEnabled(!m_favorites->contains(url));
+    menu.addSeparator();
+    QAction *properties = menu.addAction(QIcon::fromTheme(QStringLiteral("document-properties")), i18nc("@action:inmenu", "Properties"));
+
+    QAction *chosen = menu.exec(globalPos);
+    if (chosen == openInTab) {
+        activePane()->openInNewTab(url, true);
+    } else if (chosen && chosen == openInOther) {
+        inactivePane()->setUrl(url);
+    } else if (chosen == favorite) {
+        m_favorites->add(url);
+    } else if (chosen == properties) {
+        FileOperations::showProperties(KFileItemList{KFileItem(url)}, this);
+    }
+}
+
 void MainWindow::setShowHiddenFiles(bool show)
 {
     activePane()->view()->setShowHiddenFiles(show);
+    syncFolderTrees();
 }
 
 void MainWindow::setPreviewsEnabled(bool enabled)

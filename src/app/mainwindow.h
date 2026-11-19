@@ -109,6 +109,10 @@ private:
     void toggleViewMode();
     void setShowHiddenFiles(bool show);
     void setPreviewsEnabled(bool enabled);
+    /// Reveals the active pane's folder in the trees and matches its hidden files setting.
+    void syncFolderTrees();
+    /// Shows the context menu for a folder in a tree.
+    void showFolderTreeMenu(const QUrl &url, const QPoint &globalPos);
     /// Adds the selected folders, or the current folder, to Favorites.
     void addToFavorites();
     /**
