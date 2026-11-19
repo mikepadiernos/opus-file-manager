@@ -87,16 +87,20 @@ private Q_SLOTS:
         window.show();
         QVERIFY(QTest::qWaitForWindowExposed(&window));
         pane->tabs()->setPinned(0, true);
+        pane->tabs()->setPinned(1, true);
         pane->tabs()->setLocked(1, true);
 
         QTabBar *bar = tabBarOf(pane);
         QCOMPARE(bar->tabIcon(0).name(), QStringLiteral("pin"));
-        QCOMPARE(bar->tabIcon(1).name(), QStringLiteral("object-locked"));
+        QCOMPARE(bar->tabIcon(1).name(), QStringLiteral("pin"));
+        QVERIFY(bar->tabToolTip(1).contains(QStringLiteral("Pinned")));
+        QVERIFY(bar->tabToolTip(1).contains(QStringLiteral("Locked")));
         QVERIFY(!closeButton(bar, 0)->isVisible());
         QVERIFY(!closeButton(bar, 1)->isVisible());
         QVERIFY(closeButton(bar, 2)->isVisible());
 
         pane->tabs()->setLocked(1, false);
+        pane->tabs()->setPinned(1, false);
         QVERIFY(closeButton(bar, 1)->isVisible());
     }
 

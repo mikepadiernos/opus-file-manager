@@ -36,6 +36,8 @@ public:
      * @param urls the folders to expand
      */
     void setExpandedUrls(const QList<QUrl> &urls);
+    /// Reloads the roots from KIO while restoring expanded folders.
+    void reload();
 
     /**
      * Expands the folders leading to @p url and selects it, in the tree of

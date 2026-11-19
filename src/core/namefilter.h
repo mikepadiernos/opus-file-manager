@@ -48,6 +48,8 @@ public:
      *          scope, or the name matches
      */
     bool matches(const QString &name, bool isFolder) const;
+    /// Also matches the folder metadata syntax: #label and *rating threshold.
+    bool matches(const QString &name, bool isFolder, const QString &label, int rating) const;
 
     bool operator==(const NameFilter &other) const;
 

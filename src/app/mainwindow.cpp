@@ -8,14 +8,17 @@
 #include "compressdialog.h"
 #include "favoritesmodel.h"
 #include "fileoperations.h"
+#include "foldermetadata.h"
 #include "foldertree.h"
 #include "folderview.h"
+#include "labelcolor.h"
 #include "pane.h"
 #include "session.h"
 #include "tabcolors.h"
 #include "tabmodel.h"
 
 #include <KActionCollection>
+#include <KConfig>
 #include <KConfigGroup>
 #include <KFileItemActions>
 #include <KFileItemListProperties>
@@ -40,12 +43,18 @@
 
 #include <QApplication>
 #include <QClipboard>
+#include <QComboBox>
 #include <QCursor>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QDockWidget>
 #include <QFileInfo>
+#include <QFormLayout>
 #include <QFutureWatcher>
+#include <QInputDialog>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
 #include <QScrollArea>
@@ -75,6 +84,31 @@ QString flatKey(const QUrl &url)
 QString stdName(KStandardAction::StandardAction id)
 {
     return KStandardAction::name(id);
+}
+
+QString labelText(LabelColor color)
+{
+    switch (color) {
+    case LabelColor::Red:
+        return i18nc("@item:inmenu label colour", "Red");
+    case LabelColor::Orange:
+        return i18nc("@item:inmenu label colour", "Orange");
+    case LabelColor::Yellow:
+        return i18nc("@item:inmenu label colour", "Yellow");
+    case LabelColor::Green:
+        return i18nc("@item:inmenu label colour", "Green");
+    case LabelColor::Blue:
+        return i18nc("@item:inmenu label colour", "Blue");
+    case LabelColor::Purple:
+        return i18nc("@item:inmenu label colour", "Purple");
+    case LabelColor::Pink:
+        return i18nc("@item:inmenu label colour", "Pink");
+    case LabelColor::Gray:
+        return i18nc("@item:inmenu label colour", "Gray");
+    case LabelColor::None:
+        return i18nc("@item:inmenu label colour", "None");
+    }
+    return {};
 }
 
 QList<QUrl> urlsOf(const KFileItemList &items)
@@ -317,6 +351,195 @@ void MainWindow::compress()
         watcher->deleteLater();
     });
     watcher->setFuture(QtConcurrent::run(&ArchiveWriter::write, archivePath, dialog.format(), sources));
+}
+
+void MainWindow::setSelectionLabel(const QString &label)
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    for (const KFileItem &item : items) {
+        const QFileInfo info(item.localPath());
+        QString error;
+        if (!FolderMetadata::setLabel(info.absolutePath(), info.fileName(), label, &error)) {
+            showStatusMessage(i18nc("@info:status", "Could not set the label: %1", error));
+            return;
+        }
+    }
+    activePane()->view()->reloadMetadata();
+}
+
+void MainWindow::setSelectionColor(const QString &color)
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    for (const KFileItem &item : items) {
+        const QFileInfo info(item.localPath());
+        QString error;
+        if (!FolderMetadata::setColor(info.absolutePath(), info.fileName(), color, &error)) {
+            showStatusMessage(i18nc("@info:status", "Could not set the file colour: %1", error));
+            return;
+        }
+    }
+    activePane()->view()->reloadMetadata();
+}
+
+void MainWindow::setSelectionRating(int rating)
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    for (const KFileItem &item : items) {
+        const QFileInfo info(item.localPath());
+        QString error;
+        if (!FolderMetadata::setRating(info.absolutePath(), info.fileName(), rating, &error)) {
+            showStatusMessage(i18nc("@info:status", "Could not set the rating: %1", error));
+            return;
+        }
+    }
+    activePane()->view()->reloadMetadata();
+}
+
+void MainWindow::setSelectionNote()
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    if (items.isEmpty()) {
+        return;
+    }
+    QString currentNote;
+    if (items.size() == 1) {
+        const QFileInfo info(items.first().localPath());
+        QString error;
+        const QJsonObject metadata = FolderMetadata::read(info.absolutePath(), &error);
+        if (!error.isEmpty()) {
+            showStatusMessage(i18nc("@info:status", "Could not read the file note: %1", error));
+            return;
+        }
+        currentNote = metadata.value(QStringLiteral("notes")).toObject().value(info.fileName()).toString();
+    }
+    bool accepted = false;
+    const QString note = QInputDialog::getMultiLineText(this,
+                                                        i18nc("@title:window", "Edit Note"),
+                                                        i18nc("@label:textbox", "Note (up to 500 characters):"),
+                                                        currentNote,
+                                                        &accepted);
+    if (!accepted) {
+        return;
+    }
+    if (note.size() > 500) {
+        showStatusMessage(i18nc("@info:status", "Notes can be at most 500 characters."));
+        return;
+    }
+    for (const KFileItem &item : items) {
+        const QFileInfo info(item.localPath());
+        QString error;
+        if (!FolderMetadata::setNote(info.absolutePath(), info.fileName(), note, &error)) {
+            showStatusMessage(i18nc("@info:status", "Could not set the note: %1", error));
+            return;
+        }
+    }
+    activePane()->view()->reloadMetadata();
+}
+
+void MainWindow::toggleSelectionPin()
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    for (const KFileItem &item : items) {
+        const QFileInfo info(item.localPath());
+        QString error;
+        if (!FolderMetadata::togglePin(info.absolutePath(), info.fileName(), &error)) {
+            showStatusMessage(i18nc("@info:status", "Could not change the pin: %1", error));
+            return;
+        }
+    }
+    activePane()->view()->reloadMetadata();
+}
+
+void MainWindow::editFolderLook(const QUrl &folder)
+{
+    if (!folder.isLocalFile()) {
+        return;
+    }
+    QDialog dialog(this);
+    dialog.setWindowTitle(i18nc("@title:window", "Folder Look"));
+    auto *icon = new QComboBox(&dialog);
+    const QList<QPair<QString, QString>> icons{
+        {i18nc("@item:inlistbox folder icon", "Default"), QString()},
+        {i18nc("@item:inlistbox folder icon", "Folder"), QStringLiteral("folder")},
+        {i18nc("@item:inlistbox folder icon", "Home"), QStringLiteral("folder-home")},
+        {i18nc("@item:inlistbox folder icon", "Documents"), QStringLiteral("folder-documents")},
+        {i18nc("@item:inlistbox folder icon", "Downloads"), QStringLiteral("folder-download")},
+        {i18nc("@item:inlistbox folder icon", "Pictures"), QStringLiteral("folder-pictures")},
+        {i18nc("@item:inlistbox folder icon", "Music"), QStringLiteral("folder-music")},
+        {i18nc("@item:inlistbox folder icon", "Videos"), QStringLiteral("folder-videos")},
+    };
+    for (const auto &[label, name] : icons) {
+        icon->addItem(label, name);
+    }
+    const QString directoryFile = QDir(folder.toLocalFile()).filePath(QStringLiteral(".directory"));
+    KConfig directoryConfig(directoryFile, KConfig::SimpleConfig);
+    const QString existingIcon = directoryConfig.group(QStringLiteral("Desktop Entry")).readEntry("Icon", QString());
+    const int iconIndex = icon->findData(existingIcon);
+    if (iconIndex >= 0) {
+        icon->setCurrentIndex(iconIndex);
+    } else if (!existingIcon.isEmpty()) {
+        icon->addItem(existingIcon, existingIcon);
+        icon->setCurrentIndex(icon->count() - 1);
+    }
+
+    auto *color = new QComboBox(&dialog);
+    color->addItem(i18nc("@item:inlistbox folder colour", "Default"), QString());
+    for (LabelColor value : LabelColors::all()) {
+        color->addItem(labelText(value), LabelColors::rgb(value).name());
+    }
+    QString metadataError;
+    const QJsonObject metadata = FolderMetadata::read(folder.toLocalFile(), &metadataError);
+    if (!metadataError.isEmpty()) {
+        showStatusMessage(i18nc("@info:status", "Could not read the folder appearance: %1", metadataError));
+        return;
+    }
+    const QString existingColor = metadata.value(QStringLiteral("color")).toString();
+    const int colorIndex = color->findData(existingColor);
+    if (colorIndex >= 0) {
+        color->setCurrentIndex(colorIndex);
+    }
+
+    auto *form = new QFormLayout(&dialog);
+    form->addRow(i18nc("@label:listbox", "Icon:"), icon);
+    form->addRow(i18nc("@label:listbox", "Colour:"), color);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    form->addRow(buttons);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+    if (!directoryConfig.isConfigWritable(false)) {
+        showStatusMessage(i18nc("@info:status", "The folder's .directory file is not writable."));
+        return;
+    }
+
+    QString error;
+    if (!FolderMetadata::setFolderColor(folder.toLocalFile(), color->currentData().toString(), &error)) {
+        showStatusMessage(i18nc("@info:status", "Could not set the folder colour: %1", error));
+        return;
+    }
+    KConfigGroup desktopEntry = directoryConfig.group(QStringLiteral("Desktop Entry"));
+    const QString iconName = icon->currentData().toString();
+    if (iconName.isEmpty()) {
+        desktopEntry.deleteEntry("Icon");
+    } else {
+        desktopEntry.writeEntry("Icon", iconName);
+    }
+    if (!directoryConfig.sync()) {
+        showStatusMessage(i18nc("@info:status", "Could not save the folder icon."));
+        return;
+    }
+    const QUrl parent = KIO::upUrl(folder);
+    for (Pane *pane : {m_left, m_right}) {
+        if (pane->url() == parent || pane->url() == folder) {
+            pane->view()->reload();
+        }
+    }
+    m_folderTree->reload();
+    m_combinedPanel->folderTree()->reload();
+    m_folderTree->reveal(folder);
+    m_combinedPanel->folderTree()->reveal(folder);
 }
 
 void MainWindow::extractToOtherPane()
@@ -911,10 +1134,16 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
         menu.addSeparator();
         menu.addAction(actions->action(stdName(KStandardAction::Redisplay)));
         menu.addAction(actions->action(QStringLiteral("open_terminal")));
+        QAction *folderLook = nullptr;
+        if (pane->url().isLocalFile()) {
+            folderLook = menu.addAction(i18nc("@action:inmenu", "Folder Look…"));
+        }
         menu.addAction(actions->action(QStringLiteral("copy_path")));
         menu.addSeparator();
         menu.addAction(actions->action(QStringLiteral("properties")));
-        menu.exec(globalPos);
+        if (menu.exec(globalPos) == folderLook && folderLook) {
+            editFolderLook(pane->url());
+        }
         return;
     }
 
@@ -951,6 +1180,60 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     }
     if (singleFolder) {
         menu.addAction(actions->action(QStringLiteral("add_to_favorites")));
+        if (items.first().isLocalFile()) {
+            QAction *look = menu.addAction(i18nc("@action:inmenu", "Folder Look…"));
+            connect(look, &QAction::triggered, this, [this, url = items.first().targetUrl()] {
+                editFolderLook(url);
+            });
+        }
+    }
+
+    const bool allLocal = std::all_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
+        return !item.localPath().isEmpty();
+    });
+    if (allLocal) {
+        QMenu *metadata = menu.addMenu(i18nc("@menu", "Metadata"));
+        QMenu *labels = metadata->addMenu(i18nc("@menu", "Label"));
+        QAction *clearLabel = labels->addAction(i18nc("@action:inmenu", "No Label"));
+        connect(clearLabel, &QAction::triggered, this, [this] {
+            setSelectionLabel(QString());
+        });
+        for (LabelColor color : LabelColors::all()) {
+            const QString key = LabelColors::key(color);
+            QAction *label = labels->addAction(labelText(color));
+            connect(label, &QAction::triggered, this, [this, key] {
+                setSelectionLabel(key);
+            });
+        }
+
+        QMenu *colors = metadata->addMenu(i18nc("@menu", "File Colour"));
+        QAction *clearColor = colors->addAction(i18nc("@action:inmenu", "No Colour"));
+        connect(clearColor, &QAction::triggered, this, [this] {
+            setSelectionColor(QString());
+        });
+        for (LabelColor color : LabelColors::all()) {
+            const QString value = LabelColors::rgb(color).name();
+            QAction *entry = colors->addAction(labelText(color));
+            connect(entry, &QAction::triggered, this, [this, value] {
+                setSelectionColor(value);
+            });
+        }
+
+        QMenu *ratings = metadata->addMenu(i18nc("@menu", "Rating"));
+        QAction *clearRating = ratings->addAction(i18nc("@action:inmenu", "No Rating"));
+        connect(clearRating, &QAction::triggered, this, [this] {
+            setSelectionRating(0);
+        });
+        for (int rating = 1; rating <= 5; ++rating) {
+            QAction *entry = ratings->addAction(i18ncp("@action:inmenu", "%1 Star", "%1 Stars", rating));
+            connect(entry, &QAction::triggered, this, [this, rating] {
+                setSelectionRating(rating);
+            });
+        }
+        QAction *note = metadata->addAction(i18nc("@action:inmenu", "Edit Note…"));
+        connect(note, &QAction::triggered, this, &MainWindow::setSelectionNote);
+        QAction *pin = metadata->addAction(i18nc("@action:inmenu", "Toggle Pin"));
+        connect(pin, &QAction::triggered, this, &MainWindow::toggleSelectionPin);
     }
     const bool anyArchive = std::any_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
         return !item.isDir() && Archives::browseUrl(item.mostLocalUrl(), item.mimetype()).isValid();
@@ -958,9 +1241,6 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     if (anyArchive) {
         menu.addAction(actions->action(QStringLiteral("extract_to_other_pane")));
     }
-    const bool allLocal = std::all_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
-        return !item.localPath().isEmpty();
-    });
     if (allLocal) {
         menu.addAction(actions->action(QStringLiteral("compress")));
     }

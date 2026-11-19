@@ -67,6 +67,15 @@ private Q_SLOTS:
         QVERIFY(folders.appliesTo(true));
         QVERIFY(!NameFilter().appliesTo(false));
     }
+
+    void filtersByLabelAndRating()
+    {
+        QVERIFY(NameFilter(QStringLiteral("#blu")).matches(QStringLiteral("photo.jpg"), false, QStringLiteral("blue"), 0));
+        QVERIFY(!NameFilter(QStringLiteral("#red")).matches(QStringLiteral("photo.jpg"), false, QStringLiteral("blue"), 0));
+        QVERIFY(NameFilter(QStringLiteral("*4")).matches(QStringLiteral("photo.jpg"), false, QString(), 5));
+        QVERIFY(!NameFilter(QStringLiteral("*4")).matches(QStringLiteral("photo.jpg"), false, QString(), 3));
+        QVERIFY(NameFilter(QStringLiteral("*4")).matches(QStringLiteral("folder"), true, QString(), 0));
+    }
 };
 
 QTEST_GUILESS_MAIN(NameFilterTest)

@@ -127,6 +127,12 @@ private:
      * in the background, never replacing an existing file.
      */
     void compress();
+    void setSelectionLabel(const QString &label);
+    void setSelectionColor(const QString &color);
+    void setSelectionRating(int rating);
+    void setSelectionNote();
+    void toggleSelectionPin();
+    void editFolderLook(const QUrl &folder);
     /**
      * Copies the top-level entries of an archive into a new folder.
      * @param archive the archive's browse URL from Archives::browseUrl()
