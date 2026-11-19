@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "namefilter.h"
+
 #include <KFileItem>
 
 #include <QUrl>
@@ -11,6 +13,7 @@ class KDirLister;
 class KDirModel;
 class KDirSortFilterProxyModel;
 class KFilePreviewGenerator;
+class NameFilterProxyModel;
 class QAbstractItemView;
 class QListView;
 class QStackedWidget;
@@ -63,6 +66,21 @@ public:
 
     QAbstractItemView *currentView() const;
 
+    NameFilter nameFilter() const;
+    /**
+     * Hides items the filter does not match. The filter stays set when the
+     * view lists another folder.
+     * @param filter the filter to apply; an empty filter shows everything
+     */
+    void setNameFilter(const NameFilter &filter);
+
+    /**
+     * Activates, as a double-click would, the first item the name filter
+     * matched, or the first visible item when no item in the filter's
+     * scope is shown.
+     */
+    void activateFirstItem();
+
 Q_SIGNALS:
     void urlChanged(const QUrl &url);
     void redirected(const QUrl &url);
@@ -75,6 +93,8 @@ Q_SIGNALS:
     void goUpRequested();
     /// A view received focus or a click; the pane should become active.
     void activated();
+    /// Text was typed in a view with no shortcut modifier; it should filter.
+    void typeAheadRequested(const QString &text);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -88,7 +108,7 @@ private:
 
     KDirLister *m_lister = nullptr;
     KDirModel *m_model = nullptr;
-    KDirSortFilterProxyModel *m_proxy = nullptr;
+    NameFilterProxyModel *m_proxy = nullptr;
     QStackedWidget *m_stack = nullptr;
     QTreeView *m_details = nullptr;
     QListView *m_icons = nullptr;

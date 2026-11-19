@@ -480,6 +480,13 @@ void MainWindow::setupActions()
         actions->setDefaultShortcut(tabN, QKeySequence(Qt::CTRL | static_cast<Qt::Key>(Qt::Key_0 + i)));
     }
 
+    QAction *filter = actions->addAction(QStringLiteral("show_filter_bar"), this, [this] {
+        activePane()->showFilterBar();
+    });
+    filter->setText(i18nc("@action", "Filter…"));
+    filter->setIcon(QIcon::fromTheme(QStringLiteral("view-filter")));
+    actions->setDefaultShortcut(filter, Qt::CTRL | Qt::Key_F);
+
     QAction *addFavorite = actions->addAction(QStringLiteral("add_to_favorites"), this, &MainWindow::addToFavorites);
     addFavorite->setText(i18nc("@action", "Add to Favorites"));
     addFavorite->setIcon(QIcon::fromTheme(QStringLiteral("bookmark-new")));

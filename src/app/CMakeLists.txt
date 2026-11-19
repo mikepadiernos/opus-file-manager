@@ -5,6 +5,8 @@ add_library(opusfm_app STATIC
     contentheight.h
     fileoperations.cpp
     fileoperations.h
+    filterbar.cpp
+    filterbar.h
     folderview.cpp
     folderview.h
     foldertree.cpp

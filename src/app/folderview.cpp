@@ -25,11 +25,44 @@
 
 #include <algorithm>
 
+/// Sorts like KDirSortFilterProxyModel and hides items a NameFilter rejects.
+class NameFilterProxyModel : public KDirSortFilterProxyModel
+{
+public:
+    using KDirSortFilterProxyModel::KDirSortFilterProxyModel;
+
+    NameFilter nameFilter() const
+    {
+        return m_filter;
+    }
+
+    void setNameFilter(const NameFilter &filter)
+    {
+        beginFilterChange();
+        m_filter = filter;
+        endFilterChange(QSortFilterProxyModel::Direction::Rows);
+    }
+
+protected:
+    bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override
+    {
+        if (!KDirSortFilterProxyModel::filterAcceptsRow(sourceRow, sourceParent)) {
+            return false;
+        }
+        const auto *model = static_cast<const KDirModel *>(sourceModel());
+        const KFileItem item = model->itemForIndex(model->index(sourceRow, 0, sourceParent));
+        return m_filter.matches(item.name(), item.isDir());
+    }
+
+private:
+    NameFilter m_filter;
+};
+
 FolderView::FolderView(QWidget *parent)
     : QWidget(parent)
     , m_lister(new KDirLister(this))
     , m_model(new KDirModel(this))
-    , m_proxy(new KDirSortFilterProxyModel(this))
+    , m_proxy(new NameFilterProxyModel(this))
     , m_stack(new QStackedWidget(this))
     , m_details(new QTreeView(this))
     , m_icons(new QListView(this))
@@ -279,6 +312,35 @@ QAbstractItemView *FolderView::currentView() const
     return m_viewMode == ViewMode::Details ? static_cast<QAbstractItemView *>(m_details) : m_icons;
 }
 
+NameFilter FolderView::nameFilter() const
+{
+    return m_proxy->nameFilter();
+}
+
+void FolderView::setNameFilter(const NameFilter &filter)
+{
+    if (filter == m_proxy->nameFilter()) {
+        return;
+    }
+    m_proxy->setNameFilter(filter);
+    Q_EMIT itemCountChanged();
+}
+
+void FolderView::activateFirstItem()
+{
+    const NameFilter filter = m_proxy->nameFilter();
+    for (int row = 0; row < m_proxy->rowCount(); ++row) {
+        const QModelIndex index = m_proxy->index(row, 0);
+        if (filter.appliesTo(m_model->itemForIndex(m_proxy->mapToSource(index)).isDir())) {
+            onActivated(index);
+            return;
+        }
+    }
+    if (m_proxy->rowCount() > 0) {
+        onActivated(m_proxy->index(0, 0));
+    }
+}
+
 void FolderView::onActivated(const QModelIndex &index)
 {
     const KFileItem item = m_model->itemForIndex(m_proxy->mapToSource(index));
@@ -372,7 +434,15 @@ bool FolderView::eventFilter(QObject *watched, QEvent *event)
         break;
     case QEvent::KeyPress: {
         auto *keyEvent = static_cast<QKeyEvent *>(event);
-        if (watched != view || keyEvent->modifiers() != Qt::NoModifier) {
+        if (watched != view) {
+            break;
+        }
+        const QString text = keyEvent->text();
+        if ((keyEvent->modifiers() & ~Qt::ShiftModifier) == Qt::NoModifier && !text.isEmpty() && text.at(0).isPrint() && !text.trimmed().isEmpty()) {
+            Q_EMIT typeAheadRequested(text);
+            return true;
+        }
+        if (keyEvent->modifiers() != Qt::NoModifier) {
             break;
         }
         if (view == m_details && keyEvent->key() == Qt::Key_Left) {

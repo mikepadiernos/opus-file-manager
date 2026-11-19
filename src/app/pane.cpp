@@ -2,6 +2,7 @@
 
 #include "pane.h"
 
+#include "filterbar.h"
 #include "folderview.h"
 #include "tabmodel.h"
 
@@ -82,6 +83,8 @@ Pane::Pane(KFilePlacesModel *places, QWidget *parent)
     m_layout->addWidget(m_tabStrip);
     m_layout->addLayout(pathRow);
     m_layout->addWidget(m_view, 1);
+    m_filterBar = new FilterBar(this);
+    m_layout->addWidget(m_filterBar);
 
     // Model -> widgets
     connect(m_tabs, &TabModel::tabInserted, this, &Pane::syncTabBar);
@@ -145,6 +148,12 @@ Pane::Pane(KFilePlacesModel *places, QWidget *parent)
         m_navigator->setLocationUrl(url);
     });
     connect(m_view, &FolderView::activated, this, &Pane::activated);
+    connect(m_view, &FolderView::typeAheadRequested, m_filterBar, &FilterBar::open);
+    connect(m_filterBar, &FilterBar::filterChanged, m_view, &FolderView::setNameFilter);
+    connect(m_filterBar, &FilterBar::activateFirstRequested, m_view, &FolderView::activateFirstItem);
+    connect(m_filterBar, &FilterBar::closed, this, [this] {
+        m_view->currentView()->setFocus();
+    });
     connect(m_view, &FolderView::goUpRequested, this, &Pane::goUp);
     connect(m_view, &FolderView::listingFailed, this, &Pane::statusMessage);
 
@@ -368,6 +377,11 @@ void Pane::showTabContextMenu(int index, const QPoint &globalPos)
             }
         }
     }
+}
+
+void Pane::showFilterBar()
+{
+    m_filterBar->open();
 }
 
 QString Pane::tabTitle(const QUrl &url)
