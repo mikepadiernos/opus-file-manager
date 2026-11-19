@@ -67,13 +67,19 @@ operation before assuming passwords are kept out of process arguments.
 
 ## Editor
 
-- Drafts are limited to 8 MiB of UTF-8 text. Drafts are not automatically
-  pruned; restored drafts remain available until explicitly discarded so that
-  recovery cannot delete another editor's changes. Drafts are stored in the
-  application's private data directory, not in the original file. If draft
-  storage fails, save the document before switching files or closing.
-- Markdown preview and PDF export do not load external or local resources;
-  links are disabled in the preview.
+- Drafts are limited to 8 MiB of UTF-8 text. Retention is unlimited by
+  default; an optional age limit removes expired drafts except those locked by
+  an active editor. Legacy drafts from versions without locking are retained
+  until explicitly discarded. Restored drafts remain until explicitly
+  discarded or expired so recovery cannot delete another editor's changes.
+  Drafts are stored in the application's private data directory, not in the
+  original file. If draft storage fails, save the document before switching
+  files or closing.
+- Markdown preview, visual editing and PDF export do not load external or
+  local resources; links are disabled in the preview. Visual editing uses
+  Qt's Markdown subset and can normalize or remove unsupported markup and
+  HTML. It requires confirmation before editing and preserves a recovery
+  snapshot when drafts are enabled.
 
 ## Build, installation and references
 

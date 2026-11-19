@@ -21,7 +21,8 @@ for file operations, Places, properties, settings and desktop integration.
 - Preview files and browse images and media in a gallery, with image editing
   and save-copy options.
 - Edit text in embedded or standalone KTextEditor views, recover drafts, and
-  preview Markdown or export it to PDF.
+  edit or preview Markdown and export it to PDF. Visual Markdown editing
+  requires confirmation because it can rewrite unsupported markup.
 
 ## Caveats
 

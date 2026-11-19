@@ -6,6 +6,11 @@
 #include <QString>
 #include <QUrl>
 
+#include <map>
+#include <memory>
+
+class QLockFile;
+
 class DraftStore
 {
 public:
@@ -17,11 +22,15 @@ public:
     };
 
     explicit DraftStore(const QString &directory);
+    ~DraftStore();
     QString write(const Draft &draft);
-    QString remove(const QString &id);
+    QString remove(const QString &id, const Draft *expected = nullptr);
     QList<Draft> drafts(const QUrl &source, QString *error) const;
+    QString prune(int retentionDays, qint64 now);
+    void release(const QString &id);
 
 private:
     QString prepareDirectory() const;
     QString m_directory;
+    std::map<QString, std::unique_ptr<QLockFile>> m_locks;
 };

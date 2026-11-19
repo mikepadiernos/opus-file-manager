@@ -1890,11 +1890,42 @@ void MainWindow::openEditor()
     if (!m_editor) {
         setupEditor();
     }
+    const bool alreadyOpen = (m_editorPlacement == EditorPanel::Placement::Panel && !m_editor->isHidden())
+        || ((m_editorPlacement == EditorPanel::Placement::Below || m_editorPlacement == EditorPanel::Placement::Right) && !m_editorDock->isHidden())
+        || ((m_editorPlacement == EditorPanel::Placement::Maximized || m_editorPlacement == EditorPanel::Placement::Window) && !m_editorWindow->isHidden());
     const KFileItemList items = activePane()->view()->selectedItems();
     if (items.size() == 1 && !items.first().isDir() && !m_editor->openUrl(items.first().url())) {
         return;
     }
-    setEditorPlacement(m_editorPlacement);
+    if (alreadyOpen) {
+        if (m_editorPlacement == EditorPanel::Placement::Maximized || m_editorPlacement == EditorPanel::Placement::Window) {
+            if (m_editorWindow->isMinimized()) {
+                if (m_editorPlacement == EditorPanel::Placement::Maximized) {
+                    m_editorWindow->showMaximized();
+                } else {
+                    m_editorWindow->showNormal();
+                }
+            }
+            m_editorWindow->raise();
+            m_editorWindow->activateWindow();
+        }
+        return;
+    }
+    switch (Settings::editorOpening()) {
+    case Settings::EnumEditorOpening::Embedded:
+        setEditorPlacement(Settings::editorEmbeddedPlacement() == Settings::EnumEditorEmbeddedPlacement::Right ? EditorPanel::Placement::Right
+                                                                                                               : EditorPanel::Placement::Below);
+        break;
+    case Settings::EnumEditorOpening::Maximized:
+        setEditorPlacement(EditorPanel::Placement::Maximized);
+        break;
+    case Settings::EnumEditorOpening::Window:
+        setEditorPlacement(EditorPanel::Placement::Window);
+        break;
+    default:
+        setEditorPlacement(EditorPanel::Placement::Panel);
+        break;
+    }
 }
 
 void MainWindow::openGallery()
@@ -2303,6 +2334,9 @@ bool MainWindow::isDualLayout() const
 
 void MainWindow::applySettings()
 {
+    if (m_editor) {
+        m_editor->applySettings();
+    }
     const bool sizeDefaultsChanged =
         m_automaticLocalSizeDefault != Settings::automaticLocalFolderSizes() || m_automaticRemoteSizeDefault != Settings::automaticRemoteFolderSizes();
     m_automaticLocalSizeDefault = Settings::automaticLocalFolderSizes();
