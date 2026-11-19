@@ -8,6 +8,7 @@
 #include <QList>
 #include <QUrl>
 
+class KFileCopyToMenu;
 class KFileItemActions;
 class KFilePlacesModel;
 class KFilePlacesView;
@@ -103,6 +104,7 @@ private:
     KFilePlacesView *m_placesView = nullptr;
     QDockWidget *m_placesDock = nullptr;
     KFileItemActions *m_fileItemActions = nullptr;
+    KFileCopyToMenu *m_copyToMenu = nullptr;
     KNewFileMenu *m_newFileMenu = nullptr;
     QSplitter *m_splitter = nullptr;
     Pane *m_left = nullptr;

@@ -6,6 +6,8 @@ add_library(opusfm_core STATIC
     navigationhistory.cpp
     navigationhistory.h
     session.cpp
+    servicemenus.cpp
+    servicemenus.h
     session.h
     startup.cpp
     startup.h

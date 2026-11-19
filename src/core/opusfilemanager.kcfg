@@ -248,6 +248,40 @@
       <default>Ask</default>
     </entry>
   </group>
+  <group name="ContextMenu">
+    <entry name="ShowOpenInNewTab" type="Bool">
+      <label>Show Open in New Tab for folders</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowOpenInOtherPane" type="Bool">
+      <label>Show Open in Other Pane for folders</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowCopyToOtherPane" type="Bool">
+      <label>Show Copy to Other Pane</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowMoveToOtherPane" type="Bool">
+      <label>Show Move to Other Pane</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowDelete" type="Bool">
+      <label>Show Delete as well as Move to Trash</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowOpenTerminal" type="Bool">
+      <label>Show Open Terminal Here for folders</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowCopyPath" type="Bool">
+      <label>Show Copy Path</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowCopyMoveToMenus" type="Bool">
+      <label>Show the Copy To and Move To submenus</label>
+      <default>false</default>
+    </entry>
+  </group>
   <group name="SettingsDialog">
     <entry name="SidebarTitlePosition" type="Enum">
       <label>Where the settings sidebar shows each page's title</label>

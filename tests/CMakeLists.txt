@@ -4,6 +4,7 @@ ecm_add_tests(
     densitytest.cpp
     executablestest.cpp
     navigationhistorytest.cpp
+    servicemenustest.cpp
     sessiontest.cpp
     startuptest.cpp
     symlinkstest.cpp

@@ -3,6 +3,7 @@
 #include "settingsdialog.h"
 
 #include "density.h"
+#include "servicemenus.h"
 #include "settings.h"
 #include "settingswidgets.h"
 
@@ -17,8 +18,10 @@
 #include <QComboBox>
 #include <QFormLayout>
 #include <QMetaEnum>
+#include <QScrollArea>
 #include <QSpinBox>
 #include <QTabWidget>
+#include <QVBoxLayout>
 
 #include <algorithm>
 
@@ -108,6 +111,9 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createIconsPage(), i18nc("@title:tab", "Icons")}},
                   i18nc("@title:group", "View"),
                   QStringLiteral("view-list-icons"));
+    addTabbedPage({{createContextMenuActionsPage(), i18nc("@title:tab", "Actions")}, {createServiceMenusPage(), i18nc("@title:tab", "Service Menus")}},
+                  i18nc("@title:group", "Context Menu"),
+                  QStringLiteral("application-menu"));
     applySidebarStyle();
     connect(this, &KConfigDialog::settingsChanged, this, &SettingsDialog::applySidebarStyle);
     updateWidgets();
@@ -289,6 +295,55 @@ QWidget *SettingsDialog::createStatusBarPage()
         comboBox(QStringLiteral("BarDensity"),
                  {i18nc("@item:inlistbox density", "Normal"), i18nc("@item:inlistbox density", "Compact"), i18nc("@item:inlistbox density", "Very compact")}));
     return page;
+}
+
+QWidget *SettingsDialog::createContextMenuActionsPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(i18nc("@title:group", "Show in the context menu:"), checkBox(QStringLiteral("ShowOpenInNewTab"), i18nc("@option:check", "Open in New Tab")));
+    form->addRow(QString(), checkBox(QStringLiteral("ShowOpenInOtherPane"), i18nc("@option:check", "Open in Other Pane")));
+    form->addRow(QString(), checkBox(QStringLiteral("ShowCopyToOtherPane"), i18nc("@option:check", "Copy to Other Pane")));
+    form->addRow(QString(), checkBox(QStringLiteral("ShowMoveToOtherPane"), i18nc("@option:check", "Move to Other Pane")));
+    form->addRow(QString(), checkBox(QStringLiteral("ShowCopyMoveToMenus"), i18nc("@option:check", "Copy To and Move To submenus")));
+    form->addRow(QString(), checkBox(QStringLiteral("ShowDelete"), i18nc("@option:check", "Delete Permanently")));
+    form->addRow(QString(), checkBox(QStringLiteral("ShowOpenTerminal"), i18nc("@option:check", "Open Terminal Here")));
+    form->addRow(QString(), checkBox(QStringLiteral("ShowCopyPath"), i18nc("@option:check", "Copy Path")));
+    return page;
+}
+
+QWidget *SettingsDialog::createServiceMenusPage()
+{
+    auto *list = new QWidget;
+    auto *column = new QVBoxLayout(list);
+    const QList<ServiceMenuEntry> entries = ServiceMenus::installed();
+    for (const ServiceMenuEntry &entry : entries) {
+        const QString key = entry.key;
+        const bool shownByDefault = entry.shownByDefault;
+        const QString text = entry.submenu.isEmpty() ? entry.text : i18nc("@option:check submenu: action", "%1: %2", entry.submenu, entry.text);
+        QCheckBox *check = addSharedToggle(
+            QStringLiteral("serviceMenu_") + key,
+            text,
+            [key, shownByDefault] {
+                return KConfig(QLatin1String(ServiceMenus::ConfigFile), KConfig::NoGlobals)
+                    .group(QLatin1String(ServiceMenus::ShowGroup))
+                    .readEntry(key, shownByDefault);
+            },
+            [key](bool shown) {
+                KConfig config(QLatin1String(ServiceMenus::ConfigFile), KConfig::NoGlobals);
+                config.group(QLatin1String(ServiceMenus::ShowGroup)).writeEntry(key, shown);
+                config.sync();
+            },
+            shownByDefault);
+        check->setIcon(QIcon::fromTheme(entry.iconName));
+        column->addWidget(check);
+    }
+    column->addStretch();
+
+    auto *scroll = new QScrollArea;
+    scroll->setWidgetResizable(true);
+    scroll->setWidget(list);
+    return scroll;
 }
 
 QWidget *SettingsDialog::createConfirmationsPage()

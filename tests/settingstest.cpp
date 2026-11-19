@@ -31,6 +31,7 @@
 #include <QLabel>
 #include <QListView>
 #include <QListWidget>
+#include <QMenu>
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPushButton>
@@ -107,6 +108,14 @@ private Q_SLOTS:
     void initTestCase()
     {
         QStandardPaths::setTestModeEnabled(true);
+        const QString serviceMenus = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/kio/servicemenus");
+        QVERIFY(QDir().mkpath(serviceMenus));
+        QFile serviceMenu(serviceMenus + QStringLiteral("/opusfm-settings-test.desktop"));
+        QVERIFY(serviceMenu.open(QIODevice::WriteOnly));
+        serviceMenu.write(
+            "[Desktop Entry]\nType=Service\nMimeType=all/allfiles;\nActions=opusfmSettingsTest;\n\n"
+            "[Desktop Action opusfmSettingsTest]\nName=Settings Test Action\nExec=true %F\n");
+        serviceMenu.close();
         QVERIFY(m_root.isValid());
         QVERIFY(QDir(m_root.path()).mkpath(QStringLiteral("a")));
         QVERIFY(QDir(m_root.path()).mkpath(QStringLiteral("b")));
@@ -163,7 +172,7 @@ private Q_SLOTS:
         for (int row = 0; row < pages->rowCount(); ++row) {
             titles.append(pages->index(row, 0).data().toString());
         }
-        QCOMPARE(titles, QStringList({QStringLiteral("General"), QStringLiteral("Interface"), QStringLiteral("View")}));
+        QCOMPARE(titles, QStringList({QStringLiteral("General"), QStringLiteral("Interface"), QStringLiteral("View"), QStringLiteral("Context Menu")}));
 
         const auto tabOf = [&dialog](const QString &entry) {
             return tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + entry));
@@ -182,6 +191,8 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("DetailsIconSize")), QStringLiteral("Details"));
         QCOMPARE(tabOf(QStringLiteral("ShowSizeColumn")), QStringLiteral("Details"));
         QCOMPARE(tabOf(QStringLiteral("DragFromAnywhere")), QStringLiteral("Details"));
+        QCOMPARE(tabOf(QStringLiteral("ShowOpenInNewTab")), QStringLiteral("Actions"));
+        QCOMPARE(tabOf(QStringLiteral("ShowCopyMoveToMenus")), QStringLiteral("Actions"));
         QCOMPARE(tabOf(QStringLiteral("DetailsDensity")), QStringLiteral("Details"));
         QCOMPARE(tabOf(QStringLiteral("IconsDensity")), QStringLiteral("Icons"));
         QCOMPARE(tabOf(QStringLiteral("BarDensity")), QStringLiteral("Status and Location Bars"));
@@ -382,6 +393,76 @@ private Q_SLOTS:
         Settings::setBarDensity(Settings::EnumBarDensity::Normal);
         window.applySettings();
         QCOMPARE(barsHeight(), normal);
+    }
+
+    void contextMenuFollowsSettings()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        FolderView *view = window.activePane()->view();
+
+        // Opens the context menu for folder b and returns its entries, then closes it.
+        const auto menuTexts = [view, this] {
+            QStringList texts;
+            auto *poll = new QTimer;
+            QObject::connect(poll, &QTimer::timeout, poll, [poll, &texts] {
+                auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+                if (!menu) {
+                    return;
+                }
+                const auto actions = menu->actions();
+                for (const QAction *action : actions) {
+                    texts.append(action->text().remove(u'&'));
+                }
+                poll->deleteLater();
+                menu->close();
+            });
+            poll->start(20);
+            Q_EMIT view->contextMenuRequested(view->mapToGlobal(QPoint(10, 10)), {KFileItem(m_b)});
+            return texts;
+        };
+
+        const QStringList defaults = menuTexts();
+        QVERIFY(defaults.contains(QStringLiteral("Open in New Tab")));
+        QVERIFY(defaults.contains(QStringLiteral("Copy to Other Pane")));
+        QVERIFY(defaults.contains(QStringLiteral("Delete Permanently")));
+        QVERIFY(!defaults.contains(QStringLiteral("Copy To")));
+
+        Settings::setShowOpenInNewTab(false);
+        Settings::setShowCopyToOtherPane(false);
+        Settings::setShowDelete(false);
+        Settings::setShowCopyMoveToMenus(true);
+        const QStringList changed = menuTexts();
+        QVERIFY(!changed.contains(QStringLiteral("Open in New Tab")));
+        QVERIFY(!changed.contains(QStringLiteral("Copy to Other Pane")));
+        QVERIFY(!changed.contains(QStringLiteral("Delete Permanently")));
+        QVERIFY(changed.contains(QStringLiteral("Copy To")));
+        QVERIFY(changed.contains(QStringLiteral("Move To")));
+    }
+
+    void serviceMenusAreSharedWithDolphin()
+    {
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        const auto checks = dialog.findChildren<QCheckBox *>();
+        QCheckBox *service = nullptr;
+        for (QCheckBox *check : checks) {
+            if (check->objectName().startsWith(QLatin1String("serviceMenu_"))) {
+                service = check;
+                break;
+            }
+        }
+        QVERIFY(service);
+        QCOMPARE(tabTitleOf(service), QStringLiteral("Service Menus"));
+        const QString key = service->objectName().mid(QStringLiteral("serviceMenu_").size());
+        service->setChecked(!service->isChecked());
+        const bool wanted = service->isChecked();
+        dialog.button(QDialogButtonBox::Apply)->click();
+
+        const KConfig config(QStringLiteral("kservicemenurc"), KConfig::NoGlobals);
+        QCOMPARE(config.group(QStringLiteral("Show")).readEntry(key, !wanted), wanted);
     }
 
     void runningAnExecutableRunsIt()
