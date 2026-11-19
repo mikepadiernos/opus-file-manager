@@ -146,11 +146,25 @@ public:
         delete m_highlighter;
     }
 
-    bool setFileName(const QString &name)
+    bool setFileName(const QString &name, bool highlighting)
     {
+        if (!highlighting) {
+            m_highlighter->setDocument(nullptr);
+            return false;
+        }
+        if (!m_highlighter->document()) {
+            m_highlighter->setDocument(document());
+        }
         const auto definition = m_repository.definitionForFileName(name);
         m_highlighter->setDefinition(definition);
         return definition.isValid();
+    }
+
+    void setLineNumbersVisible(bool visible)
+    {
+        m_showLineNumbers = visible;
+        m_lineNumbers->setVisible(visible);
+        updateLineNumberWidth();
     }
 
 protected:
@@ -172,7 +186,7 @@ protected:
 private:
     int lineNumberWidth() const
     {
-        return 12 + fontMetrics().horizontalAdvance(QLocale().toString(std::max(1, blockCount())));
+        return m_showLineNumbers ? 12 + fontMetrics().horizontalAdvance(QLocale().toString(std::max(1, blockCount()))) : 0;
     }
 
     void updateLineNumberWidth()
@@ -210,6 +224,7 @@ private:
     LineNumbers *m_lineNumbers;
     KSyntaxHighlighting::Repository m_repository;
     PreviewSyntaxHighlighter *m_highlighter;
+    bool m_showLineNumbers = true;
 };
 
 PreviewPanel::PreviewPanel(QWidget *parent)
@@ -229,6 +244,10 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     , m_content(new QStackedWidget(this))
 {
     setObjectName(QStringLiteral("previewPanel"));
+    m_preferFormatted = Settings::previewFormatted();
+    m_showLineNumbers = Settings::previewLineNumbers();
+    m_syntaxHighlighting = Settings::previewSyntaxHighlighting();
+    m_text->setLineNumbersVisible(m_showLineNumbers);
     setMinimumWidth(240);
     m_title->setTextFormat(Qt::PlainText);
     m_title->setObjectName(QStringLiteral("previewTitle"));
@@ -332,8 +351,28 @@ PreviewPanel::~PreviewPanel()
     clearRemotePreview();
 }
 
+void PreviewPanel::applyPresentationSettings()
+{
+    const bool formattedChanged = m_preferFormatted != Settings::previewFormatted();
+    const bool changed =
+        formattedChanged || m_showLineNumbers != Settings::previewLineNumbers() || m_syntaxHighlighting != Settings::previewSyntaxHighlighting();
+    m_preferFormatted = Settings::previewFormatted();
+    m_showLineNumbers = Settings::previewLineNumbers();
+    m_syntaxHighlighting = Settings::previewSyntaxHighlighting();
+    m_text->setLineNumbersVisible(m_showLineNumbers);
+    if (!changed || m_textMimeType.isEmpty()) {
+        return;
+    }
+    if (formattedChanged && !m_renderMode->isHidden()) {
+        const QSignalBlocker blocker(m_renderMode);
+        m_renderMode->setChecked(m_preferFormatted);
+    }
+    updateTextMode();
+}
+
 void PreviewPanel::setItems(const KFileItemList &items, const QList<QUrl> &images)
 {
+    applyPresentationSettings();
     if (items.size() != 1 || items.first().isDir()) {
         clear();
         return;
@@ -657,7 +696,7 @@ void PreviewPanel::showContent(const PreviewContent &content, const QString &mim
         m_textMimeType = mimeType;
         m_renderMode->setVisible(mimeType == QLatin1String("text/html") || mimeType == QLatin1String("application/xhtml+xml")
                                  || mimeType == QLatin1String("text/markdown"));
-        m_renderMode->setChecked(!m_renderMode->isHidden());
+        m_renderMode->setChecked(!m_renderMode->isHidden() && m_preferFormatted);
         updateTextMode();
         m_truncated = content.truncated;
         updateFooter();
@@ -693,7 +732,7 @@ void PreviewPanel::updateTextMode()
         }
         m_content->setCurrentWidget(m_renderedText);
     } else {
-        const bool highlighted = m_text->setFileName(m_url.fileName());
+        const bool highlighted = m_text->setFileName(m_url.fileName(), m_syntaxHighlighting);
         m_longLines = false;
         if (highlighted) {
             qsizetype start = 0;

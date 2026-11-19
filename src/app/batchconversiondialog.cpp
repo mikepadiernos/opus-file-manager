@@ -3,6 +3,7 @@
 #include "batchconversiondialog.h"
 
 #include "imageconversion.h"
+#include "settings.h"
 
 #include <KLocalizedString>
 #include <KMessageBox>
@@ -17,7 +18,6 @@
 #include <QFormLayout>
 #include <QFutureWatcher>
 #include <QHBoxLayout>
-#include <QImageWriter>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -58,35 +58,35 @@ void BatchConversionDialog::run(QWidget *parent, const QList<QUrl> &sources)
     dialog.resize(720, 500);
     auto *format = new QComboBox(&dialog);
     format->setObjectName(QStringLiteral("batchFormat"));
-    const auto formats = QImageWriter::supportedImageFormats();
-    if (formats.contains("png")) {
-        format->addItem(QStringLiteral("PNG"), QByteArray("png"));
-    }
-    if (formats.contains("jpeg")) {
-        format->addItem(QStringLiteral("JPEG"), QByteArray("jpeg"));
-    }
-    if (formats.contains("webp")) {
-        format->addItem(QStringLiteral("WebP"), QByteArray("webp"));
-    }
+    format->addItem(QStringLiteral("PNG"), QByteArray("png"));
+    format->addItem(QStringLiteral("JPEG"), QByteArray("jpeg"));
+    format->addItem(QStringLiteral("WebP"), QByteArray("webp"));
+    format->setCurrentIndex(Settings::galleryBatchFormat());
     auto *quality = new QSpinBox(&dialog);
     quality->setRange(0, 100);
-    quality->setValue(90);
+    quality->setObjectName(QStringLiteral("batchQuality"));
+    quality->setValue(Settings::galleryBatchQuality());
     auto *resize = new QCheckBox(i18nc("@option:check", "Fit images within these dimensions"), &dialog);
+    resize->setObjectName(QStringLiteral("batchResize"));
+    resize->setChecked(Settings::galleryBatchResize());
     auto *width = new QSpinBox(&dialog);
     auto *height = new QSpinBox(&dialog);
     width->setRange(1, 20000);
     height->setRange(1, 20000);
-    width->setValue(1024);
-    height->setValue(1024);
-    width->setEnabled(false);
-    height->setEnabled(false);
+    width->setObjectName(QStringLiteral("batchWidth"));
+    height->setObjectName(QStringLiteral("batchHeight"));
+    width->setValue(Settings::galleryBatchWidth());
+    height->setValue(Settings::galleryBatchHeight());
+    width->setEnabled(resize->isChecked());
+    height->setEnabled(resize->isChecked());
     QObject::connect(resize, &QCheckBox::toggled, width, &QWidget::setEnabled);
     QObject::connect(resize, &QCheckBox::toggled, height, &QWidget::setEnabled);
     auto *dimensions = new QHBoxLayout;
     dimensions->addWidget(width);
     dimensions->addWidget(new QLabel(QStringLiteral("×"), &dialog));
     dimensions->addWidget(height);
-    auto *directory = new QLineEdit(QFileInfo(sources.first().toLocalFile()).absolutePath(), &dialog);
+    const QString configuredDirectory = Settings::galleryBatchDestination();
+    auto *directory = new QLineEdit(configuredDirectory.isEmpty() ? QFileInfo(sources.first().toLocalFile()).absolutePath() : configuredDirectory, &dialog);
     directory->setObjectName(QStringLiteral("batchDirectory"));
     auto *browse = new QPushButton(i18nc("@action:button", "Browse…"), &dialog);
     QObject::connect(browse, &QPushButton::clicked, &dialog, [&] {

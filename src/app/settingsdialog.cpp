@@ -16,9 +16,13 @@
 #include <QAbstractItemView>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QFileDialog>
 #include <QFormLayout>
+#include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMetaEnum>
+#include <QPushButton>
 #include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSpinBox>
@@ -135,6 +139,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                   QStringLiteral("folder"));
     addTabbedPage({{createOpeningPage(), i18nc("@title:tab", "Opening")},
                    {createGalleryInformationPage(), i18nc("@title:tab", "Information")},
+                   {createGalleryDisplayPage(), i18nc("@title:tab", "Display")},
                    {createSlideshowPage(), i18nc("@title:tab", "Slideshow")},
                    {createImageConversionPage(), i18nc("@title:tab", "Image Conversion")}},
                   i18nc("@title:group", "Gallery"),
@@ -214,6 +219,16 @@ QWidget *SettingsDialog::createGalleryInformationPage()
     return page;
 }
 
+QWidget *SettingsDialog::createGalleryDisplayPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(i18nc("@label:listbox", "Initial image zoom:"),
+                 comboBox(QStringLiteral("GalleryInitialZoom"), {i18nc("@item:inlistbox", "Fit"), i18nc("@item:inlistbox", "Actual size")}));
+    form->addRow(checkBox(QStringLiteral("GalleryShowThumbnails"), i18nc("@option:check", "Show thumbnails in new galleries")));
+    return page;
+}
+
 QWidget *SettingsDialog::createSlideshowPage()
 {
     auto *page = new QWidget;
@@ -238,6 +253,36 @@ QWidget *SettingsDialog::createImageConversionPage()
     quality->setObjectName(QStringLiteral("kcfg_GalleryCopyQuality"));
     quality->setRange(0, 100);
     form->addRow(i18nc("@label:spinbox", "Default JPEG and WebP quality:"), quality);
+    form->addRow(checkBox(QStringLiteral("GalleryBatchResize"), i18nc("@option:check", "Resize batch conversions by default")));
+    auto *width = new QSpinBox;
+    width->setObjectName(QStringLiteral("kcfg_GalleryBatchWidth"));
+    width->setRange(1, 20000);
+    auto *height = new QSpinBox;
+    height->setObjectName(QStringLiteral("kcfg_GalleryBatchHeight"));
+    height->setRange(1, 20000);
+    form->addRow(i18nc("@label:spinbox", "Batch maximum width:"), width);
+    form->addRow(i18nc("@label:spinbox", "Batch maximum height:"), height);
+    form->addRow(
+        i18nc("@label:listbox", "Default batch format:"),
+        comboBox(QStringLiteral("GalleryBatchFormat"), {i18nc("@item:inlistbox", "PNG"), i18nc("@item:inlistbox", "JPEG"), i18nc("@item:inlistbox", "WebP")}));
+    auto *batchQuality = new QSpinBox;
+    batchQuality->setObjectName(QStringLiteral("kcfg_GalleryBatchQuality"));
+    batchQuality->setRange(0, 100);
+    form->addRow(i18nc("@label:spinbox", "Default batch JPEG and WebP quality:"), batchQuality);
+    auto *batchDestination = new QLineEdit;
+    batchDestination->setObjectName(QStringLiteral("kcfg_GalleryBatchDestination"));
+    batchDestination->setPlaceholderText(i18nc("@info:placeholder", "Source folder"));
+    auto *browse = new QPushButton(i18nc("@action:button", "Browse…"), page);
+    connect(browse, &QPushButton::clicked, page, [page, batchDestination] {
+        const QString path = QFileDialog::getExistingDirectory(page, i18nc("@title:window", "Choose Default Batch Destination"), batchDestination->text());
+        if (!path.isEmpty()) {
+            batchDestination->setText(path);
+        }
+    });
+    auto *destination = new QHBoxLayout;
+    destination->addWidget(batchDestination, 1);
+    destination->addWidget(browse);
+    form->addRow(i18nc("@label:textbox", "Default batch destination:"), destination);
     return page;
 }
 
@@ -408,6 +453,9 @@ QWidget *SettingsDialog::createPreviewsPage()
     form->addRow(QString(), checkBox(QStringLiteral("ShowPreviews"), i18nc("@option:check", "Show previews in new windows")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowRemotePreviews"), i18nc("@option:check", "Show previews in remote folders")));
     form->addRow(QString(), checkBox(QStringLiteral("PreviewMediaAutoplay"), i18nc("@option:check", "Automatically play audio and video previews")));
+    form->addRow(QString(), checkBox(QStringLiteral("PreviewFormatted"), i18nc("@option:check", "Show formatted HTML and Markdown by default")));
+    form->addRow(QString(), checkBox(QStringLiteral("PreviewLineNumbers"), i18nc("@option:check", "Show line numbers in text previews")));
+    form->addRow(QString(), checkBox(QStringLiteral("PreviewSyntaxHighlighting"), i18nc("@option:check", "Highlight syntax in text previews")));
     m_previewLimit = bound(new PreviewSizeSpinBox, QStringLiteral("MaximumPreviewSize"), "bytes");
     form->addRow(i18nc("@label:spinbox", "Skip files larger than:"), m_previewLimit);
     form->addRow(i18nc("@label", "Show previews for:"), bound(new PreviewPluginList, QStringLiteral("PreviewPlugins"), "plugins"));

@@ -241,23 +241,26 @@ Settings for M05 preview and gallery, stored in KConfig.
     preview)~~
 - **Preview**
   - ~~**Text:** size limit for text in the preview panel~~
-  - **Presentation:** default to formatted or source view for HTML and
-    Markdown; show line numbers and syntax highlighting in text previews
+  - ~~**Presentation:** default to formatted or source view for HTML and
+    Markdown; show line numbers and syntax highlighting in text previews~~
   - ~~**Media:** autoplay audio and video in the preview panel or require play~~
 - **Gallery**
   - ~~**Information:** image info panel shown by default~~
-  - **Display:** initial zoom (fit or actual size) and thumbnail visibility
+  - ~~**Display:** initial zoom (fit or actual size) and thumbnail visibility~~
 - **Slideshow**
   - ~~**Playback:** slideshow interval and looping~~
 - **Image conversion**
   - ~~**Output:** default format and quality for saved image copies~~
-  - **Batch:** default dimensions, format, quality and destination for batch
-    conversion; keep output names non-overwriting
+  - ~~**Batch:** default dimensions, format, quality and destination for batch
+    conversion; keep output names non-overwriting~~
 
 File activation follows the desktop's single- or double-click setting and also
 applies to keyboard activation. Gallery mode opens local images and videos;
 other files open in their default application. Folders and executable handling
 are unchanged, and the preview panel's Open button opens the application.
+
+**Caveats:** [Previews and gallery](CAVEATS.md#previews-and-gallery), tracked
+in #260, #264, #266, #302, #303 and #304.
 
 ### M07 Editor
 

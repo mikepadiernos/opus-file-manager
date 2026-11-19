@@ -96,6 +96,7 @@ private:
     bool m_modified = false;
     bool m_edited = false;
     bool m_editing = false;
+    bool m_initialActualZoom = false;
     bool m_operationRunning = false;
     bool m_detailsLoading = false;
     bool m_detailsPending = false;
