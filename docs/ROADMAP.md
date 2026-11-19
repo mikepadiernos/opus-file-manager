@@ -77,7 +77,7 @@ with Dolphin.
   - **Previews:** enablement, plugins, size limit and remote folders
   - **Confirmations:** trash, delete, multiple tabs; executable handling;
     default drop action
-  - **Panels:** Places panel and visible sections
+  - **Panels:** ~~Places panel visibility~~ and visible sections
   - **Status and Location Bars:** status-bar contents and bar density
 - **View**
   - **General:** default view mode, sorting, hidden files and tooltips
@@ -304,6 +304,8 @@ Settings for M09 tools, stored in KConfig.
 - Move panes: send the second pane to a tab of its own or pop it out into a
   window, carrying its display style
 - Drag entries between the main toolbar, pane toolbars and hamburger menu
+- Customize the combined Places/Folders panel: reorder its sections, show or
+  hide each section, and give sections custom titles
 - Swap panes: the current tabs or whole sides
 - Dim the inactive pane
 
@@ -319,6 +321,9 @@ Settings for M11 UI customizations, stored in KConfig.
 - **Panes**
   - **Moving:** whether a moved pane opens as a tab or window, and whether it
     keeps or resets its display style
+- **Combined panel**
+  - **Sections:** section order, visibility and custom titles, reusing the
+    visibility settings from M04
 - **Defaults**
   - **Reset:** restore the main toolbar, pane toolbars and hamburger menu
 
