@@ -23,7 +23,7 @@ planning; this evaluation does not block M09 or change KIO's role.
 
 | Upstream approach | Opus approach |
 | --- | --- |
-| Custom themes, title bars and window buttons | Plasma widget style, colour scheme, fonts and KWin decorations |
+| Custom themes, title bars and window buttons | Plasma widget style, colour scheme, fonts and KWin decorations by default; optional app-local colours in M26 |
 | Bundled icon pack | Active icon theme through `QIcon::fromTheme` |
 | Hand-written toolbar and shortcut editors | KXmlGui, `KEditToolBar` and `KShortcutsDialog` |
 | Settings in SQLite | KConfig; session state in the KConfig state file |
@@ -735,6 +735,60 @@ Settings for M23 integrations, stored in KConfig.
   - **Profiles:** manage SSH, SFTP and WebDAV hosts, ports, usernames and
     connection defaults; store credentials through KDE's credential facilities,
     not in KConfig or URLs
+
+### M25 Branding
+
+- Establish a consistent, translatable application name and description across
+  the desktop entry, app metadata, About dialog and documentation.
+- Create original, appropriately licensed Opus logo and application-icon assets
+  with suitable sizes and light/dark variants. Keep file, device and action
+  icons sourced from the active desktop icon theme.
+- Present the branding consistently in About and release materials; provide an
+  optional, accessible startup presentation that does not delay or block use.
+
+### M26 Themes
+
+- Follow the active Plasma colour scheme by default. Offer optional app-local
+  light and dark colour presets and installed KDE colour schemes without
+  changing the desktop's global appearance, widget style or window decorations.
+- Provide an app-local colour editor with named palette roles and a live
+  preview. Preserve readable text, selection and focus indicators; validate
+  contrast and offer a way to revert without saving.
+- Save, import and export versioned app-owned theme profiles, including palette
+  choices and optional custom stylesheets, with validation, explicit overwrite
+  confirmation and a safe reset to the system appearance; do not execute code
+  from theme files.
+- Apply app-local colours consistently to supported Opus windows, panes and
+  dialogs while respecting accessibility settings, native icon themes and the
+  appearance boundaries of embedded or external components.
+- Support an optional app-local custom Qt Style Sheet (QSS, a CSS-like subset,
+  not full web CSS) entered in a text box or imported from a file. Preview,
+  apply, disable and revert it; export it separately or as part of a theme
+  profile. Report unsupported or invalid input, bound resource use and prevent
+  unapproved external resource loading.
+
+### M27 Branding settings
+
+Settings for M25 branding, stored in KConfig.
+
+- **Branding**
+  - **Presentation:** enable or disable the optional startup presentation and
+    choose among available branding variants without changing the app identity
+
+### M28 Theme settings
+
+Settings for M26 themes, stored in KConfig.
+
+- **Themes**
+  - **Appearance:** follow the system or choose an available app-local preset
+    or installed KDE colour scheme
+  - **Custom colours:** edit, preview, save and reset app-local palette roles,
+    with contrast feedback and a reversible preview
+  - **Custom stylesheet:** enable or disable QSS, edit it in a text box, import
+    or export a file, and preview or revert changes
+  - **Profiles:** manage, import and export validated app-owned theme profiles,
+    including optional custom stylesheets, with explicit overwrite confirmation
+
 ## Feature references
 
 The roadmap adapts workflows to KDE rather than copying platform-specific

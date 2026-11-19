@@ -80,7 +80,7 @@ reconfigure with `-DBUILD_TESTING=ON` to run them.
 
 ## Roadmap
 
-The [roadmap](docs/ROADMAP.md) contains 24 milestones. Its strikethroughs
+The [roadmap](docs/ROADMAP.md) contains 28 milestones. Its strikethroughs
 distinguish completed features from planned or in-progress work.
 
 - [M01 Core dual pane](docs/ROADMAP.md#m01-core-dual-pane): browsing, tabs and
@@ -131,6 +131,14 @@ distinguish completed features from planned or in-progress work.
   terminals, alternative editors and external integrations.
 - [M24 Integration settings](docs/ROADMAP.md#m24-integration-settings):
   integration, editor, terminal, tray and access controls.
+- [M25 Branding](docs/ROADMAP.md#m25-branding): application identity, icon
+  assets and presentation.
+- [M26 Themes](docs/ROADMAP.md#m26-themes): optional app-local colour schemes,
+  custom Qt stylesheets, profiles and accessible previews.
+- [M27 Branding settings](docs/ROADMAP.md#m27-branding-settings): branding
+  presentation preferences.
+- [M28 Theme settings](docs/ROADMAP.md#m28-theme-settings): colours,
+  stylesheets and theme profiles.
 
 ## Inspirations
 
