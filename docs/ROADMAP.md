@@ -161,22 +161,22 @@ Settings for M03 listing depth, stored in KConfig.
   - ~~**General:** default visible columns and grouping; size format (human or
     bytes), date format and seconds~~
   - ~~**Icons:** name lines and metadata shown in icon view~~
-  - **Details:** enable inline folder expansion and choose automatic or manual
-    column widths by default
-  - **Compact:** icon size, item density and additional information
-  - **Selection:** enable selection markers and configure selection mode
-  - **Filters:** default scope, type-ahead activation, filter retention when
-    changing folders, and file-name match highlighting
-  - **Folder formats:** manage inherited rules and default size calculation;
-    allow separate local and remote policies
+  - ~~**Details:** enable inline folder expansion and choose automatic or manual
+    column widths by default~~
+  - ~~**Compact:** icon size, item spacing and additional information~~
+  - ~~**Selection:** default selection markers and selection mode~~
+  - ~~**Filters:** default scope, type-ahead activation, filter retention when
+    changing folders, and file-name match highlighting~~
+  - ~~**Folder formats:** manage inherited rules and default size calculation;
+    allow separate local and remote policies~~
   - ~~**Folder sizes:** optional periodic refresh of calculated sizes~~
-  - **History:** restore selection and scroll position when navigating back
-    or forward
+  - ~~**History:** restore selection and scroll position when navigating back
+    or forward~~
 - **Files**
   - ~~**Rules:** ignore list entries and file-type colours by extension~~
-  - **Metadata:** show or hide label, rating, colour and pin indicators; choose
-    whether pinned items appear first without changing stored metadata
-  - **Selection filters:** manage saved selection patterns
+  - ~~**Metadata:** show or hide label, rating, colour and pin indicators; choose
+    whether pinned items appear first without changing stored metadata~~
+  - ~~**Selection filters:** manage saved selection patterns~~
 - **Panels**
   - ~~**Combined Places/Folders:** show or hide the panel, choose its left or
     right position, configure its auto-focus behaviour, and show or hide each
@@ -185,12 +185,14 @@ Settings for M03 listing depth, stored in KConfig.
 - **Archives**
   - ~~**Default format:** archive format used by Compress (ZIP, uncompressed
     ZIP, tar.gz, tar.xz or tar.zst); the format choice determines compression~~
-  - **Destination:** default to the current folder or the other pane when
-    creating an archive, retaining the non-overwriting behaviour
+  - ~~**Destination:** default to the current folder or the other pane when
+    creating an archive, retaining the non-overwriting behaviour~~
 - **Tabs**
   - ~~**Appearance:** show tab icons; fill the available tab-bar width and
     divide it equally among tabs as new tabs are created~~
-  - **Colours:** show or hide folder-based tab colours without removing them
+  - ~~**Colours:** show or hide folder-based tab colours without removing them~~
+
+**Caveats:** [Folder metadata and listings](CAVEATS.md#folder-metadata-and-listings).
 
 ### M05 Preview and gallery
 
