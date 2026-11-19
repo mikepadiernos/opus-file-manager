@@ -37,8 +37,10 @@ file manager that fits their KDE desktop. The intended workflows include:
 - **Desktop integration:** use KDE services for file operations, Places,
   properties, settings, icons, service actions and application integration
   wherever they fit.
-- **Compatibility:** preserve upstream `.mfm.json` data for concepts without a
-  KDE equivalent, and record reference behaviours in `docs/parity/`.
+- **Compatibility:** use a supported subset of upstream `.mfm.json` for
+  per-folder metadata and record reference behaviours in `docs/parity/`.
+  Writes sanitize the metadata and can discard unsupported fields or values;
+  they do not guarantee lossless round-tripping.
 - **Delivery:** track implemented, in-progress and planned work in tested,
   incremental milestones in [`../ROADMAP.md`](../ROADMAP.md).
 

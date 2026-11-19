@@ -9,11 +9,14 @@
 
 - [Roadmap and milestones](ROADMAP.md) — architecture, Plasma-native decisions,
   completed work and planned milestones.
+- [Caveats and limitations](CAVEATS.md) — current restrictions, dependencies
+  and integration considerations.
 
 ## Behaviour references
 
-These documents record the upstream Max File Manager behaviour that Opus aims
-to match:
+These inventories describe a reviewed Max File Manager checkout, not the
+current state of Opus or a guarantee of current upstream behaviour. Opus
+adapts the reference to KDE; see the roadmap for implementation status:
 
 - [User interface](parity/ui.md)
 - [Backend and file operations](parity/backend.md)
