@@ -1,6 +1,7 @@
 include(ECMAddTests)
 
 ecm_add_tests(
+    archivestest.cpp
     favoritesmodeltest.cpp
     ignorelisttest.cpp
     namefiltertest.cpp

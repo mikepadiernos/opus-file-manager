@@ -1,4 +1,6 @@
 add_library(opusfm_core STATIC
+    archives.cpp
+    archives.h
     favoritesmodel.cpp
     favoritesmodel.h
     ignorelist.cpp
