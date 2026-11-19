@@ -41,13 +41,39 @@ cmake --build build --target clang-format   # format all C++ sources
 - Leave unfinished features unstruck.
 - After completing a milestone feature, strike out its roadmap item as part of
   the same change.
+- Strike out implemented features even when they have known caveats. Record
+  each outstanding caveat in a GitHub caveat report that links to its entry in
+  `docs/CAVEATS.md`, and put caveat references at the end of the milestone.
+  Do not treat unimplemented or unverified features as complete.
 - When updating milestone status, scan the current checkout for implementation
   evidence and strike completed features without changing the existing format;
   leave incomplete or unverified portions unstruck.
 
 ## Tracking
 
+Prefix user-reported bug titles with `[bug] ` and label them `bug`. Prefix
+reports arising from documented caveats with `[caveat] ` and label them
+`caveat`. Move a milestone, bug or caveat issue to Development on the GitHub
+project when work starts.
+
 Work on each milestone in a corresponding `feature/M##-name` branch. When a
 milestone is complete, commit its changes by scope, push the branch, then merge
 it into `main`. A milestone is complete only when all its feature items are
-struck through in the roadmap.
+struck through in the roadmap. Work on bug and caveat issues in their own
+branches and follow the same scoped commit, push and merge process when fixed.
+
+## Project workflow
+
+Use the [Opus project board](https://github.com/users/mikepadiernos/projects/3)
+to track each milestone's parent issue and its feature sub-issues:
+
+- When starting a milestone, set its parent and not-yet-started items to
+  **Defined**, and record the parent's **Start date**. Do not move items
+  already in Development, Review or Completed backwards.
+- When starting an item, move it and its parent to **Development** and record
+  the item's **Start date**.
+- When an item is completed, move it to **Review**, set its **Target date** to
+  the completion date, check it in the parent issue and strike it out in the
+  local roadmap as part of the same change.
+- When all milestone items are struck out, set the parent milestone's
+  **Target date** to the completion date.

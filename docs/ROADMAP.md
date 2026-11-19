@@ -698,6 +698,16 @@ upstream source could not be verified for this review.
 
 ## Tracking
 
+Prefix user-reported bug titles with `[bug] ` and label them `bug`. Prefix
+reports arising from documented caveats with `[caveat] ` and label them
+`caveat`. Move milestone, bug and caveat issues to Development on the GitHub
+project when work starts.
+
 Work on each milestone in a `feature/M##-name` branch. A milestone is complete
 when every feature item is struck through; commit its changes by scope, push
-the branch and merge it into `main`.
+the branch and merge it into `main`. Strike out implemented features even when
+they have known caveats; create a GitHub caveat report for each outstanding
+caveat, linking its entry in [Caveats and limitations](CAVEATS.md), and put
+caveat references at the end of the milestone. Leave unimplemented or
+unverified features unstruck. Work on bug and caveat issues in their own
+branches; commit fixes by scope, push and merge them into `main`.
