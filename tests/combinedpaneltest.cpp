@@ -394,7 +394,7 @@ private Q_SLOTS:
         window.show();
         QVERIFY(QTest::qWaitForWindowExposed(&window));
         QCOMPARE(window.panelLayout(), MainWindow::PanelLayout::Combined);
-        QCOMPARE(dock(window, QStringLiteral("combinedDock"))->windowTitle(), QStringLiteral("Explorer Panel"));
+        QCOMPARE(dock(window, QStringLiteral("combinedDock"))->windowTitle(), QStringLiteral("Explorer"));
         QVERIFY(dock(window, QStringLiteral("combinedDock"))->isVisible());
         QVERIFY(!dock(window, QStringLiteral("placesDock"))->isVisible());
         QVERIFY(!dock(window, QStringLiteral("foldersDock"))->isVisible());
