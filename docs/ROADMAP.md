@@ -77,7 +77,7 @@ with Dolphin.
   - **Previews:** ~~enablement, plugins, size limit and remote folders~~
   - **Confirmations:** ~~trash~~, delete, ~~multiple tabs; executable handling~~;
     default drop action
-  - **Panels:** Places panel visibility and visible sections
+  - **Panels:** ~~Places panel visibility~~ and visible sections
   - **Status and Location Bars:** ~~status-bar contents and bar density~~
 - **View**
   - **General:** ~~default view mode, sorting, hidden files and tooltips~~
