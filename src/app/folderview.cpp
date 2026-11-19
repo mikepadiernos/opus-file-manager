@@ -2,6 +2,8 @@
 
 #include "folderview.h"
 
+#include "ignorelist.h"
+
 #include <KDirLister>
 #include <KDirModel>
 #include <KDirSortFilterProxyModel>
@@ -10,6 +12,7 @@
 #include <KIO/DropJob>
 #include <KIO/Job>
 #include <KJobWidgets>
+#include <KSharedConfig>
 
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
@@ -25,11 +28,15 @@
 
 #include <algorithm>
 
-/// Sorts like KDirSortFilterProxyModel and hides items a NameFilter rejects.
+/// Sorts like KDirSortFilterProxyModel and hides ignored items and items a NameFilter rejects.
 class NameFilterProxyModel : public KDirSortFilterProxyModel
 {
 public:
-    using KDirSortFilterProxyModel::KDirSortFilterProxyModel;
+    explicit NameFilterProxyModel(QObject *parent)
+        : KDirSortFilterProxyModel(parent)
+        , m_ignoreList(IgnoreList::fromConfig(KSharedConfig::openConfig()->group(QStringLiteral("Files"))))
+    {
+    }
 
     NameFilter nameFilter() const
     {
@@ -51,11 +58,12 @@ protected:
         }
         const auto *model = static_cast<const KDirModel *>(sourceModel());
         const KFileItem item = model->itemForIndex(model->index(sourceRow, 0, sourceParent));
-        return m_filter.matches(item.name(), item.isDir());
+        return !m_ignoreList.ignores(item.name()) && m_filter.matches(item.name(), item.isDir());
     }
 
 private:
     NameFilter m_filter;
+    IgnoreList m_ignoreList;
 };
 
 FolderView::FolderView(QWidget *parent)

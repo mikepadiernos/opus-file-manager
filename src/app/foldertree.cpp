@@ -3,11 +3,13 @@
 #include "foldertree.h"
 
 #include "contentheight.h"
+#include "ignorelist.h"
 
 #include <KDirLister>
 #include <KDirModel>
 #include <KDirSortFilterProxyModel>
 #include <KLocalizedString>
+#include <KSharedConfig>
 
 #include <QDir>
 #include <QHeaderView>
@@ -27,12 +29,13 @@ bool isAtOrBelow(const QUrl &url, const QUrl &root)
     return normalized(url) == normalized(root) || root.isParentOf(url);
 }
 
-/// Sorted folders below one root; the root item is titled Home or Root.
+/// Sorted folders below one root, without ignored names; the root item is titled Home or Root.
 class RootProxyModel : public KDirSortFilterProxyModel
 {
 public:
     RootProxyModel(const QUrl &root, QObject *parent)
         : KDirSortFilterProxyModel(parent)
+        , m_ignoreList(IgnoreList::fromConfig(KSharedConfig::openConfig()->group(QStringLiteral("Files"))))
     {
         if (normalized(root) == normalized(QUrl::fromLocalFile(QDir::homePath()))) {
             m_rootTitle = i18nc("@item:intable the user's home folder", "Home");
@@ -49,8 +52,17 @@ public:
         return KDirSortFilterProxyModel::data(index, role);
     }
 
+protected:
+    bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override
+    {
+        const QModelIndex index = sourceModel()->index(sourceRow, 0, sourceParent);
+        return KDirSortFilterProxyModel::filterAcceptsRow(sourceRow, sourceParent)
+            && !m_ignoreList.ignores(index.data(KDirModel::FileItemRole).value<KFileItem>().name());
+    }
+
 private:
     QString m_rootTitle;
+    IgnoreList m_ignoreList;
 };
 
 QUrl urlAt(const QModelIndex &index)

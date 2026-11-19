@@ -100,6 +100,16 @@ private Q_SLOTS:
         QCOMPARE(activated.first().first().value<KFileItem>().name(), QStringLiteral("notes.txt"));
     }
 
+    void ignoredNamesAreNeverListed()
+    {
+        touch(QStringLiteral("b/.directory"));
+        touch(QStringLiteral("b/Desktop.ini"));
+        FolderView view;
+        view.setShowHiddenFiles(true);
+        view.setUrl(m_b);
+        QTRY_COMPARE(visibleNames(&view), QStringList({QStringLiteral("scan.jpg"), QStringLiteral("todo.txt")}));
+    }
+
     void ctrlFOpensTheFilterBar()
     {
         MainWindow window;
