@@ -42,6 +42,7 @@ public:
     ~FolderView() override;
 
     QUrl url() const;
+    bool isLoading() const;
     void setUrl(const QUrl &url);
     void reload();
 
@@ -128,6 +129,7 @@ Q_SIGNALS:
     void urlChanged(const QUrl &url);
     void redirected(const QUrl &url);
     void loadingChanged(bool loading);
+    void listingReady();
     void listingFailed(const QString &message);
     void itemActivated(const KFileItem &item);
     void selectionChanged();
@@ -166,6 +168,7 @@ private:
     /// The folder shown, which in flat mode is not what the lister lists.
     QUrl m_folder;
     bool m_flat = false;
+    bool m_loading = false;
     bool m_applyingFolderFormat = false;
     QStackedWidget *m_stack = nullptr;
     DetailsView *m_details = nullptr;

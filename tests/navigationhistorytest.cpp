@@ -80,6 +80,22 @@ private Q_SLOTS:
         QCOMPARE(history.size(), 2);
     }
 
+    void viewStateFollowsHistoryEntries()
+    {
+        NavigationHistory history(QUrl::fromLocalFile(QStringLiteral("/a")));
+        const QUrl selected = QUrl::fromLocalFile(QStringLiteral("/a/file"));
+        history.setCurrentViewState({{selected}, 12, 4, true});
+        history.push(QUrl::fromLocalFile(QStringLiteral("/b")));
+        QVERIFY(!history.currentViewState().valid);
+        history.setCurrentViewState({{}, 7, 0, true});
+        history.goBack();
+        QCOMPARE(history.currentViewState().selectedUrls, QList<QUrl>{selected});
+        QCOMPARE(history.currentViewState().verticalScroll, 12);
+        history.push(QUrl::fromLocalFile(QStringLiteral("/c")));
+        QVERIFY(!history.currentViewState().valid);
+        QVERIFY(!history.canGoForward());
+    }
+
     void capsEntries()
     {
         NavigationHistory history;

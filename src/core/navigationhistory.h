@@ -16,6 +16,13 @@
 class NavigationHistory
 {
 public:
+    struct ViewState {
+        QList<QUrl> selectedUrls;
+        int verticalScroll = 0;
+        int horizontalScroll = 0;
+        bool valid = false;
+    };
+
     explicit NavigationHistory(const QUrl &initial = QUrl());
 
     QUrl current() const;
@@ -23,6 +30,8 @@ public:
     int size() const;
     int currentIndex() const;
     QList<QUrl> entries() const;
+    ViewState currentViewState() const;
+    void setCurrentViewState(const ViewState &state);
 
     void push(const QUrl &url);
     /// Replaces the current entry without touching the forward list.
@@ -37,5 +46,6 @@ public:
 
 private:
     QList<QUrl> m_entries;
+    QList<ViewState> m_viewStates;
     int m_current = -1;
 };

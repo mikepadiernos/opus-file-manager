@@ -703,15 +703,28 @@ FolderView::FolderView(QWidget *parent)
     m_selectionBar->hide();
     layout->addWidget(m_selectionBar);
 
-    connect(m_lister, &KDirLister::started, this, [this] {
+    connect(m_lister, &KDirLister::started, this, [this](const QUrl &url) {
+        const QUrl listing = m_flat ? FlatView::listingUrl(m_folder) : m_folder;
+        if (url.adjusted(QUrl::StripTrailingSlash) == listing.adjusted(QUrl::StripTrailingSlash)) {
+            m_loading = true;
+        }
         Q_EMIT loadingChanged(true);
     });
     connect(m_lister, &KDirLister::completed, this, [this] {
+        m_loading = false;
         Q_EMIT loadingChanged(false);
         Q_EMIT itemCountChanged();
     });
     connect(m_lister, &KDirLister::canceled, this, [this] {
+        m_loading = false;
         Q_EMIT loadingChanged(false);
+    });
+    connect(m_lister, &KDirLister::listingDirCompleted, this, [this](const QUrl &url) {
+        const QUrl listing = m_flat ? FlatView::listingUrl(m_folder) : m_folder;
+        if (m_loading && url.adjusted(QUrl::StripTrailingSlash) == listing.adjusted(QUrl::StripTrailingSlash)) {
+            m_loading = false;
+            Q_EMIT listingReady();
+        }
     });
     connect(m_lister, &KDirLister::redirection, this, [this](const QUrl &, const QUrl &newUrl) {
         if (!m_flat) {
@@ -720,6 +733,7 @@ FolderView::FolderView(QWidget *parent)
         Q_EMIT redirected(newUrl);
     });
     connect(m_lister, &KDirLister::jobError, this, [this](KIO::Job *job) {
+        m_loading = false;
         Q_EMIT loadingChanged(false);
         Q_EMIT listingFailed(job->errorString());
     });
@@ -775,6 +789,11 @@ void FolderView::setupView(QAbstractItemView *view)
 QUrl FolderView::url() const
 {
     return m_folder;
+}
+
+bool FolderView::isLoading() const
+{
+    return m_loading;
 }
 
 void FolderView::setUrl(const QUrl &url)

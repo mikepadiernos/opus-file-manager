@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "folderview.h"
 #include "labelcolor.h"
 #include "mainwindow.h"
 #include "pane.h"
@@ -9,7 +10,10 @@
 
 #include <KSharedConfig>
 
+#include <QAbstractItemView>
 #include <QDir>
+#include <QFile>
+#include <QScrollBar>
 #include <QStandardPaths>
 #include <QStyle>
 #include <QTabBar>
@@ -172,6 +176,81 @@ private Q_SLOTS:
         QCOMPARE(tabs->pinnedCount(), 1);
         QVERIFY(tabs->isLocked(1));
         QCOMPARE(tabs->nameAt(2), QStringLiteral("Bee"));
+    }
+
+    void historyRestoresSelectionAndScroll()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("a")));
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("b")));
+        for (int i = 0; i < 80; ++i) {
+            QFile file(root.filePath(QStringLiteral("a/%1.txt").arg(i, 3, 10, QLatin1Char('0'))));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        QFile other(root.filePath(QStringLiteral("b/other.txt")));
+        QVERIFY(other.open(QIODevice::WriteOnly));
+        other.close();
+        const QUrl a = QUrl::fromLocalFile(root.filePath(QStringLiteral("a")));
+        const QUrl b = QUrl::fromLocalFile(root.filePath(QStringLiteral("b")));
+        const QUrl first = QUrl::fromLocalFile(root.filePath(QStringLiteral("a/005.txt")));
+        const QUrl missing = QUrl::fromLocalFile(root.filePath(QStringLiteral("a/006.txt")));
+        const QUrl otherUrl = QUrl::fromLocalFile(other.fileName());
+        MainWindow window;
+        Pane *pane = paneWith(window, {a});
+        window.resize(600, 300);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        FolderView *view = pane->view();
+        QTRY_COMPARE(view->itemCount(), 80);
+        view->selectUrls({first, missing});
+        auto *scroll = view->currentView()->verticalScrollBar();
+        QTRY_VERIFY(scroll->maximum() > 5);
+        scroll->setValue(5);
+        QCOMPARE(scroll->value(), 5);
+        pane->setUrl(b);
+        QTRY_COMPARE(view->itemCount(), 1);
+        view->selectUrls({otherUrl});
+        QVERIFY(QFile::remove(missing.toLocalFile()));
+        pane->goBack();
+        QTRY_COMPARE(view->itemCount(), 79);
+        QTRY_COMPARE(view->selectedItems().size(), 1);
+        QTRY_COMPARE(view->selectedItems().first().url(), first);
+        QTRY_COMPARE(scroll->value(), 5);
+        pane->goForward();
+        QTRY_COMPARE(view->itemCount(), 1);
+        QTRY_COMPARE(view->selectedItems().size(), 1);
+        QTRY_COMPARE(view->selectedItems().first().url(), otherUrl);
+    }
+
+    void sameFolderTabsKeepIndependentSelections()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        for (const QString &name : {QStringLiteral("first"), QStringLiteral("second")}) {
+            QFile file(root.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        const QUrl folder = QUrl::fromLocalFile(root.path());
+        const QUrl first = QUrl::fromLocalFile(root.filePath(QStringLiteral("first")));
+        const QUrl second = QUrl::fromLocalFile(root.filePath(QStringLiteral("second")));
+        MainWindow window;
+        Pane *pane = paneWith(window, {folder});
+        FolderView *view = pane->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+        view->selectUrls({first});
+        pane->openInNewTab(folder, true);
+        QCOMPARE(pane->tabs()->historyAt(0).currentViewState().selectedUrls, QList<QUrl>{first});
+        QVERIFY(view->selectedItems().isEmpty());
+        view->selectUrls({second});
+        pane->tabs()->setCurrentIndex(0);
+        QVERIFY(pane->tabs()->historyAt(0).currentViewState().valid);
+        QTRY_VERIFY(!view->isLoading());
+        QTRY_COMPARE(view->selectedItems().size(), 1);
+        QTRY_COMPARE(view->selectedItems().first().url(), first);
+        pane->tabs()->setCurrentIndex(1);
+        QTRY_COMPARE(view->selectedItems().size(), 1);
+        QTRY_COMPARE(view->selectedItems().first().url(), second);
     }
 };
 

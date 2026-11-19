@@ -34,6 +34,18 @@ QList<QUrl> NavigationHistory::entries() const
     return m_entries;
 }
 
+NavigationHistory::ViewState NavigationHistory::currentViewState() const
+{
+    return m_current >= 0 ? m_viewStates.at(m_current) : ViewState{};
+}
+
+void NavigationHistory::setCurrentViewState(const ViewState &state)
+{
+    if (m_current >= 0) {
+        m_viewStates[m_current] = state;
+    }
+}
+
 void NavigationHistory::push(const QUrl &url)
 {
     if (!url.isValid()) {
@@ -45,10 +57,13 @@ void NavigationHistory::push(const QUrl &url)
     }
     if (m_current < m_entries.size() - 1) {
         m_entries.erase(m_entries.begin() + m_current + 1, m_entries.end());
+        m_viewStates.erase(m_viewStates.begin() + m_current + 1, m_viewStates.end());
     }
     m_entries.append(stripped);
+    m_viewStates.append(ViewState{});
     if (m_entries.size() > MaxEntries) {
         m_entries.removeFirst();
+        m_viewStates.removeFirst();
     }
     m_current = m_entries.size() - 1;
 }

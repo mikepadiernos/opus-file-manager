@@ -31,6 +31,7 @@ public:
     QUrl currentUrl() const;
     QList<QUrl> urls() const;
     const NavigationHistory &historyAt(int index) const;
+    void setCurrentViewState(const NavigationHistory::ViewState &state);
 
     /// Appends a tab and returns its index. Does nothing for invalid URLs.
     int addTab(const QUrl &url, bool activate = true);
@@ -80,6 +81,7 @@ public:
     static constexpr int MaxClosedTabs = 10;
 
 Q_SIGNALS:
+    void currentAboutToChange();
     void tabInserted(int index);
     void tabRemoved(int index);
     void tabMoved(int from, int to);

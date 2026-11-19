@@ -43,6 +43,13 @@ const NavigationHistory &TabModel::historyAt(int index) const
     return isValidIndex(index) ? m_tabs.at(index).history : empty;
 }
 
+void TabModel::setCurrentViewState(const NavigationHistory::ViewState &state)
+{
+    if (m_current >= 0) {
+        m_tabs[m_current].history.setCurrentViewState(state);
+    }
+}
+
 int TabModel::addTab(const QUrl &url, bool activate)
 {
     return insertTab(m_tabs.size(), url, activate);
@@ -71,6 +78,9 @@ bool TabModel::closeTab(int index)
 {
     if (!isValidIndex(index) || m_tabs.size() <= 1 || isPinned(index) || m_tabs.at(index).locked) {
         return false;
+    }
+    if (index == m_current) {
+        Q_EMIT currentAboutToChange();
     }
     m_closedTabs.append(m_tabs.takeAt(index));
     if (m_closedTabs.size() > MaxClosedTabs) {
@@ -128,6 +138,7 @@ void TabModel::setCurrentIndex(int index)
     if (!isValidIndex(index) || index == m_current) {
         return;
     }
+    Q_EMIT currentAboutToChange();
     m_current = index;
     Q_EMIT currentIndexChanged(index);
     Q_EMIT currentUrlChanged(currentUrl());
@@ -160,6 +171,9 @@ void TabModel::setCurrentUrl(const QUrl &url)
         return;
     }
     const QUrl before = currentUrl();
+    if (url.isValid() && url.adjusted(QUrl::StripTrailingSlash) != before) {
+        Q_EMIT currentAboutToChange();
+    }
     m_tabs[m_current].history.push(url);
     if (currentUrl() != before) {
         changeCurrentUrlTo(currentUrl());
@@ -191,6 +205,7 @@ bool TabModel::canGoForward() const
 void TabModel::goBack()
 {
     if (canGoBack()) {
+        Q_EMIT currentAboutToChange();
         changeCurrentUrlTo(m_tabs[m_current].history.goBack());
     }
 }
@@ -198,6 +213,7 @@ void TabModel::goBack()
 void TabModel::goForward()
 {
     if (canGoForward()) {
+        Q_EMIT currentAboutToChange();
         changeCurrentUrlTo(m_tabs[m_current].history.goForward());
     }
 }

@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "navigationhistory.h"
 #include "session.h"
 
 #include <QUrl>
@@ -109,6 +110,8 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
+    void saveHistoryViewState();
+    void restoreHistoryViewState();
     void syncTabBar();
     void updateTabStripVisibility();
     void updateTabText(int index);
@@ -136,4 +139,6 @@ private:
     bool m_followSymlinks = false;
     bool m_updatingTabBar = false;
     int m_lastTabCount = -1;
+    NavigationHistory::ViewState m_pendingViewState;
+    quint64 m_viewStateGeneration = 0;
 };

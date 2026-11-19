@@ -24,8 +24,10 @@
 #include <QInputDialog>
 #include <QMenu>
 #include <QMouseEvent>
+#include <QScrollBar>
 #include <QStyle>
 #include <QTabBar>
+#include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -113,9 +115,18 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
             updateTabText(i);
         }
     });
+    connect(m_tabs, &TabModel::currentAboutToChange, this, &Pane::saveHistoryViewState);
     connect(m_tabs, &TabModel::currentUrlChanged, this, [this](const QUrl &url) {
+        ++m_viewStateGeneration;
+        m_pendingViewState = m_tabs->historyAt(m_tabs->currentIndex()).currentViewState();
         m_navigator->setLocationUrl(url);
+        if (m_view->url() == url && !m_pendingViewState.valid) {
+            m_view->clearSelection();
+            m_view->currentView()->verticalScrollBar()->setValue(0);
+            m_view->currentView()->horizontalScrollBar()->setValue(0);
+        }
         m_view->setUrl(url);
+        restoreHistoryViewState();
         updateNavigationButtons();
         Q_EMIT urlChanged(url);
     });
@@ -178,12 +189,51 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     });
     connect(m_view, &FolderView::goUpRequested, this, &Pane::goUp);
     connect(m_view, &FolderView::listingFailed, this, &Pane::statusMessage);
+    connect(m_view, &FolderView::listingReady, this, &Pane::restoreHistoryViewState);
+    connect(m_view, &FolderView::loadingChanged, this, [this](bool loading) {
+        if (!loading) {
+            restoreHistoryViewState();
+        }
+    });
 
     syncTabBar();
     updateNavigationButtons();
 }
 
 Pane::~Pane() = default;
+
+void Pane::saveHistoryViewState()
+{
+    if (m_pendingViewState.valid || m_view->url() != m_tabs->currentUrl()) {
+        return;
+    }
+    NavigationHistory::ViewState state;
+    for (const KFileItem &item : m_view->selectedItems()) {
+        state.selectedUrls.append(item.url());
+    }
+    state.verticalScroll = m_view->currentView()->verticalScrollBar()->value();
+    state.horizontalScroll = m_view->currentView()->horizontalScrollBar()->value();
+    state.valid = true;
+    m_tabs->setCurrentViewState(state);
+}
+
+void Pane::restoreHistoryViewState()
+{
+    if (!m_pendingViewState.valid || m_view->isLoading()) {
+        return;
+    }
+    const quint64 generation = m_viewStateGeneration;
+    QTimer::singleShot(0, this, [this, generation] {
+        if (generation != m_viewStateGeneration || m_view->isLoading() || !m_pendingViewState.valid) {
+            return;
+        }
+        const auto state = m_pendingViewState;
+        m_pendingViewState = {};
+        m_view->selectUrls(state.selectedUrls);
+        m_view->currentView()->verticalScrollBar()->setValue(state.verticalScroll);
+        m_view->currentView()->horizontalScrollBar()->setValue(state.horizontalScroll);
+    });
+}
 
 TabModel *Pane::tabs() const
 {
