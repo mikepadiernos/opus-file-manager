@@ -13,6 +13,7 @@
 #include <QAbstractItemView>
 #include <QDir>
 #include <QFile>
+#include <QScopeGuard>
 #include <QScrollBar>
 #include <QStandardPaths>
 #include <QStyle>
@@ -141,6 +142,13 @@ private Q_SLOTS:
         window.tabColors()->setColor(m_a, LabelColor::Green);
         QCOMPARE(tabBarOf(window.activePane())->tabTextColor(active), LabelColors::rgb(LabelColor::Green));
         QCOMPARE(tabBarOf(window.inactivePane())->tabTextColor(inactive), LabelColors::rgb(LabelColor::Green));
+        Settings::setShowTabColors(false);
+        window.applySettings();
+        QVERIFY(!tabBarOf(window.activePane())->tabTextColor(active).isValid());
+        QCOMPARE(window.tabColors()->colorFor(m_a), LabelColor::Green);
+        Settings::setShowTabColors(true);
+        window.applySettings();
+        QCOMPARE(tabBarOf(window.activePane())->tabTextColor(active), LabelColors::rgb(LabelColor::Green));
         window.tabColors()->setColor(m_a, LabelColor::None);
         QVERIFY(!tabBarOf(window.activePane())->tabTextColor(active).isValid());
     }
@@ -222,6 +230,56 @@ private Q_SLOTS:
         QTRY_COMPARE(view->itemCount(), 1);
         QTRY_COMPARE(view->selectedItems().size(), 1);
         QTRY_COMPARE(view->selectedItems().first().url(), otherUrl);
+    }
+
+    void historyRestorePreferences_data()
+    {
+        QTest::addColumn<bool>("selection");
+        QTest::addColumn<bool>("scrollPosition");
+        QTest::newRow("selection only") << true << false;
+        QTest::newRow("scroll only") << false << true;
+        QTest::newRow("neither") << false << false;
+    }
+
+    void historyRestorePreferences()
+    {
+        QFETCH(bool, selection);
+        QFETCH(bool, scrollPosition);
+        Settings::setRestoreHistorySelection(selection);
+        Settings::setRestoreHistoryScroll(scrollPosition);
+        const auto restore = qScopeGuard([] {
+            Settings::setRestoreHistorySelection(true);
+            Settings::setRestoreHistoryScroll(true);
+        });
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("a")));
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("b")));
+        for (int i = 0; i < 80; ++i) {
+            QFile file(root.filePath(QStringLiteral("a/%1.txt").arg(i, 3, 10, QLatin1Char('0'))));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        MainWindow window;
+        Pane *pane = paneWith(window, {QUrl::fromLocalFile(root.filePath(QStringLiteral("a")))});
+        window.resize(600, 300);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        FolderView *view = pane->view();
+        QTRY_COMPARE(view->itemCount(), 80);
+        const QUrl selected = QUrl::fromLocalFile(root.filePath(QStringLiteral("a/005.txt")));
+        view->selectUrls({selected});
+        auto *scroll = view->currentView()->verticalScrollBar();
+        QTRY_VERIFY(scroll->maximum() > 5);
+        scroll->setValue(5);
+        pane->setUrl(QUrl::fromLocalFile(root.filePath(QStringLiteral("b"))));
+        QTRY_COMPARE(view->itemCount(), 0);
+        pane->goBack();
+        QTRY_COMPARE(view->itemCount(), 80);
+        QTRY_COMPARE(view->selectedItems().size(), selection ? 1 : 0);
+        QTRY_COMPARE(scroll->value(), scrollPosition ? 5 : 0);
+        if (selection) {
+            QCOMPARE(view->selectedItems().first().url(), selected);
+        }
     }
 
     void sameFolderTabsKeepIndependentSelections()

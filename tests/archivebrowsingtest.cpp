@@ -4,6 +4,7 @@
 #include "folderview.h"
 #include "mainwindow.h"
 #include "pane.h"
+#include "settings.h"
 
 #include <KActionCollection>
 #include <KSharedConfig>
@@ -15,6 +16,7 @@
 #include <QFile>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -166,6 +168,62 @@ private Q_SLOTS:
         answer(ArchiveWriter::Format::Zip, true);
         compress->trigger();
         QTRY_VERIFY(QFile::exists(m_root.filePath(QStringLiteral("packed/note.zip"))));
+    }
+
+    void defaultOtherPaneDestinationPreservesExistingArchive()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("source")));
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("destination")));
+        QFile input(root.filePath(QStringLiteral("source/note.txt")));
+        QVERIFY(input.open(QIODevice::WriteOnly));
+        QCOMPARE(input.write("new"), 3);
+        input.close();
+        QFile existing(root.filePath(QStringLiteral("destination/note.zip")));
+        QVERIFY(existing.open(QIODevice::WriteOnly));
+        QCOMPARE(existing.write("existing"), 8);
+        existing.close();
+        Settings::setArchiveOtherPaneByDefault(true);
+        const auto restore = qScopeGuard([] {
+            Settings::setArchiveOtherPaneByDefault(false);
+        });
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(root.filePath(QStringLiteral("source"))), QUrl::fromLocalFile(root.filePath(QStringLiteral("destination")))});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        view->selectUrls({QUrl::fromLocalFile(input.fileName())});
+        QCOMPARE(view->selectedItems().size(), 1);
+        bool choseOtherPane = false;
+        auto *poll = new QTimer(&window);
+        connect(poll, &QTimer::timeout, &window, [poll, &choseOtherPane] {
+            auto *dialog = qobject_cast<CompressDialog *>(QApplication::activeModalWidget());
+            if (dialog) {
+                choseOtherPane = dialog->toOtherPane();
+                poll->deleteLater();
+                dialog->accept();
+            }
+        });
+        poll->start(20);
+        window.actionCollection()->action(QStringLiteral("compress"))->trigger();
+        QVERIFY(choseOtherPane);
+        QTRY_COMPARE(QDir(root.filePath(QStringLiteral("destination"))).entryList({QStringLiteral("*.zip")}).size(), 2);
+        const auto written = [&root] {
+            const QDir destination(root.filePath(QStringLiteral("destination")));
+            const QStringList names = destination.entryList({QStringLiteral("*.zip")});
+            for (const QString &name : names) {
+                if (name != QLatin1String("note.zip")) {
+                    KZip archive(destination.filePath(name));
+                    if (archive.open(QIODevice::ReadOnly) && archive.directory()->file(QStringLiteral("note.txt"))) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        };
+        QTRY_VERIFY(written());
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QCOMPARE(existing.readAll(), QByteArrayLiteral("existing"));
     }
 
     void extractToOtherPaneNeverOverwrites()

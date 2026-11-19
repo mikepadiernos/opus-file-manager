@@ -3,14 +3,18 @@
 #include "filterbar.h"
 #include "foldermetadata.h"
 #include "folderview.h"
+#include "labelcolor.h"
 #include "mainwindow.h"
 #include "pane.h"
+#include "session.h"
 #include "settings.h"
+#include "tabcolors.h"
 
 #include <KActionCollection>
 #include <KCategorizedSortFilterProxyModel>
 #include <KCategorizedView>
 #include <KDirModel>
+#include <KFilePlacesModel>
 #include <KIO/Global>
 #include <KSharedConfig>
 
@@ -208,6 +212,32 @@ private Q_SLOTS:
         for (int column = 0; column < tree->header()->count(); ++column) {
             QCOMPARE(tree->header()->visualIndex(column), column);
         }
+    }
+
+    void removingLocalFormatRestoresTheInheritedFormat()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("child")));
+        const QString child = root.filePath(QStringLiteral("child"));
+        FolderMetadata::Format parent{QStringLiteral("grid"), {}, QStringLiteral("name"), true, QStringLiteral("none"), true};
+        FolderMetadata::Format local{QStringLiteral("list"), {}, QStringLiteral("name"), true, QStringLiteral("none")};
+        QVERIFY(FolderMetadata::setFormat(root.path(), parent));
+        QVERIFY(FolderMetadata::setFormat(child, local));
+        QVERIFY(FolderMetadata::setNote(child, QStringLiteral("file"), QStringLiteral("keep")));
+        FolderView view;
+        view.setUrl(QUrl::fromLocalFile(child));
+        QVERIFY(view.hasLocalFolderFormat());
+        QCOMPARE(view.viewMode(), FolderView::ViewMode::Details);
+        view.setFormatLocked(true);
+        view.clearLocalFolderFormat();
+        QVERIFY(view.hasLocalFolderFormat());
+        view.setFormatLocked(false);
+        view.clearLocalFolderFormat();
+        QVERIFY(!view.hasLocalFolderFormat());
+        QCOMPARE(view.viewMode(), FolderView::ViewMode::Icons);
+        QCOMPARE(view.formatRuleSource(), root.path());
+        QCOMPARE(FolderMetadata::read(child).value(QStringLiteral("notes")).toObject().value(QStringLiteral("file")).toString(), QStringLiteral("keep"));
     }
 
     void folderSizesAppearOnDemandAndFromInheritedRule()
@@ -423,6 +453,67 @@ private Q_SLOTS:
         QCOMPARE(bar.filter().scope(), NameFilter::Scope::FilesAndFolders);
     }
 
+    void filterPreferencesApplyToPanes()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::setDefaultFilterScope(Settings::EnumDefaultFilterScope::Files);
+            Settings::setFilterTypeAhead(true);
+            Settings::setRetainFilterOnNavigation(true);
+            Settings::setHighlightFilterMatches(true);
+        });
+        Settings::setDefaultFilterScope(Settings::EnumDefaultFilterScope::FilesAndFolders);
+        Settings::setFilterTypeAhead(false);
+        Settings::setRetainFilterOnNavigation(false);
+        Settings::setHighlightFilterMatches(false);
+        MainWindow window;
+        window.openUrls({m_a});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        Pane *pane = window.activePane();
+        FolderView *view = pane->view();
+        QTRY_COMPARE(view->itemCount(), 3);
+        auto *bar = pane->findChild<FilterBar *>();
+        QCOMPARE(bar->filter().scope(), NameFilter::Scope::FilesAndFolders);
+        view->currentView()->setFocus();
+        QTest::keyClicks(view->currentView(), QStringLiteral("not"));
+        QVERIFY(!bar->isVisible());
+        QVERIFY(view->nameFilter().isEmpty());
+        bar->setFilter(NameFilter(QStringLiteral("not"), NameFilter::Scope::FilesAndFolders));
+        QTRY_COMPARE(view->itemCount(), 1);
+        QModelIndex index = view->currentView()->model()->index(0, 0);
+        QVERIFY(!index.data(Qt::BackgroundRole).isValid());
+        Settings::setHighlightFilterMatches(true);
+        view->reloadListingSettings();
+        QVERIFY(index.data(Qt::BackgroundRole).isValid());
+        Settings::setDefaultFilterScope(Settings::EnumDefaultFilterScope::Folders);
+        window.applySettings();
+        QCOMPARE(bar->filter().scope(), NameFilter::Scope::Folders);
+        QCOMPARE(bar->filter().text(), QStringLiteral("not"));
+        pane->setUrl(m_b);
+        QTRY_COMPARE(pane->url(), m_b);
+        QVERIFY(bar->filter().isEmpty());
+        QCOMPARE(bar->filter().scope(), NameFilter::Scope::Folders);
+    }
+
+    void restoredEmptyFilterKeepsItsSavedScope()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::setDefaultFilterScope(Settings::EnumDefaultFilterScope::Files);
+        });
+        Settings::setDefaultFilterScope(Settings::EnumDefaultFilterScope::Folders);
+        KFilePlacesModel places;
+        TabColors colors(KSharedConfig::openConfig()->group(QStringLiteral("FilterTestTabColors")));
+        PaneSession state;
+        state.tabs = {m_a};
+        Pane fresh(&places, &colors);
+        fresh.restoreState(state);
+        QCOMPARE(fresh.findChild<FilterBar *>()->filter().scope(), NameFilter::Scope::Folders);
+        state.filterScope = static_cast<int>(NameFilter::Scope::FilesAndFolders);
+        Pane restored(&places, &colors);
+        restored.restoreState(state);
+        QCOMPARE(restored.findChild<FilterBar *>()->filter().scope(), NameFilter::Scope::FilesAndFolders);
+    }
+
     void metadataFiltersMatchLabelsAndRatings()
     {
         QVERIFY(FolderMetadata::setLabel(m_root.filePath(QStringLiteral("a")), QStringLiteral("photo.jpg"), QStringLiteral("blue")));
@@ -436,6 +527,56 @@ private Q_SLOTS:
 
         view.setNameFilter(NameFilter(QStringLiteral("*4")));
         QCOMPARE(visibleNames(&view), QStringList({QStringLiteral("Pictures"), QStringLiteral("photo.jpg")}));
+    }
+
+    void metadataPresentationDoesNotChangeStoredValues()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        for (const QString &name : {QStringLiteral("a.txt"), QStringLiteral("b.txt")}) {
+            QFile file(root.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        QVERIFY(FolderMetadata::setLabel(root.path(), QStringLiteral("b.txt"), QStringLiteral("blue")));
+        QVERIFY(FolderMetadata::setColor(root.path(), QStringLiteral("b.txt"), QStringLiteral("#123456")));
+        QVERIFY(FolderMetadata::setRating(root.path(), QStringLiteral("b.txt"), 5));
+        QVERIFY(FolderMetadata::togglePin(root.path(), QStringLiteral("b.txt")));
+        const QJsonObject original = FolderMetadata::read(root.path());
+        const auto restore = qScopeGuard([] {
+            Settings::setShowFileLabels(true);
+            Settings::setShowFileColors(true);
+            Settings::setShowFileRatings(true);
+            Settings::setShowFilePins(true);
+            Settings::setPinnedItemsFirst(true);
+        });
+        FolderView view;
+        view.setUrl(QUrl::fromLocalFile(root.path()));
+        view.setRatingColumn(true);
+        QTRY_COMPARE(view.itemCount(), 2);
+        QAbstractItemModel *model = view.currentView()->model();
+        QTRY_COMPARE(model->index(0, 0).data().toString(), QStringLiteral("b.txt"));
+        QCOMPARE(model->index(0, 0).data(Qt::ForegroundRole).value<QColor>(), QColor(QStringLiteral("#123456")));
+        QCOMPARE(model->index(0, KDirModel::Group).data().toInt(), 5);
+        QVERIFY(model->index(0, 0).data(Qt::ToolTipRole).toString().contains(QStringLiteral("Pinned")));
+        Settings::setShowFileColors(false);
+        view.reloadListingSettings();
+        QCOMPARE(model->index(0, 0).data(Qt::ForegroundRole).value<QColor>(), LabelColors::rgb(LabelColor::Blue));
+        Settings::setShowFileLabels(false);
+        Settings::setShowFileRatings(false);
+        Settings::setShowFilePins(false);
+        view.reloadListingSettings();
+        QCOMPARE(model->index(0, 0).data().toString(), QStringLiteral("b.txt"));
+        QVERIFY(!model->index(0, 0).data(Qt::ToolTipRole).toString().contains(QStringLiteral("Pinned")));
+        Settings::setPinnedItemsFirst(false);
+        view.reloadListingSettings();
+        QTRY_COMPARE(model->index(0, 0).data().toString(), QStringLiteral("a.txt"));
+        const QModelIndex pinned = model->index(1, 0);
+        QVERIFY(pinned.data(Qt::ForegroundRole).value<QColor>() != LabelColors::rgb(LabelColor::Blue));
+        QVERIFY(!model->index(1, KDirModel::Group).data().isValid());
+        QVERIFY(!pinned.data(Qt::ToolTipRole).toString().contains(QStringLiteral("Pinned")));
+        view.setNameFilter(NameFilter(QStringLiteral("#blue")));
+        QCOMPARE(view.itemCount(), 1);
+        QCOMPARE(FolderMetadata::read(root.path()), original);
     }
 
     void selectionPatternsSelectAndDeselectInBothViews()

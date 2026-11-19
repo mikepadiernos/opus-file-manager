@@ -13,6 +13,12 @@ targets feature parity with Max File Manager; upstream behaviour is recorded in
 - `tests/` holds QtTest suites run through `ctest`; GUI tests use
   `QT_QPA_PLATFORM=offscreen`.
 
+Rust is a candidate for new, self-contained core logic, not a planned rewrite
+of existing C++ features. Keep widgets, settings and file operations in Qt/KDE,
+including KIO for local and remote operations. If the M19 Rust pilot proves
+worthwhile, consider Rust for M09 duplicate detection and rename or sync
+planning; this evaluation does not block M09 or change KIO's role.
+
 ## Plasma-native decisions
 
 | Upstream approach | Opus approach |
@@ -161,22 +167,22 @@ Settings for M03 listing depth, stored in KConfig.
   - ~~**General:** default visible columns and grouping; size format (human or
     bytes), date format and seconds~~
   - ~~**Icons:** name lines and metadata shown in icon view~~
-  - **Details:** enable inline folder expansion and choose automatic or manual
-    column widths by default
-  - **Compact:** icon size, item density and additional information
-  - **Selection:** enable selection markers and configure selection mode
-  - **Filters:** default scope, type-ahead activation, filter retention when
-    changing folders, and file-name match highlighting
-  - **Folder formats:** manage inherited rules and default size calculation;
-    allow separate local and remote policies
+  - ~~**Details:** enable inline folder expansion and choose automatic or manual
+    column widths by default~~
+  - ~~**Compact:** icon size, item spacing and additional information~~
+  - ~~**Selection:** default selection markers and selection mode~~
+  - ~~**Filters:** default scope, type-ahead activation, filter retention when
+    changing folders, and file-name match highlighting~~
+  - ~~**Folder formats:** manage inherited rules and default size calculation;
+    allow separate local and remote policies~~
   - ~~**Folder sizes:** optional periodic refresh of calculated sizes~~
-  - **History:** restore selection and scroll position when navigating back
-    or forward
+  - ~~**History:** restore selection and scroll position when navigating back
+    or forward~~
 - **Files**
   - ~~**Rules:** ignore list entries and file-type colours by extension~~
-  - **Metadata:** show or hide label, rating, colour and pin indicators; choose
-    whether pinned items appear first without changing stored metadata
-  - **Selection filters:** manage saved selection patterns
+  - ~~**Metadata:** show or hide label, rating, colour and pin indicators; choose
+    whether pinned items appear first without changing stored metadata~~
+  - ~~**Selection filters:** manage saved selection patterns~~
 - **Panels**
   - ~~**Combined Places/Folders:** show or hide the panel, choose its left or
     right position, configure its auto-focus behaviour, and show or hide each
@@ -185,12 +191,14 @@ Settings for M03 listing depth, stored in KConfig.
 - **Archives**
   - ~~**Default format:** archive format used by Compress (ZIP, uncompressed
     ZIP, tar.gz, tar.xz or tar.zst); the format choice determines compression~~
-  - **Destination:** default to the current folder or the other pane when
-    creating an archive, retaining the non-overwriting behaviour
+  - ~~**Destination:** default to the current folder or the other pane when
+    creating an archive, retaining the non-overwriting behaviour~~
 - **Tabs**
   - ~~**Appearance:** show tab icons; fill the available tab-bar width and
     divide it equally among tabs as new tabs are created~~
-  - **Colours:** show or hide folder-based tab colours without removing them
+  - ~~**Colours:** show or hide folder-based tab colours without removing them~~
+
+**Caveats:** [Folder metadata and listings](CAVEATS.md#folder-metadata-and-listings).
 
 ### M05 Preview and gallery
 
@@ -527,6 +535,10 @@ searches rather than introducing a separate search system.
   advanced search panel
 - Combine filename, path, file type, size, date and content criteria with
   AND, OR and NOT; validate queries and explain unsupported criteria
+- Prototype the query parser and validation in Rust behind a narrow C++/Rust
+  interface. Test error handling, ownership, path handling and threading at
+  the boundary, and evaluate the build and maintenance costs before adopting
+  Rust more broadly; keep the search UI and KIO integration in C++.
 - Show results in the search panel with progress, cancellation and errors;
   open a result or reveal it in its containing folder without moving files
 - Support keyboard navigation and focus between the toolbar widget, search
@@ -552,6 +564,9 @@ rather than requiring TagStudio or changing the user's folder structure.
 
 - Opt-in libraries rooted at existing local folders; index files of any type
   without moving, renaming or duplicating them
+- Evaluate Rust for tag relationships, library metadata and search logic
+  based on the M19 pilot; retain Qt/KDE integration in C++ and use C++ for the
+  core if the added build and interoperability costs are not justified
 - Create and manage tags with stable identities, names, aliases, shorthand,
   colours and parent relationships; support duplicate names with clear
   disambiguation and prevent cycles in the hierarchy
@@ -565,6 +580,10 @@ rather than requiring TagStudio or changing the user's folder structure.
   existing search and selection workflows
 - Add editable text and date fields to library entries, alongside existing
   labels, ratings and notes without silently replacing or converting them
+- Read supported EXIF image metadata and ID3 audio tags for display and search;
+  allow users to map selected fields to library tags or fields with a preview
+  and conflict handling. Reuse M09 metadata editing for supported writes, with
+  explicit consent and clear reporting of unsupported formats or failures.
 - Store library metadata in an open, documented format without requiring a
   sidecar for each file; preserve existing `.mfm.json` metadata and report
   unsupported or read-only locations
@@ -572,7 +591,7 @@ rather than requiring TagStudio or changing the user's folder structure.
   and renames, and offer review and manual relinking for missing or externally
   moved files without silently attaching metadata to an uncertain match
 - Export and restore library metadata with a preview and explicit confirmation;
-  never modify or delete the original files as part of metadata management
+  never modify or delete the original files during export or restore
 
 ### M22 Tagging settings
 
@@ -582,6 +601,8 @@ Settings for M21 tagging, stored in KConfig.
   refresh and scanning limits
 - **Tags:** configure tag colours, display and parent-tag matching defaults
 - **Fields:** manage available text and date fields
+- **Embedded metadata:** choose which EXIF and ID3 fields to read or map to
+  library metadata; control refresh and conflict handling
 - **Search:** choose default tag search scope and matching behaviour
 - **Privacy:** control library metadata storage and backup locations; make
   clear what is stored and do not write tags into file metadata without
@@ -604,12 +625,10 @@ Settings for M21 tagging, stored in KConfig.
   authentication where available, use KDE's credential facilities, and
   respect SSH host-key and WebDAV TLS certificate verification. Report
   connection, authentication and unsupported-operation errors explicitly.
-- Integrate with [mise](https://mise.jdx.dev/) for trusted local projects:
-  show configured tools and available tasks, and run a selected task or open a
-  terminal in the project's mise environment on explicit request. Respect
-  mise's trust decisions, never trust or execute project configuration
-  automatically, avoid exposing environment secrets, and report missing mise,
-  untrusted projects and command failures.
+- Use [mise](https://mise.jdx.dev/) for Opus development tooling: manage
+  project tool versions and provide configure, build, test and formatting
+  tasks. Document setup and system-provided Qt, KDE and other dependencies;
+  keep the existing CMake workflow usable without mise.
 - ~~Default file manager registration~~
 - System tray and global shortcut
 - XDG portal file chooser
@@ -644,10 +663,6 @@ Settings for M23 integrations, stored in KConfig.
   - **Profiles:** manage SSH, SFTP and WebDAV hosts, ports, usernames and
     connection defaults; store credentials through KDE's credential facilities,
     not in KConfig or URLs
-- **mise**
-  - **Integration:** enable or disable project integration and configure task
-    and terminal actions without bypassing mise's trust controls
-
 ## Feature references
 
 The roadmap adapts workflows to KDE rather than copying platform-specific

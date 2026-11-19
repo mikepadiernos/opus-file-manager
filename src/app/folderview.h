@@ -130,6 +130,9 @@ public:
     void reloadMetadata();
     bool hasFolderFormat() const;
     QString formatRuleDescription() const;
+    QString formatRuleSource() const;
+    bool hasLocalFolderFormat() const;
+    void clearLocalFolderFormat();
     bool formatLocked() const;
     void setFormatLocked(bool locked);
     bool formatIncludesDescendants() const;
@@ -187,6 +190,8 @@ private:
     void cancelFolderSizeJobs();
     void scheduleFolderSizeRefresh();
     void updateFolderSizeRefreshTimer();
+    void applyDetailsPreferences();
+    void applyCompactPreferences();
     KFileItem itemAt(QAbstractItemView *view, const QPoint &viewportPos) const;
 
     KDirLister *m_lister = nullptr;
@@ -218,6 +223,8 @@ private:
     QWidget *m_selectionBar = nullptr;
     bool m_selectionMarkers = false;
     bool m_selectionMode = false;
+    bool m_defaultSelectionMarkers = false;
+    bool m_defaultSelectionMode = false;
     bool m_markerPress = false;
     KFilePreviewGenerator *m_detailsPreviews = nullptr;
     KFilePreviewGenerator *m_iconPreviews = nullptr;

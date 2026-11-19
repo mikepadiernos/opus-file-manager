@@ -25,7 +25,8 @@ struct PaneSession {
     /// One custom name per tab, empty for none; may be shorter than tabs.
     QStringList names;
     QString filterText;
-    int filterScope = 0;
+    /// -1 means no scope was saved; use the configured default.
+    int filterScope = -1;
 
     bool operator==(const PaneSession &other) const = default;
 };

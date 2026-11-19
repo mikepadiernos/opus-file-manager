@@ -96,6 +96,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     m_layout->addWidget(m_navigationBar);
     m_layout->addWidget(m_view, 1);
     m_filterBar = new FilterBar(this);
+    m_defaultFilterScope = Settings::defaultFilterScope();
     m_layout->addWidget(m_filterBar);
 
     // Model -> widgets
@@ -117,11 +118,24 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     });
     connect(m_tabs, &TabModel::currentAboutToChange, this, &Pane::saveHistoryViewState);
     connect(m_tabs, &TabModel::currentUrlChanged, this, [this](const QUrl &url) {
+        if (m_view->url().isValid() && m_view->url() != url && !Settings::retainFilterOnNavigation()) {
+            m_filterBar->setFilter(NameFilter(QString(), m_filterBar->filter().scope()));
+        }
         ++m_viewStateGeneration;
         m_view->cancelHistoryExpansion();
         m_historyExpansionStarted = false;
         m_historyExpansionPending = false;
         m_pendingViewState = m_tabs->historyAt(m_tabs->currentIndex()).currentViewState();
+        if (!Settings::restoreHistorySelection()) {
+            m_pendingViewState.selectedUrls.clear();
+        }
+        if (!Settings::restoreHistoryScroll()) {
+            m_pendingViewState.verticalScroll = 0;
+            m_pendingViewState.horizontalScroll = 0;
+        }
+        if (!Settings::restoreHistorySelection() && !Settings::restoreHistoryScroll()) {
+            m_pendingViewState.valid = false;
+        }
         m_navigator->setLocationUrl(url);
         if (m_view->url() == url && !m_pendingViewState.valid) {
             m_view->clearSelection();
@@ -494,7 +508,16 @@ void Pane::restoreState(const PaneSession &state)
         m_tabs->setName(i, state.names.at(i));
     }
     m_tabs->setCurrentIndex(state.currentTab);
-    m_filterBar->setFilter(NameFilter(state.filterText, static_cast<NameFilter::Scope>(qBound(0, state.filterScope, 2))));
+    const int scope = state.filterScope < 0 ? Settings::defaultFilterScope() : state.filterScope;
+    m_filterBar->setFilter(NameFilter(state.filterText, static_cast<NameFilter::Scope>(qBound(0, scope, 2))));
+}
+
+void Pane::reloadFilterSettings()
+{
+    if (m_defaultFilterScope != Settings::defaultFilterScope()) {
+        m_defaultFilterScope = Settings::defaultFilterScope();
+        m_filterBar->setFilter(NameFilter(m_filterBar->filter().text(), static_cast<NameFilter::Scope>(qBound(0, m_defaultFilterScope, 2))));
+    }
 }
 
 void Pane::reloadTabSettings()
@@ -530,7 +553,7 @@ void Pane::updateTabText(int index)
     m_tabBar->setTabToolTip(index, toolTip);
     const QString iconName = pinned ? QStringLiteral("pin") : locked ? QStringLiteral("object-locked") : KIO::iconNameForUrl(url);
     m_tabBar->setTabIcon(index, m_showTabIcons ? SymbolicIcon::fromTheme(iconName) : QIcon());
-    m_tabBar->setTabTextColor(index, LabelColors::rgb(m_colors->colorFor(url)));
+    m_tabBar->setTabTextColor(index, Settings::showTabColors() ? LabelColors::rgb(m_colors->colorFor(url)) : QColor());
 
     const auto closeSide = static_cast<QTabBar::ButtonPosition>(m_tabBar->style()->styleHint(QStyle::SH_TabBar_CloseButtonPosition, nullptr, m_tabBar));
     if (QWidget *closeButton = m_tabBar->tabButton(index, closeSide)) {

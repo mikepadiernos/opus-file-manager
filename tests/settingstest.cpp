@@ -35,6 +35,7 @@
 #include <QDockWidget>
 #include <QDropEvent>
 #include <QFile>
+#include <QHeaderView>
 #include <QLabel>
 #include <QLayout>
 #include <QListView>
@@ -212,6 +213,11 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("DefaultViewMode")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("FolderSizeRefreshInterval")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("DetailsIconSize")), QStringLiteral("Details"));
+        QCOMPARE(tabOf(QStringLiteral("DefaultSelectionMarkers")), QStringLiteral("Selection"));
+        QCOMPARE(tabOf(QStringLiteral("DefaultFilterScope")), QStringLiteral("Filters"));
+        QCOMPARE(tabOf(QStringLiteral("CompactIconSize")), QStringLiteral("Compact"));
+        QCOMPARE(tabOf(QStringLiteral("AutomaticLocalFolderSizes")), QStringLiteral("Folder Formats"));
+        QCOMPARE(tabOf(QStringLiteral("ShowFilePins")), QStringLiteral("Metadata"));
         QCOMPARE(tabOf(QStringLiteral("ShowSizeColumn")), QStringLiteral("Details"));
         QCOMPARE(tabOf(QStringLiteral("DragFromAnywhere")), QStringLiteral("Details"));
         QCOMPARE(tabOf(QStringLiteral("ShowOpenInNewTab")), QStringLiteral("Actions"));
@@ -326,12 +332,31 @@ private Q_SLOTS:
         dialog.findChild<QComboBox *>(QStringLiteral("kcfg_PanelPosition"))->setCurrentIndex(Settings::EnumPanelPosition::right);
         dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_TabIcons"))->setChecked(false);
         dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ExpandTabs"))->setChecked(false);
+        dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowTabColors"))->setChecked(false);
+        dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ArchiveOtherPaneByDefault"))->setChecked(true);
+        dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_InlineFolderExpansion"))->setChecked(false);
+        dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DetailsColumnWidth"))->setCurrentIndex(Settings::EnumDetailsColumnWidth::Automatic);
+        dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_DefaultSelectionMarkers"))->setChecked(true);
+        dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_DefaultSelectionMode"))->setChecked(true);
         dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultArchiveFormat"))->setCurrentIndex(static_cast<int>(ArchiveWriter::Format::TarXz));
         dialog.button(QDialogButtonBox::Apply)->click();
 
         QVERIFY(!Settings::favoritesVisible());
         QCOMPARE(Settings::panelPosition(), Settings::EnumPanelPosition::right);
         QCOMPARE(Settings::defaultArchiveFormat(), static_cast<int>(ArchiveWriter::Format::TarXz));
+        QVERIFY(Settings::archiveOtherPaneByDefault());
+        QVERIFY(!Settings::showTabColors());
+        auto *tree = qobject_cast<QTreeView *>(window.activePane()->view()->currentView());
+        QVERIFY(tree);
+        QVERIFY(!tree->itemsExpandable());
+        QCOMPARE(tree->header()->sectionResizeMode(KDirModel::Size), QHeaderView::ResizeToContents);
+        QVERIFY(window.activePane()->view()->selectionMarkersVisible());
+        QVERIFY(window.activePane()->view()->selectionMode());
+        QVERIFY(action(window, QStringLiteral("selection_markers"))->isChecked());
+        QVERIFY(action(window, QStringLiteral("selection_mode"))->isChecked());
+        window.activePane()->view()->setSelectionMode(false);
+        window.applySettings();
+        QVERIFY(!window.activePane()->view()->selectionMode());
         const auto config = KSharedConfig::openConfig();
         QCOMPARE(config->group(QStringLiteral("PanelSettings")).readEntry("Position", QString()), QStringLiteral("right"));
         QCOMPARE(config->group(QStringLiteral("Archives")).readEntry("DefaultFormat", -1), static_cast<int>(ArchiveWriter::Format::TarXz));
@@ -344,6 +369,10 @@ private Q_SLOTS:
         QVERIFY(bar->tabIcon(0).isNull());
         CompressDialog archive(QStringLiteral("test"), false, &window, static_cast<ArchiveWriter::Format>(Settings::defaultArchiveFormat()));
         QCOMPARE(archive.format(), ArchiveWriter::Format::TarXz);
+        CompressDialog otherArchive(QStringLiteral("test"), true, &window, ArchiveWriter::Format::Zip, Settings::archiveOtherPaneByDefault());
+        QVERIFY(otherArchive.toOtherPane());
+        CompressDialog unavailable(QStringLiteral("test"), false, &window, ArchiveWriter::Format::Zip, Settings::archiveOtherPaneByDefault());
+        QVERIFY(!unavailable.toOtherPane());
 
         QVERIFY(dialog.button(QDialogButtonBox::RestoreDefaults)->isEnabled());
         dialog.button(QDialogButtonBox::RestoreDefaults)->click();
@@ -353,7 +382,122 @@ private Q_SLOTS:
         QVERIFY(Settings::favoritesVisible());
         QCOMPARE(Settings::panelPosition(), Settings::EnumPanelPosition::left);
         QCOMPARE(Settings::defaultArchiveFormat(), static_cast<int>(ArchiveWriter::Format::Zip));
+        QVERIFY(!Settings::archiveOtherPaneByDefault());
+        QVERIFY(Settings::showTabColors());
+        QVERIFY(tree->itemsExpandable());
+        QVERIFY(!window.activePane()->view()->selectionMarkersVisible());
+        QCOMPARE(tree->header()->sectionResizeMode(KDirModel::Name), QHeaderView::Stretch);
         QVERIFY(bar->expanding());
+    }
+
+    void compactViewSettingsApply()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_CompactIconSize"))->setValue(32);
+        dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_CompactItemSpacing"))->setValue(5);
+        auto *information = dialog.findChild<IconInformationList *>(QStringLiteral("kcfg_CompactInformation"));
+        QVERIFY(information);
+        information->setInformation({QStringLiteral("size"), QStringLiteral("owner")});
+        dialog.button(QDialogButtonBox::Apply)->click();
+        FolderView *view = window.activePane()->view();
+        view->setViewMode(FolderView::ViewMode::Compact);
+        auto *compact = qobject_cast<QListView *>(view->currentView());
+        QVERIFY(compact);
+        QCOMPARE(compact->iconSize(), QSize(32, 32));
+        QCOMPARE(compact->spacing(), 5);
+        auto *delegate = qobject_cast<KFileItemDelegate *>(compact->itemDelegate());
+        QVERIFY(delegate);
+        QCOMPARE(delegate->showInformation(), (KFileItemDelegate::InformationList{KFileItemDelegate::Size, KFileItemDelegate::Owner}));
+    }
+
+    void selectionFiltersCanBeManagedInSettings()
+    {
+        KConfigGroup group = KSharedConfig::openConfig()->group(QStringLiteral("SelectionFilters"));
+        group.writeEntry("Patterns", QStringList{QStringLiteral("*.txt")});
+        MainWindow window;
+        window.openUrls({m_a});
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *editor = dialog.findChild<RuleListEditor *>(QStringLiteral("selectionFilterRules"));
+        QVERIFY(editor);
+        QCOMPARE(editor->rules(), QStringList{QStringLiteral("*.txt")});
+        editor->setRules({QStringLiteral("*.jpg"), QStringLiteral("*.cpp")});
+        QCOMPARE(group.readEntry("Patterns", QStringList()), QStringList{QStringLiteral("*.txt")});
+        QVERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(group.readEntry("Patterns", QStringList()), (QStringList{QStringLiteral("*.jpg"), QStringLiteral("*.cpp")}));
+        QAction *select = action(window, QStringLiteral("select_menu"));
+        QMenu *saved = nullptr;
+        for (QAction *entry : select->menu()->actions()) {
+            if (entry->menu() && entry->text() == QLatin1String("Saved Selection Filters")) {
+                saved = entry->menu();
+            }
+        }
+        QVERIFY(saved);
+        QMetaObject::invokeMethod(saved, "aboutToShow");
+        QCOMPARE(saved->actions().at(0)->text(), QStringLiteral("*.jpg"));
+        QCOMPARE(saved->actions().at(1)->text(), QStringLiteral("*.cpp"));
+        editor->setRules({QStringLiteral("*.jpg")});
+        group.writeEntry("Patterns", QStringList{QStringLiteral("*.jpg"), QStringLiteral("*.cpp"), QStringLiteral("*.png")});
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(group.readEntry("Patterns", QStringList()), (QStringList{QStringLiteral("*.jpg"), QStringLiteral("*.png")}));
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(group.readEntry("Patterns", QStringList()).isEmpty());
+        editor->setRules({QStringLiteral("*.jpg"), QStringLiteral("*.png")});
+        dialog.button(QDialogButtonBox::Apply)->click();
+        group.writeEntry("Patterns", QStringList{QStringLiteral("*.jpg"), QStringLiteral("*.png"), QStringLiteral("*.gif")});
+        auto *showLabels = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowFileLabels"));
+        QVERIFY(showLabels);
+        showLabels->setChecked(!showLabels->isChecked());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(group.readEntry("Patterns", QStringList()), (QStringList{QStringLiteral("*.jpg"), QStringLiteral("*.png"), QStringLiteral("*.gif")}));
+        showLabels->setChecked(!showLabels->isChecked());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(group.readEntry("Patterns", QStringList()), QStringList{QStringLiteral("*.gif")});
+        group.deleteEntry("Patterns");
+    }
+
+    void folderSizeDefaultsApplyAndMenuStaysInSync()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_AutomaticLocalFolderSizes"))->setChecked(true);
+        dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_AutomaticRemoteFolderSizes"))->setChecked(false);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(window.activePane()->view()->automaticFolderSizes());
+        QVERIFY(action(window, QStringLiteral("automatic_local_folder_sizes"))->isChecked());
+        QVERIFY(!action(window, QStringLiteral("automatic_remote_folder_sizes"))->isChecked());
+        action(window, QStringLiteral("automatic_local_folder_sizes"))->trigger();
+        QVERIFY(!Settings::automaticLocalFolderSizes());
+        QVERIFY(!window.activePane()->view()->automaticFolderSizes());
+        QCOMPARE(KSharedConfig::openConfig()->group(QStringLiteral("FolderSizes")).readEntry("AutomaticLocal", false), false);
+    }
+
+    void inheritedFormatSourceIsAccessibleFromViewMenu()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("child")));
+        FolderMetadata::Format format{QStringLiteral("list"), {}, QStringLiteral("name"), true, QStringLiteral("none"), true};
+        QVERIFY(FolderMetadata::setFormat(root.path(), format));
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(root.filePath(QStringLiteral("child")))});
+        QAction *openSource = action(window, QStringLiteral("open_folder_format_source"));
+        QAction *clear = action(window, QStringLiteral("clear_folder_format"));
+        QVERIFY(openSource->isEnabled());
+        QVERIFY(!clear->isEnabled());
+        openSource->trigger();
+        QCOMPARE(window.activePane()->url(), QUrl::fromLocalFile(root.path()));
+        QVERIFY(clear->isEnabled());
+        action(window, QStringLiteral("lock_folder_format"))->trigger();
+        QVERIFY(!clear->isEnabled());
     }
 
     void hiddenPanelSectionsKeepTheirCollapsedState()

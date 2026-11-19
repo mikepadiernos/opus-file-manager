@@ -31,6 +31,7 @@ bool setNote(const QString &folder, const QString &name, const QString &note, QS
 bool togglePin(const QString &folder, const QString &name, QString *error = nullptr);
 bool setFolderColor(const QString &folder, const QString &color, QString *error = nullptr);
 bool setFormat(const QString &folder, const Format &format, QString *error = nullptr);
+bool clearFormat(const QString &folder, QString *error = nullptr);
 
 /// Validates the per-folder view format before it is applied to a view.
 bool format(const QJsonObject &metadata, Format *result);

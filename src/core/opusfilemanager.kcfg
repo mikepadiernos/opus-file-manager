@@ -62,8 +62,12 @@
       <label>Show folders opened through a symbolic link at their real location</label>
       <default>false</default>
     </entry>
+    <entry name="RestoreHistorySelection" type="Bool"><default>true</default></entry>
+    <entry name="RestoreHistoryScroll" type="Bool"><default>true</default></entry>
   </group>
   <group name="FolderSizes">
+    <entry name="AutomaticLocalFolderSizes" key="AutomaticLocal" type="Bool"><default>false</default></entry>
+    <entry name="AutomaticRemoteFolderSizes" key="AutomaticRemote" type="Bool"><default>false</default></entry>
     <entry name="FolderSizeRefreshInterval" type="Int">
       <label>Refresh calculated folder sizes periodically, in seconds; zero disables refresh</label>
       <default>0</default>
@@ -199,6 +203,23 @@
       <label>Show the Type column</label>
       <default>true</default>
     </entry>
+    <entry name="InlineFolderExpansion" type="Bool"><default>true</default></entry>
+    <entry name="DetailsColumnWidth" type="Enum">
+      <choices><choice name="StretchName"/><choice name="Automatic"/><choice name="Manual"/></choices>
+      <default>StretchName</default>
+    </entry>
+    <entry name="DefaultSelectionMarkers" type="Bool"><default>false</default></entry>
+    <entry name="DefaultSelectionMode" type="Bool"><default>false</default></entry>
+    <entry name="CompactIconSize" type="Int"><default>16</default><min>16</min><max>64</max></entry>
+    <entry name="CompactItemSpacing" type="Int"><default>0</default><min>0</min><max>20</max></entry>
+    <entry name="CompactInformation" type="StringList"><default></default></entry>
+    <entry name="DefaultFilterScope" type="Enum">
+      <choices><choice name="Files"/><choice name="Folders"/><choice name="FilesAndFolders"/></choices>
+      <default>Files</default>
+    </entry>
+    <entry name="FilterTypeAhead" type="Bool"><default>true</default></entry>
+    <entry name="RetainFilterOnNavigation" type="Bool"><default>true</default></entry>
+    <entry name="HighlightFilterMatches" type="Bool"><default>true</default></entry>
   </group>
   <group name="View">
     <entry name="GroupBy" type="Enum">
@@ -296,15 +317,22 @@
   <group name="Tabs">
     <entry name="TabIcons" key="ShowIcons" type="Bool"><default>true</default></entry>
     <entry name="ExpandTabs" key="Expand" type="Bool"><default>true</default></entry>
+    <entry name="ShowTabColors" type="Bool"><default>true</default></entry>
   </group>
   <group name="Archives">
     <entry name="DefaultArchiveFormat" key="DefaultFormat" type="Int">
       <default>0</default><min>0</min><max>4</max>
     </entry>
+    <entry name="ArchiveOtherPaneByDefault" type="Bool"><default>false</default></entry>
   </group>
   <group name="Files">
     <entry name="IgnoreList" type="StringList"><default code="true">IgnoreList::defaultEntries()</default></entry>
     <entry name="ExtensionColors" type="StringList"><default></default></entry>
+    <entry name="ShowFileLabels" type="Bool"><default>true</default></entry>
+    <entry name="ShowFileColors" type="Bool"><default>true</default></entry>
+    <entry name="ShowFileRatings" type="Bool"><default>true</default></entry>
+    <entry name="ShowFilePins" type="Bool"><default>true</default></entry>
+    <entry name="PinnedItemsFirst" type="Bool"><default>true</default></entry>
   </group>
   <group name="StatusBar">
     <entry name="ShowItemCounts" type="Bool">

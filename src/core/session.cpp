@@ -59,7 +59,7 @@ PaneSession loadPane(const KConfigGroup &group)
     pane.lockedTabs = group.readEntry(LockedTabsKey, QList<int>());
     pane.names = group.readEntry(NamesKey, QStringList());
     pane.filterText = group.readEntry(FilterTextKey, QString());
-    pane.filterScope = group.readEntry(FilterScopeKey, 0);
+    pane.filterScope = group.readEntry(FilterScopeKey, -1);
     return pane;
 }
 
@@ -86,7 +86,7 @@ PaneSession sanitizePane(const PaneSession &pane, const QUrl &fallback)
     }
     result.currentTab = qBound(0, pane.currentTab, result.tabs.size() - 1);
     result.filterText = pane.filterText;
-    result.filterScope = qBound(0, pane.filterScope, 2);
+    result.filterScope = qBound(-1, pane.filterScope, 2);
     return result;
 }
 }
