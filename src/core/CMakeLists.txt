@@ -7,6 +7,8 @@ add_library(opusfm_core STATIC
     checksums.h
     filecolorrules.cpp
     filecolorrules.h
+    filesplitter.cpp
+    filesplitter.h
     favoritesmodel.cpp
     favoritesmodel.h
     flatview.cpp

@@ -4,6 +4,7 @@ ecm_add_tests(
     archivestest.cpp
     checksumstest.cpp
     favoritesmodeltest.cpp
+    filesplittertest.cpp
     foldermetadatatest.cpp
     foldercomparisontest.cpp
     flatviewtest.cpp
