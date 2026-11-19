@@ -37,6 +37,7 @@ ecm_add_tests(
     symboliciconstest.cpp
     tabmodeltest.cpp
     treemaptest.cpp
+    transferqueuetest.cpp
     viewsettingstest.cpp
     LINK_LIBRARIES opusfm_core Qt6::Test KF6::ConfigCore
     NAME_PREFIX "opusfm-"
@@ -61,6 +62,12 @@ ecm_add_test(customcommanddialogtest.cpp
 )
 
 ecm_add_test(metadataeditdialogtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
+ecm_add_test(transferqueuedialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
     GUI

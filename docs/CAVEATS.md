@@ -274,6 +274,25 @@ open archives with 7-Zip or another trusted external tool when needed.
   preservation guarantees.
   ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/374#issuecomment-7025134952))
 
+## Transfer queue
+
+- The queue serializes copy and move jobs started through pane, context-menu
+  and gallery actions. Clipboard paste and drag-and-drop use KIO directly and
+  do not appear in the queue. Progress, speed and controls depend on the KIO
+  job and worker; cancellation may leave partial results. The queue is held
+  only in memory: waiting jobs are discarded on application exit, and active
+  jobs may be canceled. Opus warns before closing a window while transfers are
+  pending. External KIO progress interfaces may control a job independently of
+  the queue display. KIO records undo when a queued copy or move begins, not
+  while waiting. ([#375](https://github.com/mikepadiernos/opus-file-manager/issues/375))
+
+  **Recommendation:** Use queued pane, context-menu or gallery copy and move
+  actions; use the normal KIO progress interface for paste and drag-and-drop.
+  Check partial results after cancellation or errors and keep Opus open until
+  queued work finishes. Resume externally paused jobs from the external
+  interface. Inspect the KIO undo stack after a transfer starts.
+  ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/375#issuecomment-7025250130))
+
 ## Custom commands
 
 - Commands require a local working folder and local selections. Placeholders

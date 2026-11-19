@@ -331,9 +331,9 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 - ~~Compare folders across the two panes (Krusader)~~
 - ~~Create and verify checksum files (Krusader)~~
 - ~~Split and combine files (Krusader)~~
-- Transfer queue with per-job progress, speed, errors and pause, resume and
+- ~~Transfer queue with per-job progress, speed, errors and pause, resume and
   cancellation controls where supported by the underlying KIO job (Krusader,
-  Max)
+  Max)~~
 - ~~Embedded terminal alongside both panes: below them or at the right of the app
   for portrait/stacked layouts; showing it never replaces either pane~~
 - ~~Placeholders for scripts and custom commands~~
@@ -352,7 +352,8 @@ tracked in #314; [folder content chart](CAVEATS.md#folder-content-chart), tracke
 [search](CAVEATS.md#search), tracked in #362;
 [batch rename](CAVEATS.md#batch-rename), tracked in #372;
 [custom commands](CAVEATS.md#custom-commands), tracked in #373;
-[metadata editing](CAVEATS.md#metadata-editing), tracked in #374.
+[metadata editing](CAVEATS.md#metadata-editing), tracked in #374;
+[transfer queue](CAVEATS.md#transfer-queue), tracked in #375.
 
 ### M10 Tools settings
 

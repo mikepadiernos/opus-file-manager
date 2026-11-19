@@ -21,6 +21,7 @@
 #include "settings.h"
 #include "settingsdialog.h"
 #include "tabmodel.h"
+#include "transferqueuedialog.h"
 #include "viewsettings.h"
 
 #include <KActionCollection>
@@ -87,6 +88,17 @@ private Q_SLOTS:
         m_a = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("a")));
         m_b = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("b")));
         m_c = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("c")));
+    }
+
+    void opensTransferQueue()
+    {
+        MainWindow window;
+        auto *action = window.actionCollection()->action(QStringLiteral("transfer_queue"));
+        QVERIFY(action && action->isEnabled());
+        action->trigger();
+        auto *dialog = window.findChild<TransferQueueDialog *>(QStringLiteral("transferQueueDialog"));
+        QVERIFY(dialog);
+        dialog->close();
     }
 
     void opensCustomCommandForLocalFolder()

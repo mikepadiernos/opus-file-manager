@@ -41,6 +41,7 @@ for file operations, Places, properties, settings and desktop integration.
 - Preview local batch renames with numbering, metadata tokens, regex rules and
   named presets.
 - Preview edits to selected JPEG, TIFF and MP3 metadata fields.
+- Queue copy and move transfers with per-job progress and controls.
 - Preview and run scripts or commands with selection placeholders and saved
   command presets.
 - Preview local duplicates, select candidates by date or folder, and move
@@ -67,7 +68,8 @@ navigation supports local folders only. Duplicate-finder results require manual
 review and verification. Live search is local-only and has scan and content
 limits. Metadata editing requires ExifTool and has format and write limitations.
 Custom commands run with the user's permissions and have local-context and
-output limits. See [caveats and limitations](docs/CAVEATS.md) for details.
+output limits. Paste and drag-and-drop bypass the transfer queue. See
+[caveats and limitations](docs/CAVEATS.md) for details.
 
 ## Build and run
 

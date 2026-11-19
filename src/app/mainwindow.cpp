@@ -38,6 +38,8 @@
 #include "tabcolors.h"
 #include "tabmodel.h"
 #include "terminalpanel.h"
+#include "transferqueue.h"
+#include "transferqueuedialog.h"
 #include "viewsettings.h"
 
 #include <KActionCollection>
@@ -967,6 +969,9 @@ void MainWindow::setupActions()
     QAction *customCommand = actions->addAction(QStringLiteral("custom_command"), this, &MainWindow::showCustomCommand);
     customCommand->setText(i18nc("@action", "Scripts and Custom Commands…"));
     customCommand->setIcon(QIcon::fromTheme(QStringLiteral("system-run")));
+    QAction *transferQueue = actions->addAction(QStringLiteral("transfer_queue"), this, &MainWindow::showTransferQueue);
+    transferQueue->setText(i18nc("@action", "Transfer Queue…"));
+    transferQueue->setIcon(QIcon::fromTheme(QStringLiteral("view-list-details")));
     QAction *editor = actions->addAction(QStringLiteral("open_editor"), this, &MainWindow::openEditor);
     editor->setText(i18nc("@action", "Open Editor"));
     editor->setIcon(QIcon::fromTheme(QStringLiteral("accessories-text-editor")));
@@ -1472,6 +1477,21 @@ void MainWindow::saveSession()
 
 bool MainWindow::queryClose()
 {
+    const auto transfers = FileOperations::transferQueue()->entries();
+    const bool transfersPending = std::any_of(transfers.cbegin(), transfers.cend(), [](const QueuedTransfer *transfer) {
+        return transfer->state() == QueuedTransfer::State::Waiting || transfer->state() == QueuedTransfer::State::Running
+            || transfer->state() == QueuedTransfer::State::Paused;
+    });
+    if (transfersPending
+        && KMessageBox::warningContinueCancel(this,
+                                              i18nc("@info",
+                                                    "Transfers are still queued or running. Closing the application may cancel active transfers "
+                                                    "and discards waiting transfers. Close this window anyway?"),
+                                              i18nc("@title:window", "Transfers in Progress"),
+                                              KGuiItem(i18nc("@action:button", "Close Window"), QStringLiteral("window-close")))
+            != KMessageBox::Continue) {
+        return false;
+    }
     const bool severalTabs = m_left->tabs()->count() > 1 || m_right->tabs()->count() > 1;
     if (Settings::confirmClosingMultipleTabs() && severalTabs
         && KMessageBox::warningContinueCancel(this,
@@ -2709,6 +2729,13 @@ void MainWindow::editMetadata()
         return;
     }
     auto *dialog = new MetadataEditDialog(items.first().url().toLocalFile(), this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
+void MainWindow::showTransferQueue()
+{
+    auto *dialog = new TransferQueueDialog(FileOperations::transferQueue(), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
 }

@@ -151,6 +151,7 @@ private:
     void batchRename();
     void editMetadata();
     void showCustomCommand();
+    void showTransferQueue();
     void trash();
     void deletePermanently();
     void showProperties();

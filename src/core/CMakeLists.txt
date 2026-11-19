@@ -82,6 +82,8 @@ add_library(opusfm_core STATIC
     tabmodel.h
     treemap.cpp
     treemap.h
+    transferqueue.cpp
+    transferqueue.h
     viewsettings.cpp
     viewsettings.h
 )

@@ -10,6 +10,7 @@
 class QDropEvent;
 class QWidget;
 class KJob;
+class TransferQueue;
 
 namespace KIO
 {
@@ -23,6 +24,7 @@ class DropJob;
  */
 namespace FileOperations
 {
+TransferQueue *transferQueue();
 KJob *copy(const QList<QUrl> &sources, const QUrl &destination, QWidget *window);
 KJob *move(const QList<QUrl> &sources, const QUrl &destination, QWidget *window);
 KJob *trash(const QList<QUrl> &urls, QWidget *window);

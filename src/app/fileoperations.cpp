@@ -5,6 +5,7 @@
 #include "executables.h"
 #include "settings.h"
 #include "symlinks.h"
+#include "transferqueue.h"
 
 #include <KIO/CopyJob>
 #include <KIO/DeleteOrTrashJob>
@@ -18,6 +19,7 @@
 #include <KIO/RenameFileDialog>
 #include <KIO/SimpleJob>
 #include <KJobWidgets>
+#include <KLocalizedString>
 #include <KPropertiesDialog>
 #include <KTerminalLauncherJob>
 
@@ -26,6 +28,7 @@
 #include <QDropEvent>
 #include <QFileInfo>
 #include <QMimeData>
+#include <QPointer>
 
 namespace
 {
@@ -36,15 +39,25 @@ void attachWindow(KJob *job, QWidget *window)
 }
 }
 
+TransferQueue *FileOperations::transferQueue()
+{
+    static auto *queue = new TransferQueue(qApp);
+    return queue;
+}
+
 KJob *FileOperations::copy(const QList<QUrl> &sources, const QUrl &destination, QWidget *window)
 {
     if (sources.isEmpty() || !destination.isValid()) {
         return nullptr;
     }
-    KIO::CopyJob *job = KIO::copy(sources, destination);
-    attachWindow(job, window);
-    KIO::FileUndoManager::self()->recordCopyJob(job);
-    return job;
+    const QPointer<QWidget> safeWindow(window);
+    return transferQueue()->enqueue(i18np("Copy one item to %2", "Copy %1 items to %2", sources.size(), destination.toDisplayString()),
+                                    [sources, destination, safeWindow] {
+                                        KIO::CopyJob *job = KIO::copy(sources, destination);
+                                        attachWindow(job, safeWindow);
+                                        KIO::FileUndoManager::self()->recordCopyJob(job);
+                                        return job;
+                                    });
 }
 
 KJob *FileOperations::move(const QList<QUrl> &sources, const QUrl &destination, QWidget *window)
@@ -52,10 +65,14 @@ KJob *FileOperations::move(const QList<QUrl> &sources, const QUrl &destination, 
     if (sources.isEmpty() || !destination.isValid()) {
         return nullptr;
     }
-    KIO::CopyJob *job = KIO::move(sources, destination);
-    attachWindow(job, window);
-    KIO::FileUndoManager::self()->recordCopyJob(job);
-    return job;
+    const QPointer<QWidget> safeWindow(window);
+    return transferQueue()->enqueue(i18np("Move one item to %2", "Move %1 items to %2", sources.size(), destination.toDisplayString()),
+                                    [sources, destination, safeWindow] {
+                                        KIO::CopyJob *job = KIO::move(sources, destination);
+                                        attachWindow(job, safeWindow);
+                                        KIO::FileUndoManager::self()->recordCopyJob(job);
+                                        return job;
+                                    });
 }
 
 KJob *FileOperations::trash(const QList<QUrl> &urls, QWidget *window)
