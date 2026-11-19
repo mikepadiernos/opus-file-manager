@@ -2,6 +2,8 @@ add_library(opusfm_core STATIC
     favoritesmodel.cpp
     favoritesmodel.h
     navigationhistory.cpp
+    namefilter.cpp
+    namefilter.h
     navigationhistory.h
     session.cpp
     session.h
