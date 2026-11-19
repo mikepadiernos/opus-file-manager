@@ -25,6 +25,24 @@ namespace
 constexpr qulonglong MiB = 1024 * 1024;
 constexpr qulonglong NoLimit = std::numeric_limits<qulonglong>::max();
 constexpr int MaximumMiB = 100000;
+
+QStringList sanitizedRules(RuleListEditor::Kind kind, const QStringList &rules)
+{
+    if (kind == RuleListEditor::Kind::Ignore) {
+        return IgnoreList(rules).entries();
+    }
+    if (kind == RuleListEditor::Kind::Color) {
+        return FileColorRules(rules).entries();
+    }
+    QStringList result;
+    for (const QString &rule : rules) {
+        const QString pattern = rule.trimmed();
+        if (!pattern.isEmpty() && !result.contains(pattern)) {
+            result.append(pattern);
+        }
+    }
+    return result;
+}
 }
 
 RuleListEditor::RuleListEditor(Kind kind, QWidget *parent)
@@ -76,7 +94,7 @@ QStringList RuleListEditor::rules() const
 void RuleListEditor::setRules(const QStringList &rules)
 {
     m_list->clear();
-    const QStringList sanitized = m_kind == Kind::Ignore ? IgnoreList(rules).entries() : FileColorRules(rules).entries();
+    const QStringList sanitized = sanitizedRules(m_kind, rules);
     for (const QString &rule : sanitized) {
         auto *item = new QListWidgetItem(rule, m_list);
         item->setData(Qt::UserRole, rule);
@@ -95,8 +113,8 @@ void RuleListEditor::editRule(int row)
     QStringList current = rules();
     const QString old = row >= 0 ? current.takeAt(row) : QString();
     bool accepted = false;
-    const QString label = m_kind == Kind::Ignore ? i18nc("@label:textbox", "File name or glob pattern:") : i18nc("@label:textbox", "File extension:");
-    const QString initial = m_kind == Kind::Ignore ? old : old.section(u'=', 0, 0);
+    const QString label = m_kind == Kind::Color ? i18nc("@label:textbox", "File extension:") : i18nc("@label:textbox", "File name or glob pattern:");
+    const QString initial = m_kind == Kind::Color ? old.section(u'=', 0, 0) : old;
     QString value = QInputDialog::getText(this, i18nc("@title:window", "Edit Rule"), label, QLineEdit::Normal, initial, &accepted).trimmed();
     if (!accepted) {
         return;
@@ -110,7 +128,7 @@ void RuleListEditor::editRule(int row)
         value += u'=' + color.name(QColor::HexRgb);
     }
     current.append(value);
-    const QStringList sanitized = m_kind == Kind::Ignore ? IgnoreList(current).entries() : FileColorRules(current).entries();
+    const QStringList sanitized = sanitizedRules(m_kind, current);
     if (sanitized.size() != current.size()) {
         QMessageBox::warning(this, i18nc("@title:window", "Invalid Rule"), i18nc("@info", "The rule is invalid, duplicated, or the list is full."));
         return;

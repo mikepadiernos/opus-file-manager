@@ -27,6 +27,7 @@
 #include <KIO/DropJob>
 #include <KIO/Global>
 #include <KIO/Job>
+#include <KIconUtils>
 #include <KJobWidgets>
 #include <KLocalizedString>
 #include <KSharedConfig>
@@ -110,6 +111,32 @@ QString sortKeyForColumn(int column, bool ratingColumn)
         }
     }
     return QStringLiteral("name");
+}
+
+KFileItemDelegate::InformationList informationForKeys(const QStringList &keys)
+{
+    const QHash<QString, KFileItemDelegate::Information> options{
+        {QStringLiteral("size"), KFileItemDelegate::Size},
+        {QStringLiteral("permissions"), KFileItemDelegate::Permissions},
+        {QStringLiteral("octalPermissions"), KFileItemDelegate::OctalPermissions},
+        {QStringLiteral("owner"), KFileItemDelegate::Owner},
+        {QStringLiteral("ownerAndGroup"), KFileItemDelegate::OwnerAndGroup},
+        {QStringLiteral("creationTime"), KFileItemDelegate::CreationTime},
+        {QStringLiteral("modificationTime"), KFileItemDelegate::ModificationTime},
+        {QStringLiteral("accessTime"), KFileItemDelegate::AccessTime},
+        {QStringLiteral("mimeType"), KFileItemDelegate::MimeType},
+        {QStringLiteral("friendlyMimeType"), KFileItemDelegate::FriendlyMimeType},
+        {QStringLiteral("linkDest"), KFileItemDelegate::LinkDest},
+        {QStringLiteral("localPathOrUrl"), KFileItemDelegate::LocalPathOrUrl},
+        {QStringLiteral("comment"), KFileItemDelegate::Comment},
+    };
+    KFileItemDelegate::InformationList information;
+    for (const QString &key : keys) {
+        if (options.contains(key)) {
+            information.append(options.value(key));
+        }
+    }
+    return information;
 }
 }
 
@@ -195,6 +222,13 @@ public:
         m_fileColors = fileColors;
         m_ignoreList = ignoreList;
         endFilterChange(QSortFilterProxyModel::Direction::Rows);
+        if (m_pinnedItemsFirst != Settings::pinnedItemsFirst()) {
+            m_pinnedItemsFirst = Settings::pinnedItemsFirst();
+            const int column = sortColumn();
+            const Qt::SortOrder order = sortOrder();
+            sort(-1);
+            sort(column, order);
+        }
         if (rowCount() > 0) {
             Q_EMIT dataChanged(index(0, 0), index(rowCount() - 1, columnCount() - 1), {Qt::DisplayRole, Qt::ForegroundRole});
         }
@@ -337,7 +371,7 @@ public:
         if (m_ratingColumn && index.column() == KDirModel::Group && role == Qt::DisplayRole) {
             const KFileItem item = itemAt(index);
             const int rating = metadataForItem(item).value(QStringLiteral("ratings")).toObject().value(item.name()).toInt();
-            return rating > 0 ? QVariant(rating) : QVariant();
+            return Settings::showFileRatings() && rating > 0 ? QVariant(rating) : QVariant();
         }
         if (isRelativePath(index.column()) && role == Qt::DisplayRole) {
             return FlatView::relativeFolder(m_flatBase, itemAt(index).url());
@@ -349,7 +383,7 @@ public:
             const QString color = metadata.value(QStringLiteral("colors")).toObject().value(name).toString();
             const QString label = metadata.value(QStringLiteral("labels")).toObject().value(name).toString();
             if (role == Qt::ForegroundRole && index.column() == KDirModel::Name) {
-                if (!color.isEmpty()) {
+                if (Settings::showFileColors() && !color.isEmpty()) {
                     return QColor(color);
                 }
                 const QColor extensionColor = m_fileColors.colorForFileName(name);
@@ -357,26 +391,36 @@ public:
                     return extensionColor;
                 }
                 const QColor labelColor = LabelColors::rgb(LabelColors::fromKey(label));
-                if (labelColor.isValid()) {
+                if (Settings::showFileLabels() && labelColor.isValid()) {
                     return labelColor;
                 }
             }
             if (role == Qt::ToolTipRole) {
+                QStringList details;
+                const QString defaultTip = KDirSortFilterProxyModel::data(index, role).toString();
+                if (!defaultTip.isEmpty()) {
+                    details.append(defaultTip);
+                }
                 const QString note = metadata.value(QStringLiteral("notes")).toObject().value(name).toString();
                 if (!note.isEmpty()) {
-                    const QString defaultTip = KDirSortFilterProxyModel::data(index, role).toString();
-                    return defaultTip.isEmpty() ? note : defaultTip + u'\n' + note;
+                    details.append(note);
+                }
+                if (Settings::showFilePins() && metadata.value(QStringLiteral("pins")).toArray().contains(name)) {
+                    details.append(i18nc("@info:tooltip pinned file", "Pinned"));
+                }
+                if (!details.isEmpty()) {
+                    return details.join(u'\n');
                 }
             }
         }
-        if (role == Qt::BackgroundRole && index.column() == KDirModel::Name && m_filter.appliesTo(itemAt(index).isDir())
+        if (Settings::highlightFilterMatches() && role == Qt::BackgroundRole && index.column() == KDirModel::Name && m_filter.appliesTo(itemAt(index).isDir())
             && m_filter.text().trimmed().startsWith(u'#') == false && m_filter.text().trimmed().startsWith(u'*') == false) {
             QColor highlight = QApplication::palette().color(QPalette::Highlight);
             highlight.setAlpha(45);
             return highlight;
         }
-        if (role == Qt::FontRole && index.column() == KDirModel::Name && m_filter.appliesTo(itemAt(index).isDir()) && !m_filter.text().trimmed().isEmpty()
-            && !m_filter.text().contains(u'*') && !m_filter.text().contains(u'?') && !m_filter.text().contains(u'[')
+        if (Settings::highlightFilterMatches() && role == Qt::FontRole && index.column() == KDirModel::Name && m_filter.appliesTo(itemAt(index).isDir())
+            && !m_filter.text().trimmed().isEmpty() && !m_filter.text().contains(u'*') && !m_filter.text().contains(u'?') && !m_filter.text().contains(u'[')
             && itemAt(index).name().contains(m_filter.text().trimmed(), Qt::CaseInsensitive)) {
             QFont font = QApplication::font();
             font.setBold(true);
@@ -385,7 +429,11 @@ public:
         const QVariant value = KDirSortFilterProxyModel::data(index, role);
         if (role == Qt::DecorationRole && value.typeId() == QMetaType::QIcon) {
             const KFileItem item = itemAt(index);
-            return SymbolicIcon::wrap(value.value<QIcon>(), item.iconName(), item.overlays());
+            const QIcon icon = SymbolicIcon::wrap(value.value<QIcon>(), item.iconName(), item.overlays());
+            if (Settings::showFilePins() && metadataForItem(item).value(QStringLiteral("pins")).toArray().contains(item.name())) {
+                return KIconUtils::addOverlays(icon, {QStringLiteral("emblem-favorite")});
+            }
+            return icon;
         }
         return value;
     }
@@ -444,7 +492,7 @@ protected:
         }
         const bool leftPinned = pins.contains(itemAt(left).name());
         const bool rightPinned = rightPins.contains(itemAt(right).name());
-        if (leftPinned != rightPinned) {
+        if (Settings::pinnedItemsFirst() && leftPinned != rightPinned) {
             return sortOrder() == Qt::DescendingOrder ? !leftPinned : leftPinned;
         }
         if (m_groupBy != QLatin1String("none")) {
@@ -563,6 +611,7 @@ private:
     QHash<QUrl, quint64> m_folderSizes;
     QString m_groupBy = QStringLiteral("none");
     bool m_ratingColumn = false;
+    bool m_pinnedItemsFirst = Settings::pinnedItemsFirst();
 };
 
 namespace
@@ -908,6 +957,12 @@ FolderView::FolderView(QWidget *parent)
     connect(m_details->header(), &QHeaderView::sectionMoved, this, [this] {
         saveFolderFormat();
     });
+    applyDetailsPreferences();
+    applyCompactPreferences();
+    m_defaultSelectionMarkers = Settings::defaultSelectionMarkers();
+    m_defaultSelectionMode = Settings::defaultSelectionMode();
+    setSelectionMarkersVisible(m_defaultSelectionMarkers);
+    setSelectionMode(m_defaultSelectionMode);
 }
 
 FolderView::~FolderView()
@@ -1291,7 +1346,7 @@ void FolderView::selectUrls(const QList<QUrl> &urls)
 
 bool FolderView::expandForHistorySelection(const QList<QUrl> &urls)
 {
-    if (m_viewMode != ViewMode::Details || m_flat) {
+    if (m_viewMode != ViewMode::Details || m_flat || !Settings::inlineFolderExpansion()) {
         return false;
     }
     QList<QUrl> nested;
@@ -1370,8 +1425,8 @@ void FolderView::setFlat(bool flat)
     }
     cancelFolderSizeJobs();
     m_flat = flat;
-    m_details->setRootIsDecorated(!flat);
-    m_details->setItemsExpandable(!flat);
+    m_details->setRootIsDecorated(!flat && Settings::inlineFolderExpansion());
+    m_details->setItemsExpandable(!flat && Settings::inlineFolderExpansion());
     if (flat) {
         m_details->collapseAll();
     }
@@ -1394,6 +1449,9 @@ void FolderView::reloadMetadata()
     const KConfigGroup filesGroup = KSharedConfig::openConfig()->group(QStringLiteral("Files"));
     m_proxy->setSettings(settings, FileColorRules::fromConfig(filesGroup), IgnoreList::fromConfig(filesGroup));
     m_proxy->setMetadata(metadata, m_folder.isLocalFile() ? m_folder.toLocalFile() : QString());
+    m_details->viewport()->update();
+    m_icons->viewport()->update();
+    m_compact->viewport()->update();
     if (!m_formatLocked && m_formatRuleSource.isEmpty()) {
         m_proxy->setGroupBy(settings.groupBy);
     }
@@ -1416,6 +1474,31 @@ QString FolderView::formatRuleDescription() const
         return i18nc("@info:status folder format", "Folder format: %1", m_formatRuleSource);
     }
     return i18nc("@info:status folder format", "Folder format: defaults");
+}
+
+QString FolderView::formatRuleSource() const
+{
+    return m_formatRuleSource;
+}
+
+bool FolderView::hasLocalFolderFormat() const
+{
+    FolderMetadata::Format format;
+    return m_folder.isLocalFile() && FolderMetadata::format(m_proxy->metadata(), &format);
+}
+
+void FolderView::clearLocalFolderFormat()
+{
+    if (!hasLocalFolderFormat() || m_formatLocked || m_flat) {
+        return;
+    }
+    QString error;
+    if (!FolderMetadata::clearFormat(m_folder.toLocalFile(), &error)) {
+        Q_EMIT listingFailed(error);
+        return;
+    }
+    loadFolderFormat();
+    refreshFolderSizePolicy();
 }
 
 bool FolderView::formatLocked() const
@@ -1474,8 +1557,7 @@ bool FolderView::automaticFolderSizes() const
     if (m_ruleHasFolderSizePolicy) {
         return m_ruleCalculatesFolderSizes;
     }
-    const KConfigGroup group = KSharedConfig::openConfig()->group(QStringLiteral("FolderSizes"));
-    return group.readEntry(m_folder.isLocalFile() ? "AutomaticLocal" : "AutomaticRemote", false);
+    return m_folder.isLocalFile() ? Settings::automaticLocalFolderSizes() : Settings::automaticRemoteFolderSizes();
 }
 
 void FolderView::setAutomaticFolderSizes(bool enabled)
@@ -1637,31 +1719,53 @@ void FolderView::reloadSettings()
 void FolderView::reloadListingSettings()
 {
     updateFolderSizeRefreshTimer();
-    const QHash<QString, KFileItemDelegate::Information> options{
-        {QStringLiteral("size"), KFileItemDelegate::Size},
-        {QStringLiteral("permissions"), KFileItemDelegate::Permissions},
-        {QStringLiteral("octalPermissions"), KFileItemDelegate::OctalPermissions},
-        {QStringLiteral("owner"), KFileItemDelegate::Owner},
-        {QStringLiteral("ownerAndGroup"), KFileItemDelegate::OwnerAndGroup},
-        {QStringLiteral("creationTime"), KFileItemDelegate::CreationTime},
-        {QStringLiteral("modificationTime"), KFileItemDelegate::ModificationTime},
-        {QStringLiteral("accessTime"), KFileItemDelegate::AccessTime},
-        {QStringLiteral("mimeType"), KFileItemDelegate::MimeType},
-        {QStringLiteral("friendlyMimeType"), KFileItemDelegate::FriendlyMimeType},
-        {QStringLiteral("linkDest"), KFileItemDelegate::LinkDest},
-        {QStringLiteral("localPathOrUrl"), KFileItemDelegate::LocalPathOrUrl},
-        {QStringLiteral("comment"), KFileItemDelegate::Comment},
-    };
-    KFileItemDelegate::InformationList information;
-    for (const QString &key : Settings::iconInformation()) {
-        if (options.contains(key)) {
-            information.append(options.value(key));
-        }
+    applyDetailsPreferences();
+    applyCompactPreferences();
+    if (m_defaultSelectionMarkers != Settings::defaultSelectionMarkers()) {
+        m_defaultSelectionMarkers = Settings::defaultSelectionMarkers();
+        setSelectionMarkersVisible(m_defaultSelectionMarkers);
     }
-    m_iconDelegate->setShowInformation(information);
+    if (m_defaultSelectionMode != Settings::defaultSelectionMode()) {
+        m_defaultSelectionMode = Settings::defaultSelectionMode();
+        setSelectionMode(m_defaultSelectionMode);
+    }
+    m_iconDelegate->setShowInformation(informationForKeys(Settings::iconInformation()));
     setIconSizes(Settings::detailsIconSize(), Settings::iconsIconSize());
     m_icons->doItemsLayout();
     reloadMetadata();
+    m_details->viewport()->update();
+    m_icons->viewport()->update();
+    m_compact->viewport()->update();
+}
+
+void FolderView::applyCompactPreferences()
+{
+    const int size = Settings::compactIconSize();
+    m_compact->setIconSize(QSize(size, size));
+    m_compact->setSpacing(Settings::compactItemSpacing());
+    static_cast<KFileItemDelegate *>(m_compact->itemDelegate())->setShowInformation(informationForKeys(Settings::compactInformation()));
+    m_compact->doItemsLayout();
+}
+
+void FolderView::applyDetailsPreferences()
+{
+    const bool expandable = !m_flat && Settings::inlineFolderExpansion();
+    if (!expandable) {
+        const bool restoringHistory = m_historyExpanding;
+        cancelHistoryExpansion();
+        m_details->collapseAll();
+        if (restoringHistory) {
+            Q_EMIT historyExpansionFinished();
+        }
+    }
+    m_details->setRootIsDecorated(expandable);
+    m_details->setItemsExpandable(expandable);
+    QHeaderView *header = m_details->header();
+    const int width = Settings::detailsColumnWidth();
+    header->setSectionResizeMode(width == Settings::EnumDetailsColumnWidth::Automatic ? QHeaderView::ResizeToContents : QHeaderView::Interactive);
+    if (width == Settings::EnumDetailsColumnWidth::StretchName) {
+        header->setSectionResizeMode(KDirModel::Name, QHeaderView::Stretch);
+    }
 }
 
 void FolderView::loadFolderFormat()
@@ -1736,37 +1840,7 @@ void FolderView::loadFolderFormat()
     setDragFromAnywhere(defaults.readEntry("DragFromAnywhere", false));
     setShowToolTips(defaults.readEntry("ShowToolTips", true));
 
-    KFileItemDelegate::InformationList information;
-    for (const QString &key : settings.iconInformation) {
-        if (key == QLatin1String("size")) {
-            information.append(KFileItemDelegate::Size);
-        } else if (key == QLatin1String("permissions")) {
-            information.append(KFileItemDelegate::Permissions);
-        } else if (key == QLatin1String("octalPermissions")) {
-            information.append(KFileItemDelegate::OctalPermissions);
-        } else if (key == QLatin1String("owner")) {
-            information.append(KFileItemDelegate::Owner);
-        } else if (key == QLatin1String("ownerAndGroup")) {
-            information.append(KFileItemDelegate::OwnerAndGroup);
-        } else if (key == QLatin1String("creationTime")) {
-            information.append(KFileItemDelegate::CreationTime);
-        } else if (key == QLatin1String("modificationTime")) {
-            information.append(KFileItemDelegate::ModificationTime);
-        } else if (key == QLatin1String("accessTime")) {
-            information.append(KFileItemDelegate::AccessTime);
-        } else if (key == QLatin1String("mimeType")) {
-            information.append(KFileItemDelegate::MimeType);
-        } else if (key == QLatin1String("friendlyMimeType")) {
-            information.append(KFileItemDelegate::FriendlyMimeType);
-        } else if (key == QLatin1String("linkDest")) {
-            information.append(KFileItemDelegate::LinkDest);
-        } else if (key == QLatin1String("localPathOrUrl")) {
-            information.append(KFileItemDelegate::LocalPathOrUrl);
-        } else if (key == QLatin1String("comment")) {
-            information.append(KFileItemDelegate::Comment);
-        }
-    }
-    m_iconDelegate->setShowInformation(information);
+    m_iconDelegate->setShowInformation(informationForKeys(settings.iconInformation));
     setIconSizes(Settings::detailsIconSize(), Settings::iconsIconSize());
     m_icons->doItemsLayout();
     m_applyingFolderFormat = false;
@@ -2074,7 +2148,8 @@ bool FolderView::eventFilter(QObject *watched, QEvent *event)
             break;
         }
         const QString text = keyEvent->text();
-        if ((keyEvent->modifiers() & ~Qt::ShiftModifier) == Qt::NoModifier && !text.isEmpty() && text.at(0).isPrint() && !text.trimmed().isEmpty()) {
+        if (Settings::filterTypeAhead() && (keyEvent->modifiers() & ~Qt::ShiftModifier) == Qt::NoModifier && !text.isEmpty() && text.at(0).isPrint()
+            && !text.trimmed().isEmpty()) {
             Q_EMIT typeAheadRequested(text);
             return true;
         }

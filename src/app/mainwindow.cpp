@@ -483,7 +483,11 @@ void MainWindow::compress()
     }
     const QString defaultName = selected.size() == 1 ? (selected.first().isDir() ? selected.first().name() : Archives::baseName(selected.first().name()))
                                                      : activePane()->url().adjusted(QUrl::StripTrailingSlash).fileName();
-    CompressDialog dialog(defaultName, inactivePane()->url().isLocalFile(), this, static_cast<ArchiveWriter::Format>(Settings::defaultArchiveFormat()));
+    CompressDialog dialog(defaultName,
+                          inactivePane()->url().isLocalFile(),
+                          this,
+                          static_cast<ArchiveWriter::Format>(Settings::defaultArchiveFormat()),
+                          Settings::archiveOtherPaneByDefault());
     if (dialog.exec() != QDialog::Accepted) {
         return;
     }
@@ -967,6 +971,24 @@ void MainWindow::setupActions()
 
     QAction *formatSource = actions->addAction(QStringLiteral("folder_format_source"));
     formatSource->setEnabled(false);
+    QAction *openFormatSource = actions->addAction(QStringLiteral("open_folder_format_source"), this, [this] {
+        const QString source = activePane()->view()->formatRuleSource();
+        if (!source.isEmpty()) {
+            activePane()->setUrl(QUrl::fromLocalFile(source));
+        }
+    });
+    openFormatSource->setText(i18nc("@action", "Go to Folder Format Source"));
+    QAction *clearFormat = actions->addAction(QStringLiteral("clear_folder_format"), this, [this] {
+        if (KMessageBox::warningContinueCancel(
+                this,
+                i18nc("@info", "Remove this folder's saved format? Other supported metadata is kept, but unsupported fields may be discarded."),
+                i18nc("@title:window", "Remove Folder Format"))
+            == KMessageBox::Continue) {
+            activePane()->view()->clearLocalFolderFormat();
+            updateActions();
+        }
+    });
+    clearFormat->setText(i18nc("@action", "Remove This Folder's Format…"));
     QAction *formatLock = actions->addAction(QStringLiteral("lock_folder_format"));
     formatLock->setText(i18nc("@action", "Lock Current Pane Format"));
     formatLock->setCheckable(true);
@@ -997,23 +1019,26 @@ void MainWindow::setupActions()
         updateActions();
     });
     defaultSizePolicy->setText(i18nc("@action", "Use Location Default for This Format's Folder Sizes"));
-    const auto addSizeDefault = [this, actions](const QString &name, const QString &text, const char *key) {
+    const auto addSizeDefault = [this, actions](const QString &name, const QString &text, bool local) {
         QAction *action = actions->addAction(name);
         action->setText(text);
         action->setCheckable(true);
-        connect(action, &QAction::triggered, this, [this, key](bool enabled) {
-            KConfigGroup group = KSharedConfig::openConfig()->group(QStringLiteral("FolderSizes"));
-            group.writeEntry(key, enabled);
-            group.sync();
+        connect(action, &QAction::triggered, this, [this, local](bool enabled) {
+            if (local) {
+                Settings::setAutomaticLocalFolderSizes(enabled);
+            } else {
+                Settings::setAutomaticRemoteFolderSizes(enabled);
+            }
+            Settings::self()->save();
+            m_automaticLocalSizeDefault = Settings::automaticLocalFolderSizes();
+            m_automaticRemoteSizeDefault = Settings::automaticRemoteFolderSizes();
             m_left->view()->refreshFolderSizePolicy();
             m_right->view()->refreshFolderSizePolicy();
             updateActions();
         });
     };
-    addSizeDefault(QStringLiteral("automatic_local_folder_sizes"), i18nc("@action", "Automatically Calculate Local Folder Sizes by Default"), "AutomaticLocal");
-    addSizeDefault(QStringLiteral("automatic_remote_folder_sizes"),
-                   i18nc("@action", "Automatically Calculate Remote Folder Sizes by Default"),
-                   "AutomaticRemote");
+    addSizeDefault(QStringLiteral("automatic_local_folder_sizes"), i18nc("@action", "Automatically Calculate Local Folder Sizes by Default"), true);
+    addSizeDefault(QStringLiteral("automatic_remote_folder_sizes"), i18nc("@action", "Automatically Calculate Remote Folder Sizes by Default"), false);
 
     m_selectionModeAction = actions->addAction(QStringLiteral("selection_mode"));
     m_selectionModeAction->setText(i18nc("@action", "Selection Mode"));
@@ -1407,6 +1432,10 @@ void MainWindow::updateActions()
     m_selectionModeAction->setChecked(view->selectionMode());
     m_selectionMarkersAction->setChecked(view->selectionMarkersVisible());
     actions->action(QStringLiteral("folder_format_source"))->setText(view->formatRuleDescription());
+    actions->action(QStringLiteral("open_folder_format_source"))
+        ->setEnabled(!flat && !view->formatLocked() && !view->formatRuleSource().isEmpty()
+                     && QUrl::fromLocalFile(view->formatRuleSource()).adjusted(QUrl::StripTrailingSlash) != view->url().adjusted(QUrl::StripTrailingSlash));
+    actions->action(QStringLiteral("clear_folder_format"))->setEnabled(!flat && !view->formatLocked() && view->hasLocalFolderFormat());
     actions->action(QStringLiteral("lock_folder_format"))->setChecked(view->formatLocked());
     QAction *inheritFormat = actions->action(QStringLiteral("inherit_folder_format"));
     inheritFormat->setChecked(view->formatIncludesDescendants());
@@ -1416,9 +1445,8 @@ void MainWindow::updateActions()
     automaticSizes->setEnabled(view->url().isLocalFile() && !view->formatLocked() && !flat);
     actions->action(QStringLiteral("default_folder_size_policy"))->setEnabled(view->url().isLocalFile() && !view->formatLocked() && !flat);
     actions->action(QStringLiteral("calculate_folder_sizes"))->setEnabled(!flat && !view->rootItem().isNull());
-    const KConfigGroup sizeDefaults = KSharedConfig::openConfig()->group(QStringLiteral("FolderSizes"));
-    actions->action(QStringLiteral("automatic_local_folder_sizes"))->setChecked(sizeDefaults.readEntry("AutomaticLocal", false));
-    actions->action(QStringLiteral("automatic_remote_folder_sizes"))->setChecked(sizeDefaults.readEntry("AutomaticRemote", false));
+    actions->action(QStringLiteral("automatic_local_folder_sizes"))->setChecked(Settings::automaticLocalFolderSizes());
+    actions->action(QStringLiteral("automatic_remote_folder_sizes"))->setChecked(Settings::automaticRemoteFolderSizes());
     const bool details = view->viewMode() == FolderView::ViewMode::Details;
     m_viewModeAction->setText(details ? i18nc("@action", "Icons View") : i18nc("@action", "Details View"));
     m_viewModeAction->setIcon(QIcon::fromTheme(details ? QStringLiteral("view-list-icons") : QStringLiteral("view-list-details")));
@@ -2183,14 +2211,22 @@ bool MainWindow::isDualLayout() const
 
 void MainWindow::applySettings()
 {
+    const bool sizeDefaultsChanged =
+        m_automaticLocalSizeDefault != Settings::automaticLocalFolderSizes() || m_automaticRemoteSizeDefault != Settings::automaticRemoteFolderSizes();
+    m_automaticLocalSizeDefault = Settings::automaticLocalFolderSizes();
+    m_automaticRemoteSizeDefault = Settings::automaticRemoteFolderSizes();
     for (Pane *pane : {m_left, m_right}) {
         pane->reloadTabSettings();
+        pane->reloadFilterSettings();
         pane->setNavigationBarVisible(Settings::showNavigationBar());
         pane->setNewTabsAfterCurrent(Settings::newTabsAfterCurrent());
         pane->setFollowSymlinks(Settings::followSymlinks());
 
         FolderView *view = pane->view();
         view->reloadListingSettings();
+        if (sizeDefaultsChanged) {
+            view->refreshFolderSizePolicy();
+        }
         if (!view->hasFolderFormat()) {
             view->setRatingColumn(Settings::showRatingColumn());
             view->setColumnVisible(KDirModel::Size, Settings::showSizeColumn());
@@ -2231,6 +2267,7 @@ void MainWindow::applySettings()
     }
     switchPane->setShortcuts(shortcuts);
     updatePreviewPanel();
+    updateActions();
 }
 
 void MainWindow::applyPanelSettings()

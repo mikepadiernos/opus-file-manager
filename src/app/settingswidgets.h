@@ -14,7 +14,8 @@ class RuleListEditor : public QWidget
 public:
     enum class Kind {
         Ignore,
-        Color
+        Color,
+        SelectionFilter
     };
     explicit RuleListEditor(Kind kind, QWidget *parent = nullptr);
     QStringList rules() const;

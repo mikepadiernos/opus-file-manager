@@ -55,6 +55,7 @@ public:
     void setTabBarAtBottom(bool atBottom);
     bool isTabBarAtBottom() const;
     void reloadTabSettings();
+    void reloadFilterSettings();
     void setBarDensity(const QString &density);
 
     /// The tabs with their pins, locks and names, and the current tab.
@@ -137,6 +138,7 @@ private:
     bool m_showTabIcons = true;
     bool m_newTabsAfterCurrent = false;
     bool m_followSymlinks = false;
+    int m_defaultFilterScope = 0;
     bool m_updatingTabBar = false;
     int m_lastTabCount = -1;
     NavigationHistory::ViewState m_pendingViewState;

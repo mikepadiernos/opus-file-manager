@@ -2,6 +2,7 @@
 
 #include "filterbar.h"
 
+#include "settings.h"
 #include "symbolicicon.h"
 
 #include <KLocalizedString>
@@ -18,6 +19,7 @@ FilterBar::FilterBar(QWidget *parent)
     , m_text(new QLineEdit(this))
     , m_scopeButton(new QToolButton(this))
 {
+    m_scope = static_cast<NameFilter::Scope>(qBound(0, static_cast<int>(Settings::defaultFilterScope()), 2));
     m_text->setPlaceholderText(i18nc("@info:placeholder", "Filter by name…"));
     m_text->setClearButtonEnabled(true);
     m_text->installEventFilter(this);

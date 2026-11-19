@@ -17,8 +17,10 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFormLayout>
+#include <QLabel>
 #include <QMetaEnum>
 #include <QScrollArea>
+#include <QSignalBlocker>
 #include <QSpinBox>
 #include <QTabWidget>
 #include <QVBoxLayout>
@@ -85,6 +87,11 @@ KConfigGroup kioConfirmations()
     return KSharedConfig::openConfig(QStringLiteral("kiorc"), KConfig::NoGlobals)->group(QStringLiteral("Confirmations"));
 }
 
+KConfigGroup selectionFilters()
+{
+    return KSharedConfig::openConfig()->group(QStringLiteral("SelectionFilters"));
+}
+
 KUrlRequester *folderRequester(const QString &entry)
 {
     auto *requester = new KUrlRequester;
@@ -110,14 +117,22 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                   QStringLiteral("window"));
     addTabbedPage({{createViewGeneralPage(), i18nc("@title:tab", "General")},
                    {createDetailsPage(), i18nc("@title:tab", "Details")},
-                   {createIconsPage(), i18nc("@title:tab", "Icons")}},
+                   {createIconsPage(), i18nc("@title:tab", "Icons")},
+                   {createCompactPage(), i18nc("@title:tab", "Compact")},
+                   {createSelectionPage(), i18nc("@title:tab", "Selection")},
+                   {createFiltersPage(), i18nc("@title:tab", "Filters")},
+                   {createFolderFormatsPage(), i18nc("@title:tab", "Folder Formats")}},
                   i18nc("@title:group", "View"),
                   QStringLiteral("view-list-icons"));
     addTabbedPage({{createContextMenuActionsPage(), i18nc("@title:tab", "Actions")}, {createServiceMenusPage(), i18nc("@title:tab", "Service Menus")}},
                   i18nc("@title:group", "Context Menu"),
                   QStringLiteral("application-menu"));
     addTabbedPage({{createArchivesPage(), i18nc("@title:tab", "Defaults")}}, i18nc("@title:group", "Archives"), QStringLiteral("package-x-generic"));
-    addTabbedPage({{createFileRulesPage(), i18nc("@title:tab", "Rules")}}, i18nc("@title:group", "Files"), QStringLiteral("folder"));
+    addTabbedPage({{createFileRulesPage(), i18nc("@title:tab", "Rules")},
+                   {createFileMetadataPage(), i18nc("@title:tab", "Metadata")},
+                   {createSelectionFiltersPage(), i18nc("@title:tab", "Selection Filters")}},
+                  i18nc("@title:group", "Files"),
+                  QStringLiteral("folder"));
     addTabbedPage({{createOpeningPage(), i18nc("@title:tab", "Opening")},
                    {createGalleryInformationPage(), i18nc("@title:tab", "Information")},
                    {createSlideshowPage(), i18nc("@title:tab", "Slideshow")},
@@ -258,6 +273,9 @@ QWidget *SettingsDialog::createFoldersAndTabsPage()
     form->addRow(QString(), checkBox(QStringLiteral("ShowNavigationBar"), i18nc("@option:check", "Show the navigation bar of each pane")));
     form->addRow(i18nc("@title:group", "Navigation:"),
                  checkBox(QStringLiteral("FollowSymlinks"), i18nc("@option:check", "Always follow symbolic links to their target")));
+    form->addRow(i18nc("@title:group", "History:"),
+                 checkBox(QStringLiteral("RestoreHistorySelection"), i18nc("@option:check", "Restore selection when navigating back or forward")));
+    form->addRow({}, checkBox(QStringLiteral("RestoreHistoryScroll"), i18nc("@option:check", "Restore scroll position when navigating back or forward")));
     return page;
 }
 
@@ -307,6 +325,10 @@ QWidget *SettingsDialog::createDetailsPage()
 {
     auto *page = new QWidget;
     auto *form = new QFormLayout(page);
+    form->addRow({}, checkBox(QStringLiteral("InlineFolderExpansion"), i18nc("@option:check", "Expand folders inline")));
+    form->addRow(i18nc("@label:listbox", "Default column widths:"),
+                 comboBox(QStringLiteral("DetailsColumnWidth"),
+                          {i18nc("@item:inlistbox", "Stretch name"), i18nc("@item:inlistbox", "Automatic"), i18nc("@item:inlistbox", "Manual")}));
     form->addRow(i18nc("@label:spinbox", "Icon size:"), pixelSpinBox(QStringLiteral("DetailsIconSize"), 16, 64));
     form->addRow(i18nc("@title:group", "Columns:"), checkBox(QStringLiteral("ShowSizeColumn"), i18nc("@option:check", "Size")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowModifiedColumn"), i18nc("@option:check", "Modified")));
@@ -332,6 +354,50 @@ QWidget *SettingsDialog::createIconsPage()
     lines->setRange(1, 5);
     form->addRow(i18nc("@label:spinbox", "Name lines:"), lines);
     form->addRow(i18nc("@label", "Metadata shown:"), bound(new IconInformationList, QStringLiteral("IconInformation"), "information"));
+    return page;
+}
+
+QWidget *SettingsDialog::createSelectionPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow({}, checkBox(QStringLiteral("DefaultSelectionMarkers"), i18nc("@option:check", "Show selection markers by default")));
+    form->addRow({}, checkBox(QStringLiteral("DefaultSelectionMode"), i18nc("@option:check", "Start panes in selection mode")));
+    return page;
+}
+
+QWidget *SettingsDialog::createCompactPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(i18nc("@label:spinbox", "Icon size:"), pixelSpinBox(QStringLiteral("CompactIconSize"), 16, 64));
+    form->addRow(i18nc("@label:spinbox", "Space between items:"), pixelSpinBox(QStringLiteral("CompactItemSpacing"), 0, 20));
+    form->addRow(i18nc("@label", "Additional information:"), bound(new IconInformationList, QStringLiteral("CompactInformation"), "information"));
+    return page;
+}
+
+QWidget *SettingsDialog::createFiltersPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(i18nc("@label:listbox", "Default filter scope:"),
+                 comboBox(QStringLiteral("DefaultFilterScope"),
+                          {i18nc("@item:inlistbox", "Files"), i18nc("@item:inlistbox", "Folders"), i18nc("@item:inlistbox", "Files and folders")}));
+    form->addRow({}, checkBox(QStringLiteral("FilterTypeAhead"), i18nc("@option:check", "Open the filter when typing in a listing")));
+    form->addRow({}, checkBox(QStringLiteral("RetainFilterOnNavigation"), i18nc("@option:check", "Keep filters when changing folders")));
+    form->addRow({}, checkBox(QStringLiteral("HighlightFilterMatches"), i18nc("@option:check", "Highlight matching file names")));
+    return page;
+}
+
+QWidget *SettingsDialog::createFolderFormatsPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow({}, checkBox(QStringLiteral("AutomaticLocalFolderSizes"), i18nc("@option:check", "Automatically calculate local folder sizes")));
+    form->addRow({}, checkBox(QStringLiteral("AutomaticRemoteFolderSizes"), i18nc("@option:check", "Automatically calculate remote folder sizes")));
+    auto *description = new QLabel(i18nc("@info", "Manage the current folder's format and inheritance in the View menu."), page);
+    description->setWordWrap(true);
+    form->addRow(description);
     return page;
 }
 
@@ -409,6 +475,7 @@ QWidget *SettingsDialog::createTabAppearancePage()
     auto *form = new QFormLayout(page);
     form->addRow({}, checkBox(QStringLiteral("TabIcons"), i18nc("@option:check", "Show folder icons on tabs")));
     form->addRow({}, checkBox(QStringLiteral("ExpandTabs"), i18nc("@option:check", "Expand tabs to fill the available width equally")));
+    form->addRow({}, checkBox(QStringLiteral("ShowTabColors"), i18nc("@option:check", "Show folder-based tab colours")));
     return page;
 }
 
@@ -423,6 +490,7 @@ QWidget *SettingsDialog::createArchivesPage()
                            i18nc("@item:inlistbox", "tar.gz"),
                            i18nc("@item:inlistbox", "tar.xz"),
                            i18nc("@item:inlistbox", "tar.zst")}));
+    form->addRow({}, checkBox(QStringLiteral("ArchiveOtherPaneByDefault"), i18nc("@option:check", "Create archives in the other pane by default")));
     return page;
 }
 
@@ -433,6 +501,31 @@ QWidget *SettingsDialog::createFileRulesPage()
     form->addRow(i18nc("@label", "Ignored names:"), bound(new RuleListEditor(RuleListEditor::Kind::Ignore), QStringLiteral("IgnoreList"), "rules"));
     form->addRow(i18nc("@label", "File colours by extension:"),
                  bound(new RuleListEditor(RuleListEditor::Kind::Color), QStringLiteral("ExtensionColors"), "rules"));
+    return page;
+}
+
+QWidget *SettingsDialog::createFileMetadataPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow({}, checkBox(QStringLiteral("ShowFileLabels"), i18nc("@option:check", "Show label colours")));
+    form->addRow({}, checkBox(QStringLiteral("ShowFileColors"), i18nc("@option:check", "Show custom file colours")));
+    form->addRow({}, checkBox(QStringLiteral("ShowFileRatings"), i18nc("@option:check", "Show ratings in the rating column")));
+    form->addRow({}, checkBox(QStringLiteral("ShowFilePins"), i18nc("@option:check", "Show pin indicators")));
+    form->addRow({}, checkBox(QStringLiteral("PinnedItemsFirst"), i18nc("@option:check", "Sort pinned items first")));
+    return page;
+}
+
+QWidget *SettingsDialog::createSelectionFiltersPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    m_selectionFilters = new RuleListEditor(RuleListEditor::Kind::SelectionFilter, page);
+    m_selectionFilters->setObjectName(QStringLiteral("selectionFilterRules"));
+    connect(m_selectionFilters, &RuleListEditor::rulesChanged, this, [this] {
+        updateButtons();
+    });
+    form->addRow(i18nc("@label", "Saved selection patterns:"), m_selectionFilters);
     return page;
 }
 
@@ -589,6 +682,30 @@ SettingsDialog::addSharedToggle(const QString &name, const QString &text, std::f
 
 void SettingsDialog::updateSettings()
 {
+    if (m_selectionFilters->rules() != m_savedSelectionFilters) {
+        KConfigGroup group = selectionFilters();
+        const QStringList edited = m_selectionFilters->rules();
+        QStringList patterns = group.readEntry("Patterns", QStringList());
+        if (patterns == m_savedSelectionFilters) {
+            patterns = edited;
+        } else {
+            for (const QString &previous : std::as_const(m_savedSelectionFilters)) {
+                if (!edited.contains(previous)) {
+                    patterns.removeAll(previous);
+                }
+            }
+            for (const QString &pattern : edited) {
+                if (!m_savedSelectionFilters.contains(pattern) && !patterns.contains(pattern)) {
+                    patterns.append(pattern);
+                }
+            }
+        }
+        group.writeEntry("Patterns", patterns);
+        group.sync();
+        const QSignalBlocker blocker(m_selectionFilters);
+        m_selectionFilters->setRules(patterns);
+        m_savedSelectionFilters = m_selectionFilters->rules();
+    }
     const qulonglong previewLimit = m_previewLimit->bytes();
     if (previewLimit != m_savedPreviewLimit) {
         KConfigGroup previews = KSharedConfig::openConfig(QStringLiteral("kiorc"), KConfig::NoGlobals)->group(QStringLiteral("PreviewSettings"));
@@ -603,6 +720,9 @@ void SettingsDialog::updateSettings()
 
 void SettingsDialog::updateWidgets()
 {
+    const QSignalBlocker blocker(m_selectionFilters);
+    m_selectionFilters->setRules(selectionFilters().readEntry("Patterns", QStringList()));
+    m_savedSelectionFilters = m_selectionFilters->rules();
     for (const SharedToggle &toggle : std::as_const(m_sharedToggles)) {
         toggle.check->setChecked(toggle.read());
     }
@@ -610,6 +730,7 @@ void SettingsDialog::updateWidgets()
 
 void SettingsDialog::updateWidgetsDefault()
 {
+    m_selectionFilters->setRules({});
     for (const SharedToggle &toggle : std::as_const(m_sharedToggles)) {
         toggle.check->setChecked(toggle.defaultValue);
     }
@@ -623,14 +744,15 @@ void SettingsDialog::updateWidgetsDefault()
 
 bool SettingsDialog::hasChanged()
 {
-    return std::any_of(m_sharedToggles.cbegin(), m_sharedToggles.cend(), [](const SharedToggle &toggle) {
-        return toggle.check->isChecked() != toggle.read();
-    });
+    return m_selectionFilters->rules() != m_savedSelectionFilters
+        || std::any_of(m_sharedToggles.cbegin(), m_sharedToggles.cend(), [](const SharedToggle &toggle) {
+               return toggle.check->isChecked() != toggle.read();
+           });
 }
 
 bool SettingsDialog::isDefault()
 {
-    return std::all_of(m_sharedToggles.cbegin(), m_sharedToggles.cend(), [](const SharedToggle &toggle) {
-        return toggle.check->isChecked() == toggle.defaultValue;
-    });
+    return m_selectionFilters->rules().isEmpty() && std::all_of(m_sharedToggles.cbegin(), m_sharedToggles.cend(), [](const SharedToggle &toggle) {
+               return toggle.check->isChecked() == toggle.defaultValue;
+           });
 }

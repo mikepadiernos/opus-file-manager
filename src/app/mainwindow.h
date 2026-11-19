@@ -212,6 +212,8 @@ private:
     QAction *m_pasteAction = nullptr;
     QAction *m_jumpBackAction = nullptr;
     QMenu *m_selectionFiltersMenu = nullptr;
+    bool m_automaticLocalSizeDefault = false;
+    bool m_automaticRemoteSizeDefault = false;
     QMenu *m_popularFoldersMenu = nullptr;
     QHash<QString, int> m_popularFolderVisits;
     QHash<Pane *, QUrl> m_lastFolderByPane;

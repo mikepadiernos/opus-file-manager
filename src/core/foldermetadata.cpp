@@ -418,6 +418,16 @@ bool FolderMetadata::setFormat(const QString &folder, const Format &formatValue,
         error);
 }
 
+bool FolderMetadata::clearFormat(const QString &folder, QString *error)
+{
+    return mutate(
+        folder,
+        [](QJsonObject &metadata) {
+            metadata.remove(QStringLiteral("format"));
+        },
+        error);
+}
+
 bool FolderMetadata::format(const QJsonObject &metadata, Format *result)
 {
     if (!result) {

@@ -10,6 +10,7 @@
 class KPageWidgetItem;
 class PreviewSizeSpinBox;
 class QCheckBox;
+class RuleListEditor;
 
 /**
  * The Preferences dialog: a sidebar of pages, each holding one tab per
@@ -66,6 +67,10 @@ private:
     QWidget *createStatusBarPage();
     QWidget *createViewGeneralPage();
     QWidget *createDetailsPage();
+    QWidget *createCompactPage();
+    QWidget *createSelectionPage();
+    QWidget *createFiltersPage();
+    QWidget *createFolderFormatsPage();
     QWidget *createIconsPage();
     QWidget *createContextMenuActionsPage();
     QWidget *createServiceMenusPage();
@@ -73,9 +78,13 @@ private:
     QWidget *createTabAppearancePage();
     QWidget *createArchivesPage();
     QWidget *createFileRulesPage();
+    QWidget *createFileMetadataPage();
+    QWidget *createSelectionFiltersPage();
 
     KFilePlacesModel *m_places = nullptr;
     PreviewSizeSpinBox *m_previewLimit = nullptr;
+    RuleListEditor *m_selectionFilters = nullptr;
+    QStringList m_savedSelectionFilters;
     qulonglong m_savedPreviewLimit = 0;
     /// Each sidebar page and its icon name, for switching to symbolic icons.
     QList<std::pair<KPageWidgetItem *, QString>> m_pageIcons;

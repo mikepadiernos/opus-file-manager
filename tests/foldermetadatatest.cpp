@@ -132,6 +132,35 @@ private Q_SLOTS:
         QCOMPARE(source, child);
         QCOMPARE(actual.view, QStringLiteral("compact"));
     }
+
+    void clearingFormatPreservesMetadataAndRevealsInheritedRule()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("child")));
+        const QString child = root.filePath(QStringLiteral("child"));
+        FolderMetadata::Format parent{QStringLiteral("grid"), {}, QStringLiteral("name"), true, QStringLiteral("none"), true};
+        FolderMetadata::Format local{QStringLiteral("list"), {}, QStringLiteral("name"), true, QStringLiteral("none"), false};
+        QVERIFY(FolderMetadata::setFormat(root.path(), parent));
+        QVERIFY(FolderMetadata::setFormat(child, local));
+        QVERIFY(FolderMetadata::setLabel(child, QStringLiteral("file"), QStringLiteral("red")));
+        QVERIFY(FolderMetadata::clearFormat(child));
+        QCOMPARE(FolderMetadata::read(child).value(QStringLiteral("labels")).toObject().value(QStringLiteral("file")).toString(), QStringLiteral("red"));
+        FolderMetadata::Format actual;
+        QString source;
+        QVERIFY(FolderMetadata::findFormat(child, &actual, &source));
+        QCOMPARE(source, root.path());
+        QCOMPARE(actual.view, QStringLiteral("grid"));
+        QFile bad(root.filePath(QStringLiteral("child/.mfm.json")));
+        QVERIFY(bad.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        QCOMPARE(bad.write("invalid"), 7);
+        bad.close();
+        QString error;
+        QVERIFY(!FolderMetadata::clearFormat(child, &error));
+        QVERIFY(!error.isEmpty());
+        QVERIFY(bad.open(QIODevice::ReadOnly));
+        QCOMPARE(bad.readAll(), QByteArrayLiteral("invalid"));
+    }
 };
 
 QTEST_GUILESS_MAIN(FolderMetadataTest)
