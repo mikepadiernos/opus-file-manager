@@ -9,6 +9,7 @@
 
 class QDropEvent;
 class QWidget;
+class KJob;
 
 namespace KIO
 {
@@ -22,10 +23,10 @@ class DropJob;
  */
 namespace FileOperations
 {
-void copy(const QList<QUrl> &sources, const QUrl &destination, QWidget *window);
-void move(const QList<QUrl> &sources, const QUrl &destination, QWidget *window);
-void trash(const QList<QUrl> &urls, QWidget *window);
-void deletePermanently(const QList<QUrl> &urls, QWidget *window);
+KJob *copy(const QList<QUrl> &sources, const QUrl &destination, QWidget *window);
+KJob *move(const QList<QUrl> &sources, const QUrl &destination, QWidget *window);
+KJob *trash(const QList<QUrl> &urls, QWidget *window);
+KJob *deletePermanently(const QList<QUrl> &urls, QWidget *window);
 void rename(const KFileItemList &items, QWidget *window);
 
 void copyToClipboard(const QList<QUrl> &urls, bool cut);

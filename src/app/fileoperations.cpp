@@ -34,42 +34,46 @@ void attachWindow(KJob *job, QWidget *window)
 }
 }
 
-void FileOperations::copy(const QList<QUrl> &sources, const QUrl &destination, QWidget *window)
+KJob *FileOperations::copy(const QList<QUrl> &sources, const QUrl &destination, QWidget *window)
 {
     if (sources.isEmpty() || !destination.isValid()) {
-        return;
+        return nullptr;
     }
     KIO::CopyJob *job = KIO::copy(sources, destination);
     attachWindow(job, window);
     KIO::FileUndoManager::self()->recordCopyJob(job);
+    return job;
 }
 
-void FileOperations::move(const QList<QUrl> &sources, const QUrl &destination, QWidget *window)
+KJob *FileOperations::move(const QList<QUrl> &sources, const QUrl &destination, QWidget *window)
 {
     if (sources.isEmpty() || !destination.isValid()) {
-        return;
+        return nullptr;
     }
     KIO::CopyJob *job = KIO::move(sources, destination);
     attachWindow(job, window);
     KIO::FileUndoManager::self()->recordCopyJob(job);
+    return job;
 }
 
-void FileOperations::trash(const QList<QUrl> &urls, QWidget *window)
+KJob *FileOperations::trash(const QList<QUrl> &urls, QWidget *window)
 {
     if (urls.isEmpty()) {
-        return;
+        return nullptr;
     }
     auto *job = new KIO::DeleteOrTrashJob(urls, KIO::AskUserActionInterface::Trash, KIO::AskUserActionInterface::DefaultConfirmation, window);
     job->start();
+    return job;
 }
 
-void FileOperations::deletePermanently(const QList<QUrl> &urls, QWidget *window)
+KJob *FileOperations::deletePermanently(const QList<QUrl> &urls, QWidget *window)
 {
     if (urls.isEmpty()) {
-        return;
+        return nullptr;
     }
     auto *job = new KIO::DeleteOrTrashJob(urls, KIO::AskUserActionInterface::Delete, KIO::AskUserActionInterface::DefaultConfirmation, window);
     job->start();
+    return job;
 }
 
 void FileOperations::rename(const KFileItemList &items, QWidget *window)

@@ -2,6 +2,8 @@
 
 #include "gallerywindow.h"
 
+#include "batchconversiondialog.h"
+#include "fileoperations.h"
 #include "imageediting.h"
 #include "mediaview.h"
 #include "settings.h"
@@ -9,6 +11,7 @@
 
 #include <KFileMetaData/PropertyInfo>
 #include <KIO/Global>
+#include <KJob>
 #include <KLocalizedString>
 #include <KMessageBox>
 #include <KStandardGuiItem>
@@ -169,6 +172,7 @@ GalleryWindow::GalleryWindow(const QList<QUrl> &urls, const QSet<QUrl> &videos, 
     , m_flip(new QPushButton(i18nc("@action", "Flip Horizontally"), this))
     , m_save(new QPushButton(i18nc("@action", "Save Copy…"), this))
     , m_editsButton(new QToolButton(this))
+    , m_markedButton(new QToolButton(this))
     , m_timer(new QTimer(this))
 {
     setObjectName(QStringLiteral("galleryWindow"));
@@ -231,6 +235,10 @@ GalleryWindow::GalleryWindow(const QList<QUrl> &urls, const QSet<QUrl> &videos, 
     for (const QUrl &url : std::as_const(m_urls)) {
         auto *item = new QListWidgetItem(m_videos.contains(url) ? videoIcon : placeholder, url.fileName(), m_filmstrip);
         item->setToolTip(url.toDisplayString(QUrl::PreferLocalFile));
+        if (!m_videos.contains(url)) {
+            item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+            item->setCheckState(Qt::Unchecked);
+        }
     }
 
     auto *zoomOut = new QPushButton(i18nc("@action", "Zoom Out"), this);
@@ -285,6 +293,32 @@ GalleryWindow::GalleryWindow(const QList<QUrl> &urls, const QSet<QUrl> &videos, 
     replace->setObjectName(QStringLiteral("galleryReplace"));
     edits->addWidget(m_editsButton);
     edits->addWidget(m_save);
+    m_markedButton->setObjectName(QStringLiteral("galleryMarked"));
+    m_markedButton->setText(i18nc("@action", "Marked Images"));
+    m_markedButton->setPopupMode(QToolButton::InstantPopup);
+    auto *markedMenu = new QMenu(m_markedButton);
+    m_markedButton->setMenu(markedMenu);
+    const auto addMarkedAction = [this, markedMenu](const QString &text, const QString &name, MarkedOperation operation) {
+        QAction *action = markedMenu->addAction(text);
+        action->setObjectName(name);
+        connect(action, &QAction::triggered, this, [this, operation] {
+            operateOnMarked(operation);
+        });
+    };
+    addMarkedAction(i18nc("@action", "Copy To…"), QStringLiteral("galleryMarkedCopy"), MarkedOperation::Copy);
+    addMarkedAction(i18nc("@action", "Move To…"), QStringLiteral("galleryMarkedMove"), MarkedOperation::Move);
+    addMarkedAction(i18nc("@action", "Move to Trash"), QStringLiteral("galleryMarkedTrash"), MarkedOperation::Trash);
+    addMarkedAction(i18nc("@action", "Delete Permanently"), QStringLiteral("galleryMarkedDelete"), MarkedOperation::Delete);
+    markedMenu->addSeparator();
+    auto *convert = markedMenu->addAction(i18nc("@action", "Convert Images…"));
+    convert->setObjectName(QStringLiteral("galleryMarkedConvert"));
+    connect(convert, &QAction::triggered, this, [this] {
+        if (m_timer->isActive()) {
+            toggleSlideshow();
+        }
+        BatchConversionDialog::run(this, markedImages());
+    });
+    edits->addWidget(m_markedButton);
     edits->addStretch();
     layout->addLayout(edits);
     layout->addWidget(m_filmstrip);
@@ -365,6 +399,9 @@ GalleryWindow::GalleryWindow(const QList<QUrl> &urls, const QSet<QUrl> &videos, 
     connect(m_save, &QPushButton::clicked, this, &GalleryWindow::saveCopy);
     connect(m_slideshow, &QPushButton::clicked, this, &GalleryWindow::toggleSlideshow);
     connect(m_filmstrip, &QListWidget::currentRowChanged, this, &GalleryWindow::showIndex);
+    connect(m_filmstrip, &QListWidget::itemChanged, this, [this] {
+        updateNavigation();
+    });
     m_timer->setInterval(Settings::gallerySlideshowInterval() * 1000);
     connect(m_timer, &QTimer::timeout, this, [this] {
         if (m_index + 1 >= m_urls.size()) {
@@ -438,6 +475,124 @@ GalleryWindow::GalleryWindow(const QList<QUrl> &urls, const QSet<QUrl> &videos, 
 GalleryWindow::~GalleryWindow()
 {
     clearPlayback();
+}
+
+QList<QUrl> GalleryWindow::markedImages() const
+{
+    QList<QUrl> result;
+    for (int i = 0; i < m_filmstrip->count(); ++i) {
+        const QListWidgetItem *item = m_filmstrip->item(i);
+        if ((item->flags() & Qt::ItemIsUserCheckable) && item->checkState() == Qt::Checked) {
+            result.append(m_urls.at(i));
+        }
+    }
+    return result;
+}
+
+void GalleryWindow::operateOnMarked(MarkedOperation operation)
+{
+    const QList<QUrl> sources = markedImages();
+    if (sources.isEmpty() || m_editing || m_operationRunning) {
+        return;
+    }
+    if (m_timer->isActive()) {
+        toggleSlideshow();
+    }
+    QUrl destination;
+    if (operation == MarkedOperation::Copy || operation == MarkedOperation::Move) {
+        destination =
+            QFileDialog::getExistingDirectoryUrl(this, i18nc("@title:window", "Choose Destination"), m_urls.at(m_index).adjusted(QUrl::RemoveFilename));
+        if (destination.isEmpty()) {
+            return;
+        }
+    }
+    if (operation != MarkedOperation::Copy && sources.contains(m_urls.at(m_index)) && !confirmDiscard()) {
+        return;
+    }
+    QWidget *jobWindow = parentWidget();
+    KJob *job = nullptr;
+    switch (operation) {
+    case MarkedOperation::Copy:
+        job = FileOperations::copy(sources, destination, jobWindow);
+        break;
+    case MarkedOperation::Move:
+        job = FileOperations::move(sources, destination, jobWindow);
+        break;
+    case MarkedOperation::Trash:
+        job = FileOperations::trash(sources, jobWindow);
+        break;
+    case MarkedOperation::Delete:
+        job = FileOperations::deletePermanently(sources, jobWindow);
+        break;
+    }
+    if (!job) {
+        KMessageBox::error(this, i18nc("@info", "Could not start the file operation."));
+        return;
+    }
+    m_operationRunning = true;
+    setEnabled(false);
+    connect(job, &KJob::result, this, [this, sources, operation] {
+        if (operation != MarkedOperation::Copy) {
+            refreshAfterOperation(sources);
+        }
+        m_operationRunning = false;
+        setEnabled(true);
+    });
+}
+
+void GalleryWindow::refreshAfterOperation(const QList<QUrl> &sources)
+{
+    const int oldIndex = m_index;
+    const QUrl current = m_urls.value(m_index);
+    bool removed = false;
+    {
+        const QSignalBlocker blocker(m_filmstrip);
+        for (int i = m_urls.size() - 1; i >= 0; --i) {
+            const QUrl url = m_urls.at(i);
+            const QFileInfo file(url.toLocalFile());
+            if (sources.contains(url) && !file.exists() && !file.isSymLink()) {
+                m_urls.removeAt(i);
+                m_videos.remove(url);
+                delete m_filmstrip->takeItem(i);
+                removed = true;
+            }
+        }
+    }
+    if (!removed) {
+        return;
+    }
+    ++m_thumbnailGeneration;
+    m_thumbnailQueue.clear();
+    m_thumbnailQueued.clear();
+    m_thumbnailDone.clear();
+    m_index = m_urls.indexOf(current);
+    if (m_index >= 0) {
+        if (m_pendingIndex >= 0) {
+            m_pendingIndex = m_index;
+        }
+        m_filmstrip->setCurrentRow(m_index);
+        m_title->setText(i18nc("@title", "%1 (%2 of %3)", current.fileName(), m_index + 1, m_urls.size()));
+        updateNavigation();
+    } else {
+        m_modified = false;
+        m_edited = false;
+        ++m_generation;
+        m_pendingIndex = -1;
+        clearPlayback();
+        m_image = {};
+        m_pixmap->setPixmap({});
+        m_info->clear();
+        scheduleDetails();
+        if (m_urls.isEmpty()) {
+            m_title->clear();
+            m_message->setText(i18nc("@info", "No images are available."));
+            m_stage->setCurrentWidget(m_message);
+            updateNavigation();
+        } else {
+            showIndex(std::min(oldIndex, int(m_urls.size()) - 1));
+        }
+    }
+    queueVisibleThumbnails();
 }
 
 void GalleryWindow::showIndex(int index)
@@ -603,14 +758,17 @@ void GalleryWindow::startThumbnailLoad()
     const QUrl url = m_urls.at(index);
     m_loadingThumbnail = true;
     auto *watcher = new QFutureWatcher<PreviewContent>(this);
-    connect(watcher, &QFutureWatcher<PreviewContent>::finished, this, [this, watcher, index] {
+    const quint64 generation = m_thumbnailGeneration;
+    connect(watcher, &QFutureWatcher<PreviewContent>::finished, this, [this, watcher, index, generation] {
         const PreviewContent content = watcher->result();
         watcher->deleteLater();
         m_loadingThumbnail = false;
-        m_thumbnailQueued.remove(index);
-        m_thumbnailDone.insert(index);
-        if (content.kind == PreviewContent::Kind::Image) {
-            m_filmstrip->item(index)->setIcon(QIcon(QPixmap::fromImage(content.image)));
+        if (generation == m_thumbnailGeneration) {
+            m_thumbnailQueued.remove(index);
+            m_thumbnailDone.insert(index);
+            if (content.kind == PreviewContent::Kind::Image) {
+                m_filmstrip->item(index)->setIcon(QIcon(QPixmap::fromImage(content.image)));
+            }
         }
         startThumbnailLoad();
     });
@@ -771,6 +929,7 @@ void GalleryWindow::updateNavigation()
     m_flip->setEnabled(editable);
     m_editsButton->setEnabled(editable);
     m_save->setEnabled(editable);
+    m_markedButton->setEnabled(!m_editing && !markedImages().isEmpty());
     m_filmstrip->setEnabled(!m_editing);
 }
 
@@ -1091,6 +1250,10 @@ bool GalleryWindow::confirmDiscard()
 
 void GalleryWindow::closeEvent(QCloseEvent *event)
 {
+    if (m_operationRunning) {
+        event->ignore();
+        return;
+    }
     if (confirmDiscard()) {
         m_modified = false;
         QDialog::closeEvent(event);
@@ -1101,6 +1264,9 @@ void GalleryWindow::closeEvent(QCloseEvent *event)
 
 void GalleryWindow::reject()
 {
+    if (m_operationRunning) {
+        return;
+    }
     if (confirmDiscard()) {
         m_modified = false;
         QDialog::reject();

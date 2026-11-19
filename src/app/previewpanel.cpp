@@ -25,6 +25,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLocale>
+#include <QMediaPlayer>
 #include <QMimeDatabase>
 #include <QPaintEvent>
 #include <QPainter>
@@ -32,6 +33,7 @@
 #include <QPointer>
 #include <QRegularExpression>
 #include <QResizeEvent>
+#include <QSignalBlocker>
 #include <QStackedWidget>
 #include <QTemporaryFile>
 #include <QTextBlock>
@@ -221,6 +223,7 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     , m_gallery(new QToolButton(this))
     , m_open(new QToolButton(this))
     , m_renderMode(new QToolButton(this))
+    , m_autoplay(new QToolButton(this))
     , m_text(new PreviewTextEdit(this))
     , m_renderedText(new QTextBrowser(this))
     , m_content(new QStackedWidget(this))
@@ -267,6 +270,19 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     m_renderMode->setToolTip(i18nc("@info:tooltip", "Show formatted text instead of source"));
     connect(m_renderMode, &QToolButton::toggled, this, &PreviewPanel::updateTextMode);
     m_renderMode->hide();
+    m_autoplay->setObjectName(QStringLiteral("previewAutoplay"));
+    m_autoplay->setText(i18nc("@action:button", "Autoplay"));
+    m_autoplay->setToolTip(i18nc("@info:tooltip", "Automatically play audio and video previews"));
+    m_autoplay->setCheckable(true);
+    m_autoplay->setChecked(Settings::previewMediaAutoplay());
+    m_autoplay->hide();
+    connect(m_autoplay, &QToolButton::toggled, this, [this](bool enabled) {
+        Settings::setPreviewMediaAutoplay(enabled);
+        Settings::self()->save();
+        if (enabled && m_media && m_media->player()) {
+            m_media->player()->play();
+        }
+    });
     m_previous->setIcon(SymbolicIcon::fromTheme(QStringLiteral("go-previous")));
     m_previous->setToolTip(i18nc("@info:tooltip", "Previous image"));
     m_next->setIcon(SymbolicIcon::fromTheme(QStringLiteral("go-next")));
@@ -292,6 +308,7 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     header->addWidget(m_next);
     header->addWidget(m_gallery);
     header->addWidget(m_renderMode);
+    header->addWidget(m_autoplay);
     header->addWidget(close);
 
     m_content->addWidget(m_message);
@@ -560,12 +577,18 @@ void PreviewPanel::showMedia(const QUrl &url, bool video)
             showMessage(i18nc("@info", "Could not open media: %1", message));
         });
     }
+    {
+        const QSignalBlocker blocker(m_autoplay);
+        m_autoplay->setChecked(Settings::previewMediaAutoplay());
+    }
+    m_autoplay->show();
     m_content->setCurrentWidget(m_media);
-    m_media->open(url, video, false);
+    m_media->open(url, video, Settings::previewMediaAutoplay());
 }
 
 void PreviewPanel::clearMedia()
 {
+    m_autoplay->hide();
     if (m_media) {
         m_media->clear();
     }

@@ -46,6 +46,15 @@ protected:
     void reject() override;
 
 private:
+    enum class MarkedOperation {
+        Copy,
+        Move,
+        Trash,
+        Delete
+    };
+    QList<QUrl> markedImages() const;
+    void operateOnMarked(MarkedOperation operation);
+    void refreshAfterOperation(const QList<QUrl> &sources);
     void showIndex(int index);
     void startImageLoad();
     void showImage(const PreviewContent &content);
@@ -75,6 +84,7 @@ private:
     int m_index = -1;
     int m_pendingIndex = -1;
     quint64 m_generation = 0;
+    quint64 m_thumbnailGeneration = 0;
     bool m_loading = false;
     QQueue<int> m_thumbnailQueue;
     bool m_loadingThumbnail = false;
@@ -86,6 +96,7 @@ private:
     bool m_modified = false;
     bool m_edited = false;
     bool m_editing = false;
+    bool m_operationRunning = false;
     bool m_detailsLoading = false;
     bool m_detailsPending = false;
     quint64 m_detailsGeneration = 0;
@@ -111,6 +122,7 @@ private:
     QPushButton *m_flip = nullptr;
     QPushButton *m_save = nullptr;
     QToolButton *m_editsButton = nullptr;
+    QToolButton *m_markedButton = nullptr;
     QAction *m_cropAction = nullptr;
     QTimer *m_timer = nullptr;
 };
