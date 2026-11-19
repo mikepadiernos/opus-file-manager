@@ -61,6 +61,27 @@ public:
      */
     void restoreState(const PaneSession &state);
 
+    /**
+     * Shows or hides the row with the history buttons and the location bar.
+     * @param visible true to show the row
+     */
+    void setNavigationBarVisible(bool visible);
+    bool isNavigationBarVisible() const;
+
+    /**
+     * Chooses where openInNewTab() and newTab() insert tabs.
+     * @param afterCurrent true to insert next to the current tab, false to
+     *        append at the end
+     */
+    void setNewTabsAfterCurrent(bool afterCurrent);
+
+    /**
+     * Makes navigation resolve symbolic links in local folder paths, so a
+     * folder opened through a link shows its real location.
+     * @param follow true to resolve links
+     */
+    void setFollowSymlinks(bool follow);
+
 public Q_SLOTS:
     void setUrl(const QUrl &url);
     void openInNewTab(const QUrl &url, bool activate = false);
@@ -103,8 +124,11 @@ private:
     FolderView *m_view = nullptr;
     FilterBar *m_filterBar = nullptr;
     QVBoxLayout *m_layout = nullptr;
+    QWidget *m_navigationBar = nullptr;
     bool m_active = false;
     bool m_tabBarForced = false;
+    bool m_newTabsAfterCurrent = false;
+    bool m_followSymlinks = false;
     bool m_updatingTabBar = false;
     int m_lastTabCount = -1;
 };

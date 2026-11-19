@@ -3,6 +3,7 @@
 #include "labelcolor.h"
 #include "mainwindow.h"
 #include "pane.h"
+#include "settings.h"
 #include "tabcolors.h"
 #include "tabmodel.h"
 
@@ -74,6 +75,7 @@ private Q_SLOTS:
 
     void init()
     {
+        Settings::setConfirmClosingMultipleTabs(false);
         KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Session"));
         KSharedConfig::openStateConfig()->sync();
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("TabColors"));

@@ -11,6 +11,7 @@
 class CombinedPanel;
 class FavoritesModel;
 class FolderTree;
+class KFileCopyToMenu;
 class KFileItemActions;
 class KFilePlacesModel;
 class KFilePlacesView;
@@ -66,8 +67,17 @@ public:
     FavoritesModel *favorites() const;
     TabColors *tabColors() const;
 
+    bool isDualLayout() const;
+
+    /**
+     * Applies the current Settings to the panes, actions and status bar.
+     * Called on start and whenever the settings dialog saves.
+     */
+    void applySettings();
+
 protected:
     bool queryClose() override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
     void readProperties(const KConfigGroup &group) override;
     void saveProperties(KConfigGroup &group) override;
 
@@ -106,6 +116,11 @@ private:
     void newFolder();
     void showNewMenu();
     void toggleLayout(bool dual);
+    void showSettings();
+    /// Applies the settings that only take effect in a new window.
+    void applyViewDefaults();
+    /// Stores whether the user left the Places panel shown.
+    void rememberPlacesShown(bool shown);
     void toggleViewMode();
     void setShowHiddenFiles(bool show);
     void setPreviewsEnabled(bool enabled);
@@ -155,6 +170,7 @@ private:
     QStringList m_flatLocations;
     PanelLayout m_panelLayout = PanelLayout::Combined;
     KFileItemActions *m_fileItemActions = nullptr;
+    KFileCopyToMenu *m_copyToMenu = nullptr;
     KNewFileMenu *m_newFileMenu = nullptr;
     QSplitter *m_splitter = nullptr;
     Pane *m_left = nullptr;

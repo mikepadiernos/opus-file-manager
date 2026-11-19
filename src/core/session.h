@@ -9,8 +9,9 @@ class KConfigGroup;
 
 /**
  * Serialisable snapshot of the window: the tabs of each pane, which tab is
- * current in each, which pane has focus, and whether the panes are stacked
- * top/bottom (left is the top pane) instead of side by side. Stored in the KConfig state
+ * current in each, which pane has focus, whether both panes are shown, and
+ * whether they are stacked top/bottom (left is the top pane) instead of side
+ * by side. Stored in the KConfig state
  * file so it survives restarts without ending up in the user's settings.
  */
 struct PaneSession {
@@ -30,6 +31,7 @@ struct WindowSession {
     PaneSession left;
     PaneSession right;
     int activePane = 0;
+    bool dual = true;
     bool stacked = false;
 
     bool isEmpty() const;

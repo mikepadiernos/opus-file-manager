@@ -4,6 +4,7 @@
 #include "fileoperations.h"
 #include "folderview.h"
 #include "pane.h"
+#include "settings.h"
 #include "tabmodel.h"
 
 #include <KSharedConfig>
@@ -41,6 +42,8 @@ private Q_SLOTS:
         // tabs or layout from an earlier test.
         KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Session"));
         KSharedConfig::openStateConfig()->sync();
+        // Closing windows with several tabs would otherwise block on a dialog.
+        Settings::setConfirmClosingMultipleTabs(false);
     }
 
     void opensCommandLinePathsInBothPanes()

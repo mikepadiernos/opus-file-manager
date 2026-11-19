@@ -31,6 +31,7 @@ private Q_SLOTS:
         session.right.tabs = {QUrl(QStringLiteral("trash:/")), QUrl(QStringLiteral("sftp://host/dir"))};
         session.right.currentTab = 0;
         session.activePane = 1;
+        session.dual = false;
         session.stacked = true;
 
         {
@@ -52,6 +53,7 @@ private Q_SLOTS:
         const WindowSession loaded = Session::load(config.group(QStringLiteral("Session")));
         QVERIFY(loaded.isEmpty());
         QCOMPARE(loaded.activePane, 0);
+        QVERIFY(loaded.dual);
         QVERIFY(!loaded.stacked);
     }
 
@@ -64,6 +66,7 @@ private Q_SLOTS:
         session.left.currentTab = 7;
         session.right.currentTab = -3;
         session.activePane = 5;
+        session.dual = false;
         session.stacked = true;
 
         const WindowSession clean = session.sanitized(home);
@@ -72,6 +75,7 @@ private Q_SLOTS:
         QCOMPARE(clean.right.tabs, (QList<QUrl>{home}));
         QCOMPARE(clean.right.currentTab, 0);
         QCOMPARE(clean.activePane, 0);
+        QVERIFY(!clean.dual);
         QVERIFY(clean.stacked);
 
         WindowSession rightActive;

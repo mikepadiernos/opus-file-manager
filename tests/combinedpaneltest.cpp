@@ -5,6 +5,7 @@
 #include "foldertree.h"
 #include "mainwindow.h"
 #include "pane.h"
+#include "settings.h"
 
 #include <KActionCollection>
 #include <KDirModel>
@@ -78,6 +79,7 @@ private Q_SLOTS:
 
     void init()
     {
+        Settings::setConfirmClosingMultipleTabs(false);
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("Favorites"));
         KSharedConfig::openConfig()->sync();
         KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Session"));

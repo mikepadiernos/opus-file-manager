@@ -23,7 +23,7 @@ These replace upstream behaviour on purpose.
 | Custom CSS themes, title bar, window buttons   | Plasma widget style, colour scheme, fonts and KWin decorations                 |
 | Bundled Pure icon pack                         | Active icon theme via `QIcon::fromTheme`; folder colours use `folder-<colour>` |
 | Hand-written toolbar and shortcut editors      | KXmlGui (`KEditToolBar`, `KShortcutsDialog`), hamburger menu                   |
-| Settings in SQLite                             | KConfig `opusfilemanagerrc`; session in the KConfig state file                 |
+| Settings in SQLite                             | KConfig `opus-file-managerrc`; session in the KConfig state file               |
 | Node copy engine, 20-step undo                 | KIO jobs, `KIO::FileUndoManager`, progress in Plasma notifications             |
 | Custom places, drives polling, lsblk/udisksctl | `KFilePlacesView` (Solid devices, mount/eject, hotplug)                        |
 | Custom Open With and default-app logic         | `KFileItemActions`, `KOpenWithDialog`, `KApplicationTrader`, service menus     |
@@ -40,7 +40,10 @@ the upstream schema, so existing folders keep their data.
 
 ## Milestones
 
-Each milestone ends with a working, tested app.
+Each milestone ends with a working, tested app. Milestones alternate between
+features and settings: each odd-numbered milestone adds features, and the
+even-numbered milestone after it adds the settings for those features, stored in
+KConfig.
 
 1. **M01 core dual pane.** KXmlGui main window; two panes with tabs, history and
    a `KUrlNavigator`; details and icon views over `KDirModel`; previews; Places
@@ -49,13 +52,13 @@ Each milestone ends with a working, tested app.
    undo; hidden files; terminal; properties; free space in the status bar;
    single instance; session restore; stacked top/bottom layout with both tab
    bars meeting in the middle.
-2. **M02 settings.** Settings for each M01 feature, modelled on Dolphin and its
-   fork Orcinus and stored in KConfig: preferences dialog; startup folders and
+2. **M02 core dual pane settings.** Settings for each M01 feature, modelled on
+   Dolphin and its fork Orcinus: preferences dialog; startup folders and
    session; one or two panes for new windows and tabs, tab bar, per-pane
    navigation bar; following symbolic links; view mode, sizes, columns, sorting,
-   hidden files; item and bar density; previews and their plugins and size
-   limits; Places panel; status bar contents; what opening an executable does;
-   confirmations, default drop action and dragging from anywhere in a row;
+   hidden files; item and bar density; previews, their plugins, size limit and
+   remote folders; Places panel; status bar contents; what opening an executable
+   does; confirmations, default drop action and dragging from anywhere in a row;
    context menu contents.
 3. ~~**M03 listing depth.** A combined panel that replaces the separate Places
    and Folders panels by default, in one scrolling column: a Favorites section
@@ -77,14 +80,28 @@ Each milestone ends with a working, tested app.
    tar.gz, tar.xz or tar.zst; KArchive has no compression levels, so the format
    stands in for one); and Show Flat with a Relative Path column.
 
-4. **M04 preview and gallery.** Preview panel (images, PDF and office via
+4. **M04 listing depth settings.** Default columns and grouping; size and date
+   formats; icon view name lines and metadata; ignore list; file type colours;
+   tree pane position and auto-focus; archive compression level; tab icons.
+5. **M05 preview and gallery.** Preview panel (images, PDF and office via
    KParts, text, media), gallery with zoom, slideshow, filmstrip, image info,
    edits, convert.
-5. **M05 editor.** KTextEditor-based editor (docked, maximised, standalone),
+6. **M06 preview and gallery settings.** What double-click opens; text preview
+   size limit; slideshow interval and looping; image info panel; image convert
+   format and quality.
+7. **M07 editor.** KTextEditor-based editor (docked, maximised, standalone),
    drafts, markdown preview and PDF export.
-6. **M06 tools.** Live search, indexed search, duplicates, content chart, folder
+8. **M08 editor settings.** Where files open; font size and wrap; default
+   markdown mode; drafts; KTextEditor configuration pages.
+9. **M09 tools.** Live search, indexed search, duplicates, content chart, folder
    sync, file diff, batch rename, symlinks, listing export, audio tags, scripts
    and custom commands, presets.
-7. **M07 desktop integration.** FileManager1 D-Bus service, default file
-   manager, tray, global shortcut, XDG portal file chooser, MCP server, Persian
-   translation and RTL, Jalali dates.
+10. **M10 tools settings.** Search shortcut, folders and exclusions; folder sync
+    transfer options; default applications by extension; scripts and custom
+    commands; presets.
+11. **M11 desktop integration.** FileManager1 D-Bus service, default file
+    manager, tray, global shortcut, XDG portal file chooser, MCP server, Persian
+    translation and RTL, Jalali dates.
+12. **M12 desktop integration settings.** Tray behaviour; global shortcut;
+    portal file chooser; default file manager; MCP access, token and audit log;
+    language and calendar.
