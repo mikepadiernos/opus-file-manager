@@ -9,6 +9,7 @@
 #include <QList>
 
 class QLabel;
+class CushionTreemap;
 class QProgressBar;
 class QPushButton;
 class QTreeWidget;
@@ -49,6 +50,7 @@ private:
     QProgressBar *m_progress;
     QPushButton *m_cancel;
     QTreeWidget *m_tree;
+    CushionTreemap *m_treemap;
     int m_done = 0;
     int m_skipped = 0;
     int m_errors = 0;

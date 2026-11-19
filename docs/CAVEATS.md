@@ -326,6 +326,22 @@ on the server and access method. (Comment: [#312][comment-312])
   remote folders independently.
   ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/322#issuecomment-7022490696))
 
+## Cushion treemap
+
+- The treemap uses the folder content chart measurements: tiles represent
+  measured immediate entries and their relative logical sizes. Nested folders
+  are aggregated rather than shown simultaneously; activate a folder in the
+  list to rescan it. Empty, unmeasured and skipped entries have no visible
+  tile, and very small shares may be difficult to see. Measurements are
+  snapshots and the [folder content chart](#folder-content-chart) scan limits
+  also apply. ([#335](https://github.com/mikepadiernos/opus-file-manager/issues/335))
+
+  **Recommendation:** Activate folders in the list to inspect their contents,
+  and use the size table for empty, skipped or very small entries. Scan smaller
+  folders and rescan when current results are needed; use another disk-usage
+  tool when simultaneous nested visualization is required.
+  ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/335#issuecomment-7022647720))
+
 ## Build, installation and references
 
 - **Dependencies:** Opus targets Linux and requires the dependencies listed in

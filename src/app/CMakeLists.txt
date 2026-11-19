@@ -11,6 +11,8 @@ add_library(opusfm_app STATIC
     contentheight.h
     contentchartdialog.cpp
     contentchartdialog.h
+    cushiontreemap.cpp
+    cushiontreemap.h
     densitydelegate.cpp
     densitydelegate.h
     detailsview.cpp

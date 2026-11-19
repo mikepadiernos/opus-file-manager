@@ -27,6 +27,7 @@ ecm_add_tests(
     symlinkstest.cpp
     symboliciconstest.cpp
     tabmodeltest.cpp
+    treemaptest.cpp
     viewsettingstest.cpp
     LINK_LIBRARIES opusfm_core Qt6::Test KF6::ConfigCore
     NAME_PREFIX "opusfm-"

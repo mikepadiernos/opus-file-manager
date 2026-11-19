@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "contentchartdialog.h"
+#include "cushiontreemap.h"
 
 #include <QDir>
 #include <QFile>
@@ -54,6 +55,28 @@ private Q_SLOTS:
         QCOMPARE(row(QStringLiteral(".hidden"))->data(2, Qt::UserRole).toInt(), 200);
         QCOMPARE(row(QStringLiteral("folder"))->data(2, Qt::UserRole).toInt(), 800);
         QVERIFY(!row(QStringLiteral("alias"))->data(2, Qt::UserRole).isValid());
+        auto *treemap = chart.findChild<CushionTreemap *>(QStringLiteral("contentTreemap"));
+        QVERIFY(treemap);
+        const auto rectangles = treemap->tiles();
+        QCOMPARE(rectangles.size(), 3);
+        int drawable = 0;
+        for (const QRectF &tile : rectangles) {
+            if (!tile.isEmpty()) {
+                ++drawable;
+                QTest::mouseClick(treemap, Qt::LeftButton, Qt::NoModifier, tile.center().toPoint());
+                QVERIFY(tree->currentItem());
+                QVERIFY(tree->currentItem()->text(0) == QLatin1String(".hidden") || tree->currentItem()->text(0) == QLatin1String("folder"));
+            }
+        }
+        QCOMPARE(drawable, 2);
+        QVERIFY(!treemap->grab().isNull());
+        QVERIFY(QMetaObject::invokeMethod(tree, "itemActivated", Qt::DirectConnection, Q_ARG(QTreeWidgetItem *, row(QStringLiteral("folder"))), Q_ARG(int, 0)));
+        auto *child = chart.findChild<ContentChartDialog *>(QStringLiteral("contentChartDialog"));
+        QVERIFY(child);
+        QTRY_VERIFY(!child->findChild<QPushButton *>(QStringLiteral("contentChartCancel"))->isEnabled());
+        QCOMPARE(child->findChild<QTreeWidget *>(QStringLiteral("contentChartEntries"))->topLevelItemCount(), 1);
+        QCOMPARE(child->findChild<QLabel *>(QStringLiteral("contentChartFolder"))->text(),
+                 QUrl::fromLocalFile(dir.filePath(QStringLiteral("folder"))).toDisplayString());
     }
 
     void handlesEmptyMissingAndCancellation()
@@ -70,6 +93,18 @@ private Q_SLOTS:
         ContentChartDialog canceled(QUrl::fromLocalFile(dir.path()));
         canceled.findChild<QPushButton *>(QStringLiteral("contentChartCancel"))->click();
         QCOMPARE(canceled.findChild<QLabel *>(QStringLiteral("contentChartStatus"))->text(), QStringLiteral("Scan canceled; the chart is incomplete."));
+    }
+
+    void treemapRecalculatesAfterResize()
+    {
+        CushionTreemap treemap;
+        treemap.setItems({{QStringLiteral("a"), 1}, {QStringLiteral("b"), 3}});
+        treemap.resize(200, 200);
+        treemap.show();
+        QTRY_COMPARE(treemap.tiles().size(), 2);
+        QCOMPARE(treemap.tiles().at(0).width() * treemap.tiles().at(0).height(), 10000.0);
+        treemap.resize(400, 200);
+        QTRY_COMPARE(treemap.tiles().at(0).width() * treemap.tiles().at(0).height(), 20000.0);
     }
 };
 

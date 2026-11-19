@@ -34,6 +34,7 @@ for file operations, Places, properties, settings and desktop integration.
   order.
 - Show an embedded Konsole terminal alongside the panes.
 - Link navigation between corresponding local pane folders.
+- Explore folder sizes with a cushion treemap and folder drilldown.
 
 ## Caveats
 

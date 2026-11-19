@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "contentchartdialog.h"
+#include "cushiontreemap.h"
 
 #include <KIO/DirectorySizeJob>
 #include <KIO/Global>
@@ -14,6 +15,7 @@
 #include <QLocale>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QSplitter>
 #include <QStyle>
 #include <QStyleOptionProgressBar>
 #include <QStyledItemDelegate>
@@ -59,6 +61,7 @@ ContentChartDialog::ContentChartDialog(const QUrl &folder, QWidget *parent)
     , m_progress(new QProgressBar(this))
     , m_cancel(new QPushButton(i18nc("@action:button", "Cancel Scan"), this))
     , m_tree(new QTreeWidget(this))
+    , m_treemap(new CushionTreemap(this))
 {
     setObjectName(QStringLiteral("contentChartDialog"));
     setWindowTitle(i18nc("@title:window", "Folder Content Chart"));
@@ -84,7 +87,27 @@ ContentChartDialog::ContentChartDialog(const QUrl &folder, QWidget *parent)
     m_tree->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     m_tree->header()->setSectionResizeMode(2, QHeaderView::Stretch);
     m_tree->setItemDelegateForColumn(2, new ShareDelegate(m_tree));
-    layout->addWidget(m_tree);
+    auto *hint = new QLabel(i18nc("@info", "Select a treemap tile to locate its entry; activate a folder in the list to inspect it."), this);
+    hint->setWordWrap(true);
+    layout->addWidget(hint);
+    auto *splitter = new QSplitter(Qt::Vertical, this);
+    splitter->addWidget(m_treemap);
+    splitter->addWidget(m_tree);
+    splitter->setStretchFactor(0, 1);
+    splitter->setStretchFactor(1, 1);
+    layout->addWidget(splitter);
+    connect(m_treemap, &CushionTreemap::activated, this, [this](int index) {
+        m_tree->setCurrentItem(m_entries.at(index).row);
+        m_tree->scrollToItem(m_entries.at(index).row);
+    });
+    connect(m_tree, &QTreeWidget::itemActivated, this, [this](QTreeWidgetItem *row) {
+        const KFileItem item = m_entries.at(row->data(0, Qt::UserRole).toInt()).item;
+        if (item.isDir() && !item.isLink()) {
+            auto *dialog = new ContentChartDialog(item.url(), this);
+            dialog->setAttribute(Qt::WA_DeleteOnClose);
+            dialog->show();
+        }
+    });
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
     m_cancel->setObjectName(QStringLiteral("contentChartCancel"));
     buttons->addButton(m_cancel, QDialogButtonBox::ActionRole);
@@ -103,6 +126,7 @@ ContentChartDialog::ContentChartDialog(const QUrl &folder, QWidget *parent)
             row->setText(0, item.name());
             const int index = m_entries.size();
             m_entries.append({item, row});
+            row->setData(0, Qt::UserRole, index);
             if (item.isLink()) {
                 row->setText(1, i18nc("@info:status", "Link skipped"));
                 ++m_skipped;
@@ -176,11 +200,14 @@ void ContentChartDialog::startSizes()
 void ContentChartDialog::updateChart()
 {
     long double total = 0;
+    QList<CushionTreemap::Item> tiles;
     for (const Entry &entry : std::as_const(m_entries)) {
+        tiles.append({entry.item.name(), entry.measured ? entry.size : 0});
         if (entry.measured) {
             total += entry.size;
         }
     }
+    m_treemap->setItems(tiles);
     for (const Entry &entry : std::as_const(m_entries)) {
         if (!entry.measured) {
             continue;

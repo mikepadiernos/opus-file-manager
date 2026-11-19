@@ -60,6 +60,8 @@ add_library(opusfm_core STATIC
     symbolicicon.h
     tabmodel.cpp
     tabmodel.h
+    treemap.cpp
+    treemap.h
     viewsettings.cpp
     viewsettings.h
 )

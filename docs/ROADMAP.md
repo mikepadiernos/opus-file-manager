@@ -335,7 +335,7 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 - ~~Embedded terminal alongside both panes: below them or at the right of the app
   for portrait/stacked layouts; showing it never replaces either pane~~
 - Placeholders for scripts and custom commands
-- Linked panes and cushion treemap (Orcinus)
+- ~~Linked panes and cushion treemap (Orcinus)~~
 
 **Caveats:** [File comparison](CAVEATS.md#file-comparison), tracked in #311;
 [symbolic links](CAVEATS.md#symbolic-links), tracked in #312; [listing export](CAVEATS.md#listing-export),
@@ -344,7 +344,8 @@ tracked in #314; [folder content chart](CAVEATS.md#folder-content-chart), tracke
 [pane folder comparison](CAVEATS.md#pane-folder-comparison), tracked in #317;
 [split and combine files](CAVEATS.md#split-and-combine-files), tracked in #318;
 [embedded terminal](CAVEATS.md#embedded-terminal), tracked in #321;
-[linked pane navigation](CAVEATS.md#linked-pane-navigation), tracked in #322.
+[linked pane navigation](CAVEATS.md#linked-pane-navigation), tracked in #322;
+[cushion treemap](CAVEATS.md#cushion-treemap), tracked in #335.
 
 ### M10 Tools settings
 
