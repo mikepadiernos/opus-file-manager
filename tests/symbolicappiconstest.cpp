@@ -16,6 +16,7 @@
 #include <QAbstractItemView>
 #include <QApplication>
 #include <QDir>
+#include <QFile>
 #include <QMenu>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -45,7 +46,8 @@ private Q_SLOTS:
                          QStringLiteral("inode-directory"),
                          QStringLiteral("user-home"),
                          QStringLiteral("user-trash"),
-                         QStringLiteral("view-filter")}));
+                         QStringLiteral("view-filter")},
+                        {QStringLiteral("emblem-symbolic-link")}));
         qApp->installEventFilter(new SymbolicActionIcons(qApp));
     }
 
@@ -94,6 +96,38 @@ private Q_SLOTS:
         const QIcon icon = view->model()->data(view->model()->index(0, 0), Qt::DecorationRole).value<QIcon>();
         QCOMPARE(colorAt(icon, 16), SymbolicColor);
         QVERIFY(colorAt(icon, 64) != SymbolicColor);
+    }
+
+    void symbolicFolderIconsKeepSymlinkEmblems()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("target")));
+        QVERIFY(QFile::link(root.filePath(QStringLiteral("target")), root.filePath(QStringLiteral("link"))));
+        FolderView view;
+        view.setPreviewsEnabled(false);
+        view.setUrl(QUrl::fromLocalFile(root.path()));
+        QTRY_COMPARE(view.itemCount(), 2);
+        const QAbstractItemModel *model = view.currentView()->model();
+        const QModelIndexList links = model->match(model->index(0, 0), Qt::DisplayRole, QStringLiteral("link"));
+        QCOMPARE(links.size(), 1);
+        const QIcon icon = model->data(links.first(), Qt::DecorationRole).value<QIcon>();
+        QVERIFY(containsColor(icon, 16, SymbolicColor));
+        QVERIFY(containsColor(icon, 16, EmblemColor));
+
+        FolderTree tree({QUrl::fromLocalFile(root.path())});
+        auto *treeView = tree.findChild<QTreeView *>();
+        QVERIFY(treeView);
+        const QAbstractItemModel *treeModel = treeView->model();
+        QTRY_COMPARE(treeModel->rowCount(), 1);
+        const QModelIndex rootIndex = treeModel->index(0, 0);
+        treeView->expand(rootIndex);
+        QTRY_COMPARE(treeModel->rowCount(rootIndex), 2);
+        const QModelIndexList treeLinks = treeModel->match(treeModel->index(0, 0, rootIndex), Qt::DisplayRole, QStringLiteral("link"));
+        QCOMPARE(treeLinks.size(), 1);
+        const QIcon treeIcon = treeModel->data(treeLinks.first(), Qt::DecorationRole).value<QIcon>();
+        QVERIFY(containsColor(treeIcon, 16, SymbolicColor));
+        QVERIFY(containsColor(treeIcon, 16, EmblemColor));
     }
 
     void favoritesDecorationsUseSymbolicIcons()

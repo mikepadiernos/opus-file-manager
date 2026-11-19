@@ -24,6 +24,9 @@ private Q_SLOTS:
         QCOMPARE(Density::barMargin(Density::Bars::Normal), -1);
         QCOMPARE(Density::barMargin(Density::Bars::Compact), 2);
         QCOMPARE(Density::barMargin(Density::Bars::VeryCompact), 0);
+        QCOMPARE(Density::barMargin(Density::Bars::Custom, 12), 12);
+        QCOMPARE(Density::barMargin(Density::Bars::Custom, 50), 32);
+        QCOMPARE(Density::barMargin(Density::Bars::Custom, -1), 0);
     }
 };
 

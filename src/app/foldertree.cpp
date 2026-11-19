@@ -54,7 +54,8 @@ public:
         }
         const QVariant value = KDirSortFilterProxyModel::data(index, role);
         if (role == Qt::DecorationRole && value.typeId() == QMetaType::QIcon) {
-            return SymbolicIcon::wrap(value.value<QIcon>());
+            const KFileItem item = index.data(KDirModel::FileItemRole).value<KFileItem>();
+            return SymbolicIcon::wrap(value.value<QIcon>(), item.iconName(), item.overlays());
         }
         return value;
     }

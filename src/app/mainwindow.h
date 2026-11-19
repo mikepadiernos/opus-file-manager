@@ -116,6 +116,7 @@ private:
     void saveSession();
 
     void showContextMenu(Pane *pane, const QPoint &globalPos, const KFileItemList &items);
+    void addTransferMenu(QMenu *menu, const KFileItemList &items, bool move);
     void activateItem(const KFileItem &item);
     void activatePaneItem(Pane *pane, const KFileItem &item);
     void updatePreviewPanel();

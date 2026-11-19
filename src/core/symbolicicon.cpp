@@ -2,6 +2,8 @@
 
 #include "symbolicicon.h"
 
+#include <KIconUtils>
+
 #include <QIconEngine>
 #include <QPainter>
 
@@ -77,11 +79,29 @@ private:
 
 QIcon SymbolicIcon::wrap(const QIcon &icon)
 {
-    const QString name = icon.name();
+    return wrap(icon, icon.name(), {});
+}
+
+QIcon SymbolicIcon::wrap(const QIcon &icon, const QString &iconName, const QStringList &overlays)
+{
+    const QString name = icon.name().isEmpty() ? iconName : icon.name();
     if (name.isEmpty() || name.endsWith(SymbolicSuffix) || !QIcon::hasThemeIcon(name + SymbolicSuffix)) {
         return icon;
     }
-    return QIcon(new SymbolicIconEngine(icon, QIcon::fromTheme(name + SymbolicSuffix)));
+    if (icon.name().isEmpty()) {
+        if (overlays.isEmpty()) {
+            return icon;
+        }
+        const QIcon themed = KIconUtils::addOverlays(QIcon::fromTheme(name), overlays);
+        if (icon.pixmap(16).toImage() != themed.pixmap(16).toImage()) {
+            return icon;
+        }
+    }
+    QIcon symbolic = QIcon::fromTheme(name + SymbolicSuffix);
+    if (!overlays.isEmpty()) {
+        symbolic = KIconUtils::addOverlays(symbolic, overlays);
+    }
+    return QIcon(new SymbolicIconEngine(icon, symbolic));
 }
 
 QIcon SymbolicIcon::fromTheme(const QString &name)

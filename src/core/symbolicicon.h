@@ -3,6 +3,7 @@
 #pragma once
 
 #include <QIcon>
+#include <QStringList>
 
 /**
  * Icons that draw the theme's "-symbolic" variant at small sizes. At
@@ -21,6 +22,12 @@ inline constexpr int MaxSize = 24;
  *          is already symbolic, or the theme has no symbolic variant
  */
 QIcon wrap(const QIcon &icon);
+
+/**
+ * Wraps an item icon and preserves its emblem overlays on symbolic variants.
+ * Unnamed icons that differ from the themed icon are left intact as previews.
+ */
+QIcon wrap(const QIcon &icon, const QString &iconName, const QStringList &overlays);
 
 /**
  * Looks up a theme icon and wraps it with wrap().

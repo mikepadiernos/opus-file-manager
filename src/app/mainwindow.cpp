@@ -56,6 +56,7 @@
 #include <KStandardAction>
 #include <KToggleAction>
 #include <KToolBar>
+#include <Solid/Device>
 
 #include <QApplication>
 #include <QClipboard>
@@ -65,6 +66,7 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QDockWidget>
+#include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QFutureWatcher>
@@ -128,6 +130,8 @@ Density::Bars barDensity(Settings::EnumBarDensity::type density)
         return Density::Bars::Compact;
     case Settings::EnumBarDensity::VeryCompact:
         return Density::Bars::VeryCompact;
+    case Settings::EnumBarDensity::Custom:
+        return Density::Bars::Custom;
     default:
         return Density::Bars::Normal;
     }
@@ -167,7 +171,9 @@ public:
         if (role != Qt::DecorationRole || value.typeId() != QMetaType::QIcon) {
             return value;
         }
-        return SymbolicIcon::wrap(value.value<QIcon>());
+        return SymbolicIcon::wrap(value.value<QIcon>(),
+                                  KFilePlacesModel::data(index, IconNameRole).toString(),
+                                  isDevice(index) ? deviceForIndex(index).emblems() : QStringList());
     }
 };
 
@@ -376,6 +382,9 @@ void MainWindow::setupPlaces()
 
     connect(m_placesView, &KFilePlacesView::urlChanged, this, [this](const QUrl &url) {
         activePane()->setUrl(url);
+        if (Settings::autoFocusPaneAfterPanelNavigation()) {
+            activePane()->view()->currentView()->setFocus();
+        }
     });
     connect(m_placesView, &KFilePlacesView::tabRequested, this, [this](const QUrl &url) {
         activePane()->openInNewTab(url);
@@ -398,6 +407,9 @@ void MainWindow::setupPanels()
     };
     const auto navigate = [this](const QUrl &url) {
         activePane()->setUrl(url);
+        if (Settings::autoFocusPaneAfterPanelNavigation()) {
+            activePane()->view()->currentView()->setFocus();
+        }
     };
     const auto openInTab = [this](const QUrl &url) {
         activePane()->openInNewTab(url);
@@ -1700,21 +1712,32 @@ void MainWindow::openGallery()
 void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFileItemList &items)
 {
     QMenu menu(this);
+    menu.setObjectName(QStringLiteral("fileContextMenu"));
     KActionCollection *actions = actionCollection();
     const KConfigGroup context = KSharedConfig::openConfig()->group(QStringLiteral("ContextMenu"));
+    const QStringList hidden = Settings::hiddenContextActions();
+    const auto visible = [&hidden](const char *id) {
+        return !hidden.contains(QLatin1String(id));
+    };
 
     if (items.isEmpty()) {
-        m_newFileMenu->setWorkingDirectory(pane->url());
-        m_newFileMenu->checkUpToDate();
-        menu.addAction(m_newFileMenu);
+        if (visible("new_menu")) {
+            m_newFileMenu->setWorkingDirectory(pane->url());
+            m_newFileMenu->checkUpToDate();
+            menu.addAction(m_newFileMenu);
+        }
         menu.addSeparator();
-        menu.addAction(m_pasteAction);
-        if (context.readEntry("ShowOpenInNewTab", true)) {
+        if (visible("paste")) {
+            menu.addAction(m_pasteAction);
+        }
+        if (visible("new_tab") && context.readEntry("ShowOpenInNewTab", true)) {
             menu.addAction(actions->action(QStringLiteral("new_tab")));
         }
         menu.addSeparator();
-        menu.addAction(actions->action(stdName(KStandardAction::Redisplay)));
-        if (Settings::showOpenTerminal()) {
+        if (visible("refresh")) {
+            menu.addAction(actions->action(stdName(KStandardAction::Redisplay)));
+        }
+        if (visible("terminal") && Settings::showOpenTerminal()) {
             menu.addAction(actions->action(QStringLiteral("open_terminal")));
         }
         menu.addAction(actions->action(QStringLiteral("calculate_occupied_space")));
@@ -1722,11 +1745,13 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
         if (pane->url().isLocalFile()) {
             folderLook = menu.addAction(i18nc("@action:inmenu", "Folder Look…"));
         }
-        if (Settings::showCopyPath()) {
+        if (visible("copy_path") && Settings::showCopyPath()) {
             menu.addAction(actions->action(QStringLiteral("copy_path")));
         }
         menu.addSeparator();
-        menu.addAction(actions->action(QStringLiteral("properties")));
+        if (visible("properties")) {
+            menu.addAction(actions->action(QStringLiteral("properties")));
+        }
         if (menu.exec(globalPos) == folderLook && folderLook) {
             editFolderLook(pane->url());
         }
@@ -1736,31 +1761,48 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     const bool singleFolder = items.size() == 1 && items.first().isDir();
     const KFileItemListProperties props(items);
 
-    QAction *openAction = menu.addAction(QIcon::fromTheme(QStringLiteral("document-open")), i18nc("@action:inmenu", "Open"));
+    QAction *openAction = nullptr;
+    if (visible("open")) {
+        openAction = menu.addAction(QIcon::fromTheme(QStringLiteral("document-open")), i18nc("@action:inmenu", "Open"));
+    }
     QAction *openInTab = nullptr;
     QAction *openInOtherPane = nullptr;
     if (singleFolder) {
-        if (Settings::showOpenInNewTab()) {
+        if (visible("open_in_tab") && Settings::showOpenInNewTab()) {
             openInTab = menu.addAction(QIcon::fromTheme(QStringLiteral("tab-new")), i18nc("@action:inmenu", "Open in New Tab"));
         }
-        if (m_dualLayoutAction->isChecked() && Settings::showOpenInOtherPane()) {
+        if (m_dualLayoutAction->isChecked() && visible("open_in_other_pane") && Settings::showOpenInOtherPane()) {
             openInOtherPane = menu.addAction(QIcon::fromTheme(QStringLiteral("view-split-left-right")), i18nc("@action:inmenu", "Open in Other Pane"));
         }
     }
     m_fileItemActions->setItemListProperties(props);
-    m_fileItemActions->insertOpenWithActionsTo(nullptr, &menu, QStringList());
+    if (visible("open_with")) {
+        m_fileItemActions->insertOpenWithActionsTo(nullptr, &menu, QStringList());
+    }
 
     menu.addSeparator();
-    menu.addAction(actions->action(stdName(KStandardAction::Cut)));
-    menu.addAction(actions->action(stdName(KStandardAction::Copy)));
-    if (singleFolder) {
+    if (visible("cut")) {
+        menu.addAction(actions->action(stdName(KStandardAction::Cut)));
+    }
+    if (visible("copy")) {
+        menu.addAction(actions->action(stdName(KStandardAction::Copy)));
+    }
+    if (singleFolder && visible("paste")) {
         menu.addAction(m_pasteAction);
     }
-    if (Settings::showCopyToOtherPane()) {
-        menu.addAction(actions->action(QStringLiteral("copy_to_other_pane")));
+    if (visible("copy_to")) {
+        if (Settings::copyToSubmenu()) {
+            addTransferMenu(&menu, items, false);
+        } else if (Settings::showCopyToOtherPane()) {
+            menu.addAction(actions->action(QStringLiteral("copy_to_other_pane")));
+        }
     }
-    if (Settings::showMoveToOtherPane()) {
-        menu.addAction(actions->action(QStringLiteral("move_to_other_pane")));
+    if (visible("move_to")) {
+        if (Settings::moveToSubmenu()) {
+            addTransferMenu(&menu, items, true);
+        } else if (Settings::showMoveToOtherPane()) {
+            menu.addAction(actions->action(QStringLiteral("move_to_other_pane")));
+        }
     }
     if (Settings::showCopyMoveToMenus()) {
         QList<QUrl> urls;
@@ -1773,13 +1815,17 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
         m_copyToMenu->addActionsTo(&menu);
     }
     menu.addSeparator();
-    menu.addAction(actions->action(QStringLiteral("rename")));
-    menu.addAction(actions->action(QStringLiteral("move_to_trash")));
-    if (Settings::showDelete()) {
+    if (visible("rename")) {
+        menu.addAction(actions->action(QStringLiteral("rename")));
+    }
+    if (visible("trash")) {
+        menu.addAction(actions->action(QStringLiteral("move_to_trash")));
+    }
+    if (visible("delete") && Settings::showDelete()) {
         menu.addAction(actions->action(QStringLiteral("delete")));
     }
     menu.addSeparator();
-    if (singleFolder && items.first().isLocalFile() && Settings::showOpenTerminal()) {
+    if (singleFolder && items.first().isLocalFile() && visible("terminal") && Settings::showOpenTerminal()) {
         menu.addAction(actions->action(QStringLiteral("open_terminal")));
     }
     if (singleFolder) {
@@ -1850,17 +1896,19 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
         menu.addAction(actions->action(QStringLiteral("compress")));
     }
     menu.addAction(actions->action(QStringLiteral("calculate_occupied_space")));
-    if (Settings::showCopyPath()) {
+    if (visible("copy_path") && Settings::showCopyPath()) {
         menu.addAction(actions->action(QStringLiteral("copy_path")));
     }
 
-    m_fileItemActions->addActionsTo(&menu);
+    m_fileItemActions->addActionsTo(&menu, KFileItemActions::MenuActionSource::All, {}, Settings::hiddenServiceActions());
 
     menu.addSeparator();
-    menu.addAction(actions->action(QStringLiteral("properties")));
+    if (visible("properties")) {
+        menu.addAction(actions->action(QStringLiteral("properties")));
+    }
 
     QAction *chosen = menu.exec(globalPos);
-    if (chosen == openAction) {
+    if (chosen && chosen == openAction) {
         if (singleFolder) {
             activateItem(items.first());
         } else {
@@ -1873,6 +1921,35 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     } else if (chosen && chosen == openInOtherPane) {
         inactivePane()->setUrl(items.first().targetUrl());
     }
+}
+
+void MainWindow::addTransferMenu(QMenu *menu, const KFileItemList &items, bool move)
+{
+    auto *submenu = menu->addMenu(move ? i18nc("@title:menu", "Move To") : i18nc("@title:menu", "Copy To"));
+    submenu->setObjectName(move ? QStringLiteral("moveToMenu") : QStringLiteral("copyToMenu"));
+    submenu->setEnabled(!move || KFileItemListProperties(items).supportsMoving());
+    const QList<QUrl> sources = urlsOf(items);
+    const auto transfer = [this, sources, move](const QUrl &destination) {
+        if (move) {
+            FileOperations::move(sources, destination, this);
+        } else {
+            FileOperations::copy(sources, destination, this);
+        }
+    };
+    if ((!move && Settings::showCopyToOtherPane()) || (move && Settings::showMoveToOtherPane())) {
+        connect(submenu->addAction(i18nc("@action:inmenu", "Other Pane")), &QAction::triggered, this, [this, transfer] {
+            transfer(inactivePane()->url());
+        });
+    }
+    connect(submenu->addAction(i18nc("@action:inmenu", "Home Folder")), &QAction::triggered, this, [transfer] {
+        transfer(Settings::homeUrl());
+    });
+    connect(submenu->addAction(i18nc("@action:inmenu", "Choose Folder…")), &QAction::triggered, this, [this, transfer] {
+        const QUrl destination = QFileDialog::getExistingDirectoryUrl(this, i18nc("@title:window", "Choose Destination Folder"), activePane()->url());
+        if (destination.isValid() && !destination.isEmpty()) {
+            transfer(destination);
+        }
+    });
 }
 
 void MainWindow::copyToOtherPane()
@@ -2013,12 +2090,14 @@ void MainWindow::applySettings()
         view->setRemotePreviewsEnabled(Settings::showRemotePreviews());
     }
     updateTabBars();
-    const int barMargin = Density::barMargin(barDensity(Settings::barDensity()));
+    const int barMargin = Density::barMargin(barDensity(Settings::barDensity()), Settings::barCustomSpacing());
     const auto bars = toolBars();
     for (KToolBar *bar : bars) {
         setBarMargin(bar, barMargin);
     }
     setBarMargin(statusBar(), barMargin);
+    setBarMargin(m_left->navigationBar(), barMargin);
+    setBarMargin(m_right->navigationBar(), barMargin);
     applyPanelSettings();
     m_itemsLabel->setVisible(Settings::showItemCounts());
     m_freeSpaceLabel->setVisible(Settings::showFreeSpace());

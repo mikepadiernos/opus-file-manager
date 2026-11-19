@@ -387,6 +387,8 @@ QWidget *SettingsDialog::createPanelAppearancePage()
     form->addRow(i18nc("@label:listbox", "Position:"),
                  comboBox(QStringLiteral("PanelPosition"), {i18nc("@item:inlistbox", "Left"), i18nc("@item:inlistbox", "Right")}));
     form->addRow({}, checkBox(QStringLiteral("PanelAutoFocus"), i18nc("@option:check", "Follow the active folder in the tree")));
+    form->addRow({},
+                 checkBox(QStringLiteral("AutoFocusPaneAfterPanelNavigation"), i18nc("@option:check", "Focus the active pane after navigating from a panel")));
     form->addRow({}, checkBox(QStringLiteral("PanelTitlesVisible"), i18nc("@option:check", "Show panel title bars")));
     form->addRow(i18nc("@title:group", "Combined panel sections:"), checkBox(QStringLiteral("FavoritesVisible"), i18nc("@option:check", "Favorites")));
     form->addRow({}, checkBox(QStringLiteral("PlacesVisible"), i18nc("@option:check", "Places")));
@@ -434,10 +436,18 @@ QWidget *SettingsDialog::createStatusBarPage()
     form->addRow(QString(), checkBox(QStringLiteral("ShowItemCounts"), i18nc("@option:check", "Number of items and selected items")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowSelectionSize"), i18nc("@option:check", "Size of the selected files")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowFreeSpace"), i18nc("@option:check", "Free space")));
-    form->addRow(
-        i18nc("@label:listbox", "Bar density:"),
-        comboBox(QStringLiteral("BarDensity"),
-                 {i18nc("@item:inlistbox density", "Normal"), i18nc("@item:inlistbox density", "Compact"), i18nc("@item:inlistbox density", "Very compact")}));
+    auto *density = comboBox(QStringLiteral("BarDensity"),
+                             {i18nc("@item:inlistbox density", "Normal"),
+                              i18nc("@item:inlistbox density", "Compact"),
+                              i18nc("@item:inlistbox density", "Very compact"),
+                              i18nc("@item:inlistbox density", "Custom")});
+    auto *spacing = pixelSpinBox(QStringLiteral("BarCustomSpacing"), 0, 32);
+    connect(density, &QComboBox::currentIndexChanged, page, [density, spacing] {
+        spacing->setEnabled(density->currentIndex() == Settings::EnumBarDensity::Custom);
+    });
+    spacing->setEnabled(density->currentIndex() == Settings::EnumBarDensity::Custom);
+    form->addRow(i18nc("@label:listbox", "Bar density:"), density);
+    form->addRow(i18nc("@label:spinbox", "Custom bar spacing:"), spacing);
     return page;
 }
 
@@ -449,10 +459,37 @@ QWidget *SettingsDialog::createContextMenuActionsPage()
     form->addRow(QString(), checkBox(QStringLiteral("ShowOpenInOtherPane"), i18nc("@option:check", "Open in Other Pane")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowCopyToOtherPane"), i18nc("@option:check", "Copy to Other Pane")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowMoveToOtherPane"), i18nc("@option:check", "Move to Other Pane")));
-    form->addRow(QString(), checkBox(QStringLiteral("ShowCopyMoveToMenus"), i18nc("@option:check", "Copy To and Move To submenus")));
+    form->addRow(QString(), checkBox(QStringLiteral("ShowCopyMoveToMenus"), i18nc("@option:check", "Additional KDE Copy To and Move To submenus")));
+    form->addRow(QString(), checkBox(QStringLiteral("CopyToSubmenu"), i18nc("@option:check", "Replace Copy to Other Pane with a Copy To menu")));
+    form->addRow(QString(), checkBox(QStringLiteral("MoveToSubmenu"), i18nc("@option:check", "Replace Move to Other Pane with a Move To menu")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowDelete"), i18nc("@option:check", "Delete Permanently")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowOpenTerminal"), i18nc("@option:check", "Open Terminal Here")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowCopyPath"), i18nc("@option:check", "Copy Path")));
+    auto *list = new HiddenItemsList;
+    const QList<std::pair<QString, QString>> entries{
+        {QStringLiteral("open"), i18nc("@item:inlistbox", "Open")},
+        {QStringLiteral("open_in_tab"), i18nc("@item:inlistbox", "Open in New Tab")},
+        {QStringLiteral("open_in_other_pane"), i18nc("@item:inlistbox", "Open in Other Pane")},
+        {QStringLiteral("open_with"), i18nc("@item:inlistbox", "Open With")},
+        {QStringLiteral("new_menu"), i18nc("@item:inlistbox", "Create New")},
+        {QStringLiteral("new_tab"), i18nc("@item:inlistbox", "New Tab")},
+        {QStringLiteral("cut"), i18nc("@item:inlistbox", "Cut")},
+        {QStringLiteral("copy"), i18nc("@item:inlistbox", "Copy")},
+        {QStringLiteral("paste"), i18nc("@item:inlistbox", "Paste")},
+        {QStringLiteral("copy_to"), i18nc("@item:inlistbox", "Opus Copy to Other Pane / Copy To")},
+        {QStringLiteral("move_to"), i18nc("@item:inlistbox", "Opus Move to Other Pane / Move To")},
+        {QStringLiteral("rename"), i18nc("@item:inlistbox", "Rename")},
+        {QStringLiteral("trash"), i18nc("@item:inlistbox", "Move to Trash")},
+        {QStringLiteral("delete"), i18nc("@item:inlistbox", "Delete Permanently")},
+        {QStringLiteral("refresh"), i18nc("@item:inlistbox", "Reload")},
+        {QStringLiteral("terminal"), i18nc("@item:inlistbox", "Open Terminal Here")},
+        {QStringLiteral("copy_path"), i18nc("@item:inlistbox", "Copy Path")},
+        {QStringLiteral("properties"), i18nc("@item:inlistbox", "Properties")},
+    };
+    for (const auto &[id, label] : entries) {
+        list->addItem(id, label);
+    }
+    form->addRow(i18nc("@label", "Show these actions:"), bound(list, QStringLiteral("HiddenContextActions"), "hiddenItems"));
     return page;
 }
 
@@ -461,6 +498,13 @@ QWidget *SettingsDialog::createServiceMenusPage()
     auto *list = new QWidget;
     auto *column = new QVBoxLayout(list);
     const QList<ServiceMenuEntry> entries = ServiceMenus::installed();
+    auto *localActions = new HiddenItemsList;
+    for (const ServiceMenuEntry &entry : entries) {
+        localActions->addItem(entry.key, entry.submenu.isEmpty() ? entry.text : i18nc("@item:inlistbox", "%1: %2", entry.submenu, entry.text));
+    }
+    auto *form = new QFormLayout;
+    form->addRow(i18nc("@label", "Show in Opus:"), bound(localActions, QStringLiteral("HiddenServiceActions"), "hiddenItems"));
+    column->addLayout(form);
     for (const ServiceMenuEntry &entry : entries) {
         const QString key = entry.key;
         const bool shownByDefault = entry.shownByDefault;

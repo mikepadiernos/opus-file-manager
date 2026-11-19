@@ -43,6 +43,24 @@ Q_SIGNALS:
     void informationChanged();
 };
 
+class HiddenItemsList : public QListWidget
+{
+    Q_OBJECT
+    Q_PROPERTY(QStringList hiddenItems READ hiddenItems WRITE setHiddenItems NOTIFY hiddenItemsChanged USER true)
+
+public:
+    explicit HiddenItemsList(QWidget *parent = nullptr);
+    void addItem(const QString &id, const QString &label);
+    QStringList hiddenItems() const;
+    void setHiddenItems(const QStringList &hidden);
+
+Q_SIGNALS:
+    void hiddenItemsChanged();
+
+private:
+    QStringList m_missingItems;
+};
+
 /**
  * Checkable list of the installed KIO thumbnailer plugins, bound to a
  * StringList setting of plugin ids by KConfigDialog.

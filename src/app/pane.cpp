@@ -245,6 +245,11 @@ bool Pane::isNavigationBarVisible() const
     return !m_navigationBar->isHidden();
 }
 
+QWidget *Pane::navigationBar() const
+{
+    return m_navigationBar;
+}
+
 void Pane::setBarDensity(const QString &density)
 {
     auto *layout = qobject_cast<QHBoxLayout *>(m_navigationBar->layout());

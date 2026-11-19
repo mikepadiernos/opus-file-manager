@@ -5,6 +5,7 @@
 #include "compressdialog.h"
 #include "fileoperations.h"
 #include "foldermetadata.h"
+#include "foldertree.h"
 #include "folderview.h"
 #include "mainwindow.h"
 #include "pane.h"
@@ -35,6 +36,7 @@
 #include <QDropEvent>
 #include <QFile>
 #include <QLabel>
+#include <QLayout>
 #include <QListView>
 #include <QListWidget>
 #include <QMenu>
@@ -50,6 +52,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QTreeView>
 
 #include <limits>
 
@@ -591,6 +594,121 @@ private Q_SLOTS:
         QCOMPARE(barsHeight(), normal);
     }
 
+    void customBarSpacingAppliesAndRestores()
+    {
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *density = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_BarDensity"));
+        auto *spacing = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_BarCustomSpacing"));
+        QVERIFY(density && spacing);
+        QVERIFY(!spacing->isEnabled());
+        density->setCurrentIndex(Settings::EnumBarDensity::Custom);
+        QVERIFY(spacing->isEnabled());
+        spacing->setValue(11);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::barDensity(), Settings::EnumBarDensity::Custom);
+        QCOMPARE(Settings::barCustomSpacing(), 11);
+        window.openUrls({m_a});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        Settings::setBarDensity(Settings::EnumBarDensity::Normal);
+        window.applySettings();
+        QLayout *toolbar = window.toolBar()->layout();
+        QLayout *navigation = window.activePane()->navigationBar()->layout();
+        const QMargins initialToolbar = toolbar->contentsMargins();
+        const QMargins initialNavigation = navigation->contentsMargins();
+        Settings::setBarDensity(Settings::EnumBarDensity::Custom);
+        Settings::setBarCustomSpacing(11);
+        window.applySettings();
+        QCOMPARE(toolbar->contentsMargins().top(), 11);
+        QCOMPARE(navigation->contentsMargins().top(), 11);
+        Settings::setBarDensity(Settings::EnumBarDensity::Normal);
+        window.applySettings();
+        QCOMPARE(toolbar->contentsMargins(), initialToolbar);
+        QCOMPARE(navigation->contentsMargins(), initialNavigation);
+    }
+
+    void contextListsSaveUnavailableEntries()
+    {
+        MainWindow window;
+        Settings::setHiddenServiceActions({QStringLiteral("not-installed")});
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *actions = dialog.findChild<HiddenItemsList *>(QStringLiteral("kcfg_HiddenContextActions"));
+        auto *services = dialog.findChild<HiddenItemsList *>(QStringLiteral("kcfg_HiddenServiceActions"));
+        auto *copy = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_CopyToSubmenu"));
+        auto *move = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_MoveToSubmenu"));
+        QVERIFY(actions && services && copy && move);
+        QListWidgetItem *rename = nullptr;
+        QListWidgetItem *service = nullptr;
+        for (int row = 0; row < actions->count(); ++row) {
+            if (actions->item(row)->data(Qt::UserRole).toString() == QLatin1String("rename")) {
+                rename = actions->item(row);
+            }
+        }
+        for (int row = 0; row < services->count(); ++row) {
+            if (services->item(row)->data(Qt::UserRole).toString() == QLatin1String("opusfmSettingsTest")) {
+                service = services->item(row);
+            }
+        }
+        QVERIFY(rename && service);
+        rename->setCheckState(Qt::Unchecked);
+        service->setCheckState(Qt::Unchecked);
+        copy->setChecked(true);
+        move->setChecked(true);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::copyToSubmenu());
+        QVERIFY(Settings::moveToSubmenu());
+        QVERIFY(Settings::hiddenContextActions().contains(QStringLiteral("rename")));
+        QVERIFY(Settings::hiddenServiceActions().contains(QStringLiteral("opusfmSettingsTest")));
+        QVERIFY(Settings::hiddenServiceActions().contains(QStringLiteral("not-installed")));
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::hiddenContextActions().isEmpty());
+        QVERIFY(Settings::hiddenServiceActions().isEmpty());
+        QVERIFY(!Settings::copyToSubmenu());
+        QVERIFY(!Settings::moveToSubmenu());
+    }
+
+    void panelNavigationCanFocusTheActivePane()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        auto *panel = window.findChild<CombinedPanel *>();
+        QVERIFY(panel);
+        auto *tree = panel->folderTree()->findChild<QTreeView *>();
+        QVERIFY(tree);
+        tree->setFocus();
+        QTRY_VERIFY(tree->hasFocus());
+        Settings::setAutoFocusPaneAfterPanelNavigation(false);
+        Q_EMIT panel->urlActivated(m_b);
+        QCOMPARE(window.activePane()->url(), m_b);
+        QVERIFY(tree->hasFocus());
+        Settings::setAutoFocusPaneAfterPanelNavigation(true);
+        Q_EMIT panel->urlActivated(m_a);
+        QTRY_VERIFY(window.activePane()->view()->currentView()->hasFocus());
+
+        window.setPanelLayout(MainWindow::PanelLayout::Separate);
+        auto *places = window.findChild<KFilePlacesView *>();
+        QVERIFY(places);
+        Settings::setAutoFocusPaneAfterPanelNavigation(false);
+        places->setFocus();
+        QVERIFY(QMetaObject::invokeMethod(places, "urlChanged", Qt::DirectConnection, Q_ARG(QUrl, m_b)));
+        QCOMPARE(window.activePane()->url(), m_b);
+        QVERIFY(places->hasFocus());
+        Settings::setAutoFocusPaneAfterPanelNavigation(true);
+        QVERIFY(QMetaObject::invokeMethod(places, "urlChanged", Qt::DirectConnection, Q_ARG(QUrl, m_a)));
+        QTRY_VERIFY(window.activePane()->view()->currentView()->hasFocus());
+        auto *foldersDock = window.findChild<QDockWidget *>(QStringLiteral("foldersDock"));
+        QVERIFY(foldersDock);
+        auto *folderTree = foldersDock->findChild<FolderTree *>();
+        QVERIFY(folderTree);
+        Q_EMIT folderTree->urlActivated(m_b);
+        QCOMPARE(window.activePane()->url(), m_b);
+        QTRY_VERIFY(window.activePane()->view()->currentView()->hasFocus());
+    }
+
     void contextMenuFollowsSettings()
     {
         MainWindow window;
@@ -636,6 +754,96 @@ private Q_SLOTS:
         QVERIFY(!changed.contains(QStringLiteral("Delete Permanently")));
         QVERIFY(changed.contains(QStringLiteral("Copy To")));
         QVERIFY(changed.contains(QStringLiteral("Move To")));
+    }
+
+    void contextListsAndTransferMenusApply()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("source")));
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("destination")));
+        QFile file(root.filePath(QStringLiteral("source/file.txt")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+        const QUrl source = QUrl::fromLocalFile(root.filePath(QStringLiteral("source")));
+        const QUrl destination = QUrl::fromLocalFile(root.filePath(QStringLiteral("destination")));
+        MainWindow window;
+        window.openUrls({source, destination});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        view->selectAll();
+        const KFileItemList items = view->selectedItems();
+        QCOMPARE(items.size(), 1);
+        QStringList defaultActions;
+        QTimer::singleShot(0, [&defaultActions] {
+            auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+            if (!menu) {
+                return;
+            }
+            const auto collect = [&defaultActions](auto &&self, QMenu *current) -> void {
+                for (QAction *action : current->actions()) {
+                    defaultActions.append(action->text().remove(u'&'));
+                    if (action->menu()) {
+                        self(self, action->menu());
+                    }
+                }
+            };
+            collect(collect, menu);
+            menu->close();
+        });
+        Q_EMIT view->contextMenuRequested(view->mapToGlobal(QPoint(10, 10)), items);
+        QVERIFY(defaultActions.contains(QStringLiteral("Settings Test Action")));
+        Settings::setCopyToSubmenu(true);
+        Settings::setMoveToSubmenu(true);
+        Settings::setHiddenContextActions({QStringLiteral("open"), QStringLiteral("rename")});
+        Settings::setHiddenServiceActions({QStringLiteral("opusfmSettingsTest")});
+        QStringList actions;
+        QTimer::singleShot(0, [&actions] {
+            auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+            if (!menu) {
+                return;
+            }
+            const auto collect = [&actions](auto &&self, QMenu *current) -> void {
+                for (QAction *action : current->actions()) {
+                    actions.append(action->text().remove(u'&'));
+                    if (action->menu()) {
+                        self(self, action->menu());
+                    }
+                }
+            };
+            collect(collect, menu);
+            auto *copy = menu->findChild<QMenu *>(QStringLiteral("copyToMenu"));
+            auto *move = menu->findChild<QMenu *>(QStringLiteral("moveToMenu"));
+            if (copy && move) {
+                actions.append(copy->objectName());
+                actions.append(move->objectName());
+                copy->actions().first()->trigger();
+            }
+            menu->close();
+        });
+        Q_EMIT view->contextMenuRequested(view->mapToGlobal(QPoint(10, 10)), items);
+        QVERIFY(actions.contains(QStringLiteral("copyToMenu")));
+        QVERIFY(actions.contains(QStringLiteral("moveToMenu")));
+        QVERIFY(!actions.contains(QStringLiteral("Open")));
+        QVERIFY(!actions.contains(QStringLiteral("Rename")));
+        QVERIFY(!actions.contains(QStringLiteral("Settings Test Action")));
+        QTRY_VERIFY(QFile::exists(root.filePath(QStringLiteral("destination/file.txt"))));
+
+        QTimer::singleShot(0, [] {
+            auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+            if (menu) {
+                if (auto *move = menu->findChild<QMenu *>(QStringLiteral("moveToMenu"))) {
+                    move->actions().first()->trigger();
+                }
+                menu->close();
+            }
+        });
+        QFile::remove(root.filePath(QStringLiteral("destination/file.txt")));
+        Q_EMIT view->contextMenuRequested(view->mapToGlobal(QPoint(10, 10)), items);
+        QTRY_VERIFY(QFile::exists(root.filePath(QStringLiteral("destination/file.txt"))));
+        QVERIFY(!QFile::exists(root.filePath(QStringLiteral("source/file.txt"))));
     }
 
     void serviceMenusAreSharedWithDolphin()

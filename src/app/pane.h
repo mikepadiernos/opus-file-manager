@@ -70,6 +70,7 @@ public:
      */
     void setNavigationBarVisible(bool visible);
     bool isNavigationBarVisible() const;
+    QWidget *navigationBar() const;
 
     /**
      * Chooses where openInNewTab() and newTab() insert tabs.

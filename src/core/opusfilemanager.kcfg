@@ -175,8 +175,13 @@
         <choice name="Normal"/>
         <choice name="Compact"/>
         <choice name="VeryCompact"/>
+        <choice name="Custom"/>
       </choices>
       <default>Normal</default>
+    </entry>
+    <entry name="BarCustomSpacing" type="Int">
+      <label>Custom bar spacing in pixels</label>
+      <default>4</default><min>0</min><max>32</max>
     </entry>
     <entry name="DragFromAnywhere" type="Bool">
       <label>Drag files and folders from anywhere in a details row</label>
@@ -271,6 +276,10 @@
       <default>left</default>
     </entry>
     <entry name="PanelAutoFocus" key="AutoFocus" type="Bool"><default>true</default></entry>
+    <entry name="AutoFocusPaneAfterPanelNavigation" type="Bool">
+      <label>Focus the active pane after navigating from a panel</label>
+      <default>false</default>
+    </entry>
     <entry name="PanelTitlesVisible" key="TitlesVisible" type="Bool"><default>true</default></entry>
     <entry name="FavoritesVisible" type="Bool"><default>true</default></entry>
     <entry name="PlacesVisible" type="Bool"><default>true</default></entry>
@@ -362,6 +371,10 @@
       <label>Show the Copy To and Move To submenus</label>
       <default>false</default>
     </entry>
+    <entry name="CopyToSubmenu" type="Bool"><default>false</default></entry>
+    <entry name="MoveToSubmenu" type="Bool"><default>false</default></entry>
+    <entry name="HiddenContextActions" type="StringList"><default></default></entry>
+    <entry name="HiddenServiceActions" type="StringList"><default></default></entry>
   </group>
   <group name="SettingsDialog">
     <entry name="SidebarTitlePosition" type="Enum">

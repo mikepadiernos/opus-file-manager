@@ -17,6 +17,7 @@ namespace TestIconTheme
 {
 inline const QColor RegularColor = Qt::red;
 inline const QColor SymbolicColor = Qt::blue;
+inline const QColor EmblemColor = Qt::green;
 inline const QString Name = QStringLiteral("opusfm-test");
 
 inline bool writeIcon(const QString &root, int size, const QString &name, const QColor &color)
@@ -34,7 +35,7 @@ inline bool writeIcon(const QString &root, int size, const QString &name, const 
  * @param withSymbolic names that get a regular icon and a "-symbolic" variant
  * @returns false when a file could not be written
  */
-inline bool install(const QString &root, const QStringList &regular, const QStringList &withSymbolic)
+inline bool install(const QString &root, const QStringList &regular, const QStringList &withSymbolic, const QStringList &emblems = {})
 {
     QFile index(QStringLiteral("%1/%2/index.theme").arg(root, Name));
     if (!QDir().mkpath(QStringLiteral("%1/%2").arg(root, Name)) || !index.open(QIODevice::WriteOnly)) {
@@ -55,6 +56,11 @@ inline bool install(const QString &root, const QStringList &regular, const QStri
         if (!writeIcon(root, 16, name + QStringLiteral("-symbolic"), SymbolicColor)) {
             return false;
         }
+        for (const QString &name : emblems) {
+            if (!writeIcon(root, 16, name, EmblemColor) || !writeIcon(root, 48, name, EmblemColor)) {
+                return false;
+            }
+        }
     }
 
     QIcon::setThemeSearchPaths({root});
@@ -67,5 +73,18 @@ inline QColor colorAt(const QIcon &icon, int size, qreal devicePixelRatio = 1.0)
 {
     const QImage image = icon.pixmap(QSize(size, size), devicePixelRatio).toImage();
     return image.pixelColor(image.width() / 2, image.height() / 2);
+}
+
+inline bool containsColor(const QIcon &icon, int size, const QColor &color, qreal devicePixelRatio = 1.0)
+{
+    const QImage image = icon.pixmap(QSize(size, size), devicePixelRatio).toImage();
+    for (int y = 0; y < image.height(); ++y) {
+        for (int x = 0; x < image.width(); ++x) {
+            if (image.pixelColor(x, y) == color) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 }

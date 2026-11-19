@@ -18,6 +18,7 @@ enum class Bars {
     Normal,
     Compact,
     VeryCompact,
+    Custom,
 };
 
 /// Space above and below each item for Normal, as in Dolphin.
@@ -37,5 +38,5 @@ int itemSpace(Items density, int customSpace);
  * @param density the chosen density
  * @returns -1 for Normal, meaning the style's own margins; 2 for Compact; 0 for Very compact
  */
-int barMargin(Bars density);
+int barMargin(Bars density, int customSpace = 0);
 }

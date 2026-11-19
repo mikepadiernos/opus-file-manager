@@ -33,11 +33,13 @@ find_package(KF6 ${KF_MIN_VERSION} REQUIRED COMPONENTS
     Crash
     DBusAddons
     FileMetaData
+    GuiAddons
     I18n
     IconThemes
     ItemViews
     KIO
     Parts
+    Solid
     SyntaxHighlighting
     WidgetsAddons
     WindowSystem

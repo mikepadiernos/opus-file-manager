@@ -41,7 +41,7 @@ after each adds their settings in KConfig.
 
 - ~~KXmlGui main window with hamburger menu, editable toolbar and shortcuts~~
 - ~~Theme icons for app actions and pane controls, preferring symbolic variants
-  when available~~
+  when available and preserving file and device emblems~~
 - ~~Two panes with tabs, back/forward history and a `KUrlNavigator`~~
 - ~~Details and icon views over `KDirModel`, with previews~~
 - ~~Places panel (`KFilePlacesView`: devices, mount, eject)~~
@@ -77,18 +77,22 @@ with Dolphin.
   - **Previews:** ~~enablement, plugins, size limit and remote folders~~
   - **Confirmations:** ~~trash~~, delete, ~~multiple tabs; executable handling~~;
     default drop action
-  - **Panels:** ~~Places panel visibility~~ and visible sections
-  - **Status and Location Bars:** ~~status-bar contents and bar density~~
+  - **Panels:** ~~Places panel visibility~~ and visible sections; ~~optional
+    focus return to the active pane after panel navigation~~
+  - **Status and Location Bars:** ~~status-bar contents and bar density,
+    including custom bar spacing~~
 - **View**
   - **General:** ~~default view mode, sorting, hidden files and tooltips~~
   - **Details:** ~~icon size, columns, item density and dragging from anywhere
     in a row~~
   - **Icons:** icon and preview size and ~~item density~~
 - **Context Menu**
-  - **General:** ~~optional Copy To and Move To submenus~~
-  - **Actions:** ~~choose which built-in actions appear~~
+  - **General:** ~~optional Copy To and Move To submenus, independently
+    configurable alongside the additional KDE submenus~~
+  - **Actions:** ~~choose which built-in actions appear~~ (Opus actions;
+    additional KDE transfer submenus are controlled separately)
   - **Service Menus:** ~~choose which installed service actions and plugins
-    appear~~
+    appear in Opus separately from Dolphin-shared settings~~
 
 ### M03 Listing depth
 

@@ -14,6 +14,7 @@
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -159,6 +160,42 @@ void IconInformationList::setInformation(const QStringList &information)
 {
     for (int row = 0; row < count(); ++row) {
         item(row)->setCheckState(information.contains(item(row)->data(Qt::UserRole).toString()) ? Qt::Checked : Qt::Unchecked);
+    }
+}
+
+HiddenItemsList::HiddenItemsList(QWidget *parent)
+    : QListWidget(parent)
+{
+    connect(this, &QListWidget::itemChanged, this, &HiddenItemsList::hiddenItemsChanged);
+}
+
+void HiddenItemsList::addItem(const QString &id, const QString &label)
+{
+    auto *entry = new QListWidgetItem(label, this);
+    entry->setData(Qt::UserRole, id);
+    entry->setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable);
+    entry->setCheckState(Qt::Checked);
+}
+
+QStringList HiddenItemsList::hiddenItems() const
+{
+    QStringList hidden = m_missingItems;
+    for (int row = 0; row < count(); ++row) {
+        if (item(row)->checkState() == Qt::Unchecked) {
+            hidden.append(item(row)->data(Qt::UserRole).toString());
+        }
+    }
+    return hidden;
+}
+
+void HiddenItemsList::setHiddenItems(const QStringList &hidden)
+{
+    const QSignalBlocker blocker(this);
+    m_missingItems = hidden;
+    for (int row = 0; row < count(); ++row) {
+        const QString id = item(row)->data(Qt::UserRole).toString();
+        item(row)->setCheckState(hidden.contains(id) ? Qt::Unchecked : Qt::Checked);
+        m_missingItems.removeAll(id);
     }
 }
 

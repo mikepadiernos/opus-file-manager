@@ -55,6 +55,7 @@ target_link_libraries(opusfm_app
         KF6::KIOWidgets
         KF6::ItemViews
         KF6::Parts
+        KF6::Solid
         KF6::SyntaxHighlighting
         KF6::WidgetsAddons
         KF6::XmlGui

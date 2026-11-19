@@ -19,7 +19,7 @@ int Density::itemSpace(Items density, int customSpace)
     return NormalItemSpace;
 }
 
-int Density::barMargin(Bars density)
+int Density::barMargin(Bars density, int customSpace)
 {
     switch (density) {
     case Bars::Normal:
@@ -28,6 +28,8 @@ int Density::barMargin(Bars density)
         return 2;
     case Bars::VeryCompact:
         return 0;
+    case Bars::Custom:
+        return qBound(0, customSpace, 32);
     }
     return -1;
 }

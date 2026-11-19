@@ -3,6 +3,7 @@
 #include "symbolicicon.h"
 #include "testicontheme.h"
 
+#include <KIconUtils>
 #include <QPixmap>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -19,7 +20,7 @@ private Q_SLOTS:
     {
         QStandardPaths::setTestModeEnabled(true);
         QVERIFY(m_themeDir.isValid());
-        QVERIFY(install(m_themeDir.path(), {QStringLiteral("bar")}, {QStringLiteral("foo")}));
+        QVERIFY(install(m_themeDir.path(), {QStringLiteral("bar")}, {QStringLiteral("foo")}, {QStringLiteral("emblem")}));
     }
 
     void smallSizesUseSymbolicVariant()
@@ -39,6 +40,23 @@ private Q_SLOTS:
         const QIcon icon = SymbolicIcon::fromTheme(QStringLiteral("foo"));
         QCOMPARE(colorAt(icon, SymbolicIcon::MaxSize + 1), RegularColor);
         QCOMPARE(colorAt(icon, 48), RegularColor);
+    }
+
+    void preservesOverlaysAtAllSizes()
+    {
+        const QStringList overlays{QStringLiteral("emblem")};
+        const QIcon original = KIconUtils::addOverlays(QIcon::fromTheme(QStringLiteral("foo")), overlays);
+        const QIcon icon = SymbolicIcon::wrap(original, QStringLiteral("foo"), overlays);
+        QVERIFY(containsColor(icon, 16, SymbolicColor));
+        QVERIFY(containsColor(icon, 16, EmblemColor));
+        QVERIFY(containsColor(icon, 48, RegularColor));
+        QVERIFY(containsColor(icon, 48, EmblemColor));
+        QVERIFY(containsColor(icon, 16, SymbolicColor, 2.0));
+        QVERIFY(containsColor(icon, 16, EmblemColor, 2.0));
+        QPixmap thumbnail(16, 16);
+        thumbnail.fill(Qt::yellow);
+        const QIcon preview(thumbnail);
+        QCOMPARE(SymbolicIcon::wrap(preview, QStringLiteral("foo"), overlays).cacheKey(), preview.cacheKey());
     }
 
     void keepsRegularName()
