@@ -654,6 +654,13 @@ Settings for M21 tagging, stored in KConfig.
   both panes. Yakuake is a separate drop-down application, not an embeddable
   terminal; use a supported KPart for embedded mode. Report unavailable
   providers and unsupported locations rather than silently switching.
+- Editor integrations: offer KWrite and Kate as separate GUI editors, and
+  Neovim, Rune, micro and nano in a supported embedded or separate terminal,
+  as alternatives to the built-in editor. KWrite and Kate use KTextEditor
+  themselves; they are separate applications, not replacement editor
+  components. Preserve the built-in editor and its draft handling, pass file
+  paths safely without shell interpolation, and report missing providers,
+  launch failures and unsupported locations.
 
 ### M24 Integration settings
 
@@ -671,6 +678,10 @@ Settings for M23 integrations, stored in KConfig.
 - **Terminal**
   - **Provider:** choose Konsole, Yakuake or Kwi for separate sessions and
     Konsole or Kwi for embedded sessions, independently of placement in M10
+- **Editor**
+  - **Provider:** choose the built-in editor or an available KWrite, Kate,
+    Neovim, Rune, micro or nano integration, and the terminal session type for
+    terminal editors
 - **Application packages**
   - **Integration:** enable or disable AppImage, Flatpak and Snap actions
     independently and configure optional AppImage desktop integration

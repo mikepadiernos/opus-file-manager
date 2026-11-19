@@ -30,7 +30,8 @@ for file operations, Places, properties, settings and desktop integration.
 - Inspect a folder's content sizes and relative shares in a cancellable chart.
 - Create and verify SHA-256 checksum files for local files.
 - Compare immediate entries across pane folders and select differences.
-- Split local files into numbered parts and combine selected parts in a chosen order.
+- Split local files into numbered parts and combine selected parts in a chosen
+  order.
 - Show an embedded Konsole terminal alongside the panes.
 
 ## Caveats
@@ -124,9 +125,9 @@ distinguish completed features from planned or in-progress work.
 - [M22 Tagging settings](docs/ROADMAP.md#m22-tagging-settings): library,
   tag, field and privacy preferences.
 - [M23 Integrations](docs/ROADMAP.md#m23-integrations): desktop services,
-  terminals and external integrations.
+  terminals, alternative editors and external integrations.
 - [M24 Integration settings](docs/ROADMAP.md#m24-integration-settings):
-  integration, terminal, tray and access controls.
+  integration, editor, terminal, tray and access controls.
 
 ## Inspirations
 
