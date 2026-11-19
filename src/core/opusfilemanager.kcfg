@@ -177,4 +177,20 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="SettingsDialog">
+    <entry name="SidebarTitlePosition" type="Enum">
+      <label>Where the settings sidebar shows each page's title</label>
+      <choices>
+        <choice name="Beside"/>
+        <choice name="Below"/>
+      </choices>
+      <default>Beside</default>
+    </entry>
+    <entry name="SidebarIconSize" type="Int">
+      <label>Size of the settings sidebar icons in pixels</label>
+      <default>16</default>
+      <min>16</min>
+      <max>64</max>
+    </entry>
+  </group>
 </kcfg>

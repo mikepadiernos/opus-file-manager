@@ -7,11 +7,13 @@
 
 #include <QMap>
 
+class KPageWidgetItem;
 class QCheckBox;
 
 /**
- * The Preferences dialog: one page per feature. Widgets named
- * "kcfg_<Entry>" are bound to the Settings singleton by KConfigDialog.
+ * The Preferences dialog: a sidebar of pages, each holding one tab per
+ * feature. Widgets named "kcfg_<Entry>" are bound to the Settings singleton
+ * by KConfigDialog.
  */
 class SettingsDialog : public KConfigDialog
 {
@@ -36,13 +38,31 @@ protected:
     bool isDefault() override;
 
 private:
-    QWidget *createStartupPage();
-    QWidget *createPanesPage();
-    QWidget *createViewsPage();
+    /**
+     * Adds a sidebar page whose features are tabs.
+     * @param tabs each tab's widget and title
+     * @param title the page title
+     * @param iconName the page's theme icon, without the "-symbolic" suffix
+     */
+    void addTabbedPage(const QList<std::pair<QWidget *, QString>> &tabs, const QString &title, const QString &iconName);
+
+    /**
+     * Applies the saved sidebar settings: titles beside small icons or below
+     * large ones, the icon size, and symbolic page icons at 24 px and below.
+     */
+    void applySidebarStyle();
+
+    QWidget *createSettingsDialogPage();
+    QWidget *createFoldersAndTabsPage();
     QWidget *createPreviewsPage();
     QWidget *createPlacesPage();
     QWidget *createStatusBarPage();
+    QWidget *createViewGeneralPage();
+    QWidget *createDetailsPage();
+    QWidget *createIconsPage();
 
     KFilePlacesModel *m_places = nullptr;
+    /// Each sidebar page and its icon name, for switching to symbolic icons.
+    QList<std::pair<KPageWidgetItem *, QString>> m_pageIcons;
     QMap<KFilePlacesModel::GroupType, QCheckBox *> m_placesGroups;
 };

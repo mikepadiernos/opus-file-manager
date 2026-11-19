@@ -6,16 +6,22 @@
 #include "settingswidgets.h"
 
 #include <KLocalizedString>
+#include <KPageWidget>
 #include <KUrlRequester>
 
+#include <QAbstractItemView>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFormLayout>
 #include <QMetaEnum>
 #include <QSpinBox>
+#include <QTabWidget>
 
 namespace
 {
+/// Largest sidebar icon size, in pixels, that uses symbolic page icons.
+constexpr int SymbolicIconMaxSize = 24;
+
 QComboBox *comboBox(const QString &entry, const QStringList &choices)
 {
     auto *combo = new QComboBox;
@@ -61,17 +67,60 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     : KConfigDialog(parent, QLatin1String(Name), Settings::self())
     , m_places(places)
 {
-    setFaceType(KPageDialog::List);
-    addPage(createStartupPage(), i18nc("@title:tab", "Startup"), QStringLiteral("go-home"));
-    addPage(createPanesPage(), i18nc("@title:tab", "Panes and Tabs"), QStringLiteral("view-split-left-right"));
-    addPage(createViewsPage(), i18nc("@title:tab", "Views"), QStringLiteral("view-list-details"));
-    addPage(createPreviewsPage(), i18nc("@title:tab", "Previews"), QStringLiteral("view-preview"));
-    addPage(createPlacesPage(), i18nc("@title:tab", "Places Panel"), QStringLiteral("compass"));
-    addPage(createStatusBarPage(), i18nc("@title:tab", "Status Bar"), QStringLiteral("data-information"));
+    addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}}, i18nc("@title:group", "General"), QStringLiteral("configure"));
+    addTabbedPage({{createFoldersAndTabsPage(), i18nc("@title:tab", "Folders and Tabs")},
+                   {createPreviewsPage(), i18nc("@title:tab", "Previews")},
+                   {createPlacesPage(), i18nc("@title:tab", "Panels")},
+                   {createStatusBarPage(), i18nc("@title:tab", "Status and Location Bars")}},
+                  i18nc("@title:group", "Interface"),
+                  QStringLiteral("window"));
+    addTabbedPage({{createViewGeneralPage(), i18nc("@title:tab", "General")},
+                   {createDetailsPage(), i18nc("@title:tab", "Details")},
+                   {createIconsPage(), i18nc("@title:tab", "Icons")}},
+                  i18nc("@title:group", "View"),
+                  QStringLiteral("view-list-icons"));
+    applySidebarStyle();
+    connect(this, &KConfigDialog::settingsChanged, this, &SettingsDialog::applySidebarStyle);
     updateWidgets();
 }
 
-QWidget *SettingsDialog::createStartupPage()
+void SettingsDialog::addTabbedPage(const QList<std::pair<QWidget *, QString>> &tabs, const QString &title, const QString &iconName)
+{
+    auto *tabWidget = new QTabWidget;
+    for (const auto &[tab, tabTitle] : tabs) {
+        tabWidget->addTab(tab, tabTitle);
+    }
+    m_pageIcons.append({addPage(tabWidget, title), iconName});
+}
+
+void SettingsDialog::applySidebarStyle()
+{
+    const bool below = Settings::sidebarTitlePosition() == Settings::EnumSidebarTitlePosition::Below;
+    setFaceType(below ? KPageDialog::List : KPageDialog::FlatList);
+
+    const int size = Settings::sidebarIconSize();
+    for (const auto &[item, iconName] : std::as_const(m_pageIcons)) {
+        item->setIcon(size <= SymbolicIconMaxSize ? QIcon::fromTheme(iconName + QStringLiteral("-symbolic"), QIcon::fromTheme(iconName))
+                                                  : QIcon::fromTheme(iconName));
+    }
+    const auto views = pageWidget()->findChildren<QAbstractItemView *>(Qt::FindDirectChildrenOnly);
+    for (QAbstractItemView *view : views) {
+        view->setIconSize(QSize(size, size));
+    }
+}
+
+QWidget *SettingsDialog::createSettingsDialogPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(i18nc("@label:listbox", "Page titles:"),
+                 comboBox(QStringLiteral("SidebarTitlePosition"),
+                          {i18nc("@item:inlistbox", "Beside the sidebar icons"), i18nc("@item:inlistbox", "Below the sidebar icons")}));
+    form->addRow(i18nc("@label:spinbox", "Sidebar icon size:"), pixelSpinBox(QStringLiteral("SidebarIconSize"), 16, 64));
+    return page;
+}
+
+QWidget *SettingsDialog::createFoldersAndTabsPage()
 {
     auto *page = new QWidget;
     auto *form = new QFormLayout(page);
@@ -94,13 +143,6 @@ QWidget *SettingsDialog::createStartupPage()
     form->addRow(i18nc("@label:chooser", "First pane:"), left);
     form->addRow(i18nc("@label:chooser", "Second pane:"), right);
     form->addRow(i18nc("@label:chooser", "Home folder:"), folderRequester(QStringLiteral("HomeUrl")));
-    return page;
-}
-
-QWidget *SettingsDialog::createPanesPage()
-{
-    auto *page = new QWidget;
-    auto *form = new QFormLayout(page);
     form->addRow(i18nc("@label:listbox", "Start with two panes:"),
                  comboBox(QStringLiteral("DualPaneAtStartup"),
                           {i18nc("@item:inlistbox", "As last used"), i18nc("@item:inlistbox", "Always"), i18nc("@item:inlistbox", "Never")}));
@@ -113,7 +155,7 @@ QWidget *SettingsDialog::createPanesPage()
     return page;
 }
 
-QWidget *SettingsDialog::createViewsPage()
+QWidget *SettingsDialog::createViewGeneralPage()
 {
     auto *page = new QWidget;
     auto *form = new QFormLayout(page);
@@ -131,15 +173,29 @@ QWidget *SettingsDialog::createViewsPage()
     form->addRow(QString(), checkBox(QStringLiteral("SortDescending"), i18nc("@option:check", "Descending")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowHiddenFiles"), i18nc("@option:check", "Show hidden files in new windows")));
     form->addRow(i18nc("@title:group", "Sorting:"), checkBox(QStringLiteral("FoldersFirst"), i18nc("@option:check", "Folders before files")));
-    form->addRow(i18nc("@label:spinbox", "Details icon size:"), pixelSpinBox(QStringLiteral("DetailsIconSize"), 16, 64));
-    form->addRow(i18nc("@label:spinbox", "Icons and previews size:"), pixelSpinBox(QStringLiteral("IconsIconSize"), 32, 256));
-    form->addRow(i18nc("@title:group", "Details columns:"), checkBox(QStringLiteral("ShowSizeColumn"), i18nc("@option:check", "Size")));
+    form->addRow(i18nc("@title:group", "Tooltips:"), checkBox(QStringLiteral("ShowToolTips"), i18nc("@option:check", "Show the full name of shortened items")));
+    return page;
+}
+
+QWidget *SettingsDialog::createDetailsPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(i18nc("@label:spinbox", "Icon size:"), pixelSpinBox(QStringLiteral("DetailsIconSize"), 16, 64));
+    form->addRow(i18nc("@title:group", "Columns:"), checkBox(QStringLiteral("ShowSizeColumn"), i18nc("@option:check", "Size")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowModifiedColumn"), i18nc("@option:check", "Modified")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowTypeColumn"), i18nc("@option:check", "Type")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowPermissionsColumn"), i18nc("@option:check", "Permissions")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowOwnerColumn"), i18nc("@option:check", "Owner")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowGroupColumn"), i18nc("@option:check", "Group")));
-    form->addRow(i18nc("@title:group", "Tooltips:"), checkBox(QStringLiteral("ShowToolTips"), i18nc("@option:check", "Show the full name of shortened items")));
+    return page;
+}
+
+QWidget *SettingsDialog::createIconsPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(i18nc("@label:spinbox", "Icon and preview size:"), pixelSpinBox(QStringLiteral("IconsIconSize"), 32, 256));
     return page;
 }
 

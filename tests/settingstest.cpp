@@ -11,10 +11,12 @@
 #include <KDirModel>
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
+#include <KPageWidget>
 #include <KSharedConfig>
 #include <KUrlNavigator>
 #include <KUrlRequester>
 
+#include <QAbstractItemView>
 #include <QAction>
 #include <QCheckBox>
 #include <QComboBox>
@@ -28,6 +30,7 @@
 #include <QSpinBox>
 #include <QStandardPaths>
 #include <QTabBar>
+#include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -50,6 +53,40 @@ private:
     static KFilePlacesModel *placesOf(MainWindow &window)
     {
         return qobject_cast<KFilePlacesModel *>(window.findChild<KFilePlacesView *>()->model());
+    }
+
+    /// Title of the dialog tab that holds @p widget, or an empty string.
+    static QString tabTitleOf(const QWidget *widget)
+    {
+        for (const QWidget *ancestor = widget->parentWidget(); ancestor; ancestor = ancestor->parentWidget()) {
+            if (const auto *tabs = qobject_cast<const QTabWidget *>(ancestor)) {
+                for (int i = 0; i < tabs->count(); ++i) {
+                    if (tabs->widget(i)->isAncestorOf(widget)) {
+                        return tabs->tabText(i);
+                    }
+                }
+            }
+        }
+        return {};
+    }
+
+    /// The sidebar the dialog currently shows.
+    static QAbstractItemView *sidebarOf(SettingsDialog &dialog)
+    {
+        const auto views = dialog.findChildren<QAbstractItemView *>();
+        for (QAbstractItemView *view : views) {
+            if (view->model() == dialog.findChild<KPageWidget *>()->model() && view->isVisibleTo(&dialog)) {
+                return view;
+            }
+        }
+        return nullptr;
+    }
+
+    /// Theme name of the first sidebar page's icon.
+    static QString firstPageIconName(SettingsDialog &dialog)
+    {
+        const QAbstractItemModel *pages = dialog.findChild<KPageWidget *>()->model();
+        return pages->data(pages->index(0, 0), Qt::DecorationRole).value<QIcon>().name();
     }
 
     static QAction *action(MainWindow &window, const QString &name)
@@ -104,6 +141,56 @@ private Q_SLOTS:
         QCOMPARE(Settings::startupMode(), Settings::EnumStartupMode::FixedFolders);
         QCOMPARE(Settings::leftStartUrl(), m_b);
         QVERIFY(Settings::followSymlinks());
+    }
+
+    void pagesGroupFeaturesInTabs()
+    {
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        const QAbstractItemModel *pages = dialog.findChild<KPageWidget *>()->model();
+        QStringList titles;
+        for (int row = 0; row < pages->rowCount(); ++row) {
+            titles.append(pages->index(row, 0).data().toString());
+        }
+        QCOMPARE(titles, QStringList({QStringLiteral("General"), QStringLiteral("Interface"), QStringLiteral("View")}));
+
+        const auto tabOf = [&dialog](const QString &entry) {
+            return tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + entry));
+        };
+        QCOMPARE(tabOf(QStringLiteral("SidebarTitlePosition")), QStringLiteral("Settings Dialog"));
+        QCOMPARE(tabOf(QStringLiteral("StartupMode")), QStringLiteral("Folders and Tabs"));
+        QCOMPARE(tabOf(QStringLiteral("FollowSymlinks")), QStringLiteral("Folders and Tabs"));
+        QCOMPARE(tabOf(QStringLiteral("ShowPreviews")), QStringLiteral("Previews"));
+        QCOMPARE(tabOf(QStringLiteral("ShowPlaces")), QStringLiteral("Panels"));
+        QCOMPARE(tabOf(QStringLiteral("ShowFreeSpace")), QStringLiteral("Status and Location Bars"));
+        QCOMPARE(tabOf(QStringLiteral("DefaultViewMode")), QStringLiteral("General"));
+        QCOMPARE(tabOf(QStringLiteral("DetailsIconSize")), QStringLiteral("Details"));
+        QCOMPARE(tabOf(QStringLiteral("ShowSizeColumn")), QStringLiteral("Details"));
+        QCOMPARE(tabOf(QStringLiteral("IconsIconSize")), QStringLiteral("Icons"));
+    }
+
+    void sidebarDefaultsToSmallSymbolicIconsBesideTitles()
+    {
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        QCOMPARE(dialog.findChild<KPageWidget *>()->faceType(), KPageView::FlatList);
+        QVERIFY(sidebarOf(dialog));
+        QCOMPARE(sidebarOf(dialog)->iconSize(), QSize(16, 16));
+        QCOMPARE(firstPageIconName(dialog), QStringLiteral("configure-symbolic"));
+    }
+
+    void sidebarStyleChangesOnApply()
+    {
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        dialog.findChild<QComboBox *>(QStringLiteral("kcfg_SidebarTitlePosition"))->setCurrentIndex(Settings::EnumSidebarTitlePosition::Below);
+        dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_SidebarIconSize"))->setValue(32);
+        dialog.button(QDialogButtonBox::Apply)->click();
+
+        QCOMPARE(dialog.findChild<KPageWidget *>()->faceType(), KPageView::List);
+        QVERIFY(sidebarOf(dialog));
+        QCOMPARE(sidebarOf(dialog)->iconSize(), QSize(32, 32));
+        QCOMPARE(firstPageIconName(dialog), QStringLiteral("configure"));
     }
 
     void startupHomeFolderIgnoresSavedTabs()
