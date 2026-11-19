@@ -8,12 +8,17 @@
 #include <QList>
 #include <QUrl>
 
+class CombinedPanel;
+class FavoritesModel;
+class FolderTree;
 class KFileItemActions;
 class KFilePlacesModel;
 class KFilePlacesView;
 class KNewFileMenu;
+class KSelectAction;
 class KToggleAction;
 class Pane;
+class QDockWidget;
 class QLabel;
 class QSplitter;
 
@@ -41,6 +46,24 @@ public:
     void setStackedLayout(bool stacked);
     bool isStackedLayout() const;
 
+    /// Which side panels the window shows.
+    enum class PanelLayout {
+        /// One panel with Favorites, the Places sections and a folder tree.
+        Combined,
+        /// Separate Places and Folders panels.
+        Separate,
+    };
+
+    /**
+     * Shows either the combined panel or the separate Places and Folders
+     * panels, and remembers the choice for new windows.
+     * @param layout the panels to show
+     */
+    void setPanelLayout(PanelLayout layout);
+    PanelLayout panelLayout() const;
+
+    FavoritesModel *favorites() const;
+
 protected:
     bool queryClose() override;
     void readProperties(const KConfigGroup &group) override;
@@ -50,6 +73,7 @@ private:
     void setupActions();
     void setupPanes();
     void setupPlaces();
+    void setupPanels();
     void setupStatusBar();
 
     void setActivePane(Pane *pane);
@@ -83,9 +107,19 @@ private:
     void toggleViewMode();
     void setShowHiddenFiles(bool show);
     void setPreviewsEnabled(bool enabled);
+    /// Adds the selected folders, or the current folder, to Favorites.
+    void addToFavorites();
 
     KFilePlacesModel *m_placesModel = nullptr;
     KFilePlacesView *m_placesView = nullptr;
+    FavoritesModel *m_favorites = nullptr;
+    QDockWidget *m_placesDock = nullptr;
+    QDockWidget *m_foldersDock = nullptr;
+    QDockWidget *m_combinedDock = nullptr;
+    FolderTree *m_folderTree = nullptr;
+    CombinedPanel *m_combinedPanel = nullptr;
+    KSelectAction *m_panelLayoutAction = nullptr;
+    PanelLayout m_panelLayout = PanelLayout::Combined;
     KFileItemActions *m_fileItemActions = nullptr;
     KNewFileMenu *m_newFileMenu = nullptr;
     QSplitter *m_splitter = nullptr;

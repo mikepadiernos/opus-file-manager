@@ -2,7 +2,10 @@
 
 #include "mainwindow.h"
 
+#include "combinedpanel.h"
+#include "favoritesmodel.h"
 #include "fileoperations.h"
+#include "foldertree.h"
 #include "folderview.h"
 #include "pane.h"
 #include "session.h"
@@ -22,6 +25,7 @@
 #include <KJobWidgets>
 #include <KLocalizedString>
 #include <KNewFileMenu>
+#include <KSelectAction>
 #include <KSharedConfig>
 #include <KStandardAction>
 #include <KToggleAction>
@@ -34,6 +38,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
+#include <QScrollArea>
 #include <QSplitter>
 #include <QStatusBar>
 #include <QTimer>
@@ -48,6 +53,7 @@ static void initResources()
 namespace
 {
 constexpr auto SessionGroup = "Session";
+constexpr auto PanelsGroup = "Panels";
 
 QString stdName(KStandardAction::StandardAction id)
 {
@@ -71,13 +77,17 @@ MainWindow::MainWindow(QWidget *parent)
 {
     initResources();
     setComponentName(QStringLiteral("opus-file-manager"), i18n("Opus File Manager"));
+    m_favorites = new FavoritesModel(KSharedConfig::openConfig()->group(QStringLiteral("Favorites")), this);
     setupPanes();
     setupPlaces();
+    setupPanels();
     setupStatusBar();
     setupActions();
 
     setStandardToolBarMenuEnabled(true);
     setupGUI(QSize(1100, 700), Default, QStringLiteral("opus-file-managerui.rc"));
+    const KConfigGroup panels = KSharedConfig::openStateConfig()->group(QLatin1String(PanelsGroup));
+    setPanelLayout(panels.readEntry("Layout", QString()) == QLatin1String("Separate") ? PanelLayout::Separate : PanelLayout::Combined);
 
     connect(KIO::FileUndoManager::self(), &KIO::FileUndoManager::undoAvailable, this, [this](bool available) {
         m_undoAction->setEnabled(available);
@@ -154,12 +164,12 @@ void MainWindow::setupPlaces()
     m_placesView->setDropOnPlaceEnabled(true);
     m_placesView->setAutoResizeItemsEnabled(false);
 
-    auto *dock = new QDockWidget(i18nc("@title:window", "Places"), this);
-    dock->setObjectName(QStringLiteral("placesDock"));
-    dock->setWidget(m_placesView);
-    dock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-    dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetClosable);
-    addDockWidget(Qt::LeftDockWidgetArea, dock);
+    m_placesDock = new QDockWidget(i18nc("@title:window", "Places"), this);
+    m_placesDock->setObjectName(QStringLiteral("placesDock"));
+    m_placesDock->setWidget(m_placesView);
+    m_placesDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+    m_placesDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetClosable);
+    addDockWidget(Qt::LeftDockWidgetArea, m_placesDock);
 
     connect(m_placesView, &KFilePlacesView::urlChanged, this, [this](const QUrl &url) {
         activePane()->setUrl(url);
@@ -171,6 +181,85 @@ void MainWindow::setupPlaces()
         KIO::DropJob *job = KIO::drop(event, dest);
         KJobWidgets::setWindow(job, this);
     });
+}
+
+void MainWindow::setupPanels()
+{
+    const auto addPanelDock = [this](const QString &objectName, const QString &title, QWidget *widget) {
+        auto *dock = new QDockWidget(title, this);
+        dock->setObjectName(objectName);
+        dock->setWidget(widget);
+        dock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+        dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetClosable);
+        addDockWidget(Qt::LeftDockWidgetArea, dock);
+        return dock;
+    };
+    const auto navigate = [this](const QUrl &url) {
+        activePane()->setUrl(url);
+    };
+    const auto openInTab = [this](const QUrl &url) {
+        activePane()->openInNewTab(url);
+    };
+    const KConfigGroup panels = KSharedConfig::openStateConfig()->group(QLatin1String(PanelsGroup));
+
+    m_folderTree = new FolderTree({QUrl::fromLocalFile(QDir::homePath()), QUrl::fromLocalFile(QStringLiteral("/"))});
+    m_folderTree->setExpandedUrls(panels.readEntry("FoldersExpanded", QList<QUrl>()));
+    connect(m_folderTree, &FolderTree::urlActivated, this, navigate);
+    connect(m_folderTree, &FolderTree::tabRequested, this, openInTab);
+    auto *treeScroll = new QScrollArea;
+    treeScroll->setWidgetResizable(true);
+    treeScroll->setWidget(m_folderTree);
+    m_foldersDock = addPanelDock(QStringLiteral("foldersDock"), i18nc("@title:window", "Folders"), treeScroll);
+    splitDockWidget(m_placesDock, m_foldersDock, Qt::Vertical);
+
+    m_combinedPanel = new CombinedPanel(m_placesModel, m_favorites);
+    m_combinedPanel->folderTree()->setExpandedUrls(panels.readEntry("CombinedExpanded", QList<QUrl>()));
+    connect(m_combinedPanel, &CombinedPanel::urlActivated, this, navigate);
+    connect(m_combinedPanel, &CombinedPanel::tabRequested, this, openInTab);
+    connect(m_combinedPanel, &CombinedPanel::urlsDropped, this, [this](const QUrl &destination, QDropEvent *event) {
+        KIO::DropJob *job = KIO::drop(event, destination);
+        KJobWidgets::setWindow(job, this);
+    });
+    m_combinedDock = addPanelDock(QStringLiteral("combinedDock"), i18nc("@title:window", "Places"), m_combinedPanel);
+}
+
+void MainWindow::setPanelLayout(PanelLayout layout)
+{
+    m_panelLayout = layout;
+    const bool combined = layout == PanelLayout::Combined;
+    m_combinedDock->setVisible(combined);
+    m_placesDock->setVisible(!combined);
+    m_foldersDock->setVisible(!combined);
+    m_panelLayoutAction->setCurrentItem(combined ? 0 : 1);
+
+    KConfigGroup panels = KSharedConfig::openStateConfig()->group(QLatin1String(PanelsGroup));
+    panels.writeEntry("Layout", combined ? QStringLiteral("Combined") : QStringLiteral("Separate"));
+    panels.sync();
+}
+
+MainWindow::PanelLayout MainWindow::panelLayout() const
+{
+    return m_panelLayout;
+}
+
+FavoritesModel *MainWindow::favorites() const
+{
+    return m_favorites;
+}
+
+void MainWindow::addToFavorites()
+{
+    const KFileItemList selected = activePane()->view()->selectedItems();
+    bool addedSelection = false;
+    for (const KFileItem &item : selected) {
+        if (item.isDir()) {
+            m_favorites->add(item.targetUrl());
+            addedSelection = true;
+        }
+    }
+    if (!addedSelection) {
+        m_favorites->add(activePane()->url());
+    }
 }
 
 void MainWindow::setupStatusBar()
@@ -391,6 +480,18 @@ void MainWindow::setupActions()
         actions->setDefaultShortcut(tabN, QKeySequence(Qt::CTRL | static_cast<Qt::Key>(Qt::Key_0 + i)));
     }
 
+    QAction *addFavorite = actions->addAction(QStringLiteral("add_to_favorites"), this, &MainWindow::addToFavorites);
+    addFavorite->setText(i18nc("@action", "Add to Favorites"));
+    addFavorite->setIcon(QIcon::fromTheme(QStringLiteral("bookmark-new")));
+    actions->setDefaultShortcut(addFavorite, Qt::CTRL | Qt::Key_D);
+
+    m_panelLayoutAction = new KSelectAction(QIcon::fromTheme(QStringLiteral("sidebar-show")), i18nc("@action", "Panels"), this);
+    m_panelLayoutAction->setItems({i18nc("@item:inmenu panel layout", "Combined Panel"), i18nc("@item:inmenu panel layout", "Separate Places and Folders")});
+    actions->addAction(QStringLiteral("panel_layout"), m_panelLayoutAction);
+    connect(m_panelLayoutAction, &KSelectAction::indexTriggered, this, [this](int index) {
+        setPanelLayout(index == 0 ? PanelLayout::Combined : PanelLayout::Separate);
+    });
+
     // Settings
     QAction *showMenuBar = KStandardAction::showMenubar(menuBar(), &QMenuBar::setVisible, actions);
     KHamburgerMenu *hamburger = KStandardAction::hamburgerMenu(nullptr, nullptr, actions);
@@ -488,6 +589,9 @@ void MainWindow::saveSession()
     KSharedConfig::Ptr state = KSharedConfig::openStateConfig();
     KConfigGroup group = state->group(QLatin1String(SessionGroup));
     Session::save(session, group);
+    KConfigGroup panels = state->group(QLatin1String(PanelsGroup));
+    panels.writeEntry("FoldersExpanded", m_folderTree->expandedUrls());
+    panels.writeEntry("CombinedExpanded", m_combinedPanel->folderTree()->expandedUrls());
     state->sync();
 }
 
@@ -701,6 +805,9 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     menu.addSeparator();
     if (singleFolder && items.first().isLocalFile()) {
         menu.addAction(actions->action(QStringLiteral("open_terminal")));
+    }
+    if (singleFolder) {
+        menu.addAction(actions->action(QStringLiteral("add_to_favorites")));
     }
     menu.addAction(actions->action(QStringLiteral("copy_path")));
 

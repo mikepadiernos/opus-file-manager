@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="2" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="3" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -37,6 +37,8 @@
       <Action name="show_previews"/>
       <Action name="show_hidden_files"/>
       <Separator/>
+      <Action name="panel_layout"/>
+      <Separator/>
       <Action name="view_redisplay"/>
     </Menu>
     <Menu name="go">
@@ -47,6 +49,7 @@
       <Action name="go_home"/>
       <Separator/>
       <Action name="edit_location"/>
+      <Action name="add_to_favorites"/>
       <Action name="switch_pane"/>
       <Separator/>
       <Action name="new_tab"/>

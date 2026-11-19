@@ -14,3 +14,9 @@ ecm_add_test(mainwindowtest.cpp
     NAME_PREFIX "opusfm-"
     GUI
 )
+
+ecm_add_test(combinedpaneltest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)

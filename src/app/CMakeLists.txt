@@ -1,8 +1,14 @@
 add_library(opusfm_app STATIC
+    combinedpanel.cpp
+    combinedpanel.h
+    contentheight.cpp
+    contentheight.h
     fileoperations.cpp
     fileoperations.h
     folderview.cpp
     folderview.h
+    foldertree.cpp
+    foldertree.h
     mainwindow.cpp
     mainwindow.h
     pane.cpp
