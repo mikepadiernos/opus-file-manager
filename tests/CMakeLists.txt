@@ -1,6 +1,7 @@
 include(ECMAddTests)
 
 ecm_add_tests(
+    executablestest.cpp
     navigationhistorytest.cpp
     sessiontest.cpp
     startuptest.cpp

@@ -177,6 +177,32 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="Confirmations">
+    <entry name="ConfirmClosingMultipleTabs" type="Bool">
+      <label>Ask before closing a window that has more than one tab in a pane</label>
+      <default>true</default>
+    </entry>
+    <entry name="ExecutableAction" type="Enum">
+      <label>What opening an executable file does</label>
+      <choices>
+        <choice name="Ask"/>
+        <choice name="Open"/>
+        <choice name="Run"/>
+        <choice name="RunInTerminal"/>
+        <choice name="RunInTerminalKeepOpen"/>
+      </choices>
+      <default>Ask</default>
+    </entry>
+    <entry name="DropAction" type="Enum">
+      <label>What dropping files without a modifier key does</label>
+      <choices>
+        <choice name="Ask"/>
+        <choice name="Copy"/>
+        <choice name="Move"/>
+      </choices>
+      <default>Ask</default>
+    </entry>
+  </group>
   <group name="SettingsDialog">
     <entry name="SidebarTitlePosition" type="Enum">
       <label>Where the settings sidebar shows each page's title</label>

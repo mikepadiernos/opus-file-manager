@@ -5,7 +5,7 @@
 #include <KConfigDialog>
 #include <KFilePlacesModel>
 
-#include <QMap>
+#include <functional>
 
 class KPageWidgetItem;
 class QCheckBox;
@@ -55,6 +55,7 @@ private:
     QWidget *createSettingsDialogPage();
     QWidget *createFoldersAndTabsPage();
     QWidget *createPreviewsPage();
+    QWidget *createConfirmationsPage();
     QWidget *createPlacesPage();
     QWidget *createStatusBarPage();
     QWidget *createViewGeneralPage();
@@ -64,5 +65,24 @@ private:
     KFilePlacesModel *m_places = nullptr;
     /// Each sidebar page and its icon name, for switching to symbolic icons.
     QList<std::pair<KPageWidgetItem *, QString>> m_pageIcons;
-    QMap<KFilePlacesModel::GroupType, QCheckBox *> m_placesGroups;
+    /// A checkbox for a setting kept outside Settings, in config that KIO
+    /// shares with Dolphin.
+    struct SharedToggle {
+        QCheckBox *check;
+        std::function<bool()> read;
+        std::function<void(bool)> write;
+        bool defaultValue;
+    };
+    /**
+     * Creates a checkbox that the dialog loads, saves and resets through
+     * @p read and @p write instead of Settings.
+     * @param name the checkbox's object name
+     * @param text the checkbox label
+     * @param read returns the stored value
+     * @param write stores a value
+     * @param defaultValue the value Restore Defaults sets
+     * @returns the checkbox, owned by the caller's layout
+     */
+    QCheckBox *addSharedToggle(const QString &name, const QString &text, std::function<bool()> read, std::function<void(bool)> write, bool defaultValue);
+    QList<SharedToggle> m_sharedToggles;
 };

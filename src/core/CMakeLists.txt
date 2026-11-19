@@ -1,4 +1,6 @@
 add_library(opusfm_core STATIC
+    executables.cpp
+    executables.h
     navigationhistory.cpp
     navigationhistory.h
     session.cpp

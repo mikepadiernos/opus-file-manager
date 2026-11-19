@@ -19,12 +19,11 @@
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
 #include <KHamburgerMenu>
-#include <KIO/DropJob>
 #include <KIO/FileSystemFreeSpaceJob>
 #include <KIO/FileUndoManager>
 #include <KIO/Global>
-#include <KJobWidgets>
 #include <KLocalizedString>
+#include <KMessageBox>
 #include <KNewFileMenu>
 #include <KSharedConfig>
 #include <KStandardAction>
@@ -174,8 +173,7 @@ void MainWindow::setupPlaces()
         activePane()->openInNewTab(url);
     });
     connect(m_placesView, &KFilePlacesView::urlsDropped, this, [this](const QUrl &dest, QDropEvent *event, QWidget *) {
-        KIO::DropJob *job = KIO::drop(event, dest);
-        KJobWidgets::setWindow(job, this);
+        FileOperations::drop(event, dest, this);
     });
 }
 
@@ -511,6 +509,15 @@ void MainWindow::saveSession()
 
 bool MainWindow::queryClose()
 {
+    const bool severalTabs = m_left->tabs()->count() > 1 || m_right->tabs()->count() > 1;
+    if (Settings::confirmClosingMultipleTabs() && severalTabs
+        && KMessageBox::warningContinueCancel(this,
+                                              i18nc("@info", "This window has several tabs open. Close them all?"),
+                                              i18nc("@title:window", "Close Tabs"),
+                                              KGuiItem(i18nc("@action:button", "Close Window"), QStringLiteral("window-close")))
+            != KMessageBox::Continue) {
+        return false;
+    }
     saveSession();
     return KXmlGuiWindow::queryClose();
 }

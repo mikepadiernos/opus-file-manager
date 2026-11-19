@@ -5,8 +5,10 @@
 #include "settings.h"
 #include "settingswidgets.h"
 
+#include <KConfigGroup>
 #include <KLocalizedString>
 #include <KPageWidget>
+#include <KSharedConfig>
 #include <KUrlRequester>
 
 #include <QAbstractItemView>
@@ -16,6 +18,8 @@
 #include <QMetaEnum>
 #include <QSpinBox>
 #include <QTabWidget>
+
+#include <algorithm>
 
 namespace
 {
@@ -54,6 +58,11 @@ Editor *bound(Editor *editor, const QString &entry, const char *property)
     return editor;
 }
 
+KConfigGroup kioConfirmations()
+{
+    return KSharedConfig::openConfig(QStringLiteral("kiorc"), KConfig::NoGlobals)->group(QStringLiteral("Confirmations"));
+}
+
 KUrlRequester *folderRequester(const QString &entry)
 {
     auto *requester = new KUrlRequester;
@@ -70,6 +79,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}}, i18nc("@title:group", "General"), QStringLiteral("configure"));
     addTabbedPage({{createFoldersAndTabsPage(), i18nc("@title:tab", "Folders and Tabs")},
                    {createPreviewsPage(), i18nc("@title:tab", "Previews")},
+                   {createConfirmationsPage(), i18nc("@title:tab", "Confirmations")},
                    {createPlacesPage(), i18nc("@title:tab", "Panels")},
                    {createStatusBarPage(), i18nc("@title:tab", "Status and Location Bars")}},
                   i18nc("@title:group", "Interface"),
@@ -228,10 +238,16 @@ QWidget *SettingsDialog::createPlacesPage()
     const QMetaEnum groupType = QMetaEnum::fromType<KFilePlacesModel::GroupType>();
     QString label = i18nc("@title:group", "Sections (shared with Dolphin):");
     for (const auto &[type, text] : groups) {
-        auto *check = new QCheckBox(text);
-        check->setObjectName(QStringLiteral("placesGroup_") + QLatin1String(groupType.valueToKey(type)));
-        connect(check, &QCheckBox::toggled, this, &SettingsDialog::updateButtons);
-        m_placesGroups.insert(type, check);
+        QCheckBox *check = addSharedToggle(
+            QStringLiteral("placesGroup_") + QLatin1String(groupType.valueToKey(type)),
+            text,
+            [this, type] {
+                return !m_places->isGroupHidden(type);
+            },
+            [this, type](bool shown) {
+                m_places->setGroupHidden(type, !shown);
+            },
+            true);
         form->addRow(label, check);
         label.clear();
     }
@@ -248,43 +264,83 @@ QWidget *SettingsDialog::createStatusBarPage()
     return page;
 }
 
+QWidget *SettingsDialog::createConfirmationsPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    const auto kioConfirmation = [this](const QString &name, const QString &text, const char *key, bool defaultValue) {
+        return addSharedToggle(
+            name,
+            text,
+            [key, defaultValue] {
+                return kioConfirmations().readEntry(key, defaultValue);
+            },
+            [key](bool confirm) {
+                KConfigGroup group = kioConfirmations();
+                group.writeEntry(key, confirm);
+                group.sync();
+            },
+            defaultValue);
+    };
+    form->addRow(i18nc("@title:group", "Ask for confirmation (shared with Dolphin):"),
+                 kioConfirmation(QStringLiteral("kioConfirmTrash"), i18nc("@option:check", "When moving to the trash"), "ConfirmTrash", false));
+    form->addRow(QString(), kioConfirmation(QStringLiteral("kioConfirmDelete"), i18nc("@option:check", "When deleting permanently"), "ConfirmDelete", true));
+    form->addRow(i18nc("@title:group", "Ask for confirmation:"),
+                 checkBox(QStringLiteral("ConfirmClosingMultipleTabs"), i18nc("@option:check", "When closing a window with several tabs")));
+    form->addRow(i18nc("@label:listbox", "Opening an executable file:"),
+                 comboBox(QStringLiteral("ExecutableAction"),
+                          {i18nc("@item:inlistbox", "Always ask"),
+                           i18nc("@item:inlistbox", "Open it in its application"),
+                           i18nc("@item:inlistbox", "Run it"),
+                           i18nc("@item:inlistbox", "Run it in a terminal that closes when it ends"),
+                           i18nc("@item:inlistbox", "Run it in a terminal that stays open")}));
+    form->addRow(i18nc("@label:listbox", "Dropping files without a modifier key:"),
+                 comboBox(QStringLiteral("DropAction"),
+                          {i18nc("@item:inlistbox", "Ask what to do"), i18nc("@item:inlistbox", "Copy"), i18nc("@item:inlistbox", "Move")}));
+    return page;
+}
+
+QCheckBox *
+SettingsDialog::addSharedToggle(const QString &name, const QString &text, std::function<bool()> read, std::function<void(bool)> write, bool defaultValue)
+{
+    auto *check = new QCheckBox(text);
+    check->setObjectName(name);
+    connect(check, &QCheckBox::toggled, this, &SettingsDialog::updateButtons);
+    m_sharedToggles.append({check, std::move(read), std::move(write), defaultValue});
+    return check;
+}
+
 void SettingsDialog::updateSettings()
 {
-    for (auto it = m_placesGroups.cbegin(); it != m_placesGroups.cend(); ++it) {
-        m_places->setGroupHidden(it.key(), !it.value()->isChecked());
+    for (const SharedToggle &toggle : std::as_const(m_sharedToggles)) {
+        toggle.write(toggle.check->isChecked());
     }
 }
 
 void SettingsDialog::updateWidgets()
 {
-    for (auto it = m_placesGroups.cbegin(); it != m_placesGroups.cend(); ++it) {
-        it.value()->setChecked(!m_places->isGroupHidden(it.key()));
+    for (const SharedToggle &toggle : std::as_const(m_sharedToggles)) {
+        toggle.check->setChecked(toggle.read());
     }
 }
 
 void SettingsDialog::updateWidgetsDefault()
 {
-    for (QCheckBox *check : std::as_const(m_placesGroups)) {
-        check->setChecked(true);
+    for (const SharedToggle &toggle : std::as_const(m_sharedToggles)) {
+        toggle.check->setChecked(toggle.defaultValue);
     }
 }
 
 bool SettingsDialog::hasChanged()
 {
-    for (auto it = m_placesGroups.cbegin(); it != m_placesGroups.cend(); ++it) {
-        if (it.value()->isChecked() == m_places->isGroupHidden(it.key())) {
-            return true;
-        }
-    }
-    return false;
+    return std::any_of(m_sharedToggles.cbegin(), m_sharedToggles.cend(), [](const SharedToggle &toggle) {
+        return toggle.check->isChecked() != toggle.read();
+    });
 }
 
 bool SettingsDialog::isDefault()
 {
-    for (const QCheckBox *check : std::as_const(m_placesGroups)) {
-        if (!check->isChecked()) {
-            return false;
-        }
-    }
-    return true;
+    return std::all_of(m_sharedToggles.cbegin(), m_sharedToggles.cend(), [](const SharedToggle &toggle) {
+        return toggle.check->isChecked() == toggle.defaultValue;
+    });
 }

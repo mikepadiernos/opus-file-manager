@@ -2,14 +2,14 @@
 
 #include "folderview.h"
 
+#include "fileoperations.h"
+
 #include <KDirLister>
 #include <KDirModel>
 #include <KDirSortFilterProxyModel>
 #include <KFileItemDelegate>
 #include <KFilePreviewGenerator>
-#include <KIO/DropJob>
 #include <KIO/Job>
-#include <KJobWidgets>
 
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
@@ -430,8 +430,7 @@ bool FolderView::handleDrop(QAbstractItemView *view, QEvent *event)
         }
     }
 
-    KIO::DropJob *job = KIO::drop(dropEvent, destination);
-    KJobWidgets::setWindow(job, window());
+    FileOperations::drop(dropEvent, destination, window());
     dropEvent->acceptProposedAction();
     return true;
 }

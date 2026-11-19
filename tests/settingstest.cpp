@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "settings.h"
+#include "fileoperations.h"
 #include "folderview.h"
 #include "mainwindow.h"
 #include "pane.h"
@@ -16,6 +17,7 @@
 #include <KUrlNavigator>
 #include <KUrlRequester>
 
+#include <QAbstractButton>
 #include <QAbstractItemView>
 #include <QAction>
 #include <QCheckBox>
@@ -23,9 +25,11 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QDockWidget>
+#include <QDropEvent>
 #include <QFile>
 #include <QLabel>
 #include <QListWidget>
+#include <QMimeData>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QStandardPaths>
@@ -33,6 +37,7 @@
 #include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTimer>
 
 #include <limits>
 
@@ -114,6 +119,8 @@ private Q_SLOTS:
     void init()
     {
         Settings::self()->setDefaults();
+        // Closing windows with several tabs would otherwise block on a dialog.
+        Settings::setConfirmClosingMultipleTabs(false);
         Settings::self()->save();
         KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Session"));
         KSharedConfig::openStateConfig()->sync();
@@ -161,6 +168,10 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("StartupMode")), QStringLiteral("Folders and Tabs"));
         QCOMPARE(tabOf(QStringLiteral("FollowSymlinks")), QStringLiteral("Folders and Tabs"));
         QCOMPARE(tabOf(QStringLiteral("ShowPreviews")), QStringLiteral("Previews"));
+        QCOMPARE(tabOf(QStringLiteral("ConfirmClosingMultipleTabs")), QStringLiteral("Confirmations"));
+        QCOMPARE(tabOf(QStringLiteral("ExecutableAction")), QStringLiteral("Confirmations"));
+        QCOMPARE(tabOf(QStringLiteral("DropAction")), QStringLiteral("Confirmations"));
+        QCOMPARE(tabTitleOf(dialog.findChild<QCheckBox *>(QStringLiteral("kioConfirmTrash"))), QStringLiteral("Confirmations"));
         QCOMPARE(tabOf(QStringLiteral("ShowPlaces")), QStringLiteral("Panels"));
         QCOMPARE(tabOf(QStringLiteral("ShowFreeSpace")), QStringLiteral("Status and Location Bars"));
         QCOMPARE(tabOf(QStringLiteral("DefaultViewMode")), QStringLiteral("General"));
@@ -191,6 +202,115 @@ private Q_SLOTS:
         QVERIFY(sidebarOf(dialog));
         QCOMPARE(sidebarOf(dialog)->iconSize(), QSize(32, 32));
         QCOMPARE(firstPageIconName(dialog), QStringLiteral("configure"));
+    }
+
+    void kioConfirmationsAreSharedWithDolphin()
+    {
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *trash = dialog.findChild<QCheckBox *>(QStringLiteral("kioConfirmTrash"));
+        auto *remove = dialog.findChild<QCheckBox *>(QStringLiteral("kioConfirmDelete"));
+        QVERIFY(trash && remove);
+        trash->setChecked(true);
+        remove->setChecked(false);
+        dialog.button(QDialogButtonBox::Apply)->click();
+
+        const KConfigGroup kio = KSharedConfig::openConfig(QStringLiteral("kiorc"), KConfig::NoGlobals)->group(QStringLiteral("Confirmations"));
+        QVERIFY(kio.readEntry("ConfirmTrash", false));
+        QVERIFY(!kio.readEntry("ConfirmDelete", true));
+    }
+
+    void closingWithSeveralTabsAsks()
+    {
+        Settings::setConfirmClosingMultipleTabs(true);
+        MainWindow window;
+        window.openUrls({m_a});
+        window.activePane()->openInNewTab(m_b);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+
+        // Accepts or rejects the confirmation once it is shown.
+        const auto answer = [&window](bool accept) {
+            auto *poll = new QTimer(&window);
+            QObject::connect(poll, &QTimer::timeout, poll, [poll, accept] {
+                const auto boxes =
+                    QApplication::activeModalWidget() ? QApplication::activeModalWidget()->findChildren<QDialogButtonBox *>() : QList<QDialogButtonBox *>();
+                for (QDialogButtonBox *box : boxes) {
+                    const auto buttons = box->buttons();
+                    for (QAbstractButton *button : buttons) {
+                        const auto role = box->buttonRole(button);
+                        const bool accepting = role == QDialogButtonBox::AcceptRole || role == QDialogButtonBox::YesRole;
+                        const bool rejecting = role == QDialogButtonBox::RejectRole || role == QDialogButtonBox::NoRole;
+                        if (accept ? accepting : rejecting) {
+                            poll->deleteLater();
+                            button->click();
+                            return;
+                        }
+                    }
+                }
+            });
+            poll->start(20);
+        };
+        answer(false);
+        QVERIFY(!window.close());
+        answer(true);
+        QVERIFY(window.close());
+    }
+
+    void dropWithoutModifierCopiesOrMoves()
+    {
+        QVERIFY(QDir(m_root.path()).mkpath(QStringLiteral("drop")));
+        QFile copyMe(m_root.filePath(QStringLiteral("copy-me.txt")));
+        QVERIFY(copyMe.open(QIODevice::WriteOnly));
+        copyMe.close();
+        QFile moveMe(m_root.filePath(QStringLiteral("move-me.txt")));
+        QVERIFY(moveMe.open(QIODevice::WriteOnly));
+        moveMe.close();
+
+        FolderView view;
+        view.setUrl(url(QStringLiteral("drop")));
+        view.resize(400, 300);
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QWidget *viewport = view.currentView()->viewport();
+
+        const auto drop = [viewport](const QUrl &source) {
+            QMimeData mime;
+            mime.setUrls({source});
+            const QPoint position(5, 200);
+            QDragEnterEvent enter(position, Qt::CopyAction | Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
+            QApplication::sendEvent(viewport, &enter);
+            QDragMoveEvent move(position, Qt::CopyAction | Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
+            QApplication::sendEvent(viewport, &move);
+            QDropEvent dropEvent(position, Qt::CopyAction | Qt::MoveAction, &mime, Qt::LeftButton, Qt::NoModifier);
+            QApplication::sendEvent(viewport, &dropEvent);
+        };
+
+        Settings::setDropAction(Settings::EnumDropAction::Copy);
+        drop(url(QStringLiteral("copy-me.txt")));
+        QTRY_VERIFY(QFile::exists(m_root.filePath(QStringLiteral("drop/copy-me.txt"))));
+        QVERIFY(QFile::exists(m_root.filePath(QStringLiteral("copy-me.txt"))));
+
+        Settings::setDropAction(Settings::EnumDropAction::Move);
+        drop(url(QStringLiteral("move-me.txt")));
+        QTRY_VERIFY(QFile::exists(m_root.filePath(QStringLiteral("drop/move-me.txt"))));
+        QTRY_VERIFY(!QFile::exists(m_root.filePath(QStringLiteral("move-me.txt"))));
+    }
+
+    void runningAnExecutableRunsIt()
+    {
+        const QString marker = m_root.filePath(QStringLiteral("ran"));
+        const QString script = m_root.filePath(QStringLiteral("touch-marker.sh"));
+        QFile file(script);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("#!/bin/sh\ntouch '" + marker.toUtf8() + "'\n");
+        file.close();
+        QVERIFY(file.setPermissions(file.permissions() | QFileDevice::ExeOwner));
+
+        Settings::setExecutableAction(Settings::EnumExecutableAction::Run);
+        MainWindow window;
+        FileOperations::open(KFileItem(QUrl::fromLocalFile(script)), &window);
+        QTRY_VERIFY(QFile::exists(marker));
     }
 
     void startupHomeFolderIgnoresSavedTabs()
