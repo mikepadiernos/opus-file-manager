@@ -2,6 +2,7 @@ include(ECMAddTests)
 
 ecm_add_tests(
     favoritesmodeltest.cpp
+    ignorelisttest.cpp
     namefiltertest.cpp
     navigationhistorytest.cpp
     sessiontest.cpp
