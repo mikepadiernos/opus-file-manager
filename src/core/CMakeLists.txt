@@ -35,5 +35,6 @@ target_link_libraries(opusfm_core
         Qt6::Gui
         KF6::Archive
         KF6::ConfigCore
+        KF6::I18n
         KF6::KIOCore
 )

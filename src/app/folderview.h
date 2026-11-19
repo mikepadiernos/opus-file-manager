@@ -62,6 +62,7 @@ public:
     int itemCount() const;
 
     void selectAll();
+    int applySelectionPattern(const QString &pattern, bool select);
     void clearSelection();
     void selectUrls(const QList<QUrl> &urls);
 

@@ -31,6 +31,7 @@
 #include <QFileInfo>
 #include <QHash>
 #include <QHeaderView>
+#include <QItemSelectionModel>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QKeyEvent>
@@ -705,7 +706,7 @@ KFileItemList FolderView::items() const
 KFileItemList FolderView::selectedItems() const
 {
     KFileItemList result;
-    const QModelIndexList rows = m_details->selectionModel()->selectedRows();
+    const QModelIndexList rows = currentView()->selectionModel()->selectedRows();
     result.reserve(rows.size());
     for (const QModelIndex &index : rows) {
         const KFileItem item = m_model->itemForIndex(m_proxy->mapToSource(index));
@@ -730,7 +731,7 @@ KFileItemList FolderView::selectedItemsOrRoot() const
 
 KFileItem FolderView::currentItem() const
 {
-    return m_model->itemForIndex(m_proxy->mapToSource(m_details->currentIndex()));
+    return m_model->itemForIndex(m_proxy->mapToSource(currentView()->currentIndex()));
 }
 
 int FolderView::itemCount() const
@@ -743,14 +744,31 @@ void FolderView::selectAll()
     currentView()->selectAll();
 }
 
+int FolderView::applySelectionPattern(const QString &pattern, bool select)
+{
+    const NameFilter filter(pattern, NameFilter::Scope::FilesAndFolders);
+    QItemSelectionModel *selection = currentView()->selectionModel();
+    const QItemSelectionModel::SelectionFlags operation = select ? QItemSelectionModel::Select : QItemSelectionModel::Deselect;
+    int matched = 0;
+    for (int row = 0; row < m_proxy->rowCount(); ++row) {
+        const QModelIndex index = m_proxy->index(row, 0);
+        const KFileItem item = m_model->itemForIndex(m_proxy->mapToSource(index));
+        if (filter.matches(item.name(), item.isDir())) {
+            selection->select(index, operation | QItemSelectionModel::Rows);
+            ++matched;
+        }
+    }
+    return matched;
+}
+
 void FolderView::clearSelection()
 {
-    m_details->selectionModel()->clearSelection();
+    currentView()->selectionModel()->clearSelection();
 }
 
 void FolderView::selectUrls(const QList<QUrl> &urls)
 {
-    QItemSelectionModel *selection = m_details->selectionModel();
+    QItemSelectionModel *selection = currentView()->selectionModel();
     selection->clearSelection();
     bool first = true;
     for (const QUrl &url : urls) {

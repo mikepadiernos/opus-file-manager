@@ -2,16 +2,21 @@
 
 #include "mainwindow.h"
 #include "fileoperations.h"
+#include "filterbar.h"
 #include "folderview.h"
 #include "pane.h"
 #include "tabmodel.h"
 
+#include <KActionCollection>
+#include <KConfigGroup>
 #include <KSharedConfig>
 
 #include <QDir>
 #include <QFile>
+#include <QMenu>
 #include <QSplitter>
 #include <QStandardPaths>
+#include <QStatusBar>
 #include <QTabBar>
 #include <QTemporaryDir>
 #include <QTest>
@@ -41,6 +46,9 @@ private Q_SLOTS:
         // tabs or layout from an earlier test.
         KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Session"));
         KSharedConfig::openStateConfig()->sync();
+        KSharedConfig::openConfig()->deleteGroup(QStringLiteral("PopularFolders"));
+        KSharedConfig::openConfig()->deleteGroup(QStringLiteral("SelectionFilters"));
+        KSharedConfig::openConfig()->sync();
     }
 
     void opensCommandLinePathsInBothPanes()
@@ -69,6 +77,115 @@ private Q_SLOTS:
         QCOMPARE(pane->url(), m_a);
         pane->goBack();
         QCOMPARE(pane->url().toLocalFile(), m_root.filePath(QStringLiteral("a/sub")));
+    }
+
+    void displayStyleIsIndependentPerPane()
+    {
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        Pane *active = window.activePane();
+        Pane *other = window.inactivePane();
+        QCOMPARE(active->view()->viewMode(), FolderView::ViewMode::Details);
+        QCOMPARE(other->view()->viewMode(), FolderView::ViewMode::Details);
+
+        window.actionCollection()->action(QStringLiteral("toggle_view_mode"))->trigger();
+        QCOMPARE(active->view()->viewMode(), FolderView::ViewMode::Icons);
+        QCOMPARE(other->view()->viewMode(), FolderView::ViewMode::Details);
+    }
+
+    void jumpBackTogglesBetweenFolders()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        Pane *pane = window.activePane();
+        pane->setUrl(m_b);
+        QAction *jumpBack = window.actionCollection()->action(QStringLiteral("jump_back"));
+        QVERIFY(jumpBack && jumpBack->isEnabled());
+        jumpBack->trigger();
+        QCOMPARE(pane->url(), m_a);
+        jumpBack->trigger();
+        QCOMPARE(pane->url(), m_b);
+    }
+
+    void popularFoldersMenuListsVisitedLocations()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        window.activePane()->setUrl(m_b);
+
+        QAction *popularAction = window.actionCollection()->action(QStringLiteral("popular_folders"));
+        QVERIFY(popularAction && popularAction->menu());
+        QMenu *menu = popularAction->menu();
+        QMetaObject::invokeMethod(menu, "aboutToShow");
+        QStringList names;
+        for (QAction *action : menu->actions()) {
+            names.append(action->text());
+        }
+        QVERIFY(names.contains(QStringLiteral("a")));
+        QVERIFY(names.contains(QStringLiteral("b")));
+    }
+
+    void savedSelectionFilterSelectsMatchingFiles()
+    {
+        KSharedConfig::openConfig()->group(QStringLiteral("SelectionFilters")).writeEntry("Patterns", QStringList{QStringLiteral("*.txt")});
+        MainWindow window;
+        window.openUrls({m_a});
+        QTRY_COMPARE(window.activePane()->view()->itemCount(), 2);
+
+        QAction *selectAction = window.actionCollection()->action(QStringLiteral("select_menu"));
+        QVERIFY(selectAction && selectAction->menu());
+        QMenu *saved = nullptr;
+        for (QAction *action : selectAction->menu()->actions()) {
+            if (action->menu() && action->text() == QLatin1String("Saved Selection Filters")) {
+                saved = action->menu();
+                break;
+            }
+        }
+        QVERIFY(saved);
+        QMetaObject::invokeMethod(saved, "aboutToShow");
+        QCOMPARE(saved->actions().size(), 1);
+        saved->actions().first()->trigger();
+        QTRY_COMPARE(window.activePane()->view()->selectedItems().size(), 1);
+        QCOMPARE(window.activePane()->view()->selectedItems().first().name(), QStringLiteral("file.txt"));
+    }
+
+    void occupiedSpaceActionUsesKioDirectorySize()
+    {
+        QFile nested(m_root.filePath(QStringLiteral("a/sub/nested.txt")));
+        QVERIFY(nested.open(QIODevice::WriteOnly));
+        QCOMPARE(nested.write("hi"), 2);
+        nested.close();
+
+        MainWindow window;
+        window.openUrls({m_a});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+        view->selectUrls({QUrl::fromLocalFile(m_root.filePath(QStringLiteral("a/file.txt")))});
+
+        window.actionCollection()->action(QStringLiteral("calculate_occupied_space"))->trigger();
+        QTRY_VERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("occupied in")));
+        QVERIFY2(window.statusBar()->currentMessage().contains(QStringLiteral("5 B")), qPrintable(window.statusBar()->currentMessage()));
+
+        view->clearSelection();
+        window.actionCollection()->action(QStringLiteral("calculate_occupied_space"))->trigger();
+        QTRY_VERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("folder")));
+    }
+
+    void filterPersistsWithThePaneSession()
+    {
+        {
+            MainWindow window;
+            window.openUrls({m_a});
+            auto *filter = window.activePane()->findChild<FilterBar *>();
+            QVERIFY(filter);
+            filter->setFilter(NameFilter(QStringLiteral("*.txt"), NameFilter::Scope::Files));
+            window.close();
+        }
+
+        MainWindow restored;
+        restored.openUrls({});
+        QCOMPARE(restored.activePane()->view()->nameFilter(), NameFilter(QStringLiteral("*.txt"), NameFilter::Scope::Files));
+        QTRY_COMPARE(restored.activePane()->view()->itemCount(), 2);
     }
 
     void copyToOtherPaneUsesKio()

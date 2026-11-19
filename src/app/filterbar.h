@@ -22,6 +22,7 @@ public:
     explicit FilterBar(QWidget *parent = nullptr);
 
     NameFilter filter() const;
+    void setFilter(const NameFilter &filter);
 
     /**
      * Shows the bar and focuses its text field.

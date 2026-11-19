@@ -25,6 +25,16 @@ cmake --build build --target clang-format   # format all C++ sources
 - Tests must never touch the real home folder, trash or config: use
   `QTemporaryDir` and `QStandardPaths::setTestModeEnabled(true)`.
 
+## Roadmap format
+
+- Keep `docs/ROADMAP.md` in its detailed milestone format, with individual
+  feature bullets and subheadings.
+- Strike through completed features individually with `~~...~~`; do not strike
+  through milestone headings or replace feature lists with a consolidated
+  completion paragraph. Strikethroughs alone indicate completion; do not add a
+  separate "Done so far" summary.
+- Leave unfinished features unstruck.
+
 ## Tracking
 
 No GitHub remote yet. Milestones in `docs/ROADMAP.md` stand in for issues, so

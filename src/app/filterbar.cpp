@@ -34,6 +34,7 @@ FilterBar::FilterBar(QWidget *parent)
         QAction *action = menu->addAction(text);
         action->setCheckable(true);
         action->setChecked(scope == m_scope);
+        action->setData(static_cast<int>(scope));
         group->addAction(action);
         connect(action, &QAction::triggered, this, [this, scope] {
             setScope(scope);
@@ -63,6 +64,12 @@ FilterBar::FilterBar(QWidget *parent)
 NameFilter FilterBar::filter() const
 {
     return NameFilter(m_text->text(), m_scope);
+}
+
+void FilterBar::setFilter(const NameFilter &filter)
+{
+    m_text->setText(filter.text());
+    setScope(filter.scope());
 }
 
 void FilterBar::open(const QString &typedText)
@@ -100,5 +107,8 @@ bool FilterBar::eventFilter(QObject *watched, QEvent *event)
 void FilterBar::setScope(NameFilter::Scope scope)
 {
     m_scope = scope;
+    for (QAction *action : m_scopeButton->menu()->actions()) {
+        action->setChecked(action->data().toInt() == static_cast<int>(scope));
+    }
     Q_EMIT filterChanged(filter());
 }
