@@ -27,6 +27,8 @@ add_library(opusfm_app STATIC
     folderview.h
     foldertree.cpp
     foldertree.h
+    foldercomparisondialog.cpp
+    foldercomparisondialog.h
     gallerywindow.cpp
     gallerywindow.h
     mainwindow.cpp

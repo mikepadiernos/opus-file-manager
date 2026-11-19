@@ -14,6 +14,7 @@
 #include "favoritesmodel.h"
 #include "filediffdialog.h"
 #include "fileoperations.h"
+#include "foldercomparisondialog.h"
 #include "foldermetadata.h"
 #include "foldertree.h"
 #include "folderview.h"
@@ -332,6 +333,8 @@ void MainWindow::connectPane(Pane *pane)
             updateFreeSpace();
             updateWindowTitle();
             syncFolderTrees();
+        } else if (m_active) {
+            updateActions();
         }
     });
     connect(pane, &Pane::tabCountChanged, this, &MainWindow::updateTabBars);
@@ -913,6 +916,8 @@ void MainWindow::setupActions()
     QAction *contentChart = actions->addAction(QStringLiteral("content_chart"), this, &MainWindow::showContentChart);
     contentChart->setText(i18nc("@action", "Folder Content Chart"));
     contentChart->setIcon(QIcon::fromTheme(QStringLiteral("view-statistics")));
+    QAction *compareFolders = actions->addAction(QStringLiteral("compare_pane_folders"), this, &MainWindow::comparePaneFolders);
+    compareFolders->setText(i18nc("@action", "Compare Pane Folders"));
     QAction *createChecksum = actions->addAction(QStringLiteral("create_checksum"), this, &MainWindow::createChecksumFile);
     createChecksum->setText(i18nc("@action", "Create SHA-256 Checksum File…"));
     QAction *verifyChecksum = actions->addAction(QStringLiteral("verify_checksum"), this, &MainWindow::verifyChecksumFile);
@@ -1446,6 +1451,9 @@ void MainWindow::updateActions()
     actions->action(stdName(KStandardAction::Copy))->setEnabled(hasSelection);
     actions->action(QStringLiteral("open_terminal"))->setEnabled(activePane()->url().isLocalFile());
     actions->action(QStringLiteral("content_chart"))->setEnabled(activePane()->url().isValid() && !activePane()->url().isEmpty());
+    actions->action(QStringLiteral("compare_pane_folders"))
+        ->setEnabled(isDualLayout() && !inactivePane()->isHidden() && activePane()->url().isValid() && !activePane()->url().isEmpty()
+                     && inactivePane()->url().isValid() && !inactivePane()->url().isEmpty());
     const bool localFiles = hasSelection && std::all_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
                                 return item.url().isLocalFile() && item.isFile() && !item.isLink();
                             });
@@ -2383,6 +2391,41 @@ void MainWindow::verifyChecksumFile()
     }
     auto *dialog = new ChecksumDialog(ChecksumDialog::Mode::Verify, {}, items.first().url().toLocalFile(), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
+void MainWindow::comparePaneFolders()
+{
+    Pane *first = activePane();
+    Pane *second = inactivePane();
+    const QUrl firstUrl = first->url();
+    const QUrl secondUrl = second->url();
+    if (!isDualLayout() || second->isHidden() || firstUrl.isEmpty() || !firstUrl.isValid() || secondUrl.isEmpty() || !secondUrl.isValid()) {
+        KMessageBox::error(this, i18nc("@info", "Show two panes with valid folders to compare."));
+        return;
+    }
+    auto *dialog = new FolderComparisonDialog(firstUrl, secondUrl, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    const QPointer<Pane> firstPane(first);
+    const QPointer<Pane> secondPane(second);
+    connect(dialog,
+            &FolderComparisonDialog::selectDifferences,
+            this,
+            [this, firstPane, secondPane, firstUrl, secondUrl](const QList<QUrl> &left, const QList<QUrl> &right) {
+                if (!firstPane || !secondPane || !isDualLayout() || firstPane->isHidden() || secondPane->isHidden()
+                    || firstPane->url().adjusted(QUrl::StripTrailingSlash) != firstUrl.adjusted(QUrl::StripTrailingSlash)
+                    || secondPane->url().adjusted(QUrl::StripTrailingSlash) != secondUrl.adjusted(QUrl::StripTrailingSlash)) {
+                    showStatusMessage(i18nc("@info:status", "Pane folders changed or are hidden; compare them again before selecting."));
+                    return;
+                }
+                firstPane->view()->selectUrls(left);
+                secondPane->view()->selectUrls(right);
+                if (firstPane->view()->selectedItems().size() != left.size() || secondPane->view()->selectedItems().size() != right.size()) {
+                    showStatusMessage(i18nc("@info:status", "Some differences could not be selected. Check pane filters and hidden files."));
+                } else {
+                    showStatusMessage(i18nc("@info:status", "Differences selected in both panes."));
+                }
+            });
     dialog->show();
 }
 

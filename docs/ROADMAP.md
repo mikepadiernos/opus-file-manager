@@ -326,7 +326,7 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
   and clear reporting when a format cannot be written (Directory Opus)
 - Scripts and custom commands
 - Presets
-- Compare folders across the two panes (Krusader)
+- ~~Compare folders across the two panes (Krusader)~~
 - ~~Create and verify checksum files (Krusader)~~
 - Split and combine files (Krusader)
 - Transfer queue with per-job progress, speed, errors and pause, resume and
@@ -340,7 +340,8 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 **Caveats:** [File comparison](CAVEATS.md#file-comparison), tracked in #311;
 [symbolic links](CAVEATS.md#symbolic-links), tracked in #312; [listing export](CAVEATS.md#listing-export),
 tracked in #314; [folder content chart](CAVEATS.md#folder-content-chart), tracked in #315;
-[checksum files](CAVEATS.md#checksum-files), tracked in #316.
+[checksum files](CAVEATS.md#checksum-files), tracked in #316;
+[pane folder comparison](CAVEATS.md#pane-folder-comparison), tracked in #317.
 
 ### M10 Tools settings
 

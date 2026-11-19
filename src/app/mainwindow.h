@@ -131,6 +131,7 @@ private:
     void showContentChart();
     void createChecksumFile();
     void verifyChecksumFile();
+    void comparePaneFolders();
     void setupEditor();
     void setEditorPlacement(EditorPanel::Placement placement);
 

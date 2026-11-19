@@ -13,6 +13,8 @@ add_library(opusfm_core STATIC
     flatview.h
     foldermetadata.cpp
     foldermetadata.h
+    foldercomparison.cpp
+    foldercomparison.h
     ignorelist.cpp
     ignorelist.h
     labelcolor.cpp

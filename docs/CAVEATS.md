@@ -206,6 +206,20 @@ destination or remote symbolic-link support is needed.
   race with publication of the checksum file.
   ([#316](https://github.com/mikepadiernos/opus-file-manager/issues/316))
 
+## Pane folder comparison
+
+- Comparison covers immediate entries only. Files are compared by size and
+  modification time, not contents; subfolders are not compared. Results are
+  snapshots, and hidden or filtered entries may not be selectable. Large or
+  remote listings may be costly.
+  ([#317](https://github.com/mikepadiernos/opus-file-manager/issues/317))
+
+  **Recommendation:** Use file comparison for individual files, or a trusted
+  recursive comparison tool when content verification or subfolder comparison
+  is needed. Show hidden files and clear pane filters before selecting
+  differences; compare again after changes.
+  ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/317#issuecomment-7021904155))
+
 ## Build, installation and references
 
 - **Dependencies:** Opus targets Linux and requires the dependencies listed in

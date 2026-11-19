@@ -7,6 +7,7 @@
 #include "filediffdialog.h"
 #include "fileoperations.h"
 #include "filterbar.h"
+#include "foldercomparisondialog.h"
 #include "foldertree.h"
 #include "folderview.h"
 #include "gallerywindow.h"
@@ -717,6 +718,72 @@ private Q_SLOTS:
         dialog = window.findChild<ChecksumDialog *>(QStringLiteral("checksumDialog"));
         QVERIFY(dialog);
         QTRY_COMPARE(dialog->findChild<QLabel *>(QStringLiteral("checksumStatus"))->text(), QStringLiteral("Verification finished: 1 file failed."));
+    }
+
+    void comparesPaneFoldersAndSelectsDifferences()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir(dir.path()).mkdir(QStringLiteral("left")));
+        QVERIFY(QDir(dir.path()).mkdir(QStringLiteral("right")));
+        for (const auto &[name, data] : QList<QPair<QString, QByteArray>>{{QStringLiteral("left/left-only"), "l"},
+                                                                          {QStringLiteral("left/.hidden"), "h"},
+                                                                          {QStringLiteral("right/right-only"), "r"},
+                                                                          {QStringLiteral("left/shared"), "small"},
+                                                                          {QStringLiteral("right/shared"), "larger!"}}) {
+            QFile file(dir.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write(data), qint64(data.size()));
+        }
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(dir.filePath(QStringLiteral("left"))), QUrl::fromLocalFile(dir.filePath(QStringLiteral("right")))});
+        window.show();
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        Pane *left = window.activePane();
+        Pane *right = window.inactivePane();
+        QTRY_COMPARE(left->view()->itemCount(), 2);
+        QTRY_COMPARE(right->view()->itemCount(), 2);
+        QAction *action = window.actionCollection()->action(QStringLiteral("compare_pane_folders"));
+        QVERIFY(action && action->isEnabled());
+        action->trigger();
+        auto *dialog = window.findChild<FolderComparisonDialog *>(QStringLiteral("folderComparisonDialog"));
+        QVERIFY(dialog);
+        auto *select = dialog->findChild<QPushButton *>(QStringLiteral("folderComparisonSelect"));
+        auto *results = dialog->findChild<QTreeWidget *>(QStringLiteral("folderComparisonResults"));
+        QVERIFY(select && results);
+        QTRY_VERIFY(select->isEnabled());
+        QCOMPARE(results->topLevelItemCount(), 4);
+        select->click();
+        QTRY_COMPARE(left->view()->selectedItems().size(), 2);
+        QTRY_COMPARE(right->view()->selectedItems().size(), 2);
+        QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("Some differences could not be selected")));
+        left->view()->setShowHiddenFiles(true);
+        QTRY_COMPARE(left->view()->itemCount(), 3);
+        select->click();
+        QTRY_COMPARE(left->view()->selectedItems().size(), 3);
+        right->setUrl(QUrl::fromLocalFile(dir.path()));
+        select->click();
+        QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("changed or are hidden")));
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(false);
+        QVERIFY(!action->isEnabled());
+    }
+
+    void folderComparisonHandlesErrorsAndCancellation()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        FolderComparisonDialog failed(QUrl::fromLocalFile(dir.path()), QUrl::fromLocalFile(dir.filePath(QStringLiteral("missing"))));
+        auto *status = failed.findChild<QLabel *>(QStringLiteral("folderComparisonStatus"));
+        auto *cancel = failed.findChild<QPushButton *>(QStringLiteral("folderComparisonCancel"));
+        auto *select = failed.findChild<QPushButton *>(QStringLiteral("folderComparisonSelect"));
+        QVERIFY(status && cancel && select);
+        QTRY_VERIFY(!cancel->isEnabled());
+        QVERIFY(status->text().startsWith(QStringLiteral("Could not list")));
+        QVERIFY(!select->isEnabled());
+        FolderComparisonDialog canceled(QUrl::fromLocalFile(dir.path()), QUrl::fromLocalFile(dir.path()));
+        canceled.findChild<QPushButton *>(QStringLiteral("folderComparisonCancel"))->click();
+        QCOMPARE(canceled.findChild<QLabel *>(QStringLiteral("folderComparisonStatus"))->text(), QStringLiteral("Comparison canceled."));
+        QVERIFY(!canceled.findChild<QPushButton *>(QStringLiteral("folderComparisonSelect"))->isEnabled());
     }
 
     void navigationUpdatesHistory()

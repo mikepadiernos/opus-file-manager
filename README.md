@@ -29,6 +29,7 @@ for file operations, Places, properties, settings and desktop integration.
 - Export the filtered listing and configured details columns to CSV or PDF.
 - Inspect a folder's content sizes and relative shares in a cancellable chart.
 - Create and verify SHA-256 checksum files for local files.
+- Compare immediate entries across pane folders and select differences.
 
 ## Caveats
 
