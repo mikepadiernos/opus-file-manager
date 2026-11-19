@@ -82,7 +82,7 @@ fi
 # Dependencies
 # ---------------------------------------------------------------------------
 
-KF_MODULES=(archive bookmarks config configwidgets coreaddons crash dbusaddons filemetadata guiaddons i18n iconthemes itemviews kio parts solid syntaxhighlighting widgetsaddons windowsystem xmlgui)
+KF_MODULES=(archive bookmarks config configwidgets coreaddons crash dbusaddons filemetadata guiaddons i18n iconthemes itemviews kio parts solid syntaxhighlighting texteditor widgetsaddons windowsystem xmlgui)
 
 distro_id() {
     [ -r /etc/os-release ] || { echo unknown; return; }

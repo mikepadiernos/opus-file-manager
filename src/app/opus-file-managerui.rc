@@ -18,6 +18,7 @@
       <Action name="delete"/>
       <Separator/>
       <Action name="open_terminal"/>
+      <Action name="open_editor"/>
       <Action name="properties"/>
       <Action name="calculate_occupied_space"/>
       <Separator/>
@@ -108,6 +109,7 @@
     <Action name="show_hidden_files"/>
     <Spacer/>
     <Action name="open_terminal"/>
+    <Action name="open_editor"/>
     <Action name="hamburger_menu"/>
   </ToolBar>
 </gui>

@@ -42,6 +42,7 @@ find_package(KF6 ${KF_MIN_VERSION} REQUIRED COMPONENTS
     Parts
     Solid
     SyntaxHighlighting
+    TextEditor
     WidgetsAddons
     WindowSystem
     XmlGui
