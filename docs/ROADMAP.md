@@ -377,6 +377,26 @@ Settings for M15 translations, stored in KConfig.
   - **Digits:** digit shapes and custom numeral formats, including Western or
     Eastern Arabic-Indic digits
 
+### M17 Settings dialog polish
+
+Polish the existing settings pages without adding new preferences.
+
+- Search settings by name and description, showing matching pages and opening
+  the relevant tab and control
+- Review page grouping, labels, descriptions and terminology for consistency;
+  explain settings that affect shared KDE configuration or require a restart
+- Make Apply, OK and Cancel behaviour clear, including pending changes and
+  restoration of live previews when changes are cancelled
+- Restore defaults for the current page or all pages with an explicit choice
+  and confirmation before discarding changes
+- Validate inputs with actionable inline errors and focus the affected control;
+  explain unavailable or dependent options
+- Support keyboard navigation, visible focus, screen-reader labels and
+  accessible error messages throughout the dialog
+- Adapt pages and navigation to small windows, high DPI, long translations and
+  right-to-left layouts without clipping controls or labels
+- Provide concise contextual help for settings whose effects are not obvious
+
 ## Feature references
 
 The roadmap adapts workflows to KDE rather than copying platform-specific
