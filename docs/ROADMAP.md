@@ -343,7 +343,8 @@ tracked in #314; [folder content chart](CAVEATS.md#folder-content-chart), tracke
 [checksum files](CAVEATS.md#checksum-files), tracked in #316;
 [pane folder comparison](CAVEATS.md#pane-folder-comparison), tracked in #317;
 [split and combine files](CAVEATS.md#split-and-combine-files), tracked in #318;
-[embedded terminal](CAVEATS.md#embedded-terminal), tracked in #321.
+[embedded terminal](CAVEATS.md#embedded-terminal), tracked in #321;
+[linked pane navigation](CAVEATS.md#linked-pane-navigation), tracked in #322.
 
 ### M10 Tools settings
 

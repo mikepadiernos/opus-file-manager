@@ -133,6 +133,7 @@ private:
     void createChecksumFile();
     void verifyChecksumFile();
     void comparePaneFolders();
+    void syncLinkedPane(Pane *pane, const QUrl &url);
     void splitFile();
     void combineFiles();
     void setupEditor();
@@ -228,6 +229,10 @@ private:
     KToggleAction *m_previewsAction = nullptr;
     KToggleAction *m_previewPanelAction = nullptr;
     KToggleAction *m_terminalPanelAction = nullptr;
+    KToggleAction *m_linkedPanesAction = nullptr;
+    QUrl m_linkedLeftRoot;
+    QUrl m_linkedRightRoot;
+    bool m_syncingLinkedPanes = false;
     QAction *m_viewModeAction = nullptr;
     QAction *m_selectionModeAction = nullptr;
     QAction *m_selectionMarkersAction = nullptr;

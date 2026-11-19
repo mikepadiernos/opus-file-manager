@@ -721,6 +721,44 @@ private Q_SLOTS:
         QTRY_COMPARE(dialog->findChild<QLabel *>(QStringLiteral("checksumStatus"))->text(), QStringLiteral("Verification finished: 1 file failed."));
     }
 
+    void linksPaneNavigationWithinStartingFolders()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir(dir.path()).mkpath(QStringLiteral("left/sub/child")));
+        QVERIFY(QDir(dir.path()).mkpath(QStringLiteral("right/sub/child")));
+        QVERIFY(QDir(dir.path()).mkpath(QStringLiteral("left/only-left")));
+        const QUrl leftRoot = QUrl::fromLocalFile(dir.filePath(QStringLiteral("left")));
+        const QUrl rightRoot = QUrl::fromLocalFile(dir.filePath(QStringLiteral("right")));
+        MainWindow window;
+        window.openUrls({leftRoot, rightRoot});
+        window.show();
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        auto *link = window.actionCollection()->action(QStringLiteral("link_panes"));
+        QVERIFY(link);
+        link->setChecked(true);
+        QVERIFY(link->isChecked());
+        Pane *left = window.activePane();
+        Pane *right = window.inactivePane();
+        left->setUrl(QUrl::fromLocalFile(dir.filePath(QStringLiteral("left/sub/child"))));
+        QCOMPARE(right->url(), QUrl::fromLocalFile(dir.filePath(QStringLiteral("right/sub/child"))));
+        right->setUrl(QUrl::fromLocalFile(dir.filePath(QStringLiteral("right/sub"))));
+        QCOMPARE(left->url(), QUrl::fromLocalFile(dir.filePath(QStringLiteral("left/sub"))));
+        left->setUrl(QUrl::fromLocalFile(dir.filePath(QStringLiteral("left/only-left"))));
+        QVERIFY(!link->isChecked());
+        QCOMPARE(right->url(), QUrl::fromLocalFile(dir.filePath(QStringLiteral("right/sub"))));
+        QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("unlinked")));
+        left->setUrl(leftRoot);
+        right->setUrl(rightRoot);
+        link->setChecked(true);
+        QVERIFY(link->isChecked());
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(false);
+        QVERIFY(!link->isChecked());
+        link->setChecked(true);
+        QVERIFY(!link->isChecked());
+        QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("Show both panes")));
+    }
+
     void opensSplitAndCombineForLocalFiles()
     {
         QTemporaryDir dir;

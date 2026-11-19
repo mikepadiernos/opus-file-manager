@@ -21,6 +21,8 @@ add_library(opusfm_core STATIC
     ignorelist.h
     labelcolor.cpp
     labelcolor.h
+    linkednavigation.cpp
+    linkednavigation.h
     listingexport.cpp
     listingexport.h
     markdownexport.cpp

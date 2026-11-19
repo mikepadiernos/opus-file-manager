@@ -311,6 +311,21 @@ on the server and access method. (Comment: [#312][comment-312])
   closing the window.
   ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/321#issuecomment-7022392302))
 
+## Linked pane navigation
+
+- Linked navigation supports existing local folder trees rooted at the two
+  starting folders. It unlinks when navigation leaves either tree, a matching
+  folder is missing, a symbolic link resolves outside its tree, or a pane is
+  hidden. Tab and history changes also participate and may unlink. Filesystem
+  changes can invalidate folders between checks and navigation.
+  ([#322](https://github.com/mikepadiernos/opus-file-manager/issues/322))
+
+  **Recommendation:** Start from corresponding local folders with matching
+  subfolder names. Check both panes after navigating, especially when
+  directories may change; relink at a new pair of roots when needed. Navigate
+  remote folders independently.
+  ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/322#issuecomment-7022490696))
+
 ## Build, installation and references
 
 - **Dependencies:** Opus targets Linux and requires the dependencies listed in

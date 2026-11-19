@@ -9,6 +9,7 @@ ecm_add_tests(
     foldercomparisontest.cpp
     flatviewtest.cpp
     ignorelisttest.cpp
+    linkednavigationtest.cpp
     namefiltertest.cpp
     densitytest.cpp
     draftstoretest.cpp

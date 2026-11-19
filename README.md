@@ -33,6 +33,7 @@ for file operations, Places, properties, settings and desktop integration.
 - Split local files into numbered parts and combine selected parts in a chosen
   order.
 - Show an embedded Konsole terminal alongside the panes.
+- Link navigation between corresponding local pane folders.
 
 ## Caveats
 

@@ -21,6 +21,7 @@
 #include "folderview.h"
 #include "gallerywindow.h"
 #include "labelcolor.h"
+#include "linkednavigation.h"
 #include "pane.h"
 #include "previewpanel.h"
 #include "session.h"
@@ -85,6 +86,7 @@
 #include <QMenuBar>
 #include <QMimeDatabase>
 #include <QPointer>
+#include <QScopedValueRollback>
 #include <QScrollArea>
 #include <QSplitter>
 #include <QStatusBar>
@@ -334,6 +336,7 @@ void MainWindow::connectPane(Pane *pane)
         setActivePane(pane);
     });
     connect(pane, &Pane::urlChanged, this, [this, pane](const QUrl &url) {
+        syncLinkedPane(pane, url);
         recordFolderVisit(pane, url);
         pane->view()->setFlat(m_flatLocations.contains(flatKey(url)));
         if (pane == m_active) {
@@ -1027,6 +1030,28 @@ void MainWindow::setupActions()
         }
         m_terminalPanel->setVisible(shown);
         toggleLayout(m_dualLayoutAction->isChecked());
+    });
+
+    m_linkedPanesAction = new KToggleAction(i18nc("@action", "Link Pane Navigation"), this);
+    actions->addAction(QStringLiteral("link_panes"), m_linkedPanesAction);
+    connect(m_linkedPanesAction, &KToggleAction::toggled, this, [this](bool linked) {
+        if (!linked) {
+            return;
+        }
+        if (!isDualLayout() || m_left->isHidden() || m_right->isHidden()) {
+            m_linkedPanesAction->setChecked(false);
+            showStatusMessage(i18nc("@info:status", "Show both panes before linking their navigation."));
+            return;
+        }
+        const auto result = LinkedNavigation::target(m_left->url(), m_right->url(), m_left->url());
+        if (!result.error.isEmpty()) {
+            m_linkedPanesAction->setChecked(false);
+            showStatusMessage(result.error);
+            return;
+        }
+        m_linkedLeftRoot = m_left->url();
+        m_linkedRightRoot = m_right->url();
+        showStatusMessage(i18nc("@info:status", "Pane navigation linked from the current folders."));
     });
 
     QAction *showPlaces = m_placesDock->toggleViewAction();
@@ -2487,6 +2512,22 @@ void MainWindow::comparePaneFolders()
     dialog->show();
 }
 
+void MainWindow::syncLinkedPane(Pane *pane, const QUrl &url)
+{
+    if (!m_linkedPanesAction || !m_linkedPanesAction->isChecked() || m_syncingLinkedPanes) {
+        return;
+    }
+    const bool left = pane == m_left;
+    const auto result = LinkedNavigation::target(left ? m_linkedLeftRoot : m_linkedRightRoot, left ? m_linkedRightRoot : m_linkedLeftRoot, url);
+    if (!result.error.isEmpty()) {
+        m_linkedPanesAction->setChecked(false);
+        showStatusMessage(i18nc("@info:status", "Pane navigation unlinked: %1", result.error));
+        return;
+    }
+    const QScopedValueRollback guard(m_syncingLinkedPanes, true);
+    (left ? m_right : m_left)->setUrl(result.target);
+}
+
 void MainWindow::copyToOtherPane()
 {
     FileOperations::copy(urlsOf(activePane()->view()->selectedItems()), inactivePane()->url(), this);
@@ -2562,6 +2603,10 @@ void MainWindow::toggleLayout(bool dual)
     m_left->setVisible((dual && (!preview || editorEmbedded || terminalShown)) || activePane() == m_left);
     m_right->setVisible((dual && (!preview || editorEmbedded || terminalShown)) || activePane() == m_right);
     m_previewPanel->setVisible(preview);
+    if (m_linkedPanesAction && m_linkedPanesAction->isChecked() && (!dual || m_left->isHidden() || m_right->isHidden())) {
+        m_linkedPanesAction->setChecked(false);
+        showStatusMessage(i18nc("@info:status", "Pane navigation unlinked because both panes are not visible."));
+    }
     updateActions();
 }
 
