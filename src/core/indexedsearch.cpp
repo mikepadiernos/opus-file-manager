@@ -44,7 +44,8 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
                                        const QString &text,
                                        LiveSearch::Field field,
                                        const LiveSearch::Cancel &cancel,
-                                       const LiveSearch::Progress &progress)
+                                       const LiveSearch::Progress &progress,
+                                       const PathFilter &filter)
 {
     LiveSearch::Result result;
     if (text.trimmed().isEmpty()) {
@@ -53,6 +54,15 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
     }
     if (text.contains(QLatin1Char('"'))) {
         result.errors.append(i18nc("@info", "Indexed search does not support double quotes in the search text."));
+        return result;
+    }
+    const QString filterError = filter.error();
+    if (!filterError.isEmpty()) {
+        result.errors.append(filterError);
+        return result;
+    }
+    if (filter.maxDepth >= 0 && !QDir::isAbsolutePath(currentFolder)) {
+        result.errors.append(i18nc("@info", "A local current folder is required to limit indexed-search depth."));
         return result;
     }
     if (cancel && cancel()) {
@@ -89,22 +99,31 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
     Baloo::Query query;
     query.setSearchString((field == LiveSearch::Field::FileName ? QStringLiteral("filename:\"") : QStringLiteral("content:\"")) + text + QLatin1Char('"'));
     query.setSortingOption(Baloo::Query::SortNone);
-    query.setLimit(5001);
+    query.setLimit(filter.isActive() ? 200001 : 5001);
     auto iterator = query.exec();
     while (iterator.next()) {
         if (cancel && cancel()) {
             result.canceled = true;
             return result;
         }
-        if (result.paths.size() == 5000) {
+        if (result.scannedEntries >= 200000) {
             result.limited = true;
             break;
         }
-        result.paths.append(iterator.filePath());
         ++result.scannedEntries;
         if (progress) {
             progress(result.scannedEntries, iterator.filePath());
         }
+        const QString path = iterator.filePath();
+        const QString root = filter.maxDepth >= 0 ? QDir::cleanPath(currentFolder) : QStringLiteral("/");
+        if (!QDir::isAbsolutePath(path) || (filter.maxDepth >= 0 && QDir::cleanPath(path) == root) || !filter.matches(root, path)) {
+            continue;
+        }
+        if (result.paths.size() == 5000) {
+            result.limited = true;
+            break;
+        }
+        result.paths.append(path);
     }
     if (cancel && cancel()) {
         result.canceled = true;

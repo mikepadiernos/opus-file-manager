@@ -17,7 +17,7 @@ bool valid(const SavedSearches::Search &search)
     return !search.name.trimmed().isEmpty() && !search.text.trimmed().isEmpty()
         && (search.field == LiveSearch::Field::FileName || search.field == LiveSearch::Field::Contents)
         && (search.folder.isEmpty() ? search.indexed : (search.folder.isLocalFile() && QDir::isAbsolutePath(search.folder.toLocalFile())))
-        && search.filter.error().isEmpty() && (!search.indexed || !search.filter.isActive());
+        && search.filter.error().isEmpty() && (search.filter.maxDepth < 0 || !search.folder.isEmpty());
 }
 }
 

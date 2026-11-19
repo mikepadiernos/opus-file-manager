@@ -90,6 +90,25 @@ private Q_SLOTS:
         QCOMPARE(view.selectedItems().size(), 1);
         QCOMPARE(view.selectedItems().first().url(), QUrl::fromLocalFile(m_root.filePath(QStringLiteral("flat/x/y/deep.txt"))));
 
+        view.clearSelection();
+        PathFilter filter;
+        filter.maxDepth = 1;
+        filter.excludedFolders = {m_root.filePath(QStringLiteral("flat/x"))};
+        QString error;
+        QCOMPARE(view.applySelectionPathFilter(filter, true, &error), 1);
+        QVERIFY(error.isEmpty());
+        QCOMPARE(view.selectedItems().first().name(), QStringLiteral("top.txt"));
+        filter.excludedFolders.clear();
+        filter.parentText = QStringLiteral("/x");
+        QCOMPARE(view.applySelectionPathFilter(filter, true, &error), 1);
+        QCOMPARE(view.selectedItems().size(), 2);
+        QCOMPARE(view.applySelectionPathFilter(filter, false, &error), 1);
+        QCOMPARE(view.selectedItems().size(), 1);
+        filter.excludedFolders = {QStringLiteral("relative")};
+        QCOMPARE(view.applySelectionPathFilter(filter, false, &error), -1);
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(view.selectedItems().size(), 1);
+
         view.setFlat(false);
         QTRY_COMPARE(visibleNames(&view), QStringList({QStringLiteral("top.txt"), QStringLiteral("x")}));
         QCOMPARE(view.currentView()->model()->headerData(KDirModel::Type, Qt::Horizontal).toString(), QStringLiteral("Type"));

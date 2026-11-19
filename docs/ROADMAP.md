@@ -307,8 +307,8 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 - ~~Duplicate selection: choose candidates by location or date while keeping at
   least one item per group in automatic selection; warn and require explicit
   confirmation if a manual selection would remove every item in a group~~
-- Search and selection filters for full path, parent folder and excluded
-  subtrees, with an optional recursion-depth limit
+- ~~Search and selection filters for full path, parent folder and excluded
+  subtrees, with an optional recursion-depth limit~~
 - ~~Content chart (folder breakdown)~~
 - Folder sync: preview differences and planned operations before running;
   allow per-item direction changes and exclusions, with explicit confirmation

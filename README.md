@@ -36,8 +36,8 @@ for file operations, Places, properties, settings and desktop integration.
 - Link navigation between corresponding local pane folders.
 - Explore folder sizes with a cushion treemap and folder drilldown.
 - Search local folders live or query Baloo's index; save searches and collect
-  references without moving files. Filter live searches by path, parent, excluded
-  folders and recursion depth.
+  references without moving files. Filter searches and selections by path,
+  parent, excluded folders and recursion depth.
 - Preview local duplicates, select candidates by date or folder, and move
   checked files to Trash after confirmation.
 

@@ -86,6 +86,39 @@ private Q_SLOTS:
         m_c = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("c")));
     }
 
+    void selectsVisibleItemsByPathFilter()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        for (const QString &name : {QStringLiteral("keep.txt"), QStringLiteral("other.txt")}) {
+            QFile file(root.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(root.path())});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+        QTRY_VERIFY(!view->isLoading());
+        auto *action = window.actionCollection()->action(QStringLiteral("select_by_path_filter"));
+        QVERIFY(action);
+        QTimer::singleShot(0, [&] {
+            auto *dialog = window.findChild<QDialog *>(QStringLiteral("selectionPathDialog"));
+            QVERIFY(dialog);
+            dialog->findChild<QLineEdit *>(QStringLiteral("selectionPathFilter"))->setText(QStringLiteral("keep.txt"));
+            auto *excluded = dialog->findChild<QPlainTextEdit *>(QStringLiteral("selectionExcludedFolders"));
+            auto *buttons = dialog->findChild<QDialogButtonBox *>();
+            excluded->setPlainText(QStringLiteral("relative"));
+            buttons->button(QDialogButtonBox::Ok)->click();
+            QVERIFY(!dialog->findChild<QLabel *>(QStringLiteral("selectionPathError"))->text().isEmpty());
+            QVERIFY(view->selectedItems().isEmpty());
+            excluded->clear();
+            buttons->button(QDialogButtonBox::Ok)->click();
+        });
+        action->trigger();
+        QCOMPARE(view->selectedItems().size(), 1);
+        QCOMPARE(view->selectedItems().first().name(), QStringLiteral("keep.txt"));
+    }
+
     void startupFoldersAndPaneDefaultsApply()
     {
         KConfigGroup startup = KSharedConfig::openConfig()->group(QStringLiteral("Startup"));

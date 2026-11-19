@@ -29,6 +29,9 @@ private Q_SLOTS:
     {
         QVERIFY(!IndexedSearch::find({}, QStringLiteral(" "), LiveSearch::Field::FileName).errors.isEmpty());
         QVERIFY(!IndexedSearch::find({}, QStringLiteral("a\"b"), LiveSearch::Field::FileName).errors.isEmpty());
+        PathFilter filter;
+        filter.maxDepth = 0;
+        QVERIFY(!IndexedSearch::find({}, QStringLiteral("needle"), LiveSearch::Field::FileName, {}, {}, filter).errors.isEmpty());
         QVERIFY(IndexedSearch::find({}, QStringLiteral("needle"), LiveSearch::Field::FileName, [] {
                     return true;
                 }).canceled);
@@ -80,11 +83,18 @@ private Q_SLOTS:
         QVERIFY(QDir().mkpath(folder));
         const QString excluded = folder + QStringLiteral("/excluded");
         QVERIFY(QDir().mkpath(excluded));
+        QVERIFY(QDir().mkpath(folder + QStringLiteral("/nested/deep")));
         QVERIFY(QDir().mkpath(qEnvironmentVariable("BALOO_DB_PATH")));
         QFile named(folder + QStringLiteral("/opalneedle.txt"));
         QVERIFY(named.open(QIODevice::WriteOnly));
         QCOMPARE(named.write("ordinary text"), 13);
         named.close();
+        QFile nested(folder + QStringLiteral("/nested/opalneedle-nested.txt"));
+        QVERIFY(nested.open(QIODevice::WriteOnly));
+        nested.close();
+        QFile deep(folder + QStringLiteral("/nested/deep/opalneedle-deep.txt"));
+        QVERIFY(deep.open(QIODevice::WriteOnly));
+        deep.close();
         QFile contents(folder + QStringLiteral("/other.txt"));
         QVERIFY(contents.open(QIODevice::WriteOnly));
         const QByteArray text("This is an ordinary UTF-8 text file.\nuniquekestrel is a searchable word.\n");
@@ -109,6 +119,23 @@ private Q_SLOTS:
             8000);
         QVERIFY(names.errors.isEmpty());
         QVERIFY(!names.paths.contains(contents.fileName()));
+        QTRY_VERIFY_WITH_TIMEOUT(
+            (names = IndexedSearch::find(folder, QStringLiteral("opalneedle"), LiveSearch::Field::FileName)).paths.contains(deep.fileName()),
+            8000);
+        PathFilter filter;
+        filter.parentText = QStringLiteral("nested");
+        filter.excludedFolders = {folder + QStringLiteral("/nested/deep")};
+        const auto filtered = IndexedSearch::find(folder, QStringLiteral("opalneedle"), LiveSearch::Field::FileName, {}, {}, filter);
+        QCOMPARE(filtered.paths, QStringList{nested.fileName()});
+        filter.parentText.clear();
+        filter.excludedFolders.clear();
+        filter.maxDepth = 0;
+        const auto shallow = IndexedSearch::find(folder, QStringLiteral("opalneedle"), LiveSearch::Field::FileName, {}, {}, filter);
+        QCOMPARE(shallow.paths, QStringList{named.fileName()});
+        filter.maxDepth = 1;
+        filter.pathText = QStringLiteral("nested");
+        const auto limitedDepth = IndexedSearch::find(folder, QStringLiteral("opalneedle"), LiveSearch::Field::FileName, {}, {}, filter);
+        QCOMPARE(limitedDepth.paths, QStringList{nested.fileName()});
         LiveSearch::Result content;
         QTRY_VERIFY_WITH_TIMEOUT(
             (content = IndexedSearch::find(folder, QStringLiteral("uniquekestrel"), LiveSearch::Field::Contents)).paths.contains(contents.fileName()),

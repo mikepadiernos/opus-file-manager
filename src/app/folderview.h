@@ -5,6 +5,7 @@
 #include "foldermetadata.h"
 #include "listingexport.h"
 #include "namefilter.h"
+#include "pathfilter.h"
 
 #include <KFileItem>
 
@@ -98,6 +99,7 @@ public:
 
     void selectAll();
     int applySelectionPattern(const QString &pattern, bool select);
+    int applySelectionPathFilter(const PathFilter &filter, bool select, QString *error);
     void clearSelection();
     void selectUrls(const QList<QUrl> &urls);
     bool expandForHistorySelection(const QList<QUrl> &urls);

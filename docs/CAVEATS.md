@@ -200,9 +200,12 @@ open archives with 7-Zip or another trusted external tool when needed.
   Indexed search requires Baloo at build and runtime and searches its configured
   locations. Baloo matches indexed terms rather than literal substrings, does
   not accept double quotes here, and may omit files or return stale results.
-  Path, parent, excluded-folder and depth filters currently apply only to live
-  search; indexed search requires those filters to be cleared. Excluded folders
-  are entered one per line, so paths containing newlines cannot be entered.
+  Indexed search examines at most 200,000 Baloo matches when path filters are
+  active and returns at most 5,000 filtered matches. A depth limit restricts
+  indexed results to the current local folder. Path-selection filters apply
+  only to local top-level listings or the visible flat list, not expanded
+  child rows. Excluded folders are entered one per line, so paths containing
+  newlines cannot be entered; exclusions are lexical paths, not resolved links.
   Folder-coverage notices use configuration rather than proof of actual
   indexing; exclusions and pending indexing can still affect results. Baloo
   does not report index-read failures through its query API, and an executing
@@ -214,8 +217,9 @@ open archives with 7-Zip or another trusted external tool when needed.
   ([#362](https://github.com/mikepadiernos/opus-file-manager/issues/362))
 
   **Recommendation:** Check Baloo's indexing configuration and status; use
-  live search for a current local folder and its path filters, search smaller folders, inspect
-  errors and repeat searches after files change. Use GNU `find` for other local
+  live search for a current local folder, search smaller folders, inspect
+  errors and repeat searches after files change. Use flat view when selecting
+  nested local items by path, and verify the resulting selection. Use GNU `find` for other local
   filename searches or ripgrep (`rg`) for content searches when Opus limits are
   unsuitable; check each tool's hidden-file, ignore, encoding and symbolic-link
   behavior. If a revealed result is hidden or filtered, adjust the pane's

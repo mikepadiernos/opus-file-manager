@@ -97,6 +97,10 @@ private Q_SLOTS:
         QCOMPARE(errors->topLevelItemCount(), 1);
         QVERIFY(errors->topLevelItem(0)->text(0).contains(QStringLiteral("double quotes")));
         QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("searchStatus"))->text().contains(QStringLiteral("incomplete")));
+        dialog.findChild<QSpinBox *>(QStringLiteral("searchMaxDepth"))->setValue(0);
+        dialog.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("term"));
+        start->click();
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("searchStatus"))->text().contains(QStringLiteral("local current folder")));
     }
 
     void mainWindowOpensSearch()
@@ -204,9 +208,6 @@ private Q_SLOTS:
         auto *results = restored.findChild<QTreeWidget *>(QStringLiteral("searchResults"));
         QCOMPARE(results->topLevelItemCount(), 1);
         QCOMPARE(results->topLevelItem(0)->text(0), file.fileName());
-        restored.findChild<QComboBox *>(QStringLiteral("searchScope"))->setCurrentIndex(1);
-        start->click();
-        QVERIFY(restored.findChild<QLabel *>(QStringLiteral("searchStatus"))->text().contains(QStringLiteral("only available for current-folder")));
         auto *deleteSaved = restored.findChild<QPushButton *>(QStringLiteral("searchDelete"));
         QTimer::singleShot(0, [] {
             auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());

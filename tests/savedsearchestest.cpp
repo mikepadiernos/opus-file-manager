@@ -29,6 +29,7 @@ private Q_SLOTS:
             {QStringLiteral("Index"), QStringLiteral("birds"), {}, LiveSearch::Field::FileName, true},
         };
         searches[0].filter = {QStringLiteral("path"), QStringLiteral("parent"), {dir.filePath(QStringLiteral("exclude"))}, 2};
+        searches[1].filter.pathText = QStringLiteral("birds");
         QVERIFY(SavedSearches::save(group, searches, &error));
         QVERIFY(error.isEmpty());
         config->reparseConfiguration();
@@ -45,6 +46,7 @@ private Q_SLOTS:
         QCOMPARE(loaded.first().filter.excludedFolders, searches.first().filter.excludedFolders);
         QCOMPARE(loaded.first().filter.maxDepth, 2);
         QVERIFY(loaded.last().indexed);
+        QCOMPARE(loaded.last().filter.pathText, QStringLiteral("birds"));
         auto duplicate = searches;
         duplicate.append({QStringLiteral(" local "), QStringLiteral("other"), {}, LiveSearch::Field::FileName, true});
         QVERIFY(!SavedSearches::save(group, duplicate, &error));

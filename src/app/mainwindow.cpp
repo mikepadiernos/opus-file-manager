@@ -24,6 +24,7 @@
 #include "labelcolor.h"
 #include "linkednavigation.h"
 #include "pane.h"
+#include "pathfiltereditor.h"
 #include "previewpanel.h"
 #include "searchdialog.h"
 #include "session.h"
@@ -1000,6 +1001,18 @@ void MainWindow::setupActions()
     connect(deselectPattern, &QAction::triggered, this, [this] {
         selectByPattern(false);
     });
+    QAction *selectPaths = actions->addAction(QStringLiteral("select_by_path_filter"));
+    selectPaths->setText(i18nc("@action:inmenu", "Select by Path Filter…"));
+    selectMenu->addAction(selectPaths);
+    connect(selectPaths, &QAction::triggered, this, [this] {
+        selectByPathFilter(true);
+    });
+    QAction *deselectPaths = actions->addAction(QStringLiteral("deselect_by_path_filter"));
+    deselectPaths->setText(i18nc("@action:inmenu", "Deselect by Path Filter…"));
+    selectMenu->addAction(deselectPaths);
+    connect(deselectPaths, &QAction::triggered, this, [this] {
+        selectByPathFilter(false);
+    });
     selectMenu->addSeparator();
     QAction *saveSelection = selectMenu->addAction(i18nc("@action:inmenu", "Save Selection Filter…"));
     connect(saveSelection, &QAction::triggered, this, &MainWindow::saveSelectionFilter);
@@ -1783,6 +1796,51 @@ void MainWindow::selectByPattern(bool select)
                              select ? "Selected %1 item" : "Deselected %1 item",
                              select ? "Selected %1 items" : "Deselected %1 items",
                              matched));
+}
+
+void MainWindow::selectByPathFilter(bool select)
+{
+    const QPointer<FolderView> view = activePane()->view();
+    if (!view->url().isLocalFile()) {
+        showStatusMessage(i18nc("@info", "Path selection filters support local folders only."));
+        return;
+    }
+    const QUrl folder = view->url();
+    QDialog dialog(this);
+    dialog.setObjectName(QStringLiteral("selectionPathDialog"));
+    dialog.setWindowTitle(select ? i18nc("@title:window", "Select by Path Filter") : i18nc("@title:window", "Deselect by Path Filter"));
+    auto *layout = new QVBoxLayout(&dialog);
+    auto *description = new QLabel(i18nc("@info", "Applies to the current top-level listing, or all shown items in flat view."), &dialog);
+    description->setWordWrap(true);
+    layout->addWidget(description);
+    auto *editor = new PathFilterEditor(QStringLiteral("selection"), &dialog);
+    layout->addWidget(editor);
+    auto *error = new QLabel(&dialog);
+    error->setObjectName(QStringLiteral("selectionPathError"));
+    error->setTextFormat(Qt::PlainText);
+    error->setWordWrap(true);
+    layout->addWidget(error);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    layout->addWidget(buttons);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, [&] {
+        if (!view || view->url() != folder || view->isLoading()) {
+            error->setText(i18nc("@info", "The folder changed or is still loading. Close this dialog and try again."));
+            return;
+        }
+        QString message;
+        const int matched = view->applySelectionPathFilter(editor->filter(), select, &message);
+        if (matched < 0) {
+            error->setText(message);
+            return;
+        }
+        showStatusMessage(i18ncp(select ? "@info:status selected items by path" : "@info:status deselected items by path",
+                                 select ? "Selected %1 item" : "Deselected %1 item",
+                                 select ? "Selected %1 items" : "Deselected %1 items",
+                                 matched));
+        dialog.accept();
+    });
+    dialog.exec();
 }
 
 void MainWindow::saveSelectionFilter()

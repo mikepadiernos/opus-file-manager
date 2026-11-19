@@ -18,10 +18,9 @@ class QLabel;
 class QLineEdit;
 class QProgressBar;
 class QPushButton;
-class QPlainTextEdit;
-class QSpinBox;
 class QTabWidget;
 class QTreeWidget;
+class PathFilterEditor;
 
 class SearchDialog : public QDialog
 {
@@ -48,10 +47,7 @@ private:
     QLineEdit *m_query;
     QComboBox *m_field;
     QComboBox *m_scope;
-    QLineEdit *m_pathFilter;
-    QLineEdit *m_parentFilter;
-    QPlainTextEdit *m_excludedFolders;
-    QSpinBox *m_maxDepth;
+    PathFilterEditor *m_filterEditor;
     QComboBox *m_saved;
     QPushButton *m_search;
     QPushButton *m_cancel;

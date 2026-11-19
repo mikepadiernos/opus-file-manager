@@ -110,6 +110,7 @@ private:
     void populateSelectionFilters();
     void applySelectionFilter(const QString &pattern);
     void selectByPattern(bool select);
+    void selectByPathFilter(bool select);
     void saveSelectionFilter();
     void calculateOccupiedSpace();
     void jumpBack();

@@ -1345,6 +1345,39 @@ int FolderView::applySelectionPattern(const QString &pattern, bool select)
     return matched;
 }
 
+int FolderView::applySelectionPathFilter(const PathFilter &filter, bool select, QString *error)
+{
+    if (error) {
+        error->clear();
+    }
+    const QString filterError = filter.error();
+    if (!m_folder.isLocalFile() || !filterError.isEmpty()) {
+        if (error) {
+            *error = !filterError.isEmpty() ? filterError : i18nc("@info", "Path selection filters support local folders only.");
+        }
+        return -1;
+    }
+    QList<QModelIndex> matches;
+    for (int row = 0; row < m_proxy->rowCount(); ++row) {
+        const QModelIndex index = m_proxy->index(row, 0);
+        const KFileItem item = m_model->itemForIndex(m_proxy->mapToSource(index));
+        if (!item.url().isLocalFile()) {
+            if (error) {
+                *error = i18nc("@info", "The listing contains a non-local item; no selection was changed.");
+            }
+            return -1;
+        }
+        if (filter.matches(m_folder.toLocalFile(), item.url().toLocalFile())) {
+            matches.append(index);
+        }
+    }
+    const auto operation = select ? QItemSelectionModel::Select : QItemSelectionModel::Deselect;
+    for (const QModelIndex &index : std::as_const(matches)) {
+        currentView()->selectionModel()->select(index, operation | QItemSelectionModel::Rows);
+    }
+    return matches.size();
+}
+
 void FolderView::clearSelection()
 {
     currentView()->selectionModel()->clearSelection();

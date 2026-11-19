@@ -43,6 +43,8 @@ add_library(opusfm_app STATIC
     mediaview.h
     pane.cpp
     pane.h
+    pathfiltereditor.cpp
+    pathfiltereditor.h
     previewpanel.cpp
     previewpanel.h
     searchdialog.cpp
