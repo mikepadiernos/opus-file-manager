@@ -103,21 +103,21 @@ print_deps() {
 
     case "$family" in
         arch)
-            pkgs=(base-devel cmake ninja extra-cmake-modules qt6-base qt6-tools qt6-multimedia)
+            pkgs=(base-devel cmake ninja extra-cmake-modules qt6-base qt6-tools qt6-multimedia libarchive)
             for m in "${KF_MODULES[@]}"; do pkgs+=("k$m"); done
             pkgs=("${pkgs[@]/kkio/kio}")
             echo "sudo pacman -S --needed ${pkgs[*]}" ;;
         fedora)
-            pkgs=(gcc-c++ cmake ninja-build extra-cmake-modules qt6-qtbase-devel qt6-qtbase-private-devel qt6-qtmultimedia-devel)
+            pkgs=(gcc-c++ cmake ninja-build extra-cmake-modules qt6-qtbase-devel qt6-qtbase-private-devel qt6-qtmultimedia-devel libarchive-devel)
             for m in "${KF_MODULES[@]}"; do pkgs+=("kf6-k$m-devel"); done
             pkgs=("${pkgs[@]/kf6-kkio-devel/kf6-kio-devel}")
             echo "sudo dnf install ${pkgs[*]}" ;;
         debian)
-            pkgs=(build-essential cmake ninja-build extra-cmake-modules qt6-base-dev qt6-base-private-dev qt6-multimedia-dev)
+            pkgs=(build-essential cmake ninja-build extra-cmake-modules qt6-base-dev qt6-base-private-dev qt6-multimedia-dev libarchive-dev)
             for m in "${KF_MODULES[@]}"; do pkgs+=("libkf6$m-dev"); done
             echo "sudo apt install ${pkgs[*]}" ;;
         suse)
-            pkgs=(gcc-c++ cmake ninja extra-cmake-modules qt6-base-devel qt6-multimedia-devel)
+            pkgs=(gcc-c++ cmake ninja extra-cmake-modules qt6-base-devel qt6-multimedia-devel libarchive-devel)
             for m in "${KF_MODULES[@]}"; do pkgs+=("kf6-k$m-devel"); done
             pkgs=("${pkgs[@]/kf6-kkio-devel/kf6-kio-devel}")
             echo "sudo zypper install ${pkgs[*]}" ;;

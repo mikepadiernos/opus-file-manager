@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "archivewriter.h"
+#include "archives.h"
 
 #include <KArchiveDirectory>
 #include <KArchiveFile>
@@ -12,6 +13,9 @@
 #include <QFile>
 #include <QTemporaryDir>
 #include <QTest>
+
+#include <archive.h>
+#include <archive_entry.h>
 
 #include <memory>
 
@@ -102,6 +106,92 @@ private Q_SLOTS:
     void reportsErrors()
     {
         QVERIFY(!ArchiveWriter::write(path(QStringLiteral("missing/folder/out.zip")), Format::Zip, {path(QStringLiteral("note.txt"))}).isEmpty());
+    }
+
+    void encryptedZipRequiresPasswordAndExtractsSafely()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QString zip = root.filePath(QStringLiteral("encrypted.zip"));
+        QCOMPARE(
+            ArchiveWriter::writeEncryptedZip(zip, Format::Zip, {path(QStringLiteral("photos")), path(QStringLiteral("note.txt"))}, QStringLiteral("secret")),
+            QString());
+        QString error;
+        QCOMPARE(Archives::testIntegrity(zip, QString(), &error), Archives::TestResult::PasswordRequired);
+        QCOMPARE(Archives::testIntegrity(zip, QStringLiteral("wrong"), &error), Archives::TestResult::Failed);
+        QCOMPARE(Archives::testIntegrity(zip, QStringLiteral("secret"), &error), Archives::TestResult::Passed);
+        QVERIFY(!ArchiveWriter::writeEncryptedZip(zip, Format::Zip, {path(QStringLiteral("note.txt"))}, QStringLiteral("secret")).isEmpty());
+        QVERIFY(!Archives::extractProtected(zip, root.filePath(QStringLiteral("wrong")), QStringLiteral("wrong")).isEmpty());
+        const QString target = root.filePath(QStringLiteral("extracted"));
+        QCOMPARE(Archives::extractProtected(zip, target, QStringLiteral("secret")), QString());
+        QFile note(QDir(target).filePath(QStringLiteral("note.txt")));
+        QVERIFY(note.open(QIODevice::ReadOnly));
+        QCOMPARE(note.readAll(), QByteArrayLiteral("hello"));
+        QFile beach(QDir(target).filePath(QStringLiteral("photos/2026/beach.txt")));
+        QVERIFY(beach.open(QIODevice::ReadOnly));
+        QCOMPARE(beach.readAll(), QByteArrayLiteral("sand"));
+        QVERIFY(!Archives::extractProtected(zip, target, QStringLiteral("secret")).isEmpty());
+    }
+
+    void encryptedStoredZipRoundTrips()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QString zip = root.filePath(QStringLiteral("stored.zip"));
+        QCOMPARE(ArchiveWriter::writeEncryptedZip(zip, Format::ZipStored, {path(QStringLiteral("note.txt"))}, QStringLiteral("secret")), QString());
+        const QString target = root.filePath(QStringLiteral("output"));
+        QCOMPARE(Archives::extractProtected(zip, target, QStringLiteral("secret")), QString());
+        QFile note(QDir(target).filePath(QStringLiteral("note.txt")));
+        QVERIFY(note.open(QIODevice::ReadOnly));
+        QCOMPARE(note.readAll(), QByteArrayLiteral("hello"));
+    }
+
+    void encryptedZipRejectsUnsafeInput()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("source/nested")));
+        const QString source = root.filePath(QStringLiteral("source"));
+        for (const QString &inside : {root.filePath(QStringLiteral("source/result.zip")), root.filePath(QStringLiteral("source/nested/result.zip"))}) {
+            QVERIFY(!ArchiveWriter::writeEncryptedZip(inside, Format::Zip, {source}, QStringLiteral("secret")).isEmpty());
+            QVERIFY(!QFile::exists(inside));
+        }
+        const QString output = root.filePath(QStringLiteral("out.zip"));
+        const QString nullPassword = QStringLiteral("secret") + QChar(QChar::Null) + QStringLiteral("suffix");
+        QVERIFY(ArchiveWriter::writeEncryptedZip(output, Format::Zip, {path(QStringLiteral("note.txt"))}, nullPassword).contains(QStringLiteral("NUL")));
+        QVERIFY(!QFile::exists(output));
+        QVERIFY(!ArchiveWriter::writeEncryptedZip(output, Format::Zip, {}, QStringLiteral("secret")).isEmpty());
+        QVERIFY(!QFile::exists(output));
+        QCOMPARE(ArchiveWriter::writeEncryptedZip(output, Format::Zip, {source}, QStringLiteral("secret")), QString());
+        QVERIFY(Archives::extractProtected(output, root.filePath(QStringLiteral("extract")), nullPassword).contains(QStringLiteral("NUL")));
+        QString error;
+        QCOMPARE(Archives::testIntegrity(output, nullPassword, &error), Archives::TestResult::Failed);
+        QVERIFY(error.contains(QStringLiteral("NUL")));
+    }
+
+    void protectedExtractionRejectsTraversal()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QString zip = root.filePath(QStringLiteral("unsafe.zip"));
+        archive *writer = archive_write_new();
+        QVERIFY(writer);
+        QCOMPARE(archive_write_set_format_zip(writer), ARCHIVE_OK);
+        const QByteArray path = QFile::encodeName(zip);
+        QCOMPARE(archive_write_open_filename(writer, path.constData()), ARCHIVE_OK);
+        archive_entry *entry = archive_entry_new();
+        QVERIFY(entry);
+        archive_entry_set_pathname(entry, "../escaped");
+        archive_entry_set_filetype(entry, AE_IFREG);
+        archive_entry_set_perm(entry, 0600);
+        archive_entry_set_size(entry, 1);
+        QCOMPARE(archive_write_header(writer, entry), ARCHIVE_OK);
+        QCOMPARE(archive_write_data(writer, "x", 1), 1);
+        archive_entry_free(entry);
+        QCOMPARE(archive_write_close(writer), ARCHIVE_OK);
+        QCOMPARE(archive_write_free(writer), ARCHIVE_OK);
+        QVERIFY(!Archives::extractProtected(zip, root.filePath(QStringLiteral("out")), QStringLiteral("secret")).isEmpty());
+        QVERIFY(!QFile::exists(root.filePath(QStringLiteral("escaped"))));
     }
 };
 

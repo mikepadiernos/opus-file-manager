@@ -35,4 +35,7 @@ QString suffix(Format format);
  * @returns an empty string on success, otherwise KArchive's error text
  */
 QString write(const QString &archivePath, Format format, const QStringList &sources);
+
+/// Creates an AES-encrypted ZIP without exposing the password in process arguments.
+QString writeEncryptedZip(const QString &archivePath, Format format, const QStringList &sources, const QString &password);
 }

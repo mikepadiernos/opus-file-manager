@@ -30,6 +30,7 @@ public:
     /// The name typed, without surrounding spaces or an extension.
     QString archiveName() const;
     ArchiveWriter::Format format() const;
+    QString password() const;
     /// Whether the archive goes to the other pane's folder.
     bool toOtherPane() const;
 
@@ -38,6 +39,8 @@ private:
     void updateState();
 
     QLineEdit *m_name = nullptr;
+    QLineEdit *m_password = nullptr;
+    QLineEdit *m_passwordConfirmation = nullptr;
     QLabel *m_suffix = nullptr;
     QComboBox *m_format = nullptr;
     QComboBox *m_location = nullptr;
