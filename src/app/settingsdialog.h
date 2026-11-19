@@ -23,11 +23,14 @@ protected:
     void accept() override;
 
 private:
+    void applySidebarStyle();
     void addColorRule();
     void editColorRule();
     void removeColorRule();
     void setColorRuleRow(int row, const QString &extension, const QColor &color);
 
+    QSpinBox *m_sidebarIconSize = nullptr;
+    QComboBox *m_sidebarTitlePosition = nullptr;
     QHash<QString, QCheckBox *> m_columnChecks;
     QHash<QString, QCheckBox *> m_iconInformationChecks;
     QComboBox *m_groupBy = nullptr;

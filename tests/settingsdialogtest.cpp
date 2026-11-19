@@ -8,8 +8,10 @@
 #include "viewsettings.h"
 
 #include <KConfigGroup>
+#include <KPageWidget>
 #include <KSharedConfig>
 
+#include <QAbstractItemView>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
@@ -33,6 +35,7 @@ private Q_SLOTS:
 
     void init()
     {
+        KSharedConfig::openConfig()->deleteGroup(QStringLiteral("SettingsDialog"));
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("View"));
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("PanelSettings"));
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("Archives"));
@@ -41,6 +44,61 @@ private Q_SLOTS:
         files.deleteEntry("IgnoreList");
         files.deleteEntry("ExtensionColors");
         KSharedConfig::openConfig()->sync();
+    }
+
+    void sidebarOptionsPersistAndPreview()
+    {
+        SettingsDialog dialog;
+        dialog.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&dialog));
+        auto *pages = dialog.findChild<KPageWidget *>();
+        auto *size = dialog.findChild<QSpinBox *>(QStringLiteral("sidebar_icon_size"));
+        auto *position = dialog.findChild<QComboBox *>(QStringLiteral("sidebar_title_position"));
+        QVERIFY(pages && size && position);
+        const auto sidebar = [pages] {
+            for (QAbstractItemView *view : pages->findChildren<QAbstractItemView *>()) {
+                if (view->model() == pages->model() && view->isVisible()) {
+                    return view;
+                }
+            }
+            return static_cast<QAbstractItemView *>(nullptr);
+        };
+        QCOMPARE(size->value(), 24);
+        QCOMPARE(position->currentData().toString(), QStringLiteral("right"));
+        QCOMPARE(pages->faceType(), KPageView::FlatList);
+        QTRY_VERIFY(sidebar());
+        QCOMPARE(sidebar()->iconSize(), QSize(24, 24));
+
+        auto *current = dialog.currentPage();
+        size->setValue(40);
+        position->setCurrentIndex(position->findData(QStringLiteral("below")));
+        QCOMPARE(pages->faceType(), KPageView::List);
+        QTRY_VERIFY(sidebar());
+        QTRY_COMPARE(sidebar()->iconSize(), QSize(40, 40));
+        QCOMPARE(dialog.currentPage(), current);
+        position->setCurrentIndex(position->findData(QStringLiteral("right")));
+        QTRY_COMPARE(pages->faceType(), KPageView::FlatList);
+        QTRY_VERIFY(sidebar());
+        QTRY_COMPARE(sidebar()->iconSize(), QSize(40, 40));
+        position->setCurrentIndex(position->findData(QStringLiteral("below")));
+        QTRY_COMPARE(pages->faceType(), KPageView::List);
+        QTRY_VERIFY(sidebar());
+        QTRY_COMPARE(sidebar()->iconSize(), QSize(40, 40));
+        dialog.button(QDialogButtonBox::Ok)->click();
+
+        SettingsDialog reopened;
+        reopened.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&reopened));
+        QCOMPARE(reopened.findChild<QSpinBox *>(QStringLiteral("sidebar_icon_size"))->value(), 40);
+        QCOMPARE(reopened.findChild<QComboBox *>(QStringLiteral("sidebar_title_position"))->currentData().toString(), QStringLiteral("below"));
+        QCOMPARE(reopened.findChild<KPageWidget *>()->faceType(), KPageView::List);
+        reopened.findChild<QSpinBox *>(QStringLiteral("sidebar_icon_size"))->setValue(16);
+        reopened.findChild<QComboBox *>(QStringLiteral("sidebar_title_position"))->setCurrentIndex(0);
+        reopened.reject();
+
+        SettingsDialog afterCancel;
+        QCOMPARE(afterCancel.findChild<QSpinBox *>(QStringLiteral("sidebar_icon_size"))->value(), 40);
+        QCOMPARE(afterCancel.findChild<QComboBox *>(QStringLiteral("sidebar_title_position"))->currentData().toString(), QStringLiteral("below"));
     }
 
     void savesViewAndFileRules()

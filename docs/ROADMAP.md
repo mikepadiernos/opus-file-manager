@@ -68,8 +68,8 @@ stored in KConfig; Places sections and trash/delete confirmations are shared
 with Dolphin.
 
 - **General**
-  - **Settings Dialog:** tabbed pages with clear titles and configurable icon
-    size
+  - **Settings Dialog:** sidebar icon size (default 24 px) and title position
+    (to the right of icons by default, or below)
 - **Interface**
   - **Folders and Tabs:** startup folders and session; one or two panes in new
     windows; tab bars; Tab switches panes; new-tab placement; navigation bars;
@@ -126,6 +126,12 @@ with Dolphin.
 - ~~Expandable folders (Orcinus)~~
 - ~~Persistent filters (Orcinus)~~
 - ~~File-name highlighting (Orcinus)~~
+- Compact view with names beside icons and entries arranged in columns
+  (Dolphin)
+- Optional selection markers and a selection mode with an action bar, so
+  multiple items can be selected without modifier keys (Dolphin)
+- Details-view column-header controls to show or hide columns and fit column
+  widths to their contents (Dolphin)
 
 ### M04 Listing depth settings
 
@@ -135,6 +141,8 @@ Settings for M03 listing depth, stored in KConfig.
   - ~~**General:** default visible columns and grouping; size format (human or
     bytes), date format and seconds~~
   - ~~**Icons:** name lines and metadata shown in icon view~~
+  - **Compact:** icon size, item density and additional information
+  - **Selection:** enable selection markers and configure selection mode
 - **Files**
   - ~~**Rules:** ignore list entries and file-type colours by extension~~
 - **Panels**
@@ -169,6 +177,11 @@ Settings for M03 listing depth, stored in KConfig.
 - Save-copy format selection and JPEG/WebP quality
 - Line-numbered, syntax-highlighted text previews and preview footer
   ID3/EXIF metadata
+- Mark images while browsing the gallery and apply file operations to the
+  marked selection, without moving files until the user chooses an action
+  (Directory Opus)
+- Batch image conversion with output format, dimensions and quality, a
+  destination preview and non-overwriting names (Max)
 
 Saving does not preserve the original metadata. Gallery images are limited to
 128 MiB and 40 megapixels. Text lines over 16,384 characters are shown without
@@ -188,6 +201,7 @@ Settings for M05 preview and gallery, stored in KConfig.
   - **Playback:** slideshow interval and looping
 - **Image conversion**
   - **Output:** default format and quality for saved image copies
+  - **Batch:** default dimensions, format and quality for batch conversion
 
 File activation follows the desktop's single- or double-click setting and also
 applies to keyboard activation. Gallery mode opens local images and videos;
@@ -214,21 +228,36 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 
 ### M09 Tools
 
-- Live search and indexed search
-- Duplicate finder
+- Live search and indexed search: choose filename or content search and
+  current-folder or indexed scope; indicate when locations are not indexed,
+  show progress and allow cancellation (Dolphin, Max)
+- Search results: reveal an item in its containing folder and save searches;
+  optionally collect references from different locations without moving the
+  original files (Dolphin, Directory Opus)
+- Duplicate finder: preview groups and comparison criteria before selecting
+  files for removal; never delete automatically (Directory Opus)
 - Content chart (folder breakdown)
-- Folder sync
+- Folder sync: preview differences and planned operations before running;
+  allow per-item direction changes and exclusions, with explicit confirmation
+  of overwrites and deletions (Krusader)
+- Folder comparison and sync filters: include/exclude patterns, recursion,
+  symlink handling and optional content comparison; save reusable profiles
+  (Krusader)
 - File diff
-- Batch rename
+- Batch rename: preview old and new names, detect collisions before applying,
+  and support metadata tokens for images and audio (Max)
 - Symlinks
-- Listing export
-- Audio tags
+- Listing export to CSV and PDF (Max)
+- Edit supported audio tags and image metadata, including a preview of changes
+  and clear reporting when a format cannot be written (Directory Opus)
 - Scripts and custom commands
 - Presets
 - Compare folders across the two panes (Krusader)
 - Create and verify checksum files (Krusader)
 - Split and combine files (Krusader)
-- Transfer queue (Krusader)
+- Transfer queue with per-job progress, speed, errors and pause, resume and
+  cancellation controls where supported by the underlying KIO job (Krusader,
+  Max)
 - Embedded terminal alongside both panes: below them or at the right of the app
   for portrait/stacked layouts; showing it never replaces either pane
 - Placeholders for scripts and custom commands
@@ -243,8 +272,13 @@ Settings for M09 tools, stored in KConfig.
     portrait/stacked layouts; the terminal does not replace a pane
 - **Search**
   - **Indexing:** search shortcut (double Shift), search folders and exclusions
+  - **Defaults:** search scope and whether to search filenames or contents
 - **Folder sync**
   - **Transfers:** skip existing, newer only, speed limit
+  - **Comparison:** default recursion, symlink and content-comparison options;
+    saved synchronization profiles
+- **Transfer queue**
+  - **Behaviour:** queue and concurrency defaults; conflict handling
 - **Applications**
   - **Associations:** default applications by extension
 - **Automation**
@@ -326,6 +360,23 @@ Settings for M15 translations, stored in KConfig.
   - **Direction:** follow the language or force left-to-right or right-to-left
   - **Digits:** digit shapes and custom numeral formats, including Western or
     Eastern Arabic-Indic digits
+
+## Feature references
+
+The roadmap adapts workflows to KDE rather than copying platform-specific
+interfaces. The additions above draw on these sources:
+
+- [Dolphin view and selection](https://docs.kde.org/stable_kf6/en/dolphin/dolphin/dolphin-view.html)
+  and [search](https://docs.kde.org/stable_kf6/en/dolphin/dolphin/quick-tips.html).
+- [Krusader synchronizer](https://docs.kde.org/trunk_kf6/en/krusader/krusader/synchronizer.html)
+  and [features](https://docs.kde.org/trunk_kf6/en/krusader/krusader/features.html).
+- [Max File Manager](https://github.com/majidasgari/max-file-manager), alongside
+  this project's [UI](parity/ui.md) and [backend](parity/backend.md) inventories.
+- [Directory Opus](https://www.gpsoft.com.au/) and its
+  [file collections](https://docs.dopus.com/doku.php?id=basic_concepts:virtual_file_system:file_collections).
+
+The existing Orcinus entries reflect earlier project notes; an authoritative
+upstream source could not be verified for this review.
 
 ## Tracking
 
