@@ -33,6 +33,7 @@
 #include <QDockWidget>
 #include <QFile>
 #include <QImage>
+#include <QInputDialog>
 #include <QLabel>
 #include <QListView>
 #include <QListWidget>
@@ -541,6 +542,36 @@ private Q_SLOTS:
         auto *samePaneDialog = window.findChild<FileDiffDialog *>(QStringLiteral("fileDiffDialog"));
         QVERIFY(samePaneDialog);
         QTRY_COMPARE(samePaneDialog->findChild<QLabel *>(QStringLiteral("fileDiffStatus"))->text(), QStringLiteral("The files differ."));
+    }
+
+    void createsSymbolicLinkFromSelection()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QFile source(dir.filePath(QStringLiteral("source.txt")));
+        QVERIFY(source.open(QIODevice::WriteOnly));
+        source.write("source");
+        source.close();
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(dir.path())});
+        window.show();
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        QAction *action = window.actionCollection()->action(QStringLiteral("create_symlink"));
+        QVERIFY(action && !action->isEnabled());
+        view->selectUrls({QUrl::fromLocalFile(source.fileName())});
+        QTRY_VERIFY(action->isEnabled());
+        QTimer::singleShot(0, [] {
+            auto *dialog = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            QCOMPARE(dialog->textValue(), QStringLiteral("source.txt - link"));
+            dialog->setTextValue(QStringLiteral("alias"));
+            dialog->accept();
+        });
+        action->trigger();
+        const QString link = dir.filePath(QStringLiteral("alias"));
+        QTRY_VERIFY(QFileInfo(link).isSymLink());
+        QCOMPARE(QFileInfo(link).symLinkTarget(), source.fileName());
     }
 
     void navigationUpdatesHistory()

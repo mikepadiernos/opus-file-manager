@@ -886,6 +886,10 @@ void MainWindow::setupActions()
     renameAction->setIcon(QIcon::fromTheme(QStringLiteral("edit-rename")));
     actions->setDefaultShortcut(renameAction, Qt::Key_F2);
 
+    QAction *symlink = actions->addAction(QStringLiteral("create_symlink"), this, &MainWindow::createSymlink);
+    symlink->setText(i18nc("@action", "Create Symbolic Link…"));
+    symlink->setIcon(QIcon::fromTheme(QStringLiteral("emblem-symbolic-link")));
+
     QAction *trashAction = actions->addAction(QStringLiteral("move_to_trash"), this, &MainWindow::trash);
     trashAction->setText(i18nc("@action", "Move to Trash"));
     trashAction->setIcon(QIcon::fromTheme(QStringLiteral("user-trash")));
@@ -1416,6 +1420,7 @@ void MainWindow::updateActions()
     actions->action(QStringLiteral("copy_to_other_pane"))->setEnabled(hasSelection);
     actions->action(QStringLiteral("move_to_other_pane"))->setEnabled(hasSelection && props.supportsMoving());
     actions->action(QStringLiteral("rename"))->setEnabled(hasSelection && props.supportsMoving());
+    actions->action(QStringLiteral("create_symlink"))->setEnabled(selected.size() == 1 && selected.first().url().isLocalFile());
     actions->action(QStringLiteral("move_to_trash"))->setEnabled(hasSelection && props.supportsDeleting() && props.isLocal());
     actions->action(QStringLiteral("delete"))->setEnabled(hasSelection && props.supportsDeleting());
     actions->action(stdName(KStandardAction::Cut))->setEnabled(hasSelection && props.supportsMoving());
@@ -2105,6 +2110,7 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     if (visible("rename")) {
         menu.addAction(actions->action(QStringLiteral("rename")));
     }
+    menu.addAction(actions->action(QStringLiteral("create_symlink")));
     if (visible("trash")) {
         menu.addAction(actions->action(QStringLiteral("move_to_trash")));
     }
@@ -2250,6 +2256,30 @@ void MainWindow::compareFiles()
     auto *dialog = new FileDiffDialog(items.at(0).url().toLocalFile(), items.at(1).url().toLocalFile(), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
+}
+
+void MainWindow::createSymlink()
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    if (items.size() != 1 || !items.first().url().isLocalFile()) {
+        KMessageBox::error(this, i18nc("@info", "Select one local file or folder."));
+        return;
+    }
+    const KFileItem item = items.first();
+    bool accepted = false;
+    const QString name = QInputDialog::getText(this,
+                                               i18nc("@title:window", "Create Symbolic Link"),
+                                               i18nc("@label:textbox", "Link name:"),
+                                               QLineEdit::Normal,
+                                               i18nc("@item:intext default symbolic link name", "%1 - link", item.name()),
+                                               &accepted);
+    if (!accepted) {
+        return;
+    }
+    QString error;
+    if (!FileOperations::createSymlink(item.url(), name, error, this)) {
+        KMessageBox::error(this, error);
+    }
 }
 
 void MainWindow::copyToOtherPane()

@@ -320,7 +320,7 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 - Batch rename: preview old and new names, detect collisions before applying,
   and support metadata tokens for images and audio (Max)
 - Batch rename rules for regular expressions and reusable named presets
-- Symlinks
+- ~~Symlinks~~
 - Listing export to CSV and PDF (Max)
 - Edit supported audio tags and image metadata, including a preview of changes
   and clear reporting when a format cannot be written (Directory Opus)
@@ -337,7 +337,8 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 - Placeholders for scripts and custom commands
 - Linked panes and cushion treemap (Orcinus)
 
-**Caveats:** [File comparison](CAVEATS.md#file-comparison), tracked in #311.
+**Caveats:** [File comparison](CAVEATS.md#file-comparison), tracked in #311;
+[symbolic links](CAVEATS.md#symbolic-links), tracked in #312.
 
 ### M10 Tools settings
 

@@ -126,6 +126,7 @@ private:
     void openGallery();
     void openEditor();
     void compareFiles();
+    void createSymlink();
     void setupEditor();
     void setEditorPlacement(EditorPanel::Placement placement);
 

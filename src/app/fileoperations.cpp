@@ -4,6 +4,7 @@
 
 #include "executables.h"
 #include "settings.h"
+#include "symlinks.h"
 
 #include <KIO/CopyJob>
 #include <KIO/DeleteOrTrashJob>
@@ -15,6 +16,7 @@
 #include <KIO/Paste>
 #include <KIO/PasteJob>
 #include <KIO/RenameFileDialog>
+#include <KIO/SimpleJob>
 #include <KJobWidgets>
 #include <KPropertiesDialog>
 #include <KTerminalLauncherJob>
@@ -84,6 +86,15 @@ void FileOperations::rename(const KFileItemList &items, QWidget *window)
     auto *dialog = new KIO::RenameFileDialog(items, window);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
+}
+
+KJob *FileOperations::createSymlink(const QUrl &target, const QString &name, QString &error, QWidget *window)
+{
+    KIO::SimpleJob *job = Symlinks::create(target, name, error);
+    if (job) {
+        attachWindow(job, window);
+    }
+    return job;
 }
 
 void FileOperations::copyToClipboard(const QList<QUrl> &urls, bool cut)

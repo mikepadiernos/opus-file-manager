@@ -4,6 +4,11 @@
 
 #include <QUrl>
 
+namespace KIO
+{
+class SimpleJob;
+}
+
 namespace Symlinks
 {
 /**
@@ -13,4 +18,10 @@ namespace Symlinks
  *          @p url unchanged
  */
 QUrl resolve(const QUrl &url);
+
+/**
+ * Creates a link beside an existing local target without overwriting.
+ * Returns a KIO job, or sets error when the request is invalid.
+ */
+KIO::SimpleJob *create(const QUrl &target, const QString &name, QString &error);
 }

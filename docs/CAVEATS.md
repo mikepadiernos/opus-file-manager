@@ -88,6 +88,12 @@ Unified output is decoded as UTF-8, and comparison stops if output exceeds
 4 MiB. Binary differences are reported without a visual binary diff.
 ([#311][issue-311])
 
+## Symbolic links
+
+Symbolic-link creation supports existing local files and folders only. The new
+link is created beside its target; another destination cannot be chosen.
+([#312][issue-312])
+
 ## Build, installation and references
 
 - Opus targets Linux and requires the dependencies listed in
@@ -101,3 +107,4 @@ Unified output is decoded as UTF-8, and comparison stops if output exceeds
   Their upstream bugs and limitations should not be assumed to apply to Opus.
 
 [issue-311]: https://github.com/mikepadiernos/opus-file-manager/issues/311
+[issue-312]: https://github.com/mikepadiernos/opus-file-manager/issues/312
