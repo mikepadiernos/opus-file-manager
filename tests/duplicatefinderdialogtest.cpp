@@ -9,10 +9,13 @@
 #include <QFile>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QPushButton>
+#include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTimer>
 #include <QTreeWidget>
 
 namespace
@@ -117,6 +120,79 @@ private Q_SLOTS:
         canceled.findChild<QPushButton *>(QStringLiteral("duplicateFinderCancel"))->click();
         QCOMPARE(canceled.findChild<QLabel *>(QStringLiteral("duplicateFinderStatus"))->text(), QStringLiteral("Scan canceled; no results are shown."));
         QVERIFY(!canceled.findChild<QPushButton *>(QStringLiteral("duplicateFinderCopy"))->isEnabled());
+    }
+
+    void confirmsCompleteGroupBeforeRequestingTrash()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString first = dir.filePath(QStringLiteral("a"));
+        const QString second = dir.filePath(QStringLiteral("b"));
+        QVERIFY(write(first, "data"));
+        QVERIFY(write(second, "data"));
+        DuplicateFinderDialog dialog(QUrl::fromLocalFile(dir.path()));
+        auto *cancel = dialog.findChild<QPushButton *>(QStringLiteral("duplicateFinderCancel"));
+        QTRY_VERIFY(!cancel->isEnabled());
+        auto *group = dialog.findChild<QTreeWidget *>(QStringLiteral("duplicateFinderResults"))->topLevelItem(0);
+        QVERIFY(group);
+        auto *trash = dialog.findChild<QPushButton *>(QStringLiteral("duplicateFinderTrash"));
+        QSignalSpy requested(&dialog, &DuplicateFinderDialog::trashRequested);
+        trash->click();
+        QCOMPARE(requested.size(), 0);
+        QCOMPARE(dialog.findChild<QLabel *>(QStringLiteral("duplicateFinderStatus"))->text(), QStringLiteral("Check at least one file to move to Trash."));
+        QTimer responder;
+        responder.setInterval(10);
+        bool confirm = false;
+        bool all = false;
+        connect(&responder, &QTimer::timeout, &dialog, [&] {
+            auto *box = dialog.findChild<QMessageBox *>(QStringLiteral("duplicateFinderTrashConfirmation"));
+            if (!box) {
+                return;
+            }
+            QCOMPARE(box->text().contains(QStringLiteral("All files")), all);
+            QCOMPARE(box->defaultButton(), box->button(QMessageBox::No));
+            box->done(confirm ? QMessageBox::Yes : QMessageBox::No);
+        });
+        responder.start();
+        group->child(0)->setCheckState(0, Qt::Checked);
+        trash->click();
+        QTRY_COMPARE(dialog.findChild<QLabel *>(QStringLiteral("duplicateFinderStatus"))->text(), QStringLiteral("No files were removed."));
+        QCOMPARE(requested.size(), 0);
+        group->child(1)->setCheckState(0, Qt::Checked);
+        all = true;
+        trash->click();
+        QTRY_COMPARE(dialog.findChild<QLabel *>(QStringLiteral("duplicateFinderStatus"))->text(), QStringLiteral("No files were removed."));
+        QCOMPARE(requested.size(), 0);
+        confirm = true;
+        trash->click();
+        QTRY_COMPARE(requested.size(), 1);
+        responder.stop();
+        const auto urls = requested.first().first().value<QList<QUrl>>();
+        QCOMPARE(urls.size(), 2);
+        QVERIFY(urls.contains(QUrl::fromLocalFile(first)));
+        QVERIFY(urls.contains(QUrl::fromLocalFile(second)));
+        QVERIFY(QFile::exists(first) && QFile::exists(second));
+    }
+
+    void rejectsStaleGroupsBeforeRequestingTrash()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString first = dir.filePath(QStringLiteral("a"));
+        const QString second = dir.filePath(QStringLiteral("b"));
+        QVERIFY(write(first, "data"));
+        QVERIFY(write(second, "data"));
+        DuplicateFinderDialog dialog(QUrl::fromLocalFile(dir.path()));
+        QTRY_VERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("duplicateFinderCancel"))->isEnabled());
+        auto *group = dialog.findChild<QTreeWidget *>(QStringLiteral("duplicateFinderResults"))->topLevelItem(0);
+        QVERIFY(group);
+        group->child(0)->setCheckState(0, Qt::Checked);
+        QVERIFY(write(second, "else"));
+        QSignalSpy requested(&dialog, &DuplicateFinderDialog::trashRequested);
+        dialog.findChild<QPushButton *>(QStringLiteral("duplicateFinderTrash"))->click();
+        QTRY_VERIFY(dialog.findChild<QLabel *>(QStringLiteral("duplicateFinderStatus"))->text().startsWith(QStringLiteral("Could not recheck")));
+        QCOMPARE(requested.size(), 0);
+        QVERIFY(QFile::exists(first) && QFile::exists(second));
     }
 };
 

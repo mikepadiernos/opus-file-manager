@@ -92,6 +92,7 @@ DuplicateFinder::SelectionResult DuplicateFinder::select(const QList<Group> &gro
         result.errors.append(i18nc("@info", "Choose an existing absolute local folder."));
         return result;
     }
+
     for (const Group &group : groups) {
         QStringList paths = group.paths;
         paths.sort();
@@ -137,4 +138,36 @@ DuplicateFinder::SelectionResult DuplicateFinder::select(const QList<Group> &gro
         result.paths.append(paths);
     }
     return result;
+}
+
+QStringList DuplicateFinder::revalidate(const QList<Group> &groups, const Checksums::Cancel &cancel)
+{
+    QStringList paths;
+    for (const Group &group : groups) {
+        paths.append(group.paths);
+    }
+    const Result current = find(paths, cancel);
+    if (current.canceled) {
+        return {i18nc("@info", "Validation was canceled; no files were removed.")};
+    }
+    if (!current.errors.isEmpty()) {
+        return current.errors;
+    }
+    for (const Group &expected : groups) {
+        bool matches = false;
+        QStringList expectedPaths = expected.paths;
+        expectedPaths.sort();
+        for (const Group &actual : current.groups) {
+            QStringList actualPaths = actual.paths;
+            actualPaths.sort();
+            if (actual.size == expected.size && actual.digest == expected.digest && actualPaths == expectedPaths) {
+                matches = true;
+                break;
+            }
+        }
+        if (!matches) {
+            return {i18nc("@info", "A duplicate group changed since the scan. Rescan before removing files.")};
+        }
+    }
+    return {};
 }

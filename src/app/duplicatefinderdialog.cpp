@@ -17,6 +17,7 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QProgressBar>
 #include <QPromise>
 #include <QPushButton>
@@ -38,6 +39,7 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
     , m_policy(new QComboBox(this))
     , m_policyFolder(new QLineEdit(folder.toLocalFile(), this))
     , m_applyPolicy(new QPushButton(i18nc("@action:button", "Select Candidates"), this))
+    , m_trash(new QPushButton(i18nc("@action:button", "Move Checked to Trash"), this))
 {
     setObjectName(QStringLiteral("duplicateFinderDialog"));
     setWindowTitle(i18nc("@title:window", "Find Duplicate Files"));
@@ -45,7 +47,7 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
     auto *layout = new QVBoxLayout(this);
     auto *criteria = new QLabel(i18nc("@info",
                                       "Known regular files below %1 are grouped by size and SHA-256 contents. Symbolic links are skipped. "
-                                      "Check paths for manual review; this dialog does not remove files.",
+                                      "Review checked paths carefully before moving them to Trash.",
                                       folder.toDisplayString()),
                                 this);
     criteria->setTextFormat(Qt::PlainText);
@@ -121,8 +123,11 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
     m_cancel->setObjectName(QStringLiteral("duplicateFinderCancel"));
     m_copy->setObjectName(QStringLiteral("duplicateFinderCopy"));
     m_copy->setEnabled(false);
+    m_trash->setObjectName(QStringLiteral("duplicateFinderTrash"));
+    m_trash->setEnabled(false);
     buttons->addButton(m_cancel, QDialogButtonBox::ActionRole);
     buttons->addButton(m_copy, QDialogButtonBox::ActionRole);
+    buttons->addButton(m_trash, QDialogButtonBox::ActionRole);
     layout->addWidget(buttons);
     connect(m_cancel, &QPushButton::clicked, this, &DuplicateFinderDialog::cancel);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::close);
@@ -142,6 +147,94 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
         }
         QApplication::clipboard()->setText(selected.join(QLatin1Char('\n')));
         m_status->setText(i18np("Copied %1 URL. No files were removed.", "Copied %1 URLs. No files were removed.", selected.size()));
+    });
+    connect(m_trash, &QPushButton::clicked, this, [this, chooseFolder] {
+        QList<DuplicateFinder::Group> affected;
+        QList<QUrl> selected;
+        bool entireGroup = false;
+        for (int i = 0; i < m_results->topLevelItemCount(); ++i) {
+            const QTreeWidgetItem *row = m_results->topLevelItem(i);
+            int count = 0;
+            for (int j = 0; j < row->childCount(); ++j) {
+                if (row->child(j)->checkState(0) == Qt::Checked) {
+                    selected.append(QUrl::fromLocalFile(row->child(j)->text(0)));
+                    ++count;
+                }
+            }
+            if (count > 0) {
+                affected.append(m_groups.at(i));
+                entireGroup |= count == row->childCount();
+            }
+        }
+        if (selected.isEmpty()) {
+            m_status->setText(i18nc("@info", "Check at least one file to move to Trash."));
+            return;
+        }
+        m_results->setEnabled(false);
+        m_policy->setEnabled(false);
+        m_policyFolder->setEnabled(false);
+        chooseFolder->setEnabled(false);
+        m_applyPolicy->setEnabled(false);
+        m_copy->setEnabled(false);
+        m_trash->setEnabled(false);
+        m_status->setText(i18nc("@info", "Rechecking selected groups…"));
+        m_progress->setRange(0, 0);
+        connect(
+            &m_validationWatcher,
+            &QFutureWatcher<QStringList>::finished,
+            this,
+            [this, chooseFolder, selected, entireGroup] {
+                const QStringList errors = m_validationWatcher.result();
+                m_progress->setRange(0, 1);
+                m_progress->setValue(1);
+                m_results->setEnabled(true);
+                m_policy->setEnabled(true);
+                m_policyFolder->setEnabled(m_policy->currentIndex() == 2);
+                chooseFolder->setEnabled(m_policy->currentIndex() == 2);
+                m_applyPolicy->setEnabled(true);
+                m_copy->setEnabled(true);
+                m_trash->setEnabled(true);
+                if (!errors.isEmpty()) {
+                    for (const QString &error : errors) {
+                        auto *row = new QTreeWidgetItem(m_errorsView);
+                        row->setText(0, error);
+                    }
+                    m_errorsView->show();
+                    m_status->setText(i18nc("@info", "Could not recheck duplicate groups. No files were removed; rescan before trying again."));
+                    return;
+                }
+                const QString message = entireGroup
+                    ? i18np(
+                          "All files in at least one duplicate group are checked. Moving them to Trash leaves no unchecked copy in that group. "
+                          "Files may change after rechecking. Move the %1 checked file to Trash?",
+                          "All files in at least one duplicate group are checked. Moving them to Trash leaves no unchecked copy in that group. "
+                          "Files may change after rechecking. Move the %1 checked files to Trash?",
+                          selected.size())
+                    : i18np("Move %1 checked file to Trash? Files may change after rechecking; verify the paths and contents first.",
+                            "Move %1 checked files to Trash? Files may change after rechecking; verify the paths and contents first.",
+                            selected.size());
+                QMessageBox confirmation(QMessageBox::Warning,
+                                         i18nc("@title:window", "Confirm Moving Duplicates to Trash"),
+                                         message,
+                                         QMessageBox::Yes | QMessageBox::No,
+                                         this);
+                confirmation.setObjectName(QStringLiteral("duplicateFinderTrashConfirmation"));
+                confirmation.setDefaultButton(QMessageBox::No);
+                confirmation.setTextFormat(Qt::PlainText);
+                if (confirmation.exec() != QMessageBox::Yes) {
+                    m_status->setText(i18nc("@info", "No files were removed."));
+                    return;
+                }
+                Q_EMIT trashRequested(selected);
+                accept();
+            },
+            Qt::SingleShotConnection);
+        const auto canceled = m_canceled;
+        m_validationWatcher.setFuture(QtConcurrent::run([affected, canceled] {
+            return DuplicateFinder::revalidate(affected, [canceled] {
+                return canceled->load();
+            });
+        }));
     });
     connect(&m_watcher, &QFutureWatcher<DuplicateFinder::Result>::progressRangeChanged, m_progress, &QProgressBar::setRange);
     connect(&m_watcher, &QFutureWatcher<DuplicateFinder::Result>::progressValueChanged, m_progress, &QProgressBar::setValue);
@@ -175,6 +268,7 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
         m_errorsView->setVisible(!m_errors.isEmpty());
         m_copy->setEnabled(!result.groups.isEmpty());
         m_applyPolicy->setEnabled(!result.groups.isEmpty());
+        m_trash->setEnabled(!result.groups.isEmpty());
         m_status->setText(
             i18nc("@info", "Found %1 groups. Scan errors: %2. Results can become stale; review files before removal.", result.groups.size(), m_errors.size()));
     });

@@ -35,4 +35,5 @@ struct SelectionResult {
 
 Result find(const QStringList &paths, const Checksums::Cancel &cancel = {}, const Checksums::Progress &progress = {});
 SelectionResult select(const QList<Group> &groups, SelectionPolicy policy, const QString &folder = {});
+QStringList revalidate(const QList<Group> &groups, const Checksums::Cancel &cancel = {});
 }

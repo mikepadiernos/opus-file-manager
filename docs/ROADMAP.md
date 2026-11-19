@@ -302,11 +302,11 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 - Search results: reveal an item in its containing folder and save searches;
   optionally collect references from different locations without moving the
   original files (Dolphin, Directory Opus)
-- Duplicate finder: preview groups and comparison criteria before selecting
-  files for removal; never delete automatically (Directory Opus)
-- Duplicate selection: choose candidates by location or date while keeping at
+- ~~Duplicate finder: preview groups and comparison criteria before selecting
+  files for removal; never delete automatically (Directory Opus)~~
+- ~~Duplicate selection: choose candidates by location or date while keeping at
   least one item per group in automatic selection; warn and require explicit
-  confirmation if a manual selection would remove every item in a group
+  confirmation if a manual selection would remove every item in a group~~
 - Search and selection filters for full path, parent folder and excluded
   subtrees, with an optional recursion-depth limit
 - ~~Content chart (folder breakdown)~~
@@ -346,7 +346,7 @@ tracked in #314; [folder content chart](CAVEATS.md#folder-content-chart), tracke
 [embedded terminal](CAVEATS.md#embedded-terminal), tracked in #321;
 [linked pane navigation](CAVEATS.md#linked-pane-navigation), tracked in #322;
 [cushion treemap](CAVEATS.md#cushion-treemap), tracked in #335;
-[duplicate finder preview](CAVEATS.md#duplicate-finder), tracked in #336.
+[duplicate finder](CAVEATS.md#duplicate-finder), tracked in #336.
 
 ### M10 Tools settings
 

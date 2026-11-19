@@ -2420,6 +2420,9 @@ void MainWindow::showDuplicateFinder()
         return;
     }
     auto *dialog = new DuplicateFinderDialog(folder, this);
+    connect(dialog, &DuplicateFinderDialog::trashRequested, this, [this](const QList<QUrl> &urls) {
+        FileOperations::trash(urls, this);
+    });
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
 }

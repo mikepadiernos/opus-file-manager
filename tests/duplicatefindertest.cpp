@@ -114,6 +114,26 @@ private Q_SLOTS:
         QVERIFY(!missing.errors.isEmpty());
         QVERIFY(missing.paths.isEmpty());
     }
+
+    void revalidatesEveryMemberBeforeRemoval()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString a = dir.filePath(QStringLiteral("a"));
+        const QString b = dir.filePath(QStringLiteral("b"));
+        QVERIFY(write(a, "data"));
+        QVERIFY(write(b, "data"));
+        const auto initial = DuplicateFinder::find({a, b});
+        QCOMPARE(initial.groups.size(), 1);
+        QVERIFY(DuplicateFinder::revalidate(initial.groups).isEmpty());
+        QVERIFY(write(b, "else"));
+        QVERIFY(!DuplicateFinder::revalidate(initial.groups).isEmpty());
+        QVERIFY(QFile::remove(b));
+        QVERIFY(!DuplicateFinder::revalidate(initial.groups).isEmpty());
+        QVERIFY(!DuplicateFinder::revalidate(initial.groups, [] {
+                     return true;
+                 }).isEmpty());
+    }
 };
 
 QTEST_GUILESS_MAIN(DuplicateFinderTest)

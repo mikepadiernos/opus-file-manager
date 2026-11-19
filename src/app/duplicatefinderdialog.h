@@ -30,12 +30,16 @@ public:
     explicit DuplicateFinderDialog(const QUrl &folder, QWidget *parent = nullptr);
     ~DuplicateFinderDialog() override;
 
+Q_SIGNALS:
+    void trashRequested(const QList<QUrl> &urls);
+
 private:
     void cancel();
     void startHashing();
     QUrl m_folder;
     KIO::ListJob *m_listJob = nullptr;
     QFutureWatcher<DuplicateFinder::Result> m_watcher;
+    QFutureWatcher<QStringList> m_validationWatcher;
     std::shared_ptr<std::atomic_bool> m_canceled;
     QStringList m_files;
     QStringList m_errors;
@@ -49,4 +53,5 @@ private:
     QComboBox *m_policy;
     QLineEdit *m_policyFolder;
     QPushButton *m_applyPolicy;
+    QPushButton *m_trash;
 };

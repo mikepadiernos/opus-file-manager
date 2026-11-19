@@ -35,7 +35,8 @@ for file operations, Places, properties, settings and desktop integration.
 - Show an embedded Konsole terminal alongside the panes.
 - Link navigation between corresponding local pane folders.
 - Explore folder sizes with a cushion treemap and folder drilldown.
-- Preview potential local duplicates and copy checked file URLs for manual review.
+- Preview local duplicates, select candidates by date or folder, and move
+  checked files to Trash after confirmation.
 
 ## Caveats
 
