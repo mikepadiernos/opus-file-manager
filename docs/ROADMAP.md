@@ -135,8 +135,7 @@ with Dolphin.
 - ~~Archive integrity testing for local ZIP, TAR and 7z files, with password
   prompts for encrypted archives (Krusader)~~
 - ~~Password-protected AES ZIP creation and extraction (Krusader)~~
-- Reliable password-protected 7z extraction: the current KArchive backend can
-  fail on valid archives.
+- ~~Password-protected 7z extraction~~
 - ~~Display style per pane (Orcinus)~~
 - ~~Expandable folders inline in the file listing (Orcinus)~~
 - ~~Persistent filters (Orcinus)~~
@@ -158,6 +157,7 @@ with Dolphin.
 
 **Caveats:** [Archives](CAVEATS.md#archives) and
 [folder metadata and listings](CAVEATS.md#folder-metadata-and-listings).
+Tracked in #36, #255–#258, #261–#263 and #265.
 
 ### M04 Listing depth settings
 
@@ -198,7 +198,8 @@ Settings for M03 listing depth, stored in KConfig.
     divide it equally among tabs as new tabs are created~~
   - ~~**Colours:** show or hide folder-based tab colours without removing them~~
 
-**Caveats:** [Folder metadata and listings](CAVEATS.md#folder-metadata-and-listings).
+**Caveats:** [Folder metadata and listings](CAVEATS.md#folder-metadata-and-listings),
+tracked in #257, #258, #262 and #263.
 
 ### M05 Preview and gallery
 
@@ -228,9 +229,8 @@ Settings for M03 listing depth, stored in KConfig.
 - Optional autoplay for audio and video in the preview panel; keep click-to-play
   available independently of gallery playback
 
-Saving does not preserve the original metadata. Gallery images are limited to
-128 MiB and 40 megapixels. Text lines over 16,384 characters are shown without
-highlighting. Metadata depends on installed KDE extraction plugins.
+**Caveats:** [Previews and gallery](CAVEATS.md#previews-and-gallery), tracked
+in #259, #260, #264, #266 and #267.
 
 ### M06 Preview and gallery settings
 
