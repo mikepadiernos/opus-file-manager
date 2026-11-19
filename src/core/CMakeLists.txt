@@ -23,6 +23,8 @@ add_library(opusfm_core STATIC
     labelcolor.h
     linkednavigation.cpp
     linkednavigation.h
+    indexedsearch.cpp
+    indexedsearch.h
     livesearch.cpp
     livesearch.h
     listingexport.cpp
@@ -73,6 +75,11 @@ add_library(opusfm_core STATIC
 kconfig_add_kcfg_files(opusfm_core GENERATE_MOC settings.kcfgc)
 
 target_include_directories(opusfm_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
+
+if(KF6Baloo_FOUND)
+    target_compile_definitions(opusfm_core PUBLIC OPUSFM_HAVE_BALOO)
+    target_link_libraries(opusfm_core PUBLIC KF6::Baloo)
+endif()
 
 target_link_libraries(opusfm_core
     PUBLIC

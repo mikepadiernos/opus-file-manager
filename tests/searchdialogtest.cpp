@@ -70,6 +70,22 @@ private Q_SLOTS:
         QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("searchStatus"))->text().contains(QStringLiteral("local folders only")));
     }
 
+    void indexedScopeReportsInvalidQueries()
+    {
+        SearchDialog dialog(QUrl(QStringLiteral("sftp://example.invalid/path")));
+        auto *scope = dialog.findChild<QComboBox *>(QStringLiteral("searchScope"));
+        auto *start = dialog.findChild<QPushButton *>(QStringLiteral("searchStart"));
+        auto *errors = dialog.findChild<QTreeWidget *>(QStringLiteral("searchErrors"));
+        QVERIFY(scope && start && errors);
+        scope->setCurrentIndex(1);
+        dialog.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("a\"b"));
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QCOMPARE(errors->topLevelItemCount(), 1);
+        QVERIFY(errors->topLevelItem(0)->text(0).contains(QStringLiteral("double quotes")));
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("searchStatus"))->text().contains(QStringLiteral("incomplete")));
+    }
+
     void mainWindowOpensSearch()
     {
         QTemporaryDir root;

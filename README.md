@@ -35,7 +35,7 @@ for file operations, Places, properties, settings and desktop integration.
 - Show an embedded Konsole terminal alongside the panes.
 - Link navigation between corresponding local pane folders.
 - Explore folder sizes with a cushion treemap and folder drilldown.
-- Search local folders by file name or UTF-8 text contents.
+- Search local folders live or query Baloo's indexed file names and contents.
 - Preview local duplicates, select candidates by date or folder, and move
   checked files to Trash after confirmation.
 
@@ -64,7 +64,8 @@ limits. See [caveats and limitations](docs/CAVEATS.md) for details.
 
 To build, install a C++20 compiler, CMake 3.25 or newer, Ninja, Qt 6.8 or
 newer, Extra CMake Modules, libarchive and KDE Frameworks 6.20 or newer. The
-required Qt and KDE components are listed in `CMakeLists.txt`.
+required Qt and KDE components are listed in `CMakeLists.txt`. Baloo development
+files are optional at build time and enable indexed search.
 
 ```bash
 ./install.sh --deps  # Print suggested distribution packages; does not install them

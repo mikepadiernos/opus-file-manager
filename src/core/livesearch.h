@@ -16,6 +16,7 @@ enum class Field {
 struct Result {
     QStringList paths;
     QStringList errors;
+    QStringList notices;
     int skippedFiles = 0;
     int scannedEntries = 0;
     bool canceled = false;

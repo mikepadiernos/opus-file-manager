@@ -296,9 +296,9 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 
 ### M09 Tools
 
-- Live search and indexed search: choose filename or content search and
+- ~~Live search and indexed search: choose filename or content search and
   current-folder or indexed scope; indicate when locations are not indexed,
-  show progress and allow cancellation (Dolphin, Max)
+  show progress and allow cancellation (Dolphin, Max)~~
 - Search results: reveal an item in its containing folder and save searches;
   optionally collect references from different locations without moving the
   original files (Dolphin, Directory Opus)
@@ -349,7 +349,7 @@ tracked in #314; [folder content chart](CAVEATS.md#folder-content-chart), tracke
 [linked pane navigation](CAVEATS.md#linked-pane-navigation), tracked in #322;
 [cushion treemap](CAVEATS.md#cushion-treemap), tracked in #335;
 [duplicate finder](CAVEATS.md#duplicate-finder), tracked in #336;
-[in-progress live search](CAVEATS.md#live-search), tracked in #362.
+[search](CAVEATS.md#search), tracked in #362.
 
 ### M10 Tools settings
 

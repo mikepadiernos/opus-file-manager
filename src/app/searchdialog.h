@@ -14,6 +14,7 @@
 class QComboBox;
 class QLabel;
 class QLineEdit;
+class QProgressBar;
 class QPushButton;
 class QTreeWidget;
 
@@ -32,9 +33,11 @@ private:
     QUrl m_folder;
     QLineEdit *m_query;
     QComboBox *m_field;
+    QComboBox *m_scope;
     QPushButton *m_search;
     QPushButton *m_cancel;
     QLabel *m_status;
+    QProgressBar *m_progress;
     QTreeWidget *m_results;
     QTreeWidget *m_errors;
     QFutureWatcher<LiveSearch::Result> m_watcher;

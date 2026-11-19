@@ -192,20 +192,27 @@ open archives with 7-Zip or another trusted external tool when needed.
   unsupported markup is important; Neovim is one external source editor.
   (Comment: [#309][comment-309])
 
-## Live search
+## Search
 
-- The in-progress search scans local folders only; indexed search and opening
-  or revealing results are not yet available. It skips symbolic links and
-  searches contents only in UTF-8 files up to 2 MiB without NUL bytes. It stops
-  after 5,000 matches or 200,000 entries, but lists each directory before
-  applying the entry limit. Results are snapshots, and filesystem changes or
-  directory-listing failures can make them incomplete.
+- Live search scans local folders only and skips symbolic links; content search
+  covers UTF-8 files up to 2 MiB without NUL bytes. It stops after 5,000 matches
+  or 200,000 entries, but lists each directory before applying the entry limit.
+  Indexed search requires Baloo at build and runtime and searches its configured
+  locations. Baloo matches indexed terms rather than literal substrings, does
+  not accept double quotes here, and may omit files or return stale results.
+  Folder-coverage notices use configuration rather than proof of actual
+  indexing; exclusions and pending indexing can still affect results. Baloo
+  does not report index-read failures through its query API, and an executing
+  query cannot be interrupted until it returns. Opening or revealing results
+  is not yet available.
   ([#362](https://github.com/mikepadiernos/opus-file-manager/issues/362))
 
-  **Recommendation:** Search smaller local folders, check the status and errors,
-  and repeat searches after files change. Use GNU `find` for other local filename
-  searches or ripgrep (`rg`) for content searches when Opus limits are unsuitable;
-  check each tool's hidden-file, ignore, encoding and symbolic-link behavior.
+  **Recommendation:** Check Baloo's indexing configuration and status; use
+  live search for a current local folder, search smaller folders, inspect
+  errors and repeat searches after files change. Use GNU `find` for other local
+  filename searches or ripgrep (`rg`) for content searches when Opus limits are
+  unsuitable; check each tool's hidden-file, ignore, encoding and symbolic-link
+  behavior.
   ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/362#issuecomment-7023269364))
 
 ## File comparison

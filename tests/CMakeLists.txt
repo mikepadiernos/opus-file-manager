@@ -9,6 +9,7 @@ ecm_add_tests(
     foldercomparisontest.cpp
     flatviewtest.cpp
     ignorelisttest.cpp
+    indexedsearchtest.cpp
     linkednavigationtest.cpp
     livesearchtest.cpp
     namefiltertest.cpp
