@@ -6,7 +6,9 @@
 #include "filterbar.h"
 #include "foldertree.h"
 #include "folderview.h"
+#include "gallerywindow.h"
 #include "pane.h"
+#include "previewpanel.h"
 #include "settings.h"
 #include "settingsdialog.h"
 #include "tabmodel.h"
@@ -28,10 +30,15 @@
 #include <QDir>
 #include <QDockWidget>
 #include <QFile>
+#include <QImage>
+#include <QLabel>
 #include <QListView>
+#include <QListWidget>
+#include <QMediaPlayer>
 #include <QMenu>
 #include <QMimeData>
 #include <QPlainTextEdit>
+#include <QPointer>
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QSplitter>
@@ -40,6 +47,7 @@
 #include <QTabBar>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTextBrowser>
 #include <QTimer>
 #include <QToolButton>
 #include <QTreeView>
@@ -146,6 +154,161 @@ private Q_SLOTS:
         QCOMPARE(window.inactivePane()->url(), m_b);
         QTRY_COMPARE(window.activePane()->view()->itemCount(), 2);
         QTRY_COMPARE(window.inactivePane()->view()->itemCount(), 0);
+    }
+
+    void previewFollowsSelectionAndRestoresLayout()
+    {
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        Pane *left = window.activePane();
+        Pane *right = window.inactivePane();
+        QTRY_COMPARE(left->view()->itemCount(), 2);
+        auto *toggle = window.actionCollection()->action(QStringLiteral("show_preview_panel"));
+        auto *panel = window.findChild<PreviewPanel *>(QStringLiteral("previewPanel"));
+        QVERIFY(toggle && panel);
+        QVERIFY(toggle->shortcuts().contains(QKeySequence(Qt::Key_F3)));
+        toggle->trigger();
+        QVERIFY(panel->isVisible());
+        QVERIFY(left->isVisible());
+        QVERIFY(!right->isVisible());
+        left->view()->selectUrls({QUrl::fromLocalFile(m_root.filePath(QStringLiteral("a/file.txt")))});
+        auto *text = panel->findChild<QPlainTextEdit *>(QStringLiteral("previewText"));
+        QVERIFY(text);
+        QTRY_COMPARE(text->toPlainText(), QStringLiteral("hello"));
+        left->view()->selectAll();
+        QTRY_VERIFY(panel->findChild<QLabel *>(QStringLiteral("previewMessage"))->isVisible());
+        window.actionCollection()->action(QStringLiteral("switch_pane"))->trigger();
+        QCOMPARE(window.activePane(), right);
+        QVERIFY(right->isVisible());
+        QVERIFY(!left->isVisible());
+        toggle->trigger();
+        QVERIFY(!panel->isVisible());
+        QVERIFY(left->isVisible());
+        QVERIFY(right->isVisible());
+    }
+
+    void galleryUsesSortedItemsAndActivationSource()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QImage image(20, 10, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        const QUrl alpha = QUrl::fromLocalFile(dir.filePath(QStringLiteral("alpha.png")));
+        const QUrl beta = QUrl::fromLocalFile(dir.filePath(QStringLiteral("beta.png")));
+        const QUrl gamma = QUrl::fromLocalFile(dir.filePath(QStringLiteral("gamma.png")));
+        QVERIFY(image.save(alpha.toLocalFile()));
+        QVERIFY(image.save(beta.toLocalFile()));
+        QVERIFY(image.save(gamma.toLocalFile()));
+        MainWindow window;
+        window.openUrls({m_a, QUrl::fromLocalFile(dir.path())});
+        window.show();
+        Pane *other = window.inactivePane();
+        FolderView *view = other->view();
+        QTRY_COMPARE(view->itemCount(), 3);
+        view->setSorting(KDirModel::Name, Qt::DescendingOrder);
+        view->selectUrls({beta});
+        Settings::setFileActivationDestination(Settings::EnumFileActivationDestination::Gallery);
+        Q_EMIT view->itemActivated(view->selectedItems().first());
+        QCOMPARE(window.activePane(), other);
+        auto *gallery = window.findChild<GalleryWindow *>(QStringLiteral("galleryWindow"));
+        QVERIFY(gallery);
+        auto *filmstrip = gallery->findChild<QListWidget *>(QStringLiteral("galleryFilmstrip"));
+        QVERIFY(filmstrip);
+        QCOMPARE(filmstrip->count(), 3);
+        QCOMPARE(filmstrip->item(0)->text(), QStringLiteral("gamma.png"));
+        QCOMPARE(filmstrip->item(2)->text(), QStringLiteral("alpha.png"));
+        QCOMPARE(filmstrip->currentRow(), 1);
+        filmstrip->setCurrentRow(2);
+        QCOMPARE(view->selectedItems().first().url(), alpha);
+        gallery->close();
+        QTRY_VERIFY(!window.findChild<GalleryWindow *>());
+        view->selectUrls({alpha, gamma});
+        window.actionCollection()->action(QStringLiteral("open_gallery"))->trigger();
+        gallery = window.findChild<GalleryWindow *>(QStringLiteral("galleryWindow"));
+        QVERIFY(gallery);
+        filmstrip = gallery->findChild<QListWidget *>(QStringLiteral("galleryFilmstrip"));
+        QCOMPARE(filmstrip->count(), 2);
+        QCOMPARE(filmstrip->item(0)->text(), QStringLiteral("gamma.png"));
+        QCOMPARE(filmstrip->item(1)->text(), QStringLiteral("alpha.png"));
+        gallery->close();
+    }
+
+    void previewActivationPreservesFolderNavigation()
+    {
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+        const QUrl text = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("a/file.txt")));
+        const QUrl folder = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("a/sub")));
+        Settings::setFileActivationDestination(Settings::EnumFileActivationDestination::Preview);
+        view->selectUrls({text});
+        Q_EMIT view->itemActivated(view->selectedItems().first());
+        auto *panel = window.findChild<PreviewPanel *>(QStringLiteral("previewPanel"));
+        QVERIFY(panel->isVisible());
+        auto *content = panel->findChild<QPlainTextEdit *>(QStringLiteral("previewText"));
+        QTRY_COMPARE(content->toPlainText(), QStringLiteral("hello"));
+        view->selectUrls({folder});
+        Q_EMIT view->itemActivated(view->selectedItems().first());
+        QTRY_COMPARE(window.activePane()->url(), folder);
+    }
+
+    void previewStopsPlaybackOnSelectionChange()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QFile audio(dir.filePath(QStringLiteral("audio.wav")));
+        QVERIFY(audio.open(QIODevice::WriteOnly));
+        const QByteArray header = QByteArray::fromHex("52494646641f000057415645666d74201000000001000100401f0000401f00000100080064617461401f0000");
+        QCOMPARE(audio.write(header), header.size());
+        QCOMPARE(audio.write(QByteArray(8000, char(0x80))), 8000);
+        audio.close();
+        QFile text(dir.filePath(QStringLiteral("next.txt")));
+        QVERIFY(text.open(QIODevice::WriteOnly));
+        QCOMPARE(text.write("next"), 4);
+        text.close();
+        PreviewPanel panel;
+        panel.show();
+        panel.setItems({KFileItem(QUrl::fromLocalFile(audio.fileName()))});
+        QPointer<QMediaPlayer> player = panel.findChild<QMediaPlayer *>(QStringLiteral("mediaPlayer"));
+        QVERIFY(player);
+        QCOMPARE(player->playbackState(), QMediaPlayer::StoppedState);
+        panel.setItems({KFileItem(QUrl::fromLocalFile(text.fileName()))});
+        QVERIFY(player.isNull());
+        auto *preview = panel.findChild<QPlainTextEdit *>(QStringLiteral("previewText"));
+        QTRY_COMPARE(preview->toPlainText(), QStringLiteral("next"));
+    }
+
+    void previewMarkupDoesNotLoadExternalResources()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString imagePath = dir.filePath(QStringLiteral("private.png"));
+        QImage image(4, 4, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        QVERIFY(image.save(imagePath));
+        QFile html(dir.filePath(QStringLiteral("page.html")));
+        QVERIFY(html.open(QIODevice::WriteOnly));
+        const QByteArray markup = QByteArray("<h1>Hello</h1><img src=\"") + QUrl::fromLocalFile(imagePath).toEncoded() + QByteArray("\">");
+        QCOMPARE(html.write(markup), markup.size());
+        html.close();
+        PreviewPanel panel;
+        panel.show();
+        panel.setItems({KFileItem(QUrl::fromLocalFile(html.fileName()))});
+        auto *rendered = panel.findChild<QTextBrowser *>(QStringLiteral("previewRenderedText"));
+        auto *source = panel.findChild<QPlainTextEdit *>(QStringLiteral("previewText"));
+        auto *mode = panel.findChild<QToolButton *>(QStringLiteral("previewRenderMode"));
+        QVERIFY(rendered && source && mode);
+        QTRY_VERIFY(rendered->isVisible());
+        QVERIFY(rendered->toPlainText().contains(QStringLiteral("Hello")));
+        const QVariant resource = rendered->document()->resource(QTextDocument::ImageResource, QUrl::fromLocalFile(imagePath));
+        QCOMPARE(resource.metaType(), QMetaType::fromType<QImage>());
+        QVERIFY(resource.value<QImage>().isNull());
+        mode->click();
+        QCOMPARE(source->toPlainText().toUtf8(), markup);
     }
 
     void navigationUpdatesHistory()

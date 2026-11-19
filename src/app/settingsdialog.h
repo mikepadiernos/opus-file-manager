@@ -57,6 +57,10 @@ private:
     QWidget *createSettingsDialogPage();
     QWidget *createFoldersAndTabsPage();
     QWidget *createPreviewsPage();
+    QWidget *createOpeningPage();
+    QWidget *createGalleryInformationPage();
+    QWidget *createSlideshowPage();
+    QWidget *createImageConversionPage();
     QWidget *createConfirmationsPage();
     QWidget *createPlacesPage();
     QWidget *createStatusBarPage();

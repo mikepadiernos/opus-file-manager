@@ -17,10 +17,16 @@ add_library(opusfm_app STATIC
     folderview.h
     foldertree.cpp
     foldertree.h
+    gallerywindow.cpp
+    gallerywindow.h
     mainwindow.cpp
     mainwindow.h
+    mediaview.cpp
+    mediaview.h
     pane.cpp
     pane.h
+    previewpanel.cpp
+    previewpanel.h
     settingsdialog.cpp
     settingsdialog.h
     settingswidgets.cpp
@@ -37,6 +43,8 @@ target_link_libraries(opusfm_app
         opusfm_core
         Qt6::Concurrent
         Qt6::Widgets
+        Qt6::Multimedia
+        Qt6::MultimediaWidgets
         KF6::ConfigCore
         KF6::ConfigWidgets
         KF6::CoreAddons
@@ -46,6 +54,8 @@ target_link_libraries(opusfm_app
         KF6::KIOGui
         KF6::KIOWidgets
         KF6::ItemViews
+        KF6::Parts
+        KF6::SyntaxHighlighting
         KF6::WidgetsAddons
         KF6::XmlGui
 )

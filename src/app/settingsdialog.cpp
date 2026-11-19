@@ -118,6 +118,12 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                   QStringLiteral("application-menu"));
     addTabbedPage({{createArchivesPage(), i18nc("@title:tab", "Defaults")}}, i18nc("@title:group", "Archives"), QStringLiteral("package-x-generic"));
     addTabbedPage({{createFileRulesPage(), i18nc("@title:tab", "Rules")}}, i18nc("@title:group", "Files"), QStringLiteral("folder"));
+    addTabbedPage({{createOpeningPage(), i18nc("@title:tab", "Opening")},
+                   {createGalleryInformationPage(), i18nc("@title:tab", "Information")},
+                   {createSlideshowPage(), i18nc("@title:tab", "Slideshow")},
+                   {createImageConversionPage(), i18nc("@title:tab", "Image Conversion")}},
+                  i18nc("@title:group", "Gallery"),
+                  QStringLiteral("view-preview"));
     applySidebarStyle();
     connect(this, &KConfigDialog::settingsChanged, this, [this] {
         applySidebarStyle();
@@ -169,6 +175,54 @@ QWidget *SettingsDialog::createSettingsDialogPage()
                  comboBox(QStringLiteral("SidebarTitlePosition"),
                           {i18nc("@item:inlistbox", "Beside the sidebar icons"), i18nc("@item:inlistbox", "Below the sidebar icons")}));
     form->addRow(i18nc("@label:spinbox", "Sidebar icon size:"), pixelSpinBox(QStringLiteral("SidebarIconSize"), 16, 64));
+    return page;
+}
+
+QWidget *SettingsDialog::createOpeningPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    auto *destination = comboBox(QStringLiteral("FileActivationDestination"),
+                                 {i18nc("@item:inlistbox", "Default application"),
+                                  i18nc("@item:inlistbox", "Gallery for images and videos"),
+                                  i18nc("@item:inlistbox", "Preview panel")});
+    destination->setToolTip(i18nc("@info:tooltip", "Other files open in their default application when Gallery is selected."));
+    form->addRow(i18nc("@label:listbox", "Open files from panes in:"), destination);
+    return page;
+}
+
+QWidget *SettingsDialog::createGalleryInformationPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(checkBox(QStringLiteral("GalleryShowInformation"), i18nc("@option:check", "Show image information in new gallery windows")));
+    return page;
+}
+
+QWidget *SettingsDialog::createSlideshowPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    auto *interval = new QSpinBox;
+    interval->setObjectName(QStringLiteral("kcfg_GallerySlideshowInterval"));
+    interval->setRange(1, 3600);
+    interval->setSuffix(i18nc("@item:valuesuffix seconds", " s"));
+    form->addRow(i18nc("@label:spinbox", "Interval in new galleries:"), interval);
+    form->addRow(checkBox(QStringLiteral("GallerySlideshowLoop"), i18nc("@option:check", "Loop slideshow")));
+    return page;
+}
+
+QWidget *SettingsDialog::createImageConversionPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(
+        i18nc("@label:listbox", "Default copy format:"),
+        comboBox(QStringLiteral("GalleryCopyFormat"), {i18nc("@item:inlistbox", "PNG"), i18nc("@item:inlistbox", "JPEG"), i18nc("@item:inlistbox", "WebP")}));
+    auto *quality = new QSpinBox;
+    quality->setObjectName(QStringLiteral("kcfg_GalleryCopyQuality"));
+    quality->setRange(0, 100);
+    form->addRow(i18nc("@label:spinbox", "Default JPEG and WebP quality:"), quality);
     return page;
 }
 
@@ -283,6 +337,11 @@ QWidget *SettingsDialog::createPreviewsPage()
     m_previewLimit = bound(new PreviewSizeSpinBox, QStringLiteral("MaximumPreviewSize"), "bytes");
     form->addRow(i18nc("@label:spinbox", "Skip files larger than:"), m_previewLimit);
     form->addRow(i18nc("@label", "Show previews for:"), bound(new PreviewPluginList, QStringLiteral("PreviewPlugins"), "plugins"));
+    auto *textLimit = new QSpinBox;
+    textLimit->setObjectName(QStringLiteral("kcfg_TextPreviewLimitKiB"));
+    textLimit->setRange(1, 16384);
+    textLimit->setSuffix(i18nc("@item:valuesuffix kibibytes", " KiB"));
+    form->addRow(i18nc("@label:spinbox", "Maximum text in preview panel:"), textLimit);
     return page;
 }
 

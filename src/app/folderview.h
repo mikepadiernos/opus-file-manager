@@ -78,6 +78,7 @@ public:
     /// The folder being listed, or a null item while loading.
     KFileItem rootItem() const;
     KFileItemList items() const;
+    KFileItemList itemsInViewOrder() const;
     KFileItemList selectedItems() const;
     /// Selected items, or the listed folder itself when nothing is selected.
     KFileItemList selectedItemsOrRoot() const;
@@ -131,6 +132,7 @@ Q_SIGNALS:
     void itemActivated(const KFileItem &item);
     void selectionChanged();
     void itemCountChanged();
+    void itemsOrderChanged();
     void contextMenuRequested(const QPoint &globalPos, const KFileItemList &items);
     void goUpRequested();
     /// A view received focus or a click; the pane should become active.

@@ -21,7 +21,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 ecm_setup_version(${PROJECT_VERSION} VARIABLE_PREFIX OPUSFM VERSION_HEADER ${CMAKE_CURRENT_BINARY_DIR}/src/opusfm_version.h)
 
-find_package(Qt6 ${QT_MIN_VERSION} REQUIRED COMPONENTS Concurrent Core Gui Widgets DBus Test)
+find_package(Qt6 ${QT_MIN_VERSION} REQUIRED COMPONENTS Concurrent Core Gui Widgets DBus Test Multimedia MultimediaWidgets Network)
 
 include(KDEGitCommitHooks)
 find_package(KF6 ${KF_MIN_VERSION} REQUIRED COMPONENTS
@@ -32,10 +32,13 @@ find_package(KF6 ${KF_MIN_VERSION} REQUIRED COMPONENTS
     CoreAddons
     Crash
     DBusAddons
+    FileMetaData
     I18n
     IconThemes
     ItemViews
     KIO
+    Parts
+    SyntaxHighlighting
     WidgetsAddons
     WindowSystem
     XmlGui

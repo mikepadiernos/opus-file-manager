@@ -9,7 +9,10 @@ ecm_add_tests(
     namefiltertest.cpp
     densitytest.cpp
     executablestest.cpp
+    imageeditingtest.cpp
+    imagedetailstest.cpp
     navigationhistorytest.cpp
+    previewcontenttest.cpp
     servicemenustest.cpp
     sessiontest.cpp
     tabcolorstest.cpp
@@ -20,6 +23,18 @@ ecm_add_tests(
     viewsettingstest.cpp
     LINK_LIBRARIES opusfm_core Qt6::Test KF6::ConfigCore
     NAME_PREFIX "opusfm-"
+)
+
+ecm_add_test(galleryeditingtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
+ecm_add_test(remotepreviewtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test Qt6::Network
+    NAME_PREFIX "opusfm-"
+    GUI
 )
 
 ecm_add_test(mainwindowtest.cpp

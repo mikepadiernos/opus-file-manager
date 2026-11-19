@@ -611,6 +611,7 @@ FolderView::FolderView(QWidget *parent)
     m_model->setDirLister(m_lister);
     m_model->setJobTransfersVisible(true);
     m_proxy->setSourceModel(m_model);
+    connect(m_proxy, &QAbstractItemModel::layoutChanged, this, &FolderView::itemsOrderChanged);
     m_proxy->setSortFoldersFirst(true);
     m_proxy->setSortCaseSensitivity(Qt::CaseInsensitive);
 
@@ -989,6 +990,19 @@ KFileItem FolderView::rootItem() const
 KFileItemList FolderView::items() const
 {
     return m_lister->items();
+}
+
+KFileItemList FolderView::itemsInViewOrder() const
+{
+    KFileItemList result;
+    result.reserve(m_proxy->rowCount());
+    for (int row = 0; row < m_proxy->rowCount(); ++row) {
+        const KFileItem item = m_model->itemForIndex(m_proxy->mapToSource(m_proxy->index(row, 0)));
+        if (!item.isNull()) {
+            result.append(item);
+        }
+    }
+    return result;
 }
 
 KFileItemList FolderView::selectedItems() const

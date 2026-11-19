@@ -8,6 +8,7 @@
 #include "folderview.h"
 #include "mainwindow.h"
 #include "pane.h"
+#include "previewpanel.h"
 #include "settingsdialog.h"
 #include "settingswidgets.h"
 #include "tabmodel.h"
@@ -39,6 +40,7 @@
 #include <QMenu>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QStandardPaths>
@@ -186,7 +188,8 @@ private Q_SLOTS:
                               QStringLiteral("View"),
                               QStringLiteral("Context Menu"),
                               QStringLiteral("Archives"),
-                              QStringLiteral("Files")}));
+                              QStringLiteral("Files"),
+                              QStringLiteral("Gallery")}));
 
         const auto tabOf = [&dialog](const QString &entry) {
             return tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + entry));
@@ -211,6 +214,76 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("IconsDensity")), QStringLiteral("Icons"));
         QCOMPARE(tabOf(QStringLiteral("BarDensity")), QStringLiteral("Status and Location Bars"));
         QCOMPARE(tabOf(QStringLiteral("IconsIconSize")), QStringLiteral("Icons"));
+        QCOMPARE(tabOf(QStringLiteral("TextPreviewLimitKiB")), QStringLiteral("Previews"));
+        QCOMPARE(tabOf(QStringLiteral("FileActivationDestination")), QStringLiteral("Opening"));
+        QCOMPARE(tabOf(QStringLiteral("GalleryShowInformation")), QStringLiteral("Information"));
+        QCOMPARE(tabOf(QStringLiteral("GallerySlideshowInterval")), QStringLiteral("Slideshow"));
+        QCOMPARE(tabOf(QStringLiteral("GalleryCopyFormat")), QStringLiteral("Image Conversion"));
+    }
+
+    void gallerySettingsApplyAndRestoreDefaults()
+    {
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *information = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_GalleryShowInformation"));
+        auto *interval = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_GallerySlideshowInterval"));
+        auto *loop = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_GallerySlideshowLoop"));
+        auto *textLimit = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_TextPreviewLimitKiB"));
+        auto *format = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_GalleryCopyFormat"));
+        auto *quality = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_GalleryCopyQuality"));
+        auto *destination = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_FileActivationDestination"));
+        QVERIFY(information && interval && loop && textLimit && format && quality && destination);
+        information->setChecked(true);
+        interval->setValue(8);
+        loop->setChecked(false);
+        textLimit->setValue(12);
+        format->setCurrentIndex(Settings::EnumGalleryCopyFormat::Webp);
+        quality->setValue(72);
+        destination->setCurrentIndex(Settings::EnumFileActivationDestination::Preview);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        Settings::self()->load();
+        QVERIFY(Settings::galleryShowInformation());
+        QCOMPARE(Settings::gallerySlideshowInterval(), 8);
+        QVERIFY(!Settings::gallerySlideshowLoop());
+        QCOMPARE(Settings::textPreviewLimitKiB(), 12);
+        QCOMPARE(Settings::galleryCopyFormat(), Settings::EnumGalleryCopyFormat::Webp);
+        QCOMPARE(Settings::galleryCopyQuality(), 72);
+        QCOMPARE(Settings::fileActivationDestination(), Settings::EnumFileActivationDestination::Preview);
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QVERIFY(!information->isChecked());
+        QCOMPARE(interval->value(), 3);
+        QVERIFY(loop->isChecked());
+        QCOMPARE(textLimit->value(), 1024);
+        QCOMPARE(format->currentIndex(), Settings::EnumGalleryCopyFormat::Png);
+        QCOMPARE(quality->value(), 90);
+        QCOMPARE(destination->currentIndex(), Settings::EnumFileActivationDestination::Application);
+    }
+
+    void applyingTextLimitRefreshesCurrentPreview()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QFile file(dir.filePath(QStringLiteral("text.txt")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QCOMPARE(file.write(QByteArray(2500, 'x')), 2500);
+        file.close();
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(dir.path())});
+        window.show();
+        auto *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        view->selectUrls({QUrl::fromLocalFile(file.fileName())});
+        action(window, QStringLiteral("show_preview_panel"))->setChecked(true);
+        auto *text = window.findChild<PreviewPanel *>()->findChild<QPlainTextEdit *>(QStringLiteral("previewText"));
+        QVERIFY(text);
+        QTRY_COMPARE(text->toPlainText().size(), 2500);
+        action(window, QStringLiteral("options_configure"))->trigger();
+        auto *dialog = window.findChild<SettingsDialog *>();
+        QVERIFY(dialog);
+        dialog->findChild<QSpinBox *>(QStringLiteral("kcfg_TextPreviewLimitKiB"))->setValue(1);
+        dialog->button(QDialogButtonBox::Apply)->click();
+        QTRY_COMPARE(text->toPlainText().size(), 1024);
+        dialog->close();
     }
 
     void sidebarDefaultsToSmallSymbolicIconsBesideTitles()

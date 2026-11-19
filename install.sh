@@ -82,7 +82,7 @@ fi
 # Dependencies
 # ---------------------------------------------------------------------------
 
-KF_MODULES=(bookmarks config configwidgets coreaddons crash dbusaddons i18n iconthemes kio widgetsaddons windowsystem xmlgui)
+KF_MODULES=(archive bookmarks config configwidgets coreaddons crash dbusaddons filemetadata i18n iconthemes itemviews kio parts syntaxhighlighting widgetsaddons windowsystem xmlgui)
 
 distro_id() {
     [ -r /etc/os-release ] || { echo unknown; return; }
@@ -103,28 +103,28 @@ print_deps() {
 
     case "$family" in
         arch)
-            pkgs=(base-devel cmake ninja extra-cmake-modules qt6-base qt6-tools)
+            pkgs=(base-devel cmake ninja extra-cmake-modules qt6-base qt6-tools qt6-multimedia)
             for m in "${KF_MODULES[@]}"; do pkgs+=("k$m"); done
             pkgs=("${pkgs[@]/kkio/kio}")
             echo "sudo pacman -S --needed ${pkgs[*]}" ;;
         fedora)
-            pkgs=(gcc-c++ cmake ninja-build extra-cmake-modules qt6-qtbase-devel qt6-qtbase-private-devel)
+            pkgs=(gcc-c++ cmake ninja-build extra-cmake-modules qt6-qtbase-devel qt6-qtbase-private-devel qt6-qtmultimedia-devel)
             for m in "${KF_MODULES[@]}"; do pkgs+=("kf6-k$m-devel"); done
             pkgs=("${pkgs[@]/kf6-kkio-devel/kf6-kio-devel}")
             echo "sudo dnf install ${pkgs[*]}" ;;
         debian)
-            pkgs=(build-essential cmake ninja-build extra-cmake-modules qt6-base-dev qt6-base-private-dev)
+            pkgs=(build-essential cmake ninja-build extra-cmake-modules qt6-base-dev qt6-base-private-dev qt6-multimedia-dev)
             for m in "${KF_MODULES[@]}"; do pkgs+=("libkf6$m-dev"); done
             echo "sudo apt install ${pkgs[*]}" ;;
         suse)
-            pkgs=(gcc-c++ cmake ninja extra-cmake-modules qt6-base-devel)
+            pkgs=(gcc-c++ cmake ninja extra-cmake-modules qt6-base-devel qt6-multimedia-devel)
             for m in "${KF_MODULES[@]}"; do pkgs+=("kf6-k$m-devel"); done
             pkgs=("${pkgs[@]/kf6-kkio-devel/kf6-kio-devel}")
             echo "sudo zypper install ${pkgs[*]}" ;;
         *)
             pkgs=("${KF_MODULES[@]/#/k}"); pkgs=("${pkgs[@]/kkio/kio}")
             echo "Unrecognised distro ($ids). You need a C++20 compiler, CMake >= 3.25, Ninja,"
-            echo "Qt >= 6.8 (Core Gui Widgets DBus Test), extra-cmake-modules and these"
+            echo "Qt >= 6.8 (Core Gui Widgets DBus Test Concurrent Multimedia), extra-cmake-modules and these"
             echo "KDE Frameworks >= 6.20 development packages: ${pkgs[*]}" ;;
     esac
 }

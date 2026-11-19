@@ -20,6 +20,7 @@ class KNewFileMenu;
 class KSelectAction;
 class KToggleAction;
 class Pane;
+class PreviewPanel;
 class TabColors;
 class QDockWidget;
 class QLabel;
@@ -116,6 +117,9 @@ private:
 
     void showContextMenu(Pane *pane, const QPoint &globalPos, const KFileItemList &items);
     void activateItem(const KFileItem &item);
+    void activatePaneItem(Pane *pane, const KFileItem &item);
+    void updatePreviewPanel();
+    void openGallery();
 
     void copyToOtherPane();
     void moveToOtherPane();
@@ -190,6 +194,7 @@ private:
     Pane *m_left = nullptr;
     Pane *m_right = nullptr;
     Pane *m_active = nullptr;
+    PreviewPanel *m_previewPanel = nullptr;
     QLabel *m_itemsLabel = nullptr;
     QLabel *m_messageLabel = nullptr;
     QLabel *m_freeSpaceLabel = nullptr;
@@ -197,6 +202,7 @@ private:
     KToggleAction *m_stackedLayoutAction = nullptr;
     KToggleAction *m_hiddenFilesAction = nullptr;
     KToggleAction *m_previewsAction = nullptr;
+    KToggleAction *m_previewPanelAction = nullptr;
     QAction *m_viewModeAction = nullptr;
     QAction *m_selectionModeAction = nullptr;
     QAction *m_selectionMarkersAction = nullptr;

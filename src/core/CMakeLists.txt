@@ -19,10 +19,16 @@ add_library(opusfm_core STATIC
     density.h
     executables.cpp
     executables.h
+    imagedetails.cpp
+    imagedetails.h
+    imageediting.cpp
+    imageediting.h
     navigationhistory.cpp
     namefilter.cpp
     namefilter.h
     navigationhistory.h
+    previewcontent.cpp
+    previewcontent.h
     session.cpp
     servicemenus.cpp
     servicemenus.h
@@ -54,5 +60,6 @@ target_link_libraries(opusfm_core
         KF6::I18n
         KF6::KIOCore
         KF6::ConfigGui
+        KF6::FileMetaData
         KF6::KIOGui
 )

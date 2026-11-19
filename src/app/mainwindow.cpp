@@ -7,13 +7,16 @@
 #include "combinedpanel.h"
 #include "compressdialog.h"
 #include "density.h"
+#include "executables.h"
 #include "favoritesmodel.h"
 #include "fileoperations.h"
 #include "foldermetadata.h"
 #include "foldertree.h"
 #include "folderview.h"
+#include "gallerywindow.h"
 #include "labelcolor.h"
 #include "pane.h"
+#include "previewpanel.h"
 #include "session.h"
 #include "settings.h"
 #include "settingsdialog.h"
@@ -71,6 +74,8 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMimeDatabase>
+#include <QPointer>
 #include <QScrollArea>
 #include <QSplitter>
 #include <QStatusBar>
@@ -205,6 +210,14 @@ QList<QUrl> urlsOf(const KFileItemList &items)
     }
     return urls;
 }
+
+QString previewMimeType(const KFileItem &item, bool determine = false)
+{
+    if (determine && item.url().isLocalFile()) {
+        return item.mimetype();
+    }
+    return item.isMimeTypeKnown() ? item.currentMimeType().name() : QMimeDatabase().mimeTypeForFile(item.name(), QMimeDatabase::MatchExtension).name();
+}
 }
 
 MainWindow::MainWindow(QWidget *parent)
@@ -264,8 +277,11 @@ void MainWindow::setupPanes()
     m_splitter->setChildrenCollapsible(false);
     m_left = new Pane(m_placesModel, m_tabColors, m_splitter);
     m_right = new Pane(m_placesModel, m_tabColors, m_splitter);
+    m_previewPanel = new PreviewPanel(m_splitter);
     m_splitter->addWidget(m_left);
     m_splitter->addWidget(m_right);
+    m_splitter->addWidget(m_previewPanel);
+    m_previewPanel->hide();
     m_splitter->setStretchFactor(0, 1);
     m_splitter->setStretchFactor(1, 1);
     setCentralWidget(m_splitter);
@@ -283,6 +299,9 @@ void MainWindow::connectPane(Pane *pane)
         recordFolderVisit(pane, url);
         pane->view()->setFlat(m_flatLocations.contains(flatKey(url)));
         if (pane == m_active) {
+            if (m_previewPanelAction && m_previewPanelAction->isChecked()) {
+                m_previewPanel->clear();
+            }
             updateActions();
             updateStatusBar();
             updateFreeSpace();
@@ -292,7 +311,9 @@ void MainWindow::connectPane(Pane *pane)
     });
     connect(pane, &Pane::tabCountChanged, this, &MainWindow::updateTabBars);
     connect(pane, &Pane::statusMessage, this, &MainWindow::showStatusMessage);
-    connect(pane->view(), &FolderView::itemActivated, this, &MainWindow::activateItem);
+    connect(pane->view(), &FolderView::itemActivated, this, [this, pane](const KFileItem &item) {
+        activatePaneItem(pane, item);
+    });
     connect(pane->view(), &FolderView::contextMenuRequested, this, [this, pane](const QPoint &pos, const KFileItemList &items) {
         setActivePane(pane);
         showContextMenu(pane, pos, items);
@@ -301,6 +322,7 @@ void MainWindow::connectPane(Pane *pane)
         if (pane == m_active) {
             updateActions();
             updateStatusBar();
+            updatePreviewPanel();
         }
     });
     connect(pane->view(), &FolderView::selectionModeChanged, this, [this, pane] {
@@ -323,6 +345,12 @@ void MainWindow::connectPane(Pane *pane)
     connect(pane->view(), &FolderView::itemCountChanged, this, [this, pane] {
         if (pane == m_active) {
             updateStatusBar();
+            updatePreviewPanel();
+        }
+    });
+    connect(pane->view(), &FolderView::itemsOrderChanged, this, [this, pane] {
+        if (pane == m_active) {
+            updatePreviewPanel();
         }
     });
     connect(pane->view(), &FolderView::loadingChanged, this, [this, pane](bool loading) {
@@ -900,6 +928,33 @@ void MainWindow::setupActions()
     actions->addAction(QStringLiteral("show_previews"), m_previewsAction);
     connect(m_previewsAction, &KToggleAction::toggled, this, &MainWindow::setPreviewsEnabled);
 
+    m_previewPanelAction = new KToggleAction(SymbolicIcon::fromTheme(QStringLiteral("document-preview")), i18nc("@action", "Preview Panel"), this);
+    actions->addAction(QStringLiteral("show_preview_panel"), m_previewPanelAction);
+    actions->setDefaultShortcut(m_previewPanelAction, Qt::Key_F3);
+    connect(m_previewPanelAction, &KToggleAction::toggled, this, [this](bool shown) {
+        toggleLayout(m_dualLayoutAction->isChecked());
+        if (shown) {
+            updatePreviewPanel();
+        } else {
+            m_previewPanel->clear();
+        }
+    });
+    connect(m_previewPanel, &PreviewPanel::closeRequested, m_previewPanelAction, &QAction::trigger);
+    connect(m_previewPanel, &PreviewPanel::galleryRequested, this, &MainWindow::openGallery);
+    connect(m_previewPanel, &PreviewPanel::imageRequested, this, [this](const QUrl &url) {
+        activePane()->view()->selectUrls({url});
+    });
+    connect(m_previewPanel, &PreviewPanel::openRequested, this, [this] {
+        const KFileItemList items = activePane()->view()->selectedItems();
+        if (items.size() == 1) {
+            FileOperations::open(items.first(), this);
+        }
+    });
+    QAction *gallery = actions->addAction(QStringLiteral("open_gallery"), this, &MainWindow::openGallery);
+    gallery->setText(i18nc("@action", "Open Gallery"));
+    gallery->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-media-preview")));
+    actions->setDefaultShortcut(gallery, Qt::Key_Space);
+
     QAction *reload = KStandardAction::redisplay(
         this,
         [this] {
@@ -1070,9 +1125,8 @@ void MainWindow::setActivePane(Pane *pane)
     }
     m_active = pane;
     m_active->setActive(true);
-    if (!m_dualLayoutAction || !m_dualLayoutAction->isChecked()) {
-        m_left->setVisible(m_active == m_left);
-        m_right->setVisible(m_active == m_right);
+    if (m_dualLayoutAction) {
+        toggleLayout(m_dualLayoutAction->isChecked());
     }
     m_hiddenFilesAction->setChecked(pane->view()->showHiddenFiles());
     syncFolderTrees();
@@ -1080,6 +1134,7 @@ void MainWindow::setActivePane(Pane *pane)
     updateStatusBar();
     updateFreeSpace();
     updateWindowTitle();
+    updatePreviewPanel();
 }
 
 void MainWindow::openUrls(const QList<QUrl> &urls)
@@ -1150,6 +1205,12 @@ bool MainWindow::queryClose()
             != KMessageBox::Continue) {
         return false;
     }
+    const auto galleries = findChildren<GalleryWindow *>(QString(), Qt::FindDirectChildrenOnly);
+    for (GalleryWindow *gallery : galleries) {
+        if (!gallery->close()) {
+            return false;
+        }
+    }
     saveSession();
     return KXmlGuiWindow::queryClose();
 }
@@ -1193,6 +1254,14 @@ void MainWindow::updateActions()
     actions->action(stdName(KStandardAction::Cut))->setEnabled(hasSelection && props.supportsMoving());
     actions->action(stdName(KStandardAction::Copy))->setEnabled(hasSelection);
     actions->action(QStringLiteral("open_terminal"))->setEnabled(activePane()->url().isLocalFile());
+    const bool hasMedia = std::any_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
+        if (item.isDir() || !item.url().isLocalFile()) {
+            return false;
+        }
+        const QString mime = item.mimetype();
+        return mime.startsWith(QLatin1String("image/")) || mime.startsWith(QLatin1String("video/"));
+    });
+    actions->action(QStringLiteral("open_gallery"))->setEnabled(hasMedia);
     actions->action(QStringLiteral("test_archive_integrity"))->setEnabled(std::any_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
         return !item.isDir() && Archives::browseUrl(item.mostLocalUrl(), item.mimetype()).isValid();
     }));
@@ -1553,6 +1622,81 @@ void MainWindow::activateItem(const KFileItem &item)
     }
 }
 
+void MainWindow::activatePaneItem(Pane *pane, const KFileItem &item)
+{
+    setActivePane(pane);
+    const QUrl target = item.targetUrl();
+    const bool executable = target.isLocalFile() && Executables::isProgram(item.mimetype(), QFileInfo(target.toLocalFile()).isExecutable());
+    const bool archive = !item.isDir() && Archives::browseUrl(item.mostLocalUrl(), item.mimetype()).isValid();
+    if (item.isDir() || executable || archive) {
+        activateItem(item);
+        return;
+    }
+    const auto destination = Settings::fileActivationDestination();
+    const QString mime = item.mimetype();
+    if (destination == Settings::EnumFileActivationDestination::Gallery && item.url().isLocalFile()
+        && (mime.startsWith(QLatin1String("image/")) || mime.startsWith(QLatin1String("video/")))) {
+        pane->view()->selectUrls({item.url()});
+        openGallery();
+    } else if (destination == Settings::EnumFileActivationDestination::Preview) {
+        pane->view()->selectUrls({item.url()});
+        if (!m_previewPanelAction->isChecked()) {
+            m_previewPanelAction->setChecked(true);
+        } else {
+            updatePreviewPanel();
+        }
+    } else {
+        activateItem(item);
+    }
+}
+
+void MainWindow::openGallery()
+{
+    FolderView *view = activePane()->view();
+    const KFileItemList selected = view->selectedItems();
+    QSet<QUrl> selectedUrls;
+    for (const KFileItem &item : selected) {
+        selectedUrls.insert(item.url());
+    }
+    QList<QUrl> urls;
+    QSet<QUrl> videos;
+    for (const KFileItem &item : view->itemsInViewOrder()) {
+        if (item.isDir() || !item.url().isLocalFile() || (selected.size() > 1 && !selectedUrls.contains(item.url()))) {
+            continue;
+        }
+        const QString mime = item.mimetype();
+        const bool video = mime.startsWith(QLatin1String("video/"));
+        if (video || mime.startsWith(QLatin1String("image/"))) {
+            urls.append(item.url());
+            if (video) {
+                videos.insert(item.url());
+            }
+        }
+    }
+    if (urls.isEmpty()) {
+        showStatusMessage(i18nc("@info:status", "No local images or videos are available for the gallery."));
+        return;
+    }
+    int index = urls.indexOf(view->currentItem().url());
+    if (index < 0 && !selected.isEmpty()) {
+        index = urls.indexOf(selected.first().url());
+    }
+    auto *gallery = new GalleryWindow(urls, videos, std::max(index, 0), this);
+    const QPointer<FolderView> source(view);
+    const QUrl sourceFolder = view->url();
+    connect(gallery, &GalleryWindow::currentUrlChanged, gallery, [source, sourceFolder](const QUrl &url) {
+        if (source && source->url() == sourceFolder) {
+            source->selectUrls({url});
+        }
+    });
+    connect(gallery, &QDialog::finished, this, [this, source] {
+        if (source && activePane()->view() == source) {
+            source->currentView()->setFocus();
+        }
+    });
+    gallery->show();
+}
+
 void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFileItemList &items)
 {
     QMenu menu(this);
@@ -1798,8 +1942,10 @@ void MainWindow::showNewMenu()
 
 void MainWindow::toggleLayout(bool dual)
 {
-    m_left->setVisible(dual || activePane() == m_left);
-    m_right->setVisible(dual || activePane() == m_right);
+    const bool preview = m_previewPanelAction && m_previewPanelAction->isChecked();
+    m_left->setVisible((dual && !preview) || activePane() == m_left);
+    m_right->setVisible((dual && !preview) || activePane() == m_right);
+    m_previewPanel->setVisible(preview);
     updateActions();
 }
 
@@ -1807,8 +1953,26 @@ void MainWindow::setStackedLayout(bool stacked)
 {
     m_stackedLayoutAction->setChecked(stacked);
     m_splitter->setOrientation(stacked ? Qt::Vertical : Qt::Horizontal);
-    m_splitter->setSizes({1, 1});
+    m_splitter->setSizes({1, 1, 1});
     m_left->setTabBarAtBottom(stacked);
+}
+
+void MainWindow::updatePreviewPanel()
+{
+    if (!m_previewPanelAction || !m_previewPanelAction->isChecked()) {
+        return;
+    }
+    FolderView *view = activePane()->view();
+    const KFileItemList selected = view->selectedItems();
+    QList<QUrl> images;
+    if (selected.size() == 1 && !selected.first().isDir() && previewMimeType(selected.first(), true).startsWith(QLatin1String("image/"))) {
+        for (const KFileItem &item : view->itemsInViewOrder()) {
+            if (!item.isDir() && (item.url() == selected.first().url() || previewMimeType(item).startsWith(QLatin1String("image/")))) {
+                images.append(item.url());
+            }
+        }
+    }
+    m_previewPanel->setItems(selected, images);
 }
 
 bool MainWindow::isStackedLayout() const
@@ -1868,6 +2032,7 @@ void MainWindow::applySettings()
         shortcuts.prepend(QKeySequence(Qt::Key_Tab));
     }
     switchPane->setShortcuts(shortcuts);
+    updatePreviewPanel();
 }
 
 void MainWindow::applyPanelSettings()
