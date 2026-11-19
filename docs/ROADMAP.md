@@ -75,17 +75,17 @@ with Dolphin.
     windows; tab bars; Tab switches panes; new-tab placement; navigation bars;
     symbolic-link following~~
   - **Previews:** ~~enablement, plugins, size limit and remote folders~~
-  - **Confirmations:** ~~trash~~, delete, ~~multiple tabs; executable handling~~;
-    default drop action
-  - **Panels:** ~~Places panel visibility~~ and visible sections; ~~optional
-    focus return to the active pane after panel navigation~~
+  - **Confirmations:** ~~trash, delete, multiple tabs; executable handling;
+    default drop action~~
+  - **Panels:** ~~Places panel visibility and visible sections; optional focus
+    return to the active pane after panel navigation~~
   - **Status and Location Bars:** ~~status-bar contents and bar density,
     including custom bar spacing~~
 - **View**
   - **General:** ~~default view mode, sorting, hidden files and tooltips~~
   - **Details:** ~~icon size, columns, item density and dragging from anywhere
     in a row~~
-  - **Icons:** icon and preview size and ~~item density~~
+  - **Icons:** ~~icon and preview size and item density~~
 - **Context Menu**
   - **General:** ~~optional Copy To and Move To submenus, independently
     configurable alongside the additional KDE submenus~~

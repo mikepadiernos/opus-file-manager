@@ -438,6 +438,41 @@ private Q_SLOTS:
         QVERIFY(!kio.readEntry("ConfirmDelete", true));
     }
 
+    void permanentDeletionHonorsSharedConfirmation()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QString path = root.filePath(QStringLiteral("delete.txt"));
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+        MainWindow window;
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        KConfigGroup confirmations = KSharedConfig::openConfig(QStringLiteral("kiorc"), KConfig::NoGlobals)->group(QStringLiteral("Confirmations"));
+        confirmations.writeEntry("ConfirmDelete", true);
+        confirmations.sync();
+        bool prompted = false;
+        QTimer prompt;
+        connect(&prompt, &QTimer::timeout, &window, [&prompted] {
+            if (auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget())) {
+                prompted = true;
+                dialog->reject();
+            }
+        });
+        prompt.start(10);
+        FileOperations::deletePermanently({QUrl::fromLocalFile(path)}, &window);
+        QTRY_VERIFY(prompted);
+        QVERIFY(QFile::exists(path));
+        prompted = false;
+        confirmations.writeEntry("ConfirmDelete", false);
+        confirmations.sync();
+        FileOperations::deletePermanently({QUrl::fromLocalFile(path)}, &window);
+        QTRY_VERIFY(!QFile::exists(path));
+        QVERIFY(!prompted);
+        prompt.stop();
+    }
+
     void closingWithSeveralTabsAsks()
     {
         Settings::setConfirmClosingMultipleTabs(true);
@@ -513,6 +548,43 @@ private Q_SLOTS:
         drop(url(QStringLiteral("move-me.txt")));
         QTRY_VERIFY(QFile::exists(m_root.filePath(QStringLiteral("drop/move-me.txt"))));
         QTRY_VERIFY(!QFile::exists(m_root.filePath(QStringLiteral("move-me.txt"))));
+    }
+
+    void panelDropsHonorTheDefaultAction()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("destination")));
+        const QUrl destination = QUrl::fromLocalFile(root.filePath(QStringLiteral("destination")));
+        MainWindow window;
+        auto *combined = window.findChild<CombinedPanel *>();
+        auto *dock = window.findChild<QDockWidget *>(QStringLiteral("foldersDock"));
+        QVERIFY(combined && dock);
+        auto *tree = dock->findChild<FolderTree *>();
+        QVERIFY(tree);
+        const auto drop = [&root, &destination](auto *panel, const QString &name, Qt::KeyboardModifiers modifiers) {
+            QFile file(root.filePath(name));
+            if (!file.open(QIODevice::WriteOnly)) {
+                return false;
+            }
+            file.close();
+            QMimeData mime;
+            mime.setUrls({QUrl::fromLocalFile(root.filePath(name))});
+            QDropEvent event(QPointF(0, 0), Qt::CopyAction | Qt::MoveAction, &mime, Qt::LeftButton, modifiers);
+            Q_EMIT panel->urlsDropped(destination, &event);
+            return true;
+        };
+        Settings::setDropAction(Settings::EnumDropAction::Copy);
+        QVERIFY(drop(tree, QStringLiteral("tree-copy.txt"), Qt::NoModifier));
+        QTRY_VERIFY(QFile::exists(root.filePath(QStringLiteral("destination/tree-copy.txt"))));
+        QVERIFY(QFile::exists(root.filePath(QStringLiteral("tree-copy.txt"))));
+        Settings::setDropAction(Settings::EnumDropAction::Move);
+        QVERIFY(drop(combined, QStringLiteral("combined-move.txt"), Qt::NoModifier));
+        QTRY_VERIFY(QFile::exists(root.filePath(QStringLiteral("destination/combined-move.txt"))));
+        QTRY_VERIFY(!QFile::exists(root.filePath(QStringLiteral("combined-move.txt"))));
+        QVERIFY(drop(combined, QStringLiteral("modifier-copy.txt"), Qt::ControlModifier));
+        QTRY_VERIFY(QFile::exists(root.filePath(QStringLiteral("destination/modifier-copy.txt"))));
+        QVERIFY(QFile::exists(root.filePath(QStringLiteral("modifier-copy.txt"))));
     }
 
     void pressingBesideTheNameDrawsASelectionRectangle()
@@ -1051,6 +1123,11 @@ private Q_SLOTS:
 
         QCOMPARE(view->currentView()->iconSize(), QSize(32, 32));
         view->setViewMode(FolderView::ViewMode::Icons);
+        QCOMPARE(view->currentView()->iconSize(), QSize(128, 128));
+        view->setPreviewsEnabled(false);
+        QCOMPARE(view->currentView()->iconSize(), QSize(128, 128));
+        view->setPreviewsEnabled(true);
+        QVERIFY(view->previewsShown());
         QCOMPARE(view->currentView()->iconSize(), QSize(128, 128));
         QVERIFY(view->isColumnVisible(KDirModel::Owner));
         QVERIFY(!view->isColumnVisible(KDirModel::Size));

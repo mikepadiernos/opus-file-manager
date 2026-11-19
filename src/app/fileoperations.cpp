@@ -68,7 +68,7 @@ void FileOperations::deletePermanently(const QList<QUrl> &urls, QWidget *window)
     if (urls.isEmpty()) {
         return;
     }
-    auto *job = new KIO::DeleteOrTrashJob(urls, KIO::AskUserActionInterface::Delete, KIO::AskUserActionInterface::ForceConfirmation, window);
+    auto *job = new KIO::DeleteOrTrashJob(urls, KIO::AskUserActionInterface::Delete, KIO::AskUserActionInterface::DefaultConfirmation, window);
     job->start();
 }
 

@@ -422,8 +422,7 @@ void MainWindow::setupPanels()
     connect(m_folderTree, &FolderTree::tabRequested, this, openInTab);
     connect(m_folderTree, &FolderTree::contextMenuRequested, this, &MainWindow::showFolderTreeMenu);
     connect(m_folderTree, &FolderTree::urlsDropped, this, [this](const QUrl &destination, QDropEvent *event) {
-        KIO::DropJob *job = KIO::drop(event, destination);
-        KJobWidgets::setWindow(job, this);
+        FileOperations::drop(event, destination, this);
     });
     auto *treeScroll = new QScrollArea;
     treeScroll->setWidgetResizable(true);
@@ -438,8 +437,7 @@ void MainWindow::setupPanels()
     connect(m_combinedPanel, &CombinedPanel::folderContextMenuRequested, this, &MainWindow::showFolderTreeMenu);
     m_combinedPanel->setCollapsedSections(panels.readEntry("CollapsedSections", QStringList()));
     connect(m_combinedPanel, &CombinedPanel::urlsDropped, this, [this](const QUrl &destination, QDropEvent *event) {
-        KIO::DropJob *job = KIO::drop(event, destination);
-        KJobWidgets::setWindow(job, this);
+        FileOperations::drop(event, destination, this);
     });
     m_combinedDock = addPanelDock(QStringLiteral("combinedDock"), i18nc("@title:window", "Places"), m_combinedPanel);
 }
