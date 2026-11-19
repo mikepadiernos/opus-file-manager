@@ -4,6 +4,44 @@
 
 #include <QListWidget>
 #include <QSpinBox>
+#include <QWidget>
+
+class RuleListEditor : public QWidget
+{
+    Q_OBJECT
+    Q_PROPERTY(QStringList rules READ rules WRITE setRules NOTIFY rulesChanged USER true)
+
+public:
+    enum class Kind {
+        Ignore,
+        Color
+    };
+    explicit RuleListEditor(Kind kind, QWidget *parent = nullptr);
+    QStringList rules() const;
+    void setRules(const QStringList &rules);
+
+Q_SIGNALS:
+    void rulesChanged();
+
+private:
+    void editRule(int row);
+    Kind m_kind;
+    QListWidget *m_list;
+};
+
+class IconInformationList : public QListWidget
+{
+    Q_OBJECT
+    Q_PROPERTY(QStringList information READ information WRITE setInformation NOTIFY informationChanged USER true)
+
+public:
+    explicit IconInformationList(QWidget *parent = nullptr);
+    QStringList information() const;
+    void setInformation(const QStringList &information);
+
+Q_SIGNALS:
+    void informationChanged();
+};
 
 /**
  * Checkable list of the installed KIO thumbnailer plugins, bound to a

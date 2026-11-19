@@ -8,10 +8,12 @@
 #include "mainwindow.h"
 #include "pane.h"
 #include "settingsdialog.h"
+#include "settingswidgets.h"
 #include "tabmodel.h"
 
 #include <KActionCollection>
 #include <KDirModel>
+#include <KFileItemDelegate>
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
 #include <KPageWidget>
@@ -177,10 +179,13 @@ private Q_SLOTS:
         for (int row = 0; row < pages->rowCount(); ++row) {
             titles.append(pages->index(row, 0).data().toString());
         }
-        QCOMPARE(
-            titles,
-            QStringList(
-                {QStringLiteral("General"), QStringLiteral("Interface"), QStringLiteral("View"), QStringLiteral("Context Menu"), QStringLiteral("Archives")}));
+        QCOMPARE(titles,
+                 QStringList({QStringLiteral("General"),
+                              QStringLiteral("Interface"),
+                              QStringLiteral("View"),
+                              QStringLiteral("Context Menu"),
+                              QStringLiteral("Archives"),
+                              QStringLiteral("Files")}));
 
         const auto tabOf = [&dialog](const QString &entry) {
             return tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + entry));
@@ -278,6 +283,63 @@ private Q_SLOTS:
         QCOMPARE(panel->collapsedSections(), QStringList({QStringLiteral("tree")}));
         panel->setSectionVisibility(true, true, true);
         QCOMPARE(panel->collapsedSections(), QStringList({QStringLiteral("tree")}));
+    }
+
+    void listingDefaultsApplyAndPreserveFolderGrouping()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        dialog.findChild<QComboBox *>(QStringLiteral("kcfg_GroupBy"))->setCurrentIndex(Settings::EnumGroupBy::Type);
+        dialog.findChild<QComboBox *>(QStringLiteral("kcfg_SizeFormat"))->setCurrentIndex(Settings::EnumSizeFormat::bytes);
+        dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DateFormat"))->setCurrentIndex(Settings::EnumDateFormat::iso);
+        dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowSeconds"))->setChecked(true);
+        dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_IconNameLines"))->setValue(4);
+        auto *information = dialog.findChild<IconInformationList *>(QStringLiteral("kcfg_IconInformation"));
+        QVERIFY(information);
+        information->setInformation({QStringLiteral("size")});
+        dialog.button(QDialogButtonBox::Apply)->click();
+
+        QCOMPARE(KSharedConfig::openConfig()->group(QStringLiteral("View")).readEntry("GroupBy", QString()), QStringLiteral("type"));
+        QCOMPARE(Settings::iconInformation(), QStringList({QStringLiteral("size")}));
+        FolderView *view = window.activePane()->view();
+        QCOMPARE(view->groupBy(), QStringLiteral("type"));
+        QTRY_COMPARE(view->itemCount(), 1);
+        const QAbstractItemModel *model = view->currentView()->model();
+        QCOMPARE(model->index(0, KDirModel::Size).data().toString(), QStringLiteral("5 B"));
+        QVERIFY(model->index(0, KDirModel::ModifiedTime)
+                    .data()
+                    .toString()
+                    .contains(QRegularExpression(QStringLiteral("^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$"))));
+        view->setViewMode(FolderView::ViewMode::Icons);
+        auto *icons = qobject_cast<QListView *>(view->currentView());
+        QVERIFY(icons);
+        auto *delegate = qobject_cast<KFileItemDelegate *>(icons->itemDelegate());
+        QVERIFY(delegate);
+        QCOMPARE(delegate->showInformation(), KFileItemDelegate::InformationList({KFileItemDelegate::Size}));
+        view->setGroupBy(QStringLiteral("name"));
+        window.applySettings();
+        QCOMPARE(view->groupBy(), QStringLiteral("name"));
+    }
+
+    void fileRulesApplyToExistingListing()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *colors = dialog.findChild<RuleListEditor *>(QStringLiteral("kcfg_ExtensionColors"));
+        auto *ignored = dialog.findChild<RuleListEditor *>(QStringLiteral("kcfg_IgnoreList"));
+        QVERIFY(colors && ignored);
+        colors->setRules({QStringLiteral("txt=#123456")});
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(view->currentView()->model()->index(0, 0).data(Qt::ForegroundRole).value<QColor>(), QColor(QStringLiteral("#123456")));
+        ignored->setRules({QStringLiteral("*.txt")});
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QTRY_COMPARE(view->itemCount(), 0);
     }
 
     void kioConfirmationsAreSharedWithDolphin()

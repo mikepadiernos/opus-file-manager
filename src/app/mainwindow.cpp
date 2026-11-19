@@ -1484,7 +1484,7 @@ void MainWindow::applySettings()
         pane->setFollowSymlinks(Settings::followSymlinks());
 
         FolderView *view = pane->view();
-        view->setIconSizes(Settings::detailsIconSize(), Settings::iconsIconSize());
+        view->reloadListingSettings();
         view->setColumnVisible(KDirModel::Size, Settings::showSizeColumn());
         view->setColumnVisible(KDirModel::ModifiedTime, Settings::showModifiedColumn());
         view->setColumnVisible(KDirModel::Permissions, Settings::showPermissionsColumn());

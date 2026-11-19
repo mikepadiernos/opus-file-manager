@@ -4,6 +4,7 @@
       xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0 http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
   <include>QDir</include>
   <include>KIO/PreviewJob</include>
+  <include>ignorelist.h</include>
   <include>limits</include>
   <kcfgfile/>
   <group name="Startup">
@@ -182,6 +183,23 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="View">
+    <entry name="GroupBy" type="Enum">
+      <choices><choice name="none"/><choice name="name"/><choice name="Type" value="type"/><choice name="size"/><choice name="date"/><choice name="ext"/></choices>
+      <default>none</default>
+    </entry>
+    <entry name="SizeFormat" type="Enum">
+      <choices><choice name="human"/><choice name="bytes"/></choices>
+      <default>human</default>
+    </entry>
+    <entry name="DateFormat" type="Enum">
+      <choices><choice name="locale"/><choice name="iso"/></choices>
+      <default>locale</default>
+    </entry>
+    <entry name="ShowSeconds" type="Bool"><default>false</default></entry>
+    <entry name="IconNameLines" type="Int"><default>2</default><min>1</min><max>5</max></entry>
+    <entry name="IconInformation" type="StringList"><default></default></entry>
+  </group>
   <group name="Previews">
     <entry name="ShowPreviews" type="Bool">
       <label>Show previews in a new window</label>
@@ -228,6 +246,10 @@
     <entry name="DefaultArchiveFormat" key="DefaultFormat" type="Int">
       <default>0</default><min>0</min><max>4</max>
     </entry>
+  </group>
+  <group name="Files">
+    <entry name="IgnoreList" type="StringList"><default code="true">IgnoreList::defaultEntries()</default></entry>
+    <entry name="ExtensionColors" type="StringList"><default></default></entry>
   </group>
   <group name="StatusBar">
     <entry name="ShowItemCounts" type="Bool">

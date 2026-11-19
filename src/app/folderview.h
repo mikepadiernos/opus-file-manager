@@ -160,6 +160,7 @@ public:
     void setFlat(bool flat);
     /// Reloads the current folder's labels, colours, ratings, notes and pins.
     void reloadMetadata();
+    void reloadListingSettings();
     QString groupBy() const;
     void setGroupBy(const QString &group);
 

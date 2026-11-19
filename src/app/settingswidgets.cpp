@@ -2,9 +2,19 @@
 
 #include "settingswidgets.h"
 
+#include "filecolorrules.h"
+#include "ignorelist.h"
+
 #include <KIO/PreviewJob>
 #include <KLocalizedString>
 #include <KPluginMetaData>
+
+#include <QColorDialog>
+#include <QHBoxLayout>
+#include <QInputDialog>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QVBoxLayout>
 
 #include <algorithm>
 #include <limits>
@@ -14,6 +24,142 @@ namespace
 constexpr qulonglong MiB = 1024 * 1024;
 constexpr qulonglong NoLimit = std::numeric_limits<qulonglong>::max();
 constexpr int MaximumMiB = 100000;
+}
+
+RuleListEditor::RuleListEditor(Kind kind, QWidget *parent)
+    : QWidget(parent)
+    , m_kind(kind)
+    , m_list(new QListWidget(this))
+{
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(m_list);
+    auto *buttons = new QHBoxLayout;
+    auto *add = new QPushButton(i18nc("@action:button", "Add..."), this);
+    auto *edit = new QPushButton(i18nc("@action:button", "Edit..."), this);
+    auto *remove = new QPushButton(i18nc("@action:button", "Remove"), this);
+    buttons->addWidget(add);
+    buttons->addWidget(edit);
+    buttons->addWidget(remove);
+    buttons->addStretch();
+    layout->addLayout(buttons);
+    connect(add, &QPushButton::clicked, this, [this] {
+        editRule(-1);
+    });
+    connect(edit, &QPushButton::clicked, this, [this] {
+        if (m_list->currentRow() >= 0) {
+            editRule(m_list->currentRow());
+        }
+    });
+    connect(m_list, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item) {
+        editRule(m_list->row(item));
+    });
+    connect(remove, &QPushButton::clicked, this, [this] {
+        const int row = m_list->currentRow();
+        if (row >= 0) {
+            delete m_list->takeItem(row);
+            Q_EMIT rulesChanged();
+        }
+    });
+}
+
+QStringList RuleListEditor::rules() const
+{
+    QStringList result;
+    for (int row = 0; row < m_list->count(); ++row) {
+        result.append(m_list->item(row)->data(Qt::UserRole).toString());
+    }
+    return result;
+}
+
+void RuleListEditor::setRules(const QStringList &rules)
+{
+    m_list->clear();
+    const QStringList sanitized = m_kind == Kind::Ignore ? IgnoreList(rules).entries() : FileColorRules(rules).entries();
+    for (const QString &rule : sanitized) {
+        auto *item = new QListWidgetItem(rule, m_list);
+        item->setData(Qt::UserRole, rule);
+        if (m_kind == Kind::Color) {
+            item->setForeground(QColor(rule.sliced(rule.indexOf(u'=') + 1)));
+        }
+    }
+    Q_EMIT rulesChanged();
+}
+
+void RuleListEditor::editRule(int row)
+{
+    if (row < -1 || row >= m_list->count()) {
+        return;
+    }
+    QStringList current = rules();
+    const QString old = row >= 0 ? current.takeAt(row) : QString();
+    bool accepted = false;
+    const QString label = m_kind == Kind::Ignore ? i18nc("@label:textbox", "File name or glob pattern:") : i18nc("@label:textbox", "File extension:");
+    const QString initial = m_kind == Kind::Ignore ? old : old.section(u'=', 0, 0);
+    QString value = QInputDialog::getText(this, i18nc("@title:window", "Edit Rule"), label, QLineEdit::Normal, initial, &accepted).trimmed();
+    if (!accepted) {
+        return;
+    }
+    if (m_kind == Kind::Color) {
+        const QColor previous = row < 0 ? QColor(Qt::black) : QColor(old.section(u'=', 1));
+        const QColor color = QColorDialog::getColor(previous, this, i18nc("@title:window", "File Colour"));
+        if (!color.isValid()) {
+            return;
+        }
+        value += u'=' + color.name(QColor::HexRgb);
+    }
+    current.append(value);
+    const QStringList sanitized = m_kind == Kind::Ignore ? IgnoreList(current).entries() : FileColorRules(current).entries();
+    if (sanitized.size() != current.size()) {
+        QMessageBox::warning(this, i18nc("@title:window", "Invalid Rule"), i18nc("@info", "The rule is invalid, duplicated, or the list is full."));
+        return;
+    }
+    setRules(sanitized);
+}
+
+IconInformationList::IconInformationList(QWidget *parent)
+    : QListWidget(parent)
+{
+    const QList<QPair<QString, QString>> options{
+        {QStringLiteral("size"), i18nc("@option:check", "Size")},
+        {QStringLiteral("permissions"), i18nc("@option:check", "Permissions")},
+        {QStringLiteral("octalPermissions"), i18nc("@option:check", "Permissions (octal)")},
+        {QStringLiteral("owner"), i18nc("@option:check", "Owner")},
+        {QStringLiteral("ownerAndGroup"), i18nc("@option:check", "Owner and group")},
+        {QStringLiteral("creationTime"), i18nc("@option:check", "Created")},
+        {QStringLiteral("modificationTime"), i18nc("@option:check", "Modified")},
+        {QStringLiteral("accessTime"), i18nc("@option:check", "Accessed")},
+        {QStringLiteral("mimeType"), i18nc("@option:check", "MIME type")},
+        {QStringLiteral("friendlyMimeType"), i18nc("@option:check", "File type")},
+        {QStringLiteral("linkDest"), i18nc("@option:check", "Link target")},
+        {QStringLiteral("localPathOrUrl"), i18nc("@option:check", "Path or URL")},
+        {QStringLiteral("comment"), i18nc("@option:check", "Comment")},
+    };
+    for (const auto &[key, label] : options) {
+        auto *item = new QListWidgetItem(label, this);
+        item->setData(Qt::UserRole, key);
+        item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable);
+        item->setCheckState(Qt::Unchecked);
+    }
+    connect(this, &QListWidget::itemChanged, this, &IconInformationList::informationChanged);
+}
+
+QStringList IconInformationList::information() const
+{
+    QStringList result;
+    for (int row = 0; row < count(); ++row) {
+        if (item(row)->checkState() == Qt::Checked) {
+            result.append(item(row)->data(Qt::UserRole).toString());
+        }
+    }
+    return result;
+}
+
+void IconInformationList::setInformation(const QStringList &information)
+{
+    for (int row = 0; row < count(); ++row) {
+        item(row)->setCheckState(information.contains(item(row)->data(Qt::UserRole).toString()) ? Qt::Checked : Qt::Unchecked);
+    }
 }
 
 PreviewPluginList::PreviewPluginList(QWidget *parent)

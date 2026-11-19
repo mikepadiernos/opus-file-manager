@@ -117,6 +117,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                   i18nc("@title:group", "Context Menu"),
                   QStringLiteral("application-menu"));
     addTabbedPage({{createArchivesPage(), i18nc("@title:tab", "Defaults")}}, i18nc("@title:group", "Archives"), QStringLiteral("package-x-generic"));
+    addTabbedPage({{createFileRulesPage(), i18nc("@title:tab", "Rules")}}, i18nc("@title:group", "Files"), QStringLiteral("folder"));
     applySidebarStyle();
     connect(this, &KConfigDialog::settingsChanged, this, &SettingsDialog::applySidebarStyle);
     updateWidgets();
@@ -212,6 +213,19 @@ QWidget *SettingsDialog::createViewGeneralPage()
     form->addRow(QString(), checkBox(QStringLiteral("ShowHiddenFiles"), i18nc("@option:check", "Show hidden files in new windows")));
     form->addRow(i18nc("@title:group", "Sorting:"), checkBox(QStringLiteral("FoldersFirst"), i18nc("@option:check", "Folders before files")));
     form->addRow(i18nc("@title:group", "Tooltips:"), checkBox(QStringLiteral("ShowToolTips"), i18nc("@option:check", "Show the full name of shortened items")));
+    form->addRow(i18nc("@label:listbox", "Default grouping:"),
+                 comboBox(QStringLiteral("GroupBy"),
+                          {i18nc("@item:inlistbox", "No Grouping"),
+                           i18nc("@item:inlistbox", "Name"),
+                           i18nc("@item:inlistbox", "Type"),
+                           i18nc("@item:inlistbox", "Size"),
+                           i18nc("@item:inlistbox", "Date"),
+                           i18nc("@item:inlistbox", "Extension")}));
+    form->addRow(i18nc("@label:listbox", "Size format:"),
+                 comboBox(QStringLiteral("SizeFormat"), {i18nc("@item:inlistbox", "Human readable"), i18nc("@item:inlistbox", "Bytes")}));
+    form->addRow(i18nc("@label:listbox", "Date format:"),
+                 comboBox(QStringLiteral("DateFormat"), {i18nc("@item:inlistbox", "Locale"), i18nc("@item:inlistbox", "ISO 8601")}));
+    form->addRow({}, checkBox(QStringLiteral("ShowSeconds"), i18nc("@option:check", "Show seconds")));
     return page;
 }
 
@@ -238,6 +252,11 @@ QWidget *SettingsDialog::createIconsPage()
     auto *form = new QFormLayout(page);
     form->addRow(i18nc("@label:spinbox", "Icon and preview size:"), pixelSpinBox(QStringLiteral("IconsIconSize"), 32, 256));
     addDensityRows(form, QStringLiteral("IconsDensity"), QStringLiteral("IconsCustomSpace"));
+    auto *lines = new QSpinBox;
+    lines->setObjectName(QStringLiteral("kcfg_IconNameLines"));
+    lines->setRange(1, 5);
+    form->addRow(i18nc("@label:spinbox", "Name lines:"), lines);
+    form->addRow(i18nc("@label", "Metadata shown:"), bound(new IconInformationList, QStringLiteral("IconInformation"), "information"));
     return page;
 }
 
@@ -321,6 +340,16 @@ QWidget *SettingsDialog::createArchivesPage()
                            i18nc("@item:inlistbox", "tar.gz"),
                            i18nc("@item:inlistbox", "tar.xz"),
                            i18nc("@item:inlistbox", "tar.zst")}));
+    return page;
+}
+
+QWidget *SettingsDialog::createFileRulesPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(i18nc("@label", "Ignored names:"), bound(new RuleListEditor(RuleListEditor::Kind::Ignore), QStringLiteral("IgnoreList"), "rules"));
+    form->addRow(i18nc("@label", "File colours by extension:"),
+                 bound(new RuleListEditor(RuleListEditor::Kind::Color), QStringLiteral("ExtensionColors"), "rules"));
     return page;
 }
 

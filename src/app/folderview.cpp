@@ -4,6 +4,7 @@
 
 #include "densitydelegate.h"
 #include "detailsview.h"
+#include "filecolorrules.h"
 #include "fileoperations.h"
 #include "flatview.h"
 #include "foldermetadata.h"
@@ -25,6 +26,7 @@
 #include <QActionGroup>
 #include <QApplication>
 #include <QDate>
+#include <QDateTime>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
@@ -35,6 +37,7 @@
 #include <QJsonObject>
 #include <QKeyEvent>
 #include <QListView>
+#include <QLocale>
 #include <QMenu>
 #include <QMimeData>
 #include <QMouseEvent>
@@ -128,10 +131,21 @@ public:
         m_metadata = metadata;
         m_metadataDirectory = directory.isEmpty() ? QString() : QFileInfo(directory).absoluteFilePath();
         m_metadataCache.clear();
+        m_ignoreList = IgnoreList(Settings::ignoreList());
+        m_fileColors = FileColorRules(Settings::extensionColors());
         FolderMetadata::Format format;
-        m_groupBy = FolderMetadata::format(metadata, &format) ? format.group : QStringLiteral("none");
+        static const QStringList groups{QStringLiteral("none"),
+                                        QStringLiteral("name"),
+                                        QStringLiteral("type"),
+                                        QStringLiteral("size"),
+                                        QStringLiteral("date"),
+                                        QStringLiteral("ext")};
+        m_groupBy = FolderMetadata::format(metadata, &format) ? format.group : groups.value(Settings::groupBy(), QStringLiteral("none"));
         endFilterChange(QSortFilterProxyModel::Direction::Rows);
         sort(sortColumn(), sortOrder());
+        if (rowCount() > 0) {
+            Q_EMIT dataChanged(index(0, 0), index(rowCount() - 1, columnCount() - 1));
+        }
     }
 
     QJsonObject metadata() const
@@ -217,6 +231,24 @@ public:
 
     QVariant data(const QModelIndex &index, int role) const override
     {
+        if (role == Qt::DisplayRole && index.column() == KDirModel::Size && Settings::sizeFormat() == Settings::EnumSizeFormat::bytes) {
+            const KFileItem item = itemAt(index);
+            if (!item.isDir()) {
+                return QString(QLocale().toString(item.size()) + i18nc("@unit byte in file size", " B"));
+            }
+        }
+        if (role == Qt::DisplayRole && index.column() == KDirModel::ModifiedTime) {
+            const QDateTime modified = itemAt(index).time(KFileItem::ModificationTime);
+            if (modified.isValid()) {
+                if (Settings::dateFormat() == Settings::EnumDateFormat::iso) {
+                    return modified.toString(Settings::showSeconds() ? QStringLiteral("yyyy-MM-dd HH:mm:ss") : QStringLiteral("yyyy-MM-dd HH:mm"));
+                }
+                if (Settings::showSeconds()) {
+                    return QString(QLocale().toString(modified.date(), QLocale::ShortFormat) + u' ' + QLocale().toString(modified.time(), QLocale::LongFormat));
+                }
+                return QLocale().toString(modified, QLocale::ShortFormat);
+            }
+        }
         if (isRelativePath(index.column()) && role == Qt::DisplayRole) {
             return FlatView::relativeFolder(m_flatBase, itemAt(index).url());
         }
@@ -229,6 +261,10 @@ public:
             if (role == Qt::ForegroundRole && index.column() == KDirModel::Name) {
                 if (!color.isEmpty()) {
                     return QColor(color);
+                }
+                const QColor extensionColor = m_fileColors.colorForFileName(name);
+                if (extensionColor.isValid()) {
+                    return extensionColor;
                 }
                 const QColor labelColor = LabelColors::rgb(LabelColors::fromKey(label));
                 if (labelColor.isValid()) {
@@ -387,6 +423,7 @@ private:
     QUrl m_flatBase;
     NameFilter m_filter;
     IgnoreList m_ignoreList;
+    FileColorRules m_fileColors;
     QJsonObject m_metadata;
     QString m_metadataDirectory;
     mutable QHash<QString, QJsonObject> m_metadataCache;
@@ -543,6 +580,7 @@ FolderView::FolderView(QWidget *parent)
     connect(m_details->header(), &QHeaderView::sectionMoved, this, [this] {
         saveFolderFormat();
     });
+    reloadListingSettings();
 }
 
 FolderView::~FolderView()
@@ -674,7 +712,9 @@ void FolderView::setIconSizes(int details, int icons)
 {
     m_details->setIconSize(QSize(details, details));
     m_icons->setIconSize(QSize(icons, icons));
-    m_icons->setGridSize(QSize(icons + IconGridMargin, icons + IconGridMargin));
+    const int height = qMax(icons + IconGridMargin, icons + fontMetrics().height() * (Settings::iconNameLines() + Settings::iconInformation().size()) + 16);
+    m_icons->setGridSize(QSize(icons + IconGridMargin, height));
+    m_iconsDelegate->setMaximumSize(m_icons->gridSize());
 }
 
 void FolderView::setItemSpacing(int detailsSpace, int iconsSpace)
@@ -863,6 +903,35 @@ void FolderView::reloadMetadata()
     if (!error.isEmpty()) {
         Q_EMIT listingFailed(error);
     }
+}
+
+void FolderView::reloadListingSettings()
+{
+    const QHash<QString, KFileItemDelegate::Information> options{
+        {QStringLiteral("size"), KFileItemDelegate::Size},
+        {QStringLiteral("permissions"), KFileItemDelegate::Permissions},
+        {QStringLiteral("octalPermissions"), KFileItemDelegate::OctalPermissions},
+        {QStringLiteral("owner"), KFileItemDelegate::Owner},
+        {QStringLiteral("ownerAndGroup"), KFileItemDelegate::OwnerAndGroup},
+        {QStringLiteral("creationTime"), KFileItemDelegate::CreationTime},
+        {QStringLiteral("modificationTime"), KFileItemDelegate::ModificationTime},
+        {QStringLiteral("accessTime"), KFileItemDelegate::AccessTime},
+        {QStringLiteral("mimeType"), KFileItemDelegate::MimeType},
+        {QStringLiteral("friendlyMimeType"), KFileItemDelegate::FriendlyMimeType},
+        {QStringLiteral("linkDest"), KFileItemDelegate::LinkDest},
+        {QStringLiteral("localPathOrUrl"), KFileItemDelegate::LocalPathOrUrl},
+        {QStringLiteral("comment"), KFileItemDelegate::Comment},
+    };
+    KFileItemDelegate::InformationList information;
+    for (const QString &key : Settings::iconInformation()) {
+        if (options.contains(key)) {
+            information.append(options.value(key));
+        }
+    }
+    m_iconsDelegate->setShowInformation(information);
+    setIconSizes(Settings::detailsIconSize(), Settings::iconsIconSize());
+    m_icons->doItemsLayout();
+    reloadMetadata();
 }
 
 QString FolderView::groupBy() const
