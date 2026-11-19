@@ -68,8 +68,8 @@ stored in KConfig; Places sections and trash/delete confirmations are shared
 with Dolphin.
 
 - **General**
-  - **Settings Dialog:** sidebar icon size (default 24 px) and title position
-    (to the right of icons by default, or below)
+  - ~~**Settings Dialog:** sidebar icon size (default 24 px) and title position
+    (to the right of icons by default, or below)~~
 - **Interface**
   - **Folders and Tabs:** startup folders and session; one or two panes in new
     windows; tab bars; Tab switches panes; new-tab placement; navigation bars;
@@ -122,16 +122,17 @@ with Dolphin.
 - ~~Popular folders and a jump-back point (Krusader)~~
 - ~~Archive integrity testing for local ZIP, TAR and 7z files, with password
   prompts for encrypted 7z archives (Krusader)~~
+- Password-protected archive support beyond integrity testing (Krusader)
 - ~~Display style per pane (Orcinus)~~
-- ~~Expandable folders (Orcinus)~~
+- Expandable folders inline in the file listing (Orcinus)
 - ~~Persistent filters (Orcinus)~~
 - ~~File-name highlighting (Orcinus)~~
 - Compact view with names beside icons and entries arranged in columns
   (Dolphin)
 - Optional selection markers and a selection mode with an action bar, so
   multiple items can be selected without modifier keys (Dolphin)
-- Details-view column-header controls to show or hide columns and fit column
-  widths to their contents (Dolphin)
+- Details-view column-header controls to ~~show or hide columns~~ and fit
+  column widths to their contents (Dolphin)
 
 ### M04 Listing depth settings
 
@@ -210,7 +211,10 @@ are unchanged, and the preview panel's Open button opens the application.
 
 ### M07 Editor
 
-- KTextEditor-based editor (docked, maximised, standalone)
+- KTextEditor-based editor: use it as a panel alongside Information or
+  Preview, or as a separate embedded area below or to the right of both panes,
+  like the embedded terminal. Neither embedded placement replaces a pane.
+  Also support maximised and standalone editor windows.
 - Drafts
 - Markdown preview and PDF export
 
@@ -219,7 +223,10 @@ are unchanged, and the preview panel's Open button opens the application.
 Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 
 - **Editor**
-  - **Opening:** where files open (docked, maximised or own window)
+  - **Opening:** where files open (panel, separate embedded area, maximised or
+    own window)
+  - **Embedded placement:** below or to the right of both panes when using a
+    separate embedded area
   - **Text:** font size and word wrap
   - **Markdown:** default markdown mode (visual or source)
   - **Drafts:** drafts on or off
@@ -319,7 +326,7 @@ Settings for M11 UI customizations, stored in KConfig.
 
 - `org.freedesktop.FileManager1` D-Bus service
 - Deep integration with ARK
-- Default file manager registration
+- ~~Default file manager registration~~
 - System tray and global shortcut
 - XDG portal file chooser
 - MCP server
