@@ -3,6 +3,7 @@
 #pragma once
 
 #include <QList>
+#include <QString>
 #include <QUrl>
 
 class KConfigGroup;
@@ -23,6 +24,8 @@ struct PaneSession {
     QList<int> lockedTabs;
     /// One custom name per tab, empty for none; may be shorter than tabs.
     QStringList names;
+    QString filterText;
+    int filterScope = 0;
 
     bool operator==(const PaneSession &other) const = default;
 };

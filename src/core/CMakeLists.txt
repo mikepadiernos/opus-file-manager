@@ -37,6 +37,8 @@ add_library(opusfm_core STATIC
     symbolicicon.h
     tabmodel.cpp
     tabmodel.h
+    viewsettings.cpp
+    viewsettings.h
 )
 
 kconfig_add_kcfg_files(opusfm_core GENERATE_MOC settings.kcfgc)
@@ -49,6 +51,7 @@ target_link_libraries(opusfm_core
         Qt6::Gui
         KF6::Archive
         KF6::ConfigCore
+        KF6::I18n
         KF6::KIOCore
         KF6::ConfigGui
         KF6::KIOGui

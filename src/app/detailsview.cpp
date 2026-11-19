@@ -77,7 +77,7 @@ void DetailsView::mouseReleaseEvent(QMouseEvent *event)
         QTreeView::mouseReleaseEvent(event);
         return;
     }
-    if (!m_band->isVisible()) {
+    if (!m_band->isVisible() && m_bandPressedIndex.isValid()) {
         selectionModel()->setCurrentIndex(m_bandPressedIndex,
                                           (m_bandKeepsSelection ? QItemSelectionModel::Toggle : QItemSelectionModel::ClearAndSelect)
                                               | QItemSelectionModel::Rows);

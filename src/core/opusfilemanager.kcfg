@@ -133,6 +133,10 @@
       <label>Show the Group column</label>
       <default>false</default>
     </entry>
+    <entry name="ShowRatingColumn" type="Bool">
+      <label>Show Rating instead of the Group column</label>
+      <default>false</default>
+    </entry>
     <entry name="DetailsDensity" type="Enum">
       <label>Space around items in the details view</label>
       <choices>

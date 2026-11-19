@@ -119,8 +119,18 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     addTabbedPage({{createArchivesPage(), i18nc("@title:tab", "Defaults")}}, i18nc("@title:group", "Archives"), QStringLiteral("package-x-generic"));
     addTabbedPage({{createFileRulesPage(), i18nc("@title:tab", "Rules")}}, i18nc("@title:group", "Files"), QStringLiteral("folder"));
     applySidebarStyle();
-    connect(this, &KConfigDialog::settingsChanged, this, &SettingsDialog::applySidebarStyle);
+    connect(this, &KConfigDialog::settingsChanged, this, [this] {
+        applySidebarStyle();
+    });
     updateWidgets();
+    m_savedPreviewLimit = m_previewLimit->bytes();
+    auto *size = findChild<QSpinBox *>(QStringLiteral("kcfg_SidebarIconSize"));
+    auto *position = findChild<QComboBox *>(QStringLiteral("kcfg_SidebarTitlePosition"));
+    const auto preview = [this, size, position] {
+        applySidebarStyle(size->value(), position->currentIndex() == Settings::EnumSidebarTitlePosition::Below);
+    };
+    connect(size, &QSpinBox::valueChanged, this, preview);
+    connect(position, &QComboBox::currentIndexChanged, this, preview);
 }
 
 void SettingsDialog::addTabbedPage(const QList<std::pair<QWidget *, QString>> &tabs, const QString &title, const QString &iconName)
@@ -134,10 +144,13 @@ void SettingsDialog::addTabbedPage(const QList<std::pair<QWidget *, QString>> &t
 
 void SettingsDialog::applySidebarStyle()
 {
-    const bool below = Settings::sidebarTitlePosition() == Settings::EnumSidebarTitlePosition::Below;
+    applySidebarStyle(Settings::sidebarIconSize(), Settings::sidebarTitlePosition() == Settings::EnumSidebarTitlePosition::Below);
+}
+
+void SettingsDialog::applySidebarStyle(int size, bool below)
+{
     setFaceType(below ? KPageDialog::List : KPageDialog::FlatList);
 
-    const int size = Settings::sidebarIconSize();
     for (const auto &[item, iconName] : std::as_const(m_pageIcons)) {
         item->setIcon(size <= SymbolicIconMaxSize ? QIcon::fromTheme(iconName + QStringLiteral("-symbolic"), QIcon::fromTheme(iconName))
                                                   : QIcon::fromTheme(iconName));
@@ -240,6 +253,7 @@ QWidget *SettingsDialog::createDetailsPage()
     form->addRow(QString(), checkBox(QStringLiteral("ShowPermissionsColumn"), i18nc("@option:check", "Permissions")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowOwnerColumn"), i18nc("@option:check", "Owner")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowGroupColumn"), i18nc("@option:check", "Group")));
+    form->addRow(QString(), checkBox(QStringLiteral("ShowRatingColumn"), i18nc("@option:check", "Rating (replaces Group)")));
     addDensityRows(form, QStringLiteral("DetailsDensity"), QStringLiteral("DetailsCustomSpace"));
     form->addRow(i18nc("@title:group", "Dragging:"),
                  checkBox(QStringLiteral("DragFromAnywhere"), i18nc("@option:check", "Drag files and folders from anywhere in their row")));
@@ -266,7 +280,8 @@ QWidget *SettingsDialog::createPreviewsPage()
     auto *form = new QFormLayout(page);
     form->addRow(QString(), checkBox(QStringLiteral("ShowPreviews"), i18nc("@option:check", "Show previews in new windows")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowRemotePreviews"), i18nc("@option:check", "Show previews in remote folders")));
-    form->addRow(i18nc("@label:spinbox", "Skip files larger than:"), bound(new PreviewSizeSpinBox, QStringLiteral("MaximumPreviewSize"), "bytes"));
+    m_previewLimit = bound(new PreviewSizeSpinBox, QStringLiteral("MaximumPreviewSize"), "bytes");
+    form->addRow(i18nc("@label:spinbox", "Skip files larger than:"), m_previewLimit);
     form->addRow(i18nc("@label", "Show previews for:"), bound(new PreviewPluginList, QStringLiteral("PreviewPlugins"), "plugins"));
     return page;
 }
@@ -464,6 +479,13 @@ SettingsDialog::addSharedToggle(const QString &name, const QString &text, std::f
 
 void SettingsDialog::updateSettings()
 {
+    const qulonglong previewLimit = m_previewLimit->bytes();
+    if (previewLimit != m_savedPreviewLimit) {
+        KConfigGroup previews = KSharedConfig::openConfig(QStringLiteral("kiorc"), KConfig::NoGlobals)->group(QStringLiteral("PreviewSettings"));
+        previews.writeEntry("MaximumSize", previewLimit);
+        previews.sync();
+        m_savedPreviewLimit = previewLimit;
+    }
     for (const SharedToggle &toggle : std::as_const(m_sharedToggles)) {
         toggle.write(toggle.check->isChecked());
     }
@@ -481,6 +503,12 @@ void SettingsDialog::updateWidgetsDefault()
     for (const SharedToggle &toggle : std::as_const(m_sharedToggles)) {
         toggle.check->setChecked(toggle.defaultValue);
     }
+    QMetaObject::invokeMethod(
+        this,
+        [this] {
+            updateButtons();
+        },
+        Qt::QueuedConnection);
 }
 
 bool SettingsDialog::hasChanged()

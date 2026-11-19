@@ -4,6 +4,7 @@
 #include "combinedpanel.h"
 #include "compressdialog.h"
 #include "fileoperations.h"
+#include "foldermetadata.h"
 #include "folderview.h"
 #include "mainwindow.h"
 #include "pane.h"
@@ -265,7 +266,10 @@ private Q_SLOTS:
         CompressDialog archive(QStringLiteral("test"), false, &window, static_cast<ArchiveWriter::Format>(Settings::defaultArchiveFormat()));
         QCOMPARE(archive.format(), ArchiveWriter::Format::TarXz);
 
+        QVERIFY(dialog.button(QDialogButtonBox::RestoreDefaults)->isEnabled());
         dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QVERIFY(dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_FavoritesVisible"))->isChecked());
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
         dialog.button(QDialogButtonBox::Apply)->click();
         QVERIFY(Settings::favoritesVisible());
         QCOMPARE(Settings::panelPosition(), Settings::EnumPanelPosition::left);
@@ -772,6 +776,48 @@ private Q_SLOTS:
         QVERIFY(view->isColumnVisible(KDirModel::Name));
         QVERIFY(!view->sortFoldersFirst());
         QVERIFY(!view->showToolTips());
+
+        window.activePane()->setUrl(m_b);
+        QVERIFY(view->isColumnVisible(KDirModel::Owner));
+        QVERIFY(!view->isColumnVisible(KDirModel::Size));
+    }
+
+    void applyingSettingsPreservesFolderRatingColumn()
+    {
+        FolderMetadata::Format format;
+        format.view = QStringLiteral("list");
+        format.columns = {QStringLiteral("rating")};
+        format.sortKey = QStringLiteral("name");
+        format.group = QStringLiteral("none");
+        QVERIFY(FolderMetadata::setFormat(m_a.toLocalFile(), format));
+
+        MainWindow window;
+        window.openUrls({m_a});
+        FolderView *view = window.activePane()->view();
+        QVERIFY(view->isColumnVisible(KDirModel::Group));
+        QCOMPARE(view->currentView()->model()->headerData(KDirModel::Group, Qt::Horizontal).toString(), QStringLiteral("Rating"));
+        window.applySettings();
+        QVERIFY(view->isColumnVisible(KDirModel::Group));
+        QCOMPARE(view->currentView()->model()->headerData(KDirModel::Group, Qt::Horizontal).toString(), QStringLiteral("Rating"));
+    }
+
+    void legacyRatingDefaultsSurviveMigrationAndNavigation()
+    {
+        KConfigGroup legacy = KSharedConfig::openConfig()->group(QStringLiteral("View"));
+        legacy.writeEntry("VisibleColumns", QStringList{QStringLiteral("size"), QStringLiteral("rating")});
+        legacy.sync();
+
+        MainWindow window;
+        window.openUrls({m_a});
+        FolderView *view = window.activePane()->view();
+        QVERIFY(Settings::showRatingColumn());
+        QVERIFY(view->isColumnVisible(KDirModel::Group));
+        QCOMPARE(view->currentView()->model()->headerData(KDirModel::Group, Qt::Horizontal).toString(), QStringLiteral("Rating"));
+        window.activePane()->setUrl(m_b);
+        window.applySettings();
+        QVERIFY(view->isColumnVisible(KDirModel::Group));
+        QCOMPARE(view->currentView()->model()->headerData(KDirModel::Group, Qt::Horizontal).toString(), QStringLiteral("Rating"));
+        QVERIFY(!legacy.hasKey("VisibleColumns"));
     }
 
     void previewSettings()

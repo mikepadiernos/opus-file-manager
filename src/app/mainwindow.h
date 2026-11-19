@@ -5,6 +5,7 @@
 #include <KFileItem>
 #include <KXmlGuiWindow>
 
+#include <QHash>
 #include <QList>
 #include <QUrl>
 
@@ -22,6 +23,7 @@ class Pane;
 class TabColors;
 class QDockWidget;
 class QLabel;
+class QMenu;
 class QSplitter;
 
 class MainWindow : public KXmlGuiWindow
@@ -97,6 +99,17 @@ private:
     void updateWindowTitle();
     void updateTabBars();
     void showStatusMessage(const QString &message);
+    void recordFolderVisit(Pane *pane, const QUrl &url);
+    void savePopularFolderVisits();
+    void populatePopularFolders();
+    void populateSelectionFilters();
+    void applySelectionFilter(const QString &pattern);
+    void selectByPattern(bool select);
+    void saveSelectionFilter();
+    void calculateOccupiedSpace();
+    void jumpBack();
+    void testArchiveIntegrity();
+    void testArchiveFile(const QString &fileName, const QString &password = QString());
 
     void restoreSession();
     void saveSession();
@@ -185,8 +198,17 @@ private:
     KToggleAction *m_hiddenFilesAction = nullptr;
     KToggleAction *m_previewsAction = nullptr;
     QAction *m_viewModeAction = nullptr;
+    QAction *m_selectionModeAction = nullptr;
+    QAction *m_selectionMarkersAction = nullptr;
     QAction *m_undoAction = nullptr;
     QAction *m_pasteAction = nullptr;
-    bool m_sessionRestored = false;
+    QAction *m_jumpBackAction = nullptr;
+    QMenu *m_selectionFiltersMenu = nullptr;
+    QMenu *m_popularFoldersMenu = nullptr;
+    QHash<QString, int> m_popularFolderVisits;
+    QHash<Pane *, QUrl> m_lastFolderByPane;
+    QHash<Pane *, QUrl> m_jumpBackPoints;
+    bool m_jumpingBack = false;
     bool m_autoFocusFolders = true;
+    bool m_sessionRestored = false;
 };

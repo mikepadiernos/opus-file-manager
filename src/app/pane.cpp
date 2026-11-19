@@ -19,6 +19,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QDir>
+#include <QFileInfo>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QMenu>
@@ -30,7 +31,6 @@
 
 Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     : QWidget(parent)
-    , m_colors(colors)
     , m_tabs(new TabModel(this))
     , m_tabBar(new QTabBar(this))
     , m_tabStrip(new QWidget(this))
@@ -39,6 +39,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     , m_up(new QToolButton(this))
     , m_reload(new QToolButton(this))
     , m_navigator(new KUrlNavigator(places, QUrl(), this))
+    , m_colors(colors)
     , m_view(new FolderView(this))
 {
     m_tabBar->setDocumentMode(true);
@@ -244,6 +245,30 @@ bool Pane::isNavigationBarVisible() const
     return !m_navigationBar->isHidden();
 }
 
+void Pane::setBarDensity(const QString &density)
+{
+    auto *layout = qobject_cast<QHBoxLayout *>(m_navigationBar->layout());
+    if (!layout) {
+        return;
+    }
+    const bool normal = density == QLatin1String("Normal");
+    const int margin = density == QLatin1String("Compact") ? 2 : 0;
+    const int defaultIconSize = style()->pixelMetric(QStyle::PM_SmallIconSize, nullptr, this);
+    const int iconSize = qMax(12, defaultIconSize - (density == QLatin1String("Compact") ? 2 : normal ? 0 : 4));
+    layout->setContentsMargins(normal ? 0 : margin, normal ? 0 : margin, normal ? 0 : margin, normal ? 0 : margin);
+    layout->setSpacing(normal ? 0 : margin);
+    for (QToolButton *button : {m_back, m_forward, m_up, m_reload}) {
+        button->setIconSize(QSize(iconSize, iconSize));
+        if (normal) {
+            button->setMinimumSize(0, 0);
+            button->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+        } else {
+            button->setFixedSize(iconSize + 6, iconSize + 6);
+        }
+    }
+    m_navigator->setMinimumHeight(normal ? 0 : iconSize + 6);
+}
+
 void Pane::setNewTabsAfterCurrent(bool afterCurrent)
 {
     m_newTabsAfterCurrent = afterCurrent;
@@ -378,6 +403,9 @@ PaneSession Pane::saveState() const
         }
         state.names.append(m_tabs->nameAt(i));
     }
+    const NameFilter filter = m_filterBar->filter();
+    state.filterText = filter.text();
+    state.filterScope = static_cast<int>(filter.scope());
     return state;
 }
 
@@ -396,6 +424,7 @@ void Pane::restoreState(const PaneSession &state)
         m_tabs->setName(i, state.names.at(i));
     }
     m_tabs->setCurrentIndex(state.currentTab);
+    m_filterBar->setFilter(NameFilter(state.filterText, static_cast<NameFilter::Scope>(qBound(0, state.filterScope, 2))));
 }
 
 void Pane::reloadTabSettings()

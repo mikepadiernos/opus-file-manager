@@ -79,6 +79,7 @@ private Q_SLOTS:
         KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Session"));
         KSharedConfig::openStateConfig()->sync();
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("TabColors"));
+        KSharedConfig::openConfig()->group(QStringLiteral("Confirmations")).writeEntry("ConfirmClosingMultipleTabs", false);
         KSharedConfig::openConfig()->sync();
     }
 

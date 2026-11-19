@@ -8,6 +8,7 @@
 #include <functional>
 
 class KPageWidgetItem;
+class PreviewSizeSpinBox;
 class QCheckBox;
 
 /**
@@ -51,6 +52,7 @@ private:
      * large ones, the icon size, and symbolic page icons at 24 px and below.
      */
     void applySidebarStyle();
+    void applySidebarStyle(int size, bool below);
 
     QWidget *createSettingsDialogPage();
     QWidget *createFoldersAndTabsPage();
@@ -69,6 +71,8 @@ private:
     QWidget *createFileRulesPage();
 
     KFilePlacesModel *m_places = nullptr;
+    PreviewSizeSpinBox *m_previewLimit = nullptr;
+    qulonglong m_savedPreviewLimit = 0;
     /// Each sidebar page and its icon name, for switching to symbolic icons.
     QList<std::pair<KPageWidgetItem *, QString>> m_pageIcons;
     /// A checkbox for a setting kept outside Settings, in config that KIO

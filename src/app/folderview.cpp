@@ -2,7 +2,6 @@
 
 #include "folderview.h"
 
-#include "densitydelegate.h"
 #include "detailsview.h"
 #include "filecolorrules.h"
 #include "fileoperations.h"
@@ -12,12 +11,19 @@
 #include "labelcolor.h"
 #include "settings.h"
 #include "symbolicicon.h"
+#include "viewsettings.h"
 
+#include <KCategorizedSortFilterProxyModel>
+#include <KCategorizedView>
+#include <KCategoryDrawer>
+#include <KConfigGroup>
 #include <KDirLister>
 #include <KDirModel>
 #include <KDirSortFilterProxyModel>
 #include <KFileItemDelegate>
+#include <KFileItemListProperties>
 #include <KFilePreviewGenerator>
+#include <KIO/DropJob>
 #include <KIO/Job>
 #include <KJobWidgets>
 #include <KLocalizedString>
@@ -31,8 +37,10 @@
 #include <QDragMoveEvent>
 #include <QDropEvent>
 #include <QFileInfo>
+#include <QHBoxLayout>
 #include <QHash>
 #include <QHeaderView>
+#include <QItemSelectionModel>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QKeyEvent>
@@ -43,7 +51,9 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QStackedWidget>
+#include <QStyle>
 #include <QStyleOptionViewItem>
+#include <QToolButton>
 #include <QTreeView>
 #include <QVBoxLayout>
 
@@ -80,11 +90,17 @@ int columnForSortKey(const QString &key)
     if (key == QLatin1String("group")) {
         return KDirModel::Group;
     }
+    if (key == QLatin1String("rating")) {
+        return KDirModel::Group;
+    }
     return KDirModel::Name;
 }
 
-QString sortKeyForColumn(int column)
+QString sortKeyForColumn(int column, bool ratingColumn)
 {
+    if (column == KDirModel::Group && ratingColumn) {
+        return QStringLiteral("rating");
+    }
     for (const auto &[candidate, key] : OptionalColumns) {
         if (candidate == column) {
             return key;
@@ -131,20 +147,24 @@ public:
         m_metadata = metadata;
         m_metadataDirectory = directory.isEmpty() ? QString() : QFileInfo(directory).absoluteFilePath();
         m_metadataCache.clear();
-        m_ignoreList = IgnoreList(Settings::ignoreList());
-        m_fileColors = FileColorRules(Settings::extensionColors());
         FolderMetadata::Format format;
-        static const QStringList groups{QStringLiteral("none"),
-                                        QStringLiteral("name"),
-                                        QStringLiteral("type"),
-                                        QStringLiteral("size"),
-                                        QStringLiteral("date"),
-                                        QStringLiteral("ext")};
-        m_groupBy = FolderMetadata::format(metadata, &format) ? format.group : groups.value(Settings::groupBy(), QStringLiteral("none"));
+        const bool hasFormat = FolderMetadata::format(metadata, &format);
+        m_groupBy = hasFormat ? format.group : m_settings.groupBy;
+        m_ratingColumn = hasFormat ? format.columns.contains(QStringLiteral("rating")) : m_settings.visibleColumns.contains(QStringLiteral("rating"));
+        setCategorizedModel(m_groupBy != QLatin1String("none"));
         endFilterChange(QSortFilterProxyModel::Direction::Rows);
         sort(sortColumn(), sortOrder());
+    }
+
+    void setSettings(const ViewSettings &settings, const FileColorRules &fileColors, const IgnoreList &ignoreList)
+    {
+        beginFilterChange();
+        m_settings = settings;
+        m_fileColors = fileColors;
+        m_ignoreList = ignoreList;
+        endFilterChange(QSortFilterProxyModel::Direction::Rows);
         if (rowCount() > 0) {
-            Q_EMIT dataChanged(index(0, 0), index(rowCount() - 1, columnCount() - 1));
+            Q_EMIT dataChanged(index(0, 0), index(rowCount() - 1, columnCount() - 1), {Qt::DisplayRole, Qt::ForegroundRole});
         }
     }
 
@@ -158,12 +178,31 @@ public:
         return m_groupBy;
     }
 
+    bool ratingColumn() const
+    {
+        return m_ratingColumn;
+    }
+
+    void setRatingColumn(bool enabled)
+    {
+        if (enabled == m_ratingColumn) {
+            return;
+        }
+        m_ratingColumn = enabled;
+        Q_EMIT headerDataChanged(Qt::Horizontal, KDirModel::Group, KDirModel::Group);
+        if (rowCount() > 0) {
+            Q_EMIT dataChanged(index(0, KDirModel::Group), index(rowCount() - 1, KDirModel::Group));
+        }
+        sort(sortColumn(), sortOrder());
+    }
+
     void setGroupBy(const QString &group)
     {
         if (group == m_groupBy) {
             return;
         }
         m_groupBy = group;
+        setCategorizedModel(m_groupBy != QLatin1String("none"));
         sort(sortColumn(), sortOrder());
     }
 
@@ -231,7 +270,7 @@ public:
 
     QVariant data(const QModelIndex &index, int role) const override
     {
-        if (role == Qt::DisplayRole && index.column() == KDirModel::Size && Settings::sizeFormat() == Settings::EnumSizeFormat::bytes) {
+        if (role == Qt::DisplayRole && index.column() == KDirModel::Size && m_settings.sizeFormat == QLatin1String("bytes")) {
             const KFileItem item = itemAt(index);
             if (!item.isDir()) {
                 return QString(QLocale().toString(item.size()) + i18nc("@unit byte in file size", " B"));
@@ -240,14 +279,25 @@ public:
         if (role == Qt::DisplayRole && index.column() == KDirModel::ModifiedTime) {
             const QDateTime modified = itemAt(index).time(KFileItem::ModificationTime);
             if (modified.isValid()) {
-                if (Settings::dateFormat() == Settings::EnumDateFormat::iso) {
-                    return modified.toString(Settings::showSeconds() ? QStringLiteral("yyyy-MM-dd HH:mm:ss") : QStringLiteral("yyyy-MM-dd HH:mm"));
+                if (m_settings.dateFormat == QLatin1String("iso")) {
+                    return modified.toString(m_settings.showSeconds ? QStringLiteral("yyyy-MM-dd HH:mm:ss") : QStringLiteral("yyyy-MM-dd HH:mm"));
                 }
-                if (Settings::showSeconds()) {
+                if (m_settings.showSeconds) {
                     return QString(QLocale().toString(modified.date(), QLocale::ShortFormat) + u' ' + QLocale().toString(modified.time(), QLocale::LongFormat));
                 }
                 return QLocale().toString(modified, QLocale::ShortFormat);
             }
+        }
+        if (role == KCategorizedSortFilterProxyModel::CategorySortRole) {
+            return m_groupBy == QLatin1String("none") ? QString() : groupSortKey(index);
+        }
+        if (role == KCategorizedSortFilterProxyModel::CategoryDisplayRole) {
+            return groupLabel(index);
+        }
+        if (m_ratingColumn && index.column() == KDirModel::Group && role == Qt::DisplayRole) {
+            const KFileItem item = itemAt(index);
+            const int rating = metadataForItem(item).value(QStringLiteral("ratings")).toObject().value(item.name()).toInt();
+            return rating > 0 ? QVariant(rating) : QVariant();
         }
         if (isRelativePath(index.column()) && role == Qt::DisplayRole) {
             return FlatView::relativeFolder(m_flatBase, itemAt(index).url());
@@ -301,6 +351,9 @@ public:
 
     QVariant headerData(int section, Qt::Orientation orientation, int role) const override
     {
+        if (orientation == Qt::Horizontal && section == KDirModel::Group && m_ratingColumn && role == Qt::DisplayRole) {
+            return i18nc("@title:column", "Rating");
+        }
         if (orientation == Qt::Horizontal && isRelativePath(section) && role == Qt::DisplayRole) {
             return i18nc("@title:column path below the flat folder", "Relative Path");
         }
@@ -346,6 +399,13 @@ protected:
             const int byGroup = QString::localeAwareCompare(groupSortKey(left), groupSortKey(right));
             if (byGroup != 0) {
                 return sortOrder() == Qt::DescendingOrder ? byGroup > 0 : byGroup < 0;
+            }
+        }
+        if (m_ratingColumn && sortColumn() == KDirModel::Group) {
+            const int leftRating = metadataForItem(itemAt(left)).value(QStringLiteral("ratings")).toObject().value(itemAt(left).name()).toInt();
+            const int rightRating = metadataForItem(itemAt(right)).value(QStringLiteral("ratings")).toObject().value(itemAt(right).name()).toInt();
+            if (leftRating != rightRating) {
+                return leftRating < rightRating;
             }
         }
         if (isRelativePath(left.column())) {
@@ -424,34 +484,63 @@ private:
     NameFilter m_filter;
     IgnoreList m_ignoreList;
     FileColorRules m_fileColors;
+    ViewSettings m_settings;
     QJsonObject m_metadata;
     QString m_metadataDirectory;
     mutable QHash<QString, QJsonObject> m_metadataCache;
     QString m_groupBy = QStringLiteral("none");
+    bool m_ratingColumn = false;
 };
 
-class GroupHeaderDelegate : public DensityDelegate
+namespace
+{
+QRect selectionMarkerRect(const QRect &itemRect, Qt::LayoutDirection direction)
+{
+    const int size = 16;
+    return QRect(direction == Qt::RightToLeft ? itemRect.right() - size + 1 : itemRect.left(), itemRect.bottom() - size + 1, size, size);
+}
+
+void paintSelectionMarker(QPainter *painter, const QStyleOptionViewItem &option)
+{
+    QStyleOptionButton check;
+    check.rect = selectionMarkerRect(option.rect, option.direction);
+    check.state = QStyle::State_Enabled | ((option.state & QStyle::State_Selected) ? QStyle::State_On : QStyle::State_Off);
+    QApplication::style()->drawControl(QStyle::CE_CheckBox, &check, painter);
+}
+}
+
+class GroupHeaderDelegate : public KFileItemDelegate
 {
 public:
-    explicit GroupHeaderDelegate(NameFilterProxyModel *model, QObject *parent)
-        : DensityDelegate(parent)
+    explicit GroupHeaderDelegate(NameFilterProxyModel *model, FolderView *folder, QObject *parent)
+        : KFileItemDelegate(parent)
         , m_model(model)
+        , m_folder(folder)
     {
     }
 
     QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override
     {
-        QSize size = DensityDelegate::sizeHint(option, index);
+        QSize size = KFileItemDelegate::sizeHint(option, index);
+        size.rheight() = qMax(1, size.height() + 2 * (m_itemSpace - 2));
         if (firstInGroup(index)) {
             size.rheight() += HeaderHeight;
         }
         return size;
     }
 
+    void setItemSpace(int space)
+    {
+        m_itemSpace = space;
+    }
+
     void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override
     {
         if (!firstInGroup(index)) {
             KFileItemDelegate::paint(painter, option, index);
+            if (index.column() == 0 && (m_folder->selectionMarkersVisible() || m_folder->selectionMode())) {
+                paintSelectionMarker(painter, option);
+            }
             return;
         }
         const QRect headerRect(option.rect.left(), option.rect.top(), option.rect.width(), HeaderHeight);
@@ -466,6 +555,9 @@ public:
         QStyleOptionViewItem itemOption(option);
         itemOption.rect.setTop(itemOption.rect.top() + HeaderHeight);
         KFileItemDelegate::paint(painter, itemOption, index);
+        if (index.column() == 0 && (m_folder->selectionMarkersVisible() || m_folder->selectionMode())) {
+            paintSelectionMarker(painter, itemOption);
+        }
     }
 
 private:
@@ -479,13 +571,30 @@ private:
 
     static constexpr int HeaderHeight = 20;
     NameFilterProxyModel *m_model;
+    FolderView *m_folder;
+    int m_itemSpace = 2;
 };
 
-namespace
+class SelectionMarkerDelegate : public KFileItemDelegate
 {
-/// Room around an icon in the icons view grid for its name.
-constexpr int IconGridMargin = 48;
-}
+public:
+    explicit SelectionMarkerDelegate(FolderView *folder, QObject *parent)
+        : KFileItemDelegate(parent)
+        , m_folder(folder)
+    {
+    }
+
+    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
+        KFileItemDelegate::paint(painter, option, index);
+        if (m_folder->selectionMarkersVisible() || m_folder->selectionMode()) {
+            paintSelectionMarker(painter, option);
+        }
+    }
+
+private:
+    FolderView *m_folder;
+};
 
 FolderView::FolderView(QWidget *parent)
     : QWidget(parent)
@@ -494,9 +603,8 @@ FolderView::FolderView(QWidget *parent)
     , m_proxy(new NameFilterProxyModel(this))
     , m_stack(new QStackedWidget(this))
     , m_details(new DetailsView(this))
-    , m_icons(new QListView(this))
-    , m_detailsDelegate(new GroupHeaderDelegate(m_proxy, m_details))
-    , m_iconsDelegate(new KFileItemDelegate(m_icons))
+    , m_icons(new KCategorizedView(this))
+    , m_compact(new QListView(this))
 {
     m_lister->setAutoErrorHandlingEnabled(false);
     m_lister->setMainWindow(window());
@@ -520,9 +628,10 @@ FolderView::FolderView(QWidget *parent)
     for (int column : {KDirModel::Permissions, KDirModel::Owner, KDirModel::Group}) {
         m_details->setColumnHidden(column, true);
     }
-    setupView(m_details, m_detailsDelegate);
+    setupView(m_details);
 
     m_icons->setModel(m_proxy);
+    static_cast<KCategorizedView *>(m_icons)->setCategoryDrawer(new KCategoryDrawer(static_cast<KCategorizedView *>(m_icons)));
     m_icons->setSelectionModel(m_details->selectionModel());
     m_icons->setViewMode(QListView::IconMode);
     m_icons->setResizeMode(QListView::Adjust);
@@ -532,20 +641,65 @@ FolderView::FolderView(QWidget *parent)
     m_icons->setUniformItemSizes(true);
     m_icons->setWordWrap(true);
     m_icons->setIconSize(QSize(64, 64));
-    m_icons->setGridSize(QSize(64 + IconGridMargin, 64 + IconGridMargin));
+    m_icons->setGridSize(QSize(112, 112));
     m_icons->setSpacing(4);
-    setupView(m_icons, m_iconsDelegate);
+    setupView(m_icons);
+
+    m_compact->setModel(m_proxy);
+    m_compact->setSelectionModel(m_details->selectionModel());
+    m_compact->setViewMode(QListView::ListMode);
+    m_compact->setFlow(QListView::TopToBottom);
+    m_compact->setWrapping(true);
+    m_compact->setResizeMode(QListView::Adjust);
+    m_compact->setMovement(QListView::Static);
+    m_compact->setIconSize(QSize(16, 16));
+    setupView(m_compact);
 
     m_detailsPreviews = new KFilePreviewGenerator(m_details);
     m_iconPreviews = new KFilePreviewGenerator(m_icons);
+    m_compactPreviews = new KFilePreviewGenerator(m_compact);
     setPreviewsEnabled(true);
 
     m_stack->addWidget(m_details);
     m_stack->addWidget(m_icons);
+    m_stack->addWidget(m_compact);
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_stack);
+    m_selectionBar = new QWidget(this);
+    m_selectionBar->setObjectName(QStringLiteral("selectionBar"));
+    auto *barLayout = new QHBoxLayout(m_selectionBar);
+    barLayout->setContentsMargins(0, 0, 0, 0);
+    const auto addButton = [this, barLayout](const QString &name, const QString &text, const QString &icon, auto slot) {
+        auto *button = new QToolButton(m_selectionBar);
+        button->setObjectName(name);
+        button->setText(text);
+        button->setIcon(SymbolicIcon::fromTheme(icon));
+        button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        connect(button, &QToolButton::clicked, this, slot);
+        barLayout->addWidget(button);
+        return button;
+    };
+    auto *copy = addButton(QStringLiteral("selectionCopy"), i18nc("@action", "Copy"), QStringLiteral("edit-copy"), &FolderView::copySelectionRequested);
+    auto *cut = addButton(QStringLiteral("selectionCut"), i18nc("@action", "Cut"), QStringLiteral("edit-cut"), &FolderView::cutSelectionRequested);
+    auto *trash =
+        addButton(QStringLiteral("selectionTrash"), i18nc("@action", "Move to Trash"), QStringLiteral("user-trash"), &FolderView::trashSelectionRequested);
+    barLayout->addStretch();
+    addButton(QStringLiteral("selectionDone"), i18nc("@action", "Done"), QStringLiteral("dialog-ok"), [this] {
+        setSelectionMode(false);
+    });
+    const auto updateSelectionButtons = [this, copy, cut, trash] {
+        const KFileItemList items = selectedItems();
+        const KFileItemListProperties properties(items);
+        copy->setEnabled(!items.isEmpty());
+        cut->setEnabled(!items.isEmpty() && properties.supportsMoving());
+        trash->setEnabled(!items.isEmpty() && properties.supportsDeleting() && properties.isLocal());
+    };
+    connect(this, &FolderView::selectionChanged, this, updateSelectionButtons);
+    updateSelectionButtons();
+    m_selectionBar->hide();
+    layout->addWidget(m_selectionBar);
 
     connect(m_lister, &KDirLister::started, this, [this] {
         Q_EMIT loadingChanged(true);
@@ -580,7 +734,6 @@ FolderView::FolderView(QWidget *parent)
     connect(m_details->header(), &QHeaderView::sectionMoved, this, [this] {
         saveFolderFormat();
     });
-    reloadListingSettings();
 }
 
 FolderView::~FolderView()
@@ -589,9 +742,16 @@ FolderView::~FolderView()
     m_lister->disconnect(this);
 }
 
-void FolderView::setupView(QAbstractItemView *view, KFileItemDelegate *delegate)
+void FolderView::setupView(QAbstractItemView *view)
 {
-    view->setItemDelegate(delegate);
+    if (view == m_details) {
+        view->setItemDelegate(new GroupHeaderDelegate(m_proxy, this, view));
+    } else if (view == m_icons) {
+        m_iconDelegate = new SelectionMarkerDelegate(this, view);
+        view->setItemDelegate(m_iconDelegate);
+    } else {
+        view->setItemDelegate(new SelectionMarkerDelegate(this, view));
+    }
     view->setSelectionMode(QAbstractItemView::ExtendedSelection);
     view->setSelectionBehavior(QAbstractItemView::SelectRows);
     view->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -645,6 +805,33 @@ void FolderView::reload()
 FolderView::ViewMode FolderView::viewMode() const
 {
     return m_viewMode;
+}
+
+bool FolderView::selectionMarkersVisible() const
+{
+    return m_selectionMarkers;
+}
+
+void FolderView::setSelectionMarkersVisible(bool visible)
+{
+    m_selectionMarkers = visible;
+    currentView()->viewport()->update();
+}
+
+bool FolderView::selectionMode() const
+{
+    return m_selectionMode;
+}
+
+void FolderView::setSelectionMode(bool enabled)
+{
+    if (m_selectionMode == enabled) {
+        return;
+    }
+    m_selectionMode = enabled;
+    m_selectionBar->setVisible(enabled);
+    currentView()->viewport()->update();
+    Q_EMIT selectionModeChanged(enabled);
 }
 
 void FolderView::setViewMode(ViewMode mode)
@@ -701,6 +888,7 @@ void FolderView::setPreviewPlugins(const QStringList &plugins)
 {
     m_detailsPreviews->setEnabledPlugins(plugins);
     m_iconPreviews->setEnabledPlugins(plugins);
+    m_compactPreviews->setEnabledPlugins(plugins);
 }
 
 QStringList FolderView::previewPlugins() const
@@ -712,14 +900,15 @@ void FolderView::setIconSizes(int details, int icons)
 {
     m_details->setIconSize(QSize(details, details));
     m_icons->setIconSize(QSize(icons, icons));
-    const int height = qMax(icons + IconGridMargin, icons + fontMetrics().height() * (Settings::iconNameLines() + Settings::iconInformation().size()) + 16);
-    m_icons->setGridSize(QSize(icons + IconGridMargin, height));
-    m_iconsDelegate->setMaximumSize(m_icons->gridSize());
+    const int height = qMax(icons + 48, icons + fontMetrics().height() * (Settings::iconNameLines() + Settings::iconInformation().size()) + 16);
+    m_icons->setGridSize(QSize(icons + 48, height));
+    m_iconDelegate->setMaximumSize(m_icons->gridSize());
 }
 
 void FolderView::setItemSpacing(int detailsSpace, int iconsSpace)
 {
-    m_detailsDelegate->setItemSpace(detailsSpace);
+    auto *delegate = static_cast<GroupHeaderDelegate *>(m_details->itemDelegate());
+    delegate->setItemSpace(detailsSpace);
     m_details->doItemsLayout();
     m_icons->setSpacing(2 * iconsSpace);
 }
@@ -739,6 +928,11 @@ void FolderView::setColumnVisible(int column, bool visible)
 bool FolderView::isColumnVisible(int column) const
 {
     return !m_details->isColumnHidden(column);
+}
+
+void FolderView::setRatingColumn(bool enabled)
+{
+    m_proxy->setRatingColumn(enabled);
 }
 
 void FolderView::setSorting(int column, Qt::SortOrder order)
@@ -768,20 +962,23 @@ bool FolderView::sortFoldersFirst() const
 
 void FolderView::setShowToolTips(bool show)
 {
-    m_detailsDelegate->setShowToolTipWhenElided(show);
-    m_iconsDelegate->setShowToolTipWhenElided(show);
+    auto *detailsDelegate = static_cast<GroupHeaderDelegate *>(m_details->itemDelegate());
+    detailsDelegate->setShowToolTipWhenElided(show);
+    m_iconDelegate->setShowToolTipWhenElided(show);
+    static_cast<KFileItemDelegate *>(m_compact->itemDelegate())->setShowToolTipWhenElided(show);
 }
 
 bool FolderView::showToolTips() const
 {
-    return m_detailsDelegate->showToolTipWhenElided();
+    return static_cast<GroupHeaderDelegate *>(m_details->itemDelegate())->showToolTipWhenElided();
 }
 
 void FolderView::updatePreviews()
 {
-    const bool shown = m_previewsEnabled && (m_lister->url().isLocalFile() || m_remotePreviewsEnabled);
+    const bool shown = m_previewsEnabled && (m_folder.isLocalFile() || m_remotePreviewsEnabled);
     m_detailsPreviews->setPreviewShown(shown);
     m_iconPreviews->setPreviewShown(shown);
+    m_compactPreviews->setPreviewShown(shown);
 }
 
 KFileItem FolderView::rootItem() const
@@ -797,7 +994,7 @@ KFileItemList FolderView::items() const
 KFileItemList FolderView::selectedItems() const
 {
     KFileItemList result;
-    const QModelIndexList rows = m_details->selectionModel()->selectedRows();
+    const QModelIndexList rows = currentView()->selectionModel()->selectedRows();
     result.reserve(rows.size());
     for (const QModelIndex &index : rows) {
         const KFileItem item = m_model->itemForIndex(m_proxy->mapToSource(index));
@@ -822,7 +1019,7 @@ KFileItemList FolderView::selectedItemsOrRoot() const
 
 KFileItem FolderView::currentItem() const
 {
-    return m_model->itemForIndex(m_proxy->mapToSource(m_details->currentIndex()));
+    return m_model->itemForIndex(m_proxy->mapToSource(currentView()->currentIndex()));
 }
 
 int FolderView::itemCount() const
@@ -835,14 +1032,31 @@ void FolderView::selectAll()
     currentView()->selectAll();
 }
 
+int FolderView::applySelectionPattern(const QString &pattern, bool select)
+{
+    const NameFilter filter(pattern, NameFilter::Scope::FilesAndFolders);
+    QItemSelectionModel *selection = currentView()->selectionModel();
+    const QItemSelectionModel::SelectionFlags operation = select ? QItemSelectionModel::Select : QItemSelectionModel::Deselect;
+    int matched = 0;
+    for (int row = 0; row < m_proxy->rowCount(); ++row) {
+        const QModelIndex index = m_proxy->index(row, 0);
+        const KFileItem item = m_model->itemForIndex(m_proxy->mapToSource(index));
+        if (filter.matches(item.name(), item.isDir())) {
+            selection->select(index, operation | QItemSelectionModel::Rows);
+            ++matched;
+        }
+    }
+    return matched;
+}
+
 void FolderView::clearSelection()
 {
-    m_details->selectionModel()->clearSelection();
+    currentView()->selectionModel()->clearSelection();
 }
 
 void FolderView::selectUrls(const QList<QUrl> &urls)
 {
-    QItemSelectionModel *selection = m_details->selectionModel();
+    QItemSelectionModel *selection = currentView()->selectionModel();
     selection->clearSelection();
     bool first = true;
     for (const QUrl &url : urls) {
@@ -861,7 +1075,10 @@ void FolderView::selectUrls(const QList<QUrl> &urls)
 
 QAbstractItemView *FolderView::currentView() const
 {
-    return m_viewMode == ViewMode::Details ? static_cast<QAbstractItemView *>(m_details) : m_icons;
+    if (m_viewMode == ViewMode::Details) {
+        return m_details;
+    }
+    return m_viewMode == ViewMode::Icons ? m_icons : m_compact;
 }
 
 NameFilter FolderView::nameFilter() const
@@ -899,10 +1116,40 @@ void FolderView::reloadMetadata()
 {
     QString error;
     const QJsonObject metadata = m_folder.isLocalFile() ? FolderMetadata::read(m_folder.toLocalFile(), &error) : QJsonObject();
+    ViewSettings settings = ViewSettings::fromConfig(KSharedConfig::openConfig()->group(QStringLiteral("View")));
+    if (Settings::showRatingColumn() && !settings.visibleColumns.contains(QStringLiteral("rating"))) {
+        settings.visibleColumns.append(QStringLiteral("rating"));
+    } else if (!Settings::showRatingColumn()) {
+        settings.visibleColumns.removeAll(QStringLiteral("rating"));
+    }
+    const KConfigGroup filesGroup = KSharedConfig::openConfig()->group(QStringLiteral("Files"));
+    m_proxy->setSettings(settings, FileColorRules::fromConfig(filesGroup), IgnoreList::fromConfig(filesGroup));
     m_proxy->setMetadata(metadata, m_folder.isLocalFile() ? m_folder.toLocalFile() : QString());
     if (!error.isEmpty()) {
         Q_EMIT listingFailed(error);
     }
+}
+
+bool FolderView::hasFolderFormat() const
+{
+    FolderMetadata::Format format;
+    return m_folder.isLocalFile() && FolderMetadata::format(m_proxy->metadata(), &format);
+}
+
+QString FolderView::groupBy() const
+{
+    return m_proxy->groupBy();
+}
+
+void FolderView::setGroupBy(const QString &group)
+{
+    m_proxy->setGroupBy(group);
+    saveFolderFormat();
+}
+
+void FolderView::reloadSettings()
+{
+    loadFolderFormat();
 }
 
 void FolderView::reloadListingSettings()
@@ -928,44 +1175,88 @@ void FolderView::reloadListingSettings()
             information.append(options.value(key));
         }
     }
-    m_iconsDelegate->setShowInformation(information);
+    m_iconDelegate->setShowInformation(information);
     setIconSizes(Settings::detailsIconSize(), Settings::iconsIconSize());
     m_icons->doItemsLayout();
     reloadMetadata();
-}
-
-QString FolderView::groupBy() const
-{
-    return m_proxy->groupBy();
-}
-
-void FolderView::setGroupBy(const QString &group)
-{
-    m_proxy->setGroupBy(group);
-    saveFolderFormat();
 }
 
 void FolderView::loadFolderFormat()
 {
     m_applyingFolderFormat = true;
     reloadMetadata();
+    const KConfigGroup defaults = KSharedConfig::openConfig()->group(QStringLiteral("Views"));
+    const ViewSettings settings = ViewSettings::fromConfig(KSharedConfig::openConfig()->group(QStringLiteral("View")));
     FolderMetadata::Format format;
     if (m_folder.isLocalFile() && FolderMetadata::format(m_proxy->metadata(), &format)) {
-        setViewMode(format.view == QLatin1String("grid") ? ViewMode::Icons : ViewMode::Details);
+        setViewMode(format.view == QLatin1String("grid") ? ViewMode::Icons : format.view == QLatin1String("compact") ? ViewMode::Compact : ViewMode::Details);
+        m_proxy->setRatingColumn(format.columns.contains(QStringLiteral("rating")));
         for (const auto &[column, key] : OptionalColumns) {
-            m_details->setColumnHidden(column, !format.columns.contains(key));
+            const bool visible = column == KDirModel::Group
+                ? format.columns.contains(QStringLiteral("group")) || format.columns.contains(QStringLiteral("rating"))
+                : format.columns.contains(key);
+            m_details->setColumnHidden(column, !visible);
         }
         m_details->sortByColumn(columnForSortKey(format.sortKey), format.sortAscending ? Qt::AscendingOrder : Qt::DescendingOrder);
     } else {
-        setViewMode(Settings::defaultViewMode() == Settings::EnumDefaultViewMode::Icons ? ViewMode::Icons : ViewMode::Details);
-        setColumnVisible(KDirModel::Type, Settings::showTypeColumn());
+        m_proxy->setRatingColumn(Settings::showRatingColumn());
         setColumnVisible(KDirModel::Size, Settings::showSizeColumn());
         setColumnVisible(KDirModel::ModifiedTime, Settings::showModifiedColumn());
         setColumnVisible(KDirModel::Permissions, Settings::showPermissionsColumn());
         setColumnVisible(KDirModel::Owner, Settings::showOwnerColumn());
-        setColumnVisible(KDirModel::Group, Settings::showGroupColumn());
+        setColumnVisible(KDirModel::Group, Settings::showGroupColumn() || Settings::showRatingColumn());
+        setColumnVisible(KDirModel::Type, Settings::showTypeColumn());
+        setViewMode(Settings::defaultViewMode() == Settings::EnumDefaultViewMode::Icons ? ViewMode::Icons : ViewMode::Details);
         m_details->sortByColumn(Settings::sortColumn(), Settings::sortDescending() ? Qt::DescendingOrder : Qt::AscendingOrder);
+        setShowHiddenFiles(Settings::showHiddenFiles());
     }
+    m_proxy->setSortFoldersFirst(Settings::foldersFirst());
+    setIconSizes(Settings::detailsIconSize(), Settings::iconsIconSize());
+    const auto itemSpace = [&defaults](const QString &densityKey, const QString &customKey) {
+        const QString density = defaults.readEntry(densityKey, QStringLiteral("Normal"));
+        return density == QLatin1String("VeryCompact") ? 0
+            : density == QLatin1String("Compact")      ? 1
+            : density == QLatin1String("Custom")       ? qBound(0, defaults.readEntry(customKey, 2), 10)
+                                                       : 2;
+    };
+    setItemSpacing(itemSpace(QStringLiteral("DetailsDensity"), QStringLiteral("DetailsCustomSpace")),
+                   itemSpace(QStringLiteral("IconsDensity"), QStringLiteral("IconsCustomSpace")));
+    setDragFromAnywhere(defaults.readEntry("DragFromAnywhere", false));
+    setShowToolTips(defaults.readEntry("ShowToolTips", true));
+
+    KFileItemDelegate::InformationList information;
+    for (const QString &key : settings.iconInformation) {
+        if (key == QLatin1String("size")) {
+            information.append(KFileItemDelegate::Size);
+        } else if (key == QLatin1String("permissions")) {
+            information.append(KFileItemDelegate::Permissions);
+        } else if (key == QLatin1String("octalPermissions")) {
+            information.append(KFileItemDelegate::OctalPermissions);
+        } else if (key == QLatin1String("owner")) {
+            information.append(KFileItemDelegate::Owner);
+        } else if (key == QLatin1String("ownerAndGroup")) {
+            information.append(KFileItemDelegate::OwnerAndGroup);
+        } else if (key == QLatin1String("creationTime")) {
+            information.append(KFileItemDelegate::CreationTime);
+        } else if (key == QLatin1String("modificationTime")) {
+            information.append(KFileItemDelegate::ModificationTime);
+        } else if (key == QLatin1String("accessTime")) {
+            information.append(KFileItemDelegate::AccessTime);
+        } else if (key == QLatin1String("mimeType")) {
+            information.append(KFileItemDelegate::MimeType);
+        } else if (key == QLatin1String("friendlyMimeType")) {
+            information.append(KFileItemDelegate::FriendlyMimeType);
+        } else if (key == QLatin1String("linkDest")) {
+            information.append(KFileItemDelegate::LinkDest);
+        } else if (key == QLatin1String("localPathOrUrl")) {
+            information.append(KFileItemDelegate::LocalPathOrUrl);
+        } else if (key == QLatin1String("comment")) {
+            information.append(KFileItemDelegate::Comment);
+        }
+    }
+    m_iconDelegate->setShowInformation(information);
+    setIconSizes(Settings::detailsIconSize(), Settings::iconsIconSize());
+    m_icons->doItemsLayout();
     m_applyingFolderFormat = false;
 }
 
@@ -975,10 +1266,14 @@ void FolderView::saveFolderFormat()
         return;
     }
     FolderMetadata::Format format;
-    format.view = m_viewMode == ViewMode::Icons ? QStringLiteral("grid") : QStringLiteral("list");
+    format.view = m_viewMode == ViewMode::Icons ? QStringLiteral("grid") : m_viewMode == ViewMode::Compact ? QStringLiteral("compact") : QStringLiteral("list");
     for (int visual = 0; visual < m_details->header()->count(); ++visual) {
         const int column = m_details->header()->logicalIndex(visual);
         if (column == KDirModel::Name || m_details->isColumnHidden(column)) {
+            continue;
+        }
+        if (column == KDirModel::Group) {
+            format.columns.append(m_proxy->ratingColumn() ? QStringLiteral("rating") : QStringLiteral("group"));
             continue;
         }
         for (const auto &[candidate, key] : OptionalColumns) {
@@ -988,7 +1283,7 @@ void FolderView::saveFolderFormat()
             }
         }
     }
-    format.sortKey = sortKeyForColumn(m_details->header()->sortIndicatorSection());
+    format.sortKey = sortKeyForColumn(m_details->header()->sortIndicatorSection(), m_proxy->ratingColumn());
     format.sortAscending = m_details->header()->sortIndicatorOrder() == Qt::AscendingOrder;
     format.group = m_proxy->groupBy();
     QString error;
@@ -1004,6 +1299,9 @@ void FolderView::showColumnMenu(const QPoint &pos)
     QMenu menu(this);
     for (const auto &[column, key] : OptionalColumns) {
         Q_UNUSED(key)
+        if (column == KDirModel::Group) {
+            continue;
+        }
         QString text;
         switch (column) {
         case KDirModel::Type:
@@ -1035,6 +1333,50 @@ void FolderView::showColumnMenu(const QPoint &pos)
             saveFolderFormat();
         });
     }
+    QMenu *groupColumn = menu.addMenu(i18nc("@menu", "Group Column"));
+    const bool groupVisible = !m_details->isColumnHidden(KDirModel::Group);
+    const QList<QPair<bool, QString>> groupColumnOptions{
+        {false, i18nc("@option:check", "Group")},
+        {true, i18nc("@option:check", "Rating")},
+    };
+    auto *groupColumnActions = new QActionGroup(groupColumn);
+    groupColumnActions->setExclusive(true);
+    for (const auto &[rating, label] : groupColumnOptions) {
+        QAction *action = groupColumn->addAction(label);
+        action->setCheckable(true);
+        action->setChecked(groupVisible && m_proxy->ratingColumn() == rating);
+        groupColumnActions->addAction(action);
+        connect(action, &QAction::triggered, this, [this, rating] {
+            m_proxy->setRatingColumn(rating);
+            m_details->setColumnHidden(KDirModel::Group, false);
+            saveFolderFormat();
+        });
+    }
+    QAction *hideGroupColumn = groupColumn->addAction(i18nc("@option:check", "Hide Column"));
+    hideGroupColumn->setCheckable(true);
+    hideGroupColumn->setChecked(!groupVisible);
+    groupColumnActions->addAction(hideGroupColumn);
+    connect(hideGroupColumn, &QAction::triggered, this, [this] {
+        m_details->setColumnHidden(KDirModel::Group, true);
+        saveFolderFormat();
+    });
+    menu.addSeparator();
+    QAction *fitColumn = menu.addAction(i18nc("@action:inmenu", "Fit Column to Contents"));
+    const int column = m_details->header()->logicalIndexAt(pos);
+    fitColumn->setEnabled(column >= 0);
+    connect(fitColumn, &QAction::triggered, this, [this, column] {
+        m_details->header()->setSectionResizeMode(column, QHeaderView::Interactive);
+        m_details->resizeColumnToContents(column);
+    });
+    QAction *fitAll = menu.addAction(i18nc("@action:inmenu", "Fit All Columns to Contents"));
+    connect(fitAll, &QAction::triggered, this, [this] {
+        for (int section = 0; section < m_details->header()->count(); ++section) {
+            if (!m_details->isColumnHidden(section)) {
+                m_details->header()->setSectionResizeMode(section, QHeaderView::Interactive);
+                m_details->resizeColumnToContents(section);
+            }
+        }
+    });
     menu.addSeparator();
     QMenu *groups = menu.addMenu(i18nc("@menu", "Group By"));
     const QList<QPair<QString, QString>> options{
@@ -1168,6 +1510,35 @@ bool FolderView::eventFilter(QObject *watched, QEvent *event)
     case QEvent::MouseButtonPress:
         if (watched == view->viewport()) {
             Q_EMIT activated();
+            auto *mouse = static_cast<QMouseEvent *>(event);
+            const QModelIndex index = view->indexAt(mouse->position().toPoint());
+            const QModelIndex nameIndex = index.siblingAtColumn(0);
+            if (mouse->button() == Qt::LeftButton && mouse->modifiers() == Qt::NoModifier && index.isValid()
+                && (m_selectionMode
+                    || (m_selectionMarkers
+                        && selectionMarkerRect(view->visualRect(nameIndex), view->layoutDirection()).contains(mouse->position().toPoint())))) {
+                view->selectionModel()->setCurrentIndex(nameIndex, QItemSelectionModel::NoUpdate);
+                view->selectionModel()->select(nameIndex, QItemSelectionModel::Toggle | QItemSelectionModel::Rows);
+                m_markerPress = true;
+                return true;
+            }
+        }
+        break;
+    case QEvent::MouseButtonRelease:
+        if (watched == view->viewport() && m_markerPress && static_cast<QMouseEvent *>(event)->button() == Qt::LeftButton) {
+            m_markerPress = false;
+            return true;
+        }
+        break;
+    case QEvent::MouseButtonDblClick:
+        if (watched == view->viewport() && (m_selectionMode || m_selectionMarkers)) {
+            auto *mouse = static_cast<QMouseEvent *>(event);
+            const QModelIndex index = view->indexAt(mouse->position().toPoint()).siblingAtColumn(0);
+            if (index.isValid()
+                && (m_selectionMode || selectionMarkerRect(view->visualRect(index), view->layoutDirection()).contains(mouse->position().toPoint()))) {
+                m_markerPress = true;
+                return true;
+            }
         }
         break;
     case QEvent::KeyPress: {

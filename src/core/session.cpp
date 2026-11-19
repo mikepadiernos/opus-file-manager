@@ -16,6 +16,8 @@ constexpr auto StackedKey = "Stacked";
 constexpr auto PinnedCountKey = "PinnedCount";
 constexpr auto LockedTabsKey = "LockedTabs";
 constexpr auto NamesKey = "Names";
+constexpr auto FilterTextKey = "FilterText";
+constexpr auto FilterScopeKey = "FilterScope";
 
 QStringList toStrings(const QList<QUrl> &urls)
 {
@@ -44,6 +46,8 @@ void savePane(const PaneSession &pane, KConfigGroup group)
     group.writeEntry(PinnedCountKey, pane.pinnedCount);
     group.writeEntry(LockedTabsKey, pane.lockedTabs);
     group.writeEntry(NamesKey, pane.names);
+    group.writeEntry(FilterTextKey, pane.filterText);
+    group.writeEntry(FilterScopeKey, pane.filterScope);
 }
 
 PaneSession loadPane(const KConfigGroup &group)
@@ -54,6 +58,8 @@ PaneSession loadPane(const KConfigGroup &group)
     pane.pinnedCount = group.readEntry(PinnedCountKey, 0);
     pane.lockedTabs = group.readEntry(LockedTabsKey, QList<int>());
     pane.names = group.readEntry(NamesKey, QStringList());
+    pane.filterText = group.readEntry(FilterTextKey, QString());
+    pane.filterScope = group.readEntry(FilterScopeKey, 0);
     return pane;
 }
 
@@ -79,6 +85,8 @@ PaneSession sanitizePane(const PaneSession &pane, const QUrl &fallback)
         result.names.append(QString());
     }
     result.currentTab = qBound(0, pane.currentTab, result.tabs.size() - 1);
+    result.filterText = pane.filterText;
+    result.filterScope = qBound(0, pane.filterScope, 2);
     return result;
 }
 }

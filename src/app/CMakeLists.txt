@@ -45,6 +45,7 @@ target_link_libraries(opusfm_app
         KF6::KIOFileWidgets
         KF6::KIOGui
         KF6::KIOWidgets
+        KF6::ItemViews
         KF6::WidgetsAddons
         KF6::XmlGui
 )
