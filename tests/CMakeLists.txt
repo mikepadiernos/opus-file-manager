@@ -10,6 +10,7 @@ ecm_add_tests(
     filesplittertest.cpp
     foldermetadatatest.cpp
     foldercomparisontest.cpp
+    foldersynctest.cpp
     flatviewtest.cpp
     ignorelisttest.cpp
     indexedsearchtest.cpp
