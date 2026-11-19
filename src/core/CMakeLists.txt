@@ -21,6 +21,8 @@ add_library(opusfm_core STATIC
     session.h
     tabcolors.cpp
     tabcolors.h
+    symbolicicon.cpp
+    symbolicicon.h
     tabmodel.cpp
     tabmodel.h
 )

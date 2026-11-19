@@ -4,6 +4,7 @@
 
 #include "filterbar.h"
 #include "folderview.h"
+#include "symbolicicon.h"
 #include "tabcolors.h"
 #include "tabmodel.h"
 
@@ -27,7 +28,6 @@
 
 Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     : QWidget(parent)
-    , m_colors(colors)
     , m_tabs(new TabModel(this))
     , m_tabBar(new QTabBar(this))
     , m_tabStrip(new QWidget(this))
@@ -36,6 +36,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     , m_up(new QToolButton(this))
     , m_reload(new QToolButton(this))
     , m_navigator(new KUrlNavigator(places, QUrl(), this))
+    , m_colors(colors)
     , m_view(new FolderView(this))
 {
     m_tabBar->setDocumentMode(true);
@@ -49,7 +50,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
 
     auto *addTab = new QToolButton(m_tabStrip);
     addTab->setAutoRaise(true);
-    addTab->setIcon(QIcon::fromTheme(QStringLiteral("tab-new")));
+    addTab->setIcon(SymbolicIcon::fromTheme(QStringLiteral("tab-new")));
     addTab->setToolTip(i18nc("@info:tooltip", "Open a new tab"));
     connect(addTab, &QToolButton::clicked, this, &Pane::newTab);
 
@@ -61,7 +62,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
 
     const auto configureButton = [](QToolButton *button, const QString &icon, const QString &tooltip) {
         button->setAutoRaise(true);
-        button->setIcon(QIcon::fromTheme(icon));
+        button->setIcon(SymbolicIcon::fromTheme(icon));
         button->setToolTip(tooltip);
         button->setFocusPolicy(Qt::NoFocus);
     };
@@ -395,7 +396,7 @@ void Pane::updateTabText(int index)
     }
     m_tabBar->setTabToolTip(index, toolTip);
     const QString iconName = pinned ? QStringLiteral("pin") : locked ? QStringLiteral("object-locked") : KIO::iconNameForUrl(url);
-    m_tabBar->setTabIcon(index, QIcon::fromTheme(iconName));
+    m_tabBar->setTabIcon(index, SymbolicIcon::fromTheme(iconName));
     m_tabBar->setTabTextColor(index, LabelColors::rgb(m_colors->colorFor(url)));
 
     const auto closeSide = static_cast<QTabBar::ButtonPosition>(m_tabBar->style()->styleHint(QStyle::SH_TabBar_CloseButtonPosition, nullptr, m_tabBar));

@@ -6,6 +6,7 @@
 #include "foldermetadata.h"
 #include "ignorelist.h"
 #include "labelcolor.h"
+#include "symbolicicon.h"
 
 #include <KCategorizedSortFilterProxyModel>
 #include <KCategorizedView>
@@ -294,7 +295,11 @@ public:
             font.setBold(true);
             return font;
         }
-        return KDirSortFilterProxyModel::data(index, role);
+        const QVariant value = KDirSortFilterProxyModel::data(index, role);
+        if (role == Qt::DecorationRole && value.typeId() == QMetaType::QIcon) {
+            return SymbolicIcon::wrap(value.value<QIcon>());
+        }
+        return value;
     }
 
     QVariant headerData(int section, Qt::Orientation orientation, int role) const override
