@@ -20,10 +20,12 @@
 #include <QFile>
 #include <QListView>
 #include <QMimeData>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QToolButton>
 #include <QTreeView>
 
 class CombinedPanelTest : public QObject
@@ -235,6 +237,109 @@ private Q_SLOTS:
         QCOMPARE(panel.folderTree()->roots(), QList<QUrl>({QUrl::fromLocalFile(QDir::homePath()), QUrl::fromLocalFile(QStringLiteral("/"))}));
     }
 
+    void accordionHeadersAreLeftAligned()
+    {
+        KFilePlacesModel places;
+        FavoritesModel favorites(KSharedConfig::openConfig()->group(QStringLiteral("Favorites")));
+        CombinedPanel panel(&places, &favorites);
+        panel.resize(400, 600);
+        panel.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&panel));
+        const auto buttons = panel.findChildren<QToolButton *>();
+        for (const QString &title : {QStringLiteral("Favorites"), QStringLiteral("Tree")}) {
+            const auto it = std::find_if(buttons.cbegin(), buttons.cend(), [&title](const QToolButton *button) {
+                return button->text() == title;
+            });
+            QVERIFY(it != buttons.cend());
+            const QToolButton *button = *it;
+            QCOMPARE(button->geometry().left(), 0);
+            QCOMPARE(button->width(), button->parentWidget()->width());
+        }
+    }
+
+    void placesGroupsCollapseIndependentlyAndKeepNativeActions()
+    {
+        KFilePlacesModel places;
+        const bool placesHidden = places.isGroupHidden(KFilePlacesModel::PlacesType);
+        const bool remoteHidden = places.isGroupHidden(KFilePlacesModel::RemoteType);
+        const QUrl remote(QStringLiteral("sftp://example.invalid/opus-test"));
+        const QUrl local = url(QStringLiteral("a"));
+        const auto cleanup = qScopeGuard([&] {
+            for (int row = places.rowCount() - 1; row >= 0; --row) {
+                if (places.text(places.index(row, 0)) == QLatin1String("Opus test remote")
+                    || places.text(places.index(row, 0)) == QLatin1String("Opus test local")) {
+                    places.removePlace(places.index(row, 0));
+                }
+            }
+            places.setGroupHidden(KFilePlacesModel::PlacesType, placesHidden);
+            places.setGroupHidden(KFilePlacesModel::RemoteType, remoteHidden);
+        });
+        places.setGroupHidden(KFilePlacesModel::PlacesType, false);
+        places.setGroupHidden(KFilePlacesModel::RemoteType, false);
+        FavoritesModel favorites(KSharedConfig::openConfig()->group(QStringLiteral("Favorites")));
+        CombinedPanel panel(&places, &favorites);
+        panel.resize(400, 800);
+        panel.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&panel));
+        places.addPlace(QStringLiteral("Opus test remote"), remote);
+        places.addPlace(QStringLiteral("Opus test local"), local);
+        auto *placesHeader = panel.findChild<QToolButton *>(QStringLiteral("places:PlacesType"));
+        auto *remoteHeader = panel.findChild<QToolButton *>(QStringLiteral("places:RemoteType"));
+        QVERIFY(placesHeader);
+        QVERIFY(remoteHeader);
+        QTRY_VERIFY(placesHeader->isVisible());
+        QTRY_VERIFY(remoteHeader->isVisible());
+        QCOMPARE(placesHeader->parentWidget()->childAt(placesHeader->geometry().center()), placesHeader);
+        QCOMPARE(remoteHeader->parentWidget()->childAt(remoteHeader->geometry().center()), remoteHeader);
+        auto *placesView = placesHeader->parentWidget()->findChild<KFilePlacesView *>();
+        auto *remoteView = remoteHeader->parentWidget()->findChild<KFilePlacesView *>();
+        QVERIFY(placesView);
+        QVERIFY(remoteView);
+        QVERIFY(placesView->isDropOnPlaceEnabled());
+        QTRY_VERIFY(!places.groupIndexes(KFilePlacesModel::RemoteType).isEmpty());
+        const QModelIndexList remoteIndexes = places.groupIndexes(KFilePlacesModel::RemoteType);
+        QTRY_VERIFY(!remoteView->isRowHidden(remoteIndexes.first().row()));
+        for (const QModelIndex &index : remoteIndexes) {
+            QTRY_VERIFY(placesView->isRowHidden(index.row()));
+        }
+        QTest::qWait(700);
+        for (const QModelIndex &index : places.groupIndexes(KFilePlacesModel::RemoteType)) {
+            QVERIFY(placesView->isRowHidden(index.row()));
+        }
+        QTest::mouseClick(remoteHeader, Qt::LeftButton);
+        QVERIFY(remoteView->isHidden());
+        QVERIFY(!placesView->isHidden());
+        QVERIFY(panel.collapsedSections().contains(QStringLiteral("places:RemoteType")));
+        QVERIFY(!places.isGroupHidden(KFilePlacesModel::RemoteType));
+        places.setGroupHidden(KFilePlacesModel::RemoteType, true);
+        QTRY_VERIFY(!remoteHeader->isVisible());
+        places.setGroupHidden(KFilePlacesModel::RemoteType, false);
+        QTRY_VERIFY(remoteHeader->isVisible());
+        QVERIFY(remoteView->isHidden());
+        panel.setSectionVisibility(true, false, true);
+        panel.setSectionVisibility(true, true, true);
+        QVERIFY(remoteView->isHidden());
+        QTest::mouseClick(remoteHeader, Qt::LeftButton);
+        QVERIFY(!remoteView->isHidden());
+        QVERIFY(!panel.collapsedSections().contains(QStringLiteral("places:RemoteType")));
+        QModelIndex localIndex;
+        for (const QModelIndex &index : places.groupIndexes(KFilePlacesModel::PlacesType)) {
+            if (places.text(index) == QLatin1String("Opus test local")) {
+                localIndex = index;
+            }
+        }
+        QVERIFY(localIndex.isValid());
+        const QModelIndexList placesIndexes = places.groupIndexes(KFilePlacesModel::PlacesType);
+        QVERIFY(placesIndexes.size() >= 2);
+        const int nativeHeaderHeight = placesView->sizeHintForIndex(placesIndexes.at(0)).height() - placesView->sizeHintForIndex(placesIndexes.at(1)).height();
+        QCOMPARE(placesHeader->height(), nativeHeaderHeight);
+        QSignalSpy activated(&panel, &CombinedPanel::urlActivated);
+        QTRY_VERIFY(!placesView->visualRect(localIndex).isEmpty());
+        clickRow(placesView, localIndex);
+        QTRY_COMPARE(activated.size(), 1);
+        QCOMPARE(activated.first().first().toUrl(), local);
+    }
+
     void combinedPanelShowsEveryPlaceWithoutScrolling()
     {
         MainWindow window;
@@ -289,6 +394,7 @@ private Q_SLOTS:
         window.show();
         QVERIFY(QTest::qWaitForWindowExposed(&window));
         QCOMPARE(window.panelLayout(), MainWindow::PanelLayout::Combined);
+        QCOMPARE(dock(window, QStringLiteral("combinedDock"))->windowTitle(), QStringLiteral("Explorer Panel"));
         QVERIFY(dock(window, QStringLiteral("combinedDock"))->isVisible());
         QVERIFY(!dock(window, QStringLiteral("placesDock"))->isVisible());
         QVERIFY(!dock(window, QStringLiteral("foldersDock"))->isVisible());
@@ -346,14 +452,14 @@ private Q_SLOTS:
         {
             MainWindow window;
             window.openUrls({m_a});
-            window.findChild<CombinedPanel *>()->setCollapsedSections({QStringLiteral("favorites")});
+            window.findChild<CombinedPanel *>()->setCollapsedSections({QStringLiteral("favorites"), QStringLiteral("places:PlacesType")});
             window.show();
             QVERIFY(QTest::qWaitForWindowExposed(&window));
             QVERIFY(window.close());
         }
         MainWindow window;
         window.openUrls({});
-        QCOMPARE(window.findChild<CombinedPanel *>()->collapsedSections(), QStringList({QStringLiteral("favorites")}));
+        QCOMPARE(window.findChild<CombinedPanel *>()->collapsedSections(), (QStringList{QStringLiteral("favorites"), QStringLiteral("places:PlacesType")}));
     }
 
     void favoriteNavigatesActivePane()
