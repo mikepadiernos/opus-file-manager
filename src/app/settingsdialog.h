@@ -35,6 +35,16 @@ private:
     QComboBox *m_dateFormat = nullptr;
     QCheckBox *m_showSeconds = nullptr;
     QSpinBox *m_iconNameLines = nullptr;
+    QCheckBox *m_showPanels = nullptr;
+    QComboBox *m_panelPosition = nullptr;
+    QCheckBox *m_autoFocusFolders = nullptr;
+    QCheckBox *m_showPanelTitles = nullptr;
+    QCheckBox *m_showFavorites = nullptr;
+    QCheckBox *m_showPlaces = nullptr;
+    QCheckBox *m_showFolderTree = nullptr;
+    QComboBox *m_defaultArchiveFormat = nullptr;
+    QCheckBox *m_showTabIcons = nullptr;
+    QCheckBox *m_expandTabs = nullptr;
     QPlainTextEdit *m_ignoreEntries = nullptr;
     QTableWidget *m_colorRules = nullptr;
 };

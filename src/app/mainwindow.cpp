@@ -173,6 +173,7 @@ MainWindow::MainWindow(QWidget *parent)
     setupGUI(QSize(1100, 700), Default, QStringLiteral("opus-file-managerui.rc"));
     const KConfigGroup panels = KSharedConfig::openStateConfig()->group(QLatin1String(PanelsGroup));
     setPanelLayout(panels.readEntry("Layout", QString()) == QLatin1String("Separate") ? PanelLayout::Separate : PanelLayout::Combined);
+    applyPanelSettings();
 
     connect(KIO::FileUndoManager::self(), &KIO::FileUndoManager::undoAvailable, this, [this](bool available) {
         m_undoAction->setEnabled(available);
@@ -326,6 +327,45 @@ void MainWindow::configureSettings()
     }
     m_left->view()->reloadSettings();
     m_right->view()->reloadSettings();
+    m_left->reloadTabSettings();
+    m_right->reloadTabSettings();
+    applyPanelSettings();
+}
+
+void MainWindow::applyPanelSettings()
+{
+    const KConfigGroup settings = KSharedConfig::openConfig()->group(QStringLiteral("PanelSettings"));
+    const bool visible = settings.readEntry("Visible", true);
+    const bool combined = m_panelLayout == PanelLayout::Combined;
+    const Qt::DockWidgetArea area =
+        settings.readEntry("Position", QStringLiteral("left")) == QLatin1String("right") ? Qt::RightDockWidgetArea : Qt::LeftDockWidgetArea;
+    m_autoFocusFolders = settings.readEntry("AutoFocus", true);
+
+    addDockWidget(area, m_combinedDock);
+    addDockWidget(area, m_placesDock);
+    addDockWidget(area, m_foldersDock);
+    splitDockWidget(m_placesDock, m_foldersDock, Qt::Vertical);
+    m_combinedDock->setVisible(visible && combined);
+    m_placesDock->setVisible(visible && !combined);
+    m_foldersDock->setVisible(visible && !combined);
+
+    const bool showTitles = settings.readEntry("TitlesVisible", true);
+    for (QDockWidget *dock : {m_combinedDock, m_placesDock, m_foldersDock}) {
+        if (showTitles) {
+            dock->setTitleBarWidget(nullptr);
+        } else {
+            auto *titleBar = new QWidget(dock);
+            titleBar->setFixedHeight(0);
+            dock->setTitleBarWidget(titleBar);
+        }
+    }
+
+    m_combinedPanel->setSectionVisibility(settings.readEntry("FavoritesVisible", true),
+                                          settings.readEntry("PlacesVisible", true),
+                                          settings.readEntry("FoldersVisible", true));
+    if (m_active && m_autoFocusFolders) {
+        syncFolderTrees();
+    }
 }
 
 void MainWindow::setPanelLayout(PanelLayout layout)
@@ -371,7 +411,14 @@ void MainWindow::compress()
     }
     const QString defaultName = selected.size() == 1 ? (selected.first().isDir() ? selected.first().name() : Archives::baseName(selected.first().name()))
                                                      : activePane()->url().adjusted(QUrl::StripTrailingSlash).fileName();
-    CompressDialog dialog(defaultName, inactivePane()->url().isLocalFile(), this);
+    const KConfigGroup archiveSettings = KSharedConfig::openConfig()->group(QStringLiteral("Archives"));
+    const QList<ArchiveWriter::Format> formats = ArchiveWriter::formats();
+    ArchiveWriter::Format defaultFormat =
+        static_cast<ArchiveWriter::Format>(archiveSettings.readEntry("DefaultFormat", static_cast<int>(ArchiveWriter::Format::Zip)));
+    if (!formats.contains(defaultFormat)) {
+        defaultFormat = ArchiveWriter::Format::Zip;
+    }
+    CompressDialog dialog(defaultName, inactivePane()->url().isLocalFile(), this, defaultFormat);
     if (dialog.exec() != QDialog::Accepted) {
         return;
     }
@@ -1697,7 +1744,9 @@ void MainWindow::syncFolderTrees()
     const bool hidden = activePane()->view()->showHiddenFiles();
     for (FolderTree *tree : {m_folderTree, m_combinedPanel->folderTree()}) {
         tree->setShowHiddenFolders(hidden);
-        tree->reveal(url);
+        if (m_autoFocusFolders) {
+            tree->reveal(url);
+        }
     }
 }
 

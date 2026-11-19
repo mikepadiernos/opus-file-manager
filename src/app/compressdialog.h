@@ -25,7 +25,7 @@ public:
      * @param otherPaneAvailable whether the other pane's folder can take the archive
      * @param parent the main window
      */
-    CompressDialog(const QString &defaultName, bool otherPaneAvailable, QWidget *parent);
+    CompressDialog(const QString &defaultName, bool otherPaneAvailable, QWidget *parent, ArchiveWriter::Format defaultFormat = ArchiveWriter::Format::Zip);
 
     /// The name typed, without surrounding spaces or an extension.
     QString archiveName() const;
