@@ -71,24 +71,24 @@ with Dolphin.
   - ~~**Settings Dialog:** sidebar icon size (default 24 px) and title position
     (to the right of icons by default, or below)~~
 - **Interface**
-  - **Folders and Tabs:** startup folders and session; one or two panes in new
+  - **Folders and Tabs:** ~~startup folders and session; one or two panes in new
     windows; tab bars; Tab switches panes; new-tab placement; navigation bars;
-    symbolic-link following
-  - **Previews:** enablement, plugins, size limit and remote folders
-  - **Confirmations:** trash, delete, multiple tabs; executable handling;
+    symbolic-link following~~
+  - **Previews:** ~~enablement, plugins, size limit and remote folders~~
+  - **Confirmations:** ~~trash~~, delete, ~~multiple tabs; executable handling~~;
     default drop action
-  - **Panels:** ~~Places panel visibility and visible sections~~
-  - **Status and Location Bars:** status-bar contents and bar density
+  - **Panels:** Places panel visibility and visible sections
+  - **Status and Location Bars:** ~~status-bar contents and bar density~~
 - **View**
-  - **General:** default view mode, sorting, hidden files and tooltips
-  - **Details:** icon size, columns, item density and dragging from anywhere
-    in a row
-  - **Icons:** icon and preview size and item density
+  - **General:** ~~default view mode, sorting, hidden files and tooltips~~
+  - **Details:** ~~icon size, columns, item density and dragging from anywhere
+    in a row~~
+  - **Icons:** icon and preview size and ~~item density~~
 - **Context Menu**
-  - **General:** optional Copy To and Move To submenus
-  - **Actions:** choose which built-in actions appear
-  - **Service Menus:** choose which installed service actions and plugins
-    appear
+  - **General:** ~~optional Copy To and Move To submenus~~
+  - **Actions:** ~~choose which built-in actions appear~~
+  - **Service Menus:** ~~choose which installed service actions and plugins
+    appear~~
 
 ### M03 Listing depth
 
@@ -304,6 +304,8 @@ Settings for M09 tools, stored in KConfig.
 - Move panes: send the second pane to a tab of its own or pop it out into a
   window, carrying its display style
 - Drag entries between the main toolbar, pane toolbars and hamburger menu
+- Customize the combined Places/Folders panel: reorder its sections, show or
+  hide each section, and give sections custom titles
 - Swap panes: the current tabs or whole sides
 - Dim the inactive pane
 
@@ -319,6 +321,9 @@ Settings for M11 UI customizations, stored in KConfig.
 - **Panes**
   - **Moving:** whether a moved pane opens as a tab or window, and whether it
     keeps or resets its display style
+- **Combined panel**
+  - **Sections:** section order, visibility and custom titles, reusing the
+    visibility settings from M04
 - **Defaults**
   - **Reset:** restore the main toolbar, pane toolbars and hamburger menu
 
