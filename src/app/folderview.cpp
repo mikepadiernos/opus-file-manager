@@ -2,6 +2,7 @@
 
 #include "folderview.h"
 
+#include "flatview.h"
 #include "ignorelist.h"
 
 #include <KDirLister>
@@ -12,6 +13,7 @@
 #include <KIO/DropJob>
 #include <KIO/Job>
 #include <KJobWidgets>
+#include <KLocalizedString>
 #include <KSharedConfig>
 
 #include <QDragEnterEvent>
@@ -50,6 +52,31 @@ public:
         endFilterChange(QSortFilterProxyModel::Direction::Rows);
     }
 
+    /// Hides folders and shows relative paths in the Type column; an empty URL ends flat mode.
+    void setFlatBase(const QUrl &base)
+    {
+        beginFilterChange();
+        m_flatBase = base;
+        endFilterChange(QSortFilterProxyModel::Direction::Rows);
+        Q_EMIT headerDataChanged(Qt::Horizontal, KDirModel::Type, KDirModel::Type);
+    }
+
+    QVariant data(const QModelIndex &index, int role) const override
+    {
+        if (isRelativePath(index.column()) && role == Qt::DisplayRole) {
+            return FlatView::relativeFolder(m_flatBase, itemAt(index).url());
+        }
+        return KDirSortFilterProxyModel::data(index, role);
+    }
+
+    QVariant headerData(int section, Qt::Orientation orientation, int role) const override
+    {
+        if (orientation == Qt::Horizontal && isRelativePath(section) && role == Qt::DisplayRole) {
+            return i18nc("@title:column path below the flat folder", "Relative Path");
+        }
+        return KDirSortFilterProxyModel::headerData(section, orientation, role);
+    }
+
 protected:
     bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override
     {
@@ -58,10 +85,38 @@ protected:
         }
         const auto *model = static_cast<const KDirModel *>(sourceModel());
         const KFileItem item = model->itemForIndex(model->index(sourceRow, 0, sourceParent));
+        if (m_flatBase.isValid() && item.isDir()) {
+            return false;
+        }
         return !m_ignoreList.ignores(item.name()) && m_filter.matches(item.name(), item.isDir());
     }
 
+    bool subSortLessThan(const QModelIndex &left, const QModelIndex &right) const override
+    {
+        if (isRelativePath(left.column())) {
+            const int byPath = QString::localeAwareCompare(FlatView::relativeFolder(m_flatBase, itemAt(left).url()),
+                                                           FlatView::relativeFolder(m_flatBase, itemAt(right).url()));
+            if (byPath != 0) {
+                return byPath < 0;
+            }
+        }
+        return KDirSortFilterProxyModel::subSortLessThan(left, right);
+    }
+
 private:
+    bool isRelativePath(int column) const
+    {
+        return m_flatBase.isValid() && column == KDirModel::Type;
+    }
+
+    /// The item at a proxy or source index of this model's KDirModel.
+    KFileItem itemAt(const QModelIndex &index) const
+    {
+        const QModelIndex source = index.model() == this ? mapToSource(index) : index;
+        return static_cast<const KDirModel *>(sourceModel())->itemForIndex(source);
+    }
+
+    QUrl m_flatBase;
     NameFilter m_filter;
     IgnoreList m_ignoreList;
 };
@@ -134,6 +189,9 @@ FolderView::FolderView(QWidget *parent)
         Q_EMIT loadingChanged(false);
     });
     connect(m_lister, &KDirLister::redirection, this, [this](const QUrl &, const QUrl &newUrl) {
+        if (!m_flat) {
+            m_folder = newUrl;
+        }
         Q_EMIT redirected(newUrl);
     });
     connect(m_lister, &KDirLister::jobError, this, [this](KIO::Job *job) {
@@ -177,16 +235,25 @@ void FolderView::setupView(QAbstractItemView *view)
 
 QUrl FolderView::url() const
 {
-    return m_lister->url();
+    return m_folder;
 }
 
 void FolderView::setUrl(const QUrl &url)
 {
-    if (!url.isValid() || url == m_lister->url()) {
+    if (!url.isValid() || url == m_folder) {
         return;
     }
-    m_lister->openUrl(url);
+    m_folder = url;
+    if (m_flat) {
+        m_proxy->setFlatBase(url);
+    }
+    openListing();
     Q_EMIT urlChanged(url);
+}
+
+void FolderView::openListing()
+{
+    m_lister->openUrl(m_flat ? FlatView::listingUrl(m_folder) : m_folder);
 }
 
 void FolderView::reload()
@@ -242,7 +309,7 @@ void FolderView::setPreviewsEnabled(bool enabled)
 
 KFileItem FolderView::rootItem() const
 {
-    return m_lister->rootItem();
+    return m_flat ? KFileItem(m_folder) : m_lister->rootItem();
 }
 
 KFileItemList FolderView::items() const
@@ -334,6 +401,23 @@ void FolderView::setNameFilter(const NameFilter &filter)
     Q_EMIT itemCountChanged();
 }
 
+bool FolderView::isFlat() const
+{
+    return m_flat;
+}
+
+void FolderView::setFlat(bool flat)
+{
+    if (flat == m_flat) {
+        return;
+    }
+    m_flat = flat;
+    m_proxy->setFlatBase(flat ? m_folder : QUrl());
+    if (m_folder.isValid()) {
+        openListing();
+    }
+}
+
 void FolderView::activateFirstItem()
 {
     const NameFilter filter = m_proxy->nameFilter();
@@ -377,6 +461,11 @@ KFileItem FolderView::itemAt(QAbstractItemView *view, const QPoint &viewportPos)
 bool FolderView::handleDrop(QAbstractItemView *view, QEvent *event)
 {
     auto *dropEvent = static_cast<QDropEvent *>(event);
+    if (m_flat) {
+        // Items in a flat list come from many folders, so a drop has no single destination.
+        dropEvent->ignore();
+        return true;
+    }
     const QMimeData *mime = dropEvent->mimeData();
     if (!mime || !mime->hasUrls()) {
         return false;

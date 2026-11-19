@@ -111,6 +111,8 @@ private:
     void setPreviewsEnabled(bool enabled);
     /// Reveals the active pane's folder in the trees and matches its hidden files setting.
     void syncFolderTrees();
+    /// Shows the active pane's folder flat or not, and remembers the choice for that folder.
+    void setFlat(bool flat);
     /// Shows the context menu for a folder in a tree.
     void showFolderTreeMenu(const QUrl &url, const QPoint &globalPos);
     /// Adds the selected folders, or the current folder, to Favorites.
@@ -142,6 +144,9 @@ private:
     FolderTree *m_folderTree = nullptr;
     CombinedPanel *m_combinedPanel = nullptr;
     KSelectAction *m_panelLayoutAction = nullptr;
+    KToggleAction *m_flatAction = nullptr;
+    /// Folders shown flat, as URL strings; kept in the state config.
+    QStringList m_flatLocations;
     PanelLayout m_panelLayout = PanelLayout::Combined;
     KFileItemActions *m_fileItemActions = nullptr;
     KNewFileMenu *m_newFileMenu = nullptr;

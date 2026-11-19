@@ -65,6 +65,12 @@ namespace
 {
 constexpr auto SessionGroup = "Session";
 constexpr auto PanelsGroup = "Panels";
+constexpr auto FlatGroup = "Flat";
+
+QString flatKey(const QUrl &url)
+{
+    return url.adjusted(QUrl::StripTrailingSlash).toString();
+}
 
 QString stdName(KStandardAction::StandardAction id)
 {
@@ -88,6 +94,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     initResources();
     setComponentName(QStringLiteral("opus-file-manager"), i18n("Opus File Manager"));
+    m_flatLocations = KSharedConfig::openStateConfig()->group(QLatin1String(FlatGroup)).readEntry("Locations", QStringList());
     m_favorites = new FavoritesModel(KSharedConfig::openConfig()->group(QStringLiteral("Favorites")), this);
     m_tabColors = new TabColors(KSharedConfig::openConfig()->group(QStringLiteral("TabColors")), this);
     setupPanes();
@@ -136,7 +143,8 @@ void MainWindow::connectPane(Pane *pane)
     connect(pane, &Pane::activated, this, [this, pane] {
         setActivePane(pane);
     });
-    connect(pane, &Pane::urlChanged, this, [this, pane] {
+    connect(pane, &Pane::urlChanged, this, [this, pane](const QUrl &url) {
+        pane->view()->setFlat(m_flatLocations.contains(flatKey(url)));
         if (pane == m_active) {
             updateActions();
             updateStatusBar();
@@ -604,6 +612,11 @@ void MainWindow::setupActions()
     extract->setText(i18nc("@action", "Extract to Other Pane"));
     extract->setIcon(QIcon::fromTheme(QStringLiteral("archive-extract")));
 
+    m_flatAction = new KToggleAction(QIcon::fromTheme(QStringLiteral("view-list-text")), i18nc("@action", "Show Flat (No Folders)"), this);
+    actions->addAction(QStringLiteral("show_flat"), m_flatAction);
+    actions->setDefaultShortcut(m_flatAction, Qt::CTRL | Qt::SHIFT | Qt::Key_F);
+    connect(m_flatAction, &KToggleAction::triggered, this, &MainWindow::setFlat);
+
     QAction *filter = actions->addAction(QStringLiteral("show_filter_bar"), this, [this] {
         activePane()->showFilterBar();
     });
@@ -766,7 +779,15 @@ void MainWindow::updateActions()
 
     bool pasteEnabled = false;
     const QString pasteText = FileOperations::pasteActionText(root, &pasteEnabled);
-    m_pasteAction->setEnabled(pasteEnabled && !root.isNull() && root.isWritable());
+    const bool flat = view->isFlat();
+    m_pasteAction->setEnabled(pasteEnabled && !root.isNull() && root.isWritable() && !flat);
+    m_flatAction->setChecked(flat);
+    const QString flatReason = flat ? i18nc("@info:tooltip", "Not available in a flat list, whose items come from many folders") : QString();
+    for (const QString &name : {QStringLiteral("new_menu"), QStringLiteral("new_folder")}) {
+        QAction *create = actions->action(name);
+        create->setEnabled(!flat);
+        create->setToolTip(flat ? flatReason : create->text());
+    }
     if (!pasteText.isEmpty()) {
         m_pasteAction->setText(pasteText);
     }
@@ -1055,6 +1076,20 @@ void MainWindow::toggleViewMode()
 {
     FolderView *view = activePane()->view();
     view->setViewMode(view->viewMode() == FolderView::ViewMode::Details ? FolderView::ViewMode::Icons : FolderView::ViewMode::Details);
+    updateActions();
+}
+
+void MainWindow::setFlat(bool flat)
+{
+    const QString key = flatKey(activePane()->url());
+    m_flatLocations.removeAll(key);
+    if (flat) {
+        m_flatLocations.append(key);
+    }
+    KConfigGroup group = KSharedConfig::openStateConfig()->group(QLatin1String(FlatGroup));
+    group.writeEntry("Locations", m_flatLocations);
+    group.sync();
+    activePane()->view()->setFlat(flat);
     updateActions();
 }
 

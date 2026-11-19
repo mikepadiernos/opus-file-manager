@@ -81,6 +81,16 @@ public:
      */
     void activateFirstItem();
 
+    bool isFlat() const;
+    /**
+     * Lists every file below the folder in one list, without folders, or
+     * goes back to the folder's own items. url() stays the folder either way.
+     * In a flat list the Type column shows each item's relative path, and
+     * nothing can be dropped.
+     * @param flat true for the flat list
+     */
+    void setFlat(bool flat);
+
 Q_SIGNALS:
     void urlChanged(const QUrl &url);
     void redirected(const QUrl &url);
@@ -101,6 +111,8 @@ protected:
 
 private:
     void setupView(QAbstractItemView *view);
+    /// Lists m_folder, or everything below it in flat mode.
+    void openListing();
     void onActivated(const QModelIndex &index);
     void onContextMenu(const QPoint &pos);
     bool handleDrop(QAbstractItemView *view, QEvent *event);
@@ -109,6 +121,9 @@ private:
     KDirLister *m_lister = nullptr;
     KDirModel *m_model = nullptr;
     NameFilterProxyModel *m_proxy = nullptr;
+    /// The folder shown, which in flat mode is not what the lister lists.
+    QUrl m_folder;
+    bool m_flat = false;
     QStackedWidget *m_stack = nullptr;
     QTreeView *m_details = nullptr;
     QListView *m_icons = nullptr;
