@@ -13,12 +13,13 @@ class QDropEvent;
 class QListView;
 class QScrollArea;
 class QToolButton;
+class PlacesSection;
 
 /**
  * One panel in place of the separate Places and Folders panels: a
  * Favorites section, the KDE Places sections, and a Tree section with
- * Home and Root, in a single scrolling column. Favorites and Tree can be
- * collapsed from their headers.
+ * Home and Root, in a single scrolling column. Sections can be collapsed
+ * independently from their headers.
  */
 class CombinedPanel : public QWidget
 {
@@ -35,7 +36,7 @@ public:
 
     FolderTree *folderTree() const;
 
-    /// Keys of the collapsed sections: "favorites" and "tree".
+    /// Stable keys of collapsed sections, including KDE Places groups.
     QStringList collapsedSections() const;
     /// @param sections keys of the sections to collapse; the others expand
     void setCollapsedSections(const QStringList &sections);
@@ -67,7 +68,8 @@ private:
 
     FavoritesModel *m_favorites = nullptr;
     QListView *m_favoritesView = nullptr;
-    KFilePlacesView *m_placesView = nullptr;
+    QWidget *m_placesContainer = nullptr;
+    QList<PlacesSection *> m_placesSections;
     FolderTree *m_folderTree = nullptr;
     QToolButton *m_favoritesHeader = nullptr;
     QToolButton *m_treeHeader = nullptr;

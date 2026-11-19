@@ -439,7 +439,7 @@ void MainWindow::setupPanels()
     connect(m_combinedPanel, &CombinedPanel::urlsDropped, this, [this](const QUrl &destination, QDropEvent *event) {
         FileOperations::drop(event, destination, this);
     });
-    m_combinedDock = addPanelDock(QStringLiteral("combinedDock"), i18nc("@title:window", "Places"), m_combinedPanel);
+    m_combinedDock = addPanelDock(QStringLiteral("combinedDock"), i18nc("@title:window", "Explorer Panel"), m_combinedPanel);
 }
 
 void MainWindow::setPanelLayout(PanelLayout layout)
