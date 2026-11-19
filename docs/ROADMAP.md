@@ -221,16 +221,16 @@ tracked in #257, #258, #262 and #263.
 - ~~Save-copy format selection and JPEG/WebP quality~~
 - ~~Line-numbered, syntax-highlighted text previews and preview footer
   ID3/EXIF metadata~~
-- Mark images while browsing the gallery and apply file operations to the
+- ~~Mark images while browsing the gallery and apply file operations to the
   marked selection, without moving files until the user chooses an action
-  (Directory Opus)
-- Batch image conversion with output format, dimensions and quality, a
-  destination preview and non-overwriting names (Max)
-- Optional autoplay for audio and video in the preview panel; keep click-to-play
-  available independently of gallery playback
+  (Directory Opus)~~
+- ~~Batch image conversion with output format, dimensions and quality, a
+  destination preview and non-overwriting names (Max)~~
+- ~~Optional autoplay for audio and video in the preview panel; keep click-to-play
+  available independently of gallery playback~~
 
 **Caveats:** [Previews and gallery](CAVEATS.md#previews-and-gallery), tracked
-in #259, #260, #264, #266 and #267.
+in #259, #260, #264, #266, #267, #302, #303 and #304.
 
 ### M06 Preview and gallery settings
 
@@ -243,7 +243,7 @@ Settings for M05 preview and gallery, stored in KConfig.
   - ~~**Text:** size limit for text in the preview panel~~
   - **Presentation:** default to formatted or source view for HTML and
     Markdown; show line numbers and syntax highlighting in text previews
-  - **Media:** autoplay audio and video in the preview panel or require play
+  - ~~**Media:** autoplay audio and video in the preview panel or require play~~
 - **Gallery**
   - ~~**Information:** image info panel shown by default~~
   - **Display:** initial zoom (fit or actual size) and thumbnail visibility

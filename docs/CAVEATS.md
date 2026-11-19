@@ -54,8 +54,13 @@ operation before assuming passwords are kept out of process arguments.
 - Preview images are limited to 8 MiB and 40 megapixels; text previews are
   UTF-8 and default to the first 1 MiB. Remote previews are downloaded to a
   temporary file and use those limits, or 128 MiB for other file types.
-- The gallery is local-only; gallery images are limited to 128 MiB and
-  40 megapixels. Saving edits does not preserve the original image metadata.
+- The gallery is local-only; gallery images and batch conversion inputs are
+  limited to 128 MiB and 40 megapixels. Saving edits and converting images do
+  not preserve the original image metadata.
+- Batch conversion reads files on disk rather than unsaved gallery edits, and
+  converts animated images to still images. It requires destination filesystem
+  support for atomic no-replace renames; unsupported files are reported as
+  conversion failures. Converted files have owner-only permissions.
 - Text lines longer than 16,384 characters are shown without syntax
   highlighting. Rendered HTML and Markdown disable external resources and
   links.
