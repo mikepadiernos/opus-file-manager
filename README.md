@@ -27,6 +27,7 @@ for file operations, Places, properties, settings and desktop integration.
   unified diff.
 - Create symbolic links next to local files and folders without overwriting.
 - Export the filtered listing and configured details columns to CSV or PDF.
+- Inspect a folder's content sizes and relative shares in a cancellable chart.
 
 ## Caveats
 

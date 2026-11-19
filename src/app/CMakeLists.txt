@@ -7,6 +7,8 @@ add_library(opusfm_app STATIC
     compressdialog.h
     contentheight.cpp
     contentheight.h
+    contentchartdialog.cpp
+    contentchartdialog.h
     densitydelegate.cpp
     densitydelegate.h
     detailsview.cpp

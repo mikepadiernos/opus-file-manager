@@ -101,6 +101,15 @@ link is created beside its target; another destination cannot be chosen.
   only, and wide PDF tables may wrap or clip. CSV prefixes cells that could be
   interpreted as spreadsheet formulas with an apostrophe.
 
+## Folder content chart
+
+- The chart shows measured logical sizes by immediate entry, not kind or
+  extension breakdowns or a largest-file drilldown. It includes hidden
+  entries, skips top-level symbolic links and entries without a known size,
+  and relies on KIO workers for recursive traversal. Scans are cancellable but
+  have no entry or time limit and can be costly; results are snapshots.
+  ([#315](https://github.com/mikepadiernos/opus-file-manager/issues/315))
+
 ## Build, installation and references
 
 - Opus targets Linux and requires the dependencies listed in

@@ -309,7 +309,7 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
   confirmation if a manual selection would remove every item in a group
 - Search and selection filters for full path, parent folder and excluded
   subtrees, with an optional recursion-depth limit
-- Content chart (folder breakdown)
+- ~~Content chart (folder breakdown)~~
 - Folder sync: preview differences and planned operations before running;
   allow per-item direction changes and exclusions, with explicit confirmation
   of overwrites and deletions (Krusader)
@@ -339,7 +339,7 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 
 **Caveats:** [File comparison](CAVEATS.md#file-comparison), tracked in #311;
 [symbolic links](CAVEATS.md#symbolic-links), tracked in #312; [listing export](CAVEATS.md#listing-export),
-tracked in #314.
+tracked in #314; [folder content chart](CAVEATS.md#folder-content-chart), tracked in #315.
 
 ### M10 Tools settings
 

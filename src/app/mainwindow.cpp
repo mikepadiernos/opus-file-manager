@@ -6,6 +6,7 @@
 #include "archivewriter.h"
 #include "combinedpanel.h"
 #include "compressdialog.h"
+#include "contentchartdialog.h"
 #include "density.h"
 #include "editorpanel.h"
 #include "executables.h"
@@ -908,6 +909,9 @@ void MainWindow::setupActions()
     QAction *occupiedSpace = actions->addAction(QStringLiteral("calculate_occupied_space"), this, &MainWindow::calculateOccupiedSpace);
     occupiedSpace->setText(i18nc("@action", "Calculate Occupied Space"));
     occupiedSpace->setIcon(QIcon::fromTheme(QStringLiteral("dialog-information")));
+    QAction *contentChart = actions->addAction(QStringLiteral("content_chart"), this, &MainWindow::showContentChart);
+    contentChart->setText(i18nc("@action", "Folder Content Chart"));
+    contentChart->setIcon(QIcon::fromTheme(QStringLiteral("view-statistics")));
 
     QAction *terminal = actions->addAction(QStringLiteral("open_terminal"), this, &MainWindow::openTerminal);
     terminal->setText(i18nc("@action", "Open Terminal Here"));
@@ -1436,6 +1440,7 @@ void MainWindow::updateActions()
     actions->action(stdName(KStandardAction::Cut))->setEnabled(hasSelection && props.supportsMoving());
     actions->action(stdName(KStandardAction::Copy))->setEnabled(hasSelection);
     actions->action(QStringLiteral("open_terminal"))->setEnabled(activePane()->url().isLocalFile());
+    actions->action(QStringLiteral("content_chart"))->setEnabled(activePane()->url().isValid() && !activePane()->url().isEmpty());
     actions->action(QStringLiteral("compare_files"))->setEnabled(!comparisonFiles(activePane(), inactivePane(), isDualLayout()).isEmpty());
     const bool hasMedia = std::any_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
         if (item.isDir() || !item.url().isLocalFile()) {
@@ -2043,6 +2048,7 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
             menu.addAction(actions->action(QStringLiteral("open_terminal")));
         }
         menu.addAction(actions->action(QStringLiteral("calculate_occupied_space")));
+        menu.addAction(actions->action(QStringLiteral("content_chart")));
         QAction *folderLook = nullptr;
         if (pane->url().isLocalFile()) {
             folderLook = menu.addAction(i18nc("@action:inmenu", "Folder Look…"));
@@ -2132,6 +2138,7 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
         menu.addAction(actions->action(QStringLiteral("open_terminal")));
     }
     if (singleFolder) {
+        menu.addAction(actions->action(QStringLiteral("content_chart")));
         menu.addAction(actions->action(QStringLiteral("add_to_favorites")));
         if (items.first().isLocalFile()) {
             QAction *look = menu.addAction(i18nc("@action:inmenu", "Folder Look…"));
@@ -2315,6 +2322,19 @@ void MainWindow::exportListing(bool pdf)
         return;
     }
     showStatusMessage(i18nc("@info:status", "Listing exported to %1", destination));
+}
+
+void MainWindow::showContentChart()
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    const QUrl folder = items.size() == 1 && items.first().isDir() ? items.first().url() : activePane()->url();
+    if (!folder.isValid() || folder.isEmpty()) {
+        KMessageBox::error(this, i18nc("@info", "No folder is available to scan."));
+        return;
+    }
+    auto *dialog = new ContentChartDialog(folder, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
 }
 
 void MainWindow::copyToOtherPane()

@@ -128,6 +128,7 @@ private:
     void compareFiles();
     void createSymlink();
     void exportListing(bool pdf);
+    void showContentChart();
     void setupEditor();
     void setEditorPlacement(EditorPanel::Placement placement);
 

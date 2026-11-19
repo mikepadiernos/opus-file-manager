@@ -2,6 +2,7 @@
 
 #include "mainwindow.h"
 #include "combinedpanel.h"
+#include "contentchartdialog.h"
 #include "filediffdialog.h"
 #include "fileoperations.h"
 #include "filterbar.h"
@@ -629,6 +630,37 @@ private Q_SLOTS:
         QFile pdf(dir.filePath(QStringLiteral("listing.pdf")));
         QVERIFY(pdf.open(QIODevice::ReadOnly));
         QCOMPARE(pdf.read(5), QByteArray("%PDF-"));
+    }
+
+    void contentChartUsesSelectedFolderOrCurrentFolder()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir(dir.path()).mkdir(QStringLiteral("sub")));
+        QFile file(dir.filePath(QStringLiteral("file")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("data");
+        file.close();
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(dir.path())});
+        window.show();
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+        auto *action = window.actionCollection()->action(QStringLiteral("content_chart"));
+        QVERIFY(action && action->isEnabled());
+        view->selectUrls({QUrl::fromLocalFile(dir.filePath(QStringLiteral("sub")))});
+        action->trigger();
+        QPointer<ContentChartDialog> chart = window.findChild<ContentChartDialog *>(QStringLiteral("contentChartDialog"));
+        QVERIFY(chart);
+        QCOMPARE(chart->findChild<QLabel *>(QStringLiteral("contentChartFolder"))->text(),
+                 QUrl::fromLocalFile(dir.filePath(QStringLiteral("sub"))).toDisplayString());
+        chart->close();
+        QTRY_VERIFY(chart.isNull());
+        view->selectUrls({QUrl::fromLocalFile(file.fileName())});
+        action->trigger();
+        chart = window.findChild<ContentChartDialog *>(QStringLiteral("contentChartDialog"));
+        QVERIFY(chart);
+        QCOMPARE(chart->findChild<QLabel *>(QStringLiteral("contentChartFolder"))->text(), QUrl::fromLocalFile(dir.path()).toDisplayString());
     }
 
     void navigationUpdatesHistory()
