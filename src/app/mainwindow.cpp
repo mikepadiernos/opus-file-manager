@@ -2,6 +2,7 @@
 
 #include "mainwindow.h"
 
+#include "archives.h"
 #include "combinedpanel.h"
 #include "favoritesmodel.h"
 #include "fileoperations.h"
@@ -18,11 +19,15 @@
 #include <KFileItemListProperties>
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
+#include <KFileUtils>
 #include <KHamburgerMenu>
+#include <KIO/CopyJob>
 #include <KIO/DropJob>
 #include <KIO/FileSystemFreeSpaceJob>
 #include <KIO/FileUndoManager>
 #include <KIO/Global>
+#include <KIO/ListJob>
+#include <KIO/MkdirJob>
 #include <KJobWidgets>
 #include <KLocalizedString>
 #include <KNewFileMenu>
@@ -36,6 +41,7 @@
 #include <QCursor>
 #include <QDir>
 #include <QDockWidget>
+#include <QFileInfo>
 #include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
@@ -252,6 +258,58 @@ FavoritesModel *MainWindow::favorites() const
 TabColors *MainWindow::tabColors() const
 {
     return m_tabColors;
+}
+
+void MainWindow::extractToOtherPane()
+{
+    const QUrl destination = inactivePane()->url();
+    const KFileItemList selected = activePane()->view()->selectedItems();
+    for (const KFileItem &item : selected) {
+        const QUrl archive = Archives::browseUrl(item.mostLocalUrl(), item.mimetype());
+        if (!archive.isValid()) {
+            continue;
+        }
+        QString name = Archives::baseName(item.name());
+        if (destination.isLocalFile() && QFileInfo::exists(QDir(destination.toLocalFile()).filePath(name))) {
+            name = KFileUtils::suggestName(destination, name);
+        }
+        QUrl target = destination;
+        target.setPath(QDir(destination.path()).filePath(name));
+        extractArchive(archive, target);
+    }
+}
+
+void MainWindow::extractArchive(const QUrl &archive, const QUrl &target)
+{
+    auto *list = KIO::listDir(archive, KIO::HideProgressInfo);
+    auto entries = std::make_shared<QList<QUrl>>();
+    connect(list, &KIO::ListJob::entries, this, [archive, entries](KIO::Job *, const KIO::UDSEntryList &listed) {
+        for (const KIO::UDSEntry &entry : listed) {
+            const QString name = entry.stringValue(KIO::UDSEntry::UDS_NAME);
+            if (name != QLatin1String(".") && name != QLatin1String("..")) {
+                QUrl child = archive;
+                child.setPath(archive.path() + name);
+                entries->append(child);
+            }
+        }
+    });
+    connect(list, &KJob::result, this, [this, target, entries](KJob *job) {
+        if (job->error()) {
+            showStatusMessage(job->errorString());
+            return;
+        }
+        KIO::MkdirJob *mkdir = KIO::mkdir(target);
+        KJobWidgets::setWindow(mkdir, this);
+        connect(mkdir, &KJob::result, this, [this, target, entries](KJob *made) {
+            if (made->error()) {
+                showStatusMessage(made->errorString());
+                return;
+            }
+            KIO::CopyJob *copy = KIO::copy(*entries, target);
+            KIO::FileUndoManager::self()->recordCopyJob(copy);
+            KJobWidgets::setWindow(copy, this);
+        });
+    });
 }
 
 void MainWindow::addToFavorites()
@@ -486,6 +544,10 @@ void MainWindow::setupActions()
         tabN->setText(i18nc("@action %1 is a tab number", "Activate Tab %1", i));
         actions->setDefaultShortcut(tabN, QKeySequence(Qt::CTRL | static_cast<Qt::Key>(Qt::Key_0 + i)));
     }
+
+    QAction *extract = actions->addAction(QStringLiteral("extract_to_other_pane"), this, &MainWindow::extractToOtherPane);
+    extract->setText(i18nc("@action", "Extract to Other Pane"));
+    extract->setIcon(QIcon::fromTheme(QStringLiteral("archive-extract")));
 
     QAction *filter = actions->addAction(QStringLiteral("show_filter_bar"), this, [this] {
         activePane()->showFilterBar();
@@ -746,8 +808,11 @@ void MainWindow::showStatusMessage(const QString &message)
 
 void MainWindow::activateItem(const KFileItem &item)
 {
+    const QUrl archive = item.isDir() ? QUrl() : Archives::browseUrl(item.mostLocalUrl(), item.mimetype());
     if (item.isDir()) {
         activePane()->setUrl(item.targetUrl());
+    } else if (archive.isValid()) {
+        activePane()->setUrl(archive);
     } else {
         FileOperations::open(item, this);
     }
@@ -808,6 +873,12 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     }
     if (singleFolder) {
         menu.addAction(actions->action(QStringLiteral("add_to_favorites")));
+    }
+    const bool anyArchive = std::any_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
+        return !item.isDir() && Archives::browseUrl(item.mostLocalUrl(), item.mimetype()).isValid();
+    });
+    if (anyArchive) {
+        menu.addAction(actions->action(QStringLiteral("extract_to_other_pane")));
     }
     menu.addAction(actions->action(QStringLiteral("copy_path")));
 

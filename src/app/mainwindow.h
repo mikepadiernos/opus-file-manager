@@ -111,6 +111,17 @@ private:
     void setPreviewsEnabled(bool enabled);
     /// Adds the selected folders, or the current folder, to Favorites.
     void addToFavorites();
+    /**
+     * Extracts each selected archive into a new folder named after it in
+     * the other pane's folder, never overwriting an existing one.
+     */
+    void extractToOtherPane();
+    /**
+     * Copies the top-level entries of an archive into a new folder.
+     * @param archive the archive's browse URL from Archives::browseUrl()
+     * @param target the folder to create; it must not exist
+     */
+    void extractArchive(const QUrl &archive, const QUrl &target);
 
     KFilePlacesModel *m_placesModel = nullptr;
     KFilePlacesView *m_placesView = nullptr;

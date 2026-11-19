@@ -25,6 +25,7 @@ find_package(Qt6 ${QT_MIN_VERSION} REQUIRED COMPONENTS Core Gui Widgets DBus Tes
 
 include(KDEGitCommitHooks)
 find_package(KF6 ${KF_MIN_VERSION} REQUIRED COMPONENTS
+    Archive
     Bookmarks
     Config
     ConfigWidgets
