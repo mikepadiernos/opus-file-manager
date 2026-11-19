@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QRegularExpression>
 #include <QSet>
 
 #include <cerrno>
@@ -125,6 +126,89 @@ QString targetName(const BatchRename::Input &input, const QString &pattern, qint
     }
     return result;
 }
+
+QString regexReplacement(const QString &replacement, const QRegularExpression &expression, const QRegularExpressionMatch *match, QString &error)
+{
+    QString result;
+    for (qsizetype i = 0; i < replacement.size(); ++i) {
+        const QChar character = replacement.at(i);
+        if (character != QLatin1Char('$') || i + 1 == replacement.size()) {
+            result += character;
+            continue;
+        }
+        if (replacement.at(i + 1) == QLatin1Char('$')) {
+            result += QLatin1Char('$');
+            ++i;
+        } else if (replacement.at(i + 1) >= QLatin1Char('0') && replacement.at(i + 1) <= QLatin1Char('9')) {
+            int group = replacement.at(++i).digitValue();
+            if (i + 1 < replacement.size() && replacement.at(i + 1) >= QLatin1Char('0') && replacement.at(i + 1) <= QLatin1Char('9')) {
+                group = group * 10 + replacement.at(++i).digitValue();
+            }
+            if (group > expression.captureCount()) {
+                error = i18nc("@info", "Replacement refers to capture group $%1, which does not exist.", group);
+                return {};
+            }
+            if (match) {
+                result += match->captured(group);
+            }
+        } else {
+            result += character;
+        }
+    }
+    return result;
+}
+
+QString regexName(const BatchRename::Input &input, const QRegularExpression &expression, const QString &replacement, QString &error)
+{
+    const QFileInfo source(input.path);
+    const QString fileName = source.fileName();
+    const int dot = fileName.lastIndexOf(QLatin1Char('.'));
+    const bool hasExtension = !source.isDir() && dot > 0 && dot < fileName.size() - 1;
+    const QString extension = hasExtension ? fileName.mid(dot) : QString();
+    const QString base = hasExtension ? fileName.left(dot) : fileName;
+    QString result;
+    qsizetype last = 0;
+    auto matches = expression.globalMatch(base);
+    while (matches.hasNext()) {
+        const QRegularExpressionMatch match = matches.next();
+        result += base.mid(last, match.capturedStart() - last);
+        result += regexReplacement(replacement, expression, &match, error);
+        if (!error.isEmpty()) {
+            return {};
+        }
+        last = match.capturedEnd();
+    }
+    result += base.mid(last);
+    result += extension;
+    if (!validName(result)) {
+        error = i18nc("@info", "The resulting name is empty or contains an invalid character.");
+    }
+    return result;
+}
+}
+
+QString BatchRename::ruleError(const Rule &rule)
+{
+    if (rule.pattern.isEmpty() || rule.start < 0 || rule.start > 1000000000 || rule.padding < 1 || rule.padding > 16) {
+        return i18nc("@info", "Enter a pattern, a nonnegative start number and a padding from 1 to 16.");
+    }
+    if (rule.regularExpression) {
+        const QRegularExpression expression(rule.pattern);
+        if (!expression.isValid()) {
+            return i18nc("@info", "Invalid regular expression: %1", expression.errorString());
+        }
+        QString error;
+        regexReplacement(rule.replacement, expression, nullptr, error);
+        return error;
+    }
+    Input sample{QStringLiteral("/sample.txt"), {}};
+    for (const Property::Property property :
+         {Property::Title, Property::Artist, Property::Album, Property::ReleaseYear, Property::PhotoDateTimeOriginal, Property::Manufacturer}) {
+        sample.metadata.insert(property, QStringLiteral("sample"));
+    }
+    QString error;
+    targetName(sample, rule.pattern, rule.start, rule.padding, error);
+    return error;
 }
 
 bool BatchRename::Plan::valid() const
@@ -142,11 +226,21 @@ bool BatchRename::Plan::valid() const
 
 BatchRename::Plan BatchRename::plan(const QList<Input> &inputs, const QString &pattern, int start, int padding)
 {
+    return plan(inputs, Rule{pattern, {}, false, start, padding});
+}
+
+BatchRename::Plan BatchRename::plan(const QList<Input> &inputs, const Rule &rule)
+{
     Plan result;
-    if (inputs.isEmpty() || pattern.isEmpty() || start < 0 || padding < 1 || padding > 16) {
-        result.error = i18nc("@info", "Select items and enter a pattern, a nonnegative start number and a padding from 1 to 16.");
+    result.error = ruleError(rule);
+    if (!result.error.isEmpty()) {
         return result;
     }
+    if (inputs.isEmpty()) {
+        result.error = i18nc("@info", "Select items to rename.");
+        return result;
+    }
+    const QRegularExpression expression(rule.regularExpression ? rule.pattern : QString());
     QSet<QString> sources;
     QSet<QString> destinations;
     QSet<QString> sourceFolders;
@@ -166,7 +260,8 @@ BatchRename::Plan BatchRename::plan(const QList<Input> &inputs, const QString &p
                 row.device = info.st_dev;
                 row.inode = info.st_ino;
             }
-            const QString name = targetName(input, pattern, qint64(start) + i, padding, row.error);
+            const QString name = rule.regularExpression ? regexName(input, expression, rule.replacement, row.error)
+                                                        : targetName(input, rule.pattern, qint64(rule.start) + i, rule.padding, row.error);
             if (row.error.isEmpty()) {
                 row.destination = QFileInfo(row.source).dir().absoluteFilePath(name);
                 if (destinations.contains(row.destination)) {

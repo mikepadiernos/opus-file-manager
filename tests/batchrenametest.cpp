@@ -69,6 +69,28 @@ private Q_SLOTS:
         QVERIFY(!BatchRename::plan({inputs.first(), inputs.first()}, QStringLiteral("{n}"), 1, 2).valid());
     }
 
+    void previewsRegexCapturesAndRejectsInvalidRules()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QFile source(root.filePath(QStringLiteral("IMG_123.jpg")));
+        QVERIFY(source.open(QIODevice::WriteOnly));
+        source.close();
+        BatchRename::Rule rule{QStringLiteral("IMG_(\\d+)"), QStringLiteral("photo-$1-$$"), true, 1, 2};
+        auto planned = BatchRename::plan({{source.fileName(), {}}}, rule);
+        QVERIFY(planned.valid());
+        QCOMPARE(planned.rows.first().destination, root.filePath(QStringLiteral("photo-123-$.jpg")));
+        rule.replacement = QStringLiteral("$2");
+        QVERIFY(!BatchRename::plan({{source.fileName(), {}}}, rule).valid());
+        rule.pattern = QStringLiteral("[");
+        QVERIFY(!BatchRename::plan({{source.fileName(), {}}}, rule).valid());
+        rule.pattern = QStringLiteral("(IMG)");
+        rule.replacement = QStringLiteral("$1-$1");
+        planned = BatchRename::plan({{source.fileName(), {}}}, rule);
+        QVERIFY(planned.valid());
+        QCOMPARE(planned.rows.first().destination, root.filePath(QStringLiteral("IMG-IMG_123.jpg")));
+    }
+
     void appliesWithoutOverwritingAndReportsPartialResults()
     {
         QTemporaryDir root;

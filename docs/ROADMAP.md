@@ -319,7 +319,7 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 - ~~File diff~~
 - ~~Batch rename: preview old and new names, detect collisions before applying,
   and support metadata tokens for images and audio (Max)~~
-- Batch rename rules for regular expressions and reusable named presets
+- ~~Batch rename rules for regular expressions and reusable named presets~~
 - ~~Symlinks~~
 - ~~Listing export to CSV and PDF (Max)~~
 - Edit supported audio tags and image metadata, including a preview of changes

@@ -3,6 +3,7 @@ include(ECMAddTests)
 ecm_add_tests(
     archivestest.cpp
     batchrenametest.cpp
+    batchrenamepresetstest.cpp
     checksumstest.cpp
     favoritesmodeltest.cpp
     filesplittertest.cpp

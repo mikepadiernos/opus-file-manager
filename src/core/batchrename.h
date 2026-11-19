@@ -15,6 +15,14 @@ struct Input {
     KFileMetaData::PropertyMultiMap metadata;
 };
 
+struct Rule {
+    QString pattern;
+    QString replacement;
+    bool regularExpression = false;
+    int start = 1;
+    int padding = 2;
+};
+
 struct Row {
     QString source;
     QString destination;
@@ -36,5 +44,7 @@ struct Result {
 };
 
 Plan plan(const QList<Input> &inputs, const QString &pattern, int start, int padding);
+Plan plan(const QList<Input> &inputs, const Rule &rule);
+QString ruleError(const Rule &rule);
 Result apply(const Plan &plan, const std::function<bool()> &canceled = {});
 }

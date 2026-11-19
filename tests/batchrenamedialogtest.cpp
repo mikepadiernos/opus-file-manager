@@ -3,10 +3,13 @@
 #include "batchrenamedialog.h"
 
 #include <KPluginMetaData>
+#include <KSharedConfig>
 
 #include <QApplication>
+#include <QComboBox>
 #include <QFile>
 #include <QImage>
+#include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
@@ -99,6 +102,7 @@ private Q_SLOTS:
         if (!hasPlugin(QStringLiteral("exiv2")) || !hasPlugin(QStringLiteral("taglib")) || ffmpeg.isEmpty()) {
             QSKIP("Image/audio metadata extractors and ffmpeg are required for this fixture.");
         }
+
         QTemporaryDir root;
         QVERIFY(root.isValid());
         const QString imagePath = root.filePath(QStringLiteral("photo.jpg"));
@@ -149,6 +153,49 @@ private Q_SLOTS:
             const QString expected = fixture.first == imagePath ? root.filePath(QStringLiteral("Acme.jpg")) : root.filePath(QStringLiteral("Test Artist.mp3"));
             QCOMPARE(dialog.findChild<QTreeWidget *>(QStringLiteral("batchRenameResults"))->topLevelItem(0)->text(1), expected);
         }
+    }
+
+    void savesLoadsAndDeletesRegexPresets()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QFile source(root.filePath(QStringLiteral("IMG_123.jpg")));
+        QVERIFY(source.open(QIODevice::WriteOnly));
+        source.close();
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("presetsrc")), KConfig::SimpleConfig);
+        {
+            BatchRenameDialog dialog({source.fileName()}, nullptr, config);
+            dialog.findChild<QComboBox *>(QStringLiteral("batchRenameMode"))->setCurrentIndex(1);
+            dialog.findChild<QLineEdit *>(QStringLiteral("batchRenamePattern"))->setText(QStringLiteral("IMG_(\\d+)"));
+            dialog.findChild<QLineEdit *>(QStringLiteral("batchRenameReplacement"))->setText(QStringLiteral("photo-$1"));
+            QTimer::singleShot(0, [] {
+                auto *input = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
+                QVERIFY(input);
+                input->setTextValue(QStringLiteral("Camera"));
+                input->accept();
+            });
+            dialog.findChild<QPushButton *>(QStringLiteral("batchRenameSavePreset"))->click();
+            QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("batchRenamePresets"))->count(), 1);
+        }
+        config->reparseConfiguration();
+        BatchRenameDialog dialog({source.fileName()}, nullptr, config);
+        dialog.findChild<QPushButton *>(QStringLiteral("batchRenameLoadPreset"))->click();
+        QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("batchRenameMode"))->currentIndex(), 1);
+        QCOMPARE(dialog.findChild<QLineEdit *>(QStringLiteral("batchRenameReplacement"))->text(), QStringLiteral("photo-$1"));
+        auto *preview = dialog.findChild<QPushButton *>(QStringLiteral("batchRenamePreview"));
+        preview->click();
+        QTRY_VERIFY(preview->isEnabled());
+        QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("batchRenameApply"))->isEnabled());
+        QCOMPARE(dialog.findChild<QTreeWidget *>(QStringLiteral("batchRenameResults"))->topLevelItem(0)->text(1),
+                 root.filePath(QStringLiteral("photo-123.jpg")));
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::Yes)->click();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("batchRenameDeletePreset"))->click();
+        QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("batchRenamePresets"))->count(), 0);
+        QVERIFY(QFile::exists(source.fileName()));
     }
 };
 

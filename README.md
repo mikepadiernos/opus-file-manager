@@ -38,7 +38,8 @@ for file operations, Places, properties, settings and desktop integration.
 - Search local folders live or query Baloo's index; save searches and collect
   references without moving files. Filter searches and selections by path,
   parent, excluded folders and recursion depth.
-- Preview local batch renames with numbering and image or audio metadata tokens.
+- Preview local batch renames with numbering, metadata tokens, regex rules and
+  named presets.
 - Preview local duplicates, select candidates by date or folder, and move
   checked files to Trash after confirmation.
 
