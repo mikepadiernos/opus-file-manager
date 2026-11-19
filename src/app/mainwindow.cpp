@@ -10,6 +10,7 @@
 #include "settings.h"
 #include "settingsdialog.h"
 #include "startup.h"
+#include "symbolicicon.h"
 #include "tabmodel.h"
 
 #include <KActionCollection>
@@ -106,6 +107,22 @@ void setBarMargin(QWidget *bar, int margin)
     }
 }
 
+/// Places model whose icons use SymbolicIcon at small sizes.
+class SymbolicPlacesModel : public KFilePlacesModel
+{
+public:
+    using KFilePlacesModel::KFilePlacesModel;
+
+    QVariant data(const QModelIndex &index, int role) const override
+    {
+        const QVariant value = KFilePlacesModel::data(index, role);
+        if (role != Qt::DecorationRole || value.typeId() != QMetaType::QIcon) {
+            return value;
+        }
+        return SymbolicIcon::wrap(value.value<QIcon>());
+    }
+};
+
 QString stdName(KStandardAction::StandardAction id)
 {
     return KStandardAction::name(id);
@@ -124,7 +141,7 @@ QList<QUrl> urlsOf(const KFileItemList &items)
 
 MainWindow::MainWindow(QWidget *parent)
     : KXmlGuiWindow(parent)
-    , m_placesModel(new KFilePlacesModel(this))
+    , m_placesModel(new SymbolicPlacesModel(this))
 {
     initResources();
     setComponentName(QStringLiteral("opus-file-manager"), i18n("Opus File Manager"));
