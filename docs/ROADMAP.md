@@ -23,7 +23,7 @@ planning; this evaluation does not block M09 or change KIO's role.
 
 | Upstream approach | Opus approach |
 | --- | --- |
-| Custom themes, title bars and window buttons | Plasma widget style, colour scheme, fonts and KWin decorations by default; optional app-local colours in M26 |
+| Custom themes, title bars and window buttons | Plasma widget style, colour scheme, fonts and KWin decorations by default; optional app-local colours in M25 |
 | Bundled icon pack | Active icon theme through `QIcon::fromTheme` |
 | Hand-written toolbar and shortcut editors | KXmlGui, `KEditToolBar` and `KShortcutsDialog` |
 | Settings in SQLite | KConfig; session state in the KConfig state file |
@@ -770,17 +770,7 @@ Settings for M23 integrations, stored in KConfig.
     connection defaults; store credentials through KDE's credential facilities,
     not in KConfig or URLs
 
-### M25 Branding
-
-- Establish a consistent, translatable application name and description across
-  the desktop entry, app metadata, About dialog and documentation.
-- Create original, appropriately licensed Opus logo and application-icon assets
-  with suitable sizes and light/dark variants. Keep file, device and action
-  icons sourced from the active desktop icon theme.
-- Present the branding consistently in About and release materials; provide an
-  optional, accessible startup presentation that does not delay or block use.
-
-### M26 Themes
+### M25 Themes
 
 - Follow the active Plasma colour scheme by default. Offer optional app-local
   light and dark colour presets and installed KDE colour schemes without
@@ -801,17 +791,9 @@ Settings for M23 integrations, stored in KConfig.
   profile. Report unsupported or invalid input, bound resource use and prevent
   unapproved external resource loading.
 
-### M27 Branding settings
+### M26 Theme settings
 
-Settings for M25 branding, stored in KConfig.
-
-- **Branding**
-  - **Presentation:** enable or disable the optional startup presentation and
-    choose among available branding variants without changing the app identity
-
-### M28 Theme settings
-
-Settings for M26 themes, stored in KConfig.
+Settings for M25 themes, stored in KConfig.
 
 - **Themes**
   - **Appearance:** follow the system or choose an available app-local preset
@@ -822,6 +804,24 @@ Settings for M26 themes, stored in KConfig.
     or export a file, and preview or revert changes
   - **Profiles:** manage, import and export validated app-owned theme profiles,
     including optional custom stylesheets, with explicit overwrite confirmation
+
+### M27 Branding
+
+- Establish a consistent, translatable application name and description across
+  the desktop entry, app metadata, About dialog and documentation.
+- Create original, appropriately licensed Opus logo and application-icon assets
+  with suitable sizes and light/dark variants. Keep file, device and action
+  icons sourced from the active desktop icon theme.
+- Present the branding consistently in About and release materials; provide an
+  optional, accessible startup presentation that does not delay or block use.
+
+### M28 Branding settings
+
+Settings for M27 branding, stored in KConfig and separate from theme settings.
+
+- **Branding**
+  - **Presentation:** enable or disable the optional startup presentation and
+    choose among available branding variants without changing the app identity
 
 ## Feature references
 

@@ -137,14 +137,14 @@ distinguish completed features from planned or in-progress work.
   terminals, alternative editors and external integrations.
 - [M24 Integration settings](docs/ROADMAP.md#m24-integration-settings):
   integration, editor, terminal, tray and access controls.
-- [M25 Branding](docs/ROADMAP.md#m25-branding): application identity, icon
-  assets and presentation.
-- [M26 Themes](docs/ROADMAP.md#m26-themes): optional app-local colour schemes,
+- [M25 Themes](docs/ROADMAP.md#m25-themes): optional app-local colour schemes,
   custom Qt stylesheets, profiles and accessible previews.
-- [M27 Branding settings](docs/ROADMAP.md#m27-branding-settings): branding
-  presentation preferences.
-- [M28 Theme settings](docs/ROADMAP.md#m28-theme-settings): colours,
+- [M26 Theme settings](docs/ROADMAP.md#m26-theme-settings): colours,
   stylesheets and theme profiles.
+- [M27 Branding](docs/ROADMAP.md#m27-branding): application identity, icon
+  assets and presentation.
+- [M28 Branding settings](docs/ROADMAP.md#m28-branding-settings): branding
+  presentation preferences.
 
 ## Inspirations
 
