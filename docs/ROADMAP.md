@@ -278,19 +278,21 @@ in #260, #264, #266, #302, #303 and #304.
 Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 
 - **Editor**
-  - **Opening:** where files open (panel, separate embedded area, maximised or
-    own window)
-  - **Embedded placement:** below or to the right of both panes when using a
-    separate embedded area
-  - **Text:** font size and word wrap
-  - **Markdown:** default markdown mode (visual or source)
-  - **Drafts:** drafts on or off
-  - **Recovery:** draft autosave interval and retention; store drafts
+  - ~~**Opening:** where files open (panel, separate embedded area, maximised or
+    own window)~~
+  - ~~**Embedded placement:** below or to the right of both panes when using a
+    separate embedded area~~
+  - ~~**Text:** font size and word wrap~~
+  - ~~**Markdown:** default markdown mode (visual or source)~~
+  - ~~**Drafts:** drafts on or off~~
+  - ~~**Recovery:** draft autosave interval and retention; store drafts
     privately and allow them to be reviewed or discarded without overwriting
-    the original files
-  - **PDF export:** default page size and margins for Markdown exports
+    the original files~~
+  - ~~**PDF export:** default page size and margins for Markdown exports~~
 - **KTextEditor**
-  - **Configuration:** KTextEditor's own configuration pages
+  - ~~**Configuration:** KTextEditor's own configuration pages~~
+
+**Caveats:** [Editor](CAVEATS.md#editor), tracked in #267, #307 and #309.
 
 ### M09 Tools
 
