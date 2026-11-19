@@ -15,6 +15,7 @@
 #include "foldertree.h"
 #include "folderview.h"
 #include "gallerywindow.h"
+#include "metadataeditdialog.h"
 #include "pane.h"
 #include "previewpanel.h"
 #include "settings.h"
@@ -100,6 +101,28 @@ private Q_SLOTS:
         auto *dialog = window.findChild<CustomCommandDialog *>(QStringLiteral("customCommandDialog"));
         QVERIFY(dialog);
         dialog->close();
+    }
+
+    void opensMetadataEditorForOneLocalFile()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QFile file(root.filePath(QStringLiteral("file.txt")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("data");
+        file.close();
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(root.path())});
+        window.show();
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        auto *action = window.actionCollection()->action(QStringLiteral("edit_metadata"));
+        QVERIFY(action && !action->isEnabled());
+        view->selectUrls({QUrl::fromLocalFile(file.fileName())});
+        QTRY_VERIFY(action->isEnabled());
+        action->trigger();
+        auto *dialog = window.findChild<MetadataEditDialog *>(QStringLiteral("metadataEditDialog"));
+        QVERIFY(dialog);
     }
 
     void opensBatchRenameForMultipleLocalItems()

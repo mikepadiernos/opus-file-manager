@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "mainwindow.h"
+#include "metadataeditdialog.h"
 
 #include "archives.h"
 #include "archivewriter.h"
@@ -914,6 +915,9 @@ void MainWindow::setupActions()
     batchRenameAction->setText(i18nc("@action", "Batch Rename…"));
     batchRenameAction->setIcon(QIcon::fromTheme(QStringLiteral("edit-rename")));
     actions->setDefaultShortcut(batchRenameAction, Qt::SHIFT | Qt::Key_F2);
+    QAction *editMetadata = actions->addAction(QStringLiteral("edit_metadata"), this, &MainWindow::editMetadata);
+    editMetadata->setText(i18nc("@action", "Edit Metadata…"));
+    editMetadata->setIcon(QIcon::fromTheme(QStringLiteral("document-edit")));
 
     QAction *symlink = actions->addAction(QStringLiteral("create_symlink"), this, &MainWindow::createSymlink);
     symlink->setText(i18nc("@action", "Create Symbolic Link…"));
@@ -1548,6 +1552,7 @@ void MainWindow::updateActions()
                             });
     actions->action(QStringLiteral("create_checksum"))->setEnabled(localFiles);
     actions->action(QStringLiteral("verify_checksum"))->setEnabled(localFiles && selected.size() == 1);
+    actions->action(QStringLiteral("edit_metadata"))->setEnabled(localFiles && selected.size() == 1);
     actions->action(QStringLiteral("split_file"))->setEnabled(localFiles && selected.size() == 1);
     actions->action(QStringLiteral("combine_files"))->setEnabled(localFiles);
     actions->action(QStringLiteral("compare_files"))->setEnabled(!comparisonFiles(activePane(), inactivePane(), isDualLayout()).isEmpty());
@@ -2692,6 +2697,18 @@ void MainWindow::batchRename()
         return;
     }
     auto *dialog = new BatchRenameDialog(paths, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
+void MainWindow::editMetadata()
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    if (items.size() != 1 || !items.first().url().isLocalFile() || !items.first().isFile() || items.first().isLink()) {
+        showStatusMessage(i18nc("@info", "Select one local regular file to edit metadata."));
+        return;
+    }
+    auto *dialog = new MetadataEditDialog(items.first().url().toLocalFile(), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
 }

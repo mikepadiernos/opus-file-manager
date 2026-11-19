@@ -24,6 +24,7 @@ ecm_add_tests(
     imageconversiontest.cpp
     imagedetailstest.cpp
     markdownexporttest.cpp
+    metadataeditortest.cpp
     navigationhistorytest.cpp
     previewcontenttest.cpp
     servicemenustest.cpp
@@ -54,6 +55,12 @@ ecm_add_test(batchrenamedialogtest.cpp
 )
 
 ecm_add_test(customcommanddialogtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
+ecm_add_test(metadataeditdialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
     GUI

@@ -43,6 +43,8 @@ add_library(opusfm_app STATIC
     gallerywindow.h
     mainwindow.cpp
     mainwindow.h
+    metadataeditdialog.cpp
+    metadataeditdialog.h
     mediaview.cpp
     mediaview.h
     pane.cpp

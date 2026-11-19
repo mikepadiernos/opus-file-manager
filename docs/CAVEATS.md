@@ -252,6 +252,28 @@ open archives with 7-Zip or another trusted external tool when needed.
   entries as appropriate.
   ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/372#issuecomment-7024683530))
 
+## Metadata editing
+
+- Metadata editing handles one local JPEG or TIFF (description, artist and
+  copyright) or MP3 (title, artist and album) at a time. ExifTool is required
+  for reading all supported formats and writing images; MP3 writes require
+  the KDE FileMetaData writer plugin. Unsupported formats, linked files and
+  fields containing line breaks cannot be edited. The preview covers only the
+  displayed values, not duplicate or unrelated metadata or media contents.
+  File identity and timestamps are checked before writing but can race external
+  changes. Writes are not undoable, and a failure or timeout may leave changes.
+  The KDE writer does not report write errors: Opus re-reads the displayed fields
+  but cannot prove preservation of other data.
+  ([#374](https://github.com/mikepadiernos/opus-file-manager/issues/374))
+
+  **Recommendation:** Back up the original and review the preview. Install
+  ExifTool and the KDE metadata writer plugin and ensure ExifTool runs in your
+  environment. Use a regular local file without symbolic or hard links. Reopen
+  and inspect media and metadata after writing or an error; use a dedicated
+  metadata editor for other formats, fields, multiple values or stronger
+  preservation guarantees.
+  ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/374#issuecomment-7025134952))
+
 ## Custom commands
 
 - Commands require a local working folder and local selections. Placeholders

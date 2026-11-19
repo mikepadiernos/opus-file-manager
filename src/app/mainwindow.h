@@ -149,6 +149,7 @@ private:
     void paste();
     void rename();
     void batchRename();
+    void editMetadata();
     void showCustomCommand();
     void trash();
     void deletePermanently();

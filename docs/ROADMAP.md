@@ -322,8 +322,8 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 - ~~Batch rename rules for regular expressions and reusable named presets~~
 - ~~Symlinks~~
 - ~~Listing export to CSV and PDF (Max)~~
-- Edit supported audio tags and image metadata, including a preview of changes
-  and clear reporting when a format cannot be written (Directory Opus)
+- ~~Edit supported audio tags and image metadata, including a preview of changes
+  and clear reporting when a format cannot be written (Directory Opus)~~
 - ~~Scripts and custom commands~~
 - ~~Command presets: save named script or custom-command configurations and
   placeholder defaults; let users review commands and arguments before
@@ -351,7 +351,8 @@ tracked in #314; [folder content chart](CAVEATS.md#folder-content-chart), tracke
 [duplicate finder](CAVEATS.md#duplicate-finder), tracked in #336;
 [search](CAVEATS.md#search), tracked in #362;
 [batch rename](CAVEATS.md#batch-rename), tracked in #372;
-[custom commands](CAVEATS.md#custom-commands), tracked in #373.
+[custom commands](CAVEATS.md#custom-commands), tracked in #373;
+[metadata editing](CAVEATS.md#metadata-editing), tracked in #374.
 
 ### M10 Tools settings
 

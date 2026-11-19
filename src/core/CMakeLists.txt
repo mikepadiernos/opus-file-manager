@@ -37,6 +37,8 @@ add_library(opusfm_core STATIC
     listingexport.h
     markdownexport.cpp
     markdownexport.h
+    metadataeditor.cpp
+    metadataeditor.h
     density.cpp
     density.h
     draftstore.cpp
