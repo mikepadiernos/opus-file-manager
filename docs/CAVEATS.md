@@ -289,7 +289,10 @@ on the server and access method. (Comment: [#312][comment-312])
   keep originals and verify the reconstructed file with a checksum. Avoid
   changing inputs while processing. Inspect and remove unwanted partial outputs
   after errors or cancellation, choose a sensible part size, and adjust output
-  permissions if sharing is needed.
+  permissions if sharing is needed. GNU `split` and `cat` are external
+  alternatives; verify part order and handle output safely to avoid overwriting
+  existing files. GNU `sha256sum` can verify reconstructed files against a
+  trusted checksum.
   ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/318#issuecomment-7022199214))
 
 ## Embedded terminal

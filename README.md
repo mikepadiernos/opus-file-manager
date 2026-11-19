@@ -46,8 +46,10 @@ original image metadata.
 
 Encrypted 7z extraction can fail in KArchive; integrity checks use the `7z`
 executable when available. Archive creation and extraction also have local-file
-and entry-type restrictions. See [caveats and limitations](docs/CAVEATS.md)
-for details.
+and entry-type restrictions. File comparison, symbolic links, checksum files,
+and splitting and combining are local-only. Folder comparison checks immediate
+entries by metadata, and combined files cannot be checked for missing or
+misordered parts. See [caveats and limitations](docs/CAVEATS.md) for details.
 
 ## Build and run
 
