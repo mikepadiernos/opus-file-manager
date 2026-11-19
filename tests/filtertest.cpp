@@ -5,11 +5,13 @@
 #include "folderview.h"
 #include "mainwindow.h"
 #include "pane.h"
+#include "settings.h"
 
 #include <KActionCollection>
 #include <KCategorizedSortFilterProxyModel>
 #include <KCategorizedView>
 #include <KDirModel>
+#include <KIO/Global>
 #include <KSharedConfig>
 
 #include <QAbstractItemView>
@@ -20,6 +22,7 @@
 #include <QLineEdit>
 #include <QListView>
 #include <QMenu>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -86,6 +89,223 @@ private Q_SLOTS:
         QCOMPARE(visibleNames(&view), QStringList({QStringLiteral("Pictures"), QStringLiteral("photo.jpg")}));
         view.setNameFilter(NameFilter());
         QCOMPARE(view.itemCount(), 3);
+    }
+
+    void detailsCanExpandFoldersInline()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("parent/nested")));
+        QFile child(root.filePath(QStringLiteral("parent/nested/file.txt")));
+        QVERIFY(child.open(QIODevice::WriteOnly));
+        child.close();
+        FolderView view;
+        view.setPreviewsEnabled(false);
+        const QUrl folder = QUrl::fromLocalFile(root.path());
+        const QUrl fileUrl = QUrl::fromLocalFile(child.fileName());
+        view.setUrl(folder);
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QTRY_COMPARE(view.itemCount(), 1);
+        auto *tree = qobject_cast<QTreeView *>(view.currentView());
+        QVERIFY(tree);
+        QVERIFY(tree->rootIsDecorated());
+        const QModelIndex parent = tree->model()->index(0, 0);
+        const QRect row = tree->visualRect(parent);
+        const QPoint branch(row.left() - tree->indentation() / 2, row.center().y());
+        QTest::mouseClick(tree->viewport(), Qt::LeftButton, Qt::NoModifier, branch);
+        QVERIFY(tree->isExpanded(parent));
+        QTRY_COMPARE(tree->model()->rowCount(parent), 1);
+        const QModelIndex nested = tree->model()->index(0, 0, parent);
+        tree->expand(nested);
+        QTRY_COMPARE(tree->model()->rowCount(nested), 1);
+        QCOMPARE(view.url(), folder);
+        view.selectUrls({fileUrl});
+        QCOMPARE(view.selectedItems().size(), 1);
+        QCOMPARE(view.selectedItems().first().url(), fileUrl);
+        QCOMPARE(view.itemsInViewOrder().size(), 3);
+        view.setViewMode(FolderView::ViewMode::Icons);
+        QVERIFY(view.selectedItems().isEmpty());
+        QVERIFY(!view.currentView()->currentIndex().parent().isValid());
+        view.setViewMode(FolderView::ViewMode::Details);
+        view.selectUrls({fileUrl});
+        QCOMPARE(view.selectedItems().size(), 1);
+        const QModelIndex childIndex = tree->model()->index(0, 0, nested);
+        tree->selectionModel()->setCurrentIndex(childIndex, QItemSelectionModel::NoUpdate);
+        tree->collapse(parent);
+        QVERIFY(view.selectedItems().isEmpty());
+        QCOMPARE(tree->currentIndex(), parent);
+        QCOMPARE(view.itemsInViewOrder().size(), 1);
+        view.setFlat(true);
+        QVERIFY(!tree->itemsExpandable());
+        view.setFlat(false);
+        QVERIFY(tree->itemsExpandable());
+    }
+
+    void inheritedFormatAndPaneLock()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("child/grandchild")));
+        const QString child = root.filePath(QStringLiteral("child"));
+        const QString grandchild = root.filePath(QStringLiteral("child/grandchild"));
+        FolderMetadata::Format format{QStringLiteral("compact"), {QStringLiteral("size")}, QStringLiteral("size"), false, QStringLiteral("type"), true, false};
+        QVERIFY(FolderMetadata::setFormat(root.path(), format));
+        FolderView view;
+        view.setUrl(QUrl::fromLocalFile(child));
+        QCOMPARE(view.viewMode(), FolderView::ViewMode::Compact);
+        QCOMPARE(view.groupBy(), QStringLiteral("type"));
+        QVERIFY(view.formatRuleDescription().contains(root.path()));
+        view.setFormatLocked(true);
+        view.setViewMode(FolderView::ViewMode::Icons);
+        view.setUrl(QUrl::fromLocalFile(grandchild));
+        QCOMPARE(view.viewMode(), FolderView::ViewMode::Icons);
+        QCOMPARE(view.groupBy(), QStringLiteral("type"));
+        QVERIFY(!QFile::exists(QDir(grandchild).filePath(QStringLiteral(".mfm.json"))));
+        view.setFormatLocked(false);
+        QCOMPARE(view.viewMode(), FolderView::ViewMode::Compact);
+        view.setFormatIncludesDescendants(true);
+        QVERIFY(view.formatIncludesDescendants());
+        FolderMetadata::Format saved;
+        QVERIFY(FolderMetadata::format(FolderMetadata::read(grandchild), &saved));
+        QVERIFY(saved.includeDescendants);
+    }
+
+    void inheritedAndLockedFormatsRestoreColumnOrder()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("child")));
+        FolderMetadata::Format format{QStringLiteral("list"),
+                                      {QStringLiteral("owner"), QStringLiteral("size"), QStringLiteral("type")},
+                                      QStringLiteral("name"),
+                                      true,
+                                      QStringLiteral("none"),
+                                      true};
+        QVERIFY(FolderMetadata::setFormat(root.path(), format));
+        FolderView view;
+        view.setUrl(QUrl::fromLocalFile(root.filePath(QStringLiteral("child"))));
+        auto *tree = qobject_cast<QTreeView *>(view.currentView());
+        QVERIFY(tree);
+        const auto verifyOrder = [tree] {
+            QCOMPARE(tree->header()->visualIndex(KDirModel::Name), 0);
+            QCOMPARE(tree->header()->visualIndex(KDirModel::Owner), 1);
+            QCOMPARE(tree->header()->visualIndex(KDirModel::Size), 2);
+            QCOMPARE(tree->header()->visualIndex(KDirModel::Type), 3);
+        };
+        verifyOrder();
+        view.setFormatLocked(true);
+        view.setUrl(QUrl::fromLocalFile(root.path()));
+        verifyOrder();
+        view.setFormatLocked(false);
+        verifyOrder();
+        QTemporaryDir other;
+        QVERIFY(other.isValid());
+        view.setFormatLocked(true);
+        view.setUrl(QUrl::fromLocalFile(other.path()));
+        verifyOrder();
+        view.setFormatLocked(false);
+        for (int column = 0; column < tree->header()->count(); ++column) {
+            QCOMPARE(tree->header()->visualIndex(column), column);
+        }
+    }
+
+    void folderSizesAppearOnDemandAndFromInheritedRule()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("child/small")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("child/large")));
+        QFile small(root.filePath(QStringLiteral("child/small/file")));
+        QVERIFY(small.open(QIODevice::WriteOnly));
+        QCOMPARE(small.write(QByteArray(12, 'a')), 12);
+        small.close();
+        QFile large(root.filePath(QStringLiteral("child/large/file")));
+        QVERIFY(large.open(QIODevice::WriteOnly));
+        QCOMPARE(large.write(QByteArray(80, 'b')), 80);
+        large.close();
+        FolderView view;
+        view.setUrl(QUrl::fromLocalFile(root.filePath(QStringLiteral("child"))));
+        view.setShowHiddenFiles(false);
+        QTRY_COMPARE(view.itemCount(), 2);
+        view.setGroupBy(QStringLiteral("none"));
+        view.setSorting(KDirModel::Size, Qt::AscendingOrder);
+        QCOMPARE(view.sortColumn(), int(KDirModel::Size));
+        QCOMPARE(view.sortOrder(), Qt::AscendingOrder);
+        view.calculateFolderSizes();
+        QAbstractItemModel *model = view.currentView()->model();
+        QTRY_COMPARE(model->index(0, KDirModel::Size).data().toString(), KIO::convertSize(12));
+        QTRY_COMPARE(model->index(1, KDirModel::Size).data().toString(), KIO::convertSize(80));
+        QCOMPARE(model->index(0, 0).data().toString(), QStringLiteral("small"));
+        QCOMPARE(model->index(1, 0).data().toString(), QStringLiteral("large"));
+        auto *tree = qobject_cast<QTreeView *>(view.currentView());
+        QVERIFY(tree);
+        tree->expand(model->index(0, 0));
+        QTRY_COMPARE(model->rowCount(model->index(0, 0)), 1);
+        QVERIFY(small.open(QIODevice::Append));
+        QCOMPARE(small.write(QByteArray(20, 'a')), 20);
+        small.close();
+        QTRY_COMPARE(model->index(0, KDirModel::Size).data().toString(), KIO::convertSize(32));
+
+        view.setUrl(QUrl::fromLocalFile(root.path()));
+        QVERIFY(QFile::remove(root.filePath(QStringLiteral("child/.mfm.json"))));
+        view.setGroupBy(QStringLiteral("none"));
+        view.setSorting(KDirModel::Size, Qt::AscendingOrder);
+        view.setAutomaticFolderSizes(true);
+        view.setFormatIncludesDescendants(true);
+        view.setUrl(QUrl::fromLocalFile(root.filePath(QStringLiteral("child"))));
+        view.setShowHiddenFiles(false);
+        QTRY_COMPARE(view.itemCount(), 2);
+        model = view.currentView()->model();
+        QTRY_COMPARE(model->index(0, KDirModel::Size).data().toString(), KIO::convertSize(32));
+        QTRY_COMPARE(model->index(1, KDirModel::Size).data().toString(), KIO::convertSize(80));
+    }
+
+    void periodicallyRefreshesCalculatedFolderSizes()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("selected/nested")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("other/nested")));
+        QFile file(root.filePath(QStringLiteral("selected/nested/file")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QCOMPARE(file.write(QByteArray(12, 'a')), 12);
+        file.close();
+        const int originalInterval = Settings::folderSizeRefreshInterval();
+        const auto restoreInterval = qScopeGuard([originalInterval] {
+            Settings::setFolderSizeRefreshInterval(originalInterval);
+        });
+        Settings::setFolderSizeRefreshInterval(0);
+        FolderView view;
+        view.show();
+        view.setUrl(QUrl::fromLocalFile(root.path()));
+        QTRY_COMPARE(view.itemCount(), 2);
+        view.selectUrls({QUrl::fromLocalFile(root.filePath(QStringLiteral("selected")))});
+        QCOMPARE(view.selectedItems().size(), 1);
+        view.calculateFolderSizes();
+        QAbstractItemModel *model = view.currentView()->model();
+        QModelIndex selected = model->index(1, KDirModel::Size);
+        QCOMPARE(model->index(1, 0).data().toString(), QStringLiteral("selected"));
+        QTRY_COMPARE(selected.data().toString(), KIO::convertSize(12));
+        const QString otherSize = model->index(0, KDirModel::Size).data().toString();
+
+        QVERIFY(file.open(QIODevice::Append));
+        QCOMPARE(file.write(QByteArray(20, 'b')), 20);
+        file.close();
+        QTest::qWait(1200);
+        QCOMPARE(selected.data().toString(), KIO::convertSize(12));
+        Settings::setFolderSizeRefreshInterval(1);
+        view.reloadListingSettings();
+        QTRY_COMPARE(selected.data().toString(), KIO::convertSize(32));
+        QCOMPARE(model->index(0, KDirModel::Size).data().toString(), otherSize);
+
+        Settings::setFolderSizeRefreshInterval(0);
+        view.reloadListingSettings();
+        QVERIFY(file.open(QIODevice::Append));
+        QCOMPARE(file.write(QByteArray(10, 'c')), 10);
+        file.close();
+        QTest::qWait(1200);
+        QCOMPARE(selected.data().toString(), KIO::convertSize(32));
     }
 
     void viewFilterStaysSetInAnotherFolder()

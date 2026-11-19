@@ -33,8 +33,12 @@ QString baseName(const QString &fileName);
 
 /**
  * Reads every file in a local archive to check that the archive can be
- * decompressed. K7Zip archives may prompt for a password and are retried
+ * decompressed. ZIP and 7z archives may prompt for a password and are retried
  * when @p password is supplied.
  */
 TestResult testIntegrity(const QString &fileName, const QString &password, QString *error = nullptr);
+
+/// Extracts an encrypted local archive into a new local directory. Existing
+/// destinations, unsafe paths and archive links are rejected.
+QString extractProtected(const QString &fileName, const QString &destination, const QString &password);
 }

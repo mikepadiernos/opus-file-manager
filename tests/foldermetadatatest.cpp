@@ -2,6 +2,7 @@
 
 #include "foldermetadata.h"
 
+#include <QDir>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -99,6 +100,37 @@ private Q_SLOTS:
         QVERIFY(actual.value(QStringLiteral("colors")).toObject().isEmpty());
         QVERIFY(actual.value(QStringLiteral("hidden")).toBool());
         QCOMPARE(actual.value(QStringLiteral("icon")).toString(), QStringLiteral("/usr/share/icons/folder.svg"));
+    }
+
+    void nearestInheritedFormatTakesPrecedence()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("child/grandchild")));
+        const QString child = root.filePath(QStringLiteral("child"));
+        const QString grandchild = root.filePath(QStringLiteral("child/grandchild"));
+        FolderMetadata::Format parent{QStringLiteral("grid"), {QStringLiteral("size")}, QStringLiteral("name"), true, QStringLiteral("none"), true, true, true};
+        QVERIFY(FolderMetadata::setFormat(root.path(), parent));
+        FolderMetadata::Format actual;
+        QString source;
+        QString error;
+        QVERIFY(FolderMetadata::findFormat(grandchild, &actual, &source, &error));
+        QCOMPARE(source, root.path());
+        QCOMPARE(actual.view, QStringLiteral("grid"));
+        QVERIFY(actual.calculateFolderSizes);
+
+        FolderMetadata::Format local{QStringLiteral("compact"), {}, QStringLiteral("name"), true, QStringLiteral("none"), false, false};
+        QVERIFY(FolderMetadata::setFormat(child, local));
+        QVERIFY(FolderMetadata::findFormat(child, &actual, &source, &error));
+        QCOMPARE(source, child);
+        QCOMPARE(actual.view, QStringLiteral("compact"));
+        QVERIFY(FolderMetadata::findFormat(grandchild, &actual, &source, &error));
+        QCOMPARE(source, root.path());
+        local.includeDescendants = true;
+        QVERIFY(FolderMetadata::setFormat(child, local));
+        QVERIFY(FolderMetadata::findFormat(grandchild, &actual, &source, &error));
+        QCOMPARE(source, child);
+        QCOMPARE(actual.view, QStringLiteral("compact"));
     }
 };
 

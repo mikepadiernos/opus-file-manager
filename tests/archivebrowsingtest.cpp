@@ -109,6 +109,16 @@ private Q_SLOTS:
         name->setText(QStringLiteral(" Backup "));
         QVERIFY(ok->isEnabled());
         QCOMPARE(dialog.archiveName(), QStringLiteral("Backup"));
+        auto *password = dialog.findChild<QLineEdit *>(QStringLiteral("archivePassword"));
+        auto *confirmation = dialog.findChild<QLineEdit *>(QStringLiteral("archivePasswordConfirmation"));
+        password->setText(QStringLiteral("secret"));
+        QVERIFY(!ok->isEnabled());
+        confirmation->setText(QStringLiteral("secret"));
+        QVERIFY(ok->isEnabled());
+        QCOMPARE(dialog.password(), QStringLiteral("secret"));
+        dialog.findChild<QComboBox *>(QStringLiteral("archiveFormat"))->setCurrentIndex(ArchiveWriter::formats().indexOf(ArchiveWriter::Format::TarGz));
+        QVERIFY(!password->isEnabled());
+        QVERIFY(!ok->isEnabled());
     }
 
     void compressWritesAnArchiveAndNeverOverwrites()

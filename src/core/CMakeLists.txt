@@ -63,4 +63,5 @@ target_link_libraries(opusfm_core
         KF6::FileMetaData
         KF6::GuiAddons
         KF6::KIOGui
+        LibArchive::LibArchive
 )

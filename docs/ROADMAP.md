@@ -27,15 +27,17 @@ targets feature parity with Max File Manager; upstream behaviour is recorded in
 | Custom properties and checksums | `KPropertiesDialog` |
 | Custom clipboard helpers | `QClipboard` and `KIO::setClipboardDataCut` |
 
-Pins, colour labels, file colour dots, the hide-from-parent flag and per-folder
-view formats have no Plasma equivalent. They remain in `.mfm.json` using the
-upstream schema.
+Opus uses a supported subset of the upstream `.mfm.json` schema for local
+per-folder metadata, including pins, labels, ratings, notes, colours and view
+formats. Reads and writes sanitize that data; unsupported fields or values can
+be lost on write. The upstream hide-from-parent flag is retained by the
+metadata sanitizer but is not currently applied to listings.
 
 ## Milestones
 
 Strikethrough marks completed features. Unstruck features are incomplete or not
-started. Odd-numbered milestones add features; the even-numbered milestone
-after each adds their settings in KConfig.
+started. Where applicable, feature milestones are followed by their settings
+in KConfig.
 
 ### M01 Core dual pane
 
@@ -125,10 +127,12 @@ with Dolphin.
 - ~~Occupied space of files, folders, archives and remote locations (Krusader)~~
 - ~~Popular folders and a jump-back point (Krusader)~~
 - ~~Archive integrity testing for local ZIP, TAR and 7z files, with password
-  prompts for encrypted 7z archives (Krusader)~~
-- Password-protected archive support beyond integrity testing (Krusader)
+  prompts for encrypted archives (Krusader)~~
+- ~~Password-protected AES ZIP creation and extraction (Krusader)~~
+- Reliable password-protected 7z extraction: the current KArchive backend can
+  fail on valid archives.
 - ~~Display style per pane (Orcinus)~~
-- Expandable folders inline in the file listing (Orcinus)
+- ~~Expandable folders inline in the file listing (Orcinus)~~
 - ~~Persistent filters (Orcinus)~~
 - ~~File-name highlighting (Orcinus)~~
 - ~~Compact view with names beside icons and entries arranged in columns
@@ -137,13 +141,17 @@ with Dolphin.
   multiple items can be selected without modifier keys (Dolphin)~~
 - ~~Details-view column-header controls to show or hide columns and fit
   column widths to their contents (Dolphin)~~
-- Folder-format rules for a folder and optionally its descendants, with
+- ~~Folder-format rules for a folder and optionally its descendants, with
   explicit precedence over defaults; show which rule is active and allow a
-  pane to temporarily lock its current format
+  pane to temporarily lock its current format~~
 - ~~Restore selection and scroll position when returning through a tab's
   navigation history, ignoring items that no longer exist~~
-- Calculate folder sizes in the background for display in the listing, on
-  demand or automatically according to location and folder-format rules
+- ~~Calculate folder sizes in the background for display in the listing, on
+  demand or automatically according to location and folder-format rules;
+  optionally refresh calculated sizes periodically~~
+
+**Caveats:** [Archives](CAVEATS.md#archives) and
+[folder metadata and listings](CAVEATS.md#folder-metadata-and-listings).
 
 ### M04 Listing depth settings
 
@@ -153,14 +161,22 @@ Settings for M03 listing depth, stored in KConfig.
   - ~~**General:** default visible columns and grouping; size format (human or
     bytes), date format and seconds~~
   - ~~**Icons:** name lines and metadata shown in icon view~~
+  - **Details:** enable inline folder expansion and choose automatic or manual
+    column widths by default
   - **Compact:** icon size, item density and additional information
   - **Selection:** enable selection markers and configure selection mode
+  - **Filters:** default scope, type-ahead activation, filter retention when
+    changing folders, and file-name match highlighting
   - **Folder formats:** manage inherited rules and default size calculation;
     allow separate local and remote policies
+  - ~~**Folder sizes:** optional periodic refresh of calculated sizes~~
   - **History:** restore selection and scroll position when navigating back
     or forward
 - **Files**
   - ~~**Rules:** ignore list entries and file-type colours by extension~~
+  - **Metadata:** show or hide label, rating, colour and pin indicators; choose
+    whether pinned items appear first without changing stored metadata
+  - **Selection filters:** manage saved selection patterns
 - **Panels**
   - ~~**Combined Places/Folders:** show or hide the panel, choose its left or
     right position, configure its auto-focus behaviour, and show or hide each
@@ -169,9 +185,12 @@ Settings for M03 listing depth, stored in KConfig.
 - **Archives**
   - ~~**Default format:** archive format used by Compress (ZIP, uncompressed
     ZIP, tar.gz, tar.xz or tar.zst); the format choice determines compression~~
+  - **Destination:** default to the current folder or the other pane when
+    creating an archive, retaining the non-overwriting behaviour
 - **Tabs**
   - ~~**Appearance:** show tab icons; fill the available tab-bar width and
     divide it equally among tabs as new tabs are created~~
+  - **Colours:** show or hide folder-based tab colours without removing them
 
 ### M05 Preview and gallery
 
@@ -210,17 +229,22 @@ highlighting. Metadata depends on installed KDE extraction plugins.
 Settings for M05 preview and gallery, stored in KConfig.
 
 - **Opening**
-  - ~~**Double-click:** what activating a file opens (application, gallery or
+  - ~~**Activation:** what activating a file opens (application, gallery or
     preview)~~
 - **Preview**
   - ~~**Text:** size limit for text in the preview panel~~
-  - ~~**Information:** image info panel shown by default~~
+  - **Presentation:** default to formatted or source view for HTML and
+    Markdown; show line numbers and syntax highlighting in text previews
   - **Media:** autoplay audio and video in the preview panel or require play
+- **Gallery**
+  - ~~**Information:** image info panel shown by default~~
+  - **Display:** initial zoom (fit or actual size) and thumbnail visibility
 - **Slideshow**
   - ~~**Playback:** slideshow interval and looping~~
 - **Image conversion**
   - ~~**Output:** default format and quality for saved image copies~~
-  - **Batch:** default dimensions, format and quality for batch conversion
+  - **Batch:** default dimensions, format, quality and destination for batch
+    conversion; keep output names non-overwriting
 
 File activation follows the desktop's single- or double-click setting and also
 applies to keyboard activation. Gallery mode opens local images and videos;
@@ -248,6 +272,10 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
   - **Text:** font size and word wrap
   - **Markdown:** default markdown mode (visual or source)
   - **Drafts:** drafts on or off
+  - **Recovery:** draft autosave interval and retention; store drafts
+    privately and allow them to be reviewed or discarded without overwriting
+    the original files
+  - **PDF export:** default page size and margins for Markdown exports
 - **KTextEditor**
   - **Configuration:** KTextEditor's own configuration pages
 
@@ -292,7 +320,7 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 - Embedded terminal alongside both panes: below them or at the right of the app
   for portrait/stacked layouts; showing it never replaces either pane
 - Placeholders for scripts and custom commands
-- Linked panes, cushion treemap and profiles (Orcinus)
+- Linked panes and cushion treemap (Orcinus)
 
 ### M10 Tools settings
 
@@ -301,14 +329,25 @@ Settings for M09 tools, stored in KConfig.
 - **Embedded terminal**
   - **Placement:** below both panes or at the right of both panes for
     portrait/stacked layouts; the terminal does not replace a pane
+  - **Working folder:** optionally follow the active pane's local folder;
+    report unsupported locations rather than silently switching folders
 - **Search**
   - **Indexing:** search shortcut (double Shift), search folders and exclusions
   - **Defaults:** search scope and whether to search filenames or contents
   - **Filters:** reusable path and subtree filters and recursion depth
+  - **Saved searches:** manage saved searches and reusable result collections
+- **Duplicate finder**
+  - **Defaults:** comparison criteria and selection preferences; retain the
+    safeguard that automatic selection keeps at least one item per group
 - **Folder sync**
   - **Transfers:** skip existing, newer only, speed limit
   - **Comparison:** default recursion, symlink and content-comparison options;
     saved synchronization profiles
+- **Batch rename**
+  - **Presets:** manage named rename rules and preview collisions before
+    applying changes
+- **Listing export**
+  - **Defaults:** output format and included listing columns
 - **Transfer queue**
   - **Behaviour:** queue and concurrency defaults; conflict handling
 - **Applications**
@@ -343,41 +382,59 @@ Settings for M11 UI customizations, stored in KConfig.
 
 - **Toolbars**
   - **Entries:** which entries the main toolbar and each pane toolbar show,
-    and in what order
+    and in what order; customize hamburger menu entries and their order
   - **Appearance:** toolbar style and icon size
+  - **Entry appearance:** icon, text or both for individual toolbar entries
   - **Editing:** lock toolbars
 - **Panes**
   - **Moving:** whether a moved pane opens as a tab or window, and whether it
     keeps or resets its display style
+  - **Swapping:** swap current tabs or whole pane sides by default
+  - **Inactive pane:** enable dimming and adjust its intensity
 - **Combined panel**
   - **Sections:** section order, visibility and custom titles, reusing the
     visibility settings from M04
 - **Defaults**
   - **Reset:** restore the main toolbar, pane toolbars and hamburger menu
+  - **Backup:** export and restore app-owned settings and layouts with a
+    preview and confirmation, excluding credentials and shared KDE settings
 
-### M13 Integrations
+### M13 Workspaces
 
-- `org.freedesktop.FileManager1` D-Bus service
-- Deep integration with ARK
-- ~~Default file manager registration~~
-- System tray and global shortcut
-- XDG portal file chooser
-- MCP server
-- Administrator mode through KIO's `admin:/` worker
+Organize locations and tag groups into focused workspaces, inspired by
+TagSpaces, alongside Opus-specific workspace layouts.
 
-### M14 Integration settings
+- Create, switch, rename, duplicate and delete named workspaces, with a full
+  name and short label; duplicating copies the layout without reassigning
+  locations or groups. Provide a discoverable workspace selector.
+- Assign saved locations and, when available, tag groups to a workspace;
+  each location or group belongs to at most one workspace. Switching shows
+  the active workspace's locations and groups without moving files or
+  changing tags; provide access to unassigned locations and groups.
+- Scope global search to the active workspace's assigned locations by default,
+  with an explicit way to search outside it. If no tag groups are assigned,
+  show all groups as in TagSpaces; explain the fallback in the interface.
+- Save layouts for different workflows and integrations, including pane
+  arrangements, views, toolbars and panel placement or visibility for search,
+  editor and terminal areas as they become available. Report unavailable
+  features or providers when applying a workspace.
+- Confirm before overwriting a saved workspace or discarding unsaved layout
+  changes; deleting a workspace removes its associations, not the underlying
+  files, locations or tags
+- Keep workspace configuration local and exclude credentials. Workspaces
+  organize the interface and search scope; they are not a security boundary.
 
-Settings for M13 integrations, stored in KConfig.
+### M14 Workspace settings
 
-- **System tray**
-  - **Behaviour:** minimise and close to tray
-- **Shortcuts**
-  - **Global:** global shortcut on or off and its key combination
-- **File manager**
-  - **Portal:** serve the XDG portal file chooser on or off
-  - **Default:** set as default file manager
-- **MCP**
-  - **Access:** server access (off, read or write), token and audit log
+Settings for M13 workspaces, stored in KConfig.
+
+- **Management:** manage workspaces, their locations and tag-group assignments
+- **Startup:** choose a startup workspace or restore the last-used workspace
+  without overriding M02 startup folder and session choices
+- **Search:** choose whether workspace-scoped or all-location search is the
+  default, reusing the search settings from M10
+- **Layouts:** choose which workspace layout components to restore and confirm
+  before overwriting saved layouts
 
 ### M15 Translations
 
@@ -392,10 +449,13 @@ Settings for M13 integrations, stored in KConfig.
 Settings for M15 translations, stored in KConfig.
 
 - **Language**
-  - **Interface:** interface language, overriding the system locale
+  - **Interface:** follow the system language or select an interface language
+  - **Regional formats:** follow the system locale or select a locale for
+    dates and numbers independently of the interface language
 - **Dates**
   - **Calendar:** calendar for dates: Gregorian or Jalali
-  - **Format:** custom date and time formats
+  - **Format:** custom date and time formats, with clear precedence over the
+    listing date-format defaults from M04
 - **Layout**
   - **Direction:** follow the language or force left-to-right or right-to-left
   - **Digits:** digit shapes and custom numeral formats, including Western or
@@ -455,6 +515,139 @@ Polish the existing settings pages without adding new preferences.
   optional global shortcuts through KDE facilities and report registration
   failures or platform limitations
 
+### M19 Advanced search
+
+Extend the M09 search tools and reuse their search scopes, filters and saved
+searches rather than introducing a separate search system.
+
+- Provide an embedded search panel below or to the right of both panes, like
+  the embedded terminal; showing it never replaces either pane
+- Offer an optional search widget for the main toolbar: enter a query, search
+  using the shared scope (initially the active pane's location) and open the
+  advanced search panel
+- Combine filename, path, file type, size, date and content criteria with
+  AND, OR and NOT; validate queries and explain unsupported criteria
+- Show results in the search panel with progress, cancellation and errors;
+  open a result or reveal it in its containing folder without moving files
+- Support keyboard navigation and focus between the toolbar widget, search
+  panel and panes, using the shortcut configuration in M18
+
+### M20 Advanced search settings
+
+Settings for M19 advanced search, stored in KConfig.
+
+- **Panel:** choose placement below or to the right of both panes, and whether
+  to restore its visibility on startup
+- **Toolbar:** use the M12 toolbar controls to show or hide the search widget;
+  choose whether submitting a query opens the panel
+- **Results:** choose the default result presentation and whether to retain
+  search history; allow history to be cleared
+- **Defaults:** reuse the M10 search scope, filters and saved-search settings
+  across the toolbar and panel
+
+### M21 Native tagging
+
+A native KDE tagging workflow inspired by TagStudio, integrated into Opus
+rather than requiring TagStudio or changing the user's folder structure.
+
+- Opt-in libraries rooted at existing local folders; index files of any type
+  without moving, renaming or duplicating them
+- Create and manage tags with stable identities, names, aliases, shorthand,
+  colours and parent relationships; support duplicate names with clear
+  disambiguation and prevent cycles in the hierarchy
+- Organize tags into groups that M13 workspaces can reference without changing
+  the underlying tags
+- Assign and remove multiple tags on selected files and folders from the
+  listing or preview; provide a searchable, keyboard-accessible tag manager
+  and show assigned tags in the file interface
+- Search and filter by tags, inherited parent tags, untagged items, paths and
+  file types, with AND, OR, NOT and grouped expressions; integrate with the
+  existing search and selection workflows
+- Add editable text and date fields to library entries, alongside existing
+  labels, ratings and notes without silently replacing or converting them
+- Store library metadata in an open, documented format without requiring a
+  sidecar for each file; preserve existing `.mfm.json` metadata and report
+  unsupported or read-only locations
+- Refresh libraries with progress and cancellation; track Opus-initiated moves
+  and renames, and offer review and manual relinking for missing or externally
+  moved files without silently attaching metadata to an uncertain match
+- Export and restore library metadata with a preview and explicit confirmation;
+  never modify or delete the original files as part of metadata management
+
+### M22 Tagging settings
+
+Settings for M21 tagging, stored in KConfig.
+
+- **Libraries:** manage library roots and exclusions, and configure automatic
+  refresh and scanning limits
+- **Tags:** configure tag colours, display and parent-tag matching defaults
+- **Fields:** manage available text and date fields
+- **Search:** choose default tag search scope and matching behaviour
+- **Privacy:** control library metadata storage and backup locations; make
+  clear what is stored and do not write tags into file metadata without
+  explicit consent
+
+### M23 Integrations
+
+- `org.freedesktop.FileManager1` D-Bus service
+- Deep integration with ARK
+- Deep AppImage, Flatpak and Snap integration: identify packages and show
+  available application details and actions in the file manager. Support
+  AppImage launching and optional desktop integration, and use the respective
+  package tools for supported Flatpak and Snap installation, updates and
+  removal. Require confirmation for changes, respect executable and sandbox
+  permissions, and report missing tools, unsupported actions and errors.
+- Advanced SSH, SFTP and WebDAV integration: manage named connection profiles
+  and browse remote locations in either pane using KDE's KIO workers; support
+  transfers through the existing queue where available and open a separate SSH
+  terminal session for SSH profiles. Support password and SSH key/agent
+  authentication where available, use KDE's credential facilities, and
+  respect SSH host-key and WebDAV TLS certificate verification. Report
+  connection, authentication and unsupported-operation errors explicitly.
+- Integrate with [mise](https://mise.jdx.dev/) for trusted local projects:
+  show configured tools and available tasks, and run a selected task or open a
+  terminal in the project's mise environment on explicit request. Respect
+  mise's trust decisions, never trust or execute project configuration
+  automatically, avoid exposing environment secrets, and report missing mise,
+  untrusted projects and command failures.
+- ~~Default file manager registration~~
+- System tray and global shortcut
+- XDG portal file chooser
+- MCP server
+- Administrator mode through KIO's `admin:/` worker
+- Terminal integration: open the current local folder in a separate Konsole,
+  Yakuake or Kwi session, or embed the installed Konsole or Kwi KPart alongside
+  both panes. Yakuake is a separate drop-down application, not an embeddable
+  terminal; use a supported KPart for embedded mode. Report unavailable
+  providers and unsupported locations rather than silently switching.
+
+### M24 Integration settings
+
+Settings for M23 integrations, stored in KConfig.
+
+- **System tray**
+  - **Behaviour:** minimise and close to tray
+- **Shortcuts**
+  - **Global:** global shortcut on or off and its key combination
+- **File manager**
+  - **Portal:** serve the XDG portal file chooser on or off
+  - **Default:** set as default file manager
+- **MCP**
+  - **Access:** server access (off, read or write), token and audit log
+- **Terminal**
+  - **Provider:** choose Konsole, Yakuake or Kwi for separate sessions and
+    Konsole or Kwi for embedded sessions, independently of placement in M10
+- **Application packages**
+  - **Integration:** enable or disable AppImage, Flatpak and Snap actions
+    independently and configure optional AppImage desktop integration
+- **Remote connections**
+  - **Profiles:** manage SSH, SFTP and WebDAV hosts, ports, usernames and
+    connection defaults; store credentials through KDE's credential facilities,
+    not in KConfig or URLs
+- **mise**
+  - **Integration:** enable or disable project integration and configure task
+    and terminal actions without bypassing mise's trust controls
+
 ## Feature references
 
 The roadmap adapts workflows to KDE rather than copying platform-specific
@@ -466,6 +659,10 @@ interfaces. The additions above draw on these sources:
   and [features](https://docs.kde.org/trunk_kf6/en/krusader/krusader/features.html).
 - [Max File Manager](https://github.com/majidasgari/max-file-manager), alongside
   this project's [UI](parity/ui.md) and [backend](parity/backend.md) inventories.
+- [TagStudio](https://github.com/TagStudioDev/TagStudio), especially its
+  libraries, tag relationships and search.
+- [TagSpaces workspaces](https://docs.tagspaces.org/workspaces/): workspace
+  organization of locations, tag groups and search.
 - [Directory Opus](https://www.gpsoft.com.au/) and its
   [file collections](https://docs.dopus.com/doku.php?id=basic_concepts:virtual_file_system:file_collections).
 - Keyboard references: [Directory Opus keyboard map](https://resource.dopus.com/t/list-of-keyboard-shortcuts/26759),
@@ -486,5 +683,6 @@ upstream source could not be verified for this review.
 
 ## Tracking
 
-There is no GitHub remote yet. Milestones stand in for issues, and feature
-branches use the `feature/M##-name` naming convention.
+Work on each milestone in a `feature/M##-name` branch. A milestone is complete
+when every feature item is struck through; commit its changes by scope, push
+the branch and merge it into `main`.

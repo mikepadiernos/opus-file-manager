@@ -35,6 +35,8 @@ QString formatText(ArchiveWriter::Format format)
 CompressDialog::CompressDialog(const QString &defaultName, bool otherPaneAvailable, QWidget *parent, ArchiveWriter::Format defaultFormat)
     : QDialog(parent)
     , m_name(new QLineEdit(defaultName, this))
+    , m_password(new QLineEdit(this))
+    , m_passwordConfirmation(new QLineEdit(this))
     , m_suffix(new QLabel(this))
     , m_format(new QComboBox(this))
     , m_location(new QComboBox(this))
@@ -42,6 +44,10 @@ CompressDialog::CompressDialog(const QString &defaultName, bool otherPaneAvailab
 {
     setWindowTitle(i18nc("@title:window", "Compress"));
     m_name->setObjectName(QStringLiteral("archiveName"));
+    m_password->setObjectName(QStringLiteral("archivePassword"));
+    m_passwordConfirmation->setObjectName(QStringLiteral("archivePasswordConfirmation"));
+    m_password->setEchoMode(QLineEdit::Password);
+    m_passwordConfirmation->setEchoMode(QLineEdit::Password);
     m_format->setObjectName(QStringLiteral("archiveFormat"));
     m_location->setObjectName(QStringLiteral("archiveLocation"));
 
@@ -59,6 +65,8 @@ CompressDialog::CompressDialog(const QString &defaultName, bool otherPaneAvailab
     auto *form = new QFormLayout(this);
     form->addRow(i18nc("@label:textbox", "Archive name:"), nameRow);
     form->addRow(i18nc("@label:listbox", "Format:"), m_format);
+    form->addRow(i18nc("@label:textbox", "Password (ZIP only):"), m_password);
+    form->addRow(i18nc("@label:textbox", "Confirm password:"), m_passwordConfirmation);
     form->addRow(i18nc("@label:listbox", "Create in:"), m_location);
     form->addRow(m_buttons);
 
@@ -66,6 +74,8 @@ CompressDialog::CompressDialog(const QString &defaultName, bool otherPaneAvailab
     connect(m_buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(m_buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     connect(m_name, &QLineEdit::textChanged, this, &CompressDialog::updateState);
+    connect(m_password, &QLineEdit::textChanged, this, &CompressDialog::updateState);
+    connect(m_passwordConfirmation, &QLineEdit::textChanged, this, &CompressDialog::updateState);
     connect(m_format, &QComboBox::currentIndexChanged, this, &CompressDialog::updateState);
     updateState();
     m_name->selectAll();
@@ -86,9 +96,18 @@ bool CompressDialog::toOtherPane() const
     return m_location->currentIndex() == 1;
 }
 
+QString CompressDialog::password() const
+{
+    return m_password->text();
+}
+
 void CompressDialog::updateState()
 {
     m_suffix->setText(u'.' + ArchiveWriter::suffix(format()));
     const QString name = archiveName();
-    m_buttons->button(QDialogButtonBox::Ok)->setEnabled(!name.isEmpty() && !name.contains(u'/'));
+    const bool zip = format() == ArchiveWriter::Format::Zip || format() == ArchiveWriter::Format::ZipStored;
+    m_password->setEnabled(zip);
+    m_passwordConfirmation->setEnabled(zip);
+    m_buttons->button(QDialogButtonBox::Ok)
+        ->setEnabled(!name.isEmpty() && !name.contains(u'/') && (zip ? m_password->text() == m_passwordConfirmation->text() : m_password->text().isEmpty()));
 }

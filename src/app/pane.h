@@ -141,4 +141,6 @@ private:
     int m_lastTabCount = -1;
     NavigationHistory::ViewState m_pendingViewState;
     quint64 m_viewStateGeneration = 0;
+    bool m_historyExpansionStarted = false;
+    bool m_historyExpansionPending = false;
 };

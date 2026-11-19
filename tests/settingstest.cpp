@@ -169,11 +169,13 @@ private Q_SLOTS:
         dialog.findChild<QComboBox *>(QStringLiteral("kcfg_StartupMode"))->setCurrentIndex(Settings::EnumStartupMode::FixedFolders);
         dialog.findChild<KUrlRequester *>(QStringLiteral("kcfg_LeftStartUrl"))->setUrl(m_b);
         dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_FollowSymlinks"))->setChecked(true);
+        dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_FolderSizeRefreshInterval"))->setValue(60);
         dialog.button(QDialogButtonBox::Apply)->click();
 
         QCOMPARE(Settings::startupMode(), Settings::EnumStartupMode::FixedFolders);
         QCOMPARE(Settings::leftStartUrl(), m_b);
         QVERIFY(Settings::followSymlinks());
+        QCOMPARE(Settings::folderSizeRefreshInterval(), 60);
     }
 
     void pagesGroupFeaturesInTabs()
@@ -208,6 +210,7 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("ShowPlaces")), QStringLiteral("Panels"));
         QCOMPARE(tabOf(QStringLiteral("ShowFreeSpace")), QStringLiteral("Status and Location Bars"));
         QCOMPARE(tabOf(QStringLiteral("DefaultViewMode")), QStringLiteral("General"));
+        QCOMPARE(tabOf(QStringLiteral("FolderSizeRefreshInterval")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("DetailsIconSize")), QStringLiteral("Details"));
         QCOMPARE(tabOf(QStringLiteral("ShowSizeColumn")), QStringLiteral("Details"));
         QCOMPARE(tabOf(QStringLiteral("DragFromAnywhere")), QStringLiteral("Details"));

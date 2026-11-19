@@ -88,7 +88,8 @@ private Q_SLOTS:
         QCOMPARE(process.exitCode(), 0);
 
         QString error;
-        QCOMPARE(Archives::testIntegrity(path, QString(), &error), Archives::TestResult::PasswordRequired);
+        const auto result = Archives::testIntegrity(path, QString(), &error);
+        QVERIFY2(result == Archives::TestResult::PasswordRequired, qPrintable(error));
         QCOMPARE(Archives::testIntegrity(path, QStringLiteral("secret"), &error), Archives::TestResult::Passed);
         QCOMPARE(Archives::testIntegrity(path, QStringLiteral("wrong"), &error), Archives::TestResult::Failed);
     }

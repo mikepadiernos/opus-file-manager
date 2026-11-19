@@ -1,5 +1,10 @@
 # Max File Manager: backend feature inventory (src/main, src/preload, src/shared)
 
+This is a reference snapshot of a reviewed Max checkout, not a description of
+implemented Opus features or necessarily the latest upstream version. KDE/Qt
+replacement notes are design suggestions, not implementation status; see the
+[roadmap](../ROADMAP.md).
+
 **Context.** The app is Electron 45 with a React renderer. It is a dual-pane
 file manager targeting KDE and Windows (this checkout also has macOS code
 paths). The renderer has no `fs` access: everything goes through the
