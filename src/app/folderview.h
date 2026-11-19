@@ -10,6 +10,7 @@
 class KDirLister;
 class KDirModel;
 class KDirSortFilterProxyModel;
+class DensityDelegate;
 class KFileItemDelegate;
 class KFilePreviewGenerator;
 class QAbstractItemView;
@@ -86,6 +87,13 @@ public:
      * @param enabled true to drag from anywhere in a row
      */
     void setDragFromAnywhere(bool enabled);
+
+    /**
+     * Sets the space around items.
+     * @param detailsSpace pixels above and below each details row
+     * @param iconsSpace pixels around each item in the icons view
+     */
+    void setItemSpacing(int detailsSpace, int iconsSpace);
     bool isColumnVisible(int column) const;
 
     /**
@@ -152,7 +160,7 @@ private:
     QStackedWidget *m_stack = nullptr;
     DetailsView *m_details = nullptr;
     QListView *m_icons = nullptr;
-    KFileItemDelegate *m_detailsDelegate = nullptr;
+    DensityDelegate *m_detailsDelegate = nullptr;
     KFileItemDelegate *m_iconsDelegate = nullptr;
     KFilePreviewGenerator *m_detailsPreviews = nullptr;
     KFilePreviewGenerator *m_iconPreviews = nullptr;

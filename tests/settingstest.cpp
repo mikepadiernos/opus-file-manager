@@ -14,6 +14,7 @@
 #include <KFilePlacesView>
 #include <KPageWidget>
 #include <KSharedConfig>
+#include <KToolBar>
 #include <KUrlNavigator>
 #include <KUrlRequester>
 
@@ -28,12 +29,14 @@
 #include <QDropEvent>
 #include <QFile>
 #include <QLabel>
+#include <QListView>
 #include <QListWidget>
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QStandardPaths>
+#include <QStatusBar>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QTemporaryDir>
@@ -179,6 +182,9 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("DetailsIconSize")), QStringLiteral("Details"));
         QCOMPARE(tabOf(QStringLiteral("ShowSizeColumn")), QStringLiteral("Details"));
         QCOMPARE(tabOf(QStringLiteral("DragFromAnywhere")), QStringLiteral("Details"));
+        QCOMPARE(tabOf(QStringLiteral("DetailsDensity")), QStringLiteral("Details"));
+        QCOMPARE(tabOf(QStringLiteral("IconsDensity")), QStringLiteral("Icons"));
+        QCOMPARE(tabOf(QStringLiteral("BarDensity")), QStringLiteral("Status and Location Bars"));
         QCOMPARE(tabOf(QStringLiteral("IconsIconSize")), QStringLiteral("Icons"));
     }
 
@@ -331,6 +337,51 @@ private Q_SLOTS:
         send(QEvent::MouseButtonPress, to, Qt::LeftButton);
         send(QEvent::MouseButtonRelease, to, Qt::NoButton);
         QCOMPARE(view.selectedItems().size(), 1);
+    }
+
+    void itemDensityChangesRowHeightAndIconSpacing()
+    {
+        FolderView view;
+        view.setUrl(m_a);
+        view.resize(600, 400);
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QTRY_VERIFY(view.itemCount() > 0);
+        auto *details = view.currentView();
+        const auto rowHeight = [details] {
+            details->doItemsLayout();
+            return details->visualRect(details->model()->index(0, 0)).height();
+        };
+
+        view.setItemSpacing(2, 2);
+        const int normal = rowHeight();
+        view.setItemSpacing(0, 0);
+        QCOMPARE(rowHeight(), normal - 4);
+        view.setItemSpacing(10, 10);
+        QCOMPARE(rowHeight(), normal + 16);
+
+        view.setViewMode(FolderView::ViewMode::Icons);
+        QCOMPARE(qobject_cast<QListView *>(view.currentView())->spacing(), 20);
+    }
+
+    void barDensityTightensBars()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        const auto barsHeight = [&window] {
+            return window.toolBar()->sizeHint().height() + window.statusBar()->sizeHint().height();
+        };
+        const int normal = barsHeight();
+
+        Settings::setBarDensity(Settings::EnumBarDensity::VeryCompact);
+        window.applySettings();
+        QVERIFY(barsHeight() < normal);
+
+        Settings::setBarDensity(Settings::EnumBarDensity::Normal);
+        window.applySettings();
+        QCOMPARE(barsHeight(), normal);
     }
 
     void runningAnExecutableRunsIt()

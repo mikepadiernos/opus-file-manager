@@ -1,4 +1,6 @@
 add_library(opusfm_core STATIC
+    density.cpp
+    density.h
     executables.cpp
     executables.h
     navigationhistory.cpp

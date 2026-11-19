@@ -2,6 +2,7 @@
 
 #include "settingsdialog.h"
 
+#include "density.h"
 #include "settings.h"
 #include "settingswidgets.h"
 
@@ -56,6 +57,24 @@ Editor *bound(Editor *editor, const QString &entry, const char *property)
     editor->setObjectName(QStringLiteral("kcfg_") + entry);
     editor->setProperty("kcfg_property", QByteArray(property));
     return editor;
+}
+
+/// Adds a density choice and its custom space, enabled only for Custom.
+void addDensityRows(QFormLayout *form, const QString &densityEntry, const QString &spaceEntry)
+{
+    QComboBox *density = comboBox(densityEntry,
+                                  {i18nc("@item:inlistbox density", "Normal"),
+                                   i18nc("@item:inlistbox density", "Compact"),
+                                   i18nc("@item:inlistbox density", "Very compact"),
+                                   i18nc("@item:inlistbox density", "Custom")});
+    QSpinBox *space = pixelSpinBox(spaceEntry, 0, Density::MaxCustomItemSpace);
+    const auto updateCustom = [density, space] {
+        space->setEnabled(density->currentIndex() == static_cast<int>(Density::Items::Custom));
+    };
+    QObject::connect(density, &QComboBox::currentIndexChanged, space, updateCustom);
+    updateCustom();
+    form->addRow(i18nc("@label:listbox", "Density:"), density);
+    form->addRow(i18nc("@label:spinbox", "Space above and below items:"), space);
 }
 
 KConfigGroup kioConfirmations()
@@ -198,6 +217,7 @@ QWidget *SettingsDialog::createDetailsPage()
     form->addRow(QString(), checkBox(QStringLiteral("ShowPermissionsColumn"), i18nc("@option:check", "Permissions")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowOwnerColumn"), i18nc("@option:check", "Owner")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowGroupColumn"), i18nc("@option:check", "Group")));
+    addDensityRows(form, QStringLiteral("DetailsDensity"), QStringLiteral("DetailsCustomSpace"));
     form->addRow(i18nc("@title:group", "Dragging:"),
                  checkBox(QStringLiteral("DragFromAnywhere"), i18nc("@option:check", "Drag files and folders from anywhere in their row")));
     return page;
@@ -208,6 +228,7 @@ QWidget *SettingsDialog::createIconsPage()
     auto *page = new QWidget;
     auto *form = new QFormLayout(page);
     form->addRow(i18nc("@label:spinbox", "Icon and preview size:"), pixelSpinBox(QStringLiteral("IconsIconSize"), 32, 256));
+    addDensityRows(form, QStringLiteral("IconsDensity"), QStringLiteral("IconsCustomSpace"));
     return page;
 }
 
@@ -263,6 +284,10 @@ QWidget *SettingsDialog::createStatusBarPage()
     form->addRow(QString(), checkBox(QStringLiteral("ShowItemCounts"), i18nc("@option:check", "Number of items and selected items")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowSelectionSize"), i18nc("@option:check", "Size of the selected files")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowFreeSpace"), i18nc("@option:check", "Free space")));
+    form->addRow(
+        i18nc("@label:listbox", "Bar density:"),
+        comboBox(QStringLiteral("BarDensity"),
+                 {i18nc("@item:inlistbox density", "Normal"), i18nc("@item:inlistbox density", "Compact"), i18nc("@item:inlistbox density", "Very compact")}));
     return page;
 }
 

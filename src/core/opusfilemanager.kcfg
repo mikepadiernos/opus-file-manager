@@ -132,6 +132,47 @@
       <label>Show the Group column</label>
       <default>false</default>
     </entry>
+    <entry name="DetailsDensity" type="Enum">
+      <label>Space around items in the details view</label>
+      <choices>
+        <choice name="Normal"/>
+        <choice name="Compact"/>
+        <choice name="VeryCompact"/>
+        <choice name="Custom"/>
+      </choices>
+      <default>Normal</default>
+    </entry>
+    <entry name="DetailsCustomSpace" type="Int">
+      <label>Pixels above and below each item in the details view with custom density</label>
+      <default>2</default>
+      <min>0</min>
+      <max>10</max>
+    </entry>
+    <entry name="IconsDensity" type="Enum">
+      <label>Space around items in the icons view</label>
+      <choices>
+        <choice name="Normal"/>
+        <choice name="Compact"/>
+        <choice name="VeryCompact"/>
+        <choice name="Custom"/>
+      </choices>
+      <default>Normal</default>
+    </entry>
+    <entry name="IconsCustomSpace" type="Int">
+      <label>Pixels around each item in the icons view with custom density</label>
+      <default>2</default>
+      <min>0</min>
+      <max>10</max>
+    </entry>
+    <entry name="BarDensity" type="Enum">
+      <label>Height of the toolbars, location bars and status bar</label>
+      <choices>
+        <choice name="Normal"/>
+        <choice name="Compact"/>
+        <choice name="VeryCompact"/>
+      </choices>
+      <default>Normal</default>
+    </entry>
     <entry name="DragFromAnywhere" type="Bool">
       <label>Drag files and folders from anywhere in a details row</label>
       <default>false</default>

@@ -2,6 +2,7 @@
 
 #include "folderview.h"
 
+#include "densitydelegate.h"
 #include "detailsview.h"
 #include "fileoperations.h"
 
@@ -40,7 +41,7 @@ FolderView::FolderView(QWidget *parent)
     , m_stack(new QStackedWidget(this))
     , m_details(new DetailsView(this))
     , m_icons(new QListView(this))
-    , m_detailsDelegate(new KFileItemDelegate(m_details))
+    , m_detailsDelegate(new DensityDelegate(m_details))
     , m_iconsDelegate(new KFileItemDelegate(m_icons))
 {
     m_lister->setAutoErrorHandlingEnabled(false);
@@ -235,6 +236,13 @@ void FolderView::setIconSizes(int details, int icons)
     m_details->setIconSize(QSize(details, details));
     m_icons->setIconSize(QSize(icons, icons));
     m_icons->setGridSize(QSize(icons + IconGridMargin, icons + IconGridMargin));
+}
+
+void FolderView::setItemSpacing(int detailsSpace, int iconsSpace)
+{
+    m_detailsDelegate->setItemSpace(detailsSpace);
+    m_details->doItemsLayout();
+    m_icons->setSpacing(2 * iconsSpace);
 }
 
 void FolderView::setDragFromAnywhere(bool enabled)

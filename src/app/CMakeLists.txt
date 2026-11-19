@@ -1,4 +1,6 @@
 add_library(opusfm_app STATIC
+    densitydelegate.cpp
+    densitydelegate.h
     detailsview.cpp
     detailsview.h
     fileoperations.cpp

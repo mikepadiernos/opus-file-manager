@@ -2,6 +2,7 @@
 
 #include "mainwindow.h"
 
+#include "density.h"
 #include "fileoperations.h"
 #include "folderview.h"
 #include "pane.h"
@@ -28,6 +29,7 @@
 #include <KSharedConfig>
 #include <KStandardAction>
 #include <KToggleAction>
+#include <KToolBar>
 
 #include <QApplication>
 #include <QClipboard>
@@ -35,6 +37,7 @@
 #include <QDir>
 #include <QDockWidget>
 #include <QLabel>
+#include <QLayout>
 #include <QMenu>
 #include <QMenuBar>
 #include <QSplitter>
@@ -51,6 +54,56 @@ static void initResources()
 namespace
 {
 constexpr auto SessionGroup = "Session";
+
+/// Maps a details or icons density setting, whose choices are the same.
+template<typename Choices>
+Density::Items itemDensity(typename Choices::type density)
+{
+    switch (density) {
+    case Choices::Compact:
+        return Density::Items::Compact;
+    case Choices::VeryCompact:
+        return Density::Items::VeryCompact;
+    case Choices::Custom:
+        return Density::Items::Custom;
+    default:
+        return Density::Items::Normal;
+    }
+}
+
+Density::Bars barDensity(Settings::EnumBarDensity::type density)
+{
+    switch (density) {
+    case Settings::EnumBarDensity::Compact:
+        return Density::Bars::Compact;
+    case Settings::EnumBarDensity::VeryCompact:
+        return Density::Bars::VeryCompact;
+    default:
+        return Density::Bars::Normal;
+    }
+}
+
+/**
+ * Sets the margins and spacing of a bar's layout, remembering the style's
+ * own on first use so -1 restores them.
+ */
+void setBarMargin(QWidget *bar, int margin)
+{
+    QLayout *layout = bar->layout();
+    constexpr auto MarginsKey = "opusfmStyleMargins";
+    constexpr auto SpacingKey = "opusfmStyleSpacing";
+    if (!bar->property(MarginsKey).isValid()) {
+        bar->setProperty(MarginsKey, QVariant::fromValue(layout->contentsMargins()));
+        bar->setProperty(SpacingKey, layout->spacing());
+    }
+    if (margin < 0) {
+        layout->setContentsMargins(bar->property(MarginsKey).value<QMargins>());
+        layout->setSpacing(bar->property(SpacingKey).toInt());
+    } else {
+        layout->setContentsMargins(margin, margin, margin, margin);
+        layout->setSpacing(margin);
+    }
+}
 
 QString stdName(KStandardAction::StandardAction id)
 {
@@ -860,10 +913,18 @@ void MainWindow::applySettings()
         view->setSortFoldersFirst(Settings::foldersFirst());
         view->setShowToolTips(Settings::showToolTips());
         view->setDragFromAnywhere(Settings::dragFromAnywhere());
+        view->setItemSpacing(Density::itemSpace(itemDensity<Settings::EnumDetailsDensity>(Settings::detailsDensity()), Settings::detailsCustomSpace()),
+                             Density::itemSpace(itemDensity<Settings::EnumIconsDensity>(Settings::iconsDensity()), Settings::iconsCustomSpace()));
         view->setPreviewPlugins(Settings::previewPlugins());
         view->setRemotePreviewsEnabled(Settings::showRemotePreviews());
     }
     updateTabBars();
+    const int barMargin = Density::barMargin(barDensity(Settings::barDensity()));
+    const auto bars = toolBars();
+    for (KToolBar *bar : bars) {
+        setBarMargin(bar, barMargin);
+    }
+    setBarMargin(statusBar(), barMargin);
     m_placesDock->setVisible(Settings::showPlaces());
     m_itemsLabel->setVisible(Settings::showItemCounts());
     m_freeSpaceLabel->setVisible(Settings::showFreeSpace());
