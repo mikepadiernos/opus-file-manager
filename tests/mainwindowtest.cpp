@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "mainwindow.h"
+#include "checksumdialog.h"
 #include "combinedpanel.h"
 #include "contentchartdialog.h"
 #include "filediffdialog.h"
@@ -59,6 +60,7 @@
 #include <QTimer>
 #include <QToolButton>
 #include <QTreeView>
+#include <QTreeWidget>
 
 class MainWindowTest : public QObject
 {
@@ -661,6 +663,60 @@ private Q_SLOTS:
         chart = window.findChild<ContentChartDialog *>(QStringLiteral("contentChartDialog"));
         QVERIFY(chart);
         QCOMPARE(chart->findChild<QLabel *>(QStringLiteral("contentChartFolder"))->text(), QUrl::fromLocalFile(dir.path()).toDisplayString());
+    }
+
+    void createsAndVerifiesChecksumFiles()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QFile source(dir.filePath(QStringLiteral("source.txt")));
+        QVERIFY(source.open(QIODevice::WriteOnly));
+        source.write("source");
+        source.close();
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(dir.path())});
+        window.show();
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        auto *create = window.actionCollection()->action(QStringLiteral("create_checksum"));
+        auto *verify = window.actionCollection()->action(QStringLiteral("verify_checksum"));
+        QVERIFY(create && verify && !create->isEnabled() && !verify->isEnabled());
+        view->selectUrls({QUrl::fromLocalFile(source.fileName())});
+        QTRY_VERIFY(create->isEnabled());
+        const QString manifest = dir.filePath(QStringLiteral("checksums.sha256"));
+        QTimer::singleShot(0, [&] {
+            auto *dialog = qobject_cast<QFileDialog *>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            dialog->selectFile(manifest);
+            QMetaObject::invokeMethod(dialog, "accept");
+        });
+        create->trigger();
+        QPointer<ChecksumDialog> dialog = window.findChild<ChecksumDialog *>(QStringLiteral("checksumDialog"));
+        QVERIFY(dialog);
+        QTRY_COMPARE(dialog->findChild<QLabel *>(QStringLiteral("checksumStatus"))->text(), QStringLiteral("Checksum file created."));
+        QVERIFY(QFileInfo::exists(manifest));
+        dialog->close();
+        QTRY_VERIFY(dialog.isNull());
+        QTRY_COMPARE(view->itemCount(), 2);
+        view->selectUrls({QUrl::fromLocalFile(manifest)});
+        QTRY_VERIFY(verify->isEnabled());
+        verify->trigger();
+        dialog = window.findChild<ChecksumDialog *>(QStringLiteral("checksumDialog"));
+        QVERIFY(dialog);
+        QTRY_COMPARE(dialog->findChild<QLabel *>(QStringLiteral("checksumStatus"))->text(), QStringLiteral("All files verified."));
+        auto *results = dialog->findChild<QTreeWidget *>(QStringLiteral("checksumResults"));
+        QVERIFY(results);
+        QCOMPARE(results->topLevelItemCount(), 1);
+        QCOMPARE(results->topLevelItem(0)->text(0), QStringLiteral("source.txt"));
+        dialog->close();
+        QTRY_VERIFY(dialog.isNull());
+        QVERIFY(source.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        source.write("changed");
+        source.close();
+        verify->trigger();
+        dialog = window.findChild<ChecksumDialog *>(QStringLiteral("checksumDialog"));
+        QVERIFY(dialog);
+        QTRY_COMPARE(dialog->findChild<QLabel *>(QStringLiteral("checksumStatus"))->text(), QStringLiteral("Verification finished: 1 file failed."));
     }
 
     void navigationUpdatesHistory()

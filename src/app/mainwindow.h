@@ -129,6 +129,8 @@ private:
     void createSymlink();
     void exportListing(bool pdf);
     void showContentChart();
+    void createChecksumFile();
+    void verifyChecksumFile();
     void setupEditor();
     void setEditorPlacement(EditorPanel::Placement placement);
 

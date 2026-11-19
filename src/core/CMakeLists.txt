@@ -3,6 +3,8 @@ add_library(opusfm_core STATIC
     archives.h
     archivewriter.cpp
     archivewriter.h
+    checksums.cpp
+    checksums.h
     filecolorrules.cpp
     filecolorrules.h
     favoritesmodel.cpp

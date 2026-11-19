@@ -4,6 +4,7 @@
 
 #include "archives.h"
 #include "archivewriter.h"
+#include "checksumdialog.h"
 #include "combinedpanel.h"
 #include "compressdialog.h"
 #include "contentchartdialog.h"
@@ -912,6 +913,10 @@ void MainWindow::setupActions()
     QAction *contentChart = actions->addAction(QStringLiteral("content_chart"), this, &MainWindow::showContentChart);
     contentChart->setText(i18nc("@action", "Folder Content Chart"));
     contentChart->setIcon(QIcon::fromTheme(QStringLiteral("view-statistics")));
+    QAction *createChecksum = actions->addAction(QStringLiteral("create_checksum"), this, &MainWindow::createChecksumFile);
+    createChecksum->setText(i18nc("@action", "Create SHA-256 Checksum File…"));
+    QAction *verifyChecksum = actions->addAction(QStringLiteral("verify_checksum"), this, &MainWindow::verifyChecksumFile);
+    verifyChecksum->setText(i18nc("@action", "Verify SHA-256 Checksum File"));
 
     QAction *terminal = actions->addAction(QStringLiteral("open_terminal"), this, &MainWindow::openTerminal);
     terminal->setText(i18nc("@action", "Open Terminal Here"));
@@ -1441,6 +1446,11 @@ void MainWindow::updateActions()
     actions->action(stdName(KStandardAction::Copy))->setEnabled(hasSelection);
     actions->action(QStringLiteral("open_terminal"))->setEnabled(activePane()->url().isLocalFile());
     actions->action(QStringLiteral("content_chart"))->setEnabled(activePane()->url().isValid() && !activePane()->url().isEmpty());
+    const bool localFiles = hasSelection && std::all_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
+                                return item.url().isLocalFile() && item.isFile() && !item.isLink();
+                            });
+    actions->action(QStringLiteral("create_checksum"))->setEnabled(localFiles);
+    actions->action(QStringLiteral("verify_checksum"))->setEnabled(localFiles && selected.size() == 1);
     actions->action(QStringLiteral("compare_files"))->setEnabled(!comparisonFiles(activePane(), inactivePane(), isDualLayout()).isEmpty());
     const bool hasMedia = std::any_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
         if (item.isDir() || !item.url().isLocalFile()) {
@@ -2333,6 +2343,45 @@ void MainWindow::showContentChart()
         return;
     }
     auto *dialog = new ContentChartDialog(folder, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
+void MainWindow::createChecksumFile()
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    if (items.isEmpty() || !std::all_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
+            return item.url().isLocalFile() && item.isFile() && !item.isLink();
+        })) {
+        KMessageBox::error(this, i18nc("@info", "Select local files that are not symbolic links."));
+        return;
+    }
+    QStringList paths;
+    for (const KFileItem &item : items) {
+        paths.append(item.url().toLocalFile());
+    }
+    QFileDialog chooser(this, i18nc("@title:window", "Create Checksum File"), QFileInfo(paths.first()).absolutePath());
+    chooser.setAcceptMode(QFileDialog::AcceptSave);
+    chooser.setFileMode(QFileDialog::AnyFile);
+    chooser.setDefaultSuffix(QStringLiteral("sha256"));
+    chooser.setNameFilter(i18nc("@item:inlistbox", "SHA-256 checksum files (*.sha256)"));
+    chooser.selectFile(QStringLiteral("checksums.sha256"));
+    if (chooser.exec() != QDialog::Accepted || chooser.selectedFiles().isEmpty()) {
+        return;
+    }
+    auto *dialog = new ChecksumDialog(ChecksumDialog::Mode::Create, paths, chooser.selectedFiles().first(), this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
+void MainWindow::verifyChecksumFile()
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    if (items.size() != 1 || !items.first().url().isLocalFile() || !items.first().isFile() || items.first().isLink()) {
+        KMessageBox::error(this, i18nc("@info", "Select one local checksum file that is not a symbolic link."));
+        return;
+    }
+    auto *dialog = new ChecksumDialog(ChecksumDialog::Mode::Verify, {}, items.first().url().toLocalFile(), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
 }

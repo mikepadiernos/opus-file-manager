@@ -327,7 +327,7 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 - Scripts and custom commands
 - Presets
 - Compare folders across the two panes (Krusader)
-- Create and verify checksum files (Krusader)
+- ~~Create and verify checksum files (Krusader)~~
 - Split and combine files (Krusader)
 - Transfer queue with per-job progress, speed, errors and pause, resume and
   cancellation controls where supported by the underlying KIO job (Krusader,
@@ -339,7 +339,8 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 
 **Caveats:** [File comparison](CAVEATS.md#file-comparison), tracked in #311;
 [symbolic links](CAVEATS.md#symbolic-links), tracked in #312; [listing export](CAVEATS.md#listing-export),
-tracked in #314; [folder content chart](CAVEATS.md#folder-content-chart), tracked in #315.
+tracked in #314; [folder content chart](CAVEATS.md#folder-content-chart), tracked in #315;
+[checksum files](CAVEATS.md#checksum-files), tracked in #316.
 
 ### M10 Tools settings
 

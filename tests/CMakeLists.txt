@@ -2,6 +2,7 @@ include(ECMAddTests)
 
 ecm_add_tests(
     archivestest.cpp
+    checksumstest.cpp
     favoritesmodeltest.cpp
     foldermetadatatest.cpp
     flatviewtest.cpp

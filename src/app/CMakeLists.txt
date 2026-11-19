@@ -1,6 +1,8 @@
 add_library(opusfm_app STATIC
     batchconversiondialog.cpp
     batchconversiondialog.h
+    checksumdialog.cpp
+    checksumdialog.h
     combinedpanel.cpp
     combinedpanel.h
     compressdialog.cpp
