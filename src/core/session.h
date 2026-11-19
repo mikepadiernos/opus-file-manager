@@ -16,6 +16,12 @@ class KConfigGroup;
 struct PaneSession {
     QList<QUrl> tabs;
     int currentTab = 0;
+    /// The first pinnedCount tabs are pinned.
+    int pinnedCount = 0;
+    /// Indexes of locked tabs.
+    QList<int> lockedTabs;
+    /// One custom name per tab, empty for none; may be shorter than tabs.
+    QStringList names;
 
     bool operator==(const PaneSession &other) const = default;
 };
@@ -27,7 +33,8 @@ struct WindowSession {
     bool stacked = false;
 
     bool isEmpty() const;
-    /// Drops invalid URLs and clamps the indexes so the result is usable.
+    /// Drops invalid URLs, with their pin, lock and name, and clamps the
+    /// indexes so the result is usable.
     WindowSession sanitized(const QUrl &fallback) const;
 
     bool operator==(const WindowSession &other) const = default;

@@ -1,8 +1,18 @@
 add_library(opusfm_app STATIC
+    combinedpanel.cpp
+    combinedpanel.h
+    compressdialog.cpp
+    compressdialog.h
+    contentheight.cpp
+    contentheight.h
     fileoperations.cpp
     fileoperations.h
+    filterbar.cpp
+    filterbar.h
     folderview.cpp
     folderview.h
+    foldertree.cpp
+    foldertree.h
     mainwindow.cpp
     mainwindow.h
     pane.cpp
@@ -17,6 +27,7 @@ target_include_directories(opusfm_app PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE
 target_link_libraries(opusfm_app
     PUBLIC
         opusfm_core
+        Qt6::Concurrent
         Qt6::Widgets
         KF6::ConfigCore
         KF6::ConfigWidgets
@@ -26,6 +37,7 @@ target_link_libraries(opusfm_app
         KF6::KIOFileWidgets
         KF6::KIOGui
         KF6::KIOWidgets
+        KF6::ItemViews
         KF6::WidgetsAddons
         KF6::XmlGui
 )

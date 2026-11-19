@@ -195,6 +195,92 @@ private Q_SLOTS:
         model.replaceCurrentUrl(url("/redirected"));
         QCOMPARE(tabUrl.count(), 1);
     }
+
+    void pinningMovesTabsToThePinnedStart()
+    {
+        TabModel model;
+        model.addTab(url("/a"));
+        model.addTab(url("/b"));
+        model.addTab(url("/c"));
+        QSignalSpy state(&model, &TabModel::tabStateChanged);
+        model.setPinned(2, true);
+        QCOMPARE(model.urls(), (QList<QUrl>{url("/c"), url("/a"), url("/b")}));
+        QCOMPARE(model.pinnedCount(), 1);
+        QVERIFY(model.isPinned(0));
+        QCOMPARE(model.currentUrl(), url("/c"));
+        QVERIFY(state.count() >= 1);
+
+        model.setPinned(2, true);
+        QCOMPARE(model.urls(), (QList<QUrl>{url("/c"), url("/b"), url("/a")}));
+        QCOMPARE(model.pinnedCount(), 2);
+
+        model.setPinned(0, false);
+        QCOMPARE(model.urls(), (QList<QUrl>{url("/b"), url("/c"), url("/a")}));
+        QCOMPARE(model.pinnedCount(), 1);
+        QVERIFY(!model.isPinned(1));
+    }
+
+    void pinnedAndLockedTabsCannotBeClosed()
+    {
+        TabModel model;
+        model.addTab(url("/a"));
+        model.addTab(url("/b"));
+        model.addTab(url("/c"));
+        model.setPinned(0, true);
+        model.setLocked(1, true);
+        QVERIFY(!model.closeTab(0));
+        QVERIFY(!model.closeTab(1));
+        QVERIFY(model.closeTab(2));
+        QCOMPARE(model.count(), 2);
+    }
+
+    void movesStayOnTheirSideOfThePinnedBoundary()
+    {
+        TabModel model;
+        model.addTab(url("/a"));
+        model.addTab(url("/b"));
+        model.addTab(url("/c"));
+        model.setPinned(0, true);
+        QVERIFY(!model.moveTab(0, 1));
+        QVERIFY(!model.moveTab(2, 0));
+        QVERIFY(model.moveTab(2, 1));
+        QCOMPARE(model.urls(), (QList<QUrl>{url("/a"), url("/c"), url("/b")}));
+    }
+
+    void lockedTabOpensNavigationInANewTab()
+    {
+        TabModel model;
+        model.addTab(url("/a"));
+        model.setCurrentUrl(url("/a/sub"));
+        model.addTab(url("/b"));
+        model.setCurrentIndex(0);
+        model.setLocked(0, true);
+        QVERIFY(model.isLocked(0));
+        QVERIFY(!model.canGoBack());
+
+        model.setCurrentUrl(url("/x"));
+        QCOMPARE(model.urls(), (QList<QUrl>{url("/a/sub"), url("/x"), url("/b")}));
+        QCOMPARE(model.currentIndex(), 1);
+        QVERIFY(!model.isLocked(1));
+    }
+
+    void stateFollowsMovedAndClosedTabs()
+    {
+        TabModel model;
+        model.addTab(url("/a"));
+        model.addTab(url("/b"));
+        model.addTab(url("/c"));
+        model.setLocked(2, true);
+        model.setName(2, QStringLiteral("  Work  "));
+        model.moveTab(2, 1);
+        QVERIFY(model.isLocked(1));
+        QCOMPARE(model.nameAt(1), QStringLiteral("Work"));
+        model.closeTab(0);
+        QVERIFY(model.isLocked(0));
+        QCOMPARE(model.nameAt(0), QStringLiteral("Work"));
+        model.setName(0, QStringLiteral(" "));
+        QVERIFY(model.nameAt(0).isEmpty());
+    }
 };
 
 QTEST_GUILESS_MAIN(TabModelTest)

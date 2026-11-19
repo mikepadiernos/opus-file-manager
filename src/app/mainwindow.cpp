@@ -2,42 +2,67 @@
 
 #include "mainwindow.h"
 
+#include "archives.h"
+#include "archivewriter.h"
+#include "combinedpanel.h"
+#include "compressdialog.h"
+#include "favoritesmodel.h"
 #include "fileoperations.h"
+#include "foldermetadata.h"
+#include "foldertree.h"
 #include "folderview.h"
+#include "labelcolor.h"
 #include "pane.h"
 #include "session.h"
 #include "symbolicicon.h"
+#include "tabcolors.h"
 #include "tabmodel.h"
 
 #include <KActionCollection>
+#include <KConfig>
 #include <KConfigGroup>
 #include <KFileItemActions>
 #include <KFileItemListProperties>
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
+#include <KFileUtils>
 #include <KHamburgerMenu>
+#include <KIO/CopyJob>
 #include <KIO/DropJob>
 #include <KIO/FileSystemFreeSpaceJob>
 #include <KIO/FileUndoManager>
 #include <KIO/Global>
+#include <KIO/ListJob>
+#include <KIO/MkdirJob>
 #include <KJobWidgets>
 #include <KLocalizedString>
 #include <KNewFileMenu>
+#include <KSelectAction>
 #include <KSharedConfig>
 #include <KStandardAction>
 #include <KToggleAction>
 
 #include <QApplication>
 #include <QClipboard>
+#include <QComboBox>
 #include <QCursor>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QDockWidget>
+#include <QFileInfo>
+#include <QFormLayout>
+#include <QFutureWatcher>
+#include <QInputDialog>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
+#include <QScrollArea>
 #include <QSplitter>
 #include <QStatusBar>
 #include <QTimer>
+#include <QtConcurrentRun>
 
 // The XMLGUI rc file is compiled into the static library; make sure the
 // linker keeps it even though nothing else references the resource.
@@ -49,6 +74,13 @@ static void initResources()
 namespace
 {
 constexpr auto SessionGroup = "Session";
+constexpr auto PanelsGroup = "Panels";
+constexpr auto FlatGroup = "Flat";
+
+QString flatKey(const QUrl &url)
+{
+    return url.adjusted(QUrl::StripTrailingSlash).toString();
+}
 
 /// Places model whose icons use SymbolicIcon at small sizes.
 class SymbolicPlacesModel : public KFilePlacesModel
@@ -71,6 +103,31 @@ QString stdName(KStandardAction::StandardAction id)
     return KStandardAction::name(id);
 }
 
+QString labelText(LabelColor color)
+{
+    switch (color) {
+    case LabelColor::Red:
+        return i18nc("@item:inmenu label colour", "Red");
+    case LabelColor::Orange:
+        return i18nc("@item:inmenu label colour", "Orange");
+    case LabelColor::Yellow:
+        return i18nc("@item:inmenu label colour", "Yellow");
+    case LabelColor::Green:
+        return i18nc("@item:inmenu label colour", "Green");
+    case LabelColor::Blue:
+        return i18nc("@item:inmenu label colour", "Blue");
+    case LabelColor::Purple:
+        return i18nc("@item:inmenu label colour", "Purple");
+    case LabelColor::Pink:
+        return i18nc("@item:inmenu label colour", "Pink");
+    case LabelColor::Gray:
+        return i18nc("@item:inmenu label colour", "Gray");
+    case LabelColor::None:
+        return i18nc("@item:inmenu label colour", "None");
+    }
+    return {};
+}
+
 QList<QUrl> urlsOf(const KFileItemList &items)
 {
     QList<QUrl> urls;
@@ -88,13 +145,19 @@ MainWindow::MainWindow(QWidget *parent)
 {
     initResources();
     setComponentName(QStringLiteral("opus-file-manager"), i18n("Opus File Manager"));
+    m_flatLocations = KSharedConfig::openStateConfig()->group(QLatin1String(FlatGroup)).readEntry("Locations", QStringList());
+    m_favorites = new FavoritesModel(KSharedConfig::openConfig()->group(QStringLiteral("Favorites")), this);
+    m_tabColors = new TabColors(KSharedConfig::openConfig()->group(QStringLiteral("TabColors")), this);
     setupPanes();
     setupPlaces();
+    setupPanels();
     setupStatusBar();
     setupActions();
 
     setStandardToolBarMenuEnabled(true);
     setupGUI(QSize(1100, 700), Default, QStringLiteral("opus-file-managerui.rc"));
+    const KConfigGroup panels = KSharedConfig::openStateConfig()->group(QLatin1String(PanelsGroup));
+    setPanelLayout(panels.readEntry("Layout", QString()) == QLatin1String("Separate") ? PanelLayout::Separate : PanelLayout::Combined);
 
     connect(KIO::FileUndoManager::self(), &KIO::FileUndoManager::undoAvailable, this, [this](bool available) {
         m_undoAction->setEnabled(available);
@@ -114,8 +177,8 @@ void MainWindow::setupPanes()
 {
     m_splitter = new QSplitter(Qt::Horizontal, this);
     m_splitter->setChildrenCollapsible(false);
-    m_left = new Pane(m_placesModel, m_splitter);
-    m_right = new Pane(m_placesModel, m_splitter);
+    m_left = new Pane(m_placesModel, m_tabColors, m_splitter);
+    m_right = new Pane(m_placesModel, m_tabColors, m_splitter);
     m_splitter->addWidget(m_left);
     m_splitter->addWidget(m_right);
     m_splitter->setStretchFactor(0, 1);
@@ -131,12 +194,14 @@ void MainWindow::connectPane(Pane *pane)
     connect(pane, &Pane::activated, this, [this, pane] {
         setActivePane(pane);
     });
-    connect(pane, &Pane::urlChanged, this, [this, pane] {
+    connect(pane, &Pane::urlChanged, this, [this, pane](const QUrl &url) {
+        pane->view()->setFlat(m_flatLocations.contains(flatKey(url)));
         if (pane == m_active) {
             updateActions();
             updateStatusBar();
             updateFreeSpace();
             updateWindowTitle();
+            syncFolderTrees();
         }
     });
     connect(pane, &Pane::tabCountChanged, this, &MainWindow::updateTabBars);
@@ -171,12 +236,12 @@ void MainWindow::setupPlaces()
     m_placesView->setDropOnPlaceEnabled(true);
     m_placesView->setAutoResizeItemsEnabled(false);
 
-    auto *dock = new QDockWidget(i18nc("@title:window", "Places"), this);
-    dock->setObjectName(QStringLiteral("placesDock"));
-    dock->setWidget(m_placesView);
-    dock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-    dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetClosable);
-    addDockWidget(Qt::LeftDockWidgetArea, dock);
+    m_placesDock = new QDockWidget(i18nc("@title:window", "Places"), this);
+    m_placesDock->setObjectName(QStringLiteral("placesDock"));
+    m_placesDock->setWidget(m_placesView);
+    m_placesDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+    m_placesDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetClosable);
+    addDockWidget(Qt::LeftDockWidgetArea, m_placesDock);
 
     connect(m_placesView, &KFilePlacesView::urlChanged, this, [this](const QUrl &url) {
         activePane()->setUrl(url);
@@ -188,6 +253,377 @@ void MainWindow::setupPlaces()
         KIO::DropJob *job = KIO::drop(event, dest);
         KJobWidgets::setWindow(job, this);
     });
+}
+
+void MainWindow::setupPanels()
+{
+    const auto addPanelDock = [this](const QString &objectName, const QString &title, QWidget *widget) {
+        auto *dock = new QDockWidget(title, this);
+        dock->setObjectName(objectName);
+        dock->setWidget(widget);
+        dock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+        dock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetClosable);
+        addDockWidget(Qt::LeftDockWidgetArea, dock);
+        return dock;
+    };
+    const auto navigate = [this](const QUrl &url) {
+        activePane()->setUrl(url);
+    };
+    const auto openInTab = [this](const QUrl &url) {
+        activePane()->openInNewTab(url);
+    };
+    const KConfigGroup panels = KSharedConfig::openStateConfig()->group(QLatin1String(PanelsGroup));
+
+    m_folderTree = new FolderTree({QUrl::fromLocalFile(QDir::homePath()), QUrl::fromLocalFile(QStringLiteral("/"))});
+    m_folderTree->setExpandedUrls(panels.readEntry("FoldersExpanded", QList<QUrl>()));
+    connect(m_folderTree, &FolderTree::urlActivated, this, navigate);
+    connect(m_folderTree, &FolderTree::tabRequested, this, openInTab);
+    connect(m_folderTree, &FolderTree::contextMenuRequested, this, &MainWindow::showFolderTreeMenu);
+    connect(m_folderTree, &FolderTree::urlsDropped, this, [this](const QUrl &destination, QDropEvent *event) {
+        KIO::DropJob *job = KIO::drop(event, destination);
+        KJobWidgets::setWindow(job, this);
+    });
+    auto *treeScroll = new QScrollArea;
+    treeScroll->setWidgetResizable(true);
+    treeScroll->setWidget(m_folderTree);
+    m_foldersDock = addPanelDock(QStringLiteral("foldersDock"), i18nc("@title:window", "Folders"), treeScroll);
+    splitDockWidget(m_placesDock, m_foldersDock, Qt::Vertical);
+
+    m_combinedPanel = new CombinedPanel(m_placesModel, m_favorites);
+    m_combinedPanel->folderTree()->setExpandedUrls(panels.readEntry("CombinedExpanded", QList<QUrl>()));
+    connect(m_combinedPanel, &CombinedPanel::urlActivated, this, navigate);
+    connect(m_combinedPanel, &CombinedPanel::tabRequested, this, openInTab);
+    connect(m_combinedPanel, &CombinedPanel::folderContextMenuRequested, this, &MainWindow::showFolderTreeMenu);
+    m_combinedPanel->setCollapsedSections(panels.readEntry("CollapsedSections", QStringList()));
+    connect(m_combinedPanel, &CombinedPanel::urlsDropped, this, [this](const QUrl &destination, QDropEvent *event) {
+        KIO::DropJob *job = KIO::drop(event, destination);
+        KJobWidgets::setWindow(job, this);
+    });
+    m_combinedDock = addPanelDock(QStringLiteral("combinedDock"), i18nc("@title:window", "Places"), m_combinedPanel);
+}
+
+void MainWindow::setPanelLayout(PanelLayout layout)
+{
+    m_panelLayout = layout;
+    const bool combined = layout == PanelLayout::Combined;
+    m_combinedDock->setVisible(combined);
+    m_placesDock->setVisible(!combined);
+    m_foldersDock->setVisible(!combined);
+    m_panelLayoutAction->setCurrentItem(combined ? 0 : 1);
+
+    KConfigGroup panels = KSharedConfig::openStateConfig()->group(QLatin1String(PanelsGroup));
+    panels.writeEntry("Layout", combined ? QStringLiteral("Combined") : QStringLiteral("Separate"));
+    panels.sync();
+}
+
+MainWindow::PanelLayout MainWindow::panelLayout() const
+{
+    return m_panelLayout;
+}
+
+FavoritesModel *MainWindow::favorites() const
+{
+    return m_favorites;
+}
+
+TabColors *MainWindow::tabColors() const
+{
+    return m_tabColors;
+}
+
+void MainWindow::compress()
+{
+    const KFileItemList selected = activePane()->view()->selectedItems();
+    QStringList sources;
+    for (const KFileItem &item : selected) {
+        if (!item.localPath().isEmpty()) {
+            sources.append(item.localPath());
+        }
+    }
+    if (sources.isEmpty()) {
+        return;
+    }
+    const QString defaultName = selected.size() == 1 ? (selected.first().isDir() ? selected.first().name() : Archives::baseName(selected.first().name()))
+                                                     : activePane()->url().adjusted(QUrl::StripTrailingSlash).fileName();
+    CompressDialog dialog(defaultName, inactivePane()->url().isLocalFile(), this);
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    const QUrl folder = dialog.toOtherPane() ? inactivePane()->url() : activePane()->url();
+    if (!folder.isLocalFile()) {
+        showStatusMessage(i18nc("@info:status", "Archives can only be created in local folders."));
+        return;
+    }
+    QString fileName = dialog.archiveName() + u'.' + ArchiveWriter::suffix(dialog.format());
+    if (QFileInfo::exists(QDir(folder.toLocalFile()).filePath(fileName))) {
+        fileName = KFileUtils::suggestName(folder, fileName);
+    }
+    const QString archivePath = QDir(folder.toLocalFile()).filePath(fileName);
+
+    auto *watcher = new QFutureWatcher<QString>(this);
+    connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher, fileName] {
+        const QString error = watcher->result();
+        showStatusMessage(error.isEmpty() ? i18nc("@info:status", "Created %1", fileName) : i18nc("@info:status", "Could not create %1: %2", fileName, error));
+        watcher->deleteLater();
+    });
+    watcher->setFuture(QtConcurrent::run(&ArchiveWriter::write, archivePath, dialog.format(), sources));
+}
+
+void MainWindow::setSelectionLabel(const QString &label)
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    for (const KFileItem &item : items) {
+        const QFileInfo info(item.localPath());
+        QString error;
+        if (!FolderMetadata::setLabel(info.absolutePath(), info.fileName(), label, &error)) {
+            showStatusMessage(i18nc("@info:status", "Could not set the label: %1", error));
+            return;
+        }
+    }
+    activePane()->view()->reloadMetadata();
+}
+
+void MainWindow::setSelectionColor(const QString &color)
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    for (const KFileItem &item : items) {
+        const QFileInfo info(item.localPath());
+        QString error;
+        if (!FolderMetadata::setColor(info.absolutePath(), info.fileName(), color, &error)) {
+            showStatusMessage(i18nc("@info:status", "Could not set the file colour: %1", error));
+            return;
+        }
+    }
+    activePane()->view()->reloadMetadata();
+}
+
+void MainWindow::setSelectionRating(int rating)
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    for (const KFileItem &item : items) {
+        const QFileInfo info(item.localPath());
+        QString error;
+        if (!FolderMetadata::setRating(info.absolutePath(), info.fileName(), rating, &error)) {
+            showStatusMessage(i18nc("@info:status", "Could not set the rating: %1", error));
+            return;
+        }
+    }
+    activePane()->view()->reloadMetadata();
+}
+
+void MainWindow::setSelectionNote()
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    if (items.isEmpty()) {
+        return;
+    }
+    QString currentNote;
+    if (items.size() == 1) {
+        const QFileInfo info(items.first().localPath());
+        QString error;
+        const QJsonObject metadata = FolderMetadata::read(info.absolutePath(), &error);
+        if (!error.isEmpty()) {
+            showStatusMessage(i18nc("@info:status", "Could not read the file note: %1", error));
+            return;
+        }
+        currentNote = metadata.value(QStringLiteral("notes")).toObject().value(info.fileName()).toString();
+    }
+    bool accepted = false;
+    const QString note = QInputDialog::getMultiLineText(this,
+                                                        i18nc("@title:window", "Edit Note"),
+                                                        i18nc("@label:textbox", "Note (up to 500 characters):"),
+                                                        currentNote,
+                                                        &accepted);
+    if (!accepted) {
+        return;
+    }
+    if (note.size() > 500) {
+        showStatusMessage(i18nc("@info:status", "Notes can be at most 500 characters."));
+        return;
+    }
+    for (const KFileItem &item : items) {
+        const QFileInfo info(item.localPath());
+        QString error;
+        if (!FolderMetadata::setNote(info.absolutePath(), info.fileName(), note, &error)) {
+            showStatusMessage(i18nc("@info:status", "Could not set the note: %1", error));
+            return;
+        }
+    }
+    activePane()->view()->reloadMetadata();
+}
+
+void MainWindow::toggleSelectionPin()
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    for (const KFileItem &item : items) {
+        const QFileInfo info(item.localPath());
+        QString error;
+        if (!FolderMetadata::togglePin(info.absolutePath(), info.fileName(), &error)) {
+            showStatusMessage(i18nc("@info:status", "Could not change the pin: %1", error));
+            return;
+        }
+    }
+    activePane()->view()->reloadMetadata();
+}
+
+void MainWindow::editFolderLook(const QUrl &folder)
+{
+    if (!folder.isLocalFile()) {
+        return;
+    }
+    QDialog dialog(this);
+    dialog.setWindowTitle(i18nc("@title:window", "Folder Look"));
+    auto *icon = new QComboBox(&dialog);
+    const QList<QPair<QString, QString>> icons{
+        {i18nc("@item:inlistbox folder icon", "Default"), QString()},
+        {i18nc("@item:inlistbox folder icon", "Folder"), QStringLiteral("folder")},
+        {i18nc("@item:inlistbox folder icon", "Home"), QStringLiteral("folder-home")},
+        {i18nc("@item:inlistbox folder icon", "Documents"), QStringLiteral("folder-documents")},
+        {i18nc("@item:inlistbox folder icon", "Downloads"), QStringLiteral("folder-download")},
+        {i18nc("@item:inlistbox folder icon", "Pictures"), QStringLiteral("folder-pictures")},
+        {i18nc("@item:inlistbox folder icon", "Music"), QStringLiteral("folder-music")},
+        {i18nc("@item:inlistbox folder icon", "Videos"), QStringLiteral("folder-videos")},
+    };
+    for (const auto &[label, name] : icons) {
+        icon->addItem(label, name);
+    }
+    const QString directoryFile = QDir(folder.toLocalFile()).filePath(QStringLiteral(".directory"));
+    KConfig directoryConfig(directoryFile, KConfig::SimpleConfig);
+    const QString existingIcon = directoryConfig.group(QStringLiteral("Desktop Entry")).readEntry("Icon", QString());
+    const int iconIndex = icon->findData(existingIcon);
+    if (iconIndex >= 0) {
+        icon->setCurrentIndex(iconIndex);
+    } else if (!existingIcon.isEmpty()) {
+        icon->addItem(existingIcon, existingIcon);
+        icon->setCurrentIndex(icon->count() - 1);
+    }
+
+    auto *color = new QComboBox(&dialog);
+    color->addItem(i18nc("@item:inlistbox folder colour", "Default"), QString());
+    for (LabelColor value : LabelColors::all()) {
+        color->addItem(labelText(value), LabelColors::rgb(value).name());
+    }
+    QString metadataError;
+    const QJsonObject metadata = FolderMetadata::read(folder.toLocalFile(), &metadataError);
+    if (!metadataError.isEmpty()) {
+        showStatusMessage(i18nc("@info:status", "Could not read the folder appearance: %1", metadataError));
+        return;
+    }
+    const QString existingColor = metadata.value(QStringLiteral("color")).toString();
+    const int colorIndex = color->findData(existingColor);
+    if (colorIndex >= 0) {
+        color->setCurrentIndex(colorIndex);
+    }
+
+    auto *form = new QFormLayout(&dialog);
+    form->addRow(i18nc("@label:listbox", "Icon:"), icon);
+    form->addRow(i18nc("@label:listbox", "Colour:"), color);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    form->addRow(buttons);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+    if (!directoryConfig.isConfigWritable(false)) {
+        showStatusMessage(i18nc("@info:status", "The folder's .directory file is not writable."));
+        return;
+    }
+
+    QString error;
+    if (!FolderMetadata::setFolderColor(folder.toLocalFile(), color->currentData().toString(), &error)) {
+        showStatusMessage(i18nc("@info:status", "Could not set the folder colour: %1", error));
+        return;
+    }
+    KConfigGroup desktopEntry = directoryConfig.group(QStringLiteral("Desktop Entry"));
+    const QString iconName = icon->currentData().toString();
+    if (iconName.isEmpty()) {
+        desktopEntry.deleteEntry("Icon");
+    } else {
+        desktopEntry.writeEntry("Icon", iconName);
+    }
+    if (!directoryConfig.sync()) {
+        showStatusMessage(i18nc("@info:status", "Could not save the folder icon."));
+        return;
+    }
+    const QUrl parent = KIO::upUrl(folder);
+    for (Pane *pane : {m_left, m_right}) {
+        if (pane->url() == parent || pane->url() == folder) {
+            pane->view()->reload();
+        }
+    }
+    m_folderTree->reload();
+    m_combinedPanel->folderTree()->reload();
+    m_folderTree->reveal(folder);
+    m_combinedPanel->folderTree()->reveal(folder);
+}
+
+void MainWindow::extractToOtherPane()
+{
+    const QUrl destination = inactivePane()->url();
+    const KFileItemList selected = activePane()->view()->selectedItems();
+    for (const KFileItem &item : selected) {
+        const QUrl archive = Archives::browseUrl(item.mostLocalUrl(), item.mimetype());
+        if (!archive.isValid()) {
+            continue;
+        }
+        QString name = Archives::baseName(item.name());
+        if (destination.isLocalFile() && QFileInfo::exists(QDir(destination.toLocalFile()).filePath(name))) {
+            name = KFileUtils::suggestName(destination, name);
+        }
+        QUrl target = destination;
+        target.setPath(QDir(destination.path()).filePath(name));
+        extractArchive(archive, target);
+    }
+}
+
+void MainWindow::extractArchive(const QUrl &archive, const QUrl &target)
+{
+    auto *list = KIO::listDir(archive, KIO::HideProgressInfo);
+    auto entries = std::make_shared<QList<QUrl>>();
+    connect(list, &KIO::ListJob::entries, this, [archive, entries](KIO::Job *, const KIO::UDSEntryList &listed) {
+        for (const KIO::UDSEntry &entry : listed) {
+            const QString name = entry.stringValue(KIO::UDSEntry::UDS_NAME);
+            if (name != QLatin1String(".") && name != QLatin1String("..")) {
+                QUrl child = archive;
+                child.setPath(archive.path() + name);
+                entries->append(child);
+            }
+        }
+    });
+    connect(list, &KJob::result, this, [this, target, entries](KJob *job) {
+        if (job->error()) {
+            showStatusMessage(job->errorString());
+            return;
+        }
+        KIO::MkdirJob *mkdir = KIO::mkdir(target);
+        KJobWidgets::setWindow(mkdir, this);
+        connect(mkdir, &KJob::result, this, [this, target, entries](KJob *made) {
+            if (made->error()) {
+                showStatusMessage(made->errorString());
+                return;
+            }
+            KIO::CopyJob *copy = KIO::copy(*entries, target);
+            KIO::FileUndoManager::self()->recordCopyJob(copy);
+            KJobWidgets::setWindow(copy, this);
+        });
+    });
+}
+
+void MainWindow::addToFavorites()
+{
+    const KFileItemList selected = activePane()->view()->selectedItems();
+    bool addedSelection = false;
+    for (const KFileItem &item : selected) {
+        if (item.isDir()) {
+            m_favorites->add(item.targetUrl());
+            addedSelection = true;
+        }
+    }
+    if (!addedSelection) {
+        m_favorites->add(activePane()->url());
+    }
 }
 
 void MainWindow::setupStatusBar()
@@ -408,6 +844,38 @@ void MainWindow::setupActions()
         actions->setDefaultShortcut(tabN, QKeySequence(Qt::CTRL | static_cast<Qt::Key>(Qt::Key_0 + i)));
     }
 
+    QAction *compressAction = actions->addAction(QStringLiteral("compress"), this, &MainWindow::compress);
+    compressAction->setText(i18nc("@action", "Compress…"));
+    compressAction->setIcon(QIcon::fromTheme(QStringLiteral("archive-insert")));
+
+    QAction *extract = actions->addAction(QStringLiteral("extract_to_other_pane"), this, &MainWindow::extractToOtherPane);
+    extract->setText(i18nc("@action", "Extract to Other Pane"));
+    extract->setIcon(QIcon::fromTheme(QStringLiteral("archive-extract")));
+
+    m_flatAction = new KToggleAction(QIcon::fromTheme(QStringLiteral("view-list-text")), i18nc("@action", "Show Flat (No Folders)"), this);
+    actions->addAction(QStringLiteral("show_flat"), m_flatAction);
+    actions->setDefaultShortcut(m_flatAction, Qt::CTRL | Qt::SHIFT | Qt::Key_F);
+    connect(m_flatAction, &KToggleAction::triggered, this, &MainWindow::setFlat);
+
+    QAction *filter = actions->addAction(QStringLiteral("show_filter_bar"), this, [this] {
+        activePane()->showFilterBar();
+    });
+    filter->setText(i18nc("@action", "Filter…"));
+    filter->setIcon(QIcon::fromTheme(QStringLiteral("view-filter")));
+    actions->setDefaultShortcut(filter, Qt::CTRL | Qt::Key_F);
+
+    QAction *addFavorite = actions->addAction(QStringLiteral("add_to_favorites"), this, &MainWindow::addToFavorites);
+    addFavorite->setText(i18nc("@action", "Add to Favorites"));
+    addFavorite->setIcon(QIcon::fromTheme(QStringLiteral("bookmark-new")));
+    actions->setDefaultShortcut(addFavorite, Qt::CTRL | Qt::Key_D);
+
+    m_panelLayoutAction = new KSelectAction(QIcon::fromTheme(QStringLiteral("sidebar-show")), i18nc("@action", "Panels"), this);
+    m_panelLayoutAction->setItems({i18nc("@item:inmenu panel layout", "Combined Panel"), i18nc("@item:inmenu panel layout", "Separate Places and Folders")});
+    actions->addAction(QStringLiteral("panel_layout"), m_panelLayoutAction);
+    connect(m_panelLayoutAction, &KSelectAction::indexTriggered, this, [this](int index) {
+        setPanelLayout(index == 0 ? PanelLayout::Combined : PanelLayout::Separate);
+    });
+
     // Settings
     QAction *showMenuBar = KStandardAction::showMenubar(menuBar(), &QMenuBar::setVisible, actions);
     KHamburgerMenu *hamburger = KStandardAction::hamburgerMenu(nullptr, nullptr, actions);
@@ -443,6 +911,7 @@ void MainWindow::setActivePane(Pane *pane)
         m_right->setVisible(m_active == m_right);
     }
     m_hiddenFilesAction->setChecked(pane->view()->showHiddenFiles());
+    syncFolderTrees();
     updateActions();
     updateStatusBar();
     updateFreeSpace();
@@ -480,14 +949,8 @@ void MainWindow::restoreSession()
     const KConfigGroup group = KSharedConfig::openStateConfig()->group(QLatin1String(SessionGroup));
     const WindowSession session = Session::load(group).sanitized(home);
 
-    const auto apply = [](Pane *pane, const PaneSession &state) {
-        for (const QUrl &url : state.tabs) {
-            pane->openInNewTab(url, false);
-        }
-        pane->tabs()->setCurrentIndex(state.currentTab);
-    };
-    apply(m_left, session.left);
-    apply(m_right, session.right);
+    m_left->restoreState(session.left);
+    m_right->restoreState(session.right);
     setActivePane(session.activePane == 1 ? m_right : m_left);
     setStackedLayout(session.stacked);
 }
@@ -495,16 +958,18 @@ void MainWindow::restoreSession()
 void MainWindow::saveSession()
 {
     WindowSession session;
-    session.left.tabs = m_left->tabs()->urls();
-    session.left.currentTab = m_left->tabs()->currentIndex();
-    session.right.tabs = m_right->tabs()->urls();
-    session.right.currentTab = m_right->tabs()->currentIndex();
+    session.left = m_left->saveState();
+    session.right = m_right->saveState();
     session.activePane = activePane() == m_right ? 1 : 0;
     session.stacked = isStackedLayout();
 
     KSharedConfig::Ptr state = KSharedConfig::openStateConfig();
     KConfigGroup group = state->group(QLatin1String(SessionGroup));
     Session::save(session, group);
+    KConfigGroup panels = state->group(QLatin1String(PanelsGroup));
+    panels.writeEntry("FoldersExpanded", m_folderTree->expandedUrls());
+    panels.writeEntry("CombinedExpanded", m_combinedPanel->folderTree()->expandedUrls());
+    panels.writeEntry("CollapsedSections", m_combinedPanel->collapsedSections());
     state->sync();
 }
 
@@ -518,14 +983,8 @@ void MainWindow::readProperties(const KConfigGroup &group)
 {
     const WindowSession session = Session::load(group).sanitized(QUrl::fromLocalFile(QDir::homePath()));
     m_sessionRestored = true;
-    for (const QUrl &url : session.left.tabs) {
-        m_left->openInNewTab(url, false);
-    }
-    for (const QUrl &url : session.right.tabs) {
-        m_right->openInNewTab(url, false);
-    }
-    m_left->tabs()->setCurrentIndex(session.left.currentTab);
-    m_right->tabs()->setCurrentIndex(session.right.currentTab);
+    m_left->restoreState(session.left);
+    m_right->restoreState(session.right);
     setActivePane(session.activePane == 1 ? m_right : m_left);
     setStackedLayout(session.stacked);
 }
@@ -533,10 +992,8 @@ void MainWindow::readProperties(const KConfigGroup &group)
 void MainWindow::saveProperties(KConfigGroup &group)
 {
     WindowSession session;
-    session.left.tabs = m_left->tabs()->urls();
-    session.left.currentTab = m_left->tabs()->currentIndex();
-    session.right.tabs = m_right->tabs()->urls();
-    session.right.currentTab = m_right->tabs()->currentIndex();
+    session.left = m_left->saveState();
+    session.right = m_right->saveState();
     session.activePane = activePane() == m_right ? 1 : 0;
     session.stacked = isStackedLayout();
     Session::save(session, group);
@@ -562,14 +1019,24 @@ void MainWindow::updateActions()
 
     bool pasteEnabled = false;
     const QString pasteText = FileOperations::pasteActionText(root, &pasteEnabled);
-    m_pasteAction->setEnabled(pasteEnabled && !root.isNull() && root.isWritable());
+    const bool flat = view->isFlat();
+    m_pasteAction->setEnabled(pasteEnabled && !root.isNull() && root.isWritable() && !flat);
+    m_flatAction->setChecked(flat);
+    const QString flatReason = flat ? i18nc("@info:tooltip", "Not available in a flat list, whose items come from many folders") : QString();
+    for (const QString &name : {QStringLiteral("new_menu"), QStringLiteral("new_folder")}) {
+        QAction *create = actions->action(name);
+        create->setEnabled(!flat);
+        create->setToolTip(flat ? flatReason : create->text());
+    }
     if (!pasteText.isEmpty()) {
         m_pasteAction->setText(pasteText);
     }
 
     actions->action(stdName(KStandardAction::Back))->setEnabled(activePane()->tabs()->canGoBack());
     actions->action(stdName(KStandardAction::Forward))->setEnabled(activePane()->tabs()->canGoForward());
-    actions->action(QStringLiteral("close_tab"))->setEnabled(activePane()->tabs()->count() > 1);
+    const TabModel *tabs = activePane()->tabs();
+    actions->action(QStringLiteral("close_tab"))
+        ->setEnabled(tabs->count() > 1 && !tabs->isPinned(tabs->currentIndex()) && !tabs->isLocked(tabs->currentIndex()));
 
     const bool icons = view->viewMode() == FolderView::ViewMode::Icons;
     m_viewModeAction->setText(icons ? i18nc("@action", "Details View") : i18nc("@action", "Icons View"));
@@ -659,8 +1126,11 @@ void MainWindow::showStatusMessage(const QString &message)
 
 void MainWindow::activateItem(const KFileItem &item)
 {
+    const QUrl archive = item.isDir() ? QUrl() : Archives::browseUrl(item.mostLocalUrl(), item.mimetype());
     if (item.isDir()) {
         activePane()->setUrl(item.targetUrl());
+    } else if (archive.isValid()) {
+        activePane()->setUrl(archive);
     } else {
         FileOperations::open(item, this);
     }
@@ -681,10 +1151,16 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
         menu.addSeparator();
         menu.addAction(actions->action(stdName(KStandardAction::Redisplay)));
         menu.addAction(actions->action(QStringLiteral("open_terminal")));
+        QAction *folderLook = nullptr;
+        if (pane->url().isLocalFile()) {
+            folderLook = menu.addAction(i18nc("@action:inmenu", "Folder Look…"));
+        }
         menu.addAction(actions->action(QStringLiteral("copy_path")));
         menu.addSeparator();
         menu.addAction(actions->action(QStringLiteral("properties")));
-        menu.exec(globalPos);
+        if (menu.exec(globalPos) == folderLook && folderLook) {
+            editFolderLook(pane->url());
+        }
         return;
     }
 
@@ -718,6 +1194,72 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     menu.addSeparator();
     if (singleFolder && items.first().isLocalFile()) {
         menu.addAction(actions->action(QStringLiteral("open_terminal")));
+    }
+    if (singleFolder) {
+        menu.addAction(actions->action(QStringLiteral("add_to_favorites")));
+        if (items.first().isLocalFile()) {
+            QAction *look = menu.addAction(i18nc("@action:inmenu", "Folder Look…"));
+            connect(look, &QAction::triggered, this, [this, url = items.first().targetUrl()] {
+                editFolderLook(url);
+            });
+        }
+    }
+
+    const bool allLocal = std::all_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
+        return !item.localPath().isEmpty();
+    });
+    if (allLocal) {
+        QMenu *metadata = menu.addMenu(i18nc("@menu", "Metadata"));
+        QMenu *labels = metadata->addMenu(i18nc("@menu", "Label"));
+        QAction *clearLabel = labels->addAction(i18nc("@action:inmenu", "No Label"));
+        connect(clearLabel, &QAction::triggered, this, [this] {
+            setSelectionLabel(QString());
+        });
+        for (LabelColor color : LabelColors::all()) {
+            const QString key = LabelColors::key(color);
+            QAction *label = labels->addAction(labelText(color));
+            connect(label, &QAction::triggered, this, [this, key] {
+                setSelectionLabel(key);
+            });
+        }
+
+        QMenu *colors = metadata->addMenu(i18nc("@menu", "File Colour"));
+        QAction *clearColor = colors->addAction(i18nc("@action:inmenu", "No Colour"));
+        connect(clearColor, &QAction::triggered, this, [this] {
+            setSelectionColor(QString());
+        });
+        for (LabelColor color : LabelColors::all()) {
+            const QString value = LabelColors::rgb(color).name();
+            QAction *entry = colors->addAction(labelText(color));
+            connect(entry, &QAction::triggered, this, [this, value] {
+                setSelectionColor(value);
+            });
+        }
+
+        QMenu *ratings = metadata->addMenu(i18nc("@menu", "Rating"));
+        QAction *clearRating = ratings->addAction(i18nc("@action:inmenu", "No Rating"));
+        connect(clearRating, &QAction::triggered, this, [this] {
+            setSelectionRating(0);
+        });
+        for (int rating = 1; rating <= 5; ++rating) {
+            QAction *entry = ratings->addAction(i18ncp("@action:inmenu", "%1 Star", "%1 Stars", rating));
+            connect(entry, &QAction::triggered, this, [this, rating] {
+                setSelectionRating(rating);
+            });
+        }
+        QAction *note = metadata->addAction(i18nc("@action:inmenu", "Edit Note…"));
+        connect(note, &QAction::triggered, this, &MainWindow::setSelectionNote);
+        QAction *pin = metadata->addAction(i18nc("@action:inmenu", "Toggle Pin"));
+        connect(pin, &QAction::triggered, this, &MainWindow::toggleSelectionPin);
+    }
+    const bool anyArchive = std::any_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
+        return !item.isDir() && Archives::browseUrl(item.mostLocalUrl(), item.mimetype()).isValid();
+    });
+    if (anyArchive) {
+        menu.addAction(actions->action(QStringLiteral("extract_to_other_pane")));
+    }
+    if (allLocal) {
+        menu.addAction(actions->action(QStringLiteral("compress")));
     }
     menu.addAction(actions->action(QStringLiteral("copy_path")));
 
@@ -834,9 +1376,59 @@ void MainWindow::toggleViewMode()
     updateActions();
 }
 
+void MainWindow::setFlat(bool flat)
+{
+    const QString key = flatKey(activePane()->url());
+    m_flatLocations.removeAll(key);
+    if (flat) {
+        m_flatLocations.append(key);
+    }
+    KConfigGroup group = KSharedConfig::openStateConfig()->group(QLatin1String(FlatGroup));
+    group.writeEntry("Locations", m_flatLocations);
+    group.sync();
+    activePane()->view()->setFlat(flat);
+    updateActions();
+}
+
+void MainWindow::syncFolderTrees()
+{
+    const QUrl url = activePane()->url();
+    const bool hidden = activePane()->view()->showHiddenFiles();
+    for (FolderTree *tree : {m_folderTree, m_combinedPanel->folderTree()}) {
+        tree->setShowHiddenFolders(hidden);
+        tree->reveal(url);
+    }
+}
+
+void MainWindow::showFolderTreeMenu(const QUrl &url, const QPoint &globalPos)
+{
+    QMenu menu(this);
+    QAction *openInTab = menu.addAction(QIcon::fromTheme(QStringLiteral("tab-new")), i18nc("@action:inmenu", "Open in New Tab"));
+    QAction *openInOther = nullptr;
+    if (m_dualLayoutAction->isChecked()) {
+        openInOther = menu.addAction(QIcon::fromTheme(QStringLiteral("view-split-left-right")), i18nc("@action:inmenu", "Open in Other Pane"));
+    }
+    QAction *favorite = menu.addAction(QIcon::fromTheme(QStringLiteral("bookmark-new")), i18nc("@action:inmenu", "Add to Favorites"));
+    favorite->setEnabled(!m_favorites->contains(url));
+    menu.addSeparator();
+    QAction *properties = menu.addAction(QIcon::fromTheme(QStringLiteral("document-properties")), i18nc("@action:inmenu", "Properties"));
+
+    QAction *chosen = menu.exec(globalPos);
+    if (chosen == openInTab) {
+        activePane()->openInNewTab(url, true);
+    } else if (chosen && chosen == openInOther) {
+        inactivePane()->setUrl(url);
+    } else if (chosen == favorite) {
+        m_favorites->add(url);
+    } else if (chosen == properties) {
+        FileOperations::showProperties(KFileItemList{KFileItem(url)}, this);
+    }
+}
+
 void MainWindow::setShowHiddenFiles(bool show)
 {
     activePane()->view()->setShowHiddenFiles(show);
+    syncFolderTrees();
 }
 
 void MainWindow::setPreviewsEnabled(bool enabled)

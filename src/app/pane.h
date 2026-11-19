@@ -2,12 +2,16 @@
 
 #pragma once
 
+#include "session.h"
+
 #include <QUrl>
 #include <QWidget>
 
+class FilterBar;
 class FolderView;
 class KFilePlacesModel;
 class KUrlNavigator;
+class TabColors;
 class TabModel;
 class QTabBar;
 class QToolButton;
@@ -23,7 +27,12 @@ class Pane : public QWidget
     Q_OBJECT
 
 public:
-    explicit Pane(KFilePlacesModel *places, QWidget *parent = nullptr);
+    /**
+     * @param places the window's places model, for the location bar
+     * @param colors the tab colours shared by all panes
+     * @param parent the parent widget
+     */
+    Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent = nullptr);
     ~Pane() override;
 
     TabModel *tabs() const;
@@ -44,6 +53,14 @@ public:
     void setTabBarAtBottom(bool atBottom);
     bool isTabBarAtBottom() const;
 
+    /// The tabs with their pins, locks and names, and the current tab.
+    PaneSession saveState() const;
+    /**
+     * Opens the tabs of @p state with their pins, locks and names.
+     * @param state the saved tabs; the pane must not have tabs yet
+     */
+    void restoreState(const PaneSession &state);
+
 public Q_SLOTS:
     void setUrl(const QUrl &url);
     void openInNewTab(const QUrl &url, bool activate = false);
@@ -54,6 +71,8 @@ public Q_SLOTS:
     void goUp();
     void reload();
     void editUrl();
+    /// Shows the filter bar and focuses it.
+    void showFilterBar();
 
 Q_SIGNALS:
     void activated();
@@ -80,7 +99,9 @@ private:
     QToolButton *m_up = nullptr;
     QToolButton *m_reload = nullptr;
     KUrlNavigator *m_navigator = nullptr;
+    TabColors *m_colors = nullptr;
     FolderView *m_view = nullptr;
+    FilterBar *m_filterBar = nullptr;
     QVBoxLayout *m_layout = nullptr;
     bool m_active = false;
     bool m_tabBarForced = false;

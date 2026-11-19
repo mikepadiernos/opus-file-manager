@@ -1,8 +1,26 @@
 add_library(opusfm_core STATIC
+    archives.cpp
+    archives.h
+    archivewriter.cpp
+    archivewriter.h
+    favoritesmodel.cpp
+    favoritesmodel.h
+    flatview.cpp
+    flatview.h
+    foldermetadata.cpp
+    foldermetadata.h
+    ignorelist.cpp
+    ignorelist.h
+    labelcolor.cpp
+    labelcolor.h
     navigationhistory.cpp
+    namefilter.cpp
+    namefilter.h
     navigationhistory.h
     session.cpp
     session.h
+    tabcolors.cpp
+    tabcolors.h
     symbolicicon.cpp
     symbolicicon.h
     tabmodel.cpp
@@ -15,5 +33,7 @@ target_link_libraries(opusfm_core
     PUBLIC
         Qt6::Core
         Qt6::Gui
+        KF6::Archive
         KF6::ConfigCore
+        KF6::KIOCore
 )

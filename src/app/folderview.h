@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "namefilter.h"
+
 #include <KFileItem>
 
 #include <QUrl>
@@ -11,6 +13,8 @@ class KDirLister;
 class KDirModel;
 class KDirSortFilterProxyModel;
 class KFilePreviewGenerator;
+class NameFilterProxyModel;
+class QHeaderView;
 class QAbstractItemView;
 class QListView;
 class QStackedWidget;
@@ -63,6 +67,35 @@ public:
 
     QAbstractItemView *currentView() const;
 
+    NameFilter nameFilter() const;
+    /**
+     * Hides items the filter does not match. The filter stays set when the
+     * view lists another folder.
+     * @param filter the filter to apply; an empty filter shows everything
+     */
+    void setNameFilter(const NameFilter &filter);
+
+    /**
+     * Activates, as a double-click would, the first item the name filter
+     * matched, or the first visible item when no item in the filter's
+     * scope is shown.
+     */
+    void activateFirstItem();
+
+    bool isFlat() const;
+    /**
+     * Lists every file below the folder in one list, without folders, or
+     * goes back to the folder's own items. url() stays the folder either way.
+     * In a flat list the Type column shows each item's relative path, and
+     * nothing can be dropped.
+     * @param flat true for the flat list
+     */
+    void setFlat(bool flat);
+    /// Reloads the current folder's labels, colours, ratings, notes and pins.
+    void reloadMetadata();
+    QString groupBy() const;
+    void setGroupBy(const QString &group);
+
 Q_SIGNALS:
     void urlChanged(const QUrl &url);
     void redirected(const QUrl &url);
@@ -75,20 +108,31 @@ Q_SIGNALS:
     void goUpRequested();
     /// A view received focus or a click; the pane should become active.
     void activated();
+    /// Text was typed in a view with no shortcut modifier; it should filter.
+    void typeAheadRequested(const QString &text);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     void setupView(QAbstractItemView *view);
+    /// Lists m_folder, or everything below it in flat mode.
+    void openListing();
     void onActivated(const QModelIndex &index);
     void onContextMenu(const QPoint &pos);
+    void showColumnMenu(const QPoint &pos);
+    void loadFolderFormat();
+    void saveFolderFormat();
     bool handleDrop(QAbstractItemView *view, QEvent *event);
     KFileItem itemAt(QAbstractItemView *view, const QPoint &viewportPos) const;
 
     KDirLister *m_lister = nullptr;
     KDirModel *m_model = nullptr;
-    KDirSortFilterProxyModel *m_proxy = nullptr;
+    NameFilterProxyModel *m_proxy = nullptr;
+    /// The folder shown, which in flat mode is not what the lister lists.
+    QUrl m_folder;
+    bool m_flat = false;
+    bool m_applyingFolderFormat = false;
     QStackedWidget *m_stack = nullptr;
     QTreeView *m_details = nullptr;
     QListView *m_icons = nullptr;

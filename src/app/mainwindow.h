@@ -8,12 +8,18 @@
 #include <QList>
 #include <QUrl>
 
+class CombinedPanel;
+class FavoritesModel;
+class FolderTree;
 class KFileItemActions;
 class KFilePlacesModel;
 class KFilePlacesView;
 class KNewFileMenu;
+class KSelectAction;
 class KToggleAction;
 class Pane;
+class TabColors;
+class QDockWidget;
 class QLabel;
 class QSplitter;
 
@@ -41,6 +47,25 @@ public:
     void setStackedLayout(bool stacked);
     bool isStackedLayout() const;
 
+    /// Which side panels the window shows.
+    enum class PanelLayout {
+        /// One panel with Favorites, the Places sections and a folder tree.
+        Combined,
+        /// Separate Places and Folders panels.
+        Separate,
+    };
+
+    /**
+     * Shows either the combined panel or the separate Places and Folders
+     * panels, and remembers the choice for new windows.
+     * @param layout the panels to show
+     */
+    void setPanelLayout(PanelLayout layout);
+    PanelLayout panelLayout() const;
+
+    FavoritesModel *favorites() const;
+    TabColors *tabColors() const;
+
 protected:
     bool queryClose() override;
     void readProperties(const KConfigGroup &group) override;
@@ -50,6 +75,7 @@ private:
     void setupActions();
     void setupPanes();
     void setupPlaces();
+    void setupPanels();
     void setupStatusBar();
 
     void setActivePane(Pane *pane);
@@ -83,9 +109,51 @@ private:
     void toggleViewMode();
     void setShowHiddenFiles(bool show);
     void setPreviewsEnabled(bool enabled);
+    /// Reveals the active pane's folder in the trees and matches its hidden files setting.
+    void syncFolderTrees();
+    /// Shows the active pane's folder flat or not, and remembers the choice for that folder.
+    void setFlat(bool flat);
+    /// Shows the context menu for a folder in a tree.
+    void showFolderTreeMenu(const QUrl &url, const QPoint &globalPos);
+    /// Adds the selected folders, or the current folder, to Favorites.
+    void addToFavorites();
+    /**
+     * Extracts each selected archive into a new folder named after it in
+     * the other pane's folder, never overwriting an existing one.
+     */
+    void extractToOtherPane();
+    /**
+     * Asks how to compress the selected local items, then writes the archive
+     * in the background, never replacing an existing file.
+     */
+    void compress();
+    void setSelectionLabel(const QString &label);
+    void setSelectionColor(const QString &color);
+    void setSelectionRating(int rating);
+    void setSelectionNote();
+    void toggleSelectionPin();
+    void editFolderLook(const QUrl &folder);
+    /**
+     * Copies the top-level entries of an archive into a new folder.
+     * @param archive the archive's browse URL from Archives::browseUrl()
+     * @param target the folder to create; it must not exist
+     */
+    void extractArchive(const QUrl &archive, const QUrl &target);
 
     KFilePlacesModel *m_placesModel = nullptr;
     KFilePlacesView *m_placesView = nullptr;
+    FavoritesModel *m_favorites = nullptr;
+    TabColors *m_tabColors = nullptr;
+    QDockWidget *m_placesDock = nullptr;
+    QDockWidget *m_foldersDock = nullptr;
+    QDockWidget *m_combinedDock = nullptr;
+    FolderTree *m_folderTree = nullptr;
+    CombinedPanel *m_combinedPanel = nullptr;
+    KSelectAction *m_panelLayoutAction = nullptr;
+    KToggleAction *m_flatAction = nullptr;
+    /// Folders shown flat, as URL strings; kept in the state config.
+    QStringList m_flatLocations;
+    PanelLayout m_panelLayout = PanelLayout::Combined;
     KFileItemActions *m_fileItemActions = nullptr;
     KNewFileMenu *m_newFileMenu = nullptr;
     QSplitter *m_splitter = nullptr;
