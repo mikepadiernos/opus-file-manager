@@ -9,8 +9,11 @@
 
 #include <KConfigGroup>
 #include <KLocalizedString>
+#include <KPageWidget>
+#include <KPageWidgetItem>
 #include <KSharedConfig>
 
+#include <QAbstractItemView>
 #include <QCheckBox>
 #include <QColorDialog>
 #include <QComboBox>
@@ -25,7 +28,9 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QTabWidget>
 #include <QTableWidget>
+#include <QTimer>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -62,8 +67,27 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     : KPageDialog(parent)
 {
     setWindowTitle(i18nc("@title:window", "Configure Opus File Manager"));
-    setFaceType(KPageDialog::Tabbed);
     setMinimumSize(680, 520);
+
+    const KConfigGroup sidebarSettings = KSharedConfig::openConfig()->group(QStringLiteral("SettingsDialog"));
+    auto *generalTabs = new QTabWidget(this);
+    auto *sidebarPage = new QWidget(generalTabs);
+    auto *sidebarForm = new QFormLayout(sidebarPage);
+    m_sidebarIconSize = new QSpinBox(sidebarPage);
+    m_sidebarIconSize->setObjectName(QStringLiteral("sidebar_icon_size"));
+    m_sidebarIconSize->setRange(16, 64);
+    m_sidebarIconSize->setSuffix(i18nc("@item:valuesuffix pixels", " px"));
+    m_sidebarIconSize->setValue(sidebarSettings.readEntry("SidebarIconSize", 24));
+    sidebarForm->addRow(i18nc("@label:spinbox", "Sidebar icon size:"), m_sidebarIconSize);
+    m_sidebarTitlePosition = new QComboBox(sidebarPage);
+    m_sidebarTitlePosition->setObjectName(QStringLiteral("sidebar_title_position"));
+    m_sidebarTitlePosition->addItem(i18nc("@item:inlistbox", "To the right of icons"), QStringLiteral("right"));
+    m_sidebarTitlePosition->addItem(i18nc("@item:inlistbox", "Below icons"), QStringLiteral("below"));
+    const int positionIndex = m_sidebarTitlePosition->findData(sidebarSettings.readEntry("SidebarTitlePosition", QStringLiteral("right")));
+    m_sidebarTitlePosition->setCurrentIndex(positionIndex >= 0 ? positionIndex : 0);
+    sidebarForm->addRow(i18nc("@label:listbox", "Sidebar titles:"), m_sidebarTitlePosition);
+    generalTabs->addTab(sidebarPage, i18nc("@title:tab", "Settings Dialog"));
+    addPage(generalTabs, i18nc("@title", "General"))->setIcon(QIcon::fromTheme(QStringLiteral("configure")));
 
     const ViewSettings settings = ViewSettings::fromConfig(KSharedConfig::openConfig()->group(QStringLiteral("View")));
     auto *viewPage = new QWidget(this);
@@ -141,7 +165,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     iconsLayout->addWidget(informationGroup);
     viewLayout->addWidget(iconsGroup);
     viewLayout->addStretch();
-    addPage(viewPage, i18nc("@title:tab", "View"));
+    addPage(viewPage, i18nc("@title", "View"))->setIcon(QIcon::fromTheme(QStringLiteral("view-list-icons")));
 
     auto *filesPage = new QWidget(this);
     auto *filesLayout = new QVBoxLayout(filesPage);
@@ -189,7 +213,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     connect(editColor, &QPushButton::clicked, this, &SettingsDialog::editColorRule);
     connect(removeColor, &QPushButton::clicked, this, &SettingsDialog::removeColorRule);
     filesLayout->addWidget(colorsGroup);
-    addPage(filesPage, i18nc("@title:tab", "Files"));
+    addPage(filesPage, i18nc("@title", "Files"))->setIcon(QIcon::fromTheme(QStringLiteral("folder")));
 
     const KConfigGroup panelSettings = KSharedConfig::openConfig()->group(QStringLiteral("PanelSettings"));
     auto *panelsPage = new QWidget(this);
@@ -236,7 +260,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     panelsLayout->addWidget(panelGroup);
     panelsLayout->addWidget(sectionsGroup);
     panelsLayout->addStretch();
-    addPage(panelsPage, i18nc("@title:tab", "Panels"));
+    addPage(panelsPage, i18nc("@title", "Panels"))->setIcon(QIcon::fromTheme(QStringLiteral("view-split-left-right")));
 
     const KConfigGroup archiveSettings = KSharedConfig::openConfig()->group(QStringLiteral("Archives"));
     auto *archivesPage = new QWidget(this);
@@ -257,7 +281,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     const int defaultFormatIndex = m_defaultArchiveFormat->findData(defaultFormat);
     m_defaultArchiveFormat->setCurrentIndex(defaultFormatIndex >= 0 ? defaultFormatIndex : 0);
     archivesLayout->addRow(i18nc("@label", "Default format:"), m_defaultArchiveFormat);
-    addPage(archivesPage, i18nc("@title:tab", "Archives"));
+    addPage(archivesPage, i18nc("@title", "Archives"))->setIcon(QIcon::fromTheme(QStringLiteral("package-x-generic")));
 
     const KConfigGroup tabSettings = KSharedConfig::openConfig()->group(QStringLiteral("Tabs"));
     auto *tabsPage = new QWidget(this);
@@ -271,7 +295,30 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     m_expandTabs->setChecked(tabSettings.readEntry("Expand", true));
     tabsLayout->addWidget(m_expandTabs);
     tabsLayout->addStretch();
-    addPage(tabsPage, i18nc("@title:tab", "Tabs"));
+    addPage(tabsPage, i18nc("@title", "Tabs"))->setIcon(QIcon::fromTheme(QStringLiteral("tab-new")));
+
+    connect(m_sidebarIconSize, &QSpinBox::valueChanged, this, &SettingsDialog::applySidebarStyle);
+    connect(m_sidebarTitlePosition, &QComboBox::currentIndexChanged, this, &SettingsDialog::applySidebarStyle);
+    applySidebarStyle();
+}
+
+void SettingsDialog::applySidebarStyle()
+{
+    KPageWidgetItem *current = currentPage();
+    const auto face = m_sidebarTitlePosition->currentData().toString() == QLatin1String("below") ? KPageDialog::List : KPageDialog::FlatList;
+    if (pageWidget()->faceType() != static_cast<KPageView::FaceType>(face)) {
+        setFaceType(face);
+        if (current) {
+            setCurrentPage(current);
+        }
+        QTimer::singleShot(0, this, &SettingsDialog::applySidebarStyle);
+    }
+    const auto views = pageWidget()->findChildren<QAbstractItemView *>(Qt::FindDirectChildrenOnly);
+    for (QAbstractItemView *view : views) {
+        if (view->model() == pageWidget()->model()) {
+            view->setIconSize(QSize(m_sidebarIconSize->value(), m_sidebarIconSize->value()));
+        }
+    }
 }
 
 void SettingsDialog::accept()
@@ -333,6 +380,10 @@ void SettingsDialog::accept()
     settings.writeConfig(view);
     files.writeEntry("IgnoreList", ignoreList.entries());
     files.writeEntry("ExtensionColors", sanitizedColors);
+
+    KConfigGroup sidebarSettings = KSharedConfig::openConfig()->group(QStringLiteral("SettingsDialog"));
+    sidebarSettings.writeEntry("SidebarIconSize", m_sidebarIconSize->value());
+    sidebarSettings.writeEntry("SidebarTitlePosition", m_sidebarTitlePosition->currentData().toString());
 
     KConfigGroup panelSettings = KSharedConfig::openConfig()->group(QStringLiteral("PanelSettings"));
     panelSettings.writeEntry("Visible", m_showPanels->isChecked());
