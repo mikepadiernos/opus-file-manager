@@ -3,6 +3,8 @@ add_library(opusfm_core STATIC
     archives.h
     archivewriter.cpp
     archivewriter.h
+    filecolorrules.cpp
+    filecolorrules.h
     favoritesmodel.cpp
     favoritesmodel.h
     flatview.cpp
@@ -25,6 +27,8 @@ add_library(opusfm_core STATIC
     symbolicicon.h
     tabmodel.cpp
     tabmodel.h
+    viewsettings.cpp
+    viewsettings.h
 )
 
 target_include_directories(opusfm_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

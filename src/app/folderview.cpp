@@ -2,15 +2,18 @@
 
 #include "folderview.h"
 
+#include "filecolorrules.h"
 #include "flatview.h"
 #include "foldermetadata.h"
 #include "ignorelist.h"
 #include "labelcolor.h"
 #include "symbolicicon.h"
+#include "viewsettings.h"
 
 #include <KCategorizedSortFilterProxyModel>
 #include <KCategorizedView>
 #include <KCategoryDrawer>
+#include <KConfigGroup>
 #include <KDirLister>
 #include <KDirModel>
 #include <KDirSortFilterProxyModel>
@@ -25,6 +28,7 @@
 #include <QActionGroup>
 #include <QApplication>
 #include <QDate>
+#include <QDateTime>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
 #include <QDropEvent>
@@ -36,6 +40,7 @@
 #include <QJsonObject>
 #include <QKeyEvent>
 #include <QListView>
+#include <QLocale>
 #include <QMenu>
 #include <QMimeData>
 #include <QMouseEvent>
@@ -137,11 +142,23 @@ public:
         m_metadataCache.clear();
         FolderMetadata::Format format;
         const bool hasFormat = FolderMetadata::format(metadata, &format);
-        m_groupBy = hasFormat ? format.group : QStringLiteral("none");
-        m_ratingColumn = hasFormat && format.columns.contains(QStringLiteral("rating"));
+        m_groupBy = hasFormat ? format.group : m_settings.groupBy;
+        m_ratingColumn = hasFormat ? format.columns.contains(QStringLiteral("rating")) : m_settings.visibleColumns.contains(QStringLiteral("rating"));
         setCategorizedModel(m_groupBy != QLatin1String("none"));
         endFilterChange(QSortFilterProxyModel::Direction::Rows);
         sort(sortColumn(), sortOrder());
+    }
+
+    void setSettings(const ViewSettings &settings, const FileColorRules &fileColors, const IgnoreList &ignoreList)
+    {
+        beginFilterChange();
+        m_settings = settings;
+        m_fileColors = fileColors;
+        m_ignoreList = ignoreList;
+        endFilterChange(QSortFilterProxyModel::Direction::Rows);
+        if (rowCount() > 0) {
+            Q_EMIT dataChanged(index(0, 0), index(rowCount() - 1, columnCount() - 1), {Qt::DisplayRole, Qt::ForegroundRole});
+        }
     }
 
     QJsonObject metadata() const
@@ -246,6 +263,24 @@ public:
 
     QVariant data(const QModelIndex &index, int role) const override
     {
+        if (role == Qt::DisplayRole && index.column() == KDirModel::Size && m_settings.sizeFormat == QLatin1String("bytes")) {
+            const KFileItem item = itemAt(index);
+            if (!item.isDir()) {
+                return QString(QLocale().toString(item.size()) + i18nc("@unit byte in file size", " B"));
+            }
+        }
+        if (role == Qt::DisplayRole && index.column() == KDirModel::ModifiedTime) {
+            const QDateTime modified = itemAt(index).time(KFileItem::ModificationTime);
+            if (modified.isValid()) {
+                if (m_settings.dateFormat == QLatin1String("iso")) {
+                    return modified.toString(m_settings.showSeconds ? QStringLiteral("yyyy-MM-dd HH:mm:ss") : QStringLiteral("yyyy-MM-dd HH:mm"));
+                }
+                if (m_settings.showSeconds) {
+                    return QString(QLocale().toString(modified.date(), QLocale::ShortFormat) + u' ' + QLocale().toString(modified.time(), QLocale::LongFormat));
+                }
+                return QLocale().toString(modified, QLocale::ShortFormat);
+            }
+        }
         if (role == KCategorizedSortFilterProxyModel::CategorySortRole) {
             return m_groupBy == QLatin1String("none") ? QString() : groupSortKey(index);
         }
@@ -269,6 +304,10 @@ public:
             if (role == Qt::ForegroundRole && index.column() == KDirModel::Name) {
                 if (!color.isEmpty()) {
                     return QColor(color);
+                }
+                const QColor extensionColor = m_fileColors.colorForFileName(name);
+                if (extensionColor.isValid()) {
+                    return extensionColor;
                 }
                 const QColor labelColor = LabelColors::rgb(LabelColors::fromKey(label));
                 if (labelColor.isValid()) {
@@ -437,6 +476,8 @@ private:
     QUrl m_flatBase;
     NameFilter m_filter;
     IgnoreList m_ignoreList;
+    FileColorRules m_fileColors;
+    ViewSettings m_settings;
     QJsonObject m_metadata;
     QString m_metadataDirectory;
     mutable QHash<QString, QJsonObject> m_metadataCache;
@@ -597,8 +638,12 @@ FolderView::~FolderView()
 
 void FolderView::setupView(QAbstractItemView *view)
 {
-    view->setItemDelegate(view == m_details ? static_cast<QAbstractItemDelegate *>(new GroupHeaderDelegate(m_proxy, view))
-                                            : static_cast<QAbstractItemDelegate *>(new KFileItemDelegate(view)));
+    if (view == m_details) {
+        view->setItemDelegate(new GroupHeaderDelegate(m_proxy, view));
+    } else {
+        m_iconDelegate = new KFileItemDelegate(view);
+        view->setItemDelegate(m_iconDelegate);
+    }
     view->setSelectionMode(QAbstractItemView::ExtendedSelection);
     view->setSelectionBehavior(QAbstractItemView::SelectRows);
     view->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -825,6 +870,9 @@ void FolderView::reloadMetadata()
 {
     QString error;
     const QJsonObject metadata = m_folder.isLocalFile() ? FolderMetadata::read(m_folder.toLocalFile(), &error) : QJsonObject();
+    const ViewSettings settings = ViewSettings::fromConfig(KSharedConfig::openConfig()->group(QStringLiteral("View")));
+    const KConfigGroup filesGroup = KSharedConfig::openConfig()->group(QStringLiteral("Files"));
+    m_proxy->setSettings(settings, FileColorRules::fromConfig(filesGroup), IgnoreList::fromConfig(filesGroup));
     m_proxy->setMetadata(metadata, m_folder.isLocalFile() ? m_folder.toLocalFile() : QString());
     if (!error.isEmpty()) {
         Q_EMIT listingFailed(error);
@@ -842,14 +890,21 @@ void FolderView::setGroupBy(const QString &group)
     saveFolderFormat();
 }
 
+void FolderView::reloadSettings()
+{
+    loadFolderFormat();
+}
+
 void FolderView::loadFolderFormat()
 {
     m_applyingFolderFormat = true;
     reloadMetadata();
+    const ViewSettings settings = ViewSettings::fromConfig(KSharedConfig::openConfig()->group(QStringLiteral("View")));
     for (const auto &[column, key] : OptionalColumns) {
-        Q_UNUSED(key)
-        const bool defaultVisible = column == KDirModel::Type || column == KDirModel::Size || column == KDirModel::ModifiedTime;
-        m_details->setColumnHidden(column, !defaultVisible);
+        const bool visible = column == KDirModel::Group
+            ? settings.visibleColumns.contains(QStringLiteral("group")) || settings.visibleColumns.contains(QStringLiteral("rating"))
+            : settings.visibleColumns.contains(key);
+        m_details->setColumnHidden(column, !visible);
     }
 
     FolderMetadata::Format format;
@@ -864,9 +919,45 @@ void FolderView::loadFolderFormat()
         }
         m_details->sortByColumn(columnForSortKey(format.sortKey), format.sortAscending ? Qt::AscendingOrder : Qt::DescendingOrder);
     } else {
-        m_proxy->setRatingColumn(false);
         setViewMode(ViewMode::Details);
     }
+
+    KFileItemDelegate::InformationList information;
+    for (const QString &key : settings.iconInformation) {
+        if (key == QLatin1String("size")) {
+            information.append(KFileItemDelegate::Size);
+        } else if (key == QLatin1String("permissions")) {
+            information.append(KFileItemDelegate::Permissions);
+        } else if (key == QLatin1String("octalPermissions")) {
+            information.append(KFileItemDelegate::OctalPermissions);
+        } else if (key == QLatin1String("owner")) {
+            information.append(KFileItemDelegate::Owner);
+        } else if (key == QLatin1String("ownerAndGroup")) {
+            information.append(KFileItemDelegate::OwnerAndGroup);
+        } else if (key == QLatin1String("creationTime")) {
+            information.append(KFileItemDelegate::CreationTime);
+        } else if (key == QLatin1String("modificationTime")) {
+            information.append(KFileItemDelegate::ModificationTime);
+        } else if (key == QLatin1String("accessTime")) {
+            information.append(KFileItemDelegate::AccessTime);
+        } else if (key == QLatin1String("mimeType")) {
+            information.append(KFileItemDelegate::MimeType);
+        } else if (key == QLatin1String("friendlyMimeType")) {
+            information.append(KFileItemDelegate::FriendlyMimeType);
+        } else if (key == QLatin1String("linkDest")) {
+            information.append(KFileItemDelegate::LinkDest);
+        } else if (key == QLatin1String("localPathOrUrl")) {
+            information.append(KFileItemDelegate::LocalPathOrUrl);
+        } else if (key == QLatin1String("comment")) {
+            information.append(KFileItemDelegate::Comment);
+        }
+    }
+    m_iconDelegate->setShowInformation(information);
+    const int rowHeight = fontMetrics().height();
+    const int gridHeight = qMax(112, 64 + rowHeight * (settings.iconNameLines + information.size()) + 16);
+    m_icons->setGridSize(QSize(112, gridHeight));
+    m_iconDelegate->setMaximumSize(QSize(112, gridHeight));
+    m_icons->doItemsLayout();
     m_applyingFolderFormat = false;
 }
 

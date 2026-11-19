@@ -14,6 +14,7 @@
 #include "labelcolor.h"
 #include "pane.h"
 #include "session.h"
+#include "settingsdialog.h"
 #include "symbolicicon.h"
 #include "tabcolors.h"
 #include "tabmodel.h"
@@ -315,6 +316,16 @@ void MainWindow::setupPanels()
         KJobWidgets::setWindow(job, this);
     });
     m_combinedDock = addPanelDock(QStringLiteral("combinedDock"), i18nc("@title:window", "Places"), m_combinedPanel);
+}
+
+void MainWindow::configureSettings()
+{
+    SettingsDialog dialog(this);
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+    m_left->view()->reloadSettings();
+    m_right->view()->reloadSettings();
 }
 
 void MainWindow::setPanelLayout(PanelLayout layout)
@@ -925,6 +936,7 @@ void MainWindow::setupActions()
     });
 
     // Settings
+    KStandardAction::preferences(this, &MainWindow::configureSettings, actions);
     QAction *showMenuBar = KStandardAction::showMenubar(menuBar(), &QMenuBar::setVisible, actions);
     KHamburgerMenu *hamburger = KStandardAction::hamburgerMenu(nullptr, nullptr, actions);
     hamburger->setMenuBar(menuBar());

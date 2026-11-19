@@ -13,6 +13,7 @@ class KDirLister;
 class KDirModel;
 class KDirSortFilterProxyModel;
 class KFilePreviewGenerator;
+class KFileItemDelegate;
 class NameFilterProxyModel;
 class QHeaderView;
 class QAbstractItemView;
@@ -96,6 +97,7 @@ public:
     void reloadMetadata();
     QString groupBy() const;
     void setGroupBy(const QString &group);
+    void reloadSettings();
 
 Q_SIGNALS:
     void urlChanged(const QUrl &url);
@@ -139,6 +141,7 @@ private:
     QListView *m_icons = nullptr;
     KFilePreviewGenerator *m_detailsPreviews = nullptr;
     KFilePreviewGenerator *m_iconPreviews = nullptr;
+    KFileItemDelegate *m_iconDelegate = nullptr;
     ViewMode m_viewMode = ViewMode::Details;
     bool m_previewsEnabled = true;
 };

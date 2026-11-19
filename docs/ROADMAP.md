@@ -132,11 +132,11 @@ with Dolphin.
 Settings for M03 listing depth, stored in KConfig.
 
 - **View**
-  - **General:** default visible columns and grouping; size format (human or
-    bytes), date format and seconds
-  - **Icons:** name lines and metadata shown in icon view
+  - ~~**General:** default visible columns and grouping; size format (human or
+    bytes), date format and seconds~~
+  - ~~**Icons:** name lines and metadata shown in icon view~~
 - **Files**
-  - **Rules:** ignore list entries and file-type colours by extension
+  - ~~**Rules:** ignore list entries and file-type colours by extension~~
 - **Panels**
   - ~~**Combined Places/Folders:** show or hide the panel, choose its left or
     right position, configure its auto-focus behaviour, and show or hide each

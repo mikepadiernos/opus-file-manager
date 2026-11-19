@@ -5,21 +5,36 @@
 #include "filterbar.h"
 #include "folderview.h"
 #include "pane.h"
+#include "settingsdialog.h"
 #include "tabmodel.h"
+#include "viewsettings.h"
 
 #include <KActionCollection>
 #include <KConfigGroup>
+#include <KDirModel>
+#include <KFileItemDelegate>
 #include <KSharedConfig>
 
+#include <QAbstractItemModel>
+#include <QCheckBox>
+#include <QColor>
+#include <QComboBox>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
+#include <QListView>
 #include <QMenu>
+#include <QPlainTextEdit>
+#include <QPushButton>
+#include <QRegularExpression>
 #include <QSplitter>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QTabBar>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTimer>
+#include <QTreeView>
 
 class MainWindowTest : public QObject
 {
@@ -44,10 +59,16 @@ private Q_SLOTS:
     {
         // Start from a clean session so the first window does not inherit
         // tabs or layout from an earlier test.
+        QFile::remove(m_root.filePath(QStringLiteral("a/.mfm.json")));
+        QFile::remove(m_root.filePath(QStringLiteral("b/.mfm.json")));
         KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Session"));
         KSharedConfig::openStateConfig()->sync();
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("PopularFolders"));
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("SelectionFilters"));
+        KSharedConfig::openConfig()->deleteGroup(QStringLiteral("View"));
+        KConfigGroup files = KSharedConfig::openConfig()->group(QStringLiteral("Files"));
+        files.deleteEntry("IgnoreList");
+        files.deleteEntry("ExtensionColors");
         KSharedConfig::openConfig()->sync();
     }
 
@@ -186,6 +207,80 @@ private Q_SLOTS:
         restored.openUrls({});
         QCOMPARE(restored.activePane()->view()->nameFilter(), NameFilter(QStringLiteral("*.txt"), NameFilter::Scope::Files));
         QTRY_COMPARE(restored.activePane()->view()->itemCount(), 2);
+    }
+
+    void viewSettingsApplyToCurrentListing()
+    {
+        ViewSettings settings;
+        settings.visibleColumns = {QStringLiteral("size")};
+        settings.groupBy = QStringLiteral("ext");
+        settings.sizeFormat = QStringLiteral("bytes");
+        settings.dateFormat = QStringLiteral("iso");
+        settings.iconNameLines = 4;
+        settings.iconInformation = {QStringLiteral("size")};
+        KConfigGroup viewConfig = KSharedConfig::openConfig()->group(QStringLiteral("View"));
+        settings.writeConfig(viewConfig);
+        KConfigGroup files = KSharedConfig::openConfig()->group(QStringLiteral("Files"));
+        files.writeEntry("IgnoreList", QStringList{QStringLiteral("sub")});
+        files.writeEntry("ExtensionColors", QStringList{QStringLiteral("txt=#123456")});
+        KSharedConfig::openConfig()->sync();
+
+        MainWindow window;
+        window.openUrls({m_a});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        QCOMPARE(view->groupBy(), QStringLiteral("ext"));
+
+        auto *details = view->findChild<QTreeView *>();
+        QVERIFY(details);
+        QVERIFY(details->isColumnHidden(KDirModel::Type));
+        QVERIFY(!details->isColumnHidden(KDirModel::Size));
+        QVERIFY(details->isColumnHidden(KDirModel::ModifiedTime));
+        const QModelIndex nameIndex = details->model()->index(0, KDirModel::Name);
+        QCOMPARE(details->model()->data(nameIndex, Qt::ForegroundRole).value<QColor>(), QColor(QStringLiteral("#123456")));
+        QCOMPARE(details->model()->data(details->model()->index(0, KDirModel::Size)).toString(), QStringLiteral("5 B"));
+        QVERIFY(QRegularExpression(QStringLiteral(R"(^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$)"))
+                    .match(details->model()->data(details->model()->index(0, KDirModel::ModifiedTime)).toString())
+                    .hasMatch());
+
+        view->setViewMode(FolderView::ViewMode::Icons);
+        auto *delegate = qobject_cast<KFileItemDelegate *>(view->currentView()->itemDelegate());
+        QVERIFY(delegate);
+        QCOMPARE(delegate->showInformation(), KFileItemDelegate::InformationList{KFileItemDelegate::Size});
+        auto *icons = qobject_cast<QListView *>(view->currentView());
+        QVERIFY(icons);
+        QVERIFY(icons->gridSize().height() > 112);
+    }
+
+    void preferencesActionAppliesSettingsToOpenPanes()
+    {
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+
+        QAction *preferences = window.actionCollection()->action(QStringLiteral("options_configure"));
+        QVERIFY(preferences);
+        QTimer::singleShot(0, &window, [] {
+            auto *dialog = dynamic_cast<SettingsDialog *>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            auto *groupBy = dialog->findChild<QComboBox *>(QStringLiteral("default_group_by"));
+            QVERIFY(groupBy);
+            groupBy->setCurrentIndex(groupBy->findData(QStringLiteral("ext")));
+            auto *typeColumn = dialog->findChild<QCheckBox *>(QStringLiteral("column_type"));
+            QVERIFY(typeColumn);
+            typeColumn->setChecked(false);
+            QPushButton *ok = dialog->button(QDialogButtonBox::Ok);
+            QVERIFY(ok);
+            ok->click();
+        });
+        preferences->trigger();
+
+        QCOMPARE(view->groupBy(), QStringLiteral("ext"));
+        auto *details = view->findChild<QTreeView *>();
+        QVERIFY(details);
+        QVERIFY(details->isColumnHidden(KDirModel::Type));
+        QCOMPARE(window.inactivePane()->view()->groupBy(), QStringLiteral("ext"));
     }
 
     void copyToOtherPaneUsesKio()

@@ -95,6 +95,7 @@ private:
     void applySelectionFilter(const QString &pattern);
     void selectByPattern(bool select);
     void saveSelectionFilter();
+    void configureSettings();
     void calculateOccupiedSpace();
     void jumpBack();
     void testArchiveIntegrity();
