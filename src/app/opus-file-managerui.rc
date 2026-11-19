@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="5" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="6" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -9,6 +9,7 @@
       <Separator/>
       <Action name="copy_to_other_pane"/>
       <Action name="move_to_other_pane"/>
+      <Action name="compress"/>
       <Action name="extract_to_other_pane"/>
       <Action name="rename"/>
       <Action name="move_to_trash"/>

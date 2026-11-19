@@ -121,6 +121,11 @@ private:
      */
     void extractToOtherPane();
     /**
+     * Asks how to compress the selected local items, then writes the archive
+     * in the background, never replacing an existing file.
+     */
+    void compress();
+    /**
      * Copies the top-level entries of an archive into a new folder.
      * @param archive the archive's browse URL from Archives::browseUrl()
      * @param target the folder to create; it must not exist

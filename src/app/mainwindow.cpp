@@ -3,7 +3,9 @@
 #include "mainwindow.h"
 
 #include "archives.h"
+#include "archivewriter.h"
 #include "combinedpanel.h"
+#include "compressdialog.h"
 #include "favoritesmodel.h"
 #include "fileoperations.h"
 #include "foldertree.h"
@@ -42,6 +44,7 @@
 #include <QDir>
 #include <QDockWidget>
 #include <QFileInfo>
+#include <QFutureWatcher>
 #include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
@@ -49,6 +52,7 @@
 #include <QSplitter>
 #include <QStatusBar>
 #include <QTimer>
+#include <QtConcurrentRun>
 
 // The XMLGUI rc file is compiled into the static library; make sure the
 // linker keeps it even though nothing else references the resource.
@@ -266,6 +270,45 @@ FavoritesModel *MainWindow::favorites() const
 TabColors *MainWindow::tabColors() const
 {
     return m_tabColors;
+}
+
+void MainWindow::compress()
+{
+    const KFileItemList selected = activePane()->view()->selectedItems();
+    QStringList sources;
+    for (const KFileItem &item : selected) {
+        if (!item.localPath().isEmpty()) {
+            sources.append(item.localPath());
+        }
+    }
+    if (sources.isEmpty()) {
+        return;
+    }
+    const QString defaultName = selected.size() == 1 ? (selected.first().isDir() ? selected.first().name() : Archives::baseName(selected.first().name()))
+                                                     : activePane()->url().adjusted(QUrl::StripTrailingSlash).fileName();
+    CompressDialog dialog(defaultName, inactivePane()->url().isLocalFile(), this);
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    const QUrl folder = dialog.toOtherPane() ? inactivePane()->url() : activePane()->url();
+    if (!folder.isLocalFile()) {
+        showStatusMessage(i18nc("@info:status", "Archives can only be created in local folders."));
+        return;
+    }
+    QString fileName = dialog.archiveName() + u'.' + ArchiveWriter::suffix(dialog.format());
+    if (QFileInfo::exists(QDir(folder.toLocalFile()).filePath(fileName))) {
+        fileName = KFileUtils::suggestName(folder, fileName);
+    }
+    const QString archivePath = QDir(folder.toLocalFile()).filePath(fileName);
+
+    auto *watcher = new QFutureWatcher<QString>(this);
+    connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher, fileName] {
+        const QString error = watcher->result();
+        showStatusMessage(error.isEmpty() ? i18nc("@info:status", "Created %1", fileName) : i18nc("@info:status", "Could not create %1: %2", fileName, error));
+        watcher->deleteLater();
+    });
+    watcher->setFuture(QtConcurrent::run(&ArchiveWriter::write, archivePath, dialog.format(), sources));
 }
 
 void MainWindow::extractToOtherPane()
@@ -552,6 +595,10 @@ void MainWindow::setupActions()
         tabN->setText(i18nc("@action %1 is a tab number", "Activate Tab %1", i));
         actions->setDefaultShortcut(tabN, QKeySequence(Qt::CTRL | static_cast<Qt::Key>(Qt::Key_0 + i)));
     }
+
+    QAction *compressAction = actions->addAction(QStringLiteral("compress"), this, &MainWindow::compress);
+    compressAction->setText(i18nc("@action", "Compress…"));
+    compressAction->setIcon(QIcon::fromTheme(QStringLiteral("archive-insert")));
 
     QAction *extract = actions->addAction(QStringLiteral("extract_to_other_pane"), this, &MainWindow::extractToOtherPane);
     extract->setText(i18nc("@action", "Extract to Other Pane"));
@@ -889,6 +936,12 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     });
     if (anyArchive) {
         menu.addAction(actions->action(QStringLiteral("extract_to_other_pane")));
+    }
+    const bool allLocal = std::all_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
+        return !item.localPath().isEmpty();
+    });
+    if (allLocal) {
+        menu.addAction(actions->action(QStringLiteral("compress")));
     }
     menu.addAction(actions->action(QStringLiteral("copy_path")));
 

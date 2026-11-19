@@ -1,6 +1,8 @@
 add_library(opusfm_app STATIC
     combinedpanel.cpp
     combinedpanel.h
+    compressdialog.cpp
+    compressdialog.h
     contentheight.cpp
     contentheight.h
     fileoperations.cpp
@@ -23,6 +25,7 @@ target_include_directories(opusfm_app PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE
 target_link_libraries(opusfm_app
     PUBLIC
         opusfm_core
+        Qt6::Concurrent
         Qt6::Widgets
         KF6::ConfigCore
         KF6::ConfigWidgets
