@@ -18,15 +18,18 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QPlainTextEdit>
 #include <QProgressBar>
 #include <QPromise>
 #include <QPushButton>
+#include <QSpinBox>
 #include <QTabWidget>
 #include <QTreeWidget>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
 
 #include <algorithm>
+#include <limits>
 
 SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::Ptr config)
     : QDialog(parent)
@@ -36,6 +39,10 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     , m_query(new QLineEdit(this))
     , m_field(new QComboBox(this))
     , m_scope(new QComboBox(this))
+    , m_pathFilter(new QLineEdit(this))
+    , m_parentFilter(new QLineEdit(this))
+    , m_excludedFolders(new QPlainTextEdit(this))
+    , m_maxDepth(new QSpinBox(this))
     , m_saved(new QComboBox(this))
     , m_search(new QPushButton(i18nc("@action:button", "Search"), this))
     , m_cancel(new QPushButton(i18nc("@action:button", "Cancel Search"), this))
@@ -64,6 +71,19 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     form->addRow(i18nc("@label", "Find:"), m_query);
     form->addRow(i18nc("@label", "Search in:"), m_field);
     form->addRow(i18nc("@label", "Scope:"), m_scope);
+    m_pathFilter->setObjectName(QStringLiteral("searchPathFilter"));
+    m_parentFilter->setObjectName(QStringLiteral("searchParentFilter"));
+    m_excludedFolders->setObjectName(QStringLiteral("searchExcludedFolders"));
+    m_excludedFolders->setPlaceholderText(i18nc("@info:placeholder", "One absolute local folder path per line"));
+    m_excludedFolders->setMaximumHeight(m_excludedFolders->fontMetrics().lineSpacing() * 3);
+    m_maxDepth->setObjectName(QStringLiteral("searchMaxDepth"));
+    m_maxDepth->setRange(-1, std::numeric_limits<int>::max());
+    m_maxDepth->setSpecialValueText(i18nc("@item:inlistbox", "Unlimited"));
+    m_maxDepth->setValue(-1);
+    form->addRow(i18nc("@label", "Full path contains:"), m_pathFilter);
+    form->addRow(i18nc("@label", "Parent path contains:"), m_parentFilter);
+    form->addRow(i18nc("@label", "Exclude folders:"), m_excludedFolders);
+    form->addRow(i18nc("@label", "Maximum depth (0 = current folder):"), m_maxDepth);
     layout->addLayout(form);
     auto *savedRow = new QHBoxLayout;
     m_saved->setObjectName(QStringLiteral("searchSaved"));
@@ -107,7 +127,17 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
                                      m_query->text(),
                                      m_folder.isLocalFile() ? m_folder : QUrl(),
                                      m_field->currentIndex() == 0 ? LiveSearch::Field::FileName : LiveSearch::Field::Contents,
-                                     m_scope->currentIndex() == 1};
+                                     m_scope->currentIndex() == 1,
+                                     pathFilter()};
+        const QString filterError = search.filter.error();
+        if (!filterError.isEmpty()) {
+            m_status->setText(filterError);
+            return;
+        }
+        if (search.indexed && search.filter.isActive()) {
+            m_status->setText(i18nc("@info", "Path filters are only available for current-folder searches. Clear them to use indexed search."));
+            return;
+        }
         QString error;
         QList<SavedSearches::Search> updated = SavedSearches::load(m_config->group(QStringLiteral("SavedSearches")), &error);
         if (!error.isEmpty()) {
@@ -157,6 +187,10 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
         m_query->setText(search.text);
         m_scope->setCurrentIndex(search.indexed ? 1 : 0);
         m_field->setCurrentIndex(search.field == LiveSearch::Field::FileName ? 0 : 1);
+        m_pathFilter->setText(search.filter.pathText);
+        m_parentFilter->setText(search.filter.parentText);
+        m_excludedFolders->setPlainText(search.filter.excludedFolders.join(QLatin1Char('\n')));
+        m_maxDepth->setValue(search.filter.maxDepth);
         m_status->setText(i18nc("@info", "Saved criteria loaded. Review them and start the search."));
     });
     connect(deleteSearch, &QPushButton::clicked, this, [this] {
@@ -340,6 +374,10 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
         m_query->setEnabled(true);
         m_field->setEnabled(true);
         m_scope->setEnabled(true);
+        m_pathFilter->setEnabled(true);
+        m_parentFilter->setEnabled(true);
+        m_excludedFolders->setEnabled(true);
+        m_maxDepth->setEnabled(true);
         m_cancel->setEnabled(false);
         m_progress->hide();
         for (const QString &path : result.paths) {
@@ -387,6 +425,11 @@ void SearchDialog::updateCollection(const QList<QUrl> &urls)
     }
 }
 
+PathFilter SearchDialog::pathFilter() const
+{
+    return {m_pathFilter->text(), m_parentFilter->text(), m_excludedFolders->toPlainText().split(QLatin1Char('\n'), Qt::SkipEmptyParts), m_maxDepth->value()};
+}
+
 void SearchDialog::start()
 {
     if (m_watcher.isRunning()) {
@@ -400,6 +443,16 @@ void SearchDialog::start()
         m_status->setText(i18nc("@info", "Enter text to search for."));
         return;
     }
+    const PathFilter filter = pathFilter();
+    const QString filterError = filter.error();
+    if (!filterError.isEmpty()) {
+        m_status->setText(filterError);
+        return;
+    }
+    if (m_scope->currentIndex() == 1 && filter.isActive()) {
+        m_status->setText(i18nc("@info", "Path filters are only available for current-folder searches. Clear them to use indexed search."));
+        return;
+    }
     m_results->clear();
     m_errors->clear();
     m_errors->hide();
@@ -407,6 +460,10 @@ void SearchDialog::start()
     m_query->setEnabled(false);
     m_field->setEnabled(false);
     m_scope->setEnabled(false);
+    m_pathFilter->setEnabled(false);
+    m_parentFilter->setEnabled(false);
+    m_excludedFolders->setEnabled(false);
+    m_maxDepth->setEnabled(false);
     m_cancel->setEnabled(true);
     m_progress->show();
     m_status->setText(i18nc("@info", "Searching…"));
@@ -416,7 +473,7 @@ void SearchDialog::start()
     const QString text = m_query->text();
     const auto field = m_field->currentIndex() == 0 ? LiveSearch::Field::FileName : LiveSearch::Field::Contents;
     const bool indexed = m_scope->currentIndex() == 1;
-    m_watcher.setFuture(QtConcurrent::run([folder, text, field, canceled, indexed](QPromise<LiveSearch::Result> &promise) {
+    m_watcher.setFuture(QtConcurrent::run([folder, text, field, canceled, indexed, filter](QPromise<LiveSearch::Result> &promise) {
         promise.setProgressRange(0, 200000);
         const LiveSearch::Cancel cancel = [canceled] {
             return canceled->load();
@@ -424,7 +481,8 @@ void SearchDialog::start()
         const LiveSearch::Progress progress = [&promise](int count, const QString &) {
             promise.setProgressValue(count);
         };
-        promise.addResult(indexed ? IndexedSearch::find(folder, text, field, cancel, progress) : LiveSearch::find(folder, text, field, cancel, progress));
+        promise.addResult(indexed ? IndexedSearch::find(folder, text, field, cancel, progress)
+                                  : LiveSearch::find(folder, text, field, cancel, progress, filter));
     }));
 }
 

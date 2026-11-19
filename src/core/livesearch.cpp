@@ -16,7 +16,8 @@ constexpr int MaxResults = 5000;
 constexpr int MaxEntries = 200000;
 }
 
-LiveSearch::Result LiveSearch::find(const QString &folder, const QString &text, Field field, const Cancel &cancel, const Progress &progress)
+LiveSearch::Result
+LiveSearch::find(const QString &folder, const QString &text, Field field, const Cancel &cancel, const Progress &progress, const PathFilter &filter)
 {
     Result result;
     const QFileInfo root(folder);
@@ -26,6 +27,14 @@ LiveSearch::Result LiveSearch::find(const QString &folder, const QString &text, 
     }
     if (text.trimmed().isEmpty()) {
         result.errors.append(i18nc("@info", "Enter text to search for."));
+        return result;
+    }
+    const QString filterError = filter.error();
+    if (!filterError.isEmpty()) {
+        result.errors.append(filterError);
+        return result;
+    }
+    if (filter.excludes(root.absoluteFilePath())) {
         return result;
     }
 
@@ -62,8 +71,15 @@ LiveSearch::Result LiveSearch::find(const QString &folder, const QString &text, 
             if (entry.isSymLink()) {
                 continue;
             }
-            if (entry.isDir()) {
+            if (filter.excludes(entry.absoluteFilePath())) {
+                continue;
+            }
+            const int depth = QDir(root.absoluteFilePath()).relativeFilePath(entry.absoluteFilePath()).count(QLatin1Char('/'));
+            if (entry.isDir() && (filter.maxDepth < 0 || depth < filter.maxDepth)) {
                 pending.append(entry.absoluteFilePath());
+            }
+            if (!filter.matches(root.absoluteFilePath(), entry.absoluteFilePath())) {
+                continue;
             }
 
             bool matches = false;

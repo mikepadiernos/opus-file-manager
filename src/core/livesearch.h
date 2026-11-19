@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "pathfilter.h"
+
 #include <QStringList>
 
 #include <functional>
@@ -26,5 +28,5 @@ struct Result {
 using Cancel = std::function<bool()>;
 using Progress = std::function<void(int, const QString &)>;
 
-Result find(const QString &folder, const QString &text, Field field, const Cancel &cancel = {}, const Progress &progress = {});
+Result find(const QString &folder, const QString &text, Field field, const Cancel &cancel = {}, const Progress &progress = {}, const PathFilter &filter = {});
 }

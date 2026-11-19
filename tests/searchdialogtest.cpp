@@ -19,9 +19,11 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QPlainTextEdit>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QSignalSpy>
+#include <QSpinBox>
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QTemporaryDir>
@@ -172,6 +174,10 @@ private Q_SLOTS:
             SearchDialog dialog(QUrl::fromLocalFile(root.path()), nullptr, config);
             dialog.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("needle"));
             dialog.findChild<QComboBox *>(QStringLiteral("searchField"))->setCurrentIndex(1);
+            dialog.findChild<QLineEdit *>(QStringLiteral("searchPathFilter"))->setText(QStringLiteral("result"));
+            dialog.findChild<QLineEdit *>(QStringLiteral("searchParentFilter"))->setText(root.path());
+            dialog.findChild<QPlainTextEdit *>(QStringLiteral("searchExcludedFolders"))->setPlainText(root.filePath(QStringLiteral("excluded")));
+            dialog.findChild<QSpinBox *>(QStringLiteral("searchMaxDepth"))->setValue(0);
             QTimer::singleShot(0, [] {
                 auto *input = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
                 QVERIFY(input);
@@ -188,12 +194,19 @@ private Q_SLOTS:
         QCOMPARE(restored.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->text(), QStringLiteral("needle"));
         QCOMPARE(restored.findChild<QComboBox *>(QStringLiteral("searchField"))->currentIndex(), 1);
         QCOMPARE(restored.findChild<QComboBox *>(QStringLiteral("searchScope"))->currentIndex(), 0);
+        QCOMPARE(restored.findChild<QLineEdit *>(QStringLiteral("searchPathFilter"))->text(), QStringLiteral("result"));
+        QCOMPARE(restored.findChild<QLineEdit *>(QStringLiteral("searchParentFilter"))->text(), root.path());
+        QCOMPARE(restored.findChild<QPlainTextEdit *>(QStringLiteral("searchExcludedFolders"))->toPlainText(), root.filePath(QStringLiteral("excluded")));
+        QCOMPARE(restored.findChild<QSpinBox *>(QStringLiteral("searchMaxDepth"))->value(), 0);
         auto *start = restored.findChild<QPushButton *>(QStringLiteral("searchStart"));
         start->click();
         QTRY_VERIFY(start->isEnabled());
         auto *results = restored.findChild<QTreeWidget *>(QStringLiteral("searchResults"));
         QCOMPARE(results->topLevelItemCount(), 1);
         QCOMPARE(results->topLevelItem(0)->text(0), file.fileName());
+        restored.findChild<QComboBox *>(QStringLiteral("searchScope"))->setCurrentIndex(1);
+        start->click();
+        QVERIFY(restored.findChild<QLabel *>(QStringLiteral("searchStatus"))->text().contains(QStringLiteral("only available for current-folder")));
         auto *deleteSaved = restored.findChild<QPushButton *>(QStringLiteral("searchDelete"));
         QTimer::singleShot(0, [] {
             auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());

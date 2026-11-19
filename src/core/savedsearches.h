@@ -15,6 +15,7 @@ struct Search {
     QUrl folder;
     LiveSearch::Field field = LiveSearch::Field::FileName;
     bool indexed = false;
+    PathFilter filter{};
 };
 
 QList<Search> load(const KConfigGroup &group, QString *error);

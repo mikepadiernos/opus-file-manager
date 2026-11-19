@@ -18,6 +18,8 @@ class QLabel;
 class QLineEdit;
 class QProgressBar;
 class QPushButton;
+class QPlainTextEdit;
+class QSpinBox;
 class QTabWidget;
 class QTreeWidget;
 
@@ -37,6 +39,7 @@ private:
     void cancel();
     void updateSavedSearches();
     void updateCollection(const QList<QUrl> &urls);
+    PathFilter pathFilter() const;
 
     QUrl m_folder;
     KSharedConfig::Ptr m_config;
@@ -45,6 +48,10 @@ private:
     QLineEdit *m_query;
     QComboBox *m_field;
     QComboBox *m_scope;
+    QLineEdit *m_pathFilter;
+    QLineEdit *m_parentFilter;
+    QPlainTextEdit *m_excludedFolders;
+    QSpinBox *m_maxDepth;
     QComboBox *m_saved;
     QPushButton *m_search;
     QPushButton *m_cancel;
