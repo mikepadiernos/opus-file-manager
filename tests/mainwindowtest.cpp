@@ -420,6 +420,28 @@ private Q_SLOTS:
         QVERIFY(saved == QByteArray("after") || saved == QByteArray("after\n"));
     }
 
+    void editorUsesConfiguredOpeningPlacement()
+    {
+        Settings::setEditorOpening(Settings::EnumEditorOpening::Embedded);
+        Settings::setEditorEmbeddedPlacement(Settings::EnumEditorEmbeddedPlacement::Right);
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        window.actionCollection()->action(QStringLiteral("open_editor"))->trigger();
+        auto *dock = window.findChild<QDockWidget *>(QStringLiteral("editorDock"));
+        QVERIFY(dock);
+        QVERIFY(dock->isVisible());
+        QCOMPARE(window.dockWidgetArea(dock), Qt::RightDockWidgetArea);
+        Settings::setEditorOpening(Settings::EnumEditorOpening::Window);
+        window.actionCollection()->action(QStringLiteral("open_editor"))->trigger();
+        QVERIFY(dock->isVisible());
+        dock->hide();
+        window.actionCollection()->action(QStringLiteral("open_editor"))->trigger();
+        auto *editorWindow = window.findChild<QDialog *>(QStringLiteral("editorWindow"));
+        QVERIFY(editorWindow && editorWindow->isVisible());
+        QVERIFY(!dock->isVisible());
+    }
+
     void navigationUpdatesHistory()
     {
         MainWindow window;

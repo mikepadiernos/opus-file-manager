@@ -54,6 +54,60 @@ private Q_SLOTS:
         QVERIFY(store.drafts(QUrl(), &error).isEmpty());
         QVERIFY(!error.isEmpty());
     }
+
+    void discardRejectsChangedDraft()
+    {
+        QTemporaryDir directory;
+        DraftStore writer(directory.path());
+        DraftStore reader(directory.path());
+        const QUrl source = QUrl::fromLocalFile(directory.filePath(QStringLiteral("source")));
+        const QString id = QStringLiteral("00000000-0000-0000-0000-000000000001");
+        QVERIFY(writer.write({id, QStringLiteral("first"), source, 10}).isEmpty());
+        QString error;
+        const auto draft = reader.drafts(source, &error).first();
+        QVERIFY(writer.write({id, QStringLiteral("newer"), source, 20}).isEmpty());
+        writer.release(id);
+        QVERIFY(!reader.remove(id, &draft).isEmpty());
+        QCOMPARE(reader.drafts(source, &error).first().text, QStringLiteral("newer"));
+    }
+
+    void retentionPreservesInUseDrafts()
+    {
+        QTemporaryDir directory;
+        const QString path = directory.filePath(QStringLiteral("drafts"));
+        const QUrl source = QUrl::fromLocalFile(directory.filePath(QStringLiteral("source")));
+        const QString id = QStringLiteral("00000000-0000-0000-0000-000000000001");
+        const QString recent = QStringLiteral("00000000-0000-0000-0000-000000000002");
+        DraftStore active(path);
+        DraftStore other(path);
+        QVERIFY(active.write({id, QStringLiteral("unsaved"), source, 1000}).isEmpty());
+        QVERIFY(active.write({recent, QStringLiteral("recent"), source, 190000000}).isEmpty());
+        active.release(recent);
+        QVERIFY(other.prune(1, 200000000).isEmpty());
+        QString error;
+        QCOMPARE(other.drafts(source, &error).size(), 2);
+        QVERIFY(!other.remove(id).isEmpty());
+        active.release(id);
+        QVERIFY(other.prune(0, 200000000).isEmpty());
+        QCOMPARE(other.drafts(source, &error).size(), 2);
+        QVERIFY(other.prune(1, 200000000).isEmpty());
+        QCOMPARE(other.drafts(source, &error).size(), 1);
+        QCOMPARE(other.drafts(source, &error).first().text, QStringLiteral("recent"));
+        QVERIFY(error.isEmpty());
+    }
+
+    void retentionPreservesLegacyDrafts()
+    {
+        QTemporaryDir directory;
+        const QString fileName = directory.filePath(QStringLiteral("00000000-0000-0000-0000-000000000001.json"));
+        QFile legacy(fileName);
+        QVERIFY(legacy.open(QIODevice::WriteOnly));
+        legacy.write("{\"source\":\"file:///old\",\"text\":\"unsaved\",\"timestamp\":1000}");
+        legacy.close();
+        DraftStore store(directory.path());
+        QVERIFY(store.prune(1, 200000000).isEmpty());
+        QVERIFY(QFile::exists(fileName));
+    }
 };
 
 QTEST_GUILESS_MAIN(DraftStoreTest)

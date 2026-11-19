@@ -11,6 +11,7 @@
 #include <KLocalizedString>
 #include <KPageWidget>
 #include <KSharedConfig>
+#include <KTextEditor/Editor>
 #include <KUrlRequester>
 
 #include <QAbstractItemView>
@@ -144,6 +145,9 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createImageConversionPage(), i18nc("@title:tab", "Image Conversion")}},
                   i18nc("@title:group", "Gallery"),
                   QStringLiteral("view-preview"));
+    addTabbedPage({{createEditorPage(), i18nc("@title:tab", "Editor")}, {createTextEditorPage(), i18nc("@title:tab", "KTextEditor")}},
+                  i18nc("@title:group", "Editor"),
+                  QStringLiteral("accessories-text-editor"));
     applySidebarStyle();
     connect(this, &KConfigDialog::settingsChanged, this, [this] {
         applySidebarStyle();
@@ -208,6 +212,81 @@ QWidget *SettingsDialog::createOpeningPage()
                                   i18nc("@item:inlistbox", "Preview panel")});
     destination->setToolTip(i18nc("@info:tooltip", "Other files open in their default application when Gallery is selected."));
     form->addRow(i18nc("@label:listbox", "Open files from panes in:"), destination);
+    return page;
+}
+
+QWidget *SettingsDialog::createEditorPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    auto *opening = comboBox(QStringLiteral("EditorOpening"),
+                             {i18nc("@item:inlistbox", "Side panel"),
+                              i18nc("@item:inlistbox", "Separate embedded area"),
+                              i18nc("@item:inlistbox", "Maximized window"),
+                              i18nc("@item:inlistbox", "Separate window")});
+    auto *placement =
+        comboBox(QStringLiteral("EditorEmbeddedPlacement"), {i18nc("@item:inlistbox", "Below panes"), i18nc("@item:inlistbox", "Right of panes")});
+    connect(opening, &QComboBox::currentIndexChanged, placement, [placement](int index) {
+        placement->setEnabled(index == Settings::EnumEditorOpening::Embedded);
+    });
+    form->addRow(i18nc("@label:listbox", "Open editor in:"), opening);
+    form->addRow(i18nc("@label:listbox", "Embedded placement:"), placement);
+    auto *font = new QSpinBox;
+    font->setObjectName(QStringLiteral("kcfg_EditorFontSize"));
+    font->setRange(6, 72);
+    font->setSuffix(i18nc("@item:valuesuffix points", " pt"));
+    form->addRow(i18nc("@label:spinbox", "Font size:"), font);
+    form->addRow(QString(), checkBox(QStringLiteral("EditorWordWrap"), i18nc("@option:check", "Wrap long lines")));
+    form->addRow(i18nc("@label:listbox", "Default Markdown mode:"),
+                 comboBox(QStringLiteral("EditorMarkdownMode"), {i18nc("@item:inlistbox", "Source"), i18nc("@item:inlistbox", "Visual")}));
+    form->addRow(QString(), checkBox(QStringLiteral("EditorDraftsEnabled"), i18nc("@option:check", "Save drafts automatically")));
+    auto *interval = new QSpinBox;
+    interval->setObjectName(QStringLiteral("kcfg_EditorDraftIntervalMs"));
+    interval->setRange(100, 600000);
+    interval->setSuffix(i18nc("@item:valuesuffix milliseconds", " ms"));
+    form->addRow(i18nc("@label:spinbox", "Draft autosave delay:"), interval);
+    auto *retention = new QSpinBox;
+    retention->setObjectName(QStringLiteral("kcfg_EditorDraftRetentionDays"));
+    retention->setRange(0, 3650);
+    retention->setSpecialValueText(i18nc("@item:inlistbox", "Keep indefinitely"));
+    retention->setSuffix(i18nc("@item:valuesuffix days", " days"));
+    retention->setToolTip(i18nc("@info:tooltip", "Expired drafts are deleted when the editor opens. Drafts in use and legacy drafts are kept."));
+    form->addRow(i18nc("@label:spinbox", "Keep drafts for:"), retention);
+    form->addRow(
+        i18nc("@label:listbox", "PDF page size:"),
+        comboBox(QStringLiteral("EditorPdfPageSize"), {i18nc("@item:inlistbox", "A4"), i18nc("@item:inlistbox", "Letter"), i18nc("@item:inlistbox", "Legal")}));
+    const auto margin = [](const QString &entry) {
+        auto *spin = new QSpinBox;
+        spin->setObjectName(QStringLiteral("kcfg_") + entry);
+        spin->setRange(0, 50);
+        spin->setSuffix(i18nc("@item:valuesuffix millimetres", " mm"));
+        return spin;
+    };
+    form->addRow(i18nc("@label:spinbox", "PDF left margin:"), margin(QStringLiteral("EditorPdfMarginLeft")));
+    form->addRow(i18nc("@label:spinbox", "PDF top margin:"), margin(QStringLiteral("EditorPdfMarginTop")));
+    form->addRow(i18nc("@label:spinbox", "PDF right margin:"), margin(QStringLiteral("EditorPdfMarginRight")));
+    form->addRow(i18nc("@label:spinbox", "PDF bottom margin:"), margin(QStringLiteral("EditorPdfMarginBottom")));
+    placement->setEnabled(opening->currentIndex() == Settings::EnumEditorOpening::Embedded);
+    return page;
+}
+
+QWidget *SettingsDialog::createTextEditorPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *description = new QLabel(i18nc("@info",
+                                         "KTextEditor settings are applied and saved in its own configuration dialog. "
+                                         "Opus font size and word wrap settings take precedence in Opus editor views."),
+                                   page);
+    description->setWordWrap(true);
+    layout->addWidget(description);
+    auto *configure = new QPushButton(i18nc("@action:button", "Configure KTextEditor…"), page);
+    configure->setObjectName(QStringLiteral("configureTextEditor"));
+    connect(configure, &QPushButton::clicked, this, [this] {
+        KTextEditor::Editor::instance()->configDialog(this);
+    });
+    layout->addWidget(configure);
+    layout->addStretch();
     return page;
 }
 

@@ -256,6 +256,33 @@
       <default>1024</default><min>1</min><max>16384</max>
     </entry>
   </group>
+  <group name="Editor">
+    <entry name="EditorOpening" type="Enum">
+      <choices><choice name="Panel"/><choice name="Embedded"/><choice name="Maximized"/><choice name="Window"/></choices>
+      <default>Panel</default>
+    </entry>
+    <entry name="EditorEmbeddedPlacement" type="Enum">
+      <choices><choice name="Below"/><choice name="Right"/></choices>
+      <default>Below</default>
+    </entry>
+    <entry name="EditorFontSize" type="Int"><default>12</default><min>6</min><max>72</max></entry>
+    <entry name="EditorWordWrap" type="Bool"><default>false</default></entry>
+    <entry name="EditorMarkdownMode" type="Enum">
+      <choices><choice name="Source"/><choice name="Visual"/></choices>
+      <default>Source</default>
+    </entry>
+    <entry name="EditorDraftsEnabled" type="Bool"><default>true</default></entry>
+    <entry name="EditorDraftIntervalMs" type="Int"><default>700</default><min>100</min><max>600000</max></entry>
+    <entry name="EditorDraftRetentionDays" type="Int"><default>0</default><min>0</min><max>3650</max></entry>
+    <entry name="EditorPdfPageSize" type="Enum">
+      <choices><choice name="A4"/><choice name="Letter"/><choice name="Legal"/></choices>
+      <default>A4</default>
+    </entry>
+    <entry name="EditorPdfMarginLeft" type="Int"><default>10</default><min>0</min><max>50</max></entry>
+    <entry name="EditorPdfMarginTop" type="Int"><default>10</default><min>0</min><max>50</max></entry>
+    <entry name="EditorPdfMarginRight" type="Int"><default>10</default><min>0</min><max>50</max></entry>
+    <entry name="EditorPdfMarginBottom" type="Int"><default>10</default><min>0</min><max>50</max></entry>
+  </group>
   <group name="Gallery">
     <entry name="GalleryInitialZoom" type="Enum">
       <choices><choice name="Fit"/><choice name="ActualSize"/></choices>

@@ -11,6 +11,14 @@
 
 QString MarkdownExport::toPdf(const QString &text, const QUrl &source, const QString &destination)
 {
+    return toPdf(text, source, destination, QPageLayout(QPageSize(QPageSize::A4), QPageLayout::Portrait, QMarginsF(10, 10, 10, 10), QPageLayout::Millimeter));
+}
+
+QString MarkdownExport::toPdf(const QString &text, const QUrl &source, const QString &destination, const QPageLayout &layout)
+{
+    if (!layout.isValid()) {
+        return i18nc("@info", "Invalid PDF page layout.");
+    }
     const QFileInfo target(destination);
     if (source.isLocalFile()) {
         const QFileInfo original(source.toLocalFile());
@@ -26,6 +34,9 @@ QString MarkdownExport::toPdf(const QString &text, const QUrl &source, const QSt
     }
     {
         QPdfWriter writer(&file);
+        if (!writer.setPageLayout(layout)) {
+            return i18nc("@info", "Invalid PDF page layout.");
+        }
         SafeTextDocument document;
         document.setMarkdown(text);
         document.print(&writer);

@@ -3,6 +3,7 @@
 #include "editorpanel.h"
 #include "markdownexport.h"
 #include "safetextdocument.h"
+#include "settings.h"
 
 #include <KLocalizedString>
 #include <KMessageBox>
@@ -20,11 +21,16 @@
 #include <QLabel>
 #include <QLocale>
 #include <QMenu>
+#include <QMimeDatabase>
+#include <QPageSize>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSplitter>
+#include <QStackedWidget>
 #include <QStandardPaths>
 #include <QTextBrowser>
+#include <QTextCharFormat>
+#include <QTextEdit>
 #include <QTimer>
 #include <QToolButton>
 #include <QUuid>
@@ -57,6 +63,12 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
     auto *save = new QPushButton(i18nc("@action", "Save"), this);
     save->setShortcut(QKeySequence::Save);
     auto *saveAs = new QPushButton(i18nc("@action", "Save As…"), this);
+    m_sourceMode = new QPushButton(i18nc("@action", "Source"), this);
+    m_sourceMode->setObjectName(QStringLiteral("editorSourceMode"));
+    m_sourceMode->setCheckable(true);
+    m_visualMode = new QPushButton(i18nc("@action", "Visual"), this);
+    m_visualMode->setObjectName(QStringLiteral("editorVisualMode"));
+    m_visualMode->setCheckable(true);
     auto *preview = new QPushButton(i18nc("@action", "Markdown Preview"), this);
     preview->setObjectName(QStringLiteral("editorMarkdownPreview"));
     preview->setCheckable(true);
@@ -86,6 +98,8 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
     header->addWidget(open);
     header->addWidget(save);
     header->addWidget(saveAs);
+    header->addWidget(m_sourceMode);
+    header->addWidget(m_visualMode);
     header->addWidget(preview);
     header->addWidget(pdf);
     header->addWidget(placement);
@@ -113,8 +127,39 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
     m_draftStatus->setWordWrap(true);
     m_draftStatus->hide();
     layout->addWidget(m_draftStatus);
+    m_visualToolbar = new QWidget(this);
+    auto *visualTools = new QHBoxLayout(m_visualToolbar);
+    visualTools->setContentsMargins(0, 0, 0, 0);
+    m_visualStatus = new QLabel(m_visualToolbar);
+    m_visualStatus->setWordWrap(true);
+    visualTools->addWidget(m_visualStatus, 1);
+    m_visualEnable = new QPushButton(i18nc("@action", "Enable Visual Editing…"), m_visualToolbar);
+    m_visualEnable->setObjectName(QStringLiteral("editorEnableVisualEditing"));
+    m_visualRetry = new QPushButton(i18nc("@action", "Retry"), m_visualToolbar);
+    m_visualRetry->setObjectName(QStringLiteral("editorRetryVisualSync"));
+    m_visualDiscard = new QPushButton(i18nc("@action", "Discard Visual Edits…"), m_visualToolbar);
+    m_visualDiscard->setObjectName(QStringLiteral("editorDiscardVisualEdits"));
+    auto *bold = new QPushButton(i18nc("@action", "Bold"), m_visualToolbar);
+    bold->setObjectName(QStringLiteral("editorVisualBold"));
+    auto *italic = new QPushButton(i18nc("@action", "Italic"), m_visualToolbar);
+    italic->setObjectName(QStringLiteral("editorVisualItalic"));
+    visualTools->addWidget(m_visualEnable);
+    visualTools->addWidget(m_visualRetry);
+    visualTools->addWidget(m_visualDiscard);
+    visualTools->addWidget(bold);
+    visualTools->addWidget(italic);
+    layout->addWidget(m_visualToolbar);
     auto *splitter = new QSplitter(this);
-    splitter->addWidget(m_document->createView(splitter));
+    m_editorStack = new QStackedWidget(splitter);
+    m_view = m_document->createView(m_editorStack);
+    m_editorStack->addWidget(m_view);
+    m_visual = new QTextEdit(m_editorStack);
+    m_visual->setObjectName(QStringLiteral("editorVisualText"));
+    m_visual->setDocument(new SafeTextDocument(m_visual));
+    m_visual->setAcceptRichText(false);
+    m_visual->setReadOnly(true);
+    m_editorStack->addWidget(m_visual);
+    splitter->addWidget(m_editorStack);
     m_preview = new QTextBrowser(splitter);
     m_preview->setObjectName(QStringLiteral("editorRenderedMarkdown"));
     m_preview->setOpenLinks(false);
@@ -129,8 +174,82 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
             openUrl(url);
         }
     });
-    connect(save, &QPushButton::clicked, m_document, &KTextEditor::Document::documentSave);
-    connect(saveAs, &QPushButton::clicked, m_document, &KTextEditor::Document::documentSaveAs);
+    connect(save, &QPushButton::clicked, this, [this] {
+        if (syncVisual()) {
+            m_document->documentSave();
+        }
+    });
+    connect(saveAs, &QPushButton::clicked, this, [this] {
+        if (syncVisual()) {
+            m_document->documentSaveAs();
+        }
+    });
+    connect(m_sourceMode, &QPushButton::clicked, this, [this] {
+        ++m_modeRevision;
+        setVisualMode(false);
+    });
+    connect(m_visualMode, &QPushButton::clicked, this, [this] {
+        ++m_modeRevision;
+        setVisualMode(true);
+    });
+    connect(m_visualEnable, &QPushButton::clicked, this, [this] {
+        if (!m_document->isReadWrite()) {
+            KMessageBox::error(this, i18nc("@info", "This document is read-only."));
+            return;
+        }
+        if (KMessageBox::warningContinueCancel(this,
+                                               i18nc("@info",
+                                                     "Visual editing rewrites Markdown and can change or remove unsupported formatting, HTML, and resources. "
+                                                     "The original file is not changed until you save."),
+                                               i18nc("@title:window", "Enable Visual Editing"))
+            != KMessageBox::Continue) {
+            return;
+        }
+        if (Settings::editorDraftsEnabled() && !m_document->text().isEmpty()) {
+            const QString snapshot = QUuid::createUuid().toString(QUuid::WithoutBraces);
+            const QString error = m_drafts.write({snapshot, m_document->text(), m_document->url(), QDateTime::currentMSecsSinceEpoch()});
+            if (!error.isEmpty()) {
+                KMessageBox::error(this, i18nc("@info", "Could not preserve the Markdown before visual editing: %1", error));
+                return;
+            }
+            m_drafts.release(snapshot);
+        }
+        m_visualEditing = true;
+        updateVisualControls();
+        m_visual->setFocus();
+    });
+    connect(m_visualRetry, &QPushButton::clicked, this, [this] {
+        syncVisual();
+    });
+    connect(m_visualDiscard, &QPushButton::clicked, this, [this] {
+        if (KMessageBox::warningContinueCancel(this,
+                                               i18nc("@info", "Discard the visual edits that could not be synchronized?"),
+                                               i18nc("@title:window", "Discard Visual Edits"))
+            == KMessageBox::Continue) {
+            m_visualPending = false;
+            m_visualEditing = false;
+            refreshVisual();
+            updateVisualControls();
+        }
+    });
+    connect(bold, &QPushButton::clicked, this, [this] {
+        QTextCharFormat format;
+        format.setFontWeight(m_visual->fontWeight() == QFont::Bold ? QFont::Normal : QFont::Bold);
+        m_visual->mergeCurrentCharFormat(format);
+        m_visual->setFocus();
+    });
+    connect(italic, &QPushButton::clicked, this, [this] {
+        QTextCharFormat format;
+        format.setFontItalic(!m_visual->fontItalic());
+        m_visual->mergeCurrentCharFormat(format);
+        m_visual->setFocus();
+    });
+    connect(m_visual->document(), &QTextDocument::contentsChanged, this, [this] {
+        if (!m_syncingVisual && m_visualEditing) {
+            m_visualPending = true;
+            syncVisual();
+        }
+    });
     connect(preview, &QPushButton::toggled, this, [this](bool shown) {
         if (shown) {
             m_preview->setMarkdown(m_document->text());
@@ -142,11 +261,17 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
         if (preview->isChecked()) {
             m_preview->setMarkdown(m_document->text());
         }
-        if (!m_opening && m_document->isModified()) {
+        if (!m_syncingVisual && !m_visualPending && m_editorStack->currentWidget() == m_visual) {
+            refreshVisual();
+        }
+        if (Settings::editorDraftsEnabled() && !m_opening && m_document->isModified()) {
             m_draftTimer->start();
         }
     });
     connect(pdf, &QPushButton::clicked, this, [this] {
+        if (!syncVisual()) {
+            return;
+        }
         const QFileInfo source(m_document->url().toLocalFile());
         const QString suggested =
             source.filePath().isEmpty() ? QStringLiteral("document.pdf") : source.dir().filePath(source.completeBaseName() + QStringLiteral(".pdf"));
@@ -155,7 +280,18 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
         if (destination.isEmpty()) {
             return;
         }
-        const QString error = MarkdownExport::toPdf(m_document->text(), m_document->url(), destination);
+        QPageSize::PageSizeId pageSize = QPageSize::A4;
+        if (Settings::editorPdfPageSize() == Settings::EnumEditorPdfPageSize::Letter) {
+            pageSize = QPageSize::Letter;
+        } else if (Settings::editorPdfPageSize() == Settings::EnumEditorPdfPageSize::Legal) {
+            pageSize = QPageSize::Legal;
+        }
+        const QMarginsF margins(Settings::editorPdfMarginLeft(),
+                                Settings::editorPdfMarginTop(),
+                                Settings::editorPdfMarginRight(),
+                                Settings::editorPdfMarginBottom());
+        const QPageLayout pageLayout(QPageSize(pageSize), QPageLayout::Portrait, margins, QPageLayout::Millimeter);
+        const QString error = MarkdownExport::toPdf(m_document->text(), m_document->url(), destination, pageLayout);
         if (!error.isEmpty()) {
             KMessageBox::error(this, i18nc("@info", "Could not export PDF: %1", error));
         }
@@ -163,13 +299,14 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
     connect(hide, &QPushButton::clicked, this, &EditorPanel::hideRequested);
     connect(m_document, &KTextEditor::Document::documentNameChanged, this, &EditorPanel::updateTitle);
     connect(m_document, &KTextEditor::Document::modifiedChanged, this, &EditorPanel::updateTitle);
+    connect(KTextEditor::Editor::instance(), &KTextEditor::Editor::configChanged, this, &EditorPanel::applySettings);
     connect(m_document, &KTextEditor::Document::modifiedChanged, this, [this] {
-        if (!m_opening && m_document->isModified()) {
+        if (Settings::editorDraftsEnabled() && !m_opening && m_document->isModified()) {
             m_draftTimer->start();
         }
     });
     m_draftTimer->setSingleShot(true);
-    m_draftTimer->setInterval(700);
+    m_draftTimer->setInterval(Settings::editorDraftIntervalMs());
     connect(m_draftTimer, &QTimer::timeout, this, &EditorPanel::saveDraft);
     connect(m_document, &KTextEditor::Document::documentSavedOrUploaded, this, [this] {
         const QString savedId = m_draftId;
@@ -184,16 +321,27 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
         });
     });
     connect(m_document, &KParts::ReadOnlyPart::completed, this, [this] {
-        QTimer::singleShot(0, this, [this] {
-            if (!m_opening && !m_document->isModified()) {
+        const quint64 openRevision = m_openRevision;
+        const quint64 modeRevision = m_modeRevision;
+        QTimer::singleShot(0, this, [this, openRevision, modeRevision] {
+            if (!m_opening && !m_document->isModified() && m_openRevision == openRevision) {
+                const QString extension = QFileInfo(m_document->url().path()).suffix();
+                const bool markdown =
+                    QMimeDatabase().mimeTypeForFile(m_document->url().path(), QMimeDatabase::MatchExtension).inherits(QStringLiteral("text/markdown"))
+                    || extension.compare(QLatin1String("md"), Qt::CaseInsensitive) == 0
+                    || extension.compare(QLatin1String("markdown"), Qt::CaseInsensitive) == 0
+                    || extension.compare(QLatin1String("mkd"), Qt::CaseInsensitive) == 0;
+                if (m_modeRevision == modeRevision) {
+                    setVisualMode(markdown && Settings::editorMarkdownMode() == Settings::EnumEditorMarkdownMode::Visual);
+                }
                 showDrafts();
             }
         });
-        connect(m_document, &KParts::ReadOnlyPart::canceled, this, [this](const QString &error) {
-            if (!error.isEmpty()) {
-                KMessageBox::error(this, i18nc("@info", "Could not open the file: %1", error));
-            }
-        });
+    });
+    connect(m_document, &KParts::ReadOnlyPart::canceled, this, [this](const QString &error) {
+        if (!error.isEmpty()) {
+            KMessageBox::error(this, i18nc("@info", "Could not open the file: %1", error));
+        }
     });
     connect(review, &QPushButton::clicked, this, [this] {
         const int index = m_draftChoice->currentIndex();
@@ -211,6 +359,9 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
         dialog.exec();
     });
     connect(restore, &QPushButton::clicked, this, [this] {
+        if (!syncVisual()) {
+            return;
+        }
         const int index = m_draftChoice->currentIndex();
         if (index < 0 || index >= m_availableDrafts.size()) {
             return;
@@ -233,7 +384,8 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
         if (index < 0 || index >= m_availableDrafts.size()) {
             return;
         }
-        const QString error = m_drafts.remove(m_availableDrafts.at(index).id);
+        const auto &draft = m_availableDrafts.at(index);
+        const QString error = m_drafts.remove(draft.id, &draft);
         setDraftError(error);
         if (error.isEmpty()) {
             showDrafts();
@@ -245,10 +397,15 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
         }
     });
     updateTitle();
+    applySettings();
+    setVisualMode(false);
 }
 
 bool EditorPanel::openUrl(const QUrl &url)
 {
+    if (!syncVisual()) {
+        return false;
+    }
     if (url == m_document->url()) {
         return true;
     }
@@ -257,19 +414,28 @@ bool EditorPanel::openUrl(const QUrl &url)
         return false;
     }
     const QUrl previousUrl = m_document->url();
+    const quint64 previousRevision = m_openRevision;
+    ++m_openRevision;
     m_opening = true;
     const bool opened = m_document->openUrl(url);
     m_opening = false;
     if (opened || m_document->url() != previousUrl) {
         m_draftTimer->stop();
+        m_drafts.release(m_draftId);
         m_draftId = QUuid::createUuid().toString(QUuid::WithoutBraces);
         m_recovery->hide();
+        setVisualMode(false);
+    } else {
+        m_openRevision = previousRevision;
     }
     return opened;
 }
 
 bool EditorPanel::queryClose()
 {
+    if (!syncVisual()) {
+        return false;
+    }
     if (m_document->isModified() && !saveDraft()) {
         KMessageBox::error(this, m_draftStatus->text());
         return false;
@@ -287,14 +453,90 @@ void EditorPanel::updateTitle()
     m_title->setText(m_document->documentName() + (m_document->isModified() ? QStringLiteral(" *") : QString()));
 }
 
+void EditorPanel::setVisualMode(bool visual)
+{
+    if (!visual && !syncVisual()) {
+        updateVisualControls();
+        return;
+    }
+    if (visual && m_editorStack->currentWidget() != m_visual) {
+        m_visualEditing = false;
+        refreshVisual();
+    } else if (!visual) {
+        m_visualEditing = false;
+    }
+    m_editorStack->setCurrentWidget(visual ? static_cast<QWidget *>(m_visual) : static_cast<QWidget *>(m_view));
+    updateVisualControls();
+}
+
+void EditorPanel::refreshVisual()
+{
+    m_syncingVisual = true;
+    m_visual->setMarkdown(m_document->text());
+    m_syncingVisual = false;
+}
+
+bool EditorPanel::syncVisual()
+{
+    if (!m_visualPending) {
+        return true;
+    }
+    m_syncingVisual = true;
+    const bool saved = m_document->setText(m_visual->document()->toMarkdown());
+    m_syncingVisual = false;
+    if (saved) {
+        m_visualPending = false;
+    }
+    updateVisualControls();
+    return saved;
+}
+
+void EditorPanel::updateVisualControls()
+{
+    const bool visual = m_editorStack->currentWidget() == m_visual;
+    m_sourceMode->setChecked(!visual);
+    m_visualMode->setChecked(visual);
+    m_visualToolbar->setVisible(visual);
+    m_visual->setReadOnly(!m_visualEditing || m_visualPending);
+    m_visualEnable->setVisible(!m_visualEditing && !m_visualPending);
+    m_visualRetry->setVisible(m_visualPending);
+    m_visualDiscard->setVisible(m_visualPending);
+    m_visualToolbar->findChild<QPushButton *>(QStringLiteral("editorVisualBold"))->setEnabled(m_visualEditing && !m_visualPending);
+    m_visualToolbar->findChild<QPushButton *>(QStringLiteral("editorVisualItalic"))->setEnabled(m_visualEditing && !m_visualPending);
+    m_visualStatus->setText(m_visualPending ? i18nc("@info", "Visual edits could not be synchronized. Copy them, retry, or discard them before leaving.")
+                                            : i18nc("@info", "Visual editing can rewrite or remove unsupported Markdown."));
+}
+
 bool EditorPanel::saveDraft()
 {
-    if (!m_document->isModified()) {
+    if (!Settings::editorDraftsEnabled() || !m_document->isModified()) {
         return true;
     }
     const QString error = m_drafts.write({m_draftId, m_document->text(), m_document->url(), QDateTime::currentMSecsSinceEpoch()});
     setDraftError(error);
     return error.isEmpty();
+}
+
+void EditorPanel::applySettings()
+{
+    QFont font = m_view->configValue(QStringLiteral("font")).value<QFont>();
+    font.setPointSize(Settings::editorFontSize());
+    m_view->setConfigValue(QStringLiteral("font"), font);
+    m_view->setConfigValue(QStringLiteral("dynamic-word-wrap"), Settings::editorWordWrap());
+    m_syncingVisual = true;
+    m_visual->document()->setDefaultFont(font);
+    m_visual->setLineWrapMode(Settings::editorWordWrap() ? QTextEdit::WidgetWidth : QTextEdit::NoWrap);
+    m_syncingVisual = false;
+    m_draftTimer->setInterval(Settings::editorDraftIntervalMs());
+    const QString retentionError = m_drafts.prune(Settings::editorDraftRetentionDays(), QDateTime::currentMSecsSinceEpoch());
+    if (!retentionError.isEmpty()) {
+        setDraftError(retentionError);
+    }
+    if (!Settings::editorDraftsEnabled()) {
+        m_draftTimer->stop();
+    } else if (m_document->isModified()) {
+        m_draftTimer->start();
+    }
 }
 
 void EditorPanel::setDraftError(const QString &error)
@@ -305,8 +547,12 @@ void EditorPanel::setDraftError(const QString &error)
 
 void EditorPanel::showDrafts()
 {
-    QString error;
-    m_availableDrafts = m_drafts.drafts(m_document->url(), &error);
+    QString error = m_drafts.prune(Settings::editorDraftRetentionDays(), QDateTime::currentMSecsSinceEpoch());
+    QString readError;
+    m_availableDrafts = m_drafts.drafts(m_document->url(), &readError);
+    if (error.isEmpty()) {
+        error = readError;
+    }
     setDraftError(error);
     m_draftChoice->clear();
     for (const auto &draft : std::as_const(m_availableDrafts)) {

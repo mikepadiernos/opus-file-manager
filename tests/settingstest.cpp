@@ -197,7 +197,8 @@ private Q_SLOTS:
                               QStringLiteral("Context Menu"),
                               QStringLiteral("Archives"),
                               QStringLiteral("Files"),
-                              QStringLiteral("Gallery")}));
+                              QStringLiteral("Gallery"),
+                              QStringLiteral("Editor")}));
 
         const auto tabOf = [&dialog](const QString &entry) {
             return tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + entry));
@@ -233,6 +234,61 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("GalleryShowInformation")), QStringLiteral("Information"));
         QCOMPARE(tabOf(QStringLiteral("GallerySlideshowInterval")), QStringLiteral("Slideshow"));
         QCOMPARE(tabOf(QStringLiteral("GalleryCopyFormat")), QStringLiteral("Image Conversion"));
+        QCOMPARE(tabOf(QStringLiteral("EditorOpening")), QStringLiteral("Editor"));
+    }
+
+    void editorSettingsApply()
+    {
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *opening = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_EditorOpening"));
+        auto *placement = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_EditorEmbeddedPlacement"));
+        QVERIFY(opening && placement);
+        QVERIFY(!placement->isEnabled());
+        opening->setCurrentIndex(Settings::EnumEditorOpening::Embedded);
+        QVERIFY(placement->isEnabled());
+        placement->setCurrentIndex(Settings::EnumEditorEmbeddedPlacement::Right);
+        dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_EditorFontSize"))->setValue(17);
+        dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_EditorWordWrap"))->setChecked(true);
+        dialog.findChild<QComboBox *>(QStringLiteral("kcfg_EditorMarkdownMode"))->setCurrentIndex(Settings::EnumEditorMarkdownMode::Visual);
+        dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_EditorDraftsEnabled"))->setChecked(false);
+        dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_EditorDraftIntervalMs"))->setValue(1200);
+        dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_EditorDraftRetentionDays"))->setValue(30);
+        dialog.findChild<QComboBox *>(QStringLiteral("kcfg_EditorPdfPageSize"))->setCurrentIndex(Settings::EnumEditorPdfPageSize::Letter);
+        dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_EditorPdfMarginLeft"))->setValue(20);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::editorOpening(), Settings::EnumEditorOpening::Embedded);
+        QCOMPARE(Settings::editorEmbeddedPlacement(), Settings::EnumEditorEmbeddedPlacement::Right);
+        QCOMPARE(Settings::editorFontSize(), 17);
+        QVERIFY(Settings::editorWordWrap());
+        QCOMPARE(Settings::editorMarkdownMode(), Settings::EnumEditorMarkdownMode::Visual);
+        QVERIFY(!Settings::editorDraftsEnabled());
+        QCOMPARE(Settings::editorDraftIntervalMs(), 1200);
+        QCOMPARE(Settings::editorDraftRetentionDays(), 30);
+        QCOMPARE(Settings::editorPdfPageSize(), Settings::EnumEditorPdfPageSize::Letter);
+        QCOMPARE(Settings::editorPdfMarginLeft(), 20);
+    }
+
+    void opensNativeTextEditorConfiguration()
+    {
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *configure = dialog.findChild<QPushButton *>(QStringLiteral("configureTextEditor"));
+        QVERIFY(configure);
+        QCOMPARE(tabTitleOf(configure), QStringLiteral("KTextEditor"));
+        bool opened = false;
+        QTimer closer;
+        closer.setInterval(10);
+        connect(&closer, &QTimer::timeout, &dialog, [&] {
+            if (auto *native = qobject_cast<QDialog *>(QApplication::activeModalWidget())) {
+                opened = native != &dialog;
+                native->reject();
+            }
+        });
+        closer.start();
+        configure->click();
+        closer.stop();
+        QVERIFY(opened);
     }
 
     void gallerySettingsApplyAndRestoreDefaults()
