@@ -79,6 +79,7 @@ private:
     void setupPlaces();
     void setupPanels();
     void setupStatusBar();
+    void applyPanelSettings();
 
     void setActivePane(Pane *pane);
     void connectPane(Pane *pane);
@@ -191,5 +192,6 @@ private:
     QHash<Pane *, QUrl> m_lastFolderByPane;
     QHash<Pane *, QUrl> m_jumpBackPoints;
     bool m_jumpingBack = false;
+    bool m_autoFocusFolders = true;
     bool m_sessionRestored = false;
 };

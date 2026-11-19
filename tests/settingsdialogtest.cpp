@@ -2,6 +2,7 @@
 
 #include "settingsdialog.h"
 
+#include "archivewriter.h"
 #include "filecolorrules.h"
 #include "ignorelist.h"
 #include "viewsettings.h"
@@ -16,6 +17,7 @@
 #include <QPushButton>
 #include <QSpinBox>
 #include <QStandardPaths>
+#include <QTabWidget>
 #include <QTableWidget>
 #include <QTest>
 
@@ -32,6 +34,9 @@ private Q_SLOTS:
     void init()
     {
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("View"));
+        KSharedConfig::openConfig()->deleteGroup(QStringLiteral("PanelSettings"));
+        KSharedConfig::openConfig()->deleteGroup(QStringLiteral("Archives"));
+        KSharedConfig::openConfig()->deleteGroup(QStringLiteral("Tabs"));
         KConfigGroup files = KSharedConfig::openConfig()->group(QStringLiteral("Files"));
         files.deleteEntry("IgnoreList");
         files.deleteEntry("ExtensionColors");
@@ -41,6 +46,7 @@ private Q_SLOTS:
     void savesViewAndFileRules()
     {
         SettingsDialog dialog;
+        QVERIFY(dialog.findChild<QTabWidget *>());
         dialog.findChild<QCheckBox *>(QStringLiteral("column_type"))->setChecked(false);
         auto *groupBy = dialog.findChild<QComboBox *>(QStringLiteral("default_group_by"));
         QVERIFY(groupBy);
@@ -55,6 +61,20 @@ private Q_SLOTS:
         dialog.findChild<QSpinBox *>(QStringLiteral("icon_name_lines"))->setValue(4);
         dialog.findChild<QCheckBox *>(QStringLiteral("icon_info_size"))->setChecked(true);
         dialog.findChild<QPlainTextEdit *>(QStringLiteral("ignore_entries"))->setPlainText(QStringLiteral("*.bak\nThumbs.db"));
+        dialog.findChild<QCheckBox *>(QStringLiteral("show_panels"))->setChecked(false);
+        auto *panelPosition = dialog.findChild<QComboBox *>(QStringLiteral("panel_position"));
+        QVERIFY(panelPosition);
+        panelPosition->setCurrentIndex(panelPosition->findData(QStringLiteral("right")));
+        dialog.findChild<QCheckBox *>(QStringLiteral("follow_active_folder"))->setChecked(false);
+        dialog.findChild<QCheckBox *>(QStringLiteral("show_panel_titles"))->setChecked(false);
+        dialog.findChild<QCheckBox *>(QStringLiteral("show_favorites_section"))->setChecked(false);
+        dialog.findChild<QCheckBox *>(QStringLiteral("show_places_section"))->setChecked(false);
+        dialog.findChild<QCheckBox *>(QStringLiteral("show_folder_tree_section"))->setChecked(false);
+        auto *archiveFormat = dialog.findChild<QComboBox *>(QStringLiteral("default_archive_format"));
+        QVERIFY(archiveFormat);
+        archiveFormat->setCurrentIndex(archiveFormat->findData(static_cast<int>(ArchiveWriter::Format::TarXz)));
+        dialog.findChild<QCheckBox *>(QStringLiteral("show_tab_icons"))->setChecked(false);
+        dialog.findChild<QCheckBox *>(QStringLiteral("expand_tabs"))->setChecked(false);
 
         auto *colors = dialog.findChild<QTableWidget *>(QStringLiteral("extension_color_rules"));
         QVERIFY(colors);
@@ -80,6 +100,19 @@ private Q_SLOTS:
         const KConfigGroup files = KSharedConfig::openConfig()->group(QStringLiteral("Files"));
         QCOMPARE(IgnoreList::fromConfig(files).entries(), QStringList({QStringLiteral("*.bak"), QStringLiteral("Thumbs.db")}));
         QCOMPARE(FileColorRules::fromConfig(files).colorForFileName(QStringLiteral("main.CPP")), QColor(QStringLiteral("#123456")));
+
+        const KConfigGroup panels = KSharedConfig::openConfig()->group(QStringLiteral("PanelSettings"));
+        QVERIFY(!panels.readEntry("Visible", true));
+        QCOMPARE(panels.readEntry("Position", QString()), QStringLiteral("right"));
+        QVERIFY(!panels.readEntry("AutoFocus", true));
+        QVERIFY(!panels.readEntry("TitlesVisible", true));
+        QVERIFY(!panels.readEntry("FavoritesVisible", true));
+        QVERIFY(!panels.readEntry("PlacesVisible", true));
+        QVERIFY(!panels.readEntry("FoldersVisible", true));
+        QCOMPARE(KSharedConfig::openConfig()->group(QStringLiteral("Archives")).readEntry("DefaultFormat", -1), static_cast<int>(ArchiveWriter::Format::TarXz));
+        const KConfigGroup tabs = KSharedConfig::openConfig()->group(QStringLiteral("Tabs"));
+        QVERIFY(!tabs.readEntry("ShowIcons", true));
+        QVERIFY(!tabs.readEntry("Expand", true));
     }
 };
 

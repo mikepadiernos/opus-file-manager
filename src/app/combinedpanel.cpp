@@ -74,6 +74,7 @@ CombinedPanel::CombinedPanel(KFilePlacesModel *places, FavoritesModel *favorites
     column->addWidget(m_favoritesView);
 
     auto *placesView = new KFilePlacesView(content);
+    m_placesView = placesView;
     placesView->setModel(places);
     placesView->setDropOnPlaceEnabled(true);
     placesView->setAutoResizeItemsEnabled(false);
@@ -138,8 +139,22 @@ QStringList CombinedPanel::collapsedSections() const
 
 void CombinedPanel::setCollapsedSections(const QStringList &sections)
 {
-    setSectionExpanded(m_favoritesHeader, m_favoritesView, !sections.contains(QStringLiteral("favorites")));
-    setSectionExpanded(m_treeHeader, m_folderTree, !sections.contains(QStringLiteral("tree")));
+    setSectionExpanded(m_favoritesHeader, m_favoritesView, m_favoritesVisible && !sections.contains(QStringLiteral("favorites")));
+    setSectionExpanded(m_treeHeader, m_folderTree, m_foldersVisible && !sections.contains(QStringLiteral("tree")));
+}
+
+void CombinedPanel::setSectionVisibility(bool favorites, bool places, bool folders)
+{
+    const QStringList collapsed = collapsedSections();
+    m_favoritesVisible = favorites;
+    m_placesVisible = places;
+    m_foldersVisible = folders;
+    m_favoritesHeader->setVisible(favorites);
+    m_favoritesView->setVisible(favorites);
+    m_placesView->setVisible(places);
+    m_treeHeader->setVisible(folders);
+    m_folderTree->setVisible(folders);
+    setCollapsedSections(collapsed);
 }
 
 void CombinedPanel::scrollToRevealed()

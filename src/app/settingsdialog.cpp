@@ -2,6 +2,7 @@
 
 #include "settingsdialog.h"
 
+#include "archivewriter.h"
 #include "filecolorrules.h"
 #include "ignorelist.h"
 #include "viewsettings.h"
@@ -61,7 +62,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     : KPageDialog(parent)
 {
     setWindowTitle(i18nc("@title:window", "Configure Opus File Manager"));
-    setFaceType(KPageDialog::List);
+    setFaceType(KPageDialog::Tabbed);
     setMinimumSize(680, 520);
 
     const ViewSettings settings = ViewSettings::fromConfig(KSharedConfig::openConfig()->group(QStringLiteral("View")));
@@ -189,6 +190,88 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     connect(removeColor, &QPushButton::clicked, this, &SettingsDialog::removeColorRule);
     filesLayout->addWidget(colorsGroup);
     addPage(filesPage, i18nc("@title:tab", "Files"));
+
+    const KConfigGroup panelSettings = KSharedConfig::openConfig()->group(QStringLiteral("PanelSettings"));
+    auto *panelsPage = new QWidget(this);
+    auto *panelsLayout = new QVBoxLayout(panelsPage);
+    auto *panelGroup = new QGroupBox(i18nc("@title:group", "Side Panels"), panelsPage);
+    auto *panelForm = new QFormLayout(panelGroup);
+    m_showPanels = new QCheckBox(i18nc("@option:check", "Show panels"), panelGroup);
+    m_showPanels->setObjectName(QStringLiteral("show_panels"));
+    m_showPanels->setChecked(panelSettings.readEntry("Visible", true));
+    panelForm->addRow({}, m_showPanels);
+
+    m_panelPosition = new QComboBox(panelGroup);
+    m_panelPosition->setObjectName(QStringLiteral("panel_position"));
+    m_panelPosition->addItem(i18nc("@item:inlistbox", "Left"), QStringLiteral("left"));
+    m_panelPosition->addItem(i18nc("@item:inlistbox", "Right"), QStringLiteral("right"));
+    const int panelPositionIndex = m_panelPosition->findData(panelSettings.readEntry("Position", QStringLiteral("left")));
+    m_panelPosition->setCurrentIndex(panelPositionIndex >= 0 ? panelPositionIndex : 0);
+    panelForm->addRow(i18nc("@label", "Position:"), m_panelPosition);
+
+    m_autoFocusFolders = new QCheckBox(i18nc("@option:check", "Follow the active folder in the tree"), panelGroup);
+    m_autoFocusFolders->setObjectName(QStringLiteral("follow_active_folder"));
+    m_autoFocusFolders->setChecked(panelSettings.readEntry("AutoFocus", true));
+    panelForm->addRow({}, m_autoFocusFolders);
+
+    m_showPanelTitles = new QCheckBox(i18nc("@option:check", "Show panel title bars"), panelGroup);
+    m_showPanelTitles->setObjectName(QStringLiteral("show_panel_titles"));
+    m_showPanelTitles->setChecked(panelSettings.readEntry("TitlesVisible", true));
+    panelForm->addRow({}, m_showPanelTitles);
+
+    auto *sectionsGroup = new QGroupBox(i18nc("@title:group", "Combined Panel Sections"), panelsPage);
+    auto *sectionsLayout = new QVBoxLayout(sectionsGroup);
+    m_showFavorites = new QCheckBox(i18nc("@option:check", "Favorites"), sectionsGroup);
+    m_showFavorites->setObjectName(QStringLiteral("show_favorites_section"));
+    m_showFavorites->setChecked(panelSettings.readEntry("FavoritesVisible", true));
+    sectionsLayout->addWidget(m_showFavorites);
+    m_showPlaces = new QCheckBox(i18nc("@option:check", "Places"), sectionsGroup);
+    m_showPlaces->setObjectName(QStringLiteral("show_places_section"));
+    m_showPlaces->setChecked(panelSettings.readEntry("PlacesVisible", true));
+    sectionsLayout->addWidget(m_showPlaces);
+    m_showFolderTree = new QCheckBox(i18nc("@option:check", "Folder tree"), sectionsGroup);
+    m_showFolderTree->setObjectName(QStringLiteral("show_folder_tree_section"));
+    m_showFolderTree->setChecked(panelSettings.readEntry("FoldersVisible", true));
+    sectionsLayout->addWidget(m_showFolderTree);
+    panelsLayout->addWidget(panelGroup);
+    panelsLayout->addWidget(sectionsGroup);
+    panelsLayout->addStretch();
+    addPage(panelsPage, i18nc("@title:tab", "Panels"));
+
+    const KConfigGroup archiveSettings = KSharedConfig::openConfig()->group(QStringLiteral("Archives"));
+    auto *archivesPage = new QWidget(this);
+    auto *archivesLayout = new QFormLayout(archivesPage);
+    m_defaultArchiveFormat = new QComboBox(archivesPage);
+    m_defaultArchiveFormat->setObjectName(QStringLiteral("default_archive_format"));
+    const QList<QPair<ArchiveWriter::Format, QString>> archiveFormats{
+        {ArchiveWriter::Format::Zip, i18nc("@item:inlistbox", "ZIP")},
+        {ArchiveWriter::Format::ZipStored, i18nc("@item:inlistbox", "Uncompressed ZIP")},
+        {ArchiveWriter::Format::TarGz, i18nc("@item:inlistbox", "tar.gz")},
+        {ArchiveWriter::Format::TarXz, i18nc("@item:inlistbox", "tar.xz")},
+        {ArchiveWriter::Format::TarZstd, i18nc("@item:inlistbox", "tar.zst")},
+    };
+    for (const auto &[format, label] : archiveFormats) {
+        m_defaultArchiveFormat->addItem(label, static_cast<int>(format));
+    }
+    const int defaultFormat = archiveSettings.readEntry("DefaultFormat", static_cast<int>(ArchiveWriter::Format::Zip));
+    const int defaultFormatIndex = m_defaultArchiveFormat->findData(defaultFormat);
+    m_defaultArchiveFormat->setCurrentIndex(defaultFormatIndex >= 0 ? defaultFormatIndex : 0);
+    archivesLayout->addRow(i18nc("@label", "Default format:"), m_defaultArchiveFormat);
+    addPage(archivesPage, i18nc("@title:tab", "Archives"));
+
+    const KConfigGroup tabSettings = KSharedConfig::openConfig()->group(QStringLiteral("Tabs"));
+    auto *tabsPage = new QWidget(this);
+    auto *tabsLayout = new QVBoxLayout(tabsPage);
+    m_showTabIcons = new QCheckBox(i18nc("@option:check", "Show folder icons on tabs"), tabsPage);
+    m_showTabIcons->setObjectName(QStringLiteral("show_tab_icons"));
+    m_showTabIcons->setChecked(tabSettings.readEntry("ShowIcons", true));
+    tabsLayout->addWidget(m_showTabIcons);
+    m_expandTabs = new QCheckBox(i18nc("@option:check", "Expand tabs to fill the available width equally"), tabsPage);
+    m_expandTabs->setObjectName(QStringLiteral("expand_tabs"));
+    m_expandTabs->setChecked(tabSettings.readEntry("Expand", true));
+    tabsLayout->addWidget(m_expandTabs);
+    tabsLayout->addStretch();
+    addPage(tabsPage, i18nc("@title:tab", "Tabs"));
 }
 
 void SettingsDialog::accept()
@@ -250,6 +333,21 @@ void SettingsDialog::accept()
     settings.writeConfig(view);
     files.writeEntry("IgnoreList", ignoreList.entries());
     files.writeEntry("ExtensionColors", sanitizedColors);
+
+    KConfigGroup panelSettings = KSharedConfig::openConfig()->group(QStringLiteral("PanelSettings"));
+    panelSettings.writeEntry("Visible", m_showPanels->isChecked());
+    panelSettings.writeEntry("Position", m_panelPosition->currentData().toString());
+    panelSettings.writeEntry("AutoFocus", m_autoFocusFolders->isChecked());
+    panelSettings.writeEntry("TitlesVisible", m_showPanelTitles->isChecked());
+    panelSettings.writeEntry("FavoritesVisible", m_showFavorites->isChecked());
+    panelSettings.writeEntry("PlacesVisible", m_showPlaces->isChecked());
+    panelSettings.writeEntry("FoldersVisible", m_showFolderTree->isChecked());
+
+    KSharedConfig::openConfig()->group(QStringLiteral("Archives")).writeEntry("DefaultFormat", m_defaultArchiveFormat->currentData().toInt());
+    KConfigGroup tabs = KSharedConfig::openConfig()->group(QStringLiteral("Tabs"));
+    tabs.writeEntry("ShowIcons", m_showTabIcons->isChecked());
+    tabs.writeEntry("Expand", m_expandTabs->isChecked());
+
     KSharedConfig::openConfig()->sync();
     KPageDialog::accept();
 }

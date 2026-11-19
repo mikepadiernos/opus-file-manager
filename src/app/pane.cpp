@@ -2,6 +2,8 @@
 
 #include "pane.h"
 
+#include <KSharedConfig>
+
 #include "filterbar.h"
 #include "folderview.h"
 #include "symbolicicon.h"
@@ -40,7 +42,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     , m_view(new FolderView(this))
 {
     m_tabBar->setDocumentMode(true);
-    m_tabBar->setExpanding(false);
+    reloadTabSettings();
     m_tabBar->setMovable(true);
     m_tabBar->setTabsClosable(true);
     m_tabBar->setElideMode(Qt::ElideRight);
@@ -377,6 +379,16 @@ void Pane::restoreState(const PaneSession &state)
     m_filterBar->setFilter(NameFilter(state.filterText, static_cast<NameFilter::Scope>(qBound(0, state.filterScope, 2))));
 }
 
+void Pane::reloadTabSettings()
+{
+    const KConfigGroup tabs = KSharedConfig::openConfig()->group(QStringLiteral("Tabs"));
+    m_showTabIcons = tabs.readEntry("ShowIcons", true);
+    m_tabBar->setExpanding(tabs.readEntry("Expand", true));
+    for (int index = 0; index < m_tabBar->count(); ++index) {
+        updateTabText(index);
+    }
+}
+
 void Pane::updateTabText(int index)
 {
     if (index < 0 || index >= m_tabBar->count()) {
@@ -400,7 +412,7 @@ void Pane::updateTabText(int index)
     }
     m_tabBar->setTabToolTip(index, toolTip);
     const QString iconName = pinned ? QStringLiteral("pin") : locked ? QStringLiteral("object-locked") : KIO::iconNameForUrl(url);
-    m_tabBar->setTabIcon(index, SymbolicIcon::fromTheme(iconName));
+    m_tabBar->setTabIcon(index, m_showTabIcons ? SymbolicIcon::fromTheme(iconName) : QIcon());
     m_tabBar->setTabTextColor(index, LabelColors::rgb(m_colors->colorFor(url)));
 
     const auto closeSide = static_cast<QTabBar::ButtonPosition>(m_tabBar->style()->styleHint(QStyle::SH_TabBar_CloseButtonPosition, nullptr, m_tabBar));

@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "mainwindow.h"
+#include "combinedpanel.h"
 #include "fileoperations.h"
 #include "filterbar.h"
+#include "foldertree.h"
 #include "folderview.h"
 #include "pane.h"
 #include "settingsdialog.h"
@@ -13,6 +15,7 @@
 #include <KConfigGroup>
 #include <KDirModel>
 #include <KFileItemDelegate>
+#include <KFilePlacesView>
 #include <KSharedConfig>
 
 #include <QAbstractItemModel>
@@ -21,6 +24,7 @@
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDir>
+#include <QDockWidget>
 #include <QFile>
 #include <QListView>
 #include <QMenu>
@@ -66,6 +70,9 @@ private Q_SLOTS:
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("PopularFolders"));
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("SelectionFilters"));
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("View"));
+        KSharedConfig::openConfig()->deleteGroup(QStringLiteral("PanelSettings"));
+        KSharedConfig::openConfig()->deleteGroup(QStringLiteral("Archives"));
+        KSharedConfig::openConfig()->deleteGroup(QStringLiteral("Tabs"));
         KConfigGroup files = KSharedConfig::openConfig()->group(QStringLiteral("Files"));
         files.deleteEntry("IgnoreList");
         files.deleteEntry("ExtensionColors");
@@ -112,6 +119,56 @@ private Q_SLOTS:
         window.actionCollection()->action(QStringLiteral("toggle_view_mode"))->trigger();
         QCOMPARE(active->view()->viewMode(), FolderView::ViewMode::Icons);
         QCOMPARE(other->view()->viewMode(), FolderView::ViewMode::Details);
+    }
+
+    void tabAppearanceSettingsApplyToBothPanes()
+    {
+        KConfigGroup tabs = KSharedConfig::openConfig()->group(QStringLiteral("Tabs"));
+        tabs.writeEntry("ShowIcons", false);
+        tabs.writeEntry("Expand", true);
+        tabs.sync();
+
+        MainWindow window;
+        window.openUrls({m_a});
+        for (Pane *pane : {window.activePane(), window.inactivePane()}) {
+            QTabBar *tabBar = pane->findChild<QTabBar *>();
+            QVERIFY(tabBar);
+            QVERIFY(tabBar->expanding());
+            QVERIFY(tabBar->tabIcon(0).isNull());
+        }
+    }
+
+    void panelSettingsApplyOnStartup()
+    {
+        KConfigGroup panels = KSharedConfig::openConfig()->group(QStringLiteral("PanelSettings"));
+        panels.writeEntry("Visible", false);
+        panels.writeEntry("Position", QStringLiteral("right"));
+        panels.writeEntry("TitlesVisible", false);
+        panels.writeEntry("FavoritesVisible", false);
+        panels.writeEntry("PlacesVisible", false);
+        panels.writeEntry("FoldersVisible", false);
+        panels.sync();
+
+        MainWindow window;
+        auto *combined = window.findChild<QDockWidget *>(QStringLiteral("combinedDock"));
+        auto *places = window.findChild<QDockWidget *>(QStringLiteral("placesDock"));
+        QVERIFY(combined);
+        QVERIFY(places);
+        QVERIFY(combined->isHidden());
+        QCOMPARE(window.dockWidgetArea(places), Qt::RightDockWidgetArea);
+        QVERIFY(places->titleBarWidget());
+
+        auto *panel = combined->findChild<CombinedPanel *>();
+        QVERIFY(panel);
+        auto *favorites = panel->findChild<QListView *>();
+        auto *panelPlaces = panel->findChild<KFilePlacesView *>();
+        auto *tree = panel->findChild<FolderTree *>();
+        QVERIFY(favorites);
+        QVERIFY(panelPlaces);
+        QVERIFY(tree);
+        QVERIFY(favorites->isHidden());
+        QVERIFY(panelPlaces->isHidden());
+        QVERIFY(tree->isHidden());
     }
 
     void jumpBackTogglesBetweenFolders()
