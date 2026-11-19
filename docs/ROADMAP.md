@@ -160,24 +160,24 @@ Settings for M03 listing depth, stored in KConfig.
 
 ### M05 Preview and gallery
 
-- Preview panel: images (up to 8 MiB and 40 megapixels) and UTF-8 text (first
+- ~~Preview panel: images (up to 8 MiB and 40 megapixels) and UTF-8 text (first
   1 MiB by default), PDF and office documents with an installed KPart, and
   audio/video with an installed Qt Multimedia backend, following the active
-  selection (F3)
-- Remote previews: files on KIO locations are downloaded to a temporary file
+  selection (F3)~~
+- ~~Remote previews: files on KIO locations are downloaded to a temporary file
   first, within the same image and text limits and up to 128 MiB for other
-  files
-- Preview image navigation, gallery and Open controls; formatted HTML and
-  Markdown with a source toggle (external resources and links are disabled)
-- Local gallery with zoom, a looping slideshow, thumbnails, image
+  files~~
+- ~~Preview image navigation, gallery and Open controls; formatted HTML and
+  Markdown with a source toggle (external resources and links are disabled)~~
+- ~~Local gallery with zoom, a looping slideshow, thumbnails, image
   information, EXIF metadata, dominant colours and a luminance histogram
-  (Space); follows the pane's sort order or the selected images
-- Animated images and video playback in the gallery
-- Rotate, flip, crop, resize and adjust colours (brightness, contrast,
-  saturation, greyscale); save a PNG/JPEG/WebP copy or replace the original
-- Save-copy format selection and JPEG/WebP quality
-- Line-numbered, syntax-highlighted text previews and preview footer
-  ID3/EXIF metadata
+  (Space); follows the pane's sort order or the selected images~~
+- ~~Animated images and video playback in the gallery~~
+- ~~Rotate, flip, crop, resize and adjust colours (brightness, contrast,
+  saturation, greyscale); save a PNG/JPEG/WebP copy or replace the original~~
+- ~~Save-copy format selection and JPEG/WebP quality~~
+- ~~Line-numbered, syntax-highlighted text previews and preview footer
+  ID3/EXIF metadata~~
 - Mark images while browsing the gallery and apply file operations to the
   marked selection, without moving files until the user chooses an action
   (Directory Opus)
@@ -193,15 +193,15 @@ highlighting. Metadata depends on installed KDE extraction plugins.
 Settings for M05 preview and gallery, stored in KConfig.
 
 - **Opening**
-  - **Double-click:** what activating a file opens (application, gallery or
-    preview)
+  - ~~**Double-click:** what activating a file opens (application, gallery or
+    preview)~~
 - **Preview**
-  - **Text:** size limit for text in the preview panel
-  - **Information:** image info panel shown by default
+  - ~~**Text:** size limit for text in the preview panel~~
+  - ~~**Information:** image info panel shown by default~~
 - **Slideshow**
-  - **Playback:** slideshow interval and looping
+  - ~~**Playback:** slideshow interval and looping~~
 - **Image conversion**
-  - **Output:** default format and quality for saved image copies
+  - ~~**Output:** default format and quality for saved image copies~~
   - **Batch:** default dimensions, format and quality for batch conversion
 
 File activation follows the desktop's single- or double-click setting and also
