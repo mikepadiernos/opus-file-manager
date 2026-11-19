@@ -348,7 +348,8 @@ tracked in #314; [folder content chart](CAVEATS.md#folder-content-chart), tracke
 [embedded terminal](CAVEATS.md#embedded-terminal), tracked in #321;
 [linked pane navigation](CAVEATS.md#linked-pane-navigation), tracked in #322;
 [cushion treemap](CAVEATS.md#cushion-treemap), tracked in #335;
-[duplicate finder](CAVEATS.md#duplicate-finder), tracked in #336.
+[duplicate finder](CAVEATS.md#duplicate-finder), tracked in #336;
+[in-progress live search](CAVEATS.md#live-search), tracked in #362.
 
 ### M10 Tools settings
 

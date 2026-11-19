@@ -35,6 +35,7 @@ for file operations, Places, properties, settings and desktop integration.
 - Show an embedded Konsole terminal alongside the panes.
 - Link navigation between corresponding local pane folders.
 - Explore folder sizes with a cushion treemap and folder drilldown.
+- Search local folders by file name or UTF-8 text contents.
 - Preview local duplicates, select candidates by date or folder, and move
   checked files to Trash after confirmation.
 
@@ -56,8 +57,8 @@ and splitting and combining are local-only. Folder comparison checks immediate
 entries by metadata, and combined files cannot be checked for missing or
 misordered parts. The embedded terminal requires the Konsole KPart, and linked
 navigation supports local folders only. Duplicate-finder results require manual
-review and verification. See [caveats and limitations](docs/CAVEATS.md) for
-details.
+review and verification. Live search is local-only and has scan and content
+limits. See [caveats and limitations](docs/CAVEATS.md) for details.
 
 ## Build and run
 

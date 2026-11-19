@@ -45,6 +45,8 @@ add_library(opusfm_app STATIC
     pane.h
     previewpanel.cpp
     previewpanel.h
+    searchdialog.cpp
+    searchdialog.h
     settingsdialog.cpp
     settingsdialog.h
     settingswidgets.cpp

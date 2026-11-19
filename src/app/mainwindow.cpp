@@ -25,6 +25,7 @@
 #include "linkednavigation.h"
 #include "pane.h"
 #include "previewpanel.h"
+#include "searchdialog.h"
 #include "session.h"
 #include "settings.h"
 #include "settingsdialog.h"
@@ -932,6 +933,9 @@ void MainWindow::setupActions()
     QAction *contentChart = actions->addAction(QStringLiteral("content_chart"), this, &MainWindow::showContentChart);
     contentChart->setText(i18nc("@action", "Folder Content Chart"));
     contentChart->setIcon(QIcon::fromTheme(QStringLiteral("view-statistics")));
+    QAction *search = actions->addAction(QStringLiteral("search_folder"), this, &MainWindow::showSearch);
+    search->setText(i18nc("@action", "Search Current Folder…"));
+    search->setIcon(QIcon::fromTheme(QStringLiteral("edit-find")));
     QAction *duplicateFinder = actions->addAction(QStringLiteral("find_duplicates"), this, &MainWindow::showDuplicateFinder);
     duplicateFinder->setText(i18nc("@action", "Find Duplicate Files…"));
     QAction *compareFolders = actions->addAction(QStringLiteral("compare_pane_folders"), this, &MainWindow::comparePaneFolders);
@@ -2408,6 +2412,13 @@ void MainWindow::showContentChart()
         return;
     }
     auto *dialog = new ContentChartDialog(folder, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
+void MainWindow::showSearch()
+{
+    auto *dialog = new SearchDialog(activePane()->url(), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
 }

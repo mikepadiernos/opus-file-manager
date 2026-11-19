@@ -192,6 +192,22 @@ open archives with 7-Zip or another trusted external tool when needed.
   unsupported markup is important; Neovim is one external source editor.
   (Comment: [#309][comment-309])
 
+## Live search
+
+- The in-progress search scans local folders only; indexed search and opening
+  or revealing results are not yet available. It skips symbolic links and
+  searches contents only in UTF-8 files up to 2 MiB without NUL bytes. It stops
+  after 5,000 matches or 200,000 entries, but lists each directory before
+  applying the entry limit. Results are snapshots, and filesystem changes or
+  directory-listing failures can make them incomplete.
+  ([#362](https://github.com/mikepadiernos/opus-file-manager/issues/362))
+
+  **Recommendation:** Search smaller local folders, check the status and errors,
+  and repeat searches after files change. Use GNU `find` for other local filename
+  searches or ripgrep (`rg`) for content searches when Opus limits are unsuitable;
+  check each tool's hidden-file, ignore, encoding and symbolic-link behavior.
+  ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/362#issuecomment-7023269364))
+
 ## File comparison
 
 File comparison requires the `diff` executable and two local regular files.
@@ -414,6 +430,7 @@ installation through another backend is impossible.
 | GNU coreutils | `coreutils` | `coreutils` | - |
 | GNU diffutils | `diffutils` | `diffutils` | - |
 | GNU findutils | `findutils` | `findutils` | - |
+| ripgrep | `ripgrep` | `ripgrep` | - |
 | jdupes | `jdupes` | `jdupes` | - |
 | QDirStat | `qdirstat` | - | - |
 
