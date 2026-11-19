@@ -137,6 +137,13 @@ with Dolphin.
   multiple items can be selected without modifier keys (Dolphin)~~
 - ~~Details-view column-header controls to show or hide columns and fit
   column widths to their contents (Dolphin)~~
+- Folder-format rules for a folder and optionally its descendants, with
+  explicit precedence over defaults; show which rule is active and allow a
+  pane to temporarily lock its current format
+- ~~Restore selection and scroll position when returning through a tab's
+  navigation history, ignoring items that no longer exist~~
+- Calculate folder sizes in the background for display in the listing, on
+  demand or automatically according to location and folder-format rules
 
 ### M04 Listing depth settings
 
@@ -148,6 +155,10 @@ Settings for M03 listing depth, stored in KConfig.
   - ~~**Icons:** name lines and metadata shown in icon view~~
   - **Compact:** icon size, item density and additional information
   - **Selection:** enable selection markers and configure selection mode
+  - **Folder formats:** manage inherited rules and default size calculation;
+    allow separate local and remote policies
+  - **History:** restore selection and scroll position when navigating back
+    or forward
 - **Files**
   - ~~**Rules:** ignore list entries and file-type colours by extension~~
 - **Panels**
@@ -187,6 +198,8 @@ Settings for M03 listing depth, stored in KConfig.
   (Directory Opus)
 - Batch image conversion with output format, dimensions and quality, a
   destination preview and non-overwriting names (Max)
+- Optional autoplay for audio and video in the preview panel; keep click-to-play
+  available independently of gallery playback
 
 Saving does not preserve the original metadata. Gallery images are limited to
 128 MiB and 40 megapixels. Text lines over 16,384 characters are shown without
@@ -202,6 +215,7 @@ Settings for M05 preview and gallery, stored in KConfig.
 - **Preview**
   - ~~**Text:** size limit for text in the preview panel~~
   - ~~**Information:** image info panel shown by default~~
+  - **Media:** autoplay audio and video in the preview panel or require play
 - **Slideshow**
   - ~~**Playback:** slideshow interval and looping~~
 - **Image conversion**
@@ -247,6 +261,11 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
   original files (Dolphin, Directory Opus)
 - Duplicate finder: preview groups and comparison criteria before selecting
   files for removal; never delete automatically (Directory Opus)
+- Duplicate selection: choose candidates by location or date while keeping at
+  least one item per group in automatic selection; warn and require explicit
+  confirmation if a manual selection would remove every item in a group
+- Search and selection filters for full path, parent folder and excluded
+  subtrees, with an optional recursion-depth limit
 - Content chart (folder breakdown)
 - Folder sync: preview differences and planned operations before running;
   allow per-item direction changes and exclusions, with explicit confirmation
@@ -257,6 +276,7 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 - File diff
 - Batch rename: preview old and new names, detect collisions before applying,
   and support metadata tokens for images and audio (Max)
+- Batch rename rules for regular expressions and reusable named presets
 - Symlinks
 - Listing export to CSV and PDF (Max)
 - Edit supported audio tags and image metadata, including a preview of changes
@@ -284,6 +304,7 @@ Settings for M09 tools, stored in KConfig.
 - **Search**
   - **Indexing:** search shortcut (double Shift), search folders and exclusions
   - **Defaults:** search scope and whether to search filenames or contents
+  - **Filters:** reusable path and subtree filters and recursion depth
 - **Folder sync**
   - **Transfers:** skip existing, newer only, speed limit
   - **Comparison:** default recursion, symlink and content-comparison options;
@@ -310,6 +331,9 @@ Settings for M09 tools, stored in KConfig.
 - Drag entries between the main toolbar, pane toolbars and hamburger menu
 - Customize the combined Places/Folders panel: reorder its sections, show or
   hide each section, and give sections custom titles
+- Back up and restore app-owned settings and layouts with a preview and
+  confirmation; exclude credentials and shared KDE settings, and avoid
+  overwriting running configuration without a safe reload or restart
 - Swap panes: the current tabs or whole sides
 - Dim the inactive pane
 
@@ -397,6 +421,40 @@ Polish the existing settings pages without adding new preferences.
   right-to-left layouts without clipping controls or labels
 - Provide concise contextual help for settings whose effects are not obvious
 
+### M18 Keyboard shortcut settings
+
+- Optional Vim-style navigation in file listings and panes, with a discoverable
+  shortcut reference; keep it off by default and do not intercept typing in
+  text fields or the embedded terminal
+- Show the active Vim-style mode and provide a clear way to enter filtering or
+  text input without conflicting with navigation keys
+- Configure custom shortcuts using simultaneous key combinations and
+  sequential key chords, with conflict detection, clear feedback and reset to
+  defaults; integrate with KDE shortcut facilities where supported
+- Allow alternative bindings for an action and configurable shortcuts for
+  commands that are not on a toolbar, including custom commands
+- Show a searchable keyboard map with action names, descriptions, bindings and
+  contexts; search by typing an action name or pressing a key combination, and
+  export a printable reference
+- Scope bindings to the applicable view, folder tree, viewer or application;
+  detect conflicts where contexts overlap and preserve typing and accessibility
+  keys in input controls
+- Native shortcut hint popup inspired by
+  [which-key.nvim](https://github.com/folke/which-key.nvim): show pending key
+  sequences and context-appropriate continuations grouped with action
+  descriptions; support keyboard navigation and dismissal
+- Configure the hint popup's enablement and display delay, and provide an
+  on-demand shortcut reference; cancel or time out incomplete sequences
+  without unexpectedly running a conflicting action
+- Provide shortcuts for pane and tab navigation, selection, filtering, preview
+  and terminal focus as those features become available, without overriding
+  existing bindings by default
+- Import and export shortcut bindings with a conflict preview; do not execute
+  commands from imported files
+- Save the Vim-style mode and app-local shortcut bindings in KConfig; manage
+  optional global shortcuts through KDE facilities and report registration
+  failures or platform limitations
+
 ## Feature references
 
 The roadmap adapts workflows to KDE rather than copying platform-specific
@@ -410,6 +468,18 @@ interfaces. The additions above draw on these sources:
   this project's [UI](parity/ui.md) and [backend](parity/backend.md) inventories.
 - [Directory Opus](https://www.gpsoft.com.au/) and its
   [file collections](https://docs.dopus.com/doku.php?id=basic_concepts:virtual_file_system:file_collections).
+- Keyboard references: [Directory Opus keyboard map](https://resource.dopus.com/t/list-of-keyboard-shortcuts/26759),
+  [Directory Opus shortcut editor](https://docs.dopus.com/doku.php?id=customize:the_customize_dialog:keys),
+  [Krusader key bindings](https://docs.kde.org/trunk_kf6/en/krusader/krusader/key_bindings.html)
+  and [Dolphin commands](https://docs.kde.org/stable_kf6/en/dolphin/dolphin/command-reference.html).
+- Directory Opus Resource Centre: [folder formats](https://resource.dopus.com/t/folder-formats-detailed-guide/11718),
+  [navigation history](https://resource.dopus.com/t/how-to-remember-scroll-positions-and-file-selections/1297),
+  [folder sizes](https://resource.dopus.com/t/calculate-folder-sizes-automatically/2064),
+  [duplicate selection](https://resource.dopus.com/t/find-duplicate-files/19799),
+  [path filters](https://resource.dopus.com/t/how-to-filter-items-by-location-or-sub-folder/7644),
+  [rename presets](https://resource.dopus.com/c/rename/30),
+  [preview autoplay](https://resource.dopus.com/t/viewer-pane-turn-off-auto-play-for-video-and-audio/33976)
+  and [configuration backup](https://resource.dopus.com/t/how-to-backup-or-locate-your-opus-configuration-simple/5465).
 
 The existing Orcinus entries reflect earlier project notes; an authoritative
 upstream source could not be verified for this review.
