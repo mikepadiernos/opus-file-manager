@@ -305,10 +305,10 @@ on the server and access method. (Comment: [#312][comment-312])
   ([#321](https://github.com/mikepadiernos/opus-file-manager/issues/321))
 
   **Recommendation:** Install the Konsole terminal component for embedded
-  sessions. For remote locations, connect using a suitable terminal tool or use
-  a separate terminal configured for that service. Check the terminal working
-  directory before running commands, and finish or safely stop programs before
-  closing the window.
+  sessions; on Arch Linux it is supplied by the `konsole` package. For remote
+  locations, connect using a suitable terminal tool or use a separate terminal
+  configured for that service. Check the terminal working directory before
+  running commands, and finish or safely stop programs before closing the window.
   ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/321#issuecomment-7022392302))
 
 ## Linked pane navigation
@@ -338,8 +338,8 @@ on the server and access method. (Comment: [#312][comment-312])
 
   **Recommendation:** Activate folders in the list to inspect their contents,
   and use the size table for empty, skipped or very small entries. Scan smaller
-  folders and rescan when current results are needed; use another disk-usage
-  tool when simultaneous nested visualization is required.
+  folders and rescan when current results are needed. QDirStat is an external
+  option for simultaneously visualizing nested disk usage.
   ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/335#issuecomment-7022647720))
 
 ## Duplicate finder
@@ -357,7 +357,9 @@ on the server and access method. (Comment: [#312][comment-312])
   **Recommendation:** Review groups and errors, verify current file contents
   and paths independently, and keep at least one confirmed copy and backups
   before moving files to Trash. Scan smaller local folders if a scan is
-  expensive.
+  expensive. `jdupes` is an external option for comparing local files; its
+  default listing is non-destructive, but deletion and other modifying options
+  require care.
   ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/336#issuecomment-7022793474))
 
 ## Build, installation and references
@@ -412,6 +414,8 @@ installation through another backend is impossible.
 | GNU coreutils | `coreutils` | `coreutils` | - |
 | GNU diffutils | `diffutils` | `diffutils` | - |
 | GNU findutils | `findutils` | `findutils` | - |
+| jdupes | `jdupes` | `jdupes` | - |
+| QDirStat | `qdirstat` | - | - |
 
 Homebrew's GNU coreutils commands are normally prefixed with `g`, for example
 `gdu` and `gsha256sum`; Homebrew's GNU diffutils commands likewise use names

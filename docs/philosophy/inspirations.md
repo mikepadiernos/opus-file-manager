@@ -39,9 +39,9 @@ target.
 
 Krusader shows how a two-panel file manager can support deeper file operations.
 Its influence includes group selection, occupied space, popular folders and
-archive testing, as well as planned comparison, synchronization, checksums,
-split and combine, transfer queues and terminal integration. The planned
-embedded terminal sits alongside both panes rather than replacing either one.
+archive testing, comparison, checksums, split and combine, and an embedded
+terminal alongside both panes. Folder synchronization and transfer queues
+remain planned.
 
 ## Orcinus — power-user workflows for Dolphin
 

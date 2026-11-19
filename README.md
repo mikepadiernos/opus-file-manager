@@ -54,7 +54,10 @@ executable when available. Archive creation and extraction also have local-file
 and entry-type restrictions. File comparison, symbolic links, checksum files,
 and splitting and combining are local-only. Folder comparison checks immediate
 entries by metadata, and combined files cannot be checked for missing or
-misordered parts. See [caveats and limitations](docs/CAVEATS.md) for details.
+misordered parts. The embedded terminal requires the Konsole KPart, and linked
+navigation supports local folders only. Duplicate-finder results require manual
+review and verification. See [caveats and limitations](docs/CAVEATS.md) for
+details.
 
 ## Build and run
 
