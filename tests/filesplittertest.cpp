@@ -45,6 +45,9 @@ private Q_SLOTS:
         QCOMPARE(read(split.outputs.at(0)), QByteArray("abc"));
         QCOMPARE(read(split.outputs.at(1)), QByteArray("def"));
         QCOMPARE(read(split.outputs.at(2)), QByteArray("gh"));
+        QVERIFY(!(QFileInfo(split.outputs.first()).permissions()
+                  & (QFileDevice::ReadGroup | QFileDevice::WriteGroup | QFileDevice::ExeGroup | QFileDevice::ReadOther | QFileDevice::WriteOther
+                     | QFileDevice::ExeOther)));
         const auto combined = FileSplitter::combine(split.outputs, dir.filePath(QStringLiteral("combined")));
         QVERIFY2(combined.error.isEmpty(), qPrintable(combined.error));
         QCOMPARE(read(combined.outputs.first()), QByteArray("abcdefgh"));

@@ -28,7 +28,7 @@ bool openInput(QFile &file, FileSplitter::Result &result)
 
 bool openOutput(QFile &file, FileSplitter::Result &result)
 {
-    if (!file.open(QIODevice::WriteOnly | QIODevice::NewOnly)) {
+    if (!file.open(QIODevice::WriteOnly | QIODevice::NewOnly, QFileDevice::ReadOwner | QFileDevice::WriteOwner)) {
         result.error = i18nc("@info", "Could not create %1: %2", file.fileName(), file.errorString());
         return false;
     }

@@ -30,7 +30,8 @@ Opus features, as noted below.
   **Recommendation:** Avoid sensitive ZIP entry names, and check for partial
   output after failures before retrying. Use another trusted archive tool if
   the required format or input type is unsupported, such as 7-Zip for formats
-  it supports. Check its handling of links and paths before use.
+  it supports. For encrypted filenames, 7-Zip can encrypt 7z headers; ZIP
+  still exposes entry names. Check its handling of links and paths before use.
   (Comments: [#255][comment-255], [#256][comment-256])
 - **Encrypted 7z:** Extraction uses KArchive and can fail even for valid
   archives. Integrity testing uses the `7z` executable when available and
@@ -86,7 +87,8 @@ open archives with 7-Zip or another trusted external tool when needed.
 
   **Recommendation:** Install the worker if flat view is unavailable, and
   leave flat view before creating, pasting or dropping files. For local
-  filename searches, `fd` is an alternative; it does not replace KIO flat view.
+  filename searches, `fd` or GNU `find` is an alternative; neither replaces KIO
+  flat view.
   (Comment: [#261][comment-261])
 - **Folder sizes:** Background calculations skip symbolic links to
   directories. Calculated sizes are snapshots and can become stale when
@@ -107,7 +109,9 @@ open archives with 7-Zip or another trusted external tool when needed.
   metadata depends on KDE extraction plugins. ([#259][issue-259])
 
   **Recommendation:** Install the relevant KPart, multimedia backend or
-  extraction plugin for the file types you need. (Comment: [#259][comment-259])
+  extraction plugin for the file types you need. For supported media, FFmpeg's
+  `ffplay`, when included in the installed build, is an external playback
+  alternative. (Comment: [#259][comment-259])
 - **Preview limits:** Images are limited to 8 MiB and 40 megapixels. Text
   previews use UTF-8 and default to the first 1 MiB; lines longer than 16,384
   characters are shown without syntax highlighting. Remote previews download
@@ -132,6 +136,8 @@ open archives with 7-Zip or another trusted external tool when needed.
   **Recommendation:** Work on local copies within the limits and keep the
   originals when their metadata must be preserved. ExifTool can inspect and
   copy supported metadata separately; verify the result for the target format.
+  ImageMagick can process supported local images outside Opus's gallery,
+  subject to its own resource and format limits.
   (Comments: [#266][comment-266], [#260][comment-260])
 - **Batch conversion:** Conversion reads files on disk, not unsaved gallery
   edits, and turns animated images into still images. The conversion dialog
@@ -148,7 +154,8 @@ open archives with 7-Zip or another trusted external tool when needed.
   before sharing them. ([#302][issue-302], [#304][issue-304])
 
   **Recommendation:** Convert to a filesystem that supports atomic no-replace
-  renames, then copy the output if needed. Review permissions before sharing.
+  renames, then copy the output if needed. Review permissions before sharing;
+  for local files, `chmod` can grant only the access needed.
   (Comments: [#302][comment-302], [#304][comment-304])
 
 ## Editor
@@ -218,6 +225,8 @@ on the server and access method. (Comment: [#312][comment-312])
   **Recommendation:** Check the filter and details columns before exporting,
   and reduce columns for wide PDF tables. Keep CSV formula protection when
   opening untrusted data in a spreadsheet; copy local output elsewhere if needed.
+  GNU `find -print0` can produce a local, NUL-delimited filename list for
+  compatible tools, but does not reproduce Opus filters, columns or CSV output.
   (Comment: [#314][comment-314])
 
 ## Folder content chart
@@ -266,6 +275,22 @@ on the server and access method. (Comment: [#312][comment-312])
   hidden files and clear pane filters before selecting differences; compare
   again after changes.
   ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/317#issuecomment-7021904155))
+
+## Split and combine files
+
+- Split and combine supports local regular files. Parts are raw numbered files;
+  combining uses the displayed order and cannot detect missing, altered or
+  incorrectly ordered parts. Inputs can change during processing. Failures or
+  cancellation can leave incomplete output, and many small parts can be
+  expensive. Existing outputs are never overwritten and new files are
+  owner-only. ([#318](https://github.com/mikepadiernos/opus-file-manager/issues/318))
+
+  **Recommendation:** Check the complete part list and order before combining,
+  keep originals and verify the reconstructed file with a checksum. Avoid
+  changing inputs while processing. Inspect and remove unwanted partial outputs
+  after errors or cancellation, choose a sensible part size, and adjust output
+  permissions if sharing is needed.
+  ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/318#issuecomment-7022199214))
 
 ## Build, installation and references
 
@@ -318,10 +343,12 @@ installation through another backend is impossible.
 | ncdu | `ncdu` | `ncdu` | - |
 | GNU coreutils | `coreutils` | `coreutils` | - |
 | GNU diffutils | `diffutils` | `diffutils` | - |
+| GNU findutils | `findutils` | `findutils` | - |
 
 Homebrew's GNU coreutils commands are normally prefixed with `g`, for example
 `gdu` and `gsha256sum`; Homebrew's GNU diffutils commands likewise use names
-such as `gdiff` and `gcmp`. KDE components such as Ark, KParts and KIO workers
+such as `gdiff` and `gcmp`, and GNU findutils uses `gfind`. KDE components
+such as Ark, KParts and KIO workers
 should be installed through the system's KDE packages, not treated as
 standalone CLI replacements. The PDF engine used by Pandoc is a separate
 dependency and varies with the chosen output method.

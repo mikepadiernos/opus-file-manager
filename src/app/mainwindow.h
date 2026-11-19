@@ -132,6 +132,8 @@ private:
     void createChecksumFile();
     void verifyChecksumFile();
     void comparePaneFolders();
+    void splitFile();
+    void combineFiles();
     void setupEditor();
     void setEditorPlacement(EditorPanel::Placement placement);
 

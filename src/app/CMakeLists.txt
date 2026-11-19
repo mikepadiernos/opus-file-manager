@@ -19,6 +19,8 @@ add_library(opusfm_app STATIC
     editorpanel.h
     filediffdialog.cpp
     filediffdialog.h
+    filesplitdialog.cpp
+    filesplitdialog.h
     fileoperations.cpp
     fileoperations.h
     filterbar.cpp

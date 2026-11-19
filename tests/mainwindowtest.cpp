@@ -6,6 +6,7 @@
 #include "contentchartdialog.h"
 #include "filediffdialog.h"
 #include "fileoperations.h"
+#include "filesplitdialog.h"
 #include "filterbar.h"
 #include "foldercomparisondialog.h"
 #include "foldertree.h"
@@ -718,6 +719,36 @@ private Q_SLOTS:
         dialog = window.findChild<ChecksumDialog *>(QStringLiteral("checksumDialog"));
         QVERIFY(dialog);
         QTRY_COMPARE(dialog->findChild<QLabel *>(QStringLiteral("checksumStatus"))->text(), QStringLiteral("Verification finished: 1 file failed."));
+    }
+
+    void opensSplitAndCombineForLocalFiles()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QFile source(dir.filePath(QStringLiteral("source")));
+        QVERIFY(source.open(QIODevice::WriteOnly));
+        QCOMPARE(source.write("data"), qint64(4));
+        source.close();
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(dir.path())});
+        window.show();
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        auto *split = window.actionCollection()->action(QStringLiteral("split_file"));
+        auto *combine = window.actionCollection()->action(QStringLiteral("combine_files"));
+        QVERIFY(split && combine);
+        QVERIFY(!split->isEnabled());
+        QVERIFY(!combine->isEnabled());
+        view->selectUrls({QUrl::fromLocalFile(source.fileName())});
+        QTRY_VERIFY(split->isEnabled());
+        QVERIFY(combine->isEnabled());
+        split->trigger();
+        auto *dialog = window.findChild<FileSplitDialog *>(QStringLiteral("fileSplitDialog"));
+        QVERIFY(dialog);
+        dialog->close();
+        QTRY_VERIFY(!window.findChild<FileSplitDialog *>(QStringLiteral("fileSplitDialog")));
+        combine->trigger();
+        QVERIFY(window.findChild<FileSplitDialog *>(QStringLiteral("fileSplitDialog")));
     }
 
     void comparesPaneFoldersAndSelectsDifferences()

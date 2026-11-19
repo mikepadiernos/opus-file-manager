@@ -14,6 +14,7 @@
 #include "favoritesmodel.h"
 #include "filediffdialog.h"
 #include "fileoperations.h"
+#include "filesplitdialog.h"
 #include "foldercomparisondialog.h"
 #include "foldermetadata.h"
 #include "foldertree.h"
@@ -922,6 +923,10 @@ void MainWindow::setupActions()
     createChecksum->setText(i18nc("@action", "Create SHA-256 Checksum File…"));
     QAction *verifyChecksum = actions->addAction(QStringLiteral("verify_checksum"), this, &MainWindow::verifyChecksumFile);
     verifyChecksum->setText(i18nc("@action", "Verify SHA-256 Checksum File"));
+    QAction *splitFile = actions->addAction(QStringLiteral("split_file"), this, &MainWindow::splitFile);
+    splitFile->setText(i18nc("@action", "Split File…"));
+    QAction *combineFiles = actions->addAction(QStringLiteral("combine_files"), this, &MainWindow::combineFiles);
+    combineFiles->setText(i18nc("@action", "Combine Files…"));
 
     QAction *terminal = actions->addAction(QStringLiteral("open_terminal"), this, &MainWindow::openTerminal);
     terminal->setText(i18nc("@action", "Open Terminal Here"));
@@ -1459,6 +1464,8 @@ void MainWindow::updateActions()
                             });
     actions->action(QStringLiteral("create_checksum"))->setEnabled(localFiles);
     actions->action(QStringLiteral("verify_checksum"))->setEnabled(localFiles && selected.size() == 1);
+    actions->action(QStringLiteral("split_file"))->setEnabled(localFiles && selected.size() == 1);
+    actions->action(QStringLiteral("combine_files"))->setEnabled(localFiles);
     actions->action(QStringLiteral("compare_files"))->setEnabled(!comparisonFiles(activePane(), inactivePane(), isDualLayout()).isEmpty());
     const bool hasMedia = std::any_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
         if (item.isDir() || !item.url().isLocalFile()) {
@@ -2390,6 +2397,36 @@ void MainWindow::verifyChecksumFile()
         return;
     }
     auto *dialog = new ChecksumDialog(ChecksumDialog::Mode::Verify, {}, items.first().url().toLocalFile(), this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
+void MainWindow::splitFile()
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    if (items.size() != 1 || !items.first().url().isLocalFile() || !items.first().isFile() || items.first().isLink()) {
+        KMessageBox::error(this, i18nc("@info", "Select one local file that is not a symbolic link."));
+        return;
+    }
+    auto *dialog = new FileSplitDialog(FileSplitDialog::Mode::Split, {items.first().url().toLocalFile()}, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
+void MainWindow::combineFiles()
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    if (items.isEmpty() || !std::all_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
+            return item.url().isLocalFile() && item.isFile() && !item.isLink();
+        })) {
+        KMessageBox::error(this, i18nc("@info", "Select local files that are not symbolic links."));
+        return;
+    }
+    QStringList paths;
+    for (const KFileItem &item : items) {
+        paths.append(item.url().toLocalFile());
+    }
+    auto *dialog = new FileSplitDialog(FileSplitDialog::Mode::Combine, paths, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
 }
