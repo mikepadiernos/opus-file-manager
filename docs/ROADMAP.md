@@ -739,6 +739,45 @@ Settings for M21 tagging, stored in KConfig.
   components. Preserve the built-in editor and its draft handling, pass file
   paths safely without shell interpolation, and report missing providers,
   launch failures and unsupported locations.
+- Optional [rsync](https://rsync.samba.org/) backend for M09 folder sync:
+  support local folders and SSH locations, reuse sync profiles and exclusions,
+  and show an itemized dry run before confirmation. Disable deletion by
+  default and explicitly confirm overwrites and deletions. Validate that the
+  backend can honor the selected plan, including per-item directions; report
+  unsupported options instead of silently changing the plan. Show progress,
+  cancellation, errors and possible partial results; a preview is a snapshot,
+  not a guarantee against subsequent filesystem changes. Use safe argument
+  handling and SSH host-key verification.
+- Optional [Atuin](https://docs.atuin.sh/) integration for terminal command
+  history: let users open interactive Atuin search in a supported terminal,
+  without automatically executing a selected command. Respect the user's
+  existing shell configuration; do not install or initialize Atuin, access
+  its history database, or enable history synchronization without consent.
+  Report missing tools and unsupported terminal sessions.
+- Optional [Nextcloud](https://nextcloud.com/) integration: browse an account
+  through the existing KIO WebDAV support and open configured local sync
+  folders in the panes. When the desktop client exposes supported status
+  information, show sync state and provide an explicit action to open the
+  client; otherwise report that status is unavailable. Reuse supported KDE
+  Online Accounts, connection profiles, KDE credential facilities and TLS
+  verification. Do not start a second synchronization process or change client
+  configuration automatically.
+- Download service menus from the existing Context Menu settings page, as in
+  Dolphin, using KDE's KNewStuff service-menu provider. Support browsing,
+  installation, updates and removal through the provider, and refresh the
+  installed-action list without discarding pending settings changes. Explain
+  that downloaded services can run commands and may be shared with other KDE
+  applications; require explicit user action and report failures. Reuse the
+  existing Opus-specific and Dolphin-shared visibility controls.
+- Integrate with KDE Online Accounts: discover available accounts and their
+  supported file services, let users explicitly connect or open them in either
+  pane through the appropriate KDE provider or KIO worker, and provide access
+  to KDE's account-management interface. Reuse account identities for supported
+  Nextcloud and remote integrations instead of duplicating credentials. Handle
+  missing providers, denied access, expired authorization and removed accounts
+  visibly; do not assume every account offers file access. Respect provider
+  permissions, authentication and TLS verification, and never store tokens or
+  passwords in URLs, logs or Opus configuration.
 
 ### M24 Integration settings
 
@@ -769,6 +808,20 @@ Settings for M23 integrations, stored in KConfig.
   - **Profiles:** manage SSH, SFTP and WebDAV hosts, ports, usernames and
     connection defaults; store credentials through KDE's credential facilities,
     not in KConfig or URLs
+- **rsync**
+  - **Backend:** enable the optional backend and choose safe sync defaults,
+    reusing M10 profiles and preserving preview and confirmation requirements
+- **Atuin**
+  - **History:** enable the terminal history action and choose a supported
+    terminal session; leave Atuin's own history and sync settings unchanged
+- **Nextcloud**
+  - **Integration:** enable account and client integration, manage references
+    to local sync folders and reuse existing WebDAV profiles without storing
+    passwords or tokens in KConfig
+- **Online accounts**
+  - **Access:** opt in to integration and choose which supported accounts to
+    show in Opus; manage accounts in KDE without deleting shared accounts when
+    removing them from Opus
 
 ### M25 Themes
 
