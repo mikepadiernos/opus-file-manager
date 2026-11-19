@@ -148,6 +148,7 @@ private:
     void copy();
     void paste();
     void rename();
+    void batchRename();
     void trash();
     void deletePermanently();
     void showProperties();

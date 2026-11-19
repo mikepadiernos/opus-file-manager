@@ -4,6 +4,7 @@
 
 #include "archives.h"
 #include "archivewriter.h"
+#include "batchrenamedialog.h"
 #include "checksumdialog.h"
 #include "combinedpanel.h"
 #include "compressdialog.h"
@@ -908,6 +909,10 @@ void MainWindow::setupActions()
     renameAction->setText(i18nc("@action", "Rename…"));
     renameAction->setIcon(QIcon::fromTheme(QStringLiteral("edit-rename")));
     actions->setDefaultShortcut(renameAction, Qt::Key_F2);
+    QAction *batchRenameAction = actions->addAction(QStringLiteral("batch_rename"), this, &MainWindow::batchRename);
+    batchRenameAction->setText(i18nc("@action", "Batch Rename…"));
+    batchRenameAction->setIcon(QIcon::fromTheme(QStringLiteral("edit-rename")));
+    actions->setDefaultShortcut(batchRenameAction, Qt::SHIFT | Qt::Key_F2);
 
     QAction *symlink = actions->addAction(QStringLiteral("create_symlink"), this, &MainWindow::createSymlink);
     symlink->setText(i18nc("@action", "Create Symbolic Link…"));
@@ -1515,6 +1520,10 @@ void MainWindow::updateActions()
     actions->action(QStringLiteral("copy_to_other_pane"))->setEnabled(hasSelection);
     actions->action(QStringLiteral("move_to_other_pane"))->setEnabled(hasSelection && props.supportsMoving());
     actions->action(QStringLiteral("rename"))->setEnabled(hasSelection && props.supportsMoving());
+    actions->action(QStringLiteral("batch_rename"))
+        ->setEnabled(hasSelection && props.supportsMoving() && std::all_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
+                         return item.url().isLocalFile();
+                     }));
     actions->action(QStringLiteral("create_symlink"))->setEnabled(selected.size() == 1 && selected.first().url().isLocalFile());
     actions->action(QStringLiteral("move_to_trash"))->setEnabled(hasSelection && props.supportsDeleting() && props.isLocal());
     actions->action(QStringLiteral("delete"))->setEnabled(hasSelection && props.supportsDeleting());
@@ -2263,6 +2272,7 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     if (visible("rename")) {
         menu.addAction(actions->action(QStringLiteral("rename")));
     }
+    menu.addAction(actions->action(QStringLiteral("batch_rename")));
     menu.addAction(actions->action(QStringLiteral("create_symlink")));
     if (visible("trash")) {
         menu.addAction(actions->action(QStringLiteral("move_to_trash")));
@@ -2648,7 +2658,34 @@ void MainWindow::paste()
 
 void MainWindow::rename()
 {
-    FileOperations::rename(activePane()->view()->selectedItems(), this);
+    const KFileItemList items = activePane()->view()->selectedItems();
+    if (items.size() > 1 && std::all_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
+            return item.url().isLocalFile();
+        })) {
+        batchRename();
+    } else {
+        FileOperations::rename(items, this);
+    }
+}
+
+void MainWindow::batchRename()
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    QStringList paths;
+    for (const KFileItem &item : items) {
+        if (!item.url().isLocalFile()) {
+            showStatusMessage(i18nc("@info", "Batch rename supports local items only."));
+            return;
+        }
+        paths.append(item.url().toLocalFile());
+    }
+    if (paths.isEmpty()) {
+        showStatusMessage(i18nc("@info", "Select at least one item to rename."));
+        return;
+    }
+    auto *dialog = new BatchRenameDialog(paths, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
 }
 
 void MainWindow::trash()

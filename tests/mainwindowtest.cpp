@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "mainwindow.h"
+#include "batchrenamedialog.h"
 #include "checksumdialog.h"
 #include "combinedpanel.h"
 #include "contentchartdialog.h"
@@ -84,6 +85,30 @@ private Q_SLOTS:
         m_a = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("a")));
         m_b = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("b")));
         m_c = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("c")));
+    }
+
+    void opensBatchRenameForMultipleLocalItems()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QString firstPath = root.filePath(QStringLiteral("a.txt"));
+        const QString secondPath = root.filePath(QStringLiteral("b.txt"));
+        for (const QString &path : {firstPath, secondPath}) {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(root.path())});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+        view->selectAll();
+        QTRY_COMPARE(view->selectedItems().size(), 2);
+        QAction *rename = window.actionCollection()->action(QStringLiteral("rename"));
+        QVERIFY(rename && rename->isEnabled());
+        rename->trigger();
+        auto *dialog = window.findChild<BatchRenameDialog *>(QStringLiteral("batchRenameDialog"));
+        QVERIFY(dialog);
+        dialog->close();
     }
 
     void selectsVisibleItemsByPathFilter()

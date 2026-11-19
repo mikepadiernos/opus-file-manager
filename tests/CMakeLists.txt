@@ -2,6 +2,7 @@ include(ECMAddTests)
 
 ecm_add_tests(
     archivestest.cpp
+    batchrenametest.cpp
     checksumstest.cpp
     favoritesmodeltest.cpp
     filesplittertest.cpp
@@ -39,6 +40,12 @@ ecm_add_tests(
 )
 
 ecm_add_test(galleryeditingtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
+ecm_add_test(batchrenamedialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
     GUI

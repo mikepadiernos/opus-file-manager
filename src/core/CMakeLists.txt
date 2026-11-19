@@ -3,6 +3,8 @@ add_library(opusfm_core STATIC
     archives.h
     archivewriter.cpp
     archivewriter.h
+    batchrename.cpp
+    batchrename.h
     checksums.cpp
     checksums.h
     filecolorrules.cpp

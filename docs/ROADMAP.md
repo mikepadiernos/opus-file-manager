@@ -317,8 +317,8 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
   symlink handling and optional content comparison; save reusable profiles
   (Krusader)
 - ~~File diff~~
-- Batch rename: preview old and new names, detect collisions before applying,
-  and support metadata tokens for images and audio (Max)
+- ~~Batch rename: preview old and new names, detect collisions before applying,
+  and support metadata tokens for images and audio (Max)~~
 - Batch rename rules for regular expressions and reusable named presets
 - ~~Symlinks~~
 - ~~Listing export to CSV and PDF (Max)~~
@@ -349,7 +349,8 @@ tracked in #314; [folder content chart](CAVEATS.md#folder-content-chart), tracke
 [linked pane navigation](CAVEATS.md#linked-pane-navigation), tracked in #322;
 [cushion treemap](CAVEATS.md#cushion-treemap), tracked in #335;
 [duplicate finder](CAVEATS.md#duplicate-finder), tracked in #336;
-[search](CAVEATS.md#search), tracked in #362.
+[search](CAVEATS.md#search), tracked in #362;
+[batch rename](CAVEATS.md#batch-rename), tracked in #372.
 
 ### M10 Tools settings
 

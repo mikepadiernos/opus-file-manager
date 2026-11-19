@@ -227,6 +227,28 @@ open archives with 7-Zip or another trusted external tool when needed.
   after files change.
   ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/362#issuecomment-7023269364))
 
+## Batch rename
+
+- Batch rename supports local items only and requires Linux atomic no-replace
+  renames on the destination filesystem. Preview rejects existing destinations,
+  rename chains, swaps and selections containing both a folder and its
+  descendants. Metadata tokens depend on installed KDE extractors and embedded
+  fields; missing metadata and invalid names prevent application. The preview
+  is a snapshot: source identity is checked before each rename, but changes can
+  race those checks. Errors or cancellation stop the batch and can leave partial
+  results. Renames are not registered with KIO undo. Per-folder Opus labels,
+  colors, ratings, notes and pins remain keyed by old names.
+  ([#372](https://github.com/mikepadiernos/opus-file-manager/issues/372))
+
+  **Recommendation:** Review the preview and back up important items first.
+  Use valid patterns and metadata fields present on every selected file; install
+  KDE metadata extractors if needed. Use a filesystem that supports atomic
+  no-replace renames. After an error or cancellation, inspect the displayed
+  results and filesystem before retrying; manually rename completed items back
+  if needed. Reapply per-folder annotations to new names and remove stale
+  entries as appropriate.
+  ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/372#issuecomment-7024683530))
+
 ## File comparison
 
 File comparison requires the `diff` executable and two local regular files.
