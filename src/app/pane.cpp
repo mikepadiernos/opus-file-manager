@@ -4,6 +4,7 @@
 
 #include "filterbar.h"
 #include "folderview.h"
+#include "tabcolors.h"
 #include "tabmodel.h"
 
 #include <KFilePlacesModel>
@@ -16,14 +17,17 @@
 #include <QClipboard>
 #include <QDir>
 #include <QHBoxLayout>
+#include <QInputDialog>
 #include <QMenu>
 #include <QMouseEvent>
+#include <QStyle>
 #include <QTabBar>
 #include <QToolButton>
 #include <QVBoxLayout>
 
-Pane::Pane(KFilePlacesModel *places, QWidget *parent)
+Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     : QWidget(parent)
+    , m_colors(colors)
     , m_tabs(new TabModel(this))
     , m_tabBar(new QTabBar(this))
     , m_tabStrip(new QWidget(this))
@@ -94,6 +98,15 @@ Pane::Pane(KFilePlacesModel *places, QWidget *parent)
     connect(m_tabs, &TabModel::tabUrlChanged, this, [this](int index, const QUrl &) {
         updateTabText(index);
     });
+    connect(m_tabs, &TabModel::tabStateChanged, this, [this](int index) {
+        updateTabText(index);
+        updateNavigationButtons();
+    });
+    connect(m_colors, &TabColors::colorChanged, this, [this] {
+        for (int i = 0; i < m_tabBar->count(); ++i) {
+            updateTabText(i);
+        }
+    });
     connect(m_tabs, &TabModel::currentUrlChanged, this, [this](const QUrl &url) {
         m_navigator->setLocationUrl(url);
         m_view->setUrl(url);
@@ -113,8 +126,11 @@ Pane::Pane(KFilePlacesModel *places, QWidget *parent)
     connect(m_tabBar, &QTabBar::tabMoved, this, [this](int from, int to) {
         if (!m_updatingTabBar) {
             m_updatingTabBar = true;
-            m_tabs->moveTab(from, to);
+            const bool moved = m_tabs->moveTab(from, to);
             m_updatingTabBar = false;
+            if (!moved) {
+                syncTabBar();
+            }
         }
     });
     connect(m_tabBar, &QTabBar::tabBarDoubleClicked, this, [this](int index) {
@@ -315,8 +331,45 @@ void Pane::syncTabBar()
 void Pane::updateTabStripVisibility()
 {
     const bool closable = m_tabs->count() > 1;
-    m_tabBar->setTabsClosable(closable);
+    if (m_tabBar->tabsClosable() != closable) {
+        m_tabBar->setTabsClosable(closable);
+        for (int i = 0; i < m_tabBar->count(); ++i) {
+            updateTabText(i);
+        }
+    }
     m_tabStrip->setVisible(m_tabBarForced || closable);
+}
+
+PaneSession Pane::saveState() const
+{
+    PaneSession state;
+    state.tabs = m_tabs->urls();
+    state.currentTab = m_tabs->currentIndex();
+    state.pinnedCount = m_tabs->pinnedCount();
+    for (int i = 0; i < m_tabs->count(); ++i) {
+        if (m_tabs->isLocked(i)) {
+            state.lockedTabs.append(i);
+        }
+        state.names.append(m_tabs->nameAt(i));
+    }
+    return state;
+}
+
+void Pane::restoreState(const PaneSession &state)
+{
+    for (const QUrl &url : state.tabs) {
+        openInNewTab(url, false);
+    }
+    for (int i = 0; i < state.pinnedCount; ++i) {
+        m_tabs->setPinned(i, true);
+    }
+    for (int index : state.lockedTabs) {
+        m_tabs->setLocked(index, true);
+    }
+    for (int i = 0; i < state.names.size(); ++i) {
+        m_tabs->setName(i, state.names.at(i));
+    }
+    m_tabs->setCurrentIndex(state.currentTab);
 }
 
 void Pane::updateTabText(int index)
@@ -325,9 +378,19 @@ void Pane::updateTabText(int index)
         return;
     }
     const QUrl url = m_tabs->urlAt(index);
-    m_tabBar->setTabText(index, tabTitle(url));
+    const QString name = m_tabs->nameAt(index);
+    const bool pinned = m_tabs->isPinned(index);
+    const bool locked = m_tabs->isLocked(index);
+    m_tabBar->setTabText(index, name.isEmpty() ? tabTitle(url) : name);
     m_tabBar->setTabToolTip(index, url.toDisplayString(QUrl::PreferLocalFile));
-    m_tabBar->setTabIcon(index, QIcon::fromTheme(KIO::iconNameForUrl(url)));
+    const QString iconName = pinned ? QStringLiteral("pin") : locked ? QStringLiteral("object-locked") : KIO::iconNameForUrl(url);
+    m_tabBar->setTabIcon(index, QIcon::fromTheme(iconName));
+    m_tabBar->setTabTextColor(index, LabelColors::rgb(m_colors->colorFor(url)));
+
+    const auto closeSide = static_cast<QTabBar::ButtonPosition>(m_tabBar->style()->styleHint(QStyle::SH_TabBar_CloseButtonPosition, nullptr, m_tabBar));
+    if (QWidget *closeButton = m_tabBar->tabButton(index, closeSide)) {
+        closeButton->setVisible(!pinned && !locked);
+    }
 }
 
 void Pane::updateNavigationButtons()
@@ -345,16 +408,55 @@ void Pane::showTabContextMenu(int index, const QPoint &globalPos)
     QAction *duplicateAction = nullptr;
     QAction *closeAction = nullptr;
     QAction *closeOthersAction = nullptr;
+    QAction *closeRightAction = nullptr;
     QAction *copyPathAction = nullptr;
+    QAction *renameAction = nullptr;
+    QAction *pinAction = nullptr;
+    QAction *lockAction = nullptr;
     if (index >= 0) {
         duplicateAction = menu.addAction(QIcon::fromTheme(QStringLiteral("tab-duplicate")), i18nc("@action:inmenu", "Duplicate Tab"));
+        renameAction = menu.addAction(QIcon::fromTheme(QStringLiteral("edit-rename")), i18nc("@action:inmenu", "Rename Tab…"));
+        pinAction = menu.addAction(QIcon::fromTheme(QStringLiteral("pin")),
+                                   m_tabs->isPinned(index) ? i18nc("@action:inmenu", "Unpin Tab") : i18nc("@action:inmenu", "Pin Tab"));
+        lockAction = menu.addAction(QIcon::fromTheme(QStringLiteral("object-locked")),
+                                    m_tabs->isLocked(index) ? i18nc("@action:inmenu", "Unlock Tab") : i18nc("@action:inmenu", "Lock Tab"));
+
+        QMenu *colorMenu = menu.addMenu(QIcon::fromTheme(QStringLiteral("color-management")), i18nc("@title:menu", "Tab Colour"));
+        const QUrl url = m_tabs->urlAt(index);
+        const QList<std::pair<LabelColor, QString>> colors{
+            {LabelColor::None, i18nc("@item:inmenu no tab colour", "None")},
+            {LabelColor::Red, i18nc("@item:inmenu tab colour", "Red")},
+            {LabelColor::Orange, i18nc("@item:inmenu tab colour", "Orange")},
+            {LabelColor::Yellow, i18nc("@item:inmenu tab colour", "Yellow")},
+            {LabelColor::Green, i18nc("@item:inmenu tab colour", "Green")},
+            {LabelColor::Blue, i18nc("@item:inmenu tab colour", "Blue")},
+            {LabelColor::Purple, i18nc("@item:inmenu tab colour", "Purple")},
+            {LabelColor::Pink, i18nc("@item:inmenu tab colour", "Pink")},
+            {LabelColor::Gray, i18nc("@item:inmenu tab colour", "Gray")},
+        };
+        for (const auto &[color, text] : colors) {
+            QAction *colorAction = colorMenu->addAction(text);
+            colorAction->setCheckable(true);
+            colorAction->setChecked(m_colors->colorFor(url) == color);
+            if (color != LabelColor::None) {
+                QPixmap swatch(16, 16);
+                swatch.fill(LabelColors::rgb(color));
+                colorAction->setIcon(QIcon(swatch));
+            }
+            connect(colorAction, &QAction::triggered, this, [this, url, color] {
+                m_colors->setColor(url, color);
+            });
+        }
+
         menu.addSeparator();
         copyPathAction = menu.addAction(QIcon::fromTheme(QStringLiteral("edit-copy-path")), i18nc("@action:inmenu", "Copy Path"));
         menu.addSeparator();
         closeAction = menu.addAction(QIcon::fromTheme(QStringLiteral("tab-close")), i18nc("@action:inmenu", "Close Tab"));
-        closeAction->setEnabled(m_tabs->count() > 1);
+        closeAction->setEnabled(m_tabs->count() > 1 && !m_tabs->isPinned(index) && !m_tabs->isLocked(index));
         closeOthersAction = menu.addAction(QIcon::fromTheme(QStringLiteral("tab-close-other")), i18nc("@action:inmenu", "Close Other Tabs"));
         closeOthersAction->setEnabled(m_tabs->count() > 1);
+        closeRightAction = menu.addAction(i18nc("@action:inmenu", "Close Tabs to the Right"));
+        closeRightAction->setEnabled(index < m_tabs->count() - 1);
     }
 
     QAction *chosen = menu.exec(globalPos);
@@ -367,8 +469,27 @@ void Pane::showTabContextMenu(int index, const QPoint &globalPos)
         m_tabs->insertTab(index + 1, m_tabs->urlAt(index), true);
     } else if (chosen == copyPathAction) {
         QApplication::clipboard()->setText(m_tabs->urlAt(index).toDisplayString(QUrl::PreferLocalFile));
+    } else if (chosen == renameAction) {
+        bool accepted = false;
+        const QString name = QInputDialog::getText(this,
+                                                   i18nc("@title:window", "Rename Tab"),
+                                                   i18nc("@label:textbox", "Tab name (empty for the folder name):"),
+                                                   QLineEdit::Normal,
+                                                   m_tabs->nameAt(index),
+                                                   &accepted);
+        if (accepted) {
+            m_tabs->setName(index, name);
+        }
+    } else if (chosen == pinAction) {
+        m_tabs->setPinned(index, !m_tabs->isPinned(index));
+    } else if (chosen == lockAction) {
+        m_tabs->setLocked(index, !m_tabs->isLocked(index));
     } else if (chosen == closeAction) {
         m_tabs->closeTab(index);
+    } else if (chosen == closeRightAction) {
+        for (int i = m_tabs->count() - 1; i > index; --i) {
+            m_tabs->closeTab(i);
+        }
     } else if (chosen == closeOthersAction) {
         m_tabs->setCurrentIndex(index);
         for (int i = m_tabs->count() - 1; i >= 0; --i) {

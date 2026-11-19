@@ -9,6 +9,7 @@
 #include "folderview.h"
 #include "pane.h"
 #include "session.h"
+#include "tabcolors.h"
 #include "tabmodel.h"
 
 #include <KActionCollection>
@@ -78,6 +79,7 @@ MainWindow::MainWindow(QWidget *parent)
     initResources();
     setComponentName(QStringLiteral("opus-file-manager"), i18n("Opus File Manager"));
     m_favorites = new FavoritesModel(KSharedConfig::openConfig()->group(QStringLiteral("Favorites")), this);
+    m_tabColors = new TabColors(KSharedConfig::openConfig()->group(QStringLiteral("TabColors")), this);
     setupPanes();
     setupPlaces();
     setupPanels();
@@ -107,8 +109,8 @@ void MainWindow::setupPanes()
 {
     m_splitter = new QSplitter(Qt::Horizontal, this);
     m_splitter->setChildrenCollapsible(false);
-    m_left = new Pane(m_placesModel, m_splitter);
-    m_right = new Pane(m_placesModel, m_splitter);
+    m_left = new Pane(m_placesModel, m_tabColors, m_splitter);
+    m_right = new Pane(m_placesModel, m_tabColors, m_splitter);
     m_splitter->addWidget(m_left);
     m_splitter->addWidget(m_right);
     m_splitter->setStretchFactor(0, 1);
@@ -245,6 +247,11 @@ MainWindow::PanelLayout MainWindow::panelLayout() const
 FavoritesModel *MainWindow::favorites() const
 {
     return m_favorites;
+}
+
+TabColors *MainWindow::tabColors() const
+{
+    return m_tabColors;
 }
 
 void MainWindow::addToFavorites()
@@ -571,14 +578,8 @@ void MainWindow::restoreSession()
     const KConfigGroup group = KSharedConfig::openStateConfig()->group(QLatin1String(SessionGroup));
     const WindowSession session = Session::load(group).sanitized(home);
 
-    const auto apply = [](Pane *pane, const PaneSession &state) {
-        for (const QUrl &url : state.tabs) {
-            pane->openInNewTab(url, false);
-        }
-        pane->tabs()->setCurrentIndex(state.currentTab);
-    };
-    apply(m_left, session.left);
-    apply(m_right, session.right);
+    m_left->restoreState(session.left);
+    m_right->restoreState(session.right);
     setActivePane(session.activePane == 1 ? m_right : m_left);
     setStackedLayout(session.stacked);
 }
@@ -586,10 +587,8 @@ void MainWindow::restoreSession()
 void MainWindow::saveSession()
 {
     WindowSession session;
-    session.left.tabs = m_left->tabs()->urls();
-    session.left.currentTab = m_left->tabs()->currentIndex();
-    session.right.tabs = m_right->tabs()->urls();
-    session.right.currentTab = m_right->tabs()->currentIndex();
+    session.left = m_left->saveState();
+    session.right = m_right->saveState();
     session.activePane = activePane() == m_right ? 1 : 0;
     session.stacked = isStackedLayout();
 
@@ -612,14 +611,8 @@ void MainWindow::readProperties(const KConfigGroup &group)
 {
     const WindowSession session = Session::load(group).sanitized(QUrl::fromLocalFile(QDir::homePath()));
     m_sessionRestored = true;
-    for (const QUrl &url : session.left.tabs) {
-        m_left->openInNewTab(url, false);
-    }
-    for (const QUrl &url : session.right.tabs) {
-        m_right->openInNewTab(url, false);
-    }
-    m_left->tabs()->setCurrentIndex(session.left.currentTab);
-    m_right->tabs()->setCurrentIndex(session.right.currentTab);
+    m_left->restoreState(session.left);
+    m_right->restoreState(session.right);
     setActivePane(session.activePane == 1 ? m_right : m_left);
     setStackedLayout(session.stacked);
 }
@@ -627,10 +620,8 @@ void MainWindow::readProperties(const KConfigGroup &group)
 void MainWindow::saveProperties(KConfigGroup &group)
 {
     WindowSession session;
-    session.left.tabs = m_left->tabs()->urls();
-    session.left.currentTab = m_left->tabs()->currentIndex();
-    session.right.tabs = m_right->tabs()->urls();
-    session.right.currentTab = m_right->tabs()->currentIndex();
+    session.left = m_left->saveState();
+    session.right = m_right->saveState();
     session.activePane = activePane() == m_right ? 1 : 0;
     session.stacked = isStackedLayout();
     Session::save(session, group);
@@ -663,7 +654,9 @@ void MainWindow::updateActions()
 
     actions->action(stdName(KStandardAction::Back))->setEnabled(activePane()->tabs()->canGoBack());
     actions->action(stdName(KStandardAction::Forward))->setEnabled(activePane()->tabs()->canGoForward());
-    actions->action(QStringLiteral("close_tab"))->setEnabled(activePane()->tabs()->count() > 1);
+    const TabModel *tabs = activePane()->tabs();
+    actions->action(QStringLiteral("close_tab"))
+        ->setEnabled(tabs->count() > 1 && !tabs->isPinned(tabs->currentIndex()) && !tabs->isLocked(tabs->currentIndex()));
 
     const bool icons = view->viewMode() == FolderView::ViewMode::Icons;
     m_viewModeAction->setText(icons ? i18nc("@action", "Details View") : i18nc("@action", "Icons View"));

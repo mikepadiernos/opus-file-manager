@@ -18,6 +18,7 @@ class KNewFileMenu;
 class KSelectAction;
 class KToggleAction;
 class Pane;
+class TabColors;
 class QDockWidget;
 class QLabel;
 class QSplitter;
@@ -63,6 +64,7 @@ public:
     PanelLayout panelLayout() const;
 
     FavoritesModel *favorites() const;
+    TabColors *tabColors() const;
 
 protected:
     bool queryClose() override;
@@ -113,6 +115,7 @@ private:
     KFilePlacesModel *m_placesModel = nullptr;
     KFilePlacesView *m_placesView = nullptr;
     FavoritesModel *m_favorites = nullptr;
+    TabColors *m_tabColors = nullptr;
     QDockWidget *m_placesDock = nullptr;
     QDockWidget *m_foldersDock = nullptr;
     QDockWidget *m_combinedDock = nullptr;
