@@ -23,6 +23,8 @@ for file operations, Places, properties, settings and desktop integration.
 - Edit text in embedded or standalone KTextEditor views, recover drafts, and
   edit or preview Markdown and export it to PDF. Visual Markdown editing
   requires confirmation because it can rewrite unsupported markup.
+- Compare two selected local files in one pane or across both panes using a
+  unified diff.
 
 ## Caveats
 

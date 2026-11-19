@@ -81,6 +81,13 @@ operation before assuming passwords are kept out of process arguments.
   HTML. It requires confirmation before editing and preserves a recovery
   snapshot when drafts are enabled.
 
+## File comparison
+
+File comparison requires the `diff` executable and two local regular files.
+Unified output is decoded as UTF-8, and comparison stops if output exceeds
+4 MiB. Binary differences are reported without a visual binary diff.
+([#311][issue-311])
+
 ## Build, installation and references
 
 - Opus targets Linux and requires the dependencies listed in
@@ -92,3 +99,5 @@ operation before assuming passwords are kept out of process arguments.
 - The [parity inventories](README.md#behaviour-references) describe a
   reviewed Max File Manager checkout, not necessarily current Opus behaviour.
   Their upstream bugs and limitations should not be assumed to apply to Opus.
+
+[issue-311]: https://github.com/mikepadiernos/opus-file-manager/issues/311

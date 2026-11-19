@@ -125,6 +125,7 @@ private:
     void updatePreviewPanel();
     void openGallery();
     void openEditor();
+    void compareFiles();
     void setupEditor();
     void setEditorPlacement(EditorPanel::Placement placement);
 

@@ -10,6 +10,7 @@
 #include "editorpanel.h"
 #include "executables.h"
 #include "favoritesmodel.h"
+#include "filediffdialog.h"
 #include "fileoperations.h"
 #include "foldermetadata.h"
 #include "foldertree.h"
@@ -107,6 +108,20 @@ constexpr auto WindowLayoutGroup = "WindowLayout";
 QString flatKey(const QUrl &url)
 {
     return url.adjusted(QUrl::StripTrailingSlash).toString();
+}
+
+KFileItemList comparisonFiles(Pane *active, Pane *other, bool dual)
+{
+    KFileItemList items = active->view()->selectedItems();
+    if (items.size() == 1 && dual && !other->isHidden()) {
+        items += other->view()->selectedItems();
+    }
+    if (items.size() != 2 || !std::all_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
+            return item.url().isLocalFile() && item.isFile();
+        })) {
+        return {};
+    }
+    return items;
 }
 
 /// Maps a details or icons density setting, whose choices are the same.
@@ -328,9 +343,11 @@ void MainWindow::connectPane(Pane *pane)
     });
     connect(pane->view(), &FolderView::selectionChanged, this, [this, pane] {
         if (pane == m_active) {
-            updateActions();
             updateStatusBar();
             updatePreviewPanel();
+        }
+        if (m_active) {
+            updateActions();
         }
     });
     connect(pane->view(), &FolderView::selectionModeChanged, this, [this, pane] {
@@ -895,6 +912,9 @@ void MainWindow::setupActions()
     QAction *editor = actions->addAction(QStringLiteral("open_editor"), this, &MainWindow::openEditor);
     editor->setText(i18nc("@action", "Open Editor"));
     editor->setIcon(QIcon::fromTheme(QStringLiteral("accessories-text-editor")));
+    QAction *compare = actions->addAction(QStringLiteral("compare_files"), this, &MainWindow::compareFiles);
+    compare->setText(i18nc("@action", "Compare Files"));
+    compare->setIcon(QIcon::fromTheme(QStringLiteral("document-edit")));
 
     KStandardAction::quit(this, &MainWindow::close, actions);
 
@@ -1401,6 +1421,7 @@ void MainWindow::updateActions()
     actions->action(stdName(KStandardAction::Cut))->setEnabled(hasSelection && props.supportsMoving());
     actions->action(stdName(KStandardAction::Copy))->setEnabled(hasSelection);
     actions->action(QStringLiteral("open_terminal"))->setEnabled(activePane()->url().isLocalFile());
+    actions->action(QStringLiteral("compare_files"))->setEnabled(!comparisonFiles(activePane(), inactivePane(), isDualLayout()).isEmpty());
     const bool hasMedia = std::any_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
         if (item.isDir() || !item.url().isLocalFile()) {
             return false;
@@ -2217,6 +2238,18 @@ void MainWindow::addTransferMenu(QMenu *menu, const KFileItemList &items, bool m
             transfer(destination);
         }
     });
+}
+
+void MainWindow::compareFiles()
+{
+    const KFileItemList items = comparisonFiles(activePane(), inactivePane(), isDualLayout());
+    if (items.isEmpty()) {
+        KMessageBox::error(this, i18nc("@info", "Select two local files to compare."));
+        return;
+    }
+    auto *dialog = new FileDiffDialog(items.at(0).url().toLocalFile(), items.at(1).url().toLocalFile(), this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
 }
 
 void MainWindow::copyToOtherPane()

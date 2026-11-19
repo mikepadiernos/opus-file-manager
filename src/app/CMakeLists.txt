@@ -13,6 +13,8 @@ add_library(opusfm_app STATIC
     detailsview.h
     editorpanel.cpp
     editorpanel.h
+    filediffdialog.cpp
+    filediffdialog.h
     fileoperations.cpp
     fileoperations.h
     filterbar.cpp

@@ -316,7 +316,7 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 - Folder comparison and sync filters: include/exclude patterns, recursion,
   symlink handling and optional content comparison; save reusable profiles
   (Krusader)
-- File diff
+- ~~File diff~~
 - Batch rename: preview old and new names, detect collisions before applying,
   and support metadata tokens for images and audio (Max)
 - Batch rename rules for regular expressions and reusable named presets
@@ -336,6 +336,8 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
   for portrait/stacked layouts; showing it never replaces either pane
 - Placeholders for scripts and custom commands
 - Linked panes and cushion treemap (Orcinus)
+
+**Caveats:** [File comparison](CAVEATS.md#file-comparison), tracked in #311.
 
 ### M10 Tools settings
 

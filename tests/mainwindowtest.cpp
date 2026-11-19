@@ -2,6 +2,7 @@
 
 #include "mainwindow.h"
 #include "combinedpanel.h"
+#include "filediffdialog.h"
 #include "fileoperations.h"
 #include "filterbar.h"
 #include "foldertree.h"
@@ -440,6 +441,106 @@ private Q_SLOTS:
         auto *editorWindow = window.findChild<QDialog *>(QStringLiteral("editorWindow"));
         QVERIFY(editorWindow && editorWindow->isVisible());
         QVERIFY(!dock->isVisible());
+    }
+
+    void fileComparison()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString first = dir.filePath(QStringLiteral("-first.txt"));
+        const QString second = dir.filePath(QStringLiteral("second.txt"));
+        QFile a(first);
+        QFile b(second);
+        QVERIFY(a.open(QIODevice::WriteOnly));
+        QCOMPARE(a.write("same\nold\n"), 9);
+        a.close();
+        QVERIFY(b.open(QIODevice::WriteOnly));
+        QCOMPARE(b.write("same\nnew\n"), 9);
+        b.close();
+        QVERIFY(!QStandardPaths::findExecutable(QStringLiteral("diff")).isEmpty());
+
+        FileDiffDialog different(first, second);
+        auto *status = different.findChild<QLabel *>(QStringLiteral("fileDiffStatus"));
+        auto *output = different.findChild<QPlainTextEdit *>(QStringLiteral("fileDiffOutput"));
+        QVERIFY(status && output);
+        QTRY_COMPARE(status->text(), QStringLiteral("The files differ."));
+        QVERIFY(output->toPlainText().contains(QStringLiteral("-old")));
+        QVERIFY(output->toPlainText().contains(QStringLiteral("+new")));
+
+        FileDiffDialog identical(first, first);
+        QTRY_COMPARE(identical.findChild<QLabel *>(QStringLiteral("fileDiffStatus"))->text(), QStringLiteral("The files are identical."));
+        FileDiffDialog missing(first, dir.filePath(QStringLiteral("missing")));
+        QTRY_VERIFY(missing.findChild<QLabel *>(QStringLiteral("fileDiffStatus"))->text().startsWith(QStringLiteral("The comparison failed:")));
+
+        const QByteArray path = qgetenv("PATH");
+        qputenv("PATH", dir.path().toLocal8Bit());
+        FileDiffDialog missingTool(first, second);
+        qputenv("PATH", path);
+        QTRY_VERIFY(missingTool.findChild<QLabel *>(QStringLiteral("fileDiffStatus"))->text().startsWith(QStringLiteral("Could not start diff:")));
+
+        QVERIFY(b.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        QCOMPARE(b.write(QByteArray(5 * 1024 * 1024, 'x')), qint64(5 * 1024 * 1024));
+        b.close();
+        FileDiffDialog large(first, second);
+        QTRY_COMPARE(large.findChild<QLabel *>(QStringLiteral("fileDiffStatus"))->text(),
+                     QStringLiteral("The comparison output exceeded 4 MiB and was stopped."));
+        QVERIFY(large.findChild<QPlainTextEdit *>(QStringLiteral("fileDiffOutput"))->toPlainText().isEmpty());
+    }
+
+    void compareFilesActionUsesBothPanes()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir(dir.path()).mkdir(QStringLiteral("left")));
+        QVERIFY(QDir(dir.path()).mkdir(QStringLiteral("right")));
+        const QString first = dir.filePath(QStringLiteral("left/first.txt"));
+        const QString second = dir.filePath(QStringLiteral("right/second.txt"));
+        QFile a(first);
+        QFile b(second);
+        QVERIFY(a.open(QIODevice::WriteOnly));
+        a.write("first\n");
+        a.close();
+        QVERIFY(b.open(QIODevice::WriteOnly));
+        b.write("second\n");
+        b.close();
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(dir.filePath(QStringLiteral("left"))), QUrl::fromLocalFile(dir.filePath(QStringLiteral("right")))});
+        window.show();
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        auto *left = window.activePane()->view();
+        auto *right = window.inactivePane()->view();
+        QTRY_COMPARE(left->itemCount(), 1);
+        QTRY_COMPARE(right->itemCount(), 1);
+        auto *action = window.actionCollection()->action(QStringLiteral("compare_files"));
+        QVERIFY(action && !action->isEnabled());
+        left->selectUrls({QUrl::fromLocalFile(first)});
+        QVERIFY(!action->isEnabled());
+        right->selectUrls({QUrl::fromLocalFile(second)});
+        QTRY_VERIFY(action->isEnabled());
+        action->trigger();
+        auto *dialog = window.findChild<FileDiffDialog *>(QStringLiteral("fileDiffDialog"));
+        QVERIFY(dialog);
+        QTRY_COMPARE(dialog->findChild<QLabel *>(QStringLiteral("fileDiffStatus"))->text(), QStringLiteral("The files differ."));
+        window.actionCollection()->action(QStringLiteral("show_preview_panel"))->setChecked(true);
+        QVERIFY(!action->isEnabled());
+        window.actionCollection()->action(QStringLiteral("show_preview_panel"))->setChecked(false);
+        QVERIFY(action->isEnabled());
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(false);
+        QVERIFY(!action->isEnabled());
+        QPointer<FileDiffDialog> closedDialog = dialog;
+        dialog->close();
+        QTRY_VERIFY(closedDialog.isNull());
+        QFile localSecond(dir.filePath(QStringLiteral("left/third.txt")));
+        QVERIFY(localSecond.open(QIODevice::WriteOnly));
+        localSecond.write("third\n");
+        localSecond.close();
+        QTRY_COMPARE(left->itemCount(), 2);
+        left->selectUrls({QUrl::fromLocalFile(first), QUrl::fromLocalFile(localSecond.fileName())});
+        QTRY_VERIFY(action->isEnabled());
+        action->trigger();
+        auto *samePaneDialog = window.findChild<FileDiffDialog *>(QStringLiteral("fileDiffDialog"));
+        QVERIFY(samePaneDialog);
+        QTRY_COMPARE(samePaneDialog->findChild<QLabel *>(QStringLiteral("fileDiffStatus"))->text(), QStringLiteral("The files differ."));
     }
 
     void navigationUpdatesHistory()
