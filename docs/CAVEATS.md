@@ -65,6 +65,16 @@ operation before assuming passwords are kept out of process arguments.
   highlighting. Rendered HTML and Markdown disable external resources and
   links.
 
+## Editor
+
+- Drafts are limited to 8 MiB of UTF-8 text. Drafts are not automatically
+  pruned; restored drafts remain available until explicitly discarded so that
+  recovery cannot delete another editor's changes. Drafts are stored in the
+  application's private data directory, not in the original file. If draft
+  storage fails, save the document before switching files or closing.
+- Markdown preview and PDF export do not load external or local resources;
+  links are disabled in the preview.
+
 ## Build, installation and references
 
 - Opus targets Linux and requires the dependencies listed in
