@@ -47,19 +47,28 @@ Each milestone ends with a working, tested app.
    panel; open, Open With and service menus; copy/move to the other pane
    (F5/F6), clipboard, drag and drop, trash/delete, rename, new folder/file,
    undo; hidden files; terminal; properties; free space in the status bar;
-   single instance; session restore.
-2. **M02 listing depth.** Extra columns, Dolphin-style grouping, filter syntax,
+   single instance; session restore; stacked top/bottom layout with both tab
+   bars meeting in the middle.
+2. **M02 settings.** Settings for each M01 feature, modelled on Dolphin and its
+   fork Orcinus and stored in KConfig: preferences dialog; startup folders and
+   session; one or two panes for new windows and tabs, tab bar, per-pane
+   navigation bar; following symbolic links; view mode, sizes, columns, sorting,
+   hidden files; item and bar density; previews and their plugins and size
+   limits; Places panel; status bar contents; what opening an executable does;
+   confirmations, default drop action and dragging from anywhere in a row;
+   context menu contents.
+3. **M03 listing depth.** Extra columns, Dolphin-style grouping, filter syntax,
    type-ahead, per-folder format, labels, ratings, notes, pins, colours, folder
    look dialog, ignore list, tree pane, flat view, archive browsing and
    extract/compress, bookmarks with custom titles, tab pin/lock/colour.
-3. **M03 preview and gallery.** Preview panel (images, PDF and office via
+4. **M04 preview and gallery.** Preview panel (images, PDF and office via
    KParts, text, media), gallery with zoom, slideshow, filmstrip, image info,
    edits, convert.
-4. **M04 editor.** KTextEditor-based editor (docked, maximised, standalone),
+5. **M05 editor.** KTextEditor-based editor (docked, maximised, standalone),
    drafts, markdown preview and PDF export.
-5. **M05 tools.** Live search, indexed search, duplicates, content chart, folder
+6. **M06 tools.** Live search, indexed search, duplicates, content chart, folder
    sync, file diff, batch rename, symlinks, listing export, audio tags, scripts
    and custom commands, presets.
-6. **M06 desktop integration.** Preferences dialog, FileManager1 D-Bus service,
-   default file manager, tray, global shortcut, XDG portal file chooser, MCP
-   server, Persian translation and RTL, Jalali dates.
+7. **M07 desktop integration.** FileManager1 D-Bus service, default file
+   manager, tray, global shortcut, XDG portal file chooser, MCP server, Persian
+   translation and RTL, Jalali dates.
