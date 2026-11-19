@@ -22,5 +22,17 @@ struct Result {
     bool canceled = false;
 };
 
+enum class SelectionPolicy {
+    KeepNewest,
+    KeepOldest,
+    InFolder,
+};
+
+struct SelectionResult {
+    QStringList paths;
+    QStringList errors;
+};
+
 Result find(const QStringList &paths, const Checksums::Cancel &cancel = {}, const Checksums::Progress &progress = {});
+SelectionResult select(const QList<Group> &groups, SelectionPolicy policy, const QString &folder = {});
 }

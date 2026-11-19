@@ -5,6 +5,7 @@
 #include <KLocalizedString>
 
 #include <QDateTime>
+#include <QDir>
 #include <QFileInfo>
 #include <QMap>
 #include <QSet>
@@ -19,6 +20,7 @@ DuplicateFinder::Result DuplicateFinder::find(const QStringList &paths, const Ch
             result.canceled = true;
             return result;
         }
+
         const QFileInfo info(path);
         if (!info.isAbsolute() || info.isSymLink() || !info.isFile()) {
             result.errors.append(i18nc("@info", "Not an existing regular file: %1", path));
@@ -56,6 +58,7 @@ DuplicateFinder::Result DuplicateFinder::find(const QStringList &paths, const Ch
                 result.groups.clear();
                 return result;
             }
+
             const QFileInfo after(path);
             if (!digest.error.isEmpty()) {
                 result.errors.append(i18nc("@info", "Could not read %1: %2", path, digest.error));
@@ -77,6 +80,61 @@ DuplicateFinder::Result DuplicateFinder::find(const QStringList &paths, const Ch
         result.groups.clear();
     } else if (progress) {
         progress(total, total, QString());
+    }
+    return result;
+}
+
+DuplicateFinder::SelectionResult DuplicateFinder::select(const QList<Group> &groups, SelectionPolicy policy, const QString &folder)
+{
+    SelectionResult result;
+    const QFileInfo folderInfo(folder);
+    if (policy == SelectionPolicy::InFolder && (!folderInfo.isAbsolute() || !folderInfo.isDir())) {
+        result.errors.append(i18nc("@info", "Choose an existing absolute local folder."));
+        return result;
+    }
+    for (const Group &group : groups) {
+        QStringList paths = group.paths;
+        paths.sort();
+        if (paths.size() < 2) {
+            result.errors.append(i18nc("@info", "A duplicate group has fewer than two paths."));
+            continue;
+        }
+        bool valid = true;
+        QString keep;
+        QDateTime keepTime;
+        for (const QString &path : std::as_const(paths)) {
+            const QFileInfo info(path);
+            const QDateTime time = info.lastModified();
+            if (!info.isAbsolute() || !info.isFile() || info.isSymLink() || (policy != SelectionPolicy::InFolder && !time.isValid())) {
+                result.errors.append(i18nc("@info", "Could not select candidates from this group because a file is unavailable: %1", path));
+                valid = false;
+                break;
+            }
+            if (keep.isEmpty() || (policy == SelectionPolicy::KeepNewest && time > keepTime) || (policy == SelectionPolicy::KeepOldest && time < keepTime)) {
+                keep = path;
+                keepTime = time;
+            }
+        }
+        if (!valid) {
+            continue;
+        }
+        if (policy == SelectionPolicy::InFolder) {
+            QStringList candidates;
+            const QDir root(folderInfo.absoluteFilePath());
+            for (const QString &path : std::as_const(paths)) {
+                const QString relative = root.relativeFilePath(path);
+                if (!QDir::isAbsolutePath(relative) && relative != QLatin1String("..") && !relative.startsWith(QLatin1String("../"))) {
+                    candidates.append(path);
+                }
+            }
+            if (candidates.size() == paths.size()) {
+                candidates.removeFirst();
+            }
+            result.paths.append(candidates);
+            continue;
+        }
+        paths.removeAll(keep);
+        result.paths.append(paths);
     }
     return result;
 }

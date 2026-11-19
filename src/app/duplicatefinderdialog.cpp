@@ -10,12 +10,17 @@
 
 #include <QApplication>
 #include <QClipboard>
+#include <QComboBox>
 #include <QDialogButtonBox>
+#include <QFileDialog>
+#include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
+#include <QLineEdit>
 #include <QProgressBar>
 #include <QPromise>
 #include <QPushButton>
+#include <QSet>
 #include <QTreeWidget>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
@@ -30,6 +35,9 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
     , m_errorsView(new QTreeWidget(this))
     , m_cancel(new QPushButton(i18nc("@action:button", "Cancel Scan"), this))
     , m_copy(new QPushButton(i18nc("@action:button", "Copy Checked URLs"), this))
+    , m_policy(new QComboBox(this))
+    , m_policyFolder(new QLineEdit(folder.toLocalFile(), this))
+    , m_applyPolicy(new QPushButton(i18nc("@action:button", "Select Candidates"), this))
 {
     setObjectName(QStringLiteral("duplicateFinderDialog"));
     setWindowTitle(i18nc("@title:window", "Find Duplicate Files"));
@@ -56,9 +64,59 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
     m_results->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     layout->addWidget(m_results);
     m_errorsView->setObjectName(QStringLiteral("duplicateFinderErrors"));
-    m_errorsView->setHeaderLabels({i18nc("@title:column", "Scan errors")});
+    m_errorsView->setHeaderLabels({i18nc("@title:column", "Scan and selection errors")});
     m_errorsView->hide();
     layout->addWidget(m_errorsView);
+    auto *selection = new QHBoxLayout;
+    m_policy->setObjectName(QStringLiteral("duplicateFinderPolicy"));
+    m_policy->addItem(i18nc("@item:inlistbox", "Keep newest"));
+    m_policy->addItem(i18nc("@item:inlistbox", "Keep oldest"));
+    m_policy->addItem(i18nc("@item:inlistbox", "Select files in folder"));
+    m_policyFolder->setObjectName(QStringLiteral("duplicateFinderPolicyFolder"));
+    m_policyFolder->setEnabled(false);
+    auto *chooseFolder = new QPushButton(i18nc("@action:button", "Choose Folder…"), this);
+    chooseFolder->setEnabled(false);
+    m_applyPolicy->setObjectName(QStringLiteral("duplicateFinderApplyPolicy"));
+    m_applyPolicy->setEnabled(false);
+    selection->addWidget(m_policy);
+    selection->addWidget(m_policyFolder, 1);
+    selection->addWidget(chooseFolder);
+    selection->addWidget(m_applyPolicy);
+    layout->addLayout(selection);
+    connect(m_policy, &QComboBox::currentIndexChanged, this, [this, chooseFolder](int index) {
+        m_policyFolder->setEnabled(index == 2);
+        chooseFolder->setEnabled(index == 2);
+    });
+    connect(chooseFolder, &QPushButton::clicked, this, [this] {
+        const QString folder = QFileDialog::getExistingDirectory(this, i18nc("@title:window", "Choose Candidate Folder"), m_policyFolder->text());
+        if (!folder.isEmpty()) {
+            m_policyFolder->setText(folder);
+        }
+    });
+    connect(m_applyPolicy, &QPushButton::clicked, this, [this] {
+        const auto policy = m_policy->currentIndex() == 0 ? DuplicateFinder::SelectionPolicy::KeepNewest
+            : m_policy->currentIndex() == 1               ? DuplicateFinder::SelectionPolicy::KeepOldest
+                                                          : DuplicateFinder::SelectionPolicy::InFolder;
+        const auto result = DuplicateFinder::select(m_groups, policy, m_policyFolder->text());
+        const QSet<QString> selected(result.paths.cbegin(), result.paths.cend());
+        for (int i = 0; i < m_results->topLevelItemCount(); ++i) {
+            QTreeWidgetItem *group = m_results->topLevelItem(i);
+            for (int j = 0; j < group->childCount(); ++j) {
+                QTreeWidgetItem *child = group->child(j);
+                child->setCheckState(0, selected.contains(child->text(0)) ? Qt::Checked : Qt::Unchecked);
+            }
+        }
+        if (!result.errors.isEmpty()) {
+            for (const QString &error : result.errors) {
+                auto *row = new QTreeWidgetItem(m_errorsView);
+                row->setText(0, error);
+            }
+            m_errorsView->show();
+            m_status->setText(i18nc("@info", "Some groups could not be selected. See the errors below; those groups were left unchecked."));
+        } else {
+            m_status->setText(i18nc("@info", "Candidates selected; at least one path in each group remains unchecked."));
+        }
+    });
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
     m_cancel->setObjectName(QStringLiteral("duplicateFinderCancel"));
     m_copy->setObjectName(QStringLiteral("duplicateFinderCopy"));
@@ -97,6 +155,7 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
             m_status->setText(i18nc("@info", "Scan canceled; no results are shown."));
             return;
         }
+        m_groups = result.groups;
         for (const auto &group : result.groups) {
             auto *parent = new QTreeWidgetItem(m_results);
             parent->setText(0, i18np("%1 duplicate file", "%1 duplicate files", group.paths.size()));
@@ -115,6 +174,7 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
         }
         m_errorsView->setVisible(!m_errors.isEmpty());
         m_copy->setEnabled(!result.groups.isEmpty());
+        m_applyPolicy->setEnabled(!result.groups.isEmpty());
         m_status->setText(
             i18nc("@info", "Found %1 groups. Scan errors: %2. Results can become stale; review files before removal.", result.groups.size(), m_errors.size()));
     });

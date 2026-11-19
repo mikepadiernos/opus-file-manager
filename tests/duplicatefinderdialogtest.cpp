@@ -4,9 +4,11 @@
 
 #include <QApplication>
 #include <QClipboard>
+#include <QComboBox>
 #include <QDir>
 #include <QFile>
 #include <QLabel>
+#include <QLineEdit>
 #include <QPushButton>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -55,6 +57,27 @@ private Q_SLOTS:
         QStringList paths{group->child(0)->text(0), group->child(1)->text(0)};
         paths.sort();
         QCOMPARE(paths, (QStringList{first, second}));
+        auto *policy = dialog.findChild<QComboBox *>(QStringLiteral("duplicateFinderPolicy"));
+        auto *apply = dialog.findChild<QPushButton *>(QStringLiteral("duplicateFinderApplyPolicy"));
+        QVERIFY(policy && apply);
+        policy->setCurrentIndex(2);
+        dialog.findChild<QLineEdit *>(QStringLiteral("duplicateFinderPolicyFolder"))->setText(dir.filePath(QStringLiteral("sub")));
+        apply->click();
+        int checked = 0;
+        for (int i = 0; i < group->childCount(); ++i) {
+            if (group->child(i)->checkState(0) == Qt::Checked) {
+                QCOMPARE(group->child(i)->text(0), second);
+                ++checked;
+            }
+        }
+        QCOMPARE(checked, 1);
+        QVERIFY(QFile::remove(first));
+        policy->setCurrentIndex(0);
+        apply->click();
+        QCOMPARE(group->child(0)->checkState(0), Qt::Unchecked);
+        QCOMPARE(group->child(1)->checkState(0), Qt::Unchecked);
+        QVERIFY(dialog.findChild<QTreeWidget *>(QStringLiteral("duplicateFinderErrors"))->topLevelItemCount() > 0);
+        QVERIFY(write(first, "data"));
         group->child(0)->setCheckState(0, Qt::Checked);
         copy->click();
         QCOMPARE(QApplication::clipboard()->text(), QUrl::fromLocalFile(group->child(0)->text(0)).toString(QUrl::FullyEncoded));

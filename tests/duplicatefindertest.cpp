@@ -73,6 +73,47 @@ private Q_SLOTS:
         QVERIFY(canceled.canceled);
         QVERIFY(canceled.groups.isEmpty());
     }
+
+    void automaticSelectionAlwaysKeepsAFilePerGroup()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir(dir.path()).mkdir(QStringLiteral("inside")));
+        const QString a = dir.filePath(QStringLiteral("inside/a"));
+        const QString b = dir.filePath(QStringLiteral("inside/b"));
+        const QString c = dir.filePath(QStringLiteral("outside"));
+        QVERIFY(write(a, "data"));
+        QVERIFY(write(b, "data"));
+        QVERIFY(write(c, "data"));
+        QFile first(a);
+        QVERIFY(first.open(QIODevice::ReadOnly));
+        QVERIFY(first.setFileTime(QDateTime::fromSecsSinceEpoch(1000), QFileDevice::FileModificationTime));
+        first.close();
+        QFile second(b);
+        QVERIFY(second.open(QIODevice::ReadOnly));
+        QVERIFY(second.setFileTime(QDateTime::fromSecsSinceEpoch(2000), QFileDevice::FileModificationTime));
+        second.close();
+        const QList<DuplicateFinder::Group> groups{{4, {}, {a, b}}, {4, {}, {b, c}}};
+        const auto newest = DuplicateFinder::select({groups.first()}, DuplicateFinder::SelectionPolicy::KeepNewest);
+        QVERIFY(newest.errors.isEmpty());
+        QCOMPARE(newest.paths, QStringList{a});
+        const auto oldest = DuplicateFinder::select({groups.first()}, DuplicateFinder::SelectionPolicy::KeepOldest);
+        QCOMPARE(oldest.paths, QStringList{b});
+        QFile tied(c);
+        QVERIFY(tied.open(QIODevice::ReadOnly));
+        QVERIFY(tied.setFileTime(QDateTime::fromSecsSinceEpoch(2000), QFileDevice::FileModificationTime));
+        tied.close();
+        const auto ties = DuplicateFinder::select({groups.last()}, DuplicateFinder::SelectionPolicy::KeepNewest);
+        QCOMPARE(ties.paths, QStringList{c});
+        const auto inFolder = DuplicateFinder::select(groups, DuplicateFinder::SelectionPolicy::InFolder, dir.filePath(QStringLiteral("inside")));
+        QVERIFY(inFolder.errors.isEmpty());
+        QCOMPARE(inFolder.paths, (QStringList{b, b}));
+        QVERIFY(!DuplicateFinder::select(groups, DuplicateFinder::SelectionPolicy::InFolder, dir.filePath(QStringLiteral("missing"))).errors.isEmpty());
+        QVERIFY(QFile::remove(a));
+        const auto missing = DuplicateFinder::select({groups.first()}, DuplicateFinder::SelectionPolicy::KeepNewest);
+        QVERIFY(!missing.errors.isEmpty());
+        QVERIFY(missing.paths.isEmpty());
+    }
 };
 
 QTEST_GUILESS_MAIN(DuplicateFinderTest)

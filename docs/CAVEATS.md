@@ -346,18 +346,18 @@ on the server and access method. (Comment: [#312][comment-312])
 
 - The in-progress finder recursively scans local folders for known regular
   files, groups equal sizes and SHA-256 hashes, and allows checked file URLs
-  to be copied for manual review. It does not remove files or provide automatic
-  candidate-selection policies. Symbolic links are skipped; hard links may
-  appear as separate paths, and unknown entry types are skipped. Errors are
+  to be copied for manual review. Candidates can be selected by modification
+  time or folder, but the finder does not remove files. Symbolic links are
+  skipped; hard links may appear as separate paths, and unknown entry types
+  are skipped. Errors are
   shown, but scans are unbounded and results can become stale; matching hashes
   are not a guarantee of byte identity.
   ([#336](https://github.com/mikepadiernos/opus-file-manager/issues/336))
 
   **Recommendation:** Review groups and errors, verify current file contents
   and paths independently, and keep at least one confirmed copy before
-  removing anything manually. Use a dedicated duplicate tool when candidate
-  selection or integrated removal is needed; scan smaller local folders if a
-  scan is expensive.
+  removing anything manually. Use a dedicated duplicate tool when integrated
+  removal is needed; scan smaller local folders if a scan is expensive.
   ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/336#issuecomment-7022793474))
 
 ## Build, installation and references
