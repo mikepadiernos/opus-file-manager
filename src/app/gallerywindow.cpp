@@ -176,6 +176,7 @@ GalleryWindow::GalleryWindow(const QList<QUrl> &urls, const QSet<QUrl> &videos, 
     , m_timer(new QTimer(this))
 {
     setObjectName(QStringLiteral("galleryWindow"));
+    m_initialActualZoom = Settings::galleryInitialZoom() == Settings::EnumGalleryInitialZoom::ActualSize;
     setAttribute(Qt::WA_DeleteOnClose);
     setWindowTitle(i18nc("@title:window", "Gallery"));
     resize(1000, 700);
@@ -247,6 +248,17 @@ GalleryWindow::GalleryWindow(const QList<QUrl> &urls, const QSet<QUrl> &videos, 
     auto *info = new QPushButton(i18nc("@action", "Information"), this);
     info->setCheckable(true);
     info->setObjectName(QStringLiteral("galleryInformation"));
+    auto *thumbnails = new QPushButton(i18nc("@action", "Thumbnails"), this);
+    thumbnails->setObjectName(QStringLiteral("galleryThumbnails"));
+    thumbnails->setCheckable(true);
+    thumbnails->setChecked(Settings::galleryShowThumbnails());
+    m_filmstrip->setVisible(thumbnails->isChecked());
+    connect(thumbnails, &QPushButton::toggled, this, [this](bool visible) {
+        m_filmstrip->setVisible(visible);
+        if (visible) {
+            queueVisibleThumbnails();
+        }
+    });
     auto *close = new QPushButton(i18nc("@action", "Close"), this);
     auto *toolbar = new QHBoxLayout;
     toolbar->addWidget(m_title, 1);
@@ -255,6 +267,7 @@ GalleryWindow::GalleryWindow(const QList<QUrl> &urls, const QSet<QUrl> &videos, 
     toolbar->addWidget(fit);
     toolbar->addWidget(m_slideshow);
     toolbar->addWidget(info);
+    toolbar->addWidget(thumbnails);
     toolbar->addWidget(close);
     auto *stage = new QHBoxLayout;
     stage->addWidget(m_previous);
@@ -695,7 +708,11 @@ void GalleryWindow::showImage(const PreviewContent &content)
                 file.absoluteFilePath());
     m_info->setText(m_baseInfo);
     m_stage->setCurrentWidget(m_view);
-    fitImage();
+    if (m_initialActualZoom) {
+        m_view->resetTransform();
+    } else {
+        fitImage();
+    }
     if (content.animated) {
         m_movie = new QMovie(m_urls.at(m_index).toLocalFile(), {}, this);
         m_movie->setObjectName(QStringLiteral("galleryAnimation"));
@@ -779,6 +796,9 @@ void GalleryWindow::startThumbnailLoad()
 
 void GalleryWindow::queueVisibleThumbnails()
 {
+    if (m_filmstrip->isHidden()) {
+        return;
+    }
     const auto queue = [this](int index) {
         if (index >= 0 && index < m_urls.size() && !m_videos.contains(m_urls.at(index)) && !m_thumbnailDone.contains(index)
             && !m_thumbnailQueued.contains(index)) {

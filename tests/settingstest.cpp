@@ -38,6 +38,7 @@
 #include <QHeaderView>
 #include <QLabel>
 #include <QLayout>
+#include <QLineEdit>
 #include <QListView>
 #include <QListWidget>
 #include <QMenu>
@@ -52,6 +53,7 @@
 #include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTextBrowser>
 #include <QTimer>
 #include <QTreeView>
 
@@ -244,7 +246,19 @@ private Q_SLOTS:
         auto *format = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_GalleryCopyFormat"));
         auto *quality = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_GalleryCopyQuality"));
         auto *destination = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_FileActivationDestination"));
-        QVERIFY(information && interval && loop && textLimit && format && quality && destination);
+        auto *formatted = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_PreviewFormatted"));
+        auto *lineNumbers = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_PreviewLineNumbers"));
+        auto *highlighting = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_PreviewSyntaxHighlighting"));
+        auto *zoom = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_GalleryInitialZoom"));
+        auto *thumbnails = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_GalleryShowThumbnails"));
+        auto *batchResize = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_GalleryBatchResize"));
+        auto *batchWidth = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_GalleryBatchWidth"));
+        auto *batchHeight = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_GalleryBatchHeight"));
+        auto *batchFormat = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_GalleryBatchFormat"));
+        auto *batchQuality = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_GalleryBatchQuality"));
+        auto *batchDestination = dialog.findChild<QLineEdit *>(QStringLiteral("kcfg_GalleryBatchDestination"));
+        QVERIFY(information && interval && loop && textLimit && format && quality && destination && formatted && lineNumbers && highlighting && zoom
+                && thumbnails && batchResize && batchWidth && batchHeight && batchFormat && batchQuality && batchDestination);
         information->setChecked(true);
         interval->setValue(8);
         loop->setChecked(false);
@@ -252,6 +266,17 @@ private Q_SLOTS:
         format->setCurrentIndex(Settings::EnumGalleryCopyFormat::Webp);
         quality->setValue(72);
         destination->setCurrentIndex(Settings::EnumFileActivationDestination::Preview);
+        formatted->setChecked(false);
+        lineNumbers->setChecked(false);
+        highlighting->setChecked(false);
+        zoom->setCurrentIndex(Settings::EnumGalleryInitialZoom::ActualSize);
+        thumbnails->setChecked(false);
+        batchResize->setChecked(true);
+        batchWidth->setValue(800);
+        batchHeight->setValue(600);
+        batchFormat->setCurrentIndex(Settings::EnumGalleryBatchFormat::Jpeg);
+        batchQuality->setValue(77);
+        batchDestination->setText(m_root.path());
         dialog.button(QDialogButtonBox::Apply)->click();
         Settings::self()->load();
         QVERIFY(Settings::galleryShowInformation());
@@ -261,6 +286,17 @@ private Q_SLOTS:
         QCOMPARE(Settings::galleryCopyFormat(), Settings::EnumGalleryCopyFormat::Webp);
         QCOMPARE(Settings::galleryCopyQuality(), 72);
         QCOMPARE(Settings::fileActivationDestination(), Settings::EnumFileActivationDestination::Preview);
+        QVERIFY(!Settings::previewFormatted());
+        QVERIFY(!Settings::previewLineNumbers());
+        QVERIFY(!Settings::previewSyntaxHighlighting());
+        QCOMPARE(Settings::galleryInitialZoom(), Settings::EnumGalleryInitialZoom::ActualSize);
+        QVERIFY(!Settings::galleryShowThumbnails());
+        QVERIFY(Settings::galleryBatchResize());
+        QCOMPARE(Settings::galleryBatchWidth(), 800);
+        QCOMPARE(Settings::galleryBatchHeight(), 600);
+        QCOMPARE(Settings::galleryBatchFormat(), Settings::EnumGalleryBatchFormat::Jpeg);
+        QCOMPARE(Settings::galleryBatchQuality(), 77);
+        QCOMPARE(Settings::galleryBatchDestination(), m_root.path());
         dialog.button(QDialogButtonBox::RestoreDefaults)->click();
         QVERIFY(!information->isChecked());
         QCOMPARE(interval->value(), 3);
@@ -269,6 +305,17 @@ private Q_SLOTS:
         QCOMPARE(format->currentIndex(), Settings::EnumGalleryCopyFormat::Png);
         QCOMPARE(quality->value(), 90);
         QCOMPARE(destination->currentIndex(), Settings::EnumFileActivationDestination::Application);
+        QVERIFY(formatted->isChecked());
+        QVERIFY(lineNumbers->isChecked());
+        QVERIFY(highlighting->isChecked());
+        QCOMPARE(zoom->currentIndex(), Settings::EnumGalleryInitialZoom::Fit);
+        QVERIFY(thumbnails->isChecked());
+        QVERIFY(!batchResize->isChecked());
+        QCOMPARE(batchWidth->value(), 1024);
+        QCOMPARE(batchHeight->value(), 1024);
+        QCOMPARE(batchFormat->currentIndex(), Settings::EnumGalleryBatchFormat::Png);
+        QCOMPARE(batchQuality->value(), 90);
+        QVERIFY(batchDestination->text().isEmpty());
     }
 
     void applyingTextLimitRefreshesCurrentPreview()
@@ -295,6 +342,39 @@ private Q_SLOTS:
         dialog->findChild<QSpinBox *>(QStringLiteral("kcfg_TextPreviewLimitKiB"))->setValue(1);
         dialog->button(QDialogButtonBox::Apply)->click();
         QTRY_COMPARE(text->toPlainText().size(), 1024);
+        dialog->close();
+    }
+
+    void applyingPresentationSettingsUpdatesCurrentPreview()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QFile file(dir.filePath(QStringLiteral("page.html")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QCOMPARE(file.write("<h1>Hello</h1>"), 14);
+        file.close();
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(dir.path())});
+        window.show();
+        auto *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        view->selectUrls({QUrl::fromLocalFile(file.fileName())});
+        action(window, QStringLiteral("show_preview_panel"))->setChecked(true);
+        auto *panel = window.findChild<PreviewPanel *>();
+        auto *rendered = panel->findChild<QTextBrowser *>(QStringLiteral("previewRenderedText"));
+        auto *source = panel->findChild<QPlainTextEdit *>(QStringLiteral("previewText"));
+        auto *lineNumbers = panel->findChild<QWidget *>(QStringLiteral("previewLineNumbers"));
+        QVERIFY(rendered && source && lineNumbers);
+        QTRY_VERIFY(rendered->isVisible());
+        action(window, QStringLiteral("options_configure"))->trigger();
+        auto *dialog = window.findChild<SettingsDialog *>();
+        QVERIFY(dialog);
+        dialog->findChild<QCheckBox *>(QStringLiteral("kcfg_PreviewFormatted"))->setChecked(false);
+        dialog->findChild<QCheckBox *>(QStringLiteral("kcfg_PreviewLineNumbers"))->setChecked(false);
+        dialog->button(QDialogButtonBox::Apply)->click();
+        QVERIFY(source->isVisible());
+        QVERIFY(lineNumbers->isHidden());
+        QCOMPARE(source->toPlainText(), QStringLiteral("<h1>Hello</h1>"));
         dialog->close();
     }
 

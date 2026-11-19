@@ -2266,6 +2266,7 @@ void MainWindow::applySettings()
         shortcuts.prepend(QKeySequence(Qt::Key_Tab));
     }
     switchPane->setShortcuts(shortcuts);
+    m_previewPanel->applyPresentationSettings();
     updatePreviewPanel();
     updateActions();
 }

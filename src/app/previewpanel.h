@@ -32,6 +32,7 @@ public:
     explicit PreviewPanel(QWidget *parent = nullptr);
     ~PreviewPanel() override;
     void setItems(const KFileItemList &items, const QList<QUrl> &images = {});
+    void applyPresentationSettings();
     void clear();
 
 Q_SIGNALS:
@@ -94,6 +95,9 @@ private:
     bool m_metadataLoading = false;
     bool m_truncated = false;
     bool m_longLines = false;
+    bool m_preferFormatted = true;
+    bool m_showLineNumbers = true;
+    bool m_syntaxHighlighting = true;
     QString m_textMimeType;
     QString m_textContent;
     QList<QUrl> m_images;

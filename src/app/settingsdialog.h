@@ -60,6 +60,7 @@ private:
     QWidget *createPreviewsPage();
     QWidget *createOpeningPage();
     QWidget *createGalleryInformationPage();
+    QWidget *createGalleryDisplayPage();
     QWidget *createSlideshowPage();
     QWidget *createImageConversionPage();
     QWidget *createConfirmationsPage();

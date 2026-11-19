@@ -47,7 +47,9 @@
 #include <QTabBar>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTextBlock>
 #include <QTextBrowser>
+#include <QTextLayout>
 #include <QTimer>
 #include <QToolButton>
 #include <QTreeView>
@@ -309,6 +311,60 @@ private Q_SLOTS:
         QVERIFY(resource.value<QImage>().isNull());
         mode->click();
         QCOMPARE(source->toPlainText().toUtf8(), markup);
+    }
+
+    void previewPresentationSettings()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QFile html(dir.filePath(QStringLiteral("page.html")));
+        QVERIFY(html.open(QIODevice::WriteOnly));
+        QCOMPARE(html.write("<h1>Hello</h1>"), 14);
+        html.close();
+        QFile markdown(dir.filePath(QStringLiteral("page.md")));
+        QVERIFY(markdown.open(QIODevice::WriteOnly));
+        QCOMPARE(markdown.write("# Hello"), 7);
+        markdown.close();
+        QFile code(dir.filePath(QStringLiteral("code.cpp")));
+        QVERIFY(code.open(QIODevice::WriteOnly));
+        QCOMPARE(code.write("int main() { return 42; }\n"), 26);
+        code.close();
+        Settings::setPreviewFormatted(false);
+        Settings::setPreviewLineNumbers(false);
+        Settings::setPreviewSyntaxHighlighting(false);
+        PreviewPanel panel;
+        panel.show();
+        auto *source = panel.findChild<QPlainTextEdit *>(QStringLiteral("previewText"));
+        auto *rendered = panel.findChild<QTextBrowser *>(QStringLiteral("previewRenderedText"));
+        auto *mode = panel.findChild<QToolButton *>(QStringLiteral("previewRenderMode"));
+        auto *lineNumbers = panel.findChild<QWidget *>(QStringLiteral("previewLineNumbers"));
+        QVERIFY(source && rendered && mode && lineNumbers);
+        panel.setItems({KFileItem(QUrl::fromLocalFile(html.fileName()))});
+        QTRY_VERIFY(source->isVisible());
+        QVERIFY(!mode->isChecked());
+        QVERIFY(lineNumbers->isHidden());
+        mode->click();
+        QVERIFY(rendered->isVisible());
+        panel.setItems({KFileItem(QUrl::fromLocalFile(markdown.fileName()))});
+        QTRY_VERIFY(source->isVisible());
+        QVERIFY(!mode->isChecked());
+        Settings::setPreviewFormatted(true);
+        panel.applyPresentationSettings();
+        QVERIFY(rendered->isVisible());
+        QVERIFY(mode->isChecked());
+
+        panel.setItems({KFileItem(QUrl::fromLocalFile(code.fileName()))});
+        QTRY_VERIFY(source->isVisible());
+        QTRY_COMPARE(source->toPlainText(), QStringLiteral("int main() { return 42; }\n"));
+        QVERIFY(source->document()->firstBlock().layout()->formats().isEmpty());
+        Settings::setPreviewLineNumbers(true);
+        Settings::setPreviewSyntaxHighlighting(true);
+        panel.applyPresentationSettings();
+        QVERIFY(lineNumbers->isVisible());
+        QTRY_VERIFY(!source->document()->firstBlock().layout()->formats().isEmpty());
+        Settings::setPreviewSyntaxHighlighting(false);
+        panel.applyPresentationSettings();
+        QTRY_VERIFY(source->document()->firstBlock().layout()->formats().isEmpty());
     }
 
     void navigationUpdatesHistory()

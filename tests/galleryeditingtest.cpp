@@ -6,6 +6,8 @@
 #include <QAbstractButton>
 #include <QAction>
 #include <QApplication>
+#include <QCheckBox>
+#include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
@@ -98,6 +100,47 @@ private Q_SLOTS:
         QTRY_VERIFY(gallery.isNull());
     }
 
+    void displayDefaultsAndThumbnailToggle()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QImage image(2000, 1200, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        const QString path = dir.filePath(QStringLiteral("large.png"));
+        QVERIFY(image.save(path));
+        Settings::setGalleryInitialZoom(Settings::EnumGalleryInitialZoom::ActualSize);
+        Settings::setGalleryShowThumbnails(false);
+        QPointer<GalleryWindow> gallery = new GalleryWindow({QUrl::fromLocalFile(path)}, {}, 0);
+        gallery->resize(900, 600);
+        gallery->show();
+        auto *view = gallery->findChild<QGraphicsView *>(QStringLiteral("galleryView"));
+        auto *filmstrip = gallery->findChild<QListWidget *>(QStringLiteral("galleryFilmstrip"));
+        auto *toggle = gallery->findChild<QPushButton *>(QStringLiteral("galleryThumbnails"));
+        QVERIFY(view && filmstrip && toggle);
+        QTRY_VERIFY(view->isVisible());
+        QCOMPARE(view->transform().m11(), 1.0);
+        QVERIFY(filmstrip->isHidden());
+        toggle->click();
+        QVERIFY(filmstrip->isVisible());
+        toggle->click();
+        QVERIFY(filmstrip->isHidden());
+        gallery->close();
+        QTRY_VERIFY(gallery.isNull());
+
+        Settings::setGalleryInitialZoom(Settings::EnumGalleryInitialZoom::Fit);
+        Settings::setGalleryShowThumbnails(true);
+        gallery = new GalleryWindow({QUrl::fromLocalFile(path)}, {}, 0);
+        gallery->resize(900, 600);
+        gallery->show();
+        view = gallery->findChild<QGraphicsView *>(QStringLiteral("galleryView"));
+        filmstrip = gallery->findChild<QListWidget *>(QStringLiteral("galleryFilmstrip"));
+        QTRY_VERIFY(view->isVisible());
+        QVERIFY(view->transform().m11() < 1.0);
+        QVERIFY(filmstrip->isVisible());
+        gallery->close();
+        QTRY_VERIFY(gallery.isNull());
+    }
+
     void markedImagesAreIndependentAndMoveOnlyOnAction_data()
     {
         QTest::addColumn<bool>("currentMarked");
@@ -155,6 +198,15 @@ private Q_SLOTS:
         image.fill(Qt::red);
         const QString source = dir.filePath(QStringLiteral("first.png"));
         QVERIFY(image.save(source));
+        QFile existing(dir.filePath(QStringLiteral("output/first.png")));
+        QVERIFY(existing.open(QIODevice::WriteOnly));
+        QCOMPARE(existing.write("existing"), 8);
+        existing.close();
+        Settings::setGalleryBatchDestination(dir.filePath(QStringLiteral("output")));
+        Settings::setGalleryBatchResize(true);
+        Settings::setGalleryBatchWidth(8);
+        Settings::setGalleryBatchHeight(6);
+        Settings::setGalleryBatchQuality(47);
         QPointer<GalleryWindow> gallery = new GalleryWindow({QUrl::fromLocalFile(source)}, {}, 0);
         gallery->show();
         auto *filmstrip = gallery->findChild<QListWidget *>(QStringLiteral("galleryFilmstrip"));
@@ -175,18 +227,63 @@ private Q_SLOTS:
             QCOMPARE(dialog->objectName(), QStringLiteral("batchConversionDialog"));
             auto *directory = dialog->findChild<QLineEdit *>(QStringLiteral("batchDirectory"));
             auto *preview = dialog->findChild<QListWidget *>(QStringLiteral("batchPreview"));
-            QVERIFY(directory && preview);
-            directory->setText(dir.filePath(QStringLiteral("output")));
+            auto *resize = dialog->findChild<QCheckBox *>(QStringLiteral("batchResize"));
+            auto *width = dialog->findChild<QSpinBox *>(QStringLiteral("batchWidth"));
+            auto *height = dialog->findChild<QSpinBox *>(QStringLiteral("batchHeight"));
+            auto *quality = dialog->findChild<QSpinBox *>(QStringLiteral("batchQuality"));
+            auto *format = dialog->findChild<QComboBox *>(QStringLiteral("batchFormat"));
+            QVERIFY(directory && preview && resize && width && height && quality && format);
+            QCOMPARE(directory->text(), dir.filePath(QStringLiteral("output")));
+            QVERIFY(resize->isChecked());
+            QCOMPARE(width->value(), 8);
+            QCOMPARE(height->value(), 6);
+            QCOMPARE(quality->value(), 47);
+            QCOMPARE(format->currentData().toByteArray(), QByteArray("png"));
             QCOMPARE(preview->count(), 1);
-            QVERIFY(preview->item(0)->text().contains(dir.filePath(QStringLiteral("output/first.png"))));
+            QVERIFY(preview->item(0)->text().contains(dir.filePath(QStringLiteral("output/first-1.png"))));
             dismiss.start();
             dialog->accept();
         });
         convert->trigger();
         dismiss.stop();
-        QVERIFY(QFileInfo::exists(dir.filePath(QStringLiteral("output/first.png"))));
-        QCOMPARE(QImageReader(dir.filePath(QStringLiteral("output/first.png"))).size(), QSize(20, 10));
+        QVERIFY(QFileInfo::exists(dir.filePath(QStringLiteral("output/first-1.png"))));
+        QCOMPARE(QImageReader(dir.filePath(QStringLiteral("output/first-1.png"))).size(), QSize(8, 4));
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QCOMPARE(existing.readAll(), QByteArray("existing"));
         QVERIFY(QFileInfo::exists(source));
+        gallery->close();
+        QTRY_VERIFY(gallery.isNull());
+    }
+
+    void batchFormatDefaultAndSourceDestination()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QImage image(20, 10, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        const QString source = dir.filePath(QStringLiteral("first.png"));
+        QVERIFY(image.save(source));
+        Settings::setGalleryBatchFormat(Settings::EnumGalleryBatchFormat::Jpeg);
+        Settings::setGalleryBatchQuality(65);
+        Settings::setGalleryBatchDestination(QString());
+        QPointer<GalleryWindow> gallery = new GalleryWindow({QUrl::fromLocalFile(source)}, {}, 0);
+        gallery->show();
+        gallery->findChild<QListWidget *>(QStringLiteral("galleryFilmstrip"))->item(0)->setCheckState(Qt::Checked);
+        QTimer::singleShot(0, [&] {
+            auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            auto *format = dialog->findChild<QComboBox *>(QStringLiteral("batchFormat"));
+            auto *quality = dialog->findChild<QSpinBox *>(QStringLiteral("batchQuality"));
+            auto *directory = dialog->findChild<QLineEdit *>(QStringLiteral("batchDirectory"));
+            QVERIFY(format && quality && directory);
+            QCOMPARE(format->currentData().toByteArray(), QByteArray("jpeg"));
+            QCOMPARE(quality->value(), 65);
+            QVERIFY(quality->isEnabled());
+            QCOMPARE(directory->text(), dir.path());
+            dialog->reject();
+        });
+        gallery->findChild<QAction *>(QStringLiteral("galleryMarkedConvert"))->trigger();
+        QVERIFY(!QFileInfo::exists(dir.filePath(QStringLiteral("first.jpg"))));
         gallery->close();
         QTRY_VERIFY(gallery.isNull());
     }

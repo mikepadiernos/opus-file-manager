@@ -240,6 +240,9 @@
   </group>
   <group name="Previews">
     <entry name="PreviewMediaAutoplay" type="Bool"><default>false</default></entry>
+    <entry name="PreviewFormatted" type="Bool"><default>true</default></entry>
+    <entry name="PreviewLineNumbers" type="Bool"><default>true</default></entry>
+    <entry name="PreviewSyntaxHighlighting" type="Bool"><default>true</default></entry>
     <entry name="ShowPreviews" type="Bool">
       <label>Show previews in a new window</label>
       <default>true</default>
@@ -254,6 +257,11 @@
     </entry>
   </group>
   <group name="Gallery">
+    <entry name="GalleryInitialZoom" type="Enum">
+      <choices><choice name="Fit"/><choice name="ActualSize"/></choices>
+      <default>Fit</default>
+    </entry>
+    <entry name="GalleryShowThumbnails" type="Bool"><default>true</default></entry>
     <entry name="GalleryShowInformation" type="Bool">
       <label>Show image information in new gallery windows</label>
       <default>false</default>
@@ -275,6 +283,15 @@
       <label>Default JPEG and WebP image copy quality</label>
       <default>90</default><min>0</min><max>100</max>
     </entry>
+    <entry name="GalleryBatchResize" type="Bool"><default>false</default></entry>
+    <entry name="GalleryBatchWidth" type="Int"><default>1024</default><min>1</min><max>20000</max></entry>
+    <entry name="GalleryBatchHeight" type="Int"><default>1024</default><min>1</min><max>20000</max></entry>
+    <entry name="GalleryBatchFormat" type="Enum">
+      <choices><choice name="Png"/><choice name="Jpeg"/><choice name="Webp"/></choices>
+      <default>Png</default>
+    </entry>
+    <entry name="GalleryBatchQuality" type="Int"><default>90</default><min>0</min><max>100</max></entry>
+    <entry name="GalleryBatchDestination" type="String"><default></default></entry>
   </group>
   <group name="Opening">
     <entry name="FileActivationDestination" type="Enum">
