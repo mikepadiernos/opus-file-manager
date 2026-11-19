@@ -10,6 +10,7 @@ ecm_add_tests(
     densitytest.cpp
     executablestest.cpp
     imageeditingtest.cpp
+    imageconversiontest.cpp
     imagedetailstest.cpp
     navigationhistorytest.cpp
     previewcontenttest.cpp

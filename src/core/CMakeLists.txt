@@ -21,6 +21,8 @@ add_library(opusfm_core STATIC
     executables.h
     imagedetails.cpp
     imagedetails.h
+    imageconversion.cpp
+    imageconversion.h
     imageediting.cpp
     imageediting.h
     navigationhistory.cpp
