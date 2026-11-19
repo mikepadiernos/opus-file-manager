@@ -7,6 +7,7 @@
 #include "ignorelist.h"
 #include "viewsettings.h"
 
+#include <KConfig>
 #include <KConfigGroup>
 #include <KPageWidget>
 #include <KSharedConfig>
@@ -15,6 +16,8 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
+#include <QLineEdit>
+#include <QListWidget>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSpinBox>
@@ -40,6 +43,20 @@ private Q_SLOTS:
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("PanelSettings"));
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("Archives"));
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("Tabs"));
+        for (const QString &group : {QStringLiteral("Startup"),
+                                     QStringLiteral("Panes"),
+                                     QStringLiteral("Navigation"),
+                                     QStringLiteral("Previews"),
+                                     QStringLiteral("PreviewSettings"),
+                                     QStringLiteral("Confirmations"),
+                                     QStringLiteral("StatusBar"),
+                                     QStringLiteral("Views"),
+                                     QStringLiteral("ContextMenu")}) {
+            KSharedConfig::openConfig()->deleteGroup(group);
+        }
+        KSharedConfig::openConfig(QStringLiteral("kiorc"), KConfig::NoGlobals)->deleteGroup(QStringLiteral("Confirmations"));
+        KSharedConfig::openConfig(QStringLiteral("kiorc"), KConfig::NoGlobals)->deleteGroup(QStringLiteral("PreviewSettings"));
+        KSharedConfig::openConfig(QStringLiteral("kservicemenurc"), KConfig::NoGlobals)->deleteGroup(QStringLiteral("Show"));
         KConfigGroup files = KSharedConfig::openConfig()->group(QStringLiteral("Files"));
         files.deleteEntry("IgnoreList");
         files.deleteEntry("ExtensionColors");
@@ -171,6 +188,47 @@ private Q_SLOTS:
         const KConfigGroup tabs = KSharedConfig::openConfig()->group(QStringLiteral("Tabs"));
         QVERIFY(!tabs.readEntry("ShowIcons", true));
         QVERIFY(!tabs.readEntry("Expand", true));
+    }
+
+    void savesM02InterfaceAndViewSettings()
+    {
+        SettingsDialog dialog;
+        auto *startupMode = dialog.findChild<QComboBox *>(QStringLiteral("Startup_StartupMode"));
+        auto *homeUrl = dialog.findChild<QLineEdit *>(QStringLiteral("Startup_HomeUrl"));
+        auto *tabsAfterCurrent = dialog.findChild<QCheckBox *>(QStringLiteral("Panes_NewTabsAfterCurrent"));
+        auto *followLinks = dialog.findChild<QCheckBox *>(QStringLiteral("Navigation_FollowSymlinks"));
+        auto *dropAction = dialog.findChild<QComboBox *>(QStringLiteral("Confirmations_DropAction"));
+        auto *previewLimit = dialog.findChild<QSpinBox *>(QStringLiteral("PreviewSettings_MaximumSizeMiB"));
+        auto *defaultView = dialog.findChild<QComboBox *>(QStringLiteral("Views_DefaultViewMode"));
+        auto *showSelectionSize = dialog.findChild<QCheckBox *>(QStringLiteral("StatusBar_ShowSelectionSize"));
+        auto *copyMoveMenus = dialog.findChild<QCheckBox *>(QStringLiteral("ContextMenu_ShowCopyMoveToMenus"));
+        QVERIFY(startupMode && homeUrl && tabsAfterCurrent && followLinks && dropAction && previewLimit);
+        QVERIFY(defaultView && showSelectionSize && copyMoveMenus);
+
+        startupMode->setCurrentIndex(startupMode->findData(QStringLiteral("FixedFolders")));
+        homeUrl->setText(QStringLiteral("/tmp/home"));
+        tabsAfterCurrent->setChecked(true);
+        followLinks->setChecked(true);
+        dropAction->setCurrentIndex(dropAction->findData(QStringLiteral("Copy")));
+        previewLimit->setValue(8);
+        defaultView->setCurrentIndex(defaultView->findData(QStringLiteral("Icons")));
+        showSelectionSize->setChecked(false);
+        copyMoveMenus->setChecked(true);
+        dialog.button(QDialogButtonBox::Ok)->click();
+
+        const auto config = KSharedConfig::openConfig();
+        QCOMPARE(config->group(QStringLiteral("Startup")).readEntry("StartupMode", QString()), QStringLiteral("FixedFolders"));
+        QCOMPARE(config->group(QStringLiteral("Startup")).readEntry("HomeUrl", QString()), QStringLiteral("/tmp/home"));
+        QVERIFY(config->group(QStringLiteral("Panes")).readEntry("NewTabsAfterCurrent", false));
+        QVERIFY(config->group(QStringLiteral("Navigation")).readEntry("FollowSymlinks", false));
+        QCOMPARE(config->group(QStringLiteral("Confirmations")).readEntry("DropAction", QString()), QStringLiteral("Copy"));
+        QCOMPARE(config->group(QStringLiteral("Views")).readEntry("DefaultViewMode", QString()), QStringLiteral("Icons"));
+        QVERIFY(!config->group(QStringLiteral("StatusBar")).readEntry("ShowSelectionSize", true));
+        QVERIFY(config->group(QStringLiteral("ContextMenu")).readEntry("ShowCopyMoveToMenus", false));
+
+        const auto kioConfig = KSharedConfig::openConfig(QStringLiteral("kiorc"), KConfig::NoGlobals);
+        QCOMPARE(kioConfig->group(QStringLiteral("PreviewSettings")).readEntry("MaximumSize", qulonglong(0)), qulonglong(8 * 1024 * 1024));
+        QVERIFY(kioConfig->group(QStringLiteral("Confirmations")).readEntry("ConfirmTrash", false));
     }
 };
 

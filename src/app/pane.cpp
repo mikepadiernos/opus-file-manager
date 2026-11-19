@@ -19,6 +19,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QDir>
+#include <QFileInfo>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QMenu>
@@ -27,6 +28,18 @@
 #include <QTabBar>
 #include <QToolButton>
 #include <QVBoxLayout>
+
+namespace
+{
+QUrl resolvedSymlinkUrl(const QUrl &url)
+{
+    if (!url.isLocalFile()) {
+        return url;
+    }
+    const QString target = QFileInfo(url.toLocalFile()).canonicalFilePath();
+    return target.isEmpty() ? url : QUrl::fromLocalFile(target);
+}
+}
 
 Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     : QWidget(parent)
@@ -75,7 +88,8 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
 
     m_navigator->setPlacesSelectorVisible(false);
 
-    auto *pathRow = new QHBoxLayout;
+    m_navigationBar = new QWidget(this);
+    auto *pathRow = new QHBoxLayout(m_navigationBar);
     pathRow->setContentsMargins(0, 0, 0, 0);
     pathRow->setSpacing(0);
     pathRow->addWidget(m_back);
@@ -88,7 +102,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     m_layout->setContentsMargins(0, 0, 0, 0);
     m_layout->setSpacing(0);
     m_layout->addWidget(m_tabStrip);
-    m_layout->addLayout(pathRow);
+    m_layout->addWidget(m_navigationBar);
     m_layout->addWidget(m_view, 1);
     m_filterBar = new FilterBar(this);
     m_layout->addWidget(m_filterBar);
@@ -147,7 +161,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     connect(m_tabBar, &QTabBar::tabBarClicked, this, &Pane::activated);
 
     connect(m_navigator, &KUrlNavigator::urlChanged, this, [this](const QUrl &url) {
-        m_tabs->setCurrentUrl(url);
+        setUrl(url);
     });
     connect(m_navigator, &KUrlNavigator::tabRequested, this, [this](const QUrl &url) {
         openInNewTab(url);
@@ -232,20 +246,64 @@ bool Pane::isTabBarAtBottom() const
     return m_tabBar->shape() == QTabBar::RoundedSouth;
 }
 
+void Pane::setNavigationBarVisible(bool visible)
+{
+    m_navigationBar->setVisible(visible);
+}
+
+void Pane::setBarDensity(const QString &density)
+{
+    auto *layout = qobject_cast<QHBoxLayout *>(m_navigationBar->layout());
+    if (!layout) {
+        return;
+    }
+    const bool normal = density == QLatin1String("Normal");
+    const int margin = density == QLatin1String("Compact") ? 2 : 0;
+    const int defaultIconSize = style()->pixelMetric(QStyle::PM_SmallIconSize, nullptr, this);
+    const int iconSize = qMax(12, defaultIconSize - (density == QLatin1String("Compact") ? 2 : normal ? 0 : 4));
+    layout->setContentsMargins(normal ? 0 : margin, normal ? 0 : margin, normal ? 0 : margin, normal ? 0 : margin);
+    layout->setSpacing(normal ? 0 : margin);
+    for (QToolButton *button : {m_back, m_forward, m_up, m_reload}) {
+        button->setIconSize(QSize(iconSize, iconSize));
+        if (normal) {
+            button->setMinimumSize(0, 0);
+            button->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+        } else {
+            button->setFixedSize(iconSize + 6, iconSize + 6);
+        }
+    }
+    m_navigator->setMinimumHeight(normal ? 0 : iconSize + 6);
+}
+
+void Pane::setNewTabsAfterCurrent(bool afterCurrent)
+{
+    m_newTabsAfterCurrent = afterCurrent;
+}
+
+void Pane::setFollowSymlinks(bool follow)
+{
+    m_followSymlinks = follow;
+}
+
 void Pane::setUrl(const QUrl &url)
 {
-    m_tabs->setCurrentUrl(url);
+    m_tabs->setCurrentUrl(m_followSymlinks ? resolvedSymlinkUrl(url) : url);
 }
 
 void Pane::openInNewTab(const QUrl &url, bool activate)
 {
-    m_tabs->addTab(url, activate);
+    const QUrl destination = m_followSymlinks ? resolvedSymlinkUrl(url) : url;
+    if (m_newTabsAfterCurrent) {
+        m_tabs->insertTab(m_tabs->currentIndex() + 1, destination, activate);
+    } else {
+        m_tabs->addTab(destination, activate);
+    }
 }
 
 void Pane::newTab()
 {
     const QUrl url = m_tabs->currentUrl().isValid() ? m_tabs->currentUrl() : QUrl::fromLocalFile(QDir::homePath());
-    m_tabs->addTab(url, true);
+    openInNewTab(url, true);
 }
 
 void Pane::closeCurrentTab()

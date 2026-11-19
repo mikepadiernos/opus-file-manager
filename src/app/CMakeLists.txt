@@ -5,6 +5,8 @@ add_library(opusfm_app STATIC
     compressdialog.h
     contentheight.cpp
     contentheight.h
+    detailsview.cpp
+    detailsview.h
     fileoperations.cpp
     fileoperations.h
     filterbar.cpp

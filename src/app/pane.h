@@ -15,6 +15,7 @@ class TabColors;
 class TabModel;
 class QTabBar;
 class QToolButton;
+class QWidget;
 class QVBoxLayout;
 
 /**
@@ -53,6 +54,10 @@ public:
     void setTabBarAtBottom(bool atBottom);
     bool isTabBarAtBottom() const;
     void reloadTabSettings();
+    void setNavigationBarVisible(bool visible);
+    void setBarDensity(const QString &density);
+    void setNewTabsAfterCurrent(bool afterCurrent);
+    void setFollowSymlinks(bool follow);
 
     /// The tabs with their pins, locks and names, and the current tab.
     PaneSession saveState() const;
@@ -99,6 +104,7 @@ private:
     QToolButton *m_forward = nullptr;
     QToolButton *m_up = nullptr;
     QToolButton *m_reload = nullptr;
+    QWidget *m_navigationBar = nullptr;
     KUrlNavigator *m_navigator = nullptr;
     TabColors *m_colors = nullptr;
     FolderView *m_view = nullptr;
@@ -107,6 +113,8 @@ private:
     bool m_active = false;
     bool m_tabBarForced = false;
     bool m_showTabIcons = true;
+    bool m_newTabsAfterCurrent = false;
+    bool m_followSymlinks = false;
     bool m_updatingTabBar = false;
     int m_lastTabCount = -1;
 };

@@ -20,6 +20,7 @@
 
 #include <QAbstractItemModel>
 #include <QCheckBox>
+#include <QClipboard>
 #include <QColor>
 #include <QComboBox>
 #include <QDialogButtonBox>
@@ -28,6 +29,7 @@
 #include <QFile>
 #include <QListView>
 #include <QMenu>
+#include <QMimeData>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QRegularExpression>
@@ -38,6 +40,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QToolButton>
 #include <QTreeView>
 
 class MainWindowTest : public QObject
@@ -51,12 +54,47 @@ private Q_SLOTS:
         QVERIFY(m_root.isValid());
         QVERIFY(QDir(m_root.path()).mkpath(QStringLiteral("a/sub")));
         QVERIFY(QDir(m_root.path()).mkpath(QStringLiteral("b")));
+        QVERIFY(QDir(m_root.path()).mkpath(QStringLiteral("c")));
         QFile file(m_root.filePath(QStringLiteral("a/file.txt")));
         QVERIFY(file.open(QIODevice::WriteOnly));
         file.write("hello");
         file.close();
         m_a = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("a")));
         m_b = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("b")));
+        m_c = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("c")));
+    }
+
+    void startupFoldersAndPaneDefaultsApply()
+    {
+        KConfigGroup startup = KSharedConfig::openConfig()->group(QStringLiteral("Startup"));
+        startup.writeEntry("StartupMode", QStringLiteral("FixedFolders"));
+        startup.writeEntry("LeftStartUrl", m_a.toString());
+        startup.writeEntry("RightStartUrl", m_b.toString());
+        KSharedConfig::openConfig()->group(QStringLiteral("Panes")).writeEntry("DualPaneAtStartup", QStringLiteral("Never"));
+        KSharedConfig::openConfig()->group(QStringLiteral("Panes")).writeEntry("NewTabsAfterCurrent", true);
+        KSharedConfig::openConfig()->group(QStringLiteral("Navigation")).writeEntry("FollowSymlinks", true);
+        KSharedConfig::openConfig()->group(QStringLiteral("Views")).writeEntry("DefaultViewMode", QStringLiteral("Icons"));
+        KSharedConfig::openConfig()->group(QStringLiteral("Views")).writeEntry("ShowHiddenFiles", true);
+        KSharedConfig::openConfig()->sync();
+
+        MainWindow window;
+        window.openUrls({});
+        QCOMPARE(window.activePane()->url(), m_a);
+        QCOMPARE(window.inactivePane()->url(), m_b);
+        QVERIFY(!window.actionCollection()->action(QStringLiteral("dual_layout"))->isChecked());
+        QCOMPARE(window.activePane()->view()->viewMode(), FolderView::ViewMode::Icons);
+        QVERIFY(window.activePane()->view()->showHiddenFiles());
+
+        Pane *pane = window.activePane();
+        pane->openInNewTab(m_b, true);
+        pane->tabs()->setCurrentIndex(0);
+        pane->openInNewTab(m_c, true);
+        QCOMPARE(pane->tabs()->urls(), (QList<QUrl>{m_a, m_c, m_b}));
+
+        const QString link = m_root.filePath(QStringLiteral("link-to-b"));
+        QVERIFY(QFile::link(m_b.toLocalFile(), link));
+        pane->setUrl(QUrl::fromLocalFile(link));
+        QCOMPARE(pane->url(), m_b);
     }
 
     void init()
@@ -73,6 +111,19 @@ private Q_SLOTS:
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("PanelSettings"));
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("Archives"));
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("Tabs"));
+        for (const QString &group : {QStringLiteral("Startup"),
+                                     QStringLiteral("Panes"),
+                                     QStringLiteral("Navigation"),
+                                     QStringLiteral("Previews"),
+                                     QStringLiteral("PreviewSettings"),
+                                     QStringLiteral("Confirmations"),
+                                     QStringLiteral("StatusBar"),
+                                     QStringLiteral("Views"),
+                                     QStringLiteral("ContextMenu")}) {
+            KSharedConfig::openConfig()->deleteGroup(group);
+        }
+        KSharedConfig::openConfig()->group(QStringLiteral("Confirmations")).writeEntry("ConfirmClosingMultipleTabs", false);
+        KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("WindowLayout"));
         KConfigGroup files = KSharedConfig::openConfig()->group(QStringLiteral("Files"));
         files.deleteEntry("IgnoreList");
         files.deleteEntry("ExtensionColors");
@@ -119,6 +170,36 @@ private Q_SLOTS:
         window.actionCollection()->action(QStringLiteral("toggle_view_mode"))->trigger();
         QCOMPARE(active->view()->viewMode(), FolderView::ViewMode::Icons);
         QCOMPARE(other->view()->viewMode(), FolderView::ViewMode::Details);
+        window.actionCollection()->action(QStringLiteral("compact_view"))->trigger();
+        QCOMPARE(active->view()->viewMode(), FolderView::ViewMode::Compact);
+        QCOMPARE(other->view()->viewMode(), FolderView::ViewMode::Details);
+        window.actionCollection()->action(QStringLiteral("toggle_view_mode"))->trigger();
+        QCOMPARE(active->view()->viewMode(), FolderView::ViewMode::Details);
+    }
+
+    void selectionModeActionBarCopiesFromItsPane()
+    {
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        auto *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+        auto *action = window.actionCollection()->action(QStringLiteral("selection_mode"));
+        QVERIFY(action);
+        action->trigger();
+        QVERIFY(view->selectionMode());
+        auto *copy = view->findChild<QToolButton *>(QStringLiteral("selectionCopy"));
+        QVERIFY(copy);
+        QVERIFY(!copy->isEnabled());
+        const QUrl file = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("a/file.txt")));
+        view->selectUrls({file});
+        QVERIFY(copy->isEnabled());
+        copy->click();
+        QCOMPARE(QApplication::clipboard()->mimeData()->urls(), QList<QUrl>{file});
+        view->findChild<QToolButton *>(QStringLiteral("selectionDone"))->click();
+        QVERIFY(!action->isChecked());
+        QVERIFY(!view->selectionMode());
     }
 
     void tabAppearanceSettingsApplyToBothPanes()
@@ -435,6 +516,7 @@ private:
     QTemporaryDir m_root;
     QUrl m_a;
     QUrl m_b;
+    QUrl m_c;
 };
 
 QTEST_MAIN(MainWindowTest)

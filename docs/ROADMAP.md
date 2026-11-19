@@ -77,7 +77,7 @@ with Dolphin.
   - **Previews:** enablement, plugins, size limit and remote folders
   - **Confirmations:** trash, delete, multiple tabs; executable handling;
     default drop action
-  - **Panels:** Places panel and visible sections
+  - **Panels:** ~~Places panel visibility and visible sections~~
   - **Status and Location Bars:** status-bar contents and bar density
 - **View**
   - **General:** default view mode, sorting, hidden files and tooltips
@@ -127,12 +127,12 @@ with Dolphin.
 - Expandable folders inline in the file listing (Orcinus)
 - ~~Persistent filters (Orcinus)~~
 - ~~File-name highlighting (Orcinus)~~
-- Compact view with names beside icons and entries arranged in columns
-  (Dolphin)
-- Optional selection markers and a selection mode with an action bar, so
-  multiple items can be selected without modifier keys (Dolphin)
-- Details-view column-header controls to ~~show or hide columns~~ and fit
-  column widths to their contents (Dolphin)
+- ~~Compact view with names beside icons and entries arranged in columns
+  (Dolphin)~~
+- ~~Optional selection markers and a selection mode with an action bar, so
+  multiple items can be selected without modifier keys (Dolphin)~~
+- ~~Details-view column-header controls to show or hide columns and fit
+  column widths to their contents (Dolphin)~~
 
 ### M04 Listing depth settings
 

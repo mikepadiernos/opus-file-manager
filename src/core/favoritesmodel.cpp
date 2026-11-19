@@ -2,6 +2,8 @@
 
 #include "favoritesmodel.h"
 
+#include "symbolicicon.h"
+
 #include <KIO/Global>
 
 #include <QFileInfo>
@@ -81,7 +83,7 @@ QVariant FavoritesModel::data(const QModelIndex &index, int role) const
     case Qt::EditRole:
         return favorite.customTitle.isEmpty() ? defaultTitle(favorite.url) : favorite.customTitle;
     case Qt::DecorationRole:
-        return QIcon::fromTheme(KIO::iconNameForUrl(favorite.url));
+        return SymbolicIcon::fromTheme(KIO::iconNameForUrl(favorite.url));
     case Qt::ToolTipRole:
         return favorite.url.toDisplayString(QUrl::PreferLocalFile);
     case UrlRole:

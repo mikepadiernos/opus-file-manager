@@ -4,6 +4,7 @@
 
 #include "contentheight.h"
 #include "ignorelist.h"
+#include "symbolicicon.h"
 
 #include <KDirLister>
 #include <KDirModel>
@@ -51,7 +52,11 @@ public:
         if (role == Qt::DisplayRole && !index.parent().isValid() && !m_rootTitle.isEmpty()) {
             return m_rootTitle;
         }
-        return KDirSortFilterProxyModel::data(index, role);
+        const QVariant value = KDirSortFilterProxyModel::data(index, role);
+        if (role == Qt::DecorationRole && value.typeId() == QMetaType::QIcon) {
+            return SymbolicIcon::wrap(value.value<QIcon>());
+        }
+        return value;
     }
 
 protected:

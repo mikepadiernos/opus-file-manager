@@ -13,15 +13,18 @@
 #include <KSharedConfig>
 
 #include <QAbstractItemView>
+#include <QApplication>
 #include <QDir>
 #include <QFile>
 #include <QHeaderView>
 #include <QLineEdit>
+#include <QListView>
 #include <QMenu>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTimer>
 #include <QToolButton>
 #include <QTreeView>
 
@@ -232,6 +235,109 @@ private Q_SLOTS:
         QCOMPARE(view.selectedItems().first().name(), QStringLiteral("notes.txt"));
         QCOMPARE(view.applySelectionPattern(QStringLiteral("*.txt"), false), 1);
         QVERIFY(view.selectedItems().isEmpty());
+    }
+
+    void compactViewUsesColumnsAndRemembersFormat()
+    {
+        const QString path = m_root.filePath(QStringLiteral("compact"));
+        QVERIFY(QDir().mkpath(path));
+        for (int i = 0; i < 12; ++i) {
+            QFile file(QDir(path).filePath(QStringLiteral("file%1.txt").arg(i)));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        FolderView view;
+        view.resize(600, 150);
+        view.setUrl(QUrl::fromLocalFile(path));
+        view.setViewMode(FolderView::ViewMode::Compact);
+        view.show();
+        QTRY_COMPARE(view.itemCount(), 12);
+        auto *list = qobject_cast<QListView *>(view.currentView());
+        QVERIFY(list);
+        QCOMPARE(list->flow(), QListView::TopToBottom);
+        QVERIFY(list->isWrapping());
+        QTRY_VERIFY(list->visualRect(list->model()->index(11, 0)).left() > list->visualRect(list->model()->index(0, 0)).left());
+        view.selectUrls({QUrl::fromLocalFile(QDir(path).filePath(QStringLiteral("file0.txt")))});
+        QCOMPARE(view.selectedItems().size(), 1);
+        view.setViewMode(FolderView::ViewMode::Details);
+        QCOMPARE(view.selectedItems().size(), 1);
+        view.setViewMode(FolderView::ViewMode::Compact);
+        view.setUrl(m_b);
+        view.setUrl(QUrl::fromLocalFile(path));
+        QCOMPARE(view.viewMode(), FolderView::ViewMode::Compact);
+    }
+
+    void columnMenuFitsVisibleColumns()
+    {
+        FolderView view;
+        view.setUrl(m_a);
+        view.resize(900, 400);
+        view.show();
+        QTRY_COMPARE(view.itemCount(), 3);
+        auto *details = qobject_cast<QTreeView *>(view.currentView());
+        QVERIFY(details);
+        auto *header = details->header();
+        header->setSectionResizeMode(KDirModel::Name, QHeaderView::Interactive);
+        header->resizeSection(KDirModel::Name, 500);
+        const int before = header->sectionSize(KDirModel::Name);
+        bool found = false;
+        QTimer::singleShot(0, &view, [&found] {
+            auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+            if (!menu) {
+                return;
+            }
+            for (QAction *action : menu->actions()) {
+                if (action->text() == QLatin1String("Fit All Columns to Contents")) {
+                    found = true;
+                    action->trigger();
+                    break;
+                }
+            }
+            menu->close();
+        });
+        QVERIFY(QMetaObject::invokeMethod(header, "customContextMenuRequested", Qt::DirectConnection, Q_ARG(QPoint, QPoint(10, 5))));
+        QVERIFY(found);
+        QVERIFY(header->sectionSize(KDirModel::Name) < before);
+        QVERIFY(details->isColumnHidden(KDirModel::Owner));
+    }
+
+    void selectionMarkersAndModeToggleWithoutActivation()
+    {
+        FolderView view;
+        view.resize(600, 400);
+        view.setUrl(m_a);
+        view.show();
+        QTRY_COMPARE(view.itemCount(), 3);
+        QSignalSpy activated(&view, &FolderView::itemActivated);
+        view.setSelectionMarkersVisible(true);
+
+        for (const auto mode : {FolderView::ViewMode::Details, FolderView::ViewMode::Icons, FolderView::ViewMode::Compact}) {
+            view.setViewMode(mode);
+            view.clearSelection();
+            auto *listing = view.currentView();
+            const QModelIndex index = listing->model()->index(0, 0);
+            QTRY_VERIFY(!listing->visualRect(index).isEmpty());
+            const QRect rect = listing->visualRect(index);
+            QTest::mouseClick(listing->viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(rect.left() + 8, rect.bottom() - 8));
+            QCOMPARE(view.selectedItems().size(), 1);
+            QTest::mouseClick(listing->viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(rect.left() + 8, rect.bottom() - 8));
+            QVERIFY(view.selectedItems().isEmpty());
+        }
+        QCOMPARE(activated.size(), 0);
+        view.setSelectionMarkersVisible(false);
+        view.setSelectionMode(true);
+        QVERIFY(view.findChild<QWidget *>(QStringLiteral("selectionBar"))->isVisible());
+        auto *listing = view.currentView();
+        const QModelIndex first = listing->model()->index(0, 0);
+        const QModelIndex second = listing->model()->index(1, 0);
+        QTest::mouseClick(listing->viewport(), Qt::LeftButton, Qt::NoModifier, listing->visualRect(first).center());
+        QTest::mouseClick(listing->viewport(), Qt::LeftButton, Qt::NoModifier, listing->visualRect(second).center());
+        QCOMPARE(view.selectedItems().size(), 2);
+        QCOMPARE(activated.size(), 0);
+        auto *done = view.findChild<QToolButton *>(QStringLiteral("selectionDone"));
+        QVERIFY(done);
+        done->click();
+        QVERIFY(!view.selectionMode());
+        QCOMPARE(view.selectedItems().size(), 2);
     }
 
     void viewFormatIsRememberedPerFolder()

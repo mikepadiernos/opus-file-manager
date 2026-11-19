@@ -79,6 +79,7 @@ private Q_SLOTS:
     void init()
     {
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("Favorites"));
+        KSharedConfig::openConfig()->group(QStringLiteral("Confirmations")).writeEntry("ConfirmClosingMultipleTabs", false);
         KSharedConfig::openConfig()->sync();
         KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Session"));
         KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Panels"));

@@ -2,6 +2,8 @@
 
 #include "filterbar.h"
 
+#include "symbolicicon.h"
+
 #include <KLocalizedString>
 
 #include <QActionGroup>
@@ -41,14 +43,15 @@ FilterBar::FilterBar(QWidget *parent)
         });
     }
     m_scopeButton->setObjectName(QStringLiteral("filterScope"));
-    m_scopeButton->setIcon(QIcon::fromTheme(QStringLiteral("view-filter")));
+    m_scopeButton->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-filter")));
     m_scopeButton->setToolTip(i18nc("@info:tooltip", "What the filter applies to"));
     m_scopeButton->setAutoRaise(true);
     m_scopeButton->setPopupMode(QToolButton::InstantPopup);
     m_scopeButton->setMenu(menu);
 
     auto *closeButton = new QToolButton(this);
-    closeButton->setIcon(QIcon::fromTheme(QStringLiteral("dialog-close")));
+    closeButton->setObjectName(QStringLiteral("filterClose"));
+    closeButton->setIcon(SymbolicIcon::fromTheme(QStringLiteral("dialog-close")));
     closeButton->setToolTip(i18nc("@info:tooltip", "Clear and close the filter"));
     closeButton->setAutoRaise(true);
     connect(closeButton, &QToolButton::clicked, this, &FilterBar::close);

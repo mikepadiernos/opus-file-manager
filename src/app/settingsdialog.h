@@ -10,6 +10,7 @@
 
 class QCheckBox;
 class QComboBox;
+class QListWidget;
 class QPlainTextEdit;
 class QSpinBox;
 class QTableWidget;
@@ -33,6 +34,12 @@ private:
     QComboBox *m_sidebarTitlePosition = nullptr;
     QHash<QString, QCheckBox *> m_columnChecks;
     QHash<QString, QCheckBox *> m_iconInformationChecks;
+    QHash<QString, QWidget *> m_m02Controls;
+    QCheckBox *m_confirmTrash = nullptr;
+    QCheckBox *m_confirmDelete = nullptr;
+    QCheckBox *m_confirmMultipleTabs = nullptr;
+    QListWidget *m_previewPlugins = nullptr;
+    QListWidget *m_serviceMenus = nullptr;
     QComboBox *m_groupBy = nullptr;
     QComboBox *m_sizeFormat = nullptr;
     QComboBox *m_dateFormat = nullptr;

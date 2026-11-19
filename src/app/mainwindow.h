@@ -15,6 +15,7 @@ class FolderTree;
 class KFileItemActions;
 class KFilePlacesModel;
 class KFilePlacesView;
+class KFileCopyToMenu;
 class KNewFileMenu;
 class KSelectAction;
 class KToggleAction;
@@ -97,6 +98,7 @@ private:
     void selectByPattern(bool select);
     void saveSelectionFilter();
     void configureSettings();
+    void applyM02Settings();
     void calculateOccupiedSpace();
     void jumpBack();
     void testArchiveIntegrity();
@@ -170,6 +172,7 @@ private:
     QStringList m_flatLocations;
     PanelLayout m_panelLayout = PanelLayout::Combined;
     KFileItemActions *m_fileItemActions = nullptr;
+    KFileCopyToMenu *m_copyToMenu = nullptr;
     KNewFileMenu *m_newFileMenu = nullptr;
     QSplitter *m_splitter = nullptr;
     Pane *m_left = nullptr;
@@ -183,6 +186,8 @@ private:
     KToggleAction *m_hiddenFilesAction = nullptr;
     KToggleAction *m_previewsAction = nullptr;
     QAction *m_viewModeAction = nullptr;
+    QAction *m_selectionModeAction = nullptr;
+    QAction *m_selectionMarkersAction = nullptr;
     QAction *m_undoAction = nullptr;
     QAction *m_pasteAction = nullptr;
     QAction *m_jumpBackAction = nullptr;

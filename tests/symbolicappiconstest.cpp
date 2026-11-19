@@ -1,5 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "favoritesmodel.h"
+#include "filterbar.h"
+#include "foldertree.h"
 #include "folderview.h"
 #include "mainwindow.h"
 #include "symbolicactionicons.h"
@@ -8,6 +11,7 @@
 
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
+#include <KIO/Global>
 #include <KSharedConfig>
 
 #include <QAbstractItemView>
@@ -17,6 +21,8 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QToolButton>
+#include <QTreeView>
 
 using namespace TestIconTheme;
 
@@ -29,8 +35,18 @@ private Q_SLOTS:
     {
         QStandardPaths::setTestModeEnabled(true);
         QVERIFY(m_themeDir.isValid());
-        QVERIFY(
-            install(m_themeDir.path(), {}, {QStringLiteral("foo"), QStringLiteral("folder"), QStringLiteral("inode-directory"), QStringLiteral("user-home")}));
+        QVERIFY(install(m_themeDir.path(),
+                        {},
+                        {QStringLiteral("dialog-close"),
+                         QStringLiteral("dialog-ok"),
+                         QStringLiteral("edit-copy"),
+                         QStringLiteral("edit-cut"),
+                         QStringLiteral("foo"),
+                         QStringLiteral("folder"),
+                         QStringLiteral("inode-directory"),
+                         QStringLiteral("user-home"),
+                         QStringLiteral("user-trash"),
+                         QStringLiteral("view-filter")}));
         qApp->installEventFilter(new SymbolicActionIcons(qApp));
     }
 
@@ -64,6 +80,55 @@ private Q_SLOTS:
         const QIcon icon = model->data(model->index(0, 0), Qt::DecorationRole).value<QIcon>();
         QCOMPARE(colorAt(icon, 16), SymbolicColor);
         QVERIFY(colorAt(icon, 64) != SymbolicColor);
+    }
+
+    void folderTreeDecorationsUseSymbolicIcons()
+    {
+        QTemporaryDir root;
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("sub")));
+
+        FolderTree tree({QUrl::fromLocalFile(root.path())});
+        auto *view = tree.findChild<QTreeView *>();
+        QVERIFY(view);
+        QTRY_COMPARE(view->model()->rowCount(), 1);
+
+        const QIcon icon = view->model()->data(view->model()->index(0, 0), Qt::DecorationRole).value<QIcon>();
+        QCOMPARE(colorAt(icon, 16), SymbolicColor);
+        QVERIFY(colorAt(icon, 64) != SymbolicColor);
+    }
+
+    void favoritesDecorationsUseSymbolicIcons()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        FavoritesModel favorites(KSharedConfig::openConfig()->group(QStringLiteral("SymbolicIconsTestFavorites")));
+        QVERIFY(favorites.add(QUrl::fromLocalFile(folder.path())));
+
+        const QString iconName = KIO::iconNameForUrl(QUrl::fromLocalFile(folder.path()));
+        qDebug() << iconName << QIcon::hasThemeIcon(iconName) << QIcon::fromTheme(iconName).isNull() << QIcon::fromTheme(iconName).name();
+        const QIcon icon = favorites.data(favorites.index(0, 0), Qt::DecorationRole).value<QIcon>();
+        qDebug() << icon.isNull() << icon.name() << icon.availableSizes();
+        QCOMPARE(colorAt(icon, 16), SymbolicColor);
+        QVERIFY(colorAt(icon, 64) != SymbolicColor);
+    }
+
+    void customWidgetIconsUseSymbolicIcons()
+    {
+        FilterBar filterBar;
+        for (const QString &name : {QStringLiteral("filterScope"), QStringLiteral("filterClose")}) {
+            const auto *button = filterBar.findChild<QToolButton *>(name);
+            QVERIFY(button);
+            QCOMPARE(colorAt(button->icon(), 16), SymbolicColor);
+        }
+
+        FolderView view;
+        view.setSelectionMode(true);
+        for (const QString &name :
+             {QStringLiteral("selectionCopy"), QStringLiteral("selectionCut"), QStringLiteral("selectionTrash"), QStringLiteral("selectionDone")}) {
+            const auto *button = view.findChild<QToolButton *>(name);
+            QVERIFY(button);
+            QCOMPARE(colorAt(button->icon(), 16), SymbolicColor);
+        }
     }
 
     void placesUseSymbolicIcons()

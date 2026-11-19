@@ -22,11 +22,13 @@
 #include <KActionCollection>
 #include <KConfig>
 #include <KConfigGroup>
+#include <KFileCopyToMenu>
 #include <KFileItemActions>
 #include <KFileItemListProperties>
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
 #include <KFileUtils>
+#include <KGuiItem>
 #include <KHamburgerMenu>
 #include <KIO/CopyJob>
 #include <KIO/DirectorySizeJob>
@@ -36,13 +38,16 @@
 #include <KIO/Global>
 #include <KIO/ListJob>
 #include <KIO/MkdirJob>
+#include <KIO/PreviewJob>
 #include <KJobWidgets>
 #include <KLocalizedString>
+#include <KMessageBox>
 #include <KNewFileMenu>
 #include <KSelectAction>
 #include <KSharedConfig>
 #include <KStandardAction>
 #include <KToggleAction>
+#include <KToolBar>
 
 #include <QApplication>
 #include <QClipboard>
@@ -82,6 +87,7 @@ constexpr auto PanelsGroup = "Panels";
 constexpr auto FlatGroup = "Flat";
 constexpr auto PopularFoldersGroup = "PopularFolders";
 constexpr auto SelectionFiltersGroup = "SelectionFilters";
+constexpr auto WindowLayoutGroup = "WindowLayout";
 
 QString flatKey(const QUrl &url)
 {
@@ -174,6 +180,7 @@ MainWindow::MainWindow(QWidget *parent)
     const KConfigGroup panels = KSharedConfig::openStateConfig()->group(QLatin1String(PanelsGroup));
     setPanelLayout(panels.readEntry("Layout", QString()) == QLatin1String("Separate") ? PanelLayout::Separate : PanelLayout::Combined);
     applyPanelSettings();
+    applyM02Settings();
 
     connect(KIO::FileUndoManager::self(), &KIO::FileUndoManager::undoAvailable, this, [this](bool available) {
         m_undoAction->setEnabled(available);
@@ -233,6 +240,23 @@ void MainWindow::connectPane(Pane *pane)
             updateActions();
             updateStatusBar();
         }
+    });
+    connect(pane->view(), &FolderView::selectionModeChanged, this, [this, pane] {
+        if (pane == m_active) {
+            updateActions();
+        }
+    });
+    connect(pane->view(), &FolderView::copySelectionRequested, this, [this, pane] {
+        setActivePane(pane);
+        copy();
+    });
+    connect(pane->view(), &FolderView::cutSelectionRequested, this, [this, pane] {
+        setActivePane(pane);
+        cut();
+    });
+    connect(pane->view(), &FolderView::trashSelectionRequested, this, [this, pane] {
+        setActivePane(pane);
+        trash();
     });
     connect(pane->view(), &FolderView::itemCountChanged, this, [this, pane] {
         if (pane == m_active) {
@@ -330,6 +354,65 @@ void MainWindow::configureSettings()
     m_left->reloadTabSettings();
     m_right->reloadTabSettings();
     applyPanelSettings();
+    applyM02Settings();
+}
+
+void MainWindow::applyM02Settings()
+{
+    const auto sharedConfig = KSharedConfig::openConfig();
+    const KConfigGroup config = sharedConfig->group(QString());
+    const KConfigGroup panes = config.group(QStringLiteral("Panes"));
+    const QString density = config.group(QStringLiteral("Views")).readEntry("BarDensity", QStringLiteral("Normal"));
+    for (Pane *pane : {m_left, m_right}) {
+        pane->setNavigationBarVisible(config.group(QStringLiteral("Panes")).readEntry("ShowNavigationBar", true));
+        pane->setBarDensity(density);
+        pane->setNewTabsAfterCurrent(panes.readEntry("NewTabsAfterCurrent", false));
+        pane->setFollowSymlinks(config.group(QStringLiteral("Navigation")).readEntry("FollowSymlinks", false));
+
+        FolderView *view = pane->view();
+        const KConfigGroup previews = config.group(QStringLiteral("Previews"));
+        view->setPreviewsEnabled(previews.readEntry("ShowPreviews", true));
+        view->setRemotePreviewsEnabled(previews.readEntry("ShowRemotePreviews", false));
+        view->setPreviewPlugins(config.group(QStringLiteral("PreviewSettings")).readEntry("Plugins", KIO::PreviewJob::defaultPlugins()));
+        view->setDropAction(config.group(QStringLiteral("Confirmations")).readEntry("DropAction", QStringLiteral("Ask")));
+    }
+
+    const QString dualMode = panes.readEntry("DualPaneAtStartup", QStringLiteral("AsLastUsed"));
+    const bool lastUsedDual = KSharedConfig::openStateConfig()->group(QLatin1String(WindowLayoutGroup)).readEntry("DualPane", true);
+    m_dualLayoutAction->setChecked(dualMode == QLatin1String("Always") || (dualMode == QLatin1String("AsLastUsed") && lastUsedDual));
+    const bool tabBarAlways = panes.readEntry("AlwaysShowTabBar", false);
+    const bool forceTabs = tabBarAlways || m_left->tabs()->count() > 1 || m_right->tabs()->count() > 1;
+    m_left->setTabBarForcedVisible(forceTabs);
+    m_right->setTabBarForcedVisible(forceTabs);
+
+    QAction *switchPane = actionCollection()->action(QStringLiteral("switch_pane"));
+    if (switchPane) {
+        QList<QKeySequence> shortcuts = switchPane->shortcuts();
+        shortcuts.removeAll(QKeySequence(Qt::Key_Tab));
+        if (panes.readEntry("TabSwitchesPanes", true)) {
+            shortcuts.prepend(QKeySequence(Qt::Key_Tab));
+        }
+        switchPane->setShortcuts(shortcuts);
+    }
+
+    const KConfigGroup status = config.group(QStringLiteral("StatusBar"));
+    m_itemsLabel->setVisible(status.readEntry("ShowItemCounts", true));
+    m_freeSpaceLabel->setVisible(status.readEntry("ShowFreeSpace", true));
+    const int margin = density == QLatin1String("Compact") ? 2 : 0;
+    const auto applyMargins = [density, margin](QWidget *widget) {
+        const char property[] = "_opusOriginalContentsMargins";
+        if (!widget->property(property).isValid()) {
+            widget->setProperty(property, QVariant::fromValue(widget->contentsMargins()));
+        }
+        widget->setContentsMargins(density == QLatin1String("Normal") ? widget->property(property).value<QMargins>()
+                                                                      : QMargins(margin, margin, margin, margin));
+    };
+    for (KToolBar *bar : toolBars()) {
+        applyMargins(bar);
+    }
+    applyMargins(statusBar());
+    updateStatusBar();
+    updateFreeSpace();
 }
 
 void MainWindow::applyPanelSettings()
@@ -833,6 +916,25 @@ void MainWindow::setupActions()
     m_viewModeAction->setText(i18nc("@action", "Icons View"));
     m_viewModeAction->setIcon(QIcon::fromTheme(QStringLiteral("view-list-icons")));
     actions->setDefaultShortcut(m_viewModeAction, Qt::CTRL | Qt::SHIFT | Qt::Key_V);
+    QAction *compactView = actions->addAction(QStringLiteral("compact_view"), this, [this] {
+        activePane()->view()->setViewMode(FolderView::ViewMode::Compact);
+        updateActions();
+    });
+    compactView->setText(i18nc("@action", "Compact View"));
+    compactView->setIcon(QIcon::fromTheme(QStringLiteral("view-list-tree")));
+
+    m_selectionModeAction = actions->addAction(QStringLiteral("selection_mode"));
+    m_selectionModeAction->setText(i18nc("@action", "Selection Mode"));
+    m_selectionModeAction->setCheckable(true);
+    connect(m_selectionModeAction, &QAction::triggered, this, [this](bool enabled) {
+        activePane()->view()->setSelectionMode(enabled);
+    });
+    m_selectionMarkersAction = actions->addAction(QStringLiteral("selection_markers"));
+    m_selectionMarkersAction->setText(i18nc("@action", "Show Selection Markers"));
+    m_selectionMarkersAction->setCheckable(true);
+    connect(m_selectionMarkersAction, &QAction::triggered, this, [this](bool enabled) {
+        activePane()->view()->setSelectionMarkersVisible(enabled);
+    });
 
     m_hiddenFilesAction = new KToggleAction(QIcon::fromTheme(QStringLiteral("view-hidden")), i18nc("@action", "Show Hidden Files"), this);
     actions->addAction(QStringLiteral("show_hidden_files"), m_hiddenFilesAction);
@@ -878,7 +980,8 @@ void MainWindow::setupActions()
     KStandardAction::home(
         this,
         [this] {
-            activePane()->setUrl(QUrl::fromLocalFile(QDir::homePath()));
+            const QString home = KSharedConfig::openConfig()->group(QStringLiteral("Startup")).readEntry("HomeUrl", QDir::homePath());
+            activePane()->setUrl(QUrl::fromUserInput(home));
         },
         actions);
 
@@ -991,6 +1094,7 @@ void MainWindow::setupActions()
 
     m_fileItemActions = new KFileItemActions(this);
     m_fileItemActions->setParentWidget(this);
+    m_copyToMenu = new KFileCopyToMenu(this);
 }
 
 Pane *MainWindow::activePane() const
@@ -1029,7 +1133,20 @@ void MainWindow::openUrls(const QList<QUrl> &urls)
 {
     if (urls.isEmpty()) {
         if (!m_sessionRestored) {
-            restoreSession();
+            const KConfigGroup startup = KSharedConfig::openConfig()->group(QStringLiteral("Startup"));
+            const QString mode = startup.readEntry("StartupMode", QStringLiteral("RestoreSession"));
+            if (mode == QLatin1String("HomeFolder")) {
+                const QUrl home = QUrl::fromUserInput(startup.readEntry("HomeUrl", QDir::homePath()));
+                m_left->setUrl(home);
+                m_right->setUrl(home);
+                m_sessionRestored = true;
+            } else if (mode == QLatin1String("FixedFolders")) {
+                m_left->setUrl(QUrl::fromUserInput(startup.readEntry("LeftStartUrl", QDir::homePath())));
+                m_right->setUrl(QUrl::fromUserInput(startup.readEntry("RightStartUrl", QDir::homePath())));
+                m_sessionRestored = true;
+            } else {
+                restoreSession();
+            }
         }
         return;
     }
@@ -1077,11 +1194,21 @@ void MainWindow::saveSession()
     panels.writeEntry("FoldersExpanded", m_folderTree->expandedUrls());
     panels.writeEntry("CombinedExpanded", m_combinedPanel->folderTree()->expandedUrls());
     panels.writeEntry("CollapsedSections", m_combinedPanel->collapsedSections());
+    state->group(QLatin1String(WindowLayoutGroup)).writeEntry("DualPane", m_dualLayoutAction->isChecked());
     state->sync();
 }
 
 bool MainWindow::queryClose()
 {
+    const bool severalTabs = m_left->tabs()->count() > 1 || m_right->tabs()->count() > 1;
+    if (KSharedConfig::openConfig()->group(QStringLiteral("Confirmations")).readEntry("ConfirmClosingMultipleTabs", true) && severalTabs
+        && KMessageBox::warningContinueCancel(this,
+                                              i18nc("@info", "This window has several tabs open. Close them all?"),
+                                              i18nc("@title:window", "Close Tabs"),
+                                              KGuiItem(i18nc("@action:button", "Close Window"), QStringLiteral("window-close")))
+            != KMessageBox::Continue) {
+        return false;
+    }
     saveSession();
     return KXmlGuiWindow::queryClose();
 }
@@ -1148,9 +1275,11 @@ void MainWindow::updateActions()
     actions->action(QStringLiteral("close_tab"))
         ->setEnabled(tabs->count() > 1 && !tabs->isPinned(tabs->currentIndex()) && !tabs->isLocked(tabs->currentIndex()));
 
-    const bool icons = view->viewMode() == FolderView::ViewMode::Icons;
-    m_viewModeAction->setText(icons ? i18nc("@action", "Details View") : i18nc("@action", "Icons View"));
-    m_viewModeAction->setIcon(QIcon::fromTheme(icons ? QStringLiteral("view-list-details") : QStringLiteral("view-list-icons")));
+    m_selectionModeAction->setChecked(view->selectionMode());
+    m_selectionMarkersAction->setChecked(view->selectionMarkersVisible());
+    const bool details = view->viewMode() == FolderView::ViewMode::Details;
+    m_viewModeAction->setText(details ? i18nc("@action", "Icons View") : i18nc("@action", "Details View"));
+    m_viewModeAction->setIcon(QIcon::fromTheme(details ? QStringLiteral("view-list-icons") : QStringLiteral("view-list-details")));
     actions->action(QStringLiteral("calculate_occupied_space"))->setEnabled(!view->rootItem().isNull());
     m_jumpBackAction->setEnabled(m_jumpBackPoints.value(activePane()).isValid());
 }
@@ -1161,6 +1290,7 @@ void MainWindow::updateStatusBar()
     const KFileItemList selected = view->selectedItems();
     const int total = view->itemCount();
 
+    const bool showSelectionSize = KSharedConfig::openConfig()->group(QStringLiteral("StatusBar")).readEntry("ShowSelectionSize", true);
     if (selected.isEmpty()) {
         m_itemsLabel->setText(i18ncp("@info:status", "%1 item", "%1 items", total));
     } else {
@@ -1175,7 +1305,7 @@ void MainWindow::updateStatusBar()
         }
         const int files = selected.size() - folders;
         QString text = i18ncp("@info:status", "%1 of %2 selected", "%1 of %2 selected", selected.size(), total);
-        if (files > 0) {
+        if (files > 0 && showSelectionSize) {
             text += QStringLiteral(" (%1)").arg(KIO::convertSize(size));
         }
         m_itemsLabel->setText(text);
@@ -1226,7 +1356,8 @@ void MainWindow::updateWindowTitle()
 
 void MainWindow::updateTabBars()
 {
-    const bool force = m_left->tabs()->count() > 1 || m_right->tabs()->count() > 1;
+    const bool force = KSharedConfig::openConfig()->group(QStringLiteral("Panes")).readEntry("AlwaysShowTabBar", false) || m_left->tabs()->count() > 1
+        || m_right->tabs()->count() > 1;
     m_left->setTabBarForcedVisible(force);
     m_right->setTabBarForcedVisible(force);
 }
@@ -1485,6 +1616,7 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
 {
     QMenu menu(this);
     KActionCollection *actions = actionCollection();
+    const KConfigGroup context = KSharedConfig::openConfig()->group(QStringLiteral("ContextMenu"));
 
     if (items.isEmpty()) {
         m_newFileMenu->setWorkingDirectory(pane->url());
@@ -1492,16 +1624,22 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
         menu.addAction(m_newFileMenu);
         menu.addSeparator();
         menu.addAction(m_pasteAction);
-        menu.addAction(actions->action(QStringLiteral("new_tab")));
+        if (context.readEntry("ShowOpenInNewTab", true)) {
+            menu.addAction(actions->action(QStringLiteral("new_tab")));
+        }
         menu.addSeparator();
         menu.addAction(actions->action(stdName(KStandardAction::Redisplay)));
-        menu.addAction(actions->action(QStringLiteral("open_terminal")));
+        if (context.readEntry("ShowOpenTerminal", true)) {
+            menu.addAction(actions->action(QStringLiteral("open_terminal")));
+        }
         menu.addAction(actions->action(QStringLiteral("calculate_occupied_space")));
         QAction *folderLook = nullptr;
         if (pane->url().isLocalFile()) {
             folderLook = menu.addAction(i18nc("@action:inmenu", "Folder Look…"));
         }
-        menu.addAction(actions->action(QStringLiteral("copy_path")));
+        if (context.readEntry("ShowCopyPath", true)) {
+            menu.addAction(actions->action(QStringLiteral("copy_path")));
+        }
         menu.addSeparator();
         menu.addAction(actions->action(QStringLiteral("properties")));
         if (menu.exec(globalPos) == folderLook && folderLook) {
@@ -1517,8 +1655,10 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     QAction *openInTab = nullptr;
     QAction *openInOtherPane = nullptr;
     if (singleFolder) {
-        openInTab = menu.addAction(QIcon::fromTheme(QStringLiteral("tab-new")), i18nc("@action:inmenu", "Open in New Tab"));
-        if (m_dualLayoutAction->isChecked()) {
+        if (context.readEntry("ShowOpenInNewTab", true)) {
+            openInTab = menu.addAction(QIcon::fromTheme(QStringLiteral("tab-new")), i18nc("@action:inmenu", "Open in New Tab"));
+        }
+        if (context.readEntry("ShowOpenInOtherPane", true) && m_dualLayoutAction->isChecked()) {
             openInOtherPane = menu.addAction(QIcon::fromTheme(QStringLiteral("view-split-left-right")), i18nc("@action:inmenu", "Open in Other Pane"));
         }
     }
@@ -1531,14 +1671,30 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     if (singleFolder) {
         menu.addAction(m_pasteAction);
     }
-    menu.addAction(actions->action(QStringLiteral("copy_to_other_pane")));
-    menu.addAction(actions->action(QStringLiteral("move_to_other_pane")));
+    if (context.readEntry("ShowCopyToOtherPane", true)) {
+        menu.addAction(actions->action(QStringLiteral("copy_to_other_pane")));
+    }
+    if (context.readEntry("ShowMoveToOtherPane", true)) {
+        menu.addAction(actions->action(QStringLiteral("move_to_other_pane")));
+    }
+    if (context.readEntry("ShowCopyMoveToMenus", false)) {
+        QList<QUrl> urls;
+        urls.reserve(items.size());
+        for (const KFileItem &item : items) {
+            urls.append(item.url());
+        }
+        m_copyToMenu->setUrls(urls);
+        m_copyToMenu->setReadOnly(!props.supportsMoving());
+        m_copyToMenu->addActionsTo(&menu);
+    }
     menu.addSeparator();
     menu.addAction(actions->action(QStringLiteral("rename")));
     menu.addAction(actions->action(QStringLiteral("move_to_trash")));
-    menu.addAction(actions->action(QStringLiteral("delete")));
+    if (context.readEntry("ShowDelete", true)) {
+        menu.addAction(actions->action(QStringLiteral("delete")));
+    }
     menu.addSeparator();
-    if (singleFolder && items.first().isLocalFile()) {
+    if (singleFolder && items.first().isLocalFile() && context.readEntry("ShowOpenTerminal", true)) {
         menu.addAction(actions->action(QStringLiteral("open_terminal")));
     }
     if (singleFolder) {
@@ -1609,7 +1765,9 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
         menu.addAction(actions->action(QStringLiteral("compress")));
     }
     menu.addAction(actions->action(QStringLiteral("calculate_occupied_space")));
-    menu.addAction(actions->action(QStringLiteral("copy_path")));
+    if (context.readEntry("ShowCopyPath", true)) {
+        menu.addAction(actions->action(QStringLiteral("copy_path")));
+    }
 
     m_fileItemActions->addActionsTo(&menu);
 
@@ -1753,9 +1911,12 @@ void MainWindow::syncFolderTrees()
 void MainWindow::showFolderTreeMenu(const QUrl &url, const QPoint &globalPos)
 {
     QMenu menu(this);
-    QAction *openInTab = menu.addAction(QIcon::fromTheme(QStringLiteral("tab-new")), i18nc("@action:inmenu", "Open in New Tab"));
+    const KConfigGroup context = KSharedConfig::openConfig()->group(QStringLiteral("ContextMenu"));
+    QAction *openInTab = context.readEntry("ShowOpenInNewTab", true)
+        ? menu.addAction(QIcon::fromTheme(QStringLiteral("tab-new")), i18nc("@action:inmenu", "Open in New Tab"))
+        : nullptr;
     QAction *openInOther = nullptr;
-    if (m_dualLayoutAction->isChecked()) {
+    if (context.readEntry("ShowOpenInOtherPane", true) && m_dualLayoutAction->isChecked()) {
         openInOther = menu.addAction(QIcon::fromTheme(QStringLiteral("view-split-left-right")), i18nc("@action:inmenu", "Open in Other Pane"));
     }
     QAction *favorite = menu.addAction(QIcon::fromTheme(QStringLiteral("bookmark-new")), i18nc("@action:inmenu", "Add to Favorites"));
@@ -1764,7 +1925,7 @@ void MainWindow::showFolderTreeMenu(const QUrl &url, const QPoint &globalPos)
     QAction *properties = menu.addAction(QIcon::fromTheme(QStringLiteral("document-properties")), i18nc("@action:inmenu", "Properties"));
 
     QAction *chosen = menu.exec(globalPos);
-    if (chosen == openInTab) {
+    if (chosen && chosen == openInTab) {
         activePane()->openInNewTab(url, true);
     } else if (chosen && chosen == openInOther) {
         inactivePane()->setUrl(url);

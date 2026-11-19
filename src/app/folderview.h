@@ -14,15 +14,15 @@ class KDirModel;
 class KDirSortFilterProxyModel;
 class KFilePreviewGenerator;
 class KFileItemDelegate;
+class DetailsView;
 class NameFilterProxyModel;
 class QHeaderView;
 class QAbstractItemView;
 class QListView;
 class QStackedWidget;
-class QTreeView;
 
 /**
- * One folder listing: a details view and an icon view sharing a
+ * One folder listing: details, icon and compact views sharing a
  * KDirModel. Drops are delegated to KIO::DropJob; drags come from the
  * model. The view never navigates on its own; it asks via signals.
  */
@@ -34,6 +34,7 @@ public:
     enum class ViewMode {
         Details,
         Icons,
+        Compact,
     };
     Q_ENUM(ViewMode)
 
@@ -46,12 +47,26 @@ public:
 
     ViewMode viewMode() const;
     void setViewMode(ViewMode mode);
+    bool selectionMarkersVisible() const;
+    void setSelectionMarkersVisible(bool visible);
+    bool selectionMode() const;
+    void setSelectionMode(bool enabled);
 
     bool showHiddenFiles() const;
     void setShowHiddenFiles(bool show);
 
     bool previewsEnabled() const;
     void setPreviewsEnabled(bool enabled);
+    void setRemotePreviewsEnabled(bool enabled);
+    void setPreviewPlugins(const QStringList &plugins);
+    void setIconSizes(int details, int icons);
+    void setItemSpacing(int detailsSpace, int iconsSpace);
+    void setDragFromAnywhere(bool enabled);
+    void setColumnVisible(int column, bool visible);
+    void setSorting(int column, Qt::SortOrder order);
+    void setSortFoldersFirst(bool foldersFirst);
+    void setShowToolTips(bool show);
+    void setDropAction(const QString &action);
 
     /// The folder being listed, or a null item while loading.
     KFileItem rootItem() const;
@@ -113,6 +128,10 @@ Q_SIGNALS:
     void activated();
     /// Text was typed in a view with no shortcut modifier; it should filter.
     void typeAheadRequested(const QString &text);
+    void selectionModeChanged(bool enabled);
+    void copySelectionRequested();
+    void cutSelectionRequested();
+    void trashSelectionRequested();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -126,6 +145,7 @@ private:
     void showColumnMenu(const QPoint &pos);
     void loadFolderFormat();
     void saveFolderFormat();
+    void updatePreviews();
     bool handleDrop(QAbstractItemView *view, QEvent *event);
     KFileItem itemAt(QAbstractItemView *view, const QPoint &viewportPos) const;
 
@@ -137,11 +157,19 @@ private:
     bool m_flat = false;
     bool m_applyingFolderFormat = false;
     QStackedWidget *m_stack = nullptr;
-    QTreeView *m_details = nullptr;
+    DetailsView *m_details = nullptr;
     QListView *m_icons = nullptr;
+    QListView *m_compact = nullptr;
+    QWidget *m_selectionBar = nullptr;
+    bool m_selectionMarkers = false;
+    bool m_selectionMode = false;
+    bool m_markerPress = false;
     KFilePreviewGenerator *m_detailsPreviews = nullptr;
     KFilePreviewGenerator *m_iconPreviews = nullptr;
+    KFilePreviewGenerator *m_compactPreviews = nullptr;
     KFileItemDelegate *m_iconDelegate = nullptr;
     ViewMode m_viewMode = ViewMode::Details;
     bool m_previewsEnabled = true;
+    bool m_remotePreviewsEnabled = false;
+    QString m_dropAction = QStringLiteral("Ask");
 };

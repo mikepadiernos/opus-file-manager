@@ -5,18 +5,26 @@
 #include "archivewriter.h"
 #include "filecolorrules.h"
 #include "ignorelist.h"
+#include "symbolicicon.h"
 #include "viewsettings.h"
 
+#include <KConfig>
 #include <KConfigGroup>
+#include <KDesktopFile>
+#include <KFileUtils>
+#include <KIO/PreviewJob>
 #include <KLocalizedString>
 #include <KPageWidget>
 #include <KPageWidgetItem>
+#include <KPluginMetaData>
+#include <KService>
 #include <KSharedConfig>
 
 #include <QAbstractItemView>
 #include <QCheckBox>
 #include <QColorDialog>
 #include <QComboBox>
+#include <QDir>
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
@@ -24,16 +32,20 @@
 #include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
+#include <QListWidgetItem>
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QStandardPaths>
 #include <QTabWidget>
 #include <QTableWidget>
 #include <QTimer>
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <limits>
 
 namespace
 {
@@ -87,7 +99,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     m_sidebarTitlePosition->setCurrentIndex(positionIndex >= 0 ? positionIndex : 0);
     sidebarForm->addRow(i18nc("@label:listbox", "Sidebar titles:"), m_sidebarTitlePosition);
     generalTabs->addTab(sidebarPage, i18nc("@title:tab", "Settings Dialog"));
-    addPage(generalTabs, i18nc("@title", "General"))->setIcon(QIcon::fromTheme(QStringLiteral("configure")));
+    addPage(generalTabs, i18nc("@title", "General"))->setIcon(SymbolicIcon::fromTheme(QStringLiteral("configure")));
 
     const ViewSettings settings = ViewSettings::fromConfig(KSharedConfig::openConfig()->group(QStringLiteral("View")));
     auto *viewPage = new QWidget(this);
@@ -165,7 +177,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     iconsLayout->addWidget(informationGroup);
     viewLayout->addWidget(iconsGroup);
     viewLayout->addStretch();
-    addPage(viewPage, i18nc("@title", "View"))->setIcon(QIcon::fromTheme(QStringLiteral("view-list-icons")));
+    addPage(viewPage, i18nc("@title", "View"))->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-list-icons")));
 
     auto *filesPage = new QWidget(this);
     auto *filesLayout = new QVBoxLayout(filesPage);
@@ -213,7 +225,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     connect(editColor, &QPushButton::clicked, this, &SettingsDialog::editColorRule);
     connect(removeColor, &QPushButton::clicked, this, &SettingsDialog::removeColorRule);
     filesLayout->addWidget(colorsGroup);
-    addPage(filesPage, i18nc("@title", "Files"))->setIcon(QIcon::fromTheme(QStringLiteral("folder")));
+    addPage(filesPage, i18nc("@title", "Files"))->setIcon(SymbolicIcon::fromTheme(QStringLiteral("folder")));
 
     const KConfigGroup panelSettings = KSharedConfig::openConfig()->group(QStringLiteral("PanelSettings"));
     auto *panelsPage = new QWidget(this);
@@ -260,7 +272,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     panelsLayout->addWidget(panelGroup);
     panelsLayout->addWidget(sectionsGroup);
     panelsLayout->addStretch();
-    addPage(panelsPage, i18nc("@title", "Panels"))->setIcon(QIcon::fromTheme(QStringLiteral("view-split-left-right")));
+    addPage(panelsPage, i18nc("@title", "Panels"))->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-split-left-right")));
 
     const KConfigGroup archiveSettings = KSharedConfig::openConfig()->group(QStringLiteral("Archives"));
     auto *archivesPage = new QWidget(this);
@@ -281,7 +293,7 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     const int defaultFormatIndex = m_defaultArchiveFormat->findData(defaultFormat);
     m_defaultArchiveFormat->setCurrentIndex(defaultFormatIndex >= 0 ? defaultFormatIndex : 0);
     archivesLayout->addRow(i18nc("@label", "Default format:"), m_defaultArchiveFormat);
-    addPage(archivesPage, i18nc("@title", "Archives"))->setIcon(QIcon::fromTheme(QStringLiteral("package-x-generic")));
+    addPage(archivesPage, i18nc("@title", "Archives"))->setIcon(SymbolicIcon::fromTheme(QStringLiteral("package-x-generic")));
 
     const KConfigGroup tabSettings = KSharedConfig::openConfig()->group(QStringLiteral("Tabs"));
     auto *tabsPage = new QWidget(this);
@@ -295,7 +307,331 @@ SettingsDialog::SettingsDialog(QWidget *parent)
     m_expandTabs->setChecked(tabSettings.readEntry("Expand", true));
     tabsLayout->addWidget(m_expandTabs);
     tabsLayout->addStretch();
-    addPage(tabsPage, i18nc("@title", "Tabs"))->setIcon(QIcon::fromTheme(QStringLiteral("tab-new")));
+    addPage(tabsPage, i18nc("@title", "Tabs"))->setIcon(SymbolicIcon::fromTheme(QStringLiteral("tab-new")));
+
+    auto addCheck = [this](QFormLayout *form, const QString &group, const QString &key, const QString &label, bool defaultValue) {
+        auto *check = new QCheckBox(label, form->parentWidget());
+        check->setObjectName(group + u'_' + key);
+        check->setChecked(KSharedConfig::openConfig()->group(group).readEntry(key, defaultValue));
+        form->addRow({}, check);
+        m_m02Controls.insert(group + u'/' + key, check);
+        return check;
+    };
+    auto addCombo = [this](QFormLayout *form,
+                           const QString &group,
+                           const QString &key,
+                           const QString &label,
+                           const QList<QPair<QString, QString>> &options,
+                           const QString &defaultValue) {
+        auto *combo = new QComboBox(form->parentWidget());
+        combo->setObjectName(group + u'_' + key);
+        for (const auto &[value, text] : options) {
+            combo->addItem(text, value);
+        }
+        const QString value = KSharedConfig::openConfig()->group(group).readEntry(key, defaultValue);
+        combo->setCurrentIndex(qMax(0, combo->findData(value)));
+        form->addRow(label, combo);
+        m_m02Controls.insert(group + u'/' + key, combo);
+        return combo;
+    };
+    auto addSpin = [this](QFormLayout *form,
+                          const QString &group,
+                          const QString &key,
+                          const QString &label,
+                          int minimum,
+                          int maximum,
+                          int defaultValue,
+                          const QString &suffix = QString()) {
+        auto *spin = new QSpinBox(form->parentWidget());
+        spin->setObjectName(group + u'_' + key);
+        spin->setRange(minimum, maximum);
+        spin->setSuffix(suffix);
+        spin->setValue(KSharedConfig::openConfig()->group(group).readEntry(key, defaultValue));
+        form->addRow(label, spin);
+        m_m02Controls.insert(group + u'/' + key, spin);
+        return spin;
+    };
+    auto addLine = [this](QFormLayout *form, const QString &group, const QString &key, const QString &label, const QString &defaultValue) {
+        auto *line = new QLineEdit(form->parentWidget());
+        line->setObjectName(group + u'_' + key);
+        line->setText(KSharedConfig::openConfig()->group(group).readEntry(key, defaultValue));
+        form->addRow(label, line);
+        m_m02Controls.insert(group + u'/' + key, line);
+        return line;
+    };
+
+    auto *interfacePage = new QWidget(this);
+    auto *interfaceTabs = new QTabWidget(interfacePage);
+    auto *interfaceLayout = new QVBoxLayout(interfacePage);
+    interfaceLayout->addWidget(interfaceTabs);
+
+    auto *startupPage = new QWidget(interfaceTabs);
+    auto *startupForm = new QFormLayout(startupPage);
+    addCombo(startupForm,
+             QStringLiteral("Startup"),
+             QStringLiteral("StartupMode"),
+             i18nc("@label:listbox", "At startup:"),
+             {{QStringLiteral("RestoreSession"), i18nc("@item:inlistbox", "Restore previous session")},
+              {QStringLiteral("HomeFolder"), i18nc("@item:inlistbox", "Open home folder")},
+              {QStringLiteral("FixedFolders"), i18nc("@item:inlistbox", "Open fixed folders")}},
+             QStringLiteral("RestoreSession"));
+    addLine(startupForm, QStringLiteral("Startup"), QStringLiteral("HomeUrl"), i18nc("@label:textbox", "Home folder URL:"), QDir::homePath());
+    addLine(startupForm, QStringLiteral("Startup"), QStringLiteral("LeftStartUrl"), i18nc("@label:textbox", "First pane URL:"), QDir::homePath());
+    addLine(startupForm, QStringLiteral("Startup"), QStringLiteral("RightStartUrl"), i18nc("@label:textbox", "Second pane URL:"), QDir::homePath());
+    addCombo(startupForm,
+             QStringLiteral("Panes"),
+             QStringLiteral("DualPaneAtStartup"),
+             i18nc("@label:listbox", "Panes at startup:"),
+             {{QStringLiteral("AsLastUsed"), i18nc("@item:inlistbox", "Use last session")},
+              {QStringLiteral("Always"), i18nc("@item:inlistbox", "Always show two panes")},
+              {QStringLiteral("Never"), i18nc("@item:inlistbox", "Always show one pane")}},
+             QStringLiteral("AsLastUsed"));
+    addCheck(startupForm, QStringLiteral("Panes"), QStringLiteral("AlwaysShowTabBar"), i18nc("@option:check", "Always show tab bars"), false);
+    addCheck(startupForm, QStringLiteral("Panes"), QStringLiteral("TabSwitchesPanes"), i18nc("@option:check", "Tab key switches panes"), true);
+    addCheck(startupForm,
+             QStringLiteral("Panes"),
+             QStringLiteral("NewTabsAfterCurrent"),
+             i18nc("@option:check", "Open new tabs next to the current tab"),
+             false);
+    addCheck(startupForm, QStringLiteral("Panes"), QStringLiteral("ShowNavigationBar"), i18nc("@option:check", "Show navigation bars"), true);
+    addCheck(startupForm,
+             QStringLiteral("Navigation"),
+             QStringLiteral("FollowSymlinks"),
+             i18nc("@option:check", "Follow symbolic links when navigating"),
+             false);
+    interfaceTabs->addTab(startupPage, i18nc("@title:tab", "Startup and Navigation"));
+
+    auto *previewPage = new QWidget(interfaceTabs);
+    auto *previewLayout = new QVBoxLayout(previewPage);
+    auto *previewForm = new QFormLayout;
+    addCheck(previewForm, QStringLiteral("Previews"), QStringLiteral("ShowPreviews"), i18nc("@option:check", "Show previews"), true);
+    addCheck(previewForm, QStringLiteral("Previews"), QStringLiteral("ShowRemotePreviews"), i18nc("@option:check", "Show previews for remote files"), false);
+    auto *previewLimit = addSpin(previewForm,
+                                 QStringLiteral("PreviewSettings"),
+                                 QStringLiteral("MaximumSizeMiB"),
+                                 i18nc("@label:spinbox", "Maximum file size:"),
+                                 0,
+                                 100000,
+                                 0,
+                                 i18nc("@item:valuesuffix mebibytes", " MiB"));
+    previewLimit->setSpecialValueText(i18nc("@item:inlistbox preview size limit", "No limit"));
+    const auto kioConfig = KSharedConfig::openConfig(QStringLiteral("kiorc"), KConfig::NoGlobals);
+    const KConfigGroup kioPreviewSettings = kioConfig->group(QStringLiteral("PreviewSettings"));
+    const qulonglong maximumBytes = kioPreviewSettings.readEntry("MaximumSize", std::numeric_limits<qulonglong>::max());
+    if (maximumBytes != std::numeric_limits<qulonglong>::max()) {
+        previewLimit->setValue(int(qMin<qulonglong>(100000, qMax<qulonglong>(1, (maximumBytes + 1024 * 1024 - 1) / (1024 * 1024)))));
+    }
+    previewLayout->addLayout(previewForm);
+    auto *pluginGroup = new QGroupBox(i18nc("@title:group", "Preview Plugins"), previewPage);
+    auto *pluginLayout = new QVBoxLayout(pluginGroup);
+    m_previewPlugins = new QListWidget(pluginGroup);
+    m_previewPlugins->setObjectName(QStringLiteral("preview_plugins"));
+    auto availablePlugins = KIO::PreviewJob::availableThumbnailerPlugins();
+    std::sort(availablePlugins.begin(), availablePlugins.end(), [](const KPluginMetaData &a, const KPluginMetaData &b) {
+        return QString::localeAwareCompare(a.name(), b.name()) < 0;
+    });
+    const KConfigGroup appPreviewSettings = KSharedConfig::openConfig()->group(QStringLiteral("PreviewSettings"));
+    const QStringList enabledPlugins = kioPreviewSettings.readEntry("Plugins", appPreviewSettings.readEntry("Plugins", KIO::PreviewJob::defaultPlugins()));
+    for (const KPluginMetaData &plugin : std::as_const(availablePlugins)) {
+        auto *item = new QListWidgetItem(plugin.name(), m_previewPlugins);
+        item->setData(Qt::UserRole, plugin.pluginId());
+        item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable);
+        item->setCheckState(enabledPlugins.contains(plugin.pluginId()) ? Qt::Checked : Qt::Unchecked);
+    }
+    pluginLayout->addWidget(m_previewPlugins);
+    previewLayout->addWidget(pluginGroup);
+    interfaceTabs->addTab(previewPage, i18nc("@title:tab", "Previews"));
+
+    auto *confirmationPage = new QWidget(interfaceTabs);
+    auto *confirmationForm = new QFormLayout(confirmationPage);
+    m_confirmMultipleTabs = new QCheckBox(i18nc("@option:check", "Ask before closing a window with multiple tabs"), confirmationPage);
+    m_confirmMultipleTabs->setObjectName(QStringLiteral("confirm_multiple_tabs"));
+    m_confirmMultipleTabs->setChecked(KSharedConfig::openConfig()->group(QStringLiteral("Confirmations")).readEntry("ConfirmClosingMultipleTabs", true));
+    confirmationForm->addRow({}, m_confirmMultipleTabs);
+    m_confirmTrash = new QCheckBox(i18nc("@option:check", "Ask before moving files to Trash"), confirmationPage);
+    m_confirmDelete = new QCheckBox(i18nc("@option:check", "Ask before permanently deleting files"), confirmationPage);
+    const KConfigGroup kioConfirmations = KSharedConfig::openConfig(QStringLiteral("kiorc"), KConfig::NoGlobals)->group(QStringLiteral("Confirmations"));
+    m_confirmTrash->setChecked(kioConfirmations.readEntry("ConfirmTrash", true));
+    m_confirmDelete->setChecked(kioConfirmations.readEntry("ConfirmDelete", true));
+    confirmationForm->addRow({}, m_confirmTrash);
+    confirmationForm->addRow({}, m_confirmDelete);
+    addCombo(confirmationForm,
+             QStringLiteral("Confirmations"),
+             QStringLiteral("ExecutableAction"),
+             i18nc("@label:listbox", "When opening executables:"),
+             {{QStringLiteral("Ask"), i18nc("@item:inlistbox", "Ask what to do")},
+              {QStringLiteral("Open"), i18nc("@item:inlistbox", "Open as a document")},
+              {QStringLiteral("Run"), i18nc("@item:inlistbox", "Run")},
+              {QStringLiteral("RunInTerminal"), i18nc("@item:inlistbox", "Run in a terminal")},
+              {QStringLiteral("RunInTerminalKeepOpen"), i18nc("@item:inlistbox", "Run in a terminal and keep it open")}},
+             QStringLiteral("Ask"));
+    addCombo(confirmationForm,
+             QStringLiteral("Confirmations"),
+             QStringLiteral("DropAction"),
+             i18nc("@label:listbox", "When dropping files:"),
+             {{QStringLiteral("Ask"), i18nc("@item:inlistbox", "Ask whether to copy or move")},
+              {QStringLiteral("Copy"), i18nc("@item:inlistbox", "Copy")},
+              {QStringLiteral("Move"), i18nc("@item:inlistbox", "Move")}},
+             QStringLiteral("Ask"));
+    interfaceTabs->addTab(confirmationPage, i18nc("@title:tab", "Confirmations"));
+
+    auto *statusPage = new QWidget(interfaceTabs);
+    auto *statusForm = new QFormLayout(statusPage);
+    addCheck(statusForm, QStringLiteral("StatusBar"), QStringLiteral("ShowItemCounts"), i18nc("@option:check", "Show item counts"), true);
+    addCheck(statusForm, QStringLiteral("StatusBar"), QStringLiteral("ShowSelectionSize"), i18nc("@option:check", "Show selected file size"), true);
+    addCheck(statusForm, QStringLiteral("StatusBar"), QStringLiteral("ShowFreeSpace"), i18nc("@option:check", "Show disk free space"), true);
+    addCombo(statusForm,
+             QStringLiteral("Views"),
+             QStringLiteral("BarDensity"),
+             i18nc("@label:listbox", "Toolbar, location and status bar density:"),
+             {{QStringLiteral("Normal"), i18nc("@item:inlistbox", "Normal")},
+              {QStringLiteral("Compact"), i18nc("@item:inlistbox", "Compact")},
+              {QStringLiteral("VeryCompact"), i18nc("@item:inlistbox", "Very compact")}},
+             QStringLiteral("Normal"));
+    interfaceTabs->addTab(statusPage, i18nc("@title:tab", "Status Bar"));
+    addPage(interfacePage, i18nc("@title", "Interface"))->setIcon(SymbolicIcon::fromTheme(QStringLiteral("preferences-desktop")));
+
+    auto *defaultsPage = new QWidget(this);
+    auto *defaultsLayout = new QVBoxLayout(defaultsPage);
+    auto *defaultsForm = new QFormLayout;
+    addCombo(defaultsForm,
+             QStringLiteral("Views"),
+             QStringLiteral("DefaultViewMode"),
+             i18nc("@label:listbox", "Default view:"),
+             {{QStringLiteral("Details"), i18nc("@item:inlistbox", "Details")}, {QStringLiteral("Icons"), i18nc("@item:inlistbox", "Icons")}},
+             QStringLiteral("Details"));
+    addCombo(defaultsForm,
+             QStringLiteral("Views"),
+             QStringLiteral("SortColumn"),
+             i18nc("@label:listbox", "Sort by:"),
+             {{QStringLiteral("Name"), i18nc("@item:inlistbox", "Name")},
+              {QStringLiteral("Size"), i18nc("@item:inlistbox", "Size")},
+              {QStringLiteral("ModifiedTime"), i18nc("@item:inlistbox", "Modified")},
+              {QStringLiteral("Type"), i18nc("@item:inlistbox", "Type")},
+              {QStringLiteral("Permissions"), i18nc("@item:inlistbox", "Permissions")},
+              {QStringLiteral("Owner"), i18nc("@item:inlistbox", "Owner")},
+              {QStringLiteral("Group"), i18nc("@item:inlistbox", "Group")}},
+             QStringLiteral("Name"));
+    addCheck(defaultsForm, QStringLiteral("Views"), QStringLiteral("SortDescending"), i18nc("@option:check", "Sort in descending order"), false);
+    addCheck(defaultsForm, QStringLiteral("Views"), QStringLiteral("FoldersFirst"), i18nc("@option:check", "Show folders before files"), true);
+    addCheck(defaultsForm, QStringLiteral("Views"), QStringLiteral("ShowHiddenFiles"), i18nc("@option:check", "Show hidden files"), false);
+    addCheck(defaultsForm, QStringLiteral("Views"), QStringLiteral("ShowToolTips"), i18nc("@option:check", "Show tooltips for truncated names"), true);
+    addSpin(defaultsForm,
+            QStringLiteral("Views"),
+            QStringLiteral("DetailsIconSize"),
+            i18nc("@label:spinbox", "Details icon size:"),
+            16,
+            64,
+            16,
+            i18nc("@item:valuesuffix pixels", " px"));
+    addSpin(defaultsForm,
+            QStringLiteral("Views"),
+            QStringLiteral("IconsIconSize"),
+            i18nc("@label:spinbox", "Icon view size:"),
+            32,
+            256,
+            64,
+            i18nc("@item:valuesuffix pixels", " px"));
+    addCombo(defaultsForm,
+             QStringLiteral("Views"),
+             QStringLiteral("DetailsDensity"),
+             i18nc("@label:listbox", "Details density:"),
+             {{QStringLiteral("Normal"), i18nc("@item:inlistbox", "Normal")},
+              {QStringLiteral("Compact"), i18nc("@item:inlistbox", "Compact")},
+              {QStringLiteral("VeryCompact"), i18nc("@item:inlistbox", "Very compact")},
+              {QStringLiteral("Custom"), i18nc("@item:inlistbox", "Custom")}},
+             QStringLiteral("Normal"));
+    addSpin(defaultsForm,
+            QStringLiteral("Views"),
+            QStringLiteral("DetailsCustomSpace"),
+            i18nc("@label:spinbox", "Details custom spacing:"),
+            0,
+            10,
+            2,
+            i18nc("@item:valuesuffix pixels", " px"));
+    addCombo(defaultsForm,
+             QStringLiteral("Views"),
+             QStringLiteral("IconsDensity"),
+             i18nc("@label:listbox", "Icon density:"),
+             {{QStringLiteral("Normal"), i18nc("@item:inlistbox", "Normal")},
+              {QStringLiteral("Compact"), i18nc("@item:inlistbox", "Compact")},
+              {QStringLiteral("VeryCompact"), i18nc("@item:inlistbox", "Very compact")},
+              {QStringLiteral("Custom"), i18nc("@item:inlistbox", "Custom")}},
+             QStringLiteral("Normal"));
+    addSpin(defaultsForm,
+            QStringLiteral("Views"),
+            QStringLiteral("IconsCustomSpace"),
+            i18nc("@label:spinbox", "Icon custom spacing:"),
+            0,
+            10,
+            2,
+            i18nc("@item:valuesuffix pixels", " px"));
+    addCheck(defaultsForm,
+             QStringLiteral("Views"),
+             QStringLiteral("DragFromAnywhere"),
+             i18nc("@option:check", "Start dragging from anywhere in a details row"),
+             false);
+    defaultsLayout->addLayout(defaultsForm);
+    defaultsLayout->addStretch();
+    addPage(defaultsPage, i18nc("@title", "View Defaults"))->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-list-details")));
+
+    auto *contextPage = new QWidget(this);
+    auto *contextLayout = new QVBoxLayout(contextPage);
+    auto *contextForm = new QFormLayout;
+    addCheck(contextForm, QStringLiteral("ContextMenu"), QStringLiteral("ShowOpenInNewTab"), i18nc("@option:check", "Open in New Tab"), true);
+    addCheck(contextForm, QStringLiteral("ContextMenu"), QStringLiteral("ShowOpenInOtherPane"), i18nc("@option:check", "Open in Other Pane"), true);
+    addCheck(contextForm, QStringLiteral("ContextMenu"), QStringLiteral("ShowCopyToOtherPane"), i18nc("@option:check", "Copy to Other Pane"), true);
+    addCheck(contextForm, QStringLiteral("ContextMenu"), QStringLiteral("ShowMoveToOtherPane"), i18nc("@option:check", "Move to Other Pane"), true);
+    addCheck(contextForm, QStringLiteral("ContextMenu"), QStringLiteral("ShowDelete"), i18nc("@option:check", "Show permanent Delete"), true);
+    addCheck(contextForm, QStringLiteral("ContextMenu"), QStringLiteral("ShowOpenTerminal"), i18nc("@option:check", "Open Terminal Here"), true);
+    addCheck(contextForm, QStringLiteral("ContextMenu"), QStringLiteral("ShowCopyPath"), i18nc("@option:check", "Copy Path"), true);
+    addCheck(contextForm,
+             QStringLiteral("ContextMenu"),
+             QStringLiteral("ShowCopyMoveToMenus"),
+             i18nc("@option:check", "Show Copy To and Move To submenus"),
+             false);
+    contextLayout->addLayout(contextForm);
+    auto *serviceGroup = new QGroupBox(i18nc("@title:group", "Installed Service Menu Actions"), contextPage);
+    auto *serviceLayout = new QVBoxLayout(serviceGroup);
+    m_serviceMenus = new QListWidget(serviceGroup);
+    m_serviceMenus->setObjectName(QStringLiteral("service_menu_actions"));
+    struct ServiceEntry {
+        QString key;
+        QString text;
+        bool defaultShown = true;
+    };
+    QList<ServiceEntry> services;
+    QStringList serviceKeys;
+    const QStringList serviceFolders =
+        QStandardPaths::locateAll(QStandardPaths::GenericDataLocation, QStringLiteral("kio/servicemenus"), QStandardPaths::LocateDirectory);
+    const QStringList serviceFiles = KFileUtils::findAllUniqueFiles(serviceFolders, {QStringLiteral("*.desktop")});
+    for (const QString &file : serviceFiles) {
+        for (const KServiceAction &action : KService(file).actions()) {
+            if (!action.noDisplay() && !action.isSeparator() && !serviceKeys.contains(action.name())) {
+                serviceKeys.append(action.name());
+                services.append({action.name(), action.text(), true});
+            }
+        }
+    }
+    for (const KPluginMetaData &plugin : KPluginMetaData::findPlugins(QStringLiteral("kf6/kfileitemaction"))) {
+        if (!serviceKeys.contains(plugin.pluginId())) {
+            serviceKeys.append(plugin.pluginId());
+            services.append({plugin.pluginId(), plugin.name(), plugin.pluginId() != QLatin1String("hidefileitemaction")});
+        }
+    }
+    std::sort(services.begin(), services.end(), [](const ServiceEntry &a, const ServiceEntry &b) {
+        return QString::localeAwareCompare(a.text, b.text) < 0;
+    });
+    const KConfigGroup serviceSettings = KSharedConfig::openConfig(QStringLiteral("kservicemenurc"), KConfig::NoGlobals)->group(QStringLiteral("Show"));
+    for (const ServiceEntry &service : std::as_const(services)) {
+        auto *item = new QListWidgetItem(service.text, m_serviceMenus);
+        item->setData(Qt::UserRole, service.key);
+        item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable);
+        item->setCheckState(serviceSettings.readEntry(service.key, service.defaultShown) ? Qt::Checked : Qt::Unchecked);
+    }
+    serviceLayout->addWidget(m_serviceMenus);
+    contextLayout->addWidget(serviceGroup);
+    addPage(contextPage, i18nc("@title", "Context Menu"))->setIcon(SymbolicIcon::fromTheme(QStringLiteral("context-menu")));
 
     connect(m_sidebarIconSize, &QSpinBox::valueChanged, this, &SettingsDialog::applySidebarStyle);
     connect(m_sidebarTitlePosition, &QComboBox::currentIndexChanged, this, &SettingsDialog::applySidebarStyle);
@@ -399,7 +735,48 @@ void SettingsDialog::accept()
     tabs.writeEntry("ShowIcons", m_showTabIcons->isChecked());
     tabs.writeEntry("Expand", m_expandTabs->isChecked());
 
-    KSharedConfig::openConfig()->sync();
+    const auto config = KSharedConfig::openConfig();
+    for (auto it = m_m02Controls.cbegin(); it != m_m02Controls.cend(); ++it) {
+        const qsizetype separator = it.key().indexOf(u'/');
+        KConfigGroup group = config->group(it.key().first(separator));
+        const QString key = it.key().sliced(separator + 1);
+        if (const auto *check = qobject_cast<const QCheckBox *>(it.value())) {
+            group.writeEntry(key, check->isChecked());
+        } else if (const auto *combo = qobject_cast<const QComboBox *>(it.value())) {
+            group.writeEntry(key, combo->currentData().toString());
+        } else if (const auto *spin = qobject_cast<const QSpinBox *>(it.value())) {
+            group.writeEntry(key, spin->value());
+        } else if (const auto *line = qobject_cast<const QLineEdit *>(it.value())) {
+            group.writeEntry(key, line->text().trimmed());
+        }
+    }
+    config->group(QStringLiteral("Confirmations")).writeEntry("ConfirmClosingMultipleTabs", m_confirmMultipleTabs->isChecked());
+    QStringList previewPlugins;
+    for (int row = 0; row < m_previewPlugins->count(); ++row) {
+        const QListWidgetItem *item = m_previewPlugins->item(row);
+        if (item->checkState() == Qt::Checked) {
+            previewPlugins.append(item->data(Qt::UserRole).toString());
+        }
+    }
+    config->group(QStringLiteral("PreviewSettings")).writeEntry("Plugins", previewPlugins);
+    auto kioConfig = KSharedConfig::openConfig(QStringLiteral("kiorc"), KConfig::NoGlobals);
+    KConfigGroup kioConfirmations = kioConfig->group(QStringLiteral("Confirmations"));
+    kioConfirmations.writeEntry("ConfirmTrash", m_confirmTrash->isChecked());
+    kioConfirmations.writeEntry("ConfirmDelete", m_confirmDelete->isChecked());
+    KConfigGroup kioPreviews = kioConfig->group(QStringLiteral("PreviewSettings"));
+    kioPreviews.writeEntry("Plugins", previewPlugins);
+    const int maximumMiB = config->group(QStringLiteral("PreviewSettings")).readEntry("MaximumSizeMiB", 0);
+    const qulonglong maximumBytes = maximumMiB == 0 ? std::numeric_limits<qulonglong>::max() : qulonglong(maximumMiB) * 1024 * 1024;
+    kioPreviews.writeEntry("MaximumSize", maximumBytes);
+    auto serviceConfig = KSharedConfig::openConfig(QStringLiteral("kservicemenurc"), KConfig::NoGlobals);
+    KConfigGroup serviceSettings = serviceConfig->group(QStringLiteral("Show"));
+    for (int row = 0; row < m_serviceMenus->count(); ++row) {
+        const QListWidgetItem *item = m_serviceMenus->item(row);
+        serviceSettings.writeEntry(item->data(Qt::UserRole).toString(), item->checkState() == Qt::Checked);
+    }
+    config->sync();
+    kioConfig->sync();
+    serviceConfig->sync();
     KPageDialog::accept();
 }
 

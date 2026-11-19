@@ -2,6 +2,7 @@
 
 #include "fileoperations.h"
 
+#include <KConfigGroup>
 #include <KIO/CopyJob>
 #include <KIO/DeleteOrTrashJob>
 #include <KIO/FileUndoManager>
@@ -13,10 +14,13 @@
 #include <KIO/RenameFileDialog>
 #include <KJobWidgets>
 #include <KPropertiesDialog>
+#include <KSharedConfig>
+#include <KShell>
 #include <KTerminalLauncherJob>
 
 #include <QApplication>
 #include <QClipboard>
+#include <QFileInfo>
 #include <QMimeData>
 
 namespace
@@ -120,10 +124,23 @@ void FileOperations::open(const KFileItem &item, QWidget *window)
     if (item.isNull()) {
         return;
     }
+    const QString action = KSharedConfig::openConfig()->group(QStringLiteral("Confirmations")).readEntry("ExecutableAction", QStringLiteral("Ask"));
+    const QString path = item.localPath();
+    const bool program = !path.isEmpty() && !item.isDir() && QFileInfo(path).isExecutable();
+    if (program && (action == QLatin1String("RunInTerminal") || action == QLatin1String("RunInTerminalKeepOpen"))) {
+        const QString quoted = KShell::quoteArg(path);
+        const bool keepOpen = action == QLatin1String("RunInTerminalKeepOpen");
+        const QString command = keepOpen ? QStringLiteral("sh -c ") + KShell::quoteArg(quoted + QStringLiteral("; exec \"${SHELL:-sh}\"")) : quoted;
+        auto *terminal = new KTerminalLauncherJob(command);
+        terminal->setWorkingDirectory(QFileInfo(path).absolutePath());
+        attachWindow(terminal, window);
+        terminal->start();
+        return;
+    }
     auto *job = new KIO::OpenUrlJob(item.targetUrl(), item.mimetype());
     job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, window));
-    job->setRunExecutables(false);
-    job->setShowOpenOrExecuteDialog(true);
+    job->setRunExecutables(action == QLatin1String("Run"));
+    job->setShowOpenOrExecuteDialog(action == QLatin1String("Ask"));
     job->start();
 }
 

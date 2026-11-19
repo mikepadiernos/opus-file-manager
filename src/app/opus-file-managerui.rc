@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="7" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="8" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -33,6 +33,7 @@
       <Separator/>
       <Action name="edit_select_all"/>
       <Action name="select_menu"/>
+      <Action name="selection_mode"/>
       <Separator/>
       <Action name="show_filter_bar"/>
     </Menu>
@@ -41,6 +42,8 @@
       <Action name="dual_layout"/>
       <Action name="stacked_layout"/>
       <Action name="toggle_view_mode"/>
+      <Action name="compact_view"/>
+      <Action name="selection_markers"/>
       <Action name="show_previews"/>
       <Action name="show_hidden_files"/>
       <Action name="show_flat"/>

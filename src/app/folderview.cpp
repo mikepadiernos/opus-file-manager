@@ -2,6 +2,7 @@
 
 #include "folderview.h"
 
+#include "detailsview.h"
 #include "filecolorrules.h"
 #include "flatview.h"
 #include "foldermetadata.h"
@@ -18,6 +19,7 @@
 #include <KDirModel>
 #include <KDirSortFilterProxyModel>
 #include <KFileItemDelegate>
+#include <KFileItemListProperties>
 #include <KFilePreviewGenerator>
 #include <KIO/DropJob>
 #include <KIO/Job>
@@ -33,6 +35,7 @@
 #include <QDragMoveEvent>
 #include <QDropEvent>
 #include <QFileInfo>
+#include <QHBoxLayout>
 #include <QHash>
 #include <QHeaderView>
 #include <QItemSelectionModel>
@@ -46,7 +49,9 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QStackedWidget>
+#include <QStyle>
 #include <QStyleOptionViewItem>
+#include <QToolButton>
 #include <QTreeView>
 #include <QVBoxLayout>
 
@@ -485,28 +490,55 @@ private:
     bool m_ratingColumn = false;
 };
 
+namespace
+{
+QRect selectionMarkerRect(const QRect &itemRect, Qt::LayoutDirection direction)
+{
+    const int size = 16;
+    return QRect(direction == Qt::RightToLeft ? itemRect.right() - size + 1 : itemRect.left(), itemRect.bottom() - size + 1, size, size);
+}
+
+void paintSelectionMarker(QPainter *painter, const QStyleOptionViewItem &option)
+{
+    QStyleOptionButton check;
+    check.rect = selectionMarkerRect(option.rect, option.direction);
+    check.state = QStyle::State_Enabled | ((option.state & QStyle::State_Selected) ? QStyle::State_On : QStyle::State_Off);
+    QApplication::style()->drawControl(QStyle::CE_CheckBox, &check, painter);
+}
+}
+
 class GroupHeaderDelegate : public KFileItemDelegate
 {
 public:
-    explicit GroupHeaderDelegate(NameFilterProxyModel *model, QObject *parent)
+    explicit GroupHeaderDelegate(NameFilterProxyModel *model, FolderView *folder, QObject *parent)
         : KFileItemDelegate(parent)
         , m_model(model)
+        , m_folder(folder)
     {
     }
 
     QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override
     {
         QSize size = KFileItemDelegate::sizeHint(option, index);
+        size.rheight() = qMax(1, size.height() + 2 * (m_itemSpace - 2));
         if (firstInGroup(index)) {
             size.rheight() += HeaderHeight;
         }
         return size;
     }
 
+    void setItemSpace(int space)
+    {
+        m_itemSpace = space;
+    }
+
     void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override
     {
         if (!firstInGroup(index)) {
             KFileItemDelegate::paint(painter, option, index);
+            if (index.column() == 0 && (m_folder->selectionMarkersVisible() || m_folder->selectionMode())) {
+                paintSelectionMarker(painter, option);
+            }
             return;
         }
         const QRect headerRect(option.rect.left(), option.rect.top(), option.rect.width(), HeaderHeight);
@@ -521,6 +553,9 @@ public:
         QStyleOptionViewItem itemOption(option);
         itemOption.rect.setTop(itemOption.rect.top() + HeaderHeight);
         KFileItemDelegate::paint(painter, itemOption, index);
+        if (index.column() == 0 && (m_folder->selectionMarkersVisible() || m_folder->selectionMode())) {
+            paintSelectionMarker(painter, itemOption);
+        }
     }
 
 private:
@@ -534,6 +569,29 @@ private:
 
     static constexpr int HeaderHeight = 20;
     NameFilterProxyModel *m_model;
+    FolderView *m_folder;
+    int m_itemSpace = 2;
+};
+
+class SelectionMarkerDelegate : public KFileItemDelegate
+{
+public:
+    explicit SelectionMarkerDelegate(FolderView *folder, QObject *parent)
+        : KFileItemDelegate(parent)
+        , m_folder(folder)
+    {
+    }
+
+    void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override
+    {
+        KFileItemDelegate::paint(painter, option, index);
+        if (m_folder->selectionMarkersVisible() || m_folder->selectionMode()) {
+            paintSelectionMarker(painter, option);
+        }
+    }
+
+private:
+    FolderView *m_folder;
 };
 
 FolderView::FolderView(QWidget *parent)
@@ -542,8 +600,9 @@ FolderView::FolderView(QWidget *parent)
     , m_model(new KDirModel(this))
     , m_proxy(new NameFilterProxyModel(this))
     , m_stack(new QStackedWidget(this))
-    , m_details(new QTreeView(this))
+    , m_details(new DetailsView(this))
     , m_icons(new KCategorizedView(this))
+    , m_compact(new QListView(this))
 {
     m_lister->setAutoErrorHandlingEnabled(false);
     m_lister->setMainWindow(window());
@@ -584,16 +643,61 @@ FolderView::FolderView(QWidget *parent)
     m_icons->setSpacing(4);
     setupView(m_icons);
 
+    m_compact->setModel(m_proxy);
+    m_compact->setSelectionModel(m_details->selectionModel());
+    m_compact->setViewMode(QListView::ListMode);
+    m_compact->setFlow(QListView::TopToBottom);
+    m_compact->setWrapping(true);
+    m_compact->setResizeMode(QListView::Adjust);
+    m_compact->setMovement(QListView::Static);
+    m_compact->setIconSize(QSize(16, 16));
+    setupView(m_compact);
+
     m_detailsPreviews = new KFilePreviewGenerator(m_details);
     m_iconPreviews = new KFilePreviewGenerator(m_icons);
+    m_compactPreviews = new KFilePreviewGenerator(m_compact);
     setPreviewsEnabled(true);
 
     m_stack->addWidget(m_details);
     m_stack->addWidget(m_icons);
+    m_stack->addWidget(m_compact);
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_stack);
+    m_selectionBar = new QWidget(this);
+    m_selectionBar->setObjectName(QStringLiteral("selectionBar"));
+    auto *barLayout = new QHBoxLayout(m_selectionBar);
+    barLayout->setContentsMargins(0, 0, 0, 0);
+    const auto addButton = [this, barLayout](const QString &name, const QString &text, const QString &icon, auto slot) {
+        auto *button = new QToolButton(m_selectionBar);
+        button->setObjectName(name);
+        button->setText(text);
+        button->setIcon(SymbolicIcon::fromTheme(icon));
+        button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+        connect(button, &QToolButton::clicked, this, slot);
+        barLayout->addWidget(button);
+        return button;
+    };
+    auto *copy = addButton(QStringLiteral("selectionCopy"), i18nc("@action", "Copy"), QStringLiteral("edit-copy"), &FolderView::copySelectionRequested);
+    auto *cut = addButton(QStringLiteral("selectionCut"), i18nc("@action", "Cut"), QStringLiteral("edit-cut"), &FolderView::cutSelectionRequested);
+    auto *trash =
+        addButton(QStringLiteral("selectionTrash"), i18nc("@action", "Move to Trash"), QStringLiteral("user-trash"), &FolderView::trashSelectionRequested);
+    barLayout->addStretch();
+    addButton(QStringLiteral("selectionDone"), i18nc("@action", "Done"), QStringLiteral("dialog-ok"), [this] {
+        setSelectionMode(false);
+    });
+    const auto updateSelectionButtons = [this, copy, cut, trash] {
+        const KFileItemList items = selectedItems();
+        const KFileItemListProperties properties(items);
+        copy->setEnabled(!items.isEmpty());
+        cut->setEnabled(!items.isEmpty() && properties.supportsMoving());
+        trash->setEnabled(!items.isEmpty() && properties.supportsDeleting() && properties.isLocal());
+    };
+    connect(this, &FolderView::selectionChanged, this, updateSelectionButtons);
+    updateSelectionButtons();
+    m_selectionBar->hide();
+    layout->addWidget(m_selectionBar);
 
     connect(m_lister, &KDirLister::started, this, [this] {
         Q_EMIT loadingChanged(true);
@@ -639,10 +743,12 @@ FolderView::~FolderView()
 void FolderView::setupView(QAbstractItemView *view)
 {
     if (view == m_details) {
-        view->setItemDelegate(new GroupHeaderDelegate(m_proxy, view));
-    } else {
-        m_iconDelegate = new KFileItemDelegate(view);
+        view->setItemDelegate(new GroupHeaderDelegate(m_proxy, this, view));
+    } else if (view == m_icons) {
+        m_iconDelegate = new SelectionMarkerDelegate(this, view);
         view->setItemDelegate(m_iconDelegate);
+    } else {
+        view->setItemDelegate(new SelectionMarkerDelegate(this, view));
     }
     view->setSelectionMode(QAbstractItemView::ExtendedSelection);
     view->setSelectionBehavior(QAbstractItemView::SelectRows);
@@ -678,6 +784,7 @@ void FolderView::setUrl(const QUrl &url)
     }
     loadFolderFormat();
     openListing();
+    updatePreviews();
     Q_EMIT urlChanged(url);
 }
 
@@ -696,6 +803,33 @@ void FolderView::reload()
 FolderView::ViewMode FolderView::viewMode() const
 {
     return m_viewMode;
+}
+
+bool FolderView::selectionMarkersVisible() const
+{
+    return m_selectionMarkers;
+}
+
+void FolderView::setSelectionMarkersVisible(bool visible)
+{
+    m_selectionMarkers = visible;
+    currentView()->viewport()->update();
+}
+
+bool FolderView::selectionMode() const
+{
+    return m_selectionMode;
+}
+
+void FolderView::setSelectionMode(bool enabled)
+{
+    if (m_selectionMode == enabled) {
+        return;
+    }
+    m_selectionMode = enabled;
+    m_selectionBar->setVisible(enabled);
+    currentView()->viewport()->update();
+    Q_EMIT selectionModeChanged(enabled);
 }
 
 void FolderView::setViewMode(ViewMode mode)
@@ -734,8 +868,82 @@ bool FolderView::previewsEnabled() const
 void FolderView::setPreviewsEnabled(bool enabled)
 {
     m_previewsEnabled = enabled;
-    m_detailsPreviews->setPreviewShown(enabled);
-    m_iconPreviews->setPreviewShown(enabled);
+    updatePreviews();
+}
+
+void FolderView::setRemotePreviewsEnabled(bool enabled)
+{
+    m_remotePreviewsEnabled = enabled;
+    updatePreviews();
+}
+
+void FolderView::setPreviewPlugins(const QStringList &plugins)
+{
+    m_detailsPreviews->setEnabledPlugins(plugins);
+    m_iconPreviews->setEnabledPlugins(plugins);
+    m_compactPreviews->setEnabledPlugins(plugins);
+}
+
+void FolderView::setIconSizes(int details, int icons)
+{
+    m_details->setIconSize(QSize(details, details));
+    m_icons->setIconSize(QSize(icons, icons));
+    m_icons->setGridSize(QSize(icons + 48, icons + 48));
+}
+
+void FolderView::setItemSpacing(int detailsSpace, int iconsSpace)
+{
+    auto *delegate = static_cast<GroupHeaderDelegate *>(m_details->itemDelegate());
+    delegate->setItemSpace(detailsSpace);
+    m_details->doItemsLayout();
+    m_icons->setSpacing(2 * iconsSpace);
+}
+
+void FolderView::setDragFromAnywhere(bool enabled)
+{
+    m_details->setDragFromAnywhere(enabled);
+}
+
+void FolderView::setColumnVisible(int column, bool visible)
+{
+    if (column != KDirModel::Name) {
+        m_details->setColumnHidden(column, !visible);
+    }
+}
+
+void FolderView::setSorting(int column, Qt::SortOrder order)
+{
+    m_details->sortByColumn(column, order);
+}
+
+void FolderView::setSortFoldersFirst(bool foldersFirst)
+{
+    m_proxy->setSortFoldersFirst(foldersFirst);
+}
+
+void FolderView::setShowToolTips(bool show)
+{
+    auto *detailsDelegate = static_cast<GroupHeaderDelegate *>(m_details->itemDelegate());
+    detailsDelegate->setShowToolTipWhenElided(show);
+    m_iconDelegate->setShowToolTipWhenElided(show);
+    static_cast<KFileItemDelegate *>(m_compact->itemDelegate())->setShowToolTipWhenElided(show);
+}
+
+void FolderView::setDropAction(const QString &action)
+{
+    m_dropAction = action;
+    const Qt::DropAction dropAction = action == QLatin1String("Copy") ? Qt::CopyAction : Qt::MoveAction;
+    m_details->setDefaultDropAction(dropAction);
+    m_icons->setDefaultDropAction(dropAction);
+    m_compact->setDefaultDropAction(dropAction);
+}
+
+void FolderView::updatePreviews()
+{
+    const bool shown = m_previewsEnabled && (m_folder.isLocalFile() || m_remotePreviewsEnabled);
+    m_detailsPreviews->setPreviewShown(shown);
+    m_iconPreviews->setPreviewShown(shown);
+    m_compactPreviews->setPreviewShown(shown);
 }
 
 KFileItem FolderView::rootItem() const
@@ -832,7 +1040,10 @@ void FolderView::selectUrls(const QList<QUrl> &urls)
 
 QAbstractItemView *FolderView::currentView() const
 {
-    return m_viewMode == ViewMode::Details ? static_cast<QAbstractItemView *>(m_details) : m_icons;
+    if (m_viewMode == ViewMode::Details) {
+        return m_details;
+    }
+    return m_viewMode == ViewMode::Icons ? m_icons : m_compact;
 }
 
 NameFilter FolderView::nameFilter() const
@@ -899,6 +1110,7 @@ void FolderView::loadFolderFormat()
 {
     m_applyingFolderFormat = true;
     reloadMetadata();
+    const KConfigGroup defaults = KSharedConfig::openConfig()->group(QStringLiteral("Views"));
     const ViewSettings settings = ViewSettings::fromConfig(KSharedConfig::openConfig()->group(QStringLiteral("View")));
     for (const auto &[column, key] : OptionalColumns) {
         const bool visible = column == KDirModel::Group
@@ -909,7 +1121,7 @@ void FolderView::loadFolderFormat()
 
     FolderMetadata::Format format;
     if (m_folder.isLocalFile() && FolderMetadata::format(m_proxy->metadata(), &format)) {
-        setViewMode(format.view == QLatin1String("grid") ? ViewMode::Icons : ViewMode::Details);
+        setViewMode(format.view == QLatin1String("grid") ? ViewMode::Icons : format.view == QLatin1String("compact") ? ViewMode::Compact : ViewMode::Details);
         m_proxy->setRatingColumn(format.columns.contains(QStringLiteral("rating")));
         for (const auto &[column, key] : OptionalColumns) {
             const bool visible = column == KDirModel::Group
@@ -919,8 +1131,30 @@ void FolderView::loadFolderFormat()
         }
         m_details->sortByColumn(columnForSortKey(format.sortKey), format.sortAscending ? Qt::AscendingOrder : Qt::DescendingOrder);
     } else {
-        setViewMode(ViewMode::Details);
+        const QString defaultMode = defaults.readEntry("DefaultViewMode", QStringLiteral("Details"));
+        setViewMode(defaultMode == QLatin1String("Icons") ? ViewMode::Icons : ViewMode::Details);
+        const QString sortKey = defaults.readEntry("SortColumn", QStringLiteral("Name"));
+        const QString normalizedSortKey = sortKey == QLatin1String("ModifiedTime") ? QStringLiteral("date")
+            : sortKey == QLatin1String("Permissions")                              ? QStringLiteral("mode")
+            : sortKey == QLatin1String("Owner")                                    ? QStringLiteral("owner")
+            : sortKey == QLatin1String("Group")                                    ? QStringLiteral("group")
+                                                                                   : sortKey.toLower();
+        m_details->sortByColumn(columnForSortKey(normalizedSortKey), defaults.readEntry("SortDescending", false) ? Qt::DescendingOrder : Qt::AscendingOrder);
+        setShowHiddenFiles(defaults.readEntry("ShowHiddenFiles", false));
     }
+    m_proxy->setSortFoldersFirst(defaults.readEntry("FoldersFirst", true));
+    setIconSizes(defaults.readEntry("DetailsIconSize", 16), defaults.readEntry("IconsIconSize", 64));
+    const auto itemSpace = [&defaults](const QString &densityKey, const QString &customKey) {
+        const QString density = defaults.readEntry(densityKey, QStringLiteral("Normal"));
+        return density == QLatin1String("VeryCompact") ? 0
+            : density == QLatin1String("Compact")      ? 1
+            : density == QLatin1String("Custom")       ? qBound(0, defaults.readEntry(customKey, 2), 10)
+                                                       : 2;
+    };
+    setItemSpacing(itemSpace(QStringLiteral("DetailsDensity"), QStringLiteral("DetailsCustomSpace")),
+                   itemSpace(QStringLiteral("IconsDensity"), QStringLiteral("IconsCustomSpace")));
+    setDragFromAnywhere(defaults.readEntry("DragFromAnywhere", false));
+    setShowToolTips(defaults.readEntry("ShowToolTips", true));
 
     KFileItemDelegate::InformationList information;
     for (const QString &key : settings.iconInformation) {
@@ -967,7 +1201,7 @@ void FolderView::saveFolderFormat()
         return;
     }
     FolderMetadata::Format format;
-    format.view = m_viewMode == ViewMode::Icons ? QStringLiteral("grid") : QStringLiteral("list");
+    format.view = m_viewMode == ViewMode::Icons ? QStringLiteral("grid") : m_viewMode == ViewMode::Compact ? QStringLiteral("compact") : QStringLiteral("list");
     for (int visual = 0; visual < m_details->header()->count(); ++visual) {
         const int column = m_details->header()->logicalIndex(visual);
         if (column == KDirModel::Name || m_details->isColumnHidden(column)) {
@@ -1062,6 +1296,23 @@ void FolderView::showColumnMenu(const QPoint &pos)
         saveFolderFormat();
     });
     menu.addSeparator();
+    QAction *fitColumn = menu.addAction(i18nc("@action:inmenu", "Fit Column to Contents"));
+    const int column = m_details->header()->logicalIndexAt(pos);
+    fitColumn->setEnabled(column >= 0);
+    connect(fitColumn, &QAction::triggered, this, [this, column] {
+        m_details->header()->setSectionResizeMode(column, QHeaderView::Interactive);
+        m_details->resizeColumnToContents(column);
+    });
+    QAction *fitAll = menu.addAction(i18nc("@action:inmenu", "Fit All Columns to Contents"));
+    connect(fitAll, &QAction::triggered, this, [this] {
+        for (int section = 0; section < m_details->header()->count(); ++section) {
+            if (!m_details->isColumnHidden(section)) {
+                m_details->header()->setSectionResizeMode(section, QHeaderView::Interactive);
+                m_details->resizeColumnToContents(section);
+            }
+        }
+    });
+    menu.addSeparator();
     QMenu *groups = menu.addMenu(i18nc("@menu", "Group By"));
     const QList<QPair<QString, QString>> options{
         {QStringLiteral("none"), i18nc("@option:check group files", "None")},
@@ -1144,7 +1395,13 @@ bool FolderView::handleDrop(QAbstractItemView *view, QEvent *event)
 
     if (event->type() != QEvent::Drop) {
         // KIO::DropJob decides between copy, move and link; accept everything.
-        dropEvent->setDropAction(Qt::CopyAction);
+        if (m_dropAction == QLatin1String("Copy")) {
+            dropEvent->setDropAction(Qt::CopyAction);
+        } else if (m_dropAction == QLatin1String("Move")) {
+            dropEvent->setDropAction(Qt::MoveAction);
+        } else {
+            dropEvent->setDropAction(Qt::CopyAction);
+        }
         dropEvent->accept();
         return true;
     }
@@ -1165,6 +1422,11 @@ bool FolderView::handleDrop(QAbstractItemView *view, QEvent *event)
         }
     }
 
+    if (m_dropAction == QLatin1String("Copy")) {
+        dropEvent->setDropAction(Qt::CopyAction);
+    } else if (m_dropAction == QLatin1String("Move")) {
+        dropEvent->setDropAction(Qt::MoveAction);
+    }
     KIO::DropJob *job = KIO::drop(dropEvent, destination);
     KJobWidgets::setWindow(job, window());
     dropEvent->acceptProposedAction();
@@ -1195,6 +1457,35 @@ bool FolderView::eventFilter(QObject *watched, QEvent *event)
     case QEvent::MouseButtonPress:
         if (watched == view->viewport()) {
             Q_EMIT activated();
+            auto *mouse = static_cast<QMouseEvent *>(event);
+            const QModelIndex index = view->indexAt(mouse->position().toPoint());
+            const QModelIndex nameIndex = index.siblingAtColumn(0);
+            if (mouse->button() == Qt::LeftButton && mouse->modifiers() == Qt::NoModifier && index.isValid()
+                && (m_selectionMode
+                    || (m_selectionMarkers
+                        && selectionMarkerRect(view->visualRect(nameIndex), view->layoutDirection()).contains(mouse->position().toPoint())))) {
+                view->selectionModel()->setCurrentIndex(nameIndex, QItemSelectionModel::NoUpdate);
+                view->selectionModel()->select(nameIndex, QItemSelectionModel::Toggle | QItemSelectionModel::Rows);
+                m_markerPress = true;
+                return true;
+            }
+        }
+        break;
+    case QEvent::MouseButtonRelease:
+        if (watched == view->viewport() && m_markerPress && static_cast<QMouseEvent *>(event)->button() == Qt::LeftButton) {
+            m_markerPress = false;
+            return true;
+        }
+        break;
+    case QEvent::MouseButtonDblClick:
+        if (watched == view->viewport() && (m_selectionMode || m_selectionMarkers)) {
+            auto *mouse = static_cast<QMouseEvent *>(event);
+            const QModelIndex index = view->indexAt(mouse->position().toPoint()).siblingAtColumn(0);
+            if (index.isValid()
+                && (m_selectionMode || selectionMarkerRect(view->visualRect(index), view->layoutDirection()).contains(mouse->position().toPoint()))) {
+                m_markerPress = true;
+                return true;
+            }
         }
         break;
     case QEvent::KeyPress: {
