@@ -2419,6 +2419,9 @@ void MainWindow::showContentChart()
 void MainWindow::showSearch()
 {
     auto *dialog = new SearchDialog(activePane()->url(), this);
+    connect(dialog, &SearchDialog::revealRequested, this, [this](const QUrl &url) {
+        activePane()->revealUrl(url);
+    });
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
 }

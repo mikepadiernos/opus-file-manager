@@ -104,6 +104,13 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     connect(m_tabs, &TabModel::tabRemoved, this, &Pane::syncTabBar);
     connect(m_tabs, &TabModel::tabMoved, this, &Pane::syncTabBar);
     connect(m_tabs, &TabModel::currentIndexChanged, this, &Pane::syncTabBar);
+    connect(m_tabs, &TabModel::currentIndexChanged, this, [this](int index) {
+        if (m_revealTab >= 0 && index != m_revealTab) {
+            m_revealFolder.clear();
+            m_revealItem.clear();
+            m_revealTab = -1;
+        }
+    });
     connect(m_tabs, &TabModel::tabUrlChanged, this, [this](int index, const QUrl &) {
         updateTabText(index);
     });
@@ -118,6 +125,11 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     });
     connect(m_tabs, &TabModel::currentAboutToChange, this, &Pane::saveHistoryViewState);
     connect(m_tabs, &TabModel::currentUrlChanged, this, [this](const QUrl &url) {
+        if (!m_revealFolder.isEmpty() && url != m_revealFolder) {
+            m_revealFolder.clear();
+            m_revealItem.clear();
+            m_revealTab = -1;
+        }
         if (m_view->url().isValid() && m_view->url() != url && !Settings::retainFilterOnNavigation()) {
             m_filterBar->setFilter(NameFilter(QString(), m_filterBar->filter().scope()));
         }
@@ -206,7 +218,13 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     });
     connect(m_view, &FolderView::goUpRequested, this, &Pane::goUp);
     connect(m_view, &FolderView::listingFailed, this, &Pane::statusMessage);
+    connect(m_view, &FolderView::listingFailed, this, [this] {
+        m_revealFolder.clear();
+        m_revealItem.clear();
+        m_revealTab = -1;
+    });
     connect(m_view, &FolderView::listingReady, this, &Pane::restoreHistoryViewState);
+    connect(m_view, &FolderView::listingReady, this, &Pane::finishReveal);
     connect(m_view, &FolderView::historyExpansionFinished, this, [this] {
         m_historyExpansionPending = false;
         restoreHistoryViewState();
@@ -366,6 +384,56 @@ void Pane::setFollowSymlinks(bool follow)
 void Pane::setUrl(const QUrl &url)
 {
     m_tabs->setCurrentUrl(m_followSymlinks ? Symlinks::resolve(url) : url);
+}
+
+void Pane::revealUrl(const QUrl &url)
+{
+    m_revealFolder.clear();
+    m_revealItem.clear();
+    m_revealTab = -1;
+    const QFileInfo item(url.toLocalFile());
+    if (!url.isLocalFile() || !item.exists() || item.fileName().isEmpty()) {
+        Q_EMIT statusMessage(i18nc("@info:status", "The search result is no longer available: %1", url.toDisplayString()));
+        return;
+    }
+    if (m_view->isFlat()) {
+        Q_EMIT statusMessage(i18nc("@info:status", "Turn off flat view to reveal a search result."));
+        return;
+    }
+    QUrl folder = QUrl::fromLocalFile(item.absolutePath());
+    if (m_followSymlinks) {
+        folder = Symlinks::resolve(folder);
+    }
+    m_revealFolder = folder;
+    m_revealItem = QUrl::fromLocalFile(QDir(folder.toLocalFile()).filePath(item.fileName()));
+    setUrl(folder);
+    if (!m_revealItem.isEmpty()) {
+        m_revealTab = m_tabs->currentIndex();
+    }
+    ++m_viewStateGeneration;
+    m_pendingViewState = {};
+    m_historyExpansionPending = false;
+    m_view->cancelHistoryExpansion();
+    if (m_view->url() == folder && !m_view->isLoading()) {
+        finishReveal();
+    }
+}
+
+void Pane::finishReveal()
+{
+    if (m_revealItem.isEmpty() || m_view->url() != m_revealFolder) {
+        return;
+    }
+    const QUrl item = m_revealItem;
+    m_revealFolder.clear();
+    m_revealItem.clear();
+    m_revealTab = -1;
+    m_view->selectUrls({item});
+    if (m_view->selectedItems().isEmpty()) {
+        Q_EMIT statusMessage(i18nc("@info:status", "Could not reveal %1. It may have been removed, hidden or filtered.", item.toDisplayString()));
+    } else {
+        m_view->currentView()->setFocus();
+    }
 }
 
 void Pane::openInNewTab(const QUrl &url, bool activate)

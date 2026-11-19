@@ -299,9 +299,9 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 - ~~Live search and indexed search: choose filename or content search and
   current-folder or indexed scope; indicate when locations are not indexed,
   show progress and allow cancellation (Dolphin, Max)~~
-- Search results: reveal an item in its containing folder and save searches;
+- ~~Search results: reveal an item in its containing folder and save searches;
   optionally collect references from different locations without moving the
-  original files (Dolphin, Directory Opus)
+  original files (Dolphin, Directory Opus)~~
 - ~~Duplicate finder: preview groups and comparison criteria before selecting
   files for removal; never delete automatically (Directory Opus)~~
 - ~~Duplicate selection: choose candidates by location or date while keeping at

@@ -35,7 +35,8 @@ for file operations, Places, properties, settings and desktop integration.
 - Show an embedded Konsole terminal alongside the panes.
 - Link navigation between corresponding local pane folders.
 - Explore folder sizes with a cushion treemap and folder drilldown.
-- Search local folders live or query Baloo's indexed file names and contents.
+- Search local folders live or query Baloo's index; save searches and collect
+  references without moving files.
 - Preview local duplicates, select candidates by date or folder, and move
   checked files to Trash after confirmation.
 

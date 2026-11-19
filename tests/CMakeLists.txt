@@ -25,6 +25,8 @@ ecm_add_tests(
     previewcontenttest.cpp
     servicemenustest.cpp
     sessiontest.cpp
+    savedsearchestest.cpp
+    searchcollectiontest.cpp
     tabcolorstest.cpp
     startuptest.cpp
     symlinkstest.cpp

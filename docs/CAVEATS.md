@@ -203,8 +203,11 @@ open archives with 7-Zip or another trusted external tool when needed.
   Folder-coverage notices use configuration rather than proof of actual
   indexing; exclusions and pending indexing can still affect results. Baloo
   does not report index-read failures through its query API, and an executing
-  query cannot be interrupted until it returns. Opening or revealing results
-  is not yet available.
+  query cannot be interrupted until it returns. Results can be revealed in the
+  active pane, but hidden or filtered items may not be visible and flat view
+  must be turned off. The shared reference collection stores local URLs, not
+  file contents; references can become stale. Opening results directly is
+  not yet available.
   ([#362](https://github.com/mikepadiernos/opus-file-manager/issues/362))
 
   **Recommendation:** Check Baloo's indexing configuration and status; use
@@ -212,7 +215,9 @@ open archives with 7-Zip or another trusted external tool when needed.
   errors and repeat searches after files change. Use GNU `find` for other local
   filename searches or ripgrep (`rg`) for content searches when Opus limits are
   unsuitable; check each tool's hidden-file, ignore, encoding and symbolic-link
-  behavior.
+  behavior. If a revealed result is hidden or filtered, adjust the pane's
+  visibility settings. Re-run saved searches and check collection references
+  after files change.
   ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/362#issuecomment-7023269364))
 
 ## File comparison
