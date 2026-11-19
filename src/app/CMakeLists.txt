@@ -11,6 +11,8 @@ add_library(opusfm_app STATIC
     settingsdialog.h
     settingswidgets.cpp
     settingswidgets.h
+    symbolicactionicons.cpp
+    symbolicactionicons.h
     opusfm.qrc
 )
 

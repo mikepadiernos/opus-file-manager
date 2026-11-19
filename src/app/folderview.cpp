@@ -2,6 +2,8 @@
 
 #include "folderview.h"
 
+#include "symbolicicon.h"
+
 #include <KDirLister>
 #include <KDirModel>
 #include <KDirSortFilterProxyModel>
@@ -29,13 +31,29 @@ namespace
 {
 /// Room around an icon in the icons view grid for its name.
 constexpr int IconGridMargin = 48;
+
+/// Sort/filter proxy whose item icons use SymbolicIcon at small sizes.
+class SymbolicDirProxyModel : public KDirSortFilterProxyModel
+{
+public:
+    using KDirSortFilterProxyModel::KDirSortFilterProxyModel;
+
+    QVariant data(const QModelIndex &index, int role) const override
+    {
+        const QVariant value = KDirSortFilterProxyModel::data(index, role);
+        if (role != Qt::DecorationRole || value.typeId() != QMetaType::QIcon) {
+            return value;
+        }
+        return SymbolicIcon::wrap(value.value<QIcon>());
+    }
+};
 }
 
 FolderView::FolderView(QWidget *parent)
     : QWidget(parent)
     , m_lister(new KDirLister(this))
     , m_model(new KDirModel(this))
-    , m_proxy(new KDirSortFilterProxyModel(this))
+    , m_proxy(new SymbolicDirProxyModel(this))
     , m_stack(new QStackedWidget(this))
     , m_details(new QTreeView(this))
     , m_icons(new QListView(this))
