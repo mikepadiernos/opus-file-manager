@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "filterbar.h"
+#include "foldermetadata.h"
 #include "folderview.h"
 #include "mainwindow.h"
 #include "pane.h"
 
 #include <KActionCollection>
+#include <KDirModel>
 #include <KSharedConfig>
 
 #include <QAbstractItemView>
 #include <QDir>
 #include <QFile>
+#include <QHeaderView>
 #include <QLineEdit>
 #include <QMenu>
 #include <QSignalSpy>
@@ -18,6 +21,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QToolButton>
+#include <QTreeView>
 
 class FilterTest : public QObject
 {
@@ -64,6 +68,8 @@ private Q_SLOTS:
     {
         KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Session"));
         KSharedConfig::openStateConfig()->sync();
+        QFile::remove(m_root.filePath(QStringLiteral("a/.mfm.json")));
+        QFile::remove(m_root.filePath(QStringLiteral("b/.mfm.json")));
     }
 
     void viewFilterHidesFilesButKeepsFolders()
@@ -139,6 +145,12 @@ private Q_SLOTS:
         QVERIFY(bar->isVisible());
         QCOMPARE(bar->filter().text(), QStringLiteral("not"));
         QCOMPARE(visibleNames(view), QStringList({QStringLiteral("Pictures"), QStringLiteral("notes.txt")}));
+        for (int row = 0; row < view->currentView()->model()->rowCount(); ++row) {
+            const QModelIndex index = view->currentView()->model()->index(row, 0);
+            if (index.data().toString() == QLatin1String("notes.txt")) {
+                QVERIFY(index.data(Qt::FontRole).value<QFont>().bold());
+            }
+        }
     }
 
     void escapeClearsAndClosesTheBar()
@@ -184,6 +196,76 @@ private Q_SLOTS:
         QVERIFY(scope && scope->menu());
         scope->menu()->actions().at(2)->trigger();
         QCOMPARE(bar.filter().scope(), NameFilter::Scope::FilesAndFolders);
+    }
+
+    void metadataFiltersMatchLabelsAndRatings()
+    {
+        QVERIFY(FolderMetadata::setLabel(m_root.filePath(QStringLiteral("a")), QStringLiteral("photo.jpg"), QStringLiteral("blue")));
+        QVERIFY(FolderMetadata::setRating(m_root.filePath(QStringLiteral("a")), QStringLiteral("photo.jpg"), 5));
+        FolderView view;
+        view.setUrl(m_a);
+        QTRY_COMPARE(view.itemCount(), 3);
+
+        view.setNameFilter(NameFilter(QStringLiteral("#blu")));
+        QCOMPARE(visibleNames(&view), QStringList({QStringLiteral("Pictures"), QStringLiteral("photo.jpg")}));
+
+        view.setNameFilter(NameFilter(QStringLiteral("*4")));
+        QCOMPARE(visibleNames(&view), QStringList({QStringLiteral("Pictures"), QStringLiteral("photo.jpg")}));
+    }
+
+    void viewFormatIsRememberedPerFolder()
+    {
+        FolderMetadata::Format otherFormat;
+        otherFormat.view = QStringLiteral("list");
+        otherFormat.columns = {QStringLiteral("mode")};
+        otherFormat.sortKey = QStringLiteral("size");
+        otherFormat.sortAscending = false;
+        otherFormat.group = QStringLiteral("date");
+        QVERIFY(FolderMetadata::setFormat(m_root.filePath(QStringLiteral("b")), otherFormat));
+
+        FolderView view;
+        view.setUrl(m_a);
+        QTRY_COMPARE(view.itemCount(), 3);
+        view.setViewMode(FolderView::ViewMode::Icons);
+        view.setGroupBy(QStringLiteral("type"));
+        view.setUrl(m_b);
+        QTRY_COMPARE(view.itemCount(), 2);
+        QCOMPARE(view.viewMode(), FolderView::ViewMode::Details);
+        QCOMPARE(view.groupBy(), QStringLiteral("date"));
+        auto *details = view.findChild<QTreeView *>();
+        QVERIFY(details);
+        QVERIFY(!details->isColumnHidden(KDirModel::Permissions));
+        QVERIFY(details->isColumnHidden(KDirModel::Type));
+        QCOMPARE(details->header()->sortIndicatorSection(), KDirModel::Size);
+        view.setUrl(m_a);
+        QTRY_COMPARE(view.itemCount(), 3);
+        QCOMPARE(view.viewMode(), FolderView::ViewMode::Icons);
+        QCOMPARE(view.groupBy(), QStringLiteral("type"));
+    }
+
+    void groupingKeepsExtensionCategoriesTogether()
+    {
+        const QString path = m_root.filePath(QStringLiteral("grouped"));
+        QVERIFY(QDir().mkpath(path));
+        for (const QString &name : {QStringLiteral("alpha.txt"), QStringLiteral("beta.txt"), QStringLiteral("photo.jpg")}) {
+            QFile file(QDir(path).filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        FolderMetadata::Format format;
+        format.view = QStringLiteral("list");
+        format.columns = {QStringLiteral("type")};
+        format.sortKey = QStringLiteral("name");
+        format.sortAscending = true;
+        format.group = QStringLiteral("ext");
+        QVERIFY(FolderMetadata::setFormat(path, format));
+
+        FolderView view;
+        view.setUrl(QUrl::fromLocalFile(path));
+        QTRY_COMPARE(view.itemCount(), 3);
+        const QAbstractItemModel *model = view.currentView()->model();
+        QCOMPARE(model->index(0, 0).data().toString(), QStringLiteral("photo.jpg"));
+        QCOMPARE(model->index(1, 0).data().toString(), QStringLiteral("alpha.txt"));
+        QCOMPARE(model->index(2, 0).data().toString(), QStringLiteral("beta.txt"));
     }
 };
 

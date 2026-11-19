@@ -3,6 +3,7 @@ include(ECMAddTests)
 ecm_add_tests(
     archivestest.cpp
     favoritesmodeltest.cpp
+    foldermetadatatest.cpp
     flatviewtest.cpp
     ignorelisttest.cpp
     namefiltertest.cpp

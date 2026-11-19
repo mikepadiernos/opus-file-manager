@@ -382,7 +382,18 @@ void Pane::updateTabText(int index)
     const bool pinned = m_tabs->isPinned(index);
     const bool locked = m_tabs->isLocked(index);
     m_tabBar->setTabText(index, name.isEmpty() ? tabTitle(url) : name);
-    m_tabBar->setTabToolTip(index, url.toDisplayString(QUrl::PreferLocalFile));
+    QString toolTip = url.toDisplayString(QUrl::PreferLocalFile);
+    QStringList states;
+    if (pinned) {
+        states.append(i18nc("@info:tooltip tab state", "Pinned"));
+    }
+    if (locked) {
+        states.append(i18nc("@info:tooltip tab state", "Locked"));
+    }
+    if (!states.isEmpty()) {
+        toolTip += u'\n' + states.join(i18nc("@separator between tab states", ", "));
+    }
+    m_tabBar->setTabToolTip(index, toolTip);
     const QString iconName = pinned ? QStringLiteral("pin") : locked ? QStringLiteral("object-locked") : KIO::iconNameForUrl(url);
     m_tabBar->setTabIcon(index, QIcon::fromTheme(iconName));
     m_tabBar->setTabTextColor(index, LabelColors::rgb(m_colors->colorFor(url)));

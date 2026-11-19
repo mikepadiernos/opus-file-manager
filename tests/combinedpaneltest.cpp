@@ -127,6 +127,8 @@ private Q_SLOTS:
         FolderTree tree({m_a});
         tree.setExpandedUrls({m_a, url(QStringLiteral("a/sub")), QUrl::fromLocalFile(QStringLiteral("/elsewhere"))});
         QTRY_COMPARE(tree.expandedUrls(), QList<QUrl>({m_a, url(QStringLiteral("a/sub"))}));
+        tree.reload();
+        QTRY_COMPARE(tree.expandedUrls(), QList<QUrl>({m_a, url(QStringLiteral("a/sub"))}));
     }
 
     void revealExpandsToAndSelectsTheFolder()

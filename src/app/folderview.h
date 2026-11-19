@@ -14,6 +14,7 @@ class KDirModel;
 class KDirSortFilterProxyModel;
 class KFilePreviewGenerator;
 class NameFilterProxyModel;
+class QHeaderView;
 class QAbstractItemView;
 class QListView;
 class QStackedWidget;
@@ -90,6 +91,10 @@ public:
      * @param flat true for the flat list
      */
     void setFlat(bool flat);
+    /// Reloads the current folder's labels, colours, ratings, notes and pins.
+    void reloadMetadata();
+    QString groupBy() const;
+    void setGroupBy(const QString &group);
 
 Q_SIGNALS:
     void urlChanged(const QUrl &url);
@@ -115,6 +120,9 @@ private:
     void openListing();
     void onActivated(const QModelIndex &index);
     void onContextMenu(const QPoint &pos);
+    void showColumnMenu(const QPoint &pos);
+    void loadFolderFormat();
+    void saveFolderFormat();
     bool handleDrop(QAbstractItemView *view, QEvent *event);
     KFileItem itemAt(QAbstractItemView *view, const QPoint &viewportPos) const;
 
@@ -124,6 +132,7 @@ private:
     /// The folder shown, which in flat mode is not what the lister lists.
     QUrl m_folder;
     bool m_flat = false;
+    bool m_applyingFolderFormat = false;
     QStackedWidget *m_stack = nullptr;
     QTreeView *m_details = nullptr;
     QListView *m_icons = nullptr;

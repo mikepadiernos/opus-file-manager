@@ -44,11 +44,27 @@ bool NameFilter::appliesTo(bool isFolder) const
 
 bool NameFilter::matches(const QString &name, bool isFolder) const
 {
+    return matches(name, isFolder, {}, 0);
+}
+
+bool NameFilter::matches(const QString &name, bool isFolder, const QString &label, int rating) const
+{
     if (!appliesTo(isFolder)) {
         return true;
     }
+    const QString trimmed = m_text.trimmed();
+    if (!isFolder && trimmed.startsWith(u'#')) {
+        return !label.isEmpty() && label.contains(trimmed.mid(1), Qt::CaseInsensitive);
+    }
+    if (!isFolder && trimmed.size() > 1 && trimmed.at(0) == u'*') {
+        bool ok = false;
+        const int minimumRating = trimmed.mid(1).toInt(&ok);
+        if (ok && minimumRating >= 1 && minimumRating <= 5) {
+            return rating >= minimumRating;
+        }
+    }
     if (m_patterns.isEmpty()) {
-        return name.contains(m_text.trimmed(), Qt::CaseInsensitive);
+        return name.contains(trimmed, Qt::CaseInsensitive);
     }
     return std::any_of(m_patterns.cbegin(), m_patterns.cend(), [&name](const QRegularExpression &pattern) {
         return pattern.match(name).hasMatch();

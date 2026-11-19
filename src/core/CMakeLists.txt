@@ -7,6 +7,8 @@ add_library(opusfm_core STATIC
     favoritesmodel.h
     flatview.cpp
     flatview.h
+    foldermetadata.cpp
+    foldermetadata.h
     ignorelist.cpp
     ignorelist.h
     labelcolor.cpp

@@ -165,6 +165,17 @@ void FolderTree::setExpandedUrls(const QList<QUrl> &urls)
     }
 }
 
+void FolderTree::reload()
+{
+    const QList<QUrl> expanded = expandedUrls();
+    for (int i = 0; i < m_trees.size(); ++i) {
+        auto *proxy = static_cast<KDirSortFilterProxyModel *>(m_trees.at(i)->model());
+        auto *model = static_cast<KDirModel *>(proxy->sourceModel());
+        model->openUrl(m_roots.at(i), KDirModel::Reload | KDirModel::ShowRoot);
+    }
+    setExpandedUrls(expanded);
+}
+
 void FolderTree::reveal(const QUrl &url)
 {
     int innermost = -1;
