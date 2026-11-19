@@ -103,7 +103,7 @@ distinguish completed features from planned or in-progress work.
 - [M10 Tools settings](docs/ROADMAP.md#m10-tools-settings): tool defaults,
   profiles, terminal placement and transfer preferences.
 - [M11 UI Customizations](docs/ROADMAP.md#m11-ui-customizations): configurable
-  toolbars, panes, panels and layouts.
+  toolbars, tabs, status bars, panes, panels and layouts.
 - [M12 UI Customization settings](docs/ROADMAP.md#m12-ui-customization-settings):
   customization, layout backup and reset controls.
 - [M13 Workspaces](docs/ROADMAP.md#m13-workspaces): focused locations, tag

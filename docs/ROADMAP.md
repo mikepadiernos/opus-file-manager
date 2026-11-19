@@ -400,6 +400,33 @@ Settings for M09 tools, stored in KConfig.
   overwriting running configuration without a safe reload or restart
 - Swap panes: the current tabs or whole sides
 - Dim the inactive pane
+- Customize folder tab bars: place them above, below, left or right of each
+  pane, with a together option for stacked panes; choose close-button
+  visibility without bypassing pinned or locked tab protections. Keep
+  keyboard and context-menu actions accessible. (Directory Opus)
+- Customize status bars: choose a shared bar or one per pane, and arrange
+  available item counts, selection size and free-space indicators. Bind each
+  pane's values to that pane and keep operation errors visible even when
+  optional indicators are hidden. Reuse the existing status-bar preferences.
+  (Directory Opus, Dolphin)
+- Save and reset pane and panel splitter sizes, including preview, editor and
+  terminal areas, independently for side-by-side and stacked layouts. Restore
+  sizes safely within the available window; preserve both file panes and
+  coordinate with session restore and workspace layouts. (Max)
+- Customize the preview and gallery background for transparent images:
+  follow the active Plasma theme, or choose light, dark or checkerboard.
+  Keep the image data unchanged. (Directory Opus)
+- Customize the Information panel's visible metadata fields and their order,
+  and optionally show information for a hovered item instead of the current
+  selection. Make hover behaviour opt-in and retain selection-based fallback;
+  show unavailable metadata without initiating additional remote downloads.
+  (Dolphin)
+- Optional file-list minimap on the right edge of each explorer pane: show a
+  compact overview of the current visible files and folders and the scroll
+  viewport, with click or drag navigation. Follow the pane's current tab,
+  filter, sort and view; keep normal scrolling and keyboard navigation
+  available. Bound rendering work for large or remote listings and do not
+  read file contents or trigger additional remote downloads.
 
 ### M12 UI Customization settings
 
@@ -419,6 +446,22 @@ Settings for M11 UI customizations, stored in KConfig.
 - **Combined panel**
   - **Sections:** section order, visibility and custom titles, reusing the
     visibility settings from M04
+- **Tabs**
+  - **Placement and controls:** tab-bar position by pane orientation, together
+    placement for stacked panes, and close-button visibility
+- **Status bars**
+  - **Layout:** shared or per-pane bars, with visible indicators and their
+    order; reuse existing item-count, selection-size and free-space settings
+- **Splitter sizes**
+  - **Restore:** remember sizes per orientation and reset them to defaults,
+    without overriding an explicitly applied workspace layout
+- **Preview and gallery**
+  - **Background:** theme, light, dark or checkerboard for transparent images
+- **Information panel**
+  - **Fields and focus:** visible metadata fields and order; opt-in hover
+    information with selection fallback
+- **File-list minimap**
+  - **Display:** enable or disable the minimap and choose its width
 - **Defaults**
   - **Reset:** restore the main toolbar, pane toolbars and hamburger menu
   - **Backup:** export and restore app-owned settings and layouts with a
@@ -698,6 +741,10 @@ interfaces. The additions above draw on these sources:
 
 - [Dolphin view and selection](https://docs.kde.org/stable_kf6/en/dolphin/dolphin/dolphin-view.html)
   and [search](https://docs.kde.org/stable_kf6/en/dolphin/dolphin/quick-tips.html).
+- [Dolphin panels](https://docs.kde.org/stable_kf6/en/dolphin/dolphin/panels.html)
+  and [Directory Opus folder tabs](https://docs.dopus.com/doku.php?id=preferences:preferences_categories:folder_tabs:folder_tab_bar),
+  [status bars](https://docs.dopus.com/doku.php?id=preferences:preferences_categories:file_displays:status_bar)
+  and [viewer pane](https://docs.dopus.com/doku.php?id=basic_concepts:the_lister:viewer_pane).
 - [Krusader synchronizer](https://docs.kde.org/trunk_kf6/en/krusader/krusader/synchronizer.html)
   and [features](https://docs.kde.org/trunk_kf6/en/krusader/krusader/features.html).
 - [Max File Manager](https://github.com/majidasgari/max-file-manager), alongside
