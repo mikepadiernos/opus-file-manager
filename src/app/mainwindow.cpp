@@ -859,6 +859,7 @@ void MainWindow::applySettings()
         view->setColumnVisible(KDirModel::Type, Settings::showTypeColumn());
         view->setSortFoldersFirst(Settings::foldersFirst());
         view->setShowToolTips(Settings::showToolTips());
+        view->setDragFromAnywhere(Settings::dragFromAnywhere());
         view->setPreviewPlugins(Settings::previewPlugins());
         view->setRemotePreviewsEnabled(Settings::showRemotePreviews());
     }

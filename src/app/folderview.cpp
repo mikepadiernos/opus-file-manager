@@ -2,6 +2,7 @@
 
 #include "folderview.h"
 
+#include "detailsview.h"
 #include "fileoperations.h"
 
 #include <KDirLister>
@@ -37,7 +38,7 @@ FolderView::FolderView(QWidget *parent)
     , m_model(new KDirModel(this))
     , m_proxy(new KDirSortFilterProxyModel(this))
     , m_stack(new QStackedWidget(this))
-    , m_details(new QTreeView(this))
+    , m_details(new DetailsView(this))
     , m_icons(new QListView(this))
     , m_detailsDelegate(new KFileItemDelegate(m_details))
     , m_iconsDelegate(new KFileItemDelegate(m_icons))
@@ -234,6 +235,11 @@ void FolderView::setIconSizes(int details, int icons)
     m_details->setIconSize(QSize(details, details));
     m_icons->setIconSize(QSize(icons, icons));
     m_icons->setGridSize(QSize(icons + IconGridMargin, icons + IconGridMargin));
+}
+
+void FolderView::setDragFromAnywhere(bool enabled)
+{
+    m_details->setDragFromAnywhere(enabled);
 }
 
 void FolderView::setColumnVisible(int column, bool visible)

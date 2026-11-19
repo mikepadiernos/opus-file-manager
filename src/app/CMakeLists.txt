@@ -1,4 +1,6 @@
 add_library(opusfm_app STATIC
+    detailsview.cpp
+    detailsview.h
     fileoperations.cpp
     fileoperations.h
     folderview.cpp

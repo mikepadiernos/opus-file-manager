@@ -30,6 +30,7 @@
 #include <QLabel>
 #include <QListWidget>
 #include <QMimeData>
+#include <QMouseEvent>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QStandardPaths>
@@ -177,6 +178,7 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("DefaultViewMode")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("DetailsIconSize")), QStringLiteral("Details"));
         QCOMPARE(tabOf(QStringLiteral("ShowSizeColumn")), QStringLiteral("Details"));
+        QCOMPARE(tabOf(QStringLiteral("DragFromAnywhere")), QStringLiteral("Details"));
         QCOMPARE(tabOf(QStringLiteral("IconsIconSize")), QStringLiteral("Icons"));
     }
 
@@ -295,6 +297,40 @@ private Q_SLOTS:
         drop(url(QStringLiteral("move-me.txt")));
         QTRY_VERIFY(QFile::exists(m_root.filePath(QStringLiteral("drop/move-me.txt"))));
         QTRY_VERIFY(!QFile::exists(m_root.filePath(QStringLiteral("move-me.txt"))));
+    }
+
+    void pressingBesideTheNameDrawsASelectionRectangle()
+    {
+        QVERIFY(QDir(m_root.path()).mkpath(QStringLiteral("rows")));
+        for (const char *name : {"r1.txt", "r2.txt", "r3.txt"}) {
+            QFile file(m_root.filePath(QStringLiteral("rows/") + QLatin1String(name)));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        FolderView view;
+        view.setDragFromAnywhere(false);
+        view.setUrl(url(QStringLiteral("rows")));
+        view.resize(700, 400);
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QTRY_COMPARE(view.itemCount(), 3);
+
+        auto *details = view.currentView();
+        QWidget *viewport = details->viewport();
+        const QAbstractItemModel *model = details->model();
+        const QPoint from = details->visualRect(model->index(0, KDirModel::ModifiedTime)).center();
+        const QPoint to = details->visualRect(model->index(2, KDirModel::ModifiedTime)).center();
+        const auto send = [viewport](QEvent::Type type, const QPoint &pos, Qt::MouseButtons buttons) {
+            QMouseEvent event(type, pos, viewport->mapToGlobal(pos), Qt::LeftButton, buttons, Qt::NoModifier);
+            QApplication::sendEvent(viewport, &event);
+        };
+        send(QEvent::MouseButtonPress, from, Qt::LeftButton);
+        send(QEvent::MouseMove, to, Qt::LeftButton);
+        send(QEvent::MouseButtonRelease, to, Qt::NoButton);
+        QCOMPARE(view.selectedItems().size(), 3);
+
+        send(QEvent::MouseButtonPress, to, Qt::LeftButton);
+        send(QEvent::MouseButtonRelease, to, Qt::NoButton);
+        QCOMPARE(view.selectedItems().size(), 1);
     }
 
     void runningAnExecutableRunsIt()

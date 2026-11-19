@@ -132,6 +132,10 @@
       <label>Show the Group column</label>
       <default>false</default>
     </entry>
+    <entry name="DragFromAnywhere" type="Bool">
+      <label>Drag files and folders from anywhere in a details row</label>
+      <default>false</default>
+    </entry>
     <entry name="ShowTypeColumn" type="Bool">
       <label>Show the Type column</label>
       <default>true</default>

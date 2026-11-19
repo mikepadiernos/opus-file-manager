@@ -16,6 +16,7 @@ class QAbstractItemView;
 class QListView;
 class QStackedWidget;
 class QTreeView;
+class DetailsView;
 
 /**
  * One folder listing: a details view and an icon view sharing a
@@ -78,6 +79,13 @@ public:
      * @param visible true to show the column
      */
     void setColumnVisible(int column, bool visible);
+
+    /**
+     * Whether a drag can start from any part of a details row. When off,
+     * pressing outside an item's icon and name starts a selection rectangle.
+     * @param enabled true to drag from anywhere in a row
+     */
+    void setDragFromAnywhere(bool enabled);
     bool isColumnVisible(int column) const;
 
     /**
@@ -142,7 +150,7 @@ private:
     KDirModel *m_model = nullptr;
     KDirSortFilterProxyModel *m_proxy = nullptr;
     QStackedWidget *m_stack = nullptr;
-    QTreeView *m_details = nullptr;
+    DetailsView *m_details = nullptr;
     QListView *m_icons = nullptr;
     KFileItemDelegate *m_detailsDelegate = nullptr;
     KFileItemDelegate *m_iconsDelegate = nullptr;
