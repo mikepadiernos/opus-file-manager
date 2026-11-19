@@ -2,15 +2,18 @@
 
 #include "folderview.h"
 
+#include "densitydelegate.h"
+#include "detailsview.h"
+#include "fileoperations.h"
 #include "flatview.h"
 #include "ignorelist.h"
+#include "symbolicicon.h"
 
 #include <KDirLister>
 #include <KDirModel>
 #include <KDirSortFilterProxyModel>
 #include <KFileItemDelegate>
 #include <KFilePreviewGenerator>
-#include <KIO/DropJob>
 #include <KIO/Job>
 #include <KJobWidgets>
 #include <KLocalizedString>
@@ -66,7 +69,11 @@ public:
         if (isRelativePath(index.column()) && role == Qt::DisplayRole) {
             return FlatView::relativeFolder(m_flatBase, itemAt(index).url());
         }
-        return KDirSortFilterProxyModel::data(index, role);
+        const QVariant value = KDirSortFilterProxyModel::data(index, role);
+        if (role == Qt::DecorationRole && value.typeId() == QMetaType::QIcon) {
+            return SymbolicIcon::wrap(value.value<QIcon>());
+        }
+        return value;
     }
 
     QVariant headerData(int section, Qt::Orientation orientation, int role) const override
@@ -121,14 +128,22 @@ private:
     IgnoreList m_ignoreList;
 };
 
+namespace
+{
+/// Room around an icon in the icons view grid for its name.
+constexpr int IconGridMargin = 48;
+}
+
 FolderView::FolderView(QWidget *parent)
     : QWidget(parent)
     , m_lister(new KDirLister(this))
     , m_model(new KDirModel(this))
     , m_proxy(new NameFilterProxyModel(this))
     , m_stack(new QStackedWidget(this))
-    , m_details(new QTreeView(this))
+    , m_details(new DetailsView(this))
     , m_icons(new QListView(this))
+    , m_detailsDelegate(new DensityDelegate(m_details))
+    , m_iconsDelegate(new KFileItemDelegate(m_icons))
 {
     m_lister->setAutoErrorHandlingEnabled(false);
     m_lister->setMainWindow(window());
@@ -151,7 +166,7 @@ FolderView::FolderView(QWidget *parent)
     for (int column : {KDirModel::Permissions, KDirModel::Owner, KDirModel::Group}) {
         m_details->setColumnHidden(column, true);
     }
-    setupView(m_details);
+    setupView(m_details, m_detailsDelegate);
 
     m_icons->setModel(m_proxy);
     m_icons->setSelectionModel(m_details->selectionModel());
@@ -163,9 +178,9 @@ FolderView::FolderView(QWidget *parent)
     m_icons->setUniformItemSizes(true);
     m_icons->setWordWrap(true);
     m_icons->setIconSize(QSize(64, 64));
-    m_icons->setGridSize(QSize(112, 112));
+    m_icons->setGridSize(QSize(64 + IconGridMargin, 64 + IconGridMargin));
     m_icons->setSpacing(4);
-    setupView(m_icons);
+    setupView(m_icons, m_iconsDelegate);
 
     m_detailsPreviews = new KFilePreviewGenerator(m_details);
     m_iconPreviews = new KFilePreviewGenerator(m_icons);
@@ -212,9 +227,9 @@ FolderView::~FolderView()
     m_lister->disconnect(this);
 }
 
-void FolderView::setupView(QAbstractItemView *view)
+void FolderView::setupView(QAbstractItemView *view, KFileItemDelegate *delegate)
 {
-    view->setItemDelegate(new KFileItemDelegate(view));
+    view->setItemDelegate(delegate);
     view->setSelectionMode(QAbstractItemView::ExtendedSelection);
     view->setSelectionBehavior(QAbstractItemView::SelectRows);
     view->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -248,6 +263,7 @@ void FolderView::setUrl(const QUrl &url)
         m_proxy->setFlatBase(url);
     }
     openListing();
+    updatePreviews();
     Q_EMIT urlChanged(url);
 }
 
@@ -303,8 +319,103 @@ bool FolderView::previewsEnabled() const
 void FolderView::setPreviewsEnabled(bool enabled)
 {
     m_previewsEnabled = enabled;
-    m_detailsPreviews->setPreviewShown(enabled);
-    m_iconPreviews->setPreviewShown(enabled);
+    updatePreviews();
+}
+
+void FolderView::setRemotePreviewsEnabled(bool enabled)
+{
+    m_remotePreviewsEnabled = enabled;
+    updatePreviews();
+}
+
+bool FolderView::previewsShown() const
+{
+    return m_detailsPreviews->isPreviewShown();
+}
+
+void FolderView::setPreviewPlugins(const QStringList &plugins)
+{
+    m_detailsPreviews->setEnabledPlugins(plugins);
+    m_iconPreviews->setEnabledPlugins(plugins);
+}
+
+QStringList FolderView::previewPlugins() const
+{
+    return m_detailsPreviews->enabledPlugins();
+}
+
+void FolderView::setIconSizes(int details, int icons)
+{
+    m_details->setIconSize(QSize(details, details));
+    m_icons->setIconSize(QSize(icons, icons));
+    m_icons->setGridSize(QSize(icons + IconGridMargin, icons + IconGridMargin));
+}
+
+void FolderView::setItemSpacing(int detailsSpace, int iconsSpace)
+{
+    m_detailsDelegate->setItemSpace(detailsSpace);
+    m_details->doItemsLayout();
+    m_icons->setSpacing(2 * iconsSpace);
+}
+
+void FolderView::setDragFromAnywhere(bool enabled)
+{
+    m_details->setDragFromAnywhere(enabled);
+}
+
+void FolderView::setColumnVisible(int column, bool visible)
+{
+    if (column != KDirModel::Name) {
+        m_details->setColumnHidden(column, !visible);
+    }
+}
+
+bool FolderView::isColumnVisible(int column) const
+{
+    return !m_details->isColumnHidden(column);
+}
+
+void FolderView::setSorting(int column, Qt::SortOrder order)
+{
+    m_details->sortByColumn(column, order);
+}
+
+int FolderView::sortColumn() const
+{
+    return m_details->header()->sortIndicatorSection();
+}
+
+Qt::SortOrder FolderView::sortOrder() const
+{
+    return m_details->header()->sortIndicatorOrder();
+}
+
+void FolderView::setSortFoldersFirst(bool foldersFirst)
+{
+    m_proxy->setSortFoldersFirst(foldersFirst);
+}
+
+bool FolderView::sortFoldersFirst() const
+{
+    return m_proxy->sortFoldersFirst();
+}
+
+void FolderView::setShowToolTips(bool show)
+{
+    m_detailsDelegate->setShowToolTipWhenElided(show);
+    m_iconsDelegate->setShowToolTipWhenElided(show);
+}
+
+bool FolderView::showToolTips() const
+{
+    return m_detailsDelegate->showToolTipWhenElided();
+}
+
+void FolderView::updatePreviews()
+{
+    const bool shown = m_previewsEnabled && (m_lister->url().isLocalFile() || m_remotePreviewsEnabled);
+    m_detailsPreviews->setPreviewShown(shown);
+    m_iconPreviews->setPreviewShown(shown);
 }
 
 KFileItem FolderView::rootItem() const
@@ -497,8 +608,7 @@ bool FolderView::handleDrop(QAbstractItemView *view, QEvent *event)
         }
     }
 
-    KIO::DropJob *job = KIO::drop(dropEvent, destination);
-    KJobWidgets::setWindow(job, window());
+    FileOperations::drop(dropEvent, destination, window());
     dropEvent->acceptProposedAction();
     return true;
 }

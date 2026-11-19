@@ -2,8 +2,12 @@
 
 #include "fileoperations.h"
 
+#include "executables.h"
+#include "settings.h"
+
 #include <KIO/CopyJob>
 #include <KIO/DeleteOrTrashJob>
+#include <KIO/DropJob>
 #include <KIO/FileUndoManager>
 #include <KIO/JobUiDelegate>
 #include <KIO/JobUiDelegateFactory>
@@ -17,6 +21,8 @@
 
 #include <QApplication>
 #include <QClipboard>
+#include <QDropEvent>
+#include <QFileInfo>
 #include <QMimeData>
 
 namespace
@@ -120,11 +126,38 @@ void FileOperations::open(const KFileItem &item, QWidget *window)
     if (item.isNull()) {
         return;
     }
+    const auto action = Settings::executableAction();
+    const QString path = item.localPath();
+    const bool program = !path.isEmpty() && !item.isDir() && Executables::isProgram(item.mimetype(), QFileInfo(path).isExecutable());
+    if (program && (action == Settings::EnumExecutableAction::RunInTerminal || action == Settings::EnumExecutableAction::RunInTerminalKeepOpen)) {
+        auto *terminal = new KTerminalLauncherJob(Executables::terminalCommand(path, action == Settings::EnumExecutableAction::RunInTerminalKeepOpen));
+        terminal->setWorkingDirectory(QFileInfo(path).absolutePath());
+        terminal->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, window));
+        terminal->start();
+        return;
+    }
     auto *job = new KIO::OpenUrlJob(item.targetUrl(), item.mimetype());
     job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, window));
-    job->setRunExecutables(false);
-    job->setShowOpenOrExecuteDialog(true);
+    job->setRunExecutables(action == Settings::EnumExecutableAction::Run);
+    job->setShowOpenOrExecuteDialog(action == Settings::EnumExecutableAction::Ask);
     job->start();
+}
+
+KIO::DropJob *FileOperations::drop(const QDropEvent *event, const QUrl &destination, QWidget *window)
+{
+    const auto setting = Settings::dropAction();
+    const bool modifierHeld = event->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier | Qt::AltModifier);
+    KIO::DropJob *job = nullptr;
+    if (modifierHeld || setting == Settings::EnumDropAction::Ask) {
+        job = KIO::drop(event, destination);
+    } else {
+        const bool copy = setting == Settings::EnumDropAction::Copy;
+        QDropEvent decided(event->position(), event->possibleActions(), event->mimeData(), event->buttons(), copy ? Qt::ControlModifier : Qt::ShiftModifier);
+        decided.setDropAction(copy ? Qt::CopyAction : Qt::MoveAction);
+        job = KIO::drop(&decided, destination);
+    }
+    KJobWidgets::setWindow(job, window);
+    return job;
 }
 
 void FileOperations::openTerminal(const QUrl &folder, QWidget *window)

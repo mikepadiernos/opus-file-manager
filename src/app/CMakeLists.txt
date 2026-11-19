@@ -5,6 +5,10 @@ add_library(opusfm_app STATIC
     compressdialog.h
     contentheight.cpp
     contentheight.h
+    densitydelegate.cpp
+    densitydelegate.h
+    detailsview.cpp
+    detailsview.h
     fileoperations.cpp
     fileoperations.h
     filterbar.cpp
@@ -17,6 +21,12 @@ add_library(opusfm_app STATIC
     mainwindow.h
     pane.cpp
     pane.h
+    settingsdialog.cpp
+    settingsdialog.h
+    settingswidgets.cpp
+    settingswidgets.h
+    symbolicactionicons.cpp
+    symbolicactionicons.h
     opusfm.qrc
 )
 

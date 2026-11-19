@@ -43,6 +43,7 @@
       <Action name="show_flat"/>
       <Separator/>
       <Action name="panel_layout"/>
+      <Action name="show_places"/>
       <Separator/>
       <Action name="view_redisplay"/>
     </Menu>

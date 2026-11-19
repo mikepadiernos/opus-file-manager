@@ -2,6 +2,7 @@
 
 #include "mainwindow.h"
 #include "opusfm_version.h"
+#include "symbolicactionicons.h"
 
 #include <KAboutData>
 #include <KCrash>
@@ -33,6 +34,7 @@ QList<QUrl> urlsFromArguments(const QStringList &arguments, const QString &worki
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
+    app.installEventFilter(new SymbolicActionIcons(&app));
     KLocalizedString::setApplicationDomain(QByteArrayLiteral("opus-file-manager"));
 
     KAboutData aboutData(QStringLiteral("opus-file-manager"),

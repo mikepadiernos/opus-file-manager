@@ -6,17 +6,24 @@
 #include "archivewriter.h"
 #include "combinedpanel.h"
 #include "compressdialog.h"
+#include "density.h"
 #include "favoritesmodel.h"
 #include "fileoperations.h"
 #include "foldertree.h"
 #include "folderview.h"
 #include "pane.h"
 #include "session.h"
+#include "settings.h"
+#include "settingsdialog.h"
+#include "startup.h"
+#include "symbolicicon.h"
 #include "tabcolors.h"
 #include "tabmodel.h"
 
 #include <KActionCollection>
 #include <KConfigGroup>
+#include <KDirModel>
+#include <KFileCopyToMenu>
 #include <KFileItemActions>
 #include <KFileItemListProperties>
 #include <KFilePlacesModel>
@@ -32,11 +39,13 @@
 #include <KIO/MkdirJob>
 #include <KJobWidgets>
 #include <KLocalizedString>
+#include <KMessageBox>
 #include <KNewFileMenu>
 #include <KSelectAction>
 #include <KSharedConfig>
 #include <KStandardAction>
 #include <KToggleAction>
+#include <KToolBar>
 
 #include <QApplication>
 #include <QClipboard>
@@ -46,6 +55,7 @@
 #include <QFileInfo>
 #include <QFutureWatcher>
 #include <QLabel>
+#include <QLayout>
 #include <QMenu>
 #include <QMenuBar>
 #include <QScrollArea>
@@ -72,6 +82,72 @@ QString flatKey(const QUrl &url)
     return url.adjusted(QUrl::StripTrailingSlash).toString();
 }
 
+/// Maps a details or icons density setting, whose choices are the same.
+template<typename Choices>
+Density::Items itemDensity(typename Choices::type density)
+{
+    switch (density) {
+    case Choices::Compact:
+        return Density::Items::Compact;
+    case Choices::VeryCompact:
+        return Density::Items::VeryCompact;
+    case Choices::Custom:
+        return Density::Items::Custom;
+    default:
+        return Density::Items::Normal;
+    }
+}
+
+Density::Bars barDensity(Settings::EnumBarDensity::type density)
+{
+    switch (density) {
+    case Settings::EnumBarDensity::Compact:
+        return Density::Bars::Compact;
+    case Settings::EnumBarDensity::VeryCompact:
+        return Density::Bars::VeryCompact;
+    default:
+        return Density::Bars::Normal;
+    }
+}
+
+/**
+ * Sets the margins and spacing of a bar's layout, remembering the style's
+ * own on first use so -1 restores them.
+ */
+void setBarMargin(QWidget *bar, int margin)
+{
+    QLayout *layout = bar->layout();
+    constexpr auto MarginsKey = "opusfmStyleMargins";
+    constexpr auto SpacingKey = "opusfmStyleSpacing";
+    if (!bar->property(MarginsKey).isValid()) {
+        bar->setProperty(MarginsKey, QVariant::fromValue(layout->contentsMargins()));
+        bar->setProperty(SpacingKey, layout->spacing());
+    }
+    if (margin < 0) {
+        layout->setContentsMargins(bar->property(MarginsKey).value<QMargins>());
+        layout->setSpacing(bar->property(SpacingKey).toInt());
+    } else {
+        layout->setContentsMargins(margin, margin, margin, margin);
+        layout->setSpacing(margin);
+    }
+}
+
+/// Places model whose icons use SymbolicIcon at small sizes.
+class SymbolicPlacesModel : public KFilePlacesModel
+{
+public:
+    using KFilePlacesModel::KFilePlacesModel;
+
+    QVariant data(const QModelIndex &index, int role) const override
+    {
+        const QVariant value = KFilePlacesModel::data(index, role);
+        if (role != Qt::DecorationRole || value.typeId() != QMetaType::QIcon) {
+            return value;
+        }
+        return SymbolicIcon::wrap(value.value<QIcon>());
+    }
+};
+
 QString stdName(KStandardAction::StandardAction id)
 {
     return KStandardAction::name(id);
@@ -90,7 +166,7 @@ QList<QUrl> urlsOf(const KFileItemList &items)
 
 MainWindow::MainWindow(QWidget *parent)
     : KXmlGuiWindow(parent)
-    , m_placesModel(new KFilePlacesModel(this))
+    , m_placesModel(new SymbolicPlacesModel(this))
 {
     initResources();
     setComponentName(QStringLiteral("opus-file-manager"), i18n("Opus File Manager"));
@@ -116,7 +192,9 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(QApplication::clipboard(), &QClipboard::dataChanged, this, &MainWindow::updateActions);
 
+    applyViewDefaults();
     setActivePane(m_left);
+    applySettings();
     updateActions();
 }
 
@@ -199,8 +277,7 @@ void MainWindow::setupPlaces()
         activePane()->openInNewTab(url);
     });
     connect(m_placesView, &KFilePlacesView::urlsDropped, this, [this](const QUrl &dest, QDropEvent *event, QWidget *) {
-        KIO::DropJob *job = KIO::drop(event, dest);
-        KJobWidgets::setWindow(job, this);
+        FileOperations::drop(event, dest, this);
     });
 }
 
@@ -389,8 +466,10 @@ void MainWindow::addToFavorites()
 void MainWindow::setupStatusBar()
 {
     m_itemsLabel = new QLabel(this);
+    m_itemsLabel->setObjectName(QStringLiteral("itemsLabel"));
     m_messageLabel = new QLabel(this);
     m_freeSpaceLabel = new QLabel(this);
+    m_freeSpaceLabel->setObjectName(QStringLiteral("freeSpaceLabel"));
     statusBar()->addWidget(m_itemsLabel);
     statusBar()->addWidget(m_messageLabel, 1);
     statusBar()->addPermanentWidget(m_freeSpaceLabel);
@@ -496,6 +575,14 @@ void MainWindow::setupActions()
     actions->addAction(QStringLiteral("stacked_layout"), m_stackedLayoutAction);
     connect(m_stackedLayoutAction, &KToggleAction::toggled, this, &MainWindow::setStackedLayout);
 
+    QAction *showPlaces = m_placesDock->toggleViewAction();
+    showPlaces->setText(i18nc("@action", "Show Places Panel"));
+    showPlaces->setIcon(QIcon::fromTheme(QStringLiteral("compass")));
+    actions->addAction(QStringLiteral("show_places"), showPlaces);
+    actions->setDefaultShortcut(showPlaces, Qt::Key_F9);
+    connect(showPlaces, &QAction::triggered, this, &MainWindow::rememberPlacesShown);
+    m_placesDock->installEventFilter(this);
+
     m_viewModeAction = actions->addAction(QStringLiteral("toggle_view_mode"), this, &MainWindow::toggleViewMode);
     m_viewModeAction->setText(i18nc("@action", "Icons View"));
     m_viewModeAction->setIcon(QIcon::fromTheme(QStringLiteral("view-list-icons")));
@@ -545,7 +632,7 @@ void MainWindow::setupActions()
     KStandardAction::home(
         this,
         [this] {
-            activePane()->setUrl(QUrl::fromLocalFile(QDir::homePath()));
+            activePane()->setUrl(Settings::homeUrl());
         },
         actions);
 
@@ -637,11 +724,13 @@ void MainWindow::setupActions()
     });
 
     // Settings
+    KStandardAction::preferences(this, &MainWindow::showSettings, actions);
     QAction *showMenuBar = KStandardAction::showMenubar(menuBar(), &QMenuBar::setVisible, actions);
     KHamburgerMenu *hamburger = KStandardAction::hamburgerMenu(nullptr, nullptr, actions);
     hamburger->setMenuBar(menuBar());
     hamburger->setShowMenuBarAction(showMenuBar);
 
+    m_copyToMenu = new KFileCopyToMenu(this);
     m_fileItemActions = new KFileItemActions(this);
     m_fileItemActions->setParentWidget(this);
 }
@@ -705,13 +794,13 @@ void MainWindow::openUrls(const QList<QUrl> &urls)
 void MainWindow::restoreSession()
 {
     m_sessionRestored = true;
-    const QUrl home = QUrl::fromLocalFile(QDir::homePath());
     const KConfigGroup group = KSharedConfig::openStateConfig()->group(QLatin1String(SessionGroup));
-    const WindowSession session = Session::load(group).sanitized(home);
+    const WindowSession session = Startup::resolve(Session::load(group), Startup::fromSettings());
 
     m_left->restoreState(session.left);
     m_right->restoreState(session.right);
     setActivePane(session.activePane == 1 ? m_right : m_left);
+    m_dualLayoutAction->setChecked(session.dual);
     setStackedLayout(session.stacked);
 }
 
@@ -721,6 +810,7 @@ void MainWindow::saveSession()
     session.left = m_left->saveState();
     session.right = m_right->saveState();
     session.activePane = activePane() == m_right ? 1 : 0;
+    session.dual = isDualLayout();
     session.stacked = isStackedLayout();
 
     KSharedConfig::Ptr state = KSharedConfig::openStateConfig();
@@ -735,6 +825,15 @@ void MainWindow::saveSession()
 
 bool MainWindow::queryClose()
 {
+    const bool severalTabs = m_left->tabs()->count() > 1 || m_right->tabs()->count() > 1;
+    if (Settings::confirmClosingMultipleTabs() && severalTabs
+        && KMessageBox::warningContinueCancel(this,
+                                              i18nc("@info", "This window has several tabs open. Close them all?"),
+                                              i18nc("@title:window", "Close Tabs"),
+                                              KGuiItem(i18nc("@action:button", "Close Window"), QStringLiteral("window-close")))
+            != KMessageBox::Continue) {
+        return false;
+    }
     saveSession();
     return KXmlGuiWindow::queryClose();
 }
@@ -746,6 +845,7 @@ void MainWindow::readProperties(const KConfigGroup &group)
     m_left->restoreState(session.left);
     m_right->restoreState(session.right);
     setActivePane(session.activePane == 1 ? m_right : m_left);
+    m_dualLayoutAction->setChecked(session.dual);
     setStackedLayout(session.stacked);
 }
 
@@ -755,6 +855,7 @@ void MainWindow::saveProperties(KConfigGroup &group)
     session.left = m_left->saveState();
     session.right = m_right->saveState();
     session.activePane = activePane() == m_right ? 1 : 0;
+    session.dual = isDualLayout();
     session.stacked = isStackedLayout();
     Session::save(session, group);
 }
@@ -823,7 +924,7 @@ void MainWindow::updateStatusBar()
         }
         const int files = selected.size() - folders;
         QString text = i18ncp("@info:status", "%1 of %2 selected", "%1 of %2 selected", selected.size(), total);
-        if (files > 0) {
+        if (files > 0 && Settings::showSelectionSize()) {
             text += QStringLiteral(" (%1)").arg(KIO::convertSize(size));
         }
         m_itemsLabel->setText(text);
@@ -849,7 +950,7 @@ void MainWindow::updateStatusBar()
 void MainWindow::updateFreeSpace()
 {
     const QUrl url = activePane()->url();
-    if (!url.isValid()) {
+    if (!url.isValid() || !Settings::showFreeSpace()) {
         m_freeSpaceLabel->clear();
         return;
     }
@@ -874,7 +975,7 @@ void MainWindow::updateWindowTitle()
 
 void MainWindow::updateTabBars()
 {
-    const bool force = m_left->tabs()->count() > 1 || m_right->tabs()->count() > 1;
+    const bool force = Settings::alwaysShowTabBar() || m_left->tabs()->count() > 1 || m_right->tabs()->count() > 1;
     m_left->setTabBarForcedVisible(force);
     m_right->setTabBarForcedVisible(force);
 }
@@ -925,8 +1026,10 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     QAction *openInTab = nullptr;
     QAction *openInOtherPane = nullptr;
     if (singleFolder) {
-        openInTab = menu.addAction(QIcon::fromTheme(QStringLiteral("tab-new")), i18nc("@action:inmenu", "Open in New Tab"));
-        if (m_dualLayoutAction->isChecked()) {
+        if (Settings::showOpenInNewTab()) {
+            openInTab = menu.addAction(QIcon::fromTheme(QStringLiteral("tab-new")), i18nc("@action:inmenu", "Open in New Tab"));
+        }
+        if (m_dualLayoutAction->isChecked() && Settings::showOpenInOtherPane()) {
             openInOtherPane = menu.addAction(QIcon::fromTheme(QStringLiteral("view-split-left-right")), i18nc("@action:inmenu", "Open in Other Pane"));
         }
     }
@@ -939,14 +1042,29 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     if (singleFolder) {
         menu.addAction(m_pasteAction);
     }
-    menu.addAction(actions->action(QStringLiteral("copy_to_other_pane")));
-    menu.addAction(actions->action(QStringLiteral("move_to_other_pane")));
+    if (Settings::showCopyToOtherPane()) {
+        menu.addAction(actions->action(QStringLiteral("copy_to_other_pane")));
+    }
+    if (Settings::showMoveToOtherPane()) {
+        menu.addAction(actions->action(QStringLiteral("move_to_other_pane")));
+    }
+    if (Settings::showCopyMoveToMenus()) {
+        QList<QUrl> urls;
+        for (const KFileItem &item : items) {
+            urls.append(item.url());
+        }
+        m_copyToMenu->setUrls(urls);
+        m_copyToMenu->setReadOnly(!props.supportsMoving());
+        m_copyToMenu->addActionsTo(&menu);
+    }
     menu.addSeparator();
     menu.addAction(actions->action(QStringLiteral("rename")));
     menu.addAction(actions->action(QStringLiteral("move_to_trash")));
-    menu.addAction(actions->action(QStringLiteral("delete")));
+    if (Settings::showDelete()) {
+        menu.addAction(actions->action(QStringLiteral("delete")));
+    }
     menu.addSeparator();
-    if (singleFolder && items.first().isLocalFile()) {
+    if (singleFolder && items.first().isLocalFile() && Settings::showOpenTerminal()) {
         menu.addAction(actions->action(QStringLiteral("open_terminal")));
     }
     if (singleFolder) {
@@ -964,7 +1082,9 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     if (allLocal) {
         menu.addAction(actions->action(QStringLiteral("compress")));
     }
-    menu.addAction(actions->action(QStringLiteral("copy_path")));
+    if (Settings::showCopyPath()) {
+        menu.addAction(actions->action(QStringLiteral("copy_path")));
+    }
 
     m_fileItemActions->addActionsTo(&menu);
 
@@ -1070,6 +1190,94 @@ void MainWindow::setStackedLayout(bool stacked)
 bool MainWindow::isStackedLayout() const
 {
     return m_splitter->orientation() == Qt::Vertical;
+}
+
+bool MainWindow::isDualLayout() const
+{
+    return m_dualLayoutAction->isChecked();
+}
+
+void MainWindow::applySettings()
+{
+    for (Pane *pane : {m_left, m_right}) {
+        pane->setNavigationBarVisible(Settings::showNavigationBar());
+        pane->setNewTabsAfterCurrent(Settings::newTabsAfterCurrent());
+        pane->setFollowSymlinks(Settings::followSymlinks());
+
+        FolderView *view = pane->view();
+        view->setIconSizes(Settings::detailsIconSize(), Settings::iconsIconSize());
+        view->setColumnVisible(KDirModel::Size, Settings::showSizeColumn());
+        view->setColumnVisible(KDirModel::ModifiedTime, Settings::showModifiedColumn());
+        view->setColumnVisible(KDirModel::Permissions, Settings::showPermissionsColumn());
+        view->setColumnVisible(KDirModel::Owner, Settings::showOwnerColumn());
+        view->setColumnVisible(KDirModel::Group, Settings::showGroupColumn());
+        view->setColumnVisible(KDirModel::Type, Settings::showTypeColumn());
+        view->setSortFoldersFirst(Settings::foldersFirst());
+        view->setShowToolTips(Settings::showToolTips());
+        view->setDragFromAnywhere(Settings::dragFromAnywhere());
+        view->setItemSpacing(Density::itemSpace(itemDensity<Settings::EnumDetailsDensity>(Settings::detailsDensity()), Settings::detailsCustomSpace()),
+                             Density::itemSpace(itemDensity<Settings::EnumIconsDensity>(Settings::iconsDensity()), Settings::iconsCustomSpace()));
+        view->setPreviewPlugins(Settings::previewPlugins());
+        view->setRemotePreviewsEnabled(Settings::showRemotePreviews());
+    }
+    updateTabBars();
+    const int barMargin = Density::barMargin(barDensity(Settings::barDensity()));
+    const auto bars = toolBars();
+    for (KToolBar *bar : bars) {
+        setBarMargin(bar, barMargin);
+    }
+    setBarMargin(statusBar(), barMargin);
+    m_placesDock->setVisible(m_panelLayout == PanelLayout::Separate && Settings::showPlaces());
+    m_itemsLabel->setVisible(Settings::showItemCounts());
+    m_freeSpaceLabel->setVisible(Settings::showFreeSpace());
+    updateStatusBar();
+    updateFreeSpace();
+
+    QAction *switchPane = actionCollection()->action(QStringLiteral("switch_pane"));
+    QList<QKeySequence> shortcuts = switchPane->shortcuts();
+    shortcuts.removeAll(QKeySequence(Qt::Key_Tab));
+    if (Settings::tabSwitchesPanes()) {
+        shortcuts.prepend(QKeySequence(Qt::Key_Tab));
+    }
+    switchPane->setShortcuts(shortcuts);
+}
+
+void MainWindow::rememberPlacesShown(bool shown)
+{
+    Settings::setShowPlaces(shown);
+    Settings::self()->save();
+}
+
+bool MainWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_placesDock && event->type() == QEvent::Close) {
+        rememberPlacesShown(false);
+    }
+    return KXmlGuiWindow::eventFilter(watched, event);
+}
+
+void MainWindow::applyViewDefaults()
+{
+    const auto mode = Settings::defaultViewMode() == Settings::EnumDefaultViewMode::Icons ? FolderView::ViewMode::Icons : FolderView::ViewMode::Details;
+    const Qt::SortOrder order = Settings::sortDescending() ? Qt::DescendingOrder : Qt::AscendingOrder;
+    for (Pane *pane : {m_left, m_right}) {
+        pane->view()->setViewMode(mode);
+        pane->view()->setSorting(Settings::sortColumn(), order);
+        pane->view()->setShowHiddenFiles(Settings::showHiddenFiles());
+    }
+    m_previewsAction->setChecked(Settings::showPreviews());
+    setPreviewsEnabled(Settings::showPreviews());
+}
+
+void MainWindow::showSettings()
+{
+    if (KConfigDialog::showDialog(QLatin1String(SettingsDialog::Name))) {
+        return;
+    }
+    auto *dialog = new SettingsDialog(m_placesModel, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &KConfigDialog::settingsChanged, this, &MainWindow::applySettings);
+    dialog->show();
 }
 
 void MainWindow::toggleViewMode()

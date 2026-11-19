@@ -4,6 +4,8 @@
 
 #include "filterbar.h"
 #include "folderview.h"
+#include "symbolicicon.h"
+#include "symlinks.h"
 #include "tabcolors.h"
 #include "tabmodel.h"
 
@@ -49,7 +51,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
 
     auto *addTab = new QToolButton(m_tabStrip);
     addTab->setAutoRaise(true);
-    addTab->setIcon(QIcon::fromTheme(QStringLiteral("tab-new")));
+    addTab->setIcon(SymbolicIcon::fromTheme(QStringLiteral("tab-new")));
     addTab->setToolTip(i18nc("@info:tooltip", "Open a new tab"));
     connect(addTab, &QToolButton::clicked, this, &Pane::newTab);
 
@@ -61,7 +63,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
 
     const auto configureButton = [](QToolButton *button, const QString &icon, const QString &tooltip) {
         button->setAutoRaise(true);
-        button->setIcon(QIcon::fromTheme(icon));
+        button->setIcon(SymbolicIcon::fromTheme(icon));
         button->setToolTip(tooltip);
         button->setFocusPolicy(Qt::NoFocus);
     };
@@ -72,7 +74,8 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
 
     m_navigator->setPlacesSelectorVisible(false);
 
-    auto *pathRow = new QHBoxLayout;
+    m_navigationBar = new QWidget(this);
+    auto *pathRow = new QHBoxLayout(m_navigationBar);
     pathRow->setContentsMargins(0, 0, 0, 0);
     pathRow->setSpacing(0);
     pathRow->addWidget(m_back);
@@ -85,7 +88,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     m_layout->setContentsMargins(0, 0, 0, 0);
     m_layout->setSpacing(0);
     m_layout->addWidget(m_tabStrip);
-    m_layout->addLayout(pathRow);
+    m_layout->addWidget(m_navigationBar);
     m_layout->addWidget(m_view, 1);
     m_filterBar = new FilterBar(this);
     m_layout->addWidget(m_filterBar);
@@ -144,7 +147,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     connect(m_tabBar, &QTabBar::tabBarClicked, this, &Pane::activated);
 
     connect(m_navigator, &KUrlNavigator::urlChanged, this, [this](const QUrl &url) {
-        m_tabs->setCurrentUrl(url);
+        setUrl(url);
     });
     connect(m_navigator, &KUrlNavigator::tabRequested, this, [this](const QUrl &url) {
         openInNewTab(url);
@@ -229,20 +232,41 @@ bool Pane::isTabBarAtBottom() const
     return m_tabBar->shape() == QTabBar::RoundedSouth;
 }
 
+void Pane::setNavigationBarVisible(bool visible)
+{
+    m_navigationBar->setVisible(visible);
+}
+
+bool Pane::isNavigationBarVisible() const
+{
+    return !m_navigationBar->isHidden();
+}
+
+void Pane::setNewTabsAfterCurrent(bool afterCurrent)
+{
+    m_newTabsAfterCurrent = afterCurrent;
+}
+
+void Pane::setFollowSymlinks(bool follow)
+{
+    m_followSymlinks = follow;
+}
+
 void Pane::setUrl(const QUrl &url)
 {
-    m_tabs->setCurrentUrl(url);
+    m_tabs->setCurrentUrl(m_followSymlinks ? Symlinks::resolve(url) : url);
 }
 
 void Pane::openInNewTab(const QUrl &url, bool activate)
 {
-    m_tabs->addTab(url, activate);
+    const int index = m_newTabsAfterCurrent ? m_tabs->currentIndex() + 1 : m_tabs->count();
+    m_tabs->insertTab(index, m_followSymlinks ? Symlinks::resolve(url) : url, activate);
 }
 
 void Pane::newTab()
 {
     const QUrl url = m_tabs->currentUrl().isValid() ? m_tabs->currentUrl() : QUrl::fromLocalFile(QDir::homePath());
-    m_tabs->addTab(url, true);
+    openInNewTab(url, true);
 }
 
 void Pane::closeCurrentTab()
@@ -384,7 +408,7 @@ void Pane::updateTabText(int index)
     m_tabBar->setTabText(index, name.isEmpty() ? tabTitle(url) : name);
     m_tabBar->setTabToolTip(index, url.toDisplayString(QUrl::PreferLocalFile));
     const QString iconName = pinned ? QStringLiteral("pin") : locked ? QStringLiteral("object-locked") : KIO::iconNameForUrl(url);
-    m_tabBar->setTabIcon(index, QIcon::fromTheme(iconName));
+    m_tabBar->setTabIcon(index, SymbolicIcon::fromTheme(iconName));
     m_tabBar->setTabTextColor(index, LabelColors::rgb(m_colors->colorFor(url)));
 
     const auto closeSide = static_cast<QTabBar::ButtonPosition>(m_tabBar->style()->styleHint(QStyle::SH_TabBar_CloseButtonPosition, nullptr, m_tabBar));

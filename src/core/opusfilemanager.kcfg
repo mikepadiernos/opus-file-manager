@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0 http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+  <include>QDir</include>
+  <include>KIO/PreviewJob</include>
+  <include>limits</include>
+  <kcfgfile/>
+  <group name="Startup">
+    <entry name="StartupMode" type="Enum">
+      <label>What the window shows when Opus starts</label>
+      <choices>
+        <choice name="RestoreSession"/>
+        <choice name="HomeFolder"/>
+        <choice name="FixedFolders"/>
+      </choices>
+      <default>RestoreSession</default>
+    </entry>
+    <entry name="HomeUrl" type="Url">
+      <label>Folder opened by Go Home</label>
+      <default code="true">QUrl::fromLocalFile(QDir::homePath())</default>
+    </entry>
+    <entry name="LeftStartUrl" type="Url">
+      <label>Folder of the first pane when starting with fixed folders</label>
+      <default code="true">QUrl::fromLocalFile(QDir::homePath())</default>
+    </entry>
+    <entry name="RightStartUrl" type="Url">
+      <label>Folder of the second pane when starting with fixed folders</label>
+      <default code="true">QUrl::fromLocalFile(QDir::homePath())</default>
+    </entry>
+  </group>
+  <group name="Panes">
+    <entry name="DualPaneAtStartup" type="Enum">
+      <label>Whether the window starts with one or two panes</label>
+      <choices>
+        <choice name="AsLastUsed"/>
+        <choice name="Always"/>
+        <choice name="Never"/>
+      </choices>
+      <default>AsLastUsed</default>
+    </entry>
+    <entry name="AlwaysShowTabBar" type="Bool">
+      <label>Show the tab bars even when each pane has one tab</label>
+      <default>false</default>
+    </entry>
+    <entry name="TabSwitchesPanes" type="Bool">
+      <label>The Tab key switches between the panes</label>
+      <default>true</default>
+    </entry>
+    <entry name="NewTabsAfterCurrent" type="Bool">
+      <label>Open new tabs next to the current tab instead of at the end</label>
+      <default>false</default>
+    </entry>
+    <entry name="ShowNavigationBar" type="Bool">
+      <label>Show the navigation bar of each pane</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <group name="Navigation">
+    <entry name="FollowSymlinks" type="Bool">
+      <label>Show folders opened through a symbolic link at their real location</label>
+      <default>false</default>
+    </entry>
+  </group>
+  <group name="Views">
+    <entry name="DefaultViewMode" type="Enum">
+      <label>View mode of the panes in a new window</label>
+      <choices>
+        <choice name="Details"/>
+        <choice name="Icons"/>
+      </choices>
+      <default>Details</default>
+    </entry>
+    <entry name="DetailsIconSize" type="Int">
+      <label>Icon size in the details view</label>
+      <default>16</default>
+      <min>16</min>
+      <max>64</max>
+    </entry>
+    <entry name="IconsIconSize" type="Int">
+      <label>Icon and preview size in the icons view</label>
+      <default>64</default>
+      <min>32</min>
+      <max>256</max>
+    </entry>
+    <entry name="SortColumn" type="Enum">
+      <label>Sort key of the panes in a new window</label>
+      <choices>
+        <choice name="Name"/>
+        <choice name="Size"/>
+        <choice name="ModifiedTime"/>
+        <choice name="Permissions"/>
+        <choice name="Owner"/>
+        <choice name="Group"/>
+        <choice name="Type"/>
+      </choices>
+      <default>Name</default>
+    </entry>
+    <entry name="SortDescending" type="Bool">
+      <label>Sort in descending order in a new window</label>
+      <default>false</default>
+    </entry>
+    <entry name="FoldersFirst" type="Bool">
+      <label>Sort folders before files</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowHiddenFiles" type="Bool">
+      <label>Show hidden files in a new window</label>
+      <default>false</default>
+    </entry>
+    <entry name="ShowToolTips" type="Bool">
+      <label>Show the full name of shortened items in a tooltip</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowSizeColumn" type="Bool">
+      <label>Show the Size column</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowModifiedColumn" type="Bool">
+      <label>Show the Modified column</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowPermissionsColumn" type="Bool">
+      <label>Show the Permissions column</label>
+      <default>false</default>
+    </entry>
+    <entry name="ShowOwnerColumn" type="Bool">
+      <label>Show the Owner column</label>
+      <default>false</default>
+    </entry>
+    <entry name="ShowGroupColumn" type="Bool">
+      <label>Show the Group column</label>
+      <default>false</default>
+    </entry>
+    <entry name="DetailsDensity" type="Enum">
+      <label>Space around items in the details view</label>
+      <choices>
+        <choice name="Normal"/>
+        <choice name="Compact"/>
+        <choice name="VeryCompact"/>
+        <choice name="Custom"/>
+      </choices>
+      <default>Normal</default>
+    </entry>
+    <entry name="DetailsCustomSpace" type="Int">
+      <label>Pixels above and below each item in the details view with custom density</label>
+      <default>2</default>
+      <min>0</min>
+      <max>10</max>
+    </entry>
+    <entry name="IconsDensity" type="Enum">
+      <label>Space around items in the icons view</label>
+      <choices>
+        <choice name="Normal"/>
+        <choice name="Compact"/>
+        <choice name="VeryCompact"/>
+        <choice name="Custom"/>
+      </choices>
+      <default>Normal</default>
+    </entry>
+    <entry name="IconsCustomSpace" type="Int">
+      <label>Pixels around each item in the icons view with custom density</label>
+      <default>2</default>
+      <min>0</min>
+      <max>10</max>
+    </entry>
+    <entry name="BarDensity" type="Enum">
+      <label>Height of the toolbars, location bars and status bar</label>
+      <choices>
+        <choice name="Normal"/>
+        <choice name="Compact"/>
+        <choice name="VeryCompact"/>
+      </choices>
+      <default>Normal</default>
+    </entry>
+    <entry name="DragFromAnywhere" type="Bool">
+      <label>Drag files and folders from anywhere in a details row</label>
+      <default>false</default>
+    </entry>
+    <entry name="ShowTypeColumn" type="Bool">
+      <label>Show the Type column</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <group name="Previews">
+    <entry name="ShowPreviews" type="Bool">
+      <label>Show previews in a new window</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowRemotePreviews" type="Bool">
+      <label>Show previews in folders that are not on this computer</label>
+      <default>false</default>
+    </entry>
+  </group>
+  <group name="PreviewSettings">
+    <entry name="PreviewPlugins" key="Plugins" type="StringList">
+      <label>Preview plugins that run, read by KIO</label>
+      <default code="true">KIO::PreviewJob::defaultPlugins()</default>
+    </entry>
+    <entry name="MaximumPreviewSize" key="MaximumSize" type="ULongLong">
+      <label>Largest file, in bytes, that gets a preview, read by KIO</label>
+      <default code="true">std::numeric_limits&lt;qulonglong&gt;::max()</default>
+    </entry>
+  </group>
+  <group name="Places">
+    <entry name="ShowPlaces" type="Bool">
+      <label>Show the Places panel</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <group name="StatusBar">
+    <entry name="ShowItemCounts" type="Bool">
+      <label>Show the number of items and selected items</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowSelectionSize" type="Bool">
+      <label>Show the total size of the selected files</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowFreeSpace" type="Bool">
+      <label>Show the free space of the current folder's disk</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <group name="Confirmations">
+    <entry name="ConfirmClosingMultipleTabs" type="Bool">
+      <label>Ask before closing a window that has more than one tab in a pane</label>
+      <default>true</default>
+    </entry>
+    <entry name="ExecutableAction" type="Enum">
+      <label>What opening an executable file does</label>
+      <choices>
+        <choice name="Ask"/>
+        <choice name="Open"/>
+        <choice name="Run"/>
+        <choice name="RunInTerminal"/>
+        <choice name="RunInTerminalKeepOpen"/>
+      </choices>
+      <default>Ask</default>
+    </entry>
+    <entry name="DropAction" type="Enum">
+      <label>What dropping files without a modifier key does</label>
+      <choices>
+        <choice name="Ask"/>
+        <choice name="Copy"/>
+        <choice name="Move"/>
+      </choices>
+      <default>Ask</default>
+    </entry>
+  </group>
+  <group name="ContextMenu">
+    <entry name="ShowOpenInNewTab" type="Bool">
+      <label>Show Open in New Tab for folders</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowOpenInOtherPane" type="Bool">
+      <label>Show Open in Other Pane for folders</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowCopyToOtherPane" type="Bool">
+      <label>Show Copy to Other Pane</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowMoveToOtherPane" type="Bool">
+      <label>Show Move to Other Pane</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowDelete" type="Bool">
+      <label>Show Delete as well as Move to Trash</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowOpenTerminal" type="Bool">
+      <label>Show Open Terminal Here for folders</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowCopyPath" type="Bool">
+      <label>Show Copy Path</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowCopyMoveToMenus" type="Bool">
+      <label>Show the Copy To and Move To submenus</label>
+      <default>false</default>
+    </entry>
+  </group>
+  <group name="SettingsDialog">
+    <entry name="SidebarTitlePosition" type="Enum">
+      <label>Where the settings sidebar shows each page's title</label>
+      <choices>
+        <choice name="Beside"/>
+        <choice name="Below"/>
+      </choices>
+      <default>Beside</default>
+    </entry>
+    <entry name="SidebarIconSize" type="Int">
+      <label>Size of the settings sidebar icons in pixels</label>
+      <default>16</default>
+      <min>16</min>
+      <max>64</max>
+    </entry>
+  </group>
+</kcfg>

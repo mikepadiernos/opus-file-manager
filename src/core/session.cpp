@@ -11,6 +11,7 @@ constexpr auto RightGroup = "RightPane";
 constexpr auto TabsKey = "Tabs";
 constexpr auto CurrentTabKey = "CurrentTab";
 constexpr auto ActivePaneKey = "ActivePane";
+constexpr auto DualKey = "Dual";
 constexpr auto StackedKey = "Stacked";
 constexpr auto PinnedCountKey = "PinnedCount";
 constexpr auto LockedTabsKey = "LockedTabs";
@@ -93,6 +94,7 @@ WindowSession WindowSession::sanitized(const QUrl &fallback) const
     result.left = sanitizePane(left, fallback);
     result.right = sanitizePane(right, fallback);
     result.activePane = activePane == 1 ? 1 : 0;
+    result.dual = dual;
     result.stacked = stacked;
     return result;
 }
@@ -102,6 +104,7 @@ void Session::save(const WindowSession &session, KConfigGroup &group)
     savePane(session.left, group.group(QLatin1String(LeftGroup)));
     savePane(session.right, group.group(QLatin1String(RightGroup)));
     group.writeEntry(ActivePaneKey, session.activePane);
+    group.writeEntry(DualKey, session.dual);
     group.writeEntry(StackedKey, session.stacked);
 }
 
@@ -111,6 +114,7 @@ WindowSession Session::load(const KConfigGroup &group)
     session.left = loadPane(group.group(QLatin1String(LeftGroup)));
     session.right = loadPane(group.group(QLatin1String(RightGroup)));
     session.activePane = group.readEntry(ActivePaneKey, 0);
+    session.dual = group.readEntry(DualKey, true);
     session.stacked = group.readEntry(StackedKey, false);
     return session;
 }
