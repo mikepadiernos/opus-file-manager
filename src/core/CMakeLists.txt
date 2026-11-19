@@ -15,8 +15,12 @@ add_library(opusfm_core STATIC
     ignorelist.h
     labelcolor.cpp
     labelcolor.h
+    markdownexport.cpp
+    markdownexport.h
     density.cpp
     density.h
+    draftstore.cpp
+    draftstore.h
     executables.cpp
     executables.h
     imagedetails.cpp
@@ -31,6 +35,7 @@ add_library(opusfm_core STATIC
     navigationhistory.h
     previewcontent.cpp
     previewcontent.h
+    safetextdocument.h
     session.cpp
     servicemenus.cpp
     servicemenus.h

@@ -7,6 +7,7 @@
 #include "combinedpanel.h"
 #include "compressdialog.h"
 #include "density.h"
+#include "editorpanel.h"
 #include "executables.h"
 #include "favoritesmodel.h"
 #include "fileoperations.h"
@@ -82,6 +83,7 @@
 #include <QSplitter>
 #include <QStatusBar>
 #include <QTimer>
+#include <QVBoxLayout>
 #include <QtConcurrentRun>
 
 #include <algorithm>
@@ -890,6 +892,9 @@ void MainWindow::setupActions()
     terminal->setText(i18nc("@action", "Open Terminal Here"));
     terminal->setIcon(QIcon::fromTheme(QStringLiteral("utilities-terminal")));
     actions->setDefaultShortcut(terminal, Qt::SHIFT | Qt::Key_F4);
+    QAction *editor = actions->addAction(QStringLiteral("open_editor"), this, &MainWindow::openEditor);
+    editor->setText(i18nc("@action", "Open Editor"));
+    editor->setIcon(QIcon::fromTheme(QStringLiteral("accessories-text-editor")));
 
     KStandardAction::quit(this, &MainWindow::close, actions);
 
@@ -1342,6 +1347,9 @@ bool MainWindow::queryClose()
                                               i18nc("@title:window", "Close Tabs"),
                                               KGuiItem(i18nc("@action:button", "Close Window"), QStringLiteral("window-close")))
             != KMessageBox::Continue) {
+        return false;
+    }
+    if (m_editor && !m_editor->queryClose()) {
         return false;
     }
     const auto galleries = findChildren<GalleryWindow *>(QString(), Qt::FindDirectChildrenOnly);
@@ -1808,6 +1816,87 @@ void MainWindow::activatePaneItem(Pane *pane, const KFileItem &item)
     }
 }
 
+void MainWindow::setupEditor()
+{
+    m_editor = new EditorPanel(m_splitter);
+    m_splitter->addWidget(m_editor);
+    m_editor->hide();
+    m_editorDock = new QDockWidget(i18nc("@title:window", "Editor"), this);
+    m_editorDock->setObjectName(QStringLiteral("editorDock"));
+    m_editorDock->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::RightDockWidgetArea);
+    addDockWidget(Qt::BottomDockWidgetArea, m_editorDock);
+    m_editorDock->hide();
+    m_editorWindow = new QDialog(this, Qt::Window);
+    m_editorWindow->setObjectName(QStringLiteral("editorWindow"));
+    m_editorWindow->setWindowTitle(i18nc("@title:window", "Editor"));
+    m_editorWindow->resize(900, 650);
+    new QVBoxLayout(m_editorWindow);
+    connect(m_editor, &EditorPanel::placementRequested, this, &MainWindow::setEditorPlacement);
+    connect(m_editor, &EditorPanel::hideRequested, this, [this] {
+        switch (m_editorPlacement) {
+        case EditorPanel::Placement::Panel:
+            m_editor->hide();
+            break;
+        case EditorPanel::Placement::Below:
+        case EditorPanel::Placement::Right:
+            m_editorDock->hide();
+            break;
+        case EditorPanel::Placement::Maximized:
+        case EditorPanel::Placement::Window:
+            m_editorWindow->hide();
+            break;
+        }
+        toggleLayout(m_dualLayoutAction->isChecked());
+    });
+    connect(m_editorDock, &QDockWidget::visibilityChanged, this, [this] {
+        toggleLayout(m_dualLayoutAction->isChecked());
+    });
+}
+
+void MainWindow::setEditorPlacement(EditorPanel::Placement placement)
+{
+    m_editorPlacement = placement;
+    m_editorWindow->hide();
+    m_editorDock->hide();
+    m_editor->setParent(nullptr);
+    switch (placement) {
+    case EditorPanel::Placement::Panel:
+        m_splitter->addWidget(m_editor);
+        m_editor->show();
+        break;
+    case EditorPanel::Placement::Below:
+    case EditorPanel::Placement::Right:
+        addDockWidget(placement == EditorPanel::Placement::Below ? Qt::BottomDockWidgetArea : Qt::RightDockWidgetArea, m_editorDock);
+        m_editorDock->setWidget(m_editor);
+        m_editorDock->show();
+        m_editor->show();
+        break;
+    case EditorPanel::Placement::Maximized:
+    case EditorPanel::Placement::Window:
+        m_editorWindow->layout()->addWidget(m_editor);
+        m_editor->show();
+        if (placement == EditorPanel::Placement::Maximized) {
+            m_editorWindow->showMaximized();
+        } else {
+            m_editorWindow->showNormal();
+        }
+        break;
+    }
+    toggleLayout(m_dualLayoutAction->isChecked());
+}
+
+void MainWindow::openEditor()
+{
+    if (!m_editor) {
+        setupEditor();
+    }
+    const KFileItemList items = activePane()->view()->selectedItems();
+    if (items.size() == 1 && !items.first().isDir() && !m_editor->openUrl(items.first().url())) {
+        return;
+    }
+    setEditorPlacement(m_editorPlacement);
+}
+
 void MainWindow::openGallery()
 {
     FolderView *view = activePane()->view();
@@ -2167,8 +2256,11 @@ void MainWindow::showNewMenu()
 void MainWindow::toggleLayout(bool dual)
 {
     const bool preview = m_previewPanelAction && m_previewPanelAction->isChecked();
-    m_left->setVisible((dual && !preview) || activePane() == m_left);
-    m_right->setVisible((dual && !preview) || activePane() == m_right);
+    const bool editorEmbedded = m_editor
+        && ((m_editorPlacement == EditorPanel::Placement::Panel && !m_editor->isHidden())
+            || ((m_editorPlacement == EditorPanel::Placement::Below || m_editorPlacement == EditorPanel::Placement::Right) && !m_editorDock->isHidden()));
+    m_left->setVisible((dual && (!preview || editorEmbedded)) || activePane() == m_left);
+    m_right->setVisible((dual && (!preview || editorEmbedded)) || activePane() == m_right);
     m_previewPanel->setVisible(preview);
     updateActions();
 }
@@ -2177,7 +2269,7 @@ void MainWindow::setStackedLayout(bool stacked)
 {
     m_stackedLayoutAction->setChecked(stacked);
     m_splitter->setOrientation(stacked ? Qt::Vertical : Qt::Horizontal);
-    m_splitter->setSizes({1, 1, 1});
+    m_splitter->setSizes({1, 1, 1, 1});
     m_left->setTabBarAtBottom(stacked);
 }
 

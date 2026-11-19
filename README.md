@@ -20,6 +20,8 @@ for file operations, Places, properties, settings and desktop integration.
   creation and password-protected extraction.
 - Preview files and browse images and media in a gallery, with image editing
   and save-copy options.
+- Edit text in embedded or standalone KTextEditor views, recover drafts, and
+  preview Markdown or export it to PDF.
 
 ## Caveats
 

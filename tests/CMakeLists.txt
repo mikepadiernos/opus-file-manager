@@ -8,10 +8,12 @@ ecm_add_tests(
     ignorelisttest.cpp
     namefiltertest.cpp
     densitytest.cpp
+    draftstoretest.cpp
     executablestest.cpp
     imageeditingtest.cpp
     imageconversiontest.cpp
     imagedetailstest.cpp
+    markdownexporttest.cpp
     navigationhistorytest.cpp
     previewcontenttest.cpp
     servicemenustest.cpp
@@ -27,6 +29,12 @@ ecm_add_tests(
 )
 
 ecm_add_test(galleryeditingtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
+ecm_add_test(editorpaneltest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
     GUI

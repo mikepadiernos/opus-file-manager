@@ -11,6 +11,8 @@ add_library(opusfm_app STATIC
     densitydelegate.h
     detailsview.cpp
     detailsview.h
+    editorpanel.cpp
+    editorpanel.h
     fileoperations.cpp
     fileoperations.h
     filterbar.cpp
@@ -59,6 +61,7 @@ target_link_libraries(opusfm_app
         KF6::Parts
         KF6::Solid
         KF6::SyntaxHighlighting
+        KF6::TextEditor
         KF6::WidgetsAddons
         KF6::XmlGui
 )

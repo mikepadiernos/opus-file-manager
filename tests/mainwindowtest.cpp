@@ -20,6 +20,7 @@
 #include <KFileItemDelegate>
 #include <KFilePlacesView>
 #include <KSharedConfig>
+#include <KTextEditor/Document>
 
 #include <QAbstractItemModel>
 #include <QCheckBox>
@@ -365,6 +366,58 @@ private Q_SLOTS:
         Settings::setPreviewSyntaxHighlighting(false);
         panel.applyPresentationSettings();
         QTRY_VERIFY(source->document()->firstBlock().layout()->formats().isEmpty());
+    }
+
+    void editorPlacementsKeepBothPanesAndDocument()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QFile file(dir.filePath(QStringLiteral("sample.txt")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QCOMPARE(file.write("before"), 6);
+        file.close();
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(dir.path())});
+        window.show();
+        auto *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        view->selectUrls({QUrl::fromLocalFile(file.fileName())});
+        window.actionCollection()->action(QStringLiteral("show_preview_panel"))->setChecked(true);
+        auto *open = window.actionCollection()->action(QStringLiteral("open_editor"));
+        QVERIFY(open);
+        open->trigger();
+        auto *editor = window.findChild<EditorPanel *>(QStringLiteral("editorPanel"));
+        QVERIFY(editor);
+        QTRY_COMPARE(editor->document()->text(), QStringLiteral("before"));
+        const auto panes = window.findChildren<Pane *>();
+        QCOMPARE(panes.size(), 2);
+        QVERIFY(panes.at(0)->isVisible() && panes.at(1)->isVisible());
+        QVERIFY(editor->document()->setText(QStringLiteral("after")));
+        auto *markdownButton = editor->findChild<QPushButton *>(QStringLiteral("editorMarkdownPreview"));
+        auto *markdownPreview = editor->findChild<QTextBrowser *>(QStringLiteral("editorRenderedMarkdown"));
+        QVERIFY(markdownButton && markdownPreview);
+        markdownButton->setChecked(true);
+        QVERIFY(editor->document()->setText(QStringLiteral("# Live heading")));
+        QCOMPARE(markdownPreview->toPlainText().trimmed(), QStringLiteral("Live heading"));
+        QVERIFY(editor->document()->setText(QStringLiteral("after")));
+        const QStringList placements{QStringLiteral("editorPlaceBelow"),
+                                     QStringLiteral("editorPlaceRight"),
+                                     QStringLiteral("editorPlaceWindow"),
+                                     QStringLiteral("editorPlaceMaximized"),
+                                     QStringLiteral("editorPlacePanel")};
+        for (const QString &name : placements) {
+            auto *action = editor->findChild<QAction *>(name);
+            QVERIFY(action);
+            action->trigger();
+            QCOMPARE(editor->document()->text(), QStringLiteral("after"));
+            if (name != QLatin1String("editorPlaceWindow") && name != QLatin1String("editorPlaceMaximized")) {
+                QVERIFY(panes.at(0)->isVisible() && panes.at(1)->isVisible());
+            }
+        }
+        QVERIFY(editor->document()->documentSave());
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QByteArray saved = file.readAll();
+        QVERIFY(saved == QByteArray("after") || saved == QByteArray("after\n"));
     }
 
     void navigationUpdatesHistory()

@@ -264,12 +264,14 @@ in #260, #264, #266, #302, #303 and #304.
 
 ### M07 Editor
 
-- KTextEditor-based editor: use it as a panel alongside Information or
+- ~~KTextEditor-based editor: use it as a panel alongside Information or
   Preview, or as a separate embedded area below or to the right of both panes,
   like the embedded terminal. Neither embedded placement replaces a pane.
-  Also support maximised and standalone editor windows.
-- Drafts
-- Markdown preview and PDF export
+  Also support maximised and standalone editor windows.~~
+- ~~Drafts~~
+- ~~Markdown preview and PDF export~~
+
+**Caveats:** [Editor](CAVEATS.md#editor), tracked in #267 and #307.
 
 ### M08 Editor settings
 

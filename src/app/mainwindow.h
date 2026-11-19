@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "editorpanel.h"
+
 #include <KFileItem>
 #include <KXmlGuiWindow>
 
@@ -23,6 +25,7 @@ class Pane;
 class PreviewPanel;
 class TabColors;
 class QDockWidget;
+class QDialog;
 class QLabel;
 class QMenu;
 class QSplitter;
@@ -121,6 +124,9 @@ private:
     void activatePaneItem(Pane *pane, const KFileItem &item);
     void updatePreviewPanel();
     void openGallery();
+    void openEditor();
+    void setupEditor();
+    void setEditorPlacement(EditorPanel::Placement placement);
 
     void copyToOtherPane();
     void moveToOtherPane();
@@ -193,6 +199,10 @@ private:
     KFileCopyToMenu *m_copyToMenu = nullptr;
     KNewFileMenu *m_newFileMenu = nullptr;
     QSplitter *m_splitter = nullptr;
+    EditorPanel *m_editor = nullptr;
+    QDockWidget *m_editorDock = nullptr;
+    QDialog *m_editorWindow = nullptr;
+    EditorPanel::Placement m_editorPlacement = EditorPanel::Placement::Panel;
     Pane *m_left = nullptr;
     Pane *m_right = nullptr;
     Pane *m_active = nullptr;

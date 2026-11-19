@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "previewpanel.h"
+#include "safetextdocument.h"
 
 #include "imagedetails.h"
 #include "mediaview.h"
@@ -65,19 +66,6 @@ bool isTextMime(const QString &mimeType)
         || mimeType == QLatin1String("text/markdown");
 }
 }
-
-class SafeTextDocument : public QTextDocument
-{
-public:
-    using QTextDocument::QTextDocument;
-
-protected:
-    QVariant loadResource(int, const QUrl &) override
-    {
-        // An invalid variant lets QTextDocument fall back to loading local files.
-        return QImage();
-    }
-};
 
 class PreviewSyntaxHighlighter : public KSyntaxHighlighting::SyntaxHighlighter
 {
