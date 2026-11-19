@@ -208,6 +208,27 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="PanelSettings">
+    <entry name="PanelsVisible" key="Visible" type="Bool"><default>true</default></entry>
+    <entry name="PanelPosition" key="Position" type="Enum">
+      <choices><choice name="left"/><choice name="right"/></choices>
+      <default>left</default>
+    </entry>
+    <entry name="PanelAutoFocus" key="AutoFocus" type="Bool"><default>true</default></entry>
+    <entry name="PanelTitlesVisible" key="TitlesVisible" type="Bool"><default>true</default></entry>
+    <entry name="FavoritesVisible" type="Bool"><default>true</default></entry>
+    <entry name="PlacesVisible" type="Bool"><default>true</default></entry>
+    <entry name="FoldersVisible" type="Bool"><default>true</default></entry>
+  </group>
+  <group name="Tabs">
+    <entry name="TabIcons" key="ShowIcons" type="Bool"><default>true</default></entry>
+    <entry name="ExpandTabs" key="Expand" type="Bool"><default>true</default></entry>
+  </group>
+  <group name="Archives">
+    <entry name="DefaultArchiveFormat" key="DefaultFormat" type="Int">
+      <default>0</default><min>0</min><max>4</max>
+    </entry>
+  </group>
   <group name="StatusBar">
     <entry name="ShowItemCounts" type="Bool">
       <label>Show the number of items and selected items</label>
@@ -293,7 +314,7 @@
     </entry>
     <entry name="SidebarIconSize" type="Int">
       <label>Size of the settings sidebar icons in pixels</label>
-      <default>16</default>
+      <default>24</default>
       <min>16</min>
       <max>64</max>
     </entry>

@@ -74,6 +74,7 @@ CombinedPanel::CombinedPanel(KFilePlacesModel *places, FavoritesModel *favorites
     column->addWidget(m_favoritesView);
 
     auto *placesView = new KFilePlacesView(content);
+    m_placesView = placesView;
     placesView->setModel(places);
     placesView->setDropOnPlaceEnabled(true);
     placesView->setAutoResizeItemsEnabled(false);
@@ -127,10 +128,10 @@ FolderTree *CombinedPanel::folderTree() const
 QStringList CombinedPanel::collapsedSections() const
 {
     QStringList sections;
-    if (m_favoritesView->isHidden()) {
+    if (m_favoritesHeader->arrowType() == Qt::RightArrow) {
         sections.append(QStringLiteral("favorites"));
     }
-    if (m_folderTree->isHidden()) {
+    if (m_treeHeader->arrowType() == Qt::RightArrow) {
         sections.append(QStringLiteral("tree"));
     }
     return sections;
@@ -138,8 +139,23 @@ QStringList CombinedPanel::collapsedSections() const
 
 void CombinedPanel::setCollapsedSections(const QStringList &sections)
 {
-    setSectionExpanded(m_favoritesHeader, m_favoritesView, !sections.contains(QStringLiteral("favorites")));
-    setSectionExpanded(m_treeHeader, m_folderTree, !sections.contains(QStringLiteral("tree")));
+    const bool favoritesExpanded = !sections.contains(QStringLiteral("favorites"));
+    const bool treeExpanded = !sections.contains(QStringLiteral("tree"));
+    setSectionExpanded(m_favoritesHeader, m_favoritesView, favoritesExpanded);
+    setSectionExpanded(m_treeHeader, m_folderTree, treeExpanded);
+    m_favoritesView->setVisible(m_favoritesVisible && favoritesExpanded);
+    m_folderTree->setVisible(m_foldersVisible && treeExpanded);
+}
+
+void CombinedPanel::setSectionVisibility(bool favorites, bool places, bool folders)
+{
+    const QStringList collapsed = collapsedSections();
+    m_favoritesVisible = favorites;
+    m_foldersVisible = folders;
+    m_favoritesHeader->setVisible(favorites);
+    m_placesView->setVisible(places);
+    m_treeHeader->setVisible(folders);
+    setCollapsedSections(collapsed);
 }
 
 void CombinedPanel::scrollToRevealed()

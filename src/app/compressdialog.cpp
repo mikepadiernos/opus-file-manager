@@ -32,7 +32,7 @@ QString formatText(ArchiveWriter::Format format)
 }
 }
 
-CompressDialog::CompressDialog(const QString &defaultName, bool otherPaneAvailable, QWidget *parent)
+CompressDialog::CompressDialog(const QString &defaultName, bool otherPaneAvailable, QWidget *parent, ArchiveWriter::Format defaultFormat)
     : QDialog(parent)
     , m_name(new QLineEdit(defaultName, this))
     , m_suffix(new QLabel(this))
@@ -49,6 +49,7 @@ CompressDialog::CompressDialog(const QString &defaultName, bool otherPaneAvailab
     for (ArchiveWriter::Format format : formats) {
         m_format->addItem(formatText(format));
     }
+    m_format->setCurrentIndex(qMax(0, formats.indexOf(defaultFormat)));
     m_location->addItems({i18nc("@item:inlistbox archive location", "This folder"), i18nc("@item:inlistbox archive location", "The other pane's folder")});
     m_location->setEnabled(otherPaneAvailable);
 

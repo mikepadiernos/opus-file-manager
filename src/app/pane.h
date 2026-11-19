@@ -52,6 +52,7 @@ public:
      */
     void setTabBarAtBottom(bool atBottom);
     bool isTabBarAtBottom() const;
+    void reloadTabSettings();
 
     /// The tabs with their pins, locks and names, and the current tab.
     PaneSession saveState() const;
@@ -127,6 +128,7 @@ private:
     QWidget *m_navigationBar = nullptr;
     bool m_active = false;
     bool m_tabBarForced = false;
+    bool m_showTabIcons = true;
     bool m_newTabsAfterCurrent = false;
     bool m_followSymlinks = false;
     bool m_updatingTabBar = false;

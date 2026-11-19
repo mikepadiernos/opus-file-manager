@@ -366,9 +366,7 @@ void MainWindow::setPanelLayout(PanelLayout layout)
 {
     m_panelLayout = layout;
     const bool combined = layout == PanelLayout::Combined;
-    m_combinedDock->setVisible(combined);
-    m_placesDock->setVisible(!combined && Settings::showPlaces());
-    m_foldersDock->setVisible(!combined);
+    applyPanelSettings();
     m_panelLayoutAction->setCurrentItem(combined ? 0 : 1);
 
     KConfigGroup panels = KSharedConfig::openStateConfig()->group(QLatin1String(PanelsGroup));
@@ -405,7 +403,7 @@ void MainWindow::compress()
     }
     const QString defaultName = selected.size() == 1 ? (selected.first().isDir() ? selected.first().name() : Archives::baseName(selected.first().name()))
                                                      : activePane()->url().adjusted(QUrl::StripTrailingSlash).fileName();
-    CompressDialog dialog(defaultName, inactivePane()->url().isLocalFile(), this);
+    CompressDialog dialog(defaultName, inactivePane()->url().isLocalFile(), this, static_cast<ArchiveWriter::Format>(Settings::defaultArchiveFormat()));
     if (dialog.exec() != QDialog::Accepted) {
         return;
     }
@@ -1480,6 +1478,7 @@ bool MainWindow::isDualLayout() const
 void MainWindow::applySettings()
 {
     for (Pane *pane : {m_left, m_right}) {
+        pane->reloadTabSettings();
         pane->setNavigationBarVisible(Settings::showNavigationBar());
         pane->setNewTabsAfterCurrent(Settings::newTabsAfterCurrent());
         pane->setFollowSymlinks(Settings::followSymlinks());
@@ -1507,7 +1506,7 @@ void MainWindow::applySettings()
         setBarMargin(bar, barMargin);
     }
     setBarMargin(statusBar(), barMargin);
-    m_placesDock->setVisible(m_panelLayout == PanelLayout::Separate && Settings::showPlaces());
+    applyPanelSettings();
     m_itemsLabel->setVisible(Settings::showItemCounts());
     m_freeSpaceLabel->setVisible(Settings::showFreeSpace());
     updateStatusBar();
@@ -1520,6 +1519,37 @@ void MainWindow::applySettings()
         shortcuts.prepend(QKeySequence(Qt::Key_Tab));
     }
     switchPane->setShortcuts(shortcuts);
+}
+
+void MainWindow::applyPanelSettings()
+{
+    const bool combined = m_panelLayout == PanelLayout::Combined;
+    const Qt::DockWidgetArea area = Settings::panelPosition() == Settings::EnumPanelPosition::right ? Qt::RightDockWidgetArea : Qt::LeftDockWidgetArea;
+    m_autoFocusFolders = Settings::panelAutoFocus();
+    addDockWidget(area, m_combinedDock);
+    addDockWidget(area, m_placesDock);
+    addDockWidget(area, m_foldersDock);
+    splitDockWidget(m_placesDock, m_foldersDock, Qt::Vertical);
+    m_combinedDock->setVisible(Settings::panelsVisible() && combined);
+    m_placesDock->setVisible(Settings::panelsVisible() && !combined && Settings::showPlaces());
+    m_foldersDock->setVisible(Settings::panelsVisible() && !combined);
+    for (QDockWidget *dock : {m_combinedDock, m_placesDock, m_foldersDock}) {
+        QWidget *titleBar = dock->titleBarWidget();
+        if (Settings::panelTitlesVisible()) {
+            if (titleBar) {
+                dock->setTitleBarWidget(nullptr);
+                delete titleBar;
+            }
+        } else if (!titleBar) {
+            titleBar = new QWidget(dock);
+            titleBar->setFixedHeight(0);
+            dock->setTitleBarWidget(titleBar);
+        }
+    }
+    m_combinedPanel->setSectionVisibility(Settings::favoritesVisible(), Settings::placesVisible(), Settings::foldersVisible());
+    if (m_active && m_autoFocusFolders) {
+        syncFolderTrees();
+    }
 }
 
 void MainWindow::rememberPlacesShown(bool shown)
@@ -1587,7 +1617,9 @@ void MainWindow::syncFolderTrees()
     const bool hidden = activePane()->view()->showHiddenFiles();
     for (FolderTree *tree : {m_folderTree, m_combinedPanel->folderTree()}) {
         tree->setShowHiddenFolders(hidden);
-        tree->reveal(url);
+        if (m_autoFocusFolders) {
+            tree->reveal(url);
+        }
     }
 }
 

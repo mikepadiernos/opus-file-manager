@@ -87,6 +87,7 @@ private:
     void setupPlaces();
     void setupPanels();
     void setupStatusBar();
+    void applyPanelSettings();
 
     void setActivePane(Pane *pane);
     void connectPane(Pane *pane);
@@ -187,4 +188,5 @@ private:
     QAction *m_undoAction = nullptr;
     QAction *m_pasteAction = nullptr;
     bool m_sessionRestored = false;
+    bool m_autoFocusFolders = true;
 };

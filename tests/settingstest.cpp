@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "settings.h"
+#include "combinedpanel.h"
+#include "compressdialog.h"
 #include "fileoperations.h"
 #include "folderview.h"
 #include "mainwindow.h"
@@ -175,7 +177,10 @@ private Q_SLOTS:
         for (int row = 0; row < pages->rowCount(); ++row) {
             titles.append(pages->index(row, 0).data().toString());
         }
-        QCOMPARE(titles, QStringList({QStringLiteral("General"), QStringLiteral("Interface"), QStringLiteral("View"), QStringLiteral("Context Menu")}));
+        QCOMPARE(
+            titles,
+            QStringList(
+                {QStringLiteral("General"), QStringLiteral("Interface"), QStringLiteral("View"), QStringLiteral("Context Menu"), QStringLiteral("Archives")}));
 
         const auto tabOf = [&dialog](const QString &entry) {
             return tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + entry));
@@ -208,7 +213,7 @@ private Q_SLOTS:
         SettingsDialog dialog(placesOf(window), &window);
         QCOMPARE(dialog.findChild<KPageWidget *>()->faceType(), KPageView::FlatList);
         QVERIFY(sidebarOf(dialog));
-        QCOMPARE(sidebarOf(dialog)->iconSize(), QSize(16, 16));
+        QCOMPARE(sidebarOf(dialog)->iconSize(), QSize(24, 24));
         QCOMPARE(firstPageIconName(dialog), QStringLiteral("configure-symbolic"));
     }
 
@@ -224,6 +229,55 @@ private Q_SLOTS:
         QVERIFY(sidebarOf(dialog));
         QCOMPARE(sidebarOf(dialog)->iconSize(), QSize(32, 32));
         QCOMPARE(firstPageIconName(dialog), QStringLiteral("configure"));
+    }
+
+    void m04AppearanceAndArchiveSettingsApply()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_FavoritesVisible"))->setChecked(false);
+        dialog.findChild<QComboBox *>(QStringLiteral("kcfg_PanelPosition"))->setCurrentIndex(Settings::EnumPanelPosition::right);
+        dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_TabIcons"))->setChecked(false);
+        dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ExpandTabs"))->setChecked(false);
+        dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultArchiveFormat"))->setCurrentIndex(static_cast<int>(ArchiveWriter::Format::TarXz));
+        dialog.button(QDialogButtonBox::Apply)->click();
+
+        QVERIFY(!Settings::favoritesVisible());
+        QCOMPARE(Settings::panelPosition(), Settings::EnumPanelPosition::right);
+        QCOMPARE(Settings::defaultArchiveFormat(), static_cast<int>(ArchiveWriter::Format::TarXz));
+        const auto config = KSharedConfig::openConfig();
+        QCOMPARE(config->group(QStringLiteral("PanelSettings")).readEntry("Position", QString()), QStringLiteral("right"));
+        QCOMPARE(config->group(QStringLiteral("Archives")).readEntry("DefaultFormat", -1), static_cast<int>(ArchiveWriter::Format::TarXz));
+        auto *dock = window.findChild<QDockWidget *>(QStringLiteral("combinedDock"));
+        QVERIFY(dock);
+        QCOMPARE(window.dockWidgetArea(dock), Qt::RightDockWidgetArea);
+        auto *bar = window.activePane()->findChild<QTabBar *>();
+        QVERIFY(bar);
+        QVERIFY(!bar->expanding());
+        QVERIFY(bar->tabIcon(0).isNull());
+        CompressDialog archive(QStringLiteral("test"), false, &window, static_cast<ArchiveWriter::Format>(Settings::defaultArchiveFormat()));
+        QCOMPARE(archive.format(), ArchiveWriter::Format::TarXz);
+
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::favoritesVisible());
+        QCOMPARE(Settings::panelPosition(), Settings::EnumPanelPosition::left);
+        QCOMPARE(Settings::defaultArchiveFormat(), static_cast<int>(ArchiveWriter::Format::Zip));
+        QVERIFY(bar->expanding());
+    }
+
+    void hiddenPanelSectionsKeepTheirCollapsedState()
+    {
+        MainWindow window;
+        auto *panel = window.findChild<CombinedPanel *>();
+        QVERIFY(panel);
+        panel->setCollapsedSections({QStringLiteral("tree")});
+        panel->setSectionVisibility(false, false, false);
+        QCOMPARE(panel->collapsedSections(), QStringList({QStringLiteral("tree")}));
+        panel->setSectionVisibility(true, true, true);
+        QCOMPARE(panel->collapsedSections(), QStringList({QStringLiteral("tree")}));
     }
 
     void kioConfirmationsAreSharedWithDolphin()

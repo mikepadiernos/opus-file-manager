@@ -4,6 +4,7 @@
 
 #include "filterbar.h"
 #include "folderview.h"
+#include "settings.h"
 #include "symbolicicon.h"
 #include "symlinks.h"
 #include "tabcolors.h"
@@ -41,7 +42,8 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     , m_view(new FolderView(this))
 {
     m_tabBar->setDocumentMode(true);
-    m_tabBar->setExpanding(false);
+    m_tabBar->setExpanding(Settings::expandTabs());
+    m_showTabIcons = Settings::tabIcons();
     m_tabBar->setMovable(true);
     m_tabBar->setTabsClosable(true);
     m_tabBar->setElideMode(Qt::ElideRight);
@@ -396,6 +398,15 @@ void Pane::restoreState(const PaneSession &state)
     m_tabs->setCurrentIndex(state.currentTab);
 }
 
+void Pane::reloadTabSettings()
+{
+    m_showTabIcons = Settings::tabIcons();
+    m_tabBar->setExpanding(Settings::expandTabs());
+    for (int index = 0; index < m_tabBar->count(); ++index) {
+        updateTabText(index);
+    }
+}
+
 void Pane::updateTabText(int index)
 {
     if (index < 0 || index >= m_tabBar->count()) {
@@ -419,7 +430,7 @@ void Pane::updateTabText(int index)
     }
     m_tabBar->setTabToolTip(index, toolTip);
     const QString iconName = pinned ? QStringLiteral("pin") : locked ? QStringLiteral("object-locked") : KIO::iconNameForUrl(url);
-    m_tabBar->setTabIcon(index, SymbolicIcon::fromTheme(iconName));
+    m_tabBar->setTabIcon(index, m_showTabIcons ? SymbolicIcon::fromTheme(iconName) : QIcon());
     m_tabBar->setTabTextColor(index, LabelColors::rgb(m_colors->colorFor(url)));
 
     const auto closeSide = static_cast<QTabBar::ButtonPosition>(m_tabBar->style()->styleHint(QStyle::SH_TabBar_CloseButtonPosition, nullptr, m_tabBar));

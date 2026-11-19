@@ -6,6 +6,7 @@
 #include <QWidget>
 
 class FavoritesModel;
+class KFilePlacesView;
 class FolderTree;
 class KFilePlacesModel;
 class QDropEvent;
@@ -24,6 +25,7 @@ class CombinedPanel : public QWidget
     Q_OBJECT
 
 public:
+    void setSectionVisibility(bool favorites, bool places, bool folders);
     /**
      * @param places the window's places model, shared with the Places panel
      * @param favorites the user's favorite folders
@@ -65,10 +67,13 @@ private:
 
     FavoritesModel *m_favorites = nullptr;
     QListView *m_favoritesView = nullptr;
+    KFilePlacesView *m_placesView = nullptr;
     FolderTree *m_folderTree = nullptr;
     QToolButton *m_favoritesHeader = nullptr;
     QToolButton *m_treeHeader = nullptr;
     QScrollArea *m_scroll = nullptr;
+    bool m_favoritesVisible = true;
+    bool m_foldersVisible = true;
     /// Whether the panel keeps the revealed folder in view.
     bool m_followRevealed = false;
 };

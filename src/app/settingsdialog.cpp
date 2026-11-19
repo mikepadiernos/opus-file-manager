@@ -103,6 +103,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createPreviewsPage(), i18nc("@title:tab", "Previews")},
                    {createConfirmationsPage(), i18nc("@title:tab", "Confirmations")},
                    {createPlacesPage(), i18nc("@title:tab", "Panels")},
+                   {createPanelAppearancePage(), i18nc("@title:tab", "Panel Appearance")},
+                   {createTabAppearancePage(), i18nc("@title:tab", "Tab Appearance")},
                    {createStatusBarPage(), i18nc("@title:tab", "Status and Location Bars")}},
                   i18nc("@title:group", "Interface"),
                   QStringLiteral("window"));
@@ -114,6 +116,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     addTabbedPage({{createContextMenuActionsPage(), i18nc("@title:tab", "Actions")}, {createServiceMenusPage(), i18nc("@title:tab", "Service Menus")}},
                   i18nc("@title:group", "Context Menu"),
                   QStringLiteral("application-menu"));
+    addTabbedPage({{createArchivesPage(), i18nc("@title:tab", "Defaults")}}, i18nc("@title:group", "Archives"), QStringLiteral("package-x-generic"));
     applySidebarStyle();
     connect(this, &KConfigDialog::settingsChanged, this, &SettingsDialog::applySidebarStyle);
     updateWidgets();
@@ -280,6 +283,44 @@ QWidget *SettingsDialog::createPlacesPage()
         form->addRow(label, check);
         label.clear();
     }
+    return page;
+}
+
+QWidget *SettingsDialog::createPanelAppearancePage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow({}, checkBox(QStringLiteral("PanelsVisible"), i18nc("@option:check", "Show panels")));
+    form->addRow(i18nc("@label:listbox", "Position:"),
+                 comboBox(QStringLiteral("PanelPosition"), {i18nc("@item:inlistbox", "Left"), i18nc("@item:inlistbox", "Right")}));
+    form->addRow({}, checkBox(QStringLiteral("PanelAutoFocus"), i18nc("@option:check", "Follow the active folder in the tree")));
+    form->addRow({}, checkBox(QStringLiteral("PanelTitlesVisible"), i18nc("@option:check", "Show panel title bars")));
+    form->addRow(i18nc("@title:group", "Combined panel sections:"), checkBox(QStringLiteral("FavoritesVisible"), i18nc("@option:check", "Favorites")));
+    form->addRow({}, checkBox(QStringLiteral("PlacesVisible"), i18nc("@option:check", "Places")));
+    form->addRow({}, checkBox(QStringLiteral("FoldersVisible"), i18nc("@option:check", "Folder tree")));
+    return page;
+}
+
+QWidget *SettingsDialog::createTabAppearancePage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow({}, checkBox(QStringLiteral("TabIcons"), i18nc("@option:check", "Show folder icons on tabs")));
+    form->addRow({}, checkBox(QStringLiteral("ExpandTabs"), i18nc("@option:check", "Expand tabs to fill the available width equally")));
+    return page;
+}
+
+QWidget *SettingsDialog::createArchivesPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(i18nc("@label:listbox", "Default format:"),
+                 comboBox(QStringLiteral("DefaultArchiveFormat"),
+                          {i18nc("@item:inlistbox", "ZIP"),
+                           i18nc("@item:inlistbox", "Uncompressed ZIP"),
+                           i18nc("@item:inlistbox", "tar.gz"),
+                           i18nc("@item:inlistbox", "tar.xz"),
+                           i18nc("@item:inlistbox", "tar.zst")}));
     return page;
 }
 

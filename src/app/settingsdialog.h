@@ -63,6 +63,9 @@ private:
     QWidget *createIconsPage();
     QWidget *createContextMenuActionsPage();
     QWidget *createServiceMenusPage();
+    QWidget *createPanelAppearancePage();
+    QWidget *createTabAppearancePage();
+    QWidget *createArchivesPage();
 
     KFilePlacesModel *m_places = nullptr;
     /// Each sidebar page and its icon name, for switching to symbolic icons.
