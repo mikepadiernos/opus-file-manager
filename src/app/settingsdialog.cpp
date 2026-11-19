@@ -407,6 +407,7 @@ QWidget *SettingsDialog::createPreviewsPage()
     auto *form = new QFormLayout(page);
     form->addRow(QString(), checkBox(QStringLiteral("ShowPreviews"), i18nc("@option:check", "Show previews in new windows")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowRemotePreviews"), i18nc("@option:check", "Show previews in remote folders")));
+    form->addRow(QString(), checkBox(QStringLiteral("PreviewMediaAutoplay"), i18nc("@option:check", "Automatically play audio and video previews")));
     m_previewLimit = bound(new PreviewSizeSpinBox, QStringLiteral("MaximumPreviewSize"), "bytes");
     form->addRow(i18nc("@label:spinbox", "Skip files larger than:"), m_previewLimit);
     form->addRow(i18nc("@label", "Show previews for:"), bound(new PreviewPluginList, QStringLiteral("PreviewPlugins"), "plugins"));

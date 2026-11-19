@@ -70,6 +70,7 @@ private:
     QToolButton *m_gallery = nullptr;
     QToolButton *m_open = nullptr;
     QToolButton *m_renderMode = nullptr;
+    QToolButton *m_autoplay = nullptr;
     PreviewTextEdit *m_text = nullptr;
     QTextBrowser *m_renderedText = nullptr;
     QStackedWidget *m_content = nullptr;

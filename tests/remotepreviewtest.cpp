@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "mediaview.h"
 #include "previewpanel.h"
 #include "settings.h"
 
@@ -12,12 +13,14 @@
 #include <QLabel>
 #include <QMediaPlayer>
 #include <QPlainTextEdit>
+#include <QPushButton>
 #include <QStandardPaths>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QToolButton>
 
 #include <algorithm>
 
@@ -82,6 +85,45 @@ private Q_SLOTS:
     void cleanup()
     {
         Settings::setTextPreviewLimitKiB(1024);
+        Settings::setPreviewMediaAutoplay(false);
+    }
+
+    void mediaAutoplayIsOptionalAndRemembered()
+    {
+        Settings::setPreviewMediaAutoplay(false);
+        PreviewPanel panel;
+        panel.show();
+        panel.setItems({KFileItem(url(QStringLiteral("audio.wav")))});
+        QTRY_VERIFY(panel.findChild<QMediaPlayer *>(QStringLiteral("mediaPlayer")));
+        auto *autoplay = panel.findChild<QToolButton *>(QStringLiteral("previewAutoplay"));
+        QVERIFY(autoplay && autoplay->isVisible());
+        QVERIFY(!autoplay->isChecked());
+        auto *player = panel.findChild<QMediaPlayer *>(QStringLiteral("mediaPlayer"));
+        if (!player->isAvailable()) {
+            QSKIP("No Qt Multimedia playback backend is available");
+        }
+        QCOMPARE(player->playbackState(), QMediaPlayer::StoppedState);
+        autoplay->click();
+        QVERIFY(Settings::previewMediaAutoplay());
+        QTRY_COMPARE(panel.findChild<QMediaPlayer *>(QStringLiteral("mediaPlayer"))->playbackState(), QMediaPlayer::PlayingState);
+        panel.setItems({KFileItem(url(QStringLiteral("text.txt")))});
+        QVERIFY(!autoplay->isVisible());
+        panel.setItems({KFileItem(url(QStringLiteral("audio.wav")))});
+        QTRY_VERIFY(autoplay->isVisible());
+        QVERIFY(autoplay->isChecked());
+        QTRY_COMPARE(panel.findChild<QMediaPlayer *>(QStringLiteral("mediaPlayer"))->playbackState(), QMediaPlayer::PlayingState);
+        autoplay->click();
+        QVERIFY(!Settings::previewMediaAutoplay());
+        panel.clear();
+        panel.setItems({KFileItem(url(QStringLiteral("audio.wav")))});
+        QTRY_VERIFY(autoplay->isVisible());
+        auto *media = panel.findChild<MediaView *>(QStringLiteral("previewMedia"));
+        player = media->player();
+        QCOMPARE(player->playbackState(), QMediaPlayer::StoppedState);
+        auto *play = media->findChild<QPushButton *>();
+        QVERIFY(play);
+        play->click();
+        QTRY_COMPARE(player->playbackState(), QMediaPlayer::PlayingState);
     }
 
     void remoteContentAndCleanup()

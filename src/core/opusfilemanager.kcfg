@@ -239,6 +239,7 @@
     <entry name="IconInformation" type="StringList"><default></default></entry>
   </group>
   <group name="Previews">
+    <entry name="PreviewMediaAutoplay" type="Bool"><default>false</default></entry>
     <entry name="ShowPreviews" type="Bool">
       <label>Show previews in a new window</label>
       <default>true</default>
