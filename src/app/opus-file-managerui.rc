@@ -11,12 +11,14 @@
       <Action name="move_to_other_pane"/>
       <Action name="compress"/>
       <Action name="extract_to_other_pane"/>
+      <Action name="test_archive_integrity"/>
       <Action name="rename"/>
       <Action name="move_to_trash"/>
       <Action name="delete"/>
       <Separator/>
       <Action name="open_terminal"/>
       <Action name="properties"/>
+      <Action name="calculate_occupied_space"/>
       <Separator/>
       <Action name="file_quit"/>
     </Menu>
@@ -30,6 +32,7 @@
       <Action name="copy_path"/>
       <Separator/>
       <Action name="edit_select_all"/>
+      <Action name="select_menu"/>
       <Separator/>
       <Action name="show_filter_bar"/>
     </Menu>
@@ -52,6 +55,8 @@
       <Action name="go_forward"/>
       <Action name="go_up"/>
       <Action name="go_home"/>
+      <Action name="jump_back"/>
+      <Action name="popular_folders"/>
       <Separator/>
       <Action name="edit_location"/>
       <Action name="add_to_favorites"/>

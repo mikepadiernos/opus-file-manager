@@ -215,6 +215,25 @@ private Q_SLOTS:
         QCOMPARE(visibleNames(&view), QStringList({QStringLiteral("Pictures"), QStringLiteral("photo.jpg")}));
     }
 
+    void selectionPatternsSelectAndDeselectInBothViews()
+    {
+        FolderView view;
+        view.setUrl(m_a);
+        QTRY_COMPARE(view.itemCount(), 3);
+
+        QCOMPARE(view.applySelectionPattern(QStringLiteral("*.jpg"), true), 1);
+        QCOMPARE(view.selectedItems().size(), 1);
+        QCOMPARE(view.selectedItems().first().name(), QStringLiteral("photo.jpg"));
+
+        view.setViewMode(FolderView::ViewMode::Icons);
+        view.clearSelection();
+        QCOMPARE(view.applySelectionPattern(QStringLiteral("*.txt"), true), 1);
+        QCOMPARE(view.selectedItems().size(), 1);
+        QCOMPARE(view.selectedItems().first().name(), QStringLiteral("notes.txt"));
+        QCOMPARE(view.applySelectionPattern(QStringLiteral("*.txt"), false), 1);
+        QVERIFY(view.selectedItems().isEmpty());
+    }
+
     void viewFormatIsRememberedPerFolder()
     {
         FolderMetadata::Format otherFormat;

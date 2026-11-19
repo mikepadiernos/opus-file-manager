@@ -353,6 +353,9 @@ PaneSession Pane::saveState() const
         }
         state.names.append(m_tabs->nameAt(i));
     }
+    const NameFilter filter = m_filterBar->filter();
+    state.filterText = filter.text();
+    state.filterScope = static_cast<int>(filter.scope());
     return state;
 }
 
@@ -371,6 +374,7 @@ void Pane::restoreState(const PaneSession &state)
         m_tabs->setName(i, state.names.at(i));
     }
     m_tabs->setCurrentIndex(state.currentTab);
+    m_filterBar->setFilter(NameFilter(state.filterText, static_cast<NameFilter::Scope>(qBound(0, state.filterScope, 2))));
 }
 
 void Pane::updateTabText(int index)

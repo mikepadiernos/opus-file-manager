@@ -28,6 +28,8 @@ private Q_SLOTS:
         WindowSession session;
         session.left.tabs = {QUrl::fromLocalFile(QStringLiteral("/home/me")), QUrl::fromLocalFile(QStringLiteral("/tmp/with space"))};
         session.left.currentTab = 1;
+        session.left.filterText = QStringLiteral("*.cpp");
+        session.left.filterScope = 2;
         session.right.tabs = {QUrl(QStringLiteral("trash:/")), QUrl(QStringLiteral("sftp://host/dir"))};
         session.right.currentTab = 0;
         session.activePane = 1;
@@ -77,6 +79,10 @@ private Q_SLOTS:
         WindowSession rightActive;
         rightActive.activePane = 1;
         QCOMPARE(rightActive.sanitized(home).activePane, 1);
+
+        WindowSession invalidFilter;
+        invalidFilter.left.filterScope = 5;
+        QCOMPARE(invalidFilter.sanitized(home).left.filterScope, 2);
     }
 
     void tabStateRoundTripsAndSurvivesSanitizing()
