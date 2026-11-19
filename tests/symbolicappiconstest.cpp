@@ -11,7 +11,6 @@
 
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
-#include <KIO/Global>
 #include <KSharedConfig>
 
 #include <QAbstractItemView>
@@ -101,13 +100,13 @@ private Q_SLOTS:
     {
         QTemporaryDir folder;
         QVERIFY(folder.isValid());
-        FavoritesModel favorites(KSharedConfig::openConfig()->group(QStringLiteral("SymbolicIconsTestFavorites")));
+        const QString groupName = QStringLiteral("SymbolicIconsTestFavorites");
+        KSharedConfig::openConfig()->deleteGroup(groupName);
+        FavoritesModel favorites(KSharedConfig::openConfig()->group(groupName));
         QVERIFY(favorites.add(QUrl::fromLocalFile(folder.path())));
 
-        const QString iconName = KIO::iconNameForUrl(QUrl::fromLocalFile(folder.path()));
-        qDebug() << iconName << QIcon::hasThemeIcon(iconName) << QIcon::fromTheme(iconName).isNull() << QIcon::fromTheme(iconName).name();
-        const QIcon icon = favorites.data(favorites.index(0, 0), Qt::DecorationRole).value<QIcon>();
-        qDebug() << icon.isNull() << icon.name() << icon.availableSizes();
+        const QModelIndex index = favorites.index(0, 0);
+        const QIcon icon = index.data(Qt::DecorationRole).value<QIcon>();
         QCOMPARE(colorAt(icon, 16), SymbolicColor);
         QVERIFY(colorAt(icon, 64) != SymbolicColor);
     }
