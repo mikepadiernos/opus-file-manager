@@ -8,12 +8,14 @@
 #include <QApplication>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGraphicsPixmapItem>
 #include <QGraphicsScene>
 #include <QGraphicsView>
 #include <QImage>
+#include <QImageReader>
 #include <QImageWriter>
 #include <QInputDialog>
 #include <QLabel>
@@ -92,6 +94,99 @@ private Q_SLOTS:
         Settings::setGalleryShowInformation(false);
         gallery = new GalleryWindow({QUrl::fromLocalFile(first)}, {}, 0);
         QVERIFY(!gallery->findChild<QPushButton *>(QStringLiteral("galleryInformation"))->isChecked());
+        gallery->close();
+        QTRY_VERIFY(gallery.isNull());
+    }
+
+    void markedImagesAreIndependentAndMoveOnlyOnAction_data()
+    {
+        QTest::addColumn<bool>("currentMarked");
+        QTest::newRow("marked-current") << true;
+        QTest::newRow("marked-other") << false;
+    }
+
+    void markedImagesAreIndependentAndMoveOnlyOnAction()
+    {
+        QFETCH(bool, currentMarked);
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir().mkdir(dir.filePath(QStringLiteral("destination"))));
+        QImage image(20, 20, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        const QString first = dir.filePath(QStringLiteral("first.png"));
+        const QString second = dir.filePath(QStringLiteral("second.png"));
+        QVERIFY(image.save(first));
+        QVERIFY(image.save(second));
+        QPointer<GalleryWindow> gallery = new GalleryWindow({QUrl::fromLocalFile(first), QUrl::fromLocalFile(second)}, {}, 0);
+        gallery->show();
+        auto *filmstrip = gallery->findChild<QListWidget *>(QStringLiteral("galleryFilmstrip"));
+        auto *move = gallery->findChild<QAction *>(QStringLiteral("galleryMarkedMove"));
+        QVERIFY(filmstrip && move);
+        filmstrip->item(0)->setCheckState(Qt::Checked);
+        filmstrip->setCurrentRow(currentMarked ? 0 : 1);
+        QCOMPARE(filmstrip->item(0)->checkState(), Qt::Checked);
+        QVERIFY(QFileInfo::exists(first));
+        QVERIFY(QFileInfo::exists(second));
+
+        QTimer::singleShot(0, [&] {
+            auto *dialog = qobject_cast<QFileDialog *>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            dialog->setDirectory(dir.filePath(QStringLiteral("destination")));
+            QMetaObject::invokeMethod(dialog, "accept");
+        });
+        move->trigger();
+        QTRY_VERIFY(!QFileInfo::exists(first));
+        QTRY_VERIFY(gallery->isEnabled());
+        QVERIFY(QFileInfo::exists(dir.filePath(QStringLiteral("destination/first.png"))));
+        QVERIFY(QFileInfo::exists(second));
+        QCOMPARE(filmstrip->count(), 1);
+        QCOMPARE(filmstrip->currentRow(), 0);
+        QCOMPARE(filmstrip->item(0)->text(), QStringLiteral("second.png"));
+        gallery->close();
+        QTRY_VERIFY(gallery.isNull());
+    }
+
+    void convertMarkedImages()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir().mkdir(dir.filePath(QStringLiteral("output"))));
+        QImage image(20, 10, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        const QString source = dir.filePath(QStringLiteral("first.png"));
+        QVERIFY(image.save(source));
+        QPointer<GalleryWindow> gallery = new GalleryWindow({QUrl::fromLocalFile(source)}, {}, 0);
+        gallery->show();
+        auto *filmstrip = gallery->findChild<QListWidget *>(QStringLiteral("galleryFilmstrip"));
+        auto *convert = gallery->findChild<QAction *>(QStringLiteral("galleryMarkedConvert"));
+        QVERIFY(filmstrip && convert);
+        filmstrip->item(0)->setCheckState(Qt::Checked);
+        QTimer dismiss;
+        dismiss.setInterval(50);
+        connect(&dismiss, &QTimer::timeout, [&] {
+            auto *active = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            if (active && active->objectName() != QLatin1String("batchConversionDialog")) {
+                active->accept();
+            }
+        });
+        QTimer::singleShot(0, [&] {
+            auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            QCOMPARE(dialog->objectName(), QStringLiteral("batchConversionDialog"));
+            auto *directory = dialog->findChild<QLineEdit *>(QStringLiteral("batchDirectory"));
+            auto *preview = dialog->findChild<QListWidget *>(QStringLiteral("batchPreview"));
+            QVERIFY(directory && preview);
+            directory->setText(dir.filePath(QStringLiteral("output")));
+            QCOMPARE(preview->count(), 1);
+            QVERIFY(preview->item(0)->text().contains(dir.filePath(QStringLiteral("output/first.png"))));
+            dismiss.start();
+            dialog->accept();
+        });
+        convert->trigger();
+        dismiss.stop();
+        QVERIFY(QFileInfo::exists(dir.filePath(QStringLiteral("output/first.png"))));
+        QCOMPARE(QImageReader(dir.filePath(QStringLiteral("output/first.png"))).size(), QSize(20, 10));
+        QVERIFY(QFileInfo::exists(source));
         gallery->close();
         QTRY_VERIFY(gallery.isNull());
     }
