@@ -2,10 +2,12 @@
 
 #pragma once
 
+#include "foldermetadata.h"
 #include "namefilter.h"
 
 #include <KFileItem>
 
+#include <QSet>
 #include <QUrl>
 #include <QWidget>
 
@@ -20,6 +22,11 @@ class QHeaderView;
 class QAbstractItemView;
 class QListView;
 class QStackedWidget;
+class QTimer;
+namespace KIO
+{
+class DirectorySizeJob;
+}
 
 /**
  * One folder listing: details, icon and compact views sharing a
@@ -90,6 +97,8 @@ public:
     int applySelectionPattern(const QString &pattern, bool select);
     void clearSelection();
     void selectUrls(const QList<QUrl> &urls);
+    bool expandForHistorySelection(const QList<QUrl> &urls);
+    void cancelHistoryExpansion();
 
     QAbstractItemView *currentView() const;
 
@@ -120,6 +129,16 @@ public:
     /// Reloads the current folder's labels, colours, ratings, notes and pins.
     void reloadMetadata();
     bool hasFolderFormat() const;
+    QString formatRuleDescription() const;
+    bool formatLocked() const;
+    void setFormatLocked(bool locked);
+    bool formatIncludesDescendants() const;
+    void setFormatIncludesDescendants(bool include);
+    bool automaticFolderSizes() const;
+    void setAutomaticFolderSizes(bool enabled);
+    void clearFolderSizePolicy();
+    void calculateFolderSizes();
+    void refreshFolderSizePolicy();
     void reloadListingSettings();
     QString groupBy() const;
     void setGroupBy(const QString &group);
@@ -130,6 +149,7 @@ Q_SIGNALS:
     void redirected(const QUrl &url);
     void loadingChanged(bool loading);
     void listingReady();
+    void historyExpansionFinished();
     void listingFailed(const QString &message);
     void itemActivated(const KFileItem &item);
     void selectionChanged();
@@ -158,8 +178,15 @@ private:
     void showColumnMenu(const QPoint &pos);
     void loadFolderFormat();
     void saveFolderFormat();
+    FolderMetadata::Format currentFormat() const;
     void updatePreviews();
     bool handleDrop(QAbstractItemView *view, QEvent *event);
+    void finishHistoryExpansionWhenIdle();
+    void queueFolderSizes(const KFileItemList &items);
+    void startFolderSizeJobs();
+    void cancelFolderSizeJobs();
+    void scheduleFolderSizeRefresh();
+    void updateFolderSizeRefreshTimer();
     KFileItem itemAt(QAbstractItemView *view, const QPoint &viewportPos) const;
 
     KDirLister *m_lister = nullptr;
@@ -169,7 +196,21 @@ private:
     QUrl m_folder;
     bool m_flat = false;
     bool m_loading = false;
+    bool m_historyExpanding = false;
+    quint64 m_historyExpansionGeneration = 0;
+    QSet<QUrl> m_historyListingJobs;
     bool m_applyingFolderFormat = false;
+    bool m_formatLocked = false;
+    bool m_lockedAutomaticFolderSizes = false;
+    QString m_formatRuleSource;
+    bool m_ruleCalculatesFolderSizes = false;
+    bool m_ruleHasFolderSizePolicy = false;
+    KFileItemList m_sizeQueue;
+    QSet<QUrl> m_sizePending;
+    QSet<KIO::DirectorySizeJob *> m_sizeJobs;
+    quint64 m_sizeJobGeneration = 0;
+    bool m_sizeRefreshScheduled = false;
+    QTimer *m_sizeRefreshTimer = nullptr;
     QStackedWidget *m_stack = nullptr;
     DetailsView *m_details = nullptr;
     QListView *m_icons = nullptr;

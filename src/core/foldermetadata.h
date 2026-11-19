@@ -13,6 +13,9 @@ struct Format {
     QString sortKey;
     bool sortAscending = true;
     QString group;
+    bool includeDescendants = false;
+    bool calculateFolderSizes = false;
+    bool hasFolderSizePolicy = false;
 };
 
 /// Reads validated metadata from a folder's .mfm.json.
@@ -31,4 +34,8 @@ bool setFormat(const QString &folder, const Format &format, QString *error = nul
 
 /// Validates the per-folder view format before it is applied to a view.
 bool format(const QJsonObject &metadata, Format *result);
+
+/// Finds the nearest applicable local rule. An exact rule takes precedence
+/// over inherited rules; an ancestor applies only when it includes descendants.
+bool findFormat(const QString &folder, Format *result, QString *source = nullptr, QString *error = nullptr);
 }

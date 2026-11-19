@@ -19,6 +19,7 @@
 #include <QTabBar>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTreeView>
 
 class TabsTest : public QObject
 {
@@ -251,6 +252,59 @@ private Q_SLOTS:
         pane->tabs()->setCurrentIndex(1);
         QTRY_COMPARE(view->selectedItems().size(), 1);
         QTRY_COMPARE(view->selectedItems().first().url(), second);
+    }
+
+    void historyRestoresSelectionInsideExpandedFolders()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("a/one/two")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("a/three")));
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("b")));
+        QFile file(root.filePath(QStringLiteral("a/one/two/item.txt")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+        QFile other(root.filePath(QStringLiteral("a/three/other.txt")));
+        QVERIFY(other.open(QIODevice::WriteOnly));
+        other.close();
+        QFile missing(root.filePath(QStringLiteral("a/one/two/missing.txt")));
+        QVERIFY(missing.open(QIODevice::WriteOnly));
+        missing.close();
+        const QUrl a = QUrl::fromLocalFile(root.filePath(QStringLiteral("a")));
+        const QUrl b = QUrl::fromLocalFile(root.filePath(QStringLiteral("b")));
+        const QUrl item = QUrl::fromLocalFile(file.fileName());
+        const QUrl otherItem = QUrl::fromLocalFile(other.fileName());
+        const QUrl missingItem = QUrl::fromLocalFile(missing.fileName());
+        MainWindow window;
+        Pane *pane = paneWith(window, {a});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        FolderView *view = pane->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+        auto *tree = qobject_cast<QTreeView *>(view->currentView());
+        QVERIFY(tree);
+        QModelIndex one = tree->model()->match(tree->model()->index(0, 0), Qt::DisplayRole, QStringLiteral("one")).first();
+        tree->expand(one);
+        QTRY_COMPARE(tree->model()->rowCount(one), 1);
+        QModelIndex two = tree->model()->index(0, 0, one);
+        tree->expand(two);
+        QTRY_COMPARE(tree->model()->rowCount(two), 2);
+        QModelIndex three = tree->model()->match(tree->model()->index(0, 0), Qt::DisplayRole, QStringLiteral("three")).first();
+        tree->expand(three);
+        QTRY_COMPARE(tree->model()->rowCount(three), 1);
+        view->selectUrls({item, otherItem, missingItem});
+        QCOMPARE(view->selectedItems().size(), 3);
+        pane->setUrl(b);
+        QTRY_COMPARE(view->itemCount(), 0);
+        QVERIFY(QFile::remove(missing.fileName()));
+        pane->goBack();
+        QTRY_COMPARE(view->selectedItems().size(), 2);
+        QList<QUrl> selected;
+        for (const KFileItem &selectedItem : view->selectedItems()) {
+            selected.append(selectedItem.url());
+        }
+        QVERIFY(selected.contains(item));
+        QVERIFY(selected.contains(otherItem));
     }
 };
 

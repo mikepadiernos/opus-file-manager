@@ -290,6 +290,13 @@ QWidget *SettingsDialog::createViewGeneralPage()
                            i18nc("@item:inlistbox", "Extension")}));
     form->addRow(i18nc("@label:listbox", "Size format:"),
                  comboBox(QStringLiteral("SizeFormat"), {i18nc("@item:inlistbox", "Human readable"), i18nc("@item:inlistbox", "Bytes")}));
+    auto *sizeRefresh = new QSpinBox;
+    sizeRefresh->setObjectName(QStringLiteral("kcfg_FolderSizeRefreshInterval"));
+    sizeRefresh->setRange(0, 86400);
+    sizeRefresh->setSpecialValueText(i18nc("@item:inrange", "Off"));
+    sizeRefresh->setSuffix(i18nc("@item:valuesuffix seconds", " s"));
+    sizeRefresh->setToolTip(i18nc("@info:tooltip", "Periodically recalculate displayed folder sizes. This may be expensive, especially for remote folders."));
+    form->addRow(i18nc("@label:spinbox", "Refresh calculated folder sizes:"), sizeRefresh);
     form->addRow(i18nc("@label:listbox", "Date format:"),
                  comboBox(QStringLiteral("DateFormat"), {i18nc("@item:inlistbox", "Locale"), i18nc("@item:inlistbox", "ISO 8601")}));
     form->addRow({}, checkBox(QStringLiteral("ShowSeconds"), i18nc("@option:check", "Show seconds")));

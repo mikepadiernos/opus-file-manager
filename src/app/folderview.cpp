@@ -23,7 +23,9 @@
 #include <KFileItemDelegate>
 #include <KFileItemListProperties>
 #include <KFilePreviewGenerator>
+#include <KIO/DirectorySizeJob>
 #include <KIO/DropJob>
+#include <KIO/Global>
 #include <KIO/Job>
 #include <KJobWidgets>
 #include <KLocalizedString>
@@ -53,6 +55,7 @@
 #include <QStackedWidget>
 #include <QStyle>
 #include <QStyleOptionViewItem>
+#include <QTimer>
 #include <QToolButton>
 #include <QTreeView>
 #include <QVBoxLayout>
@@ -147,13 +150,42 @@ public:
         m_metadata = metadata;
         m_metadataDirectory = directory.isEmpty() ? QString() : QFileInfo(directory).absoluteFilePath();
         m_metadataCache.clear();
-        FolderMetadata::Format format;
-        const bool hasFormat = FolderMetadata::format(metadata, &format);
-        m_groupBy = hasFormat ? format.group : m_settings.groupBy;
-        m_ratingColumn = hasFormat ? format.columns.contains(QStringLiteral("rating")) : m_settings.visibleColumns.contains(QStringLiteral("rating"));
-        setCategorizedModel(m_groupBy != QLatin1String("none"));
         endFilterChange(QSortFilterProxyModel::Direction::Rows);
         sort(sortColumn(), sortOrder());
+    }
+
+    void clearFolderSizes()
+    {
+        const QList<QUrl> urls = m_folderSizes.keys();
+        m_folderSizes.clear();
+        for (const QUrl &url : urls) {
+            const QModelIndex source = static_cast<KDirModel *>(sourceModel())->indexForUrl(url);
+            const QModelIndex index = mapFromSource(source).siblingAtColumn(KDirModel::Size);
+            if (index.isValid()) {
+                Q_EMIT dataChanged(index, index, {Qt::DisplayRole});
+            }
+        }
+        if (sortColumn() == KDirModel::Size && !urls.isEmpty()) {
+            invalidate();
+        }
+    }
+
+    QList<QUrl> calculatedFolderUrls() const
+    {
+        return m_folderSizes.keys();
+    }
+
+    void setFolderSize(const QUrl &url, quint64 size)
+    {
+        m_folderSizes.insert(url, size);
+        const QModelIndex source = static_cast<KDirModel *>(sourceModel())->indexForUrl(url);
+        const QModelIndex index = mapFromSource(source).siblingAtColumn(KDirModel::Size);
+        if (index.isValid()) {
+            Q_EMIT dataChanged(index, index, {Qt::DisplayRole});
+            if (sortColumn() == KDirModel::Size) {
+                invalidate();
+            }
+        }
     }
 
     void setSettings(const ViewSettings &settings, const FileColorRules &fileColors, const IgnoreList &ignoreList)
@@ -270,6 +302,14 @@ public:
 
     QVariant data(const QModelIndex &index, int role) const override
     {
+        if (role == Qt::DisplayRole && index.column() == KDirModel::Size) {
+            const KFileItem item = itemAt(index);
+            const auto found = m_folderSizes.constFind(item.url());
+            if (item.isDir() && found != m_folderSizes.cend()) {
+                return m_settings.sizeFormat == QLatin1String("bytes") ? QString(QLocale().toString(found.value()) + i18nc("@unit byte in file size", " B"))
+                                                                       : KIO::convertSize(found.value());
+            }
+        }
         if (role == Qt::DisplayRole && index.column() == KDirModel::Size && m_settings.sizeFormat == QLatin1String("bytes")) {
             const KFileItem item = itemAt(index);
             if (!item.isDir()) {
@@ -362,6 +402,17 @@ public:
     }
 
 protected:
+    bool lessThan(const QModelIndex &left, const QModelIndex &right) const override
+    {
+        const KFileItem leftItem = itemAt(left);
+        const KFileItem rightItem = itemAt(right);
+        if (m_groupBy == QLatin1String("none") && sortColumn() == KDirModel::Size && (leftItem.isDir() || rightItem.isDir())
+            && (leftItem.isDir() == rightItem.isDir() || !sortFoldersFirst())) {
+            return subSortLessThan(left, right);
+        }
+        return KDirSortFilterProxyModel::lessThan(left, right);
+    }
+
     bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override
     {
         if (!KDirSortFilterProxyModel::filterAcceptsRow(sourceRow, sourceParent)) {
@@ -407,6 +458,26 @@ protected:
             const int rightRating = metadataForItem(itemAt(right)).value(QStringLiteral("ratings")).toObject().value(itemAt(right).name()).toInt();
             if (leftRating != rightRating) {
                 return leftRating < rightRating;
+            }
+        }
+        if (sortColumn() == KDirModel::Size) {
+            const KFileItem leftItem = itemAt(left);
+            const KFileItem rightItem = itemAt(right);
+            if ((leftItem.isDir() || rightItem.isDir()) && (leftItem.isDir() == rightItem.isDir() || !sortFoldersFirst())) {
+                const auto leftSize = m_folderSizes.constFind(leftItem.url());
+                const auto rightSize = m_folderSizes.constFind(rightItem.url());
+                const bool leftKnown = !leftItem.isDir() || leftSize != m_folderSizes.cend();
+                const bool rightKnown = !rightItem.isDir() || rightSize != m_folderSizes.cend();
+                if (leftKnown != rightKnown) {
+                    return sortOrder() == Qt::AscendingOrder ? leftKnown : rightKnown;
+                }
+                if (leftKnown) {
+                    const quint64 leftValue = leftItem.isDir() ? leftSize.value() : leftItem.size();
+                    const quint64 rightValue = rightItem.isDir() ? rightSize.value() : rightItem.size();
+                    if (leftValue != rightValue) {
+                        return leftValue < rightValue;
+                    }
+                }
             }
         }
         if (isRelativePath(left.column())) {
@@ -489,6 +560,7 @@ private:
     QJsonObject m_metadata;
     QString m_metadataDirectory;
     mutable QHash<QString, QJsonObject> m_metadataCache;
+    QHash<QUrl, quint64> m_folderSizes;
     QString m_groupBy = QStringLiteral("none");
     bool m_ratingColumn = false;
 };
@@ -602,23 +674,57 @@ FolderView::FolderView(QWidget *parent)
     , m_lister(new KDirLister(this))
     , m_model(new KDirModel(this))
     , m_proxy(new NameFilterProxyModel(this))
+    , m_sizeRefreshTimer(new QTimer(this))
     , m_stack(new QStackedWidget(this))
     , m_details(new DetailsView(this))
     , m_icons(new KCategorizedView(this))
     , m_compact(new QListView(this))
 {
+    m_sizeRefreshTimer->setObjectName(QStringLiteral("folderSizeRefreshTimer"));
+    connect(m_sizeRefreshTimer, &QTimer::timeout, this, [this] {
+        if (m_flat || !isVisible()) {
+            return;
+        }
+        KFileItemList items;
+        for (const QUrl &url : m_proxy->calculatedFolderUrls()) {
+            const QModelIndex sourceIndex = m_model->indexForUrl(url);
+            const QModelIndex index = m_proxy->mapFromSource(sourceIndex);
+            if (!index.isValid()) {
+                continue;
+            }
+            bool shown = true;
+            for (QModelIndex parent = index.parent(); parent.isValid(); parent = parent.parent()) {
+                if (m_viewMode != ViewMode::Details || !m_details->isExpanded(parent)) {
+                    shown = false;
+                    break;
+                }
+            }
+            if (!shown) {
+                continue;
+            }
+            const KFileItem item = m_model->itemForIndex(sourceIndex);
+            if (!item.isNull()) {
+                items.append(item);
+            }
+        }
+        queueFolderSizes(items);
+    });
+    updateFolderSizeRefreshTimer();
     m_lister->setAutoErrorHandlingEnabled(false);
     m_lister->setMainWindow(window());
     m_model->setDirLister(m_lister);
     m_model->setJobTransfersVisible(true);
     m_proxy->setSourceModel(m_model);
     connect(m_proxy, &QAbstractItemModel::layoutChanged, this, &FolderView::itemsOrderChanged);
+    connect(m_proxy, &QAbstractItemModel::rowsInserted, this, &FolderView::itemsOrderChanged);
+    connect(m_proxy, &QAbstractItemModel::rowsRemoved, this, &FolderView::itemsOrderChanged);
     m_proxy->setSortFoldersFirst(true);
     m_proxy->setSortCaseSensitivity(Qt::CaseInsensitive);
 
     m_details->setModel(m_proxy);
-    m_details->setRootIsDecorated(false);
-    m_details->setItemsExpandable(false);
+    m_details->setRootIsDecorated(true);
+    m_details->setItemsExpandable(true);
+    m_details->setExpandsOnDoubleClick(false);
     m_details->setUniformRowHeights(false);
     m_details->setSortingEnabled(true);
     m_details->sortByColumn(KDirModel::Name, Qt::AscendingOrder);
@@ -704,6 +810,9 @@ FolderView::FolderView(QWidget *parent)
     layout->addWidget(m_selectionBar);
 
     connect(m_lister, &KDirLister::started, this, [this](const QUrl &url) {
+        if (m_historyExpanding) {
+            m_historyListingJobs.insert(url.adjusted(QUrl::StripTrailingSlash));
+        }
         const QUrl listing = m_flat ? FlatView::listingUrl(m_folder) : m_folder;
         if (url.adjusted(QUrl::StripTrailingSlash) == listing.adjusted(QUrl::StripTrailingSlash)) {
             m_loading = true;
@@ -720,10 +829,20 @@ FolderView::FolderView(QWidget *parent)
         Q_EMIT loadingChanged(false);
     });
     connect(m_lister, &KDirLister::listingDirCompleted, this, [this](const QUrl &url) {
+        if (m_historyExpanding) {
+            m_historyListingJobs.remove(url.adjusted(QUrl::StripTrailingSlash));
+            finishHistoryExpansionWhenIdle();
+        }
         const QUrl listing = m_flat ? FlatView::listingUrl(m_folder) : m_folder;
         if (m_loading && url.adjusted(QUrl::StripTrailingSlash) == listing.adjusted(QUrl::StripTrailingSlash)) {
             m_loading = false;
             Q_EMIT listingReady();
+        }
+    });
+    connect(m_lister, &KDirLister::listingDirCanceled, this, [this](const QUrl &url) {
+        if (m_historyExpanding) {
+            m_historyListingJobs.remove(url.adjusted(QUrl::StripTrailingSlash));
+            finishHistoryExpansionWhenIdle();
         }
     });
     connect(m_lister, &KDirLister::redirection, this, [this](const QUrl &, const QUrl &newUrl) {
@@ -738,11 +857,50 @@ FolderView::FolderView(QWidget *parent)
         Q_EMIT listingFailed(job->errorString());
     });
     connect(m_lister, &KDirLister::itemsAdded, this, &FolderView::itemCountChanged);
+    connect(m_lister, &KDirLister::itemsAdded, this, [this](const QUrl &directory, const KFileItemList &items) {
+        if (automaticFolderSizes() && !m_flat) {
+            queueFolderSizes(items);
+        }
+        if (directory.adjusted(QUrl::StripTrailingSlash) != m_folder.adjusted(QUrl::StripTrailingSlash)) {
+            scheduleFolderSizeRefresh();
+        }
+    });
     connect(m_lister, &KDirLister::itemsDeleted, this, &FolderView::itemCountChanged);
+    connect(m_lister, &KDirLister::itemsDeleted, this, [this] {
+        scheduleFolderSizeRefresh();
+    });
+    connect(m_lister, &KDirLister::refreshItems, this, [this] {
+        scheduleFolderSizeRefresh();
+    });
     connect(m_lister, &KDirLister::clear, this, &FolderView::itemCountChanged);
 
     connect(m_details->selectionModel(), &QItemSelectionModel::selectionChanged, this, &FolderView::selectionChanged);
     connect(m_details->selectionModel(), &QItemSelectionModel::currentChanged, this, &FolderView::selectionChanged);
+    connect(m_model, &KDirModel::expand, this, [this](const QModelIndex &index) {
+        if (m_historyExpanding && m_model->itemForIndex(index).isDir()) {
+            m_details->expand(m_proxy->mapFromSource(index));
+        }
+    });
+    connect(m_details, &QTreeView::expanded, this, &FolderView::itemsOrderChanged);
+    connect(m_details, &QTreeView::collapsed, this, [this](const QModelIndex &collapsed) {
+        QItemSelectionModel *selection = m_details->selectionModel();
+        const QModelIndexList rows = selection->selectedRows();
+        for (const QModelIndex &row : rows) {
+            for (QModelIndex parent = row.parent(); parent.isValid(); parent = parent.parent()) {
+                if (parent == collapsed) {
+                    selection->select(row, QItemSelectionModel::Deselect | QItemSelectionModel::Rows);
+                    break;
+                }
+            }
+        }
+        for (QModelIndex parent = selection->currentIndex().parent(); parent.isValid(); parent = parent.parent()) {
+            if (parent == collapsed) {
+                selection->setCurrentIndex(collapsed, QItemSelectionModel::NoUpdate);
+                break;
+            }
+        }
+        Q_EMIT itemsOrderChanged();
+    });
     connect(m_details->header(), &QHeaderView::customContextMenuRequested, this, &FolderView::showColumnMenu);
     connect(m_details->header(), &QHeaderView::sortIndicatorChanged, this, [this] {
         saveFolderFormat();
@@ -754,6 +912,7 @@ FolderView::FolderView(QWidget *parent)
 
 FolderView::~FolderView()
 {
+    cancelFolderSizeJobs();
     // ~KCoreDirLister emits clear() while ~QWidget deletes children, after this type is gone.
     m_lister->disconnect(this);
 }
@@ -801,6 +960,7 @@ void FolderView::setUrl(const QUrl &url)
     if (!url.isValid() || url == m_folder) {
         return;
     }
+    cancelFolderSizeJobs();
     m_folder = url;
     if (m_flat) {
         m_proxy->setFlatBase(url);
@@ -818,6 +978,7 @@ void FolderView::openListing()
 
 void FolderView::reload()
 {
+    cancelFolderSizeJobs();
     if (m_lister->url().isValid()) {
         m_lister->openUrl(m_lister->url(), KDirLister::Reload);
     }
@@ -861,6 +1022,22 @@ void FolderView::setViewMode(ViewMode mode)
         return;
     }
     const bool hadFocus = currentView()->hasFocus();
+    if (m_viewMode == ViewMode::Details && mode != ViewMode::Details) {
+        QItemSelectionModel *selection = m_details->selectionModel();
+        const QModelIndexList rows = selection->selectedRows();
+        for (const QModelIndex &row : rows) {
+            if (row.parent().isValid()) {
+                selection->select(row, QItemSelectionModel::Deselect | QItemSelectionModel::Rows);
+            }
+        }
+        QModelIndex current = selection->currentIndex();
+        while (current.parent().isValid()) {
+            current = current.parent();
+        }
+        if (current != selection->currentIndex()) {
+            selection->setCurrentIndex(current, QItemSelectionModel::NoUpdate);
+        }
+    }
     m_viewMode = mode;
     m_stack->setCurrentWidget(currentView());
     if (hadFocus) {
@@ -1015,11 +1192,16 @@ KFileItemList FolderView::items() const
 KFileItemList FolderView::itemsInViewOrder() const
 {
     KFileItemList result;
-    result.reserve(m_proxy->rowCount());
-    for (int row = 0; row < m_proxy->rowCount(); ++row) {
-        const KFileItem item = m_model->itemForIndex(m_proxy->mapToSource(m_proxy->index(row, 0)));
+    QModelIndex index = m_proxy->index(0, 0);
+    while (index.isValid()) {
+        const KFileItem item = m_model->itemForIndex(m_proxy->mapToSource(index));
         if (!item.isNull()) {
             result.append(item);
+        }
+        if (m_viewMode == ViewMode::Details) {
+            index = m_details->indexBelow(index);
+        } else {
+            index = index.siblingAtRow(index.row() + 1);
         }
     }
     return result;
@@ -1107,6 +1289,53 @@ void FolderView::selectUrls(const QList<QUrl> &urls)
     }
 }
 
+bool FolderView::expandForHistorySelection(const QList<QUrl> &urls)
+{
+    if (m_viewMode != ViewMode::Details || m_flat) {
+        return false;
+    }
+    QList<QUrl> nested;
+    const QUrl root = m_folder.adjusted(QUrl::StripTrailingSlash);
+    for (const QUrl &url : urls) {
+        const QUrl parent = url.adjusted(QUrl::RemoveFilename | QUrl::StripTrailingSlash);
+        if (root.isParentOf(parent) && parent != root) {
+            nested.append(url);
+        }
+    }
+    if (nested.isEmpty()) {
+        return false;
+    }
+    m_historyExpanding = true;
+    ++m_historyExpansionGeneration;
+    m_historyListingJobs.clear();
+    for (const QUrl &url : nested) {
+        m_model->expandToUrl(url);
+    }
+    finishHistoryExpansionWhenIdle();
+    return true;
+}
+
+void FolderView::cancelHistoryExpansion()
+{
+    ++m_historyExpansionGeneration;
+    m_historyExpanding = false;
+    m_historyListingJobs.clear();
+}
+
+void FolderView::finishHistoryExpansionWhenIdle()
+{
+    if (!m_historyExpanding || !m_historyListingJobs.isEmpty()) {
+        return;
+    }
+    const quint64 generation = m_historyExpansionGeneration;
+    QTimer::singleShot(0, this, [this, generation] {
+        if (m_historyExpanding && generation == m_historyExpansionGeneration && m_historyListingJobs.isEmpty()) {
+            m_historyExpanding = false;
+            Q_EMIT historyExpansionFinished();
+        }
+    });
+}
+
 QAbstractItemView *FolderView::currentView() const
 {
     if (m_viewMode == ViewMode::Details) {
@@ -1139,7 +1368,13 @@ void FolderView::setFlat(bool flat)
     if (flat == m_flat) {
         return;
     }
+    cancelFolderSizeJobs();
     m_flat = flat;
+    m_details->setRootIsDecorated(!flat);
+    m_details->setItemsExpandable(!flat);
+    if (flat) {
+        m_details->collapseAll();
+    }
     m_proxy->setFlatBase(flat ? m_folder : QUrl());
     if (m_folder.isValid()) {
         openListing();
@@ -1159,6 +1394,9 @@ void FolderView::reloadMetadata()
     const KConfigGroup filesGroup = KSharedConfig::openConfig()->group(QStringLiteral("Files"));
     m_proxy->setSettings(settings, FileColorRules::fromConfig(filesGroup), IgnoreList::fromConfig(filesGroup));
     m_proxy->setMetadata(metadata, m_folder.isLocalFile() ? m_folder.toLocalFile() : QString());
+    if (!m_formatLocked && m_formatRuleSource.isEmpty()) {
+        m_proxy->setGroupBy(settings.groupBy);
+    }
     if (!error.isEmpty()) {
         Q_EMIT listingFailed(error);
     }
@@ -1166,8 +1404,218 @@ void FolderView::reloadMetadata()
 
 bool FolderView::hasFolderFormat() const
 {
+    return m_formatLocked || !m_formatRuleSource.isEmpty();
+}
+
+QString FolderView::formatRuleDescription() const
+{
+    if (m_formatLocked) {
+        return i18nc("@info:status folder format", "Format locked in this pane");
+    }
+    if (!m_formatRuleSource.isEmpty()) {
+        return i18nc("@info:status folder format", "Folder format: %1", m_formatRuleSource);
+    }
+    return i18nc("@info:status folder format", "Folder format: defaults");
+}
+
+bool FolderView::formatLocked() const
+{
+    return m_formatLocked;
+}
+
+void FolderView::setFormatLocked(bool locked)
+{
+    if (m_formatLocked == locked) {
+        return;
+    }
+    if (locked) {
+        m_lockedAutomaticFolderSizes = automaticFolderSizes();
+    }
+    m_formatLocked = locked;
+    if (!locked) {
+        loadFolderFormat();
+        refreshFolderSizePolicy();
+    }
+}
+
+bool FolderView::formatIncludesDescendants() const
+{
     FolderMetadata::Format format;
-    return m_folder.isLocalFile() && FolderMetadata::format(m_proxy->metadata(), &format);
+    return m_folder.isLocalFile() && FolderMetadata::format(m_proxy->metadata(), &format) && format.includeDescendants;
+}
+
+void FolderView::setFormatIncludesDescendants(bool include)
+{
+    if (!m_folder.isLocalFile() || m_formatLocked) {
+        return;
+    }
+    FolderMetadata::Format format = currentFormat();
+    format.calculateFolderSizes = m_ruleCalculatesFolderSizes;
+    format.hasFolderSizePolicy = m_ruleHasFolderSizePolicy;
+    FolderMetadata::Format existing;
+    if (FolderMetadata::format(m_proxy->metadata(), &existing)) {
+        format.calculateFolderSizes = existing.calculateFolderSizes;
+        format.hasFolderSizePolicy = existing.hasFolderSizePolicy;
+    }
+    format.includeDescendants = include;
+    QString error;
+    if (!FolderMetadata::setFormat(m_folder.toLocalFile(), format, &error)) {
+        Q_EMIT listingFailed(error);
+        return;
+    }
+    loadFolderFormat();
+}
+
+bool FolderView::automaticFolderSizes() const
+{
+    if (m_formatLocked) {
+        return m_lockedAutomaticFolderSizes;
+    }
+    if (m_ruleHasFolderSizePolicy) {
+        return m_ruleCalculatesFolderSizes;
+    }
+    const KConfigGroup group = KSharedConfig::openConfig()->group(QStringLiteral("FolderSizes"));
+    return group.readEntry(m_folder.isLocalFile() ? "AutomaticLocal" : "AutomaticRemote", false);
+}
+
+void FolderView::setAutomaticFolderSizes(bool enabled)
+{
+    if (!m_folder.isLocalFile() || m_formatLocked) {
+        return;
+    }
+    FolderMetadata::Format format = currentFormat();
+    FolderMetadata::Format existing;
+    if (FolderMetadata::format(m_proxy->metadata(), &existing)) {
+        format.includeDescendants = existing.includeDescendants;
+    }
+    format.calculateFolderSizes = enabled;
+    format.hasFolderSizePolicy = true;
+    QString error;
+    if (!FolderMetadata::setFormat(m_folder.toLocalFile(), format, &error)) {
+        Q_EMIT listingFailed(error);
+        return;
+    }
+    loadFolderFormat();
+    refreshFolderSizePolicy();
+}
+
+void FolderView::clearFolderSizePolicy()
+{
+    if (!m_folder.isLocalFile() || m_formatLocked) {
+        return;
+    }
+    FolderMetadata::Format format = currentFormat();
+    FolderMetadata::Format existing;
+    if (FolderMetadata::format(m_proxy->metadata(), &existing)) {
+        format.includeDescendants = existing.includeDescendants;
+    }
+    QString error;
+    if (!FolderMetadata::setFormat(m_folder.toLocalFile(), format, &error)) {
+        Q_EMIT listingFailed(error);
+        return;
+    }
+    loadFolderFormat();
+    refreshFolderSizePolicy();
+}
+
+void FolderView::calculateFolderSizes()
+{
+    const KFileItemList selected = selectedItems();
+    queueFolderSizes(selected.isEmpty() ? items() : selected);
+}
+
+void FolderView::refreshFolderSizePolicy()
+{
+    cancelFolderSizeJobs();
+    if (automaticFolderSizes() && !m_flat) {
+        queueFolderSizes(items());
+    }
+}
+
+void FolderView::queueFolderSizes(const KFileItemList &items)
+{
+    for (const KFileItem &item : items) {
+        if (item.isDir() && !item.isLink() && !m_sizePending.contains(item.url())) {
+            m_sizePending.insert(item.url());
+            m_sizeQueue.append(item);
+        }
+    }
+    startFolderSizeJobs();
+}
+
+void FolderView::startFolderSizeJobs()
+{
+    while (m_sizeJobs.size() < 4 && !m_sizeQueue.isEmpty()) {
+        const KFileItem item = m_sizeQueue.takeFirst();
+        KIO::DirectorySizeJob *job = KIO::directorySize(KFileItemList{item});
+        m_sizeJobs.insert(job);
+        connect(job, &KJob::result, this, [this, job, url = item.url()] {
+            m_sizeJobs.remove(job);
+            m_sizePending.remove(url);
+            if (job->error()) {
+                Q_EMIT listingFailed(i18nc("@info:status folder size", "Could not calculate size of %1: %2", url.toDisplayString(), job->errorString()));
+            } else {
+                m_proxy->setFolderSize(url, job->totalSize());
+            }
+            startFolderSizeJobs();
+        });
+    }
+}
+
+void FolderView::cancelFolderSizeJobs()
+{
+    ++m_sizeJobGeneration;
+    m_sizeRefreshScheduled = false;
+    m_sizeQueue.clear();
+    m_sizePending.clear();
+    const auto jobs = m_sizeJobs;
+    m_sizeJobs.clear();
+    for (KIO::DirectorySizeJob *job : jobs) {
+        job->disconnect(this);
+        job->kill(KJob::Quietly);
+    }
+    m_proxy->clearFolderSizes();
+}
+
+void FolderView::scheduleFolderSizeRefresh()
+{
+    if (m_flat || m_sizeRefreshScheduled || (m_sizePending.isEmpty() && m_proxy->calculatedFolderUrls().isEmpty())) {
+        return;
+    }
+    m_sizeRefreshScheduled = true;
+    const quint64 generation = m_sizeJobGeneration;
+    QTimer::singleShot(0, this, [this, generation] {
+        if (generation != m_sizeJobGeneration) {
+            return;
+        }
+        QSet<QUrl> urls(m_sizePending);
+        const QList<QUrl> calculated = m_proxy->calculatedFolderUrls();
+        for (const QUrl &url : calculated) {
+            urls.insert(url);
+        }
+        cancelFolderSizeJobs();
+        KFileItemList items;
+        for (const QUrl &url : std::as_const(urls)) {
+            const KFileItem item = m_model->itemForIndex(m_model->indexForUrl(url));
+            if (!item.isNull()) {
+                items.append(item);
+            }
+        }
+        if (automaticFolderSizes()) {
+            items.append(this->items());
+        }
+        queueFolderSizes(items);
+    });
+}
+
+void FolderView::updateFolderSizeRefreshTimer()
+{
+    const int seconds = qBound(0, Settings::folderSizeRefreshInterval(), 86400);
+    if (seconds == 0) {
+        m_sizeRefreshTimer->stop();
+    } else {
+        m_sizeRefreshTimer->start(seconds * 1000);
+    }
 }
 
 QString FolderView::groupBy() const
@@ -1188,6 +1636,7 @@ void FolderView::reloadSettings()
 
 void FolderView::reloadListingSettings()
 {
+    updateFolderSizeRefreshTimer();
     const QHash<QString, KFileItemDelegate::Information> options{
         {QStringLiteral("size"), KFileItemDelegate::Size},
         {QStringLiteral("permissions"), KFileItemDelegate::Permissions},
@@ -1217,13 +1666,26 @@ void FolderView::reloadListingSettings()
 
 void FolderView::loadFolderFormat()
 {
+    const FolderMetadata::Format lockedFormat = currentFormat();
     m_applyingFolderFormat = true;
     reloadMetadata();
     const KConfigGroup defaults = KSharedConfig::openConfig()->group(QStringLiteral("Views"));
     const ViewSettings settings = ViewSettings::fromConfig(KSharedConfig::openConfig()->group(QStringLiteral("View")));
     FolderMetadata::Format format;
-    if (m_folder.isLocalFile() && FolderMetadata::format(m_proxy->metadata(), &format)) {
+    QString ruleError;
+    m_formatRuleSource.clear();
+    const bool foundRule = m_folder.isLocalFile() && FolderMetadata::findFormat(m_folder.toLocalFile(), &format, &m_formatRuleSource, &ruleError);
+    m_ruleCalculatesFolderSizes = foundRule && format.calculateFolderSizes;
+    m_ruleHasFolderSizePolicy = foundRule && format.hasFolderSizePolicy;
+    if (!ruleError.isEmpty()) {
+        Q_EMIT listingFailed(ruleError);
+    }
+    if (m_formatLocked) {
+        format = lockedFormat;
+    }
+    if (m_formatLocked || foundRule) {
         setViewMode(format.view == QLatin1String("grid") ? ViewMode::Icons : format.view == QLatin1String("compact") ? ViewMode::Compact : ViewMode::Details);
+        m_proxy->setGroupBy(format.group);
         m_proxy->setRatingColumn(format.columns.contains(QStringLiteral("rating")));
         for (const auto &[column, key] : OptionalColumns) {
             const bool visible = column == KDirModel::Group
@@ -1231,8 +1693,24 @@ void FolderView::loadFolderFormat()
                 : format.columns.contains(key);
             m_details->setColumnHidden(column, !visible);
         }
+        QHeaderView *header = m_details->header();
+        header->moveSection(header->visualIndex(KDirModel::Name), 0);
+        int visual = 1;
+        QSet<int> orderedColumns;
+        for (const QString &key : format.columns) {
+            const int column = key == QLatin1String("rating") ? KDirModel::Group : columnForSortKey(key);
+            if (column != KDirModel::Name && !orderedColumns.contains(column) && header->visualIndex(column) >= 0) {
+                header->moveSection(header->visualIndex(column), visual++);
+                orderedColumns.insert(column);
+            }
+        }
         m_details->sortByColumn(columnForSortKey(format.sortKey), format.sortAscending ? Qt::AscendingOrder : Qt::DescendingOrder);
     } else {
+        QHeaderView *header = m_details->header();
+        for (int column = 0; column < header->count(); ++column) {
+            header->moveSection(header->visualIndex(column), column);
+        }
+        m_proxy->setGroupBy(settings.groupBy);
         m_proxy->setRatingColumn(Settings::showRatingColumn());
         setColumnVisible(KDirModel::Size, Settings::showSizeColumn());
         setColumnVisible(KDirModel::ModifiedTime, Settings::showModifiedColumn());
@@ -1296,9 +1774,29 @@ void FolderView::loadFolderFormat()
 
 void FolderView::saveFolderFormat()
 {
-    if (m_applyingFolderFormat || m_flat || !m_folder.isLocalFile()) {
+    if (m_applyingFolderFormat || m_formatLocked || m_flat || !m_folder.isLocalFile()) {
         return;
     }
+    FolderMetadata::Format format = currentFormat();
+    format.calculateFolderSizes = m_ruleCalculatesFolderSizes;
+    format.hasFolderSizePolicy = m_ruleHasFolderSizePolicy;
+    FolderMetadata::Format existing;
+    if (FolderMetadata::format(m_proxy->metadata(), &existing)) {
+        format.includeDescendants = existing.includeDescendants;
+        format.calculateFolderSizes = existing.calculateFolderSizes;
+        format.hasFolderSizePolicy = existing.hasFolderSizePolicy;
+    }
+    QString error;
+    if (!FolderMetadata::setFormat(m_folder.toLocalFile(), format, &error)) {
+        Q_EMIT listingFailed(error);
+        return;
+    }
+    m_formatRuleSource = m_folder.toLocalFile();
+    reloadMetadata();
+}
+
+FolderMetadata::Format FolderView::currentFormat() const
+{
     FolderMetadata::Format format;
     format.view = m_viewMode == ViewMode::Icons ? QStringLiteral("grid") : m_viewMode == ViewMode::Compact ? QStringLiteral("compact") : QStringLiteral("list");
     for (int visual = 0; visual < m_details->header()->count(); ++visual) {
@@ -1320,12 +1818,7 @@ void FolderView::saveFolderFormat()
     format.sortKey = sortKeyForColumn(m_details->header()->sortIndicatorSection(), m_proxy->ratingColumn());
     format.sortAscending = m_details->header()->sortIndicatorOrder() == Qt::AscendingOrder;
     format.group = m_proxy->groupBy();
-    QString error;
-    if (!FolderMetadata::setFormat(m_folder.toLocalFile(), format, &error)) {
-        Q_EMIT listingFailed(error);
-        return;
-    }
-    reloadMetadata();
+    return format;
 }
 
 void FolderView::showColumnMenu(const QPoint &pos)

@@ -32,13 +32,17 @@ bool DetailsView::isOnEmptyPartOfRow(const QPoint &pos) const
         return false;
     }
     const QModelIndex name = index.siblingAtColumn(KDirModel::Name);
+    const QRect nameRect = visualRect(name);
+    if ((layoutDirection() == Qt::LeftToRight && pos.x() < nameRect.left()) || (layoutDirection() == Qt::RightToLeft && pos.x() > nameRect.right())) {
+        return false;
+    }
     auto *delegate = qobject_cast<KFileItemDelegate *>(itemDelegateForIndex(name));
     if (!delegate) {
         return false;
     }
     QStyleOptionViewItem option;
     initViewItemOption(&option);
-    option.rect = visualRect(name);
+    option.rect = nameRect;
     return !delegate->shape(option, name).contains(pos);
 }
 

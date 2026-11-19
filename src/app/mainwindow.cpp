@@ -505,7 +505,12 @@ void MainWindow::compress()
         showStatusMessage(error.isEmpty() ? i18nc("@info:status", "Created %1", fileName) : i18nc("@info:status", "Could not create %1: %2", fileName, error));
         watcher->deleteLater();
     });
-    watcher->setFuture(QtConcurrent::run(&ArchiveWriter::write, archivePath, dialog.format(), sources));
+    const QString password = dialog.password();
+    const ArchiveWriter::Format format = dialog.format();
+    watcher->setFuture(QtConcurrent::run([archivePath, format, sources, password] {
+        return password.isEmpty() ? ArchiveWriter::write(archivePath, format, sources)
+                                  : ArchiveWriter::writeEncryptedZip(archivePath, format, sources, password);
+    }));
 }
 
 void MainWindow::setSelectionLabel(const QString &label)
@@ -716,6 +721,51 @@ void MainWindow::extractToOtherPane()
     }
 }
 
+void MainWindow::extractProtectedToOtherPane()
+{
+    const QUrl destination = inactivePane()->url();
+    if (!destination.isLocalFile()) {
+        showStatusMessage(i18nc("@info:status archive extraction", "Password-protected archives require a local destination."));
+        return;
+    }
+    for (const KFileItem &item : activePane()->view()->selectedItems()) {
+        if (item.localPath().isEmpty() || Archives::browseUrl(item.mostLocalUrl(), item.mimetype()).isEmpty()) {
+            continue;
+        }
+        bool accepted = false;
+        const QString password = QInputDialog::getText(this,
+                                                       i18nc("@title:window", "Archive Password"),
+                                                       i18nc("@label:textbox", "Password for %1:", item.name()),
+                                                       QLineEdit::Password,
+                                                       QString(),
+                                                       &accepted);
+        if (!accepted) {
+            continue;
+        }
+        if (password.isEmpty()) {
+            showStatusMessage(i18nc("@info:status archive extraction", "An archive password is required."));
+            continue;
+        }
+        QString name = Archives::baseName(item.name());
+        if (QFileInfo::exists(QDir(destination.toLocalFile()).filePath(name))) {
+            name = KFileUtils::suggestName(destination, name);
+        }
+        const QString target = QDir(destination.toLocalFile()).filePath(name);
+        const QString archivePath = item.localPath();
+        auto *watcher = new QFutureWatcher<QString>(this);
+        connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher, target] {
+            const QString error = watcher->result();
+            showStatusMessage(error.isEmpty()
+                                  ? i18nc("@info:status archive extraction", "Extracted to %1", target)
+                                  : i18nc("@info:status archive extraction", "Extraction failed: %1. A partial folder may remain at %2.", error, target));
+            watcher->deleteLater();
+        });
+        watcher->setFuture(QtConcurrent::run([archivePath, target, password] {
+            return Archives::extractProtected(archivePath, target, password);
+        }));
+    }
+}
+
 void MainWindow::extractArchive(const QUrl &archive, const QUrl &target)
 {
     auto *list = KIO::listDir(archive, KIO::HideProgressInfo);
@@ -915,6 +965,56 @@ void MainWindow::setupActions()
     compactView->setText(i18nc("@action", "Compact View"));
     compactView->setIcon(QIcon::fromTheme(QStringLiteral("view-list-tree")));
 
+    QAction *formatSource = actions->addAction(QStringLiteral("folder_format_source"));
+    formatSource->setEnabled(false);
+    QAction *formatLock = actions->addAction(QStringLiteral("lock_folder_format"));
+    formatLock->setText(i18nc("@action", "Lock Current Pane Format"));
+    formatLock->setCheckable(true);
+    connect(formatLock, &QAction::triggered, this, [this](bool locked) {
+        activePane()->view()->setFormatLocked(locked);
+        updateActions();
+    });
+    QAction *formatDescendants = actions->addAction(QStringLiteral("inherit_folder_format"));
+    formatDescendants->setText(i18nc("@action", "Apply Folder Format to Descendants"));
+    formatDescendants->setCheckable(true);
+    connect(formatDescendants, &QAction::triggered, this, [this](bool include) {
+        activePane()->view()->setFormatIncludesDescendants(include);
+        updateActions();
+    });
+    QAction *folderSizes = actions->addAction(QStringLiteral("calculate_folder_sizes"), this, [this] {
+        activePane()->view()->calculateFolderSizes();
+    });
+    folderSizes->setText(i18nc("@action", "Calculate Folder Sizes"));
+    QAction *automaticSizes = actions->addAction(QStringLiteral("automatic_folder_sizes"));
+    automaticSizes->setText(i18nc("@action", "Automatically Calculate Folder Sizes for This Format"));
+    automaticSizes->setCheckable(true);
+    connect(automaticSizes, &QAction::triggered, this, [this](bool enabled) {
+        activePane()->view()->setAutomaticFolderSizes(enabled);
+        updateActions();
+    });
+    QAction *defaultSizePolicy = actions->addAction(QStringLiteral("default_folder_size_policy"), this, [this] {
+        activePane()->view()->clearFolderSizePolicy();
+        updateActions();
+    });
+    defaultSizePolicy->setText(i18nc("@action", "Use Location Default for This Format's Folder Sizes"));
+    const auto addSizeDefault = [this, actions](const QString &name, const QString &text, const char *key) {
+        QAction *action = actions->addAction(name);
+        action->setText(text);
+        action->setCheckable(true);
+        connect(action, &QAction::triggered, this, [this, key](bool enabled) {
+            KConfigGroup group = KSharedConfig::openConfig()->group(QStringLiteral("FolderSizes"));
+            group.writeEntry(key, enabled);
+            group.sync();
+            m_left->view()->refreshFolderSizePolicy();
+            m_right->view()->refreshFolderSizePolicy();
+            updateActions();
+        });
+    };
+    addSizeDefault(QStringLiteral("automatic_local_folder_sizes"), i18nc("@action", "Automatically Calculate Local Folder Sizes by Default"), "AutomaticLocal");
+    addSizeDefault(QStringLiteral("automatic_remote_folder_sizes"),
+                   i18nc("@action", "Automatically Calculate Remote Folder Sizes by Default"),
+                   "AutomaticRemote");
+
     m_selectionModeAction = actions->addAction(QStringLiteral("selection_mode"));
     m_selectionModeAction->setText(i18nc("@action", "Selection Mode"));
     m_selectionModeAction->setCheckable(true);
@@ -1074,6 +1174,10 @@ void MainWindow::setupActions()
     QAction *extract = actions->addAction(QStringLiteral("extract_to_other_pane"), this, &MainWindow::extractToOtherPane);
     extract->setText(i18nc("@action", "Extract to Other Pane"));
     extract->setIcon(QIcon::fromTheme(QStringLiteral("archive-extract")));
+
+    QAction *extractProtected = actions->addAction(QStringLiteral("extract_protected_archive"), this, &MainWindow::extractProtectedToOtherPane);
+    extractProtected->setText(i18nc("@action", "Extract Password-Protected Archive to Other Pane…"));
+    extractProtected->setIcon(QIcon::fromTheme(QStringLiteral("archive-extract")));
 
     QAction *testArchive = actions->addAction(QStringLiteral("test_archive_integrity"), this, &MainWindow::testArchiveIntegrity);
     testArchive->setText(i18nc("@action", "Test Archive Integrity…"));
@@ -1275,6 +1379,9 @@ void MainWindow::updateActions()
     actions->action(QStringLiteral("test_archive_integrity"))->setEnabled(std::any_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
         return !item.isDir() && Archives::browseUrl(item.mostLocalUrl(), item.mimetype()).isValid();
     }));
+    actions->action(QStringLiteral("extract_protected_archive"))->setEnabled(std::any_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
+        return !item.localPath().isEmpty() && !item.isDir() && Archives::browseUrl(item.mostLocalUrl(), item.mimetype()).isValid();
+    }));
 
     bool pasteEnabled = false;
     const QString pasteText = FileOperations::pasteActionText(root, &pasteEnabled);
@@ -1299,6 +1406,19 @@ void MainWindow::updateActions()
 
     m_selectionModeAction->setChecked(view->selectionMode());
     m_selectionMarkersAction->setChecked(view->selectionMarkersVisible());
+    actions->action(QStringLiteral("folder_format_source"))->setText(view->formatRuleDescription());
+    actions->action(QStringLiteral("lock_folder_format"))->setChecked(view->formatLocked());
+    QAction *inheritFormat = actions->action(QStringLiteral("inherit_folder_format"));
+    inheritFormat->setChecked(view->formatIncludesDescendants());
+    inheritFormat->setEnabled(view->url().isLocalFile() && !view->formatLocked() && !flat);
+    QAction *automaticSizes = actions->action(QStringLiteral("automatic_folder_sizes"));
+    automaticSizes->setChecked(view->automaticFolderSizes());
+    automaticSizes->setEnabled(view->url().isLocalFile() && !view->formatLocked() && !flat);
+    actions->action(QStringLiteral("default_folder_size_policy"))->setEnabled(view->url().isLocalFile() && !view->formatLocked() && !flat);
+    actions->action(QStringLiteral("calculate_folder_sizes"))->setEnabled(!flat && !view->rootItem().isNull());
+    const KConfigGroup sizeDefaults = KSharedConfig::openConfig()->group(QStringLiteral("FolderSizes"));
+    actions->action(QStringLiteral("automatic_local_folder_sizes"))->setChecked(sizeDefaults.readEntry("AutomaticLocal", false));
+    actions->action(QStringLiteral("automatic_remote_folder_sizes"))->setChecked(sizeDefaults.readEntry("AutomaticRemote", false));
     const bool details = view->viewMode() == FolderView::ViewMode::Details;
     m_viewModeAction->setText(details ? i18nc("@action", "Icons View") : i18nc("@action", "Details View"));
     m_viewModeAction->setIcon(QIcon::fromTheme(details ? QStringLiteral("view-list-icons") : QStringLiteral("view-list-details")));
@@ -1888,6 +2008,7 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     });
     if (anyArchive) {
         menu.addAction(actions->action(QStringLiteral("extract_to_other_pane")));
+        menu.addAction(actions->action(QStringLiteral("extract_protected_archive")));
         menu.addAction(actions->action(QStringLiteral("test_archive_integrity")));
     }
     if (allLocal) {

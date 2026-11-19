@@ -161,6 +161,10 @@ QJsonObject sanitized(const QJsonObject &input)
         formatObject.insert(QStringLiteral("sortKey"), viewFormat.sortKey);
         formatObject.insert(QStringLiteral("sortAsc"), viewFormat.sortAscending);
         formatObject.insert(QStringLiteral("group"), viewFormat.group);
+        formatObject.insert(QStringLiteral("includeDescendants"), viewFormat.includeDescendants);
+        if (viewFormat.hasFolderSizePolicy) {
+            formatObject.insert(QStringLiteral("calculateFolderSizes"), viewFormat.calculateFolderSizes);
+        }
         output.insert(QStringLiteral("format"), formatObject);
     }
     return output;
@@ -402,6 +406,10 @@ bool FolderMetadata::setFormat(const QString &folder, const Format &formatValue,
     formatObject.insert(QStringLiteral("sortKey"), formatValue.sortKey.left(19));
     formatObject.insert(QStringLiteral("sortAsc"), formatValue.sortAscending);
     formatObject.insert(QStringLiteral("group"), formatValue.group);
+    formatObject.insert(QStringLiteral("includeDescendants"), formatValue.includeDescendants);
+    if (formatValue.hasFolderSizePolicy) {
+        formatObject.insert(QStringLiteral("calculateFolderSizes"), formatValue.calculateFolderSizes);
+    }
     return mutate(
         folder,
         [&formatObject](QJsonObject &metadata) {
@@ -435,5 +443,46 @@ bool FolderMetadata::format(const QJsonObject &metadata, Format *result)
     result->sortKey = sortKey;
     result->sortAscending = object.value(QStringLiteral("sortAsc")).toBool(true);
     result->group = group;
+    result->includeDescendants = object.value(QStringLiteral("includeDescendants")).toBool(false);
+    result->calculateFolderSizes = object.value(QStringLiteral("calculateFolderSizes")).toBool(false);
+    result->hasFolderSizePolicy = object.value(QStringLiteral("calculateFolderSizes")).isBool();
     return true;
+}
+
+bool FolderMetadata::findFormat(const QString &folder, Format *result, QString *source, QString *error)
+{
+    if (error) {
+        error->clear();
+    }
+    if (source) {
+        source->clear();
+    }
+    if (!result || !QDir::isAbsolutePath(folder)) {
+        if (error) {
+            *error = QStringLiteral("Invalid folder path or format destination");
+        }
+        return false;
+    }
+    QDir directory(QDir::cleanPath(folder));
+    bool exact = true;
+    do {
+        QString readError;
+        const QJsonObject metadata = read(directory.absolutePath(), &readError);
+        if (!readError.isEmpty()) {
+            if (error) {
+                *error = readError;
+            }
+            return false;
+        }
+        Format candidate;
+        if (format(metadata, &candidate) && (exact || candidate.includeDescendants)) {
+            *result = candidate;
+            if (source) {
+                *source = directory.absolutePath();
+            }
+            return true;
+        }
+        exact = false;
+    } while (directory.cdUp());
+    return false;
 }

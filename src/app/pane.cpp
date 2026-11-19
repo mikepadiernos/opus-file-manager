@@ -118,6 +118,9 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     connect(m_tabs, &TabModel::currentAboutToChange, this, &Pane::saveHistoryViewState);
     connect(m_tabs, &TabModel::currentUrlChanged, this, [this](const QUrl &url) {
         ++m_viewStateGeneration;
+        m_view->cancelHistoryExpansion();
+        m_historyExpansionStarted = false;
+        m_historyExpansionPending = false;
         m_pendingViewState = m_tabs->historyAt(m_tabs->currentIndex()).currentViewState();
         m_navigator->setLocationUrl(url);
         if (m_view->url() == url && !m_pendingViewState.valid) {
@@ -190,6 +193,10 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     connect(m_view, &FolderView::goUpRequested, this, &Pane::goUp);
     connect(m_view, &FolderView::listingFailed, this, &Pane::statusMessage);
     connect(m_view, &FolderView::listingReady, this, &Pane::restoreHistoryViewState);
+    connect(m_view, &FolderView::historyExpansionFinished, this, [this] {
+        m_historyExpansionPending = false;
+        restoreHistoryViewState();
+    });
     connect(m_view, &FolderView::loadingChanged, this, [this](bool loading) {
         if (!loading) {
             restoreHistoryViewState();
@@ -219,13 +226,21 @@ void Pane::saveHistoryViewState()
 
 void Pane::restoreHistoryViewState()
 {
-    if (!m_pendingViewState.valid || m_view->isLoading()) {
+    if (!m_pendingViewState.valid || m_view->isLoading() || m_historyExpansionPending) {
         return;
     }
     const quint64 generation = m_viewStateGeneration;
     QTimer::singleShot(0, this, [this, generation] {
-        if (generation != m_viewStateGeneration || m_view->isLoading() || !m_pendingViewState.valid) {
+        if (generation != m_viewStateGeneration || m_view->isLoading() || !m_pendingViewState.valid || m_historyExpansionPending) {
             return;
+        }
+        if (!m_historyExpansionStarted) {
+            m_historyExpansionStarted = true;
+            m_historyExpansionPending = true;
+            if (m_view->expandForHistorySelection(m_pendingViewState.selectedUrls)) {
+                return;
+            }
+            m_historyExpansionPending = false;
         }
         const auto state = m_pendingViewState;
         m_pendingViewState = {};

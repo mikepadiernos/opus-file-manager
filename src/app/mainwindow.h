@@ -156,6 +156,7 @@ private:
      * the other pane's folder, never overwriting an existing one.
      */
     void extractToOtherPane();
+    void extractProtectedToOtherPane();
     /**
      * Asks how to compress the selected local items, then writes the archive
      * in the background, never replacing an existing file.

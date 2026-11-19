@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="9" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="10" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -11,6 +11,7 @@
       <Action name="move_to_other_pane"/>
       <Action name="compress"/>
       <Action name="extract_to_other_pane"/>
+      <Action name="extract_protected_archive"/>
       <Action name="test_archive_integrity"/>
       <Action name="rename"/>
       <Action name="move_to_trash"/>
@@ -43,6 +44,14 @@
       <Action name="stacked_layout"/>
       <Action name="toggle_view_mode"/>
       <Action name="compact_view"/>
+      <Action name="folder_format_source"/>
+      <Action name="lock_folder_format"/>
+      <Action name="inherit_folder_format"/>
+      <Action name="calculate_folder_sizes"/>
+      <Action name="automatic_folder_sizes"/>
+      <Action name="default_folder_size_policy"/>
+      <Action name="automatic_local_folder_sizes"/>
+      <Action name="automatic_remote_folder_sizes"/>
       <Action name="selection_markers"/>
       <Action name="show_previews"/>
       <Action name="show_preview_panel"/>
