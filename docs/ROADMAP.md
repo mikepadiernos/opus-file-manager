@@ -70,8 +70,9 @@ Each milestone ends with a working, tested app.
    tab pin/lock/colour.
 
    Done so far: the combined panel, the filter bar with type-ahead, the ignore
-   list, tab pin/lock/colour and names, and archive browsing with extract to the
-   other pane.
+   list, tab pin/lock/colour and names, archive browsing with extract to the
+   other pane, and compress (zip, stored zip, tar.gz, tar.xz or tar.zst;
+   KArchive has no compression levels, so the format stands in for one).
 
 4. **M04 preview and gallery.** Preview panel (images, PDF and office via
    KParts, text, media), gallery with zoom, slideshow, filmstrip, image info,
