@@ -1,6 +1,8 @@
 add_library(opusfm_core STATIC
     archives.cpp
     archives.h
+    archivewriter.cpp
+    archivewriter.h
     favoritesmodel.cpp
     favoritesmodel.h
     ignorelist.cpp
@@ -25,6 +27,7 @@ target_link_libraries(opusfm_core
     PUBLIC
         Qt6::Core
         Qt6::Gui
+        KF6::Archive
         KF6::ConfigCore
         KF6::KIOCore
 )

@@ -42,3 +42,8 @@ ecm_add_test(archivebrowsingtest.cpp
     NAME_PREFIX "opusfm-"
     GUI
 )
+
+ecm_add_test(archivewritertest.cpp
+    LINK_LIBRARIES opusfm_core Qt6::Test KF6::Archive
+    NAME_PREFIX "opusfm-"
+)
