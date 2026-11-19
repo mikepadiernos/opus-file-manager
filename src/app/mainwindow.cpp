@@ -30,6 +30,7 @@
 #include "symbolicicon.h"
 #include "tabcolors.h"
 #include "tabmodel.h"
+#include "terminalpanel.h"
 #include "viewsettings.h"
 
 #include <KActionCollection>
@@ -300,7 +301,11 @@ MainWindow::~MainWindow() = default;
 
 void MainWindow::setupPanes()
 {
-    m_splitter = new QSplitter(Qt::Horizontal, this);
+    m_workspaceSplitter = new QSplitter(Qt::Vertical, this);
+    m_workspaceSplitter->setObjectName(QStringLiteral("workspaceSplitter"));
+    m_workspaceSplitter->setChildrenCollapsible(false);
+    m_splitter = new QSplitter(Qt::Horizontal, m_workspaceSplitter);
+    m_splitter->setObjectName(QStringLiteral("paneSplitter"));
     m_splitter->setChildrenCollapsible(false);
     m_left = new Pane(m_placesModel, m_tabColors, m_splitter);
     m_right = new Pane(m_placesModel, m_tabColors, m_splitter);
@@ -311,7 +316,13 @@ void MainWindow::setupPanes()
     m_previewPanel->hide();
     m_splitter->setStretchFactor(0, 1);
     m_splitter->setStretchFactor(1, 1);
-    setCentralWidget(m_splitter);
+    m_terminalPanel = new TerminalPanel(m_workspaceSplitter);
+    m_terminalPanel->hide();
+    m_workspaceSplitter->addWidget(m_splitter);
+    m_workspaceSplitter->addWidget(m_terminalPanel);
+    m_workspaceSplitter->setStretchFactor(0, 3);
+    m_workspaceSplitter->setStretchFactor(1, 1);
+    setCentralWidget(m_workspaceSplitter);
 
     connectPane(m_left);
     connectPane(m_right);
@@ -1007,6 +1018,16 @@ void MainWindow::setupActions()
     m_stackedLayoutAction = new KToggleAction(QIcon::fromTheme(QStringLiteral("view-split-top-bottom")), i18nc("@action", "Stacked Panes"), this);
     actions->addAction(QStringLiteral("stacked_layout"), m_stackedLayoutAction);
     connect(m_stackedLayoutAction, &KToggleAction::toggled, this, &MainWindow::setStackedLayout);
+
+    m_terminalPanelAction = new KToggleAction(i18nc("@action", "Show Embedded Terminal"), this);
+    actions->addAction(QStringLiteral("show_embedded_terminal"), m_terminalPanelAction);
+    connect(m_terminalPanelAction, &KToggleAction::toggled, this, [this](bool shown) {
+        if (shown) {
+            m_terminalPanel->start(activePane()->url());
+        }
+        m_terminalPanel->setVisible(shown);
+        toggleLayout(m_dualLayoutAction->isChecked());
+    });
 
     QAction *showPlaces = m_placesDock->toggleViewAction();
     showPlaces->setText(i18nc("@action", "Show Places Panel"));
@@ -2537,8 +2558,9 @@ void MainWindow::toggleLayout(bool dual)
     const bool editorEmbedded = m_editor
         && ((m_editorPlacement == EditorPanel::Placement::Panel && !m_editor->isHidden())
             || ((m_editorPlacement == EditorPanel::Placement::Below || m_editorPlacement == EditorPanel::Placement::Right) && !m_editorDock->isHidden()));
-    m_left->setVisible((dual && (!preview || editorEmbedded)) || activePane() == m_left);
-    m_right->setVisible((dual && (!preview || editorEmbedded)) || activePane() == m_right);
+    const bool terminalShown = m_terminalPanelAction && m_terminalPanelAction->isChecked();
+    m_left->setVisible((dual && (!preview || editorEmbedded || terminalShown)) || activePane() == m_left);
+    m_right->setVisible((dual && (!preview || editorEmbedded || terminalShown)) || activePane() == m_right);
     m_previewPanel->setVisible(preview);
     updateActions();
 }
@@ -2547,6 +2569,7 @@ void MainWindow::setStackedLayout(bool stacked)
 {
     m_stackedLayoutAction->setChecked(stacked);
     m_splitter->setOrientation(stacked ? Qt::Vertical : Qt::Horizontal);
+    m_workspaceSplitter->setOrientation(stacked ? Qt::Horizontal : Qt::Vertical);
     m_splitter->setSizes({1, 1, 1, 1});
     m_left->setTabBarAtBottom(stacked);
 }

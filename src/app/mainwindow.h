@@ -24,6 +24,7 @@ class KToggleAction;
 class Pane;
 class PreviewPanel;
 class TabColors;
+class TerminalPanel;
 class QDockWidget;
 class QDialog;
 class QLabel;
@@ -208,6 +209,8 @@ private:
     KFileCopyToMenu *m_copyToMenu = nullptr;
     KNewFileMenu *m_newFileMenu = nullptr;
     QSplitter *m_splitter = nullptr;
+    QSplitter *m_workspaceSplitter = nullptr;
+    TerminalPanel *m_terminalPanel = nullptr;
     EditorPanel *m_editor = nullptr;
     QDockWidget *m_editorDock = nullptr;
     QDialog *m_editorWindow = nullptr;
@@ -224,6 +227,7 @@ private:
     KToggleAction *m_hiddenFilesAction = nullptr;
     KToggleAction *m_previewsAction = nullptr;
     KToggleAction *m_previewPanelAction = nullptr;
+    KToggleAction *m_terminalPanelAction = nullptr;
     QAction *m_viewModeAction = nullptr;
     QAction *m_selectionModeAction = nullptr;
     QAction *m_selectionMarkersAction = nullptr;

@@ -31,6 +31,7 @@ for file operations, Places, properties, settings and desktop integration.
 - Create and verify SHA-256 checksum files for local files.
 - Compare immediate entries across pane folders and select differences.
 - Split local files into numbered parts and combine selected parts in a chosen order.
+- Show an embedded Konsole terminal alongside the panes.
 
 ## Caveats
 

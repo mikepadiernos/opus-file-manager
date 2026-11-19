@@ -1121,7 +1121,8 @@ private Q_SLOTS:
         QVERIFY(window.isStackedLayout());
         Pane *top = window.activePane();
         Pane *bottom = window.inactivePane();
-        auto *splitter = window.findChild<QSplitter *>();
+        auto *splitter = window.findChild<QSplitter *>(QStringLiteral("paneSplitter"));
+        QVERIFY(splitter);
         QCOMPARE(splitter->orientation(), Qt::Vertical);
         QCOMPARE(splitter->widget(0), top);
         QCOMPARE(splitter->widget(1), bottom);

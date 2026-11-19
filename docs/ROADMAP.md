@@ -332,8 +332,8 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 - Transfer queue with per-job progress, speed, errors and pause, resume and
   cancellation controls where supported by the underlying KIO job (Krusader,
   Max)
-- Embedded terminal alongside both panes: below them or at the right of the app
-  for portrait/stacked layouts; showing it never replaces either pane
+- ~~Embedded terminal alongside both panes: below them or at the right of the app
+  for portrait/stacked layouts; showing it never replaces either pane~~
 - Placeholders for scripts and custom commands
 - Linked panes and cushion treemap (Orcinus)
 
@@ -342,7 +342,8 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 tracked in #314; [folder content chart](CAVEATS.md#folder-content-chart), tracked in #315;
 [checksum files](CAVEATS.md#checksum-files), tracked in #316;
 [pane folder comparison](CAVEATS.md#pane-folder-comparison), tracked in #317;
-[split and combine files](CAVEATS.md#split-and-combine-files), tracked in #318.
+[split and combine files](CAVEATS.md#split-and-combine-files), tracked in #318;
+[embedded terminal](CAVEATS.md#embedded-terminal), tracked in #321.
 
 ### M10 Tools settings
 

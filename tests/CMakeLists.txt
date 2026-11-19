@@ -61,6 +61,12 @@ ecm_add_test(filesplitdialogtest.cpp
     GUI
 )
 
+ecm_add_test(terminalpaneltest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
 ecm_add_test(remotepreviewtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test Qt6::Network
     NAME_PREFIX "opusfm-"
