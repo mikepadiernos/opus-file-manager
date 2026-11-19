@@ -3,12 +3,16 @@ add_library(opusfm_core STATIC
     favoritesmodel.h
     ignorelist.cpp
     ignorelist.h
+    labelcolor.cpp
+    labelcolor.h
     navigationhistory.cpp
     namefilter.cpp
     namefilter.h
     navigationhistory.h
     session.cpp
     session.h
+    tabcolors.cpp
+    tabcolors.h
     tabmodel.cpp
     tabmodel.h
 )

@@ -19,7 +19,7 @@ int TabModel::currentIndex() const
 
 QUrl TabModel::urlAt(int index) const
 {
-    return index >= 0 && index < m_tabs.size() ? m_tabs.at(index).current() : QUrl();
+    return isValidIndex(index) ? m_tabs.at(index).history.current() : QUrl();
 }
 
 QUrl TabModel::currentUrl() const
@@ -31,8 +31,8 @@ QList<QUrl> TabModel::urls() const
 {
     QList<QUrl> result;
     result.reserve(m_tabs.size());
-    for (const NavigationHistory &tab : m_tabs) {
-        result.append(tab.current());
+    for (const Tab &tab : m_tabs) {
+        result.append(tab.history.current());
     }
     return result;
 }
@@ -40,7 +40,7 @@ QList<QUrl> TabModel::urls() const
 const NavigationHistory &TabModel::historyAt(int index) const
 {
     static const NavigationHistory empty;
-    return index >= 0 && index < m_tabs.size() ? m_tabs.at(index) : empty;
+    return isValidIndex(index) ? m_tabs.at(index).history : empty;
 }
 
 int TabModel::addTab(const QUrl &url, bool activate)
@@ -53,10 +53,10 @@ int TabModel::insertTab(int index, const QUrl &url, bool activate)
     if (!url.isValid()) {
         return -1;
     }
-    if (index < 0 || index > m_tabs.size()) {
-        index = m_tabs.size();
+    if (index < m_pinnedCount || index > m_tabs.size()) {
+        index = index < m_pinnedCount ? m_pinnedCount : m_tabs.size();
     }
-    m_tabs.insert(index, NavigationHistory(url));
+    m_tabs.insert(index, Tab{NavigationHistory(url), false, QString()});
     if (m_current >= index) {
         ++m_current;
     }
@@ -69,7 +69,7 @@ int TabModel::insertTab(int index, const QUrl &url, bool activate)
 
 bool TabModel::closeTab(int index)
 {
-    if (index < 0 || index >= m_tabs.size() || m_tabs.size() <= 1) {
+    if (!isValidIndex(index) || m_tabs.size() <= 1 || isPinned(index) || m_tabs.at(index).locked) {
         return false;
     }
     m_closedTabs.append(m_tabs.takeAt(index));
@@ -94,9 +94,8 @@ int TabModel::reopenClosedTab()
     if (m_closedTabs.isEmpty()) {
         return -1;
     }
-    const NavigationHistory tab = m_closedTabs.takeLast();
     const int index = m_tabs.size();
-    m_tabs.append(tab);
+    m_tabs.append(m_closedTabs.takeLast());
     Q_EMIT tabInserted(index);
     setCurrentIndex(index);
     return index;
@@ -104,9 +103,15 @@ int TabModel::reopenClosedTab()
 
 bool TabModel::moveTab(int from, int to)
 {
-    if (from < 0 || from >= m_tabs.size() || to < 0 || to >= m_tabs.size() || from == to) {
+    if (!isValidIndex(from) || !isValidIndex(to) || from == to || isPinned(from) != isPinned(to)) {
         return false;
     }
+    relocate(from, to);
+    return true;
+}
+
+void TabModel::relocate(int from, int to)
+{
     m_tabs.move(from, to);
     if (m_current == from) {
         m_current = to;
@@ -116,12 +121,11 @@ bool TabModel::moveTab(int from, int to)
         ++m_current;
     }
     Q_EMIT tabMoved(from, to);
-    return true;
 }
 
 void TabModel::setCurrentIndex(int index)
 {
-    if (index < 0 || index >= m_tabs.size() || index == m_current) {
+    if (!isValidIndex(index) || index == m_current) {
         return;
     }
     m_current = index;
@@ -149,8 +153,14 @@ void TabModel::setCurrentUrl(const QUrl &url)
         addTab(url);
         return;
     }
+    if (m_tabs.at(m_current).locked) {
+        if (url.isValid() && url != currentUrl()) {
+            insertTab(m_current + 1, url, true);
+        }
+        return;
+    }
     const QUrl before = currentUrl();
-    m_tabs[m_current].push(url);
+    m_tabs[m_current].history.push(url);
     if (currentUrl() != before) {
         changeCurrentUrlTo(currentUrl());
     }
@@ -162,7 +172,7 @@ void TabModel::replaceCurrentUrl(const QUrl &url)
         return;
     }
     const QUrl before = currentUrl();
-    m_tabs[m_current].replaceCurrent(url);
+    m_tabs[m_current].history.replaceCurrent(url);
     if (currentUrl() != before) {
         changeCurrentUrlTo(currentUrl());
     }
@@ -170,30 +180,86 @@ void TabModel::replaceCurrentUrl(const QUrl &url)
 
 bool TabModel::canGoBack() const
 {
-    return m_current >= 0 && m_tabs.at(m_current).canGoBack();
+    return m_current >= 0 && !m_tabs.at(m_current).locked && m_tabs.at(m_current).history.canGoBack();
 }
 
 bool TabModel::canGoForward() const
 {
-    return m_current >= 0 && m_tabs.at(m_current).canGoForward();
+    return m_current >= 0 && !m_tabs.at(m_current).locked && m_tabs.at(m_current).history.canGoForward();
 }
 
 void TabModel::goBack()
 {
     if (canGoBack()) {
-        changeCurrentUrlTo(m_tabs[m_current].goBack());
+        changeCurrentUrlTo(m_tabs[m_current].history.goBack());
     }
 }
 
 void TabModel::goForward()
 {
     if (canGoForward()) {
-        changeCurrentUrlTo(m_tabs[m_current].goForward());
+        changeCurrentUrlTo(m_tabs[m_current].history.goForward());
     }
+}
+
+int TabModel::pinnedCount() const
+{
+    return m_pinnedCount;
+}
+
+bool TabModel::isPinned(int index) const
+{
+    return isValidIndex(index) && index < m_pinnedCount;
+}
+
+void TabModel::setPinned(int index, bool pinned)
+{
+    if (!isValidIndex(index) || isPinned(index) == pinned) {
+        return;
+    }
+    const int to = pinned ? m_pinnedCount : m_pinnedCount - 1;
+    if (index != to) {
+        relocate(index, to);
+    }
+    m_pinnedCount += pinned ? 1 : -1;
+    Q_EMIT tabStateChanged(to);
+}
+
+bool TabModel::isLocked(int index) const
+{
+    return isValidIndex(index) && m_tabs.at(index).locked;
+}
+
+void TabModel::setLocked(int index, bool locked)
+{
+    if (!isValidIndex(index) || m_tabs.at(index).locked == locked) {
+        return;
+    }
+    m_tabs[index].locked = locked;
+    Q_EMIT tabStateChanged(index);
+}
+
+QString TabModel::nameAt(int index) const
+{
+    return isValidIndex(index) ? m_tabs.at(index).name : QString();
+}
+
+void TabModel::setName(int index, const QString &name)
+{
+    if (!isValidIndex(index) || m_tabs.at(index).name == name.trimmed()) {
+        return;
+    }
+    m_tabs[index].name = name.trimmed();
+    Q_EMIT tabStateChanged(index);
 }
 
 void TabModel::changeCurrentUrlTo(const QUrl &url)
 {
     Q_EMIT tabUrlChanged(m_current, url);
     Q_EMIT currentUrlChanged(url);
+}
+
+bool TabModel::isValidIndex(int index) const
+{
+    return index >= 0 && index < m_tabs.size();
 }

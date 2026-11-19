@@ -12,6 +12,9 @@ constexpr auto TabsKey = "Tabs";
 constexpr auto CurrentTabKey = "CurrentTab";
 constexpr auto ActivePaneKey = "ActivePane";
 constexpr auto StackedKey = "Stacked";
+constexpr auto PinnedCountKey = "PinnedCount";
+constexpr auto LockedTabsKey = "LockedTabs";
+constexpr auto NamesKey = "Names";
 
 QStringList toStrings(const QList<QUrl> &urls)
 {
@@ -37,6 +40,9 @@ void savePane(const PaneSession &pane, KConfigGroup group)
 {
     group.writeEntry(TabsKey, toStrings(pane.tabs));
     group.writeEntry(CurrentTabKey, pane.currentTab);
+    group.writeEntry(PinnedCountKey, pane.pinnedCount);
+    group.writeEntry(LockedTabsKey, pane.lockedTabs);
+    group.writeEntry(NamesKey, pane.names);
 }
 
 PaneSession loadPane(const KConfigGroup &group)
@@ -44,19 +50,32 @@ PaneSession loadPane(const KConfigGroup &group)
     PaneSession pane;
     pane.tabs = fromStrings(group.readEntry(TabsKey, QStringList()));
     pane.currentTab = group.readEntry(CurrentTabKey, 0);
+    pane.pinnedCount = group.readEntry(PinnedCountKey, 0);
+    pane.lockedTabs = group.readEntry(LockedTabsKey, QList<int>());
+    pane.names = group.readEntry(NamesKey, QStringList());
     return pane;
 }
 
 PaneSession sanitizePane(const PaneSession &pane, const QUrl &fallback)
 {
     PaneSession result;
-    for (const QUrl &url : pane.tabs) {
-        if (url.isValid() && !url.isEmpty()) {
-            result.tabs.append(url);
+    for (int i = 0; i < pane.tabs.size(); ++i) {
+        const QUrl &url = pane.tabs.at(i);
+        if (!url.isValid() || url.isEmpty()) {
+            continue;
         }
+        if (i < pane.pinnedCount) {
+            ++result.pinnedCount;
+        }
+        if (pane.lockedTabs.contains(i)) {
+            result.lockedTabs.append(result.tabs.size());
+        }
+        result.names.append(pane.names.value(i));
+        result.tabs.append(url);
     }
     if (result.tabs.isEmpty()) {
         result.tabs.append(fallback);
+        result.names.append(QString());
     }
     result.currentTab = qBound(0, pane.currentTab, result.tabs.size() - 1);
     return result;

@@ -78,6 +78,38 @@ private Q_SLOTS:
         rightActive.activePane = 1;
         QCOMPARE(rightActive.sanitized(home).activePane, 1);
     }
+
+    void tabStateRoundTripsAndSurvivesSanitizing()
+    {
+        QTemporaryDir dir;
+        const QUrl a = QUrl::fromLocalFile(QStringLiteral("/a"));
+        const QUrl b = QUrl::fromLocalFile(QStringLiteral("/b"));
+        const QUrl c = QUrl::fromLocalFile(QStringLiteral("/c"));
+        WindowSession session;
+        session.left.tabs = {a, QUrl(), b, c};
+        session.left.pinnedCount = 2;
+        session.left.lockedTabs = {2, 3};
+        session.left.names = {QStringLiteral("Pinned A"), QStringLiteral("gone"), QString(), QStringLiteral("C")};
+        session.right.tabs = {a};
+
+        {
+            KConfig config(dir.filePath(QStringLiteral("staterc")), KConfig::SimpleConfig);
+            KConfigGroup group = config.group(QStringLiteral("Session"));
+            Session::save(session, group);
+            config.sync();
+        }
+        KConfig config(dir.filePath(QStringLiteral("staterc")), KConfig::SimpleConfig);
+        const WindowSession loaded = Session::load(config.group(QStringLiteral("Session")));
+        QCOMPARE(loaded.left.pinnedCount, 2);
+        QCOMPARE(loaded.left.lockedTabs, (QList<int>{2, 3}));
+        QCOMPARE(loaded.left.names, session.left.names);
+
+        const PaneSession clean = loaded.sanitized(a).left;
+        QCOMPARE(clean.tabs, (QList<QUrl>{a, b, c}));
+        QCOMPARE(clean.pinnedCount, 1);
+        QCOMPARE(clean.lockedTabs, (QList<int>{1, 2}));
+        QCOMPARE(clean.names, (QStringList{QStringLiteral("Pinned A"), QString(), QStringLiteral("C")}));
+    }
 };
 
 QTEST_GUILESS_MAIN(SessionTest)
