@@ -56,6 +56,17 @@ reports arising from documented caveats with `[caveat] ` and label them
 `caveat`. Move a milestone, bug or caveat issue to Development on the GitHub
 project when work starts.
 
+For each new or updated caveat, keep `docs/CAVEATS.md` and its project issue
+aligned:
+
+- Document the limitation and a practical recommendation, distinguishing
+  workarounds and proposed improvements from implemented features.
+- Link the caveat and its `[caveat]` issue to each other, and add the issue to
+  the project board.
+- Post the recommendation in a comment on the issue and link to that comment
+  from the document; update the comment when the recommendation changes rather
+  than leaving conflicting guidance.
+
 Work on each milestone in a corresponding `feature/M##-name` branch. When a
 milestone is complete, commit its changes by scope, push the branch, then merge
 it into `main`. A milestone is complete only when all its feature items are
