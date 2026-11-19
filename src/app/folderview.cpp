@@ -1262,6 +1262,31 @@ KFileItemList FolderView::itemsInViewOrder() const
     return result;
 }
 
+ListingExport::Table FolderView::listingForExport() const
+{
+    ListingExport::Table table;
+    QList<int> columns;
+    QHeaderView *header = m_details->header();
+    for (int visual = 0; visual < header->count(); ++visual) {
+        const int column = header->logicalIndex(visual);
+        if (column >= 0 && !m_details->isColumnHidden(column)) {
+            columns.append(column);
+            table.headers.append(m_proxy->headerData(column, Qt::Horizontal, Qt::DisplayRole).toString());
+        }
+    }
+    QModelIndex index = m_proxy->index(0, 0);
+    while (index.isValid()) {
+        QStringList row;
+        row.reserve(columns.size());
+        for (int column : columns) {
+            row.append(index.siblingAtColumn(column).data(Qt::DisplayRole).toString());
+        }
+        table.rows.append(row);
+        index = m_viewMode == ViewMode::Details ? m_details->indexBelow(index) : index.siblingAtRow(index.row() + 1);
+    }
+    return table;
+}
+
 KFileItemList FolderView::selectedItems() const
 {
     KFileItemList result;

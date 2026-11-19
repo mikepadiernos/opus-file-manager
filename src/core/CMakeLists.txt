@@ -15,6 +15,8 @@ add_library(opusfm_core STATIC
     ignorelist.h
     labelcolor.cpp
     labelcolor.h
+    listingexport.cpp
+    listingexport.h
     markdownexport.cpp
     markdownexport.h
     density.cpp

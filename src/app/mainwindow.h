@@ -127,6 +127,7 @@ private:
     void openEditor();
     void compareFiles();
     void createSymlink();
+    void exportListing(bool pdf);
     void setupEditor();
     void setEditorPlacement(EditorPanel::Placement placement);
 

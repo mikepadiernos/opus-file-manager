@@ -3,6 +3,7 @@
 #pragma once
 
 #include "foldermetadata.h"
+#include "listingexport.h"
 #include "namefilter.h"
 
 #include <KFileItem>
@@ -87,6 +88,8 @@ public:
     KFileItem rootItem() const;
     KFileItemList items() const;
     KFileItemList itemsInViewOrder() const;
+    /// Captures the filtered listing using the configured details columns.
+    ListingExport::Table listingForExport() const;
     KFileItemList selectedItems() const;
     /// Selected items, or the listed folder itself when nothing is selected.
     KFileItemList selectedItemsOrRoot() const;

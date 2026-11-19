@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="13" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="14" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -21,6 +21,8 @@
       <Action name="open_terminal"/>
       <Action name="open_editor"/>
       <Action name="compare_files"/>
+      <Action name="export_listing_csv"/>
+      <Action name="export_listing_pdf"/>
       <Action name="properties"/>
       <Action name="calculate_occupied_space"/>
       <Separator/>

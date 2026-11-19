@@ -919,6 +919,16 @@ void MainWindow::setupActions()
     QAction *compare = actions->addAction(QStringLiteral("compare_files"), this, &MainWindow::compareFiles);
     compare->setText(i18nc("@action", "Compare Files"));
     compare->setIcon(QIcon::fromTheme(QStringLiteral("document-edit")));
+    QAction *exportCsv = actions->add<QAction>(QStringLiteral("export_listing_csv"));
+    exportCsv->setText(i18nc("@action", "Export Listing to CSV…"));
+    connect(exportCsv, &QAction::triggered, this, [this] {
+        exportListing(false);
+    });
+    QAction *exportPdf = actions->add<QAction>(QStringLiteral("export_listing_pdf"));
+    exportPdf->setText(i18nc("@action", "Export Listing to PDF…"));
+    connect(exportPdf, &QAction::triggered, this, [this] {
+        exportListing(true);
+    });
 
     KStandardAction::quit(this, &MainWindow::close, actions);
 
@@ -2280,6 +2290,31 @@ void MainWindow::createSymlink()
     if (!FileOperations::createSymlink(item.url(), name, error, this)) {
         KMessageBox::error(this, error);
     }
+}
+
+void MainWindow::exportListing(bool pdf)
+{
+    FolderView *view = activePane()->view();
+    if (view->isLoading()) {
+        KMessageBox::information(this, i18nc("@info", "Wait for the folder listing to finish before exporting."));
+        return;
+    }
+    const ListingExport::Table table = view->listingForExport();
+    QFileDialog dialog(this, i18nc("@title:window", "Export Listing"));
+    dialog.setAcceptMode(QFileDialog::AcceptSave);
+    dialog.setFileMode(QFileDialog::AnyFile);
+    dialog.setDefaultSuffix(pdf ? QStringLiteral("pdf") : QStringLiteral("csv"));
+    dialog.setNameFilter(pdf ? i18nc("@item:inlistbox", "PDF files (*.pdf)") : i18nc("@item:inlistbox", "CSV files (*.csv)"));
+    if (dialog.exec() != QDialog::Accepted || dialog.selectedFiles().isEmpty()) {
+        return;
+    }
+    const QString destination = dialog.selectedFiles().first();
+    const QString error = pdf ? ListingExport::toPdf(table, destination) : ListingExport::toCsv(table, destination);
+    if (!error.isEmpty()) {
+        KMessageBox::error(this, i18nc("@info", "Could not export the listing: %1", error));
+        return;
+    }
+    showStatusMessage(i18nc("@info:status", "Listing exported to %1", destination));
 }
 
 void MainWindow::copyToOtherPane()

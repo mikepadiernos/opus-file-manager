@@ -26,6 +26,7 @@ for file operations, Places, properties, settings and desktop integration.
 - Compare two selected local files in one pane or across both panes using a
   unified diff.
 - Create symbolic links next to local files and folders without overwriting.
+- Export the filtered listing and configured details columns to CSV or PDF.
 
 ## Caveats
 

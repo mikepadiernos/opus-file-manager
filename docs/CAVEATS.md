@@ -94,6 +94,13 @@ Symbolic-link creation supports existing local files and folders only. The new
 link is created beside its target; another destination cannot be chosen.
 ([#312][issue-312])
 
+## Listing export
+
+- Listing export uses the current filtered rows and configured details columns
+  with their displayed values, even in icon or compact view. Output is local
+  only, and wide PDF tables may wrap or clip. CSV prefixes cells that could be
+  interpreted as spreadsheet formulas with an apostrophe.
+
 ## Build, installation and references
 
 - Opus targets Linux and requires the dependencies listed in

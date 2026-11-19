@@ -32,6 +32,8 @@
 #include <QDir>
 #include <QDockWidget>
 #include <QFile>
+#include <QFileDialog>
+#include <QHeaderView>
 #include <QImage>
 #include <QInputDialog>
 #include <QLabel>
@@ -572,6 +574,61 @@ private Q_SLOTS:
         const QString link = dir.filePath(QStringLiteral("alias"));
         QTRY_VERIFY(QFileInfo(link).isSymLink());
         QCOMPARE(QFileInfo(link).symLinkTarget(), source.fileName());
+    }
+
+    void exportsFilteredListingInColumnOrder()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        for (const QString &name : {QStringLiteral("z.txt"), QStringLiteral("a.txt"), QStringLiteral("hidden.bin")}) {
+            QFile file(dir.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write("data");
+        }
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(dir.path())});
+        window.show();
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 3);
+        QTRY_VERIFY(!view->isLoading());
+        view->setViewMode(FolderView::ViewMode::Details);
+        view->setNameFilter(NameFilter(QStringLiteral("*.txt")));
+        view->setSorting(KDirModel::Name, Qt::AscendingOrder);
+        auto *details = qobject_cast<QTreeView *>(view->currentView());
+        QVERIFY(details);
+        view->setColumnVisible(KDirModel::Size, true);
+        details->header()->moveSection(details->header()->visualIndex(KDirModel::Size), 0);
+        const ListingExport::Table table = view->listingForExport();
+        QCOMPARE(table.rows.size(), 2);
+        QCOMPARE(table.headers.first(), details->model()->headerData(KDirModel::Size, Qt::Horizontal).toString());
+        const int nameColumn = table.headers.indexOf(details->model()->headerData(KDirModel::Name, Qt::Horizontal).toString());
+        QVERIFY(nameColumn >= 0);
+        QCOMPARE(table.rows.at(0).at(nameColumn), QStringLiteral("a.txt"));
+        QCOMPARE(table.rows.at(1).at(nameColumn), QStringLiteral("z.txt"));
+        const QString output = dir.filePath(QStringLiteral("listing.csv"));
+        QTimer::singleShot(0, [&] {
+            auto *dialog = qobject_cast<QFileDialog *>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            dialog->selectFile(dir.filePath(QStringLiteral("listing")));
+            QMetaObject::invokeMethod(dialog, "accept");
+        });
+        window.actionCollection()->action(QStringLiteral("export_listing_csv"))->trigger();
+        QFile file(output);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QByteArray csv = file.readAll();
+        QVERIFY(csv.contains("a.txt"));
+        QVERIFY(csv.contains("z.txt"));
+        QVERIFY(!csv.contains("hidden.bin"));
+        QTimer::singleShot(0, [&] {
+            auto *dialog = qobject_cast<QFileDialog *>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            dialog->selectFile(dir.filePath(QStringLiteral("listing")));
+            QMetaObject::invokeMethod(dialog, "accept");
+        });
+        window.actionCollection()->action(QStringLiteral("export_listing_pdf"))->trigger();
+        QFile pdf(dir.filePath(QStringLiteral("listing.pdf")));
+        QVERIFY(pdf.open(QIODevice::ReadOnly));
+        QCOMPARE(pdf.read(5), QByteArray("%PDF-"));
     }
 
     void navigationUpdatesHistory()
