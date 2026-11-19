@@ -325,7 +325,9 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 - Edit supported audio tags and image metadata, including a preview of changes
   and clear reporting when a format cannot be written (Directory Opus)
 - Scripts and custom commands
-- Presets
+- Command presets: save named script or custom-command configurations and
+  placeholder defaults; let users review commands and arguments before
+  running. Keep rename and synchronization profiles specific to their tools.
 - ~~Compare folders across the two panes (Krusader)~~
 - ~~Create and verify checksum files (Krusader)~~
 - ~~Split and combine files (Krusader)~~
@@ -358,26 +360,55 @@ Settings for M09 tools, stored in KConfig.
   - **Working folder:** optionally follow the active pane's local folder;
     report unsupported locations rather than silently switching folders
 - **Search**
-  - **Indexing:** search shortcut (double Shift), search folders and exclusions
+  - **Indexing:** search folders and exclusions; use M18 shortcut configuration
+    for the search shortcut, with double Shift as the proposed default
   - **Defaults:** search scope and whether to search filenames or contents
-  - **Filters:** reusable path and subtree filters and recursion depth
+  - **Filters:** reusable path and subtree filters and recursion depth for
+    search and selection
   - **Saved searches:** manage saved searches and reusable result collections
 - **Duplicate finder**
   - **Defaults:** comparison criteria and selection preferences; retain the
     safeguard that automatic selection keeps at least one item per group
+- **Content chart and cushion treemap**
+  - **Display:** choose whether to show the treemap and the default table
+    sort order; keep scan errors and skipped entries visible
+- **Linked panes**
+  - **Startup:** optionally link the initial pane folders; default to unlinked,
+    validate local roots and report when linking is unavailable
+- **File diff**
+  - **Display:** choose whether to wrap lines in the comparison output without
+    changing the comparison itself
+- **Pane folder comparison**
+  - **Results:** choose the initial result categories shown; keep errors and
+    incomplete comparisons visible and require explicit selection in the panes
 - **Folder sync**
   - **Transfers:** skip existing, newer only, speed limit
   - **Comparison:** default recursion, symlink and content-comparison options;
     saved synchronization profiles
 - **Batch rename**
-  - **Presets:** manage named rename rules and preview collisions before
-    applying changes
+  - **Presets:** manage named rename rules and choose a default preset; retain
+    the M09 collision preview before applying changes
 - **Listing export**
-  - **Defaults:** output format and included listing columns
+  - **Defaults:** output format and export-specific columns, initially based
+    on the current listing columns
+- **Symbolic links**
+  - **Naming:** default link-name suffix, editable before creation; preserve
+    existing destination checks and never overwrite an existing entry
+- **Checksum files**
+  - **Defaults:** default manifest filename for creation, editable before
+    saving; retain the supported SHA-256 format and existing validation
+- **Split and combine**
+  - **Defaults:** default split-part size, editable for each operation; retain
+    part-order review and never overwrite existing outputs
+- **Metadata editing**
+  - **Fields:** choose the initially displayed editable audio and image fields
+    when the editor is available; retain the change preview and report
+    unsupported writes
 - **Transfer queue**
   - **Behaviour:** queue and concurrency defaults; conflict handling
 - **Applications**
-  - **Associations:** default applications by extension
+  - **Associations:** manage desktop default applications by extension through
+    KDE facilities; make changes to shared desktop defaults explicit
 - **Automation**
   - **Commands:** scripts, custom commands and presets
 
@@ -600,8 +631,8 @@ searches rather than introducing a separate search system.
   interface. Test error handling, ownership, path handling and threading at
   the boundary, and evaluate the build and maintenance costs before adopting
   Rust more broadly; keep the search UI and KIO integration in C++.
-- Show results in the search panel with progress, cancellation and errors;
-  open a result or reveal it in its containing folder without moving files
+- Present M09 search results in the embedded panel, reusing its progress,
+  cancellation, error reporting, open and reveal actions without moving files
 - Support keyboard navigation and focus between the toolbar widget, search
   panel and panes, using the shortcut configuration in M18
 
@@ -695,11 +726,11 @@ Settings for M21 tagging, stored in KConfig.
 - XDG portal file chooser
 - MCP server
 - Administrator mode through KIO's `admin:/` worker
-- Terminal integration: open the current local folder in a separate Konsole,
-  Yakuake or Kwi session, or embed the installed Konsole or Kwi KPart alongside
-  both panes. Yakuake is a separate drop-down application, not an embeddable
-  terminal; use a supported KPart for embedded mode. Report unavailable
-  providers and unsupported locations rather than silently switching.
+- Extend the existing open-terminal action and M09 embedded Konsole terminal
+  with explicit separate Konsole, Yakuake or Kwi providers and an embedded Kwi
+  KPart when available. Reuse the current Konsole integration and
+  pane-preserving layout. Yakuake is a separate drop-down application, not an
+  embeddable terminal; report unavailable providers and unsupported locations.
 - Editor integrations: offer KWrite and Kate as separate GUI editors, and
   Neovim, Rune, micro and nano in a supported embedded or separate terminal,
   as alternatives to the built-in editor. KWrite and Kate use KTextEditor
@@ -715,10 +746,12 @@ Settings for M23 integrations, stored in KConfig.
 - **System tray**
   - **Behaviour:** minimise and close to tray
 - **Shortcuts**
-  - **Global:** global shortcut on or off and its key combination
+  - **Global:** enable or disable the integration's global shortcut and choose
+    its key combination through M18's shortcut configuration
 - **File manager**
   - **Portal:** serve the XDG portal file chooser on or off
-  - **Default:** set as default file manager
+  - **Default:** show the current desktop file-manager association and offer
+    an explicit action to set Opus as the user default; report failures
 - **MCP**
   - **Access:** server access (off, read or write), token and audit log
 - **Terminal**
