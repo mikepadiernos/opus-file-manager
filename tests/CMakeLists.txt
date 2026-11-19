@@ -13,6 +13,7 @@ ecm_add_tests(
     namefiltertest.cpp
     densitytest.cpp
     draftstoretest.cpp
+    duplicatefindertest.cpp
     executablestest.cpp
     imageeditingtest.cpp
     imageconversiontest.cpp
@@ -52,6 +53,12 @@ ecm_add_test(listingexporttest.cpp
 )
 
 ecm_add_test(contentcharttest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
+ecm_add_test(duplicatefinderdialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
     GUI

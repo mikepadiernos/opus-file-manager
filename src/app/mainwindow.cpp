@@ -9,6 +9,7 @@
 #include "compressdialog.h"
 #include "contentchartdialog.h"
 #include "density.h"
+#include "duplicatefinderdialog.h"
 #include "editorpanel.h"
 #include "executables.h"
 #include "favoritesmodel.h"
@@ -931,6 +932,8 @@ void MainWindow::setupActions()
     QAction *contentChart = actions->addAction(QStringLiteral("content_chart"), this, &MainWindow::showContentChart);
     contentChart->setText(i18nc("@action", "Folder Content Chart"));
     contentChart->setIcon(QIcon::fromTheme(QStringLiteral("view-statistics")));
+    QAction *duplicateFinder = actions->addAction(QStringLiteral("find_duplicates"), this, &MainWindow::showDuplicateFinder);
+    duplicateFinder->setText(i18nc("@action", "Find Duplicate Files…"));
     QAction *compareFolders = actions->addAction(QStringLiteral("compare_pane_folders"), this, &MainWindow::comparePaneFolders);
     compareFolders->setText(i18nc("@action", "Compare Pane Folders"));
     QAction *createChecksum = actions->addAction(QStringLiteral("create_checksum"), this, &MainWindow::createChecksumFile);
@@ -1502,6 +1505,7 @@ void MainWindow::updateActions()
     actions->action(stdName(KStandardAction::Copy))->setEnabled(hasSelection);
     actions->action(QStringLiteral("open_terminal"))->setEnabled(activePane()->url().isLocalFile());
     actions->action(QStringLiteral("content_chart"))->setEnabled(activePane()->url().isValid() && !activePane()->url().isEmpty());
+    actions->action(QStringLiteral("find_duplicates"))->setEnabled(activePane()->url().isLocalFile());
     actions->action(QStringLiteral("compare_pane_folders"))
         ->setEnabled(isDualLayout() && !inactivePane()->isHidden() && activePane()->url().isValid() && !activePane()->url().isEmpty()
                      && inactivePane()->url().isValid() && !inactivePane()->url().isEmpty());
@@ -2404,6 +2408,18 @@ void MainWindow::showContentChart()
         return;
     }
     auto *dialog = new ContentChartDialog(folder, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
+void MainWindow::showDuplicateFinder()
+{
+    const QUrl folder = activePane()->url();
+    if (!folder.isLocalFile()) {
+        KMessageBox::error(this, i18nc("@info", "Duplicate finding requires a local folder."));
+        return;
+    }
+    auto *dialog = new DuplicateFinderDialog(folder, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
 }

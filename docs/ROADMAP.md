@@ -345,7 +345,8 @@ tracked in #314; [folder content chart](CAVEATS.md#folder-content-chart), tracke
 [split and combine files](CAVEATS.md#split-and-combine-files), tracked in #318;
 [embedded terminal](CAVEATS.md#embedded-terminal), tracked in #321;
 [linked pane navigation](CAVEATS.md#linked-pane-navigation), tracked in #322;
-[cushion treemap](CAVEATS.md#cushion-treemap), tracked in #335.
+[cushion treemap](CAVEATS.md#cushion-treemap), tracked in #335;
+[duplicate finder preview](CAVEATS.md#duplicate-finder), tracked in #336.
 
 ### M10 Tools settings
 

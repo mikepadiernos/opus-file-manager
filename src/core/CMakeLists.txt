@@ -31,6 +31,8 @@ add_library(opusfm_core STATIC
     density.h
     draftstore.cpp
     draftstore.h
+    duplicatefinder.cpp
+    duplicatefinder.h
     executables.cpp
     executables.h
     imagedetails.cpp

@@ -17,6 +17,8 @@ add_library(opusfm_app STATIC
     densitydelegate.h
     detailsview.cpp
     detailsview.h
+    duplicatefinderdialog.cpp
+    duplicatefinderdialog.h
     editorpanel.cpp
     editorpanel.h
     filediffdialog.cpp

@@ -4,6 +4,7 @@
 #include "checksumdialog.h"
 #include "combinedpanel.h"
 #include "contentchartdialog.h"
+#include "duplicatefinderdialog.h"
 #include "filediffdialog.h"
 #include "fileoperations.h"
 #include "filesplitdialog.h"
@@ -719,6 +720,22 @@ private Q_SLOTS:
         dialog = window.findChild<ChecksumDialog *>(QStringLiteral("checksumDialog"));
         QVERIFY(dialog);
         QTRY_COMPARE(dialog->findChild<QLabel *>(QStringLiteral("checksumStatus"))->text(), QStringLiteral("Verification finished: 1 file failed."));
+    }
+
+    void opensDuplicateFinderForLocalFolder()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(dir.path())});
+        window.show();
+        auto *action = window.actionCollection()->action(QStringLiteral("find_duplicates"));
+        QVERIFY(action && action->isEnabled());
+        action->trigger();
+        auto *dialog = window.findChild<DuplicateFinderDialog *>(QStringLiteral("duplicateFinderDialog"));
+        QVERIFY(dialog);
+        QTRY_VERIFY(!dialog->findChild<QPushButton *>(QStringLiteral("duplicateFinderCancel"))->isEnabled());
+        QVERIFY(dialog->findChild<QLabel *>(QStringLiteral("duplicateFinderStatus"))->text().startsWith(QStringLiteral("Found 0 groups")));
     }
 
     void linksPaneNavigationWithinStartingFolders()

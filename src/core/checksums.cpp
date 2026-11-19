@@ -153,6 +153,17 @@ bool parseLine(QByteArray line, QString &name, QByteArray &digest)
 }
 }
 
+Checksums::DigestResult Checksums::digestFile(const QString &path, const Cancel &cancel)
+{
+    DigestResult result;
+    result.error = hashFile(path, result.digest, cancel);
+    result.canceled = canceled(cancel);
+    if (result.canceled) {
+        result.digest.clear();
+    }
+    return result;
+}
+
 Checksums::Result Checksums::create(const QStringList &paths, const QString &manifest, const Cancel &cancel, const Progress &progress)
 {
     Result result;

@@ -130,6 +130,7 @@ private:
     void createSymlink();
     void exportListing(bool pdf);
     void showContentChart();
+    void showDuplicateFinder();
     void createChecksumFile();
     void verifyChecksumFile();
     void comparePaneFolders();
