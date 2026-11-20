@@ -432,9 +432,9 @@ Settings for M09 tools, stored in KConfig.
 - ~~Drag entries between the main toolbar, pane toolbars and hamburger menu~~
 - ~~Customize the combined Places/Folders panel: reorder its sections, show or
   hide each section, and give sections custom titles~~
-- Back up and restore app-owned settings and layouts with a preview and
+- ~~Back up and restore app-owned settings and layouts with a preview and
   confirmation; exclude credentials and shared KDE settings, and avoid
-  overwriting running configuration without a safe reload or restart
+  overwriting running configuration without a safe reload or restart~~
 - ~~Swap panes: the current tabs or whole sides~~
 - ~~Dim the inactive pane~~
 - ~~Customize folder tab bars: place them above, below, left or right of each
