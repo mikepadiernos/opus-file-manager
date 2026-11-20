@@ -73,6 +73,8 @@ add_library(opusfm_app STATIC
     symbolicactionicons.h
     terminalpanel.cpp
     terminalpanel.h
+    toolbarcustomizer.cpp
+    toolbarcustomizer.h
     transferqueuedialog.cpp
     transferqueuedialog.h
     opusfm.qrc

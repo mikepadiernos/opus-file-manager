@@ -47,12 +47,16 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QDockWidget>
+#include <QDragEnterEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
 #include <QFile>
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QGraphicsOpacityEffect>
 #include <QGraphicsView>
 #include <QHeaderView>
+#include <QIcon>
 #include <QImage>
 #include <QInputDialog>
 #include <QLabel>
@@ -442,6 +446,87 @@ private Q_SLOTS:
             return candidate->text() == QLatin1String("New toolbar command") && candidate->objectName().startsWith(QLatin1String("custom_command_preset_"));
         }));
         dialog->close();
+    }
+
+    void mainToolbarCanBeEditedByDragAndDrop()
+    {
+        QTemporaryDir backupDir;
+        QVERIFY(backupDir.isValid());
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup customization = config->group(QStringLiteral("ToolbarCustomization"));
+        const auto backup = KSharedConfig::openConfig(backupDir.filePath(QStringLiteral("settings")));
+        KConfigGroup savedGroup = backup->group(QStringLiteral("ToolbarCustomization"));
+        customization.copyTo(&savedGroup);
+        const auto cleanup = qScopeGuard([&] {
+            customization.deleteGroup();
+            savedGroup.copyTo(&customization);
+            config->sync();
+        });
+        customization.deleteGroup();
+
+        MainWindow window;
+        window.show();
+        auto *toolbar = window.toolBar();
+        auto *customize = window.actionCollection()->action(QStringLiteral("customize_main_toolbar"));
+        auto *home = window.actionCollection()->action(QStringLiteral("go_home"));
+        QVERIFY(toolbar && customize && home);
+        QVERIFY(!toolbar->actions().contains(home));
+        customize->trigger();
+        auto *dock = window.findChild<QDockWidget *>(QStringLiteral("toolbarActionsDock"));
+        auto *actionList = window.findChild<QListWidget *>(QStringLiteral("toolbarActionList"));
+        QVERIFY(dock && actionList);
+        QTRY_VERIFY(dock->isVisible());
+
+        const auto drop = [](QWidget *target, const QString &source, const QString &kind, const QString &name, const QPointF &position) {
+            QMimeData mimeData;
+            mimeData.setData(QStringLiteral("application/x-opus-toolbar-item"), (source + QLatin1Char('\n') + kind + QLatin1Char('\n') + name).toUtf8());
+            QDragEnterEvent enter(position, Qt::MoveAction, &mimeData, Qt::LeftButton, Qt::NoModifier);
+            QApplication::sendEvent(target, &enter);
+            if (!enter.isAccepted()) {
+                return false;
+            }
+            QDragMoveEvent move(position, Qt::MoveAction, &mimeData, Qt::LeftButton, Qt::NoModifier);
+            QApplication::sendEvent(target, &move);
+            if (!move.isAccepted()) {
+                return false;
+            }
+            QDropEvent event(position, Qt::MoveAction, &mimeData, Qt::LeftButton, Qt::NoModifier);
+            QApplication::sendEvent(target, &event);
+            return event.isAccepted();
+        };
+        QVERIFY(drop(toolbar, QStringLiteral("palette"), QStringLiteral("action"), QStringLiteral("go_home"), QPointF(0, 0)));
+        QCOMPARE(toolbar->actions().first(), home);
+        QVERIFY(drop(toolbar, QStringLiteral("palette"), QStringLiteral("separator"), {}, QPointF(toolbar->width(), toolbar->height() / 2.0)));
+        QVERIFY(toolbar->actions().last()->isSeparator());
+        QVERIFY(drop(toolbar, QStringLiteral("palette"), QStringLiteral("spacer"), {}, QPointF(toolbar->width(), toolbar->height() / 2.0)));
+        QVERIFY(toolbar->actions().last()->property("toolbarSpacer").toBool());
+        QVERIFY(
+            drop(toolbar, QStringLiteral("toolbar"), QStringLiteral("action"), QStringLiteral("go_home"), QPointF(toolbar->width(), toolbar->height() / 2.0)));
+        QCOMPARE(toolbar->actions().last(), home);
+        QVERIFY(drop(actionList->viewport(), QStringLiteral("toolbar"), QStringLiteral("action"), QStringLiteral("go_home"), QPointF(0, 0)));
+        QVERIFY(!toolbar->actions().contains(home));
+
+        const QStringList savedItems = customization.readEntry("Actions", QStringList());
+        QVERIFY(savedItems.contains(QStringLiteral("separator")));
+        QVERIFY(savedItems.contains(QStringLiteral("spacer")));
+        QVERIFY(!savedItems.contains(QStringLiteral("action:go_home")));
+
+        const QString customIconName = home->icon().name();
+        const QString terminalIconName = window.actionCollection()->action(QStringLiteral("open_terminal"))->icon().name();
+        QVERIFY(!customIconName.isEmpty() && QIcon::hasThemeIcon(customIconName));
+        KConfigGroup terminalAppearance = customization.group(QStringLiteral("Entries")).group(QStringLiteral("open_terminal"));
+        terminalAppearance.writeEntry("ButtonStyle", static_cast<int>(Qt::ToolButtonTextOnly));
+        terminalAppearance.writeEntry("IconName", customIconName);
+        customization.sync();
+        MainWindow restored;
+        auto *restoredToolbar = restored.toolBar();
+        auto *terminal = restored.actionCollection()->action(QStringLiteral("open_terminal"));
+        QVERIFY(restoredToolbar && terminal && restoredToolbar->actions().contains(terminal));
+        auto *terminalButton = qobject_cast<QToolButton *>(restoredToolbar->widgetForAction(terminal));
+        QVERIFY(terminalButton);
+        QCOMPARE(terminalButton->toolButtonStyle(), Qt::ToolButtonTextOnly);
+        QCOMPARE(terminalButton->icon().name(), customIconName);
+        QCOMPARE(terminal->icon().name(), terminalIconName);
     }
 
     void splitterSizesAreSavedPerLayout()

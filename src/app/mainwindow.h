@@ -26,6 +26,7 @@ class Pane;
 class PreviewPanel;
 class TabColors;
 class TerminalPanel;
+class ToolbarCustomizer;
 class QDockWidget;
 class QDialog;
 class QLabel;
@@ -242,6 +243,7 @@ private:
     Pane *m_active = nullptr;
     PreviewPanel *m_previewPanel = nullptr;
     InformationPanel *m_informationPanel = nullptr;
+    ToolbarCustomizer *m_toolbarCustomizer = nullptr;
     Pane *m_hoveredInformationPane = nullptr;
     KFileItem m_hoveredInformationItem;
     QLabel *m_itemsLabel = nullptr;

@@ -40,6 +40,7 @@
 #include "tabcolors.h"
 #include "tabmodel.h"
 #include "terminalpanel.h"
+#include "toolbarcustomizer.h"
 #include "transferqueue.h"
 #include "transferqueuedialog.h"
 #include "viewsettings.h"
@@ -294,6 +295,12 @@ MainWindow::MainWindow(QWidget *parent)
 
     setStandardToolBarMenuEnabled(true);
     setupGUI(QSize(1100, 700), Default, QStringLiteral("opus-file-managerui.rc"));
+    m_toolbarCustomizer = new ToolbarCustomizer(toolBar(), actionCollection(), this);
+    connect(actionCollection()->action(QStringLiteral("customize_main_toolbar")), &QAction::toggled, m_toolbarCustomizer, &ToolbarCustomizer::setEditing);
+    connect(m_toolbarCustomizer,
+            &ToolbarCustomizer::editingChanged,
+            actionCollection()->action(QStringLiteral("customize_main_toolbar")),
+            &QAction::setChecked);
     const KConfigGroup panels = KSharedConfig::openStateConfig()->group(QLatin1String(PanelsGroup));
     setPanelLayout(panels.readEntry("Layout", QString()) == QLatin1String("Separate") ? PanelLayout::Separate : PanelLayout::Combined);
     applyPanelSettings();
@@ -1369,6 +1376,9 @@ void MainWindow::setupActions()
         m_informationDock->setVisible(!m_informationDock->isVisible());
     });
     connect(m_informationDock, &QDockWidget::visibilityChanged, informationAction, &QAction::setChecked);
+    QAction *customizeToolbar = actions->addAction(QStringLiteral("customize_main_toolbar"));
+    customizeToolbar->setText(i18nc("@action", "Customize Main Toolbar"));
+    customizeToolbar->setCheckable(true);
     QAction *gallery = actions->addAction(QStringLiteral("open_gallery"), this, &MainWindow::openGallery);
     gallery->setText(i18nc("@action", "Open Gallery"));
     gallery->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-media-preview")));
