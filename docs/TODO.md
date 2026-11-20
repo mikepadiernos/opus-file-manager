@@ -3,13 +3,11 @@
 ## Complete M13 and M14 translations
 
 - M13 parent #26 is in Development. Catalogue issue #210 is in Review and
-  checked in the parent; Persian issue #211, RTL issue #212 and Jalali issue
-  #213 are in Development. The M13 branch is
+  checked in the parent; RTL issue #212 and Jalali issue #213 are in
+  Development. The M13 branch is
   `feature/M13-translations`.
-- The Persian catalogue is incomplete: 144 of 1,884 extracted messages are
-  translated. Continue translating and review contexts, plural forms,
-  accelerators and placeholders; verify the installed catalogue in the UI.
-  Do not mark #211 complete until the translation is ready.
+- No particular language catalogue is required for M13. The existing Persian
+  catalogue is partial and untranslated messages fall back to the source.
 - RTL startup direction, pane navigation, section headers, gallery navigation
   and preview gutters are implemented for #212. Verify the remaining interface
   and installed-app behavior for Persian, Arabic and Hebrew before Review.
