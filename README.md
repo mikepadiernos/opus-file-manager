@@ -6,6 +6,8 @@ Places, properties and settings. It is built with C++20, Qt 6 Widgets and
 KDE Frameworks 6.
 
 The latest published MVP is [v0.2.0](https://github.com/mikepadiernos/opus-file-manager/releases/tag/v0.2.0).
+This README describes the current `main` branch, which includes fixes made
+after that release.
 
 **[Build and run](#build-and-run)** · **[Features](#features)** ·
 **[Caveats](#caveats)** · **[Roadmap](docs/ROADMAP.md)** ·
@@ -131,7 +133,10 @@ may be discarded. Synchronization is not undoable and can leave partial
 results; automatic transfer overwrite can replace files without asking.
 
 See [caveats and limitations](docs/CAVEATS.md) for feature restrictions,
-dependencies, precautions and workarounds.
+dependencies, precautions and workarounds, and [reported bugs](docs/BUGS.md)
+for open issues, including the toolbar context-menu and icon report.
+[Edge cases](docs/EDGE.md) lists potential scenarios for investigation; they
+are not confirmed bugs.
 
 ## Planned work
 
@@ -141,7 +146,11 @@ and [native tagging](docs/ROADMAP.md#m17-native-tagging), followed by an optiona
 [workspaces](docs/ROADMAP.md#m21-workspaces) and
 [desktop integrations](docs/ROADMAP.md#m23-integrations), including enhanced
 Baloo support. These are planned, not yet available; see the roadmap for their
-scope and status.
+scope and status. [Keyboard shortcuts](docs/ROADMAP.md#m29-keyboard-shortcut-settings)
+and [UI/UX polish](docs/ROADMAP.md#m30-ui-and-ux-polish) follow later; the
+latter also plans accessibility, motion controls, startup and settings
+performance, measured Rust-backed optimizations, and extensive functional and
+security testing.
 
 ## Documentation
 
@@ -150,6 +159,7 @@ scope and status.
 | [Roadmap](docs/ROADMAP.md) | Architecture, feature plans and milestone status |
 | [Pending tasks](docs/TODO.md) | Blocked work and handoffs |
 | [Reported bugs](docs/BUGS.md) | Bug reports and completion status |
+| [Edge cases](docs/EDGE.md) | Potential boundary conditions and test scenarios |
 | [Scope](docs/philosophy/scope.md) | Product goals and design boundaries |
 | [Inspirations](docs/philosophy/inspirations.md) | Sources and their influence |
 | [Documentation index](docs/README.md) | All project documents and behaviour references |
