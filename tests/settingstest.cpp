@@ -193,6 +193,7 @@ private Q_SLOTS:
         }
         QCOMPARE(titles,
                  QStringList({QStringLiteral("General"),
+                              QStringLiteral("Backup"),
                               QStringLiteral("Interface"),
                               QStringLiteral("View"),
                               QStringLiteral("Context Menu"),

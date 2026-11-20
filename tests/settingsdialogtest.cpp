@@ -84,6 +84,14 @@ private Q_SLOTS:
         Settings::self()->save();
     }
 
+    void settingsBackupActionsAreAvailable()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("createSettingsBackup")));
+        QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("restoreSettingsBackup")));
+    }
+
     void fileToolDefaultsPersistAndCancel()
     {
         KFilePlacesModel places;
@@ -288,7 +296,6 @@ private Q_SLOTS:
                     if (view->model() == pages->model() && view->isVisible()) {
                         return view;
                     }
-
                 }
                 return static_cast<QAbstractItemView *>(nullptr);
             };

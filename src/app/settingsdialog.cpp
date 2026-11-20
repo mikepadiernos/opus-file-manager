@@ -9,6 +9,7 @@
 #include "searchstoredialog.h"
 #include "servicemenus.h"
 #include "settings.h"
+#include "settingsbackup.h"
 #include "settingswidgets.h"
 
 #include <KConfigGroup>
@@ -22,11 +23,14 @@
 #include <QAbstractItemView>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QCoreApplication>
+#include <QDir>
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QMetaEnum>
 #include <QProcess>
 #include <QPushButton>
@@ -119,6 +123,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     , m_places(places)
 {
     addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}}, i18nc("@title:group", "General"), QStringLiteral("configure"));
+    addTabbedPage({{createSettingsBackupPage(), i18nc("@title:tab", "Backup and Restore")}}, i18nc("@title:group", "Backup"), QStringLiteral("document-save"));
     addTabbedPage({{createFoldersAndTabsPage(), i18nc("@title:tab", "Folders and Tabs")},
                    {createPreviewsPage(), i18nc("@title:tab", "Previews")},
                    {createConfirmationsPage(), i18nc("@title:tab", "Confirmations")},
@@ -226,6 +231,97 @@ QWidget *SettingsDialog::createSettingsDialogPage()
                           {i18nc("@item:inlistbox", "Beside the sidebar icons"), i18nc("@item:inlistbox", "Below the sidebar icons")}));
     form->addRow(i18nc("@label:spinbox", "Sidebar icon size:"), pixelSpinBox(QStringLiteral("SidebarIconSize"), 16, 64));
     return page;
+}
+
+QWidget *SettingsDialog::createSettingsBackupPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *description = new QLabel(i18nc("@info",
+                                         "Back up Opus settings and window and panel layouts. Current tabs and folder locations, credentials, saved custom "
+                                         "commands and shared KDE/KIO settings are excluded."),
+                                   page);
+    description->setWordWrap(true);
+    layout->addWidget(description);
+
+    auto *create = new QPushButton(i18nc("@action:button", "Create Backup…"), page);
+    create->setObjectName(QStringLiteral("createSettingsBackup"));
+    connect(create, &QPushButton::clicked, this, &SettingsDialog::createSettingsBackup);
+    layout->addWidget(create);
+
+    auto *restore = new QPushButton(i18nc("@action:button", "Restore Backup…"), page);
+    restore->setObjectName(QStringLiteral("restoreSettingsBackup"));
+    connect(restore, &QPushButton::clicked, this, &SettingsDialog::restoreSettingsBackup);
+    layout->addWidget(restore);
+    layout->addStretch();
+    return page;
+}
+
+void SettingsDialog::createSettingsBackup()
+{
+    const QString defaultPath = QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)).filePath(QStringLiteral("opus-settings.tar.gz"));
+    QString path = QFileDialog::getSaveFileName(this,
+                                                i18nc("@title:window", "Create Settings Backup"),
+                                                defaultPath,
+                                                i18nc("@item:inlistbox", "Opus settings backup (*.tar.gz)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    if (!path.endsWith(QLatin1String(".tar.gz"), Qt::CaseInsensitive)) {
+        path.append(QStringLiteral(".tar.gz"));
+    }
+    const QString error = SettingsBackup::create(path, KSharedConfig::openConfig(), KSharedConfig::openStateConfig());
+    if (!error.isEmpty()) {
+        QMessageBox::critical(this, i18nc("@title:window", "Could Not Create Backup"), error);
+        return;
+    }
+    QMessageBox::information(this,
+                             i18nc("@title:window", "Backup Created"),
+                             i18nc("@info", "The Opus settings backup was saved to %1.", QDir::toNativeSeparators(path)));
+}
+
+void SettingsDialog::restoreSettingsBackup()
+{
+    const QString path = QFileDialog::getOpenFileName(this,
+                                                      i18nc("@title:window", "Restore Settings Backup"),
+                                                      QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
+                                                      i18nc("@item:inlistbox", "Opus settings backup (*.tar.gz)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    SettingsBackup::Preview preview;
+    const QString inspectionError = SettingsBackup::inspect(path, &preview);
+    if (!inspectionError.isEmpty()) {
+        QMessageBox::critical(this, i18nc("@title:window", "Invalid Settings Backup"), inspectionError);
+        return;
+    }
+
+    const QString summary =
+        i18nc("@info",
+              "This backup contains:\n%1\n\nIt excludes:\n%2\n\nRestoring replaces Opus settings and window and panel layouts on the next launch. "
+              "The current configuration will remain untouched until you restart Opus. Continue?",
+              preview.included.join(QLatin1Char('\n')),
+              preview.excluded.join(QLatin1Char('\n')));
+    if (QMessageBox::question(this, i18nc("@title:window", "Preview Settings Backup"), summary, QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel)
+        != QMessageBox::Yes) {
+        return;
+    }
+    const QString error = SettingsBackup::stageRestore(path, QStandardPaths::writableLocation(QStandardPaths::AppDataLocation));
+    if (!error.isEmpty()) {
+        QMessageBox::critical(this, i18nc("@title:window", "Could Not Stage Restore"), error);
+        return;
+    }
+
+    QMessageBox prompt(this);
+    prompt.setIcon(QMessageBox::Information);
+    prompt.setWindowTitle(i18nc("@title:window", "Restore Staged"));
+    prompt.setText(i18nc("@info", "The backup will be applied when Opus starts again."));
+    auto *quit = prompt.addButton(i18nc("@action:button", "Quit and Apply on Next Launch"), QMessageBox::AcceptRole);
+    prompt.addButton(i18nc("@action:button", "Later"), QMessageBox::RejectRole);
+    prompt.exec();
+    if (prompt.clickedButton() == quit) {
+        QCoreApplication::quit();
+    }
 }
 
 QWidget *SettingsDialog::createOpeningPage()

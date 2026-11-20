@@ -59,6 +59,7 @@ private:
     void applySidebarStyle(int size, bool below);
 
     QWidget *createSettingsDialogPage();
+    QWidget *createSettingsBackupPage();
     QWidget *createFoldersAndTabsPage();
     QWidget *createPreviewsPage();
     QWidget *createOpeningPage();
@@ -102,6 +103,8 @@ private:
     QWidget *createFileRulesPage();
     QWidget *createFileMetadataPage();
     QWidget *createSelectionFiltersPage();
+    void createSettingsBackup();
+    void restoreSettingsBackup();
 
     KFilePlacesModel *m_places = nullptr;
     PreviewSizeSpinBox *m_previewLimit = nullptr;
