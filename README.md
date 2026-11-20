@@ -38,6 +38,8 @@ for file operations, Places, properties, settings and desktop integration.
   sessions rather than changing the directory of a running shell.
 - Link navigation between corresponding local pane folders.
 - Optionally dim the inactive pane using the View menu.
+- Swap the current tabs or exchange entire pane sides while retaining their
+  navigation state.
 - Choose a theme, light, dark or checkerboard background for transparent images
   in the preview and gallery without changing the image.
 - Explore folder sizes with a cushion treemap and folder drilldown.

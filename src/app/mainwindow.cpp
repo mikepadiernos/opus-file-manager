@@ -1071,6 +1071,11 @@ void MainWindow::setupActions()
     actions->addAction(QStringLiteral("stacked_layout"), m_stackedLayoutAction);
     connect(m_stackedLayoutAction, &KToggleAction::toggled, this, &MainWindow::setStackedLayout);
 
+    auto *swapTabs = actions->addAction(QStringLiteral("swap_current_tabs"), this, &MainWindow::swapCurrentTabs);
+    swapTabs->setText(i18nc("@action", "Swap Current Tabs"));
+    auto *swapSides = actions->addAction(QStringLiteral("swap_pane_sides"), this, &MainWindow::swapPaneSides);
+    swapSides->setText(i18nc("@action", "Swap Pane Sides"));
+
     auto *dimInactive = new KToggleAction(i18nc("@action", "Dim Inactive Pane"), this);
     dimInactive->setChecked(Settings::dimInactivePane());
     actions->addAction(QStringLiteral("dim_inactive_pane"), dimInactive);
@@ -1577,6 +1582,10 @@ void MainWindow::updateActions()
     const KFileItemListProperties props(selected);
     const KFileItem root = view->rootItem();
 
+    const bool bothVisible = isDualLayout() && !m_left->isHidden() && !m_right->isHidden();
+    actions->action(QStringLiteral("swap_current_tabs"))
+        ->setEnabled(bothVisible && m_left->tabs()->currentIndex() >= 0 && m_right->tabs()->currentIndex() >= 0);
+    actions->action(QStringLiteral("swap_pane_sides"))->setEnabled(bothVisible);
     actions->action(QStringLiteral("copy_to_other_pane"))->setEnabled(hasSelection);
     actions->action(QStringLiteral("move_to_other_pane"))->setEnabled(hasSelection && props.supportsMoving());
     actions->action(QStringLiteral("rename"))->setEnabled(hasSelection && props.supportsMoving());
@@ -2715,6 +2724,26 @@ void MainWindow::comparePaneFolders()
                 }
             });
     dialog->show();
+}
+
+void MainWindow::swapCurrentTabs()
+{
+    const QScopedValueRollback guard(m_syncingLinkedPanes, true);
+    if (m_left->tabs()->swapCurrent(*m_right->tabs())) {
+        std::swap(m_linkedLeftRoot, m_linkedRightRoot);
+    }
+}
+
+void MainWindow::swapPaneSides()
+{
+    const QList<int> sizes = m_splitter->sizes();
+    m_splitter->insertWidget(0, m_right);
+    std::swap(m_left, m_right);
+    std::swap(m_linkedLeftRoot, m_linkedRightRoot);
+    m_left->setTabBarAtBottom(isStackedLayout());
+    m_right->setTabBarAtBottom(false);
+    m_splitter->setSizes(sizes);
+    updateActions();
 }
 
 void MainWindow::syncLinkedPane(Pane *pane, const QUrl &url)

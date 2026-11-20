@@ -177,6 +177,87 @@ private Q_SLOTS:
         QVERIFY(inactiveEffect->isEnabled());
     }
 
+    void swappingCurrentTabsPreservesTabsAndLinkedNavigation()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("a/sub")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("b/sub")));
+        const QUrl a = QUrl::fromLocalFile(root.filePath(QStringLiteral("a")));
+        const QUrl b = QUrl::fromLocalFile(root.filePath(QStringLiteral("b")));
+        MainWindow window;
+        window.openUrls({a, b});
+        window.show();
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        auto *left = window.activePane();
+        auto *right = window.inactivePane();
+        auto *link = window.actionCollection()->action(QStringLiteral("link_panes"));
+        link->setChecked(true);
+        QVERIFY(link->isChecked());
+        const QUrl leftSub = QUrl::fromLocalFile(root.filePath(QStringLiteral("a/sub")));
+        const QUrl rightSub = QUrl::fromLocalFile(root.filePath(QStringLiteral("b/sub")));
+        left->setUrl(leftSub);
+        QCOMPARE(left->url(), leftSub);
+        QCOMPARE(right->url(), rightSub);
+        left->tabs()->setName(left->tabs()->currentIndex(), QStringLiteral("Left"));
+        left->tabs()->setPinned(left->tabs()->currentIndex(), true);
+        right->tabs()->setName(right->tabs()->currentIndex(), QStringLiteral("Right"));
+        right->tabs()->setLocked(right->tabs()->currentIndex(), true);
+
+        auto *swap = window.actionCollection()->action(QStringLiteral("swap_current_tabs"));
+        QVERIFY(swap && swap->isEnabled());
+        swap->trigger();
+        QCOMPARE(left->url(), rightSub);
+        QCOMPARE(right->url(), leftSub);
+        QCOMPARE(left->tabs()->nameAt(left->tabs()->currentIndex()), QStringLiteral("Right"));
+        QVERIFY(left->tabs()->isLocked(left->tabs()->currentIndex()));
+        QCOMPARE(right->tabs()->nameAt(right->tabs()->currentIndex()), QStringLiteral("Left"));
+        QVERIFY(right->tabs()->isPinned(right->tabs()->currentIndex()));
+        QVERIFY(link->isChecked());
+        left->tabs()->setLocked(left->tabs()->currentIndex(), false);
+        left->setUrl(b);
+        QCOMPARE(right->url(), a);
+        QVERIFY(link->isChecked());
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(false);
+        QVERIFY(!swap->isEnabled());
+    }
+
+    void swappingPaneSidesPreservesPaneWidgetsAndLayout()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("a/sub")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("b/sub")));
+        const QUrl a = QUrl::fromLocalFile(root.filePath(QStringLiteral("a")));
+        const QUrl b = QUrl::fromLocalFile(root.filePath(QStringLiteral("b")));
+        MainWindow window;
+        window.openUrls({a, b});
+        window.show();
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        auto *first = window.activePane();
+        auto *second = window.inactivePane();
+        auto *splitter = window.findChild<QSplitter *>(QStringLiteral("paneSplitter"));
+        QVERIFY(splitter);
+        auto *link = window.actionCollection()->action(QStringLiteral("link_panes"));
+        link->setChecked(true);
+        QVERIFY(link->isChecked());
+        window.setStackedLayout(true);
+        QCOMPARE(splitter->widget(0), first);
+        QCOMPARE(splitter->widget(1), second);
+        auto *swap = window.actionCollection()->action(QStringLiteral("swap_pane_sides"));
+        QVERIFY(swap && swap->isEnabled());
+        swap->trigger();
+        QCOMPARE(splitter->widget(0), second);
+        QCOMPARE(splitter->widget(1), first);
+        QCOMPARE(window.activePane(), first);
+        QVERIFY(second->isTabBarAtBottom());
+        QVERIFY(!first->isTabBarAtBottom());
+        QVERIFY(link->isChecked());
+        first->setUrl(QUrl::fromLocalFile(root.filePath(QStringLiteral("a/sub"))));
+        QCOMPARE(second->url(), QUrl::fromLocalFile(root.filePath(QStringLiteral("b/sub"))));
+        QVERIFY(link->isChecked());
+    }
+
     void imageBackgroundSettingsApplyToOpenViews()
     {
         const auto previous = Settings::imageBackground();

@@ -139,6 +139,8 @@ private:
     void comparePaneFolders();
     void compareFoldersFiltered();
     void syncLinkedPane(Pane *pane, const QUrl &url);
+    void swapCurrentTabs();
+    void swapPaneSides();
     void splitFile();
     void combineFiles();
     void setupEditor();

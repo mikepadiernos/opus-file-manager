@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="29" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="30" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -61,6 +61,8 @@
       <text>&amp;View</text>
       <Action name="dual_layout"/>
       <Action name="stacked_layout"/>
+      <Action name="swap_current_tabs"/>
+      <Action name="swap_pane_sides"/>
       <Action name="dim_inactive_pane"/>
       <Action name="link_panes"/>
       <Action name="toggle_view_mode"/>
