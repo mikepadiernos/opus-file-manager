@@ -403,7 +403,8 @@ void MainWindow::setupPanes()
     m_terminalPanel = new TerminalPanel(m_workspaceSplitter);
     connect(m_terminalPanel, &TerminalPanel::blurRegionChanged, this, [this](const QRegion &region) {
         if (windowHandle()) {
-            KWindowEffects::enableBlurBehind(windowHandle(), !region.isEmpty(), region);
+            // Include other translucent areas supplied by the active style.
+            KWindowEffects::enableBlurBehind(windowHandle(), !region.isEmpty());
         }
     });
     m_terminalPanel->hide();
@@ -1314,6 +1315,9 @@ void MainWindow::setupActions()
 
     m_terminalPanelAction = new KToggleAction(i18nc("@action", "Show Embedded Terminal"), this);
     actions->addAction(QStringLiteral("show_embedded_terminal"), m_terminalPanelAction);
+    connect(m_terminalPanel, &TerminalPanel::closeRequested, this, [this] {
+        m_terminalPanelAction->setChecked(false);
+    });
     connect(m_terminalPanelAction, &KToggleAction::toggled, this, [this](bool shown) {
         if (shown) {
             m_terminalPanel->start(activePane()->url());

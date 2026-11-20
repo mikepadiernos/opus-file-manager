@@ -17,11 +17,14 @@ A bug is considered complete only when its project status is **Completed** or
 | [#383](https://github.com/mikepadiernos/opus-file-manager/issues/383) | Editor settings should use the notepad symbolic icon | Yes | Merged |
 | [#444](https://github.com/mikepadiernos/opus-file-manager/issues/444) | KDE toolbar editor separators and spacers do not match the toolbar | Yes | Merged |
 | [#446](https://github.com/mikepadiernos/opus-file-manager/issues/446) | Metadata editing fails with an unusable ExifTool installation | Yes | Merged |
+| [#457](https://github.com/mikepadiernos/opus-file-manager/issues/457) | Embedded terminal panel controls and background blur | Yes | Completed |
 
 ## Status legend
 
 - **Completed**: issue is closed and marked completed, but not necessarily merged.
 - **Merged**: issue has been merged into `main`.
+- **Backlog**: issue has been recorded on the project board but work has not
+  started.
 - **Untriaged**: issue has been logged locally but has not yet been created or
   assigned on the project board.
 
@@ -35,6 +38,29 @@ A bug is considered complete only when its project status is **Completed** or
 - Verify the linked issue and board state before marking a bug as resolved.
 
 ## Completed reports
+
+### Embedded terminal panel controls and background blur
+
+- Severity: not assessed
+- Status: Completed; [#457](https://github.com/mikepadiernos/opus-file-manager/issues/457)
+- Summary: The embedded terminal lacks an accessible panel context menu and
+  dismissal controls, while profile blur reportedly disappears after opening.
+- Evidence: The reporter's screenshot shows the terminal and persistent
+  "Terminal sessions remain open until their tabs are closed." message. The
+  reporter observed the background initially blurred, then transparent without
+  blur.
+- Expected behaviour: Provide panel controls independently of Konsole's
+  terminal context menu, allow the informational message to be dismissed,
+  and let users hide the panel without ending sessions. Honor the active
+  profile's blur setting consistently when supported.
+- Actual behaviour: Right-clicking offers the terminal's menu, the message
+  cannot be dismissed, and the reporter could not find an in-panel way to
+  close the panel without ending a session. Blur reportedly does not persist.
+- Resolution: Panel controls hide the panel without ending sessions and allow
+  messages to be dismissed. When the Konsole profile enables blur, Opus
+  reapplies a window-wide blur request during repaint so the active style
+  cannot replace it with an incomplete region. The previous blur report was
+  [#378](https://github.com/mikepadiernos/opus-file-manager/issues/378).
 
 ### KDE toolbar editor separators and spacers
 

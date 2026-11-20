@@ -13,11 +13,13 @@
 #include <kde_terminal_interface.h>
 
 #include <QApplication>
+#include <QContextMenuEvent>
 #include <QDir>
 #include <QFile>
 #include <QImage>
 #include <QItemSelectionModel>
 #include <QLabel>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPointer>
 #include <QPushButton>
@@ -25,10 +27,12 @@
 #include <QSignalSpy>
 #include <QSplitter>
 #include <QStandardPaths>
+#include <QTabBar>
 #include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QToolButton>
 #include <QTreeView>
 
 class TerminalPanelTest : public QObject
@@ -44,9 +48,10 @@ private Q_SLOTS:
             QFile file(path + QLatin1Char('/') + name);
             return file.open(QIODevice::WriteOnly) && file.write(contents) == contents.size();
         };
-        QVERIFY(write(QStringLiteral("BlurOn.profile"), "[General]\nName=Blur On\n[Appearance]\nColorScheme=BlurOn\n"));
+        QVERIFY(write(QStringLiteral("BlurOn.profile"), "[General]\nName=Blur On\nTerminalMargin=8\n[Appearance]\nColorScheme=BlurOn\n"));
         QVERIFY(write(QStringLiteral("BlurOff.profile"), "[General]\nName=Blur Off\n[Appearance]\nColorScheme=BlurOff\n"));
-        QVERIFY(write(QStringLiteral("BlurOn.colorscheme"), "[General]\nDescription=Blur On\nOpacity=0.5\nBlur=true\n"));
+        QVERIFY(write(QStringLiteral("BlurOn.colorscheme"),
+                      "[Background]\nColor=0,0,0\n[Foreground]\nColor=255,255,255\n[General]\nDescription=Blur On\nOpacity=0.7\nBlur=true\n"));
         QVERIFY(write(QStringLiteral("BlurOff.colorscheme"), "[General]\nDescription=Blur Off\nOpacity=0.5\nBlur=false\n"));
         auto config = KSharedConfig::openConfig();
         config->group(QStringLiteral("Desktop Entry")).writeEntry("DefaultProfile", "BlurOn.profile");
@@ -151,6 +156,87 @@ private Q_SLOTS:
         QVERIFY(!window.activePane()->isHidden());
         QVERIFY(!window.inactivePane()->isHidden());
         Settings::setTerminalPlacement(Settings::EnumTerminalPlacement::Automatic);
+    }
+
+    void panelControlsPreserveSessionAndExposeMessages()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        Settings::setTerminalFollowActiveFolder(true);
+        const auto reset = qScopeGuard([] {
+            Settings::setTerminalFollowActiveFolder(false);
+        });
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(folder.path())});
+        window.show();
+        auto *show = window.actionCollection()->action(QStringLiteral("show_embedded_terminal"));
+        show->setChecked(true);
+        auto *panel = window.findChild<TerminalPanel *>(QStringLiteral("terminalPanel"));
+        auto *tabs = panel->findChild<QTabWidget *>(QStringLiteral("terminalSessions"));
+        auto *part = panel->findChild<KParts::ReadOnlyPart *>();
+        if (!part) {
+            QSKIP("KonsolePart is not available in this environment");
+        }
+        auto *terminal = qobject_cast<TerminalInterface *>(part);
+        QVERIFY(terminal);
+        QTRY_VERIFY(terminal->terminalProcessId() > 0);
+        const int pid = terminal->terminalProcessId();
+        auto *status = panel->findChild<QLabel *>(QStringLiteral("terminalPanelStatus"));
+        auto *dismiss = panel->findChild<QToolButton *>(QStringLiteral("terminalPanelDismissStatus"));
+        auto *close = panel->findChild<QToolButton *>(QStringLiteral("terminalPanelClose"));
+        auto *menuButton = panel->findChild<QToolButton *>(QStringLiteral("terminalPanelMenuButton"));
+        QVERIFY(status && dismiss && close && menuButton && menuButton->menu());
+        if (part->metaObject()->indexOfMethod("setContextMenuAdditionalActions(QList<QAction*>)") >= 0) {
+            QWidget *display = nullptr;
+            for (auto *widget : part->widget()->findChildren<QWidget *>()) {
+                if (widget->inherits("Konsole::TerminalDisplay")) {
+                    display = widget;
+                    break;
+                }
+            }
+            QVERIFY(display);
+            bool panelMenuFound = false;
+            QTimer::singleShot(0, [&] {
+                auto *popup = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+                if (popup) {
+                    panelMenuFound = popup->actions().contains(menuButton->menu()->menuAction());
+                    popup->close();
+                }
+            });
+            QContextMenuEvent event(QContextMenuEvent::Mouse, display->rect().center(), display->mapToGlobal(display->rect().center()));
+            QApplication::sendEvent(display, &event);
+            QVERIFY(panelMenuFound);
+        }
+        QVERIFY(status->isVisible());
+        dismiss->click();
+        QVERIFY(!status->isVisible());
+        panel->follow(QUrl::fromLocalFile(folder.path()));
+        QVERIFY(!status->isVisible());
+        panel->follow(QUrl(QStringLiteral("sftp://example.invalid/path")));
+        QVERIFY(status->isVisible());
+        QVERIFY(status->text().contains(QStringLiteral("not an existing local folder")));
+        dismiss->click();
+        panel->follow(QUrl(QStringLiteral("sftp://example.invalid/path")));
+        QVERIFY(status->isVisible());
+        panel->follow(QUrl::fromLocalFile(folder.path()));
+        QVERIFY(!status->isVisible());
+
+        close->click();
+        QVERIFY(panel->isHidden());
+        QVERIFY(!show->isChecked());
+        QCOMPARE(terminal->terminalProcessId(), pid);
+        show->setChecked(true);
+        QCOMPARE(panel->findChild<KParts::ReadOnlyPart *>(), part);
+        QCOMPARE(terminal->terminalProcessId(), pid);
+        Q_EMIT tabs->tabBar()->customContextMenuRequested(QPoint(2, 2));
+        QTRY_VERIFY(menuButton->menu()->isVisible());
+        auto *hideAction = menuButton->menu()->findChild<QAction *>(QStringLiteral("terminalPanelHideAction"));
+        QVERIFY(hideAction);
+        menuButton->menu()->hide();
+        hideAction->trigger();
+        QVERIFY(panel->isHidden());
+        QVERIFY(!show->isChecked());
+        QCOMPARE(terminal->terminalProcessId(), pid);
     }
 
     void followingPreservesSessionsAndReportsUnsupportedFolders()
@@ -285,6 +371,11 @@ private Q_SLOTS:
         QTRY_VERIFY(!expectedRegion().isEmpty());
         QTRY_VERIFY(!currentRegion().isEmpty());
         QTRY_COMPARE(currentRegion(), expectedRegion());
+        regions.clear();
+        QEvent repaint(QEvent::UpdateRequest);
+        QApplication::sendEvent(&window, &repaint);
+        QVERIFY(!regions.isEmpty());
+        QCOMPARE(currentRegion(), expectedRegion());
         QImage snapshot(window.size(), QImage::Format_ARGB32_Premultiplied);
         snapshot.fill(Qt::transparent);
         window.render(&snapshot);
