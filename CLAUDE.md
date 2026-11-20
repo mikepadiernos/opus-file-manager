@@ -3,10 +3,14 @@
 Opus is a Linux-only, dual-pane file manager for KDE Plasma, built with C++20,
 Qt 6 Widgets and KDE Frameworks 6.
 
-- `docs/ROADMAP.md` is the authoritative milestone and architecture plan.
-- `docs/parity/` records the upstream behaviour being referenced, not
-  necessarily Opus's current behaviour.
-- `docs/CAVEATS.md` records limitations of implemented features.
+## Project documentation
+
+- `docs/ROADMAP.md`: authoritative milestone and architecture plan.
+- `docs/TODO.md`: blocked tasks and actionable handoffs.
+- `docs/BUGS.md`: reported bugs and completion status.
+- `docs/CAVEATS.md`: limitations of implemented features and recommendations.
+- `docs/parity/`: upstream behaviour references, not necessarily current Opus
+  behaviour.
 
 ## Commands
 
@@ -18,57 +22,86 @@ cmake --build build --target clang-format   # format all C++ sources
 ./build/bin/opus-file-manager [path...]
 ```
 
-## Implementation conventions
+## Development
 
-- Put non-widget logic in `src/core/`, with QtTest coverage in `tests/`.
+- Put non-widget logic in `src/core/` and cover it with QtTest in `tests/`.
   Put widgets in `src/app/`.
 - Prefer KDE Frameworks facilities to custom implementations, including KIO
   jobs, KXmlGui actions, `KFileItemActions` and `KFilePlacesView`.
 - Localize user-visible strings with `i18n()` or `i18nc()`.
-- Use Plasma's active icon theme as the primary source via
-  `QIcon::fromTheme()`; do not bundle or hard-code a replacement icon theme.
-  At 24 logical pixels or smaller, prefer the `-symbolic` variant and use
-  `SymbolicIcon::fromTheme()` or `SymbolicIcon::wrap()`. Use regular variants
-  for larger icons.
+- Use Plasma's active icon theme via `QIcon::fromTheme()`; do not bundle or
+  hard-code a replacement icon theme. At 24 logical pixels or smaller, prefer
+  `-symbolic` variants and use `SymbolicIcon::fromTheme()` or
+  `SymbolicIcon::wrap()`. Use regular variants at larger sizes.
 - Store settings in KConfig and session state through
   `KSharedConfig::openStateConfig()`.
-- Keep tests isolated from the real home folder, trash and configuration. Use
+- Isolate tests from the real home folder, trash and configuration with
   `QTemporaryDir` and `QStandardPaths::setTestModeEnabled(true)`.
 
-## Roadmap and feature status
+## Roadmap
 
-- Preserve the roadmap's detailed milestone headings, subheadings and
-  individual feature bullets. Do not strike milestone headings, replace
-  feature lists with completion paragraphs, or add a "Done so far" summary.
-- Strikethrough (`~~...~~`) is the only roadmap completion marker. Strike an
-  individual feature only when its issue moves to **Completed** or is already
-  **Merged**. Features in **Review** or earlier remain unstruck, even if their
-  implementation is finished.
+- Keep the detailed milestone headings, subheadings and individual feature
+  bullets. Do not strike milestone headings, replace feature lists with
+  completion paragraphs or add a "Done so far" summary.
+- Use strikethrough (`~~...~~`) as the only feature completion marker. Strike
+  a feature only after its issue moves to **Completed** or is already
+  **Merged**. Leave features in **Review** or earlier unstruck, even when
+  implemented.
 - Before marking a feature complete, verify its implementation in the current
   checkout and check its issue status. Leave unimplemented or unverified
   features unstruck.
-- A completed feature may still have caveats. Strike it out, record each
-  outstanding caveat as described below, and reference those caveats at the
-  end of the milestone.
+- A completed feature can have caveats. Record each outstanding caveat as
+  described below and reference it at the end of the milestone; do not leave
+  an otherwise completed feature unstruck solely because of a caveat.
+- Keep the roadmap focused on the milestone and architecture plan. Put blocked
+  work and detailed handoffs in `docs/TODO.md` and link to them briefly from
+  the roadmap.
+
+## Project workflow
+
+Use the [Opus project board](https://github.com/users/mikepadiernos/projects/3)
+for milestone parent issues and feature sub-issues. Follow **Backlog →
+Defined → Development → Review → Completed → Merged**; never move an item
+backward.
+
+1. **Start a milestone:** Move its parent and not-yet-started feature issues
+   to Defined unless they are further along. Record the parent's **Start
+   date**.
+2. **Start a feature:** Move the feature and parent to Development unless
+   they are further along. Record the feature's **Start date**. Also move a
+   bug or caveat issue to Development when work starts, unless it is further
+   along.
+3. **Finish implementation:** Move the feature to Review, set its **Target
+   date** to the completion date and check it in the parent issue. Leave its
+   roadmap item unstruck.
+4. **Advance the previous feature:** When the next feature in the same
+   milestone enters Review, move the previous feature from Review to
+   Completed. Move the final feature to Completed when it is ready.
+5. **Complete an issue:** When moving an issue to Completed, close it with the
+   completed reason. For a milestone feature, strike its roadmap item in the
+   same change.
+6. **Complete a milestone:** When all feature items are struck, set the
+   parent issue's **Target date** to the completion date.
+7. **Merge:** When an issue's changes are merged into `main`, move it to
+   Merged and keep it closed as completed. After merging a feature-complete
+   milestone, close its parent and related feature issues as completed and
+   move them to Merged. Leave unresolved bug and caveat issues open.
 
 ## Issues and caveats
 
 - Prefix user-reported bug titles with `[bug] ` and apply the `bug` label.
-- Prefix reports arising from documented caveats with `[caveat] ` and apply the
-  `caveat` label.
-- When work on a milestone, bug or caveat begins, move its issue to
-  **Development** on the project board, unless it is already further along.
-
-For every new or updated caveat, keep the documentation, issue and
-recommendation aligned:
-
-1. Describe the limitation and a practical recommendation in `docs/CAVEATS.md`.
-   Distinguish current behaviour from workarounds and proposed improvements.
-2. Link the caveat and its `[caveat]` issue to each other, and add the issue
-   to the project board.
-3. Post the recommendation as an issue comment and link to it from the
-   document. If the recommendation changes, update that comment rather than
-   leaving conflicting guidance.
+- Add reported bugs to `docs/BUGS.md` and update their status there when it
+  changes. Verify the issue and project status before recording completion.
+- Prefix caveat report titles with `[caveat] ` and apply the `caveat` label.
+- For each new or updated caveat:
+  1. Describe the limitation and a practical recommendation in
+     `docs/CAVEATS.md`. Distinguish current behaviour from workarounds and
+     proposed improvements.
+  2. Link the caveat and its `[caveat]` issue to each other, and add the issue
+     to the project board.
+  3. Post the recommendation as an issue comment and link to it from the
+     document. Update the comment when the recommendation changes; do not
+     leave conflicting guidance.
 
 ## Branches and merging
 
@@ -80,53 +113,54 @@ recommendation aligned:
 - For a fixed bug or caveat, likewise commit changes by scope, push its branch
   and merge it into `main`.
 
+## Blocked and pending tasks
+
+- When a task cannot be performed, record it in `docs/TODO.md` with the
+  blocker, relevant milestone or issue, confirmed state and actionable steps
+  for resuming. Add a brief link to the relevant TODO section in the roadmap
+  near the affected milestone, or in Tracking for cross-cutting work.
+- For blocked GitHub Projects access, record the affected issues, intended
+  board actions and relevant dates in TODO. Do not strike a feature before
+  its issue is confirmed in Completed or Merged.
+- When work resumes, verify the current state before acting. Reconcile project
+  and issue states without moving items backward. Update or remove resolved
+  TODO entries and remove their roadmap references when no longer needed.
+  Pending tasks and their references are not completion markers.
+
 ## Unattended milestone work
 
-When the user explicitly requests milestone work without interaction, continue
-without asking for routine confirmation: complete and verify every feature in
-the current milestone, follow the project workflow, and merge the milestone
-into `main`. Then proceed to the next incomplete roadmap milestone in order and
-repeat until all milestones are complete and merged or the user stops the work.
+When the user explicitly requests milestone work without interaction:
+
+1. Complete and verify every feature in the current milestone, follow the
+   project workflow and merge the milestone into `main`, without asking for
+   routine confirmation.
+2. Proceed to the next incomplete roadmap milestone in order and repeat until
+   all milestones are complete and merged or the user stops the work.
 
 Do not treat unfinished or unverified work as complete. If an essential action
-is blocked and cannot be resolved without user input or required approval, report
-the blocker and pending work rather than claiming completion. Handle blocked
-GitHub Projects access as described below.
+cannot be resolved without user input or required approval, record the pending
+work as described above and report the blocker rather than claiming completion.
 
-## Project workflow
+## GitHub API requests
 
-Use the [Opus project board](https://github.com/users/mikepadiernos/projects/3)
-for milestone parent issues and feature sub-issues. The status sequence is
-**Backlog → Defined → Development → Review → Completed → Merged**. Do not move
-an item backward.
+Apply these practices to GitHub requests throughout the project:
 
-If GitHub Projects access is blocked, update `docs/ROADMAP.md` with a concise
-pending synchronization note identifying the affected issues, intended board
-actions and relevant dates. Do not use the note as a completion marker or
-strike a feature before its issue is confirmed in Completed or Merged. When
-access returns, check the current board and issue states, apply the pending
-actions without moving anything backward, and update the roadmap accordingly.
-Remove the note once synchronization is complete.
+- Use authenticated requests, preferably through `gh`. Tokens for the same
+  user share that user's rate limit.
+- Avoid concurrent API requests and pause at least one second between
+  mutations. Keep GraphQL queries focused, paginate results and request only
+  needed fields. Use REST where appropriate; its primary limit is separate
+  from GraphQL's, but it does not replace every Projects operation.
+- Check rate-limit response headers when needed. For a primary limit, wait
+  until `x-ratelimit-reset` before retrying. For a secondary limit, honor
+  `retry-after`; otherwise, if the remaining count is zero, wait until reset,
+  or wait at least one minute. Increase the delay exponentially if secondary
+  limits persist, stop after a bounded number of retries and report the blocker.
+  GraphQL can report rate-limit errors in a successful HTTP response, so check
+  the response body as well.
+- After a timeout or ambiguous mutation failure, check the current state before
+  retrying to avoid duplicate changes. If Projects access remains blocked,
+  record and reconcile the pending actions as described above.
 
-1. **Start a milestone:** Move its parent and not-yet-started feature issues
-   to Defined, without moving any more advanced item backward. Record the
-   parent's **Start date**.
-2. **Start a feature:** Move the feature and its parent to Development, unless
-   either is already further along. Record the feature's **Start date**.
-3. **Finish implementation:** Move the feature to Review, set its
-   **Target date** to the completion date and check it in the parent issue.
-   Leave its roadmap item unstruck.
-4. **Advance the previous feature:** When the next feature in the same
-   milestone moves to Review, move the previous feature from Review to
-   Completed. Once the final feature is ready to finish, move it from Review to
-   Completed as well.
-5. **Complete an issue:** When moving an issue to Completed, close it with the
-   completed reason. For a milestone feature, also strike its roadmap item in
-   the same change.
-6. **Complete a milestone:** When every feature is struck out, set the parent
-   issue's **Target date** to the completion date.
-7. **Merge:** When an issue's changes are merged into `main`, move the issue to
-   Merged and keep it closed with the completed reason. Once a feature-complete
-   milestone is merged, close its parent and related feature issues as
-   completed and move them to Merged. Keep unresolved bug and caveat issues
-   open.
+See GitHub's [REST rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api)
+and [GraphQL rate limits](https://docs.github.com/en/graphql/overview/rate-limits-and-query-limits-for-the-graphql-api).
