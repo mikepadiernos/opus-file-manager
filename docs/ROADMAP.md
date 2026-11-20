@@ -446,10 +446,10 @@ Settings for M09 tools, stored in KConfig.
   pane's values to that pane and keep operation errors visible even when
   optional indicators are hidden. Reuse the existing status-bar preferences.
   (Directory Opus, Dolphin)~~
-- Save and reset pane and panel splitter sizes, including preview, editor and
+- ~~Save and reset pane and panel splitter sizes, including preview, editor and
   terminal areas, independently for side-by-side and stacked layouts. Restore
   sizes safely within the available window; preserve both file panes and
-  coordinate with session restore and workspace layouts. (Max)
+  coordinate with session restore and workspace layouts. (Max)~~
 - ~~Customize the preview and gallery background for transparent images:
   follow the active Plasma theme, or choose light, dark or checkerboard.
   Keep the image data unchanged. (Directory Opus)~~
