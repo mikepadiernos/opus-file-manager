@@ -20,12 +20,14 @@ Potential scenarios awaiting investigation are tracked separately in
 | [#444](https://github.com/mikepadiernos/opus-file-manager/issues/444) | KDE toolbar editor separators and spacers do not match the toolbar | Yes | Merged |
 | [#446](https://github.com/mikepadiernos/opus-file-manager/issues/446) | Metadata editing fails with an unusable ExifTool installation | Yes | Merged |
 | [#457](https://github.com/mikepadiernos/opus-file-manager/issues/457) | Embedded terminal panel controls and background blur | Yes | Merged |
-| [#476](https://github.com/mikepadiernos/opus-file-manager/issues/476) | Toolbar context menus and symbolic icons | No | Backlog |
+| [#476](https://github.com/mikepadiernos/opus-file-manager/issues/476) | Toolbar context menus and symbolic icons | Yes | Completed |
 
 ## Status legend
 
 - **Completed**: issue is closed and marked completed, but not necessarily merged.
 - **Merged**: issue has been merged into `main`.
+- **Review**: implementation is ready for review.
+- **Development**: work is in progress.
 - **Backlog**: issue has been recorded on the project board but work has not
   started.
 - **Untriaged**: issue has been logged locally but has not yet been created or
@@ -42,10 +44,14 @@ Potential scenarios awaiting investigation are tracked separately in
 
 ## Open reports
 
+None.
+
+## Completed reports
+
 ### Toolbar context menus and symbolic icons
 
 - Severity: not assessed
-- Status: Backlog; [#476](https://github.com/mikepadiernos/opus-file-manager/issues/476)
+- Status: Completed; [#476](https://github.com/mikepadiernos/opus-file-manager/issues/476)
 - Summary: The view mode button should use a symbolic icon consistent with
   other small toolbar controls. The reporter also observes a full-colour
   Open Editor icon and requests the symbolic icon used on the Editor settings
@@ -58,14 +64,14 @@ Potential scenarios awaiting investigation are tracked separately in
   toolbar and each pane toolbar with relevant entries, including an option to
   open Preferences → Interface → Toolbars. Preserve existing action-specific
   context menus, view-mode, editor and toolbar customization behaviour.
-- Investigation: The pane's view mode button already requests
-  `view-list-details` through `SymbolicIcon::fromTheme`; the separate
-  `toggle_view_mode` action requests regular icons directly. Identify the
-  affected visible button and verify its rendered icon. `open_editor` requests
-  `accessories-text-editor`, whereas the Editor settings page uses
-  `view-pim-notes`. Check other editor-related actions for the same mismatch.
-
-## Completed reports
+- Investigation: The customizer overwrote the pane view and sort buttons'
+  symbolic icons from their empty widget-action icons. The separate
+  `toggle_view_mode` action requested regular icons directly. `open_editor`
+  requested `accessories-text-editor`, whereas the Editor settings page uses
+  `view-pim-notes`. Other editor actions were reviewed for the same mismatch.
+- Resolution: Preserve widget-action icons, use theme-aware view and editor
+  icons, and provide toolbar-specific context menus with settings access and
+  the existing KDE toolbar options.
 
 ### Embedded terminal panel controls and background blur
 

@@ -84,8 +84,10 @@ reconfigure with `-DBUILD_TESTING=ON` to run them.
   pane, and save or reset splitter sizes by orientation. Change combined panel
   section order, visibility and titles.
 - **Toolbars:** Configure the main and pane toolbars and hamburger menu, choose
-  button appearance and lock editing. Saved scripts and commands can become
-  toolbar buttons; running them still requires preview and confirmation.
+  button appearance and lock editing. Toolbar context menus provide editing
+  and settings access; the main toolbar also retains KDE's toolbar options.
+  Saved scripts and commands can become toolbar buttons; running them still
+  requires preview and confirmation.
 - **Tabs and status:** Position tab bars per pane and layout, or keep them
   together between stacked panes. Show or hide close buttons and configure
   status-bar indicators and their order.
@@ -134,7 +136,7 @@ results; automatic transfer overwrite can replace files without asking.
 
 See [caveats and limitations](docs/CAVEATS.md) for feature restrictions,
 dependencies, precautions and workarounds, and [reported bugs](docs/BUGS.md)
-for open issues, including the toolbar context-menu and icon report.
+for open issues.
 [Edge cases](docs/EDGE.md) lists potential scenarios for investigation; they
 are not confirmed bugs.
 
