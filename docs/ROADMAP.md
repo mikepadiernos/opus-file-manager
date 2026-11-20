@@ -529,17 +529,21 @@ Settings for M11 UI customizations, stored in KConfig.
 Settings for M13 translations, stored in KConfig.
 
 - **Language**
-  - **Interface:** follow the system language or select an interface language
-  - **Regional formats:** follow the system locale or select a locale for
-    dates and numbers independently of the interface language
+  - ~~**Interface:** follow the system language or select an interface language~~
+  - ~~**Regional formats:** follow the system locale or select a locale for
+    dates and numbers independently of the interface language~~
 - **Dates**
-  - **Calendar:** calendar for dates: Gregorian or Jalali
-  - **Format:** custom date and time formats, with clear precedence over the
-    listing date-format defaults from M04
+  - ~~**Calendar:** calendar for dates: Gregorian or Jalali~~
+  - ~~**Format:** custom date and time formats, with clear precedence over the
+    listing date-format defaults from M04~~
 - **Layout**
-  - **Direction:** follow the language or force left-to-right or right-to-left
-  - **Digits:** digit shapes and custom numeral formats, including Western or
-    Eastern Arabic-Indic digits
+  - ~~**Direction:** follow the language or force left-to-right or right-to-left~~
+  - ~~**Digits:** digit shapes and custom numeral formats, including Western or
+    Eastern Arabic-Indic digits~~
+
+**Caveats:** [Jalali dates](CAVEATS.md#jalali-dates), tracked in [#436];
+[translation format overrides](CAVEATS.md#translation-format-overrides),
+tracked in [#440].
 
 ### M15 Advanced search
 
@@ -1121,7 +1125,7 @@ upstream source could not be verified for this review.
 
 ## Tracking
 
-Translation settings handoff: [pending tasks](TODO.md#complete-m14-translation-settings).
+MVP release handoff: [pending tasks](TODO.md#mvp-release).
 
 Follow the [project instructions](../CLAUDE.md) for issue tracking, completion,
 branching and merging. Record blocked work in [pending tasks](TODO.md) and

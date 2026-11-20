@@ -14,7 +14,8 @@ for details and precautions. For planned work and status, see the
   [folder metadata and listings](#folder-metadata-and-listings),
   [planned password-gated folders](#planned-password-gated-folders),
   [previews and gallery](#previews-and-gallery), [editor](#editor),
-  [Jalali dates](#jalali-dates)
+  [Jalali dates](#jalali-dates),
+  [translation format overrides](#translation-format-overrides)
 - **Search and operations:** [Search](#search), [batch rename](#batch-rename),
   [metadata editing](#metadata-editing), [transfer queue](#transfer-queue),
   [custom commands](#custom-commands), [symbolic links](#symbolic-links),
@@ -33,17 +34,38 @@ for details and precautions. For planned work and status, see the
 
 ## Jalali dates
 
-With a Persian regional locale, Opus's date displays use the Jalali calendar,
-except for the explicitly selected ISO 8601 listing format, which is
-Gregorian. KDE controls dates in its own dialogs and tooltips, and the
+With a Persian regional locale or an explicit Jalali calendar override,
+Opus's date displays use the Jalali calendar. With the automatic calendar,
+the ISO 8601 listing format remains Gregorian; an explicit calendar override
+takes precedence. KDE controls dates in its own dialogs and tooltips, and the
 additional file information shown under icons in icon and compact views uses
 KDE's `KFileItemDelegate`; these dates may remain Gregorian.
 ([#436](https://github.com/mikepadiernos/opus-file-manager/issues/436))
 
 - **Recommendation:** Use Details view or the Opus Information panel for
-  Jalali dates, with the listing date format set to Locale rather than ISO
-  8601. Verify the calendar before interpreting KDE-provided dates.
+  Jalali dates. Select Jalali explicitly, or use a Persian regional locale
+  with the automatic calendar and a Locale listing format. Verify the calendar
+  before interpreting KDE-provided dates.
   - Comment: [#436.7041290164](https://github.com/mikepadiernos/opus-file-manager/issues/436#issuecomment-7041290164)
+
+## Translation format overrides
+
+The regional locale and custom digit shapes do not control every display.
+Opus applies digit shapes to its file dates, listing sizes, preview line
+numbers and selected gallery and chart fields. Other text and numbers,
+editable Qt controls, KDE-provided details and dialogs, and separately
+embedded applications can use their own locale or desktop settings. With a
+C/POSIX message locale, an explicitly selected non-English interface language
+also requires an installed non-C UTF-8 message locale; Opus warns and follows
+the system language if none can be used.
+([#440](https://github.com/mikepadiernos/opus-file-manager/issues/440))
+
+- **Recommendation:** Use Details view or the Information panel for
+  overridden file dates and verify other displays against the desktop locale.
+  Configure desktop regional settings for consistency elsewhere. If the
+  selected language is unavailable under C/POSIX, install a non-C UTF-8
+  system locale and restart Opus.
+  - Comment: [#440.7045227580](https://github.com/mikepadiernos/opus-file-manager/issues/440#issuecomment-7045227580)
 
 ## Archives
 
