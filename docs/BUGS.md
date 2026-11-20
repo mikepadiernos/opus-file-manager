@@ -15,7 +15,8 @@ A bug is considered complete only when its project status is **Completed** or
 | [#37](https://github.com/mikepadiernos/opus-file-manager/issues/37) | Combined panel header and accordion titles are misaligned | Yes | Merged |
 | [#378](https://github.com/mikepadiernos/opus-file-manager/issues/378) | Embedded Konsole terminal does not honor profile background blur | Yes | Merged |
 | [#383](https://github.com/mikepadiernos/opus-file-manager/issues/383) | Editor settings should use the notepad symbolic icon | Yes | Merged |
-| [#444](https://github.com/mikepadiernos/opus-file-manager/issues/444) | Tree separators and spacing do not reflect expansion state | No | Backlog |
+| [#444](https://github.com/mikepadiernos/opus-file-manager/issues/444) | Separators and expanded space are not reflected | No | Development |
+| [#446](https://github.com/mikepadiernos/opus-file-manager/issues/446) | Metadata editing fails with an unusable ExifTool installation | No | Backlog |
 
 ## Status legend
 
@@ -65,26 +66,15 @@ is mostly green: 68 of 70 tests passed.
 ### Separators and expanded spacing do not reflect the current tree state
 
 - Severity: medium
-- Status: Backlog; [#444](https://github.com/mikepadiernos/opus-file-manager/issues/444)
-  is awaiting triage
-- Summary: In the folder tree and pane layout, the visible separators and
-  spacing do not reflect the current hierarchy or expansion state. The UI looks
-  stale or visually inconsistent even when the underlying folder model is valid.
-- Evidence: the attached screenshot shows a dark-themed tree where the row
-  spacing, separators and indentation do not align with the expanded folders and
-  navigation structure.
-- Expected behaviour: the tree should draw consistent indentation, visible
-  separators and expanded spacing that match each item's depth and open or
-  collapsed state.
-- Actual behaviour: the separators and spacing appear frozen or ignored, which
-  makes the hierarchy hard to interpret and visually inconsistent with the
-  content being displayed.
-- Likely area to inspect: the tree delegate, row-height calculations,
-  indentation metrics and custom drawing for expand/collapse indicators or
-  panel separators in the combined Places/Folders view.
-- Recommended fix: validate layout metrics against the active model depth,
-  repaint separators when items expand or collapse and confirm that visual
-  spacing matches the delegated values instead of static hard-coded spacing.
+- Status: Development; [#444](https://github.com/mikepadiernos/opus-file-manager/issues/444)
+  remains open pending clarification.
+- Report: separators and expanded space are not reflecting in the displayed UI.
+- Evidence: the original screenshot shows a main toolbar, Explorer panel and
+  details-view folder tree, but does not identify which separator or spacer was
+  configured or show the settings used. The earlier tree-specific diagnosis was
+  speculative. A synthetic tree height check did not reproduce a failure.
+- Follow-up: See [pending tasks](TODO.md#clarify-separators-and-expanded-space-444)
+  for the reproduction details needed before a fix can be verified.
 
 ## Completed reports
 
