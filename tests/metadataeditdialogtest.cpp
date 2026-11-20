@@ -5,6 +5,7 @@
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QFile>
 #include <QImage>
 #include <QLabel>
 #include <QLineEdit>
@@ -61,6 +62,34 @@ private Q_SLOTS:
         auto *status = dialog.findChild<QLabel *>(QStringLiteral("metadataStatus"));
         QTRY_VERIFY_WITH_TIMEOUT(status->text().contains(QStringLiteral("updated and verified")), 15000);
         QCOMPARE(MetadataEditor::read(path).values.value(QStringLiteral("Artist")), QStringLiteral("Changed artist"));
+    }
+
+    void showsUnusableExifToolError()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QString tool = root.filePath(QStringLiteral("exiftool"));
+        QFile script(tool);
+        QVERIFY(script.open(QIODevice::WriteOnly));
+        QVERIFY(script.write("#!/bin/sh\necho 'Cannot load Image/ExifTool.pm' >&2\nexit 1\n") > 0);
+        script.close();
+        QVERIFY(script.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+        const QString path = root.filePath(QStringLiteral("image.jpg"));
+        QImage image(4, 4, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        QVERIFY(image.save(path));
+        const QByteArray oldPath = qgetenv("PATH");
+        const bool hadPath = qEnvironmentVariableIsSet("PATH");
+        const auto restore = qScopeGuard([&] {
+            hadPath ? qputenv("PATH", oldPath) : qunsetenv("PATH");
+        });
+        QVERIFY(qputenv("PATH", QFile::encodeName(root.path())));
+        MetadataEditDialog dialog(path);
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("metadataStatus"));
+        QTRY_VERIFY(status->text().contains(QStringLiteral("Cannot load Image/ExifTool.pm")));
+        QVERIFY(status->text().contains(tool));
+        QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("metadataPreview"))->isEnabled());
+        QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("metadataApply"))->isEnabled());
     }
 
     void hidesInitialFieldsWithoutChangingTheirValues()

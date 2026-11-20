@@ -6,6 +6,7 @@
 #include <QImage>
 #include <QImageWriter>
 #include <QProcess>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -67,6 +68,38 @@ private Q_SLOTS:
         const QString hardlink = root.filePath(QStringLiteral("hardlink"));
         QCOMPARE(::link(QFile::encodeName(path).constData(), QFile::encodeName(hardlink).constData()), 0);
         QVERIFY(!MetadataEditor::read(path).error.isEmpty());
+    }
+
+    void reportsUnusableExifTool()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QString tool = root.filePath(QStringLiteral("exiftool"));
+        QFile script(tool);
+        QVERIFY(script.open(QIODevice::WriteOnly));
+        QVERIFY(script.write("#!/bin/sh\necho 'Cannot load Image/ExifTool.pm' >&2\nexit 1\n") > 0);
+        script.close();
+        QVERIFY(script.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+        const QString path = root.filePath(QStringLiteral("photo.jpg"));
+        QImage image(4, 4, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        QVERIFY(image.save(path));
+        const QByteArray oldPath = qgetenv("PATH");
+        const bool hadPath = qEnvironmentVariableIsSet("PATH");
+        const auto restore = qScopeGuard([&] {
+            hadPath ? qputenv("PATH", oldPath) : qunsetenv("PATH");
+        });
+        QVERIFY(qputenv("PATH", QFile::encodeName(root.path())));
+        const QString error = MetadataEditor::read(path).error;
+        QVERIFY2(error.contains(tool), qPrintable(error));
+        QVERIFY2(error.contains(QStringLiteral("Cannot load Image/ExifTool.pm")), qPrintable(error));
+
+        QVERIFY(script.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        QVERIFY(script.write("#!/bin/sh\nexit 42\n") > 0);
+        script.close();
+        const QString silentError = MetadataEditor::read(path).error;
+        QVERIFY2(silentError.contains(tool), qPrintable(silentError));
+        QVERIFY2(silentError.contains(QStringLiteral("42")), qPrintable(silentError));
     }
 
     void editsMp3Tags()
