@@ -2,6 +2,7 @@
 
 #include "contentchartdialog.h"
 #include "cushiontreemap.h"
+#include "settings.h"
 
 #include <KIO/DirectorySizeJob>
 #include <KIO/Global>
@@ -9,12 +10,16 @@
 #include <KIO/UDSEntry>
 #include <KLocalizedString>
 
+#include <QCheckBox>
+#include <QComboBox>
 #include <QDialogButtonBox>
+#include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
 #include <QLocale>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QSplitter>
 #include <QStyle>
 #include <QStyleOptionProgressBar>
@@ -27,6 +32,32 @@
 
 namespace
 {
+class ChartRow : public QTreeWidgetItem
+{
+public:
+    using QTreeWidgetItem::QTreeWidgetItem;
+
+    bool operator<(const QTreeWidgetItem &other) const override
+    {
+        const QTreeWidget *tree = treeWidget();
+        if (tree->property("listingOrder").toBool()) {
+            return data(0, Qt::UserRole).toInt() < other.data(0, Qt::UserRole).toInt();
+        }
+        if (tree->sortColumn() == 0) {
+            return QString::localeAwareCompare(text(0), other.text(0)) < 0;
+        }
+        const QVariant left = data(1, Qt::UserRole);
+        const QVariant right = other.data(1, Qt::UserRole);
+        if (left.isValid() != right.isValid()) {
+            return tree->header()->sortIndicatorOrder() == Qt::AscendingOrder ? left.isValid() : !left.isValid();
+        }
+        if (!left.isValid()) {
+            return QString::localeAwareCompare(text(0), other.text(0)) < 0;
+        }
+        return left.toULongLong() < right.toULongLong();
+    }
+};
+
 class ShareDelegate : public QStyledItemDelegate
 {
 public:
@@ -87,6 +118,20 @@ ContentChartDialog::ContentChartDialog(const QUrl &folder, QWidget *parent)
     m_tree->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     m_tree->header()->setSectionResizeMode(2, QHeaderView::Stretch);
     m_tree->setItemDelegateForColumn(2, new ShareDelegate(m_tree));
+    auto *controls = new QHBoxLayout;
+    auto *showTreemap = new QCheckBox(i18nc("@option:check", "Show treemap"), this);
+    showTreemap->setObjectName(QStringLiteral("contentChartShowTreemap"));
+    showTreemap->setChecked(Settings::contentChartShowTreemap());
+    controls->addWidget(showTreemap);
+    controls->addWidget(new QLabel(i18nc("@label:listbox", "Sort:"), this));
+    auto *sort = new QComboBox(this);
+    sort->setObjectName(QStringLiteral("contentChartSort"));
+    sort->addItems(
+        {i18nc("@item:inlistbox", "As listed"), i18nc("@item:inlistbox", "Name"), i18nc("@item:inlistbox", "Size"), i18nc("@item:inlistbox", "Share")});
+    sort->setCurrentIndex(Settings::contentChartSort());
+    controls->addWidget(sort);
+    controls->addStretch();
+    layout->addLayout(controls);
     auto *hint = new QLabel(i18nc("@info", "Select a treemap tile to locate its entry; activate a folder in the list to inspect it."), this);
     hint->setWordWrap(true);
     layout->addWidget(hint);
@@ -96,6 +141,34 @@ ContentChartDialog::ContentChartDialog(const QUrl &folder, QWidget *parent)
     splitter->setStretchFactor(0, 1);
     splitter->setStretchFactor(1, 1);
     layout->addWidget(splitter);
+    m_treemap->setVisible(showTreemap->isChecked());
+    const auto updateHint = [hint](bool visible) {
+        hint->setText(visible ? i18nc("@info", "Select a treemap tile to locate its entry; activate a folder in the list to inspect it.")
+                              : i18nc("@info", "Activate a folder in the list to inspect it."));
+    };
+    updateHint(showTreemap->isChecked());
+    connect(showTreemap, &QCheckBox::toggled, m_treemap, &QWidget::setVisible);
+    connect(showTreemap, &QCheckBox::toggled, hint, updateHint);
+    const auto applySort = [this](int index) {
+        if (index == 0) {
+            m_tree->setSortingEnabled(false);
+            m_tree->setProperty("listingOrder", true);
+            m_tree->sortItems(0, Qt::AscendingOrder);
+            m_tree->setProperty("listingOrder", false);
+            m_tree->header()->setSortIndicatorShown(false);
+        } else {
+            m_tree->setSortingEnabled(true);
+            m_tree->sortItems(index - 1, Settings::contentChartSortDescending() ? Qt::DescendingOrder : Qt::AscendingOrder);
+        }
+    };
+    connect(sort, &QComboBox::currentIndexChanged, this, applySort);
+    connect(m_tree->header(), &QHeaderView::sortIndicatorChanged, sort, [this, sort](int column) {
+        if (!m_tree->property("listingOrder").toBool() && sort->currentIndex() != 0) {
+            const QSignalBlocker blocker(sort);
+            sort->setCurrentIndex(column + 1);
+        }
+    });
+    applySort(sort->currentIndex());
     connect(m_treemap, &CushionTreemap::activated, this, [this](int index) {
         m_tree->setCurrentItem(m_entries.at(index).row);
         m_tree->scrollToItem(m_entries.at(index).row);
@@ -122,7 +195,7 @@ ContentChartDialog::ContentChartDialog(const QUrl &folder, QWidget *parent)
             if (item.name() == QLatin1String(".") || item.name() == QLatin1String("..")) {
                 continue;
             }
-            auto *row = new QTreeWidgetItem(m_tree);
+            auto *row = new ChartRow(m_tree);
             row->setText(0, item.name());
             const int index = m_entries.size();
             m_entries.append({item, row});
@@ -137,6 +210,7 @@ ContentChartDialog::ContentChartDialog(const QUrl &folder, QWidget *parent)
                 m_entries[index].size = item.size();
                 m_entries[index].measured = true;
                 row->setText(1, KIO::convertSize(item.size()));
+                row->setData(1, Qt::UserRole, item.size());
             } else {
                 row->setText(1, i18nc("@info:status", "Size unavailable"));
                 ++m_skipped;
@@ -183,6 +257,7 @@ void ContentChartDialog::startSizes()
                 entry.size = job->totalSize();
                 entry.measured = true;
                 entry.row->setText(1, KIO::convertSize(entry.size));
+                entry.row->setData(1, Qt::UserRole, entry.size);
             }
             m_progress->setValue(++m_done);
             startSizes();

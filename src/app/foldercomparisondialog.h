@@ -8,6 +8,7 @@
 #include <QUrl>
 
 class QLabel;
+class QCheckBox;
 class QPushButton;
 class QTreeWidget;
 namespace KIO
@@ -29,6 +30,7 @@ Q_SIGNALS:
 private:
     void finish();
     void cancelJobs();
+    void updateVisibleCategories();
 
     QUrl m_folders[2];
     KIO::ListJob *m_jobs[2]{nullptr, nullptr};
@@ -38,4 +40,8 @@ private:
     QPushButton *m_cancel;
     QPushButton *m_select;
     QTreeWidget *m_results;
+    QCheckBox *m_showLeftOnly;
+    QCheckBox *m_showRightOnly;
+    QCheckBox *m_showDifferent;
+    QCheckBox *m_showMatching;
 };

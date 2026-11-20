@@ -2,12 +2,16 @@
 
 #include "foldercomparisondialog.h"
 
+#include "settings.h"
+
 #include <KIO/Global>
 #include <KIO/ListJob>
 #include <KIO/UDSEntry>
 #include <KLocalizedString>
 
+#include <QCheckBox>
 #include <QDialogButtonBox>
+#include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
 #include <QPushButton>
@@ -69,8 +73,12 @@ FolderComparisonDialog::FolderComparisonDialog(const QUrl &left, const QUrl &rig
     , m_folders{left, right}
     , m_status(new QLabel(i18nc("@info", "Listing both folders…"), this))
     , m_cancel(new QPushButton(i18nc("@action:button", "Cancel"), this))
-    , m_select(new QPushButton(i18nc("@action:button", "Select Differences in Panes"), this))
+    , m_select(new QPushButton(i18nc("@action:button", "Select Shown Differences in Panes"), this))
     , m_results(new QTreeWidget(this))
+    , m_showLeftOnly(new QCheckBox(i18nc("@option:check", "First only"), this))
+    , m_showRightOnly(new QCheckBox(i18nc("@option:check", "Second only"), this))
+    , m_showDifferent(new QCheckBox(i18nc("@option:check", "Different"), this))
+    , m_showMatching(new QCheckBox(i18nc("@option:check", "Matching"), this))
 {
     setObjectName(QStringLiteral("folderComparisonDialog"));
     setWindowTitle(i18nc("@title:window", "Compare Pane Folders"));
@@ -84,6 +92,21 @@ FolderComparisonDialog::FolderComparisonDialog(const QUrl &left, const QUrl &rig
     m_status->setTextFormat(Qt::PlainText);
     m_status->setWordWrap(true);
     layout->addWidget(m_status);
+    auto *categories = new QHBoxLayout;
+    m_showLeftOnly->setObjectName(QStringLiteral("folderComparisonShowLeftOnly"));
+    m_showRightOnly->setObjectName(QStringLiteral("folderComparisonShowRightOnly"));
+    m_showDifferent->setObjectName(QStringLiteral("folderComparisonShowDifferent"));
+    m_showMatching->setObjectName(QStringLiteral("folderComparisonShowMatching"));
+    m_showLeftOnly->setChecked(Settings::paneComparisonShowLeftOnly());
+    m_showRightOnly->setChecked(Settings::paneComparisonShowRightOnly());
+    m_showDifferent->setChecked(Settings::paneComparisonShowDifferent());
+    m_showMatching->setChecked(Settings::paneComparisonShowMatching());
+    for (QCheckBox *check : {m_showLeftOnly, m_showRightOnly, m_showDifferent, m_showMatching}) {
+        categories->addWidget(check);
+        connect(check, &QCheckBox::toggled, this, &FolderComparisonDialog::updateVisibleCategories);
+    }
+    categories->addStretch();
+    layout->addLayout(categories);
     m_results->setObjectName(QStringLiteral("folderComparisonResults"));
     m_results->setColumnCount(4);
     m_results->setHeaderLabels({i18nc("@title:column", "Name"),
@@ -157,23 +180,54 @@ void FolderComparisonDialog::finish()
         m_status->setText(comparison.error);
         return;
     }
-    int differing = 0;
     for (const FolderComparison::Row &row : comparison.rows) {
         auto *item = new QTreeWidgetItem(m_results);
         item->setText(0, row.name);
         item->setText(1, statusText(row.status));
         item->setText(2, describe(row.left));
         item->setText(3, describe(row.right));
-        if (FolderComparison::isDifference(row.status)) {
-            ++differing;
-            if (!row.left.isNull()) {
-                m_differences[0].append(row.left.url());
-            }
-            if (!row.right.isNull()) {
-                m_differences[1].append(row.right.url());
+        item->setData(0, Qt::UserRole, int(row.status));
+        item->setData(0, Qt::UserRole + 1, row.left.isNull() ? QUrl() : row.left.url());
+        item->setData(0, Qt::UserRole + 2, row.right.isNull() ? QUrl() : row.right.url());
+    }
+    updateVisibleCategories();
+    m_status->setText(i18nc("@info", "Compared immediate entries. Matching size and time do not prove equal contents; subfolders were not compared."));
+}
+
+void FolderComparisonDialog::updateVisibleCategories()
+{
+    m_differences[0].clear();
+    m_differences[1].clear();
+    for (int i = 0; i < m_results->topLevelItemCount(); ++i) {
+        auto *item = m_results->topLevelItem(i);
+        const auto status = static_cast<FolderComparison::Status>(item->data(0, Qt::UserRole).toInt());
+        bool visible = true;
+        switch (status) {
+        case FolderComparison::Status::LeftOnly:
+            visible = m_showLeftOnly->isChecked();
+            break;
+        case FolderComparison::Status::RightOnly:
+            visible = m_showRightOnly->isChecked();
+            break;
+        case FolderComparison::Status::MetadataMatches:
+        case FolderComparison::Status::LinkMatches:
+            visible = m_showMatching->isChecked();
+            break;
+        case FolderComparison::Status::BothFolders:
+        case FolderComparison::Status::Unknown:
+            break;
+        default:
+            visible = m_showDifferent->isChecked();
+        }
+        item->setHidden(!visible);
+        if (visible && FolderComparison::isDifference(status)) {
+            for (int side = 0; side < 2; ++side) {
+                const QUrl url = item->data(0, Qt::UserRole + 1 + side).toUrl();
+                if (!url.isEmpty()) {
+                    m_differences[side].append(url);
+                }
             }
         }
     }
-    m_select->setEnabled(differing > 0);
-    m_status->setText(i18nc("@info", "Compared immediate entries. Matching size and time do not prove equal contents; subfolders were not compared."));
+    m_select->setEnabled(!m_differences[0].isEmpty() || !m_differences[1].isEmpty());
 }
