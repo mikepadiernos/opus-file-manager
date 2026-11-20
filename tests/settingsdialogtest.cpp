@@ -929,10 +929,11 @@ private Q_SLOTS:
         auto *dropAction = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DropAction"));
         auto *previewLimit = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_MaximumPreviewSize"));
         auto *defaultView = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultViewMode"));
+        auto *showMinimap = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowFileListMinimap"));
         auto *showSelectionSize = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowSelectionSize"));
         auto *copyMoveMenus = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowCopyMoveToMenus"));
         QVERIFY(startupMode && homeUrl && tabsAfterCurrent && followLinks && dropAction && previewLimit);
-        QVERIFY(defaultView && showSelectionSize && copyMoveMenus);
+        QVERIFY(defaultView && showMinimap && showSelectionSize && copyMoveMenus);
 
         startupMode->setCurrentIndex(Settings::EnumStartupMode::FixedFolders);
         homeUrl->setUrl(QUrl::fromLocalFile(home.path()));
@@ -941,6 +942,7 @@ private Q_SLOTS:
         dropAction->setCurrentIndex(Settings::EnumDropAction::Copy);
         previewLimit->setValue(8);
         defaultView->setCurrentIndex(Settings::EnumDefaultViewMode::Icons);
+        showMinimap->setChecked(true);
         showSelectionSize->setChecked(false);
         copyMoveMenus->setChecked(true);
         dialog.findChild<QCheckBox *>(QStringLiteral("kioConfirmTrash"))->setChecked(true);
@@ -953,6 +955,7 @@ private Q_SLOTS:
         QVERIFY(config->group(QStringLiteral("Navigation")).readEntry("FollowSymlinks", false));
         QCOMPARE(config->group(QStringLiteral("Confirmations")).readEntry("DropAction", QString()), QStringLiteral("Copy"));
         QCOMPARE(config->group(QStringLiteral("Views")).readEntry("DefaultViewMode", QString()), QStringLiteral("Icons"));
+        QVERIFY(config->group(QStringLiteral("Views")).readEntry("ShowFileListMinimap", false));
         QVERIFY(!config->group(QStringLiteral("StatusBar")).readEntry("ShowSelectionSize", true));
         QVERIFY(config->group(QStringLiteral("ContextMenu")).readEntry("ShowCopyMoveToMenus", false));
 

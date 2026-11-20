@@ -73,6 +73,7 @@
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QScopeGuard>
+#include <QScrollBar>
 #include <QSignalSpy>
 #include <QSplitter>
 #include <QStandardPaths>
@@ -924,6 +925,60 @@ private Q_SLOTS:
         window.setStackedLayout(false);
         QCoreApplication::processEvents();
         QVERIFY(panes->sizes().at(0) > 0 && panes->sizes().at(1) > 0);
+    }
+
+    void fileListMinimapFollowsFilteredViewAndScrollPosition()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        for (int i = 0; i < 80; ++i) {
+            QFile file(
+                root.filePath(QStringLiteral("%1-%2.txt").arg(i < 40 ? QStringLiteral("keep") : QStringLiteral("hide")).arg(i, 3, 10, QLatin1Char('0'))));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.close();
+        }
+
+        const bool previous = Settings::showFileListMinimap();
+        const auto restoreSetting = qScopeGuard([previous] {
+            Settings::setShowFileListMinimap(previous);
+            Settings::self()->save();
+        });
+        Settings::setShowFileListMinimap(true);
+        Settings::self()->save();
+
+        FolderView view;
+        view.resize(460, 180);
+        view.setUrl(QUrl::fromLocalFile(root.path()));
+        view.show();
+        QTRY_COMPARE(view.itemCount(), 80);
+
+        auto *minimap = view.findChild<QWidget *>(QStringLiteral("fileListMinimap"));
+        QVERIFY(minimap);
+        QVERIFY(minimap->isVisible());
+        auto *scrollBar = view.currentView()->verticalScrollBar();
+        QTRY_VERIFY(scrollBar->maximum() > 0);
+        QTest::mouseClick(minimap, Qt::LeftButton, Qt::NoModifier, QPoint(minimap->width() / 2, minimap->height() - 1));
+        QCOMPARE(scrollBar->value(), scrollBar->maximum());
+
+        scrollBar->setValue(0);
+        QCoreApplication::processEvents();
+        const QImage unfilteredMap = minimap->grab().toImage();
+        view.setNameFilter(NameFilter(QStringLiteral("keep-")));
+        QTRY_COMPARE(view.itemCount(), 40);
+        QCoreApplication::processEvents();
+        QVERIFY(unfilteredMap != minimap->grab().toImage());
+
+        view.setNameFilter(NameFilter());
+        QTRY_COMPARE(view.itemCount(), 80);
+        view.setViewMode(FolderView::ViewMode::Icons);
+        auto *iconScrollBar = view.currentView()->verticalScrollBar();
+        QTRY_VERIFY(iconScrollBar->maximum() > 0);
+        QTest::mouseClick(minimap, Qt::LeftButton, Qt::NoModifier, QPoint(minimap->width() / 2, minimap->height() - 1));
+        QCOMPARE(iconScrollBar->value(), iconScrollBar->maximum());
+
+        Settings::setShowFileListMinimap(false);
+        view.reloadListingSettings();
+        QVERIFY(minimap->isHidden());
     }
 
     void informationPanelFollowsSelectionAndOptionalHover()

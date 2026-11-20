@@ -129,6 +129,10 @@
       <label>Show the full name of shortened items in a tooltip</label>
       <default>true</default>
     </entry>
+    <entry name="ShowFileListMinimap" type="Bool">
+      <label>Show a file-list minimap in each pane</label>
+      <default>false</default>
+    </entry>
     <entry name="ShowSizeColumn" type="Bool">
       <label>Show the Size column</label>
       <default>true</default>

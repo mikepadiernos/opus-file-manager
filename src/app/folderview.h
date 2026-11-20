@@ -19,6 +19,7 @@ class KDirSortFilterProxyModel;
 class KFilePreviewGenerator;
 class KFileItemDelegate;
 class DetailsView;
+class FileListMinimap;
 class NameFilterProxyModel;
 class QHeaderView;
 class QAbstractItemView;
@@ -133,6 +134,7 @@ public:
      * @param flat true for the flat list
      */
     void setFlat(bool flat);
+    void setFileListMinimapVisible(bool visible);
     /// Reloads the current folder's labels, colours, ratings, notes and pins.
     void reloadMetadata();
     bool hasFolderFormat() const;
@@ -231,6 +233,7 @@ private:
     bool m_sizeRefreshScheduled = false;
     QTimer *m_sizeRefreshTimer = nullptr;
     QStackedWidget *m_stack = nullptr;
+    FileListMinimap *m_minimap = nullptr;
     DetailsView *m_details = nullptr;
     QListView *m_icons = nullptr;
     QListView *m_compact = nullptr;

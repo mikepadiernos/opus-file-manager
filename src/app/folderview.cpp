@@ -4,6 +4,7 @@
 
 #include "detailsview.h"
 #include "filecolorrules.h"
+#include "filelistminimap.h"
 #include "fileoperations.h"
 #include "flatview.h"
 #include "foldermetadata.h"
@@ -841,7 +842,15 @@ FolderView::FolderView(QWidget *parent)
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(m_stack);
+    auto *viewLayout = new QHBoxLayout;
+    viewLayout->setContentsMargins(0, 0, 0, 0);
+    viewLayout->setSpacing(0);
+    viewLayout->addWidget(m_stack, 1);
+    m_minimap = new FileListMinimap(this);
+    m_minimap->setView(m_details);
+    viewLayout->addWidget(m_minimap);
+    layout->addLayout(viewLayout, 1);
+    m_minimap->setVisible(Settings::showFileListMinimap());
     m_selectionBar = new QWidget(this);
     m_selectionBar->setObjectName(QStringLiteral("selectionBar"));
     auto *barLayout = new QHBoxLayout(m_selectionBar);
@@ -1123,6 +1132,7 @@ void FolderView::setViewMode(ViewMode mode)
     }
     m_viewMode = mode;
     m_stack->setCurrentWidget(currentView());
+    m_minimap->setView(currentView());
     if (hadFocus) {
         currentView()->setFocus();
     }
@@ -1548,6 +1558,11 @@ void FolderView::setFlat(bool flat)
     }
 }
 
+void FolderView::setFileListMinimapVisible(bool visible)
+{
+    m_minimap->setVisible(visible);
+}
+
 void FolderView::reloadMetadata()
 {
     QString error;
@@ -1830,6 +1845,7 @@ void FolderView::reloadSettings()
 
 void FolderView::reloadListingSettings()
 {
+    setFileListMinimapVisible(Settings::showFileListMinimap());
     updateFolderSizeRefreshTimer();
     applyDetailsPreferences();
     applyCompactPreferences();

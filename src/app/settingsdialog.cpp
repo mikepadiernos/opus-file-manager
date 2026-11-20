@@ -887,6 +887,7 @@ QWidget *SettingsDialog::createViewGeneralPage()
     form->addRow(QString(), checkBox(QStringLiteral("SortDescending"), i18nc("@option:check", "Descending")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowHiddenFiles"), i18nc("@option:check", "Show hidden files in new windows")));
     form->addRow(i18nc("@title:group", "Sorting:"), checkBox(QStringLiteral("FoldersFirst"), i18nc("@option:check", "Folders before files")));
+    form->addRow(i18nc("@title:group", "File list:"), checkBox(QStringLiteral("ShowFileListMinimap"), i18nc("@option:check", "Show a minimap in each pane")));
     form->addRow(i18nc("@title:group", "Tooltips:"), checkBox(QStringLiteral("ShowToolTips"), i18nc("@option:check", "Show the full name of shortened items")));
     form->addRow(i18nc("@label:listbox", "Default grouping:"),
                  comboBox(QStringLiteral("GroupBy"),
