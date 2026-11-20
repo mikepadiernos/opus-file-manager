@@ -31,6 +31,7 @@
 #include <KDirModel>
 #include <KFileItemDelegate>
 #include <KFilePlacesView>
+#include <KSelectAction>
 #include <KSharedConfig>
 #include <KTextEditor/Document>
 
@@ -64,6 +65,7 @@
 #include <QSplitter>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <QStyle>
 #include <QTabBar>
 #include <QTemporaryDir>
 #include <QTest>
@@ -256,6 +258,114 @@ private Q_SLOTS:
         first->setUrl(QUrl::fromLocalFile(root.filePath(QStringLiteral("a/sub"))));
         QCOMPARE(second->url(), QUrl::fromLocalFile(root.filePath(QStringLiteral("b/sub"))));
         QVERIFY(link->isChecked());
+    }
+
+    void tabBarPlacementAndCloseButtonsFollowPaneAndLayout()
+    {
+        const int horizontalFirst = Settings::horizontalFirstTabPosition();
+        const int horizontalSecond = Settings::horizontalSecondTabPosition();
+        const int stackedFirst = Settings::stackedFirstTabPosition();
+        const int stackedSecond = Settings::stackedSecondTabPosition();
+        const bool together = Settings::stackedTabBarsTogether();
+        const bool closeButtons = Settings::showTabCloseButtons();
+        const auto restore = qScopeGuard([=] {
+            Settings::setHorizontalFirstTabPosition(horizontalFirst);
+            Settings::setHorizontalSecondTabPosition(horizontalSecond);
+            Settings::setStackedFirstTabPosition(stackedFirst);
+            Settings::setStackedSecondTabPosition(stackedSecond);
+            Settings::setStackedTabBarsTogether(together);
+            Settings::setShowTabCloseButtons(closeButtons);
+            Settings::self()->save();
+        });
+        Settings::setHorizontalFirstTabPosition(0);
+        Settings::setHorizontalSecondTabPosition(0);
+        Settings::setStackedFirstTabPosition(0);
+        Settings::setStackedSecondTabPosition(0);
+        Settings::setStackedTabBarsTogether(true);
+        Settings::setShowTabCloseButtons(true);
+
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        window.setStackedLayout(false);
+        auto *splitter = window.findChild<QSplitter *>(QStringLiteral("paneSplitter"));
+        QVERIFY(splitter);
+        auto *first = qobject_cast<Pane *>(splitter->widget(0));
+        auto *second = qobject_cast<Pane *>(splitter->widget(1));
+        QVERIFY(first && second);
+        first->setTabBarForcedVisible(true);
+        second->setTabBarForcedVisible(true);
+        if (window.activePane() != first) {
+            window.actionCollection()->action(QStringLiteral("switch_pane"))->trigger();
+        }
+        auto *position = qobject_cast<KSelectAction *>(window.actionCollection()->action(QStringLiteral("tab_bar_position")));
+        auto *stackedTogether = window.actionCollection()->action(QStringLiteral("stacked_tab_bars_together"));
+        auto *showClose = window.actionCollection()->action(QStringLiteral("show_tab_close_buttons"));
+        QVERIFY(position && stackedTogether && showClose);
+        QCOMPARE(position->actions().size(), 4);
+        position->actions().at(2)->trigger();
+        QCOMPARE(first->tabBarPosition(), Pane::TabBarPosition::Left);
+        QCOMPARE(second->tabBarPosition(), Pane::TabBarPosition::Top);
+        auto *firstBar = first->findChild<QTabBar *>();
+        QVERIFY(firstBar);
+        QTRY_VERIFY(firstBar->parentWidget()->geometry().right() < first->view()->geometry().left());
+        window.actionCollection()->action(QStringLiteral("switch_pane"))->trigger();
+        position->actions().at(3)->trigger();
+        QCOMPARE(second->tabBarPosition(), Pane::TabBarPosition::Right);
+        auto *secondBar = second->findChild<QTabBar *>();
+        QVERIFY(secondBar);
+        QTRY_VERIFY(secondBar->parentWidget()->geometry().left() > second->view()->geometry().right());
+        window.setStackedLayout(true);
+        QCOMPARE(first->tabBarPosition(), Pane::TabBarPosition::Bottom);
+        QCOMPARE(second->tabBarPosition(), Pane::TabBarPosition::Top);
+        position->actions().at(1)->trigger();
+        QVERIFY(!stackedTogether->isChecked());
+        QCOMPARE(first->tabBarPosition(), Pane::TabBarPosition::Top);
+        QCOMPARE(second->tabBarPosition(), Pane::TabBarPosition::Bottom);
+        window.setStackedLayout(false);
+        QCOMPARE(first->tabBarPosition(), Pane::TabBarPosition::Left);
+        QCOMPARE(second->tabBarPosition(), Pane::TabBarPosition::Right);
+        window.setStackedLayout(true);
+        QCOMPARE(first->tabBarPosition(), Pane::TabBarPosition::Top);
+        QCOMPARE(second->tabBarPosition(), Pane::TabBarPosition::Bottom);
+        stackedTogether->setChecked(true);
+        QCOMPARE(first->tabBarPosition(), Pane::TabBarPosition::Bottom);
+        QCOMPARE(second->tabBarPosition(), Pane::TabBarPosition::Top);
+
+        const int initialTabs = second->tabs()->count();
+        second->openInNewTab(m_c, true);
+        auto *tabBar = second->findChild<QTabBar *>();
+        QVERIFY(tabBar);
+        QTRY_COMPARE(tabBar->count(), initialTabs + 1);
+        const int lockedIndex = second->tabs()->currentIndex();
+        second->tabs()->setPinned(0, true);
+        second->tabs()->setLocked(lockedIndex, true);
+        showClose->setChecked(false);
+        QVERIFY(!tabBar->tabsClosable());
+        QVERIFY(tabBar->isVisible());
+        Q_EMIT tabBar->tabCloseRequested(0);
+        Q_EMIT tabBar->tabCloseRequested(lockedIndex);
+        QCOMPARE(second->tabs()->count(), initialTabs + 1);
+        showClose->setChecked(true);
+        const auto closeSide = static_cast<QTabBar::ButtonPosition>(tabBar->style()->styleHint(QStyle::SH_TabBar_CloseButtonPosition, nullptr, tabBar));
+        QVERIFY(tabBar->tabButton(0, closeSide) && !tabBar->tabButton(0, closeSide)->isVisible());
+        QVERIFY(tabBar->tabButton(lockedIndex, closeSide) && !tabBar->tabButton(lockedIndex, closeSide)->isVisible());
+        showClose->setChecked(false);
+        second->tabs()->setLocked(lockedIndex, false);
+        auto *closeTab = window.actionCollection()->action(QStringLiteral("close_tab"));
+        QTRY_VERIFY(closeTab->isEnabled());
+        closeTab->trigger();
+        QCOMPARE(second->tabs()->count(), initialTabs);
+
+        MainWindow restored;
+        restored.openUrls({m_a, m_b});
+        restored.show();
+        restored.setStackedLayout(false);
+        auto *restoredSplitter = restored.findChild<QSplitter *>(QStringLiteral("paneSplitter"));
+        QVERIFY(restoredSplitter);
+        QCOMPARE(qobject_cast<Pane *>(restoredSplitter->widget(0))->tabBarPosition(), Pane::TabBarPosition::Left);
+        QCOMPARE(qobject_cast<Pane *>(restoredSplitter->widget(1))->tabBarPosition(), Pane::TabBarPosition::Right);
     }
 
     void splitterSizesAreSavedPerLayout()

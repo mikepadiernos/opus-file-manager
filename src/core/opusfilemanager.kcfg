@@ -491,6 +491,12 @@
     <entry name="TabIcons" key="ShowIcons" type="Bool"><default>true</default></entry>
     <entry name="ExpandTabs" key="Expand" type="Bool"><default>true</default></entry>
     <entry name="ShowTabColors" type="Bool"><default>true</default></entry>
+    <entry name="ShowTabCloseButtons" type="Bool"><default>true</default></entry>
+    <entry name="StackedTabBarsTogether" type="Bool"><default>true</default></entry>
+    <entry name="HorizontalFirstTabPosition" type="Int"><default>0</default><min>0</min><max>3</max></entry>
+    <entry name="HorizontalSecondTabPosition" type="Int"><default>0</default><min>0</min><max>3</max></entry>
+    <entry name="StackedFirstTabPosition" type="Int"><default>0</default><min>0</min><max>3</max></entry>
+    <entry name="StackedSecondTabPosition" type="Int"><default>0</default><min>0</min><max>3</max></entry>
   </group>
   <group name="Archives">
     <entry name="DefaultArchiveFormat" key="DefaultFormat" type="Int">

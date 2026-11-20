@@ -145,6 +145,7 @@ private:
     void restoreSplitterSizes(bool panes = true, bool workspace = true, bool defaultsIfMissing = false);
     void resetSplitterSizes();
     void restoreEditorDockSize();
+    void updateTabBarPlacement();
     void splitFile();
     void combineFiles();
     void setupEditor();

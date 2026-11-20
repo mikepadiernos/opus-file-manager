@@ -66,11 +66,11 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     addTab->setToolTip(i18nc("@info:tooltip", "Open a new tab"));
     connect(addTab, &QToolButton::clicked, this, &Pane::newTab);
 
-    auto *stripLayout = new QHBoxLayout(m_tabStrip);
-    stripLayout->setContentsMargins(0, 0, 0, 0);
-    stripLayout->setSpacing(0);
-    stripLayout->addWidget(m_tabBar, 1);
-    stripLayout->addWidget(addTab);
+    m_stripLayout = new QHBoxLayout(m_tabStrip);
+    m_stripLayout->setContentsMargins(0, 0, 0, 0);
+    m_stripLayout->setSpacing(0);
+    m_stripLayout->addWidget(m_tabBar, 1);
+    m_stripLayout->addWidget(addTab);
 
     const auto configureButton = [](QToolButton *button, const QString &icon, const QString &tooltip) {
         button->setAutoRaise(true);
@@ -95,9 +95,13 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     pathRow->addWidget(m_reload);
     pathRow->addWidget(m_navigator, 1);
 
-    m_layout = new QVBoxLayout(this);
+    m_outerLayout = new QHBoxLayout(this);
+    m_outerLayout->setContentsMargins(0, 0, 0, 0);
+    m_outerLayout->setSpacing(0);
+    m_layout = new QVBoxLayout;
     m_layout->setContentsMargins(0, 0, 0, 0);
     m_layout->setSpacing(0);
+    m_outerLayout->addLayout(m_layout, 1);
     m_layout->addWidget(m_tabStrip);
     m_layout->addWidget(m_navigationBar);
     m_layout->addWidget(m_view, 1);
@@ -335,9 +339,34 @@ void Pane::setTabBarForcedVisible(bool visible)
 
 void Pane::setTabBarAtBottom(bool atBottom)
 {
-    m_tabBar->setShape(atBottom ? QTabBar::RoundedSouth : QTabBar::RoundedNorth);
+    setTabBarPosition(atBottom ? TabBarPosition::Bottom : TabBarPosition::Top);
+}
+
+void Pane::setTabBarPosition(TabBarPosition position)
+{
+    const bool vertical = position == TabBarPosition::Left || position == TabBarPosition::Right;
+    switch (position) {
+    case TabBarPosition::Top:
+        m_tabBar->setShape(QTabBar::RoundedNorth);
+        break;
+    case TabBarPosition::Bottom:
+        m_tabBar->setShape(QTabBar::RoundedSouth);
+        break;
+    case TabBarPosition::Left:
+        m_tabBar->setShape(QTabBar::RoundedWest);
+        break;
+    case TabBarPosition::Right:
+        m_tabBar->setShape(QTabBar::RoundedEast);
+        break;
+    }
+    m_stripLayout->setDirection(vertical ? QBoxLayout::TopToBottom : QBoxLayout::LeftToRight);
     m_layout->removeWidget(m_tabStrip);
-    m_layout->insertWidget(atBottom ? m_layout->count() : 0, m_tabStrip);
+    m_outerLayout->removeWidget(m_tabStrip);
+    if (vertical) {
+        m_outerLayout->insertWidget(position == TabBarPosition::Left ? 0 : m_outerLayout->count(), m_tabStrip);
+    } else {
+        m_layout->insertWidget(position == TabBarPosition::Top ? 0 : m_layout->count(), m_tabStrip);
+    }
 }
 
 bool Pane::isTabBarAtBottom() const
@@ -345,6 +374,19 @@ bool Pane::isTabBarAtBottom() const
     return m_tabBar->shape() == QTabBar::RoundedSouth;
 }
 
+Pane::TabBarPosition Pane::tabBarPosition() const
+{
+    switch (m_tabBar->shape()) {
+    case QTabBar::RoundedSouth:
+        return TabBarPosition::Bottom;
+    case QTabBar::RoundedWest:
+        return TabBarPosition::Left;
+    case QTabBar::RoundedEast:
+        return TabBarPosition::Right;
+    default:
+        return TabBarPosition::Top;
+    }
+}
 void Pane::setNavigationBarVisible(bool visible)
 {
     m_navigationBar->setVisible(visible);
@@ -546,14 +588,15 @@ void Pane::syncTabBar()
 
 void Pane::updateTabStripVisibility()
 {
-    const bool closable = m_tabs->count() > 1;
+    const bool multipleTabs = m_tabs->count() > 1;
+    const bool closable = multipleTabs && Settings::showTabCloseButtons();
     if (m_tabBar->tabsClosable() != closable) {
         m_tabBar->setTabsClosable(closable);
         for (int i = 0; i < m_tabBar->count(); ++i) {
             updateTabText(i);
         }
     }
-    m_tabStrip->setVisible(m_tabBarForced || closable);
+    m_tabStrip->setVisible(m_tabBarForced || multipleTabs);
 }
 
 PaneSession Pane::saveState() const
@@ -605,6 +648,7 @@ void Pane::reloadTabSettings()
 {
     m_showTabIcons = Settings::tabIcons();
     m_tabBar->setExpanding(Settings::expandTabs());
+    updateTabStripVisibility();
     for (int index = 0; index < m_tabBar->count(); ++index) {
         updateTabText(index);
     }

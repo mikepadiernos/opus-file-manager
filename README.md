@@ -44,6 +44,7 @@ for file operations, Places, properties, settings and desktop integration.
   separately for side-by-side and stacked panes.
 - Reorder, rename or hide sections of the combined Places/Folders panel from
   the View menu.
+- Position each pane's tab bar and choose whether tab close buttons are shown.
 - Choose a theme, light, dark or checkerboard background for transparent images
   in the preview and gallery without changing the image.
 - Explore folder sizes with a cushion treemap and folder drilldown.

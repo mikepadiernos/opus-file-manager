@@ -1087,6 +1087,47 @@ void MainWindow::setupActions()
     resetSizes->setText(i18nc("@action", "Reset Pane and Panel Sizes"));
     auto *customizeCombinedPanel = actions->addAction(QStringLiteral("customize_combined_panel"), m_combinedPanel, &CombinedPanel::configureSections);
     customizeCombinedPanel->setText(i18nc("@action", "Customize Combined Panel…"));
+    auto *tabPosition = new KSelectAction(i18nc("@action", "Active Pane Tab Bar Position"), this);
+    tabPosition->setItems({i18nc("@item:inmenu tab bar position", "Above"),
+                           i18nc("@item:inmenu tab bar position", "Below"),
+                           i18nc("@item:inmenu tab bar position", "Left"),
+                           i18nc("@item:inmenu tab bar position", "Right")});
+    actions->addAction(QStringLiteral("tab_bar_position"), tabPosition);
+    auto *tabsTogether = new KToggleAction(i18nc("@action", "Keep Stacked Tab Bars Together"), this);
+    tabsTogether->setChecked(Settings::stackedTabBarsTogether());
+    actions->addAction(QStringLiteral("stacked_tab_bars_together"), tabsTogether);
+    connect(tabsTogether, &KToggleAction::toggled, this, [this](bool together) {
+        Settings::setStackedTabBarsTogether(together);
+        Settings::self()->save();
+        updateTabBarPlacement();
+    });
+    connect(tabPosition, &KSelectAction::indexTriggered, this, [this, tabsTogether](int position) {
+        if (isStackedLayout()) {
+            if (tabsTogether->isChecked()) {
+                tabsTogether->setChecked(false);
+            }
+            if (activePane() == m_left) {
+                Settings::setStackedFirstTabPosition(position);
+            } else {
+                Settings::setStackedSecondTabPosition(position);
+            }
+        } else if (activePane() == m_left) {
+            Settings::setHorizontalFirstTabPosition(position);
+        } else {
+            Settings::setHorizontalSecondTabPosition(position);
+        }
+        Settings::self()->save();
+        updateTabBarPlacement();
+    });
+    auto *showTabClose = new KToggleAction(i18nc("@action", "Show Tab Close Buttons"), this);
+    showTabClose->setChecked(Settings::showTabCloseButtons());
+    actions->addAction(QStringLiteral("show_tab_close_buttons"), showTabClose);
+    connect(showTabClose, &KToggleAction::toggled, this, [this](bool shown) {
+        Settings::setShowTabCloseButtons(shown);
+        Settings::self()->save();
+        m_left->reloadTabSettings();
+        m_right->reloadTabSettings();
+    });
 
     auto *dimInactive = new KToggleAction(i18nc("@action", "Dim Inactive Pane"), this);
     dimInactive->setChecked(Settings::dimInactivePane());
@@ -1596,6 +1637,9 @@ void MainWindow::updateActions()
     const KFileItem root = view->rootItem();
 
     const bool bothVisible = isDualLayout() && !m_left->isHidden() && !m_right->isHidden();
+    auto *tabPosition = qobject_cast<KSelectAction *>(actions->action(QStringLiteral("tab_bar_position")));
+    tabPosition->setCurrentItem(static_cast<int>(activePane()->tabBarPosition()));
+    actions->action(QStringLiteral("stacked_tab_bars_together"))->setEnabled(isStackedLayout());
     actions->action(QStringLiteral("swap_current_tabs"))
         ->setEnabled(bothVisible && m_left->tabs()->currentIndex() >= 0 && m_right->tabs()->currentIndex() >= 0);
     actions->action(QStringLiteral("swap_pane_sides"))->setEnabled(bothVisible);
@@ -2755,8 +2799,7 @@ void MainWindow::swapPaneSides()
     m_splitter->insertWidget(0, m_right);
     std::swap(m_left, m_right);
     std::swap(m_linkedLeftRoot, m_linkedRightRoot);
-    m_left->setTabBarAtBottom(isStackedLayout());
-    m_right->setTabBarAtBottom(false);
+    updateTabBarPlacement();
     m_splitter->setSizes(sizes);
     updateActions();
 }
@@ -3058,7 +3101,20 @@ void MainWindow::setStackedLayout(bool stacked)
     updateTerminalPlacement();
     restoreSplitterSizes(true, true, changed);
     restoreEditorDockSize();
-    m_left->setTabBarAtBottom(stacked);
+    updateTabBarPlacement();
+}
+
+void MainWindow::updateTabBarPlacement()
+{
+    const bool stacked = isStackedLayout();
+    const bool together = stacked && Settings::stackedTabBarsTogether();
+    const int first = together ? int(Pane::TabBarPosition::Bottom) : stacked ? Settings::stackedFirstTabPosition() : Settings::horizontalFirstTabPosition();
+    const int second = together ? int(Pane::TabBarPosition::Top) : stacked ? Settings::stackedSecondTabPosition() : Settings::horizontalSecondTabPosition();
+    m_left->setTabBarPosition(static_cast<Pane::TabBarPosition>(qBound(0, first, 3)));
+    m_right->setTabBarPosition(static_cast<Pane::TabBarPosition>(qBound(0, second, 3)));
+    auto *position = qobject_cast<KSelectAction *>(actionCollection()->action(QStringLiteral("tab_bar_position")));
+    position->setCurrentItem(static_cast<int>(activePane()->tabBarPosition()));
+    actionCollection()->action(QStringLiteral("stacked_tab_bars_together"))->setEnabled(stacked);
 }
 
 void MainWindow::updateTerminalPlacement()
@@ -3104,6 +3160,9 @@ void MainWindow::applySettings()
         restoreSplitterSizes(false, true);
     }
     actionCollection()->action(QStringLiteral("dim_inactive_pane"))->setChecked(Settings::dimInactivePane());
+    actionCollection()->action(QStringLiteral("stacked_tab_bars_together"))->setChecked(Settings::stackedTabBarsTogether());
+    actionCollection()->action(QStringLiteral("show_tab_close_buttons"))->setChecked(Settings::showTabCloseButtons());
+    updateTabBarPlacement();
     for (GalleryWindow *gallery : findChildren<GalleryWindow *>()) {
         gallery->applyPresentationSettings();
     }

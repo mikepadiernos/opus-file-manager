@@ -16,6 +16,8 @@ class TabColors;
 class TabModel;
 class QTabBar;
 class QGraphicsOpacityEffect;
+class QBoxLayout;
+class QHBoxLayout;
 class QToolButton;
 class QWidget;
 class QVBoxLayout;
@@ -30,6 +32,12 @@ class Pane : public QWidget
     Q_OBJECT
 
 public:
+    enum class TabBarPosition {
+        Top,
+        Bottom,
+        Left,
+        Right
+    };
     /**
      * @param places the window's places model, for the location bar
      * @param colors the tab colours shared by all panes
@@ -56,6 +64,8 @@ public:
      */
     void setTabBarAtBottom(bool atBottom);
     bool isTabBarAtBottom() const;
+    void setTabBarPosition(TabBarPosition position);
+    TabBarPosition tabBarPosition() const;
     void reloadTabSettings();
     void reloadFilterSettings();
     void setBarDensity(const QString &density);
@@ -137,6 +147,8 @@ private:
     FolderView *m_view = nullptr;
     FilterBar *m_filterBar = nullptr;
     QVBoxLayout *m_layout = nullptr;
+    QHBoxLayout *m_outerLayout = nullptr;
+    QBoxLayout *m_stripLayout = nullptr;
     bool m_active = false;
     bool m_inactiveDimming = false;
     QGraphicsOpacityEffect *m_dimEffect = nullptr;
