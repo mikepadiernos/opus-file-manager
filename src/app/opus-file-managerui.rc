@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="31" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="32" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -65,6 +65,7 @@
       <Action name="swap_pane_sides"/>
       <Action name="save_splitter_sizes"/>
       <Action name="reset_splitter_sizes"/>
+      <Action name="customize_combined_panel"/>
       <Action name="dim_inactive_pane"/>
       <Action name="link_panes"/>
       <Action name="toggle_view_mode"/>

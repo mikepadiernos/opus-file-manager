@@ -14,17 +14,24 @@
 #include <KSharedConfig>
 
 #include <QContextMenuEvent>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QDockWidget>
 #include <QDropEvent>
 #include <QFile>
+#include <QLayout>
+#include <QLineEdit>
 #include <QListView>
+#include <QListWidget>
 #include <QMimeData>
+#include <QPushButton>
 #include <QScopeGuard>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTimer>
 #include <QToolButton>
 #include <QTreeView>
 
@@ -221,6 +228,126 @@ private Q_SLOTS:
         QVERIFY(panel.folderTree()->isHidden());
         panel.setCollapsedSections({});
         QVERIFY(!panel.folderTree()->isHidden());
+    }
+
+    void combinedSectionsCanBeCustomizedAndRestored()
+    {
+        QTemporaryDir backupDir;
+        QVERIFY(backupDir.isValid());
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup group = config->group(QStringLiteral("CombinedPanelSections"));
+        const auto backup = KSharedConfig::openConfig(backupDir.filePath(QStringLiteral("settings")));
+        KConfigGroup saved = backup->group(QStringLiteral("CombinedPanelSections"));
+        group.copyTo(&saved);
+        const bool favoritesVisible = Settings::favoritesVisible();
+        const bool placesVisible = Settings::placesVisible();
+        const bool foldersVisible = Settings::foldersVisible();
+        const auto restore = qScopeGuard([&] {
+            group.deleteGroup();
+            saved.copyTo(&group);
+            Settings::setFavoritesVisible(favoritesVisible);
+            Settings::setPlacesVisible(placesVisible);
+            Settings::setFoldersVisible(foldersVisible);
+            Settings::self()->save();
+            config->sync();
+        });
+        group.deleteGroup();
+        Settings::setFavoritesVisible(true);
+        Settings::setPlacesVisible(true);
+        Settings::setFoldersVisible(true);
+
+        KFilePlacesModel places;
+        const QUrl remoteUrl(QStringLiteral("sftp://example.invalid/combined-customization"));
+        const QUrl extraUrl(QStringLiteral("sftp://example.invalid/combined-customization-extra"));
+        places.addPlace(QStringLiteral("Combined customization remote"), remoteUrl);
+        const auto removePlace = qScopeGuard([&] {
+            for (int row = places.rowCount() - 1; row >= 0; --row) {
+                if (places.url(places.index(row, 0)) == remoteUrl || places.url(places.index(row, 0)) == extraUrl) {
+                    places.removePlace(places.index(row, 0));
+                }
+            }
+        });
+        FavoritesModel favorites(config->group(QStringLiteral("Favorites")));
+        CombinedPanel panel(&places, &favorites);
+        panel.resize(400, 800);
+        panel.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&panel));
+        QTimer::singleShot(0, &panel, [&] {
+            auto *dialog = panel.findChild<QDialog *>(QStringLiteral("combinedPanelSectionsDialog"));
+            QVERIFY(dialog);
+            auto *list = dialog->findChild<QListWidget *>(QStringLiteral("combinedSectionsList"));
+            QVERIFY(list);
+            list->item(0)->setCheckState(Qt::Unchecked);
+            dialog->reject();
+        });
+        panel.configureSections();
+        QVERIFY(Settings::favoritesVisible());
+        QVERIFY(!group.hasKey("Order"));
+        QTimer::singleShot(0, &panel, [&] {
+            auto *dialog = panel.findChild<QDialog *>(QStringLiteral("combinedPanelSectionsDialog"));
+            QVERIFY(dialog);
+            const auto close = qScopeGuard([dialog] {
+                if (dialog->isVisible()) {
+                    dialog->reject();
+                }
+            });
+            auto *list = dialog->findChild<QListWidget *>(QStringLiteral("combinedSectionsList"));
+            auto *title = dialog->findChild<QLineEdit *>(QStringLiteral("combinedSectionTitle"));
+            auto *up = dialog->findChild<QPushButton *>(QStringLiteral("combinedSectionUp"));
+            auto *buttons = dialog->findChild<QDialogButtonBox *>();
+            QVERIFY(list && title && up && buttons);
+            const auto find = [list](const QString &key) {
+                for (int i = 0; i < list->count(); ++i) {
+                    if (list->item(i)->data(Qt::UserRole).toString() == key) {
+                        return i;
+                    }
+                }
+                return -1;
+            };
+            const int tree = find(QStringLiteral("tree"));
+            const int favorite = find(QStringLiteral("favorites"));
+            const int remote = find(QStringLiteral("places:RemoteType"));
+            QVERIFY(tree >= 0 && favorite >= 0 && remote >= 0);
+            list->item(favorite)->setCheckState(Qt::Unchecked);
+            list->item(remote)->setCheckState(Qt::Unchecked);
+            list->setCurrentRow(remote);
+            title->setText(QStringLiteral("Cloud"));
+            list->setCurrentRow(tree);
+            title->setText(QStringLiteral("My folders"));
+            while (list->currentRow() > 0) {
+                up->click();
+            }
+            buttons->button(QDialogButtonBox::Ok)->click();
+        });
+        panel.configureSections();
+        QVERIFY(!Settings::favoritesVisible());
+        QCOMPARE(group.readEntry("Order", QStringList()).first(), QStringLiteral("tree"));
+        QVERIFY(group.readEntry("HiddenSections", QStringList()).contains(QStringLiteral("places:RemoteType")));
+        auto *tree = panel.findChild<QToolButton *>(QStringLiteral("tree"));
+        auto *favorite = panel.findChild<QToolButton *>(QStringLiteral("favorites"));
+        auto *remote = panel.findChild<QToolButton *>(QStringLiteral("places:RemoteType"));
+        QVERIFY(tree && favorite && remote);
+        QCOMPARE(tree->text(), QStringLiteral("My folders"));
+        QCOMPARE(remote->text(), QStringLiteral("Cloud"));
+        QCOMPARE(tree->parentWidget()->parentWidget()->layout()->itemAt(0)->widget(), tree->parentWidget());
+        QVERIFY(favorite->parentWidget()->isHidden());
+        QVERIFY(remote->parentWidget()->isHidden());
+        places.addPlace(QStringLiteral("Another customization remote"), extraUrl);
+        QCoreApplication::processEvents();
+        QVERIFY(remote->parentWidget()->isHidden());
+        QCOMPARE(remote->text(), QStringLiteral("Cloud"));
+
+        CombinedPanel restoredPanel(&places, &favorites);
+        restoredPanel.setSectionVisibility(Settings::favoritesVisible(), Settings::placesVisible(), Settings::foldersVisible());
+        auto *restoredTree = restoredPanel.findChild<QToolButton *>(QStringLiteral("tree"));
+        QVERIFY(restoredTree);
+        QCOMPARE(restoredTree->text(), QStringLiteral("My folders"));
+        QCOMPARE(restoredTree->parentWidget()->parentWidget()->layout()->itemAt(0)->widget(), restoredTree->parentWidget());
+        QVERIFY(restoredPanel.findChild<QToolButton *>(QStringLiteral("favorites"))->parentWidget()->isHidden());
+        restoredPanel.setSectionVisibility(true, false, true);
+        QVERIFY(!restoredPanel.findChild<QToolButton *>(QStringLiteral("favorites"))->parentWidget()->isHidden());
+        restoredPanel.setSectionVisibility(true, true, true);
+        QVERIFY(restoredPanel.findChild<QToolButton *>(QStringLiteral("places:RemoteType"))->parentWidget()->isHidden());
     }
 
     void combinedPanelHasFavoritesPlacesAndTree()

@@ -5,19 +5,32 @@
 #include "contentheight.h"
 #include "favoritesmodel.h"
 #include "foldertree.h"
+#include "settings.h"
 
+#include <KConfigGroup>
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
 #include <KLocalizedString>
+#include <KSharedConfig>
 
+#include <QCheckBox>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QDir>
+#include <QFormLayout>
 #include <QGridLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QLineEdit>
 #include <QListView>
+#include <QListWidget>
 #include <QMenu>
 #include <QMetaEnum>
 #include <QMouseEvent>
+#include <QPushButton>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QSignalBlocker>
 #include <QStyleOptionToolButton>
 #include <QStylePainter>
 #include <QTimer>
@@ -86,6 +99,28 @@ QToolButton *sectionHeader(const QString &title, QWidget *content)
         setSectionExpanded(header, content, content->isHidden());
     });
     return header;
+}
+
+QString placesGroupTitle(KFilePlacesModel::GroupType type)
+{
+    switch (type) {
+    case KFilePlacesModel::PlacesType:
+        return i18nc("@title:group places section", "Places");
+    case KFilePlacesModel::RemoteType:
+        return i18nc("@title:group places section", "Remote");
+    case KFilePlacesModel::RecentlySavedType:
+        return i18nc("@title:group places section", "Recently Saved");
+    case KFilePlacesModel::SearchForType:
+        return i18nc("@title:group places section", "Search For");
+    case KFilePlacesModel::DevicesType:
+        return i18nc("@title:group places section", "Devices");
+    case KFilePlacesModel::RemovableDevicesType:
+        return i18nc("@title:group places section", "Removable Devices");
+    case KFilePlacesModel::TagsType:
+        return i18nc("@title:group places section", "Tags");
+    default:
+        return i18nc("@title:group places section", "Other");
+    }
 }
 }
 
@@ -158,7 +193,19 @@ public:
     void setPanelVisible(bool visible)
     {
         m_enabled = visible;
+        setVisible(m_enabled && m_hasEntries);
         m_view->setVisible(visible && !collapsed());
+    }
+
+    QString defaultTitle() const
+    {
+        return m_defaultTitle;
+    }
+
+    void setCustomTitle(const QString &title)
+    {
+        m_customTitle = title;
+        m_header->setText(title.isEmpty() ? m_defaultTitle : title);
     }
 
     void refresh()
@@ -180,12 +227,14 @@ public:
                 height += m_view->sizeHintForIndex(index).height() + m_view->spacing();
             }
         }
-        m_header->setText(title.isEmpty() ? i18nc("@title:group places section", "Other") : title);
+        m_defaultTitle = title.isEmpty() ? placesGroupTitle(m_type) : title;
+        m_header->setText(m_customTitle.isEmpty() ? m_defaultTitle : m_customTitle);
         // KFilePlacesView paints its own group header above the first row.
         // Cover that header while leaving its entries and native delegate intact.
         m_header->setFixedHeight(m_view->fontMetrics().height() + 3 * (4 + m_view->spacing()));
         m_view->setFixedHeight(height);
-        setVisible(hasEntries);
+        m_hasEntries = hasEntries;
+        setVisible(m_enabled && m_hasEntries);
     }
 
 private:
@@ -194,7 +243,10 @@ private:
     KFilePlacesView *m_view;
     QToolButton *m_header;
     bool m_enabled = true;
+    bool m_hasEntries = false;
     bool m_refreshPending = false;
+    QString m_customTitle;
+    QString m_defaultTitle;
 };
 
 CombinedPanel::CombinedPanel(KFilePlacesModel *places, FavoritesModel *favorites, QWidget *parent)
@@ -202,11 +254,15 @@ CombinedPanel::CombinedPanel(KFilePlacesModel *places, FavoritesModel *favorites
     , m_favorites(favorites)
 {
     auto *content = new QWidget;
-    auto *column = new QVBoxLayout(content);
-    column->setContentsMargins(0, 0, 0, 0);
-    column->setSpacing(0);
+    m_column = new QVBoxLayout(content);
+    m_column->setContentsMargins(0, 0, 0, 0);
+    m_column->setSpacing(0);
 
-    m_favoritesView = new QListView(content);
+    auto *favoritesSection = new QWidget(content);
+    auto *favoritesLayout = new QVBoxLayout(favoritesSection);
+    favoritesLayout->setContentsMargins(0, 0, 0, 0);
+    favoritesLayout->setSpacing(0);
+    m_favoritesView = new QListView(favoritesSection);
     m_favoritesView->setModel(favorites);
     m_favoritesView->setDragDropMode(QAbstractItemView::DragDrop);
     m_favoritesView->setDefaultDropAction(Qt::CopyAction);
@@ -221,13 +277,10 @@ CombinedPanel::CombinedPanel(KFilePlacesModel *places, FavoritesModel *favorites
     connect(m_favoritesView, &QListView::customContextMenuRequested, this, &CombinedPanel::showFavoriteMenu);
     m_favoritesHeader = sectionHeader(i18nc("@title:group", "Favorites"), m_favoritesView);
     m_favoritesHeader->setObjectName(QStringLiteral("favorites"));
-    column->addWidget(m_favoritesHeader);
-    column->addWidget(m_favoritesView);
-
-    m_placesContainer = new QWidget(content);
-    auto *placesLayout = new QVBoxLayout(m_placesContainer);
-    placesLayout->setContentsMargins(0, 0, 0, 0);
-    placesLayout->setSpacing(0);
+    favoritesLayout->addWidget(m_favoritesHeader);
+    favoritesLayout->addWidget(m_favoritesView);
+    m_sectionWidgets.insert(QStringLiteral("favorites"), favoritesSection);
+    m_sectionOrder.append(QStringLiteral("favorites"));
     for (const auto type : {KFilePlacesModel::PlacesType,
                             KFilePlacesModel::RemoteType,
                             KFilePlacesModel::RecentlySavedType,
@@ -236,9 +289,10 @@ CombinedPanel::CombinedPanel(KFilePlacesModel *places, FavoritesModel *favorites
                             KFilePlacesModel::RemovableDevicesType,
                             KFilePlacesModel::TagsType,
                             KFilePlacesModel::UnknownType}) {
-        auto *section = new PlacesSection(places, type, m_placesContainer);
+        auto *section = new PlacesSection(places, type, content);
         m_placesSections.append(section);
-        placesLayout->addWidget(section);
+        m_sectionWidgets.insert(section->key(), section);
+        m_sectionOrder.append(section->key());
         KFilePlacesView *view = section->view();
         connect(view, &KFilePlacesView::urlChanged, this, &CombinedPanel::urlActivated);
         connect(view, &KFilePlacesView::tabRequested, this, &CombinedPanel::tabRequested);
@@ -253,9 +307,11 @@ CombinedPanel::CombinedPanel(KFilePlacesModel *places, FavoritesModel *favorites
             }
         });
     }
-    column->addWidget(m_placesContainer);
-
-    m_folderTree = new FolderTree({QUrl::fromLocalFile(QDir::homePath()), QUrl::fromLocalFile(QStringLiteral("/"))}, content);
+    auto *treeSection = new QWidget(content);
+    auto *treeLayout = new QVBoxLayout(treeSection);
+    treeLayout->setContentsMargins(0, 0, 0, 0);
+    treeLayout->setSpacing(0);
+    m_folderTree = new FolderTree({QUrl::fromLocalFile(QDir::homePath()), QUrl::fromLocalFile(QStringLiteral("/"))}, treeSection);
     connect(m_folderTree, &FolderTree::urlActivated, this, &CombinedPanel::urlActivated);
     connect(m_folderTree, &FolderTree::tabRequested, this, &CombinedPanel::tabRequested);
     connect(m_folderTree, &FolderTree::contextMenuRequested, this, &CombinedPanel::folderContextMenuRequested);
@@ -272,9 +328,25 @@ CombinedPanel::CombinedPanel(KFilePlacesModel *places, FavoritesModel *favorites
     m_favoritesView->viewport()->setBackgroundRole(QPalette::Window);
     m_treeHeader = sectionHeader(i18nc("@title:group", "Tree"), m_folderTree);
     m_treeHeader->setObjectName(QStringLiteral("tree"));
-    column->addWidget(m_treeHeader);
-    column->addWidget(m_folderTree);
-    column->addStretch();
+    treeLayout->addWidget(m_treeHeader);
+    treeLayout->addWidget(m_folderTree);
+    m_sectionWidgets.insert(QStringLiteral("tree"), treeSection);
+    m_sectionOrder.append(QStringLiteral("tree"));
+    const KConfigGroup config = KSharedConfig::openConfig()->group(QStringLiteral("CombinedPanelSections"));
+    const QStringList defaults = m_sectionOrder;
+    m_sectionOrder.clear();
+    for (const QString &key : config.readEntry("Order", QStringList()) + defaults) {
+        if (m_sectionWidgets.contains(key) && !m_sectionOrder.contains(key)) {
+            m_sectionOrder.append(key);
+        }
+    }
+    m_hiddenSections = config.readEntry("HiddenSections", QStringList());
+    const KConfigGroup titles = config.group(QStringLiteral("Titles"));
+    for (const QString &key : defaults) {
+        m_sectionTitles.insert(key, titles.readEntry(key, QString()));
+    }
+    m_column->addStretch();
+    applySections();
 
     m_scroll = new QScrollArea(this);
     m_scroll->setWidgetResizable(true);
@@ -329,14 +401,155 @@ void CombinedPanel::setSectionVisibility(bool favorites, bool places, bool folde
 {
     const QStringList collapsed = collapsedSections();
     m_favoritesVisible = favorites;
+    m_placesVisible = places;
     m_foldersVisible = folders;
-    m_favoritesHeader->setVisible(favorites);
-    m_placesContainer->setVisible(places);
-    for (PlacesSection *section : std::as_const(m_placesSections)) {
-        section->setPanelVisible(places);
-    }
-    m_treeHeader->setVisible(folders);
+    applySections();
     setCollapsedSections(collapsed);
+}
+
+void CombinedPanel::applySections()
+{
+    for (int i = 0; i < m_sectionOrder.size(); ++i) {
+        const QString &key = m_sectionOrder.at(i);
+        m_column->insertWidget(i, m_sectionWidgets.value(key));
+    }
+    m_sectionWidgets.value(QStringLiteral("favorites"))->setVisible(m_favoritesVisible);
+    m_sectionWidgets.value(QStringLiteral("tree"))->setVisible(m_foldersVisible);
+    const QString favoritesTitle = m_sectionTitles.value(QStringLiteral("favorites"));
+    const QString treeTitle = m_sectionTitles.value(QStringLiteral("tree"));
+    m_favoritesHeader->setText(favoritesTitle.isEmpty() ? i18nc("@title:group", "Favorites") : favoritesTitle);
+    m_treeHeader->setText(treeTitle.isEmpty() ? i18nc("@title:group", "Tree") : treeTitle);
+    for (PlacesSection *section : std::as_const(m_placesSections)) {
+        section->setCustomTitle(m_sectionTitles.value(section->key()));
+        section->setPanelVisible(m_placesVisible && !m_hiddenSections.contains(section->key()));
+    }
+}
+
+void CombinedPanel::configureSections()
+{
+    QDialog dialog(this);
+    dialog.setObjectName(QStringLiteral("combinedPanelSectionsDialog"));
+    dialog.setWindowTitle(i18nc("@title:window", "Customize Combined Panel"));
+    auto *layout = new QVBoxLayout(&dialog);
+    auto *placesEnabled = new QCheckBox(i18nc("@option:check", "Show Places sections"), &dialog);
+    placesEnabled->setObjectName(QStringLiteral("combinedPlacesVisible"));
+    placesEnabled->setChecked(m_placesVisible);
+    layout->addWidget(placesEnabled);
+    layout->addWidget(new QLabel(i18nc("@info", "Choose visible sections and arrange their order:"), &dialog));
+    auto *row = new QHBoxLayout;
+    auto *list = new QListWidget(&dialog);
+    list->setObjectName(QStringLiteral("combinedSectionsList"));
+    row->addWidget(list);
+    auto *buttons = new QVBoxLayout;
+    auto *up = new QPushButton(i18nc("@action:button", "Move Up"), &dialog);
+    auto *down = new QPushButton(i18nc("@action:button", "Move Down"), &dialog);
+    up->setObjectName(QStringLiteral("combinedSectionUp"));
+    down->setObjectName(QStringLiteral("combinedSectionDown"));
+    buttons->addWidget(up);
+    buttons->addWidget(down);
+    buttons->addStretch();
+    row->addLayout(buttons);
+    layout->addLayout(row);
+    auto *form = new QFormLayout;
+    auto *title = new QLineEdit(&dialog);
+    title->setObjectName(QStringLiteral("combinedSectionTitle"));
+    title->setPlaceholderText(i18nc("@info:placeholder", "Default title"));
+    form->addRow(i18nc("@label:textbox", "Custom title:"), title);
+    layout->addLayout(form);
+    auto *dialogButtons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    layout->addWidget(dialogButtons);
+    connect(dialogButtons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(dialogButtons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    const auto defaultTitle = [this](const QString &key) {
+        if (key == QLatin1String("favorites")) {
+            return i18nc("@title:group", "Favorites");
+        }
+        if (key == QLatin1String("tree")) {
+            return i18nc("@title:group", "Tree");
+        }
+        for (PlacesSection *section : std::as_const(m_placesSections)) {
+            if (section->key() == key) {
+                return section->defaultTitle();
+            }
+        }
+        return QString();
+    };
+    for (const QString &key : std::as_const(m_sectionOrder)) {
+        const QString customTitle = m_sectionTitles.value(key);
+        auto *item = new QListWidgetItem(customTitle.isEmpty() ? defaultTitle(key) : customTitle, list);
+        item->setData(Qt::UserRole, key);
+        item->setData(Qt::UserRole + 1, customTitle);
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        const bool visible = key == QLatin1String("favorites") ? m_favoritesVisible
+            : key == QLatin1String("tree")                     ? m_foldersVisible
+                                                               : !m_hiddenSections.contains(key);
+        item->setCheckState(visible ? Qt::Checked : Qt::Unchecked);
+    }
+    connect(list, &QListWidget::currentItemChanged, &dialog, [title](QListWidgetItem *item) {
+        const QSignalBlocker blocker(title);
+        title->setEnabled(item);
+        title->setText(item ? item->data(Qt::UserRole + 1).toString() : QString());
+    });
+    connect(title, &QLineEdit::textChanged, &dialog, [list, defaultTitle](const QString &text) {
+        if (QListWidgetItem *item = list->currentItem()) {
+            item->setData(Qt::UserRole + 1, text.trimmed());
+            item->setText(text.trimmed().isEmpty() ? defaultTitle(item->data(Qt::UserRole).toString()) : text.trimmed());
+        }
+    });
+    const auto move = [list](int offset) {
+        const int from = list->currentRow();
+        const int to = from + offset;
+        if (from >= 0 && to >= 0 && to < list->count()) {
+            list->insertItem(to, list->takeItem(from));
+            list->setCurrentRow(to);
+        }
+    };
+    connect(up, &QPushButton::clicked, &dialog, [move] {
+        move(-1);
+    });
+    connect(down, &QPushButton::clicked, &dialog, [move] {
+        move(1);
+    });
+    list->setCurrentRow(0);
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+    m_sectionOrder.clear();
+    m_hiddenSections.clear();
+    for (int i = 0; i < list->count(); ++i) {
+        const QListWidgetItem *item = list->item(i);
+        const QString key = item->data(Qt::UserRole).toString();
+        m_sectionOrder.append(key);
+        m_sectionTitles.insert(key, item->data(Qt::UserRole + 1).toString());
+        const bool visible = item->checkState() == Qt::Checked;
+        if (key == QLatin1String("favorites")) {
+            m_favoritesVisible = visible;
+        } else if (key == QLatin1String("tree")) {
+            m_foldersVisible = visible;
+        } else if (!visible) {
+            m_hiddenSections.append(key);
+        }
+    }
+    m_placesVisible = placesEnabled->isChecked();
+    Settings::setFavoritesVisible(m_favoritesVisible);
+    Settings::setPlacesVisible(m_placesVisible);
+    Settings::setFoldersVisible(m_foldersVisible);
+    Settings::self()->save();
+    KConfigGroup config = KSharedConfig::openConfig()->group(QStringLiteral("CombinedPanelSections"));
+    config.writeEntry("Order", m_sectionOrder);
+    config.writeEntry("HiddenSections", m_hiddenSections);
+    KConfigGroup titles = config.group(QStringLiteral("Titles"));
+    for (auto it = m_sectionTitles.cbegin(); it != m_sectionTitles.cend(); ++it) {
+        if (it.value().isEmpty()) {
+            titles.deleteEntry(it.key());
+        } else {
+            titles.writeEntry(it.key(), it.value());
+        }
+    }
+    config.sync();
+    applySections();
+    setCollapsedSections(collapsedSections());
 }
 
 void CombinedPanel::scrollToRevealed()

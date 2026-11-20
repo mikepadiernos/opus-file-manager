@@ -1085,6 +1085,8 @@ void MainWindow::setupActions()
     saveSizes->setText(i18nc("@action", "Save Pane and Panel Sizes"));
     auto *resetSizes = actions->addAction(QStringLiteral("reset_splitter_sizes"), this, &MainWindow::resetSplitterSizes);
     resetSizes->setText(i18nc("@action", "Reset Pane and Panel Sizes"));
+    auto *customizeCombinedPanel = actions->addAction(QStringLiteral("customize_combined_panel"), m_combinedPanel, &CombinedPanel::configureSections);
+    customizeCombinedPanel->setText(i18nc("@action", "Customize Combined Panel…"));
 
     auto *dimInactive = new KToggleAction(i18nc("@action", "Dim Inactive Pane"), this);
     dimInactive->setChecked(Settings::dimInactivePane());
