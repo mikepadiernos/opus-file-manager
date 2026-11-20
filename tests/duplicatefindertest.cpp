@@ -74,6 +74,36 @@ private Q_SLOTS:
         QVERIFY(canceled.groups.isEmpty());
     }
 
+    void optionallyRequiresExactFileNamesAndRevalidatesSeparateGroups()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        for (const QString &folder : {QStringLiteral("one"), QStringLiteral("two"), QStringLiteral("three")}) {
+            QVERIFY(QDir(dir.path()).mkdir(folder));
+        }
+        const QString a = dir.filePath(QStringLiteral("one/a"));
+        const QString b = dir.filePath(QStringLiteral("two/a"));
+        const QString c = dir.filePath(QStringLiteral("one/b"));
+        const QString d = dir.filePath(QStringLiteral("two/b"));
+        const QString e = dir.filePath(QStringLiteral("three/a"));
+        for (const QString &path : {a, b, c, d}) {
+            QVERIFY(write(path, "same"));
+        }
+        QVERIFY(write(e, "else"));
+        const QStringList files{a, b, c, d, e};
+        const auto all = DuplicateFinder::find(files);
+        QCOMPARE(all.groups.size(), 1);
+        QCOMPARE(all.groups.first().paths.size(), 4);
+        const auto named = DuplicateFinder::find(files, {}, {}, true);
+        QVERIFY(named.errors.isEmpty());
+        QCOMPARE(named.groups.size(), 2);
+        QCOMPARE(named.groups.at(0).paths, (QStringList{a, b}));
+        QCOMPARE(named.groups.at(1).paths, (QStringList{c, d}));
+        QVERIFY(DuplicateFinder::revalidate(named.groups, {}, true).isEmpty());
+        QVERIFY(write(b, "else"));
+        QVERIFY(!DuplicateFinder::revalidate(named.groups, {}, true).isEmpty());
+    }
+
     void automaticSelectionAlwaysKeepsAFilePerGroup()
     {
         QTemporaryDir dir;

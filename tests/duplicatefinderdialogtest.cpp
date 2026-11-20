@@ -2,7 +2,10 @@
 
 #include "duplicatefinderdialog.h"
 
+#include "settings.h"
+
 #include <QApplication>
+#include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
 #include <QDir>
@@ -11,6 +14,7 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -87,6 +91,68 @@ private Q_SLOTS:
         QVERIFY(QFile::exists(first) && QFile::exists(second));
     }
 
+    void appliesConfiguredCriteriaAndSafeSelectionDefaults()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir(dir.path()).mkdir(QStringLiteral("one")));
+        QVERIFY(QDir(dir.path()).mkdir(QStringLiteral("two")));
+        for (const QString &file : {QStringLiteral("one/a"), QStringLiteral("two/a"), QStringLiteral("one/b"), QStringLiteral("two/b"), QStringLiteral("c")}) {
+            QVERIFY(write(dir.filePath(file), "data"));
+        }
+        const bool previousNames = Settings::duplicateRequireSameFileName();
+        const auto previousPolicy = Settings::duplicateSelectionPolicy();
+        const auto restore = qScopeGuard([previousNames, previousPolicy] {
+            Settings::setDuplicateRequireSameFileName(previousNames);
+            Settings::setDuplicateSelectionPolicy(previousPolicy);
+        });
+        Settings::setDuplicateRequireSameFileName(true);
+        for (const auto policy : {Settings::EnumDuplicateSelectionPolicy::KeepNewest,
+                                  Settings::EnumDuplicateSelectionPolicy::KeepOldest,
+                                  Settings::EnumDuplicateSelectionPolicy::InFolder}) {
+            Settings::setDuplicateSelectionPolicy(policy);
+            DuplicateFinderDialog dialog(QUrl::fromLocalFile(dir.path()));
+            auto *cancel = dialog.findChild<QPushButton *>(QStringLiteral("duplicateFinderCancel"));
+            QTRY_VERIFY(!cancel->isEnabled());
+            auto *results = dialog.findChild<QTreeWidget *>(QStringLiteral("duplicateFinderResults"));
+            QCOMPARE(results->topLevelItemCount(), 2);
+            QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("duplicateFinderCriteria"))->text().contains(QStringLiteral("exact file name")));
+            QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("duplicateFinderPolicy"))->currentIndex(), int(policy));
+            QCOMPARE(dialog.findChild<QLineEdit *>(QStringLiteral("duplicateFinderPolicyFolder"))->isEnabled(),
+                     policy == Settings::EnumDuplicateSelectionPolicy::InFolder);
+            dialog.findChild<QPushButton *>(QStringLiteral("duplicateFinderApplyPolicy"))->click();
+            for (int i = 0; i < results->topLevelItemCount(); ++i) {
+                auto *group = results->topLevelItem(i);
+                QCOMPARE(group->childCount(), 2);
+                const int checked = int(group->child(0)->checkState(0) == Qt::Checked) + int(group->child(1)->checkState(0) == Qt::Checked);
+                QCOMPARE(checked, 1);
+            }
+            if (policy == Settings::EnumDuplicateSelectionPolicy::KeepNewest) {
+                QTimer responder;
+                responder.setInterval(10);
+                connect(&responder, &QTimer::timeout, &dialog, [&dialog] {
+                    if (auto *box = dialog.findChild<QMessageBox *>(QStringLiteral("duplicateFinderTrashConfirmation"))) {
+                        box->done(QMessageBox::No);
+                    }
+                });
+                responder.start();
+                dialog.findChild<QPushButton *>(QStringLiteral("duplicateFinderTrash"))->click();
+                QTRY_COMPARE(dialog.findChild<QLabel *>(QStringLiteral("duplicateFinderStatus"))->text(), QStringLiteral("No files were removed."));
+                auto *name = dialog.findChild<QCheckBox *>(QStringLiteral("duplicateFinderSameFileName"));
+                QVERIFY(name->isChecked());
+                name->setChecked(false);
+                QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("duplicateFinderTrash"))->isEnabled());
+                QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("duplicateFinderApplyPolicy"))->isEnabled());
+                QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("duplicateFinderStatus"))->text().contains(QStringLiteral("Rescan")));
+                dialog.findChild<QPushButton *>(QStringLiteral("duplicateFinderRescan"))->click();
+                QTRY_VERIFY(!cancel->isEnabled());
+                QCOMPARE(results->topLevelItemCount(), 1);
+                QCOMPARE(results->topLevelItem(0)->childCount(), 5);
+                QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("duplicateFinderApplyPolicy"))->isEnabled());
+            }
+        }
+    }
+
     void copiesUnambiguousUrlsForUnusualNames()
     {
         QTemporaryDir dir;
@@ -116,10 +182,19 @@ private Q_SLOTS:
         DuplicateFinderDialog failed(QUrl::fromLocalFile(dir.filePath(QStringLiteral("missing"))));
         QTRY_VERIFY(!failed.findChild<QPushButton *>(QStringLiteral("duplicateFinderCancel"))->isEnabled());
         QVERIFY(failed.findChild<QLabel *>(QStringLiteral("duplicateFinderStatus"))->text().startsWith(QStringLiteral("Could not list")));
+        QVERIFY(QDir(dir.path()).mkdir(QStringLiteral("missing")));
+        QVERIFY(write(dir.filePath(QStringLiteral("missing/a")), "same"));
+        QVERIFY(write(dir.filePath(QStringLiteral("missing/b")), "same"));
+        failed.findChild<QPushButton *>(QStringLiteral("duplicateFinderRescan"))->click();
+        QTRY_VERIFY(!failed.findChild<QPushButton *>(QStringLiteral("duplicateFinderCancel"))->isEnabled());
+        QCOMPARE(failed.findChild<QTreeWidget *>(QStringLiteral("duplicateFinderResults"))->topLevelItemCount(), 1);
         DuplicateFinderDialog canceled(QUrl::fromLocalFile(dir.path()));
         canceled.findChild<QPushButton *>(QStringLiteral("duplicateFinderCancel"))->click();
         QCOMPARE(canceled.findChild<QLabel *>(QStringLiteral("duplicateFinderStatus"))->text(), QStringLiteral("Scan canceled; no results are shown."));
         QVERIFY(!canceled.findChild<QPushButton *>(QStringLiteral("duplicateFinderCopy"))->isEnabled());
+        canceled.findChild<QPushButton *>(QStringLiteral("duplicateFinderRescan"))->click();
+        QTRY_VERIFY(!canceled.findChild<QPushButton *>(QStringLiteral("duplicateFinderCancel"))->isEnabled());
+        QCOMPARE(canceled.findChild<QTreeWidget *>(QStringLiteral("duplicateFinderResults"))->topLevelItemCount(), 1);
     }
 
     void confirmsCompleteGroupBeforeRequestingTrash()

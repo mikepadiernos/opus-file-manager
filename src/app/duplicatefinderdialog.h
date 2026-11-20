@@ -15,8 +15,9 @@ namespace KIO
 {
 class ListJob;
 }
-class QLabel;
+class QCheckBox;
 class QComboBox;
+class QLabel;
 class QLineEdit;
 class QProgressBar;
 class QPushButton;
@@ -35,8 +36,11 @@ Q_SIGNALS:
 
 private:
     void cancel();
+    void startScan();
     void startHashing();
     QUrl m_folder;
+    bool m_requireSameFileName = false;
+    bool m_scanComplete = false;
     KIO::ListJob *m_listJob = nullptr;
     QFutureWatcher<DuplicateFinder::Result> m_watcher;
     QFutureWatcher<QStringList> m_validationWatcher;
@@ -45,10 +49,13 @@ private:
     QStringList m_errors;
     QList<DuplicateFinder::Group> m_groups;
     QLabel *m_status;
+    QLabel *m_criteria;
+    QCheckBox *m_sameFileName;
     QProgressBar *m_progress;
     QTreeWidget *m_results;
     QTreeWidget *m_errorsView;
     QPushButton *m_cancel;
+    QPushButton *m_rescan;
     QPushButton *m_copy;
     QComboBox *m_policy;
     QLineEdit *m_policyFolder;

@@ -33,7 +33,7 @@ struct SelectionResult {
     QStringList errors;
 };
 
-Result find(const QStringList &paths, const Checksums::Cancel &cancel = {}, const Checksums::Progress &progress = {});
+Result find(const QStringList &paths, const Checksums::Cancel &cancel = {}, const Checksums::Progress &progress = {}, bool requireSameFileName = false);
 SelectionResult select(const QList<Group> &groups, SelectionPolicy policy, const QString &folder = {});
-QStringList revalidate(const QList<Group> &groups, const Checksums::Cancel &cancel = {});
+QStringList revalidate(const QList<Group> &groups, const Checksums::Cancel &cancel = {}, bool requireSameFileName = false);
 }

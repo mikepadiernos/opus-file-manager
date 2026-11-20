@@ -2,6 +2,8 @@
 
 #include "duplicatefinderdialog.h"
 
+#include "settings.h"
+
 #include <KFileItem>
 #include <KIO/Global>
 #include <KIO/ListJob>
@@ -9,6 +11,7 @@
 #include <KLocalizedString>
 
 #include <QApplication>
+#include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
 #include <QDialogButtonBox>
@@ -29,12 +32,16 @@
 DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent)
     : QDialog(parent)
     , m_folder(folder)
+    , m_requireSameFileName(Settings::duplicateRequireSameFileName())
     , m_canceled(std::make_shared<std::atomic_bool>(false))
     , m_status(new QLabel(i18nc("@info", "Listing files…"), this))
+    , m_criteria(new QLabel(this))
+    , m_sameFileName(new QCheckBox(i18nc("@option:check", "Require identical file names"), this))
     , m_progress(new QProgressBar(this))
     , m_results(new QTreeWidget(this))
     , m_errorsView(new QTreeWidget(this))
     , m_cancel(new QPushButton(i18nc("@action:button", "Cancel Scan"), this))
+    , m_rescan(new QPushButton(i18nc("@action:button", "Rescan"), this))
     , m_copy(new QPushButton(i18nc("@action:button", "Copy Checked URLs"), this))
     , m_policy(new QComboBox(this))
     , m_policyFolder(new QLineEdit(folder.toLocalFile(), this))
@@ -45,14 +52,13 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
     setWindowTitle(i18nc("@title:window", "Find Duplicate Files"));
     resize(750, 550);
     auto *layout = new QVBoxLayout(this);
-    auto *criteria = new QLabel(i18nc("@info",
-                                      "Known regular files below %1 are grouped by size and SHA-256 contents. Symbolic links are skipped. "
-                                      "Review checked paths carefully before moving them to Trash.",
-                                      folder.toDisplayString()),
-                                this);
-    criteria->setTextFormat(Qt::PlainText);
-    criteria->setWordWrap(true);
-    layout->addWidget(criteria);
+    m_criteria->setObjectName(QStringLiteral("duplicateFinderCriteria"));
+    m_criteria->setTextFormat(Qt::PlainText);
+    m_criteria->setWordWrap(true);
+    layout->addWidget(m_criteria);
+    m_sameFileName->setObjectName(QStringLiteral("duplicateFinderSameFileName"));
+    m_sameFileName->setChecked(m_requireSameFileName);
+    layout->addWidget(m_sameFileName);
     m_status->setObjectName(QStringLiteral("duplicateFinderStatus"));
     m_status->setTextFormat(Qt::PlainText);
     m_status->setWordWrap(true);
@@ -74,10 +80,11 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
     m_policy->addItem(i18nc("@item:inlistbox", "Keep newest"));
     m_policy->addItem(i18nc("@item:inlistbox", "Keep oldest"));
     m_policy->addItem(i18nc("@item:inlistbox", "Select files in folder"));
+    m_policy->setCurrentIndex(Settings::duplicateSelectionPolicy());
     m_policyFolder->setObjectName(QStringLiteral("duplicateFinderPolicyFolder"));
-    m_policyFolder->setEnabled(false);
+    m_policyFolder->setEnabled(m_policy->currentIndex() == 2);
     auto *chooseFolder = new QPushButton(i18nc("@action:button", "Choose Folder…"), this);
-    chooseFolder->setEnabled(false);
+    chooseFolder->setEnabled(m_policy->currentIndex() == 2);
     m_applyPolicy->setObjectName(QStringLiteral("duplicateFinderApplyPolicy"));
     m_applyPolicy->setEnabled(false);
     selection->addWidget(m_policy);
@@ -121,15 +128,29 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
     });
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
     m_cancel->setObjectName(QStringLiteral("duplicateFinderCancel"));
+    m_rescan->setObjectName(QStringLiteral("duplicateFinderRescan"));
     m_copy->setObjectName(QStringLiteral("duplicateFinderCopy"));
     m_copy->setEnabled(false);
     m_trash->setObjectName(QStringLiteral("duplicateFinderTrash"));
     m_trash->setEnabled(false);
     buttons->addButton(m_cancel, QDialogButtonBox::ActionRole);
+    buttons->addButton(m_rescan, QDialogButtonBox::ActionRole);
     buttons->addButton(m_copy, QDialogButtonBox::ActionRole);
     buttons->addButton(m_trash, QDialogButtonBox::ActionRole);
     layout->addWidget(buttons);
     connect(m_cancel, &QPushButton::clicked, this, &DuplicateFinderDialog::cancel);
+    connect(m_rescan, &QPushButton::clicked, this, &DuplicateFinderDialog::startScan);
+    connect(m_sameFileName, &QCheckBox::toggled, this, [this](bool checked) {
+        const bool current = checked == m_requireSameFileName;
+        m_copy->setEnabled(current && !m_groups.isEmpty());
+        m_applyPolicy->setEnabled(current && !m_groups.isEmpty());
+        m_trash->setEnabled(current && !m_groups.isEmpty());
+        m_status->setText(
+            !current ? i18nc("@info", "Comparison criteria changed. Rescan before using the results.")
+                : !m_scanComplete
+                ? i18nc("@info", "No completed scan. Rescan to find duplicates.")
+                : i18nc("@info", "Found %1 groups. Scan errors: %2. Results can become stale; review files before removal.", m_groups.size(), m_errors.size()));
+    });
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::close);
     connect(m_copy, &QPushButton::clicked, this, [this] {
         QStringList selected;
@@ -171,6 +192,8 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
             return;
         }
         m_results->setEnabled(false);
+        m_sameFileName->setEnabled(false);
+        m_rescan->setEnabled(false);
         m_policy->setEnabled(false);
         m_policyFolder->setEnabled(false);
         chooseFolder->setEnabled(false);
@@ -188,6 +211,8 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
                 m_progress->setRange(0, 1);
                 m_progress->setValue(1);
                 m_results->setEnabled(true);
+                m_sameFileName->setEnabled(true);
+                m_rescan->setEnabled(true);
                 m_policy->setEnabled(true);
                 m_policyFolder->setEnabled(m_policy->currentIndex() == 2);
                 chooseFolder->setEnabled(m_policy->currentIndex() == 2);
@@ -230,10 +255,14 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
             },
             Qt::SingleShotConnection);
         const auto canceled = m_canceled;
-        m_validationWatcher.setFuture(QtConcurrent::run([affected, canceled] {
-            return DuplicateFinder::revalidate(affected, [canceled] {
-                return canceled->load();
-            });
+        const bool requireSameFileName = m_requireSameFileName;
+        m_validationWatcher.setFuture(QtConcurrent::run([affected, canceled, requireSameFileName] {
+            return DuplicateFinder::revalidate(
+                affected,
+                [canceled] {
+                    return canceled->load();
+                },
+                requireSameFileName);
         }));
     });
     connect(&m_watcher, &QFutureWatcher<DuplicateFinder::Result>::progressRangeChanged, m_progress, &QProgressBar::setRange);
@@ -242,12 +271,15 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
         const auto result = m_watcher.result();
         m_errors.append(result.errors);
         m_cancel->setEnabled(false);
+        m_sameFileName->setEnabled(true);
+        m_rescan->setEnabled(true);
         m_progress->setRange(0, 1);
         m_progress->setValue(result.canceled ? 0 : 1);
         if (result.canceled) {
             m_status->setText(i18nc("@info", "Scan canceled; no results are shown."));
             return;
         }
+        m_scanComplete = true;
         m_groups = result.groups;
         for (const auto &group : result.groups) {
             auto *parent = new QTreeWidgetItem(m_results);
@@ -272,7 +304,38 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
         m_status->setText(
             i18nc("@info", "Found %1 groups. Scan errors: %2. Results can become stale; review files before removal.", result.groups.size(), m_errors.size()));
     });
-    m_listJob = KIO::listRecursive(folder, KIO::HideProgressInfo);
+    startScan();
+}
+
+void DuplicateFinderDialog::startScan()
+{
+    m_requireSameFileName = m_sameFileName->isChecked();
+    m_scanComplete = false;
+    m_criteria->setText(m_requireSameFileName
+                            ? i18nc("@info",
+                                    "Known regular files below %1 are grouped by exact file name, size and SHA-256 contents. Symbolic links are skipped. "
+                                    "Review checked paths carefully before moving them to Trash.",
+                                    m_folder.toDisplayString())
+                            : i18nc("@info",
+                                    "Known regular files below %1 are grouped by size and SHA-256 contents. Symbolic links are skipped. "
+                                    "Review checked paths carefully before moving them to Trash.",
+                                    m_folder.toDisplayString()));
+    m_canceled = std::make_shared<std::atomic_bool>(false);
+    m_files.clear();
+    m_errors.clear();
+    m_groups.clear();
+    m_results->clear();
+    m_errorsView->clear();
+    m_errorsView->hide();
+    m_copy->setEnabled(false);
+    m_applyPolicy->setEnabled(false);
+    m_trash->setEnabled(false);
+    m_sameFileName->setEnabled(false);
+    m_rescan->setEnabled(false);
+    m_cancel->setEnabled(true);
+    m_progress->setRange(0, 0);
+    m_status->setText(i18nc("@info", "Listing files…"));
+    m_listJob = KIO::listRecursive(m_folder, KIO::HideProgressInfo);
     connect(m_listJob, &KIO::ListJob::entries, this, [this](KIO::Job *, const KIO::UDSEntryList &entries) {
         for (const auto &entry : entries) {
             const KFileItem item(entry, m_folder, true, true);
@@ -288,6 +351,8 @@ DuplicateFinderDialog::DuplicateFinderDialog(const QUrl &folder, QWidget *parent
         m_listJob = nullptr;
         if (job->error()) {
             m_cancel->setEnabled(false);
+            m_sameFileName->setEnabled(true);
+            m_rescan->setEnabled(true);
             m_progress->setRange(0, 1);
             m_status->setText(i18nc("@info", "Could not list folder: %1", job->errorString()));
             return;
@@ -310,6 +375,8 @@ void DuplicateFinderDialog::cancel()
         m_listJob = nullptr;
         m_progress->setRange(0, 1);
         m_status->setText(i18nc("@info", "Scan canceled; no results are shown."));
+        m_sameFileName->setEnabled(true);
+        m_rescan->setEnabled(true);
     } else if (m_watcher.isRunning()) {
         m_status->setText(i18nc("@info", "Canceling…"));
     }
@@ -320,8 +387,9 @@ void DuplicateFinderDialog::startHashing()
 {
     const QStringList files = m_files;
     const auto canceled = m_canceled;
+    const bool requireSameFileName = m_requireSameFileName;
     m_status->setText(i18nc("@info", "Comparing file sizes and SHA-256 hashes…"));
-    m_watcher.setFuture(QtConcurrent::run([files, canceled](QPromise<DuplicateFinder::Result> &promise) {
+    m_watcher.setFuture(QtConcurrent::run([files, canceled, requireSameFileName](QPromise<DuplicateFinder::Result> &promise) {
         const Checksums::Cancel check = [canceled] {
             return canceled->load();
         };
@@ -329,6 +397,6 @@ void DuplicateFinderDialog::startHashing()
             promise.setProgressRange(0, qMax(1, total));
             promise.setProgressValue(current);
         };
-        promise.addResult(DuplicateFinder::find(files, check, progress));
+        promise.addResult(DuplicateFinder::find(files, check, progress, requireSameFileName));
     }));
 }

@@ -10,7 +10,8 @@
 #include <QMap>
 #include <QSet>
 
-DuplicateFinder::Result DuplicateFinder::find(const QStringList &paths, const Checksums::Cancel &cancel, const Checksums::Progress &progress)
+DuplicateFinder::Result
+DuplicateFinder::find(const QStringList &paths, const Checksums::Cancel &cancel, const Checksums::Progress &progress, bool requireSameFileName)
 {
     Result result;
     QMap<qint64, QStringList> sizes;
@@ -70,8 +71,18 @@ DuplicateFinder::Result DuplicateFinder::find(const QStringList &paths, const Ch
             ++done;
         }
         for (auto hash = hashes.cbegin(); hash != hashes.cend(); ++hash) {
-            if (hash.value().size() > 1) {
+            if (!requireSameFileName && hash.value().size() > 1) {
                 result.groups.append({size.key(), hash.key(), hash.value()});
+            } else if (requireSameFileName) {
+                QMap<QString, QStringList> names;
+                for (const QString &path : hash.value()) {
+                    names[QFileInfo(path).fileName()].append(path);
+                }
+                for (const QStringList &paths : std::as_const(names)) {
+                    if (paths.size() > 1) {
+                        result.groups.append({size.key(), hash.key(), paths});
+                    }
+                }
             }
         }
     }
@@ -140,13 +151,13 @@ DuplicateFinder::SelectionResult DuplicateFinder::select(const QList<Group> &gro
     return result;
 }
 
-QStringList DuplicateFinder::revalidate(const QList<Group> &groups, const Checksums::Cancel &cancel)
+QStringList DuplicateFinder::revalidate(const QList<Group> &groups, const Checksums::Cancel &cancel, bool requireSameFileName)
 {
     QStringList paths;
     for (const Group &group : groups) {
         paths.append(group.paths);
     }
-    const Result current = find(paths, cancel);
+    const Result current = find(paths, cancel, {}, requireSameFileName);
     if (current.canceled) {
         return {i18nc("@info", "Validation was canceled; no files were removed.")};
     }
