@@ -441,11 +441,11 @@ Settings for M09 tools, stored in KConfig.
   pane, with a together option for stacked panes; choose close-button
   visibility without bypassing pinned or locked tab protections. Keep
   keyboard and context-menu actions accessible. (Directory Opus)~~
-- Customize status bars: choose a shared bar or one per pane, and arrange
+- ~~Customize status bars: choose a shared bar or one per pane, and arrange
   available item counts, selection size and free-space indicators. Bind each
   pane's values to that pane and keep operation errors visible even when
   optional indicators are hidden. Reuse the existing status-bar preferences.
-  (Directory Opus, Dolphin)
+  (Directory Opus, Dolphin)~~
 - Save and reset pane and panel splitter sizes, including preview, editor and
   terminal areas, independently for side-by-side and stacked layouts. Restore
   sizes safely within the available window; preserve both file panes and
