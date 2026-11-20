@@ -203,6 +203,22 @@
       <label>Custom bar spacing in pixels</label>
       <default>4</default><min>0</min><max>32</max>
     </entry>
+    <entry name="ToolbarButtonStyle" type="Enum">
+      <label>Default style of toolbar buttons</label>
+      <choices>
+        <choice name="IconOnly"/>
+        <choice name="TextOnly"/>
+        <choice name="TextBesideIcon"/>
+        <choice name="TextUnderIcon"/>
+      </choices>
+      <default>IconOnly</default>
+    </entry>
+    <entry name="ToolbarIconSize" type="Int">
+      <label>Toolbar icon size in pixels; zero uses each toolbar's default</label>
+      <default>0</default>
+      <min>0</min>
+      <max>64</max>
+    </entry>
     <entry name="DragFromAnywhere" type="Bool">
       <label>Drag files and folders from anywhere in a details row</label>
       <default>false</default>

@@ -246,11 +246,23 @@ QWidget *SettingsDialog::createToolbarEntriesPage()
     auto *page = new QWidget;
     auto *layout = new QVBoxLayout(page);
     auto *description = new QLabel(i18nc("@info",
-                                         "Configure the entries and order of the main toolbar, pane toolbars and hamburger menu. "
+                                         "Configure the appearance, entries and order of the main toolbar, pane toolbars and hamburger menu. "
                                          "The existing editors open after this settings window closes."),
                                    page);
     description->setWordWrap(true);
     layout->addWidget(description);
+
+    auto *appearance = new QFormLayout;
+    appearance->addRow(i18nc("@label:listbox", "Default button style:"),
+                       comboBox(QStringLiteral("ToolbarButtonStyle"),
+                                {i18nc("@item:inlistbox", "Icon only"),
+                                 i18nc("@item:inlistbox", "Text only"),
+                                 i18nc("@item:inlistbox", "Text beside icon"),
+                                 i18nc("@item:inlistbox", "Text under icon")}));
+    auto *iconSize = pixelSpinBox(QStringLiteral("ToolbarIconSize"), 0, 64);
+    iconSize->setSpecialValueText(i18nc("@item:valuesuffix", "Default"));
+    appearance->addRow(i18nc("@label:spinbox", "Icon size:"), iconSize);
+    layout->addLayout(appearance);
 
     QWidget *window = parentWidget();
     const auto addEditorButton = [this, layout, page, window](const QString &name, const QString &text, QAction *action) {

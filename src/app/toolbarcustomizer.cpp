@@ -2,6 +2,7 @@
 
 #include "toolbarcustomizer.h"
 #include "pane.h"
+#include "settings.h"
 
 #include <KActionCollection>
 #include <KConfigGroup>
@@ -145,6 +146,39 @@ void ToolbarCustomizer::setEditing(bool editing)
         m_dock->hide();
     }
     Q_EMIT editingChanged(editing);
+}
+
+void ToolbarCustomizer::applyAppearanceSettings()
+{
+    Qt::ToolButtonStyle style = Qt::ToolButtonIconOnly;
+    switch (Settings::toolbarButtonStyle()) {
+    case Settings::EnumToolbarButtonStyle::TextOnly:
+        style = Qt::ToolButtonTextOnly;
+        break;
+    case Settings::EnumToolbarButtonStyle::TextBesideIcon:
+        style = Qt::ToolButtonTextBesideIcon;
+        break;
+    case Settings::EnumToolbarButtonStyle::TextUnderIcon:
+        style = Qt::ToolButtonTextUnderIcon;
+        break;
+    case Settings::EnumToolbarButtonStyle::IconOnly:
+        break;
+    default:
+        break;
+    }
+
+    const int iconSize = Settings::toolbarIconSize();
+    for (QToolBar *toolbar : toolbars()) {
+        toolbar->setToolButtonStyle(style);
+        if (iconSize > 0) {
+            toolbar->setIconSize(QSize(iconSize, iconSize));
+        } else {
+            toolbar->setIconSize(toolbar == m_toolbar ? QSize() : QSize(16, 16));
+        }
+        for (QAction *action : toolbar->actions()) {
+            applyAppearance(action);
+        }
+    }
 }
 
 bool ToolbarCustomizer::eventFilter(QObject *watched, QEvent *event)
@@ -541,20 +575,25 @@ void ToolbarCustomizer::applyAppearance(QAction *action)
 {
     const KConfigGroup entry = KSharedConfig::openConfig()->group(QLatin1String(ToolbarGroup)).group(QLatin1String(EntriesGroup)).group(action->objectName());
     const QString iconName = entry.readEntry("IconName", QString());
-    if (auto *button = qobject_cast<QToolButton *>(m_toolbar->widgetForAction(action))) {
-        if (iconName.isEmpty()) {
-            button->setIcon(action->icon());
-        } else {
-            const QIcon icon = QIcon::fromTheme(iconName);
-            if (icon.isNull()) {
-                qWarning() << "Configured toolbar icon is unavailable in the current theme:" << iconName;
-            } else {
-                button->setIcon(icon);
+    for (QToolBar *toolbar : toolbars()) {
+        if (toolbar->actions().contains(action)) {
+            if (auto *button = qobject_cast<QToolButton *>(toolbar->widgetForAction(action))) {
+                if (iconName.isEmpty()) {
+                    button->setIcon(action->icon());
+                } else {
+                    const QIcon icon = QIcon::fromTheme(iconName);
+                    if (icon.isNull()) {
+                        qWarning() << "Configured toolbar icon is unavailable in the current theme:" << iconName;
+                    } else {
+                        button->setIcon(icon);
+                    }
+                }
+                const int style = entry.readEntry("ButtonStyle", -1);
+                if (style >= Qt::ToolButtonIconOnly && style <= Qt::ToolButtonTextUnderIcon) {
+                    button->setToolButtonStyle(static_cast<Qt::ToolButtonStyle>(style));
+                }
             }
-        }
-        const int style = entry.readEntry("ButtonStyle", -1);
-        if (style >= Qt::ToolButtonIconOnly && style <= Qt::ToolButtonTextUnderIcon) {
-            button->setToolButtonStyle(static_cast<Qt::ToolButtonStyle>(style));
+            break;
         }
     }
 }

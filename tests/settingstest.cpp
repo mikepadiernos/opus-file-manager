@@ -56,6 +56,7 @@
 #include <QTest>
 #include <QTextBrowser>
 #include <QTimer>
+#include <QToolButton>
 #include <QTreeView>
 
 #include <limits>
@@ -234,6 +235,8 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("DetailsDensity")), QStringLiteral("Details"));
         QCOMPARE(tabOf(QStringLiteral("IconsDensity")), QStringLiteral("Icons"));
         QCOMPARE(tabOf(QStringLiteral("BarDensity")), QStringLiteral("Status and Location Bars"));
+        QCOMPARE(tabOf(QStringLiteral("ToolbarButtonStyle")), QStringLiteral("Toolbars"));
+        QCOMPARE(tabOf(QStringLiteral("ToolbarIconSize")), QStringLiteral("Toolbars"));
         QCOMPARE(tabOf(QStringLiteral("IconsIconSize")), QStringLiteral("Icons"));
         QCOMPARE(tabOf(QStringLiteral("TextPreviewLimitKiB")), QStringLiteral("Previews"));
         QCOMPARE(tabOf(QStringLiteral("FileActivationDestination")), QStringLiteral("Opening"));
@@ -990,6 +993,69 @@ private Q_SLOTS:
         window.applySettings();
         QCOMPARE(toolbar->contentsMargins(), initialToolbar);
         QCOMPARE(navigation->contentsMargins(), initialNavigation);
+    }
+
+    void toolbarAppearanceSettingsApplyToEveryToolbar()
+    {
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *style = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_ToolbarButtonStyle"));
+        auto *iconSize = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_ToolbarIconSize"));
+        QVERIFY(style && iconSize);
+        QCOMPARE(iconSize->specialValueText(), QStringLiteral("Default"));
+
+        style->setCurrentIndex(Settings::EnumToolbarButtonStyle::TextUnderIcon);
+        iconSize->setValue(32);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::toolbarButtonStyle(), Settings::EnumToolbarButtonStyle::TextUnderIcon);
+        QCOMPARE(Settings::toolbarIconSize(), 32);
+        window.applySettings();
+
+        QCOMPARE(window.toolBar()->toolButtonStyle(), Qt::ToolButtonTextUnderIcon);
+        QCOMPARE(window.toolBar()->iconSize(), QSize(32, 32));
+        for (Pane *pane : {window.activePane(), window.inactivePane()}) {
+            QCOMPARE(pane->toolBar()->toolButtonStyle(), Qt::ToolButtonTextUnderIcon);
+            QCOMPARE(pane->toolBar()->iconSize(), QSize(32, 32));
+        }
+
+        QAction *entry = nullptr;
+        for (QAction *action : window.toolBar()->actions()) {
+            if (qobject_cast<QToolButton *>(window.toolBar()->widgetForAction(action))) {
+                entry = action;
+                break;
+            }
+        }
+        QVERIFY(entry);
+        KConfigGroup entryConfig =
+            KSharedConfig::openConfig()->group(QStringLiteral("ToolbarCustomization")).group(QStringLiteral("Entries")).group(entry->objectName());
+        entryConfig.writeEntry(QStringLiteral("ButtonStyle"), static_cast<int>(Qt::ToolButtonTextOnly));
+        entryConfig.sync();
+        window.applySettings();
+        QCOMPARE(qobject_cast<QToolButton *>(window.toolBar()->widgetForAction(entry))->toolButtonStyle(), Qt::ToolButtonTextOnly);
+
+        QToolBar *paneToolbar = window.activePane()->toolBar();
+        QAction *paneEntry = nullptr;
+        for (QAction *action : paneToolbar->actions()) {
+            if (qobject_cast<QToolButton *>(paneToolbar->widgetForAction(action))) {
+                paneEntry = action;
+                break;
+            }
+        }
+        QVERIFY(paneEntry);
+        KConfigGroup paneEntryConfig =
+            KSharedConfig::openConfig()->group(QStringLiteral("ToolbarCustomization")).group(QStringLiteral("Entries")).group(paneEntry->objectName());
+        paneEntryConfig.writeEntry(QStringLiteral("ButtonStyle"), static_cast<int>(Qt::ToolButtonTextBesideIcon));
+        paneEntryConfig.sync();
+        window.applySettings();
+        QCOMPARE(qobject_cast<QToolButton *>(paneToolbar->widgetForAction(paneEntry))->toolButtonStyle(), Qt::ToolButtonTextBesideIcon);
+
+        entryConfig.deleteEntry(QStringLiteral("ButtonStyle"));
+        paneEntryConfig.deleteEntry(QStringLiteral("ButtonStyle"));
+        Settings::setToolbarIconSize(0);
+        Settings::setToolbarButtonStyle(Settings::EnumToolbarButtonStyle::IconOnly);
+        window.applySettings();
+        QCOMPARE(window.toolBar()->toolButtonStyle(), Qt::ToolButtonIconOnly);
+        QCOMPARE(window.activePane()->toolBar()->iconSize(), QSize(16, 16));
     }
 
     void contextListsSaveUnavailableEntries()

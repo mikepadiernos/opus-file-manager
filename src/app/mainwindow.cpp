@@ -3587,6 +3587,7 @@ void MainWindow::applySettings()
         view->setPreviewPlugins(Settings::previewPlugins());
         view->setRemotePreviewsEnabled(Settings::showRemotePreviews());
     }
+    m_toolbarCustomizer->applyAppearanceSettings();
     m_informationPanel->setFields(Settings::informationFields());
     if (!Settings::informationHover()) {
         m_hoveredInformationPane = nullptr;

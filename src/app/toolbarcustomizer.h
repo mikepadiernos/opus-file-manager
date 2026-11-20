@@ -28,6 +28,7 @@ public:
     ToolbarCustomizer(KToolBar *toolbar, KActionCollection *actions, QMainWindow *window, const QList<Pane *> &panes = {});
 
     void setEditing(bool editing);
+    void applyAppearanceSettings();
 
 Q_SIGNALS:
     void editingChanged(bool editing);
