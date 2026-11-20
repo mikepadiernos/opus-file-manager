@@ -507,15 +507,21 @@ private Q_SLOTS:
         QVERIFY(backupDir.isValid());
         const auto config = KSharedConfig::openConfig();
         KConfigGroup customization = config->group(QStringLiteral("ToolbarCustomization"));
+        KConfigGroup paneCustomization = config->group(QStringLiteral("PaneToolbars"));
         const auto backup = KSharedConfig::openConfig(backupDir.filePath(QStringLiteral("settings")));
         KConfigGroup savedGroup = backup->group(QStringLiteral("ToolbarCustomization"));
+        KConfigGroup savedPaneGroup = backup->group(QStringLiteral("PaneToolbars"));
         customization.copyTo(&savedGroup);
+        paneCustomization.copyTo(&savedPaneGroup);
         const auto cleanup = qScopeGuard([&] {
             customization.deleteGroup();
             savedGroup.copyTo(&customization);
+            paneCustomization.deleteGroup();
+            savedPaneGroup.copyTo(&paneCustomization);
             config->sync();
         });
         customization.deleteGroup();
+        paneCustomization.deleteGroup();
 
         MainWindow window;
         window.show();
@@ -564,6 +570,56 @@ private Q_SLOTS:
         QVERIFY(savedItems.contains(QStringLiteral("spacer")));
         QVERIFY(!savedItems.contains(QStringLiteral("action:go_home")));
 
+        Pane *pane = window.activePane();
+        QToolBar *paneToolbar = pane->toolBar();
+        QAction *goBack = window.actionCollection()->action(QStringLiteral("go_back"));
+        QVERIFY(paneToolbar && goBack);
+        QVERIFY(drop(toolbar, QStringLiteral("palette"), QStringLiteral("action"), QStringLiteral("go_back"), QPointF(0, 0)));
+        QVERIFY(toolbar->actions().contains(goBack));
+        QVERIFY(drop(paneToolbar, QStringLiteral("toolbar"), QStringLiteral("action"), QStringLiteral("go_back"), QPointF(0, 0)));
+        QVERIFY(!toolbar->actions().contains(goBack));
+        QAction *paneBack = pane->toolbarAction(QStringLiteral("paneBack"));
+        QVERIFY(paneBack && paneToolbar->actions().contains(paneBack));
+        const QString paneBackId = QStringLiteral("pane:%1:paneBack").arg(pane->toolbarConfigId());
+        QVERIFY(drop(toolbar, QStringLiteral("pane"), QStringLiteral("action"), paneBackId, QPointF(toolbar->width(), toolbar->height() / 2.0)));
+        QVERIFY(toolbar->actions().contains(goBack));
+        QVERIFY(!paneToolbar->actions().contains(paneBack));
+        QAction *paneZoomIn = pane->toolbarAction(QStringLiteral("paneZoomIn"));
+        QVERIFY(paneZoomIn);
+        const QString paneZoomInId = QStringLiteral("pane:%1:paneZoomIn").arg(pane->toolbarConfigId());
+        QVERIFY(drop(toolbar, QStringLiteral("pane"), QStringLiteral("action"), paneZoomInId, QPointF(toolbar->width(), toolbar->height() / 2.0)));
+        QVERIFY(toolbar->actions().contains(paneZoomIn));
+        QVERIFY(!paneToolbar->actions().contains(paneZoomIn));
+
+        auto *goMenu = window.findChild<QMenu *>(QStringLiteral("go"));
+        QAction *goForward = window.actionCollection()->action(QStringLiteral("go_forward"));
+        QVERIFY(goMenu && goForward && goMenu->actions().contains(goForward));
+        const QString menuGoForwardId = QStringLiteral("menu:go:go_forward");
+        QVERIFY(drop(toolbar, QStringLiteral("menu"), QStringLiteral("action"), menuGoForwardId, QPointF(0, 0)));
+        QVERIFY(toolbar->actions().contains(goForward));
+        QVERIFY(!goMenu->actions().contains(goForward));
+        QVERIFY(drop(goMenu, QStringLiteral("toolbar"), QStringLiteral("action"), QStringLiteral("go_forward"), QPointF(0, 0)));
+        QVERIFY(!toolbar->actions().contains(goForward));
+        QVERIFY(goMenu->actions().contains(goForward));
+        QVERIFY(drop(paneToolbar, QStringLiteral("menu"), QStringLiteral("action"), menuGoForwardId, QPointF(0, 0)));
+        QAction *paneForward = pane->toolbarAction(QStringLiteral("paneForward"));
+        QVERIFY(paneForward && paneToolbar->actions().contains(paneForward));
+        QVERIFY(!goMenu->actions().contains(goForward));
+        const QString paneForwardId = QStringLiteral("pane:%1:paneForward").arg(pane->toolbarConfigId());
+        QVERIFY(drop(goMenu, QStringLiteral("pane"), QStringLiteral("action"), paneForwardId, QPointF(0, 0)));
+        QVERIFY(goMenu->actions().contains(goForward));
+        QVERIFY(!paneToolbar->actions().contains(paneForward));
+
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        Pane *otherPane = window.inactivePane();
+        QVERIFY(otherPane && otherPane != pane);
+        QAction *otherPaneBack = otherPane->toolbarAction(QStringLiteral("paneBack"));
+        QVERIFY(otherPaneBack && otherPane->toolBar()->actions().contains(otherPaneBack));
+        const QString otherPaneBackId = QStringLiteral("pane:%1:paneBack").arg(otherPane->toolbarConfigId());
+        QVERIFY(drop(paneToolbar, QStringLiteral("pane"), QStringLiteral("action"), otherPaneBackId, QPointF(0, 0)));
+        QVERIFY(!otherPane->toolBar()->actions().contains(otherPaneBack));
+        QVERIFY(paneToolbar->actions().contains(paneBack));
+
         const QString customIconName = home->icon().name();
         const QString terminalIconName = window.actionCollection()->action(QStringLiteral("open_terminal"))->icon().name();
         QVERIFY(!customIconName.isEmpty() && QIcon::hasThemeIcon(customIconName));
@@ -573,8 +629,15 @@ private Q_SLOTS:
         customization.sync();
         MainWindow restored;
         auto *restoredToolbar = restored.toolBar();
+        Pane *restoredPane = restored.activePane();
         auto *terminal = restored.actionCollection()->action(QStringLiteral("open_terminal"));
         QVERIFY(restoredToolbar && terminal && restoredToolbar->actions().contains(terminal));
+        QAction *restoredPaneZoomIn = restoredPane->toolbarAction(QStringLiteral("paneZoomIn"));
+        QVERIFY(restoredPaneZoomIn && restoredToolbar->actions().contains(restoredPaneZoomIn));
+        QVERIFY(!restoredPane->toolBar()->actions().contains(restoredPaneZoomIn));
+        auto *restoredGoMenu = restored.findChild<QMenu *>(QStringLiteral("go"));
+        QAction *restoredGoForward = restored.actionCollection()->action(QStringLiteral("go_forward"));
+        QVERIFY(restoredGoMenu && restoredGoForward && restoredGoMenu->actions().contains(restoredGoForward));
         auto *terminalButton = qobject_cast<QToolButton *>(restoredToolbar->widgetForAction(terminal));
         QVERIFY(terminalButton);
         QCOMPARE(terminalButton->toolButtonStyle(), Qt::ToolButtonTextOnly);

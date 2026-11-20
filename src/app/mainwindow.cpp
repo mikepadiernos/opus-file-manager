@@ -297,7 +297,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     setStandardToolBarMenuEnabled(true);
     setupGUI(QSize(1100, 700), Default, QStringLiteral("opus-file-managerui.rc"));
-    m_toolbarCustomizer = new ToolbarCustomizer(toolBar(), actionCollection(), this);
+    m_toolbarCustomizer = new ToolbarCustomizer(toolBar(), actionCollection(), this, {m_left, m_right});
     connect(actionCollection()->action(QStringLiteral("customize_main_toolbar")), &QAction::toggled, m_toolbarCustomizer, &ToolbarCustomizer::setEditing);
     connect(m_toolbarCustomizer,
             &ToolbarCustomizer::editingChanged,
@@ -323,6 +323,9 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    if (m_toolbarCustomizer) {
+        m_toolbarCustomizer->setEditing(false);
+    }
     if (m_editorDock) {
         disconnect(m_editorDock, nullptr, this, nullptr);
     }

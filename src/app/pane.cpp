@@ -436,6 +436,102 @@ FolderView *Pane::view() const
     return m_view;
 }
 
+QToolBar *Pane::toolBar() const
+{
+    return m_toolBar;
+}
+
+QString Pane::toolbarConfigId() const
+{
+    return m_toolbarConfigId;
+}
+
+QAction *Pane::toolbarAction(const QString &name) const
+{
+    for (QAction *action : m_toolBar->actions()) {
+        if (action->objectName() == name) {
+            return action;
+        }
+    }
+    for (QAction *action : findChildren<QAction *>()) {
+        if (action->objectName() == name) {
+            return action;
+        }
+    }
+    return nullptr;
+}
+
+QAction *Pane::toolbarActionForSharedAction(const QString &name) const
+{
+    static const QHash<QString, QString> sharedActions{
+        {QStringLiteral("go_back"), QStringLiteral("paneBack")},
+        {QStringLiteral("go_forward"), QStringLiteral("paneForward")},
+        {QStringLiteral("go_up"), QStringLiteral("paneUp")},
+        {QStringLiteral("view_redisplay"), QStringLiteral("paneReload")},
+        {QStringLiteral("toggle_view_mode"), QStringLiteral("paneViewModeButton")},
+        {QStringLiteral("show_previews"), QStringLiteral("panePreviews")},
+        {QStringLiteral("show_hidden_files"), QStringLiteral("paneHiddenFiles")},
+        {QStringLiteral("show_filter_bar"), QStringLiteral("paneFilter")},
+        {QStringLiteral("search_folder"), QStringLiteral("paneSearch")},
+    };
+    return toolbarAction(sharedActions.value(name));
+}
+
+QString Pane::sharedActionName(QAction *action) const
+{
+    static const QHash<QString, QString> sharedActions{
+        {QStringLiteral("paneBack"), QStringLiteral("go_back")},
+        {QStringLiteral("paneForward"), QStringLiteral("go_forward")},
+        {QStringLiteral("paneUp"), QStringLiteral("go_up")},
+        {QStringLiteral("paneReload"), QStringLiteral("view_redisplay")},
+        {QStringLiteral("paneViewModeButton"), QStringLiteral("toggle_view_mode")},
+        {QStringLiteral("panePreviews"), QStringLiteral("show_previews")},
+        {QStringLiteral("paneHiddenFiles"), QStringLiteral("show_hidden_files")},
+        {QStringLiteral("paneFilter"), QStringLiteral("show_filter_bar")},
+        {QStringLiteral("paneSearch"), QStringLiteral("search_folder")},
+    };
+    return action ? sharedActions.value(action->objectName()) : QString();
+}
+
+void Pane::insertToolbarAction(QAction *action, const QPoint &position)
+{
+    if (!action || action->objectName() == QLatin1String("paneCustomizeToolbar")) {
+        return;
+    }
+    QAction *before = nullptr;
+    const int coordinate = m_toolBar->orientation() == Qt::Horizontal ? position.x() : position.y();
+    for (QAction *candidate : m_toolBar->actions()) {
+        if (candidate == action) {
+            continue;
+        }
+        const QRect rect = m_toolBar->actionGeometry(candidate);
+        const int center = m_toolBar->orientation() == Qt::Horizontal ? rect.center().x() : rect.center().y();
+        if (rect.isValid() && coordinate < center) {
+            before = candidate;
+            break;
+        }
+    }
+    m_toolBar->removeAction(action);
+    m_toolBar->insertAction(before, action);
+    action->setVisible(true);
+    saveCurrentToolbarConfiguration();
+}
+
+void Pane::removeToolbarAction(QAction *action)
+{
+    if (!action || !m_toolBar->actions().contains(action) || action->objectName() == QLatin1String("paneCustomizeToolbar")) {
+        return;
+    }
+    m_toolBar->removeAction(action);
+    KConfigGroup group = KSharedConfig::openConfig()->group(QStringLiteral("PaneToolbars")).group(m_toolbarConfigId);
+    QStringList hidden = group.readEntry(QStringLiteral("Hidden"), QStringList());
+    if (!hidden.contains(action->objectName())) {
+        hidden.append(action->objectName());
+    }
+    group.writeEntry(QStringLiteral("Hidden"), hidden);
+    saveCurrentToolbarConfiguration();
+}
+
 QUrl Pane::url() const
 {
     return m_tabs->currentUrl();
@@ -779,13 +875,15 @@ void Pane::restoreToolbarConfiguration()
     }
     const QStringList order = group.readEntry(QStringLiteral("Actions"), QStringList());
     const QStringList visible = group.readEntry(QStringLiteral("Visible"), QStringList());
+    const QStringList hidden = group.readEntry(QStringLiteral("Hidden"), QStringList());
     const bool hasVisibility = group.hasKey(QStringLiteral("Visible"));
     QHash<QString, QAction *> actions;
     QAction *configure = m_toolBar->actions().last();
     for (QAction *action : m_toolBar->actions()) {
         if (action->objectName() != QLatin1String("paneCustomizeToolbar")) {
             actions.insert(action->objectName(), action);
-            action->setVisible(!hasVisibility || visible.contains(action->objectName()) || !order.contains(action->objectName()));
+            action->setVisible(!hidden.contains(action->objectName())
+                               && (!hasVisibility || visible.contains(action->objectName()) || !order.contains(action->objectName())));
         }
     }
     for (int i = order.size() - 1; i >= 0; --i) {
@@ -802,7 +900,29 @@ void Pane::saveToolbarConfiguration(const QStringList &order, const QStringList 
     KConfigGroup group = KSharedConfig::openConfig()->group(QStringLiteral("PaneToolbars")).group(m_toolbarConfigId);
     group.writeEntry(QStringLiteral("Actions"), order);
     group.writeEntry(QStringLiteral("Visible"), visible);
+    QStringList hidden = group.readEntry(QStringLiteral("Hidden"), QStringList());
+    hidden.removeIf([&order](const QString &name) {
+        return order.contains(name);
+    });
+    group.writeEntry(QStringLiteral("Hidden"), hidden);
     group.sync();
+}
+
+void Pane::saveCurrentToolbarConfiguration()
+{
+    QStringList order;
+    QStringList visible;
+    for (QAction *action : m_toolBar->actions()) {
+        const QString name = action->objectName();
+        if (name.isEmpty() || name == QLatin1String("paneCustomizeToolbar")) {
+            continue;
+        }
+        order.append(name);
+        if (action->isVisible()) {
+            visible.append(name);
+        }
+    }
+    saveToolbarConfiguration(order, visible);
 }
 
 void Pane::syncTabBar()

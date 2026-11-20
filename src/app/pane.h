@@ -51,6 +51,13 @@ public:
 
     TabModel *tabs() const;
     FolderView *view() const;
+    QToolBar *toolBar() const;
+    QString toolbarConfigId() const;
+    QAction *toolbarAction(const QString &name) const;
+    QAction *toolbarActionForSharedAction(const QString &name) const;
+    QString sharedActionName(QAction *action) const;
+    void insertToolbarAction(QAction *action, const QPoint &position = QPoint());
+    void removeToolbarAction(QAction *action);
     QUrl url() const;
 
     bool isActive() const;
@@ -140,6 +147,7 @@ private:
     void configureToolbar();
     void restoreToolbarConfiguration();
     void saveToolbarConfiguration(const QStringList &order, const QStringList &visible);
+    void saveCurrentToolbarConfiguration();
     void updateTabText(int index);
     void updateNavigationButtons();
     void showTabContextMenu(int index, const QPoint &globalPos);

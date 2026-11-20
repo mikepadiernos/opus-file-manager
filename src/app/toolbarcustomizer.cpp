@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "toolbarcustomizer.h"
+#include "pane.h"
 
 #include <KActionCollection>
 #include <KConfigGroup>
@@ -25,6 +26,7 @@
 #include <QListWidget>
 #include <QMainWindow>
 #include <QMenu>
+#include <QMenuBar>
 #include <QMessageBox>
 #include <QMimeData>
 #include <QMouseEvent>
@@ -57,14 +59,16 @@ bool parsePayload(const QMimeData *mimeData, QStringList *parts)
 }
 }
 
-ToolbarCustomizer::ToolbarCustomizer(KToolBar *toolbar, KActionCollection *actions, QMainWindow *window)
+ToolbarCustomizer::ToolbarCustomizer(KToolBar *toolbar, KActionCollection *actions, QMainWindow *window, const QList<Pane *> &panes)
     : QObject(window)
     , m_toolbar(toolbar)
     , m_actions(actions)
     , m_window(window)
+    , m_menuBar(window->menuBar())
     , m_dock(new QDockWidget(i18nc("@title:window", "Toolbar Actions"), window))
     , m_filter(new QLineEdit(m_dock))
     , m_actionList(new QListWidget(m_dock))
+    , m_panes(panes)
 {
     m_dock->setObjectName(QStringLiteral("toolbarActionsDock"));
     m_dock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
@@ -91,8 +95,21 @@ ToolbarCustomizer::ToolbarCustomizer(KToolBar *toolbar, KActionCollection *actio
     window->addDockWidget(Qt::RightDockWidgetArea, m_dock);
     m_dock->hide();
 
-    m_toolbar->setAcceptDrops(false);
-    m_toolbar->installEventFilter(this);
+    for (Pane *pane : std::as_const(m_panes)) {
+        for (QAction *action : pane->toolBar()->actions()) {
+            if (action->objectName() != QLatin1String("paneCustomizeToolbar")) {
+                action->setProperty("toolbarTransferId", QStringLiteral("pane:%1:%2").arg(pane->toolbarConfigId(), action->objectName()));
+            }
+        }
+    }
+    for (QToolBar *candidate : toolbars()) {
+        candidate->setAcceptDrops(false);
+        candidate->installEventFilter(this);
+    }
+    for (QMenu *menu : menus()) {
+        menu->setAcceptDrops(false);
+        menu->installEventFilter(this);
+    }
     connect(m_filter, &QLineEdit::textChanged, this, &ToolbarCustomizer::filterActions);
     connect(m_dock, &QDockWidget::visibilityChanged, this, [this](bool visible) {
         if (!visible && m_editing) {
@@ -100,6 +117,7 @@ ToolbarCustomizer::ToolbarCustomizer(KToolBar *toolbar, KActionCollection *actio
         }
     });
 
+    restoreMenuCustomizations();
     restoreToolbar();
     populateActions();
 }
@@ -111,9 +129,16 @@ void ToolbarCustomizer::setEditing(bool editing)
     }
     m_editing = editing;
     m_actionList->viewport()->setAcceptDrops(editing);
-    m_toolbar->setAcceptDrops(editing);
+    for (QToolBar *toolbar : toolbars()) {
+        toolbar->setAcceptDrops(editing);
+    }
+    for (QMenu *menu : menus()) {
+        menu->setAcceptDrops(editing);
+    }
     if (editing) {
         installButtonFilter(nullptr);
+    }
+    if (editing) {
         m_dock->show();
         m_dock->raise();
     } else {
@@ -124,8 +149,54 @@ void ToolbarCustomizer::setEditing(bool editing)
 
 bool ToolbarCustomizer::eventFilter(QObject *watched, QEvent *event)
 {
-    if (watched == m_toolbar) {
-        if (!m_restoring && !m_saveScheduled && (event->type() == QEvent::ActionAdded || event->type() == QEvent::ActionRemoved)) {
+    if (auto *menu = qobject_cast<QMenu *>(watched)) {
+        if (event->type() == QEvent::DragEnter || event->type() == QEvent::DragMove) {
+            auto *drop = static_cast<QDropEvent *>(event);
+            QStringList parts;
+            if (m_editing && parsePayload(drop->mimeData(), &parts)) {
+                drop->setDropAction(Qt::MoveAction);
+                drop->accept();
+                return true;
+            }
+        } else if (event->type() == QEvent::Drop) {
+            auto *drop = static_cast<QDropEvent *>(event);
+            QStringList parts;
+            if (m_editing && parsePayload(drop->mimeData(), &parts)) {
+                handleMenuDrop(menu, drop->mimeData());
+                drop->setDropAction(Qt::MoveAction);
+                drop->accept();
+                return true;
+            }
+        } else if (event->type() == QEvent::MouseButtonPress && m_editing) {
+            const auto *mouse = static_cast<QMouseEvent *>(event);
+            m_pressedMenu = menu;
+            m_pressedAction = menu->actionAt(mouse->position().toPoint());
+            m_pressPosition = mouse->position().toPoint();
+        } else if (event->type() == QEvent::MouseMove && m_editing && m_pressedMenu == menu && m_pressedAction) {
+            const auto *mouse = static_cast<QMouseEvent *>(event);
+            if ((mouse->buttons() & Qt::LeftButton) && (mouse->position().toPoint() - m_pressPosition).manhattanLength() >= QApplication::startDragDistance()) {
+                const QString menuName = menu->objectName();
+                if (!menuName.isEmpty() && !m_pressedAction->objectName().isEmpty()) {
+                    auto *mimeData = new QMimeData;
+                    const QString name = QStringLiteral("menu:%1:%2").arg(menuName, m_pressedAction->objectName());
+                    mimeData->setData(QLatin1String(ToolbarMimeType), mimePayload(QStringLiteral("menu"), QStringLiteral("action"), name));
+                    QDrag drag(menu);
+                    drag.setMimeData(mimeData);
+                    drag.exec(Qt::MoveAction);
+                    m_pressedAction = nullptr;
+                    m_pressedMenu = nullptr;
+                    return true;
+                }
+            }
+        } else if (event->type() == QEvent::MouseButtonRelease) {
+            m_pressedAction = nullptr;
+            m_pressedMenu = nullptr;
+        }
+    }
+    auto *targetToolbar = qobject_cast<QToolBar *>(watched);
+    if (targetToolbar && toolbars().contains(targetToolbar)) {
+        if (targetToolbar == m_toolbar && !m_restoring && !m_saveScheduled
+            && (event->type() == QEvent::ActionAdded || event->type() == QEvent::ActionRemoved)) {
             m_saveScheduled = true;
             QTimer::singleShot(0, this, [this] {
                 m_saveScheduled = false;
@@ -148,7 +219,7 @@ bool ToolbarCustomizer::eventFilter(QObject *watched, QEvent *event)
             auto *drop = static_cast<QDropEvent *>(event);
             QStringList parts;
             if (m_editing && parsePayload(drop->mimeData(), &parts)) {
-                handleToolbarDrop(drop->mimeData(), drop->position().toPoint());
+                handleToolbarDrop(drop->mimeData(), drop->position().toPoint(), targetToolbar);
                 drop->setDropAction(Qt::MoveAction);
                 drop->accept();
                 return true;
@@ -158,7 +229,7 @@ bool ToolbarCustomizer::eventFilter(QObject *watched, QEvent *event)
         if (event->type() == QEvent::DragEnter || event->type() == QEvent::DragMove) {
             auto *drop = static_cast<QDropEvent *>(event);
             QStringList parts;
-            if (m_editing && parsePayload(drop->mimeData(), &parts) && parts.at(0) == QLatin1String("toolbar")) {
+            if (m_editing && parsePayload(drop->mimeData(), &parts) && (parts.at(0) == QLatin1String("toolbar") || parts.at(0) == QLatin1String("pane"))) {
                 drop->setDropAction(Qt::MoveAction);
                 drop->accept();
                 return true;
@@ -166,8 +237,16 @@ bool ToolbarCustomizer::eventFilter(QObject *watched, QEvent *event)
         } else if (event->type() == QEvent::Drop) {
             auto *drop = static_cast<QDropEvent *>(event);
             QStringList parts;
-            if (m_editing && parsePayload(drop->mimeData(), &parts) && parts.at(0) == QLatin1String("toolbar")) {
-                removeToolbarItem(parts.at(1), parts.at(2));
+            if (m_editing && parsePayload(drop->mimeData(), &parts) && (parts.at(0) == QLatin1String("toolbar") || parts.at(0) == QLatin1String("pane"))) {
+                if (parts.at(0) == QLatin1String("toolbar")) {
+                    removeToolbarItem(parts.at(1), parts.at(2));
+                } else if (QAction *action = actionForPersistenceName(parts.at(2))) {
+                    for (Pane *pane : m_panes) {
+                        if (pane->toolBar()->actions().contains(action)) {
+                            pane->removeToolbarAction(action);
+                        }
+                    }
+                }
                 drop->setDropAction(Qt::MoveAction);
                 drop->accept();
                 return true;
@@ -182,7 +261,9 @@ bool ToolbarCustomizer::eventFilter(QObject *watched, QEvent *event)
                 return true;
             }
         }
-    } else if (qobject_cast<QWidget *>(watched)) {
+    } else if (qobject_cast<QWidget *>(watched)
+               && (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::MouseMove || event->type() == QEvent::MouseButtonRelease
+                   || event->type() == QEvent::ContextMenu)) {
         QAction *action = actionForButton(watched);
         if (event->type() == QEvent::MouseButtonPress && m_editing) {
             auto *mouse = static_cast<QMouseEvent *>(event);
@@ -193,15 +274,22 @@ bool ToolbarCustomizer::eventFilter(QObject *watched, QEvent *event)
         } else if (event->type() == QEvent::MouseMove && m_editing && m_pressedAction) {
             auto *mouse = static_cast<QMouseEvent *>(event);
             if ((mouse->buttons() & Qt::LeftButton) && (mouse->position().toPoint() - m_pressPosition).manhattanLength() >= QApplication::startDragDistance()) {
-                startActionDrag(m_pressedAction);
+                for (QToolBar *toolbar : toolbars()) {
+                    if (toolbar->widgetForAction(m_pressedAction) == watched) {
+                        startActionDrag(m_pressedAction, toolbar);
+                        break;
+                    }
+                }
                 m_pressedAction = nullptr;
                 return true;
             }
         } else if (event->type() == QEvent::MouseButtonRelease) {
             m_pressedAction = nullptr;
         } else if (event->type() == QEvent::ContextMenu && m_editing && action) {
-            showActionMenu(action, static_cast<QContextMenuEvent *>(event)->globalPos());
-            return true;
+            if (m_toolbar->widgetForAction(action) == watched) {
+                showActionMenu(action, static_cast<QContextMenuEvent *>(event)->globalPos());
+                return true;
+            }
         }
     }
     return QObject::eventFilter(watched, event);
@@ -210,10 +298,13 @@ bool ToolbarCustomizer::eventFilter(QObject *watched, QEvent *event)
 void ToolbarCustomizer::populateActions()
 {
     m_actionList->clear();
+    const QList<QToolBar *> availableToolbars = toolbars();
     for (QAction *action : m_actions->actions()) {
         const QString name = action->objectName();
         if (name.isEmpty() || action->text().isEmpty() || action->isSeparator() || name == QLatin1String("customize_main_toolbar")
-            || m_toolbar->actions().contains(action)) {
+            || std::any_of(availableToolbars.cbegin(), availableToolbars.cend(), [action](QToolBar *toolbar) {
+                   return toolbar->actions().contains(action);
+               })) {
             continue;
         }
         auto *item = new QListWidgetItem(action->icon(), action->text(), m_actionList);
@@ -228,6 +319,20 @@ void ToolbarCustomizer::populateActions()
     filterActions(m_filter->text());
 }
 
+QList<QMenu *> ToolbarCustomizer::menus() const
+{
+    return m_menuBar ? m_menuBar->findChildren<QMenu *>() : QList<QMenu *>{};
+}
+
+QList<QToolBar *> ToolbarCustomizer::toolbars() const
+{
+    QList<QToolBar *> result{m_toolbar};
+    for (Pane *pane : m_panes) {
+        result.append(pane->toolBar());
+    }
+    return result;
+}
+
 void ToolbarCustomizer::filterActions(const QString &text)
 {
     for (int row = 0; row < m_actionList->count(); ++row) {
@@ -238,13 +343,21 @@ void ToolbarCustomizer::filterActions(const QString &text)
 
 void ToolbarCustomizer::installButtonFilter(QAction *action)
 {
-    const QList<QAction *> actions = action ? QList<QAction *>{action} : m_toolbar->actions();
-    for (QAction *candidate : actions) {
+    QList<QPair<QToolBar *, QAction *>> candidates;
+    for (QToolBar *toolbar : toolbars()) {
+        const QList<QAction *> actions = action ? QList<QAction *>{action} : toolbar->actions();
+        for (QAction *candidate : actions) {
+            if (toolbar->actions().contains(candidate)) {
+                candidates.append({toolbar, candidate});
+            }
+        }
+    }
+    for (const auto &[toolbar, candidate] : candidates) {
         if ((candidate->isSeparator() || kindForAction(candidate) == QLatin1String("spacer")) && candidate->objectName().isEmpty()) {
             const QString prefix = candidate->isSeparator() ? QStringLiteral("opus_toolbar_separator_") : QStringLiteral("opus_toolbar_spacer_");
             candidate->setObjectName(prefix + QUuid::createUuid().toString(QUuid::WithoutBraces));
         }
-        QWidget *widget = m_toolbar->widgetForAction(candidate);
+        QWidget *widget = toolbar->widgetForAction(candidate);
         if (widget && !widget->property("toolbarCustomizerInstalled").toBool()) {
             widget->setProperty("toolbarCustomizerInstalled", true);
             widget->installEventFilter(this);
@@ -261,12 +374,36 @@ void ToolbarCustomizer::installButtonFilter(QAction *action)
 
 QAction *ToolbarCustomizer::actionForButton(QObject *button) const
 {
-    for (QAction *action : m_toolbar->actions()) {
-        if (m_toolbar->widgetForAction(action) == button) {
-            return action;
+    for (QToolBar *toolbar : toolbars()) {
+        for (QAction *action : toolbar->actions()) {
+            if (toolbar->widgetForAction(action) == button) {
+                return action->objectName() == QLatin1String("paneCustomizeToolbar") ? nullptr : action;
+            }
         }
     }
     return nullptr;
+}
+
+QAction *ToolbarCustomizer::actionForPersistenceName(const QString &name) const
+{
+    if (name.startsWith(QLatin1String("pane:"))) {
+        const QStringList parts = name.split(QLatin1Char(':'));
+        if (parts.size() == 3) {
+            for (Pane *pane : m_panes) {
+                if (pane->toolbarConfigId() == parts.at(1)) {
+                    return pane->toolbarAction(parts.at(2));
+                }
+            }
+        }
+        return nullptr;
+    }
+    return m_actions->action(name);
+}
+
+QString ToolbarCustomizer::persistenceName(QAction *action) const
+{
+    const QString transferId = action->property("toolbarTransferId").toString();
+    return transferId.isEmpty() ? action->objectName() : transferId;
 }
 
 QString ToolbarCustomizer::kindForAction(QAction *action) const
@@ -275,29 +412,37 @@ QString ToolbarCustomizer::kindForAction(QAction *action) const
         return QStringLiteral("separator");
     }
     if (action->property("toolbarSpacer").toBool() || action->objectName() == QLatin1String("spacer")
-        || action->objectName().startsWith(QLatin1String("spacer_")) || (qobject_cast<QWidgetAction *>(action) && !m_actions->actions().contains(action))) {
+        || action->objectName().startsWith(QLatin1String("spacer_"))) {
         return QStringLiteral("spacer");
     }
     return QStringLiteral("action");
 }
 
-void ToolbarCustomizer::startActionDrag(QAction *action)
+void ToolbarCustomizer::startActionDrag(QAction *action, QToolBar *toolbar)
 {
     if (!action) {
         return;
     }
     const QString kind = kindForAction(action);
-    const QString name = action->objectName();
     auto *mimeData = new QMimeData;
-    mimeData->setData(QLatin1String(ToolbarMimeType), mimePayload(QStringLiteral("toolbar"), kind, name));
-    QDrag drag(m_toolbar);
+    const QString source = toolbar == m_toolbar ? QStringLiteral("toolbar") : QStringLiteral("pane");
+    mimeData->setData(QLatin1String(ToolbarMimeType), mimePayload(source, kind, persistenceName(action)));
+    QDrag drag(toolbar);
     drag.setMimeData(mimeData);
     if (!action->icon().isNull()) {
         drag.setPixmap(action->icon().pixmap(24, 24));
     }
     const Qt::DropAction result = drag.exec(Qt::MoveAction);
-    if (result != Qt::MoveAction && m_toolbar->actions().contains(action)) {
-        removeToolbarItem(kind, name);
+    if (result != Qt::MoveAction && toolbar->actions().contains(action)) {
+        if (toolbar == m_toolbar) {
+            removeToolbarItem(kind, persistenceName(action));
+        } else {
+            for (Pane *pane : m_panes) {
+                if (pane->toolBar() == toolbar) {
+                    pane->removeToolbarAction(action);
+                }
+            }
+        }
     }
 }
 
@@ -421,7 +566,7 @@ void ToolbarCustomizer::saveToolbar()
     for (QAction *action : m_toolbar->actions()) {
         const QString kind = kindForAction(action);
         if (kind == QLatin1String("action")) {
-            const QString name = action->objectName();
+            const QString name = persistenceName(action);
             if (!name.isEmpty()) {
                 items.append(QStringLiteral("action:") + name);
             }
@@ -464,7 +609,16 @@ void ToolbarCustomizer::restoreToolbar()
             m_toolbar->addAction(spacer);
             restoredAny = true;
         } else if (item.startsWith(QLatin1String("action:"))) {
-            if (QAction *action = m_actions->action(item.mid(7))) {
+            if (QAction *action = actionForPersistenceName(item.mid(7))) {
+                if (item.mid(7).startsWith(QLatin1String("pane:"))) {
+                    for (Pane *pane : m_panes) {
+                        if (pane->toolbarAction(action->objectName()) == action) {
+                            pane->removeToolbarAction(action);
+                            break;
+                        }
+                    }
+                    action->setVisible(true);
+                }
                 m_toolbar->addAction(action);
                 restoredAny = true;
             }
@@ -479,7 +633,7 @@ void ToolbarCustomizer::restoreToolbar()
     m_restoring = false;
 }
 
-void ToolbarCustomizer::handleToolbarDrop(const QMimeData *mimeData, const QPoint &position)
+void ToolbarCustomizer::handleToolbarDrop(const QMimeData *mimeData, const QPoint &position, QToolBar *target)
 {
     QStringList parts;
     if (!parsePayload(mimeData, &parts)) {
@@ -488,21 +642,102 @@ void ToolbarCustomizer::handleToolbarDrop(const QMimeData *mimeData, const QPoin
     const QString source = parts.at(0);
     const QString kind = parts.at(1);
     const QString name = parts.at(2);
-    if (source != QLatin1String("palette") && source != QLatin1String("toolbar")) {
+    if (source != QLatin1String("palette") && source != QLatin1String("toolbar") && source != QLatin1String("pane") && source != QLatin1String("menu")) {
         return;
     }
+    Pane *targetPane = nullptr;
+    for (Pane *pane : m_panes) {
+        if (pane->toolBar() == target) {
+            targetPane = pane;
+            break;
+        }
+    }
+    Pane *sourcePane = nullptr;
+    QMenu *sourceMenu = nullptr;
+    QAction *sourceAction = nullptr;
     QAction *action = nullptr;
     if (kind == QLatin1String("action")) {
-        action = m_actions->action(name);
-        if (!action || (source == QLatin1String("toolbar") && !m_toolbar->actions().contains(action))) {
+        QString transferActionName = name;
+        if (source == QLatin1String("menu")) {
+            const QStringList menuParts = name.split(QLatin1Char(':'));
+            if (menuParts.size() != 3 || menuParts.at(0) != QLatin1String("menu")) {
+                return;
+            }
+            transferActionName = menuParts.at(2);
+            for (QMenu *menu : menus()) {
+                if (menu->objectName() == menuParts.at(1)) {
+                    sourceMenu = menu;
+                    break;
+                }
+            }
+            if (!sourceMenu) {
+                return;
+            }
+            sourceAction = m_actions->action(transferActionName);
+            if (!sourceAction || !sourceMenu->actions().contains(sourceAction)) {
+                return;
+            }
+        } else {
+            sourceAction = actionForPersistenceName(name);
+        }
+        if (!sourceAction) {
             return;
         }
-        if (source == QLatin1String("palette") && m_toolbar->actions().contains(action)) {
+        if (source == QLatin1String("toolbar") && !m_toolbar->actions().contains(sourceAction)) {
+            return;
+        }
+        if (source == QLatin1String("pane")) {
+            for (Pane *pane : m_panes) {
+                if (pane->toolBar()->actions().contains(sourceAction)) {
+                    sourcePane = pane;
+                    break;
+                }
+            }
+            if (!sourcePane) {
+                return;
+            }
+        }
+        if (targetPane) {
+            if (sourcePane) {
+                const QString sharedName = sourcePane->sharedActionName(sourceAction);
+                action = sharedName.isEmpty() ? targetPane->toolbarAction(sourceAction->objectName()) : targetPane->toolbarActionForSharedAction(sharedName);
+            } else if (name.startsWith(QLatin1String("pane:"))) {
+                const QStringList paneParts = name.split(QLatin1Char(':'));
+                if (paneParts.size() == 3) {
+                    for (Pane *pane : m_panes) {
+                        if (pane->toolbarConfigId() == paneParts.at(1)) {
+                            action = pane == targetPane ? sourceAction : targetPane->toolbarAction(sourceAction->objectName());
+                            break;
+                        }
+                    }
+                }
+            } else {
+                action = targetPane->toolbarActionForSharedAction(transferActionName);
+            }
+            if (!action) {
+                return;
+            }
+        } else if (sourcePane) {
+            const QString sharedName = sourcePane->sharedActionName(sourceAction);
+            action = sharedName.isEmpty() ? sourceAction : m_actions->action(sharedName);
+            if (!action) {
+                return;
+            }
+        } else {
+            action = sourceAction;
+        }
+        const QList<QToolBar *> availableToolbars = toolbars();
+        if (source == QLatin1String("palette") && std::any_of(availableToolbars.cbegin(), availableToolbars.cend(), [action](QToolBar *toolbar) {
+                return toolbar->actions().contains(action);
+            })) {
             return;
         }
     } else if (kind == QLatin1String("separator")) {
+        if (targetPane) {
+            return;
+        }
         if (source == QLatin1String("toolbar")) {
-            const QList<QAction *> toolbarActions = m_toolbar->actions();
+            const QList<QAction *> toolbarActions = target->actions();
             const auto it = std::find_if(toolbarActions.cbegin(), toolbarActions.cend(), [&name](QAction *candidate) {
                 return candidate->isSeparator() && candidate->objectName() == name;
             });
@@ -519,8 +754,11 @@ void ToolbarCustomizer::handleToolbarDrop(const QMimeData *mimeData, const QPoin
             action->setProperty("toolbarCustomizerOwned", true);
         }
     } else if (kind == QLatin1String("spacer")) {
+        if (targetPane) {
+            return;
+        }
         if (source == QLatin1String("toolbar")) {
-            const QList<QAction *> toolbarActions = m_toolbar->actions();
+            const QList<QAction *> toolbarActions = target->actions();
             const auto it = std::find_if(toolbarActions.cbegin(), toolbarActions.cend(), [&name, this](QAction *candidate) {
                 return kindForAction(candidate) == QLatin1String("spacer") && candidate->objectName() == name;
             });
@@ -546,22 +784,48 @@ void ToolbarCustomizer::handleToolbarDrop(const QMimeData *mimeData, const QPoin
     }
 
     QAction *before = nullptr;
-    for (QAction *candidate : m_toolbar->actions()) {
+    for (QAction *candidate : target->actions()) {
         if (candidate == action) {
             continue;
         }
-        const QRect rect = m_toolbar->actionGeometry(candidate);
-        const int coordinate = m_toolbar->orientation() == Qt::Horizontal ? position.x() : position.y();
-        const int center = m_toolbar->orientation() == Qt::Horizontal ? rect.center().x() : rect.center().y();
+        const QRect rect = target->actionGeometry(candidate);
+        const int coordinate = target->orientation() == Qt::Horizontal ? position.x() : position.y();
+        const int center = target->orientation() == Qt::Horizontal ? rect.center().x() : rect.center().y();
         if (rect.isValid() && coordinate < center) {
             before = candidate;
             break;
         }
     }
-    if (m_toolbar->actions().contains(action)) {
-        m_toolbar->removeAction(action);
+
+    if (targetPane) {
+        targetPane->insertToolbarAction(action, position);
+    } else {
+        target->removeAction(action);
+        target->insertAction(before, action);
     }
-    m_toolbar->insertAction(before, action);
+    if (source == QLatin1String("toolbar") && target != m_toolbar) {
+        m_toolbar->removeAction(sourceAction);
+    } else if (sourcePane && sourcePane != targetPane && sourceAction != action) {
+        sourcePane->removeToolbarAction(sourceAction);
+    } else if (sourcePane && targetPane != sourcePane && sourceAction == action) {
+        sourcePane->removeToolbarAction(sourceAction);
+    }
+    if (sourceMenu) {
+        sourceMenu->removeAction(sourceAction);
+        KConfigGroup group = KSharedConfig::openConfig()->group(QLatin1String(ToolbarGroup)).group(QStringLiteral("Menus")).group(sourceMenu->objectName());
+        QStringList hidden = group.readEntry(QStringLiteral("HiddenActions"), QStringList());
+        if (!hidden.contains(sourceAction->objectName())) {
+            hidden.append(sourceAction->objectName());
+        }
+        QStringList added = group.readEntry(QStringLiteral("AddedActions"), QStringList());
+        added.removeAll(sourceAction->objectName());
+        group.writeEntry(QStringLiteral("HiddenActions"), hidden);
+        group.writeEntry(QStringLiteral("AddedActions"), added);
+        saveMenuCustomizations(sourceMenu);
+    }
+    if (target == m_toolbar || source == QLatin1String("toolbar")) {
+        saveToolbar();
+    }
     installButtonFilter(action);
     saveToolbar();
     populateActions();
@@ -571,7 +835,7 @@ void ToolbarCustomizer::removeToolbarItem(const QString &kind, const QString &na
 {
     QAction *action = nullptr;
     if (kind == QLatin1String("action")) {
-        action = m_actions->action(name);
+        action = actionForPersistenceName(name);
     } else {
         for (QAction *candidate : m_toolbar->actions()) {
             if (kindForAction(candidate) == kind && (name.isEmpty() || candidate->objectName() == name)) {
@@ -586,6 +850,144 @@ void ToolbarCustomizer::removeToolbarItem(const QString &kind, const QString &na
         populateActions();
         if (action->property("toolbarCustomizerOwned").toBool()) {
             action->deleteLater();
+        }
+    }
+}
+
+void ToolbarCustomizer::handleMenuDrop(QMenu *target, const QMimeData *mimeData)
+{
+    QStringList parts;
+    if (!target || target->objectName().isEmpty() || !parsePayload(mimeData, &parts) || parts.at(1) != QLatin1String("action")) {
+        return;
+    }
+
+    const QString source = parts.at(0);
+    const QString name = parts.at(2);
+    QAction *sourceAction = nullptr;
+    QAction *menuAction = nullptr;
+    QMenu *sourceMenu = nullptr;
+    Pane *sourcePane = nullptr;
+    QString globalName = name;
+    if (source == QLatin1String("menu")) {
+        const QStringList menuParts = name.split(QLatin1Char(':'));
+        if (menuParts.size() != 3 || menuParts.at(0) != QLatin1String("menu")) {
+            return;
+        }
+        globalName = menuParts.at(2);
+        for (QMenu *menu : menus()) {
+            if (menu->objectName() == menuParts.at(1)) {
+                sourceMenu = menu;
+                break;
+            }
+        }
+        sourceAction = m_actions->action(globalName);
+        if (!sourceMenu || !sourceAction || !sourceMenu->actions().contains(sourceAction)) {
+            return;
+        }
+    } else {
+        sourceAction = actionForPersistenceName(name);
+        if (!sourceAction) {
+            return;
+        }
+        if (source == QLatin1String("toolbar") && !m_toolbar->actions().contains(sourceAction)) {
+            return;
+        }
+        if (source == QLatin1String("pane")) {
+            for (Pane *pane : m_panes) {
+                if (pane->toolBar()->actions().contains(sourceAction)) {
+                    sourcePane = pane;
+                    break;
+                }
+            }
+            if (!sourcePane) {
+                return;
+            }
+            globalName = sourcePane->sharedActionName(sourceAction);
+            if (globalName.isEmpty()) {
+                return;
+            }
+        } else if (source == QLatin1String("toolbar") && name.startsWith(QLatin1String("pane:"))) {
+            for (Pane *pane : m_panes) {
+                if (pane->toolbarAction(sourceAction->objectName()) == sourceAction) {
+                    globalName = pane->sharedActionName(sourceAction);
+                    break;
+                }
+            }
+            if (globalName.isEmpty()) {
+                return;
+            }
+        } else if (source != QLatin1String("toolbar") && source != QLatin1String("palette")) {
+            return;
+        }
+    }
+
+    menuAction = m_actions->action(globalName);
+    if (!menuAction) {
+        return;
+    }
+    if (!target->actions().contains(menuAction)) {
+        target->addAction(menuAction);
+    }
+    KConfigGroup targetGroup = KSharedConfig::openConfig()->group(QLatin1String(ToolbarGroup)).group(QStringLiteral("Menus")).group(target->objectName());
+    QStringList targetHidden = targetGroup.readEntry(QStringLiteral("HiddenActions"), QStringList());
+    targetHidden.removeAll(globalName);
+    QStringList targetAdded = targetGroup.readEntry(QStringLiteral("AddedActions"), QStringList());
+    if (!targetAdded.contains(globalName)) {
+        targetAdded.append(globalName);
+    }
+    targetGroup.writeEntry(QStringLiteral("HiddenActions"), targetHidden);
+    targetGroup.writeEntry(QStringLiteral("AddedActions"), targetAdded);
+    saveMenuCustomizations(target);
+
+    if (source == QLatin1String("toolbar")) {
+        m_toolbar->removeAction(sourceAction);
+        saveToolbar();
+    } else if (sourcePane) {
+        sourcePane->removeToolbarAction(sourceAction);
+    } else if (sourceMenu && sourceMenu != target) {
+        sourceMenu->removeAction(sourceAction);
+        KConfigGroup sourceGroup =
+            KSharedConfig::openConfig()->group(QLatin1String(ToolbarGroup)).group(QStringLiteral("Menus")).group(sourceMenu->objectName());
+        QStringList hidden = sourceGroup.readEntry(QStringLiteral("HiddenActions"), QStringList());
+        if (!hidden.contains(globalName)) {
+            hidden.append(globalName);
+        }
+        QStringList added = sourceGroup.readEntry(QStringLiteral("AddedActions"), QStringList());
+        added.removeAll(globalName);
+        sourceGroup.writeEntry(QStringLiteral("HiddenActions"), hidden);
+        sourceGroup.writeEntry(QStringLiteral("AddedActions"), added);
+        saveMenuCustomizations(sourceMenu);
+    }
+    populateActions();
+}
+
+void ToolbarCustomizer::saveMenuCustomizations(QMenu *menu)
+{
+    if (!menu || menu->objectName().isEmpty()) {
+        return;
+    }
+    KSharedConfig::openConfig()->group(QLatin1String(ToolbarGroup)).group(QStringLiteral("Menus")).group(menu->objectName()).sync();
+}
+
+void ToolbarCustomizer::restoreMenuCustomizations()
+{
+    const KConfigGroup menuGroups = KSharedConfig::openConfig()->group(QLatin1String(ToolbarGroup)).group(QStringLiteral("Menus"));
+    for (QMenu *menu : menus()) {
+        if (menu->objectName().isEmpty()) {
+            continue;
+        }
+        const KConfigGroup group = menuGroups.group(menu->objectName());
+        const QStringList hidden = group.readEntry(QStringLiteral("HiddenActions"), QStringList());
+        const QStringList added = group.readEntry(QStringLiteral("AddedActions"), QStringList());
+        for (const QString &name : hidden) {
+            if (QAction *action = m_actions->action(name)) {
+                menu->removeAction(action);
+            }
+        }
+        for (const QString &name : added) {
+            if (QAction *action = m_actions->action(name); action && !menu->actions().contains(action)) {
+                menu->addAction(action);
+            }
         }
     }
 }
