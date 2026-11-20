@@ -79,6 +79,7 @@
 
 #include <QApplication>
 #include <QClipboard>
+#include <QCloseEvent>
 #include <QComboBox>
 #include <QCryptographicHash>
 #include <QCursor>
@@ -103,6 +104,7 @@
 #include <QScrollArea>
 #include <QSplitter>
 #include <QStatusBar>
+#include <QTabWidget>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
@@ -349,7 +351,17 @@ void MainWindow::setupPanes()
     m_workspaceSplitter->addWidget(m_terminalPanel);
     m_workspaceSplitter->setStretchFactor(0, 3);
     m_workspaceSplitter->setStretchFactor(1, 1);
-    setCentralWidget(m_workspaceSplitter);
+    m_paneTabs = new QTabWidget(this);
+    m_paneTabs->setObjectName(QStringLiteral("paneLayoutTabs"));
+    m_paneTabs->addTab(m_workspaceSplitter, QString());
+    m_paneTabs->tabBar()->hide();
+    setCentralWidget(m_paneTabs);
+    connect(m_paneTabs, &QTabWidget::currentChanged, this, [this](int index) {
+        if (m_movingSecondPane || index < 0) {
+            return;
+        }
+        setActivePane(m_paneTabs->widget(index) == m_right ? m_right : m_left);
+    });
 
     connectPane(m_left);
     connectPane(m_right);
@@ -1146,6 +1158,13 @@ void MainWindow::setupActions()
     swapTabs->setText(i18nc("@action", "Swap Current Tabs"));
     auto *swapSides = actions->addAction(QStringLiteral("swap_pane_sides"), this, &MainWindow::swapPaneSides);
     swapSides->setText(i18nc("@action", "Swap Pane Sides"));
+    auto *movePaneToTab = actions->addAction(QStringLiteral("move_second_pane_to_tab"), this, &MainWindow::moveSecondPaneToTab);
+    movePaneToTab->setText(i18nc("@action", "Move Second Pane to Tab"));
+    auto *movePaneToWindow = actions->addAction(QStringLiteral("move_second_pane_to_window"), this, &MainWindow::popOutSecondPane);
+    movePaneToWindow->setText(i18nc("@action", "Pop Out Second Pane"));
+    auto *restorePane = actions->addAction(QStringLiteral("restore_second_pane"), this, &MainWindow::moveSecondPaneToDual);
+    restorePane->setText(i18nc("@action", "Return Second Pane to Dual Layout"));
+    restorePane->setEnabled(false);
     auto *saveSizes = actions->addAction(QStringLiteral("save_splitter_sizes"), this, &MainWindow::saveSplitterSizes);
     saveSizes->setText(i18nc("@action", "Save Pane and Panel Sizes"));
     auto *resetSizes = actions->addAction(QStringLiteral("reset_splitter_sizes"), this, &MainWindow::resetSplitterSizes);
@@ -1553,6 +1572,9 @@ Pane *MainWindow::inactivePane() const
 
 void MainWindow::setActivePane(Pane *pane)
 {
+    if (m_paneTabs && m_secondPaneInTab) {
+        m_paneTabs->setCurrentWidget(pane == m_right ? static_cast<QWidget *>(m_right) : m_workspaceSplitter);
+    }
     if (!pane || pane == m_active) {
         return;
     }
@@ -1620,6 +1642,7 @@ void MainWindow::restoreSession()
     setActivePane(session.activePane == 1 ? m_right : m_left);
     m_dualLayoutAction->setChecked(session.dual);
     setStackedLayout(session.stacked);
+    restoreSecondPanePlacement();
 }
 
 void MainWindow::saveSession()
@@ -1638,7 +1661,9 @@ void MainWindow::saveSession()
     panels.writeEntry("FoldersExpanded", m_folderTree->expandedUrls());
     panels.writeEntry("CombinedExpanded", m_combinedPanel->folderTree()->expandedUrls());
     panels.writeEntry("CollapsedSections", m_combinedPanel->collapsedSections());
-    state->group(QLatin1String(WindowLayoutGroup)).writeEntry("DualPane", m_dualLayoutAction->isChecked());
+    KConfigGroup layout = state->group(QLatin1String(WindowLayoutGroup));
+    layout.writeEntry("DualPane", m_dualLayoutAction->isChecked());
+    layout.writeEntry("SecondPanePlacement", m_rightWindow ? QStringLiteral("window") : (m_secondPaneInTab ? QStringLiteral("tab") : QStringLiteral("split")));
     state->sync();
 }
 
@@ -1690,6 +1715,18 @@ void MainWindow::readProperties(const KConfigGroup &group)
     setActivePane(session.activePane == 1 ? m_right : m_left);
     m_dualLayoutAction->setChecked(session.dual);
     setStackedLayout(session.stacked);
+    restoreSecondPanePlacement();
+}
+
+void MainWindow::restoreSecondPanePlacement()
+{
+    const QString placement =
+        KSharedConfig::openStateConfig()->group(QLatin1String(WindowLayoutGroup)).readEntry("SecondPanePlacement", QStringLiteral("split"));
+    if (placement == QLatin1String("tab")) {
+        moveSecondPaneToTab();
+    } else if (placement == QLatin1String("window")) {
+        popOutSecondPane();
+    }
 }
 
 void MainWindow::saveProperties(KConfigGroup &group)
@@ -1814,6 +1851,9 @@ void MainWindow::updateActions()
     m_viewModeAction->setIcon(QIcon::fromTheme(details ? QStringLiteral("view-list-icons") : QStringLiteral("view-list-details")));
     actions->action(QStringLiteral("calculate_occupied_space"))->setEnabled(!view->rootItem().isNull());
     m_jumpBackAction->setEnabled(m_jumpBackPoints.value(activePane()).isValid());
+    actions->action(QStringLiteral("move_second_pane_to_tab"))->setEnabled(!m_secondPaneInTab);
+    actions->action(QStringLiteral("move_second_pane_to_window"))->setEnabled(!m_rightWindow);
+    actions->action(QStringLiteral("restore_second_pane"))->setEnabled(m_secondPaneInTab || m_rightWindow);
 }
 
 void MainWindow::updateStatusBar()
@@ -2904,12 +2944,122 @@ void MainWindow::swapCurrentTabs()
 
 void MainWindow::swapPaneSides()
 {
+    if (m_secondPaneInTab || m_rightWindow) {
+        return;
+    }
     const QList<int> sizes = m_splitter->sizes();
     m_splitter->insertWidget(0, m_right);
     std::swap(m_left, m_right);
     std::swap(m_linkedLeftRoot, m_linkedRightRoot);
     updateTabBarPlacement();
     m_splitter->setSizes(sizes);
+    updateActions();
+}
+
+void MainWindow::moveSecondPaneToTab()
+{
+    if (m_secondPaneInTab) {
+        return;
+    }
+    if (m_rightWindow) {
+        moveSecondPaneToDual();
+    }
+    if (!m_rightPlaceholder) {
+        m_rightPlaceholder = new QWidget(m_splitter);
+        m_rightPlaceholder->setObjectName(QStringLiteral("secondPanePlaceholder"));
+        m_rightPlaceholder->setMinimumSize(0, 0);
+    }
+    const int index = m_splitter->indexOf(m_right);
+    if (index < 0) {
+        return;
+    }
+
+    m_movingSecondPane = true;
+    m_splitter->replaceWidget(index, m_rightPlaceholder);
+    m_rightPlaceholder->hide();
+    m_right->setParent(nullptr);
+    m_paneTabs->addTab(m_right, i18nc("@title:tab", "Second Pane"));
+    m_secondPaneInTab = true;
+    m_paneTabs->tabBar()->show();
+    m_paneTabs->setCurrentWidget(m_right);
+    m_dualLayoutAction->setChecked(false);
+    m_movingSecondPane = false;
+    setActivePane(m_right);
+    updateActions();
+}
+
+void MainWindow::popOutSecondPane()
+{
+    if (m_rightWindow) {
+        return;
+    }
+    if (m_secondPaneInTab) {
+        moveSecondPaneToDual();
+    }
+    const int index = m_splitter->indexOf(m_right);
+    if (index < 0) {
+        return;
+    }
+    if (!m_rightPlaceholder) {
+        m_rightPlaceholder = new QWidget(m_splitter);
+        m_rightPlaceholder->setObjectName(QStringLiteral("secondPanePlaceholder"));
+        m_rightPlaceholder->setMinimumSize(0, 0);
+    }
+
+    m_movingSecondPane = true;
+    m_splitter->replaceWidget(index, m_rightPlaceholder);
+    m_rightPlaceholder->hide();
+    m_right->setParent(nullptr);
+    auto *window = new QMainWindow(this);
+    window->setObjectName(QStringLiteral("secondPaneWindow"));
+    window->setWindowFlag(Qt::Window, true);
+    window->setWindowTitle(i18nc("@title:window", "Second Pane"));
+    window->installEventFilter(this);
+    window->setCentralWidget(m_right);
+    m_rightWindow = window;
+    m_dualLayoutAction->setChecked(false);
+    m_movingSecondPane = false;
+    setActivePane(m_right);
+    window->resize(900, 600);
+    window->show();
+    updateActions();
+}
+
+void MainWindow::moveSecondPaneToDual()
+{
+    if (!m_secondPaneInTab && !m_rightWindow) {
+        return;
+    }
+    m_movingSecondPane = true;
+    if (m_secondPaneInTab) {
+        const int index = m_paneTabs->indexOf(m_right);
+        if (index >= 0) {
+            m_paneTabs->removeTab(index);
+        }
+        m_right->setParent(nullptr);
+        m_secondPaneInTab = false;
+        m_paneTabs->tabBar()->hide();
+    } else if (m_rightWindow) {
+        QMainWindow *window = m_rightWindow;
+        window->removeEventFilter(this);
+        window->takeCentralWidget();
+        window->hide();
+        window->deleteLater();
+        m_rightWindow.clear();
+        m_right->setParent(nullptr);
+    }
+
+    const int placeholderIndex = m_splitter->indexOf(m_rightPlaceholder);
+    if (placeholderIndex >= 0) {
+        m_splitter->replaceWidget(placeholderIndex, m_right);
+        m_rightPlaceholder->deleteLater();
+        m_rightPlaceholder = nullptr;
+    } else {
+        m_splitter->addWidget(m_right);
+    }
+    m_dualLayoutAction->setChecked(true);
+    m_movingSecondPane = false;
+    setActivePane(m_right);
     updateActions();
 }
 
@@ -3113,16 +3263,19 @@ void MainWindow::toggleLayout(bool dual)
 {
     const bool previewWasVisible = !m_previewPanel->isHidden();
     const bool leftWasVisible = !m_left->isHidden();
-    const bool rightWasVisible = !m_right->isHidden();
+    const bool rightWasVisible = !m_secondPaneInTab && !m_rightWindow && !m_right->isHidden();
     const bool preview = m_previewPanelAction && m_previewPanelAction->isChecked();
     const bool editorEmbedded = m_editor
         && ((m_editorPlacement == EditorPanel::Placement::Panel && !m_editor->isHidden())
             || ((m_editorPlacement == EditorPanel::Placement::Below || m_editorPlacement == EditorPanel::Placement::Right) && !m_editorDock->isHidden()));
     const bool terminalShown = m_terminalPanelAction && m_terminalPanelAction->isChecked();
     m_left->setVisible((dual && (!preview || editorEmbedded || terminalShown)) || activePane() == m_left);
-    m_right->setVisible((dual && (!preview || editorEmbedded || terminalShown)) || activePane() == m_right);
+    if (!m_secondPaneInTab && !m_rightWindow) {
+        m_right->setVisible((dual && (!preview || editorEmbedded || terminalShown)) || activePane() == m_right);
+    }
     m_previewPanel->setVisible(preview);
-    if (previewWasVisible != preview || leftWasVisible != !m_left->isHidden() || rightWasVisible != !m_right->isHidden()) {
+    const bool rightIsVisible = !m_secondPaneInTab && !m_rightWindow && !m_right->isHidden();
+    if (previewWasVisible != preview || leftWasVisible != !m_left->isHidden() || rightWasVisible != rightIsVisible) {
         restoreSplitterSizes(true, false);
     }
     if (m_linkedPanesAction && m_linkedPanesAction->isChecked() && (!dual || m_left->isHidden() || m_right->isHidden())) {
@@ -3503,6 +3656,10 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched == m_placesDock && event->type() == QEvent::Close) {
         rememberPlacesShown(false);
+    }
+    if (watched == m_rightWindow && event->type() == QEvent::Close && !m_movingSecondPane) {
+        moveSecondPaneToDual();
+        return true;
     }
     return KXmlGuiWindow::eventFilter(watched, event);
 }

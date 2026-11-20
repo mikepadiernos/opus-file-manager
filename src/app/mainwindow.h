@@ -9,6 +9,7 @@
 
 #include <QHash>
 #include <QList>
+#include <QPointer>
 #include <QUrl>
 
 class CombinedPanel;
@@ -32,6 +33,7 @@ class QDialog;
 class QLabel;
 class QMenu;
 class QSplitter;
+class QTabWidget;
 
 class MainWindow : public KXmlGuiWindow
 {
@@ -145,6 +147,10 @@ private:
     void syncLinkedPane(Pane *pane, const QUrl &url);
     void swapCurrentTabs();
     void swapPaneSides();
+    void restoreSecondPanePlacement();
+    void moveSecondPaneToTab();
+    void popOutSecondPane();
+    void moveSecondPaneToDual();
     void saveSplitterSizes();
     void restoreSplitterSizes(bool panes = true, bool workspace = true, bool defaultsIfMissing = false);
     void resetSplitterSizes();
@@ -234,6 +240,9 @@ private:
     KNewFileMenu *m_newFileMenu = nullptr;
     QSplitter *m_splitter = nullptr;
     QSplitter *m_workspaceSplitter = nullptr;
+    QTabWidget *m_paneTabs = nullptr;
+    QWidget *m_rightPlaceholder = nullptr;
+    QPointer<QMainWindow> m_rightWindow;
     TerminalPanel *m_terminalPanel = nullptr;
     EditorPanel *m_editor = nullptr;
     QDockWidget *m_editorDock = nullptr;
@@ -262,6 +271,8 @@ private:
     QUrl m_linkedLeftRoot;
     QUrl m_linkedRightRoot;
     bool m_syncingLinkedPanes = false;
+    bool m_secondPaneInTab = false;
+    bool m_movingSecondPane = false;
     QAction *m_viewModeAction = nullptr;
     QAction *m_selectionModeAction = nullptr;
     QAction *m_selectionMarkersAction = nullptr;

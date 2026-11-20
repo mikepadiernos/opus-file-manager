@@ -79,6 +79,7 @@
 #include <QStatusBar>
 #include <QStyle>
 #include <QTabBar>
+#include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTextBlock>
@@ -270,6 +271,56 @@ private Q_SLOTS:
         first->setUrl(QUrl::fromLocalFile(root.filePath(QStringLiteral("a/sub"))));
         QCOMPARE(second->url(), QUrl::fromLocalFile(root.filePath(QStringLiteral("b/sub"))));
         QVERIFY(link->isChecked());
+    }
+
+    void secondPaneCanMoveBetweenSplitTabAndWindow()
+    {
+        const auto state = KSharedConfig::openStateConfig();
+        KConfigGroup layout = state->group(QStringLiteral("WindowLayout"));
+        const bool hadPlacement = layout.hasKey(QStringLiteral("SecondPanePlacement"));
+        const QString previousPlacement = layout.readEntry("SecondPanePlacement", QString());
+        layout.writeEntry("SecondPanePlacement", QStringLiteral("split"));
+        state->sync();
+        const auto restorePlacement = qScopeGuard([&] {
+            if (hadPlacement) {
+                layout.writeEntry("SecondPanePlacement", previousPlacement);
+            } else {
+                layout.deleteEntry("SecondPanePlacement");
+            }
+            state->sync();
+        });
+
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        Pane *first = window.activePane();
+        Pane *second = window.inactivePane();
+        auto *splitter = window.findChild<QSplitter *>(QStringLiteral("paneSplitter"));
+        auto *paneTabs = window.findChild<QTabWidget *>(QStringLiteral("paneLayoutTabs"));
+        QVERIFY(splitter && paneTabs);
+        QVERIFY(splitter->indexOf(second) >= 0);
+
+        window.actionCollection()->action(QStringLiteral("move_second_pane_to_tab"))->trigger();
+        QCOMPARE(paneTabs->currentWidget(), second);
+        QVERIFY(splitter->indexOf(second) < 0);
+        QCOMPARE(window.activePane(), second);
+        paneTabs->setCurrentIndex(0);
+        QCOMPARE(window.activePane(), first);
+        paneTabs->setCurrentWidget(second);
+        QCOMPARE(window.activePane(), second);
+        window.actionCollection()->action(QStringLiteral("restore_second_pane"))->trigger();
+        QVERIFY(splitter->indexOf(second) >= 0);
+        QCOMPARE(window.activePane(), second);
+
+        window.actionCollection()->action(QStringLiteral("move_second_pane_to_window"))->trigger();
+        auto *detachedWindow = window.findChild<QMainWindow *>(QStringLiteral("secondPaneWindow"));
+        QVERIFY(detachedWindow);
+        QCOMPARE(detachedWindow->centralWidget(), second);
+        detachedWindow->close();
+        QTRY_VERIFY(splitter->indexOf(second) >= 0);
+        QCOMPARE(window.activePane(), second);
+        QCOMPARE(window.inactivePane(), first);
     }
 
     void tabBarPlacementAndCloseButtonsFollowPaneAndLayout()
