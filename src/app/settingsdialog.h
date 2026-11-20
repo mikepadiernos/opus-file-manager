@@ -10,6 +10,7 @@
 class KPageWidgetItem;
 class PreviewSizeSpinBox;
 class QCheckBox;
+class QTabWidget;
 class RuleListEditor;
 
 /**
@@ -31,6 +32,7 @@ public:
      * @param parent the main window
      */
     SettingsDialog(KFilePlacesModel *places, QWidget *parent);
+    void showToolbarPage();
 
 Q_SIGNALS:
     void customCommandsChanged();
@@ -48,8 +50,10 @@ private:
      * @param tabs each tab's widget and title
      * @param title the page title
      * @param iconName the page's theme icon, without the "-symbolic" suffix
+     * @param tabsOut receives the page's tab widget when provided
      */
-    void addTabbedPage(const QList<std::pair<QWidget *, QString>> &tabs, const QString &title, const QString &iconName);
+    KPageWidgetItem *
+    addTabbedPage(const QList<std::pair<QWidget *, QString>> &tabs, const QString &title, const QString &iconName, QTabWidget **tabsOut = nullptr);
 
     /**
      * Applies the saved sidebar settings: titles beside small icons or below
@@ -116,6 +120,8 @@ private:
     qulonglong m_savedPreviewLimit = 0;
     /// Each sidebar page and its icon name, for switching to symbolic icons.
     QList<std::pair<KPageWidgetItem *, QString>> m_pageIcons;
+    KPageWidgetItem *m_toolbarPage = nullptr;
+    QTabWidget *m_toolbarTabs = nullptr;
     /// A checkbox for a setting kept outside Settings, in config that KIO
     /// shares with Dolphin.
     struct SharedToggle {

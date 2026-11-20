@@ -310,6 +310,7 @@ MainWindow::MainWindow(QWidget *parent)
     setStandardToolBarMenuEnabled(true);
     setupGUI(QSize(1100, 700), Default, QStringLiteral("opus-file-managerui.rc"));
     m_toolbarCustomizer = new ToolbarCustomizer(toolBar(), actionCollection(), this, {m_left, m_right});
+    connect(m_toolbarCustomizer, &ToolbarCustomizer::toolbarSettingsRequested, this, &MainWindow::showToolbarSettings);
     connect(guiFactory(), &KXMLGUIFactory::makingChanges, m_toolbarCustomizer, [this](bool changing) {
         if (changing) {
             m_toolbarCustomizer->prepareGuiRebuild();
@@ -1149,7 +1150,7 @@ void MainWindow::setupActions()
     transferQueue->setIcon(QIcon::fromTheme(QStringLiteral("view-list-details")));
     QAction *editor = actions->addAction(QStringLiteral("open_editor"), this, &MainWindow::openEditor);
     editor->setText(i18nc("@action", "Open Editor"));
-    editor->setIcon(QIcon::fromTheme(QStringLiteral("accessories-text-editor")));
+    editor->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-pim-notes")));
     QAction *compare = actions->addAction(QStringLiteral("compare_files"), this, &MainWindow::compareFiles);
     compare->setText(i18nc("@action", "Compare Files"));
     compare->setIcon(QIcon::fromTheme(QStringLiteral("document-edit")));
@@ -1359,7 +1360,7 @@ void MainWindow::setupActions()
 
     m_viewModeAction = actions->addAction(QStringLiteral("toggle_view_mode"), this, &MainWindow::toggleViewMode);
     m_viewModeAction->setText(i18nc("@action", "Icons View"));
-    m_viewModeAction->setIcon(QIcon::fromTheme(QStringLiteral("view-list-icons")));
+    m_viewModeAction->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-list-icons")));
     actions->setDefaultShortcut(m_viewModeAction, Qt::CTRL | Qt::SHIFT | Qt::Key_V);
     QAction *compactView = actions->addAction(QStringLiteral("compact_view"), this, [this] {
         activePane()->view()->setViewMode(FolderView::ViewMode::Compact);
@@ -1954,7 +1955,7 @@ void MainWindow::updateActions()
     actions->action(QStringLiteral("automatic_remote_folder_sizes"))->setChecked(Settings::automaticRemoteFolderSizes());
     const bool details = view->viewMode() == FolderView::ViewMode::Details;
     m_viewModeAction->setText(details ? i18nc("@action", "Icons View") : i18nc("@action", "Details View"));
-    m_viewModeAction->setIcon(QIcon::fromTheme(details ? QStringLiteral("view-list-icons") : QStringLiteral("view-list-details")));
+    m_viewModeAction->setIcon(SymbolicIcon::fromTheme(details ? QStringLiteral("view-list-icons") : QStringLiteral("view-list-details")));
     actions->action(QStringLiteral("calculate_occupied_space"))->setEnabled(!view->rootItem().isNull());
     m_jumpBackAction->setEnabled(m_jumpBackPoints.value(activePane()).isValid());
     actions->action(QStringLiteral("move_second_pane_to_tab"))->setEnabled(!m_secondPaneInTab);
@@ -3841,6 +3842,14 @@ void MainWindow::showSettings()
     connect(dialog, &KConfigDialog::settingsChanged, this, &MainWindow::applySettings);
     connect(dialog, &SettingsDialog::customCommandsChanged, this, &MainWindow::refreshCustomCommandActions);
     dialog->show();
+}
+
+void MainWindow::showToolbarSettings()
+{
+    showSettings();
+    if (auto *dialog = qobject_cast<SettingsDialog *>(KConfigDialog::exists(QLatin1String(SettingsDialog::Name)))) {
+        dialog->showToolbarPage();
+    }
 }
 
 void MainWindow::toggleViewMode()

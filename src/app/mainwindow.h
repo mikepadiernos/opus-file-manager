@@ -190,6 +190,7 @@ private:
     void showNewMenu();
     void toggleLayout(bool dual);
     void showSettings();
+    void showToolbarSettings();
     /// Applies the settings that only take effect in a new window.
     void applyViewDefaults();
     /// Stores whether the user left the Places panel shown.

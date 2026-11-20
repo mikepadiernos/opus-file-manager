@@ -38,6 +38,7 @@ public:
 
 Q_SIGNALS:
     void editingChanged(bool editing);
+    void toolbarSettingsRequested();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -60,6 +61,7 @@ private:
     void startActionDrag(QAction *action, QToolBar *toolbar);
     void startPaletteDrag(const QPoint &position);
     void showActionMenu(QAction *action, const QPoint &globalPosition);
+    void showToolbarMenu(QToolBar *toolbar, const QPoint &globalPosition);
     void applyAppearance(QAction *action);
     void saveToolbar();
     void restoreToolbar();
@@ -95,6 +97,7 @@ private:
     QPoint m_pressPosition;
     QPoint m_palettePressPosition;
     bool m_editing = false;
+    bool m_forwardingNativeMenu = false;
     bool m_restoring = false;
     bool m_saveScheduled = false;
     quint64 m_saveGeneration = 0;

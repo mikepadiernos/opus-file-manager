@@ -37,6 +37,7 @@
 #include <KEditToolBar>
 #include <KFileItemDelegate>
 #include <KFilePlacesView>
+#include <KPageWidgetItem>
 #include <KSelectAction>
 #include <KSharedConfig>
 #include <KTextEditor/Document>
@@ -1102,6 +1103,132 @@ private Q_SLOTS:
 
         QCOMPARE(appearance.readEntry(QStringLiteral("ButtonStyle"), -1), static_cast<int>(Qt::ToolButtonTextOnly));
         QCOMPARE(button->toolButtonStyle(), Qt::ToolButtonTextOnly);
+    }
+
+    void toolbarContextMenusOpenToolbarSettings()
+    {
+        MainWindow window;
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        SettingsDialog *dialog = nullptr;
+
+        Pane *first = window.activePane();
+        Pane *second = window.inactivePane();
+        QVERIFY(first && second);
+        const QList<QPair<QToolBar *, QAction *>> toolbars{
+            {window.toolBar(), window.actionCollection()->action(QStringLiteral("customize_main_toolbar"))},
+            {first->toolBar(), first->toolbarAction(QStringLiteral("paneCustomizeToolbar"))},
+            {second->toolBar(), second->toolbarAction(QStringLiteral("paneCustomizeToolbar"))},
+        };
+        for (const auto &[toolbar, customize] : toolbars) {
+            QVERIFY(toolbar && customize);
+            bool checked = false;
+            QTimer fallbackClose;
+            fallbackClose.setSingleShot(true);
+            connect(&fallbackClose, &QTimer::timeout, &window, [] {
+                if (auto *popup = qobject_cast<QMenu *>(QApplication::activePopupWidget())) {
+                    popup->close();
+                }
+            });
+            fallbackClose.start(1000);
+            QTimer::singleShot(0, [&] {
+                auto *popup = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+                QVERIFY(popup);
+                QCOMPARE(popup->objectName(), QStringLiteral("toolbarContextMenu"));
+                QVERIFY(popup->actions().contains(customize));
+                QCOMPARE(popup->findChild<QAction *>(QStringLiteral("nativeToolbarOptions")) != nullptr, toolbar == window.toolBar());
+                QAction *settings = popup->findChild<QAction *>(QStringLiteral("toolbarSettings"));
+                QVERIFY(settings);
+                checked = true;
+                popup->close();
+                settings->trigger();
+            });
+            const QPoint position(1, 1);
+            QContextMenuEvent contextMenu(QContextMenuEvent::Mouse, position, toolbar->mapToGlobal(position));
+            QApplication::sendEvent(toolbar, &contextMenu);
+            QCoreApplication::processEvents();
+            fallbackClose.stop();
+            QVERIFY(checked);
+            auto *currentDialog = qobject_cast<SettingsDialog *>(KConfigDialog::exists(QLatin1String(SettingsDialog::Name)));
+            QVERIFY(currentDialog);
+            if (dialog) {
+                QCOMPARE(currentDialog, dialog);
+            }
+            dialog = currentDialog;
+            auto *tabs = dialog->currentPage()->widget()->findChild<QTabWidget *>();
+            QVERIFY(tabs);
+            QVERIFY(tabs->currentWidget()->findChild<QCheckBox *>(QStringLiteral("kcfg_LockToolbars")));
+        }
+
+        const QList<QWidget *> buttons{
+            window.toolBar()->widgetForAction(window.actionCollection()->action(QStringLiteral("new_tab"))),
+            first->toolBar()->widgetForAction(first->toolbarAction(QStringLiteral("paneViewModeButton"))),
+        };
+        for (QWidget *button : buttons) {
+            QVERIFY(button);
+            bool buttonMenuShown = false;
+            QTimer::singleShot(0, [&] {
+                if (auto *popup = qobject_cast<QMenu *>(QApplication::activePopupWidget())) {
+                    buttonMenuShown = popup->objectName() == QLatin1String("toolbarContextMenu");
+                    popup->close();
+                }
+            });
+            const QPoint buttonPosition(1, 1);
+            QContextMenuEvent buttonMenu(QContextMenuEvent::Mouse, buttonPosition, button->mapToGlobal(buttonPosition));
+            QApplication::sendEvent(button, &buttonMenu);
+            QCoreApplication::processEvents();
+            QVERIFY(buttonMenuShown);
+        }
+
+        bool nativeMenuShown = false;
+        QTimer fallbackClose;
+        fallbackClose.setSingleShot(true);
+        connect(&fallbackClose, &QTimer::timeout, &window, [] {
+            if (auto *popup = qobject_cast<QMenu *>(QApplication::activePopupWidget())) {
+                popup->close();
+            }
+        });
+        fallbackClose.start(1000);
+        QTimer::singleShot(0, [&] {
+            auto *popup = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+            QVERIFY(popup);
+            QAction *native = popup->findChild<QAction *>(QStringLiteral("nativeToolbarOptions"));
+            QVERIFY(native);
+            QTimer::singleShot(0, [&] {
+                if (auto *nativePopup = qobject_cast<QMenu *>(QApplication::activePopupWidget())) {
+                    nativeMenuShown = nativePopup->objectName() != QLatin1String("toolbarContextMenu") && !nativePopup->actions().isEmpty();
+                    nativePopup->close();
+                }
+            });
+            QTest::mouseClick(popup, Qt::LeftButton, Qt::NoModifier, popup->actionGeometry(native).center());
+        });
+        const QPoint mainPosition(1, 1);
+        QContextMenuEvent mainMenu(QContextMenuEvent::Mouse, mainPosition, window.toolBar()->mapToGlobal(mainPosition));
+        QApplication::sendEvent(window.toolBar(), &mainMenu);
+        QCoreApplication::processEvents();
+        fallbackClose.stop();
+        QVERIFY(nativeMenuShown);
+
+        const bool wasLocked = Settings::lockToolbars();
+        const auto restoreLock = qScopeGuard([&] {
+            Settings::setLockToolbars(wasLocked);
+            window.applySettings();
+        });
+        Settings::setLockToolbars(true);
+        window.applySettings();
+        bool lockedMenuChecked = false;
+        QTimer::singleShot(0, [&] {
+            if (auto *popup = qobject_cast<QMenu *>(QApplication::activePopupWidget())) {
+                QAction *settings = popup->findChild<QAction *>(QStringLiteral("toolbarSettings"));
+                lockedMenuChecked = settings && settings->isEnabled() && !first->toolbarAction(QStringLiteral("paneCustomizeToolbar"))->isEnabled();
+                popup->close();
+            }
+        });
+        QContextMenuEvent lockedMenu(QContextMenuEvent::Mouse, mainPosition, first->toolBar()->mapToGlobal(mainPosition));
+        QApplication::sendEvent(first->toolBar(), &lockedMenu);
+        QCoreApplication::processEvents();
+        QVERIFY(lockedMenuChecked);
+        dialog->close();
     }
 
     void toolbarCustomizationsCanResetToDefaults()

@@ -5,13 +5,16 @@
 #include "foldertree.h"
 #include "folderview.h"
 #include "mainwindow.h"
+#include "pane.h"
 #include "symbolicactionicons.h"
 #include "symbolicicon.h"
 #include "testicontheme.h"
 
+#include <KActionCollection>
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
 #include <KSharedConfig>
+#include <KToolBar>
 
 #include <QAbstractItemView>
 #include <QApplication>
@@ -46,7 +49,11 @@ private Q_SLOTS:
                          QStringLiteral("inode-directory"),
                          QStringLiteral("user-home"),
                          QStringLiteral("user-trash"),
-                         QStringLiteral("view-filter")},
+                         QStringLiteral("view-filter"),
+                         QStringLiteral("view-list-details"),
+                         QStringLiteral("view-list-icons"),
+                         QStringLiteral("view-pim-notes"),
+                         QStringLiteral("view-sort-ascending")},
                         {QStringLiteral("emblem-symbolic-link")}));
         qApp->installEventFilter(new SymbolicActionIcons(qApp));
     }
@@ -177,6 +184,32 @@ private Q_SLOTS:
         QVERIFY(home.isValid());
         QCOMPARE(model->icon(home).name(), QStringLiteral("user-home"));
         QCOMPARE(colorAt(model->icon(home), 16), SymbolicColor);
+    }
+
+    void toolbarViewAndEditorIconsUseThemeVariants()
+    {
+        KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Session"));
+        MainWindow window;
+        for (Pane *pane : {window.activePane(), window.inactivePane()}) {
+            for (const QString &name : {QStringLiteral("paneViewModeButton"), QStringLiteral("paneSortingButton")}) {
+                QAction *action = pane->toolbarAction(name);
+                auto *button = qobject_cast<QToolButton *>(pane->toolBar()->widgetForAction(action));
+                QVERIFY(action && button);
+                QCOMPARE(colorAt(button->icon(), 16), SymbolicColor);
+                QCOMPARE(colorAt(button->icon(), 48), RegularColor);
+            }
+        }
+
+        QAction *editor = window.actionCollection()->action(QStringLiteral("open_editor"));
+        QAction *viewMode = window.actionCollection()->action(QStringLiteral("toggle_view_mode"));
+        QVERIFY(editor && viewMode);
+        QCOMPARE(editor->icon().name(), QStringLiteral("view-pim-notes"));
+        QCOMPARE(colorAt(editor->icon(), 16), SymbolicColor);
+        QCOMPARE(colorAt(editor->icon(), 48), RegularColor);
+        QCOMPARE(colorAt(viewMode->icon(), 16), SymbolicColor);
+        viewMode->trigger();
+        QCOMPARE(colorAt(viewMode->icon(), 16), SymbolicColor);
+        QCOMPARE(colorAt(viewMode->icon(), 48), RegularColor);
     }
 
 private:
