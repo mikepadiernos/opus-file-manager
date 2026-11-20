@@ -12,6 +12,7 @@ class KActionCollection;
 class KToolBar;
 class Pane;
 class QDockWidget;
+class QDomDocument;
 class QLineEdit;
 class QListWidget;
 class QMainWindow;
@@ -30,6 +31,10 @@ public:
     void setEditing(bool editing);
     void applyAppearanceSettings();
     void resetToDefaults();
+    bool prepareKdeToolbarEditor(QDomDocument &document);
+    void finishKdeToolbarEditor();
+    void prepareGuiRebuild();
+    void toolbarRebuilt(KToolBar *toolbar);
 
 Q_SIGNALS:
     void editingChanged(bool editing);
@@ -64,7 +69,7 @@ private:
     void restoreMenuCustomizations();
     void removeToolbarItem(const QString &kind, const QString &name);
 
-    KToolBar *m_toolbar = nullptr;
+    QPointer<KToolBar> m_toolbar;
     KActionCollection *m_actions = nullptr;
     QPointer<QMainWindow> m_window;
     QPointer<QMenuBar> m_menuBar;
@@ -72,8 +77,19 @@ private:
     QLineEdit *m_filter = nullptr;
     QListWidget *m_actionList = nullptr;
     QList<Pane *> m_panes;
-    QList<QAction *> m_defaultToolbarActions;
+    struct ToolbarSnapshot {
+        QPointer<QAction> action;
+        QString kind;
+    };
+    struct EditorAlias {
+        QAction *action;
+        QPointer<QAction> original;
+        QString iconName;
+        QString iconText;
+    };
+    QList<ToolbarSnapshot> m_defaultToolbarActions;
     QList<MenuSnapshot> m_defaultMenus;
+    QList<EditorAlias> m_editorAliases;
     QPointer<QAction> m_pressedAction;
     QPointer<QMenu> m_pressedMenu;
     QPoint m_pressPosition;

@@ -89,6 +89,7 @@ target_link_libraries(opusfm_app
         opusfm_core
         Qt6::Concurrent
         Qt6::Widgets
+        Qt6::Xml
         Qt6::Multimedia
         Qt6::MultimediaWidgets
         KF6::ConfigCore

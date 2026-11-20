@@ -87,11 +87,15 @@ public:
      */
     void applySettings();
 
+public Q_SLOTS:
+    void configureToolbars() override;
+
 protected:
     bool queryClose() override;
     bool eventFilter(QObject *watched, QEvent *event) override;
     void readProperties(const KConfigGroup &group) override;
     void saveProperties(KConfigGroup &group) override;
+    void saveNewToolbarConfig() override;
 
 private:
     void setupActions();
