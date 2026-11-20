@@ -150,10 +150,10 @@ distinguish completed features from planned or in-progress work.
 - [M22 Tagging settings](docs/ROADMAP.md#m22-tagging-settings): library,
   tag, field and privacy preferences.
 - [M23 Integrations](docs/ROADMAP.md#m23-integrations): desktop services,
-  downloadable service menus, terminals, alternative editors, rsync, Atuin and
-  Nextcloud, and KDE Online Accounts.
+  downloadable service menus, terminals, alternative editors, rsync, Atuin,
+  Nextcloud and KDE Online Accounts.
 - [M24 Integration settings](docs/ROADMAP.md#m24-integration-settings):
-  integration, editor, terminal, tray and access controls.
+  provider, account, sync, terminal, editor and tray controls.
 - [M25 Themes](docs/ROADMAP.md#m25-themes): optional app-local colour schemes,
   custom Qt stylesheets, profiles and accessible previews.
 - [M26 Theme settings](docs/ROADMAP.md#m26-theme-settings): colours,

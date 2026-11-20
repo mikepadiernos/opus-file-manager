@@ -8,9 +8,13 @@
 ## Project planning
 
 - [Roadmap and milestones](ROADMAP.md) — architecture, Plasma-native decisions,
-  completed work and planned milestones.
+  completed work and planned milestones, including external integrations,
+  themes and branding.
 - [Caveats and limitations](CAVEATS.md) — current restrictions, dependencies
-  and integration considerations.
+  and practical workarounds for implemented features.
+
+The roadmap distinguishes completed items from planned or in-progress work.
+Planned integrations are not necessarily available in the current application.
 
 ## Behaviour references
 
