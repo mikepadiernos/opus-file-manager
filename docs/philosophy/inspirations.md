@@ -31,7 +31,7 @@ viewers, flat browsing, automation and metadata. Its workflows inform
 [folder formats and navigation history](../ROADMAP.md#m03-listing-depth),
 [collections and duplicate selection](../ROADMAP.md#m09-tools),
 [layout customization](../ROADMAP.md#m11-ui-customizations) and
-[shortcut settings](../ROADMAP.md#m18-keyboard-shortcut-settings). These are
+[shortcut settings](../ROADMAP.md#m29-keyboard-shortcut-settings). These are
 adapted to Linux and KDE rather than treated as a feature-by-feature parity
 target.
 
@@ -54,22 +54,29 @@ authoritative upstream source has not been verified for these entries.
 
 [TagSpaces workspaces](https://docs.tagspaces.org/workspaces/) group locations
 and tags by context and scope global searches to the active workspace. Opus's
-planned [workspaces](../ROADMAP.md#m13-workspaces) add saved pane, toolbar and
+planned [workspaces](../ROADMAP.md#m21-workspaces) add saved pane, toolbar and
 panel layouts for different workflows. They organize the interface and search
 scope; they are not a security boundary.
 
 ## TagStudio — native tagging
 
 [TagStudio](https://github.com/TagStudioDev/TagStudio) informs the planned
-[native tagging system](../ROADMAP.md#m21-native-tagging): opt-in libraries,
+[native tagging system](../ROADMAP.md#m17-native-tagging): opt-in libraries,
 tags with aliases and parent relationships, custom fields and combined
 searches. Opus will integrate these workflows without requiring TagStudio or
 moving files.
+
+## Yazi — keyboard-first browsing
+
+[Yazi](https://yazi-rs.github.io/) inspires a planned
+[native browsing mode](../ROADMAP.md#m19-yazi-mode) with keyboard-first
+navigation, folder context and previews. Opus will reuse its KDE file
+operations rather than embedding Yazi or assuming plugin compatibility.
 
 ## which-key.nvim — shortcut discovery
 
 [which-key.nvim](https://github.com/folke/which-key.nvim) inspires the planned
 native hint popup in
-[shortcut settings](../ROADMAP.md#m18-keyboard-shortcut-settings). It will
+[shortcut settings](../ROADMAP.md#m29-keyboard-shortcut-settings). It will
 show available continuations and action descriptions for pending key sequences
 in the applicable context.
