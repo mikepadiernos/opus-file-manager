@@ -407,6 +407,11 @@
     <entry name="EditorPdfMarginBottom" type="Int"><default>10</default><min>0</min><max>50</max></entry>
   </group>
   <group name="Gallery">
+    <entry name="ImageBackground" type="Enum">
+      <label>Background for transparent images in preview and gallery</label>
+      <choices><choice name="Theme"/><choice name="Light"/><choice name="Dark"/><choice name="Checkerboard"/></choices>
+      <default>Theme</default>
+    </entry>
     <entry name="GalleryInitialZoom" type="Enum">
       <choices><choice name="Fit"/><choice name="ActualSize"/></choices>
       <default>Fit</default>

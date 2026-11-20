@@ -43,6 +43,8 @@ add_library(opusfm_app STATIC
     foldersyncdialog.h
     gallerywindow.cpp
     gallerywindow.h
+    imagebackground.cpp
+    imagebackground.h
     mainwindow.cpp
     mainwindow.h
     metadataeditdialog.cpp

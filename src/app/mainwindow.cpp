@@ -2930,6 +2930,9 @@ void MainWindow::applySettings()
 {
     updateTerminalPlacement();
     actionCollection()->action(QStringLiteral("dim_inactive_pane"))->setChecked(Settings::dimInactivePane());
+    for (GalleryWindow *gallery : findChildren<GalleryWindow *>()) {
+        gallery->applyPresentationSettings();
+    }
     if (m_terminalPanelAction && m_terminalPanelAction->isChecked()) {
         m_terminalPanel->start(activePane()->url());
     }

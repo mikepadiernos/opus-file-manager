@@ -664,6 +664,12 @@ QWidget *SettingsDialog::createGalleryDisplayPage()
     auto *form = new QFormLayout(page);
     form->addRow(i18nc("@label:listbox", "Initial image zoom:"),
                  comboBox(QStringLiteral("GalleryInitialZoom"), {i18nc("@item:inlistbox", "Fit"), i18nc("@item:inlistbox", "Actual size")}));
+    form->addRow(i18nc("@label:listbox", "Preview and gallery image background:"),
+                 comboBox(QStringLiteral("ImageBackground"),
+                          {i18nc("@item:inlistbox", "Follow theme"),
+                           i18nc("@item:inlistbox", "Light"),
+                           i18nc("@item:inlistbox", "Dark"),
+                           i18nc("@item:inlistbox", "Checkerboard")}));
     form->addRow(checkBox(QStringLiteral("GalleryShowThumbnails"), i18nc("@option:check", "Show thumbnails in new galleries")));
     return page;
 }

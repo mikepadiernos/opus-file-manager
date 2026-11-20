@@ -4,6 +4,7 @@
 
 #include "batchconversiondialog.h"
 #include "fileoperations.h"
+#include "imagebackground.h"
 #include "imageediting.h"
 #include "mediaview.h"
 #include "settings.h"
@@ -217,6 +218,7 @@ GalleryWindow::GalleryWindow(const QList<QUrl> &urls, const QSet<QUrl> &videos, 
     m_view->setDragMode(QGraphicsView::ScrollHandDrag);
     m_view->setRenderHint(QPainter::SmoothPixmapTransform);
     m_view->setAlignment(Qt::AlignCenter);
+    applyPresentationSettings();
     m_stage->addWidget(m_message);
     m_stage->addWidget(m_view);
 
@@ -488,6 +490,11 @@ GalleryWindow::GalleryWindow(const QList<QUrl> &urls, const QSet<QUrl> &videos, 
 GalleryWindow::~GalleryWindow()
 {
     clearPlayback();
+}
+
+void GalleryWindow::applyPresentationSettings()
+{
+    m_view->setBackgroundBrush(imageBackgroundBrush());
 }
 
 QList<QUrl> GalleryWindow::markedImages() const

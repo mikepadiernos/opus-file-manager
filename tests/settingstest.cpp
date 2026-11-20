@@ -234,6 +234,7 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("TextPreviewLimitKiB")), QStringLiteral("Previews"));
         QCOMPARE(tabOf(QStringLiteral("FileActivationDestination")), QStringLiteral("Opening"));
         QCOMPARE(tabOf(QStringLiteral("GalleryShowInformation")), QStringLiteral("Information"));
+        QCOMPARE(tabOf(QStringLiteral("ImageBackground")), QStringLiteral("Display"));
         QCOMPARE(tabOf(QStringLiteral("GallerySlideshowInterval")), QStringLiteral("Slideshow"));
         QCOMPARE(tabOf(QStringLiteral("GalleryCopyFormat")), QStringLiteral("Image Conversion"));
         QCOMPARE(tabOf(QStringLiteral("EditorOpening")), QStringLiteral("Editor"));

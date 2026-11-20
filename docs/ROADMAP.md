@@ -450,9 +450,9 @@ Settings for M09 tools, stored in KConfig.
   terminal areas, independently for side-by-side and stacked layouts. Restore
   sizes safely within the available window; preserve both file panes and
   coordinate with session restore and workspace layouts. (Max)
-- Customize the preview and gallery background for transparent images:
+- ~~Customize the preview and gallery background for transparent images:
   follow the active Plasma theme, or choose light, dark or checkerboard.
-  Keep the image data unchanged. (Directory Opus)
+  Keep the image data unchanged. (Directory Opus)~~
 - Customize the Information panel's visible metadata fields and their order,
   and optionally show information for a hovered item instead of the current
   selection. Make hover behaviour opt-in and retain selection-based fallback;
