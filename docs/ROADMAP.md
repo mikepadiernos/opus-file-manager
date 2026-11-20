@@ -1144,8 +1144,6 @@ upstream source could not be verified for this review.
 
 ## Tracking
 
-MVP release handoff: [pending tasks](TODO.md#mvp-release).
-
 Follow the [project instructions](../CLAUDE.md) for issue tracking, completion,
 branching and merging. Record blocked work in [pending tasks](TODO.md) and
 document feature limitations in [caveats and limitations](CAVEATS.md).
