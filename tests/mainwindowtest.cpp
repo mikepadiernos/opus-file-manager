@@ -46,6 +46,7 @@
 #include <QClipboard>
 #include <QColor>
 #include <QComboBox>
+#include <QContextMenuEvent>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QDockWidget>
@@ -656,6 +657,63 @@ private Q_SLOTS:
         QCOMPARE(terminalButton->toolButtonStyle(), Qt::ToolButtonTextOnly);
         QCOMPARE(terminalButton->icon().name(), customIconName);
         QCOMPARE(terminal->icon().name(), terminalIconName);
+    }
+
+    void paneToolbarEntriesCanCustomizeAppearance()
+    {
+        MainWindow window;
+        Pane *pane = window.activePane();
+        QVERIFY(pane);
+        QAction *action = pane->toolbarAction(QStringLiteral("paneBack"));
+        auto *button = qobject_cast<QToolButton *>(pane->toolBar()->widgetForAction(action));
+        QAction *customize = window.actionCollection()->action(QStringLiteral("customize_main_toolbar"));
+        QVERIFY(action && button && customize);
+
+        KConfigGroup appearance =
+            KSharedConfig::openConfig()->group(QStringLiteral("ToolbarCustomization")).group(QStringLiteral("Entries")).group(action->objectName());
+        const bool hadStyle = appearance.hasKey(QStringLiteral("ButtonStyle"));
+        const int savedStyle = appearance.readEntry(QStringLiteral("ButtonStyle"), -1);
+        const auto cleanup = qScopeGuard([&] {
+            if (hadStyle) {
+                appearance.writeEntry(QStringLiteral("ButtonStyle"), savedStyle);
+            } else {
+                appearance.deleteEntry(QStringLiteral("ButtonStyle"));
+            }
+            appearance.sync();
+            if (customize->isChecked()) {
+                customize->trigger();
+            }
+            window.applySettings();
+        });
+
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        customize->trigger();
+        QVERIFY(customize->isChecked());
+        QTimer fallbackClose;
+        fallbackClose.setSingleShot(true);
+        connect(&fallbackClose, &QTimer::timeout, &window, [] {
+            if (auto *popup = qobject_cast<QMenu *>(QApplication::activePopupWidget())) {
+                popup->close();
+            }
+        });
+        fallbackClose.start(1000);
+        QTimer::singleShot(0, [&] {
+            auto *popup = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+            QVERIFY(popup);
+            auto *styles = popup->findChild<QMenu *>(QStringLiteral("toolbarButtonStyleMenu"));
+            QVERIFY(styles);
+            QCOMPARE(styles->actions().size(), 4);
+            styles->actions().at(1)->trigger();
+            popup->close();
+        });
+        const QPoint localPosition(1, 1);
+        QContextMenuEvent contextMenu(QContextMenuEvent::Mouse, localPosition, button->mapToGlobal(localPosition));
+        QApplication::sendEvent(button, &contextMenu);
+        fallbackClose.stop();
+
+        QCOMPARE(appearance.readEntry(QStringLiteral("ButtonStyle"), -1), static_cast<int>(Qt::ToolButtonTextOnly));
+        QCOMPARE(button->toolButtonStyle(), Qt::ToolButtonTextOnly);
     }
 
     void paneToolbarsControlTheirOwnPane()

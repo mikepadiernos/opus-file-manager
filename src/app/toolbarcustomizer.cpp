@@ -320,9 +320,11 @@ bool ToolbarCustomizer::eventFilter(QObject *watched, QEvent *event)
         } else if (event->type() == QEvent::MouseButtonRelease) {
             m_pressedAction = nullptr;
         } else if (event->type() == QEvent::ContextMenu && m_editing && action) {
-            if (m_toolbar->widgetForAction(action) == watched) {
-                showActionMenu(action, static_cast<QContextMenuEvent *>(event)->globalPos());
-                return true;
+            for (QToolBar *toolbar : toolbars()) {
+                if (toolbar->widgetForAction(action) == watched) {
+                    showActionMenu(action, static_cast<QContextMenuEvent *>(event)->globalPos());
+                    return true;
+                }
             }
         }
     }
@@ -509,6 +511,7 @@ void ToolbarCustomizer::showActionMenu(QAction *action, const QPoint &globalPosi
     QAction *chooseIcon = menu.addAction(i18nc("@action:inmenu", "Choose Icon…"));
     QAction *resetIcon = menu.addAction(i18nc("@action:inmenu", "Use Default Icon"));
     QMenu *styleMenu = menu.addMenu(i18nc("@menu", "Button Style"));
+    styleMenu->setObjectName(QStringLiteral("toolbarButtonStyleMenu"));
     auto *styleGroup = new QActionGroup(styleMenu);
     styleGroup->setExclusive(true);
     const QList<QPair<Qt::ToolButtonStyle, QString>> styles{

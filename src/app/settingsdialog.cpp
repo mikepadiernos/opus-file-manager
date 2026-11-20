@@ -245,10 +245,11 @@ QWidget *SettingsDialog::createToolbarEntriesPage()
 {
     auto *page = new QWidget;
     auto *layout = new QVBoxLayout(page);
-    auto *description = new QLabel(i18nc("@info",
-                                         "Configure the appearance, entries and order of the main toolbar, pane toolbars and hamburger menu. "
-                                         "The existing editors open after this settings window closes."),
-                                   page);
+    auto *description = new QLabel(
+        i18nc("@info",
+              "Configure the appearance, entries and order of the main toolbar, pane toolbars and hamburger menu. "
+              "The existing editors open after this settings window closes. In the toolbar editor, right-click an entry to choose its icon and button style."),
+        page);
     description->setWordWrap(true);
     layout->addWidget(description);
 
