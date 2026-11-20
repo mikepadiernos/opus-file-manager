@@ -2,6 +2,8 @@
 
 #include "foldersyncdialog.h"
 
+#include "settings.h"
+
 #include <KLocalizedString>
 
 #include <QCheckBox>
@@ -17,6 +19,7 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSignalBlocker>
+#include <QSpinBox>
 #include <QTreeWidget>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
@@ -86,15 +89,6 @@ QString actionText(FolderSync::Action action, const FolderSync::Row &row)
     return {};
 }
 
-bool canCopy(const FolderSync::Entry &source, const FolderSync::Entry &target)
-{
-    using Kind = FolderSync::Kind;
-    if (source.kind == Kind::Directory) {
-        return target.kind == Kind::Missing;
-    }
-    return source.kind == Kind::File && (target.kind == Kind::Missing || target.kind == Kind::File)
-        && (target.kind != Kind::File || source.device != target.device || source.inode != target.inode);
-}
 }
 
 FolderSyncDialog::FolderSyncDialog(const QString &left, const QString &right, QWidget *parent, KSharedConfig::Ptr config)
@@ -109,6 +103,8 @@ FolderSyncDialog::FolderSyncDialog(const QString &left, const QString &right, QW
     , m_contents(new QCheckBox(i18nc("@option:check", "Compare file contents"), m_options))
     , m_links(new QCheckBox(i18nc("@option:check", "Compare symbolic link targets"), m_options))
     , m_saved(new QComboBox(m_options))
+    , m_copyPolicy(new QComboBox(m_options))
+    , m_speedLimit(new QSpinBox(m_options))
     , m_status(new QLabel(this))
     , m_results(new QTreeWidget(this))
     , m_planControls(new QWidget(this))
@@ -139,10 +135,24 @@ FolderSyncDialog::FolderSyncDialog(const QString &left, const QString &right, QW
     m_recursive->setObjectName(QStringLiteral("folderSyncRecursive"));
     m_contents->setObjectName(QStringLiteral("folderSyncContents"));
     m_links->setObjectName(QStringLiteral("folderSyncLinks"));
-    m_recursive->setChecked(true);
+    m_recursive->setChecked(Settings::folderSyncRecursive());
+    m_contents->setChecked(Settings::folderSyncCompareContents());
+    m_links->setChecked(Settings::folderSyncCompareLinks());
     form->addRow(m_recursive);
     form->addRow(m_contents);
     form->addRow(m_links);
+    m_copyPolicy->setObjectName(QStringLiteral("folderSyncCopyPolicy"));
+    m_copyPolicy->addItem(i18nc("@item:inlistbox", "Copy all eligible files"), int(FolderSync::CopyPolicy::All));
+    m_copyPolicy->addItem(i18nc("@item:inlistbox", "Skip existing files"), int(FolderSync::CopyPolicy::SkipExisting));
+    m_copyPolicy->addItem(i18nc("@item:inlistbox", "Only replace older files"), int(FolderSync::CopyPolicy::NewerOnly));
+    m_copyPolicy->setCurrentIndex(int(Settings::folderSyncCopyPolicy()));
+    form->addRow(i18nc("@label:listbox", "Copy policy:"), m_copyPolicy);
+    m_speedLimit->setObjectName(QStringLiteral("folderSyncSpeedLimit"));
+    m_speedLimit->setRange(0, 1048576);
+    m_speedLimit->setSpecialValueText(i18nc("@item:inlistbox", "Unlimited"));
+    m_speedLimit->setSuffix(i18nc("@item:valuesuffix", " KiB/s"));
+    m_speedLimit->setValue(Settings::folderSyncSpeedLimitKiB());
+    form->addRow(i18nc("@label:spinbox", "Copy speed limit:"), m_speedLimit);
     auto *profileRow = new QHBoxLayout;
     m_saved->setObjectName(QStringLiteral("folderSyncProfiles"));
     auto *save = new QPushButton(i18nc("@action:button", "Save…"), m_options);
@@ -321,6 +331,12 @@ FolderSyncDialog::FolderSyncDialog(const QString &left, const QString &right, QW
     connect(m_recursive, &QCheckBox::toggled, this, &FolderSyncDialog::invalidate);
     connect(m_contents, &QCheckBox::toggled, this, &FolderSyncDialog::invalidate);
     connect(m_links, &QCheckBox::toggled, this, &FolderSyncDialog::invalidate);
+    connect(m_copyPolicy, &QComboBox::currentIndexChanged, this, [this] {
+        if (m_comparison) {
+            planCopies(FolderSync::Action::Skip);
+            m_status->setText(i18nc("@info", "Copy policy changed. Plan and review the actions again."));
+        }
+    });
     connect(m_compare, &QPushButton::clicked, this, &FolderSyncDialog::compare);
     connect(m_sync, &QPushButton::clicked, this, &FolderSyncDialog::synchronize);
     connect(toLeft, &QPushButton::clicked, this, [this] {
@@ -494,10 +510,10 @@ void FolderSyncDialog::updateSelectedAction()
         m_action->addItem(actionText(action, row), int(action));
     };
     add(FolderSync::Action::Skip);
-    if (canCopy(row.right, row.left)) {
+    if (FolderSync::copyAllowed(row.right, row.left, copyPolicy())) {
         add(FolderSync::Action::CopyToLeft);
     }
-    if (canCopy(row.left, row.right)) {
+    if (FolderSync::copyAllowed(row.left, row.right, copyPolicy())) {
         add(FolderSync::Action::CopyToRight);
     }
     if (row.left.kind == FolderSync::Kind::File) {
@@ -517,8 +533,8 @@ void FolderSyncDialog::planCopies(FolderSync::Action direction)
     }
     for (qsizetype i = 0; i < m_actions.size(); ++i) {
         const auto &row = m_comparison->rows.at(i);
-        const bool allowed = direction == FolderSync::Action::CopyToLeft ? canCopy(row.right, row.left)
-            : direction == FolderSync::Action::CopyToRight               ? canCopy(row.left, row.right)
+        const bool allowed = direction == FolderSync::Action::CopyToLeft ? FolderSync::copyAllowed(row.right, row.left, copyPolicy())
+            : direction == FolderSync::Action::CopyToRight               ? FolderSync::copyAllowed(row.left, row.right, copyPolicy())
                                                                          : false;
         m_actions[i] = allowed ? direction : FolderSync::Action::Skip;
         m_results->topLevelItem(int(i))->setText(2, actionText(m_actions.at(i), row));
@@ -546,6 +562,11 @@ void FolderSyncDialog::synchronize()
             continue;
         }
         const auto &row = m_comparison->rows.at(i);
+        if ((action == FolderSync::Action::CopyToLeft && !FolderSync::copyAllowed(row.right, row.left, copyPolicy()))
+            || (action == FolderSync::Action::CopyToRight && !FolderSync::copyAllowed(row.left, row.right, copyPolicy()))) {
+            m_status->setText(i18nc("@info", "The copy policy does not allow the planned action: %1", row.relativePath));
+            return;
+        }
         if ((action == FolderSync::Action::CopyToLeft && row.left.kind == FolderSync::Kind::File)
             || (action == FolderSync::Action::CopyToRight && row.right.kind == FolderSync::Kind::File)) {
             ++overwrites;
@@ -584,9 +605,21 @@ void FolderSyncDialog::synchronize()
     m_status->setText(i18nc("@info", "Synchronizing folders…"));
     m_canceled = std::make_shared<std::atomic_bool>(false);
     const auto canceled = m_canceled;
-    m_syncWatcher.setFuture(QtConcurrent::run([comparison, actions, canceled] {
-        return FolderSync::apply(comparison, actions, true, true, [canceled] {
-            return canceled->load();
-        });
+    const quint64 speedLimit = quint64(m_speedLimit->value()) * 1024;
+    m_syncWatcher.setFuture(QtConcurrent::run([comparison, actions, canceled, speedLimit] {
+        return FolderSync::apply(
+            comparison,
+            actions,
+            true,
+            true,
+            [canceled] {
+                return canceled->load();
+            },
+            speedLimit);
     }));
+}
+
+FolderSync::CopyPolicy FolderSyncDialog::copyPolicy() const
+{
+    return static_cast<FolderSync::CopyPolicy>(m_copyPolicy->currentData().toInt());
 }
