@@ -3,6 +3,8 @@
 #include "settingsdialog.h"
 
 #include "archivewriter.h"
+#include "batchrenamedialog.h"
+#include "customcommanddialog.h"
 #include "filecolorrules.h"
 #include "ignorelist.h"
 #include "pathfilterpresetsdialog.h"
@@ -34,6 +36,7 @@
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QSpinBox>
 #include <QStandardPaths>
 #include <QTabWidget>
@@ -80,6 +83,164 @@ private Q_SLOTS:
         Settings::self()->save();
     }
 
+    void fileToolDefaultsPersistAndCancel()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *suffix = dialog.findChild<QLineEdit *>(QStringLiteral("kcfg_SymlinkSuffix"));
+            auto *manifest = dialog.findChild<QLineEdit *>(QStringLiteral("kcfg_ChecksumFileName"));
+            auto *size = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_SplitPartSizeMiB"));
+            QVERIFY(suffix && manifest && size);
+            QVERIFY(suffix->text().isEmpty());
+            QCOMPARE(manifest->text(), QStringLiteral("checksums.sha256"));
+            QCOMPARE(size->value(), 100);
+            suffix->setText(QStringLiteral(".link"));
+            manifest->setText(QStringLiteral("manifest.sha256"));
+            size->setValue(12);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        {
+            SettingsDialog dialog(&places, nullptr);
+            QCOMPARE(dialog.findChild<QLineEdit *>(QStringLiteral("kcfg_SymlinkSuffix"))->text(), QStringLiteral(".link"));
+            QCOMPARE(dialog.findChild<QLineEdit *>(QStringLiteral("kcfg_ChecksumFileName"))->text(), QStringLiteral("manifest.sha256"));
+            auto *size = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_SplitPartSizeMiB"));
+            QCOMPARE(size->value(), 12);
+            size->setValue(2);
+            dialog.reject();
+        }
+        QCOMPARE(Settings::splitPartSizeMiB(), 12);
+    }
+
+    void metadataFieldDefaultsPersist()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *audio = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_MetadataAudioArtist"));
+            auto *image = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_MetadataImageArtist"));
+            QVERIFY(audio && image);
+            QVERIFY(audio->isChecked() && image->isChecked());
+            image->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        SettingsDialog dialog(&places, nullptr);
+        QVERIFY(dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_MetadataAudioArtist"))->isChecked());
+        QVERIFY(!dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_MetadataImageArtist"))->isChecked());
+        dialog.reject();
+    }
+
+    void transferQueueDefaultsPersist()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *enabled = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_TransferQueueEnabled"));
+            auto *limit = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_TransferQueueConcurrency"));
+            auto *conflict = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TransferConflictPolicy"));
+            QVERIFY(enabled && limit && conflict);
+            QVERIFY(enabled->isChecked());
+            QCOMPARE(limit->value(), 1);
+            QCOMPARE(conflict->currentIndex(), int(Settings::EnumTransferConflictPolicy::Ask));
+            limit->setValue(3);
+            conflict->setCurrentIndex(Settings::EnumTransferConflictPolicy::Skip);
+            enabled->setChecked(false);
+            QVERIFY(!limit->isEnabled());
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        SettingsDialog dialog(&places, nullptr);
+        QVERIFY(!dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_TransferQueueEnabled"))->isChecked());
+        QCOMPARE(dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_TransferQueueConcurrency"))->value(), 3);
+        QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TransferConflictPolicy"))->currentIndex(), int(Settings::EnumTransferConflictPolicy::Skip));
+        dialog.reject();
+    }
+
+    void listingExportDefaultsPersist()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *format = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_ListingExportFormat"));
+            auto *custom = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ListingExportCustomColumns"));
+            auto *owner = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ListingExportOwner"));
+            QVERIFY(format && custom && owner);
+            QCOMPARE(format->currentIndex(), int(Settings::EnumListingExportFormat::Csv));
+            QVERIFY(!custom->isChecked());
+            QVERIFY(!owner->isEnabled());
+            custom->setChecked(true);
+            QVERIFY(owner->isEnabled());
+            owner->setChecked(true);
+            format->setCurrentIndex(Settings::EnumListingExportFormat::Pdf);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        SettingsDialog dialog(&places, nullptr);
+        QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("kcfg_ListingExportFormat"))->currentIndex(), int(Settings::EnumListingExportFormat::Pdf));
+        QVERIFY(dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ListingExportOwner"))->isChecked());
+        QVERIFY(dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ListingExportOwner"))->isEnabled());
+        dialog.reject();
+    }
+
+    void opensCommandManager()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *manage = dialog.findChild<QPushButton *>(QStringLiteral("manageCommands"));
+        QVERIFY(manage);
+        QTimer::singleShot(0, [&dialog] {
+            auto *manager = dialog.findChild<CustomCommandDialog *>(QStringLiteral("customCommandDialog"));
+            QVERIFY(manager);
+            QVERIFY(manager->findChild<QPushButton *>(QStringLiteral("commandRun"))->isHidden());
+            manager->reject();
+        });
+        manage->click();
+    }
+
+    void opensBatchRenamePresetManager()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *manage = dialog.findChild<QPushButton *>(QStringLiteral("manageBatchRenamePresets"));
+        QVERIFY(manage);
+        QTimer::singleShot(0, [&dialog] {
+            auto *manager = dialog.findChild<BatchRenameDialog *>(QStringLiteral("batchRenameDialog"));
+            QVERIFY(manager);
+            QVERIFY(manager->findChild<QPushButton *>(QStringLiteral("batchRenameApply"))->isHidden());
+            manager->reject();
+        });
+        manage->click();
+    }
+
+    void folderSyncDefaultsPersist()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *recursive = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_FolderSyncRecursive"));
+            auto *contents = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_FolderSyncCompareContents"));
+            auto *links = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_FolderSyncCompareLinks"));
+            auto *policy = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_FolderSyncCopyPolicy"));
+            auto *speed = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_FolderSyncSpeedLimitKiB"));
+            QVERIFY(recursive && contents && links && policy && speed);
+            QVERIFY(recursive->isChecked() && !contents->isChecked() && !links->isChecked());
+            QCOMPARE(policy->currentIndex(), int(Settings::EnumFolderSyncCopyPolicy::All));
+            QCOMPARE(speed->value(), 0);
+            recursive->setChecked(false);
+            contents->setChecked(true);
+            links->setChecked(true);
+            policy->setCurrentIndex(Settings::EnumFolderSyncCopyPolicy::NewerOnly);
+            speed->setValue(128);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        SettingsDialog dialog(&places, nullptr);
+        QVERIFY(!dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_FolderSyncRecursive"))->isChecked());
+        QVERIFY(dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_FolderSyncCompareContents"))->isChecked());
+        QVERIFY(dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_FolderSyncCompareLinks"))->isChecked());
+        QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("kcfg_FolderSyncCopyPolicy"))->currentIndex(),
+                 int(Settings::EnumFolderSyncCopyPolicy::NewerOnly));
+        QCOMPARE(dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_FolderSyncSpeedLimitKiB"))->value(), 128);
+        dialog.reject();
+    }
+
     void sidebarOptionsPersistAndPreview()
     {
         KFilePlacesModel places;
@@ -96,6 +257,7 @@ private Q_SLOTS:
                     if (view->model() == pages->model() && view->isVisible()) {
                         return view;
                     }
+
                 }
                 return static_cast<QAbstractItemView *>(nullptr);
             };
@@ -148,7 +310,11 @@ private Q_SLOTS:
         {
             SettingsDialog dialog(&places, nullptr);
             auto *placement = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TerminalPlacement"));
+            auto *follow = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_TerminalFollowActiveFolder"));
             QVERIFY(placement);
+            QVERIFY(follow);
+            QVERIFY(!follow->isChecked());
+            follow->setChecked(true);
             QCOMPARE(placement->currentIndex(), int(Settings::EnumTerminalPlacement::Automatic));
             placement->setCurrentIndex(Settings::EnumTerminalPlacement::Right);
             dialog.button(QDialogButtonBox::Ok)->click();
@@ -156,12 +322,17 @@ private Q_SLOTS:
         {
             SettingsDialog dialog(&places, nullptr);
             auto *placement = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TerminalPlacement"));
+            auto *follow = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_TerminalFollowActiveFolder"));
             QVERIFY(placement);
+            QVERIFY(follow && follow->isChecked());
+            follow->setChecked(false);
             QCOMPARE(placement->currentIndex(), int(Settings::EnumTerminalPlacement::Right));
             placement->setCurrentIndex(Settings::EnumTerminalPlacement::Below);
             dialog.reject();
         }
         QCOMPARE(Settings::terminalPlacement(), int(Settings::EnumTerminalPlacement::Right));
+        QVERIFY(Settings::terminalFollowActiveFolder());
+        Settings::setTerminalFollowActiveFolder(false);
     }
 
     void searchDefaultsPersistAndCancelLeavesThemUnchanged()
@@ -191,6 +362,107 @@ private Q_SLOTS:
         }
         QVERIFY(Settings::searchIndexedByDefault());
         QVERIFY(Settings::searchContentsByDefault());
+    }
+
+    void duplicateFinderDefaultsPersistAndCancelLeavesThemUnchanged()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *name = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_DuplicateRequireSameFileName"));
+            auto *policy = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DuplicateSelectionPolicy"));
+            QVERIFY(name && policy);
+            QVERIFY(!name->isChecked());
+            QCOMPARE(policy->currentIndex(), int(Settings::EnumDuplicateSelectionPolicy::KeepNewest));
+            name->setChecked(true);
+            policy->setCurrentIndex(Settings::EnumDuplicateSelectionPolicy::InFolder);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *name = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_DuplicateRequireSameFileName"));
+            auto *policy = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DuplicateSelectionPolicy"));
+            QVERIFY(name && policy);
+            QVERIFY(name->isChecked());
+            QCOMPARE(policy->currentIndex(), int(Settings::EnumDuplicateSelectionPolicy::InFolder));
+            name->setChecked(false);
+            policy->setCurrentIndex(Settings::EnumDuplicateSelectionPolicy::KeepOldest);
+            dialog.reject();
+        }
+        QVERIFY(Settings::duplicateRequireSameFileName());
+        QCOMPARE(Settings::duplicateSelectionPolicy(), int(Settings::EnumDuplicateSelectionPolicy::InFolder));
+    }
+
+    void contentChartDefaultsPersistAndCancelLeavesThemUnchanged()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *show = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ContentChartShowTreemap"));
+            auto *sort = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_ContentChartSort"));
+            auto *descending = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ContentChartSortDescending"));
+            QVERIFY(show && sort && descending);
+            QVERIFY(show->isChecked());
+            QCOMPARE(sort->currentIndex(), int(Settings::EnumContentChartSort::AsListed));
+            show->setChecked(false);
+            sort->setCurrentIndex(Settings::EnumContentChartSort::Size);
+            descending->setChecked(true);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *show = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ContentChartShowTreemap"));
+            auto *sort = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_ContentChartSort"));
+            auto *descending = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ContentChartSortDescending"));
+            QVERIFY(show && sort && descending);
+            QVERIFY(!show->isChecked());
+            QCOMPARE(sort->currentIndex(), int(Settings::EnumContentChartSort::Size));
+            QVERIFY(descending->isChecked());
+            show->setChecked(true);
+            dialog.reject();
+        }
+        QVERIFY(!Settings::contentChartShowTreemap());
+    }
+
+    void linkedPanesStartupPreferencePersists()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *link = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_LinkPanesAtStartup"));
+        QVERIFY(link);
+        QVERIFY(!link->isChecked());
+        link->setChecked(true);
+        dialog.button(QDialogButtonBox::Ok)->click();
+        QVERIFY(Settings::linkPanesAtStartup());
+    }
+
+    void fileDiffWrapPreferencePersists()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *wrap = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_FileDiffWrapLines"));
+        QVERIFY(wrap);
+        QVERIFY(!wrap->isChecked());
+        wrap->setChecked(true);
+        dialog.button(QDialogButtonBox::Ok)->click();
+        QVERIFY(Settings::fileDiffWrapLines());
+    }
+
+    void paneComparisonCategoriesPersist()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *left = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_PaneComparisonShowLeftOnly"));
+        auto *matching = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_PaneComparisonShowMatching"));
+        QVERIFY(left && matching);
+        QVERIFY(left->isChecked() && matching->isChecked());
+        left->setChecked(false);
+        matching->setChecked(false);
+        dialog.button(QDialogButtonBox::Ok)->click();
+        QVERIFY(!Settings::paneComparisonShowLeftOnly());
+        QVERIFY(!Settings::paneComparisonShowMatching());
+        QVERIFY(Settings::paneComparisonShowRightOnly());
+        QVERIFY(Settings::paneComparisonShowDifferent());
     }
 
     void managesSharedPathFilters()
@@ -390,6 +662,63 @@ private Q_SLOTS:
         dialog.findChild<QPushButton *>(QStringLiteral("managedSearchDelete"))->click();
         QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("searchStoreStatus"))->text().contains(QStringLiteral("changed elsewhere")));
         QCOMPARE(SavedSearches::load(group, &error).first().text, QStringLiteral("new"));
+    }
+
+    void fileAssociationsUseKdeAndReportFailures()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *open = dialog.findChild<QPushButton *>(QStringLiteral("openFileAssociations"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("fileAssociationsStatus"));
+        QVERIFY(open && status);
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto paths = QCoreApplication::libraryPaths();
+        QCoreApplication::setLibraryPaths({root.path()});
+        open->click();
+        const QString missing = status->text();
+        QCoreApplication::setLibraryPaths(paths);
+        QVERIFY(missing.contains(QStringLiteral("not installed")));
+        const auto plugin = KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings"), QStringLiteral("kcm_filetypes"));
+        const auto widgetPlugin = KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings_qwidgets"), QStringLiteral("kcm_filetypes"));
+        if (!plugin.isValid() && !widgetPlugin.isValid()) {
+            QSKIP("KDE File Associations is not installed.");
+        }
+        QFile executable(root.filePath(QStringLiteral("kcmshell6")));
+        QVERIFY(executable.open(QIODevice::WriteOnly));
+        QVERIFY(executable.write("#!/bin/sh\nprintf '%s' \"$1\" > \"$OPUSFM_KCM_TEST_OUTPUT\"\n") > 0);
+        executable.close();
+        QVERIFY(executable.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+        const QByteArray oldPath = qgetenv("PATH");
+        const QByteArray oldOutput = qgetenv("OPUSFM_KCM_TEST_OUTPUT");
+        const bool pathSet = qEnvironmentVariableIsSet("PATH");
+        const bool outputSet = qEnvironmentVariableIsSet("OPUSFM_KCM_TEST_OUTPUT");
+        const auto restore = qScopeGuard([=] {
+            if (pathSet) {
+                qputenv("PATH", oldPath);
+            } else {
+                qunsetenv("PATH");
+            }
+            if (outputSet) {
+                qputenv("OPUSFM_KCM_TEST_OUTPUT", oldOutput);
+            } else {
+                qunsetenv("OPUSFM_KCM_TEST_OUTPUT");
+            }
+        });
+        const QString emptyPath = root.filePath(QStringLiteral("empty"));
+        QVERIFY(QDir().mkdir(emptyPath));
+        qputenv("PATH", QFile::encodeName(emptyPath));
+        open->click();
+        QVERIFY(status->text().contains(QStringLiteral("Could not launch")));
+        qputenv("PATH", QFile::encodeName(root.path()));
+        qputenv("OPUSFM_KCM_TEST_OUTPUT", QFile::encodeName(root.filePath(QStringLiteral("argument"))));
+        open->click();
+        QVERIFY(status->text().contains(QStringLiteral("shared desktop defaults")));
+        const auto readArgument = [&root] {
+            QFile argument(root.filePath(QStringLiteral("argument")));
+            return argument.open(QIODevice::ReadOnly) ? argument.readAll() : QByteArray();
+        };
+        QTRY_COMPARE(readArgument(), QByteArray("kcm_filetypes"));
     }
 
     void fileSearchSettingsReportsMissingModule()
