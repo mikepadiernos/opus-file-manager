@@ -2,6 +2,8 @@
 
 #include "filesplitdialog.h"
 
+#include "settings.h"
+
 #include <KLocalizedString>
 
 #include <QCollator>
@@ -26,7 +28,7 @@ FileSplitDialog::FileSplitDialog(Mode mode, const QStringList &paths, QWidget *p
     , m_options(new QWidget(this))
     , m_inputs(new QListWidget(m_options))
     , m_destination(new QLineEdit(m_options))
-    , m_partSize(new QLineEdit(QStringLiteral("104857600"), m_options))
+    , m_partSize(new QLineEdit(QString::number(qint64(Settings::splitPartSizeMiB()) * 1024 * 1024), m_options))
     , m_status(new QLabel(this))
     , m_outputs(new QListWidget(this))
     , m_start(new QPushButton(mode == Mode::Split ? i18nc("@action:button", "Split") : i18nc("@action:button", "Combine"), this))

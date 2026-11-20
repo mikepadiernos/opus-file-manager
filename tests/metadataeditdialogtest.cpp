@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "metadataeditdialog.h"
+#include "settings.h"
 
 #include <QApplication>
+#include <QCheckBox>
 #include <QImage>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QProcess>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -57,6 +61,96 @@ private Q_SLOTS:
         auto *status = dialog.findChild<QLabel *>(QStringLiteral("metadataStatus"));
         QTRY_VERIFY_WITH_TIMEOUT(status->text().contains(QStringLiteral("updated and verified")), 15000);
         QCOMPARE(MetadataEditor::read(path).values.value(QStringLiteral("Artist")), QStringLiteral("Changed artist"));
+    }
+
+    void hidesInitialFieldsWithoutChangingTheirValues()
+    {
+        if (QStandardPaths::findExecutable(QStringLiteral("exiftool")).isEmpty()) {
+            QSKIP("ExifTool is not installed");
+        }
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QString path = root.filePath(QStringLiteral("image.jpg"));
+        QImage image(4, 4, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        QVERIFY(image.save(path));
+        auto snapshot = MetadataEditor::read(path);
+        QVERIFY2(snapshot.error.isEmpty(), qPrintable(snapshot.error));
+        auto values = snapshot.values;
+        values[QStringLiteral("Artist")] = QStringLiteral("Preserved artist");
+        const QString error = MetadataEditor::write(snapshot, values);
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        const bool previous = Settings::metadataImageArtist();
+        const auto restore = qScopeGuard([previous] {
+            Settings::setMetadataImageArtist(previous);
+        });
+        Settings::setMetadataImageArtist(false);
+        MetadataEditDialog dialog(path);
+        dialog.show();
+        auto *preview = dialog.findChild<QPushButton *>(QStringLiteral("metadataPreview"));
+        QTRY_VERIFY(preview->isEnabled());
+        auto *artist = dialog.findChild<QLineEdit *>(QStringLiteral("metadataField_Artist"));
+        auto *copyright = dialog.findChild<QLineEdit *>(QStringLiteral("metadataField_Copyright"));
+        auto *showAll = dialog.findChild<QCheckBox *>(QStringLiteral("metadataShowAllFields"));
+        QVERIFY(artist && copyright && showAll);
+        QVERIFY(artist->isHidden());
+        showAll->setChecked(true);
+        QVERIFY(!artist->isHidden());
+        showAll->setChecked(false);
+        QVERIFY(artist->isHidden());
+        copyright->setText(QStringLiteral("Copyright test"));
+        preview->click();
+        QCOMPARE(dialog.findChild<QTreeWidget *>(QStringLiteral("metadataChanges"))->topLevelItemCount(), 1);
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::Yes)->click();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("metadataApply"))->click();
+        QTRY_VERIFY_WITH_TIMEOUT(dialog.findChild<QLabel *>(QStringLiteral("metadataStatus"))->text().contains(QStringLiteral("updated and verified")), 15000);
+        snapshot = MetadataEditor::read(path);
+        QVERIFY2(snapshot.error.isEmpty(), qPrintable(snapshot.error));
+        QCOMPARE(snapshot.values.value(QStringLiteral("Artist")), QStringLiteral("Preserved artist"));
+        QCOMPARE(snapshot.values.value(QStringLiteral("Copyright")), QStringLiteral("Copyright test"));
+    }
+
+    void hidesSelectedAudioFields()
+    {
+        const QString ffmpeg = QStandardPaths::findExecutable(QStringLiteral("ffmpeg"));
+        if (ffmpeg.isEmpty() || QStandardPaths::findExecutable(QStringLiteral("exiftool")).isEmpty()) {
+            QSKIP("FFmpeg and ExifTool are needed for this test");
+        }
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QString path = root.filePath(QStringLiteral("song.mp3"));
+        QProcess generator;
+        generator.start(ffmpeg,
+                        {QStringLiteral("-v"),
+                         QStringLiteral("error"),
+                         QStringLiteral("-f"),
+                         QStringLiteral("lavfi"),
+                         QStringLiteral("-i"),
+                         QStringLiteral("anullsrc=r=44100:cl=mono"),
+                         QStringLiteral("-t"),
+                         QStringLiteral("0.1"),
+                         path});
+        QVERIFY(generator.waitForFinished(30000));
+        QCOMPARE(generator.exitCode(), 0);
+        const bool previous = Settings::metadataAudioTitle();
+        const auto restore = qScopeGuard([previous] {
+            Settings::setMetadataAudioTitle(previous);
+        });
+        Settings::setMetadataAudioTitle(false);
+        MetadataEditDialog dialog(path);
+        dialog.show();
+        QTRY_VERIFY(dialog.findChild<QPushButton *>(QStringLiteral("metadataPreview"))->isEnabled());
+        auto *title = dialog.findChild<QLineEdit *>(QStringLiteral("metadataField_Title"));
+        auto *album = dialog.findChild<QLineEdit *>(QStringLiteral("metadataField_Album"));
+        QVERIFY(title && album);
+        QVERIFY(title->isHidden());
+        QVERIFY(!album->isHidden());
+        dialog.findChild<QCheckBox *>(QStringLiteral("metadataShowAllFields"))->setChecked(true);
+        QVERIFY(!title->isHidden());
     }
 };
 

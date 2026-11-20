@@ -18,6 +18,7 @@ class QComboBox;
 class QLabel;
 class QPlainTextEdit;
 class QPushButton;
+class QSpinBox;
 class QTreeWidget;
 
 class FolderSyncDialog : public QDialog
@@ -38,6 +39,7 @@ private:
     void updateSelectedAction();
     void planCopies(FolderSync::Action direction);
     void synchronize();
+    FolderSync::CopyPolicy copyPolicy() const;
 
     QString m_left;
     QString m_right;
@@ -50,6 +52,8 @@ private:
     QCheckBox *m_contents;
     QCheckBox *m_links;
     QComboBox *m_saved;
+    QComboBox *m_copyPolicy;
+    QSpinBox *m_speedLimit;
     QLabel *m_status;
     QTreeWidget *m_results;
     QWidget *m_planControls;

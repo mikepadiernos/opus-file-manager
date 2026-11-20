@@ -198,7 +198,8 @@ private Q_SLOTS:
                               QStringLiteral("Archives"),
                               QStringLiteral("Files"),
                               QStringLiteral("Gallery"),
-                              QStringLiteral("Editor")}));
+                              QStringLiteral("Editor"),
+                              QStringLiteral("Tools")}));
 
         const auto tabOf = [&dialog](const QString &entry) {
             return tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + entry));
@@ -235,6 +236,8 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("GallerySlideshowInterval")), QStringLiteral("Slideshow"));
         QCOMPARE(tabOf(QStringLiteral("GalleryCopyFormat")), QStringLiteral("Image Conversion"));
         QCOMPARE(tabOf(QStringLiteral("EditorOpening")), QStringLiteral("Editor"));
+        QCOMPARE(tabOf(QStringLiteral("TerminalFollowActiveFolder")), QStringLiteral("Embedded Terminal"));
+        QCOMPARE(tabOf(QStringLiteral("FolderSyncCopyPolicy")), QStringLiteral("Folder Sync"));
     }
 
     void editorSettingsApply()

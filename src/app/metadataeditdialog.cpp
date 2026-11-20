@@ -2,8 +2,11 @@
 
 #include "metadataeditdialog.h"
 
+#include "settings.h"
+
 #include <KLocalizedString>
 
+#include <QCheckBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QHeaderView>
@@ -88,14 +91,30 @@ MetadataEditDialog::MetadataEditDialog(const QString &path, QWidget *parent)
             return;
         }
         auto *form = new QFormLayout;
+        const QMap<QString, bool> initiallyVisible = m_snapshot.mimeType == QLatin1String("audio/mpeg")
+            ? QMap<QString, bool>{{QStringLiteral("Title"), Settings::metadataAudioTitle()},
+                                  {QStringLiteral("Artist"), Settings::metadataAudioArtist()},
+                                  {QStringLiteral("Album"), Settings::metadataAudioAlbum()}}
+            : QMap<QString, bool>{{QStringLiteral("ImageDescription"), Settings::metadataImageDescription()},
+                                  {QStringLiteral("Artist"), Settings::metadataImageArtist()},
+                                  {QStringLiteral("Copyright"), Settings::metadataImageCopyright()}};
         for (auto it = m_snapshot.values.cbegin(); it != m_snapshot.values.cend(); ++it) {
             auto *field = new QLineEdit(it.value(), m_options);
             field->setObjectName(QStringLiteral("metadataField_") + it.key());
             m_fields.insert(it.key(), field);
             form->addRow(label(it.key()), field);
+            form->setRowVisible(field, initiallyVisible.value(it.key(), true));
             connect(field, &QLineEdit::textChanged, this, &MetadataEditDialog::invalidate);
         }
         m_fieldsLayout->addLayout(form);
+        auto *showAll = new QCheckBox(i18nc("@option:check", "Show all editable fields"), m_options);
+        showAll->setObjectName(QStringLiteral("metadataShowAllFields"));
+        m_fieldsLayout->addWidget(showAll);
+        connect(showAll, &QCheckBox::toggled, this, [this, form, initiallyVisible](bool checked) {
+            for (auto it = m_fields.cbegin(); it != m_fields.cend(); ++it) {
+                form->setRowVisible(it.value(), checked || initiallyVisible.value(it.key(), true));
+            }
+        });
         m_options->setEnabled(true);
         m_preview->setEnabled(true);
         m_status->setText(i18nc("@info", "Edit fields and preview changes before applying."));

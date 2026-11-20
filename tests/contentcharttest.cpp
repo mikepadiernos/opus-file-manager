@@ -2,11 +2,15 @@
 
 #include "contentchartdialog.h"
 #include "cushiontreemap.h"
+#include "settings.h"
 
+#include <QCheckBox>
+#include <QComboBox>
 #include <QDir>
 #include <QFile>
 #include <QLabel>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -93,6 +97,52 @@ private Q_SLOTS:
         ContentChartDialog canceled(QUrl::fromLocalFile(dir.path()));
         canceled.findChild<QPushButton *>(QStringLiteral("contentChartCancel"))->click();
         QCOMPARE(canceled.findChild<QLabel *>(QStringLiteral("contentChartStatus"))->text(), QStringLiteral("Scan canceled; the chart is incomplete."));
+    }
+
+    void appliesChartPreferencesAndKeepsSkippedEntriesVisible()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QFile small(dir.filePath(QStringLiteral("small")));
+        QVERIFY(small.open(QIODevice::WriteOnly));
+        QCOMPARE(small.write("x"), 1);
+        small.close();
+        QFile large(dir.filePath(QStringLiteral("large")));
+        QVERIFY(large.open(QIODevice::WriteOnly));
+        QCOMPARE(large.write(QByteArray(20, 'x')), 20);
+        large.close();
+        QVERIFY(QFile::link(small.fileName(), dir.filePath(QStringLiteral("link"))));
+        const auto oldShow = Settings::contentChartShowTreemap();
+        const auto oldSort = Settings::contentChartSort();
+        const auto oldDescending = Settings::contentChartSortDescending();
+        const auto restore = qScopeGuard([oldShow, oldSort, oldDescending] {
+            Settings::setContentChartShowTreemap(oldShow);
+            Settings::setContentChartSort(oldSort);
+            Settings::setContentChartSortDescending(oldDescending);
+        });
+        Settings::setContentChartShowTreemap(false);
+        Settings::setContentChartSort(Settings::EnumContentChartSort::Size);
+        Settings::setContentChartSortDescending(true);
+        ContentChartDialog chart(QUrl::fromLocalFile(dir.path()));
+        chart.show();
+        QTRY_VERIFY(!chart.findChild<QPushButton *>(QStringLiteral("contentChartCancel"))->isEnabled());
+        auto *tree = chart.findChild<QTreeWidget *>(QStringLiteral("contentChartEntries"));
+        auto *map = chart.findChild<CushionTreemap *>(QStringLiteral("contentTreemap"));
+        QVERIFY(tree && map);
+        QVERIFY(map->isHidden());
+        QCOMPARE(tree->topLevelItemCount(), 3);
+        QCOMPARE(tree->topLevelItem(0)->text(0), QStringLiteral("large"));
+        QCOMPARE(tree->topLevelItem(1)->text(0), QStringLiteral("small"));
+        QCOMPARE(tree->topLevelItem(2)->text(0), QStringLiteral("link"));
+        QVERIFY(chart.findChild<QLabel *>(QStringLiteral("contentChartStatus"))->text().contains(QStringLiteral("Skipped: 1")));
+        chart.findChild<QCheckBox *>(QStringLiteral("contentChartShowTreemap"))->setChecked(true);
+        QVERIFY(!map->isHidden());
+        chart.findChild<QComboBox *>(QStringLiteral("contentChartSort"))->setCurrentIndex(Settings::EnumContentChartSort::Name);
+        QTRY_COMPARE(tree->topLevelItem(0)->text(0), QStringLiteral("small"));
+        chart.findChild<QComboBox *>(QStringLiteral("contentChartSort"))->setCurrentIndex(Settings::EnumContentChartSort::AsListed);
+        for (int i = 0; i < tree->topLevelItemCount(); ++i) {
+            QCOMPARE(tree->topLevelItem(i)->data(0, Qt::UserRole).toInt(), i);
+        }
     }
 
     void treemapRecalculatesAfterResize()

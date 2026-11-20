@@ -89,8 +89,8 @@ public:
     KFileItem rootItem() const;
     KFileItemList items() const;
     KFileItemList itemsInViewOrder() const;
-    /// Captures the filtered listing using the configured details columns.
-    ListingExport::Table listingForExport() const;
+    /// Captures the filtered listing using the given columns, or visible columns when empty.
+    ListingExport::Table listingForExport(const QList<int> &columns = {}) const;
     KFileItemList selectedItems() const;
     /// Selected items, or the listed folder itself when nothing is selected.
     KFileItemList selectedItemsOrRoot() const;

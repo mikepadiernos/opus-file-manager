@@ -29,6 +29,17 @@
 
 #include <algorithm>
 
+namespace
+{
+QString scopeStatus(int index)
+{
+    return index == 0 ? i18nc("@info", "Searches local folders recursively. Symbolic links are skipped.")
+                      : i18nc("@info",
+                              "Searches configured Baloo locations. A depth limit restricts results to the current local folder. Baloo matches "
+                              "indexed terms, not literal substrings.");
+}
+}
+
 SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::Ptr config)
     : QDialog(parent)
     , m_folder(folder)
@@ -37,7 +48,7 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     , m_query(new QLineEdit(this))
     , m_field(new QComboBox(this))
     , m_scope(new QComboBox(this))
-    , m_filterEditor(new PathFilterEditor(QStringLiteral("search"), this))
+    , m_filterEditor(new PathFilterEditor(QStringLiteral("search"), this, m_config))
     , m_saved(new QComboBox(this))
     , m_search(new QPushButton(i18nc("@action:button", "Search"), this))
     , m_cancel(new QPushButton(i18nc("@action:button", "Cancel Search"), this))
@@ -63,6 +74,12 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_scope->setObjectName(QStringLiteral("searchScope"));
     m_scope->addItem(i18nc("@item:inlistbox", "Current folder (live)"));
     m_scope->addItem(i18nc("@item:inlistbox", "Indexed locations (Baloo)"));
+    const auto defaults = m_config->group(QStringLiteral("Search"));
+    m_scope->setCurrentIndex(defaults.readEntry("SearchIndexedByDefault", false) ? 1 : 0);
+    m_field->setCurrentIndex(defaults.readEntry("SearchContentsByDefault", false) ? 1 : 0);
+    if (m_scope->currentIndex() == 1) {
+        m_field->setItemText(1, i18nc("@item:inlistbox", "Indexed file contents"));
+    }
     form->addRow(i18nc("@label", "Find:"), m_query);
     form->addRow(i18nc("@label", "Search in:"), m_field);
     form->addRow(i18nc("@label", "Scope:"), m_scope);
@@ -72,19 +89,25 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_saved->setObjectName(QStringLiteral("searchSaved"));
     auto *saveSearch = new QPushButton(i18nc("@action:button", "Save Search…"), this);
     auto *loadSearch = new QPushButton(i18nc("@action:button", "Load"), this);
+    auto *updateSearch = new QPushButton(i18nc("@action:button", "Update"), this);
+    auto *refreshSearches = new QPushButton(i18nc("@action:button", "Refresh"), this);
     auto *deleteSearch = new QPushButton(i18nc("@action:button", "Delete Saved Search"), this);
     saveSearch->setObjectName(QStringLiteral("searchSave"));
     loadSearch->setObjectName(QStringLiteral("searchLoad"));
+    updateSearch->setObjectName(QStringLiteral("searchUpdate"));
+    refreshSearches->setObjectName(QStringLiteral("searchRefreshSaved"));
     deleteSearch->setObjectName(QStringLiteral("searchDelete"));
     savedRow->addWidget(m_saved, 1);
     savedRow->addWidget(saveSearch);
     savedRow->addWidget(loadSearch);
+    savedRow->addWidget(updateSearch);
+    savedRow->addWidget(refreshSearches);
     savedRow->addWidget(deleteSearch);
     layout->addLayout(savedRow);
     m_status->setObjectName(QStringLiteral("searchStatus"));
     m_status->setTextFormat(Qt::PlainText);
     m_status->setWordWrap(true);
-    m_status->setText(i18nc("@info", "Searches local folders recursively. Symbolic links are skipped."));
+    m_status->setText(scopeStatus(m_scope->currentIndex()));
     layout->addWidget(m_status);
     QString savedError;
     m_savedSearches = SavedSearches::load(m_config->group(QStringLiteral("SavedSearches")), &savedError);
@@ -93,11 +116,13 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
         m_status->setText(savedError);
         saveSearch->setEnabled(false);
     }
-    connect(m_saved, &QComboBox::currentIndexChanged, this, [this, loadSearch, deleteSearch](int index) {
+    connect(m_saved, &QComboBox::currentIndexChanged, this, [loadSearch, updateSearch, deleteSearch](int index) {
         loadSearch->setEnabled(index >= 0);
+        updateSearch->setEnabled(index >= 0);
         deleteSearch->setEnabled(index >= 0);
     });
     loadSearch->setEnabled(m_saved->currentIndex() >= 0);
+    updateSearch->setEnabled(m_saved->currentIndex() >= 0);
     deleteSearch->setEnabled(m_saved->currentIndex() >= 0);
     connect(saveSearch, &QPushButton::clicked, this, [this] {
         bool accepted = false;
@@ -106,12 +131,7 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
         if (!accepted) {
             return;
         }
-        SavedSearches::Search search{name,
-                                     m_query->text(),
-                                     m_folder.isLocalFile() ? m_folder : QUrl(),
-                                     m_field->currentIndex() == 0 ? LiveSearch::Field::FileName : LiveSearch::Field::Contents,
-                                     m_scope->currentIndex() == 1,
-                                     pathFilter()};
+        const auto search = currentSearch(name);
         const QString filterError = search.filter.error();
         if (!filterError.isEmpty()) {
             m_status->setText(filterError);
@@ -163,6 +183,9 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
             return;
         }
         const auto search = *it;
+        m_savedSearches = current;
+        updateSavedSearches();
+        m_saved->setCurrentIndex(m_saved->findText(search.name));
         if (!search.folder.isEmpty()) {
             m_folder = search.folder;
             m_folderLabel->setText(m_folder.toDisplayString());
@@ -172,6 +195,56 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
         m_field->setCurrentIndex(search.field == LiveSearch::Field::FileName ? 0 : 1);
         m_filterEditor->setFilter(search.filter);
         m_status->setText(i18nc("@info", "Saved criteria loaded. Review them and start the search."));
+    });
+    connect(refreshSearches, &QPushButton::clicked, this, [this, saveSearch] {
+        const QString selected = m_saved->currentText();
+        QString error;
+        const auto searches = SavedSearches::load(m_config->group(QStringLiteral("SavedSearches")), &error);
+        if (!error.isEmpty()) {
+            m_status->setText(error);
+            return;
+        }
+        m_savedSearches = searches;
+        saveSearch->setEnabled(true);
+        updateSavedSearches();
+        const int index = m_saved->findText(selected);
+        if (index >= 0) {
+            m_saved->setCurrentIndex(index);
+        }
+        m_status->setText(i18nc("@info", "Saved searches refreshed."));
+    });
+    connect(updateSearch, &QPushButton::clicked, this, [this] {
+        const int index = m_saved->currentIndex();
+        if (index < 0 || index >= m_savedSearches.size()) {
+            return;
+        }
+        if (m_watcher.isRunning()) {
+            m_status->setText(i18nc("@info", "Wait for the current search to finish before updating saved criteria."));
+            return;
+        }
+        const auto original = m_savedSearches.at(index);
+        QString error;
+        auto searches = SavedSearches::load(m_config->group(QStringLiteral("SavedSearches")), &error);
+        if (!error.isEmpty()) {
+            m_status->setText(error);
+            return;
+        }
+        auto it = std::find_if(searches.begin(), searches.end(), [&original](const auto &search) {
+            return search.name == original.name;
+        });
+        if (it == searches.end() || *it != original) {
+            m_status->setText(i18nc("@info", "This search changed elsewhere. Refresh the list before updating it."));
+            return;
+        }
+        *it = currentSearch(original.name);
+        if (!SavedSearches::save(m_config->group(QStringLiteral("SavedSearches")), searches, &error)) {
+            m_status->setText(error);
+            return;
+        }
+        m_savedSearches = searches;
+        updateSavedSearches();
+        m_saved->setCurrentIndex(m_saved->findText(original.name));
+        m_status->setText(i18nc("@info", "Saved search updated."));
     });
     connect(deleteSearch, &QPushButton::clicked, this, [this] {
         const int index = m_saved->currentIndex();
@@ -202,6 +275,10 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
             m_status->setText(i18nc("@info", "This saved search no longer exists."));
             return;
         }
+        if (*it != m_savedSearches.at(index)) {
+            m_status->setText(i18nc("@info", "This search changed elsewhere. Refresh the list before deleting it."));
+            return;
+        }
         updated.erase(it);
         if (!SavedSearches::save(m_config->group(QStringLiteral("SavedSearches")), updated, &error)) {
             m_status->setText(error);
@@ -225,7 +302,32 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_collection->header()->setSectionResizeMode(0, QHeaderView::Stretch);
     m_resultTabs->setObjectName(QStringLiteral("searchResultTabs"));
     m_resultTabs->addTab(m_results, i18nc("@title:tab", "Results"));
-    m_resultTabs->addTab(m_collection, i18nc("@title:tab", "Collection"));
+    auto *collectionPage = new QWidget(m_resultTabs);
+    auto *collectionLayout = new QVBoxLayout(collectionPage);
+    auto *collectionRow = new QHBoxLayout;
+    auto *savedCollections = new QComboBox(collectionPage);
+    savedCollections->setObjectName(QStringLiteral("searchSavedCollections"));
+    auto *saveCollection = new QPushButton(i18nc("@action:button", "Save Collection…"), collectionPage);
+    saveCollection->setObjectName(QStringLiteral("searchSaveCollection"));
+    auto *loadCollection = new QPushButton(i18nc("@action:button", "Load"), collectionPage);
+    loadCollection->setObjectName(QStringLiteral("searchLoadCollection"));
+    auto *updateCollectionButton = new QPushButton(i18nc("@action:button", "Update"), collectionPage);
+    updateCollectionButton->setObjectName(QStringLiteral("searchUpdateCollection"));
+    auto *refreshCollections = new QPushButton(i18nc("@action:button", "Refresh"), collectionPage);
+    refreshCollections->setObjectName(QStringLiteral("searchRefreshCollections"));
+    collectionRow->addWidget(savedCollections, 1);
+    collectionRow->addWidget(saveCollection);
+    collectionRow->addWidget(loadCollection);
+    collectionRow->addWidget(updateCollectionButton);
+    collectionRow->addWidget(refreshCollections);
+    collectionLayout->addLayout(collectionRow);
+    auto *collectionHint =
+        new QLabel(i18nc("@info", "Saved collections are snapshots. Load replaces the working collection; Update replaces the selected snapshot."),
+                   collectionPage);
+    collectionHint->setWordWrap(true);
+    collectionLayout->addWidget(collectionHint);
+    collectionLayout->addWidget(m_collection);
+    m_resultTabs->addTab(collectionPage, i18nc("@title:tab", "Collection"));
     layout->addWidget(m_resultTabs);
     QString collectionError;
     const auto collection = SearchCollection::load(m_config->group(QStringLiteral("SearchCollection")), &collectionError);
@@ -233,6 +335,164 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     if (!collectionError.isEmpty()) {
         m_status->setText(collectionError);
     }
+    const auto refreshSavedCollections = [this, savedCollections, loadCollection, updateCollectionButton] {
+        const QString selected = savedCollections->currentText();
+        QString error;
+        const auto collections = SearchCollection::loadSaved(m_config->group(QStringLiteral("SearchCollection")), &error);
+        if (!error.isEmpty()) {
+            m_status->setText(error);
+            return;
+        }
+        savedCollections->clear();
+        for (const auto &item : collections) {
+            savedCollections->addItem(item.name);
+        }
+        const int index = savedCollections->findText(selected);
+        if (index >= 0) {
+            savedCollections->setCurrentIndex(index);
+        }
+        loadCollection->setEnabled(!collections.isEmpty());
+        updateCollectionButton->setEnabled(!collections.isEmpty());
+    };
+    connect(refreshCollections, &QPushButton::clicked, this, refreshSavedCollections);
+    connect(saveCollection, &QPushButton::clicked, this, [this, savedCollections, refreshSavedCollections] {
+        bool accepted = false;
+        const QString name =
+            QInputDialog::getText(this, i18nc("@title:window", "Save Collection"), i18nc("@label", "Name:"), QLineEdit::Normal, QString(), &accepted).trimmed();
+        if (!accepted) {
+            return;
+        }
+        const auto group = m_config->group(QStringLiteral("SearchCollection"));
+        QString error;
+        const auto urls = SearchCollection::load(group, &error);
+        if (!error.isEmpty()) {
+            m_status->setText(error);
+            return;
+        }
+        auto collections = SearchCollection::loadSaved(group, &error);
+        if (!error.isEmpty()) {
+            m_status->setText(error);
+            return;
+        }
+        collections.append({name, urls});
+        if (!SearchCollection::saveSaved(group, collections, &error)) {
+            m_status->setText(error);
+            return;
+        }
+        refreshSavedCollections();
+        savedCollections->setCurrentIndex(savedCollections->findText(name));
+        m_status->setText(i18nc("@info", "Collection saved. Later changes to the working collection do not change this snapshot."));
+    });
+    connect(loadCollection, &QPushButton::clicked, this, [this, savedCollections] {
+        const QString name = savedCollections->currentText();
+        const auto group = m_config->group(QStringLiteral("SearchCollection"));
+        QString error;
+        const auto collections = SearchCollection::loadSaved(group, &error);
+        if (!error.isEmpty()) {
+            m_status->setText(error);
+            return;
+        }
+        const auto it = std::find_if(collections.cbegin(), collections.cend(), [&name](const auto &item) {
+            return item.name == name;
+        });
+        if (it == collections.cend()) {
+            m_status->setText(i18nc("@info", "This saved collection no longer exists. Refresh the list."));
+            return;
+        }
+        const auto urls = SearchCollection::load(group, &error);
+        if (!error.isEmpty()) {
+            m_status->setText(error);
+            return;
+        }
+        if (urls != it->urls
+            && QMessageBox::question(this,
+                                     i18nc("@title:window", "Load Collection"),
+                                     i18nc("@info", "Replace the working collection with “%1”? Original files will not be removed.", name),
+                                     QMessageBox::Yes | QMessageBox::No,
+                                     QMessageBox::No)
+                != QMessageBox::Yes) {
+            return;
+        }
+        const auto selected = *it;
+        const auto currentCollections = SearchCollection::loadSaved(group, &error);
+        if (!error.isEmpty()) {
+            m_status->setText(error);
+            return;
+        }
+        const auto current = std::find_if(currentCollections.cbegin(), currentCollections.cend(), [&name](const auto &item) {
+            return item.name == name;
+        });
+        const auto working = SearchCollection::load(group, &error);
+        if (!error.isEmpty()) {
+            m_status->setText(error);
+            return;
+        }
+        if (current == currentCollections.cend() || *current != selected || working != urls) {
+            m_status->setText(i18nc("@info", "The collection changed elsewhere. Refresh and try again."));
+            return;
+        }
+        if (!SearchCollection::save(group, selected.urls, &error)) {
+            m_status->setText(error);
+            return;
+        }
+        updateCollection(selected.urls);
+        m_status->setText(i18nc("@info", "Collection loaded. Original files were not removed."));
+    });
+    connect(updateCollectionButton, &QPushButton::clicked, this, [this, savedCollections] {
+        const QString name = savedCollections->currentText();
+        const auto group = m_config->group(QStringLiteral("SearchCollection"));
+        QString error;
+        auto collections = SearchCollection::loadSaved(group, &error);
+        if (!error.isEmpty()) {
+            m_status->setText(error);
+            return;
+        }
+        auto it = std::find_if(collections.begin(), collections.end(), [&name](const auto &item) {
+            return item.name == name;
+        });
+        if (it == collections.end()) {
+            m_status->setText(i18nc("@info", "This saved collection no longer exists. Refresh the list."));
+            return;
+        }
+        const auto original = *it;
+        const auto urls = SearchCollection::load(group, &error);
+        if (!error.isEmpty()) {
+            m_status->setText(error);
+            return;
+        }
+        if (QMessageBox::question(this,
+                                  i18nc("@title:window", "Update Collection"),
+                                  i18nc("@info", "Replace saved collection “%1” with the working collection? Original files will not be removed.", name),
+                                  QMessageBox::Yes | QMessageBox::No,
+                                  QMessageBox::No)
+            != QMessageBox::Yes) {
+            return;
+        }
+        collections = SearchCollection::loadSaved(group, &error);
+        if (!error.isEmpty()) {
+            m_status->setText(error);
+            return;
+        }
+        it = std::find_if(collections.begin(), collections.end(), [&name](const auto &item) {
+            return item.name == name;
+        });
+        const auto working = SearchCollection::load(group, &error);
+        if (!error.isEmpty()) {
+            m_status->setText(error);
+            return;
+        }
+        if (it == collections.end() || *it != original || working != urls) {
+            m_status->setText(i18nc("@info", "The collection changed elsewhere. Refresh and try again."));
+            return;
+        }
+        it->urls = urls;
+        if (!SearchCollection::saveSaved(group, collections, &error)) {
+            m_status->setText(error);
+            return;
+        }
+        m_status->setText(i18nc("@info", "Saved collection updated. Original files were not removed."));
+    });
+    refreshSavedCollections();
     m_errors->setObjectName(QStringLiteral("searchErrors"));
     m_errors->setHeaderLabels({i18nc("@title:column", "Search errors")});
     m_errors->hide();
@@ -336,10 +596,7 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     connect(m_search, &QPushButton::clicked, this, &SearchDialog::start);
     connect(m_scope, &QComboBox::currentIndexChanged, this, [this](int index) {
         m_field->setItemText(1, index == 0 ? i18nc("@item:inlistbox", "File contents (UTF-8 text)") : i18nc("@item:inlistbox", "Indexed file contents"));
-        m_status->setText(index == 0 ? i18nc("@info", "Searches local folders recursively. Symbolic links are skipped.")
-                                     : i18nc("@info",
-                                             "Searches configured Baloo locations. A depth limit restricts results to the current local folder. Baloo matches "
-                                             "indexed terms, not literal substrings."));
+        m_status->setText(scopeStatus(index));
     });
     connect(m_query, &QLineEdit::returnPressed, this, &SearchDialog::start);
     connect(m_cancel, &QPushButton::clicked, this, &SearchDialog::cancel);
@@ -405,6 +662,16 @@ void SearchDialog::updateCollection(const QList<QUrl> &urls)
 PathFilter SearchDialog::pathFilter() const
 {
     return m_filterEditor->filter();
+}
+
+SavedSearches::Search SearchDialog::currentSearch(const QString &name) const
+{
+    return {name,
+            m_query->text(),
+            m_folder.isLocalFile() ? m_folder : QUrl(),
+            m_field->currentIndex() == 0 ? LiveSearch::Field::FileName : LiveSearch::Field::Contents,
+            m_scope->currentIndex() == 1,
+            pathFilter()};
 }
 
 void SearchDialog::start()

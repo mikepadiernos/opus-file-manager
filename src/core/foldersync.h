@@ -75,14 +75,25 @@ enum class Action {
     DeleteRight
 };
 
+enum class CopyPolicy {
+    All,
+    SkipExisting,
+    NewerOnly
+};
+
 struct ApplyResult {
     QStringList completed;
     QString error;
 };
 
 QString optionsError(const Options &options);
+bool copyAllowed(const Entry &source, const Entry &target, CopyPolicy policy);
 Comparison compare(const QString &leftRoot, const QString &rightRoot, const Options &options, const std::function<bool()> &canceled = {});
 QString planError(const Comparison &comparison, const QList<Action> &actions, bool allowOverwrite, bool allowDelete);
-ApplyResult
-apply(const Comparison &comparison, const QList<Action> &actions, bool allowOverwrite, bool allowDelete, const std::function<bool()> &canceled = {});
+ApplyResult apply(const Comparison &comparison,
+                  const QList<Action> &actions,
+                  bool allowOverwrite,
+                  bool allowDelete,
+                  const std::function<bool()> &canceled = {},
+                  quint64 speedLimitBytesPerSecond = 0);
 }

@@ -1262,14 +1262,14 @@ KFileItemList FolderView::itemsInViewOrder() const
     return result;
 }
 
-ListingExport::Table FolderView::listingForExport() const
+ListingExport::Table FolderView::listingForExport(const QList<int> &selectedColumns) const
 {
     ListingExport::Table table;
     QList<int> columns;
     QHeaderView *header = m_details->header();
     for (int visual = 0; visual < header->count(); ++visual) {
         const int column = header->logicalIndex(visual);
-        if (column >= 0 && !m_details->isColumnHidden(column)) {
+        if (column >= 0 && (selectedColumns.isEmpty() ? !m_details->isColumnHidden(column) : selectedColumns.contains(column))) {
             columns.append(column);
             table.headers.append(m_proxy->headerData(column, Qt::Horizontal, Qt::DisplayRole).toString());
         }

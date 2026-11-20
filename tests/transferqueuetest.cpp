@@ -94,6 +94,40 @@ private Q_SLOTS:
         QVERIFY(queue.entries().isEmpty());
     }
 
+    void respectsChangingConcurrencyAndPausedTransfers()
+    {
+        TransferQueue queue;
+        queue.setConcurrency(2);
+        QList<FakeTransfer *> jobs;
+        const auto factory = [&jobs] {
+            auto *job = new FakeTransfer;
+            jobs.append(job);
+            return job;
+        };
+        auto *one = queue.enqueue(QStringLiteral("one"), factory);
+        auto *two = queue.enqueue(QStringLiteral("two"), factory);
+        auto *three = queue.enqueue(QStringLiteral("three"), factory);
+        auto *four = queue.enqueue(QStringLiteral("four"), factory);
+        QTRY_COMPARE(jobs.size(), 2);
+        QCOMPARE(three->state(), QueuedTransfer::State::Waiting);
+        QVERIFY(one->suspend());
+        queue.setConcurrency(1);
+        jobs.at(1)->finish();
+        QCoreApplication::processEvents();
+        QCOMPARE(jobs.size(), 2);
+        QCOMPARE(two->state(), QueuedTransfer::State::Completed);
+        QVERIFY(one->resume());
+        jobs.at(0)->finish();
+        QTRY_COMPARE(jobs.size(), 3);
+        QCOMPARE(three->state(), QueuedTransfer::State::Running);
+        QCOMPARE(four->state(), QueuedTransfer::State::Waiting);
+        queue.setConcurrency(0);
+        QTRY_COMPARE(jobs.size(), 4);
+        QCOMPARE(four->state(), QueuedTransfer::State::Running);
+        jobs.at(2)->finish();
+        jobs.at(3)->finish();
+    }
+
     void cancelsWaitingAndRunningJobs()
     {
         TransferQueue queue;

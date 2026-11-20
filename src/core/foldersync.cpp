@@ -5,11 +5,13 @@
 #include <KLocalizedString>
 
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QMap>
 #include <QRegularExpression>
 #include <QSet>
+#include <QThread>
 #include <QUuid>
 
 #include <algorithm>
@@ -685,6 +687,30 @@ bool moveToBackup(int directory, int staging, const QByteArray &name, const QStr
 }
 }
 
+bool FolderSync::copyAllowed(const Entry &source, const Entry &target, CopyPolicy policy)
+{
+    if (source.kind == Kind::Directory) {
+        return target.kind == Kind::Missing;
+    }
+    if (source.kind != Kind::File || (target.kind != Kind::Missing && target.kind != Kind::File)
+        || (target.kind == Kind::File && source.device == target.device && source.inode == target.inode)) {
+        return false;
+    }
+    if (target.kind == Kind::Missing) {
+        return true;
+    }
+    switch (policy) {
+    case CopyPolicy::All:
+        return true;
+    case CopyPolicy::SkipExisting:
+        return false;
+    case CopyPolicy::NewerOnly:
+        return source.modifiedSeconds > target.modifiedSeconds
+            || (source.modifiedSeconds == target.modifiedSeconds && source.modifiedNanoseconds > target.modifiedNanoseconds);
+    }
+    return false;
+}
+
 QString FolderSync::planError(const Comparison &comparison, const QList<Action> &actions, bool allowOverwrite, bool allowDelete)
 {
     if (!comparison.error.isEmpty() || !QDir::isAbsolutePath(comparison.leftRoot) || !QDir::isAbsolutePath(comparison.rightRoot)
@@ -761,6 +787,46 @@ QString FolderSync::planError(const Comparison &comparison, const QList<Action> 
 
 namespace
 {
+class CopyRateLimit
+{
+public:
+    explicit CopyRateLimit(quint64 bytesPerSecond)
+        : m_bytesPerSecond(bytesPerSecond)
+    {
+        m_clock.start();
+    }
+
+    qsizetype chunkSize() const
+    {
+        return m_bytesPerSecond == 0 ? 128 * 1024 : qsizetype(std::min<quint64>(128 * 1024, std::max<quint64>(1, m_bytesPerSecond / 10)));
+    }
+
+    bool wait(qsizetype bytes, const std::function<bool()> &canceled)
+    {
+        if (m_bytesPerSecond == 0) {
+            return true;
+        }
+        const quint64 numerator = quint64(bytes) * 1000000000ULL;
+        const qint64 duration = qint64(numerator / m_bytesPerSecond + (numerator % m_bytesPerSecond != 0));
+        m_deadline = std::max(m_deadline, m_clock.nsecsElapsed()) + duration;
+        while (true) {
+            if (canceled && canceled()) {
+                return false;
+            }
+            const qint64 remaining = m_deadline - m_clock.nsecsElapsed();
+            if (remaining <= 0) {
+                return true;
+            }
+            QThread::msleep(static_cast<unsigned long>(std::min<qint64>(50, (remaining + 999999) / 1000000)));
+        }
+    }
+
+private:
+    quint64 m_bytesPerSecond;
+    QElapsedTimer m_clock;
+    qint64 m_deadline = 0;
+};
+
 QString copyFile(int sourceDirectory,
                  int destinationDirectory,
                  const QByteArray &name,
@@ -769,7 +835,8 @@ QString copyFile(int sourceDirectory,
                  const Entry &source,
                  const Entry &destination,
                  const std::function<QString()> &validateParents,
-                 const std::function<bool()> &canceled)
+                 const std::function<bool()> &canceled,
+                 CopyRateLimit &rateLimit)
 {
     QString error;
     if (!currentEntry(sourceDirectory, name, sourcePath, source, error) || !currentEntry(destinationDirectory, name, destinationPath, destination, error)) {
@@ -793,7 +860,7 @@ QString copyFile(int sourceDirectory,
     }
     FileDescriptor output(tempFd);
     const QString tempPath = staging.path(temporary);
-    QByteArray buffer(128 * 1024, Qt::Uninitialized);
+    QByteArray buffer(rateLimit.chunkSize(), Qt::Uninitialized);
     while (true) {
         if (canceled && canceled()) {
             error = i18nc("@info", "Synchronization canceled.");
@@ -808,6 +875,10 @@ QString copyFile(int sourceDirectory,
             break;
         }
         if (size == 0) {
+            break;
+        }
+        if (!rateLimit.wait(size, canceled)) {
+            error = i18nc("@info", "Synchronization canceled.");
             break;
         }
         ssize_t offset = 0;
@@ -916,8 +987,12 @@ QString deleteFile(int directory, const QByteArray &name, const QString &path, c
 }
 }
 
-FolderSync::ApplyResult
-FolderSync::apply(const Comparison &comparison, const QList<Action> &actions, bool allowOverwrite, bool allowDelete, const std::function<bool()> &canceled)
+FolderSync::ApplyResult FolderSync::apply(const Comparison &comparison,
+                                          const QList<Action> &actions,
+                                          bool allowOverwrite,
+                                          bool allowDelete,
+                                          const std::function<bool()> &canceled,
+                                          quint64 speedLimitBytesPerSecond)
 {
     ApplyResult result;
     result.error = planError(comparison, actions, allowOverwrite, allowDelete);
@@ -957,6 +1032,7 @@ FolderSync::apply(const Comparison &comparison, const QList<Action> &actions, bo
         }
         return directoryCopy(a) && comparison.rows.at(a).relativePath.count(QLatin1Char('/')) < comparison.rows.at(b).relativePath.count(QLatin1Char('/'));
     });
+    CopyRateLimit rateLimit(speedLimitBytesPerSecond);
     const int roots[] = {left.get(), right.get()};
     const QString rootPaths[] = {comparison.leftRoot, comparison.rightRoot};
     for (const qsizetype i : std::as_const(order)) {
@@ -1022,7 +1098,8 @@ FolderSync::apply(const Comparison &comparison, const QList<Action> &actions, bo
                     const QString error = validateParent(sourceSide);
                     return error.isEmpty() ? validateParent(targetSide) : error;
                 };
-                result.error = copyFile(sourceParent.get(), targetParent.get(), name, sourcePath, targetPath, source, target, validateParents, canceled);
+                result.error =
+                    copyFile(sourceParent.get(), targetParent.get(), name, sourcePath, targetPath, source, target, validateParents, canceled, rateLimit);
             }
         }
         if (!result.error.isEmpty()) {

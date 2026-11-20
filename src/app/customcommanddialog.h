@@ -21,7 +21,11 @@ class CustomCommandDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit CustomCommandDialog(const QString &folder, const QStringList &selection, QWidget *parent = nullptr, KSharedConfig::Ptr config = {});
+    explicit CustomCommandDialog(const QString &folder,
+                                 const QStringList &selection,
+                                 QWidget *parent = nullptr,
+                                 KSharedConfig::Ptr config = {},
+                                 bool manageOnly = false);
     void reject() override;
 
 private:
@@ -34,6 +38,7 @@ private:
 
     QString m_folder;
     QStringList m_selection;
+    bool m_manageOnly;
     KSharedConfig::Ptr m_config;
     QList<CustomCommands::Command> m_commands;
     CustomCommands::Prepared m_prepared;

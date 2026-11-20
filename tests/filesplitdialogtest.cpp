@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "filesplitdialog.h"
+#include "settings.h"
 
 #include <QFile>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -38,11 +40,17 @@ private Q_SLOTS:
 
     void splitAndCombineInChosenOrder()
     {
+        const int previousSize = Settings::splitPartSizeMiB();
+        const auto restore = qScopeGuard([previousSize] {
+            Settings::setSplitPartSizeMiB(previousSize);
+        });
+        Settings::setSplitPartSizeMiB(7);
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         const QString source = dir.filePath(QStringLiteral("source"));
         QVERIFY(put(source, "abcdef"));
         FileSplitDialog split(FileSplitDialog::Mode::Split, {source});
+        QCOMPARE(split.findChild<QLineEdit *>(QStringLiteral("fileSplitPartSize"))->text(), QStringLiteral("7340032"));
         split.findChild<QLineEdit *>(QStringLiteral("fileSplitPartSize"))->setText(QStringLiteral("3"));
         split.findChild<QPushButton *>(QStringLiteral("fileSplitStart"))->click();
         auto *splitStatus = split.findChild<QLabel *>(QStringLiteral("fileSplitStatus"));

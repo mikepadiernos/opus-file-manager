@@ -155,6 +155,59 @@ private Q_SLOTS:
         }
     }
 
+    void managesDefaultPresetAndRequiresCollisionPreview()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QFile first(root.filePath(QStringLiteral("a.txt")));
+        QFile second(root.filePath(QStringLiteral("b.txt")));
+        QVERIFY(first.open(QIODevice::WriteOnly));
+        first.close();
+        QVERIFY(second.open(QIODevice::WriteOnly));
+        second.close();
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("presetsrc")), KConfig::SimpleConfig);
+        {
+            BatchRenameDialog manager({}, nullptr, config, true);
+            manager.findChild<QLineEdit *>(QStringLiteral("batchRenamePattern"))->setText(QStringLiteral("initial"));
+            QTimer::singleShot(0, [] {
+                auto *input = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
+                QVERIFY(input);
+                input->setTextValue(QStringLiteral("Same name"));
+                input->accept();
+            });
+            manager.findChild<QPushButton *>(QStringLiteral("batchRenameSavePreset"))->click();
+            manager.findChild<QLineEdit *>(QStringLiteral("batchRenamePattern"))->setText(QStringLiteral("collision"));
+            QTimer::singleShot(0, [] {
+                auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+                QVERIFY(box);
+                box->button(QMessageBox::Yes)->click();
+            });
+            manager.findChild<QPushButton *>(QStringLiteral("batchRenameUpdatePreset"))->click();
+            manager.findChild<QPushButton *>(QStringLiteral("batchRenameSetDefault"))->click();
+            QCOMPARE(manager.findChild<QLabel *>(QStringLiteral("batchRenameDefault"))->text(), QStringLiteral("Default preset: Same name"));
+        }
+        config->reparseConfiguration();
+        BatchRenameDialog dialog({first.fileName(), second.fileName()}, nullptr, config);
+        QCOMPARE(dialog.findChild<QLineEdit *>(QStringLiteral("batchRenamePattern"))->text(), QStringLiteral("collision"));
+        auto *apply = dialog.findChild<QPushButton *>(QStringLiteral("batchRenameApply"));
+        auto *preview = dialog.findChild<QPushButton *>(QStringLiteral("batchRenamePreview"));
+        QVERIFY(!apply->isEnabled());
+        preview->click();
+        QTRY_VERIFY(preview->isEnabled());
+        QVERIFY(!apply->isEnabled());
+        QCOMPARE(dialog.findChild<QTreeWidget *>(QStringLiteral("batchRenameResults"))->topLevelItemCount(), 2);
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::Yes)->click();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("batchRenameDeletePreset"))->click();
+        QVERIFY(config->group(QStringLiteral("BatchRenamePresets")).readEntry("DefaultPreset", QString()).isEmpty());
+        QCOMPARE(dialog.findChild<QLabel *>(QStringLiteral("batchRenameDefault"))->text(), QStringLiteral("Default preset: none"));
+        QVERIFY(QFile::exists(first.fileName()));
+        QVERIFY(QFile::exists(second.fileName()));
+    }
+
     void savesLoadsAndDeletesRegexPresets()
     {
         QTemporaryDir root;

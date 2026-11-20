@@ -10,6 +10,7 @@ namespace KParts
 class ReadOnlyPart;
 }
 class QLabel;
+class QTabWidget;
 class QUrl;
 class QVBoxLayout;
 
@@ -21,9 +22,11 @@ public:
     explicit TerminalPanel(QWidget *parent = nullptr);
     ~TerminalPanel() override;
     void start(const QUrl &folder);
+    void follow(const QUrl &folder);
 
 private:
     QVBoxLayout *m_layout;
     QLabel *m_status;
-    QPointer<KParts::ReadOnlyPart> m_part;
+    QTabWidget *m_tabs;
+    QList<QPointer<KParts::ReadOnlyPart>> m_parts;
 };

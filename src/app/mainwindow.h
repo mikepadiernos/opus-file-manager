@@ -91,6 +91,7 @@ protected:
 private:
     void setupActions();
     void setupPanes();
+    void updateTerminalPlacement();
     void setupPlaces();
     void setupPanels();
     void setupStatusBar();
@@ -257,4 +258,5 @@ private:
     bool m_jumpingBack = false;
     bool m_autoFocusFolders = true;
     bool m_sessionRestored = false;
+    bool m_startupLinkAttempted = false;
 };

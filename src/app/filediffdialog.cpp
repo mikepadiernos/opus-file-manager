@@ -2,8 +2,11 @@
 
 #include "filediffdialog.h"
 
+#include "settings.h"
+
 #include <KLocalizedString>
 
+#include <QCheckBox>
 #include <QDialogButtonBox>
 #include <QLabel>
 #include <QPlainTextEdit>
@@ -36,7 +39,14 @@ FileDiffDialog::FileDiffDialog(const QString &first, const QString &second, QWid
     layout->addWidget(m_status);
     m_output->setObjectName(QStringLiteral("fileDiffOutput"));
     m_output->setReadOnly(true);
-    m_output->setLineWrapMode(QPlainTextEdit::NoWrap);
+    auto *wrap = new QCheckBox(i18nc("@option:check", "Wrap lines"), this);
+    wrap->setObjectName(QStringLiteral("fileDiffWrapLines"));
+    wrap->setChecked(Settings::fileDiffWrapLines());
+    m_output->setLineWrapMode(wrap->isChecked() ? QPlainTextEdit::WidgetWidth : QPlainTextEdit::NoWrap);
+    connect(wrap, &QCheckBox::toggled, this, [this](bool enabled) {
+        m_output->setLineWrapMode(enabled ? QPlainTextEdit::WidgetWidth : QPlainTextEdit::NoWrap);
+    });
+    layout->addWidget(wrap);
     layout->addWidget(m_output);
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::close);

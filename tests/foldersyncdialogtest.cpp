@@ -1,18 +1,23 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "foldersyncdialog.h"
+#include "settings.h"
 
 #include <KSharedConfig>
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDateTime>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QInputDialog>
 #include <QLabel>
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QScopeGuard>
+#include <QSpinBox>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -53,6 +58,7 @@ private Q_SLOTS:
             dialog.findChild<QPushButton *>(QStringLiteral("folderSyncSaveProfile"))->click();
             QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("folderSyncProfiles"))->count(), 1);
         }
+
         config->reparseConfiguration();
         FolderSyncDialog dialog(root.filePath(QStringLiteral("left")), root.filePath(QStringLiteral("right")), nullptr, config);
         dialog.findChild<QPushButton *>(QStringLiteral("folderSyncLoadProfile"))->click();
@@ -79,6 +85,127 @@ private Q_SLOTS:
         });
         dialog.findChild<QPushButton *>(QStringLiteral("folderSyncDeleteProfile"))->click();
         QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("folderSyncProfiles"))->count(), 0);
+    }
+
+    void comparisonDefaultsAndProfiles()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("profilesrc")), KConfig::SimpleConfig);
+        const bool recursive = Settings::folderSyncRecursive();
+        const bool contents = Settings::folderSyncCompareContents();
+        const bool links = Settings::folderSyncCompareLinks();
+        const auto restore = qScopeGuard([recursive, contents, links] {
+            Settings::setFolderSyncRecursive(recursive);
+            Settings::setFolderSyncCompareContents(contents);
+            Settings::setFolderSyncCompareLinks(links);
+        });
+        Settings::setFolderSyncRecursive(false);
+        Settings::setFolderSyncCompareContents(true);
+        Settings::setFolderSyncCompareLinks(true);
+        FolderSync::Options options;
+        options.recursive = true;
+        options.compareContents = false;
+        options.compareSymlinks = false;
+        QString error;
+        QVERIFY2(FolderSyncProfiles::save(config->group(QStringLiteral("FolderSyncProfiles")), {{QStringLiteral("Profile"), options}}, &error),
+                 qPrintable(error));
+        FolderSyncDialog dialog(root.path(), root.path(), nullptr, config);
+        auto *recursion = dialog.findChild<QCheckBox *>(QStringLiteral("folderSyncRecursive"));
+        auto *content = dialog.findChild<QCheckBox *>(QStringLiteral("folderSyncContents"));
+        auto *link = dialog.findChild<QCheckBox *>(QStringLiteral("folderSyncLinks"));
+        QVERIFY(recursion && content && link);
+        QVERIFY(!recursion->isChecked() && content->isChecked() && link->isChecked());
+        dialog.findChild<QPushButton *>(QStringLiteral("folderSyncLoadProfile"))->click();
+        QVERIFY(recursion->isChecked() && !content->isChecked() && !link->isChecked());
+    }
+
+    void transferPolicyShapesTheReviewedPlan()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("left")));
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("right")));
+        const auto write = [](const QString &path, qint64 modified) {
+            QFile file(path);
+            return file.open(QIODevice::WriteOnly) && file.write("data") == 4 && file.flush()
+                && file.setFileTime(QDateTime::fromSecsSinceEpoch(modified), QFileDevice::FileModificationTime);
+        };
+        QVERIFY(write(root.filePath(QStringLiteral("left/newer")), 1002));
+        QVERIFY(write(root.filePath(QStringLiteral("right/newer")), 1001));
+        QVERIFY(write(root.filePath(QStringLiteral("left/older")), 1000));
+        QVERIFY(write(root.filePath(QStringLiteral("right/older")), 1001));
+        QVERIFY(write(root.filePath(QStringLiteral("left/missing")), 1000));
+        const auto oldPolicy = Settings::folderSyncCopyPolicy();
+        const int oldSpeed = Settings::folderSyncSpeedLimitKiB();
+        const auto restore = qScopeGuard([oldPolicy, oldSpeed] {
+            Settings::setFolderSyncCopyPolicy(oldPolicy);
+            Settings::setFolderSyncSpeedLimitKiB(oldSpeed);
+        });
+        Settings::setFolderSyncCopyPolicy(Settings::EnumFolderSyncCopyPolicy::NewerOnly);
+        Settings::setFolderSyncSpeedLimitKiB(42);
+        FolderSyncDialog dialog(root.filePath(QStringLiteral("left")), root.filePath(QStringLiteral("right")));
+        auto *policy = dialog.findChild<QComboBox *>(QStringLiteral("folderSyncCopyPolicy"));
+        auto *speed = dialog.findChild<QSpinBox *>(QStringLiteral("folderSyncSpeedLimit"));
+        auto *rows = dialog.findChild<QTreeWidget *>(QStringLiteral("folderSyncResults"));
+        auto *compare = dialog.findChild<QPushButton *>(QStringLiteral("folderSyncCompare"));
+        auto *action = dialog.findChild<QComboBox *>(QStringLiteral("folderSyncAction"));
+        QCOMPARE(policy->currentIndex(), int(FolderSync::CopyPolicy::NewerOnly));
+        QCOMPARE(speed->value(), 42);
+        compare->click();
+        QTRY_VERIFY(compare->isEnabled());
+        QCOMPARE(rows->topLevelItemCount(), 3);
+        dialog.findChild<QPushButton *>(QStringLiteral("folderSyncPlanToRight"))->click();
+        const auto row = [rows](const QString &name) -> QTreeWidgetItem * {
+            for (int i = 0; i < rows->topLevelItemCount(); ++i) {
+                if (rows->topLevelItem(i)->text(0) == name) {
+                    return rows->topLevelItem(i);
+                }
+            }
+            return nullptr;
+        };
+        QVERIFY(row(QStringLiteral("newer")) && row(QStringLiteral("older")) && row(QStringLiteral("missing")));
+        QVERIFY(row(QStringLiteral("newer"))->text(2).startsWith(QStringLiteral("Overwrite")));
+        QCOMPARE(row(QStringLiteral("older"))->text(2), QStringLiteral("Skip"));
+        QCOMPARE(row(QStringLiteral("missing"))->text(2), QStringLiteral("Copy first to second"));
+        rows->setCurrentItem(row(QStringLiteral("older")));
+        QCOMPARE(action->findData(int(FolderSync::Action::CopyToRight)), -1);
+        policy->setCurrentIndex(int(FolderSync::CopyPolicy::SkipExisting));
+        QCOMPARE(row(QStringLiteral("newer"))->text(2), QStringLiteral("Skip"));
+        dialog.findChild<QPushButton *>(QStringLiteral("folderSyncPlanToRight"))->click();
+        QCOMPARE(row(QStringLiteral("newer"))->text(2), QStringLiteral("Skip"));
+        QCOMPARE(row(QStringLiteral("missing"))->text(2), QStringLiteral("Copy first to second"));
+    }
+
+    void appliesPerOperationSpeedLimit()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("left")));
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("right")));
+        QFile source(root.filePath(QStringLiteral("left/item")));
+        QVERIFY(source.open(QIODevice::WriteOnly));
+        QCOMPARE(source.write(QByteArray(8192, 'x')), qint64(8192));
+        source.close();
+        FolderSyncDialog dialog(root.filePath(QStringLiteral("left")), root.filePath(QStringLiteral("right")));
+        dialog.findChild<QSpinBox *>(QStringLiteral("folderSyncSpeedLimit"))->setValue(16);
+        auto *compare = dialog.findChild<QPushButton *>(QStringLiteral("folderSyncCompare"));
+        compare->click();
+        QTRY_VERIFY(compare->isEnabled());
+        dialog.findChild<QPushButton *>(QStringLiteral("folderSyncPlanToRight"))->click();
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::Yes)->click();
+        });
+        QElapsedTimer timer;
+        timer.start();
+        dialog.findChild<QPushButton *>(QStringLiteral("folderSyncApply"))->click();
+        QTRY_VERIFY(compare->isEnabled());
+        QVERIFY(timer.elapsed() >= 500);
+        QFile result(root.filePath(QStringLiteral("right/item")));
+        QVERIFY(result.open(QIODevice::ReadOnly));
+        QCOMPARE(result.readAll(), QByteArray(8192, 'x'));
     }
 
     void reportsOverlappingRoots()

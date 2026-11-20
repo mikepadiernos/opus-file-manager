@@ -3,6 +3,7 @@
 #include "foldersync.h"
 
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -28,6 +29,76 @@ private Q_SLOTS:
     void initTestCase()
     {
         QStandardPaths::setTestModeEnabled(true);
+    }
+
+    void copyPoliciesCompareTimestampsPrecisely()
+    {
+        using namespace FolderSync;
+        Entry source;
+        source.kind = Kind::File;
+        source.device = 1;
+        source.inode = 1;
+        source.modifiedSeconds = 20;
+        source.modifiedNanoseconds = 10;
+        Entry target;
+        QVERIFY(copyAllowed(source, target, CopyPolicy::SkipExisting));
+        QVERIFY(copyAllowed(source, target, CopyPolicy::NewerOnly));
+        target.kind = Kind::File;
+        target.device = 1;
+        target.inode = 2;
+        target.modifiedSeconds = 20;
+        target.modifiedNanoseconds = 9;
+        QVERIFY(copyAllowed(source, target, CopyPolicy::All));
+        QVERIFY(!copyAllowed(source, target, CopyPolicy::SkipExisting));
+        QVERIFY(copyAllowed(source, target, CopyPolicy::NewerOnly));
+        target.modifiedNanoseconds = 10;
+        QVERIFY(!copyAllowed(source, target, CopyPolicy::NewerOnly));
+        target.modifiedSeconds = 21;
+        QVERIFY(!copyAllowed(source, target, CopyPolicy::NewerOnly));
+        target.inode = 1;
+        QVERIFY(!copyAllowed(source, target, CopyPolicy::All));
+        source.kind = Kind::Directory;
+        target.kind = Kind::Missing;
+        QVERIFY(copyAllowed(source, target, CopyPolicy::SkipExisting));
+    }
+
+    void rateLimitsAcrossFilesAndCancelsDuringWait()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("left")));
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("right")));
+        QVERIFY(writeFile(root.filePath(QStringLiteral("left/a")), QByteArray(16384, 'a')));
+        QVERIFY(writeFile(root.filePath(QStringLiteral("left/b")), QByteArray(16384, 'b')));
+        auto comparison = FolderSync::compare(root.filePath(QStringLiteral("left")), root.filePath(QStringLiteral("right")), {});
+        QVERIFY2(comparison.error.isEmpty(), qPrintable(comparison.error));
+        QElapsedTimer timer;
+        timer.start();
+        const auto result = FolderSync::apply(comparison, {FolderSync::Action::CopyToRight, FolderSync::Action::CopyToRight}, false, false, {}, 65536);
+        QVERIFY2(result.error.isEmpty(), qPrintable(result.error));
+        QCOMPARE(result.completed.size(), 2);
+        QVERIFY2(timer.elapsed() >= 500, qPrintable(QStringLiteral("Copied 32768 bytes in %1 ms").arg(timer.elapsed())));
+        QVERIFY(writeFile(root.filePath(QStringLiteral("left/a")), QByteArray(16384, 'x')));
+        comparison = FolderSync::compare(root.filePath(QStringLiteral("left")), root.filePath(QStringLiteral("right")), {});
+        QVERIFY2(comparison.error.isEmpty(), qPrintable(comparison.error));
+        timer.restart();
+        const auto canceled = FolderSync::apply(
+            comparison,
+            {FolderSync::Action::CopyToRight, FolderSync::Action::Skip},
+            true,
+            false,
+            [&timer] {
+                return timer.elapsed() >= 120;
+            },
+            1024);
+        QVERIFY(!canceled.error.isEmpty());
+        QVERIFY(canceled.completed.isEmpty());
+        QVERIFY(timer.elapsed() < 1000);
+        QFile destination(root.filePath(QStringLiteral("right/a")));
+        QVERIFY(destination.open(QIODevice::ReadOnly));
+        QCOMPARE(destination.readAll(), QByteArray(16384, 'a'));
+        const QStringList entries = QDir(root.filePath(QStringLiteral("right"))).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot);
+        QCOMPARE(entries, QStringList({QStringLiteral("a"), QStringLiteral("b")}));
     }
 
     void comparesFilesAndFilters()

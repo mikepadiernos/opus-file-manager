@@ -2,7 +2,11 @@
 
 #include "settingsdialog.h"
 
+#include "batchrenamedialog.h"
+#include "customcommanddialog.h"
 #include "density.h"
+#include "pathfilterpresetsdialog.h"
+#include "searchstoredialog.h"
 #include "servicemenus.h"
 #include "settings.h"
 #include "settingswidgets.h"
@@ -10,6 +14,7 @@
 #include <KConfigGroup>
 #include <KLocalizedString>
 #include <KPageWidget>
+#include <KPluginMetaData>
 #include <KSharedConfig>
 #include <KTextEditor/Editor>
 #include <KUrlRequester>
@@ -23,14 +28,17 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMetaEnum>
+#include <QProcess>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSpinBox>
+#include <QStandardPaths>
 #include <QTabWidget>
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <limits>
 
 namespace
 {
@@ -148,6 +156,23 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     addTabbedPage({{createEditorPage(), i18nc("@title:tab", "Editor")}, {createTextEditorPage(), i18nc("@title:tab", "KTextEditor")}},
                   i18nc("@title:group", "Editor"),
                   QStringLiteral("accessories-text-editor"));
+    addTabbedPage({{createTerminalPage(), i18nc("@title:tab", "Embedded Terminal")},
+                   {createSearchPage(), i18nc("@title:tab", "Search")},
+                   {createDuplicateFinderPage(), i18nc("@title:tab", "Duplicate Finder")},
+                   {createContentChartPage(), i18nc("@title:tab", "Content Chart")},
+                   {createLinkedPanesPage(), i18nc("@title:tab", "Linked Panes")},
+                   {createFileDiffPage(), i18nc("@title:tab", "File Diff")},
+                   {createPaneComparisonPage(), i18nc("@title:tab", "Pane Comparison")},
+                   {createFolderSyncPage(), i18nc("@title:tab", "Folder Sync")},
+                   {createBatchRenamePage(), i18nc("@title:tab", "Batch Rename")},
+                   {createListingExportPage(), i18nc("@title:tab", "Listing Export")},
+                   {createAutomationPage(), i18nc("@title:tab", "Automation")},
+                   {createAssociationsPage(), i18nc("@title:tab", "Applications")},
+                   {createTransferQueuePage(), i18nc("@title:tab", "Transfer Queue")},
+                   {createFileToolDefaultsPage(), i18nc("@title:tab", "File Tools")},
+                   {createMetadataEditorPage(), i18nc("@title:tab", "Metadata Editor")}},
+                  i18nc("@title:group", "Tools"),
+                  QStringLiteral("utilities-terminal"));
     applySidebarStyle();
     connect(this, &KConfigDialog::settingsChanged, this, [this] {
         applySidebarStyle();
@@ -212,6 +237,341 @@ QWidget *SettingsDialog::createOpeningPage()
                                   i18nc("@item:inlistbox", "Preview panel")});
     destination->setToolTip(i18nc("@info:tooltip", "Other files open in their default application when Gallery is selected."));
     form->addRow(i18nc("@label:listbox", "Open files from panes in:"), destination);
+    return page;
+}
+
+QWidget *SettingsDialog::createTerminalPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(i18nc("@label:listbox", "Terminal placement:"),
+                 comboBox(QStringLiteral("TerminalPlacement"),
+                          {i18nc("@item:inlistbox", "Automatic (right for stacked panes)"),
+                           i18nc("@item:inlistbox", "Below both panes"),
+                           i18nc("@item:inlistbox", "Right of both panes")}));
+    form->addRow(checkBox(QStringLiteral("TerminalFollowActiveFolder"), i18nc("@option:check", "Follow the active pane's local folder")));
+    auto *notice = new QLabel(i18nc("@info",
+                                    "Following switches to a terminal session in each folder, creating one when needed. "
+                                    "Existing sessions and their running commands remain open in tabs until you close them."),
+                              page);
+    notice->setWordWrap(true);
+    form->addRow(notice);
+    return page;
+}
+
+QWidget *SettingsDialog::createSearchPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(checkBox(QStringLiteral("SearchIndexedByDefault"), i18nc("@option:check", "Search indexed locations by default")));
+    layout->addWidget(checkBox(QStringLiteral("SearchContentsByDefault"), i18nc("@option:check", "Search file contents by default")));
+    auto *manageFilters = new QPushButton(i18nc("@action:button", "Manage Shared Path Filters…"), page);
+    manageFilters->setObjectName(QStringLiteral("managePathFilters"));
+    layout->addWidget(manageFilters);
+    connect(manageFilters, &QPushButton::clicked, this, [this] {
+        PathFilterPresetsDialog dialog(this);
+        dialog.exec();
+    });
+    auto *manageSearches = new QPushButton(i18nc("@action:button", "Manage Saved Searches and Collections…"), page);
+    manageSearches->setObjectName(QStringLiteral("manageSavedSearches"));
+    layout->addWidget(manageSearches);
+    connect(manageSearches, &QPushButton::clicked, this, [this] {
+        SearchStoreDialog dialog(this);
+        dialog.exec();
+    });
+    auto *description =
+        new QLabel(i18nc("@info", "KDE File Search controls indexed folders and exclusions for all applications. Changes there affect the shared Baloo index."),
+                   page);
+    description->setWordWrap(true);
+    layout->addWidget(description);
+    auto *open = new QPushButton(i18nc("@action:button", "Open KDE File Search Settings"), page);
+    open->setObjectName(QStringLiteral("openFileSearchSettings"));
+    layout->addWidget(open);
+    auto *status = new QLabel(page);
+    status->setObjectName(QStringLiteral("fileSearchSettingsStatus"));
+    status->setWordWrap(true);
+    status->setTextFormat(Qt::PlainText);
+    layout->addWidget(status);
+    layout->addStretch();
+    connect(open, &QPushButton::clicked, page, [status] {
+        const auto plugin = KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings"), QStringLiteral("kcm_baloofile"));
+        const auto widgetPlugin = KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings_qwidgets"), QStringLiteral("kcm_baloofile"));
+        if (!plugin.isValid() && !widgetPlugin.isValid()) {
+            status->setText(i18nc("@info", "KDE File Search settings are not installed."));
+            return;
+        }
+        const QString launcher = QStandardPaths::findExecutable(QStringLiteral("kcmshell6"));
+        if (launcher.isEmpty() || !QProcess::startDetached(launcher, {QStringLiteral("kcm_baloofile")})) {
+            status->setText(i18nc("@info", "Could not launch KDE File Search settings."));
+            return;
+        }
+        status->setText(i18nc("@info", "Requested KDE File Search settings. Changes affect the shared Baloo index."));
+    });
+    return page;
+}
+
+QWidget *SettingsDialog::createDuplicateFinderPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    auto *description = new QLabel(i18nc("@info", "Duplicate files are always compared by size and SHA-256 contents."), page);
+    description->setWordWrap(true);
+    form->addRow(description);
+    form->addRow(checkBox(QStringLiteral("DuplicateRequireSameFileName"), i18nc("@option:check", "Also require identical file names")));
+    form->addRow(
+        i18nc("@label:listbox", "Default candidate selection:"),
+        comboBox(QStringLiteral("DuplicateSelectionPolicy"),
+                 {i18nc("@item:inlistbox", "Keep newest"), i18nc("@item:inlistbox", "Keep oldest"), i18nc("@item:inlistbox", "Select files in folder")}));
+    auto *notice =
+        new QLabel(i18nc("@info", "Select Candidates must be invoked explicitly and always leaves at least one file in each group unchecked."), page);
+    notice->setWordWrap(true);
+    form->addRow(notice);
+    return page;
+}
+
+QWidget *SettingsDialog::createContentChartPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(checkBox(QStringLiteral("ContentChartShowTreemap"), i18nc("@option:check", "Show the treemap initially")));
+    form->addRow(
+        i18nc("@label:listbox", "Default table sort:"),
+        comboBox(
+            QStringLiteral("ContentChartSort"),
+            {i18nc("@item:inlistbox", "As listed"), i18nc("@item:inlistbox", "Name"), i18nc("@item:inlistbox", "Size"), i18nc("@item:inlistbox", "Share")}));
+    form->addRow(checkBox(QStringLiteral("ContentChartSortDescending"), i18nc("@option:check", "Sort descending")));
+    return page;
+}
+
+QWidget *SettingsDialog::createLinkedPanesPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(checkBox(QStringLiteral("LinkPanesAtStartup"), i18nc("@option:check", "Link the initial pane folders at startup")));
+    auto *notice = new QLabel(i18nc("@info", "Both panes must be visible and their initial folders must be existing local folders."), page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createFileDiffPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(checkBox(QStringLiteral("FileDiffWrapLines"), i18nc("@option:check", "Wrap comparison output lines by default")));
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createPaneComparisonPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(new QLabel(i18nc("@info", "Initially show:"), page));
+    layout->addWidget(checkBox(QStringLiteral("PaneComparisonShowLeftOnly"), i18nc("@option:check", "Items only in the first pane")));
+    layout->addWidget(checkBox(QStringLiteral("PaneComparisonShowRightOnly"), i18nc("@option:check", "Items only in the second pane")));
+    layout->addWidget(checkBox(QStringLiteral("PaneComparisonShowDifferent"), i18nc("@option:check", "Different items")));
+    layout->addWidget(checkBox(QStringLiteral("PaneComparisonShowMatching"), i18nc("@option:check", "Matching items")));
+    auto *notice = new QLabel(i18nc("@info", "Incomplete comparisons are always shown. Selecting differences in the panes requires an explicit action."), page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createFileToolDefaultsPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    auto *suffix = new QLineEdit(page);
+    suffix->setObjectName(QStringLiteral("kcfg_SymlinkSuffix"));
+    suffix->setPlaceholderText(i18nc("@info:placeholder", "Leave empty for the translated default"));
+    form->addRow(i18nc("@label:textbox", "Symbolic link name suffix:"), suffix);
+    auto *manifest = new QLineEdit(page);
+    manifest->setObjectName(QStringLiteral("kcfg_ChecksumFileName"));
+    form->addRow(i18nc("@label:textbox", "Checksum filename:"), manifest);
+    auto *partSize = new QSpinBox(page);
+    partSize->setObjectName(QStringLiteral("kcfg_SplitPartSizeMiB"));
+    partSize->setRange(1, std::numeric_limits<int>::max());
+    partSize->setSuffix(i18nc("@item:valuesuffix", " MiB"));
+    form->addRow(i18nc("@label:spinbox", "Split part size:"), partSize);
+    return page;
+}
+
+QWidget *SettingsDialog::createMetadataEditorPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(new QLabel(i18nc("@label", "Initially displayed audio fields:"), page));
+    layout->addWidget(checkBox(QStringLiteral("MetadataAudioTitle"), i18nc("@option:check", "Title")));
+    layout->addWidget(checkBox(QStringLiteral("MetadataAudioArtist"), i18nc("@option:check", "Artist")));
+    layout->addWidget(checkBox(QStringLiteral("MetadataAudioAlbum"), i18nc("@option:check", "Album")));
+    layout->addWidget(new QLabel(i18nc("@label", "Initially displayed image fields:"), page));
+    layout->addWidget(checkBox(QStringLiteral("MetadataImageDescription"), i18nc("@option:check", "Description")));
+    layout->addWidget(checkBox(QStringLiteral("MetadataImageArtist"), i18nc("@option:check", "Artist")));
+    layout->addWidget(checkBox(QStringLiteral("MetadataImageCopyright"), i18nc("@option:check", "Copyright")));
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createFolderSyncPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(checkBox(QStringLiteral("FolderSyncRecursive"), i18nc("@option:check", "Compare subfolders by default")));
+    layout->addWidget(checkBox(QStringLiteral("FolderSyncCompareContents"), i18nc("@option:check", "Compare file contents by default")));
+    layout->addWidget(checkBox(QStringLiteral("FolderSyncCompareLinks"), i18nc("@option:check", "Compare symbolic link targets by default")));
+    auto *form = new QFormLayout;
+    form->addRow(i18nc("@label:listbox", "Default copy policy:"),
+                 comboBox(QStringLiteral("FolderSyncCopyPolicy"),
+                          {i18nc("@item:inlistbox", "Copy all eligible files"),
+                           i18nc("@item:inlistbox", "Skip existing files"),
+                           i18nc("@item:inlistbox", "Only replace older files")}));
+    auto *speed = new QSpinBox(page);
+    speed->setObjectName(QStringLiteral("kcfg_FolderSyncSpeedLimitKiB"));
+    speed->setRange(0, 1048576);
+    speed->setSpecialValueText(i18nc("@item:inlistbox", "Unlimited"));
+    speed->setSuffix(i18nc("@item:valuesuffix", " KiB/s"));
+    form->addRow(i18nc("@label:spinbox", "Copy speed limit:"), speed);
+    layout->addLayout(form);
+    auto *notice = new QLabel(i18nc("@info", "Save, load and delete comparison profiles in the folder synchronization dialog."), page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createBatchRenamePage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *notice = new QLabel(i18nc("@info",
+                                    "Manage named rename rules and choose a default. Changes are saved immediately, even if Preferences is canceled. "
+                                    "Renaming always requires a preview."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    auto *manage = new QPushButton(i18nc("@action:button", "Manage Rename Presets…"), page);
+    manage->setObjectName(QStringLiteral("manageBatchRenamePresets"));
+    layout->addWidget(manage);
+    connect(manage, &QPushButton::clicked, this, [this] {
+        BatchRenameDialog dialog({}, this, {}, true);
+        dialog.exec();
+    });
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createListingExportPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(i18nc("@label:listbox", "Default format:"),
+                 comboBox(QStringLiteral("ListingExportFormat"), {i18nc("@item:inlistbox", "CSV"), i18nc("@item:inlistbox", "PDF")}));
+    auto *custom = checkBox(QStringLiteral("ListingExportCustomColumns"), i18nc("@option:check", "Use export-specific columns"));
+    form->addRow(custom);
+    auto *columns = new QWidget(page);
+    auto *columnLayout = new QVBoxLayout(columns);
+    columnLayout->setContentsMargins(0, 0, 0, 0);
+    columnLayout->addWidget(new QLabel(i18nc("@info", "Name is always exported. Other columns follow the current listing order."), columns));
+    columnLayout->addWidget(checkBox(QStringLiteral("ListingExportType"), i18nc("@option:check", "Type")));
+    columnLayout->addWidget(checkBox(QStringLiteral("ListingExportSize"), i18nc("@option:check", "Size")));
+    columnLayout->addWidget(checkBox(QStringLiteral("ListingExportModified"), i18nc("@option:check", "Modified")));
+    columnLayout->addWidget(checkBox(QStringLiteral("ListingExportPermissions"), i18nc("@option:check", "Permissions")));
+    columnLayout->addWidget(checkBox(QStringLiteral("ListingExportOwner"), i18nc("@option:check", "Owner")));
+    columnLayout->addWidget(checkBox(QStringLiteral("ListingExportGroup"), i18nc("@option:check", "Group or rating, as shown in the listing")));
+    columns->setEnabled(custom->isChecked());
+    connect(custom, &QCheckBox::toggled, columns, &QWidget::setEnabled);
+    form->addRow(columns);
+    auto *notice = new QLabel(i18nc("@info", "Without export-specific columns, the current listing columns are exported."), page);
+    notice->setWordWrap(true);
+    form->addRow(notice);
+    return page;
+}
+
+QWidget *SettingsDialog::createAutomationPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *notice = new QLabel(i18nc("@info",
+                                    "Manage scripts and custom command presets. Changes are saved immediately, even if Preferences is canceled. "
+                                    "Commands run with your permissions and require a preview and confirmation."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    auto *manage = new QPushButton(i18nc("@action:button", "Manage Commands…"), page);
+    manage->setObjectName(QStringLiteral("manageCommands"));
+    layout->addWidget(manage);
+    connect(manage, &QPushButton::clicked, this, [this] {
+        CustomCommandDialog dialog({}, {}, this, {}, true);
+        dialog.exec();
+    });
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createAssociationsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *notice = new QLabel(i18nc("@info",
+                                    "KDE File Associations manages filename patterns and default applications for the desktop. "
+                                    "Changes affect other applications and are not reverted when Preferences is canceled."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    auto *open = new QPushButton(i18nc("@action:button", "Open KDE File Associations…"), page);
+    open->setObjectName(QStringLiteral("openFileAssociations"));
+    layout->addWidget(open);
+    auto *status = new QLabel(page);
+    status->setObjectName(QStringLiteral("fileAssociationsStatus"));
+    status->setTextFormat(Qt::PlainText);
+    status->setWordWrap(true);
+    layout->addWidget(status);
+    layout->addStretch();
+    connect(open, &QPushButton::clicked, page, [status] {
+        const auto plugin = KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings"), QStringLiteral("kcm_filetypes"));
+        const auto widgetPlugin = KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings_qwidgets"), QStringLiteral("kcm_filetypes"));
+        if (!plugin.isValid() && !widgetPlugin.isValid()) {
+            status->setText(i18nc("@info", "KDE File Associations settings are not installed."));
+            return;
+        }
+        const QString launcher = QStandardPaths::findExecutable(QStringLiteral("kcmshell6"));
+        if (launcher.isEmpty() || !QProcess::startDetached(launcher, {QStringLiteral("kcm_filetypes")})) {
+            status->setText(i18nc("@info", "Could not launch KDE File Associations settings."));
+            return;
+        }
+        status->setText(i18nc("@info", "Requested KDE File Associations. Changes affect shared desktop defaults."));
+    });
+    return page;
+}
+
+QWidget *SettingsDialog::createTransferQueuePage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    auto *queue = checkBox(QStringLiteral("TransferQueueEnabled"), i18nc("@option:check", "Limit concurrent copy and move transfers"));
+    form->addRow(queue);
+    auto *concurrency = new QSpinBox(page);
+    concurrency->setObjectName(QStringLiteral("kcfg_TransferQueueConcurrency"));
+    concurrency->setRange(1, 16);
+    concurrency->setEnabled(queue->isChecked());
+    connect(queue, &QCheckBox::toggled, concurrency, &QWidget::setEnabled);
+    form->addRow(i18nc("@label:spinbox", "Maximum concurrent transfers:"), concurrency);
+    form->addRow(i18nc("@label:listbox", "Existing destination:"),
+                 comboBox(QStringLiteral("TransferConflictPolicy"),
+                          {i18nc("@item:inlistbox", "Ask"),
+                           i18nc("@item:inlistbox", "Skip"),
+                           i18nc("@item:inlistbox", "Rename automatically"),
+                           i18nc("@item:inlistbox", "Overwrite automatically")}));
+    auto *notice = new QLabel(i18nc("@info",
+                                    "Automatic overwrite replaces existing files and merges folders without asking. "
+                                    "These defaults apply to new copy and move transfers; paste and drag-and-drop are not queued. "
+                                    "Concurrency changes take effect when the queue is next opened or a transfer is added."),
+                              page);
+    notice->setWordWrap(true);
+    form->addRow(notice);
     return page;
 }
 
