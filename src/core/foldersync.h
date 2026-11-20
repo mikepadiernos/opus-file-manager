@@ -61,10 +61,28 @@ struct Row {
 struct Comparison {
     QString leftRoot;
     QString rightRoot;
+    Entry leftRootEntry;
+    Entry rightRootEntry;
     QList<Row> rows;
+    QString error;
+};
+
+enum class Action {
+    Skip,
+    CopyToLeft,
+    CopyToRight,
+    DeleteLeft,
+    DeleteRight
+};
+
+struct ApplyResult {
+    QStringList completed;
     QString error;
 };
 
 QString optionsError(const Options &options);
 Comparison compare(const QString &leftRoot, const QString &rightRoot, const Options &options, const std::function<bool()> &canceled = {});
+QString planError(const Comparison &comparison, const QList<Action> &actions, bool allowOverwrite, bool allowDelete);
+ApplyResult
+apply(const Comparison &comparison, const QList<Action> &actions, bool allowOverwrite, bool allowDelete, const std::function<bool()> &canceled = {});
 }
