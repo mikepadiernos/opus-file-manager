@@ -535,6 +535,18 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="InformationPanel">
+    <entry name="InformationFields" type="StringList">
+      <label>Metadata fields to show in the Information panel, in display order</label>
+      <default code="true">QStringList{QStringLiteral("friendlyMimeType"),
+        QStringLiteral("size"), QStringLiteral("modificationTime"),
+        QStringLiteral("permissions"), QStringLiteral("localPathOrUrl")}</default>
+    </entry>
+    <entry name="InformationHover" type="Bool">
+      <label>Show information for the item under the pointer</label>
+      <default>false</default>
+    </entry>
+  </group>
   <group name="Confirmations">
     <entry name="ConfirmClosingMultipleTabs" type="Bool">
       <label>Ask before closing a window that has more than one tab in a pane</label>

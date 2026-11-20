@@ -45,6 +45,8 @@ add_library(opusfm_app STATIC
     gallerywindow.h
     imagebackground.cpp
     imagebackground.h
+    informationpanel.cpp
+    informationpanel.h
     mainwindow.cpp
     mainwindow.h
     metadataeditdialog.cpp

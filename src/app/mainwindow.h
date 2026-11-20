@@ -14,6 +14,7 @@
 class CombinedPanel;
 class FavoritesModel;
 class FolderTree;
+class InformationPanel;
 class KFileCopyToMenu;
 class KFileItemActions;
 class KFilePlacesModel;
@@ -126,6 +127,7 @@ private:
     void activateItem(const KFileItem &item);
     void activatePaneItem(Pane *pane, const KFileItem &item);
     void updatePreviewPanel();
+    void updateInformationPanel();
     void openGallery();
     void openEditor();
     void compareFiles();
@@ -217,6 +219,7 @@ private:
     QDockWidget *m_placesDock = nullptr;
     QDockWidget *m_foldersDock = nullptr;
     QDockWidget *m_combinedDock = nullptr;
+    QDockWidget *m_informationDock = nullptr;
     FolderTree *m_folderTree = nullptr;
     CombinedPanel *m_combinedPanel = nullptr;
     KSelectAction *m_panelLayoutAction = nullptr;
@@ -238,6 +241,9 @@ private:
     Pane *m_right = nullptr;
     Pane *m_active = nullptr;
     PreviewPanel *m_previewPanel = nullptr;
+    InformationPanel *m_informationPanel = nullptr;
+    Pane *m_hoveredInformationPane = nullptr;
+    KFileItem m_hoveredInformationItem;
     QLabel *m_itemsLabel = nullptr;
     QLabel *m_messageLabel = nullptr;
     QLabel *m_freeSpaceLabel = nullptr;

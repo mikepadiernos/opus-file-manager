@@ -68,6 +68,7 @@ private Q_SLOTS:
                                      QStringLiteral("PreviewSettings"),
                                      QStringLiteral("Confirmations"),
                                      QStringLiteral("StatusBar"),
+                                     QStringLiteral("InformationPanel"),
                                      QStringLiteral("Views"),
                                      QStringLiteral("ContextMenu")}) {
             KSharedConfig::openConfig()->deleteGroup(group);
@@ -887,6 +888,25 @@ private Q_SLOTS:
         const KConfigGroup tabs = KSharedConfig::openConfig()->group(QStringLiteral("Tabs"));
         QVERIFY(!tabs.readEntry("ShowIcons", true));
         QVERIFY(!tabs.readEntry("Expand", true));
+    }
+
+    void savesInformationPanelFieldOrderAndHoverPreference()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *fields = dialog.findChild<IconInformationList *>(QStringLiteral("kcfg_InformationFields"));
+        auto *hover = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_InformationHover"));
+        QVERIFY(fields && hover);
+        const QStringList selected{QStringLiteral("localPathOrUrl"), QStringLiteral("comment"), QStringLiteral("size")};
+        fields->setInformation(selected);
+        hover->setChecked(true);
+        dialog.button(QDialogButtonBox::Ok)->click();
+
+        QCOMPARE(Settings::informationFields(), selected);
+        QVERIFY(Settings::informationHover());
+        const KConfigGroup config = KSharedConfig::openConfig()->group(QStringLiteral("InformationPanel"));
+        QCOMPARE(config.readEntry("InformationFields", QStringList()), selected);
+        QVERIFY(config.readEntry("InformationHover", false));
     }
 
     void savesM02InterfaceAndViewSettings()

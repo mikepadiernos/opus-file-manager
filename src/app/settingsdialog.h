@@ -86,6 +86,7 @@ private:
     QWidget *createConfirmationsPage();
     QWidget *createPlacesPage();
     QWidget *createStatusBarPage();
+    QWidget *createInformationPanelPage();
     QWidget *createViewGeneralPage();
     QWidget *createDetailsPage();
     QWidget *createCompactPage();

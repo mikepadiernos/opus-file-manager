@@ -125,7 +125,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createPlacesPage(), i18nc("@title:tab", "Panels")},
                    {createPanelAppearancePage(), i18nc("@title:tab", "Panel Appearance")},
                    {createTabAppearancePage(), i18nc("@title:tab", "Tab Appearance")},
-                   {createStatusBarPage(), i18nc("@title:tab", "Status and Location Bars")}},
+                   {createStatusBarPage(), i18nc("@title:tab", "Status and Location Bars")},
+                   {createInformationPanelPage(), i18nc("@title:tab", "Information Panel")}},
                   i18nc("@title:group", "Interface"),
                   QStringLiteral("window"));
     addTabbedPage({{createViewGeneralPage(), i18nc("@title:tab", "General")},
@@ -1057,6 +1058,17 @@ QWidget *SettingsDialog::createStatusBarPage()
     spacing->setEnabled(density->currentIndex() == Settings::EnumBarDensity::Custom);
     form->addRow(i18nc("@label:listbox", "Bar density:"), density);
     form->addRow(i18nc("@label:spinbox", "Custom bar spacing:"), spacing);
+    return page;
+}
+
+QWidget *SettingsDialog::createInformationPanelPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(QString(), checkBox(QStringLiteral("InformationHover"), i18nc("@option:check", "Show information for the item under the pointer")));
+    auto *fields = new IconInformationList;
+    fields->setMinimumHeight(240);
+    form->addRow(i18nc("@label", "Metadata fields, in display order:"), bound(fields, QStringLiteral("InformationFields"), "information"));
     return page;
 }
 

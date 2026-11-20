@@ -812,6 +812,24 @@ FolderView::FolderView(QWidget *parent)
     m_compact->setIconSize(QSize(16, 16));
     setupView(m_compact);
 
+    const QList<QAbstractItemView *> views{m_details, m_icons, m_compact};
+    for (QAbstractItemView *view : views) {
+        connect(view, &QAbstractItemView::entered, this, [this](const QModelIndex &index) {
+            if (!m_informationHoverEnabled) {
+                return;
+            }
+            const KFileItem item = m_model->itemForIndex(m_proxy->mapToSource(index));
+            if (!item.isNull()) {
+                Q_EMIT itemHovered(item);
+            }
+        });
+        connect(view, &QAbstractItemView::viewportEntered, this, [this] {
+            if (m_informationHoverEnabled) {
+                Q_EMIT itemHoverCleared();
+            }
+        });
+    }
+
     m_detailsPreviews = new KFilePreviewGenerator(m_details);
     m_iconPreviews = new KFilePreviewGenerator(m_icons);
     m_compactPreviews = new KFilePreviewGenerator(m_compact);
@@ -1069,6 +1087,16 @@ void FolderView::setSelectionMode(bool enabled)
     m_selectionBar->setVisible(enabled);
     currentView()->viewport()->update();
     Q_EMIT selectionModeChanged(enabled);
+}
+
+void FolderView::setInformationHoverEnabled(bool enabled)
+{
+    m_informationHoverEnabled = enabled;
+    const QList<QAbstractItemView *> views{m_details, m_icons, m_compact};
+    for (QAbstractItemView *view : views) {
+        view->setMouseTracking(enabled);
+        view->viewport()->setMouseTracking(enabled);
+    }
 }
 
 void FolderView::setViewMode(ViewMode mode)

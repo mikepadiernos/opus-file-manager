@@ -17,6 +17,7 @@
 #include "foldertree.h"
 #include "folderview.h"
 #include "gallerywindow.h"
+#include "informationpanel.h"
 #include "metadataeditdialog.h"
 #include "pane.h"
 #include "previewpanel.h"
@@ -48,6 +49,7 @@
 #include <QDockWidget>
 #include <QFile>
 #include <QFileDialog>
+#include <QFormLayout>
 #include <QGraphicsOpacityEffect>
 #include <QGraphicsView>
 #include <QHeaderView>
@@ -572,6 +574,80 @@ private Q_SLOTS:
         window.setStackedLayout(false);
         QCoreApplication::processEvents();
         QVERIFY(panes->sizes().at(0) > 0 && panes->sizes().at(1) > 0);
+    }
+
+    void informationPanelFollowsSelectionAndOptionalHover()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        const QUrl firstUrl = QUrl::fromLocalFile(folder.filePath(QStringLiteral("first.txt")));
+        const QUrl secondUrl = QUrl::fromLocalFile(folder.filePath(QStringLiteral("second.txt")));
+        for (const QUrl &url : {firstUrl, secondUrl}) {
+            QFile file(url.toLocalFile());
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            file.write("content");
+        }
+
+        const QStringList previousFields = Settings::informationFields();
+        const bool previousHover = Settings::informationHover();
+        const auto restore = qScopeGuard([previousFields, previousHover] {
+            Settings::setInformationFields(previousFields);
+            Settings::setInformationHover(previousHover);
+            Settings::self()->save();
+        });
+        Settings::setInformationFields({QStringLiteral("localPathOrUrl"), QStringLiteral("comment"), QStringLiteral("size")});
+        Settings::setInformationHover(false);
+
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(folder.path())});
+        window.show();
+        auto *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+        auto *action = window.actionCollection()->action(QStringLiteral("show_information_panel"));
+        QVERIFY(action);
+        auto *dock = window.findChild<QDockWidget *>(QStringLiteral("informationDock"));
+        QVERIFY(dock);
+        dock->hide();
+        action->setChecked(false);
+        action->trigger();
+        QVERIFY(dock && dock->isVisible());
+        view->selectUrls({firstUrl});
+        auto *path = dock->findChild<QLabel *>(QStringLiteral("informationValue_localPathOrUrl"));
+        auto *comment = dock->findChild<QLabel *>(QStringLiteral("informationValue_comment"));
+        auto *panel = dock->findChild<InformationPanel *>(QStringLiteral("informationPanelContents"));
+        QVERIFY(path && comment && panel);
+        QTRY_COMPARE(path->text(), firstUrl.toDisplayString(QUrl::PreferLocalFile));
+        QCOMPARE(comment->text(), QStringLiteral("Unavailable"));
+        auto *form = qobject_cast<QFormLayout *>(panel->layout());
+        QVERIFY(form);
+        QCOMPARE(form->itemAt(0, QFormLayout::FieldRole)->widget()->objectName(), QStringLiteral("informationValue_localPathOrUrl"));
+        QCOMPARE(form->itemAt(1, QFormLayout::FieldRole)->widget()->objectName(), QStringLiteral("informationValue_comment"));
+
+        Settings::setInformationHover(true);
+        window.applySettings();
+        QModelIndex secondIndex;
+        for (int row = 0; row < view->currentView()->model()->rowCount(); ++row) {
+            const QModelIndex candidate = view->currentView()->model()->index(row, 0);
+            if (candidate.data(Qt::DisplayRole).toString() == QLatin1String("second.txt")) {
+                secondIndex = candidate;
+                break;
+            }
+        }
+        QVERIFY(secondIndex.isValid());
+        QVERIFY(view->currentView()->hasMouseTracking());
+        QVERIFY(view->currentView()->viewport()->hasMouseTracking());
+        Q_EMIT view->currentView()->entered(secondIndex);
+        QTRY_COMPARE(path->text(), secondUrl.toDisplayString(QUrl::PreferLocalFile));
+        view->itemHoverCleared();
+        QTRY_COMPARE(path->text(), firstUrl.toDisplayString(QUrl::PreferLocalFile));
+
+        Settings::setInformationHover(true);
+        window.applySettings();
+        Q_EMIT view->currentView()->entered(secondIndex);
+        QTRY_COMPARE(path->text(), secondUrl.toDisplayString(QUrl::PreferLocalFile));
+        Settings::setInformationHover(false);
+        window.applySettings();
+        QCOMPARE(path->text(), firstUrl.toDisplayString(QUrl::PreferLocalFile));
     }
 
     void imageBackgroundSettingsApplyToOpenViews()

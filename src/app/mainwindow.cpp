@@ -25,6 +25,7 @@
 #include "foldertree.h"
 #include "folderview.h"
 #include "gallerywindow.h"
+#include "informationpanel.h"
 #include "labelcolor.h"
 #include "linkednavigation.h"
 #include "pane.h"
@@ -356,6 +357,11 @@ void MainWindow::connectPane(Pane *pane)
         syncLinkedPane(pane, url);
         recordFolderVisit(pane, url);
         pane->view()->setFlat(m_flatLocations.contains(flatKey(url)));
+        const bool clearedHoveredInformation = m_hoveredInformationPane == pane;
+        if (clearedHoveredInformation) {
+            m_hoveredInformationPane = nullptr;
+            m_hoveredInformationItem = {};
+        }
         if (pane == m_active) {
             if (m_terminalPanelAction && m_terminalPanelAction->isChecked() && Settings::terminalFollowActiveFolder()) {
                 m_terminalPanel->follow(url);
@@ -367,6 +373,7 @@ void MainWindow::connectPane(Pane *pane)
             updateStatusBar();
             updateFreeSpace();
             updateWindowTitle();
+            updateInformationPanel();
             syncFolderTrees();
         } else if (m_active) {
             if (Settings::statusBarLayout() == Settings::EnumStatusBarLayout::PerPane) {
@@ -374,6 +381,9 @@ void MainWindow::connectPane(Pane *pane)
                 updateFreeSpace(pane);
             }
             updateActions();
+        }
+        if (clearedHoveredInformation && pane != m_active) {
+            updateInformationPanel();
         }
     });
     connect(pane, &Pane::tabCountChanged, this, &MainWindow::updateTabBars);
@@ -389,6 +399,7 @@ void MainWindow::connectPane(Pane *pane)
         updateStatusBar();
         if (pane == m_active) {
             updatePreviewPanel();
+            updateInformationPanel();
         }
         if (m_active) {
             updateActions();
@@ -415,6 +426,21 @@ void MainWindow::connectPane(Pane *pane)
         updateStatusBar();
         if (pane == m_active) {
             updatePreviewPanel();
+            updateInformationPanel();
+        }
+    });
+    connect(pane->view(), &FolderView::itemHovered, this, [this, pane](const KFileItem &item) {
+        if (Settings::informationHover()) {
+            m_hoveredInformationPane = pane;
+            m_hoveredInformationItem = item;
+            updateInformationPanel();
+        }
+    });
+    connect(pane->view(), &FolderView::itemHoverCleared, this, [this, pane] {
+        if (m_hoveredInformationPane == pane) {
+            m_hoveredInformationPane = nullptr;
+            m_hoveredInformationItem = {};
+            updateInformationPanel();
         }
     });
     connect(pane->view(), &FolderView::itemsOrderChanged, this, [this, pane] {
@@ -503,6 +529,12 @@ void MainWindow::setupPanels()
         FileOperations::drop(event, destination, this);
     });
     m_combinedDock = addPanelDock(QStringLiteral("combinedDock"), i18nc("@title:window", "Explorer"), m_combinedPanel);
+
+    m_informationPanel = new InformationPanel;
+    m_informationPanel->setFields(Settings::informationFields());
+    m_informationDock = addPanelDock(QStringLiteral("informationDock"), i18nc("@title:window", "Information"), m_informationPanel);
+    addDockWidget(Qt::RightDockWidgetArea, m_informationDock);
+    m_informationDock->hide();
 }
 
 void MainWindow::setPanelLayout(PanelLayout layout)
@@ -1330,6 +1362,13 @@ void MainWindow::setupActions()
             FileOperations::open(items.first(), this);
         }
     });
+    QAction *informationAction = actions->addAction(QStringLiteral("show_information_panel"));
+    informationAction->setText(i18nc("@action", "Information Panel"));
+    informationAction->setCheckable(true);
+    connect(informationAction, &QAction::triggered, this, [this] {
+        m_informationDock->setVisible(!m_informationDock->isVisible());
+    });
+    connect(m_informationDock, &QDockWidget::visibilityChanged, informationAction, &QAction::setChecked);
     QAction *gallery = actions->addAction(QStringLiteral("open_gallery"), this, &MainWindow::openGallery);
     gallery->setText(i18nc("@action", "Open Gallery"));
     gallery->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-media-preview")));
@@ -1522,6 +1561,7 @@ void MainWindow::setActivePane(Pane *pane)
     updateFreeSpace();
     updateWindowTitle();
     updatePreviewPanel();
+    updateInformationPanel();
 }
 
 void MainWindow::openUrls(const QList<QUrl> &urls)
@@ -3289,6 +3329,25 @@ void MainWindow::updatePreviewPanel()
     m_previewPanel->setItems(selected, images);
 }
 
+void MainWindow::updateInformationPanel()
+{
+    if (!m_informationPanel) {
+        return;
+    }
+    if (Settings::informationHover() && !m_hoveredInformationItem.isNull()) {
+        m_informationPanel->setItem(m_hoveredInformationItem);
+        return;
+    }
+    const KFileItemList selected = activePane()->view()->selectedItems();
+    if (selected.size() == 1) {
+        m_informationPanel->setItem(selected.first());
+    } else if (selected.isEmpty()) {
+        m_informationPanel->setItem(activePane()->view()->currentItem());
+    } else {
+        m_informationPanel->setItem({});
+    }
+}
+
 bool MainWindow::isStackedLayout() const
 {
     return m_splitter->orientation() == Qt::Vertical;
@@ -3332,6 +3391,7 @@ void MainWindow::applySettings()
         pane->setFollowSymlinks(Settings::followSymlinks());
 
         FolderView *view = pane->view();
+        view->setInformationHoverEnabled(Settings::informationHover());
         view->reloadListingSettings();
         if (sizeDefaultsChanged) {
             view->refreshFolderSizePolicy();
@@ -3353,6 +3413,11 @@ void MainWindow::applySettings()
         view->setPreviewPlugins(Settings::previewPlugins());
         view->setRemotePreviewsEnabled(Settings::showRemotePreviews());
     }
+    m_informationPanel->setFields(Settings::informationFields());
+    if (!Settings::informationHover()) {
+        m_hoveredInformationPane = nullptr;
+        m_hoveredInformationItem = {};
+    }
     updateTabBars();
     const int barMargin = Density::barMargin(barDensity(Settings::barDensity()), Settings::barCustomSpacing());
     const auto bars = toolBars();
@@ -3365,6 +3430,7 @@ void MainWindow::applySettings()
     applyPanelSettings();
     updateStatusBar();
     updateFreeSpace();
+    updateInformationPanel();
 
     QAction *switchPane = actionCollection()->action(QStringLiteral("switch_pane"));
     QList<QKeySequence> shortcuts = switchPane->shortcuts();

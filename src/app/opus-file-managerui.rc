@@ -86,6 +86,7 @@
       <Action name="selection_markers"/>
       <Action name="show_previews"/>
       <Action name="show_preview_panel"/>
+      <Action name="show_information_panel"/>
       <Action name="show_embedded_terminal"/>
       <Action name="open_gallery"/>
       <Action name="show_hidden_files"/>

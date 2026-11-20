@@ -61,6 +61,7 @@ public:
     void setSelectionMarkersVisible(bool visible);
     bool selectionMode() const;
     void setSelectionMode(bool enabled);
+    void setInformationHoverEnabled(bool enabled);
 
     bool showHiddenFiles() const;
     void setShowHiddenFiles(bool show);
@@ -161,6 +162,8 @@ Q_SIGNALS:
     void listingFailed(const QString &message);
     void itemActivated(const KFileItem &item);
     void selectionChanged();
+    void itemHovered(const KFileItem &item);
+    void itemHoverCleared();
     void itemCountChanged();
     void itemsOrderChanged();
     void contextMenuRequested(const QPoint &globalPos, const KFileItemList &items);
@@ -206,6 +209,7 @@ private:
     QUrl m_folder;
     bool m_flat = false;
     bool m_loading = false;
+    bool m_informationHoverEnabled = false;
     bool m_historyExpanding = false;
     quint64 m_historyExpansionGeneration = 0;
     QSet<QUrl> m_historyListingJobs;
