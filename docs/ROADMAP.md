@@ -484,28 +484,27 @@ Settings for M12 UI customizations, stored in KConfig.
   - ~~**Sections:** section order, visibility and custom titles, reusing the
     visibility settings from M04~~
 - **Tabs**
-  - **Placement and controls:** tab-bar position by pane orientation, together
-    placement for stacked panes, and close-button visibility
+  - ~~**Placement and controls:** tab-bar position by pane orientation, together
+    placement for stacked panes, and close-button visibility~~
 - **Status bars**
-  - **Layout:** shared or per-pane bars, with visible indicators and their
-    order; reuse existing item-count, selection-size and free-space settings
+  - ~~**Layout:** shared or per-pane bars, with visible indicators and their
+    order; reuse existing item-count, selection-size and free-space settings~~
 - **Splitter sizes**
-  - **Restore:** remember sizes per orientation and reset them to defaults,
-    without overriding an explicitly applied workspace layout
+  - ~~**Restore:** remember sizes per orientation and reset them to defaults,
+    without overriding an explicitly applied workspace layout~~
 - **Preview and gallery**
-  - **Background:** theme, light, dark or checkerboard for transparent images
+  - ~~**Background:** theme, light, dark or checkerboard for transparent images~~
 - **Information panel**
-  - **Fields and focus:** visible metadata fields and order; opt-in hover
-    information with selection fallback
+  - ~~**Fields and focus:** visible metadata fields and order; opt-in hover
+    information with selection fallback~~
 - **File-list minimap**
-  - **Display:** enable or disable the minimap and choose its width
+  - ~~**Display:** enable or disable the minimap and choose its width~~
 - **Defaults**
   - ~~**Reset:** restore the main toolbar, pane toolbars and hamburger menu~~
   - ~~**Backup:** export and restore app-owned settings and layouts with a
     preview and confirmation, excluding credentials and shared KDE settings~~
 
-> Pending work: see [TODO.md](TODO.md) for M12 project synchronization and
-> follow-up bug reports.
+> Pending work: see [TODO.md](TODO.md) for follow-up bug reports.
 
 ### M13 Workspaces
 
