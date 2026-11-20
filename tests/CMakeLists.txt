@@ -19,6 +19,16 @@ target_compile_definitions(translationtest PRIVATE
     OPUSFM_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
 )
 
+ecm_add_test(informationtranslationtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+add_dependencies(informationtranslationtest translation-test-catalog)
+target_compile_definitions(informationtranslationtest PRIVATE
+    OPUSFM_TEST_LOCALE_DIR="${CMAKE_CURRENT_BINARY_DIR}/translation-locale"
+)
+
 ecm_add_tests(
     archivestest.cpp
     batchrenametest.cpp

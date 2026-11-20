@@ -10,6 +10,10 @@ msgstr ""
 "Language: fa\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
+msgctxt "@label:file information"
+msgid "Size"
+msgstr "اندازه"
+
 msgctxt "@title:group"
 msgid "Editor"
 msgstr "ویرایشگر"
