@@ -15,7 +15,7 @@ A bug is considered complete only when its project status is **Completed** or
 | [#37](https://github.com/mikepadiernos/opus-file-manager/issues/37) | Combined panel header and accordion titles are misaligned | Yes | Merged |
 | [#378](https://github.com/mikepadiernos/opus-file-manager/issues/378) | Embedded Konsole terminal does not honor profile background blur | Yes | Merged |
 | [#383](https://github.com/mikepadiernos/opus-file-manager/issues/383) | Editor settings should use the notepad symbolic icon | Yes | Merged |
-| [#444](https://github.com/mikepadiernos/opus-file-manager/issues/444) | KDE toolbar editor separators and spacers do not match the toolbar | Yes | Completed |
+| [#444](https://github.com/mikepadiernos/opus-file-manager/issues/444) | KDE toolbar editor separators and spacers do not match the toolbar | Yes | Merged |
 | [#446](https://github.com/mikepadiernos/opus-file-manager/issues/446) | Metadata editing fails with an unusable ExifTool installation | Yes | Merged |
 
 ## Status legend
@@ -39,16 +39,17 @@ A bug is considered complete only when its project status is **Completed** or
 ### KDE toolbar editor separators and spacers
 
 - Severity: medium
-- Status: Completed; [#444](https://github.com/mikepadiernos/opus-file-manager/issues/444)
+- Status: Merged; [#444](https://github.com/mikepadiernos/opus-file-manager/issues/444)
 - Summary: Separators and expanding spacers in KDE's toolbar editor did not
   match the live or restored toolbar.
 - Evidence: The reporter's screenshots identify the KDE toolbar editor and the
   resulting toolbar. KDE replaced the toolbar on Apply, leaving Opus with the
   old toolbar and saved layout.
-- Resolution: Synchronize the editor with the current layout and save the
-  rebuilt toolbar. [#452](https://github.com/mikepadiernos/opus-file-manager/pull/452)
-  also preserves the default spacer when saving. Previously overridden layouts
-  must be configured and applied again.
+- Resolution: [#454](https://github.com/mikepadiernos/opus-file-manager/pull/454)
+  synchronizes the editor with the current layout and saves the rebuilt toolbar.
+  [#452](https://github.com/mikepadiernos/opus-file-manager/pull/452) also
+  preserves the default spacer when saving. Previously overridden layouts must
+  be configured and applied again.
 
 ### Metadata editing with unusable ExifTool
 
