@@ -16,6 +16,7 @@ A bug is considered complete only when its project status is **Completed** or
 | [#378](https://github.com/mikepadiernos/opus-file-manager/issues/378) | Embedded Konsole terminal does not honor profile background blur | Yes | Merged |
 | [#383](https://github.com/mikepadiernos/opus-file-manager/issues/383) | Editor settings should use the notepad symbolic icon | Yes | Merged |
 | [#444](https://github.com/mikepadiernos/opus-file-manager/issues/444) | Separators and expanded space are not reflected | No | Development |
+| [#446](https://github.com/mikepadiernos/opus-file-manager/issues/446) | Metadata editing with unusable ExifTool | No | Development |
 | [#446](https://github.com/mikepadiernos/opus-file-manager/issues/446) | Metadata editing fails with an unusable ExifTool installation | No | Backlog |
 
 ## Status legend
@@ -43,8 +44,8 @@ is mostly green: 68 of 70 tests passed.
 ### Metadata editing with unusable ExifTool
 
 - Severity: not yet assessed
-- Status: Backlog; [#446](https://github.com/mikepadiernos/opus-file-manager/issues/446)
-  is awaiting triage
+- Status: Development; [#446](https://github.com/mikepadiernos/opus-file-manager/issues/446)
+  remains open while the affected installation is repaired and verified.
 - Summary: Metadata editing fails when the installed ExifTool executable cannot
   load its Perl module. This is specific to affected environments, not a
   confirmed failure with a working ExifTool installation.
@@ -57,9 +58,11 @@ is mostly green: 68 of 70 tests passed.
   reports the ExifTool error.
 - Likely area to inspect: ExifTool's runtime installation and dependency
   diagnostics, including mixed Perl environments.
-- Recommended follow-up: Investigate dependency detection and runtime setup,
-  verify the toolchain documentation, and add coverage for unusable ExifTool
-  installations where appropriate.
+- Follow-up: The error now identifies the ExifTool executable, preserves its
+  diagnostics and reports silent failures. Run that executable with `-ver` in
+  the same environment as Opus; if Perl cannot load `Image/ExifTool.pm`, repair
+  the ExifTool/Perl installation or PATH and retry. Opus does not change the
+  user's environment. See [pending tasks](TODO.md#verify-the-affected-exiftool-installation-446).
 
 ## UI report
 

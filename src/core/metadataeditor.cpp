@@ -63,17 +63,24 @@ QString execute(const QStringList &arguments, QByteArray &output)
     QProcess process;
     process.start(tool, arguments);
     if (!process.waitForStarted()) {
-        return i18nc("@info", "Could not start ExifTool: %1", process.errorString());
+        return i18nc("@info", "Could not start ExifTool at %1: %2", tool, process.errorString());
     }
     if (!process.waitForFinished(60000)) {
         process.kill();
         process.waitForFinished();
-        return i18nc("@info", "ExifTool did not finish. The file may have been modified.");
+        return i18nc("@info", "ExifTool at %1 did not finish. The file may have been modified.", tool);
     }
     output = process.readAllStandardOutput();
     const QString diagnostics = QString::fromUtf8(process.readAllStandardError()).trimmed();
     if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0 || !diagnostics.isEmpty()) {
-        return i18nc("@info", "ExifTool reported a problem: %1", diagnostics.isEmpty() ? QString::fromUtf8(output).trimmed() : diagnostics);
+        const QString detail = diagnostics.isEmpty() ? QString::fromUtf8(output).trimmed() : diagnostics;
+        if (!detail.isEmpty()) {
+            return i18nc("@info", "ExifTool at %1 reported a problem: %2", tool, detail);
+        }
+        if (process.exitStatus() != QProcess::NormalExit) {
+            return i18nc("@info", "ExifTool at %1 crashed without reporting an error.", tool);
+        }
+        return i18nc("@info", "ExifTool at %1 exited with code %2 without reporting an error.", tool, process.exitCode());
     }
     return {};
 }
