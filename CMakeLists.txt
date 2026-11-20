@@ -51,6 +51,14 @@ find_package(KF6 ${KF_MIN_VERSION} REQUIRED COMPONENTS
 
 add_subdirectory(src)
 
+ki18n_install(po)
+
+add_custom_target(extract-messages
+    COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/scripts/extract-messages.sh ${CMAKE_CURRENT_BINARY_DIR}/opus-file-manager.pot
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    VERBATIM
+)
+
 if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()

@@ -1,5 +1,24 @@
 include(ECMAddTests)
 
+set(translation_test_catalog ${CMAKE_CURRENT_BINARY_DIR}/translation-locale/fa/LC_MESSAGES/opus-file-manager.mo)
+add_custom_command(
+    OUTPUT ${translation_test_catalog}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/translation-locale/fa/LC_MESSAGES
+    COMMAND ${GETTEXT_MSGFMT_EXECUTABLE} --check -o ${translation_test_catalog} ${CMAKE_CURRENT_SOURCE_DIR}/data/translation/opus-file-manager.po
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/data/translation/opus-file-manager.po
+    VERBATIM
+)
+add_custom_target(translation-test-catalog DEPENDS ${translation_test_catalog})
+ecm_add_test(translationtest.cpp
+    LINK_LIBRARIES opusfm_core Qt6::Test
+    NAME_PREFIX "opusfm-"
+)
+add_dependencies(translationtest translation-test-catalog)
+target_compile_definitions(translationtest PRIVATE
+    OPUSFM_TEST_LOCALE_DIR="${CMAKE_CURRENT_BINARY_DIR}/translation-locale"
+    OPUSFM_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
+)
+
 ecm_add_tests(
     archivestest.cpp
     batchrenametest.cpp
