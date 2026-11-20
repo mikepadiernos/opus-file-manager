@@ -2,4 +2,4 @@
 
 ## MVP release
 
-- Prepare the MVP release after M14 is merged. No MVP release has been created.
+- Publish v0.2.0 after its version change is merged. The earlier MVP is v0.1.0.

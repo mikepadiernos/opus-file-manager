@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(opus-file-manager VERSION 0.1.0 LANGUAGES CXX)
+project(opus-file-manager VERSION 0.2.0 LANGUAGES CXX)
 
 set(QT_MIN_VERSION 6.8)
 set(KF_MIN_VERSION 6.20)
