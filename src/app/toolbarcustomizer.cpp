@@ -448,6 +448,14 @@ bool ToolbarCustomizer::eventFilter(QObject *watched, QEvent *event)
     }
     auto *targetToolbar = qobject_cast<QToolBar *>(watched);
     if (targetToolbar && toolbars().contains(targetToolbar)) {
+        if (event->type() == QEvent::ContextMenu) {
+            if (m_forwardingNativeMenu) {
+                m_forwardingNativeMenu = false;
+            } else {
+                showToolbarMenu(targetToolbar, static_cast<QContextMenuEvent *>(event)->globalPos());
+                return true;
+            }
+        }
         if (targetToolbar == m_toolbar && !m_restoring && !m_saveScheduled
             && (event->type() == QEvent::ActionAdded || event->type() == QEvent::ActionRemoved)) {
             m_saveScheduled = true;
@@ -552,6 +560,42 @@ bool ToolbarCustomizer::eventFilter(QObject *watched, QEvent *event)
         }
     }
     return QObject::eventFilter(watched, event);
+}
+
+void ToolbarCustomizer::showToolbarMenu(QToolBar *toolbar, const QPoint &globalPosition)
+{
+    QMenu menu(m_window);
+    menu.setObjectName(QStringLiteral("toolbarContextMenu"));
+    QAction *nativeMenu = nullptr;
+    if (toolbar == m_toolbar) {
+        if (QAction *customize = m_actions->action(QStringLiteral("customize_main_toolbar"))) {
+            menu.addAction(customize);
+        }
+        if (QAction *configure = m_actions->action(QStringLiteral("options_configure_toolbars"))) {
+            menu.addAction(configure);
+        }
+        nativeMenu = menu.addAction(i18nc("@action:inmenu", "KDE Toolbar Options…"));
+        nativeMenu->setObjectName(QStringLiteral("nativeToolbarOptions"));
+    } else {
+        for (Pane *pane : m_panes) {
+            if (pane->toolBar() == toolbar) {
+                if (QAction *configure = pane->toolbarAction(QStringLiteral("paneCustomizeToolbar"))) {
+                    menu.addAction(configure);
+                }
+                break;
+            }
+        }
+    }
+    menu.addSeparator();
+    QAction *settings = menu.addAction(i18nc("@action:inmenu", "Toolbar Settings…"));
+    settings->setObjectName(QStringLiteral("toolbarSettings"));
+    connect(settings, &QAction::triggered, this, &ToolbarCustomizer::toolbarSettingsRequested);
+    QPointer<QToolBar> guardedToolbar(toolbar);
+    if (menu.exec(globalPosition) == nativeMenu && nativeMenu && guardedToolbar) {
+        m_forwardingNativeMenu = true;
+        QContextMenuEvent event(QContextMenuEvent::Mouse, guardedToolbar->mapFromGlobal(globalPosition), globalPosition);
+        QApplication::sendEvent(guardedToolbar, &event);
+    }
 }
 
 void ToolbarCustomizer::populateActions()

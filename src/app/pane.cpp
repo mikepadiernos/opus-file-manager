@@ -129,6 +129,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     QAction *viewButtonAction = m_toolBar->addWidget(viewButton);
     viewButtonAction->setObjectName(QStringLiteral("paneViewModeButton"));
     viewButtonAction->setText(viewButton->text());
+    viewButtonAction->setIcon(viewButton->icon());
 
     const auto addZoomAction = [this](const QString &name, const QString &icon, const QString &label, int steps) {
         QAction *action = m_toolBar->addAction(SymbolicIcon::fromTheme(icon), label);
@@ -178,6 +179,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     QAction *sortButtonAction = m_toolBar->addWidget(sortButton);
     sortButtonAction->setObjectName(QStringLiteral("paneSortingButton"));
     sortButtonAction->setText(sortButton->text());
+    sortButtonAction->setIcon(sortButton->icon());
 
     QAction *previews = m_toolBar->addAction(SymbolicIcon::fromTheme(QStringLiteral("view-preview")), i18nc("@action", "Show Previews"));
     previews->setObjectName(QStringLiteral("panePreviews"));

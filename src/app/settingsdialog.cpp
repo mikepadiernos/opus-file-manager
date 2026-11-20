@@ -136,17 +136,18 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                   i18nc("@title:group", "Translation"),
                   QStringLiteral("preferences-desktop-locale"));
     addTabbedPage({{createSettingsBackupPage(), i18nc("@title:tab", "Backup and Restore")}}, i18nc("@title:group", "Backup"), QStringLiteral("document-save"));
-    addTabbedPage({{createToolbarEntriesPage(), i18nc("@title:tab", "Toolbars")},
-                   {createFoldersAndTabsPage(), i18nc("@title:tab", "Folders and Tabs")},
-                   {createPreviewsPage(), i18nc("@title:tab", "Previews")},
-                   {createConfirmationsPage(), i18nc("@title:tab", "Confirmations")},
-                   {createPlacesPage(), i18nc("@title:tab", "Panels")},
-                   {createPanelAppearancePage(), i18nc("@title:tab", "Panel Appearance")},
-                   {createTabAppearancePage(), i18nc("@title:tab", "Tab Appearance")},
-                   {createStatusBarPage(), i18nc("@title:tab", "Status and Location Bars")},
-                   {createInformationPanelPage(), i18nc("@title:tab", "Information Panel")}},
-                  i18nc("@title:group", "Interface"),
-                  QStringLiteral("window"));
+    m_toolbarPage = addTabbedPage({{createToolbarEntriesPage(), i18nc("@title:tab", "Toolbars")},
+                                   {createFoldersAndTabsPage(), i18nc("@title:tab", "Folders and Tabs")},
+                                   {createPreviewsPage(), i18nc("@title:tab", "Previews")},
+                                   {createConfirmationsPage(), i18nc("@title:tab", "Confirmations")},
+                                   {createPlacesPage(), i18nc("@title:tab", "Panels")},
+                                   {createPanelAppearancePage(), i18nc("@title:tab", "Panel Appearance")},
+                                   {createTabAppearancePage(), i18nc("@title:tab", "Tab Appearance")},
+                                   {createStatusBarPage(), i18nc("@title:tab", "Status and Location Bars")},
+                                   {createInformationPanelPage(), i18nc("@title:tab", "Information Panel")}},
+                                  i18nc("@title:group", "Interface"),
+                                  QStringLiteral("window"),
+                                  &m_toolbarTabs);
     addTabbedPage({{createViewGeneralPage(), i18nc("@title:tab", "General")},
                    {createDetailsPage(), i18nc("@title:tab", "Details")},
                    {createIconsPage(), i18nc("@title:tab", "Icons")},
@@ -224,13 +225,25 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     validateNumerals();
 }
 
-void SettingsDialog::addTabbedPage(const QList<std::pair<QWidget *, QString>> &tabs, const QString &title, const QString &iconName)
+KPageWidgetItem *
+SettingsDialog::addTabbedPage(const QList<std::pair<QWidget *, QString>> &tabs, const QString &title, const QString &iconName, QTabWidget **tabsOut)
 {
     auto *tabWidget = new QTabWidget;
+    if (tabsOut) {
+        *tabsOut = tabWidget;
+    }
     for (const auto &[tab, tabTitle] : tabs) {
         tabWidget->addTab(tab, tabTitle);
     }
-    m_pageIcons.append({addPage(tabWidget, title), iconName});
+    auto *page = addPage(tabWidget, title);
+    m_pageIcons.append({page, iconName});
+    return page;
+}
+
+void SettingsDialog::showToolbarPage()
+{
+    setCurrentPage(m_toolbarPage);
+    m_toolbarTabs->setCurrentIndex(0);
 }
 
 void SettingsDialog::applySidebarStyle()
