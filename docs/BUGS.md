@@ -42,7 +42,7 @@ Potential scenarios awaiting investigation are tracked separately in
 
 ## Open reports
 
-### View mode button symbolic icon
+### Toolbar context menus and symbolic icons
 
 - Severity: not assessed
 - Status: Backlog; [#476](https://github.com/mikepadiernos/opus-file-manager/issues/476)
