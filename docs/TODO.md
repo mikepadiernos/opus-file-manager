@@ -3,8 +3,8 @@
 ## Complete M13 and M14 translations
 
 - M13 parent #26 is in Development. Catalogue issue #210 is in Review and
-  checked in the parent; Persian issue #211 and RTL issue #212 are in
-  Development. Issue #213 is Defined. The M13 branch is
+  checked in the parent; Persian issue #211, RTL issue #212 and Jalali issue
+  #213 are in Development. The M13 branch is
   `feature/M13-translations`.
 - The Persian catalogue is incomplete: 32 of 1,884 extracted messages are
   translated. Continue translating and review contexts, plural forms,
@@ -13,8 +13,10 @@
 - RTL startup direction, pane navigation, section headers, gallery navigation
   and preview gutters are implemented for #212. Verify the remaining interface
   and installed-app behavior for Persian, Arabic and Hebrew before Review.
-  Implement and verify Jalali dates (#213). Advance issues in project order,
-  check the parent checklist and strike roadmap features only when completed.
+  Implement and verify Jalali dates (#213): Qt's calendar-aware locale
+  formatting can be used, but date displays, listing date groups and M14
+  precedence need coordinated changes. Advance issues in project order, check
+  the parent checklist and strike roadmap features only when completed.
 - Complete M14 translation settings (#214-#219), including independent locale,
   language, calendar, custom date format, direction and digit choices. Merge
   each completed milestone and update its project status.
