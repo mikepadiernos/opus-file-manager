@@ -526,6 +526,13 @@ TagSpaces, alongside Opus-specific workspace layouts.
   arrangements, views, toolbars and panel placement or visibility for search,
   editor and terminal areas as they become available. Report unavailable
   features or providers when applying a workspace.
+- Extend each pane's existing location bar with Krusader-inspired breadcrumbs:
+  show full path segments or abbreviate ancestor segments to their first
+  letter while retaining leading underscores (for example, `__path` becomes
+  `__p`); always show the current folder's full name. Alternatively, show an
+  editable full path. Keep each breadcrumb navigable using its actual location,
+  reveal full names for abbreviated segments, and save each pane's chosen mode
+  in the workspace layout.
 - Confirm before overwriting a saved workspace or discarding unsaved layout
   changes; deleting a workspace removes its associations, not the underlying
   files, locations or tags
@@ -543,6 +550,9 @@ Settings for M13 workspaces, stored in KConfig.
   default, reusing the search settings from M10
 - **Layouts:** choose which workspace layout components to restore and confirm
   before overwriting saved layouts
+- **Pane location bars:** choose full breadcrumbs, abbreviated ancestor
+  breadcrumbs or an editable full path independently for each pane; restore
+  these choices with the workspace layout
 
 ### M15 Translations
 
