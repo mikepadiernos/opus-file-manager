@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "editorpanel.h"
+#include "localizeddates.h"
 #include "markdownexport.h"
 #include "safetextdocument.h"
 #include "settings.h"
@@ -556,7 +557,7 @@ void EditorPanel::showDrafts()
     setDraftError(error);
     m_draftChoice->clear();
     for (const auto &draft : std::as_const(m_availableDrafts)) {
-        m_draftChoice->addItem(QLocale().toString(QDateTime::fromMSecsSinceEpoch(draft.timestamp), QLocale::ShortFormat));
+        m_draftChoice->addItem(LocalizedDates::dateTime(QDateTime::fromMSecsSinceEpoch(draft.timestamp)));
     }
     m_recovery->setVisible(!m_availableDrafts.isEmpty());
 }

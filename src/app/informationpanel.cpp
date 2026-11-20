@@ -2,6 +2,8 @@
 
 #include "informationpanel.h"
 
+#include "localizeddates.h"
+
 #include <KIO/Global>
 #include <KLocalizedString>
 
@@ -13,21 +15,24 @@
 
 namespace
 {
-const QList<QPair<QString, QString>> Fields{
-    {QStringLiteral("size"), i18nc("@label:file information", "Size")},
-    {QStringLiteral("permissions"), i18nc("@label:file information", "Permissions")},
-    {QStringLiteral("octalPermissions"), i18nc("@label:file information", "Permissions (octal)")},
-    {QStringLiteral("owner"), i18nc("@label:file information", "Owner")},
-    {QStringLiteral("ownerAndGroup"), i18nc("@label:file information", "Owner and group")},
-    {QStringLiteral("creationTime"), i18nc("@label:file information", "Created")},
-    {QStringLiteral("modificationTime"), i18nc("@label:file information", "Modified")},
-    {QStringLiteral("accessTime"), i18nc("@label:file information", "Accessed")},
-    {QStringLiteral("mimeType"), i18nc("@label:file information", "MIME type")},
-    {QStringLiteral("friendlyMimeType"), i18nc("@label:file information", "File type")},
-    {QStringLiteral("linkDest"), i18nc("@label:file information", "Link target")},
-    {QStringLiteral("localPathOrUrl"), i18nc("@label:file information", "Path or URL")},
-    {QStringLiteral("comment"), i18nc("@label:file information", "Comment")},
-};
+QList<QPair<QString, QString>> fieldDefinitions()
+{
+    return {
+        {QStringLiteral("size"), i18nc("@label:file information", "Size")},
+        {QStringLiteral("permissions"), i18nc("@label:file information", "Permissions")},
+        {QStringLiteral("octalPermissions"), i18nc("@label:file information", "Permissions (octal)")},
+        {QStringLiteral("owner"), i18nc("@label:file information", "Owner")},
+        {QStringLiteral("ownerAndGroup"), i18nc("@label:file information", "Owner and group")},
+        {QStringLiteral("creationTime"), i18nc("@label:file information", "Created")},
+        {QStringLiteral("modificationTime"), i18nc("@label:file information", "Modified")},
+        {QStringLiteral("accessTime"), i18nc("@label:file information", "Accessed")},
+        {QStringLiteral("mimeType"), i18nc("@label:file information", "MIME type")},
+        {QStringLiteral("friendlyMimeType"), i18nc("@label:file information", "File type")},
+        {QStringLiteral("linkDest"), i18nc("@label:file information", "Link target")},
+        {QStringLiteral("localPathOrUrl"), i18nc("@label:file information", "Path or URL")},
+        {QStringLiteral("comment"), i18nc("@label:file information", "Comment")},
+    };
+}
 
 QString valueFor(const KFileItem &item, const QString &field)
 {
@@ -55,13 +60,13 @@ QString valueFor(const KFileItem &item, const QString &field)
         return i18nc("@info:file owner and group", "%1, %2", user, group);
     }
     if (field == QLatin1String("creationTime")) {
-        return item.timeString(KFileItem::CreationTime);
+        return LocalizedDates::fileTime(item, KFileItem::CreationTime);
     }
     if (field == QLatin1String("modificationTime")) {
-        return item.timeString(KFileItem::ModificationTime);
+        return LocalizedDates::fileTime(item, KFileItem::ModificationTime);
     }
     if (field == QLatin1String("accessTime")) {
-        return item.timeString(KFileItem::AccessTime);
+        return LocalizedDates::fileTime(item, KFileItem::AccessTime);
     }
     if (field == QLatin1String("mimeType")) {
         return item.mimetype();
@@ -93,10 +98,11 @@ InformationPanel::InformationPanel(QWidget *parent)
 
 void InformationPanel::setFields(const QStringList &fields)
 {
+    const auto definitions = fieldDefinitions();
     QStringList valid;
     for (const QString &field : fields) {
-        if (std::any_of(Fields.cbegin(),
-                        Fields.cend(),
+        if (std::any_of(definitions.cbegin(),
+                        definitions.cend(),
                         [&field](const auto &candidate) {
                             return candidate.first == field;
                         })
@@ -137,11 +143,12 @@ void InformationPanel::rebuild()
         m_layout->addRow(emptyMessage);
         return;
     }
+    const auto definitions = fieldDefinitions();
     for (const QString &field : m_fields) {
-        const auto definition = std::find_if(Fields.cbegin(), Fields.cend(), [&field](const auto &candidate) {
+        const auto definition = std::find_if(definitions.cbegin(), definitions.cend(), [&field](const auto &candidate) {
             return candidate.first == field;
         });
-        if (definition == Fields.cend()) {
+        if (definition == definitions.cend()) {
             continue;
         }
         auto *value = new QLabel(this);

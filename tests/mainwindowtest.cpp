@@ -18,6 +18,8 @@
 #include "folderview.h"
 #include "gallerywindow.h"
 #include "informationpanel.h"
+#include "interfacelanguage.h"
+#include "localizeddates.h"
 #include "metadataeditdialog.h"
 #include "pane.h"
 #include "previewpanel.h"
@@ -41,6 +43,7 @@
 #include <KToolBar>
 
 #include <QAbstractItemModel>
+#include <QApplication>
 #include <QBoxLayout>
 #include <QCheckBox>
 #include <QClipboard>
@@ -273,6 +276,34 @@ private Q_SLOTS:
         first->setUrl(QUrl::fromLocalFile(root.filePath(QStringLiteral("a/sub"))));
         QCOMPARE(second->url(), QUrl::fromLocalFile(root.filePath(QStringLiteral("b/sub"))));
         QVERIFY(link->isChecked());
+    }
+
+    void rightToLeftMirrorsPanesAndDetailsNavigation()
+    {
+        const auto previousDirection = QApplication::layoutDirection();
+        const auto restoreDirection = qScopeGuard([&] {
+            QApplication::setLayoutDirection(previousDirection);
+        });
+        QApplication::setLayoutDirection(InterfaceLanguage::layoutDirection({QStringLiteral("ar")}));
+        MainWindow window;
+        QCOMPARE(window.layoutDirection(), Qt::RightToLeft);
+        window.resize(1000, 600);
+        window.openUrls({m_a, m_b});
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        window.show();
+
+        auto *splitter = window.findChild<QSplitter *>(QStringLiteral("paneSplitter"));
+        QVERIFY(splitter);
+        QTRY_VERIFY(splitter->widget(0)->geometry().left() > splitter->widget(1)->geometry().left());
+        auto *view = window.activePane()->view();
+        view->setViewMode(FolderView::ViewMode::Details);
+        QSignalSpy up(view, &FolderView::goUpRequested);
+        QTest::keyClick(view->currentView(), Qt::Key_Right);
+        QCOMPARE(up.count(), 1);
+        window.setLayoutDirection(Qt::LeftToRight);
+        QTRY_VERIFY(splitter->widget(0)->geometry().left() < splitter->widget(1)->geometry().left());
+        QTest::keyClick(view->currentView(), Qt::Key_Left);
+        QCOMPARE(up.count(), 2);
     }
 
     void preferredPaneSwapUsesConfiguredOperation()
@@ -1741,6 +1772,10 @@ private Q_SLOTS:
         Settings::setPreviewSyntaxHighlighting(true);
         panel.applyPresentationSettings();
         QVERIFY(lineNumbers->isVisible());
+        panel.setLayoutDirection(Qt::RightToLeft);
+        QTRY_VERIFY(lineNumbers->geometry().left() >= source->viewport()->geometry().right());
+        panel.setLayoutDirection(Qt::LeftToRight);
+        QTRY_VERIFY(lineNumbers->geometry().right() <= source->viewport()->geometry().left());
         QTRY_VERIFY(!source->document()->firstBlock().layout()->formats().isEmpty());
         Settings::setPreviewSyntaxHighlighting(false);
         panel.applyPresentationSettings();
@@ -2716,6 +2751,43 @@ private Q_SLOTS:
         auto *icons = qobject_cast<QListView *>(view->currentView());
         QVERIFY(icons);
         QVERIFY(icons->gridSize().height() > 112);
+    }
+
+    void persianListingDateAndIsoOverride()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QFile file(directory.filePath(QStringLiteral("dated.txt")));
+        QVERIFY(file.open(QIODevice::ReadWrite));
+        QVERIFY(file.setFileTime(QDateTime(QDate(2024, 3, 20), QTime(13, 45, 37)), QFileDevice::FileModificationTime));
+        file.close();
+
+        const QLocale previousLocale;
+        auto config = KSharedConfig::openConfig()->group(QStringLiteral("View"));
+        const ViewSettings previousSettings = ViewSettings::fromConfig(config);
+        const auto restore = qScopeGuard([&] {
+            previousSettings.writeConfig(config);
+            QLocale::setDefault(previousLocale);
+        });
+        QLocale::setDefault(QLocale(QStringLiteral("fa_IR")));
+        ViewSettings settings = previousSettings;
+        settings.dateFormat = QStringLiteral("locale");
+        settings.showSeconds = false;
+        settings.writeConfig(config);
+
+        FolderView view;
+        view.setUrl(QUrl::fromLocalFile(directory.path()));
+        QTRY_COMPARE(view.itemCount(), 1);
+        auto *details = qobject_cast<QTreeView *>(view.currentView());
+        QVERIFY(details);
+        const QModelIndex date = details->model()->index(0, KDirModel::ModifiedTime);
+        QTRY_COMPARE(date.data().toString(), LocalizedDates::dateTime(QFileInfo(file.fileName()).lastModified()));
+        QVERIFY(date.data().toString().contains(QString::fromUtf8("۱۴۰۳")));
+
+        settings.dateFormat = QStringLiteral("iso");
+        settings.writeConfig(config);
+        view.reloadMetadata();
+        QCOMPARE(date.data().toString(), QStringLiteral("2024-03-20 13:45"));
     }
 
     void preferencesActionAppliesSettingsToOpenPanes()

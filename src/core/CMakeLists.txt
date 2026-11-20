@@ -33,8 +33,12 @@ add_library(opusfm_core STATIC
     labelcolor.h
     linkednavigation.cpp
     linkednavigation.h
+    localizeddates.cpp
+    localizeddates.h
     indexedsearch.cpp
     indexedsearch.h
+    interfacelanguage.cpp
+    interfacelanguage.h
     livesearch.cpp
     livesearch.h
     listingexport.cpp

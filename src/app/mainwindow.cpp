@@ -28,6 +28,7 @@
 #include "informationpanel.h"
 #include "labelcolor.h"
 #include "linkednavigation.h"
+#include "localizeddates.h"
 #include "pane.h"
 #include "pathfiltereditor.h"
 #include "previewpanel.h"
@@ -1959,7 +1960,7 @@ void MainWindow::updateStatusBar()
         if (!item.isDir()) {
             parts.append(KIO::convertSize(item.size()));
         }
-        parts.append(item.timeString(KFileItem::ModificationTime));
+        parts.append(LocalizedDates::fileTime(item));
         parts.append(item.permissionsString());
         if (item.isLink()) {
             parts.append(i18nc("@info:status symlink target", "→ %1", item.linkDest()));

@@ -516,11 +516,13 @@ Settings for M11 UI customizations, stored in KConfig.
 
 ### M13 Translations
 
-- Translation catalogues through `ki18n`, fed by the `i18n()` and `i18nc()`
-  calls already used throughout the code
-- Persian translation
-- Right-to-left layout, mirrored for Arabic and Hebrew too
-- Jalali (Persian) calendar dates
+- ~~Translation catalogues through `ki18n`, fed by the `i18n()` and `i18nc()`
+  calls already used throughout the code; provide extraction and installation
+  without requiring a translation into any particular language~~
+- ~~Right-to-left layout, mirrored for languages that use it~~
+- ~~Jalali (Persian) calendar dates~~
+
+**Caveats:** [Jalali dates](CAVEATS.md#jalali-dates), tracked in [#436].
 
 ### M14 Translation settings
 
@@ -764,6 +766,13 @@ Settings for M21 workspaces, stored in KConfig.
 
 - `org.freedesktop.FileManager1` D-Bus service
 - Deep integration with ARK
+- KDE Plasma language integration: reuse M13 translation catalogues and M14
+  language and regional-format preferences with supported KDE and Qt
+  facilities. Follow Plasma's language preferences when no app-specific
+  override is selected, fall back to source text when an Opus catalogue is
+  unavailable, and offer access to Plasma's language settings when supported.
+  Do not modify shared desktop settings without explicit user action or
+  require a translation into a particular language.
 - Deep AppImage, Flatpak and Snap integration: identify packages and show
   available application details and actions in the file manager. Support
   AppImage launching and optional desktop integration, and use the respective
@@ -1158,3 +1167,4 @@ document feature limitations in [caveats and limitations](CAVEATS.md).
 [#406]: https://github.com/mikepadiernos/opus-file-manager/issues/406
 [#433]: https://github.com/mikepadiernos/opus-file-manager/issues/433
 [#434]: https://github.com/mikepadiernos/opus-file-manager/issues/434
+[#436]: https://github.com/mikepadiernos/opus-file-manager/issues/436

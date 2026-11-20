@@ -59,18 +59,22 @@ protected:
 
         const int margin = 6;
         const int arrowSize = style()->pixelMetric(QStyle::PM_SmallIconSize, nullptr, this);
-        const QRect arrowRect(width() - margin - arrowSize, (height() - arrowSize) / 2, arrowSize, arrowSize);
-        const QRect textRect(margin, 0, qMax(0, arrowRect.left() - 2 * margin), height());
+        const QRect arrowRect =
+            QStyle::visualRect(layoutDirection(), rect(), QRect(width() - margin - arrowSize, (height() - arrowSize) / 2, arrowSize, arrowSize));
+        const QRect textRect = QStyle::visualRect(layoutDirection(), rect(), QRect(margin, 0, qMax(0, width() - 3 * margin - arrowSize), height()));
         painter.drawItemText(textRect,
-                             Qt::AlignLeft | Qt::AlignVCenter,
+                             QStyle::visualAlignment(layoutDirection(), Qt::AlignLeft | Qt::AlignVCenter),
                              palette(),
                              isEnabled(),
-                             fontMetrics().elidedText(text(), Qt::ElideRight, textRect.width()),
+                             fontMetrics().elidedText(text(), layoutDirection() == Qt::RightToLeft ? Qt::ElideLeft : Qt::ElideRight, textRect.width()),
                              QPalette::ButtonText);
         QStyleOption arrow;
         arrow.initFrom(this);
         arrow.rect = arrowRect;
-        painter.drawPrimitive(arrowType() == Qt::DownArrow ? QStyle::PE_IndicatorArrowDown : QStyle::PE_IndicatorArrowRight, arrow);
+        const auto indicator = arrowType() == Qt::DownArrow ? QStyle::PE_IndicatorArrowDown
+            : layoutDirection() == Qt::RightToLeft          ? QStyle::PE_IndicatorArrowLeft
+                                                            : QStyle::PE_IndicatorArrowRight;
+        painter.drawPrimitive(indicator, arrow);
     }
 };
 
