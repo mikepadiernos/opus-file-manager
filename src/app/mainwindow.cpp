@@ -3121,7 +3121,7 @@ void MainWindow::saveSplitterSizes()
         const int dimension = right ? width() : height();
         if (dimension > 0) {
             group.writeEntry(right ? "EditorDockRight" : "EditorDockBelow",
-                             qBound(1, int(qint64(right ? m_editorDock->width() : m_editorDock->height()) * 10000 / dimension), 10000));
+                             qBound(1, int(qint64(right ? m_editorDock->width() : m_editorDock->height()) * 10000 / dimension), 6000));
         }
     }
     state->sync();
@@ -3131,7 +3131,7 @@ void MainWindow::restoreSplitterSizes(bool panes, bool workspace, bool defaultsI
 {
     const KConfigGroup group =
         KSharedConfig::openStateConfig()->group(QLatin1String(SplitterSizesGroup)).group(QLatin1String(isStackedLayout() ? "Stacked" : "SideBySide"));
-    const auto restore = [&group, defaultsIfMissing](QSplitter *splitter, const QList<QPair<QWidget *, QString>> &widgets, const QList<int> &defaults) {
+    const auto restore = [this, &group, defaultsIfMissing](QSplitter *splitter, const QList<QPair<QWidget *, QString>> &widgets, const QList<int> &defaults) {
         QList<int> sizes(splitter->count(), 2500);
         bool saved = false;
         for (const auto &[widget, key] : widgets) {
@@ -3142,6 +3142,54 @@ void MainWindow::restoreSplitterSizes(bool panes, bool workspace, bool defaultsI
             }
         }
         if (saved) {
+            const auto preservePrimaryArea = [&sizes, splitter](QWidget *primary, QWidget *secondary, int minimumTotalShare) {
+                const int primaryIndex = splitter->indexOf(primary);
+                const int secondaryIndex = splitter->indexOf(secondary);
+                if (primaryIndex < 0 || secondaryIndex < 0 || primary->isHidden() || secondary->isHidden()) {
+                    return;
+                }
+                int total = 0;
+                int otherTotal = 0;
+                for (int i = 0; i < splitter->count(); ++i) {
+                    if (splitter->widget(i)->isHidden()) {
+                        continue;
+                    }
+                    total += sizes.at(i);
+                    if (i != primaryIndex && i != secondaryIndex) {
+                        otherTotal += sizes.at(i);
+                    }
+                }
+                if (total <= 0) {
+                    return;
+                }
+                const int primaryBudget = qMax(total * minimumTotalShare / 10000, total - otherTotal);
+                const int otherBudget = total - primaryBudget;
+                const int otherRemaining = otherBudget;
+                if (otherTotal > 0) {
+                    for (int i = 0; i < splitter->count(); ++i) {
+                        if (!splitter->widget(i)->isHidden() && i != primaryIndex && i != secondaryIndex) {
+                            sizes[i] = qMax(1, int(qint64(sizes.at(i)) * otherRemaining / otherTotal));
+                        }
+                    }
+                }
+                const int primaryTotal = sizes.at(primaryIndex) + sizes.at(secondaryIndex);
+                const int firstShare = primaryTotal > 0 ? int(qint64(primaryBudget) * sizes.at(primaryIndex) / primaryTotal) : primaryBudget / 2;
+                const int minimumPane = primaryBudget / 4;
+                sizes[primaryIndex] = qBound(minimumPane, firstShare, primaryBudget - minimumPane);
+                sizes[secondaryIndex] = primaryBudget - sizes.at(primaryIndex);
+            };
+            if (splitter == m_splitter) {
+                preservePrimaryArea(m_left, m_right, 6000);
+            } else if (splitter == m_workspaceSplitter && !m_terminalPanel->isHidden()) {
+                const int workspaceIndex = splitter->indexOf(m_splitter);
+                const int terminalIndex = splitter->indexOf(m_terminalPanel);
+                if (workspaceIndex >= 0 && terminalIndex >= 0) {
+                    const int total = sizes.at(workspaceIndex) + sizes.at(terminalIndex);
+                    const int primary = qMax(total * 6000 / 10000, sizes.at(workspaceIndex));
+                    sizes[workspaceIndex] = primary;
+                    sizes[terminalIndex] = total - primary;
+                }
+            }
             splitter->setSizes(sizes);
         } else if (defaultsIfMissing) {
             splitter->setSizes(defaults);
@@ -3170,7 +3218,7 @@ void MainWindow::restoreEditorDockSize()
     const bool right = dockWidgetArea(m_editorDock) == Qt::RightDockWidgetArea;
     const char *key = right ? "EditorDockRight" : "EditorDockBelow";
     if (group.hasKey(key)) {
-        const int fraction = qBound(1, group.readEntry(key, 2500), 10000);
+        const int fraction = qBound(1, group.readEntry(key, 2500), 6000);
         const int dimension = right ? width() : height();
         resizeDocks({m_editorDock}, {qMax(1, int(qint64(dimension) * fraction / 10000))}, right ? Qt::Horizontal : Qt::Vertical);
     }

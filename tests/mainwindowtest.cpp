@@ -520,7 +520,7 @@ private Q_SLOTS:
         QCOMPARE(panes->count(), 4);
         panes->setSizes({600, 450, 300, 250});
         save->trigger();
-        const KConfigGroup side = sizes.group(QStringLiteral("SideBySide"));
+        KConfigGroup side = sizes.group(QStringLiteral("SideBySide"));
         const int previewSize = side.readEntry("Preview", 0);
         const int editorSize = side.readEntry("Editor", 0);
         QVERIFY(previewSize > 0 && editorSize > 0);
@@ -547,6 +547,21 @@ private Q_SLOTS:
         QVERIFY(qAbs(dock->width() * 10000 / window.width() - dockSize) < 400);
         previewAction->setChecked(false);
         dock->hide();
+        placePanel->trigger();
+        side.writeEntry("EditorDockRight", 10000);
+        placeRight->trigger();
+        QCoreApplication::processEvents();
+        QVERIFY(dock->width() * 10000 / window.width() <= 6500);
+
+        side.writeEntry("FirstPane", 1);
+        side.writeEntry("SecondPane", 9999);
+        restored.setStackedLayout(true);
+        restored.setStackedLayout(false);
+        QTRY_VERIFY(restoredPanes->sizes().at(0) > 0);
+        const QList<int> safeSizes = restoredPanes->sizes();
+        const int paneTotal = safeSizes.at(0) + safeSizes.at(1);
+        QVERIFY(safeSizes.at(0) * 100 / paneTotal >= 15);
+        QVERIFY(safeSizes.at(1) * 100 / paneTotal >= 15);
 
         KConfigGroup sideConfig = sizes.group(QStringLiteral("SideBySide"));
         sideConfig.writeEntry("FirstPane", -100);
