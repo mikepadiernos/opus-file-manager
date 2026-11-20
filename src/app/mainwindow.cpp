@@ -88,6 +88,7 @@
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QFutureWatcher>
+#include <QHBoxLayout>
 #include <QInputDialog>
 #include <QLabel>
 #include <QLayout>
@@ -368,6 +369,10 @@ void MainWindow::connectPane(Pane *pane)
             updateWindowTitle();
             syncFolderTrees();
         } else if (m_active) {
+            if (Settings::statusBarLayout() == Settings::EnumStatusBarLayout::PerPane) {
+                updateStatusBar();
+                updateFreeSpace(pane);
+            }
             updateActions();
         }
     });
@@ -381,8 +386,8 @@ void MainWindow::connectPane(Pane *pane)
         showContextMenu(pane, pos, items);
     });
     connect(pane->view(), &FolderView::selectionChanged, this, [this, pane] {
+        updateStatusBar();
         if (pane == m_active) {
-            updateStatusBar();
             updatePreviewPanel();
         }
         if (m_active) {
@@ -407,8 +412,8 @@ void MainWindow::connectPane(Pane *pane)
         trash();
     });
     connect(pane->view(), &FolderView::itemCountChanged, this, [this, pane] {
+        updateStatusBar();
         if (pane == m_active) {
-            updateStatusBar();
             updatePreviewPanel();
         }
     });
@@ -886,6 +891,22 @@ void MainWindow::setupStatusBar()
     statusBar()->addWidget(m_itemsLabel);
     statusBar()->addWidget(m_messageLabel, 1);
     statusBar()->addPermanentWidget(m_freeSpaceLabel);
+    for (Pane *pane : {m_left, m_right}) {
+        auto *bar = new QWidget(pane);
+        auto *layout = new QHBoxLayout(bar);
+        layout->setContentsMargins(4, 0, 4, 0);
+        layout->setSpacing(8);
+        auto *items = new QLabel(bar);
+        items->setObjectName(pane == m_left ? QStringLiteral("leftItemsLabel") : QStringLiteral("rightItemsLabel"));
+        auto *freeSpace = new QLabel(bar);
+        freeSpace->setObjectName(pane == m_left ? QStringLiteral("leftFreeSpaceLabel") : QStringLiteral("rightFreeSpaceLabel"));
+        layout->addWidget(items);
+        layout->addStretch();
+        layout->addWidget(freeSpace);
+        pane->setStatusBarWidget(bar);
+        m_paneItemsLabels.insert(pane, items);
+        m_paneFreeSpaceLabels.insert(pane, freeSpace);
+    }
 }
 
 void MainWindow::setupActions()
@@ -1744,13 +1765,13 @@ void MainWindow::updateActions()
 
 void MainWindow::updateStatusBar()
 {
-    FolderView *view = activePane()->view();
-    const KFileItemList selected = view->selectedItems();
-    const int total = view->itemCount();
-
-    if (selected.isEmpty()) {
-        m_itemsLabel->setText(i18ncp("@info:status", "%1 item", "%1 items", total));
-    } else {
+    const bool perPane = Settings::statusBarLayout() == Settings::EnumStatusBarLayout::PerPane;
+    const auto itemText = [](Pane *pane) {
+        const KFileItemList selected = pane->view()->selectedItems();
+        const int total = pane->view()->itemCount();
+        if (selected.isEmpty()) {
+            return i18ncp("@info:status", "%1 item", "%1 items", total);
+        }
         KIO::filesize_t size = 0;
         int folders = 0;
         for (const KFileItem &item : selected) {
@@ -1760,14 +1781,25 @@ void MainWindow::updateStatusBar()
                 size += item.size();
             }
         }
-        const int files = selected.size() - folders;
         QString text = i18ncp("@info:status", "%1 of %2 selected", "%1 of %2 selected", selected.size(), total);
-        if (files > 0 && Settings::showSelectionSize()) {
+        if (selected.size() > folders && Settings::showSelectionSize()) {
             text += QStringLiteral(" (%1)").arg(KIO::convertSize(size));
         }
-        m_itemsLabel->setText(text);
+        return text;
+    };
+    for (Pane *pane : {m_left, m_right}) {
+        const bool showCounts = Settings::showItemCounts();
+        const bool showFreeSpace = Settings::showFreeSpace();
+        m_paneItemsLabels.value(pane)->setText(itemText(pane));
+        m_paneItemsLabels.value(pane)->setVisible(perPane && showCounts);
+        m_paneFreeSpaceLabels.value(pane)->setVisible(perPane && showFreeSpace);
+        pane->statusBarWidget()->setVisible(perPane && (showCounts || showFreeSpace));
     }
+    m_itemsLabel->setText(itemText(activePane()));
+    m_itemsLabel->setVisible(!perPane && Settings::showItemCounts());
+    m_freeSpaceLabel->setVisible(!perPane && Settings::showFreeSpace());
 
+    const KFileItemList selected = activePane()->view()->selectedItems();
     if (selected.size() == 1) {
         const KFileItem &item = selected.first();
         QStringList parts{item.text(), item.mimeComment()};
@@ -1785,25 +1817,39 @@ void MainWindow::updateStatusBar()
     }
 }
 
-void MainWindow::updateFreeSpace()
+void MainWindow::updateFreeSpace(Pane *pane)
 {
-    const QUrl url = activePane()->url();
-    if (!url.isValid() || !Settings::showFreeSpace()) {
-        m_freeSpaceLabel->clear();
-        return;
-    }
-    KIO::FileSystemFreeSpaceJob *job = KIO::fileSystemFreeSpace(url);
-    connect(job, &KJob::result, this, [this, job, url] {
-        if (url != activePane()->url()) {
-            return;
-        }
-        if (job->error()) {
+    const bool perPane = Settings::statusBarLayout() == Settings::EnumStatusBarLayout::PerPane;
+    const QList<Pane *> panes = pane ? QList<Pane *>{pane} : (perPane ? QList<Pane *>{m_left, m_right} : QList<Pane *>{activePane()});
+    for (Pane *target : panes) {
+        QLabel *label = m_paneFreeSpaceLabels.value(target);
+        const QUrl url = target->url();
+        label->clear();
+        if (target == activePane()) {
             m_freeSpaceLabel->clear();
-            return;
         }
-        m_freeSpaceLabel->setText(
-            i18nc("@info:status free disk space", "%1 free of %2", KIO::convertSize(job->availableSize()), KIO::convertSize(job->size())));
-    });
+        if (!url.isValid() || !Settings::showFreeSpace()) {
+            continue;
+        }
+        KIO::FileSystemFreeSpaceJob *job = KIO::fileSystemFreeSpace(url);
+        connect(job, &KJob::result, this, [this, job, target, url] {
+            if (url != target->url()) {
+                return;
+            }
+            if (job->error()) {
+                m_paneFreeSpaceLabels.value(target)->clear();
+                if (target == activePane()) {
+                    m_freeSpaceLabel->clear();
+                }
+                return;
+            }
+            const QString text = i18nc("@info:status free disk space", "%1 free of %2", KIO::convertSize(job->availableSize()), KIO::convertSize(job->size()));
+            m_paneFreeSpaceLabels.value(target)->setText(text);
+            if (target == activePane()) {
+                m_freeSpaceLabel->setText(text);
+            }
+        });
+    }
 }
 
 void MainWindow::updateWindowTitle()
@@ -3269,8 +3315,6 @@ void MainWindow::applySettings()
     setBarMargin(m_left->navigationBar(), barMargin);
     setBarMargin(m_right->navigationBar(), barMargin);
     applyPanelSettings();
-    m_itemsLabel->setVisible(Settings::showItemCounts());
-    m_freeSpaceLabel->setVisible(Settings::showFreeSpace());
     updateStatusBar();
     updateFreeSpace();
 

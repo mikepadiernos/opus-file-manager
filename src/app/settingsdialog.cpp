@@ -1040,6 +1040,8 @@ QWidget *SettingsDialog::createStatusBarPage()
 {
     auto *page = new QWidget;
     auto *form = new QFormLayout(page);
+    form->addRow(i18nc("@label:listbox", "Status indicators:"),
+                 comboBox(QStringLiteral("StatusBarLayout"), {i18nc("@item:inlistbox", "Shared"), i18nc("@item:inlistbox", "One per pane")}));
     form->addRow(QString(), checkBox(QStringLiteral("ShowItemCounts"), i18nc("@option:check", "Number of items and selected items")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowSelectionSize"), i18nc("@option:check", "Size of the selected files")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowFreeSpace"), i18nc("@option:check", "Free space")));

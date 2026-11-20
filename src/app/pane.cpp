@@ -105,6 +105,10 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     m_layout->addWidget(m_tabStrip);
     m_layout->addWidget(m_navigationBar);
     m_layout->addWidget(m_view, 1);
+    m_statusBarWidget = new QWidget(this);
+    m_statusBarWidget->setObjectName(QStringLiteral("paneStatusBar"));
+    m_statusBarWidget->hide();
+    m_layout->addWidget(m_statusBarWidget);
     m_filterBar = new FilterBar(this);
     m_defaultFilterScope = Settings::defaultFilterScope();
     m_layout->addWidget(m_filterBar);
@@ -400,6 +404,27 @@ bool Pane::isNavigationBarVisible() const
 QWidget *Pane::navigationBar() const
 {
     return m_navigationBar;
+}
+
+void Pane::setStatusBarWidget(QWidget *widget)
+{
+    if (m_statusBarWidget == widget) {
+        return;
+    }
+    if (m_statusBarWidget) {
+        m_layout->removeWidget(m_statusBarWidget);
+        m_statusBarWidget->deleteLater();
+    }
+    m_statusBarWidget = widget;
+    if (m_statusBarWidget) {
+        m_statusBarWidget->setParent(this);
+        m_layout->insertWidget(m_layout->indexOf(m_filterBar), m_statusBarWidget);
+    }
+}
+
+QWidget *Pane::statusBarWidget() const
+{
+    return m_statusBarWidget;
 }
 
 void Pane::setBarDensity(const QString &density)

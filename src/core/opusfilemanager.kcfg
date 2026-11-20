@@ -514,6 +514,14 @@
     <entry name="PinnedItemsFirst" type="Bool"><default>true</default></entry>
   </group>
   <group name="StatusBar">
+    <entry name="StatusBarLayout" type="Enum">
+      <label>Whether status indicators are shared or shown separately in each pane</label>
+      <choices>
+        <choice name="Shared"/>
+        <choice name="PerPane"/>
+      </choices>
+      <default>Shared</default>
+    </entry>
     <entry name="ShowItemCounts" type="Bool">
       <label>Show the number of items and selected items</label>
       <default>true</default>

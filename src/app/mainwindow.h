@@ -101,7 +101,7 @@ private:
     void connectPane(Pane *pane);
     void updateActions();
     void updateStatusBar();
-    void updateFreeSpace();
+    void updateFreeSpace(Pane *pane = nullptr);
     void updateWindowTitle();
     void updateTabBars();
     void showStatusMessage(const QString &message);
@@ -241,6 +241,8 @@ private:
     QLabel *m_itemsLabel = nullptr;
     QLabel *m_messageLabel = nullptr;
     QLabel *m_freeSpaceLabel = nullptr;
+    QHash<Pane *, QLabel *> m_paneItemsLabels;
+    QHash<Pane *, QLabel *> m_paneFreeSpaceLabels;
     KToggleAction *m_dualLayoutAction = nullptr;
     KToggleAction *m_stackedLayoutAction = nullptr;
     KToggleAction *m_hiddenFilesAction = nullptr;

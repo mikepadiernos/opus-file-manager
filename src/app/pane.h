@@ -85,6 +85,8 @@ public:
     void setNavigationBarVisible(bool visible);
     bool isNavigationBarVisible() const;
     QWidget *navigationBar() const;
+    void setStatusBarWidget(QWidget *widget);
+    QWidget *statusBarWidget() const;
 
     /**
      * Chooses where openInNewTab() and newTab() insert tabs.
@@ -142,6 +144,7 @@ private:
     QToolButton *m_up = nullptr;
     QToolButton *m_reload = nullptr;
     QWidget *m_navigationBar = nullptr;
+    QWidget *m_statusBarWidget = nullptr;
     KUrlNavigator *m_navigator = nullptr;
     TabColors *m_colors = nullptr;
     FolderView *m_view = nullptr;
