@@ -931,9 +931,11 @@ project when work starts.
 
 Work on each milestone in a `feature/M##-name` branch. A milestone is complete
 when every feature item is struck through; commit its changes by scope, push
-the branch and merge it into `main`. Strike out implemented features even when
-they have known caveats; create a GitHub caveat report for each outstanding
-caveat, linking its entry in [Caveats and limitations](CAVEATS.md), and put
-caveat references at the end of the milestone. Leave unimplemented or
-unverified features unstruck. Work on bug and caveat issues in their own
-branches; commit fixes by scope, push and merge them into `main`.
+the branch and merge it into `main`. Leave features in Review unstruck; strike
+out a feature when its issue moves to Completed, even when it has known caveats.
+Create a GitHub caveat report for each outstanding caveat, linking its entry
+in [Caveats and limitations](CAVEATS.md), and put caveat references at the end
+of the milestone. Leave unimplemented or unverified features unstruck. Work on
+bug and caveat issues in their own branches; commit fixes by scope, push and
+merge them into `main`. See [project workflow](../CLAUDE.md#project-workflow)
+for issue status and closure rules.

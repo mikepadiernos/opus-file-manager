@@ -1,8 +1,12 @@
 # Opus File Manager
 
-Dual-pane file manager for KDE Plasma: C++20, Qt 6 Widgets, KDE Frameworks 6.
-Linux only. See `docs/ROADMAP.md` for architecture, decisions and milestones,
-and `docs/parity/` for the upstream behaviour being matched.
+Opus is a Linux-only, dual-pane file manager for KDE Plasma, built with C++20,
+Qt 6 Widgets and KDE Frameworks 6.
+
+- `docs/ROADMAP.md` is the authoritative milestone and architecture plan.
+- `docs/parity/` records the upstream behaviour being referenced, not
+  necessarily Opus's current behaviour.
+- `docs/CAVEATS.md` records limitations of implemented features.
 
 ## Commands
 
@@ -14,83 +18,115 @@ cmake --build build --target clang-format   # format all C++ sources
 ./build/bin/opus-file-manager [path...]
 ```
 
-## Conventions
+## Implementation conventions
 
-- Logic without widgets goes in `src/core/` and gets QtTest coverage in
-  `tests/`. Widgets go in `src/app/`.
-- Prefer an existing KDE Frameworks class over custom code (KIO jobs, KXmlGui
-  actions, `KFileItemActions`, `KFilePlacesView`).
-- User-visible strings go through `i18n()` / `i18nc()`.
-- Use Plasma's active icon theme as the primary icon source via
+- Put non-widget logic in `src/core/`, with QtTest coverage in `tests/`.
+  Put widgets in `src/app/`.
+- Prefer KDE Frameworks facilities to custom implementations, including KIO
+  jobs, KXmlGui actions, `KFileItemActions` and `KFilePlacesView`.
+- Localize user-visible strings with `i18n()` or `i18nc()`.
+- Use Plasma's active icon theme as the primary source via
   `QIcon::fromTheme()`; do not bundle or hard-code a replacement icon theme.
-  Prefer the theme's `-symbolic` variant for icons rendered at 24 logical
-  pixels or smaller, and use the regular variant at larger sizes. Route small
-  theme icons through `SymbolicIcon::fromTheme()` or `SymbolicIcon::wrap()`.
-- Settings use KConfig; session state uses `KSharedConfig::openStateConfig()`.
-- Tests must never touch the real home folder, trash or config: use
+  At 24 logical pixels or smaller, prefer the `-symbolic` variant and use
+  `SymbolicIcon::fromTheme()` or `SymbolicIcon::wrap()`. Use regular variants
+  for larger icons.
+- Store settings in KConfig and session state through
+  `KSharedConfig::openStateConfig()`.
+- Keep tests isolated from the real home folder, trash and configuration. Use
   `QTemporaryDir` and `QStandardPaths::setTestModeEnabled(true)`.
 
-## Roadmap format
+## Roadmap and feature status
 
-- Keep `docs/ROADMAP.md` in its detailed milestone format, with individual
-  feature bullets and subheadings.
-- Strike through completed features individually with `~~...~~`; do not strike
-  through milestone headings or replace feature lists with a consolidated
-  completion paragraph. Strikethroughs alone indicate completion; do not add a
-  separate "Done so far" summary.
-- Leave unfinished features unstruck.
-- After completing a milestone feature, strike out its roadmap item as part of
-  the same change.
-- Strike out implemented features even when they have known caveats. Record
-  each outstanding caveat in a GitHub caveat report that links to its entry in
-  `docs/CAVEATS.md`, and put caveat references at the end of the milestone.
-  Do not treat unimplemented or unverified features as complete.
-- When updating milestone status, scan the current checkout for implementation
-  evidence and strike completed features without changing the existing format;
-  leave incomplete or unverified portions unstruck.
+- Preserve the roadmap's detailed milestone headings, subheadings and
+  individual feature bullets. Do not strike milestone headings, replace
+  feature lists with completion paragraphs, or add a "Done so far" summary.
+- Strikethrough (`~~...~~`) is the only roadmap completion marker. Strike an
+  individual feature only when its issue moves to **Completed** or is already
+  **Merged**. Features in **Review** or earlier remain unstruck, even if their
+  implementation is finished.
+- Before marking a feature complete, verify its implementation in the current
+  checkout and check its issue status. Leave unimplemented or unverified
+  features unstruck.
+- A completed feature may still have caveats. Strike it out, record each
+  outstanding caveat as described below, and reference those caveats at the
+  end of the milestone.
 
-## Tracking
+## Issues and caveats
 
-Prefix user-reported bug titles with `[bug] ` and label them `bug`. Prefix
-reports arising from documented caveats with `[caveat] ` and label them
-`caveat`. Move a milestone, bug or caveat issue to Development on the GitHub
-project when work starts.
+- Prefix user-reported bug titles with `[bug] ` and apply the `bug` label.
+- Prefix reports arising from documented caveats with `[caveat] ` and apply the
+  `caveat` label.
+- When work on a milestone, bug or caveat begins, move its issue to
+  **Development** on the project board, unless it is already further along.
 
-For each new or updated caveat, keep `docs/CAVEATS.md` and its project issue
-aligned:
+For every new or updated caveat, keep the documentation, issue and
+recommendation aligned:
 
-- Document the limitation and a practical recommendation, distinguishing
-  workarounds and proposed improvements from implemented features.
-- Link the caveat and its `[caveat]` issue to each other, and add the issue to
-  the project board.
-- Post the recommendation in a comment on the issue and link to that comment
-  from the document; update the comment when the recommendation changes rather
-  than leaving conflicting guidance.
+1. Describe the limitation and a practical recommendation in `docs/CAVEATS.md`.
+   Distinguish current behaviour from workarounds and proposed improvements.
+2. Link the caveat and its `[caveat]` issue to each other, and add the issue
+   to the project board.
+3. Post the recommendation as an issue comment and link to it from the
+   document. If the recommendation changes, update that comment rather than
+   leaving conflicting guidance.
 
-Work on each milestone in a corresponding `feature/M##-name` branch. When a
-milestone is complete, commit its changes by scope, push the branch, then merge
-it into `main`. A milestone is complete only when all its feature items are
-struck through in the roadmap. Work on bug and caveat issues in their own
-branches and follow the same scoped commit, push and merge process when fixed.
+## Branches and merging
+
+- Work on each milestone in its `feature/M##-name` branch. Work on bug and
+  caveat issues in their own branches.
+- A milestone is feature-complete only when all its roadmap feature items are
+  struck through. Once complete, commit changes by scope, push the branch and
+  merge it into `main`.
+- For a fixed bug or caveat, likewise commit changes by scope, push its branch
+  and merge it into `main`.
+
+## Unattended milestone work
+
+When the user explicitly requests milestone work without interaction, continue
+without asking for routine confirmation: complete and verify every feature in
+the current milestone, follow the project workflow, and merge the milestone
+into `main`. Then proceed to the next incomplete roadmap milestone in order and
+repeat until all milestones are complete and merged or the user stops the work.
+
+Do not treat unfinished or unverified work as complete. If an essential action
+is blocked and cannot be resolved without user input or required approval, report
+the blocker and pending work rather than claiming completion. Handle blocked
+GitHub Projects access as described below.
 
 ## Project workflow
 
 Use the [Opus project board](https://github.com/users/mikepadiernos/projects/3)
-to track each milestone's parent issue and its feature sub-issues:
+for milestone parent issues and feature sub-issues. The status sequence is
+**Backlog → Defined → Development → Review → Completed → Merged**. Do not move
+an item backward.
 
-- When starting a milestone, set its parent and not-yet-started items to
-  **Defined**, and record the parent's **Start date**. Do not move items
-  already in Development, Review or Completed backwards.
-- When starting an item, move it and its parent to **Development** and record
-  the item's **Start date**.
-- When an item is completed, move it to **Review**, set its **Target date** to
-  the completion date, check it in the parent issue and strike it out in the
-  local roadmap as part of the same change. When the next item in the same
-  milestone moves to **Review**, move the previous item from **Review** to
-  **Completed**.
-- When all milestone items are struck out, set the parent milestone's
-  **Target date** to the completion date.
-- Once a feature-complete milestone has been merged into `main`, close its
-  milestone issue and related feature issues and sub-issues as completed, and
-  ensure their project status is **Completed**. Keep unresolved bug and caveat
-  issues open.
+If GitHub Projects access is blocked, update `docs/ROADMAP.md` with a concise
+pending synchronization note identifying the affected issues, intended board
+actions and relevant dates. Do not use the note as a completion marker or
+strike a feature before its issue is confirmed in Completed or Merged. When
+access returns, check the current board and issue states, apply the pending
+actions without moving anything backward, and update the roadmap accordingly.
+Remove the note once synchronization is complete.
+
+1. **Start a milestone:** Move its parent and not-yet-started feature issues
+   to Defined, without moving any more advanced item backward. Record the
+   parent's **Start date**.
+2. **Start a feature:** Move the feature and its parent to Development, unless
+   either is already further along. Record the feature's **Start date**.
+3. **Finish implementation:** Move the feature to Review, set its
+   **Target date** to the completion date and check it in the parent issue.
+   Leave its roadmap item unstruck.
+4. **Advance the previous feature:** When the next feature in the same
+   milestone moves to Review, move the previous feature from Review to
+   Completed. Once the final feature is ready to finish, move it from Review to
+   Completed as well.
+5. **Complete an issue:** When moving an issue to Completed, close it with the
+   completed reason. For a milestone feature, also strike its roadmap item in
+   the same change.
+6. **Complete a milestone:** When every feature is struck out, set the parent
+   issue's **Target date** to the completion date.
+7. **Merge:** When an issue's changes are merged into `main`, move the issue to
+   Merged and keep it closed with the completed reason. Once a feature-complete
+   milestone is merged, close its parent and related feature issues as
+   completed and move them to Merged. Keep unresolved bug and caveat issues
+   open.
