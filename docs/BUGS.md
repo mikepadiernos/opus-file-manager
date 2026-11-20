@@ -15,7 +15,7 @@ A bug is considered complete only when its project status is **Completed** or
 | [#37](https://github.com/mikepadiernos/opus-file-manager/issues/37) | Combined panel header and accordion titles are misaligned | Yes | Merged |
 | [#378](https://github.com/mikepadiernos/opus-file-manager/issues/378) | Embedded Konsole terminal does not honor profile background blur | Yes | Merged |
 | [#383](https://github.com/mikepadiernos/opus-file-manager/issues/383) | Editor settings should use the notepad symbolic icon | Yes | Merged |
-| [#444](https://github.com/mikepadiernos/opus-file-manager/issues/444) | Separators and expanded space are not reflected | No | Development |
+| [#444](https://github.com/mikepadiernos/opus-file-manager/issues/444) | KDE toolbar editor separators and spacers do not match the toolbar | Yes | Completed |
 | [#446](https://github.com/mikepadiernos/opus-file-manager/issues/446) | Metadata editing fails with an unusable ExifTool installation | Yes | Merged |
 
 ## Status legend
@@ -34,24 +34,21 @@ A bug is considered complete only when its project status is **Completed** or
 - Keep the board issue and this log synchronized whenever status changes.
 - Verify the linked issue and board state before marking a bug as resolved.
 
-## UI report
+## Completed reports
 
-### Separators and expanded spacing do not reflect the current tree state
+### KDE toolbar editor separators and spacers
 
 - Severity: medium
-- Status: Development; [#444](https://github.com/mikepadiernos/opus-file-manager/issues/444)
-  remains open pending clarification.
-- Report: separators and expanded space are not reflecting in the displayed UI.
-- Evidence: the original screenshot shows a main toolbar, Explorer panel and
-  details-view folder tree, but does not identify which separator or spacer was
-  configured or show the settings used. The earlier tree-specific diagnosis was
-  speculative. A synthetic tree height check did not reproduce a failure.
-- Partial fix: [#452](https://github.com/mikepadiernos/opus-file-manager/pull/452)
-  preserves the default expanding toolbar spacer when saving a layout.
-- Follow-up: See [pending tasks](TODO.md#clarify-separators-and-expanded-space-444)
-  for the reproduction details needed before a fix can be verified.
-
-## Completed reports
+- Status: Completed; [#444](https://github.com/mikepadiernos/opus-file-manager/issues/444)
+- Summary: Separators and expanding spacers in KDE's toolbar editor did not
+  match the live or restored toolbar.
+- Evidence: The reporter's screenshots identify the KDE toolbar editor and the
+  resulting toolbar. KDE replaced the toolbar on Apply, leaving Opus with the
+  old toolbar and saved layout.
+- Resolution: Synchronize the editor with the current layout and save the
+  rebuilt toolbar. [#452](https://github.com/mikepadiernos/opus-file-manager/pull/452)
+  also preserves the default spacer when saving. Previously overridden layouts
+  must be configured and applied again.
 
 ### Metadata editing with unusable ExifTool
 
