@@ -71,9 +71,10 @@ reconfigure with `-DBUILD_TESTING=ON` to run them.
   drafts, edit or preview Markdown, export it to PDF and edit supported JPEG,
   TIFF and MP3 metadata fields.
 - **Terminal and navigation:** Show an embedded Konsole terminal below or beside
-  both panes and link navigation between corresponding local folders. Optional
-  terminal folder following switches between retained sessions instead of
-  changing the directory of a running shell.
+  both panes and link navigation between corresponding local folders. The
+  terminal panel menu and close button hide the panel without ending sessions;
+  its messages can be dismissed. Optional terminal folder following switches
+  between retained sessions instead of changing the directory of a running shell.
 
 ## Customize the interface
 
