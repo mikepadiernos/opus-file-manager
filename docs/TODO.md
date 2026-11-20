@@ -2,9 +2,11 @@
 
 ## Complete M13 and M14 translations
 
-- M13 parent #26 and catalogue issue #210, RTL issue #212 and Jalali issue #213
-  are Completed. The M13 branch is
-  `feature/M13-translations`; merge it and reconcile issue statuses.
+- M13 parent [#26](https://github.com/mikepadiernos/opus-file-manager/issues/26)
+  and catalogue issue [#210](https://github.com/mikepadiernos/opus-file-manager/issues/210),
+  RTL issue [#212](https://github.com/mikepadiernos/opus-file-manager/issues/212)
+  and Jalali issue [#213](https://github.com/mikepadiernos/opus-file-manager/issues/213)
+  are Completed. Merge `feature/M13-translations` and reconcile issue statuses.
 - No particular language catalogue is required for M13. The existing Persian
   catalogue is partial and untranslated messages fall back to the source.
 - KDE-controlled date displays are tracked in caveat #436. M14 still needs
