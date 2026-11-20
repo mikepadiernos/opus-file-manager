@@ -61,6 +61,7 @@
       <text>&amp;View</text>
       <Action name="dual_layout"/>
       <Action name="stacked_layout"/>
+      <Action name="swap_panes"/>
       <Action name="swap_current_tabs"/>
       <Action name="swap_pane_sides"/>
       <Action name="move_second_pane"/>

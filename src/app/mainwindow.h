@@ -145,6 +145,7 @@ private:
     void comparePaneFolders();
     void compareFoldersFiltered();
     void syncLinkedPane(Pane *pane, const QUrl &url);
+    void swapPanesAccordingToPreference();
     void swapCurrentTabs();
     void swapPaneSides();
     void restoreSecondPanePlacement();

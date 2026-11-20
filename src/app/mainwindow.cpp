@@ -1157,6 +1157,8 @@ void MainWindow::setupActions()
     actions->addAction(QStringLiteral("stacked_layout"), m_stackedLayoutAction);
     connect(m_stackedLayoutAction, &KToggleAction::toggled, this, &MainWindow::setStackedLayout);
 
+    auto *swapPanes = actions->addAction(QStringLiteral("swap_panes"), this, &MainWindow::swapPanesAccordingToPreference);
+    swapPanes->setText(i18nc("@action", "Swap Panes"));
     auto *swapTabs = actions->addAction(QStringLiteral("swap_current_tabs"), this, &MainWindow::swapCurrentTabs);
     swapTabs->setText(i18nc("@action", "Swap Current Tabs"));
     auto *swapSides = actions->addAction(QStringLiteral("swap_pane_sides"), this, &MainWindow::swapPaneSides);
@@ -1758,9 +1760,11 @@ void MainWindow::updateActions()
     auto *tabPosition = qobject_cast<KSelectAction *>(actions->action(QStringLiteral("tab_bar_position")));
     tabPosition->setCurrentItem(static_cast<int>(activePane()->tabBarPosition()));
     actions->action(QStringLiteral("stacked_tab_bars_together"))->setEnabled(isStackedLayout());
-    actions->action(QStringLiteral("swap_current_tabs"))
-        ->setEnabled(bothVisible && m_left->tabs()->currentIndex() >= 0 && m_right->tabs()->currentIndex() >= 0);
+    const bool currentTabsCanSwap = bothVisible && m_left->tabs()->currentIndex() >= 0 && m_right->tabs()->currentIndex() >= 0;
+    actions->action(QStringLiteral("swap_current_tabs"))->setEnabled(currentTabsCanSwap);
     actions->action(QStringLiteral("swap_pane_sides"))->setEnabled(bothVisible);
+    const bool swapWholeSides = Settings::paneSwapMode() == Settings::EnumPaneSwapMode::WholeSides;
+    actions->action(QStringLiteral("swap_panes"))->setEnabled(swapWholeSides ? bothVisible : currentTabsCanSwap);
     actions->action(QStringLiteral("copy_to_other_pane"))->setEnabled(hasSelection);
     actions->action(QStringLiteral("move_to_other_pane"))->setEnabled(hasSelection && props.supportsMoving());
     actions->action(QStringLiteral("rename"))->setEnabled(hasSelection && props.supportsMoving());
@@ -2946,6 +2950,15 @@ void MainWindow::swapCurrentTabs()
     const QScopedValueRollback guard(m_syncingLinkedPanes, true);
     if (m_left->tabs()->swapCurrent(*m_right->tabs())) {
         std::swap(m_linkedLeftRoot, m_linkedRightRoot);
+    }
+}
+
+void MainWindow::swapPanesAccordingToPreference()
+{
+    if (Settings::paneSwapMode() == Settings::EnumPaneSwapMode::WholeSides) {
+        swapPaneSides();
+    } else {
+        swapCurrentTabs();
     }
 }
 

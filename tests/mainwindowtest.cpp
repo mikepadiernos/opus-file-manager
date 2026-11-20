@@ -275,6 +275,43 @@ private Q_SLOTS:
         QVERIFY(link->isChecked());
     }
 
+    void preferredPaneSwapUsesConfiguredOperation()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("left")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("right")));
+
+        const auto previousMode = Settings::paneSwapMode();
+        const auto restoreMode = qScopeGuard([&] {
+            Settings::setPaneSwapMode(previousMode);
+        });
+        Settings::setPaneSwapMode(Settings::EnumPaneSwapMode::CurrentTabs);
+
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(root.filePath(QStringLiteral("left"))), QUrl::fromLocalFile(root.filePath(QStringLiteral("right")))});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        Pane *left = window.activePane();
+        Pane *right = window.inactivePane();
+        auto *splitter = window.findChild<QSplitter *>(QStringLiteral("paneSplitter"));
+        QAction *swap = window.actionCollection()->action(QStringLiteral("swap_panes"));
+        QVERIFY(left && right && splitter && swap && swap->isEnabled());
+        const QUrl leftUrl = left->url();
+        const QUrl rightUrl = right->url();
+        swap->trigger();
+        QCOMPARE(left->url(), rightUrl);
+        QCOMPARE(right->url(), leftUrl);
+
+        Settings::setPaneSwapMode(Settings::EnumPaneSwapMode::WholeSides);
+        QWidget *firstSide = splitter->widget(0);
+        QWidget *secondSide = splitter->widget(1);
+        swap->trigger();
+        QCOMPARE(splitter->widget(0), secondSide);
+        QCOMPARE(splitter->widget(1), firstSide);
+    }
+
     void secondPaneCanMoveBetweenSplitTabAndWindow()
     {
         const auto state = KSharedConfig::openStateConfig();

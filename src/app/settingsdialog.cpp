@@ -943,6 +943,8 @@ QWidget *SettingsDialog::createFoldersAndTabsPage()
     form->addRow(
         i18nc("@label:listbox", "Display style when moving:"),
         comboBox(QStringLiteral("PaneMoveDisplayStyle"), {i18nc("@item:inlistbox", "Keep current view"), i18nc("@item:inlistbox", "Reset to default view")}));
+    form->addRow(i18nc("@label:listbox", "Default pane swap:"),
+                 comboBox(QStringLiteral("PaneSwapMode"), {i18nc("@item:inlistbox", "Swap current tabs"), i18nc("@item:inlistbox", "Swap whole pane sides")}));
     form->addRow(i18nc("@title:group", "Navigation:"),
                  checkBox(QStringLiteral("FollowSymlinks"), i18nc("@option:check", "Always follow symbolic links to their target")));
     form->addRow(i18nc("@title:group", "History:"),

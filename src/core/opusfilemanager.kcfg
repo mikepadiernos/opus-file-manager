@@ -239,6 +239,14 @@
       </choices>
       <default>Keep</default>
     </entry>
+    <entry name="PaneSwapMode" type="Enum">
+      <label>Default pane swapping operation</label>
+      <choices>
+        <choice name="CurrentTabs"/>
+        <choice name="WholeSides"/>
+      </choices>
+      <default>CurrentTabs</default>
+    </entry>
     <entry name="DragFromAnywhere" type="Bool">
       <label>Drag files and folders from anywhere in a details row</label>
       <default>false</default>
