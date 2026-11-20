@@ -320,7 +320,7 @@ bool equalContents(int leftRoot,
         error = i18nc("@info", "A parent folder changed during comparison.");
         return false;
     }
-    const int firstFd = ::openat(leftParent.get(), name.constData(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    const int firstFd = ::openat(leftParent.get(), name.constData(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
     if (firstFd < 0) {
         error = systemError(left);
         return false;
@@ -330,7 +330,7 @@ bool equalContents(int leftRoot,
         error = i18nc("@info", "Could not read %1: %2", left, first.errorString());
         return false;
     }
-    const int secondFd = ::openat(rightParent.get(), name.constData(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    const int secondFd = ::openat(rightParent.get(), name.constData(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
     if (secondFd < 0) {
         error = systemError(right);
         return false;

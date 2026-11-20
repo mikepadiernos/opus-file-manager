@@ -8,6 +8,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <sys/stat.h>
 #include <unistd.h>
 
 namespace
@@ -122,6 +123,30 @@ private Q_SLOTS:
                     && ::symlink(QFile::encodeName(root.filePath(QStringLiteral("outside"))).constData(),
                                  QFile::encodeName(root.filePath(QStringLiteral("left/sub"))).constData())
                         == 0;
+            }
+            return false;
+        });
+        QVERIFY(replaced);
+        QVERIFY(!result.error.isEmpty());
+        QVERIFY(result.rows.isEmpty());
+    }
+
+    void rejectsFileReplacedByFifoDuringContentComparison()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("left")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("right")));
+        const QString left = root.filePath(QStringLiteral("left/item"));
+        QVERIFY(writeFile(left, "same"));
+        QVERIFY(writeFile(root.filePath(QStringLiteral("right/item")), "same"));
+        FolderSync::Options options;
+        options.compareContents = true;
+        int checks = 0;
+        bool replaced = false;
+        const auto result = FolderSync::compare(root.filePath(QStringLiteral("left")), root.filePath(QStringLiteral("right")), options, [&] {
+            if (++checks == 5) {
+                replaced = QFile::rename(left, root.filePath(QStringLiteral("original"))) && ::mkfifo(QFile::encodeName(left).constData(), 0600) == 0;
             }
             return false;
         });
