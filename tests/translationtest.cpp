@@ -39,7 +39,7 @@ private Q_SLOTS:
         for (const QString &language : {QStringLiteral("fa"), QStringLiteral("ar"), QStringLiteral("he")}) {
             QProcess process;
             auto environment = QProcessEnvironment::systemEnvironment();
-            environment.insert(QStringLiteral("LC_ALL"), QStringLiteral("en_US.UTF-8"));
+            environment.insert(QStringLiteral("LC_ALL"), QStringLiteral("C"));
             environment.insert(QStringLiteral("LANGUAGE"), language);
             environment.insert(QStringLiteral("OPUSFM_DIRECTION_PROBE"), QStringLiteral("1"));
             process.setProcessEnvironment(environment);
