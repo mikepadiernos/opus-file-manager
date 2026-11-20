@@ -520,7 +520,9 @@ Settings for M12 UI customizations, stored in KConfig.
 > and check M12-06. Complete #194, close it as completed, and strike M12-05.
 > Start #196 in Development with a 2026-11-20 start date; when it reaches
 > Review, complete #195, close it as completed, and strike M12-06. Leave roadmap
-> items unstruck until board confirmation.
+> items unstruck until board confirmation. Start #197 in Development with a
+> 2026-11-20 start date; when it reaches Review, complete #196, close it as
+> completed, and strike M12-07.
 
 ### M13 Workspaces
 

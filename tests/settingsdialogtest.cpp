@@ -117,6 +117,33 @@ private Q_SLOTS:
         window.actionCollection()->action(QStringLiteral("customize_main_toolbar"))->trigger();
     }
 
+    void combinedPanelSettingsOpenExistingCustomizer()
+    {
+        MainWindow window;
+        auto *places = window.findChild<KFilePlacesModel *>();
+        QVERIFY(places);
+        SettingsDialog dialog(places, &window);
+        auto *configure = dialog.findChild<QPushButton *>(QStringLiteral("configureCombinedPanelSections"));
+        QVERIFY(configure && configure->isEnabled());
+
+        window.show();
+        dialog.show();
+        bool customizerOpened = false;
+        QTimer closeCustomizer(&window);
+        closeCustomizer.setInterval(10);
+        connect(&closeCustomizer, &QTimer::timeout, &window, [&] {
+            if (auto *customizer = window.findChild<QDialog *>(QStringLiteral("combinedPanelSectionsDialog"))) {
+                customizerOpened = true;
+                closeCustomizer.stop();
+                customizer->reject();
+            }
+        });
+        closeCustomizer.start();
+        QTest::mouseClick(configure, Qt::LeftButton);
+        QTRY_VERIFY(customizerOpened);
+        QVERIFY(!dialog.isVisible());
+    }
+
     void fileToolDefaultsPersistAndCancel()
     {
         KFilePlacesModel places;

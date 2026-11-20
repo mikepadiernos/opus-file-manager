@@ -1153,6 +1153,31 @@ QWidget *SettingsDialog::createPanelAppearancePage()
     form->addRow(i18nc("@title:group", "Combined panel sections:"), checkBox(QStringLiteral("FavoritesVisible"), i18nc("@option:check", "Favorites")));
     form->addRow({}, checkBox(QStringLiteral("PlacesVisible"), i18nc("@option:check", "Places")));
     form->addRow({}, checkBox(QStringLiteral("FoldersVisible"), i18nc("@option:check", "Folder tree")));
+    auto *configure = new QPushButton(i18nc("@action:button", "Configure Section Order and Titles…"), page);
+    configure->setObjectName(QStringLiteral("configureCombinedPanelSections"));
+    QWidget *window = parentWidget();
+    auto *mainWindow = qobject_cast<KXmlGuiWindow *>(window);
+    QAction *action = mainWindow ? mainWindow->actionCollection()->action(QStringLiteral("customize_combined_panel")) : nullptr;
+    configure->setEnabled(action && action->isEnabled());
+    if (action) {
+        const QPointer<QAction> target(action);
+        const QPointer<QWidget> parent(window);
+        connect(action, &QAction::changed, configure, [configure, target] {
+            configure->setEnabled(target && target->isEnabled());
+        });
+        connect(configure, &QPushButton::clicked, this, [this, target, parent] {
+            accept();
+            if (!target || !parent) {
+                return;
+            }
+            QTimer::singleShot(0, parent, [target] {
+                if (target) {
+                    target->trigger();
+                }
+            });
+        });
+    }
+    form->addRow(i18nc("@title:group", "Section order and titles:"), configure);
     return page;
 }
 
