@@ -24,7 +24,7 @@ class BatchRenameDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit BatchRenameDialog(const QStringList &paths, QWidget *parent = nullptr, KSharedConfig::Ptr config = {});
+    explicit BatchRenameDialog(const QStringList &paths, QWidget *parent = nullptr, KSharedConfig::Ptr config = {}, bool manageOnly = false);
     ~BatchRenameDialog() override;
     void reject() override;
 
@@ -33,6 +33,7 @@ private:
     void apply();
     void invalidatePreview();
     BatchRename::Rule rule() const;
+    void setRule(const BatchRename::Rule &rule);
     void updatePresets();
 
     QStringList m_paths;

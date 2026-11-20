@@ -25,7 +25,7 @@
 
 #include <algorithm>
 
-BatchRenameDialog::BatchRenameDialog(const QStringList &paths, QWidget *parent, KSharedConfig::Ptr config)
+BatchRenameDialog::BatchRenameDialog(const QStringList &paths, QWidget *parent, KSharedConfig::Ptr config, bool manageOnly)
     : QDialog(parent)
     , m_paths(paths)
     , m_config(config ? config : KSharedConfig::openConfig())
@@ -43,7 +43,7 @@ BatchRenameDialog::BatchRenameDialog(const QStringList &paths, QWidget *parent, 
     , m_cancel(new QPushButton(i18nc("@action:button", "Cancel Operation"), this))
 {
     setObjectName(QStringLiteral("batchRenameDialog"));
-    setWindowTitle(i18nc("@title:window", "Batch Rename"));
+    setWindowTitle(manageOnly ? i18nc("@title:window", "Manage Rename Presets") : i18nc("@title:window", "Batch Rename"));
     resize(850, 520);
     m_paths.sort();
     auto *layout = new QVBoxLayout(this);
@@ -71,14 +71,34 @@ BatchRenameDialog::BatchRenameDialog(const QStringList &paths, QWidget *parent, 
     auto *savePreset = new QPushButton(i18nc("@action:button", "Save…"), m_options);
     auto *loadPreset = new QPushButton(i18nc("@action:button", "Load"), m_options);
     auto *deletePreset = new QPushButton(i18nc("@action:button", "Delete"), m_options);
+    auto *updatePreset = new QPushButton(i18nc("@action:button", "Update Selected…"), m_options);
+    auto *defaultPreset = new QPushButton(i18nc("@action:button", "Set Default"), m_options);
+    auto *clearDefault = new QPushButton(i18nc("@action:button", "Clear Default"), m_options);
     savePreset->setObjectName(QStringLiteral("batchRenameSavePreset"));
     loadPreset->setObjectName(QStringLiteral("batchRenameLoadPreset"));
     deletePreset->setObjectName(QStringLiteral("batchRenameDeletePreset"));
+    updatePreset->setObjectName(QStringLiteral("batchRenameUpdatePreset"));
+    defaultPreset->setObjectName(QStringLiteral("batchRenameSetDefault"));
+    clearDefault->setObjectName(QStringLiteral("batchRenameClearDefault"));
     presetRow->addWidget(m_saved, 1);
     presetRow->addWidget(savePreset);
     presetRow->addWidget(loadPreset);
     presetRow->addWidget(deletePreset);
     form->addRow(i18nc("@label", "Saved presets:"), presetRow);
+    auto *presetActions = new QHBoxLayout;
+    presetActions->addWidget(updatePreset);
+    presetActions->addWidget(defaultPreset);
+    presetActions->addWidget(clearDefault);
+    presetActions->addStretch();
+    form->addRow(presetActions);
+    auto *defaultLabel = new QLabel(m_options);
+    defaultLabel->setObjectName(QStringLiteral("batchRenameDefault"));
+    const auto refreshDefault = [this, defaultLabel] {
+        const QString name = m_config->group(QStringLiteral("BatchRenamePresets")).readEntry("DefaultPreset", QString());
+        defaultLabel->setText(name.isEmpty() ? i18nc("@info", "Default preset: none") : i18nc("@info", "Default preset: %1", name));
+    };
+    refreshDefault();
+    form->addRow(defaultLabel);
     layout->addWidget(m_options);
     auto *help = new QLabel(i18nc("@info",
                                   "Tokens: {name}, {ext}, {n}, {nn}, {title}, {artist}, {album}, {year}, {date}, {camera}. "
@@ -99,12 +119,49 @@ BatchRenameDialog::BatchRenameDialog(const QStringList &paths, QWidget *parent, 
         m_status->setText(presetError);
         savePreset->setEnabled(false);
     }
-    connect(m_saved, &QComboBox::currentIndexChanged, this, [loadPreset, deletePreset](int index) {
+    connect(m_saved, &QComboBox::currentIndexChanged, this, [loadPreset, deletePreset, updatePreset, defaultPreset](int index) {
         loadPreset->setEnabled(index >= 0);
         deletePreset->setEnabled(index >= 0);
+        updatePreset->setEnabled(index >= 0);
+        defaultPreset->setEnabled(index >= 0);
     });
     loadPreset->setEnabled(m_saved->currentIndex() >= 0);
     deletePreset->setEnabled(m_saved->currentIndex() >= 0);
+    updatePreset->setEnabled(m_saved->currentIndex() >= 0);
+    defaultPreset->setEnabled(m_saved->currentIndex() >= 0);
+    const auto setDefault = [this, refreshDefault](const QString &name) {
+        auto group = m_config->group(QStringLiteral("BatchRenamePresets"));
+        const QString previous = group.readEntry("DefaultPreset", QString());
+        group.writeEntry("DefaultPreset", name);
+        if (!group.sync()) {
+            group.writeEntry("DefaultPreset", previous);
+            m_status->setText(i18nc("@info", "Could not save the default rename preset."));
+            return;
+        }
+        refreshDefault();
+        m_status->setText(name.isEmpty() ? i18nc("@info", "Default rename preset cleared.") : i18nc("@info", "Default rename preset: %1", name));
+    };
+    connect(defaultPreset, &QPushButton::clicked, this, [this, setDefault] {
+        const int index = m_saved->currentIndex();
+        if (index < 0 || index >= m_presets.size()) {
+            return;
+        }
+        QString error;
+        const auto presets = BatchRenamePresets::load(m_config->group(QStringLiteral("BatchRenamePresets")), &error);
+        const QString name = m_presets.at(index).name;
+        if (!error.isEmpty()) {
+            m_status->setText(error);
+        } else if (std::none_of(presets.cbegin(), presets.cend(), [&name](const auto &preset) {
+                       return preset.name == name;
+                   })) {
+            m_status->setText(i18nc("@info", "This preset no longer exists."));
+        } else {
+            setDefault(name);
+        }
+    });
+    connect(clearDefault, &QPushButton::clicked, this, [setDefault] {
+        setDefault({});
+    });
     connect(savePreset, &QPushButton::clicked, this, [this] {
         const QString ruleError = BatchRename::ruleError(rule());
         if (!ruleError.isEmpty()) {
@@ -155,16 +212,56 @@ BatchRenameDialog::BatchRenameDialog(const QStringList &paths, QWidget *parent, 
             m_status->setText(i18nc("@info", "This preset no longer exists."));
             return;
         }
-        const auto saved = it->rule;
-        m_mode->setCurrentIndex(saved.regularExpression ? 1 : 0);
-        m_pattern->setText(saved.pattern);
-        m_replacement->setText(saved.replacement);
-        m_startNumber->setValue(saved.start);
-        m_padding->setValue(saved.padding);
+        setRule(it->rule);
         invalidatePreview();
         m_status->setText(i18nc("@info", "Preset loaded. Review it and preview before renaming."));
     });
-    connect(deletePreset, &QPushButton::clicked, this, [this] {
+    connect(updatePreset, &QPushButton::clicked, this, [this] {
+        const int index = m_saved->currentIndex();
+        if (index < 0 || index >= m_presets.size()) {
+            return;
+        }
+        const QString invalid = BatchRename::ruleError(rule());
+        if (!invalid.isEmpty()) {
+            m_status->setText(invalid);
+            return;
+        }
+        const auto original = m_presets.at(index);
+        QString error;
+        auto group = m_config->group(QStringLiteral("BatchRenamePresets"));
+        auto presets = BatchRenamePresets::load(group, &error);
+        if (!error.isEmpty()) {
+            m_status->setText(error);
+            return;
+        }
+        auto it = std::find_if(presets.begin(), presets.end(), [&original](const auto &preset) {
+            return preset.name == original.name;
+        });
+        if (it == presets.end() || it->rule.pattern != original.rule.pattern || it->rule.replacement != original.rule.replacement
+            || it->rule.regularExpression != original.rule.regularExpression || it->rule.start != original.rule.start
+            || it->rule.padding != original.rule.padding) {
+            m_status->setText(i18nc("@info", "This preset changed elsewhere. Close and reopen the dialog."));
+            return;
+        }
+        if (QMessageBox::question(this,
+                                  i18nc("@title:window", "Update Rename Preset"),
+                                  i18nc("@info", "Replace the saved rule for “%1” with the current rule?", original.name),
+                                  QMessageBox::Yes | QMessageBox::No,
+                                  QMessageBox::No)
+            != QMessageBox::Yes) {
+            return;
+        }
+        it->rule = rule();
+        if (!BatchRenamePresets::save(group, presets, &error)) {
+            m_status->setText(error);
+            return;
+        }
+        m_presets = presets;
+        updatePresets();
+        m_saved->setCurrentIndex(index);
+        m_status->setText(i18nc("@info", "Rename preset updated."));
+    });
+    connect(deletePreset, &QPushButton::clicked, this, [this, refreshDefault] {
         const int index = m_saved->currentIndex();
         if (index < 0 || index >= m_presets.size()) {
             return;
@@ -179,7 +276,7 @@ BatchRenameDialog::BatchRenameDialog(const QStringList &paths, QWidget *parent, 
             return;
         }
         QString error;
-        const auto group = m_config->group(QStringLiteral("BatchRenamePresets"));
+        auto group = m_config->group(QStringLiteral("BatchRenamePresets"));
         auto presets = BatchRenamePresets::load(group, &error);
         if (!error.isEmpty()) {
             m_status->setText(error);
@@ -191,19 +288,29 @@ BatchRenameDialog::BatchRenameDialog(const QStringList &paths, QWidget *parent, 
         if (it == presets.end()) {
             m_presets = presets;
             updatePresets();
+            refreshDefault();
             m_status->setText(i18nc("@info", "This preset no longer exists."));
             return;
         }
         presets.erase(it);
+        const bool wasDefault = group.readEntry("DefaultPreset", QString()) == name;
+        if (wasDefault) {
+            group.deleteEntry("DefaultPreset");
+        }
         if (!BatchRenamePresets::save(group, presets, &error)) {
+            if (wasDefault) {
+                group.writeEntry("DefaultPreset", name);
+            }
             m_status->setText(error);
             return;
         }
         m_presets = presets;
         updatePresets();
+        refreshDefault();
         m_status->setText(i18nc("@info", "Rename preset deleted."));
     });
     m_results->setObjectName(QStringLiteral("batchRenameResults"));
+    m_results->setVisible(!manageOnly);
     m_results->setRootIsDecorated(false);
     m_results->setColumnCount(3);
     m_results->setHeaderLabels({i18nc("@title:column", "Current path"), i18nc("@title:column", "New path"), i18nc("@title:column", "Problem")});
@@ -220,6 +327,9 @@ BatchRenameDialog::BatchRenameDialog(const QStringList &paths, QWidget *parent, 
     buttons->addButton(m_preview, QDialogButtonBox::ActionRole);
     buttons->addButton(m_apply, QDialogButtonBox::ActionRole);
     buttons->addButton(m_cancel, QDialogButtonBox::ActionRole);
+    m_preview->setVisible(!manageOnly);
+    m_apply->setVisible(!manageOnly);
+    m_cancel->setVisible(!manageOnly);
     layout->addWidget(buttons);
     connect(buttons, &QDialogButtonBox::rejected, this, &BatchRenameDialog::reject);
     connect(m_preview, &QPushButton::clicked, this, &BatchRenameDialog::preview);
@@ -268,6 +378,21 @@ BatchRenameDialog::BatchRenameDialog(const QStringList &paths, QWidget *parent, 
                 ? i18np("Renamed %1 item.", "Renamed %1 items.", result.renamed.size())
                 : i18nc("@info", "%1 Completed renames: %2. Close and review the filesystem before trying again.", result.error, result.renamed.size()));
     });
+    if (!manageOnly && presetError.isEmpty()) {
+        const QString name = m_config->group(QStringLiteral("BatchRenamePresets")).readEntry("DefaultPreset", QString());
+        if (!name.isEmpty()) {
+            const auto it = std::find_if(m_presets.cbegin(), m_presets.cend(), [&name](const auto &preset) {
+                return preset.name == name;
+            });
+            if (it == m_presets.cend()) {
+                m_status->setText(i18nc("@info", "The default rename preset no longer exists. Choose another preset."));
+            } else {
+                m_saved->setCurrentIndex(int(it - m_presets.cbegin()));
+                setRule(it->rule);
+                m_status->setText(i18nc("@info", "Default preset loaded. Review it and preview before renaming."));
+            }
+        }
+    }
 }
 
 BatchRenameDialog::~BatchRenameDialog()
@@ -298,6 +423,15 @@ void BatchRenameDialog::invalidatePreview()
 BatchRename::Rule BatchRenameDialog::rule() const
 {
     return {m_pattern->text(), m_replacement->text(), m_mode->currentIndex() == 1, m_startNumber->value(), m_padding->value()};
+}
+
+void BatchRenameDialog::setRule(const BatchRename::Rule &saved)
+{
+    m_mode->setCurrentIndex(saved.regularExpression ? 1 : 0);
+    m_pattern->setText(saved.pattern);
+    m_replacement->setText(saved.replacement);
+    m_startNumber->setValue(saved.start);
+    m_padding->setValue(saved.padding);
 }
 
 void BatchRenameDialog::updatePresets()
