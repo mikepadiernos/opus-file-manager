@@ -364,60 +364,58 @@ Settings for M09 tools, stored in KConfig.
 - **Embedded terminal**
   - ~~**Placement:** below both panes or at the right of both panes for
     portrait/stacked layouts; the terminal does not replace a pane~~
-  - **Working folder:** optionally follow the active pane's local folder;
-    report unsupported locations rather than silently switching folders
+  - ~~**Working folder:** optionally follow the active pane's local folder;
+    report unsupported locations rather than silently switching folders~~
 - **Search**
-  - **Indexing:** search folders and exclusions; use M18 shortcut configuration
-    for the search shortcut, with double Shift as the proposed default
   - ~~**Defaults:** search scope and whether to search filenames or contents~~
   - ~~**Filters:** reusable path and subtree filters and recursion depth for
     search and selection~~
   - ~~**Saved searches:** manage saved searches and reusable result collections~~
 - **Duplicate finder**
-  - **Defaults:** comparison criteria and selection preferences; retain the
-    safeguard that automatic selection keeps at least one item per group
+  - ~~**Defaults:** comparison criteria and selection preferences; retain the
+    safeguard that automatic selection keeps at least one item per group~~
 - **Content chart and cushion treemap**
-  - **Display:** choose whether to show the treemap and the default table
-    sort order; keep scan errors and skipped entries visible
+  - ~~**Display:** choose whether to show the treemap and the default table
+    sort order; keep scan errors and skipped entries visible~~
 - **Linked panes**
-  - **Startup:** optionally link the initial pane folders; default to unlinked,
-    validate local roots and report when linking is unavailable
+  - ~~**Startup:** optionally link the initial pane folders; default to unlinked,
+    validate local roots and report when linking is unavailable~~
 - **File diff**
-  - **Display:** choose whether to wrap lines in the comparison output without
-    changing the comparison itself
+  - ~~**Display:** choose whether to wrap lines in the comparison output without
+    changing the comparison itself~~
 - **Pane folder comparison**
-  - **Results:** choose the initial result categories shown; keep errors and
-    incomplete comparisons visible and require explicit selection in the panes
+  - ~~**Results:** choose the initial result categories shown; keep errors and
+    incomplete comparisons visible and require explicit selection in the panes~~
 - **Folder sync**
-  - **Transfers:** skip existing, newer only, speed limit
-  - **Comparison:** default recursion, symlink and content-comparison options;
-    saved synchronization profiles
+  - ~~**Transfers:** skip existing, newer only, speed limit~~
+  - ~~**Comparison:** default recursion, symlink and content-comparison options;
+    saved synchronization profiles~~
 - **Batch rename**
-  - **Presets:** manage named rename rules and choose a default preset; retain
-    the M09 collision preview before applying changes
+  - ~~**Presets:** manage named rename rules and choose a default preset; retain
+    the M09 collision preview before applying changes~~
 - **Listing export**
-  - **Defaults:** output format and export-specific columns, initially based
-    on the current listing columns
+  - ~~**Defaults:** output format and export-specific columns, initially based
+    on the current listing columns~~
 - **Symbolic links**
-  - **Naming:** default link-name suffix, editable before creation; preserve
-    existing destination checks and never overwrite an existing entry
+  - ~~**Naming:** default link-name suffix, editable before creation; preserve
+    existing destination checks and never overwrite an existing entry~~
 - **Checksum files**
-  - **Defaults:** default manifest filename for creation, editable before
-    saving; retain the supported SHA-256 format and existing validation
+  - ~~**Defaults:** default manifest filename for creation, editable before
+    saving; retain the supported SHA-256 format and existing validation~~
 - **Split and combine**
-  - **Defaults:** default split-part size, editable for each operation; retain
-    part-order review and never overwrite existing outputs
+  - ~~**Defaults:** default split-part size, editable for each operation; retain
+    part-order review and never overwrite existing outputs~~
 - **Metadata editing**
-  - **Fields:** choose the initially displayed editable audio and image fields
+  - ~~**Fields:** choose the initially displayed editable audio and image fields
     when the editor is available; retain the change preview and report
-    unsupported writes
+    unsupported writes~~
 - **Transfer queue**
-  - **Behaviour:** queue and concurrency defaults; conflict handling
+  - ~~**Behaviour:** queue and concurrency defaults; conflict handling~~
 - **Applications**
-  - **Associations:** manage desktop default applications by extension through
-    KDE facilities; make changes to shared desktop defaults explicit
+  - ~~**Associations:** manage desktop default applications by extension through
+    KDE facilities; make changes to shared desktop defaults explicit~~
 - **Automation**
-  - **Commands:** scripts, custom commands and presets
+  - ~~**Commands:** scripts, custom commands and presets~~
 
 ### M11 UI Customizations
 
@@ -627,6 +625,8 @@ Polish the existing settings pages without adding new preferences.
 Extend the M09 search tools and reuse their search scopes, filters and saved
 searches rather than introducing a separate search system.
 
+- **Indexing:** search folders and exclusions; use M18 shortcut configuration
+  for the search shortcut, with double Shift as the proposed default
 - Provide an embedded search panel below or to the right of both panes, like
   the embedded terminal; showing it never replaces either pane
 - Offer an optional search widget for the main toolbar: enter a query, search

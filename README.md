@@ -34,7 +34,8 @@ for file operations, Places, properties, settings and desktop integration.
 - Split local files into numbered parts and combine selected parts in a chosen
   order.
 - Show an embedded Konsole terminal below or beside both panes, with automatic
-  or configurable placement.
+  or configurable placement. Optional folder following switches between retained
+  sessions rather than changing the directory of a running shell.
 - Link navigation between corresponding local pane folders.
 - Explore folder sizes with a cushion treemap and folder drilldown.
 - Search local folders live or query Baloo's index; save searches and collect
@@ -82,10 +83,42 @@ Saved searches and named collection snapshots can also be managed from that
 page. In Search, update saved criteria or save, load and update snapshots of
 the working collection. Loading replaces its references, not the original
 files; management changes take effect immediately.
+Duplicate-finder preferences set the initial candidate policy and can require
+matching file names in addition to size and SHA-256 contents.
+Content-chart preferences control the initial treemap visibility and table
+sort; skipped entries and scan errors remain visible.
+File Tools preferences set the symbolic-link suffix, checksum filename and
+split-part size. Each can still be changed during the operation; an empty
+link suffix uses the translated default.
+Linked navigation can optionally start enabled when both initial pane folders
+are existing local folders.
+File comparison output can wrap lines without changing the comparison.
+Pane comparison can initially filter result categories; incomplete entries
+remain visible, and only shown differences are selected when requested.
 Metadata editing requires ExifTool and has format and write limitations. Custom
 commands run with the user's permissions and have local-context and output
 limits. Paste and drag-and-drop bypass the transfer queue. See
 [caveats and limitations](docs/CAVEATS.md) for details.
+
+Metadata Editor preferences choose initially displayed audio and image fields.
+The editor can reveal all supported fields; hidden values are preserved.
+Folder Sync preferences set the initial recursion, content and link comparison
+options; saved profiles can override these in the synchronization dialog. Copy
+policies skip existing files or replace only older files, and an optional
+operation-wide speed limit throttles file copies. Changing the policy clears the
+plan; overwrites and deletions still require review and confirmation.
+Manage batch-rename presets and select a default in Preferences or the rename
+dialog. Preset changes take effect immediately; a collision preview is still
+required before renaming.
+Listing Export preferences choose the default format and optionally specify
+columns independently of the listing; otherwise its visible columns are used.
+Automation preferences manage saved scripts and custom command presets without
+running them. Changes take effect immediately, even if Preferences is canceled.
+Applications preferences open KDE File Associations for filename patterns and
+default applications; changes affect shared desktop settings.
+Transfer Queue preferences control concurrency and conflict handling for new
+copy and move jobs. Automatic overwrite replaces files and merges folders
+without asking; paste and drag-and-drop bypass these queue defaults.
 
 ## Build and run
 

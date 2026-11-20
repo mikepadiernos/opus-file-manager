@@ -461,18 +461,22 @@ on the server and access method. (Comment: [#312][comment-312])
 
 ## Embedded terminal
 
-- The embedded terminal requires the Konsole KPart. New sessions start in the
-  active local folder, or in the home folder with a visible notice for remote
-  locations. Pane navigation does not change a running session's directory.
-  Hiding the panel keeps the session running; closing the window ends it and
-  can affect running programs.
+- The embedded terminal requires the Konsole KPart. By default, new sessions
+  start in the active local folder, or in the home folder with a visible notice
+  for remote locations, and pane navigation does not change their directory.
+  Optional folder following instead switches between retained sessions or
+  creates new ones; it does not change a running shell's directory. Remote or
+  missing folders are reported without switching sessions. Sessions accumulate
+  until their tabs are closed. Hiding the panel keeps them running; closing the
+  window ends them and can affect running programs.
   ([#321](https://github.com/mikepadiernos/opus-file-manager/issues/321))
 
   **Recommendation:** Install the Konsole terminal component for embedded
   sessions; on Arch Linux it is supplied by the `konsole` package. For remote
   locations, connect using a suitable terminal tool or use a separate terminal
   configured for that service. Check the terminal working directory before
-  running commands, and finish or safely stop programs before closing the window.
+  running commands, close unneeded session tabs, and finish or safely stop
+  programs before closing a tab or the window.
   ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/321#issuecomment-7022392302))
 
 ## Linked pane navigation
