@@ -400,8 +400,10 @@ Tracked in [#362](https://github.com/mikepadiernos/opus-file-manager/issues/362)
   - Comment: [#362.7029675758](https://github.com/mikepadiernos/opus-file-manager/issues/362#issuecomment-7029675758)
 - **Planned:** [M15 advanced search](ROADMAP.md#m15-advanced-search) reuses
   M09 search; its new interface and criteria do not by themselves remove
-  current backend limits. [M21 workspaces](ROADMAP.md#m21-workspaces) plan
-  search scoping, not a security boundary.
+  current backend limits. [M23 Baloo integration](ROADMAP.md#m23-integrations)
+  plans better status, metadata queries, result ranking and an explicit live
+  fallback, not guaranteed index completeness. [M21 workspaces](ROADMAP.md#m21-workspaces)
+  plan search scoping, not a security boundary.
   - Comment: [#362.7023269364][comment-362]
 
 ## Batch rename
