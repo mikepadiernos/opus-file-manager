@@ -310,12 +310,12 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 - ~~Search and selection filters for full path, parent folder and excluded
   subtrees, with an optional recursion-depth limit~~
 - ~~Content chart (folder breakdown)~~
-- Folder sync: preview differences and planned operations before running;
+- ~~Folder sync: preview differences and planned operations before running;
   allow per-item direction changes and exclusions, with explicit confirmation
-  of overwrites and deletions (Krusader)
-- Folder comparison and sync filters: include/exclude patterns, recursion,
+  of overwrites and deletions (Krusader)~~
+- ~~Folder comparison and sync filters: include/exclude patterns, recursion,
   symlink handling and optional content comparison; save reusable profiles
-  (Krusader)
+  (Krusader)~~
 - ~~File diff~~
 - ~~Batch rename: preview old and new names, detect collisions before applying,
   and support metadata tokens for images and audio (Max)~~
@@ -354,7 +354,8 @@ tracked in #314; [folder content chart](CAVEATS.md#folder-content-chart), tracke
 [custom commands](CAVEATS.md#custom-commands), tracked in #373;
 [metadata editing](CAVEATS.md#metadata-editing), tracked in #374;
 [transfer queue](CAVEATS.md#transfer-queue), tracked in #375;
-[filtered folder comparison](CAVEATS.md#filtered-folder-comparison), tracked in #376.
+[filtered folder comparison](CAVEATS.md#filtered-folder-comparison), tracked in #376;
+[folder synchronization](CAVEATS.md#folder-synchronization), tracked in #377.
 
 ### M10 Tools settings
 

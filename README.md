@@ -47,6 +47,8 @@ for file operations, Places, properties, settings and desktop integration.
   command presets.
 - Preview local duplicates, select candidates by date or folder, and move
   checked files to Trash after confirmation.
+- Compare and synchronize local folders with filters, reusable profiles and
+  reviewed per-item actions.
 
 ## Caveats
 
@@ -62,14 +64,16 @@ original image metadata.
 Encrypted 7z extraction can fail in KArchive; integrity checks use the `7z`
 executable when available. Archive creation and extraction also have local-file
 and entry-type restrictions. File comparison, symbolic links, checksum files,
-and splitting and combining are local-only. Folder comparison checks immediate
-entries by metadata, and combined files cannot be checked for missing or
+and splitting and combining are local-only. The immediate pane comparison uses
+metadata, while the filtered recursive comparison and synchronization are
+local-only and have scan and operation limits. Synchronization is not undoable
+and can leave partial results. Combined files cannot be checked for missing or
 misordered parts. The embedded terminal requires the Konsole KPart, and linked
 navigation supports local folders only. Duplicate-finder results require manual
-review and verification. Live search is local-only and has scan and content
-limits. Metadata editing requires ExifTool and has format and write limitations.
-Custom commands run with the user's permissions and have local-context and
-output limits. Paste and drag-and-drop bypass the transfer queue. See
+review and verification. Live search is local-only and has scan and content limits.
+Metadata editing requires ExifTool and has format and write limitations. Custom
+commands run with the user's permissions and have local-context and output
+limits. Paste and drag-and-drop bypass the transfer queue. See
 [caveats and limitations](docs/CAVEATS.md) for details.
 
 ## Build and run

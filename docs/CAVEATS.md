@@ -261,16 +261,38 @@ open archives with 7-Zip or another trusted external tool when needed.
   examine at most 100,000 entries per folder, and filenames must round-trip
   through Qt's local filename encoding. Without content comparison, matching
   size and modification time do not prove equal contents. Results are snapshots
-  that concurrent changes can invalidate, and can produce a large list. This
-  view does not yet execute synchronization.
+  that concurrent changes can invalidate, and can produce a large list.
   ([#376](https://github.com/mikepadiernos/opus-file-manager/issues/376))
 
   **Recommendation:** Use separate local folders and choose relative-path
   patterns carefully; enable content comparison when matching bytes matter.
   Compare smaller trees if the entry limit is reached, and rerun after changes.
-  Use an external tool for remote locations, unsupported filenames or
-  synchronization until Opus implements it.
+  Use an external tool for remote locations or unsupported filenames.
   ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/376#issuecomment-7026216329))
+
+## Folder synchronization
+
+- Synchronization is local-only and supports regular-file copying, overwriting
+  and permanent deletion, plus creating missing folders. Links, directory
+  deletion and type replacement are not supported. Profiles save filters and
+  comparison options, not item actions. Copies preserve basic permissions and
+  timestamps but not necessarily ownership, ACLs, extended attributes, sparse
+  layout or other metadata. Operations are not registered with KIO undo and
+  require Linux `renameat2` with `RENAME_NOREPLACE` support. Changes are not
+  transactional: an error or cancellation can leave partial results, and the
+  current operation may already have changed files. Private `.opus-sync-*`
+  staging folders or backups may remain after errors or crashes. Snapshot and
+  identity checks reduce but cannot eliminate races with other processes
+  changing or moving items.
+  ([#377](https://github.com/mikepadiernos/opus-file-manager/issues/377))
+
+  **Recommendation:** Back up important data first, stop other writers and avoid
+  moving the folders during synchronization. Review every planned overwrite and
+  permanent deletion, inspect the completed-operation report and any reported
+  `.opus-sync-*` folders after errors, and compare again before retrying. Use
+  another tool for remote locations, links, directory deletion, type replacement
+  or metadata that must be preserved.
+  ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/377#issuecomment-7026633904))
 
 ## Metadata editing
 
