@@ -18,6 +18,7 @@
 #include "folderview.h"
 #include "gallerywindow.h"
 #include "informationpanel.h"
+#include "interfacelanguage.h"
 #include "localizeddates.h"
 #include "metadataeditdialog.h"
 #include "pane.h"
@@ -42,6 +43,7 @@
 #include <KToolBar>
 
 #include <QAbstractItemModel>
+#include <QApplication>
 #include <QBoxLayout>
 #include <QCheckBox>
 #include <QClipboard>
@@ -278,8 +280,13 @@ private Q_SLOTS:
 
     void rightToLeftMirrorsPanesAndDetailsNavigation()
     {
+        const auto previousDirection = QApplication::layoutDirection();
+        const auto restoreDirection = qScopeGuard([&] {
+            QApplication::setLayoutDirection(previousDirection);
+        });
+        QApplication::setLayoutDirection(InterfaceLanguage::layoutDirection({QStringLiteral("ar")}));
         MainWindow window;
-        window.setLayoutDirection(Qt::RightToLeft);
+        QCOMPARE(window.layoutDirection(), Qt::RightToLeft);
         window.resize(1000, 600);
         window.openUrls({m_a, m_b});
         window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
