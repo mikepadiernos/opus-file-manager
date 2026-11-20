@@ -6,28 +6,53 @@
 #include "settings.h"
 
 #include <KActionCollection>
+#include <KConfigDialog>
+#include <KConfigGroup>
 #include <KParts/ReadOnlyPart>
+#include <KSharedConfig>
 #include <kde_terminal_interface.h>
 
 #include <QApplication>
+#include <QDir>
 #include <QFile>
+#include <QImage>
+#include <QItemSelectionModel>
 #include <QLabel>
 #include <QMessageBox>
 #include <QPointer>
 #include <QPushButton>
 #include <QScopeGuard>
+#include <QSignalSpy>
 #include <QSplitter>
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QTreeView>
 
 class TerminalPanelTest : public QObject
 {
     Q_OBJECT
 
 private Q_SLOTS:
+    void initTestCase()
+    {
+        const QString path = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/konsole");
+        QVERIFY(QDir().mkpath(path));
+        const auto write = [&path](const QString &name, const QByteArray &contents) {
+            QFile file(path + QLatin1Char('/') + name);
+            return file.open(QIODevice::WriteOnly) && file.write(contents) == contents.size();
+        };
+        QVERIFY(write(QStringLiteral("BlurOn.profile"), "[General]\nName=Blur On\n[Appearance]\nColorScheme=BlurOn\n"));
+        QVERIFY(write(QStringLiteral("BlurOff.profile"), "[General]\nName=Blur Off\n[Appearance]\nColorScheme=BlurOff\n"));
+        QVERIFY(write(QStringLiteral("BlurOn.colorscheme"), "[General]\nDescription=Blur On\nOpacity=0.5\nBlur=true\n"));
+        QVERIFY(write(QStringLiteral("BlurOff.colorscheme"), "[General]\nDescription=Blur Off\nOpacity=0.5\nBlur=false\n"));
+        auto config = KSharedConfig::openConfig();
+        config->group(QStringLiteral("Desktop Entry")).writeEntry("DefaultProfile", "BlurOn.profile");
+        config->sync();
+    }
+
     void missingPluginIsReported()
     {
         const QStringList paths = QCoreApplication::libraryPaths();
@@ -214,6 +239,113 @@ private Q_SLOTS:
         Q_EMIT tabs->tabCloseRequested(tabs->currentIndex());
         QVERIFY(retained.isNull());
         QCOMPARE(tabs->count(), 3);
+    }
+
+    void blurTracksProfilePlacementAndVisibility()
+    {
+        QTemporaryDir first;
+        QTemporaryDir second;
+        QVERIFY(first.isValid() && second.isValid());
+        Settings::setTerminalFollowActiveFolder(true);
+        const auto reset = qScopeGuard([] {
+            Settings::setTerminalFollowActiveFolder(false);
+            Settings::setTerminalPlacement(Settings::EnumTerminalPlacement::Automatic);
+        });
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(first.path())});
+        window.resize(900, 600);
+        window.show();
+        auto *panel = window.findChild<TerminalPanel *>(QStringLiteral("terminalPanel"));
+        auto *tabs = panel->findChild<QTabWidget *>(QStringLiteral("terminalSessions"));
+        QSignalSpy regions(panel, &TerminalPanel::blurRegionChanged);
+        auto *show = window.actionCollection()->action(QStringLiteral("show_embedded_terminal"));
+        show->setChecked(true);
+        auto *workspace = window.findChild<QSplitter *>(QStringLiteral("workspaceSplitter"));
+        QVERIFY(workspace);
+        workspace->setSizes({350, 160});
+        auto *part = panel->findChild<KParts::ReadOnlyPart *>();
+        if (!part) {
+            QSKIP("KonsolePart is not available in this environment");
+        }
+        auto *terminal = qobject_cast<TerminalInterface *>(part);
+        QVERIFY(terminal);
+        QCOMPARE(terminal->currentProfileName(), QStringLiteral("Blur On"));
+        bool blurEnabled = false;
+        QVERIFY(QMetaObject::invokeMethod(part, "isBlurEnabled", Qt::DirectConnection, Q_RETURN_ARG(bool, blurEnabled)));
+        QVERIFY(blurEnabled);
+        QVERIFY(window.testAttribute(Qt::WA_TranslucentBackground));
+        QTRY_VERIFY(part->widget()->isVisible());
+        const auto currentRegion = [&regions] {
+            return regions.isEmpty() ? QRegion() : regions.last().first().value<QRegion>();
+        };
+        const auto expectedRegion = [&window, &tabs] {
+            QWidget *widget = tabs->currentWidget();
+            return QRegion(QRect(widget->mapTo(&window, QPoint()), widget->size()));
+        };
+        QTRY_VERIFY(!expectedRegion().isEmpty());
+        QTRY_VERIFY(!currentRegion().isEmpty());
+        QTRY_COMPARE(currentRegion(), expectedRegion());
+        QImage snapshot(window.size(), QImage::Format_ARGB32_Premultiplied);
+        snapshot.fill(Qt::transparent);
+        window.render(&snapshot);
+        const QRect terminalRect = expectedRegion().boundingRect().intersected(snapshot.rect());
+        int translucentPixels = 0;
+        for (int y = terminalRect.top(); y <= terminalRect.bottom(); ++y) {
+            for (int x = terminalRect.left(); x <= terminalRect.right(); ++x) {
+                const int alpha = snapshot.pixelColor(x, y).alpha();
+                if (alpha > 0 && alpha < 255) {
+                    ++translucentPixels;
+                }
+            }
+        }
+        QVERIFY(translucentPixels > 100);
+        const QRegion below = currentRegion();
+        Settings::setTerminalPlacement(Settings::EnumTerminalPlacement::Right);
+        window.applySettings();
+        workspace->setSizes({500, 250});
+        QTRY_COMPARE(currentRegion(), expectedRegion());
+        QVERIFY(currentRegion() != below);
+        const QRegion right = currentRegion();
+        workspace->setSizes({400, 350});
+        QTRY_COMPARE(currentRegion(), expectedRegion());
+        QVERIFY(currentRegion() != right);
+        show->setChecked(false);
+        QTRY_VERIFY(currentRegion().isEmpty());
+        show->setChecked(true);
+        QTRY_VERIFY(!currentRegion().isEmpty());
+        QTRY_COMPARE(currentRegion(), expectedRegion());
+
+        QVERIFY(QMetaObject::invokeMethod(part, "showManageProfilesDialog", Qt::DirectConnection, Q_ARG(QWidget *, &window)));
+        auto *dialog = window.findChild<KConfigDialog *>(QStringLiteral("konsolepartmanageprofiles"));
+        QVERIFY(dialog);
+        auto *profiles = dialog->findChild<QTreeView *>(QStringLiteral("profileListView"));
+        auto *setDefault = dialog->findChild<QPushButton *>(QStringLiteral("setAsDefaultButton"));
+        QVERIFY(profiles && setDefault);
+        const auto matches = profiles->model()->match(profiles->model()->index(0, 0), Qt::DisplayRole, QStringLiteral("Blur Off"), 1, Qt::MatchExactly);
+        QCOMPARE(matches.size(), 1);
+        profiles->selectionModel()->select(matches.first(), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+        QVERIFY(setDefault->isEnabled());
+        setDefault->click();
+        dialog->close();
+
+        panel->follow(QUrl::fromLocalFile(second.path()));
+        QCOMPARE(tabs->count(), 2);
+        auto *newPart = panel->findChildren<KParts::ReadOnlyPart *>().last();
+        auto *newTerminal = qobject_cast<TerminalInterface *>(newPart);
+        QVERIFY(newTerminal);
+        QCOMPARE(newTerminal->currentProfileName(), QStringLiteral("Blur Off"));
+        QTRY_VERIFY(currentRegion().isEmpty());
+        tabs->setCurrentWidget(part->widget());
+        QTRY_VERIFY(!currentRegion().isEmpty());
+        QTRY_COMPARE(currentRegion(), expectedRegion());
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            box->button(QMessageBox::Yes)->click();
+        });
+        Q_EMIT tabs->tabCloseRequested(tabs->currentIndex());
+        QCOMPARE(tabs->count(), 1);
+        QCOMPARE(tabs->currentWidget(), newPart->widget());
+        QTRY_VERIFY(currentRegion().isEmpty());
     }
 };
 

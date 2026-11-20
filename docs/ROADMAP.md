@@ -504,8 +504,6 @@ Settings for M12 UI customizations, stored in KConfig.
   - ~~**Backup:** export and restore app-owned settings and layouts with a
     preview and confirmation, excluding credentials and shared KDE settings~~
 
-> Pending work: see [TODO.md](TODO.md) for follow-up bug reports.
-
 ### M13 Workspaces
 
 Organize locations and tag groups into focused workspaces, inspired by
