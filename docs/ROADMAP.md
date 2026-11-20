@@ -6,6 +6,11 @@ Widgets and KDE Frameworks 6. Its [scope](philosophy/scope.md) and
 targets feature parity with Max File Manager; upstream behaviour is recorded in
 `docs/parity/backend.md` and `docs/parity/ui.md`.
 
+The latest published MVP is
+[v0.2.0](https://github.com/mikepadiernos/opus-file-manager/releases/tag/v0.2.0);
+this roadmap tracks current `main` and future work. M15 advanced search is the
+next planned milestone.
+
 ## Architecture
 
 - `src/core/` is the `opusfm_core` static library for logic without widgets.
@@ -13,11 +18,12 @@ targets feature parity with Max File Manager; upstream behaviour is recorded in
 - `tests/` holds QtTest suites run through `ctest`; GUI tests use
   `QT_QPA_PLATFORM=offscreen`.
 
-Rust is a candidate for new, self-contained core logic, not a planned rewrite
-of existing C++ features. Keep widgets, settings and file operations in Qt/KDE,
-including KIO for local and remote operations. If the M15 Rust pilot proves
-worthwhile, consider Rust for M09 duplicate detection and rename or sync
-planning; this evaluation does not block M09 or change KIO's role.
+Rust is a candidate for self-contained core logic, including measured
+performance hotspots, not a wholesale rewrite of C++ features. Keep widgets,
+settings and file operations in Qt/KDE, including KIO for local and remote
+operations. The M15 Rust pilot can inform later work, including consideration
+of M09 duplicate detection and rename or sync planning; this evaluation does
+not block M09 or change KIO's role.
 
 ## Plasma-native decisions
 
@@ -1060,9 +1066,85 @@ Settings for M27 branding, stored in KConfig and separate from theme settings.
   optional global shortcuts through KDE facilities and report registration
   failures or platform limitations
 
-### M30 Settings dialog polish
+### M30 UI and UX polish
 
-Polish the existing settings pages without adding new preferences.
+Polish the existing interface across menus, settings, layouts and workflows.
+Preserve user customizations and use KDE facilities; review future pages as
+they become available without blocking this milestone on unimplemented work.
+
+#### M30.1 Menus
+
+- Review main, pane and context menus for logical grouping, consistent action
+  names and discoverable shortcuts. Reuse KXmlGui and existing KDE actions;
+  preserve user-customized menus and destructive-action confirmations.
+- Make toolbar and pane actions consistent and discoverable, including
+  overflow in narrow windows and clear indication of the pane they affect.
+  Preserve existing toolbar customization and shortcut bindings.
+- Keep menu and toolbar action state synchronized with the active pane, current
+  selection and location as tabs change or listings refresh. Context-menu
+  actions must continue to target the selection for which they were opened.
+
+#### M30.2 Layouts
+
+- Review first-run pane, tab, panel, toolbar and window-layout defaults for a
+  usable dual-pane workflow. Apply revised defaults only to new configurations
+  or an explicitly confirmed reset, never over saved layouts or sessions.
+- Harmonize spacing, alignment, icons, labels and visual hierarchy across
+  windows, panels, menus and dialogs. Follow the active KDE theme and icon
+  conventions without hard-coding colours or replacing user-selected styling.
+- Adapt panes, panels, dialogs and menus to small windows, high DPI, long
+  translations and right-to-left layouts. Keep both panes and essential
+  controls accessible without discarding user-selected layouts.
+- Restore windows to a usable visible position after monitor, resolution or
+  scale changes, while preserving saved geometry when the display returns.
+  Avoid overriding placement decisions owned by the window manager.
+- Review splitter and panel behavior when changing orientation, maximizing,
+  hiding panels or swapping panes. Preserve each applicable saved layout and
+  make it easy to recover a pane or panel that has become too small to use.
+- Extend the existing toolbar customizer so users can add, arrange and remove
+  custom items, including saved commands and scripts, on the main toolbar and
+  either pane toolbar. Preserve per-toolbar placement, labels and icons across
+  restarts and report unavailable items without silently discarding them.
+
+#### M30.3 Interaction
+
+- Review keyboard navigation, focus restoration, screen-reader names and
+  contrast across workflows. Reuse M29 shortcuts and KDE accessibility
+  facilities without intercepting text entry or terminal input.
+- Make loading, empty, filtered, unavailable and error states understandable;
+  show operation progress and cancellation where supported, explain disabled
+  actions, and avoid duplicating KIO notifications or hiding failures.
+- Improve contextual help and discovery of pane actions, view modes and
+  customization without mandatory onboarding or changing existing settings.
+- Give icon-only controls meaningful tooltips and accessible names, including
+  relevant shortcuts and pane context where useful. Keep those hints current
+  when the user changes shortcuts or toolbar configuration.
+- Make adding and editing custom toolbar items discoverable and usable by
+  keyboard as well as drag and drop. Pane toolbar items must use the intended
+  pane and selection; preserve command preview and confirmation and do not
+  delete the underlying saved command when removing a toolbar item.
+- Display long, similar and bidirectional filenames clearly in listings and
+  operation dialogs, with a way to inspect the full original name. Preserve
+  the actual filename and avoid truncation that hides a meaningful extension.
+- Review destructive-operation confirmations to identify affected items,
+  destination and consequences where applicable; retain KDE confirmation
+  policies and use a safe default without introducing redundant prompts.
+- Make partial completion, skipped items and failures in batch operations
+  understandable, with actionable details and a clear distinction between
+  cancellation and rollback. Reuse existing KIO reporting where appropriate.
+- Prevent late listing, preview and search results from updating the wrong
+  pane, tab or dialog after navigation, cancellation or closure. Retain the
+  user's current selection and focus where possible.
+- Add subtle, consistent animations for UI transitions such as panels and
+  dialogs where they improve orientation. Respect desktop animation and
+  reduced-motion preferences where available, provide an app-level way to
+  disable motion, and keep interactions responsive and states clear without it.
+  Test both animated and motion-disabled behavior.
+- Add focused interaction tests for menu actions, default and restored layouts,
+  keyboard and accessible navigation, responsive controls and error states;
+  preserve existing user customizations in regression cases.
+
+#### M30.4 Settings
 
 - Search settings by name and description, showing matching pages and opening
   the relevant tab and control
@@ -1079,6 +1161,9 @@ Polish the existing settings pages without adding new preferences.
 - Adapt pages and navigation to small windows, high DPI, long translations and
   right-to-left layouts without clipping controls or labels
 - Provide concise contextual help for settings whose effects are not obvious
+- Review closing the settings dialog with pending changes, including window
+  close and keyboard dismissal. Give a clear apply, discard or cancel choice
+  where needed, without implying that immediate external changes are undone.
 - Explain setting scope and precedence where defaults can be overridden by
   folder formats, pane locks, operation choices, saved profiles or workspace
   layouts. Distinguish the saved default from the effective value without
@@ -1104,6 +1189,60 @@ Polish the existing settings pages without adding new preferences.
   Apply/Cancel and defaults, persistence failures and shared or immediate
   changes across representative existing pages. Extend coverage as later
   settings pages are added.
+
+#### M30.5 Performance and startup
+
+- Profile and benchmark cold and warm application startup through the first
+  interactive window, settings opening and first-page readiness. Record
+  representative configurations, timing distributions and memory use, then
+  set measurable improvement targets against the baseline.
+- Reduce startup work on the GUI thread, deferring nonessential initialization
+  and loading where appropriate. Preserve restored sessions, pane readiness,
+  error reporting and user-selected startup behavior.
+- Speed up opening settings and switching pages through measured improvements
+  such as lazy page creation and background loading where safe. Preserve
+  search, validation, Apply/Cancel, immediate effects and unsaved changes,
+  including for pages not yet opened.
+- Prototype and integrate Rust implementations for selected, profiled
+  self-contained core hotspots where benchmarks demonstrate a benefit. Use
+  the M15 pilot where applicable, a narrow safe C++/Rust interface and existing
+  Qt/KDE facilities; account for build, packaging and dependency costs without
+  rewriting widgets or replacing KIO.
+- Add reproducible performance checks and functional regression tests for
+  startup, settings and any Rust-backed paths. Compare before and after under
+  the same conditions, cover error and cancellation behavior, and avoid
+  hardware-dependent pass/fail thresholds in ordinary tests.
+
+#### M30.6 Extensive functional and security testing
+
+Use the [edge-case inventory](EDGE.md) as input; its scenarios are not
+confirmed bugs and may overlap existing tests.
+
+- Inventory every implemented functionality and map it to reproducible
+  automated or documented manual tests, including its supported entry points.
+  Record gaps and unavailable features explicitly; extend the matrix as new
+  functionality ships without blocking M30 on unimplemented milestones.
+- Exercise workflows end to end alongside unit and integration tests, covering
+  successful operations, invalid input, cancellation, failures, recovery,
+  persistence and interactions between features. Verify destructive operations
+  and their confirmations using isolated temporary fixtures.
+- Test accessibility, keyboard and pointer interaction, animations, layouts,
+  translations and desktop configurations across a documented representative
+  matrix. Include missing optional dependencies and local and remote failure
+  scenarios; report environments that could not be exercised.
+- Conduct documented usability walkthroughs of common first-run and experienced
+  workflows, including keyboard and assistive-technology use. Track confusing
+  steps and regressions with reproducible examples and resolve or triage them.
+- Review security-sensitive trust boundaries and test adversarial inputs for
+  file operations, archives, paths and symbolic links, external commands,
+  terminal integration and imported data. Verify validation, permissions,
+  confirmations and error handling without executing untrusted code.
+- Test privacy and secret handling in settings, sessions, backups, logs,
+  temporary files and remote connections. Use isolated test config, home and
+  trash locations and synthetic credentials; never use real user data.
+- Run suitable static analysis and dependency checks and perform a documented
+  security review. Track reproducible findings, severity and remediation
+  separately; do not claim that testing proves the application is secure.
 
 ## Feature references
 

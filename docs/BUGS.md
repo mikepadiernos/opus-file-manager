@@ -5,6 +5,8 @@ It is meant to stay aligned with the [Opus project board](https://github.com/use
 
 A bug is considered complete only when its project status is **Completed** or
 **Merged**. **Completed** does not necessarily mean merged into `main`.
+Potential scenarios awaiting investigation are tracked separately in
+[edge cases](EDGE.md); they are not confirmed bugs.
 
 ---
 
@@ -18,6 +20,7 @@ A bug is considered complete only when its project status is **Completed** or
 | [#444](https://github.com/mikepadiernos/opus-file-manager/issues/444) | KDE toolbar editor separators and spacers do not match the toolbar | Yes | Merged |
 | [#446](https://github.com/mikepadiernos/opus-file-manager/issues/446) | Metadata editing fails with an unusable ExifTool installation | Yes | Merged |
 | [#457](https://github.com/mikepadiernos/opus-file-manager/issues/457) | Embedded terminal panel controls and background blur | Yes | Merged |
+| [#476](https://github.com/mikepadiernos/opus-file-manager/issues/476) | Toolbar context menus and symbolic icons | No | Backlog |
 
 ## Status legend
 
@@ -36,6 +39,31 @@ A bug is considered complete only when its project status is **Completed** or
 - Add a matching issue to the project board whenever a bug is recorded here.
 - Keep the board issue and this log synchronized whenever status changes.
 - Verify the linked issue and board state before marking a bug as resolved.
+
+## Open reports
+
+### View mode button symbolic icon
+
+- Severity: not assessed
+- Status: Backlog; [#476](https://github.com/mikepadiernos/opus-file-manager/issues/476)
+- Summary: The view mode button should use a symbolic icon consistent with
+  other small toolbar controls. The reporter also observes a full-colour
+  Open Editor icon and requests the symbolic icon used on the Editor settings
+  page. The main and pane toolbars also need context menus with appropriate
+  entries and access to toolbar editing settings.
+- Expected behaviour: Prefer the active theme's symbolic icon at small sizes,
+  with the existing regular-icon fallback for larger sizes or themes without
+  a symbolic variant. Use the settings page's notepad icon for Open Editor
+  and other applicable editor actions. Provide context menus for the main
+  toolbar and each pane toolbar with relevant entries, including an option to
+  open Preferences → Interface → Toolbars. Preserve existing action-specific
+  context menus, view-mode, editor and toolbar customization behaviour.
+- Investigation: The pane's view mode button already requests
+  `view-list-details` through `SymbolicIcon::fromTheme`; the separate
+  `toggle_view_mode` action requests regular icons directly. Identify the
+  affected visible button and verify its rendered icon. `open_editor` requests
+  `accessories-text-editor`, whereas the Editor settings page uses
+  `view-pim-notes`. Check other editor-related actions for the same mismatch.
 
 ## Completed reports
 

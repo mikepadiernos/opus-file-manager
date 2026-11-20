@@ -9,6 +9,7 @@ Qt 6 Widgets and KDE Frameworks 6.
 - `docs/TODO.md`: blocked tasks and actionable handoffs.
 - `docs/BUGS.md`: reported bugs and completion status.
 - `docs/CAVEATS.md`: limitations of implemented features and recommendations.
+- `docs/EDGE.md`: potential edge cases and test scenarios.
 - `docs/parity/`: upstream behaviour references, not necessarily current Opus
   behaviour.
 
