@@ -98,6 +98,7 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMessageBox>
 #include <QMimeDatabase>
 #include <QPointer>
 #include <QScopedValueRollback>
@@ -1433,6 +1434,17 @@ void MainWindow::setupActions()
     QAction *customizeToolbar = actions->addAction(QStringLiteral("customize_main_toolbar"));
     customizeToolbar->setText(i18nc("@action", "Customize Main Toolbar"));
     customizeToolbar->setCheckable(true);
+    QAction *resetToolbarCustomization = actions->addAction(QStringLiteral("reset_toolbar_customization"), this, [this] {
+        if (QMessageBox::question(this,
+                                  i18nc("@title:dialog", "Restore Default Toolbars"),
+                                  i18nc("@label:dialog", "Restore the main toolbar, pane toolbars and hamburger menu to their default contents and order?"),
+                                  QMessageBox::Yes | QMessageBox::No,
+                                  QMessageBox::No)
+            == QMessageBox::Yes) {
+            m_toolbarCustomizer->resetToDefaults();
+        }
+    });
+    resetToolbarCustomization->setText(i18nc("@action", "Restore Default Toolbars"));
     QAction *gallery = actions->addAction(QStringLiteral("open_gallery"), this, &MainWindow::openGallery);
     gallery->setText(i18nc("@action", "Open Gallery"));
     gallery->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-media-preview")));

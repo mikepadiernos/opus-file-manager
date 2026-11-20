@@ -29,6 +29,7 @@ public:
 
     void setEditing(bool editing);
     void applyAppearanceSettings();
+    void resetToDefaults();
 
 Q_SIGNALS:
     void editingChanged(bool editing);
@@ -37,6 +38,11 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
+    struct MenuSnapshot {
+        QPointer<QMenu> menu;
+        QList<QAction *> actions;
+    };
+
     void populateActions();
     void filterActions(const QString &text);
     QList<QMenu *> menus() const;
@@ -66,6 +72,8 @@ private:
     QLineEdit *m_filter = nullptr;
     QListWidget *m_actionList = nullptr;
     QList<Pane *> m_panes;
+    QList<QAction *> m_defaultToolbarActions;
+    QList<MenuSnapshot> m_defaultMenus;
     QPointer<QAction> m_pressedAction;
     QPointer<QMenu> m_pressedMenu;
     QPoint m_pressPosition;

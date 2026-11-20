@@ -813,6 +813,69 @@ private Q_SLOTS:
         QCOMPARE(button->toolButtonStyle(), Qt::ToolButtonTextOnly);
     }
 
+    void toolbarCustomizationsCanResetToDefaults()
+    {
+        QTemporaryDir backupDir;
+        QVERIFY(backupDir.isValid());
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup customization = config->group(QStringLiteral("ToolbarCustomization"));
+        KConfigGroup paneCustomization = config->group(QStringLiteral("PaneToolbars"));
+        const auto backup = KSharedConfig::openConfig(backupDir.filePath(QStringLiteral("settings")));
+        KConfigGroup savedCustomization = backup->group(QStringLiteral("ToolbarCustomization"));
+        KConfigGroup savedPaneCustomization = backup->group(QStringLiteral("PaneToolbars"));
+        customization.copyTo(&savedCustomization);
+        paneCustomization.copyTo(&savedPaneCustomization);
+        const auto cleanup = qScopeGuard([&] {
+            customization.deleteGroup();
+            savedCustomization.copyTo(&customization);
+            paneCustomization.deleteGroup();
+            savedPaneCustomization.copyTo(&paneCustomization);
+            config->sync();
+        });
+        customization.deleteGroup();
+        paneCustomization.deleteGroup();
+
+        MainWindow window;
+        QToolBar *toolbar = window.toolBar();
+        Pane *pane = window.activePane();
+        auto *goMenu = window.findChild<QMenu *>(QStringLiteral("go"));
+        QVERIFY(toolbar && pane && goMenu);
+        const QList<QAction *> defaultToolbarActions = toolbar->actions();
+        const QList<QAction *> defaultPaneActions = pane->toolBar()->actions();
+        const QList<QAction *> defaultMenuActions = goMenu->actions();
+        QVERIFY(defaultToolbarActions.size() > 1 && defaultPaneActions.size() > 1 && defaultMenuActions.size() > 1);
+
+        toolbar->removeAction(defaultToolbarActions.first());
+        toolbar->addAction(defaultToolbarActions.first());
+        pane->removeToolbarAction(defaultPaneActions.first());
+        goMenu->removeAction(defaultMenuActions.first());
+        goMenu->addAction(defaultMenuActions.first());
+        customization.writeEntry(QStringLiteral("Actions"), QStringList{QStringLiteral("action:go_home")});
+        customization.group(QStringLiteral("Entries"))
+            .group(QStringLiteral("open_terminal"))
+            .writeEntry(QStringLiteral("ButtonStyle"), static_cast<int>(Qt::ToolButtonTextOnly));
+        customization.group(QStringLiteral("Menus"))
+            .group(QStringLiteral("go"))
+            .writeEntry(QStringLiteral("HiddenActions"), QStringList{defaultMenuActions.first()->objectName()});
+
+        QAction *reset = window.actionCollection()->action(QStringLiteral("reset_toolbar_customization"));
+        QVERIFY(reset);
+        QTimer::singleShot(0, [] {
+            auto *dialog = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            QVERIFY(dialog->button(QMessageBox::Yes));
+            dialog->button(QMessageBox::Yes)->click();
+        });
+        reset->trigger();
+
+        QCOMPARE(toolbar->actions(), defaultToolbarActions);
+        QCOMPARE(pane->toolBar()->actions(), defaultPaneActions);
+        QCOMPARE(goMenu->actions(), defaultMenuActions);
+        QVERIFY(customization.keyList().isEmpty());
+        QVERIFY(customization.groupList().isEmpty());
+        QVERIFY(paneCustomization.groupList().isEmpty());
+    }
+
     void paneToolbarsControlTheirOwnPane()
     {
         QTemporaryDir root;

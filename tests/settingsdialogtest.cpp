@@ -102,10 +102,11 @@ private Q_SLOTS:
         QVERIFY(places);
         SettingsDialog dialog(places, &window);
         auto *mainToolbar = dialog.findChild<QPushButton *>(QStringLiteral("configureMainToolbarEntries"));
+        auto *resetToolbars = dialog.findChild<QPushButton *>(QStringLiteral("resetToolbarCustomization"));
         auto *firstPaneToolbar = dialog.findChild<QPushButton *>(QStringLiteral("configureFirstPaneToolbarEntries"));
         auto *secondPaneToolbar = dialog.findChild<QPushButton *>(QStringLiteral("configureSecondPaneToolbarEntries"));
-        QVERIFY(mainToolbar && firstPaneToolbar && secondPaneToolbar);
-        QVERIFY(mainToolbar->isEnabled() && firstPaneToolbar->isEnabled() && secondPaneToolbar->isEnabled());
+        QVERIFY(mainToolbar && resetToolbars && firstPaneToolbar && secondPaneToolbar);
+        QVERIFY(mainToolbar->isEnabled() && resetToolbars->isEnabled() && firstPaneToolbar->isEnabled() && secondPaneToolbar->isEnabled());
 
         window.show();
         dialog.show();

@@ -295,6 +295,8 @@ QWidget *SettingsDialog::createToolbarEntriesPage()
     auto *mainWindow = qobject_cast<KXmlGuiWindow *>(window);
     QAction *mainToolbar = mainWindow ? mainWindow->actionCollection()->action(QStringLiteral("customize_main_toolbar")) : nullptr;
     addEditorButton(QStringLiteral("configureMainToolbarEntries"), i18nc("@action:button", "Main Toolbar and Hamburger Menu…"), mainToolbar);
+    QAction *resetToolbars = mainWindow ? mainWindow->actionCollection()->action(QStringLiteral("reset_toolbar_customization")) : nullptr;
+    addEditorButton(QStringLiteral("resetToolbarCustomization"), i18nc("@action:button", "Restore Default Toolbars…"), resetToolbars);
     QList<Pane *> panes = window ? window->findChildren<Pane *>() : QList<Pane *>{};
     std::sort(panes.begin(), panes.end(), [](const Pane *left, const Pane *right) {
         return left->toolbarConfigId() < right->toolbarConfigId();

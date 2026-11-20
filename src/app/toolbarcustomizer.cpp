@@ -96,6 +96,11 @@ ToolbarCustomizer::ToolbarCustomizer(KToolBar *toolbar, KActionCollection *actio
     window->addDockWidget(Qt::RightDockWidgetArea, m_dock);
     m_dock->hide();
 
+    m_defaultToolbarActions = m_toolbar->actions();
+    for (QMenu *menu : menus()) {
+        m_defaultMenus.append({menu, menu->actions()});
+    }
+
     for (Pane *pane : std::as_const(m_panes)) {
         for (QAction *action : pane->toolBar()->actions()) {
             if (action->objectName() != QLatin1String("paneCustomizeToolbar")) {
@@ -185,6 +190,48 @@ void ToolbarCustomizer::applyAppearanceSettings()
             applyAppearance(action);
         }
     }
+}
+
+void ToolbarCustomizer::resetToDefaults()
+{
+    setEditing(false);
+
+    KSharedConfig::Ptr config = KSharedConfig::openConfig();
+    config->group(QLatin1String(ToolbarGroup)).deleteGroup();
+    for (Pane *pane : std::as_const(m_panes)) {
+        pane->resetToolbarConfiguration();
+    }
+
+    const QList<QAction *> currentActions = m_toolbar->actions();
+    m_toolbar->clear();
+    for (QAction *action : currentActions) {
+        if (action->property("toolbarCustomizerOwned").toBool()) {
+            action->deleteLater();
+        }
+    }
+    for (QAction *action : std::as_const(m_defaultToolbarActions)) {
+        m_toolbar->addAction(action);
+    }
+
+    for (const MenuSnapshot &snapshot : std::as_const(m_defaultMenus)) {
+        if (snapshot.menu) {
+            for (QAction *action : snapshot.menu->actions()) {
+                snapshot.menu->removeAction(action);
+            }
+        }
+    }
+    for (const MenuSnapshot &snapshot : std::as_const(m_defaultMenus)) {
+        if (snapshot.menu) {
+            for (QAction *action : snapshot.actions) {
+                snapshot.menu->addAction(action);
+            }
+        }
+    }
+
+    config->sync();
+    installButtonFilter(nullptr);
+    applyAppearanceSettings();
+    populateActions();
 }
 
 bool ToolbarCustomizer::eventFilter(QObject *watched, QEvent *event)

@@ -5,6 +5,7 @@
 #include "navigationhistory.h"
 #include "session.h"
 
+#include <QPair>
 #include <QStringList>
 #include <QUrl>
 #include <QWidget>
@@ -58,6 +59,7 @@ public:
     QString sharedActionName(QAction *action) const;
     void insertToolbarAction(QAction *action, const QPoint &position = QPoint());
     void removeToolbarAction(QAction *action);
+    void resetToolbarConfiguration();
     QUrl url() const;
 
     bool isActive() const;
@@ -161,6 +163,7 @@ private:
     QAction *m_up = nullptr;
     QAction *m_reload = nullptr;
     QToolBar *m_toolBar = nullptr;
+    QList<QPair<QAction *, bool>> m_defaultToolbarActions;
     QString m_toolbarConfigId;
     QWidget *m_navigationBar = nullptr;
     QBoxLayout *m_navigationLayout = nullptr;

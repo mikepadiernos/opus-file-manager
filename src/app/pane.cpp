@@ -206,6 +206,9 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     configure->setObjectName(QStringLiteral("paneCustomizeToolbar"));
     configure->setToolTip(configure->text());
     connect(configure, &QAction::triggered, this, &Pane::configureToolbar);
+    for (QAction *action : m_toolBar->actions()) {
+        m_defaultToolbarActions.append({action, action->isVisible()});
+    }
     restoreToolbarConfiguration();
 
     m_navigator->setPlacesSelectorVisible(false);
@@ -676,6 +679,16 @@ void Pane::setNewTabsAfterCurrent(bool afterCurrent)
 void Pane::setFollowSymlinks(bool follow)
 {
     m_followSymlinks = follow;
+}
+
+void Pane::resetToolbarConfiguration()
+{
+    KSharedConfig::openConfig()->group(QStringLiteral("PaneToolbars")).group(m_toolbarConfigId).deleteGroup();
+    m_toolBar->clear();
+    for (const auto &[action, visible] : std::as_const(m_defaultToolbarActions)) {
+        action->setVisible(visible);
+        m_toolBar->addAction(action);
+    }
 }
 
 void Pane::setUrl(const QUrl &url)
