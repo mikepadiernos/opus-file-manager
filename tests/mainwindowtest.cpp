@@ -45,6 +45,7 @@
 #include <QFile>
 #include <QFileDialog>
 #include <QGraphicsOpacityEffect>
+#include <QGraphicsView>
 #include <QHeaderView>
 #include <QImage>
 #include <QInputDialog>
@@ -174,6 +175,38 @@ private Q_SLOTS:
         window.applySettings();
         QVERIFY(action->isChecked());
         QVERIFY(inactiveEffect->isEnabled());
+    }
+
+    void imageBackgroundSettingsApplyToOpenViews()
+    {
+        const auto previous = Settings::imageBackground();
+        const auto restore = qScopeGuard([previous] {
+            Settings::setImageBackground(previous);
+        });
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath(QStringLiteral("transparent.png"));
+        QImage image(20, 20, QImage::Format_ARGB32);
+        image.fill(Qt::transparent);
+        QVERIFY(image.save(path));
+        MainWindow window;
+        window.show();
+        window.actionCollection()->action(QStringLiteral("show_preview_panel"))->setChecked(true);
+        auto *preview = window.findChild<PreviewPanel *>(QStringLiteral("previewPanel"));
+        QVERIFY(preview);
+        preview->setItems({KFileItem(QUrl::fromLocalFile(path))});
+        auto *label = preview->findChild<QLabel *>(QStringLiteral("previewImage"));
+        QTRY_VERIFY(label && label->isVisible() && !label->pixmap().isNull());
+        QPointer<GalleryWindow> gallery = new GalleryWindow({QUrl::fromLocalFile(path)}, {}, 0, &window);
+        gallery->show();
+        auto *view = gallery->findChild<QGraphicsView *>(QStringLiteral("galleryView"));
+        QVERIFY(view);
+        Settings::setImageBackground(Settings::EnumImageBackground::Dark);
+        window.applySettings();
+        QCOMPARE(view->backgroundBrush().color(), QColor(35, 35, 35));
+        QCOMPARE(label->grab().toImage().pixelColor(label->width() / 2, label->height() / 2), QColor(35, 35, 35));
+        gallery->close();
+        QTRY_VERIFY(gallery.isNull());
     }
 
     void opensCustomCommandForLocalFolder()
