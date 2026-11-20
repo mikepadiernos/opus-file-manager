@@ -931,6 +931,8 @@ upstream source could not be verified for this review.
 
 ## Tracking
 
+Translation milestone handoff: [pending tasks](TODO.md#complete-m13-and-m14-translations).
+
 Prefix user-reported bug titles with `[bug] ` and label them `bug`. Prefix
 reports arising from documented caveats with `[caveat] ` and label them
 `caveat`. Move milestone, bug and caveat issues to Development on the GitHub
