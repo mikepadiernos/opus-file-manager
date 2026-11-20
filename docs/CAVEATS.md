@@ -219,12 +219,12 @@ open archives with 7-Zip or another trusted external tool when needed.
   **Recommendation:** Check Baloo's indexing configuration and status; use
   live search for a current local folder, search smaller folders, inspect
   errors and repeat searches after files change. Use flat view when selecting
-  nested local items by path, and verify the resulting selection. Use GNU `find` for other local
-  filename searches or ripgrep (`rg`) for content searches when Opus limits are
-  unsuitable; check each tool's hidden-file, ignore, encoding and symbolic-link
-  behavior. If a revealed result is hidden or filtered, adjust the pane's
-  visibility settings. Re-run saved searches and check collection references
-  after files change.
+  nested local items by path, and verify the resulting selection. Use GNU
+  `find` for other local filename searches or ripgrep (`rg`) for content
+  searches when Opus limits are unsuitable; check each tool's hidden-file,
+  ignore, encoding and symbolic-link behavior. If a revealed result is hidden
+  or filtered, adjust the pane's visibility settings. Re-run saved searches
+  and check collection references after files change.
   ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/362#issuecomment-7023269364))
 
 ## Batch rename
@@ -236,10 +236,11 @@ open archives with 7-Zip or another trusted external tool when needed.
   fields; missing metadata and invalid names prevent application. Regular
   expressions are case-sensitive and apply to base names only, preserving
   extensions. Expensive expressions can delay a preview and cannot be canceled.
-  The preview is a snapshot: source identity is checked before each rename, but changes can
-  race those checks. Errors or cancellation stop the batch and can leave partial
-  results. Renames are not registered with KIO undo. Per-folder Opus labels,
-  colors, ratings, notes and pins remain keyed by old names.
+  The preview is a snapshot: source identity is checked before each rename,
+  but changes can race those checks. Errors or cancellation stop the batch and
+  can leave partial results. Renames are not registered with KIO undo.
+  Per-folder Opus labels, colors, ratings, notes and pins remain keyed by old
+  names.
   ([#372](https://github.com/mikepadiernos/opus-file-manager/issues/372))
 
   **Recommendation:** Review the preview and back up important items first.
