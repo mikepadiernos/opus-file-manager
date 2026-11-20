@@ -22,7 +22,7 @@ files are optional at build time and enable indexed search.
 Qt must be built with Jalali calendar support.
 
 ```bash
-./install.sh --deps  # Print suggested distribution packages; does not install them
+./install.sh --deps  # Print build and optional feature packages; does not install them
 cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
 cmake --build build
 QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
@@ -43,8 +43,12 @@ and [Jalali date limitations](docs/CAVEATS.md#jalali-dates).
 
 Run `./install.sh` to build and install for the current user, or
 `./install.sh --help` for other options. `./install.sh --default` also changes
-the default folder handler. The installer disables tests in its build tree;
-reconfigure with `-DBUILD_TESTING=ON` to run them.
+the default folder handler. Install Baloo before configuring to enable indexed
+search; Konsole provides the embedded terminal. Media metadata editing needs a
+working ExifTool on the desktop application's PATH and the KDE metadata writer.
+Preview backends and Vulkan headers are optional. The installer
+disables tests in its build tree; reconfigure with `-DBUILD_TESTING=ON` to run
+them.
 
 ## Features
 
