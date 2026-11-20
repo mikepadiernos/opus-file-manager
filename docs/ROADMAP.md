@@ -423,10 +423,10 @@ Settings for M09 tools, stored in KConfig.
   and around it directly, add separators and spacers, and choose icons, text or
   both per entry~~
 - ~~Custom toolbar buttons for scripts, custom commands and presets~~
-- Pane toolbars instead of a fixed path row: each pane gets its own editable
+- ~~Pane toolbars instead of a fixed path row: each pane gets its own editable
   toolbar (back, forward, up, reload, location bar, view mode, zoom, sorting,
   previews, hidden files, filter, search) that acts on that pane, with the
-  location bar dropping to a second row in a narrow pane
+  location bar dropping to a second row in a narrow pane~~
 - Move panes: send the second pane to a tab of its own or pop it out into a
   window, carrying its display style
 - Drag entries between the main toolbar, pane toolbars and hamburger menu
