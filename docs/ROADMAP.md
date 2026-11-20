@@ -1148,8 +1148,7 @@ Follow the [project instructions](../CLAUDE.md) for issue tracking, completion,
 branching and merging. Record blocked work in [pending tasks](TODO.md) and
 document feature limitations in [caveats and limitations](CAVEATS.md).
 The [separator and expanded-space report](TODO.md#clarify-separators-and-expanded-space-444)
-needs reproduction details; the [ExifTool installation report](TODO.md#verify-the-affected-exiftool-installation-446)
-needs verification in the affected environment.
+needs reproduction details.
 
 [#36]: https://github.com/mikepadiernos/opus-file-manager/issues/36
 [#255]: https://github.com/mikepadiernos/opus-file-manager/issues/255
