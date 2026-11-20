@@ -88,3 +88,7 @@ to track each milestone's parent issue and its feature sub-issues:
   local roadmap as part of the same change.
 - When all milestone items are struck out, set the parent milestone's
   **Target date** to the completion date.
+- Once a feature-complete milestone has been merged into `main`, close its
+  milestone issue and related feature issues and sub-issues as completed, and
+  ensure their project status is **Completed**. Keep unresolved bug and caveat
+  issues open.
