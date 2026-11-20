@@ -1121,7 +1121,7 @@ upstream source could not be verified for this review.
 
 ## Tracking
 
-Translation milestone handoff: [pending tasks](TODO.md#complete-m13-and-m14-translations).
+Translation settings handoff: [pending tasks](TODO.md#complete-m14-translation-settings).
 
 Follow the [project instructions](../CLAUDE.md) for issue tracking, completion,
 branching and merging. Record blocked work in [pending tasks](TODO.md) and
