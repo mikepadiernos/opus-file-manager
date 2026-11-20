@@ -62,7 +62,7 @@ public:
 
     bool isActive() const;
     void setActive(bool active);
-    void setInactiveDimming(bool enabled);
+    void setInactiveDimming(bool enabled, int opacityPercent = 65);
 
     /// Forces the tab strip to show even with a single tab.
     void setTabBarForcedVisible(bool visible);

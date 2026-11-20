@@ -35,6 +35,12 @@
       <label>Dim the inactive pane</label>
       <default>false</default>
     </entry>
+    <entry name="InactivePaneOpacity" type="Int">
+      <label>Opacity of the inactive pane in percent when dimmed</label>
+      <default>65</default>
+      <min>20</min>
+      <max>100</max>
+    </entry>
     <entry name="DualPaneAtStartup" type="Enum">
       <label>Whether the window starts with one or two panes</label>
       <choices>

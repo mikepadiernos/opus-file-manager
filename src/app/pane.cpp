@@ -555,9 +555,10 @@ void Pane::setActive(bool active)
     }
 }
 
-void Pane::setInactiveDimming(bool enabled)
+void Pane::setInactiveDimming(bool enabled, int opacityPercent)
 {
     m_inactiveDimming = enabled;
+    m_dimEffect->setOpacity(qBound(20, opacityPercent, 100) / 100.0);
     m_dimEffect->setEnabled(enabled && !m_active);
 }
 

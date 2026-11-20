@@ -35,6 +35,7 @@
 #include <QDockWidget>
 #include <QDropEvent>
 #include <QFile>
+#include <QGraphicsOpacityEffect>
 #include <QHeaderView>
 #include <QLabel>
 #include <QLayout>
@@ -211,6 +212,7 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("StartupMode")), QStringLiteral("Folders and Tabs"));
         QCOMPARE(tabOf(QStringLiteral("FollowSymlinks")), QStringLiteral("Folders and Tabs"));
         QCOMPARE(tabOf(QStringLiteral("DimInactivePane")), QStringLiteral("Folders and Tabs"));
+        QCOMPARE(tabOf(QStringLiteral("InactivePaneOpacity")), QStringLiteral("Folders and Tabs"));
         QCOMPARE(tabOf(QStringLiteral("PaneMoveDestination")), QStringLiteral("Folders and Tabs"));
         QCOMPARE(tabOf(QStringLiteral("PaneMoveDisplayStyle")), QStringLiteral("Folders and Tabs"));
         QCOMPARE(tabOf(QStringLiteral("PaneSwapMode")), QStringLiteral("Folders and Tabs"));
@@ -1093,6 +1095,39 @@ private Q_SLOTS:
         QVERIFY(window.toolBar()->isMovable());
         QVERIFY(mainCustomize->isEnabled() && paneCustomize->isEnabled());
         QVERIFY(mainEditor->isEnabled() && paneEditor->isEnabled());
+    }
+
+    void inactivePaneOpacitySettingsApply()
+    {
+        const bool previousEnabled = Settings::dimInactivePane();
+        const int previousOpacity = Settings::inactivePaneOpacity();
+        const auto restore = qScopeGuard([&] {
+            Settings::setDimInactivePane(previousEnabled);
+            Settings::setInactivePaneOpacity(previousOpacity);
+        });
+
+        Settings::setDimInactivePane(true);
+        Settings::setInactivePaneOpacity(38);
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *dim = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_DimInactivePane"));
+        auto *opacity = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_InactivePaneOpacity"));
+        QVERIFY(dim && opacity);
+        QVERIFY(dim->isChecked() && opacity->isEnabled());
+        QCOMPARE(opacity->value(), 38);
+        dim->setChecked(false);
+        QVERIFY(!opacity->isEnabled());
+        dim->setChecked(true);
+        QVERIFY(opacity->isEnabled());
+        auto *effect = qobject_cast<QGraphicsOpacityEffect *>(window.inactivePane()->graphicsEffect());
+        QVERIFY(effect);
+        QCOMPARE(effect->opacity(), 0.38);
+
+        opacity->setValue(72);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        window.applySettings();
+        QCOMPARE(Settings::inactivePaneOpacity(), 72);
+        QCOMPARE(effect->opacity(), 0.72);
     }
 
     void contextListsSaveUnavailableEntries()

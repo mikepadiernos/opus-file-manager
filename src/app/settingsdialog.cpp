@@ -937,7 +937,15 @@ QWidget *SettingsDialog::createFoldersAndTabsPage()
     form->addRow(QString(), checkBox(QStringLiteral("NewTabsAfterCurrent"), i18nc("@option:check", "Open new tabs next to the current tab")));
     form->addRow(i18nc("@title:group", "Panes:"), checkBox(QStringLiteral("TabSwitchesPanes"), i18nc("@option:check", "Tab key switches between the panes")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowNavigationBar"), i18nc("@option:check", "Show the navigation bar of each pane")));
-    form->addRow(QString(), checkBox(QStringLiteral("DimInactivePane"), i18nc("@option:check", "Dim the inactive pane")));
+    auto *dimInactive = checkBox(QStringLiteral("DimInactivePane"), i18nc("@option:check", "Dim the inactive pane"));
+    auto *inactiveOpacity = new QSpinBox;
+    inactiveOpacity->setObjectName(QStringLiteral("kcfg_InactivePaneOpacity"));
+    inactiveOpacity->setRange(20, 100);
+    inactiveOpacity->setSuffix(i18nc("@item:valuesuffix percent", "%"));
+    connect(dimInactive, &QCheckBox::toggled, inactiveOpacity, &QWidget::setEnabled);
+    inactiveOpacity->setEnabled(dimInactive->isChecked());
+    form->addRow(QString(), dimInactive);
+    form->addRow(i18nc("@label:spinbox", "Inactive pane opacity:"), inactiveOpacity);
     form->addRow(i18nc("@label:listbox", "Default second-pane destination:"),
                  comboBox(QStringLiteral("PaneMoveDestination"), {i18nc("@item:inlistbox", "Tab"), i18nc("@item:inlistbox", "Separate window")}));
     form->addRow(

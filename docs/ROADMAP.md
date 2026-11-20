@@ -506,7 +506,7 @@ Settings for M12 UI customizations, stored in KConfig.
 
 > **Pending project synchronization (2026-11-20):** GitHub Projects API rate
 > limiting blocked updates. Verify the 2026-11-20 start dates for #23 and
-> #190-#195. Move #191 to Review, set its 2026-11-20 target date and check
+> #190-#196. Move #191 to Review, set its 2026-11-20 target date and check
 > M12-02 in the parent; then complete #190, close it as completed, and strike
 > M12-01. Start #192 in Development with a 2026-11-20 start date, then move it
 > to Review, set its 2026-11-20 target date and check M12-03. Complete #191,
@@ -516,9 +516,11 @@ Settings for M12 UI customizations, stored in KConfig.
 > Start #194 in Development with a 2026-11-20 start date, then move it to
 > Review, set its 2026-11-20 target date and check M12-05. Complete #193, close
 > it as completed, and strike M12-04. Start #195 in Development with a
-> 2026-11-20 start date; when it reaches Review, complete #194, close it as
-> completed, and strike M12-05. Leave roadmap items unstruck until board
-> confirmation.
+> 2026-11-20 start date, then move it to Review, set its 2026-11-20 target date
+> and check M12-06. Complete #194, close it as completed, and strike M12-05.
+> Start #196 in Development with a 2026-11-20 start date; when it reaches
+> Review, complete #195, close it as completed, and strike M12-06. Leave roadmap
+> items unstruck until board confirmation.
 
 ### M13 Workspaces
 

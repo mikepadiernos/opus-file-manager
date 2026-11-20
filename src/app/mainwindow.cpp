@@ -1226,8 +1226,8 @@ void MainWindow::setupActions()
     connect(dimInactive, &QAction::triggered, this, [this](bool enabled) {
         Settings::setDimInactivePane(enabled);
         Settings::self()->save();
-        m_left->setInactiveDimming(enabled);
-        m_right->setInactiveDimming(enabled);
+        m_left->setInactiveDimming(enabled, Settings::inactivePaneOpacity());
+        m_right->setInactiveDimming(enabled, Settings::inactivePaneOpacity());
     });
 
     m_terminalPanelAction = new KToggleAction(i18nc("@action", "Show Embedded Terminal"), this);
@@ -3609,7 +3609,7 @@ void MainWindow::applySettings()
     m_automaticLocalSizeDefault = Settings::automaticLocalFolderSizes();
     m_automaticRemoteSizeDefault = Settings::automaticRemoteFolderSizes();
     for (Pane *pane : {m_left, m_right}) {
-        pane->setInactiveDimming(Settings::dimInactivePane());
+        pane->setInactiveDimming(Settings::dimInactivePane(), Settings::inactivePaneOpacity());
         pane->reloadTabSettings();
         pane->reloadFilterSettings();
         pane->setNavigationBarVisible(Settings::showNavigationBar());
