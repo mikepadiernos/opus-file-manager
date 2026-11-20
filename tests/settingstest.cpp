@@ -478,6 +478,19 @@ private Q_SLOTS:
         QCOMPARE(firstPageIconName(dialog), QStringLiteral("configure"));
     }
 
+    void editorSidebarUsesNotepadIcon()
+    {
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        const QAbstractItemModel *pages = dialog.findChild<KPageWidget *>()->model();
+        const auto matches = pages->match(pages->index(0, 0), Qt::DisplayRole, QStringLiteral("Editor"), 1, Qt::MatchExactly);
+        QCOMPARE(matches.size(), 1);
+        QCOMPARE(matches.first().data(Qt::DecorationRole).value<QIcon>().name(), QStringLiteral("view-pim-notes-symbolic"));
+
+        dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_SidebarIconSize"))->setValue(32);
+        QCOMPARE(matches.first().data(Qt::DecorationRole).value<QIcon>().name(), QStringLiteral("view-pim-notes"));
+    }
+
     void m04AppearanceAndArchiveSettingsApply()
     {
         MainWindow window;

@@ -169,7 +169,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                   QStringLiteral("view-preview"));
     addTabbedPage({{createEditorPage(), i18nc("@title:tab", "Editor")}, {createTextEditorPage(), i18nc("@title:tab", "KTextEditor")}},
                   i18nc("@title:group", "Editor"),
-                  QStringLiteral("accessories-text-editor"));
+                  QStringLiteral("view-pim-notes"));
     addTabbedPage({{createTerminalPage(), i18nc("@title:tab", "Embedded Terminal")},
                    {createSearchPage(), i18nc("@title:tab", "Search")},
                    {createDuplicateFinderPage(), i18nc("@title:tab", "Duplicate Finder")},
