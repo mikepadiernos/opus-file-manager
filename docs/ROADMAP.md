@@ -429,7 +429,7 @@ Settings for M09 tools, stored in KConfig.
   location bar dropping to a second row in a narrow pane~~
 - ~~Move panes: send the second pane to a tab of its own or pop it out into a
   window, carrying its display style~~
-- Drag entries between the main toolbar, pane toolbars and hamburger menu
+- ~~Drag entries between the main toolbar, pane toolbars and hamburger menu~~
 - ~~Customize the combined Places/Folders panel: reorder its sections, show or
   hide each section, and give sections custom titles~~
 - Back up and restore app-owned settings and layouts with a preview and
