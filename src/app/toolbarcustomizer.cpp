@@ -195,6 +195,9 @@ void ToolbarCustomizer::applyAppearanceSettings()
 void ToolbarCustomizer::resetToDefaults()
 {
     setEditing(false);
+    ++m_saveGeneration;
+    m_saveScheduled = false;
+    m_restoring = true;
 
     KSharedConfig::Ptr config = KSharedConfig::openConfig();
     config->group(QLatin1String(ToolbarGroup)).deleteGroup();
@@ -228,6 +231,7 @@ void ToolbarCustomizer::resetToDefaults()
         }
     }
 
+    m_restoring = false;
     config->sync();
     installButtonFilter(nullptr);
     applyAppearanceSettings();
@@ -285,7 +289,11 @@ bool ToolbarCustomizer::eventFilter(QObject *watched, QEvent *event)
         if (targetToolbar == m_toolbar && !m_restoring && !m_saveScheduled
             && (event->type() == QEvent::ActionAdded || event->type() == QEvent::ActionRemoved)) {
             m_saveScheduled = true;
-            QTimer::singleShot(0, this, [this] {
+            const quint64 generation = m_saveGeneration;
+            QTimer::singleShot(0, this, [this, generation] {
+                if (generation != m_saveGeneration) {
+                    return;
+                }
                 m_saveScheduled = false;
                 if (!m_restoring) {
                     installButtonFilter(nullptr);

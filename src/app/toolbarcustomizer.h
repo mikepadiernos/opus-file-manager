@@ -81,4 +81,5 @@ private:
     bool m_editing = false;
     bool m_restoring = false;
     bool m_saveScheduled = false;
+    quint64 m_saveGeneration = 0;
 };

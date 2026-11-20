@@ -871,6 +871,7 @@ private Q_SLOTS:
         QCOMPARE(toolbar->actions(), defaultToolbarActions);
         QCOMPARE(pane->toolBar()->actions(), defaultPaneActions);
         QCOMPARE(goMenu->actions(), defaultMenuActions);
+        QCoreApplication::processEvents();
         QVERIFY(customization.keyList().isEmpty());
         QVERIFY(customization.groupList().isEmpty());
         QVERIFY(paneCustomization.groupList().isEmpty());
