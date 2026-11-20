@@ -160,6 +160,8 @@ private:
     void batchRename();
     void editMetadata();
     void showCustomCommand();
+    void showCustomCommandPreset(const QString &name);
+    void refreshCustomCommandActions();
     void showTransferQueue();
     void trash();
     void deletePermanently();
@@ -260,6 +262,7 @@ private:
     bool m_automaticRemoteSizeDefault = false;
     QMenu *m_popularFoldersMenu = nullptr;
     QHash<QString, int> m_popularFolderVisits;
+    QHash<QString, QAction *> m_customCommandActions;
     QHash<Pane *, QUrl> m_lastFolderByPane;
     QHash<Pane *, QUrl> m_jumpBackPoints;
     bool m_jumpingBack = false;

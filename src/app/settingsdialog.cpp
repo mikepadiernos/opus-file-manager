@@ -495,7 +495,8 @@ QWidget *SettingsDialog::createAutomationPage()
     auto *page = new QWidget;
     auto *layout = new QVBoxLayout(page);
     auto *notice = new QLabel(i18nc("@info",
-                                    "Manage scripts and custom command presets. Changes are saved immediately, even if Preferences is canceled. "
+                                    "Manage scripts and custom command presets. Add saved commands using Configure Toolbars. "
+                                    "Changes are saved immediately, even if Preferences is canceled. "
                                     "Commands run with your permissions and require a preview and confirmation."),
                               page);
     notice->setWordWrap(true);
@@ -505,6 +506,7 @@ QWidget *SettingsDialog::createAutomationPage()
     layout->addWidget(manage);
     connect(manage, &QPushButton::clicked, this, [this] {
         CustomCommandDialog dialog({}, {}, this, {}, true);
+        connect(&dialog, &CustomCommandDialog::presetsChanged, this, &SettingsDialog::customCommandsChanged);
         dialog.exec();
     });
     layout->addStretch();

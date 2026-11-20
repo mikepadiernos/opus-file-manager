@@ -6,6 +6,7 @@
 #include "combinedpanel.h"
 #include "contentchartdialog.h"
 #include "customcommanddialog.h"
+#include "customcommands.h"
 #include "duplicatefinderdialog.h"
 #include "filediffdialog.h"
 #include "fileoperations.h"
@@ -29,11 +30,13 @@
 #include <KActionCollection>
 #include <KConfigGroup>
 #include <KDirModel>
+#include <KEditToolBar>
 #include <KFileItemDelegate>
 #include <KFilePlacesView>
 #include <KSelectAction>
 #include <KSharedConfig>
 #include <KTextEditor/Document>
+#include <KToolBar>
 
 #include <QAbstractItemModel>
 #include <QCheckBox>
@@ -55,6 +58,7 @@
 #include <QListWidget>
 #include <QMediaPlayer>
 #include <QMenu>
+#include <QMessageBox>
 #include <QMimeData>
 #include <QPlainTextEdit>
 #include <QPointer>
@@ -366,6 +370,76 @@ private Q_SLOTS:
         QVERIFY(restoredSplitter);
         QCOMPARE(qobject_cast<Pane *>(restoredSplitter->widget(0))->tabBarPosition(), Pane::TabBarPosition::Left);
         QCOMPARE(qobject_cast<Pane *>(restoredSplitter->widget(1))->tabBarPosition(), Pane::TabBarPosition::Right);
+    }
+
+    void savedCommandsCanBeAddedToToolbarAndRequirePreview()
+    {
+        QTemporaryDir backupDir;
+        QVERIFY(backupDir.isValid());
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup group = config->group(QStringLiteral("CustomCommands"));
+        const auto backup = KSharedConfig::openConfig(backupDir.filePath(QStringLiteral("settings")));
+        KConfigGroup saved = backup->group(QStringLiteral("CustomCommands"));
+        group.copyTo(&saved);
+        const auto cleanup = qScopeGuard([&] {
+            group.deleteGroup();
+            saved.copyTo(&group);
+            config->sync();
+        });
+        QString error;
+        const CustomCommands::Command command{QStringLiteral("Toolbar command"), QStringLiteral("/bin/echo"), {QStringLiteral("{dir}")}, {}};
+        QVERIFY2(CustomCommands::save(group, {command}, &error), qPrintable(error));
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        const auto actions = window.actionCollection()->actions();
+        const auto it = std::find_if(actions.cbegin(), actions.cend(), [&command](const QAction *action) {
+            return action->text() == command.name && action->objectName().startsWith(QLatin1String("custom_command_preset_"));
+        });
+        QVERIFY(it != actions.cend());
+        QPointer<QAction> action = *it;
+        QVERIFY(action->isEnabled());
+        KEditToolBar editor(window.guiFactory(), &window);
+        editor.show();
+        const auto listed = [&editor, &command] {
+            const auto views = editor.findChildren<QAbstractItemView *>();
+            return std::any_of(views.cbegin(), views.cend(), [&command](QAbstractItemView *view) {
+                return view->model()
+                    && !view->model()->match(view->model()->index(0, 0), Qt::DisplayRole, command.name, 1, Qt::MatchExactly | Qt::MatchRecursive).isEmpty();
+            });
+        };
+        QTRY_VERIFY(listed());
+        editor.close();
+        window.toolBar()->addAction(action);
+        auto *toolbarButton = qobject_cast<QToolButton *>(window.toolBar()->widgetForAction(action));
+        QVERIFY(toolbarButton);
+        QTest::mouseClick(toolbarButton, Qt::LeftButton);
+        auto *dialog = window.findChild<CustomCommandDialog *>(QStringLiteral("customCommandDialog"));
+        QVERIFY(dialog);
+        QCOMPARE(dialog->findChild<QLineEdit *>(QStringLiteral("commandProgram"))->text(), command.program);
+        QCOMPARE(dialog->findChild<QPlainTextEdit *>(QStringLiteral("commandArguments"))->toPlainText(), QStringLiteral("{dir}"));
+        QVERIFY(!dialog->findChild<QPushButton *>(QStringLiteral("commandRun"))->isEnabled());
+        dialog->findChild<QPushButton *>(QStringLiteral("commandPreview"))->click();
+        QVERIFY(dialog->findChild<QPushButton *>(QStringLiteral("commandRun"))->isEnabled());
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::Yes)->click();
+        });
+        dialog->findChild<QPushButton *>(QStringLiteral("commandDeletePreset"))->click();
+        QVERIFY(action.isNull());
+        QTimer::singleShot(0, [] {
+            auto *input = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
+            QVERIFY(input);
+            input->setTextValue(QStringLiteral("New toolbar command"));
+            input->accept();
+        });
+        dialog->findChild<QPushButton *>(QStringLiteral("commandSavePreset"))->click();
+        const auto refreshed = window.actionCollection()->actions();
+        QVERIFY(std::any_of(refreshed.cbegin(), refreshed.cend(), [](const QAction *candidate) {
+            return candidate->text() == QLatin1String("New toolbar command") && candidate->objectName().startsWith(QLatin1String("custom_command_preset_"));
+        }));
+        dialog->close();
     }
 
     void splitterSizesAreSavedPerLayout()

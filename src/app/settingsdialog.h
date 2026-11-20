@@ -32,6 +32,9 @@ public:
      */
     SettingsDialog(KFilePlacesModel *places, QWidget *parent);
 
+Q_SIGNALS:
+    void customCommandsChanged();
+
 protected:
     void updateSettings() override;
     void updateWidgets() override;

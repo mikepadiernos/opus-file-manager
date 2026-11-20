@@ -57,6 +57,8 @@ for file operations, Places, properties, settings and desktop integration.
 - Queue copy and move transfers with per-job progress and controls.
 - Preview and run scripts or commands with selection placeholders and saved
   command presets.
+  Use Configure Toolbars to add saved commands as buttons; they still require
+  preview and confirmation before running.
 - Preview local duplicates, select candidates by date or folder, and move
   checked files to Trash after confirmation.
 - Compare and synchronize local folders with filters, reusable profiles and

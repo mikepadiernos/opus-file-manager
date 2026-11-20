@@ -78,6 +78,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QComboBox>
+#include <QCryptographicHash>
 #include <QCursor>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -981,6 +982,7 @@ void MainWindow::setupActions()
     QAction *customCommand = actions->addAction(QStringLiteral("custom_command"), this, &MainWindow::showCustomCommand);
     customCommand->setText(i18nc("@action", "Scripts and Custom Commands…"));
     customCommand->setIcon(QIcon::fromTheme(QStringLiteral("system-run")));
+    refreshCustomCommandActions();
     QAction *transferQueue = actions->addAction(QStringLiteral("transfer_queue"), this, &MainWindow::showTransferQueue);
     transferQueue->setText(i18nc("@action", "Transfer Queue…"));
     transferQueue->setIcon(QIcon::fromTheme(QStringLiteral("view-list-details")));
@@ -1656,10 +1658,13 @@ void MainWindow::updateActions()
     actions->action(stdName(KStandardAction::Cut))->setEnabled(hasSelection && props.supportsMoving());
     actions->action(stdName(KStandardAction::Copy))->setEnabled(hasSelection);
     actions->action(QStringLiteral("open_terminal"))->setEnabled(activePane()->url().isLocalFile());
-    actions->action(QStringLiteral("custom_command"))
-        ->setEnabled(activePane()->url().isLocalFile() && std::all_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
-                         return item.url().isLocalFile();
-                     }));
+    const bool commandEnabled = activePane()->url().isLocalFile() && std::all_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
+                                    return item.url().isLocalFile();
+                                });
+    actions->action(QStringLiteral("custom_command"))->setEnabled(commandEnabled);
+    for (QAction *action : std::as_const(m_customCommandActions)) {
+        action->setEnabled(commandEnabled);
+    }
     actions->action(QStringLiteral("content_chart"))->setEnabled(activePane()->url().isValid() && !activePane()->url().isEmpty());
     actions->action(QStringLiteral("find_duplicates"))->setEnabled(activePane()->url().isLocalFile());
     actions->action(QStringLiteral("compare_pane_folders"))
@@ -2900,6 +2905,11 @@ void MainWindow::showTransferQueue()
 
 void MainWindow::showCustomCommand()
 {
+    showCustomCommandPreset({});
+}
+
+void MainWindow::showCustomCommandPreset(const QString &name)
+{
     const QUrl folder = activePane()->url();
     if (!folder.isLocalFile()) {
         showStatusMessage(i18nc("@info", "Commands require a local working folder."));
@@ -2915,8 +2925,51 @@ void MainWindow::showCustomCommand()
     }
     paths.sort();
     auto *dialog = new CustomCommandDialog(folder.toLocalFile(), paths, this);
+    connect(dialog, &CustomCommandDialog::presetsChanged, this, &MainWindow::refreshCustomCommandActions);
+    if (!name.isEmpty()) {
+        dialog->loadPreset(name);
+    }
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
+}
+
+void MainWindow::refreshCustomCommandActions()
+{
+    QString error;
+    const auto commands = CustomCommands::load(KSharedConfig::openConfig()->group(QStringLiteral("CustomCommands")), &error);
+    if (!error.isEmpty()) {
+        showStatusMessage(error);
+        return;
+    }
+    QSet<QString> current;
+    for (const auto &command : commands) {
+        current.insert(command.name);
+        QAction *action = m_customCommandActions.value(command.name);
+        if (!action) {
+            const QString id = QStringLiteral("custom_command_preset_")
+                + QString::fromLatin1(QCryptographicHash::hash(command.name.toUtf8(), QCryptographicHash::Sha256).toHex());
+            action = actionCollection()->addAction(id);
+            action->setIcon(SymbolicIcon::fromTheme(QStringLiteral("system-run")));
+            connect(action, &QAction::triggered, this, [this, name = command.name] {
+                showCustomCommandPreset(name);
+            });
+            m_customCommandActions.insert(command.name, action);
+        }
+        action->setText(command.name);
+        action->setToolTip(i18nc("@info:tooltip", "Preview saved command: %1", command.name));
+    }
+    for (auto it = m_customCommandActions.begin(); it != m_customCommandActions.end();) {
+        if (!current.contains(it.key())) {
+            QAction *action = it.value();
+            it = m_customCommandActions.erase(it);
+            actionCollection()->removeAction(action);
+        } else {
+            ++it;
+        }
+    }
+    if (m_active) {
+        updateActions();
+    }
 }
 
 void MainWindow::trash()
@@ -3299,6 +3352,7 @@ void MainWindow::showSettings()
     auto *dialog = new SettingsDialog(m_placesModel, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(dialog, &KConfigDialog::settingsChanged, this, &MainWindow::applySettings);
+    connect(dialog, &SettingsDialog::customCommandsChanged, this, &MainWindow::refreshCustomCommandActions);
     dialog->show();
 }
 
