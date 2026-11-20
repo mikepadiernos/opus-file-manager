@@ -1,0 +1,131 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: opus-file-manager\n"
+"PO-Revision-Date: 2026-11-20 00:00+0000\n"
+"Last-Translator: Opus File Manager contributors\n"
+"Language-Team: Persian\n"
+"Language: fa\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgid "Opus File Manager"
+msgstr "مدیر پروندهٔ اوپوس"
+
+msgid "Dual-pane file manager for KDE Plasma"
+msgstr "مدیر پروندهٔ دو قسمتی برای کی‌دی‌ای پلاسما"
+
+msgid "&File"
+msgstr "&پرونده"
+
+msgid "&Edit"
+msgstr "&ویرایش"
+
+msgid "&View"
+msgstr "&نما"
+
+msgid "&Go"
+msgstr "&رفتن"
+
+msgid "&Settings"
+msgstr "&تنظیمات"
+
+msgid "Main Toolbar"
+msgstr "نوار ابزار اصلی"
+
+msgctxt "@title:group"
+msgid "General"
+msgstr "عمومی"
+
+msgctxt "@title:group"
+msgid "Backup"
+msgstr "پشتیبان"
+
+msgctxt "@title:group"
+msgid "Interface"
+msgstr "رابط کاربری"
+
+msgctxt "@title:group"
+msgid "View"
+msgstr "نما"
+
+msgctxt "@title:group"
+msgid "Context Menu"
+msgstr "منوی زمینه"
+
+msgctxt "@title:group"
+msgid "Archives"
+msgstr "بایگانی‌ها"
+
+msgctxt "@title:group"
+msgid "Files"
+msgstr "پرونده‌ها"
+
+msgctxt "@title:group"
+msgid "Gallery"
+msgstr "نگارخانه"
+
+msgctxt "@title:group"
+msgid "Editor"
+msgstr "ویرایشگر"
+
+msgctxt "@title:group"
+msgid "Tools"
+msgstr "ابزارها"
+
+msgctxt "@action"
+msgid "New Folder…"
+msgstr "پوشهٔ جدید…"
+
+msgctxt "@action"
+msgid "Copy to Other Pane"
+msgstr "رونوشت به قسمت دیگر"
+
+msgctxt "@action"
+msgid "Move to Other Pane"
+msgstr "انتقال به قسمت دیگر"
+
+msgctxt "@action"
+msgid "Rename…"
+msgstr "تغییر نام…"
+
+msgctxt "@action"
+msgid "Move to Trash"
+msgstr "انتقال به زباله‌دان"
+
+msgctxt "@action"
+msgid "Delete Permanently"
+msgstr "حذف دائمی"
+
+msgctxt "@action"
+msgid "Properties"
+msgstr "ویژگی‌ها"
+
+msgctxt "@action"
+msgid "Search Current Folder…"
+msgstr "جست‌وجو در پوشهٔ کنونی…"
+
+msgctxt "@action"
+msgid "Open Terminal Here"
+msgstr "باز کردن پایانه در اینجا"
+
+msgctxt "@action"
+msgid "Open Editor"
+msgstr "باز کردن ویرایشگر"
+
+msgctxt "@action"
+msgid "Copy Path"
+msgstr "رونوشت مسیر"
+
+msgctxt "@action"
+msgid "Dual Pane"
+msgstr "دو قسمت"
+
+msgctxt "@action"
+msgid "Swap Panes"
+msgstr "جابه‌جایی قسمت‌ها"
+
+msgctxt "@action"
+msgid "Show Embedded Terminal"
+msgstr "نمایش پایانهٔ توکار"
