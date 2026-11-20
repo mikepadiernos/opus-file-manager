@@ -57,6 +57,8 @@
 #include <QPointer>
 #include <QPushButton>
 #include <QRegularExpression>
+#include <QScopeGuard>
+#include <QSignalSpy>
 #include <QSplitter>
 #include <QStandardPaths>
 #include <QStatusBar>
@@ -654,6 +656,38 @@ private Q_SLOTS:
         QVERIFY(large.findChild<QPlainTextEdit *>(QStringLiteral("fileDiffOutput"))->toPlainText().isEmpty());
     }
 
+    void fileDiffWrapDoesNotChangeComparison()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QFile first(dir.filePath(QStringLiteral("a")));
+        QFile second(dir.filePath(QStringLiteral("b")));
+        QVERIFY(first.open(QIODevice::WriteOnly));
+        QVERIFY(first.write(QByteArray(500, 'a')) == 500);
+        first.close();
+        QVERIFY(second.open(QIODevice::WriteOnly));
+        QVERIFY(second.write(QByteArray(500, 'b')) == 500);
+        second.close();
+        const bool previous = Settings::fileDiffWrapLines();
+        const auto restore = qScopeGuard([previous] {
+            Settings::setFileDiffWrapLines(previous);
+        });
+        Settings::setFileDiffWrapLines(true);
+        FileDiffDialog dialog(first.fileName(), second.fileName());
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("fileDiffStatus"));
+        auto *output = dialog.findChild<QPlainTextEdit *>(QStringLiteral("fileDiffOutput"));
+        auto *wrap = dialog.findChild<QCheckBox *>(QStringLiteral("fileDiffWrapLines"));
+        QVERIFY(status && output && wrap);
+        QTRY_COMPARE(status->text(), QStringLiteral("The files differ."));
+        QVERIFY(wrap->isChecked());
+        QCOMPARE(output->lineWrapMode(), QPlainTextEdit::WidgetWidth);
+        const QString comparison = output->toPlainText();
+        wrap->setChecked(false);
+        QCOMPARE(output->lineWrapMode(), QPlainTextEdit::NoWrap);
+        QCOMPARE(output->toPlainText(), comparison);
+        QCOMPARE(status->text(), QStringLiteral("The files differ."));
+    }
+
     void compareFilesActionUsesBothPanes()
     {
         QTemporaryDir dir;
@@ -712,6 +746,11 @@ private Q_SLOTS:
 
     void createsSymbolicLinkFromSelection()
     {
+        const QString previousSuffix = Settings::symlinkSuffix();
+        const auto restore = qScopeGuard([previousSuffix] {
+            Settings::setSymlinkSuffix(previousSuffix);
+        });
+        Settings::setSymlinkSuffix(QString());
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         QFile source(dir.filePath(QStringLiteral("source.txt")));
@@ -731,6 +770,14 @@ private Q_SLOTS:
             auto *dialog = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
             QVERIFY(dialog);
             QCOMPARE(dialog->textValue(), QStringLiteral("source.txt - link"));
+            dialog->reject();
+        });
+        action->trigger();
+        Settings::setSymlinkSuffix(QStringLiteral(".shortcut"));
+        QTimer::singleShot(0, [] {
+            auto *dialog = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            QCOMPARE(dialog->textValue(), QStringLiteral("source.txt.shortcut"));
             dialog->setTextValue(QStringLiteral("alias"));
             dialog->accept();
         });
@@ -795,6 +842,76 @@ private Q_SLOTS:
         QCOMPARE(pdf.read(5), QByteArray("%PDF-"));
     }
 
+    void exportUsesCustomColumnsAndDefaultFormat()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QFile source(dir.filePath(QStringLiteral("item.txt")));
+        QVERIFY(source.open(QIODevice::WriteOnly));
+        source.write("data");
+        source.close();
+        const auto format = Settings::listingExportFormat();
+        const bool custom = Settings::listingExportCustomColumns();
+        const bool type = Settings::listingExportType();
+        const bool size = Settings::listingExportSize();
+        const bool modified = Settings::listingExportModified();
+        const bool permissions = Settings::listingExportPermissions();
+        const bool owner = Settings::listingExportOwner();
+        const bool group = Settings::listingExportGroup();
+        const auto restore = qScopeGuard([=] {
+            Settings::setListingExportFormat(format);
+            Settings::setListingExportCustomColumns(custom);
+            Settings::setListingExportType(type);
+            Settings::setListingExportSize(size);
+            Settings::setListingExportModified(modified);
+            Settings::setListingExportPermissions(permissions);
+            Settings::setListingExportOwner(owner);
+            Settings::setListingExportGroup(group);
+        });
+        Settings::setListingExportFormat(Settings::EnumListingExportFormat::Pdf);
+        Settings::setListingExportCustomColumns(true);
+        Settings::setListingExportType(false);
+        Settings::setListingExportSize(false);
+        Settings::setListingExportModified(false);
+        Settings::setListingExportPermissions(false);
+        Settings::setListingExportOwner(true);
+        Settings::setListingExportGroup(false);
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(dir.path())});
+        window.show();
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        QTRY_VERIFY(!view->isLoading());
+        view->setViewMode(FolderView::ViewMode::Details);
+        view->setColumnVisible(KDirModel::Owner, false);
+        const ListingExport::Table table = view->listingForExport({KDirModel::Name, KDirModel::Owner});
+        QCOMPARE(table.headers.size(), 2);
+        QCOMPARE(table.rows.size(), 1);
+        QVERIFY(!table.rows.first().at(1).isEmpty());
+        QTimer::singleShot(0, [&] {
+            auto *dialog = qobject_cast<QFileDialog *>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            dialog->selectFile(dir.filePath(QStringLiteral("custom")));
+            QMetaObject::invokeMethod(dialog, "accept");
+        });
+        window.actionCollection()->action(QStringLiteral("export_listing_csv"))->trigger();
+        QFile csv(dir.filePath(QStringLiteral("custom.csv")));
+        QVERIFY(csv.open(QIODevice::ReadOnly));
+        const QList<QByteArray> lines = csv.readAll().split('\n');
+        QCOMPARE(lines.at(0).count(','), 1);
+        QVERIFY(lines.at(1).contains("item.txt"));
+        QTimer::singleShot(0, [&] {
+            auto *dialog = qobject_cast<QFileDialog *>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            dialog->selectFile(dir.filePath(QStringLiteral("default")));
+            QMetaObject::invokeMethod(dialog, "accept");
+        });
+        window.actionCollection()->action(QStringLiteral("export_listing"))->trigger();
+        QFile pdf(dir.filePath(QStringLiteral("default.pdf")));
+        QVERIFY(pdf.open(QIODevice::ReadOnly));
+        QCOMPARE(pdf.read(5), QByteArray("%PDF-"));
+    }
+
     void contentChartUsesSelectedFolderOrCurrentFolder()
     {
         QTemporaryDir dir;
@@ -828,6 +945,11 @@ private Q_SLOTS:
 
     void createsAndVerifiesChecksumFiles()
     {
+        const QString previousName = Settings::checksumFileName();
+        const auto restore = qScopeGuard([previousName] {
+            Settings::setChecksumFileName(previousName);
+        });
+        Settings::setChecksumFileName(QStringLiteral("custom.sha256"));
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         QFile source(dir.filePath(QStringLiteral("source.txt")));
@@ -848,6 +970,7 @@ private Q_SLOTS:
         QTimer::singleShot(0, [&] {
             auto *dialog = qobject_cast<QFileDialog *>(QApplication::activeModalWidget());
             QVERIFY(dialog);
+            QCOMPARE(dialog->selectedFiles(), QStringList{dir.filePath(QStringLiteral("custom.sha256"))});
             dialog->selectFile(manifest);
             QMetaObject::invokeMethod(dialog, "accept");
         });
@@ -934,6 +1057,60 @@ private Q_SLOTS:
         QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("Show both panes")));
     }
 
+    void linksInitialPaneFoldersOnlyWhenConfigured()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir(dir.path()).mkpath(QStringLiteral("left/sub")));
+        QVERIFY(QDir(dir.path()).mkpath(QStringLiteral("right/sub")));
+        const auto oldLink = Settings::linkPanesAtStartup();
+        const auto oldDual = Settings::dualPaneAtStartup();
+        const auto oldMode = Settings::startupMode();
+        const auto oldHome = Settings::homeUrl();
+        const auto restore = qScopeGuard([oldLink, oldDual, oldMode, oldHome] {
+            Settings::setLinkPanesAtStartup(oldLink);
+            Settings::setDualPaneAtStartup(oldDual);
+            Settings::setStartupMode(oldMode);
+            Settings::setHomeUrl(oldHome);
+        });
+        Settings::setStartupMode(Settings::EnumStartupMode::HomeFolder);
+        Settings::setHomeUrl(QUrl::fromLocalFile(dir.path()));
+        Settings::setDualPaneAtStartup(Settings::EnumDualPaneAtStartup::Always);
+        Settings::setLinkPanesAtStartup(false);
+        const QUrl left = QUrl::fromLocalFile(dir.filePath(QStringLiteral("left")));
+        const QUrl right = QUrl::fromLocalFile(dir.filePath(QStringLiteral("right")));
+        {
+            MainWindow window;
+            window.openUrls({left, right});
+            QVERIFY(!window.actionCollection()->action(QStringLiteral("link_panes"))->isChecked());
+        }
+        Settings::setLinkPanesAtStartup(true);
+        {
+            MainWindow window;
+            window.openUrls({left, right});
+            auto *link = window.actionCollection()->action(QStringLiteral("link_panes"));
+            QVERIFY(link->isChecked());
+            window.activePane()->setUrl(QUrl::fromLocalFile(dir.filePath(QStringLiteral("left/sub"))));
+            QCOMPARE(window.inactivePane()->url(), QUrl::fromLocalFile(dir.filePath(QStringLiteral("right/sub"))));
+            link->setChecked(false);
+            window.openUrls({});
+            QVERIFY(!link->isChecked());
+        }
+        {
+            MainWindow window;
+            window.openUrls({left, QUrl::fromLocalFile(dir.filePath(QStringLiteral("missing")))});
+            QVERIFY(!window.actionCollection()->action(QStringLiteral("link_panes"))->isChecked());
+            QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("existing local folders")));
+        }
+        Settings::setDualPaneAtStartup(Settings::EnumDualPaneAtStartup::Never);
+        {
+            MainWindow window;
+            window.openUrls({left, right});
+            QVERIFY(!window.actionCollection()->action(QStringLiteral("link_panes"))->isChecked());
+            QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("Show both panes")));
+        }
+    }
+
     void opensSplitAndCombineForLocalFiles()
     {
         QTemporaryDir dir;
@@ -962,6 +1139,59 @@ private Q_SLOTS:
         QTRY_VERIFY(!window.findChild<FileSplitDialog *>(QStringLiteral("fileSplitDialog")));
         combine->trigger();
         QVERIFY(window.findChild<FileSplitDialog *>(QStringLiteral("fileSplitDialog")));
+    }
+
+    void paneComparisonFiltersShownResultsWithoutSelectingAutomatically()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("left")));
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("right")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("left/sub")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("right/sub")));
+        for (const auto &[name, data] : QList<QPair<QString, QByteArray>>{{QStringLiteral("left/left-only"), "l"},
+                                                                          {QStringLiteral("right/right-only"), "r"},
+                                                                          {QStringLiteral("left/shared"), "s"},
+                                                                          {QStringLiteral("right/shared"), "larger"}}) {
+            QFile file(root.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write(data), qint64(data.size()));
+        }
+        const auto oldLeft = Settings::paneComparisonShowLeftOnly();
+        const auto oldRight = Settings::paneComparisonShowRightOnly();
+        const auto oldDifferent = Settings::paneComparisonShowDifferent();
+        const auto oldMatching = Settings::paneComparisonShowMatching();
+        const auto restore = qScopeGuard([oldLeft, oldRight, oldDifferent, oldMatching] {
+            Settings::setPaneComparisonShowLeftOnly(oldLeft);
+            Settings::setPaneComparisonShowRightOnly(oldRight);
+            Settings::setPaneComparisonShowDifferent(oldDifferent);
+            Settings::setPaneComparisonShowMatching(oldMatching);
+        });
+        Settings::setPaneComparisonShowLeftOnly(true);
+        Settings::setPaneComparisonShowRightOnly(false);
+        Settings::setPaneComparisonShowDifferent(false);
+        Settings::setPaneComparisonShowMatching(false);
+        FolderComparisonDialog dialog(QUrl::fromLocalFile(root.filePath(QStringLiteral("left"))), QUrl::fromLocalFile(root.filePath(QStringLiteral("right"))));
+        auto *cancel = dialog.findChild<QPushButton *>(QStringLiteral("folderComparisonCancel"));
+        QTRY_VERIFY(!cancel->isEnabled());
+        auto *tree = dialog.findChild<QTreeWidget *>(QStringLiteral("folderComparisonResults"));
+        auto row = [tree](const QString &name) {
+            return tree->findItems(name, Qt::MatchExactly).value(0);
+        };
+        QVERIFY(row(QStringLiteral("left-only")) && !row(QStringLiteral("left-only"))->isHidden());
+        QVERIFY(row(QStringLiteral("right-only")) && row(QStringLiteral("right-only"))->isHidden());
+        QVERIFY(row(QStringLiteral("shared")) && row(QStringLiteral("shared"))->isHidden());
+        QVERIFY(row(QStringLiteral("sub")) && !row(QStringLiteral("sub"))->isHidden());
+        QSignalSpy selected(&dialog, &FolderComparisonDialog::selectDifferences);
+        QCOMPARE(selected.size(), 0);
+        dialog.findChild<QPushButton *>(QStringLiteral("folderComparisonSelect"))->click();
+        QCOMPARE(selected.size(), 1);
+        QCOMPARE(selected.first().at(0).value<QList<QUrl>>(), (QList<QUrl>{QUrl::fromLocalFile(root.filePath(QStringLiteral("left/left-only")))}));
+        QVERIFY(selected.first().at(1).value<QList<QUrl>>().isEmpty());
+        dialog.findChild<QCheckBox *>(QStringLiteral("folderComparisonShowLeftOnly"))->setChecked(false);
+        QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("folderComparisonSelect"))->isEnabled());
+        dialog.findChild<QCheckBox *>(QStringLiteral("folderComparisonShowRightOnly"))->setChecked(true);
+        QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("folderComparisonSelect"))->isEnabled());
     }
 
     void comparesPaneFoldersAndSelectsDifferences()

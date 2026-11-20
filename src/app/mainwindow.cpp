@@ -349,6 +349,9 @@ void MainWindow::connectPane(Pane *pane)
         recordFolderVisit(pane, url);
         pane->view()->setFlat(m_flatLocations.contains(flatKey(url)));
         if (pane == m_active) {
+            if (m_terminalPanelAction && m_terminalPanelAction->isChecked() && Settings::terminalFollowActiveFolder()) {
+                m_terminalPanel->follow(url);
+            }
             if (m_previewPanelAction && m_previewPanelAction->isChecked()) {
                 m_previewPanel->clear();
             }
@@ -981,6 +984,11 @@ void MainWindow::setupActions()
     QAction *compare = actions->addAction(QStringLiteral("compare_files"), this, &MainWindow::compareFiles);
     compare->setText(i18nc("@action", "Compare Files"));
     compare->setIcon(QIcon::fromTheme(QStringLiteral("document-edit")));
+    QAction *exportDefault = actions->add<QAction>(QStringLiteral("export_listing"));
+    exportDefault->setText(i18nc("@action", "Export Listing…"));
+    connect(exportDefault, &QAction::triggered, this, [this] {
+        exportListing(Settings::listingExportFormat() == Settings::EnumListingExportFormat::Pdf);
+    });
     QAction *exportCsv = actions->add<QAction>(QStringLiteral("export_listing_csv"));
     exportCsv->setText(i18nc("@action", "Export Listing to CSV…"));
     connect(exportCsv, &QAction::triggered, this, [this] {
@@ -1409,6 +1417,9 @@ void MainWindow::setActivePane(Pane *pane)
     }
     m_active = pane;
     m_active->setActive(true);
+    if (m_terminalPanelAction && m_terminalPanelAction->isChecked() && Settings::terminalFollowActiveFolder()) {
+        m_terminalPanel->follow(pane->url());
+    }
     if (m_dualLayoutAction) {
         toggleLayout(m_dualLayoutAction->isChecked());
     }
@@ -1423,9 +1434,14 @@ void MainWindow::setActivePane(Pane *pane)
 
 void MainWindow::openUrls(const QList<QUrl> &urls)
 {
+    const bool startup = !m_startupLinkAttempted;
+    m_startupLinkAttempted = true;
     if (urls.isEmpty()) {
         if (!m_sessionRestored) {
             restoreSession();
+        }
+        if (startup && Settings::linkPanesAtStartup()) {
+            m_linkedPanesAction->setChecked(true);
         }
         return;
     }
@@ -1442,6 +1458,9 @@ void MainWindow::openUrls(const QList<QUrl> &urls)
         } else {
             pane->openInNewTab(urls.at(i), true);
         }
+    }
+    if (startup && Settings::linkPanesAtStartup()) {
+        m_linkedPanesAction->setChecked(true);
     }
 }
 
@@ -2469,12 +2488,14 @@ void MainWindow::createSymlink()
     }
     const KFileItem item = items.first();
     bool accepted = false;
-    const QString name = QInputDialog::getText(this,
-                                               i18nc("@title:window", "Create Symbolic Link"),
-                                               i18nc("@label:textbox", "Link name:"),
-                                               QLineEdit::Normal,
-                                               i18nc("@item:intext default symbolic link name", "%1 - link", item.name()),
-                                               &accepted);
+    const QString suffix = Settings::symlinkSuffix();
+    const QString name =
+        QInputDialog::getText(this,
+                              i18nc("@title:window", "Create Symbolic Link"),
+                              i18nc("@label:textbox", "Link name:"),
+                              QLineEdit::Normal,
+                              suffix.isEmpty() ? i18nc("@item:intext default symbolic link name", "%1 - link", item.name()) : item.name() + suffix,
+                              &accepted);
     if (!accepted) {
         return;
     }
@@ -2491,7 +2512,29 @@ void MainWindow::exportListing(bool pdf)
         KMessageBox::information(this, i18nc("@info", "Wait for the folder listing to finish before exporting."));
         return;
     }
-    const ListingExport::Table table = view->listingForExport();
+    QList<int> columns;
+    if (Settings::listingExportCustomColumns()) {
+        columns.append(KDirModel::Name);
+        if (Settings::listingExportType()) {
+            columns.append(KDirModel::Type);
+        }
+        if (Settings::listingExportSize()) {
+            columns.append(KDirModel::Size);
+        }
+        if (Settings::listingExportModified()) {
+            columns.append(KDirModel::ModifiedTime);
+        }
+        if (Settings::listingExportPermissions()) {
+            columns.append(KDirModel::Permissions);
+        }
+        if (Settings::listingExportOwner()) {
+            columns.append(KDirModel::Owner);
+        }
+        if (Settings::listingExportGroup()) {
+            columns.append(KDirModel::Group);
+        }
+    }
+    const ListingExport::Table table = view->listingForExport(columns);
     QFileDialog dialog(this, i18nc("@title:window", "Export Listing"));
     dialog.setAcceptMode(QFileDialog::AcceptSave);
     dialog.setFileMode(QFileDialog::AnyFile);
@@ -2565,7 +2608,7 @@ void MainWindow::createChecksumFile()
     chooser.setFileMode(QFileDialog::AnyFile);
     chooser.setDefaultSuffix(QStringLiteral("sha256"));
     chooser.setNameFilter(i18nc("@item:inlistbox", "SHA-256 checksum files (*.sha256)"));
-    chooser.selectFile(QStringLiteral("checksums.sha256"));
+    chooser.selectFile(Settings::checksumFileName());
     if (chooser.exec() != QDialog::Accepted || chooser.selectedFiles().isEmpty()) {
         return;
     }
@@ -2876,6 +2919,9 @@ bool MainWindow::isDualLayout() const
 void MainWindow::applySettings()
 {
     updateTerminalPlacement();
+    if (m_terminalPanelAction && m_terminalPanelAction->isChecked()) {
+        m_terminalPanel->start(activePane()->url());
+    }
     if (m_editor) {
         m_editor->applySettings();
     }

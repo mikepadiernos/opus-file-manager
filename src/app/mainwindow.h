@@ -258,4 +258,5 @@ private:
     bool m_jumpingBack = false;
     bool m_autoFocusFolders = true;
     bool m_sessionRestored = false;
+    bool m_startupLinkAttempted = false;
 };
