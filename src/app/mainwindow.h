@@ -9,11 +9,13 @@
 
 #include <QHash>
 #include <QList>
+#include <QPointer>
 #include <QUrl>
 
 class CombinedPanel;
 class FavoritesModel;
 class FolderTree;
+class InformationPanel;
 class KFileCopyToMenu;
 class KFileItemActions;
 class KFilePlacesModel;
@@ -25,11 +27,13 @@ class Pane;
 class PreviewPanel;
 class TabColors;
 class TerminalPanel;
+class ToolbarCustomizer;
 class QDockWidget;
 class QDialog;
 class QLabel;
 class QMenu;
 class QSplitter;
+class QTabWidget;
 
 class MainWindow : public KXmlGuiWindow
 {
@@ -101,7 +105,7 @@ private:
     void connectPane(Pane *pane);
     void updateActions();
     void updateStatusBar();
-    void updateFreeSpace();
+    void updateFreeSpace(Pane *pane = nullptr);
     void updateWindowTitle();
     void updateTabBars();
     void showStatusMessage(const QString &message);
@@ -126,6 +130,7 @@ private:
     void activateItem(const KFileItem &item);
     void activatePaneItem(Pane *pane, const KFileItem &item);
     void updatePreviewPanel();
+    void updateInformationPanel();
     void openGallery();
     void openEditor();
     void compareFiles();
@@ -133,12 +138,24 @@ private:
     void exportListing(bool pdf);
     void showContentChart();
     void showSearch();
+    void showSearchForPane(Pane *pane);
     void showDuplicateFinder();
     void createChecksumFile();
     void verifyChecksumFile();
     void comparePaneFolders();
     void compareFoldersFiltered();
     void syncLinkedPane(Pane *pane, const QUrl &url);
+    void swapCurrentTabs();
+    void swapPaneSides();
+    void restoreSecondPanePlacement();
+    void moveSecondPaneToTab();
+    void popOutSecondPane();
+    void moveSecondPaneToDual();
+    void saveSplitterSizes();
+    void restoreSplitterSizes(bool panes = true, bool workspace = true, bool defaultsIfMissing = false);
+    void resetSplitterSizes();
+    void restoreEditorDockSize();
+    void updateTabBarPlacement();
     void splitFile();
     void combineFiles();
     void setupEditor();
@@ -153,6 +170,8 @@ private:
     void batchRename();
     void editMetadata();
     void showCustomCommand();
+    void showCustomCommandPreset(const QString &name);
+    void refreshCustomCommandActions();
     void showTransferQueue();
     void trash();
     void deletePermanently();
@@ -208,6 +227,7 @@ private:
     QDockWidget *m_placesDock = nullptr;
     QDockWidget *m_foldersDock = nullptr;
     QDockWidget *m_combinedDock = nullptr;
+    QDockWidget *m_informationDock = nullptr;
     FolderTree *m_folderTree = nullptr;
     CombinedPanel *m_combinedPanel = nullptr;
     KSelectAction *m_panelLayoutAction = nullptr;
@@ -220,6 +240,9 @@ private:
     KNewFileMenu *m_newFileMenu = nullptr;
     QSplitter *m_splitter = nullptr;
     QSplitter *m_workspaceSplitter = nullptr;
+    QTabWidget *m_paneTabs = nullptr;
+    QWidget *m_rightPlaceholder = nullptr;
+    QPointer<QMainWindow> m_rightWindow;
     TerminalPanel *m_terminalPanel = nullptr;
     EditorPanel *m_editor = nullptr;
     QDockWidget *m_editorDock = nullptr;
@@ -229,9 +252,15 @@ private:
     Pane *m_right = nullptr;
     Pane *m_active = nullptr;
     PreviewPanel *m_previewPanel = nullptr;
+    InformationPanel *m_informationPanel = nullptr;
+    ToolbarCustomizer *m_toolbarCustomizer = nullptr;
+    Pane *m_hoveredInformationPane = nullptr;
+    KFileItem m_hoveredInformationItem;
     QLabel *m_itemsLabel = nullptr;
     QLabel *m_messageLabel = nullptr;
     QLabel *m_freeSpaceLabel = nullptr;
+    QHash<Pane *, QLabel *> m_paneItemsLabels;
+    QHash<Pane *, QLabel *> m_paneFreeSpaceLabels;
     KToggleAction *m_dualLayoutAction = nullptr;
     KToggleAction *m_stackedLayoutAction = nullptr;
     KToggleAction *m_hiddenFilesAction = nullptr;
@@ -242,6 +271,8 @@ private:
     QUrl m_linkedLeftRoot;
     QUrl m_linkedRightRoot;
     bool m_syncingLinkedPanes = false;
+    bool m_secondPaneInTab = false;
+    bool m_movingSecondPane = false;
     QAction *m_viewModeAction = nullptr;
     QAction *m_selectionModeAction = nullptr;
     QAction *m_selectionMarkersAction = nullptr;
@@ -253,6 +284,7 @@ private:
     bool m_automaticRemoteSizeDefault = false;
     QMenu *m_popularFoldersMenu = nullptr;
     QHash<QString, int> m_popularFolderVisits;
+    QHash<QString, QAction *> m_customCommandActions;
     QHash<Pane *, QUrl> m_lastFolderByPane;
     QHash<Pane *, QUrl> m_jumpBackPoints;
     bool m_jumpingBack = false;

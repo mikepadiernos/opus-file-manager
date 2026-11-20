@@ -36,6 +36,7 @@ class GalleryWindow : public QDialog
 public:
     explicit GalleryWindow(const QList<QUrl> &urls, const QSet<QUrl> &videos, int initialIndex, QWidget *parent = nullptr);
     ~GalleryWindow() override;
+    void applyPresentationSettings();
 
 Q_SIGNALS:
     void currentUrlChanged(const QUrl &url);

@@ -2,18 +2,22 @@
 
 #include "mainwindow.h"
 #include "opusfm_version.h"
+#include "settingsbackup.h"
 #include "symbolicactionicons.h"
 
 #include <KAboutData>
 #include <KCrash>
 #include <KDBusService>
 #include <KLocalizedString>
+#include <KSharedConfig>
 #include <KWindowSystem>
 
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDir>
 #include <QIcon>
+#include <QMessageBox>
+#include <QStandardPaths>
 #include <QUrl>
 
 namespace
@@ -57,6 +61,17 @@ int main(int argc, char **argv)
     aboutData.processCommandLine(&parser);
 
     KDBusService service(KDBusService::Unique);
+    const QString dataDirectory = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    const QString restoreError = SettingsBackup::applyPendingRestore(dataDirectory, KSharedConfig::openConfig(), KSharedConfig::openStateConfig());
+    if (!restoreError.isEmpty()) {
+        QMessageBox::critical(nullptr,
+                              i18nc("@title:window", "Could Not Restore Settings"),
+                              i18nc("@info",
+                                    "%1\n\nThe pending backup was kept at %2. Remove it only if you want to cancel the restore.",
+                                    restoreError,
+                                    QDir::toNativeSeparators(SettingsBackup::pendingRestorePath(dataDirectory))));
+        return 1;
+    }
 
     auto *window = new MainWindow;
     window->openUrls(urlsFromArguments(parser.positionalArguments(), QDir::currentPath()));

@@ -5,6 +5,7 @@
 #include "navigationhistory.h"
 #include "session.h"
 
+#include <QStringList>
 #include <QUrl>
 #include <QWidget>
 
@@ -15,9 +16,13 @@ class KUrlNavigator;
 class TabColors;
 class TabModel;
 class QTabBar;
-class QToolButton;
-class QWidget;
+class QGraphicsOpacityEffect;
+class QBoxLayout;
+class QHBoxLayout;
+class QToolBar;
+class QAction;
 class QVBoxLayout;
+class QResizeEvent;
 
 /**
  * One side of the dual-pane layout: a tab strip, a path row with
@@ -29,20 +34,35 @@ class Pane : public QWidget
     Q_OBJECT
 
 public:
+    enum class TabBarPosition {
+        Top,
+        Bottom,
+        Left,
+        Right
+    };
     /**
      * @param places the window's places model, for the location bar
      * @param colors the tab colours shared by all panes
+     * @param toolbarConfigId the stable settings group name for this pane's toolbar
      * @param parent the parent widget
      */
-    Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent = nullptr);
+    Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent = nullptr, const QString &toolbarConfigId = QStringLiteral("Standalone"));
     ~Pane() override;
 
     TabModel *tabs() const;
     FolderView *view() const;
+    QToolBar *toolBar() const;
+    QString toolbarConfigId() const;
+    QAction *toolbarAction(const QString &name) const;
+    QAction *toolbarActionForSharedAction(const QString &name) const;
+    QString sharedActionName(QAction *action) const;
+    void insertToolbarAction(QAction *action, const QPoint &position = QPoint());
+    void removeToolbarAction(QAction *action);
     QUrl url() const;
 
     bool isActive() const;
     void setActive(bool active);
+    void setInactiveDimming(bool enabled);
 
     /// Forces the tab strip to show even with a single tab.
     void setTabBarForcedVisible(bool visible);
@@ -54,6 +74,8 @@ public:
      */
     void setTabBarAtBottom(bool atBottom);
     bool isTabBarAtBottom() const;
+    void setTabBarPosition(TabBarPosition position);
+    TabBarPosition tabBarPosition() const;
     void reloadTabSettings();
     void reloadFilterSettings();
     void setBarDensity(const QString &density);
@@ -73,6 +95,8 @@ public:
     void setNavigationBarVisible(bool visible);
     bool isNavigationBarVisible() const;
     QWidget *navigationBar() const;
+    void setStatusBarWidget(QWidget *widget);
+    QWidget *statusBarWidget() const;
 
     /**
      * Chooses where openInNewTab() and newTab() insert tabs.
@@ -107,9 +131,11 @@ Q_SIGNALS:
     void urlChanged(const QUrl &url);
     void tabCountChanged(int count);
     void statusMessage(const QString &message);
+    void searchRequested();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 private:
     void saveHistoryViewState();
@@ -117,6 +143,11 @@ private:
     void finishReveal();
     void syncTabBar();
     void updateTabStripVisibility();
+    void updateNavigationLayout();
+    void configureToolbar();
+    void restoreToolbarConfiguration();
+    void saveToolbarConfiguration(const QStringList &order, const QStringList &visible);
+    void saveCurrentToolbarConfiguration();
     void updateTabText(int index);
     void updateNavigationButtons();
     void showTabContextMenu(int index, const QPoint &globalPos);
@@ -125,17 +156,25 @@ private:
     TabModel *m_tabs = nullptr;
     QTabBar *m_tabBar = nullptr;
     QWidget *m_tabStrip = nullptr;
-    QToolButton *m_back = nullptr;
-    QToolButton *m_forward = nullptr;
-    QToolButton *m_up = nullptr;
-    QToolButton *m_reload = nullptr;
+    QAction *m_back = nullptr;
+    QAction *m_forward = nullptr;
+    QAction *m_up = nullptr;
+    QAction *m_reload = nullptr;
+    QToolBar *m_toolBar = nullptr;
+    QString m_toolbarConfigId;
     QWidget *m_navigationBar = nullptr;
+    QBoxLayout *m_navigationLayout = nullptr;
+    QWidget *m_statusBarWidget = nullptr;
     KUrlNavigator *m_navigator = nullptr;
     TabColors *m_colors = nullptr;
     FolderView *m_view = nullptr;
     FilterBar *m_filterBar = nullptr;
     QVBoxLayout *m_layout = nullptr;
+    QHBoxLayout *m_outerLayout = nullptr;
+    QBoxLayout *m_stripLayout = nullptr;
     bool m_active = false;
+    bool m_inactiveDimming = false;
+    QGraphicsOpacityEffect *m_dimEffect = nullptr;
     bool m_tabBarForced = false;
     bool m_showTabIcons = true;
     bool m_newTabsAfterCurrent = false;

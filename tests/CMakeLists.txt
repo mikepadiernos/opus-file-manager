@@ -136,6 +136,11 @@ ecm_add_test(mainwindowtest.cpp
     GUI
 )
 
+ecm_add_test(settingsbackuptest.cpp
+    LINK_LIBRARIES opusfm_core Qt6::Test
+    NAME_PREFIX "opusfm-"
+)
+
 ecm_add_test(
     settingsdialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test

@@ -419,51 +419,51 @@ Settings for M09 tools, stored in KConfig.
 
 ### M11 UI Customizations
 
-- Edit the main toolbar beyond the `KEditToolBar` dialog: drag entries on, off
+- ~~Edit the main toolbar beyond the `KEditToolBar` dialog: drag entries on, off
   and around it directly, add separators and spacers, and choose icons, text or
-  both per entry
-- Custom toolbar buttons for scripts, custom commands and presets
-- Pane toolbars instead of a fixed path row: each pane gets its own editable
+  both per entry~~
+- ~~Custom toolbar buttons for scripts, custom commands and presets~~
+- ~~Pane toolbars instead of a fixed path row: each pane gets its own editable
   toolbar (back, forward, up, reload, location bar, view mode, zoom, sorting,
   previews, hidden files, filter, search) that acts on that pane, with the
-  location bar dropping to a second row in a narrow pane
-- Move panes: send the second pane to a tab of its own or pop it out into a
-  window, carrying its display style
-- Drag entries between the main toolbar, pane toolbars and hamburger menu
-- Customize the combined Places/Folders panel: reorder its sections, show or
-  hide each section, and give sections custom titles
-- Back up and restore app-owned settings and layouts with a preview and
+  location bar dropping to a second row in a narrow pane~~
+- ~~Move panes: send the second pane to a tab of its own or pop it out into a
+  window, carrying its display style~~
+- ~~Drag entries between the main toolbar, pane toolbars and hamburger menu~~
+- ~~Customize the combined Places/Folders panel: reorder its sections, show or
+  hide each section, and give sections custom titles~~
+- ~~Back up and restore app-owned settings and layouts with a preview and
   confirmation; exclude credentials and shared KDE settings, and avoid
-  overwriting running configuration without a safe reload or restart
-- Swap panes: the current tabs or whole sides
-- Dim the inactive pane
-- Customize folder tab bars: place them above, below, left or right of each
+  overwriting running configuration without a safe reload or restart~~
+- ~~Swap panes: the current tabs or whole sides~~
+- ~~Dim the inactive pane~~
+- ~~Customize folder tab bars: place them above, below, left or right of each
   pane, with a together option for stacked panes; choose close-button
   visibility without bypassing pinned or locked tab protections. Keep
-  keyboard and context-menu actions accessible. (Directory Opus)
-- Customize status bars: choose a shared bar or one per pane, and arrange
+  keyboard and context-menu actions accessible. (Directory Opus)~~
+- ~~Customize status bars: choose a shared bar or one per pane, and arrange
   available item counts, selection size and free-space indicators. Bind each
   pane's values to that pane and keep operation errors visible even when
   optional indicators are hidden. Reuse the existing status-bar preferences.
-  (Directory Opus, Dolphin)
-- Save and reset pane and panel splitter sizes, including preview, editor and
+  (Directory Opus, Dolphin)~~
+- ~~Save and reset pane and panel splitter sizes, including preview, editor and
   terminal areas, independently for side-by-side and stacked layouts. Restore
   sizes safely within the available window; preserve both file panes and
-  coordinate with session restore and workspace layouts. (Max)
-- Customize the preview and gallery background for transparent images:
+  coordinate with session restore and workspace layouts. (Max)~~
+- ~~Customize the preview and gallery background for transparent images:
   follow the active Plasma theme, or choose light, dark or checkerboard.
-  Keep the image data unchanged. (Directory Opus)
-- Customize the Information panel's visible metadata fields and their order,
+  Keep the image data unchanged. (Directory Opus)~~
+- ~~Customize the Information panel's visible metadata fields and their order,
   and optionally show information for a hovered item instead of the current
   selection. Make hover behaviour opt-in and retain selection-based fallback;
   show unavailable metadata without initiating additional remote downloads.
-  (Dolphin)
-- Optional file-list minimap on the right edge of each explorer pane: show a
+  (Dolphin)~~
+- ~~Optional file-list minimap on the right edge of each explorer pane: show a
   compact overview of the current visible files and folders and the scroll
   viewport, with click or drag navigation. Follow the pane's current tab,
   filter, sort and view; keep normal scrolling and keyboard navigation
   available. Bound rendering work for large or remote listings and do not
-  read file contents or trigger additional remote downloads.
+  read file contents or trigger additional remote downloads.~~
 
 ### M12 UI Customization settings
 

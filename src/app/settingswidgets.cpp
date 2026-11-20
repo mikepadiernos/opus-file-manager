@@ -14,6 +14,7 @@
 #include <QInputDialog>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QSet>
 #include <QSignalBlocker>
 #include <QVBoxLayout>
 
@@ -139,6 +140,9 @@ void RuleListEditor::editRule(int row)
 IconInformationList::IconInformationList(QWidget *parent)
     : QListWidget(parent)
 {
+    setDragDropMode(QAbstractItemView::InternalMove);
+    setDefaultDropAction(Qt::MoveAction);
+    setSelectionMode(QAbstractItemView::SingleSelection);
     const QList<QPair<QString, QString>> options{
         {QStringLiteral("size"), i18nc("@option:check", "Size")},
         {QStringLiteral("permissions"), i18nc("@option:check", "Permissions")},
@@ -157,10 +161,11 @@ IconInformationList::IconInformationList(QWidget *parent)
     for (const auto &[key, label] : options) {
         auto *item = new QListWidgetItem(label, this);
         item->setData(Qt::UserRole, key);
-        item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsUserCheckable);
+        item->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsUserCheckable | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled);
         item->setCheckState(Qt::Unchecked);
     }
     connect(this, &QListWidget::itemChanged, this, &IconInformationList::informationChanged);
+    connect(model(), &QAbstractItemModel::rowsMoved, this, &IconInformationList::informationChanged);
 }
 
 QStringList IconInformationList::information() const
@@ -176,8 +181,32 @@ QStringList IconInformationList::information() const
 
 void IconInformationList::setInformation(const QStringList &information)
 {
+    const QSignalBlocker blocker(this);
+    QList<QListWidgetItem *> ordered;
+    QSet<QListWidgetItem *> seen;
+    for (const QString &field : information) {
+        for (int row = 0; row < count(); ++row) {
+            QListWidgetItem *candidate = item(row);
+            if (candidate->data(Qt::UserRole).toString() == field && !seen.contains(candidate)) {
+                ordered.append(candidate);
+                seen.insert(candidate);
+                break;
+            }
+        }
+    }
     for (int row = 0; row < count(); ++row) {
-        item(row)->setCheckState(information.contains(item(row)->data(Qt::UserRole).toString()) ? Qt::Checked : Qt::Unchecked);
+        QListWidgetItem *candidate = item(row);
+        if (!seen.contains(candidate)) {
+            ordered.append(candidate);
+        }
+    }
+    while (count() > 0) {
+        takeItem(0);
+    }
+    for (int row = 0; row < ordered.size(); ++row) {
+        QListWidgetItem *candidate = ordered.at(row);
+        candidate->setCheckState(information.contains(candidate->data(Qt::UserRole).toString()) ? Qt::Checked : Qt::Unchecked);
+        insertItem(row, candidate);
     }
 }
 

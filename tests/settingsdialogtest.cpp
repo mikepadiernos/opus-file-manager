@@ -68,6 +68,7 @@ private Q_SLOTS:
                                      QStringLiteral("PreviewSettings"),
                                      QStringLiteral("Confirmations"),
                                      QStringLiteral("StatusBar"),
+                                     QStringLiteral("InformationPanel"),
                                      QStringLiteral("Views"),
                                      QStringLiteral("ContextMenu")}) {
             KSharedConfig::openConfig()->deleteGroup(group);
@@ -81,6 +82,14 @@ private Q_SLOTS:
         KSharedConfig::openConfig()->sync();
         Settings::self()->setDefaults();
         Settings::self()->save();
+    }
+
+    void settingsBackupActionsAreAvailable()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("createSettingsBackup")));
+        QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("restoreSettingsBackup")));
     }
 
     void fileToolDefaultsPersistAndCancel()
@@ -110,6 +119,36 @@ private Q_SLOTS:
             dialog.reject();
         }
         QCOMPARE(Settings::splitPartSizeMiB(), 12);
+    }
+
+    void tabBarPreferencesPersistAndCancel()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *first = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_HorizontalFirstTabPosition"));
+            auto *second = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_StackedSecondTabPosition"));
+            auto *together = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_StackedTabBarsTogether"));
+            auto *close = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowTabCloseButtons"));
+            QVERIFY(first && second && together && close);
+            first->setCurrentIndex(2);
+            second->setCurrentIndex(3);
+            together->setChecked(false);
+            close->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QCOMPARE(Settings::horizontalFirstTabPosition(), 2);
+        QCOMPARE(Settings::stackedSecondTabPosition(), 3);
+        QVERIFY(!Settings::stackedTabBarsTogether());
+        QVERIFY(!Settings::showTabCloseButtons());
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *first = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_HorizontalFirstTabPosition"));
+            QCOMPARE(first->currentIndex(), 2);
+            first->setCurrentIndex(0);
+            dialog.reject();
+        }
+        QCOMPARE(Settings::horizontalFirstTabPosition(), 2);
     }
 
     void metadataFieldDefaultsPersist()
@@ -257,7 +296,6 @@ private Q_SLOTS:
                     if (view->model() == pages->model() && view->isVisible()) {
                         return view;
                     }
-
                 }
                 return static_cast<QAbstractItemView *>(nullptr);
             };
@@ -859,6 +897,25 @@ private Q_SLOTS:
         QVERIFY(!tabs.readEntry("Expand", true));
     }
 
+    void savesInformationPanelFieldOrderAndHoverPreference()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *fields = dialog.findChild<IconInformationList *>(QStringLiteral("kcfg_InformationFields"));
+        auto *hover = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_InformationHover"));
+        QVERIFY(fields && hover);
+        const QStringList selected{QStringLiteral("localPathOrUrl"), QStringLiteral("comment"), QStringLiteral("size")};
+        fields->setInformation(selected);
+        hover->setChecked(true);
+        dialog.button(QDialogButtonBox::Ok)->click();
+
+        QCOMPARE(Settings::informationFields(), selected);
+        QVERIFY(Settings::informationHover());
+        const KConfigGroup config = KSharedConfig::openConfig()->group(QStringLiteral("InformationPanel"));
+        QCOMPARE(config.readEntry("InformationFields", QStringList()), selected);
+        QVERIFY(config.readEntry("InformationHover", false));
+    }
+
     void savesM02InterfaceAndViewSettings()
     {
         QTemporaryDir home;
@@ -872,10 +929,11 @@ private Q_SLOTS:
         auto *dropAction = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DropAction"));
         auto *previewLimit = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_MaximumPreviewSize"));
         auto *defaultView = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultViewMode"));
+        auto *showMinimap = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowFileListMinimap"));
         auto *showSelectionSize = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowSelectionSize"));
         auto *copyMoveMenus = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowCopyMoveToMenus"));
         QVERIFY(startupMode && homeUrl && tabsAfterCurrent && followLinks && dropAction && previewLimit);
-        QVERIFY(defaultView && showSelectionSize && copyMoveMenus);
+        QVERIFY(defaultView && showMinimap && showSelectionSize && copyMoveMenus);
 
         startupMode->setCurrentIndex(Settings::EnumStartupMode::FixedFolders);
         homeUrl->setUrl(QUrl::fromLocalFile(home.path()));
@@ -884,6 +942,7 @@ private Q_SLOTS:
         dropAction->setCurrentIndex(Settings::EnumDropAction::Copy);
         previewLimit->setValue(8);
         defaultView->setCurrentIndex(Settings::EnumDefaultViewMode::Icons);
+        showMinimap->setChecked(true);
         showSelectionSize->setChecked(false);
         copyMoveMenus->setChecked(true);
         dialog.findChild<QCheckBox *>(QStringLiteral("kioConfirmTrash"))->setChecked(true);
@@ -896,6 +955,7 @@ private Q_SLOTS:
         QVERIFY(config->group(QStringLiteral("Navigation")).readEntry("FollowSymlinks", false));
         QCOMPARE(config->group(QStringLiteral("Confirmations")).readEntry("DropAction", QString()), QStringLiteral("Copy"));
         QCOMPARE(config->group(QStringLiteral("Views")).readEntry("DefaultViewMode", QString()), QStringLiteral("Icons"));
+        QVERIFY(config->group(QStringLiteral("Views")).readEntry("ShowFileListMinimap", false));
         QVERIFY(!config->group(QStringLiteral("StatusBar")).readEntry("ShowSelectionSize", true));
         QVERIFY(config->group(QStringLiteral("ContextMenu")).readEntry("ShowCopyMoveToMenus", false));
 

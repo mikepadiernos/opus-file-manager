@@ -12,6 +12,7 @@
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -103,6 +104,7 @@ private Q_SLOTS:
         const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("commandsrc")), KConfig::SimpleConfig);
         {
             CustomCommandDialog dialog({}, {}, nullptr, config, true);
+            QSignalSpy changed(&dialog, &CustomCommandDialog::presetsChanged);
             dialog.findChild<QLineEdit *>(QStringLiteral("commandProgram"))->setText(QStringLiteral("/bin/echo"));
             auto *arguments = dialog.findChild<QPlainTextEdit *>(QStringLiteral("commandArguments"));
             arguments->setPlainText(QStringLiteral("first"));
@@ -113,9 +115,11 @@ private Q_SLOTS:
                 input->accept();
             });
             dialog.findChild<QPushButton *>(QStringLiteral("commandSavePreset"))->click();
+            QCOMPARE(changed.size(), 1);
             arguments->setPlainText(QStringLiteral("{dir}"));
             confirm();
             dialog.findChild<QPushButton *>(QStringLiteral("commandUpdatePreset"))->click();
+            QCOMPARE(changed.size(), 2);
             QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("commandStatus"))->text().contains(QStringLiteral("updated")));
             dialog.findChild<QPushButton *>(QStringLiteral("commandPreview"))->click();
             QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("commandRun"))->isEnabled());

@@ -46,6 +46,7 @@
 #include <QMouseEvent>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QSpinBox>
 #include <QStandardPaths>
 #include <QStatusBar>
@@ -192,6 +193,7 @@ private Q_SLOTS:
         }
         QCOMPARE(titles,
                  QStringList({QStringLiteral("General"),
+                              QStringLiteral("Backup"),
                               QStringLiteral("Interface"),
                               QStringLiteral("View"),
                               QStringLiteral("Context Menu"),
@@ -207,6 +209,7 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("SidebarTitlePosition")), QStringLiteral("Settings Dialog"));
         QCOMPARE(tabOf(QStringLiteral("StartupMode")), QStringLiteral("Folders and Tabs"));
         QCOMPARE(tabOf(QStringLiteral("FollowSymlinks")), QStringLiteral("Folders and Tabs"));
+        QCOMPARE(tabOf(QStringLiteral("DimInactivePane")), QStringLiteral("Folders and Tabs"));
         QCOMPARE(tabOf(QStringLiteral("ShowPreviews")), QStringLiteral("Previews"));
         QCOMPARE(tabOf(QStringLiteral("ConfirmClosingMultipleTabs")), QStringLiteral("Confirmations"));
         QCOMPARE(tabOf(QStringLiteral("ExecutableAction")), QStringLiteral("Confirmations"));
@@ -215,6 +218,7 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("ShowPlaces")), QStringLiteral("Panels"));
         QCOMPARE(tabOf(QStringLiteral("ShowFreeSpace")), QStringLiteral("Status and Location Bars"));
         QCOMPARE(tabOf(QStringLiteral("DefaultViewMode")), QStringLiteral("General"));
+        QCOMPARE(tabOf(QStringLiteral("ShowFileListMinimap")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("FolderSizeRefreshInterval")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("DetailsIconSize")), QStringLiteral("Details"));
         QCOMPARE(tabOf(QStringLiteral("DefaultSelectionMarkers")), QStringLiteral("Selection"));
@@ -233,6 +237,7 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("TextPreviewLimitKiB")), QStringLiteral("Previews"));
         QCOMPARE(tabOf(QStringLiteral("FileActivationDestination")), QStringLiteral("Opening"));
         QCOMPARE(tabOf(QStringLiteral("GalleryShowInformation")), QStringLiteral("Information"));
+        QCOMPARE(tabOf(QStringLiteral("ImageBackground")), QStringLiteral("Display"));
         QCOMPARE(tabOf(QStringLiteral("GallerySlideshowInterval")), QStringLiteral("Slideshow"));
         QCOMPARE(tabOf(QStringLiteral("GalleryCopyFormat")), QStringLiteral("Image Conversion"));
         QCOMPARE(tabOf(QStringLiteral("EditorOpening")), QStringLiteral("Editor"));
@@ -1584,6 +1589,71 @@ private Q_SLOTS:
         Settings::setShowItemCounts(false);
         window.applySettings();
         QVERIFY(items->isHidden());
+    }
+
+    void statusBarIndicatorsCanBeShownPerPane()
+    {
+        const auto previousLayout = Settings::statusBarLayout();
+        const bool previousCounts = Settings::showItemCounts();
+        const bool previousSize = Settings::showSelectionSize();
+        const bool previousFreeSpace = Settings::showFreeSpace();
+        const auto restore = qScopeGuard([=] {
+            Settings::setStatusBarLayout(previousLayout);
+            Settings::setShowItemCounts(previousCounts);
+            Settings::setShowSelectionSize(previousSize);
+            Settings::setShowFreeSpace(previousFreeSpace);
+            Settings::self()->save();
+        });
+        Settings::setStatusBarLayout(Settings::EnumStatusBarLayout::Shared);
+        Settings::setShowItemCounts(true);
+        Settings::setShowSelectionSize(true);
+        Settings::setShowFreeSpace(true);
+
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        Pane *left = nullptr;
+        Pane *right = nullptr;
+        for (Pane *pane : window.findChildren<Pane *>()) {
+            if (pane->url() == m_a) {
+                left = pane;
+            } else if (pane->url() == m_b) {
+                right = pane;
+            }
+        }
+        QVERIFY(left);
+        QVERIFY(right);
+        QTRY_COMPARE(left->view()->itemCount(), 1);
+        QTRY_COMPARE(right->view()->itemCount(), 0);
+
+        auto *leftItems = window.findChild<QLabel *>(QStringLiteral("leftItemsLabel"));
+        auto *rightItems = window.findChild<QLabel *>(QStringLiteral("rightItemsLabel"));
+        auto *sharedItems = window.findChild<QLabel *>(QStringLiteral("itemsLabel"));
+        SettingsDialog preferences(placesOf(window), &window);
+        auto *layout = preferences.findChild<QComboBox *>(QStringLiteral("kcfg_StatusBarLayout"));
+        QVERIFY(leftItems && rightItems && sharedItems && layout);
+        QCOMPARE(layout->count(), 2);
+        QVERIFY(sharedItems->isVisible());
+        QVERIFY(left->statusBarWidget()->isHidden());
+
+        Settings::setStatusBarLayout(Settings::EnumStatusBarLayout::PerPane);
+        window.applySettings();
+        QVERIFY(sharedItems->isHidden());
+        QVERIFY(left->statusBarWidget()->isVisible());
+        QVERIFY(right->statusBarWidget()->isVisible());
+        QVERIFY(leftItems->text().contains(QStringLiteral("1 item")));
+        QVERIFY(rightItems->text().contains(QStringLiteral("0 items")));
+
+        left->view()->selectAll();
+        QTRY_VERIFY(leftItems->text().contains(QStringLiteral("1 of 1 selected")));
+        QVERIFY(!rightItems->text().contains(QStringLiteral("selected")));
+        right->statusMessage(QStringLiteral("Operation failed"));
+        QCOMPARE(window.statusBar()->currentMessage(), QStringLiteral("Operation failed"));
+
+        Settings::setStatusBarLayout(Settings::EnumStatusBarLayout::Shared);
+        window.applySettings();
+        QVERIFY(sharedItems->isVisible());
+        QVERIFY(left->statusBarWidget()->isHidden());
     }
 
     void goHomeUsesHomeSetting()

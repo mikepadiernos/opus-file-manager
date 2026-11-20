@@ -27,6 +27,10 @@ public:
                                  KSharedConfig::Ptr config = {},
                                  bool manageOnly = false);
     void reject() override;
+    void loadPreset(const QString &name);
+
+Q_SIGNALS:
+    void presetsChanged();
 
 private:
     CustomCommands::Command command(QString *error) const;

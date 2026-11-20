@@ -37,6 +37,16 @@ for file operations, Places, properties, settings and desktop integration.
   or configurable placement. Optional folder following switches between retained
   sessions rather than changing the directory of a running shell.
 - Link navigation between corresponding local pane folders.
+- Optionally dim the inactive pane using the View menu.
+- Swap the current tabs or exchange entire pane sides while retaining their
+  navigation state.
+- Save or reset pane, preview, editor and terminal sizes from the View menu,
+  separately for side-by-side and stacked panes.
+- Reorder, rename or hide sections of the combined Places/Folders panel from
+  the View menu.
+- Position each pane's tab bar and choose whether tab close buttons are shown.
+- Choose a theme, light, dark or checkerboard background for transparent images
+  in the preview and gallery without changing the image.
 - Explore folder sizes with a cushion treemap and folder drilldown.
 - Search local folders live or query Baloo's index; save searches and collect
   references without moving files. Filter searches and selections by path,
@@ -47,6 +57,8 @@ for file operations, Places, properties, settings and desktop integration.
 - Queue copy and move transfers with per-job progress and controls.
 - Preview and run scripts or commands with selection placeholders and saved
   command presets.
+  Use Configure Toolbars to add saved commands as buttons; they still require
+  preview and confirmation before running.
 - Preview local duplicates, select candidates by date or folder, and move
   checked files to Trash after confirmation.
 - Compare and synchronize local folders with filters, reusable profiles and

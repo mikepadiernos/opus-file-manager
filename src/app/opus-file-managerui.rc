@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="28" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="35" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -61,6 +61,18 @@
       <text>&amp;View</text>
       <Action name="dual_layout"/>
       <Action name="stacked_layout"/>
+      <Action name="swap_current_tabs"/>
+      <Action name="swap_pane_sides"/>
+      <Action name="move_second_pane_to_tab"/>
+      <Action name="move_second_pane_to_window"/>
+      <Action name="restore_second_pane"/>
+      <Action name="save_splitter_sizes"/>
+      <Action name="reset_splitter_sizes"/>
+      <Action name="customize_combined_panel"/>
+      <Action name="tab_bar_position"/>
+      <Action name="stacked_tab_bars_together"/>
+      <Action name="show_tab_close_buttons"/>
+      <Action name="dim_inactive_pane"/>
       <Action name="link_panes"/>
       <Action name="toggle_view_mode"/>
       <Action name="compact_view"/>
@@ -77,6 +89,7 @@
       <Action name="selection_markers"/>
       <Action name="show_previews"/>
       <Action name="show_preview_panel"/>
+      <Action name="show_information_panel"/>
       <Action name="show_embedded_terminal"/>
       <Action name="open_gallery"/>
       <Action name="show_hidden_files"/>
@@ -109,6 +122,7 @@
     <Menu name="settings">
       <text>&amp;Settings</text>
       <Action name="options_configure"/>
+      <Action name="customize_main_toolbar"/>
     </Menu>
   </MenuBar>
   <ToolBar name="mainToolBar" noMerge="1">

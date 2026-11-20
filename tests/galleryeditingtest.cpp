@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "gallerywindow.h"
+#include "previewpanel.h"
 #include "settings.h"
 
+#include <KFileItem>
 #include <QAbstractButton>
 #include <QAction>
 #include <QApplication>
@@ -96,6 +98,58 @@ private Q_SLOTS:
         Settings::setGalleryShowInformation(false);
         gallery = new GalleryWindow({QUrl::fromLocalFile(first)}, {}, 0);
         QVERIFY(!gallery->findChild<QPushButton *>(QStringLiteral("galleryInformation"))->isChecked());
+        gallery->close();
+        QTRY_VERIFY(gallery.isNull());
+    }
+
+    void transparentImageBackgrounds()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString path = dir.filePath(QStringLiteral("transparent.png"));
+        QImage image(20, 20, QImage::Format_ARGB32);
+        image.fill(Qt::transparent);
+        QVERIFY(image.save(path));
+
+        PreviewPanel preview;
+        preview.resize(300, 300);
+        preview.show();
+        preview.setItems({KFileItem(QUrl::fromLocalFile(path))});
+        auto *label = preview.findChild<QLabel *>(QStringLiteral("previewImage"));
+        QTRY_VERIFY(label && label->isVisible() && !label->pixmap().isNull());
+        QPointer<GalleryWindow> gallery = new GalleryWindow({QUrl::fromLocalFile(path)}, {}, 0);
+        gallery->show();
+        auto *view = gallery->findChild<QGraphicsView *>(QStringLiteral("galleryView"));
+        QVERIFY(view);
+        QTRY_VERIFY(!view->scene()->items().isEmpty());
+        auto *item = qgraphicsitem_cast<QGraphicsPixmapItem *>(view->scene()->items().first());
+        QVERIFY(item);
+        QTRY_VERIFY(!item->pixmap().isNull());
+        QCOMPARE(item->pixmap().toImage().pixelColor(0, 0).alpha(), 0);
+
+        Settings::setImageBackground(Settings::EnumImageBackground::Light);
+        preview.applyPresentationSettings();
+        gallery->applyPresentationSettings();
+        QCOMPARE(label->grab().toImage().pixelColor(label->width() / 2, label->height() / 2), QColor(250, 250, 250));
+        QCOMPARE(view->backgroundBrush().color(), QColor(250, 250, 250));
+        QCOMPARE(view->viewport()->grab().toImage().pixelColor(view->viewport()->width() / 2, view->viewport()->height() / 2), QColor(250, 250, 250));
+        Settings::setImageBackground(Settings::EnumImageBackground::Dark);
+        preview.applyPresentationSettings();
+        gallery->applyPresentationSettings();
+        QCOMPARE(label->grab().toImage().pixelColor(label->width() / 2, label->height() / 2), QColor(35, 35, 35));
+        QCOMPARE(view->backgroundBrush().color(), QColor(35, 35, 35));
+        QCOMPARE(view->viewport()->grab().toImage().pixelColor(view->viewport()->width() / 2, view->viewport()->height() / 2), QColor(35, 35, 35));
+        Settings::setImageBackground(Settings::EnumImageBackground::Checkerboard);
+        preview.applyPresentationSettings();
+        gallery->applyPresentationSettings();
+        const QImage checker = label->grab().toImage();
+        QVERIFY(checker.pixelColor(1, 1) != checker.pixelColor(9, 1));
+        QCOMPARE(view->backgroundBrush().style(), Qt::TexturePattern);
+        QCOMPARE(item->pixmap().toImage().pixelColor(0, 0).alpha(), 0);
+        Settings::setImageBackground(Settings::EnumImageBackground::Theme);
+        preview.applyPresentationSettings();
+        gallery->applyPresentationSettings();
+        QCOMPARE(view->backgroundBrush().style(), Qt::NoBrush);
         gallery->close();
         QTRY_VERIFY(gallery.isNull());
     }

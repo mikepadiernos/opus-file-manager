@@ -32,6 +32,9 @@ public:
      */
     SettingsDialog(KFilePlacesModel *places, QWidget *parent);
 
+Q_SIGNALS:
+    void customCommandsChanged();
+
 protected:
     void updateSettings() override;
     void updateWidgets() override;
@@ -56,6 +59,7 @@ private:
     void applySidebarStyle(int size, bool below);
 
     QWidget *createSettingsDialogPage();
+    QWidget *createSettingsBackupPage();
     QWidget *createFoldersAndTabsPage();
     QWidget *createPreviewsPage();
     QWidget *createOpeningPage();
@@ -83,6 +87,7 @@ private:
     QWidget *createConfirmationsPage();
     QWidget *createPlacesPage();
     QWidget *createStatusBarPage();
+    QWidget *createInformationPanelPage();
     QWidget *createViewGeneralPage();
     QWidget *createDetailsPage();
     QWidget *createCompactPage();
@@ -98,6 +103,8 @@ private:
     QWidget *createFileRulesPage();
     QWidget *createFileMetadataPage();
     QWidget *createSelectionFiltersPage();
+    void createSettingsBackup();
+    void restoreSettingsBackup();
 
     KFilePlacesModel *m_places = nullptr;
     PreviewSizeSpinBox *m_previewLimit = nullptr;

@@ -23,6 +23,8 @@ add_library(opusfm_app STATIC
     detailsview.h
     duplicatefinderdialog.cpp
     duplicatefinderdialog.h
+    filelistminimap.cpp
+    filelistminimap.h
     editorpanel.cpp
     editorpanel.h
     filediffdialog.cpp
@@ -43,6 +45,10 @@ add_library(opusfm_app STATIC
     foldersyncdialog.h
     gallerywindow.cpp
     gallerywindow.h
+    imagebackground.cpp
+    imagebackground.h
+    informationpanel.cpp
+    informationpanel.h
     mainwindow.cpp
     mainwindow.h
     metadataeditdialog.cpp
@@ -69,6 +75,8 @@ add_library(opusfm_app STATIC
     symbolicactionicons.h
     terminalpanel.cpp
     terminalpanel.h
+    toolbarcustomizer.cpp
+    toolbarcustomizer.h
     transferqueuedialog.cpp
     transferqueuedialog.h
     opusfm.qrc

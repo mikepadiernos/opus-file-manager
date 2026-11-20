@@ -4,6 +4,7 @@
 
 #include "detailsview.h"
 #include "filecolorrules.h"
+#include "filelistminimap.h"
 #include "fileoperations.h"
 #include "flatview.h"
 #include "foldermetadata.h"
@@ -812,6 +813,24 @@ FolderView::FolderView(QWidget *parent)
     m_compact->setIconSize(QSize(16, 16));
     setupView(m_compact);
 
+    const QList<QAbstractItemView *> views{m_details, m_icons, m_compact};
+    for (QAbstractItemView *view : views) {
+        connect(view, &QAbstractItemView::entered, this, [this](const QModelIndex &index) {
+            if (!m_informationHoverEnabled) {
+                return;
+            }
+            const KFileItem item = m_model->itemForIndex(m_proxy->mapToSource(index));
+            if (!item.isNull()) {
+                Q_EMIT itemHovered(item);
+            }
+        });
+        connect(view, &QAbstractItemView::viewportEntered, this, [this] {
+            if (m_informationHoverEnabled) {
+                Q_EMIT itemHoverCleared();
+            }
+        });
+    }
+
     m_detailsPreviews = new KFilePreviewGenerator(m_details);
     m_iconPreviews = new KFilePreviewGenerator(m_icons);
     m_compactPreviews = new KFilePreviewGenerator(m_compact);
@@ -823,7 +842,15 @@ FolderView::FolderView(QWidget *parent)
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(m_stack);
+    auto *viewLayout = new QHBoxLayout;
+    viewLayout->setContentsMargins(0, 0, 0, 0);
+    viewLayout->setSpacing(0);
+    viewLayout->addWidget(m_stack, 1);
+    m_minimap = new FileListMinimap(this);
+    m_minimap->setView(m_details);
+    viewLayout->addWidget(m_minimap);
+    layout->addLayout(viewLayout, 1);
+    m_minimap->setVisible(Settings::showFileListMinimap());
     m_selectionBar = new QWidget(this);
     m_selectionBar->setObjectName(QStringLiteral("selectionBar"));
     auto *barLayout = new QHBoxLayout(m_selectionBar);
@@ -1071,6 +1098,16 @@ void FolderView::setSelectionMode(bool enabled)
     Q_EMIT selectionModeChanged(enabled);
 }
 
+void FolderView::setInformationHoverEnabled(bool enabled)
+{
+    m_informationHoverEnabled = enabled;
+    const QList<QAbstractItemView *> views{m_details, m_icons, m_compact};
+    for (QAbstractItemView *view : views) {
+        view->setMouseTracking(enabled);
+        view->viewport()->setMouseTracking(enabled);
+    }
+}
+
 void FolderView::setViewMode(ViewMode mode)
 {
     if (mode == m_viewMode) {
@@ -1095,10 +1132,32 @@ void FolderView::setViewMode(ViewMode mode)
     }
     m_viewMode = mode;
     m_stack->setCurrentWidget(currentView());
+    m_minimap->setView(currentView());
     if (hadFocus) {
         currentView()->setFocus();
     }
     saveFolderFormat();
+    Q_EMIT viewModeChanged();
+}
+
+void FolderView::adjustIconSize(int steps)
+{
+    if (steps == 0) {
+        return;
+    }
+    constexpr int MinimumSize = 16;
+    constexpr int MaximumSize = 128;
+    constexpr int StepSize = 8;
+    if (m_viewMode == ViewMode::Details) {
+        m_detailsIconSize = qBound(MinimumSize, m_detailsIconSize + steps * StepSize, MaximumSize);
+    } else if (m_viewMode == ViewMode::Icons) {
+        m_iconsIconSize = qBound(MinimumSize, m_iconsIconSize + steps * StepSize, MaximumSize);
+    } else {
+        const int size = qBound(MinimumSize, m_compact->iconSize().width() + steps * StepSize, MaximumSize);
+        m_compact->setIconSize(QSize(size, size));
+        return;
+    }
+    setIconSizes(m_detailsIconSize, m_iconsIconSize);
 }
 
 bool FolderView::showHiddenFiles() const
@@ -1113,6 +1172,7 @@ void FolderView::setShowHiddenFiles(bool show)
     }
     m_lister->setShowHiddenFiles(show);
     m_lister->emitChanges();
+    Q_EMIT hiddenFilesChanged(show);
 }
 
 bool FolderView::previewsEnabled() const
@@ -1124,6 +1184,7 @@ void FolderView::setPreviewsEnabled(bool enabled)
 {
     m_previewsEnabled = enabled;
     updatePreviews();
+    Q_EMIT previewsEnabledChanged(enabled);
 }
 
 void FolderView::setRemotePreviewsEnabled(bool enabled)
@@ -1151,6 +1212,8 @@ QStringList FolderView::previewPlugins() const
 
 void FolderView::setIconSizes(int details, int icons)
 {
+    m_detailsIconSize = details;
+    m_iconsIconSize = icons;
     m_details->setIconSize(QSize(details, details));
     m_icons->setIconSize(QSize(icons, icons));
     const int height = qMax(icons + 48, icons + fontMetrics().height() * (Settings::iconNameLines() + Settings::iconInformation().size()) + 16);
@@ -1191,6 +1254,7 @@ void FolderView::setRatingColumn(bool enabled)
 void FolderView::setSorting(int column, Qt::SortOrder order)
 {
     m_details->sortByColumn(column, order);
+    Q_EMIT sortingChanged();
 }
 
 int FolderView::sortColumn() const
@@ -1494,6 +1558,11 @@ void FolderView::setFlat(bool flat)
     }
 }
 
+void FolderView::setFileListMinimapVisible(bool visible)
+{
+    m_minimap->setVisible(visible);
+}
+
 void FolderView::reloadMetadata()
 {
     QString error;
@@ -1776,6 +1845,7 @@ void FolderView::reloadSettings()
 
 void FolderView::reloadListingSettings()
 {
+    setFileListMinimapVisible(Settings::showFileListMinimap());
     updateFolderSizeRefreshTimer();
     applyDetailsPreferences();
     applyCompactPreferences();

@@ -2,6 +2,8 @@
 
 #include "tabmodel.h"
 
+#include <utility>
+
 TabModel::TabModel(QObject *parent)
     : QObject(parent)
 {
@@ -117,6 +119,52 @@ bool TabModel::moveTab(int from, int to)
         return false;
     }
     relocate(from, to);
+    return true;
+}
+
+bool TabModel::swapCurrent(TabModel &other)
+{
+    if (&other == this || !isValidIndex(m_current) || !other.isValidIndex(other.m_current)) {
+        return false;
+    }
+    Q_EMIT currentAboutToChange();
+    Q_EMIT other.currentAboutToChange();
+    const int oldIndex = m_current;
+    const int oldOtherIndex = other.m_current;
+    const bool pinned = isPinned(m_current);
+    const bool otherPinned = other.isPinned(other.m_current);
+    std::swap(m_tabs[m_current], other.m_tabs[other.m_current]);
+    if (pinned != otherPinned) {
+        if (pinned) {
+            --m_pinnedCount;
+            if (m_current != m_pinnedCount) {
+                relocate(m_current, m_pinnedCount);
+            }
+            const int position = other.m_pinnedCount++;
+            if (other.m_current != position) {
+                other.relocate(other.m_current, position);
+            }
+        } else {
+            const int position = m_pinnedCount++;
+            if (m_current != position) {
+                relocate(m_current, position);
+            }
+            --other.m_pinnedCount;
+            if (other.m_current != other.m_pinnedCount) {
+                other.relocate(other.m_current, other.m_pinnedCount);
+            }
+        }
+    }
+    if (m_current != oldIndex) {
+        Q_EMIT currentIndexChanged(m_current);
+    }
+    if (other.m_current != oldOtherIndex) {
+        Q_EMIT other.currentIndexChanged(other.m_current);
+    }
+    Q_EMIT tabStateChanged(m_current);
+    Q_EMIT other.tabStateChanged(other.m_current);
+    changeCurrentUrlTo(currentUrl());
+    other.changeCurrentUrlTo(other.currentUrl());
     return true;
 }
 

@@ -3,6 +3,7 @@
 #include "previewpanel.h"
 #include "safetextdocument.h"
 
+#include "imagebackground.h"
 #include "imagedetails.h"
 #include "mediaview.h"
 #include "settings.h"
@@ -51,6 +52,23 @@ namespace
 constexpr qint64 ImageLimit = 8 * 1024 * 1024;
 constexpr qint64 RemoteFileLimit = 128 * 1024 * 1024;
 constexpr qsizetype HighlightLineLimit = 16384;
+
+class ImagePreviewLabel : public QLabel
+{
+public:
+    using QLabel::QLabel;
+
+protected:
+    void paintEvent(QPaintEvent *event) override
+    {
+        const QBrush brush = imageBackgroundBrush();
+        if (brush.style() != Qt::NoBrush) {
+            QPainter painter(this);
+            painter.fillRect(rect(), brush);
+        }
+        QLabel::paintEvent(event);
+    }
+};
 
 bool isDocumentMime(const QString &mimeType)
 {
@@ -219,7 +237,7 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     : QWidget(parent)
     , m_title(new QLabel(this))
     , m_message(new QLabel(this))
-    , m_imageLabel(new QLabel(this))
+    , m_imageLabel(new ImagePreviewLabel(this))
     , m_footer(new QLabel(this))
     , m_previous(new QToolButton(this))
     , m_next(new QToolButton(this))
@@ -341,6 +359,7 @@ PreviewPanel::~PreviewPanel()
 
 void PreviewPanel::applyPresentationSettings()
 {
+    m_imageLabel->update();
     const bool formattedChanged = m_preferFormatted != Settings::previewFormatted();
     const bool changed =
         formattedChanged || m_showLineNumbers != Settings::previewLineNumbers() || m_syntaxHighlighting != Settings::previewSyntaxHighlighting();

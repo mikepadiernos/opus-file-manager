@@ -10,40 +10,53 @@
 #include "tabcolors.h"
 #include "tabmodel.h"
 
+#include <KConfigGroup>
+#include <KDirModel>
 #include <KFilePlacesModel>
 #include <KIO/Global>
 #include <KLocalizedString>
+#include <KSharedConfig>
 #include <KUrlNavigator>
 
 #include <QAbstractItemView>
+#include <QActionGroup>
 #include <QApplication>
 #include <QClipboard>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QFileInfo>
+#include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
 #include <QInputDialog>
+#include <QLabel>
+#include <QListWidget>
 #include <QMenu>
 #include <QMouseEvent>
+#include <QResizeEvent>
 #include <QScrollBar>
 #include <QStyle>
 #include <QTabBar>
 #include <QTimer>
+#include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
 
-Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
+Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const QString &toolbarConfigId)
     : QWidget(parent)
     , m_tabs(new TabModel(this))
     , m_tabBar(new QTabBar(this))
     , m_tabStrip(new QWidget(this))
-    , m_back(new QToolButton(this))
-    , m_forward(new QToolButton(this))
-    , m_up(new QToolButton(this))
-    , m_reload(new QToolButton(this))
+    , m_toolbarConfigId(toolbarConfigId)
     , m_navigator(new KUrlNavigator(places, QUrl(), this))
     , m_colors(colors)
     , m_view(new FolderView(this))
 {
+    m_dimEffect = new QGraphicsOpacityEffect(this);
+    m_dimEffect->setObjectName(QStringLiteral("inactivePaneEffect"));
+    m_dimEffect->setOpacity(0.65);
+    m_dimEffect->setEnabled(false);
+    setGraphicsEffect(m_dimEffect);
     m_tabBar->setDocumentMode(true);
     m_tabBar->setExpanding(Settings::expandTabs());
     m_showTabIcons = Settings::tabIcons();
@@ -60,41 +73,166 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     addTab->setToolTip(i18nc("@info:tooltip", "Open a new tab"));
     connect(addTab, &QToolButton::clicked, this, &Pane::newTab);
 
-    auto *stripLayout = new QHBoxLayout(m_tabStrip);
-    stripLayout->setContentsMargins(0, 0, 0, 0);
-    stripLayout->setSpacing(0);
-    stripLayout->addWidget(m_tabBar, 1);
-    stripLayout->addWidget(addTab);
+    m_stripLayout = new QHBoxLayout(m_tabStrip);
+    m_stripLayout->setContentsMargins(0, 0, 0, 0);
+    m_stripLayout->setSpacing(0);
+    m_stripLayout->addWidget(m_tabBar, 1);
+    m_stripLayout->addWidget(addTab);
 
-    const auto configureButton = [](QToolButton *button, const QString &icon, const QString &tooltip) {
-        button->setAutoRaise(true);
-        button->setIcon(SymbolicIcon::fromTheme(icon));
-        button->setToolTip(tooltip);
-        button->setFocusPolicy(Qt::NoFocus);
+    m_toolBar = new QToolBar(this);
+    m_toolBar->setObjectName(QStringLiteral("paneToolbar"));
+    m_toolBar->setMovable(false);
+    m_toolBar->setFloatable(false);
+    m_toolBar->setIconSize(QSize(16, 16));
+    m_toolBar->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    const auto addNavigationAction = [this](const QString &name, const QString &icon, const QString &text) {
+        QAction *action = m_toolBar->addAction(SymbolicIcon::fromTheme(icon), text);
+        action->setObjectName(name);
+        action->setToolTip(text);
+        return action;
     };
-    configureButton(m_back, QStringLiteral("go-previous"), i18nc("@info:tooltip", "Back"));
-    configureButton(m_forward, QStringLiteral("go-next"), i18nc("@info:tooltip", "Forward"));
-    configureButton(m_up, QStringLiteral("go-up"), i18nc("@info:tooltip", "Parent folder"));
-    configureButton(m_reload, QStringLiteral("view-refresh"), i18nc("@info:tooltip", "Reload"));
+    m_back = addNavigationAction(QStringLiteral("paneBack"), QStringLiteral("go-previous"), i18nc("@action", "Back"));
+    m_forward = addNavigationAction(QStringLiteral("paneForward"), QStringLiteral("go-next"), i18nc("@action", "Forward"));
+    m_up = addNavigationAction(QStringLiteral("paneUp"), QStringLiteral("go-up"), i18nc("@action", "Parent Folder"));
+    m_reload = addNavigationAction(QStringLiteral("paneReload"), QStringLiteral("view-refresh"), i18nc("@action", "Reload"));
+    connect(m_back, &QAction::triggered, this, &Pane::goBack);
+    connect(m_forward, &QAction::triggered, this, &Pane::goForward);
+    connect(m_up, &QAction::triggered, this, &Pane::goUp);
+    connect(m_reload, &QAction::triggered, this, &Pane::reload);
+
+    QMenu *viewMenu = new QMenu(m_toolBar);
+    auto *viewGroup = new QActionGroup(viewMenu);
+    viewGroup->setExclusive(true);
+    const QList<QPair<FolderView::ViewMode, QString>> viewModes{
+        {FolderView::ViewMode::Details, i18nc("@item:inmenu", "Details")},
+        {FolderView::ViewMode::Icons, i18nc("@item:inmenu", "Icons")},
+        {FolderView::ViewMode::Compact, i18nc("@item:inmenu", "Compact")},
+    };
+    for (const auto &[mode, label] : viewModes) {
+        QAction *action = viewMenu->addAction(label);
+        action->setCheckable(true);
+        action->setChecked(m_view->viewMode() == mode);
+        action->setData(static_cast<int>(mode));
+        viewGroup->addAction(action);
+        connect(action, &QAction::triggered, this, [this, mode] {
+            m_view->setViewMode(mode);
+        });
+    }
+    auto *viewButton = new QToolButton(m_toolBar);
+    viewButton->setObjectName(QStringLiteral("paneViewModeButton"));
+    viewButton->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-list-details")));
+    viewButton->setText(i18nc("@action", "View Mode"));
+    viewButton->setToolTip(viewButton->text());
+    viewButton->setAutoRaise(true);
+    viewButton->setMenu(viewMenu);
+    viewButton->setPopupMode(QToolButton::InstantPopup);
+    QAction *viewButtonAction = m_toolBar->addWidget(viewButton);
+    viewButtonAction->setObjectName(QStringLiteral("paneViewModeButton"));
+    viewButtonAction->setText(viewButton->text());
+
+    const auto addZoomAction = [this](const QString &name, const QString &icon, const QString &label, int steps) {
+        QAction *action = m_toolBar->addAction(SymbolicIcon::fromTheme(icon), label);
+        action->setObjectName(name);
+        action->setToolTip(label);
+        connect(action, &QAction::triggered, this, [this, steps] {
+            m_view->adjustIconSize(steps);
+        });
+    };
+    addZoomAction(QStringLiteral("paneZoomOut"), QStringLiteral("zoom-out"), i18nc("@action", "Zoom Out"), -1);
+    addZoomAction(QStringLiteral("paneZoomIn"), QStringLiteral("zoom-in"), i18nc("@action", "Zoom In"), 1);
+
+    QMenu *sortMenu = new QMenu(m_toolBar);
+    auto *sortGroup = new QActionGroup(sortMenu);
+    sortGroup->setExclusive(true);
+    const QList<QPair<int, QString>> sortColumns{
+        {KDirModel::Name, i18nc("@item:inmenu sort order", "Name")},
+        {KDirModel::Size, i18nc("@item:inmenu sort order", "Size")},
+        {KDirModel::ModifiedTime, i18nc("@item:inmenu sort order", "Modified")},
+        {KDirModel::Type, i18nc("@item:inmenu sort order", "Type")},
+    };
+    for (const auto &[column, label] : sortColumns) {
+        QAction *action = sortMenu->addAction(label);
+        action->setCheckable(true);
+        action->setChecked(m_view->sortColumn() == column);
+        action->setData(column);
+        sortGroup->addAction(action);
+        connect(action, &QAction::triggered, this, [this, column] {
+            m_view->setSorting(column, m_view->sortOrder());
+        });
+    }
+    sortMenu->addSeparator();
+    QAction *ascending = sortMenu->addAction(i18nc("@action:inmenu", "Ascending"));
+    ascending->setCheckable(true);
+    ascending->setChecked(m_view->sortOrder() == Qt::AscendingOrder);
+    connect(ascending, &QAction::triggered, this, [this](bool checked) {
+        m_view->setSorting(m_view->sortColumn(), checked ? Qt::AscendingOrder : Qt::DescendingOrder);
+    });
+    auto *sortButton = new QToolButton(m_toolBar);
+    sortButton->setObjectName(QStringLiteral("paneSortingButton"));
+    sortButton->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-sort-ascending")));
+    sortButton->setText(i18nc("@action", "Sort"));
+    sortButton->setToolTip(sortButton->text());
+    sortButton->setAutoRaise(true);
+    sortButton->setMenu(sortMenu);
+    sortButton->setPopupMode(QToolButton::InstantPopup);
+    QAction *sortButtonAction = m_toolBar->addWidget(sortButton);
+    sortButtonAction->setObjectName(QStringLiteral("paneSortingButton"));
+    sortButtonAction->setText(sortButton->text());
+
+    QAction *previews = m_toolBar->addAction(SymbolicIcon::fromTheme(QStringLiteral("view-preview")), i18nc("@action", "Show Previews"));
+    previews->setObjectName(QStringLiteral("panePreviews"));
+    previews->setCheckable(true);
+    previews->setChecked(m_view->previewsEnabled());
+    connect(previews, &QAction::toggled, m_view, &FolderView::setPreviewsEnabled);
+    connect(m_view, &FolderView::previewsEnabledChanged, previews, &QAction::setChecked);
+
+    QAction *hiddenFiles = m_toolBar->addAction(SymbolicIcon::fromTheme(QStringLiteral("view-hidden")), i18nc("@action", "Show Hidden Files"));
+    hiddenFiles->setObjectName(QStringLiteral("paneHiddenFiles"));
+    hiddenFiles->setCheckable(true);
+    hiddenFiles->setChecked(m_view->showHiddenFiles());
+    connect(hiddenFiles, &QAction::toggled, m_view, &FolderView::setShowHiddenFiles);
+    connect(m_view, &FolderView::hiddenFilesChanged, hiddenFiles, &QAction::setChecked);
+
+    QAction *filter = m_toolBar->addAction(SymbolicIcon::fromTheme(QStringLiteral("view-filter")), i18nc("@action", "Filter"));
+    filter->setObjectName(QStringLiteral("paneFilter"));
+    filter->setToolTip(i18nc("@action", "Filter This Pane"));
+    connect(filter, &QAction::triggered, this, &Pane::showFilterBar);
+    QAction *search = m_toolBar->addAction(SymbolicIcon::fromTheme(QStringLiteral("edit-find")), i18nc("@action", "Search"));
+    search->setObjectName(QStringLiteral("paneSearch"));
+    search->setToolTip(i18nc("@action", "Search This Pane"));
+    connect(search, &QAction::triggered, this, &Pane::searchRequested);
+
+    QAction *configure = m_toolBar->addAction(SymbolicIcon::fromTheme(QStringLiteral("configure")), i18nc("@action", "Customize Toolbar"));
+    configure->setObjectName(QStringLiteral("paneCustomizeToolbar"));
+    configure->setToolTip(configure->text());
+    connect(configure, &QAction::triggered, this, &Pane::configureToolbar);
+    restoreToolbarConfiguration();
 
     m_navigator->setPlacesSelectorVisible(false);
-
+    m_navigator->setObjectName(QStringLiteral("paneLocationBar"));
     m_navigationBar = new QWidget(this);
-    auto *pathRow = new QHBoxLayout(m_navigationBar);
-    pathRow->setContentsMargins(0, 0, 0, 0);
-    pathRow->setSpacing(0);
-    pathRow->addWidget(m_back);
-    pathRow->addWidget(m_forward);
-    pathRow->addWidget(m_up);
-    pathRow->addWidget(m_reload);
-    pathRow->addWidget(m_navigator, 1);
+    m_navigationBar->setObjectName(QStringLiteral("paneNavigationBar"));
+    m_navigationBar->installEventFilter(this);
+    m_navigationLayout = new QBoxLayout(QBoxLayout::LeftToRight, m_navigationBar);
+    m_navigationLayout->setContentsMargins(0, 0, 0, 0);
+    m_navigationLayout->setSpacing(0);
+    m_navigationLayout->addWidget(m_toolBar);
+    m_navigationLayout->addWidget(m_navigator, 1);
 
-    m_layout = new QVBoxLayout(this);
+    m_outerLayout = new QHBoxLayout(this);
+    m_outerLayout->setContentsMargins(0, 0, 0, 0);
+    m_outerLayout->setSpacing(0);
+    m_layout = new QVBoxLayout;
     m_layout->setContentsMargins(0, 0, 0, 0);
     m_layout->setSpacing(0);
+    m_outerLayout->addLayout(m_layout, 1);
     m_layout->addWidget(m_tabStrip);
     m_layout->addWidget(m_navigationBar);
     m_layout->addWidget(m_view, 1);
+    m_statusBarWidget = new QWidget(this);
+    m_statusBarWidget->setObjectName(QStringLiteral("paneStatusBar"));
+    m_statusBarWidget->hide();
+    m_layout->addWidget(m_statusBarWidget);
     m_filterBar = new FilterBar(this);
     m_defaultFilterScope = Settings::defaultFilterScope();
     m_layout->addWidget(m_filterBar);
@@ -200,11 +338,6 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
         m_view->currentView()->setFocus();
     });
 
-    connect(m_back, &QToolButton::clicked, this, &Pane::goBack);
-    connect(m_forward, &QToolButton::clicked, this, &Pane::goForward);
-    connect(m_up, &QToolButton::clicked, this, &Pane::goUp);
-    connect(m_reload, &QToolButton::clicked, this, &Pane::reload);
-
     connect(m_view, &FolderView::redirected, this, [this](const QUrl &url) {
         m_tabs->replaceCurrentUrl(url);
         m_navigator->setLocationUrl(url);
@@ -215,6 +348,17 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     connect(m_filterBar, &FilterBar::activateFirstRequested, m_view, &FolderView::activateFirstItem);
     connect(m_filterBar, &FilterBar::closed, this, [this] {
         m_view->currentView()->setFocus();
+    });
+    connect(m_view, &FolderView::viewModeChanged, this, [viewGroup, this] {
+        for (QAction *action : viewGroup->actions()) {
+            action->setChecked(action->data().toInt() == static_cast<int>(m_view->viewMode()));
+        }
+    });
+    connect(m_view, &FolderView::sortingChanged, this, [ascending, sortGroup, this] {
+        for (QAction *action : sortGroup->actions()) {
+            action->setChecked(action->data().toInt() == m_view->sortColumn());
+        }
+        ascending->setChecked(m_view->sortOrder() == Qt::AscendingOrder);
     });
     connect(m_view, &FolderView::goUpRequested, this, &Pane::goUp);
     connect(m_view, &FolderView::listingFailed, this, &Pane::statusMessage);
@@ -292,6 +436,102 @@ FolderView *Pane::view() const
     return m_view;
 }
 
+QToolBar *Pane::toolBar() const
+{
+    return m_toolBar;
+}
+
+QString Pane::toolbarConfigId() const
+{
+    return m_toolbarConfigId;
+}
+
+QAction *Pane::toolbarAction(const QString &name) const
+{
+    for (QAction *action : m_toolBar->actions()) {
+        if (action->objectName() == name) {
+            return action;
+        }
+    }
+    for (QAction *action : findChildren<QAction *>()) {
+        if (action->objectName() == name) {
+            return action;
+        }
+    }
+    return nullptr;
+}
+
+QAction *Pane::toolbarActionForSharedAction(const QString &name) const
+{
+    static const QHash<QString, QString> sharedActions{
+        {QStringLiteral("go_back"), QStringLiteral("paneBack")},
+        {QStringLiteral("go_forward"), QStringLiteral("paneForward")},
+        {QStringLiteral("go_up"), QStringLiteral("paneUp")},
+        {QStringLiteral("view_redisplay"), QStringLiteral("paneReload")},
+        {QStringLiteral("toggle_view_mode"), QStringLiteral("paneViewModeButton")},
+        {QStringLiteral("show_previews"), QStringLiteral("panePreviews")},
+        {QStringLiteral("show_hidden_files"), QStringLiteral("paneHiddenFiles")},
+        {QStringLiteral("show_filter_bar"), QStringLiteral("paneFilter")},
+        {QStringLiteral("search_folder"), QStringLiteral("paneSearch")},
+    };
+    return toolbarAction(sharedActions.value(name));
+}
+
+QString Pane::sharedActionName(QAction *action) const
+{
+    static const QHash<QString, QString> sharedActions{
+        {QStringLiteral("paneBack"), QStringLiteral("go_back")},
+        {QStringLiteral("paneForward"), QStringLiteral("go_forward")},
+        {QStringLiteral("paneUp"), QStringLiteral("go_up")},
+        {QStringLiteral("paneReload"), QStringLiteral("view_redisplay")},
+        {QStringLiteral("paneViewModeButton"), QStringLiteral("toggle_view_mode")},
+        {QStringLiteral("panePreviews"), QStringLiteral("show_previews")},
+        {QStringLiteral("paneHiddenFiles"), QStringLiteral("show_hidden_files")},
+        {QStringLiteral("paneFilter"), QStringLiteral("show_filter_bar")},
+        {QStringLiteral("paneSearch"), QStringLiteral("search_folder")},
+    };
+    return action ? sharedActions.value(action->objectName()) : QString();
+}
+
+void Pane::insertToolbarAction(QAction *action, const QPoint &position)
+{
+    if (!action || action->objectName() == QLatin1String("paneCustomizeToolbar")) {
+        return;
+    }
+    QAction *before = nullptr;
+    const int coordinate = m_toolBar->orientation() == Qt::Horizontal ? position.x() : position.y();
+    for (QAction *candidate : m_toolBar->actions()) {
+        if (candidate == action) {
+            continue;
+        }
+        const QRect rect = m_toolBar->actionGeometry(candidate);
+        const int center = m_toolBar->orientation() == Qt::Horizontal ? rect.center().x() : rect.center().y();
+        if (rect.isValid() && coordinate < center) {
+            before = candidate;
+            break;
+        }
+    }
+    m_toolBar->removeAction(action);
+    m_toolBar->insertAction(before, action);
+    action->setVisible(true);
+    saveCurrentToolbarConfiguration();
+}
+
+void Pane::removeToolbarAction(QAction *action)
+{
+    if (!action || !m_toolBar->actions().contains(action) || action->objectName() == QLatin1String("paneCustomizeToolbar")) {
+        return;
+    }
+    m_toolBar->removeAction(action);
+    KConfigGroup group = KSharedConfig::openConfig()->group(QStringLiteral("PaneToolbars")).group(m_toolbarConfigId);
+    QStringList hidden = group.readEntry(QStringLiteral("Hidden"), QStringList());
+    if (!hidden.contains(action->objectName())) {
+        hidden.append(action->objectName());
+    }
+    group.writeEntry(QStringLiteral("Hidden"), hidden);
+    saveCurrentToolbarConfiguration();
+}
+
 QUrl Pane::url() const
 {
     return m_tabs->currentUrl();
@@ -308,10 +548,17 @@ void Pane::setActive(bool active)
         return;
     }
     m_active = active;
+    m_dimEffect->setEnabled(m_inactiveDimming && !active);
     m_navigator->setActive(active);
     if (active) {
         m_view->currentView()->setFocus();
     }
+}
+
+void Pane::setInactiveDimming(bool enabled)
+{
+    m_inactiveDimming = enabled;
+    m_dimEffect->setEnabled(enabled && !m_active);
 }
 
 void Pane::setTabBarForcedVisible(bool visible)
@@ -322,9 +569,34 @@ void Pane::setTabBarForcedVisible(bool visible)
 
 void Pane::setTabBarAtBottom(bool atBottom)
 {
-    m_tabBar->setShape(atBottom ? QTabBar::RoundedSouth : QTabBar::RoundedNorth);
+    setTabBarPosition(atBottom ? TabBarPosition::Bottom : TabBarPosition::Top);
+}
+
+void Pane::setTabBarPosition(TabBarPosition position)
+{
+    const bool vertical = position == TabBarPosition::Left || position == TabBarPosition::Right;
+    switch (position) {
+    case TabBarPosition::Top:
+        m_tabBar->setShape(QTabBar::RoundedNorth);
+        break;
+    case TabBarPosition::Bottom:
+        m_tabBar->setShape(QTabBar::RoundedSouth);
+        break;
+    case TabBarPosition::Left:
+        m_tabBar->setShape(QTabBar::RoundedWest);
+        break;
+    case TabBarPosition::Right:
+        m_tabBar->setShape(QTabBar::RoundedEast);
+        break;
+    }
+    m_stripLayout->setDirection(vertical ? QBoxLayout::TopToBottom : QBoxLayout::LeftToRight);
     m_layout->removeWidget(m_tabStrip);
-    m_layout->insertWidget(atBottom ? m_layout->count() : 0, m_tabStrip);
+    m_outerLayout->removeWidget(m_tabStrip);
+    if (vertical) {
+        m_outerLayout->insertWidget(position == TabBarPosition::Left ? 0 : m_outerLayout->count(), m_tabStrip);
+    } else {
+        m_layout->insertWidget(position == TabBarPosition::Top ? 0 : m_layout->count(), m_tabStrip);
+    }
 }
 
 bool Pane::isTabBarAtBottom() const
@@ -332,6 +604,19 @@ bool Pane::isTabBarAtBottom() const
     return m_tabBar->shape() == QTabBar::RoundedSouth;
 }
 
+Pane::TabBarPosition Pane::tabBarPosition() const
+{
+    switch (m_tabBar->shape()) {
+    case QTabBar::RoundedSouth:
+        return TabBarPosition::Bottom;
+    case QTabBar::RoundedWest:
+        return TabBarPosition::Left;
+    case QTabBar::RoundedEast:
+        return TabBarPosition::Right;
+    default:
+        return TabBarPosition::Top;
+    }
+}
 void Pane::setNavigationBarVisible(bool visible)
 {
     m_navigationBar->setVisible(visible);
@@ -347,27 +632,38 @@ QWidget *Pane::navigationBar() const
     return m_navigationBar;
 }
 
-void Pane::setBarDensity(const QString &density)
+void Pane::setStatusBarWidget(QWidget *widget)
 {
-    auto *layout = qobject_cast<QHBoxLayout *>(m_navigationBar->layout());
-    if (!layout) {
+    if (m_statusBarWidget == widget) {
         return;
     }
+    if (m_statusBarWidget) {
+        m_layout->removeWidget(m_statusBarWidget);
+        m_statusBarWidget->deleteLater();
+    }
+    m_statusBarWidget = widget;
+    if (m_statusBarWidget) {
+        m_statusBarWidget->setParent(this);
+        m_layout->insertWidget(m_layout->indexOf(m_filterBar), m_statusBarWidget);
+    }
+}
+
+QWidget *Pane::statusBarWidget() const
+{
+    return m_statusBarWidget;
+}
+
+void Pane::setBarDensity(const QString &density)
+{
+    QBoxLayout *layout = m_navigationLayout;
     const bool normal = density == QLatin1String("Normal");
     const int margin = density == QLatin1String("Compact") ? 2 : 0;
     const int defaultIconSize = style()->pixelMetric(QStyle::PM_SmallIconSize, nullptr, this);
     const int iconSize = qMax(12, defaultIconSize - (density == QLatin1String("Compact") ? 2 : normal ? 0 : 4));
     layout->setContentsMargins(normal ? 0 : margin, normal ? 0 : margin, normal ? 0 : margin, normal ? 0 : margin);
     layout->setSpacing(normal ? 0 : margin);
-    for (QToolButton *button : {m_back, m_forward, m_up, m_reload}) {
-        button->setIconSize(QSize(iconSize, iconSize));
-        if (normal) {
-            button->setMinimumSize(0, 0);
-            button->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
-        } else {
-            button->setFixedSize(iconSize + 6, iconSize + 6);
-        }
-    }
+    m_toolBar->setIconSize(QSize(iconSize, iconSize));
+    m_toolBar->setMinimumHeight(normal ? 0 : iconSize + 6);
     m_navigator->setMinimumHeight(normal ? 0 : iconSize + 6);
 }
 
@@ -496,7 +792,9 @@ void Pane::editUrl()
 
 bool Pane::eventFilter(QObject *watched, QEvent *event)
 {
-    if (watched == m_tabBar && event->type() == QEvent::MouseButtonRelease) {
+    if (watched == m_navigationBar && event->type() == QEvent::Resize) {
+        updateNavigationLayout();
+    } else if (watched == m_tabBar && event->type() == QEvent::MouseButtonRelease) {
         auto *mouseEvent = static_cast<QMouseEvent *>(event);
         if (mouseEvent->button() == Qt::MiddleButton) {
             const int index = m_tabBar->tabAt(mouseEvent->position().toPoint());
@@ -507,6 +805,124 @@ bool Pane::eventFilter(QObject *watched, QEvent *event)
         }
     }
     return QWidget::eventFilter(watched, event);
+}
+
+void Pane::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    updateNavigationLayout();
+}
+
+void Pane::updateNavigationLayout()
+{
+    const int minimumInlineWidth = m_toolBar->sizeHint().width() + 180;
+    const auto direction = m_navigationBar->width() < minimumInlineWidth ? QBoxLayout::TopToBottom : QBoxLayout::LeftToRight;
+    if (m_navigationLayout->direction() != direction) {
+        m_navigationLayout->setDirection(direction);
+    }
+}
+
+void Pane::configureToolbar()
+{
+    QDialog dialog(this);
+    dialog.setObjectName(QStringLiteral("paneToolbarConfigurationDialog"));
+    dialog.setWindowTitle(i18nc("@title:window", "Customize Pane Toolbar"));
+    auto *layout = new QVBoxLayout(&dialog);
+    auto *instructions = new QLabel(i18nc("@info", "Check entries to show them, and drag entries to change their order."), &dialog);
+    instructions->setWordWrap(true);
+    layout->addWidget(instructions);
+    auto *list = new QListWidget(&dialog);
+    list->setObjectName(QStringLiteral("paneToolbarEntries"));
+    list->setDragDropMode(QAbstractItemView::InternalMove);
+    list->setDefaultDropAction(Qt::MoveAction);
+    for (QAction *action : m_toolBar->actions()) {
+        if (action->objectName() == QLatin1String("paneCustomizeToolbar")) {
+            continue;
+        }
+        auto *item = new QListWidgetItem(action->text(), list);
+        item->setData(Qt::UserRole, action->objectName());
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable | Qt::ItemIsDragEnabled);
+        item->setCheckState(action->isVisible() ? Qt::Checked : Qt::Unchecked);
+    }
+    layout->addWidget(list);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    layout->addWidget(buttons);
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    QStringList order;
+    QStringList visible;
+    for (int row = 0; row < list->count(); ++row) {
+        const QListWidgetItem *item = list->item(row);
+        const QString name = item->data(Qt::UserRole).toString();
+        order.append(name);
+        if (item->checkState() == Qt::Checked) {
+            visible.append(name);
+        }
+    }
+    saveToolbarConfiguration(order, visible);
+    restoreToolbarConfiguration();
+}
+
+void Pane::restoreToolbarConfiguration()
+{
+    const KConfigGroup group = KSharedConfig::openConfig()->group(QStringLiteral("PaneToolbars")).group(m_toolbarConfigId);
+    if (!group.hasKey(QStringLiteral("Actions"))) {
+        return;
+    }
+    const QStringList order = group.readEntry(QStringLiteral("Actions"), QStringList());
+    const QStringList visible = group.readEntry(QStringLiteral("Visible"), QStringList());
+    const QStringList hidden = group.readEntry(QStringLiteral("Hidden"), QStringList());
+    const bool hasVisibility = group.hasKey(QStringLiteral("Visible"));
+    QHash<QString, QAction *> actions;
+    QAction *configure = m_toolBar->actions().last();
+    for (QAction *action : m_toolBar->actions()) {
+        if (action->objectName() != QLatin1String("paneCustomizeToolbar")) {
+            actions.insert(action->objectName(), action);
+            action->setVisible(!hidden.contains(action->objectName())
+                               && (!hasVisibility || visible.contains(action->objectName()) || !order.contains(action->objectName())));
+        }
+    }
+    for (int i = order.size() - 1; i >= 0; --i) {
+        const QString &name = order.at(i);
+        if (QAction *action = actions.value(name)) {
+            m_toolBar->insertAction(configure, action);
+            configure = action;
+        }
+    }
+}
+
+void Pane::saveToolbarConfiguration(const QStringList &order, const QStringList &visible)
+{
+    KConfigGroup group = KSharedConfig::openConfig()->group(QStringLiteral("PaneToolbars")).group(m_toolbarConfigId);
+    group.writeEntry(QStringLiteral("Actions"), order);
+    group.writeEntry(QStringLiteral("Visible"), visible);
+    QStringList hidden = group.readEntry(QStringLiteral("Hidden"), QStringList());
+    hidden.removeIf([&order](const QString &name) {
+        return order.contains(name);
+    });
+    group.writeEntry(QStringLiteral("Hidden"), hidden);
+    group.sync();
+}
+
+void Pane::saveCurrentToolbarConfiguration()
+{
+    QStringList order;
+    QStringList visible;
+    for (QAction *action : m_toolBar->actions()) {
+        const QString name = action->objectName();
+        if (name.isEmpty() || name == QLatin1String("paneCustomizeToolbar")) {
+            continue;
+        }
+        order.append(name);
+        if (action->isVisible()) {
+            visible.append(name);
+        }
+    }
+    saveToolbarConfiguration(order, visible);
 }
 
 void Pane::syncTabBar()
@@ -533,14 +949,15 @@ void Pane::syncTabBar()
 
 void Pane::updateTabStripVisibility()
 {
-    const bool closable = m_tabs->count() > 1;
+    const bool multipleTabs = m_tabs->count() > 1;
+    const bool closable = multipleTabs && Settings::showTabCloseButtons();
     if (m_tabBar->tabsClosable() != closable) {
         m_tabBar->setTabsClosable(closable);
         for (int i = 0; i < m_tabBar->count(); ++i) {
             updateTabText(i);
         }
     }
-    m_tabStrip->setVisible(m_tabBarForced || closable);
+    m_tabStrip->setVisible(m_tabBarForced || multipleTabs);
 }
 
 PaneSession Pane::saveState() const
@@ -592,6 +1009,7 @@ void Pane::reloadTabSettings()
 {
     m_showTabIcons = Settings::tabIcons();
     m_tabBar->setExpanding(Settings::expandTabs());
+    updateTabStripVisibility();
     for (int index = 0; index < m_tabBar->count(); ++index) {
         updateTabText(index);
     }

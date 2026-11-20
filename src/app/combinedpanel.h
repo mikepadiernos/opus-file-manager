@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include <QMap>
 #include <QUrl>
 #include <QWidget>
 
@@ -13,6 +14,7 @@ class QDropEvent;
 class QListView;
 class QScrollArea;
 class QToolButton;
+class QVBoxLayout;
 class PlacesSection;
 
 /**
@@ -40,6 +42,7 @@ public:
     QStringList collapsedSections() const;
     /// @param sections keys of the sections to collapse; the others expand
     void setCollapsedSections(const QStringList &sections);
+    void configureSections();
 
 Q_SIGNALS:
     /// A favorite, place or folder was clicked.
@@ -65,16 +68,22 @@ private:
 
     /// Offers Open in New Tab, Rename and Remove for the favorite at @p pos.
     void showFavoriteMenu(const QPoint &pos);
+    void applySections();
 
     FavoritesModel *m_favorites = nullptr;
     QListView *m_favoritesView = nullptr;
-    QWidget *m_placesContainer = nullptr;
     QList<PlacesSection *> m_placesSections;
+    QMap<QString, QWidget *> m_sectionWidgets;
+    QMap<QString, QString> m_sectionTitles;
+    QStringList m_sectionOrder;
+    QStringList m_hiddenSections;
+    QVBoxLayout *m_column = nullptr;
     FolderTree *m_folderTree = nullptr;
     QToolButton *m_favoritesHeader = nullptr;
     QToolButton *m_treeHeader = nullptr;
     QScrollArea *m_scroll = nullptr;
     bool m_favoritesVisible = true;
+    bool m_placesVisible = true;
     bool m_foldersVisible = true;
     /// Whether the panel keeps the revealed folder in view.
     bool m_followRevealed = false;

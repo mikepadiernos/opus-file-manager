@@ -134,6 +134,53 @@ private Q_SLOTS:
         QCOMPARE(moved.count(), 3);
     }
 
+    void swappingCurrentTabsPreservesHistoryAndProtections()
+    {
+        TabModel left;
+        TabModel right;
+        left.addTab(url("/a"));
+        left.addTab(url("/pinned"));
+        left.setCurrentUrl(url("/pinned/sub"));
+        left.setName(left.currentIndex(), QStringLiteral("Pinned"));
+        NavigationHistory::ViewState viewState;
+        viewState.valid = true;
+        viewState.verticalScroll = 42;
+        left.setCurrentViewState(viewState);
+        left.setPinned(left.currentIndex(), true);
+        left.setLocked(left.currentIndex(), true);
+        right.addTab(url("/b"));
+        right.addTab(url("/other"));
+        right.setCurrentUrl(url("/other/sub"));
+        right.setName(right.currentIndex(), QStringLiteral("Other"));
+
+        QVERIFY(left.swapCurrent(right));
+        QCOMPARE(left.currentUrl(), url("/other/sub"));
+        QCOMPARE(left.nameAt(left.currentIndex()), QStringLiteral("Other"));
+        QVERIFY(!left.isPinned(left.currentIndex()));
+        QVERIFY(!left.isLocked(left.currentIndex()));
+        QVERIFY(left.canGoBack());
+        left.goBack();
+        QCOMPARE(left.currentUrl(), url("/other"));
+        QCOMPARE(right.currentUrl(), url("/pinned/sub"));
+        QCOMPARE(right.nameAt(right.currentIndex()), QStringLiteral("Pinned"));
+        QVERIFY(right.isPinned(right.currentIndex()));
+        QVERIFY(right.isLocked(right.currentIndex()));
+        QCOMPARE(right.historyAt(right.currentIndex()).currentViewState().verticalScroll, 42);
+        QVERIFY(!right.closeTab(right.currentIndex()));
+        right.setLocked(right.currentIndex(), false);
+        QVERIFY(right.canGoBack());
+        right.goBack();
+        QCOMPARE(right.currentUrl(), url("/pinned"));
+        QVERIFY(left.swapCurrent(right));
+        QVERIFY(left.isPinned(left.currentIndex()));
+        QVERIFY(!right.isPinned(right.currentIndex()));
+        QCOMPARE(left.currentUrl(), url("/pinned"));
+        QCOMPARE(right.currentUrl(), url("/other"));
+        QVERIFY(!left.swapCurrent(left));
+        TabModel empty;
+        QVERIFY(!left.swapCurrent(empty));
+    }
+
     void nextAndPreviousWrap()
     {
         TabModel model;

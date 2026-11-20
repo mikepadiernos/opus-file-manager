@@ -178,37 +178,14 @@ CustomCommandDialog::CustomCommandDialog(const QString &folder, const QStringLis
         updatePresets();
         m_saved->setCurrentIndex(m_commands.size() - 1);
         m_status->setText(i18nc("@info", "Command saved."));
+        Q_EMIT presetsChanged();
     });
     connect(load, &QPushButton::clicked, this, [this] {
         const int index = m_saved->currentIndex();
         if (index < 0 || index >= m_commands.size()) {
             return;
         }
-        const QString name = m_commands.at(index).name;
-        QString error;
-        const auto commands = CustomCommands::load(m_config->group(QStringLiteral("CustomCommands")), &error);
-        if (!error.isEmpty()) {
-            m_status->setText(error);
-            return;
-        }
-        const auto it = std::find_if(commands.cbegin(), commands.cend(), [&name](const auto &command) {
-            return command.name == name;
-        });
-        if (it == commands.cend()) {
-            m_commands = commands;
-            updatePresets();
-            m_status->setText(i18nc("@info", "This saved command no longer exists."));
-            return;
-        }
-        m_program->setText(it->program);
-        m_arguments->setPlainText(it->arguments.join(QLatin1Char('\n')));
-        QStringList defaults;
-        for (auto entry = it->defaults.cbegin(); entry != it->defaults.cend(); ++entry) {
-            defaults.append(entry.key() + QLatin1Char('=') + entry.value());
-        }
-        m_defaults->setPlainText(defaults.join(QLatin1Char('\n')));
-        invalidatePreview();
-        m_status->setText(i18nc("@info", "Command loaded. Review and preview it before running."));
+        loadPreset(m_commands.at(index).name);
     });
     connect(update, &QPushButton::clicked, this, [this] {
         const int index = m_saved->currentIndex();
@@ -256,6 +233,7 @@ CustomCommandDialog::CustomCommandDialog(const QString &folder, const QStringLis
         updatePresets();
         m_saved->setCurrentIndex(index);
         m_status->setText(i18nc("@info", "Command updated."));
+        Q_EMIT presetsChanged();
     });
     connect(remove, &QPushButton::clicked, this, [this] {
         const int index = m_saved->currentIndex();
@@ -295,6 +273,7 @@ CustomCommandDialog::CustomCommandDialog(const QString &folder, const QStringLis
         m_commands = commands;
         updatePresets();
         m_status->setText(i18nc("@info", "Saved command deleted."));
+        Q_EMIT presetsChanged();
     });
     connect(m_program, &QLineEdit::textChanged, this, &CustomCommandDialog::invalidatePreview);
     connect(m_arguments, &QPlainTextEdit::textChanged, this, &CustomCommandDialog::invalidatePreview);
@@ -344,6 +323,38 @@ CustomCommandDialog::CustomCommandDialog(const QString &folder, const QStringLis
             m_status->setText(m_status->text() + QLatin1Char(' ') + m_processError);
         }
     });
+}
+
+void CustomCommandDialog::loadPreset(const QString &name)
+{
+    QString error;
+    const auto commands = CustomCommands::load(m_config->group(QStringLiteral("CustomCommands")), &error);
+    if (!error.isEmpty()) {
+        m_status->setText(error);
+        return;
+    }
+    const auto it = std::find_if(commands.cbegin(), commands.cend(), [&name](const auto &command) {
+        return command.name == name;
+    });
+    if (it == commands.cend()) {
+        m_commands = commands;
+        updatePresets();
+        m_status->setText(i18nc("@info", "This saved command no longer exists."));
+        return;
+    }
+    const int index = int(std::distance(commands.cbegin(), it));
+    m_program->setText(it->program);
+    m_arguments->setPlainText(it->arguments.join(QLatin1Char('\n')));
+    QStringList defaults;
+    for (auto entry = it->defaults.cbegin(); entry != it->defaults.cend(); ++entry) {
+        defaults.append(entry.key() + QLatin1Char('=') + entry.value());
+    }
+    m_defaults->setPlainText(defaults.join(QLatin1Char('\n')));
+    m_commands = commands;
+    updatePresets();
+    m_saved->setCurrentIndex(index);
+    invalidatePreview();
+    m_status->setText(i18nc("@info", "Command loaded. Review and preview it before running."));
 }
 
 void CustomCommandDialog::reject()

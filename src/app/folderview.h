@@ -19,6 +19,7 @@ class KDirSortFilterProxyModel;
 class KFilePreviewGenerator;
 class KFileItemDelegate;
 class DetailsView;
+class FileListMinimap;
 class NameFilterProxyModel;
 class QHeaderView;
 class QAbstractItemView;
@@ -57,10 +58,12 @@ public:
 
     ViewMode viewMode() const;
     void setViewMode(ViewMode mode);
+    void adjustIconSize(int steps);
     bool selectionMarkersVisible() const;
     void setSelectionMarkersVisible(bool visible);
     bool selectionMode() const;
     void setSelectionMode(bool enabled);
+    void setInformationHoverEnabled(bool enabled);
 
     bool showHiddenFiles() const;
     void setShowHiddenFiles(bool show);
@@ -131,6 +134,7 @@ public:
      * @param flat true for the flat list
      */
     void setFlat(bool flat);
+    void setFileListMinimapVisible(bool visible);
     /// Reloads the current folder's labels, colours, ratings, notes and pins.
     void reloadMetadata();
     bool hasFolderFormat() const;
@@ -159,8 +163,13 @@ Q_SIGNALS:
     void listingReady();
     void historyExpansionFinished();
     void listingFailed(const QString &message);
+    void previewsEnabledChanged(bool enabled);
+    void hiddenFilesChanged(bool enabled);
+    void sortingChanged();
     void itemActivated(const KFileItem &item);
     void selectionChanged();
+    void itemHovered(const KFileItem &item);
+    void itemHoverCleared();
     void itemCountChanged();
     void itemsOrderChanged();
     void contextMenuRequested(const QPoint &globalPos, const KFileItemList &items);
@@ -170,6 +179,7 @@ Q_SIGNALS:
     /// Text was typed in a view with no shortcut modifier; it should filter.
     void typeAheadRequested(const QString &text);
     void selectionModeChanged(bool enabled);
+    void viewModeChanged();
     void copySelectionRequested();
     void cutSelectionRequested();
     void trashSelectionRequested();
@@ -206,6 +216,7 @@ private:
     QUrl m_folder;
     bool m_flat = false;
     bool m_loading = false;
+    bool m_informationHoverEnabled = false;
     bool m_historyExpanding = false;
     quint64 m_historyExpansionGeneration = 0;
     QSet<QUrl> m_historyListingJobs;
@@ -222,6 +233,7 @@ private:
     bool m_sizeRefreshScheduled = false;
     QTimer *m_sizeRefreshTimer = nullptr;
     QStackedWidget *m_stack = nullptr;
+    FileListMinimap *m_minimap = nullptr;
     DetailsView *m_details = nullptr;
     QListView *m_icons = nullptr;
     QListView *m_compact = nullptr;
@@ -236,6 +248,8 @@ private:
     KFilePreviewGenerator *m_compactPreviews = nullptr;
     KFileItemDelegate *m_iconDelegate = nullptr;
     ViewMode m_viewMode = ViewMode::Details;
+    int m_detailsIconSize = 0;
+    int m_iconsIconSize = 0;
     bool m_previewsEnabled = true;
     bool m_remotePreviewsEnabled = false;
 };

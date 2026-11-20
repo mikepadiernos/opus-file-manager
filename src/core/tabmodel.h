@@ -43,6 +43,8 @@ public:
     int reopenClosedTab();
     /// Moves a tab; refuses moves across the pinned boundary.
     bool moveTab(int from, int to);
+    /// Exchanges the current tabs, including history, names and pin/lock state.
+    bool swapCurrent(TabModel &other);
     void setCurrentIndex(int index);
     void activateNext();
     void activatePrevious();

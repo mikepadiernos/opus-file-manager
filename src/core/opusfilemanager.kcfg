@@ -31,6 +31,10 @@
     </entry>
   </group>
   <group name="Panes">
+    <entry name="DimInactivePane" type="Bool">
+      <label>Dim the inactive pane</label>
+      <default>false</default>
+    </entry>
     <entry name="DualPaneAtStartup" type="Enum">
       <label>Whether the window starts with one or two panes</label>
       <choices>
@@ -124,6 +128,10 @@
     <entry name="ShowToolTips" type="Bool">
       <label>Show the full name of shortened items in a tooltip</label>
       <default>true</default>
+    </entry>
+    <entry name="ShowFileListMinimap" type="Bool">
+      <label>Show a file-list minimap in each pane</label>
+      <default>false</default>
     </entry>
     <entry name="ShowSizeColumn" type="Bool">
       <label>Show the Size column</label>
@@ -403,6 +411,11 @@
     <entry name="EditorPdfMarginBottom" type="Int"><default>10</default><min>0</min><max>50</max></entry>
   </group>
   <group name="Gallery">
+    <entry name="ImageBackground" type="Enum">
+      <label>Background for transparent images in preview and gallery</label>
+      <choices><choice name="Theme"/><choice name="Light"/><choice name="Dark"/><choice name="Checkerboard"/></choices>
+      <default>Theme</default>
+    </entry>
     <entry name="GalleryInitialZoom" type="Enum">
       <choices><choice name="Fit"/><choice name="ActualSize"/></choices>
       <default>Fit</default>
@@ -482,6 +495,12 @@
     <entry name="TabIcons" key="ShowIcons" type="Bool"><default>true</default></entry>
     <entry name="ExpandTabs" key="Expand" type="Bool"><default>true</default></entry>
     <entry name="ShowTabColors" type="Bool"><default>true</default></entry>
+    <entry name="ShowTabCloseButtons" type="Bool"><default>true</default></entry>
+    <entry name="StackedTabBarsTogether" type="Bool"><default>true</default></entry>
+    <entry name="HorizontalFirstTabPosition" type="Int"><default>0</default><min>0</min><max>3</max></entry>
+    <entry name="HorizontalSecondTabPosition" type="Int"><default>0</default><min>0</min><max>3</max></entry>
+    <entry name="StackedFirstTabPosition" type="Int"><default>0</default><min>0</min><max>3</max></entry>
+    <entry name="StackedSecondTabPosition" type="Int"><default>0</default><min>0</min><max>3</max></entry>
   </group>
   <group name="Archives">
     <entry name="DefaultArchiveFormat" key="DefaultFormat" type="Int">
@@ -499,6 +518,14 @@
     <entry name="PinnedItemsFirst" type="Bool"><default>true</default></entry>
   </group>
   <group name="StatusBar">
+    <entry name="StatusBarLayout" type="Enum">
+      <label>Whether status indicators are shared or shown separately in each pane</label>
+      <choices>
+        <choice name="Shared"/>
+        <choice name="PerPane"/>
+      </choices>
+      <default>Shared</default>
+    </entry>
     <entry name="ShowItemCounts" type="Bool">
       <label>Show the number of items and selected items</label>
       <default>true</default>
@@ -510,6 +537,18 @@
     <entry name="ShowFreeSpace" type="Bool">
       <label>Show the free space of the current folder's disk</label>
       <default>true</default>
+    </entry>
+  </group>
+  <group name="InformationPanel">
+    <entry name="InformationFields" type="StringList">
+      <label>Metadata fields to show in the Information panel, in display order</label>
+      <default code="true">QStringList{QStringLiteral("friendlyMimeType"),
+        QStringLiteral("size"), QStringLiteral("modificationTime"),
+        QStringLiteral("permissions"), QStringLiteral("localPathOrUrl")}</default>
+    </entry>
+    <entry name="InformationHover" type="Bool">
+      <label>Show information for the item under the pointer</label>
+      <default>false</default>
     </entry>
   </group>
   <group name="Confirmations">

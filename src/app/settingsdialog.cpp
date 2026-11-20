@@ -9,6 +9,7 @@
 #include "searchstoredialog.h"
 #include "servicemenus.h"
 #include "settings.h"
+#include "settingsbackup.h"
 #include "settingswidgets.h"
 
 #include <KConfigGroup>
@@ -22,11 +23,14 @@
 #include <QAbstractItemView>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QCoreApplication>
+#include <QDir>
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QMetaEnum>
 #include <QProcess>
 #include <QPushButton>
@@ -119,13 +123,15 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     , m_places(places)
 {
     addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}}, i18nc("@title:group", "General"), QStringLiteral("configure"));
+    addTabbedPage({{createSettingsBackupPage(), i18nc("@title:tab", "Backup and Restore")}}, i18nc("@title:group", "Backup"), QStringLiteral("document-save"));
     addTabbedPage({{createFoldersAndTabsPage(), i18nc("@title:tab", "Folders and Tabs")},
                    {createPreviewsPage(), i18nc("@title:tab", "Previews")},
                    {createConfirmationsPage(), i18nc("@title:tab", "Confirmations")},
                    {createPlacesPage(), i18nc("@title:tab", "Panels")},
                    {createPanelAppearancePage(), i18nc("@title:tab", "Panel Appearance")},
                    {createTabAppearancePage(), i18nc("@title:tab", "Tab Appearance")},
-                   {createStatusBarPage(), i18nc("@title:tab", "Status and Location Bars")}},
+                   {createStatusBarPage(), i18nc("@title:tab", "Status and Location Bars")},
+                   {createInformationPanelPage(), i18nc("@title:tab", "Information Panel")}},
                   i18nc("@title:group", "Interface"),
                   QStringLiteral("window"));
     addTabbedPage({{createViewGeneralPage(), i18nc("@title:tab", "General")},
@@ -225,6 +231,97 @@ QWidget *SettingsDialog::createSettingsDialogPage()
                           {i18nc("@item:inlistbox", "Beside the sidebar icons"), i18nc("@item:inlistbox", "Below the sidebar icons")}));
     form->addRow(i18nc("@label:spinbox", "Sidebar icon size:"), pixelSpinBox(QStringLiteral("SidebarIconSize"), 16, 64));
     return page;
+}
+
+QWidget *SettingsDialog::createSettingsBackupPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *description = new QLabel(i18nc("@info",
+                                         "Back up Opus settings and window and panel layouts. Current tabs and folder locations, credentials, saved custom "
+                                         "commands and shared KDE/KIO settings are excluded."),
+                                   page);
+    description->setWordWrap(true);
+    layout->addWidget(description);
+
+    auto *create = new QPushButton(i18nc("@action:button", "Create Backup…"), page);
+    create->setObjectName(QStringLiteral("createSettingsBackup"));
+    connect(create, &QPushButton::clicked, this, &SettingsDialog::createSettingsBackup);
+    layout->addWidget(create);
+
+    auto *restore = new QPushButton(i18nc("@action:button", "Restore Backup…"), page);
+    restore->setObjectName(QStringLiteral("restoreSettingsBackup"));
+    connect(restore, &QPushButton::clicked, this, &SettingsDialog::restoreSettingsBackup);
+    layout->addWidget(restore);
+    layout->addStretch();
+    return page;
+}
+
+void SettingsDialog::createSettingsBackup()
+{
+    const QString defaultPath = QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)).filePath(QStringLiteral("opus-settings.tar.gz"));
+    QString path = QFileDialog::getSaveFileName(this,
+                                                i18nc("@title:window", "Create Settings Backup"),
+                                                defaultPath,
+                                                i18nc("@item:inlistbox", "Opus settings backup (*.tar.gz)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    if (!path.endsWith(QLatin1String(".tar.gz"), Qt::CaseInsensitive)) {
+        path.append(QStringLiteral(".tar.gz"));
+    }
+    const QString error = SettingsBackup::create(path, KSharedConfig::openConfig(), KSharedConfig::openStateConfig());
+    if (!error.isEmpty()) {
+        QMessageBox::critical(this, i18nc("@title:window", "Could Not Create Backup"), error);
+        return;
+    }
+    QMessageBox::information(this,
+                             i18nc("@title:window", "Backup Created"),
+                             i18nc("@info", "The Opus settings backup was saved to %1.", QDir::toNativeSeparators(path)));
+}
+
+void SettingsDialog::restoreSettingsBackup()
+{
+    const QString path = QFileDialog::getOpenFileName(this,
+                                                      i18nc("@title:window", "Restore Settings Backup"),
+                                                      QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
+                                                      i18nc("@item:inlistbox", "Opus settings backup (*.tar.gz)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    SettingsBackup::Preview preview;
+    const QString inspectionError = SettingsBackup::inspect(path, &preview);
+    if (!inspectionError.isEmpty()) {
+        QMessageBox::critical(this, i18nc("@title:window", "Invalid Settings Backup"), inspectionError);
+        return;
+    }
+
+    const QString summary =
+        i18nc("@info",
+              "This backup contains:\n%1\n\nIt excludes:\n%2\n\nRestoring replaces Opus settings and window and panel layouts on the next launch. "
+              "The current configuration will remain untouched until you restart Opus. Continue?",
+              preview.included.join(QLatin1Char('\n')),
+              preview.excluded.join(QLatin1Char('\n')));
+    if (QMessageBox::question(this, i18nc("@title:window", "Preview Settings Backup"), summary, QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel)
+        != QMessageBox::Yes) {
+        return;
+    }
+    const QString error = SettingsBackup::stageRestore(path, QStandardPaths::writableLocation(QStandardPaths::AppDataLocation));
+    if (!error.isEmpty()) {
+        QMessageBox::critical(this, i18nc("@title:window", "Could Not Stage Restore"), error);
+        return;
+    }
+
+    QMessageBox prompt(this);
+    prompt.setIcon(QMessageBox::Information);
+    prompt.setWindowTitle(i18nc("@title:window", "Restore Staged"));
+    prompt.setText(i18nc("@info", "The backup will be applied when Opus starts again."));
+    auto *quit = prompt.addButton(i18nc("@action:button", "Quit and Apply on Next Launch"), QMessageBox::AcceptRole);
+    prompt.addButton(i18nc("@action:button", "Later"), QMessageBox::RejectRole);
+    prompt.exec();
+    if (prompt.clickedButton() == quit) {
+        QCoreApplication::quit();
+    }
 }
 
 QWidget *SettingsDialog::createOpeningPage()
@@ -495,7 +592,8 @@ QWidget *SettingsDialog::createAutomationPage()
     auto *page = new QWidget;
     auto *layout = new QVBoxLayout(page);
     auto *notice = new QLabel(i18nc("@info",
-                                    "Manage scripts and custom command presets. Changes are saved immediately, even if Preferences is canceled. "
+                                    "Manage scripts and custom command presets. Add saved commands using Configure Toolbars. "
+                                    "Changes are saved immediately, even if Preferences is canceled. "
                                     "Commands run with your permissions and require a preview and confirmation."),
                               page);
     notice->setWordWrap(true);
@@ -505,6 +603,7 @@ QWidget *SettingsDialog::createAutomationPage()
     layout->addWidget(manage);
     connect(manage, &QPushButton::clicked, this, [this] {
         CustomCommandDialog dialog({}, {}, this, {}, true);
+        connect(&dialog, &CustomCommandDialog::presetsChanged, this, &SettingsDialog::customCommandsChanged);
         dialog.exec();
     });
     layout->addStretch();
@@ -664,6 +763,12 @@ QWidget *SettingsDialog::createGalleryDisplayPage()
     auto *form = new QFormLayout(page);
     form->addRow(i18nc("@label:listbox", "Initial image zoom:"),
                  comboBox(QStringLiteral("GalleryInitialZoom"), {i18nc("@item:inlistbox", "Fit"), i18nc("@item:inlistbox", "Actual size")}));
+    form->addRow(i18nc("@label:listbox", "Preview and gallery image background:"),
+                 comboBox(QStringLiteral("ImageBackground"),
+                          {i18nc("@item:inlistbox", "Follow theme"),
+                           i18nc("@item:inlistbox", "Light"),
+                           i18nc("@item:inlistbox", "Dark"),
+                           i18nc("@item:inlistbox", "Checkerboard")}));
     form->addRow(checkBox(QStringLiteral("GalleryShowThumbnails"), i18nc("@option:check", "Show thumbnails in new galleries")));
     return page;
 }
@@ -755,6 +860,7 @@ QWidget *SettingsDialog::createFoldersAndTabsPage()
     form->addRow(QString(), checkBox(QStringLiteral("NewTabsAfterCurrent"), i18nc("@option:check", "Open new tabs next to the current tab")));
     form->addRow(i18nc("@title:group", "Panes:"), checkBox(QStringLiteral("TabSwitchesPanes"), i18nc("@option:check", "Tab key switches between the panes")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowNavigationBar"), i18nc("@option:check", "Show the navigation bar of each pane")));
+    form->addRow(QString(), checkBox(QStringLiteral("DimInactivePane"), i18nc("@option:check", "Dim the inactive pane")));
     form->addRow(i18nc("@title:group", "Navigation:"),
                  checkBox(QStringLiteral("FollowSymlinks"), i18nc("@option:check", "Always follow symbolic links to their target")));
     form->addRow(i18nc("@title:group", "History:"),
@@ -781,6 +887,7 @@ QWidget *SettingsDialog::createViewGeneralPage()
     form->addRow(QString(), checkBox(QStringLiteral("SortDescending"), i18nc("@option:check", "Descending")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowHiddenFiles"), i18nc("@option:check", "Show hidden files in new windows")));
     form->addRow(i18nc("@title:group", "Sorting:"), checkBox(QStringLiteral("FoldersFirst"), i18nc("@option:check", "Folders before files")));
+    form->addRow(i18nc("@title:group", "File list:"), checkBox(QStringLiteral("ShowFileListMinimap"), i18nc("@option:check", "Show a minimap in each pane")));
     form->addRow(i18nc("@title:group", "Tooltips:"), checkBox(QStringLiteral("ShowToolTips"), i18nc("@option:check", "Show the full name of shortened items")));
     form->addRow(i18nc("@label:listbox", "Default grouping:"),
                  comboBox(QStringLiteral("GroupBy"),
@@ -964,6 +1071,16 @@ QWidget *SettingsDialog::createTabAppearancePage()
     form->addRow({}, checkBox(QStringLiteral("TabIcons"), i18nc("@option:check", "Show folder icons on tabs")));
     form->addRow({}, checkBox(QStringLiteral("ExpandTabs"), i18nc("@option:check", "Expand tabs to fill the available width equally")));
     form->addRow({}, checkBox(QStringLiteral("ShowTabColors"), i18nc("@option:check", "Show folder-based tab colours")));
+    form->addRow({}, checkBox(QStringLiteral("ShowTabCloseButtons"), i18nc("@option:check", "Show tab close buttons")));
+    form->addRow({}, checkBox(QStringLiteral("StackedTabBarsTogether"), i18nc("@option:check", "Keep stacked pane tab bars together")));
+    const QStringList positions{i18nc("@item:inlistbox tab bar position", "Above"),
+                                i18nc("@item:inlistbox tab bar position", "Below"),
+                                i18nc("@item:inlistbox tab bar position", "Left"),
+                                i18nc("@item:inlistbox tab bar position", "Right")};
+    form->addRow(i18nc("@label:listbox", "Left pane tabs:"), comboBox(QStringLiteral("HorizontalFirstTabPosition"), positions));
+    form->addRow(i18nc("@label:listbox", "Right pane tabs:"), comboBox(QStringLiteral("HorizontalSecondTabPosition"), positions));
+    form->addRow(i18nc("@label:listbox", "Upper pane tabs:"), comboBox(QStringLiteral("StackedFirstTabPosition"), positions));
+    form->addRow(i18nc("@label:listbox", "Lower pane tabs:"), comboBox(QStringLiteral("StackedSecondTabPosition"), positions));
     return page;
 }
 
@@ -1021,6 +1138,8 @@ QWidget *SettingsDialog::createStatusBarPage()
 {
     auto *page = new QWidget;
     auto *form = new QFormLayout(page);
+    form->addRow(i18nc("@label:listbox", "Status indicators:"),
+                 comboBox(QStringLiteral("StatusBarLayout"), {i18nc("@item:inlistbox", "Shared"), i18nc("@item:inlistbox", "One per pane")}));
     form->addRow(QString(), checkBox(QStringLiteral("ShowItemCounts"), i18nc("@option:check", "Number of items and selected items")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowSelectionSize"), i18nc("@option:check", "Size of the selected files")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowFreeSpace"), i18nc("@option:check", "Free space")));
@@ -1036,6 +1155,17 @@ QWidget *SettingsDialog::createStatusBarPage()
     spacing->setEnabled(density->currentIndex() == Settings::EnumBarDensity::Custom);
     form->addRow(i18nc("@label:listbox", "Bar density:"), density);
     form->addRow(i18nc("@label:spinbox", "Custom bar spacing:"), spacing);
+    return page;
+}
+
+QWidget *SettingsDialog::createInformationPanelPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(QString(), checkBox(QStringLiteral("InformationHover"), i18nc("@option:check", "Show information for the item under the pointer")));
+    auto *fields = new IconInformationList;
+    fields->setMinimumHeight(240);
+    form->addRow(i18nc("@label", "Metadata fields, in display order:"), bound(fields, QStringLiteral("InformationFields"), "information"));
     return page;
 }
 

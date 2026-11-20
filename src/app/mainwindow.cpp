@@ -25,6 +25,7 @@
 #include "foldertree.h"
 #include "folderview.h"
 #include "gallerywindow.h"
+#include "informationpanel.h"
 #include "labelcolor.h"
 #include "linkednavigation.h"
 #include "pane.h"
@@ -39,6 +40,7 @@
 #include "tabcolors.h"
 #include "tabmodel.h"
 #include "terminalpanel.h"
+#include "toolbarcustomizer.h"
 #include "transferqueue.h"
 #include "transferqueuedialog.h"
 #include "viewsettings.h"
@@ -77,7 +79,9 @@
 
 #include <QApplication>
 #include <QClipboard>
+#include <QCloseEvent>
 #include <QComboBox>
+#include <QCryptographicHash>
 #include <QCursor>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -87,6 +91,7 @@
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QFutureWatcher>
+#include <QHBoxLayout>
 #include <QInputDialog>
 #include <QLabel>
 #include <QLayout>
@@ -99,6 +104,7 @@
 #include <QScrollArea>
 #include <QSplitter>
 #include <QStatusBar>
+#include <QTabWidget>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
@@ -120,6 +126,7 @@ constexpr auto FlatGroup = "Flat";
 constexpr auto PopularFoldersGroup = "PopularFolders";
 constexpr auto SelectionFiltersGroup = "SelectionFilters";
 constexpr auto WindowLayoutGroup = "WindowLayout";
+constexpr auto SplitterSizesGroup = "SplitterSizes";
 
 QString flatKey(const QUrl &url)
 {
@@ -290,6 +297,12 @@ MainWindow::MainWindow(QWidget *parent)
 
     setStandardToolBarMenuEnabled(true);
     setupGUI(QSize(1100, 700), Default, QStringLiteral("opus-file-managerui.rc"));
+    m_toolbarCustomizer = new ToolbarCustomizer(toolBar(), actionCollection(), this, {m_left, m_right});
+    connect(actionCollection()->action(QStringLiteral("customize_main_toolbar")), &QAction::toggled, m_toolbarCustomizer, &ToolbarCustomizer::setEditing);
+    connect(m_toolbarCustomizer,
+            &ToolbarCustomizer::editingChanged,
+            actionCollection()->action(QStringLiteral("customize_main_toolbar")),
+            &QAction::setChecked);
     const KConfigGroup panels = KSharedConfig::openStateConfig()->group(QLatin1String(PanelsGroup));
     setPanelLayout(panels.readEntry("Layout", QString()) == QLatin1String("Separate") ? PanelLayout::Separate : PanelLayout::Combined);
     applyPanelSettings();
@@ -308,7 +321,15 @@ MainWindow::MainWindow(QWidget *parent)
     updateActions();
 }
 
-MainWindow::~MainWindow() = default;
+MainWindow::~MainWindow()
+{
+    if (m_toolbarCustomizer) {
+        m_toolbarCustomizer->setEditing(false);
+    }
+    if (m_editorDock) {
+        disconnect(m_editorDock, nullptr, this, nullptr);
+    }
+}
 
 void MainWindow::setupPanes()
 {
@@ -318,8 +339,8 @@ void MainWindow::setupPanes()
     m_splitter = new QSplitter(Qt::Horizontal, m_workspaceSplitter);
     m_splitter->setObjectName(QStringLiteral("paneSplitter"));
     m_splitter->setChildrenCollapsible(false);
-    m_left = new Pane(m_placesModel, m_tabColors, m_splitter);
-    m_right = new Pane(m_placesModel, m_tabColors, m_splitter);
+    m_left = new Pane(m_placesModel, m_tabColors, m_splitter, QStringLiteral("Left"));
+    m_right = new Pane(m_placesModel, m_tabColors, m_splitter, QStringLiteral("Right"));
     m_previewPanel = new PreviewPanel(m_splitter);
     m_splitter->addWidget(m_left);
     m_splitter->addWidget(m_right);
@@ -333,7 +354,17 @@ void MainWindow::setupPanes()
     m_workspaceSplitter->addWidget(m_terminalPanel);
     m_workspaceSplitter->setStretchFactor(0, 3);
     m_workspaceSplitter->setStretchFactor(1, 1);
-    setCentralWidget(m_workspaceSplitter);
+    m_paneTabs = new QTabWidget(this);
+    m_paneTabs->setObjectName(QStringLiteral("paneLayoutTabs"));
+    m_paneTabs->addTab(m_workspaceSplitter, QString());
+    m_paneTabs->tabBar()->hide();
+    setCentralWidget(m_paneTabs);
+    connect(m_paneTabs, &QTabWidget::currentChanged, this, [this](int index) {
+        if (m_movingSecondPane || index < 0) {
+            return;
+        }
+        setActivePane(m_paneTabs->widget(index) == m_right ? m_right : m_left);
+    });
 
     connectPane(m_left);
     connectPane(m_right);
@@ -344,10 +375,18 @@ void MainWindow::connectPane(Pane *pane)
     connect(pane, &Pane::activated, this, [this, pane] {
         setActivePane(pane);
     });
+    connect(pane, &Pane::searchRequested, this, [this, pane] {
+        showSearchForPane(pane);
+    });
     connect(pane, &Pane::urlChanged, this, [this, pane](const QUrl &url) {
         syncLinkedPane(pane, url);
         recordFolderVisit(pane, url);
         pane->view()->setFlat(m_flatLocations.contains(flatKey(url)));
+        const bool clearedHoveredInformation = m_hoveredInformationPane == pane;
+        if (clearedHoveredInformation) {
+            m_hoveredInformationPane = nullptr;
+            m_hoveredInformationItem = {};
+        }
         if (pane == m_active) {
             if (m_terminalPanelAction && m_terminalPanelAction->isChecked() && Settings::terminalFollowActiveFolder()) {
                 m_terminalPanel->follow(url);
@@ -359,9 +398,17 @@ void MainWindow::connectPane(Pane *pane)
             updateStatusBar();
             updateFreeSpace();
             updateWindowTitle();
+            updateInformationPanel();
             syncFolderTrees();
         } else if (m_active) {
+            if (Settings::statusBarLayout() == Settings::EnumStatusBarLayout::PerPane) {
+                updateStatusBar();
+                updateFreeSpace(pane);
+            }
             updateActions();
+        }
+        if (clearedHoveredInformation && pane != m_active) {
+            updateInformationPanel();
         }
     });
     connect(pane, &Pane::tabCountChanged, this, &MainWindow::updateTabBars);
@@ -374,9 +421,10 @@ void MainWindow::connectPane(Pane *pane)
         showContextMenu(pane, pos, items);
     });
     connect(pane->view(), &FolderView::selectionChanged, this, [this, pane] {
+        updateStatusBar();
         if (pane == m_active) {
-            updateStatusBar();
             updatePreviewPanel();
+            updateInformationPanel();
         }
         if (m_active) {
             updateActions();
@@ -400,9 +448,24 @@ void MainWindow::connectPane(Pane *pane)
         trash();
     });
     connect(pane->view(), &FolderView::itemCountChanged, this, [this, pane] {
+        updateStatusBar();
         if (pane == m_active) {
-            updateStatusBar();
             updatePreviewPanel();
+            updateInformationPanel();
+        }
+    });
+    connect(pane->view(), &FolderView::itemHovered, this, [this, pane](const KFileItem &item) {
+        if (Settings::informationHover()) {
+            m_hoveredInformationPane = pane;
+            m_hoveredInformationItem = item;
+            updateInformationPanel();
+        }
+    });
+    connect(pane->view(), &FolderView::itemHoverCleared, this, [this, pane] {
+        if (m_hoveredInformationPane == pane) {
+            m_hoveredInformationPane = nullptr;
+            m_hoveredInformationItem = {};
+            updateInformationPanel();
         }
     });
     connect(pane->view(), &FolderView::itemsOrderChanged, this, [this, pane] {
@@ -491,6 +554,12 @@ void MainWindow::setupPanels()
         FileOperations::drop(event, destination, this);
     });
     m_combinedDock = addPanelDock(QStringLiteral("combinedDock"), i18nc("@title:window", "Explorer"), m_combinedPanel);
+
+    m_informationPanel = new InformationPanel;
+    m_informationPanel->setFields(Settings::informationFields());
+    m_informationDock = addPanelDock(QStringLiteral("informationDock"), i18nc("@title:window", "Information"), m_informationPanel);
+    addDockWidget(Qt::RightDockWidgetArea, m_informationDock);
+    m_informationDock->hide();
 }
 
 void MainWindow::setPanelLayout(PanelLayout layout)
@@ -879,6 +948,22 @@ void MainWindow::setupStatusBar()
     statusBar()->addWidget(m_itemsLabel);
     statusBar()->addWidget(m_messageLabel, 1);
     statusBar()->addPermanentWidget(m_freeSpaceLabel);
+    for (Pane *pane : {m_left, m_right}) {
+        auto *bar = new QWidget(pane);
+        auto *layout = new QHBoxLayout(bar);
+        layout->setContentsMargins(4, 0, 4, 0);
+        layout->setSpacing(8);
+        auto *items = new QLabel(bar);
+        items->setObjectName(pane == m_left ? QStringLiteral("leftItemsLabel") : QStringLiteral("rightItemsLabel"));
+        auto *freeSpace = new QLabel(bar);
+        freeSpace->setObjectName(pane == m_left ? QStringLiteral("leftFreeSpaceLabel") : QStringLiteral("rightFreeSpaceLabel"));
+        layout->addWidget(items);
+        layout->addStretch();
+        layout->addWidget(freeSpace);
+        pane->setStatusBarWidget(bar);
+        m_paneItemsLabels.insert(pane, items);
+        m_paneFreeSpaceLabels.insert(pane, freeSpace);
+    }
 }
 
 void MainWindow::setupActions()
@@ -975,6 +1060,7 @@ void MainWindow::setupActions()
     QAction *customCommand = actions->addAction(QStringLiteral("custom_command"), this, &MainWindow::showCustomCommand);
     customCommand->setText(i18nc("@action", "Scripts and Custom Commands…"));
     customCommand->setIcon(QIcon::fromTheme(QStringLiteral("system-run")));
+    refreshCustomCommandActions();
     QAction *transferQueue = actions->addAction(QStringLiteral("transfer_queue"), this, &MainWindow::showTransferQueue);
     transferQueue->setText(i18nc("@action", "Transfer Queue…"));
     transferQueue->setIcon(QIcon::fromTheme(QStringLiteral("view-list-details")));
@@ -1071,6 +1157,75 @@ void MainWindow::setupActions()
     actions->addAction(QStringLiteral("stacked_layout"), m_stackedLayoutAction);
     connect(m_stackedLayoutAction, &KToggleAction::toggled, this, &MainWindow::setStackedLayout);
 
+    auto *swapTabs = actions->addAction(QStringLiteral("swap_current_tabs"), this, &MainWindow::swapCurrentTabs);
+    swapTabs->setText(i18nc("@action", "Swap Current Tabs"));
+    auto *swapSides = actions->addAction(QStringLiteral("swap_pane_sides"), this, &MainWindow::swapPaneSides);
+    swapSides->setText(i18nc("@action", "Swap Pane Sides"));
+    auto *movePaneToTab = actions->addAction(QStringLiteral("move_second_pane_to_tab"), this, &MainWindow::moveSecondPaneToTab);
+    movePaneToTab->setText(i18nc("@action", "Move Second Pane to Tab"));
+    auto *movePaneToWindow = actions->addAction(QStringLiteral("move_second_pane_to_window"), this, &MainWindow::popOutSecondPane);
+    movePaneToWindow->setText(i18nc("@action", "Pop Out Second Pane"));
+    auto *restorePane = actions->addAction(QStringLiteral("restore_second_pane"), this, &MainWindow::moveSecondPaneToDual);
+    restorePane->setText(i18nc("@action", "Return Second Pane to Dual Layout"));
+    restorePane->setEnabled(false);
+    auto *saveSizes = actions->addAction(QStringLiteral("save_splitter_sizes"), this, &MainWindow::saveSplitterSizes);
+    saveSizes->setText(i18nc("@action", "Save Pane and Panel Sizes"));
+    auto *resetSizes = actions->addAction(QStringLiteral("reset_splitter_sizes"), this, &MainWindow::resetSplitterSizes);
+    resetSizes->setText(i18nc("@action", "Reset Pane and Panel Sizes"));
+    auto *customizeCombinedPanel = actions->addAction(QStringLiteral("customize_combined_panel"), m_combinedPanel, &CombinedPanel::configureSections);
+    customizeCombinedPanel->setText(i18nc("@action", "Customize Combined Panel…"));
+    auto *tabPosition = new KSelectAction(i18nc("@action", "Active Pane Tab Bar Position"), this);
+    tabPosition->setItems({i18nc("@item:inmenu tab bar position", "Above"),
+                           i18nc("@item:inmenu tab bar position", "Below"),
+                           i18nc("@item:inmenu tab bar position", "Left"),
+                           i18nc("@item:inmenu tab bar position", "Right")});
+    actions->addAction(QStringLiteral("tab_bar_position"), tabPosition);
+    auto *tabsTogether = new KToggleAction(i18nc("@action", "Keep Stacked Tab Bars Together"), this);
+    tabsTogether->setChecked(Settings::stackedTabBarsTogether());
+    actions->addAction(QStringLiteral("stacked_tab_bars_together"), tabsTogether);
+    connect(tabsTogether, &KToggleAction::toggled, this, [this](bool together) {
+        Settings::setStackedTabBarsTogether(together);
+        Settings::self()->save();
+        updateTabBarPlacement();
+    });
+    connect(tabPosition, &KSelectAction::indexTriggered, this, [this, tabsTogether](int position) {
+        if (isStackedLayout()) {
+            if (tabsTogether->isChecked()) {
+                tabsTogether->setChecked(false);
+            }
+            if (activePane() == m_left) {
+                Settings::setStackedFirstTabPosition(position);
+            } else {
+                Settings::setStackedSecondTabPosition(position);
+            }
+        } else if (activePane() == m_left) {
+            Settings::setHorizontalFirstTabPosition(position);
+        } else {
+            Settings::setHorizontalSecondTabPosition(position);
+        }
+        Settings::self()->save();
+        updateTabBarPlacement();
+    });
+    auto *showTabClose = new KToggleAction(i18nc("@action", "Show Tab Close Buttons"), this);
+    showTabClose->setChecked(Settings::showTabCloseButtons());
+    actions->addAction(QStringLiteral("show_tab_close_buttons"), showTabClose);
+    connect(showTabClose, &KToggleAction::toggled, this, [this](bool shown) {
+        Settings::setShowTabCloseButtons(shown);
+        Settings::self()->save();
+        m_left->reloadTabSettings();
+        m_right->reloadTabSettings();
+    });
+
+    auto *dimInactive = new KToggleAction(i18nc("@action", "Dim Inactive Pane"), this);
+    dimInactive->setChecked(Settings::dimInactivePane());
+    actions->addAction(QStringLiteral("dim_inactive_pane"), dimInactive);
+    connect(dimInactive, &QAction::triggered, this, [this](bool enabled) {
+        Settings::setDimInactivePane(enabled);
+        Settings::self()->save();
+        m_left->setInactiveDimming(enabled);
+        m_right->setInactiveDimming(enabled);
+    });
+
     m_terminalPanelAction = new KToggleAction(i18nc("@action", "Show Embedded Terminal"), this);
     actions->addAction(QStringLiteral("show_embedded_terminal"), m_terminalPanelAction);
     connect(m_terminalPanelAction, &KToggleAction::toggled, this, [this](bool shown) {
@@ -1079,6 +1234,7 @@ void MainWindow::setupActions()
         }
         m_terminalPanel->setVisible(shown);
         toggleLayout(m_dualLayoutAction->isChecked());
+        restoreSplitterSizes(false, true);
     });
 
     m_linkedPanesAction = new KToggleAction(i18nc("@action", "Link Pane Navigation"), this);
@@ -1238,6 +1394,16 @@ void MainWindow::setupActions()
             FileOperations::open(items.first(), this);
         }
     });
+    QAction *informationAction = actions->addAction(QStringLiteral("show_information_panel"));
+    informationAction->setText(i18nc("@action", "Information Panel"));
+    informationAction->setCheckable(true);
+    connect(informationAction, &QAction::triggered, this, [this] {
+        m_informationDock->setVisible(!m_informationDock->isVisible());
+    });
+    connect(m_informationDock, &QDockWidget::visibilityChanged, informationAction, &QAction::setChecked);
+    QAction *customizeToolbar = actions->addAction(QStringLiteral("customize_main_toolbar"));
+    customizeToolbar->setText(i18nc("@action", "Customize Main Toolbar"));
+    customizeToolbar->setCheckable(true);
     QAction *gallery = actions->addAction(QStringLiteral("open_gallery"), this, &MainWindow::openGallery);
     gallery->setText(i18nc("@action", "Open Gallery"));
     gallery->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-media-preview")));
@@ -1409,6 +1575,9 @@ Pane *MainWindow::inactivePane() const
 
 void MainWindow::setActivePane(Pane *pane)
 {
+    if (m_paneTabs && m_secondPaneInTab) {
+        m_paneTabs->setCurrentWidget(pane == m_right ? static_cast<QWidget *>(m_right) : m_workspaceSplitter);
+    }
     if (!pane || pane == m_active) {
         return;
     }
@@ -1430,6 +1599,7 @@ void MainWindow::setActivePane(Pane *pane)
     updateFreeSpace();
     updateWindowTitle();
     updatePreviewPanel();
+    updateInformationPanel();
 }
 
 void MainWindow::openUrls(const QList<QUrl> &urls)
@@ -1475,6 +1645,7 @@ void MainWindow::restoreSession()
     setActivePane(session.activePane == 1 ? m_right : m_left);
     m_dualLayoutAction->setChecked(session.dual);
     setStackedLayout(session.stacked);
+    restoreSecondPanePlacement();
 }
 
 void MainWindow::saveSession()
@@ -1493,7 +1664,9 @@ void MainWindow::saveSession()
     panels.writeEntry("FoldersExpanded", m_folderTree->expandedUrls());
     panels.writeEntry("CombinedExpanded", m_combinedPanel->folderTree()->expandedUrls());
     panels.writeEntry("CollapsedSections", m_combinedPanel->collapsedSections());
-    state->group(QLatin1String(WindowLayoutGroup)).writeEntry("DualPane", m_dualLayoutAction->isChecked());
+    KConfigGroup layout = state->group(QLatin1String(WindowLayoutGroup));
+    layout.writeEntry("DualPane", m_dualLayoutAction->isChecked());
+    layout.writeEntry("SecondPanePlacement", m_rightWindow ? QStringLiteral("window") : (m_secondPaneInTab ? QStringLiteral("tab") : QStringLiteral("split")));
     state->sync();
 }
 
@@ -1545,6 +1718,18 @@ void MainWindow::readProperties(const KConfigGroup &group)
     setActivePane(session.activePane == 1 ? m_right : m_left);
     m_dualLayoutAction->setChecked(session.dual);
     setStackedLayout(session.stacked);
+    restoreSecondPanePlacement();
+}
+
+void MainWindow::restoreSecondPanePlacement()
+{
+    const QString placement =
+        KSharedConfig::openStateConfig()->group(QLatin1String(WindowLayoutGroup)).readEntry("SecondPanePlacement", QStringLiteral("split"));
+    if (placement == QLatin1String("tab")) {
+        moveSecondPaneToTab();
+    } else if (placement == QLatin1String("window")) {
+        popOutSecondPane();
+    }
 }
 
 void MainWindow::saveProperties(KConfigGroup &group)
@@ -1567,6 +1752,13 @@ void MainWindow::updateActions()
     const KFileItemListProperties props(selected);
     const KFileItem root = view->rootItem();
 
+    const bool bothVisible = isDualLayout() && !m_left->isHidden() && !m_right->isHidden();
+    auto *tabPosition = qobject_cast<KSelectAction *>(actions->action(QStringLiteral("tab_bar_position")));
+    tabPosition->setCurrentItem(static_cast<int>(activePane()->tabBarPosition()));
+    actions->action(QStringLiteral("stacked_tab_bars_together"))->setEnabled(isStackedLayout());
+    actions->action(QStringLiteral("swap_current_tabs"))
+        ->setEnabled(bothVisible && m_left->tabs()->currentIndex() >= 0 && m_right->tabs()->currentIndex() >= 0);
+    actions->action(QStringLiteral("swap_pane_sides"))->setEnabled(bothVisible);
     actions->action(QStringLiteral("copy_to_other_pane"))->setEnabled(hasSelection);
     actions->action(QStringLiteral("move_to_other_pane"))->setEnabled(hasSelection && props.supportsMoving());
     actions->action(QStringLiteral("rename"))->setEnabled(hasSelection && props.supportsMoving());
@@ -1580,10 +1772,13 @@ void MainWindow::updateActions()
     actions->action(stdName(KStandardAction::Cut))->setEnabled(hasSelection && props.supportsMoving());
     actions->action(stdName(KStandardAction::Copy))->setEnabled(hasSelection);
     actions->action(QStringLiteral("open_terminal"))->setEnabled(activePane()->url().isLocalFile());
-    actions->action(QStringLiteral("custom_command"))
-        ->setEnabled(activePane()->url().isLocalFile() && std::all_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
-                         return item.url().isLocalFile();
-                     }));
+    const bool commandEnabled = activePane()->url().isLocalFile() && std::all_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
+                                    return item.url().isLocalFile();
+                                });
+    actions->action(QStringLiteral("custom_command"))->setEnabled(commandEnabled);
+    for (QAction *action : std::as_const(m_customCommandActions)) {
+        action->setEnabled(commandEnabled);
+    }
     actions->action(QStringLiteral("content_chart"))->setEnabled(activePane()->url().isValid() && !activePane()->url().isEmpty());
     actions->action(QStringLiteral("find_duplicates"))->setEnabled(activePane()->url().isLocalFile());
     actions->action(QStringLiteral("compare_pane_folders"))
@@ -1659,17 +1854,20 @@ void MainWindow::updateActions()
     m_viewModeAction->setIcon(QIcon::fromTheme(details ? QStringLiteral("view-list-icons") : QStringLiteral("view-list-details")));
     actions->action(QStringLiteral("calculate_occupied_space"))->setEnabled(!view->rootItem().isNull());
     m_jumpBackAction->setEnabled(m_jumpBackPoints.value(activePane()).isValid());
+    actions->action(QStringLiteral("move_second_pane_to_tab"))->setEnabled(!m_secondPaneInTab);
+    actions->action(QStringLiteral("move_second_pane_to_window"))->setEnabled(!m_rightWindow);
+    actions->action(QStringLiteral("restore_second_pane"))->setEnabled(m_secondPaneInTab || m_rightWindow);
 }
 
 void MainWindow::updateStatusBar()
 {
-    FolderView *view = activePane()->view();
-    const KFileItemList selected = view->selectedItems();
-    const int total = view->itemCount();
-
-    if (selected.isEmpty()) {
-        m_itemsLabel->setText(i18ncp("@info:status", "%1 item", "%1 items", total));
-    } else {
+    const bool perPane = Settings::statusBarLayout() == Settings::EnumStatusBarLayout::PerPane;
+    const auto itemText = [](Pane *pane) {
+        const KFileItemList selected = pane->view()->selectedItems();
+        const int total = pane->view()->itemCount();
+        if (selected.isEmpty()) {
+            return i18ncp("@info:status", "%1 item", "%1 items", total);
+        }
         KIO::filesize_t size = 0;
         int folders = 0;
         for (const KFileItem &item : selected) {
@@ -1679,14 +1877,25 @@ void MainWindow::updateStatusBar()
                 size += item.size();
             }
         }
-        const int files = selected.size() - folders;
         QString text = i18ncp("@info:status", "%1 of %2 selected", "%1 of %2 selected", selected.size(), total);
-        if (files > 0 && Settings::showSelectionSize()) {
+        if (selected.size() > folders && Settings::showSelectionSize()) {
             text += QStringLiteral(" (%1)").arg(KIO::convertSize(size));
         }
-        m_itemsLabel->setText(text);
+        return text;
+    };
+    for (Pane *pane : {m_left, m_right}) {
+        const bool showCounts = Settings::showItemCounts();
+        const bool showFreeSpace = Settings::showFreeSpace();
+        m_paneItemsLabels.value(pane)->setText(itemText(pane));
+        m_paneItemsLabels.value(pane)->setVisible(perPane && showCounts);
+        m_paneFreeSpaceLabels.value(pane)->setVisible(perPane && showFreeSpace);
+        pane->statusBarWidget()->setVisible(perPane && (showCounts || showFreeSpace));
     }
+    m_itemsLabel->setText(itemText(activePane()));
+    m_itemsLabel->setVisible(!perPane && Settings::showItemCounts());
+    m_freeSpaceLabel->setVisible(!perPane && Settings::showFreeSpace());
 
+    const KFileItemList selected = activePane()->view()->selectedItems();
     if (selected.size() == 1) {
         const KFileItem &item = selected.first();
         QStringList parts{item.text(), item.mimeComment()};
@@ -1704,25 +1913,39 @@ void MainWindow::updateStatusBar()
     }
 }
 
-void MainWindow::updateFreeSpace()
+void MainWindow::updateFreeSpace(Pane *pane)
 {
-    const QUrl url = activePane()->url();
-    if (!url.isValid() || !Settings::showFreeSpace()) {
-        m_freeSpaceLabel->clear();
-        return;
-    }
-    KIO::FileSystemFreeSpaceJob *job = KIO::fileSystemFreeSpace(url);
-    connect(job, &KJob::result, this, [this, job, url] {
-        if (url != activePane()->url()) {
-            return;
-        }
-        if (job->error()) {
+    const bool perPane = Settings::statusBarLayout() == Settings::EnumStatusBarLayout::PerPane;
+    const QList<Pane *> panes = pane ? QList<Pane *>{pane} : (perPane ? QList<Pane *>{m_left, m_right} : QList<Pane *>{activePane()});
+    for (Pane *target : panes) {
+        QLabel *label = m_paneFreeSpaceLabels.value(target);
+        const QUrl url = target->url();
+        label->clear();
+        if (target == activePane()) {
             m_freeSpaceLabel->clear();
-            return;
         }
-        m_freeSpaceLabel->setText(
-            i18nc("@info:status free disk space", "%1 free of %2", KIO::convertSize(job->availableSize()), KIO::convertSize(job->size())));
-    });
+        if (!url.isValid() || !Settings::showFreeSpace()) {
+            continue;
+        }
+        KIO::FileSystemFreeSpaceJob *job = KIO::fileSystemFreeSpace(url);
+        connect(job, &KJob::result, this, [this, job, target, url] {
+            if (url != target->url()) {
+                return;
+            }
+            if (job->error()) {
+                m_paneFreeSpaceLabels.value(target)->clear();
+                if (target == activePane()) {
+                    m_freeSpaceLabel->clear();
+                }
+                return;
+            }
+            const QString text = i18nc("@info:status free disk space", "%1 free of %2", KIO::convertSize(job->availableSize()), KIO::convertSize(job->size()));
+            m_paneFreeSpaceLabels.value(target)->setText(text);
+            if (target == activePane()) {
+                m_freeSpaceLabel->setText(text);
+            }
+        });
+    }
 }
 
 void MainWindow::updateWindowTitle()
@@ -2127,6 +2350,8 @@ void MainWindow::setEditorPlacement(EditorPanel::Placement placement)
         break;
     }
     toggleLayout(m_dualLayoutAction->isChecked());
+    restoreSplitterSizes(true, false);
+    restoreEditorDockSize();
 }
 
 void MainWindow::openEditor()
@@ -2567,9 +2792,14 @@ void MainWindow::showContentChart()
 
 void MainWindow::showSearch()
 {
-    auto *dialog = new SearchDialog(activePane()->url(), this);
-    connect(dialog, &SearchDialog::revealRequested, this, [this](const QUrl &url) {
-        activePane()->revealUrl(url);
+    showSearchForPane(activePane());
+}
+
+void MainWindow::showSearchForPane(Pane *pane)
+{
+    auto *dialog = new SearchDialog(pane->url(), this);
+    connect(dialog, &SearchDialog::revealRequested, this, [pane](const QUrl &url) {
+        pane->revealUrl(url);
     });
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
@@ -2707,6 +2937,135 @@ void MainWindow::comparePaneFolders()
     dialog->show();
 }
 
+void MainWindow::swapCurrentTabs()
+{
+    const QScopedValueRollback guard(m_syncingLinkedPanes, true);
+    if (m_left->tabs()->swapCurrent(*m_right->tabs())) {
+        std::swap(m_linkedLeftRoot, m_linkedRightRoot);
+    }
+}
+
+void MainWindow::swapPaneSides()
+{
+    if (m_secondPaneInTab || m_rightWindow) {
+        return;
+    }
+    const QList<int> sizes = m_splitter->sizes();
+    m_splitter->insertWidget(0, m_right);
+    std::swap(m_left, m_right);
+    std::swap(m_linkedLeftRoot, m_linkedRightRoot);
+    updateTabBarPlacement();
+    m_splitter->setSizes(sizes);
+    updateActions();
+}
+
+void MainWindow::moveSecondPaneToTab()
+{
+    if (m_secondPaneInTab) {
+        return;
+    }
+    if (m_rightWindow) {
+        moveSecondPaneToDual();
+    }
+    if (!m_rightPlaceholder) {
+        m_rightPlaceholder = new QWidget(m_splitter);
+        m_rightPlaceholder->setObjectName(QStringLiteral("secondPanePlaceholder"));
+        m_rightPlaceholder->setMinimumSize(0, 0);
+    }
+    const int index = m_splitter->indexOf(m_right);
+    if (index < 0) {
+        return;
+    }
+
+    m_movingSecondPane = true;
+    m_splitter->replaceWidget(index, m_rightPlaceholder);
+    m_rightPlaceholder->hide();
+    m_right->setParent(nullptr);
+    m_paneTabs->addTab(m_right, i18nc("@title:tab", "Second Pane"));
+    m_secondPaneInTab = true;
+    m_paneTabs->tabBar()->show();
+    m_paneTabs->setCurrentWidget(m_right);
+    m_dualLayoutAction->setChecked(false);
+    m_movingSecondPane = false;
+    setActivePane(m_right);
+    updateActions();
+}
+
+void MainWindow::popOutSecondPane()
+{
+    if (m_rightWindow) {
+        return;
+    }
+    if (m_secondPaneInTab) {
+        moveSecondPaneToDual();
+    }
+    const int index = m_splitter->indexOf(m_right);
+    if (index < 0) {
+        return;
+    }
+    if (!m_rightPlaceholder) {
+        m_rightPlaceholder = new QWidget(m_splitter);
+        m_rightPlaceholder->setObjectName(QStringLiteral("secondPanePlaceholder"));
+        m_rightPlaceholder->setMinimumSize(0, 0);
+    }
+
+    m_movingSecondPane = true;
+    m_splitter->replaceWidget(index, m_rightPlaceholder);
+    m_rightPlaceholder->hide();
+    m_right->setParent(nullptr);
+    auto *window = new QMainWindow(this);
+    window->setObjectName(QStringLiteral("secondPaneWindow"));
+    window->setWindowFlag(Qt::Window, true);
+    window->setWindowTitle(i18nc("@title:window", "Second Pane"));
+    window->installEventFilter(this);
+    window->setCentralWidget(m_right);
+    m_rightWindow = window;
+    m_dualLayoutAction->setChecked(false);
+    m_movingSecondPane = false;
+    setActivePane(m_right);
+    window->resize(900, 600);
+    window->show();
+    updateActions();
+}
+
+void MainWindow::moveSecondPaneToDual()
+{
+    if (!m_secondPaneInTab && !m_rightWindow) {
+        return;
+    }
+    m_movingSecondPane = true;
+    if (m_secondPaneInTab) {
+        const int index = m_paneTabs->indexOf(m_right);
+        if (index >= 0) {
+            m_paneTabs->removeTab(index);
+        }
+        m_right->setParent(nullptr);
+        m_secondPaneInTab = false;
+        m_paneTabs->tabBar()->hide();
+    } else if (m_rightWindow) {
+        QMainWindow *window = m_rightWindow;
+        window->removeEventFilter(this);
+        window->takeCentralWidget();
+        window->hide();
+        window->deleteLater();
+        m_rightWindow.clear();
+        m_right->setParent(nullptr);
+    }
+
+    const int placeholderIndex = m_splitter->indexOf(m_rightPlaceholder);
+    if (placeholderIndex >= 0) {
+        m_splitter->replaceWidget(placeholderIndex, m_right);
+        m_rightPlaceholder->deleteLater();
+        m_rightPlaceholder = nullptr;
+    } else {
+        m_splitter->addWidget(m_right);
+    }
+    m_dualLayoutAction->setChecked(true);
+    m_movingSecondPane = false;
+    setActivePane(m_right);
+    updateActions();
+}
+
 void MainWindow::syncLinkedPane(Pane *pane, const QUrl &url)
 {
     if (!m_linkedPanesAction || !m_linkedPanesAction->isChecked() || m_syncingLinkedPanes) {
@@ -2803,6 +3162,11 @@ void MainWindow::showTransferQueue()
 
 void MainWindow::showCustomCommand()
 {
+    showCustomCommandPreset({});
+}
+
+void MainWindow::showCustomCommandPreset(const QString &name)
+{
     const QUrl folder = activePane()->url();
     if (!folder.isLocalFile()) {
         showStatusMessage(i18nc("@info", "Commands require a local working folder."));
@@ -2818,8 +3182,51 @@ void MainWindow::showCustomCommand()
     }
     paths.sort();
     auto *dialog = new CustomCommandDialog(folder.toLocalFile(), paths, this);
+    connect(dialog, &CustomCommandDialog::presetsChanged, this, &MainWindow::refreshCustomCommandActions);
+    if (!name.isEmpty()) {
+        dialog->loadPreset(name);
+    }
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
+}
+
+void MainWindow::refreshCustomCommandActions()
+{
+    QString error;
+    const auto commands = CustomCommands::load(KSharedConfig::openConfig()->group(QStringLiteral("CustomCommands")), &error);
+    if (!error.isEmpty()) {
+        showStatusMessage(error);
+        return;
+    }
+    QSet<QString> current;
+    for (const auto &command : commands) {
+        current.insert(command.name);
+        QAction *action = m_customCommandActions.value(command.name);
+        if (!action) {
+            const QString id = QStringLiteral("custom_command_preset_")
+                + QString::fromLatin1(QCryptographicHash::hash(command.name.toUtf8(), QCryptographicHash::Sha256).toHex());
+            action = actionCollection()->addAction(id);
+            action->setIcon(SymbolicIcon::fromTheme(QStringLiteral("system-run")));
+            connect(action, &QAction::triggered, this, [this, name = command.name] {
+                showCustomCommandPreset(name);
+            });
+            m_customCommandActions.insert(command.name, action);
+        }
+        action->setText(command.name);
+        action->setToolTip(i18nc("@info:tooltip", "Preview saved command: %1", command.name));
+    }
+    for (auto it = m_customCommandActions.begin(); it != m_customCommandActions.end();) {
+        if (!current.contains(it.key())) {
+            QAction *action = it.value();
+            it = m_customCommandActions.erase(it);
+            actionCollection()->removeAction(action);
+        } else {
+            ++it;
+        }
+    }
+    if (m_active) {
+        updateActions();
+    }
 }
 
 void MainWindow::trash()
@@ -2857,14 +3264,23 @@ void MainWindow::showNewMenu()
 
 void MainWindow::toggleLayout(bool dual)
 {
+    const bool previewWasVisible = !m_previewPanel->isHidden();
+    const bool leftWasVisible = !m_left->isHidden();
+    const bool rightWasVisible = !m_secondPaneInTab && !m_rightWindow && !m_right->isHidden();
     const bool preview = m_previewPanelAction && m_previewPanelAction->isChecked();
     const bool editorEmbedded = m_editor
         && ((m_editorPlacement == EditorPanel::Placement::Panel && !m_editor->isHidden())
             || ((m_editorPlacement == EditorPanel::Placement::Below || m_editorPlacement == EditorPanel::Placement::Right) && !m_editorDock->isHidden()));
     const bool terminalShown = m_terminalPanelAction && m_terminalPanelAction->isChecked();
     m_left->setVisible((dual && (!preview || editorEmbedded || terminalShown)) || activePane() == m_left);
-    m_right->setVisible((dual && (!preview || editorEmbedded || terminalShown)) || activePane() == m_right);
+    if (!m_secondPaneInTab && !m_rightWindow) {
+        m_right->setVisible((dual && (!preview || editorEmbedded || terminalShown)) || activePane() == m_right);
+    }
     m_previewPanel->setVisible(preview);
+    const bool rightIsVisible = !m_secondPaneInTab && !m_rightWindow && !m_right->isHidden();
+    if (previewWasVisible != preview || leftWasVisible != !m_left->isHidden() || rightWasVisible != rightIsVisible) {
+        restoreSplitterSizes(true, false);
+    }
     if (m_linkedPanesAction && m_linkedPanesAction->isChecked() && (!dual || m_left->isHidden() || m_right->isHidden())) {
         m_linkedPanesAction->setChecked(false);
         showStatusMessage(i18nc("@info:status", "Pane navigation unlinked because both panes are not visible."));
@@ -2872,13 +3288,194 @@ void MainWindow::toggleLayout(bool dual)
     updateActions();
 }
 
+void MainWindow::saveSplitterSizes()
+{
+    const auto state = KSharedConfig::openStateConfig();
+    KConfigGroup group = state->group(QLatin1String(SplitterSizesGroup)).group(QLatin1String(isStackedLayout() ? "Stacked" : "SideBySide"));
+    const auto save = [&group](QSplitter *splitter, const QList<QPair<QWidget *, QString>> &widgets) {
+        const QList<int> sizes = splitter->sizes();
+        int total = 0;
+        int previousVisible = 0;
+        bool savedHidden = false;
+        for (int i = 0; i < splitter->count(); ++i) {
+            if (!splitter->widget(i)->isHidden()) {
+                total += sizes.at(i);
+            }
+        }
+        for (const auto &[widget, key] : widgets) {
+            if (!group.hasKey(key)) {
+                continue;
+            }
+            const int index = splitter->indexOf(widget);
+            if (index >= 0 && !widget->isHidden() && sizes.at(index) > 0) {
+                previousVisible += qBound(1, group.readEntry(key, 2500), 10000);
+            } else {
+                savedHidden = true;
+            }
+        }
+        if (total <= 0) {
+            return;
+        }
+        const int budget = savedHidden && previousVisible > 0 ? previousVisible : 10000;
+        for (const auto &[widget, key] : widgets) {
+            const int index = splitter->indexOf(widget);
+            if (index >= 0 && !widget->isHidden() && sizes.at(index) > 0) {
+                group.writeEntry(key, qMax(1, int(qint64(sizes.at(index)) * budget / total)));
+            }
+        }
+    };
+    save(m_splitter,
+         {{m_left, QStringLiteral("FirstPane")},
+          {m_right, QStringLiteral("SecondPane")},
+          {m_previewPanel, QStringLiteral("Preview")},
+          {m_editor, QStringLiteral("Editor")}});
+    save(m_workspaceSplitter, {{m_splitter, QStringLiteral("Workspace")}, {m_terminalPanel, QStringLiteral("Terminal")}});
+    if (m_editorDock && !m_editorDock->isHidden() && !m_editorDock->isFloating()) {
+        const bool right = dockWidgetArea(m_editorDock) == Qt::RightDockWidgetArea;
+        const int dimension = right ? width() : height();
+        if (dimension > 0) {
+            group.writeEntry(right ? "EditorDockRight" : "EditorDockBelow",
+                             qBound(1, int(qint64(right ? m_editorDock->width() : m_editorDock->height()) * 10000 / dimension), 6000));
+        }
+    }
+    state->sync();
+}
+
+void MainWindow::restoreSplitterSizes(bool panes, bool workspace, bool defaultsIfMissing)
+{
+    const KConfigGroup group =
+        KSharedConfig::openStateConfig()->group(QLatin1String(SplitterSizesGroup)).group(QLatin1String(isStackedLayout() ? "Stacked" : "SideBySide"));
+    const auto restore = [this, &group, defaultsIfMissing](QSplitter *splitter, const QList<QPair<QWidget *, QString>> &widgets, const QList<int> &defaults) {
+        QList<int> sizes(splitter->count(), 2500);
+        bool saved = false;
+        for (const auto &[widget, key] : widgets) {
+            const int index = splitter->indexOf(widget);
+            if (index >= 0 && group.hasKey(key)) {
+                sizes[index] = qBound(1, group.readEntry(key, 2500), 10000);
+                saved = true;
+            }
+        }
+        if (saved) {
+            const auto preservePrimaryArea = [&sizes, splitter](QWidget *primary, QWidget *secondary, int minimumTotalShare) {
+                const int primaryIndex = splitter->indexOf(primary);
+                const int secondaryIndex = splitter->indexOf(secondary);
+                if (primaryIndex < 0 || secondaryIndex < 0 || primary->isHidden() || secondary->isHidden()) {
+                    return;
+                }
+                int total = 0;
+                int otherTotal = 0;
+                for (int i = 0; i < splitter->count(); ++i) {
+                    if (splitter->widget(i)->isHidden()) {
+                        continue;
+                    }
+                    total += sizes.at(i);
+                    if (i != primaryIndex && i != secondaryIndex) {
+                        otherTotal += sizes.at(i);
+                    }
+                }
+                if (total <= 0) {
+                    return;
+                }
+                const int primaryBudget = qMax(total * minimumTotalShare / 10000, total - otherTotal);
+                const int otherBudget = total - primaryBudget;
+                const int otherRemaining = otherBudget;
+                if (otherTotal > 0) {
+                    for (int i = 0; i < splitter->count(); ++i) {
+                        if (!splitter->widget(i)->isHidden() && i != primaryIndex && i != secondaryIndex) {
+                            sizes[i] = qMax(1, int(qint64(sizes.at(i)) * otherRemaining / otherTotal));
+                        }
+                    }
+                }
+                const int primaryTotal = sizes.at(primaryIndex) + sizes.at(secondaryIndex);
+                const int firstShare = primaryTotal > 0 ? int(qint64(primaryBudget) * sizes.at(primaryIndex) / primaryTotal) : primaryBudget / 2;
+                const int minimumPane = primaryBudget / 4;
+                sizes[primaryIndex] = qBound(minimumPane, firstShare, primaryBudget - minimumPane);
+                sizes[secondaryIndex] = primaryBudget - sizes.at(primaryIndex);
+            };
+            if (splitter == m_splitter) {
+                preservePrimaryArea(m_left, m_right, 6000);
+            } else if (splitter == m_workspaceSplitter && !m_terminalPanel->isHidden()) {
+                const int workspaceIndex = splitter->indexOf(m_splitter);
+                const int terminalIndex = splitter->indexOf(m_terminalPanel);
+                if (workspaceIndex >= 0 && terminalIndex >= 0) {
+                    const int total = sizes.at(workspaceIndex) + sizes.at(terminalIndex);
+                    const int primary = qMax(total * 6000 / 10000, sizes.at(workspaceIndex));
+                    sizes[workspaceIndex] = primary;
+                    sizes[terminalIndex] = total - primary;
+                }
+            }
+            splitter->setSizes(sizes);
+        } else if (defaultsIfMissing) {
+            splitter->setSizes(defaults);
+        }
+    };
+    if (panes) {
+        restore(m_splitter,
+                {{m_left, QStringLiteral("FirstPane")},
+                 {m_right, QStringLiteral("SecondPane")},
+                 {m_previewPanel, QStringLiteral("Preview")},
+                 {m_editor, QStringLiteral("Editor")}},
+                QList<int>(m_splitter->count(), 1));
+    }
+    if (workspace) {
+        restore(m_workspaceSplitter, {{m_splitter, QStringLiteral("Workspace")}, {m_terminalPanel, QStringLiteral("Terminal")}}, {3, 1});
+    }
+}
+
+void MainWindow::restoreEditorDockSize()
+{
+    if (!m_editorDock || m_editorDock->isHidden() || m_editorDock->isFloating()) {
+        return;
+    }
+    const KConfigGroup group =
+        KSharedConfig::openStateConfig()->group(QLatin1String(SplitterSizesGroup)).group(QLatin1String(isStackedLayout() ? "Stacked" : "SideBySide"));
+    const bool right = dockWidgetArea(m_editorDock) == Qt::RightDockWidgetArea;
+    const char *key = right ? "EditorDockRight" : "EditorDockBelow";
+    if (group.hasKey(key)) {
+        const int fraction = qBound(1, group.readEntry(key, 2500), 6000);
+        const int dimension = right ? width() : height();
+        resizeDocks({m_editorDock}, {qMax(1, int(qint64(dimension) * fraction / 10000))}, right ? Qt::Horizontal : Qt::Vertical);
+    }
+}
+
+void MainWindow::resetSplitterSizes()
+{
+    const auto state = KSharedConfig::openStateConfig();
+    KConfigGroup group = state->group(QLatin1String(SplitterSizesGroup)).group(QLatin1String(isStackedLayout() ? "Stacked" : "SideBySide"));
+    group.deleteGroup();
+    group.writeEntry("EditorDockRight", 2500);
+    group.writeEntry("EditorDockBelow", 2500);
+    state->sync();
+    m_splitter->setSizes(QList<int>(m_splitter->count(), 1));
+    m_workspaceSplitter->setSizes({3, 1});
+    if (m_editorDock && !m_editorDock->isHidden() && !m_editorDock->isFloating()) {
+        const bool right = dockWidgetArea(m_editorDock) == Qt::RightDockWidgetArea;
+        resizeDocks({m_editorDock}, {qMax(1, (right ? width() : height()) / 4)}, right ? Qt::Horizontal : Qt::Vertical);
+    }
+}
+
 void MainWindow::setStackedLayout(bool stacked)
 {
+    const bool changed = isStackedLayout() != stacked;
     m_stackedLayoutAction->setChecked(stacked);
     m_splitter->setOrientation(stacked ? Qt::Vertical : Qt::Horizontal);
     updateTerminalPlacement();
-    m_splitter->setSizes({1, 1, 1, 1});
-    m_left->setTabBarAtBottom(stacked);
+    restoreSplitterSizes(true, true, changed);
+    restoreEditorDockSize();
+    updateTabBarPlacement();
+}
+
+void MainWindow::updateTabBarPlacement()
+{
+    const bool stacked = isStackedLayout();
+    const bool together = stacked && Settings::stackedTabBarsTogether();
+    const int first = together ? int(Pane::TabBarPosition::Bottom) : stacked ? Settings::stackedFirstTabPosition() : Settings::horizontalFirstTabPosition();
+    const int second = together ? int(Pane::TabBarPosition::Top) : stacked ? Settings::stackedSecondTabPosition() : Settings::horizontalSecondTabPosition();
+    m_left->setTabBarPosition(static_cast<Pane::TabBarPosition>(qBound(0, first, 3)));
+    m_right->setTabBarPosition(static_cast<Pane::TabBarPosition>(qBound(0, second, 3)));
+    auto *position = qobject_cast<KSelectAction *>(actionCollection()->action(QStringLiteral("tab_bar_position")));
+    position->setCurrentItem(static_cast<int>(activePane()->tabBarPosition()));
+    actionCollection()->action(QStringLiteral("stacked_tab_bars_together"))->setEnabled(stacked);
 }
 
 void MainWindow::updateTerminalPlacement()
@@ -2906,6 +3503,25 @@ void MainWindow::updatePreviewPanel()
     m_previewPanel->setItems(selected, images);
 }
 
+void MainWindow::updateInformationPanel()
+{
+    if (!m_informationPanel) {
+        return;
+    }
+    if (Settings::informationHover() && !m_hoveredInformationItem.isNull()) {
+        m_informationPanel->setItem(m_hoveredInformationItem);
+        return;
+    }
+    const KFileItemList selected = activePane()->view()->selectedItems();
+    if (selected.size() == 1) {
+        m_informationPanel->setItem(selected.first());
+    } else if (selected.isEmpty()) {
+        m_informationPanel->setItem(activePane()->view()->currentItem());
+    } else {
+        m_informationPanel->setItem({});
+    }
+}
+
 bool MainWindow::isStackedLayout() const
 {
     return m_splitter->orientation() == Qt::Vertical;
@@ -2918,7 +3534,18 @@ bool MainWindow::isDualLayout() const
 
 void MainWindow::applySettings()
 {
+    const auto terminalOrientation = m_workspaceSplitter->orientation();
     updateTerminalPlacement();
+    if (terminalOrientation != m_workspaceSplitter->orientation()) {
+        restoreSplitterSizes(false, true);
+    }
+    actionCollection()->action(QStringLiteral("dim_inactive_pane"))->setChecked(Settings::dimInactivePane());
+    actionCollection()->action(QStringLiteral("stacked_tab_bars_together"))->setChecked(Settings::stackedTabBarsTogether());
+    actionCollection()->action(QStringLiteral("show_tab_close_buttons"))->setChecked(Settings::showTabCloseButtons());
+    updateTabBarPlacement();
+    for (GalleryWindow *gallery : findChildren<GalleryWindow *>()) {
+        gallery->applyPresentationSettings();
+    }
     if (m_terminalPanelAction && m_terminalPanelAction->isChecked()) {
         m_terminalPanel->start(activePane()->url());
     }
@@ -2930,6 +3557,7 @@ void MainWindow::applySettings()
     m_automaticLocalSizeDefault = Settings::automaticLocalFolderSizes();
     m_automaticRemoteSizeDefault = Settings::automaticRemoteFolderSizes();
     for (Pane *pane : {m_left, m_right}) {
+        pane->setInactiveDimming(Settings::dimInactivePane());
         pane->reloadTabSettings();
         pane->reloadFilterSettings();
         pane->setNavigationBarVisible(Settings::showNavigationBar());
@@ -2937,6 +3565,7 @@ void MainWindow::applySettings()
         pane->setFollowSymlinks(Settings::followSymlinks());
 
         FolderView *view = pane->view();
+        view->setInformationHoverEnabled(Settings::informationHover());
         view->reloadListingSettings();
         if (sizeDefaultsChanged) {
             view->refreshFolderSizePolicy();
@@ -2958,6 +3587,11 @@ void MainWindow::applySettings()
         view->setPreviewPlugins(Settings::previewPlugins());
         view->setRemotePreviewsEnabled(Settings::showRemotePreviews());
     }
+    m_informationPanel->setFields(Settings::informationFields());
+    if (!Settings::informationHover()) {
+        m_hoveredInformationPane = nullptr;
+        m_hoveredInformationItem = {};
+    }
     updateTabBars();
     const int barMargin = Density::barMargin(barDensity(Settings::barDensity()), Settings::barCustomSpacing());
     const auto bars = toolBars();
@@ -2968,10 +3602,9 @@ void MainWindow::applySettings()
     setBarMargin(m_left->navigationBar(), barMargin);
     setBarMargin(m_right->navigationBar(), barMargin);
     applyPanelSettings();
-    m_itemsLabel->setVisible(Settings::showItemCounts());
-    m_freeSpaceLabel->setVisible(Settings::showFreeSpace());
     updateStatusBar();
     updateFreeSpace();
+    updateInformationPanel();
 
     QAction *switchPane = actionCollection()->action(QStringLiteral("switch_pane"));
     QList<QKeySequence> shortcuts = switchPane->shortcuts();
@@ -3027,6 +3660,10 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     if (watched == m_placesDock && event->type() == QEvent::Close) {
         rememberPlacesShown(false);
     }
+    if (watched == m_rightWindow && event->type() == QEvent::Close && !m_movingSecondPane) {
+        moveSecondPaneToDual();
+        return true;
+    }
     return KXmlGuiWindow::eventFilter(watched, event);
 }
 
@@ -3051,6 +3688,7 @@ void MainWindow::showSettings()
     auto *dialog = new SettingsDialog(m_placesModel, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(dialog, &KConfigDialog::settingsChanged, this, &MainWindow::applySettings);
+    connect(dialog, &SettingsDialog::customCommandsChanged, this, &MainWindow::refreshCustomCommandActions);
     dialog->show();
 }
 
