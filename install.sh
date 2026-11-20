@@ -5,7 +5,7 @@
 #   ./install.sh                 build + install for the current user (~/.local)
 #   ./install.sh --default       ... and make Opus the default folder handler
 #   ./install.sh --system        build + install under /usr/local (uses sudo)
-#   ./install.sh --deps          print the dependency packages for this distro
+#   ./install.sh --deps          print build and optional feature dependencies
 #   ./install.sh --uninstall     remove the install and restore Dolphin
 #
 # Run ./install.sh --help for all options.
@@ -36,7 +36,7 @@ Options:
   --jobs N           parallel build jobs (default: all cores)
 
 Set OPUSFM_BUILD_DIR to build somewhere other than ./build.
-  --deps             print the packages needed on this distro and exit
+  --deps             print build and optional feature packages and exit
   --uninstall        remove files installed from this build tree
   -h, --help         show this help
 EOF
@@ -101,32 +101,71 @@ print_deps() {
         *" opensuse"*|*" suse "*|*" sles "*) family=suse ;;
     esac
 
+    echo "Build dependencies (Qt >= 6.8 with Jalali calendar support; KDE Frameworks >= 6.20):"
     case "$family" in
         arch)
-            pkgs=(base-devel cmake ninja extra-cmake-modules qt6-base qt6-tools qt6-multimedia libarchive)
+            pkgs=(base-devel cmake ninja extra-cmake-modules gettext qt6-base qt6-tools qt6-multimedia libarchive)
             for m in "${KF_MODULES[@]}"; do pkgs+=("k$m"); done
             pkgs=("${pkgs[@]/kkio/kio}")
-            echo "sudo pacman -S --needed ${pkgs[*]}" ;;
+            pkgs=("${pkgs[@]/ksolid/solid}")
+            pkgs=("${pkgs[@]/ksyntaxhighlighting/syntax-highlighting}")
+            echo "  sudo pacman -S --needed ${pkgs[*]}" ;;
         fedora)
-            pkgs=(gcc-c++ cmake ninja-build extra-cmake-modules qt6-qtbase-devel qt6-qtbase-private-devel qt6-qtmultimedia-devel libarchive-devel)
+            pkgs=(gcc-c++ cmake ninja-build extra-cmake-modules gettext qt6-qtbase-devel qt6-qtbase-private-devel qt6-qtmultimedia-devel libarchive-devel)
             for m in "${KF_MODULES[@]}"; do pkgs+=("kf6-k$m-devel"); done
             pkgs=("${pkgs[@]/kf6-kkio-devel/kf6-kio-devel}")
-            echo "sudo dnf install ${pkgs[*]}" ;;
+            pkgs=("${pkgs[@]/kf6-ksolid-devel/kf6-solid-devel}")
+            pkgs=("${pkgs[@]/kf6-ksyntaxhighlighting-devel/kf6-syntax-highlighting-devel}")
+            echo "  sudo dnf install ${pkgs[*]}" ;;
         debian)
-            pkgs=(build-essential cmake ninja-build extra-cmake-modules qt6-base-dev qt6-base-private-dev qt6-multimedia-dev libarchive-dev)
+            pkgs=(build-essential cmake ninja-build extra-cmake-modules gettext qt6-base-dev qt6-base-private-dev qt6-multimedia-dev libarchive-dev)
             for m in "${KF_MODULES[@]}"; do pkgs+=("libkf6$m-dev"); done
-            echo "sudo apt install ${pkgs[*]}" ;;
+            echo "  sudo apt install ${pkgs[*]}" ;;
         suse)
-            pkgs=(gcc-c++ cmake ninja extra-cmake-modules qt6-base-devel qt6-multimedia-devel libarchive-devel)
+            pkgs=(gcc-c++ cmake ninja extra-cmake-modules gettext-tools qt6-base-devel qt6-multimedia-devel libarchive-devel)
             for m in "${KF_MODULES[@]}"; do pkgs+=("kf6-k$m-devel"); done
             pkgs=("${pkgs[@]/kf6-kkio-devel/kf6-kio-devel}")
-            echo "sudo zypper install ${pkgs[*]}" ;;
+            pkgs=("${pkgs[@]/kf6-ksolid-devel/kf6-solid-devel}")
+            pkgs=("${pkgs[@]/kf6-ksyntaxhighlighting-devel/kf6-syntax-highlighting-devel}")
+            echo "  sudo zypper install ${pkgs[*]}" ;;
         *)
-            pkgs=("${KF_MODULES[@]/#/k}"); pkgs=("${pkgs[@]/kkio/kio}")
-            echo "Unrecognised distro ($ids). You need a C++20 compiler, CMake >= 3.25, Ninja,"
-            echo "Qt >= 6.8 (Core Gui Widgets DBus Test Concurrent Multimedia), extra-cmake-modules and these"
-            echo "KDE Frameworks >= 6.20 development packages: ${pkgs[*]}" ;;
+            echo "  Unrecognised distro ($ids). Install a C++20 compiler, CMake >= 3.25, Ninja,"
+            echo "  gettext, libarchive, Extra CMake Modules, Qt 6 (Core, Gui, Widgets, DBus,"
+            echo "  Test, Concurrent, Multimedia, MultimediaWidgets, Network, Xml), and KDE"
+            echo "  Frameworks development modules: ${KF_MODULES[*]}" ;;
     esac
+
+    echo
+    echo "Optional dependencies (install only the features you need):"
+    case "$family" in
+        arch)
+            echo "  Indexed search, at build and runtime: sudo pacman -S --needed baloo"
+            echo "  Embedded terminal: sudo pacman -S --needed konsole"
+            echo "  Media metadata editing: sudo pacman -S --needed perl-image-exiftool"
+            echo "  Qt Vulkan headers and loader: sudo pacman -S --needed vulkan-headers vulkan-icd-loader" ;;
+        fedora)
+            echo "  Indexed search, at build and runtime: sudo dnf install kf6-baloo-devel"
+            echo "  Embedded terminal: sudo dnf install konsole"
+            echo "  Media metadata editing: sudo dnf install perl-Image-ExifTool"
+            echo "  Qt Vulkan headers and loader: sudo dnf install vulkan-headers vulkan-loader-devel" ;;
+        debian)
+            echo "  Indexed search, at build and runtime: sudo apt install libkf6baloo-dev"
+            echo "  Embedded terminal: sudo apt install konsole"
+            echo "  Media metadata editing: sudo apt install libimage-exiftool-perl"
+            echo "  Qt Vulkan headers and loader: sudo apt install libvulkan-dev" ;;
+        suse)
+            echo "  Indexed search, at build and runtime: install the KF6 Baloo development and runtime packages."
+            echo "  Embedded terminal: install Konsole."
+            echo "  Media metadata editing: install perl-Image-ExifTool."
+            echo "  Qt Vulkan support: install Vulkan headers and loader development files." ;;
+        *)
+            echo "  Baloo development and runtime packages enable indexed search."
+            echo "  Konsole provides the embedded terminal; ExifTool enables media metadata editing."
+            echo "  Vulkan headers and the loader enable Qt's optional Vulkan integration." ;;
+    esac
+    echo "  Document previews and media playback may need additional KParts or Qt Multimedia backends."
+    echo "  Qt Quick Compiler Extensions are optional and are not required by Opus."
+    echo "  Distribution package versions must meet the minimums above."
 }
 
 check_tools() {
@@ -135,7 +174,7 @@ check_tools() {
     if [ ${#missing[@]} -gt 0 ]; then
         echo "missing build tools: ${missing[*]}" >&2
         echo "install the dependencies with:" >&2
-        echo "  $(print_deps)" >&2
+        print_deps >&2
         exit 1
     fi
 }
@@ -197,7 +236,7 @@ cmake -S "$SRC_DIR" -B "$BUILD_DIR" -G Ninja \
     -DCMAKE_BUILD_TYPE="$build_type" \
     -DCMAKE_INSTALL_PREFIX="$prefix" \
     -DBUILD_TESTING=OFF \
-    || { echo; echo "configure failed; if a Qt or KF6 module is missing, install:"; echo "  $(print_deps)"; exit 1; }
+    || { echo; echo "configure failed; check the build dependencies:"; print_deps; exit 1; }
 
 say "Building"
 cmake --build "$BUILD_DIR" ${jobs:+--parallel "$jobs"}
@@ -215,6 +254,7 @@ fi
 echo
 echo "binary        : $prefix/bin/opus-file-manager"
 echo "desktop entry : $prefix/share/applications/$DESKTOP_ID"
+echo "translations  : $prefix/share/locale (when built)"
 if command -v xdg-mime >/dev/null; then
     echo "folder handler: $(xdg-mime query default inode/directory 2>/dev/null || echo none)"
 fi
@@ -224,3 +264,4 @@ if [ "$scope" = user ] && ! case ":$PATH:" in *":$HOME/.local/bin:"*) true ;; *)
     echo "      to run 'opus-file-manager' from a shell, add ~/.local/bin to PATH."
 fi
 [ "$make_default" = 1 ] || { echo; echo "run './install.sh --default' to make Opus open folders by default."; }
+echo "run './install.sh --deps' for optional feature dependencies (Baloo must be present at configure time)."

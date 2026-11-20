@@ -1,5 +1,7 @@
 include(ECMAddTests)
 
+add_test(NAME opusfm-installer COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/installtest.sh ${PROJECT_SOURCE_DIR}/install.sh)
+
 set(translation_test_catalog ${CMAKE_CURRENT_BINARY_DIR}/translation-locale/fa/LC_MESSAGES/opus-file-manager.mo)
 add_custom_command(
     OUTPUT ${translation_test_catalog}
