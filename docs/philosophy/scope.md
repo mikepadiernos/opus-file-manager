@@ -16,37 +16,21 @@ file managers broaden the workflows described in
 ## Audience and workflows
 
 Opus is for people who manage files frequently and benefit from seeing source
-and destination locations together, as well as users who want a full-featured
-file manager that fits their KDE desktop. The intended workflows include:
-
-- Browsing local and remote locations through panes, tabs and navigation
-  history.
-- Selecting, previewing, organizing and transferring files with familiar
-  desktop operations.
-- Using views and previews suited to the current task, from detailed listings
-  to image browsing.
-- Extending basic file management with search, comparison, automation and
-  other power-user tools as those roadmap milestones are delivered.
+and destination locations together. It combines everyday browsing, preview and
+transfer workflows with power-user tools as the roadmap milestones are
+delivered. See the [feature overview](../../README.md#features) for what the
+current application offers.
 
 ## Product scope
 
 - **Platform:** Linux, with KDE Plasma as the target desktop.
-- **Technology:** C++20, Qt 6 Widgets and KDE Frameworks 6.
-- **Core:** dual-pane navigation, tabs, file listings and operations, preview
-  and gallery workflows, settings, and session restoration.
 - **Desktop integration:** use KDE services for file operations, Places,
-  properties, settings, icons, service actions and application integration
-  wherever they fit.
-- **Compatibility:** use a supported subset of upstream `.mfm.json` for
-  per-folder metadata and record reference behaviours in `docs/parity/`.
-  Writes sanitize the metadata and can discard unsupported fields or values;
-  they do not guarantee lossless round-tripping.
-- **Delivery:** track implemented, in-progress and planned work in tested,
-  incremental milestones in [`../ROADMAP.md`](../ROADMAP.md).
-
-The roadmap is the authoritative feature inventory. This scope document
-describes the product direction; a feature listed in the roadmap is not
-necessarily implemented yet.
+  properties, settings, icons and application integration wherever they fit.
+- **Compatibility:** support a subset of upstream `.mfm.json` metadata. See
+  [metadata limitations](../CAVEATS.md#folder-metadata-and-listings) and the
+  [behaviour references](../README.md#behaviour-references).
+- **Delivery:** track tested, incremental milestones in the
+  [roadmap](../ROADMAP.md). Planned features are not necessarily implemented.
 
 ## Design boundaries
 
@@ -60,5 +44,4 @@ necessarily implemented yet.
   belongs outside widgets when practical, and tests must not modify a real
   user's files, home directory or configuration.
 
-The architecture, KDE-specific implementation choices and milestone status are
-described in [`../ROADMAP.md`](../ROADMAP.md).
+The [roadmap](../ROADMAP.md) describes the architecture and milestone status.

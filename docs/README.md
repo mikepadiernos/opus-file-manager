@@ -1,21 +1,19 @@
-# Documentation
+# Opus documentation
 
-## Project definition
+Start with the [project README](../README.md) for features, build instructions
+and important limitations. Use the documents below for details.
 
-- [Scope and objective](philosophy/scope.md)
-- [Inspirations by application](philosophy/inspirations.md)
+## Project documents
 
-## Project planning
-
-- [Roadmap and milestones](ROADMAP.md) — architecture, Plasma-native decisions,
-  completed work and planned milestones, including external integrations,
-  themes and branding.
-- [Caveats and limitations](CAVEATS.md) — current restrictions, dependencies
-  and practical workarounds for implemented features.
-
-Roadmap items are struck through when their issues reach Completed; unstruck
-items can include implemented work still in Review. Planned integrations are
-not necessarily available in the current application.
+| Document | Purpose |
+| --- | --- |
+| [Scope and objective](philosophy/scope.md) | Product direction and boundaries |
+| [Inspirations](philosophy/inspirations.md) | Sources and their influence |
+| [Roadmap](ROADMAP.md) | Architecture, milestone order and planned features, including Yazi mode |
+| [Pending tasks](TODO.md) | Blocked work and handoffs |
+| [Reported bugs](BUGS.md) | Bug reports and completion status |
+| [Caveats and limitations](CAVEATS.md) | Restrictions, dependencies and workarounds |
+| [Project instructions](../CLAUDE.md) | Development conventions and workflows |
 
 ## Behaviour references
 
