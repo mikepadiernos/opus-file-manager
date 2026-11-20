@@ -52,7 +52,7 @@ private:
     void saveToolbar();
     void restoreToolbar();
     void handleToolbarDrop(const QMimeData *mimeData, const QPoint &position, QToolBar *target);
-    void handleMenuDrop(QMenu *target, const QMimeData *mimeData);
+    void handleMenuDrop(QMenu *target, const QMimeData *mimeData, const QPoint &position);
     void saveMenuCustomizations(QMenu *menu);
     void restoreMenuCustomizations();
     void removeToolbarItem(const QString &kind, const QString &name);

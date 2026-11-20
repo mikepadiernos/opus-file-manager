@@ -5,6 +5,7 @@
 #include "batchrenamedialog.h"
 #include "customcommanddialog.h"
 #include "density.h"
+#include "pane.h"
 #include "pathfilterpresetsdialog.h"
 #include "searchstoredialog.h"
 #include "servicemenus.h"
@@ -12,6 +13,7 @@
 #include "settingsbackup.h"
 #include "settingswidgets.h"
 
+#include <KActionCollection>
 #include <KConfigGroup>
 #include <KLocalizedString>
 #include <KPageWidget>
@@ -19,8 +21,10 @@
 #include <KSharedConfig>
 #include <KTextEditor/Editor>
 #include <KUrlRequester>
+#include <KXmlGuiWindow>
 
 #include <QAbstractItemView>
+#include <QAction>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
@@ -32,6 +36,7 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QMetaEnum>
+#include <QPointer>
 #include <QProcess>
 #include <QPushButton>
 #include <QScrollArea>
@@ -39,6 +44,8 @@
 #include <QSpinBox>
 #include <QStandardPaths>
 #include <QTabWidget>
+#include <QTimer>
+#include <QToolBar>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -124,7 +131,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
 {
     addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}}, i18nc("@title:group", "General"), QStringLiteral("configure"));
     addTabbedPage({{createSettingsBackupPage(), i18nc("@title:tab", "Backup and Restore")}}, i18nc("@title:group", "Backup"), QStringLiteral("document-save"));
-    addTabbedPage({{createFoldersAndTabsPage(), i18nc("@title:tab", "Folders and Tabs")},
+    addTabbedPage({{createToolbarEntriesPage(), i18nc("@title:tab", "Toolbars")},
+                   {createFoldersAndTabsPage(), i18nc("@title:tab", "Folders and Tabs")},
                    {createPreviewsPage(), i18nc("@title:tab", "Previews")},
                    {createConfirmationsPage(), i18nc("@title:tab", "Confirmations")},
                    {createPlacesPage(), i18nc("@title:tab", "Panels")},
@@ -230,6 +238,58 @@ QWidget *SettingsDialog::createSettingsDialogPage()
                  comboBox(QStringLiteral("SidebarTitlePosition"),
                           {i18nc("@item:inlistbox", "Beside the sidebar icons"), i18nc("@item:inlistbox", "Below the sidebar icons")}));
     form->addRow(i18nc("@label:spinbox", "Sidebar icon size:"), pixelSpinBox(QStringLiteral("SidebarIconSize"), 16, 64));
+    return page;
+}
+
+QWidget *SettingsDialog::createToolbarEntriesPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *description = new QLabel(i18nc("@info",
+                                         "Configure the entries and order of the main toolbar, pane toolbars and hamburger menu. "
+                                         "The existing editors open after this settings window closes."),
+                                   page);
+    description->setWordWrap(true);
+    layout->addWidget(description);
+
+    QWidget *window = parentWidget();
+    const auto addEditorButton = [this, layout, page, window](const QString &name, const QString &text, QAction *action) {
+        auto *button = new QPushButton(text, page);
+        button->setObjectName(name);
+        button->setEnabled(action);
+        if (action) {
+            const QPointer<QAction> target(action);
+            const QPointer<QWidget> parent(window);
+            connect(button, &QPushButton::clicked, this, [this, target, parent] {
+                accept();
+                if (!target || !parent) {
+                    return;
+                }
+                QTimer::singleShot(0, parent, [target] {
+                    if (target && (!target->isCheckable() || !target->isChecked())) {
+                        target->trigger();
+                    }
+                });
+            });
+        }
+        layout->addWidget(button);
+    };
+
+    auto *mainWindow = qobject_cast<KXmlGuiWindow *>(window);
+    QAction *mainToolbar = mainWindow ? mainWindow->actionCollection()->action(QStringLiteral("customize_main_toolbar")) : nullptr;
+    addEditorButton(QStringLiteral("configureMainToolbarEntries"), i18nc("@action:button", "Main Toolbar and Hamburger Menu…"), mainToolbar);
+    QList<Pane *> panes = window ? window->findChildren<Pane *>() : QList<Pane *>{};
+    std::sort(panes.begin(), panes.end(), [](const Pane *left, const Pane *right) {
+        return left->toolbarConfigId() < right->toolbarConfigId();
+    });
+    for (Pane *pane : panes) {
+        const bool first = pane->toolbarConfigId() == QLatin1String("Left");
+        const QString label = first ? i18nc("@action:button", "First Pane Toolbar…") : i18nc("@action:button", "Second Pane Toolbar…");
+        const QList<QAction *> toolbarActions = pane->toolBar()->actions();
+        QAction *configure = toolbarActions.isEmpty() ? nullptr : toolbarActions.last();
+        addEditorButton(first ? QStringLiteral("configureFirstPaneToolbarEntries") : QStringLiteral("configureSecondPaneToolbarEntries"), label, configure);
+    }
+    layout->addStretch();
     return page;
 }
 

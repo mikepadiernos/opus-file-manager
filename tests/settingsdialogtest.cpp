@@ -7,6 +7,7 @@
 #include "customcommanddialog.h"
 #include "filecolorrules.h"
 #include "ignorelist.h"
+#include "mainwindow.h"
 #include "pathfilterpresetsdialog.h"
 #include "savedpathfilters.h"
 #include "searchstoredialog.h"
@@ -14,6 +15,7 @@
 #include "settingswidgets.h"
 #include "viewsettings.h"
 
+#include <KActionCollection>
 #include <KConfig>
 #include <KConfigGroup>
 #include <KFilePlacesModel>
@@ -28,6 +30,7 @@
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDir>
+#include <QDockWidget>
 #include <QFile>
 #include <QInputDialog>
 #include <QLabel>
@@ -90,6 +93,28 @@ private Q_SLOTS:
         SettingsDialog dialog(&places, nullptr);
         QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("createSettingsBackup")));
         QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("restoreSettingsBackup")));
+    }
+
+    void toolbarSettingsOpenExistingEditors()
+    {
+        MainWindow window;
+        auto *places = window.findChild<KFilePlacesModel *>();
+        QVERIFY(places);
+        SettingsDialog dialog(places, &window);
+        auto *mainToolbar = dialog.findChild<QPushButton *>(QStringLiteral("configureMainToolbarEntries"));
+        auto *firstPaneToolbar = dialog.findChild<QPushButton *>(QStringLiteral("configureFirstPaneToolbarEntries"));
+        auto *secondPaneToolbar = dialog.findChild<QPushButton *>(QStringLiteral("configureSecondPaneToolbarEntries"));
+        QVERIFY(mainToolbar && firstPaneToolbar && secondPaneToolbar);
+        QVERIFY(mainToolbar->isEnabled() && firstPaneToolbar->isEnabled() && secondPaneToolbar->isEnabled());
+
+        window.show();
+        dialog.show();
+        QTest::mouseClick(mainToolbar, Qt::LeftButton);
+        QTRY_VERIFY(window.actionCollection()->action(QStringLiteral("customize_main_toolbar"))->isChecked());
+        auto *dock = window.findChild<QDockWidget *>(QStringLiteral("toolbarActionsDock"));
+        QVERIFY(dock);
+        QTRY_VERIFY(dock->isVisible());
+        window.actionCollection()->action(QStringLiteral("customize_main_toolbar"))->trigger();
     }
 
     void fileToolDefaultsPersistAndCancel()

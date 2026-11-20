@@ -162,7 +162,7 @@ bool ToolbarCustomizer::eventFilter(QObject *watched, QEvent *event)
             auto *drop = static_cast<QDropEvent *>(event);
             QStringList parts;
             if (m_editing && parsePayload(drop->mimeData(), &parts)) {
-                handleMenuDrop(menu, drop->mimeData());
+                handleMenuDrop(menu, drop->mimeData(), drop->position().toPoint());
                 drop->setDropAction(Qt::MoveAction);
                 drop->accept();
                 return true;
@@ -854,7 +854,7 @@ void ToolbarCustomizer::removeToolbarItem(const QString &kind, const QString &na
     }
 }
 
-void ToolbarCustomizer::handleMenuDrop(QMenu *target, const QMimeData *mimeData)
+void ToolbarCustomizer::handleMenuDrop(QMenu *target, const QMimeData *mimeData, const QPoint &position)
 {
     QStringList parts;
     if (!target || target->objectName().isEmpty() || !parsePayload(mimeData, &parts) || parts.at(1) != QLatin1String("action")) {
@@ -925,8 +925,14 @@ void ToolbarCustomizer::handleMenuDrop(QMenu *target, const QMimeData *mimeData)
     if (!menuAction) {
         return;
     }
-    if (!target->actions().contains(menuAction)) {
-        target->addAction(menuAction);
+    QAction *before = target->actionAt(position);
+    if (sourceMenu == target) {
+        if (before == menuAction) {
+            return;
+        }
+        target->insertAction(before, menuAction);
+    } else if (!target->actions().contains(menuAction)) {
+        target->insertAction(before, menuAction);
     }
     KConfigGroup targetGroup = KSharedConfig::openConfig()->group(QLatin1String(ToolbarGroup)).group(QStringLiteral("Menus")).group(target->objectName());
     QStringList targetHidden = targetGroup.readEntry(QStringLiteral("HiddenActions"), QStringList());
@@ -966,7 +972,15 @@ void ToolbarCustomizer::saveMenuCustomizations(QMenu *menu)
     if (!menu || menu->objectName().isEmpty()) {
         return;
     }
-    KSharedConfig::openConfig()->group(QLatin1String(ToolbarGroup)).group(QStringLiteral("Menus")).group(menu->objectName()).sync();
+    KConfigGroup group = KSharedConfig::openConfig()->group(QLatin1String(ToolbarGroup)).group(QStringLiteral("Menus")).group(menu->objectName());
+    QStringList order;
+    for (QAction *action : menu->actions()) {
+        if (!action->objectName().isEmpty()) {
+            order.append(action->objectName());
+        }
+    }
+    group.writeEntry(QStringLiteral("Order"), order);
+    group.sync();
 }
 
 void ToolbarCustomizer::restoreMenuCustomizations()
@@ -987,6 +1001,18 @@ void ToolbarCustomizer::restoreMenuCustomizations()
         for (const QString &name : added) {
             if (QAction *action = m_actions->action(name); action && !menu->actions().contains(action)) {
                 menu->addAction(action);
+            }
+        }
+        const QStringList order = group.readEntry(QStringLiteral("Order"), QStringList());
+        const QList<QAction *> menuActions = menu->actions();
+        QAction *before = nullptr;
+        for (auto it = order.crbegin(); it != order.crend(); ++it) {
+            const auto action = std::find_if(menuActions.cbegin(), menuActions.cend(), [&it](QAction *candidate) {
+                return candidate->objectName() == *it;
+            });
+            if (action != menuActions.cend()) {
+                menu->insertAction(before, *action);
+                before = *action;
             }
         }
     }

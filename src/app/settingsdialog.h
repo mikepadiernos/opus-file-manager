@@ -59,6 +59,7 @@ private:
     void applySidebarStyle(int size, bool below);
 
     QWidget *createSettingsDialogPage();
+    QWidget *createToolbarEntriesPage();
     QWidget *createSettingsBackupPage();
     QWidget *createFoldersAndTabsPage();
     QWidget *createPreviewsPage();

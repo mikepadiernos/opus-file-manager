@@ -467,7 +467,7 @@ Settings for M09 tools, stored in KConfig.
 
 ### M12 UI Customization settings
 
-Settings for M11 UI customizations, stored in KConfig.
+Settings for M12 UI customizations, stored in KConfig.
 
 - **Toolbars**
   - **Entries:** which entries the main toolbar and each pane toolbar show,

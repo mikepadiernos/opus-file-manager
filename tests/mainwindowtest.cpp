@@ -610,6 +610,11 @@ private Q_SLOTS:
         QVERIFY(drop(goMenu, QStringLiteral("pane"), QStringLiteral("action"), paneForwardId, QPointF(0, 0)));
         QVERIFY(goMenu->actions().contains(goForward));
         QVERIFY(!paneToolbar->actions().contains(paneForward));
+        QVERIFY(drop(goMenu, QStringLiteral("menu"), QStringLiteral("action"), menuGoForwardId, QPointF(0, goMenu->height() + 10)));
+        QCOMPARE(goMenu->actions().last(), goForward);
+        const KConfigGroup goMenuCustomization = customization.group(QStringLiteral("Menus")).group(QStringLiteral("go"));
+        const QStringList savedGoMenuOrder = goMenuCustomization.readEntry("Order", QStringList());
+        QCOMPARE(savedGoMenuOrder.last(), QStringLiteral("go_forward"));
 
         window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
         Pane *otherPane = window.inactivePane();
@@ -639,6 +644,13 @@ private Q_SLOTS:
         auto *restoredGoMenu = restored.findChild<QMenu *>(QStringLiteral("go"));
         QAction *restoredGoForward = restored.actionCollection()->action(QStringLiteral("go_forward"));
         QVERIFY(restoredGoMenu && restoredGoForward && restoredGoMenu->actions().contains(restoredGoForward));
+        QStringList restoredGoMenuOrder;
+        for (QAction *action : restoredGoMenu->actions()) {
+            if (!action->objectName().isEmpty()) {
+                restoredGoMenuOrder.append(action->objectName());
+            }
+        }
+        QCOMPARE(restoredGoMenuOrder, savedGoMenuOrder);
         auto *terminalButton = qobject_cast<QToolButton *>(restoredToolbar->widgetForAction(terminal));
         QVERIFY(terminalButton);
         QCOMPARE(terminalButton->toolButtonStyle(), Qt::ToolButtonTextOnly);
