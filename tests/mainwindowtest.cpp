@@ -1105,12 +1105,15 @@ private Q_SLOTS:
             file.close();
         }
 
-        const bool previous = Settings::showFileListMinimap();
-        const auto restoreSetting = qScopeGuard([previous] {
-            Settings::setShowFileListMinimap(previous);
+        const bool previousVisible = Settings::showFileListMinimap();
+        const int previousWidth = Settings::fileListMinimapWidth();
+        const auto restoreSetting = qScopeGuard([previousVisible, previousWidth] {
+            Settings::setShowFileListMinimap(previousVisible);
+            Settings::setFileListMinimapWidth(previousWidth);
             Settings::self()->save();
         });
         Settings::setShowFileListMinimap(true);
+        Settings::setFileListMinimapWidth(22);
         Settings::self()->save();
 
         FolderView view;
@@ -1122,6 +1125,15 @@ private Q_SLOTS:
         auto *minimap = view.findChild<QWidget *>(QStringLiteral("fileListMinimap"));
         QVERIFY(minimap);
         QVERIFY(minimap->isVisible());
+        QCOMPARE(minimap->width(), 22);
+        Settings::setFileListMinimapWidth(28);
+        view.reloadListingSettings();
+        QCOMPARE(minimap->width(), 28);
+        Settings::setFileListMinimapWidth(100);
+        view.reloadListingSettings();
+        QCOMPARE(minimap->width(), 64);
+        Settings::setFileListMinimapWidth(28);
+        view.reloadListingSettings();
         auto *scrollBar = view.currentView()->verticalScrollBar();
         QTRY_VERIFY(scrollBar->maximum() > 0);
         QTest::mouseClick(minimap, Qt::LeftButton, Qt::NoModifier, QPoint(minimap->width() / 2, minimap->height() - 1));

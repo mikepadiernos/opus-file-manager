@@ -15,7 +15,9 @@
 
 namespace
 {
-constexpr int MinimapWidth = 14;
+constexpr int DefaultMinimapWidth = 14;
+constexpr int MinimumMinimapWidth = 8;
+constexpr int MaximumMinimapWidth = 64;
 constexpr int MinimumViewportHeight = 8;
 constexpr int MaximumSamples = 512;
 }
@@ -27,8 +29,13 @@ FileListMinimap::FileListMinimap(QWidget *parent)
     setAccessibleName(i18nc("@label", "File list minimap"));
     setToolTip(i18nc("@info:tooltip", "Click or drag to scroll the file list"));
     setFocusPolicy(Qt::NoFocus);
-    setFixedWidth(MinimapWidth);
+    setMinimapWidth(DefaultMinimapWidth);
     setMinimumHeight(MinimumViewportHeight);
+}
+
+void FileListMinimap::setMinimapWidth(int width)
+{
+    setFixedWidth(qBound(MinimumMinimapWidth, width, MaximumMinimapWidth));
 }
 
 void FileListMinimap::setView(QAbstractItemView *view)

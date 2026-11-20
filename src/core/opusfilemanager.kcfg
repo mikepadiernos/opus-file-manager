@@ -139,6 +139,12 @@
       <label>Show a file-list minimap in each pane</label>
       <default>false</default>
     </entry>
+    <entry name="FileListMinimapWidth" type="Int">
+      <label>Width of the file-list minimap in pixels</label>
+      <default>14</default>
+      <min>8</min>
+      <max>64</max>
+    </entry>
     <entry name="ShowSizeColumn" type="Bool">
       <label>Show the Size column</label>
       <default>true</default>

@@ -850,6 +850,7 @@ FolderView::FolderView(QWidget *parent)
     m_minimap->setView(m_details);
     viewLayout->addWidget(m_minimap);
     layout->addLayout(viewLayout, 1);
+    m_minimap->setMinimapWidth(Settings::fileListMinimapWidth());
     m_minimap->setVisible(Settings::showFileListMinimap());
     m_selectionBar = new QWidget(this);
     m_selectionBar->setObjectName(QStringLiteral("selectionBar"));
@@ -1845,6 +1846,7 @@ void FolderView::reloadSettings()
 
 void FolderView::reloadListingSettings()
 {
+    m_minimap->setMinimapWidth(Settings::fileListMinimapWidth());
     setFileListMinimapVisible(Settings::showFileListMinimap());
     updateFolderSizeRefreshTimer();
     applyDetailsPreferences();

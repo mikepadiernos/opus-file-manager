@@ -506,8 +506,8 @@ Settings for M12 UI customizations, stored in KConfig.
 
 > **Pending project synchronization (2026-11-20):** GitHub Projects API rate
 > limiting blocked updates. Verify the 2026-11-20 start dates for #23 and
-> #190-#199. Move #191 to Review, set its 2026-11-20 target date and check
-> M12-02 in the parent; then complete #190, close it as completed, and strike
+> #190-#199 and #328-#333. Move #191 to Review, set its 2026-11-20 target date
+> and check M12-02 in the parent; then complete #190, close it as completed, and strike
 > M12-01. Start #192 in Development with a 2026-11-20 start date, then move it
 > to Review, set its 2026-11-20 target date and check M12-03. Complete #191,
 > close it as completed, and strike M12-02. Start #193 in Development with a
@@ -528,7 +528,20 @@ Settings for M12 UI customizations, stored in KConfig.
 > covered by Settings tests. Move it to Review, set its 2026-11-20 target date
 > and check M12-09; then complete #197, close it as completed, and strike M12-08.
 > Start #199 in Development with a 2026-11-20 start date; when it reaches
-> Review, complete #198, close it as completed, and strike M12-09.
+> Review, complete #198, close it as completed, and strike M12-09. Start #328
+> in Development with a 2026-11-20 start date; splitter save, reset and
+> per-orientation restoration are already implemented and tested. Move it to
+> Review, set its 2026-11-20 target date and check M12-11. Complete #199, close
+> it as completed, and strike M12-10. Start #329 in Development with a
+> 2026-11-20 start date; preview and gallery background choices are already
+> implemented and tested. Move it to Review, set its 2026-11-20 target date and
+> check M12-12; then complete #328, close it as completed, and strike M12-11.
+> Start #330 in Development with a 2026-11-20 start date; information fields
+> and hover behavior are already implemented and tested. Move it to Review,
+> set its 2026-11-20 target date and check M12-13; then complete #329, close it
+> as completed, and strike M12-12. Start #331 in Development with a
+> 2026-11-20 start date; when it reaches Review, complete #330, close it as
+> completed, and strike M12-13.
 
 ### M13 Workspaces
 
