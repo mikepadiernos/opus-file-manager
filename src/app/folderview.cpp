@@ -1127,6 +1127,27 @@ void FolderView::setViewMode(ViewMode mode)
         currentView()->setFocus();
     }
     saveFolderFormat();
+    Q_EMIT viewModeChanged();
+}
+
+void FolderView::adjustIconSize(int steps)
+{
+    if (steps == 0) {
+        return;
+    }
+    constexpr int MinimumSize = 16;
+    constexpr int MaximumSize = 128;
+    constexpr int StepSize = 8;
+    if (m_viewMode == ViewMode::Details) {
+        m_detailsIconSize = qBound(MinimumSize, m_detailsIconSize + steps * StepSize, MaximumSize);
+    } else if (m_viewMode == ViewMode::Icons) {
+        m_iconsIconSize = qBound(MinimumSize, m_iconsIconSize + steps * StepSize, MaximumSize);
+    } else {
+        const int size = qBound(MinimumSize, m_compact->iconSize().width() + steps * StepSize, MaximumSize);
+        m_compact->setIconSize(QSize(size, size));
+        return;
+    }
+    setIconSizes(m_detailsIconSize, m_iconsIconSize);
 }
 
 bool FolderView::showHiddenFiles() const
@@ -1141,6 +1162,7 @@ void FolderView::setShowHiddenFiles(bool show)
     }
     m_lister->setShowHiddenFiles(show);
     m_lister->emitChanges();
+    Q_EMIT hiddenFilesChanged(show);
 }
 
 bool FolderView::previewsEnabled() const
@@ -1152,6 +1174,7 @@ void FolderView::setPreviewsEnabled(bool enabled)
 {
     m_previewsEnabled = enabled;
     updatePreviews();
+    Q_EMIT previewsEnabledChanged(enabled);
 }
 
 void FolderView::setRemotePreviewsEnabled(bool enabled)
@@ -1179,6 +1202,8 @@ QStringList FolderView::previewPlugins() const
 
 void FolderView::setIconSizes(int details, int icons)
 {
+    m_detailsIconSize = details;
+    m_iconsIconSize = icons;
     m_details->setIconSize(QSize(details, details));
     m_icons->setIconSize(QSize(icons, icons));
     const int height = qMax(icons + 48, icons + fontMetrics().height() * (Settings::iconNameLines() + Settings::iconInformation().size()) + 16);
@@ -1219,6 +1244,7 @@ void FolderView::setRatingColumn(bool enabled)
 void FolderView::setSorting(int column, Qt::SortOrder order)
 {
     m_details->sortByColumn(column, order);
+    Q_EMIT sortingChanged();
 }
 
 int FolderView::sortColumn() const

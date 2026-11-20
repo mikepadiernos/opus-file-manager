@@ -22,6 +22,7 @@
 #include "pane.h"
 #include "previewpanel.h"
 #include "savedpathfilters.h"
+#include "searchdialog.h"
 #include "settings.h"
 #include "settingsdialog.h"
 #include "tabmodel.h"
@@ -40,6 +41,7 @@
 #include <KToolBar>
 
 #include <QAbstractItemModel>
+#include <QBoxLayout>
 #include <QCheckBox>
 #include <QClipboard>
 #include <QColor>
@@ -527,6 +529,155 @@ private Q_SLOTS:
         QCOMPARE(terminalButton->toolButtonStyle(), Qt::ToolButtonTextOnly);
         QCOMPARE(terminalButton->icon().name(), customIconName);
         QCOMPARE(terminal->icon().name(), terminalIconName);
+    }
+
+    void paneToolbarsControlTheirOwnPane()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("left")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("right/sub")));
+        QFile result(root.filePath(QStringLiteral("right/sub/result.txt")));
+        QVERIFY(result.open(QIODevice::WriteOnly));
+        result.close();
+
+        MainWindow window;
+        const QUrl leftUrl = QUrl::fromLocalFile(root.filePath(QStringLiteral("left")));
+        const QUrl rightUrl = QUrl::fromLocalFile(root.filePath(QStringLiteral("right")));
+        window.openUrls({leftUrl, rightUrl});
+        Pane *left = window.activePane();
+        Pane *right = window.inactivePane();
+        QVERIFY(left && right);
+        QCOMPARE(left->url(), leftUrl);
+        QCOMPARE(right->url(), rightUrl);
+        auto *leftToolbar = left->findChild<QToolBar *>(QStringLiteral("paneToolbar"));
+        auto *rightToolbar = right->findChild<QToolBar *>(QStringLiteral("paneToolbar"));
+        QVERIFY(leftToolbar && rightToolbar && leftToolbar != rightToolbar);
+
+        QAction *hiddenFiles = left->findChild<QAction *>(QStringLiteral("paneHiddenFiles"));
+        QAction *previews = left->findChild<QAction *>(QStringLiteral("panePreviews"));
+        QAction *zoomIn = left->findChild<QAction *>(QStringLiteral("paneZoomIn"));
+        QVERIFY(hiddenFiles && previews && zoomIn);
+        const bool rightHidden = right->view()->showHiddenFiles();
+        const bool rightPreviews = right->view()->previewsEnabled();
+        hiddenFiles->trigger();
+        QCOMPARE(left->view()->showHiddenFiles(), hiddenFiles->isChecked());
+        QCOMPARE(right->view()->showHiddenFiles(), rightHidden);
+        previews->trigger();
+        QCOMPARE(left->view()->previewsEnabled(), previews->isChecked());
+        QCOMPARE(right->view()->previewsEnabled(), rightPreviews);
+
+        const QSize initialIconSize = left->view()->currentView()->iconSize();
+        zoomIn->trigger();
+        QVERIFY(left->view()->currentView()->iconSize().width() > initialIconSize.width());
+        const int rightSortColumn = right->view()->sortColumn();
+        auto *sortButton = left->findChild<QToolButton *>(QStringLiteral("paneSortingButton"));
+        QVERIFY(sortButton && sortButton->menu());
+        QAction *sortBySize = nullptr;
+        for (QAction *action : sortButton->menu()->actions()) {
+            if (action->text() == QStringLiteral("Size")) {
+                sortBySize = action;
+                break;
+            }
+        }
+        QVERIFY(sortBySize);
+        sortBySize->trigger();
+        QCOMPARE(left->view()->sortColumn(), KDirModel::Size);
+        QCOMPARE(right->view()->sortColumn(), rightSortColumn);
+
+        auto *viewButton = left->findChild<QToolButton *>(QStringLiteral("paneViewModeButton"));
+        QVERIFY(viewButton && viewButton->menu());
+        QAction *compactView = nullptr;
+        for (QAction *action : viewButton->menu()->actions()) {
+            if (action->text() == QStringLiteral("Compact")) {
+                compactView = action;
+                break;
+            }
+        }
+        QVERIFY(compactView);
+        compactView->trigger();
+        QCOMPARE(left->view()->viewMode(), FolderView::ViewMode::Compact);
+        QVERIFY(right->view()->viewMode() != FolderView::ViewMode::Compact);
+
+        auto *navigationLayout = qobject_cast<QBoxLayout *>(left->navigationBar()->layout());
+        QVERIFY(navigationLayout);
+        window.show();
+        window.resize(500, 400);
+        QCoreApplication::processEvents();
+        QTRY_COMPARE(navigationLayout->direction(), QBoxLayout::TopToBottom);
+
+        QAction *search = right->findChild<QAction *>(QStringLiteral("paneSearch"));
+        QVERIFY(search);
+        search->trigger();
+        auto *dialog = window.findChild<SearchDialog *>();
+        QVERIFY(dialog);
+        const QUrl resultUrl = QUrl::fromLocalFile(root.filePath(QStringLiteral("right/sub/result.txt")));
+        dialog->revealRequested(resultUrl);
+        QCOMPARE(right->url(), QUrl::fromLocalFile(root.filePath(QStringLiteral("right/sub"))));
+        QCOMPARE(left->url(), leftUrl);
+    }
+
+    void paneToolbarConfigurationRestoresVisibilityAndOrder()
+    {
+        QTemporaryDir backupDir;
+        QVERIFY(backupDir.isValid());
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup toolbars = config->group(QStringLiteral("PaneToolbars"));
+        const auto backup = KSharedConfig::openConfig(backupDir.filePath(QStringLiteral("settings")));
+        KConfigGroup saved = backup->group(QStringLiteral("PaneToolbars"));
+        toolbars.copyTo(&saved);
+        const auto cleanup = qScopeGuard([&] {
+            toolbars.deleteGroup();
+            saved.copyTo(&toolbars);
+            config->sync();
+        });
+        toolbars.deleteGroup();
+
+        MainWindow window;
+        Pane *pane = window.activePane();
+        auto *toolbar = pane->findChild<QToolBar *>(QStringLiteral("paneToolbar"));
+        auto *customize = pane->findChild<QAction *>(QStringLiteral("paneCustomizeToolbar"));
+        QVERIFY(toolbar && customize);
+        QListWidget *entries = nullptr;
+        bool dialogOpened = false;
+        QTimer::singleShot(0, &window, [&] {
+            auto *dialog = window.findChild<QDialog *>(QStringLiteral("paneToolbarConfigurationDialog"));
+            if (!dialog) {
+                return;
+            }
+            dialogOpened = true;
+            entries = dialog->findChild<QListWidget *>(QStringLiteral("paneToolbarEntries"));
+            if (!entries) {
+                dialog->reject();
+                return;
+            }
+            int backRow = -1;
+            int hiddenRow = -1;
+            for (int row = 0; row < entries->count(); ++row) {
+                const QString name = entries->item(row)->data(Qt::UserRole).toString();
+                backRow = name == QLatin1String("paneBack") ? row : backRow;
+                hiddenRow = name == QLatin1String("paneHiddenFiles") ? row : hiddenRow;
+            }
+            if (backRow < 0 || hiddenRow < 0) {
+                dialog->reject();
+                return;
+            }
+            entries->item(hiddenRow)->setCheckState(Qt::Unchecked);
+            entries->addItem(entries->takeItem(backRow));
+            dialog->accept();
+        });
+        customize->trigger();
+        QVERIFY(dialogOpened);
+        QVERIFY(entries);
+        QVERIFY(!pane->findChild<QAction *>(QStringLiteral("paneHiddenFiles"))->isVisible());
+        QCOMPARE(toolbar->actions().first()->objectName(), QStringLiteral("paneForward"));
+
+        MainWindow restored;
+        Pane *restoredPane = restored.activePane();
+        auto *restoredToolbar = restoredPane->findChild<QToolBar *>(QStringLiteral("paneToolbar"));
+        QVERIFY(restoredToolbar);
+        QVERIFY(!restoredPane->findChild<QAction *>(QStringLiteral("paneHiddenFiles"))->isVisible());
+        QCOMPARE(restoredToolbar->actions().first()->objectName(), QStringLiteral("paneForward"));
     }
 
     void splitterSizesAreSavedPerLayout()

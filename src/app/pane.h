@@ -5,6 +5,7 @@
 #include "navigationhistory.h"
 #include "session.h"
 
+#include <QStringList>
 #include <QUrl>
 #include <QWidget>
 
@@ -18,9 +19,10 @@ class QTabBar;
 class QGraphicsOpacityEffect;
 class QBoxLayout;
 class QHBoxLayout;
-class QToolButton;
-class QWidget;
+class QToolBar;
+class QAction;
 class QVBoxLayout;
+class QResizeEvent;
 
 /**
  * One side of the dual-pane layout: a tab strip, a path row with
@@ -41,9 +43,10 @@ public:
     /**
      * @param places the window's places model, for the location bar
      * @param colors the tab colours shared by all panes
+     * @param toolbarConfigId the stable settings group name for this pane's toolbar
      * @param parent the parent widget
      */
-    Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent = nullptr);
+    Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent = nullptr, const QString &toolbarConfigId = QStringLiteral("Standalone"));
     ~Pane() override;
 
     TabModel *tabs() const;
@@ -121,9 +124,11 @@ Q_SIGNALS:
     void urlChanged(const QUrl &url);
     void tabCountChanged(int count);
     void statusMessage(const QString &message);
+    void searchRequested();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 private:
     void saveHistoryViewState();
@@ -131,6 +136,10 @@ private:
     void finishReveal();
     void syncTabBar();
     void updateTabStripVisibility();
+    void updateNavigationLayout();
+    void configureToolbar();
+    void restoreToolbarConfiguration();
+    void saveToolbarConfiguration(const QStringList &order, const QStringList &visible);
     void updateTabText(int index);
     void updateNavigationButtons();
     void showTabContextMenu(int index, const QPoint &globalPos);
@@ -139,11 +148,14 @@ private:
     TabModel *m_tabs = nullptr;
     QTabBar *m_tabBar = nullptr;
     QWidget *m_tabStrip = nullptr;
-    QToolButton *m_back = nullptr;
-    QToolButton *m_forward = nullptr;
-    QToolButton *m_up = nullptr;
-    QToolButton *m_reload = nullptr;
+    QAction *m_back = nullptr;
+    QAction *m_forward = nullptr;
+    QAction *m_up = nullptr;
+    QAction *m_reload = nullptr;
+    QToolBar *m_toolBar = nullptr;
+    QString m_toolbarConfigId;
     QWidget *m_navigationBar = nullptr;
+    QBoxLayout *m_navigationLayout = nullptr;
     QWidget *m_statusBarWidget = nullptr;
     KUrlNavigator *m_navigator = nullptr;
     TabColors *m_colors = nullptr;

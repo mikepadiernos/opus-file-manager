@@ -334,8 +334,8 @@ void MainWindow::setupPanes()
     m_splitter = new QSplitter(Qt::Horizontal, m_workspaceSplitter);
     m_splitter->setObjectName(QStringLiteral("paneSplitter"));
     m_splitter->setChildrenCollapsible(false);
-    m_left = new Pane(m_placesModel, m_tabColors, m_splitter);
-    m_right = new Pane(m_placesModel, m_tabColors, m_splitter);
+    m_left = new Pane(m_placesModel, m_tabColors, m_splitter, QStringLiteral("Left"));
+    m_right = new Pane(m_placesModel, m_tabColors, m_splitter, QStringLiteral("Right"));
     m_previewPanel = new PreviewPanel(m_splitter);
     m_splitter->addWidget(m_left);
     m_splitter->addWidget(m_right);
@@ -359,6 +359,9 @@ void MainWindow::connectPane(Pane *pane)
 {
     connect(pane, &Pane::activated, this, [this, pane] {
         setActivePane(pane);
+    });
+    connect(pane, &Pane::searchRequested, this, [this, pane] {
+        showSearchForPane(pane);
     });
     connect(pane, &Pane::urlChanged, this, [this, pane](const QUrl &url) {
         syncLinkedPane(pane, url);
@@ -2746,9 +2749,14 @@ void MainWindow::showContentChart()
 
 void MainWindow::showSearch()
 {
-    auto *dialog = new SearchDialog(activePane()->url(), this);
-    connect(dialog, &SearchDialog::revealRequested, this, [this](const QUrl &url) {
-        activePane()->revealUrl(url);
+    showSearchForPane(activePane());
+}
+
+void MainWindow::showSearchForPane(Pane *pane)
+{
+    auto *dialog = new SearchDialog(pane->url(), this);
+    connect(dialog, &SearchDialog::revealRequested, this, [pane](const QUrl &url) {
+        pane->revealUrl(url);
     });
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();

@@ -57,6 +57,7 @@ public:
 
     ViewMode viewMode() const;
     void setViewMode(ViewMode mode);
+    void adjustIconSize(int steps);
     bool selectionMarkersVisible() const;
     void setSelectionMarkersVisible(bool visible);
     bool selectionMode() const;
@@ -160,6 +161,9 @@ Q_SIGNALS:
     void listingReady();
     void historyExpansionFinished();
     void listingFailed(const QString &message);
+    void previewsEnabledChanged(bool enabled);
+    void hiddenFilesChanged(bool enabled);
+    void sortingChanged();
     void itemActivated(const KFileItem &item);
     void selectionChanged();
     void itemHovered(const KFileItem &item);
@@ -173,6 +177,7 @@ Q_SIGNALS:
     /// Text was typed in a view with no shortcut modifier; it should filter.
     void typeAheadRequested(const QString &text);
     void selectionModeChanged(bool enabled);
+    void viewModeChanged();
     void copySelectionRequested();
     void cutSelectionRequested();
     void trashSelectionRequested();
@@ -240,6 +245,8 @@ private:
     KFilePreviewGenerator *m_compactPreviews = nullptr;
     KFileItemDelegate *m_iconDelegate = nullptr;
     ViewMode m_viewMode = ViewMode::Details;
+    int m_detailsIconSize = 0;
+    int m_iconsIconSize = 0;
     bool m_previewsEnabled = true;
     bool m_remotePreviewsEnabled = false;
 };

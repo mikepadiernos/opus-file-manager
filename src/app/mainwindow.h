@@ -136,6 +136,7 @@ private:
     void exportListing(bool pdf);
     void showContentChart();
     void showSearch();
+    void showSearchForPane(Pane *pane);
     void showDuplicateFinder();
     void createChecksumFile();
     void verifyChecksumFile();
