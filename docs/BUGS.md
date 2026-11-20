@@ -20,7 +20,7 @@ Potential scenarios awaiting investigation are tracked separately in
 | [#444](https://github.com/mikepadiernos/opus-file-manager/issues/444) | KDE toolbar editor separators and spacers do not match the toolbar | Yes | Merged |
 | [#446](https://github.com/mikepadiernos/opus-file-manager/issues/446) | Metadata editing fails with an unusable ExifTool installation | Yes | Merged |
 | [#457](https://github.com/mikepadiernos/opus-file-manager/issues/457) | Embedded terminal panel controls and background blur | Yes | Merged |
-| [#476](https://github.com/mikepadiernos/opus-file-manager/issues/476) | Toolbar context menus and symbolic icons | Yes | Completed |
+| [#476](https://github.com/mikepadiernos/opus-file-manager/issues/476) | Toolbar context menus and symbolic icons | Yes | Merged |
 
 ## Status legend
 
@@ -51,7 +51,7 @@ None.
 ### Toolbar context menus and symbolic icons
 
 - Severity: not assessed
-- Status: Completed; [#476](https://github.com/mikepadiernos/opus-file-manager/issues/476)
+- Status: Merged; [#476](https://github.com/mikepadiernos/opus-file-manager/issues/476)
 - Summary: The view mode button should use a symbolic icon consistent with
   other small toolbar controls. The reporter also observes a full-colour
   Open Editor icon and requests the symbolic icon used on the Editor settings
