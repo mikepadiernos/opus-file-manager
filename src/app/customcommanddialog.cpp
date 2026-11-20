@@ -28,10 +28,11 @@ namespace
 constexpr qsizetype MaxOutputBytes = 256 * 1024;
 }
 
-CustomCommandDialog::CustomCommandDialog(const QString &folder, const QStringList &selection, QWidget *parent, KSharedConfig::Ptr config)
+CustomCommandDialog::CustomCommandDialog(const QString &folder, const QStringList &selection, QWidget *parent, KSharedConfig::Ptr config, bool manageOnly)
     : QDialog(parent)
     , m_folder(folder)
     , m_selection(selection)
+    , m_manageOnly(manageOnly)
     , m_config(config ? config : KSharedConfig::openConfig())
     , m_options(new QWidget(this))
     , m_program(new QLineEdit(m_options))
@@ -46,10 +47,12 @@ CustomCommandDialog::CustomCommandDialog(const QString &folder, const QStringLis
     , m_stop(new QPushButton(i18nc("@action:button", "Stop"), this))
 {
     setObjectName(QStringLiteral("customCommandDialog"));
-    setWindowTitle(i18nc("@title:window", "Scripts and Custom Commands"));
+    setWindowTitle(manageOnly ? i18nc("@title:window", "Manage Commands") : i18nc("@title:window", "Scripts and Custom Commands"));
     resize(850, 700);
     auto *layout = new QVBoxLayout(this);
-    auto *description = new QLabel(i18nc("@info", "Working folder: %1\nSelected items: %2", folder, selection.size()), this);
+    auto *description = new QLabel(manageOnly ? i18nc("@info", "Manage saved scripts and commands. Changes are saved immediately.")
+                                              : i18nc("@info", "Working folder: %1\nSelected items: %2", folder, selection.size()),
+                                   this);
     description->setTextFormat(Qt::PlainText);
     description->setWordWrap(true);
     layout->addWidget(description);
@@ -80,13 +83,16 @@ CustomCommandDialog::CustomCommandDialog(const QString &folder, const QStringLis
     auto *save = new QPushButton(i18nc("@action:button", "Save…"), m_options);
     auto *load = new QPushButton(i18nc("@action:button", "Load"), m_options);
     auto *remove = new QPushButton(i18nc("@action:button", "Delete"), m_options);
+    auto *update = new QPushButton(i18nc("@action:button", "Update Selected…"), m_options);
     save->setObjectName(QStringLiteral("commandSavePreset"));
     load->setObjectName(QStringLiteral("commandLoadPreset"));
     remove->setObjectName(QStringLiteral("commandDeletePreset"));
+    update->setObjectName(QStringLiteral("commandUpdatePreset"));
     presetRow->addWidget(m_saved, 1);
     presetRow->addWidget(save);
     presetRow->addWidget(load);
     presetRow->addWidget(remove);
+    presetRow->addWidget(update);
     form->addRow(i18nc("@label", "Saved commands:"), presetRow);
     layout->addWidget(m_options);
     auto *help = new QLabel(i18nc("@info",
@@ -103,11 +109,13 @@ CustomCommandDialog::CustomCommandDialog(const QString &folder, const QStringLis
     m_status->setText(i18nc("@info", "Preview the executable and arguments before running."));
     layout->addWidget(m_status);
     m_preview->setObjectName(QStringLiteral("commandPreviewList"));
+    m_preview->setVisible(!manageOnly);
     m_preview->setRootIsDecorated(false);
     m_preview->setHeaderLabels({i18nc("@title:column", "Part"), i18nc("@title:column", "Value")});
     m_preview->header()->setSectionResizeMode(1, QHeaderView::Stretch);
     layout->addWidget(m_preview);
     m_output->setObjectName(QStringLiteral("commandOutput"));
+    m_output->setVisible(!manageOnly);
     m_output->setReadOnly(true);
     m_output->setPlaceholderText(i18nc("@info:placeholder", "Command output"));
     layout->addWidget(m_output);
@@ -120,6 +128,9 @@ CustomCommandDialog::CustomCommandDialog(const QString &folder, const QStringLis
     buttons->addButton(m_previewButton, QDialogButtonBox::ActionRole);
     buttons->addButton(m_run, QDialogButtonBox::ActionRole);
     buttons->addButton(m_stop, QDialogButtonBox::ActionRole);
+    m_previewButton->setVisible(!manageOnly);
+    m_run->setVisible(!manageOnly);
+    m_stop->setVisible(!manageOnly);
     layout->addWidget(buttons);
 
     QString error;
@@ -129,12 +140,14 @@ CustomCommandDialog::CustomCommandDialog(const QString &folder, const QStringLis
         m_status->setText(error);
         save->setEnabled(false);
     }
-    connect(m_saved, &QComboBox::currentIndexChanged, this, [load, remove](int index) {
+    connect(m_saved, &QComboBox::currentIndexChanged, this, [load, remove, update](int index) {
         load->setEnabled(index >= 0);
         remove->setEnabled(index >= 0);
+        update->setEnabled(index >= 0);
     });
     load->setEnabled(m_saved->currentIndex() >= 0);
     remove->setEnabled(m_saved->currentIndex() >= 0);
+    update->setEnabled(m_saved->currentIndex() >= 0);
     connect(save, &QPushButton::clicked, this, [this] {
         QString error;
         auto value = command(&error);
@@ -196,6 +209,53 @@ CustomCommandDialog::CustomCommandDialog(const QString &folder, const QStringLis
         m_defaults->setPlainText(defaults.join(QLatin1Char('\n')));
         invalidatePreview();
         m_status->setText(i18nc("@info", "Command loaded. Review and preview it before running."));
+    });
+    connect(update, &QPushButton::clicked, this, [this] {
+        const int index = m_saved->currentIndex();
+        if (index < 0 || index >= m_commands.size()) {
+            return;
+        }
+        QString error;
+        auto value = command(&error);
+        if (error.isEmpty()) {
+            error = CustomCommands::validate(value);
+        }
+        if (!error.isEmpty()) {
+            m_status->setText(error);
+            return;
+        }
+        const auto original = m_commands.at(index);
+        if (QMessageBox::question(this,
+                                  i18nc("@title:window", "Update Command"),
+                                  i18nc("@info", "Replace the saved command “%1” with the current command?", original.name),
+                                  QMessageBox::Yes | QMessageBox::No,
+                                  QMessageBox::No)
+            != QMessageBox::Yes) {
+            return;
+        }
+        const auto group = m_config->group(QStringLiteral("CustomCommands"));
+        auto commands = CustomCommands::load(group, &error);
+        if (!error.isEmpty()) {
+            m_status->setText(error);
+            return;
+        }
+        auto it = std::find_if(commands.begin(), commands.end(), [&original](const auto &item) {
+            return item.name == original.name;
+        });
+        if (it == commands.end() || it->program != original.program || it->arguments != original.arguments || it->defaults != original.defaults) {
+            m_status->setText(i18nc("@info", "This command changed elsewhere. Close and reopen the dialog."));
+            return;
+        }
+        value.name = original.name;
+        *it = value;
+        if (!CustomCommands::save(group, commands, &error)) {
+            m_status->setText(error);
+            return;
+        }
+        m_commands = commands;
+        updatePresets();
+        m_saved->setCurrentIndex(index);
+        m_status->setText(i18nc("@info", "Command updated."));
     });
     connect(remove, &QPushButton::clicked, this, [this] {
         const int index = m_saved->currentIndex();
@@ -333,6 +393,9 @@ void CustomCommandDialog::invalidatePreview()
 
 void CustomCommandDialog::preview()
 {
+    if (m_manageOnly) {
+        return;
+    }
     QString error;
     const auto value = command(&error);
     if (!error.isEmpty()) {
@@ -357,6 +420,9 @@ void CustomCommandDialog::preview()
 
 void CustomCommandDialog::run()
 {
+    if (m_manageOnly) {
+        return;
+    }
     if (!m_prepared.error.isEmpty() || m_prepared.program.isEmpty() || m_process.state() != QProcess::NotRunning) {
         return;
     }

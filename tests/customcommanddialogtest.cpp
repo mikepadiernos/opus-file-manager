@@ -96,6 +96,39 @@ private Q_SLOTS:
         QTRY_VERIFY(dialog.findChild<QLabel *>(QStringLiteral("commandStatus"))->text().contains(QStringLiteral("Could not start")));
     }
 
+    void managesAndUpdatesPresetsWithoutRunning()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("commandsrc")), KConfig::SimpleConfig);
+        {
+            CustomCommandDialog dialog({}, {}, nullptr, config, true);
+            dialog.findChild<QLineEdit *>(QStringLiteral("commandProgram"))->setText(QStringLiteral("/bin/echo"));
+            auto *arguments = dialog.findChild<QPlainTextEdit *>(QStringLiteral("commandArguments"));
+            arguments->setPlainText(QStringLiteral("first"));
+            QTimer::singleShot(0, [] {
+                auto *input = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
+                QVERIFY(input);
+                input->setTextValue(QStringLiteral("Example"));
+                input->accept();
+            });
+            dialog.findChild<QPushButton *>(QStringLiteral("commandSavePreset"))->click();
+            arguments->setPlainText(QStringLiteral("{dir}"));
+            confirm();
+            dialog.findChild<QPushButton *>(QStringLiteral("commandUpdatePreset"))->click();
+            QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("commandStatus"))->text().contains(QStringLiteral("updated")));
+            dialog.findChild<QPushButton *>(QStringLiteral("commandPreview"))->click();
+            QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("commandRun"))->isEnabled());
+            QVERIFY(dialog.findChild<QPlainTextEdit *>(QStringLiteral("commandOutput"))->isHidden());
+        }
+        config->reparseConfiguration();
+        CustomCommandDialog dialog(root.path(), {}, nullptr, config);
+        dialog.findChild<QPushButton *>(QStringLiteral("commandLoadPreset"))->click();
+        QCOMPARE(dialog.findChild<QPlainTextEdit *>(QStringLiteral("commandArguments"))->toPlainText(), QStringLiteral("{dir}"));
+        dialog.findChild<QPushButton *>(QStringLiteral("commandPreview"))->click();
+        QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("commandRun"))->isEnabled());
+    }
+
     void stopsRunningCommand()
     {
         QTemporaryDir root;
