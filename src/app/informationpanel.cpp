@@ -3,6 +3,7 @@
 #include "informationpanel.h"
 
 #include "localizeddates.h"
+#include "localizednumbers.h"
 
 #include <KIO/Global>
 #include <KLocalizedString>
@@ -40,7 +41,7 @@ QString valueFor(const KFileItem &item, const QString &field)
         return {};
     }
     if (field == QLatin1String("size")) {
-        return item.isDir() ? QString() : KIO::convertSize(item.size());
+        return item.isDir() ? QString() : LocalizedNumbers::shape(KIO::convertSize(item.size()));
     }
     if (field == QLatin1String("permissions")) {
         return item.permissionsString();

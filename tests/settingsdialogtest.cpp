@@ -174,6 +174,69 @@ private Q_SLOTS:
         QCOMPARE(Settings::splitPartSizeMiB(), 12);
     }
 
+    void interfaceLanguagePersistsAndCancels()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *language = dialog.findChild<InterfaceLanguageCombo *>(QStringLiteral("kcfg_InterfaceLanguage"));
+            auto *locale = dialog.findChild<RegionalLocaleCombo *>(QStringLiteral("kcfg_RegionalLocale"));
+            auto *direction = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TranslationDirection"));
+            auto *calendar = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_CalendarOverride"));
+            auto *date = dialog.findChild<QLineEdit *>(QStringLiteral("kcfg_CustomDateFormat"));
+            auto *time = dialog.findChild<QLineEdit *>(QStringLiteral("kcfg_CustomTimeFormat"));
+            QVERIFY(language && locale && direction && calendar && date && time);
+            QCOMPARE(language->language(), QString());
+            QCOMPARE(locale->localeName(), QString());
+            language->setLanguage(QStringLiteral("en_US"));
+            locale->setLocaleName(QStringLiteral("fa_IR"));
+            direction->setCurrentIndex(Settings::EnumTranslationDirection::LeftToRight);
+            calendar->setCurrentIndex(Settings::EnumCalendarOverride::JalaliCalendar);
+            date->setText(QStringLiteral("yyyy/MM/dd"));
+            time->setText(QStringLiteral("HH:mm"));
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QCOMPARE(Settings::interfaceLanguage(), QStringLiteral("en_US"));
+        QCOMPARE(Settings::regionalLocale(), QStringLiteral("fa_IR"));
+        QCOMPARE(Settings::translationDirection(), Settings::EnumTranslationDirection::LeftToRight);
+        QCOMPARE(Settings::calendarOverride(), Settings::EnumCalendarOverride::JalaliCalendar);
+        QCOMPARE(Settings::customDateFormat(), QStringLiteral("yyyy/MM/dd"));
+        QCOMPARE(Settings::customTimeFormat(), QStringLiteral("HH:mm"));
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *language = dialog.findChild<InterfaceLanguageCombo *>(QStringLiteral("kcfg_InterfaceLanguage"));
+            QVERIFY(language);
+            QCOMPARE(language->language(), QStringLiteral("en_US"));
+            language->setLanguage(QString());
+            dialog.findChild<RegionalLocaleCombo *>(QStringLiteral("kcfg_RegionalLocale"))->setLocaleName(QString());
+            dialog.reject();
+        }
+        QCOMPARE(Settings::interfaceLanguage(), QStringLiteral("en_US"));
+        QCOMPARE(Settings::regionalLocale(), QStringLiteral("fa_IR"));
+    }
+
+    void customNumeralsRequireTenDistinctSymbols()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *style = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_NumeralStyle"));
+        auto *digits = dialog.findChild<QLineEdit *>(QStringLiteral("kcfg_CustomNumerals"));
+        QVERIFY(style && digits);
+        style->setCurrentIndex(Settings::EnumNumeralStyle::CustomDigits);
+        digits->setText(QStringLiteral("123"));
+        QVERIFY(!dialog.button(QDialogButtonBox::Ok)->isEnabled());
+        QVERIFY(!dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_FollowSymlinks"))->setChecked(true);
+        QVERIFY(!dialog.button(QDialogButtonBox::Ok)->isEnabled());
+        QVERIFY(!dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        digits->setText(QStringLiteral("abcdefghij"));
+        QVERIFY(dialog.button(QDialogButtonBox::Ok)->isEnabled());
+        QVERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Ok)->click();
+        QCOMPARE(Settings::numeralStyle(), Settings::EnumNumeralStyle::CustomDigits);
+        QCOMPARE(Settings::customNumerals(), QStringLiteral("abcdefghij"));
+    }
+
     void tabBarPreferencesPersistAndCancel()
     {
         KFilePlacesModel places;

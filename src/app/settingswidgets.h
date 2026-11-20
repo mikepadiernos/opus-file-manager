@@ -2,9 +2,38 @@
 
 #pragma once
 
+#include <QComboBox>
 #include <QListWidget>
 #include <QSpinBox>
 #include <QWidget>
+
+class InterfaceLanguageCombo : public QComboBox
+{
+    Q_OBJECT
+    Q_PROPERTY(QString language READ language WRITE setLanguage NOTIFY languageChanged USER true)
+
+public:
+    explicit InterfaceLanguageCombo(QWidget *parent = nullptr);
+    QString language() const;
+    void setLanguage(const QString &language);
+
+Q_SIGNALS:
+    void languageChanged();
+};
+
+class RegionalLocaleCombo : public QComboBox
+{
+    Q_OBJECT
+    Q_PROPERTY(QString localeName READ localeName WRITE setLocaleName NOTIFY localeNameChanged USER true)
+
+public:
+    explicit RegionalLocaleCombo(QWidget *parent = nullptr);
+    QString localeName() const;
+    void setLocaleName(const QString &name);
+
+Q_SIGNALS:
+    void localeNameChanged();
+};
 
 class RuleListEditor : public QWidget
 {

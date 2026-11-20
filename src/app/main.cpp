@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "interfacelanguage.h"
+#include "localizednumbers.h"
 #include "mainwindow.h"
 #include "opusfm_version.h"
+#include "settings.h"
 #include "settingsbackup.h"
 #include "symbolicactionicons.h"
 
 #include <KAboutData>
+#include <KConfigGroup>
 #include <KCrash>
 #include <KDBusService>
 #include <KLocalizedString>
@@ -34,6 +37,30 @@ QList<QUrl> urlsFromArguments(const QStringList &arguments, const QString &worki
     }
     return urls;
 }
+
+bool applyRegionalLocale(const QString &name, bool reportError)
+{
+    const QLocale locale = name.isEmpty() ? QLocale::system() : QLocale(name);
+    if (!name.isEmpty() && locale.language() == QLocale::C && name != QLatin1String("C")) {
+        if (reportError) {
+            QMessageBox::critical(
+                nullptr,
+                i18nc("@title:window", "Invalid Regional Locale"),
+                i18nc("@info", "The configured regional locale %1 is not available. Correct it in the Opus configuration before starting.", name));
+        }
+        return false;
+    }
+    QLocale::setDefault(locale);
+    return true;
+}
+
+void applyLayoutDirection(bool reverseRequested, int direction)
+{
+    if (reverseRequested) {
+        return;
+    }
+    QApplication::setLayoutDirection(InterfaceLanguage::layoutDirection(KLocalizedString::languages(), direction));
+}
 }
 
 int main(int argc, char **argv)
@@ -45,6 +72,10 @@ int main(int argc, char **argv)
     QApplication app(argc, argv);
     app.installEventFilter(new SymbolicActionIcons(&app));
     KLocalizedString::setApplicationDomain(QByteArrayLiteral("opus-file-manager"));
+    const QString configuredLanguage = KSharedConfig::openConfig()->group(QStringLiteral("Translation")).readEntry("InterfaceLanguage", QString());
+    const QString configuredLocale = KSharedConfig::openConfig()->group(QStringLiteral("Translation")).readEntry("RegionalLocale", QString());
+    const bool languageAvailable = configuredLanguage.isEmpty() || InterfaceLanguage::apply(configuredLanguage);
+    applyRegionalLocale(configuredLocale, false);
     if (!reverseRequested) {
         QApplication::setLayoutDirection(InterfaceLanguage::layoutDirection(KLocalizedString::languages()));
     }
@@ -80,6 +111,28 @@ int main(int argc, char **argv)
                                     QDir::toNativeSeparators(SettingsBackup::pendingRestorePath(dataDirectory))));
         return 1;
     }
+
+    bool effectiveLanguageAvailable = languageAvailable;
+    if (Settings::interfaceLanguage() != configuredLanguage) {
+        effectiveLanguageAvailable = InterfaceLanguage::apply(Settings::interfaceLanguage());
+    }
+    if (!effectiveLanguageAvailable) {
+        QMessageBox::warning(nullptr,
+                             i18nc("@title:window", "Interface Language Unavailable"),
+                             i18nc("@info",
+                                   "The selected interface language cannot be used because no compatible UTF-8 system message locale is installed. "
+                                   "Opus will use the system language instead."));
+    }
+    if (!applyRegionalLocale(Settings::regionalLocale(), true)) {
+        return 1;
+    }
+    if (Settings::numeralStyle() == Settings::EnumNumeralStyle::CustomDigits && !LocalizedNumbers::validCustomNumerals(Settings::customNumerals())) {
+        QMessageBox::critical(nullptr,
+                              i18nc("@title:window", "Invalid Custom Digits"),
+                              i18nc("@info", "Custom digits must contain ten distinct printable symbols. Correct the Opus configuration before starting."));
+        return 1;
+    }
+    applyLayoutDirection(reverseRequested, Settings::translationDirection());
 
     auto *window = new MainWindow;
     window->openUrls(urlsFromArguments(parser.positionalArguments(), QDir::currentPath()));
