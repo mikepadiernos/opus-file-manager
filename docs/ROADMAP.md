@@ -529,22 +529,27 @@ Settings for M11 UI customizations, stored in KConfig.
 Settings for M13 translations, stored in KConfig.
 
 - **Language**
-  - **Interface:** follow the system language or select an interface language
-  - **Regional formats:** follow the system locale or select a locale for
-    dates and numbers independently of the interface language
+  - ~~**Interface:** follow the system language or select an interface language~~
+  - ~~**Regional formats:** follow the system locale or select a locale for
+    dates and numbers independently of the interface language~~
 - **Dates**
-  - **Calendar:** calendar for dates: Gregorian or Jalali
-  - **Format:** custom date and time formats, with clear precedence over the
-    listing date-format defaults from M04
+  - ~~**Calendar:** calendar for dates: Gregorian or Jalali~~
+  - ~~**Format:** custom date and time formats, with clear precedence over the
+    listing date-format defaults from M04~~
 - **Layout**
-  - **Direction:** follow the language or force left-to-right or right-to-left
-  - **Digits:** digit shapes and custom numeral formats, including Western or
-    Eastern Arabic-Indic digits
+  - ~~**Direction:** follow the language or force left-to-right or right-to-left~~
+  - ~~**Digits:** digit shapes and custom numeral formats, including Western or
+    Eastern Arabic-Indic digits~~
+
+**Caveats:** [Jalali dates](CAVEATS.md#jalali-dates), tracked in [#436];
+[translation format overrides](CAVEATS.md#translation-format-overrides),
+tracked in [#440].
 
 ### M15 Advanced search
 
 Extend the M09 search tools and reuse their search scopes, filters and saved
-searches rather than introducing a separate search system.
+searches rather than introducing a separate search system. M23 extends the
+Baloo integration without blocking this milestone.
 
 - **Indexing:** search folders and exclusions; configure the search shortcut
   through existing KDE facilities, using double Shift where supported and
@@ -766,6 +771,20 @@ Settings for M21 workspaces, stored in KConfig.
 
 - `org.freedesktop.FileManager1` D-Bus service
 - Deep integration with ARK
+- Enhanced Baloo integration: reuse M09 indexed search and M15's search
+  interface. Show service status, configured folders and exclusions, and
+  coverage or indexing progress when available; distinguish configured scope
+  from confirmed coverage and warn that results may be missing or stale. Offer
+  access to KDE's shared indexing controls, reuse metadata from installed
+  KFileMetaData extractors, and identify missing extractors when detectable.
+  Do not change shared settings, enable indexing or start a reindex without
+  explicit user action.
+- Extend Baloo search with supported metadata criteria and optional fuzzy
+  ranking of returned results. Make clear that ranking cannot recover matches
+  absent from the index or results truncated by existing limits. Offer an
+  explicit live-search fallback for supported local folders, retaining its
+  own limits, progress, cancellation and error reporting; never silently
+  broaden scope or substitute a different search.
 - KDE Plasma language integration: reuse M13 translation catalogues and M14
   language and regional-format preferences with supported KDE and Qt
   facilities. Follow Plasma's language preferences when no app-specific
@@ -932,6 +951,10 @@ Settings for M23 integrations, stored in KConfig.
   - **Access:** opt in to integration and choose which supported accounts to
     show in Opus; manage accounts in KDE without deleting shared accounts when
     removing them from Opus
+- **Baloo**
+  - **Search:** choose whether to offer fuzzy ranking and a live-search fallback;
+    reuse M10 and M16 search settings. Open KDE's shared indexing controls
+    rather than duplicating or silently changing them.
 - **Plasma Activities**
   - **Workspaces:** enable Activity associations; manage workspace mappings,
     Activity-specific default folders, feature selections and workspace-switch
@@ -1121,7 +1144,7 @@ upstream source could not be verified for this review.
 
 ## Tracking
 
-Translation settings handoff: [pending tasks](TODO.md#complete-m14-translation-settings).
+MVP release handoff: [pending tasks](TODO.md#mvp-release).
 
 Follow the [project instructions](../CLAUDE.md) for issue tracking, completion,
 branching and merging. Record blocked work in [pending tasks](TODO.md) and
