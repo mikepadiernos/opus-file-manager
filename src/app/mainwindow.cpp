@@ -98,6 +98,7 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMessageBox>
 #include <QMimeDatabase>
 #include <QPointer>
 #include <QScopedValueRollback>
@@ -940,14 +941,19 @@ void MainWindow::addToFavorites()
 
 void MainWindow::setupStatusBar()
 {
-    m_itemsLabel = new QLabel(this);
+    auto *indicators = new QWidget(this);
+    m_statusBarLayout = new QHBoxLayout(indicators);
+    m_statusBarLayout->setContentsMargins(4, 0, 4, 0);
+    m_statusBarLayout->setSpacing(8);
+    m_itemsLabel = new QLabel(indicators);
     m_itemsLabel->setObjectName(QStringLiteral("itemsLabel"));
-    m_messageLabel = new QLabel(this);
-    m_freeSpaceLabel = new QLabel(this);
+    m_messageLabel = new QLabel(indicators);
+    m_freeSpaceLabel = new QLabel(indicators);
     m_freeSpaceLabel->setObjectName(QStringLiteral("freeSpaceLabel"));
-    statusBar()->addWidget(m_itemsLabel);
-    statusBar()->addWidget(m_messageLabel, 1);
-    statusBar()->addPermanentWidget(m_freeSpaceLabel);
+    m_statusBarLayout->addWidget(m_itemsLabel);
+    m_statusBarLayout->addWidget(m_messageLabel, 1);
+    m_statusBarLayout->addWidget(m_freeSpaceLabel);
+    statusBar()->addWidget(indicators, 1);
     for (Pane *pane : {m_left, m_right}) {
         auto *bar = new QWidget(pane);
         auto *layout = new QHBoxLayout(bar);
@@ -963,6 +969,26 @@ void MainWindow::setupStatusBar()
         pane->setStatusBarWidget(bar);
         m_paneItemsLabels.insert(pane, items);
         m_paneFreeSpaceLabels.insert(pane, freeSpace);
+    }
+    updateStatusBarIndicatorOrder();
+}
+
+void MainWindow::updateStatusBarIndicatorOrder()
+{
+    const bool freeSpaceFirst = Settings::statusBarIndicatorOrder() == Settings::EnumStatusBarIndicatorOrder::FreeSpaceFirst;
+    m_statusBarLayout->removeWidget(m_itemsLabel);
+    m_statusBarLayout->removeWidget(m_freeSpaceLabel);
+    m_statusBarLayout->insertWidget(0, freeSpaceFirst ? m_freeSpaceLabel : m_itemsLabel);
+    m_statusBarLayout->addWidget(freeSpaceFirst ? m_itemsLabel : m_freeSpaceLabel);
+
+    for (Pane *pane : {m_left, m_right}) {
+        auto *layout = qobject_cast<QBoxLayout *>(pane->statusBarWidget()->layout());
+        QLabel *items = m_paneItemsLabels.value(pane);
+        QLabel *freeSpace = m_paneFreeSpaceLabels.value(pane);
+        layout->removeWidget(items);
+        layout->removeWidget(freeSpace);
+        layout->insertWidget(0, freeSpaceFirst ? freeSpace : items);
+        layout->addWidget(freeSpaceFirst ? items : freeSpace);
     }
 }
 
@@ -1157,10 +1183,14 @@ void MainWindow::setupActions()
     actions->addAction(QStringLiteral("stacked_layout"), m_stackedLayoutAction);
     connect(m_stackedLayoutAction, &KToggleAction::toggled, this, &MainWindow::setStackedLayout);
 
+    auto *swapPanes = actions->addAction(QStringLiteral("swap_panes"), this, &MainWindow::swapPanesAccordingToPreference);
+    swapPanes->setText(i18nc("@action", "Swap Panes"));
     auto *swapTabs = actions->addAction(QStringLiteral("swap_current_tabs"), this, &MainWindow::swapCurrentTabs);
     swapTabs->setText(i18nc("@action", "Swap Current Tabs"));
     auto *swapSides = actions->addAction(QStringLiteral("swap_pane_sides"), this, &MainWindow::swapPaneSides);
     swapSides->setText(i18nc("@action", "Swap Pane Sides"));
+    auto *movePane = actions->addAction(QStringLiteral("move_second_pane"), this, &MainWindow::moveSecondPaneToPreferredDestination);
+    movePane->setText(i18nc("@action", "Move Second Pane"));
     auto *movePaneToTab = actions->addAction(QStringLiteral("move_second_pane_to_tab"), this, &MainWindow::moveSecondPaneToTab);
     movePaneToTab->setText(i18nc("@action", "Move Second Pane to Tab"));
     auto *movePaneToWindow = actions->addAction(QStringLiteral("move_second_pane_to_window"), this, &MainWindow::popOutSecondPane);
@@ -1222,8 +1252,8 @@ void MainWindow::setupActions()
     connect(dimInactive, &QAction::triggered, this, [this](bool enabled) {
         Settings::setDimInactivePane(enabled);
         Settings::self()->save();
-        m_left->setInactiveDimming(enabled);
-        m_right->setInactiveDimming(enabled);
+        m_left->setInactiveDimming(enabled, Settings::inactivePaneOpacity());
+        m_right->setInactiveDimming(enabled, Settings::inactivePaneOpacity());
     });
 
     m_terminalPanelAction = new KToggleAction(i18nc("@action", "Show Embedded Terminal"), this);
@@ -1404,6 +1434,17 @@ void MainWindow::setupActions()
     QAction *customizeToolbar = actions->addAction(QStringLiteral("customize_main_toolbar"));
     customizeToolbar->setText(i18nc("@action", "Customize Main Toolbar"));
     customizeToolbar->setCheckable(true);
+    QAction *resetToolbarCustomization = actions->addAction(QStringLiteral("reset_toolbar_customization"), this, [this] {
+        if (QMessageBox::question(this,
+                                  i18nc("@title:dialog", "Restore Default Toolbars"),
+                                  i18nc("@label:dialog", "Restore the main toolbar, pane toolbars and hamburger menu to their default contents and order?"),
+                                  QMessageBox::Yes | QMessageBox::No,
+                                  QMessageBox::No)
+            == QMessageBox::Yes) {
+            m_toolbarCustomizer->resetToDefaults();
+        }
+    });
+    resetToolbarCustomization->setText(i18nc("@action", "Restore Default Toolbars"));
     QAction *gallery = actions->addAction(QStringLiteral("open_gallery"), this, &MainWindow::openGallery);
     gallery->setText(i18nc("@action", "Open Gallery"));
     gallery->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-media-preview")));
@@ -1756,9 +1797,11 @@ void MainWindow::updateActions()
     auto *tabPosition = qobject_cast<KSelectAction *>(actions->action(QStringLiteral("tab_bar_position")));
     tabPosition->setCurrentItem(static_cast<int>(activePane()->tabBarPosition()));
     actions->action(QStringLiteral("stacked_tab_bars_together"))->setEnabled(isStackedLayout());
-    actions->action(QStringLiteral("swap_current_tabs"))
-        ->setEnabled(bothVisible && m_left->tabs()->currentIndex() >= 0 && m_right->tabs()->currentIndex() >= 0);
+    const bool currentTabsCanSwap = bothVisible && m_left->tabs()->currentIndex() >= 0 && m_right->tabs()->currentIndex() >= 0;
+    actions->action(QStringLiteral("swap_current_tabs"))->setEnabled(currentTabsCanSwap);
     actions->action(QStringLiteral("swap_pane_sides"))->setEnabled(bothVisible);
+    const bool swapWholeSides = Settings::paneSwapMode() == Settings::EnumPaneSwapMode::WholeSides;
+    actions->action(QStringLiteral("swap_panes"))->setEnabled(swapWholeSides ? bothVisible : currentTabsCanSwap);
     actions->action(QStringLiteral("copy_to_other_pane"))->setEnabled(hasSelection);
     actions->action(QStringLiteral("move_to_other_pane"))->setEnabled(hasSelection && props.supportsMoving());
     actions->action(QStringLiteral("rename"))->setEnabled(hasSelection && props.supportsMoving());
@@ -1856,6 +1899,8 @@ void MainWindow::updateActions()
     m_jumpBackAction->setEnabled(m_jumpBackPoints.value(activePane()).isValid());
     actions->action(QStringLiteral("move_second_pane_to_tab"))->setEnabled(!m_secondPaneInTab);
     actions->action(QStringLiteral("move_second_pane_to_window"))->setEnabled(!m_rightWindow);
+    const bool moveToTab = Settings::paneMoveDestination() == Settings::EnumPaneMoveDestination::Tab;
+    actions->action(QStringLiteral("move_second_pane"))->setEnabled(moveToTab ? !m_secondPaneInTab : !m_rightWindow);
     actions->action(QStringLiteral("restore_second_pane"))->setEnabled(m_secondPaneInTab || m_rightWindow);
 }
 
@@ -2945,6 +2990,15 @@ void MainWindow::swapCurrentTabs()
     }
 }
 
+void MainWindow::swapPanesAccordingToPreference()
+{
+    if (Settings::paneSwapMode() == Settings::EnumPaneSwapMode::WholeSides) {
+        swapPaneSides();
+    } else {
+        swapCurrentTabs();
+    }
+}
+
 void MainWindow::swapPaneSides()
 {
     if (m_secondPaneInTab || m_rightWindow) {
@@ -2967,16 +3021,17 @@ void MainWindow::moveSecondPaneToTab()
     if (m_rightWindow) {
         moveSecondPaneToDual();
     }
-    if (!m_rightPlaceholder) {
-        m_rightPlaceholder = new QWidget(m_splitter);
-        m_rightPlaceholder->setObjectName(QStringLiteral("secondPanePlaceholder"));
-        m_rightPlaceholder->setMinimumSize(0, 0);
-    }
     const int index = m_splitter->indexOf(m_right);
     if (index < 0) {
         return;
     }
+    if (!m_rightPlaceholder) {
+        m_rightPlaceholder = new QWidget;
+        m_rightPlaceholder->setObjectName(QStringLiteral("secondPanePlaceholder"));
+        m_rightPlaceholder->setMinimumSize(0, 0);
+    }
 
+    resetMovedPaneDisplayStyle();
     m_movingSecondPane = true;
     m_splitter->replaceWidget(index, m_rightPlaceholder);
     m_rightPlaceholder->hide();
@@ -3003,8 +3058,9 @@ void MainWindow::popOutSecondPane()
     if (index < 0) {
         return;
     }
+    resetMovedPaneDisplayStyle();
     if (!m_rightPlaceholder) {
-        m_rightPlaceholder = new QWidget(m_splitter);
+        m_rightPlaceholder = new QWidget;
         m_rightPlaceholder->setObjectName(QStringLiteral("secondPanePlaceholder"));
         m_rightPlaceholder->setMinimumSize(0, 0);
     }
@@ -3026,6 +3082,24 @@ void MainWindow::popOutSecondPane()
     window->resize(900, 600);
     window->show();
     updateActions();
+}
+
+void MainWindow::moveSecondPaneToPreferredDestination()
+{
+    if (Settings::paneMoveDestination() == Settings::EnumPaneMoveDestination::Window) {
+        popOutSecondPane();
+    } else {
+        moveSecondPaneToTab();
+    }
+}
+
+void MainWindow::resetMovedPaneDisplayStyle()
+{
+    if (Settings::paneMoveDisplayStyle() != Settings::EnumPaneMoveDisplayStyle::ResetToDefault) {
+        return;
+    }
+    const auto mode = Settings::defaultViewMode() == Settings::EnumDefaultViewMode::Icons ? FolderView::ViewMode::Icons : FolderView::ViewMode::Details;
+    m_right->view()->setViewMode(mode);
 }
 
 void MainWindow::moveSecondPaneToDual()
@@ -3534,6 +3608,21 @@ bool MainWindow::isDualLayout() const
 
 void MainWindow::applySettings()
 {
+    const bool toolbarsLocked = Settings::lockToolbars();
+    QAction *customizeToolbar = actionCollection()->action(QStringLiteral("customize_main_toolbar"));
+    customizeToolbar->setEnabled(!toolbarsLocked);
+    if (toolbarsLocked) {
+        customizeToolbar->setChecked(false);
+    }
+    for (Pane *pane : {m_left, m_right}) {
+        if (QAction *configure = pane->toolbarAction(QStringLiteral("paneCustomizeToolbar"))) {
+            configure->setEnabled(!toolbarsLocked);
+        }
+    }
+    for (KToolBar *toolbar : toolBars()) {
+        toolbar->setMovable(!toolbarsLocked);
+    }
+
     const auto terminalOrientation = m_workspaceSplitter->orientation();
     updateTerminalPlacement();
     if (terminalOrientation != m_workspaceSplitter->orientation()) {
@@ -3557,7 +3646,7 @@ void MainWindow::applySettings()
     m_automaticLocalSizeDefault = Settings::automaticLocalFolderSizes();
     m_automaticRemoteSizeDefault = Settings::automaticRemoteFolderSizes();
     for (Pane *pane : {m_left, m_right}) {
-        pane->setInactiveDimming(Settings::dimInactivePane());
+        pane->setInactiveDimming(Settings::dimInactivePane(), Settings::inactivePaneOpacity());
         pane->reloadTabSettings();
         pane->reloadFilterSettings();
         pane->setNavigationBarVisible(Settings::showNavigationBar());
@@ -3587,6 +3676,7 @@ void MainWindow::applySettings()
         view->setPreviewPlugins(Settings::previewPlugins());
         view->setRemotePreviewsEnabled(Settings::showRemotePreviews());
     }
+    m_toolbarCustomizer->applyAppearanceSettings();
     m_informationPanel->setFields(Settings::informationFields());
     if (!Settings::informationHover()) {
         m_hoveredInformationPane = nullptr;
@@ -3602,6 +3692,7 @@ void MainWindow::applySettings()
     setBarMargin(m_left->navigationBar(), barMargin);
     setBarMargin(m_right->navigationBar(), barMargin);
     applyPanelSettings();
+    updateStatusBarIndicatorOrder();
     updateStatusBar();
     updateFreeSpace();
     updateInformationPanel();

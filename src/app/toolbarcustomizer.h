@@ -28,6 +28,8 @@ public:
     ToolbarCustomizer(KToolBar *toolbar, KActionCollection *actions, QMainWindow *window, const QList<Pane *> &panes = {});
 
     void setEditing(bool editing);
+    void applyAppearanceSettings();
+    void resetToDefaults();
 
 Q_SIGNALS:
     void editingChanged(bool editing);
@@ -36,6 +38,11 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
+    struct MenuSnapshot {
+        QPointer<QMenu> menu;
+        QList<QAction *> actions;
+    };
+
     void populateActions();
     void filterActions(const QString &text);
     QList<QMenu *> menus() const;
@@ -52,7 +59,7 @@ private:
     void saveToolbar();
     void restoreToolbar();
     void handleToolbarDrop(const QMimeData *mimeData, const QPoint &position, QToolBar *target);
-    void handleMenuDrop(QMenu *target, const QMimeData *mimeData);
+    void handleMenuDrop(QMenu *target, const QMimeData *mimeData, const QPoint &position);
     void saveMenuCustomizations(QMenu *menu);
     void restoreMenuCustomizations();
     void removeToolbarItem(const QString &kind, const QString &name);
@@ -65,6 +72,8 @@ private:
     QLineEdit *m_filter = nullptr;
     QListWidget *m_actionList = nullptr;
     QList<Pane *> m_panes;
+    QList<QAction *> m_defaultToolbarActions;
+    QList<MenuSnapshot> m_defaultMenus;
     QPointer<QAction> m_pressedAction;
     QPointer<QMenu> m_pressedMenu;
     QPoint m_pressPosition;
@@ -72,4 +81,5 @@ private:
     bool m_editing = false;
     bool m_restoring = false;
     bool m_saveScheduled = false;
+    quint64 m_saveGeneration = 0;
 };

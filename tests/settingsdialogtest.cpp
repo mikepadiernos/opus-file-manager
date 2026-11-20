@@ -7,6 +7,7 @@
 #include "customcommanddialog.h"
 #include "filecolorrules.h"
 #include "ignorelist.h"
+#include "mainwindow.h"
 #include "pathfilterpresetsdialog.h"
 #include "savedpathfilters.h"
 #include "searchstoredialog.h"
@@ -14,6 +15,7 @@
 #include "settingswidgets.h"
 #include "viewsettings.h"
 
+#include <KActionCollection>
 #include <KConfig>
 #include <KConfigGroup>
 #include <KFilePlacesModel>
@@ -28,6 +30,7 @@
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDir>
+#include <QDockWidget>
 #include <QFile>
 #include <QInputDialog>
 #include <QLabel>
@@ -92,6 +95,56 @@ private Q_SLOTS:
         QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("restoreSettingsBackup")));
     }
 
+    void toolbarSettingsOpenExistingEditors()
+    {
+        MainWindow window;
+        auto *places = window.findChild<KFilePlacesModel *>();
+        QVERIFY(places);
+        SettingsDialog dialog(places, &window);
+        auto *mainToolbar = dialog.findChild<QPushButton *>(QStringLiteral("configureMainToolbarEntries"));
+        auto *resetToolbars = dialog.findChild<QPushButton *>(QStringLiteral("resetToolbarCustomization"));
+        auto *firstPaneToolbar = dialog.findChild<QPushButton *>(QStringLiteral("configureFirstPaneToolbarEntries"));
+        auto *secondPaneToolbar = dialog.findChild<QPushButton *>(QStringLiteral("configureSecondPaneToolbarEntries"));
+        QVERIFY(mainToolbar && resetToolbars && firstPaneToolbar && secondPaneToolbar);
+        QVERIFY(mainToolbar->isEnabled() && resetToolbars->isEnabled() && firstPaneToolbar->isEnabled() && secondPaneToolbar->isEnabled());
+
+        window.show();
+        dialog.show();
+        QTest::mouseClick(mainToolbar, Qt::LeftButton);
+        QTRY_VERIFY(window.actionCollection()->action(QStringLiteral("customize_main_toolbar"))->isChecked());
+        auto *dock = window.findChild<QDockWidget *>(QStringLiteral("toolbarActionsDock"));
+        QVERIFY(dock);
+        QTRY_VERIFY(dock->isVisible());
+        window.actionCollection()->action(QStringLiteral("customize_main_toolbar"))->trigger();
+    }
+
+    void combinedPanelSettingsOpenExistingCustomizer()
+    {
+        MainWindow window;
+        auto *places = window.findChild<KFilePlacesModel *>();
+        QVERIFY(places);
+        SettingsDialog dialog(places, &window);
+        auto *configure = dialog.findChild<QPushButton *>(QStringLiteral("configureCombinedPanelSections"));
+        QVERIFY(configure && configure->isEnabled());
+
+        window.show();
+        dialog.show();
+        bool customizerOpened = false;
+        QTimer closeCustomizer(&window);
+        closeCustomizer.setInterval(10);
+        connect(&closeCustomizer, &QTimer::timeout, &window, [&] {
+            if (auto *customizer = window.findChild<QDialog *>(QStringLiteral("combinedPanelSectionsDialog"))) {
+                customizerOpened = true;
+                closeCustomizer.stop();
+                customizer->reject();
+            }
+        });
+        closeCustomizer.start();
+        QTest::mouseClick(configure, Qt::LeftButton);
+        QTRY_VERIFY(customizerOpened);
+        QVERIFY(!dialog.isVisible());
+    }
+
     void fileToolDefaultsPersistAndCancel()
     {
         KFilePlacesModel places;
@@ -149,6 +202,29 @@ private Q_SLOTS:
             dialog.reject();
         }
         QCOMPARE(Settings::horizontalFirstTabPosition(), 2);
+    }
+
+    void statusBarIndicatorOrderPersistsAndCancels()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *order = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_StatusBarIndicatorOrder"));
+            QVERIFY(order);
+            QCOMPARE(order->count(), 2);
+            order->setCurrentIndex(Settings::EnumStatusBarIndicatorOrder::FreeSpaceFirst);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QCOMPARE(Settings::statusBarIndicatorOrder(), Settings::EnumStatusBarIndicatorOrder::FreeSpaceFirst);
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *order = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_StatusBarIndicatorOrder"));
+            QVERIFY(order);
+            QCOMPARE(order->currentIndex(), Settings::EnumStatusBarIndicatorOrder::FreeSpaceFirst);
+            order->setCurrentIndex(Settings::EnumStatusBarIndicatorOrder::ItemsFirst);
+            dialog.reject();
+        }
+        QCOMPARE(Settings::statusBarIndicatorOrder(), Settings::EnumStatusBarIndicatorOrder::FreeSpaceFirst);
     }
 
     void metadataFieldDefaultsPersist()
@@ -930,10 +1006,12 @@ private Q_SLOTS:
         auto *previewLimit = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_MaximumPreviewSize"));
         auto *defaultView = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultViewMode"));
         auto *showMinimap = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowFileListMinimap"));
+        auto *minimapWidth = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_FileListMinimapWidth"));
         auto *showSelectionSize = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowSelectionSize"));
         auto *copyMoveMenus = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowCopyMoveToMenus"));
         QVERIFY(startupMode && homeUrl && tabsAfterCurrent && followLinks && dropAction && previewLimit);
-        QVERIFY(defaultView && showMinimap && showSelectionSize && copyMoveMenus);
+        QVERIFY(defaultView && showMinimap && minimapWidth && showSelectionSize && copyMoveMenus);
+        QVERIFY(!minimapWidth->isEnabled());
 
         startupMode->setCurrentIndex(Settings::EnumStartupMode::FixedFolders);
         homeUrl->setUrl(QUrl::fromLocalFile(home.path()));
@@ -943,6 +1021,8 @@ private Q_SLOTS:
         previewLimit->setValue(8);
         defaultView->setCurrentIndex(Settings::EnumDefaultViewMode::Icons);
         showMinimap->setChecked(true);
+        QVERIFY(minimapWidth->isEnabled());
+        minimapWidth->setValue(22);
         showSelectionSize->setChecked(false);
         copyMoveMenus->setChecked(true);
         dialog.findChild<QCheckBox *>(QStringLiteral("kioConfirmTrash"))->setChecked(true);
@@ -956,6 +1036,7 @@ private Q_SLOTS:
         QCOMPARE(config->group(QStringLiteral("Confirmations")).readEntry("DropAction", QString()), QStringLiteral("Copy"));
         QCOMPARE(config->group(QStringLiteral("Views")).readEntry("DefaultViewMode", QString()), QStringLiteral("Icons"));
         QVERIFY(config->group(QStringLiteral("Views")).readEntry("ShowFileListMinimap", false));
+        QCOMPARE(config->group(QStringLiteral("Views")).readEntry("FileListMinimapWidth", 0), 22);
         QVERIFY(!config->group(QStringLiteral("StatusBar")).readEntry("ShowSelectionSize", true));
         QVERIFY(config->group(QStringLiteral("ContextMenu")).readEntry("ShowCopyMoveToMenus", false));
 

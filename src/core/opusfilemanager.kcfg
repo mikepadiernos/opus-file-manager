@@ -35,6 +35,12 @@
       <label>Dim the inactive pane</label>
       <default>false</default>
     </entry>
+    <entry name="InactivePaneOpacity" type="Int">
+      <label>Opacity of the inactive pane in percent when dimmed</label>
+      <default>65</default>
+      <min>20</min>
+      <max>100</max>
+    </entry>
     <entry name="DualPaneAtStartup" type="Enum">
       <label>Whether the window starts with one or two panes</label>
       <choices>
@@ -133,6 +139,12 @@
       <label>Show a file-list minimap in each pane</label>
       <default>false</default>
     </entry>
+    <entry name="FileListMinimapWidth" type="Int">
+      <label>Width of the file-list minimap in pixels</label>
+      <default>14</default>
+      <min>8</min>
+      <max>64</max>
+    </entry>
     <entry name="ShowSizeColumn" type="Bool">
       <label>Show the Size column</label>
       <default>true</default>
@@ -202,6 +214,50 @@
     <entry name="BarCustomSpacing" type="Int">
       <label>Custom bar spacing in pixels</label>
       <default>4</default><min>0</min><max>32</max>
+    </entry>
+    <entry name="ToolbarButtonStyle" type="Enum">
+      <label>Default style of toolbar buttons</label>
+      <choices>
+        <choice name="IconOnly"/>
+        <choice name="TextOnly"/>
+        <choice name="TextBesideIcon"/>
+        <choice name="TextUnderIcon"/>
+      </choices>
+      <default>IconOnly</default>
+    </entry>
+    <entry name="ToolbarIconSize" type="Int">
+      <label>Toolbar icon size in pixels; zero uses each toolbar's default</label>
+      <default>0</default>
+      <min>0</min>
+      <max>64</max>
+    </entry>
+    <entry name="LockToolbars" type="Bool">
+      <label>Lock toolbar positions and editing</label>
+      <default>false</default>
+    </entry>
+    <entry name="PaneMoveDestination" type="Enum">
+      <label>Default destination for a moved second pane</label>
+      <choices>
+        <choice name="Tab"/>
+        <choice name="Window"/>
+      </choices>
+      <default>Tab</default>
+    </entry>
+    <entry name="PaneMoveDisplayStyle" type="Enum">
+      <label>Display style to use when moving the second pane</label>
+      <choices>
+        <choice name="Keep"/>
+        <choice name="ResetToDefault"/>
+      </choices>
+      <default>Keep</default>
+    </entry>
+    <entry name="PaneSwapMode" type="Enum">
+      <label>Default pane swapping operation</label>
+      <choices>
+        <choice name="CurrentTabs"/>
+        <choice name="WholeSides"/>
+      </choices>
+      <default>CurrentTabs</default>
     </entry>
     <entry name="DragFromAnywhere" type="Bool">
       <label>Drag files and folders from anywhere in a details row</label>
@@ -525,6 +581,14 @@
         <choice name="PerPane"/>
       </choices>
       <default>Shared</default>
+    </entry>
+    <entry name="StatusBarIndicatorOrder" type="Enum">
+      <label>Order of item counts and the free-space indicator</label>
+      <choices>
+        <choice name="ItemsFirst"/>
+        <choice name="FreeSpaceFirst"/>
+      </choices>
+      <default>ItemsFirst</default>
     </entry>
     <entry name="ShowItemCounts" type="Bool">
       <label>Show the number of items and selected items</label>

@@ -467,42 +467,44 @@ Settings for M09 tools, stored in KConfig.
 
 ### M12 UI Customization settings
 
-Settings for M11 UI customizations, stored in KConfig.
+Settings for M12 UI customizations, stored in KConfig.
 
 - **Toolbars**
-  - **Entries:** which entries the main toolbar and each pane toolbar show,
-    and in what order; customize hamburger menu entries and their order
-  - **Appearance:** toolbar style and icon size
-  - **Entry appearance:** icon, text or both for individual toolbar entries
-  - **Editing:** lock toolbars
+  - ~~**Entries:** which entries the main toolbar and each pane toolbar show,
+    and in what order; customize hamburger menu entries and their order~~
+  - ~~**Appearance:** toolbar style and icon size~~
+  - ~~**Entry appearance:** icon, text or both for individual toolbar entries~~
+  - ~~**Editing:** lock toolbars~~
 - **Panes**
-  - **Moving:** whether a moved pane opens as a tab or window, and whether it
-    keeps or resets its display style
-  - **Swapping:** swap current tabs or whole pane sides by default
-  - **Inactive pane:** enable dimming and adjust its intensity
+  - ~~**Moving:** whether a moved pane opens as a tab or window, and whether it
+    keeps or resets its display style~~
+  - ~~**Swapping:** swap current tabs or whole pane sides by default~~
+  - ~~**Inactive pane:** enable dimming and adjust its intensity~~
 - **Combined panel**
-  - **Sections:** section order, visibility and custom titles, reusing the
-    visibility settings from M04
+  - ~~**Sections:** section order, visibility and custom titles, reusing the
+    visibility settings from M04~~
 - **Tabs**
-  - **Placement and controls:** tab-bar position by pane orientation, together
-    placement for stacked panes, and close-button visibility
+  - ~~**Placement and controls:** tab-bar position by pane orientation, together
+    placement for stacked panes, and close-button visibility~~
 - **Status bars**
-  - **Layout:** shared or per-pane bars, with visible indicators and their
-    order; reuse existing item-count, selection-size and free-space settings
+  - ~~**Layout:** shared or per-pane bars, with visible indicators and their
+    order; reuse existing item-count, selection-size and free-space settings~~
 - **Splitter sizes**
-  - **Restore:** remember sizes per orientation and reset them to defaults,
-    without overriding an explicitly applied workspace layout
+  - ~~**Restore:** remember sizes per orientation and reset them to defaults,
+    without overriding an explicitly applied workspace layout~~
 - **Preview and gallery**
-  - **Background:** theme, light, dark or checkerboard for transparent images
+  - ~~**Background:** theme, light, dark or checkerboard for transparent images~~
 - **Information panel**
-  - **Fields and focus:** visible metadata fields and order; opt-in hover
-    information with selection fallback
+  - ~~**Fields and focus:** visible metadata fields and order; opt-in hover
+    information with selection fallback~~
 - **File-list minimap**
-  - **Display:** enable or disable the minimap and choose its width
+  - ~~**Display:** enable or disable the minimap and choose its width~~
 - **Defaults**
-  - **Reset:** restore the main toolbar, pane toolbars and hamburger menu
-  - **Backup:** export and restore app-owned settings and layouts with a
-    preview and confirmation, excluding credentials and shared KDE settings
+  - ~~**Reset:** restore the main toolbar, pane toolbars and hamburger menu~~
+  - ~~**Backup:** export and restore app-owned settings and layouts with a
+    preview and confirmation, excluding credentials and shared KDE settings~~
+
+> Pending work: see [TODO.md](TODO.md) for follow-up bug reports.
 
 ### M13 Workspaces
 
@@ -523,6 +525,13 @@ TagSpaces, alongside Opus-specific workspace layouts.
   arrangements, views, toolbars and panel placement or visibility for search,
   editor and terminal areas as they become available. Report unavailable
   features or providers when applying a workspace.
+- Extend each pane's existing location bar with Krusader-inspired breadcrumbs:
+  show full path segments or abbreviate ancestor segments to their first
+  letter while retaining leading underscores (for example, `__path` becomes
+  `__p`); always show the current folder's full name. Alternatively, show an
+  editable full path. Keep each breadcrumb navigable using its actual location,
+  reveal full names for abbreviated segments, and save each pane's chosen mode
+  in the workspace layout.
 - Confirm before overwriting a saved workspace or discarding unsaved layout
   changes; deleting a workspace removes its associations, not the underlying
   files, locations or tags
@@ -540,6 +549,9 @@ Settings for M13 workspaces, stored in KConfig.
   default, reusing the search settings from M10
 - **Layouts:** choose which workspace layout components to restore and confirm
   before overwriting saved layouts
+- **Pane location bars:** choose full breadcrumbs, abbreviated ancestor
+  breadcrumbs or an editable full path independently for each pane; restore
+  these choices with the workspace layout
 
 ### M15 Translations
 
@@ -928,9 +940,11 @@ project when work starts.
 
 Work on each milestone in a `feature/M##-name` branch. A milestone is complete
 when every feature item is struck through; commit its changes by scope, push
-the branch and merge it into `main`. Strike out implemented features even when
-they have known caveats; create a GitHub caveat report for each outstanding
-caveat, linking its entry in [Caveats and limitations](CAVEATS.md), and put
-caveat references at the end of the milestone. Leave unimplemented or
-unverified features unstruck. Work on bug and caveat issues in their own
-branches; commit fixes by scope, push and merge them into `main`.
+the branch and merge it into `main`. Leave features in Review unstruck; strike
+out a feature when its issue moves to Completed, even when it has known caveats.
+Create a GitHub caveat report for each outstanding caveat, linking its entry
+in [Caveats and limitations](CAVEATS.md), and put caveat references at the end
+of the milestone. Leave unimplemented or unverified features unstruck. Work on
+bug and caveat issues in their own branches; commit fixes by scope, push and
+merge them into `main`. See [project workflow](../CLAUDE.md#project-workflow)
+for issue status and closure rules.

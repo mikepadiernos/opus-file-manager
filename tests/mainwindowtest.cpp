@@ -46,6 +46,7 @@
 #include <QClipboard>
 #include <QColor>
 #include <QComboBox>
+#include <QContextMenuEvent>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QDockWidget>
@@ -274,6 +275,43 @@ private Q_SLOTS:
         QVERIFY(link->isChecked());
     }
 
+    void preferredPaneSwapUsesConfiguredOperation()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("left")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("right")));
+
+        const auto previousMode = Settings::paneSwapMode();
+        const auto restoreMode = qScopeGuard([&] {
+            Settings::setPaneSwapMode(previousMode);
+        });
+        Settings::setPaneSwapMode(Settings::EnumPaneSwapMode::CurrentTabs);
+
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(root.filePath(QStringLiteral("left"))), QUrl::fromLocalFile(root.filePath(QStringLiteral("right")))});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        Pane *left = window.activePane();
+        Pane *right = window.inactivePane();
+        auto *splitter = window.findChild<QSplitter *>(QStringLiteral("paneSplitter"));
+        QAction *swap = window.actionCollection()->action(QStringLiteral("swap_panes"));
+        QVERIFY(left && right && splitter && swap && swap->isEnabled());
+        const QUrl leftUrl = left->url();
+        const QUrl rightUrl = right->url();
+        swap->trigger();
+        QCOMPARE(left->url(), rightUrl);
+        QCOMPARE(right->url(), leftUrl);
+
+        Settings::setPaneSwapMode(Settings::EnumPaneSwapMode::WholeSides);
+        QWidget *firstSide = splitter->widget(0);
+        QWidget *secondSide = splitter->widget(1);
+        swap->trigger();
+        QCOMPARE(splitter->widget(0), secondSide);
+        QCOMPARE(splitter->widget(1), firstSide);
+    }
+
     void secondPaneCanMoveBetweenSplitTabAndWindow()
     {
         const auto state = KSharedConfig::openStateConfig();
@@ -322,6 +360,66 @@ private Q_SLOTS:
         QTRY_VERIFY(splitter->indexOf(second) >= 0);
         QCOMPARE(window.activePane(), second);
         QCOMPARE(window.inactivePane(), first);
+    }
+
+    void preferredSecondPaneMoveUsesConfiguredDestinationAndStyle()
+    {
+        const auto state = KSharedConfig::openStateConfig();
+        KConfigGroup layout = state->group(QStringLiteral("WindowLayout"));
+        const bool hadPlacement = layout.hasKey(QStringLiteral("SecondPanePlacement"));
+        const QString previousPlacement = layout.readEntry("SecondPanePlacement", QString());
+        layout.writeEntry("SecondPanePlacement", QStringLiteral("split"));
+        state->sync();
+        const auto restorePlacement = qScopeGuard([&] {
+            if (hadPlacement) {
+                layout.writeEntry("SecondPanePlacement", previousPlacement);
+            } else {
+                layout.deleteEntry("SecondPanePlacement");
+            }
+            state->sync();
+        });
+
+        const auto previousDestination = Settings::paneMoveDestination();
+        const auto previousStyle = Settings::paneMoveDisplayStyle();
+        const auto previousDefaultMode = Settings::defaultViewMode();
+        const auto restoreSettings = qScopeGuard([&] {
+            Settings::setPaneMoveDestination(previousDestination);
+            Settings::setPaneMoveDisplayStyle(previousStyle);
+            Settings::setDefaultViewMode(previousDefaultMode);
+        });
+        Settings::setPaneMoveDestination(Settings::EnumPaneMoveDestination::Tab);
+        Settings::setPaneMoveDisplayStyle(Settings::EnumPaneMoveDisplayStyle::Keep);
+        Settings::setDefaultViewMode(Settings::EnumDefaultViewMode::Details);
+
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        Pane *second = window.inactivePane();
+        QVERIFY(second);
+        second->view()->setViewMode(FolderView::ViewMode::Icons);
+
+        QAction *movePane = window.actionCollection()->action(QStringLiteral("move_second_pane"));
+        auto *paneTabs = window.findChild<QTabWidget *>(QStringLiteral("paneLayoutTabs"));
+        QVERIFY(movePane && paneTabs);
+        movePane->trigger();
+        QCOMPARE(paneTabs->currentWidget(), second);
+        QCOMPARE(second->view()->viewMode(), FolderView::ViewMode::Icons);
+
+        window.actionCollection()->action(QStringLiteral("restore_second_pane"))->trigger();
+        Settings::setPaneMoveDestination(Settings::EnumPaneMoveDestination::Window);
+        Settings::setPaneMoveDisplayStyle(Settings::EnumPaneMoveDisplayStyle::ResetToDefault);
+        second->view()->setViewMode(FolderView::ViewMode::Icons);
+        movePane->trigger();
+
+        auto *detachedWindow = window.findChild<QMainWindow *>(QStringLiteral("secondPaneWindow"));
+        QVERIFY(detachedWindow);
+        QCOMPARE(detachedWindow->centralWidget(), second);
+        QCOMPARE(second->view()->viewMode(), FolderView::ViewMode::Details);
+        detachedWindow->close();
+        auto *splitter = window.findChild<QSplitter *>(QStringLiteral("paneSplitter"));
+        QVERIFY(splitter);
+        QTRY_VERIFY(splitter->indexOf(second) >= 0);
     }
 
     void tabBarPlacementAndCloseButtonsFollowPaneAndLayout()
@@ -610,6 +708,11 @@ private Q_SLOTS:
         QVERIFY(drop(goMenu, QStringLiteral("pane"), QStringLiteral("action"), paneForwardId, QPointF(0, 0)));
         QVERIFY(goMenu->actions().contains(goForward));
         QVERIFY(!paneToolbar->actions().contains(paneForward));
+        QVERIFY(drop(goMenu, QStringLiteral("menu"), QStringLiteral("action"), menuGoForwardId, QPointF(0, goMenu->height() + 10)));
+        QCOMPARE(goMenu->actions().last(), goForward);
+        const KConfigGroup goMenuCustomization = customization.group(QStringLiteral("Menus")).group(QStringLiteral("go"));
+        const QStringList savedGoMenuOrder = goMenuCustomization.readEntry("Order", QStringList());
+        QCOMPARE(savedGoMenuOrder.last(), QStringLiteral("go_forward"));
 
         window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
         Pane *otherPane = window.inactivePane();
@@ -639,11 +742,139 @@ private Q_SLOTS:
         auto *restoredGoMenu = restored.findChild<QMenu *>(QStringLiteral("go"));
         QAction *restoredGoForward = restored.actionCollection()->action(QStringLiteral("go_forward"));
         QVERIFY(restoredGoMenu && restoredGoForward && restoredGoMenu->actions().contains(restoredGoForward));
+        QStringList restoredGoMenuOrder;
+        for (QAction *action : restoredGoMenu->actions()) {
+            if (!action->objectName().isEmpty()) {
+                restoredGoMenuOrder.append(action->objectName());
+            }
+        }
+        QCOMPARE(restoredGoMenuOrder, savedGoMenuOrder);
         auto *terminalButton = qobject_cast<QToolButton *>(restoredToolbar->widgetForAction(terminal));
         QVERIFY(terminalButton);
         QCOMPARE(terminalButton->toolButtonStyle(), Qt::ToolButtonTextOnly);
         QCOMPARE(terminalButton->icon().name(), customIconName);
         QCOMPARE(terminal->icon().name(), terminalIconName);
+    }
+
+    void paneToolbarEntriesCanCustomizeAppearance()
+    {
+        MainWindow window;
+        Pane *pane = window.activePane();
+        QVERIFY(pane);
+        QAction *action = pane->toolbarAction(QStringLiteral("paneBack"));
+        auto *button = qobject_cast<QToolButton *>(pane->toolBar()->widgetForAction(action));
+        QAction *customize = window.actionCollection()->action(QStringLiteral("customize_main_toolbar"));
+        QVERIFY(action && button && customize);
+
+        KConfigGroup appearance =
+            KSharedConfig::openConfig()->group(QStringLiteral("ToolbarCustomization")).group(QStringLiteral("Entries")).group(action->objectName());
+        const bool hadStyle = appearance.hasKey(QStringLiteral("ButtonStyle"));
+        const int savedStyle = appearance.readEntry(QStringLiteral("ButtonStyle"), -1);
+        const auto cleanup = qScopeGuard([&] {
+            if (hadStyle) {
+                appearance.writeEntry(QStringLiteral("ButtonStyle"), savedStyle);
+            } else {
+                appearance.deleteEntry(QStringLiteral("ButtonStyle"));
+            }
+            appearance.sync();
+            if (customize->isChecked()) {
+                customize->trigger();
+            }
+            window.applySettings();
+        });
+
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        customize->trigger();
+        QVERIFY(customize->isChecked());
+        QTimer fallbackClose;
+        fallbackClose.setSingleShot(true);
+        connect(&fallbackClose, &QTimer::timeout, &window, [] {
+            if (auto *popup = qobject_cast<QMenu *>(QApplication::activePopupWidget())) {
+                popup->close();
+            }
+        });
+        fallbackClose.start(1000);
+        QTimer::singleShot(0, [&] {
+            auto *popup = qobject_cast<QMenu *>(QApplication::activePopupWidget());
+            QVERIFY(popup);
+            auto *styles = popup->findChild<QMenu *>(QStringLiteral("toolbarButtonStyleMenu"));
+            QVERIFY(styles);
+            QCOMPARE(styles->actions().size(), 4);
+            styles->actions().at(1)->trigger();
+            popup->close();
+        });
+        const QPoint localPosition(1, 1);
+        QContextMenuEvent contextMenu(QContextMenuEvent::Mouse, localPosition, button->mapToGlobal(localPosition));
+        QApplication::sendEvent(button, &contextMenu);
+        fallbackClose.stop();
+
+        QCOMPARE(appearance.readEntry(QStringLiteral("ButtonStyle"), -1), static_cast<int>(Qt::ToolButtonTextOnly));
+        QCOMPARE(button->toolButtonStyle(), Qt::ToolButtonTextOnly);
+    }
+
+    void toolbarCustomizationsCanResetToDefaults()
+    {
+        QTemporaryDir backupDir;
+        QVERIFY(backupDir.isValid());
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup customization = config->group(QStringLiteral("ToolbarCustomization"));
+        KConfigGroup paneCustomization = config->group(QStringLiteral("PaneToolbars"));
+        const auto backup = KSharedConfig::openConfig(backupDir.filePath(QStringLiteral("settings")));
+        KConfigGroup savedCustomization = backup->group(QStringLiteral("ToolbarCustomization"));
+        KConfigGroup savedPaneCustomization = backup->group(QStringLiteral("PaneToolbars"));
+        customization.copyTo(&savedCustomization);
+        paneCustomization.copyTo(&savedPaneCustomization);
+        const auto cleanup = qScopeGuard([&] {
+            customization.deleteGroup();
+            savedCustomization.copyTo(&customization);
+            paneCustomization.deleteGroup();
+            savedPaneCustomization.copyTo(&paneCustomization);
+            config->sync();
+        });
+        customization.deleteGroup();
+        paneCustomization.deleteGroup();
+
+        MainWindow window;
+        QToolBar *toolbar = window.toolBar();
+        Pane *pane = window.activePane();
+        auto *goMenu = window.findChild<QMenu *>(QStringLiteral("go"));
+        QVERIFY(toolbar && pane && goMenu);
+        const QList<QAction *> defaultToolbarActions = toolbar->actions();
+        const QList<QAction *> defaultPaneActions = pane->toolBar()->actions();
+        const QList<QAction *> defaultMenuActions = goMenu->actions();
+        QVERIFY(defaultToolbarActions.size() > 1 && defaultPaneActions.size() > 1 && defaultMenuActions.size() > 1);
+
+        toolbar->removeAction(defaultToolbarActions.first());
+        toolbar->addAction(defaultToolbarActions.first());
+        pane->removeToolbarAction(defaultPaneActions.first());
+        goMenu->removeAction(defaultMenuActions.first());
+        goMenu->addAction(defaultMenuActions.first());
+        customization.writeEntry(QStringLiteral("Actions"), QStringList{QStringLiteral("action:go_home")});
+        customization.group(QStringLiteral("Entries"))
+            .group(QStringLiteral("open_terminal"))
+            .writeEntry(QStringLiteral("ButtonStyle"), static_cast<int>(Qt::ToolButtonTextOnly));
+        customization.group(QStringLiteral("Menus"))
+            .group(QStringLiteral("go"))
+            .writeEntry(QStringLiteral("HiddenActions"), QStringList{defaultMenuActions.first()->objectName()});
+
+        QAction *reset = window.actionCollection()->action(QStringLiteral("reset_toolbar_customization"));
+        QVERIFY(reset);
+        QTimer::singleShot(0, [] {
+            auto *dialog = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(dialog);
+            QVERIFY(dialog->button(QMessageBox::Yes));
+            dialog->button(QMessageBox::Yes)->click();
+        });
+        reset->trigger();
+
+        QCOMPARE(toolbar->actions(), defaultToolbarActions);
+        QCOMPARE(pane->toolBar()->actions(), defaultPaneActions);
+        QCOMPARE(goMenu->actions(), defaultMenuActions);
+        QCoreApplication::processEvents();
+        QVERIFY(customization.keyList().isEmpty());
+        QVERIFY(customization.groupList().isEmpty());
+        QVERIFY(paneCustomization.groupList().isEmpty());
     }
 
     void paneToolbarsControlTheirOwnPane()
@@ -938,12 +1169,15 @@ private Q_SLOTS:
             file.close();
         }
 
-        const bool previous = Settings::showFileListMinimap();
-        const auto restoreSetting = qScopeGuard([previous] {
-            Settings::setShowFileListMinimap(previous);
+        const bool previousVisible = Settings::showFileListMinimap();
+        const int previousWidth = Settings::fileListMinimapWidth();
+        const auto restoreSetting = qScopeGuard([previousVisible, previousWidth] {
+            Settings::setShowFileListMinimap(previousVisible);
+            Settings::setFileListMinimapWidth(previousWidth);
             Settings::self()->save();
         });
         Settings::setShowFileListMinimap(true);
+        Settings::setFileListMinimapWidth(22);
         Settings::self()->save();
 
         FolderView view;
@@ -955,6 +1189,15 @@ private Q_SLOTS:
         auto *minimap = view.findChild<QWidget *>(QStringLiteral("fileListMinimap"));
         QVERIFY(minimap);
         QVERIFY(minimap->isVisible());
+        QCOMPARE(minimap->width(), 22);
+        Settings::setFileListMinimapWidth(28);
+        view.reloadListingSettings();
+        QCOMPARE(minimap->width(), 28);
+        Settings::setFileListMinimapWidth(100);
+        view.reloadListingSettings();
+        QCOMPARE(minimap->width(), 64);
+        Settings::setFileListMinimapWidth(28);
+        view.reloadListingSettings();
         auto *scrollBar = view.currentView()->verticalScrollBar();
         QTRY_VERIFY(scrollBar->maximum() > 0);
         QTest::mouseClick(minimap, Qt::LeftButton, Qt::NoModifier, QPoint(minimap->width() / 2, minimap->height() - 1));

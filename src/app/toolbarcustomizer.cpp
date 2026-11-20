@@ -2,6 +2,7 @@
 
 #include "toolbarcustomizer.h"
 #include "pane.h"
+#include "settings.h"
 
 #include <KActionCollection>
 #include <KConfigGroup>
@@ -95,6 +96,11 @@ ToolbarCustomizer::ToolbarCustomizer(KToolBar *toolbar, KActionCollection *actio
     window->addDockWidget(Qt::RightDockWidgetArea, m_dock);
     m_dock->hide();
 
+    m_defaultToolbarActions = m_toolbar->actions();
+    for (QMenu *menu : menus()) {
+        m_defaultMenus.append({menu, menu->actions()});
+    }
+
     for (Pane *pane : std::as_const(m_panes)) {
         for (QAction *action : pane->toolBar()->actions()) {
             if (action->objectName() != QLatin1String("paneCustomizeToolbar")) {
@@ -124,6 +130,12 @@ ToolbarCustomizer::ToolbarCustomizer(KToolBar *toolbar, KActionCollection *actio
 
 void ToolbarCustomizer::setEditing(bool editing)
 {
+    if (editing && Settings::lockToolbars()) {
+        if (QAction *action = m_actions->action(QStringLiteral("customize_main_toolbar"))) {
+            action->setChecked(false);
+        }
+        return;
+    }
     if (m_editing == editing) {
         return;
     }
@@ -147,6 +159,85 @@ void ToolbarCustomizer::setEditing(bool editing)
     Q_EMIT editingChanged(editing);
 }
 
+void ToolbarCustomizer::applyAppearanceSettings()
+{
+    Qt::ToolButtonStyle style = Qt::ToolButtonIconOnly;
+    switch (Settings::toolbarButtonStyle()) {
+    case Settings::EnumToolbarButtonStyle::TextOnly:
+        style = Qt::ToolButtonTextOnly;
+        break;
+    case Settings::EnumToolbarButtonStyle::TextBesideIcon:
+        style = Qt::ToolButtonTextBesideIcon;
+        break;
+    case Settings::EnumToolbarButtonStyle::TextUnderIcon:
+        style = Qt::ToolButtonTextUnderIcon;
+        break;
+    case Settings::EnumToolbarButtonStyle::IconOnly:
+        break;
+    default:
+        break;
+    }
+
+    const int iconSize = Settings::toolbarIconSize();
+    for (QToolBar *toolbar : toolbars()) {
+        toolbar->setToolButtonStyle(style);
+        if (iconSize > 0) {
+            toolbar->setIconSize(QSize(iconSize, iconSize));
+        } else {
+            toolbar->setIconSize(toolbar == m_toolbar ? QSize() : QSize(16, 16));
+        }
+        for (QAction *action : toolbar->actions()) {
+            applyAppearance(action);
+        }
+    }
+}
+
+void ToolbarCustomizer::resetToDefaults()
+{
+    setEditing(false);
+    ++m_saveGeneration;
+    m_saveScheduled = false;
+    m_restoring = true;
+
+    KSharedConfig::Ptr config = KSharedConfig::openConfig();
+    config->group(QLatin1String(ToolbarGroup)).deleteGroup();
+    for (Pane *pane : std::as_const(m_panes)) {
+        pane->resetToolbarConfiguration();
+    }
+
+    const QList<QAction *> currentActions = m_toolbar->actions();
+    m_toolbar->clear();
+    for (QAction *action : currentActions) {
+        if (action->property("toolbarCustomizerOwned").toBool()) {
+            action->deleteLater();
+        }
+    }
+    for (QAction *action : std::as_const(m_defaultToolbarActions)) {
+        m_toolbar->addAction(action);
+    }
+
+    for (const MenuSnapshot &snapshot : std::as_const(m_defaultMenus)) {
+        if (snapshot.menu) {
+            for (QAction *action : snapshot.menu->actions()) {
+                snapshot.menu->removeAction(action);
+            }
+        }
+    }
+    for (const MenuSnapshot &snapshot : std::as_const(m_defaultMenus)) {
+        if (snapshot.menu) {
+            for (QAction *action : snapshot.actions) {
+                snapshot.menu->addAction(action);
+            }
+        }
+    }
+
+    m_restoring = false;
+    config->sync();
+    installButtonFilter(nullptr);
+    applyAppearanceSettings();
+    populateActions();
+}
+
 bool ToolbarCustomizer::eventFilter(QObject *watched, QEvent *event)
 {
     if (auto *menu = qobject_cast<QMenu *>(watched)) {
@@ -162,7 +253,7 @@ bool ToolbarCustomizer::eventFilter(QObject *watched, QEvent *event)
             auto *drop = static_cast<QDropEvent *>(event);
             QStringList parts;
             if (m_editing && parsePayload(drop->mimeData(), &parts)) {
-                handleMenuDrop(menu, drop->mimeData());
+                handleMenuDrop(menu, drop->mimeData(), drop->position().toPoint());
                 drop->setDropAction(Qt::MoveAction);
                 drop->accept();
                 return true;
@@ -198,7 +289,11 @@ bool ToolbarCustomizer::eventFilter(QObject *watched, QEvent *event)
         if (targetToolbar == m_toolbar && !m_restoring && !m_saveScheduled
             && (event->type() == QEvent::ActionAdded || event->type() == QEvent::ActionRemoved)) {
             m_saveScheduled = true;
-            QTimer::singleShot(0, this, [this] {
+            const quint64 generation = m_saveGeneration;
+            QTimer::singleShot(0, this, [this, generation] {
+                if (generation != m_saveGeneration) {
+                    return;
+                }
                 m_saveScheduled = false;
                 if (!m_restoring) {
                     installButtonFilter(nullptr);
@@ -286,9 +381,11 @@ bool ToolbarCustomizer::eventFilter(QObject *watched, QEvent *event)
         } else if (event->type() == QEvent::MouseButtonRelease) {
             m_pressedAction = nullptr;
         } else if (event->type() == QEvent::ContextMenu && m_editing && action) {
-            if (m_toolbar->widgetForAction(action) == watched) {
-                showActionMenu(action, static_cast<QContextMenuEvent *>(event)->globalPos());
-                return true;
+            for (QToolBar *toolbar : toolbars()) {
+                if (toolbar->widgetForAction(action) == watched) {
+                    showActionMenu(action, static_cast<QContextMenuEvent *>(event)->globalPos());
+                    return true;
+                }
             }
         }
     }
@@ -475,6 +572,7 @@ void ToolbarCustomizer::showActionMenu(QAction *action, const QPoint &globalPosi
     QAction *chooseIcon = menu.addAction(i18nc("@action:inmenu", "Choose Icon…"));
     QAction *resetIcon = menu.addAction(i18nc("@action:inmenu", "Use Default Icon"));
     QMenu *styleMenu = menu.addMenu(i18nc("@menu", "Button Style"));
+    styleMenu->setObjectName(QStringLiteral("toolbarButtonStyleMenu"));
     auto *styleGroup = new QActionGroup(styleMenu);
     styleGroup->setExclusive(true);
     const QList<QPair<Qt::ToolButtonStyle, QString>> styles{
@@ -541,20 +639,25 @@ void ToolbarCustomizer::applyAppearance(QAction *action)
 {
     const KConfigGroup entry = KSharedConfig::openConfig()->group(QLatin1String(ToolbarGroup)).group(QLatin1String(EntriesGroup)).group(action->objectName());
     const QString iconName = entry.readEntry("IconName", QString());
-    if (auto *button = qobject_cast<QToolButton *>(m_toolbar->widgetForAction(action))) {
-        if (iconName.isEmpty()) {
-            button->setIcon(action->icon());
-        } else {
-            const QIcon icon = QIcon::fromTheme(iconName);
-            if (icon.isNull()) {
-                qWarning() << "Configured toolbar icon is unavailable in the current theme:" << iconName;
-            } else {
-                button->setIcon(icon);
+    for (QToolBar *toolbar : toolbars()) {
+        if (toolbar->actions().contains(action)) {
+            if (auto *button = qobject_cast<QToolButton *>(toolbar->widgetForAction(action))) {
+                if (iconName.isEmpty()) {
+                    button->setIcon(action->icon());
+                } else {
+                    const QIcon icon = QIcon::fromTheme(iconName);
+                    if (icon.isNull()) {
+                        qWarning() << "Configured toolbar icon is unavailable in the current theme:" << iconName;
+                    } else {
+                        button->setIcon(icon);
+                    }
+                }
+                const int style = entry.readEntry("ButtonStyle", -1);
+                if (style >= Qt::ToolButtonIconOnly && style <= Qt::ToolButtonTextUnderIcon) {
+                    button->setToolButtonStyle(static_cast<Qt::ToolButtonStyle>(style));
+                }
             }
-        }
-        const int style = entry.readEntry("ButtonStyle", -1);
-        if (style >= Qt::ToolButtonIconOnly && style <= Qt::ToolButtonTextUnderIcon) {
-            button->setToolButtonStyle(static_cast<Qt::ToolButtonStyle>(style));
+            break;
         }
     }
 }
@@ -854,7 +957,7 @@ void ToolbarCustomizer::removeToolbarItem(const QString &kind, const QString &na
     }
 }
 
-void ToolbarCustomizer::handleMenuDrop(QMenu *target, const QMimeData *mimeData)
+void ToolbarCustomizer::handleMenuDrop(QMenu *target, const QMimeData *mimeData, const QPoint &position)
 {
     QStringList parts;
     if (!target || target->objectName().isEmpty() || !parsePayload(mimeData, &parts) || parts.at(1) != QLatin1String("action")) {
@@ -925,8 +1028,14 @@ void ToolbarCustomizer::handleMenuDrop(QMenu *target, const QMimeData *mimeData)
     if (!menuAction) {
         return;
     }
-    if (!target->actions().contains(menuAction)) {
-        target->addAction(menuAction);
+    QAction *before = target->actionAt(position);
+    if (sourceMenu == target) {
+        if (before == menuAction) {
+            return;
+        }
+        target->insertAction(before, menuAction);
+    } else if (!target->actions().contains(menuAction)) {
+        target->insertAction(before, menuAction);
     }
     KConfigGroup targetGroup = KSharedConfig::openConfig()->group(QLatin1String(ToolbarGroup)).group(QStringLiteral("Menus")).group(target->objectName());
     QStringList targetHidden = targetGroup.readEntry(QStringLiteral("HiddenActions"), QStringList());
@@ -966,7 +1075,15 @@ void ToolbarCustomizer::saveMenuCustomizations(QMenu *menu)
     if (!menu || menu->objectName().isEmpty()) {
         return;
     }
-    KSharedConfig::openConfig()->group(QLatin1String(ToolbarGroup)).group(QStringLiteral("Menus")).group(menu->objectName()).sync();
+    KConfigGroup group = KSharedConfig::openConfig()->group(QLatin1String(ToolbarGroup)).group(QStringLiteral("Menus")).group(menu->objectName());
+    QStringList order;
+    for (QAction *action : menu->actions()) {
+        if (!action->objectName().isEmpty()) {
+            order.append(action->objectName());
+        }
+    }
+    group.writeEntry(QStringLiteral("Order"), order);
+    group.sync();
 }
 
 void ToolbarCustomizer::restoreMenuCustomizations()
@@ -987,6 +1104,18 @@ void ToolbarCustomizer::restoreMenuCustomizations()
         for (const QString &name : added) {
             if (QAction *action = m_actions->action(name); action && !menu->actions().contains(action)) {
                 menu->addAction(action);
+            }
+        }
+        const QStringList order = group.readEntry(QStringLiteral("Order"), QStringList());
+        const QList<QAction *> menuActions = menu->actions();
+        QAction *before = nullptr;
+        for (auto it = order.crbegin(); it != order.crend(); ++it) {
+            const auto action = std::find_if(menuActions.cbegin(), menuActions.cend(), [&it](QAction *candidate) {
+                return candidate->objectName() == *it;
+            });
+            if (action != menuActions.cend()) {
+                menu->insertAction(before, *action);
+                before = *action;
             }
         }
     }

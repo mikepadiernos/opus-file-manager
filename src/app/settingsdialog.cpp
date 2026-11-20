@@ -5,6 +5,7 @@
 #include "batchrenamedialog.h"
 #include "customcommanddialog.h"
 #include "density.h"
+#include "pane.h"
 #include "pathfilterpresetsdialog.h"
 #include "searchstoredialog.h"
 #include "servicemenus.h"
@@ -12,6 +13,7 @@
 #include "settingsbackup.h"
 #include "settingswidgets.h"
 
+#include <KActionCollection>
 #include <KConfigGroup>
 #include <KLocalizedString>
 #include <KPageWidget>
@@ -19,8 +21,10 @@
 #include <KSharedConfig>
 #include <KTextEditor/Editor>
 #include <KUrlRequester>
+#include <KXmlGuiWindow>
 
 #include <QAbstractItemView>
+#include <QAction>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
@@ -32,6 +36,7 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QMetaEnum>
+#include <QPointer>
 #include <QProcess>
 #include <QPushButton>
 #include <QScrollArea>
@@ -39,6 +44,8 @@
 #include <QSpinBox>
 #include <QStandardPaths>
 #include <QTabWidget>
+#include <QTimer>
+#include <QToolBar>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -124,7 +131,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
 {
     addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}}, i18nc("@title:group", "General"), QStringLiteral("configure"));
     addTabbedPage({{createSettingsBackupPage(), i18nc("@title:tab", "Backup and Restore")}}, i18nc("@title:group", "Backup"), QStringLiteral("document-save"));
-    addTabbedPage({{createFoldersAndTabsPage(), i18nc("@title:tab", "Folders and Tabs")},
+    addTabbedPage({{createToolbarEntriesPage(), i18nc("@title:tab", "Toolbars")},
+                   {createFoldersAndTabsPage(), i18nc("@title:tab", "Folders and Tabs")},
                    {createPreviewsPage(), i18nc("@title:tab", "Previews")},
                    {createConfirmationsPage(), i18nc("@title:tab", "Confirmations")},
                    {createPlacesPage(), i18nc("@title:tab", "Panels")},
@@ -230,6 +238,77 @@ QWidget *SettingsDialog::createSettingsDialogPage()
                  comboBox(QStringLiteral("SidebarTitlePosition"),
                           {i18nc("@item:inlistbox", "Beside the sidebar icons"), i18nc("@item:inlistbox", "Below the sidebar icons")}));
     form->addRow(i18nc("@label:spinbox", "Sidebar icon size:"), pixelSpinBox(QStringLiteral("SidebarIconSize"), 16, 64));
+    return page;
+}
+
+QWidget *SettingsDialog::createToolbarEntriesPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *description = new QLabel(
+        i18nc("@info",
+              "Configure the appearance, entries and order of the main toolbar, pane toolbars and hamburger menu. "
+              "The existing editors open after this settings window closes. In the toolbar editor, right-click an entry to choose its icon and button style."),
+        page);
+    description->setWordWrap(true);
+    layout->addWidget(description);
+
+    auto *appearance = new QFormLayout;
+    appearance->addRow(QString(), checkBox(QStringLiteral("LockToolbars"), i18nc("@option:check", "Lock toolbar positions and editing")));
+    appearance->addRow(i18nc("@label:listbox", "Default button style:"),
+                       comboBox(QStringLiteral("ToolbarButtonStyle"),
+                                {i18nc("@item:inlistbox", "Icon only"),
+                                 i18nc("@item:inlistbox", "Text only"),
+                                 i18nc("@item:inlistbox", "Text beside icon"),
+                                 i18nc("@item:inlistbox", "Text under icon")}));
+    auto *iconSize = pixelSpinBox(QStringLiteral("ToolbarIconSize"), 0, 64);
+    iconSize->setSpecialValueText(i18nc("@item:valuesuffix", "Default"));
+    appearance->addRow(i18nc("@label:spinbox", "Icon size:"), iconSize);
+    layout->addLayout(appearance);
+
+    QWidget *window = parentWidget();
+    const auto addEditorButton = [this, layout, page, window](const QString &name, const QString &text, QAction *action) {
+        auto *button = new QPushButton(text, page);
+        button->setObjectName(name);
+        button->setEnabled(action && action->isEnabled());
+        if (action) {
+            const QPointer<QAction> target(action);
+            const QPointer<QWidget> parent(window);
+            connect(action, &QAction::changed, button, [button, target] {
+                button->setEnabled(target && target->isEnabled());
+            });
+            connect(button, &QPushButton::clicked, this, [this, target, parent] {
+                accept();
+                if (!target || !parent) {
+                    return;
+                }
+                QTimer::singleShot(0, parent, [target] {
+                    if (target && (!target->isCheckable() || !target->isChecked())) {
+                        target->trigger();
+                    }
+                });
+            });
+        }
+        layout->addWidget(button);
+    };
+
+    auto *mainWindow = qobject_cast<KXmlGuiWindow *>(window);
+    QAction *mainToolbar = mainWindow ? mainWindow->actionCollection()->action(QStringLiteral("customize_main_toolbar")) : nullptr;
+    addEditorButton(QStringLiteral("configureMainToolbarEntries"), i18nc("@action:button", "Main Toolbar and Hamburger Menu…"), mainToolbar);
+    QAction *resetToolbars = mainWindow ? mainWindow->actionCollection()->action(QStringLiteral("reset_toolbar_customization")) : nullptr;
+    addEditorButton(QStringLiteral("resetToolbarCustomization"), i18nc("@action:button", "Restore Default Toolbars…"), resetToolbars);
+    QList<Pane *> panes = window ? window->findChildren<Pane *>() : QList<Pane *>{};
+    std::sort(panes.begin(), panes.end(), [](const Pane *left, const Pane *right) {
+        return left->toolbarConfigId() < right->toolbarConfigId();
+    });
+    for (Pane *pane : panes) {
+        const bool first = pane->toolbarConfigId() == QLatin1String("Left");
+        const QString label = first ? i18nc("@action:button", "First Pane Toolbar…") : i18nc("@action:button", "Second Pane Toolbar…");
+        const QList<QAction *> toolbarActions = pane->toolBar()->actions();
+        QAction *configure = toolbarActions.isEmpty() ? nullptr : toolbarActions.last();
+        addEditorButton(first ? QStringLiteral("configureFirstPaneToolbarEntries") : QStringLiteral("configureSecondPaneToolbarEntries"), label, configure);
+    }
+    layout->addStretch();
     return page;
 }
 
@@ -860,7 +939,22 @@ QWidget *SettingsDialog::createFoldersAndTabsPage()
     form->addRow(QString(), checkBox(QStringLiteral("NewTabsAfterCurrent"), i18nc("@option:check", "Open new tabs next to the current tab")));
     form->addRow(i18nc("@title:group", "Panes:"), checkBox(QStringLiteral("TabSwitchesPanes"), i18nc("@option:check", "Tab key switches between the panes")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowNavigationBar"), i18nc("@option:check", "Show the navigation bar of each pane")));
-    form->addRow(QString(), checkBox(QStringLiteral("DimInactivePane"), i18nc("@option:check", "Dim the inactive pane")));
+    auto *dimInactive = checkBox(QStringLiteral("DimInactivePane"), i18nc("@option:check", "Dim the inactive pane"));
+    auto *inactiveOpacity = new QSpinBox;
+    inactiveOpacity->setObjectName(QStringLiteral("kcfg_InactivePaneOpacity"));
+    inactiveOpacity->setRange(20, 100);
+    inactiveOpacity->setSuffix(i18nc("@item:valuesuffix percent", "%"));
+    connect(dimInactive, &QCheckBox::toggled, inactiveOpacity, &QWidget::setEnabled);
+    inactiveOpacity->setEnabled(dimInactive->isChecked());
+    form->addRow(QString(), dimInactive);
+    form->addRow(i18nc("@label:spinbox", "Inactive pane opacity:"), inactiveOpacity);
+    form->addRow(i18nc("@label:listbox", "Default second-pane destination:"),
+                 comboBox(QStringLiteral("PaneMoveDestination"), {i18nc("@item:inlistbox", "Tab"), i18nc("@item:inlistbox", "Separate window")}));
+    form->addRow(
+        i18nc("@label:listbox", "Display style when moving:"),
+        comboBox(QStringLiteral("PaneMoveDisplayStyle"), {i18nc("@item:inlistbox", "Keep current view"), i18nc("@item:inlistbox", "Reset to default view")}));
+    form->addRow(i18nc("@label:listbox", "Default pane swap:"),
+                 comboBox(QStringLiteral("PaneSwapMode"), {i18nc("@item:inlistbox", "Swap current tabs"), i18nc("@item:inlistbox", "Swap whole pane sides")}));
     form->addRow(i18nc("@title:group", "Navigation:"),
                  checkBox(QStringLiteral("FollowSymlinks"), i18nc("@option:check", "Always follow symbolic links to their target")));
     form->addRow(i18nc("@title:group", "History:"),
@@ -887,7 +981,12 @@ QWidget *SettingsDialog::createViewGeneralPage()
     form->addRow(QString(), checkBox(QStringLiteral("SortDescending"), i18nc("@option:check", "Descending")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowHiddenFiles"), i18nc("@option:check", "Show hidden files in new windows")));
     form->addRow(i18nc("@title:group", "Sorting:"), checkBox(QStringLiteral("FoldersFirst"), i18nc("@option:check", "Folders before files")));
-    form->addRow(i18nc("@title:group", "File list:"), checkBox(QStringLiteral("ShowFileListMinimap"), i18nc("@option:check", "Show a minimap in each pane")));
+    auto *showMinimap = checkBox(QStringLiteral("ShowFileListMinimap"), i18nc("@option:check", "Show a minimap in each pane"));
+    auto *minimapWidth = pixelSpinBox(QStringLiteral("FileListMinimapWidth"), 8, 64);
+    connect(showMinimap, &QCheckBox::toggled, minimapWidth, &QWidget::setEnabled);
+    minimapWidth->setEnabled(showMinimap->isChecked());
+    form->addRow(i18nc("@title:group", "File list:"), showMinimap);
+    form->addRow(i18nc("@label:spinbox", "Minimap width:"), minimapWidth);
     form->addRow(i18nc("@title:group", "Tooltips:"), checkBox(QStringLiteral("ShowToolTips"), i18nc("@option:check", "Show the full name of shortened items")));
     form->addRow(i18nc("@label:listbox", "Default grouping:"),
                  comboBox(QStringLiteral("GroupBy"),
@@ -1061,6 +1160,31 @@ QWidget *SettingsDialog::createPanelAppearancePage()
     form->addRow(i18nc("@title:group", "Combined panel sections:"), checkBox(QStringLiteral("FavoritesVisible"), i18nc("@option:check", "Favorites")));
     form->addRow({}, checkBox(QStringLiteral("PlacesVisible"), i18nc("@option:check", "Places")));
     form->addRow({}, checkBox(QStringLiteral("FoldersVisible"), i18nc("@option:check", "Folder tree")));
+    auto *configure = new QPushButton(i18nc("@action:button", "Configure Section Order and Titles…"), page);
+    configure->setObjectName(QStringLiteral("configureCombinedPanelSections"));
+    QWidget *window = parentWidget();
+    auto *mainWindow = qobject_cast<KXmlGuiWindow *>(window);
+    QAction *action = mainWindow ? mainWindow->actionCollection()->action(QStringLiteral("customize_combined_panel")) : nullptr;
+    configure->setEnabled(action && action->isEnabled());
+    if (action) {
+        const QPointer<QAction> target(action);
+        const QPointer<QWidget> parent(window);
+        connect(action, &QAction::changed, configure, [configure, target] {
+            configure->setEnabled(target && target->isEnabled());
+        });
+        connect(configure, &QPushButton::clicked, this, [this, target, parent] {
+            accept();
+            if (!target || !parent) {
+                return;
+            }
+            QTimer::singleShot(0, parent, [target] {
+                if (target) {
+                    target->trigger();
+                }
+            });
+        });
+    }
+    form->addRow(i18nc("@title:group", "Section order and titles:"), configure);
     return page;
 }
 
@@ -1140,6 +1264,9 @@ QWidget *SettingsDialog::createStatusBarPage()
     auto *form = new QFormLayout(page);
     form->addRow(i18nc("@label:listbox", "Status indicators:"),
                  comboBox(QStringLiteral("StatusBarLayout"), {i18nc("@item:inlistbox", "Shared"), i18nc("@item:inlistbox", "One per pane")}));
+    form->addRow(i18nc("@label:listbox", "Indicator order:"),
+                 comboBox(QStringLiteral("StatusBarIndicatorOrder"),
+                          {i18nc("@item:inlistbox", "Item counts, then free space"), i18nc("@item:inlistbox", "Free space, then item counts")}));
     form->addRow(QString(), checkBox(QStringLiteral("ShowItemCounts"), i18nc("@option:check", "Number of items and selected items")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowSelectionSize"), i18nc("@option:check", "Size of the selected files")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowFreeSpace"), i18nc("@option:check", "Free space")));

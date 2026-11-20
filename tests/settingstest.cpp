@@ -35,6 +35,7 @@
 #include <QDockWidget>
 #include <QDropEvent>
 #include <QFile>
+#include <QGraphicsOpacityEffect>
 #include <QHeaderView>
 #include <QLabel>
 #include <QLayout>
@@ -56,6 +57,7 @@
 #include <QTest>
 #include <QTextBrowser>
 #include <QTimer>
+#include <QToolButton>
 #include <QTreeView>
 
 #include <limits>
@@ -210,6 +212,10 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("StartupMode")), QStringLiteral("Folders and Tabs"));
         QCOMPARE(tabOf(QStringLiteral("FollowSymlinks")), QStringLiteral("Folders and Tabs"));
         QCOMPARE(tabOf(QStringLiteral("DimInactivePane")), QStringLiteral("Folders and Tabs"));
+        QCOMPARE(tabOf(QStringLiteral("InactivePaneOpacity")), QStringLiteral("Folders and Tabs"));
+        QCOMPARE(tabOf(QStringLiteral("PaneMoveDestination")), QStringLiteral("Folders and Tabs"));
+        QCOMPARE(tabOf(QStringLiteral("PaneMoveDisplayStyle")), QStringLiteral("Folders and Tabs"));
+        QCOMPARE(tabOf(QStringLiteral("PaneSwapMode")), QStringLiteral("Folders and Tabs"));
         QCOMPARE(tabOf(QStringLiteral("ShowPreviews")), QStringLiteral("Previews"));
         QCOMPARE(tabOf(QStringLiteral("ConfirmClosingMultipleTabs")), QStringLiteral("Confirmations"));
         QCOMPARE(tabOf(QStringLiteral("ExecutableAction")), QStringLiteral("Confirmations"));
@@ -217,8 +223,11 @@ private Q_SLOTS:
         QCOMPARE(tabTitleOf(dialog.findChild<QCheckBox *>(QStringLiteral("kioConfirmTrash"))), QStringLiteral("Confirmations"));
         QCOMPARE(tabOf(QStringLiteral("ShowPlaces")), QStringLiteral("Panels"));
         QCOMPARE(tabOf(QStringLiteral("ShowFreeSpace")), QStringLiteral("Status and Location Bars"));
+        QCOMPARE(tabOf(QStringLiteral("StatusBarIndicatorOrder")), QStringLiteral("Status and Location Bars"));
+        QCOMPARE(tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("configureMainToolbarEntries"))), QStringLiteral("Toolbars"));
         QCOMPARE(tabOf(QStringLiteral("DefaultViewMode")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("ShowFileListMinimap")), QStringLiteral("General"));
+        QCOMPARE(tabOf(QStringLiteral("FileListMinimapWidth")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("FolderSizeRefreshInterval")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("DetailsIconSize")), QStringLiteral("Details"));
         QCOMPARE(tabOf(QStringLiteral("DefaultSelectionMarkers")), QStringLiteral("Selection"));
@@ -233,6 +242,9 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("DetailsDensity")), QStringLiteral("Details"));
         QCOMPARE(tabOf(QStringLiteral("IconsDensity")), QStringLiteral("Icons"));
         QCOMPARE(tabOf(QStringLiteral("BarDensity")), QStringLiteral("Status and Location Bars"));
+        QCOMPARE(tabOf(QStringLiteral("ToolbarButtonStyle")), QStringLiteral("Toolbars"));
+        QCOMPARE(tabOf(QStringLiteral("ToolbarIconSize")), QStringLiteral("Toolbars"));
+        QCOMPARE(tabOf(QStringLiteral("LockToolbars")), QStringLiteral("Toolbars"));
         QCOMPARE(tabOf(QStringLiteral("IconsIconSize")), QStringLiteral("Icons"));
         QCOMPARE(tabOf(QStringLiteral("TextPreviewLimitKiB")), QStringLiteral("Previews"));
         QCOMPARE(tabOf(QStringLiteral("FileActivationDestination")), QStringLiteral("Opening"));
@@ -991,6 +1003,135 @@ private Q_SLOTS:
         QCOMPARE(navigation->contentsMargins(), initialNavigation);
     }
 
+    void toolbarAppearanceSettingsApplyToEveryToolbar()
+    {
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *style = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_ToolbarButtonStyle"));
+        auto *iconSize = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_ToolbarIconSize"));
+        QVERIFY(style && iconSize);
+        QCOMPARE(iconSize->specialValueText(), QStringLiteral("Default"));
+
+        style->setCurrentIndex(Settings::EnumToolbarButtonStyle::TextUnderIcon);
+        iconSize->setValue(32);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::toolbarButtonStyle(), Settings::EnumToolbarButtonStyle::TextUnderIcon);
+        QCOMPARE(Settings::toolbarIconSize(), 32);
+        window.applySettings();
+
+        QCOMPARE(window.toolBar()->toolButtonStyle(), Qt::ToolButtonTextUnderIcon);
+        QCOMPARE(window.toolBar()->iconSize(), QSize(32, 32));
+        for (Pane *pane : {window.activePane(), window.inactivePane()}) {
+            QCOMPARE(pane->toolBar()->toolButtonStyle(), Qt::ToolButtonTextUnderIcon);
+            QCOMPARE(pane->toolBar()->iconSize(), QSize(32, 32));
+        }
+
+        QAction *entry = nullptr;
+        for (QAction *action : window.toolBar()->actions()) {
+            if (qobject_cast<QToolButton *>(window.toolBar()->widgetForAction(action))) {
+                entry = action;
+                break;
+            }
+        }
+        QVERIFY(entry);
+        KConfigGroup entryConfig =
+            KSharedConfig::openConfig()->group(QStringLiteral("ToolbarCustomization")).group(QStringLiteral("Entries")).group(entry->objectName());
+        entryConfig.writeEntry(QStringLiteral("ButtonStyle"), static_cast<int>(Qt::ToolButtonTextOnly));
+        entryConfig.sync();
+        window.applySettings();
+        QCOMPARE(qobject_cast<QToolButton *>(window.toolBar()->widgetForAction(entry))->toolButtonStyle(), Qt::ToolButtonTextOnly);
+
+        QToolBar *paneToolbar = window.activePane()->toolBar();
+        QAction *paneEntry = nullptr;
+        for (QAction *action : paneToolbar->actions()) {
+            if (qobject_cast<QToolButton *>(paneToolbar->widgetForAction(action))) {
+                paneEntry = action;
+                break;
+            }
+        }
+        QVERIFY(paneEntry);
+        KConfigGroup paneEntryConfig =
+            KSharedConfig::openConfig()->group(QStringLiteral("ToolbarCustomization")).group(QStringLiteral("Entries")).group(paneEntry->objectName());
+        paneEntryConfig.writeEntry(QStringLiteral("ButtonStyle"), static_cast<int>(Qt::ToolButtonTextBesideIcon));
+        paneEntryConfig.sync();
+        window.applySettings();
+        QCOMPARE(qobject_cast<QToolButton *>(paneToolbar->widgetForAction(paneEntry))->toolButtonStyle(), Qt::ToolButtonTextBesideIcon);
+
+        entryConfig.deleteEntry(QStringLiteral("ButtonStyle"));
+        paneEntryConfig.deleteEntry(QStringLiteral("ButtonStyle"));
+        Settings::setToolbarIconSize(0);
+        Settings::setToolbarButtonStyle(Settings::EnumToolbarButtonStyle::IconOnly);
+        window.applySettings();
+        QCOMPARE(window.toolBar()->toolButtonStyle(), Qt::ToolButtonIconOnly);
+        QCOMPARE(window.activePane()->toolBar()->iconSize(), QSize(16, 16));
+    }
+
+    void lockedToolbarsDisableEditingAndCanBeUnlocked()
+    {
+        Settings::setLockToolbars(false);
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *lock = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_LockToolbars"));
+        auto *mainEditor = dialog.findChild<QPushButton *>(QStringLiteral("configureMainToolbarEntries"));
+        auto *paneEditor = dialog.findChild<QPushButton *>(QStringLiteral("configureFirstPaneToolbarEntries"));
+        QAction *mainCustomize = window.actionCollection()->action(QStringLiteral("customize_main_toolbar"));
+        QAction *paneCustomize = window.activePane()->toolbarAction(QStringLiteral("paneCustomizeToolbar"));
+        QVERIFY(lock && mainEditor && paneEditor && mainCustomize && paneCustomize);
+        QVERIFY(mainCustomize->isEnabled() && paneCustomize->isEnabled());
+
+        mainCustomize->trigger();
+        QVERIFY(mainCustomize->isChecked());
+        lock->setChecked(true);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        window.applySettings();
+        QVERIFY(Settings::lockToolbars());
+        QVERIFY(!window.toolBar()->isMovable());
+        QVERIFY(!mainCustomize->isEnabled() && !paneCustomize->isEnabled());
+        QVERIFY(!mainCustomize->isChecked());
+        QVERIFY(!mainEditor->isEnabled() && !paneEditor->isEnabled());
+
+        lock->setChecked(false);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        window.applySettings();
+        QVERIFY(!Settings::lockToolbars());
+        QVERIFY(window.toolBar()->isMovable());
+        QVERIFY(mainCustomize->isEnabled() && paneCustomize->isEnabled());
+        QVERIFY(mainEditor->isEnabled() && paneEditor->isEnabled());
+    }
+
+    void inactivePaneOpacitySettingsApply()
+    {
+        const bool previousEnabled = Settings::dimInactivePane();
+        const int previousOpacity = Settings::inactivePaneOpacity();
+        const auto restore = qScopeGuard([&] {
+            Settings::setDimInactivePane(previousEnabled);
+            Settings::setInactivePaneOpacity(previousOpacity);
+        });
+
+        Settings::setDimInactivePane(true);
+        Settings::setInactivePaneOpacity(38);
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *dim = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_DimInactivePane"));
+        auto *opacity = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_InactivePaneOpacity"));
+        QVERIFY(dim && opacity);
+        QVERIFY(dim->isChecked() && opacity->isEnabled());
+        QCOMPARE(opacity->value(), 38);
+        dim->setChecked(false);
+        QVERIFY(!opacity->isEnabled());
+        dim->setChecked(true);
+        QVERIFY(opacity->isEnabled());
+        auto *effect = qobject_cast<QGraphicsOpacityEffect *>(window.inactivePane()->graphicsEffect());
+        QVERIFY(effect);
+        QCOMPARE(effect->opacity(), 0.38);
+
+        opacity->setValue(72);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        window.applySettings();
+        QCOMPARE(Settings::inactivePaneOpacity(), 72);
+        QCOMPARE(effect->opacity(), 0.72);
+    }
+
     void contextListsSaveUnavailableEntries()
     {
         MainWindow window;
@@ -1594,17 +1735,20 @@ private Q_SLOTS:
     void statusBarIndicatorsCanBeShownPerPane()
     {
         const auto previousLayout = Settings::statusBarLayout();
+        const auto previousOrder = Settings::statusBarIndicatorOrder();
         const bool previousCounts = Settings::showItemCounts();
         const bool previousSize = Settings::showSelectionSize();
         const bool previousFreeSpace = Settings::showFreeSpace();
         const auto restore = qScopeGuard([=] {
             Settings::setStatusBarLayout(previousLayout);
+            Settings::setStatusBarIndicatorOrder(previousOrder);
             Settings::setShowItemCounts(previousCounts);
             Settings::setShowSelectionSize(previousSize);
             Settings::setShowFreeSpace(previousFreeSpace);
             Settings::self()->save();
         });
         Settings::setStatusBarLayout(Settings::EnumStatusBarLayout::Shared);
+        Settings::setStatusBarIndicatorOrder(Settings::EnumStatusBarIndicatorOrder::ItemsFirst);
         Settings::setShowItemCounts(true);
         Settings::setShowSelectionSize(true);
         Settings::setShowFreeSpace(true);
@@ -1635,12 +1779,22 @@ private Q_SLOTS:
         QCOMPARE(layout->count(), 2);
         QVERIFY(sharedItems->isVisible());
         QVERIFY(left->statusBarWidget()->isHidden());
+        auto *sharedFreeSpace = window.findChild<QLabel *>(QStringLiteral("freeSpaceLabel"));
+        QVERIFY(sharedItems->geometry().x() < sharedFreeSpace->geometry().x());
+
+        Settings::setStatusBarIndicatorOrder(Settings::EnumStatusBarIndicatorOrder::FreeSpaceFirst);
+        window.applySettings();
+        QTRY_VERIFY(sharedFreeSpace->geometry().x() < sharedItems->geometry().x());
 
         Settings::setStatusBarLayout(Settings::EnumStatusBarLayout::PerPane);
         window.applySettings();
         QVERIFY(sharedItems->isHidden());
         QVERIFY(left->statusBarWidget()->isVisible());
         QVERIFY(right->statusBarWidget()->isVisible());
+        auto *leftStatusLayout = left->statusBarWidget()->layout();
+        QTRY_VERIFY(leftStatusLayout->indexOf(window.findChild<QLabel *>(QStringLiteral("leftFreeSpaceLabel"))) < leftStatusLayout->indexOf(leftItems));
+        auto *rightStatusLayout = right->statusBarWidget()->layout();
+        QTRY_VERIFY(rightStatusLayout->indexOf(window.findChild<QLabel *>(QStringLiteral("rightFreeSpaceLabel"))) < rightStatusLayout->indexOf(rightItems));
         QVERIFY(leftItems->text().contains(QStringLiteral("1 item")));
         QVERIFY(rightItems->text().contains(QStringLiteral("0 items")));
 
@@ -1650,7 +1804,9 @@ private Q_SLOTS:
         right->statusMessage(QStringLiteral("Operation failed"));
         QCOMPARE(window.statusBar()->currentMessage(), QStringLiteral("Operation failed"));
 
+        window.statusBar()->clearMessage();
         Settings::setStatusBarLayout(Settings::EnumStatusBarLayout::Shared);
+        Settings::setStatusBarIndicatorOrder(Settings::EnumStatusBarIndicatorOrder::ItemsFirst);
         window.applySettings();
         QVERIFY(sharedItems->isVisible());
         QVERIFY(left->statusBarWidget()->isHidden());

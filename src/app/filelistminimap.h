@@ -17,6 +17,7 @@ public:
     explicit FileListMinimap(QWidget *parent = nullptr);
 
     void setView(QAbstractItemView *view);
+    void setMinimapWidth(int width);
 
 protected:
     void paintEvent(QPaintEvent *event) override;
