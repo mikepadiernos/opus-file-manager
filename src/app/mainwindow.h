@@ -141,6 +141,10 @@ private:
     void syncLinkedPane(Pane *pane, const QUrl &url);
     void swapCurrentTabs();
     void swapPaneSides();
+    void saveSplitterSizes();
+    void restoreSplitterSizes(bool panes = true, bool workspace = true, bool defaultsIfMissing = false);
+    void resetSplitterSizes();
+    void restoreEditorDockSize();
     void splitFile();
     void combineFiles();
     void setupEditor();

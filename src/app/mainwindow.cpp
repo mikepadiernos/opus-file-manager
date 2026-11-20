@@ -120,6 +120,7 @@ constexpr auto FlatGroup = "Flat";
 constexpr auto PopularFoldersGroup = "PopularFolders";
 constexpr auto SelectionFiltersGroup = "SelectionFilters";
 constexpr auto WindowLayoutGroup = "WindowLayout";
+constexpr auto SplitterSizesGroup = "SplitterSizes";
 
 QString flatKey(const QUrl &url)
 {
@@ -308,7 +309,12 @@ MainWindow::MainWindow(QWidget *parent)
     updateActions();
 }
 
-MainWindow::~MainWindow() = default;
+MainWindow::~MainWindow()
+{
+    if (m_editorDock) {
+        disconnect(m_editorDock, nullptr, this, nullptr);
+    }
+}
 
 void MainWindow::setupPanes()
 {
@@ -1075,6 +1081,10 @@ void MainWindow::setupActions()
     swapTabs->setText(i18nc("@action", "Swap Current Tabs"));
     auto *swapSides = actions->addAction(QStringLiteral("swap_pane_sides"), this, &MainWindow::swapPaneSides);
     swapSides->setText(i18nc("@action", "Swap Pane Sides"));
+    auto *saveSizes = actions->addAction(QStringLiteral("save_splitter_sizes"), this, &MainWindow::saveSplitterSizes);
+    saveSizes->setText(i18nc("@action", "Save Pane and Panel Sizes"));
+    auto *resetSizes = actions->addAction(QStringLiteral("reset_splitter_sizes"), this, &MainWindow::resetSplitterSizes);
+    resetSizes->setText(i18nc("@action", "Reset Pane and Panel Sizes"));
 
     auto *dimInactive = new KToggleAction(i18nc("@action", "Dim Inactive Pane"), this);
     dimInactive->setChecked(Settings::dimInactivePane());
@@ -1094,6 +1104,7 @@ void MainWindow::setupActions()
         }
         m_terminalPanel->setVisible(shown);
         toggleLayout(m_dualLayoutAction->isChecked());
+        restoreSplitterSizes(false, true);
     });
 
     m_linkedPanesAction = new KToggleAction(i18nc("@action", "Link Pane Navigation"), this);
@@ -2146,6 +2157,8 @@ void MainWindow::setEditorPlacement(EditorPanel::Placement placement)
         break;
     }
     toggleLayout(m_dualLayoutAction->isChecked());
+    restoreSplitterSizes(true, false);
+    restoreEditorDockSize();
 }
 
 void MainWindow::openEditor()
@@ -2896,6 +2909,9 @@ void MainWindow::showNewMenu()
 
 void MainWindow::toggleLayout(bool dual)
 {
+    const bool previewWasVisible = !m_previewPanel->isHidden();
+    const bool leftWasVisible = !m_left->isHidden();
+    const bool rightWasVisible = !m_right->isHidden();
     const bool preview = m_previewPanelAction && m_previewPanelAction->isChecked();
     const bool editorEmbedded = m_editor
         && ((m_editorPlacement == EditorPanel::Placement::Panel && !m_editor->isHidden())
@@ -2904,6 +2920,9 @@ void MainWindow::toggleLayout(bool dual)
     m_left->setVisible((dual && (!preview || editorEmbedded || terminalShown)) || activePane() == m_left);
     m_right->setVisible((dual && (!preview || editorEmbedded || terminalShown)) || activePane() == m_right);
     m_previewPanel->setVisible(preview);
+    if (previewWasVisible != preview || leftWasVisible != !m_left->isHidden() || rightWasVisible != !m_right->isHidden()) {
+        restoreSplitterSizes(true, false);
+    }
     if (m_linkedPanesAction && m_linkedPanesAction->isChecked() && (!dual || m_left->isHidden() || m_right->isHidden())) {
         m_linkedPanesAction->setChecked(false);
         showStatusMessage(i18nc("@info:status", "Pane navigation unlinked because both panes are not visible."));
@@ -2911,12 +2930,132 @@ void MainWindow::toggleLayout(bool dual)
     updateActions();
 }
 
+void MainWindow::saveSplitterSizes()
+{
+    const auto state = KSharedConfig::openStateConfig();
+    KConfigGroup group = state->group(QLatin1String(SplitterSizesGroup)).group(QLatin1String(isStackedLayout() ? "Stacked" : "SideBySide"));
+    const auto save = [&group](QSplitter *splitter, const QList<QPair<QWidget *, QString>> &widgets) {
+        const QList<int> sizes = splitter->sizes();
+        int total = 0;
+        int previousVisible = 0;
+        bool savedHidden = false;
+        for (int i = 0; i < splitter->count(); ++i) {
+            if (!splitter->widget(i)->isHidden()) {
+                total += sizes.at(i);
+            }
+        }
+        for (const auto &[widget, key] : widgets) {
+            if (!group.hasKey(key)) {
+                continue;
+            }
+            const int index = splitter->indexOf(widget);
+            if (index >= 0 && !widget->isHidden() && sizes.at(index) > 0) {
+                previousVisible += qBound(1, group.readEntry(key, 2500), 10000);
+            } else {
+                savedHidden = true;
+            }
+        }
+        if (total <= 0) {
+            return;
+        }
+        const int budget = savedHidden && previousVisible > 0 ? previousVisible : 10000;
+        for (const auto &[widget, key] : widgets) {
+            const int index = splitter->indexOf(widget);
+            if (index >= 0 && !widget->isHidden() && sizes.at(index) > 0) {
+                group.writeEntry(key, qMax(1, int(qint64(sizes.at(index)) * budget / total)));
+            }
+        }
+    };
+    save(m_splitter,
+         {{m_left, QStringLiteral("FirstPane")},
+          {m_right, QStringLiteral("SecondPane")},
+          {m_previewPanel, QStringLiteral("Preview")},
+          {m_editor, QStringLiteral("Editor")}});
+    save(m_workspaceSplitter, {{m_splitter, QStringLiteral("Workspace")}, {m_terminalPanel, QStringLiteral("Terminal")}});
+    if (m_editorDock && !m_editorDock->isHidden() && !m_editorDock->isFloating()) {
+        const bool right = dockWidgetArea(m_editorDock) == Qt::RightDockWidgetArea;
+        const int dimension = right ? width() : height();
+        if (dimension > 0) {
+            group.writeEntry(right ? "EditorDockRight" : "EditorDockBelow",
+                             qBound(1, int(qint64(right ? m_editorDock->width() : m_editorDock->height()) * 10000 / dimension), 10000));
+        }
+    }
+    state->sync();
+}
+
+void MainWindow::restoreSplitterSizes(bool panes, bool workspace, bool defaultsIfMissing)
+{
+    const KConfigGroup group =
+        KSharedConfig::openStateConfig()->group(QLatin1String(SplitterSizesGroup)).group(QLatin1String(isStackedLayout() ? "Stacked" : "SideBySide"));
+    const auto restore = [&group, defaultsIfMissing](QSplitter *splitter, const QList<QPair<QWidget *, QString>> &widgets, const QList<int> &defaults) {
+        QList<int> sizes(splitter->count(), 2500);
+        bool saved = false;
+        for (const auto &[widget, key] : widgets) {
+            const int index = splitter->indexOf(widget);
+            if (index >= 0 && group.hasKey(key)) {
+                sizes[index] = qBound(1, group.readEntry(key, 2500), 10000);
+                saved = true;
+            }
+        }
+        if (saved) {
+            splitter->setSizes(sizes);
+        } else if (defaultsIfMissing) {
+            splitter->setSizes(defaults);
+        }
+    };
+    if (panes) {
+        restore(m_splitter,
+                {{m_left, QStringLiteral("FirstPane")},
+                 {m_right, QStringLiteral("SecondPane")},
+                 {m_previewPanel, QStringLiteral("Preview")},
+                 {m_editor, QStringLiteral("Editor")}},
+                QList<int>(m_splitter->count(), 1));
+    }
+    if (workspace) {
+        restore(m_workspaceSplitter, {{m_splitter, QStringLiteral("Workspace")}, {m_terminalPanel, QStringLiteral("Terminal")}}, {3, 1});
+    }
+}
+
+void MainWindow::restoreEditorDockSize()
+{
+    if (!m_editorDock || m_editorDock->isHidden() || m_editorDock->isFloating()) {
+        return;
+    }
+    const KConfigGroup group =
+        KSharedConfig::openStateConfig()->group(QLatin1String(SplitterSizesGroup)).group(QLatin1String(isStackedLayout() ? "Stacked" : "SideBySide"));
+    const bool right = dockWidgetArea(m_editorDock) == Qt::RightDockWidgetArea;
+    const char *key = right ? "EditorDockRight" : "EditorDockBelow";
+    if (group.hasKey(key)) {
+        const int fraction = qBound(1, group.readEntry(key, 2500), 10000);
+        const int dimension = right ? width() : height();
+        resizeDocks({m_editorDock}, {qMax(1, int(qint64(dimension) * fraction / 10000))}, right ? Qt::Horizontal : Qt::Vertical);
+    }
+}
+
+void MainWindow::resetSplitterSizes()
+{
+    const auto state = KSharedConfig::openStateConfig();
+    KConfigGroup group = state->group(QLatin1String(SplitterSizesGroup)).group(QLatin1String(isStackedLayout() ? "Stacked" : "SideBySide"));
+    group.deleteGroup();
+    group.writeEntry("EditorDockRight", 2500);
+    group.writeEntry("EditorDockBelow", 2500);
+    state->sync();
+    m_splitter->setSizes(QList<int>(m_splitter->count(), 1));
+    m_workspaceSplitter->setSizes({3, 1});
+    if (m_editorDock && !m_editorDock->isHidden() && !m_editorDock->isFloating()) {
+        const bool right = dockWidgetArea(m_editorDock) == Qt::RightDockWidgetArea;
+        resizeDocks({m_editorDock}, {qMax(1, (right ? width() : height()) / 4)}, right ? Qt::Horizontal : Qt::Vertical);
+    }
+}
+
 void MainWindow::setStackedLayout(bool stacked)
 {
+    const bool changed = isStackedLayout() != stacked;
     m_stackedLayoutAction->setChecked(stacked);
     m_splitter->setOrientation(stacked ? Qt::Vertical : Qt::Horizontal);
     updateTerminalPlacement();
-    m_splitter->setSizes({1, 1, 1, 1});
+    restoreSplitterSizes(true, true, changed);
+    restoreEditorDockSize();
     m_left->setTabBarAtBottom(stacked);
 }
 
@@ -2957,7 +3096,11 @@ bool MainWindow::isDualLayout() const
 
 void MainWindow::applySettings()
 {
+    const auto terminalOrientation = m_workspaceSplitter->orientation();
     updateTerminalPlacement();
+    if (terminalOrientation != m_workspaceSplitter->orientation()) {
+        restoreSplitterSizes(false, true);
+    }
     actionCollection()->action(QStringLiteral("dim_inactive_pane"))->setChecked(Settings::dimInactivePane());
     for (GalleryWindow *gallery : findChildren<GalleryWindow *>()) {
         gallery->applyPresentationSettings();

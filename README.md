@@ -40,6 +40,8 @@ for file operations, Places, properties, settings and desktop integration.
 - Optionally dim the inactive pane using the View menu.
 - Swap the current tabs or exchange entire pane sides while retaining their
   navigation state.
+- Save or reset pane, preview, editor and terminal sizes from the View menu,
+  separately for side-by-side and stacked panes.
 - Choose a theme, light, dark or checkerboard background for transparent images
   in the preview and gallery without changing the image.
 - Explore folder sizes with a cushion treemap and folder drilldown.

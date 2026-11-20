@@ -258,6 +258,123 @@ private Q_SLOTS:
         QVERIFY(link->isChecked());
     }
 
+    void splitterSizesAreSavedPerLayout()
+    {
+        QTemporaryDir backupDir;
+        QVERIFY(backupDir.isValid());
+        const auto state = KSharedConfig::openStateConfig();
+        KConfigGroup sizes = state->group(QStringLiteral("SplitterSizes"));
+        const auto backup = KSharedConfig::openConfig(backupDir.filePath(QStringLiteral("state")));
+        KConfigGroup savedSizes = backup->group(QStringLiteral("SplitterSizes"));
+        sizes.copyTo(&savedSizes);
+        const auto cleanup = qScopeGuard([&] {
+            sizes.deleteGroup();
+            savedSizes.copyTo(&sizes);
+            state->sync();
+        });
+        sizes.deleteGroup();
+
+        MainWindow window;
+        window.resize(1600, 1000);
+        window.openUrls({m_a, m_b});
+        window.show();
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        window.setStackedLayout(false);
+        auto *panes = window.findChild<QSplitter *>(QStringLiteral("paneSplitter"));
+        auto *workspace = window.findChild<QSplitter *>(QStringLiteral("workspaceSplitter"));
+        QVERIFY(panes && workspace);
+        workspace->widget(1)->show();
+        QCoreApplication::processEvents();
+        panes->setSizes({1000, 500, 0});
+        workspace->setSizes({700, 300});
+        const QList<int> sidePanes = panes->sizes();
+        const QList<int> sideWorkspace = workspace->sizes();
+        auto *save = window.actionCollection()->action(QStringLiteral("save_splitter_sizes"));
+        auto *reset = window.actionCollection()->action(QStringLiteral("reset_splitter_sizes"));
+        QVERIFY(save && reset);
+        save->trigger();
+
+        window.setStackedLayout(true);
+        panes->setSizes({300, 700, 0});
+        workspace->setSizes({1000, 500});
+        const QList<int> stackedPanes = panes->sizes();
+        save->trigger();
+        window.setStackedLayout(false);
+        QTRY_VERIFY(qAbs(panes->sizes().at(0) - sidePanes.at(0)) < 5);
+        QTRY_VERIFY(qAbs(workspace->sizes().at(1) - sideWorkspace.at(1)) < 5);
+        window.setStackedLayout(true);
+        QTRY_VERIFY(qAbs(panes->sizes().at(0) - stackedPanes.at(0)) < 5);
+        reset->trigger();
+        QVERIFY(!sizes.group(QStringLiteral("Stacked")).hasKey("FirstPane"));
+        QVERIFY(sizes.group(QStringLiteral("SideBySide")).exists());
+        window.setStackedLayout(false);
+        QTRY_VERIFY(qAbs(panes->sizes().at(0) - sidePanes.at(0)) < 5);
+        QVERIFY(panes->sizes().at(0) > 0 && panes->sizes().at(1) > 0);
+
+        MainWindow restored;
+        restored.resize(1600, 1000);
+        restored.openUrls({m_a, m_b});
+        restored.show();
+        restored.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        restored.setStackedLayout(false);
+        auto *restoredPanes = restored.findChild<QSplitter *>(QStringLiteral("paneSplitter"));
+        QVERIFY(restoredPanes);
+        QTRY_VERIFY(restoredPanes->sizes().at(0) > restoredPanes->sizes().at(1));
+
+        const auto editorOpening = Settings::editorOpening();
+        const auto restoreEditorSetting = qScopeGuard([editorOpening] {
+            Settings::setEditorOpening(editorOpening);
+        });
+        Settings::setEditorOpening(Settings::EnumEditorOpening::Panel);
+        window.activePane()->view()->clearSelection();
+        window.actionCollection()->action(QStringLiteral("open_editor"))->trigger();
+        auto *editor = window.findChild<EditorPanel *>(QStringLiteral("editorPanel"));
+        QVERIFY(editor && editor->isVisible());
+        auto *previewAction = window.actionCollection()->action(QStringLiteral("show_preview_panel"));
+        previewAction->setChecked(true);
+        QCoreApplication::processEvents();
+        QCOMPARE(panes->count(), 4);
+        panes->setSizes({600, 450, 300, 250});
+        save->trigger();
+        const KConfigGroup side = sizes.group(QStringLiteral("SideBySide"));
+        const int previewSize = side.readEntry("Preview", 0);
+        const int editorSize = side.readEntry("Editor", 0);
+        QVERIFY(previewSize > 0 && editorSize > 0);
+        previewAction->setChecked(false);
+        save->trigger();
+        QCOMPARE(side.readEntry("Preview", 0), previewSize);
+        previewAction->setChecked(true);
+        QVERIFY(panes->sizes().at(2) > 0 && panes->sizes().at(3) > 0);
+
+        auto *placeRight = editor->findChild<QAction *>(QStringLiteral("editorPlaceRight"));
+        auto *placePanel = editor->findChild<QAction *>(QStringLiteral("editorPlacePanel"));
+        QVERIFY(placeRight && placePanel);
+        placeRight->trigger();
+        auto *dock = window.findChild<QDockWidget *>(QStringLiteral("editorDock"));
+        QVERIFY(dock && dock->isVisible());
+        window.resizeDocks({dock}, {400}, Qt::Horizontal);
+        QCoreApplication::processEvents();
+        save->trigger();
+        const int dockSize = side.readEntry("EditorDockRight", 0);
+        QVERIFY(dockSize > 0);
+        placePanel->trigger();
+        placeRight->trigger();
+        QCoreApplication::processEvents();
+        QVERIFY(qAbs(dock->width() * 10000 / window.width() - dockSize) < 400);
+        previewAction->setChecked(false);
+        dock->hide();
+
+        KConfigGroup sideConfig = sizes.group(QStringLiteral("SideBySide"));
+        sideConfig.writeEntry("FirstPane", -100);
+        sideConfig.writeEntry("SecondPane", 10000000);
+        sideConfig.writeEntry("Preview", 10000000);
+        window.resize(600, 400);
+        window.setStackedLayout(true);
+        window.setStackedLayout(false);
+        QCoreApplication::processEvents();
+        QVERIFY(panes->sizes().at(0) > 0 && panes->sizes().at(1) > 0);
+    }
+
     void imageBackgroundSettingsApplyToOpenViews()
     {
         const auto previous = Settings::imageBackground();
