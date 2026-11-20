@@ -7,6 +7,56 @@
   <include>ignorelist.h</include>
   <include>limits</include>
   <kcfgfile/>
+  <group name="Translation">
+    <entry name="InterfaceLanguage" type="String">
+      <label>Interface language; empty follows the system</label>
+      <default></default>
+    </entry>
+    <entry name="RegionalLocale" type="String">
+      <label>Regional format locale; empty follows the system</label>
+      <default></default>
+    </entry>
+    <entry name="TranslationDirection" type="Enum">
+      <label>Interface layout direction</label>
+      <choices>
+        <choice name="FollowLanguage"/>
+        <choice name="LeftToRight"/>
+        <choice name="RightToLeft"/>
+      </choices>
+      <default>FollowLanguage</default>
+    </entry>
+    <entry name="CalendarOverride" type="Enum">
+      <label>Calendar used for dates</label>
+      <choices>
+        <choice name="FollowRegionalLocale"/>
+        <choice name="GregorianCalendar"/>
+        <choice name="JalaliCalendar"/>
+      </choices>
+      <default>FollowRegionalLocale</default>
+    </entry>
+    <entry name="CustomDateFormat" type="String">
+      <label>Custom date format; empty uses the listing default</label>
+      <default></default>
+    </entry>
+    <entry name="CustomTimeFormat" type="String">
+      <label>Custom time format; empty uses the listing default</label>
+      <default></default>
+    </entry>
+    <entry name="NumeralStyle" type="Enum">
+      <label>Digit shapes</label>
+      <choices>
+        <choice name="LocaleDigits"/>
+        <choice name="WesternDigits"/>
+        <choice name="EasternArabicIndicDigits"/>
+        <choice name="CustomDigits"/>
+      </choices>
+      <default>LocaleDigits</default>
+    </entry>
+    <entry name="CustomNumerals" type="String">
+      <label>Ten custom digit symbols, in order from zero to nine</label>
+      <default>0123456789</default>
+    </entry>
+  </group>
   <group name="Startup">
     <entry name="StartupMode" type="Enum">
       <label>What the window shows when Opus starts</label>

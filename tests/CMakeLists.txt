@@ -22,11 +22,12 @@ ecm_add_test(translationtest.cpp
     LINK_LIBRARIES opusfm_core Qt6::Test
     NAME_PREFIX "opusfm-"
 )
-add_dependencies(translationtest translation-test-catalog translation-production-catalog)
+add_dependencies(translationtest translation-test-catalog translation-production-catalog opus-file-manager)
 target_compile_definitions(translationtest PRIVATE
     OPUSFM_TEST_LOCALE_DIR="${CMAKE_CURRENT_BINARY_DIR}/translation-locale"
     OPUSFM_PRODUCTION_LOCALE_DIR="${CMAKE_CURRENT_BINARY_DIR}/production-locale"
     OPUSFM_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
+    OPUSFM_EXECUTABLE="$<TARGET_FILE:opus-file-manager>"
 )
 
 ecm_add_test(informationtranslationtest.cpp

@@ -3,6 +3,7 @@
 #include "foldercomparisondialog.h"
 
 #include "localizeddates.h"
+#include "localizednumbers.h"
 #include "settings.h"
 
 #include <KIO/Global>
@@ -63,7 +64,8 @@ QString describe(const KFileItem &item)
     if (!item.isFile()) {
         return i18nc("@info:status", "Other item");
     }
-    const QString size = item.entry().contains(KIO::UDSEntry::UDS_SIZE) ? KIO::convertSize(item.size()) : i18nc("@info:status", "Unknown size");
+    const QString size =
+        item.entry().contains(KIO::UDSEntry::UDS_SIZE) ? LocalizedNumbers::shape(KIO::convertSize(item.size())) : i18nc("@info:status", "Unknown size");
     const QString date = item.time(KFileItem::ModificationTime).isValid() ? LocalizedDates::fileTime(item) : i18nc("@info:status", "Unknown time");
     return i18nc("@info:status size and modification time", "%1, %2", size, date);
 }

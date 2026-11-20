@@ -35,6 +35,8 @@ add_library(opusfm_core STATIC
     linkednavigation.h
     localizeddates.cpp
     localizeddates.h
+    localizednumbers.cpp
+    localizednumbers.h
     indexedsearch.cpp
     indexedsearch.h
     interfacelanguage.cpp

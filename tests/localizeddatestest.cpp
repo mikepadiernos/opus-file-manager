@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "localizeddates.h"
+#include "localizednumbers.h"
+#include "settings.h"
 
 #include <QFile>
 #include <QStandardPaths>
@@ -45,6 +47,40 @@ private Q_SLOTS:
         QCOMPARE(LocalizedDates::group(QDate(2024, 3, 27), QDate(2024, 3, 28), jalali), Group::Yesterday);
     }
 
+    void calendarAndFormatsOverrideListingDefaults()
+    {
+        const QDateTime nowruz(QDate(2024, 3, 20), QTime(13, 45, 37));
+        const QLocale english(QStringLiteral("en_US"));
+        Settings::setCalendarOverride(Settings::EnumCalendarOverride::JalaliCalendar);
+        Settings::setCustomDateFormat(QStringLiteral("yyyy/MM/dd"));
+        Settings::setCustomTimeFormat(QStringLiteral("HH:mm:ss"));
+        QCOMPARE(LocalizedDates::listingDateTime(nowruz, true, false, english), QStringLiteral("1403/01/01 13:45:37"));
+        QCOMPARE(LocalizedDates::date(nowruz.date(), english), QStringLiteral("1403/01/01"));
+        Settings::setCalendarOverride(Settings::EnumCalendarOverride::GregorianCalendar);
+        QCOMPARE(LocalizedDates::listingDateTime(nowruz, true, false, english), QStringLiteral("2024/03/20 13:45:37"));
+        Settings::setCalendarOverride(Settings::EnumCalendarOverride::FollowRegionalLocale);
+        Settings::setCustomDateFormat(QString());
+        Settings::setCustomTimeFormat(QString());
+        QCOMPARE(LocalizedDates::listingDateTime(nowruz, true, false, QLocale(QStringLiteral("fa_IR"))), QStringLiteral("2024-03-20 13:45"));
+    }
+
+    void digitShapesAndCustomSymbols()
+    {
+        QVERIFY(!LocalizedNumbers::validCustomNumerals(QStringLiteral("123")));
+        QVERIFY(!LocalizedNumbers::validCustomNumerals(QStringLiteral("0000000000")));
+        QVERIFY(LocalizedNumbers::validCustomNumerals(QStringLiteral("abcdefghij")));
+        Settings::setNumeralStyle(Settings::EnumNumeralStyle::WesternDigits);
+        QCOMPARE(LocalizedNumbers::shape(QString::fromUtf8("۱۲۳")), QStringLiteral("123"));
+        Settings::setNumeralStyle(Settings::EnumNumeralStyle::EasternArabicIndicDigits);
+        QCOMPARE(LocalizedNumbers::shape(QStringLiteral("12.3")), QString::fromUtf8("۱۲.۳"));
+        Settings::setCustomNumerals(QStringLiteral("abcdefghij"));
+        Settings::setNumeralStyle(Settings::EnumNumeralStyle::CustomDigits);
+        QCOMPARE(LocalizedNumbers::shape(QStringLiteral("12.3")), QStringLiteral("bc.d"));
+        QCOMPARE(LocalizedDates::listingDateTime(QDateTime(QDate(2024, 3, 20), QTime(13, 45)), true, false, QLocale::c()), QStringLiteral("cace-ad-ca bd:ef"));
+        Settings::setNumeralStyle(Settings::EnumNumeralStyle::LocaleDigits);
+        Settings::setCustomNumerals(QStringLiteral("0123456789"));
+    }
+
     void formatsFileTimes()
     {
         QTemporaryDir directory;
@@ -58,7 +94,8 @@ private Q_SLOTS:
         QLocale persian(QStringLiteral("fa_IR"));
         persian.setNumberOptions(QLocale::OmitGroupSeparator);
         QVERIFY(LocalizedDates::fileTime(item, KFileItem::ModificationTime, persian).contains(persian.toString(1403)));
-        QCOMPARE(LocalizedDates::fileTime(item, KFileItem::ModificationTime, QLocale::c()), item.timeString(KFileItem::ModificationTime));
+        const QLocale german(QStringLiteral("de_DE"));
+        QCOMPARE(LocalizedDates::fileTime(item, KFileItem::ModificationTime, german), LocalizedDates::dateTime(item.time(KFileItem::ModificationTime), german));
     }
 };
 

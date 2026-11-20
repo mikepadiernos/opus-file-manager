@@ -11,6 +11,7 @@
 #include "ignorelist.h"
 #include "labelcolor.h"
 #include "localizeddates.h"
+#include "localizednumbers.h"
 #include "settings.h"
 #include "symbolicicon.h"
 #include "viewsettings.h"
@@ -219,8 +220,7 @@ public:
 
     void setSettings(const ViewSettings &settings, const FileColorRules &fileColors, const IgnoreList &ignoreList)
     {
-        const bool calendarChanged = m_groupBy == QLatin1String("date") && QLocale().language() == QLocale::Persian
-            && (m_settings.dateFormat == QLatin1String("iso")) != (settings.dateFormat == QLatin1String("iso"));
+        const bool calendarChanged = m_groupBy == QLatin1String("date");
         beginFilterChange();
         m_settings = settings;
         m_fileColors = fileColors;
@@ -343,26 +343,24 @@ public:
             const KFileItem item = itemAt(index);
             const auto found = m_folderSizes.constFind(item.url());
             if (item.isDir() && found != m_folderSizes.cend()) {
-                return m_settings.sizeFormat == QLatin1String("bytes") ? QString(QLocale().toString(found.value()) + i18nc("@unit byte in file size", " B"))
-                                                                       : KIO::convertSize(found.value());
+                return m_settings.sizeFormat == QLatin1String("bytes")
+                    ? QString(LocalizedNumbers::shape(QLocale().toString(found.value())) + i18nc("@unit byte in file size", " B"))
+                    : LocalizedNumbers::shape(KIO::convertSize(found.value()));
             }
         }
         if (role == Qt::DisplayRole && index.column() == KDirModel::Size && m_settings.sizeFormat == QLatin1String("bytes")) {
             const KFileItem item = itemAt(index);
             if (!item.isDir()) {
-                return QString(QLocale().toString(item.size()) + i18nc("@unit byte in file size", " B"));
+                return QString(LocalizedNumbers::shape(QLocale().toString(item.size())) + i18nc("@unit byte in file size", " B"));
             }
+        }
+        if (role == Qt::DisplayRole && index.column() == KDirModel::Size && Settings::numeralStyle() != Settings::EnumNumeralStyle::LocaleDigits) {
+            return LocalizedNumbers::shape(KDirSortFilterProxyModel::data(index, role).toString());
         }
         if (role == Qt::DisplayRole && index.column() == KDirModel::ModifiedTime) {
             const QDateTime modified = itemAt(index).time(KFileItem::ModificationTime);
             if (modified.isValid()) {
-                if (m_settings.dateFormat == QLatin1String("iso")) {
-                    return modified.toString(m_settings.showSeconds ? QStringLiteral("yyyy-MM-dd HH:mm:ss") : QStringLiteral("yyyy-MM-dd HH:mm"));
-                }
-                if (m_settings.showSeconds) {
-                    return QString(LocalizedDates::date(modified.date()) + u' ' + QLocale().toString(modified.time(), QLocale::LongFormat));
-                }
-                return LocalizedDates::dateTime(modified);
+                return LocalizedDates::listingDateTime(modified, m_settings.dateFormat == QLatin1String("iso"), m_settings.showSeconds);
             }
         }
         if (role == KCategorizedSortFilterProxyModel::CategorySortRole) {

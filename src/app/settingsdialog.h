@@ -59,6 +59,8 @@ private:
     void applySidebarStyle(int size, bool below);
 
     QWidget *createSettingsDialogPage();
+    QWidget *createLanguagePage();
+    QWidget *createDateLanguagePage();
     QWidget *createToolbarEntriesPage();
     QWidget *createSettingsBackupPage();
     QWidget *createFoldersAndTabsPage();
