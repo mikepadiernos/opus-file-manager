@@ -516,11 +516,11 @@ Settings for M11 UI customizations, stored in KConfig.
 
 ### M13 Translations
 
-- Translation catalogues through `ki18n`, fed by the `i18n()` and `i18nc()`
+- ~~Translation catalogues through `ki18n`, fed by the `i18n()` and `i18nc()`
   calls already used throughout the code; provide extraction and installation
-  without requiring a translation into any particular language
-- Right-to-left layout, mirrored for languages that use it
-- Jalali (Persian) calendar dates
+  without requiring a translation into any particular language~~
+- ~~Right-to-left layout, mirrored for languages that use it~~
+- ~~Jalali (Persian) calendar dates~~
 
 **Caveats:** [Jalali dates](CAVEATS.md#jalali-dates), tracked in [#436].
 
@@ -1167,3 +1167,4 @@ document feature limitations in [caveats and limitations](CAVEATS.md).
 [#406]: https://github.com/mikepadiernos/opus-file-manager/issues/406
 [#433]: https://github.com/mikepadiernos/opus-file-manager/issues/433
 [#434]: https://github.com/mikepadiernos/opus-file-manager/issues/434
+[#436]: https://github.com/mikepadiernos/opus-file-manager/issues/436
