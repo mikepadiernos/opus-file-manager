@@ -257,6 +257,7 @@
     </entry>
   </group>
   <group name="Terminal">
+    <entry name="TerminalFollowActiveFolder" type="Bool"><default>false</default></entry>
     <entry name="TerminalPlacement" type="Enum">
       <label>Position of the embedded terminal</label>
       <choices>
@@ -275,6 +276,103 @@
     <entry name="SearchContentsByDefault" type="Bool">
       <label>Search file contents by default</label>
       <default>false</default>
+    </entry>
+  </group>
+  <group name="DuplicateFinder">
+    <entry name="DuplicateRequireSameFileName" type="Bool">
+      <label>Require identical file names when finding duplicates</label>
+      <default>false</default>
+    </entry>
+    <entry name="DuplicateSelectionPolicy" type="Enum">
+      <label>Default duplicate candidate selection policy</label>
+      <choices>
+        <choice name="KeepNewest"/>
+        <choice name="KeepOldest"/>
+        <choice name="InFolder"/>
+      </choices>
+      <default>KeepNewest</default>
+    </entry>
+  </group>
+  <group name="ContentChart">
+    <entry name="ContentChartShowTreemap" type="Bool">
+      <label>Show the treemap in content charts</label>
+      <default>true</default>
+    </entry>
+    <entry name="ContentChartSort" type="Enum">
+      <label>Initial content chart table sorting</label>
+      <choices>
+        <choice name="AsListed"/>
+        <choice name="Name"/>
+        <choice name="Size"/>
+        <choice name="Share"/>
+      </choices>
+      <default>AsListed</default>
+    </entry>
+    <entry name="ContentChartSortDescending" type="Bool">
+      <label>Sort content chart entries in descending order</label>
+      <default>false</default>
+    </entry>
+  </group>
+  <group name="LinkedPanes">
+    <entry name="LinkPanesAtStartup" type="Bool">
+      <label>Link initial pane navigation at startup</label>
+      <default>false</default>
+    </entry>
+  </group>
+  <group name="FileDiff">
+    <entry name="FileDiffWrapLines" type="Bool">
+      <label>Wrap file comparison output</label>
+      <default>false</default>
+    </entry>
+  </group>
+  <group name="PaneComparison">
+    <entry name="PaneComparisonShowLeftOnly" type="Bool"><default>true</default></entry>
+    <entry name="PaneComparisonShowRightOnly" type="Bool"><default>true</default></entry>
+    <entry name="PaneComparisonShowDifferent" type="Bool"><default>true</default></entry>
+    <entry name="PaneComparisonShowMatching" type="Bool"><default>true</default></entry>
+  </group>
+  <group name="ToolDefaults">
+    <entry name="SymlinkSuffix" type="String"><default></default></entry>
+    <entry name="ChecksumFileName" type="String"><default>checksums.sha256</default></entry>
+    <entry name="SplitPartSizeMiB" type="Int"><default>100</default><min>1</min><max>2147483647</max></entry>
+  </group>
+  <group name="MetadataEditor">
+    <entry name="MetadataAudioTitle" type="Bool"><default>true</default></entry>
+    <entry name="MetadataAudioArtist" type="Bool"><default>true</default></entry>
+    <entry name="MetadataAudioAlbum" type="Bool"><default>true</default></entry>
+    <entry name="MetadataImageDescription" type="Bool"><default>true</default></entry>
+    <entry name="MetadataImageArtist" type="Bool"><default>true</default></entry>
+    <entry name="MetadataImageCopyright" type="Bool"><default>true</default></entry>
+  </group>
+  <group name="FolderSync">
+    <entry name="FolderSyncRecursive" type="Bool"><default>true</default></entry>
+    <entry name="FolderSyncCompareContents" type="Bool"><default>false</default></entry>
+    <entry name="FolderSyncCompareLinks" type="Bool"><default>false</default></entry>
+    <entry name="FolderSyncCopyPolicy" type="Enum">
+      <choices><choice name="All"/><choice name="SkipExisting"/><choice name="NewerOnly"/></choices>
+      <default>All</default>
+    </entry>
+    <entry name="FolderSyncSpeedLimitKiB" type="Int"><default>0</default><min>0</min><max>1048576</max></entry>
+  </group>
+  <group name="ListingExport">
+    <entry name="ListingExportFormat" type="Enum">
+      <choices><choice name="Csv"/><choice name="Pdf"/></choices>
+      <default>Csv</default>
+    </entry>
+    <entry name="ListingExportCustomColumns" type="Bool"><default>false</default></entry>
+    <entry name="ListingExportType" type="Bool"><default>true</default></entry>
+    <entry name="ListingExportSize" type="Bool"><default>true</default></entry>
+    <entry name="ListingExportModified" type="Bool"><default>true</default></entry>
+    <entry name="ListingExportPermissions" type="Bool"><default>false</default></entry>
+    <entry name="ListingExportOwner" type="Bool"><default>false</default></entry>
+    <entry name="ListingExportGroup" type="Bool"><default>false</default></entry>
+  </group>
+  <group name="TransferQueue">
+    <entry name="TransferQueueEnabled" type="Bool"><default>true</default></entry>
+    <entry name="TransferQueueConcurrency" type="Int"><default>1</default><min>1</min><max>16</max></entry>
+    <entry name="TransferConflictPolicy" type="Enum">
+      <choices><choice name="Ask"/><choice name="Skip"/><choice name="Rename"/><choice name="Overwrite"/></choices>
+      <default>Ask</default>
     </entry>
   </group>
   <group name="Editor">
