@@ -1,7 +1,7 @@
 # Caveats and limitations
 
-This guide describes limitations of current Opus features and ways to work
-around them. Each tracked caveat links to its issue and recommendation
+This guide describes limitations of current Opus features and, where marked,
+planned features. Each tracked caveat links to its issue and recommendation
 comments. Alternatives are additional options, not replacements for the
 primary recommendation. External tools are separate applications, and
 proposed improvements are not implemented features. Follow the comment links
@@ -12,6 +12,7 @@ for details and precautions. For planned work and status, see the
 
 - **Browsing and viewing:** [Archives](#archives),
   [folder metadata and listings](#folder-metadata-and-listings),
+  [planned password-gated folders](#planned-password-gated-folders),
   [previews and gallery](#previews-and-gallery), [editor](#editor)
 - **Search and operations:** [Search](#search), [batch rename](#batch-rename),
   [metadata editing](#metadata-editing), [transfer queue](#transfer-queue),
@@ -25,6 +26,7 @@ for details and precautions. For planned work and status, see the
   [duplicate finder](#duplicate-finder)
 - **Other:** [Embedded terminal](#embedded-terminal),
   [linked navigation](#linked-pane-navigation),
+  [file-list minimap](#file-list-minimap), [settings backups](#settings-backups),
   [build and installation](#build-installation-and-references),
   [installing optional tools](#installing-optional-alternatives)
 
@@ -41,6 +43,9 @@ for details and precautions. For planned work and status, see the
     - Comment: [#265.7021749894][comment-265]
   - **Alternative:** Stage remote files locally with Dolphin.
     - Comment: [#265.7029669109](https://github.com/mikepadiernos/opus-file-manager/issues/265#issuecomment-7029669109)
+  - **Planned:** [M23 remote connection profiles](ROADMAP.md#m23-integrations)
+    are not a commitment to support remote archive creation or testing.
+    - Comment: [#265.7021749894][comment-265]
 - **Password-protected archives:** Creation supports AES-encrypted ZIP only
   and rejects symbolic links and other unsupported file types. ZIP entry names
   are not encrypted. Extraction rejects links, unsafe paths and unsupported
@@ -73,6 +78,9 @@ for details and precautions. For planned work and status, see the
     - Comment: [#255.7021741358][comment-255]
   - **Alternative:** Try standalone Ark with its 7z backend.
     - Comment: [#36.7029665511](https://github.com/mikepadiernos/opus-file-manager/issues/36#issuecomment-7029665511)
+  - **Planned:** [M23 Ark integration](ROADMAP.md#m23-integrations) does not
+    guarantee encrypted 7z support or safe password handling.
+    - Comment: [#36.7021740511][comment-36]
 
 ### Possible Ark integration
 
@@ -91,6 +99,9 @@ operation before assuming passwords are not exposed in process arguments.
   - Comment: [#313.7021757012][comment-313]
 - **Alternative proposal:** Consider a user-controlled external archiver handoff.
   - Comment: [#313.7029672463](https://github.com/mikepadiernos/opus-file-manager/issues/313#issuecomment-7029672463)
+- **Planned:** [M23](ROADMAP.md#m23-integrations) includes Ark integration;
+  its precise backend and safeguards still need to be established.
+  - Comment: [#313.7021757012][comment-313]
 
 ## Folder metadata and listings
 
@@ -110,6 +121,9 @@ operation before assuming passwords are not exposed in process arguments.
       - Comment: [#257.7029666537](https://github.com/mikepadiernos/opus-file-manager/issues/257#issuecomment-7029666537)
     - Use ordinary hidden filenames where appropriate.
       - Comment: [#258.7029666857](https://github.com/mikepadiernos/opus-file-manager/issues/258#issuecomment-7029666857)
+  - **Planned:** [M17 native tagging](ROADMAP.md#m17-native-tagging) is a
+    separate library and does not make `.mfm.json` writes lossless.
+    - Comment: [#257.7021742864][comment-257]
 - **Metadata limits:** Metadata files are limited to 4,096 bytes, notes to
   500 characters and pins to 200 per folder. Folder-format rules are stored
   in local metadata; remote locations use defaults unless the pane's format
@@ -120,6 +134,9 @@ operation before assuming passwords are not exposed in process arguments.
     - Comment: [#263.7021748197][comment-263]
   - **Alternative:** Keep longer notes in a separate file.
     - Comment: [#263.7029668469](https://github.com/mikepadiernos/opus-file-manager/issues/263#issuecomment-7029668469)
+  - **Planned:** [M17 library text fields](ROADMAP.md#m17-native-tagging)
+    are separate from folder notes and do not remove these metadata limits.
+    - Comment: [#263.7021748197][comment-263]
 - **Flat view:** The `filenamesearch:/` KIO worker is required and is normally
   supplied by `kio-extras`. Create New, New Folder and Paste are disabled,
   and drops are refused while flat view is active. ([#261][issue-261])
@@ -144,6 +161,40 @@ operation before assuming passwords are not exposed in process arguments.
     - Comment: [#262.7021746538][comment-262]
   - **Alternative:** Take an on-demand size snapshot with GNU `du`.
     - Comment: [#262.7029668154](https://github.com/mikepadiernos/opus-file-manager/issues/262#issuecomment-7029668154)
+
+## Planned password-gated folders
+
+The [proposed Opus password gate](ROADMAP.md#m23-integrations) is not
+implemented. It would be an Opus-only prompt, not encryption or filesystem
+access control. Other file managers and processes with the same user permissions
+could access the underlying folder without the password. Standard filesystem
+permissions and ACLs distinguish users and groups, not applications running
+with the same credentials. ([#406](https://github.com/mikepadiernos/opus-file-manager/issues/406);
+feature [#402](https://github.com/mikepadiernos/opus-file-manager/issues/402))
+
+- **Recommendation:** For confidential files, use a separate encrypted vault
+  such as [KDE Plasma Vault](https://github.com/KDE/plasma-vault). Applications
+  with access can use files while the vault is unlocked and mounted; when it is
+  locked, the decrypted contents are unavailable through the mount. This uses
+  encryption, unlike the requested gate. Back up the data and protect the
+  passphrase; handle any original unencrypted copies separately. Backend
+  availability and behaviour vary.
+  - Comment: [#406.7040077820](https://github.com/mikepadiernos/opus-file-manager/issues/406#issuecomment-7040077820)
+- **Alternatives:**
+  - **Cooperative prompts:** Explore a shared gate only with file managers that
+    explicitly support it. Unsupported apps and direct access can bypass it;
+    cross-manager support is not established and this is not security.
+    - Comment: [#406.7040078439](https://github.com/mikepadiernos/opus-file-manager/issues/406#issuecomment-7040078439)
+  - **Separate identities:** Use ownership and ACLs to restrict access to
+    selected user or service identities. Apps with the same credentials retain
+    the same ordinary access; this does not add a folder-password prompt.
+    Privileged users can override controls, and administration requires care.
+    - Comment: [#406.7040079139](https://github.com/mikepadiernos/opus-file-manager/issues/406#issuecomment-7040079139)
+  - **Application sandboxing:** Restrict a controlled set of sandboxed apps and
+    grant chosen apps access through supported sandbox or portal mechanisms.
+    Unsandboxed same-user processes can still access the folder; support and
+    permissions vary, so this is not universal password enforcement.
+    - Comment: [#406.7040079777](https://github.com/mikepadiernos/opus-file-manager/issues/406#issuecomment-7040079777)
 
 ## Previews and gallery
 
@@ -171,6 +222,9 @@ operation before assuming passwords are not exposed in process arguments.
     - Comment: [#264.7021749088][comment-264]
   - **Alternative:** Use Kate or KWrite for long-line text.
     - Comment: [#264.7029668772](https://github.com/mikepadiernos/opus-file-manager/issues/264#issuecomment-7029668772)
+  - **Planned:** [M23 editor integrations](ROADMAP.md#m23-integrations) would
+    launch separate editors; they do not increase Opus preview limits.
+    - Comment: [#264.7021749088][comment-264]
 - **Rendered previews:** HTML and Markdown previews disable links and
   external resources. ([#267][issue-267])
 
@@ -235,6 +289,9 @@ operation before assuming passwords are not exposed in process arguments.
     - Comment: [#307.7021754467][comment-307]
   - **Alternative:** Use a standalone editor and an explicit backup copy.
     - Comment: [#307.7029671086](https://github.com/mikepadiernos/opus-file-manager/issues/307#issuecomment-7029671086)
+  - **Planned:** [M23 editor integrations](ROADMAP.md#m23-integrations) are
+    separate applications and do not expand Opus draft storage.
+    - Comment: [#307.7021754467][comment-307]
 - **Draft retention:** Drafts are retained indefinitely by default. An
   optional age limit removes expired drafts unless they are locked by an
   active editor. Legacy drafts from versions without locking remain until
@@ -261,6 +318,9 @@ operation before assuming passwords are not exposed in process arguments.
     - Comment: [#309.7021755164][comment-309]
   - **Alternative:** Compare a saved copy against the original before adopting edits.
     - Comment: [#309.7029671476](https://github.com/mikepadiernos/opus-file-manager/issues/309#issuecomment-7029671476)
+  - **Planned:** [M23 editor integrations](ROADMAP.md#m23-integrations) do
+    not change the built-in visual editor's Markdown limitations.
+    - Comment: [#309.7021755164][comment-309]
 
 ## Search
 
@@ -301,6 +361,11 @@ Tracked in [#362](https://github.com/mikepadiernos/opus-file-manager/issues/362)
   - Comment: [#362.7023269364][comment-362]
 - **Alternative:** Use a separately maintained locate database for filenames.
   - Comment: [#362.7029675758](https://github.com/mikepadiernos/opus-file-manager/issues/362#issuecomment-7029675758)
+- **Planned:** [M15 advanced search](ROADMAP.md#m15-advanced-search) reuses
+  M09 search; its new interface and criteria do not by themselves remove
+  current backend limits. [M21 workspaces](ROADMAP.md#m21-workspaces) plan
+  search scoping, not a security boundary.
+  - Comment: [#362.7023269364][comment-362]
 
 ## Batch rename
 
@@ -332,6 +397,10 @@ Tracked in [#372](https://github.com/mikepadiernos/opus-file-manager/issues/372)
   - Comment: [#372.7024683530][comment-372]
 - **Alternative:** Try a separate batch renamer on copies.
   - Comment: [#372.7029676077](https://github.com/mikepadiernos/opus-file-manager/issues/372#issuecomment-7029676077)
+- **Planned:** [M17](ROADMAP.md#m17-native-tagging) plans to track
+  Opus-initiated moves and renames in its library; it does not promise to
+  migrate existing per-folder annotations.
+  - Comment: [#372.7024683530][comment-372]
 
 ## Filtered folder comparison
 
@@ -354,6 +423,10 @@ Tracked in [#376](https://github.com/mikepadiernos/opus-file-manager/issues/376)
   - Comment: [#376.7026216329][comment-376]
 - **Alternative:** Use a separate graphical directory comparison.
   - Comment: [#376.7029677475](https://github.com/mikepadiernos/opus-file-manager/issues/376#issuecomment-7029677475)
+- **Planned:** The [M23 rsync backend](ROADMAP.md#m23-integrations) is for
+  folder synchronization; it does not promise remote support in this
+  standalone comparison.
+  - Comment: [#376.7026216329][comment-376]
 
 ## Folder synchronization
 
@@ -382,6 +455,10 @@ Tracked in [#377](https://github.com/mikepadiernos/opus-file-manager/issues/377)
   - Comment: [#377.7026633904][comment-377]
 - **Alternative:** Use rsync separately with a reviewed dry run.
   - Comment: [#377.7029677824](https://github.com/mikepadiernos/opus-file-manager/issues/377#issuecomment-7029677824)
+- **Planned:** [M23](ROADMAP.md#m23-integrations) proposes an optional rsync
+  backend for local and SSH locations, with a reviewed dry run. It is not
+  available yet and would still require confirmation and recovery precautions.
+  - Comment: [#377.7026633904][comment-377]
 
 ## Metadata editing
 
@@ -408,6 +485,10 @@ Tracked in [#374](https://github.com/mikepadiernos/opus-file-manager/issues/374)
   - Comment: [#374.7025134952][comment-374]
 - **Alternative:** Try a dedicated tag editor for other audio fields.
   - Comment: [#374.7029676829](https://github.com/mikepadiernos/opus-file-manager/issues/374#issuecomment-7029676829)
+- **Planned:** [M17](ROADMAP.md#m17-native-tagging) plans to read and map
+  selected embedded metadata but reuses M09 for supported writes; it does not
+  promise additional writable formats or preservation guarantees.
+  - Comment: [#374.7025134952][comment-374]
 
 ## Transfer queue
 
@@ -438,6 +519,10 @@ Tracked in [#375](https://github.com/mikepadiernos/opus-file-manager/issues/375)
   - Comment: [#375.7025250130][comment-375]
 - **Alternative proposal:** Consider adding paste and drop jobs to the queue.
   - Comment: [#375.7029677171](https://github.com/mikepadiernos/opus-file-manager/issues/375#issuecomment-7029677171)
+- **Planned:** [M23](ROADMAP.md#m23-integrations) proposes remote-profile
+  transfers through the queue where available and Opus-owned job notifications;
+  neither promises to route paste or drag-and-drop through the queue.
+  - Comment: [#375.7025250130][comment-375]
 
 ## Custom commands
 
@@ -606,6 +691,10 @@ window ends them and can affect running programs.
   - Comment: [#321.7022392302][comment-321]
 - **Alternative:** Use a terminal multiplexer for independently retained sessions.
   - Comment: [#321.7029674455](https://github.com/mikepadiernos/opus-file-manager/issues/321#issuecomment-7029674455)
+- **Planned:** [M23](ROADMAP.md#m23-integrations) proposes additional terminal
+  providers and separate SSH sessions for SSH profiles; it does not promise
+  embedded remote working directories or persistent sessions after exit.
+  - Comment: [#321.7022392302][comment-321]
 
 ## Linked pane navigation
 
@@ -664,27 +753,41 @@ guarantee of byte identity.
 - **Alternative:** Compare candidate files byte-for-byte before deletion.
   - Comment: [#336.7029675367](https://github.com/mikepadiernos/opus-file-manager/issues/336#issuecomment-7029675367)
 
+## File-list minimap
+
+The minimap samples at most 512 top-level listing rows rather than showing every
+item or expanded child row. It tracks only the vertical scrollbar, so it
+cannot navigate horizontally scrolling columns in compact view.
+([#434](https://github.com/mikepadiernos/opus-file-manager/issues/434))
+
+- **Recommendation:** Use the ordinary scrollbar or keyboard navigation for
+  compact view and expanded folders, and treat the minimap as a sampled
+  overview rather than a complete list.
+  - Comment: [#434.7040730100](https://github.com/mikepadiernos/opus-file-manager/issues/434#issuecomment-7040730100)
+
+## Settings backups
+
+Backups are unencrypted archives. Credential filtering recognizes certain key
+names and value patterns, but cannot guarantee that all sensitive data is
+removed; saved searches and other settings may still contain private text or
+paths. A matching value can instead exclude an entire settings entry. Current
+session tabs and expanded folder locations, saved custom commands and shared
+KDE settings are excluded; restoring preserves the corresponding current
+state rather than recovering it from the backup.
+([#433](https://github.com/mikepadiernos/opus-file-manager/issues/433))
+
+- **Recommendation:** Review backup contents privately before sharing or
+  restoring, protect the archive with restrictive access and encryption, and
+  avoid putting secrets in settings. Keep separate protected backups of
+  excluded commands and other needed data; after restoration, verify
+  important settings and recreate excluded items as needed.
+  - Comment: [#433.7040727966](https://github.com/mikepadiernos/opus-file-manager/issues/433#issuecomment-7040727966)
+
 ## Build, installation and references
 
-- **Dependencies:** Opus targets Linux and requires the dependencies listed in
-  [`CMakeLists.txt`](../CMakeLists.txt), including libarchive.
-
-  - **Recommendation:** Install the required development packages for your Linux
-    distribution before building.
-- **Installer:** `install.sh --deps` prints suggested packages but does not
-  install them. The installer disables tests in its build tree unless
-  reconfigured with `-DBUILD_TESTING=ON`. `install.sh --default` changes the
-  default folder handler.
-
-  - **Recommendation:** Review the suggested packages and install them separately;
-    enable tests explicitly when needed, and use `--default` only if you want to
-    change the default folder handler.
-- **Parity inventories:** The [inventories](README.md#behaviour-references)
-  describe a reviewed Max File Manager checkout, not necessarily current Opus
-  behaviour. Do not assume upstream bugs or limitations apply to Opus.
-
-  - **Recommendation:** Check Opus itself and the roadmap when evaluating
-    current behaviour or planned parity.
+For build requirements and installer behaviour, see
+[Build and run](../README.md#build-and-run). For the scope of the upstream
+inventories, see [Behaviour references](README.md#behaviour-references).
 
 ## Installing optional alternatives
 

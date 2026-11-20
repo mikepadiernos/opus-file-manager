@@ -12,10 +12,6 @@
 - Implement and verify mirrored right-to-left layouts for Persian, Arabic
   and Hebrew (#212), and Jalali dates (#213). Advance issues in project order,
   check the parent checklist and strike roadmap features only when completed.
-- The checkout's uncommitted roadmap renumbers M13 and M14 to translations,
-  matching the project issues, but the committed roadmap still numbers them
-  as workspaces. Reconcile the roadmap changes before merging without
-  overwriting other uncommitted work.
 - Complete M14 translation settings (#214-#219), including independent locale,
   language, calendar, custom date format, direction and digit choices. Merge
   each completed milestone and update its project status.

@@ -15,7 +15,7 @@ targets feature parity with Max File Manager; upstream behaviour is recorded in
 
 Rust is a candidate for new, self-contained core logic, not a planned rewrite
 of existing C++ features. Keep widgets, settings and file operations in Qt/KDE,
-including KIO for local and remote operations. If the M19 Rust pilot proves
+including KIO for local and remote operations. If the M15 Rust pilot proves
 worthwhile, consider Rust for M09 duplicate detection and rename or sync
 planning; this evaluation does not block M09 or change KIO's role.
 
@@ -35,15 +35,15 @@ planning; this evaluation does not block M09 or change KIO's role.
 
 Opus uses a supported subset of the upstream `.mfm.json` schema for local
 per-folder metadata, including pins, labels, ratings, notes, colours and view
-formats. Reads and writes sanitize that data; unsupported fields or values can
-be lost on write. The upstream hide-from-parent flag is retained by the
-metadata sanitizer but is not currently applied to listings.
+formats. See [metadata compatibility](CAVEATS.md#folder-metadata-and-listings)
+for limitations on writes and unsupported behaviour.
 
 ## Milestones
 
-Strikethrough marks completed features. Unstruck features are incomplete or not
-started. Where applicable, feature milestones are followed by their settings
-in KConfig.
+Strikethrough marks features whose issues are Completed or Merged. Unstruck
+features may be incomplete, not started or implemented but still in Review.
+Where applicable, feature milestones are followed by their settings in KConfig.
+Milestone numbers follow the intended work sequence below.
 
 ### M01 Core dual pane
 
@@ -157,7 +157,8 @@ with Dolphin.
 
 **Caveats:** [Archives](CAVEATS.md#archives) and
 [folder metadata and listings](CAVEATS.md#folder-metadata-and-listings).
-Tracked in #36, #255–#258, #261–#263 and #265.
+Tracked in [#36], [#255], [#256], [#257], [#258], [#261], [#262], [#263]
+and [#265].
 
 ### M04 Listing depth settings
 
@@ -199,7 +200,7 @@ Settings for M03 listing depth, stored in KConfig.
   - ~~**Colours:** show or hide folder-based tab colours without removing them~~
 
 **Caveats:** [Folder metadata and listings](CAVEATS.md#folder-metadata-and-listings),
-tracked in #257, #258, #262 and #263.
+tracked in [#257], [#258], [#262] and [#263].
 
 ### M05 Preview and gallery
 
@@ -230,7 +231,7 @@ tracked in #257, #258, #262 and #263.
   available independently of gallery playback~~
 
 **Caveats:** [Previews and gallery](CAVEATS.md#previews-and-gallery), tracked
-in #259, #260, #264, #266, #267, #302, #303 and #304.
+in [#259], [#260], [#264], [#266], [#267], [#302], [#303] and [#304].
 
 ### M06 Preview and gallery settings
 
@@ -260,7 +261,7 @@ other files open in their default application. Folders and executable handling
 are unchanged, and the preview panel's Open button opens the application.
 
 **Caveats:** [Previews and gallery](CAVEATS.md#previews-and-gallery), tracked
-in #260, #264, #266, #302, #303 and #304.
+in [#260], [#264], [#266], [#302], [#303] and [#304].
 
 ### M07 Editor
 
@@ -271,7 +272,7 @@ in #260, #264, #266, #302, #303 and #304.
 - ~~Drafts~~
 - ~~Markdown preview and PDF export~~
 
-**Caveats:** [Editor](CAVEATS.md#editor), tracked in #267 and #307.
+**Caveats:** [Editor](CAVEATS.md#editor), tracked in [#267] and [#307].
 
 ### M08 Editor settings
 
@@ -292,7 +293,7 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 - **KTextEditor**
   - ~~**Configuration:** KTextEditor's own configuration pages~~
 
-**Caveats:** [Editor](CAVEATS.md#editor), tracked in #267, #307 and #309.
+**Caveats:** [Editor](CAVEATS.md#editor), tracked in [#267], [#307] and [#309].
 
 ### M09 Tools
 
@@ -339,23 +340,23 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 - ~~Placeholders for scripts and custom commands~~
 - ~~Linked panes and cushion treemap (Orcinus)~~
 
-**Caveats:** [File comparison](CAVEATS.md#file-comparison), tracked in #311;
-[symbolic links](CAVEATS.md#symbolic-links), tracked in #312; [listing export](CAVEATS.md#listing-export),
-tracked in #314; [folder content chart](CAVEATS.md#folder-content-chart), tracked in #315;
-[checksum files](CAVEATS.md#checksum-files), tracked in #316;
-[pane folder comparison](CAVEATS.md#pane-folder-comparison), tracked in #317;
-[split and combine files](CAVEATS.md#split-and-combine-files), tracked in #318;
-[embedded terminal](CAVEATS.md#embedded-terminal), tracked in #321;
-[linked pane navigation](CAVEATS.md#linked-pane-navigation), tracked in #322;
-[cushion treemap](CAVEATS.md#cushion-treemap), tracked in #335;
-[duplicate finder](CAVEATS.md#duplicate-finder), tracked in #336;
-[search](CAVEATS.md#search), tracked in #362;
-[batch rename](CAVEATS.md#batch-rename), tracked in #372;
-[custom commands](CAVEATS.md#custom-commands), tracked in #373;
-[metadata editing](CAVEATS.md#metadata-editing), tracked in #374;
-[transfer queue](CAVEATS.md#transfer-queue), tracked in #375;
-[filtered folder comparison](CAVEATS.md#filtered-folder-comparison), tracked in #376;
-[folder synchronization](CAVEATS.md#folder-synchronization), tracked in #377.
+**Caveats:** [File comparison](CAVEATS.md#file-comparison), tracked in [#311];
+[symbolic links](CAVEATS.md#symbolic-links), tracked in [#312]; [listing export](CAVEATS.md#listing-export),
+tracked in [#314]; [folder content chart](CAVEATS.md#folder-content-chart), tracked in [#315];
+[checksum files](CAVEATS.md#checksum-files), tracked in [#316];
+[pane folder comparison](CAVEATS.md#pane-folder-comparison), tracked in [#317];
+[split and combine files](CAVEATS.md#split-and-combine-files), tracked in [#318];
+[embedded terminal](CAVEATS.md#embedded-terminal), tracked in [#321];
+[linked pane navigation](CAVEATS.md#linked-pane-navigation), tracked in [#322];
+[cushion treemap](CAVEATS.md#cushion-treemap), tracked in [#335];
+[duplicate finder](CAVEATS.md#duplicate-finder), tracked in [#336];
+[search](CAVEATS.md#search), tracked in [#362];
+[batch rename](CAVEATS.md#batch-rename), tracked in [#372];
+[custom commands](CAVEATS.md#custom-commands), tracked in [#373];
+[metadata editing](CAVEATS.md#metadata-editing), tracked in [#374];
+[transfer queue](CAVEATS.md#transfer-queue), tracked in [#375];
+[filtered folder comparison](CAVEATS.md#filtered-folder-comparison), tracked in [#376];
+[folder synchronization](CAVEATS.md#folder-synchronization), tracked in [#377].
 
 ### M10 Tools settings
 
@@ -417,6 +418,8 @@ Settings for M09 tools, stored in KConfig.
 - **Automation**
   - ~~**Commands:** scripts, custom commands and presets~~
 
+**Caveats:** The [M09 tools caveats](#m09-tools) also apply to these settings.
+
 ### M11 UI Customizations
 
 - ~~Edit the main toolbar beyond the `KEditToolBar` dialog: drag entries on, off
@@ -433,7 +436,7 @@ Settings for M09 tools, stored in KConfig.
 - ~~Customize the combined Places/Folders panel: reorder its sections, show or
   hide each section, and give sections custom titles~~
 - ~~Back up and restore app-owned settings and layouts with a preview and
-  confirmation; exclude credentials and shared KDE settings, and avoid
+  confirmation; exclude recognized credentials and shared KDE settings, and avoid
   overwriting running configuration without a safe reload or restart~~
 - ~~Swap panes: the current tabs or whole sides~~
 - ~~Dim the inactive pane~~
@@ -465,9 +468,12 @@ Settings for M09 tools, stored in KConfig.
   available. Bound rendering work for large or remote listings and do not
   read file contents or trigger additional remote downloads.~~
 
+**Caveats:** [File-list minimap](CAVEATS.md#file-list-minimap), tracked in
+[#434]; [settings backups](CAVEATS.md#settings-backups), tracked in [#433].
+
 ### M12 UI Customization settings
 
-Settings for M12 UI customizations, stored in KConfig.
+Settings for M11 UI customizations, stored in KConfig.
 
 - **Toolbars**
   - ~~**Entries:** which entries the main toolbar and each pane toolbar show,
@@ -502,9 +508,184 @@ Settings for M12 UI customizations, stored in KConfig.
 - **Defaults**
   - ~~**Reset:** restore the main toolbar, pane toolbars and hamburger menu~~
   - ~~**Backup:** export and restore app-owned settings and layouts with a
-    preview and confirmation, excluding credentials and shared KDE settings~~
+    preview and confirmation, excluding recognized credentials and shared KDE
+    settings~~
 
-### M13 Workspaces
+**Caveats:** [File-list minimap](CAVEATS.md#file-list-minimap), tracked in
+[#434]; [settings backups](CAVEATS.md#settings-backups), tracked in [#433].
+
+### M13 Translations
+
+- Translation catalogues through `ki18n`, fed by the `i18n()` and `i18nc()`
+  calls already used throughout the code
+- Persian translation
+- Right-to-left layout, mirrored for Arabic and Hebrew too
+- Jalali (Persian) calendar dates
+
+### M14 Translation settings
+
+Settings for M13 translations, stored in KConfig.
+
+- **Language**
+  - **Interface:** follow the system language or select an interface language
+  - **Regional formats:** follow the system locale or select a locale for
+    dates and numbers independently of the interface language
+- **Dates**
+  - **Calendar:** calendar for dates: Gregorian or Jalali
+  - **Format:** custom date and time formats, with clear precedence over the
+    listing date-format defaults from M04
+- **Layout**
+  - **Direction:** follow the language or force left-to-right or right-to-left
+  - **Digits:** digit shapes and custom numeral formats, including Western or
+    Eastern Arabic-Indic digits
+
+### M15 Advanced search
+
+Extend the M09 search tools and reuse their search scopes, filters and saved
+searches rather than introducing a separate search system.
+
+- **Indexing:** search folders and exclusions; configure the search shortcut
+  through existing KDE facilities, using double Shift where supported and
+  reporting when it is unavailable. Integrate with M29 when available.
+- Provide an embedded search panel below or to the right of both panes, like
+  the embedded terminal; showing it never replaces either pane
+- Offer an optional search widget for the main toolbar: enter a query, search
+  using the shared scope (initially the active pane's location) and open the
+  advanced search panel
+- Combine filename, path, file type, size, date and content criteria with
+  AND, OR and NOT; validate queries and explain unsupported criteria
+- Prototype the query parser and validation in Rust behind a narrow C++/Rust
+  interface. Test error handling, ownership, path handling and threading at
+  the boundary, and evaluate the build and maintenance costs before adopting
+  Rust more broadly; keep the search UI and KIO integration in C++.
+- Present M09 search results in the embedded panel, reusing its progress,
+  cancellation, error reporting, open and reveal actions without moving files
+- Support keyboard navigation and focus between the toolbar widget, search
+  panel and panes; integrate with M29 shortcut configuration when available
+
+### M16 Advanced search settings
+
+Settings for M15 advanced search, stored in KConfig.
+
+- **Panel:** choose placement below or to the right of both panes, and whether
+  to restore its visibility on startup
+- **Toolbar:** use the M12 toolbar controls to show or hide the search widget;
+  choose whether submitting a query opens the panel
+- **Results:** choose the default result presentation and whether to retain
+  search history; allow history to be cleared
+- **Defaults:** reuse the M10 search scope, filters and saved-search settings
+  across the toolbar and panel
+
+### M17 Native tagging
+
+A native KDE tagging workflow inspired by TagStudio, integrated into Opus
+rather than requiring TagStudio or changing the user's folder structure.
+
+- Opt-in libraries rooted at existing local folders; index files of any type
+  without moving, renaming or duplicating them
+- Evaluate Rust for tag relationships, library metadata and search logic
+  based on the M15 pilot; retain Qt/KDE integration in C++ and use C++ for the
+  core if the added build and interoperability costs are not justified
+- Create and manage tags with stable identities, names, aliases, shorthand,
+  colours and parent relationships; support duplicate names with clear
+  disambiguation and prevent cycles in the hierarchy
+- Organize tags into groups independently of workspaces; allow M21 workspaces
+  to reference these groups later without changing the underlying tags
+- Assign and remove multiple tags on selected files and folders from the
+  listing or preview; provide a searchable, keyboard-accessible tag manager
+  and show assigned tags in the file interface
+- Search and filter by tags, inherited parent tags, untagged items, paths and
+  file types, with AND, OR, NOT and grouped expressions; integrate with the
+  existing search and selection workflows
+- Add editable text and date fields to library entries, alongside existing
+  labels, ratings and notes without silently replacing or converting them
+- Read supported EXIF image metadata and ID3 audio tags for display and search;
+  allow users to map selected fields to library tags or fields with a preview
+  and conflict handling. Reuse M09 metadata editing for supported writes, with
+  explicit consent and clear reporting of unsupported formats or failures.
+- Store library metadata in an open, documented format without requiring a
+  sidecar for each file; preserve existing `.mfm.json` metadata and report
+  unsupported or read-only locations
+- Refresh libraries with progress and cancellation; track Opus-initiated moves
+  and renames, and offer review and manual relinking for missing or externally
+  moved files without silently attaching metadata to an uncertain match
+- Export and restore library metadata with a preview and explicit confirmation;
+  never modify or delete the original files during export or restore
+
+### M18 Tagging settings
+
+Settings for M17 tagging, stored in KConfig.
+
+- **Libraries:** manage library roots and exclusions, and configure automatic
+  refresh and scanning limits
+- **Tags:** configure tag colours, display and parent-tag matching defaults
+- **Fields:** manage available text and date fields
+- **Embedded metadata:** choose which EXIF and ID3 fields to read or map to
+  library metadata; control refresh and conflict handling
+- **Search:** choose default tag search scope and matching behaviour
+- **Privacy:** control library metadata storage and backup locations; make
+  clear what is stored and do not write tags into file metadata without
+  explicit consent
+
+### M19 Yazi mode
+
+Offer an optional native Qt/KDE browsing mode inspired by
+[Yazi](https://yazi-rs.github.io/docs/quick-start/), a terminal file manager.
+Reuse Opus's file models and KDE services; this is not an embedded Yazi process
+or a promise of Yazi configuration or plugin compatibility.
+
+- Enable or leave the mode per pane, keeping it off by default. Preserve both
+  panes and their tabs, locations, selections and normal view settings when
+  switching modes; allow M21 workspaces to restore the mode when available.
+- Present parent and current folders alongside an optional preview in the
+  active pane. Adapt or hide columns in narrow windows without replacing the
+  other pane; keep navigation and preview accessible.
+- Provide keyboard-first navigation, including optional Vim-style movement and
+  multi-key actions. Reuse existing KDE shortcut facilities and integrate with
+  M29 when available; show the active mode and avoid intercepting typing in
+  editors, search fields or the terminal.
+- Support focused-item and multi-item selection, copy, move, rename, trash and
+  other existing file actions through Opus and KIO. Keep conflict handling,
+  destructive-action confirmations and undo behaviour; never introduce a
+  shortcut that silently overwrites or permanently deletes files.
+- Reuse existing filtering, filename and content search, sorting, tabs and
+  history. Show active filters and search progress, allow cancellation, and
+  report backend or remote-location limitations.
+- Reuse Opus previews and file information for the focused item, with
+  cancellable work and existing size and remote-download limits. Use existing
+  job and transfer-queue interfaces for progress and errors rather than
+  duplicating operations.
+- Keep large and remote listings responsive and accessible to keyboard and
+  assistive-technology users; report unavailable operations and preserve
+  ordinary browsing when the mode cannot support a location.
+- Store mode, column and preview choices in KConfig and, when available,
+  workspace layouts; provide a discoverable way to toggle the mode without
+  changing existing bindings by default.
+
+### M20 Yazi mode settings
+
+Settings for M19 Yazi mode, stored in KConfig and coordinated with workspace
+layouts.
+
+- **Activation:** choose the default mode independently for each pane and
+  whether to restore the previous choice; respect explicitly restored M21
+  workspace layouts when available and keep the mode off by default.
+- **Columns:** choose which folder-context and preview columns are shown and
+  their sizes; adapt to narrow windows without hiding the other file pane.
+- **Preview:** choose whether to show the focused item's preview or file
+  information. Reuse existing preview providers, size limits and remote
+  download policy rather than creating conflicting settings.
+- **Keyboard:** choose a standard or Yazi-inspired shortcut preset, review
+  conflicts before applying it, and keep typing and accessibility controls
+  usable. Reuse existing KDE shortcut configuration and integrate with M29
+  when available.
+- **Workspace layouts:** when M21 is available, choose whether workspace
+  layouts restore Yazi mode and its column settings, without overwriting an
+  explicitly selected workspace layout or altering other pane views.
+- **Reset:** restore Yazi mode preferences to their defaults without erasing
+  saved workspace layouts or unrelated settings.
+
+### M21 Workspaces
 
 Organize locations and tag groups into focused workspaces, inspired by
 TagSpaces, alongside Opus-specific workspace layouts.
@@ -530,15 +711,32 @@ TagSpaces, alongside Opus-specific workspace layouts.
   editable full path. Keep each breadcrumb navigable using its actual location,
   reveal full names for abbreviated segments, and save each pane's chosen mode
   in the workspace layout.
+- Show the active workspace and unsaved layout changes clearly, with a
+  keyboard-accessible selector and a way to return to the saved layout after
+  confirmation.
+- Capture and restore a workspace's pane and tab locations, active tabs and
+  Yazi mode choices as an explicit layout snapshot; preserve running jobs and
+  confirm before replacing unsaved state.
+- Restore available workspace components when locations or providers are
+  unavailable; identify what could not be restored and offer a retry without
+  silently replacing saved locations or changing files.
+- Export and import selected workspace profiles using the existing M12 backup
+  workflow, with a preview and collision handling; exclude credentials and
+  never execute commands or modify managed files during import.
+- Allow all, selected or none of a workspace's applicable behaviours to be
+  enabled, including location and tag-group presentation, search scope,
+  layouts, pane and tab restoration, and Yazi mode. Preserve unselected state
+  and existing defaults, and reuse existing controls; M23 can apply separate
+  choices per Activity.
 - Confirm before overwriting a saved workspace or discarding unsaved layout
   changes; deleting a workspace removes its associations, not the underlying
   files, locations or tags
 - Keep workspace configuration local and exclude credentials. Workspaces
   organize the interface and search scope; they are not a security boundary.
 
-### M14 Workspace settings
+### M22 Workspace settings
 
-Settings for M13 workspaces, stored in KConfig.
+Settings for M21 workspaces, stored in KConfig.
 
 - **Management:** manage workspaces, their locations and tag-group assignments
 - **Startup:** choose a startup workspace or restore the last-used workspace
@@ -550,172 +748,17 @@ Settings for M13 workspaces, stored in KConfig.
 - **Pane location bars:** choose full breadcrumbs, abbreviated ancestor
   breadcrumbs or an editable full path independently for each pane; restore
   these choices with the workspace layout
-
-### M15 Translations
-
-- Translation catalogues through `ki18n`, fed by the `i18n()` and `i18nc()`
-  calls already used throughout the code
-- Persian translation
-- Right-to-left layout, mirrored for Arabic and Hebrew too
-- Jalali (Persian) calendar dates
-
-### M16 Translation settings
-
-Settings for M15 translations, stored in KConfig.
-
-- **Language**
-  - **Interface:** follow the system language or select an interface language
-  - **Regional formats:** follow the system locale or select a locale for
-    dates and numbers independently of the interface language
-- **Dates**
-  - **Calendar:** calendar for dates: Gregorian or Jalali
-  - **Format:** custom date and time formats, with clear precedence over the
-    listing date-format defaults from M04
-- **Layout**
-  - **Direction:** follow the language or force left-to-right or right-to-left
-  - **Digits:** digit shapes and custom numeral formats, including Western or
-    Eastern Arabic-Indic digits
-
-### M17 Settings dialog polish
-
-Polish the existing settings pages without adding new preferences.
-
-- Search settings by name and description, showing matching pages and opening
-  the relevant tab and control
-- Review page grouping, labels, descriptions and terminology for consistency;
-  explain settings that affect shared KDE configuration or require a restart
-- Make Apply, OK and Cancel behaviour clear, including pending changes and
-  restoration of live previews when changes are cancelled
-- Restore defaults for the current page or all pages with an explicit choice
-  and confirmation before discarding changes
-- Validate inputs with actionable inline errors and focus the affected control;
-  explain unavailable or dependent options
-- Support keyboard navigation, visible focus, screen-reader labels and
-  accessible error messages throughout the dialog
-- Adapt pages and navigation to small windows, high DPI, long translations and
-  right-to-left layouts without clipping controls or labels
-- Provide concise contextual help for settings whose effects are not obvious
-
-### M18 Keyboard shortcut settings
-
-- Optional Vim-style navigation in file listings and panes, with a discoverable
-  shortcut reference; keep it off by default and do not intercept typing in
-  text fields or the embedded terminal
-- Show the active Vim-style mode and provide a clear way to enter filtering or
-  text input without conflicting with navigation keys
-- Configure custom shortcuts using simultaneous key combinations and
-  sequential key chords, with conflict detection, clear feedback and reset to
-  defaults; integrate with KDE shortcut facilities where supported
-- Allow alternative bindings for an action and configurable shortcuts for
-  commands that are not on a toolbar, including custom commands
-- Show a searchable keyboard map with action names, descriptions, bindings and
-  contexts; search by typing an action name or pressing a key combination, and
-  export a printable reference
-- Scope bindings to the applicable view, folder tree, viewer or application;
-  detect conflicts where contexts overlap and preserve typing and accessibility
-  keys in input controls
-- Native shortcut hint popup inspired by
-  [which-key.nvim](https://github.com/folke/which-key.nvim): show pending key
-  sequences and context-appropriate continuations grouped with action
-  descriptions; support keyboard navigation and dismissal
-- Configure the hint popup's enablement and display delay, and provide an
-  on-demand shortcut reference; cancel or time out incomplete sequences
-  without unexpectedly running a conflicting action
-- Provide shortcuts for pane and tab navigation, selection, filtering, preview
-  and terminal focus as those features become available, without overriding
-  existing bindings by default
-- Import and export shortcut bindings with a conflict preview; do not execute
-  commands from imported files
-- Save the Vim-style mode and app-local shortcut bindings in KConfig; manage
-  optional global shortcuts through KDE facilities and report registration
-  failures or platform limitations
-
-### M19 Advanced search
-
-Extend the M09 search tools and reuse their search scopes, filters and saved
-searches rather than introducing a separate search system.
-
-- **Indexing:** search folders and exclusions; use M18 shortcut configuration
-  for the search shortcut, with double Shift as the proposed default
-- Provide an embedded search panel below or to the right of both panes, like
-  the embedded terminal; showing it never replaces either pane
-- Offer an optional search widget for the main toolbar: enter a query, search
-  using the shared scope (initially the active pane's location) and open the
-  advanced search panel
-- Combine filename, path, file type, size, date and content criteria with
-  AND, OR and NOT; validate queries and explain unsupported criteria
-- Prototype the query parser and validation in Rust behind a narrow C++/Rust
-  interface. Test error handling, ownership, path handling and threading at
-  the boundary, and evaluate the build and maintenance costs before adopting
-  Rust more broadly; keep the search UI and KIO integration in C++.
-- Present M09 search results in the embedded panel, reusing its progress,
-  cancellation, error reporting, open and reveal actions without moving files
-- Support keyboard navigation and focus between the toolbar widget, search
-  panel and panes, using the shortcut configuration in M18
-
-### M20 Advanced search settings
-
-Settings for M19 advanced search, stored in KConfig.
-
-- **Panel:** choose placement below or to the right of both panes, and whether
-  to restore its visibility on startup
-- **Toolbar:** use the M12 toolbar controls to show or hide the search widget;
-  choose whether submitting a query opens the panel
-- **Results:** choose the default result presentation and whether to retain
-  search history; allow history to be cleared
-- **Defaults:** reuse the M10 search scope, filters and saved-search settings
-  across the toolbar and panel
-
-### M21 Native tagging
-
-A native KDE tagging workflow inspired by TagStudio, integrated into Opus
-rather than requiring TagStudio or changing the user's folder structure.
-
-- Opt-in libraries rooted at existing local folders; index files of any type
-  without moving, renaming or duplicating them
-- Evaluate Rust for tag relationships, library metadata and search logic
-  based on the M19 pilot; retain Qt/KDE integration in C++ and use C++ for the
-  core if the added build and interoperability costs are not justified
-- Create and manage tags with stable identities, names, aliases, shorthand,
-  colours and parent relationships; support duplicate names with clear
-  disambiguation and prevent cycles in the hierarchy
-- Organize tags into groups that M13 workspaces can reference without changing
-  the underlying tags
-- Assign and remove multiple tags on selected files and folders from the
-  listing or preview; provide a searchable, keyboard-accessible tag manager
-  and show assigned tags in the file interface
-- Search and filter by tags, inherited parent tags, untagged items, paths and
-  file types, with AND, OR, NOT and grouped expressions; integrate with the
-  existing search and selection workflows
-- Add editable text and date fields to library entries, alongside existing
-  labels, ratings and notes without silently replacing or converting them
-- Read supported EXIF image metadata and ID3 audio tags for display and search;
-  allow users to map selected fields to library tags or fields with a preview
-  and conflict handling. Reuse M09 metadata editing for supported writes, with
-  explicit consent and clear reporting of unsupported formats or failures.
-- Store library metadata in an open, documented format without requiring a
-  sidecar for each file; preserve existing `.mfm.json` metadata and report
-  unsupported or read-only locations
-- Refresh libraries with progress and cancellation; track Opus-initiated moves
-  and renames, and offer review and manual relinking for missing or externally
-  moved files without silently attaching metadata to an uncertain match
-- Export and restore library metadata with a preview and explicit confirmation;
-  never modify or delete the original files during export or restore
-
-### M22 Tagging settings
-
-Settings for M21 tagging, stored in KConfig.
-
-- **Libraries:** manage library roots and exclusions, and configure automatic
-  refresh and scanning limits
-- **Tags:** configure tag colours, display and parent-tag matching defaults
-- **Fields:** manage available text and date fields
-- **Embedded metadata:** choose which EXIF and ID3 fields to read or map to
-  library metadata; control refresh and conflict handling
-- **Search:** choose default tag search scope and matching behaviour
-- **Privacy:** control library metadata storage and backup locations; make
-  clear what is stored and do not write tags into file metadata without
-  explicit consent
+- **Indicators:** show the active workspace and unsaved layout state; choose
+  where the workspace selector appears without hiding all ways to access it
+- **Snapshots:** choose which pane, tab and Yazi mode state a workspace
+  snapshot restores, respecting M02 startup and session choices
+- **Recovery:** choose whether to prompt to retry unavailable locations or
+  providers; keep saved references until the user explicitly changes them
+- **Portability:** select workspace profiles for export or import with the M12
+  backup controls and review conflicts before applying changes
+- **Features:** choose a workspace's default enabled behaviours individually,
+  or select all or none; reuse existing search and layout settings and expose
+  per-Activity overrides through M24 when available
 
 ### M23 Integrations
 
@@ -794,6 +837,47 @@ Settings for M21 tagging, stored in KConfig.
   visibly; do not assume every account offers file access. Respect provider
   permissions, authentication and TLS verification, and never store tokens or
   passwords in URLs, logs or Opus configuration.
+- Plasma Activities: optionally associate M21 workspaces with Activities and
+  configure default folders for each Activity and workspace association. For
+  each association, use all, selected or none of the applicable workspace
+  behaviours and Activity-specific default folders, independently of other
+  Activities; allow workspace defaults or explicit overrides. Offer to apply
+  the selected choices when the Activity changes, without silently replacing
+  restored tabs or unsaved layouts. Leave unselected behaviours and state
+  unchanged, preserve unassociated workspaces and running operations, and never
+  create, delete or switch an Activity without explicit user action.
+  Handle an unavailable Activities service, missing folders and removed
+  Activities without losing workspace data, and avoid duplicating KDE's KIO
+  resource history.
+- Plasma notifications and jobs: integrate Opus-owned long-running operations
+  with KDE's notification settings and offer relevant actions to return to the
+  operation or inspect its result. Reuse KIO's existing progress reporting
+  rather than creating duplicate notifications or controls. Respect notification
+  settings and privacy; report failures and partial results without exposing
+  sensitive paths unnecessarily.
+- KDE Connect sharing: offer an explicit action to send selected files to an
+  available paired device through supported KDE Connect interfaces. Show the
+  selected device and transfer outcome; do not pair devices, send files or
+  change shared KDE Connect settings automatically. Handle missing services,
+  offline devices and unsupported locations visibly.
+- KRunner integration: provide an optional runner for explicitly saved Opus
+  workspaces and locations, with actions to open the chosen item in Opus.
+  Respect workspace privacy, avoid exposing credentials or unselected history,
+  and handle missing or stale targets without creating files or running
+  commands. Use Plasma's supported runner interfaces and do not replace its
+  existing file search.
+- Optional password-gated folders: let users require a password before opening
+  selected local folders through Opus. This is an Opus-only convenience gate,
+  not encryption or filesystem access control: clearly warn that other
+  applications and direct filesystem access remain unrestricted. Do not change
+  file permissions or contents. Apply the gate consistently across Opus
+  navigation and alternate paths, store no plaintext password, and use a
+  trusted password-verification mechanism and KDE credential facilities where
+  appropriate. Report unavailable protection and failures rather than silently
+  bypassing the gate; provide explicit password change and removal workflows.
+
+**Planned caveat:** [Password-gated folders](CAVEATS.md#planned-password-gated-folders),
+tracked in [#406].
 
 ### M24 Integration settings
 
@@ -803,7 +887,8 @@ Settings for M23 integrations, stored in KConfig.
   - **Behaviour:** minimise and close to tray
 - **Shortcuts**
   - **Global:** enable or disable the integration's global shortcut and choose
-    its key combination through M18's shortcut configuration
+    its key combination through KDE facilities; integrate with M29's shortcut
+    configuration when available
 - **File manager**
   - **Portal:** serve the XDG portal file chooser on or off
   - **Default:** show the current desktop file-manager association and offer
@@ -838,6 +923,23 @@ Settings for M23 integrations, stored in KConfig.
   - **Access:** opt in to integration and choose which supported accounts to
     show in Opus; manage accounts in KDE without deleting shared accounts when
     removing them from Opus
+- **Plasma Activities**
+  - **Workspaces:** enable Activity associations; manage workspace mappings,
+    Activity-specific default folders, feature selections and workspace-switch
+    prompts without changing KDE's Activity settings. For each association,
+    inherit workspace defaults or select all, individual or no behaviours.
+- **Plasma notifications**
+  - **Operations:** choose which Opus-owned operation events produce
+    notifications and open KDE's notification settings for shared controls
+- **KDE Connect**
+  - **Sharing:** enable the sharing action and choose whether to remember a
+    device, without changing pairing or KDE Connect settings
+- **KRunner**
+  - **Discovery:** enable the optional runner and choose which saved workspaces
+    and locations it can expose
+- **Password-gated folders**
+  - **Access:** manage protected local folders and their passwords, with a
+    clear warning that the gate applies only inside Opus
 
 ### M25 Themes
 
@@ -892,6 +994,85 @@ Settings for M27 branding, stored in KConfig and separate from theme settings.
   - **Presentation:** enable or disable the optional startup presentation and
     choose among available branding variants without changing the app identity
 
+### M29 Keyboard shortcut settings
+
+- Optional Vim-style navigation in file listings and panes, with a discoverable
+  shortcut reference; keep it off by default and do not intercept typing in
+  text fields or the embedded terminal
+- Show the active Vim-style mode and provide a clear way to enter filtering or
+  text input without conflicting with navigation keys
+- Configure custom shortcuts using simultaneous key combinations and
+  sequential key chords, with conflict detection, clear feedback and reset to
+  defaults; integrate with KDE shortcut facilities where supported
+- Allow alternative bindings for an action and configurable shortcuts for
+  commands that are not on a toolbar, including custom commands
+- Show a searchable keyboard map with action names, descriptions, bindings and
+  contexts; search by typing an action name or pressing a key combination, and
+  export a printable reference
+- Scope bindings to the applicable view, folder tree, viewer or application;
+  detect conflicts where contexts overlap and preserve typing and accessibility
+  keys in input controls
+- Native shortcut hint popup inspired by
+  [which-key.nvim](https://github.com/folke/which-key.nvim): show pending key
+  sequences and context-appropriate continuations grouped with action
+  descriptions; support keyboard navigation and dismissal
+- Configure the hint popup's enablement and display delay, and provide an
+  on-demand shortcut reference; cancel or time out incomplete sequences
+  without unexpectedly running a conflicting action
+- Provide shortcuts for pane and tab navigation, selection, filtering, preview
+  and terminal focus as those features become available, without overriding
+  existing bindings by default
+- Import and export shortcut bindings with a conflict preview; do not execute
+  commands from imported files
+- Save the Vim-style mode and app-local shortcut bindings in KConfig; manage
+  optional global shortcuts through KDE facilities and report registration
+  failures or platform limitations
+
+### M30 Settings dialog polish
+
+Polish the existing settings pages without adding new preferences.
+
+- Search settings by name and description, showing matching pages and opening
+  the relevant tab and control
+- Review page grouping, labels, descriptions and terminology for consistency;
+  explain settings that affect shared KDE configuration or require a restart
+- Make Apply, OK and Cancel behaviour clear, including pending changes and
+  restoration of live previews when changes are cancelled
+- Restore defaults for the current page or all pages with an explicit choice
+  and confirmation before discarding changes
+- Validate inputs with actionable inline errors and focus the affected control;
+  explain unavailable or dependent options
+- Support keyboard navigation, visible focus, screen-reader labels and
+  accessible error messages throughout the dialog
+- Adapt pages and navigation to small windows, high DPI, long translations and
+  right-to-left layouts without clipping controls or labels
+- Provide concise contextual help for settings whose effects are not obvious
+- Explain setting scope and precedence where defaults can be overridden by
+  folder formats, pane locks, operation choices, saved profiles or workspace
+  layouts. Distinguish the saved default from the effective value without
+  changing the underlying precedence rules.
+- Audit settings that open external KDE dialogs or immediately modify saved
+  searches, collections, presets and commands. Make their scope and immediate
+  effects clear before the action; do not imply that Cancel can undo changes
+  owned by another component.
+- Make settings persistence and recovery reliable across reopening the dialog,
+  multiple windows and application restarts. Detect and report save failures
+  or conflicting external changes without silently discarding user edits.
+- Clarify the boundaries of reset, backup and restore: preview affected
+  app-owned settings, distinguish excluded credentials and shared KDE data, and
+  preserve confirmation and restart requirements from M12.
+- Keep settings pages responsive when loading large lists, profiles or
+  provider data. Explain missing dependencies and permission failures without
+  blocking the dialog or silently replacing saved choices.
+- Establish reusable search, accessibility, validation and help conventions for
+  existing and future pages, including shortcuts, search, tagging, integrations,
+  themes and branding. Review pages as implemented without blocking M30 on
+  features that remain unavailable.
+- Add focused tests for settings search, keyboard access, validation,
+  Apply/Cancel and defaults, persistence failures and shared or immediate
+  changes across representative existing pages. Extend coverage as later
+  settings pages are added.
+
 ## Feature references
 
 The roadmap adapts workflows to KDE rather than copying platform-specific
@@ -933,18 +1114,47 @@ upstream source could not be verified for this review.
 
 Translation milestone handoff: [pending tasks](TODO.md#complete-m13-and-m14-translations).
 
-Prefix user-reported bug titles with `[bug] ` and label them `bug`. Prefix
-reports arising from documented caveats with `[caveat] ` and label them
-`caveat`. Move milestone, bug and caveat issues to Development on the GitHub
-project when work starts.
+Follow the [project instructions](../CLAUDE.md) for issue tracking, completion,
+branching and merging. Record blocked work in [pending tasks](TODO.md) and
+document feature limitations in [caveats and limitations](CAVEATS.md).
 
-Work on each milestone in a `feature/M##-name` branch. A milestone is complete
-when every feature item is struck through; commit its changes by scope, push
-the branch and merge it into `main`. Leave features in Review unstruck; strike
-out a feature when its issue moves to Completed, even when it has known caveats.
-Create a GitHub caveat report for each outstanding caveat, linking its entry
-in [Caveats and limitations](CAVEATS.md), and put caveat references at the end
-of the milestone. Leave unimplemented or unverified features unstruck. Work on
-bug and caveat issues in their own branches; commit fixes by scope, push and
-merge them into `main`. See [project workflow](../CLAUDE.md#project-workflow)
-for issue status and closure rules.
+[#36]: https://github.com/mikepadiernos/opus-file-manager/issues/36
+[#255]: https://github.com/mikepadiernos/opus-file-manager/issues/255
+[#256]: https://github.com/mikepadiernos/opus-file-manager/issues/256
+[#257]: https://github.com/mikepadiernos/opus-file-manager/issues/257
+[#258]: https://github.com/mikepadiernos/opus-file-manager/issues/258
+[#259]: https://github.com/mikepadiernos/opus-file-manager/issues/259
+[#260]: https://github.com/mikepadiernos/opus-file-manager/issues/260
+[#261]: https://github.com/mikepadiernos/opus-file-manager/issues/261
+[#262]: https://github.com/mikepadiernos/opus-file-manager/issues/262
+[#263]: https://github.com/mikepadiernos/opus-file-manager/issues/263
+[#264]: https://github.com/mikepadiernos/opus-file-manager/issues/264
+[#265]: https://github.com/mikepadiernos/opus-file-manager/issues/265
+[#266]: https://github.com/mikepadiernos/opus-file-manager/issues/266
+[#267]: https://github.com/mikepadiernos/opus-file-manager/issues/267
+[#302]: https://github.com/mikepadiernos/opus-file-manager/issues/302
+[#303]: https://github.com/mikepadiernos/opus-file-manager/issues/303
+[#304]: https://github.com/mikepadiernos/opus-file-manager/issues/304
+[#307]: https://github.com/mikepadiernos/opus-file-manager/issues/307
+[#309]: https://github.com/mikepadiernos/opus-file-manager/issues/309
+[#311]: https://github.com/mikepadiernos/opus-file-manager/issues/311
+[#312]: https://github.com/mikepadiernos/opus-file-manager/issues/312
+[#314]: https://github.com/mikepadiernos/opus-file-manager/issues/314
+[#315]: https://github.com/mikepadiernos/opus-file-manager/issues/315
+[#316]: https://github.com/mikepadiernos/opus-file-manager/issues/316
+[#317]: https://github.com/mikepadiernos/opus-file-manager/issues/317
+[#318]: https://github.com/mikepadiernos/opus-file-manager/issues/318
+[#321]: https://github.com/mikepadiernos/opus-file-manager/issues/321
+[#322]: https://github.com/mikepadiernos/opus-file-manager/issues/322
+[#335]: https://github.com/mikepadiernos/opus-file-manager/issues/335
+[#336]: https://github.com/mikepadiernos/opus-file-manager/issues/336
+[#362]: https://github.com/mikepadiernos/opus-file-manager/issues/362
+[#372]: https://github.com/mikepadiernos/opus-file-manager/issues/372
+[#373]: https://github.com/mikepadiernos/opus-file-manager/issues/373
+[#374]: https://github.com/mikepadiernos/opus-file-manager/issues/374
+[#375]: https://github.com/mikepadiernos/opus-file-manager/issues/375
+[#376]: https://github.com/mikepadiernos/opus-file-manager/issues/376
+[#377]: https://github.com/mikepadiernos/opus-file-manager/issues/377
+[#406]: https://github.com/mikepadiernos/opus-file-manager/issues/406
+[#433]: https://github.com/mikepadiernos/opus-file-manager/issues/433
+[#434]: https://github.com/mikepadiernos/opus-file-manager/issues/434
