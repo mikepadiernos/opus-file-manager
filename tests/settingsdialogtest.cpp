@@ -203,6 +203,29 @@ private Q_SLOTS:
         QCOMPARE(Settings::horizontalFirstTabPosition(), 2);
     }
 
+    void statusBarIndicatorOrderPersistsAndCancels()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *order = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_StatusBarIndicatorOrder"));
+            QVERIFY(order);
+            QCOMPARE(order->count(), 2);
+            order->setCurrentIndex(Settings::EnumStatusBarIndicatorOrder::FreeSpaceFirst);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QCOMPARE(Settings::statusBarIndicatorOrder(), Settings::EnumStatusBarIndicatorOrder::FreeSpaceFirst);
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *order = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_StatusBarIndicatorOrder"));
+            QVERIFY(order);
+            QCOMPARE(order->currentIndex(), Settings::EnumStatusBarIndicatorOrder::FreeSpaceFirst);
+            order->setCurrentIndex(Settings::EnumStatusBarIndicatorOrder::ItemsFirst);
+            dialog.reject();
+        }
+        QCOMPARE(Settings::statusBarIndicatorOrder(), Settings::EnumStatusBarIndicatorOrder::FreeSpaceFirst);
+    }
+
     void metadataFieldDefaultsPersist()
     {
         KFilePlacesModel places;

@@ -223,6 +223,7 @@ private Q_SLOTS:
         QCOMPARE(tabTitleOf(dialog.findChild<QCheckBox *>(QStringLiteral("kioConfirmTrash"))), QStringLiteral("Confirmations"));
         QCOMPARE(tabOf(QStringLiteral("ShowPlaces")), QStringLiteral("Panels"));
         QCOMPARE(tabOf(QStringLiteral("ShowFreeSpace")), QStringLiteral("Status and Location Bars"));
+        QCOMPARE(tabOf(QStringLiteral("StatusBarIndicatorOrder")), QStringLiteral("Status and Location Bars"));
         QCOMPARE(tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("configureMainToolbarEntries"))), QStringLiteral("Toolbars"));
         QCOMPARE(tabOf(QStringLiteral("DefaultViewMode")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("ShowFileListMinimap")), QStringLiteral("General"));
@@ -1733,17 +1734,20 @@ private Q_SLOTS:
     void statusBarIndicatorsCanBeShownPerPane()
     {
         const auto previousLayout = Settings::statusBarLayout();
+        const auto previousOrder = Settings::statusBarIndicatorOrder();
         const bool previousCounts = Settings::showItemCounts();
         const bool previousSize = Settings::showSelectionSize();
         const bool previousFreeSpace = Settings::showFreeSpace();
         const auto restore = qScopeGuard([=] {
             Settings::setStatusBarLayout(previousLayout);
+            Settings::setStatusBarIndicatorOrder(previousOrder);
             Settings::setShowItemCounts(previousCounts);
             Settings::setShowSelectionSize(previousSize);
             Settings::setShowFreeSpace(previousFreeSpace);
             Settings::self()->save();
         });
         Settings::setStatusBarLayout(Settings::EnumStatusBarLayout::Shared);
+        Settings::setStatusBarIndicatorOrder(Settings::EnumStatusBarIndicatorOrder::ItemsFirst);
         Settings::setShowItemCounts(true);
         Settings::setShowSelectionSize(true);
         Settings::setShowFreeSpace(true);
@@ -1774,12 +1778,22 @@ private Q_SLOTS:
         QCOMPARE(layout->count(), 2);
         QVERIFY(sharedItems->isVisible());
         QVERIFY(left->statusBarWidget()->isHidden());
+        auto *sharedFreeSpace = window.findChild<QLabel *>(QStringLiteral("freeSpaceLabel"));
+        QVERIFY(sharedItems->geometry().x() < sharedFreeSpace->geometry().x());
+
+        Settings::setStatusBarIndicatorOrder(Settings::EnumStatusBarIndicatorOrder::FreeSpaceFirst);
+        window.applySettings();
+        QTRY_VERIFY(sharedFreeSpace->geometry().x() < sharedItems->geometry().x());
 
         Settings::setStatusBarLayout(Settings::EnumStatusBarLayout::PerPane);
         window.applySettings();
         QVERIFY(sharedItems->isHidden());
         QVERIFY(left->statusBarWidget()->isVisible());
         QVERIFY(right->statusBarWidget()->isVisible());
+        auto *leftStatusLayout = left->statusBarWidget()->layout();
+        QTRY_VERIFY(leftStatusLayout->indexOf(window.findChild<QLabel *>(QStringLiteral("leftFreeSpaceLabel"))) < leftStatusLayout->indexOf(leftItems));
+        auto *rightStatusLayout = right->statusBarWidget()->layout();
+        QTRY_VERIFY(rightStatusLayout->indexOf(window.findChild<QLabel *>(QStringLiteral("rightFreeSpaceLabel"))) < rightStatusLayout->indexOf(rightItems));
         QVERIFY(leftItems->text().contains(QStringLiteral("1 item")));
         QVERIFY(rightItems->text().contains(QStringLiteral("0 items")));
 
@@ -1789,7 +1803,9 @@ private Q_SLOTS:
         right->statusMessage(QStringLiteral("Operation failed"));
         QCOMPARE(window.statusBar()->currentMessage(), QStringLiteral("Operation failed"));
 
+        window.statusBar()->clearMessage();
         Settings::setStatusBarLayout(Settings::EnumStatusBarLayout::Shared);
+        Settings::setStatusBarIndicatorOrder(Settings::EnumStatusBarIndicatorOrder::ItemsFirst);
         window.applySettings();
         QVERIFY(sharedItems->isVisible());
         QVERIFY(left->statusBarWidget()->isHidden());

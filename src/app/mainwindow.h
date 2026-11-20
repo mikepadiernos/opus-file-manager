@@ -31,6 +31,7 @@ class ToolbarCustomizer;
 class QDockWidget;
 class QDialog;
 class QLabel;
+class QHBoxLayout;
 class QMenu;
 class QSplitter;
 class QTabWidget;
@@ -104,6 +105,7 @@ private:
     void setActivePane(Pane *pane);
     void connectPane(Pane *pane);
     void updateActions();
+    void updateStatusBarIndicatorOrder();
     void updateStatusBar();
     void updateFreeSpace(Pane *pane = nullptr);
     void updateWindowTitle();
@@ -262,6 +264,7 @@ private:
     QLabel *m_itemsLabel = nullptr;
     QLabel *m_messageLabel = nullptr;
     QLabel *m_freeSpaceLabel = nullptr;
+    QHBoxLayout *m_statusBarLayout = nullptr;
     QHash<Pane *, QLabel *> m_paneItemsLabels;
     QHash<Pane *, QLabel *> m_paneFreeSpaceLabels;
     KToggleAction *m_dualLayoutAction = nullptr;

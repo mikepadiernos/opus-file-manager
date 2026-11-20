@@ -940,14 +940,19 @@ void MainWindow::addToFavorites()
 
 void MainWindow::setupStatusBar()
 {
-    m_itemsLabel = new QLabel(this);
+    auto *indicators = new QWidget(this);
+    m_statusBarLayout = new QHBoxLayout(indicators);
+    m_statusBarLayout->setContentsMargins(4, 0, 4, 0);
+    m_statusBarLayout->setSpacing(8);
+    m_itemsLabel = new QLabel(indicators);
     m_itemsLabel->setObjectName(QStringLiteral("itemsLabel"));
-    m_messageLabel = new QLabel(this);
-    m_freeSpaceLabel = new QLabel(this);
+    m_messageLabel = new QLabel(indicators);
+    m_freeSpaceLabel = new QLabel(indicators);
     m_freeSpaceLabel->setObjectName(QStringLiteral("freeSpaceLabel"));
-    statusBar()->addWidget(m_itemsLabel);
-    statusBar()->addWidget(m_messageLabel, 1);
-    statusBar()->addPermanentWidget(m_freeSpaceLabel);
+    m_statusBarLayout->addWidget(m_itemsLabel);
+    m_statusBarLayout->addWidget(m_messageLabel, 1);
+    m_statusBarLayout->addWidget(m_freeSpaceLabel);
+    statusBar()->addWidget(indicators, 1);
     for (Pane *pane : {m_left, m_right}) {
         auto *bar = new QWidget(pane);
         auto *layout = new QHBoxLayout(bar);
@@ -963,6 +968,26 @@ void MainWindow::setupStatusBar()
         pane->setStatusBarWidget(bar);
         m_paneItemsLabels.insert(pane, items);
         m_paneFreeSpaceLabels.insert(pane, freeSpace);
+    }
+    updateStatusBarIndicatorOrder();
+}
+
+void MainWindow::updateStatusBarIndicatorOrder()
+{
+    const bool freeSpaceFirst = Settings::statusBarIndicatorOrder() == Settings::EnumStatusBarIndicatorOrder::FreeSpaceFirst;
+    m_statusBarLayout->removeWidget(m_itemsLabel);
+    m_statusBarLayout->removeWidget(m_freeSpaceLabel);
+    m_statusBarLayout->insertWidget(0, freeSpaceFirst ? m_freeSpaceLabel : m_itemsLabel);
+    m_statusBarLayout->addWidget(freeSpaceFirst ? m_itemsLabel : m_freeSpaceLabel);
+
+    for (Pane *pane : {m_left, m_right}) {
+        auto *layout = qobject_cast<QBoxLayout *>(pane->statusBarWidget()->layout());
+        QLabel *items = m_paneItemsLabels.value(pane);
+        QLabel *freeSpace = m_paneFreeSpaceLabels.value(pane);
+        layout->removeWidget(items);
+        layout->removeWidget(freeSpace);
+        layout->insertWidget(0, freeSpaceFirst ? freeSpace : items);
+        layout->addWidget(freeSpaceFirst ? items : freeSpace);
     }
 }
 
@@ -3655,6 +3680,7 @@ void MainWindow::applySettings()
     setBarMargin(m_left->navigationBar(), barMargin);
     setBarMargin(m_right->navigationBar(), barMargin);
     applyPanelSettings();
+    updateStatusBarIndicatorOrder();
     updateStatusBar();
     updateFreeSpace();
     updateInformationPanel();

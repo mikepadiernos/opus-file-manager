@@ -576,6 +576,14 @@
       </choices>
       <default>Shared</default>
     </entry>
+    <entry name="StatusBarIndicatorOrder" type="Enum">
+      <label>Order of item counts and the free-space indicator</label>
+      <choices>
+        <choice name="ItemsFirst"/>
+        <choice name="FreeSpaceFirst"/>
+      </choices>
+      <default>ItemsFirst</default>
+    </entry>
     <entry name="ShowItemCounts" type="Bool">
       <label>Show the number of items and selected items</label>
       <default>true</default>
