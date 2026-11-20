@@ -453,11 +453,11 @@ Settings for M09 tools, stored in KConfig.
 - ~~Customize the preview and gallery background for transparent images:
   follow the active Plasma theme, or choose light, dark or checkerboard.
   Keep the image data unchanged. (Directory Opus)~~
-- Customize the Information panel's visible metadata fields and their order,
+- ~~Customize the Information panel's visible metadata fields and their order,
   and optionally show information for a hovered item instead of the current
   selection. Make hover behaviour opt-in and retain selection-based fallback;
   show unavailable metadata without initiating additional remote downloads.
-  (Dolphin)
+  (Dolphin)~~
 - Optional file-list minimap on the right edge of each explorer pane: show a
   compact overview of the current visible files and folders and the scroll
   viewport, with click or drag navigation. Follow the pane's current tab,
