@@ -450,6 +450,9 @@ void ToolbarCustomizer::installButtonFilter(QAction *action)
         }
     }
     for (const auto &[toolbar, candidate] : candidates) {
+        if (kindForAction(candidate) == QLatin1String("spacer")) {
+            candidate->setProperty("toolbarSpacer", true);
+        }
         if ((candidate->isSeparator() || kindForAction(candidate) == QLatin1String("spacer")) && candidate->objectName().isEmpty()) {
             const QString prefix = candidate->isSeparator() ? QStringLiteral("opus_toolbar_separator_") : QStringLiteral("opus_toolbar_spacer_");
             candidate->setObjectName(prefix + QUuid::createUuid().toString(QUuid::WithoutBraces));
@@ -511,6 +514,14 @@ QString ToolbarCustomizer::kindForAction(QAction *action) const
     if (action->property("toolbarSpacer").toBool() || action->objectName() == QLatin1String("spacer")
         || action->objectName().startsWith(QLatin1String("spacer_"))) {
         return QStringLiteral("spacer");
+    }
+    if (action->objectName().isEmpty() && m_toolbar->actions().contains(action)) {
+        if (auto *widgetAction = qobject_cast<QWidgetAction *>(action)) {
+            QWidget *widget = widgetAction->defaultWidget();
+            if (widget && (widget->sizePolicy().expandingDirections() & m_toolbar->orientation())) {
+                return QStringLiteral("spacer");
+            }
+        }
     }
     return QStringLiteral("action");
 }
