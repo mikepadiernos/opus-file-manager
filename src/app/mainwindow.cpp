@@ -955,7 +955,7 @@ void MainWindow::setupActions()
     QAction *compareFolders = actions->addAction(QStringLiteral("compare_pane_folders"), this, &MainWindow::comparePaneFolders);
     compareFolders->setText(i18nc("@action", "Compare Pane Folders"));
     QAction *filteredComparison = actions->addAction(QStringLiteral("compare_folders_filtered"), this, &MainWindow::compareFoldersFiltered);
-    filteredComparison->setText(i18nc("@action", "Compare Folders with Filters…"));
+    filteredComparison->setText(i18nc("@action", "Compare and Synchronize Folders…"));
     QAction *createChecksum = actions->addAction(QStringLiteral("create_checksum"), this, &MainWindow::createChecksumFile);
     createChecksum->setText(i18nc("@action", "Create SHA-256 Checksum File…"));
     QAction *verifyChecksum = actions->addAction(QStringLiteral("verify_checksum"), this, &MainWindow::verifyChecksumFile);

@@ -11,6 +11,7 @@
 
 #include <atomic>
 #include <memory>
+#include <optional>
 
 class QCheckBox;
 class QComboBox;
@@ -34,6 +35,9 @@ private:
     void refreshProfiles();
     void invalidate();
     void compare();
+    void updateSelectedAction();
+    void planCopies(FolderSync::Action direction);
+    void synchronize();
 
     QString m_left;
     QString m_right;
@@ -48,8 +52,15 @@ private:
     QComboBox *m_saved;
     QLabel *m_status;
     QTreeWidget *m_results;
+    QWidget *m_planControls;
+    QComboBox *m_action;
+    QPlainTextEdit *m_report;
     QPushButton *m_compare;
     QPushButton *m_cancel;
+    QPushButton *m_sync;
     QFutureWatcher<FolderSync::Comparison> m_watcher;
+    QFutureWatcher<FolderSync::ApplyResult> m_syncWatcher;
     std::shared_ptr<std::atomic_bool> m_canceled;
+    std::optional<FolderSync::Comparison> m_comparison;
+    QList<FolderSync::Action> m_actions;
 };

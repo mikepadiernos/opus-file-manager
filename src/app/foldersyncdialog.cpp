@@ -16,6 +16,7 @@
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QTreeWidget>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
@@ -60,6 +61,40 @@ QStringList patterns(const QPlainTextEdit *edit)
 {
     return edit->toPlainText().split(QLatin1Char('\n'), Qt::SkipEmptyParts);
 }
+
+QString actionText(FolderSync::Action action, const FolderSync::Row &row)
+{
+    using Action = FolderSync::Action;
+    switch (action) {
+    case Action::Skip:
+        return i18nc("@item", "Skip");
+    case Action::CopyToLeft:
+        if (row.right.kind == FolderSync::Kind::Directory) {
+            return i18nc("@item", "Create folder in first");
+        }
+        return row.left.kind == FolderSync::Kind::Missing ? i18nc("@item", "Copy second to first") : i18nc("@item", "Overwrite in first from second");
+    case Action::CopyToRight:
+        if (row.left.kind == FolderSync::Kind::Directory) {
+            return i18nc("@item", "Create folder in second");
+        }
+        return row.right.kind == FolderSync::Kind::Missing ? i18nc("@item", "Copy first to second") : i18nc("@item", "Overwrite in second from first");
+    case Action::DeleteLeft:
+        return i18nc("@item", "Delete from first");
+    case Action::DeleteRight:
+        return i18nc("@item", "Delete from second");
+    }
+    return {};
+}
+
+bool canCopy(const FolderSync::Entry &source, const FolderSync::Entry &target)
+{
+    using Kind = FolderSync::Kind;
+    if (source.kind == Kind::Directory) {
+        return target.kind == Kind::Missing;
+    }
+    return source.kind == Kind::File && (target.kind == Kind::Missing || target.kind == Kind::File)
+        && (target.kind != Kind::File || source.device != target.device || source.inode != target.inode);
+}
 }
 
 FolderSyncDialog::FolderSyncDialog(const QString &left, const QString &right, QWidget *parent, KSharedConfig::Ptr config)
@@ -76,11 +111,15 @@ FolderSyncDialog::FolderSyncDialog(const QString &left, const QString &right, QW
     , m_saved(new QComboBox(m_options))
     , m_status(new QLabel(this))
     , m_results(new QTreeWidget(this))
+    , m_planControls(new QWidget(this))
+    , m_action(new QComboBox(this))
+    , m_report(new QPlainTextEdit(this))
     , m_compare(new QPushButton(i18nc("@action:button", "Compare"), this))
-    , m_cancel(new QPushButton(i18nc("@action:button", "Cancel Comparison"), this))
+    , m_cancel(new QPushButton(i18nc("@action:button", "Cancel Operation"), this))
+    , m_sync(new QPushButton(i18nc("@action:button", "Synchronize…"), this))
 {
     setObjectName(QStringLiteral("folderSyncDialog"));
-    setWindowTitle(i18nc("@title:window", "Compare Folders with Filters"));
+    setWindowTitle(i18nc("@title:window", "Compare and Synchronize Folders"));
     resize(900, 600);
     auto *layout = new QVBoxLayout(this);
     auto *paths = new QLabel(i18nc("@info", "First: %1\nSecond: %2", left, right), this);
@@ -120,7 +159,8 @@ FolderSyncDialog::FolderSyncDialog(const QString &left, const QString &right, QW
     layout->addWidget(m_options);
     auto *help = new QLabel(i18nc("@info",
                                   "Patterns are case-sensitive and match relative paths. Excluded folders are not traversed. "
-                                  "Symbolic links are never followed; without content comparison, matching size and time do not prove equal contents."),
+                                  "Symbolic links are never followed; without content comparison, matching size and time do not prove equal contents. "
+                                  "Every item starts as Skip. Plan copies in either direction or select individual actions, including missing parent folders."),
                             this);
     help->setWordWrap(true);
     layout->addWidget(help);
@@ -130,14 +170,39 @@ FolderSyncDialog::FolderSyncDialog(const QString &left, const QString &right, QW
     layout->addWidget(m_status);
     m_results->setObjectName(QStringLiteral("folderSyncResults"));
     m_results->setRootIsDecorated(false);
-    m_results->setHeaderLabels({i18nc("@title:column", "Relative path"), i18nc("@title:column", "Comparison")});
+    m_results->setHeaderLabels({i18nc("@title:column", "Relative path"), i18nc("@title:column", "Comparison"), i18nc("@title:column", "Planned action")});
     m_results->header()->setSectionResizeMode(QHeaderView::Stretch);
     layout->addWidget(m_results);
+    auto *actionRow = new QHBoxLayout(m_planControls);
+    actionRow->setContentsMargins(0, 0, 0, 0);
+    actionRow->addWidget(new QLabel(i18nc("@label", "Selected item action:"), this));
+    m_action->setObjectName(QStringLiteral("folderSyncAction"));
+    m_action->setEnabled(false);
+    actionRow->addWidget(m_action, 1);
+    auto *toLeft = new QPushButton(i18nc("@action:button", "Plan second to first"), m_planControls);
+    auto *toRight = new QPushButton(i18nc("@action:button", "Plan first to second"), m_planControls);
+    auto *skip = new QPushButton(i18nc("@action:button", "Skip all"), m_planControls);
+    toLeft->setObjectName(QStringLiteral("folderSyncPlanToLeft"));
+    toRight->setObjectName(QStringLiteral("folderSyncPlanToRight"));
+    skip->setObjectName(QStringLiteral("folderSyncSkipAll"));
+    actionRow->addWidget(toLeft);
+    actionRow->addWidget(toRight);
+    actionRow->addWidget(skip);
+    m_planControls->setEnabled(false);
+    layout->addWidget(m_planControls);
+    m_report->setObjectName(QStringLiteral("folderSyncReport"));
+    m_report->setReadOnly(true);
+    m_report->setMaximumHeight(m_report->fontMetrics().lineSpacing() * 6);
+    m_report->hide();
+    layout->addWidget(m_report);
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
     m_compare->setObjectName(QStringLiteral("folderSyncCompare"));
     m_cancel->setObjectName(QStringLiteral("folderSyncCancel"));
+    m_sync->setObjectName(QStringLiteral("folderSyncApply"));
     m_cancel->setEnabled(false);
+    m_sync->setEnabled(false);
     buttons->addButton(m_compare, QDialogButtonBox::ActionRole);
+    buttons->addButton(m_sync, QDialogButtonBox::ActionRole);
     buttons->addButton(m_cancel, QDialogButtonBox::ActionRole);
     connect(buttons, &QDialogButtonBox::rejected, this, &FolderSyncDialog::reject);
     layout->addWidget(buttons);
@@ -257,11 +322,35 @@ FolderSyncDialog::FolderSyncDialog(const QString &left, const QString &right, QW
     connect(m_contents, &QCheckBox::toggled, this, &FolderSyncDialog::invalidate);
     connect(m_links, &QCheckBox::toggled, this, &FolderSyncDialog::invalidate);
     connect(m_compare, &QPushButton::clicked, this, &FolderSyncDialog::compare);
+    connect(m_sync, &QPushButton::clicked, this, &FolderSyncDialog::synchronize);
+    connect(toLeft, &QPushButton::clicked, this, [this] {
+        planCopies(FolderSync::Action::CopyToLeft);
+    });
+    connect(toRight, &QPushButton::clicked, this, [this] {
+        planCopies(FolderSync::Action::CopyToRight);
+    });
+    connect(skip, &QPushButton::clicked, this, [this] {
+        planCopies(FolderSync::Action::Skip);
+    });
+    connect(m_results, &QTreeWidget::currentItemChanged, this, [this] {
+        updateSelectedAction();
+    });
+    connect(m_action, &QComboBox::currentIndexChanged, this, [this](int index) {
+        if (!m_comparison || index < 0 || !m_results->currentItem()) {
+            return;
+        }
+        const int row = m_results->indexOfTopLevelItem(m_results->currentItem());
+        if (row < 0 || row >= m_actions.size()) {
+            return;
+        }
+        m_actions[row] = static_cast<FolderSync::Action>(m_action->itemData(index).toInt());
+        m_results->currentItem()->setText(2, actionText(m_actions.at(row), m_comparison->rows.at(row)));
+    });
     connect(m_cancel, &QPushButton::clicked, this, [this] {
         if (m_canceled) {
             m_canceled->store(true);
             m_cancel->setEnabled(false);
-            m_status->setText(i18nc("@info", "Canceling comparison…"));
+            m_status->setText(i18nc("@info", "Canceling operation…"));
         }
     });
     connect(&m_watcher, &QFutureWatcher<FolderSync::Comparison>::finished, this, [this] {
@@ -274,10 +363,36 @@ FolderSyncDialog::FolderSyncDialog(const QString &left, const QString &right, QW
             m_status->setText(result.error);
             return;
         }
+        m_comparison = result;
+        m_actions = QList<FolderSync::Action>(result.rows.size(), FolderSync::Action::Skip);
         for (const auto &row : result.rows) {
-            new QTreeWidgetItem(m_results, {row.relativePath, differenceText(row.difference)});
+            new QTreeWidgetItem(m_results, {row.relativePath, differenceText(row.difference), actionText(FolderSync::Action::Skip, row)});
         }
+        m_planControls->setEnabled(!result.rows.isEmpty());
+        m_sync->setEnabled(!result.rows.isEmpty());
         m_status->setText(i18np("Compared one item.", "Compared %1 items.", result.rows.size()));
+    });
+    connect(&m_syncWatcher, &QFutureWatcher<FolderSync::ApplyResult>::finished, this, [this] {
+        const auto result = m_syncWatcher.result();
+        m_canceled.reset();
+        m_options->setEnabled(true);
+        m_results->setEnabled(true);
+        m_compare->setEnabled(true);
+        m_cancel->setEnabled(false);
+        m_comparison.reset();
+        m_actions.clear();
+        updateSelectedAction();
+        const QString completed = i18np("Completed one operation.", "Completed %1 operations.", result.completed.size());
+        m_status->setText((result.error.isEmpty() ? completed : completed + QLatin1Char(' ') + result.error) + QLatin1Char(' ')
+                          + i18nc("@info", "Compare again before synchronizing."));
+        QStringList report;
+        if (!result.error.isEmpty()) {
+            report.append(result.error);
+        }
+        report.append(completed);
+        report.append(result.completed);
+        m_report->setPlainText(report.join(QLatin1Char('\n')));
+        m_report->show();
     });
 }
 
@@ -287,15 +402,16 @@ FolderSyncDialog::~FolderSyncDialog()
         m_canceled->store(true);
     }
     m_watcher.waitForFinished();
+    m_syncWatcher.waitForFinished();
 }
 
 void FolderSyncDialog::reject()
 {
-    if (m_watcher.isRunning()) {
+    if (m_watcher.isRunning() || m_syncWatcher.isRunning()) {
         if (m_canceled) {
             m_canceled->store(true);
         }
-        m_status->setText(i18nc("@info", "Canceling comparison; wait for it to finish before closing."));
+        m_status->setText(i18nc("@info", "Canceling operation; wait for it to finish before closing."));
         return;
     }
     QDialog::reject();
@@ -326,6 +442,13 @@ void FolderSyncDialog::refreshProfiles()
 void FolderSyncDialog::invalidate()
 {
     m_results->clear();
+    m_comparison.reset();
+    m_actions.clear();
+    m_action->clear();
+    m_action->setEnabled(false);
+    m_planControls->setEnabled(false);
+    m_sync->setEnabled(false);
+    m_report->hide();
     m_status->setText(i18nc("@info", "Filters changed. Compare again to update the results."));
 }
 
@@ -337,7 +460,7 @@ void FolderSyncDialog::compare()
         m_status->setText(error);
         return;
     }
-    m_results->clear();
+    invalidate();
     m_options->setEnabled(false);
     m_compare->setEnabled(false);
     m_cancel->setEnabled(true);
@@ -348,6 +471,121 @@ void FolderSyncDialog::compare()
     const QString right = m_right;
     m_watcher.setFuture(QtConcurrent::run([left, right, value, canceled] {
         return FolderSync::compare(left, right, value, [canceled] {
+            return canceled->load();
+        });
+    }));
+}
+
+void FolderSyncDialog::updateSelectedAction()
+{
+    const QSignalBlocker blocker(m_action);
+    m_action->clear();
+    if (!m_comparison || !m_results->currentItem()) {
+        m_action->setEnabled(false);
+        return;
+    }
+    const int index = m_results->indexOfTopLevelItem(m_results->currentItem());
+    if (index < 0 || index >= m_comparison->rows.size()) {
+        m_action->setEnabled(false);
+        return;
+    }
+    const auto &row = m_comparison->rows.at(index);
+    const auto add = [this, &row](FolderSync::Action action) {
+        m_action->addItem(actionText(action, row), int(action));
+    };
+    add(FolderSync::Action::Skip);
+    if (canCopy(row.right, row.left)) {
+        add(FolderSync::Action::CopyToLeft);
+    }
+    if (canCopy(row.left, row.right)) {
+        add(FolderSync::Action::CopyToRight);
+    }
+    if (row.left.kind == FolderSync::Kind::File) {
+        add(FolderSync::Action::DeleteLeft);
+    }
+    if (row.right.kind == FolderSync::Kind::File) {
+        add(FolderSync::Action::DeleteRight);
+    }
+    m_action->setCurrentIndex(m_action->findData(int(m_actions.at(index))));
+    m_action->setEnabled(true);
+}
+
+void FolderSyncDialog::planCopies(FolderSync::Action direction)
+{
+    if (!m_comparison) {
+        return;
+    }
+    for (qsizetype i = 0; i < m_actions.size(); ++i) {
+        const auto &row = m_comparison->rows.at(i);
+        const bool allowed = direction == FolderSync::Action::CopyToLeft ? canCopy(row.right, row.left)
+            : direction == FolderSync::Action::CopyToRight               ? canCopy(row.left, row.right)
+                                                                         : false;
+        m_actions[i] = allowed ? direction : FolderSync::Action::Skip;
+        m_results->topLevelItem(int(i))->setText(2, actionText(m_actions.at(i), row));
+    }
+    updateSelectedAction();
+    m_status->setText(i18nc("@info", "Review the planned actions before synchronizing."));
+}
+
+void FolderSyncDialog::synchronize()
+{
+    if (!m_comparison) {
+        return;
+    }
+    const QString error = FolderSync::planError(*m_comparison, m_actions, true, true);
+    if (!error.isEmpty()) {
+        m_status->setText(error);
+        return;
+    }
+    int overwrites = 0;
+    int deletions = 0;
+    QStringList details;
+    for (qsizetype i = 0; i < m_actions.size(); ++i) {
+        const auto action = m_actions.at(i);
+        if (action == FolderSync::Action::Skip) {
+            continue;
+        }
+        const auto &row = m_comparison->rows.at(i);
+        if ((action == FolderSync::Action::CopyToLeft && row.left.kind == FolderSync::Kind::File)
+            || (action == FolderSync::Action::CopyToRight && row.right.kind == FolderSync::Kind::File)) {
+            ++overwrites;
+        }
+        if (action == FolderSync::Action::DeleteLeft || action == FolderSync::Action::DeleteRight) {
+            ++deletions;
+        }
+        details.append(i18nc("@info", "%1: %2", actionText(action, row), row.relativePath));
+    }
+    const QString counts = i18np("One operation", "%1 operations", details.size()) + QStringLiteral("\n") + i18np("One overwrite", "%1 overwrites", overwrites)
+        + QStringLiteral("\n") + i18np("One deletion", "%1 deletions", deletions);
+    QMessageBox confirm(QMessageBox::Warning,
+                        i18nc("@title:window", "Confirm Synchronization"),
+                        i18nc("@info",
+                              "Run the following plan?\n%1\n\n"
+                              "Deletions are permanent and these operations cannot be undone. "
+                              "Do not change either folder while synchronization runs. Review the planned actions in the details.",
+                              counts),
+                        QMessageBox::Yes | QMessageBox::No,
+                        this);
+    confirm.setTextFormat(Qt::PlainText);
+    confirm.setDefaultButton(QMessageBox::No);
+    confirm.setDetailedText(details.join(QLatin1Char('\n')));
+    if (confirm.exec() != QMessageBox::Yes) {
+        return;
+    }
+    const auto comparison = *m_comparison;
+    const auto actions = m_actions;
+    m_options->setEnabled(false);
+    m_results->setEnabled(false);
+    m_planControls->setEnabled(false);
+    m_compare->setEnabled(false);
+    m_sync->setEnabled(false);
+    m_cancel->setEnabled(true);
+    m_report->hide();
+    m_status->setText(i18nc("@info", "Synchronizing folders…"));
+    m_canceled = std::make_shared<std::atomic_bool>(false);
+    const auto canceled = m_canceled;
+    m_syncWatcher.setFuture(QtConcurrent::run([comparison, actions, canceled] {
+        return FolderSync::apply(comparison, actions, true, true, [canceled] {
             return canceled->load();
         });
     }));
