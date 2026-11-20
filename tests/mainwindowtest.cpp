@@ -631,6 +631,57 @@ private Q_SLOTS:
         dialog->close();
     }
 
+    void defaultToolbarSpacingSurvivesCustomization()
+    {
+        QTemporaryDir backupDir;
+        QVERIFY(backupDir.isValid());
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup customization = config->group(QStringLiteral("ToolbarCustomization"));
+        const auto backup = KSharedConfig::openConfig(backupDir.filePath(QStringLiteral("settings")));
+        KConfigGroup saved = backup->group(QStringLiteral("ToolbarCustomization"));
+        customization.copyTo(&saved);
+        const auto cleanup = qScopeGuard([&] {
+            customization.deleteGroup();
+            saved.copyTo(&customization);
+            config->sync();
+        });
+        customization.deleteGroup();
+        {
+            MainWindow window;
+            window.resize(1200, 700);
+            window.show();
+            QAction *home = window.actionCollection()->action(QStringLiteral("go_home"));
+            QVERIFY(home);
+            window.toolBar()->addAction(home);
+            QTRY_VERIFY(customization.readEntry("Actions", QStringList()).contains(QStringLiteral("action:go_home")));
+            const QStringList savedItems = customization.readEntry("Actions", QStringList());
+            QVERIFY(savedItems.contains(QStringLiteral("spacer")));
+            QCOMPARE(savedItems.count(QStringLiteral("separator")), 2);
+            QVERIFY(savedItems.indexOf(QStringLiteral("spacer")) < savedItems.indexOf(QStringLiteral("action:open_terminal")));
+        }
+        {
+            MainWindow restored;
+            restored.resize(1200, 700);
+            restored.show();
+            QToolBar *toolbar = restored.toolBar();
+            QAction *spacer = nullptr;
+            for (QAction *action : toolbar->actions()) {
+                if (action->property("toolbarSpacer").toBool()) {
+                    spacer = action;
+                }
+            }
+            QVERIFY(spacer);
+            QTRY_VERIFY(toolbar->actionGeometry(spacer).width() > 16);
+            const auto actions = toolbar->actions();
+            QCOMPARE(std::count_if(actions.cbegin(),
+                                   actions.cend(),
+                                   [](QAction *action) {
+                                       return action->isSeparator();
+                                   }),
+                     2);
+        }
+    }
+
     void mainToolbarCanBeEditedByDragAndDrop()
     {
         QTemporaryDir backupDir;
