@@ -504,17 +504,8 @@ Settings for M12 UI customizations, stored in KConfig.
   - ~~**Backup:** export and restore app-owned settings and layouts with a
     preview and confirmation, excluding credentials and shared KDE settings~~
 
-> **Pending project synchronization (2026-11-20):** #190-#199 are in Completed
-> and closed; their 2026-11-20 dates and roadmap checks are recorded. #328 is
-> in Review with its 2026-11-20 dates and parent check; leave its roadmap item
-> unstruck until it reaches Completed. GitHub's GraphQL rate limit blocked
-> updates to #329-#333. Start #329 in Development with a 2026-11-20 start date,
-> then move it to Review, set its target date and check M12-12. Complete and
-> close #328, then strike M12-11. Continue sequentially through #333: start
-> each issue in Development, set its start date, then move it to Review with a
-> 2026-11-20 target date and check the matching parent item; complete and close
-> the previous issue, then strike that roadmap item. Leave #333 in Review
-> until M12 is ready to merge. The parent #23 remains in Development.
+> Pending work: see [TODO.md](TODO.md) for M12 project synchronization and
+> follow-up bug reports.
 
 ### M13 Workspaces
 
