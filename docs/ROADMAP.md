@@ -427,8 +427,8 @@ Settings for M09 tools, stored in KConfig.
   toolbar (back, forward, up, reload, location bar, view mode, zoom, sorting,
   previews, hidden files, filter, search) that acts on that pane, with the
   location bar dropping to a second row in a narrow pane~~
-- Move panes: send the second pane to a tab of its own or pop it out into a
-  window, carrying its display style
+- ~~Move panes: send the second pane to a tab of its own or pop it out into a
+  window, carrying its display style~~
 - Drag entries between the main toolbar, pane toolbars and hamburger menu
 - ~~Customize the combined Places/Folders panel: reorder its sections, show or
   hide each section, and give sections custom titles~~
