@@ -39,6 +39,7 @@ private:
     void updateSavedSearches();
     void updateCollection(const QList<QUrl> &urls);
     PathFilter pathFilter() const;
+    SavedSearches::Search currentSearch(const QString &name) const;
 
     QUrl m_folder;
     KSharedConfig::Ptr m_config;

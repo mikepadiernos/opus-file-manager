@@ -7,6 +7,7 @@
 #include "ignorelist.h"
 #include "pathfilterpresetsdialog.h"
 #include "savedpathfilters.h"
+#include "searchstoredialog.h"
 #include "settings.h"
 #include "settingswidgets.h"
 #include "viewsettings.h"
@@ -26,8 +27,10 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
+#include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QPushButton>
@@ -281,6 +284,112 @@ private Q_SLOTS:
             manager->reject();
         });
         dialog.findChild<QPushButton *>(QStringLiteral("managePathFilters"))->click();
+    }
+
+    void managesSavedSearchesAndCollections()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QFile file(root.filePath(QStringLiteral("file")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchesrc")), KConfig::SimpleConfig);
+        const auto searchGroup = config->group(QStringLiteral("SavedSearches"));
+        const auto collectionGroup = config->group(QStringLiteral("SearchCollection"));
+        const QUrl url = QUrl::fromLocalFile(file.fileName());
+        QString error;
+        QVERIFY(SavedSearches::save(searchGroup,
+                                    {{QStringLiteral("One"), QStringLiteral("term"), QUrl::fromLocalFile(root.path())},
+                                     {QStringLiteral("Two"), QStringLiteral("other"), QUrl::fromLocalFile(root.path())}},
+                                    &error));
+        QVERIFY(SearchCollection::save(collectionGroup, {url}, &error));
+        QVERIFY(SearchCollection::saveSaved(collectionGroup, {{QStringLiteral("Collection"), {url}}}, &error));
+        SearchStoreDialog dialog(nullptr, config);
+        auto *searches = dialog.findChild<QListWidget *>(QStringLiteral("managedSearches"));
+        auto *collections = dialog.findChild<QListWidget *>(QStringLiteral("managedCollections"));
+        auto *references = dialog.findChild<QListWidget *>(QStringLiteral("managedCollectionReferences"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("searchStoreStatus"));
+        QVERIFY(searches && collections && references && status);
+        QCOMPARE(searches->count(), 2);
+        QCOMPARE(references->count(), 1);
+        const auto rename = [&dialog](const QString &button, const QString &name) {
+            QTimer::singleShot(0, [name] {
+                auto *input = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
+                QVERIFY(input);
+                input->setTextValue(name);
+                input->accept();
+            });
+            dialog.findChild<QPushButton *>(button)->click();
+        };
+        rename(QStringLiteral("managedSearchRename"), QStringLiteral("Two"));
+        QVERIFY(status->text().contains(QStringLiteral("unique")));
+        rename(QStringLiteral("managedSearchRename"), QStringLiteral("Renamed"));
+        QCOMPARE(SavedSearches::load(searchGroup, &error).first().name, QStringLiteral("Renamed"));
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::No)->click();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("managedSearchDelete"))->click();
+        QCOMPARE(SavedSearches::load(searchGroup, &error).size(), 2);
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::Yes)->click();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("managedSearchDelete"))->click();
+        QCOMPARE(SavedSearches::load(searchGroup, &error).size(), 1);
+        rename(QStringLiteral("managedCollectionRename"), QStringLiteral("Archive"));
+        QCOMPARE(SearchCollection::loadSaved(collectionGroup, &error).first().name, QStringLiteral("Archive"));
+        references->setCurrentRow(0);
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::Yes)->click();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("managedCollectionRemove"))->click();
+        QVERIFY(SearchCollection::loadSaved(collectionGroup, &error).first().urls.isEmpty());
+        QCOMPARE(SearchCollection::load(collectionGroup, &error), (QList<QUrl>{url}));
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::Yes)->click();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("managedCollectionDelete"))->click();
+        QVERIFY(SearchCollection::loadSaved(collectionGroup, &error).isEmpty());
+        QVERIFY(QFile::exists(file.fileName()));
+    }
+
+    void opensSavedSearchManagerFromPreferences()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        QTimer::singleShot(0, [&dialog] {
+            auto *manager = dialog.findChild<QDialog *>(QStringLiteral("searchStoreDialog"));
+            QVERIFY(manager);
+            manager->reject();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("manageSavedSearches"))->click();
+    }
+
+    void savedSearchManagerRejectsStaleDeletion()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchesrc")), KConfig::SimpleConfig);
+        const auto group = config->group(QStringLiteral("SavedSearches"));
+        QString error;
+        QVERIFY(SavedSearches::save(group, {{QStringLiteral("Work"), QStringLiteral("old"), QUrl::fromLocalFile(root.path())}}, &error));
+        SearchStoreDialog dialog(nullptr, config);
+        QVERIFY(SavedSearches::save(group, {{QStringLiteral("Work"), QStringLiteral("new"), QUrl::fromLocalFile(root.path())}}, &error));
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::Yes)->click();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("managedSearchDelete"))->click();
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("searchStoreStatus"))->text().contains(QStringLiteral("changed elsewhere")));
+        QCOMPARE(SavedSearches::load(group, &error).first().text, QStringLiteral("new"));
     }
 
     void fileSearchSettingsReportsMissingModule()

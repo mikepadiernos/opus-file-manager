@@ -4,6 +4,7 @@
 
 #include "density.h"
 #include "pathfilterpresetsdialog.h"
+#include "searchstoredialog.h"
 #include "servicemenus.h"
 #include "settings.h"
 #include "settingswidgets.h"
@@ -245,6 +246,13 @@ QWidget *SettingsDialog::createSearchPage()
     layout->addWidget(manageFilters);
     connect(manageFilters, &QPushButton::clicked, this, [this] {
         PathFilterPresetsDialog dialog(this);
+        dialog.exec();
+    });
+    auto *manageSearches = new QPushButton(i18nc("@action:button", "Manage Saved Searches and Collections…"), page);
+    manageSearches->setObjectName(QStringLiteral("manageSavedSearches"));
+    layout->addWidget(manageSearches);
+    connect(manageSearches, &QPushButton::clicked, this, [this] {
+        SearchStoreDialog dialog(this);
         dialog.exec();
     });
     auto *description =

@@ -78,6 +78,10 @@ the shared Baloo index. Saved searches override the initial search defaults.
 Manage reusable path filters under Preferences → Tools → Search; load them in
 search or path-based selection. Filter saves and deletions take effect
 immediately, even if Preferences is canceled.
+Saved searches and named collection snapshots can also be managed from that
+page. In Search, update saved criteria or save, load and update snapshots of
+the working collection. Loading replaces its references, not the original
+files; management changes take effect immediately.
 Metadata editing requires ExifTool and has format and write limitations. Custom
 commands run with the user's permissions and have local-context and output
 limits. Paste and drag-and-drop bypass the transfer queue. See

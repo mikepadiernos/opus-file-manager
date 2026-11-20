@@ -16,6 +16,7 @@ struct Search {
     LiveSearch::Field field = LiveSearch::Field::FileName;
     bool indexed = false;
     PathFilter filter{};
+    bool operator==(const Search &other) const = default;
 };
 
 QList<Search> load(const KConfigGroup &group, QString *error);

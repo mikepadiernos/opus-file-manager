@@ -372,7 +372,7 @@ Settings for M09 tools, stored in KConfig.
   - ~~**Defaults:** search scope and whether to search filenames or contents~~
   - ~~**Filters:** reusable path and subtree filters and recursion depth for
     search and selection~~
-  - **Saved searches:** manage saved searches and reusable result collections
+  - ~~**Saved searches:** manage saved searches and reusable result collections~~
 - **Duplicate finder**
   - **Defaults:** comparison criteria and selection preferences; retain the
     safeguard that automatic selection keeps at least one item per group

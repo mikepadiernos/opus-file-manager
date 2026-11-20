@@ -6,6 +6,7 @@
 #include "mainwindow.h"
 #include "pane.h"
 #include "savedpathfilters.h"
+#include "searchcollection.h"
 #include "settings.h"
 
 #include <KActionCollection>
@@ -336,6 +337,90 @@ private Q_SLOTS:
         QCOMPARE(saved->count(), 2);
         QCOMPARE(saved->itemText(0), QStringLiteral("One"));
         QCOMPARE(saved->itemText(1), QStringLiteral("Two"));
+    }
+
+    void updatesSavedSearchAndDetectsStaleEdits()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchesrc")), KConfig::SimpleConfig);
+        const auto group = config->group(QStringLiteral("SavedSearches"));
+        QString error;
+        QVERIFY(SavedSearches::save(group, {{QStringLiteral("Work"), QStringLiteral("old"), QUrl::fromLocalFile(root.path())}}, &error));
+        SearchDialog first(QUrl::fromLocalFile(root.path()), nullptr, config);
+        SearchDialog second(QUrl::fromLocalFile(root.path()), nullptr, config);
+        first.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("new"));
+        first.findChild<QPushButton *>(QStringLiteral("searchUpdate"))->click();
+        QCOMPARE(SavedSearches::load(group, &error).first().text, QStringLiteral("new"));
+        second.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("stale"));
+        second.findChild<QPushButton *>(QStringLiteral("searchUpdate"))->click();
+        QVERIFY(second.findChild<QLabel *>(QStringLiteral("searchStatus"))->text().contains(QStringLiteral("changed elsewhere")));
+        QCOMPARE(SavedSearches::load(group, &error).first().text, QStringLiteral("new"));
+        second.findChild<QPushButton *>(QStringLiteral("searchLoad"))->click();
+        QCOMPARE(second.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->text(), QStringLiteral("new"));
+        second.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("latest"));
+        second.findChild<QPushButton *>(QStringLiteral("searchUpdate"))->click();
+        QCOMPARE(SavedSearches::load(group, &error).first().text, QStringLiteral("latest"));
+    }
+
+    void savesLoadsAndUpdatesNamedCollections()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchesrc")), KConfig::SimpleConfig);
+        const auto group = config->group(QStringLiteral("SearchCollection"));
+        const QUrl a = QUrl::fromLocalFile(root.filePath(QStringLiteral("a")));
+        const QUrl b = QUrl::fromLocalFile(root.filePath(QStringLiteral("b")));
+        QString error;
+        QVERIFY(SearchCollection::save(group, {a}, &error));
+        SearchDialog dialog(QUrl::fromLocalFile(root.path()), nullptr, config);
+        dialog.findChild<QTabWidget *>(QStringLiteral("searchResultTabs"))->setCurrentIndex(1);
+        QTimer::singleShot(0, [] {
+            auto *input = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
+            QVERIFY(input);
+            input->setTextValue(QStringLiteral("First"));
+            input->accept();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("searchSaveCollection"))->click();
+        QCOMPARE(SearchCollection::loadSaved(group, &error).first().urls, (QList<QUrl>{a}));
+        QVERIFY(SearchCollection::save(group, {b}, &error));
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::No)->click();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("searchLoadCollection"))->click();
+        QCOMPARE(SearchCollection::load(group, &error), (QList<QUrl>{b}));
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::Yes)->click();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("searchLoadCollection"))->click();
+        QCOMPARE(SearchCollection::load(group, &error), (QList<QUrl>{a}));
+        QVERIFY(SearchCollection::save(group, {b}, &error));
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::Yes)->click();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("searchUpdateCollection"))->click();
+        QCOMPARE(SearchCollection::loadSaved(group, &error).first().urls, (QList<QUrl>{b}));
+        QVERIFY(SearchCollection::save(group, {a}, &error));
+        QTimer::singleShot(0, [&] {
+            QString updateError;
+            QVERIFY(SearchCollection::saveSaved(group, {{QStringLiteral("First"), {a, b}}}, &updateError));
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::Yes)->click();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("searchLoadCollection"))->click();
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("searchStatus"))->text().contains(QStringLiteral("changed elsewhere")));
+        QCOMPARE(SearchCollection::load(group, &error), (QList<QUrl>{a}));
+        config->reparseConfiguration();
+        SearchDialog restored(QUrl::fromLocalFile(root.path()), nullptr, config);
+        QCOMPARE(restored.findChild<QComboBox *>(QStringLiteral("searchSavedCollections"))->currentText(), QStringLiteral("First"));
+        QCOMPARE(SearchCollection::load(group, &error), (QList<QUrl>{a}));
     }
 
     void collectsReferencesAcrossSearchesWithoutMovingFiles()
