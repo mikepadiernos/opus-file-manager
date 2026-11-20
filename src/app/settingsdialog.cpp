@@ -5,6 +5,7 @@
 #include "batchrenamedialog.h"
 #include "customcommanddialog.h"
 #include "density.h"
+#include "localizednumbers.h"
 #include "pane.h"
 #include "pathfilterpresetsdialog.h"
 #include "searchstoredialog.h"
@@ -28,6 +29,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QFileDialog>
 #include <QFormLayout>
@@ -130,6 +132,9 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     , m_places(places)
 {
     addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}}, i18nc("@title:group", "General"), QStringLiteral("configure"));
+    addTabbedPage({{createLanguagePage(), i18nc("@title:tab", "Language and Layout")}, {createDateLanguagePage(), i18nc("@title:tab", "Dates")}},
+                  i18nc("@title:group", "Translation"),
+                  QStringLiteral("preferences-desktop-locale"));
     addTabbedPage({{createSettingsBackupPage(), i18nc("@title:tab", "Backup and Restore")}}, i18nc("@title:group", "Backup"), QStringLiteral("document-save"));
     addTabbedPage({{createToolbarEntriesPage(), i18nc("@title:tab", "Toolbars")},
                    {createFoldersAndTabsPage(), i18nc("@title:tab", "Folders and Tabs")},
@@ -200,6 +205,23 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     };
     connect(size, &QSpinBox::valueChanged, this, preview);
     connect(position, &QComboBox::currentIndexChanged, this, preview);
+    auto *numerals = findChild<QLineEdit *>(QStringLiteral("kcfg_CustomNumerals"));
+    auto *style = findChild<QComboBox *>(QStringLiteral("kcfg_NumeralStyle"));
+    auto *numeralError = findChild<QLabel *>(QStringLiteral("numeralValidationError"));
+    const auto validateNumerals = [this, numerals, style, numeralError] {
+        const bool custom = style->currentIndex() == Settings::EnumNumeralStyle::CustomDigits;
+        const bool valid = !custom || LocalizedNumbers::validCustomNumerals(numerals->text());
+        numerals->setEnabled(custom);
+        numeralError->setVisible(!valid);
+        button(QDialogButtonBox::Ok)->setEnabled(valid);
+        if (!valid) {
+            button(QDialogButtonBox::Apply)->setEnabled(false);
+        }
+    };
+    connect(this, &KConfigDialog::widgetModified, this, validateNumerals);
+    connect(numerals, &QLineEdit::textChanged, this, validateNumerals);
+    connect(style, &QComboBox::currentIndexChanged, this, validateNumerals);
+    validateNumerals();
 }
 
 void SettingsDialog::addTabbedPage(const QList<std::pair<QWidget *, QString>> &tabs, const QString &title, const QString &iconName)
@@ -238,6 +260,73 @@ QWidget *SettingsDialog::createSettingsDialogPage()
                  comboBox(QStringLiteral("SidebarTitlePosition"),
                           {i18nc("@item:inlistbox", "Beside the sidebar icons"), i18nc("@item:inlistbox", "Below the sidebar icons")}));
     form->addRow(i18nc("@label:spinbox", "Sidebar icon size:"), pixelSpinBox(QStringLiteral("SidebarIconSize"), 16, 64));
+    return page;
+}
+
+QWidget *SettingsDialog::createLanguagePage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    form->addRow(i18nc("@label:listbox", "Interface language:"), bound(new InterfaceLanguageCombo, QStringLiteral("InterfaceLanguage"), "language"));
+    form->addRow(i18nc("@label:listbox", "Regional formats:"), bound(new RegionalLocaleCombo, QStringLiteral("RegionalLocale"), "localeName"));
+    form->addRow(i18nc("@label:listbox", "Layout direction:"),
+                 comboBox(QStringLiteral("TranslationDirection"),
+                          {i18nc("@item:inlistbox direction", "Follow interface language"),
+                           i18nc("@item:inlistbox direction", "Left to right"),
+                           i18nc("@item:inlistbox direction", "Right to left")}));
+    form->addRow(i18nc("@label:listbox", "Digit shapes:"),
+                 comboBox(QStringLiteral("NumeralStyle"),
+                          {i18nc("@item:inlistbox digits", "Follow regional locale"),
+                           i18nc("@item:inlistbox digits", "Western"),
+                           i18nc("@item:inlistbox digits", "Eastern Arabic-Indic"),
+                           i18nc("@item:inlistbox digits", "Custom")}));
+    auto *numerals = new QLineEdit;
+    numerals->setObjectName(QStringLiteral("kcfg_CustomNumerals"));
+    form->addRow(i18nc("@label:textbox", "Custom digits (zero to nine):"), numerals);
+    layout->addLayout(form);
+    auto *numeralError = new QLabel(i18nc("@info", "Enter ten distinct printable symbols, in order from zero to nine."), page);
+    numeralError->setObjectName(QStringLiteral("numeralValidationError"));
+    numeralError->setWordWrap(true);
+    layout->addWidget(numeralError);
+    auto *notice = new QLabel(i18nc("@info",
+                                    "Restart Opus to fully apply translation settings. Missing translations fall back to the original text. "
+                                    "Custom digit shapes apply to Opus file dates, sizes and selected numeric displays; other numbers, "
+                                    "including KDE components and editable controls, may use regional or desktop settings."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createDateLanguagePage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    form->addRow(i18nc("@label:listbox", "Calendar:"),
+                 comboBox(QStringLiteral("CalendarOverride"),
+                          {i18nc("@item:inlistbox calendar", "Follow regional locale"),
+                           i18nc("@item:inlistbox calendar", "Gregorian"),
+                           i18nc("@item:inlistbox calendar", "Jalali")}));
+    auto *date = new QLineEdit;
+    date->setObjectName(QStringLiteral("kcfg_CustomDateFormat"));
+    date->setPlaceholderText(i18nc("@info:placeholder", "Use listing default"));
+    form->addRow(i18nc("@label:textbox", "Date format:"), date);
+    auto *time = new QLineEdit;
+    time->setObjectName(QStringLiteral("kcfg_CustomTimeFormat"));
+    time->setPlaceholderText(i18nc("@info:placeholder", "Use listing default"));
+    form->addRow(i18nc("@label:textbox", "Time format:"), time);
+    layout->addLayout(form);
+    auto *notice = new QLabel(i18nc("@info",
+                                    "Custom formats override the listing date and time defaults. Use Qt date and time format symbols, "
+                                    "for example yyyy-MM-dd and HH:mm:ss. A calendar override also takes precedence over the ISO listing default. "
+                                    "KDE components may use the desktop's formats."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addStretch();
     return page;
 }
 

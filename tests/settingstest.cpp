@@ -195,6 +195,7 @@ private Q_SLOTS:
         }
         QCOMPARE(titles,
                  QStringList({QStringLiteral("General"),
+                              QStringLiteral("Translation"),
                               QStringLiteral("Backup"),
                               QStringLiteral("Interface"),
                               QStringLiteral("View"),
@@ -209,6 +210,8 @@ private Q_SLOTS:
             return tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + entry));
         };
         QCOMPARE(tabOf(QStringLiteral("SidebarTitlePosition")), QStringLiteral("Settings Dialog"));
+        QCOMPARE(tabOf(QStringLiteral("InterfaceLanguage")), QStringLiteral("Language and Layout"));
+        QCOMPARE(tabOf(QStringLiteral("CustomDateFormat")), QStringLiteral("Dates"));
         QCOMPARE(tabOf(QStringLiteral("StartupMode")), QStringLiteral("Folders and Tabs"));
         QCOMPARE(tabOf(QStringLiteral("FollowSymlinks")), QStringLiteral("Folders and Tabs"));
         QCOMPARE(tabOf(QStringLiteral("DimInactivePane")), QStringLiteral("Folders and Tabs"));

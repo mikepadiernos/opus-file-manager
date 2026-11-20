@@ -6,6 +6,7 @@
 #include "ignorelist.h"
 
 #include <KIO/PreviewJob>
+#include <KLanguageName>
 #include <KLocalizedString>
 #include <KPluginMetaData>
 
@@ -44,6 +45,73 @@ QStringList sanitizedRules(RuleListEditor::Kind kind, const QStringList &rules)
     }
     return result;
 }
+}
+
+InterfaceLanguageCombo::InterfaceLanguageCombo(QWidget *parent)
+    : QComboBox(parent)
+{
+    addItem(i18nc("@item:inlistbox interface language", "Follow system language"), QString());
+    QStringList languages = KLocalizedString::availableDomainTranslations(QByteArrayLiteral("opus-file-manager")).values();
+    if (!languages.contains(QStringLiteral("en_US"))) {
+        languages.append(QStringLiteral("en_US"));
+    }
+    languages.sort();
+    for (const QString &code : std::as_const(languages)) {
+        const QString name = KLanguageName::nameForCode(code);
+        addItem(name.isEmpty() ? code : i18nc("@item:inlistbox language and code", "%1 (%2)", name, code), code);
+    }
+    connect(this, &QComboBox::currentIndexChanged, this, &InterfaceLanguageCombo::languageChanged);
+}
+
+QString InterfaceLanguageCombo::language() const
+{
+    return currentData().toString();
+}
+
+void InterfaceLanguageCombo::setLanguage(const QString &language)
+{
+    int index = findData(language);
+    if (index < 0) {
+        addItem(i18nc("@item:inlistbox unavailable language", "%1 (translation not installed)", language), language);
+        index = count() - 1;
+    }
+    setCurrentIndex(index);
+}
+
+RegionalLocaleCombo::RegionalLocaleCombo(QWidget *parent)
+    : QComboBox(parent)
+{
+    addItem(i18nc("@item:inlistbox regional locale", "Follow system locale"), QString());
+    static const QStringList names = [] {
+        QSet<QString> unique;
+        for (const QLocale &locale : QLocale::matchingLocales(QLocale::AnyLanguage, QLocale::AnyScript, QLocale::AnyTerritory)) {
+            unique.insert(locale.name());
+        }
+        QStringList result = unique.values();
+        result.sort();
+        return result;
+    }();
+    for (const QString &name : std::as_const(names)) {
+        const QLocale locale(name);
+        const QString label = locale.nativeLanguageName();
+        addItem(label.isEmpty() ? name : i18nc("@item:inlistbox locale and code", "%1 (%2)", label, name), name);
+    }
+    connect(this, &QComboBox::currentIndexChanged, this, &RegionalLocaleCombo::localeNameChanged);
+}
+
+QString RegionalLocaleCombo::localeName() const
+{
+    return currentData().toString();
+}
+
+void RegionalLocaleCombo::setLocaleName(const QString &name)
+{
+    int index = findData(name);
+    if (index < 0) {
+        addItem(i18nc("@item:inlistbox unavailable locale", "%1 (locale not available)", name), name);
+        index = count() - 1;
+    }
+    setCurrentIndex(index);
 }
 
 RuleListEditor::RuleListEditor(Kind kind, QWidget *parent)

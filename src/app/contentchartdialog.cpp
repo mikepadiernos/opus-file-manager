@@ -2,6 +2,7 @@
 
 #include "contentchartdialog.h"
 #include "cushiontreemap.h"
+#include "localizednumbers.h"
 #include "settings.h"
 
 #include <KIO/DirectorySizeJob>
@@ -209,7 +210,7 @@ ContentChartDialog::ContentChartDialog(const QUrl &folder, QWidget *parent)
             } else if (item.isFile() && entry.contains(KIO::UDSEntry::UDS_SIZE)) {
                 m_entries[index].size = item.size();
                 m_entries[index].measured = true;
-                row->setText(1, KIO::convertSize(item.size()));
+                row->setText(1, LocalizedNumbers::shape(KIO::convertSize(item.size())));
                 row->setData(1, Qt::UserRole, item.size());
             } else {
                 row->setText(1, i18nc("@info:status", "Size unavailable"));
@@ -256,7 +257,7 @@ void ContentChartDialog::startSizes()
             } else {
                 entry.size = job->totalSize();
                 entry.measured = true;
-                entry.row->setText(1, KIO::convertSize(entry.size));
+                entry.row->setText(1, LocalizedNumbers::shape(KIO::convertSize(entry.size)));
                 entry.row->setData(1, Qt::UserRole, entry.size);
             }
             m_progress->setValue(++m_done);
@@ -289,10 +290,10 @@ void ContentChartDialog::updateChart()
         }
         const int share = total > 0 ? qRound(1000 * static_cast<double>(entry.size / total)) : 0;
         entry.row->setData(2, Qt::UserRole, share);
-        entry.row->setText(2, i18nc("@info:percent", "%1%", QLocale().toString(share / 10.0, 'f', 1)));
+        entry.row->setText(2, i18nc("@info:percent", "%1%", LocalizedNumbers::shape(QLocale().toString(share / 10.0, 'f', 1))));
     }
-    const QString size =
-        total <= std::numeric_limits<quint64>::max() ? KIO::convertSize(static_cast<quint64>(total)) : i18nc("@info", "more than the supported size");
+    const QString size = total <= std::numeric_limits<quint64>::max() ? LocalizedNumbers::shape(KIO::convertSize(static_cast<quint64>(total)))
+                                                                      : i18nc("@info", "more than the supported size");
     if (m_errors || m_skipped) {
         m_status->setText(i18nc("@info", "Measured total: %1. Skipped: %2; errors: %3. Shares exclude unmeasured items.", size, m_skipped, m_errors));
     } else {

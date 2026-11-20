@@ -7,6 +7,7 @@
 #include "imagebackground.h"
 #include "imageediting.h"
 #include "localizeddates.h"
+#include "localizednumbers.h"
 #include "mediaview.h"
 #include "settings.h"
 #include "symbolicicon.h"
@@ -702,11 +703,11 @@ void GalleryWindow::showImage(const PreviewContent &content)
     m_baseInfo = i18nc("@info",
                        "Name: %1\nDimensions: %2 × %3\nMegapixels: %4\nAspect ratio: %5\nSize: %6",
                        file.fileName(),
-                       m_image.width(),
-                       m_image.height(),
-                       QLocale().toString(double(m_image.width()) * m_image.height() / 1000000.0, 'f', 2),
-                       QLocale().toString(double(m_image.width()) / m_image.height(), 'f', 2),
-                       KIO::convertSize(file.size()))
+                       LocalizedNumbers::shape(QLocale().toString(m_image.width())),
+                       LocalizedNumbers::shape(QLocale().toString(m_image.height())),
+                       LocalizedNumbers::shape(QLocale().toString(double(m_image.width()) * m_image.height() / 1000000.0, 'f', 2)),
+                       LocalizedNumbers::shape(QLocale().toString(double(m_image.width()) / m_image.height(), 'f', 2)),
+                       LocalizedNumbers::shape(KIO::convertSize(file.size())))
         + QLatin1Char('\n')
         + i18nc("@info",
                 "MIME type: %1\nModified: %2\nCreated: %3\nPath: %4",

@@ -6,6 +6,7 @@
 #include "imagebackground.h"
 #include "imagedetails.h"
 #include "localizeddates.h"
+#include "localizednumbers.h"
 #include "mediaview.h"
 #include "settings.h"
 #include "symbolicicon.h"
@@ -196,7 +197,7 @@ protected:
 private:
     int lineNumberWidth() const
     {
-        return m_showLineNumbers ? 12 + fontMetrics().horizontalAdvance(QLocale().toString(std::max(1, blockCount()))) : 0;
+        return m_showLineNumbers ? 12 + fontMetrics().horizontalAdvance(LocalizedNumbers::shape(QLocale().toString(std::max(1, blockCount())))) : 0;
     }
 
     void updateLineNumberWidth()
@@ -231,7 +232,7 @@ private:
                                  m_lineNumbers->width() - 5,
                                  fontMetrics().height(),
                                  rightToLeft ? Qt::AlignLeft : Qt::AlignRight,
-                                 QLocale().toString(block.blockNumber() + 1));
+                                 LocalizedNumbers::shape(QLocale().toString(block.blockNumber() + 1)));
             }
             top += height;
             block = block.next();
@@ -428,7 +429,8 @@ void PreviewPanel::setItems(const KFileItemList &items, const QList<QUrl> &image
     clearMedia();
     clearRemotePreview();
     const QString modified = LocalizedDates::fileTime(item);
-    m_baseFooter = modified.isEmpty() ? KIO::convertSize(item.size()) : i18nc("@info", "%1 · %2", KIO::convertSize(item.size()), modified);
+    const QString size = LocalizedNumbers::shape(KIO::convertSize(item.size()));
+    m_baseFooter = modified.isEmpty() ? size : i18nc("@info", "%1 · %2", size, modified);
     m_footer->setText(m_baseFooter);
     showMessage(i18nc("@info", "Loading preview…"));
 

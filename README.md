@@ -29,8 +29,12 @@ Pass folders or URLs as arguments: the first opens in the active pane, the
 second in the other pane, and further arguments in tabs in the active pane.
 Without arguments, the configured startup or restored session is used.
 
-With a Persian regional locale, Opus displays Jalali dates; the ISO listing
-format remains Gregorian. See [Jalali date limitations](docs/CAVEATS.md#jalali-dates).
+Preferences → Translation provides independent interface language, regional
+locale, calendar, custom date and time format, layout direction and digit
+choices. Restart Opus to fully apply these changes. Custom formats override
+listing defaults; an explicit calendar overrides the ISO listing's automatic
+Gregorian calendar. See [translation limitations](docs/CAVEATS.md#translation-format-overrides)
+and [Jalali date limitations](docs/CAVEATS.md#jalali-dates).
 
 Run `./install.sh` to build and install for the current user, or
 `./install.sh --help` for other options. `./install.sh --default` also changes

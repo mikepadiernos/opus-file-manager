@@ -7,5 +7,7 @@
 
 namespace InterfaceLanguage
 {
+bool apply(const QString &language);
 Qt::LayoutDirection layoutDirection(const QStringList &languages);
+Qt::LayoutDirection layoutDirection(const QStringList &languages, int overrideDirection);
 }
