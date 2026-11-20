@@ -1,136 +1,9 @@
 # Opus File Manager
 
-Opus is a dual-pane file manager for Linux and KDE Plasma. It keeps source and
-destination folders in view while providing tabs, flexible listings and
-power-user file operations.
-
-Built with C++20, Qt 6 Widgets and KDE Frameworks 6, Opus uses KDE services
-for file operations, Places, properties, settings and desktop integration.
-
-## Features
-
-- Browse in side-by-side or stacked panes, with tabs, history and session
-  restoration.
-- Use details, icon, compact and flat views with grouping, filtering and
-  per-folder formats. The View menu also offers format inheritance, temporary
-  pane locks and background folder sizes.
-- Navigate with the combined Places and folder-tree panel; use KDE file
-  actions, drag and drop, clipboard operations and undo.
-- Browse, extract, create and test archives, including AES-encrypted ZIP
-  creation and password-protected extraction.
-- Preview files and browse images and media in a gallery, with image editing
-  and save-copy options.
-- Edit text in embedded or standalone KTextEditor views, recover drafts, and
-  edit or preview Markdown and export it to PDF. Visual Markdown editing
-  requires confirmation because it can rewrite unsupported markup.
-- Compare two selected local files in one pane or across both panes using a
-  unified diff.
-- Create symbolic links next to local files and folders without overwriting.
-- Export the filtered listing and configured details columns to CSV or PDF.
-- Inspect a folder's content sizes and relative shares in a cancellable chart.
-- Create and verify SHA-256 checksum files for local files.
-- Compare immediate entries across pane folders and select differences.
-- Compare local pane folders recursively with filters and reusable profiles.
-- Split local files into numbered parts and combine selected parts in a chosen
-  order.
-- Show an embedded Konsole terminal below or beside both panes, with automatic
-  or configurable placement. Optional folder following switches between retained
-  sessions rather than changing the directory of a running shell.
-- Link navigation between corresponding local pane folders.
-- Optionally dim the inactive pane using the View menu.
-- Swap the current tabs or exchange entire pane sides while retaining their
-  navigation state.
-- Save or reset pane, preview, editor and terminal sizes from the View menu,
-  separately for side-by-side and stacked panes.
-- Reorder, rename or hide sections of the combined Places/Folders panel from
-  the View menu.
-- Position each pane's tab bar and choose whether tab close buttons are shown.
-- Choose a theme, light, dark or checkerboard background for transparent images
-  in the preview and gallery without changing the image.
-- Explore folder sizes with a cushion treemap and folder drilldown.
-- Search local folders live or query Baloo's index; save searches and collect
-  references without moving files. Filter searches and selections by path,
-  parent, excluded folders and recursion depth.
-- Preview local batch renames with numbering, metadata tokens, regex rules and
-  named presets.
-- Preview edits to selected JPEG, TIFF and MP3 metadata fields.
-- Queue copy and move transfers with per-job progress and controls.
-- Preview and run scripts or commands with selection placeholders and saved
-  command presets.
-  Use Configure Toolbars to add saved commands as buttons; they still require
-  preview and confirmation before running.
-- Preview local duplicates, select candidates by date or folder, and move
-  checked files to Trash after confirmation.
-- Compare and synchronize local folders with filters, reusable profiles and
-  reviewed per-item actions.
-
-## Caveats
-
-Opus reads and writes a supported subset of Max File Manager's local
-`.mfm.json` metadata. Writing sanitizes the file and can discard unsupported
-fields or values, so back up existing metadata before editing it with Opus.
-
-Flat view requires the `filenamesearch:/` KIO worker, normally supplied by
-`kio-extras`. Document previews require a suitable KPart, and media playback
-requires a Qt Multimedia backend. Saving gallery edits does not preserve the
-original image metadata.
-
-Encrypted 7z extraction can fail in KArchive; integrity checks use the `7z`
-executable when available. Archive creation and extraction also have local-file
-and entry-type restrictions. File comparison, symbolic links, checksum files,
-and splitting and combining are local-only. The immediate pane comparison uses
-metadata, while the filtered recursive comparison and synchronization are
-local-only and have scan and operation limits. Synchronization is not undoable
-and can leave partial results. Combined files cannot be checked for missing or
-misordered parts. The embedded terminal requires the Konsole KPart, and linked
-navigation supports local folders only. Duplicate-finder results require manual
-review and verification. Live search is local-only and has scan and content limits.
-Preferences set the initial search scope and filename/content mode and can open
-KDE File Search to manage indexed folders and exclusions; changes there affect
-the shared Baloo index. Saved searches override the initial search defaults.
-Manage reusable path filters under Preferences → Tools → Search; load them in
-search or path-based selection. Filter saves and deletions take effect
-immediately, even if Preferences is canceled.
-Saved searches and named collection snapshots can also be managed from that
-page. In Search, update saved criteria or save, load and update snapshots of
-the working collection. Loading replaces its references, not the original
-files; management changes take effect immediately.
-Duplicate-finder preferences set the initial candidate policy and can require
-matching file names in addition to size and SHA-256 contents.
-Content-chart preferences control the initial treemap visibility and table
-sort; skipped entries and scan errors remain visible.
-File Tools preferences set the symbolic-link suffix, checksum filename and
-split-part size. Each can still be changed during the operation; an empty
-link suffix uses the translated default.
-Linked navigation can optionally start enabled when both initial pane folders
-are existing local folders.
-File comparison output can wrap lines without changing the comparison.
-Pane comparison can initially filter result categories; incomplete entries
-remain visible, and only shown differences are selected when requested.
-Metadata editing requires ExifTool and has format and write limitations. Custom
-commands run with the user's permissions and have local-context and output
-limits. Paste and drag-and-drop bypass the transfer queue. See
-[caveats and limitations](docs/CAVEATS.md) for details.
-
-Metadata Editor preferences choose initially displayed audio and image fields.
-The editor can reveal all supported fields; hidden values are preserved.
-Folder Sync preferences set the initial recursion, content and link comparison
-options; saved profiles can override these in the synchronization dialog. Copy
-policies skip existing files or replace only older files, and an optional
-operation-wide speed limit throttles file copies. Changing the policy clears the
-plan; overwrites and deletions still require review and confirmation.
-Manage batch-rename presets and select a default in Preferences or the rename
-dialog. Preset changes take effect immediately; a collision preview is still
-required before renaming.
-Listing Export preferences choose the default format and optionally specify
-columns independently of the listing; otherwise its visible columns are used.
-Automation preferences manage saved scripts and custom command presets without
-running them. Changes take effect immediately, even if Preferences is canceled.
-Applications preferences open KDE File Associations for filename patterns and
-default applications; changes affect shared desktop settings.
-Transfer Queue preferences control concurrency and conflict handling for new
-copy and move jobs. Automatic overwrite replaces files and merges folders
-without asking; paste and drag-and-drop bypass these queue defaults.
+Opus is a dual-pane file manager for Linux and KDE Plasma. It combines
+side-by-side browsing and power-user tools with native KDE file operations,
+Places, properties and settings. It is built with C++20, Qt 6 Widgets and
+KDE Frameworks 6.
 
 ## Build and run
 
@@ -156,10 +29,108 @@ Run `./install.sh` to build and install for the current user, or
 the default folder handler. The installer disables tests in its build tree;
 reconfigure with `-DBUILD_TESTING=ON` to run them.
 
+## Features
+
+- **Browse:** Use side-by-side or stacked panes with tabs, history and session
+  restoration. Details, icon, compact and flat views support grouping,
+  filtering and per-folder formats. The combined Places/Folders panel provides
+  navigation; format inheritance, pane locks and background folder sizes are
+  available from the View menu.
+- **Manage files:** Use KDE file actions, drag and drop, clipboard operations
+  and undo. Queue copy and move jobs; preview batch renames, find duplicates,
+  create symbolic links, and export listings to CSV or PDF.
+- **Archives and tools:** Browse, extract, create and test archives, including
+  AES-encrypted ZIP creation and password-protected extraction. Create and
+  verify SHA-256 checksums, split and combine files, and inspect folder sizes
+  with a chart and cushion treemap.
+- **Compare and sync:** Compare local files using a unified diff, compare
+  immediate pane entries using metadata, or compare local folders recursively
+  with filters and profiles. Preview per-item actions before synchronizing
+  local folders.
+- **Search and automate:** Search local folders live or query Baloo's index;
+  save searches and collect references without moving files. Filter searches
+  and selections by path, parent, exclusions and depth. Preview and run
+  scripts and commands with selection placeholders and saved presets.
+- **Preview and edit:** Preview documents and media, browse and edit images in
+  a gallery, and edit text in embedded or standalone KTextEditor views. Recover
+  drafts, edit or preview Markdown, export it to PDF and edit supported JPEG,
+  TIFF and MP3 metadata fields.
+- **Terminal and navigation:** Show an embedded Konsole terminal below or beside
+  both panes and link navigation between corresponding local folders. Optional
+  terminal folder following switches between retained sessions instead of
+  changing the directory of a running shell.
+
+## Customize the interface
+
+The View menu can swap current tabs or entire pane sides, dim the inactive
+pane, and save or reset pane and panel sizes separately for side-by-side and
+stacked layouts. **Customize Combined Panel** changes section order, visibility
+and titles.
+
+Use **Configure Toolbars** to add saved scripts and commands as buttons; they
+still require preview and confirmation before running.
+
+Use **Active Pane Tab Bar Position** to choose a position for each pane and
+layout. In stacked mode, **Keep Stacked Tab Bars Together** puts the bars
+between the panes; choosing an individual position turns that option off.
+**Show Tab Close Buttons** applies to both panes. Choose a theme, light, dark or
+checkerboard background for transparent images under Preferences → Gallery →
+Display; this does not change the image.
+
+## Tool preferences
+
+Preferences → Tools contains defaults and management controls for the file
+tools:
+
+- **Search:** Set the initial scope and filename/content mode, manage saved
+  searches, collection snapshots and reusable path filters, or open KDE File
+  Search to configure the shared Baloo index. Saved searches override the
+  initial defaults. Loading a collection replaces its references, not files.
+- **Comparison and sync:** Set duplicate-selection criteria, chart display,
+  linked-pane startup, diff wrapping and pane comparison categories. Folder
+  sync defaults cover comparison options, copy policy and speed; profiles can
+  override comparison options. Changing copy policy clears the plan, and
+  overwrites and deletions still require review and confirmation.
+- **File tools:** Set the link-name suffix, checksum filename and split-part
+  size; edit them during each operation. Choose listing-export format and
+  columns, batch-rename presets, and initially displayed metadata fields.
+  Hidden metadata fields are preserved.
+- **Automation and transfers:** Manage saved scripts and command presets;
+  configure transfer concurrency and conflict handling. Automatic overwrite
+  replaces files and merges folders without asking. Paste and drag-and-drop
+  bypass the queue and its defaults.
+- **Applications:** Open KDE File Associations to manage filename patterns and
+  default applications; changes affect shared desktop settings.
+
+Path-filter, saved-search, collection, rename-preset and automation management
+changes take effect immediately, even if Preferences is canceled.
+
+## Caveats
+
+- Back up existing `.mfm.json` metadata before editing: Opus sanitizes the
+  supported subset and may discard unsupported fields.
+- Flat view requires the `filenamesearch:/` KIO worker, usually in
+  `kio-extras`. Document previews require a suitable KPart, media playback
+  requires a Qt Multimedia backend, and the embedded terminal requires the
+  Konsole KPart. Gallery edits do not preserve image metadata.
+- Encrypted 7z extraction can fail in KArchive; integrity checks use `7z` when
+  available. Archive operations have local-file and entry-type restrictions.
+- Live search, linked navigation, file comparison, symbolic-link creation,
+  checksums and splitting or combining files are local-only. Search and
+  recursive comparisons have limits; duplicate results require manual review.
+  Synchronization is local-only, is not undoable and can leave partial results.
+  Combined files cannot be checked for missing or misordered parts.
+- Metadata editing requires ExifTool and has format and write limitations.
+  Custom commands run with the user's permissions. Visual Markdown editing
+  requires confirmation because it can rewrite unsupported markup.
+
+See [caveats and limitations](docs/CAVEATS.md) for details and recommendations.
+
 ## Roadmap
 
-The [roadmap](docs/ROADMAP.md) contains 28 milestones. Its strikethroughs
-distinguish completed features from planned or in-progress work.
+The [roadmap](docs/ROADMAP.md) contains 28 milestones. Items are struck through
+when their issues reach Completed; unstruck items can include implemented work
+still in Review.
 
 - [M01 Core dual pane](docs/ROADMAP.md#m01-core-dual-pane): browsing, tabs and
   essential file operations.
@@ -186,9 +157,9 @@ distinguish completed features from planned or in-progress work.
 - [M12 UI Customization settings](docs/ROADMAP.md#m12-ui-customization-settings):
   customization, layout backup and reset controls.
 - [M13 Workspaces](docs/ROADMAP.md#m13-workspaces): focused locations, tag
-  groups and saved workflow layouts.
+  groups, saved workflow layouts and per-pane breadcrumb modes.
 - [M14 Workspace settings](docs/ROADMAP.md#m14-workspace-settings): workspace
-  management, startup, search and layout preferences.
+  management, startup, search, layout and location-bar preferences.
 - [M15 Translations](docs/ROADMAP.md#m15-translations): translations,
   right-to-left layout and Jalali dates.
 - [M16 Translation settings](docs/ROADMAP.md#m16-translation-settings):

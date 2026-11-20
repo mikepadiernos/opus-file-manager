@@ -13,8 +13,9 @@
 - [Caveats and limitations](CAVEATS.md) — current restrictions, dependencies
   and practical workarounds for implemented features.
 
-The roadmap distinguishes completed items from planned or in-progress work.
-Planned integrations are not necessarily available in the current application.
+Roadmap items are struck through when their issues reach Completed; unstruck
+items can include implemented work still in Review. Planned integrations are
+not necessarily available in the current application.
 
 ## Behaviour references
 
