@@ -15,6 +15,7 @@ class KUrlNavigator;
 class TabColors;
 class TabModel;
 class QTabBar;
+class QGraphicsOpacityEffect;
 class QToolButton;
 class QWidget;
 class QVBoxLayout;
@@ -43,6 +44,7 @@ public:
 
     bool isActive() const;
     void setActive(bool active);
+    void setInactiveDimming(bool enabled);
 
     /// Forces the tab strip to show even with a single tab.
     void setTabBarForcedVisible(bool visible);
@@ -136,6 +138,8 @@ private:
     FilterBar *m_filterBar = nullptr;
     QVBoxLayout *m_layout = nullptr;
     bool m_active = false;
+    bool m_inactiveDimming = false;
+    QGraphicsOpacityEffect *m_dimEffect = nullptr;
     bool m_tabBarForced = false;
     bool m_showTabIcons = true;
     bool m_newTabsAfterCurrent = false;

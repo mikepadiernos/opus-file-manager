@@ -37,6 +37,7 @@ for file operations, Places, properties, settings and desktop integration.
   or configurable placement. Optional folder following switches between retained
   sessions rather than changing the directory of a running shell.
 - Link navigation between corresponding local pane folders.
+- Optionally dim the inactive pane using the View menu.
 - Explore folder sizes with a cushion treemap and folder drilldown.
 - Search local folders live or query Baloo's index; save searches and collect
   references without moving files. Filter searches and selections by path,

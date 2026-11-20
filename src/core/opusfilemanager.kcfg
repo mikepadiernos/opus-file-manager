@@ -31,6 +31,10 @@
     </entry>
   </group>
   <group name="Panes">
+    <entry name="DimInactivePane" type="Bool">
+      <label>Dim the inactive pane</label>
+      <default>false</default>
+    </entry>
     <entry name="DualPaneAtStartup" type="Enum">
       <label>Whether the window starts with one or two panes</label>
       <choices>

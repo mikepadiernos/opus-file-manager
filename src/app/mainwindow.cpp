@@ -1071,6 +1071,16 @@ void MainWindow::setupActions()
     actions->addAction(QStringLiteral("stacked_layout"), m_stackedLayoutAction);
     connect(m_stackedLayoutAction, &KToggleAction::toggled, this, &MainWindow::setStackedLayout);
 
+    auto *dimInactive = new KToggleAction(i18nc("@action", "Dim Inactive Pane"), this);
+    dimInactive->setChecked(Settings::dimInactivePane());
+    actions->addAction(QStringLiteral("dim_inactive_pane"), dimInactive);
+    connect(dimInactive, &QAction::triggered, this, [this](bool enabled) {
+        Settings::setDimInactivePane(enabled);
+        Settings::self()->save();
+        m_left->setInactiveDimming(enabled);
+        m_right->setInactiveDimming(enabled);
+    });
+
     m_terminalPanelAction = new KToggleAction(i18nc("@action", "Show Embedded Terminal"), this);
     actions->addAction(QStringLiteral("show_embedded_terminal"), m_terminalPanelAction);
     connect(m_terminalPanelAction, &KToggleAction::toggled, this, [this](bool shown) {
@@ -2919,6 +2929,7 @@ bool MainWindow::isDualLayout() const
 void MainWindow::applySettings()
 {
     updateTerminalPlacement();
+    actionCollection()->action(QStringLiteral("dim_inactive_pane"))->setChecked(Settings::dimInactivePane());
     if (m_terminalPanelAction && m_terminalPanelAction->isChecked()) {
         m_terminalPanel->start(activePane()->url());
     }
@@ -2930,6 +2941,7 @@ void MainWindow::applySettings()
     m_automaticLocalSizeDefault = Settings::automaticLocalFolderSizes();
     m_automaticRemoteSizeDefault = Settings::automaticRemoteFolderSizes();
     for (Pane *pane : {m_left, m_right}) {
+        pane->setInactiveDimming(Settings::dimInactivePane());
         pane->reloadTabSettings();
         pane->reloadFilterSettings();
         pane->setNavigationBarVisible(Settings::showNavigationBar());

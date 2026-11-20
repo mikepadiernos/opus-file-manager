@@ -44,6 +44,7 @@
 #include <QDockWidget>
 #include <QFile>
 #include <QFileDialog>
+#include <QGraphicsOpacityEffect>
 #include <QHeaderView>
 #include <QImage>
 #include <QInputDialog>
@@ -119,6 +120,60 @@ private Q_SLOTS:
         auto *dialog = window.findChild<TransferQueueDialog *>(QStringLiteral("transferQueueDialog"));
         QVERIFY(dialog);
         dialog->close();
+    }
+
+    void inactivePaneDimmingFollowsFocusAndPersists()
+    {
+        const bool previous = Settings::dimInactivePane();
+        const auto restore = qScopeGuard([previous] {
+            Settings::setDimInactivePane(previous);
+            Settings::self()->save();
+        });
+        Settings::setDimInactivePane(false);
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        auto *action = window.actionCollection()->action(QStringLiteral("dim_inactive_pane"));
+        QVERIFY(action && action->isCheckable());
+        auto *active = window.activePane();
+        auto *inactive = window.inactivePane();
+        auto *activeEffect = qobject_cast<QGraphicsOpacityEffect *>(active->graphicsEffect());
+        auto *inactiveEffect = qobject_cast<QGraphicsOpacityEffect *>(inactive->graphicsEffect());
+        QVERIFY(activeEffect && inactiveEffect);
+        QVERIFY(!activeEffect->isEnabled());
+        QVERIFY(!inactiveEffect->isEnabled());
+        QTRY_COMPARE(active->view()->itemCount(), 2);
+        QTRY_COMPARE(inactive->view()->itemCount(), 0);
+        const QRect inactiveRect(inactive->mapTo(&window, QPoint()), inactive->size());
+        const QImage before = window.grab(inactiveRect).toImage();
+        action->trigger();
+        QVERIFY(Settings::dimInactivePane());
+        QVERIFY(!activeEffect->isEnabled());
+        QVERIFY(inactiveEffect->isEnabled());
+        const QImage after = window.grab(inactiveRect).toImage();
+        QVERIFY(before != after);
+        QTest::mouseClick(inactive->view()->currentView()->viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(10, 10));
+        QCOMPARE(window.activePane(), inactive);
+        QVERIFY(activeEffect->isEnabled());
+        QVERIFY(!inactiveEffect->isEnabled());
+        window.actionCollection()->action(QStringLiteral("switch_pane"))->trigger();
+        QCOMPARE(window.activePane(), active);
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(false);
+        QVERIFY(!window.activePane()->graphicsEffect()->isEnabled());
+        Settings::self()->load();
+        QVERIFY(Settings::dimInactivePane());
+        MainWindow another;
+        auto *otherAction = another.actionCollection()->action(QStringLiteral("dim_inactive_pane"));
+        QVERIFY(otherAction->isChecked());
+        QVERIFY(another.inactivePane()->graphicsEffect()->isEnabled());
+        action->trigger();
+        QVERIFY(!activeEffect->isEnabled());
+        QVERIFY(!inactiveEffect->isEnabled());
+        Settings::setDimInactivePane(true);
+        window.applySettings();
+        QVERIFY(action->isChecked());
+        QVERIFY(inactiveEffect->isEnabled());
     }
 
     void opensCustomCommandForLocalFolder()

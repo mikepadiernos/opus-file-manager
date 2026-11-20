@@ -436,7 +436,7 @@ Settings for M09 tools, stored in KConfig.
   confirmation; exclude credentials and shared KDE settings, and avoid
   overwriting running configuration without a safe reload or restart
 - Swap panes: the current tabs or whole sides
-- Dim the inactive pane
+- ~~Dim the inactive pane~~
 - Customize folder tab bars: place them above, below, left or right of each
   pane, with a together option for stacked panes; choose close-button
   visibility without bypassing pinned or locked tab protections. Keep

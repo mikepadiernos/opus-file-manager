@@ -20,6 +20,7 @@
 #include <QClipboard>
 #include <QDir>
 #include <QFileInfo>
+#include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QMenu>
@@ -44,6 +45,11 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent)
     , m_colors(colors)
     , m_view(new FolderView(this))
 {
+    m_dimEffect = new QGraphicsOpacityEffect(this);
+    m_dimEffect->setObjectName(QStringLiteral("inactivePaneEffect"));
+    m_dimEffect->setOpacity(0.65);
+    m_dimEffect->setEnabled(false);
+    setGraphicsEffect(m_dimEffect);
     m_tabBar->setDocumentMode(true);
     m_tabBar->setExpanding(Settings::expandTabs());
     m_showTabIcons = Settings::tabIcons();
@@ -308,10 +314,17 @@ void Pane::setActive(bool active)
         return;
     }
     m_active = active;
+    m_dimEffect->setEnabled(m_inactiveDimming && !active);
     m_navigator->setActive(active);
     if (active) {
         m_view->currentView()->setFocus();
     }
+}
+
+void Pane::setInactiveDimming(bool enabled)
+{
+    m_inactiveDimming = enabled;
+    m_dimEffect->setEnabled(enabled && !m_active);
 }
 
 void Pane::setTabBarForcedVisible(bool visible)
