@@ -458,12 +458,12 @@ Settings for M09 tools, stored in KConfig.
   selection. Make hover behaviour opt-in and retain selection-based fallback;
   show unavailable metadata without initiating additional remote downloads.
   (Dolphin)~~
-- Optional file-list minimap on the right edge of each explorer pane: show a
+- ~~Optional file-list minimap on the right edge of each explorer pane: show a
   compact overview of the current visible files and folders and the scroll
   viewport, with click or drag navigation. Follow the pane's current tab,
   filter, sort and view; keep normal scrolling and keyboard navigation
   available. Bound rendering work for large or remote listings and do not
-  read file contents or trigger additional remote downloads.
+  read file contents or trigger additional remote downloads.~~
 
 ### M12 UI Customization settings
 
