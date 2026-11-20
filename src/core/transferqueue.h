@@ -62,6 +62,9 @@ public:
     explicit TransferQueue(QObject *parent = nullptr);
     QueuedTransfer *enqueue(const QString &description, QueuedTransfer::Factory factory);
     QList<QueuedTransfer *> entries() const;
+    /// Zero starts all waiting transfers without a concurrency limit.
+    void setConcurrency(int concurrency);
+    int concurrency() const;
     void clearFinished();
 
 Q_SIGNALS:
@@ -73,6 +76,6 @@ private:
     void startNext();
 
     QList<QueuedTransfer *> m_entries;
-    QPointer<QueuedTransfer> m_running;
+    int m_concurrency = 1;
     bool m_scheduled = false;
 };

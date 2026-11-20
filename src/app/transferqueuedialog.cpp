@@ -51,7 +51,16 @@ TransferQueueDialog::TransferQueueDialog(TransferQueue *queue, QWidget *parent)
     setWindowTitle(i18nc("@title:window", "Transfer Queue"));
     resize(900, 450);
     auto *layout = new QVBoxLayout(this);
-    auto *description = new QLabel(i18nc("@info", "Copy and move transfers run one at a time. Paste and drag-and-drop are not queued."), this);
+    auto *description = new QLabel(this);
+    const auto updateDescription = [queue, description] {
+        description->setText(queue->concurrency() == 0
+                                 ? i18nc("@info", "Copy and move transfers start without a concurrency limit. Paste and drag-and-drop are not queued.")
+                                 : i18np("At most %1 copy or move transfer runs at a time. Paste and drag-and-drop are not queued.",
+                                         "At most %1 copy or move transfers run at a time. Paste and drag-and-drop are not queued.",
+                                         queue->concurrency()));
+    };
+    updateDescription();
+    connect(m_queue, &TransferQueue::changed, this, updateDescription);
     description->setWordWrap(true);
     layout->addWidget(description);
     m_list->setObjectName(QStringLiteral("transferQueueList"));

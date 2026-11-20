@@ -191,6 +191,21 @@ QList<QueuedTransfer *> TransferQueue::entries() const
     return m_entries;
 }
 
+void TransferQueue::setConcurrency(int concurrency)
+{
+    if (concurrency < 0 || concurrency == m_concurrency) {
+        return;
+    }
+    m_concurrency = concurrency;
+    Q_EMIT changed();
+    schedule();
+}
+
+int TransferQueue::concurrency() const
+{
+    return m_concurrency;
+}
+
 void TransferQueue::clearFinished()
 {
     for (auto it = m_entries.begin(); it != m_entries.end();) {
@@ -216,15 +231,22 @@ void TransferQueue::schedule()
 void TransferQueue::startNext()
 {
     m_scheduled = false;
-    if (m_running && (m_running->state() == QueuedTransfer::State::Running || m_running->state() == QueuedTransfer::State::Paused)) {
-        return;
+    int running = 0;
+    for (const QueuedTransfer *entry : std::as_const(m_entries)) {
+        if (entry->state() == QueuedTransfer::State::Running || entry->state() == QueuedTransfer::State::Paused) {
+            ++running;
+        }
     }
-    m_running = nullptr;
-    for (QueuedTransfer *entry : std::as_const(m_entries)) {
-        if (entry->state() == QueuedTransfer::State::Waiting) {
-            m_running = entry;
-            entry->begin();
+    const auto entries = m_entries;
+    for (QueuedTransfer *entry : entries) {
+        if (m_concurrency > 0 && running >= m_concurrency) {
             break;
+        }
+        if (m_entries.contains(entry) && entry->state() == QueuedTransfer::State::Waiting) {
+            entry->begin();
+            if (entry->state() == QueuedTransfer::State::Running || entry->state() == QueuedTransfer::State::Paused) {
+                ++running;
+            }
         }
     }
 }

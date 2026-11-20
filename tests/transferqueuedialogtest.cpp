@@ -2,6 +2,7 @@
 
 #include "transferqueuedialog.h"
 #include "fileoperations.h"
+#include "settings.h"
 #include "transferqueue.h"
 
 #include <QApplication>
@@ -9,6 +10,7 @@
 #include <QFile>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -81,6 +83,60 @@ private Q_SLOTS:
         QCOMPARE(entry->state(), QueuedTransfer::State::Canceled);
         dialog.findChild<QPushButton *>(QStringLiteral("transferQueueClear"))->click();
         QCOMPARE(list->topLevelItemCount(), 0);
+    }
+
+    void appliesConflictPolicyToQueuedTransfers()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("source")));
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("destination")));
+        const QString sourcePath = root.filePath(QStringLiteral("source/item.txt"));
+        const QString destinationPath = root.filePath(QStringLiteral("destination/item.txt"));
+        const auto write = [](const QString &path, const QByteArray &data) {
+            QFile file(path);
+            return file.open(QIODevice::WriteOnly | QIODevice::Truncate) && file.write(data) == data.size();
+        };
+        const auto read = [](const QString &path) {
+            QFile file(path);
+            return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+        };
+        QVERIFY(write(sourcePath, "new"));
+        QVERIFY(write(destinationPath, "existing"));
+        const auto previous = Settings::transferConflictPolicy();
+        const auto restore = qScopeGuard([previous] {
+            Settings::setTransferConflictPolicy(previous);
+            FileOperations::transferQueue()->clearFinished();
+        });
+        const auto source = QUrl::fromLocalFile(sourcePath);
+        const auto destination = QUrl::fromLocalFile(root.filePath(QStringLiteral("destination")));
+        Settings::setTransferConflictPolicy(Settings::EnumTransferConflictPolicy::Skip);
+        auto *skipped = FileOperations::copy({source}, destination, nullptr);
+        QVERIFY(skipped);
+        QSignalSpy skipResult(skipped, &KJob::result);
+        QTRY_COMPARE_WITH_TIMEOUT(skipResult.size(), 1, 15000);
+        QCOMPARE(skipped->error(), 0);
+        QCOMPARE(read(destinationPath), QByteArray("existing"));
+        Settings::setTransferConflictPolicy(Settings::EnumTransferConflictPolicy::Rename);
+        auto *renamed = FileOperations::copy({source}, destination, nullptr);
+        QVERIFY(renamed);
+        QSignalSpy renameResult(renamed, &KJob::result);
+        QTRY_COMPARE_WITH_TIMEOUT(renameResult.size(), 1, 15000);
+        QCOMPARE(renamed->error(), 0);
+        const QStringList entries = QDir(root.filePath(QStringLiteral("destination"))).entryList(QDir::Files);
+        QCOMPARE(entries.size(), 2);
+        QCOMPARE(read(destinationPath), QByteArray("existing"));
+        const QString renamedPath =
+            root.filePath(QStringLiteral("destination/") + (entries.first() == QLatin1String("item.txt") ? entries.last() : entries.first()));
+        QCOMPARE(read(renamedPath), QByteArray("new"));
+        Settings::setTransferConflictPolicy(Settings::EnumTransferConflictPolicy::Overwrite);
+        auto *overwritten = FileOperations::move({source}, destination, nullptr);
+        QVERIFY(overwritten);
+        QSignalSpy overwriteResult(overwritten, &KJob::result);
+        QTRY_COMPARE_WITH_TIMEOUT(overwriteResult.size(), 1, 15000);
+        QCOMPARE(overwritten->error(), 0);
+        QCOMPARE(read(destinationPath), QByteArray("new"));
+        QVERIFY(!QFile::exists(sourcePath));
     }
 
     void copiesThroughKio()
