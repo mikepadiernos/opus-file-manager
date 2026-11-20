@@ -419,9 +419,9 @@ Settings for M09 tools, stored in KConfig.
 
 ### M11 UI Customizations
 
-- Edit the main toolbar beyond the `KEditToolBar` dialog: drag entries on, off
+- ~~Edit the main toolbar beyond the `KEditToolBar` dialog: drag entries on, off
   and around it directly, add separators and spacers, and choose icons, text or
-  both per entry
+  both per entry~~
 - ~~Custom toolbar buttons for scripts, custom commands and presets~~
 - Pane toolbars instead of a fixed path row: each pane gets its own editable
   toolbar (back, forward, up, reload, location bar, view mode, zoom, sorting,
