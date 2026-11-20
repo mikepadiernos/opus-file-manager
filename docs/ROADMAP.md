@@ -484,8 +484,8 @@ Settings for M12 UI customizations, stored in KConfig.
   - ~~**Sections:** section order, visibility and custom titles, reusing the
     visibility settings from M04~~
 - **Tabs**
-  - ~~**Placement and controls:** tab-bar position by pane orientation, together
-    placement for stacked panes, and close-button visibility~~
+  - **Placement and controls:** tab-bar position by pane orientation, together
+    placement for stacked panes, and close-button visibility
 - **Status bars**
   - **Layout:** shared or per-pane bars, with visible indicators and their
     order; reuse existing item-count, selection-size and free-space settings
@@ -505,14 +505,16 @@ Settings for M12 UI customizations, stored in KConfig.
     preview and confirmation, excluding credentials and shared KDE settings~~
 
 > **Pending project synchronization (2026-11-20):** #190-#199 are in Completed
-> and closed; #328 is in Review. Their 2026-11-20 dates and roadmap checks are
-> recorded. GitHub's GraphQL rate limit blocked updates to #329-#333. Start
-> #329 in Development with a 2026-11-20 start date, then move it to Review,
-> set its target date and check M12-12. Complete and close #328. Continue
-> sequentially through #333: start each issue in Development, set its start
-> date, then move it to Review with a 2026-11-20 target date and check the
-> matching parent item; complete and close the previous issue. Leave #333 in
-> Review until M12 is ready to merge. The parent #23 remains in Development.
+> and closed; their 2026-11-20 dates and roadmap checks are recorded. #328 is
+> in Review with its 2026-11-20 dates and parent check; leave its roadmap item
+> unstruck until it reaches Completed. GitHub's GraphQL rate limit blocked
+> updates to #329-#333. Start #329 in Development with a 2026-11-20 start date,
+> then move it to Review, set its target date and check M12-12. Complete and
+> close #328, then strike M12-11. Continue sequentially through #333: start
+> each issue in Development, set its start date, then move it to Review with a
+> 2026-11-20 target date and check the matching parent item; complete and close
+> the previous issue, then strike that roadmap item. Leave #333 in Review
+> until M12 is ready to merge. The parent #23 remains in Development.
 
 ### M13 Workspaces
 
