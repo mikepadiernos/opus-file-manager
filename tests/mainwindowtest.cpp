@@ -19,6 +19,7 @@
 #include "metadataeditdialog.h"
 #include "pane.h"
 #include "previewpanel.h"
+#include "savedpathfilters.h"
 #include "settings.h"
 #include "settingsdialog.h"
 #include "tabmodel.h"
@@ -209,6 +210,38 @@ private Q_SLOTS:
         action->trigger();
         QCOMPARE(view->selectedItems().size(), 1);
         QCOMPARE(view->selectedItems().first().name(), QStringLiteral("keep.txt"));
+    }
+
+    void selectsUsingSharedPathFilter()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        for (const QString &name : {QStringLiteral("keep.txt"), QStringLiteral("other.txt")}) {
+            QFile file(root.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        auto config = KSharedConfig::openConfig();
+        const auto group = config->group(QStringLiteral("SavedPathFilters"));
+        QString error;
+        QVERIFY(SavedPathFilters::save(group, {{QStringLiteral("Keep"), {QStringLiteral("keep.txt"), {}, {}, 0}}}, &error));
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(root.path())});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+        QTRY_VERIFY(!view->isLoading());
+        QTimer::singleShot(0, [&] {
+            auto *dialog = window.findChild<QDialog *>(QStringLiteral("selectionPathDialog"));
+            QVERIFY(dialog);
+            QCOMPARE(dialog->findChild<QComboBox *>(QStringLiteral("selectionFilterPresets"))->currentText(), QStringLiteral("Keep"));
+            dialog->findChild<QPushButton *>(QStringLiteral("selectionLoadFilterPreset"))->click();
+            QCOMPARE(dialog->findChild<QLineEdit *>(QStringLiteral("selectionPathFilter"))->text(), QStringLiteral("keep.txt"));
+            dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click();
+        });
+        window.actionCollection()->action(QStringLiteral("select_by_path_filter"))->trigger();
+        QCOMPARE(view->selectedItems().size(), 1);
+        QCOMPARE(view->selectedItems().first().name(), QStringLiteral("keep.txt"));
+        config->deleteGroup(QStringLiteral("SavedPathFilters"));
+        QVERIFY(config->sync());
     }
 
     void startupFoldersAndPaneDefaultsApply()

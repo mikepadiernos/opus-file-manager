@@ -3,6 +3,7 @@
 #include "settingsdialog.h"
 
 #include "density.h"
+#include "pathfilterpresetsdialog.h"
 #include "servicemenus.h"
 #include "settings.h"
 #include "settingswidgets.h"
@@ -239,6 +240,13 @@ QWidget *SettingsDialog::createSearchPage()
     auto *layout = new QVBoxLayout(page);
     layout->addWidget(checkBox(QStringLiteral("SearchIndexedByDefault"), i18nc("@option:check", "Search indexed locations by default")));
     layout->addWidget(checkBox(QStringLiteral("SearchContentsByDefault"), i18nc("@option:check", "Search file contents by default")));
+    auto *manageFilters = new QPushButton(i18nc("@action:button", "Manage Shared Path Filters…"), page);
+    manageFilters->setObjectName(QStringLiteral("managePathFilters"));
+    layout->addWidget(manageFilters);
+    connect(manageFilters, &QPushButton::clicked, this, [this] {
+        PathFilterPresetsDialog dialog(this);
+        dialog.exec();
+    });
     auto *description =
         new QLabel(i18nc("@info", "KDE File Search controls indexed folders and exclusions for all applications. Changes there affect the shared Baloo index."),
                    page);

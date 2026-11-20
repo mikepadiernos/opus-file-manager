@@ -6,6 +6,8 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonObject>
 
 bool PathFilter::isActive() const
 {
@@ -42,9 +44,45 @@ bool PathFilter::matches(const QString &root, const QString &path) const
     if (QDir::isAbsolutePath(relative) || relative == QLatin1String("..") || relative.startsWith(QLatin1String("../")) || excludes(path)) {
         return false;
     }
+
     const int depth = relative.count(QLatin1Char('/'));
     if (maxDepth >= 0 && depth > maxDepth) {
         return false;
     }
     return path.contains(pathText.trimmed(), Qt::CaseInsensitive) && QFileInfo(path).absolutePath().contains(parentText.trimmed(), Qt::CaseInsensitive);
+}
+
+QJsonObject PathFilter::toJson() const
+{
+    return {{QStringLiteral("path"), pathText},
+            {QStringLiteral("parent"), parentText},
+            {QStringLiteral("excluded"), QJsonArray::fromStringList(excludedFolders)},
+            {QStringLiteral("depth"), maxDepth}};
+}
+
+bool PathFilter::fromJson(const QJsonValue &value, PathFilter *filter)
+{
+    if (!value.isObject() || !filter) {
+        return false;
+    }
+    const QJsonObject object = value.toObject();
+    const QJsonValue path = object.value(QStringLiteral("path"));
+    const QJsonValue parent = object.value(QStringLiteral("parent"));
+    const QJsonValue excluded = object.value(QStringLiteral("excluded"));
+    const QJsonValue depth = object.value(QStringLiteral("depth"));
+    if (!path.isString() || !parent.isString() || !excluded.isArray() || !depth.isDouble() || depth.toDouble() != depth.toInt(-2)) {
+        return false;
+    }
+    PathFilter result{path.toString(), parent.toString(), {}, depth.toInt(-2)};
+    for (const QJsonValue &folder : excluded.toArray()) {
+        if (!folder.isString()) {
+            return false;
+        }
+        result.excludedFolders.append(folder.toString());
+    }
+    if (!result.error().isEmpty()) {
+        return false;
+    }
+    *filter = result;
+    return true;
 }

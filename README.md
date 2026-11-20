@@ -75,6 +75,9 @@ review and verification. Live search is local-only and has scan and content limi
 Preferences set the initial search scope and filename/content mode and can open
 KDE File Search to manage indexed folders and exclusions; changes there affect
 the shared Baloo index. Saved searches override the initial search defaults.
+Manage reusable path filters under Preferences → Tools → Search; load them in
+search or path-based selection. Filter saves and deletions take effect
+immediately, even if Preferences is canceled.
 Metadata editing requires ExifTool and has format and write limitations. Custom
 commands run with the user's permissions and have local-context and output
 limits. Paste and drag-and-drop bypass the transfer queue. See

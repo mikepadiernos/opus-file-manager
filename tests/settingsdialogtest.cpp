@@ -5,6 +5,8 @@
 #include "archivewriter.h"
 #include "filecolorrules.h"
 #include "ignorelist.h"
+#include "pathfilterpresetsdialog.h"
+#include "savedpathfilters.h"
 #include "settings.h"
 #include "settingswidgets.h"
 #include "viewsettings.h"
@@ -18,18 +20,23 @@
 #include <KUrlRequester>
 
 #include <QAbstractItemView>
+#include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
 #include <QLabel>
+#include <QLineEdit>
+#include <QMessageBox>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTimer>
 
 class SettingsDialogTest : public QObject
 {
@@ -181,6 +188,99 @@ private Q_SLOTS:
         }
         QVERIFY(Settings::searchIndexedByDefault());
         QVERIFY(Settings::searchContentsByDefault());
+    }
+
+    void managesSharedPathFilters()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("filtersrc")), KConfig::SimpleConfig);
+        PathFilterPresetsDialog dialog(nullptr, config);
+        auto *name = dialog.findChild<QLineEdit *>(QStringLiteral("pathFilterPresetName"));
+        auto *path = dialog.findChild<QLineEdit *>(QStringLiteral("presetPathFilter"));
+        auto *excluded = dialog.findChild<QPlainTextEdit *>(QStringLiteral("presetExcludedFolders"));
+        auto *depth = dialog.findChild<QSpinBox *>(QStringLiteral("presetMaxDepth"));
+        auto *save = dialog.findChild<QPushButton *>(QStringLiteral("pathFilterPresetSave"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("pathFilterPresetStatus"));
+        QVERIFY(name && path && excluded && depth && save && status);
+        name->setText(QStringLiteral("Work"));
+        path->setText(QStringLiteral("report"));
+        excluded->setPlainText(QStringLiteral("relative"));
+        save->click();
+        QVERIFY(status->text().contains(QStringLiteral("absolute")));
+        excluded->setPlainText(root.filePath(QStringLiteral("private")));
+        depth->setValue(2);
+        save->click();
+        QString error;
+        auto presets = SavedPathFilters::load(config->group(QStringLiteral("SavedPathFilters")), &error);
+        QCOMPARE(presets.size(), 1);
+        QCOMPARE(presets.first().filter.maxDepth, 2);
+        QCOMPARE(presets.first().filter.excludedFolders.first(), root.filePath(QStringLiteral("private")));
+        path->setText(QStringLiteral("unsaved"));
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::No)->click();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("pathFilterPresetNew"))->click();
+        QCOMPARE(path->text(), QStringLiteral("unsaved"));
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::Yes)->click();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("pathFilterPresetNew"))->click();
+        name->setText(QStringLiteral(" work "));
+        save->click();
+        QVERIFY(status->text().contains(QStringLiteral("unique")));
+        QCOMPARE(SavedPathFilters::load(config->group(QStringLiteral("SavedPathFilters")), &error).size(), 1);
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::Yes)->click();
+        });
+        dialog.findChild<QComboBox *>(QStringLiteral("pathFilterPresetList"))->setCurrentIndex(0);
+        name->setText(QStringLiteral("Renamed"));
+        save->click();
+        presets = SavedPathFilters::load(config->group(QStringLiteral("SavedPathFilters")), &error);
+        QCOMPARE(presets.size(), 1);
+        QCOMPARE(presets.first().name, QStringLiteral("Renamed"));
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::Yes)->click();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("pathFilterPresetDelete"))->click();
+        QVERIFY(SavedPathFilters::load(config->group(QStringLiteral("SavedPathFilters")), &error).isEmpty());
+    }
+
+    void pathFilterManagerRejectsStaleEdits()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("filtersrc")), KConfig::SimpleConfig);
+        QString error;
+        QVERIFY(SavedPathFilters::save(config->group(QStringLiteral("SavedPathFilters")), {{QStringLiteral("Work"), {}}}, &error));
+        PathFilterPresetsDialog first(nullptr, config);
+        PathFilterPresetsDialog second(nullptr, config);
+        first.findChild<QLineEdit *>(QStringLiteral("presetPathFilter"))->setText(QStringLiteral("first"));
+        first.findChild<QPushButton *>(QStringLiteral("pathFilterPresetSave"))->click();
+        second.findChild<QLineEdit *>(QStringLiteral("presetPathFilter"))->setText(QStringLiteral("second"));
+        second.findChild<QPushButton *>(QStringLiteral("pathFilterPresetSave"))->click();
+        QVERIFY(second.findChild<QLabel *>(QStringLiteral("pathFilterPresetStatus"))->text().contains(QStringLiteral("changed elsewhere")));
+        QCOMPARE(SavedPathFilters::load(config->group(QStringLiteral("SavedPathFilters")), &error).first().filter.pathText, QStringLiteral("first"));
+    }
+
+    void opensPathFilterManagerFromPreferences()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        QTimer::singleShot(0, [&dialog] {
+            auto *manager = dialog.findChild<QDialog *>(QStringLiteral("pathFilterPresetsDialog"));
+            QVERIFY(manager);
+            manager->reject();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("managePathFilters"))->click();
     }
 
     void fileSearchSettingsReportsMissingModule()

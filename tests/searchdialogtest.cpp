@@ -5,6 +5,7 @@
 #include "folderview.h"
 #include "mainwindow.h"
 #include "pane.h"
+#include "savedpathfilters.h"
 #include "settings.h"
 
 #include <KActionCollection>
@@ -80,6 +81,44 @@ private Q_SLOTS:
         Settings::setSearchIndexedByDefault(false);
         Settings::setSearchContentsByDefault(false);
         Settings::self()->save();
+    }
+
+    void loadsSharedPathFilter()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("parent/excluded")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("parent/deep/nested")));
+        for (const QString &name : {QStringLiteral("parent/report.txt"),
+                                    QStringLiteral("parent/excluded/report.txt"),
+                                    QStringLiteral("parent/deep/nested/report.txt"),
+                                    QStringLiteral("parent/other.txt")}) {
+            QFile file(root.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchrc")), KConfig::SimpleConfig);
+        QString error;
+        const PathFilter filter{QStringLiteral("report"), QStringLiteral("parent"), {root.filePath(QStringLiteral("parent/excluded"))}, 1};
+        QVERIFY(SavedPathFilters::save(config->group(QStringLiteral("SavedPathFilters")), {{QStringLiteral("Work"), filter}}, &error));
+        SearchDialog dialog(QUrl::fromLocalFile(root.path()), nullptr, config);
+        QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("searchFilterPresets"))->currentText(), QStringLiteral("Work"));
+        dialog.findChild<QPushButton *>(QStringLiteral("searchLoadFilterPreset"))->click();
+        QCOMPARE(dialog.findChild<QLineEdit *>(QStringLiteral("searchPathFilter"))->text(), filter.pathText);
+        QCOMPARE(dialog.findChild<QLineEdit *>(QStringLiteral("searchParentFilter"))->text(), filter.parentText);
+        QCOMPARE(dialog.findChild<QPlainTextEdit *>(QStringLiteral("searchExcludedFolders"))->toPlainText(), filter.excludedFolders.first());
+        QCOMPARE(dialog.findChild<QSpinBox *>(QStringLiteral("searchMaxDepth"))->value(), 1);
+        dialog.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral(".txt"));
+        auto *start = dialog.findChild<QPushButton *>(QStringLiteral("searchStart"));
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        auto *results = dialog.findChild<QTreeWidget *>(QStringLiteral("searchResults"));
+        QCOMPARE(results->topLevelItemCount(), 1);
+        QCOMPARE(results->topLevelItem(0)->text(0), root.filePath(QStringLiteral("parent/report.txt")));
+        QVERIFY(SavedPathFilters::save(config->group(QStringLiteral("SavedPathFilters")), {}, &error));
+        dialog.findChild<QPushButton *>(QStringLiteral("searchLoadFilterPreset"))->click();
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("searchFilterPresetsStatus"))->text().contains(QStringLiteral("no longer exists")));
+        dialog.findChild<QPushButton *>(QStringLiteral("searchRefreshFilterPresets"))->click();
+        QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("searchLoadFilterPreset"))->isEnabled());
     }
 
     void searchesAndReportsFailures()

@@ -4,6 +4,9 @@
 
 #include <QStringList>
 
+class QJsonObject;
+class QJsonValue;
+
 struct PathFilter {
     QString pathText;
     QString parentText;
@@ -14,4 +17,7 @@ struct PathFilter {
     QString error() const;
     bool excludes(const QString &path) const;
     bool matches(const QString &root, const QString &path) const;
+    QJsonObject toJson() const;
+    static bool fromJson(const QJsonValue &value, PathFilter *filter);
+    bool operator==(const PathFilter &other) const = default;
 };

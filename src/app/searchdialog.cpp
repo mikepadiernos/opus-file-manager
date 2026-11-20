@@ -48,7 +48,7 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     , m_query(new QLineEdit(this))
     , m_field(new QComboBox(this))
     , m_scope(new QComboBox(this))
-    , m_filterEditor(new PathFilterEditor(QStringLiteral("search"), this))
+    , m_filterEditor(new PathFilterEditor(QStringLiteral("search"), this, m_config))
     , m_saved(new QComboBox(this))
     , m_search(new QPushButton(i18nc("@action:button", "Search"), this))
     , m_cancel(new QPushButton(i18nc("@action:button", "Cancel Search"), this))

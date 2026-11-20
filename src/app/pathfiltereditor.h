@@ -4,6 +4,7 @@
 
 #include "pathfilter.h"
 
+#include <KSharedConfig>
 #include <QWidget>
 
 class QLineEdit;
@@ -13,7 +14,7 @@ class QSpinBox;
 class PathFilterEditor : public QWidget
 {
 public:
-    explicit PathFilterEditor(const QString &objectPrefix, QWidget *parent = nullptr);
+    explicit PathFilterEditor(const QString &objectPrefix, QWidget *parent = nullptr, KSharedConfig::Ptr config = {}, bool showPresets = true);
 
     PathFilter filter() const;
     void setFilter(const PathFilter &filter);
