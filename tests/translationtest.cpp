@@ -61,6 +61,32 @@ private Q_SLOTS:
         QCOMPARE(InterfaceLanguage::layoutDirection(KLocalizedString::languages()), Qt::RightToLeft);
     }
 
+    void productionCatalog()
+    {
+        QProcess process;
+        auto environment = QProcessEnvironment::systemEnvironment();
+        environment.insert(QStringLiteral("OPUSFM_CATALOG_PROBE"), QStringLiteral("1"));
+        process.setProcessEnvironment(environment);
+        process.start(QCoreApplication::applicationFilePath(), {QStringLiteral("productionCatalogProbe")});
+        QVERIFY(process.waitForFinished(30000));
+        QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+        QVERIFY2(process.exitCode() == 0, process.readAll().constData());
+    }
+
+    void productionCatalogProbe()
+    {
+        if (!qEnvironmentVariableIsSet("OPUSFM_CATALOG_PROBE")) {
+            QSKIP("Subprocess probe");
+        }
+        QStandardPaths::setTestModeEnabled(true);
+        QLocale::setDefault(QLocale::c());
+        KLocalizedString::addDomainLocaleDir(QByteArrayLiteral("opus-file-manager"), QStringLiteral(OPUSFM_PRODUCTION_LOCALE_DIR));
+        KLocalizedString::setApplicationDomain(QByteArrayLiteral("opus-file-manager"));
+        KLocalizedString::setLanguages({QStringLiteral("fa")});
+        QCOMPARE(i18nc("@action", "New Tab"), QString::fromUtf8("زبانهٔ جدید"));
+        QCOMPARE(i18ncp("@info:status", "%1 item", "%1 items", 2), QString::fromUtf8("2 مورد"));
+    }
+
     void catalogLoadsContextAndPlurals()
     {
         QStandardPaths::setTestModeEnabled(true);

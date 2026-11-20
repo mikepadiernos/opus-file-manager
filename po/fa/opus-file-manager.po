@@ -129,3 +129,455 @@ msgstr "جابه‌جایی قسمت‌ها"
 msgctxt "@action"
 msgid "Show Embedded Terminal"
 msgstr "نمایش پایانهٔ توکار"
+
+msgctxt "@action:inmenu"
+msgid "Open in New Tab"
+msgstr "باز کردن در زبانهٔ جدید"
+
+msgctxt "@title:window"
+msgid "Places"
+msgstr "مکان‌ها"
+
+msgctxt "@title:window"
+msgid "Folders"
+msgstr "پوشه‌ها"
+
+msgctxt "@title:window"
+msgid "Explorer"
+msgstr "مرورگر"
+
+msgctxt "@title:window"
+msgid "Information"
+msgstr "اطلاعات"
+
+msgctxt "@title:window"
+msgid "Editor"
+msgstr "ویرایشگر"
+
+msgctxt "@item:inmenu label colour"
+msgid "Red"
+msgstr "قرمز"
+
+msgctxt "@item:inmenu label colour"
+msgid "Orange"
+msgstr "نارنجی"
+
+msgctxt "@item:inmenu label colour"
+msgid "Yellow"
+msgstr "زرد"
+
+msgctxt "@item:inmenu label colour"
+msgid "Green"
+msgstr "سبز"
+
+msgctxt "@item:inmenu label colour"
+msgid "Blue"
+msgstr "آبی"
+
+msgctxt "@item:inmenu label colour"
+msgid "Purple"
+msgstr "بنفش"
+
+msgctxt "@item:inmenu label colour"
+msgid "Pink"
+msgstr "صورتی"
+
+msgctxt "@item:inmenu label colour"
+msgid "Gray"
+msgstr "خاکستری"
+
+msgctxt "@item:inmenu label colour"
+msgid "None"
+msgstr "هیچ‌کدام"
+
+msgctxt "@action"
+msgid "Batch Rename…"
+msgstr "تغییر نام دسته‌ای…"
+
+msgctxt "@action"
+msgid "Edit Metadata…"
+msgstr "ویرایش فراداده…"
+
+msgctxt "@action"
+msgid "Create Symbolic Link…"
+msgstr "ایجاد پیوند نمادین…"
+
+msgctxt "@action"
+msgid "Calculate Occupied Space"
+msgstr "محاسبهٔ فضای اشغال‌شده"
+
+msgctxt "@action"
+msgid "Folder Content Chart"
+msgstr "نمودار محتوای پوشه"
+
+msgctxt "@action"
+msgid "Find Duplicate Files…"
+msgstr "یافتن پرونده‌های تکراری…"
+
+msgctxt "@action"
+msgid "Compare Pane Folders"
+msgstr "مقایسهٔ پوشه‌های دو قسمت"
+
+msgctxt "@action"
+msgid "Compare and Synchronize Folders…"
+msgstr "مقایسه و همگام‌سازی پوشه‌ها…"
+
+msgctxt "@action"
+msgid "Create SHA-256 Checksum File…"
+msgstr "ایجاد پروندهٔ جمع مقابله‌ای SHA-256…"
+
+msgctxt "@action"
+msgid "Verify SHA-256 Checksum File"
+msgstr "بررسی پروندهٔ جمع مقابله‌ای SHA-256"
+
+msgctxt "@action"
+msgid "Split File…"
+msgstr "تقسیم پرونده…"
+
+msgctxt "@action"
+msgid "Combine Files…"
+msgstr "ترکیب پرونده‌ها…"
+
+msgctxt "@action"
+msgid "Scripts and Custom Commands…"
+msgstr "اسکریپت‌ها و فرمان‌های سفارشی…"
+
+msgctxt "@action"
+msgid "Transfer Queue…"
+msgstr "صف انتقال…"
+
+msgctxt "@action"
+msgid "Compare Files"
+msgstr "مقایسهٔ پرونده‌ها"
+
+msgctxt "@action"
+msgid "Export Listing…"
+msgstr "صدور فهرست…"
+
+msgctxt "@action"
+msgid "Export Listing to CSV…"
+msgstr "صدور فهرست به CSV…"
+
+msgctxt "@action"
+msgid "Export Listing to PDF…"
+msgstr "صدور فهرست به PDF…"
+
+msgctxt "@menu"
+msgid "Select"
+msgstr "انتخاب"
+
+msgctxt "@action:inmenu"
+msgid "Select by Pattern…"
+msgstr "انتخاب بر اساس الگو…"
+
+msgctxt "@action:inmenu"
+msgid "Deselect by Pattern…"
+msgstr "لغو انتخاب بر اساس الگو…"
+
+msgctxt "@action:inmenu"
+msgid "Select by Path Filter…"
+msgstr "انتخاب بر اساس پالایهٔ مسیر…"
+
+msgctxt "@action:inmenu"
+msgid "Deselect by Path Filter…"
+msgstr "لغو انتخاب بر اساس پالایهٔ مسیر…"
+
+msgctxt "@action:inmenu"
+msgid "Save Selection Filter…"
+msgstr "ذخیرهٔ پالایهٔ انتخاب…"
+
+msgctxt "@menu"
+msgid "Saved Selection Filters"
+msgstr "پالایه‌های انتخاب ذخیره‌شده"
+
+msgctxt "@action"
+msgid "Stacked Panes"
+msgstr "قسمت‌های روی هم"
+
+msgctxt "@action"
+msgid "Swap Current Tabs"
+msgstr "جابه‌جایی زبانه‌های کنونی"
+
+msgctxt "@action"
+msgid "Swap Pane Sides"
+msgstr "جابه‌جایی سمت قسمت‌ها"
+
+msgctxt "@action"
+msgid "Move Second Pane"
+msgstr "انتقال قسمت دوم"
+
+msgctxt "@action"
+msgid "Move Second Pane to Tab"
+msgstr "انتقال قسمت دوم به زبانه"
+
+msgctxt "@action"
+msgid "Pop Out Second Pane"
+msgstr "جدا کردن قسمت دوم"
+
+msgctxt "@action"
+msgid "Return Second Pane to Dual Layout"
+msgstr "بازگرداندن قسمت دوم به چیدمان دو قسمتی"
+
+msgctxt "@action"
+msgid "Save Pane and Panel Sizes"
+msgstr "ذخیرهٔ اندازهٔ قسمت‌ها و پنل‌ها"
+
+msgctxt "@action"
+msgid "Reset Pane and Panel Sizes"
+msgstr "بازنشانی اندازهٔ قسمت‌ها و پنل‌ها"
+
+msgctxt "@action"
+msgid "Customize Combined Panel…"
+msgstr "سفارشی‌سازی پنل ترکیبی…"
+
+msgctxt "@action"
+msgid "Active Pane Tab Bar Position"
+msgstr "موقعیت نوار زبانهٔ قسمت فعال"
+
+msgctxt "@item:inmenu tab bar position"
+msgid "Above"
+msgstr "بالا"
+
+msgctxt "@item:inmenu tab bar position"
+msgid "Below"
+msgstr "پایین"
+
+msgctxt "@item:inmenu tab bar position"
+msgid "Left"
+msgstr "چپ"
+
+msgctxt "@item:inmenu tab bar position"
+msgid "Right"
+msgstr "راست"
+
+msgctxt "@action"
+msgid "Keep Stacked Tab Bars Together"
+msgstr "کنار هم نگه داشتن نوارهای زبانه در چیدمان عمودی"
+
+msgctxt "@action"
+msgid "Show Tab Close Buttons"
+msgstr "نمایش دکمه‌های بستن زبانه"
+
+msgctxt "@action"
+msgid "Dim Inactive Pane"
+msgstr "کم‌رنگ کردن قسمت غیرفعال"
+
+msgctxt "@action"
+msgid "Link Pane Navigation"
+msgstr "پیوند دادن پیمایش قسمت‌ها"
+
+msgctxt "@action"
+msgid "Show Places Panel"
+msgstr "نمایش پنل مکان‌ها"
+
+msgctxt "@action"
+msgid "Icons View"
+msgstr "نمای شمایل‌ها"
+
+msgctxt "@action"
+msgid "Compact View"
+msgstr "نمای فشرده"
+
+msgctxt "@action"
+msgid "Details View"
+msgstr "نمای جزئیات"
+
+msgctxt "@action"
+msgid "Selection Mode"
+msgstr "حالت انتخاب"
+
+msgctxt "@action"
+msgid "Show Selection Markers"
+msgstr "نمایش نشانگرهای انتخاب"
+
+msgctxt "@action"
+msgid "Show Hidden Files"
+msgstr "نمایش پرونده‌های پنهان"
+
+msgctxt "@action"
+msgid "Previews"
+msgstr "پیش‌نمایش‌ها"
+
+msgctxt "@action"
+msgid "Preview Panel"
+msgstr "پنل پیش‌نمایش"
+
+msgctxt "@action"
+msgid "Information Panel"
+msgstr "پنل اطلاعات"
+
+msgctxt "@action"
+msgid "Customize Main Toolbar"
+msgstr "سفارشی‌سازی نوار ابزار اصلی"
+
+msgctxt "@action"
+msgid "Restore Default Toolbars"
+msgstr "بازگرداندن نوارهای ابزار پیش‌فرض"
+
+msgctxt "@action"
+msgid "Open Gallery"
+msgstr "باز کردن نگارخانه"
+
+msgctxt "@action"
+msgid "Jump Back"
+msgstr "بازگشت به پوشهٔ پیشین"
+
+msgctxt "@menu"
+msgid "Popular Folders"
+msgstr "پوشه‌های پراستفاده"
+
+msgctxt "@action"
+msgid "Edit Location"
+msgstr "ویرایش مکان"
+
+msgctxt "@action"
+msgid "Switch Pane"
+msgstr "تغییر قسمت"
+
+msgctxt "@action"
+msgid "New Tab"
+msgstr "زبانهٔ جدید"
+
+msgctxt "@action"
+msgid "Close Tab"
+msgstr "بستن زبانه"
+
+msgctxt "@action"
+msgid "Reopen Closed Tab"
+msgstr "باز کردن دوبارهٔ زبانهٔ بسته‌شده"
+
+msgctxt "@action"
+msgid "Next Tab"
+msgstr "زبانهٔ بعدی"
+
+msgctxt "@action"
+msgid "Previous Tab"
+msgstr "زبانهٔ قبلی"
+
+msgctxt "@action %1 is a tab number"
+msgid "Activate Tab %1"
+msgstr "فعال کردن زبانهٔ %1"
+
+msgctxt "@action"
+msgid "Compress…"
+msgstr "فشرده‌سازی…"
+
+msgctxt "@action"
+msgid "Extract to Other Pane"
+msgstr "استخراج در قسمت دیگر"
+
+msgctxt "@action"
+msgid "Extract Password-Protected Archive to Other Pane…"
+msgstr "استخراج بایگانی دارای گذرواژه در قسمت دیگر…"
+
+msgctxt "@action"
+msgid "Test Archive Integrity…"
+msgstr "بررسی سلامت بایگانی…"
+
+msgctxt "@action"
+msgid "Show Flat (No Folders)"
+msgstr "نمایش تخت (بدون پوشه‌ها)"
+
+msgctxt "@action"
+msgid "Filter…"
+msgstr "پالایش…"
+
+msgctxt "@action"
+msgid "Add to Favorites"
+msgstr "افزودن به برگزیده‌ها"
+
+msgctxt "@action"
+msgid "Panels"
+msgstr "پنل‌ها"
+
+msgctxt "@item:inmenu panel layout"
+msgid "Combined Panel"
+msgstr "پنل ترکیبی"
+
+msgctxt "@item:inmenu panel layout"
+msgid "Separate Places and Folders"
+msgstr "جداسازی مکان‌ها و پوشه‌ها"
+
+msgctxt "@info:status"
+msgid "%1 item"
+msgid_plural "%1 items"
+msgstr[0] "%1 مورد"
+msgstr[1] "%1 مورد"
+
+msgctxt "@info:status"
+msgid "%1 of %2 selected"
+msgid_plural "%1 of %2 selected"
+msgstr[0] "%1 مورد از %2 مورد انتخاب شده است"
+msgstr[1] "%1 مورد از %2 مورد انتخاب شده‌اند"
+
+msgctxt "@info:status free disk space"
+msgid "%1 free of %2"
+msgstr "%1 آزاد از %2"
+
+msgctxt "@info:menu"
+msgid "No visited folders"
+msgstr "پوشهٔ بازدیدشده‌ای وجود ندارد"
+
+msgctxt "@info:menu"
+msgid "No saved filters"
+msgstr "پالایهٔ ذخیره‌شده‌ای وجود ندارد"
+
+msgctxt "@menu"
+msgid "Metadata"
+msgstr "فراداده"
+
+msgctxt "@menu"
+msgid "Label"
+msgstr "برچسب"
+
+msgctxt "@action:inmenu"
+msgid "No Label"
+msgstr "بدون برچسب"
+
+msgctxt "@menu"
+msgid "File Colour"
+msgstr "رنگ پرونده"
+
+msgctxt "@action:inmenu"
+msgid "No Colour"
+msgstr "بدون رنگ"
+
+msgctxt "@menu"
+msgid "Rating"
+msgstr "امتیاز"
+
+msgctxt "@action:inmenu"
+msgid "No Rating"
+msgstr "بدون امتیاز"
+
+msgctxt "@action:inmenu"
+msgid "Edit Note…"
+msgstr "ویرایش یادداشت…"
+
+msgctxt "@action:inmenu"
+msgid "Toggle Pin"
+msgstr "تغییر وضعیت سنجاق"
+
+msgctxt "@title:menu"
+msgid "Move To"
+msgstr "انتقال به"
+
+msgctxt "@title:menu"
+msgid "Copy To"
+msgstr "رونوشت به"
+
+msgctxt "@action:inmenu"
+msgid "Other Pane"
+msgstr "قسمت دیگر"
+
+msgctxt "@action:inmenu"
+msgid "Home Folder"
+msgstr "پوشهٔ خانه"
+
+msgctxt "@action:inmenu"
+msgid "Choose Folder…"
+msgstr "انتخاب پوشه…"
+
+msgctxt "@title:window"
+msgid "Choose Destination Folder"
+msgstr "انتخاب پوشهٔ مقصد"

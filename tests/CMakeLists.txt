@@ -9,13 +9,23 @@ add_custom_command(
     VERBATIM
 )
 add_custom_target(translation-test-catalog DEPENDS ${translation_test_catalog})
+set(translation_production_catalog ${CMAKE_CURRENT_BINARY_DIR}/production-locale/fa/LC_MESSAGES/opus-file-manager.mo)
+add_custom_command(
+    OUTPUT ${translation_production_catalog}
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_CURRENT_BINARY_DIR}/production-locale/fa/LC_MESSAGES
+    COMMAND ${GETTEXT_MSGFMT_EXECUTABLE} --check -o ${translation_production_catalog} ${PROJECT_SOURCE_DIR}/po/fa/opus-file-manager.po
+    DEPENDS ${PROJECT_SOURCE_DIR}/po/fa/opus-file-manager.po
+    VERBATIM
+)
+add_custom_target(translation-production-catalog DEPENDS ${translation_production_catalog})
 ecm_add_test(translationtest.cpp
     LINK_LIBRARIES opusfm_core Qt6::Test
     NAME_PREFIX "opusfm-"
 )
-add_dependencies(translationtest translation-test-catalog)
+add_dependencies(translationtest translation-test-catalog translation-production-catalog)
 target_compile_definitions(translationtest PRIVATE
     OPUSFM_TEST_LOCALE_DIR="${CMAKE_CURRENT_BINARY_DIR}/translation-locale"
+    OPUSFM_PRODUCTION_LOCALE_DIR="${CMAKE_CURRENT_BINARY_DIR}/production-locale"
     OPUSFM_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
 )
 
