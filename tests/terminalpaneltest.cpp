@@ -3,6 +3,7 @@
 #include "terminalpanel.h"
 #include "mainwindow.h"
 #include "pane.h"
+#include "settings.h"
 
 #include <KActionCollection>
 #include <KParts/ReadOnlyPart>
@@ -89,6 +90,36 @@ private Q_SLOTS:
         auto *newTerminal = qobject_cast<TerminalInterface *>(restarted);
         QVERIFY(newTerminal);
         QTRY_VERIFY(newTerminal->terminalProcessId() > 0);
+    }
+
+    void configuredPlacementAppliesWithoutReplacingPanes()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        Settings::setTerminalPlacement(Settings::EnumTerminalPlacement::Automatic);
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(folder.path()), QUrl::fromLocalFile(folder.path())});
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        window.actionCollection()->action(QStringLiteral("show_embedded_terminal"))->setChecked(true);
+        auto *workspace = window.findChild<QSplitter *>(QStringLiteral("workspaceSplitter"));
+        QVERIFY(workspace);
+        window.setStackedLayout(false);
+        QCOMPARE(workspace->orientation(), Qt::Vertical);
+        window.setStackedLayout(true);
+        QCOMPARE(workspace->orientation(), Qt::Horizontal);
+        Settings::setTerminalPlacement(Settings::EnumTerminalPlacement::Below);
+        window.applySettings();
+        QCOMPARE(workspace->orientation(), Qt::Vertical);
+        window.setStackedLayout(false);
+        QCOMPARE(workspace->orientation(), Qt::Vertical);
+        Settings::setTerminalPlacement(Settings::EnumTerminalPlacement::Right);
+        window.applySettings();
+        QCOMPARE(workspace->orientation(), Qt::Horizontal);
+        window.setStackedLayout(true);
+        QCOMPARE(workspace->orientation(), Qt::Horizontal);
+        QVERIFY(!window.activePane()->isHidden());
+        QVERIFY(!window.inactivePane()->isHidden());
+        Settings::setTerminalPlacement(Settings::EnumTerminalPlacement::Automatic);
     }
 };
 

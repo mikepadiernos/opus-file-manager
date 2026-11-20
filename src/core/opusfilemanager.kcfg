@@ -256,6 +256,17 @@
       <default>1024</default><min>1</min><max>16384</max>
     </entry>
   </group>
+  <group name="Terminal">
+    <entry name="TerminalPlacement" type="Enum">
+      <label>Position of the embedded terminal</label>
+      <choices>
+        <choice name="Automatic"/>
+        <choice name="Below"/>
+        <choice name="Right"/>
+      </choices>
+      <default>Automatic</default>
+    </entry>
+  </group>
   <group name="Editor">
     <entry name="EditorOpening" type="Enum">
       <choices><choice name="Panel"/><choice name="Embedded"/><choice name="Maximized"/><choice name="Window"/></choices>

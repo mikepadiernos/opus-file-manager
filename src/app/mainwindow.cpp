@@ -2833,9 +2833,16 @@ void MainWindow::setStackedLayout(bool stacked)
 {
     m_stackedLayoutAction->setChecked(stacked);
     m_splitter->setOrientation(stacked ? Qt::Vertical : Qt::Horizontal);
-    m_workspaceSplitter->setOrientation(stacked ? Qt::Horizontal : Qt::Vertical);
+    updateTerminalPlacement();
     m_splitter->setSizes({1, 1, 1, 1});
     m_left->setTabBarAtBottom(stacked);
+}
+
+void MainWindow::updateTerminalPlacement()
+{
+    const auto placement = Settings::terminalPlacement();
+    const bool right = placement == Settings::EnumTerminalPlacement::Right || (placement == Settings::EnumTerminalPlacement::Automatic && isStackedLayout());
+    m_workspaceSplitter->setOrientation(right ? Qt::Horizontal : Qt::Vertical);
 }
 
 void MainWindow::updatePreviewPanel()
@@ -2868,6 +2875,7 @@ bool MainWindow::isDualLayout() const
 
 void MainWindow::applySettings()
 {
+    updateTerminalPlacement();
     if (m_editor) {
         m_editor->applySettings();
     }

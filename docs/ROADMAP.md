@@ -362,8 +362,8 @@ tracked in #314; [folder content chart](CAVEATS.md#folder-content-chart), tracke
 Settings for M09 tools, stored in KConfig.
 
 - **Embedded terminal**
-  - **Placement:** below both panes or at the right of both panes for
-    portrait/stacked layouts; the terminal does not replace a pane
+  - ~~**Placement:** below both panes or at the right of both panes for
+    portrait/stacked layouts; the terminal does not replace a pane~~
   - **Working folder:** optionally follow the active pane's local folder;
     report unsupported locations rather than silently switching folders
 - **Search**

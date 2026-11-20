@@ -128,6 +128,28 @@ private Q_SLOTS:
                  int(Settings::EnumSidebarTitlePosition::Below));
     }
 
+    void terminalPlacementPersistsAndCancelLeavesItUnchanged()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *placement = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TerminalPlacement"));
+            QVERIFY(placement);
+            QCOMPARE(placement->currentIndex(), int(Settings::EnumTerminalPlacement::Automatic));
+            placement->setCurrentIndex(Settings::EnumTerminalPlacement::Right);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *placement = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TerminalPlacement"));
+            QVERIFY(placement);
+            QCOMPARE(placement->currentIndex(), int(Settings::EnumTerminalPlacement::Right));
+            placement->setCurrentIndex(Settings::EnumTerminalPlacement::Below);
+            dialog.reject();
+        }
+        QCOMPARE(Settings::terminalPlacement(), int(Settings::EnumTerminalPlacement::Right));
+    }
+
     void savesViewAndFileRules()
     {
         KFilePlacesModel places;

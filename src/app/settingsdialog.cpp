@@ -148,6 +148,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     addTabbedPage({{createEditorPage(), i18nc("@title:tab", "Editor")}, {createTextEditorPage(), i18nc("@title:tab", "KTextEditor")}},
                   i18nc("@title:group", "Editor"),
                   QStringLiteral("accessories-text-editor"));
+    addTabbedPage({{createTerminalPage(), i18nc("@title:tab", "Embedded Terminal")}}, i18nc("@title:group", "Tools"), QStringLiteral("utilities-terminal"));
     applySidebarStyle();
     connect(this, &KConfigDialog::settingsChanged, this, [this] {
         applySidebarStyle();
@@ -212,6 +213,18 @@ QWidget *SettingsDialog::createOpeningPage()
                                   i18nc("@item:inlistbox", "Preview panel")});
     destination->setToolTip(i18nc("@info:tooltip", "Other files open in their default application when Gallery is selected."));
     form->addRow(i18nc("@label:listbox", "Open files from panes in:"), destination);
+    return page;
+}
+
+QWidget *SettingsDialog::createTerminalPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(i18nc("@label:listbox", "Terminal placement:"),
+                 comboBox(QStringLiteral("TerminalPlacement"),
+                          {i18nc("@item:inlistbox", "Automatic (right for stacked panes)"),
+                           i18nc("@item:inlistbox", "Below both panes"),
+                           i18nc("@item:inlistbox", "Right of both panes")}));
     return page;
 }
 

@@ -33,7 +33,8 @@ for file operations, Places, properties, settings and desktop integration.
 - Compare local pane folders recursively with filters and reusable profiles.
 - Split local files into numbered parts and combine selected parts in a chosen
   order.
-- Show an embedded Konsole terminal alongside the panes.
+- Show an embedded Konsole terminal below or beside both panes, with automatic
+  or configurable placement.
 - Link navigation between corresponding local pane folders.
 - Explore folder sizes with a cushion treemap and folder drilldown.
 - Search local folders live or query Baloo's index; save searches and collect

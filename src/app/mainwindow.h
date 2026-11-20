@@ -91,6 +91,7 @@ protected:
 private:
     void setupActions();
     void setupPanes();
+    void updateTerminalPlacement();
     void setupPlaces();
     void setupPanels();
     void setupStatusBar();
