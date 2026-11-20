@@ -29,6 +29,17 @@
 
 #include <algorithm>
 
+namespace
+{
+QString scopeStatus(int index)
+{
+    return index == 0 ? i18nc("@info", "Searches local folders recursively. Symbolic links are skipped.")
+                      : i18nc("@info",
+                              "Searches configured Baloo locations. A depth limit restricts results to the current local folder. Baloo matches "
+                              "indexed terms, not literal substrings.");
+}
+}
+
 SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::Ptr config)
     : QDialog(parent)
     , m_folder(folder)
@@ -63,6 +74,12 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_scope->setObjectName(QStringLiteral("searchScope"));
     m_scope->addItem(i18nc("@item:inlistbox", "Current folder (live)"));
     m_scope->addItem(i18nc("@item:inlistbox", "Indexed locations (Baloo)"));
+    const auto defaults = m_config->group(QStringLiteral("Search"));
+    m_scope->setCurrentIndex(defaults.readEntry("SearchIndexedByDefault", false) ? 1 : 0);
+    m_field->setCurrentIndex(defaults.readEntry("SearchContentsByDefault", false) ? 1 : 0);
+    if (m_scope->currentIndex() == 1) {
+        m_field->setItemText(1, i18nc("@item:inlistbox", "Indexed file contents"));
+    }
     form->addRow(i18nc("@label", "Find:"), m_query);
     form->addRow(i18nc("@label", "Search in:"), m_field);
     form->addRow(i18nc("@label", "Scope:"), m_scope);
@@ -84,7 +101,7 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_status->setObjectName(QStringLiteral("searchStatus"));
     m_status->setTextFormat(Qt::PlainText);
     m_status->setWordWrap(true);
-    m_status->setText(i18nc("@info", "Searches local folders recursively. Symbolic links are skipped."));
+    m_status->setText(scopeStatus(m_scope->currentIndex()));
     layout->addWidget(m_status);
     QString savedError;
     m_savedSearches = SavedSearches::load(m_config->group(QStringLiteral("SavedSearches")), &savedError);
@@ -336,10 +353,7 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     connect(m_search, &QPushButton::clicked, this, &SearchDialog::start);
     connect(m_scope, &QComboBox::currentIndexChanged, this, [this](int index) {
         m_field->setItemText(1, index == 0 ? i18nc("@item:inlistbox", "File contents (UTF-8 text)") : i18nc("@item:inlistbox", "Indexed file contents"));
-        m_status->setText(index == 0 ? i18nc("@info", "Searches local folders recursively. Symbolic links are skipped.")
-                                     : i18nc("@info",
-                                             "Searches configured Baloo locations. A depth limit restricts results to the current local folder. Baloo matches "
-                                             "indexed terms, not literal substrings."));
+        m_status->setText(scopeStatus(index));
     });
     connect(m_query, &QLineEdit::returnPressed, this, &SearchDialog::start);
     connect(m_cancel, &QPushButton::clicked, this, &SearchDialog::cancel);

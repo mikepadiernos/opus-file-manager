@@ -64,6 +64,7 @@ private:
     QWidget *createSlideshowPage();
     QWidget *createImageConversionPage();
     QWidget *createTerminalPage();
+    QWidget *createSearchPage();
     QWidget *createEditorPage();
     QWidget *createTextEditorPage();
     QWidget *createConfirmationsPage();

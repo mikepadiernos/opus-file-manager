@@ -267,6 +267,16 @@
       <default>Automatic</default>
     </entry>
   </group>
+  <group name="Search">
+    <entry name="SearchIndexedByDefault" type="Bool">
+      <label>Use indexed locations as the initial search scope</label>
+      <default>false</default>
+    </entry>
+    <entry name="SearchContentsByDefault" type="Bool">
+      <label>Search file contents by default</label>
+      <default>false</default>
+    </entry>
+  </group>
   <group name="Editor">
     <entry name="EditorOpening" type="Enum">
       <choices><choice name="Panel"/><choice name="Embedded"/><choice name="Maximized"/><choice name="Window"/></choices>

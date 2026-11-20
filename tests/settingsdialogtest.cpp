@@ -13,6 +13,7 @@
 #include <KConfigGroup>
 #include <KFilePlacesModel>
 #include <KPageWidget>
+#include <KPluginMetaData>
 #include <KSharedConfig>
 #include <KUrlRequester>
 
@@ -20,6 +21,9 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
+#include <QDir>
+#include <QFile>
+#include <QLabel>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QStandardPaths>
@@ -148,6 +152,104 @@ private Q_SLOTS:
             dialog.reject();
         }
         QCOMPARE(Settings::terminalPlacement(), int(Settings::EnumTerminalPlacement::Right));
+    }
+
+    void searchDefaultsPersistAndCancelLeavesThemUnchanged()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *indexed = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_SearchIndexedByDefault"));
+            auto *contents = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_SearchContentsByDefault"));
+            QVERIFY(indexed && contents);
+            QVERIFY(!indexed->isChecked());
+            QVERIFY(!contents->isChecked());
+            indexed->setChecked(true);
+            contents->setChecked(true);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *indexed = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_SearchIndexedByDefault"));
+            auto *contents = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_SearchContentsByDefault"));
+            QVERIFY(indexed && contents);
+            QVERIFY(indexed->isChecked());
+            QVERIFY(contents->isChecked());
+            indexed->setChecked(false);
+            contents->setChecked(false);
+            dialog.reject();
+        }
+        QVERIFY(Settings::searchIndexedByDefault());
+        QVERIFY(Settings::searchContentsByDefault());
+    }
+
+    void fileSearchSettingsReportsMissingModule()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *open = dialog.findChild<QPushButton *>(QStringLiteral("openFileSearchSettings"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("fileSearchSettingsStatus"));
+        QVERIFY(open && status);
+        QTemporaryDir empty;
+        QVERIFY(empty.isValid());
+        const auto paths = QCoreApplication::libraryPaths();
+        QCoreApplication::setLibraryPaths({empty.path()});
+        open->click();
+        const QString message = status->text();
+        QCoreApplication::setLibraryPaths(paths);
+        QVERIFY(message.contains(QStringLiteral("not installed")));
+    }
+
+    void fileSearchSettingsLaunchesTheKdeModule()
+    {
+        const auto plugin = KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings"), QStringLiteral("kcm_baloofile"));
+        const auto widgetPlugin = KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings_qwidgets"), QStringLiteral("kcm_baloofile"));
+        if (!plugin.isValid() && !widgetPlugin.isValid()) {
+            QSKIP("KDE File Search settings are not installed.");
+        }
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QString launcher = root.filePath(QStringLiteral("kcmshell6"));
+        QFile executable(launcher);
+        QVERIFY(executable.open(QIODevice::WriteOnly));
+        QVERIFY(executable.write("#!/bin/sh\nprintf '%s' \"$1\" > \"$OPUSFM_KCM_TEST_OUTPUT\"\n") > 0);
+        executable.close();
+        QVERIFY(executable.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *open = dialog.findChild<QPushButton *>(QStringLiteral("openFileSearchSettings"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("fileSearchSettingsStatus"));
+        QVERIFY(open && status);
+        const QByteArray oldPath = qgetenv("PATH");
+        const QByteArray oldOutput = qgetenv("OPUSFM_KCM_TEST_OUTPUT");
+        const bool outputSet = qEnvironmentVariableIsSet("OPUSFM_KCM_TEST_OUTPUT");
+        const bool pathSet = qEnvironmentVariableIsSet("PATH");
+        const QString missingPath = root.filePath(QStringLiteral("empty"));
+        QVERIFY(QDir().mkdir(missingPath));
+        qputenv("PATH", QFile::encodeName(missingPath));
+        open->click();
+        const QString missingMessage = status->text();
+        qputenv("PATH", QFile::encodeName(root.path()));
+        qputenv("OPUSFM_KCM_TEST_OUTPUT", QFile::encodeName(root.filePath(QStringLiteral("argument"))));
+        open->click();
+        const QString message = status->text();
+        if (pathSet) {
+            qputenv("PATH", oldPath);
+        } else {
+            qunsetenv("PATH");
+        }
+        if (outputSet) {
+            qputenv("OPUSFM_KCM_TEST_OUTPUT", oldOutput);
+        } else {
+            qunsetenv("OPUSFM_KCM_TEST_OUTPUT");
+        }
+        QVERIFY(missingMessage.contains(QStringLiteral("Could not launch")));
+        QVERIFY(message.contains(QStringLiteral("Requested")));
+        const auto readArgument = [&root] {
+            QFile argument(root.filePath(QStringLiteral("argument")));
+            return argument.open(QIODevice::ReadOnly) ? argument.readAll() : QByteArray();
+        };
+        QTRY_COMPARE(readArgument(), QByteArray("kcm_baloofile"));
     }
 
     void savesViewAndFileRules()

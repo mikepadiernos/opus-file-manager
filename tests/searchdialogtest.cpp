@@ -5,6 +5,7 @@
 #include "folderview.h"
 #include "mainwindow.h"
 #include "pane.h"
+#include "settings.h"
 
 #include <KActionCollection>
 #include <KSharedConfig>
@@ -39,6 +40,46 @@ private Q_SLOTS:
     void initTestCase()
     {
         QStandardPaths::setTestModeEnabled(true);
+    }
+
+    void usesSavedSearchDefaults()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchrc")), KConfig::SimpleConfig);
+        auto defaults = config->group(QStringLiteral("Search"));
+        defaults.writeEntry("SearchIndexedByDefault", true);
+        defaults.writeEntry("SearchContentsByDefault", true);
+        QVERIFY(defaults.sync());
+        SearchDialog indexed(QUrl::fromLocalFile(root.path()), nullptr, config);
+        auto *scope = indexed.findChild<QComboBox *>(QStringLiteral("searchScope"));
+        auto *field = indexed.findChild<QComboBox *>(QStringLiteral("searchField"));
+        QVERIFY(scope && field);
+        QCOMPARE(scope->currentIndex(), 1);
+        QCOMPARE(field->currentIndex(), 1);
+        QVERIFY(field->currentText().contains(QStringLiteral("Indexed")));
+        QVERIFY(indexed.findChild<QLabel *>(QStringLiteral("searchStatus"))->text().contains(QStringLiteral("Baloo")));
+        defaults.writeEntry("SearchIndexedByDefault", false);
+        defaults.writeEntry("SearchContentsByDefault", false);
+        QVERIFY(defaults.sync());
+        SearchDialog live(QUrl::fromLocalFile(root.path()), nullptr, config);
+        QCOMPARE(live.findChild<QComboBox *>(QStringLiteral("searchScope"))->currentIndex(), 0);
+        QCOMPARE(live.findChild<QComboBox *>(QStringLiteral("searchField"))->currentIndex(), 0);
+    }
+
+    void usesApplicationSettings()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        Settings::setSearchIndexedByDefault(true);
+        Settings::setSearchContentsByDefault(true);
+        Settings::self()->save();
+        SearchDialog dialog(QUrl::fromLocalFile(root.path()));
+        QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("searchScope"))->currentIndex(), 1);
+        QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("searchField"))->currentIndex(), 1);
+        Settings::setSearchIndexedByDefault(false);
+        Settings::setSearchContentsByDefault(false);
+        Settings::self()->save();
     }
 
     void searchesAndReportsFailures()
@@ -191,9 +232,15 @@ private Q_SLOTS:
             dialog.findChild<QPushButton *>(QStringLiteral("searchSave"))->click();
             QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("searchSaved"))->count(), 1);
         }
+        auto defaults = config->group(QStringLiteral("Search"));
+        defaults.writeEntry("SearchIndexedByDefault", true);
+        defaults.writeEntry("SearchContentsByDefault", false);
+        QVERIFY(defaults.sync());
         config->reparseConfiguration();
         SearchDialog restored(QUrl::fromLocalFile(QStringLiteral("/")), nullptr, config);
         QCOMPARE(restored.findChild<QComboBox *>(QStringLiteral("searchSaved"))->count(), 1);
+        QCOMPARE(restored.findChild<QComboBox *>(QStringLiteral("searchScope"))->currentIndex(), 1);
+        QCOMPARE(restored.findChild<QComboBox *>(QStringLiteral("searchField"))->currentIndex(), 0);
         restored.findChild<QPushButton *>(QStringLiteral("searchLoad"))->click();
         QCOMPARE(restored.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->text(), QStringLiteral("needle"));
         QCOMPARE(restored.findChild<QComboBox *>(QStringLiteral("searchField"))->currentIndex(), 1);

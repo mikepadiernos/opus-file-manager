@@ -369,7 +369,7 @@ Settings for M09 tools, stored in KConfig.
 - **Search**
   - **Indexing:** search folders and exclusions; use M18 shortcut configuration
     for the search shortcut, with double Shift as the proposed default
-  - **Defaults:** search scope and whether to search filenames or contents
+  - ~~**Defaults:** search scope and whether to search filenames or contents~~
   - **Filters:** reusable path and subtree filters and recursion depth for
     search and selection
   - **Saved searches:** manage saved searches and reusable result collections

@@ -10,6 +10,7 @@
 #include <KConfigGroup>
 #include <KLocalizedString>
 #include <KPageWidget>
+#include <KPluginMetaData>
 #include <KSharedConfig>
 #include <KTextEditor/Editor>
 #include <KUrlRequester>
@@ -23,10 +24,12 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QMetaEnum>
+#include <QProcess>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSpinBox>
+#include <QStandardPaths>
 #include <QTabWidget>
 #include <QVBoxLayout>
 
@@ -148,7 +151,9 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     addTabbedPage({{createEditorPage(), i18nc("@title:tab", "Editor")}, {createTextEditorPage(), i18nc("@title:tab", "KTextEditor")}},
                   i18nc("@title:group", "Editor"),
                   QStringLiteral("accessories-text-editor"));
-    addTabbedPage({{createTerminalPage(), i18nc("@title:tab", "Embedded Terminal")}}, i18nc("@title:group", "Tools"), QStringLiteral("utilities-terminal"));
+    addTabbedPage({{createTerminalPage(), i18nc("@title:tab", "Embedded Terminal")}, {createSearchPage(), i18nc("@title:tab", "Search")}},
+                  i18nc("@title:group", "Tools"),
+                  QStringLiteral("utilities-terminal"));
     applySidebarStyle();
     connect(this, &KConfigDialog::settingsChanged, this, [this] {
         applySidebarStyle();
@@ -225,6 +230,43 @@ QWidget *SettingsDialog::createTerminalPage()
                           {i18nc("@item:inlistbox", "Automatic (right for stacked panes)"),
                            i18nc("@item:inlistbox", "Below both panes"),
                            i18nc("@item:inlistbox", "Right of both panes")}));
+    return page;
+}
+
+QWidget *SettingsDialog::createSearchPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(checkBox(QStringLiteral("SearchIndexedByDefault"), i18nc("@option:check", "Search indexed locations by default")));
+    layout->addWidget(checkBox(QStringLiteral("SearchContentsByDefault"), i18nc("@option:check", "Search file contents by default")));
+    auto *description =
+        new QLabel(i18nc("@info", "KDE File Search controls indexed folders and exclusions for all applications. Changes there affect the shared Baloo index."),
+                   page);
+    description->setWordWrap(true);
+    layout->addWidget(description);
+    auto *open = new QPushButton(i18nc("@action:button", "Open KDE File Search Settings"), page);
+    open->setObjectName(QStringLiteral("openFileSearchSettings"));
+    layout->addWidget(open);
+    auto *status = new QLabel(page);
+    status->setObjectName(QStringLiteral("fileSearchSettingsStatus"));
+    status->setWordWrap(true);
+    status->setTextFormat(Qt::PlainText);
+    layout->addWidget(status);
+    layout->addStretch();
+    connect(open, &QPushButton::clicked, page, [status] {
+        const auto plugin = KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings"), QStringLiteral("kcm_baloofile"));
+        const auto widgetPlugin = KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings_qwidgets"), QStringLiteral("kcm_baloofile"));
+        if (!plugin.isValid() && !widgetPlugin.isValid()) {
+            status->setText(i18nc("@info", "KDE File Search settings are not installed."));
+            return;
+        }
+        const QString launcher = QStandardPaths::findExecutable(QStringLiteral("kcmshell6"));
+        if (launcher.isEmpty() || !QProcess::startDetached(launcher, {QStringLiteral("kcm_baloofile")})) {
+            status->setText(i18nc("@info", "Could not launch KDE File Search settings."));
+            return;
+        }
+        status->setText(i18nc("@info", "Requested KDE File Search settings. Changes affect the shared Baloo index."));
+    });
     return page;
 }
 
