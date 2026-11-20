@@ -92,6 +92,8 @@ backward.
 - Prefix user-reported bug titles with `[bug] ` and apply the `bug` label.
 - Add reported bugs to `docs/BUGS.md` and update their status there when it
   changes. Verify the issue and project status before recording completion.
+- When a bug is added to `docs/BUGS.md`, also create the matching issue on the
+  project board and link it from the report in this file.
 - Prefix caveat report titles with `[caveat] ` and apply the `caveat` label.
 - For each new or updated caveat:
   1. Describe the limitation and a practical recommendation in
