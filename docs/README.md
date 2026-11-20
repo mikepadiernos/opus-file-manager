@@ -9,10 +9,11 @@ and important limitations. Use the documents below for details.
 | --- | --- |
 | [Scope and objective](philosophy/scope.md) | Product direction and boundaries |
 | [Inspirations](philosophy/inspirations.md) | Sources and their influence |
-| [Roadmap](ROADMAP.md) | Architecture, milestone order and planned features, including Yazi mode |
+| [Roadmap](ROADMAP.md) | Architecture, milestone order and planned features |
 | [Pending tasks](TODO.md) | Blocked work and handoffs |
 | [Reported bugs](BUGS.md) | Bug reports and completion status |
 | [Caveats and limitations](CAVEATS.md) | Restrictions, dependencies and workarounds |
+| [Translations](../po/README.md) | Catalogue extraction, installation and fallback |
 | [Project instructions](../CLAUDE.md) | Development conventions and workflows |
 
 ## Behaviour references

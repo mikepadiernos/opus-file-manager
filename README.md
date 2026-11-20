@@ -5,6 +5,8 @@ side-by-side browsing and power-user tools with native KDE file operations,
 Places, properties and settings. It is built with C++20, Qt 6 Widgets and
 KDE Frameworks 6.
 
+The latest published MVP is [v0.2.0](https://github.com/mikepadiernos/opus-file-manager/releases/tag/v0.2.0).
+
 **[Build and run](#build-and-run)** · **[Features](#features)** ·
 **[Caveats](#caveats)** · **[Roadmap](docs/ROADMAP.md)** ·
 **[Documentation](docs/README.md)**
@@ -33,7 +35,8 @@ Preferences → Translation provides independent interface language, regional
 locale, calendar, custom date and time format, layout direction and digit
 choices. Restart Opus to fully apply these changes. Custom formats override
 listing defaults; an explicit calendar overrides the ISO listing's automatic
-Gregorian calendar. See [translation limitations](docs/CAVEATS.md#translation-format-overrides)
+Gregorian calendar. Catalogues may be incomplete; untranslated text falls
+back to the source language. See [translation limitations](docs/CAVEATS.md#translation-format-overrides)
 and [Jalali date limitations](docs/CAVEATS.md#jalali-dates).
 
 Run `./install.sh` to build and install for the current user, or
@@ -131,11 +134,13 @@ dependencies, precautions and workarounds.
 
 ## Planned work
 
-The roadmap includes an optional
-[Yazi-inspired browsing mode](docs/ROADMAP.md#m19-yazi-mode), followed by
+The next planned milestones cover [advanced search](docs/ROADMAP.md#m15-advanced-search)
+and [native tagging](docs/ROADMAP.md#m17-native-tagging), followed by an optional
+[Yazi-inspired browsing mode](docs/ROADMAP.md#m19-yazi-mode),
 [workspaces](docs/ROADMAP.md#m21-workspaces) and
-[desktop integrations](docs/ROADMAP.md#m23-integrations). These are planned,
-not yet available; see the roadmap for their scope and status.
+[desktop integrations](docs/ROADMAP.md#m23-integrations), including enhanced
+Baloo support. These are planned, not yet available; see the roadmap for their
+scope and status.
 
 ## Documentation
 
