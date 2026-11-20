@@ -5,6 +5,10 @@ side-by-side browsing and power-user tools with native KDE file operations,
 Places, properties and settings. It is built with C++20, Qt 6 Widgets and
 KDE Frameworks 6.
 
+**[Build and run](#build-and-run)** · **[Features](#features)** ·
+**[Caveats](#caveats)** · **[Roadmap](docs/ROADMAP.md)** ·
+**[Documentation](docs/README.md)**
+
 ## Build and run
 
 To build, install a C++20 compiler, CMake 3.25 or newer, Ninja, Qt 6.8 or
@@ -62,20 +66,23 @@ reconfigure with `-DBUILD_TESTING=ON` to run them.
 
 ## Customize the interface
 
-The View menu can swap current tabs or entire pane sides, dim the inactive
-pane, and save or reset pane and panel sizes separately for side-by-side and
-stacked layouts. **Customize Combined Panel** changes section order, visibility
-and titles.
-
-Use **Configure Toolbars** to add saved scripts and commands as buttons; they
-still require preview and confirmation before running.
-
-Use **Active Pane Tab Bar Position** to choose a position for each pane and
-layout. In stacked mode, **Keep Stacked Tab Bars Together** puts the bars
-between the panes; choosing an individual position turns that option off.
-**Show Tab Close Buttons** applies to both panes. Choose a theme, light, dark or
-checkerboard background for transparent images under Preferences → Gallery →
-Display; this does not change the image.
+- **Panes and panels:** Swap current tabs or whole pane sides, dim the inactive
+  pane, and save or reset splitter sizes by orientation. Change combined panel
+  section order, visibility and titles.
+- **Toolbars:** Configure the main and pane toolbars and hamburger menu, choose
+  button appearance and lock editing. Saved scripts and commands can become
+  toolbar buttons; running them still requires preview and confirmation.
+- **Tabs and status:** Position tab bars per pane and layout, or keep them
+  together between stacked panes. Show or hide close buttons and configure
+  status-bar indicators and their order.
+- **Views:** Enable the [file-list minimap](docs/CAVEATS.md#file-list-minimap)
+  and set its width. Choose Information panel fields and their order, with
+  optional hover information. Set a theme, light, dark or checkerboard
+  background for transparent images without changing the image.
+- **Backup:** Back up Opus settings and window and panel layouts, or preview a
+  restore that applies on the next launch. Review the
+  [backup limitations](docs/CAVEATS.md#settings-backups) before sharing or
+  relying on an archive.
 
 ## Tool preferences
 
@@ -96,9 +103,9 @@ tools:
   columns, batch-rename presets, and initially displayed metadata fields.
   Hidden metadata fields are preserved.
 - **Automation and transfers:** Manage saved scripts and command presets;
-  configure transfer concurrency and conflict handling. Automatic overwrite
-  replaces files and merges folders without asking. Paste and drag-and-drop
-  bypass the queue and its defaults.
+  configure transfer concurrency and conflict handling. See the
+  [transfer queue limitations](docs/CAVEATS.md#transfer-queue) before choosing
+  an overwrite policy.
 - **Applications:** Open KDE File Associations to manage filename patterns and
   default applications; changes affect shared desktop settings.
 
@@ -107,100 +114,28 @@ changes take effect immediately, even if Preferences is canceled.
 
 ## Caveats
 
-- Back up existing `.mfm.json` metadata before editing: Opus sanitizes the
-  supported subset and may discard unsupported fields.
-- Flat view requires the `filenamesearch:/` KIO worker, usually in
-  `kio-extras`. Document previews require a suitable KPart, media playback
-  requires a Qt Multimedia backend, and the embedded terminal requires the
-  Konsole KPart. Gallery edits do not preserve image metadata.
-- Encrypted 7z extraction can fail in KArchive; integrity checks use `7z` when
-  available. Archive operations have local-file and entry-type restrictions.
-- Live search, linked navigation, file comparison, symbolic-link creation,
-  checksums and splitting or combining files are local-only. Search and
-  recursive comparisons have limits; duplicate results require manual review.
-  Synchronization is local-only, is not undoable and can leave partial results.
-  Combined files cannot be checked for missing or misordered parts.
-- Metadata editing requires ExifTool and has format and write limitations.
-  Custom commands run with the user's permissions. Visual Markdown editing
-  requires confirmation because it can rewrite unsupported markup.
+Back up existing `.mfm.json` files before editing them: unsupported metadata
+may be discarded. Synchronization is not undoable and can leave partial
+results; automatic transfer overwrite can replace files without asking.
 
-See [caveats and limitations](docs/CAVEATS.md) for details and recommendations.
+See [caveats and limitations](docs/CAVEATS.md) for feature restrictions,
+dependencies, precautions and workarounds.
 
-## Roadmap
+## Planned work
 
-The [roadmap](docs/ROADMAP.md) contains 28 milestones. Items are struck through
-when their issues reach Completed; unstruck items can include implemented work
-still in Review.
+The roadmap includes an optional
+[Yazi-inspired browsing mode](docs/ROADMAP.md#m19-yazi-mode), followed by
+[workspaces](docs/ROADMAP.md#m21-workspaces) and
+[desktop integrations](docs/ROADMAP.md#m23-integrations). These are planned,
+not yet available; see the roadmap for their scope and status.
 
-- [M01 Core dual pane](docs/ROADMAP.md#m01-core-dual-pane): browsing, tabs and
-  essential file operations.
-- [M02 Core dual pane settings](docs/ROADMAP.md#m02-core-dual-pane-settings):
-  startup, navigation, views and desktop integration preferences.
-- [M03 Listing depth](docs/ROADMAP.md#m03-listing-depth): richer views,
-  filtering, metadata, archives and navigation.
-- [M04 Listing depth settings](docs/ROADMAP.md#m04-listing-depth-settings):
-  listing, panel, archive and tab preferences.
-- [M05 Preview and gallery](docs/ROADMAP.md#m05-preview-and-gallery): file
-  previews, media browsing and image editing.
-- [M06 Preview and gallery settings](docs/ROADMAP.md#m06-preview-and-gallery-settings):
-  preview, slideshow and image output preferences.
-- [M07 Editor](docs/ROADMAP.md#m07-editor): embedded and standalone editing,
-  drafts and Markdown export.
-- [M08 Editor settings](docs/ROADMAP.md#m08-editor-settings): editor placement,
-  text, draft and export preferences.
-- [M09 Tools](docs/ROADMAP.md#m09-tools): search, comparison, synchronization,
-  automation and other file tools.
-- [M10 Tools settings](docs/ROADMAP.md#m10-tools-settings): tool defaults,
-  profiles, terminal placement and transfer preferences.
-- [M11 UI Customizations](docs/ROADMAP.md#m11-ui-customizations): configurable
-  toolbars, tabs, status bars, panes, panels and layouts.
-- [M12 UI Customization settings](docs/ROADMAP.md#m12-ui-customization-settings):
-  customization, layout backup and reset controls.
-- [M13 Workspaces](docs/ROADMAP.md#m13-workspaces): focused locations, tag
-  groups, saved workflow layouts and per-pane breadcrumb modes.
-- [M14 Workspace settings](docs/ROADMAP.md#m14-workspace-settings): workspace
-  management, startup, search, layout and location-bar preferences.
-- [M15 Translations](docs/ROADMAP.md#m15-translations): translations,
-  right-to-left layout and Jalali dates.
-- [M16 Translation settings](docs/ROADMAP.md#m16-translation-settings):
-  language, regional formats and layout preferences.
-- [M17 Settings dialog polish](docs/ROADMAP.md#m17-settings-dialog-polish):
-  discoverability, accessibility and consistent settings controls.
-- [M18 Keyboard shortcut settings](docs/ROADMAP.md#m18-keyboard-shortcut-settings):
-  customizable bindings, Vim-style navigation and shortcut hints.
-- [M19 Advanced search](docs/ROADMAP.md#m19-advanced-search): an embedded
-  search panel, toolbar widget and combined search criteria.
-- [M20 Advanced search settings](docs/ROADMAP.md#m20-advanced-search-settings):
-  panel, toolbar and search behaviour preferences.
-- [M21 Native tagging](docs/ROADMAP.md#m21-native-tagging): tag libraries,
-  relationships, metadata and search.
-- [M22 Tagging settings](docs/ROADMAP.md#m22-tagging-settings): library,
-  tag, field and privacy preferences.
-- [M23 Integrations](docs/ROADMAP.md#m23-integrations): desktop services,
-  downloadable service menus, terminals, alternative editors, rsync, Atuin,
-  Nextcloud and KDE Online Accounts.
-- [M24 Integration settings](docs/ROADMAP.md#m24-integration-settings):
-  provider, account, sync, terminal, editor and tray controls.
-- [M25 Themes](docs/ROADMAP.md#m25-themes): optional app-local colour schemes,
-  custom Qt stylesheets, profiles and accessible previews.
-- [M26 Theme settings](docs/ROADMAP.md#m26-theme-settings): colours,
-  stylesheets and theme profiles.
-- [M27 Branding](docs/ROADMAP.md#m27-branding): application identity, icon
-  assets and presentation.
-- [M28 Branding settings](docs/ROADMAP.md#m28-branding-settings): branding
-  presentation preferences.
+## Documentation
 
-## Inspirations
-
-Max File Manager is the main behaviour reference; Dolphin guides KDE
-integration, and Directory Opus and Krusader inform power-user workflows.
-Earlier project notes also cite Orcinus; TagSpaces, TagStudio and
-which-key.nvim inspire planned features. See
-[Inspirations](docs/philosophy/inspirations.md) for details.
-
-## Project documentation
-
-- [Scope and objective](docs/philosophy/scope.md)
-- [Roadmap and milestones](docs/ROADMAP.md)
-- [Caveats and limitations](docs/CAVEATS.md)
-- [Documentation index](docs/README.md)
+| Document | Purpose |
+| --- | --- |
+| [Roadmap](docs/ROADMAP.md) | Architecture, feature plans and milestone status |
+| [Pending tasks](docs/TODO.md) | Blocked work and handoffs |
+| [Reported bugs](docs/BUGS.md) | Bug reports and completion status |
+| [Scope](docs/philosophy/scope.md) | Product goals and design boundaries |
+| [Inspirations](docs/philosophy/inspirations.md) | Sources and their influence |
+| [Documentation index](docs/README.md) | All project documents and behaviour references |
