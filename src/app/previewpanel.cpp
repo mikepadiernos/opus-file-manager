@@ -5,6 +5,7 @@
 
 #include "imagebackground.h"
 #include "imagedetails.h"
+#include "localizeddates.h"
 #include "mediaview.h"
 #include "settings.h"
 #include "symbolicicon.h"
@@ -426,7 +427,7 @@ void PreviewPanel::setItems(const KFileItemList &items, const QList<QUrl> &image
     clearDocument();
     clearMedia();
     clearRemotePreview();
-    const QString modified = item.timeString(KFileItem::ModificationTime);
+    const QString modified = LocalizedDates::fileTime(item);
     m_baseFooter = modified.isEmpty() ? KIO::convertSize(item.size()) : i18nc("@info", "%1 · %2", KIO::convertSize(item.size()), modified);
     m_footer->setText(m_baseFooter);
     showMessage(i18nc("@info", "Loading preview…"));

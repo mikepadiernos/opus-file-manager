@@ -2,6 +2,8 @@
 
 #include "informationpanel.h"
 
+#include "localizeddates.h"
+
 #include <KIO/Global>
 #include <KLocalizedString>
 
@@ -58,13 +60,13 @@ QString valueFor(const KFileItem &item, const QString &field)
         return i18nc("@info:file owner and group", "%1, %2", user, group);
     }
     if (field == QLatin1String("creationTime")) {
-        return item.timeString(KFileItem::CreationTime);
+        return LocalizedDates::fileTime(item, KFileItem::CreationTime);
     }
     if (field == QLatin1String("modificationTime")) {
-        return item.timeString(KFileItem::ModificationTime);
+        return LocalizedDates::fileTime(item, KFileItem::ModificationTime);
     }
     if (field == QLatin1String("accessTime")) {
-        return item.timeString(KFileItem::AccessTime);
+        return LocalizedDates::fileTime(item, KFileItem::AccessTime);
     }
     if (field == QLatin1String("mimeType")) {
         return item.mimetype();

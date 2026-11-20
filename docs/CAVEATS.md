@@ -13,7 +13,8 @@ for details and precautions. For planned work and status, see the
 - **Browsing and viewing:** [Archives](#archives),
   [folder metadata and listings](#folder-metadata-and-listings),
   [planned password-gated folders](#planned-password-gated-folders),
-  [previews and gallery](#previews-and-gallery), [editor](#editor)
+  [previews and gallery](#previews-and-gallery), [editor](#editor),
+  [Jalali dates](#jalali-dates)
 - **Search and operations:** [Search](#search), [batch rename](#batch-rename),
   [metadata editing](#metadata-editing), [transfer queue](#transfer-queue),
   [custom commands](#custom-commands), [symbolic links](#symbolic-links),
@@ -29,6 +30,20 @@ for details and precautions. For planned work and status, see the
   [file-list minimap](#file-list-minimap), [settings backups](#settings-backups),
   [build and installation](#build-installation-and-references),
   [installing optional tools](#installing-optional-alternatives)
+
+## Jalali dates
+
+With a Persian regional locale, Opus's date displays use the Jalali calendar,
+except for the explicitly selected ISO 8601 listing format, which is
+Gregorian. KDE controls dates in its own dialogs and tooltips, and the
+additional file information shown under icons in icon and compact views uses
+KDE's `KFileItemDelegate`; these dates may remain Gregorian.
+([#436](https://github.com/mikepadiernos/opus-file-manager/issues/436))
+
+- **Recommendation:** Use Details view or the Opus Information panel for
+  Jalali dates, with the listing date format set to Locale rather than ISO
+  8601. Verify the calendar before interpreting KDE-provided dates.
+  - Comment: [#436.7041290164](https://github.com/mikepadiernos/opus-file-manager/issues/436#issuecomment-7041290164)
 
 ## Archives
 

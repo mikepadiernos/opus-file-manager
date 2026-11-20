@@ -522,6 +522,8 @@ Settings for M11 UI customizations, stored in KConfig.
 - Right-to-left layout, mirrored for Arabic and Hebrew too
 - Jalali (Persian) calendar dates
 
+**Caveats:** [Jalali dates](CAVEATS.md#jalali-dates), tracked in [#436].
+
 ### M14 Translation settings
 
 Settings for M13 translations, stored in KConfig.

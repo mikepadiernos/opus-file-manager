@@ -10,6 +10,7 @@
 #include "foldermetadata.h"
 #include "ignorelist.h"
 #include "labelcolor.h"
+#include "localizeddates.h"
 #include "settings.h"
 #include "symbolicicon.h"
 #include "viewsettings.h"
@@ -218,12 +219,14 @@ public:
 
     void setSettings(const ViewSettings &settings, const FileColorRules &fileColors, const IgnoreList &ignoreList)
     {
+        const bool calendarChanged = m_groupBy == QLatin1String("date") && QLocale().language() == QLocale::Persian
+            && (m_settings.dateFormat == QLatin1String("iso")) != (settings.dateFormat == QLatin1String("iso"));
         beginFilterChange();
         m_settings = settings;
         m_fileColors = fileColors;
         m_ignoreList = ignoreList;
         endFilterChange(QSortFilterProxyModel::Direction::Rows);
-        if (m_pinnedItemsFirst != Settings::pinnedItemsFirst()) {
+        if (calendarChanged || m_pinnedItemsFirst != Settings::pinnedItemsFirst()) {
             m_pinnedItemsFirst = Settings::pinnedItemsFirst();
             const int column = sortColumn();
             const Qt::SortOrder order = sortOrder();
@@ -314,23 +317,22 @@ public:
         }
         if (m_groupBy == QLatin1String("date")) {
             const QDate modified = item.time(KFileItem::ModificationTime).date();
-            const qint64 daysAgo = modified.daysTo(QDate::currentDate());
-            if (daysAgo <= 0) {
+            const auto group =
+                LocalizedDates::group(modified, QDate::currentDate(), LocalizedDates::calendar(QLocale(), m_settings.dateFormat == QLatin1String("iso")));
+            switch (group) {
+            case LocalizedDates::Group::Today:
                 return i18nc("@item:inlistbox file group", "Today");
-            }
-            if (daysAgo == 1) {
+            case LocalizedDates::Group::Yesterday:
                 return i18nc("@item:inlistbox file group", "Yesterday");
-            }
-            if (daysAgo < 7) {
+            case LocalizedDates::Group::LastSevenDays:
                 return i18nc("@item:inlistbox file group", "Last 7 Days");
-            }
-            if (modified.month() == QDate::currentDate().month() && modified.year() == QDate::currentDate().year()) {
+            case LocalizedDates::Group::ThisMonth:
                 return i18nc("@item:inlistbox file group", "This Month");
-            }
-            if (modified.year() == QDate::currentDate().year()) {
+            case LocalizedDates::Group::ThisYear:
                 return i18nc("@item:inlistbox file group", "This Year");
+            case LocalizedDates::Group::Older:
+                return i18nc("@item:inlistbox file group", "Older");
             }
-            return i18nc("@item:inlistbox file group", "Older");
         }
         return {};
     }
@@ -358,9 +360,9 @@ public:
                     return modified.toString(m_settings.showSeconds ? QStringLiteral("yyyy-MM-dd HH:mm:ss") : QStringLiteral("yyyy-MM-dd HH:mm"));
                 }
                 if (m_settings.showSeconds) {
-                    return QString(QLocale().toString(modified.date(), QLocale::ShortFormat) + u' ' + QLocale().toString(modified.time(), QLocale::LongFormat));
+                    return QString(LocalizedDates::date(modified.date()) + u' ' + QLocale().toString(modified.time(), QLocale::LongFormat));
                 }
-                return QLocale().toString(modified, QLocale::ShortFormat);
+                return LocalizedDates::dateTime(modified);
             }
         }
         if (role == KCategorizedSortFilterProxyModel::CategorySortRole) {
@@ -590,13 +592,9 @@ private:
         }
         if (m_groupBy == QLatin1String("date")) {
             const QDate modified = item.time(KFileItem::ModificationTime).date();
-            const qint64 daysAgo = modified.daysTo(QDate::currentDate());
-            return daysAgo <= 0                                                                                      ? QStringLiteral("0")
-                : daysAgo == 1                                                                                       ? QStringLiteral("1")
-                : daysAgo < 7                                                                                        ? QStringLiteral("2")
-                : modified.month() == QDate::currentDate().month() && modified.year() == QDate::currentDate().year() ? QStringLiteral("3")
-                : modified.year() == QDate::currentDate().year()                                                     ? QStringLiteral("4")
-                                                                                                                     : QStringLiteral("5");
+            const auto group =
+                LocalizedDates::group(modified, QDate::currentDate(), LocalizedDates::calendar(QLocale(), m_settings.dateFormat == QLatin1String("iso")));
+            return QString::number(static_cast<int>(group));
         }
         return QStringLiteral("1") + groupLabel(index).toCaseFolded();
     }

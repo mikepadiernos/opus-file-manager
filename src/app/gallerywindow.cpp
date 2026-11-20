@@ -6,6 +6,7 @@
 #include "fileoperations.h"
 #include "imagebackground.h"
 #include "imageediting.h"
+#include "localizeddates.h"
 #include "mediaview.h"
 #include "settings.h"
 #include "symbolicicon.h"
@@ -696,7 +697,7 @@ void GalleryWindow::showImage(const PreviewContent &content)
     const QFileInfo file(m_urls.at(m_index).toLocalFile());
     m_originalSize = file.size();
     m_originalModified = file.lastModified();
-    const QString created = file.birthTime().isValid() ? QLocale().toString(file.birthTime(), QLocale::ShortFormat) : i18nc("@info", "Unknown");
+    const QString created = file.birthTime().isValid() ? LocalizedDates::dateTime(file.birthTime()) : i18nc("@info", "Unknown");
     const QString mime = QMimeDatabase().mimeTypeForFile(file.filePath(), QMimeDatabase::MatchExtension).name();
     m_baseInfo = i18nc("@info",
                        "Name: %1\nDimensions: %2 × %3\nMegapixels: %4\nAspect ratio: %5\nSize: %6",
@@ -710,7 +711,7 @@ void GalleryWindow::showImage(const PreviewContent &content)
         + i18nc("@info",
                 "MIME type: %1\nModified: %2\nCreated: %3\nPath: %4",
                 mime,
-                QLocale().toString(file.lastModified(), QLocale::ShortFormat),
+                LocalizedDates::dateTime(file.lastModified()),
                 created,
                 file.absoluteFilePath());
     m_info->setText(m_baseInfo);
@@ -757,7 +758,7 @@ void GalleryWindow::showVideo(const QUrl &url)
                           "Name: %1\nSize: %2\nModified: %3\nPath: %4",
                           file.fileName(),
                           KIO::convertSize(file.size()),
-                          QLocale().toString(file.lastModified(), QLocale::ShortFormat),
+                          LocalizedDates::dateTime(file.lastModified()),
                           file.absoluteFilePath()));
     m_stage->setCurrentWidget(m_media);
     m_media->open(url, true, true);

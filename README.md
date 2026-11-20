@@ -15,6 +15,7 @@ To build, install a C++20 compiler, CMake 3.25 or newer, Ninja, Qt 6.8 or
 newer, Extra CMake Modules, libarchive and KDE Frameworks 6.20 or newer. The
 required Qt and KDE components are listed in `CMakeLists.txt`. Baloo development
 files are optional at build time and enable indexed search.
+Qt must be built with Jalali calendar support.
 
 ```bash
 ./install.sh --deps  # Print suggested distribution packages; does not install them
@@ -27,6 +28,9 @@ QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
 Pass folders or URLs as arguments: the first opens in the active pane, the
 second in the other pane, and further arguments in tabs in the active pane.
 Without arguments, the configured startup or restored session is used.
+
+With a Persian regional locale, Opus displays Jalali dates; the ISO listing
+format remains Gregorian. See [Jalali date limitations](docs/CAVEATS.md#jalali-dates).
 
 Run `./install.sh` to build and install for the current user, or
 `./install.sh --help` for other options. `./install.sh --default` also changes

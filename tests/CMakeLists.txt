@@ -55,6 +55,7 @@ ecm_add_tests(
     ignorelisttest.cpp
     indexedsearchtest.cpp
     linkednavigationtest.cpp
+    localizeddatestest.cpp
     livesearchtest.cpp
     namefiltertest.cpp
     densitytest.cpp

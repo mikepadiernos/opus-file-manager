@@ -2,6 +2,7 @@
 
 #include "foldercomparisondialog.h"
 
+#include "localizeddates.h"
 #include "settings.h"
 
 #include <KIO/Global>
@@ -63,7 +64,7 @@ QString describe(const KFileItem &item)
         return i18nc("@info:status", "Other item");
     }
     const QString size = item.entry().contains(KIO::UDSEntry::UDS_SIZE) ? KIO::convertSize(item.size()) : i18nc("@info:status", "Unknown size");
-    const QString date = item.time(KFileItem::ModificationTime).isValid() ? item.timeString() : i18nc("@info:status", "Unknown time");
+    const QString date = item.time(KFileItem::ModificationTime).isValid() ? LocalizedDates::fileTime(item) : i18nc("@info:status", "Unknown time");
     return i18nc("@info:status size and modification time", "%1, %2", size, date);
 }
 }

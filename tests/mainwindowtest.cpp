@@ -18,6 +18,7 @@
 #include "folderview.h"
 #include "gallerywindow.h"
 #include "informationpanel.h"
+#include "localizeddates.h"
 #include "metadataeditdialog.h"
 #include "pane.h"
 #include "previewpanel.h"
@@ -2743,6 +2744,43 @@ private Q_SLOTS:
         auto *icons = qobject_cast<QListView *>(view->currentView());
         QVERIFY(icons);
         QVERIFY(icons->gridSize().height() > 112);
+    }
+
+    void persianListingDateAndIsoOverride()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QFile file(directory.filePath(QStringLiteral("dated.txt")));
+        QVERIFY(file.open(QIODevice::ReadWrite));
+        QVERIFY(file.setFileTime(QDateTime(QDate(2024, 3, 20), QTime(13, 45, 37)), QFileDevice::FileModificationTime));
+        file.close();
+
+        const QLocale previousLocale;
+        auto config = KSharedConfig::openConfig()->group(QStringLiteral("View"));
+        const ViewSettings previousSettings = ViewSettings::fromConfig(config);
+        const auto restore = qScopeGuard([&] {
+            previousSettings.writeConfig(config);
+            QLocale::setDefault(previousLocale);
+        });
+        QLocale::setDefault(QLocale(QStringLiteral("fa_IR")));
+        ViewSettings settings = previousSettings;
+        settings.dateFormat = QStringLiteral("locale");
+        settings.showSeconds = false;
+        settings.writeConfig(config);
+
+        FolderView view;
+        view.setUrl(QUrl::fromLocalFile(directory.path()));
+        QTRY_COMPARE(view.itemCount(), 1);
+        auto *details = qobject_cast<QTreeView *>(view.currentView());
+        QVERIFY(details);
+        const QModelIndex date = details->model()->index(0, KDirModel::ModifiedTime);
+        QTRY_COMPARE(date.data().toString(), LocalizedDates::dateTime(QFileInfo(file.fileName()).lastModified()));
+        QVERIFY(date.data().toString().contains(QString::fromUtf8("۱۴۰۳")));
+
+        settings.dateFormat = QStringLiteral("iso");
+        settings.writeConfig(config);
+        view.reloadMetadata();
+        QCOMPARE(date.data().toString(), QStringLiteral("2024-03-20 13:45"));
     }
 
     void preferencesActionAppliesSettingsToOpenPanes()
