@@ -275,6 +275,29 @@ private Q_SLOTS:
         QVERIFY(link->isChecked());
     }
 
+    void rightToLeftMirrorsPanesAndDetailsNavigation()
+    {
+        MainWindow window;
+        window.setLayoutDirection(Qt::RightToLeft);
+        window.resize(1000, 600);
+        window.openUrls({m_a, m_b});
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        window.show();
+
+        auto *splitter = window.findChild<QSplitter *>(QStringLiteral("paneSplitter"));
+        QVERIFY(splitter);
+        QTRY_VERIFY(splitter->widget(0)->geometry().left() > splitter->widget(1)->geometry().left());
+        auto *view = window.activePane()->view();
+        view->setViewMode(FolderView::ViewMode::Details);
+        QSignalSpy up(view, &FolderView::goUpRequested);
+        QTest::keyClick(view->currentView(), Qt::Key_Right);
+        QCOMPARE(up.count(), 1);
+        window.setLayoutDirection(Qt::LeftToRight);
+        QTRY_VERIFY(splitter->widget(0)->geometry().left() < splitter->widget(1)->geometry().left());
+        QTest::keyClick(view->currentView(), Qt::Key_Left);
+        QCOMPARE(up.count(), 2);
+    }
+
     void preferredPaneSwapUsesConfiguredOperation()
     {
         QTemporaryDir root;
@@ -1741,6 +1764,10 @@ private Q_SLOTS:
         Settings::setPreviewSyntaxHighlighting(true);
         panel.applyPresentationSettings();
         QVERIFY(lineNumbers->isVisible());
+        panel.setLayoutDirection(Qt::RightToLeft);
+        QTRY_VERIFY(lineNumbers->geometry().left() >= source->viewport()->geometry().right());
+        panel.setLayoutDirection(Qt::LeftToRight);
+        QTRY_VERIFY(lineNumbers->geometry().right() <= source->viewport()->geometry().left());
         QTRY_VERIFY(!source->document()->firstBlock().layout()->formats().isEmpty());
         Settings::setPreviewSyntaxHighlighting(false);
         panel.applyPresentationSettings();

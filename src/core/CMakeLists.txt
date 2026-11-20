@@ -35,6 +35,8 @@ add_library(opusfm_core STATIC
     linkednavigation.h
     indexedsearch.cpp
     indexedsearch.h
+    interfacelanguage.cpp
+    interfacelanguage.h
     livesearch.cpp
     livesearch.h
     listingexport.cpp

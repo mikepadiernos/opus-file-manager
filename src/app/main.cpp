@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "interfacelanguage.h"
 #include "mainwindow.h"
 #include "opusfm_version.h"
 #include "settingsbackup.h"
@@ -37,9 +38,16 @@ QList<QUrl> urlsFromArguments(const QStringList &arguments, const QString &worki
 
 int main(int argc, char **argv)
 {
+    bool reverseRequested = false;
+    for (int i = 1; i < argc; ++i) {
+        reverseRequested |= qstrcmp(argv[i], "-reverse") == 0;
+    }
     QApplication app(argc, argv);
     app.installEventFilter(new SymbolicActionIcons(&app));
     KLocalizedString::setApplicationDomain(QByteArrayLiteral("opus-file-manager"));
+    if (!reverseRequested) {
+        QApplication::setLayoutDirection(InterfaceLanguage::layoutDirection(KLocalizedString::languages()));
+    }
 
     KAboutData aboutData(QStringLiteral("opus-file-manager"),
                          i18n("Opus File Manager"),

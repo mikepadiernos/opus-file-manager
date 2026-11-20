@@ -178,7 +178,8 @@ protected:
     {
         QPlainTextEdit::resizeEvent(event);
         const QRect rect = contentsRect();
-        m_lineNumbers->setGeometry(rect.left(), rect.top(), lineNumberWidth(), rect.height());
+        const int width = lineNumberWidth();
+        m_lineNumbers->setGeometry(layoutDirection() == Qt::RightToLeft ? rect.right() - width + 1 : rect.left(), rect.top(), width, rect.height());
     }
 
     void changeEvent(QEvent *event) override
@@ -186,6 +187,8 @@ protected:
         QPlainTextEdit::changeEvent(event);
         if (event->type() == QEvent::PaletteChange) {
             updateTheme();
+        } else if (event->type() == QEvent::LayoutDirectionChange) {
+            updateLineNumberWidth();
         }
     }
 
@@ -198,9 +201,10 @@ private:
     void updateLineNumberWidth()
     {
         const int width = lineNumberWidth();
-        setViewportMargins(width, 0, 0, 0);
+        const bool rightToLeft = layoutDirection() == Qt::RightToLeft;
+        setViewportMargins(rightToLeft ? 0 : width, 0, rightToLeft ? width : 0, 0);
         const QRect rect = contentsRect();
-        m_lineNumbers->setGeometry(rect.left(), rect.top(), width, rect.height());
+        m_lineNumbers->setGeometry(rightToLeft ? rect.right() - width + 1 : rect.left(), rect.top(), width, rect.height());
     }
 
     void updateTheme()
@@ -220,7 +224,13 @@ private:
         while (block.isValid() && top <= event->rect().bottom()) {
             const int height = int(blockBoundingRect(block).height());
             if (block.isVisible() && top + height >= event->rect().top()) {
-                painter.drawText(0, top, m_lineNumbers->width() - 5, fontMetrics().height(), Qt::AlignRight, QLocale().toString(block.blockNumber() + 1));
+                const bool rightToLeft = layoutDirection() == Qt::RightToLeft;
+                painter.drawText(rightToLeft ? 5 : 0,
+                                 top,
+                                 m_lineNumbers->width() - 5,
+                                 fontMetrics().height(),
+                                 rightToLeft ? Qt::AlignLeft : Qt::AlignRight,
+                                 QLocale().toString(block.blockNumber() + 1));
             }
             top += height;
             block = block.next();

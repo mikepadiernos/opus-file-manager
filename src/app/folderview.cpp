@@ -673,7 +673,8 @@ public:
             font.setBold(true);
             painter->setFont(font);
             painter->setPen(option.palette.color(QPalette::Text));
-            painter->drawText(headerRect.adjusted(8, 0, -4, 0), Qt::AlignVCenter | Qt::AlignLeft, m_model->groupLabel(index));
+            const QRect labelRect = QStyle::visualRect(option.direction, headerRect, headerRect.adjusted(8, 0, -4, 0));
+            painter->drawText(labelRect, QStyle::visualAlignment(option.direction, Qt::AlignVCenter | Qt::AlignLeft), m_model->groupLabel(index));
         }
         QStyleOptionViewItem itemOption(option);
         itemOption.rect.setTop(itemOption.rect.top() + HeaderHeight);
@@ -2286,11 +2287,12 @@ bool FolderView::eventFilter(QObject *watched, QEvent *event)
         if (keyEvent->modifiers() != Qt::NoModifier) {
             break;
         }
-        if (view == m_details && keyEvent->key() == Qt::Key_Left) {
+        const bool rightToLeft = view->layoutDirection() == Qt::RightToLeft;
+        if (view == m_details && keyEvent->key() == (rightToLeft ? Qt::Key_Right : Qt::Key_Left)) {
             Q_EMIT goUpRequested();
             return true;
         }
-        if (view == m_details && keyEvent->key() == Qt::Key_Right) {
+        if (view == m_details && keyEvent->key() == (rightToLeft ? Qt::Key_Left : Qt::Key_Right)) {
             onActivated(view->currentIndex());
             return true;
         }

@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "interfacelanguage.h"
+
 #include <KLocalizedString>
 
 #include <QFile>
 #include <QLocale>
 #include <QProcess>
+#include <QProcessEnvironment>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -14,6 +17,50 @@ class TranslationTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void interfaceDirection_data()
+    {
+        QTest::addColumn<QStringList>("languages");
+        QTest::addColumn<Qt::LayoutDirection>("direction");
+        QTest::newRow("Persian") << QStringList{QStringLiteral("fa_IR")} << Qt::RightToLeft;
+        QTest::newRow("Arabic") << QStringList{QStringLiteral("ar_EG")} << Qt::RightToLeft;
+        QTest::newRow("Hebrew") << QStringList{QStringLiteral("he_IL")} << Qt::RightToLeft;
+        QTest::newRow("English first") << (QStringList{QStringLiteral("en_US"), QStringLiteral("fa")}) << Qt::LeftToRight;
+    }
+
+    void interfaceDirection()
+    {
+        QFETCH(QStringList, languages);
+        QFETCH(Qt::LayoutDirection, direction);
+        QCOMPARE(InterfaceLanguage::layoutDirection(languages), direction);
+    }
+
+    void interfaceDirectionFromEnvironment()
+    {
+        for (const QString &language : {QStringLiteral("fa"), QStringLiteral("ar"), QStringLiteral("he")}) {
+            QProcess process;
+            auto environment = QProcessEnvironment::systemEnvironment();
+            environment.insert(QStringLiteral("LC_ALL"), QStringLiteral("en_US.UTF-8"));
+            environment.insert(QStringLiteral("LANGUAGE"), language);
+            environment.insert(QStringLiteral("OPUSFM_DIRECTION_PROBE"), QStringLiteral("1"));
+            process.setProcessEnvironment(environment);
+            process.start(QCoreApplication::applicationFilePath(), {QStringLiteral("directionEnvironmentProbe")});
+            QVERIFY(process.waitForFinished(30000));
+            QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+            QVERIFY2(process.exitCode() == 0, process.readAll().constData());
+        }
+    }
+
+    void directionEnvironmentProbe()
+    {
+        if (!qEnvironmentVariableIsSet("OPUSFM_DIRECTION_PROBE")) {
+            QSKIP("Subprocess probe");
+        }
+        QStandardPaths::setTestModeEnabled(true);
+        KLocalizedString::addDomainLocaleDir(QByteArrayLiteral("opus-file-manager"), QStringLiteral(OPUSFM_TEST_LOCALE_DIR));
+        KLocalizedString::setApplicationDomain(QByteArrayLiteral("opus-file-manager"));
+        QCOMPARE(InterfaceLanguage::layoutDirection(KLocalizedString::languages()), Qt::RightToLeft);
+    }
+
     void catalogLoadsContextAndPlurals()
     {
         QStandardPaths::setTestModeEnabled(true);

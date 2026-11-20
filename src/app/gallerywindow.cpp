@@ -434,10 +434,10 @@ GalleryWindow::GalleryWindow(const QList<QUrl> &urls, const QSet<QUrl> &videos, 
         connect(binding, &QShortcut::activated, this, callback);
     };
     shortcut(Qt::Key_Left, [this] {
-        showIndex(m_index - 1);
+        showIndex(m_index + (layoutDirection() == Qt::RightToLeft ? 1 : -1));
     });
     shortcut(Qt::Key_Right, [this] {
-        showIndex(m_index + 1);
+        showIndex(m_index + (layoutDirection() == Qt::RightToLeft ? -1 : 1));
     });
     shortcut(Qt::Key_Home, [this] {
         showIndex(0);
