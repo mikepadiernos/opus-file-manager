@@ -631,6 +631,215 @@ private Q_SLOTS:
         dialog->close();
     }
 
+    void kdeToolbarEditorAppliesSeparatorAndSpacer()
+    {
+        QTemporaryDir backupDir;
+        QVERIFY(backupDir.isValid());
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup customization = config->group(QStringLiteral("ToolbarCustomization"));
+        KConfigGroup paneCustomization = config->group(QStringLiteral("PaneToolbars"));
+        const auto backup = KSharedConfig::openConfig(backupDir.filePath(QStringLiteral("settings")));
+        KConfigGroup saved = backup->group(QStringLiteral("ToolbarCustomization"));
+        KConfigGroup savedPanes = backup->group(QStringLiteral("PaneToolbars"));
+        customization.copyTo(&saved);
+        paneCustomization.copyTo(&savedPanes);
+        customization.deleteGroup();
+        paneCustomization.deleteGroup();
+        QString xmlPath;
+        QByteArray xmlBackup;
+        bool xmlExisted = false;
+        const auto cleanup = qScopeGuard([&] {
+            customization.deleteGroup();
+            saved.copyTo(&customization);
+            paneCustomization.deleteGroup();
+            savedPanes.copyTo(&paneCustomization);
+            config->sync();
+            if (!xmlPath.isEmpty()) {
+                if (xmlExisted) {
+                    QFile file(xmlPath);
+                    QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+                    QCOMPARE(file.write(xmlBackup), qint64(xmlBackup.size()));
+                } else {
+                    QVERIFY(!QFile::exists(xmlPath) || QFile::remove(xmlPath));
+                }
+            }
+        });
+        QStringList expected;
+        {
+            MainWindow window;
+            window.resize(1200, 700);
+            window.show();
+            xmlPath = window.localXMLFile();
+            QVERIFY(!xmlPath.isEmpty());
+            QFile xml(xmlPath);
+            xmlExisted = xml.exists();
+            if (xmlExisted) {
+                QVERIFY(xml.open(QIODevice::ReadOnly));
+                xmlBackup = xml.readAll();
+                xml.close();
+            }
+            QAction *home = window.actionCollection()->action(QStringLiteral("go_home"));
+            QVERIFY(home);
+            window.toolBar()->addAction(home);
+            Pane *pane = window.activePane();
+            QAction *paneZoom = pane->toolbarAction(QStringLiteral("paneZoomIn"));
+            QAction *paneSort = pane->toolbarAction(QStringLiteral("paneSortingButton"));
+            QVERIFY(paneZoom && paneSort);
+            const QString paneId = paneZoom->property("toolbarTransferId").toString();
+            QVERIFY(!paneId.isEmpty());
+            pane->removeToolbarAction(paneZoom);
+            paneZoom->setVisible(true);
+            window.toolBar()->addAction(paneZoom);
+            pane->removeToolbarAction(paneSort);
+            paneSort->setVisible(true);
+            window.toolBar()->addAction(paneSort);
+            QTRY_VERIFY(customization.readEntry("Actions", QStringList()).contains(QStringLiteral("action:") + paneId));
+            QMenu *goMenu = window.findChild<QMenu *>(QStringLiteral("go"));
+            QAction *forward = window.actionCollection()->action(QStringLiteral("go_forward"));
+            QVERIFY(goMenu && forward && goMenu->actions().contains(forward));
+            goMenu->removeAction(forward);
+            customization.group(QStringLiteral("Menus"))
+                .group(QStringLiteral("go"))
+                .writeEntry(QStringLiteral("HiddenActions"), QStringList{QStringLiteral("go_forward")});
+            QAction *configure = window.actionCollection()->action(QStringLiteral("options_configure_toolbars"));
+            QVERIFY(configure && configure->isEnabled());
+            configure->trigger();
+            QTRY_VERIFY(window.findChild<KEditToolBar *>());
+            auto *editor = window.findChild<KEditToolBar *>();
+            QVERIFY(editor);
+            QVERIFY(!window.actionCollection()->action(QStringLiteral("customize_main_toolbar"))->isEnabled());
+            const auto lists = editor->findChildren<QListWidget *>();
+            QCOMPARE(lists.size(), 2);
+            QListWidget *available = lists.at(0);
+            QListWidget *current = lists.at(1);
+            QVERIFY(!current->findItems(home->text().remove(QLatin1Char('&')), Qt::MatchExactly).isEmpty());
+            QVERIFY(!current->findItems(paneZoom->text().remove(QLatin1Char('&')), Qt::MatchExactly).isEmpty());
+            QVERIFY(!current->findItems(paneSort->text().remove(QLatin1Char('&')), Qt::MatchExactly).isEmpty());
+            const auto renameItems = current->findItems(QStringLiteral("Rename"), Qt::MatchExactly);
+            QCOMPARE(renameItems.size(), 1);
+            current->setCurrentItem(renameItems.first());
+            available->setCurrentRow(0);
+            QToolButton *insert = nullptr;
+            for (auto *button : editor->findChildren<QToolButton *>()) {
+                if (button->icon().name() == QLatin1String("go-next")) {
+                    insert = button;
+                }
+            }
+            QVERIFY(insert && insert->isEnabled());
+            insert->click();
+            available->setCurrentRow(1);
+            QVERIFY(insert->isEnabled());
+            insert->click();
+            current->setCurrentItem(current->findItems(paneSort->text().remove(QLatin1Char('&')), Qt::MatchExactly).first());
+            QPushButton *changeText = nullptr;
+            for (auto *button : editor->findChildren<QPushButton *>()) {
+                if (button->icon().name() == QLatin1String("edit-rename")) {
+                    changeText = button;
+                }
+            }
+            QVERIFY(changeText && changeText->isEnabled());
+            QTimer::singleShot(0, [] {
+                auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+                QVERIFY(dialog);
+                auto *field = dialog->findChild<QLineEdit *>();
+                auto *box = dialog->findChild<QDialogButtonBox *>();
+                QVERIFY(field && box);
+                field->setText(QStringLiteral("Custom sort"));
+                box->button(QDialogButtonBox::Ok)->click();
+            });
+            changeText->click();
+            auto *buttons = editor->findChild<QDialogButtonBox *>();
+            QVERIFY(buttons);
+            buttons->button(QDialogButtonBox::Apply)->click();
+            auto *toolbar = window.toolBar();
+            const auto actions = toolbar->actions();
+            const int rename = actions.indexOf(window.actionCollection()->action(QStringLiteral("rename")));
+            QVERIFY(rename >= 0);
+            QVERIFY(rename + 2 < actions.size());
+            QVERIFY(actions.at(rename + 1)->isSeparator());
+            const int newTab = actions.indexOf(window.actionCollection()->action(QStringLiteral("new_tab")));
+            QVERIFY(newTab >= 0 && newTab + 2 < actions.size());
+            QVERIFY(actions.at(newTab + 2)->property("toolbarSpacer").toBool());
+            QTRY_VERIFY(toolbar->actionGeometry(actions.at(newTab + 2)).width() > 16);
+            QVERIFY(actions.contains(home));
+            QVERIFY(actions.contains(paneZoom));
+            QVERIFY(actions.contains(paneSort));
+            QVERIFY(toolbar->widgetForAction(paneSort));
+            QCOMPARE(qobject_cast<QToolButton *>(toolbar->widgetForAction(paneSort))->text(), QStringLiteral("Custom sort"));
+            goMenu = window.findChild<QMenu *>(QStringLiteral("go"));
+            QVERIFY(goMenu && !goMenu->actions().contains(forward));
+            expected = customization.readEntry("Actions", QStringList());
+            QVERIFY(expected.contains(QStringLiteral("action:") + paneId));
+            QCOMPARE(expected.at(expected.indexOf(QStringLiteral("action:rename")) + 1), QStringLiteral("separator"));
+            QCOMPARE(expected.at(expected.indexOf(QStringLiteral("action:new_tab")) + 2), QStringLiteral("spacer"));
+            available->setCurrentRow(0);
+            QVERIFY(insert->isEnabled());
+            insert->click();
+            buttons->button(QDialogButtonBox::Apply)->click();
+            window.toolBar()->removeAction(home);
+            QTRY_VERIFY(!customization.readEntry("Actions", QStringList()).contains(QStringLiteral("action:go_home")));
+            window.toolBar()->addAction(home);
+            QTRY_VERIFY(customization.readEntry("Actions", QStringList()).contains(QStringLiteral("action:go_home")));
+            expected = customization.readEntry("Actions", QStringList());
+            QCOMPARE(expected.count(QStringLiteral("separator")), 4);
+            QVERIFY(window.toolBar()->actions().contains(paneZoom));
+            editor->reject();
+        }
+        {
+            MainWindow restored;
+            const QStringList actual = customization.readEntry("Actions", QStringList());
+            QCOMPARE(actual, expected);
+            const auto actions = restored.toolBar()->actions();
+            QVERIFY(actions.contains(restored.actionCollection()->action(QStringLiteral("go_home"))));
+            QVERIFY(actions.contains(restored.activePane()->toolbarAction(QStringLiteral("paneZoomIn"))));
+            QVERIFY(actions.contains(restored.activePane()->toolbarAction(QStringLiteral("paneSortingButton"))));
+            auto *sortButton =
+                qobject_cast<QToolButton *>(restored.toolBar()->widgetForAction(restored.activePane()->toolbarAction(QStringLiteral("paneSortingButton"))));
+            QVERIFY(sortButton);
+            QCOMPARE(sortButton->text(), QStringLiteral("Custom sort"));
+            restored.configureToolbars();
+            auto *editor = restored.findChild<KEditToolBar *>();
+            QVERIFY(editor);
+            const auto lists = editor->findChildren<QListWidget *>();
+            QCOMPARE(lists.size(), 2);
+            QVERIFY(!lists.at(1)->findItems(QStringLiteral("Home"), Qt::MatchExactly).isEmpty());
+            QAction *paneZoom = restored.activePane()->toolbarAction(QStringLiteral("paneZoomIn"));
+            QVERIFY(!lists.at(1)->findItems(paneZoom->text().remove(QLatin1Char('&')), Qt::MatchExactly).isEmpty());
+            editor->reject();
+            QTRY_VERIFY(!restored.findChild<KEditToolBar *>());
+            QVERIFY(restored.actionCollection()->action(QStringLiteral("customize_main_toolbar"))->isEnabled());
+            QCOMPARE(customization.readEntry("Actions", QStringList()), expected);
+            restored.configureToolbars();
+            editor = restored.findChild<KEditToolBar *>();
+            QVERIFY(editor);
+            const auto reopenedLists = editor->findChildren<QListWidget *>();
+            QCOMPARE(reopenedLists.size(), 2);
+            reopenedLists.at(0)->setCurrentRow(0);
+            QToolButton *insert = nullptr;
+            for (auto *button : editor->findChildren<QToolButton *>()) {
+                if (button->icon().name() == QLatin1String("go-next")) {
+                    insert = button;
+                }
+            }
+            QVERIFY(insert && insert->isEnabled());
+            insert->click();
+            editor->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Apply)->click();
+            editor->reject();
+            QAction *reset = restored.actionCollection()->action(QStringLiteral("reset_toolbar_customization"));
+            QVERIFY(reset);
+            QTimer::singleShot(0, [] {
+                auto *dialog = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+                QVERIFY(dialog);
+                dialog->button(QMessageBox::Yes)->click();
+            });
+            reset->trigger();
+            Pane *pane = restored.activePane();
+            QAction *sort = pane->toolbarAction(QStringLiteral("paneSortingButton"));
+            QVERIFY(sort && pane->toolBar()->actions().contains(sort));
+            QVERIFY(pane->toolBar()->widgetForAction(sort));
+        }
+    }
+
     void defaultToolbarSpacingSurvivesCustomization()
     {
         QTemporaryDir backupDir;

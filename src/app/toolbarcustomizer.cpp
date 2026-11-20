@@ -16,6 +16,7 @@
 #include <QDebug>
 #include <QDialog>
 #include <QDockWidget>
+#include <QDomDocument>
 #include <QDrag>
 #include <QDragEnterEvent>
 #include <QDragMoveEvent>
@@ -96,7 +97,9 @@ ToolbarCustomizer::ToolbarCustomizer(KToolBar *toolbar, KActionCollection *actio
     window->addDockWidget(Qt::RightDockWidgetArea, m_dock);
     m_dock->hide();
 
-    m_defaultToolbarActions = m_toolbar->actions();
+    for (QAction *action : m_toolbar->actions()) {
+        m_defaultToolbarActions.append({action, kindForAction(action)});
+    }
     for (QMenu *menu : menus()) {
         m_defaultMenus.append({menu, menu->actions()});
     }
@@ -192,6 +195,153 @@ void ToolbarCustomizer::applyAppearanceSettings()
     }
 }
 
+bool ToolbarCustomizer::prepareKdeToolbarEditor(QDomDocument &document)
+{
+    const QDomNodeList toolbars = document.elementsByTagName(QStringLiteral("ToolBar"));
+    QDomElement element;
+    for (int i = 0; i < toolbars.size(); ++i) {
+        const QDomElement candidate = toolbars.at(i).toElement();
+        if (candidate.attribute(QStringLiteral("name")) == m_toolbar->objectName()) {
+            element = candidate;
+            break;
+        }
+    }
+    if (element.isNull()) {
+        return false;
+    }
+    QList<QDomElement> entries;
+    for (QAction *action : m_toolbar->actions()) {
+        const QString kind = kindForAction(action);
+        QDomElement entry = document.createElement(kind == QLatin1String("separator")    ? QStringLiteral("Separator")
+                                                       : kind == QLatin1String("spacer") ? QStringLiteral("Spacer")
+                                                                                         : QStringLiteral("Action"));
+        if (kind == QLatin1String("action")) {
+            QString name = persistenceName(action);
+            if (name.isEmpty()) {
+                finishKdeToolbarEditor();
+                return false;
+            }
+            if (m_actions->action(name) != action) {
+                const KConfigGroup settings =
+                    KSharedConfig::openConfig()->group(QLatin1String(ToolbarGroup)).group(QLatin1String(EntriesGroup)).group(action->objectName());
+                QIcon icon = action->icon();
+                if (auto *button = qobject_cast<QToolButton *>(m_toolbar->widgetForAction(action))) {
+                    icon = button->icon();
+                }
+                auto *alias = new QAction(icon, action->text(), this);
+                alias->setIconText(settings.readEntry("ButtonText", action->iconText()));
+                name = QStringLiteral("opus_toolbar_editor_") + QString::fromLatin1(name.toUtf8().toHex());
+                if (m_actions->action(name)) {
+                    delete alias;
+                    finishKdeToolbarEditor();
+                    return false;
+                }
+                m_actions->addAction(name, alias);
+                m_editorAliases.append({alias, action, alias->icon().name(), alias->iconText()});
+            }
+            entry.setAttribute(QStringLiteral("name"), name);
+        }
+        entries.append(entry);
+    }
+    for (QDomNode child = element.firstChild(); !child.isNull();) {
+        const QDomNode next = child.nextSibling();
+        const QString tag = child.toElement().tagName();
+        if (tag == QLatin1String("Action") || tag == QLatin1String("Separator") || tag == QLatin1String("Spacer")) {
+            element.removeChild(child);
+        }
+        child = next;
+    }
+    for (const QDomElement &entry : std::as_const(entries)) {
+        element.appendChild(entry);
+    }
+    return true;
+}
+
+void ToolbarCustomizer::finishKdeToolbarEditor()
+{
+    for (const EditorAlias &alias : std::as_const(m_editorAliases)) {
+        m_actions->removeAction(alias.action);
+    }
+    m_editorAliases.clear();
+}
+
+void ToolbarCustomizer::prepareGuiRebuild()
+{
+    if (!m_toolbar) {
+        return;
+    }
+    for (const EditorAlias &alias : std::as_const(m_editorAliases)) {
+        auto *widgetAction = qobject_cast<QWidgetAction *>(alias.original.data());
+        if (!widgetAction || !m_toolbar->actions().contains(widgetAction)) {
+            continue;
+        }
+        QWidget *owner = m_window;
+        const QStringList parts = persistenceName(widgetAction).split(QLatin1Char(':'));
+        if (parts.size() == 3 && parts.first() == QLatin1String("pane")) {
+            for (Pane *pane : m_panes) {
+                if (pane->toolbarConfigId() == parts.at(1)) {
+                    owner = pane;
+                    break;
+                }
+            }
+        }
+        m_toolbar->removeAction(widgetAction);
+        widgetAction->setParent(owner);
+        if (QWidget *widget = widgetAction->defaultWidget()) {
+            widget->setParent(owner);
+        }
+    }
+}
+
+void ToolbarCustomizer::toolbarRebuilt(KToolBar *toolbar)
+{
+    ++m_saveGeneration;
+    m_saveScheduled = false;
+    m_restoring = true;
+    m_toolbar = toolbar;
+    m_toolbar->setAcceptDrops(m_editing);
+    m_toolbar->installEventFilter(this);
+    for (EditorAlias &alias : m_editorAliases) {
+        if (alias.original && m_toolbar->actions().contains(alias.action)) {
+            KConfigGroup settings =
+                KSharedConfig::openConfig()->group(QLatin1String(ToolbarGroup)).group(QLatin1String(EntriesGroup)).group(alias.original->objectName());
+            const QString iconName = alias.action->icon().name();
+            if (iconName != alias.iconName) {
+                if (iconName.isEmpty()) {
+                    qWarning() << "Cannot persist an unnamed toolbar icon for" << alias.original->objectName();
+                } else {
+                    settings.writeEntry("IconName", iconName);
+                }
+            }
+            const QString iconText = alias.action->iconText();
+            if (iconText != alias.iconText) {
+                if (iconText == alias.original->iconText()) {
+                    settings.deleteEntry("ButtonText");
+                } else {
+                    settings.writeEntry("ButtonText", iconText);
+                }
+            }
+            alias.iconName = iconName;
+            alias.iconText = iconText;
+            m_toolbar->insertAction(alias.action, alias.original);
+            m_toolbar->removeAction(alias.action);
+            alias.original->setVisible(true);
+        }
+    }
+    m_defaultMenus.clear();
+    for (QMenu *menu : menus()) {
+        m_defaultMenus.append({menu, menu->actions()});
+        menu->setAcceptDrops(m_editing);
+        menu->installEventFilter(this);
+    }
+    restoreMenuCustomizations();
+    installButtonFilter(nullptr);
+    m_restoring = false;
+    saveToolbar();
+    applyAppearanceSettings();
+    populateActions();
+}
+
 void ToolbarCustomizer::resetToDefaults()
 {
     setEditing(false);
@@ -212,8 +362,20 @@ void ToolbarCustomizer::resetToDefaults()
             action->deleteLater();
         }
     }
-    for (QAction *action : std::as_const(m_defaultToolbarActions)) {
-        m_toolbar->addAction(action);
+    for (const ToolbarSnapshot &snapshot : std::as_const(m_defaultToolbarActions)) {
+        if (snapshot.action) {
+            m_toolbar->addAction(snapshot.action);
+        } else if (snapshot.kind == QLatin1String("separator")) {
+            QAction *action = m_toolbar->addSeparator();
+            action->setProperty("toolbarCustomizerOwned", true);
+        } else if (snapshot.kind == QLatin1String("spacer")) {
+            auto *widget = new QWidget;
+            widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+            widget->setMinimumWidth(16);
+            QAction *action = m_toolbar->addWidget(widget);
+            action->setProperty("toolbarSpacer", true);
+            action->setProperty("toolbarCustomizerOwned", true);
+        }
     }
 
     for (const MenuSnapshot &snapshot : std::as_const(m_defaultMenus)) {
@@ -450,6 +612,17 @@ void ToolbarCustomizer::installButtonFilter(QAction *action)
         }
     }
     for (const auto &[toolbar, candidate] : candidates) {
+        if (toolbar == m_toolbar && qobject_cast<QWidgetAction *>(candidate)) {
+            const QStringList parts = persistenceName(candidate).split(QLatin1Char(':'));
+            if (parts.size() == 3 && parts.first() == QLatin1String("pane")) {
+                for (Pane *pane : m_panes) {
+                    if (pane->toolbarConfigId() == parts.at(1)) {
+                        candidate->setParent(pane);
+                        break;
+                    }
+                }
+            }
+        }
         if (kindForAction(candidate) == QLatin1String("spacer")) {
             candidate->setProperty("toolbarSpacer", true);
         }
@@ -664,6 +837,7 @@ void ToolbarCustomizer::applyAppearance(QAction *action)
                     }
                 }
                 const int style = entry.readEntry("ButtonStyle", -1);
+                button->setText(entry.readEntry("ButtonText", action->iconText()));
                 if (style >= Qt::ToolButtonIconOnly && style <= Qt::ToolButtonTextUnderIcon) {
                     button->setToolButtonStyle(static_cast<Qt::ToolButtonStyle>(style));
                 }

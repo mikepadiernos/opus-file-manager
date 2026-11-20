@@ -50,6 +50,7 @@
 #include <KConfig>
 #include <KConfigGroup>
 #include <KDirModel>
+#include <KEditToolBar>
 #include <KFileCopyToMenu>
 #include <KFileItemActions>
 #include <KFileItemListProperties>
@@ -79,6 +80,7 @@
 #include <KWindowEffects>
 #include <KWindowSystem>
 #include <KX11Extras>
+#include <KXMLGUIFactory>
 #include <Solid/Device>
 
 #include <QApplication>
@@ -91,6 +93,7 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QDockWidget>
+#include <QDomDocument>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
@@ -307,6 +310,11 @@ MainWindow::MainWindow(QWidget *parent)
     setStandardToolBarMenuEnabled(true);
     setupGUI(QSize(1100, 700), Default, QStringLiteral("opus-file-managerui.rc"));
     m_toolbarCustomizer = new ToolbarCustomizer(toolBar(), actionCollection(), this, {m_left, m_right});
+    connect(guiFactory(), &KXMLGUIFactory::makingChanges, m_toolbarCustomizer, [this](bool changing) {
+        if (changing) {
+            m_toolbarCustomizer->prepareGuiRebuild();
+        }
+    });
     connect(actionCollection()->action(QStringLiteral("customize_main_toolbar")), &QAction::toggled, m_toolbarCustomizer, &ToolbarCustomizer::setEditing);
     connect(m_toolbarCustomizer,
             &ToolbarCustomizer::editingChanged,
@@ -338,6 +346,41 @@ MainWindow::~MainWindow()
     if (m_editorDock) {
         disconnect(m_editorDock, nullptr, this, nullptr);
     }
+}
+
+void MainWindow::configureToolbars()
+{
+    if (auto *editor = findChild<KEditToolBar *>()) {
+        editor->show();
+        editor->raise();
+        return;
+    }
+    m_toolbarCustomizer->setEditing(false);
+    QDomDocument document = domDocument().cloneNode(true).toDocument();
+    if (!m_toolbarCustomizer->prepareKdeToolbarEditor(document)) {
+        QMessageBox::warning(this,
+                             i18nc("@title:window", "Cannot Configure Toolbar"),
+                             i18nc("@info", "The current toolbar contains an item that cannot be represented in the toolbar editor."));
+        return;
+    }
+    setDOMDocument(document);
+    KXmlGuiWindow::configureToolbars();
+    if (auto *editor = findChild<KEditToolBar *>()) {
+        QPointer<QAction> customize = actionCollection()->action(QStringLiteral("customize_main_toolbar"));
+        customize->setEnabled(false);
+        connect(editor, &QObject::destroyed, m_toolbarCustomizer, [customizer = m_toolbarCustomizer, customize] {
+            customizer->finishKdeToolbarEditor();
+            if (customize) {
+                customize->setEnabled(!Settings::lockToolbars());
+            }
+        });
+    }
+}
+
+void MainWindow::saveNewToolbarConfig()
+{
+    KXmlGuiWindow::saveNewToolbarConfig();
+    m_toolbarCustomizer->toolbarRebuilt(toolBar());
 }
 
 void MainWindow::setupPanes()
