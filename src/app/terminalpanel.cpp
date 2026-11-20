@@ -11,10 +11,12 @@
 #include <kde_terminal_interface.h>
 
 #include <QDir>
+#include <QEvent>
 #include <QFileInfo>
 #include <QLabel>
 #include <QMessageBox>
 #include <QTabWidget>
+#include <QTimer>
 #include <QUrl>
 #include <QVBoxLayout>
 
@@ -35,6 +37,11 @@ TerminalPanel::TerminalPanel(QWidget *parent)
     m_tabs->setObjectName(QStringLiteral("terminalSessions"));
     m_tabs->setTabsClosable(true);
     m_layout->addWidget(m_tabs);
+    installEventFilter(this);
+    m_tabs->installEventFilter(this);
+    connect(m_tabs, &QTabWidget::currentChanged, this, [this] {
+        scheduleBlurUpdate();
+    });
     connect(m_tabs, &QTabWidget::tabCloseRequested, this, [this](int index) {
         QWidget *widget = m_tabs->widget(index);
         for (const auto &part : std::as_const(m_parts)) {
@@ -51,6 +58,78 @@ TerminalPanel::TerminalPanel(QWidget *parent)
             }
         }
     });
+}
+
+void TerminalPanel::watchGeometry()
+{
+    for (QWidget *ancestor = parentWidget(); ancestor; ancestor = ancestor->parentWidget()) {
+        ancestor->installEventFilter(this);
+    }
+}
+
+bool TerminalPanel::eventFilter(QObject *watched, QEvent *event)
+{
+    switch (event->type()) {
+    case QEvent::ParentChange:
+    case QEvent::Show:
+        watchGeometry();
+        [[fallthrough]];
+    case QEvent::Hide:
+    case QEvent::Move:
+    case QEvent::Resize:
+    case QEvent::WindowStateChange:
+        scheduleBlurUpdate();
+        break;
+    default:
+        break;
+    }
+    return QWidget::eventFilter(watched, event);
+}
+
+void TerminalPanel::scheduleBlurUpdate()
+{
+    if (m_blurUpdatePending) {
+        return;
+    }
+    m_blurUpdatePending = true;
+    QTimer::singleShot(0, this, [this] {
+        m_blurUpdatePending = false;
+        updateBlur();
+    });
+}
+
+void TerminalPanel::updateBlur()
+{
+    QRegion region;
+    QWidget *widget = m_tabs->currentWidget();
+    if (widget && widget->isVisible() && window()->testAttribute(Qt::WA_TranslucentBackground)) {
+        for (const auto &part : std::as_const(m_parts)) {
+            if (!part || part->widget() != widget) {
+                continue;
+            }
+            bool enabled = false;
+            if (!QMetaObject::invokeMethod(part.data(), "isBlurEnabled", Qt::DirectConnection, Q_RETURN_ARG(bool, enabled))) {
+                if (!m_warnedBlurInterface) {
+                    qWarning("KonsolePart does not expose its profile blur setting");
+                    m_warnedBlurInterface = true;
+                }
+            } else if (enabled) {
+                const QWidget *top = window();
+                region = QRegion(widget->rect()).translated(widget->mapTo(top, QPoint()));
+                for (const QWidget *ancestor = widget->parentWidget(); ancestor; ancestor = ancestor->parentWidget()) {
+                    region &= QRegion(ancestor->rect()).translated(ancestor->mapTo(top, QPoint()));
+                    if (ancestor == top) {
+                        break;
+                    }
+                }
+            }
+            break;
+        }
+    }
+    if (region != m_blurRegion) {
+        m_blurRegion = region;
+        Q_EMIT blurRegionChanged(region);
+    }
 }
 
 TerminalPanel::~TerminalPanel()
@@ -119,6 +198,7 @@ void TerminalPanel::follow(const QUrl &folder)
     }
     auto *part = result.plugin;
     m_parts.append(part);
+    part->widget()->installEventFilter(this);
     const QPointer<QWidget> widget = part->widget();
     connect(part, &QObject::destroyed, this, [this, widget] {
         if (widget) {

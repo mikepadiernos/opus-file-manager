@@ -105,6 +105,7 @@ target_link_libraries(opusfm_app
         KF6::SyntaxHighlighting
         KF6::TextEditor
         KF6::WidgetsAddons
+        KF6::WindowSystem
         KF6::XmlGui
 )
 

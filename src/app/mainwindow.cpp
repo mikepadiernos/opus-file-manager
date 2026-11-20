@@ -75,6 +75,9 @@
 #include <KStandardAction>
 #include <KToggleAction>
 #include <KToolBar>
+#include <KWindowEffects>
+#include <KWindowSystem>
+#include <KX11Extras>
 #include <Solid/Device>
 
 #include <QApplication>
@@ -272,6 +275,10 @@ MainWindow::MainWindow(QWidget *parent)
     , m_placesModel(new SymbolicPlacesModel(this))
 {
     initResources();
+    if (!KWindowSystem::isPlatformX11() || KX11Extras::compositingActive()) {
+        setAttribute(Qt::WA_TranslucentBackground);
+        setAttribute(Qt::WA_NoSystemBackground, false);
+    }
     KConfigGroup legacyView = KSharedConfig::openConfig()->group(QStringLiteral("View"));
     KConfigGroup views = KSharedConfig::openConfig()->group(QStringLiteral("Views"));
     if (ViewSettings::migrateColumns(legacyView, views)) {
@@ -350,6 +357,11 @@ void MainWindow::setupPanes()
     m_splitter->setStretchFactor(0, 1);
     m_splitter->setStretchFactor(1, 1);
     m_terminalPanel = new TerminalPanel(m_workspaceSplitter);
+    connect(m_terminalPanel, &TerminalPanel::blurRegionChanged, this, [this](const QRegion &region) {
+        if (windowHandle()) {
+            KWindowEffects::enableBlurBehind(windowHandle(), !region.isEmpty(), region);
+        }
+    });
     m_terminalPanel->hide();
     m_workspaceSplitter->addWidget(m_splitter);
     m_workspaceSplitter->addWidget(m_terminalPanel);
