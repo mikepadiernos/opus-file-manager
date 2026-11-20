@@ -11,6 +11,7 @@ ecm_add_tests(
     foldermetadatatest.cpp
     foldercomparisontest.cpp
     foldersynctest.cpp
+    foldersyncprofilestest.cpp
     flatviewtest.cpp
     ignorelisttest.cpp
     indexedsearchtest.cpp
@@ -63,6 +64,12 @@ ecm_add_test(customcommanddialogtest.cpp
 )
 
 ecm_add_test(metadataeditdialogtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
+ecm_add_test(foldersyncdialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
     GUI

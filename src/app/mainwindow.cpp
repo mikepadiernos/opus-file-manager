@@ -21,6 +21,7 @@
 #include "filesplitdialog.h"
 #include "foldercomparisondialog.h"
 #include "foldermetadata.h"
+#include "foldersyncdialog.h"
 #include "foldertree.h"
 #include "folderview.h"
 #include "gallerywindow.h"
@@ -953,6 +954,8 @@ void MainWindow::setupActions()
     duplicateFinder->setText(i18nc("@action", "Find Duplicate Files…"));
     QAction *compareFolders = actions->addAction(QStringLiteral("compare_pane_folders"), this, &MainWindow::comparePaneFolders);
     compareFolders->setText(i18nc("@action", "Compare Pane Folders"));
+    QAction *filteredComparison = actions->addAction(QStringLiteral("compare_folders_filtered"), this, &MainWindow::compareFoldersFiltered);
+    filteredComparison->setText(i18nc("@action", "Compare Folders with Filters…"));
     QAction *createChecksum = actions->addAction(QStringLiteral("create_checksum"), this, &MainWindow::createChecksumFile);
     createChecksum->setText(i18nc("@action", "Create SHA-256 Checksum File…"));
     QAction *verifyChecksum = actions->addAction(QStringLiteral("verify_checksum"), this, &MainWindow::verifyChecksumFile);
@@ -1567,6 +1570,8 @@ void MainWindow::updateActions()
     actions->action(QStringLiteral("compare_pane_folders"))
         ->setEnabled(isDualLayout() && !inactivePane()->isHidden() && activePane()->url().isValid() && !activePane()->url().isEmpty()
                      && inactivePane()->url().isValid() && !inactivePane()->url().isEmpty());
+    actions->action(QStringLiteral("compare_folders_filtered"))
+        ->setEnabled(isDualLayout() && !inactivePane()->isHidden() && activePane()->url().isLocalFile() && inactivePane()->url().isLocalFile());
     const bool localFiles = hasSelection && std::all_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
                                 return item.url().isLocalFile() && item.isFile() && !item.isLink();
                             });
@@ -2607,6 +2612,19 @@ void MainWindow::combineFiles()
         paths.append(item.url().toLocalFile());
     }
     auto *dialog = new FileSplitDialog(FileSplitDialog::Mode::Combine, paths, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
+void MainWindow::compareFoldersFiltered()
+{
+    const QUrl first = activePane()->url();
+    const QUrl second = inactivePane()->url();
+    if (!isDualLayout() || inactivePane()->isHidden() || !first.isLocalFile() || !second.isLocalFile()) {
+        showStatusMessage(i18nc("@info", "Choose two visible local folders to compare."));
+        return;
+    }
+    auto *dialog = new FolderSyncDialog(first.toLocalFile(), second.toLocalFile(), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
 }

@@ -23,15 +23,39 @@ namespace
 using namespace FolderSync;
 constexpr qsizetype MaxEntries = 100000;
 
+class FileDescriptor
+{
+public:
+    explicit FileDescriptor(int fd = -1)
+        : m_fd(fd)
+    {
+    }
+    ~FileDescriptor()
+    {
+        if (m_fd >= 0) {
+            ::close(m_fd);
+        }
+    }
+    FileDescriptor(const FileDescriptor &) = delete;
+    FileDescriptor &operator=(const FileDescriptor &) = delete;
+    int get() const
+    {
+        return m_fd;
+    }
+
+private:
+    int m_fd;
+};
+
 QString systemError(const QString &path)
 {
     return i18nc("@info", "Could not inspect %1: %2", path, QString::fromLocal8Bit(std::strerror(errno)));
 }
 
-bool snapshot(const QString &path, Entry &entry, QString &error)
+bool snapshotAt(int parent, const QByteArray &name, const QString &path, Entry &entry, QString &error)
 {
     struct stat data;
-    if (::lstat(QFile::encodeName(path).constData(), &data) != 0) {
+    if (::fstatat(parent, name.constData(), &data, AT_SYMLINK_NOFOLLOW) != 0) {
         error = systemError(path);
         return false;
     }
@@ -47,7 +71,7 @@ bool snapshot(const QString &path, Entry &entry, QString &error)
         QByteArray target(256, Qt::Uninitialized);
         ssize_t length = 0;
         while (true) {
-            length = ::readlink(QFile::encodeName(path).constData(), target.data(), target.size());
+            length = ::readlinkat(parent, name.constData(), target.data(), target.size());
             if (length < 0) {
                 error = systemError(path);
                 return false;
@@ -64,13 +88,43 @@ bool snapshot(const QString &path, Entry &entry, QString &error)
         target.resize(length);
         entry.linkTarget = target;
         struct stat after;
-        if (::lstat(QFile::encodeName(path).constData(), &after) != 0 || data.st_dev != after.st_dev || data.st_ino != after.st_ino
+        if (::fstatat(parent, name.constData(), &after, AT_SYMLINK_NOFOLLOW) != 0 || data.st_dev != after.st_dev || data.st_ino != after.st_ino
             || data.st_ctim.tv_sec != after.st_ctim.tv_sec || data.st_ctim.tv_nsec != after.st_ctim.tv_nsec) {
             error = i18nc("@info", "A symbolic link changed during comparison: %1", path);
             return false;
         }
     }
     return true;
+}
+
+bool snapshot(const QString &path, Entry &entry, QString &error)
+{
+    return snapshotAt(AT_FDCWD, QFile::encodeName(path), path, entry, error);
+}
+
+int openDirectory(int root, const QString &relative)
+{
+    int current = ::fcntl(root, F_DUPFD_CLOEXEC, 0);
+    if (current < 0 || relative.isEmpty()) {
+        return current;
+    }
+    const auto parts = relative.split(QLatin1Char('/'));
+    for (const QString &part : parts) {
+        if (part.isEmpty() || part == QLatin1String(".") || part == QLatin1String("..") || part.contains(QChar::Null)) {
+            ::close(current);
+            errno = EINVAL;
+            return -1;
+        }
+        const int next = ::openat(current, QFile::encodeName(part).constData(), O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW);
+        const int savedError = errno;
+        ::close(current);
+        if (next < 0) {
+            errno = savedError;
+            return -1;
+        }
+        current = next;
+    }
+    return current;
 }
 
 bool sameSnapshot(const Entry &left, const Entry &right)
@@ -84,6 +138,20 @@ bool sameFile(int fd, const Entry &entry)
 {
     struct stat data;
     return ::fstat(fd, &data) == 0 && S_ISREG(data.st_mode) && quint64(data.st_dev) == entry.device && quint64(data.st_ino) == entry.inode
+        && data.st_size == entry.size && data.st_mtim.tv_sec == entry.modifiedSeconds && data.st_mtim.tv_nsec == entry.modifiedNanoseconds
+        && data.st_ctim.tv_sec == entry.changedSeconds && data.st_ctim.tv_nsec == entry.changedNanoseconds;
+}
+
+bool sameDirectory(int fd, const Entry &entry)
+{
+    struct stat data;
+    return ::fstat(fd, &data) == 0 && S_ISDIR(data.st_mode) && quint64(data.st_dev) == entry.device && quint64(data.st_ino) == entry.inode;
+}
+
+bool unchangedDirectory(int fd, const Entry &entry)
+{
+    struct stat data;
+    return ::fstat(fd, &data) == 0 && S_ISDIR(data.st_mode) && quint64(data.st_dev) == entry.device && quint64(data.st_ino) == entry.inode
         && data.st_size == entry.size && data.st_mtim.tv_sec == entry.modifiedSeconds && data.st_mtim.tv_nsec == entry.modifiedNanoseconds
         && data.st_ctim.tv_sec == entry.changedSeconds && data.st_ctim.tv_nsec == entry.changedNanoseconds;
 }
@@ -127,7 +195,9 @@ bool compile(const QStringList &patterns, QList<QRegularExpression> &result, QSt
     return true;
 }
 
-bool scan(const QString &root,
+bool scan(int rootFd,
+          const QString &root,
+          const Entry &rootEntry,
           const Options &options,
           const QList<QRegularExpression> &included,
           const QList<QRegularExpression> &excluded,
@@ -136,18 +206,24 @@ bool scan(const QString &root,
           QString &error,
           const std::function<bool()> &canceled)
 {
-    QStringList folders{QString()};
+    QList<QPair<QString, Entry>> folders{{QString(), rootEntry}};
     qsizetype visited = 0;
     while (!folders.isEmpty()) {
         if (canceled && canceled()) {
             error = i18nc("@info", "Folder comparison was canceled.");
             return false;
         }
-        const QString relativeFolder = folders.takeLast();
+        const auto task = folders.takeLast();
+        const QString relativeFolder = task.first;
         const QString folder = QDir(root).filePath(relativeFolder);
-        const int folderFd = ::open(QFile::encodeName(folder).constData(), O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW);
+        const int folderFd = openDirectory(rootFd, relativeFolder);
         if (folderFd < 0) {
             error = systemError(folder);
+            return false;
+        }
+        if (!unchangedDirectory(folderFd, task.second)) {
+            ::close(folderFd);
+            error = i18nc("@info", "A folder changed during comparison: %1", folder);
             return false;
         }
         DIR *directory = ::fdopendir(folderFd);
@@ -189,7 +265,7 @@ bool scan(const QString &root,
             }
             const QString relative = relativeFolder.isEmpty() ? name : relativeFolder + QLatin1Char('/') + name;
             Entry entry;
-            if (!snapshot(QDir(root).filePath(relative), entry, error)) {
+            if (!snapshotAt(folderFd, nativeName, QDir(root).filePath(relative), entry, error)) {
                 success = false;
                 break;
             }
@@ -201,11 +277,15 @@ bool scan(const QString &root,
                 continue;
             }
             if (entry.kind == Kind::Directory && options.recursive) {
-                folders.append(relative);
+                folders.append({relative, entry});
             }
             if (entry.kind == Kind::Directory || included.isEmpty() || matches(included, relative)) {
                 entries.insert(relative, entry);
             }
+        }
+        if (success && !unchangedDirectory(folderFd, task.second)) {
+            error = i18nc("@info", "A folder changed during comparison: %1", folder);
+            success = false;
         }
         if (::closedir(directory) != 0 && success) {
             error = systemError(folder);
@@ -218,7 +298,10 @@ bool scan(const QString &root,
     return true;
 }
 
-bool equalContents(const QString &left,
+bool equalContents(int leftRoot,
+                   int rightRoot,
+                   const QString &relative,
+                   const QString &left,
                    const QString &right,
                    const Entry &leftEntry,
                    const Entry &rightEntry,
@@ -228,7 +311,16 @@ bool equalContents(const QString &left,
 {
     QFile first(left);
     QFile second(right);
-    const int firstFd = ::open(QFile::encodeName(left).constData(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    const qsizetype separator = relative.lastIndexOf(QLatin1Char('/'));
+    const QString parent = separator < 0 ? QString() : relative.left(separator);
+    const QByteArray name = QFile::encodeName(separator < 0 ? relative : relative.mid(separator + 1));
+    FileDescriptor leftParent(openDirectory(leftRoot, parent));
+    FileDescriptor rightParent(openDirectory(rightRoot, parent));
+    if (leftParent.get() < 0 || rightParent.get() < 0) {
+        error = i18nc("@info", "A parent folder changed during comparison.");
+        return false;
+    }
+    const int firstFd = ::openat(leftParent.get(), name.constData(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
     if (firstFd < 0) {
         error = systemError(left);
         return false;
@@ -238,7 +330,7 @@ bool equalContents(const QString &left,
         error = i18nc("@info", "Could not read %1: %2", left, first.errorString());
         return false;
     }
-    const int secondFd = ::open(QFile::encodeName(right).constData(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    const int secondFd = ::openat(rightParent.get(), name.constData(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
     if (secondFd < 0) {
         error = systemError(right);
         return false;
@@ -274,7 +366,13 @@ bool equalContents(const QString &left,
     }
     Entry leftAfter;
     Entry rightAfter;
-    if (!snapshot(left, leftAfter, error) || !snapshot(right, rightAfter, error)) {
+    FileDescriptor leftParentAfter(openDirectory(leftRoot, parent));
+    FileDescriptor rightParentAfter(openDirectory(rightRoot, parent));
+    if (leftParentAfter.get() < 0 || rightParentAfter.get() < 0) {
+        error = i18nc("@info", "A parent folder changed during comparison.");
+        return false;
+    }
+    if (!snapshotAt(leftParentAfter.get(), name, left, leftAfter, error) || !snapshotAt(rightParentAfter.get(), name, right, rightAfter, error)) {
         return false;
     }
     if (!sameSnapshot(leftEntry, leftAfter) || !sameSnapshot(rightEntry, rightAfter)) {
@@ -283,6 +381,17 @@ bool equalContents(const QString &left,
     }
     return true;
 }
+}
+
+QString FolderSync::optionsError(const Options &options)
+{
+    QList<QRegularExpression> included;
+    QList<QRegularExpression> excluded;
+    QString error;
+    if (compile(options.includePatterns, included, error)) {
+        compile(options.excludePatterns, excluded, error);
+    }
+    return error;
 }
 
 FolderSync::Comparison FolderSync::compare(const QString &leftRoot, const QString &rightRoot, const Options &options, const std::function<bool()> &canceled)
@@ -299,10 +408,17 @@ FolderSync::Comparison FolderSync::compare(const QString &leftRoot, const QStrin
     }
     result.leftRoot = QFileInfo(leftRoot).canonicalFilePath();
     result.rightRoot = QFileInfo(rightRoot).canonicalFilePath();
-    if (result.leftRoot.isEmpty() || result.rightRoot.isEmpty() || result.leftRoot == result.rightRoot || result.leftRoot == QLatin1String("/")
+    if (result.leftRoot.isEmpty() || result.rightRoot.isEmpty() || result.leftRoot == result.rightRoot
+        || (leftRootEntry.device == rightRootEntry.device && leftRootEntry.inode == rightRootEntry.inode) || result.leftRoot == QLatin1String("/")
         || result.rightRoot == QLatin1String("/") || result.leftRoot.startsWith(result.rightRoot + QLatin1Char('/'))
         || result.rightRoot.startsWith(result.leftRoot + QLatin1Char('/'))) {
         result.error = i18nc("@info", "Choose two separate folders that do not contain one another.");
+        return result;
+    }
+    FileDescriptor leftFd(::open(QFile::encodeName(result.leftRoot).constData(), O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW));
+    FileDescriptor rightFd(::open(QFile::encodeName(result.rightRoot).constData(), O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW));
+    if (!sameDirectory(leftFd.get(), leftRootEntry) || !sameDirectory(rightFd.get(), rightRootEntry)) {
+        result.error = i18nc("@info", "A root folder changed before comparison.");
         return result;
     }
     QList<QRegularExpression> included;
@@ -313,8 +429,8 @@ FolderSync::Comparison FolderSync::compare(const QString &leftRoot, const QStrin
     QMap<QString, Entry> left;
     QMap<QString, Entry> right;
     QSet<QString> skippedLinks;
-    if (!scan(result.leftRoot, options, included, excluded, left, skippedLinks, result.error, canceled)
-        || !scan(result.rightRoot, options, included, excluded, right, skippedLinks, result.error, canceled)) {
+    if (!scan(leftFd.get(), result.leftRoot, leftRootEntry, options, included, excluded, left, skippedLinks, result.error, canceled)
+        || !scan(rightFd.get(), result.rightRoot, rightRootEntry, options, included, excluded, right, skippedLinks, result.error, canceled)) {
         return result;
     }
     for (auto it = right.cbegin(); it != right.cend(); ++it) {
@@ -349,7 +465,16 @@ FolderSync::Comparison FolderSync::compare(const QString &leftRoot, const QStrin
                 difference = Difference::Size;
             } else if (options.compareContents) {
                 bool equal = false;
-                if (!equalContents(QDir(result.leftRoot).filePath(it.key()), QDir(result.rightRoot).filePath(it.key()), a, b, equal, result.error, canceled)) {
+                if (!equalContents(leftFd.get(),
+                                   rightFd.get(),
+                                   it.key(),
+                                   QDir(result.leftRoot).filePath(it.key()),
+                                   QDir(result.rightRoot).filePath(it.key()),
+                                   a,
+                                   b,
+                                   equal,
+                                   result.error,
+                                   canceled)) {
                     result.rows.clear();
                     return result;
                 }

@@ -12,6 +12,7 @@
 #include "filesplitdialog.h"
 #include "filterbar.h"
 #include "foldercomparisondialog.h"
+#include "foldersyncdialog.h"
 #include "foldertree.h"
 #include "folderview.h"
 #include "gallerywindow.h"
@@ -88,6 +89,22 @@ private Q_SLOTS:
         m_a = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("a")));
         m_b = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("b")));
         m_c = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("c")));
+    }
+
+    void opensFilteredFolderComparison()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("left")));
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("right")));
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(root.filePath(QStringLiteral("left"))), QUrl::fromLocalFile(root.filePath(QStringLiteral("right")))});
+        auto *action = window.actionCollection()->action(QStringLiteral("compare_folders_filtered"));
+        QVERIFY(action && action->isEnabled());
+        action->trigger();
+        auto *dialog = window.findChild<FolderSyncDialog *>(QStringLiteral("folderSyncDialog"));
+        QVERIFY(dialog);
+        dialog->close();
     }
 
     void opensTransferQueue()

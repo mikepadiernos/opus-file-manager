@@ -353,7 +353,8 @@ tracked in #314; [folder content chart](CAVEATS.md#folder-content-chart), tracke
 [batch rename](CAVEATS.md#batch-rename), tracked in #372;
 [custom commands](CAVEATS.md#custom-commands), tracked in #373;
 [metadata editing](CAVEATS.md#metadata-editing), tracked in #374;
-[transfer queue](CAVEATS.md#transfer-queue), tracked in #375.
+[transfer queue](CAVEATS.md#transfer-queue), tracked in #375;
+[filtered folder comparison](CAVEATS.md#filtered-folder-comparison), tracked in #376.
 
 ### M10 Tools settings
 

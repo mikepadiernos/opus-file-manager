@@ -30,6 +30,7 @@ for file operations, Places, properties, settings and desktop integration.
 - Inspect a folder's content sizes and relative shares in a cancellable chart.
 - Create and verify SHA-256 checksum files for local files.
 - Compare immediate entries across pane folders and select differences.
+- Compare local pane folders recursively with filters and reusable profiles.
 - Split local files into numbered parts and combine selected parts in a chosen
   order.
 - Show an embedded Konsole terminal alongside the panes.

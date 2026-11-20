@@ -252,6 +252,26 @@ open archives with 7-Zip or another trusted external tool when needed.
   entries as appropriate.
   ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/372#issuecomment-7024683530))
 
+## Filtered folder comparison
+
+- Filtered comparison requires two separate local folders. Patterns match
+  relative paths case-sensitively; excluded folders are not traversed. Links
+  can be skipped or compared by target, but are never followed. When links are
+  skipped, the matching subtree on the other side is also skipped. Comparisons
+  examine at most 100,000 entries per folder, and filenames must round-trip
+  through Qt's local filename encoding. Without content comparison, matching
+  size and modification time do not prove equal contents. Results are snapshots
+  that concurrent changes can invalidate, and can produce a large list. This
+  view does not yet execute synchronization.
+  ([#376](https://github.com/mikepadiernos/opus-file-manager/issues/376))
+
+  **Recommendation:** Use separate local folders and choose relative-path
+  patterns carefully; enable content comparison when matching bytes matter.
+  Compare smaller trees if the entry limit is reached, and rerun after changes.
+  Use an external tool for remote locations, unsupported filenames or
+  synchronization until Opus implements it.
+  ([Comment](https://github.com/mikepadiernos/opus-file-manager/issues/376#issuecomment-7026216329))
+
 ## Metadata editing
 
 - Metadata editing handles one local JPEG or TIFF (description, artist and

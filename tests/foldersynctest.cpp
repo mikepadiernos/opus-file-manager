@@ -105,6 +105,30 @@ private Q_SLOTS:
         QVERIFY(!canceled.error.isEmpty());
         QVERIFY(canceled.rows.isEmpty());
     }
+
+    void rejectsDirectoryReplacedByLinkDuringScan()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("left/sub")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("right")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("outside")));
+        QVERIFY(writeFile(root.filePath(QStringLiteral("outside/secret")), "secret"));
+        int checks = 0;
+        bool replaced = false;
+        const auto result = FolderSync::compare(root.filePath(QStringLiteral("left")), root.filePath(QStringLiteral("right")), {}, [&] {
+            if (++checks == 3) {
+                replaced = QDir().rename(root.filePath(QStringLiteral("left/sub")), root.filePath(QStringLiteral("moved")))
+                    && ::symlink(QFile::encodeName(root.filePath(QStringLiteral("outside"))).constData(),
+                                 QFile::encodeName(root.filePath(QStringLiteral("left/sub"))).constData())
+                        == 0;
+            }
+            return false;
+        });
+        QVERIFY(replaced);
+        QVERIFY(!result.error.isEmpty());
+        QVERIFY(result.rows.isEmpty());
+    }
 };
 
 QTEST_GUILESS_MAIN(FolderSyncTest)

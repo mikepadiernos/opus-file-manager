@@ -65,5 +65,6 @@ struct Comparison {
     QString error;
 };
 
+QString optionsError(const Options &options);
 Comparison compare(const QString &leftRoot, const QString &rightRoot, const Options &options, const std::function<bool()> &canceled = {});
 }

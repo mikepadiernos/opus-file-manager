@@ -136,6 +136,7 @@ private:
     void createChecksumFile();
     void verifyChecksumFile();
     void comparePaneFolders();
+    void compareFoldersFiltered();
     void syncLinkedPane(Pane *pane, const QUrl &url);
     void splitFile();
     void combineFiles();
