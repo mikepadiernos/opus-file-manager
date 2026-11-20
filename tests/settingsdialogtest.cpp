@@ -112,6 +112,36 @@ private Q_SLOTS:
         QCOMPARE(Settings::splitPartSizeMiB(), 12);
     }
 
+    void tabBarPreferencesPersistAndCancel()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *first = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_HorizontalFirstTabPosition"));
+            auto *second = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_StackedSecondTabPosition"));
+            auto *together = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_StackedTabBarsTogether"));
+            auto *close = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowTabCloseButtons"));
+            QVERIFY(first && second && together && close);
+            first->setCurrentIndex(2);
+            second->setCurrentIndex(3);
+            together->setChecked(false);
+            close->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QCOMPARE(Settings::horizontalFirstTabPosition(), 2);
+        QCOMPARE(Settings::stackedSecondTabPosition(), 3);
+        QVERIFY(!Settings::stackedTabBarsTogether());
+        QVERIFY(!Settings::showTabCloseButtons());
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *first = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_HorizontalFirstTabPosition"));
+            QCOMPARE(first->currentIndex(), 2);
+            first->setCurrentIndex(0);
+            dialog.reject();
+        }
+        QCOMPARE(Settings::horizontalFirstTabPosition(), 2);
+    }
+
     void metadataFieldDefaultsPersist()
     {
         KFilePlacesModel places;

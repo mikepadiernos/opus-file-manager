@@ -971,6 +971,16 @@ QWidget *SettingsDialog::createTabAppearancePage()
     form->addRow({}, checkBox(QStringLiteral("TabIcons"), i18nc("@option:check", "Show folder icons on tabs")));
     form->addRow({}, checkBox(QStringLiteral("ExpandTabs"), i18nc("@option:check", "Expand tabs to fill the available width equally")));
     form->addRow({}, checkBox(QStringLiteral("ShowTabColors"), i18nc("@option:check", "Show folder-based tab colours")));
+    form->addRow({}, checkBox(QStringLiteral("ShowTabCloseButtons"), i18nc("@option:check", "Show tab close buttons")));
+    form->addRow({}, checkBox(QStringLiteral("StackedTabBarsTogether"), i18nc("@option:check", "Keep stacked pane tab bars together")));
+    const QStringList positions{i18nc("@item:inlistbox tab bar position", "Above"),
+                                i18nc("@item:inlistbox tab bar position", "Below"),
+                                i18nc("@item:inlistbox tab bar position", "Left"),
+                                i18nc("@item:inlistbox tab bar position", "Right")};
+    form->addRow(i18nc("@label:listbox", "Left pane tabs:"), comboBox(QStringLiteral("HorizontalFirstTabPosition"), positions));
+    form->addRow(i18nc("@label:listbox", "Right pane tabs:"), comboBox(QStringLiteral("HorizontalSecondTabPosition"), positions));
+    form->addRow(i18nc("@label:listbox", "Upper pane tabs:"), comboBox(QStringLiteral("StackedFirstTabPosition"), positions));
+    form->addRow(i18nc("@label:listbox", "Lower pane tabs:"), comboBox(QStringLiteral("StackedSecondTabPosition"), positions));
     return page;
 }
 
