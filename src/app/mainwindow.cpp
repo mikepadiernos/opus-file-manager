@@ -3534,6 +3534,21 @@ bool MainWindow::isDualLayout() const
 
 void MainWindow::applySettings()
 {
+    const bool toolbarsLocked = Settings::lockToolbars();
+    QAction *customizeToolbar = actionCollection()->action(QStringLiteral("customize_main_toolbar"));
+    customizeToolbar->setEnabled(!toolbarsLocked);
+    if (toolbarsLocked) {
+        customizeToolbar->setChecked(false);
+    }
+    for (Pane *pane : {m_left, m_right}) {
+        if (QAction *configure = pane->toolbarAction(QStringLiteral("paneCustomizeToolbar"))) {
+            configure->setEnabled(!toolbarsLocked);
+        }
+    }
+    for (KToolBar *toolbar : toolBars()) {
+        toolbar->setMovable(!toolbarsLocked);
+    }
+
     const auto terminalOrientation = m_workspaceSplitter->orientation();
     updateTerminalPlacement();
     if (terminalOrientation != m_workspaceSplitter->orientation()) {

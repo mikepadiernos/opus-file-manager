@@ -125,6 +125,12 @@ ToolbarCustomizer::ToolbarCustomizer(KToolBar *toolbar, KActionCollection *actio
 
 void ToolbarCustomizer::setEditing(bool editing)
 {
+    if (editing && Settings::lockToolbars()) {
+        if (QAction *action = m_actions->action(QStringLiteral("customize_main_toolbar"))) {
+            action->setChecked(false);
+        }
+        return;
+    }
     if (m_editing == editing) {
         return;
     }

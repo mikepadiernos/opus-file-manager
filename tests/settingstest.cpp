@@ -237,6 +237,7 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("BarDensity")), QStringLiteral("Status and Location Bars"));
         QCOMPARE(tabOf(QStringLiteral("ToolbarButtonStyle")), QStringLiteral("Toolbars"));
         QCOMPARE(tabOf(QStringLiteral("ToolbarIconSize")), QStringLiteral("Toolbars"));
+        QCOMPARE(tabOf(QStringLiteral("LockToolbars")), QStringLiteral("Toolbars"));
         QCOMPARE(tabOf(QStringLiteral("IconsIconSize")), QStringLiteral("Icons"));
         QCOMPARE(tabOf(QStringLiteral("TextPreviewLimitKiB")), QStringLiteral("Previews"));
         QCOMPARE(tabOf(QStringLiteral("FileActivationDestination")), QStringLiteral("Opening"));
@@ -1056,6 +1057,39 @@ private Q_SLOTS:
         window.applySettings();
         QCOMPARE(window.toolBar()->toolButtonStyle(), Qt::ToolButtonIconOnly);
         QCOMPARE(window.activePane()->toolBar()->iconSize(), QSize(16, 16));
+    }
+
+    void lockedToolbarsDisableEditingAndCanBeUnlocked()
+    {
+        Settings::setLockToolbars(false);
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *lock = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_LockToolbars"));
+        auto *mainEditor = dialog.findChild<QPushButton *>(QStringLiteral("configureMainToolbarEntries"));
+        auto *paneEditor = dialog.findChild<QPushButton *>(QStringLiteral("configureFirstPaneToolbarEntries"));
+        QAction *mainCustomize = window.actionCollection()->action(QStringLiteral("customize_main_toolbar"));
+        QAction *paneCustomize = window.activePane()->toolbarAction(QStringLiteral("paneCustomizeToolbar"));
+        QVERIFY(lock && mainEditor && paneEditor && mainCustomize && paneCustomize);
+        QVERIFY(mainCustomize->isEnabled() && paneCustomize->isEnabled());
+
+        mainCustomize->trigger();
+        QVERIFY(mainCustomize->isChecked());
+        lock->setChecked(true);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        window.applySettings();
+        QVERIFY(Settings::lockToolbars());
+        QVERIFY(!window.toolBar()->isMovable());
+        QVERIFY(!mainCustomize->isEnabled() && !paneCustomize->isEnabled());
+        QVERIFY(!mainCustomize->isChecked());
+        QVERIFY(!mainEditor->isEnabled() && !paneEditor->isEnabled());
+
+        lock->setChecked(false);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        window.applySettings();
+        QVERIFY(!Settings::lockToolbars());
+        QVERIFY(window.toolBar()->isMovable());
+        QVERIFY(mainCustomize->isEnabled() && paneCustomize->isEnabled());
+        QVERIFY(mainEditor->isEnabled() && paneEditor->isEnabled());
     }
 
     void contextListsSaveUnavailableEntries()

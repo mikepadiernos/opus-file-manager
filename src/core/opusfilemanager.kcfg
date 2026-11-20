@@ -219,6 +219,10 @@
       <min>0</min>
       <max>64</max>
     </entry>
+    <entry name="LockToolbars" type="Bool">
+      <label>Lock toolbar positions and editing</label>
+      <default>false</default>
+    </entry>
     <entry name="DragFromAnywhere" type="Bool">
       <label>Drag files and folders from anywhere in a details row</label>
       <default>false</default>

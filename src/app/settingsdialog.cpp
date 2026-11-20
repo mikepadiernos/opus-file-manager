@@ -254,6 +254,7 @@ QWidget *SettingsDialog::createToolbarEntriesPage()
     layout->addWidget(description);
 
     auto *appearance = new QFormLayout;
+    appearance->addRow(QString(), checkBox(QStringLiteral("LockToolbars"), i18nc("@option:check", "Lock toolbar positions and editing")));
     appearance->addRow(i18nc("@label:listbox", "Default button style:"),
                        comboBox(QStringLiteral("ToolbarButtonStyle"),
                                 {i18nc("@item:inlistbox", "Icon only"),
@@ -269,10 +270,13 @@ QWidget *SettingsDialog::createToolbarEntriesPage()
     const auto addEditorButton = [this, layout, page, window](const QString &name, const QString &text, QAction *action) {
         auto *button = new QPushButton(text, page);
         button->setObjectName(name);
-        button->setEnabled(action);
+        button->setEnabled(action && action->isEnabled());
         if (action) {
             const QPointer<QAction> target(action);
             const QPointer<QWidget> parent(window);
+            connect(action, &QAction::changed, button, [button, target] {
+                button->setEnabled(target && target->isEnabled());
+            });
             connect(button, &QPushButton::clicked, this, [this, target, parent] {
                 accept();
                 if (!target || !parent) {
