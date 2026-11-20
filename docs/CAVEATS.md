@@ -853,20 +853,22 @@ here, not that installation through another backend is impossible.
 | Neovim | `neovim` | `neovim` | `neovim` |
 | Difftastic | `difftastic` | `difftastic` | `difftastic` |
 | Pandoc | `pandoc-cli` | `pandoc` | `pandoc` |
-| ImageMagick | `imagemagick` | `imagemagick` | - |
+| ImageMagick | `imagemagick` | `imagemagick` | `imagemagick` |
 | FFmpeg | `ffmpeg` | `ffmpeg` | - |
-| ExifTool | `perl-image-exiftool` | `exiftool` | - |
+| ExifTool | `perl-image-exiftool` | `exiftool` | `exiftool` |
 | ncdu | `ncdu` | `ncdu` | - |
-| GNU coreutils | `coreutils` | `coreutils` | - |
+| GNU coreutils | `coreutils` | `coreutils` | `coreutils` |
 | GNU diffutils | `diffutils` | `diffutils` | - |
 | GNU findutils | `findutils` | `findutils` | - |
-| ripgrep | `ripgrep` | `ripgrep` | - |
+| ripgrep | `ripgrep` | `ripgrep` | `ripgrep` |
 | jdupes | `jdupes` | `jdupes` | - |
 | QDirStat | `qdirstat` | - | - |
 
 Homebrew's GNU coreutils commands are normally prefixed with `g`, for example
 `gdu` and `gsha256sum`; Homebrew's GNU diffutils commands likewise use names
-such as `gdiff` and `gcmp`, and GNU findutils uses `gfind`. KDE components
+such as `gdiff` and `gcmp`, and GNU findutils uses `gfind`. The mise
+`coreutils` entry installs uutils coreutils, not GNU coreutils; check
+compatibility before relying on GNU-specific behaviour. KDE components
 such as Ark, KParts and KIO workers
 should be installed through the system's KDE packages, not treated as
 standalone CLI replacements. The PDF engine used by Pandoc is a separate
