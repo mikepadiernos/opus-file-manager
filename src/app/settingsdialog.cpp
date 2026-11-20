@@ -938,6 +938,11 @@ QWidget *SettingsDialog::createFoldersAndTabsPage()
     form->addRow(i18nc("@title:group", "Panes:"), checkBox(QStringLiteral("TabSwitchesPanes"), i18nc("@option:check", "Tab key switches between the panes")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowNavigationBar"), i18nc("@option:check", "Show the navigation bar of each pane")));
     form->addRow(QString(), checkBox(QStringLiteral("DimInactivePane"), i18nc("@option:check", "Dim the inactive pane")));
+    form->addRow(i18nc("@label:listbox", "Default second-pane destination:"),
+                 comboBox(QStringLiteral("PaneMoveDestination"), {i18nc("@item:inlistbox", "Tab"), i18nc("@item:inlistbox", "Separate window")}));
+    form->addRow(
+        i18nc("@label:listbox", "Display style when moving:"),
+        comboBox(QStringLiteral("PaneMoveDisplayStyle"), {i18nc("@item:inlistbox", "Keep current view"), i18nc("@item:inlistbox", "Reset to default view")}));
     form->addRow(i18nc("@title:group", "Navigation:"),
                  checkBox(QStringLiteral("FollowSymlinks"), i18nc("@option:check", "Always follow symbolic links to their target")));
     form->addRow(i18nc("@title:group", "History:"),

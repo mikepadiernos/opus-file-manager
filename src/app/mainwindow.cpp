@@ -1161,6 +1161,8 @@ void MainWindow::setupActions()
     swapTabs->setText(i18nc("@action", "Swap Current Tabs"));
     auto *swapSides = actions->addAction(QStringLiteral("swap_pane_sides"), this, &MainWindow::swapPaneSides);
     swapSides->setText(i18nc("@action", "Swap Pane Sides"));
+    auto *movePane = actions->addAction(QStringLiteral("move_second_pane"), this, &MainWindow::moveSecondPaneToPreferredDestination);
+    movePane->setText(i18nc("@action", "Move Second Pane"));
     auto *movePaneToTab = actions->addAction(QStringLiteral("move_second_pane_to_tab"), this, &MainWindow::moveSecondPaneToTab);
     movePaneToTab->setText(i18nc("@action", "Move Second Pane to Tab"));
     auto *movePaneToWindow = actions->addAction(QStringLiteral("move_second_pane_to_window"), this, &MainWindow::popOutSecondPane);
@@ -1856,6 +1858,8 @@ void MainWindow::updateActions()
     m_jumpBackAction->setEnabled(m_jumpBackPoints.value(activePane()).isValid());
     actions->action(QStringLiteral("move_second_pane_to_tab"))->setEnabled(!m_secondPaneInTab);
     actions->action(QStringLiteral("move_second_pane_to_window"))->setEnabled(!m_rightWindow);
+    const bool moveToTab = Settings::paneMoveDestination() == Settings::EnumPaneMoveDestination::Tab;
+    actions->action(QStringLiteral("move_second_pane"))->setEnabled(moveToTab ? !m_secondPaneInTab : !m_rightWindow);
     actions->action(QStringLiteral("restore_second_pane"))->setEnabled(m_secondPaneInTab || m_rightWindow);
 }
 
@@ -2967,16 +2971,17 @@ void MainWindow::moveSecondPaneToTab()
     if (m_rightWindow) {
         moveSecondPaneToDual();
     }
-    if (!m_rightPlaceholder) {
-        m_rightPlaceholder = new QWidget(m_splitter);
-        m_rightPlaceholder->setObjectName(QStringLiteral("secondPanePlaceholder"));
-        m_rightPlaceholder->setMinimumSize(0, 0);
-    }
     const int index = m_splitter->indexOf(m_right);
     if (index < 0) {
         return;
     }
+    if (!m_rightPlaceholder) {
+        m_rightPlaceholder = new QWidget;
+        m_rightPlaceholder->setObjectName(QStringLiteral("secondPanePlaceholder"));
+        m_rightPlaceholder->setMinimumSize(0, 0);
+    }
 
+    resetMovedPaneDisplayStyle();
     m_movingSecondPane = true;
     m_splitter->replaceWidget(index, m_rightPlaceholder);
     m_rightPlaceholder->hide();
@@ -3003,8 +3008,9 @@ void MainWindow::popOutSecondPane()
     if (index < 0) {
         return;
     }
+    resetMovedPaneDisplayStyle();
     if (!m_rightPlaceholder) {
-        m_rightPlaceholder = new QWidget(m_splitter);
+        m_rightPlaceholder = new QWidget;
         m_rightPlaceholder->setObjectName(QStringLiteral("secondPanePlaceholder"));
         m_rightPlaceholder->setMinimumSize(0, 0);
     }
@@ -3026,6 +3032,24 @@ void MainWindow::popOutSecondPane()
     window->resize(900, 600);
     window->show();
     updateActions();
+}
+
+void MainWindow::moveSecondPaneToPreferredDestination()
+{
+    if (Settings::paneMoveDestination() == Settings::EnumPaneMoveDestination::Window) {
+        popOutSecondPane();
+    } else {
+        moveSecondPaneToTab();
+    }
+}
+
+void MainWindow::resetMovedPaneDisplayStyle()
+{
+    if (Settings::paneMoveDisplayStyle() != Settings::EnumPaneMoveDisplayStyle::ResetToDefault) {
+        return;
+    }
+    const auto mode = Settings::defaultViewMode() == Settings::EnumDefaultViewMode::Icons ? FolderView::ViewMode::Icons : FolderView::ViewMode::Details;
+    m_right->view()->setViewMode(mode);
 }
 
 void MainWindow::moveSecondPaneToDual()

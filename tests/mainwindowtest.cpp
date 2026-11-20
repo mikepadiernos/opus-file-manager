@@ -325,6 +325,66 @@ private Q_SLOTS:
         QCOMPARE(window.inactivePane(), first);
     }
 
+    void preferredSecondPaneMoveUsesConfiguredDestinationAndStyle()
+    {
+        const auto state = KSharedConfig::openStateConfig();
+        KConfigGroup layout = state->group(QStringLiteral("WindowLayout"));
+        const bool hadPlacement = layout.hasKey(QStringLiteral("SecondPanePlacement"));
+        const QString previousPlacement = layout.readEntry("SecondPanePlacement", QString());
+        layout.writeEntry("SecondPanePlacement", QStringLiteral("split"));
+        state->sync();
+        const auto restorePlacement = qScopeGuard([&] {
+            if (hadPlacement) {
+                layout.writeEntry("SecondPanePlacement", previousPlacement);
+            } else {
+                layout.deleteEntry("SecondPanePlacement");
+            }
+            state->sync();
+        });
+
+        const auto previousDestination = Settings::paneMoveDestination();
+        const auto previousStyle = Settings::paneMoveDisplayStyle();
+        const auto previousDefaultMode = Settings::defaultViewMode();
+        const auto restoreSettings = qScopeGuard([&] {
+            Settings::setPaneMoveDestination(previousDestination);
+            Settings::setPaneMoveDisplayStyle(previousStyle);
+            Settings::setDefaultViewMode(previousDefaultMode);
+        });
+        Settings::setPaneMoveDestination(Settings::EnumPaneMoveDestination::Tab);
+        Settings::setPaneMoveDisplayStyle(Settings::EnumPaneMoveDisplayStyle::Keep);
+        Settings::setDefaultViewMode(Settings::EnumDefaultViewMode::Details);
+
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        Pane *second = window.inactivePane();
+        QVERIFY(second);
+        second->view()->setViewMode(FolderView::ViewMode::Icons);
+
+        QAction *movePane = window.actionCollection()->action(QStringLiteral("move_second_pane"));
+        auto *paneTabs = window.findChild<QTabWidget *>(QStringLiteral("paneLayoutTabs"));
+        QVERIFY(movePane && paneTabs);
+        movePane->trigger();
+        QCOMPARE(paneTabs->currentWidget(), second);
+        QCOMPARE(second->view()->viewMode(), FolderView::ViewMode::Icons);
+
+        window.actionCollection()->action(QStringLiteral("restore_second_pane"))->trigger();
+        Settings::setPaneMoveDestination(Settings::EnumPaneMoveDestination::Window);
+        Settings::setPaneMoveDisplayStyle(Settings::EnumPaneMoveDisplayStyle::ResetToDefault);
+        second->view()->setViewMode(FolderView::ViewMode::Icons);
+        movePane->trigger();
+
+        auto *detachedWindow = window.findChild<QMainWindow *>(QStringLiteral("secondPaneWindow"));
+        QVERIFY(detachedWindow);
+        QCOMPARE(detachedWindow->centralWidget(), second);
+        QCOMPARE(second->view()->viewMode(), FolderView::ViewMode::Details);
+        detachedWindow->close();
+        auto *splitter = window.findChild<QSplitter *>(QStringLiteral("paneSplitter"));
+        QVERIFY(splitter);
+        QTRY_VERIFY(splitter->indexOf(second) >= 0);
+    }
+
     void tabBarPlacementAndCloseButtonsFollowPaneAndLayout()
     {
         const int horizontalFirst = Settings::horizontalFirstTabPosition();

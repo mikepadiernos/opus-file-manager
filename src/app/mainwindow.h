@@ -148,9 +148,11 @@ private:
     void swapCurrentTabs();
     void swapPaneSides();
     void restoreSecondPanePlacement();
+    void moveSecondPaneToPreferredDestination();
     void moveSecondPaneToTab();
     void popOutSecondPane();
     void moveSecondPaneToDual();
+    void resetMovedPaneDisplayStyle();
     void saveSplitterSizes();
     void restoreSplitterSizes(bool panes = true, bool workspace = true, bool defaultsIfMissing = false);
     void resetSplitterSizes();

@@ -211,6 +211,8 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("StartupMode")), QStringLiteral("Folders and Tabs"));
         QCOMPARE(tabOf(QStringLiteral("FollowSymlinks")), QStringLiteral("Folders and Tabs"));
         QCOMPARE(tabOf(QStringLiteral("DimInactivePane")), QStringLiteral("Folders and Tabs"));
+        QCOMPARE(tabOf(QStringLiteral("PaneMoveDestination")), QStringLiteral("Folders and Tabs"));
+        QCOMPARE(tabOf(QStringLiteral("PaneMoveDisplayStyle")), QStringLiteral("Folders and Tabs"));
         QCOMPARE(tabOf(QStringLiteral("ShowPreviews")), QStringLiteral("Previews"));
         QCOMPARE(tabOf(QStringLiteral("ConfirmClosingMultipleTabs")), QStringLiteral("Confirmations"));
         QCOMPARE(tabOf(QStringLiteral("ExecutableAction")), QStringLiteral("Confirmations"));

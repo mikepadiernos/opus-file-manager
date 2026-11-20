@@ -63,6 +63,7 @@
       <Action name="stacked_layout"/>
       <Action name="swap_current_tabs"/>
       <Action name="swap_pane_sides"/>
+      <Action name="move_second_pane"/>
       <Action name="move_second_pane_to_tab"/>
       <Action name="move_second_pane_to_window"/>
       <Action name="restore_second_pane"/>

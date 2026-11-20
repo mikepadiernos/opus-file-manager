@@ -223,6 +223,22 @@
       <label>Lock toolbar positions and editing</label>
       <default>false</default>
     </entry>
+    <entry name="PaneMoveDestination" type="Enum">
+      <label>Default destination for a moved second pane</label>
+      <choices>
+        <choice name="Tab"/>
+        <choice name="Window"/>
+      </choices>
+      <default>Tab</default>
+    </entry>
+    <entry name="PaneMoveDisplayStyle" type="Enum">
+      <label>Display style to use when moving the second pane</label>
+      <choices>
+        <choice name="Keep"/>
+        <choice name="ResetToDefault"/>
+      </choices>
+      <default>Keep</default>
+    </entry>
     <entry name="DragFromAnywhere" type="Bool">
       <label>Drag files and folders from anywhere in a details row</label>
       <default>false</default>
