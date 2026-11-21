@@ -1,5 +1,11 @@
 include(ECMAddTests)
 
+ecm_add_test(applicationicontest.cpp applicationicontest.qrc
+    TEST_NAME applicationicontest
+    LINK_LIBRARIES Qt6::Test KF6::IconThemes
+    NAME_PREFIX "opusfm-"
+    GUI
+)
 add_test(NAME opusfm-installer COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/installtest.sh ${PROJECT_SOURCE_DIR}/install.sh)
 
 set(translation_test_catalog ${CMAKE_CURRENT_BINARY_DIR}/translation-locale/fa/LC_MESSAGES/opus-file-manager.mo)
