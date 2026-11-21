@@ -1,4 +1,4 @@
-# Opus documentation
+# Plasma Opus documentation
 
 Start with the [project README](../README.md) for the current application,
 build instructions and important safety notes. Use the documents below for
@@ -26,7 +26,7 @@ confirmed bugs.
 ## Behaviour references
 
 These inventories describe a reviewed Max File Manager checkout, not the
-current state of Opus or a guarantee of current upstream behaviour. Opus
+current state of Plasma Opus or a guarantee of current upstream behaviour. Plasma Opus
 adapts the reference to KDE; see the roadmap for implementation status:
 
 - [User interface](parity/ui.md)

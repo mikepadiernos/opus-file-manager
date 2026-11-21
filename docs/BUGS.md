@@ -113,7 +113,7 @@ None.
   close the panel without ending a session. Blur reportedly does not persist.
 - Resolution: [#459](https://github.com/mikepadiernos/opus-file-manager/pull/459)
   adds panel controls to hide the panel without ending sessions and dismiss
-  messages. When the Konsole profile enables blur, Opus reapplies a window-wide
+  messages. When the Konsole profile enables blur, Plasma Opus reapplies a window-wide
   blur request during repaint so the active style cannot replace it with an
   incomplete region. The previous blur report was
   [#378](https://github.com/mikepadiernos/opus-file-manager/issues/378).
@@ -125,7 +125,7 @@ None.
 - Summary: Separators and expanding spacers in KDE's toolbar editor did not
   match the live or restored toolbar.
 - Evidence: The reporter's screenshots identify the KDE toolbar editor and the
-  resulting toolbar. KDE replaced the toolbar on Apply, leaving Opus with the
+  resulting toolbar. KDE replaced the toolbar on Apply, leaving Plasma Opus with the
   old toolbar and saved layout.
 - Resolution: [#454](https://github.com/mikepadiernos/opus-file-manager/pull/454)
   synchronizes the editor with the current layout and saves the rebuilt toolbar.
@@ -144,7 +144,7 @@ None.
   pass in an isolated environment using that installation.
 - Resolution: [#451](https://github.com/mikepadiernos/opus-file-manager/pull/451)
   improved diagnostics to identify the executable and report silent failures.
-  Desktop-launched Opus must also have the working executable on its PATH.
+  Desktop-launched Plasma Opus must also have the working executable on its PATH.
 
 ### Combined panel header and accordion alignment
 

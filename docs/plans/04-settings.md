@@ -10,7 +10,7 @@ without promising rollback of changes owned by other components.
 This tree is a **design proposal for review**, not the current dialog. The
 current dialog has sidebar groups with tabs. Inspired by the supplied KDE
 System Settings example, add a second navigation column while retaining
-Opus's existing visual style, theme icons and sidebar customization. This
+Plasma Opus's existing visual style, theme icons and sidebar customization. This
 changes navigation, not the application's colors, theme or styling.
 
 1. **Sidebar:** select a category, such as File or Panels. Provide a
@@ -199,7 +199,7 @@ Settings
 │   │   ├── Features (tab) [future: M22]
 │   │   │   └── Workspace behavior defaults and Activity overrides
 │   │   └── Password-gated Folders (tab) [future: M24]
-│   │       └── Folder access managed inside Opus
+│   │       └── Folder access managed inside Plasma Opus
 │   ├── Layouts (subpage) [future: M22]
 │   │   ├── Layouts (tab)
 │   │   │   ├── Restored components
@@ -272,7 +272,7 @@ Settings
     │   ├── Activities (tab) [future: M24]
     │   │   └── Workspace associations and Activity-specific choices
     │   ├── Notifications (tab) [future: M24]
-    │   │   └── Opus operation events and KDE notification settings
+    │   │   └── Plasma Opus operation events and KDE notification settings
     │   ├── Global Shortcuts (tab) [future: M24]
     │   │   └── Integration shortcut and KDE shortcut configuration
     │   ├── Online Accounts (tab) [future: M24]
@@ -352,7 +352,7 @@ Settings
 - Integrations > KDE Plasma groups desktop-specific controls; provider choices
   shared with non-KDE applications remain separate. Password-gated folders are
   under Workspaces > Management, but are an M24 feature and do not depend on
-  M22 workspace implementation; the gate applies only inside Opus, not as
+  M22 workspace implementation; the gate applies only inside Plasma Opus, not as
   filesystem security.
 - Search and favorites navigate to the same underlying pages, not duplicate
   settings. The sidebar search entry point and Search > Results use the same
@@ -386,7 +386,7 @@ These are options for review, not changes to the tree above:
 
 - **Applications and integrations:** link File > Operations > Applications
   with future Integrations controls; keep desktop-wide associations distinct
-  from Opus-specific preferences.
+  from Plasma Opus-specific preferences.
 
 ## Proposed order
 

@@ -6,7 +6,7 @@
 #include "settings.h"
 
 #if !QT_CONFIG(jalalicalendar)
-#error "Opus requires Qt built with Jalali calendar support"
+#error "Plasma Opus requires Qt built with Jalali calendar support"
 #endif
 
 QCalendar LocalizedDates::calendar(const QLocale &locale, bool iso)

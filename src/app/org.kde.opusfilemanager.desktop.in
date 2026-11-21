@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Opus File Manager
+Name=Plasma Opus
 GenericName=Dual-Pane File Manager
 Comment=Browse and manage files in two panes
 Exec=@KDE_INSTALL_FULL_BINDIR@/opus-file-manager %U

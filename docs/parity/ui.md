@@ -1,9 +1,9 @@
 # Max File Manager UI inventory
 
 Source: `max-file-manager/src/renderer/src/` (Electron + React). This reviewed
-Max snapshot is an upstream reference, not current Opus behavior or
+Max snapshot is an upstream reference, not current Plasma Opus behavior or
 necessarily the latest upstream version. See the [roadmap](../ROADMAP.md)
-for Opus's feature status and KDE adaptations.
+for Plasma Opus's feature status and KDE adaptations.
 
 ## 1. Window layout
 

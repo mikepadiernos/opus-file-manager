@@ -2,7 +2,7 @@
 
 ## Objective
 
-Opus aims to bring power-user file management to Linux in an application that
+Plasma Opus aims to bring power-user file management to Linux in an application that
 feels native to KDE Plasma. Its central idea is the dual-pane workspace: keep
 two locations available at once, navigate each side through tabs and history,
 and make common operations between them direct and predictable.
@@ -15,7 +15,7 @@ file managers broaden the workflows described in
 
 ## Audience and workflows
 
-Opus is for people who manage files frequently and benefit from seeing source
+Plasma Opus is for people who manage files frequently and benefit from seeing source
 and destination locations together. It combines everyday browsing, preview and
 transfer workflows with power-user tools as the roadmap milestones are
 delivered. See the [feature overview](../../README.md#features) for what the
@@ -34,11 +34,11 @@ current application offers.
 
 ## Design boundaries
 
-- Opus is Linux-only; a cross-platform port is not a goal.
-- Opus complements the KDE desktop and does not replace, remove or mask
+- Plasma Opus is Linux-only; a cross-platform port is not a goal.
+- Plasma Opus complements the KDE desktop and does not replace, remove or mask
   Dolphin.
 - Prefer existing KDE facilities over custom equivalents for common desktop
-  functions. Implement Opus-specific logic where the workflow has no suitable
+  functions. Implement Plasma Opus-specific logic where the workflow has no suitable
   KDE counterpart.
 - User data and behaviour should remain explicit and testable. Core logic
   belongs outside widgets when practical, and tests must not modify a real

@@ -1,24 +1,24 @@
 # Inspirations
 
-Opus combines the dual-pane workflow and power-user features of several file
+Plasma Opus combines the dual-pane workflow and power-user features of several file
 managers with KDE's native desktop integration. Each reference contributes
-different ideas; none dictates Opus's interface or implementation.
+different ideas; none dictates Plasma Opus's interface or implementation.
 
 The [roadmap](../ROADMAP.md) is the source of truth for feature status. Ideas
 described here are not necessarily implemented.
 
 ## Max File Manager — origin and behaviour reference
 
-Opus began with the idea of forking Max File Manager, then evolved into a
+Plasma Opus began with the idea of forking Max File Manager, then evolved into a
 native KDE application rather than a continuation of Max's Electron
 architecture. Max remains the primary reference for user-facing behaviour.
 The [UI](../parity/ui.md) and [backend](../parity/backend.md) inventories
-record a reviewed Max checkout, not the current state of Opus.
+record a reviewed Max checkout, not the current state of Plasma Opus.
 
 ## Dolphin — KDE desktop model
 
-Dolphin guides how Opus fits into Plasma: using the desktop's icon theme,
-settings, service menus and file-management services. Opus prefers existing KDE
+Dolphin guides how Plasma Opus fits into Plasma: using the desktop's icon theme,
+settings, service menus and file-management services. Plasma Opus prefers existing KDE
 components, including KIO for file operations, `KFilePlacesView` for Places,
 `KFileItemActions` for service actions, `KPropertiesDialog` for properties
 and KConfig for preferences. It offers an alternative workflow without
@@ -55,7 +55,7 @@ authoritative upstream source has not been verified for these entries.
 ## TagSpaces — focused workspaces
 
 [TagSpaces workspaces](https://docs.tagspaces.org/workspaces/) group locations
-and tags by context and scope global searches to the active workspace. Opus's
+and tags by context and scope global searches to the active workspace. Plasma Opus's
 planned [workspaces](../ROADMAP.md#m21-workspaces) add saved pane, toolbar and
 panel layouts for different workflows. They organize the interface and search
 scope; they are not a security boundary.
@@ -65,14 +65,14 @@ scope; they are not a security boundary.
 [TagStudio](https://github.com/TagStudioDev/TagStudio) informs the planned
 [native tagging system](../ROADMAP.md#m17-native-tagging): opt-in libraries,
 tags with aliases and parent relationships, custom fields and combined
-searches. Opus will integrate these workflows without requiring TagStudio or
+searches. Plasma Opus will integrate these workflows without requiring TagStudio or
 moving files.
 
 ## Yazi — keyboard-first browsing
 
 [Yazi](https://yazi-rs.github.io/) inspires a planned
 [native browsing mode](../ROADMAP.md#m19-yazi-mode) with keyboard-first
-navigation, folder context and previews. Opus will reuse its KDE file
+navigation, folder context and previews. Plasma Opus will reuse its KDE file
 operations rather than embedding Yazi or assuming plugin compatibility.
 
 ## which-key.nvim — shortcut discovery

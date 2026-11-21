@@ -106,7 +106,7 @@ Main menus
 │   ├── Open Editor
 │   └── Custom Commands
 ├── Settings
-│   ├── Configure Opus
+│   ├── Configure Plasma Opus
 │   ├── Configure Shortcuts
 │   └── Customize Main Toolbar and Menu
 └── Help

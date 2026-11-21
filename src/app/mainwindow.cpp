@@ -330,7 +330,7 @@ MainWindow::MainWindow(QWidget *parent)
     if (ViewSettings::migrateColumns(legacyView, views)) {
         Settings::self()->load();
     }
-    setComponentName(QStringLiteral("opus-file-manager"), i18n("Opus File Manager"));
+    setComponentName(QStringLiteral("opus-file-manager"), i18n("Plasma Opus"));
     m_flatLocations = KSharedConfig::openStateConfig()->group(QLatin1String(FlatGroup)).readEntry("Locations", QStringList());
     m_favorites = new FavoritesModel(KSharedConfig::openConfig()->group(QStringLiteral("Favorites")), this);
     m_tabColors = new TabColors(KSharedConfig::openConfig()->group(QStringLiteral("TabColors")), this);

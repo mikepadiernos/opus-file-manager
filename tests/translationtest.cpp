@@ -96,6 +96,7 @@ private Q_SLOTS:
         KLocalizedString::addDomainLocaleDir(QByteArrayLiteral("opus-file-manager"), QStringLiteral(OPUSFM_PRODUCTION_LOCALE_DIR));
         KLocalizedString::setApplicationDomain(QByteArrayLiteral("opus-file-manager"));
         KLocalizedString::setLanguages({QStringLiteral("fa")});
+        QCOMPARE(i18n("Plasma Opus"), QString::fromUtf8("پلاسما اوپوس"));
         QCOMPARE(i18nc("@action", "New Tab"), QString::fromUtf8("زبانهٔ جدید"));
         QCOMPARE(i18ncp("@info:status", "%1 item", "%1 items", 2), QString::fromUtf8("2 مورد"));
     }
@@ -188,7 +189,7 @@ private Q_SLOTS:
         QVERIFY(messages.contains("msgid \"Compared one item.\"\nmsgid_plural \"Compared %1 items.\""));
         QVERIFY(messages.contains("msgid \"&File\""));
         QVERIFY(messages.contains("src/app/opus-file-managerui.rc:6"));
-        QVERIFY(messages.contains("msgid \"What the window shows when Opus starts\""));
+        QVERIFY(messages.contains("msgid \"What the window shows when Plasma Opus starts\""));
     }
 };
 
