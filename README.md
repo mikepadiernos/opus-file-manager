@@ -1,6 +1,6 @@
-# Opus File Manager
+# Plasma Opus
 
-Opus is a Linux file manager for KDE Plasma, built with C++20, Qt 6 Widgets
+Plasma Opus is a Linux file manager for KDE Plasma, built with C++20, Qt 6 Widgets
 and KDE Frameworks 6. It combines dual-pane browsing and power-user tools
 with native KDE file operations, Places and settings.
 
@@ -12,7 +12,7 @@ after that release.
 **[Safety and limitations](#safety-and-limitations)** · **[Roadmap](docs/ROADMAP.md)** ·
 **[Documentation](docs/README.md)**
 
-![Opus File Manager with stacked panes and an image preview](preview.png)
+![Plasma Opus with stacked panes and an image preview](preview.png)
 
 ## Build and run
 
@@ -79,7 +79,7 @@ embedded terminal and ExifTool for supported media metadata. See
   and set its width. Choose Information panel fields and their order, with
   optional hover information. Set a theme, light, dark or checkerboard
   background for transparent images without changing the image.
-- **Backup:** Back up Opus settings and window and panel layouts, or preview a
+- **Backup:** Back up Plasma Opus settings and window and panel layouts, or preview a
   restore that applies on the next launch. Review the
   [backup limitations](docs/CAVEATS.md#settings-backups) before sharing or
   relying on an archive.

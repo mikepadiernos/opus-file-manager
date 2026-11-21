@@ -1,6 +1,6 @@
-# Opus File Manager roadmap
+# Plasma Opus roadmap
 
-Opus is a dual-pane file manager for KDE Plasma, written in C++20 with Qt 6
+Plasma Opus is a dual-pane file manager for KDE Plasma, written in C++20 with Qt 6
 Widgets and KDE Frameworks 6. Its [scope](philosophy/scope.md) and
 [inspirations](philosophy/inspirations.md) are documented separately. It
 targets feature parity with Max File Manager; upstream behaviour is recorded in
@@ -27,7 +27,7 @@ not block M09 or change KIO's role.
 
 ## Plasma-native decisions
 
-| Upstream approach | Opus approach |
+| Upstream approach | Plasma Opus approach |
 | --- | --- |
 | Custom themes, title bars and window buttons | Plasma widget style, colour scheme, fonts and KWin decorations by default; optional app-local colours in M25 |
 | Bundled icon pack | Active icon theme through `QIcon::fromTheme` |
@@ -39,7 +39,7 @@ not block M09 or change KIO's role.
 | Custom properties and checksums | `KPropertiesDialog` |
 | Custom clipboard helpers | `QClipboard` and `KIO::setClipboardDataCut` |
 
-Opus uses a supported subset of the upstream `.mfm.json` schema for local
+Plasma Opus uses a supported subset of the upstream `.mfm.json` schema for local
 per-folder metadata, including pins, labels, ratings, notes, colours and view
 formats. See [metadata compatibility](CAVEATS.md#folder-metadata-and-listings)
 for limitations on writes and unsupported behaviour.
@@ -77,7 +77,7 @@ Milestone numbers follow the intended work sequence below.
 
 ### M02 Core dual pane settings
 
-Settings for M01 features, modelled on Dolphin and Orcinus. Opus settings are
+Settings for M01 features, modelled on Dolphin and Orcinus. Plasma Opus settings are
 stored in KConfig; Places sections and trash/delete confirmations are shared
 with Dolphin.
 
@@ -103,10 +103,10 @@ with Dolphin.
 - **Context Menu**
   - **General:** ~~optional Copy To and Move To submenus, independently
     configurable alongside the additional KDE submenus~~
-  - **Actions:** ~~choose which built-in actions appear~~ (Opus actions;
+  - **Actions:** ~~choose which built-in actions appear~~ (Plasma Opus actions;
     additional KDE transfer submenus are controlled separately)
   - **Service Menus:** ~~choose which installed service actions and plugins
-    appear in Opus separately from Dolphin-shared settings~~
+    appear in Plasma Opus separately from Dolphin-shared settings~~
 
 ### M03 Listing depth
 
@@ -592,7 +592,7 @@ Settings for M15 advanced search, stored in KConfig.
 
 ### M17 Native tagging
 
-A native KDE tagging workflow inspired by TagStudio, integrated into Opus
+A native KDE tagging workflow inspired by TagStudio, integrated into Plasma Opus
 rather than requiring TagStudio or changing the user's folder structure.
 
 - Opt-in libraries rooted at existing local folders; index files of any type
@@ -620,7 +620,7 @@ rather than requiring TagStudio or changing the user's folder structure.
 - Store library metadata in an open, documented format without requiring a
   sidecar for each file; preserve existing `.mfm.json` metadata and report
   unsupported or read-only locations
-- Refresh libraries with progress and cancellation; track Opus-initiated moves
+- Refresh libraries with progress and cancellation; track Plasma Opus-initiated moves
   and renames, and offer review and manual relinking for missing or externally
   moved files without silently attaching metadata to an uncertain match
 - Export and restore library metadata with a preview and explicit confirmation;
@@ -645,7 +645,7 @@ Settings for M17 tagging, stored in KConfig.
 
 Offer an optional native Qt/KDE browsing mode inspired by
 [Yazi](https://yazi-rs.github.io/docs/quick-start/), a terminal file manager.
-Reuse Opus's file models and KDE services; this is not an embedded Yazi process
+Reuse Plasma Opus's file models and KDE services; this is not an embedded Yazi process
 or a promise of Yazi configuration or plugin compatibility.
 
 - Enable or leave the mode per pane, keeping it off by default. Preserve both
@@ -659,13 +659,13 @@ or a promise of Yazi configuration or plugin compatibility.
   M29 when available; show the active mode and avoid intercepting typing in
   editors, search fields or the terminal.
 - Support focused-item and multi-item selection, copy, move, rename, trash and
-  other existing file actions through Opus and KIO. Keep conflict handling,
+  other existing file actions through Plasma Opus and KIO. Keep conflict handling,
   destructive-action confirmations and undo behaviour; never introduce a
   shortcut that silently overwrites or permanently deletes files.
 - Reuse existing filtering, filename and content search, sorting, tabs and
   history. Show active filters and search progress, allow cancellation, and
   report backend or remote-location limitations.
-- Reuse Opus previews and file information for the focused item, with
+- Reuse Plasma Opus previews and file information for the focused item, with
   cancellable work and existing size and remote-download limits. Use existing
   job and transfer-queue interfaces for progress and errors rather than
   duplicating operations.
@@ -702,7 +702,7 @@ layouts.
 ### M21 Workspaces
 
 Organize locations and tag groups into focused workspaces, inspired by
-TagSpaces, alongside Opus-specific workspace layouts.
+TagSpaces, alongside Plasma Opus-specific workspace layouts.
 
 - Create, switch, rename, duplicate and delete named workspaces, with a full
   name and short label; duplicating copies the layout without reassigning
@@ -795,7 +795,7 @@ Settings for M21 workspaces, stored in KConfig.
 - KDE Plasma language integration: reuse M13 translation catalogues and M14
   language and regional-format preferences with supported KDE and Qt
   facilities. Follow Plasma's language preferences when no app-specific
-  override is selected, fall back to source text when an Opus catalogue is
+  override is selected, fall back to source text when a Plasma Opus catalogue is
   unavailable, and offer access to Plasma's language settings when supported.
   Do not modify shared desktop settings without explicit user action or
   require a translation into a particular language.
@@ -812,7 +812,7 @@ Settings for M21 workspaces, stored in KConfig.
   authentication where available, use KDE's credential facilities, and
   respect SSH host-key and WebDAV TLS certificate verification. Report
   connection, authentication and unsupported-operation errors explicitly.
-- Use [mise](https://mise.jdx.dev/) for Opus development tooling: manage
+- Use [mise](https://mise.jdx.dev/) for Plasma Opus development tooling: manage
   project tool versions and provide configure, build, test and formatting
   tasks. Document setup and system-provided Qt, KDE and other dependencies;
   keep the existing CMake workflow usable without mise.
@@ -862,7 +862,7 @@ Settings for M21 workspaces, stored in KConfig.
   installed-action list without discarding pending settings changes. Explain
   that downloaded services can run commands and may be shared with other KDE
   applications; require explicit user action and report failures. Reuse the
-  existing Opus-specific and Dolphin-shared visibility controls.
+  existing Plasma Opus-specific and Dolphin-shared visibility controls.
 - Integrate with KDE Online Accounts: discover available accounts and their
   supported file services, let users explicitly connect or open them in either
   pane through the appropriate KDE provider or KIO worker, and provide access
@@ -871,7 +871,7 @@ Settings for M21 workspaces, stored in KConfig.
   missing providers, denied access, expired authorization and removed accounts
   visibly; do not assume every account offers file access. Respect provider
   permissions, authentication and TLS verification, and never store tokens or
-  passwords in URLs, logs or Opus configuration.
+  passwords in URLs, logs or Plasma Opus configuration.
 - Plasma Activities: optionally associate M21 workspaces with Activities and
   configure default folders for each Activity and workspace association. For
   each association, use all, selected or none of the applicable workspace
@@ -884,7 +884,7 @@ Settings for M21 workspaces, stored in KConfig.
   Handle an unavailable Activities service, missing folders and removed
   Activities without losing workspace data, and avoid duplicating KDE's KIO
   resource history.
-- Plasma notifications and jobs: integrate Opus-owned long-running operations
+- Plasma notifications and jobs: integrate Plasma Opus-owned long-running operations
   with KDE's notification settings and offer relevant actions to return to the
   operation or inspect its result. Reuse KIO's existing progress reporting
   rather than creating duplicate notifications or controls. Respect notification
@@ -895,17 +895,17 @@ Settings for M21 workspaces, stored in KConfig.
   selected device and transfer outcome; do not pair devices, send files or
   change shared KDE Connect settings automatically. Handle missing services,
   offline devices and unsupported locations visibly.
-- KRunner integration: provide an optional runner for explicitly saved Opus
-  workspaces and locations, with actions to open the chosen item in Opus.
+- KRunner integration: provide an optional runner for explicitly saved Plasma Opus
+  workspaces and locations, with actions to open the chosen item in Plasma Opus.
   Respect workspace privacy, avoid exposing credentials or unselected history,
   and handle missing or stale targets without creating files or running
   commands. Use Plasma's supported runner interfaces and do not replace its
   existing file search.
 - Optional password-gated folders: let users require a password before opening
-  selected local folders through Opus. This is an Opus-only convenience gate,
+  selected local folders through Plasma Opus. This is a Plasma Opus-only convenience gate,
   not encryption or filesystem access control: clearly warn that other
   applications and direct filesystem access remain unrestricted. Do not change
-  file permissions or contents. Apply the gate consistently across Opus
+  file permissions or contents. Apply the gate consistently across Plasma Opus
   navigation and alternate paths, store no plaintext password, and use a
   trusted password-verification mechanism and KDE credential facilities where
   appropriate. Report unavailable protection and failures rather than silently
@@ -927,7 +927,7 @@ Settings for M23 integrations, stored in KConfig.
 - **File manager**
   - **Portal:** serve the XDG portal file chooser on or off
   - **Default:** show the current desktop file-manager association and offer
-    an explicit action to set Opus as the user default; report failures
+    an explicit action to set Plasma Opus as the user default; report failures
 - **MCP**
   - **Access:** server access (off, read or write), token and audit log
 - **Terminal**
@@ -956,8 +956,8 @@ Settings for M23 integrations, stored in KConfig.
     passwords or tokens in KConfig
 - **Online accounts**
   - **Access:** opt in to integration and choose which supported accounts to
-    show in Opus; manage accounts in KDE without deleting shared accounts when
-    removing them from Opus
+    show in Plasma Opus; manage accounts in KDE without deleting shared accounts when
+    removing them from Plasma Opus
 - **Baloo**
   - **Search:** choose whether to offer fuzzy ranking and a live-search fallback;
     reuse M10 and M16 search settings. Open KDE's shared indexing controls
@@ -968,7 +968,7 @@ Settings for M23 integrations, stored in KConfig.
     prompts without changing KDE's Activity settings. For each association,
     inherit workspace defaults or select all, individual or no behaviours.
 - **Plasma notifications**
-  - **Operations:** choose which Opus-owned operation events produce
+  - **Operations:** choose which Plasma Opus-owned operation events produce
     notifications and open KDE's notification settings for shared controls
 - **KDE Connect**
   - **Sharing:** enable the sharing action and choose whether to remember a
@@ -978,7 +978,7 @@ Settings for M23 integrations, stored in KConfig.
     and locations it can expose
 - **Password-gated folders**
   - **Access:** manage protected local folders and their passwords, with a
-    clear warning that the gate applies only inside Opus
+    clear warning that the gate applies only inside Plasma Opus
 
 ### M25 Themes
 
@@ -992,7 +992,7 @@ Settings for M23 integrations, stored in KConfig.
   choices and optional custom stylesheets, with validation, explicit overwrite
   confirmation and a safe reset to the system appearance; do not execute code
   from theme files.
-- Apply app-local colours consistently to supported Opus windows, panes and
+- Apply app-local colours consistently to supported Plasma Opus windows, panes and
   dialogs while respecting accessibility settings, native icon themes and the
   appearance boundaries of embedded or external components.
 - Support an optional app-local custom Qt Style Sheet (QSS, a CSS-like subset,
@@ -1019,7 +1019,7 @@ Settings for M25 themes, stored in KConfig.
 
 - Establish a consistent, translatable application name and description across
   the desktop entry, app metadata, About dialog and documentation.
-- Create original, appropriately licensed Opus logo and application-icon assets
+- Create original, appropriately licensed Plasma Opus logo and application-icon assets
   with suitable sizes and light/dark variants. Keep file, device and action
   icons sourced from the active desktop icon theme.
 - Present the branding consistently in About and release materials; provide an

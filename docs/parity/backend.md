@@ -1,6 +1,6 @@
 # Max File Manager: backend feature inventory (src/main, src/preload, src/shared)
 
-This reviewed Max snapshot is an upstream reference, not current Opus
+This reviewed Max snapshot is an upstream reference, not current Plasma Opus
 behavior or necessarily the latest upstream version. KDE/Qt replacement
 notes are design suggestions, not implementation status; see the
 [roadmap](../ROADMAP.md).

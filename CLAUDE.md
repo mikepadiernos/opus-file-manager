@@ -1,6 +1,6 @@
-# Opus File Manager
+# Plasma Opus
 
-Opus is a Linux-only, dual-pane file manager for KDE Plasma, built with C++20,
+Plasma Opus is a Linux-only, dual-pane file manager for KDE Plasma, built with C++20,
 Qt 6 Widgets and KDE Frameworks 6.
 
 ## Project documentation
@@ -10,7 +10,7 @@ Qt 6 Widgets and KDE Frameworks 6.
 - `docs/BUGS.md`: reported bugs and completion status.
 - `docs/CAVEATS.md`: limitations of implemented features and recommendations.
 - `docs/EDGE.md`: potential edge cases and test scenarios.
-- `docs/parity/`: upstream behaviour references, not necessarily current Opus
+- `docs/parity/`: upstream behaviour references, not necessarily current Plasma Opus
   behaviour.
 
 ## Commands
@@ -60,7 +60,7 @@ cmake --build build --target clang-format   # format all C++ sources
 
 ## Project workflow
 
-Use the [Opus project board](https://github.com/users/mikepadiernos/projects/3)
+Use the [Plasma Opus project board](https://github.com/users/mikepadiernos/projects/3)
 for milestone parent issues and feature sub-issues. Follow **Backlog →
 Defined → Development → Review → Completed → Merged**; never move an item
 backward.

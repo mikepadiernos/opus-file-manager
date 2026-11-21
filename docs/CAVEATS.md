@@ -34,14 +34,14 @@ scope and status.
 ## Jalali dates
 
 With a Persian regional locale or an explicit Jalali calendar override,
-Opus's date displays use the Jalali calendar. With the automatic calendar,
+Plasma Opus's date displays use the Jalali calendar. With the automatic calendar,
 the ISO 8601 listing format remains Gregorian; an explicit calendar override
 takes precedence. KDE controls dates in its own dialogs and tooltips, and the
 additional file information shown under icons in icon and compact views uses
 KDE's `KFileItemDelegate`; these dates may remain Gregorian.
 ([#436](https://github.com/mikepadiernos/opus-file-manager/issues/436))
 
-- **Recommendation:** Use Details view or the Opus Information panel for
+- **Recommendation:** Use Details view or the Plasma Opus Information panel for
   Jalali dates. Select Jalali explicitly, or use a Persian regional locale
   with the automatic calendar and a Locale listing format. Verify the calendar
   before interpreting KDE-provided dates.
@@ -50,12 +50,12 @@ KDE's `KFileItemDelegate`; these dates may remain Gregorian.
 ## Translation format overrides
 
 The regional locale and custom digit shapes do not control every display.
-Opus applies digit shapes to its file dates, listing sizes, preview line
+Plasma Opus applies digit shapes to its file dates, listing sizes, preview line
 numbers and selected gallery and chart fields. Other text and numbers,
 editable Qt controls, KDE-provided details and dialogs, and separately
 embedded applications can use their own locale or desktop settings. With a
 C/POSIX message locale, an explicitly selected non-English interface language
-also requires an installed non-C UTF-8 message locale; Opus warns and follows
+also requires an installed non-C UTF-8 message locale; Plasma Opus warns and follows
 the system language if none can be used.
 ([#440](https://github.com/mikepadiernos/opus-file-manager/issues/440))
 
@@ -63,13 +63,13 @@ the system language if none can be used.
   overridden file dates and verify other displays against the desktop locale.
   Configure desktop regional settings for consistency elsewhere. If the
   selected language is unavailable under C/POSIX, install a non-C UTF-8
-  system locale and restart Opus.
+  system locale and restart Plasma Opus.
   - Comment: [#440.7045227580](https://github.com/mikepadiernos/opus-file-manager/issues/440#issuecomment-7045227580)
 
 ## Archives
 
 - **Local files:** Archive creation and integrity testing require local files.
-  When compressing a mixed selection, Opus skips items without local paths.
+  When compressing a mixed selection, Plasma Opus skips items without local paths.
   Password-protected extraction also requires a local archive and destination.
   ([#265][issue-265])
 
@@ -120,7 +120,7 @@ the system language if none can be used.
 
 ### Possible Ark integration
 
-Opus does not currently integrate with Ark. An optional handoff could improve
+Plasma Opus does not currently integrate with Ark. An optional handoff could improve
 encrypted 7z compatibility through Ark's dedicated `7z` backend, but would
 require Ark and `7z` at runtime as well as error, destination and overwrite
 handling. Ark's
@@ -141,19 +141,19 @@ operation before assuming passwords are not exposed in process arguments.
 
 ## Folder metadata and listings
 
-- **Metadata compatibility:** Opus supports a subset of Max File Manager's
+- **Metadata compatibility:** Plasma Opus supports a subset of Max File Manager's
   local `.mfm.json` metadata. Writing sanitizes the file and may discard
   unsupported fields or values, so back up existing metadata before editing.
-  The sanitizer retains the upstream hide-from-parent flag, but Opus does not
+  The sanitizer retains the upstream hide-from-parent flag, but Plasma Opus does not
   apply it to listings. ([#257][issue-257], [#258][issue-258])
 
-  - **Recommendation:** Back up `.mfm.json` before editing it in Opus and do not
+  - **Recommendation:** Back up `.mfm.json` before editing it in Plasma Opus and do not
     rely on hide-from-parent to hide entries in listings. A text editor can
-    inspect a backup, but cannot make Opus apply unsupported metadata.
+    inspect a backup, but cannot make Plasma Opus apply unsupported metadata.
     - Comment: [#257.7021742864][comment-257]
     - Comment: [#258.7021743599][comment-258]
   - **Alternatives:**
-    - Keep a versioned copy of metadata outside Opus.
+    - Keep a versioned copy of metadata outside Plasma Opus.
       - Comment: [#257.7029666537](https://github.com/mikepadiernos/opus-file-manager/issues/257#issuecomment-7029666537)
     - Use ordinary hidden filenames where appropriate.
       - Comment: [#258.7029666857](https://github.com/mikepadiernos/opus-file-manager/issues/258#issuecomment-7029666857)
@@ -200,8 +200,8 @@ operation before assuming passwords are not exposed in process arguments.
 
 ## Planned password-gated folders
 
-The [proposed Opus password gate](ROADMAP.md#m23-integrations) is not
-implemented. It would be an Opus-only prompt, not encryption or filesystem
+The [proposed Plasma Opus password gate](ROADMAP.md#m23-integrations) is not
+implemented. It would be a Plasma Opus-only prompt, not encryption or filesystem
 access control. Other file managers and processes with the same user permissions
 could access the underlying folder without the password. Standard filesystem
 permissions and ACLs distinguish users and groups, not applications running
@@ -259,7 +259,7 @@ feature [#402](https://github.com/mikepadiernos/opus-file-manager/issues/402))
   - **Alternative:** Use Kate or KWrite for long-line text.
     - Comment: [#264.7029668772](https://github.com/mikepadiernos/opus-file-manager/issues/264#issuecomment-7029668772)
   - **Planned:** [M23 editor integrations](ROADMAP.md#m23-integrations) would
-    launch separate editors; they do not increase Opus preview limits.
+    launch separate editors; they do not increase Plasma Opus preview limits.
     - Comment: [#264.7021749088][comment-264]
 - **Rendered previews:** HTML and Markdown previews disable links and
   external resources. ([#267][issue-267])
@@ -277,7 +277,7 @@ feature [#402](https://github.com/mikepadiernos/opus-file-manager/issues/402))
   - **Recommendation:** Work on local copies within the limits and keep the
     originals when their metadata must be preserved. ExifTool can inspect and
     copy supported metadata separately; verify the result for the target format.
-    ImageMagick can process supported local images outside Opus's gallery,
+    ImageMagick can process supported local images outside Plasma Opus's gallery,
     subject to its own resource and format limits.
     - Comment: [#266.7021750778][comment-266]
     - Comment: [#260.7021745029][comment-260]
@@ -326,7 +326,7 @@ feature [#402](https://github.com/mikepadiernos/opus-file-manager/issues/402))
   - **Alternative:** Use a standalone editor and an explicit backup copy.
     - Comment: [#307.7029671086](https://github.com/mikepadiernos/opus-file-manager/issues/307#issuecomment-7029671086)
   - **Planned:** [M23 editor integrations](ROADMAP.md#m23-integrations) are
-    separate applications and do not expand Opus draft storage.
+    separate applications and do not expand Plasma Opus draft storage.
     - Comment: [#307.7021754467][comment-307]
 - **Draft retention:** Drafts are retained indefinitely by default. An
   optional age limit removes expired drafts unless they are locked by an
@@ -390,7 +390,7 @@ Tracked in [#362](https://github.com/mikepadiernos/opus-file-manager/issues/362)
   errors and repeat searches after files change. Use flat view when selecting
   nested local items by path, and verify the resulting selection. Use GNU
   `find` for other local filename searches or ripgrep (`rg`) for content
-  searches when Opus limits are unsuitable; check each tool's hidden-file,
+  searches when Plasma Opus limits are unsuitable; check each tool's hidden-file,
   ignore, encoding and symbolic-link behavior. If a revealed result is hidden
   or filtered, adjust the pane's visibility settings. Re-run saved searches
   and check collection references after files change.
@@ -421,7 +421,7 @@ Tracked in [#372](https://github.com/mikepadiernos/opus-file-manager/issues/372)
 - **Changes and recovery:** The preview is a snapshot. Source identity is
   checked before each rename, but changes can race those checks. Errors or
   cancellation stop the batch and can leave partial results. Renames are not
-  registered with KIO undo. Per-folder Opus labels, colors, ratings, notes and
+  registered with KIO undo. Per-folder Plasma Opus labels, colors, ratings, notes and
   pins remain keyed by old names.
 
 - **Recommendation:** Review the preview and back up important items first.
@@ -436,7 +436,7 @@ Tracked in [#372](https://github.com/mikepadiernos/opus-file-manager/issues/372)
 - **Alternative:** Try a separate batch renamer on copies.
   - Comment: [#372.7029676077](https://github.com/mikepadiernos/opus-file-manager/issues/372#issuecomment-7029676077)
 - **Planned:** [M17](ROADMAP.md#m17-native-tagging) plans to track
-  Opus-initiated moves and renames in its library; it does not promise to
+  Plasma Opus-initiated moves and renames in its library; it does not promise to
   migrate existing per-folder annotations.
   - Comment: [#372.7024683530][comment-372]
 
@@ -511,7 +511,7 @@ Tracked in [#374](https://github.com/mikepadiernos/opus-file-manager/issues/374)
   duplicate or unrelated metadata or media contents. File identity and
   timestamps are checked before writing but can race external changes. Writes
   are not undoable, and a failure or timeout may leave changes. The KDE writer
-  does not report write errors: Opus re-reads displayed fields but cannot prove
+  does not report write errors: Plasma Opus re-reads displayed fields but cannot prove
   preservation of other data.
 
 - **Recommendation:** Back up the original and review the preview. Install
@@ -542,7 +542,7 @@ Tracked in [#375](https://github.com/mikepadiernos/opus-file-manager/issues/375)
 - **Controls and lifetime:** Progress, speed and controls depend on the KIO
   job and worker. Cancellation may leave partial results. The queue exists only
   in memory: waiting jobs are discarded on application exit and active jobs may
-  be canceled. Opus warns before closing a window while transfers are pending.
+  be canceled. Plasma Opus warns before closing a window while transfers are pending.
   External KIO progress interfaces may control a job independently of the queue
   display. KIO records undo when a queued copy or move begins, not while waiting.
 
@@ -551,14 +551,14 @@ Tracked in [#375](https://github.com/mikepadiernos/opus-file-manager/issues/375)
   Ask conflict policy when confirmation is needed; review the destination
   before using automatic overwrite. Use the normal KIO progress interface for
   paste and drag-and-drop. Check partial results after cancellation or errors
-  and keep Opus open until queued work finishes. Resume externally paused jobs
+  and keep Plasma Opus open until queued work finishes. Resume externally paused jobs
   from the external interface. Inspect the KIO undo stack after a transfer
   starts.
   - Comment: [#375.7025250130][comment-375]
 - **Alternative proposal:** Consider adding paste and drop jobs to the queue.
   - Comment: [#375.7029677171](https://github.com/mikepadiernos/opus-file-manager/issues/375#issuecomment-7029677171)
 - **Planned:** [M23](ROADMAP.md#m23-integrations) proposes remote-profile
-  transfers through the queue where available and Opus-owned job notifications;
+  transfers through the queue where available and Plasma Opus-owned job notifications;
   neither promises to route paste or drag-and-drop through the queue.
   - Comment: [#375.7025250130][comment-375]
 
@@ -629,7 +629,7 @@ formulas with an apostrophe. ([#314](https://github.com/mikepadiernos/opus-file-
   exporting, and reduce columns for wide PDF tables. Keep CSV formula protection
   when opening untrusted data in a spreadsheet; copy local output elsewhere if
   needed. GNU `find -print0` can produce a local, NUL-delimited filename list
-  for compatible tools, but does not reproduce Opus filters, columns or CSV output.
+  for compatible tools, but does not reproduce Plasma Opus filters, columns or CSV output.
   - Comment: [#314.7021757620][comment-314]
 - **Alternative:** Produce a custom-field export with a separate script.
   - Comment: [#314.7029672795](https://github.com/mikepadiernos/opus-file-manager/issues/314#issuecomment-7029672795)
@@ -830,7 +830,7 @@ inventories, see [Behaviour references](README.md#behaviour-references).
 ## Installing optional alternatives
 
 These tools can be used independently for the workarounds above. Some are also
-required by particular Opus features, as noted in their caveats; none is a
+required by particular Plasma Opus features, as noted in their caveats; none is a
 dependency of every feature. Install only what you need and check each tool's
 format, platform and security limitations. For example, `difftastic` provides
 `difft` for text comparison and `ncdu` provides `ncdu` for browsing directory
