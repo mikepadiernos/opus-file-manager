@@ -1,5 +1,8 @@
 # Scope and objective
 
+**[Documentation](../README.md)** · **[Inspirations](inspirations.md)** ·
+**[Roadmap](../ROADMAP.md)**
+
 ## Objective
 
 Plasma Opus aims to bring power-user file management to Linux in an application that

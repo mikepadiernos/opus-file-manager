@@ -1,11 +1,15 @@
 # Inspirations
 
-Plasma Opus combines the dual-pane workflow and power-user features of several file
-managers with KDE's native desktop integration. Each reference contributes
-different ideas; none dictates Plasma Opus's interface or implementation.
+**[Documentation](../README.md)** · **[Scope](scope.md)** ·
+**[Roadmap](../ROADMAP.md)**
 
-The [roadmap](../ROADMAP.md) is the source of truth for feature status. Ideas
-described here are not necessarily implemented.
+Plasma Opus combines dual-pane and power-user ideas from several file managers
+with KDE's native desktop integration. Each reference contributes ideas; none
+dictates the application's interface or implementation.
+
+> [!NOTE]
+> The [roadmap](../ROADMAP.md) is the source of truth for feature status.
+> Ideas described here are not necessarily implemented.
 
 ## Max File Manager — origin and behaviour reference
 
@@ -33,7 +37,7 @@ viewers, flat browsing, automation and metadata. Its workflows inform
 [layout customization](../ROADMAP.md#m11-ui-customizations) and
 [shortcut settings](../ROADMAP.md#m29-keyboard-shortcut-settings). Its
 [manual](https://docs.dopus.com/doku.php?id=introduction) also informs planned
-[UI/UX polish](../ROADMAP.md#m30-ui-and-ux-polish), such as contextual help,
+[interface refinements](../ROADMAP.md#m30-refinements), such as contextual help,
 filter visibility and discoverable customization. These are adapted to Linux
 and KDE rather than treated as a feature-by-feature parity target.
 

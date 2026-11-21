@@ -1,13 +1,15 @@
 # Reported bugs
 
-This log records user-visible bugs and reliability issues linked to the
-[project board](https://github.com/users/mikepadiernos/projects/3).
-See the [issue workflow](../CLAUDE.md#issues-and-caveats) for tracking rules.
+**[Documentation](README.md)** · **[Project board](https://github.com/users/mikepadiernos/projects/3)** ·
+**[Edge cases](EDGE.md)** · **[Caveats](CAVEATS.md)**
 
-A bug is considered complete only when its project status is **Completed** or
-**Merged**. **Completed** does not necessarily mean merged into `main`.
-Potential scenarios awaiting investigation are tracked separately in
-[edge cases](EDGE.md); they are not confirmed bugs.
+This log records user-visible bugs and reliability issues. Consult the
+[issue workflow](../CLAUDE.md#issues-and-caveats) for tracking rules.
+
+> [!IMPORTANT]
+> A bug is complete only when its project status is **Completed** or
+> **Merged**. Completed does not necessarily mean merged into `main`.
+> [Edge cases](EDGE.md) are possible scenarios, not confirmed bugs.
 
 ---
 
@@ -26,6 +28,7 @@ Potential scenarios awaiting investigation are tracked separately in
 | [#533](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/533) | Embedded panel titles cannot be hidden like Explorer | Yes | Merged |
 | [#549](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/549) | Combined panel section spacing and title accents | Yes | Merged |
 | [#555](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/555) | Application icon accent color and size | Yes | Merged |
+| [#558](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/558) | Headers, titles and status bar need horizontal padding | No | Development |
 
 ## Status legend
 
@@ -42,7 +45,15 @@ Potential scenarios awaiting investigation are tracked separately in
 
 ## Open reports
 
-None.
+### Header, title and status-bar padding
+
+- Severity: not assessed
+- Status: Development; [#558](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/558)
+- Summary: Headers, titles and the status bar need more horizontal padding.
+- Expected behaviour: Provide at least 8 logical pixels of padding on both the
+  left and right sides of headers, titles and status-bar content. Preserve
+  controls, accessibility and KDE theme behaviour, including in narrow
+  windows and right-to-left layouts.
 
 ## Completed reports
 

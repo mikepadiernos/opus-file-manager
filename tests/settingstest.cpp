@@ -1864,6 +1864,8 @@ private Q_SLOTS:
         QVERIFY(left->statusBarWidget()->isHidden());
         auto *sharedFreeSpace = window.findChild<QLabel *>(QStringLiteral("freeSpaceLabel"));
         QVERIFY(sharedItems->geometry().x() < sharedFreeSpace->geometry().x());
+        QVERIFY(sharedItems->parentWidget()->layout()->contentsMargins().left() >= 8);
+        QVERIFY(sharedItems->parentWidget()->layout()->contentsMargins().right() >= 8);
 
         Settings::setStatusBarIndicatorOrder(Settings::EnumStatusBarIndicatorOrder::FreeSpaceFirst);
         window.applySettings();
@@ -1875,8 +1877,12 @@ private Q_SLOTS:
         QVERIFY(left->statusBarWidget()->isVisible());
         QVERIFY(right->statusBarWidget()->isVisible());
         auto *leftStatusLayout = left->statusBarWidget()->layout();
+        QVERIFY(leftStatusLayout->contentsMargins().left() >= 8);
+        QVERIFY(leftStatusLayout->contentsMargins().right() >= 8);
         QTRY_VERIFY(leftStatusLayout->indexOf(window.findChild<QLabel *>(QStringLiteral("leftFreeSpaceLabel"))) < leftStatusLayout->indexOf(leftItems));
         auto *rightStatusLayout = right->statusBarWidget()->layout();
+        QVERIFY(rightStatusLayout->contentsMargins().left() >= 8);
+        QVERIFY(rightStatusLayout->contentsMargins().right() >= 8);
         QTRY_VERIFY(rightStatusLayout->indexOf(window.findChild<QLabel *>(QStringLiteral("rightFreeSpaceLabel"))) < rightStatusLayout->indexOf(rightItems));
         QVERIFY(leftItems->text().contains(QStringLiteral("1 item")));
         QVERIFY(rightItems->text().contains(QStringLiteral("0 items")));

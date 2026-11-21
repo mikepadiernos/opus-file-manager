@@ -669,7 +669,7 @@ public:
             font.setBold(true);
             painter->setFont(font);
             painter->setPen(option.palette.color(QPalette::Text));
-            const QRect labelRect = QStyle::visualRect(option.direction, headerRect, headerRect.adjusted(8, 0, -4, 0));
+            const QRect labelRect = QStyle::visualRect(option.direction, headerRect, headerRect.adjusted(8, 0, -8, 0));
             painter->drawText(labelRect, QStyle::visualAlignment(option.direction, Qt::AlignVCenter | Qt::AlignLeft), m_model->groupLabel(index));
         }
         QStyleOptionViewItem itemOption(option);

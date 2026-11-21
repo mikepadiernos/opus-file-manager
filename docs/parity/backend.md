@@ -1,9 +1,12 @@
 # Max File Manager: backend feature inventory (src/main, src/preload, src/shared)
 
-This reviewed Max snapshot is an upstream reference, not current Plasma Opus
-behavior or necessarily the latest upstream version. KDE/Qt replacement
-notes are design suggestions, not implementation status; see the
-[roadmap](../ROADMAP.md).
+**[Documentation](../README.md)** · **[UI inventory](ui.md)** ·
+**[Roadmap](../ROADMAP.md)**
+
+> [!NOTE]
+> This reviewed upstream snapshot is not current Plasma Opus behaviour or
+> necessarily the latest upstream version. KDE/Qt replacement notes are design
+> suggestions, not implementation status; see the [roadmap](../ROADMAP.md).
 
 **Context.** The app is Electron 45 with a React renderer. It is a dual-pane
 file manager targeting KDE and Windows (this checkout also has macOS code

@@ -1,6 +1,7 @@
 # M30.5 Performance and startup
 
-[M30 plan](README.md) · [Roadmap](../ROADMAP.md#m305-performance-and-startup)
+**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m305-performance-and-startup)** ·
+**[Settings](04-settings.md)**
 
 **Goal:** measurably improve startup and settings responsiveness while
 preserving behavior and avoiding unproven language rewrites.

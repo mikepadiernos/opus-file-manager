@@ -375,6 +375,30 @@ private Q_SLOTS:
         }
         QVERIFY(accentPixels > 0);
 
+        for (const Qt::LayoutDirection direction : {Qt::LeftToRight, Qt::RightToLeft}) {
+            header->setLayoutDirection(direction);
+            header->setText(QStringLiteral("&M"));
+            QImage underlined(header->size(), QImage::Format_ARGB32_Premultiplied);
+            underlined.fill(Qt::transparent);
+            header->render(&underlined);
+            header->setText(QStringLiteral("M"));
+            QImage plain(header->size(), QImage::Format_ARGB32_Premultiplied);
+            plain.fill(Qt::transparent);
+            header->render(&plain);
+            int changed = 0;
+            for (int y = 0; y < underlined.height(); ++y) {
+                for (int x = 0; x < underlined.width(); ++x) {
+                    if (underlined.pixelColor(x, y) != plain.pixelColor(x, y)) {
+                        QVERIFY(x >= 8);
+                        QVERIFY(x < underlined.width() - 8);
+                        ++changed;
+                    }
+                }
+            }
+            QVERIFY(changed > 0);
+        }
+        header->setLayoutDirection(Qt::LeftToRight);
+
         colors.setColor(QPalette::Accent, QColor(0, 255, 0));
         header->setPalette(colors);
         header->setText(QStringLiteral("R&&D &Zebra"));

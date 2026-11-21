@@ -1,17 +1,21 @@
 # M30.4 Settings
 
-[M30 plan](README.md) · [Roadmap](../ROADMAP.md#m304-settings)
+**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m304-settings)** ·
+**[Performance](05-performance.md)**
 
 **Goal:** make preferences searchable, understandable and safe to change,
 without promising rollback of changes owned by other components.
 
 ## Proposed settings layout
 
-This tree is a **design proposal for review**, not the current dialog. The
-current dialog has sidebar groups with tabs. Inspired by the supplied KDE
-System Settings example, add a second navigation column while retaining
-Plasma Opus's existing visual style, theme icons and sidebar customization. This
-changes navigation, not the application's colors, theme or styling.
+> [!NOTE]
+> This tree is a design proposal, not the current dialog. The current dialog
+> has sidebar groups with tabs.
+
+Inspired by the supplied KDE System Settings example, add a second navigation
+column while retaining Plasma Opus's existing visual style, theme icons and
+sidebar customization. This changes navigation, not the application's colors,
+theme or styling.
 
 1. **Sidebar:** select a category, such as File or Panels. Provide a
    preference-search entry point here; General > Favorites remains the place
@@ -197,7 +201,7 @@ Settings
 │   │   ├── Recovery (tab) [future: M22]
 │   │   │   └── Unavailable locations and providers
 │   │   ├── Features (tab) [future: M22]
-│   │   │   └── Workspace behavior defaults and Activity overrides
+│   │   │   └── Workspace features, theme and Activity overrides
 │   │   └── Password-gated Folders (tab) [future: M24]
 │   │       └── Folder access managed inside Plasma Opus
 │   ├── Layouts (subpage) [future: M22]
@@ -255,7 +259,7 @@ Settings
 │   │   ├── File-list navigation
 │   │   └── Text-input behavior
 │   ├── Hints (subpage)
-│   │   ├── Key-sequence popup
+│   │   ├── Sliding or floating key-sequence panel
 │   │   ├── Delay
 │   │   └── On-demand reference
 │   ├── Global Shortcuts (subpage)
@@ -340,15 +344,18 @@ Settings
   editor-wide settings under Panels > Text Editor and search defaults under
   Search > Defaults; link to the latter from Panels > Search. Make clear which
   editor settings also affect standalone windows. Separate embedded areas must
-  not replace either file pane.
+  not replace either file pane; an embedded pane placed in the middle column
+  must preserve the file-pane state it temporarily occupies. Coordinate pane
+  placement controls with the [interface design](../philosophy/designs.md).
 - Listing filters and saved selection filters serve different purposes and stay
   distinct. Advanced Search links to the shared search defaults instead of
   creating a second copy. The integration shortcut remains available with M24;
   M29 links to it when available rather than adding a conflicting binding.
 - Future workspace, tagging, integration and shortcut pages reuse shared
   settings where applicable. Link to the authoritative controls instead of
-  creating conflicting values; keep KDE-owned accounts, credentials and
-  desktop settings under KDE's control.
+  creating conflicting values. Workspace profiles can select features, layout
+  and theme, with optional Activity associations and per-Activity choices;
+  keep KDE-owned accounts, credentials and desktop settings under KDE's control.
 - Integrations > KDE Plasma groups desktop-specific controls; provider choices
   shared with non-KDE applications remain separate. Password-gated folders are
   under Workspaces > Management, but are an M24 feature and do not depend on

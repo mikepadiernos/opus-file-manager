@@ -1055,7 +1055,7 @@ void MainWindow::setupStatusBar()
 {
     auto *indicators = new QWidget(this);
     m_statusBarLayout = new QHBoxLayout(indicators);
-    m_statusBarLayout->setContentsMargins(4, 0, 4, 0);
+    m_statusBarLayout->setContentsMargins(8, 0, 8, 0);
     m_statusBarLayout->setSpacing(8);
     m_itemsLabel = new QLabel(indicators);
     m_itemsLabel->setObjectName(QStringLiteral("itemsLabel"));
@@ -1069,7 +1069,7 @@ void MainWindow::setupStatusBar()
     for (Pane *pane : {m_left, m_right}) {
         auto *bar = new QWidget(pane);
         auto *layout = new QHBoxLayout(bar);
-        layout->setContentsMargins(4, 0, 4, 0);
+        layout->setContentsMargins(8, 0, 8, 0);
         layout->setSpacing(8);
         auto *items = new QLabel(bar);
         items->setObjectName(pane == m_left ? QStringLiteral("leftItemsLabel") : QStringLiteral("rightItemsLabel"));

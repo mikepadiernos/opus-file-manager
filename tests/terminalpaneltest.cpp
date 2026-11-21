@@ -19,6 +19,7 @@
 #include <QImage>
 #include <QItemSelectionModel>
 #include <QLabel>
+#include <QLayout>
 #include <QMenu>
 #include <QMessageBox>
 #include <QPointer>
@@ -69,6 +70,22 @@ private Q_SLOTS:
         const QString status = panel.findChild<QLabel *>(QStringLiteral("terminalPanelStatus"))->text();
         QCoreApplication::setLibraryPaths(paths);
         QVERIFY(status.contains(QStringLiteral("not installed")));
+    }
+
+    void headerHasHorizontalPadding()
+    {
+        TerminalPanel panel;
+        auto *header = panel.findChild<QWidget *>(QStringLiteral("terminalPanelHeader"));
+        QVERIFY(header);
+        QVERIFY(header->layout());
+        const QMargins margins = header->layout()->contentsMargins();
+        QVERIFY(margins.left() >= 8);
+        QVERIFY(margins.right() >= 8);
+        auto *status = panel.findChild<QLabel *>(QStringLiteral("terminalPanelStatus"));
+        QVERIFY(status);
+        const QMargins statusMargins = status->parentWidget()->layout()->contentsMargins();
+        QVERIFY(statusMargins.left() >= 8);
+        QVERIFY(statusMargins.right() >= 8);
     }
 
     void terminalRetainsBothPanesAndMovesWithLayout()

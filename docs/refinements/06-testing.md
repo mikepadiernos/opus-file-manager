@@ -1,6 +1,8 @@
 # M30.6 Functional and security testing
 
-[M30 plan](README.md) · [Roadmap](../ROADMAP.md#m306-extensive-functional-and-security-testing)
+**[Refinements](README.md)** ·
+**[Roadmap](../ROADMAP.md#m306-extensive-functional-and-security-testing)** ·
+**[Edge cases](../EDGE.md)**
 
 **Goal:** exercise every implemented functionality and its security-sensitive
 boundaries, record evidence and gaps, and avoid treating test candidates as
@@ -23,8 +25,11 @@ confirmed defects.
    disposable fixtures.
    ([#471](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/471))
 4. Exercise keyboard, pointer, assistive technology, animations, layouts,
-   translations and representative desktop setups. Include missing optional
-   dependencies and local or remote failures; record skipped environments.
+   translations and representative desktop setups. Cover region and pane
+   bindings, sliding and floating panes, placements and restored layouts;
+   include workspace profiles and Activity associations when available.
+   Include missing optional dependencies and local or remote failures; record
+   skipped environments.
    ([#472](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/472))
 5. Conduct documented first-run and experienced-user walkthroughs, including
    keyboard and assistive-technology use. Capture reproducible confusion and

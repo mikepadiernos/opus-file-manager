@@ -1,15 +1,20 @@
-# M30 UI and UX polish
+# M30 Refinements
 
-This is a **proposed, editable plan for review**, not an implementation or
-completion report. Add, remove, reorder or modify steps as needed. The
-[roadmap](../ROADMAP.md#m30-ui-and-ux-polish) defines milestone scope, and
-the [M30 issue](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/28)
-and project board track status. When scope changes are accepted, reconcile
-the roadmap and issues; plan text alone does not change their status.
+**[Documentation](../README.md)** · **[Roadmap](../ROADMAP.md#m30-refinements)** ·
+**[M30 issue](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/28)** ·
+**[Project board](https://github.com/users/mikepadiernos/projects/3)**
 
-Check issue and board state before starting. Follow the
-[project workflow](../../CLAUDE.md#project-workflow); this document does not
-mark work complete.
+Explore editable plans for refining menus, layouts, interaction, settings,
+performance and testing, guided by the [interface design](../philosophy/designs.md).
+
+> [!IMPORTANT]
+> These are proposals for review, not implementation or completion reports.
+> The roadmap defines scope; the issue and board track status. Reconcile
+> accepted scope changes with the roadmap and issues—plan text alone does not
+> change their status.
+
+Before starting, check issue and board state and follow the
+[project workflow](../../CLAUDE.md#project-workflow).
 
 ## Subsection plans
 
@@ -36,7 +41,7 @@ mark work complete.
 4. **Optimize measured bottlenecks:** compare with the baseline, apply startup
    and settings improvements, and evaluate Rust only for suitable measured
    core hotspots. The M15 pilot can inform the decision but is not a reason to
-   block unrelated polish if unavailable.
+   block unrelated refinements if unavailable.
 5. **Run cross-feature validation:** execute the functional, accessibility,
    environment and security plan; investigate findings, retest changes and
    document remaining issues. Testing cannot prove the absence of defects.
