@@ -681,6 +681,12 @@ QWidget *SettingsDialog::createMetadataEditorPage()
 {
     auto *page = new QWidget;
     auto *layout = new QVBoxLayout(page);
+    auto *placement = new QFormLayout;
+    placement->addRow(
+        i18nc("@label:listbox", "Open metadata editor in:"),
+        comboBox(QStringLiteral("MetadataPlacement"),
+                 {i18nc("@item:inlistbox", "Separate window"), i18nc("@item:inlistbox", "Below panes"), i18nc("@item:inlistbox", "Right of panes")}));
+    layout->addLayout(placement);
     layout->addWidget(new QLabel(i18nc("@label", "Initially displayed audio fields:"), page));
     layout->addWidget(checkBox(QStringLiteral("MetadataAudioTitle"), i18nc("@option:check", "Title")));
     layout->addWidget(checkBox(QStringLiteral("MetadataAudioArtist"), i18nc("@option:check", "Artist")));
@@ -1197,6 +1203,9 @@ QWidget *SettingsDialog::createPreviewsPage()
 {
     auto *page = new QWidget;
     auto *form = new QFormLayout(page);
+    form->addRow(i18nc("@label:listbox", "Preview panel placement:"),
+                 comboBox(QStringLiteral("PreviewPlacement"),
+                          {i18nc("@item:inlistbox", "Pane"), i18nc("@item:inlistbox", "Below panes"), i18nc("@item:inlistbox", "Right of panes")}));
     form->addRow(QString(), checkBox(QStringLiteral("ShowPreviews"), i18nc("@option:check", "Show previews in new windows")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowRemotePreviews"), i18nc("@option:check", "Show previews in remote folders")));
     form->addRow(QString(), checkBox(QStringLiteral("PreviewMediaAutoplay"), i18nc("@option:check", "Automatically play audio and video previews")));

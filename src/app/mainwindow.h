@@ -3,6 +3,8 @@
 #pragma once
 
 #include "editorpanel.h"
+#include "metadataeditdialog.h"
+#include "previewpanel.h"
 
 #include <KFileItem>
 #include <KXmlGuiWindow>
@@ -164,11 +166,15 @@ private:
     void restoreSplitterSizes(bool panes = true, bool workspace = true, bool defaultsIfMissing = false);
     void resetSplitterSizes();
     void restoreEditorDockSize();
+    void savePanelDockSize(QDockWidget *dock, const QString &name);
+    void restorePanelDockSize(QDockWidget *dock, const QString &name);
     void updateTabBarPlacement();
     void splitFile();
     void combineFiles();
     void setupEditor();
     void setEditorPlacement(EditorPanel::Placement placement);
+    void setPreviewPlacement(PreviewPanel::Placement placement);
+    void setMetadataPlacement(MetadataEditDialog *dialog, QDockWidget *dock, MetadataEditDialog::Placement placement);
 
     void copyToOtherPane();
     void moveToOtherPane();
@@ -258,10 +264,16 @@ private:
     QDockWidget *m_editorDock = nullptr;
     QDialog *m_editorWindow = nullptr;
     EditorPanel::Placement m_editorPlacement = EditorPanel::Placement::Panel;
+    bool m_movingEditor = false;
     Pane *m_left = nullptr;
     Pane *m_right = nullptr;
     Pane *m_active = nullptr;
     PreviewPanel *m_previewPanel = nullptr;
+    QDockWidget *m_previewDock = nullptr;
+    QList<QPointer<QDockWidget>> m_metadataDocks;
+    int m_metadataDockSerial = 0;
+    PreviewPanel::Placement m_previewPlacement = PreviewPanel::Placement::Pane;
+    bool m_movingPreview = false;
     InformationPanel *m_informationPanel = nullptr;
     ToolbarCustomizer *m_toolbarCustomizer = nullptr;
     Pane *m_hoveredInformationPane = nullptr;

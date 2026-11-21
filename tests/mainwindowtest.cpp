@@ -1784,6 +1784,90 @@ private Q_SLOTS:
         QVERIFY(dialog);
     }
 
+    void metadataPlacementPreservesPendingChanges()
+    {
+        if (QStandardPaths::findExecutable(QStringLiteral("exiftool")).isEmpty()) {
+            QSKIP("ExifTool is not installed");
+        }
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QString path = root.filePath(QStringLiteral("image.jpg"));
+        QImage image(4, 4, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        QVERIFY(image.save(path));
+        Settings::setMetadataPlacement(Settings::EnumMetadataPlacement::Below);
+        MainWindow window;
+        window.resize(1400, 900);
+        window.openUrls({QUrl::fromLocalFile(root.path()), m_b});
+        window.show();
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        view->selectUrls({QUrl::fromLocalFile(path)});
+        auto *action = window.actionCollection()->action(QStringLiteral("edit_metadata"));
+        QTRY_VERIFY(action->isEnabled());
+        action->trigger();
+        auto *dialog = window.findChild<MetadataEditDialog *>(QStringLiteral("metadataEditDialog"));
+        QVERIFY(dialog);
+        auto *dock = qobject_cast<QDockWidget *>(dialog->parentWidget());
+        QVERIFY(dock && dock->isVisible());
+        QCOMPARE(window.dockWidgetArea(dock), Qt::BottomDockWidgetArea);
+        QVERIFY(dialog->isBusy());
+        QVERIFY(!dock->close());
+        QVERIFY(dock->isVisible());
+        QVERIFY(!window.close());
+        QVERIFY(window.isVisible());
+        auto *placeRight = dialog->findChild<QAction *>(QStringLiteral("metadataPlaceRight"));
+        auto *placeBelow = dialog->findChild<QAction *>(QStringLiteral("metadataPlaceBelow"));
+        QVERIFY(placeRight && placeBelow);
+        placeRight->trigger();
+        QCOMPARE(window.dockWidgetArea(dock), Qt::RightDockWidgetArea);
+        placeBelow->trigger();
+        QCOMPARE(window.dockWidgetArea(dock), Qt::BottomDockWidgetArea);
+        auto *preview = dialog->findChild<QPushButton *>(QStringLiteral("metadataPreview"));
+        auto *apply = dialog->findChild<QPushButton *>(QStringLiteral("metadataApply"));
+        QTRY_VERIFY(!dialog->isBusy());
+        QVERIFY2(preview->isEnabled(), qPrintable(dialog->findChild<QLabel *>(QStringLiteral("metadataStatus"))->text()));
+        window.resizeDocks({dock}, {250}, Qt::Vertical);
+        QCoreApplication::processEvents();
+        const int belowHeight = dock->height();
+        auto *artist = dialog->findChild<QLineEdit *>(QStringLiteral("metadataField_Artist"));
+        QVERIFY(artist && apply);
+        artist->setText(QStringLiteral("Pending artist"));
+        preview->click();
+        QVERIFY(apply->isEnabled());
+        view->clearSelection();
+        QCOMPARE(dialog->findChild<QTreeWidget *>(QStringLiteral("metadataChanges"))->topLevelItemCount(), 1);
+        for (const auto &name : {QStringLiteral("metadataPlaceRight"), QStringLiteral("metadataPlaceWindow"), QStringLiteral("metadataPlaceBelow")}) {
+            auto *place = dialog->findChild<QAction *>(name);
+            QVERIFY(place);
+            place->trigger();
+            QCOMPARE(artist->text(), QStringLiteral("Pending artist"));
+            QVERIFY(apply->isEnabled());
+            QCOMPARE(dialog->findChild<QTreeWidget *>(QStringLiteral("metadataChanges"))->topLevelItemCount(), 1);
+        }
+        QCoreApplication::processEvents();
+        QVERIFY(qAbs(dock->height() - belowHeight) < 70);
+        QCOMPARE(Settings::metadataPlacement(), int(Settings::EnumMetadataPlacement::Below));
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::No)->click();
+        });
+        apply->click();
+        QVERIFY(apply->isEnabled());
+        QTimer::singleShot(0, [] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            QVERIFY(box);
+            box->button(QMessageBox::Yes)->click();
+        });
+        apply->click();
+        QTRY_VERIFY_WITH_TIMEOUT(dialog->findChild<QLabel *>(QStringLiteral("metadataStatus"))->text().contains(QStringLiteral("updated and verified")), 15000);
+        QCOMPARE(MetadataEditor::read(path).values.value(QStringLiteral("Artist")), QStringLiteral("Pending artist"));
+        QPointer<MetadataEditDialog> alive(dialog);
+        QVERIFY(dock->close());
+        QTRY_VERIFY(alive.isNull());
+    }
+
     void opensBatchRenameForMultipleLocalItems()
     {
         QTemporaryDir root;
@@ -2219,6 +2303,73 @@ private Q_SLOTS:
         QVERIFY(file.open(QIODevice::ReadOnly));
         const QByteArray saved = file.readAll();
         QVERIFY(saved == QByteArray("after") || saved == QByteArray("after\n"));
+        editor->findChild<QAction *>(QStringLiteral("editorPlaceRight"))->trigger();
+        QCOMPARE(Settings::editorOpening(), Settings::EnumEditorOpening::Embedded);
+        QCOMPARE(Settings::editorEmbeddedPlacement(), Settings::EnumEditorEmbeddedPlacement::Right);
+        auto *dock = window.findChild<QDockWidget *>(QStringLiteral("editorDock"));
+        QVERIFY(dock && dock->isVisible());
+        dock->hide();
+        open->trigger();
+        QVERIFY(dock->isVisible());
+        QVERIFY(editor->document()->text() == QStringLiteral("after") || editor->document()->text() == QStringLiteral("after\n"));
+    }
+
+    void previewPlacementKeepsPanesAndTerminalIndependent()
+    {
+        Settings::setTerminalPlacement(Settings::EnumTerminalPlacement::Below);
+        MainWindow window;
+        window.resize(1600, 1000);
+        window.openUrls({m_a, m_b});
+        window.show();
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        auto *previewAction = window.actionCollection()->action(QStringLiteral("show_preview_panel"));
+        auto *terminalAction = window.actionCollection()->action(QStringLiteral("show_embedded_terminal"));
+        auto *preview = window.findChild<PreviewPanel *>(QStringLiteral("previewPanel"));
+        auto *dock = window.findChild<QDockWidget *>(QStringLiteral("previewDock"));
+        auto *workspace = window.findChild<QSplitter *>(QStringLiteral("workspaceSplitter"));
+        QVERIFY(previewAction && terminalAction && preview && dock && workspace);
+        terminalAction->setChecked(true);
+        const Qt::Orientation terminalOrientation = workspace->orientation();
+        auto *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+        view->selectUrls({QUrl::fromLocalFile(m_root.filePath(QStringLiteral("a/file.txt")))});
+        previewAction->setChecked(true);
+        auto *text = preview->findChild<QPlainTextEdit *>(QStringLiteral("previewText"));
+        QVERIFY(text);
+        QTRY_COMPARE(text->toPlainText(), QStringLiteral("hello"));
+        for (bool stacked : {false, true}) {
+            window.setStackedLayout(stacked);
+            for (const auto &name : {QStringLiteral("previewPlaceBelow"), QStringLiteral("previewPlaceRight")}) {
+                auto *place = preview->findChild<QAction *>(name);
+                QVERIFY(place);
+                place->trigger();
+                QVERIFY(dock->isVisible());
+                QCOMPARE(window.dockWidgetArea(dock), name == QLatin1String("previewPlaceBelow") ? Qt::BottomDockWidgetArea : Qt::RightDockWidgetArea);
+                QVERIFY(window.activePane()->isVisible() && window.inactivePane()->isVisible());
+                QVERIFY(terminalAction->isChecked());
+                QCOMPARE(workspace->orientation(), terminalOrientation);
+                QCOMPARE(text->toPlainText(), QStringLiteral("hello"));
+            }
+        }
+        window.resizeDocks({dock}, {400}, Qt::Horizontal);
+        QCoreApplication::processEvents();
+        const int dockWidth = dock->width();
+        previewAction->setChecked(false);
+        QVERIFY(!dock->isVisible());
+        previewAction->setChecked(true);
+        QVERIFY(dock->isVisible());
+        QCoreApplication::processEvents();
+        QVERIFY(qAbs(dock->width() - dockWidth) < 70);
+        QVERIFY(Settings::previewPlacement() == Settings::EnumPreviewPlacement::Right);
+        MainWindow restored;
+        restored.openUrls({m_a, m_b});
+        restored.show();
+        restored.actionCollection()->action(QStringLiteral("show_preview_panel"))->setChecked(true);
+        auto *restoredDock = restored.findChild<QDockWidget *>(QStringLiteral("previewDock"));
+        QVERIFY(restoredDock && restoredDock->isVisible());
+        QCOMPARE(restored.dockWidgetArea(restoredDock), Qt::RightDockWidgetArea);
+        QVERIFY(dock->close());
+        QVERIFY(!previewAction->isChecked());
     }
 
     void editorUsesConfiguredOpeningPlacement()

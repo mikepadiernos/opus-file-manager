@@ -75,7 +75,10 @@ them.
 - **Preview and edit:** Preview documents and media, browse and edit images in
   a gallery, and edit text in embedded or standalone KTextEditor views. Recover
   drafts, edit or preview Markdown, export it to PDF and edit supported JPEG,
-  TIFF and MP3 metadata fields.
+  TIFF and MP3 metadata fields. Preview and metadata editing can be placed below
+  or to the right of the panes; their placement menus retain the existing pane
+  preview and separate metadata window options. The text editor also offers
+  side-panel, below, right, maximized and separate-window modes.
 - **Terminal and navigation:** Show an embedded Konsole terminal below or beside
   both panes and link navigation between corresponding local folders. The
   terminal panel menu and close button hide the panel without ending sessions;

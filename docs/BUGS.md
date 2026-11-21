@@ -21,6 +21,7 @@ Potential scenarios awaiting investigation are tracked separately in
 | [#446](https://github.com/mikepadiernos/opus-file-manager/issues/446) | Metadata editing fails with an unusable ExifTool installation | Yes | Merged |
 | [#457](https://github.com/mikepadiernos/opus-file-manager/issues/457) | Embedded terminal panel controls and background blur | Yes | Merged |
 | [#476](https://github.com/mikepadiernos/opus-file-manager/issues/476) | Toolbar context menus and symbolic icons | Yes | Merged |
+| [#532](https://github.com/mikepadiernos/opus-file-manager/issues/532) | Consistent panel placement beside or below the panes | Yes | Completed |
 
 ## Status legend
 
@@ -47,6 +48,18 @@ Potential scenarios awaiting investigation are tracked separately in
 None.
 
 ## Completed reports
+
+### Consistent panel placement
+
+- Severity: not assessed
+- Status: Completed; [#532](https://github.com/mikepadiernos/opus-file-manager/issues/532)
+- Summary: Preview, text editor and metadata editor need placement below or
+  right of the panes without losing their existing modes or content.
+- Resolution: Preview and metadata editing offer below/right placement alongside
+  their existing pane and separate-window modes. Editor placement and dock
+  sizes are remembered. Moving metadata editing retains pending fields and
+  preview/apply safeguards; active operations prevent closing. Existing
+  navigation and information docks already allow right-side placement.
 
 ### Toolbar context menus and symbolic icons
 
