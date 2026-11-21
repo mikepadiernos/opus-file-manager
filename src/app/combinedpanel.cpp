@@ -33,6 +33,9 @@
 #include <QSignalBlocker>
 #include <QStyleOptionToolButton>
 #include <QStylePainter>
+#include <QTextBoundaryFinder>
+#include <QTextCharFormat>
+#include <QTextLayout>
 #include <QTimer>
 #include <QToolButton>
 #include <QTreeView>
@@ -40,6 +43,35 @@
 
 namespace
 {
+struct SectionTitle {
+    QString text;
+    int mnemonic = -1;
+};
+
+SectionTitle sectionTitle(const QString &source)
+{
+    SectionTitle result;
+    for (qsizetype i = 0; i < source.size(); ++i) {
+        if (source.at(i) == QLatin1Char('&') && i + 1 < source.size()) {
+            if (source.at(i + 1) == QLatin1Char('&')) {
+                result.text.append(QLatin1Char('&'));
+                ++i;
+            } else if (result.mnemonic < 0) {
+                result.mnemonic = result.text.size();
+            }
+        } else {
+            result.text.append(source.at(i));
+        }
+    }
+    return result;
+}
+
+void setSectionTitle(QToolButton *header, const QString &title)
+{
+    header->setText(title);
+    header->setAccessibleName(sectionTitle(title).text);
+}
+
 class SectionHeader : public QToolButton
 {
 public:
@@ -62,12 +94,49 @@ protected:
         const QRect arrowRect =
             QStyle::visualRect(layoutDirection(), rect(), QRect(width() - margin - arrowSize, (height() - arrowSize) / 2, arrowSize, arrowSize));
         const QRect textRect = QStyle::visualRect(layoutDirection(), rect(), QRect(margin, 0, qMax(0, width() - 3 * margin - arrowSize), height()));
-        painter.drawItemText(textRect,
-                             QStyle::visualAlignment(layoutDirection(), Qt::AlignLeft | Qt::AlignVCenter),
-                             palette(),
-                             isEnabled(),
-                             fontMetrics().elidedText(text(), layoutDirection() == Qt::RightToLeft ? Qt::ElideLeft : Qt::ElideRight, textRect.width()),
-                             QPalette::ButtonText);
+        const SectionTitle title = sectionTitle(text());
+        const bool rtl = layoutDirection() == Qt::RightToLeft;
+        const QString displayed = fontMetrics().elidedText(title.text, rtl ? Qt::ElideLeft : Qt::ElideRight, textRect.width());
+        int mnemonic = title.mnemonic;
+        if (displayed != title.text) {
+            if (rtl && displayed.startsWith(QChar(0x2026))) {
+                mnemonic -= title.text.size() - displayed.size();
+                if (mnemonic <= 0) {
+                    mnemonic = -1;
+                }
+            } else if (!rtl && displayed.endsWith(QChar(0x2026))) {
+                if (mnemonic >= displayed.size() - 1) {
+                    mnemonic = -1;
+                }
+            } else {
+                mnemonic = -1;
+            }
+        }
+        QTextLayout textLayout(displayed, font());
+        QTextOption textOption;
+        textOption.setTextDirection(layoutDirection());
+        textOption.setAlignment(QStyle::visualAlignment(layoutDirection(), Qt::AlignLeft));
+        textLayout.setTextOption(textOption);
+        if (mnemonic >= 0 && mnemonic < displayed.size()) {
+            QTextBoundaryFinder boundary(QTextBoundaryFinder::Grapheme, displayed);
+            boundary.setPosition(mnemonic);
+            const int end = boundary.toNextBoundary();
+            QTextLayout::FormatRange range;
+            range.start = mnemonic;
+            range.length = end > mnemonic ? end - mnemonic : 1;
+            range.format.setUnderlineStyle(QTextCharFormat::SingleUnderline);
+            range.format.setUnderlineColor(option.palette.color(QPalette::Accent));
+            textLayout.setFormats({range});
+        }
+        textLayout.beginLayout();
+        QTextLine line = textLayout.createLine();
+        if (line.isValid()) {
+            line.setLineWidth(textRect.width());
+            line.setPosition(QPointF(0, (textRect.height() - line.height()) / 2));
+        }
+        textLayout.endLayout();
+        painter.setPen(option.palette.color(QPalette::ButtonText));
+        textLayout.draw(&painter, textRect.topLeft());
         QStyleOption arrow;
         arrow.initFrom(this);
         arrow.rect = arrowRect;
@@ -89,7 +158,7 @@ void setSectionExpanded(QToolButton *header, QWidget *content, bool expanded)
 QToolButton *sectionHeader(const QString &title, QWidget *content)
 {
     auto *header = new SectionHeader;
-    header->setText(title);
+    setSectionTitle(header, title);
     header->setAutoRaise(true);
     header->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     header->setCheckable(true);
@@ -138,6 +207,7 @@ public:
         , m_view(new KFilePlacesView(this))
         , m_header(sectionHeader(QString(), m_view))
     {
+        setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
         m_view->setModel(model);
         m_view->setDropOnPlaceEnabled(true);
         m_view->setAutoResizeItemsEnabled(false);
@@ -209,7 +279,7 @@ public:
     void setCustomTitle(const QString &title)
     {
         m_customTitle = title;
-        m_header->setText(title.isEmpty() ? m_defaultTitle : title);
+        setSectionTitle(m_header, title.isEmpty() ? m_defaultTitle : title);
     }
 
     void refresh()
@@ -232,7 +302,7 @@ public:
             }
         }
         m_defaultTitle = title.isEmpty() ? placesGroupTitle(m_type) : title;
-        m_header->setText(m_customTitle.isEmpty() ? m_defaultTitle : m_customTitle);
+        setSectionTitle(m_header, m_customTitle.isEmpty() ? m_defaultTitle : m_customTitle);
         // KFilePlacesView paints its own group header above the first row.
         // Cover that header while leaving its entries and native delegate intact.
         m_header->setFixedHeight(m_view->fontMetrics().height() + 3 * (4 + m_view->spacing()));
@@ -263,6 +333,7 @@ CombinedPanel::CombinedPanel(KFilePlacesModel *places, FavoritesModel *favorites
     m_column->setSpacing(0);
 
     auto *favoritesSection = new QWidget(content);
+    favoritesSection->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
     auto *favoritesLayout = new QVBoxLayout(favoritesSection);
     favoritesLayout->setContentsMargins(0, 0, 0, 0);
     favoritesLayout->setSpacing(0);
@@ -312,6 +383,7 @@ CombinedPanel::CombinedPanel(KFilePlacesModel *places, FavoritesModel *favorites
         });
     }
     auto *treeSection = new QWidget(content);
+    treeSection->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
     auto *treeLayout = new QVBoxLayout(treeSection);
     treeLayout->setContentsMargins(0, 0, 0, 0);
     treeLayout->setSpacing(0);
@@ -421,8 +493,8 @@ void CombinedPanel::applySections()
     m_sectionWidgets.value(QStringLiteral("tree"))->setVisible(m_foldersVisible);
     const QString favoritesTitle = m_sectionTitles.value(QStringLiteral("favorites"));
     const QString treeTitle = m_sectionTitles.value(QStringLiteral("tree"));
-    m_favoritesHeader->setText(favoritesTitle.isEmpty() ? i18nc("@title:group", "Favorites") : favoritesTitle);
-    m_treeHeader->setText(treeTitle.isEmpty() ? i18nc("@title:group", "Tree") : treeTitle);
+    setSectionTitle(m_favoritesHeader, favoritesTitle.isEmpty() ? i18nc("@title:group", "Favorites") : favoritesTitle);
+    setSectionTitle(m_treeHeader, treeTitle.isEmpty() ? i18nc("@title:group", "Tree") : treeTitle);
     for (PlacesSection *section : std::as_const(m_placesSections)) {
         section->setCustomTitle(m_sectionTitles.value(section->key()));
         section->setPanelVisible(m_placesVisible && !m_hiddenSections.contains(section->key()));

@@ -13,6 +13,7 @@
 #include <KFilePlacesView>
 #include <KSharedConfig>
 
+#include <QAccessible>
 #include <QContextMenuEvent>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -20,6 +21,8 @@
 #include <QDockWidget>
 #include <QDropEvent>
 #include <QFile>
+#include <QImage>
+#include <QKeySequence>
 #include <QLayout>
 #include <QLineEdit>
 #include <QListView>
@@ -27,6 +30,8 @@
 #include <QMimeData>
 #include <QPushButton>
 #include <QScopeGuard>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -228,6 +233,194 @@ private Q_SLOTS:
         QVERIFY(panel.folderTree()->isHidden());
         panel.setCollapsedSections({});
         QVERIFY(!panel.folderTree()->isHidden());
+    }
+
+    void mixedSectionsStayAdjacent()
+    {
+        QTemporaryDir configDir;
+        QVERIFY(configDir.isValid());
+        const auto config = KSharedConfig::openConfig(configDir.filePath(QStringLiteral("favorites")));
+        KFilePlacesModel places;
+        const bool remoteHidden = places.isGroupHidden(KFilePlacesModel::RemoteType);
+        places.setGroupHidden(KFilePlacesModel::RemoteType, false);
+        const QUrl remote(QStringLiteral("sftp://example.invalid/spacing-test"));
+        places.addPlace(QStringLiteral("Spacing test remote"), remote);
+        const auto cleanup = qScopeGuard([&] {
+            for (int row = places.rowCount() - 1; row >= 0; --row) {
+                if (places.url(places.index(row, 0)) == remote) {
+                    places.removePlace(places.index(row, 0));
+                }
+            }
+            places.setGroupHidden(KFilePlacesModel::RemoteType, remoteHidden);
+        });
+        FavoritesModel favorites(config->group(QStringLiteral("Favorites")));
+        favorites.add(m_a);
+        CombinedPanel panel(&places, &favorites);
+        panel.setCollapsedSections(
+            {QStringLiteral("tree"), QStringLiteral("places:PlacesType"), QStringLiteral("places:DevicesType"), QStringLiteral("places:RemovableDevicesType")});
+        for (const int height : {300, 800, 1600}) {
+            panel.resize(400, height);
+            panel.show();
+            QVERIFY(QTest::qWaitForWindowExposed(&panel));
+            auto *scroll = panel.findChild<QScrollArea *>();
+            QVERIFY(scroll && scroll->widget());
+            auto *column = scroll->widget()->layout();
+            QVERIFY(column);
+            QTRY_VERIFY(panel.findChild<QToolButton *>(QStringLiteral("places:RemoteType"))->isVisible());
+            QTest::qWait(100);
+            QWidget *previous = nullptr;
+            for (int i = 0; i < column->count(); ++i) {
+                QWidget *section = column->itemAt(i)->widget();
+                if (!section || section->isHidden()) {
+                    continue;
+                }
+                if (previous) {
+                    QCOMPARE(section->geometry().top(), previous->geometry().bottom() + 1);
+                }
+                if (auto *header = section->findChild<QToolButton *>()) {
+                    QCOMPARE(header->geometry().top(), 0);
+                    QCOMPARE(section->height(), section->layout()->sizeHint().height());
+                    if (header->arrowType() == Qt::RightArrow) {
+                        QCOMPARE(section->height(), header->height());
+                    }
+                }
+                previous = section;
+            }
+        }
+        auto *remoteHeader = panel.findChild<QToolButton *>(QStringLiteral("places:RemoteType"));
+        QVERIFY(remoteHeader);
+        QTest::mouseClick(remoteHeader, Qt::LeftButton);
+        QTRY_COMPARE(remoteHeader->parentWidget()->height(), remoteHeader->height());
+        const QStringList collapsed = panel.collapsedSections();
+        panel.setSectionVisibility(true, false, true);
+        panel.setSectionVisibility(true, true, true);
+        QVERIFY(panel.collapsedSections().contains(QStringLiteral("places:RemoteType")));
+        panel.setCollapsedSections(collapsed);
+        QTRY_COMPARE(remoteHeader->parentWidget()->height(), remoteHeader->height());
+        QTest::mouseClick(remoteHeader, Qt::LeftButton);
+        QTRY_COMPARE(remoteHeader->parentWidget()->height(), remoteHeader->parentWidget()->layout()->sizeHint().height());
+        auto *treeHeader = panel.findChild<QToolButton *>(QStringLiteral("tree"));
+        QVERIFY(treeHeader);
+        QTest::mouseClick(treeHeader, Qt::LeftButton);
+        QTRY_COMPARE(treeHeader->parentWidget()->height(), treeHeader->parentWidget()->layout()->sizeHint().height());
+        QCOMPARE(treeHeader->geometry().top(), 0);
+        for (int i = 0; i < 30; ++i) {
+            QVERIFY(favorites.add(QUrl::fromLocalFile(m_root.filePath(QStringLiteral("favorite-%1").arg(i)))));
+        }
+        panel.resize(400, 300);
+        auto *scroll = panel.findChild<QScrollArea *>();
+        QTRY_VERIFY(scroll->verticalScrollBar()->maximum() > 0);
+        scroll->verticalScrollBar()->setValue(scroll->verticalScrollBar()->maximum());
+        scroll->ensureWidgetVisible(treeHeader);
+        const int headerTop = treeHeader->mapTo(scroll->viewport(), QPoint()).y();
+        QVERIFY(headerTop >= 0);
+        QVERIFY(headerTop + treeHeader->height() <= scroll->viewport()->height());
+    }
+
+    void sectionTitlesRenderMnemonics()
+    {
+        QTemporaryDir backupDir;
+        QVERIFY(backupDir.isValid());
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup sections = config->group(QStringLiteral("CombinedPanelSections"));
+        const auto backup = KSharedConfig::openConfig(backupDir.filePath(QStringLiteral("settings")));
+        KConfigGroup saved = backup->group(QStringLiteral("CombinedPanelSections"));
+        sections.copyTo(&saved);
+        const auto cleanup = qScopeGuard([&] {
+            sections.deleteGroup();
+            saved.copyTo(&sections);
+            config->sync();
+        });
+        sections.deleteGroup();
+        sections.group(QStringLiteral("Titles")).writeEntry("favorites", QStringLiteral("R&&D &Zebra"));
+        KFilePlacesModel places;
+        FavoritesModel favorites(config->group(QStringLiteral("Favorites")));
+        CombinedPanel panel(&places, &favorites);
+        panel.resize(400, 600);
+        panel.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&panel));
+        auto *header = panel.findChild<QToolButton *>(QStringLiteral("favorites"));
+        QVERIFY(header);
+        QCOMPARE(header->text(), QStringLiteral("R&&D &Zebra"));
+        QCOMPARE(header->accessibleName(), QStringLiteral("R&D Zebra"));
+        QVERIFY(QAccessible::queryAccessibleInterface(header));
+        QCOMPARE(QAccessible::queryAccessibleInterface(header)->text(QAccessible::Name), QStringLiteral("R&D Zebra"));
+        QCOMPARE(header->shortcut(), QKeySequence::mnemonic(header->text()));
+
+        panel.activateWindow();
+        QTRY_VERIFY(panel.isActiveWindow());
+        const bool initiallyExpanded = header->isChecked();
+        QTest::keyClick(header, Qt::Key_Z, Qt::AltModifier);
+        QTRY_COMPARE(header->isChecked(), !initiallyExpanded);
+
+        QPalette colors = header->palette();
+        colors.setColor(QPalette::Accent, QColor(255, 0, 255));
+        header->setPalette(colors);
+        QImage withMnemonic(header->size(), QImage::Format_ARGB32_Premultiplied);
+        withMnemonic.fill(Qt::transparent);
+        header->render(&withMnemonic);
+        header->setText(QStringLiteral("R&&D Zebra"));
+        QImage withoutMnemonic(header->size(), QImage::Format_ARGB32_Premultiplied);
+        withoutMnemonic.fill(Qt::transparent);
+        header->render(&withoutMnemonic);
+        int accentPixels = 0;
+        for (int y = 0; y < withMnemonic.height(); ++y) {
+            for (int x = 0; x < withMnemonic.width(); ++x) {
+                if (withMnemonic.pixelColor(x, y) != withoutMnemonic.pixelColor(x, y)) {
+                    const QColor color = withMnemonic.pixelColor(x, y);
+                    QVERIFY(color.red() > color.green() && color.blue() > color.green());
+                    ++accentPixels;
+                }
+            }
+        }
+        QVERIFY(accentPixels > 0);
+
+        colors.setColor(QPalette::Accent, QColor(0, 255, 0));
+        header->setPalette(colors);
+        header->setText(QStringLiteral("R&&D &Zebra"));
+        QImage changedAccent(header->size(), QImage::Format_ARGB32_Premultiplied);
+        changedAccent.fill(Qt::transparent);
+        header->render(&changedAccent);
+        int greenPixels = 0;
+        for (int y = 0; y < changedAccent.height(); ++y) {
+            for (int x = 0; x < changedAccent.width(); ++x) {
+                if (changedAccent.pixelColor(x, y) != withoutMnemonic.pixelColor(x, y)) {
+                    const QColor color = changedAccent.pixelColor(x, y);
+                    QVERIFY(color.green() > color.red() && color.green() > color.blue());
+                    ++greenPixels;
+                }
+            }
+        }
+        QVERIFY(greenPixels > 0);
+
+        for (const Qt::LayoutDirection direction : {Qt::LeftToRight, Qt::RightToLeft}) {
+            header->setLayoutDirection(direction);
+            header->resize(60, header->height());
+            header->setText(direction == Qt::LeftToRight ? QStringLiteral("&Z with a very long title") : QStringLiteral("A very long title with &Z"));
+            QImage visibleMnemonic(header->size(), QImage::Format_ARGB32_Premultiplied);
+            visibleMnemonic.fill(Qt::transparent);
+            header->render(&visibleMnemonic);
+            header->setText(direction == Qt::LeftToRight ? QStringLiteral("Z with a very long title") : QStringLiteral("A very long title with Z"));
+            QImage visibleWithoutMnemonic(header->size(), QImage::Format_ARGB32_Premultiplied);
+            visibleWithoutMnemonic.fill(Qt::transparent);
+            header->render(&visibleWithoutMnemonic);
+            QVERIFY(visibleMnemonic != visibleWithoutMnemonic);
+
+            header->setText(direction == Qt::LeftToRight ? QStringLiteral("A very long title with &Z") : QStringLiteral("&Z with a very long title"));
+            QImage clipped(header->size(), QImage::Format_ARGB32_Premultiplied);
+            clipped.fill(Qt::transparent);
+            header->render(&clipped);
+            header->setText(direction == Qt::LeftToRight ? QStringLiteral("A very long title with Z") : QStringLiteral("Z with a very long title"));
+            QImage clippedWithoutMnemonic(header->size(), QImage::Format_ARGB32_Premultiplied);
+            clippedWithoutMnemonic.fill(Qt::transparent);
+            header->render(&clippedWithoutMnemonic);
+            QCOMPARE(clipped, clippedWithoutMnemonic);
+        }
+
+        header->setFocus();
+        const bool expanded = header->isChecked();
+        QTest::keyClick(header, Qt::Key_Space);
+        QCOMPARE(header->isChecked(), !expanded);
     }
 
     void combinedSectionsCanBeCustomizedAndRestored()
