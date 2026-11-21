@@ -25,7 +25,7 @@ Potential scenarios awaiting investigation are tracked separately in
 | [#532](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/532) | Consistent panel placement beside or below the panes | Yes | Merged |
 | [#533](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/533) | Embedded panel titles cannot be hidden like Explorer | Yes | Merged |
 | [#549](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/549) | Combined panel section spacing and title accents | Yes | Merged |
-| [#555](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/555) | Application icon accent color and size | Yes | Completed |
+| [#555](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/555) | Application icon accent color and size | Yes | Merged |
 
 ## Status legend
 
@@ -49,7 +49,7 @@ None.
 ### Application icon accent color and size
 
 - Severity: not assessed
-- Status: Completed; [#555](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/555)
+- Status: Merged; [#555](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/555)
 - Summary: The application icon does not follow the Plasma accent color and
   appears smaller than Dolphin's icon.
 - Expected behaviour: The folder follows the active accent color, has a
