@@ -102,7 +102,7 @@
     </entry>
     <entry name="AlwaysShowTabBar" type="Bool">
       <label>Show the tab bars even when each pane has one tab</label>
-      <default>false</default>
+      <default>true</default>
     </entry>
     <entry name="TabSwitchesPanes" type="Bool">
       <label>The Tab key switches between the panes</label>
@@ -110,7 +110,7 @@
     </entry>
     <entry name="NewTabsAfterCurrent" type="Bool">
       <label>Open new tabs next to the current tab instead of at the end</label>
-      <default>false</default>
+      <default>true</default>
     </entry>
     <entry name="ShowNavigationBar" type="Bool">
       <label>Show the navigation bar of each pane</label>
@@ -146,7 +146,7 @@
     </entry>
     <entry name="DetailsIconSize" type="Int">
       <label>Icon size in the details view</label>
-      <default>16</default>
+      <default>24</default>
       <min>16</min>
       <max>64</max>
     </entry>
@@ -191,7 +191,7 @@
     </entry>
     <entry name="FileListMinimapWidth" type="Int">
       <label>Width of the file-list minimap in pixels</label>
-      <default>14</default>
+      <default>50</default>
       <min>8</min>
       <max>64</max>
     </entry>
@@ -355,7 +355,7 @@
   <group name="Previews">
     <entry name="PreviewPlacement" type="Enum">
       <choices><choice name="Pane"/><choice name="Below"/><choice name="Right"/></choices>
-      <default>Pane</default>
+      <default>Right</default>
     </entry>
     <entry name="PreviewMediaAutoplay" type="Bool"><default>false</default></entry>
     <entry name="PreviewFormatted" type="Bool"><default>true</default></entry>
@@ -363,7 +363,7 @@
     <entry name="PreviewSyntaxHighlighting" type="Bool"><default>true</default></entry>
     <entry name="ShowPreviews" type="Bool">
       <label>Show previews in a new window</label>
-      <default>true</default>
+      <default>false</default>
     </entry>
     <entry name="ShowRemotePreviews" type="Bool">
       <label>Show previews in folders that are not on this computer</label>
@@ -375,7 +375,7 @@
     </entry>
   </group>
   <group name="Terminal">
-    <entry name="TerminalFollowActiveFolder" type="Bool"><default>false</default></entry>
+    <entry name="TerminalFollowActiveFolder" type="Bool"><default>true</default></entry>
     <entry name="TerminalPlacement" type="Enum">
       <label>Position of the embedded terminal</label>
       <choices>
@@ -434,7 +434,7 @@
   <group name="LinkedPanes">
     <entry name="LinkPanesAtStartup" type="Bool">
       <label>Link initial pane navigation at startup</label>
-      <default>false</default>
+      <default>true</default>
     </entry>
   </group>
   <group name="FileDiff">
@@ -537,7 +537,7 @@
     <entry name="GalleryShowThumbnails" type="Bool"><default>true</default></entry>
     <entry name="GalleryShowInformation" type="Bool">
       <label>Show image information in new gallery windows</label>
-      <default>false</default>
+      <default>true</default>
     </entry>
     <entry name="GallerySlideshowInterval" type="Int">
       <label>Slideshow interval in seconds</label>
@@ -570,7 +570,7 @@
     <entry name="FileActivationDestination" type="Enum">
       <label>Where files activated in a pane open</label>
       <choices><choice name="Application"/><choice name="Gallery"/><choice name="Preview"/></choices>
-      <default>Application</default>
+      <default>Preview</default>
     </entry>
   </group>
   <group name="PreviewSettings">
@@ -586,7 +586,7 @@
   <group name="Places">
     <entry name="ShowPlaces" type="Bool">
       <label>Show the Places panel</label>
-      <default>true</default>
+      <default>false</default>
     </entry>
   </group>
   <group name="PanelSettings">
@@ -600,7 +600,7 @@
       <label>Focus the active pane after navigating from a panel</label>
       <default>false</default>
     </entry>
-    <entry name="PanelTitlesVisible" key="TitlesVisible" type="Bool"><default>true</default></entry>
+    <entry name="PanelTitlesVisible" key="TitlesVisible" type="Bool"><default>false</default></entry>
     <entry name="EmbeddedPanelTitlesVisible" type="Bool"><default>true</default></entry>
     <entry name="FavoritesVisible" type="Bool"><default>true</default></entry>
     <entry name="PlacesVisible" type="Bool"><default>true</default></entry>
@@ -671,7 +671,7 @@
     </entry>
     <entry name="InformationHover" type="Bool">
       <label>Show information for the item under the pointer</label>
-      <default>false</default>
+      <default>true</default>
     </entry>
   </group>
   <group name="Confirmations">
@@ -749,7 +749,7 @@
     </entry>
     <entry name="SidebarIconSize" type="Int">
       <label>Size of the settings sidebar icons in pixels</label>
-      <default>24</default>
+      <default>16</default>
       <min>16</min>
       <max>64</max>
     </entry>

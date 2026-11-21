@@ -138,14 +138,15 @@
     <Action name="edit_undo"/>
     <Action name="new_tab"/>
     <Separator/>
-    <Action name="dual_layout"/>
     <Action name="toggle_view_mode"/>
-    <Action name="show_previews"/>
-    <Action name="show_preview_panel"/>
-    <Action name="show_hidden_files"/>
-    <Spacer/>
-    <Action name="open_terminal"/>
+    <Action name="compact_view"/>
     <Action name="open_editor"/>
+    <Action name="show_preview_panel"/>
+    <Spacer/>
+    <Action name="search_folder"/>
+    <Action name="show_filter_bar"/>
+    <Action name="dual_layout"/>
+    <Action name="stacked_layout"/>
     <Action name="hamburger_menu"/>
   </ToolBar>
 </gui>

@@ -867,7 +867,7 @@ private Q_SLOTS:
             const QStringList savedItems = customization.readEntry("Actions", QStringList());
             QVERIFY(savedItems.contains(QStringLiteral("spacer")));
             QCOMPARE(savedItems.count(QStringLiteral("separator")), 2);
-            QVERIFY(savedItems.indexOf(QStringLiteral("spacer")) < savedItems.indexOf(QStringLiteral("action:open_terminal")));
+            QVERIFY(savedItems.indexOf(QStringLiteral("spacer")) < savedItems.indexOf(QStringLiteral("action:search_folder")));
         }
         {
             MainWindow restored;
@@ -889,6 +889,32 @@ private Q_SLOTS:
                                        return action->isSeparator();
                                    }),
                      2);
+        }
+    }
+
+    void defaultPaneToolbarLayout()
+    {
+        QTemporaryDir backupDir;
+        QVERIFY(backupDir.isValid());
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup panes = config->group(QStringLiteral("PaneToolbars"));
+        const auto backup = KSharedConfig::openConfig(backupDir.filePath(QStringLiteral("settings")));
+        KConfigGroup saved = backup->group(QStringLiteral("PaneToolbars"));
+        panes.copyTo(&saved);
+        const auto cleanup = qScopeGuard([&] {
+            panes.deleteGroup();
+            saved.copyTo(&panes);
+            config->sync();
+        });
+        panes.deleteGroup();
+
+        MainWindow window;
+        for (Pane *pane : {window.activePane(), window.inactivePane()}) {
+            const auto actions = pane->toolBar()->actions();
+            QCOMPARE(actions.first()->objectName(), QStringLiteral("paneViewModeButton"));
+            QCOMPARE(actions.at(1)->objectName(), QStringLiteral("paneBack"));
+            QVERIFY(!pane->toolbarAction(QStringLiteral("paneFilter"))->isVisible());
+            QVERIFY(!pane->toolbarAction(QStringLiteral("paneSearch"))->isVisible());
         }
     }
 
@@ -944,6 +970,7 @@ private Q_SLOTS:
             QApplication::sendEvent(target, &event);
             return event.isAccepted();
         };
+        QVERIFY(drop(toolbar, QStringLiteral("palette"), QStringLiteral("action"), QStringLiteral("open_terminal"), QPointF(0, 0)));
         QVERIFY(drop(toolbar, QStringLiteral("palette"), QStringLiteral("action"), QStringLiteral("go_home"), QPointF(0, 0)));
         QCOMPARE(toolbar->actions().first(), home);
         QVERIFY(drop(toolbar, QStringLiteral("palette"), QStringLiteral("separator"), {}, QPointF(toolbar->width(), toolbar->height() / 2.0)));
@@ -1434,14 +1461,14 @@ private Q_SLOTS:
         QVERIFY(dialogOpened);
         QVERIFY(entries);
         QVERIFY(!pane->findChild<QAction *>(QStringLiteral("paneHiddenFiles"))->isVisible());
-        QCOMPARE(toolbar->actions().first()->objectName(), QStringLiteral("paneForward"));
+        QCOMPARE(toolbar->actions().first()->objectName(), QStringLiteral("paneViewModeButton"));
 
         MainWindow restored;
         Pane *restoredPane = restored.activePane();
         auto *restoredToolbar = restoredPane->findChild<QToolBar *>(QStringLiteral("paneToolbar"));
         QVERIFY(restoredToolbar);
         QVERIFY(!restoredPane->findChild<QAction *>(QStringLiteral("paneHiddenFiles"))->isVisible());
-        QCOMPARE(restoredToolbar->actions().first()->objectName(), QStringLiteral("paneForward"));
+        QCOMPARE(restoredToolbar->actions().first()->objectName(), QStringLiteral("paneViewModeButton"));
     }
 
     void splitterSizesAreSavedPerLayout()
@@ -2015,6 +2042,7 @@ private Q_SLOTS:
         QFile::remove(m_root.filePath(QStringLiteral("a/.mfm.json")));
         QFile::remove(m_root.filePath(QStringLiteral("b/.mfm.json")));
         KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Session"));
+        KSharedConfig::openStateConfig()->group(QStringLiteral("Session")).writeEntry("Stacked", false);
         KSharedConfig::openStateConfig()->sync();
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("PopularFolders"));
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("SelectionFilters"));
@@ -2041,6 +2069,16 @@ private Q_SLOTS:
         KSharedConfig::openConfig()->sync();
         Settings::self()->setDefaults();
         Settings::setConfirmClosingMultipleTabs(false);
+        Settings::setLinkPanesAtStartup(false);
+        Settings::setPreviewPlacement(Settings::EnumPreviewPlacement::Pane);
+        Settings::setShowPreviews(true);
+        Settings::setAlwaysShowTabBar(false);
+        Settings::setNewTabsAfterCurrent(false);
+        Settings::setInformationHover(false);
+        Settings::setShowPlaces(true);
+        Settings::setPanelTitlesVisible(true);
+        Settings::setTerminalFollowActiveFolder(false);
+        Settings::setFileActivationDestination(Settings::EnumFileActivationDestination::Application);
         Settings::self()->save();
     }
 

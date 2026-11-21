@@ -656,7 +656,9 @@ void MainWindow::setupPanels()
     connect(m_combinedPanel, &CombinedPanel::urlActivated, this, navigate);
     connect(m_combinedPanel, &CombinedPanel::tabRequested, this, openInTab);
     connect(m_combinedPanel, &CombinedPanel::folderContextMenuRequested, this, &MainWindow::showFolderTreeMenu);
-    m_combinedPanel->setCollapsedSections(panels.readEntry("CollapsedSections", QStringList()));
+    m_combinedPanel->setCollapsedSections(panels.readEntry(
+        "CollapsedSections",
+        QStringList{QStringLiteral("places:PlacesType"), QStringLiteral("places:DevicesType"), QStringLiteral("places:RemovableDevicesType")}));
     connect(m_combinedPanel, &CombinedPanel::urlsDropped, this, [this](const QUrl &destination, QDropEvent *event) {
         FileOperations::drop(event, destination, this);
     });

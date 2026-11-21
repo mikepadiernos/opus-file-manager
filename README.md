@@ -4,7 +4,7 @@ Plasma Opus is a Linux file manager for KDE Plasma, built with C++20, Qt 6 Widge
 and KDE Frameworks 6. It combines dual-pane browsing and power-user tools
 with native KDE file operations, Places and settings.
 
-The latest published MVP is [v0.2.0](https://github.com/mikepadiernos/opus-file-manager/releases/tag/v0.2.0).
+The latest published MVP is [v0.2.0](https://github.com/mikepadiernos/plasma-opus-file-manager/releases/tag/v0.2.0).
 This README describes the current `main` branch, which includes fixes made
 after that release.
 
@@ -35,8 +35,12 @@ Without arguments, the configured startup or restored session is used.
 
 Run `./install.sh` to build and install for the current user, or
 `./install.sh --help` for other options. `./install.sh --default` also changes
-the default folder handler. The installer disables tests in its build tree;
-reconfigure with `-DBUILD_TESTING=ON` to run them.
+the default folder handler. The installer uses `build-plasma` with tests
+disabled; set `OPUSFM_BUILD_DIR` to use another build tree. Uninstall using
+the same build tree used for installation.
+
+If `build` was created before the project folder was renamed, use a fresh
+build directory for the manual build commands above.
 
 Optional integrations include Baloo for indexed search, Konsole for the
 embedded terminal and ExifTool for supported media metadata. See
@@ -44,6 +48,10 @@ embedded terminal and ExifTool for supported media metadata. See
 [translations](po/README.md) for language setup.
 
 ## Features
+
+New windows start with stacked panes, visible tab bars and a right-side
+preview placement. Pane navigation starts linked, and activating most files
+opens them in the preview panel; both behaviors can be changed in Preferences.
 
 - **Browse:** Use side-by-side or stacked panes with tabs, history and session
   restoration. Choose details, icon, compact or flat views, with filtering

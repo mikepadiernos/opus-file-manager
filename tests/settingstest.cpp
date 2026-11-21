@@ -158,6 +158,24 @@ private Q_SLOTS:
         KSharedConfig::openStateConfig()->sync();
     }
 
+    void defaultAppearanceAndBehavior()
+    {
+        QVERIFY(Settings::alwaysShowTabBar());
+        QVERIFY(Settings::newTabsAfterCurrent());
+        QCOMPARE(Settings::detailsIconSize(), 24);
+        QCOMPARE(Settings::fileListMinimapWidth(), 50);
+        QCOMPARE(Settings::previewPlacement(), Settings::EnumPreviewPlacement::Right);
+        QVERIFY(!Settings::showPreviews());
+        QVERIFY(Settings::terminalFollowActiveFolder());
+        QVERIFY(Settings::linkPanesAtStartup());
+        QVERIFY(Settings::galleryShowInformation());
+        QCOMPARE(Settings::fileActivationDestination(), Settings::EnumFileActivationDestination::Preview);
+        QVERIFY(!Settings::showPlaces());
+        QVERIFY(!Settings::panelTitlesVisible());
+        QVERIFY(Settings::informationHover());
+        QCOMPARE(Settings::sidebarIconSize(), 16);
+    }
+
     void dialogHasAWidgetForEverySetting()
     {
         MainWindow window;
@@ -317,6 +335,7 @@ private Q_SLOTS:
 
     void embeddedTitleSettingAppliesIndependently()
     {
+        Settings::setPanelTitlesVisible(true);
         MainWindow window;
         window.openUrls({m_a, m_b});
         window.show();
@@ -420,13 +439,13 @@ private Q_SLOTS:
         QCOMPARE(Settings::galleryBatchQuality(), 77);
         QCOMPARE(Settings::galleryBatchDestination(), m_root.path());
         dialog.button(QDialogButtonBox::RestoreDefaults)->click();
-        QVERIFY(!information->isChecked());
+        QVERIFY(information->isChecked());
         QCOMPARE(interval->value(), 3);
         QVERIFY(loop->isChecked());
         QCOMPARE(textLimit->value(), 1024);
         QCOMPARE(format->currentIndex(), Settings::EnumGalleryCopyFormat::Png);
         QCOMPARE(quality->value(), 90);
-        QCOMPARE(destination->currentIndex(), Settings::EnumFileActivationDestination::Application);
+        QCOMPARE(destination->currentIndex(), Settings::EnumFileActivationDestination::Preview);
         QVERIFY(formatted->isChecked());
         QVERIFY(lineNumbers->isChecked());
         QVERIFY(highlighting->isChecked());
@@ -506,7 +525,7 @@ private Q_SLOTS:
         SettingsDialog dialog(placesOf(window), &window);
         QCOMPARE(dialog.findChild<KPageWidget *>()->faceType(), KPageView::FlatList);
         QVERIFY(sidebarOf(dialog));
-        QCOMPARE(sidebarOf(dialog)->iconSize(), QSize(24, 24));
+        QCOMPARE(sidebarOf(dialog)->iconSize(), QSize(16, 16));
         QCOMPARE(firstPageIconName(dialog), QStringLiteral("configure-symbolic"));
     }
 
@@ -1506,6 +1525,7 @@ private Q_SLOTS:
 
     void alwaysShowTabBar()
     {
+        Settings::setAlwaysShowTabBar(false);
         MainWindow window;
         window.openUrls({});
         window.show();
@@ -1578,6 +1598,8 @@ private Q_SLOTS:
 
     void viewDefaultsApplyToNewWindow()
     {
+        Settings::setLinkPanesAtStartup(false);
+        Settings::setHomeUrl(m_b);
         Settings::setDefaultViewMode(Settings::EnumDefaultViewMode::Icons);
         Settings::setSortColumn(Settings::EnumSortColumn::Size);
         Settings::setSortDescending(true);
@@ -1671,6 +1693,7 @@ private Q_SLOTS:
 
     void previewSettings()
     {
+        Settings::setShowPreviews(true);
         MainWindow window;
         window.openUrls({m_a});
         FolderView *view = window.activePane()->view();
@@ -1721,6 +1744,7 @@ private Q_SLOTS:
 
     void placesPanelVisibility()
     {
+        Settings::setShowPlaces(true);
         MainWindow window;
         window.setPanelLayout(MainWindow::PanelLayout::Separate);
         window.show();
