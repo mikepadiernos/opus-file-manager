@@ -24,7 +24,7 @@ Potential scenarios awaiting investigation are tracked separately in
 | [#476](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/476) | Toolbar context menus and symbolic icons | Yes | Merged |
 | [#532](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/532) | Consistent panel placement beside or below the panes | Yes | Merged |
 | [#533](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/533) | Embedded panel titles cannot be hidden like Explorer | Yes | Merged |
-| [#549](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/549) | Combined panel section spacing and title accents | Yes | Completed |
+| [#549](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/549) | Combined panel section spacing and title accents | Yes | Merged |
 
 ## Status legend
 
@@ -48,7 +48,7 @@ None.
 ### Combined panel section spacing
 
 - Severity: not assessed
-- Status: Completed; [#549](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/549)
+- Status: Merged; [#549](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/549)
 - Summary: Large vertical gaps appear between combined-panel sections when
   some are expanded and others are collapsed. Section titles also display
   ampersands before letters.
