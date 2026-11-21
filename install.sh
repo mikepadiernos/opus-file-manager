@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Builds and installs Opus File Manager. Re-runnable: each step only touches
+# Builds and installs Plasma Opus. Re-runnable: each step only touches
 # what it owns, and --uninstall removes exactly what the install wrote.
 #
 #   ./install.sh                 build + install for the current user (~/.local)
-#   ./install.sh --default       ... and make Opus the default folder handler
+#   ./install.sh --default       ... and make Plasma Opus the default folder handler
 #   ./install.sh --system        build + install under /usr/local (uses sudo)
 #   ./install.sh --deps          print build and optional feature dependencies
 #   ./install.sh --uninstall     remove the install and restore Dolphin
@@ -31,7 +31,7 @@ Options:
   --user             install under ~/.local (default; no root needed)
   --system           install under /usr/local via sudo
   --prefix DIR       install under DIR instead
-  --default          register Opus as the default handler for folders
+  --default          register Plasma Opus as the default handler for folders
   --debug            build with CMAKE_BUILD_TYPE=Debug (default: Release)
   --jobs N           parallel build jobs (default: all cores)
 
@@ -164,7 +164,7 @@ print_deps() {
             echo "  Vulkan headers and the loader enable Qt's optional Vulkan integration." ;;
     esac
     echo "  Document previews and media playback may need additional KParts or Qt Multimedia backends."
-    echo "  Qt Quick Compiler Extensions are optional and are not required by Opus."
+    echo "  Qt Quick Compiler Extensions are optional and are not required by Plasma Opus."
     echo "  Distribution package versions must meet the minimums above."
 }
 
@@ -204,7 +204,7 @@ restore_default_handler() {
                 xdg-mime default org.kde.dolphin.desktop "$mime"
                 echo "folder handler: restored to Dolphin"
             else
-                echo "folder handler: was Opus; pick a new one in System Settings > Applications > Default Applications"
+                echo "folder handler: was Plasma Opus; pick a new one in System Settings > Applications > Default Applications"
             fi
         fi
     done
@@ -247,7 +247,7 @@ say "Installing"
 refresh_desktop_db "$prefix/share/applications"
 
 if [ "$make_default" = 1 ]; then
-    say "Registering Opus as the default folder handler"
+    say "Registering Plasma Opus as the default folder handler"
     set_default_handler
 fi
 
@@ -263,5 +263,5 @@ if [ "$scope" = user ] && ! case ":$PATH:" in *":$HOME/.local/bin:"*) true ;; *)
     echo "note: ~/.local/bin is not on your PATH. The launcher entry works regardless;"
     echo "      to run 'opus-file-manager' from a shell, add ~/.local/bin to PATH."
 fi
-[ "$make_default" = 1 ] || { echo; echo "run './install.sh --default' to make Opus open folders by default."; }
+[ "$make_default" = 1 ] || { echo; echo "run './install.sh --default' to make Plasma Opus open folders by default."; }
 echo "run './install.sh --deps' for optional feature dependencies (Baloo must be present at configure time)."

@@ -59,7 +59,7 @@
   </group>
   <group name="Startup">
     <entry name="StartupMode" type="Enum">
-      <label>What the window shows when Opus starts</label>
+      <label>What the window shows when Plasma Opus starts</label>
       <choices>
         <choice name="RestoreSession"/>
         <choice name="HomeFolder"/>

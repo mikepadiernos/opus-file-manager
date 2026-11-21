@@ -46,7 +46,7 @@ bool applyRegionalLocale(const QString &name, bool reportError)
             QMessageBox::critical(
                 nullptr,
                 i18nc("@title:window", "Invalid Regional Locale"),
-                i18nc("@info", "The configured regional locale %1 is not available. Correct it in the Opus configuration before starting.", name));
+                i18nc("@info", "The configured regional locale %1 is not available. Correct it in the Plasma Opus configuration before starting.", name));
         }
         return false;
     }
@@ -81,7 +81,7 @@ int main(int argc, char **argv)
     }
 
     KAboutData aboutData(QStringLiteral("opus-file-manager"),
-                         i18n("Opus File Manager"),
+                         i18n("Plasma Opus"),
                          QStringLiteral(OPUSFM_VERSION_STRING),
                          i18n("Dual-pane file manager for KDE Plasma"),
                          KAboutLicense::GPL_V3,
@@ -121,15 +121,16 @@ int main(int argc, char **argv)
                              i18nc("@title:window", "Interface Language Unavailable"),
                              i18nc("@info",
                                    "The selected interface language cannot be used because no compatible UTF-8 system message locale is installed. "
-                                   "Opus will use the system language instead."));
+                                   "Plasma Opus will use the system language instead."));
     }
     if (!applyRegionalLocale(Settings::regionalLocale(), true)) {
         return 1;
     }
     if (Settings::numeralStyle() == Settings::EnumNumeralStyle::CustomDigits && !LocalizedNumbers::validCustomNumerals(Settings::customNumerals())) {
-        QMessageBox::critical(nullptr,
-                              i18nc("@title:window", "Invalid Custom Digits"),
-                              i18nc("@info", "Custom digits must contain ten distinct printable symbols. Correct the Opus configuration before starting."));
+        QMessageBox::critical(
+            nullptr,
+            i18nc("@title:window", "Invalid Custom Digits"),
+            i18nc("@info", "Custom digits must contain ten distinct printable symbols. Correct the Plasma Opus configuration before starting."));
         return 1;
     }
     applyLayoutDirection(reverseRequested, Settings::translationDirection());

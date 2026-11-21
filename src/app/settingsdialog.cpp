@@ -303,8 +303,8 @@ QWidget *SettingsDialog::createLanguagePage()
     numeralError->setWordWrap(true);
     layout->addWidget(numeralError);
     auto *notice = new QLabel(i18nc("@info",
-                                    "Restart Opus to fully apply translation settings. Missing translations fall back to the original text. "
-                                    "Custom digit shapes apply to Opus file dates, sizes and selected numeric displays; other numbers, "
+                                    "Restart Plasma Opus to fully apply translation settings. Missing translations fall back to the original text. "
+                                    "Custom digit shapes apply to Plasma Opus file dates, sizes and selected numeric displays; other numbers, "
                                     "including KDE components and editable controls, may use regional or desktop settings."),
                               page);
     notice->setWordWrap(true);
@@ -418,10 +418,11 @@ QWidget *SettingsDialog::createSettingsBackupPage()
 {
     auto *page = new QWidget;
     auto *layout = new QVBoxLayout(page);
-    auto *description = new QLabel(i18nc("@info",
-                                         "Back up Opus settings and window and panel layouts. Current tabs and folder locations, credentials, saved custom "
-                                         "commands and shared KDE/KIO settings are excluded."),
-                                   page);
+    auto *description =
+        new QLabel(i18nc("@info",
+                         "Back up Plasma Opus settings and window and panel layouts. Current tabs and folder locations, credentials, saved custom "
+                         "commands and shared KDE/KIO settings are excluded."),
+                   page);
     description->setWordWrap(true);
     layout->addWidget(description);
 
@@ -444,7 +445,7 @@ void SettingsDialog::createSettingsBackup()
     QString path = QFileDialog::getSaveFileName(this,
                                                 i18nc("@title:window", "Create Settings Backup"),
                                                 defaultPath,
-                                                i18nc("@item:inlistbox", "Opus settings backup (*.tar.gz)"));
+                                                i18nc("@item:inlistbox", "Plasma Opus settings backup (*.tar.gz)"));
     if (path.isEmpty()) {
         return;
     }
@@ -458,7 +459,7 @@ void SettingsDialog::createSettingsBackup()
     }
     QMessageBox::information(this,
                              i18nc("@title:window", "Backup Created"),
-                             i18nc("@info", "The Opus settings backup was saved to %1.", QDir::toNativeSeparators(path)));
+                             i18nc("@info", "The Plasma Opus settings backup was saved to %1.", QDir::toNativeSeparators(path)));
 }
 
 void SettingsDialog::restoreSettingsBackup()
@@ -466,7 +467,7 @@ void SettingsDialog::restoreSettingsBackup()
     const QString path = QFileDialog::getOpenFileName(this,
                                                       i18nc("@title:window", "Restore Settings Backup"),
                                                       QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
-                                                      i18nc("@item:inlistbox", "Opus settings backup (*.tar.gz)"));
+                                                      i18nc("@item:inlistbox", "Plasma Opus settings backup (*.tar.gz)"));
     if (path.isEmpty()) {
         return;
     }
@@ -479,8 +480,8 @@ void SettingsDialog::restoreSettingsBackup()
 
     const QString summary =
         i18nc("@info",
-              "This backup contains:\n%1\n\nIt excludes:\n%2\n\nRestoring replaces Opus settings and window and panel layouts on the next launch. "
-              "The current configuration will remain untouched until you restart Opus. Continue?",
+              "This backup contains:\n%1\n\nIt excludes:\n%2\n\nRestoring replaces Plasma Opus settings and window and panel layouts on the next launch. "
+              "The current configuration will remain untouched until you restart Plasma Opus. Continue?",
               preview.included.join(QLatin1Char('\n')),
               preview.excluded.join(QLatin1Char('\n')));
     if (QMessageBox::question(this, i18nc("@title:window", "Preview Settings Backup"), summary, QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel)
@@ -496,7 +497,7 @@ void SettingsDialog::restoreSettingsBackup()
     QMessageBox prompt(this);
     prompt.setIcon(QMessageBox::Information);
     prompt.setWindowTitle(i18nc("@title:window", "Restore Staged"));
-    prompt.setText(i18nc("@info", "The backup will be applied when Opus starts again."));
+    prompt.setText(i18nc("@info", "The backup will be applied when Plasma Opus starts again."));
     auto *quit = prompt.addButton(i18nc("@action:button", "Quit and Apply on Next Launch"), QMessageBox::AcceptRole);
     prompt.addButton(i18nc("@action:button", "Later"), QMessageBox::RejectRole);
     prompt.exec();
@@ -922,7 +923,7 @@ QWidget *SettingsDialog::createTextEditorPage()
     auto *layout = new QVBoxLayout(page);
     auto *description = new QLabel(i18nc("@info",
                                          "KTextEditor settings are applied and saved in its own configuration dialog. "
-                                         "Opus font size and word wrap settings take precedence in Opus editor views."),
+                                         "Plasma Opus font size and word wrap settings take precedence in Plasma Opus editor views."),
                                    page);
     description->setWordWrap(true);
     layout->addWidget(description);
@@ -1437,8 +1438,8 @@ QWidget *SettingsDialog::createContextMenuActionsPage()
         {QStringLiteral("cut"), i18nc("@item:inlistbox", "Cut")},
         {QStringLiteral("copy"), i18nc("@item:inlistbox", "Copy")},
         {QStringLiteral("paste"), i18nc("@item:inlistbox", "Paste")},
-        {QStringLiteral("copy_to"), i18nc("@item:inlistbox", "Opus Copy to Other Pane / Copy To")},
-        {QStringLiteral("move_to"), i18nc("@item:inlistbox", "Opus Move to Other Pane / Move To")},
+        {QStringLiteral("copy_to"), i18nc("@item:inlistbox", "Plasma Opus Copy to Other Pane / Copy To")},
+        {QStringLiteral("move_to"), i18nc("@item:inlistbox", "Plasma Opus Move to Other Pane / Move To")},
         {QStringLiteral("rename"), i18nc("@item:inlistbox", "Rename")},
         {QStringLiteral("trash"), i18nc("@item:inlistbox", "Move to Trash")},
         {QStringLiteral("delete"), i18nc("@item:inlistbox", "Delete Permanently")},
@@ -1464,7 +1465,7 @@ QWidget *SettingsDialog::createServiceMenusPage()
         localActions->addItem(entry.key, entry.submenu.isEmpty() ? entry.text : i18nc("@item:inlistbox", "%1: %2", entry.submenu, entry.text));
     }
     auto *form = new QFormLayout;
-    form->addRow(i18nc("@label", "Show in Opus:"), bound(localActions, QStringLiteral("HiddenServiceActions"), "hiddenItems"));
+    form->addRow(i18nc("@label", "Show in Plasma Opus:"), bound(localActions, QStringLiteral("HiddenServiceActions"), "hiddenItems"));
     column->addLayout(form);
     for (const ServiceMenuEntry &entry : entries) {
         const QString key = entry.key;

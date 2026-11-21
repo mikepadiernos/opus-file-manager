@@ -133,7 +133,7 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
     Q_UNUSED(currentFolder)
     Q_UNUSED(field)
     Q_UNUSED(progress)
-    result.errors.append(i18nc("@info", "Indexed search is unavailable because Opus was built without Baloo."));
+    result.errors.append(i18nc("@info", "Indexed search is unavailable because Plasma Opus was built without Baloo."));
 #endif
     return result;
 }

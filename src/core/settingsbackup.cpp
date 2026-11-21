@@ -181,7 +181,7 @@ bool readArchive(const QString &archivePath, BackupContents *contents, QString *
     if (!readEntry(QString::fromLatin1(ManifestEntry), &manifest, true) || manifest != QByteArray(ManifestContents)
         || !readEntry(QString::fromLatin1(SettingsEntry), &contents->settings) || !readEntry(QString::fromLatin1(LayoutEntry), &contents->layout)) {
         if (error->isEmpty()) {
-            *error = i18nc("@info", "The selected file is not a supported Opus settings backup.");
+            *error = i18nc("@info", "The selected file is not a supported Plasma Opus settings backup.");
         }
         return false;
     }
@@ -371,7 +371,7 @@ QString SettingsBackup::inspect(const QString &archivePath, Preview *preview)
         return error;
     }
     preview->included = {
-        i18nc("@item:inlistbox", "Opus settings: %1 groups, %2 KiB", groupCount(contents.settings), (contents.settings.size() + 1023) / 1024),
+        i18nc("@item:inlistbox", "Plasma Opus settings: %1 groups, %2 KiB", groupCount(contents.settings), (contents.settings.size() + 1023) / 1024),
         i18nc("@item:inlistbox", "Window and panel layouts: %1 groups, %2 KiB", groupCount(contents.layout), (contents.layout.size() + 1023) / 1024),
     };
     preview->excluded = {i18nc("@item:inlistbox", "Current tabs and folder locations"),
