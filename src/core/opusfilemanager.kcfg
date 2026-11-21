@@ -601,6 +601,7 @@
       <default>false</default>
     </entry>
     <entry name="PanelTitlesVisible" key="TitlesVisible" type="Bool"><default>true</default></entry>
+    <entry name="EmbeddedPanelTitlesVisible" type="Bool"><default>true</default></entry>
     <entry name="FavoritesVisible" type="Bool"><default>true</default></entry>
     <entry name="PlacesVisible" type="Bool"><default>true</default></entry>
     <entry name="FoldersVisible" type="Bool"><default>true</default></entry>

@@ -165,6 +165,7 @@ private Q_SLOTS:
         Settings::setTerminalFollowActiveFolder(true);
         const auto reset = qScopeGuard([] {
             Settings::setTerminalFollowActiveFolder(false);
+            Settings::setEmbeddedPanelTitlesVisible(true);
         });
         MainWindow window;
         window.openUrls({QUrl::fromLocalFile(folder.path())});
@@ -186,6 +187,13 @@ private Q_SLOTS:
         auto *close = panel->findChild<QToolButton *>(QStringLiteral("terminalPanelClose"));
         auto *menuButton = panel->findChild<QToolButton *>(QStringLiteral("terminalPanelMenuButton"));
         QVERIFY(status && dismiss && close && menuButton && menuButton->menu());
+        auto *title = panel->findChild<QLabel *>(QStringLiteral("terminalPanelTitle"));
+        QVERIFY(title && !title->isHidden());
+        Settings::setEmbeddedPanelTitlesVisible(false);
+        window.applySettings();
+        QVERIFY(title->isHidden());
+        QVERIFY(menuButton->isVisible() && close->isVisible());
+        QCOMPARE(terminal->terminalProcessId(), pid);
         if (part->metaObject()->indexOfMethod("setContextMenuAdditionalActions(QList<QAction*>)") >= 0) {
             QWidget *display = nullptr;
             for (auto *widget : part->widget()->findChildren<QWidget *>()) {
@@ -228,6 +236,7 @@ private Q_SLOTS:
         show->setChecked(true);
         QCOMPARE(panel->findChild<KParts::ReadOnlyPart *>(), part);
         QCOMPARE(terminal->terminalProcessId(), pid);
+        QVERIFY(title->isHidden());
         Q_EMIT tabs->tabBar()->customContextMenuRequested(QPoint(2, 2));
         QTRY_VERIFY(menuButton->menu()->isVisible());
         auto *hideAction = menuButton->menu()->findChild<QAction *>(QStringLiteral("terminalPanelHideAction"));
@@ -236,6 +245,10 @@ private Q_SLOTS:
         hideAction->trigger();
         QVERIFY(panel->isHidden());
         QVERIFY(!show->isChecked());
+        QCOMPARE(terminal->terminalProcessId(), pid);
+        Settings::setEmbeddedPanelTitlesVisible(true);
+        window.applySettings();
+        QVERIFY(!title->isHidden());
         QCOMPARE(terminal->terminalProcessId(), pid);
     }
 

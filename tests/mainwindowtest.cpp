@@ -1686,8 +1686,15 @@ private Q_SLOTS:
         QCOMPARE(comment->text(), QStringLiteral("Unavailable"));
         auto *form = qobject_cast<QFormLayout *>(panel->layout());
         QVERIFY(form);
-        QCOMPARE(form->itemAt(0, QFormLayout::FieldRole)->widget()->objectName(), QStringLiteral("informationValue_localPathOrUrl"));
-        QCOMPARE(form->itemAt(1, QFormLayout::FieldRole)->widget()->objectName(), QStringLiteral("informationValue_comment"));
+        int pathRow = -1;
+        int commentRow = -1;
+        QFormLayout::ItemRole pathRole = QFormLayout::SpanningRole;
+        QFormLayout::ItemRole commentRole = QFormLayout::SpanningRole;
+        form->getWidgetPosition(path, &pathRow, &pathRole);
+        form->getWidgetPosition(comment, &commentRow, &commentRole);
+        QCOMPARE(pathRole, QFormLayout::FieldRole);
+        QCOMPARE(commentRole, QFormLayout::FieldRole);
+        QVERIFY(pathRow >= 0 && pathRow < commentRow);
 
         Settings::setInformationHover(true);
         window.applySettings();
@@ -1796,6 +1803,7 @@ private Q_SLOTS:
         image.fill(Qt::red);
         QVERIFY(image.save(path));
         Settings::setMetadataPlacement(Settings::EnumMetadataPlacement::Below);
+        Settings::setEmbeddedPanelTitlesVisible(false);
         MainWindow window;
         window.resize(1400, 900);
         window.openUrls({QUrl::fromLocalFile(root.path()), m_b});
@@ -1810,6 +1818,7 @@ private Q_SLOTS:
         QVERIFY(dialog);
         auto *dock = qobject_cast<QDockWidget *>(dialog->parentWidget());
         QVERIFY(dock && dock->isVisible());
+        QVERIFY(dock->titleBarWidget());
         QCOMPARE(window.dockWidgetArea(dock), Qt::BottomDockWidgetArea);
         QVERIFY(dialog->isBusy());
         QVERIFY(!dock->close());
@@ -1834,6 +1843,14 @@ private Q_SLOTS:
         QVERIFY(artist && apply);
         artist->setText(QStringLiteral("Pending artist"));
         preview->click();
+        QVERIFY(apply->isEnabled());
+        Settings::setEmbeddedPanelTitlesVisible(true);
+        window.applySettings();
+        QVERIFY(!dock->titleBarWidget());
+        Settings::setEmbeddedPanelTitlesVisible(false);
+        window.applySettings();
+        QVERIFY(dock->titleBarWidget());
+        QCOMPARE(artist->text(), QStringLiteral("Pending artist"));
         QVERIFY(apply->isEnabled());
         view->clearSelection();
         QCOMPARE(dialog->findChild<QTreeWidget *>(QStringLiteral("metadataChanges"))->topLevelItemCount(), 1);
@@ -2370,6 +2387,143 @@ private Q_SLOTS:
         QCOMPARE(restored.dockWidgetArea(restoredDock), Qt::RightDockWidgetArea);
         QVERIFY(dock->close());
         QVERIFY(!previewAction->isChecked());
+    }
+
+    void embeddedTitlePreferenceKeepsPanelControlsAndDocumentStatus()
+    {
+        Settings::setPanelTitlesVisible(false);
+        Settings::setEditorOpening(Settings::EnumEditorOpening::Embedded);
+        MainWindow window;
+        window.resize(1600, 1000);
+        window.openUrls({m_a, m_b});
+        window.show();
+        auto *previewAction = window.actionCollection()->action(QStringLiteral("show_preview_panel"));
+        auto *terminalAction = window.actionCollection()->action(QStringLiteral("show_embedded_terminal"));
+        auto *openEditor = window.actionCollection()->action(QStringLiteral("open_editor"));
+        QVERIFY(previewAction && terminalAction && openEditor);
+        terminalAction->setChecked(true);
+        auto *terminal = window.findChild<QWidget *>(QStringLiteral("terminalPanel"));
+        auto *terminalTitle = terminal->findChild<QLabel *>(QStringLiteral("terminalPanelTitle"));
+        QVERIFY(terminalTitle && !terminalTitle->isHidden());
+        QVERIFY(window.findChild<QDockWidget *>(QStringLiteral("combinedDock"))->titleBarWidget());
+        auto *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+        view->selectUrls({QUrl::fromLocalFile(m_root.filePath(QStringLiteral("a/file.txt")))});
+        previewAction->setChecked(true);
+        openEditor->trigger();
+        auto *editor = window.findChild<EditorPanel *>(QStringLiteral("editorPanel"));
+        auto *preview = window.findChild<PreviewPanel *>(QStringLiteral("previewPanel"));
+        QVERIFY(editor && preview);
+        QTRY_COMPARE(editor->document()->text(), QStringLiteral("hello"));
+        QVERIFY(editor->document()->setText(QStringLiteral("unsaved")));
+        auto *editorTitle = editor->findChild<QLabel *>(QStringLiteral("editorTitle"));
+        auto *documentStatus = editor->findChild<QWidget *>(QStringLiteral("editorDocumentStatus"));
+        auto *previewTitle = preview->findChild<QLabel *>(QStringLiteral("previewTitle"));
+        auto *previewHeader = preview->findChild<QHBoxLayout *>(QStringLiteral("previewHeaderLayout"));
+        auto *previewFooter = preview->findChild<QHBoxLayout *>(QStringLiteral("previewFooterLayout"));
+        auto *editorDock = window.findChild<QDockWidget *>(QStringLiteral("editorDock"));
+        auto *previewDock = window.findChild<QDockWidget *>(QStringLiteral("previewDock"));
+        QVERIFY(editorTitle && documentStatus && previewTitle && previewHeader && previewFooter && editorDock && previewDock);
+        QTRY_VERIFY(editorTitle->text().contains(QLatin1Char('*')));
+        QVERIFY(previewHeader->indexOf(previewTitle) >= 0);
+        Settings::setEmbeddedPanelTitlesVisible(false);
+        Settings::self()->save();
+        window.applySettings();
+        QVERIFY(terminalTitle->isHidden());
+        QVERIFY(!terminal->findChild<QToolButton *>(QStringLiteral("terminalPanelMenuButton"))->isHidden());
+        QVERIFY(!terminal->findChild<QToolButton *>(QStringLiteral("terminalPanelClose"))->isHidden());
+        QVERIFY(editorDock->titleBarWidget() && previewDock->titleBarWidget());
+        QVERIFY(!documentStatus->isHidden());
+        QCOMPARE(editorTitle->parentWidget(), documentStatus);
+        QVERIFY(editorTitle->text().contains(QLatin1Char('*')));
+        QCOMPARE(editor->document()->text(), QStringLiteral("unsaved"));
+        QVERIFY(!editor->findChild<QToolButton *>(QStringLiteral("editorPlacement"))->isHidden());
+        QVERIFY(!editor->findChild<QPushButton *>(QStringLiteral("editorHide"))->isHidden());
+        QVERIFY(previewHeader->indexOf(previewTitle) < 0 && previewFooter->indexOf(previewTitle) >= 0);
+        QVERIFY(previewTitle->text().contains(QStringLiteral("file.txt")));
+        QVERIFY(!preview->findChild<QToolButton *>(QStringLiteral("previewPlacement"))->isHidden());
+        QVERIFY(!preview->findChild<QToolButton *>(QStringLiteral("previewClose"))->isHidden());
+        view->clearSelection();
+        QTRY_VERIFY(previewTitle->isHidden());
+        view->selectUrls({QUrl::fromLocalFile(m_root.filePath(QStringLiteral("a/file.txt")))});
+        QTRY_VERIFY(!previewTitle->isHidden());
+        QVERIFY(previewTitle->text().contains(QStringLiteral("file.txt")));
+        auto *information = window.findChild<QDockWidget *>(QStringLiteral("informationDock"));
+        auto *informationAction = window.actionCollection()->action(QStringLiteral("show_information_panel"));
+        QVERIFY(information && informationAction && information->titleBarWidget());
+        information->hide();
+        informationAction->trigger();
+        auto *informationOptions = information->findChild<QToolButton *>(QStringLiteral("informationPanelOptions"));
+        QVERIFY(informationOptions);
+        QTRY_VERIFY(information->isVisible());
+        QTRY_VERIFY(informationOptions->isVisible());
+        auto *informationLeft = information->findChild<QAction *>(QStringLiteral("informationPlaceLeft"));
+        auto *informationRight = information->findChild<QAction *>(QStringLiteral("informationPlaceRight"));
+        auto *informationHide = information->findChild<QAction *>(QStringLiteral("informationHide"));
+        QVERIFY(informationLeft && informationRight && informationHide);
+        informationLeft->trigger();
+        QCOMPARE(window.dockWidgetArea(information), Qt::LeftDockWidgetArea);
+        informationRight->trigger();
+        QCOMPARE(window.dockWidgetArea(information), Qt::RightDockWidgetArea);
+        informationHide->trigger();
+        QVERIFY(information->isHidden() && !informationAction->isChecked());
+        informationAction->trigger();
+        QVERIFY(information->isVisible());
+        for (bool stacked : {false, true}) {
+            window.setStackedLayout(stacked);
+            for (const auto &name : {QStringLiteral("editorPlacePanel"), QStringLiteral("editorPlaceBelow"), QStringLiteral("editorPlaceRight")}) {
+                auto *place = editor->findChild<QAction *>(name);
+                QVERIFY(place);
+                place->trigger();
+                QVERIFY(!documentStatus->isHidden());
+                QCOMPARE(editor->document()->text(), QStringLiteral("unsaved"));
+                QVERIFY(editorTitle->text().contains(QLatin1Char('*')));
+            }
+            for (const auto &name : {QStringLiteral("previewPlaceBelow"), QStringLiteral("previewPlaceRight"), QStringLiteral("previewPlacePane")}) {
+                auto *place = preview->findChild<QAction *>(name);
+                QVERIFY(place);
+                place->trigger();
+                QVERIFY(previewFooter->indexOf(previewTitle) >= 0);
+                QVERIFY(previewTitle->text().contains(QStringLiteral("file.txt")));
+            }
+        }
+        preview->findChild<QToolButton *>(QStringLiteral("previewClose"))->click();
+        QVERIFY(!previewAction->isChecked());
+        previewAction->setChecked(true);
+        QTRY_VERIFY(previewTitle->text().contains(QStringLiteral("file.txt")));
+        QVERIFY(previewFooter->indexOf(previewTitle) >= 0);
+        auto *placeWindow = editor->findChild<QAction *>(QStringLiteral("editorPlaceWindow"));
+        auto *placeBelow = editor->findChild<QAction *>(QStringLiteral("editorPlaceBelow"));
+        QVERIFY(placeWindow && placeBelow);
+        placeWindow->trigger();
+        QVERIFY(documentStatus->isHidden());
+        QVERIFY(!editorTitle->isHidden());
+        QCOMPARE(editor->document()->text(), QStringLiteral("unsaved"));
+        placeBelow->trigger();
+        QVERIFY(!documentStatus->isHidden());
+        editor->findChild<QPushButton *>(QStringLiteral("editorHide"))->click();
+        QVERIFY(editorDock->isHidden());
+        openEditor->trigger();
+        QVERIFY(editorDock->isVisible());
+        QCOMPARE(editor->document()->text(), QStringLiteral("unsaved"));
+        QVERIFY(editorTitle->text().contains(QLatin1Char('*')));
+        Settings::self()->load();
+        MainWindow restored;
+        restored.openUrls({m_a, m_b});
+        restored.show();
+        QVERIFY(restored.findChild<QLabel *>(QStringLiteral("terminalPanelTitle"))->isHidden());
+        QVERIFY(restored.findChild<QDockWidget *>(QStringLiteral("previewDock"))->titleBarWidget());
+        restored.actionCollection()->action(QStringLiteral("open_editor"))->trigger();
+        auto *restoredStatus = restored.findChild<QWidget *>(QStringLiteral("editorDocumentStatus"));
+        QVERIFY(restoredStatus && !restoredStatus->isHidden());
+        Settings::setEmbeddedPanelTitlesVisible(true);
+        window.applySettings();
+        QVERIFY(!terminalTitle->isHidden());
+        QVERIFY(!editorDock->titleBarWidget() && !previewDock->titleBarWidget());
+        QVERIFY(!information->titleBarWidget() && informationOptions->isHidden());
+        QVERIFY(documentStatus->isHidden());
+        QVERIFY(previewHeader->indexOf(previewTitle) >= 0);
+        QCOMPARE(editor->document()->text(), QStringLiteral("unsaved"));
     }
 
     void editorUsesConfiguredOpeningPlacement()

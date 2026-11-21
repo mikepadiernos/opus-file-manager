@@ -94,19 +94,20 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
     addPlacement(i18nc("@action", "Maximized"), QStringLiteral("editorPlaceMaximized"), Placement::Maximized);
     addPlacement(i18nc("@action", "Separate Window"), QStringLiteral("editorPlaceWindow"), Placement::Window);
     auto *hide = new QPushButton(i18nc("@action", "Hide"), this);
-    auto *header = new QHBoxLayout;
-    header->addWidget(m_title, 1);
-    header->addWidget(open);
-    header->addWidget(save);
-    header->addWidget(saveAs);
-    header->addWidget(m_sourceMode);
-    header->addWidget(m_visualMode);
-    header->addWidget(preview);
-    header->addWidget(pdf);
-    header->addWidget(placement);
-    header->addWidget(hide);
+    hide->setObjectName(QStringLiteral("editorHide"));
+    m_header = new QHBoxLayout;
+    m_header->addWidget(m_title, 1);
+    m_header->addWidget(open);
+    m_header->addWidget(save);
+    m_header->addWidget(saveAs);
+    m_header->addWidget(m_sourceMode);
+    m_header->addWidget(m_visualMode);
+    m_header->addWidget(preview);
+    m_header->addWidget(pdf);
+    m_header->addWidget(placement);
+    m_header->addWidget(hide);
     auto *layout = new QVBoxLayout(this);
-    layout->addLayout(header);
+    layout->addLayout(m_header);
     m_recovery = new QWidget(this);
     m_recovery->setObjectName(QStringLiteral("editorDraftRecovery"));
     auto *recoveryLayout = new QHBoxLayout(m_recovery);
@@ -169,6 +170,12 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
     splitter->addWidget(m_preview);
     m_preview->hide();
     layout->addWidget(splitter, 1);
+    m_documentStatus = new QWidget(this);
+    m_documentStatus->setObjectName(QStringLiteral("editorDocumentStatus"));
+    m_documentStatusLayout = new QHBoxLayout(m_documentStatus);
+    m_documentStatusLayout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(m_documentStatus);
+    m_documentStatus->hide();
     connect(open, &QPushButton::clicked, this, [this] {
         const QUrl url = QFileDialog::getOpenFileUrl(this, i18nc("@title:window", "Open Text File"));
         if (!url.isEmpty()) {
@@ -452,6 +459,22 @@ KTextEditor::Document *EditorPanel::document() const
 void EditorPanel::updateTitle()
 {
     m_title->setText(m_document->documentName() + (m_document->isModified() ? QStringLiteral(" *") : QString()));
+}
+
+void EditorPanel::setPanelTitleVisible(bool visible)
+{
+    if (m_panelTitleVisible == visible) {
+        return;
+    }
+    m_panelTitleVisible = visible;
+    if (visible) {
+        m_header->insertWidget(0, m_title, 1);
+        m_documentStatus->hide();
+    } else {
+        m_documentStatusLayout->addWidget(m_title, 1);
+        m_documentStatus->show();
+    }
+    m_title->show();
 }
 
 void EditorPanel::setVisualMode(bool visual)

@@ -26,6 +26,7 @@ public:
     ~TerminalPanel() override;
     void start(const QUrl &folder);
     void follow(const QUrl &folder);
+    void setTitleVisible(bool visible);
 
 Q_SIGNALS:
     void blurRegionChanged(const QRegion &region);
@@ -43,6 +44,7 @@ private:
 
     QVBoxLayout *m_layout;
     QLabel *m_status;
+    QLabel *m_title;
     QWidget *m_statusRow;
     QMenu *m_panelMenu;
     QTabWidget *m_tabs;

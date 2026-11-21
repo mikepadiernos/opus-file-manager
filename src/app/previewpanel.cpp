@@ -294,15 +294,19 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     m_renderedText->setLineWrapMode(QTextEdit::NoWrap);
 
     auto *close = new QToolButton(this);
+    close->setObjectName(QStringLiteral("previewClose"));
     close->setIcon(SymbolicIcon::fromTheme(QStringLiteral("window-close")));
     close->setToolTip(i18nc("@info:tooltip", "Close preview"));
+    close->setAccessibleName(i18nc("@action", "Close preview"));
     connect(close, &QToolButton::clicked, this, &PreviewPanel::closeRequested);
-    auto *header = new QHBoxLayout;
-    header->addWidget(m_title, 1);
+    m_header = new QHBoxLayout;
+    m_header->setObjectName(QStringLiteral("previewHeaderLayout"));
+    m_header->addWidget(m_title, 1);
     auto *placement = new QToolButton(this);
     placement->setObjectName(QStringLiteral("previewPlacement"));
     placement->setIcon(SymbolicIcon::fromTheme(QStringLiteral("configure")));
     placement->setToolTip(i18nc("@info:tooltip", "Preview panel placement"));
+    placement->setAccessibleName(i18nc("@action", "Preview panel placement"));
     placement->setPopupMode(QToolButton::InstantPopup);
     auto *placementMenu = new QMenu(placement);
     m_placementActions = new QActionGroup(placementMenu);
@@ -365,26 +369,40 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     });
     connect(m_gallery, &QToolButton::clicked, this, &PreviewPanel::galleryRequested);
     connect(m_open, &QToolButton::clicked, this, &PreviewPanel::openRequested);
-    header->addWidget(m_previous);
-    header->addWidget(m_next);
-    header->addWidget(m_gallery);
-    header->addWidget(m_renderMode);
-    header->addWidget(m_autoplay);
-    header->addWidget(placement);
-    header->addWidget(close);
+    m_header->addWidget(m_previous);
+    m_header->addWidget(m_next);
+    m_header->addWidget(m_gallery);
+    m_header->addWidget(m_renderMode);
+    m_header->addWidget(m_autoplay);
+    m_header->addWidget(placement);
+    m_header->addWidget(close);
 
     m_content->addWidget(m_message);
     m_content->addWidget(m_imageLabel);
     m_content->addWidget(m_text);
     m_content->addWidget(m_renderedText);
     auto *layout = new QVBoxLayout(this);
-    layout->addLayout(header);
+    layout->addLayout(m_header);
     layout->addWidget(m_content, 1);
-    auto *footer = new QHBoxLayout;
-    footer->addWidget(m_footer, 1);
-    footer->addWidget(m_open);
-    layout->addLayout(footer);
+    m_footerLayout = new QHBoxLayout;
+    m_footerLayout->setObjectName(QStringLiteral("previewFooterLayout"));
+    m_footerLayout->addWidget(m_footer, 1);
+    m_footerLayout->addWidget(m_open);
+    layout->addLayout(m_footerLayout);
     clear();
+}
+
+void PreviewPanel::setTitleVisible(bool visible)
+{
+    if (m_titleVisible != visible) {
+        m_titleVisible = visible;
+        if (visible) {
+            m_header->insertWidget(0, m_title, 1);
+        } else {
+            m_footerLayout->insertWidget(0, m_title, 1);
+        }
+    }
+    m_title->setVisible(visible || !m_url.isEmpty());
 }
 
 void PreviewPanel::setPlacement(Placement placement)
@@ -438,6 +456,7 @@ void PreviewPanel::setItems(const KFileItemList &items, const QList<QUrl> &image
                           && (item.mimetype().startsWith(QLatin1String("image/")) || item.mimetype().startsWith(QLatin1String("video/"))));
     m_open->setEnabled(true);
     m_title->setText(imageIndex >= 0 ? i18nc("@title", "%1 (%2 of %3)", item.text(), imageIndex + 1, m_images.size()) : item.text());
+    m_title->show();
     const qint64 textLimit = qint64(Settings::textPreviewLimitKiB()) * 1024;
     if (item.url() == m_url && textLimit == m_textLimit) {
         return;
@@ -534,6 +553,7 @@ void PreviewPanel::clear()
     clearMedia();
     clearRemotePreview();
     m_title->setText(i18nc("@title", "Preview"));
+    m_title->setVisible(m_titleVisible);
     m_footer->clear();
     m_previous->setEnabled(false);
     m_next->setEnabled(false);

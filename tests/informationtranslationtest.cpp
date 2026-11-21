@@ -25,7 +25,9 @@ private Q_SLOTS:
         panel.setFields({QStringLiteral("size")});
         auto *form = qobject_cast<QFormLayout *>(panel.layout());
         QVERIFY(form);
-        auto *label = qobject_cast<QLabel *>(form->itemAt(0, QFormLayout::LabelRole)->widget());
+        auto *value = panel.findChild<QLabel *>(QStringLiteral("informationValue_size"));
+        QVERIFY(value);
+        auto *label = qobject_cast<QLabel *>(form->labelForField(value));
         QVERIFY(label);
         QCOMPARE(label->text(), QString::fromUtf8("اندازه"));
         KLocalizedString::clearLanguages();

@@ -13,6 +13,7 @@ class View;
 }
 class QLabel;
 class QComboBox;
+class QHBoxLayout;
 class QPushButton;
 class QStackedWidget;
 class QTextBrowser;
@@ -36,6 +37,7 @@ public:
     bool openUrl(const QUrl &url);
     bool queryClose();
     void applySettings();
+    void setPanelTitleVisible(bool visible);
     KTextEditor::Document *document() const;
 
 Q_SIGNALS:
@@ -54,6 +56,10 @@ private:
     KTextEditor::Document *m_document = nullptr;
     KTextEditor::View *m_view = nullptr;
     QLabel *m_title = nullptr;
+    QHBoxLayout *m_header = nullptr;
+    QWidget *m_documentStatus = nullptr;
+    QHBoxLayout *m_documentStatusLayout = nullptr;
+    bool m_panelTitleVisible = true;
     QTextBrowser *m_preview = nullptr;
     QTextEdit *m_visual = nullptr;
     QStackedWidget *m_editorStack = nullptr;

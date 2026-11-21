@@ -1267,7 +1267,12 @@ QWidget *SettingsDialog::createPanelAppearancePage()
     form->addRow({}, checkBox(QStringLiteral("PanelAutoFocus"), i18nc("@option:check", "Follow the active folder in the tree")));
     form->addRow({},
                  checkBox(QStringLiteral("AutoFocusPaneAfterPanelNavigation"), i18nc("@option:check", "Focus the active pane after navigating from a panel")));
-    form->addRow({}, checkBox(QStringLiteral("PanelTitlesVisible"), i18nc("@option:check", "Show panel title bars")));
+    form->addRow({}, checkBox(QStringLiteral("PanelTitlesVisible"), i18nc("@option:check", "Show navigation panel title bars")));
+    auto *embeddedTitles = checkBox(QStringLiteral("EmbeddedPanelTitlesVisible"), i18nc("@option:check", "Show embedded panel titles"));
+    embeddedTitles->setToolTip(i18nc("@info:tooltip",
+                                     "Show titles for the terminal, preview, editor, metadata editor and information panels. "
+                                     "Controls and document information remain available when titles are hidden."));
+    form->addRow({}, embeddedTitles);
     form->addRow(i18nc("@title:group", "Combined panel sections:"), checkBox(QStringLiteral("FavoritesVisible"), i18nc("@option:check", "Favorites")));
     form->addRow({}, checkBox(QStringLiteral("PlacesVisible"), i18nc("@option:check", "Places")));
     form->addRow({}, checkBox(QStringLiteral("FoldersVisible"), i18nc("@option:check", "Folder tree")));
