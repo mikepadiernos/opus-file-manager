@@ -22,7 +22,7 @@ Potential scenarios awaiting investigation are tracked separately in
 | [#457](https://github.com/mikepadiernos/opus-file-manager/issues/457) | Embedded terminal panel controls and background blur | Yes | Merged |
 | [#476](https://github.com/mikepadiernos/opus-file-manager/issues/476) | Toolbar context menus and symbolic icons | Yes | Merged |
 | [#532](https://github.com/mikepadiernos/opus-file-manager/issues/532) | Consistent panel placement beside or below the panes | Yes | Merged |
-| [#533](https://github.com/mikepadiernos/opus-file-manager/issues/533) | Embedded panel titles cannot be hidden like Explorer | No | Backlog |
+| [#533](https://github.com/mikepadiernos/opus-file-manager/issues/533) | Embedded panel titles cannot be hidden like Explorer | Yes | Completed |
 
 ## Status legend
 
@@ -46,25 +46,22 @@ Potential scenarios awaiting investigation are tracked separately in
 
 ## Open reports
 
+None.
+
+## Completed reports
+
 ### Hide embedded panel titles
 
 - Severity: not assessed
-- Status: Backlog; [#533](https://github.com/mikepadiernos/opus-file-manager/issues/533)
-- Summary: The reporter requests that embedded panel titles can be hidden like
-  the Explorer panel title.
-- Expected behaviour: Provide a discoverable, persistent way to hide and
-  restore titles on applicable embedded panels, including terminal, preview
-  and text editor; review the metadata editor and other applicable panels.
-  Keep essential controls and accessible ways to configure and hide panels,
-  editor document and unsaved-state information, content, placement and
-  terminal sessions available. Preserve existing defaults and preferences.
-- Investigation: The existing "Show panel title bars" setting applies to
-  Explorer, Places and Folders dock title bars. Embedded panel headers have
-  separate titles and controls. Coordinate with the panel-placement work in
-  [#532](https://github.com/mikepadiernos/opus-file-manager/issues/532) and
-  verify both pane layouts, supported placements and restart restoration.
-
-## Completed reports
+- Status: Completed; [#533](https://github.com/mikepadiernos/opus-file-manager/issues/533)
+- Summary: Embedded panel titles should be hideable without losing controls,
+  document status, metadata changes or terminal sessions.
+- Resolution: Panel Appearance offers a separate, persistent embedded-title
+  preference for the terminal, preview, text editor, metadata editor and
+  information panel. Controls remain available, document identity and unsaved
+  status move out of the title area, and the information panel supplies a
+  placement and hide menu when its dock title is hidden. Existing navigation
+  title preferences and separate-window decorations remain unchanged.
 
 ### Consistent panel placement
 
