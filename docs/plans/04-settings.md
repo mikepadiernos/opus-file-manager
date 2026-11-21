@@ -396,43 +396,43 @@ These are options for review, not changes to the tree above:
    category sidebar, scoped subcolumn and content tabs while preserving the
    existing visual styling, settings and navigation state; test narrow and
    accessible layouts.
-   ([#221](https://github.com/mikepadiernos/opus-file-manager/issues/221),
-   [#400](https://github.com/mikepadiernos/opus-file-manager/issues/400))
+   ([#221](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/221),
+   [#400](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/400))
 2. Add settings search by name and description, direct navigation to a
    matching control, favorite pages and clearable keyboard-accessible filters
    for suitable long lists. Preserve hidden entries and unsaved edits.
-   ([#220](https://github.com/mikepadiernos/opus-file-manager/issues/220),
-   [#544](https://github.com/mikepadiernos/opus-file-manager/issues/544),
-   [#545](https://github.com/mikepadiernos/opus-file-manager/issues/545))
+   ([#220](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/220),
+   [#544](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/544),
+   [#545](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/545))
 3. Clarify Apply, OK, Cancel and dismissal with pending edits; restore live
    previews when cancellation can actually do so. Explain immediately applied
    actions and external KDE changes separately.
-   ([#222](https://github.com/mikepadiernos/opus-file-manager/issues/222),
-   [#396](https://github.com/mikepadiernos/opus-file-manager/issues/396),
-   [#490](https://github.com/mikepadiernos/opus-file-manager/issues/490))
+   ([#222](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/222),
+   [#396](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/396),
+   [#490](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/490))
 4. Add actionable inline validation and contextual help. Explain unavailable
    dependencies, setting scope and effective-value precedence without changing
    the underlying rules.
-   ([#224](https://github.com/mikepadiernos/opus-file-manager/issues/224),
-   [#227](https://github.com/mikepadiernos/opus-file-manager/issues/227),
-   [#395](https://github.com/mikepadiernos/opus-file-manager/issues/395))
+   ([#224](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/224),
+   [#227](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/227),
+   [#395](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/395))
 5. Implement explicit page or all-page defaults and clarify backup, restore
    and reset boundaries, including a preview of affected app-owned settings,
    excluded credentials and shared KDE data. Preserve M12 confirmations and
    restart requirements.
-   ([#223](https://github.com/mikepadiernos/opus-file-manager/issues/223),
-   [#398](https://github.com/mikepadiernos/opus-file-manager/issues/398))
+   ([#223](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/223),
+   [#398](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/398))
 6. Verify persistence, save failures and conflicting external changes across
    windows and restarts. Keep large lists and provider data responsive;
    coordinate lazy loading and measurement with [performance](05-performance.md).
-   ([#397](https://github.com/mikepadiernos/opus-file-manager/issues/397),
-   [#399](https://github.com/mikepadiernos/opus-file-manager/issues/399))
+   ([#397](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/397),
+   [#399](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/399))
 7. Check keyboard access, focus, accessible errors, small windows, high DPI,
    long translations and right-to-left layouts. Add focused tests for search,
    validation, cancellation, defaults, persistence and shared effects.
-   ([#225](https://github.com/mikepadiernos/opus-file-manager/issues/225),
-   [#226](https://github.com/mikepadiernos/opus-file-manager/issues/226),
-   [#401](https://github.com/mikepadiernos/opus-file-manager/issues/401))
+   ([#225](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/225),
+   [#226](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/226),
+   [#401](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/401))
 
 ## Review decisions
 

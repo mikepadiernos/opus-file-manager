@@ -7,7 +7,7 @@ targets feature parity with Max File Manager; upstream behaviour is recorded in
 `docs/parity/backend.md` and `docs/parity/ui.md`.
 
 The latest published MVP is
-[v0.2.0](https://github.com/mikepadiernos/opus-file-manager/releases/tag/v0.2.0);
+[v0.2.0](https://github.com/mikepadiernos/plasma-opus-file-manager/releases/tag/v0.2.0);
 this roadmap tracks current `main` and future work. M15 advanced search is the
 next planned milestone.
 
@@ -1321,44 +1321,44 @@ Follow the [project instructions](../CLAUDE.md) for issue tracking, completion,
 branching and merging. Record blocked work in [pending tasks](TODO.md) and
 document feature limitations in [caveats and limitations](CAVEATS.md).
 
-[#36]: https://github.com/mikepadiernos/opus-file-manager/issues/36
-[#255]: https://github.com/mikepadiernos/opus-file-manager/issues/255
-[#256]: https://github.com/mikepadiernos/opus-file-manager/issues/256
-[#257]: https://github.com/mikepadiernos/opus-file-manager/issues/257
-[#258]: https://github.com/mikepadiernos/opus-file-manager/issues/258
-[#259]: https://github.com/mikepadiernos/opus-file-manager/issues/259
-[#260]: https://github.com/mikepadiernos/opus-file-manager/issues/260
-[#261]: https://github.com/mikepadiernos/opus-file-manager/issues/261
-[#262]: https://github.com/mikepadiernos/opus-file-manager/issues/262
-[#263]: https://github.com/mikepadiernos/opus-file-manager/issues/263
-[#264]: https://github.com/mikepadiernos/opus-file-manager/issues/264
-[#265]: https://github.com/mikepadiernos/opus-file-manager/issues/265
-[#266]: https://github.com/mikepadiernos/opus-file-manager/issues/266
-[#267]: https://github.com/mikepadiernos/opus-file-manager/issues/267
-[#302]: https://github.com/mikepadiernos/opus-file-manager/issues/302
-[#303]: https://github.com/mikepadiernos/opus-file-manager/issues/303
-[#304]: https://github.com/mikepadiernos/opus-file-manager/issues/304
-[#307]: https://github.com/mikepadiernos/opus-file-manager/issues/307
-[#309]: https://github.com/mikepadiernos/opus-file-manager/issues/309
-[#311]: https://github.com/mikepadiernos/opus-file-manager/issues/311
-[#312]: https://github.com/mikepadiernos/opus-file-manager/issues/312
-[#314]: https://github.com/mikepadiernos/opus-file-manager/issues/314
-[#315]: https://github.com/mikepadiernos/opus-file-manager/issues/315
-[#316]: https://github.com/mikepadiernos/opus-file-manager/issues/316
-[#317]: https://github.com/mikepadiernos/opus-file-manager/issues/317
-[#318]: https://github.com/mikepadiernos/opus-file-manager/issues/318
-[#321]: https://github.com/mikepadiernos/opus-file-manager/issues/321
-[#322]: https://github.com/mikepadiernos/opus-file-manager/issues/322
-[#335]: https://github.com/mikepadiernos/opus-file-manager/issues/335
-[#336]: https://github.com/mikepadiernos/opus-file-manager/issues/336
-[#362]: https://github.com/mikepadiernos/opus-file-manager/issues/362
-[#372]: https://github.com/mikepadiernos/opus-file-manager/issues/372
-[#373]: https://github.com/mikepadiernos/opus-file-manager/issues/373
-[#374]: https://github.com/mikepadiernos/opus-file-manager/issues/374
-[#375]: https://github.com/mikepadiernos/opus-file-manager/issues/375
-[#376]: https://github.com/mikepadiernos/opus-file-manager/issues/376
-[#377]: https://github.com/mikepadiernos/opus-file-manager/issues/377
-[#406]: https://github.com/mikepadiernos/opus-file-manager/issues/406
-[#433]: https://github.com/mikepadiernos/opus-file-manager/issues/433
-[#434]: https://github.com/mikepadiernos/opus-file-manager/issues/434
-[#436]: https://github.com/mikepadiernos/opus-file-manager/issues/436
+[#36]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/36
+[#255]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/255
+[#256]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/256
+[#257]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/257
+[#258]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/258
+[#259]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/259
+[#260]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/260
+[#261]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/261
+[#262]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/262
+[#263]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/263
+[#264]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/264
+[#265]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/265
+[#266]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/266
+[#267]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/267
+[#302]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/302
+[#303]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/303
+[#304]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/304
+[#307]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/307
+[#309]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/309
+[#311]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/311
+[#312]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/312
+[#314]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/314
+[#315]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/315
+[#316]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/316
+[#317]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/317
+[#318]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/318
+[#321]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/321
+[#322]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/322
+[#335]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/335
+[#336]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/336
+[#362]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/362
+[#372]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/372
+[#373]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/373
+[#374]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/374
+[#375]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/375
+[#376]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/376
+[#377]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/377
+[#406]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/406
+[#433]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/433
+[#434]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/434
+[#436]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/436
