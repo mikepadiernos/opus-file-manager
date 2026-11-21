@@ -110,7 +110,7 @@ target_link_libraries(opusfm_app
         KF6::XmlGui
 )
 
-add_executable(opus-file-manager main.cpp)
+add_executable(opus-file-manager main.cpp applicationicon.qrc)
 
 target_link_libraries(opus-file-manager
     PRIVATE
@@ -127,3 +127,4 @@ configure_file(org.kde.opusfilemanager.desktop.in ${CMAKE_CURRENT_BINARY_DIR}/or
 
 install(TARGETS opus-file-manager ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/org.kde.opusfilemanager.desktop DESTINATION ${KDE_INSTALL_APPDIR})
+install(FILES org.kde.opusfilemanager.svg DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps)

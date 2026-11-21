@@ -89,7 +89,7 @@ int main(int argc, char **argv)
     aboutData.addAuthor(i18n("Mike Padiernos"), i18n("Author"));
     aboutData.setDesktopFileName(QStringLiteral("org.kde.opusfilemanager"));
     KAboutData::setApplicationData(aboutData);
-    QApplication::setWindowIcon(QIcon::fromTheme(QStringLiteral("system-file-manager")));
+    QApplication::setWindowIcon(QIcon::fromTheme(QStringLiteral("org.kde.opusfilemanager"), QIcon(QStringLiteral(":/icons/org.kde.opusfilemanager.svg"))));
 
     KCrash::initialize();
 
