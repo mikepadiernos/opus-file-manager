@@ -1,9 +1,8 @@
 # Opus documentation
 
-Start with the [project README](../README.md) for features, build instructions
-and important limitations. It describes the current `main` branch; the latest
-published MVP is [v0.2.0](https://github.com/mikepadiernos/opus-file-manager/releases/tag/v0.2.0).
-Use the documents below for details.
+Start with the [project README](../README.md) for the current application,
+build instructions and important safety notes. Use the documents below for
+details and status.
 
 ## Project documents
 
@@ -16,15 +15,13 @@ Use the documents below for details.
 | [Reported bugs](BUGS.md) | Bug reports and completion status |
 | [Caveats and limitations](CAVEATS.md) | Restrictions, dependencies and workarounds |
 | [Edge cases](EDGE.md) | Potential boundary conditions and test scenarios |
+| [M30 polish plans](plans/README.md) | Editable designs and proposed execution order |
 | [Translations](../po/README.md) | Catalogue extraction, installation and fallback |
 | [Project instructions](../CLAUDE.md) | Development conventions and workflows |
 
-The next planned milestone is [advanced search](ROADMAP.md#m15-advanced-search).
-Later plans include [UI/UX polish](ROADMAP.md#m30-ui-and-ux-polish), including
-accessibility, motion controls, performance improvements and functional and
-security testing. See the [bug log](BUGS.md) for open reports and
-[edge cases](EDGE.md) for unconfirmed scenarios rather than treating plans or
-test candidates as completed work.
+The roadmap is authoritative for milestone scope and completion. Plans and
+edge cases are proposals and test candidates, not completion claims or
+confirmed bugs.
 
 ## Behaviour references
 

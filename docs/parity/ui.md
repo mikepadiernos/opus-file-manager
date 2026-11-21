@@ -1,9 +1,9 @@
 # Max File Manager UI inventory
 
-Source: `max-file-manager/src/renderer/src/` (Electron + React), as reviewed
-for this project. This is a reference snapshot of Max, not a description of
-implemented Opus features or necessarily the latest upstream version. See the
-[roadmap](../ROADMAP.md) for Opus's feature status and KDE adaptations.
+Source: `max-file-manager/src/renderer/src/` (Electron + React). This reviewed
+Max snapshot is an upstream reference, not current Opus behavior or
+necessarily the latest upstream version. See the [roadmap](../ROADMAP.md)
+for Opus's feature status and KDE adaptations.
 
 ## 1. Window layout
 
