@@ -292,6 +292,29 @@ private Q_SLOTS:
         QCOMPARE(Settings::editorPdfMarginLeft(), 20);
     }
 
+    void panelPlacementSettingsApply()
+    {
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        action(window, QStringLiteral("show_preview_panel"))->setChecked(true);
+        action(window, QStringLiteral("options_configure"))->trigger();
+        auto *dialog = window.findChild<SettingsDialog *>();
+        QVERIFY(dialog);
+        auto *preview = dialog->findChild<QComboBox *>(QStringLiteral("kcfg_PreviewPlacement"));
+        auto *metadata = dialog->findChild<QComboBox *>(QStringLiteral("kcfg_MetadataPlacement"));
+        QVERIFY(preview && metadata);
+        preview->setCurrentIndex(Settings::EnumPreviewPlacement::Right);
+        metadata->setCurrentIndex(Settings::EnumMetadataPlacement::Below);
+        dialog->button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::previewPlacement(), Settings::EnumPreviewPlacement::Right);
+        QCOMPARE(Settings::metadataPlacement(), Settings::EnumMetadataPlacement::Below);
+        auto *dock = window.findChild<QDockWidget *>(QStringLiteral("previewDock"));
+        QVERIFY(dock && dock->isVisible());
+        QCOMPARE(window.dockWidgetArea(dock), Qt::RightDockWidgetArea);
+        dialog->close();
+    }
+
     void opensNativeTextEditorConfiguration()
     {
         MainWindow window;

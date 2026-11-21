@@ -136,6 +136,32 @@ constexpr auto SelectionFiltersGroup = "SelectionFilters";
 constexpr auto WindowLayoutGroup = "WindowLayout";
 constexpr auto SplitterSizesGroup = "SplitterSizes";
 
+class MetadataDock : public QDockWidget
+{
+public:
+    MetadataDock(MetadataEditDialog *dialog, QWidget *parent)
+        : QDockWidget(i18nc("@title:window", "Edit Metadata"), parent)
+        , m_dialog(dialog)
+    {
+    }
+
+protected:
+    void closeEvent(QCloseEvent *event) override
+    {
+        if (m_dialog) {
+            m_dialog->reject();
+            if (m_dialog && m_dialog->isBusy()) {
+                event->ignore();
+                return;
+            }
+        }
+        event->accept();
+    }
+
+private:
+    QPointer<MetadataEditDialog> m_dialog;
+};
+
 QString flatKey(const QUrl &url)
 {
     return url.adjusted(QUrl::StripTrailingSlash).toString();
@@ -399,6 +425,12 @@ void MainWindow::setupPanes()
     m_splitter->addWidget(m_right);
     m_splitter->addWidget(m_previewPanel);
     m_previewPanel->hide();
+    m_previewDock = new QDockWidget(i18nc("@title:window", "Preview"), this);
+    m_previewDock->setObjectName(QStringLiteral("previewDock"));
+    m_previewDock->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::RightDockWidgetArea);
+    m_previewDock->setFeatures(QDockWidget::DockWidgetClosable);
+    addDockWidget(Qt::BottomDockWidgetArea, m_previewDock);
+    m_previewDock->hide();
     m_splitter->setStretchFactor(0, 1);
     m_splitter->setStretchFactor(1, 1);
     m_terminalPanel = new TerminalPanel(m_workspaceSplitter);
@@ -1469,12 +1501,24 @@ void MainWindow::setupActions()
     connect(m_previewPanelAction, &KToggleAction::toggled, this, [this](bool shown) {
         toggleLayout(m_dualLayoutAction->isChecked());
         if (shown) {
+            restorePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
             updatePreviewPanel();
         } else {
             m_previewPanel->clear();
         }
     });
     connect(m_previewPanel, &PreviewPanel::closeRequested, m_previewPanelAction, &QAction::trigger);
+    connect(m_previewPanel, &PreviewPanel::placementRequested, this, [this](PreviewPanel::Placement placement) {
+        Settings::setPreviewPlacement(static_cast<Settings::EnumPreviewPlacement::type>(placement));
+        Settings::self()->save();
+        setPreviewPlacement(placement);
+    });
+    connect(m_previewDock, &QDockWidget::visibilityChanged, this, [this] {
+        if (!m_movingPreview && m_previewDock->isHidden() && m_previewPlacement != PreviewPanel::Placement::Pane) {
+            savePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
+            m_previewPanelAction->setChecked(false);
+        }
+    });
     connect(m_previewPanel, &PreviewPanel::galleryRequested, this, &MainWindow::openGallery);
     connect(m_previewPanel, &PreviewPanel::imageRequested, this, [this](const QUrl &url) {
         activePane()->view()->selectUrls({url});
@@ -1800,6 +1844,23 @@ bool MainWindow::queryClose()
     }
     if (m_editor && !m_editor->queryClose()) {
         return false;
+    }
+    for (MetadataEditDialog *dialog : findChildren<MetadataEditDialog *>()) {
+        if (dialog->isBusy()) {
+            dialog->reject();
+            return false;
+        }
+    }
+    if (m_editorDock && !m_editorDock->isHidden()) {
+        savePanelDockSize(m_editorDock, QStringLiteral("EditorDock"));
+    }
+    if (m_previewDock && !m_previewDock->isHidden()) {
+        savePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
+    }
+    for (const auto &dock : std::as_const(m_metadataDocks)) {
+        if (dock && !dock->isHidden()) {
+            savePanelDockSize(dock, QStringLiteral("MetadataDock"));
+        }
     }
     const auto galleries = findChildren<GalleryWindow *>(QString(), Qt::FindDirectChildrenOnly);
     for (GalleryWindow *gallery : galleries) {
@@ -2404,7 +2465,27 @@ void MainWindow::setupEditor()
     m_editorWindow->setWindowTitle(i18nc("@title:window", "Editor"));
     m_editorWindow->resize(900, 650);
     new QVBoxLayout(m_editorWindow);
-    connect(m_editor, &EditorPanel::placementRequested, this, &MainWindow::setEditorPlacement);
+    connect(m_editor, &EditorPanel::placementRequested, this, [this](EditorPanel::Placement placement) {
+        switch (placement) {
+        case EditorPanel::Placement::Panel:
+            Settings::setEditorOpening(Settings::EnumEditorOpening::Panel);
+            break;
+        case EditorPanel::Placement::Below:
+        case EditorPanel::Placement::Right:
+            Settings::setEditorOpening(Settings::EnumEditorOpening::Embedded);
+            Settings::setEditorEmbeddedPlacement(placement == EditorPanel::Placement::Below ? Settings::EnumEditorEmbeddedPlacement::Below
+                                                                                            : Settings::EnumEditorEmbeddedPlacement::Right);
+            break;
+        case EditorPanel::Placement::Maximized:
+            Settings::setEditorOpening(Settings::EnumEditorOpening::Maximized);
+            break;
+        case EditorPanel::Placement::Window:
+            Settings::setEditorOpening(Settings::EnumEditorOpening::Window);
+            break;
+        }
+        Settings::self()->save();
+        setEditorPlacement(placement);
+    });
     connect(m_editor, &EditorPanel::hideRequested, this, [this] {
         switch (m_editorPlacement) {
         case EditorPanel::Placement::Panel:
@@ -2412,6 +2493,7 @@ void MainWindow::setupEditor()
             break;
         case EditorPanel::Placement::Below:
         case EditorPanel::Placement::Right:
+            savePanelDockSize(m_editorDock, QStringLiteral("EditorDock"));
             m_editorDock->hide();
             break;
         case EditorPanel::Placement::Maximized:
@@ -2422,12 +2504,23 @@ void MainWindow::setupEditor()
         toggleLayout(m_dualLayoutAction->isChecked());
     });
     connect(m_editorDock, &QDockWidget::visibilityChanged, this, [this] {
+        if (m_movingEditor) {
+            return;
+        }
+        if (m_editorDock->isHidden() && m_editorDock->widget() == m_editor
+            && (m_editorPlacement == EditorPanel::Placement::Below || m_editorPlacement == EditorPanel::Placement::Right)) {
+            savePanelDockSize(m_editorDock, QStringLiteral("EditorDock"));
+        }
         toggleLayout(m_dualLayoutAction->isChecked());
     });
 }
 
 void MainWindow::setEditorPlacement(EditorPanel::Placement placement)
 {
+    const QScopedValueRollback<bool> moving(m_movingEditor, true);
+    if (!m_editorDock->isHidden()) {
+        savePanelDockSize(m_editorDock, QStringLiteral("EditorDock"));
+    }
     m_editorPlacement = placement;
     m_editorWindow->hide();
     m_editorDock->hide();
@@ -3285,7 +3378,72 @@ void MainWindow::editMetadata()
     }
     auto *dialog = new MetadataEditDialog(items.first().url().toLocalFile(), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
-    dialog->show();
+    auto *dock = new MetadataDock(dialog, this);
+    dock->setObjectName(QStringLiteral("metadataEditorDock%1").arg(++m_metadataDockSerial));
+    dock->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::RightDockWidgetArea);
+    dock->setFeatures(QDockWidget::DockWidgetClosable);
+    m_metadataDocks.append(dock);
+    connect(dialog, &QDialog::finished, dock, &QObject::deleteLater);
+    connect(dialog, &QDialog::finished, this, [this, dock] {
+        m_metadataDocks.removeAll(dock);
+    });
+    connect(dock, &QDockWidget::visibilityChanged, this, [this, dock](bool visible) {
+        if (!visible && dock->isHidden() && dock->property("opusPanelShown").toBool()) {
+            savePanelDockSize(dock, QStringLiteral("MetadataDock"));
+        }
+    });
+    connect(dialog, &MetadataEditDialog::placementRequested, this, [this, dialog, dock](MetadataEditDialog::Placement placement) {
+        Settings::setMetadataPlacement(static_cast<Settings::EnumMetadataPlacement::type>(placement));
+        Settings::self()->save();
+        setMetadataPlacement(dialog, dock, placement);
+    });
+    setMetadataPlacement(dialog, dock, static_cast<MetadataEditDialog::Placement>(Settings::metadataPlacement()));
+}
+
+void MainWindow::setMetadataPlacement(MetadataEditDialog *dialog, QDockWidget *dock, MetadataEditDialog::Placement placement)
+{
+    if (!dock->isHidden()) {
+        savePanelDockSize(dock, QStringLiteral("MetadataDock"));
+    }
+    dialog->hide();
+    dock->hide();
+    if (placement == MetadataEditDialog::Placement::Window) {
+        dialog->setParent(this, Qt::Dialog);
+        dialog->show();
+    } else {
+        addDockWidget(placement == MetadataEditDialog::Placement::Below ? Qt::BottomDockWidgetArea : Qt::RightDockWidgetArea, dock);
+        dialog->setParent(dock, Qt::Widget);
+        dock->setWidget(dialog);
+        dock->show();
+        dock->setProperty("opusPanelShown", true);
+        dialog->show();
+        restorePanelDockSize(dock, QStringLiteral("MetadataDock"));
+    }
+    dialog->setPlacement(placement);
+}
+
+void MainWindow::setPreviewPlacement(PreviewPanel::Placement placement)
+{
+    if (placement == m_previewPlacement && (placement == PreviewPanel::Placement::Pane || m_previewDock->widget() == m_previewPanel)) {
+        m_previewPanel->setPlacement(placement);
+        return;
+    }
+    const QScopedValueRollback<bool> moving(m_movingPreview, true);
+    if (!m_previewDock->isHidden()) {
+        savePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
+    }
+    m_previewDock->hide();
+    m_previewPanel->setParent(nullptr);
+    m_previewPlacement = placement;
+    if (placement == PreviewPanel::Placement::Pane) {
+        m_splitter->insertWidget(2, m_previewPanel);
+    } else {
+        addDockWidget(placement == PreviewPanel::Placement::Below ? Qt::BottomDockWidgetArea : Qt::RightDockWidgetArea, m_previewDock);
+        m_previewDock->setWidget(m_previewPanel);
+    }
+    m_previewPanel->setPlacement(placement);
+    toggleLayout(m_dualLayoutAction->isChecked());
+    restorePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
 }
 
 void MainWindow::showTransferQueue()
@@ -3407,9 +3565,13 @@ void MainWindow::toggleLayout(bool dual)
         && ((m_editorPlacement == EditorPanel::Placement::Panel && !m_editor->isHidden())
             || ((m_editorPlacement == EditorPanel::Placement::Below || m_editorPlacement == EditorPanel::Placement::Right) && !m_editorDock->isHidden()));
     const bool terminalShown = m_terminalPanelAction && m_terminalPanelAction->isChecked();
-    m_left->setVisible((dual && (!preview || editorEmbedded || terminalShown)) || activePane() == m_left);
+    const bool previewInPane = preview && m_previewPlacement == PreviewPanel::Placement::Pane;
+    m_left->setVisible((dual && (!previewInPane || editorEmbedded || terminalShown)) || activePane() == m_left);
     if (!m_secondPaneInTab && !m_rightWindow) {
-        m_right->setVisible((dual && (!preview || editorEmbedded || terminalShown)) || activePane() == m_right);
+        m_right->setVisible((dual && (!previewInPane || editorEmbedded || terminalShown)) || activePane() == m_right);
+    }
+    if (m_previewPlacement != PreviewPanel::Placement::Pane) {
+        m_previewDock->setVisible(preview);
     }
     m_previewPanel->setVisible(preview);
     const bool rightIsVisible = !m_secondPaneInTab && !m_rightWindow && !m_right->isHidden();
@@ -3471,6 +3633,14 @@ void MainWindow::saveSplitterSizes()
         if (dimension > 0) {
             group.writeEntry(right ? "EditorDockRight" : "EditorDockBelow",
                              qBound(1, int(qint64(right ? m_editorDock->width() : m_editorDock->height()) * 10000 / dimension), 6000));
+        }
+    }
+    if (!m_previewDock->isHidden()) {
+        savePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
+    }
+    for (const auto &dock : std::as_const(m_metadataDocks)) {
+        if (dock && !dock->isHidden()) {
+            savePanelDockSize(dock, QStringLiteral("MetadataDock"));
         }
     }
     state->sync();
@@ -3573,6 +3743,39 @@ void MainWindow::restoreEditorDockSize()
     }
 }
 
+void MainWindow::savePanelDockSize(QDockWidget *dock, const QString &name)
+{
+    if (!dock || dock->isFloating()) {
+        return;
+    }
+    const bool right = dockWidgetArea(dock) == Qt::RightDockWidgetArea;
+    const int dimension = right ? width() : height();
+    if (dimension <= 0) {
+        return;
+    }
+    const auto state = KSharedConfig::openStateConfig();
+    KConfigGroup group = state->group(QLatin1String(SplitterSizesGroup)).group(QLatin1String(isStackedLayout() ? "Stacked" : "SideBySide"));
+    group.writeEntry(name + (right ? QStringLiteral("Right") : QStringLiteral("Below")),
+                     qBound(1, int(qint64(right ? dock->width() : dock->height()) * 10000 / dimension), 6000));
+    state->sync();
+}
+
+void MainWindow::restorePanelDockSize(QDockWidget *dock, const QString &name)
+{
+    if (!dock || dock->isHidden() || dock->isFloating()) {
+        return;
+    }
+    const KConfigGroup group =
+        KSharedConfig::openStateConfig()->group(QLatin1String(SplitterSizesGroup)).group(QLatin1String(isStackedLayout() ? "Stacked" : "SideBySide"));
+    const bool right = dockWidgetArea(dock) == Qt::RightDockWidgetArea;
+    const QString key = name + (right ? QStringLiteral("Right") : QStringLiteral("Below"));
+    if (group.hasKey(key)) {
+        const int dimension = right ? width() : height();
+        const int fraction = qBound(1, group.readEntry(key, 2500), 6000);
+        resizeDocks({dock}, {qMax(1, int(qint64(dimension) * fraction / 10000))}, right ? Qt::Horizontal : Qt::Vertical);
+    }
+}
+
 void MainWindow::resetSplitterSizes()
 {
     const auto state = KSharedConfig::openStateConfig();
@@ -3580,6 +3783,10 @@ void MainWindow::resetSplitterSizes()
     group.deleteGroup();
     group.writeEntry("EditorDockRight", 2500);
     group.writeEntry("EditorDockBelow", 2500);
+    group.writeEntry("PreviewDockRight", 2500);
+    group.writeEntry("PreviewDockBelow", 2500);
+    group.writeEntry("MetadataDockRight", 2500);
+    group.writeEntry("MetadataDockBelow", 2500);
     state->sync();
     m_splitter->setSizes(QList<int>(m_splitter->count(), 1));
     m_workspaceSplitter->setSizes({3, 1});
@@ -3587,16 +3794,37 @@ void MainWindow::resetSplitterSizes()
         const bool right = dockWidgetArea(m_editorDock) == Qt::RightDockWidgetArea;
         resizeDocks({m_editorDock}, {qMax(1, (right ? width() : height()) / 4)}, right ? Qt::Horizontal : Qt::Vertical);
     }
+    restorePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
+    for (const auto &dock : std::as_const(m_metadataDocks)) {
+        restorePanelDockSize(dock, QStringLiteral("MetadataDock"));
+    }
 }
 
 void MainWindow::setStackedLayout(bool stacked)
 {
     const bool changed = isStackedLayout() != stacked;
+    if (changed) {
+        if (m_editorDock && !m_editorDock->isHidden()) {
+            savePanelDockSize(m_editorDock, QStringLiteral("EditorDock"));
+        }
+        if (!m_previewDock->isHidden()) {
+            savePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
+        }
+        for (const auto &dock : std::as_const(m_metadataDocks)) {
+            if (dock && !dock->isHidden()) {
+                savePanelDockSize(dock, QStringLiteral("MetadataDock"));
+            }
+        }
+    }
     m_stackedLayoutAction->setChecked(stacked);
     m_splitter->setOrientation(stacked ? Qt::Vertical : Qt::Horizontal);
     updateTerminalPlacement();
     restoreSplitterSizes(true, true, changed);
     restoreEditorDockSize();
+    restorePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
+    for (const auto &dock : std::as_const(m_metadataDocks)) {
+        restorePanelDockSize(dock, QStringLiteral("MetadataDock"));
+    }
     updateTabBarPlacement();
 }
 
@@ -3765,6 +3993,7 @@ void MainWindow::applySettings()
         shortcuts.prepend(QKeySequence(Qt::Key_Tab));
     }
     switchPane->setShortcuts(shortcuts);
+    setPreviewPlacement(static_cast<PreviewPanel::Placement>(Settings::previewPlacement()));
     m_previewPanel->applyPresentationSettings();
     updatePreviewPanel();
     updateActions();

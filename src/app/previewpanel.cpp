@@ -21,6 +21,7 @@
 #include <KSyntaxHighlighting/SyntaxHighlighter>
 #include <KSyntaxHighlighting/Theme>
 
+#include <QActionGroup>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -30,6 +31,7 @@
 #include <QLabel>
 #include <QLocale>
 #include <QMediaPlayer>
+#include <QMenu>
 #include <QMimeDatabase>
 #include <QPaintEvent>
 #include <QPainter>
@@ -297,6 +299,28 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     connect(close, &QToolButton::clicked, this, &PreviewPanel::closeRequested);
     auto *header = new QHBoxLayout;
     header->addWidget(m_title, 1);
+    auto *placement = new QToolButton(this);
+    placement->setObjectName(QStringLiteral("previewPlacement"));
+    placement->setIcon(SymbolicIcon::fromTheme(QStringLiteral("configure")));
+    placement->setToolTip(i18nc("@info:tooltip", "Preview panel placement"));
+    placement->setPopupMode(QToolButton::InstantPopup);
+    auto *placementMenu = new QMenu(placement);
+    m_placementActions = new QActionGroup(placementMenu);
+    m_placementActions->setExclusive(true);
+    const auto addPlacement = [this, placementMenu](const QString &name, const QString &text, Placement value) {
+        QAction *action = placementMenu->addAction(text);
+        action->setObjectName(name);
+        action->setCheckable(true);
+        action->setData(static_cast<int>(value));
+        m_placementActions->addAction(action);
+        connect(action, &QAction::triggered, this, [this, value] {
+            Q_EMIT placementRequested(value);
+        });
+    };
+    addPlacement(QStringLiteral("previewPlacePane"), i18nc("@action", "Pane"), Placement::Pane);
+    addPlacement(QStringLiteral("previewPlaceBelow"), i18nc("@action", "Below Panes"), Placement::Below);
+    addPlacement(QStringLiteral("previewPlaceRight"), i18nc("@action", "Right of Panes"), Placement::Right);
+    placement->setMenu(placementMenu);
     m_previous->setObjectName(QStringLiteral("previewPrevious"));
     m_next->setObjectName(QStringLiteral("previewNext"));
     m_gallery->setObjectName(QStringLiteral("previewGallery"));
@@ -346,6 +370,7 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     header->addWidget(m_gallery);
     header->addWidget(m_renderMode);
     header->addWidget(m_autoplay);
+    header->addWidget(placement);
     header->addWidget(close);
 
     m_content->addWidget(m_message);
@@ -360,6 +385,13 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     footer->addWidget(m_open);
     layout->addLayout(footer);
     clear();
+}
+
+void PreviewPanel::setPlacement(Placement placement)
+{
+    for (QAction *action : m_placementActions->actions()) {
+        action->setChecked(action->data().toInt() == static_cast<int>(placement));
+    }
 }
 
 PreviewPanel::~PreviewPanel()

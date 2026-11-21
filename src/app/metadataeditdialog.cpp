@@ -6,14 +6,17 @@
 
 #include <KLocalizedString>
 
+#include <QActionGroup>
 #include <QCheckBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QToolButton>
 #include <QTreeWidget>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
@@ -47,11 +50,34 @@ MetadataEditDialog::MetadataEditDialog(const QString &path, QWidget *parent)
     , m_changes(new QTreeWidget(this))
     , m_preview(new QPushButton(i18nc("@action:button", "Preview"), this))
     , m_apply(new QPushButton(i18nc("@action:button", "Apply"), this))
+    , m_placementActions(new QActionGroup(this))
 {
     setObjectName(QStringLiteral("metadataEditDialog"));
     setWindowTitle(i18nc("@title:window", "Edit Metadata"));
     resize(750, 450);
     auto *layout = new QVBoxLayout(this);
+    auto *placement = new QToolButton(this);
+    placement->setObjectName(QStringLiteral("metadataPlacement"));
+    placement->setText(i18nc("@action:button", "Placement"));
+    placement->setToolTip(i18nc("@info:tooltip", "Metadata editor placement"));
+    placement->setPopupMode(QToolButton::InstantPopup);
+    auto *menu = new QMenu(placement);
+    m_placementActions->setExclusive(true);
+    const auto addPlacement = [this, menu](const QString &name, const QString &text, Placement value) {
+        QAction *action = menu->addAction(text);
+        action->setObjectName(name);
+        action->setCheckable(true);
+        action->setData(static_cast<int>(value));
+        m_placementActions->addAction(action);
+        connect(action, &QAction::triggered, this, [this, value] {
+            Q_EMIT placementRequested(value);
+        });
+    };
+    addPlacement(QStringLiteral("metadataPlaceWindow"), i18nc("@action", "Separate Window"), Placement::Window);
+    addPlacement(QStringLiteral("metadataPlaceBelow"), i18nc("@action", "Below Panes"), Placement::Below);
+    addPlacement(QStringLiteral("metadataPlaceRight"), i18nc("@action", "Right of Panes"), Placement::Right);
+    placement->setMenu(menu);
+    layout->addWidget(placement, 0, Qt::AlignRight);
     auto *pathLabel = new QLabel(path, this);
     pathLabel->setTextFormat(Qt::PlainText);
     pathLabel->setWordWrap(true);
@@ -127,6 +153,13 @@ MetadataEditDialog::MetadataEditDialog(const QString &path, QWidget *parent)
         m_apply->setEnabled(false);
     });
     load();
+}
+
+void MetadataEditDialog::setPlacement(Placement placement)
+{
+    for (QAction *action : m_placementActions->actions()) {
+        action->setChecked(action->data().toInt() == static_cast<int>(placement));
+    }
 }
 
 MetadataEditDialog::~MetadataEditDialog()

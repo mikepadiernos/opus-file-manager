@@ -353,6 +353,10 @@
     <entry name="IconInformation" type="StringList"><default></default></entry>
   </group>
   <group name="Previews">
+    <entry name="PreviewPlacement" type="Enum">
+      <choices><choice name="Pane"/><choice name="Below"/><choice name="Right"/></choices>
+      <default>Pane</default>
+    </entry>
     <entry name="PreviewMediaAutoplay" type="Bool"><default>false</default></entry>
     <entry name="PreviewFormatted" type="Bool"><default>true</default></entry>
     <entry name="PreviewLineNumbers" type="Bool"><default>true</default></entry>
@@ -451,6 +455,10 @@
     <entry name="SplitPartSizeMiB" type="Int"><default>100</default><min>1</min><max>2147483647</max></entry>
   </group>
   <group name="MetadataEditor">
+    <entry name="MetadataPlacement" type="Enum">
+      <choices><choice name="Window"/><choice name="Below"/><choice name="Right"/></choices>
+      <default>Window</default>
+    </entry>
     <entry name="MetadataAudioTitle" type="Bool"><default>true</default></entry>
     <entry name="MetadataAudioArtist" type="Bool"><default>true</default></entry>
     <entry name="MetadataAudioAlbum" type="Bool"><default>true</default></entry>

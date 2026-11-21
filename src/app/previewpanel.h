@@ -13,6 +13,7 @@ namespace KIO
 class TransferJob;
 }
 class QLabel;
+class QActionGroup;
 class MediaView;
 class PreviewTextEdit;
 class QStackedWidget;
@@ -29,17 +30,24 @@ class PreviewPanel : public QWidget
     Q_OBJECT
 
 public:
+    enum class Placement {
+        Pane,
+        Below,
+        Right
+    };
     explicit PreviewPanel(QWidget *parent = nullptr);
     ~PreviewPanel() override;
     void setItems(const KFileItemList &items, const QList<QUrl> &images = {});
     void applyPresentationSettings();
     void clear();
+    void setPlacement(Placement placement);
 
 Q_SIGNALS:
     void closeRequested();
     void galleryRequested();
     void openRequested();
     void imageRequested(const QUrl &url);
+    void placementRequested(Placement placement);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -72,6 +80,7 @@ private:
     QToolButton *m_open = nullptr;
     QToolButton *m_renderMode = nullptr;
     QToolButton *m_autoplay = nullptr;
+    QActionGroup *m_placementActions = nullptr;
     PreviewTextEdit *m_text = nullptr;
     QTextBrowser *m_renderedText = nullptr;
     QStackedWidget *m_content = nullptr;
