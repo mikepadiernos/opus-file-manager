@@ -3,7 +3,7 @@
 This is a **proposed, editable plan for review**, not an implementation or
 completion report. Add, remove, reorder or modify steps as needed. The
 [roadmap](../ROADMAP.md#m30-ui-and-ux-polish) defines milestone scope, and
-the [M30 issue](https://github.com/mikepadiernos/opus-file-manager/issues/28)
+the [M30 issue](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/28)
 and project board track status. When scope changes are accepted, reconcile
 the roadmap and issues; plan text alone does not change their status.
 

@@ -36,7 +36,7 @@ struct WindowSession {
     PaneSession right;
     int activePane = 0;
     bool dual = true;
-    bool stacked = false;
+    bool stacked = true;
 
     bool isEmpty() const;
     /// Drops invalid URLs, with their pin, lock and name, and clamps the

@@ -56,7 +56,10 @@ private Q_SLOTS:
         QVERIFY(loaded.isEmpty());
         QCOMPARE(loaded.activePane, 0);
         QVERIFY(loaded.dual);
-        QVERIFY(!loaded.stacked);
+        QVERIFY(loaded.stacked);
+        KConfigGroup group = config.group(QStringLiteral("Session"));
+        group.writeEntry("Stacked", false);
+        QVERIFY(!Session::load(group).stacked);
     }
 
     void sanitizedFillsGapsAndClamps()

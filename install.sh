@@ -12,7 +12,7 @@
 set -euo pipefail
 
 SRC_DIR="$(cd "$(dirname "$0")" && pwd)"
-BUILD_DIR="${OPUSFM_BUILD_DIR:-$SRC_DIR/build}"
+BUILD_DIR="${OPUSFM_BUILD_DIR:-$SRC_DIR/build-plasma}"
 DESKTOP_ID="org.kde.opusfilemanager.desktop"
 MIME_TYPES=(inode/directory)
 
@@ -35,7 +35,7 @@ Options:
   --debug            build with CMAKE_BUILD_TYPE=Debug (default: Release)
   --jobs N           parallel build jobs (default: all cores)
 
-Set OPUSFM_BUILD_DIR to build somewhere other than ./build.
+Set OPUSFM_BUILD_DIR to use a build tree other than ./build-plasma.
   --deps             print build and optional feature packages and exit
   --uninstall        remove files installed from this build tree
   -h, --help         show this help

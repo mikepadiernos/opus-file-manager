@@ -168,6 +168,7 @@ private Q_SLOTS:
 
     void sessionKeepsPinsLocksAndNames()
     {
+        Settings::setNewTabsAfterCurrent(false);
         {
             MainWindow window;
             Pane *pane = paneWith(window, {m_a, m_b, m_c});

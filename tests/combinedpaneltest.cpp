@@ -529,6 +529,7 @@ private Q_SLOTS:
 
     void separateLayoutShowsPlacesAndFoldersAndIsRemembered()
     {
+        Settings::setShowPlaces(true);
         {
             MainWindow window;
             window.openUrls({m_a});

@@ -204,6 +204,10 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     search->setToolTip(i18nc("@action", "Search This Pane"));
     connect(search, &QAction::triggered, this, &Pane::searchRequested);
 
+    m_toolBar->insertAction(m_back, viewButtonAction);
+    filter->setVisible(false);
+    search->setVisible(false);
+
     QAction *configure = m_toolBar->addAction(SymbolicIcon::fromTheme(QStringLiteral("configure")), i18nc("@action", "Customize Toolbar"));
     configure->setObjectName(QStringLiteral("paneCustomizeToolbar"));
     configure->setToolTip(configure->text());

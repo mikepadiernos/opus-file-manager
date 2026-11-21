@@ -77,6 +77,8 @@ private Q_SLOTS:
         QVERIFY(folder.isValid());
         MainWindow window;
         window.openUrls({QUrl::fromLocalFile(folder.path()), QUrl::fromLocalFile(folder.path())});
+        window.setStackedLayout(false);
+        Settings::setTerminalFollowActiveFolder(false);
         window.show();
         auto *dual = window.actionCollection()->action(QStringLiteral("dual_layout"));
         auto *preview = window.actionCollection()->action(QStringLiteral("show_preview_panel"));

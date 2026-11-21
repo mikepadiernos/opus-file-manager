@@ -123,6 +123,6 @@ WindowSession Session::load(const KConfigGroup &group)
     session.right = loadPane(group.group(QLatin1String(RightGroup)));
     session.activePane = group.readEntry(ActivePaneKey, 0);
     session.dual = group.readEntry(DualKey, true);
-    session.stacked = group.readEntry(StackedKey, false);
+    session.stacked = group.readEntry(StackedKey, true);
     return session;
 }
