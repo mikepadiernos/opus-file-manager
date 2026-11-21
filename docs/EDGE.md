@@ -1,19 +1,24 @@
 # Edge cases
 
-This inventory records **possible test scenarios**, not confirmed bugs or
-claims that existing tests are missing. It reflects a targeted review of
-implemented workflows and representative tests on 2026-11-20, not an
-exhaustive audit. Each entry links to an `[edge]` issue on the
-[project board](https://github.com/users/mikepadiernos/projects/3); consult the
-board for its current status. Existing restrictions and workarounds are in
-[caveats and limitations](CAVEATS.md), and confirmed reports belong in
-[reported bugs](BUGS.md). See the [testing plan](plans/06-testing.md) for
-broader M30 coverage.
+**[Documentation](README.md)** · **[Testing plan](refinements/06-testing.md)** ·
+**[Reported bugs](BUGS.md)** · **[Caveats](CAVEATS.md)**
 
-Use temporary fixtures, synthetic credentials and isolated configuration,
-home and trash locations. Never test destructive operations against real user
-data, a live Baloo index or production remote services. Some existing tests
-already cover portions of these scenarios; check them before adding coverage.
+This inventory records possible test scenarios from a targeted review of
+implemented workflows and representative tests on 2026-11-20. It is not an
+exhaustive audit or a claim that existing tests are missing. Each entry links
+to an `[edge]` issue; consult the
+[project board](https://github.com/users/mikepadiernos/projects/3) for status.
+
+> [!NOTE]
+> These scenarios are not confirmed bugs. Existing restrictions and
+> workarounds are in [caveats](CAVEATS.md); confirmed reports belong in
+> [reported bugs](BUGS.md).
+
+> [!WARNING]
+> Use temporary fixtures, synthetic credentials and isolated configuration,
+> home and trash locations. Never test destructive operations against real user
+> data, a live Baloo index or production remote services. Check existing tests
+> before adding coverage.
 
 ## Find an edge case
 

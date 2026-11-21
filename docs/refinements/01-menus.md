@@ -1,17 +1,18 @@
 # M30.1 Menus
 
-[M30 plan](README.md) · [Roadmap](../ROADMAP.md#m301-menus)
+**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m301-menus)** ·
+**[Layouts](02-layouts.md)**
 
 **Goal:** make actions easy to find and accurately scoped without replacing
 KDE integration or user-customized menus and toolbars.
 
 ## Proposed menu layout
 
-This is an **editable design proposal**, not a description of the current
-menu order. Branches labeled *group* organize actions visually; they do not
-necessarily require nested submenus. Menu names and order can be changed.
-Only offer actions supported by the current location, selection and provider;
-future features are not required for this plan.
+> [!NOTE]
+> This editable design is not the current menu order. Branches labeled *group*
+> organize actions visually and do not necessarily require nested submenus.
+> Names and order can change; offer only actions supported by the current
+> location, selection and provider. Future features are not required.
 
 ### Main menus
 

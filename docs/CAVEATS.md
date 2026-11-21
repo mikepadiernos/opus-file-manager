@@ -1,11 +1,16 @@
 # Caveats and limitations
 
-This guide records limitations, precautions and practical recommendations for
-current features and, where marked, planned features. Tracked caveats link to
-their issues and recommendation comments. Alternatives supplement the primary
-recommendation; external tools are separate applications. Proposed
-improvements are not implemented features. See the [roadmap](ROADMAP.md) for
-scope and status.
+**[Documentation](README.md)** · **[Roadmap](ROADMAP.md)** ·
+**[Reported bugs](BUGS.md)** · **[Edge cases](EDGE.md)**
+
+Use this guide to find limitations, precautions and practical recommendations
+for current features and, where marked, planned features. Tracked caveats link
+to their issues and recommendation comments; alternatives supplement the
+primary recommendation and external tools are separate applications.
+
+> [!NOTE]
+> Proposed improvements are not implemented features. The
+> [roadmap](ROADMAP.md) defines scope and status.
 
 ## Find a caveat
 

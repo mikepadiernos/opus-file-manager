@@ -1,15 +1,16 @@
 # M30.2 Layouts
 
-[M30 plan](README.md) · [Roadmap](../ROADMAP.md#m302-layouts)
+**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m302-layouts)** ·
+**[Menus](01-menus.md)**
 
 **Goal:** improve first-run layouts and customization without losing existing
 window, panel, toolbar or session choices.
 
 ## Proposed toolbar layouts
 
-These are editable proposed defaults, not replacements for saved toolbars.
-`[Separator]` marks a divider; `[Expanding space]` pushes following items
-toward the trailing edge.
+> [!NOTE]
+> These editable defaults do not replace saved toolbars. `[Separator]` marks a
+> divider; `[Expanding space]` pushes following items toward the trailing edge.
 
 ### Toolbars
 
@@ -60,6 +61,14 @@ Keep overflow keyboard accessible and make action target panes clear.
 
 ## Proposed order
 
+Implement the five-region [interface structure](../philosophy/designs.md) as
+part of these refinements. Keep file panes in the middle column, sidebar panes
+in either side column, and embedded panes configurable across the side
+columns, middle column and footer. Support sliding and floating panes outside
+the fixed regions. Preserve existing placements and saved layouts, including
+file-pane state when an embedded pane occupies the middle column. Integrate
+planned panes as they become available without blocking existing work.
+
 1. Inventory defaults and saved layouts for both pane orientations, panels,
    tabs and toolbars. Agree on revised defaults and apply them only to new
    configurations or explicitly confirmed resets.
@@ -83,14 +92,15 @@ Keep overflow keyboard accessible and make action target panes clear.
    ([#492](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/492),
    [#493](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/493))
 5. Provide a searchable, labeled reference for built-in actions, including
-   newly introduced actions, without resetting customized toolbars.
+   newly introduced actions, as a sliding or floating pane without resetting
+   customized toolbars.
    Add session-level toolbar edit reversion and confirmed individual-toolbar
    reset without changing other toolbars, menus or saved commands.
    ([#539](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/539),
    [#540](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/540))
-6. Test restored and new layouts, missing actions, customization and reset,
-   screen changes, large text and both pane orientations. Keep previous
-   user settings intact in regression fixtures.
+6. Test restored and new layouts, placements and pane state, missing actions,
+   customization and reset, screen changes, large text and both pane
+   orientations. Keep previous user settings intact in regression fixtures.
 
 ## Review decisions
 

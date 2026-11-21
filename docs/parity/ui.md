@@ -1,9 +1,14 @@
 # Max File Manager UI inventory
 
-Source: `max-file-manager/src/renderer/src/` (Electron + React). This reviewed
-Max snapshot is an upstream reference, not current Plasma Opus behavior or
-necessarily the latest upstream version. See the [roadmap](../ROADMAP.md)
-for Plasma Opus's feature status and KDE adaptations.
+**[Documentation](../README.md)** · **[Backend inventory](backend.md)** ·
+**[Roadmap](../ROADMAP.md)**
+
+Source: `max-file-manager/src/renderer/src/` (Electron + React).
+
+> [!NOTE]
+> This reviewed upstream snapshot is not current Plasma Opus behaviour or
+> necessarily the latest upstream version. See the [roadmap](../ROADMAP.md)
+> for Plasma Opus feature status and KDE adaptations.
 
 ## 1. Window layout
 
