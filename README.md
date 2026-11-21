@@ -38,6 +38,8 @@ Run `./install.sh` to build and install for the current user, or
 the default folder handler. The installer uses `build-plasma` with tests
 disabled; set `OPUSFM_BUILD_DIR` to use another build tree. Uninstall using
 the same build tree used for installation.
+The installer installs the Plasma Opus application icon; file and action icons
+continue to use the active desktop theme.
 
 If `build` was created before the project folder was renamed, use a fresh
 build directory for the manual build commands above.
