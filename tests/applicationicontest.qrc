@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="/icons/opusfm-accent-test">
+    <file alias="index.theme">data/application-icon/index.theme</file>
+    <file alias="scalable/apps/org.kde.opusfilemanager.svg">../src/app/org.kde.opusfilemanager.svg</file>
+  </qresource>
+</RCC>
