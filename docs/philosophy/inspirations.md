@@ -31,9 +31,11 @@ viewers, flat browsing, automation and metadata. Its workflows inform
 [folder formats and navigation history](../ROADMAP.md#m03-listing-depth),
 [collections and duplicate selection](../ROADMAP.md#m09-tools),
 [layout customization](../ROADMAP.md#m11-ui-customizations) and
-[shortcut settings](../ROADMAP.md#m29-keyboard-shortcut-settings). These are
-adapted to Linux and KDE rather than treated as a feature-by-feature parity
-target.
+[shortcut settings](../ROADMAP.md#m29-keyboard-shortcut-settings). Its
+[manual](https://docs.dopus.com/doku.php?id=introduction) also informs planned
+[UI/UX polish](../ROADMAP.md#m30-ui-and-ux-polish), such as contextual help,
+filter visibility and discoverable customization. These are adapted to Linux
+and KDE rather than treated as a feature-by-feature parity target.
 
 ## Krusader — two-pane tools
 
