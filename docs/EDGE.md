@@ -1,14 +1,14 @@
 # Edge cases
 
 This inventory records **possible test scenarios**, not confirmed bugs or
-claims that existing tests are missing. It is based on a targeted review of
-implemented workflows and representative tests on 2026-11-20; it is not an
+claims that existing tests are missing. It reflects a targeted review of
+implemented workflows and representative tests on 2026-11-20, not an
 exhaustive audit. Each entry links to an `[edge]` issue on the
 [project board](https://github.com/users/mikepadiernos/projects/3); consult the
 board for its current status. Existing restrictions and workarounds are in
 [caveats and limitations](CAVEATS.md), and confirmed reports belong in
-[reported bugs](BUGS.md). The broader testing plan is in
-[M30](ROADMAP.md#m30-ui-and-ux-polish).
+[reported bugs](BUGS.md). See the [testing plan](plans/06-testing.md) for
+broader M30 coverage.
 
 Use temporary fixtures, synthetic credentials and isolated configuration,
 home and trash locations. Never test destructive operations against real user

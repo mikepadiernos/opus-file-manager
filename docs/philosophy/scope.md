@@ -43,5 +43,3 @@ current application offers.
 - User data and behaviour should remain explicit and testable. Core logic
   belongs outside widgets when practical, and tests must not modify a real
   user's files, home directory or configuration.
-
-The [roadmap](../ROADMAP.md) describes the architecture and milestone status.

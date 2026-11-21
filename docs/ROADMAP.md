@@ -1072,6 +1072,8 @@ Settings for M27 branding, stored in KConfig and separate from theme settings.
 Polish the existing interface across menus, settings, layouts and workflows.
 Preserve user customizations and use KDE facilities; review future pages as
 they become available without blocking this milestone on unimplemented work.
+See the [editable M30 plans](plans/README.md) for proposed sequencing
+and subsection details.
 
 #### M30.1 Menus
 
@@ -1106,6 +1108,14 @@ they become available without blocking this milestone on unimplemented work.
   custom items, including saved commands and scripts, on the main toolbar and
   either pane toolbar. Preserve per-toolbar placement, labels and icons across
   restarts and report unavailable items without silently discarding them.
+- Make built-in toolbar actions easy to find and add to existing customized
+  toolbars, including actions introduced by updates. Offer a searchable,
+  labeled reference without requiring a reset or automatically changing
+  saved layouts.
+- Provide a way to revert a toolbar's edits made during the current
+  customization session and to reset an individual toolbar after confirmation.
+  Keep other toolbars, menu entries and saved commands unchanged; explain
+  which edits have already been saved.
 
 #### M30.3 Interaction
 
@@ -1117,6 +1127,18 @@ they become available without blocking this milestone on unimplemented work.
   actions, and avoid duplicating KIO notifications or hiding failures.
 - Improve contextual help and discovery of pane actions, view modes and
   customization without mandatory onboarding or changing existing settings.
+- Provide context-sensitive help from the main window, settings pages and
+  supported dialogs using KDE help facilities and an accessible Help action.
+  Open the relevant local documentation where available; explain missing help
+  instead of silently failing, and avoid overriding user shortcut bindings.
+- Clarify which pane supplies selected items and which location receives an
+  operation before it runs, using accessible labels rather than color alone.
+  Allow changing the active pane without losing its selection and do not
+  change KIO's operation or conflict semantics.
+- Make active file-list filters and their scope visible in the affected pane,
+  including visible and hidden counts where available. Provide a clear way to
+  remove the quick filter without implying that other filters were removed;
+  distinguish filtering the current listing from searching other locations.
 - Give icon-only controls meaningful tooltips and accessible names, including
   relevant shortcuts and pane context where useful. Keep those hints current
   when the user changes shortcuts or toolbar configuration.
@@ -1162,6 +1184,12 @@ they become available without blocking this milestone on unimplemented work.
 - Adapt pages and navigation to small windows, high DPI, long translations and
   right-to-left layouts without clipping controls or labels
 - Provide concise contextual help for settings whose effects are not obvious
+- Let users mark frequently used settings pages for quick access and open a
+  specific page from an appropriate interface action. Preserve page identity
+  across navigation and restarts without changing settings values.
+- Add keyboard-accessible filtering to existing long, searchable configuration
+  lists where useful. Show when no entries match and let users clear the
+  filter without changing hidden items or losing unsaved edits.
 - Review closing the settings dialog with pending changes, including window
   close and keyboard dismissal. Give a clear apply, discard or cancel choice
   where needed, without implying that immediate external changes are undone.
@@ -1256,6 +1284,11 @@ interfaces. The additions above draw on these sources:
   and [Directory Opus folder tabs](https://docs.dopus.com/doku.php?id=preferences:preferences_categories:folder_tabs:folder_tab_bar),
   [status bars](https://docs.dopus.com/doku.php?id=preferences:preferences_categories:file_displays:status_bar)
   and [viewer pane](https://docs.dopus.com/doku.php?id=basic_concepts:the_lister:viewer_pane).
+- Directory Opus manual: [introduction](https://docs.dopus.com/doku.php?id=introduction),
+  [preferences](https://docs.dopus.com/doku.php?id=preferences),
+  [customization](https://docs.dopus.com/doku.php?id=customize:the_customize_dialog),
+  [source and destination](https://docs.dopus.com/doku.php?id=basic_concepts:source_and_destination)
+  and [filter bar](https://docs.dopus.com/doku.php?id=basic_concepts:searching_and_filtering:filter_bar).
 - [Krusader synchronizer](https://docs.kde.org/trunk_kf6/en/krusader/krusader/synchronizer.html)
   and [features](https://docs.kde.org/trunk_kf6/en/krusader/krusader/features.html).
 - [Max File Manager](https://github.com/majidasgari/max-file-manager), alongside

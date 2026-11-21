@@ -1,7 +1,8 @@
 # Reported bugs
 
-This file is the project log for user-visible bugs and reliability issues.
-It is meant to stay aligned with the [Opus project board](https://github.com/users/mikepadiernos/projects/3): every bug added here should also have a matching board issue and a link back to it from this file.
+This log records user-visible bugs and reliability issues linked to the
+[project board](https://github.com/users/mikepadiernos/projects/3).
+See the [issue workflow](../CLAUDE.md#issues-and-caveats) for tracking rules.
 
 A bug is considered complete only when its project status is **Completed** or
 **Merged**. **Completed** does not necessarily mean merged into `main`.
@@ -36,13 +37,6 @@ Potential scenarios awaiting investigation are tracked separately in
   assigned on the project board.
 
 ---
-
-## Tracking policy
-
-- Add all user-reported bugs to this file.
-- Add a matching issue to the project board whenever a bug is recorded here.
-- Keep the board issue and this log synchronized whenever status changes.
-- Verify the linked issue and board state before marking a bug as resolved.
 
 ## Open reports
 
