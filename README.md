@@ -12,6 +12,8 @@ after that release.
 **[Safety and limitations](#safety-and-limitations)** · **[Roadmap](docs/ROADMAP.md)** ·
 **[Documentation](docs/README.md)**
 
+![Opus File Manager with stacked panes and an image preview](preview.png)
+
 ## Build and run
 
 Install a C++20 compiler, CMake 3.25+, Ninja, Qt 6.8+ with Jalali calendar
