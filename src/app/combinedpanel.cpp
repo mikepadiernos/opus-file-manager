@@ -89,7 +89,7 @@ protected:
         option.state &= ~QStyle::State_On;
         painter.drawComplexControl(QStyle::CC_ToolButton, option);
 
-        const int margin = 6;
+        const int margin = 8;
         const int arrowSize = style()->pixelMetric(QStyle::PM_SmallIconSize, nullptr, this);
         const QRect arrowRect =
             QStyle::visualRect(layoutDirection(), rect(), QRect(width() - margin - arrowSize, (height() - arrowSize) / 2, arrowSize, arrowSize));

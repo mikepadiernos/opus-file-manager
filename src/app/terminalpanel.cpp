@@ -42,7 +42,7 @@ TerminalPanel::TerminalPanel(QWidget *parent)
     auto *header = new QWidget(this);
     header->setObjectName(QStringLiteral("terminalPanelHeader"));
     auto *headerLayout = new QHBoxLayout(header);
-    headerLayout->setContentsMargins(0, 0, 0, 0);
+    headerLayout->setContentsMargins(8, 0, 8, 0);
     m_title->setObjectName(QStringLiteral("terminalPanelTitle"));
     headerLayout->addWidget(m_title, 1);
     auto *menuButton = new QToolButton(header);
@@ -66,7 +66,7 @@ TerminalPanel::TerminalPanel(QWidget *parent)
     m_status->setWordWrap(true);
     m_status->setTextFormat(Qt::PlainText);
     auto *statusLayout = new QHBoxLayout(m_statusRow);
-    statusLayout->setContentsMargins(0, 0, 0, 0);
+    statusLayout->setContentsMargins(8, 0, 8, 0);
     statusLayout->addWidget(m_status, 1);
     auto *dismiss = new QToolButton(m_statusRow);
     dismiss->setObjectName(QStringLiteral("terminalPanelDismissStatus"));
