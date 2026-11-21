@@ -31,6 +31,7 @@ TerminalPanel::TerminalPanel(QWidget *parent)
     : QWidget(parent)
     , m_layout(new QVBoxLayout(this))
     , m_status(new QLabel(this))
+    , m_title(new QLabel(i18nc("@title", "Terminal"), this))
     , m_statusRow(new QWidget(this))
     , m_panelMenu(new QMenu(this))
     , m_tabs(new QTabWidget(this))
@@ -42,7 +43,8 @@ TerminalPanel::TerminalPanel(QWidget *parent)
     header->setObjectName(QStringLiteral("terminalPanelHeader"));
     auto *headerLayout = new QHBoxLayout(header);
     headerLayout->setContentsMargins(0, 0, 0, 0);
-    headerLayout->addWidget(new QLabel(i18nc("@title", "Terminal"), header), 1);
+    m_title->setObjectName(QStringLiteral("terminalPanelTitle"));
+    headerLayout->addWidget(m_title, 1);
     auto *menuButton = new QToolButton(header);
     menuButton->setObjectName(QStringLiteral("terminalPanelMenuButton"));
     menuButton->setIcon(SymbolicIcon::fromTheme(QStringLiteral("application-menu")));
@@ -119,6 +121,11 @@ TerminalPanel::TerminalPanel(QWidget *parent)
             }
         }
     });
+}
+
+void TerminalPanel::setTitleVisible(bool visible)
+{
+    m_title->setVisible(visible);
 }
 
 void TerminalPanel::setStatus(const QString &text, bool informational)

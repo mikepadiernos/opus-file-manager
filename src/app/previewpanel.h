@@ -14,6 +14,7 @@ class TransferJob;
 }
 class QLabel;
 class QActionGroup;
+class QHBoxLayout;
 class MediaView;
 class PreviewTextEdit;
 class QStackedWidget;
@@ -41,6 +42,7 @@ public:
     void applyPresentationSettings();
     void clear();
     void setPlacement(Placement placement);
+    void setTitleVisible(bool visible);
 
 Q_SIGNALS:
     void closeRequested();
@@ -74,6 +76,9 @@ private:
     QLabel *m_message = nullptr;
     QLabel *m_imageLabel = nullptr;
     QLabel *m_footer = nullptr;
+    QHBoxLayout *m_header = nullptr;
+    QHBoxLayout *m_footerLayout = nullptr;
+    bool m_titleVisible = true;
     QToolButton *m_previous = nullptr;
     QToolButton *m_next = nullptr;
     QToolButton *m_gallery = nullptr;

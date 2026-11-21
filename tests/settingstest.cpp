@@ -315,6 +315,26 @@ private Q_SLOTS:
         dialog->close();
     }
 
+    void embeddedTitleSettingAppliesIndependently()
+    {
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        action(window, QStringLiteral("options_configure"))->trigger();
+        auto *dialog = window.findChild<SettingsDialog *>();
+        QVERIFY(dialog);
+        auto *embedded = dialog->findChild<QCheckBox *>(QStringLiteral("kcfg_EmbeddedPanelTitlesVisible"));
+        auto *navigation = dialog->findChild<QCheckBox *>(QStringLiteral("kcfg_PanelTitlesVisible"));
+        QVERIFY(embedded && navigation && embedded->isChecked() && navigation->isChecked());
+        embedded->setChecked(false);
+        dialog->button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::embeddedPanelTitlesVisible());
+        QVERIFY(Settings::panelTitlesVisible());
+        QVERIFY(window.findChild<QDockWidget *>(QStringLiteral("previewDock"))->titleBarWidget());
+        QVERIFY(!window.findChild<QDockWidget *>(QStringLiteral("combinedDock"))->titleBarWidget());
+        dialog->close();
+    }
+
     void opensNativeTextEditorConfiguration()
     {
         MainWindow window;

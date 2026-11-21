@@ -107,6 +107,7 @@ private:
     void setupPanels();
     void setupStatusBar();
     void applyPanelSettings();
+    void applyEmbeddedPanelTitles();
 
     void setActivePane(Pane *pane);
     void connectPane(Pane *pane);

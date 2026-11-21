@@ -136,6 +136,22 @@ constexpr auto SelectionFiltersGroup = "SelectionFilters";
 constexpr auto WindowLayoutGroup = "WindowLayout";
 constexpr auto SplitterSizesGroup = "SplitterSizes";
 
+void setDockTitleVisible(QDockWidget *dock, bool visible)
+{
+    if (!dock) {
+        return;
+    }
+    QWidget *titleBar = dock->titleBarWidget();
+    if (visible && titleBar) {
+        dock->setTitleBarWidget(nullptr);
+        delete titleBar;
+    } else if (!visible && !titleBar) {
+        titleBar = new QWidget(dock);
+        titleBar->setFixedHeight(0);
+        dock->setTitleBarWidget(titleBar);
+    }
+}
+
 class MetadataDock : public QDockWidget
 {
 public:
@@ -650,6 +666,10 @@ void MainWindow::setupPanels()
     m_informationPanel->setFields(Settings::informationFields());
     m_informationDock = addPanelDock(QStringLiteral("informationDock"), i18nc("@title:window", "Information"), m_informationPanel);
     addDockWidget(Qt::RightDockWidgetArea, m_informationDock);
+    connect(m_informationPanel, &InformationPanel::placementRequested, this, [this](Qt::DockWidgetArea area) {
+        addDockWidget(area, m_informationDock);
+    });
+    connect(m_informationPanel, &InformationPanel::closeRequested, m_informationDock, &QDockWidget::hide);
     m_informationDock->hide();
 }
 
@@ -2458,6 +2478,7 @@ void MainWindow::setupEditor()
     m_editorDock = new QDockWidget(i18nc("@title:window", "Editor"), this);
     m_editorDock->setObjectName(QStringLiteral("editorDock"));
     m_editorDock->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::RightDockWidgetArea);
+    setDockTitleVisible(m_editorDock, Settings::embeddedPanelTitlesVisible());
     addDockWidget(Qt::BottomDockWidgetArea, m_editorDock);
     m_editorDock->hide();
     m_editorWindow = new QDialog(this, Qt::Window);
@@ -2548,6 +2569,9 @@ void MainWindow::setEditorPlacement(EditorPanel::Placement placement)
         }
         break;
     }
+    const bool embedded =
+        placement == EditorPanel::Placement::Panel || placement == EditorPanel::Placement::Below || placement == EditorPanel::Placement::Right;
+    m_editor->setPanelTitleVisible(!embedded || Settings::embeddedPanelTitlesVisible());
     toggleLayout(m_dualLayoutAction->isChecked());
     restoreSplitterSizes(true, false);
     restoreEditorDockSize();
@@ -3382,6 +3406,7 @@ void MainWindow::editMetadata()
     dock->setObjectName(QStringLiteral("metadataEditorDock%1").arg(++m_metadataDockSerial));
     dock->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::RightDockWidgetArea);
     dock->setFeatures(QDockWidget::DockWidgetClosable);
+    setDockTitleVisible(dock, Settings::embeddedPanelTitlesVisible());
     m_metadataDocks.append(dock);
     connect(dialog, &QDialog::finished, dock, &QObject::deleteLater);
     connect(dialog, &QDialog::finished, this, [this, dock] {
@@ -3981,6 +4006,7 @@ void MainWindow::applySettings()
     setBarMargin(m_left->navigationBar(), barMargin);
     setBarMargin(m_right->navigationBar(), barMargin);
     applyPanelSettings();
+    applyEmbeddedPanelTitles();
     updateStatusBarIndicatorOrder();
     updateStatusBar();
     updateFreeSpace();
@@ -4012,21 +4038,30 @@ void MainWindow::applyPanelSettings()
     m_placesDock->setVisible(Settings::panelsVisible() && !combined && Settings::showPlaces());
     m_foldersDock->setVisible(Settings::panelsVisible() && !combined);
     for (QDockWidget *dock : {m_combinedDock, m_placesDock, m_foldersDock}) {
-        QWidget *titleBar = dock->titleBarWidget();
-        if (Settings::panelTitlesVisible()) {
-            if (titleBar) {
-                dock->setTitleBarWidget(nullptr);
-                delete titleBar;
-            }
-        } else if (!titleBar) {
-            titleBar = new QWidget(dock);
-            titleBar->setFixedHeight(0);
-            dock->setTitleBarWidget(titleBar);
-        }
+        setDockTitleVisible(dock, Settings::panelTitlesVisible());
     }
     m_combinedPanel->setSectionVisibility(Settings::favoritesVisible(), Settings::placesVisible(), Settings::foldersVisible());
     if (m_active && m_autoFocusFolders) {
         syncFolderTrees();
+    }
+}
+
+void MainWindow::applyEmbeddedPanelTitles()
+{
+    const bool visible = Settings::embeddedPanelTitlesVisible();
+    m_terminalPanel->setTitleVisible(visible);
+    m_previewPanel->setTitleVisible(visible);
+    setDockTitleVisible(m_previewDock, visible);
+    setDockTitleVisible(m_editorDock, visible);
+    setDockTitleVisible(m_informationDock, visible);
+    m_informationPanel->setTitleVisible(visible);
+    for (const auto &dock : std::as_const(m_metadataDocks)) {
+        setDockTitleVisible(dock, visible);
+    }
+    if (m_editor) {
+        const bool embedded = m_editorPlacement == EditorPanel::Placement::Panel || m_editorPlacement == EditorPanel::Placement::Below
+            || m_editorPlacement == EditorPanel::Placement::Right;
+        m_editor->setPanelTitleVisible(!embedded || visible);
     }
 }
 

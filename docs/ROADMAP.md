@@ -194,7 +194,8 @@ Settings for M03 listing depth, stored in KConfig.
   - ~~**Combined Places/Folders:** show or hide the panel, choose its left or
     right position, configure its auto-focus behaviour, and show or hide each
     section independently~~
-  - ~~**Titles:** show or hide the title bars on all panels~~
+  - ~~**Titles:** independently show or hide navigation and embedded panel
+    titles while retaining panel controls and document status~~
 - **Archives**
   - ~~**Default format:** archive format used by Compress (ZIP, uncompressed
     ZIP, tar.gz, tar.xz or tar.zst); the format choice determines compression~~

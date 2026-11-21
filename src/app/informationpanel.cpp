@@ -4,12 +4,15 @@
 
 #include "localizeddates.h"
 #include "localizednumbers.h"
+#include "symbolicicon.h"
 
 #include <KIO/Global>
 #include <KLocalizedString>
 
 #include <QFormLayout>
 #include <QLabel>
+#include <QMenu>
+#include <QToolButton>
 #include <QUrl>
 
 #include <algorithm>
@@ -91,10 +94,39 @@ QString valueFor(const KFileItem &item, const QString &field)
 InformationPanel::InformationPanel(QWidget *parent)
     : QWidget(parent)
     , m_layout(new QFormLayout(this))
+    , m_panelOptions(new QToolButton(this))
 {
     setObjectName(QStringLiteral("informationPanelContents"));
+    m_panelOptions->setObjectName(QStringLiteral("informationPanelOptions"));
+    m_panelOptions->setIcon(SymbolicIcon::fromTheme(QStringLiteral("application-menu")));
+    m_panelOptions->setToolTip(i18nc("@info:tooltip", "Information panel options"));
+    m_panelOptions->setAccessibleName(i18nc("@action", "Information panel options"));
+    m_panelOptions->setPopupMode(QToolButton::InstantPopup);
+    auto *menu = new QMenu(m_panelOptions);
+    auto *left = menu->addAction(i18nc("@action", "Move Information Panel Left"));
+    left->setObjectName(QStringLiteral("informationPlaceLeft"));
+    auto *right = menu->addAction(i18nc("@action", "Move Information Panel Right"));
+    right->setObjectName(QStringLiteral("informationPlaceRight"));
+    auto *hide = menu->addAction(i18nc("@action", "Hide Information Panel"));
+    hide->setObjectName(QStringLiteral("informationHide"));
+    connect(left, &QAction::triggered, this, [this] {
+        Q_EMIT placementRequested(Qt::LeftDockWidgetArea);
+    });
+    connect(right, &QAction::triggered, this, [this] {
+        Q_EMIT placementRequested(Qt::RightDockWidgetArea);
+    });
+    connect(hide, &QAction::triggered, this, &InformationPanel::closeRequested);
+    m_panelOptions->setMenu(menu);
+    m_panelOptions->hide();
+    m_layout->addRow(m_panelOptions);
+    m_layout->setAlignment(m_panelOptions, Qt::AlignRight);
     m_layout->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     m_layout->setContentsMargins(8, 8, 8, 8);
+}
+
+void InformationPanel::setTitleVisible(bool visible)
+{
+    m_panelOptions->setVisible(!visible);
 }
 
 void InformationPanel::setFields(const QStringList &fields)
@@ -134,8 +166,8 @@ void InformationPanel::refresh()
 
 void InformationPanel::rebuild()
 {
-    while (m_layout->rowCount() > 0) {
-        m_layout->removeRow(0);
+    while (m_layout->rowCount() > 1) {
+        m_layout->removeRow(1);
     }
     m_values.clear();
     if (m_fields.isEmpty()) {

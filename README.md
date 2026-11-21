@@ -79,6 +79,8 @@ them.
   or to the right of the panes; their placement menus retain the existing pane
   preview and separate metadata window options. The text editor also offers
   side-panel, below, right, maximized and separate-window modes.
+  Panel Appearance settings can hide embedded panel titles separately from
+  navigation-panel titles; panel controls and document status remain available.
 - **Terminal and navigation:** Show an embedded Konsole terminal below or beside
   both panes and link navigation between corresponding local folders. The
   terminal panel menu and close button hide the panel without ending sessions;
