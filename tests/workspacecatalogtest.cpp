@@ -11,6 +11,7 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QUuid>
 
 using namespace WorkspaceCatalog;
 
@@ -177,7 +178,7 @@ private Q_SLOTS:
         QVERIFY(!error.isEmpty());
         QCOMPARE(group.readEntry("Catalog", QByteArray()), previous);
 
-        group.writeEntry("Catalog", QByteArray(R"({"version":4,"workspaces":[],"activeId":""})"));
+        group.writeEntry("Catalog", QByteArray(R"({"version":5,"workspaces":[],"activeId":""})"));
         const Catalog original = catalog;
         QVERIFY(!load(group, catalog, error));
         QVERIFY(!error.isEmpty());
@@ -307,7 +308,120 @@ private Q_SLOTS:
         QCOMPARE(catalog.workspaces.size(), 1);
         QVERIFY(!catalog.workspaces.first().layout.has_value());
         QVERIFY(save(group, catalog, error));
-        QCOMPARE(QJsonDocument::fromJson(group.readEntry("Catalog", QByteArray())).object().value(QStringLiteral("version")).toInt(), 3);
+        QCOMPARE(QJsonDocument::fromJson(group.readEntry("Catalog", QByteArray())).object().value(QStringLiteral("version")).toInt(), 4);
+    }
+
+    void managesExclusiveLocationAssignments()
+    {
+        Catalog catalog;
+        QString error;
+        QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(create(catalog, QStringLiteral("Home"), QStringLiteral("H"), error));
+        const QString workId = catalog.workspaces.at(0).id;
+        const QString homeId = catalog.workspaces.at(1).id;
+        const QString locationId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        QVERIFY2(assignLocation(catalog, locationId, workId, error), qPrintable(error));
+        QCOMPARE(catalog.locationAssignments.value(locationId), workId);
+        const Catalog original = catalog;
+        QVERIFY(!assignLocation(catalog, locationId, homeId, error));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(catalog, original);
+        QVERIFY(!assignLocation(catalog, QStringLiteral("not-a-uuid"), workId, error));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(catalog, original);
+        QVERIFY(!assignLocation(catalog, QUuid::createUuid().toString(QUuid::WithoutBraces), QStringLiteral("missing"), error));
+        QCOMPARE(catalog, original);
+        QVERIFY(unassignLocation(catalog, locationId, error));
+        QVERIFY(!catalog.locationAssignments.contains(locationId));
+        QVERIFY(!unassignLocation(catalog, locationId, error));
+        QVERIFY(!error.isEmpty());
+        QVERIFY(assignLocation(catalog, locationId, homeId, error));
+        QCOMPARE(catalog.locationAssignments.value(locationId), homeId);
+    }
+
+    void assignmentsPersistAndDoNotFollowDuplicateOrDeletion()
+    {
+        QTemporaryDir directory;
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Workspaces"));
+        Catalog catalog;
+        QString error;
+        QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        const QString workId = catalog.workspaces.first().id;
+        const QString locationId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        QVERIFY(assignLocation(catalog, locationId, workId, error));
+        QVERIFY(duplicate(catalog, workId, QStringLiteral("Copy"), QStringLiteral("C"), error));
+        const QString copyId = catalog.workspaces.last().id;
+        QCOMPARE(catalog.locationAssignments.size(), 1);
+        QCOMPARE(catalog.locationAssignments.value(locationId), workId);
+        const QString secondLocationId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        QVERIFY(assignLocation(catalog, secondLocationId, copyId, error));
+        QVERIFY(save(group, catalog, error));
+        Catalog loaded;
+        QVERIFY2(load(group, loaded, error), qPrintable(error));
+        QCOMPARE(loaded, catalog);
+        QVERIFY(remove(loaded, workId, error));
+        QVERIFY(!loaded.locationAssignments.contains(locationId));
+        QCOMPARE(loaded.locationAssignments.value(secondLocationId), copyId);
+        QCOMPARE(loaded.workspaces.first().id, copyId);
+        QVERIFY(save(group, loaded, error));
+        Catalog restored;
+        QVERIFY(load(group, restored, error));
+        QCOMPARE(restored, loaded);
+    }
+
+    void loadsVersionThreeCatalogWithoutAssignments()
+    {
+        QTemporaryDir directory;
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        auto group = config.group(QStringLiteral("Workspaces"));
+        group.writeEntry(
+            "Catalog",
+            QByteArray(R"({"version":3,"workspaces":[{"id":"12f42f08-3054-4da6-8a3c-6ba332887f5c","name":"Work","shortLabel":"W"}],"activeId":""})"));
+        Catalog catalog;
+        QString error;
+        QVERIFY2(load(group, catalog, error), qPrintable(error));
+        QCOMPARE(catalog.workspaces.size(), 1);
+        QVERIFY(catalog.locationAssignments.isEmpty());
+    }
+
+    void rejectsStaleAndMalformedAssignments()
+    {
+        QTemporaryDir directory;
+        const QString path = directory.filePath(QStringLiteral("settings"));
+        KConfig first(path, KConfig::SimpleConfig);
+        KConfig second(path, KConfig::SimpleConfig);
+        auto firstGroup = first.group(QStringLiteral("Workspaces"));
+        const auto secondGroup = second.group(QStringLiteral("Workspaces"));
+        Catalog original;
+        QString error;
+        QVERIFY(create(original, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(save(firstGroup, original, error));
+        Catalog assigned = original;
+        const QString locationId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        QVERIFY(assignLocation(assigned, locationId, original.workspaces.first().id, error));
+        QVERIFY(saveIfUnchanged(firstGroup, original, assigned, error));
+        Catalog stale = original;
+        QVERIFY(rename(stale, original.workspaces.first().id, QStringLiteral("Office"), QStringLiteral("O"), error));
+        QVERIFY(!saveIfUnchanged(secondGroup, original, stale, error));
+        QVERIFY(!error.isEmpty());
+        second.reparseConfiguration();
+        Catalog stored;
+        QVERIFY(load(secondGroup, stored, error));
+        QCOMPARE(stored, assigned);
+
+        const QJsonObject root = QJsonDocument::fromJson(firstGroup.readEntry("Catalog", QByteArray())).object();
+        for (const QJsonValue &invalid : {QJsonValue(QJsonObject{{QStringLiteral("https://user:password@example.org"), original.workspaces.first().id}}),
+                                          QJsonValue(QJsonObject{{locationId, QStringLiteral("missing")}}),
+                                          QJsonValue(QJsonArray{})}) {
+            QJsonObject corrupt = root;
+            corrupt.insert(QStringLiteral("locationAssignments"), invalid);
+            firstGroup.writeEntry("Catalog", QJsonDocument(corrupt).toJson(QJsonDocument::Compact));
+            const Catalog before = stored;
+            QVERIFY(!load(firstGroup, stored, error));
+            QVERIFY(!error.isEmpty());
+            QCOMPARE(stored, before);
+        }
     }
 
     void loadsVersionTwoLayouts()

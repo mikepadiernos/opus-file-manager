@@ -5,6 +5,7 @@
 #include <KConfigGroup>
 #include <QByteArray>
 #include <QList>
+#include <QMap>
 #include <QString>
 #include <QStringList>
 #include <optional>
@@ -67,6 +68,7 @@ struct Workspace {
 struct Catalog {
     QList<Workspace> workspaces;
     QString activeId;
+    QMap<QString, QString> locationAssignments;
     bool operator==(const Catalog &other) const = default;
 };
 
@@ -84,4 +86,21 @@ bool setLayout(Catalog &catalog, const QString &id, const Layout &layout, QStrin
 bool rename(Catalog &catalog, const QString &id, const QString &name, const QString &shortLabel, QString &error);
 bool activate(Catalog &catalog, const QString &id, QString &error);
 bool remove(Catalog &catalog, const QString &id, QString &error);
+/**
+ * Assigns a location without replacing an existing different owner.
+ * @param catalog the workspace catalog to update
+ * @param locationId a stable, credential-free location UUID
+ * @param workspaceId the workspace UUID
+ * @param error describes an invalid ID, missing workspace or conflicting owner
+ * @returns whether the assignment succeeded
+ */
+bool assignLocation(Catalog &catalog, const QString &locationId, const QString &workspaceId, QString &error);
+/**
+ * Removes an assignment without affecting the saved location.
+ * @param catalog the workspace catalog to update
+ * @param locationId the assigned location UUID
+ * @param error describes an invalid or unassigned location
+ * @returns whether the assignment was removed
+ */
+bool unassignLocation(Catalog &catalog, const QString &locationId, QString &error);
 }

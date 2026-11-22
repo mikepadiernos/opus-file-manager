@@ -25,6 +25,12 @@ bool validText(const QString &value)
     return !value.trimmed().isEmpty() && !value.contains(QChar::Null) && !value.contains(QLatin1Char('\n')) && !value.contains(QLatin1Char('\r'));
 }
 
+bool validId(const QString &value)
+{
+    const QUuid id(value);
+    return !id.isNull() && id.toString(QUuid::WithoutBraces) == value;
+}
+
 bool validLayout(const WorkspaceCatalog::Layout &layout)
 {
     const auto validSizes = [](const QList<int> &sizes) {
@@ -177,22 +183,29 @@ bool validCatalog(const WorkspaceCatalog::Catalog &catalog)
     QSet<QString> ids;
     QSet<QString> names;
     for (const auto &workspace : catalog.workspaces) {
-        const QUuid id(workspace.id);
         const QString name = workspace.name.trimmed().toCaseFolded();
-        if (id.isNull() || id.toString(QUuid::WithoutBraces) != workspace.id || ids.contains(workspace.id) || !validText(workspace.name)
-            || !validText(workspace.shortLabel) || names.contains(name) || (workspace.layout && !validLayout(*workspace.layout))) {
+        if (!validId(workspace.id) || ids.contains(workspace.id) || !validText(workspace.name) || !validText(workspace.shortLabel) || names.contains(name)
+            || (workspace.layout && !validLayout(*workspace.layout))) {
             return false;
         }
         ids.insert(workspace.id);
         names.insert(name);
     }
-    return catalog.activeId.isEmpty() || ids.contains(catalog.activeId);
+    if (!catalog.activeId.isEmpty() && !ids.contains(catalog.activeId)) {
+        return false;
+    }
+    for (auto it = catalog.locationAssignments.cbegin(); it != catalog.locationAssignments.cend(); ++it) {
+        if (!validId(it.key()) || !ids.contains(it.value())) {
+            return false;
+        }
+    }
+    return true;
 }
 
 bool checkCatalog(const WorkspaceCatalog::Catalog &catalog, QString &error)
 {
     if (!validCatalog(catalog)) {
-        error = i18nc("@info", "Workspace names must be unique, names and short labels must be valid, and the active workspace must exist.");
+        error = i18nc("@info", "Workspace names must be unique, names, short labels and assignments must be valid, and referenced workspaces must exist.");
         return false;
     }
     error.clear();
@@ -223,9 +236,11 @@ bool WorkspaceCatalog::load(const KConfigGroup &group, Catalog &catalog, QString
     const QJsonValue version = root.value(QStringLiteral("version"));
     const QJsonValue entries = root.value(QStringLiteral("workspaces"));
     const QJsonValue active = root.value(QStringLiteral("activeId"));
+    const QJsonValue assignments = root.value(QStringLiteral("locationAssignments"));
     const double versionNumber = version.toDouble();
     bool valid = parseError.error == QJsonParseError::NoError && document.isObject() && version.isDouble()
-        && (versionNumber == 1 || versionNumber == 2 || versionNumber == 3) && entries.isArray() && active.isString();
+        && (versionNumber == 1 || versionNumber == 2 || versionNumber == 3 || versionNumber == 4) && entries.isArray() && active.isString()
+        && (versionNumber == 4 ? assignments.isObject() : assignments.isUndefined());
     Catalog loaded;
     if (valid) {
         loaded.activeId = active.toString();
@@ -251,6 +266,16 @@ bool WorkspaceCatalog::load(const KConfigGroup &group, Catalog &catalog, QString
             loaded.workspaces.append(workspace);
         }
     }
+    if (valid && versionNumber == 4) {
+        const QJsonObject storedAssignments = assignments.toObject();
+        for (auto it = storedAssignments.constBegin(); it != storedAssignments.constEnd(); ++it) {
+            if (!it.value().isString()) {
+                valid = false;
+                break;
+            }
+            loaded.locationAssignments.insert(it.key(), it.value().toString());
+        }
+    }
     if (!valid || !validCatalog(loaded)) {
         error = i18nc("@info", "The workspace catalog is invalid and could not be loaded.");
         return false;
@@ -273,7 +298,14 @@ bool WorkspaceCatalog::save(KConfigGroup group, const Catalog &catalog, QString 
         }
         entries.append(entry);
     }
-    const QJsonObject root{{QStringLiteral("version"), 3}, {QStringLiteral("workspaces"), entries}, {QStringLiteral("activeId"), catalog.activeId}};
+    QJsonObject assignments;
+    for (auto it = catalog.locationAssignments.cbegin(); it != catalog.locationAssignments.cend(); ++it) {
+        assignments.insert(it.key(), it.value());
+    }
+    const QJsonObject root{{QStringLiteral("version"), 4},
+                           {QStringLiteral("workspaces"), entries},
+                           {QStringLiteral("activeId"), catalog.activeId},
+                           {QStringLiteral("locationAssignments"), assignments}};
     const bool hadPrevious = group.hasKey("Catalog");
     const QByteArray previous = group.readEntry("Catalog", QByteArray());
     group.writeEntry("Catalog", QJsonDocument(root).toJson(QJsonDocument::Compact));
@@ -423,8 +455,52 @@ bool WorkspaceCatalog::remove(Catalog &catalog, const QString &id, QString &erro
         return false;
     }
     catalog.workspaces.removeAt(index);
+    for (auto it = catalog.locationAssignments.begin(); it != catalog.locationAssignments.end();) {
+        if (it.value() == id) {
+            it = catalog.locationAssignments.erase(it);
+        } else {
+            ++it;
+        }
+    }
     if (catalog.activeId == id) {
         catalog.activeId.clear();
     }
+    return true;
+}
+
+bool WorkspaceCatalog::assignLocation(Catalog &catalog, const QString &locationId, const QString &workspaceId, QString &error)
+{
+    if (!checkCatalog(catalog, error)) {
+        return false;
+    }
+    if (!validId(locationId)) {
+        error = i18nc("@info", "The saved location identifier is invalid.");
+        return false;
+    }
+    if (indexOf(catalog, workspaceId) < 0) {
+        error = i18nc("@info", "The workspace no longer exists.");
+        return false;
+    }
+    const QString owner = catalog.locationAssignments.value(locationId);
+    if (!owner.isEmpty() && owner != workspaceId) {
+        error = i18nc("@info", "This location is already assigned to another workspace.");
+        return false;
+    }
+    catalog.locationAssignments.insert(locationId, workspaceId);
+    error.clear();
+    return true;
+}
+
+bool WorkspaceCatalog::unassignLocation(Catalog &catalog, const QString &locationId, QString &error)
+{
+    if (!checkCatalog(catalog, error)) {
+        return false;
+    }
+    if (!validId(locationId) || !catalog.locationAssignments.contains(locationId)) {
+        error = i18nc("@info", "The saved location is not assigned to a workspace.");
+        return false;
+    }
+    catalog.locationAssignments.remove(locationId);
+    error.clear();
     return true;
 }
