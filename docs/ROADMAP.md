@@ -561,121 +561,118 @@ Organize locations and tag groups into focused workspace profiles, inspired by
 TagSpaces. Each profile can include features, layouts, a theme and other
 preferences; see the [interface design](philosophy/designs.md#workspaces).
 
-- Create, switch, rename, duplicate and delete named workspaces, with a full
-  name and short label; duplicating copies the layout without reassigning
-  locations or groups. Provide a discoverable workspace selector.
-- Assign saved locations and, when available, tag groups to a workspace;
-  each location or group belongs to at most one workspace. Switching shows
-  the active workspace's locations and groups without moving files or
-  changing tags; provide access to unassigned locations and groups.
-- Allow an assigned local location to serve as an optional Obsidian-inspired
-  vault for the built-in text editor. Offer source and visual Markdown editing,
-  live preview, note navigation, wiki links, backlinks, tags and a note
-  relationship view, reusing the editor work in [#564](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/564).
-  Preserve drafts and unsaved edits when navigating or switching workspaces;
-  scope indexing to the chosen vault, report incomplete results and handle
-  ambiguous or missing links. Work with existing folders without moving notes,
-  executing plugins or changing Obsidian configuration. Deleting a workspace
-  must not delete its vault. See the [pending handoff](TODO.md#workspace-vault-editing-565).
+- Create, switch, rename, duplicate and delete named workspaces using a
+  discoverable selector. Give each a full name and short label; duplication
+  copies the layout without reassigning locations or groups.
+- Assign saved locations and, when available, tag groups to workspaces, with
+  each assigned to at most one workspace. Switching shows the active
+  workspace's assignments without moving files or changing tags; keep
+  unassigned locations and groups accessible.
+- Let an assigned local location serve as an optional Obsidian-inspired vault
+  for the built-in text editor. Reuse [#564](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/564)
+  for source and visual Markdown editing, live preview, note navigation, wiki
+  links, backlinks, tags and a note relationship view. Preserve drafts and
+  unsaved edits during navigation and workspace switches; index only the
+  chosen vault and report incomplete results and ambiguous or missing links.
+  Use existing folders without moving notes, executing plugins or changing
+  Obsidian configuration. Deleting a workspace must not delete its vault. See
+  the [pending handoff](TODO.md#workspace-vault-editing-565).
 - Scope global search to the active workspace's assigned locations by default,
-  with an explicit way to search outside it. If no tag groups are assigned,
-  show all groups as in TagSpaces; explain the fallback in the interface.
-- Save layouts for different workflows and integrations, including pane
-  arrangements, views, toolbars and panel placement or visibility for search,
-  tagging, preview, editor and terminal areas as they become available. Save
-  the workspace's theme choice, using app-local theme profiles when available.
-  Report unavailable features, themes or providers when applying a workspace.
-- Extend each pane's existing location bar with Krusader-inspired breadcrumbs:
-  show full path segments or abbreviate ancestor segments to their first
-  letter while retaining leading underscores (for example, `__path` becomes
-  `__p`); always show the current folder's full name. Alternatively, show an
-  editable full path. Keep each breadcrumb navigable using its actual location,
-  reveal full names for abbreviated segments, and save each pane's chosen mode
-  in the workspace layout.
-- Show the active workspace and unsaved layout changes clearly, with a
-  keyboard-accessible selector and a way to return to the saved layout after
-  confirmation.
-- Capture and restore a workspace's pane and tab locations, active tabs and
-  Yazi mode choices as an explicit layout snapshot; preserve running jobs and
-  confirm before replacing unsaved state.
-- Restore available workspace components when locations or providers are
-  unavailable; identify what could not be restored and offer a retry without
+  with an explicit option to search elsewhere. If no tag groups are assigned,
+  show all groups as in TagSpaces and explain the fallback.
+- Save layouts for workflows and integrations, including pane arrangements,
+  views, toolbars, and placement or visibility of search, tagging, preview,
+  editor and terminal areas as they become available. Save the workspace theme,
+  using app-local profiles when available; report unavailable features, themes
+  or providers when applying the workspace.
+- Extend each pane's location bar with Krusader-inspired breadcrumbs: show
+  full segments or abbreviate ancestors to their first letter, retaining
+  leading underscores (for example, `__path` becomes `__p`), while always
+  showing the current folder's full name. Alternatively, show an editable
+  full path. Navigate each breadcrumb using its actual location, reveal full
+  names for abbreviations and save each pane's mode in the workspace layout.
+- Show the active workspace and unsaved layout changes, with a
+  keyboard-accessible selector and a confirmed action to restore the saved
+  layout.
+- Capture and restore pane and tab locations, active tabs and Yazi mode choices
+  as an explicit workspace layout snapshot. Preserve running jobs and confirm
+  before replacing unsaved state.
+- Restore available components when locations or providers are unavailable.
+  Identify components that could not be restored and offer a retry without
   silently replacing saved locations or changing files.
-- Export and import selected workspace profiles using the existing M12 backup
-  workflow, with a preview and collision handling; exclude credentials and
+- Import and export selected workspace profiles through the M12 backup
+  workflow, with preview and collision handling. Exclude credentials and
   never execute commands or modify managed files during import.
-- Allow all, selected or none of a workspace's applicable behaviours to be
-  enabled, including location and tag-group presentation, search scope,
-  layouts, theme, pane and tab restoration, and Yazi mode. Preserve unselected
-  state and existing defaults, and reuse existing controls; M23 can apply
-  separate choices per Activity.
+- Allow all, selected or none of a workspace's applicable behaviours,
+  including location and tag-group presentation, search scope, layouts, theme,
+  pane and tab restoration, and Yazi mode. Preserve unselected state and
+  existing defaults and reuse existing controls; M23 can apply separate
+  choices per Activity.
 - Confirm before overwriting a saved workspace or discarding unsaved layout
-  changes; deleting a workspace removes its associations, not the underlying
-  files, locations or tags
-- Keep workspace configuration local and exclude credentials. Workspaces
+  changes. Deleting a workspace removes associations, not the underlying
+  files, locations or tags.
+- Store workspace configuration locally without credentials. Workspaces
   organize the interface and search scope; they are not a security boundary.
 
 ### M22 Workspace settings
 
 Settings for M21 workspaces, stored in KConfig.
 
-- **Management:** manage workspaces, their locations and tag-group assignments
-- **Startup:** choose a startup workspace or restore the last-used workspace
-  without overriding M02 startup folder and session choices
-- **Search:** choose whether workspace-scoped or all-location search is the
-  default, reusing the search settings from M10
-- **Layouts:** choose which workspace layout components to restore and confirm
-  before overwriting saved layouts
-- **Pane location bars:** choose full breadcrumbs, abbreviated ancestor
-  breadcrumbs or an editable full path independently for each pane; restore
-  these choices with the workspace layout
+- **Management:** manage workspaces and their location and tag-group assignments
+- **Startup:** choose a startup workspace or restore the last used one without
+  overriding M02 startup folder or session choices
+- **Search:** choose workspace-scoped or all-location search as the default,
+  reusing M10 search settings
+- **Layouts:** choose which layout components to restore and confirm before
+  overwriting saved layouts
+- **Pane location bars:** choose full breadcrumbs, abbreviated ancestors or an
+  editable full path for each pane; restore these choices with the layout
 - **Indicators:** show the active workspace and unsaved layout state; choose
-  where the workspace selector appears without hiding all ways to access it
-- **Snapshots:** choose which pane, tab and Yazi mode state a workspace
-  snapshot restores, respecting M02 startup and session choices
-- **Recovery:** choose whether to prompt to retry unavailable locations or
-  providers; keep saved references until the user explicitly changes them
-- **Portability:** select workspace profiles for export or import with the M12
-  backup controls and review conflicts before applying changes
-- **Features:** choose a workspace's default enabled behaviours individually,
-  or select all or none; reuse existing search, layout and theme settings and
-  expose per-Activity overrides through M24 when available
+  the selector's placement without removing all ways to access it
+- **Snapshots:** choose which pane, tab and Yazi mode state to restore from a
+  workspace snapshot, respecting M02 startup and session choices
+- **Recovery:** choose whether to prompt for retries when locations or
+  providers are unavailable; retain references until explicitly changed
+- **Portability:** select profiles for import or export using M12 backup
+  controls, and review conflicts before applying changes
+- **Features:** choose a workspace's default behaviours individually, or
+  select all or none; reuse search, layout and theme settings and expose
+  per-Activity overrides through M24 when available
 
 ### M25 Themes
 
-- Follow the active Plasma colour scheme by default. Offer optional app-local
-  light and dark colour presets and installed KDE colour schemes without
-  changing the desktop's global appearance, widget style or window decorations.
-- Provide an app-local colour editor with named palette roles and a live
-  preview. Preserve readable text, selection and focus indicators; validate
-  contrast and offer a way to revert without saving.
-- Save, import and export versioned app-owned theme profiles, including palette
-  choices and optional custom stylesheets, with validation, explicit overwrite
-  confirmation and a safe reset to the system appearance; do not execute code
-  from theme files.
-- Apply app-local colours consistently to supported Plasma Opus windows, panes and
-  dialogs while respecting accessibility settings, native icon themes and the
-  appearance boundaries of embedded or external components.
-- Support an optional app-local custom Qt Style Sheet (QSS, a CSS-like subset,
-  not full web CSS) entered in a text box or imported from a file. Preview,
-  apply, disable and revert it; export it separately or as part of a theme
-  profile. Report unsupported or invalid input, bound resource use and prevent
-  unapproved external resource loading.
+- Follow the active Plasma colour scheme by default. Offer app-local light
+  and dark presets and installed KDE schemes without changing the desktop's
+  global appearance, widget style or window decorations.
+- Provide an app-local colour editor with named palette roles and live preview.
+  Preserve readable text, selection and focus indicators; validate contrast
+  and allow changes to be reverted without saving.
+- Save, import and export versioned app-owned theme profiles with palette
+  choices and optional stylesheets. Validate them, confirm overwrites and
+  offer a safe reset to system appearance; do not execute code from theme files.
+- Apply app-local colours consistently across supported Plasma Opus windows,
+  panes and dialogs, respecting accessibility settings, native icon themes
+  and the appearance boundaries of embedded or external components.
+- Support an optional app-local Qt Style Sheet (QSS, a CSS-like subset rather
+  than full web CSS) entered in a text box or imported from a file. Allow
+  preview, application, disabling, reversion and export separately or with a
+  theme profile. Report invalid or unsupported input, bound resource use and
+  prevent unapproved external resource loading.
 
 ### M26 Theme settings
 
 Settings for M25 themes, stored in KConfig.
 
 - **Themes**
-  - **Appearance:** follow the system or choose an available app-local preset
+  - **Appearance:** follow the system or select an available app-local preset
     or installed KDE colour scheme
-  - **Custom colours:** edit, preview, save and reset app-local palette roles,
-    with contrast feedback and a reversible preview
+  - **Custom colours:** edit, preview, save and reset app-local palette roles
+    with contrast feedback and reversible preview
   - **Custom stylesheet:** enable or disable QSS, edit it in a text box, import
-    or export a file, and preview or revert changes
-  - **Profiles:** manage, import and export validated app-owned theme profiles,
-    including optional custom stylesheets, with explicit overwrite confirmation;
-    allow workspaces to select an available theme profile
+    or export it, and preview or revert changes
+  - **Profiles:** manage, import and export validated app-owned profiles and
+    optional stylesheets with overwrite confirmation; let workspaces select
+    an available profile
 
 ### M15 Advanced search
 
@@ -683,93 +680,91 @@ Extend the M09 search tools and reuse their search scopes, filters and saved
 searches rather than introducing a separate search system. M23 extends the
 Baloo integration without blocking this milestone.
 
-- **Indexing:** search folders and exclusions; configure the search shortcut
-  through existing KDE facilities, using double Shift where supported and
-  reporting when it is unavailable. Integrate with M29 when available.
-- Provide an embedded search pane with the placements defined in the
-  [interface design](philosophy/designs.md#panes). Placement alongside the
-  file panes must not replace either pane; integrate with the five-region
-  layout when available.
-- Offer an optional search widget for the main toolbar: enter a query, search
-  using the shared scope (initially the active pane's location) and open the
-  advanced search panel
-- Combine filename, path, file type, size, date and content criteria with
+- **Indexing:** configure search folders and exclusions, and use existing KDE
+  facilities for the search shortcut. Use double Shift where supported, report
+  when it is unavailable and integrate with M29 when available.
+- Provide an embedded search pane using the placements in the
+  [interface design](philosophy/designs.md#panes). Placing it alongside file
+  panes must not replace either pane; integrate with the five-region layout
+  when available.
+- Offer an optional main-toolbar search widget to enter queries, search the
+  shared scope (initially the active pane's location) and open the advanced
+  search panel
+- Combine filename, path, file type, size, date and content criteria using
   AND, OR and NOT; validate queries and explain unsupported criteria
-- Prototype the query parser and validation in Rust behind a narrow C++/Rust
-  interface. Test error handling, ownership, path handling and threading at
-  the boundary, and evaluate the build and maintenance costs before adopting
-  Rust more broadly; keep the search UI and KIO integration in C++.
-- Present M09 search results in the embedded panel, reusing its progress,
-  cancellation, error reporting, open and reveal actions without moving files
+- Prototype query parsing and validation in Rust behind a narrow C++/Rust
+  interface. Test boundary error handling, ownership, path handling and
+  threading, and evaluate build and maintenance costs before broader Rust
+  adoption; keep the search UI and KIO integration in C++.
+- Show M09 search results in the embedded panel, reusing progress,
+  cancellation, error reporting and open and reveal actions without moving files
 - Support keyboard navigation and focus between the toolbar widget, search
-  panel and panes; integrate with M29 shortcut configuration when available
+  panel and panes; use M29 shortcut configuration when available
 
 ### M16 Advanced search settings
 
 Settings for M15 advanced search, stored in KConfig.
 
-- **Panel:** choose an embedded-pane placement and whether to restore its
-  visibility on startup, preserving both file panes in shared placements
-- **Toolbar:** use the M12 toolbar controls to show or hide the search widget;
+- **Panel:** choose an embedded-pane placement and whether to restore
+  visibility at startup, preserving both file panes in shared placements
+- **Toolbar:** show or hide the search widget using M12 toolbar controls and
   choose whether submitting a query opens the panel
-- **Results:** choose the default result presentation and whether to retain
-  search history; allow history to be cleared
-- **Defaults:** reuse the M10 search scope, filters and saved-search settings
-  across the toolbar and panel
+- **Results:** choose the default presentation and whether to retain search
+  history; allow history to be cleared
+- **Defaults:** share M10 search scope, filter and saved-search settings
+  between the toolbar and panel
 
 ### M17 Native tagging
 
 A native KDE tagging workflow inspired by TagStudio, integrated into Plasma Opus
 rather than requiring TagStudio or changing the user's folder structure.
 
-- Opt-in libraries rooted at existing local folders; index files of any type
-  without moving, renaming or duplicating them
-- Evaluate Rust for tag relationships, library metadata and search logic
-  based on the M15 pilot; retain Qt/KDE integration in C++ and use C++ for the
-  core if the added build and interoperability costs are not justified
-- Create and manage tags with stable identities, names, aliases, shorthand,
-  colours and parent relationships; support duplicate names with clear
-  disambiguation and prevent cycles in the hierarchy
-- Organize tags into groups independently of workspaces; allow M21 workspaces
-  to reference these groups without changing the underlying tags
-- Assign and remove multiple tags on selected files and folders from the
-  listing or preview; provide a searchable, keyboard-accessible tag manager
-  as an embedded pane using the [interface design](philosophy/designs.md#panes)
-  placements, and show assigned tags in the file interface. Integrate with the
-  five-region layout when available.
+- Create opt-in libraries rooted in existing local folders; index files of
+  any type without moving, renaming or duplicating them
+- Evaluate Rust for tag relationships, library metadata and search using the
+  M15 pilot. Keep Qt/KDE integration in C++ and use C++ for the core if build
+  and interoperability costs are not justified.
+- Manage tags with stable identities, names, aliases, shorthand, colours and
+  parent relationships; disambiguate duplicate names and prevent hierarchy cycles
+- Organize tag groups independently of workspaces; let M21 workspaces
+  reference them without changing the underlying tags
+- Assign and remove multiple tags on selected files and folders from listings
+  or previews, and show assignments in the file interface. Provide a
+  searchable, keyboard-accessible tag manager as an embedded pane using the
+  [interface design](philosophy/designs.md#panes) placements; integrate with
+  the five-region layout when available.
 - Search and filter by tags, inherited parent tags, untagged items, paths and
-  file types, with AND, OR, NOT and grouped expressions; integrate with the
-  existing search and selection workflows
-- Add editable text and date fields to library entries, alongside existing
-  labels, ratings and notes without silently replacing or converting them
-- Read supported EXIF image metadata and ID3 audio tags for display and search;
-  allow users to map selected fields to library tags or fields with a preview
-  and conflict handling. Reuse M09 metadata editing for supported writes, with
-  explicit consent and clear reporting of unsupported formats or failures.
+  file types using AND, OR, NOT and grouped expressions; reuse existing search
+  and selection workflows
+- Add editable text and date fields to library entries alongside existing
+  labels, ratings and notes, without silently replacing or converting them
+- Read supported EXIF image metadata and ID3 audio tags for display and search.
+  Let users map selected fields to library tags or fields with preview and
+  conflict handling. Reuse M09 metadata editing for supported writes, with
+  explicit consent and clear reporting of unsupported formats and failures.
 - Store library metadata in an open, documented format without requiring a
-  sidecar for each file; preserve existing `.mfm.json` metadata and report
+  sidecar per file; preserve existing `.mfm.json` metadata and report
   unsupported or read-only locations
-- Refresh libraries with progress and cancellation; track Plasma Opus-initiated moves
-  and renames, and offer review and manual relinking for missing or externally
-  moved files without silently attaching metadata to an uncertain match
-- Export and restore library metadata with a preview and explicit confirmation;
-  never modify or delete the original files during export or restore
+- Refresh libraries with progress and cancellation. Track moves and renames
+  initiated by Plasma Opus, and offer review and manual relinking for missing
+  or externally moved files without silently attaching metadata to uncertain
+  matches.
+- Export and restore library metadata with preview and explicit confirmation;
+  never modify or delete original files during either operation
 
 ### M18 Tagging settings
 
 Settings for M17 tagging, stored in KConfig.
 
-- **Libraries:** manage library roots and exclusions, and configure automatic
-  refresh and scanning limits
-- **Tags:** configure tag colours, display, parent-tag matching defaults and
+- **Libraries:** manage roots and exclusions, automatic refresh and scan limits
+- **Tags:** configure colours, display, parent-tag matching defaults and
   embedded-pane placement
 - **Fields:** manage available text and date fields
-- **Embedded metadata:** choose which EXIF and ID3 fields to read or map to
-  library metadata; control refresh and conflict handling
-- **Search:** choose default tag search scope and matching behaviour
-- **Privacy:** control library metadata storage and backup locations; make
-  clear what is stored and do not write tags into file metadata without
-  explicit consent
+- **Embedded metadata:** select EXIF and ID3 fields to read or map to library
+  metadata, and control refresh and conflict handling
+- **Search:** choose the default tag-search scope and matching behaviour
+- **Privacy:** control library metadata and backup locations, explain what is
+  stored and require explicit consent before writing tags into file metadata
 
 ### M19 Yazi mode
 
@@ -778,104 +773,101 @@ Offer an optional native Qt/KDE browsing mode inspired by
 Reuse Plasma Opus's file models and KDE services; this is not an embedded Yazi process
 or a promise of Yazi configuration or plugin compatibility.
 
-- Enable or leave the mode per pane, keeping it off by default. Preserve both
-  panes and their tabs, locations, selections and normal view settings when
-  switching modes; allow M21 workspaces to restore the mode when available.
-- Present parent and current folders alongside an optional preview in the
-  active pane. Adapt or hide columns in narrow windows without replacing the
-  other pane; keep navigation and preview accessible.
-- Provide keyboard-first navigation, including optional Vim-style movement and
-  multi-key actions. Reuse existing KDE shortcut facilities and integrate with
-  M29 when available; show the active mode and avoid intercepting typing in
-  editors, search fields or the terminal.
+- Allow the mode to be entered or left per pane, keeping it off by default.
+  Preserve both panes and their tabs, locations, selections and normal view
+  settings when switching; let M21 workspaces restore the mode when available.
+- Show parent and current folders with an optional preview in the active pane.
+  Adapt or hide columns in narrow windows without replacing the other pane;
+  keep navigation and preview accessible.
+- Provide keyboard-first navigation with optional Vim-style movement and
+  multi-key actions. Reuse KDE shortcut facilities and integrate with M29
+  when available; show the active mode and do not intercept typing in editors,
+  search fields or the terminal.
 - Support focused-item and multi-item selection, copy, move, rename, trash and
-  other existing file actions through Plasma Opus and KIO. Keep conflict handling,
-  destructive-action confirmations and undo behaviour; never introduce a
-  shortcut that silently overwrites or permanently deletes files.
-- Reuse existing filtering, filename and content search, sorting, tabs and
-  history. Show active filters and search progress, allow cancellation, and
-  report backend or remote-location limitations.
+  other existing file actions through Plasma Opus and KIO. Retain conflict
+  handling, destructive-action confirmations and undo; never add a shortcut
+  that silently overwrites or permanently deletes files.
+- Reuse filtering, filename and content search, sorting, tabs and history.
+  Show active filters and search progress, allow cancellation and report
+  backend or remote-location limitations.
 - Reuse Plasma Opus previews and file information for the focused item, with
-  cancellable work and existing size and remote-download limits. Use existing
-  job and transfer-queue interfaces for progress and errors rather than
+  cancellable work and existing size and remote-download limits. Report
+  progress and errors through existing jobs and the transfer queue rather than
   duplicating operations.
 - Keep large and remote listings responsive and accessible to keyboard and
-  assistive-technology users; report unavailable operations and preserve
-  ordinary browsing when the mode cannot support a location.
-- Store mode, column and preview choices in KConfig and, when available,
-  workspace layouts; provide a discoverable way to toggle the mode without
-  changing existing bindings by default.
+  assistive-technology users. Report unavailable operations and preserve
+  ordinary browsing when a location is unsupported by the mode.
+- Store mode, column and preview choices in KConfig and available workspace
+  layouts. Provide a discoverable toggle without changing existing bindings
+  by default.
 
 ### M20 Yazi mode settings
 
 Settings for M19 Yazi mode, stored in KConfig and coordinated with workspace
 layouts.
 
-- **Activation:** choose the default mode independently for each pane and
-  whether to restore the previous choice; respect explicitly restored M21
-  workspace layouts when available and keep the mode off by default.
-- **Columns:** choose which folder-context and preview columns are shown and
-  their sizes; adapt to narrow windows without hiding the other file pane.
+- **Activation:** choose each pane's default mode and whether to restore its
+  previous choice. Respect explicitly restored M21 layouts when available
+  and keep the mode off by default.
+- **Columns:** choose visible folder-context and preview columns and their
+  sizes; adapt to narrow windows without hiding the other file pane.
 - **Preview:** choose whether to show the focused item's preview or file
-  information. Reuse existing preview providers, size limits and remote
-  download policy rather than creating conflicting settings.
-- **Keyboard:** choose a standard or Yazi-inspired shortcut preset, review
-  conflicts before applying it, and keep typing and accessibility controls
-  usable. Reuse existing KDE shortcut configuration and integrate with M29
-  when available.
-- **Workspace layouts:** when M21 is available, choose whether workspace
-  layouts restore Yazi mode and its column settings, without overwriting an
-  explicitly selected workspace layout or altering other pane views.
-- **Reset:** restore Yazi mode preferences to their defaults without erasing
-  saved workspace layouts or unrelated settings.
+  information. Reuse existing providers, size limits and remote-download
+  policy rather than introducing conflicting settings.
+- **Keyboard:** choose a standard or Yazi-inspired shortcut preset and review
+  conflicts before applying it. Keep typing and accessibility controls usable;
+  reuse KDE shortcut configuration and integrate with M29 when available.
+- **Workspace layouts:** when M21 is available, choose whether layouts restore
+  Yazi mode and its column settings without overwriting an explicitly selected
+  workspace layout or changing other pane views.
+- **Reset:** restore Yazi mode defaults without erasing saved workspace layouts
+  or unrelated settings.
 
 ### M23 Integrations
 
-- `org.freedesktop.FileManager1` D-Bus service
-- Deep integration with ARK
-- Enhanced Baloo integration: reuse M09 indexed search and M15's search
+- Provide the `org.freedesktop.FileManager1` D-Bus service
+- Integrate deeply with ARK
+- Enhance Baloo integration using M09 indexed search and M15's search
   interface. Show service status, configured folders and exclusions, and
-  coverage or indexing progress when available; distinguish configured scope
-  from confirmed coverage and warn that results may be missing or stale. Offer
-  access to KDE's shared indexing controls, reuse metadata from installed
-  KFileMetaData extractors, and identify missing extractors when detectable.
-  Do not change shared settings, enable indexing or start a reindex without
-  explicit user action.
+  available coverage or indexing progress. Distinguish configured scope from
+  confirmed coverage and warn about missing or stale results. Offer KDE's
+  shared indexing controls, reuse metadata from installed KFileMetaData
+  extractors and identify missing extractors when detectable. Do not change
+  shared settings, enable indexing or start a reindex without explicit action.
 - Extend Baloo search with supported metadata criteria and optional fuzzy
-  ranking of returned results. Make clear that ranking cannot recover matches
-  absent from the index or results truncated by existing limits. Offer an
-  explicit live-search fallback for supported local folders, retaining its
-  own limits, progress, cancellation and error reporting; never silently
-  broaden scope or substitute a different search.
-- KDE Plasma language integration: reuse M13 translation catalogues and M14
-  language and regional-format preferences with supported KDE and Qt
-  facilities. Follow Plasma's language preferences when no app-specific
-  override is selected, fall back to source text when a Plasma Opus catalogue is
-  unavailable, and offer access to Plasma's language settings when supported.
-  Do not modify shared desktop settings without explicit user action or
-  require a translation into a particular language.
-- Deep AppImage, Flatpak and Snap integration: identify packages and show
-  available application details and actions in the file manager. Support
-  AppImage launching and optional desktop integration, and use the respective
-  package tools for supported Flatpak and Snap installation, updates and
-  removal. Require confirmation for changes, respect executable and sandbox
-  permissions, and report missing tools, unsupported actions and errors.
-- Advanced SSH, SFTP and WebDAV integration: manage named connection profiles
-  and browse remote locations in either pane using KDE's KIO workers; support
-  transfers through the existing queue where available and open a separate SSH
-  terminal session for SSH profiles. Support password and SSH key/agent
-  authentication where available, use KDE's credential facilities, and
-  respect SSH host-key and WebDAV TLS certificate verification. Report
-  connection, authentication and unsupported-operation errors explicitly.
-- Use [mise](https://mise.jdx.dev/) for Plasma Opus development tooling: manage
-  project tool versions and provide configure, build, test and formatting
-  tasks. Document setup and system-provided Qt, KDE and other dependencies;
-  keep the existing CMake workflow usable without mise.
+  ranking. Explain that ranking cannot recover matches missing from the index
+  or results truncated by existing limits. Offer an explicit live-search
+  fallback for supported local folders, retaining its limits, progress,
+  cancellation and error reporting; never silently broaden scope or substitute
+  another search.
+- Integrate with KDE Plasma's language preferences using M13 translation
+  catalogues, M14 language and regional-format preferences, and supported KDE
+  and Qt facilities. Follow Plasma when no app override is selected, fall
+  back to source text if a Plasma Opus catalogue is unavailable, and offer
+  access to Plasma's language settings when supported. Do not change shared
+  desktop settings without explicit action or require a particular translation.
+- Integrate deeply with AppImage, Flatpak and Snap: identify packages and show
+  available application details and actions. Support AppImage launching and
+  optional desktop integration, and use the respective package tools for
+  supported Flatpak and Snap installation, updates and removal. Confirm
+  changes, respect executable and sandbox permissions, and report missing
+  tools, unsupported actions and errors.
+- Integrate advanced SSH, SFTP and WebDAV support: manage named profiles and
+  browse remote locations in either pane using KDE's KIO workers. Use the
+  existing transfer queue where available and offer a separate SSH terminal
+  for SSH profiles. Support passwords and SSH key/agent authentication where
+  available, use KDE credential facilities and respect SSH host-key and WebDAV
+  TLS certificate verification. Report connection, authentication and
+  unsupported-operation errors explicitly.
+- Use [mise](https://mise.jdx.dev/) for development tooling: manage project tool
+  versions and provide configure, build, test and formatting tasks. Document
+  setup and system-provided Qt, KDE and other dependencies; keep the existing
+  CMake workflow usable without mise.
 - ~~Default file manager registration~~
-- System tray and global shortcut
-- XDG portal file chooser
-- MCP server
-- Administrator mode through KIO's `admin:/` worker
+- Provide system-tray integration and a global shortcut
+- Support the XDG portal file chooser
+- Provide an MCP server
+- Support administrator mode through KIO's `admin:/` worker
 - Extend the existing open-terminal action and M09 embedded Konsole terminal
   with explicit separate Konsole, Yakuake or Kwi providers and an embedded Kwi
   KPart when available. Reuse the current Konsole integration and
@@ -975,49 +967,49 @@ tracked in [#406].
 Settings for M23 integrations, stored in KConfig.
 
 - **System tray**
-  - **Behaviour:** minimise and close to tray
+  - **Behaviour:** choose whether to minimise and close to the tray
 - **Shortcuts**
   - **Global:** enable or disable the integration's global shortcut and choose
     its key combination through KDE facilities; integrate with M29's shortcut
     configuration when available
 - **File manager**
-  - **Portal:** serve the XDG portal file chooser on or off
+  - **Portal:** enable or disable serving the XDG portal file chooser
   - **Default:** show the current desktop file-manager association and offer
     an explicit action to set Plasma Opus as the user default; report failures
 - **MCP**
-  - **Access:** server access (off, read or write), token and audit log
+  - **Access:** configure server access (off, read or write), token and audit log
 - **Terminal**
-  - **Provider:** choose Konsole, Yakuake or Kwi for separate sessions and
-    Konsole or Kwi for embedded sessions, independently of placement in M10
+  - **Provider:** select Konsole, Yakuake or Kwi for separate sessions and
+    Konsole or Kwi for embedded sessions, independently of M10 placement
 - **Editor**
-  - **Provider:** choose the built-in editor or an available KWrite, Kate,
-    Neovim, Rune, micro or nano integration, and the terminal session type for
+  - **Provider:** select the built-in editor or an available KWrite, Kate,
+    Neovim, Rune, micro or nano integration, plus the session type for
     terminal editors
 - **Application packages**
-  - **Integration:** enable or disable AppImage, Flatpak and Snap actions
-    independently and configure optional AppImage desktop integration
+  - **Integration:** independently enable AppImage, Flatpak and Snap actions
+    and configure optional AppImage desktop integration
 - **Remote connections**
   - **Profiles:** manage SSH, SFTP and WebDAV hosts, ports, usernames and
-    connection defaults; store credentials through KDE's credential facilities,
-    not in KConfig or URLs
+    connection defaults; use KDE credential facilities instead of storing
+    credentials in KConfig or URLs
 - **rsync**
-  - **Backend:** enable the optional backend and choose safe sync defaults,
-    reusing M10 profiles and preserving preview and confirmation requirements
+  - **Backend:** enable the optional backend and choose safe sync defaults;
+    reuse M10 profiles and preserve preview and confirmation requirements
 - **Atuin**
-  - **History:** enable the terminal history action and choose a supported
-    terminal session; leave Atuin's own history and sync settings unchanged
+  - **History:** enable the history action and select a supported terminal
+    session without changing Atuin's history or sync settings
 - **Nextcloud**
-  - **Integration:** enable account and client integration, manage references
-    to local sync folders and reuse existing WebDAV profiles without storing
-    passwords or tokens in KConfig
+  - **Integration:** enable account and client integration, manage local sync
+    folder references and reuse WebDAV profiles without storing passwords or
+    tokens in KConfig
 - **Online accounts**
-  - **Access:** opt in to integration and choose which supported accounts to
-    show in Plasma Opus; manage accounts in KDE without deleting shared accounts when
+  - **Access:** opt in and choose which supported accounts to show in Plasma
+    Opus; manage accounts in KDE without deleting shared accounts when
     removing them from Plasma Opus
 - **Baloo**
-  - **Search:** choose whether to offer fuzzy ranking and a live-search fallback;
-    reuse M10 and M16 search settings. Open KDE's shared indexing controls
-    rather than duplicating or silently changing them.
+  - **Search:** choose whether to offer fuzzy ranking and live-search fallback;
+    reuse M10 and M16 settings and open KDE's shared indexing controls rather
+    than duplicating or silently changing them.
 - **Plasma Activities**
   - **Workspaces:** enable Activity associations; manage workspace mappings,
     Activity-specific default folders, feature selections and workspace-switch
@@ -1025,10 +1017,10 @@ Settings for M23 integrations, stored in KConfig.
     inherit workspace defaults or select all, individual or no behaviours.
 - **Plasma notifications**
   - **Operations:** choose which Plasma Opus-owned operation events produce
-    notifications and open KDE's notification settings for shared controls
+    notifications; use KDE's notification settings for shared controls
 - **KDE Connect**
   - **Sharing:** enable the sharing action and choose whether to remember a
-    device, without changing pairing or KDE Connect settings
+    device without changing pairing or KDE Connect settings
 - **KRunner**
   - **Discovery:** enable the optional runner and choose which saved workspaces
     and locations it can expose
@@ -1038,12 +1030,12 @@ Settings for M23 integrations, stored in KConfig.
 
 ### M27 Branding
 
-- Establish a consistent, translatable application name and description across
-  the desktop entry, app metadata, About dialog and documentation.
-- Create original, appropriately licensed Plasma Opus logo and application-icon assets
-  with suitable sizes and light/dark variants. Keep file, device and action
-  icons sourced from the active desktop icon theme.
-- Present the branding consistently in About and release materials; provide an
+- Use a consistent, translatable application name and description in the
+  desktop entry, app metadata, About dialog and documentation.
+- Create original, appropriately licensed Plasma Opus logo and application
+  icon assets in suitable sizes and light/dark variants. Continue to source
+  file, device and action icons from the active desktop icon theme.
+- Present branding consistently in About and release materials. Offer an
   optional, accessible startup presentation that does not delay or block use.
 
 ### M28 Branding settings
@@ -1052,41 +1044,41 @@ Settings for M27 branding, stored in KConfig and separate from theme settings.
 
 - **Branding**
   - **Presentation:** enable or disable the optional startup presentation and
-    choose among available branding variants without changing the app identity
+    select available branding variants without changing the app identity
 
 ### M29 Keyboard shortcut settings
 
-- Optional Vim-style navigation in file listings and panes, with a discoverable
-  shortcut reference; keep it off by default and do not intercept typing in
-  text fields or the embedded terminal
-- Show the active Vim-style mode and provide a clear way to enter filtering or
-  text input without conflicting with navigation keys
-- Configure custom shortcuts using simultaneous key combinations and
-  sequential key chords, with conflict detection, clear feedback and reset to
-  defaults; integrate with KDE shortcut facilities where supported
+- Offer optional Vim-style navigation in listings and panes with a discoverable
+  shortcut reference. Keep it off by default and do not intercept typing in
+  text fields or the embedded terminal.
+- Show the active Vim-style mode and provide a clear way to enter filtering
+  or text without conflicting with navigation keys
+- Configure simultaneous key combinations and sequential key chords with
+  conflict detection, clear feedback and reset to defaults; use KDE shortcut
+  facilities where supported
 - Allow alternative bindings for an action and configurable shortcuts for
-  commands that are not on a toolbar, including custom commands
-- Show a searchable keyboard map with action names, descriptions, bindings and
-  contexts; search by typing an action name or pressing a key combination, and
-  export a printable reference
+  commands outside a toolbar, including custom commands
+- Show a searchable keyboard map of action names, descriptions, bindings and
+  contexts. Search by action name or key combination and export a printable
+  reference.
 - Scope bindings to the applicable view, folder tree, viewer or application;
-  detect conflicts where contexts overlap and preserve typing and accessibility
-  keys in input controls
-- Native shortcut hint panel, shown as a sliding or floating pane, inspired by
-  [which-key.nvim](https://github.com/folke/which-key.nvim): show pending key
+  detect conflicts between overlapping contexts and preserve typing and
+  accessibility keys in input controls
+- Provide a native sliding or floating shortcut hint pane inspired by
+  [which-key.nvim](https://github.com/folke/which-key.nvim). Show pending key
   sequences and context-appropriate continuations grouped with action
-  descriptions; support keyboard navigation and dismissal
-- Configure the hint panel's enablement and display delay, and provide an
-  on-demand shortcut reference; cancel or time out incomplete sequences
-  without unexpectedly running a conflicting action
+  descriptions; support keyboard navigation and dismissal.
+- Configure the hint panel's enablement and display delay, and offer an
+  on-demand shortcut reference. Cancel or time out incomplete sequences
+  without unexpectedly running a conflicting action.
 - Provide shortcuts for pane and tab navigation, selection, filtering, preview
-  and terminal focus as those features become available, without overriding
-  existing bindings by default
-- Import and export shortcut bindings with a conflict preview; do not execute
+  and terminal focus as features become available, without overriding existing
+  bindings by default
+- Import and export shortcut bindings with conflict preview; do not execute
   commands from imported files
-- Save the Vim-style mode and app-local shortcut bindings in KConfig; manage
-  optional global shortcuts through KDE facilities and report registration
-  failures or platform limitations
+- Store Vim-style mode and app-local bindings in KConfig; manage optional
+  global shortcuts through KDE facilities and report registration failures or
+  platform limitations
 
 <a id="m30-ui-and-ux-polish"></a>
 ### M30 Refinements
@@ -1101,15 +1093,15 @@ and subsection details.
 
 See the [menus plan](refinements/01-menus.md).
 
-- Review main, pane and context menus for logical grouping, consistent action
-  names and discoverable shortcuts. Reuse KXmlGui and existing KDE actions;
-  preserve user-customized menus and destructive-action confirmations.
-- Make toolbar and pane actions consistent and discoverable, including
-  overflow in narrow windows and clear indication of the pane they affect.
-  Preserve existing toolbar customization and shortcut bindings.
-- Keep menu and toolbar action state synchronized with the active pane, current
-  selection and location as tabs change or listings refresh. Context-menu
-  actions must continue to target the selection for which they were opened.
+- Review main, pane and context menus for logical groups, consistent action
+  names and discoverable shortcuts. Reuse KXmlGui and KDE actions while
+  preserving customized menus and destructive-action confirmations.
+- Make toolbar and pane actions consistent and discoverable, with overflow in
+  narrow windows and a clear indication of the affected pane. Preserve
+  toolbar customization and shortcut bindings.
+- Synchronize menu and toolbar action state with the active pane, selection
+  and location as tabs change or listings refresh. Keep context-menu actions
+  targeted at the selection for which they were opened.
 
 #### M30.2 Layouts
 
@@ -1128,9 +1120,9 @@ See the [layouts plan](refinements/02-layouts.md).
 - Adapt panes, panels, dialogs and menus to small windows, high DPI, long
   translations and right-to-left layouts. Keep both panes and essential
   controls accessible without discarding user-selected layouts.
-- Restore windows to a usable visible position after monitor, resolution or
-  scale changes, while preserving saved geometry when the display returns.
-  Avoid overriding placement decisions owned by the window manager.
+- Restore windows to a usable, visible position after monitor, resolution or
+  scale changes while preserving saved geometry for when the display returns.
+  Do not override placement decisions owned by the window manager.
 - Review splitter and panel behavior when changing orientation, maximizing,
   hiding panels or swapping panes. Preserve each applicable saved layout and
   make it easy to recover a pane or panel that has become too small to use.
@@ -1153,12 +1145,12 @@ See the [interaction plan](refinements/03-interaction.md).
 
 - Review keyboard navigation, focus restoration, screen-reader names and
   contrast across workflows. Reuse M29 shortcuts and KDE accessibility
-  facilities without intercepting text entry or terminal input.
-- Make loading, empty, filtered, unavailable and error states understandable;
-  show operation progress and cancellation where supported, explain disabled
-  actions, and avoid duplicating KIO notifications or hiding failures.
+  facilities without intercepting text or terminal input.
+- Explain loading, empty, filtered, unavailable and error states. Show
+  progress and cancellation where supported, explain disabled actions and
+  avoid duplicate KIO notifications or hidden failures.
 - Improve contextual help and discovery of pane actions, view modes and
-  customization without mandatory onboarding or changing existing settings.
+  customization without mandatory onboarding or changes to existing settings.
 - Provide context-sensitive help from the main window, settings pages and
   supported dialogs using KDE help facilities and an accessible Help action.
   Open the relevant local documentation where available; explain missing help
@@ -1203,21 +1195,21 @@ See the [interaction plan](refinements/03-interaction.md).
 
 See the [settings plan](refinements/04-settings.md).
 
-- Search settings by name and description, showing matching pages and opening
-  the relevant tab and control
-- Review page grouping, labels, descriptions and terminology for consistency;
-  explain settings that affect shared KDE configuration or require a restart
-- Make Apply, OK and Cancel behaviour clear, including pending changes and
-  restoration of live previews when changes are cancelled
-- Restore defaults for the current page or all pages with an explicit choice
-  and confirmation before discarding changes
+- Search settings by name and description; show matching pages and open the
+  relevant tab and control
+- Make page grouping, labels, descriptions and terminology consistent; explain
+  settings that affect shared KDE configuration or require a restart
+- Explain Apply, OK and Cancel, including pending changes and restoration of
+  live previews when changes are cancelled
+- Offer an explicit choice to restore defaults for the current page or all
+  pages, with confirmation before discarding changes
 - Validate inputs with actionable inline errors and focus the affected control;
   explain unavailable or dependent options
 - Support keyboard navigation, visible focus, screen-reader labels and
   accessible error messages throughout the dialog
 - Adapt pages and navigation to small windows, high DPI, long translations and
   right-to-left layouts without clipping controls or labels
-- Provide concise contextual help for settings whose effects are not obvious
+- Provide concise contextual help where a setting's effects are not obvious
 - Let users mark frequently used settings pages for quick access and open a
   specific page from an appropriate interface action. Preserve page identity
   across navigation and restarts without changing settings values.
@@ -1257,12 +1249,12 @@ See the [settings plan](refinements/04-settings.md).
 
 See the [performance and startup plan](refinements/05-performance.md).
 
-- Profile and benchmark cold and warm application startup through the first
-  interactive window, settings opening and first-page readiness. Record
-  representative configurations, timing distributions and memory use, then
-  set measurable improvement targets against the baseline.
-- Reduce startup work on the GUI thread, deferring nonessential initialization
-  and loading where appropriate. Preserve restored sessions, pane readiness,
+- Profile and benchmark cold and warm startup through the first interactive
+  window, settings opening and first-page readiness. Record representative
+  configurations, timing distributions and memory use, then set measurable
+  improvement targets against the baseline.
+- Reduce GUI-thread startup work by deferring nonessential initialization and
+  loading where appropriate. Preserve restored sessions, pane readiness,
   error reporting and user-selected startup behavior.
 - Speed up opening settings and switching pages through measured improvements
   such as lazy page creation and background loading where safe. Preserve
@@ -1285,14 +1277,14 @@ See the [testing plan](refinements/06-testing.md).
 Use the [edge-case inventory](EDGE.md) as input; its scenarios are not
 confirmed bugs and may overlap existing tests.
 
-- Inventory every implemented functionality and map it to reproducible
-  automated or documented manual tests, including its supported entry points.
-  Record gaps and unavailable features explicitly; extend the matrix as new
-  functionality ships without blocking M30 on unimplemented milestones.
-- Exercise workflows end to end alongside unit and integration tests, covering
+- Inventory every implemented feature and map its supported entry points to
+  reproducible automated or documented manual tests. Record gaps and
+  unavailable features explicitly; extend the matrix as functionality ships
+  without blocking M30 on unimplemented milestones.
+- Exercise workflows end to end alongside unit and integration tests. Cover
   successful operations, invalid input, cancellation, failures, recovery,
-  persistence and interactions between features. Verify destructive operations
-  and their confirmations using isolated temporary fixtures.
+  persistence and feature interactions. Verify destructive operations and
+  confirmations using isolated temporary fixtures.
 - Test accessibility, keyboard and pointer interaction, animations, layouts,
   translations and desktop configurations across a documented representative
   matrix. Include missing optional dependencies and local and remote failure
