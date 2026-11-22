@@ -28,7 +28,7 @@ This log records user-visible bugs and reliability issues. Consult the
 | [#533](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/533) | Embedded panel titles cannot be hidden like Explorer | Yes | Merged |
 | [#549](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/549) | Combined panel section spacing and title accents | Yes | Merged |
 | [#555](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/555) | Application icon accent color and size | Yes | Merged |
-| [#558](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/558) | Headers, titles and status bar need horizontal padding | No | Development |
+| [#558](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/558) | Headers, titles and status bar need horizontal padding | Yes | Completed |
 
 ## Status legend
 
@@ -45,17 +45,19 @@ This log records user-visible bugs and reliability issues. Consult the
 
 ## Open reports
 
+There are no open bug reports.
+
+## Completed reports
+
 ### Header, title and status-bar padding
 
 - Severity: not assessed
-- Status: Development; [#558](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/558)
+- Status: Completed; [#558](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/558)
 - Summary: Headers, titles and the status bar need more horizontal padding.
-- Expected behaviour: Provide at least 8 logical pixels of padding on both the
-  left and right sides of headers, titles and status-bar content. Preserve
-  controls, accessibility and KDE theme behaviour, including in narrow
-  windows and right-to-left layouts.
-
-## Completed reports
+- Resolution: Application-owned headers, titles and status-bar content have
+  at least eight logical pixels of horizontal padding. Native dock titles and
+  column headers retain their active style; see the
+  [padding caveat](CAVEATS.md#native-title-and-header-padding) ([#560](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/560)).
 
 ### Application icon accent color and size
 
