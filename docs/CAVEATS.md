@@ -98,7 +98,7 @@ the system language if none can be used.
     - Comment: [#265.7021749894][comment-265]
   - **Alternative:** Stage remote files locally with Dolphin.
     - Comment: [#265.7029669109](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/265#issuecomment-7029669109)
-  - **Planned:** [M23 remote connection profiles](ROADMAP.md#m23-integrations)
+  - **Planned:** [M25 remote connection profiles](ROADMAP.md#m25-integrations)
     are not a commitment to support remote archive creation or testing.
     - Comment: [#265.7021749894][comment-265]
 - **Password-protected archives:** Creation supports AES-encrypted ZIP only
@@ -133,7 +133,7 @@ the system language if none can be used.
     - Comment: [#255.7021741358][comment-255]
   - **Alternative:** Try standalone Ark with its 7z backend.
     - Comment: [#36.7029665511](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/36#issuecomment-7029665511)
-  - **Planned:** [M23 Ark integration](ROADMAP.md#m23-integrations) does not
+  - **Planned:** [M25 Ark integration](ROADMAP.md#m25-integrations) does not
     guarantee encrypted 7z support or safe password handling.
     - Comment: [#36.7021740511][comment-36]
 
@@ -154,7 +154,7 @@ operation before assuming passwords are not exposed in process arguments.
   - Comment: [#313.7021757012][comment-313]
 - **Alternative proposal:** Consider a user-controlled external archiver handoff.
   - Comment: [#313.7029672463](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/313#issuecomment-7029672463)
-- **Planned:** [M23](ROADMAP.md#m23-integrations) includes Ark integration;
+- **Planned:** [M25](ROADMAP.md#m25-integrations) includes Ark integration;
   its precise backend and safeguards still need to be established.
   - Comment: [#313.7021757012][comment-313]
 
@@ -176,7 +176,7 @@ operation before assuming passwords are not exposed in process arguments.
       - Comment: [#257.7029666537](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/257#issuecomment-7029666537)
     - Use ordinary hidden filenames where appropriate.
       - Comment: [#258.7029666857](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/258#issuecomment-7029666857)
-  - **Planned:** [M17 native tagging](ROADMAP.md#m17-native-tagging) is a
+  - **Planned:** [M21 native tagging](ROADMAP.md#m21-native-tagging) is a
     separate library and does not make `.mfm.json` writes lossless.
     - Comment: [#257.7021742864][comment-257]
 - **Metadata limits:** Metadata files are limited to 4,096 bytes, notes to
@@ -189,7 +189,7 @@ operation before assuming passwords are not exposed in process arguments.
     - Comment: [#263.7021748197][comment-263]
   - **Alternative:** Keep longer notes in a separate file.
     - Comment: [#263.7029668469](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/263#issuecomment-7029668469)
-  - **Planned:** [M17 library text fields](ROADMAP.md#m17-native-tagging)
+  - **Planned:** [M21 library text fields](ROADMAP.md#m21-native-tagging)
     are separate from folder notes and do not remove these metadata limits.
     - Comment: [#263.7021748197][comment-263]
 - **Flat view:** The `filenamesearch:/` KIO worker is required and is normally
@@ -219,7 +219,7 @@ operation before assuming passwords are not exposed in process arguments.
 
 ## Planned password-gated folders
 
-The [proposed Plasma Opus password gate](ROADMAP.md#m23-integrations) is not
+The [proposed Plasma Opus password gate](ROADMAP.md#m25-integrations) is not
 implemented. It would be a Plasma Opus-only prompt, not encryption or filesystem
 access control. Other file managers and processes with the same user permissions
 could access the underlying folder without the password. Standard filesystem
@@ -277,7 +277,7 @@ feature [#402](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/
     - Comment: [#264.7021749088][comment-264]
   - **Alternative:** Use Kate or KWrite for long-line text.
     - Comment: [#264.7029668772](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/264#issuecomment-7029668772)
-  - **Planned:** [M23 editor integrations](ROADMAP.md#m23-integrations) would
+  - **Planned:** [M25 editor integrations](ROADMAP.md#m25-integrations) would
     launch separate editors; they do not increase Plasma Opus preview limits.
     - Comment: [#264.7021749088][comment-264]
 - **Rendered previews:** HTML and Markdown previews disable links and
@@ -344,7 +344,7 @@ feature [#402](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/
     - Comment: [#307.7021754467][comment-307]
   - **Alternative:** Use a standalone editor and an explicit backup copy.
     - Comment: [#307.7029671086](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/307#issuecomment-7029671086)
-  - **Planned:** [M23 editor integrations](ROADMAP.md#m23-integrations) are
+  - **Planned:** [M25 editor integrations](ROADMAP.md#m25-integrations) are
     separate applications and do not expand Plasma Opus draft storage.
     - Comment: [#307.7021754467][comment-307]
 - **Draft retention:** Drafts are retained indefinitely by default. An
@@ -373,7 +373,7 @@ feature [#402](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/
     - Comment: [#309.7021755164][comment-309]
   - **Alternative:** Compare a saved copy against the original before adopting edits.
     - Comment: [#309.7029671476](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/309#issuecomment-7029671476)
-  - **Planned:** [M23 editor integrations](ROADMAP.md#m23-integrations) do
+  - **Planned:** [M25 editor integrations](ROADMAP.md#m25-integrations) do
     not change the built-in visual editor's Markdown limitations.
     - Comment: [#309.7021755164][comment-309]
 
@@ -416,11 +416,11 @@ Tracked in [#362](https://github.com/mikepadiernos/plasma-opus-file-manager/issu
   - Comment: [#362.7023269364][comment-362]
 - **Alternative:** Use a separately maintained locate database for filenames.
   - Comment: [#362.7029675758](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/362#issuecomment-7029675758)
-- **Planned:** [M15 advanced search](ROADMAP.md#m15-advanced-search) reuses
+- **Planned:** [M19 advanced search](ROADMAP.md#m19-advanced-search) reuses
   M09 search; its new interface and criteria do not by themselves remove
-  current backend limits. [M23 Baloo integration](ROADMAP.md#m23-integrations)
+  current backend limits. [M25 Baloo integration](ROADMAP.md#m25-integrations)
   plans better status, metadata queries, result ranking and an explicit live
-  fallback, not guaranteed index completeness. [M21 workspaces](ROADMAP.md#m21-workspaces)
+  fallback, not guaranteed index completeness. [M15 workspaces](ROADMAP.md#m15-workspaces)
   plan search scoping, not a security boundary.
   - Comment: [#362.7023269364][comment-362]
 
@@ -454,7 +454,7 @@ Tracked in [#372](https://github.com/mikepadiernos/plasma-opus-file-manager/issu
   - Comment: [#372.7024683530][comment-372]
 - **Alternative:** Try a separate batch renamer on copies.
   - Comment: [#372.7029676077](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/372#issuecomment-7029676077)
-- **Planned:** [M17](ROADMAP.md#m17-native-tagging) plans to track
+- **Planned:** [M21](ROADMAP.md#m21-native-tagging) plans to track
   Plasma Opus-initiated moves and renames in its library; it does not promise to
   migrate existing per-folder annotations.
   - Comment: [#372.7024683530][comment-372]
@@ -480,7 +480,7 @@ Tracked in [#376](https://github.com/mikepadiernos/plasma-opus-file-manager/issu
   - Comment: [#376.7026216329][comment-376]
 - **Alternative:** Use a separate graphical directory comparison.
   - Comment: [#376.7029677475](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/376#issuecomment-7029677475)
-- **Planned:** The [M23 rsync backend](ROADMAP.md#m23-integrations) is for
+- **Planned:** The [M25 rsync backend](ROADMAP.md#m25-integrations) is for
   folder synchronization; it does not promise remote support in this
   standalone comparison.
   - Comment: [#376.7026216329][comment-376]
@@ -512,7 +512,7 @@ Tracked in [#377](https://github.com/mikepadiernos/plasma-opus-file-manager/issu
   - Comment: [#377.7026633904][comment-377]
 - **Alternative:** Use rsync separately with a reviewed dry run.
   - Comment: [#377.7029677824](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/377#issuecomment-7029677824)
-- **Planned:** [M23](ROADMAP.md#m23-integrations) proposes an optional rsync
+- **Planned:** [M25](ROADMAP.md#m25-integrations) proposes an optional rsync
   backend for local and SSH locations, with a reviewed dry run. It is not
   available yet and would still require confirmation and recovery precautions.
   - Comment: [#377.7026633904][comment-377]
@@ -542,7 +542,7 @@ Tracked in [#374](https://github.com/mikepadiernos/plasma-opus-file-manager/issu
   - Comment: [#374.7025134952][comment-374]
 - **Alternative:** Try a dedicated tag editor for other audio fields.
   - Comment: [#374.7029676829](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/374#issuecomment-7029676829)
-- **Planned:** [M17](ROADMAP.md#m17-native-tagging) plans to read and map
+- **Planned:** [M21](ROADMAP.md#m21-native-tagging) plans to read and map
   selected embedded metadata but reuses M09 for supported writes; it does not
   promise additional writable formats or preservation guarantees.
   - Comment: [#374.7025134952][comment-374]
@@ -576,7 +576,7 @@ Tracked in [#375](https://github.com/mikepadiernos/plasma-opus-file-manager/issu
   - Comment: [#375.7025250130][comment-375]
 - **Alternative proposal:** Consider adding paste and drop jobs to the queue.
   - Comment: [#375.7029677171](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/375#issuecomment-7029677171)
-- **Planned:** [M23](ROADMAP.md#m23-integrations) proposes remote-profile
+- **Planned:** [M25](ROADMAP.md#m25-integrations) proposes remote-profile
   transfers through the queue where available and Plasma Opus-owned job notifications;
   neither promises to route paste or drag-and-drop through the queue.
   - Comment: [#375.7025250130][comment-375]
@@ -748,7 +748,7 @@ window ends them and can affect running programs.
   - Comment: [#321.7022392302][comment-321]
 - **Alternative:** Use a terminal multiplexer for independently retained sessions.
   - Comment: [#321.7029674455](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/321#issuecomment-7029674455)
-- **Planned:** [M23](ROADMAP.md#m23-integrations) proposes additional terminal
+- **Planned:** [M25](ROADMAP.md#m25-integrations) proposes additional terminal
   providers and separate SSH sessions for SSH profiles; it does not promise
   embedded remote working directories or persistent sessions after exit.
   - Comment: [#321.7022392302][comment-321]

@@ -56,9 +56,9 @@ context and avoid intercepting text entry or terminal input; see the
   - **Terminal:** hosts Konsole sessions.
   - **Advanced search:** searches and displays results in a planned embedded
     pane; the current search interface is a dialog. See the
-    [advanced search plan](../ROADMAP.md#m15-advanced-search).
+    [advanced search plan](../ROADMAP.md#m19-advanced-search).
   - **Tagging:** a planned embedded pane for managing and assigning tags; see
-    the [tagging plan](../ROADMAP.md#m17-native-tagging).
+    the [tagging plan](../ROADMAP.md#m21-native-tagging).
 
   Current placement options vary by tool; Preview and the editors also offer
   other modes.
@@ -78,6 +78,11 @@ A workspace is a named profile for a workflow, with its own features, layout,
 theme and other preferences. Workspaces can optionally be associated with KDE
 Plasma Activities, with applicable settings selected per Activity.
 
+An optional local vault can give a workspace a note-oriented view, using the
+built-in text editor for Markdown, note links and backlinks. It remains a
+normal folder: workspace management does not move or delete its notes or
+modify Obsidian configuration.
+
 Workspaces and Activity associations are planned; see the
-[workspace](../ROADMAP.md#m21-workspaces) and
-[Activity integration](../ROADMAP.md#m23-integrations) milestones.
+[workspace](../ROADMAP.md#m15-workspaces) and
+[Activity integration](../ROADMAP.md#m25-integrations) milestones.

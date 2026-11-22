@@ -40,7 +40,7 @@ Before starting, check issue and board state and follow the
    include focused tests in each slice rather than waiting until the end.
 4. **Optimize measured bottlenecks:** compare with the baseline, apply startup
    and settings improvements, and evaluate Rust only for suitable measured
-   core hotspots. The M15 pilot can inform the decision but is not a reason to
+   core hotspots. The M19 pilot can inform the decision but is not a reason to
    block unrelated refinements if unavailable.
 5. **Run cross-feature validation:** execute the functional, accessibility,
    environment and security plan; investigate findings, retest changes and
