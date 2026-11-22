@@ -7,6 +7,7 @@
 #include <KTextEditor/View>
 
 #include <QApplication>
+#include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QFile>
@@ -15,6 +16,7 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTextBrowser>
 #include <QTextEdit>
 #include <QTimer>
 
@@ -53,6 +55,35 @@ private Q_SLOTS:
         editor.applySettings();
         QVERIFY(!view->configValue(QStringLiteral("dynamic-word-wrap")).toBool());
         QTRY_COMPARE_WITH_TIMEOUT(DraftStore(directory.filePath(QStringLiteral("drafts"))).drafts(QUrl(), &error).size(), 1, 5000);
+    }
+
+    void markdownPreviewSupportsCommonMarkWithoutChangingSource()
+    {
+        QTemporaryDir directory;
+        EditorPanel editor(nullptr, directory.filePath(QStringLiteral("drafts")));
+        editor.show();
+        const QString source = QStringLiteral("A ~~strike~~ and **bold**\n");
+        QVERIFY(editor.document()->setText(source));
+        auto *previewToggle = editor.findChild<QPushButton *>(QStringLiteral("editorMarkdownPreview"));
+        auto *preview = editor.findChild<QTextBrowser *>(QStringLiteral("editorRenderedMarkdown"));
+        auto *dialect = editor.findChild<QComboBox *>(QStringLiteral("editorMarkdownDialect"));
+        QVERIFY(previewToggle && preview && dialect);
+        previewToggle->setChecked(true);
+        QTextCursor strike = preview->document()->find(QStringLiteral("strike"));
+        QVERIFY(!strike.isNull());
+        QVERIFY(strike.charFormat().fontStrikeOut());
+        dialect->setCurrentIndex(1);
+        QCOMPARE(preview->toPlainText().trimmed(), QStringLiteral("A ~~strike~~ and bold"));
+        const QTextCursor bold = preview->document()->find(QStringLiteral("bold"));
+        QVERIFY(!bold.isNull());
+        QVERIFY(bold.charFormat().fontWeight() >= QFont::Bold);
+        QCOMPARE(editor.document()->text(), source);
+        QVERIFY(editor.document()->setText(QStringLiteral("# Updated\n")));
+        QCOMPARE(preview->toPlainText().trimmed(), QStringLiteral("Updated"));
+        QVERIFY(editor.document()->setText(source));
+        dialect->setCurrentIndex(0);
+        strike = preview->document()->find(QStringLiteral("strike"));
+        QVERIFY(strike.charFormat().fontStrikeOut());
     }
 
     void visualMarkdownRequiresConsentAndPreservesSource()
