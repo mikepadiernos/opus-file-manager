@@ -3,6 +3,14 @@
 **[Documentation](README.md)** · **[Roadmap](ROADMAP.md)** ·
 **[Project board](https://github.com/users/mikepadiernos/projects/3)**
 
+## Workspace feature completion (#200)
+
+[#200](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/200)
+is in Review; the next M15 feature,
+[#201](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/201),
+is Defined. Once #201 enters Review, move #200 to Completed, close it as
+completed, and strike its roadmap item in the same change.
+
 ## Workspace layout coverage (#203)
 
 [#203](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/203)

@@ -616,6 +616,7 @@ preferences; see the [interface design](philosophy/designs.md#workspaces).
   organize the interface and search scope; they are not a security boundary.
 
 **Pending:** [Workspace layout coverage](TODO.md#workspace-layout-coverage-203).
+**Pending:** [Workspace feature completion](TODO.md#workspace-feature-completion-200).
 **Caveat:** [Workspace layouts](CAVEATS.md#workspace-layouts).
 
 <a id="m22-workspace-settings"></a>
