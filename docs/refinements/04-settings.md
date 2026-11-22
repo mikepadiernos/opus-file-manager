@@ -76,7 +76,7 @@ Settings
 │       │   ├── App-owned configuration and layout backup
 │       │   ├── Preview
 │       │   └── Restore
-│       └── Portability (tab) [future: M22]
+│       └── Portability (tab) [future: M16]
 │           ├── Workspace import
 │           ├── Workspace export
 │           └── Conflict review
@@ -92,7 +92,7 @@ Settings
 │   ├── Status and Location Bars (subpage)
 │   ├── Motion (subpage) [proposed]
 │   │   └── Desktop motion preferences and app-level animation disable
-│   └── Themes (subpage) [future: M26]
+│   └── Themes (subpage) [future: M18]
 │       ├── Appearance (tab)
 │       ├── Colors (tab)
 │       ├── Stylesheet (tab)
@@ -127,7 +127,7 @@ Settings
 │   │   └── KTextEditor (tab)
 │   ├── Terminal (subpage)
 │   │   └── Placement and following the active pane's local folder
-│   └── Search (subpage) [future: M16]
+│   └── Search (subpage) [future: M20]
 │       └── Panel placement and restoring its visibility
 ├── File (category)
 │   ├── Views (subpage)
@@ -157,7 +157,7 @@ Settings
 │   │   ├── Information and Display (tab)
 │   │   ├── Slideshow (tab)
 │   │   └── Image Conversion (tab)
-│   └── Yazi (subpage) [future: M20]
+│   └── Yazi (subpage) [future: M24]
 │       ├── Activation (tab)
 │       ├── Columns and Preview (tab)
 │       ├── Keyboard (tab)
@@ -184,7 +184,7 @@ Settings
 │   │   │   ├── Subtrees
 │   │   │   └── Recursion depth
 │   │   └── Saved Searches and Collections (tab)
-│   ├── Advanced Search (subpage) [future: M16]
+│   ├── Advanced Search (subpage) [future: M20]
 │   │   ├── Toolbar (tab)
 │   │   └── Results (tab)
 │   └── Results (subpage) [proposed]
@@ -192,19 +192,19 @@ Settings
 │       ├── Matching setting
 │       └── Direct navigation
 ├── Workspaces (category)
-│   ├── Management (subpage) [future: M22 or M24]
-│   │   ├── Workspaces (tab) [future: M22]
+│   ├── Management (subpage) [future: M16 or M26]
+│   │   ├── Workspaces (tab) [future: M16]
 │   │   │   ├── Locations
 │   │   │   └── Tag-group assignments
-│   │   ├── Startup (tab) [future: M22]
+│   │   ├── Startup (tab) [future: M16]
 │   │   │   └── Startup workspace or last-used workspace
-│   │   ├── Recovery (tab) [future: M22]
+│   │   ├── Recovery (tab) [future: M16]
 │   │   │   └── Unavailable locations and providers
-│   │   ├── Features (tab) [future: M22]
+│   │   ├── Features (tab) [future: M16]
 │   │   │   └── Workspace features, theme and Activity overrides
-│   │   └── Password-gated Folders (tab) [future: M24]
+│   │   └── Password-gated Folders (tab) [future: M26]
 │   │       └── Folder access managed inside Plasma Opus
-│   ├── Layouts (subpage) [future: M22]
+│   ├── Layouts (subpage) [future: M16]
 │   │   ├── Layouts (tab)
 │   │   │   ├── Restored components
 │   │   │   ├── Pane location bars
@@ -217,9 +217,9 @@ Settings
 │   │       ├── Restored pane state
 │   │       ├── Restored tab state
 │   │       └── Restored Yazi mode state
-│   └── Search (subpage) [future: M22]
+│   └── Search (subpage) [future: M16]
 │       └── Workspace or all-location default scope
-├── Tagging (category) [future: M18]
+├── Tagging (category) [future: M22]
 │   ├── Libraries (subpage)
 │   │   ├── Locations (tab)
 │   │   │   ├── Roots
@@ -271,41 +271,41 @@ Settings
     ├── KDE Plasma (subpage)
     │   ├── Service Menus (tab)
     │   │   └── Installed service actions and plugins
-    │   ├── System Tray (tab) [future: M24]
+    │   ├── System Tray (tab) [future: M26]
     │   │   └── Minimize and close behavior
-    │   ├── Activities (tab) [future: M24]
+    │   ├── Activities (tab) [future: M26]
     │   │   └── Workspace associations and Activity-specific choices
-    │   ├── Notifications (tab) [future: M24]
+    │   ├── Notifications (tab) [future: M26]
     │   │   └── Plasma Opus operation events and KDE notification settings
-    │   ├── Global Shortcuts (tab) [future: M24]
+    │   ├── Global Shortcuts (tab) [future: M26]
     │   │   └── Integration shortcut and KDE shortcut configuration
-    │   ├── Online Accounts (tab) [future: M24]
+    │   ├── Online Accounts (tab) [future: M26]
     │   │   └── Opt-in access and account visibility
-    │   ├── Baloo (tab) [future: M24]
+    │   ├── Baloo (tab) [future: M26]
     │   │   └── Search integration and shared indexing controls
-    │   ├── KDE Connect (tab) [future: M24]
+    │   ├── KDE Connect (tab) [future: M26]
     │   │   └── Sharing and remembered device
-    │   └── KRunner (tab) [future: M24]
+    │   └── KRunner (tab) [future: M26]
     │       └── Optional runner and exposed workspaces and locations
-    ├── File Manager (subpage) [future: M24]
+    ├── File Manager (subpage) [future: M26]
     │   └── File chooser portal and default file manager
-    ├── Terminal (subpage) [future: M24]
+    ├── Terminal (subpage) [future: M26]
     │   └── Embedded and separate terminal providers
-    ├── Editor (subpage) [future: M24]
+    ├── Editor (subpage) [future: M26]
     │   └── Editor provider and terminal session type
-    ├── Application Packages (subpage) [future: M24]
+    ├── Application Packages (subpage) [future: M26]
     │   ├── AppImage actions
     │   ├── Flatpak actions
     │   └── Snap actions
-    ├── Remote Connections (subpage) [future: M24]
+    ├── Remote Connections (subpage) [future: M26]
     │   └── Connection profiles and KDE credential facilities
-    ├── Nextcloud (subpage) [future: M24]
+    ├── Nextcloud (subpage) [future: M26]
     │   └── Account integration and local sync folders
-    ├── rsync (subpage) [future: M24]
+    ├── rsync (subpage) [future: M26]
     │   └── Optional backend and sync defaults
-    ├── Atuin (subpage) [future: M24]
+    ├── Atuin (subpage) [future: M26]
     │   └── Terminal history action and session
-    └── MCP (subpage) [future: M24]
+    └── MCP (subpage) [future: M26]
         ├── Access level
         ├── Token
         └── Audit log
@@ -320,7 +320,7 @@ Settings
   tabs move into File > Views.
 - Current **Context Menu Actions** and **Automation** settings move to
   Appearance > Menus; **Service Menus** moves to Integrations > KDE Plasma.
-  Existing service-menu settings remain available without M24. **Archives**
+  Existing service-menu settings remain available without M26. **Archives**
   and **Files** tabs move to File > Operations. Gallery settings move to tabs
   under Modes > Gallery. The Editor and KTextEditor tabs move to Panels >
   Text Editor, and the embedded terminal moves from Tools to Panels. Search
@@ -349,7 +349,7 @@ Settings
   placement controls with the [interface design](../philosophy/designs.md).
 - Listing filters and saved selection filters serve different purposes and stay
   distinct. Advanced Search links to the shared search defaults instead of
-  creating a second copy. The integration shortcut remains available with M24;
+  creating a second copy. The integration shortcut remains available with M26;
   M29 links to it when available rather than adding a conflicting binding.
 - Future workspace, tagging, integration and shortcut pages reuse shared
   settings where applicable. Link to the authoritative controls instead of
@@ -358,8 +358,8 @@ Settings
   keep KDE-owned accounts, credentials and desktop settings under KDE's control.
 - Integrations > KDE Plasma groups desktop-specific controls; provider choices
   shared with non-KDE applications remain separate. Password-gated folders are
-  under Workspaces > Management, but are an M24 feature and do not depend on
-  M22 workspace implementation; the gate applies only inside Plasma Opus, not as
+  under Workspaces > Management, but are an M26 feature and do not depend on
+  M16 workspace implementation; the gate applies only inside Plasma Opus, not as
   filesystem security.
 - Search and favorites navigate to the same underlying pages, not duplicate
   settings. The sidebar search entry point and Search > Results use the same

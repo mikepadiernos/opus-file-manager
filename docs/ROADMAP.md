@@ -11,7 +11,7 @@ record the Max File Manager behaviour that informs its parity goals.
 > [!NOTE]
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus-file-manager/releases/tag/v0.2.0).
-> This roadmap tracks `main` and future work; M21 Workspaces is next.
+> This roadmap tracks `main` and future work; M15 Workspaces is next.
 
 ## Architecture
 
@@ -23,7 +23,7 @@ record the Max File Manager behaviour that informs its parity goals.
 Rust is a candidate for self-contained core logic, including measured
 performance hotspots, not a wholesale rewrite of C++ features. Keep widgets,
 settings and file operations in Qt/KDE, including KIO for local and remote
-operations. The M15 Rust pilot can inform later work, including consideration
+operations. The M19 Rust pilot can inform later work, including consideration
 of M09 duplicate detection and rename or sync planning; this evaluation does
 not block M09 or change KIO's role.
 
@@ -31,7 +31,7 @@ not block M09 or change KIO's role.
 
 | Upstream approach | Plasma Opus approach |
 | --- | --- |
-| Custom themes, title bars and window buttons | Plasma widget style, colour scheme, fonts and KWin decorations by default; optional app-local colours in M25 |
+| Custom themes, title bars and window buttons | Plasma widget style, colour scheme, fonts and KWin decorations by default; optional app-local colours in M17 |
 | Bundled icon pack | Active icon theme through `QIcon::fromTheme` |
 | Hand-written toolbar and shortcut editors | KXmlGui, `KEditToolBar` and `KShortcutsDialog` |
 | Settings in SQLite | KConfig; session state in the KConfig state file |
@@ -555,7 +555,8 @@ Settings for M13 translations, stored in KConfig.
 [translation format overrides](CAVEATS.md#translation-format-overrides),
 tracked in [#440].
 
-### M21 Workspaces
+<a id="m21-workspaces"></a>
+### M15 Workspaces
 
 Organize locations and tag groups into focused workspace profiles, inspired by
 TagSpaces. Each profile can include features, layouts, a theme and other
@@ -606,7 +607,7 @@ preferences; see the [interface design](philosophy/designs.md#workspaces).
 - Allow all, selected or none of a workspace's applicable behaviours,
   including location and tag-group presentation, search scope, layouts, theme,
   pane and tab restoration, and Yazi mode. Preserve unselected state and
-  existing defaults and reuse existing controls; M23 can apply separate
+  existing defaults and reuse existing controls; M25 can apply separate
   choices per Activity.
 - Confirm before overwriting a saved workspace or discarding unsaved layout
   changes. Deleting a workspace removes associations, not the underlying
@@ -614,9 +615,10 @@ preferences; see the [interface design](philosophy/designs.md#workspaces).
 - Store workspace configuration locally without credentials. Workspaces
   organize the interface and search scope; they are not a security boundary.
 
-### M22 Workspace settings
+<a id="m22-workspace-settings"></a>
+### M16 Workspace settings
 
-Settings for M21 workspaces, stored in KConfig.
+Settings for M15 workspaces, stored in KConfig.
 
 - **Management:** manage workspaces and their location and tag-group assignments
 - **Startup:** choose a startup workspace or restore the last used one without
@@ -637,9 +639,10 @@ Settings for M21 workspaces, stored in KConfig.
   controls, and review conflicts before applying changes
 - **Features:** choose a workspace's default behaviours individually, or
   select all or none; reuse search, layout and theme settings and expose
-  per-Activity overrides through M24 when available
+  per-Activity overrides through M26 when available
 
-### M25 Themes
+<a id="m25-themes"></a>
+### M17 Themes
 
 - Follow the active Plasma colour scheme by default. Offer app-local light
   and dark presets and installed KDE schemes without changing the desktop's
@@ -659,9 +662,10 @@ Settings for M21 workspaces, stored in KConfig.
   theme profile. Report invalid or unsupported input, bound resource use and
   prevent unapproved external resource loading.
 
-### M26 Theme settings
+<a id="m26-theme-settings"></a>
+### M18 Theme settings
 
-Settings for M25 themes, stored in KConfig.
+Settings for M17 themes, stored in KConfig.
 
 - **Themes**
   - **Appearance:** follow the system or select an available app-local preset
@@ -674,10 +678,11 @@ Settings for M25 themes, stored in KConfig.
     optional stylesheets with overwrite confirmation; let workspaces select
     an available profile
 
-### M15 Advanced search
+<a id="m15-advanced-search"></a>
+### M19 Advanced search
 
 Extend the M09 search tools and reuse their search scopes, filters and saved
-searches rather than introducing a separate search system. M23 extends the
+searches rather than introducing a separate search system. M25 extends the
 Baloo integration without blocking this milestone.
 
 - **Indexing:** configure search folders and exclusions, and use existing KDE
@@ -701,9 +706,10 @@ Baloo integration without blocking this milestone.
 - Support keyboard navigation and focus between the toolbar widget, search
   panel and panes; use M29 shortcut configuration when available
 
-### M16 Advanced search settings
+<a id="m16-advanced-search-settings"></a>
+### M20 Advanced search settings
 
-Settings for M15 advanced search, stored in KConfig.
+Settings for M19 advanced search, stored in KConfig.
 
 - **Panel:** choose an embedded-pane placement and whether to restore
   visibility at startup, preserving both file panes in shared placements
@@ -714,7 +720,8 @@ Settings for M15 advanced search, stored in KConfig.
 - **Defaults:** share M10 search scope, filter and saved-search settings
   between the toolbar and panel
 
-### M17 Native tagging
+<a id="m17-native-tagging"></a>
+### M21 Native tagging
 
 A native KDE tagging workflow inspired by TagStudio, integrated into Plasma Opus
 rather than requiring TagStudio or changing the user's folder structure.
@@ -722,11 +729,11 @@ rather than requiring TagStudio or changing the user's folder structure.
 - Create opt-in libraries rooted in existing local folders; index files of
   any type without moving, renaming or duplicating them
 - Evaluate Rust for tag relationships, library metadata and search using the
-  M15 pilot. Keep Qt/KDE integration in C++ and use C++ for the core if build
+  M19 pilot. Keep Qt/KDE integration in C++ and use C++ for the core if build
   and interoperability costs are not justified.
 - Manage tags with stable identities, names, aliases, shorthand, colours and
   parent relationships; disambiguate duplicate names and prevent hierarchy cycles
-- Organize tag groups independently of workspaces; let M21 workspaces
+- Organize tag groups independently of workspaces; let M15 workspaces
   reference them without changing the underlying tags
 - Assign and remove multiple tags on selected files and folders from listings
   or previews, and show assignments in the file interface. Provide a
@@ -752,9 +759,10 @@ rather than requiring TagStudio or changing the user's folder structure.
 - Export and restore library metadata with preview and explicit confirmation;
   never modify or delete original files during either operation
 
-### M18 Tagging settings
+<a id="m18-tagging-settings"></a>
+### M22 Tagging settings
 
-Settings for M17 tagging, stored in KConfig.
+Settings for M21 tagging, stored in KConfig.
 
 - **Libraries:** manage roots and exclusions, automatic refresh and scan limits
 - **Tags:** configure colours, display, parent-tag matching defaults and
@@ -766,7 +774,8 @@ Settings for M17 tagging, stored in KConfig.
 - **Privacy:** control library metadata and backup locations, explain what is
   stored and require explicit consent before writing tags into file metadata
 
-### M19 Yazi mode
+<a id="m19-yazi-mode"></a>
+### M23 Yazi mode
 
 Offer an optional native Qt/KDE browsing mode inspired by
 [Yazi](https://yazi-rs.github.io/docs/quick-start/), a terminal file manager.
@@ -775,7 +784,7 @@ or a promise of Yazi configuration or plugin compatibility.
 
 - Allow the mode to be entered or left per pane, keeping it off by default.
   Preserve both panes and their tabs, locations, selections and normal view
-  settings when switching; let M21 workspaces restore the mode when available.
+  settings when switching; let M15 workspaces restore the mode when available.
 - Show parent and current folders with an optional preview in the active pane.
   Adapt or hide columns in narrow windows without replacing the other pane;
   keep navigation and preview accessible.
@@ -801,13 +810,14 @@ or a promise of Yazi configuration or plugin compatibility.
   layouts. Provide a discoverable toggle without changing existing bindings
   by default.
 
-### M20 Yazi mode settings
+<a id="m20-yazi-mode-settings"></a>
+### M24 Yazi mode settings
 
-Settings for M19 Yazi mode, stored in KConfig and coordinated with workspace
+Settings for M23 Yazi mode, stored in KConfig and coordinated with workspace
 layouts.
 
 - **Activation:** choose each pane's default mode and whether to restore its
-  previous choice. Respect explicitly restored M21 layouts when available
+  previous choice. Respect explicitly restored M15 layouts when available
   and keep the mode off by default.
 - **Columns:** choose visible folder-context and preview columns and their
   sizes; adapt to narrow windows without hiding the other file pane.
@@ -817,17 +827,18 @@ layouts.
 - **Keyboard:** choose a standard or Yazi-inspired shortcut preset and review
   conflicts before applying it. Keep typing and accessibility controls usable;
   reuse KDE shortcut configuration and integrate with M29 when available.
-- **Workspace layouts:** when M21 is available, choose whether layouts restore
+- **Workspace layouts:** when M15 is available, choose whether layouts restore
   Yazi mode and its column settings without overwriting an explicitly selected
   workspace layout or changing other pane views.
 - **Reset:** restore Yazi mode defaults without erasing saved workspace layouts
   or unrelated settings.
 
-### M23 Integrations
+<a id="m23-integrations"></a>
+### M25 Integrations
 
 - Provide the `org.freedesktop.FileManager1` D-Bus service
 - Integrate deeply with ARK
-- Enhance Baloo integration using M09 indexed search and M15's search
+- Enhance Baloo integration using M09 indexed search and M19's search
   interface. Show service status, configured folders and exclusions, and
   available coverage or indexing progress. Distinguish configured scope from
   confirmed coverage and warn about missing or stale results. Offer KDE's
@@ -919,7 +930,7 @@ layouts.
   visibly; do not assume every account offers file access. Respect provider
   permissions, authentication and TLS verification, and never store tokens or
   passwords in URLs, logs or Plasma Opus configuration.
-- Plasma Activities: optionally associate M21 workspaces with Activities and
+- Plasma Activities: optionally associate M15 workspaces with Activities and
   configure default folders for each Activity and workspace association. For
   each association, use all, selected or none of the applicable workspace
   behaviours, including theme and layout, and Activity-specific default
@@ -962,9 +973,10 @@ layouts.
 **Planned caveat:** [Password-gated folders](CAVEATS.md#planned-password-gated-folders),
 tracked in [#406].
 
-### M24 Integration settings
+<a id="m24-integration-settings"></a>
+### M26 Integration settings
 
-Settings for M23 integrations, stored in KConfig.
+Settings for M25 integrations, stored in KConfig.
 
 - **System tray**
   - **Behaviour:** choose whether to minimise and close to the tray
@@ -1008,7 +1020,7 @@ Settings for M23 integrations, stored in KConfig.
     removing them from Plasma Opus
 - **Baloo**
   - **Search:** choose whether to offer fuzzy ranking and live-search fallback;
-    reuse M10 and M16 settings and open KDE's shared indexing controls rather
+    reuse M10 and M20 settings and open KDE's shared indexing controls rather
     than duplicating or silently changing them.
 - **Plasma Activities**
   - **Workspaces:** enable Activity associations; manage workspace mappings,
@@ -1262,7 +1274,7 @@ See the [performance and startup plan](refinements/05-performance.md).
   including for pages not yet opened.
 - Prototype and integrate Rust implementations for selected, profiled
   self-contained core hotspots where benchmarks demonstrate a benefit. Use
-  the M15 pilot where applicable, a narrow safe C++/Rust interface and existing
+  the M19 pilot where applicable, a narrow safe C++/Rust interface and existing
   Qt/KDE facilities; account for build, packaging and dependency costs without
   rewriting widgets or replacing KIO.
 - Add reproducible performance checks and functional regression tests for
