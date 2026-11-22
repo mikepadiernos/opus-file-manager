@@ -3,19 +3,6 @@
 **[Documentation](README.md)** · **[Roadmap](ROADMAP.md)** ·
 **[Project board](https://github.com/users/mikepadiernos/projects/3)**
 
-## Integration settings project tracking
-
-The M26 Markdown and media backend settings issues
-([#577](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/577)
-and [#578](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/578))
-are open and linked to their parent and repository milestone, but could not be
-added to the project board because GitHub's GraphQL primary rate limit was
-exhausted. The reported reset is 2026-11-22 04:33:39 UTC.
-
-After the reset, verify their current board membership, add any missing issue
-to the Plasma Opus project, set its status to Backlog, and verify both entries.
-Then remove this handoff and its roadmap reference.
-
 ## mpv integration (#563)
 
 [#563](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/563)

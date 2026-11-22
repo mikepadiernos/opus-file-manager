@@ -1074,8 +1074,6 @@ Settings for M25 integrations, stored in KConfig.
   - **Access:** manage protected local folders and their passwords, with a
     clear warning that the gate applies only inside Plasma Opus
 
-**Pending:** [Integration settings project tracking](TODO.md#integration-settings-project-tracking).
-
 ### M27 Branding
 
 - Use a consistent, translatable application name and description in the
