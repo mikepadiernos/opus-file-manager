@@ -78,6 +78,11 @@ A workspace is a named profile for a workflow, with its own features, layout,
 theme and other preferences. Workspaces can optionally be associated with KDE
 Plasma Activities, with applicable settings selected per Activity.
 
+An optional local vault can give a workspace a note-oriented view, using the
+built-in text editor for Markdown, note links and backlinks. It remains a
+normal folder: workspace management does not move or delete its notes or
+modify Obsidian configuration.
+
 Workspaces and Activity associations are planned; see the
 [workspace](../ROADMAP.md#m21-workspaces) and
 [Activity integration](../ROADMAP.md#m23-integrations) milestones.

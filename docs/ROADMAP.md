@@ -568,6 +568,15 @@ preferences; see the [interface design](philosophy/designs.md#workspaces).
   each location or group belongs to at most one workspace. Switching shows
   the active workspace's locations and groups without moving files or
   changing tags; provide access to unassigned locations and groups.
+- Allow an assigned local location to serve as an optional Obsidian-inspired
+  vault for the built-in text editor. Offer source and visual Markdown editing,
+  live preview, note navigation, wiki links, backlinks, tags and a note
+  relationship view, reusing the editor work in [#564](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/564).
+  Preserve drafts and unsaved edits when navigating or switching workspaces;
+  scope indexing to the chosen vault, report incomplete results and handle
+  ambiguous or missing links. Work with existing folders without moving notes,
+  executing plugins or changing Obsidian configuration. Deleting a workspace
+  must not delete its vault. See the [pending handoff](TODO.md#workspace-vault-editing-565).
 - Scope global search to the active workspace's assigned locations by default,
   with an explicit way to search outside it. If no tag groups are assigned,
   show all groups as in TagSpaces; explain the fallback in the interface.
