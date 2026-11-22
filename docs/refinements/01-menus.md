@@ -1,10 +1,16 @@
-# M30.1 Menus
+# M32.1 Menus
 
-**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m301-menus)** ·
+**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m321-menus)** ·
 **[Layouts](02-layouts.md)**
 
 **Goal:** make actions easy to find and accurately scoped without replacing
 KDE integration or user-customized menus and toolbars.
+
+## Contents
+
+- [Proposed menu layout](#proposed-menu-layout)
+- [Proposed order](#proposed-order)
+- [Review decisions](#review-decisions)
 
 ## Proposed menu layout
 

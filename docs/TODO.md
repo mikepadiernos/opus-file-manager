@@ -6,13 +6,19 @@
 These handoffs describe unfinished work and the branch or issue to resume.
 Confirm the current issue and project status before acting.
 
+## Contents
+
+- [Workspace layout coverage (#203)](#workspace-layout-coverage-203)
+- [mpv integration (#563)](#mpv-integration-563)
+- [Markdown editor and backlinks (#564)](#markdown-editor-and-backlinks-564)
+- [Workspace vault editing (#565)](#workspace-vault-editing-565)
+
 ## Workspace layout coverage (#203)
 
 [#203](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/203) is
-Defined. On `feature/M15-workspaces`, #200 implements the workspace selector,
-management actions and supported layout snapshots. Full layout coverage remains
-planned and is documented in the
-[workspace layout caveat](CAVEATS.md#workspace-layouts).
+Defined. The merged #200 implements the workspace selector, management actions
+and supported layout snapshots. Full layout coverage remains planned and is
+documented in the [workspace layout caveat](CAVEATS.md#workspace-layouts).
 
 Extend snapshots to include view modes, toolbar contents, terminal placement and
 detached-window geometry. Preserve pane and tab locations, editor drafts,
@@ -40,9 +46,9 @@ moving the issue to Review.
 ## Markdown editor and backlinks (#564)
 
 [#564](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/564) is
-in Development on `feature/M25-integrations`. That branch adds a Qt CommonMark
-preview dialect alongside the existing GitHub-flavored dialect; it does not
-change visual editing or export and is not yet in `main`.
+in Backlog. `feature/M25-integrations` adds a Qt CommonMark preview dialect
+alongside the existing GitHub-flavored dialect; it does not change visual
+editing or export and is not yet in `main`.
 
 Backlinks, vault selection and wiki-link navigation are not implemented. Qt's
 rich-text renderer supports a subset of Markdown, so verify CommonMark
@@ -57,18 +63,17 @@ and backlink workflows are implemented and verified.
 ## Workspace vault editing (#565)
 
 [#565](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/565) is
-Defined. Workspace profiles are implemented on `feature/M15-workspaces`;
-location assignment integration remains in progress. Continue workspace settings
-work on `feature/M16-workspace-settings`. The built-in Markdown and backlinks
-feature
+Defined and belongs to M27. Workspace profiles and location assignments
+([#200](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/200)
+and
+[#201](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/201))
+are merged. The built-in Markdown and backlinks feature
 [#564](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/564) is
-still in Development on `feature/M25-integrations`.
+in Backlog; its vault and backlink workflows remain unimplemented.
 
-Implement workspace profiles
-([#200](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/200))
-and the editor's vault features first. Then associate an assigned local location
-with a workspace, integrate vault navigation and editor state, and provide
-workspace settings
+Implement the editor's vault features first. Then associate an assigned local
+location with a workspace, integrate vault navigation and editor state, and
+provide workspace settings in M28
 ([#566](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/566)).
 Test switching with unsaved edits, incomplete scans, duplicate names, link
 resolution, unavailable or removed roots, symlink boundaries and workspace

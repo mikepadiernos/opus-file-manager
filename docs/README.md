@@ -6,6 +6,12 @@ Find the right guide for using, building and planning Plasma Opus.
 **[Bugs](BUGS.md)** · **[Caveats](CAVEATS.md)** ·
 **[Refinements](refinements/README.md)**
 
+## Contents
+
+- [Start here](#start-here)
+- [Plan and track](#plan-and-track)
+- [Behaviour references](#behaviour-references)
+
 ## Start here
 
 | Guide                                      | What it covers                                  |
@@ -25,7 +31,7 @@ Find the right guide for using, building and planning Plasma Opus.
 | [Reported bugs](BUGS.md)                      | Bug reports and completion status                   |
 | [Caveats and limitations](CAVEATS.md)         | Restrictions, dependencies and workarounds          |
 | [Edge cases](EDGE.md)                         | Potential boundary conditions and test scenarios    |
-| [M30 refinement plans](refinements/README.md) | Editable designs and proposed execution order       |
+| [M32 refinement plans](refinements/README.md) | Editable designs and proposed execution order       |
 | [Project instructions](../CLAUDE.md)          | Development conventions and workflows               |
 
 > [!IMPORTANT] The roadmap defines milestone scope and completion. Refinement

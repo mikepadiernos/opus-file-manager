@@ -1,10 +1,16 @@
-# M30.2 Layouts
+# M32.2 Layouts
 
-**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m302-layouts)** ·
+**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m322-layouts)** ·
 **[Menus](01-menus.md)**
 
 **Goal:** improve first-run layouts and customization without losing existing
 window, panel, toolbar or session choices.
+
+## Contents
+
+- [Proposed toolbar layouts](#proposed-toolbar-layouts)
+- [Proposed order](#proposed-order)
+- [Review decisions](#review-decisions)
 
 ## Proposed toolbar layouts
 
@@ -151,7 +157,9 @@ in either side column, and embedded panes configurable across the side columns,
 middle column and footer. Support sliding and floating panes outside the fixed
 regions. Preserve existing placements and saved layouts, including file-pane
 state when an embedded pane occupies the middle column. Integrate planned panes
-as they become available without blocking existing work.
+as they become available without blocking existing work, including the
+advanced-search panel and tag manager. Track this work in
+[#583](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/583).
 
 Introduce the unified
 [customization mode](../philosophy/designs.md#toolbars-and-customization)
