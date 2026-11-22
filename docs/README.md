@@ -24,15 +24,17 @@ Find the right guide for using, building and planning Plasma Opus.
 
 ## Plan and track
 
-| Document                                      | What it tracks                                      |
-| --------------------------------------------- | --------------------------------------------------- |
-| [Roadmap](ROADMAP.md)                         | Architecture, milestone status and planned features |
-| [Pending tasks](TODO.md)                      | Blocked work and handoffs                           |
-| [Reported bugs](BUGS.md)                      | Bug reports and completion status                   |
-| [Caveats and limitations](CAVEATS.md)         | Restrictions, dependencies and workarounds          |
-| [Edge cases](EDGE.md)                         | Potential boundary conditions and test scenarios    |
-| [M32 refinement plans](refinements/README.md) | Editable designs and proposed execution order       |
-| [Project instructions](../CLAUDE.md)          | Development conventions and workflows               |
+| Document                                               | What it tracks                                      |
+| ------------------------------------------------------ | --------------------------------------------------- |
+| [Roadmap](ROADMAP.md)                                  | Architecture, milestone status and planned features |
+| [Pending tasks](TODO.md)                               | Blocked work and handoffs                           |
+| [Reported bugs](BUGS.md)                               | Bug reports and completion status                   |
+| [Caveats and limitations](CAVEATS.md)                  | Restrictions, dependencies and workarounds          |
+| [Edge cases](EDGE.md)                                  | Potential boundary conditions and test scenarios    |
+| [M32 refinement plans](refinements/README.md)          | Editable designs and proposed execution order       |
+| [KDE Plasma integration](integrations/kde-plasma.md)   | Desktop integration plans and boundaries            |
+| [Plasma Mail integration](integrations/plasma-mail.md) | Proposed mail and file workflows                    |
+| [Project instructions](../CLAUDE.md)                   | Development conventions and workflows               |
 
 > [!IMPORTANT] The roadmap defines milestone scope and completion. Refinement
 > plans are proposals, pending tasks are handoffs, and edge cases are test
