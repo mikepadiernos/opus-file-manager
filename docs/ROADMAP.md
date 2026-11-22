@@ -911,6 +911,15 @@ layouts.
   components. Preserve the built-in editor and its draft handling, pass file
   paths safely without shell interpolation, and report missing providers,
   launch failures and unsupported locations.
+- Extend the built-in editor with CommonMark and Obsidian-like wiki links and
+  backlinks within a user-selected local vault. Preserve source and drafts,
+  respect vault boundaries, and report ambiguous, missing or inaccessible
+  targets and incomplete scans. See the [pending handoff](TODO.md#markdown-editor-and-backlinks-564).
+- Offer optional mpv integration for embedded audio and video playback in the
+  preview panel and gallery alongside Qt Multimedia, and an explicit action to
+  open selected media in the separate mpv application. Preserve autoplay and
+  remote preview behavior; report unavailable backends, playback errors and
+  unsupported locations. See the [pending handoff](TODO.md#mpv-integration-563).
 - Optional [rsync](https://rsync.samba.org/) backend for M09 folder sync:
   support local folders and SSH locations, reuse sync profiles and exclusions,
   and show an itemized dry run before confirmation. Disable deletion by
@@ -1382,6 +1391,8 @@ upstream source could not be verified for this review.
 Follow the [project instructions](../CLAUDE.md) for issue tracking, completion,
 branching and merging. Record blocked work in [pending tasks](TODO.md) and
 document feature limitations in [caveats and limitations](CAVEATS.md).
+The [renumbered milestone branches](TODO.md#renumbered-milestone-branches)
+need reconciliation before their unfinished features are merged.
 Native dock and column-header spacing follows the
 [active widget style](CAVEATS.md#native-title-and-header-padding) ([#560](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/560)).
 
