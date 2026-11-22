@@ -568,7 +568,8 @@ preferences; see the [interface design](philosophy/designs.md#workspaces).
 - Assign saved locations and, when available, tag groups to workspaces, with
   each assigned to at most one workspace. Switching shows the active
   workspace's assignments without moving files or changing tags; keep
-  unassigned locations and groups accessible.
+  unassigned locations and groups accessible. See the
+  [pending handoff](TODO.md#workspace-location-assignments-201).
 - Let an assigned local location serve as an optional Obsidian-inspired vault
   for the built-in text editor. Reuse [#564](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/564)
   for source and visual Markdown editing, live preview, note navigation, wiki

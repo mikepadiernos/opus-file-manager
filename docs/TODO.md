@@ -8,8 +8,24 @@
 [#200](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/200)
 is in Review; the next M15 feature,
 [#201](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/201),
-is Defined. Once #201 enters Review, move #200 to Completed, close it as
+is in Development. Once #201 enters Review, move #200 to Completed, close it as
 completed, and strike its roadmap item in the same change.
+
+## Workspace location assignments (#201)
+
+[#201](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/201)
+is in Development on `feature/M15-workspaces`. The catalog stores exclusive
+location UUID associations with conflict-safe writes; duplication does not
+copy them and deletion removes only associations. These are not yet connected
+to saved locations or exposed in the interface.
+
+Give saved locations stable, credential-free identifiers and connect
+assignment, reassignment and unassignment to the workspace interface.
+Integrate active and unassigned location presentation with Favorites and KDE
+Places without hiding system places or devices, and handle external changes
+and multiple windows. Tag-group assignments await an available group provider.
+Verify switching, persistence, inaccessible locations, deletion, duplication
+and preservation of files, tabs, drafts and active jobs before Review.
 
 ## Workspace layout coverage (#203)
 
@@ -63,9 +79,9 @@ editing and backlink workflows are implemented and verified.
 
 [#565](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/565)
 is Defined. Workspace profiles are implemented on `feature/M15-workspaces`;
-location assignments remain planned. Continue workspace settings work on
-`feature/M16-workspace-settings`. The built-in Markdown and backlinks
-feature [#564](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/564)
+location assignment integration remains in progress. Continue workspace
+settings work on `feature/M16-workspace-settings`. The built-in Markdown and
+backlinks feature [#564](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/564)
 is still in Development on `feature/M25-integrations`.
 
 Implement workspace profiles ([#200](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/200))
