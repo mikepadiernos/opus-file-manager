@@ -7,26 +7,25 @@ Plasma Opus combines dual-pane and power-user ideas from several file managers
 with KDE's native desktop integration. Each reference contributes ideas; none
 dictates the application's interface or implementation.
 
-> [!NOTE]
-> The [roadmap](../ROADMAP.md) is the source of truth for feature status.
-> Ideas described here are not necessarily implemented.
+> [!NOTE] The [roadmap](../ROADMAP.md) is the source of truth for feature
+> status. Ideas described here are not necessarily implemented.
 
 ## Max File Manager — origin and behaviour reference
 
 Plasma Opus began with the idea of forking Max File Manager, then evolved into a
 native KDE application rather than a continuation of Max's Electron
-architecture. Max remains the primary reference for user-facing behaviour.
-The [UI](../parity/ui.md) and [backend](../parity/backend.md) inventories
-record a reviewed Max checkout, not the current state of Plasma Opus.
+architecture. Max remains the primary reference for user-facing behaviour. The
+[UI](../parity/ui.md) and [backend](../parity/backend.md) inventories record a
+reviewed Max checkout, not the current state of Plasma Opus.
 
 ## Dolphin — KDE desktop model
 
 Dolphin guides how Plasma Opus fits into Plasma: using the desktop's icon theme,
-settings, service menus and file-management services. Plasma Opus prefers existing KDE
-components, including KIO for file operations, `KFilePlacesView` for Places,
-`KFileItemActions` for service actions, `KPropertiesDialog` for properties
-and KConfig for preferences. It offers an alternative workflow without
-replacing or masking Dolphin.
+settings, service menus and file-management services. Plasma Opus prefers
+existing KDE components, including KIO for file operations, `KFilePlacesView`
+for Places, `KFileItemActions` for service actions, `KPropertiesDialog` for
+properties and KConfig for preferences. It offers an alternative workflow
+without replacing or masking Dolphin.
 
 ## Directory Opus — power-user benchmark
 
@@ -38,8 +37,8 @@ viewers, flat browsing, automation and metadata. Its workflows inform
 [shortcut settings](../ROADMAP.md#m29-keyboard-shortcut-settings). Its
 [manual](https://docs.dopus.com/doku.php?id=introduction) also informs planned
 [interface refinements](../ROADMAP.md#m30-refinements), such as contextual help,
-filter visibility and discoverable customization. These are adapted to Linux
-and KDE rather than treated as a feature-by-feature parity target.
+filter visibility and discoverable customization. These are adapted to Linux and
+KDE rather than treated as a feature-by-feature parity target.
 
 ## Krusader — two-pane tools
 
@@ -59,18 +58,20 @@ authoritative upstream source has not been verified for these entries.
 ## TagSpaces — focused workspaces
 
 [TagSpaces workspaces](https://docs.tagspaces.org/workspaces/) group locations
-and tags by context and scope global searches to the active workspace. Plasma Opus's
-planned [workspaces](../ROADMAP.md#m15-workspaces) add saved pane, toolbar and
-panel layouts for different workflows. They organize the interface and search
-scope; they are not a security boundary.
+by context and scope global searches to the active workspace. Plasma Opus's
+[workspace plan](../ROADMAP.md#m15-workspaces) adds saved pane, toolbar and
+panel layouts for different workflows. Workspaces organize the interface and
+search scope; native tag groups remain independent in the
+[tagging plan](../ROADMAP.md#m21-native-tagging). Workspaces are not a security
+boundary.
 
 ## TagStudio — native tagging
 
 [TagStudio](https://github.com/TagStudioDev/TagStudio) informs the planned
 [native tagging system](../ROADMAP.md#m21-native-tagging): opt-in libraries,
-tags with aliases and parent relationships, custom fields and combined
-searches. Plasma Opus will integrate these workflows without requiring TagStudio or
-moving files.
+tags with aliases and parent relationships, custom fields and combined searches.
+Plasma Opus will integrate these workflows without requiring TagStudio or moving
+files.
 
 ## Yazi — keyboard-first browsing
 
@@ -82,7 +83,7 @@ operations rather than embedding Yazi or assuming plugin compatibility.
 ## which-key.nvim — shortcut discovery
 
 [which-key.nvim](https://github.com/folke/which-key.nvim) inspires the planned
-native hint popup in
-[shortcut settings](../ROADMAP.md#m29-keyboard-shortcut-settings). It will
-show available continuations and action descriptions for pending key sequences
-in the applicable context.
+native sliding or floating hint pane in
+[shortcut settings](../ROADMAP.md#m29-keyboard-shortcut-settings). It will show
+available continuations and action descriptions for pending key sequences in the
+applicable context.

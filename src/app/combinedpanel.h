@@ -2,7 +2,10 @@
 
 #pragma once
 
+#include "workspacecatalog.h"
+
 #include <QMap>
+#include <QPointer>
 #include <QUrl>
 #include <QWidget>
 
@@ -16,6 +19,7 @@ class QScrollArea;
 class QToolButton;
 class QVBoxLayout;
 class PlacesSection;
+class WorkspaceLocations;
 
 /**
  * One panel in place of the separate Places and Folders panels: a
@@ -37,6 +41,10 @@ public:
     CombinedPanel(KFilePlacesModel *places, FavoritesModel *favorites, QWidget *parent = nullptr);
 
     FolderTree *folderTree() const;
+    /// Connects the saved-location provider used for workspace presentation.
+    void setWorkspaceLocations(WorkspaceLocations *locations);
+    /// Shows the active workspace's locations alongside unassigned locations.
+    void setWorkspaceState(const WorkspaceCatalog::Catalog &catalog, const QString &workspaceId);
 
     /// Stable keys of collapsed sections, including KDE Places groups.
     QStringList collapsedSections() const;
@@ -69,6 +77,7 @@ private:
     /// Offers Open in New Tab, Rename and Remove for the favorite at @p pos.
     void showFavoriteMenu(const QPoint &pos);
     void applySections();
+    void refreshWorkspaceLocations();
 
     FavoritesModel *m_favorites = nullptr;
     QListView *m_favoritesView = nullptr;
@@ -87,4 +96,7 @@ private:
     bool m_foldersVisible = true;
     /// Whether the panel keeps the revealed folder in view.
     bool m_followRevealed = false;
+    QPointer<WorkspaceLocations> m_workspaceLocations;
+    WorkspaceCatalog::Catalog m_workspaceCatalog;
+    QString m_workspaceId;
 };

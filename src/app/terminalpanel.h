@@ -27,6 +27,7 @@ public:
     void start(const QUrl &folder);
     void follow(const QUrl &folder);
     void setTitleVisible(bool visible);
+    bool hasSessions() const;
 
 Q_SIGNALS:
     void blurRegionChanged(const QRegion &region);

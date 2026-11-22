@@ -6,6 +6,7 @@
 #include "mainwindow.h"
 #include "pane.h"
 #include "settings.h"
+#include "workspacelocations.h"
 
 #include <KActionCollection>
 #include <KDirModel>
@@ -233,6 +234,100 @@ private Q_SLOTS:
         QVERIFY(panel.folderTree()->isHidden());
         panel.setCollapsedSections({});
         QVERIFY(!panel.folderTree()->isHidden());
+    }
+
+    void showsAssignedAndUnassignedFavorites()
+    {
+        QTemporaryDir directory;
+        const auto config = KSharedConfig::openConfig(directory.filePath(QStringLiteral("settings")));
+        KFilePlacesModel places;
+        FavoritesModel favorites(config->group(QStringLiteral("Favorites")));
+        const QUrl c = url(QStringLiteral("c"));
+        QVERIFY(favorites.add(m_a));
+        QVERIFY(favorites.add(m_b));
+        QVERIFY(favorites.add(c));
+        WorkspaceLocations locations(&favorites, &places);
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Home"), QStringLiteral("H"), error));
+        const QString work = catalog.workspaces.first().id;
+        const QString home = catalog.workspaces.last().id;
+        QVERIFY(WorkspaceCatalog::assignLocation(catalog, WorkspaceCatalog::locationId(m_a), work, error));
+        QVERIFY(WorkspaceCatalog::assignLocation(catalog, WorkspaceCatalog::locationId(m_b), home, error));
+        CombinedPanel panel(&places, &favorites);
+        panel.setWorkspaceLocations(&locations);
+        panel.setWorkspaceState(catalog, work);
+        auto *view = panel.findChild<QListView *>(QStringLiteral("combinedFavoritesView"));
+        QVERIFY(view);
+        QVERIFY(!view->isRowHidden(0));
+        QVERIFY(view->isRowHidden(1));
+        QVERIFY(!view->isRowHidden(2));
+        panel.setWorkspaceState(catalog, home);
+        QVERIFY(view->isRowHidden(0));
+        QVERIFY(!view->isRowHidden(1));
+        QVERIFY(!view->isRowHidden(2));
+        panel.setWorkspaceState(catalog, {});
+        QVERIFY(!view->isRowHidden(0));
+        QVERIFY(!view->isRowHidden(1));
+        QCOMPARE(favorites.urls(), QList<QUrl>({m_a, m_b, c}));
+    }
+
+    void showsAssignedAndUnassignedPlaces()
+    {
+        QTemporaryDir directory;
+        const auto config = KSharedConfig::openConfig(directory.filePath(QStringLiteral("settings")));
+        KFilePlacesModel places;
+        FavoritesModel favorites(config->group(QStringLiteral("Favorites")));
+        const QUrl workUrl = QUrl::fromLocalFile(directory.filePath(QStringLiteral("work")));
+        const QUrl homeUrl = QUrl::fromLocalFile(directory.filePath(QStringLiteral("home")));
+        const QUrl freeUrl = QUrl::fromLocalFile(directory.filePath(QStringLiteral("free")));
+        places.addPlace(QStringLiteral("Work test"), workUrl);
+        places.addPlace(QStringLiteral("Home test"), homeUrl);
+        places.addPlace(QStringLiteral("Free test"), freeUrl);
+        const auto cleanup = qScopeGuard([&] {
+            for (int row = places.rowCount() - 1; row >= 0; --row) {
+                if (QList<QUrl>{workUrl, homeUrl, freeUrl}.contains(places.url(places.index(row, 0)))) {
+                    places.removePlace(places.index(row, 0));
+                }
+            }
+        });
+        WorkspaceLocations locations(&favorites, &places);
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Home"), QStringLiteral("H"), error));
+        const QString work = catalog.workspaces.first().id;
+        const QString home = catalog.workspaces.last().id;
+        QVERIFY(WorkspaceCatalog::assignLocation(catalog, WorkspaceCatalog::locationId(workUrl), work, error));
+        QVERIFY(WorkspaceCatalog::assignLocation(catalog, WorkspaceCatalog::locationId(homeUrl), home, error));
+        CombinedPanel panel(&places, &favorites);
+        panel.setWorkspaceLocations(&locations);
+        panel.setWorkspaceState(catalog, work);
+        auto *header = panel.findChild<QToolButton *>(QStringLiteral("places:PlacesType"));
+        QVERIFY(header);
+        auto *view = header->parentWidget()->findChild<KFilePlacesView *>();
+        QVERIFY(view);
+        view->setShowAll(true);
+        auto rowOf = [&places](const QUrl &url) {
+            for (int row = 0; row < places.rowCount(); ++row) {
+                if (places.url(places.index(row, 0)) == url) {
+                    return row;
+                }
+            }
+            return -1;
+        };
+        const int workRow = rowOf(workUrl);
+        const int homeRow = rowOf(homeUrl);
+        const int freeRow = rowOf(freeUrl);
+        QVERIFY(workRow >= 0 && homeRow >= 0 && freeRow >= 0);
+        QTRY_VERIFY(!view->isRowHidden(workRow));
+        QTRY_VERIFY(view->isRowHidden(homeRow));
+        QTRY_VERIFY(!view->isRowHidden(freeRow));
+        panel.setWorkspaceState(catalog, home);
+        QTRY_VERIFY(view->isRowHidden(workRow));
+        QTRY_VERIFY(!view->isRowHidden(homeRow));
+        QTRY_VERIFY(!view->isRowHidden(freeRow));
     }
 
     void mixedSectionsStayAdjacent()

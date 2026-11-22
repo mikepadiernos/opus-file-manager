@@ -4,7 +4,9 @@
 
 #include "symbolicicon.h"
 
+#include <KConfig>
 #include <KIO/Global>
+#include <KLocalizedString>
 
 #include <QFileInfo>
 #include <QIcon>
@@ -35,6 +37,29 @@ QList<QUrl> FavoritesModel::urls() const
         urls.append(favorite.url);
     }
     return urls;
+}
+
+bool FavoritesModel::reload(QString &error)
+{
+    KConfig *config = m_group.config();
+    if (config->isDirty()) {
+        error = i18nc("@info", "Favorites cannot be refreshed while configuration changes are pending.");
+        return false;
+    }
+    config->reparseConfiguration();
+    const QList<QUrl> urls = m_group.readEntry(UrlsKey, QList<QUrl>());
+    const QStringList titles = m_group.readEntry(TitlesKey, QStringList());
+    QList<Favorite> loaded;
+    for (int i = 0; i < urls.size(); ++i) {
+        loaded.append({urls.at(i), titles.value(i)});
+    }
+    if (loaded != m_favorites) {
+        beginResetModel();
+        m_favorites = loaded;
+        endResetModel();
+    }
+    error.clear();
+    return true;
 }
 
 bool FavoritesModel::contains(const QUrl &url) const
