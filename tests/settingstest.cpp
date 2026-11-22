@@ -46,8 +46,10 @@
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPlainTextEdit>
+#include <QProxyStyle>
 #include <QPushButton>
 #include <QScopeGuard>
+#include <QSizeGrip>
 #include <QSpinBox>
 #include <QStandardPaths>
 #include <QStatusBar>
@@ -61,6 +63,23 @@
 #include <QTreeView>
 
 #include <limits>
+
+class ZeroHorizontalMarginStyle : public QProxyStyle
+{
+public:
+    ZeroHorizontalMarginStyle()
+        : QProxyStyle(QStringLiteral("Fusion"))
+    {
+    }
+
+    int pixelMetric(PixelMetric metric, const QStyleOption *option, const QWidget *widget) const override
+    {
+        if (metric == PM_LayoutLeftMargin || metric == PM_LayoutRightMargin) {
+            return 0;
+        }
+        return QProxyStyle::pixelMetric(metric, option, widget);
+    }
+};
 
 class SettingsTest : public QObject
 {
@@ -1899,6 +1918,83 @@ private Q_SLOTS:
         window.applySettings();
         QVERIFY(sharedItems->isVisible());
         QVERIFY(left->statusBarWidget()->isHidden());
+    }
+
+    void statusBarMessagesHaveHorizontalPadding()
+    {
+        MainWindow window;
+        window.show();
+        auto *bar = window.statusBar();
+        bar->setSizeGripEnabled(false);
+        for (const Qt::LayoutDirection direction : {Qt::LeftToRight, Qt::RightToLeft}) {
+            bar->setLayoutDirection(direction);
+            bar->showMessage(QStringLiteral(" "));
+            const QImage empty = bar->grab().toImage();
+            const QString message(500, QLatin1Char('M'));
+            bar->showMessage(message);
+            QCOMPARE(bar->currentMessage(), message);
+            const QImage text = bar->grab().toImage();
+            int changed = 0;
+            for (int y = 0; y < text.height(); ++y) {
+                for (int x = 0; x < text.width(); ++x) {
+                    if (text.pixelColor(x, y) != empty.pixelColor(x, y)) {
+                        QVERIFY(x >= 8);
+                        QVERIFY(x < text.width() - 8);
+                        ++changed;
+                    }
+                }
+            }
+            QVERIFY(changed > 0);
+        }
+        bar->clearMessage();
+        QVERIFY(bar->currentMessage().isEmpty());
+
+        auto *permanent = new QLabel(QStringLiteral("Permanent"), bar);
+        bar->addPermanentWidget(permanent);
+        bar->setFixedWidth(160);
+        bar->setSizeGripEnabled(true);
+        auto *grip = bar->findChild<QSizeGrip *>();
+        QVERIFY(grip);
+        QTRY_VERIFY(grip->isVisible());
+        for (const Qt::LayoutDirection direction : {Qt::LeftToRight, Qt::RightToLeft}) {
+            bar->setLayoutDirection(direction);
+            bar->showMessage(QStringLiteral(" "));
+            QVERIFY(permanent->isVisible());
+            const QImage empty = bar->grab().toImage();
+            bar->showMessage(QString(500, QLatin1Char('M')));
+            const QImage text = bar->grab().toImage();
+            const QRect permanentRect = permanent->geometry().intersected(text.rect());
+            QVERIFY(permanentRect.isValid());
+            for (int y = permanentRect.top(); y <= permanentRect.bottom(); ++y) {
+                for (int x = permanentRect.left(); x <= permanentRect.right(); ++x) {
+                    QCOMPARE(text.pixelColor(x, y), empty.pixelColor(x, y));
+                }
+            }
+            const QRect gripRect = grip->geometry().intersected(text.rect());
+            QVERIFY(gripRect.isValid());
+            for (int y = gripRect.top(); y <= gripRect.bottom(); ++y) {
+                for (int x = gripRect.left(); x <= gripRect.right(); ++x) {
+                    QCOMPARE(text.pixelColor(x, y), empty.pixelColor(x, y));
+                }
+            }
+        }
+        bar->showMessage(QStringLiteral("Temporary"), 20);
+        QTRY_VERIFY(bar->currentMessage().isEmpty());
+        QVERIFY(permanent->isVisible());
+    }
+
+    void embeddedPanelTitlesKeepHorizontalPaddingWithCompactStyles()
+    {
+        PreviewPanel preview;
+        EditorPanel editor(nullptr, m_root.filePath(QStringLiteral("padding-drafts")));
+        for (QWidget *panel : {static_cast<QWidget *>(&preview), static_cast<QWidget *>(&editor)}) {
+            auto *style = new ZeroHorizontalMarginStyle;
+            style->setParent(panel);
+            panel->setStyle(style);
+            const QMargins margins = panel->layout()->contentsMargins();
+            QVERIFY(margins.left() >= 8);
+            QVERIFY(margins.right() >= 8);
+        }
     }
 
     void goHomeUsesHomeSetting()

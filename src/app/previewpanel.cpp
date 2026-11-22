@@ -382,6 +382,7 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     m_content->addWidget(m_text);
     m_content->addWidget(m_renderedText);
     auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(qMax(8, layout->contentsMargins().left()), -1, qMax(8, layout->contentsMargins().right()), -1);
     layout->addLayout(m_header);
     layout->addWidget(m_content, 1);
     m_footerLayout = new QHBoxLayout;
