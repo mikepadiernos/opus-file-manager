@@ -32,10 +32,30 @@ primary recommendation and external tools are separate applications.
   [duplicate finder](#duplicate-finder)
 - **Other:** [Embedded terminal](#embedded-terminal),
   [linked navigation](#linked-pane-navigation),
+  [workspace layouts](#workspace-layouts),
   [native title and header padding](#native-title-and-header-padding),
   [file-list minimap](#file-list-minimap), [settings backups](#settings-backups),
   [build and installation](#build-installation-and-references),
   [installing optional tools](#installing-optional-alternatives)
+
+## Workspace layouts
+
+Workspace layouts save pane arrangements, splitter sizes, preview and editor
+placement, and dock and toolbar positions. They do not yet save view modes,
+toolbar contents, terminal placement or detached-window geometry. On startup,
+the last selected workspace is marked current, but the session layout remains
+in place until a workspace is switched. A visible terminal requires an
+existing session; metadata and toolbar editors must be closed before saving or
+switching. Incompatible linked panes must be unlinked first. Older snapshots
+cannot be applied until replaced with a current layout.
+([#581](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/581))
+
+- **Recommendation:** Review the omitted settings manually after switching.
+  Finish metadata and toolbar edits, open a terminal session when required,
+  and unlink panes when prompted. To replace an older snapshot, select it and
+  confirm **Save Current Layout**. Explicitly switch to apply a saved layout
+  after startup. Fuller layout coverage is planned in #203.
+  - Comment: [#581.7074690958](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/581#issuecomment-7074690958)
 
 ## Native title and header padding
 

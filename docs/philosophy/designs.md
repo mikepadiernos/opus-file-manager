@@ -83,6 +83,7 @@ built-in text editor for Markdown, note links and backlinks. It remains a
 normal folder: workspace management does not move or delete its notes or
 modify Obsidian configuration.
 
-Workspaces and Activity associations are planned; see the
+Workspace profiles can be managed through **View → Workspaces**. Location
+assignments, richer layouts and Activity associations are planned; see the
 [workspace](../ROADMAP.md#m15-workspaces) and
 [Activity integration](../ROADMAP.md#m25-integrations) milestones.

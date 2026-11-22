@@ -615,7 +615,8 @@ preferences; see the [interface design](philosophy/designs.md#workspaces).
 - Store workspace configuration locally without credentials. Workspaces
   organize the interface and search scope; they are not a security boundary.
 
-**Pending:** [Workspace catalog and selector](TODO.md#workspace-catalog-and-selector-200).
+**Pending:** [Workspace layout coverage](TODO.md#workspace-layout-coverage-203).
+**Caveat:** [Workspace layouts](CAVEATS.md#workspace-layouts).
 
 <a id="m22-workspace-settings"></a>
 ### M16 Workspace settings
