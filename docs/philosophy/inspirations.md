@@ -60,14 +60,14 @@ authoritative upstream source has not been verified for these entries.
 
 [TagSpaces workspaces](https://docs.tagspaces.org/workspaces/) group locations
 and tags by context and scope global searches to the active workspace. Plasma Opus's
-planned [workspaces](../ROADMAP.md#m21-workspaces) add saved pane, toolbar and
+planned [workspaces](../ROADMAP.md#m15-workspaces) add saved pane, toolbar and
 panel layouts for different workflows. They organize the interface and search
 scope; they are not a security boundary.
 
 ## TagStudio — native tagging
 
 [TagStudio](https://github.com/TagStudioDev/TagStudio) informs the planned
-[native tagging system](../ROADMAP.md#m17-native-tagging): opt-in libraries,
+[native tagging system](../ROADMAP.md#m21-native-tagging): opt-in libraries,
 tags with aliases and parent relationships, custom fields and combined
 searches. Plasma Opus will integrate these workflows without requiring TagStudio or
 moving files.
@@ -75,7 +75,7 @@ moving files.
 ## Yazi — keyboard-first browsing
 
 [Yazi](https://yazi-rs.github.io/) inspires a planned
-[native browsing mode](../ROADMAP.md#m19-yazi-mode) with keyboard-first
+[native browsing mode](../ROADMAP.md#m23-yazi-mode) with keyboard-first
 navigation, folder context and previews. Plasma Opus will reuse its KDE file
 operations rather than embedding Yazi or assuming plugin compatibility.
 

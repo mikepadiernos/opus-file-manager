@@ -26,7 +26,7 @@ preserving behavior and avoiding unproven language rewrites.
    ([#479](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/479))
 5. Prototype Rust for suitable profiled, self-contained core hotspots and
    integrate where benchmarks show a benefit. Use a narrow safe interface;
-   account for build, packaging and dependency costs. The M15 pilot can inform
+   account for build, packaging and dependency costs. The M19 pilot can inform
    this work. Keep widgets, settings and KIO operations in Qt/KDE.
    ([#480](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/480))
 6. Repeat measurements under matching conditions and add functional regression

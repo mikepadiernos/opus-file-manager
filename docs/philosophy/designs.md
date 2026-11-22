@@ -56,9 +56,9 @@ context and avoid intercepting text entry or terminal input; see the
   - **Terminal:** hosts Konsole sessions.
   - **Advanced search:** searches and displays results in a planned embedded
     pane; the current search interface is a dialog. See the
-    [advanced search plan](../ROADMAP.md#m15-advanced-search).
+    [advanced search plan](../ROADMAP.md#m19-advanced-search).
   - **Tagging:** a planned embedded pane for managing and assigning tags; see
-    the [tagging plan](../ROADMAP.md#m17-native-tagging).
+    the [tagging plan](../ROADMAP.md#m21-native-tagging).
 
   Current placement options vary by tool; Preview and the editors also offer
   other modes.
@@ -84,5 +84,5 @@ normal folder: workspace management does not move or delete its notes or
 modify Obsidian configuration.
 
 Workspaces and Activity associations are planned; see the
-[workspace](../ROADMAP.md#m21-workspaces) and
-[Activity integration](../ROADMAP.md#m23-integrations) milestones.
+[workspace](../ROADMAP.md#m15-workspaces) and
+[Activity integration](../ROADMAP.md#m25-integrations) milestones.
