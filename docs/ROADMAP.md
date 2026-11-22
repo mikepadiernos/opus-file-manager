@@ -611,6 +611,10 @@ preferences; see the [interface design](philosophy/designs.md#workspaces).
 Settings for M21 workspaces, stored in KConfig.
 
 - **Management:** manage workspaces, their locations and tag-group assignments
+- **Vault:** enable vault-oriented editing for a workspace, choose an assigned
+  local location and configure available editor, preview and note navigation
+  behavior. Keep notes and Obsidian configuration unchanged by settings
+  changes; report unavailable roots. See the [pending handoff](TODO.md#workspace-vault-settings-566).
 - **Startup:** choose a startup workspace or restore the last-used workspace
   without overriding M02 startup folder and session choices
 - **Search:** choose whether workspace-scoped or all-location search is the
