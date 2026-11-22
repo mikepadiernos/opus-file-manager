@@ -107,6 +107,7 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
     m_header->addWidget(placement);
     m_header->addWidget(hide);
     auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(qMax(8, layout->contentsMargins().left()), -1, qMax(8, layout->contentsMargins().right()), -1);
     layout->addLayout(m_header);
     m_recovery = new QWidget(this);
     m_recovery->setObjectName(QStringLiteral("editorDraftRecovery"));

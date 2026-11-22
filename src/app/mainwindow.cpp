@@ -107,11 +107,14 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QMimeDatabase>
+#include <QPainter>
 #include <QPointer>
 #include <QScopedValueRollback>
 #include <QScrollArea>
+#include <QSizeGrip>
 #include <QSplitter>
 #include <QStatusBar>
+#include <QStyleOption>
 #include <QTabWidget>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -135,6 +138,54 @@ constexpr auto PopularFoldersGroup = "PopularFolders";
 constexpr auto SelectionFiltersGroup = "SelectionFilters";
 constexpr auto WindowLayoutGroup = "WindowLayout";
 constexpr auto SplitterSizesGroup = "SplitterSizes";
+
+class PaddedStatusBar : public QStatusBar
+{
+public:
+    explicit PaddedStatusBar(QWidget *parent)
+        : QStatusBar(parent)
+    {
+        connect(this, &QStatusBar::messageChanged, this, qOverload<>(&QWidget::update));
+    }
+
+protected:
+    void paintEvent(QPaintEvent *event) override
+    {
+        if (currentMessage().isEmpty()) {
+            QStatusBar::paintEvent(event);
+            return;
+        }
+
+        QPainter painter(this);
+        QStyleOption panel;
+        panel.initFrom(this);
+        style()->drawPrimitive(QStyle::PE_PanelStatusBar, &panel, &painter, this);
+        QRect messageRect = rect().adjusted(8, 0, -8, 0);
+        const auto children = findChildren<QWidget *>(QString(), Qt::FindDirectChildrenOnly);
+        for (QWidget *child : children) {
+            if (!child->isVisible()) {
+                continue;
+            }
+            if (layoutDirection() == Qt::RightToLeft) {
+                messageRect.setLeft(qMax(messageRect.left(), child->geometry().right() + 3));
+            } else {
+                messageRect.setRight(qMin(messageRect.right(), child->geometry().left() - 3));
+            }
+            if (!qobject_cast<QSizeGrip *>(child)) {
+                QStyleOption frame;
+                frame.rect = child->geometry().adjusted(-2, -1, 2, 1);
+                frame.palette = palette();
+                frame.state = QStyle::State_None;
+                style()->drawPrimitive(QStyle::PE_FrameStatusBarItem, &frame, &painter, child);
+            }
+        }
+        if (messageRect.isValid()) {
+            painter.setClipRect(messageRect);
+            painter.setPen(palette().color(QPalette::WindowText));
+            painter.drawText(messageRect, QStyle::visualAlignment(layoutDirection(), Qt::AlignLeft | Qt::AlignVCenter) | Qt::TextSingleLine, currentMessage());
+        }
+    }
+};
 
 void setDockTitleVisible(QDockWidget *dock, bool visible)
 {
@@ -1053,6 +1104,7 @@ void MainWindow::addToFavorites()
 
 void MainWindow::setupStatusBar()
 {
+    setStatusBar(new PaddedStatusBar(this));
     auto *indicators = new QWidget(this);
     m_statusBarLayout = new QHBoxLayout(indicators);
     m_statusBarLayout->setContentsMargins(8, 0, 8, 0);

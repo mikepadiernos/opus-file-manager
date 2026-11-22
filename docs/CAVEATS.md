@@ -32,9 +32,23 @@ primary recommendation and external tools are separate applications.
   [duplicate finder](#duplicate-finder)
 - **Other:** [Embedded terminal](#embedded-terminal),
   [linked navigation](#linked-pane-navigation),
+  [native title and header padding](#native-title-and-header-padding),
   [file-list minimap](#file-list-minimap), [settings backups](#settings-backups),
   [build and installation](#build-installation-and-references),
   [installing optional tools](#installing-optional-alternatives)
+
+## Native title and header padding
+
+Native Qt/KDE dock titles and column headers follow the active widget style;
+their horizontal padding can be less than eight logical pixels. For example,
+Breeze's column-label rectangle starts six pixels from the section edge.
+([#560](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/560))
+
+- **Recommendation:** Keep native rendering and choose a widget style whose
+  spacing is comfortable for your needs. Check the active style after
+  changing desktop appearance; Plasma Opus does not guarantee an eight-pixel
+  minimum for these controls.
+  - Comment: [#560.7071231166](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/560#issuecomment-7071231166)
 
 ## Jalali dates
 

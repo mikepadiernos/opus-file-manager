@@ -1349,8 +1349,8 @@ upstream source could not be verified for this review.
 Follow the [project instructions](../CLAUDE.md) for issue tracking, completion,
 branching and merging. Record blocked work in [pending tasks](TODO.md) and
 document feature limitations in [caveats and limitations](CAVEATS.md).
-The [header and status-bar padding fix](TODO.md#header-and-status-bar-padding-558)
-is still in progress.
+Native dock and column-header spacing follows the
+[active widget style](CAVEATS.md#native-title-and-header-padding) ([#560](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/560)).
 
 [#36]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/36
 [#255]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/255
