@@ -18,3 +18,6 @@ provide workspace settings ([#566](https://github.com/mikepadiernos/plasma-opus-
 Test switching with unsaved edits, incomplete scans, duplicate names, link
 resolution, unavailable or removed roots, symlink boundaries and workspace
 deletion. Preserve the underlying files and existing Obsidian configuration.
+For [#566](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/566),
+also verify workspace-scoped settings persistence and recovery when vault
+roots or editor features are unavailable.
