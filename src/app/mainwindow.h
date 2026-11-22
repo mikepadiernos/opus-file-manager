@@ -5,6 +5,7 @@
 #include "editorpanel.h"
 #include "metadataeditdialog.h"
 #include "previewpanel.h"
+#include "workspacecatalog.h"
 
 #include <KFileItem>
 #include <KXmlGuiWindow>
@@ -13,12 +14,14 @@
 #include <QList>
 #include <QPointer>
 #include <QUrl>
+#include <memory>
 
 class CombinedPanel;
 class FavoritesModel;
 class FolderTree;
 class InformationPanel;
 class KFileCopyToMenu;
+class KConfig;
 class KFileItemActions;
 class KFilePlacesModel;
 class KFilePlacesView;
@@ -100,6 +103,14 @@ protected:
     void saveNewToolbarConfig() override;
 
 private:
+    /// Opens the workspace selector and management dialog.
+    void showWorkspaces();
+    bool captureWorkspaceLayout(WorkspaceCatalog::Layout &layout, QString &error) const;
+    bool applyWorkspaceLayout(const WorkspaceCatalog::Layout &layout, QString &error);
+    bool workspaceLayoutAvailable(const WorkspaceCatalog::Layout &layout, QString &error) const;
+    bool restoreWorkspaceLayout(const WorkspaceCatalog::Layout &layout, QString &error, bool &changed);
+    void restoreWorkspacePanePlacement(WorkspaceCatalog::PanePlacement placement);
+    void restoreWorkspaceEditor(const WorkspaceCatalog::Presentation &presentation);
     void setupActions();
     void setupPanes();
     void updateTerminalPlacement();
@@ -238,6 +249,8 @@ private:
     void extractArchive(const QUrl &archive, const QUrl &target);
 
     KFilePlacesModel *m_placesModel = nullptr;
+    std::unique_ptr<KConfig> m_workspaceConfig;
+    QString m_currentWorkspaceId;
     KFilePlacesView *m_placesView = nullptr;
     FavoritesModel *m_favorites = nullptr;
     TabColors *m_tabColors = nullptr;

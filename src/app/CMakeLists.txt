@@ -79,6 +79,8 @@ add_library(opusfm_app STATIC
     toolbarcustomizer.h
     transferqueuedialog.cpp
     transferqueuedialog.h
+    workspacedialog.cpp
+    workspacedialog.h
     opusfm.qrc
 )
 

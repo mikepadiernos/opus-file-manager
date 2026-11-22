@@ -102,6 +102,12 @@ ecm_add_test(galleryeditingtest.cpp
     GUI
 )
 
+ecm_add_test(workspacedialogtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
 ecm_add_test(batchrenamedialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
