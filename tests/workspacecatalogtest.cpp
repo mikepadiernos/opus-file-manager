@@ -3,6 +3,9 @@
 #include "workspacecatalog.h"
 
 #include <KConfig>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -111,11 +114,107 @@ private Q_SLOTS:
         QVERIFY(!error.isEmpty());
         QCOMPARE(group.readEntry("Catalog", QByteArray()), previous);
 
-        group.writeEntry("Catalog", QByteArray(R"({"version":2,"workspaces":[],"activeId":""})"));
+        group.writeEntry("Catalog", QByteArray(R"({"version":3,"workspaces":[],"activeId":""})"));
         const Catalog original = catalog;
         QVERIFY(!load(group, catalog, error));
         QVERIFY(!error.isEmpty());
         QCOMPARE(catalog, original);
+    }
+
+    void duplicatesAndPersistsLayout()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Workspaces"));
+        Catalog catalog;
+        QString error;
+        QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        const QString originalId = catalog.workspaces.first().id;
+        QVERIFY(activate(catalog, originalId, error));
+        const Layout layout{QByteArray::fromHex("0001ff"), {200, 300, 0}, {400, 100}, false, true};
+        QVERIFY2(setLayout(catalog, originalId, layout, error), qPrintable(error));
+        QVERIFY2(duplicate(catalog, originalId, QStringLiteral("Copy"), QStringLiteral("C"), error), qPrintable(error));
+        QCOMPARE(catalog.workspaces.size(), 2);
+        QVERIFY(catalog.workspaces.last().id != originalId);
+        QCOMPARE(catalog.workspaces.last().layout, std::optional<Layout>(layout));
+        QCOMPARE(catalog.activeId, originalId);
+
+        QVERIFY(save(group, catalog, error));
+        Catalog loaded;
+        QVERIFY2(load(group, loaded, error), qPrintable(error));
+        QCOMPARE(loaded, catalog);
+
+        Layout changed = layout;
+        changed.dual = true;
+        QVERIFY(setLayout(loaded, loaded.workspaces.last().id, changed, error));
+        QCOMPARE(loaded.workspaces.first().layout, std::optional<Layout>(layout));
+    }
+
+    void rejectsInvalidLayoutAndDuplication()
+    {
+        Catalog catalog;
+        QString error;
+        QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        const Catalog original = catalog;
+        Layout invalid;
+        invalid.paneSizes = {10, -1};
+        QVERIFY(!setLayout(catalog, catalog.workspaces.first().id, invalid, error));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(catalog, original);
+        QVERIFY(!duplicate(catalog, QStringLiteral("missing"), QStringLiteral("Other"), QStringLiteral("O"), error));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(catalog, original);
+        QVERIFY(!duplicate(catalog, original.workspaces.first().id, QStringLiteral("work"), QStringLiteral("O"), error));
+        QVERIFY(!error.isEmpty());
+        QCOMPARE(catalog, original);
+    }
+
+    void rejectsMalformedStoredLayouts()
+    {
+        QTemporaryDir directory;
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Workspaces"));
+        Catalog catalog;
+        QString error;
+        QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(setLayout(catalog, catalog.workspaces.first().id, Layout{}, error));
+        QVERIFY(save(group, catalog, error));
+
+        const QJsonObject root = QJsonDocument::fromJson(group.readEntry("Catalog", QByteArray())).object();
+        const QJsonObject entry = root.value(QStringLiteral("workspaces")).toArray().first().toObject();
+        const QJsonObject layout = entry.value(QStringLiteral("layout")).toObject();
+        for (const auto &invalid :
+             {QPair{QStringLiteral("paneSizes"), QJsonValue(QJsonArray{-1})}, QPair{QStringLiteral("windowState"), QJsonValue(QStringLiteral("%%%"))}}) {
+            QJsonObject corruptLayout = layout;
+            corruptLayout.insert(invalid.first, invalid.second);
+            QJsonObject corruptEntry = entry;
+            corruptEntry.insert(QStringLiteral("layout"), corruptLayout);
+            QJsonObject corruptRoot = root;
+            corruptRoot.insert(QStringLiteral("workspaces"), QJsonArray{corruptEntry});
+            group.writeEntry("Catalog", QJsonDocument(corruptRoot).toJson(QJsonDocument::Compact));
+            const Catalog original = catalog;
+            QVERIFY(!load(group, catalog, error));
+            QVERIFY(!error.isEmpty());
+            QCOMPARE(catalog, original);
+        }
+    }
+
+    void loadsLegacyCatalogWithoutLayout()
+    {
+        QTemporaryDir directory;
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Workspaces"));
+        group.writeEntry(
+            "Catalog",
+            QByteArray(R"({"version":1,"workspaces":[{"id":"12f42f08-3054-4da6-8a3c-6ba332887f5c","name":"Work","shortLabel":"W"}],"activeId":""})"));
+        Catalog catalog;
+        QString error;
+        QVERIFY2(load(group, catalog, error), qPrintable(error));
+        QCOMPARE(catalog.workspaces.size(), 1);
+        QVERIFY(!catalog.workspaces.first().layout.has_value());
+        QVERIFY(save(group, catalog, error));
+        QCOMPARE(QJsonDocument::fromJson(group.readEntry("Catalog", QByteArray())).object().value(QStringLiteral("version")).toInt(), 2);
     }
 };
 

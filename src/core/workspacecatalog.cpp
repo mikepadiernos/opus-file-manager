@@ -10,11 +10,80 @@
 #include <QSet>
 #include <QUuid>
 
+#include <algorithm>
+#include <limits>
+
 namespace
 {
 bool validText(const QString &value)
 {
     return !value.trimmed().isEmpty() && !value.contains(QChar::Null) && !value.contains(QLatin1Char('\n')) && !value.contains(QLatin1Char('\r'));
+}
+
+bool validLayout(const WorkspaceCatalog::Layout &layout)
+{
+    const auto validSizes = [](const QList<int> &sizes) {
+        return std::all_of(sizes.cbegin(), sizes.cend(), [](int size) {
+            return size >= 0;
+        });
+    };
+    return validSizes(layout.paneSizes) && validSizes(layout.workspaceSizes);
+}
+
+QJsonArray writeSizes(const QList<int> &sizes)
+{
+    QJsonArray result;
+    for (int size : sizes) {
+        result.append(size);
+    }
+    return result;
+}
+
+bool readSizes(const QJsonValue &value, QList<int> &sizes)
+{
+    if (!value.isArray()) {
+        return false;
+    }
+    for (const auto &entry : value.toArray()) {
+        const double number = entry.toDouble(-1);
+        if (!entry.isDouble() || number < 0 || number > std::numeric_limits<int>::max() || double(int(number)) != number) {
+            return false;
+        }
+        sizes.append(int(number));
+    }
+    return true;
+}
+
+QJsonObject writeLayout(const WorkspaceCatalog::Layout &layout)
+{
+    return {{QStringLiteral("windowState"), QString::fromLatin1(layout.windowState.toBase64())},
+            {QStringLiteral("paneSizes"), writeSizes(layout.paneSizes)},
+            {QStringLiteral("workspaceSizes"), writeSizes(layout.workspaceSizes)},
+            {QStringLiteral("dual"), layout.dual},
+            {QStringLiteral("stacked"), layout.stacked}};
+}
+
+bool readLayout(const QJsonValue &value, WorkspaceCatalog::Layout &layout)
+{
+    if (!value.isObject()) {
+        return false;
+    }
+    const QJsonObject object = value.toObject();
+    const QJsonValue state = object.value(QStringLiteral("windowState"));
+    const QJsonValue dual = object.value(QStringLiteral("dual"));
+    const QJsonValue stacked = object.value(QStringLiteral("stacked"));
+    if (!state.isString() || !dual.isBool() || !stacked.isBool() || !readSizes(object.value(QStringLiteral("paneSizes")), layout.paneSizes)
+        || !readSizes(object.value(QStringLiteral("workspaceSizes")), layout.workspaceSizes)) {
+        return false;
+    }
+    const auto decoded = QByteArray::fromBase64Encoding(state.toString().toLatin1(), QByteArray::AbortOnBase64DecodingErrors);
+    if (!decoded) {
+        return false;
+    }
+    layout.windowState = decoded.decoded;
+    layout.dual = dual.toBool();
+    layout.stacked = stacked.toBool();
+    return true;
 }
 
 bool validCatalog(const WorkspaceCatalog::Catalog &catalog)
@@ -25,7 +94,7 @@ bool validCatalog(const WorkspaceCatalog::Catalog &catalog)
         const QUuid id(workspace.id);
         const QString name = workspace.name.trimmed().toCaseFolded();
         if (id.isNull() || id.toString(QUuid::WithoutBraces) != workspace.id || ids.contains(workspace.id) || !validText(workspace.name)
-            || !validText(workspace.shortLabel) || names.contains(name)) {
+            || !validText(workspace.shortLabel) || names.contains(name) || (workspace.layout && !validLayout(*workspace.layout))) {
             return false;
         }
         ids.insert(workspace.id);
@@ -68,8 +137,9 @@ bool WorkspaceCatalog::load(const KConfigGroup &group, Catalog &catalog, QString
     const QJsonValue version = root.value(QStringLiteral("version"));
     const QJsonValue entries = root.value(QStringLiteral("workspaces"));
     const QJsonValue active = root.value(QStringLiteral("activeId"));
-    bool valid = parseError.error == QJsonParseError::NoError && document.isObject() && version.isDouble() && version.toDouble() == 1 && entries.isArray()
-        && active.isString();
+    const double versionNumber = version.toDouble();
+    bool valid = parseError.error == QJsonParseError::NoError && document.isObject() && version.isDouble() && (versionNumber == 1 || versionNumber == 2)
+        && entries.isArray() && active.isString();
     Catalog loaded;
     if (valid) {
         loaded.activeId = active.toString();
@@ -82,7 +152,17 @@ bool WorkspaceCatalog::load(const KConfigGroup &group, Catalog &catalog, QString
                 valid = false;
                 break;
             }
-            loaded.workspaces.append({id.toString(), name.toString(), label.toString()});
+            Workspace workspace{id.toString(), name.toString(), label.toString(), std::nullopt};
+            const QJsonValue layout = object.value(QStringLiteral("layout"));
+            if (!layout.isUndefined()) {
+                Layout decoded;
+                if (versionNumber != 2 || !readLayout(layout, decoded)) {
+                    valid = false;
+                    break;
+                }
+                workspace.layout = decoded;
+            }
+            loaded.workspaces.append(workspace);
         }
     }
     if (!valid || !validCatalog(loaded)) {
@@ -101,10 +181,13 @@ bool WorkspaceCatalog::save(KConfigGroup group, const Catalog &catalog, QString 
     }
     QJsonArray entries;
     for (const auto &workspace : catalog.workspaces) {
-        entries.append(
-            QJsonObject{{QStringLiteral("id"), workspace.id}, {QStringLiteral("name"), workspace.name}, {QStringLiteral("shortLabel"), workspace.shortLabel}});
+        QJsonObject entry{{QStringLiteral("id"), workspace.id}, {QStringLiteral("name"), workspace.name}, {QStringLiteral("shortLabel"), workspace.shortLabel}};
+        if (workspace.layout) {
+            entry.insert(QStringLiteral("layout"), writeLayout(*workspace.layout));
+        }
+        entries.append(entry);
     }
-    const QJsonObject root{{QStringLiteral("version"), 1}, {QStringLiteral("workspaces"), entries}, {QStringLiteral("activeId"), catalog.activeId}};
+    const QJsonObject root{{QStringLiteral("version"), 2}, {QStringLiteral("workspaces"), entries}, {QStringLiteral("activeId"), catalog.activeId}};
     const bool hadPrevious = group.hasKey("Catalog");
     const QByteArray previous = group.readEntry("Catalog", QByteArray());
     group.writeEntry("Catalog", QJsonDocument(root).toJson(QJsonDocument::Compact));
@@ -123,7 +206,46 @@ bool WorkspaceCatalog::save(KConfigGroup group, const Catalog &catalog, QString 
 bool WorkspaceCatalog::create(Catalog &catalog, const QString &name, const QString &shortLabel, QString &error)
 {
     Catalog updated = catalog;
-    updated.workspaces.append({QUuid::createUuid().toString(QUuid::WithoutBraces), name.trimmed(), shortLabel.trimmed()});
+    updated.workspaces.append({QUuid::createUuid().toString(QUuid::WithoutBraces), name.trimmed(), shortLabel.trimmed(), std::nullopt});
+    if (!checkCatalog(updated, error)) {
+        return false;
+    }
+    catalog = updated;
+    return true;
+}
+
+bool WorkspaceCatalog::duplicate(Catalog &catalog, const QString &id, const QString &name, const QString &shortLabel, QString &error)
+{
+    if (!checkCatalog(catalog, error)) {
+        return false;
+    }
+    const int index = indexOf(catalog, id);
+    if (index < 0) {
+        error = i18nc("@info", "The workspace no longer exists.");
+        return false;
+    }
+    Catalog updated = catalog;
+    Workspace copy = updated.workspaces.at(index);
+    copy.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    copy.name = name.trimmed();
+    copy.shortLabel = shortLabel.trimmed();
+    updated.workspaces.append(copy);
+    if (!checkCatalog(updated, error)) {
+        return false;
+    }
+    catalog = updated;
+    return true;
+}
+
+bool WorkspaceCatalog::setLayout(Catalog &catalog, const QString &id, const Layout &layout, QString &error)
+{
+    const int index = indexOf(catalog, id);
+    if (index < 0) {
+        error = i18nc("@info", "The workspace no longer exists.");
+        return false;
+    }
+    Catalog updated = catalog;
+    updated.workspaces[index].layout = layout;
     if (!checkCatalog(updated, error)) {
         return false;
     }
