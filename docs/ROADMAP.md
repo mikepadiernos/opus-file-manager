@@ -879,6 +879,10 @@ layouts.
   components. Preserve the built-in editor and its draft handling, pass file
   paths safely without shell interpolation, and report missing providers,
   launch failures and unsupported locations.
+- Extend the built-in editor with CommonMark and Obsidian-like wiki links and
+  backlinks within a user-selected local vault. Preserve source and drafts,
+  respect vault boundaries, and report ambiguous, missing or inaccessible
+  targets and incomplete scans. See the [pending handoff](TODO.md#markdown-editor-and-backlinks-564).
 - Optional mpv integration: support embedded audio and video playback in the
   preview panel and gallery alongside Qt Multimedia, and an explicit action to
   open selected media in the separate mpv application. Preserve existing
@@ -989,6 +993,8 @@ Settings for M23 integrations, stored in KConfig.
   - **Provider:** choose the built-in editor or an available KWrite, Kate,
     Neovim, Rune, micro or nano integration, and the terminal session type for
     terminal editors
+  - **Markdown:** choose a local vault and the Markdown editing and preview
+    behavior, retaining source and draft safeguards.
 - **Media**
   - **Backend:** choose Qt Multimedia or the optional embedded mpv backend for
     preview and gallery playback.
