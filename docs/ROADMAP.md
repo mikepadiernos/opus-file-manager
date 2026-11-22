@@ -1074,6 +1074,8 @@ Settings for M25 integrations, stored in KConfig.
   - **Access:** manage protected local folders and their passwords, with a
     clear warning that the gate applies only inside Plasma Opus
 
+**Pending:** [Integration settings project tracking](TODO.md#integration-settings-project-tracking).
+
 ### M27 Branding
 
 - Use a consistent, translatable application name and description in the
@@ -1396,8 +1398,6 @@ upstream source could not be verified for this review.
 Follow the [project instructions](../CLAUDE.md) for issue tracking, completion,
 branching and merging. Record blocked work in [pending tasks](TODO.md) and
 document feature limitations in [caveats and limitations](CAVEATS.md).
-The [renumbered milestone branches](TODO.md#renumbered-milestone-branches)
-need reconciliation before their unfinished features are merged.
 Native dock and column-header spacing follows the
 [active widget style](CAVEATS.md#native-title-and-header-padding) ([#560](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/560)).
 
