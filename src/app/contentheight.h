@@ -11,3 +11,6 @@ class QAbstractItemView;
  * @param view the list, tree or places view to fit
  */
 void fitHeightToContents(QAbstractItemView *view);
+
+/// Recalculates the height after rows have been shown or hidden.
+void updateContentHeight(QAbstractItemView *view);

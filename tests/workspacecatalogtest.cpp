@@ -339,6 +339,18 @@ private Q_SLOTS:
         QCOMPARE(catalog.locationAssignments.value(locationId), homeId);
     }
 
+    void identifiesLocationsWithoutCredentials()
+    {
+        const QUrl first(QStringLiteral("sftp://alice:secret@example.invalid/folder/?token=one"));
+        const QUrl second(QStringLiteral("sftp://bob:other@example.invalid/folder?token=two"));
+        const QString id = locationId(first);
+        QVERIFY(!QUuid(id).isNull());
+        QCOMPARE(locationId(second), id);
+        QVERIFY(id != locationId(QUrl(QStringLiteral("sftp://example.invalid/elsewhere"))));
+        QVERIFY(locationId(QUrl()).isEmpty());
+        QVERIFY(locationId(QUrl(QStringLiteral("relative/path"))).isEmpty());
+    }
+
     void assignmentsPersistAndDoNotFollowDuplicateOrDeletion()
     {
         QTemporaryDir directory;

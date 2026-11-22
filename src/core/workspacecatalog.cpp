@@ -468,6 +468,16 @@ bool WorkspaceCatalog::remove(Catalog &catalog, const QString &id, QString &erro
     return true;
 }
 
+QString WorkspaceCatalog::locationId(const QUrl &url)
+{
+    if (!url.isValid() || url.isEmpty() || url.isRelative()) {
+        return {};
+    }
+    const auto normalized = url.adjusted(QUrl::RemoveUserInfo | QUrl::RemoveQuery | QUrl::RemoveFragment | QUrl::StripTrailingSlash);
+    static const QUuid locationNamespace(QStringLiteral("b880d3a6-10b1-42b8-a4fa-05b525d0c3f6"));
+    return QUuid::createUuidV5(locationNamespace, normalized.toEncoded()).toString(QUuid::WithoutBraces);
+}
+
 bool WorkspaceCatalog::assignLocation(Catalog &catalog, const QString &locationId, const QString &workspaceId, QString &error)
 {
     if (!checkCatalog(catalog, error)) {

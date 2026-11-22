@@ -8,6 +8,7 @@
 #include <QMap>
 #include <QString>
 #include <QStringList>
+#include <QUrl>
 #include <optional>
 
 namespace WorkspaceCatalog
@@ -86,6 +87,12 @@ bool setLayout(Catalog &catalog, const QString &id, const Layout &layout, QStrin
 bool rename(Catalog &catalog, const QString &id, const QString &name, const QString &shortLabel, QString &error);
 bool activate(Catalog &catalog, const QString &id, QString &error);
 bool remove(Catalog &catalog, const QString &id, QString &error);
+/**
+ * Identifies a saved location without retaining URL credentials or query data.
+ * @param url the saved location URL
+ * @returns its UUID, or an empty string when the URL is invalid
+ */
+QString locationId(const QUrl &url);
 /**
  * Assigns a location without replacing an existing different owner.
  * @param catalog the workspace catalog to update

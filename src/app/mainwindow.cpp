@@ -46,6 +46,7 @@
 #include "transferqueuedialog.h"
 #include "viewsettings.h"
 #include "workspacedialog.h"
+#include "workspacelocations.h"
 
 #include <KActionCollection>
 #include <KConfig>
@@ -97,6 +98,7 @@
 #include <QDomDocument>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFileSystemWatcher>
 #include <QFormLayout>
 #include <QFutureWatcher>
 #include <QHBoxLayout>
@@ -116,6 +118,7 @@
 #include <QSignalBlocker>
 #include <QSizeGrip>
 #include <QSplitter>
+#include <QStandardPaths>
 #include <QStatusBar>
 #include <QStyleOption>
 #include <QTabWidget>
@@ -397,6 +400,13 @@ MainWindow::MainWindow(QWidget *parent)
     setComponentName(QStringLiteral("opus-file-manager"), i18n("Plasma Opus"));
     m_flatLocations = KSharedConfig::openStateConfig()->group(QLatin1String(FlatGroup)).readEntry("Locations", QStringList());
     m_favorites = new FavoritesModel(KSharedConfig::openConfig()->group(QStringLiteral("Favorites")), this);
+    m_workspaceLocations = new WorkspaceLocations(m_favorites, m_placesModel, this);
+    const auto config = KSharedConfig::openConfig();
+    m_workspaceConfig = std::make_unique<KConfig>(config->name(), config->openFlags(), config->locationType());
+    QString workspaceError;
+    if (WorkspaceCatalog::load(m_workspaceConfig->group(QStringLiteral("Workspaces")), m_workspaceCatalog, workspaceError)) {
+        m_currentWorkspaceId = m_workspaceCatalog.activeId;
+    }
     m_tabColors = new TabColors(KSharedConfig::openConfig()->group(QStringLiteral("TabColors")), this);
     const KConfigGroup popular = KSharedConfig::openConfig()->group(QLatin1String(PopularFoldersGroup));
     const QStringList popularUrls = popular.readEntry("Urls", QStringList());
@@ -412,6 +422,23 @@ MainWindow::MainWindow(QWidget *parent)
     setupPanels();
     setupStatusBar();
     setupActions();
+    m_combinedPanel->setWorkspaceLocations(m_workspaceLocations);
+    connect(m_workspaceLocations, &WorkspaceLocations::changed, this, [this] {
+        QTimer::singleShot(0, this, &MainWindow::refreshWorkspaceLocations);
+    });
+    connect(m_placesView, &KFilePlacesView::allPlacesShownChanged, this, [this] {
+        QTimer::singleShot(0, this, &MainWindow::refreshWorkspaceLocations);
+    });
+    const auto scheduleWorkspaceRefresh = [this] {
+        QTimer::singleShot(0, this, &MainWindow::refreshWorkspaceLocations);
+    };
+    connect(m_placesModel, &QAbstractItemModel::rowsInserted, this, scheduleWorkspaceRefresh);
+    connect(m_placesModel, &QAbstractItemModel::rowsRemoved, this, scheduleWorkspaceRefresh);
+    connect(m_placesModel, &QAbstractItemModel::rowsMoved, this, scheduleWorkspaceRefresh);
+    connect(m_placesModel, &QAbstractItemModel::modelReset, this, scheduleWorkspaceRefresh);
+    connect(m_placesModel, &QAbstractItemModel::dataChanged, this, scheduleWorkspaceRefresh);
+    reloadWorkspaceCatalog();
+    watchWorkspaceCatalog();
 
     setStandardToolBarMenuEnabled(true);
     setupGUI(QSize(1100, 700), Default, QStringLiteral("opus-file-managerui.rc"));
@@ -463,21 +490,7 @@ void MainWindow::showWorkspaces()
         existing->activateWindow();
         return;
     }
-    const bool firstOpen = !m_workspaceConfig;
-    if (firstOpen) {
-        const auto config = KSharedConfig::openConfig();
-        m_workspaceConfig = std::make_unique<KConfig>(config->name(), config->openFlags(), config->locationType());
-    }
-    if (!m_workspaceConfig->isDirty()) {
-        m_workspaceConfig->reparseConfiguration();
-    }
-    if (firstOpen) {
-        WorkspaceCatalog::Catalog catalog;
-        QString error;
-        if (WorkspaceCatalog::load(m_workspaceConfig->group(QStringLiteral("Workspaces")), catalog, error)) {
-            m_currentWorkspaceId = catalog.activeId;
-        }
-    }
+    reloadWorkspaceCatalog();
     auto *dialog = new WorkspaceDialog(
         m_workspaceConfig->group(QStringLiteral("Workspaces")),
         [this](WorkspaceCatalog::Layout &layout, QString &error) {
@@ -487,13 +500,89 @@ void MainWindow::showWorkspaces()
             return applyWorkspaceLayout(layout, error);
         },
         m_currentWorkspaceId,
-        this);
+        this,
+        m_workspaceLocations);
+    connect(dialog, &WorkspaceDialog::catalogChanged, this, &MainWindow::reloadWorkspaceCatalog);
+    connect(this, &MainWindow::workspaceCatalogChanged, dialog, &WorkspaceDialog::refreshCatalog);
     connect(dialog, &WorkspaceDialog::currentWorkspaceChanged, this, [this](const QString &id) {
         m_currentWorkspaceId = id;
+        refreshWorkspaceLocations();
     });
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setModal(true);
     dialog->show();
+}
+
+void MainWindow::reloadWorkspaceCatalog()
+{
+    if (m_workspaceConfig->isDirty()) {
+        statusBar()->showMessage(i18nc("@info", "Workspace changes cannot be refreshed while configuration changes are pending."));
+        return;
+    }
+    m_workspaceConfig->reparseConfiguration();
+    WorkspaceCatalog::Catalog catalog;
+    QString error;
+    if (!WorkspaceCatalog::load(m_workspaceConfig->group(QStringLiteral("Workspaces")), catalog, error)) {
+        statusBar()->showMessage(error);
+        return;
+    }
+    m_workspaceCatalog = catalog;
+    m_currentWorkspaceId = catalog.activeId;
+    refreshWorkspaceLocations();
+    Q_EMIT workspaceCatalogChanged();
+}
+
+void MainWindow::refreshWorkspaceLocations()
+{
+    m_combinedPanel->setWorkspaceState(m_workspaceCatalog, m_currentWorkspaceId);
+    for (int row = 0; row < m_placesModel->rowCount(); ++row) {
+        const QModelIndex index = m_placesModel->index(row, 0);
+        if (!m_workspaceLocations->isSavedPlace(index)) {
+            continue;
+        }
+        const bool nativeVisible = m_placesView->allPlacesShown() || !m_placesModel->isHidden(index);
+        const bool workspaceVisible = m_workspaceLocations->isVisible(m_placesModel->url(index), m_workspaceCatalog, m_currentWorkspaceId);
+        m_placesView->setRowHidden(row, !nativeVisible || !workspaceVisible);
+    }
+}
+
+void MainWindow::watchWorkspaceCatalog()
+{
+    m_workspaceConfigPath = m_workspaceConfig->name();
+    if (QDir::isRelativePath(m_workspaceConfigPath)) {
+        m_workspaceConfigPath = QDir(QStandardPaths::writableLocation(m_workspaceConfig->locationType())).filePath(m_workspaceConfigPath);
+    }
+    const QString directory = QFileInfo(m_workspaceConfigPath).absolutePath();
+    m_workspaceWatcher = new QFileSystemWatcher(this);
+    if (!QDir().mkpath(directory) || !m_workspaceWatcher->addPath(directory)) {
+        statusBar()->showMessage(i18nc("@info", "The workspace configuration directory cannot be monitored for external changes."));
+        return;
+    }
+    if (QFileInfo::exists(m_workspaceConfigPath)) {
+        m_workspaceWatcher->addPath(m_workspaceConfigPath);
+    }
+    m_workspaceConfigModified = QFileInfo(m_workspaceConfigPath).lastModified().toMSecsSinceEpoch();
+    const auto changed = [this] {
+        QTimer::singleShot(0, this, [this] {
+            if (QFileInfo::exists(m_workspaceConfigPath) && !m_workspaceWatcher->files().contains(m_workspaceConfigPath)) {
+                if (!m_workspaceWatcher->addPath(m_workspaceConfigPath)) {
+                    statusBar()->showMessage(i18nc("@info", "The workspace configuration cannot be monitored for external changes."));
+                }
+            }
+            const QFileInfo configFile(m_workspaceConfigPath);
+            if (!configFile.exists() || configFile.lastModified().toMSecsSinceEpoch() == m_workspaceConfigModified) {
+                return;
+            }
+            m_workspaceConfigModified = configFile.lastModified().toMSecsSinceEpoch();
+            QString error;
+            if (!m_favorites->reload(error)) {
+                statusBar()->showMessage(error);
+            }
+            reloadWorkspaceCatalog();
+        });
+    };
+    connect(m_workspaceWatcher, &QFileSystemWatcher::fileChanged, this, changed);
+    connect(m_workspaceWatcher, &QFileSystemWatcher::directoryChanged, this, changed);
 }
 
 bool MainWindow::captureWorkspaceLayout(WorkspaceCatalog::Layout &layout, QString &error) const

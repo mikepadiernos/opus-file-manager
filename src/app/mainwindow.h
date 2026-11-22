@@ -18,6 +18,8 @@
 
 class CombinedPanel;
 class FavoritesModel;
+class WorkspaceLocations;
+class QFileSystemWatcher;
 class FolderTree;
 class InformationPanel;
 class KFileCopyToMenu;
@@ -92,6 +94,9 @@ public:
      */
     void applySettings();
 
+Q_SIGNALS:
+    void workspaceCatalogChanged();
+
 public Q_SLOTS:
     void configureToolbars() override;
 
@@ -105,6 +110,12 @@ protected:
 private:
     /// Opens the workspace selector and management dialog.
     void showWorkspaces();
+    /// Loads workspace assignments and updates their presentation.
+    void reloadWorkspaceCatalog();
+    /// Applies current workspace visibility to the navigation panels.
+    void refreshWorkspaceLocations();
+    /// Watches the workspace configuration for changes from other windows.
+    void watchWorkspaceCatalog();
     bool captureWorkspaceLayout(WorkspaceCatalog::Layout &layout, QString &error) const;
     bool applyWorkspaceLayout(const WorkspaceCatalog::Layout &layout, QString &error);
     bool workspaceLayoutAvailable(const WorkspaceCatalog::Layout &layout, QString &error) const;
@@ -251,6 +262,11 @@ private:
     KFilePlacesModel *m_placesModel = nullptr;
     std::unique_ptr<KConfig> m_workspaceConfig;
     QString m_currentWorkspaceId;
+    WorkspaceCatalog::Catalog m_workspaceCatalog;
+    WorkspaceLocations *m_workspaceLocations = nullptr;
+    QFileSystemWatcher *m_workspaceWatcher = nullptr;
+    QString m_workspaceConfigPath;
+    qint64 m_workspaceConfigModified = -1;
     KFilePlacesView *m_placesView = nullptr;
     FavoritesModel *m_favorites = nullptr;
     TabColors *m_tabColors = nullptr;

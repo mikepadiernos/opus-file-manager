@@ -31,6 +31,16 @@ int contentHeight(QAbstractItemView *view)
 }
 }
 
+void updateContentHeight(QAbstractItemView *view)
+{
+    QMetaObject::invokeMethod(
+        view,
+        [view] {
+            view->setFixedHeight(contentHeight(view));
+        },
+        Qt::QueuedConnection);
+}
+
 void fitHeightToContents(QAbstractItemView *view)
 {
     view->setFrameShape(QFrame::NoFrame);
@@ -39,13 +49,7 @@ void fitHeightToContents(QAbstractItemView *view)
     view->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
 
     const auto refit = [view] {
-        // Queued so the view has laid out the changed rows first.
-        QMetaObject::invokeMethod(
-            view,
-            [view] {
-                view->setFixedHeight(contentHeight(view));
-            },
-            Qt::QueuedConnection);
+        updateContentHeight(view);
     };
     QAbstractItemModel *model = view->model();
     QObject::connect(model, &QAbstractItemModel::rowsInserted, view, refit);

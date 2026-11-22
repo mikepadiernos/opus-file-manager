@@ -81,6 +81,8 @@ add_library(opusfm_app STATIC
     transferqueuedialog.h
     workspacedialog.cpp
     workspacedialog.h
+    workspacelocations.cpp
+    workspacelocations.h
     opusfm.qrc
 )
 
@@ -96,6 +98,7 @@ target_link_libraries(opusfm_app
         Qt6::MultimediaWidgets
         KF6::ConfigCore
         KF6::ConfigWidgets
+        KF6::Bookmarks
         KF6::CoreAddons
         KF6::I18n
         KF6::KIOCore

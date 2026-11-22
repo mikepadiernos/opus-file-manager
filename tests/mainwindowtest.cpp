@@ -8,6 +8,7 @@
 #include "customcommanddialog.h"
 #include "customcommands.h"
 #include "duplicatefinderdialog.h"
+#include "favoritesmodel.h"
 #include "filediffdialog.h"
 #include "fileoperations.h"
 #include "filesplitdialog.h"
@@ -31,12 +32,14 @@
 #include "transferqueue.h"
 #include "transferqueuedialog.h"
 #include "viewsettings.h"
+#include "workspacedialog.h"
 
 #include <KActionCollection>
 #include <KConfigGroup>
 #include <KDirModel>
 #include <KEditToolBar>
 #include <KFileItemDelegate>
+#include <KFilePlacesModel>
 #include <KFilePlacesView>
 #include <KPageWidgetItem>
 #include <KSelectAction>
@@ -169,6 +172,139 @@ private Q_SLOTS:
         dialog->close();
     }
 
+    void switchesAndRestoresWorkspaceLocationVisibility()
+    {
+        QTemporaryDir directory;
+        const auto config = KSharedConfig::openConfig();
+        const auto backup = KSharedConfig::openConfig(directory.filePath(QStringLiteral("backup")));
+        KConfigGroup favorites = config->group(QStringLiteral("Favorites"));
+        KConfigGroup workspaces = config->group(QStringLiteral("Workspaces"));
+        KConfigGroup savedFavorites = backup->group(QStringLiteral("Favorites"));
+        KConfigGroup savedWorkspaces = backup->group(QStringLiteral("Workspaces"));
+        favorites.copyTo(&savedFavorites);
+        workspaces.copyTo(&savedWorkspaces);
+        favorites.deleteGroup();
+        workspaces.deleteGroup();
+        QVERIFY(config->sync());
+        const auto restore = qScopeGuard([config, savedFavorites, savedWorkspaces]() mutable {
+            config->reparseConfiguration();
+            auto favorites = config->group(QStringLiteral("Favorites"));
+            auto workspaces = config->group(QStringLiteral("Workspaces"));
+            favorites.deleteGroup();
+            workspaces.deleteGroup();
+            savedFavorites.copyTo(&favorites);
+            savedWorkspaces.copyTo(&workspaces);
+            config->sync();
+        });
+        MainWindow window;
+        QVERIFY(window.favorites()->add(m_a));
+        QVERIFY(window.favorites()->add(m_b));
+        auto *places = window.findChild<KFilePlacesModel *>();
+        QVERIFY(places);
+        places->addPlace(QStringLiteral("Workspace test"), m_c);
+        const auto removePlace = qScopeGuard([&] {
+            for (int row = places->rowCount() - 1; row >= 0; --row) {
+                if (places->url(places->index(row, 0)) == m_c) {
+                    places->removePlace(places->index(row, 0));
+                }
+            }
+        });
+        auto *placesDock = window.findChild<QDockWidget *>(QStringLiteral("placesDock"));
+        QVERIFY(placesDock);
+        auto *placesView = qobject_cast<KFilePlacesView *>(placesDock->widget());
+        QVERIFY(placesView);
+        placesView->setShowAll(true);
+        auto *view = window.findChild<QListView *>(QStringLiteral("combinedFavoritesView"));
+        QVERIFY(view);
+        window.actionCollection()->action(QStringLiteral("manage_workspaces"))->trigger();
+        auto *dialog = window.findChild<QDialog *>(QStringLiteral("workspaceDialog"));
+        QVERIFY(dialog);
+        auto *name = dialog->findChild<QLineEdit *>(QStringLiteral("workspaceName"));
+        auto *label = dialog->findChild<QLineEdit *>(QStringLiteral("workspaceShortLabel"));
+        auto *list = dialog->findChild<QListWidget *>(QStringLiteral("workspaceList"));
+        auto *locations = dialog->findChild<QListWidget *>(QStringLiteral("workspaceLocationList"));
+        auto *create = dialog->findChild<QPushButton *>(QStringLiteral("workspaceCreate"));
+        auto *assign = dialog->findChild<QPushButton *>(QStringLiteral("workspaceAssignLocation"));
+        auto *activate = dialog->findChild<QPushButton *>(QStringLiteral("workspaceActivate"));
+        QVERIFY(name && label && list && locations && create && assign && activate);
+        name->setText(QStringLiteral("Work"));
+        label->setText(QStringLiteral("W"));
+        create->click();
+        name->setText(QStringLiteral("Home"));
+        label->setText(QStringLiteral("H"));
+        create->click();
+        QCOMPARE(list->count(), 2);
+        list->setCurrentRow(0);
+        const QString locationId = WorkspaceCatalog::locationId(m_a);
+        for (int row = 0; row < locations->count(); ++row) {
+            if (locations->item(row)->data(Qt::UserRole).toString() == locationId) {
+                locations->setCurrentRow(row);
+                break;
+            }
+        }
+        QVERIFY(locations->currentItem());
+        assign->click();
+        const QString placeId = WorkspaceCatalog::locationId(m_c);
+        for (int row = 0; row < locations->count(); ++row) {
+            if (locations->item(row)->data(Qt::UserRole).toString() == placeId) {
+                locations->setCurrentRow(row);
+                break;
+            }
+        }
+        QVERIFY(locations->currentItem());
+        QCOMPARE(locations->currentItem()->data(Qt::UserRole).toString(), placeId);
+        assign->click();
+        MainWindow observer;
+        auto *observerView = observer.findChild<QListView *>(QStringLiteral("combinedFavoritesView"));
+        QVERIFY(observerView);
+        QVERIFY(!observerView->isRowHidden(0));
+        list->setCurrentRow(1);
+        QTimer::singleShot(0, [] {
+            qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+        });
+        activate->click();
+        QTRY_VERIFY(view->isRowHidden(0));
+        QTRY_VERIFY(observerView->isRowHidden(0));
+        QVERIFY(!view->isRowHidden(1));
+        const auto placeRow = [&] {
+            for (int row = 0; row < places->rowCount(); ++row) {
+                if (places->url(places->index(row, 0)) == m_c) {
+                    return row;
+                }
+            }
+            return -1;
+        };
+        QVERIFY(placeRow() >= 0);
+        QTRY_VERIFY(placesView->isRowHidden(placeRow()));
+        dialog->close();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        MainWindow reopened;
+        auto *reopenedView = reopened.findChild<QListView *>(QStringLiteral("combinedFavoritesView"));
+        QVERIFY(reopenedView);
+        QTRY_VERIFY(reopenedView->isRowHidden(0));
+        QVERIFY(!reopenedView->isRowHidden(1));
+        window.actionCollection()->action(QStringLiteral("manage_workspaces"))->trigger();
+        dialog = window.findChild<QDialog *>(QStringLiteral("workspaceDialog"));
+        QVERIFY(dialog);
+        list = dialog->findChild<QListWidget *>(QStringLiteral("workspaceList"));
+        locations = dialog->findChild<QListWidget *>(QStringLiteral("workspaceLocationList"));
+        assign = dialog->findChild<QPushButton *>(QStringLiteral("workspaceAssignLocation"));
+        list->setCurrentRow(1);
+        for (int row = 0; row < locations->count(); ++row) {
+            if (locations->item(row)->data(Qt::UserRole).toString() == locationId) {
+                locations->setCurrentRow(row);
+                break;
+            }
+        }
+        QVERIFY(locations->currentItem());
+        QTimer::singleShot(0, [] {
+            qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+        });
+        assign->click();
+        QTRY_VERIFY(!reopenedView->isRowHidden(0));
+        dialog->close();
+    }
+
     void switchesWorkspaceLayoutWithoutLosingTabsOrEditor()
     {
         const auto config = KSharedConfig::openConfig();
@@ -266,7 +402,8 @@ private Q_SLOTS:
         QVERIFY(linked);
         linked->setChecked(true);
         QVERIFY(linked->isChecked());
-        QTimer::singleShot(0, [] {
+        QTimer::singleShot(0, [dialog] {
+            qobject_cast<WorkspaceDialog *>(dialog)->refreshCatalog();
             qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
         });
         activate->click();

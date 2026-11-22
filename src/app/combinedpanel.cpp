@@ -6,6 +6,7 @@
 #include "favoritesmodel.h"
 #include "foldertree.h"
 #include "settings.h"
+#include "workspacelocations.h"
 
 #include <KConfigGroup>
 #include <KFilePlacesModel>
@@ -282,6 +283,14 @@ public:
         setSectionTitle(m_header, title.isEmpty() ? m_defaultTitle : title);
     }
 
+    void setWorkspaceState(WorkspaceLocations *locations, const WorkspaceCatalog::Catalog &catalog, const QString &workspaceId)
+    {
+        m_locations = locations;
+        m_catalog = catalog;
+        m_workspaceId = workspaceId;
+        refresh();
+    }
+
     void refresh()
     {
         int height = m_view->spacing();
@@ -289,7 +298,9 @@ public:
         bool hasEntries = false;
         for (int row = 0; row < m_model->rowCount(); ++row) {
             const QModelIndex index = m_model->index(row, 0);
-            const bool show = m_model->groupType(index) == m_type && (m_view->allPlacesShown() || !m_model->isHidden(index));
+            const bool assignedHere =
+                !m_locations || !m_locations->isSavedPlace(index) || m_locations->isVisible(m_model->url(index), m_catalog, m_workspaceId);
+            const bool show = m_model->groupType(index) == m_type && (m_view->allPlacesShown() || !m_model->isHidden(index)) && assignedHere;
             if (m_view->isRowHidden(row) == show) {
                 m_view->setRowHidden(row, !show);
             }
@@ -321,6 +332,9 @@ private:
     bool m_refreshPending = false;
     QString m_customTitle;
     QString m_defaultTitle;
+    QPointer<WorkspaceLocations> m_locations;
+    WorkspaceCatalog::Catalog m_catalog;
+    QString m_workspaceId;
 };
 
 CombinedPanel::CombinedPanel(KFilePlacesModel *places, FavoritesModel *favorites, QWidget *parent)
@@ -338,6 +352,7 @@ CombinedPanel::CombinedPanel(KFilePlacesModel *places, FavoritesModel *favorites
     favoritesLayout->setContentsMargins(0, 0, 0, 0);
     favoritesLayout->setSpacing(0);
     m_favoritesView = new QListView(favoritesSection);
+    m_favoritesView->setObjectName(QStringLiteral("combinedFavoritesView"));
     m_favoritesView->setModel(favorites);
     m_favoritesView->setDragDropMode(QAbstractItemView::DragDrop);
     m_favoritesView->setDefaultDropAction(Qt::CopyAction);
@@ -436,6 +451,38 @@ CombinedPanel::CombinedPanel(KFilePlacesModel *places, FavoritesModel *favorites
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_scroll);
+}
+
+void CombinedPanel::setWorkspaceLocations(WorkspaceLocations *locations)
+{
+    if (m_workspaceLocations) {
+        disconnect(m_workspaceLocations, nullptr, this, nullptr);
+    }
+    m_workspaceLocations = locations;
+    if (locations) {
+        connect(locations, &WorkspaceLocations::changed, this, &CombinedPanel::refreshWorkspaceLocations);
+    }
+    refreshWorkspaceLocations();
+}
+
+void CombinedPanel::setWorkspaceState(const WorkspaceCatalog::Catalog &catalog, const QString &workspaceId)
+{
+    m_workspaceCatalog = catalog;
+    m_workspaceId = workspaceId;
+    refreshWorkspaceLocations();
+}
+
+void CombinedPanel::refreshWorkspaceLocations()
+{
+    for (int row = 0; row < m_favorites->rowCount(); ++row) {
+        const QUrl url = m_favorites->index(row, 0).data(FavoritesModel::UrlRole).toUrl();
+        const bool show = !m_workspaceLocations || m_workspaceLocations->isVisible(url, m_workspaceCatalog, m_workspaceId);
+        m_favoritesView->setRowHidden(row, !show);
+    }
+    updateContentHeight(m_favoritesView);
+    for (PlacesSection *section : std::as_const(m_placesSections)) {
+        section->setWorkspaceState(m_workspaceLocations, m_workspaceCatalog, m_workspaceId);
+    }
 }
 
 FolderTree *CombinedPanel::folderTree() const

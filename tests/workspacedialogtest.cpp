@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "workspacedialog.h"
+#include "favoritesmodel.h"
+#include "workspacelocations.h"
 
 #include <KConfig>
+#include <KFilePlacesModel>
 #include <QFile>
 #include <QLabel>
 #include <QLineEdit>
@@ -240,6 +243,71 @@ private Q_SLOTS:
         QVERIFY(WorkspaceCatalog::load(firstGroup, external, error));
         QCOMPARE(external.workspaces.size(), 1);
         QCOMPARE(external.workspaces.first().name, QStringLiteral("Other"));
+    }
+
+    void assignsReassignsAndUnassignsSavedLocations()
+    {
+        QTemporaryDir directory;
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        const auto group = config.group(QStringLiteral("Workspaces"));
+        FavoritesModel favorites(config.group(QStringLiteral("Favorites")));
+        KFilePlacesModel places;
+        const QUrl url = QUrl::fromLocalFile(directory.filePath(QStringLiteral("folder")));
+        QVERIFY(favorites.add(url));
+        WorkspaceLocations locations(&favorites, &places);
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Home"), QStringLiteral("H"), error));
+        const QString workId = catalog.workspaces.first().id;
+        const QString homeId = catalog.workspaces.last().id;
+        const QString locationId = WorkspaceCatalog::locationId(url);
+        QVERIFY(WorkspaceCatalog::save(group, catalog, error));
+        WorkspaceDialog dialog(
+            group,
+            [](WorkspaceCatalog::Layout &, QString &) {
+                return true;
+            },
+            [](const WorkspaceCatalog::Layout &, QString &) {
+                return true;
+            },
+            workId,
+            nullptr,
+            &locations);
+        QSignalSpy changed(&dialog, &WorkspaceDialog::catalogChanged);
+        auto *workspaces = dialog.findChild<QListWidget *>(QStringLiteral("workspaceList"));
+        auto *savedLocations = dialog.findChild<QListWidget *>(QStringLiteral("workspaceLocationList"));
+        auto *assign = dialog.findChild<QPushButton *>(QStringLiteral("workspaceAssignLocation"));
+        auto *unassign = dialog.findChild<QPushButton *>(QStringLiteral("workspaceUnassignLocation"));
+        QVERIFY(workspaces && savedLocations && assign && unassign);
+        auto selectLocation = [&] {
+            for (int row = 0; row < savedLocations->count(); ++row) {
+                if (savedLocations->item(row)->data(Qt::UserRole).toString() == locationId) {
+                    savedLocations->setCurrentRow(row);
+                    return true;
+                }
+            }
+            return false;
+        };
+        workspaces->setCurrentRow(0);
+        QVERIFY(selectLocation());
+        assign->click();
+        QVERIFY(WorkspaceCatalog::load(group, catalog, error));
+        QCOMPARE(catalog.locationAssignments.value(locationId), workId);
+        QCOMPARE(changed.size(), 1);
+        workspaces->setCurrentRow(1);
+        QVERIFY(selectLocation());
+        QTimer::singleShot(0, [] {
+            qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+        });
+        assign->click();
+        QVERIFY(WorkspaceCatalog::load(group, catalog, error));
+        QCOMPARE(catalog.locationAssignments.value(locationId), homeId);
+        QVERIFY(selectLocation());
+        unassign->click();
+        QVERIFY(WorkspaceCatalog::load(group, catalog, error));
+        QVERIFY(!catalog.locationAssignments.contains(locationId));
+        QCOMPARE(favorites.urls(), QList<QUrl>({url}));
     }
 };
 

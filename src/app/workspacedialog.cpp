@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "workspacedialog.h"
+#include "workspacelocations.h"
 
 #include <KConfig>
 #include <KLocalizedString>
@@ -13,20 +14,27 @@
 #include <QListWidget>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QSet>
 #include <QVBoxLayout>
 
 #include <algorithm>
 
-WorkspaceDialog::WorkspaceDialog(KConfigGroup group, CaptureLayout capture, ApplyLayout apply, const QString &currentId, QWidget *parent)
+WorkspaceDialog::WorkspaceDialog(KConfigGroup group,
+                                 CaptureLayout capture,
+                                 ApplyLayout apply,
+                                 const QString &currentId,
+                                 QWidget *parent,
+                                 WorkspaceLocations *locations)
     : QDialog(parent)
     , m_group(group)
     , m_capture(std::move(capture))
     , m_apply(std::move(apply))
     , m_currentId(currentId)
+    , m_locations(locations)
 {
     setObjectName(QStringLiteral("workspaceDialog"));
     setWindowTitle(i18nc("@title:window", "Workspaces"));
-    resize(520, 430);
+    resize(620, locations ? 650 : 430);
     auto *layout = new QVBoxLayout(this);
     auto *description = new QLabel(
         i18nc("@info",
@@ -69,6 +77,26 @@ WorkspaceDialog::WorkspaceDialog(KConfigGroup group, CaptureLayout capture, Appl
     connect(save, &QPushButton::clicked, this, &WorkspaceDialog::saveLayout);
     layoutButtons->addWidget(save);
     layout->addLayout(layoutButtons);
+    if (m_locations) {
+        auto *locationLabel = new QLabel(i18nc("@label:listbox", "Saved locations and their workspaces:"), this);
+        m_locationList = new QListWidget(this);
+        m_locationList->setObjectName(QStringLiteral("workspaceLocationList"));
+        m_locationList->setAccessibleName(locationLabel->text());
+        locationLabel->setBuddy(m_locationList);
+        layout->addWidget(locationLabel);
+        layout->addWidget(m_locationList);
+        auto *assignmentButtons = new QHBoxLayout;
+        auto *assign = new QPushButton(i18nc("@action:button", "Assign to Selected Workspace"), this);
+        assign->setObjectName(QStringLiteral("workspaceAssignLocation"));
+        connect(assign, &QPushButton::clicked, this, &WorkspaceDialog::assignSelectedLocation);
+        auto *unassign = new QPushButton(i18nc("@action:button", "Unassign"), this);
+        unassign->setObjectName(QStringLiteral("workspaceUnassignLocation"));
+        connect(unassign, &QPushButton::clicked, this, &WorkspaceDialog::unassignSelectedLocation);
+        assignmentButtons->addWidget(assign);
+        assignmentButtons->addWidget(unassign);
+        layout->addLayout(assignmentButtons);
+        connect(m_locations, &WorkspaceLocations::changed, this, &WorkspaceDialog::refreshLocations);
+    }
     m_status = new QLabel(this);
     m_status->setObjectName(QStringLiteral("workspaceStatus"));
     m_status->setWordWrap(true);
@@ -84,6 +112,106 @@ WorkspaceDialog::WorkspaceDialog(KConfigGroup group, CaptureLayout capture, Appl
         }
     });
     reload();
+}
+
+void WorkspaceDialog::refreshLocations()
+{
+    if (!m_locationList) {
+        return;
+    }
+    const QString selected = m_locationList->currentItem() ? m_locationList->currentItem()->data(Qt::UserRole).toString() : QString();
+    m_locationList->clear();
+    QSet<QString> seen;
+    const auto ownerName = [this](const QString &id) {
+        const QString owner = m_catalog.locationAssignments.value(id);
+        for (const auto &workspace : m_catalog.workspaces) {
+            if (workspace.id == owner) {
+                return workspace.name;
+            }
+        }
+        return i18nc("@item:inlistbox location without a workspace", "Unassigned");
+    };
+    for (const auto &location : m_locations->locations()) {
+        const QString state = location.ambiguous ? i18nc("@item:inlistbox", "Ambiguous saved location") : ownerName(location.id);
+        auto *item = new QListWidgetItem(i18nc("@item:inlistbox location and workspace", "%1 — %2", location.title, state), m_locationList);
+        item->setData(Qt::UserRole, location.id);
+        item->setData(Qt::UserRole + 1, location.ambiguous);
+        item->setToolTip(location.url.adjusted(QUrl::RemoveUserInfo | QUrl::RemoveQuery | QUrl::RemoveFragment).toDisplayString(QUrl::PreferLocalFile));
+        seen.insert(location.id);
+        if (location.id == selected) {
+            m_locationList->setCurrentItem(item);
+        }
+    }
+    for (auto it = m_catalog.locationAssignments.cbegin(); it != m_catalog.locationAssignments.cend(); ++it) {
+        if (seen.contains(it.key())) {
+            continue;
+        }
+        auto *item = new QListWidgetItem(i18nc("@item:inlistbox unavailable location and workspace", "Unavailable saved location — %1", ownerName(it.key())),
+                                         m_locationList);
+        item->setData(Qt::UserRole, it.key());
+        item->setData(Qt::UserRole + 2, true);
+        if (it.key() == selected) {
+            m_locationList->setCurrentItem(item);
+        }
+    }
+}
+
+void WorkspaceDialog::refreshCatalog()
+{
+    reload(selectedId());
+}
+
+void WorkspaceDialog::assignSelectedLocation()
+{
+    const auto *item = m_locationList->currentItem();
+    const QString workspaceId = selectedId();
+    if (!item || workspaceId.isEmpty()) {
+        m_status->setText(i18nc("@info", "Select a saved location and a workspace first."));
+        return;
+    }
+    if (item->data(Qt::UserRole + 1).toBool() || item->data(Qt::UserRole + 2).toBool()) {
+        m_status->setText(i18nc("@info", "This saved location is unavailable or cannot be distinguished from another location."));
+        return;
+    }
+    const QString id = item->data(Qt::UserRole).toString();
+    const QString owner = m_catalog.locationAssignments.value(id);
+    auto updated = m_catalog;
+    QString error;
+    if (!owner.isEmpty() && owner != workspaceId) {
+        if (QMessageBox::question(this,
+                                  i18nc("@title:window", "Reassign Saved Location"),
+                                  i18nc("@info", "Move this location's assignment to the selected workspace? No files will be moved."),
+                                  QMessageBox::Yes | QMessageBox::No,
+                                  QMessageBox::No)
+            != QMessageBox::Yes) {
+            return;
+        }
+        if (!WorkspaceCatalog::unassignLocation(updated, id, error)) {
+            m_status->setText(error);
+            return;
+        }
+    }
+    if (!WorkspaceCatalog::assignLocation(updated, id, workspaceId, error)) {
+        m_status->setText(error);
+    } else if (commit(updated)) {
+        reload(workspaceId);
+    }
+}
+
+void WorkspaceDialog::unassignSelectedLocation()
+{
+    const auto *item = m_locationList->currentItem();
+    if (!item) {
+        m_status->setText(i18nc("@info", "Select a saved location first."));
+        return;
+    }
+    auto updated = m_catalog;
+    QString error;
+    if (!WorkspaceCatalog::unassignLocation(updated, item->data(Qt::UserRole).toString(), error)) {
+        m_status->setText(error);
+    } else if (commit(updated)) {
+        reload(selectedId());
+    }
 }
 
 void WorkspaceDialog::reload(const QString &selected)
@@ -110,6 +238,7 @@ void WorkspaceDialog::reload(const QString &selected)
             m_list->setCurrentItem(item);
         }
     }
+    refreshLocations();
     m_status->clear();
 }
 
@@ -126,6 +255,7 @@ bool WorkspaceDialog::commit(const WorkspaceCatalog::Catalog &updated)
         m_status->setText(error);
         return false;
     }
+    Q_EMIT catalogChanged();
     return true;
 }
 
@@ -215,9 +345,17 @@ void WorkspaceDialog::activateWorkspace()
         != QMessageBox::Yes) {
         return;
     }
+    const auto current = std::find_if(m_catalog.workspaces.cbegin(), m_catalog.workspaces.cend(), [&id](const auto &workspace) {
+        return workspace.id == id;
+    });
+    if (current == m_catalog.workspaces.cend() || !current->layout) {
+        m_status->setText(i18nc("@info", "The selected workspace no longer has a saved layout."));
+        return;
+    }
+    const WorkspaceCatalog::Layout layout = *current->layout;
     WorkspaceCatalog::Layout previous;
     QString error;
-    if (!m_capture(previous, error) || !m_apply(*it->layout, error)) {
+    if (!m_capture(previous, error) || !m_apply(layout, error)) {
         m_status->setText(error);
         return;
     }
