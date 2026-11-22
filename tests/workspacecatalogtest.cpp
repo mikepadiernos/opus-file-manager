@@ -3,9 +3,11 @@
 #include "workspacecatalog.h"
 
 #include <KConfig>
+#include <QDir>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLockFile>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -82,6 +84,67 @@ private Q_SLOTS:
         QCOMPARE(loaded, catalog);
     }
 
+    void preventsStaleCatalogUpdates()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath(QStringLiteral("settings"));
+        KConfig first(path, KConfig::SimpleConfig);
+        KConfig second(path, KConfig::SimpleConfig);
+        const KConfigGroup firstGroup = first.group(QStringLiteral("Workspaces"));
+        const KConfigGroup secondGroup = second.group(QStringLiteral("Workspaces"));
+        Catalog original;
+        QString error;
+        QVERIFY(load(firstGroup, original, error));
+        Catalog updated = original;
+        QVERIFY(create(updated, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY2(saveIfUnchanged(firstGroup, original, updated, error), qPrintable(error));
+
+        Catalog staleUpdate = original;
+        QVERIFY(create(staleUpdate, QStringLiteral("Home"), QStringLiteral("H"), error));
+        QVERIFY(!saveIfUnchanged(secondGroup, original, staleUpdate, error));
+        QVERIFY(!error.isEmpty());
+        second.reparseConfiguration();
+        Catalog stored;
+        QVERIFY(load(secondGroup, stored, error));
+        QCOMPARE(stored, updated);
+    }
+
+    void reportsLockedCatalogWithoutChangingIt()
+    {
+        QTemporaryDir directory;
+        const QString path = directory.filePath(QStringLiteral("settings"));
+        KConfig config(path, KConfig::SimpleConfig);
+        const auto group = config.group(QStringLiteral("Workspaces"));
+        Catalog original;
+        Catalog updated;
+        QString error;
+        QVERIFY(create(updated, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QLockFile lock(path + QStringLiteral(".workspaces.lock"));
+        QVERIFY(lock.tryLock());
+        QVERIFY(!saveIfUnchanged(group, original, updated, error));
+        QVERIFY(!error.isEmpty());
+        Catalog stored;
+        QVERIFY(load(group, stored, error));
+        QCOMPARE(stored, original);
+    }
+
+    void leavesNoPendingWriteAfterSaveFailure()
+    {
+        QTemporaryDir directory;
+        const QString path = directory.filePath(QStringLiteral("settings"));
+        QVERIFY(QDir().mkdir(path));
+        KConfig config(path, KConfig::SimpleConfig);
+        const auto group = config.group(QStringLiteral("Workspaces"));
+        Catalog original;
+        Catalog updated;
+        QString error;
+        QVERIFY(create(updated, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(!saveIfUnchanged(group, original, updated, error));
+        QVERIFY(!error.isEmpty());
+        QVERIFY(!config.isDirty());
+    }
+
     void rejectsCorruptDataWithoutOverwriting()
     {
         QTemporaryDir directory;
@@ -114,7 +177,7 @@ private Q_SLOTS:
         QVERIFY(!error.isEmpty());
         QCOMPARE(group.readEntry("Catalog", QByteArray()), previous);
 
-        group.writeEntry("Catalog", QByteArray(R"({"version":3,"workspaces":[],"activeId":""})"));
+        group.writeEntry("Catalog", QByteArray(R"({"version":4,"workspaces":[],"activeId":""})"));
         const Catalog original = catalog;
         QVERIFY(!load(group, catalog, error));
         QVERIFY(!error.isEmpty());
@@ -132,7 +195,7 @@ private Q_SLOTS:
         QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
         const QString originalId = catalog.workspaces.first().id;
         QVERIFY(activate(catalog, originalId, error));
-        const Layout layout{QByteArray::fromHex("0001ff"), {200, 300, 0}, {400, 100}, false, true};
+        const Layout layout{QByteArray::fromHex("0001ff"), {200, 300, 0}, {400, 100}, false, true, std::nullopt};
         QVERIFY2(setLayout(catalog, originalId, layout, error), qPrintable(error));
         QVERIFY2(duplicate(catalog, originalId, QStringLiteral("Copy"), QStringLiteral("C"), error), qPrintable(error));
         QCOMPARE(catalog.workspaces.size(), 2);
@@ -200,6 +263,36 @@ private Q_SLOTS:
         }
     }
 
+    void persistsPresentationAndRejectsInvalidValues()
+    {
+        QTemporaryDir directory;
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Workspaces"));
+        Catalog catalog;
+        QString error;
+        QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        Layout layout;
+        layout.presentation = Presentation{PanePlacement::Tab,
+                                           PanelLayout::Separate,
+                                           PreviewPlacement::Right,
+                                           EditorPlacement::Window,
+                                           true,
+                                           true,
+                                           true,
+                                           true,
+                                           {QStringLiteral("mainToolBar"), QStringLiteral("editorDock")}};
+        QVERIFY(setLayout(catalog, catalog.workspaces.first().id, layout, error));
+        QVERIFY(save(group, catalog, error));
+        Catalog restored;
+        QVERIFY2(load(group, restored, error), qPrintable(error));
+        QCOMPARE(restored, catalog);
+
+        Layout invalid = layout;
+        invalid.presentation->panePlacement = static_cast<PanePlacement>(99);
+        QVERIFY(!setLayout(catalog, catalog.workspaces.first().id, invalid, error));
+        QVERIFY(!error.isEmpty());
+    }
+
     void loadsLegacyCatalogWithoutLayout()
     {
         QTemporaryDir directory;
@@ -214,7 +307,24 @@ private Q_SLOTS:
         QCOMPARE(catalog.workspaces.size(), 1);
         QVERIFY(!catalog.workspaces.first().layout.has_value());
         QVERIFY(save(group, catalog, error));
-        QCOMPARE(QJsonDocument::fromJson(group.readEntry("Catalog", QByteArray())).object().value(QStringLiteral("version")).toInt(), 2);
+        QCOMPARE(QJsonDocument::fromJson(group.readEntry("Catalog", QByteArray())).object().value(QStringLiteral("version")).toInt(), 3);
+    }
+
+    void loadsVersionTwoLayouts()
+    {
+        QTemporaryDir directory;
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Workspaces"));
+        group.writeEntry(
+            "Catalog",
+            QByteArray(
+                R"({"version":2,"workspaces":[{"id":"12f42f08-3054-4da6-8a3c-6ba332887f5c","name":"Work","shortLabel":"W","layout":{"windowState":"d2luZG93","paneSizes":[1,2],"workspaceSizes":[3,4],"dual":true,"stacked":false}}],"activeId":""})"));
+        Catalog catalog;
+        QString error;
+        QVERIFY2(load(group, catalog, error), qPrintable(error));
+        QVERIFY(catalog.workspaces.first().layout.has_value());
+        QCOMPARE(catalog.workspaces.first().layout->windowState, QByteArray("window"));
+        QVERIFY(!catalog.workspaces.first().layout->presentation.has_value());
     }
 };
 
