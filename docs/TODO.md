@@ -49,6 +49,7 @@ fragments, aliases, code and escaped markup, inaccessible files, symlinks,
 updates, unsaved edits and vault boundaries; preserve existing draft and
 external-resource protections. Do not mark the issue complete until the
 editing and backlink workflows are implemented and verified.
+
 ## Workspace vault editing (#565)
 
 [#565](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/565)
