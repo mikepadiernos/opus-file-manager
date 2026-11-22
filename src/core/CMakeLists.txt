@@ -100,6 +100,8 @@ add_library(opusfm_core STATIC
     transferqueue.h
     viewsettings.cpp
     viewsettings.h
+    workspacecatalog.cpp
+    workspacecatalog.h
 )
 
 kconfig_add_kcfg_files(opusfm_core GENERATE_MOC settings.kcfgc)
