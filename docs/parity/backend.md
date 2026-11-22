@@ -23,6 +23,14 @@ paths). The renderer has no `fs` access: everything goes through the
 UI strings and error messages in main are mostly Persian. The app version is
 1.0.8. The only runtime dependency is `dbus-next`; fflate is also used.
 
+## Contents
+
+- [Global storage map (userData = `~/.config/max-file-manager/`)](#global-storage-map-userdata--configmax-file-manager)
+- [Modules](#modules)
+- [Preload IPC surface (`window.api`)](#preload-ipc-surface-windowapi)
+- [Bugs and quirks to note (do not replicate unknowingly)](#bugs-and-quirks-to-note-do-not-replicate-unknowingly)
+- [Main files](#main-files)
+
 ## Global storage map (userData = `~/.config/max-file-manager/`)
 
 | File | Content |

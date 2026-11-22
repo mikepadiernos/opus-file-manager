@@ -1,17 +1,22 @@
-# M30.3 Interaction
+# M32.3 Interaction
 
-**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m303-interaction)** ·
+**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m323-interaction)** ·
 **[Testing](06-testing.md)**
 
 **Goal:** make the application's state and consequences understandable,
 accessible and responsive across pane and panel workflows.
+
+## Contents
+
+- [Proposed order](#proposed-order)
+- [Review decisions](#review-decisions)
 
 ## Proposed order
 
 1. Audit keyboard navigation, focus restoration, screen-reader names and
    contrast. Provide configurable bindings to reach or activate each
    [interface region and pane](../philosophy/designs.md), including sliding
-   and floating panes. Reuse M29 and KDE facilities without intercepting text
+   and floating panes. Reuse M31 and KDE facilities without intercepting text
    entry or terminal input. Cover both mouse and keyboard workflows.
    ([#463](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/463))
 2. Clarify pane source and destination using labels rather than color alone.

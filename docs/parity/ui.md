@@ -10,6 +10,17 @@ Source: `max-file-manager/src/renderer/src/` (Electron + React).
 > necessarily the latest upstream version. See the [roadmap](../ROADMAP.md)
 > for Plasma Opus feature status and KDE adaptations.
 
+## Contents
+
+- [1. Window layout](#1-window-layout)
+- [2. Views and listing](#2-views-and-listing)
+- [3. Commands and shortcuts](#3-commands-and-shortcuts)
+- [4. Dialogs](#4-dialogs)
+- [5. Preferences (defaults)](#5-preferences-defaults)
+- [6. i18n](#6-i18n)
+- [7. Specs pinned by renderer tests](#7-specs-pinned-by-renderer-tests)
+- [8. Visual design](#8-visual-design)
+
 ## 1. Window layout
 
 Windows: main; standalone gallery; standalone editor; XDG portal file chooser;
