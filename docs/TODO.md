@@ -18,6 +18,17 @@ duplication does not copy location or tag-group assignments. Verify switching,
 renaming and deletion without losing files or unsaved state. Do not move the
 issue to Review until the complete feature is implemented and tested.
 
+The current snapshot does not record whether the second pane is in a tab or
+separate window, the combined/separate panel mode, or preview and editor
+placement and visibility. `QMainWindow::restoreState()` alone is unsafe:
+dock visibility changes can update actions and trigger layout changes, while
+these placements are managed separately. Capture the missing state and apply
+it through the existing placement transitions, synchronizing actions and
+reporting unavailable components. Preserve the current pane and tab
+locations, editor drafts and active jobs; test rollback on failed restoration.
+Reload and coordinate catalog writes across windows and processes so an
+outdated catalog cannot overwrite another window's changes.
+
 ## mpv integration (#563)
 
 [#563](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/563)
