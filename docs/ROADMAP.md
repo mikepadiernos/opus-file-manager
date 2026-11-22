@@ -879,6 +879,11 @@ layouts.
   components. Preserve the built-in editor and its draft handling, pass file
   paths safely without shell interpolation, and report missing providers,
   launch failures and unsupported locations.
+- Optional mpv integration: support embedded audio and video playback in the
+  preview panel and gallery alongside Qt Multimedia, and an explicit action to
+  open selected media in the separate mpv application. Preserve existing
+  autoplay and remote preview behavior; report unavailable backends, playback
+  errors and unsupported locations. See the [pending handoff](TODO.md#mpv-integration-563).
 - Optional [rsync](https://rsync.samba.org/) backend for M09 folder sync:
   support local folders and SSH locations, reuse sync profiles and exclusions,
   and show an itemized dry run before confirmation. Disable deletion by
@@ -984,6 +989,9 @@ Settings for M23 integrations, stored in KConfig.
   - **Provider:** choose the built-in editor or an available KWrite, Kate,
     Neovim, Rune, micro or nano integration, and the terminal session type for
     terminal editors
+- **Media**
+  - **Backend:** choose Qt Multimedia or the optional embedded mpv backend for
+    preview and gallery playback.
 - **Application packages**
   - **Integration:** enable or disable AppImage, Flatpak and Snap actions
     independently and configure optional AppImage desktop integration
