@@ -3,6 +3,13 @@
 **[Documentation](../README.md)** · **[Inspirations](inspirations.md)** ·
 **[Roadmap](../ROADMAP.md)**
 
+## Contents
+
+- [Objective](#objective)
+- [Audience and workflows](#audience-and-workflows)
+- [Product scope](#product-scope)
+- [Design boundaries](#design-boundaries)
+
 ## Objective
 
 Plasma Opus brings power-user file management to Linux in an application

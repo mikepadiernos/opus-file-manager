@@ -13,6 +13,13 @@ This log records user-visible bugs and reliability issues. Consult the
 
 ---
 
+## Contents
+
+- [Current tracked issues](#current-tracked-issues)
+- [Status legend](#status-legend)
+- [Open reports](#open-reports)
+- [Completed reports](#completed-reports)
+
 ## Current tracked issues
 
 | Issue | Bug | Complete? | Project status |
