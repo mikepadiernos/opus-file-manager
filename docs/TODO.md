@@ -7,14 +7,16 @@
 
 [#200](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/200)
 is in Development on `feature/M15-workspaces`. The core catalog stores stable
-workspace identities, full names, short labels and the active identity, but is
+workspace identities, full names, short labels, active identity and basic
+window and splitter layout snapshots. It can duplicate a saved layout, but is
 not yet connected to the application.
 
 Add a discoverable, keyboard-accessible selector and management actions with
-explicit error reporting and persistence. Implement layout capture and
-duplication without copying location or tag-group assignments, then verify
-switching, renaming and deletion without losing files or unsaved state. Do not
-move the issue to Review until the complete feature is implemented and tested.
+explicit error reporting and persistence. Integrate layout capture and
+restoration, extend snapshots to cover the full workspace layout, and ensure
+duplication does not copy location or tag-group assignments. Verify switching,
+renaming and deletion without losing files or unsaved state. Do not move the
+issue to Review until the complete feature is implemented and tested.
 
 ## mpv integration (#563)
 
