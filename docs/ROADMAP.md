@@ -1026,6 +1026,11 @@ Settings for M25 integrations, stored in KConfig.
   - **Provider:** select the built-in editor or an available KWrite, Kate,
     Neovim, Rune, micro or nano integration, plus the session type for
     terminal editors
+  - **Markdown:** choose a local vault and the Markdown editing and preview
+    behavior, retaining source and draft safeguards.
+- **Media**
+  - **Backend:** choose Qt Multimedia or the optional embedded mpv backend for
+    preview and gallery playback.
 - **Application packages**
   - **Integration:** independently enable AppImage, Flatpak and Snap actions
     and configure optional AppImage desktop integration
@@ -1068,6 +1073,8 @@ Settings for M25 integrations, stored in KConfig.
 - **Password-gated folders**
   - **Access:** manage protected local folders and their passwords, with a
     clear warning that the gate applies only inside Plasma Opus
+
+**Pending:** [Integration settings project tracking](TODO.md#integration-settings-project-tracking).
 
 ### M27 Branding
 
@@ -1391,8 +1398,6 @@ upstream source could not be verified for this review.
 Follow the [project instructions](../CLAUDE.md) for issue tracking, completion,
 branching and merging. Record blocked work in [pending tasks](TODO.md) and
 document feature limitations in [caveats and limitations](CAVEATS.md).
-The [renumbered milestone branches](TODO.md#renumbered-milestone-branches)
-need reconciliation before their unfinished features are merged.
 Native dock and column-header spacing follows the
 [active widget style](CAVEATS.md#native-title-and-header-padding) ([#560](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/560)).
 
