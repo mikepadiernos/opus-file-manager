@@ -620,26 +620,46 @@ preferences; see the [interface design](philosophy/designs.md#workspaces).
 
 Settings for M15 workspaces, stored in KConfig.
 
-- **Management:** manage workspaces and their location and tag-group assignments
+- **Management:** create, switch, rename, duplicate and delete workspaces;
+  manage full names, short labels, locations and tag-group assignments.
+  Preserve exclusive assignments and access to unassigned items; duplicating
+  copies the layout without reassigning them. Confirm deletion and retain
+  underlying files, locations and tags. Store configuration locally without
+  credentials and explain that workspaces are not a security boundary.
+- **Vault:** enable vault editing for a workspace and choose an assigned local
+  location. Configure available source and visual editing, preview, note
+  navigation, wiki-link, backlink, tag and relationship-view options, reusing
+  [#564](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/564).
+  Preserve drafts and notes, leave Obsidian configuration unchanged, and report
+  unavailable roots or features and incomplete indexing. See the
+  [pending handoff](TODO.md#workspace-vault-editing-565).
 - **Startup:** choose a startup workspace or restore the last used one without
   overriding M02 startup folder or session choices
 - **Search:** choose workspace-scoped or all-location search as the default,
-  reusing M10 search settings
-- **Layouts:** choose which layout components to restore and confirm before
-  overwriting saved layouts
+  reusing M10 settings; allow searches outside the workspace and explain the
+  all-groups fallback when no tag groups are assigned
+- **Layouts:** choose which pane arrangements, views, toolbars and available
+  integration panels to restore. Select an available workspace theme using
+  M17 and M18 when available; confirm before overwriting saved layouts.
 - **Pane location bars:** choose full breadcrumbs, abbreviated ancestors or an
   editable full path for each pane; restore these choices with the layout
 - **Indicators:** show the active workspace and unsaved layout state; choose
-  the selector's placement without removing all ways to access it
-- **Snapshots:** choose which pane, tab and Yazi mode state to restore from a
-  workspace snapshot, respecting M02 startup and session choices
-- **Recovery:** choose whether to prompt for retries when locations or
-  providers are unavailable; retain references until explicitly changed
+  the selector's placement without removing all ways to access it, and confirm
+  before returning to the saved layout
+- **Snapshots:** choose which pane, tab and Yazi mode state to restore from an
+  explicit workspace snapshot, respecting M02 startup and session choices.
+  Preserve running jobs and confirm before replacing unsaved state.
+- **Recovery:** choose whether to prompt for retries when locations, themes or
+  providers are unavailable; identify what could not be restored and retain
+  saved references until explicitly changed
 - **Portability:** select profiles for import or export using M12 backup
-  controls, and review conflicts before applying changes
-- **Features:** choose a workspace's default behaviours individually, or
-  select all or none; reuse search, layout and theme settings and expose
-  per-Activity overrides through M26 when available
+  controls and review conflicts before applying changes. Exclude credentials;
+  never execute commands or modify managed files during import.
+- **Features:** choose all, selected or none of a workspace's applicable
+  behaviours, including location and tag-group presentation, search scope,
+  layouts, theme, pane and tab restoration, and Yazi mode. Preserve unselected
+  state and existing defaults; reuse settings and expose per-Activity overrides
+  through M26 when available.
 
 <a id="m25-themes"></a>
 ### M17 Themes
@@ -891,6 +911,15 @@ layouts.
   components. Preserve the built-in editor and its draft handling, pass file
   paths safely without shell interpolation, and report missing providers,
   launch failures and unsupported locations.
+- Extend the built-in editor with CommonMark and Obsidian-like wiki links and
+  backlinks within a user-selected local vault. Preserve source and drafts,
+  respect vault boundaries, and report ambiguous, missing or inaccessible
+  targets and incomplete scans. See the [pending handoff](TODO.md#markdown-editor-and-backlinks-564).
+- Offer optional mpv integration for embedded audio and video playback in the
+  preview panel and gallery alongside Qt Multimedia, and an explicit action to
+  open selected media in the separate mpv application. Preserve autoplay and
+  remote preview behavior; report unavailable backends, playback errors and
+  unsupported locations. See the [pending handoff](TODO.md#mpv-integration-563).
 - Optional [rsync](https://rsync.samba.org/) backend for M09 folder sync:
   support local folders and SSH locations, reuse sync profiles and exclusions,
   and show an itemized dry run before confirmation. Disable deletion by
@@ -1362,6 +1391,8 @@ upstream source could not be verified for this review.
 Follow the [project instructions](../CLAUDE.md) for issue tracking, completion,
 branching and merging. Record blocked work in [pending tasks](TODO.md) and
 document feature limitations in [caveats and limitations](CAVEATS.md).
+The [renumbered milestone branches](TODO.md#renumbered-milestone-branches)
+need reconciliation before their unfinished features are merged.
 Native dock and column-header spacing follows the
 [active widget style](CAVEATS.md#native-title-and-header-padding) ([#560](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/560)).
 

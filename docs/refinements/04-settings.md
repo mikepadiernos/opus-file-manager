@@ -196,6 +196,9 @@ Settings
 │   │   ├── Workspaces (tab) [future: M16]
 │   │   │   ├── Locations
 │   │   │   └── Tag-group assignments
+│   │   ├── Vault (tab) [future: M16]
+│   │   │   ├── Assigned local vault root
+│   │   │   └── Editor, preview and note navigation
 │   │   ├── Startup (tab) [future: M16]
 │   │   │   └── Startup workspace or last-used workspace
 │   │   ├── Recovery (tab) [future: M16]
@@ -207,6 +210,7 @@ Settings
 │   ├── Layouts (subpage) [future: M16]
 │   │   ├── Layouts (tab)
 │   │   │   ├── Restored components
+│   │   │   ├── Workspace theme
 │   │   │   ├── Pane location bars
 │   │   │   └── Overwrite confirmation
 │   │   ├── Indicators (tab)
