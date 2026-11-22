@@ -2791,6 +2791,20 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     m_fileItemActions->setItemListProperties(props);
     if (visible("open_with")) {
         m_fileItemActions->insertOpenWithActionsTo(nullptr, &menu, QStringList());
+        const bool mediaSelection = std::all_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
+            const QString mime = item.mimetype();
+            return !item.isDir() && (mime.startsWith(QLatin1String("audio/")) || mime.startsWith(QLatin1String("video/")));
+        });
+        if (mediaSelection) {
+            auto *mpv = menu.addAction(i18nc("@action:inmenu", "Open with mpv"));
+            mpv->setObjectName(QStringLiteral("openWithMpv"));
+            connect(mpv, &QAction::triggered, this, [this, urls = urlsOf(items)] {
+                const QString error = FileOperations::openWithMpv(urls);
+                if (!error.isEmpty()) {
+                    KMessageBox::error(this, error, i18nc("@title:window", "Could Not Open with mpv"));
+                }
+            });
+        }
     }
 
     menu.addSeparator();

@@ -1310,6 +1310,41 @@ private Q_SLOTS:
         QTRY_VERIFY(window.activePane()->view()->currentView()->hasFocus());
     }
 
+    void mediaContextMenuOffersMpv()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        window.show();
+        FolderView *view = window.activePane()->view();
+        const auto hasMpv = [view](const KFileItemList &items) {
+            bool found = false;
+            auto *poll = new QTimer;
+            QObject::connect(poll, &QTimer::timeout, poll, [poll, &found] {
+                if (auto *menu = qobject_cast<QMenu *>(QApplication::activePopupWidget())) {
+                    found = menu->findChild<QAction *>(QStringLiteral("openWithMpv")) != nullptr;
+                    poll->deleteLater();
+                    menu->close();
+                }
+            });
+            poll->start(20);
+            Q_EMIT view->contextMenuRequested(view->mapToGlobal(QPoint(10, 10)), items);
+            return found;
+        };
+        const QString path = m_root.filePath(QStringLiteral("media.mp4"));
+        QFile media(path);
+        QVERIFY(media.open(QIODevice::WriteOnly));
+        media.close();
+        QVERIFY(hasMpv({KFileItem(QUrl::fromLocalFile(path))}));
+        QVERIFY(!hasMpv({KFileItem(m_a)}));
+        QVERIFY(!hasMpv({KFileItem(QUrl::fromLocalFile(path)), KFileItem(m_a)}));
+        const QStringList previous = Settings::hiddenContextActions();
+        const auto restore = qScopeGuard([&] {
+            Settings::setHiddenContextActions(previous);
+        });
+        Settings::setHiddenContextActions(previous + QStringList{QStringLiteral("open_with")});
+        QVERIFY(!hasMpv({KFileItem(QUrl::fromLocalFile(path))}));
+    }
+
     void contextMenuFollowsSettings()
     {
         MainWindow window;

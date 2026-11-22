@@ -117,6 +117,36 @@ private Q_SLOTS:
         m_c = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("c")));
     }
 
+    void opensMediaWithMpvWithoutShellInterpolation()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QFile executable(directory.filePath(QStringLiteral("mpv")));
+        QVERIFY(executable.open(QIODevice::WriteOnly));
+        QVERIFY(executable.write("#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$MPV_TEST_OUTPUT\"\n") > 0);
+        executable.close();
+        QVERIFY(executable.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+        const QByteArray oldPath = qgetenv("PATH");
+        const QByteArray oldOutput = qgetenv("MPV_TEST_OUTPUT");
+        const auto restore = qScopeGuard([&] {
+            qputenv("PATH", oldPath);
+            qputenv("MPV_TEST_OUTPUT", oldOutput);
+        });
+        const QString outputPath = directory.filePath(QStringLiteral("arguments"));
+        qputenv("PATH", directory.path().toLocal8Bit());
+        qputenv("MPV_TEST_OUTPUT", outputPath.toLocal8Bit());
+        const QString file = directory.filePath(QStringLiteral("video '$(touch unwanted)'.mp4"));
+        QCOMPARE(FileOperations::openWithMpv({QUrl::fromLocalFile(file)}), QString());
+        QTRY_VERIFY(QFile::exists(outputPath));
+        QFile output(outputPath);
+        QVERIFY(output.open(QIODevice::ReadOnly));
+        QCOMPARE(output.readAll(), QByteArray("--\n") + QFile::encodeName(file) + '\n');
+        QVERIFY(!QFile::exists(directory.filePath(QStringLiteral("unwanted"))));
+        QVERIFY(!FileOperations::openWithMpv({QUrl(QStringLiteral("sftp://example.invalid/video.mp4"))}).isEmpty());
+        qputenv("PATH", QByteArray());
+        QVERIFY(!FileOperations::openWithMpv({QUrl::fromLocalFile(file)}).isEmpty());
+    }
+
     void opensFilteredFolderComparison()
     {
         QTemporaryDir root;
