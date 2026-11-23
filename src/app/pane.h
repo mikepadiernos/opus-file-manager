@@ -21,9 +21,11 @@ class QGraphicsOpacityEffect;
 class QBoxLayout;
 class QHBoxLayout;
 class QToolBar;
+class QToolButton;
 class QAction;
 class QVBoxLayout;
 class QResizeEvent;
+class QStackedWidget;
 
 /**
  * One side of the dual-pane layout: a tab strip, a path row with
@@ -40,6 +42,11 @@ public:
         Bottom,
         Left,
         Right
+    };
+    enum class LocationPresentation {
+        FullBreadcrumbs,
+        AbbreviatedBreadcrumbs,
+        EditablePath
     };
     /**
      * @param places the window's places model, for the location bar
@@ -60,6 +67,10 @@ public:
     void insertToolbarAction(QAction *action, const QPoint &position = QPoint());
     void removeToolbarAction(QAction *action);
     void resetToolbarConfiguration();
+    QStringList toolbarActions() const;
+    QStringList visibleToolbarActions() const;
+    QStringList hiddenToolbarActions() const;
+    void setToolbarConfiguration(const QStringList &actions, const QStringList &visible, const QStringList &hidden);
     QUrl url() const;
 
     bool isActive() const;
@@ -89,6 +100,11 @@ public:
      * @param state the saved tabs; the pane must not have tabs yet
      */
     void restoreState(const PaneSession &state);
+    /**
+     * Replaces the pane's tabs and filter with a saved snapshot.
+     * @param state the snapshot to restore
+     */
+    void replaceState(const PaneSession &state);
 
     /**
      * Shows or hides the row with the history buttons and the location bar.
@@ -96,6 +112,9 @@ public:
      */
     void setNavigationBarVisible(bool visible);
     bool isNavigationBarVisible() const;
+    /// Sets whether this pane shows full breadcrumbs, abbreviated breadcrumbs or an editable path.
+    void setLocationPresentation(LocationPresentation presentation);
+    LocationPresentation locationPresentation() const;
     QWidget *navigationBar() const;
     void setStatusBarWidget(QWidget *widget);
     QWidget *statusBarWidget() const;
@@ -132,6 +151,7 @@ Q_SIGNALS:
     void activated();
     void urlChanged(const QUrl &url);
     void tabCountChanged(int count);
+    void workspaceLayoutChanged();
     void statusMessage(const QString &message);
     void searchRequested();
 
@@ -144,6 +164,7 @@ private:
     void restoreHistoryViewState();
     void finishReveal();
     void syncTabBar();
+    void updateBreadcrumbs(const QUrl &url);
     void updateTabStripVisibility();
     void updateNavigationLayout();
     void configureToolbar();
@@ -169,6 +190,10 @@ private:
     QBoxLayout *m_navigationLayout = nullptr;
     QWidget *m_statusBarWidget = nullptr;
     KUrlNavigator *m_navigator = nullptr;
+    QStackedWidget *m_locationStack = nullptr;
+    QWidget *m_breadcrumbBar = nullptr;
+    QHBoxLayout *m_breadcrumbLayout = nullptr;
+    QToolButton *m_locationModeButton = nullptr;
     TabColors *m_colors = nullptr;
     FolderView *m_view = nullptr;
     FilterBar *m_filterBar = nullptr;
@@ -182,6 +207,7 @@ private:
     bool m_showTabIcons = true;
     bool m_newTabsAfterCurrent = false;
     bool m_followSymlinks = false;
+    LocationPresentation m_locationPresentation = LocationPresentation::FullBreadcrumbs;
     int m_defaultFilterScope = 0;
     bool m_updatingTabBar = false;
     int m_lastTabCount = -1;

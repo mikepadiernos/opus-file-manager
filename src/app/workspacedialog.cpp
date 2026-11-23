@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "workspacedialog.h"
+#include "foldersyncprofiles.h"
+#include "savedsearches.h"
 #include "workspacelocations.h"
 
 #include <KConfig>
 #include <KLocalizedString>
 
+#include <QCheckBox>
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -15,6 +20,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSet>
+#include <QSignalBlocker>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -38,8 +44,9 @@ WorkspaceDialog::WorkspaceDialog(KConfigGroup group,
     auto *layout = new QVBoxLayout(this);
     auto *description = new QLabel(
         i18nc("@info",
-              "Choose a workspace, or manage its name and short label. Layouts include pane arrangements, splitter sizes and dock and toolbar positions. "
-              "View modes, toolbar contents and terminal placement are not yet saved. After startup, the session layout remains in place until you switch."),
+              "Choose a workspace, or manage its name, short label and behavior selection. Saved layouts include pane and tab sessions, location and "
+              "view modes, panel placement, terminal orientation and detached-pane geometry. After startup, the session layout remains in place until you "
+              "switch."),
         this);
     description->setWordWrap(true);
     layout->addWidget(description);
@@ -76,7 +83,55 @@ WorkspaceDialog::WorkspaceDialog(KConfigGroup group,
     save->setObjectName(QStringLiteral("workspaceSaveLayout"));
     connect(save, &QPushButton::clicked, this, &WorkspaceDialog::saveLayout);
     layoutButtons->addWidget(save);
+    auto *saveLinks = new QPushButton(i18nc("@action:button", "Save Profile Links"), this);
+    saveLinks->setObjectName(QStringLiteral("workspaceSaveProfileLinks"));
+    connect(saveLinks, &QPushButton::clicked, this, &WorkspaceDialog::saveProfileLinks);
+    layoutButtons->addWidget(saveLinks);
     layout->addLayout(layoutButtons);
+    auto *behaviorGroup = new QGroupBox(i18nc("@title:group", "Workspace Behaviors"), this);
+    auto *behaviorLayout = new QVBoxLayout(behaviorGroup);
+    auto *behaviorDescription =
+        new QLabel(i18nc("@info", "Choose whether workspace switching applies all behaviors, only checked behaviors, or none. Unselected state is preserved."),
+                   behaviorGroup);
+    behaviorDescription->setWordWrap(true);
+    behaviorLayout->addWidget(behaviorDescription);
+    m_behaviorMode = new QComboBox(behaviorGroup);
+    m_behaviorMode->setObjectName(QStringLiteral("workspaceBehaviorMode"));
+    m_behaviorMode->addItem(i18nc("@item:inlistbox workspace behaviors", "All"), int(WorkspaceCatalog::BehaviorMode::All));
+    m_behaviorMode->addItem(i18nc("@item:inlistbox workspace behaviors", "Selected"), int(WorkspaceCatalog::BehaviorMode::Selected));
+    m_behaviorMode->addItem(i18nc("@item:inlistbox workspace behaviors", "None"), int(WorkspaceCatalog::BehaviorMode::None));
+    behaviorLayout->addWidget(m_behaviorMode);
+    const auto addBehavior = [behaviorGroup, behaviorLayout](const QString &name, const QString &text) {
+        auto *check = new QCheckBox(text, behaviorGroup);
+        check->setObjectName(name);
+        behaviorLayout->addWidget(check);
+        return check;
+    };
+    m_locationPresentation = addBehavior(QStringLiteral("workspaceLocationPresentation"), i18nc("@option:check", "Location presentation"));
+    m_searchScope = addBehavior(QStringLiteral("workspaceSearchScope"), i18nc("@option:check", "Search scope"));
+    m_layoutBehavior = addBehavior(QStringLiteral("workspaceLayoutBehavior"), i18nc("@option:check", "Window and panel layout"));
+    m_paneTabRestoration = addBehavior(QStringLiteral("workspacePaneTabRestoration"), i18nc("@option:check", "Pane and tab restoration"));
+    auto *saveBehaviors = new QPushButton(i18nc("@action:button", "Save Workspace Behaviors"), behaviorGroup);
+    saveBehaviors->setObjectName(QStringLiteral("workspaceSaveBehaviors"));
+    connect(saveBehaviors, &QPushButton::clicked, this, &WorkspaceDialog::saveBehaviorSelection);
+    behaviorLayout->addWidget(saveBehaviors);
+    layout->addWidget(behaviorGroup);
+    auto *profileLists = new QHBoxLayout;
+    auto *searchGroup = new QGroupBox(i18nc("@title:group", "Saved Searches"), this);
+    auto *searchLayout = new QVBoxLayout(searchGroup);
+    m_searchProfiles = new QListWidget(searchGroup);
+    m_searchProfiles->setObjectName(QStringLiteral("workspaceSavedSearches"));
+    m_searchProfiles->setAccessibleName(i18nc("@label", "Saved searches linked to this workspace"));
+    searchLayout->addWidget(m_searchProfiles);
+    auto *syncGroup = new QGroupBox(i18nc("@title:group", "Folder Comparison and Sync"), this);
+    auto *syncLayout = new QVBoxLayout(syncGroup);
+    m_folderSyncProfiles = new QListWidget(syncGroup);
+    m_folderSyncProfiles->setObjectName(QStringLiteral("workspaceFolderSyncProfiles"));
+    m_folderSyncProfiles->setAccessibleName(i18nc("@label", "Folder comparison and sync profiles linked to this workspace"));
+    syncLayout->addWidget(m_folderSyncProfiles);
+    profileLists->addWidget(searchGroup);
+    profileLists->addWidget(syncGroup);
+    layout->addLayout(profileLists);
     if (m_locations) {
         auto *locationLabel = new QLabel(i18nc("@label:listbox", "Saved locations and their workspaces:"), this);
         m_locationList = new QListWidget(this);
@@ -109,6 +164,8 @@ WorkspaceDialog::WorkspaceDialog(KConfigGroup group,
             const auto &workspace = m_catalog.workspaces.at(row);
             m_name->setText(workspace.name);
             m_label->setText(workspace.shortLabel);
+            refreshProfileLinks();
+            refreshBehaviorSelection();
         }
     });
     reload();
@@ -159,6 +216,21 @@ void WorkspaceDialog::refreshLocations()
 void WorkspaceDialog::refreshCatalog()
 {
     reload(selectedId());
+}
+
+void WorkspaceDialog::selectWorkspace(const QString &id)
+{
+    for (int row = 0; row < m_list->count(); ++row) {
+        if (m_list->item(row)->data(Qt::UserRole).toString() == id) {
+            m_list->setCurrentRow(row);
+            return;
+        }
+    }
+}
+
+void WorkspaceDialog::activateSelectedWorkspace()
+{
+    activateWorkspace();
 }
 
 void WorkspaceDialog::assignSelectedLocation()
@@ -221,6 +293,7 @@ void WorkspaceDialog::reload(const QString &selected)
         m_status->setText(error);
         return;
     }
+    m_status->clear();
     if (!m_currentId.isEmpty() && std::none_of(m_catalog.workspaces.cbegin(), m_catalog.workspaces.cend(), [this](const auto &workspace) {
             return workspace.id == m_currentId;
         })) {
@@ -239,7 +312,8 @@ void WorkspaceDialog::reload(const QString &selected)
         }
     }
     refreshLocations();
-    m_status->clear();
+    refreshProfileLinks();
+    refreshBehaviorSelection();
 }
 
 QString WorkspaceDialog::selectedId() const
@@ -257,6 +331,48 @@ bool WorkspaceDialog::commit(const WorkspaceCatalog::Catalog &updated)
     }
     Q_EMIT catalogChanged();
     return true;
+}
+
+void WorkspaceDialog::refreshBehaviorSelection()
+{
+    const QString id = selectedId();
+    const auto workspace = std::find_if(m_catalog.workspaces.cbegin(), m_catalog.workspaces.cend(), [&id](const auto &entry) {
+        return entry.id == id;
+    });
+    const WorkspaceCatalog::BehaviorSelection selection =
+        workspace == m_catalog.workspaces.cend() ? WorkspaceCatalog::BehaviorSelection{} : workspace->behaviorSelection;
+    const QSignalBlocker modeBlocker(m_behaviorMode);
+    const QSignalBlocker locationBlocker(m_locationPresentation);
+    const QSignalBlocker searchBlocker(m_searchScope);
+    const QSignalBlocker layoutBlocker(m_layoutBehavior);
+    const QSignalBlocker panesBlocker(m_paneTabRestoration);
+    m_behaviorMode->setCurrentIndex(m_behaviorMode->findData(int(selection.mode)));
+    m_locationPresentation->setChecked(selection.locationPresentation);
+    m_searchScope->setChecked(selection.searchScope);
+    m_layoutBehavior->setChecked(selection.layout);
+    m_paneTabRestoration->setChecked(selection.paneTabRestoration);
+}
+
+void WorkspaceDialog::saveBehaviorSelection()
+{
+    const QString id = selectedId();
+    auto updated = m_catalog;
+    auto workspace = std::find_if(updated.workspaces.begin(), updated.workspaces.end(), [&id](const auto &entry) {
+        return entry.id == id;
+    });
+    if (workspace == updated.workspaces.end()) {
+        m_status->setText(i18nc("@info", "Select a workspace first."));
+        return;
+    }
+    workspace->behaviorSelection = {static_cast<WorkspaceCatalog::BehaviorMode>(m_behaviorMode->currentData().toInt()),
+                                    m_locationPresentation->isChecked(),
+                                    m_searchScope->isChecked(),
+                                    m_layoutBehavior->isChecked(),
+                                    m_paneTabRestoration->isChecked()};
+    if (commit(updated)) {
+        reload(id);
+        m_status->setText(i18nc("@info", "Workspace behaviors saved."));
+    }
 }
 
 void WorkspaceDialog::createWorkspace()
@@ -333,45 +449,104 @@ void WorkspaceDialog::activateWorkspace()
     const auto it = std::find_if(m_catalog.workspaces.cbegin(), m_catalog.workspaces.cend(), [&id](const auto &workspace) {
         return workspace.id == id;
     });
-    if (it == m_catalog.workspaces.cend() || !it->layout) {
+    if (it == m_catalog.workspaces.cend()) {
         m_status->setText(i18nc("@info", "Select a workspace with a saved layout."));
         return;
     }
-    if (QMessageBox::question(this,
-                              i18nc("@title:window", "Switch Workspace"),
-                              i18nc("@info", "Switch to this workspace? Unsaved layout changes will be replaced."),
-                              QMessageBox::Yes | QMessageBox::No,
-                              QMessageBox::No)
-        != QMessageBox::Yes) {
+    const WorkspaceCatalog::BehaviorSelection selection = it->behaviorSelection;
+    const bool restoreLayout = selection.applies(selection.layout);
+    const bool restorePanes = selection.applies(selection.paneTabRestoration);
+    const bool restoreLocationPresentation = selection.applies(selection.locationPresentation);
+    const bool restoreAnything = restoreLayout || restorePanes || restoreLocationPresentation;
+    if (restoreAnything && !it->layout) {
+        m_status->setText(i18nc("@info", "The selected workspace has no saved layout for its enabled behaviors."));
+        return;
+    }
+    if ((restoreLayout || restorePanes || restoreLocationPresentation)
+        && QMessageBox::question(
+               this,
+               i18nc("@title:window", "Switch Workspace"),
+               i18nc("@info", "Switch to this workspace? Selected layout, pane, tab or location-presentation state will replace the current state."),
+               QMessageBox::Yes | QMessageBox::No,
+               QMessageBox::No)
+            != QMessageBox::Yes) {
         return;
     }
     const auto current = std::find_if(m_catalog.workspaces.cbegin(), m_catalog.workspaces.cend(), [&id](const auto &workspace) {
         return workspace.id == id;
     });
-    if (current == m_catalog.workspaces.cend() || !current->layout) {
-        m_status->setText(i18nc("@info", "The selected workspace no longer has a saved layout."));
+    if (current == m_catalog.workspaces.cend() || (restoreAnything && !current->layout)) {
+        m_status->setText(i18nc("@info", "The selected workspace or its saved layout is no longer available."));
         return;
     }
-    const WorkspaceCatalog::Layout layout = *current->layout;
     WorkspaceCatalog::Layout previous;
     QString error;
-    if (!m_capture(previous, error) || !m_apply(layout, error)) {
-        m_status->setText(error);
-        return;
+    bool layoutApplied = false;
+    QString warning;
+    if (restoreAnything) {
+        if (!m_capture(previous, error)) {
+            m_status->setText(error);
+            return;
+        }
+        WorkspaceCatalog::Layout layout = *current->layout;
+        if (!restoreLayout) {
+            layout.windowState = previous.windowState;
+            layout.paneSizes = previous.paneSizes;
+            layout.workspaceSizes = previous.workspaceSizes;
+            layout.dual = previous.dual;
+            layout.stacked = previous.stacked;
+            layout.presentation = previous.presentation;
+        }
+        if (selection.mode == WorkspaceCatalog::BehaviorMode::Selected) {
+            if (!restorePanes) {
+                if (!previous.session) {
+                    m_status->setText(i18nc("@info", "The current window has no pane snapshot to preserve."));
+                    return;
+                }
+                layout.session = previous.session;
+                if (restoreLocationPresentation) {
+                    if (!current->layout->session) {
+                        m_status->setText(i18nc("@info", "The selected workspace has no pane snapshot for its location presentation."));
+                        return;
+                    }
+                    layout.session->left.locationPresentation = current->layout->session->left.locationPresentation;
+                    layout.session->right.locationPresentation = current->layout->session->right.locationPresentation;
+                }
+            } else if (!restoreLocationPresentation) {
+                if (!layout.session || !previous.session) {
+                    m_status->setText(i18nc("@info", "A pane snapshot is unavailable for the selected behaviors."));
+                    return;
+                }
+                layout.session->left.locationPresentation = previous.session->left.locationPresentation;
+                layout.session->right.locationPresentation = previous.session->right.locationPresentation;
+            } else if (!layout.session) {
+                m_status->setText(i18nc("@info", "The selected workspace has no pane snapshot for restoration."));
+                return;
+            }
+        }
+        if (!m_apply(layout, error)) {
+            m_status->setText(error);
+            return;
+        }
+        layoutApplied = true;
+        warning = error;
     }
     auto updated = m_catalog;
     if (!WorkspaceCatalog::activate(updated, id, error) || !commit(updated)) {
-        QString rollbackError;
-        if (!m_apply(previous, rollbackError)) {
-            m_status->setText(i18nc("@info", "The workspace could not be saved and the previous layout could not be restored: %1", rollbackError));
-        } else if (!error.isEmpty()) {
-            m_status->setText(error);
+        if (layoutApplied) {
+            QString rollbackError;
+            if (!m_apply(previous, rollbackError) || !rollbackError.isEmpty()) {
+                m_status->setText(i18nc("@info", "The workspace could not be saved and the previous layout could not be restored: %1", rollbackError));
+            } else if (!error.isEmpty()) {
+                m_status->setText(error);
+            }
         }
         return;
     }
     m_currentId = id;
     Q_EMIT currentWorkspaceChanged(id);
     reload(id);
+    m_status->setText(warning);
 }
 
 void WorkspaceDialog::saveLayout()
@@ -396,5 +571,98 @@ void WorkspaceDialog::saveLayout()
         m_status->setText(error);
     } else if (commit(updated)) {
         reload(id);
+    }
+}
+
+void WorkspaceDialog::refreshProfileLinks()
+{
+    m_searchProfiles->clear();
+    m_folderSyncProfiles->clear();
+    auto *saveButton = findChild<QPushButton *>(QStringLiteral("workspaceSaveProfileLinks"));
+    saveButton->setEnabled(false);
+    const auto workspace = std::find_if(m_catalog.workspaces.cbegin(), m_catalog.workspaces.cend(), [this](const auto &entry) {
+        return entry.id == selectedId();
+    });
+    if (workspace == m_catalog.workspaces.cend()) {
+        return;
+    }
+
+    QString error;
+    const auto searches = SavedSearches::load(m_group.config()->group(QStringLiteral("SavedSearches")), &error);
+    if (!error.isEmpty()) {
+        m_status->setText(error);
+        return;
+    }
+    QSet<QString> searchIds;
+    for (const auto &search : searches) {
+        auto *item = new QListWidgetItem(search.name, m_searchProfiles);
+        item->setData(Qt::UserRole, search.id);
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        item->setCheckState(workspace->savedSearchIds.contains(search.id) ? Qt::Checked : Qt::Unchecked);
+        searchIds.insert(search.id);
+    }
+    for (const QString &id : workspace->savedSearchIds) {
+        if (searchIds.contains(id)) {
+            continue;
+        }
+        auto *item = new QListWidgetItem(i18nc("@item:inlistbox missing saved search", "Missing saved search — %1", id), m_searchProfiles);
+        item->setData(Qt::UserRole, id);
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        item->setCheckState(Qt::Checked);
+    }
+
+    const auto profiles = FolderSyncProfiles::load(m_group.config()->group(QStringLiteral("FolderSyncProfiles")), &error);
+    if (!error.isEmpty()) {
+        m_status->setText(error);
+        return;
+    }
+    QSet<QString> profileIds;
+    for (const auto &profile : profiles) {
+        auto *item = new QListWidgetItem(profile.name, m_folderSyncProfiles);
+        item->setData(Qt::UserRole, profile.id);
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        item->setCheckState(workspace->folderSyncProfileIds.contains(profile.id) ? Qt::Checked : Qt::Unchecked);
+        profileIds.insert(profile.id);
+    }
+    for (const QString &id : workspace->folderSyncProfileIds) {
+        if (profileIds.contains(id)) {
+            continue;
+        }
+        auto *item = new QListWidgetItem(i18nc("@item:inlistbox missing folder sync profile", "Missing profile — %1", id), m_folderSyncProfiles);
+        item->setData(Qt::UserRole, id);
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        item->setCheckState(Qt::Checked);
+    }
+    saveButton->setEnabled(true);
+}
+
+void WorkspaceDialog::saveProfileLinks()
+{
+    const QString id = selectedId();
+    auto updated = m_catalog;
+    auto workspace = std::find_if(updated.workspaces.begin(), updated.workspaces.end(), [&id](const auto &entry) {
+        return entry.id == id;
+    });
+    if (workspace == updated.workspaces.end()) {
+        m_status->setText(i18nc("@info", "Select a workspace first."));
+        return;
+    }
+    workspace->savedSearchIds.clear();
+    workspace->folderSyncProfileIds.clear();
+    for (int row = 0; row < m_searchProfiles->count(); ++row) {
+        const QListWidgetItem *item = m_searchProfiles->item(row);
+        if (item->checkState() == Qt::Checked) {
+            workspace->savedSearchIds.append(item->data(Qt::UserRole).toString());
+        }
+    }
+    for (int row = 0; row < m_folderSyncProfiles->count(); ++row) {
+        const QListWidgetItem *item = m_folderSyncProfiles->item(row);
+        if (item->checkState() == Qt::Checked) {
+            workspace->folderSyncProfileIds.append(item->data(Qt::UserRole).toString());
+        }
+    }
+    if (commit(updated)) {
+        reload(id);
+        m_status->setText(i18nc("@info", "Workspace profile links saved. Switching workspaces will not run tasks."));
     }
 }

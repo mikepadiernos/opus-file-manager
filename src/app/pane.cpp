@@ -35,6 +35,7 @@
 #include <QMouseEvent>
 #include <QResizeEvent>
 #include <QScrollBar>
+#include <QStackedWidget>
 #include <QStyle>
 #include <QTabBar>
 #include <QTimer>
@@ -219,6 +220,39 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
 
     m_navigator->setPlacesSelectorVisible(false);
     m_navigator->setObjectName(QStringLiteral("paneLocationBar"));
+    m_locationStack = new QStackedWidget(this);
+    m_locationStack->setObjectName(QStringLiteral("paneLocationPresentation"));
+    m_locationStack->addWidget(m_navigator);
+    m_breadcrumbBar = new QWidget(this);
+    m_breadcrumbBar->setObjectName(QStringLiteral("paneAbbreviatedBreadcrumbs"));
+    m_breadcrumbLayout = new QHBoxLayout(m_breadcrumbBar);
+    m_breadcrumbLayout->setContentsMargins(2, 0, 2, 0);
+    m_breadcrumbLayout->setSpacing(0);
+    m_locationStack->addWidget(m_breadcrumbBar);
+    auto *locationMenu = new QMenu(this);
+    auto *locationModes = new QActionGroup(this);
+    locationModes->setExclusive(true);
+    const QList<QPair<LocationPresentation, QString>> modes{
+        {LocationPresentation::FullBreadcrumbs, i18nc("@action:inmenu", "Full Breadcrumbs")},
+        {LocationPresentation::AbbreviatedBreadcrumbs, i18nc("@action:inmenu", "Abbreviated Breadcrumbs")},
+        {LocationPresentation::EditablePath, i18nc("@action:inmenu", "Editable Full Path")},
+    };
+    for (const auto &[mode, label] : modes) {
+        QAction *action = locationMenu->addAction(label);
+        action->setCheckable(true);
+        action->setData(int(mode));
+        locationModes->addAction(action);
+    }
+    connect(locationModes, &QActionGroup::triggered, this, [this](QAction *action) {
+        setLocationPresentation(static_cast<LocationPresentation>(action->data().toInt()));
+    });
+    m_locationModeButton = new QToolButton(this);
+    m_locationModeButton->setObjectName(QStringLiteral("paneLocationPresentationButton"));
+    m_locationModeButton->setText(i18nc("@action", "Path"));
+    m_locationModeButton->setAccessibleName(i18nc("@action", "Choose location path presentation"));
+    m_locationModeButton->setToolTip(m_locationModeButton->accessibleName());
+    m_locationModeButton->setPopupMode(QToolButton::InstantPopup);
+    m_locationModeButton->setMenu(locationMenu);
     m_navigationBar = new QWidget(this);
     m_navigationBar->setObjectName(QStringLiteral("paneNavigationBar"));
     m_navigationBar->installEventFilter(this);
@@ -226,7 +260,8 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     m_navigationLayout->setContentsMargins(0, 0, 0, 0);
     m_navigationLayout->setSpacing(0);
     m_navigationLayout->addWidget(m_toolBar);
-    m_navigationLayout->addWidget(m_navigator, 1);
+    m_navigationLayout->addWidget(m_locationStack, 1);
+    m_navigationLayout->addWidget(m_locationModeButton);
 
     m_outerLayout = new QHBoxLayout(this);
     m_outerLayout->setContentsMargins(0, 0, 0, 0);
@@ -251,6 +286,11 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     connect(m_tabs, &TabModel::tabRemoved, this, &Pane::syncTabBar);
     connect(m_tabs, &TabModel::tabMoved, this, &Pane::syncTabBar);
     connect(m_tabs, &TabModel::currentIndexChanged, this, &Pane::syncTabBar);
+    connect(m_tabs, &TabModel::tabInserted, this, &Pane::workspaceLayoutChanged);
+    connect(m_tabs, &TabModel::tabRemoved, this, &Pane::workspaceLayoutChanged);
+    connect(m_tabs, &TabModel::tabMoved, this, &Pane::workspaceLayoutChanged);
+    connect(m_tabs, &TabModel::currentIndexChanged, this, &Pane::workspaceLayoutChanged);
+    connect(m_tabs, &TabModel::tabStateChanged, this, &Pane::workspaceLayoutChanged);
     connect(m_tabs, &TabModel::currentIndexChanged, this, [this](int index) {
         if (m_revealTab >= 0 && index != m_revealTab) {
             m_revealFolder.clear();
@@ -296,6 +336,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
             m_pendingViewState.valid = false;
         }
         m_navigator->setLocationUrl(url);
+        updateBreadcrumbs(url);
         if (m_view->url() == url && !m_pendingViewState.valid) {
             m_view->clearSelection();
             m_view->currentView()->verticalScrollBar()->setValue(0);
@@ -304,6 +345,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
         m_view->setUrl(url);
         restoreHistoryViewState();
         updateNavigationButtons();
+        Q_EMIT workspaceLayoutChanged();
         Q_EMIT urlChanged(url);
     });
 
@@ -362,6 +404,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
         for (QAction *action : viewGroup->actions()) {
             action->setChecked(action->data().toInt() == static_cast<int>(m_view->viewMode()));
         }
+        Q_EMIT workspaceLayoutChanged();
     });
     connect(m_view, &FolderView::sortingChanged, this, [ascending, sortGroup, this] {
         for (QAction *action : sortGroup->actions()) {
@@ -390,6 +433,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
 
     syncTabBar();
     updateNavigationButtons();
+    setLocationPresentation(LocationPresentation::FullBreadcrumbs);
 }
 
 Pane::~Pane() = default;
@@ -635,6 +679,77 @@ void Pane::setNavigationBarVisible(bool visible)
 bool Pane::isNavigationBarVisible() const
 {
     return !m_navigationBar->isHidden();
+}
+
+void Pane::setLocationPresentation(LocationPresentation presentation)
+{
+    m_locationPresentation = presentation;
+    for (QAction *action : m_locationModeButton->menu()->actions()) {
+        action->setChecked(action->data().toInt() == int(presentation));
+    }
+    if (presentation == LocationPresentation::AbbreviatedBreadcrumbs) {
+        m_navigator->setUrlEditable(false);
+        m_locationStack->setCurrentWidget(m_breadcrumbBar);
+        updateBreadcrumbs(m_tabs->currentUrl());
+    } else {
+        m_locationStack->setCurrentWidget(m_navigator);
+        m_navigator->setShowFullPath(true);
+        m_navigator->setUrlEditable(presentation == LocationPresentation::EditablePath);
+    }
+    Q_EMIT workspaceLayoutChanged();
+}
+
+Pane::LocationPresentation Pane::locationPresentation() const
+{
+    return m_locationPresentation;
+}
+
+void Pane::updateBreadcrumbs(const QUrl &url)
+{
+    while (QLayoutItem *item = m_breadcrumbLayout->takeAt(0)) {
+        delete item->widget();
+        delete item;
+    }
+    const auto addButton = [this](const QString &text, const QString &fullName, const QUrl &target, bool current) {
+        auto *button = new QToolButton(m_breadcrumbBar);
+        button->setObjectName(QStringLiteral("paneBreadcrumbSegment"));
+        button->setText(text);
+        button->setToolTip(fullName);
+        button->setAccessibleName(fullName);
+        button->setAutoRaise(true);
+        button->setFocusPolicy(Qt::StrongFocus);
+        button->setEnabled(!current);
+        connect(button, &QToolButton::clicked, this, [this, target] {
+            setUrl(target);
+        });
+        m_breadcrumbLayout->addWidget(button);
+    };
+
+    QUrl root = url.adjusted(QUrl::RemoveQuery | QUrl::RemoveFragment);
+    root.setPath(QStringLiteral("/"));
+    const QStringList segments = url.path(QUrl::FullyDecoded).split(QLatin1Char('/'), Qt::SkipEmptyParts);
+    const QString rootName = url.isLocalFile() ? QStringLiteral("/") : (url.host().isEmpty() ? url.scheme() : url.host());
+    addButton(rootName, rootName, root, segments.isEmpty());
+    QString path;
+    for (int i = 0; i < segments.size(); ++i) {
+        auto *separator = new QLabel(QStringLiteral("/"), m_breadcrumbBar);
+        separator->setAlignment(Qt::AlignCenter);
+        m_breadcrumbLayout->addWidget(separator);
+        path += QLatin1Char('/') + segments.at(i);
+        QUrl target = url.adjusted(QUrl::RemoveQuery | QUrl::RemoveFragment);
+        target.setPath(path);
+        QString label = segments.at(i);
+        if (i + 1 < segments.size()) {
+            qsizetype underscores = 0;
+            while (underscores < label.size() && label.at(underscores) == QLatin1Char('_')) {
+                ++underscores;
+            }
+            if (underscores < label.size()) {
+                label.truncate(underscores + 1);
+            }
+        }
+        addButton(label, segments.at(i), target, i + 1 == segments.size());
+    }
 }
 
 QWidget *Pane::navigationBar() const
@@ -915,6 +1030,51 @@ void Pane::restoreToolbarConfiguration()
     }
 }
 
+QStringList Pane::toolbarActions() const
+{
+    const KConfigGroup group = KSharedConfig::openConfig()->group(QStringLiteral("PaneToolbars")).group(m_toolbarConfigId);
+    if (group.hasKey(QStringLiteral("Actions"))) {
+        return group.readEntry(QStringLiteral("Actions"), QStringList());
+    }
+    QStringList actions;
+    for (QAction *action : m_toolBar->actions()) {
+        if (!action->objectName().isEmpty() && action->objectName() != QLatin1String("paneCustomizeToolbar")) {
+            actions.append(action->objectName());
+        }
+    }
+    return actions;
+}
+
+QStringList Pane::visibleToolbarActions() const
+{
+    const KConfigGroup group = KSharedConfig::openConfig()->group(QStringLiteral("PaneToolbars")).group(m_toolbarConfigId);
+    if (group.hasKey(QStringLiteral("Visible"))) {
+        return group.readEntry(QStringLiteral("Visible"), QStringList());
+    }
+    QStringList visible;
+    for (QAction *action : m_toolBar->actions()) {
+        if (!action->objectName().isEmpty() && action->objectName() != QLatin1String("paneCustomizeToolbar") && action->isVisible()) {
+            visible.append(action->objectName());
+        }
+    }
+    return visible;
+}
+
+QStringList Pane::hiddenToolbarActions() const
+{
+    return KSharedConfig::openConfig()->group(QStringLiteral("PaneToolbars")).group(m_toolbarConfigId).readEntry(QStringLiteral("Hidden"), QStringList());
+}
+
+void Pane::setToolbarConfiguration(const QStringList &actions, const QStringList &visible, const QStringList &hidden)
+{
+    KConfigGroup group = KSharedConfig::openConfig()->group(QStringLiteral("PaneToolbars")).group(m_toolbarConfigId);
+    group.writeEntry(QStringLiteral("Actions"), actions);
+    group.writeEntry(QStringLiteral("Visible"), visible);
+    group.writeEntry(QStringLiteral("Hidden"), hidden);
+    group.sync();
+    restoreToolbarConfiguration();
+}
+
 void Pane::saveToolbarConfiguration(const QStringList &order, const QStringList &visible)
 {
     KConfigGroup group = KSharedConfig::openConfig()->group(QStringLiteral("PaneToolbars")).group(m_toolbarConfigId);
@@ -995,6 +1155,8 @@ PaneSession Pane::saveState() const
     const NameFilter filter = m_filterBar->filter();
     state.filterText = filter.text();
     state.filterScope = static_cast<int>(filter.scope());
+    state.locationPresentation = int(m_locationPresentation);
+    state.viewMode = int(m_view->viewMode());
     return state;
 }
 
@@ -1015,6 +1177,46 @@ void Pane::restoreState(const PaneSession &state)
     m_tabs->setCurrentIndex(state.currentTab);
     const int scope = state.filterScope < 0 ? Settings::defaultFilterScope() : state.filterScope;
     m_filterBar->setFilter(NameFilter(state.filterText, static_cast<NameFilter::Scope>(qBound(0, scope, 2))));
+    setLocationPresentation(static_cast<LocationPresentation>(qBound(0, state.locationPresentation, 2)));
+    m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, 2)));
+}
+
+void Pane::replaceState(const PaneSession &state)
+{
+    if (state.tabs.isEmpty()) {
+        return;
+    }
+    for (int i = 0; i < m_tabs->count(); ++i) {
+        m_tabs->setLocked(i, false);
+    }
+    while (m_tabs->pinnedCount() > 0) {
+        m_tabs->setPinned(0, false);
+    }
+    while (m_tabs->count() > 1) {
+        m_tabs->closeTab(m_tabs->count() - 1);
+    }
+
+    const bool newTabsAfterCurrent = m_newTabsAfterCurrent;
+    m_newTabsAfterCurrent = false;
+    setUrl(state.tabs.first());
+    for (int i = 1; i < state.tabs.size(); ++i) {
+        openInNewTab(state.tabs.at(i), false);
+    }
+    m_newTabsAfterCurrent = newTabsAfterCurrent;
+    for (int i = 0; i < state.pinnedCount; ++i) {
+        m_tabs->setPinned(i, true);
+    }
+    for (int index : state.lockedTabs) {
+        m_tabs->setLocked(index, true);
+    }
+    for (int i = 0; i < state.names.size(); ++i) {
+        m_tabs->setName(i, state.names.at(i));
+    }
+    m_tabs->setCurrentIndex(qBound(0, state.currentTab, m_tabs->count() - 1));
+    const int scope = state.filterScope < 0 ? Settings::defaultFilterScope() : state.filterScope;
+    m_filterBar->setFilter(NameFilter(state.filterText, static_cast<NameFilter::Scope>(qBound(0, scope, 2))));
+    setLocationPresentation(static_cast<LocationPresentation>(qBound(0, state.locationPresentation, 2)));
+    m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, 2)));
 }
 
 void Pane::reloadFilterSettings()

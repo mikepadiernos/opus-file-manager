@@ -454,6 +454,39 @@ MainWindow::MainWindow(QWidget *parent)
             &ToolbarCustomizer::editingChanged,
             actionCollection()->action(QStringLiteral("customize_main_toolbar")),
             &QAction::setChecked);
+    m_workspaceIndicatorTimer = new QTimer(this);
+    m_workspaceIndicatorTimer->setSingleShot(true);
+    m_workspaceIndicatorTimer->setInterval(250);
+    connect(m_workspaceIndicatorTimer, &QTimer::timeout, this, &MainWindow::refreshWorkspaceSelector);
+    const auto scheduleWorkspaceIndicator = [this] {
+        scheduleWorkspaceSelectorRefresh();
+    };
+    for (Pane *pane : {m_left, m_right}) {
+        connect(pane, &Pane::workspaceLayoutChanged, this, scheduleWorkspaceIndicator);
+        connect(pane->tabs(), &TabModel::tabInserted, this, scheduleWorkspaceIndicator);
+        connect(pane->tabs(), &TabModel::tabRemoved, this, scheduleWorkspaceIndicator);
+        connect(pane->tabs(), &TabModel::tabMoved, this, scheduleWorkspaceIndicator);
+        connect(pane->tabs(), &TabModel::currentIndexChanged, this, scheduleWorkspaceIndicator);
+        connect(pane->tabs(), &TabModel::tabStateChanged, this, scheduleWorkspaceIndicator);
+    }
+    connect(m_splitter, &QSplitter::splitterMoved, this, scheduleWorkspaceIndicator);
+    connect(m_workspaceSplitter, &QSplitter::splitterMoved, this, scheduleWorkspaceIndicator);
+    for (const QString &name : {QStringLiteral("dual_layout"),
+                                QStringLiteral("stacked_layout"),
+                                QStringLiteral("show_preview_panel"),
+                                QStringLiteral("show_editor_panel"),
+                                QStringLiteral("show_terminal_panel")}) {
+        if (QAction *action = actionCollection()->action(name)) {
+            connect(action, &QAction::toggled, this, scheduleWorkspaceIndicator);
+        }
+    }
+    for (QDockWidget *dock : findChildren<QDockWidget *>(QString(), Qt::FindDirectChildrenOnly)) {
+        connect(dock, &QDockWidget::visibilityChanged, this, scheduleWorkspaceIndicator);
+        connect(dock, &QDockWidget::dockLocationChanged, this, scheduleWorkspaceIndicator);
+        connect(dock, &QDockWidget::topLevelChanged, this, scheduleWorkspaceIndicator);
+    }
+    connect(m_toolbarCustomizer, &ToolbarCustomizer::editingChanged, this, scheduleWorkspaceIndicator);
+    refreshWorkspaceSelector();
     const KConfigGroup panels = KSharedConfig::openStateConfig()->group(QLatin1String(PanelsGroup));
     setPanelLayout(panels.readEntry("Layout", QString()) == QLatin1String("Separate") ? PanelLayout::Separate : PanelLayout::Combined);
     applyPanelSettings();
@@ -513,6 +546,64 @@ void MainWindow::showWorkspaces()
     dialog->show();
 }
 
+void MainWindow::selectWorkspace(int index)
+{
+    if (index < 0 || index >= m_workspaceCatalog.workspaces.size()) {
+        return;
+    }
+    const QString id = m_workspaceCatalog.workspaces.at(index).id;
+    showWorkspaces();
+    auto *dialog = findChild<WorkspaceDialog *>(QStringLiteral("workspaceDialog"));
+    if (!dialog) {
+        return;
+    }
+    dialog->selectWorkspace(id);
+    dialog->activateSelectedWorkspace();
+    refreshWorkspaceSelector();
+}
+
+void MainWindow::refreshWorkspaceSelector()
+{
+    if (!m_workspaceSelectorAction) {
+        return;
+    }
+    QStringList items;
+    int currentIndex = -1;
+    const WorkspaceCatalog::Workspace *current = nullptr;
+    for (int i = 0; i < m_workspaceCatalog.workspaces.size(); ++i) {
+        const auto &workspace = m_workspaceCatalog.workspaces.at(i);
+        items.append(i18nc("@item:inmenu workspace name and short label", "%1 (%2)", workspace.name, workspace.shortLabel));
+        if (workspace.id == m_currentWorkspaceId) {
+            currentIndex = i;
+            current = &workspace;
+        }
+    }
+    m_workspaceSelectorAction->setItems(items);
+    m_workspaceSelectorAction->setEnabled(!items.isEmpty());
+    bool modified = current && !current->layout;
+    if (current && current->layout) {
+        WorkspaceCatalog::Layout layout;
+        QString error;
+        modified = !captureWorkspaceLayout(layout, error) || layout != *current->layout;
+    }
+    if (current) {
+        m_workspaceSelectorAction->setText(i18nc("@action active workspace", "Workspace: %1%2", current->name, modified ? QStringLiteral(" *") : QString()));
+        m_workspaceSelectorAction->setCurrentItem(currentIndex);
+    } else {
+        m_workspaceSelectorAction->setText(i18nc("@action no active workspace", "Workspace: None"));
+    }
+    if (QAction *restore = actionCollection()->action(QStringLiteral("restore_workspace_layout"))) {
+        restore->setEnabled(current && current->layout.has_value());
+    }
+}
+
+void MainWindow::scheduleWorkspaceSelectorRefresh()
+{
+    if (m_workspaceIndicatorTimer) {
+        m_workspaceIndicatorTimer->start();
+    }
+}
+
 void MainWindow::reloadWorkspaceCatalog()
 {
     if (m_workspaceConfig->isDirty()) {
@@ -535,6 +626,10 @@ void MainWindow::reloadWorkspaceCatalog()
 void MainWindow::refreshWorkspaceLocations()
 {
     m_combinedPanel->setWorkspaceState(m_workspaceCatalog, m_currentWorkspaceId);
+    const auto dialogs = findChildren<SearchDialog *>();
+    for (SearchDialog *dialog : dialogs) {
+        dialog->refreshWorkspaceScope();
+    }
     for (int row = 0; row < m_placesModel->rowCount(); ++row) {
         const QModelIndex index = m_placesModel->index(row, 0);
         if (!m_workspaceLocations->isSavedPlace(index)) {
@@ -544,6 +639,7 @@ void MainWindow::refreshWorkspaceLocations()
         const bool workspaceVisible = m_workspaceLocations->isVisible(m_placesModel->url(index), m_workspaceCatalog, m_currentWorkspaceId);
         m_placesView->setRowHidden(row, !nativeVisible || !workspaceVisible);
     }
+    scheduleWorkspaceSelectorRefresh();
 }
 
 void MainWindow::watchWorkspaceCatalog()
@@ -608,6 +704,14 @@ bool MainWindow::captureWorkspaceLayout(WorkspaceCatalog::Layout &layout, QStrin
     presentation.panelLayout = m_panelLayout == PanelLayout::Combined ? WorkspaceCatalog::PanelLayout::Combined : WorkspaceCatalog::PanelLayout::Separate;
     presentation.previewPlacement = static_cast<WorkspaceCatalog::PreviewPlacement>(m_previewPlacement);
     presentation.editorPlacement = static_cast<WorkspaceCatalog::EditorPlacement>(m_editorPlacement);
+    presentation.terminalPlacement =
+        m_workspaceSplitter->orientation() == Qt::Horizontal ? WorkspaceCatalog::TerminalPlacement::Right : WorkspaceCatalog::TerminalPlacement::Below;
+    if (m_rightWindow) {
+        presentation.detachedPaneGeometry = m_rightWindow->geometry();
+    }
+    presentation.toolbarActions = m_toolbarCustomizer->toolbarConfiguration();
+    presentation.paneToolbars.insert(QStringLiteral("Left"), {m_left->toolbarActions(), m_left->visibleToolbarActions(), m_left->hiddenToolbarActions()});
+    presentation.paneToolbars.insert(QStringLiteral("Right"), {m_right->toolbarActions(), m_right->visibleToolbarActions(), m_right->hiddenToolbarActions()});
     presentation.previewVisible = m_previewPanelAction->isChecked();
     presentation.terminalVisible = m_terminalPanelAction->isChecked();
     presentation.editorPresent = m_editor;
@@ -631,7 +735,13 @@ bool MainWindow::captureWorkspaceLayout(WorkspaceCatalog::Layout &layout, QStrin
         error = i18nc("@info", "The window contains unnamed or duplicate layout components and cannot be saved.");
         return false;
     }
-    layout = {saveState(), m_splitter->sizes(), m_workspaceSplitter->sizes(), m_dualLayoutAction->isChecked(), isStackedLayout(), presentation};
+    WindowSession session;
+    session.left = m_left->saveState();
+    session.right = m_right->saveState();
+    session.activePane = activePane() == m_right ? 1 : 0;
+    session.dual = m_dualLayoutAction->isChecked();
+    session.stacked = isStackedLayout();
+    layout = {saveState(), m_splitter->sizes(), m_workspaceSplitter->sizes(), session.dual, session.stacked, presentation, session};
     error.clear();
     return true;
 }
@@ -650,19 +760,26 @@ bool MainWindow::applyWorkspaceLayout(const WorkspaceCatalog::Layout &layout, QS
         return false;
     }
     QString rollbackError;
-    if (!restoreWorkspaceLayout(previous, rollbackError, changed)) {
+    if (!restoreWorkspaceLayout(previous, rollbackError, changed) || !rollbackError.isEmpty()) {
         error = i18nc("@info", "%1 The previous layout could not be restored: %2", error, rollbackError);
     }
     return false;
 }
 
-bool MainWindow::workspaceLayoutAvailable(const WorkspaceCatalog::Layout &layout, QString &error) const
+bool MainWindow::workspaceLayoutAvailable(const WorkspaceCatalog::Layout &layout, QStringList &unavailable, QString &error) const
 {
-    if (!layout.presentation || layout.windowState.isEmpty()) {
+    if (!layout.presentation || !layout.session || layout.windowState.isEmpty()) {
         error = i18nc("@info", "This workspace has an older or incomplete layout. Save a new layout before switching to it.");
         return false;
     }
     const auto &p = *layout.presentation;
+    for (const PaneSession *pane : {&layout.session->left, &layout.session->right}) {
+        for (const QUrl &url : pane->tabs) {
+            if (url.isLocalFile() && !QFileInfo::exists(url.toLocalFile())) {
+                unavailable.append(url.toDisplayString(QUrl::PreferLocalFile));
+            }
+        }
+    }
     const bool editorEmbedded =
         p.editorVisible && p.editorPlacement != WorkspaceCatalog::EditorPlacement::Maximized && p.editorPlacement != WorkspaceCatalog::EditorPlacement::Window;
     if (m_linkedPanesAction->isChecked()
@@ -679,9 +796,8 @@ bool MainWindow::workspaceLayoutAvailable(const WorkspaceCatalog::Layout &layout
         if (name == QLatin1String("editorDock") && p.editorPresent) {
             continue;
         }
-        if (!findChild<QObject *>(name, Qt::FindDirectChildrenOnly)) {
-            error = i18nc("@info", "The workspace requires an unavailable window component: %1", name);
-            return false;
+        if (!findChild<QDockWidget *>(name, Qt::FindDirectChildrenOnly) && !findChild<QToolBar *>(name, Qt::FindDirectChildrenOnly)) {
+            unavailable.append(name);
         }
     }
     return true;
@@ -717,7 +833,8 @@ void MainWindow::restoreWorkspaceEditor(const WorkspaceCatalog::Presentation &pr
 bool MainWindow::restoreWorkspaceLayout(const WorkspaceCatalog::Layout &layout, QString &error, bool &changed)
 {
     changed = false;
-    if (!workspaceLayoutAvailable(layout, error)) {
+    QStringList unavailable;
+    if (!workspaceLayoutAvailable(layout, unavailable, error)) {
         return false;
     }
     const auto &p = *layout.presentation;
@@ -738,12 +855,25 @@ bool MainWindow::restoreWorkspaceLayout(const WorkspaceCatalog::Layout &layout, 
     m_right->view()->setViewMode(rightViewMode);
     setActivePane(active);
     setStackedLayout(layout.stacked);
+    m_workspaceSplitter->setOrientation(p.terminalPlacement == WorkspaceCatalog::TerminalPlacement::Right ? Qt::Horizontal : Qt::Vertical);
     setPanelLayout(p.panelLayout == WorkspaceCatalog::PanelLayout::Combined ? PanelLayout::Combined : PanelLayout::Separate);
     setPreviewPlacement(static_cast<PreviewPanel::Placement>(p.previewPlacement));
     restoreWorkspaceEditor(p);
     if (!restoreState(layout.windowState)) {
         error = i18nc("@info", "The saved workspace window layout could not be restored.");
         return false;
+    }
+    if (p.panePlacement == WorkspaceCatalog::PanePlacement::Window && m_rightWindow && !p.detachedPaneGeometry.isEmpty()) {
+        m_rightWindow->setGeometry(p.detachedPaneGeometry);
+    }
+    if (p.toolbarActions) {
+        m_toolbarCustomizer->setToolbarConfiguration(*p.toolbarActions);
+    }
+    if (const auto it = p.paneToolbars.constFind(QStringLiteral("Left")); it != p.paneToolbars.cend()) {
+        m_left->setToolbarConfiguration(it->actions, it->visible, it->hidden);
+    }
+    if (const auto it = p.paneToolbars.constFind(QStringLiteral("Right")); it != p.paneToolbars.cend()) {
+        m_right->setToolbarConfiguration(it->actions, it->visible, it->hidden);
     }
     m_previewPanelAction->setChecked(p.previewVisible);
     m_terminalPanelAction->setChecked(p.terminalVisible);
@@ -756,7 +886,14 @@ bool MainWindow::restoreWorkspaceLayout(const WorkspaceCatalog::Layout &layout, 
     }
     m_splitter->setSizes(layout.paneSizes);
     m_workspaceSplitter->setSizes(layout.workspaceSizes);
-    error.clear();
+    m_left->replaceState(layout.session->left);
+    m_right->replaceState(layout.session->right);
+    setActivePane(layout.session->activePane == 1 ? m_right : m_left);
+    error = unavailable.isEmpty()
+        ? QString()
+        : i18nc("@info",
+                "The following workspace components or locations could not be restored: %1. Make them available and switch again to retry.",
+                unavailable.join(QStringLiteral(", ")));
     return true;
 }
 
@@ -1478,6 +1615,18 @@ void MainWindow::setupActions()
 {
     KActionCollection *actions = actionCollection();
 
+    m_workspaceSelectorAction = new KSelectAction(i18nc("@action", "Workspace: None"), this);
+    actions->addAction(QStringLiteral("workspace_selector"), m_workspaceSelectorAction);
+    connect(m_workspaceSelectorAction, &KSelectAction::indexTriggered, this, &MainWindow::selectWorkspace);
+    QAction *restoreWorkspace = actions->addAction(QStringLiteral("restore_workspace_layout"), this, [this] {
+        const auto it = std::find_if(m_workspaceCatalog.workspaces.cbegin(), m_workspaceCatalog.workspaces.cend(), [this](const auto &workspace) {
+            return workspace.id == m_currentWorkspaceId;
+        });
+        if (it != m_workspaceCatalog.workspaces.cend()) {
+            selectWorkspace(int(std::distance(m_workspaceCatalog.workspaces.cbegin(), it)));
+        }
+    });
+    restoreWorkspace->setText(i18nc("@action", "Restore Saved Workspace Layout…"));
     QAction *workspaces = actions->addAction(QStringLiteral("manage_workspaces"), this, &MainWindow::showWorkspaces);
     workspaces->setText(i18nc("@action", "Workspaces…"));
     workspaces->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-grid")));
@@ -3396,7 +3545,21 @@ void MainWindow::showSearch()
 
 void MainWindow::showSearchForPane(Pane *pane)
 {
-    auto *dialog = new SearchDialog(pane->url(), this);
+    auto *dialog = new SearchDialog(pane->url(), this, {}, [this] {
+        SearchDialog::WorkspaceScope scope;
+        const auto workspace = std::find_if(m_workspaceCatalog.workspaces.cbegin(), m_workspaceCatalog.workspaces.cend(), [this](const auto &entry) {
+            return entry.id == m_currentWorkspaceId;
+        });
+        scope.active = workspace != m_workspaceCatalog.workspaces.cend() && workspace->behaviorSelection.applies(workspace->behaviorSelection.searchScope);
+        if (scope.active) {
+            for (const auto &location : m_workspaceLocations->locations()) {
+                if (m_workspaceCatalog.locationAssignments.value(location.id) == m_currentWorkspaceId) {
+                    scope.locations.append(location.url);
+                }
+            }
+        }
+        return scope;
+    });
     connect(dialog, &SearchDialog::revealRequested, this, [pane](const QUrl &url) {
         pane->revealUrl(url);
     });

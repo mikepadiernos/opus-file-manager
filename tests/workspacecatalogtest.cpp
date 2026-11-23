@@ -75,6 +75,7 @@ private Q_SLOTS:
         QString error;
         QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
         QVERIFY(activate(catalog, catalog.workspaces.first().id, error));
+        catalog.workspaces.first().behaviorSelection = {BehaviorMode::Selected, false, true, false, true};
         {
             KConfig config(path, KConfig::SimpleConfig);
             QVERIFY2(save(config.group(QStringLiteral("Workspaces")), catalog, error), qPrintable(error));
@@ -178,7 +179,7 @@ private Q_SLOTS:
         QVERIFY(!error.isEmpty());
         QCOMPARE(group.readEntry("Catalog", QByteArray()), previous);
 
-        group.writeEntry("Catalog", QByteArray(R"({"version":5,"workspaces":[],"activeId":""})"));
+        group.writeEntry("Catalog", QByteArray(R"({"version":8,"workspaces":[],"activeId":""})"));
         const Catalog original = catalog;
         QVERIFY(!load(group, catalog, error));
         QVERIFY(!error.isEmpty());
@@ -196,7 +197,7 @@ private Q_SLOTS:
         QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
         const QString originalId = catalog.workspaces.first().id;
         QVERIFY(activate(catalog, originalId, error));
-        const Layout layout{QByteArray::fromHex("0001ff"), {200, 300, 0}, {400, 100}, false, true, std::nullopt};
+        const Layout layout{QByteArray::fromHex("0001ff"), {200, 300, 0}, {400, 100}, false, true, std::nullopt, {}};
         QVERIFY2(setLayout(catalog, originalId, layout, error), qPrintable(error));
         QVERIFY2(duplicate(catalog, originalId, QStringLiteral("Copy"), QStringLiteral("C"), error), qPrintable(error));
         QCOMPARE(catalog.workspaces.size(), 2);
@@ -213,6 +214,91 @@ private Q_SLOTS:
         changed.dual = true;
         QVERIFY(setLayout(loaded, loaded.workspaces.last().id, changed, error));
         QCOMPARE(loaded.workspaces.first().layout, std::optional<Layout>(layout));
+    }
+
+    void persistsPaneAndTabSnapshots()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Workspaces"));
+        Catalog catalog;
+        QString error;
+        QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        Layout layout{QByteArray::fromHex("0001ff"), {200, 300}, {400, 100}, true, false, std::nullopt, {}};
+        WindowSession session;
+        session.left.tabs = {QUrl::fromLocalFile(QStringLiteral("/tmp/left")), QUrl::fromLocalFile(QStringLiteral("/tmp/left-tab"))};
+        session.left.currentTab = 1;
+        session.left.pinnedCount = 1;
+        session.left.lockedTabs = {1};
+        session.left.names = {QStringLiteral("Pinned"), QStringLiteral("Current")};
+        session.left.locationPresentation = 1;
+        session.left.viewMode = 2;
+        session.right.tabs = {QUrl::fromLocalFile(QStringLiteral("/tmp/right"))};
+        session.right.filterText = QStringLiteral("*.txt");
+        session.right.filterScope = 2;
+        session.activePane = 1;
+        session.dual = layout.dual;
+        session.stacked = layout.stacked;
+        layout.session = session;
+        QVERIFY2(setLayout(catalog, catalog.workspaces.first().id, layout, error), qPrintable(error));
+        QVERIFY2(save(group, catalog, error), qPrintable(error));
+        Catalog loaded;
+        QVERIFY2(load(group, loaded, error), qPrintable(error));
+        QCOMPARE(loaded.workspaces.first().layout, std::optional<Layout>(layout));
+    }
+
+    void removesCredentialDataFromStoredPaneLocations()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Workspaces"));
+        Catalog catalog;
+        QString error;
+        QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        Layout layout;
+        WindowSession session;
+        session.left.tabs = {QUrl(QStringLiteral("sftp://example.invalid/folder"))};
+        session.right.tabs = {QUrl::fromLocalFile(QStringLiteral("/tmp"))};
+        layout.session = session;
+        QVERIFY(setLayout(catalog, catalog.workspaces.first().id, layout, error));
+        QVERIFY(save(group, catalog, error));
+        QByteArray stored = group.readEntry("Catalog", QByteArray());
+        QVERIFY(stored.contains("sftp://example.invalid/folder"));
+        stored.replace("sftp://example.invalid/folder", "sftp://user:password@example.invalid/folder?token=secret");
+        group.writeEntry("Catalog", stored);
+        QVERIFY(group.sync());
+
+        Catalog loaded;
+        QVERIFY2(load(group, loaded, error), qPrintable(error));
+        QCOMPARE(loaded.workspaces.first().layout->session->left.tabs.first().toString(), QStringLiteral("sftp://example.invalid/folder"));
+        stored = group.readEntry("Catalog", QByteArray());
+        QVERIFY(!stored.contains("user:password"));
+        QVERIFY(!stored.contains("token=secret"));
+    }
+
+    void persistsReusableProfileReferences()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        const KConfigGroup group = config.group(QStringLiteral("Workspaces"));
+        Catalog catalog;
+        QString error;
+        QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        const QString searchId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        const QString profileId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        catalog.workspaces.first().savedSearchIds.append(searchId);
+        catalog.workspaces.first().folderSyncProfileIds.append(profileId);
+        QVERIFY2(save(group, catalog, error), qPrintable(error));
+        Catalog loaded;
+        QVERIFY2(load(group, loaded, error), qPrintable(error));
+        QCOMPARE(loaded.workspaces.first().savedSearchIds, QStringList{searchId});
+        QCOMPARE(loaded.workspaces.first().folderSyncProfileIds, QStringList{profileId});
+        QVERIFY2(duplicate(loaded, loaded.workspaces.first().id, QStringLiteral("Copy"), QStringLiteral("C"), error), qPrintable(error));
+        QCOMPARE(loaded.workspaces.last().savedSearchIds, QStringList{searchId});
+        QCOMPARE(loaded.workspaces.last().folderSyncProfileIds, QStringList{profileId});
     }
 
     void rejectsInvalidLayoutAndDuplication()
@@ -281,7 +367,17 @@ private Q_SLOTS:
                                            true,
                                            true,
                                            true,
-                                           {QStringLiteral("mainToolBar"), QStringLiteral("editorDock")}};
+                                           {QStringLiteral("mainToolBar"), QStringLiteral("editorDock")},
+                                           TerminalPlacement::Below,
+                                           {},
+                                           std::nullopt,
+                                           {}};
+        layout.presentation->terminalPlacement = TerminalPlacement::Right;
+        layout.presentation->detachedPaneGeometry = QRect(50, 60, 700, 500);
+        layout.presentation->toolbarActions = QStringList{QStringLiteral("action:open"), QStringLiteral("separator")};
+        layout.presentation->paneToolbars.insert(
+            QStringLiteral("Left"),
+            {QStringList{QStringLiteral("open"), QStringLiteral("filter")}, QStringList{QStringLiteral("open")}, QStringList{QStringLiteral("filter")}});
         QVERIFY(setLayout(catalog, catalog.workspaces.first().id, layout, error));
         QVERIFY(save(group, catalog, error));
         Catalog restored;
@@ -308,7 +404,7 @@ private Q_SLOTS:
         QCOMPARE(catalog.workspaces.size(), 1);
         QVERIFY(!catalog.workspaces.first().layout.has_value());
         QVERIFY(save(group, catalog, error));
-        QCOMPARE(QJsonDocument::fromJson(group.readEntry("Catalog", QByteArray())).object().value(QStringLiteral("version")).toInt(), 4);
+        QCOMPARE(QJsonDocument::fromJson(group.readEntry("Catalog", QByteArray())).object().value(QStringLiteral("version")).toInt(), 7);
     }
 
     void managesExclusiveLocationAssignments()
