@@ -741,42 +741,42 @@ Remaining features are ordered by priority, effort and dependencies.
 - [x] Assign saved locations to workspaces, with each location assigned to at
       most one workspace. Switching shows the active workspace's assignments
       without moving files; keep unassigned locations accessible.
-- [ ] Store workspace configuration locally without credentials. Workspaces
+- [x] Store workspace configuration locally without credentials. Workspaces
       organize the interface and search scope; they are not a security boundary.
-- [ ] Confirm before overwriting a saved workspace or discarding unsaved layout
+- [x] Confirm before overwriting a saved workspace or discarding unsaved layout
       changes. Deleting a workspace removes associations, not the underlying
       files, locations or tags.
-- [ ] Scope global search to the active workspace's assigned locations by
+- [x] Scope global search to the active workspace's assigned locations by
       default, with an explicit option to search elsewhere.
-- [ ] Save layouts for workflows and integrations, including pane arrangements,
+- [x] Save layouts for workflows and integrations, including pane arrangements,
       views, toolbars, and placement or visibility of search, tagging, preview,
       editor and terminal areas as they become available. Report unavailable
       features or providers when applying the workspace.
-- [ ] Capture and restore pane and tab locations and active tabs as an explicit
+- [x] Capture and restore pane and tab locations and active tabs as an explicit
       workspace layout snapshot. Preserve running jobs and confirm before
       replacing unsaved state.
-- [ ] Restore available components when locations or providers are unavailable.
+- [x] Restore available components when locations or providers are unavailable.
       Identify components that could not be restored and offer a retry without
       silently replacing saved locations or changing files.
-- [ ] Show the active workspace and unsaved layout changes, with a
+- [x] Show the active workspace and unsaved layout changes, with a
       keyboard-accessible selector and a confirmed action to restore the saved
       layout.
-- [ ] Extend each pane's location bar with Krusader-inspired breadcrumbs: show
+- [x] Extend each pane's location bar with Krusader-inspired breadcrumbs: show
       full segments or abbreviate ancestors to their first letter, retaining
       leading underscores (for example, `__path` becomes `__p`), while always
       showing the current folder's full name. Alternatively, show an editable
       full path. Navigate each breadcrumb using its actual location, reveal full
       names for abbreviations and save each pane's mode in the workspace layout.
-- [ ] Allow all, selected or none of a workspace's applicable behaviours,
+- [x] Allow all, selected or none of a workspace's applicable behaviours,
       including location presentation, search scope, layouts, and pane and tab
       restoration. Preserve unselected state and existing defaults and reuse
       existing controls; M27 can apply separate choices per Activity.
-- [ ] Link reusable saved searches and folder comparison or synchronization
+- [x] Link reusable saved searches and folder comparison or synchronization
       profiles to workspaces for discovery, without copying profiles or changing
       shared defaults. Preserve and identify missing references; switching a
       workspace never runs a task. Keep synchronization previews and
       confirmations.
-- [ ] Import and export selected workspace profiles through the M12 backup
+- [x] Import and export selected workspace profiles through the M12 backup
       workflow, with preview and collision handling. Exclude credentials and
       never execute commands or modify managed files during import.
 
