@@ -11,6 +11,7 @@ namespace FolderSyncProfiles
 struct Profile {
     QString name;
     FolderSync::Options options;
+    QString id;
 };
 
 QList<Profile> load(const KConfigGroup &group, QString *error = nullptr);

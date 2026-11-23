@@ -2,18 +2,22 @@
 
 #include "searchdialog.h"
 
+#include "favoritesmodel.h"
 #include "folderview.h"
 #include "mainwindow.h"
 #include "pane.h"
 #include "savedpathfilters.h"
 #include "searchcollection.h"
 #include "settings.h"
+#include "workspacelocations.h"
 
 #include <KActionCollection>
+#include <KFilePlacesModel>
 #include <KSharedConfig>
 
 #include <QAction>
 #include <QApplication>
+#include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
 #include <QDir>
@@ -25,6 +29,7 @@
 #include <QPlainTextEdit>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QSpinBox>
 #include <QStandardPaths>
@@ -154,6 +159,214 @@ private Q_SLOTS:
         QTRY_VERIFY(start->isEnabled());
         QCOMPARE(results->topLevelItemCount(), 1);
         QCOMPARE(results->topLevelItem(0)->text(0), file.fileName());
+    }
+
+    void searchesWorkspaceLocationsOrExplicitlyOutside()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QStringList folders{QStringLiteral("work"), QStringLiteral("unassigned"), QStringLiteral("other")};
+        for (const QString &folder : folders) {
+            QVERIFY(QDir(root.path()).mkpath(folder));
+            QFile file(root.filePath(folder + QStringLiteral("/needle.txt")));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchrc")), KConfig::SimpleConfig);
+        FavoritesModel favorites(config->group(QStringLiteral("Favorites")));
+        KFilePlacesModel places;
+        for (const QString &folder : folders) {
+            QVERIFY(favorites.add(QUrl::fromLocalFile(root.filePath(folder))));
+        }
+        WorkspaceLocations locations(&favorites, &places);
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Other"), QStringLiteral("O"), error));
+        QString active = catalog.workspaces.first().id;
+        QVERIFY(WorkspaceCatalog::assignLocation(catalog, WorkspaceCatalog::locationId(QUrl::fromLocalFile(root.filePath(folders[0]))), active, error));
+        QVERIFY(WorkspaceCatalog::assignLocation(catalog,
+                                                 WorkspaceCatalog::locationId(QUrl::fromLocalFile(root.filePath(folders[2]))),
+                                                 catalog.workspaces.last().id,
+                                                 error));
+        SearchDialog dialog(QUrl::fromLocalFile(root.path()), nullptr, config, [&] {
+            SearchDialog::WorkspaceScope scope;
+            scope.active = !active.isEmpty();
+            for (const auto &location : locations.locations()) {
+                if (!active.isEmpty() && catalog.locationAssignments.value(location.id) == active) {
+                    scope.locations.append(location.url);
+                }
+            }
+            return scope;
+        });
+        auto *workspaceOnly = dialog.findChild<QCheckBox *>(QStringLiteral("searchWorkspaceOnly"));
+        QVERIFY(workspaceOnly);
+        QVERIFY(workspaceOnly->isChecked());
+        auto *start = dialog.findChild<QPushButton *>(QStringLiteral("searchStart"));
+        auto *results = dialog.findChild<QTreeWidget *>(QStringLiteral("searchResults"));
+        dialog.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("needle"));
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QStringList paths;
+        for (int i = 0; i < results->topLevelItemCount(); ++i) {
+            paths.append(results->topLevelItem(i)->text(0));
+        }
+        paths.sort();
+        QCOMPARE(paths, (QStringList{root.filePath(QStringLiteral("work/needle.txt"))}));
+        workspaceOnly->setChecked(false);
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QCOMPARE(results->topLevelItemCount(), 3);
+        workspaceOnly->setChecked(true);
+        active = catalog.workspaces.last().id;
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QCOMPARE(results->topLevelItemCount(), 1);
+        paths.clear();
+        for (int i = 0; i < results->topLevelItemCount(); ++i) {
+            paths.append(results->topLevelItem(i)->text(0));
+        }
+        QVERIFY(paths.contains(root.filePath(QStringLiteral("other/needle.txt"))));
+        QVERIFY(!paths.contains(root.filePath(QStringLiteral("work/needle.txt"))));
+        QVERIFY(!paths.contains(root.filePath(QStringLiteral("unassigned/needle.txt"))));
+        active.clear();
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QCOMPARE(results->topLevelItemCount(), 3);
+    }
+
+    void workspaceSearchReportsUnsupportedLocations()
+    {
+        QTemporaryDir root;
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchrc")), KConfig::SimpleConfig);
+        QFile file(root.filePath(QStringLiteral("needle.txt")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        QList<QUrl> locations{QUrl(QStringLiteral("sftp://user:secret@example.invalid/path")), QUrl::fromLocalFile(root.path())};
+        SearchDialog dialog(QUrl::fromLocalFile(root.path()), nullptr, config, [&] {
+            return SearchDialog::WorkspaceScope{true, locations};
+        });
+        dialog.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("needle"));
+        auto *start = dialog.findChild<QPushButton *>(QStringLiteral("searchStart"));
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("searchStatus"))->text().contains(QStringLiteral("incomplete")));
+        auto *errors = dialog.findChild<QTreeWidget *>(QStringLiteral("searchErrors"));
+        QCOMPARE(errors->topLevelItemCount(), 1);
+        QVERIFY(!errors->topLevelItem(0)->text(0).contains(QStringLiteral("secret")));
+        QCOMPARE(dialog.findChild<QTreeWidget *>(QStringLiteral("searchResults"))->topLevelItemCount(), 1);
+        locations.clear();
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QCOMPARE(dialog.findChild<QTreeWidget *>(QStringLiteral("searchResults"))->topLevelItemCount(), 0);
+        QCOMPARE(errors->topLevelItemCount(), 1);
+        QVERIFY(errors->topLevelItem(0)->text(0).contains(QStringLiteral("no searchable")));
+        locations = {QUrl::fromLocalFile(root.filePath(QStringLiteral("missing")))};
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QCOMPARE(errors->topLevelItemCount(), 1);
+        QVERIFY(errors->topLevelItem(0)->text(0).contains(QStringLiteral("existing local folder")));
+    }
+
+    void mainWindowScopesSearchToWorkspace()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("work")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("other")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("unassigned")));
+        for (const QString &folder : {QStringLiteral("work"), QStringLiteral("other"), QStringLiteral("unassigned")}) {
+            QFile file(root.filePath(folder + QStringLiteral("/needle.txt")));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        const auto config = KSharedConfig::openConfig();
+        const auto backup = KSharedConfig::openConfig(root.filePath(QStringLiteral("backup")), KConfig::SimpleConfig);
+        auto favorites = config->group(QStringLiteral("Favorites"));
+        auto workspaces = config->group(QStringLiteral("Workspaces"));
+        auto savedFavorites = backup->group(QStringLiteral("Favorites"));
+        auto savedWorkspaces = backup->group(QStringLiteral("Workspaces"));
+        favorites.copyTo(&savedFavorites);
+        workspaces.copyTo(&savedWorkspaces);
+        favorites.deleteGroup();
+        workspaces.deleteGroup();
+        const auto restore = qScopeGuard([config, savedFavorites, savedWorkspaces]() mutable {
+            config->reparseConfiguration();
+            auto favorites = config->group(QStringLiteral("Favorites"));
+            auto workspaces = config->group(QStringLiteral("Workspaces"));
+            favorites.deleteGroup();
+            workspaces.deleteGroup();
+            savedFavorites.copyTo(&favorites);
+            savedWorkspaces.copyTo(&workspaces);
+            config->sync();
+        });
+        FavoritesModel model(favorites);
+        QVERIFY(model.add(QUrl::fromLocalFile(root.filePath(QStringLiteral("work")))));
+        QVERIFY(model.add(QUrl::fromLocalFile(root.filePath(QStringLiteral("other")))));
+        QVERIFY(model.add(QUrl::fromLocalFile(root.filePath(QStringLiteral("unassigned")))));
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Other"), QStringLiteral("O"), error));
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Empty"), QStringLiteral("E"), error));
+        QVERIFY(WorkspaceCatalog::activate(catalog, catalog.workspaces.first().id, error));
+        QVERIFY(WorkspaceCatalog::assignLocation(catalog,
+                                                 WorkspaceCatalog::locationId(QUrl::fromLocalFile(root.filePath(QStringLiteral("work")))),
+                                                 catalog.workspaces.first().id,
+                                                 error));
+        QVERIFY(WorkspaceCatalog::assignLocation(catalog,
+                                                 WorkspaceCatalog::locationId(QUrl::fromLocalFile(root.filePath(QStringLiteral("other")))),
+                                                 catalog.workspaces.at(1).id,
+                                                 error));
+        QVERIFY(WorkspaceCatalog::save(workspaces, catalog, error));
+        QVERIFY(config->sync());
+        for (int workspace = 0; workspace < 4; ++workspace) {
+            if (workspace == 3) {
+                catalog.activeId.clear();
+            } else {
+                QVERIFY(WorkspaceCatalog::activate(catalog, catalog.workspaces.at(workspace).id, error));
+            }
+            QVERIFY(WorkspaceCatalog::save(workspaces, catalog, error));
+            QVERIFY(config->sync());
+            MainWindow window;
+            window.openUrls({QUrl::fromLocalFile(root.path())});
+            Pane *activePane = window.activePane();
+            Pane *inactivePane = window.inactivePane();
+            inactivePane->setUrl(QUrl::fromLocalFile(root.filePath(QStringLiteral("other"))));
+            QTRY_COMPARE(inactivePane->url(), QUrl::fromLocalFile(root.filePath(QStringLiteral("other"))));
+            const QList<QAction *> entries{window.actionCollection()->action(QStringLiteral("search_folder")),
+                                           activePane->toolbarAction(QStringLiteral("paneSearch")),
+                                           inactivePane->toolbarAction(QStringLiteral("paneSearch"))};
+            for (int entry = 0; entry < entries.size(); ++entry) {
+                QVERIFY(entries[entry]);
+                entries[entry]->trigger();
+                auto *dialog = window.findChild<SearchDialog *>(QStringLiteral("searchDialog"));
+                QVERIFY(dialog);
+                auto *workspaceOnly = dialog->findChild<QCheckBox *>(QStringLiteral("searchWorkspaceOnly"));
+                QVERIFY(workspaceOnly && workspaceOnly->isChecked());
+                QCOMPARE(workspaceOnly->isHidden(), workspace == 3);
+                dialog->findChild<QComboBox *>(QStringLiteral("searchScope"))->setCurrentIndex(0);
+                dialog->findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("needle"));
+                auto *start = dialog->findChild<QPushButton *>(QStringLiteral("searchStart"));
+                start->click();
+                QTRY_VERIFY(start->isEnabled());
+                auto *results = dialog->findChild<QTreeWidget *>(QStringLiteral("searchResults"));
+                const int broaderCount = entry == 2 ? 1 : 3;
+                QCOMPARE(results->topLevelItemCount(), workspace == 3 ? broaderCount : workspace == 2 ? 0 : 1);
+                if (workspace < 2) {
+                    const QString folder = workspace == 0 ? QStringLiteral("work") : QStringLiteral("other");
+                    QCOMPARE(results->topLevelItem(0)->text(0), root.filePath(folder + QStringLiteral("/needle.txt")));
+                } else if (workspace == 2) {
+                    auto *errors = dialog->findChild<QTreeWidget *>(QStringLiteral("searchErrors"));
+                    QCOMPARE(errors->topLevelItemCount(), 1);
+                    QVERIFY(errors->topLevelItem(0)->text(0).contains(QStringLiteral("no searchable")));
+                }
+                if (workspace != 3) {
+                    workspaceOnly->setChecked(false);
+                    start->click();
+                    QTRY_VERIFY(start->isEnabled());
+                    QCOMPARE(results->topLevelItemCount(), broaderCount);
+                }
+                delete dialog;
+            }
+        }
     }
 
     void refusesRemoteFolders()
@@ -346,12 +559,18 @@ private Q_SLOTS:
         const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchesrc")), KConfig::SimpleConfig);
         const auto group = config->group(QStringLiteral("SavedSearches"));
         QString error;
-        QVERIFY(SavedSearches::save(group, {{QStringLiteral("Work"), QStringLiteral("old"), QUrl::fromLocalFile(root.path())}}, &error));
+        QVERIFY(
+            SavedSearches::save(group,
+                                {{QStringLiteral("Work"), QStringLiteral("old"), QUrl::fromLocalFile(root.path()), LiveSearch::Field::FileName, false, {}, {}}},
+                                &error));
+        const QString stableId = SavedSearches::load(group, &error).first().id;
         SearchDialog first(QUrl::fromLocalFile(root.path()), nullptr, config);
         SearchDialog second(QUrl::fromLocalFile(root.path()), nullptr, config);
         first.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("new"));
         first.findChild<QPushButton *>(QStringLiteral("searchUpdate"))->click();
-        QCOMPARE(SavedSearches::load(group, &error).first().text, QStringLiteral("new"));
+        auto saved = SavedSearches::load(group, &error);
+        QCOMPARE(saved.first().text, QStringLiteral("new"));
+        QCOMPARE(saved.first().id, stableId);
         second.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("stale"));
         second.findChild<QPushButton *>(QStringLiteral("searchUpdate"))->click();
         QVERIFY(second.findChild<QLabel *>(QStringLiteral("searchStatus"))->text().contains(QStringLiteral("changed elsewhere")));
@@ -360,7 +579,9 @@ private Q_SLOTS:
         QCOMPARE(second.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->text(), QStringLiteral("new"));
         second.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("latest"));
         second.findChild<QPushButton *>(QStringLiteral("searchUpdate"))->click();
-        QCOMPARE(SavedSearches::load(group, &error).first().text, QStringLiteral("latest"));
+        saved = SavedSearches::load(group, &error);
+        QCOMPARE(saved.first().text, QStringLiteral("latest"));
+        QCOMPARE(saved.first().id, stableId);
     }
 
     void savesLoadsAndUpdatesNamedCollections()
