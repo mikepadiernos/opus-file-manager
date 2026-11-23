@@ -1,6 +1,7 @@
-# M32.5 Performance and startup
+# M32.05 Performance and startup
 
-**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m325-performance-and-startup)** ·
+**[Refinements](README.md)** ·
+**[Roadmap](../ROADMAP.md#m32-refinements)** ·
 **[Settings](04-settings.md)**
 
 **Goal:** measurably improve startup and settings responsiveness while

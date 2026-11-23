@@ -1,6 +1,6 @@
-# M32.1 Menus
+# M32.01 Menus
 
-**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m321-menus)** ·
+**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m32-refinements)** ·
 **[Layouts](02-layouts.md)**
 
 **Goal:** make actions easy to find and accurately scoped without replacing

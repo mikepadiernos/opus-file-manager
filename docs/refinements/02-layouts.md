@@ -1,6 +1,6 @@
-# M32.2 Layouts
+# M32.02 Layouts
 
-**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m322-layouts)** ·
+**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m32-refinements)** ·
 **[Menus](01-menus.md)**
 
 **Goal:** improve first-run layouts and customization without losing existing

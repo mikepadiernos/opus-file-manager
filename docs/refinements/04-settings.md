@@ -1,6 +1,6 @@
-# M32.4 Settings
+# M32.04 Settings
 
-**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m324-settings)** ·
+**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m32-refinements)** ·
 **[Performance](05-performance.md)**
 
 **Goal:** make preferences searchable, understandable and safe to change,
