@@ -50,8 +50,13 @@ confirmed defects.
    than assuming heuristic secret filtering is complete.
    ([#474](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/474))
 8. Run suitable static analysis and dependency checks and document a security
-   review. Track reproducible findings, severity and remediation separately;
-   rerun affected checks after fixes and list residual risks.
+   review. Evaluate clang-tidy and PVS-Studio with their licensing and
+   integration costs; apply the C++ Core Guidelines where compatible with
+   Qt/KDE ownership and conventions. Run focused AddressSanitizer and
+   UndefinedBehaviorSanitizer tests on supported toolchains, and evaluate
+   ThreadSanitizer separately for concurrency. Record unsupported environments,
+   investigate findings, rerun affected checks after fixes and list residual
+   risks.
    ([#475](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/475))
 
 ## Review decisions
