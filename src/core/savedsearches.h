@@ -16,6 +16,7 @@ struct Search {
     LiveSearch::Field field = LiveSearch::Field::FileName;
     bool indexed = false;
     PathFilter filter{};
+    QString id;
     bool operator==(const Search &other) const = default;
 };
 

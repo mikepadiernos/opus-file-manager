@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QPoint>
 #include <QPointer>
+#include <QStringList>
 
 class QAction;
 class KActionCollection;
@@ -35,6 +36,8 @@ public:
     void finishKdeToolbarEditor();
     void prepareGuiRebuild();
     void toolbarRebuilt(KToolBar *toolbar);
+    QStringList toolbarConfiguration() const;
+    void setToolbarConfiguration(const QStringList &actions);
 
 Q_SIGNALS:
     void editingChanged(bool editing);

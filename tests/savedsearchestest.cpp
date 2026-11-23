@@ -22,11 +22,11 @@ private Q_SLOTS:
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
         const auto config = KSharedConfig::openConfig(dir.filePath(QStringLiteral("searchesrc")), KConfig::SimpleConfig);
-        const KConfigGroup group = config->group(QStringLiteral("SavedSearches"));
+        KConfigGroup group = config->group(QStringLiteral("SavedSearches"));
         QString error;
         QList<SavedSearches::Search> searches{
-            {QStringLiteral("Local"), QStringLiteral("some text"), QUrl::fromLocalFile(dir.path()), LiveSearch::Field::Contents, false},
-            {QStringLiteral("Index"), QStringLiteral("birds"), {}, LiveSearch::Field::FileName, true},
+            {QStringLiteral("Local"), QStringLiteral("some text"), QUrl::fromLocalFile(dir.path()), LiveSearch::Field::Contents, false, {}, {}},
+            {QStringLiteral("Index"), QStringLiteral("birds"), {}, LiveSearch::Field::FileName, true, {}, {}},
         };
         searches[0].filter = {QStringLiteral("path"), QStringLiteral("parent"), {dir.filePath(QStringLiteral("exclude"))}, 2};
         searches[1].filter.pathText = QStringLiteral("birds");
@@ -48,11 +48,11 @@ private Q_SLOTS:
         QVERIFY(loaded.last().indexed);
         QCOMPARE(loaded.last().filter.pathText, QStringLiteral("birds"));
         auto duplicate = searches;
-        duplicate.append({QStringLiteral(" local "), QStringLiteral("other"), {}, LiveSearch::Field::FileName, true});
+        duplicate.append({QStringLiteral(" local "), QStringLiteral("other"), {}, LiveSearch::Field::FileName, true, {}, {}});
         QVERIFY(!SavedSearches::save(group, duplicate, &error));
         QVERIFY(!error.isEmpty());
         QCOMPARE(SavedSearches::load(group, &error).size(), 2);
-        QVERIFY(!SavedSearches::save(group, {{QStringLiteral("bad"), QStringLiteral("term"), {}, LiveSearch::Field::FileName, false}}, &error));
+        QVERIFY(!SavedSearches::save(group, {{QStringLiteral("bad"), QStringLiteral("term"), {}, LiveSearch::Field::FileName, false, {}, {}}}, &error));
     }
 
     void reportsCorruptConfiguration()
@@ -84,6 +84,38 @@ private Q_SLOTS:
             QByteArray(R"([{"name":"bad","text":"x","folder":"","field":"name","indexed":true,"filter":{"path":"","parent":"","excluded":[],"depth":1.5}}])"));
         QVERIFY(SavedSearches::load(group, &error).isEmpty());
         QVERIFY(!error.isEmpty());
+    }
+
+    void assignsAndPersistsStableIdsForLegacySearches()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const auto config = KSharedConfig::openConfig(dir.filePath(QStringLiteral("searchesrc")), KConfig::SimpleConfig);
+        KConfigGroup group = config->group(QStringLiteral("SavedSearches"));
+        group.writeEntry(
+            "Searches",
+            QByteArray(
+                R"([{"name":"old","text":"x","folder":"","field":"name","indexed":true},{"name":"other","text":"y","folder":"","field":"name","indexed":true}])"));
+        QString error;
+        auto searches = SavedSearches::load(group, &error);
+        QVERIFY(error.isEmpty());
+        QCOMPARE(searches.size(), 2);
+        QVERIFY(!searches.first().id.isEmpty());
+        QVERIFY(searches.first().id != searches.last().id);
+        const QString stableId = searches.first().id;
+        searches.first().name = QStringLiteral("renamed");
+        QVERIFY(SavedSearches::save(group, searches, &error));
+        config->reparseConfiguration();
+        searches = SavedSearches::load(group, &error);
+        QVERIFY(error.isEmpty());
+        QCOMPARE(searches.first().name, QStringLiteral("renamed"));
+        QCOMPARE(searches.first().id, stableId);
+        QVERIFY(SavedSearches::save(group, {}, &error));
+        QVERIFY(SavedSearches::save(group, {{QStringLiteral("renamed"), QStringLiteral("x"), {}, LiveSearch::Field::FileName, true, {}, {}}}, &error));
+        config->reparseConfiguration();
+        searches = SavedSearches::load(group, &error);
+        QVERIFY(error.isEmpty());
+        QVERIFY(searches.first().id != stableId);
     }
 };
 

@@ -67,6 +67,16 @@ private Q_SLOTS:
         QCOMPARE(session.activePane, 0);
     }
 
+    void fixedFoldersUseDefaultViewMode()
+    {
+        const auto previous = Settings::defaultViewMode();
+        Settings::setDefaultViewMode(Settings::EnumDefaultViewMode::Icons);
+        const WindowSession session = Startup::resolve(saved(), options(Mode::FixedFolders));
+        Settings::setDefaultViewMode(previous);
+        QCOMPARE(session.left.viewMode, int(Settings::EnumDefaultViewMode::Icons));
+        QCOMPARE(session.right.viewMode, int(Settings::EnumDefaultViewMode::Icons));
+    }
+
     void fixedFoldersFallBackToHomeWhenUnset()
     {
         StartupOptions unset = options(Mode::FixedFolders);

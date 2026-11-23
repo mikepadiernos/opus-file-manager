@@ -42,6 +42,7 @@ class QHBoxLayout;
 class QMenu;
 class QSplitter;
 class QTabWidget;
+class QTimer;
 
 class MainWindow : public KXmlGuiWindow
 {
@@ -110,6 +111,9 @@ protected:
 private:
     /// Opens the workspace selector and management dialog.
     void showWorkspaces();
+    void selectWorkspace(int index);
+    void refreshWorkspaceSelector();
+    void scheduleWorkspaceSelectorRefresh();
     /// Loads workspace assignments and updates their presentation.
     void reloadWorkspaceCatalog();
     /// Applies current workspace visibility to the navigation panels.
@@ -118,7 +122,7 @@ private:
     void watchWorkspaceCatalog();
     bool captureWorkspaceLayout(WorkspaceCatalog::Layout &layout, QString &error) const;
     bool applyWorkspaceLayout(const WorkspaceCatalog::Layout &layout, QString &error);
-    bool workspaceLayoutAvailable(const WorkspaceCatalog::Layout &layout, QString &error) const;
+    bool workspaceLayoutAvailable(const WorkspaceCatalog::Layout &layout, QStringList &unavailable, QString &error) const;
     bool restoreWorkspaceLayout(const WorkspaceCatalog::Layout &layout, QString &error, bool &changed);
     void restoreWorkspacePanePlacement(WorkspaceCatalog::PanePlacement placement);
     void restoreWorkspaceEditor(const WorkspaceCatalog::Presentation &presentation);
@@ -267,6 +271,8 @@ private:
     QFileSystemWatcher *m_workspaceWatcher = nullptr;
     QString m_workspaceConfigPath;
     qint64 m_workspaceConfigModified = -1;
+    QTimer *m_workspaceIndicatorTimer = nullptr;
+    KSelectAction *m_workspaceSelectorAction = nullptr;
     KFilePlacesView *m_placesView = nullptr;
     FavoritesModel *m_favorites = nullptr;
     TabColors *m_tabColors = nullptr;

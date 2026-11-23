@@ -67,6 +67,20 @@ private Q_SLOTS:
         QCOMPARE(result.skippedFiles, 3);
     }
 
+    void respectsRemainingEntryBudget()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        for (const QString &name : {QStringLiteral("needle1"), QStringLiteral("needle2")}) {
+            QFile file(root.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        const auto result = LiveSearch::find(root.path(), QStringLiteral("needle"), LiveSearch::Field::FileName, {}, {}, {}, 1);
+        QCOMPARE(result.scannedEntries, 1);
+        QCOMPARE(result.paths.size(), 1);
+        QVERIFY(result.limited);
+    }
+
     void rejectsInvalidInputAndCancels()
     {
         QTemporaryDir root;

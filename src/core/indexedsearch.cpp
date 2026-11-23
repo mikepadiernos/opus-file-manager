@@ -8,6 +8,8 @@
 #include <QFileInfo>
 #include <QStandardPaths>
 
+#include <algorithm>
+
 #ifdef OPUSFM_HAVE_BALOO
 #include <Baloo/IndexerConfig>
 #include <Baloo/Query>
@@ -45,7 +47,8 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
                                        LiveSearch::Field field,
                                        const LiveSearch::Cancel &cancel,
                                        const LiveSearch::Progress &progress,
-                                       const PathFilter &filter)
+                                       const PathFilter &filter,
+                                       const QStringList *workspaceRoots)
 {
     LiveSearch::Result result;
     if (text.trimmed().isEmpty()) {
@@ -61,12 +64,16 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
         result.errors.append(filterError);
         return result;
     }
-    if (filter.maxDepth >= 0 && !QDir::isAbsolutePath(currentFolder)) {
+    if (!workspaceRoots && filter.maxDepth >= 0 && !QDir::isAbsolutePath(currentFolder)) {
         result.errors.append(i18nc("@info", "A local current folder is required to limit indexed-search depth."));
         return result;
     }
     if (cancel && cancel()) {
         result.canceled = true;
+        return result;
+    }
+    if (workspaceRoots && workspaceRoots->isEmpty()) {
+        result.errors.append(i18nc("@info", "The active workspace has no searchable saved locations."));
         return result;
     }
 #ifdef OPUSFM_HAVE_BALOO
@@ -79,7 +86,9 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
         result.errors.append(i18nc("@info", "Baloo content indexing is disabled. Enable it in System Settings or use current-folder search."));
         return result;
     }
-    if (!folderConfigured(currentFolder, config)) {
+    if (workspaceRoots) {
+        result.notices.append(i18nc("@info", "Workspace locations may only be partly indexed. Baloo configuration does not guarantee that files are indexed."));
+    } else if (!folderConfigured(currentFolder, config)) {
         result.notices.append(
             i18nc("@info", "The current location is not configured for Baloo indexing; some descendants or other locations may still be indexed."));
     } else {
@@ -99,7 +108,8 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
     Baloo::Query query;
     query.setSearchString((field == LiveSearch::Field::FileName ? QStringLiteral("filename:\"") : QStringLiteral("content:\"")) + text + QLatin1Char('"'));
     query.setSortingOption(Baloo::Query::SortNone);
-    query.setLimit(filter.isActive() ? 200001 : 5001);
+    query.setLimit(filter.isActive() || workspaceRoots ? 200001 : 5001);
+    const QStringList roots = workspaceRoots ? *workspaceRoots : QStringList{filter.maxDepth >= 0 ? QDir::cleanPath(currentFolder) : QStringLiteral("/")};
     auto iterator = query.exec();
     while (iterator.next()) {
         if (cancel && cancel()) {
@@ -115,8 +125,13 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
             progress(result.scannedEntries, iterator.filePath());
         }
         const QString path = iterator.filePath();
-        const QString root = filter.maxDepth >= 0 ? QDir::cleanPath(currentFolder) : QStringLiteral("/");
-        if (!QDir::isAbsolutePath(path) || (filter.maxDepth >= 0 && QDir::cleanPath(path) == root) || !filter.matches(root, path)) {
+        if (!QDir::isAbsolutePath(path)) {
+            continue;
+        }
+        const bool matches = std::any_of(roots.cbegin(), roots.cend(), [&](const QString &root) {
+            return ((!workspaceRoots && filter.maxDepth < 0) || QDir::cleanPath(path) != root) && filter.matches(root, path);
+        });
+        if (!matches) {
             continue;
         }
         if (result.paths.size() == 5000) {

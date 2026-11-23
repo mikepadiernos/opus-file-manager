@@ -8,6 +8,8 @@
 #include <functional>
 
 class QLabel;
+class QCheckBox;
+class QComboBox;
 class QLineEdit;
 class QListWidget;
 class WorkspaceLocations;
@@ -27,10 +29,12 @@ public:
                     const QString &currentId,
                     QWidget *parent = nullptr,
                     WorkspaceLocations *locations = nullptr);
+    void selectWorkspace(const QString &id);
 
 public Q_SLOTS:
     /// Reloads the catalog after an update from another window.
     void refreshCatalog();
+    void activateSelectedWorkspace();
 
 Q_SIGNALS:
     void currentWorkspaceChanged(const QString &id);
@@ -46,6 +50,10 @@ private:
     void deleteWorkspace();
     void activateWorkspace();
     void saveLayout();
+    void refreshProfileLinks();
+    void saveProfileLinks();
+    void refreshBehaviorSelection();
+    void saveBehaviorSelection();
     /// Refreshes the list of assignable and unavailable saved locations.
     void refreshLocations();
     /// Assigns the selected saved location to the selected workspace.
@@ -64,4 +72,11 @@ private:
     QLabel *m_status = nullptr;
     WorkspaceLocations *m_locations = nullptr;
     QListWidget *m_locationList = nullptr;
+    QListWidget *m_searchProfiles = nullptr;
+    QListWidget *m_folderSyncProfiles = nullptr;
+    QComboBox *m_behaviorMode = nullptr;
+    QCheckBox *m_locationPresentation = nullptr;
+    QCheckBox *m_searchScope = nullptr;
+    QCheckBox *m_layoutBehavior = nullptr;
+    QCheckBox *m_paneTabRestoration = nullptr;
 };

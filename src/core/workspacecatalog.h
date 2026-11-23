@@ -2,10 +2,13 @@
 
 #pragma once
 
+#include "session.h"
+
 #include <KConfigGroup>
 #include <QByteArray>
 #include <QList>
 #include <QMap>
+#include <QRect>
 #include <QString>
 #include <QStringList>
 #include <QUrl>
@@ -34,6 +37,35 @@ enum class EditorPlacement {
     Maximized,
     Window
 };
+enum class TerminalPlacement {
+    Below,
+    Right
+};
+enum class BehaviorMode {
+    All,
+    Selected,
+    None
+};
+
+struct BehaviorSelection {
+    BehaviorMode mode = BehaviorMode::All;
+    bool locationPresentation = true;
+    bool searchScope = true;
+    bool layout = true;
+    bool paneTabRestoration = true;
+    bool applies(bool selected) const
+    {
+        return mode == BehaviorMode::All || (mode == BehaviorMode::Selected && selected);
+    }
+    bool operator==(const BehaviorSelection &other) const = default;
+};
+
+struct PaneToolbarState {
+    QStringList actions;
+    QStringList visible;
+    QStringList hidden;
+    bool operator==(const PaneToolbarState &other) const = default;
+};
 
 struct Presentation {
     PanePlacement panePlacement = PanePlacement::Split;
@@ -45,6 +77,10 @@ struct Presentation {
     bool editorPresent = false;
     bool terminalVisible = false;
     QStringList windowObjects;
+    TerminalPlacement terminalPlacement = TerminalPlacement::Below;
+    QRect detachedPaneGeometry;
+    std::optional<QStringList> toolbarActions;
+    QMap<QString, PaneToolbarState> paneToolbars;
     bool operator==(const Presentation &other) const = default;
 };
 
@@ -55,6 +91,7 @@ struct Layout {
     bool dual = true;
     bool stacked = true;
     std::optional<Presentation> presentation;
+    std::optional<WindowSession> session;
     bool operator==(const Layout &other) const = default;
 };
 
@@ -63,6 +100,9 @@ struct Workspace {
     QString name;
     QString shortLabel;
     std::optional<Layout> layout;
+    QStringList savedSearchIds;
+    QStringList folderSyncProfileIds;
+    BehaviorSelection behaviorSelection;
     bool operator==(const Workspace &other) const = default;
 };
 

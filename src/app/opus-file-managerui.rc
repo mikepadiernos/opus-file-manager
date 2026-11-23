@@ -59,6 +59,8 @@
     </Menu>
     <Menu name="view">
       <text>&amp;View</text>
+      <Action name="workspace_selector"/>
+      <Action name="restore_workspace_layout"/>
       <Action name="manage_workspaces"/>
       <Separator/>
       <Action name="dual_layout"/>
