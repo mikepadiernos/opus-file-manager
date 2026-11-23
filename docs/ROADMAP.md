@@ -1209,8 +1209,9 @@ layouts.
 
   - [ ] Use [mise](https://mise.jdx.dev/) for development tooling: manage project tool
     versions and provide configure, build, test and formatting tasks. Document
-    setup and system-provided Qt, KDE and other dependencies; keep the existing
-    CMake workflow usable without mise.
+    setup and system-provided Qt, KDE and other dependencies, including versions
+    needed to reproduce builds; keep the existing CMake workflow usable without
+    mise.
 
 **Planned caveat:**
 [Password-gated folders](CAVEATS.md#planned-password-gated-folders), tracked in
@@ -1588,6 +1589,9 @@ subsection details.
     such as lazy page creation and background loading where safe. Preserve search,
     validation, Apply/Cancel, immediate effects and unsaved changes, including for
     pages not yet opened.
+  - [ ] Measure clean and incremental build times, identify bottlenecks and
+    evaluate improvements against the same baseline without compromising build
+    correctness or the existing CMake workflow.
   - [ ] Prototype and integrate Rust implementations for selected, profiled
     self-contained core hotspots where benchmarks demonstrate a benefit. Use the
     M21 pilot where applicable, a narrow safe C++/Rust interface and existing
@@ -1607,8 +1611,9 @@ subsection details.
 
   - [ ] Inventory every implemented feature and map its supported entry points to
     reproducible automated or documented manual tests. Record gaps and unavailable
-    features explicitly; extend the matrix as functionality ships without blocking
-    M32 on unimplemented milestones.
+    features explicitly; use coverage reports to identify gaps without treating
+    coverage as proof of correctness. Extend the matrix as functionality ships
+    without blocking M32 on unimplemented milestones.
   - [ ] Review security-sensitive trust boundaries and test adversarial inputs for
     file operations, archives, paths and symbolic links, external commands,
     terminal integration and imported data. Verify validation, permissions,
@@ -1624,8 +1629,13 @@ subsection details.
     proves the application is secure.
   - [ ] Run focused tests with AddressSanitizer and UndefinedBehaviorSanitizer on a
     supported toolchain. Evaluate ThreadSanitizer separately for concurrent
-    paths; document unsupported environments and investigate findings before
+    paths and leak detection where supported. Consider MemorySanitizer or
+    HWAddressSanitizer only where their toolchain and platform requirements can
+    be met. Document unsupported environments and investigate findings before
     treating them as defects.
+  - [ ] Evaluate running the applicable tests, formatting and analysis in CI
+    using documented toolchains and dependencies. Keep sanitizer configurations
+    separate where required and report unavailable checks explicitly.
   - [ ] Exercise workflows end to end alongside unit and integration tests. Cover
     successful operations, invalid input, cancellation, failures, recovery,
     persistence and feature interactions. Verify destructive operations and
