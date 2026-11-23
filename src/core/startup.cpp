@@ -38,6 +38,11 @@ WindowSession Startup::resolve(const WindowSession &saved, const StartupOptions 
         session = saved;
         break;
     }
+    if (options.mode != Settings::EnumStartupMode::RestoreSession) {
+        const int viewMode = static_cast<int>(Settings::defaultViewMode());
+        session.left.viewMode = viewMode;
+        session.right.viewMode = viewMode;
+    }
     session.dual = dualFor(options.dualPane, saved.dual);
     session.stacked = saved.stacked;
     return session.sanitized(options.home);
