@@ -13,6 +13,7 @@
 #include "settings.h"
 #include "settingsbackup.h"
 #include "settingswidgets.h"
+#include "workspacecatalog.h"
 
 #include <KActionCollection>
 #include <KConfigGroup>
@@ -29,6 +30,7 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
+#include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileDialog>
@@ -36,6 +38,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QMessageBox>
 #include <QMetaEnum>
 #include <QPointer>
@@ -435,6 +438,15 @@ QWidget *SettingsDialog::createSettingsBackupPage()
     restore->setObjectName(QStringLiteral("restoreSettingsBackup"));
     connect(restore, &QPushButton::clicked, this, &SettingsDialog::restoreSettingsBackup);
     layout->addWidget(restore);
+    auto *exportWorkspaces = new QPushButton(i18nc("@action:button", "Export Workspace Profiles…"), page);
+    exportWorkspaces->setObjectName(QStringLiteral("exportWorkspaceProfiles"));
+    connect(exportWorkspaces, &QPushButton::clicked, this, &SettingsDialog::exportWorkspaceProfiles);
+    layout->addWidget(exportWorkspaces);
+
+    auto *importWorkspaces = new QPushButton(i18nc("@action:button", "Import Workspace Profiles…"), page);
+    importWorkspaces->setObjectName(QStringLiteral("importWorkspaceProfiles"));
+    connect(importWorkspaces, &QPushButton::clicked, this, &SettingsDialog::importWorkspaceProfiles);
+    layout->addWidget(importWorkspaces);
     layout->addStretch();
     return page;
 }
@@ -504,6 +516,112 @@ void SettingsDialog::restoreSettingsBackup()
     if (prompt.clickedButton() == quit) {
         QCoreApplication::quit();
     }
+}
+
+void SettingsDialog::exportWorkspaceProfiles()
+{
+    const auto config = KSharedConfig::openConfig();
+    WorkspaceCatalog::Catalog catalog;
+    QString error;
+    if (!WorkspaceCatalog::load(config->group(QStringLiteral("Workspaces")), catalog, error)) {
+        QMessageBox::critical(this, i18nc("@title:window", "Could Not Read Workspaces"), error);
+        return;
+    }
+    if (catalog.workspaces.isEmpty()) {
+        QMessageBox::information(this, i18nc("@title:window", "No Workspaces"), i18nc("@info", "Create a workspace before exporting profiles."));
+        return;
+    }
+
+    QDialog select(this);
+    select.setWindowTitle(i18nc("@title:window", "Select Workspace Profiles"));
+    auto *layout = new QVBoxLayout(&select);
+    auto *profiles = new QListWidget(&select);
+    profiles->setSelectionMode(QAbstractItemView::MultiSelection);
+    profiles->setAccessibleName(i18nc("@label", "Workspace profiles to export"));
+    for (const auto &workspace : catalog.workspaces) {
+        auto *item = new QListWidgetItem(i18nc("@item:inlistbox workspace profile", "%1 (%2)", workspace.name, workspace.shortLabel), profiles);
+        item->setData(Qt::UserRole, workspace.id);
+    }
+    layout->addWidget(profiles);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &select);
+    connect(buttons, &QDialogButtonBox::accepted, &select, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &select, &QDialog::reject);
+    layout->addWidget(buttons);
+    if (select.exec() != QDialog::Accepted || profiles->selectedItems().isEmpty()) {
+        return;
+    }
+
+    QStringList ids;
+    for (const QListWidgetItem *item : profiles->selectedItems()) {
+        ids.append(item->data(Qt::UserRole).toString());
+    }
+    const QString defaultPath = QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)).filePath(QStringLiteral("opus-workspaces.tar.gz"));
+    QString path = QFileDialog::getSaveFileName(this,
+                                                i18nc("@title:window", "Export Workspace Profiles"),
+                                                defaultPath,
+                                                i18nc("@item:inlistbox", "Plasma Opus settings backup (*.tar.gz)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    if (!path.endsWith(QLatin1String(".tar.gz"), Qt::CaseInsensitive)) {
+        path.append(QStringLiteral(".tar.gz"));
+    }
+    error = SettingsBackup::createWorkspaceProfiles(path, config, KSharedConfig::openStateConfig(), ids);
+    if (!error.isEmpty()) {
+        QMessageBox::critical(this, i18nc("@title:window", "Could Not Export Workspace Profiles"), error);
+        return;
+    }
+    QMessageBox::information(this,
+                             i18nc("@title:window", "Workspace Profiles Exported"),
+                             i18nc("@info", "The selected workspace profiles were saved to %1.", QDir::toNativeSeparators(path)));
+}
+
+void SettingsDialog::importWorkspaceProfiles()
+{
+    const QString path = QFileDialog::getOpenFileName(this,
+                                                      i18nc("@title:window", "Import Workspace Profiles"),
+                                                      QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
+                                                      i18nc("@item:inlistbox", "Plasma Opus settings backup (*.tar.gz)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    const auto config = KSharedConfig::openConfig();
+    SettingsBackup::WorkspaceProfilesPreview preview;
+    QString error = SettingsBackup::inspectWorkspaceProfiles(path, config, &preview);
+    if (!error.isEmpty()) {
+        QMessageBox::critical(this, i18nc("@title:window", "Invalid Workspace Export"), error);
+        return;
+    }
+    if (preview.profiles.isEmpty()) {
+        QMessageBox::information(this, i18nc("@title:window", "No Workspace Profiles"), i18nc("@info", "The backup contains no workspace profiles."));
+        return;
+    }
+    QMessageBox prompt(this);
+    prompt.setIcon(QMessageBox::Question);
+    prompt.setWindowTitle(i18nc("@title:window", "Preview Workspace Import"));
+    prompt.setText(
+        i18nc("@info",
+              "Import these workspace profiles?\n%1\n\nName or identity collisions:\n%2\n\nReplacing keeps the current workspace identity when possible. "
+              "Keeping existing profiles skips collisions. Import changes workspace settings only; it does not run commands or modify managed files.",
+              preview.profiles.join(QLatin1Char('\n')),
+              preview.conflicts.isEmpty() ? i18nc("@info", "None") : preview.conflicts.join(QLatin1Char('\n'))));
+    auto *replace = prompt.addButton(i18nc("@action:button", "Replace Conflicts"), QMessageBox::AcceptRole);
+    auto *keep = prompt.addButton(i18nc("@action:button", "Keep Existing"), QMessageBox::DestructiveRole);
+    prompt.addButton(QMessageBox::Cancel);
+    prompt.exec();
+    if (prompt.clickedButton() != replace && prompt.clickedButton() != keep) {
+        return;
+    }
+    QStringList imported;
+    error = SettingsBackup::importWorkspaceProfiles(path, config, prompt.clickedButton() == replace, &imported);
+    if (!error.isEmpty()) {
+        QMessageBox::critical(this, i18nc("@title:window", "Could Not Import Workspace Profiles"), error);
+        return;
+    }
+    QMessageBox::information(this,
+                             i18nc("@title:window", "Workspace Profiles Imported"),
+                             imported.isEmpty() ? i18nc("@info", "No profiles were imported because existing profiles were kept.")
+                                                : i18nc("@info", "Imported profiles:\n%1", imported.join(QLatin1Char('\n'))));
 }
 
 QWidget *SettingsDialog::createOpeningPage()

@@ -93,6 +93,8 @@ private Q_SLOTS:
         SettingsDialog dialog(&places, nullptr);
         QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("createSettingsBackup")));
         QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("restoreSettingsBackup")));
+        QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("exportWorkspaceProfiles")));
+        QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("importWorkspaceProfiles")));
     }
 
     void toolbarSettingsOpenExistingEditors()
