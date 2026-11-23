@@ -96,7 +96,7 @@ available. Use a supported embedded provider or open a separate application;
 show when editing is unavailable rather than assuming a viewer can edit.
 
 See the [shortcut settings](../ROADMAP.md#m31-keyboard-shortcut-settings) and
-[layout refinements](../ROADMAP.md#m322-layouts) milestones for these tools.
+[layout refinements](../ROADMAP.md#m32-refinements) milestones for these tools.
 
 ## Toolbars and customization
 

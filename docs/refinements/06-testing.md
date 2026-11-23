@@ -1,7 +1,7 @@
-# M32.6 Functional and security testing
+# M32.06 Functional and security testing
 
 **[Refinements](README.md)** ·
-**[Roadmap](../ROADMAP.md#m326-extensive-functional-and-security-testing)** ·
+**[Roadmap](../ROADMAP.md#m32-refinements)** ·
 **[Edge cases](../EDGE.md)**
 
 **Goal:** exercise every implemented functionality and its security-sensitive

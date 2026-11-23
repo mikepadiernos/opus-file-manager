@@ -1,6 +1,6 @@
-# M32.3 Interaction
+# M32.03 Interaction
 
-**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m323-interaction)** ·
+**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m32-refinements)** ·
 **[Testing](06-testing.md)**
 
 **Goal:** make the application's state and consequences understandable,

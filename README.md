@@ -1,6 +1,8 @@
 # Plasma Opus
 
-<img src="src/app/org.kde.opusfilemanager.svg" alt="Plasma Opus application icon" width="192" height="192">
+<p align="center">
+  <img src="src/app/org.kde.opusfilemanager.svg" alt="Plasma Opus application icon" width="192" height="192">
+</p>
 
 **A dual-pane file manager for KDE Plasma**, bringing power-user workflows
 together with native KDE file operations, Places and settings. Built for Linux
