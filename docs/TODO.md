@@ -8,23 +8,9 @@ Confirm the current issue and project status before acting.
 
 ## Contents
 
-- [Workspace layout coverage (#203)](#workspace-layout-coverage-203)
 - [mpv integration (#563)](#mpv-integration-563)
 - [Markdown editor and backlinks (#564)](#markdown-editor-and-backlinks-564)
 - [Workspace vault editing (#565)](#workspace-vault-editing-565)
-
-## Workspace layout coverage (#203)
-
-[#203](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/203) is
-Defined. The merged #200 implements the workspace selector, management actions
-and supported layout snapshots. Full layout coverage remains planned and is
-documented in the [workspace layout caveat](CAVEATS.md#workspace-layouts).
-
-Extend snapshots to include view modes, toolbar contents, terminal placement and
-detached-window geometry. Preserve pane and tab locations, editor drafts,
-terminal sessions and active jobs, and report unavailable components. Verify
-rollback and the interactions between application-owned placement fields, dock
-visibility and their actions.
 
 ## mpv integration (#563)
 

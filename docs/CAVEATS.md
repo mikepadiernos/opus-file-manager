@@ -43,22 +43,22 @@ recommendation and external tools are separate applications.
 
 ## Workspace layouts
 
-On the M15 development branch, workspace layouts save pane arrangements,
-splitter sizes, preview and editor placement, and dock and toolbar positions.
-They do not yet save view modes, toolbar contents, terminal placement or
-detached-window geometry. On startup, the last selected workspace is marked
-current, but the session layout remains in place until a workspace is switched.
-A visible terminal requires an existing session; metadata and toolbar editors
-must be closed before saving or switching. Incompatible linked panes must be
-unlinked first. Older snapshots cannot be applied until replaced with a current
-layout.
+On the M15 development branch, workspace layouts save pane and tab locations,
+active tabs, view and location-bar modes, toolbar action lists, splitter sizes,
+terminal orientation, detached-pane geometry, and supported panel placement and
+visibility. They do not persist editor drafts or terminal sessions; running jobs
+remain alive when switching in the current process but are not reconstructed
+from a saved layout. The selected workspace is marked current on startup, while
+its saved layout remains unapplied until the user switches to it. A visible
+terminal requires an existing session; metadata and toolbar editors must be
+closed before saving or switching. Incompatible linked panes must be unlinked
+first. Older snapshots may require replacement before they can be applied.
 ([#581](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/581))
 
-- **Recommendation:** Review the omitted settings manually after switching.
-  Finish metadata and toolbar edits, open a terminal session when required, and
-  unlink panes when prompted. To replace an older snapshot, select it and
-  confirm **Save Current Layout**. Explicitly switch to apply a saved layout
-  after startup. Fuller layout coverage is planned in #203.
+- **Recommendation:** Save editor drafts separately and start a terminal session
+  before switching to a layout that shows it. Finish metadata and toolbar edits,
+  and unlink panes when prompted. Replace older snapshots with **Save Current
+  Layout**. Explicitly switch to apply a saved layout after startup.
   - Comment:
     [#581.7074690958](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/581#issuecomment-7074690958)
 
