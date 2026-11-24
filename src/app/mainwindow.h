@@ -125,8 +125,8 @@ private:
     /// Makes the window and docked panel backgrounds as translucent as configured.
     void applyBackgroundOpacity();
     void applyPanelOpacity(QDockWidget *dock);
-    /// Rounds highlights, input fields, tabs and tooltips as configured.
-    void applyCornerRadius();
+    /// Applies the app-local corner radius, dividers and other style rules.
+    void applyAppearanceStyle();
     /// Places the workspace selector in the View menu, the status bar or both.
     void applyWorkspaceSelectorPlacement();
     /// Gives each pane its configured location bar, replacing the current choice only when the setting changes.
@@ -211,6 +211,8 @@ private:
     void saveSplitterSizes();
     void restoreSplitterSizes(bool panes = true, bool workspace = true, bool defaultsIfMissing = false);
     void resetSplitterSizes();
+    /// Moves the divider between the file panes towards the end (1) or start (-1).
+    void movePaneDivider(int direction);
     void restoreEditorDockSize();
     void savePanelDockSize(QDockWidget *dock, const QString &name);
     void restorePanelDockSize(QDockWidget *dock, const QString &name);

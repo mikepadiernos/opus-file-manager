@@ -942,5 +942,18 @@
       <min>0</min>
       <max>24</max>
     </entry>
+    <entry name="Dividers" type="Enum">
+      <label>How splitter handles, panel and toolbar separators, header and grid lines and pane frames are drawn</label>
+      <choices>
+        <choice name="FollowStyle"/>
+        <choice name="Thin"/>
+        <choice name="Hidden"/>
+      </choices>
+      <default>FollowStyle</default>
+    </entry>
+    <entry name="RevealDividersOnHover" type="Bool">
+      <label>Whether hidden splitter handles and panel separators appear while the pointer is over them</label>
+      <default>true</default>
+    </entry>
   </group>
 </kcfg>

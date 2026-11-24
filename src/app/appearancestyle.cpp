@@ -4,9 +4,14 @@
 
 #include "settings.h"
 
+#include <KMainWindow>
+
 #include <QApplication>
+#include <QFrame>
+#include <QMainWindow>
 #include <QPainter>
 #include <QPainterPath>
+#include <QSplitterHandle>
 #include <QStyleOption>
 #include <QTabBar>
 #include <QWidget>
@@ -28,6 +33,12 @@ QColor mixed(const QColor &first, const QColor &second, qreal secondAmount)
     return QColor::fromRgbF(first.redF() + (second.redF() - first.redF()) * secondAmount,
                             first.greenF() + (second.greenF() - first.greenF()) * secondAmount,
                             first.blueF() + (second.blueF() - first.blueF()) * secondAmount);
+}
+
+QColor dividerColor(const QStyleOption *option)
+{
+    const QPalette::ColorGroup group = colorGroup(option);
+    return mixed(option->palette.color(group, QPalette::Window), option->palette.color(group, QPalette::WindowText), 0.2);
 }
 
 /// A rectangle with rounded corners on the left side, the right side or both.
@@ -71,6 +82,11 @@ void fillPath(QPainter *painter, const QPainterPath &path, const QColor &color, 
     painter->drawPath(path);
     painter->restore();
 }
+
+bool isLineShape(int shape)
+{
+    return shape == QFrame::HLine || shape == QFrame::VLine;
+}
 }
 
 AppearanceStyle::AppearanceStyle(QStyle *base)
@@ -84,19 +100,39 @@ AppearanceStyle *AppearanceStyle::installed()
     return qobject_cast<AppearanceStyle *>(QApplication::style());
 }
 
-void AppearanceStyle::applyCornerRadius(int radius)
+void AppearanceStyle::apply(const Options &options)
 {
     AppearanceStyle *style = installed();
     if (!style) {
-        if (radius == FollowStyle) {
+        if (options == Options()) {
             return;
         }
         // The proxy takes ownership of the current style, so QApplication
         // does not delete it when the proxy replaces it.
         style = new AppearanceStyle(QApplication::style());
+        style->m_options = options;
         QApplication::setStyle(style);
+        return;
     }
-    style->setRadius(radius);
+    style->setOptions(options);
+}
+
+AppearanceStyle::Options AppearanceStyle::configured()
+{
+    Options options;
+    options.radius = radiusForSetting(Settings::cornerRadius(), Settings::customCornerRadius());
+    switch (Settings::dividers()) {
+    case Settings::EnumDividers::Thin:
+        options.dividers = Dividers::Thin;
+        break;
+    case Settings::EnumDividers::Hidden:
+        options.dividers = Dividers::Hidden;
+        break;
+    default:
+        break;
+    }
+    options.revealDividers = Settings::revealDividersOnHover();
+    return options;
 }
 
 int AppearanceStyle::radiusForSetting(int choice, int custom)
@@ -123,30 +159,90 @@ int AppearanceStyle::cornerRadius(int fallback)
     return style && style->radius() != FollowStyle ? style->radius() : fallback;
 }
 
-int AppearanceStyle::radius() const
+AppearanceStyle::Options AppearanceStyle::options() const
 {
-    return m_radius;
+    return m_options;
 }
 
-void AppearanceStyle::setRadius(int radius)
+void AppearanceStyle::setOptions(const Options &options)
 {
-    radius = std::max(radius, int(FollowStyle));
-    if (radius == m_radius) {
+    Options normalized = options;
+    normalized.radius = std::max(normalized.radius, int(FollowStyle));
+    if (normalized == m_options) {
         return;
     }
-    m_radius = radius;
+    const bool metrics = normalized.dividers != m_options.dividers;
+    m_options = normalized;
     const QWidgetList widgets = QApplication::allWidgets();
     for (QWidget *widget : widgets) {
+        if (metrics) {
+            // Frames and layouts read their sizes from the style again.
+            QEvent event(QEvent::StyleChange);
+            QCoreApplication::sendEvent(widget, &event);
+        }
         widget->update();
     }
 }
 
+int AppearanceStyle::radius() const
+{
+    return m_options.radius;
+}
+
+void AppearanceStyle::polish(QWidget *widget)
+{
+    QProxyStyle::polish(widget);
+    // Hover state lets hidden splitter handles and panel separators reveal themselves.
+    if (qobject_cast<QSplitterHandle *>(widget) || qobject_cast<QMainWindow *>(widget)) {
+        widget->setAttribute(Qt::WA_Hover);
+    }
+}
+
+bool AppearanceStyle::isRestyledFrame(const QWidget *widget) const
+{
+    // Panel frames in dialogs keep the widget style's frames, so lists and
+    // previews there stay recognisable.
+    const auto *frame = qobject_cast<const QFrame *>(widget);
+    return m_options.dividers != Dividers::FollowStyle && frame && frame->frameShape() != QFrame::NoFrame && !isLineShape(frame->frameShape())
+        && qobject_cast<const KMainWindow *>(frame->window());
+}
+
+void AppearanceStyle::drawDivider(const QStyleOption *option, QPainter *painter, bool hoverable) const
+{
+    const QRect rect = option->rect;
+    const bool vertical = rect.width() < rect.height();
+    QColor color;
+    if (m_options.dividers == Dividers::Hidden) {
+        if (!hoverable || !m_options.revealDividers || !(option->state & State_MouseOver)) {
+            return;
+        }
+        color = option->palette.color(colorGroup(option), QPalette::Highlight);
+    } else {
+        color = (hoverable && option->state & State_MouseOver) ? option->palette.color(colorGroup(option), QPalette::Highlight) : dividerColor(option);
+    }
+    const QRect line = vertical ? QRect(rect.center().x(), rect.top(), 1, rect.height()) : QRect(rect.left(), rect.center().y(), rect.width(), 1);
+    painter->fillRect(line, color);
+}
+
 void AppearanceStyle::drawPrimitive(PrimitiveElement element, const QStyleOption *option, QPainter *painter, const QWidget *widget) const
 {
-    if (m_radius == FollowStyle) {
+    if (m_options.dividers != Dividers::FollowStyle) {
+        switch (element) {
+        case PE_IndicatorDockWidgetResizeHandle:
+            drawDivider(option, painter, true);
+            return;
+        case PE_IndicatorToolBarSeparator:
+            drawDivider(option, painter, false);
+            return;
+        default:
+            break;
+        }
+    }
+    if (m_options.radius == FollowStyle) {
         QProxyStyle::drawPrimitive(element, option, painter, widget);
         return;
     }
+    const int radius = m_options.radius;
     switch (element) {
     case PE_PanelItemViewRow:
         // Item panels draw the rounded selection; a row-wide fill would hide it.
@@ -180,7 +276,7 @@ void AppearanceStyle::drawPrimitive(PrimitiveElement element, const QStyleOption
                     start = false;
                 }
                 const bool rtl = item->direction == Qt::RightToLeft;
-                fillPath(painter, roundedPath(item->rect, m_radius, rtl ? end : start, rtl ? start : end), color);
+                fillPath(painter, roundedPath(item->rect, radius, rtl ? end : start, rtl ? start : end), color);
             }
             return;
         }
@@ -193,7 +289,7 @@ void AppearanceStyle::drawPrimitive(PrimitiveElement element, const QStyleOption
                 ? frame->palette.color(group, QPalette::Highlight)
                 : mixed(frame->palette.color(group, QPalette::Window), frame->palette.color(group, QPalette::WindowText), 0.3);
             const QColor fill = element == PE_PanelLineEdit ? frame->palette.color(group, QPalette::Base) : QColor(Qt::transparent);
-            fillPath(painter, roundedPath(QRectF(frame->rect).adjusted(0.5, 0.5, -0.5, -0.5), m_radius, true, true), fill, outline);
+            fillPath(painter, roundedPath(QRectF(frame->rect).adjusted(0.5, 0.5, -0.5, -0.5), radius, true, true), fill, outline);
             return;
         }
         break;
@@ -203,7 +299,7 @@ void AppearanceStyle::drawPrimitive(PrimitiveElement element, const QStyleOption
         if (widget && widget->testAttribute(Qt::WA_TranslucentBackground)) {
             const QPalette::ColorGroup group = colorGroup(option);
             fillPath(painter,
-                     roundedPath(QRectF(option->rect).adjusted(0.5, 0.5, -0.5, -0.5), m_radius, true, true),
+                     roundedPath(QRectF(option->rect).adjusted(0.5, 0.5, -0.5, -0.5), radius, true, true),
                      option->palette.color(group, QPalette::ToolTipBase),
                      mixed(option->palette.color(group, QPalette::ToolTipBase), option->palette.color(group, QPalette::ToolTipText), 0.25));
             return;
@@ -217,7 +313,58 @@ void AppearanceStyle::drawPrimitive(PrimitiveElement element, const QStyleOption
 
 void AppearanceStyle::drawControl(ControlElement element, const QStyleOption *option, QPainter *painter, const QWidget *widget) const
 {
-    if (m_radius != FollowStyle && element == CE_TabBarTabShape) {
+    if (m_options.dividers != Dividers::FollowStyle) {
+        switch (element) {
+        case CE_Splitter:
+            drawDivider(option, painter, true);
+            return;
+        case CE_ShapedFrame:
+            if (const auto *frame = qstyleoption_cast<const QStyleOptionFrame *>(option)) {
+                if (isLineShape(frame->frameShape)) {
+                    drawDivider(option, painter, false);
+                    return;
+                }
+                if (isRestyledFrame(widget)) {
+                    if (m_options.dividers == Dividers::Thin) {
+                        painter->save();
+                        painter->setPen(dividerColor(option));
+                        painter->setBrush(Qt::NoBrush);
+                        painter->drawRect(QRectF(frame->rect).adjusted(0.5, 0.5, -0.5, -0.5));
+                        painter->restore();
+                    }
+                    return;
+                }
+            }
+            break;
+        case CE_HeaderSection:
+            if (const auto *header = qstyleoption_cast<const QStyleOptionHeader *>(option)) {
+                const QPalette::ColorGroup group = colorGroup(header);
+                QColor fill = header->palette.color(group, QPalette::Base);
+                if (header->state & (State_Sunken | State_On)) {
+                    fill = mixed(fill, header->palette.color(group, QPalette::Highlight), 0.2);
+                } else if ((header->state & State_MouseOver) && (header->state & State_Enabled)) {
+                    fill = mixed(fill, header->palette.color(group, QPalette::Highlight), 0.1);
+                }
+                painter->fillRect(header->rect, fill);
+                if (m_options.dividers == Dividers::Thin) {
+                    const QRect rect = header->rect;
+                    const QColor line = dividerColor(header);
+                    painter->fillRect(QRect(rect.left(), rect.bottom(), rect.width(), 1), line);
+                    const bool last = header->position == QStyleOptionHeader::End || header->position == QStyleOptionHeader::OnlyOneSection;
+                    if (header->orientation == Qt::Horizontal && !last) {
+                        const int x = header->direction == Qt::RightToLeft ? rect.left() : rect.right();
+                        painter->fillRect(QRect(x, rect.top() + rect.height() / 4, 1, rect.height() / 2), line);
+                    }
+                }
+                return;
+            }
+            break;
+        default:
+            break;
+        }
+    }
+    const int radius = m_options.radius;
+    if (radius != FollowStyle && element == CE_TabBarTabShape) {
         if (const auto *tab = qstyleoption_cast<const QStyleOptionTab *>(option)) {
             const bool selected = tab->state & State_Selected;
             const bool hovered = (tab->state & State_MouseOver) && (tab->state & State_Enabled);
@@ -229,7 +376,7 @@ void AppearanceStyle::drawControl(ControlElement element, const QStyleOption *op
             QColor fill = highlight;
             fill.setAlphaF(selected ? 0.2 : 0.1);
             const QRectF rect = QRectF(tab->rect).adjusted(1, 1, -1, -1);
-            fillPath(painter, roundedPath(rect, m_radius, true, true), fill);
+            fillPath(painter, roundedPath(rect, radius, true, true), fill);
             if (selected) {
                 // The selected tab keeps an indicator on the edge facing its
                 // content, so it does not rely on the fill alone.
@@ -238,18 +385,18 @@ void AppearanceStyle::drawControl(ControlElement element, const QStyleOption *op
                 switch (tab->shape) {
                 case QTabBar::RoundedSouth:
                 case QTabBar::TriangularSouth:
-                    indicator = QRectF(rect.left() + m_radius, rect.top(), rect.width() - 2 * m_radius, size);
+                    indicator = QRectF(rect.left() + radius, rect.top(), rect.width() - 2 * radius, size);
                     break;
                 case QTabBar::RoundedWest:
                 case QTabBar::TriangularWest:
-                    indicator = QRectF(rect.right() - size, rect.top() + m_radius, size, rect.height() - 2 * m_radius);
+                    indicator = QRectF(rect.right() - size, rect.top() + radius, size, rect.height() - 2 * radius);
                     break;
                 case QTabBar::RoundedEast:
                 case QTabBar::TriangularEast:
-                    indicator = QRectF(rect.left(), rect.top() + m_radius, size, rect.height() - 2 * m_radius);
+                    indicator = QRectF(rect.left(), rect.top() + radius, size, rect.height() - 2 * radius);
                     break;
                 default:
-                    indicator = QRectF(rect.left() + m_radius, rect.bottom() - size, rect.width() - 2 * m_radius, size);
+                    indicator = QRectF(rect.left() + radius, rect.bottom() - size, rect.width() - 2 * radius, size);
                     break;
                 }
                 fillPath(painter, roundedPath(indicator, size / 2, true, true), highlight);
@@ -258,4 +405,21 @@ void AppearanceStyle::drawControl(ControlElement element, const QStyleOption *op
         }
     }
     QProxyStyle::drawControl(element, option, painter, widget);
+}
+
+int AppearanceStyle::pixelMetric(PixelMetric metric, const QStyleOption *option, const QWidget *widget) const
+{
+    if (metric == PM_DefaultFrameWidth && isRestyledFrame(widget)) {
+        return m_options.dividers == Dividers::Thin ? 1 : 0;
+    }
+    return QProxyStyle::pixelMetric(metric, option, widget);
+}
+
+int AppearanceStyle::styleHint(StyleHint hint, const QStyleOption *option, const QWidget *widget, QStyleHintReturn *returnData) const
+{
+    if (hint == SH_Table_GridLineColor && m_options.dividers != Dividers::FollowStyle && option) {
+        const QColor color = m_options.dividers == Dividers::Hidden ? QColor(Qt::transparent) : dividerColor(option);
+        return static_cast<int>(color.rgba());
+    }
+    return QProxyStyle::styleHint(hint, option, widget, returnData);
 }

@@ -157,7 +157,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                   &m_toolbarTabs);
     addTabbedPage({{createColorSchemePage(), i18nc("@title:tab", "Colour Scheme")},
                    {createCustomColorsPage(), i18nc("@title:tab", "Custom Colours")},
-                   {createEffectsPage(), i18nc("@title:tab", "Effects")}},
+                   {createEffectsPage(), i18nc("@title:tab", "Effects")},
+                   {createLinesPage(), i18nc("@title:tab", "Lines")}},
                   i18nc("@title:group", "Themes"),
                   QStringLiteral("preferences-desktop-theme"));
     addTabbedPage({{createViewGeneralPage(), i18nc("@title:tab", "General")},
@@ -1670,6 +1671,35 @@ QWidget *SettingsDialog::createEffectsPage()
         connect(spin, &QSpinBox::valueChanged, page, updateNotice);
     }
     updateNotice();
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createLinesPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    auto *dividers = comboBox(
+        QStringLiteral("Dividers"),
+        {i18nc("@item:inlistbox dividers", "Follow widget style"), i18nc("@item:inlistbox dividers", "Thin"), i18nc("@item:inlistbox dividers", "Hidden")});
+    dividers->setToolTip(
+        i18nc("@info:tooltip", "Applies to splitter handles, panel and toolbar separators, header and grid lines and the frames of panes and panels."));
+    form->addRow(i18nc("@label:listbox", "Dividers:"), dividers);
+    auto *reveal = checkBox(QStringLiteral("RevealDividersOnHover"), i18nc("@option:check", "Show hidden dividers under the pointer"));
+    form->addRow(QString(), reveal);
+    const auto updateReveal = [dividers, reveal] {
+        reveal->setEnabled(dividers->currentIndex() == Settings::EnumDividers::Hidden);
+    };
+    connect(dividers, &QComboBox::currentIndexChanged, page, updateReveal);
+    updateReveal();
+    layout->addLayout(form);
+    auto *explanation = new QLabel(i18nc("@info",
+                                         "Hidden splitters can still be dragged, change the pointer shape and can be moved with the Move Pane "
+                                         "Divider actions. Reset Pane and Panel Sizes restores their default positions."),
+                                   page);
+    explanation->setWordWrap(true);
+    layout->addWidget(explanation);
     layout->addStretch();
     return page;
 }

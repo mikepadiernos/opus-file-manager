@@ -58,6 +58,7 @@
 #include <QScopeGuard>
 #include <QSizeGrip>
 #include <QSpinBox>
+#include <QSplitter>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QStyleFactory>
@@ -597,6 +598,111 @@ private Q_SLOTS:
         QCOMPARE(AppearanceStyle::cornerRadius(3), 3);
     }
 
+    void dividersThinHideAndRevealOnHover()
+    {
+        const QString originalName = QApplication::style()->name();
+        auto restore = qScopeGuard([originalName] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            if (AppearanceStyle::installed()) {
+                QApplication::setStyle(QStyleFactory::create(originalName));
+            }
+        });
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.resize(1000, 600);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        auto *frame = new QFrame(&window);
+        frame->setFrameShape(QFrame::StyledPanel);
+        const int styleFrameWidth = frame->frameWidth();
+        auto *dialogFrame = new QFrame;
+        auto deleteDialogFrame = qScopeGuard([dialogFrame] {
+            delete dialogFrame;
+        });
+        dialogFrame->setFrameShape(QFrame::StyledPanel);
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *dividers = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_Dividers"));
+        auto *reveal = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_RevealDividersOnHover"));
+        QVERIFY(dividers && reveal);
+        QVERIFY(!reveal->isEnabled());
+        dividers->setCurrentIndex(Settings::EnumDividers::Hidden);
+        Q_EMIT dividers->activated(Settings::EnumDividers::Hidden);
+        QVERIFY(reveal->isEnabled());
+        QVERIFY(reveal->isChecked());
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::dividers(), int(Settings::EnumDividers::Hidden));
+        AppearanceStyle *style = AppearanceStyle::installed();
+        QVERIFY(style);
+        QCOMPARE(style->options().dividers, AppearanceStyle::Dividers::Hidden);
+        QCOMPARE(style->radius(), int(AppearanceStyle::FollowStyle));
+
+        // Frames in the main window disappear; dialog frames stay.
+        QCOMPARE(frame->frameWidth(), 0);
+        QCOMPARE(dialogFrame->frameWidth(), styleFrameWidth);
+
+        // Hidden splitter handles keep their resize area and hover state.
+        auto *splitter = window.findChild<QSplitter *>(QStringLiteral("paneSplitter"));
+        QVERIFY(splitter);
+        QVERIFY(splitter->handle(1)->testAttribute(Qt::WA_Hover));
+        QVERIFY(splitter->handleWidth() > 0);
+        QCOMPARE(splitter->handle(1)->cursor().shape(), splitter->orientation() == Qt::Horizontal ? Qt::SplitHCursor : Qt::SplitVCursor);
+
+        const QPalette palette = QApplication::palette();
+        const QColor highlight = palette.color(QPalette::Active, QPalette::Highlight);
+        QStyleOption handle;
+        handle.palette = palette;
+        handle.rect = QRect(0, 0, 7, 40);
+        handle.state = QStyle::State_Enabled | QStyle::State_Active | QStyle::State_Horizontal;
+        const auto drawHandle = [&] {
+            QImage image(7, 40, QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            style->drawControl(QStyle::CE_Splitter, &handle, &painter, nullptr);
+            painter.end();
+            return image;
+        };
+        QImage image = drawHandle();
+        QCOMPARE(qAlpha(image.pixel(3, 20)), 0);
+        handle.state |= QStyle::State_MouseOver;
+        image = drawHandle();
+        QCOMPARE(image.pixelColor(3, 20), highlight);
+        QCOMPARE(qAlpha(image.pixel(0, 20)), 0);
+        QCOMPARE(style->styleHint(QStyle::SH_Table_GridLineColor, &handle), 0);
+
+        Settings::setRevealDividersOnHover(false);
+        window.applySettings();
+        QCOMPARE(qAlpha(drawHandle().pixel(3, 20)), 0);
+
+        // Thin dividers draw a single line and a one pixel frame.
+        Settings::setDividers(Settings::EnumDividers::Thin);
+        window.applySettings();
+        QCOMPARE(frame->frameWidth(), 1);
+        handle.state &= ~QStyle::State_MouseOver;
+        image = drawHandle();
+        QCOMPARE(image.pixel(3, 20) >> 24, 255u);
+        QVERIFY(image.pixelColor(3, 20) != highlight);
+        QCOMPARE(qAlpha(image.pixel(0, 20)), 0);
+        QCOMPARE(qAlpha(image.pixel(6, 20)), 0);
+
+        // The divider between the panes moves from the keyboard.
+        const QList<int> before = splitter->sizes();
+        window.actionCollection()->action(QStringLiteral("move_pane_divider_forward"))->trigger();
+        QList<int> after = splitter->sizes();
+        QVERIFY2(after.at(0) > before.at(0), qPrintable(QStringLiteral("%1 -> %2").arg(before.at(0)).arg(after.at(0))));
+        QCOMPARE(after.at(0) + after.at(1), before.at(0) + before.at(1));
+        window.actionCollection()->action(QStringLiteral("move_pane_divider_back"))->trigger();
+        after = splitter->sizes();
+        QVERIFY(qAbs(after.at(0) - before.at(0)) <= 1);
+
+        Settings::setDividers(Settings::EnumDividers::FollowStyle);
+        window.applySettings();
+        QCOMPARE(frame->frameWidth(), styleFrameWidth);
+    }
+
     void paneTintFollowsTheChosenPanesAndScheme()
     {
         auto restore = qScopeGuard([] {
@@ -714,6 +820,9 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("PaneTint")), QStringLiteral("Colour Scheme"));
         QCOMPARE(tabOf(QStringLiteral("BackgroundBlur")), QStringLiteral("Effects"));
         QCOMPARE(tabOf(QStringLiteral("PaneOpacity")), QStringLiteral("Effects"));
+        QCOMPARE(tabOf(QStringLiteral("CornerRadius")), QStringLiteral("Effects"));
+        QCOMPARE(tabOf(QStringLiteral("Dividers")), QStringLiteral("Lines"));
+        QCOMPARE(tabOf(QStringLiteral("RevealDividersOnHover")), QStringLiteral("Lines"));
         QCOMPARE(tabOf(QStringLiteral("CustomColors")), QStringLiteral("Custom Colours"));
         QCOMPARE(tabOf(QStringLiteral("DefaultViewMode")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("ShowFileListMinimap")), QStringLiteral("General"));

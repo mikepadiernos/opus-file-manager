@@ -585,15 +585,15 @@ void MainWindow::changeEvent(QEvent *event)
         applyBackgroundOpacity();
     } else if (event->type() == QEvent::StyleChange) {
         // A new Plasma widget style replaces the application style, including
-        // the corner radius proxy; wrap the new style again once the style
+        // the app-local style proxy; wrap the new style again once the style
         // change has reached every widget.
-        QMetaObject::invokeMethod(this, &MainWindow::applyCornerRadius, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(this, &MainWindow::applyAppearanceStyle, Qt::QueuedConnection);
     }
 }
 
-void MainWindow::applyCornerRadius()
+void MainWindow::applyAppearanceStyle()
 {
-    AppearanceStyle::applyCornerRadius(AppearanceStyle::radiusForSetting(Settings::cornerRadius(), Settings::customCornerRadius()));
+    AppearanceStyle::apply(AppearanceStyle::configured());
 }
 
 void MainWindow::childEvent(QChildEvent *event)
@@ -1991,6 +1991,17 @@ void MainWindow::setupActions()
     saveSizes->setText(i18nc("@action", "Save Pane and Panel Sizes"));
     auto *resetSizes = actions->addAction(QStringLiteral("reset_splitter_sizes"), this, &MainWindow::resetSplitterSizes);
     resetSizes->setText(i18nc("@action", "Reset Pane and Panel Sizes"));
+    // Keyboard resizing works the same whether the divider is visible or hidden.
+    auto *dividerBack = actions->addAction(QStringLiteral("move_pane_divider_back"), this, [this] {
+        movePaneDivider(-1);
+    });
+    dividerBack->setText(i18nc("@action", "Move Pane Divider Left or Up"));
+    actions->setDefaultShortcuts(dividerBack, {Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_Left, Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_Up});
+    auto *dividerForward = actions->addAction(QStringLiteral("move_pane_divider_forward"), this, [this] {
+        movePaneDivider(1);
+    });
+    dividerForward->setText(i18nc("@action", "Move Pane Divider Right or Down"));
+    actions->setDefaultShortcuts(dividerForward, {Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_Right, Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_Down});
     auto *customizeCombinedPanel = actions->addAction(QStringLiteral("customize_combined_panel"), m_combinedPanel, &CombinedPanel::configureSections);
     customizeCombinedPanel->setText(i18nc("@action", "Customize Combined Panel…"));
     auto *tabPosition = new KSelectAction(i18nc("@action", "Active Pane Tab Bar Position"), this);
@@ -4494,6 +4505,31 @@ void MainWindow::restorePanelDockSize(QDockWidget *dock, const QString &name)
     }
 }
 
+void MainWindow::movePaneDivider(int direction)
+{
+    QList<int> sizes = m_splitter->sizes();
+    const int first = m_splitter->indexOf(m_left);
+    const int second = m_splitter->indexOf(m_right);
+    if (first < 0 || second != first + 1 || !m_right->isVisible()) {
+        return;
+    }
+    const int total = sizes.at(first) + sizes.at(second);
+    const bool horizontal = m_splitter->orientation() == Qt::Horizontal;
+    const int minimum = std::max(horizontal ? m_left->minimumSizeHint().width() : m_left->minimumSizeHint().height(), 1);
+    const int maximum = total - std::max(horizontal ? m_right->minimumSizeHint().width() : m_right->minimumSizeHint().height(), 1);
+    if (maximum < minimum) {
+        return;
+    }
+    // Move by a twentieth of the panes, as the arrow keys do for sliders.
+    int step = std::max(total / 20, 1) * direction;
+    if (horizontal && layoutDirection() == Qt::RightToLeft) {
+        step = -step;
+    }
+    sizes[first] = std::clamp(sizes.at(first) + step, minimum, maximum);
+    sizes[second] = total - sizes.at(first);
+    m_splitter->setSizes(sizes);
+}
+
 void MainWindow::resetSplitterSizes()
 {
     const auto state = KSharedConfig::openStateConfig();
@@ -4618,7 +4654,7 @@ void MainWindow::applySettings()
     applyColorScheme();
     applyWindowEffects();
     applyBackgroundOpacity();
-    applyCornerRadius();
+    applyAppearanceStyle();
     const bool translucency = Settings::windowOpacity() < 100 || Settings::paneOpacity() < 100 || Settings::panelOpacity() < 100;
     if (const QString reason = WindowEffects::unavailableReason(this, Settings::backgroundBlur(), translucency); !reason.isEmpty()) {
         statusBar()->showMessage(reason);
