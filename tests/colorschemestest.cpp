@@ -149,6 +149,15 @@ private Q_SLOTS:
         QVERIFY(!qApp->property("KDE_COLOR_SCHEME_PATH").isValid());
         QCOMPARE(QGuiApplication::palette(), m_platform);
     }
+
+    void highContrastPreferenceFollowsPlasma()
+    {
+        QVERIFY(ColorSchemes::apply(QLatin1String(ColorSchemes::DarkPreset), false));
+        QVERIFY(ColorSchemes::apply(QLatin1String(ColorSchemes::DarkPreset), true));
+        QVERIFY(!qApp->property("KDE_COLOR_SCHEME_PATH").isValid());
+        QCOMPARE(QGuiApplication::palette(), m_platform);
+        QVERIFY(ColorSchemes::apply(QStringLiteral("MissingTest"), true));
+    }
 };
 
 QTEST_MAIN(ColorSchemesTest)

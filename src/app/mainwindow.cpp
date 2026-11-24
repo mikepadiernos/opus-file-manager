@@ -122,6 +122,7 @@
 #include <QSplitter>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <QStyleHints>
 #include <QStyleOption>
 #include <QTabWidget>
 #include <QTimer>
@@ -129,6 +130,9 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+#include <QAccessibilityHints>
+#endif
 
 #include <algorithm>
 
@@ -505,8 +509,24 @@ MainWindow::MainWindow(QWidget *parent)
 
     applyViewDefaults();
     setActivePane(m_left);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    connect(QGuiApplication::styleHints()->accessibility(), &QAccessibilityHints::contrastPreferenceChanged, this, &MainWindow::applyColorScheme);
+#endif
     applySettings();
     updateActions();
+}
+
+void MainWindow::applyColorScheme()
+{
+    const QString scheme = Settings::colorScheme();
+    const bool highContrast = ColorSchemes::highContrastPreferred();
+    if (!ColorSchemes::apply(scheme, highContrast)) {
+        statusBar()->showMessage(
+            i18nc("@info:status", "Colour scheme %1 is not installed, so Plasma Opus follows the Plasma colour scheme until it is available.", scheme));
+    } else if (highContrast && !scheme.isEmpty()) {
+        statusBar()->showMessage(
+            i18nc("@info:status", "High contrast is requested, so Plasma Opus follows the Plasma colour scheme instead of its own colour scheme."));
+    }
 }
 
 MainWindow::~MainWindow()
@@ -4520,11 +4540,7 @@ bool MainWindow::isDualLayout() const
 
 void MainWindow::applySettings()
 {
-    if (!ColorSchemes::apply(Settings::colorScheme())) {
-        statusBar()->showMessage(i18nc("@info:status",
-                                       "Colour scheme %1 is not installed, so Plasma Opus follows the Plasma colour scheme until it is available.",
-                                       Settings::colorScheme()));
-    }
+    applyColorScheme();
     applyLocationPresentationDefaults();
     applyWorkspaceSelectorPlacement();
     scheduleWorkspaceSelectorRefresh();

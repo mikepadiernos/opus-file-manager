@@ -115,6 +115,8 @@ private:
     void selectWorkspace(int index, bool confirmed = false);
     /// Asks, if enabled, and returns to the active workspace's saved layout.
     void restoreActiveWorkspaceLayout();
+    /// Applies the configured colour scheme and reports when it cannot be used.
+    void applyColorScheme();
     /// Places the workspace selector in the View menu, the status bar or both.
     void applyWorkspaceSelectorPlacement();
     /// Gives each pane its configured location bar, replacing the current choice only when the setting changes.

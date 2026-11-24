@@ -15,6 +15,10 @@
 #include <QPalette>
 #include <QSet>
 #include <QStandardPaths>
+#include <QStyleHints>
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+#include <QAccessibilityHints>
+#endif
 
 #include <algorithm>
 
@@ -196,15 +200,24 @@ QString ColorSchemes::path(const QString &id)
     return {};
 }
 
-bool ColorSchemes::apply(const QString &id)
+bool ColorSchemes::highContrastPreferred()
 {
-    const QString file = path(id);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    return QGuiApplication::styleHints()->accessibility()->contrastPreference() == Qt::ContrastPreference::HighContrast;
+#else
+    return false;
+#endif
+}
+
+bool ColorSchemes::apply(const QString &id, bool highContrast)
+{
+    const QString file = highContrast ? QString() : path(id);
     if (file.isEmpty()) {
         QCoreApplication::instance()->setProperty(SchemePathProperty, QVariant());
         // An empty palette resolves entirely against the platform theme, so
         // later Plasma scheme changes are followed again.
         QGuiApplication::setPalette(QPalette());
-        return id.isEmpty();
+        return highContrast || id.isEmpty();
     }
     QCoreApplication::instance()->setProperty(SchemePathProperty, file);
     const KSharedConfigPtr config = KSharedConfig::openConfig(file, KConfig::SimpleConfig);

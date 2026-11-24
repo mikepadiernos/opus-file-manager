@@ -367,6 +367,14 @@ private Q_SLOTS:
         QTRY_VERIFY(!histogram->pixmap().isNull());
         QVERIFY(!colours->pixmap().isNull());
 
+        const QPalette originalPalette = QApplication::palette();
+        QPalette changed = originalPalette;
+        changed.setColor(QPalette::Base, QColor(1, 2, 3));
+        QApplication::setPalette(changed);
+        QTRY_COMPARE(histogram->pixmap().toImage().pixelColor(0, 0), QColor(1, 2, 3));
+        QApplication::setPalette(originalPalette);
+        QTRY_COMPARE(histogram->pixmap().toImage().pixelColor(0, 0), gallery->palette().base().color());
+
         auto *crop = gallery->findChild<QAction *>(QStringLiteral("galleryCrop"));
         QVERIFY(crop);
         crop->trigger();

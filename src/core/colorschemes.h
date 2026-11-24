@@ -44,11 +44,20 @@ QList<Scheme> available();
 QString path(const QString &id);
 
 /**
+ * Whether the platform asks applications for high contrast. Always false
+ * with Qt versions before 6.10, which do not report the preference.
+ */
+bool highContrastPreferred();
+
+/**
  * Applies a scheme to this application's palette and to the colours that
  * KDE widgets read through KColorScheme.
  * @param id a ColorScheme setting value; empty follows the Plasma scheme
+ * @param highContrast whether the platform asks for high contrast, in which
+ *        case the Plasma scheme is followed so that an app-local scheme does
+ *        not override the accessibility preference
  * @returns false when the scheme is not available, in which case the Plasma
  *          scheme is followed and the setting is left unchanged
  */
-bool apply(const QString &id);
+bool apply(const QString &id, bool highContrast = highContrastPreferred());
 }
