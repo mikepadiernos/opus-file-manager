@@ -801,7 +801,7 @@ Settings for M15 workspaces, stored in KConfig.
       reusing M10 settings; allow searches outside the workspace
 - [x] **Layouts:** choose which pane arrangements, views, toolbars and available
       integration panels to restore; confirm before overwriting saved layouts.
-- [ ] **Snapshots:** choose which pane and tab state to restore from an explicit
+- [x] **Snapshots:** choose which pane and tab state to restore from an explicit
       workspace snapshot, respecting M02 startup and session choices. Preserve
       running jobs and confirm before replacing unsaved state.
 - [ ] **Recovery:** choose whether to prompt for retries when locations or
