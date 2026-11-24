@@ -799,7 +799,7 @@ Settings for M15 workspaces, stored in KConfig.
       without overriding M02 startup folder or session choices
 - [x] **Search:** choose workspace-scoped or all-location search as the default,
       reusing M10 settings; allow searches outside the workspace
-- [ ] **Layouts:** choose which pane arrangements, views, toolbars and available
+- [x] **Layouts:** choose which pane arrangements, views, toolbars and available
       integration panels to restore; confirm before overwriting saved layouts.
 - [ ] **Snapshots:** choose which pane and tab state to restore from an explicit
       workspace snapshot, respecting M02 startup and session choices. Preserve
