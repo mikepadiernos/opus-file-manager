@@ -2,8 +2,11 @@
 
 #pragma once
 
+#include <QHash>
 #include <QList>
+#include <QPalette>
 #include <QString>
+#include <QStringList>
 
 /**
  * App-local colour schemes. Plasma Opus follows the active Plasma colour
@@ -49,15 +52,69 @@ QString path(const QString &id);
  */
 bool highContrastPreferred();
 
+/// A palette role that the colour editor can override.
+struct Role {
+    QPalette::ColorRole role;
+    /// Key stored in the CustomColors setting.
+    QString key;
+    /// Display name.
+    QString name;
+};
+
+/// The editable palette roles, in display order.
+QList<Role> roles();
+
+using Overrides = QHash<QPalette::ColorRole, QColor>;
+
+/**
+ * Reads CustomColors setting entries of the form "Role=#rrggbb". Unknown
+ * roles and invalid colours are skipped.
+ */
+Overrides parseOverrides(const QStringList &entries);
+
+/// Writes overrides as CustomColors setting entries, in role order.
+QStringList serializeOverrides(const Overrides &overrides);
+
+/**
+ * The palette of a scheme without applying it.
+ * @param id a ColorScheme setting value; empty or unavailable schemes give
+ *        the Plasma colour scheme's palette
+ */
+QPalette palette(const QString &id);
+
+/// Sets each overridden role in the active and inactive colour groups.
+QPalette withOverrides(QPalette palette, const Overrides &overrides);
+
+/// WCAG 2 contrast ratio between two colours, from 1 to 21.
+double contrastRatio(const QColor &first, const QColor &second);
+
+struct ContrastIssue {
+    /// Describes the colour pair, such as "Text on view background".
+    QString pair;
+    double ratio = 1;
+    double minimum = 1;
+};
+
+/**
+ * Checks text, selection, link and focus indicator colour pairs against WCAG
+ * 2 AA minimums: 4.5:1 for text and 3:1 for selection and focus indicators.
+ * @param changed when not empty, only pairs that include one of these roles
+ *        are checked, so unchanged scheme colours are not reported
+ */
+QList<ContrastIssue> contrastIssues(const QPalette &palette, const QList<QPalette::ColorRole> &changed = {});
+
 /**
  * Applies a scheme to this application's palette and to the colours that
  * KDE widgets read through KColorScheme.
  * @param id a ColorScheme setting value; empty follows the Plasma scheme
+ * @param customColors CustomColors setting entries layered over the scheme;
+ *        KDE widgets that read colours through KColorScheme still use the
+ *        scheme's colours
  * @param highContrast whether the platform asks for high contrast, in which
- *        case the Plasma scheme is followed so that an app-local scheme does
- *        not override the accessibility preference
+ *        case the Plasma scheme is followed without custom colours so that
+ *        app-local colours do not override the accessibility preference
  * @returns false when the scheme is not available, in which case the Plasma
  *          scheme is followed and the setting is left unchanged
  */
-bool apply(const QString &id, bool highContrast = highContrastPreferred());
+bool apply(const QString &id, const QStringList &customColors = {}, bool highContrast = highContrastPreferred());
 }

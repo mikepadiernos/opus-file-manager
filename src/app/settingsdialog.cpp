@@ -152,7 +152,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                   i18nc("@title:group", "Interface"),
                                   QStringLiteral("window"),
                                   &m_toolbarTabs);
-    addTabbedPage({{createColorSchemePage(), i18nc("@title:tab", "Colour Scheme")}},
+    addTabbedPage({{createColorSchemePage(), i18nc("@title:tab", "Colour Scheme")}, {createCustomColorsPage(), i18nc("@title:tab", "Custom Colours")}},
                   i18nc("@title:group", "Themes"),
                   QStringLiteral("preferences-desktop-theme"));
     addTabbedPage({{createViewGeneralPage(), i18nc("@title:tab", "General")},
@@ -1533,7 +1533,7 @@ QWidget *SettingsDialog::createColorSchemePage()
     auto *page = new QWidget;
     auto *layout = new QVBoxLayout(page);
     auto *form = new QFormLayout;
-    form->addRow(i18nc("@label:listbox", "Colour scheme:"), bound(new ColorSchemeCombo, QStringLiteral("ColorScheme"), "scheme"));
+    form->addRow(i18nc("@label:listbox", "Colour scheme:"), bound(m_colorScheme = new ColorSchemeCombo, QStringLiteral("ColorScheme"), "scheme"));
     layout->addLayout(form);
     auto *notice = new QLabel(i18nc("@info",
                                     "The colour scheme applies only to Plasma Opus. Plasma's global colour scheme, widget style and window "
@@ -1542,6 +1542,25 @@ QWidget *SettingsDialog::createColorSchemePage()
     notice->setWordWrap(true);
     layout->addWidget(notice);
     layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createCustomColorsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *notice = new QLabel(i18nc("@info",
+                                    "Override palette roles of the selected colour scheme. Unchecked roles use the scheme's colour. The preview "
+                                    "updates as you edit; Revert or Cancel discards changes that have not been applied."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    auto *editor = bound(new ColorPaletteEditor, QStringLiteral("CustomColors"), "colors");
+    editor->setScheme(m_colorScheme->scheme());
+    connect(m_colorScheme, &ColorSchemeCombo::schemeChanged, editor, [this, editor] {
+        editor->setScheme(m_colorScheme->scheme());
+    });
+    layout->addWidget(editor, 1);
     return page;
 }
 

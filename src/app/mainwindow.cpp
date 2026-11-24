@@ -519,13 +519,14 @@ MainWindow::MainWindow(QWidget *parent)
 void MainWindow::applyColorScheme()
 {
     const QString scheme = Settings::colorScheme();
+    const QStringList customColors = Settings::customColors();
     const bool highContrast = ColorSchemes::highContrastPreferred();
-    if (!ColorSchemes::apply(scheme, highContrast)) {
+    if (!ColorSchemes::apply(scheme, customColors, highContrast)) {
         statusBar()->showMessage(
             i18nc("@info:status", "Colour scheme %1 is not installed, so Plasma Opus follows the Plasma colour scheme until it is available.", scheme));
-    } else if (highContrast && !scheme.isEmpty()) {
+    } else if (highContrast && (!scheme.isEmpty() || !customColors.isEmpty())) {
         statusBar()->showMessage(
-            i18nc("@info:status", "High contrast is requested, so Plasma Opus follows the Plasma colour scheme instead of its own colour scheme."));
+            i18nc("@info:status", "High contrast is requested, so Plasma Opus follows the Plasma colour scheme instead of its own colours."));
     }
 }
 

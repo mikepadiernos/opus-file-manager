@@ -21,6 +21,7 @@
 #endif
 
 #include <algorithm>
+#include <cmath>
 
 namespace
 {
@@ -46,37 +47,38 @@ struct Preset {
     QList<std::pair<const char *, const char *>> windowManager;
 };
 
-// Breeze-derived palettes. Selections use a darker blue than Breeze so
-// that white selected text keeps a contrast ratio above 4.5:1.
+// Breeze-derived palettes. Selections, links and inactive text differ from
+// Breeze where needed so that every pair ColorSchemes::contrastIssues()
+// checks meets the WCAG 2 AA minimum.
 const QList<Preset> &presets()
 {
     static const QList<Preset> presets{
         {ColorSchemes::LightPreset,
          "OpusLight.colors",
          "Plasma Opus Light",
-         {{"Colors:View", "255,255,255", "247,247,247", "35,38,41", "112,125,138"},
-          {"Colors:Window", "239,240,241", "227,229,231", "35,38,41", "112,125,138"},
-          {"Colors:Button", "252,252,252", "163,212,250", "35,38,41", "112,125,138"},
+         {{"Colors:View", "255,255,255", "247,247,247", "35,38,41", "96,107,118"},
+          {"Colors:Window", "239,240,241", "227,229,231", "35,38,41", "96,107,118"},
+          {"Colors:Button", "252,252,252", "163,212,250", "35,38,41", "96,107,118"},
           {"Colors:Selection", "38,113,165", "163,212,250", "255,255,255", "222,236,246"},
-          {"Colors:Tooltip", "247,247,247", "239,240,241", "35,38,41", "112,125,138"},
+          {"Colors:Tooltip", "247,247,247", "239,240,241", "35,38,41", "96,107,118"},
           {"Colors:Complementary", "42,46,50", "27,30,32", "252,252,252", "161,169,177"},
-          {"Colors:Header", "222,224,226", "239,240,241", "35,38,41", "112,125,138"}},
-         "41,128,185",
+          {"Colors:Header", "222,224,226", "239,240,241", "35,38,41", "96,107,118"}},
+         "31,111,166",
          "155,89,182",
          "147,206,233",
-         {{"activeBackground", "227,229,231"}, {"activeForeground", "35,38,41"}, {"inactiveBackground", "239,240,241"}, {"inactiveForeground", "112,125,138"}}},
+         {{"activeBackground", "227,229,231"}, {"activeForeground", "35,38,41"}, {"inactiveBackground", "239,240,241"}, {"inactiveForeground", "96,107,118"}}},
         {ColorSchemes::DarkPreset,
          "OpusDark.colors",
          "Plasma Opus Dark",
          {{"Colors:View", "27,30,32", "35,38,41", "252,252,252", "161,169,177"},
           {"Colors:Window", "32,35,38", "41,44,48", "252,252,252", "161,169,177"},
           {"Colors:Button", "41,44,48", "30,87,116", "252,252,252", "161,169,177"},
-          {"Colors:Selection", "38,113,165", "30,87,116", "252,252,252", "222,236,246"},
+          {"Colors:Selection", "41,121,176", "30,87,116", "252,252,252", "222,236,246"},
           {"Colors:Tooltip", "41,44,48", "32,35,38", "252,252,252", "161,169,177"},
           {"Colors:Complementary", "42,46,50", "27,30,32", "252,252,252", "161,169,177"},
           {"Colors:Header", "41,44,48", "32,35,38", "252,252,252", "161,169,177"}},
          "29,153,243",
-         "155,89,182",
+         "187,134,219",
          "61,174,233",
          {{"activeBackground", "41,44,48"}, {"activeForeground", "252,252,252"}, {"inactiveBackground", "32,35,38"}, {"inactiveForeground", "161,169,177"}}},
     };
@@ -209,19 +211,141 @@ bool ColorSchemes::highContrastPreferred()
 #endif
 }
 
-bool ColorSchemes::apply(const QString &id, bool highContrast)
+QList<ColorSchemes::Role> ColorSchemes::roles()
+{
+    return {
+        {QPalette::Window, QStringLiteral("Window"), i18nc("@label palette role", "Window background")},
+        {QPalette::WindowText, QStringLiteral("WindowText"), i18nc("@label palette role", "Window text")},
+        {QPalette::Base, QStringLiteral("Base"), i18nc("@label palette role", "View background")},
+        {QPalette::AlternateBase, QStringLiteral("AlternateBase"), i18nc("@label palette role", "Alternate view background")},
+        {QPalette::Text, QStringLiteral("Text"), i18nc("@label palette role", "View text")},
+        {QPalette::PlaceholderText, QStringLiteral("PlaceholderText"), i18nc("@label palette role", "Placeholder text")},
+        {QPalette::Button, QStringLiteral("Button"), i18nc("@label palette role", "Button background")},
+        {QPalette::ButtonText, QStringLiteral("ButtonText"), i18nc("@label palette role", "Button text")},
+        {QPalette::Highlight, QStringLiteral("Highlight"), i18nc("@label palette role", "Selection background")},
+        {QPalette::HighlightedText, QStringLiteral("HighlightedText"), i18nc("@label palette role", "Selection text")},
+        {QPalette::Accent, QStringLiteral("Accent"), i18nc("@label palette role", "Accent and focus")},
+        {QPalette::Link, QStringLiteral("Link"), i18nc("@label palette role", "Link")},
+        {QPalette::LinkVisited, QStringLiteral("LinkVisited"), i18nc("@label palette role", "Visited link")},
+        {QPalette::ToolTipBase, QStringLiteral("ToolTipBase"), i18nc("@label palette role", "Tooltip background")},
+        {QPalette::ToolTipText, QStringLiteral("ToolTipText"), i18nc("@label palette role", "Tooltip text")},
+    };
+}
+
+ColorSchemes::Overrides ColorSchemes::parseOverrides(const QStringList &entries)
+{
+    const QList<Role> known = roles();
+    Overrides overrides;
+    for (const QString &entry : entries) {
+        const qsizetype separator = entry.indexOf(QLatin1Char('='));
+        if (separator <= 0) {
+            continue;
+        }
+        const QString key = entry.left(separator).trimmed();
+        const QColor color = QColor::fromString(entry.mid(separator + 1).trimmed());
+        const auto role = std::find_if(known.cbegin(), known.cend(), [&key](const Role &candidate) {
+            return candidate.key == key;
+        });
+        if (role != known.cend() && color.isValid()) {
+            overrides.insert(role->role, QColor(color.rgb()));
+        }
+    }
+    return overrides;
+}
+
+QStringList ColorSchemes::serializeOverrides(const Overrides &overrides)
+{
+    QStringList entries;
+    for (const Role &role : roles()) {
+        if (overrides.contains(role.role)) {
+            entries.append(role.key + QLatin1Char('=') + overrides.value(role.role).name(QColor::HexRgb));
+        }
+    }
+    return entries;
+}
+
+QPalette ColorSchemes::palette(const QString &id)
+{
+    const QString file = path(id);
+    const KSharedConfigPtr config =
+        file.isEmpty() ? KSharedConfig::openConfig(QStringLiteral("kdeglobals")) : KSharedConfig::openConfig(file, KConfig::SimpleConfig);
+    config->reparseConfiguration();
+    return KColorScheme::createApplicationPalette(config);
+}
+
+QPalette ColorSchemes::withOverrides(QPalette palette, const Overrides &overrides)
+{
+    for (auto it = overrides.cbegin(); it != overrides.cend(); ++it) {
+        palette.setColor(QPalette::Active, it.key(), it.value());
+        palette.setColor(QPalette::Inactive, it.key(), it.value());
+    }
+    return palette;
+}
+
+double ColorSchemes::contrastRatio(const QColor &first, const QColor &second)
+{
+    const auto luminance = [](const QColor &color) {
+        const auto channel = [](double value) {
+            return value <= 0.03928 ? value / 12.92 : std::pow((value + 0.055) / 1.055, 2.4);
+        };
+        const QColor rgb = color.toRgb();
+        return 0.2126 * channel(rgb.redF()) + 0.7152 * channel(rgb.greenF()) + 0.0722 * channel(rgb.blueF());
+    };
+    const auto [darker, lighter] = std::minmax(luminance(first), luminance(second));
+    return (lighter + 0.05) / (darker + 0.05);
+}
+
+QList<ColorSchemes::ContrastIssue> ColorSchemes::contrastIssues(const QPalette &palette, const QList<QPalette::ColorRole> &changed)
+{
+    struct Pair {
+        QPalette::ColorRole foreground;
+        QPalette::ColorRole background;
+        double minimum;
+        QString name;
+    };
+    const QList<Pair> pairs{
+        {QPalette::WindowText, QPalette::Window, 4.5, i18nc("@item colour pair", "Window text on window background")},
+        {QPalette::Text, QPalette::Base, 4.5, i18nc("@item colour pair", "View text on view background")},
+        {QPalette::Text, QPalette::AlternateBase, 4.5, i18nc("@item colour pair", "View text on alternate view background")},
+        {QPalette::PlaceholderText, QPalette::Base, 4.5, i18nc("@item colour pair", "Placeholder text on view background")},
+        {QPalette::ButtonText, QPalette::Button, 4.5, i18nc("@item colour pair", "Button text on button background")},
+        {QPalette::HighlightedText, QPalette::Highlight, 4.5, i18nc("@item colour pair", "Selection text on selection background")},
+        {QPalette::Link, QPalette::Base, 4.5, i18nc("@item colour pair", "Link on view background")},
+        {QPalette::LinkVisited, QPalette::Base, 4.5, i18nc("@item colour pair", "Visited link on view background")},
+        {QPalette::ToolTipText, QPalette::ToolTipBase, 4.5, i18nc("@item colour pair", "Tooltip text on tooltip background")},
+        {QPalette::Highlight, QPalette::Base, 3, i18nc("@item colour pair", "Selection against view background")},
+        {QPalette::Accent, QPalette::Base, 3, i18nc("@item colour pair", "Focus indicator against view background")},
+        {QPalette::Accent, QPalette::Window, 3, i18nc("@item colour pair", "Focus indicator against window background")},
+    };
+    QList<ContrastIssue> issues;
+    for (const Pair &pair : pairs) {
+        if (!changed.isEmpty() && !changed.contains(pair.foreground) && !changed.contains(pair.background)) {
+            continue;
+        }
+        const double ratio = contrastRatio(palette.color(QPalette::Active, pair.foreground), palette.color(QPalette::Active, pair.background));
+        // Compare at the displayed precision, so 4.49 is not reported as 4.5.
+        if (std::floor(ratio * 10) / 10 < pair.minimum) {
+            issues.append({pair.name, ratio, pair.minimum});
+        }
+    }
+    return issues;
+}
+
+bool ColorSchemes::apply(const QString &id, const QStringList &customColors, bool highContrast)
 {
     const QString file = highContrast ? QString() : path(id);
+    const Overrides overrides = highContrast ? Overrides() : parseOverrides(customColors);
     if (file.isEmpty()) {
         QCoreApplication::instance()->setProperty(SchemePathProperty, QVariant());
-        // An empty palette resolves entirely against the platform theme, so
-        // later Plasma scheme changes are followed again.
-        QGuiApplication::setPalette(QPalette());
+        // A palette without resolved roles resolves entirely against the
+        // platform theme, so later Plasma scheme changes are followed again;
+        // custom colours resolve only their own roles.
+        QGuiApplication::setPalette(withOverrides(QPalette(), overrides));
         return highContrast || id.isEmpty();
     }
     QCoreApplication::instance()->setProperty(SchemePathProperty, file);
     const KSharedConfigPtr config = KSharedConfig::openConfig(file, KConfig::SimpleConfig);
     config->reparseConfiguration();
-    QGuiApplication::setPalette(KColorScheme::createApplicationPalette(config));
+    QGuiApplication::setPalette(withOverrides(KColorScheme::createApplicationPalette(config), overrides));
     return true;
 }

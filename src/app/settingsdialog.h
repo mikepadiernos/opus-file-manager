@@ -7,6 +7,7 @@
 
 #include <functional>
 
+class ColorSchemeCombo;
 class KPageWidgetItem;
 class PreviewSizeSpinBox;
 class QCheckBox;
@@ -104,6 +105,7 @@ private:
     QWidget *createStatusBarPage();
     QWidget *createInformationPanelPage();
     QWidget *createColorSchemePage();
+    QWidget *createCustomColorsPage();
     QWidget *createViewGeneralPage();
     QWidget *createDetailsPage();
     QWidget *createCompactPage();
@@ -145,6 +147,7 @@ private:
     QTabWidget *m_toolbarTabs = nullptr;
     QListWidget *m_workspaceSummary = nullptr;
     StartupWorkspaceCombo *m_startupWorkspace = nullptr;
+    ColorSchemeCombo *m_colorScheme = nullptr;
     /// A checkbox for a setting kept outside Settings, in config that KIO
     /// shares with Dolphin.
     struct SharedToggle {

@@ -5,16 +5,24 @@
 #include "colorschemes.h"
 #include "filecolorrules.h"
 #include "ignorelist.h"
+#include "settings.h"
 #include "workspacestartup.h"
 
+#include <KColorButton>
 #include <KIO/PreviewJob>
 #include <KLanguageName>
 #include <KLocalizedString>
+#include <KMessageWidget>
 #include <KPluginMetaData>
 
+#include <QCheckBox>
 #include <QColorDialog>
+#include <QFrame>
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QInputDialog>
+#include <QLabel>
+#include <QLineEdit>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSet>
@@ -22,6 +30,7 @@
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <cmath>
 #include <limits>
 
 namespace
@@ -197,6 +206,165 @@ void ColorSchemeCombo::setScheme(const QString &scheme)
     if (previous != this->scheme()) {
         Q_EMIT schemeChanged();
     }
+}
+
+ColorPaletteEditor::ColorPaletteEditor(QWidget *parent)
+    : QWidget(parent)
+    , m_base(ColorSchemes::palette(QString()))
+    , m_preview(new QFrame(this))
+    , m_contrast(new KMessageWidget(this))
+{
+    setProperty("kcfg_propertyNotify", QByteArray(SIGNAL(colorsChanged())));
+    auto *layout = new QHBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+
+    auto *roles = new QGridLayout;
+    int row = 0;
+    for (const ColorSchemes::Role &role : ColorSchemes::roles()) {
+        auto *override = new QCheckBox(role.name, this);
+        override->setObjectName(QStringLiteral("override") + role.key);
+        auto *button = new KColorButton(this);
+        button->setObjectName(QStringLiteral("colour") + role.key);
+        button->setAccessibleName(role.name);
+        roles->addWidget(override, row, 0);
+        roles->addWidget(button, row, 1);
+        ++row;
+        const QPalette::ColorRole paletteRole = role.role;
+        connect(override, &QCheckBox::toggled, this, [this, paletteRole, button](bool checked) {
+            if (checked) {
+                m_overrides.insert(paletteRole, button->color());
+            } else {
+                m_overrides.remove(paletteRole);
+            }
+            refresh();
+            Q_EMIT colorsChanged();
+        });
+        connect(button, &KColorButton::changed, this, [this, paletteRole, override](const QColor &color) {
+            if (!override->isChecked()) {
+                return;
+            }
+            m_overrides.insert(paletteRole, QColor(color.rgb()));
+            refresh();
+            Q_EMIT colorsChanged();
+        });
+        m_rows.append({paletteRole, override, button});
+    }
+    auto *resetAll = new QPushButton(QIcon::fromTheme(QStringLiteral("edit-clear-all")), i18nc("@action:button", "Use Scheme Colours"), this);
+    resetAll->setObjectName(QStringLiteral("useSchemeColours"));
+    resetAll->setToolTip(i18nc("@info:tooltip", "Stop overriding every palette role"));
+    connect(resetAll, &QPushButton::clicked, this, [this] {
+        setColors({});
+    });
+    m_revert = new QPushButton(QIcon::fromTheme(QStringLiteral("edit-undo")), i18nc("@action:button", "Revert"), this);
+    m_revert->setObjectName(QStringLiteral("revertColours"));
+    m_revert->setToolTip(i18nc("@info:tooltip", "Discard colour changes that have not been applied"));
+    connect(m_revert, &QPushButton::clicked, this, [this] {
+        setColors(Settings::customColors());
+    });
+    auto *buttons = new QHBoxLayout;
+    buttons->addWidget(resetAll);
+    buttons->addWidget(m_revert);
+    buttons->addStretch();
+    roles->addLayout(buttons, row, 0, 1, 2);
+    roles->setRowStretch(row + 1, 1);
+    layout->addLayout(roles);
+
+    auto *side = new QVBoxLayout;
+    m_preview->setObjectName(QStringLiteral("colourPreview"));
+    m_preview->setFrameShape(QFrame::StyledPanel);
+    m_preview->setAutoFillBackground(true);
+    auto *preview = new QVBoxLayout(m_preview);
+    preview->addWidget(new QLabel(i18nc("@label colour preview", "Window text"), m_preview));
+    auto *list = new QListWidget(m_preview);
+    list->setAlternatingRowColors(true);
+    list->addItems({i18nc("@item colour preview", "Documents"), i18nc("@item colour preview", "Selected item"), i18nc("@item colour preview", "Pictures")});
+    list->setCurrentRow(1);
+    list->setMaximumHeight(list->sizeHintForRow(0) * 4);
+    list->setFocusPolicy(Qt::NoFocus);
+    preview->addWidget(list);
+    auto *text = new QLineEdit(i18nc("@info colour preview", "Text field"), m_preview);
+    text->setReadOnly(true);
+    preview->addWidget(text);
+    auto *placeholder = new QLineEdit(m_preview);
+    placeholder->setPlaceholderText(i18nc("@info colour preview", "Placeholder text"));
+    placeholder->setReadOnly(true);
+    preview->addWidget(placeholder);
+    auto *link = new QLabel(QStringLiteral("<a href=\"#\">%1</a>").arg(i18nc("@info colour preview", "Link")), m_preview);
+    link->setTextInteractionFlags(Qt::NoTextInteraction);
+    preview->addWidget(link);
+    preview->addWidget(new QPushButton(i18nc("@action:button colour preview", "Button"), m_preview));
+    auto *tooltip = new QLabel(i18nc("@info colour preview", "Tooltip"), m_preview);
+    tooltip->setAutoFillBackground(true);
+    tooltip->setBackgroundRole(QPalette::ToolTipBase);
+    tooltip->setForegroundRole(QPalette::ToolTipText);
+    tooltip->setMargin(4);
+    preview->addWidget(tooltip);
+    preview->addStretch();
+    side->addWidget(new QLabel(i18nc("@title:group", "Preview"), this));
+    side->addWidget(m_preview);
+    m_contrast->setObjectName(QStringLiteral("contrastWarning"));
+    m_contrast->setMessageType(KMessageWidget::Warning);
+    m_contrast->setCloseButtonVisible(false);
+    m_contrast->setWordWrap(true);
+    m_contrast->hide();
+    side->addWidget(m_contrast);
+    layout->addLayout(side, 1);
+    connect(Settings::self(), &Settings::configChanged, this, &ColorPaletteEditor::refresh);
+    refresh();
+}
+
+QStringList ColorPaletteEditor::colors() const
+{
+    return ColorSchemes::serializeOverrides(m_overrides);
+}
+
+void ColorPaletteEditor::setColors(const QStringList &colors)
+{
+    const ColorSchemes::Overrides overrides = ColorSchemes::parseOverrides(colors);
+    if (overrides == m_overrides) {
+        return;
+    }
+    m_overrides = overrides;
+    refresh();
+    Q_EMIT colorsChanged();
+}
+
+void ColorPaletteEditor::setScheme(const QString &id)
+{
+    m_base = ColorSchemes::palette(id);
+    refresh();
+}
+
+void ColorPaletteEditor::refresh()
+{
+    m_revert->setEnabled(colors() != ColorSchemes::serializeOverrides(ColorSchemes::parseOverrides(Settings::customColors())));
+    for (const Row &row : std::as_const(m_rows)) {
+        const bool overridden = m_overrides.contains(row.role);
+        const QSignalBlocker overrideBlocker(row.override);
+        const QSignalBlocker buttonBlocker(row.button);
+        row.override->setChecked(overridden);
+        row.button->setEnabled(overridden);
+        row.button->setColor(overridden ? m_overrides.value(row.role) : m_base.color(QPalette::Active, row.role));
+    }
+    const QPalette palette = ColorSchemes::withOverrides(m_base, m_overrides);
+    m_preview->setPalette(palette);
+    const QList<ColorSchemes::ContrastIssue> issues = ColorSchemes::contrastIssues(palette, m_overrides.keys());
+    if (issues.isEmpty()) {
+        m_contrast->hide();
+        return;
+    }
+    QStringList lines;
+    for (const ColorSchemes::ContrastIssue &issue : issues) {
+        lines.append(i18nc("@info contrast issue: colour pair, ratio, minimum",
+                           "%1: %2:1, at least %3:1 recommended",
+                           issue.pair,
+                           QString::number(std::floor(issue.ratio * 10) / 10, 'f', 1),
+                           QString::number(issue.minimum, 'f', 1))
+                         .toHtmlEscaped());
+    }
+    m_contrast->setText(i18nc("@info", "Some colours may be hard to read:").toHtmlEscaped() + QStringLiteral("<ul><li>")
+                        + lines.join(QStringLiteral("</li><li>")) + QStringLiteral("</li></ul>"));
+    m_contrast->show();
 }
 
 RuleListEditor::RuleListEditor(Kind kind, QWidget *parent)

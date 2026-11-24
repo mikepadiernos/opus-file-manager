@@ -3,7 +3,9 @@
 #pragma once
 
 #include <QComboBox>
+#include <QHash>
 #include <QListWidget>
+#include <QPalette>
 #include <QSpinBox>
 #include <QWidget>
 
@@ -79,6 +81,52 @@ public:
 
 Q_SIGNALS:
     void schemeChanged();
+};
+
+class KColorButton;
+class KMessageWidget;
+class QCheckBox;
+class QFrame;
+class QPushButton;
+
+/**
+ * Edits app-local palette role colours layered over the selected colour
+ * scheme, with a live preview and contrast feedback. Unchecked roles follow
+ * the scheme. Bound to the CustomColors setting by KConfigDialog; Revert and
+ * the dialog's Cancel discard unsaved edits.
+ */
+class ColorPaletteEditor : public QWidget
+{
+    Q_OBJECT
+    Q_PROPERTY(QStringList colors READ colors WRITE setColors NOTIFY colorsChanged USER true)
+
+public:
+    explicit ColorPaletteEditor(QWidget *parent = nullptr);
+    QStringList colors() const;
+    void setColors(const QStringList &colors);
+    /**
+     * Shows the given scheme's colours for roles that are not overridden.
+     * @param id a ColorScheme setting value
+     */
+    void setScheme(const QString &id);
+
+Q_SIGNALS:
+    void colorsChanged();
+
+private:
+    struct Row {
+        QPalette::ColorRole role;
+        QCheckBox *override;
+        KColorButton *button;
+    };
+    void refresh();
+
+    QList<Row> m_rows;
+    QHash<QPalette::ColorRole, QColor> m_overrides;
+    QPalette m_base;
+    QFrame *m_preview;
+    KMessageWidget *m_contrast;
+    QPushButton *m_revert = nullptr;
 };
 
 class RuleListEditor : public QWidget

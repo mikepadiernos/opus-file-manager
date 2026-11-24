@@ -16,10 +16,12 @@
 #include "tabmodel.h"
 
 #include <KActionCollection>
+#include <KColorButton>
 #include <KDirModel>
 #include <KFileItemDelegate>
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
+#include <KMessageWidget>
 #include <KPageWidget>
 #include <KSharedConfig>
 #include <KToolBar>
@@ -36,6 +38,7 @@
 #include <QDockWidget>
 #include <QDropEvent>
 #include <QFile>
+#include <QFrame>
 #include <QGraphicsOpacityEffect>
 #include <QHeaderView>
 #include <QLabel>
@@ -266,6 +269,68 @@ private Q_SLOTS:
         QVERIFY(combo->currentText().contains(QLatin1String("MissingTestScheme")));
     }
 
+    void customColoursPreviewValidateAndRevert()
+    {
+        auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            ColorSchemes::apply(QString());
+        });
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *combo = dialog.findChild<ColorSchemeCombo *>(QStringLiteral("kcfg_ColorScheme"));
+        auto *editor = dialog.findChild<ColorPaletteEditor *>(QStringLiteral("kcfg_CustomColors"));
+        QVERIFY(combo && editor);
+        auto *preview = editor->findChild<QFrame *>(QStringLiteral("colourPreview"));
+        auto *warning = editor->findChild<KMessageWidget *>(QStringLiteral("contrastWarning"));
+        auto *overrideText = editor->findChild<QCheckBox *>(QStringLiteral("overrideText"));
+        auto *textButton = editor->findChild<KColorButton *>(QStringLiteral("colourText"));
+        auto *windowButton = editor->findChild<KColorButton *>(QStringLiteral("colourWindow"));
+        QVERIFY(preview && warning && overrideText && textButton && windowButton);
+        QVERIFY(editor->colors().isEmpty());
+
+        // Roles that are not overridden show the selected scheme's colours.
+        combo->setCurrentIndex(combo->findData(QLatin1String(ColorSchemes::DarkPreset)));
+        QCOMPARE(windowButton->color(), QColor(32, 35, 38));
+        QCOMPARE(preview->palette().color(QPalette::Active, QPalette::Window), QColor(32, 35, 38));
+        QVERIFY(!textButton->isEnabled());
+
+        overrideText->setChecked(true);
+        QVERIFY(textButton->isEnabled());
+        textButton->setColor(QColor(40, 44, 48));
+        QCOMPARE(preview->palette().color(QPalette::Active, QPalette::Text), QColor(40, 44, 48));
+        QVERIFY(!warning->isHidden());
+        QVERIFY(warning->text().contains(QLatin1String("View text on view background")));
+        textButton->setColor(QColor(250, 250, 250));
+        QVERIFY(warning->isHidden());
+        QCOMPARE(editor->colors(), QStringList({QStringLiteral("Text=#fafafa")}));
+        // Previewing does not change the application.
+        QVERIFY(!QCoreApplication::testAttribute(Qt::AA_SetPalette));
+
+        // Revert discards edits that were not applied.
+        auto *revert = editor->findChild<QPushButton *>(QStringLiteral("revertColours"));
+        QVERIFY(revert && revert->isEnabled());
+        revert->click();
+        QVERIFY(editor->colors().isEmpty());
+        QVERIFY(!revert->isEnabled());
+        QVERIFY(!textButton->isEnabled());
+
+        overrideText->setChecked(true);
+        textButton->setColor(QColor(250, 250, 250));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::customColors(), QStringList({QStringLiteral("Text=#fafafa")}));
+        QTRY_COMPARE(window.palette().color(QPalette::Active, QPalette::Text), QColor(250, 250, 250));
+        QCOMPARE(window.palette().color(QPalette::Active, QPalette::Window), QColor(32, 35, 38));
+        QVERIFY(!revert->isEnabled());
+
+        editor->findChild<QPushButton *>(QStringLiteral("useSchemeColours"))->click();
+        QVERIFY(editor->colors().isEmpty());
+        QVERIFY(revert->isEnabled());
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+    }
+
     void pagesGroupFeaturesInTabs()
     {
         MainWindow window;
@@ -313,6 +378,7 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("StatusBarIndicatorOrder")), QStringLiteral("Status and Location Bars"));
         QCOMPARE(tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("configureMainToolbarEntries"))), QStringLiteral("Toolbars"));
         QCOMPARE(tabOf(QStringLiteral("ColorScheme")), QStringLiteral("Colour Scheme"));
+        QCOMPARE(tabOf(QStringLiteral("CustomColors")), QStringLiteral("Custom Colours"));
         QCOMPARE(tabOf(QStringLiteral("DefaultViewMode")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("ShowFileListMinimap")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("FileListMinimapWidth")), QStringLiteral("General"));

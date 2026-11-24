@@ -152,11 +152,80 @@ private Q_SLOTS:
 
     void highContrastPreferenceFollowsPlasma()
     {
-        QVERIFY(ColorSchemes::apply(QLatin1String(ColorSchemes::DarkPreset), false));
-        QVERIFY(ColorSchemes::apply(QLatin1String(ColorSchemes::DarkPreset), true));
+        QVERIFY(ColorSchemes::apply(QLatin1String(ColorSchemes::DarkPreset), {}, false));
+        QVERIFY(ColorSchemes::apply(QLatin1String(ColorSchemes::DarkPreset), {QStringLiteral("Window=#102030")}, true));
         QVERIFY(!qApp->property("KDE_COLOR_SCHEME_PATH").isValid());
         QCOMPARE(QGuiApplication::palette(), m_platform);
-        QVERIFY(ColorSchemes::apply(QStringLiteral("MissingTest"), true));
+        QVERIFY(ColorSchemes::apply(QStringLiteral("MissingTest"), {}, true));
+    }
+
+    void customColoursRoundTripAndSkipInvalidEntries()
+    {
+        const ColorSchemes::Overrides overrides = ColorSchemes::parseOverrides({QStringLiteral("Text=#112233"),
+                                                                                QStringLiteral(" Window = #AABBCC "),
+                                                                                QStringLiteral("Unknown=#000000"),
+                                                                                QStringLiteral("Base=not a colour"),
+                                                                                QStringLiteral("=#000000"),
+                                                                                QStringLiteral("Highlight")});
+        QCOMPARE(overrides.size(), 2);
+        QCOMPARE(overrides.value(QPalette::Text), QColor(0x11, 0x22, 0x33));
+        QCOMPARE(overrides.value(QPalette::Window), QColor(0xaa, 0xbb, 0xcc));
+        QCOMPARE(ColorSchemes::serializeOverrides(overrides), QStringList({QStringLiteral("Window=#aabbcc"), QStringLiteral("Text=#112233")}));
+    }
+
+    void customColoursLayerOverTheScheme()
+    {
+        const QStringList custom{QStringLiteral("Window=#102030"), QStringLiteral("Highlight=#405060")};
+        QVERIFY(ColorSchemes::apply(QLatin1String(ColorSchemes::DarkPreset), custom));
+        QCOMPARE(QGuiApplication::palette().color(QPalette::Active, QPalette::Window), QColor(0x10, 0x20, 0x30));
+        QCOMPARE(QGuiApplication::palette().color(QPalette::Inactive, QPalette::Highlight), QColor(0x40, 0x50, 0x60));
+        QCOMPARE(QGuiApplication::palette().color(QPalette::Active, QPalette::Base), QColor(27, 30, 32));
+
+        // Following Plasma, only the custom roles are resolved.
+        QVERIFY(ColorSchemes::apply(QString(), custom));
+        QCOMPARE(QGuiApplication::palette().color(QPalette::Active, QPalette::Window), QColor(0x10, 0x20, 0x30));
+        QCOMPARE(QGuiApplication::palette().color(QPalette::Active, QPalette::Base), m_platform.color(QPalette::Active, QPalette::Base));
+        QVERIFY(QGuiApplication::palette().isBrushSet(QPalette::Active, QPalette::Window));
+        QVERIFY(!QGuiApplication::palette().isBrushSet(QPalette::Active, QPalette::Base));
+    }
+
+    void schemePalettesCanBeReadWithoutApplying()
+    {
+        const QPalette dark = ColorSchemes::palette(QLatin1String(ColorSchemes::DarkPreset));
+        QCOMPARE(dark.color(QPalette::Active, QPalette::Window), QColor(32, 35, 38));
+        QCOMPARE(QGuiApplication::palette(), m_platform);
+        QVERIFY(ColorSchemes::palette(QString()).color(QPalette::Active, QPalette::Window).isValid());
+    }
+
+    void presetsPassEveryContrastCheck_data()
+    {
+        presetsKeepTextAndSelectionsReadable_data();
+    }
+
+    void presetsPassEveryContrastCheck()
+    {
+        QFETCH(QString, preset);
+        QStringList failures;
+        for (const ColorSchemes::ContrastIssue &issue : ColorSchemes::contrastIssues(ColorSchemes::palette(preset))) {
+            failures.append(QStringLiteral("%1 (%2)").arg(issue.pair).arg(issue.ratio));
+        }
+        QVERIFY2(failures.isEmpty(), qPrintable(failures.join(QStringLiteral(", "))));
+    }
+
+    void contrastIsMeasuredForChangedRoles()
+    {
+        QCOMPARE(ColorSchemes::contrastRatio(Qt::black, Qt::white), 21.0);
+        QCOMPARE(ColorSchemes::contrastRatio(Qt::white, Qt::white), 1.0);
+
+        QPalette palette = ColorSchemes::palette(QLatin1String(ColorSchemes::LightPreset));
+        palette = ColorSchemes::withOverrides(palette, {{QPalette::Text, QColor(200, 200, 200)}});
+        const QList<ColorSchemes::ContrastIssue> issues = ColorSchemes::contrastIssues(palette, {QPalette::Text});
+        QCOMPARE(issues.size(), 2);
+        for (const ColorSchemes::ContrastIssue &issue : issues) {
+            QCOMPARE(issue.minimum, 4.5);
+            QVERIFY(issue.ratio < 4.5);
+        }
+        QVERIFY(ColorSchemes::contrastIssues(palette, {QPalette::ToolTipBase}).isEmpty());
     }
 };
 
