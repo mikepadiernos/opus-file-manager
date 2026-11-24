@@ -99,6 +99,14 @@ class QHBoxLayout;
 class QToolButton;
 
 /**
+ * Creates a hidden, word-wrapped message for contrast feedback below a colour
+ * editor.
+ * @param adjusted whether Plasma Opus adjusts the colour to stay readable, so
+ *        the message informs rather than warns
+ */
+KMessageWidget *createContrastNotice(const QString &objectName, bool adjusted, QWidget *parent);
+
+/**
  * Follows the colour scheme's accent or chooses an app-local accent colour,
  * reporting when it lacks contrast against the selected scheme. Bound to the
  * AccentColor setting.
@@ -230,8 +238,11 @@ Q_SIGNALS:
 
 private:
     void editRule(int row);
+    void updateContrast();
     Kind m_kind;
     QListWidget *m_list;
+    /// Reports file colours that are hard to read; only for Kind::Color.
+    KMessageWidget *m_contrast = nullptr;
 };
 
 /**
@@ -250,12 +261,14 @@ public:
 
 private:
     void validate();
+    void updateContrast();
 
     QComboBox *m_match;
     QLineEdit *m_pattern;
     QPushButton *m_browse;
     KColorButton *m_color;
     QCheckBox *m_subfolders;
+    KMessageWidget *m_contrast;
     QPushButton *m_ok = nullptr;
 };
 

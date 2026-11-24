@@ -49,6 +49,7 @@ target_compile_definitions(informationtranslationtest PRIVATE
 )
 
 ecm_add_tests(
+    appearancedefaultstest.cpp
     appfontstest.cpp
     archivestest.cpp
     batchrenametest.cpp

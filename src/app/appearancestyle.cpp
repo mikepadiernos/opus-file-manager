@@ -2,6 +2,7 @@
 
 #include "appearancestyle.h"
 
+#include "appearancedefaults.h"
 #include "colorschemes.h"
 #include "settings.h"
 
@@ -204,6 +205,10 @@ AppearanceStyle::Options AppearanceStyle::configured()
     options.tabColorStrength = static_cast<TabColorStrength>(std::clamp(int(Settings::tabColorStrength()), 0, int(TabColorStrength::Strong)));
     options.statusBarStyle = static_cast<StatusBarStyle>(std::clamp(int(Settings::statusBarStyle()), 0, int(StatusBarStyle::Shaded)));
     options.animations = static_cast<Animations>(std::clamp(int(Settings::animations()), 0, int(Animations::Off)));
+    if (AppearanceDefaults::effectsSuspended()) {
+        options.radius = FollowStyle;
+        options.tabColorStrength = TabColorStrength::Text;
+    }
     return options;
 }
 

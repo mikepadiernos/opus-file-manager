@@ -1,4 +1,6 @@
 add_library(opusfm_core STATIC
+    appearancedefaults.cpp
+    appearancedefaults.h
     appfonts.cpp
     appfonts.h
     archives.cpp

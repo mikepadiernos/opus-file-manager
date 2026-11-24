@@ -3,6 +3,7 @@
 #include "mainwindow.h"
 #include "metadataeditdialog.h"
 
+#include "appearancedefaults.h"
 #include "appearancestyle.h"
 #include "appfonts.h"
 #include "archives.h"
@@ -534,10 +535,24 @@ MainWindow::MainWindow(QWidget *parent)
     applyViewDefaults();
     setActivePane(m_left);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
-    connect(QGuiApplication::styleHints()->accessibility(), &QAccessibilityHints::contrastPreferenceChanged, this, &MainWindow::applyColorScheme);
+    connect(QGuiApplication::styleHints()->accessibility(),
+            &QAccessibilityHints::contrastPreferenceChanged,
+            this,
+            &MainWindow::applyContrastDependentAppearance);
 #endif
     applySettings();
     updateActions();
+}
+
+namespace
+{
+/// Whether any option that high contrast can suspend differs from Plasma's appearance.
+bool suspendableEffectsConfigured()
+{
+    return Settings::backgroundBlur() || Settings::windowOpacity() < 100 || Settings::paneOpacity() < 100 || Settings::panelOpacity() < 100
+        || Settings::paneTint() != Settings::EnumPaneTint::None || Settings::cornerRadius() != Settings::EnumCornerRadius::FollowStyle
+        || Settings::tabColorStrength() != Settings::EnumTabColorStrength::Text;
+}
 }
 
 void MainWindow::applyColorScheme()
@@ -545,13 +560,55 @@ void MainWindow::applyColorScheme()
     const QString scheme = Settings::colorScheme();
     const QStringList customColors = ColorSchemes::withAccent(scheme, Settings::accentColor(), Settings::customColors());
     const bool highContrast = ColorSchemes::highContrastPreferred();
+    const bool customScheme = !scheme.isEmpty() || !customColors.isEmpty();
+    const bool effectsSuspended = AppearanceDefaults::effectsSuspended() && suspendableEffectsConfigured();
     if (!ColorSchemes::apply(scheme, customColors, highContrast)) {
         statusBar()->showMessage(
             i18nc("@info:status", "Colour scheme %1 is not installed, so Plasma Opus follows the Plasma colour scheme until it is available.", scheme));
-    } else if (highContrast && (!scheme.isEmpty() || !customColors.isEmpty())) {
+    } else if (highContrast && customScheme && effectsSuspended) {
+        statusBar()->showMessage(i18nc("@info:status",
+                                       "High contrast is requested, so Plasma Opus follows the Plasma colour scheme and suspends blur, "
+                                       "translucency, tints and custom corners."));
+    } else if (highContrast && customScheme) {
         statusBar()->showMessage(
             i18nc("@info:status", "High contrast is requested, so Plasma Opus follows the Plasma colour scheme instead of its own colours."));
+    } else if (effectsSuspended) {
+        statusBar()->showMessage(i18nc("@info:status", "High contrast is requested, so Plasma Opus suspends blur, translucency, tints and custom corners."));
     }
+}
+
+void MainWindow::applyContrastDependentAppearance()
+{
+    applyColorScheme();
+    applyWindowEffects();
+    applyBackgroundOpacity();
+    applyAppearanceStyle();
+    applyPaneBackgrounds();
+}
+
+void MainWindow::applyPaneBackgrounds()
+{
+    const bool suspended = AppearanceDefaults::effectsSuspended();
+    const auto tint = suspended ? Pane::BackgroundTint::None : static_cast<Pane::BackgroundTint>(Settings::paneTint());
+    for (Pane *pane : {m_left, m_right}) {
+        pane->setBackgroundTint(tint, Settings::paneTintColor(), Settings::paneTintStrength());
+        pane->setBackgroundOpacity(suspended ? 100 : Settings::paneOpacity());
+    }
+}
+
+void MainWindow::resetAppearance()
+{
+    if (AppearanceDefaults::reset(Settings::self()).isEmpty()) {
+        statusBar()->showMessage(i18nc("@info:status", "The appearance options already follow Plasma."));
+        return;
+    }
+    Settings::self()->save();
+    // An open settings dialog would otherwise offer to apply the old appearance again.
+    if (auto *dialog = qobject_cast<SettingsDialog *>(KConfigDialog::exists(QLatin1String(SettingsDialog::Name)))) {
+        dialog->resetAppearanceToDefaults();
+    }
+    applySettings();
+    statusBar()->showMessage(i18nc("@info:status", "The appearance options were reset to follow Plasma."));
 }
 
 void MainWindow::applyWindowEffects()
@@ -559,7 +616,8 @@ void MainWindow::applyWindowEffects()
     if (windowHandle()) {
         // Blur the whole window, so other translucent areas supplied by the
         // active style are included.
-        KWindowEffects::enableBlurBehind(windowHandle(), m_terminalBlur || (Settings::backgroundBlur() && WindowEffects::isBlurAvailable(this)));
+        const bool blur = Settings::backgroundBlur() && !AppearanceDefaults::effectsSuspended() && WindowEffects::isBlurAvailable(this);
+        KWindowEffects::enableBlurBehind(windowHandle(), m_terminalBlur || blur);
     }
 }
 
@@ -575,7 +633,7 @@ void MainWindow::applyBackgroundOpacity()
     // would only darken it. Only the Window role is resolved, so the window
     // keeps following the application palette for every other role.
     const ColorSchemes::Overrides overrides = WindowEffects::isTranslucent(this)
-        ? ColorSchemes::translucent(QApplication::palette(this), {QPalette::Window}, Settings::windowOpacity())
+        ? ColorSchemes::translucent(QApplication::palette(this), {QPalette::Window}, AppearanceDefaults::effectsSuspended() ? 100 : Settings::windowOpacity())
         : ColorSchemes::Overrides();
     setPalette(ColorSchemes::withOverrides(QPalette(), overrides));
     for (QDockWidget *dock : findChildren<QDockWidget *>(Qt::FindDirectChildrenOnly)) {
@@ -593,7 +651,9 @@ void MainWindow::applyPanelOpacity(QDockWidget *dock)
     }
     // A floating panel is a separate window without a translucent background.
     const ColorSchemes::Overrides overrides = WindowEffects::isTranslucent(this) && !dock->isFloating()
-        ? ColorSchemes::translucent(QApplication::palette(dock), {QPalette::Window, QPalette::Base, QPalette::AlternateBase}, Settings::panelOpacity())
+        ? ColorSchemes::translucent(QApplication::palette(dock),
+                                    {QPalette::Window, QPalette::Base, QPalette::AlternateBase},
+                                    AppearanceDefaults::effectsSuspended() ? 100 : Settings::panelOpacity())
         : ColorSchemes::Overrides();
     dock->setPalette(ColorSchemes::withOverrides(QPalette(), overrides));
 }
@@ -4723,7 +4783,9 @@ void MainWindow::applySettings()
     applyFonts();
     refreshFolderColors();
     const bool translucency = Settings::windowOpacity() < 100 || Settings::paneOpacity() < 100 || Settings::panelOpacity() < 100;
-    if (const QString reason = WindowEffects::unavailableReason(this, Settings::backgroundBlur(), translucency); !reason.isEmpty()) {
+    if (AppearanceDefaults::effectsSuspended()) {
+        // applyColorScheme() reports the suspended effects instead.
+    } else if (const QString reason = WindowEffects::unavailableReason(this, Settings::backgroundBlur(), translucency); !reason.isEmpty()) {
         statusBar()->showMessage(reason);
     }
     applyLocationPresentationDefaults();
@@ -4766,10 +4828,9 @@ void MainWindow::applySettings()
         m_automaticLocalSizeDefault != Settings::automaticLocalFolderSizes() || m_automaticRemoteSizeDefault != Settings::automaticRemoteFolderSizes();
     m_automaticLocalSizeDefault = Settings::automaticLocalFolderSizes();
     m_automaticRemoteSizeDefault = Settings::automaticRemoteFolderSizes();
+    applyPaneBackgrounds();
     for (Pane *pane : {m_left, m_right}) {
         pane->setInactiveDimming(Settings::dimInactivePane(), Settings::inactivePaneOpacity());
-        pane->setBackgroundTint(static_cast<Pane::BackgroundTint>(Settings::paneTint()), Settings::paneTintColor(), Settings::paneTintStrength());
-        pane->setBackgroundOpacity(Settings::paneOpacity());
         pane->reloadTabSettings();
         pane->reloadFilterSettings();
         pane->setNavigationBarVisible(Settings::showNavigationBar());

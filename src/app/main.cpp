@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "appearancedefaults.h"
 #include "interfacelanguage.h"
 #include "localizednumbers.h"
 #include "mainwindow.h"
@@ -98,6 +99,11 @@ int main(int argc, char **argv)
     QCommandLineParser parser;
     aboutData.setupCommandLine(&parser);
     parser.addPositionalArgument(QStringLiteral("path"), i18n("Folders to open; the first two fill the panes"), QStringLiteral("[path…]"));
+    const QCommandLineOption resetAppearanceOption(QStringLiteral("reset-appearance"),
+                                                   i18n("Reset the appearance options to follow Plasma, keeping folder colour rules"));
+    const QCommandLineOption noWorkspaceAppearanceOption(QStringLiteral("no-workspace-appearance"),
+                                                         i18n("Ignore appearance options attached to workspaces in this session"));
+    parser.addOptions({resetAppearanceOption, noWorkspaceAppearanceOption});
     parser.process(app);
     aboutData.processCommandLine(&parser);
 
@@ -149,17 +155,37 @@ int main(int argc, char **argv)
         }
     }
 
+    AppearanceDefaults::setWorkspaceOverridesDisabled(parser.isSet(noWorkspaceAppearanceOption));
+    QString appearanceMessage;
+    if (parser.isSet(resetAppearanceOption)) {
+        // Reset before the window is created, so it never opens with the
+        // appearance that is being reset.
+        if (AppearanceDefaults::reset(Settings::self()).isEmpty()) {
+            appearanceMessage = i18nc("@info:status", "The appearance options already follow Plasma.");
+        } else {
+            Settings::self()->save();
+            appearanceMessage = i18nc("@info:status", "The appearance options were reset to follow Plasma.");
+        }
+    }
+
     auto *window = new MainWindow;
     window->openUrls(urlsFromArguments(parser.positionalArguments(), QDir::currentPath()));
     window->show();
     if (!workspaceWarning.isEmpty()) {
         window->statusBar()->showMessage(workspaceWarning);
+    } else if (!appearanceMessage.isEmpty()) {
+        window->statusBar()->showMessage(appearanceMessage);
     }
 
     QObject::connect(&service, &KDBusService::activateRequested, window, [window](const QStringList &arguments, const QString &workingDirectory) {
         QCommandLineParser instanceParser;
         instanceParser.addPositionalArgument(QStringLiteral("path"), QString());
+        const QCommandLineOption resetAppearance(QStringLiteral("reset-appearance"));
+        instanceParser.addOptions({resetAppearance, QCommandLineOption(QStringLiteral("no-workspace-appearance"))});
         instanceParser.parse(arguments);
+        if (instanceParser.isSet(resetAppearance)) {
+            window->resetAppearance();
+        }
         window->openUrls(urlsFromArguments(instanceParser.positionalArguments(), workingDirectory));
         window->show();
         if (window->windowHandle()) {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "settings.h"
+#include "appearancedefaults.h"
 #include "appearancestyle.h"
 #include "appfonts.h"
 #include "carddelegate.h"
@@ -2334,6 +2335,196 @@ private Q_SLOTS:
         window.applySettings();
         QCOMPARE(duration(), plasma);
         QVERIFY(window.dockOptions().testFlag(QMainWindow::AnimatedDocks));
+    }
+
+    void highContrastSuspendsEffectsUnlessTurnedOff()
+    {
+        const QString originalName = QApplication::style()->name();
+        auto restore = qScopeGuard([originalName] {
+            ColorSchemes::setHighContrastPreferredForTesting(std::nullopt);
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            ColorSchemes::apply(QString());
+            if (AppearanceStyle::installed()) {
+                QApplication::setStyle(QStyleFactory::create(originalName));
+            }
+        });
+        ColorSchemes::setHighContrastPreferredForTesting(false);
+        Settings::setPaneTint(Settings::EnumPaneTint::AllPanes);
+        Settings::setPaneTintColor(QColor(200, 0, 0));
+        Settings::setPaneTintStrength(20);
+        Settings::setCornerRadius(Settings::EnumCornerRadius::Large);
+        Settings::setTabColorStrength(Settings::EnumTabColorStrength::Strong);
+        MainWindow window;
+        Pane *pane = window.activePane();
+        const QColor base = window.palette().color(QPalette::Active, QPalette::Base);
+        const auto viewBase = [pane] {
+            return pane->view()->palette().color(QPalette::Active, QPalette::Base);
+        };
+        QVERIFY(viewBase() != base);
+        QCOMPARE(AppearanceStyle::configured().radius, 8);
+        QCOMPARE(AppearanceStyle::configured().tabColorStrength, AppearanceStyle::TabColorStrength::Strong);
+
+        ColorSchemes::setHighContrastPreferredForTesting(true);
+        window.applySettings();
+        QCOMPARE(viewBase(), base);
+        QCOMPARE(AppearanceStyle::configured().radius, AppearanceStyle::FollowStyle);
+        QCOMPARE(AppearanceStyle::configured().tabColorStrength, AppearanceStyle::TabColorStrength::Text);
+        QVERIFY2(window.statusBar()->currentMessage().contains(QLatin1String("suspends")), qPrintable(window.statusBar()->currentMessage()));
+        // The saved options are kept for when high contrast is turned off.
+        QCOMPARE(int(Settings::paneTint()), int(Settings::EnumPaneTint::AllPanes));
+
+        Settings::setSuspendEffectsInHighContrast(false);
+        window.applySettings();
+        QVERIFY(viewBase() != base);
+        QCOMPARE(AppearanceStyle::configured().radius, 8);
+
+        Settings::setSuspendEffectsInHighContrast(true);
+        ColorSchemes::setHighContrastPreferredForTesting(false);
+        window.applySettings();
+        QVERIFY(viewBase() != base);
+    }
+
+    void resetAppearanceRestoresPlasmaDefaultsButKeepsFolderColourRules()
+    {
+        const QString originalName = QApplication::style()->name();
+        auto restore = qScopeGuard([originalName] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            ColorSchemes::apply(QString());
+            if (AppearanceStyle::installed()) {
+                QApplication::setStyle(QStyleFactory::create(originalName));
+            }
+        });
+        FolderColorRules::Rule archiveRule;
+        archiveRule.match = FolderColorRules::Match::Name;
+        archiveRule.pattern = QStringLiteral("*-archive");
+        archiveRule.color = QColor(0xda, 0x44, 0x53);
+        const QStringList rules{FolderColorRules::entry(archiveRule)};
+        const auto customize = [&rules] {
+            Settings::setColorScheme(QLatin1String(ColorSchemes::DarkPreset));
+            Settings::setAccentColor(QStringLiteral("#27ae60"));
+            Settings::setCustomColors({QStringLiteral("Window=#202020")});
+            Settings::setPaneTint(Settings::EnumPaneTint::ActivePane);
+            Settings::setPaneTintColor(QColor(200, 0, 0));
+            Settings::setBackgroundBlur(true);
+            Settings::setWindowOpacity(80);
+            Settings::setCornerRadius(Settings::EnumCornerRadius::Custom);
+            Settings::setCustomCornerRadius(12);
+            Settings::setTreeLinePalette({QStringLiteral("#ff0000")});
+            Settings::setFileListFont(AppFonts::toSetting(QFont(QStringLiteral("Noto Sans"), 14)));
+            Settings::setSpacingScale(150);
+            Settings::setTabShape(Settings::EnumTabShape::Flat);
+            Settings::setAnimations(Settings::EnumAnimations::Off);
+            Settings::setSuspendEffectsInHighContrast(false);
+            Settings::setFolderColorRules(rules);
+            Settings::setDimInactivePane(true);
+            Settings::self()->save();
+        };
+        customize();
+        MainWindow window;
+        {
+            SettingsDialog dialog(placesOf(window), &window);
+            connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+            auto *reset = dialog.findChild<QPushButton *>(QStringLiteral("resetAppearance"));
+            QVERIFY(reset);
+            reset->click();
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+        }
+        // Every changed appearance option was reset by the dialog.
+        QVERIFY(Settings::colorScheme().isEmpty());
+        QVERIFY(Settings::accentColor().isEmpty());
+        QVERIFY(Settings::customColors().isEmpty());
+        QCOMPARE(int(Settings::cornerRadius()), int(Settings::EnumCornerRadius::FollowStyle));
+        QCOMPARE(Settings::spacingScale(), 100);
+        QVERIFY(Settings::fileListFont().isEmpty());
+        QVERIFY(Settings::suspendEffectsInHighContrast());
+        QVERIFY2(AppearanceDefaults::reset(Settings::self()).isEmpty(), "An appearance option has no editor that the reset button sets");
+        QCOMPARE(Settings::folderColorRules(), rules);
+        QVERIFY(Settings::dimInactivePane());
+        QCOMPARE(AppearanceStyle::configured().spacingScale, 100);
+
+        // The command line reset saves and applies the same defaults.
+        customize();
+        window.applySettings();
+        window.resetAppearance();
+        QCOMPARE(Settings::spacingScale(), 100);
+        QCOMPARE(AppearanceStyle::configured().spacingScale, 100);
+        QVERIFY(!KSharedConfig::openConfig()->group(QStringLiteral("Themes")).hasKey("SpacingScale"));
+        QCOMPARE(Settings::folderColorRules(), rules);
+        window.resetAppearance();
+        QCOMPARE(window.statusBar()->currentMessage(), QStringLiteral("The appearance options already follow Plasma."));
+    }
+
+    void customColoursReportLowContrast()
+    {
+        auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *scheme = dialog.findChild<ColorSchemeCombo *>(QStringLiteral("kcfg_ColorScheme"));
+        QVERIFY(scheme);
+        scheme->setCurrentIndex(scheme->findData(QLatin1String(ColorSchemes::LightPreset)));
+        const QPalette light = ColorSchemes::palette(QLatin1String(ColorSchemes::LightPreset));
+        const QColor lightBase = light.color(QPalette::Active, QPalette::Base);
+
+        // A strong dark tint over a light scheme is weakened.
+        auto *tint = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_PaneTint"));
+        auto *tintColor = dialog.findChild<KColorButton *>(QStringLiteral("kcfg_PaneTintColor"));
+        auto *strength = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_PaneTintStrength"));
+        auto *tintNotice = dialog.findChild<KMessageWidget *>(QStringLiteral("paneTintContrastNotice"));
+        QVERIFY(tint && tintColor && strength && tintNotice);
+        QVERIFY(tintNotice->isHidden());
+        tint->setCurrentIndex(Settings::EnumPaneTint::AllPanes);
+        tintColor->setColor(Qt::black);
+        strength->setValue(50);
+        QVERIFY(!tintNotice->isHidden());
+        const int effective = ColorSchemes::paneTintStrength(light, Qt::black, 50);
+        QVERIFY2(tintNotice->text().contains(QString::number(effective)), qPrintable(tintNotice->text()));
+        strength->setValue(effective);
+        QVERIFY(tintNotice->isHidden());
+
+        // A single tree line colour too close to the view background is adjusted.
+        auto *lineColors = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TreeLineColors"));
+        auto *lineColor = dialog.findChild<KColorButton *>(QStringLiteral("kcfg_TreeLineColor"));
+        auto *lineNotice = dialog.findChild<KMessageWidget *>(QStringLiteral("treeLineContrastNotice"));
+        QVERIFY(lineColors && lineColor && lineNotice);
+        lineColor->setColor(lightBase);
+        QVERIFY(lineNotice->isHidden());
+        lineColors->setCurrentIndex(Settings::EnumTreeLineColors::Single);
+        QVERIFY(!lineNotice->isHidden());
+        lineColor->setColor(light.color(QPalette::Active, QPalette::Text));
+        QVERIFY(lineNotice->isHidden());
+
+        // File colours are used as they are, so unreadable ones are reported.
+        auto *fileColors = dialog.findChild<RuleListEditor *>(QStringLiteral("kcfg_ExtensionColors"));
+        auto *fileNotice = dialog.findChild<KMessageWidget *>(QStringLiteral("fileColourContrastWarning"));
+        QVERIFY(fileColors && fileNotice);
+        const QColor fileBase = fileColors->palette().color(QPalette::Base);
+        fileColors->setRules({QStringLiteral("txt=") + fileBase.name(), QStringLiteral("md=") + fileColors->palette().color(QPalette::Text).name()});
+        QVERIFY(!fileNotice->isHidden());
+        QVERIFY(fileNotice->text().contains(QLatin1String("txt")));
+        QVERIFY(!fileNotice->text().contains(QLatin1String("md")));
+        fileColors->setRules({});
+        QVERIFY(fileNotice->isHidden());
+
+        // Folder colour rules warn when icons would be hard to see.
+        FolderColorRuleDialog ruleDialog;
+        auto *folderNotice = ruleDialog.findChild<KMessageWidget *>(QStringLiteral("folderColourContrastNotice"));
+        QVERIFY(folderNotice);
+        FolderColorRules::Rule rule;
+        rule.match = FolderColorRules::Match::Name;
+        rule.pattern = QStringLiteral("*-archive");
+        rule.color = ruleDialog.palette().color(QPalette::Base);
+        ruleDialog.setRule(rule);
+        QVERIFY(!folderNotice->isHidden());
+        QCOMPARE(folderNotice->messageType(), KMessageWidget::Warning);
+        rule.color = ruleDialog.palette().color(QPalette::Text);
+        ruleDialog.setRule(rule);
+        QVERIFY(folderNotice->isHidden());
     }
 
     void toolbarAppearanceSettingsApplyToEveryToolbar()

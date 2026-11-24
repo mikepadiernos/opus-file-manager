@@ -8,6 +8,8 @@
 #include <QString>
 #include <QStringList>
 
+#include <optional>
+
 /**
  * App-local colour schemes. Plasma Opus follows the active Plasma colour
  * scheme unless the ColorScheme setting chooses a bundled preset or an
@@ -51,6 +53,12 @@ QString path(const QString &id);
  * with Qt versions before 6.10, which do not report the preference.
  */
 bool highContrastPreferred();
+
+/**
+ * Makes highContrastPreferred() return @p preferred instead of the platform
+ * preference, for tests. std::nullopt follows the platform again.
+ */
+void setHighContrastPreferredForTesting(std::optional<bool> preferred);
 
 /// A palette role that the colour editor can override.
 struct Role {
@@ -115,6 +123,12 @@ QStringList withAccent(const QString &id, const QString &accent, const QStringLi
  * @param strengthPercent how much of the tint to mix in, from 0 to 100
  */
 Overrides paneTint(const QPalette &palette, const QColor &tint, int strengthPercent);
+
+/**
+ * The strength that paneTint() uses: @p strengthPercent, lowered as needed
+ * so that view text stays readable, or 0 when no tint is applied.
+ */
+int paneTintStrength(const QPalette &palette, const QColor &tint, int strengthPercent);
 
 /**
  * Overrides that make background roles translucent, keeping their colour.

@@ -96,6 +96,12 @@ public:
      */
     void applySettings();
 
+    /**
+     * Resets the global appearance options to Plasma's defaults, saves them
+     * and applies them, as requested with --reset-appearance.
+     */
+    void resetAppearance();
+
 Q_SIGNALS:
     void workspaceCatalogChanged();
 
@@ -120,6 +126,10 @@ private:
     void restoreActiveWorkspaceLayout();
     /// Applies the configured colour scheme and reports when it cannot be used.
     void applyColorScheme();
+    /// Reapplies colours and effects that depend on the high contrast preference.
+    void applyContrastDependentAppearance();
+    /// Applies the configured tint and translucency of the pane backgrounds.
+    void applyPaneBackgrounds();
     /// Applies background blur, combining the setting with the terminal's request.
     void applyWindowEffects();
     /// Makes the window and docked panel backgrounds as translucent as configured.

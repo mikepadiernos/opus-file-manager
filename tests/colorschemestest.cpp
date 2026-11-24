@@ -296,6 +296,13 @@ private Q_SLOTS:
         QVERIFY(strong.value(QPalette::Base) != base);
         const QColor fullStrength(base.red() / 2, base.green() / 2, base.blue() / 2);
         QVERIFY(strong.value(QPalette::Base).lightness() > fullStrength.lightness());
+
+        // The effective strength reports how far the tint was weakened.
+        QCOMPARE(ColorSchemes::paneTintStrength(light, QColor(0, 0, 255), 10), 10);
+        const int weakened = ColorSchemes::paneTintStrength(light, QColor(0, 0, 0), 50);
+        QVERIFY(weakened > 0 && weakened < 50);
+        QCOMPARE(ColorSchemes::paneTintStrength(light, QColor(), 20), 0);
+        QCOMPARE(ColorSchemes::paneTintStrength(light, Qt::blue, 0), 0);
     }
 
     void translucentBackgroundsKeepTheirColour()

@@ -37,6 +37,12 @@ public:
      */
     SettingsDialog(KFilePlacesModel *places, QWidget *parent);
     void showToolbarPage();
+    /**
+     * Sets the appearance options in the dialog to Plasma's defaults, except
+     * AppearanceDefaults::keptEntries(). Nothing is saved until they are
+     * applied.
+     */
+    void resetAppearanceToDefaults();
 
 public Q_SLOTS:
     /// Reloads workspace names and assignments after the catalog changes.

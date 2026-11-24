@@ -2,7 +2,9 @@
 
 #include "settingsdialog.h"
 
+#include "appearancedefaults.h"
 #include "batchrenamedialog.h"
+#include "colorschemes.h"
 #include "customcommanddialog.h"
 #include "density.h"
 #include "localizednumbers.h"
@@ -45,6 +47,7 @@
 #include <QListWidget>
 #include <QMessageBox>
 #include <QMetaEnum>
+#include <QMetaProperty>
 #include <QPointer>
 #include <QProcess>
 #include <QPushButton>
@@ -1575,6 +1578,31 @@ QWidget *SettingsDialog::createColorSchemePage()
     form->addRow(i18nc("@label:listbox", "Tint pane background:"), tint);
     form->addRow(i18nc("@label", "Tint colour:"), tintColor);
     form->addRow(i18nc("@label:spinbox", "Tint strength:"), tintStrength);
+    auto *tintNotice = createContrastNotice(QStringLiteral("paneTintContrastNotice"), true, page);
+    form->addRow(QString(), tintNotice);
+    const auto updateTintNotice = [this, tint, tintColor, tintStrength, tintNotice] {
+        const int requested = tintStrength->value();
+        const int effective = tint->currentIndex() > 0
+            ? ColorSchemes::paneTintStrength(ColorSchemes::palette(m_colorScheme->scheme()), tintColor->color(), requested)
+            : requested;
+        if (effective >= requested) {
+            tintNotice->hide();
+            return;
+        }
+        tintNotice->setText(effective > 0 ? i18nc("@info",
+                                                  "With the selected colour scheme, this tint is weakened to %1% so that text in file lists "
+                                                  "stays readable.",
+                                                  effective)
+                                          : i18nc("@info",
+                                                  "With the selected colour scheme, this tint is not shown, because any amount of it would "
+                                                  "make text in file lists hard to read."));
+        tintNotice->show();
+    };
+    connect(tint, &QComboBox::currentIndexChanged, page, updateTintNotice);
+    connect(tintColor, &KColorButton::changed, page, updateTintNotice);
+    connect(tintStrength, &QSpinBox::valueChanged, page, updateTintNotice);
+    connect(m_colorScheme, &ColorSchemeCombo::schemeChanged, page, updateTintNotice);
+    updateTintNotice();
     layout->addLayout(form);
     auto *notice = new QLabel(i18nc("@info",
                                     "The colour scheme applies only to Plasma Opus. Plasma's global colour scheme, widget style and window "
@@ -1718,13 +1746,21 @@ QWidget *SettingsDialog::createLinesPage()
     lineColor->setAccessibleName(i18nc("@label", "Tree line colour"));
     form->addRow(i18nc("@label", "Line colour:"), lineColor);
     auto *linePalette = bound(new ColorListEditor, QStringLiteral("TreeLinePalette"), "colors");
-    linePalette->setBackground(page->palette().color(QPalette::Base));
     form->addRow(i18nc("@label", "Depth colours:"), linePalette);
-    const auto updateLineColors = [lineColors, lineColor, linePalette] {
-        lineColor->setEnabled(lineColors->currentIndex() == Settings::EnumTreeLineColors::Single);
+    auto *lineNotice = createContrastNotice(QStringLiteral("treeLineContrastNotice"), true, page);
+    form->addRow(QString(), lineNotice);
+    const auto updateLineColors = [this, lineColors, lineColor, linePalette, lineNotice] {
+        const bool single = lineColors->currentIndex() == Settings::EnumTreeLineColors::Single;
+        lineColor->setEnabled(single);
         linePalette->setEnabled(lineColors->currentIndex() == Settings::EnumTreeLineColors::Depth);
+        const QColor background = ColorSchemes::palette(m_colorScheme->scheme()).color(QPalette::Active, QPalette::Base);
+        linePalette->setBackground(background);
+        lineNotice->setText(i18nc("@info", "This line colour is darkened or lightened to stay visible against the view background."));
+        lineNotice->setVisible(single && ColorSchemes::contrastRatio(lineColor->color(), background) < 3.0);
     };
     connect(lineColors, &QComboBox::currentIndexChanged, page, updateLineColors);
+    connect(lineColor, &KColorButton::changed, page, updateLineColors);
+    connect(m_colorScheme, &ColorSchemeCombo::schemeChanged, page, updateLineColors);
     updateLineColors();
     layout->addLayout(form);
     auto *explanation = new QLabel(i18nc("@info",
@@ -1904,6 +1940,8 @@ QWidget *SettingsDialog::createMotionPage()
                           {i18nc("@item:inlistbox animation speed", "Follow Plasma"),
                            i18nc("@item:inlistbox animation speed", "Reduced"),
                            i18nc("@item:inlistbox animation speed", "Off")}));
+    form->addRow(i18nc("@title:group", "High contrast:"),
+                 checkBox(QStringLiteral("SuspendEffectsInHighContrast"), i18nc("@option:check", "Suspend blur, translucency, tints and custom corners")));
     layout->addLayout(form);
     auto *note = new QLabel(i18nc("@info",
                                   "Follow Plasma uses the animation speed from System Settings. Reduced halves transitions such as "
@@ -1912,8 +1950,63 @@ QWidget *SettingsDialog::createMotionPage()
                             page);
     note->setWordWrap(true);
     layout->addWidget(note);
+    auto *contrastNote = new QLabel(i18nc("@info",
+                                          "When Plasma asks for high contrast, Plasma Opus always follows the Plasma colour scheme. With the "
+                                          "option above, it also makes backgrounds opaque, removes blur and pane tints, uses the widget style's "
+                                          "corners and shows tab colours as text only, until high contrast is turned off again."),
+                                    page);
+    contrastNote->setWordWrap(true);
+    layout->addWidget(contrastNote);
+    if (ColorSchemes::highContrastPreferred()) {
+        auto *active = new KMessageWidget(i18nc("@info", "Plasma currently asks for high contrast."), page);
+        active->setObjectName(QStringLiteral("highContrastActive"));
+        active->setMessageType(KMessageWidget::Information);
+        active->setCloseButtonVisible(false);
+        layout->addWidget(active);
+    }
+    auto *resetRow = new QHBoxLayout;
+    auto *reset = new QPushButton(QIcon::fromTheme(QStringLiteral("edit-reset")), i18nc("@action:button", "Reset Appearance to Plasma Defaults"), page);
+    reset->setObjectName(QStringLiteral("resetAppearance"));
+    reset->setToolTip(i18nc("@info:tooltip",
+                            "Sets every Themes option to follow Plasma. Folder colour rules are kept. Apply or OK saves the change; "
+                            "Cancel discards it."));
+    connect(reset, &QPushButton::clicked, this, &SettingsDialog::resetAppearanceToDefaults);
+    resetRow->addWidget(reset);
+    resetRow->addStretch();
+    layout->addLayout(resetRow);
+    auto *resetNote = new QLabel(i18nc("@info",
+                                       "You can also reset the appearance by starting Plasma Opus with --reset-appearance, for example when "
+                                       "its window is hard to use. Start it with --no-workspace-appearance to ignore appearance options "
+                                       "attached to workspaces for that session."),
+                                 page);
+    resetNote->setWordWrap(true);
+    layout->addWidget(resetNote);
     layout->addStretch();
     return page;
+}
+
+void SettingsDialog::resetAppearanceToDefaults()
+{
+    const QStringList kept = AppearanceDefaults::keptEntries();
+    const KConfigSkeletonItem::List items = Settings::self()->items();
+    for (KConfigSkeletonItem *item : items) {
+        if (item->group() != QLatin1String(AppearanceDefaults::Group) || kept.contains(item->name())) {
+            continue;
+        }
+        auto *editor = findChild<QWidget *>(QStringLiteral("kcfg_") + item->name());
+        if (!editor) {
+            continue;
+        }
+        const QVariant value = item->getDefault();
+        if (const QByteArray property = editor->property("kcfg_property").toByteArray(); !property.isEmpty()) {
+            editor->setProperty(property.constData(), value);
+        } else if (auto *combo = qobject_cast<QComboBox *>(editor)) {
+            combo->setCurrentIndex(value.toInt());
+        } else if (const QMetaProperty user = editor->metaObject()->userProperty(); user.isValid()) {
+            user.write(editor, value);
+        }
+    }
+    updateButtons();
 }
 
 QWidget *SettingsDialog::createViewGeneralPage()

@@ -239,6 +239,17 @@ void ColorSchemeCombo::setScheme(const QString &scheme)
     }
 }
 
+KMessageWidget *createContrastNotice(const QString &objectName, bool adjusted, QWidget *parent)
+{
+    auto *notice = new KMessageWidget(parent);
+    notice->setObjectName(objectName);
+    notice->setMessageType(adjusted ? KMessageWidget::Information : KMessageWidget::Warning);
+    notice->setCloseButtonVisible(false);
+    notice->setWordWrap(true);
+    notice->hide();
+    return notice;
+}
+
 AccentColorChooser::AccentColorChooser(QWidget *parent)
     : QWidget(parent)
     , m_custom(new QCheckBox(i18nc("@option:check", "Use an app-local accent colour"), this))
@@ -604,6 +615,11 @@ RuleListEditor::RuleListEditor(Kind kind, QWidget *parent)
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->addWidget(m_list);
+    if (kind == Kind::Color) {
+        m_contrast = createContrastNotice(QStringLiteral("fileColourContrastWarning"), false, this);
+        layout->addWidget(m_contrast);
+        connect(this, &RuleListEditor::rulesChanged, this, &RuleListEditor::updateContrast);
+    }
     auto *buttons = new QHBoxLayout;
     auto *add = new QPushButton(i18nc("@action:button", "Add..."), this);
     auto *edit = new QPushButton(i18nc("@action:button", "Edit..."), this);
@@ -687,6 +703,31 @@ void RuleListEditor::editRule(int row)
     setRules(sanitized);
 }
 
+void RuleListEditor::updateContrast()
+{
+    if (!m_contrast) {
+        return;
+    }
+    // File colours are used as they are, so only warn about them.
+    const QColor background = palette().color(QPalette::Base);
+    QStringList unreadable;
+    for (const QString &rule : rules()) {
+        if (ColorSchemes::contrastRatio(QColor(rule.section(u'=', 1)), background) < 4.5) {
+            unreadable.append(rule.section(u'=', 0, 0));
+        }
+    }
+    if (unreadable.isEmpty()) {
+        m_contrast->hide();
+        return;
+    }
+    m_contrast->setText(i18ncp("@info %2 is a list of file extensions",
+                               "Names of %2 files may be hard to read: their colour has less than 4.5:1 contrast against the view background.",
+                               "Names of %2 files may be hard to read: their colours have less than 4.5:1 contrast against the view background.",
+                               unreadable.size(),
+                               QLocale().createSeparatedList(unreadable)));
+    m_contrast->show();
+}
+
 namespace
 {
 QString ruleText(const FolderColorRules::Rule &rule)
@@ -726,6 +767,7 @@ FolderColorRuleDialog::FolderColorRuleDialog(QWidget *parent)
     , m_browse(new QPushButton(QIcon::fromTheme(QStringLiteral("document-open-folder")), i18nc("@action:button", "Browse…"), this))
     , m_color(new KColorButton(QColor(0x3d, 0xae, 0xe9), this))
     , m_subfolders(new QCheckBox(i18nc("@option:check", "Also colour subfolders"), this))
+    , m_contrast(createContrastNotice(QStringLiteral("folderColourContrastNotice"), true, this))
 {
     setWindowTitle(i18nc("@title:window", "Folder Colour Rule"));
     m_match->addItem(i18nc("@item:inlistbox folder colour rule", "Folder path"), int(FolderColorRules::Match::Path));
@@ -740,6 +782,7 @@ FolderColorRuleDialog::FolderColorRuleDialog(QWidget *parent)
     patternRow->addWidget(m_browse);
     form->addRow(i18nc("@label:textbox", "Pattern:"), patternRow);
     form->addRow(i18nc("@label", "Colour:"), m_color);
+    form->addRow(QString(), m_contrast);
     form->addRow(QString(), m_subfolders);
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
     m_ok = buttons->button(QDialogButtonBox::Ok);
@@ -748,6 +791,7 @@ FolderColorRuleDialog::FolderColorRuleDialog(QWidget *parent)
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
     connect(m_match, &QComboBox::currentIndexChanged, this, &FolderColorRuleDialog::validate);
     connect(m_pattern, &QLineEdit::textChanged, this, &FolderColorRuleDialog::validate);
+    connect(m_color, &KColorButton::changed, this, &FolderColorRuleDialog::updateContrast);
     connect(m_browse, &QPushButton::clicked, this, [this] {
         const QString start = m_pattern->text().startsWith(u'/') ? m_pattern->text() : QDir::homePath();
         const QString folder = QFileDialog::getExistingDirectory(this, i18nc("@title:window", "Choose Folder"), start);
@@ -756,6 +800,22 @@ FolderColorRuleDialog::FolderColorRuleDialog(QWidget *parent)
         }
     });
     validate();
+    updateContrast();
+}
+
+void FolderColorRuleDialog::updateContrast()
+{
+    const double ratio = ColorSchemes::contrastRatio(m_color->color(), palette().color(QPalette::Base));
+    if (ratio >= 4.5) {
+        m_contrast->hide();
+        return;
+    }
+    m_contrast->setText(ratio < 3.0 ? i18nc("@info",
+                                            "Folder icons and badges in this colour may be hard to see against the view background. Coloured "
+                                            "names are darkened or lightened to stay readable.")
+                                    : i18nc("@info", "Coloured names in this colour are darkened or lightened to stay readable against the view background."));
+    m_contrast->setMessageType(ratio < 3.0 ? KMessageWidget::Warning : KMessageWidget::Information);
+    m_contrast->show();
 }
 
 std::optional<FolderColorRules::Rule> FolderColorRuleDialog::rule() const
@@ -775,6 +835,7 @@ void FolderColorRuleDialog::setRule(const FolderColorRules::Rule &rule)
     m_color->setColor(rule.color);
     m_subfolders->setChecked(rule.subfolders);
     validate();
+    updateContrast();
 }
 
 void FolderColorRuleDialog::validate()
