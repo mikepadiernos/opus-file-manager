@@ -874,6 +874,10 @@
       <label>App-local colour scheme: empty follows Plasma, otherwise a bundled preset or an installed colour scheme</label>
       <default></default>
     </entry>
+    <entry name="AccentColor" type="String">
+      <label>App-local accent colour for selection, focus, progress and tab indicators as #rrggbb; empty follows the colour scheme</label>
+      <default></default>
+    </entry>
     <entry name="CustomColors" type="StringList">
       <label>App-local palette role colours layered over the colour scheme, as Role=#rrggbb entries</label>
       <default></default>

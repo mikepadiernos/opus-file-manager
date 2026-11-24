@@ -39,6 +39,26 @@ constexpr qulonglong MiB = 1024 * 1024;
 constexpr qulonglong NoLimit = std::numeric_limits<qulonglong>::max();
 constexpr int MaximumMiB = 100000;
 
+/// Lists contrast issues in @p message under @p intro, or hides it when there are none.
+void showContrastIssues(KMessageWidget *message, const QString &intro, const QList<ColorSchemes::ContrastIssue> &issues)
+{
+    if (issues.isEmpty()) {
+        message->hide();
+        return;
+    }
+    QStringList lines;
+    for (const ColorSchemes::ContrastIssue &issue : issues) {
+        lines.append(i18nc("@info contrast issue: colour pair, ratio, minimum",
+                           "%1: %2:1, at least %3:1 recommended",
+                           issue.pair,
+                           QString::number(std::floor(issue.ratio * 10) / 10, 'f', 1),
+                           QString::number(issue.minimum, 'f', 1))
+                         .toHtmlEscaped());
+    }
+    message->setText(intro.toHtmlEscaped() + QStringLiteral("<ul><li>") + lines.join(QStringLiteral("</li><li>")) + QStringLiteral("</li></ul>"));
+    message->show();
+}
+
 QStringList sanitizedRules(RuleListEditor::Kind kind, const QStringList &rules)
 {
     if (kind == RuleListEditor::Kind::Ignore) {
@@ -208,6 +228,87 @@ void ColorSchemeCombo::setScheme(const QString &scheme)
     }
 }
 
+AccentColorChooser::AccentColorChooser(QWidget *parent)
+    : QWidget(parent)
+    , m_custom(new QCheckBox(i18nc("@option:check", "Use an app-local accent colour"), this))
+    , m_button(new KColorButton(this))
+    , m_contrast(new KMessageWidget(this))
+    , m_base(ColorSchemes::palette(QString()))
+{
+    setProperty("kcfg_propertyNotify", QByteArray(SIGNAL(accentChanged())));
+    m_custom->setObjectName(QStringLiteral("customAccent"));
+    m_button->setObjectName(QStringLiteral("accentColour"));
+    m_button->setAccessibleName(i18nc("@label", "Accent colour"));
+    m_contrast->setObjectName(QStringLiteral("accentContrastWarning"));
+    m_contrast->setMessageType(KMessageWidget::Warning);
+    m_contrast->setCloseButtonVisible(false);
+    m_contrast->setWordWrap(true);
+    m_contrast->hide();
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    auto *row = new QHBoxLayout;
+    row->addWidget(m_custom);
+    row->addWidget(m_button);
+    row->addStretch();
+    layout->addLayout(row);
+    layout->addWidget(m_contrast);
+    connect(m_custom, &QCheckBox::toggled, this, [this] {
+        refresh();
+        Q_EMIT accentChanged();
+    });
+    connect(m_button, &KColorButton::changed, this, [this] {
+        if (m_custom->isChecked()) {
+            refresh();
+            Q_EMIT accentChanged();
+        }
+    });
+    refresh();
+}
+
+QString AccentColorChooser::accent() const
+{
+    return m_custom->isChecked() ? QColor(m_button->color().rgb()).name(QColor::HexRgb) : QString();
+}
+
+void AccentColorChooser::setAccent(const QString &accent)
+{
+    const QColor color = QColor::fromString(accent);
+    const QString previous = this->accent();
+    {
+        const QSignalBlocker checkBlocker(m_custom);
+        const QSignalBlocker buttonBlocker(m_button);
+        m_custom->setChecked(!accent.isEmpty() && color.isValid());
+        if (m_custom->isChecked()) {
+            m_button->setColor(color);
+        }
+    }
+    refresh();
+    if (previous != this->accent()) {
+        Q_EMIT accentChanged();
+    }
+}
+
+void AccentColorChooser::setScheme(const QString &id)
+{
+    m_base = ColorSchemes::palette(id);
+    refresh();
+}
+
+void AccentColorChooser::refresh()
+{
+    m_button->setEnabled(m_custom->isChecked());
+    if (!m_custom->isChecked()) {
+        const QSignalBlocker blocker(m_button);
+        m_button->setColor(m_base.color(QPalette::Active, QPalette::Accent));
+        m_contrast->hide();
+        return;
+    }
+    const QPalette palette = ColorSchemes::withOverrides(m_base, ColorSchemes::accentOverrides(m_base, m_button->color()));
+    showContrastIssues(m_contrast,
+                       i18nc("@info", "The accent colour may be hard to see with this colour scheme:"),
+                       ColorSchemes::contrastIssues(palette, ColorSchemes::accentRoles()));
+}
+
 ColorPaletteEditor::ColorPaletteEditor(QWidget *parent)
     : QWidget(parent)
     , m_base(ColorSchemes::palette(QString()))
@@ -331,7 +432,20 @@ void ColorPaletteEditor::setColors(const QStringList &colors)
 
 void ColorPaletteEditor::setScheme(const QString &id)
 {
-    m_base = ColorSchemes::palette(id);
+    m_scheme = id;
+    updateBase();
+}
+
+void ColorPaletteEditor::setAccent(const QString &accent)
+{
+    m_accent = accent;
+    updateBase();
+}
+
+void ColorPaletteEditor::updateBase()
+{
+    const QPalette scheme = ColorSchemes::palette(m_scheme);
+    m_base = ColorSchemes::withOverrides(scheme, ColorSchemes::accentOverrides(scheme, QColor::fromString(m_accent)));
     refresh();
 }
 
@@ -348,23 +462,7 @@ void ColorPaletteEditor::refresh()
     }
     const QPalette palette = ColorSchemes::withOverrides(m_base, m_overrides);
     m_preview->setPalette(palette);
-    const QList<ColorSchemes::ContrastIssue> issues = ColorSchemes::contrastIssues(palette, m_overrides.keys());
-    if (issues.isEmpty()) {
-        m_contrast->hide();
-        return;
-    }
-    QStringList lines;
-    for (const ColorSchemes::ContrastIssue &issue : issues) {
-        lines.append(i18nc("@info contrast issue: colour pair, ratio, minimum",
-                           "%1: %2:1, at least %3:1 recommended",
-                           issue.pair,
-                           QString::number(std::floor(issue.ratio * 10) / 10, 'f', 1),
-                           QString::number(issue.minimum, 'f', 1))
-                         .toHtmlEscaped());
-    }
-    m_contrast->setText(i18nc("@info", "Some colours may be hard to read:").toHtmlEscaped() + QStringLiteral("<ul><li>")
-                        + lines.join(QStringLiteral("</li><li>")) + QStringLiteral("</li></ul>"));
-    m_contrast->show();
+    showContrastIssues(m_contrast, i18nc("@info", "Some colours may be hard to read:"), ColorSchemes::contrastIssues(palette, m_overrides.keys()));
 }
 
 RuleListEditor::RuleListEditor(Kind kind, QWidget *parent)

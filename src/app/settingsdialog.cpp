@@ -1534,6 +1534,12 @@ QWidget *SettingsDialog::createColorSchemePage()
     auto *layout = new QVBoxLayout(page);
     auto *form = new QFormLayout;
     form->addRow(i18nc("@label:listbox", "Colour scheme:"), bound(m_colorScheme = new ColorSchemeCombo, QStringLiteral("ColorScheme"), "scheme"));
+    m_accentColor = bound(new AccentColorChooser, QStringLiteral("AccentColor"), "accent");
+    m_accentColor->setScheme(m_colorScheme->scheme());
+    connect(m_colorScheme, &ColorSchemeCombo::schemeChanged, m_accentColor, [this] {
+        m_accentColor->setScheme(m_colorScheme->scheme());
+    });
+    form->addRow(i18nc("@label", "Accent colour:"), m_accentColor);
     layout->addLayout(form);
     auto *notice = new QLabel(i18nc("@info",
                                     "The colour scheme applies only to Plasma Opus. Plasma's global colour scheme, widget style and window "
@@ -1557,8 +1563,12 @@ QWidget *SettingsDialog::createCustomColorsPage()
     layout->addWidget(notice);
     auto *editor = bound(new ColorPaletteEditor, QStringLiteral("CustomColors"), "colors");
     editor->setScheme(m_colorScheme->scheme());
+    editor->setAccent(m_accentColor->accent());
     connect(m_colorScheme, &ColorSchemeCombo::schemeChanged, editor, [this, editor] {
         editor->setScheme(m_colorScheme->scheme());
+    });
+    connect(m_accentColor, &AccentColorChooser::accentChanged, editor, [this, editor] {
+        editor->setAccent(m_accentColor->accent());
     });
     layout->addWidget(editor, 1);
     return page;

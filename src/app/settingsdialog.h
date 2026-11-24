@@ -7,6 +7,7 @@
 
 #include <functional>
 
+class AccentColorChooser;
 class ColorSchemeCombo;
 class KPageWidgetItem;
 class PreviewSizeSpinBox;
@@ -148,6 +149,7 @@ private:
     QListWidget *m_workspaceSummary = nullptr;
     StartupWorkspaceCombo *m_startupWorkspace = nullptr;
     ColorSchemeCombo *m_colorScheme = nullptr;
+    AccentColorChooser *m_accentColor = nullptr;
     /// A checkbox for a setting kept outside Settings, in config that KIO
     /// shares with Dolphin.
     struct SharedToggle {

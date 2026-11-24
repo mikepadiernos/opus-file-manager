@@ -90,6 +90,36 @@ class QFrame;
 class QPushButton;
 
 /**
+ * Follows the colour scheme's accent or chooses an app-local accent colour,
+ * reporting when it lacks contrast against the selected scheme. Bound to the
+ * AccentColor setting.
+ */
+class AccentColorChooser : public QWidget
+{
+    Q_OBJECT
+    Q_PROPERTY(QString accent READ accent WRITE setAccent NOTIFY accentChanged USER true)
+
+public:
+    explicit AccentColorChooser(QWidget *parent = nullptr);
+    /// The chosen colour as #rrggbb, or empty to follow the scheme.
+    QString accent() const;
+    void setAccent(const QString &accent);
+    /// Validates the accent against the given ColorScheme setting value.
+    void setScheme(const QString &id);
+
+Q_SIGNALS:
+    void accentChanged();
+
+private:
+    void refresh();
+
+    QCheckBox *m_custom;
+    KColorButton *m_button;
+    KMessageWidget *m_contrast;
+    QPalette m_base;
+};
+
+/**
  * Edits app-local palette role colours layered over the selected colour
  * scheme, with a live preview and contrast feedback. Unchecked roles follow
  * the scheme. Bound to the CustomColors setting by KConfigDialog; Revert and
@@ -109,6 +139,11 @@ public:
      * @param id a ColorScheme setting value
      */
     void setScheme(const QString &id);
+    /**
+     * Shows the given accent colour for the roles it sets.
+     * @param accent an AccentColor setting value
+     */
+    void setAccent(const QString &accent);
 
 Q_SIGNALS:
     void colorsChanged();
@@ -119,10 +154,13 @@ private:
         QCheckBox *override;
         KColorButton *button;
     };
+    void updateBase();
     void refresh();
 
     QList<Row> m_rows;
     QHash<QPalette::ColorRole, QColor> m_overrides;
+    QString m_scheme;
+    QString m_accent;
     QPalette m_base;
     QFrame *m_preview;
     KMessageWidget *m_contrast;

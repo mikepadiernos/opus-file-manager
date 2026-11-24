@@ -331,6 +331,59 @@ private Q_SLOTS:
         QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
     }
 
+    void accentColourAppliesAndWarnsAboutContrast()
+    {
+        auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            ColorSchemes::apply(QString());
+        });
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *combo = dialog.findChild<ColorSchemeCombo *>(QStringLiteral("kcfg_ColorScheme"));
+        auto *chooser = dialog.findChild<AccentColorChooser *>(QStringLiteral("kcfg_AccentColor"));
+        auto *editor = dialog.findChild<ColorPaletteEditor *>(QStringLiteral("kcfg_CustomColors"));
+        QVERIFY(combo && chooser && editor);
+        auto *custom = chooser->findChild<QCheckBox *>(QStringLiteral("customAccent"));
+        auto *button = chooser->findChild<KColorButton *>(QStringLiteral("accentColour"));
+        auto *warning = chooser->findChild<KMessageWidget *>(QStringLiteral("accentContrastWarning"));
+        auto *highlightButton = editor->findChild<KColorButton *>(QStringLiteral("colourHighlight"));
+        QVERIFY(custom && button && warning && highlightButton);
+        QVERIFY(chooser->accent().isEmpty());
+        QVERIFY(!button->isEnabled());
+
+        // Without an app-local accent, the button shows the scheme's accent.
+        combo->setCurrentIndex(combo->findData(QLatin1String(ColorSchemes::DarkPreset)));
+        const QPalette dark = ColorSchemes::palette(QLatin1String(ColorSchemes::DarkPreset));
+        QCOMPARE(button->color(), dark.color(QPalette::Active, QPalette::Accent));
+
+        custom->setChecked(true);
+        QVERIFY(button->isEnabled());
+        // A dark accent on a dark scheme is hard to see against the view background.
+        button->setColor(QColor(30, 30, 30));
+        QVERIFY(!warning->isHidden());
+        button->setColor(QColor(0xe0, 0x60, 0x20));
+        QVERIFY(warning->isHidden());
+        QCOMPARE(chooser->accent(), QStringLiteral("#e06020"));
+        // The custom colour editor shows the accent for roles it does not override.
+        QCOMPARE(highlightButton->color(), QColor(0xe0, 0x60, 0x20));
+
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::accentColor(), QStringLiteral("#e06020"));
+        QTRY_COMPARE(window.palette().color(QPalette::Active, QPalette::Highlight), QColor(0xe0, 0x60, 0x20));
+        QCOMPARE(window.palette().color(QPalette::Active, QPalette::Accent), QColor(0xe0, 0x60, 0x20));
+        QCOMPARE(window.palette().color(QPalette::Active, QPalette::Window), QColor(32, 35, 38));
+
+        custom->setChecked(false);
+        QVERIFY(chooser->accent().isEmpty());
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::accentColor().isEmpty());
+        QTRY_COMPARE(window.palette().color(QPalette::Active, QPalette::Highlight), dark.color(QPalette::Active, QPalette::Highlight));
+    }
+
     void pagesGroupFeaturesInTabs()
     {
         MainWindow window;
@@ -378,6 +431,7 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("StatusBarIndicatorOrder")), QStringLiteral("Status and Location Bars"));
         QCOMPARE(tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("configureMainToolbarEntries"))), QStringLiteral("Toolbars"));
         QCOMPARE(tabOf(QStringLiteral("ColorScheme")), QStringLiteral("Colour Scheme"));
+        QCOMPARE(tabOf(QStringLiteral("AccentColor")), QStringLiteral("Colour Scheme"));
         QCOMPARE(tabOf(QStringLiteral("CustomColors")), QStringLiteral("Custom Colours"));
         QCOMPARE(tabOf(QStringLiteral("DefaultViewMode")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("ShowFileListMinimap")), QStringLiteral("General"));

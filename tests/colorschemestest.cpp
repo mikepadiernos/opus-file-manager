@@ -227,6 +227,35 @@ private Q_SLOTS:
         }
         QVERIFY(ColorSchemes::contrastIssues(palette, {QPalette::ToolTipBase}).isEmpty());
     }
+
+    void accentKeepsSelectionTextReadable()
+    {
+        const QPalette light = ColorSchemes::palette(QLatin1String(ColorSchemes::LightPreset));
+        QVERIFY(ColorSchemes::accentOverrides(light, QColor()).isEmpty());
+
+        const ColorSchemes::Overrides dark = ColorSchemes::accentOverrides(light, QColor(0x20, 0x30, 0x60, 0x80));
+        QCOMPARE(dark.keys().size(), ColorSchemes::accentRoles().size());
+        QCOMPARE(dark.value(QPalette::Highlight), QColor(0x20, 0x30, 0x60));
+        QCOMPARE(dark.value(QPalette::Accent), QColor(0x20, 0x30, 0x60));
+        QVERIFY(ColorSchemes::contrastRatio(dark.value(QPalette::HighlightedText), dark.value(QPalette::Highlight)) >= 4.5);
+
+        const ColorSchemes::Overrides pale = ColorSchemes::accentOverrides(light, QColor(0xff, 0xe0, 0x80));
+        QCOMPARE(pale.value(QPalette::HighlightedText), QColor(Qt::black));
+    }
+
+    void customColoursTakePrecedenceOverTheAccent()
+    {
+        const QString scheme = QLatin1String(ColorSchemes::DarkPreset);
+        const QStringList custom{QStringLiteral("Highlight=#405060")};
+        QCOMPARE(ColorSchemes::withAccent(scheme, QString(), custom), custom);
+        QCOMPARE(ColorSchemes::withAccent(scheme, QStringLiteral("not a colour"), custom), custom);
+
+        const QStringList combined = ColorSchemes::withAccent(scheme, QStringLiteral("#e06020"), custom);
+        const ColorSchemes::Overrides overrides = ColorSchemes::parseOverrides(combined);
+        QCOMPARE(overrides.value(QPalette::Highlight), QColor(0x40, 0x50, 0x60));
+        QCOMPARE(overrides.value(QPalette::Accent), QColor(0xe0, 0x60, 0x20));
+        QVERIFY(overrides.contains(QPalette::HighlightedText));
+    }
 };
 
 QTEST_MAIN(ColorSchemesTest)

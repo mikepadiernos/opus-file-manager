@@ -519,7 +519,7 @@ MainWindow::MainWindow(QWidget *parent)
 void MainWindow::applyColorScheme()
 {
     const QString scheme = Settings::colorScheme();
-    const QStringList customColors = Settings::customColors();
+    const QStringList customColors = ColorSchemes::withAccent(scheme, Settings::accentColor(), Settings::customColors());
     const bool highContrast = ColorSchemes::highContrastPreferred();
     if (!ColorSchemes::apply(scheme, customColors, highContrast)) {
         statusBar()->showMessage(

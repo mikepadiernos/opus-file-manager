@@ -85,6 +85,27 @@ QPalette palette(const QString &id);
 /// Sets each overridden role in the active and inactive colour groups.
 QPalette withOverrides(QPalette palette, const Overrides &overrides);
 
+/**
+ * Overrides that apply an accent colour to selection, focus, progress and
+ * tab indicators. Selection text keeps the palette's colour when it stays
+ * readable on the accent, otherwise it becomes black or white.
+ * @param palette the palette the accent is layered over
+ * @param accent the accent colour; an invalid colour gives no overrides
+ */
+Overrides accentOverrides(const QPalette &palette, const QColor &accent);
+
+/// Roles that accentOverrides() sets.
+QList<QPalette::ColorRole> accentRoles();
+
+/**
+ * Combines the AccentColor and CustomColors settings into CustomColors
+ * entries for apply(). Custom colours take precedence over the accent.
+ * @param id the ColorScheme setting value the accent is layered over
+ * @param accent an AccentColor setting value; empty follows the scheme
+ * @param customColors CustomColors setting entries
+ */
+QStringList withAccent(const QString &id, const QString &accent, const QStringList &customColors);
+
 /// WCAG 2 contrast ratio between two colours, from 1 to 21.
 double contrastRatio(const QColor &first, const QColor &second);
 

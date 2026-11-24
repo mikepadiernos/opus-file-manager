@@ -282,6 +282,33 @@ QPalette ColorSchemes::withOverrides(QPalette palette, const Overrides &override
     return palette;
 }
 
+QList<QPalette::ColorRole> ColorSchemes::accentRoles()
+{
+    return {QPalette::Highlight, QPalette::Accent, QPalette::HighlightedText};
+}
+
+ColorSchemes::Overrides ColorSchemes::accentOverrides(const QPalette &palette, const QColor &accent)
+{
+    if (!accent.isValid()) {
+        return {};
+    }
+    const QColor opaque(accent.rgb());
+    QColor text = palette.color(QPalette::Active, QPalette::HighlightedText);
+    if (contrastRatio(text, opaque) < 4.5) {
+        text = contrastRatio(Qt::white, opaque) >= contrastRatio(Qt::black, opaque) ? QColor(Qt::white) : QColor(Qt::black);
+    }
+    return {{QPalette::Highlight, opaque}, {QPalette::Accent, opaque}, {QPalette::HighlightedText, text}};
+}
+
+QStringList ColorSchemes::withAccent(const QString &id, const QString &accent, const QStringList &customColors)
+{
+    const QColor color = QColor::fromString(accent);
+    if (accent.isEmpty() || !color.isValid()) {
+        return customColors;
+    }
+    return serializeOverrides(accentOverrides(palette(id), color)) + customColors;
+}
+
 double ColorSchemes::contrastRatio(const QColor &first, const QColor &second)
 {
     const auto luminance = [](const QColor &color) {
