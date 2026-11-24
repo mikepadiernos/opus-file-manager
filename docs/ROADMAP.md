@@ -795,7 +795,7 @@ Settings for M15 workspaces, stored in KConfig.
       without reassigning them. Confirm deletion and retain underlying files and
       locations. Store configuration locally without credentials and explain
       that workspaces are not a security boundary.
-- [ ] **Startup:** choose a startup workspace or restore the last used one
+- [x] **Startup:** choose a startup workspace or restore the last used one
       without overriding M02 startup folder or session choices
 - [ ] **Search:** choose workspace-scoped or all-location search as the default,
       reusing M10 settings; allow searches outside the workspace
