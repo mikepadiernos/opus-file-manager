@@ -828,7 +828,7 @@ Settings for M15 workspaces, stored in KConfig.
 **Project:**
 [M17 milestone](https://github.com/mikepadiernos/plasma-opus/issues/341)
 
-- [ ] Follow the active Plasma colour scheme by default. Offer app-local light
+- [x] Follow the active Plasma colour scheme by default. Offer app-local light
       and dark presets and installed KDE schemes without changing the desktop's
       global appearance, widget style or window decorations.
 - [ ] Apply app-local colours consistently across supported Plasma Opus windows,
