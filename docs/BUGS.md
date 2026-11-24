@@ -24,18 +24,18 @@ This log records user-visible bugs and reliability issues. Consult the
 
 | Issue | Bug | Complete? | Project status |
 | --- | --- | --- | --- |
-| [#37](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/37) | Combined panel header and accordion titles are misaligned | Yes | Merged |
-| [#378](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/378) | Embedded Konsole terminal does not honor profile background blur | Yes | Merged |
-| [#383](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/383) | Editor settings should use the notepad symbolic icon | Yes | Merged |
-| [#444](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/444) | KDE toolbar editor separators and spacers do not match the toolbar | Yes | Merged |
-| [#446](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/446) | Metadata editing fails with an unusable ExifTool installation | Yes | Merged |
-| [#457](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/457) | Embedded terminal panel controls and background blur | Yes | Merged |
-| [#476](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/476) | Toolbar context menus and symbolic icons | Yes | Merged |
-| [#532](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/532) | Consistent panel placement beside or below the panes | Yes | Merged |
-| [#533](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/533) | Embedded panel titles cannot be hidden like Explorer | Yes | Merged |
-| [#549](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/549) | Combined panel section spacing and title accents | Yes | Merged |
-| [#555](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/555) | Application icon accent color and size | Yes | Merged |
-| [#558](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/558) | Headers, titles and status bar need horizontal padding | Yes | Merged |
+| [#37](https://github.com/mikepadiernos/plasma-opus/issues/37) | Combined panel header and accordion titles are misaligned | Yes | Merged |
+| [#378](https://github.com/mikepadiernos/plasma-opus/issues/378) | Embedded Konsole terminal does not honor profile background blur | Yes | Merged |
+| [#383](https://github.com/mikepadiernos/plasma-opus/issues/383) | Editor settings should use the notepad symbolic icon | Yes | Merged |
+| [#444](https://github.com/mikepadiernos/plasma-opus/issues/444) | KDE toolbar editor separators and spacers do not match the toolbar | Yes | Merged |
+| [#446](https://github.com/mikepadiernos/plasma-opus/issues/446) | Metadata editing fails with an unusable ExifTool installation | Yes | Merged |
+| [#457](https://github.com/mikepadiernos/plasma-opus/issues/457) | Embedded terminal panel controls and background blur | Yes | Merged |
+| [#476](https://github.com/mikepadiernos/plasma-opus/issues/476) | Toolbar context menus and symbolic icons | Yes | Merged |
+| [#532](https://github.com/mikepadiernos/plasma-opus/issues/532) | Consistent panel placement beside or below the panes | Yes | Merged |
+| [#533](https://github.com/mikepadiernos/plasma-opus/issues/533) | Embedded panel titles cannot be hidden like Explorer | Yes | Merged |
+| [#549](https://github.com/mikepadiernos/plasma-opus/issues/549) | Combined panel section spacing and title accents | Yes | Merged |
+| [#555](https://github.com/mikepadiernos/plasma-opus/issues/555) | Application icon accent color and size | Yes | Merged |
+| [#558](https://github.com/mikepadiernos/plasma-opus/issues/558) | Headers, titles and status bar need horizontal padding | Yes | Merged |
 
 ## Status legend
 
@@ -59,17 +59,17 @@ There are no open bug reports.
 ### Header, title and status-bar padding
 
 - Severity: not assessed
-- Status: Merged; [#558](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/558)
+- Status: Merged; [#558](https://github.com/mikepadiernos/plasma-opus/issues/558)
 - Summary: Headers, titles and the status bar need more horizontal padding.
 - Resolution: Application-owned headers, titles and status-bar content have
   at least eight logical pixels of horizontal padding. Native dock titles and
   column headers retain their active style; see the
-  [padding caveat](CAVEATS.md#native-title-and-header-padding) ([#560](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/560)).
+  [padding caveat](CAVEATS.md#native-title-and-header-padding) ([#560](https://github.com/mikepadiernos/plasma-opus/issues/560)).
 
 ### Application icon accent color and size
 
 - Severity: not assessed
-- Status: Merged; [#555](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/555)
+- Status: Merged; [#555](https://github.com/mikepadiernos/plasma-opus/issues/555)
 - Summary: The application icon does not follow the Plasma accent color and
   appears smaller than Dolphin's icon.
 - Expected behaviour: The folder follows the active accent color, has a
@@ -82,7 +82,7 @@ There are no open bug reports.
 ### Combined panel section spacing
 
 - Severity: not assessed
-- Status: Merged; [#549](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/549)
+- Status: Merged; [#549](https://github.com/mikepadiernos/plasma-opus/issues/549)
 - Summary: Large vertical gaps appear between combined-panel sections when
   some are expanded and others are collapsed. Section titles also display
   ampersands before letters.
@@ -105,7 +105,7 @@ There are no open bug reports.
 ### Hide embedded panel titles
 
 - Severity: not assessed
-- Status: Merged; [#533](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/533)
+- Status: Merged; [#533](https://github.com/mikepadiernos/plasma-opus/issues/533)
 - Summary: Embedded panel titles should be hideable without losing controls,
   document status, metadata changes or terminal sessions.
 - Resolution: Panel Appearance offers a separate, persistent embedded-title
@@ -118,7 +118,7 @@ There are no open bug reports.
 ### Consistent panel placement
 
 - Severity: not assessed
-- Status: Merged; [#532](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/532)
+- Status: Merged; [#532](https://github.com/mikepadiernos/plasma-opus/issues/532)
 - Summary: Preview, text editor and metadata editor need placement below or
   right of the panes without losing their existing modes or content.
 - Resolution: Preview and metadata editing offer below/right placement alongside
@@ -130,7 +130,7 @@ There are no open bug reports.
 ### Toolbar context menus and symbolic icons
 
 - Severity: not assessed
-- Status: Merged; [#476](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/476)
+- Status: Merged; [#476](https://github.com/mikepadiernos/plasma-opus/issues/476)
 - Summary: The view mode button should use a symbolic icon consistent with
   other small toolbar controls. The reporter also observes a full-colour
   Open Editor icon and requests the symbolic icon used on the Editor settings
@@ -155,7 +155,7 @@ There are no open bug reports.
 ### Embedded terminal panel controls and background blur
 
 - Severity: not assessed
-- Status: Merged; [#457](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/457)
+- Status: Merged; [#457](https://github.com/mikepadiernos/plasma-opus/issues/457)
 - Summary: The embedded terminal lacks an accessible panel context menu and
   dismissal controls, while profile blur reportedly disappears after opening.
 - Evidence: The reporter's screenshot shows the terminal and persistent
@@ -169,45 +169,45 @@ There are no open bug reports.
 - Actual behaviour: Right-clicking offers the terminal's menu, the message
   cannot be dismissed, and the reporter could not find an in-panel way to
   close the panel without ending a session. Blur reportedly does not persist.
-- Resolution: [#459](https://github.com/mikepadiernos/plasma-opus-file-manager/pull/459)
+- Resolution: [#459](https://github.com/mikepadiernos/plasma-opus/pull/459)
   adds panel controls to hide the panel without ending sessions and dismiss
   messages. When the Konsole profile enables blur, Plasma Opus reapplies a window-wide
   blur request during repaint so the active style cannot replace it with an
   incomplete region. The previous blur report was
-  [#378](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/378).
+  [#378](https://github.com/mikepadiernos/plasma-opus/issues/378).
 
 ### KDE toolbar editor separators and spacers
 
 - Severity: medium
-- Status: Merged; [#444](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/444)
+- Status: Merged; [#444](https://github.com/mikepadiernos/plasma-opus/issues/444)
 - Summary: Separators and expanding spacers in KDE's toolbar editor did not
   match the live or restored toolbar.
 - Evidence: The reporter's screenshots identify the KDE toolbar editor and the
   resulting toolbar. KDE replaced the toolbar on Apply, leaving Plasma Opus with the
   old toolbar and saved layout.
-- Resolution: [#454](https://github.com/mikepadiernos/plasma-opus-file-manager/pull/454)
+- Resolution: [#454](https://github.com/mikepadiernos/plasma-opus/pull/454)
   synchronizes the editor with the current layout and saves the rebuilt toolbar.
-  [#452](https://github.com/mikepadiernos/plasma-opus-file-manager/pull/452) also
+  [#452](https://github.com/mikepadiernos/plasma-opus/pull/452) also
   preserves the default spacer when saving. Previously overridden layouts must
   be configured and applied again.
 
 ### Metadata editing with unusable ExifTool
 
 - Severity: not assessed
-- Status: Merged; [#446](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/446)
+- Status: Merged; [#446](https://github.com/mikepadiernos/plasma-opus/issues/446)
 - Summary: Metadata editing failed when ExifTool could not load its Perl module.
 - Evidence: The audit environment selected a system ExifTool with an
   incompatible Homebrew Perl. The reporter installed ExifTool 13.64 via mise;
   the shell resolves it successfully and the metadata editor and dialog suites
   pass in an isolated environment using that installation.
-- Resolution: [#451](https://github.com/mikepadiernos/plasma-opus-file-manager/pull/451)
+- Resolution: [#451](https://github.com/mikepadiernos/plasma-opus/pull/451)
   improved diagnostics to identify the executable and report silent failures.
   Desktop-launched Plasma Opus must also have the working executable on its PATH.
 
 ### Combined panel header and accordion alignment
 
 - Severity: not recorded
-- Status: Merged; [#37](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/37)
+- Status: Merged; [#37](https://github.com/mikepadiernos/plasma-opus/issues/37)
 - Summary: The combined panel used the wrong header and centred accordion
   titles, with the caret on the left.
 - Evidence: The issue includes the original screenshot and reproduction steps.
@@ -220,7 +220,7 @@ There are no open bug reports.
 ### Embedded terminal profile blur
 
 - Severity: not recorded
-- Status: Merged; [#378](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/378)
+- Status: Merged; [#378](https://github.com/mikepadiernos/plasma-opus/issues/378)
 - Summary: The embedded terminal did not honor the active Konsole profile's
   background blur.
 - Evidence: The issue describes comparing embedded and standalone Konsole
@@ -233,7 +233,7 @@ There are no open bug reports.
 ### Editor settings icon
 
 - Severity: not recorded
-- Status: Merged; [#383](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/383)
+- Status: Merged; [#383](https://github.com/mikepadiernos/plasma-opus/issues/383)
 - Summary: The Editor settings page did not use the requested notepad-style
   symbolic icon.
 - Evidence: The issue identifies the Editor page in the settings sidebar.
