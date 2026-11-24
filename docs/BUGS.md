@@ -22,20 +22,22 @@ This log records user-visible bugs and reliability issues. Consult the
 
 ## Current tracked issues
 
-| Issue | Bug | Complete? | Project status |
-| --- | --- | --- | --- |
-| [#37](https://github.com/mikepadiernos/plasma-opus/issues/37) | Combined panel header and accordion titles are misaligned | Yes | Merged |
-| [#378](https://github.com/mikepadiernos/plasma-opus/issues/378) | Embedded Konsole terminal does not honor profile background blur | Yes | Merged |
-| [#383](https://github.com/mikepadiernos/plasma-opus/issues/383) | Editor settings should use the notepad symbolic icon | Yes | Merged |
-| [#444](https://github.com/mikepadiernos/plasma-opus/issues/444) | KDE toolbar editor separators and spacers do not match the toolbar | Yes | Merged |
-| [#446](https://github.com/mikepadiernos/plasma-opus/issues/446) | Metadata editing fails with an unusable ExifTool installation | Yes | Merged |
-| [#457](https://github.com/mikepadiernos/plasma-opus/issues/457) | Embedded terminal panel controls and background blur | Yes | Merged |
-| [#476](https://github.com/mikepadiernos/plasma-opus/issues/476) | Toolbar context menus and symbolic icons | Yes | Merged |
-| [#532](https://github.com/mikepadiernos/plasma-opus/issues/532) | Consistent panel placement beside or below the panes | Yes | Merged |
-| [#533](https://github.com/mikepadiernos/plasma-opus/issues/533) | Embedded panel titles cannot be hidden like Explorer | Yes | Merged |
-| [#549](https://github.com/mikepadiernos/plasma-opus/issues/549) | Combined panel section spacing and title accents | Yes | Merged |
-| [#555](https://github.com/mikepadiernos/plasma-opus/issues/555) | Application icon accent color and size | Yes | Merged |
-| [#558](https://github.com/mikepadiernos/plasma-opus/issues/558) | Headers, titles and status bar need horizontal padding | Yes | Merged |
+| Issue                                                           | Bug                                                                | Complete? | Project status |
+| --------------------------------------------------------------- | ------------------------------------------------------------------ | --------- | -------------- |
+| [#37](https://github.com/mikepadiernos/plasma-opus/issues/37)   | Combined panel header and accordion titles are misaligned          | Yes       | Merged         |
+| [#378](https://github.com/mikepadiernos/plasma-opus/issues/378) | Embedded Konsole terminal does not honor profile background blur   | Yes       | Merged         |
+| [#383](https://github.com/mikepadiernos/plasma-opus/issues/383) | Editor settings should use the notepad symbolic icon               | Yes       | Merged         |
+| [#444](https://github.com/mikepadiernos/plasma-opus/issues/444) | KDE toolbar editor separators and spacers do not match the toolbar | Yes       | Merged         |
+| [#446](https://github.com/mikepadiernos/plasma-opus/issues/446) | Metadata editing fails with an unusable ExifTool installation      | Yes       | Merged         |
+| [#457](https://github.com/mikepadiernos/plasma-opus/issues/457) | Embedded terminal panel controls and background blur               | Yes       | Merged         |
+| [#476](https://github.com/mikepadiernos/plasma-opus/issues/476) | Toolbar context menus and symbolic icons                           | Yes       | Merged         |
+| [#532](https://github.com/mikepadiernos/plasma-opus/issues/532) | Consistent panel placement beside or below the panes               | Yes       | Merged         |
+| [#533](https://github.com/mikepadiernos/plasma-opus/issues/533) | Embedded panel titles cannot be hidden like Explorer               | Yes       | Merged         |
+| [#549](https://github.com/mikepadiernos/plasma-opus/issues/549) | Combined panel section spacing and title accents                   | Yes       | Merged         |
+| [#555](https://github.com/mikepadiernos/plasma-opus/issues/555) | Application icon accent color and size                             | Yes       | Merged         |
+| [#558](https://github.com/mikepadiernos/plasma-opus/issues/558) | Headers, titles and status bar need horizontal padding             | Yes       | Merged         |
+| [#605](https://github.com/mikepadiernos/plasma-opus/issues/605) | Panes without a saved view mode open in Details                    | Yes       | Completed      |
+| [#606](https://github.com/mikepadiernos/plasma-opus/issues/606) | Visual Markdown editing loses formatting with a fixed-pitch font   | Yes       | Completed      |
 
 ## Status legend
 
@@ -55,6 +57,36 @@ This log records user-visible bugs and reliability issues. Consult the
 There are no open bug reports.
 
 ## Completed reports
+
+### Default view for restored panes
+
+- Severity: moderate
+- Status: Completed; [#605](https://github.com/mikepadiernos/plasma-opus/issues/605)
+- Summary: Restored session panes without a saved view mode open in Details
+  instead of the configured default view mode.
+- Steps to reproduce: Set a default view mode other than Details, then restore
+  a session whose panes have no `ViewMode` entry.
+- Expected behaviour: Such panes use the configured default view mode.
+- Actual behaviour: They open in Details because session loading fell back to
+  view mode 0. This regressed when M15 made the default view configurable.
+- Resolution: Session loading accepts the configured default view mode, which
+  the main window passes when restoring sessions and window properties.
+
+### Visual Markdown formatting with fixed-pitch fonts
+
+- Severity: high (data loss)
+- Status: Completed; [#606](https://github.com/mikepadiernos/plasma-opus/issues/606)
+- Summary: Saving a document edited in the visual Markdown editor writes all
+  text as inline code and drops its formatting when the editor font is
+  fixed-pitch, which is the default.
+- Steps to reproduce: With a fixed-pitch editor font, open a Markdown file,
+  switch to visual editing, make a change and save.
+- Expected behaviour: Headings, emphasis, lists and other formatting are
+  preserved.
+- Actual behaviour: With Qt 6.11, Markdown export treats fixed-pitch text as
+  code.
+- Resolution: The visual editor uses the system general font at the configured
+  editor font size; the source editor keeps the fixed-pitch font.
 
 ### Header, title and status-bar padding
 

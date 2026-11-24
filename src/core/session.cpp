@@ -54,7 +54,7 @@ void savePane(const PaneSession &pane, KConfigGroup group)
     group.writeEntry(ViewModeKey, pane.viewMode);
 }
 
-PaneSession loadPane(const KConfigGroup &group)
+PaneSession loadPane(const KConfigGroup &group, int defaultViewMode)
 {
     PaneSession pane;
     pane.tabs = fromStrings(group.readEntry(TabsKey, QStringList()));
@@ -65,7 +65,7 @@ PaneSession loadPane(const KConfigGroup &group)
     pane.filterText = group.readEntry(FilterTextKey, QString());
     pane.filterScope = group.readEntry(FilterScopeKey, -1);
     pane.locationPresentation = group.readEntry(LocationPresentationKey, 0);
-    pane.viewMode = group.readEntry(ViewModeKey, 0);
+    pane.viewMode = group.readEntry(ViewModeKey, defaultViewMode);
     return pane;
 }
 
@@ -124,11 +124,11 @@ void Session::save(const WindowSession &session, KConfigGroup &group)
     group.writeEntry(StackedKey, session.stacked);
 }
 
-WindowSession Session::load(const KConfigGroup &group)
+WindowSession Session::load(const KConfigGroup &group, int defaultViewMode)
 {
     WindowSession session;
-    session.left = loadPane(group.group(QLatin1String(LeftGroup)));
-    session.right = loadPane(group.group(QLatin1String(RightGroup)));
+    session.left = loadPane(group.group(QLatin1String(LeftGroup)), defaultViewMode);
+    session.right = loadPane(group.group(QLatin1String(RightGroup)), defaultViewMode);
     session.activePane = group.readEntry(ActivePaneKey, 0);
     session.dual = group.readEntry(DualKey, true);
     session.stacked = group.readEntry(StackedKey, true);

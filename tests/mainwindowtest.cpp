@@ -1507,12 +1507,12 @@ private Q_SLOTS:
         const auto drop = [](QWidget *target, const QString &source, const QString &kind, const QString &name, const QPointF &position) {
             QMimeData mimeData;
             mimeData.setData(QStringLiteral("application/x-opus-toolbar-item"), (source + QLatin1Char('\n') + kind + QLatin1Char('\n') + name).toUtf8());
-            QDragEnterEvent enter(position, Qt::MoveAction, &mimeData, Qt::LeftButton, Qt::NoModifier);
+            QDragEnterEvent enter(position.toPoint(), Qt::MoveAction, &mimeData, Qt::LeftButton, Qt::NoModifier);
             QApplication::sendEvent(target, &enter);
             if (!enter.isAccepted()) {
                 return false;
             }
-            QDragMoveEvent move(position, Qt::MoveAction, &mimeData, Qt::LeftButton, Qt::NoModifier);
+            QDragMoveEvent move(position.toPoint(), Qt::MoveAction, &mimeData, Qt::LeftButton, Qt::NoModifier);
             QApplication::sendEvent(target, &move);
             if (!move.isAccepted()) {
                 return false;

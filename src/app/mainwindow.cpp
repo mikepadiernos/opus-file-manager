@@ -2329,7 +2329,7 @@ void MainWindow::restoreSession()
 {
     m_sessionRestored = true;
     const KConfigGroup group = KSharedConfig::openStateConfig()->group(QLatin1String(SessionGroup));
-    const WindowSession session = Startup::resolve(Session::load(group), Startup::fromSettings());
+    const WindowSession session = Startup::resolve(Session::load(group, int(Settings::defaultViewMode())), Startup::fromSettings());
 
     m_left->restoreState(session.left);
     m_right->restoreState(session.right);
@@ -2419,7 +2419,7 @@ bool MainWindow::queryClose()
 
 void MainWindow::readProperties(const KConfigGroup &group)
 {
-    const WindowSession session = Session::load(group).sanitized(QUrl::fromLocalFile(QDir::homePath()));
+    const WindowSession session = Session::load(group, int(Settings::defaultViewMode())).sanitized(QUrl::fromLocalFile(QDir::homePath()));
     m_sessionRestored = true;
     m_left->restoreState(session.left);
     m_right->restoreState(session.right);

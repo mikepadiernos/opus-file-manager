@@ -440,11 +440,11 @@ private Q_SLOTS:
                 }
                 return static_cast<QAbstractItemView *>(nullptr);
             };
-            QCOMPARE(size->value(), 24);
+            QCOMPARE(size->value(), 16);
             QCOMPARE(position->currentIndex(), int(Settings::EnumSidebarTitlePosition::Beside));
             QCOMPARE(pages->faceType(), KPageView::FlatList);
             QTRY_VERIFY(sidebar());
-            QCOMPARE(sidebar()->iconSize(), QSize(24, 24));
+            QCOMPARE(sidebar()->iconSize(), QSize(16, 16));
 
             auto *current = dialog.currentPage();
             size->setValue(40);
@@ -492,8 +492,8 @@ private Q_SLOTS:
             auto *follow = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_TerminalFollowActiveFolder"));
             QVERIFY(placement);
             QVERIFY(follow);
-            QVERIFY(!follow->isChecked());
-            follow->setChecked(true);
+            QVERIFY(follow->isChecked());
+            follow->setChecked(false);
             QCOMPARE(placement->currentIndex(), int(Settings::EnumTerminalPlacement::Automatic));
             placement->setCurrentIndex(Settings::EnumTerminalPlacement::Right);
             dialog.button(QDialogButtonBox::Ok)->click();
@@ -503,15 +503,15 @@ private Q_SLOTS:
             auto *placement = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TerminalPlacement"));
             auto *follow = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_TerminalFollowActiveFolder"));
             QVERIFY(placement);
-            QVERIFY(follow && follow->isChecked());
-            follow->setChecked(false);
+            QVERIFY(follow && !follow->isChecked());
+            follow->setChecked(true);
             QCOMPARE(placement->currentIndex(), int(Settings::EnumTerminalPlacement::Right));
             placement->setCurrentIndex(Settings::EnumTerminalPlacement::Below);
             dialog.reject();
         }
         QCOMPARE(Settings::terminalPlacement(), int(Settings::EnumTerminalPlacement::Right));
-        QVERIFY(Settings::terminalFollowActiveFolder());
-        Settings::setTerminalFollowActiveFolder(false);
+        QVERIFY(!Settings::terminalFollowActiveFolder());
+        Settings::setTerminalFollowActiveFolder(true);
     }
 
     void searchDefaultsPersistAndCancelLeavesThemUnchanged()
@@ -609,10 +609,10 @@ private Q_SLOTS:
         SettingsDialog dialog(&places, nullptr);
         auto *link = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_LinkPanesAtStartup"));
         QVERIFY(link);
-        QVERIFY(!link->isChecked());
-        link->setChecked(true);
+        QVERIFY(link->isChecked());
+        link->setChecked(false);
         dialog.button(QDialogButtonBox::Ok)->click();
-        QVERIFY(Settings::linkPanesAtStartup());
+        QVERIFY(!Settings::linkPanesAtStartup());
     }
 
     void fileDiffWrapPreferencePersists()
@@ -993,7 +993,7 @@ private Q_SLOTS:
         QVERIFY(panelPosition);
         panelPosition->setCurrentIndex(Settings::EnumPanelPosition::right);
         dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_PanelAutoFocus"))->setChecked(false);
-        dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_PanelTitlesVisible"))->setChecked(false);
+        dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_PanelTitlesVisible"))->setChecked(true);
         dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_FavoritesVisible"))->setChecked(false);
         dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_PlacesVisible"))->setChecked(false);
         dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_FoldersVisible"))->setChecked(false);
@@ -1028,7 +1028,7 @@ private Q_SLOTS:
         QVERIFY(!panels.readEntry("Visible", true));
         QCOMPARE(panels.readEntry("Position", QString()), QStringLiteral("right"));
         QVERIFY(!panels.readEntry("AutoFocus", true));
-        QVERIFY(!panels.readEntry("TitlesVisible", true));
+        QVERIFY(panels.readEntry("TitlesVisible", false));
         QVERIFY(!panels.readEntry("FavoritesVisible", true));
         QVERIFY(!panels.readEntry("PlacesVisible", true));
         QVERIFY(!panels.readEntry("FoldersVisible", true));
@@ -1047,14 +1047,15 @@ private Q_SLOTS:
         QVERIFY(fields && hover);
         const QStringList selected{QStringLiteral("localPathOrUrl"), QStringLiteral("comment"), QStringLiteral("size")};
         fields->setInformation(selected);
-        hover->setChecked(true);
+        QVERIFY(hover->isChecked());
+        hover->setChecked(false);
         dialog.button(QDialogButtonBox::Ok)->click();
 
         QCOMPARE(Settings::informationFields(), selected);
-        QVERIFY(Settings::informationHover());
+        QVERIFY(!Settings::informationHover());
         const KConfigGroup config = KSharedConfig::openConfig()->group(QStringLiteral("InformationPanel"));
         QCOMPARE(config.readEntry("InformationFields", QStringList()), selected);
-        QVERIFY(config.readEntry("InformationHover", false));
+        QVERIFY(!config.readEntry("InformationHover", true));
     }
 
     void savesM02InterfaceAndViewSettings()
@@ -1080,7 +1081,8 @@ private Q_SLOTS:
 
         startupMode->setCurrentIndex(Settings::EnumStartupMode::FixedFolders);
         homeUrl->setUrl(QUrl::fromLocalFile(home.path()));
-        tabsAfterCurrent->setChecked(true);
+        QVERIFY(tabsAfterCurrent->isChecked());
+        tabsAfterCurrent->setChecked(false);
         followLinks->setChecked(true);
         dropAction->setCurrentIndex(Settings::EnumDropAction::Copy);
         previewLimit->setValue(8);
@@ -1096,7 +1098,7 @@ private Q_SLOTS:
         const auto config = KSharedConfig::openConfig();
         QCOMPARE(config->group(QStringLiteral("Startup")).readEntry("StartupMode", QString()), QStringLiteral("FixedFolders"));
         QCOMPARE(config->group(QStringLiteral("Startup")).readEntry("HomeUrl", QUrl()), QUrl::fromLocalFile(home.path()));
-        QVERIFY(config->group(QStringLiteral("Panes")).readEntry("NewTabsAfterCurrent", false));
+        QVERIFY(!config->group(QStringLiteral("Panes")).readEntry("NewTabsAfterCurrent", true));
         QVERIFY(config->group(QStringLiteral("Navigation")).readEntry("FollowSymlinks", false));
         QCOMPARE(config->group(QStringLiteral("Confirmations")).readEntry("DropAction", QString()), QStringLiteral("Copy"));
         QCOMPARE(config->group(QStringLiteral("Views")).readEntry("DefaultViewMode", QString()), QStringLiteral("Icons"));

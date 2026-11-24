@@ -1,5 +1,6 @@
 /build/
 /build-plasma/
+/build-container/
 /.cache/
 compile_commands.json
 *.user

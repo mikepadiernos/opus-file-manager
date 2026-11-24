@@ -51,5 +51,7 @@ struct WindowSession {
 namespace Session
 {
 void save(const WindowSession &session, KConfigGroup &group);
-WindowSession load(const KConfigGroup &group);
+/// Panes without a saved view mode, such as sessions saved before view modes
+/// were recorded, use @p defaultViewMode.
+WindowSession load(const KConfigGroup &group, int defaultViewMode = 0);
 }

@@ -3,9 +3,9 @@
 Plasma Opus is a Linux-only, dual-pane file manager for KDE Plasma, built with C++20,
 Qt 6 Widgets and KDE Frameworks 6.
 
-Apply the shared instructions in `/home/mikepadiernos/Library/Projects/CLAUDE.md`
-first. These project instructions supplement them and take precedence where
-they conflict.
+Apply the shared instructions in `~/Library/Projects/CLAUDE.md` or
+`~/Library/.projects/CLAUDE.md` first. These project instructions supplement
+them and take precedence where they conflict.
 
 ## Project documentation
 
@@ -26,6 +26,22 @@ QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
 cmake --build build --target clang-format   # format all C++ sources
 ./build/bin/opus-file-manager [path...]
 ```
+
+On hosts without the Linux build dependencies, such as macOS, build and test
+in the headless dev container. It extends Plasma Impresario's
+`plasma-impresario-dev` image, which `tools/dev-container/run.sh` builds from a
+sibling `plasma-impresario` checkout (or `IMPRESARIO_DIR`) when it is missing.
+Use the separate `build-container` tree so it does not collide with a host
+build:
+
+```bash
+tools/dev-container/run.sh sh -c 'cmake -S . -B build-container -G Ninja -DCMAKE_BUILD_TYPE=Debug && cmake --build build-container'
+tools/dev-container/run.sh ctest --test-dir build-container --output-on-failure -j4
+tools/dev-container/run.sh cmake --build build-container --target clang-format
+```
+
+The container has no Plasma session. Verify visual, KWin and Plasma
+integration behaviour on Plasma.
 
 ## Development
 
