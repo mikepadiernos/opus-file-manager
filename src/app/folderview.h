@@ -84,6 +84,8 @@ public:
     QStringList previewPlugins() const;
     void setIconSizes(int details, int icons);
     void setItemSpacing(int detailsSpace, int iconsSpace);
+    /// Sets the font of every view mode and its headers; a default QFont follows the window's font.
+    void setListFont(const QFont &font);
     void setDragFromAnywhere(bool enabled);
     void setColumnVisible(int column, bool visible);
     bool isColumnVisible(int column) const;

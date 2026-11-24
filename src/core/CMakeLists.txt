@@ -1,4 +1,6 @@
 add_library(opusfm_core STATIC
+    appfonts.cpp
+    appfonts.h
     archives.cpp
     archives.h
     archivewriter.cpp

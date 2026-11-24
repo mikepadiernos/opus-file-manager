@@ -111,6 +111,8 @@ public:
     void setTabBarPosition(TabBarPosition position);
     TabBarPosition tabBarPosition() const;
     void reloadTabSettings();
+    /// Sets the tab font; a default QFont follows the window's font.
+    void setTabFont(const QFont &font);
     /// Redraws folder colours on tabs, breadcrumbs and the view.
     void refreshFolderColors();
     void reloadFilterSettings();

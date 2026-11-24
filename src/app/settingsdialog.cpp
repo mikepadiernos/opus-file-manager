@@ -160,7 +160,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createEffectsPage(), i18nc("@title:tab", "Effects")},
                    {createLinesPage(), i18nc("@title:tab", "Lines")},
                    {createHighlightsPage(), i18nc("@title:tab", "Highlights")},
-                   {createFolderColorsPage(), i18nc("@title:tab", "Folder Colours")}},
+                   {createFolderColorsPage(), i18nc("@title:tab", "Folder Colours")},
+                   {createFontsPage(), i18nc("@title:tab", "Fonts")}},
                   i18nc("@title:group", "Themes"),
                   QStringLiteral("preferences-desktop-theme"));
     addTabbedPage({{createViewGeneralPage(), i18nc("@title:tab", "General")},
@@ -1796,6 +1797,31 @@ QWidget *SettingsDialog::createFolderColorsPage()
                                  page);
     rulesNote->setWordWrap(true);
     layout->addWidget(rulesNote);
+    return page;
+}
+
+QWidget *SettingsDialog::createFontsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    const QList<std::tuple<QString, QString, QString>> areas{
+        {QStringLiteral("FileListFont"), i18nc("@label", "File lists:"), i18nc("@label", "File list font")},
+        {QStringLiteral("FolderTreeFont"), i18nc("@label", "Folder tree:"), i18nc("@label", "Folder tree font")},
+        {QStringLiteral("TabFont"), i18nc("@label", "Tabs:"), i18nc("@label", "Tab font")},
+        {QStringLiteral("StatusBarFont"), i18nc("@label", "Status bars:"), i18nc("@label", "Status bar font")},
+    };
+    for (const auto &[entry, label, name] : areas) {
+        form->addRow(label, bound(new FontOverrideChooser(name), entry, "fontSetting"));
+    }
+    layout->addLayout(form);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Areas without a custom font follow Plasma's General font. Custom fonts are stored in points, so they "
+                                  "scale with the display like Plasma's fonts. File lists include their column headers."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    layout->addStretch();
     return page;
 }
 

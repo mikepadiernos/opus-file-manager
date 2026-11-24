@@ -2,6 +2,7 @@
 
 #include "settingswidgets.h"
 
+#include "appfonts.h"
 #include "colorschemes.h"
 #include "filecolorrules.h"
 #include "ignorelist.h"
@@ -9,12 +10,14 @@
 #include "workspacestartup.h"
 
 #include <KColorButton>
+#include <KFontRequester>
 #include <KIO/PreviewJob>
 #include <KLanguageName>
 #include <KLocalizedString>
 #include <KMessageWidget>
 #include <KPluginMetaData>
 
+#include <QApplication>
 #include <QCheckBox>
 #include <QColorDialog>
 #include <QDialogButtonBox>
@@ -916,6 +919,51 @@ void FolderColorRuleEditor::updateButtons()
     m_remove->setEnabled(row >= 0);
     m_up->setEnabled(row > 0);
     m_down->setEnabled(row >= 0 && row + 1 < m_list->count());
+}
+
+FontOverrideChooser::FontOverrideChooser(const QString &accessibleName, QWidget *parent)
+    : QWidget(parent)
+    , m_custom(new QCheckBox(i18nc("@option:check use a custom font", "Custom:"), this))
+    , m_requester(new KFontRequester(this))
+{
+    m_custom->setToolTip(i18nc("@info:tooltip", "When unchecked, Plasma's General font is used."));
+    m_custom->setAccessibleName(i18nc("@option:check %1 is an area such as File list font", "Custom %1", accessibleName));
+    m_requester->setAccessibleName(accessibleName);
+    m_requester->setFont(QApplication::font());
+    auto *layout = new QHBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(m_custom);
+    layout->addWidget(m_requester, 1);
+    m_requester->setEnabled(false);
+    connect(m_custom, &QCheckBox::toggled, this, [this](bool custom) {
+        m_requester->setEnabled(custom);
+        Q_EMIT fontSettingChanged();
+    });
+    connect(m_requester, &KFontRequester::fontSelected, this, &FontOverrideChooser::fontSettingChanged);
+}
+
+QString FontOverrideChooser::fontSetting() const
+{
+    if (!m_custom->isChecked()) {
+        return {};
+    }
+    // A custom font is stored in full, even when it matches Plasma's font.
+    QFont font = m_requester->font();
+    font.setResolveMask(QFont::AllPropertiesResolved);
+    return AppFonts::toSetting(font);
+}
+
+void FontOverrideChooser::setFontSetting(const QString &setting)
+{
+    const QFont font = AppFonts::fromSetting(setting);
+    const bool custom = AppFonts::isOverride(font);
+    {
+        const QSignalBlocker blocker(m_custom);
+        m_custom->setChecked(custom);
+    }
+    m_requester->setEnabled(custom);
+    m_requester->setFont(custom ? font : QApplication::font());
+    Q_EMIT fontSettingChanged();
 }
 
 IconInformationList::IconInformationList(QWidget *parent, bool cardFields)

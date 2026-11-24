@@ -1326,6 +1326,11 @@ void Pane::reloadTabSettings()
     }
 }
 
+void Pane::setTabFont(const QFont &font)
+{
+    m_tabBar->setFont(font);
+}
+
 void Pane::refreshFolderColors()
 {
     for (int index = 0; index < m_tabBar->count(); ++index) {

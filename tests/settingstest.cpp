@@ -2,6 +2,7 @@
 
 #include "settings.h"
 #include "appearancestyle.h"
+#include "appfonts.h"
 #include "carddelegate.h"
 #include "colorschemes.h"
 #include "combinedpanel.h"
@@ -2084,6 +2085,64 @@ private Q_SLOTS:
         window.applySettings();
         QCOMPARE(toolbar->contentsMargins(), initialToolbar);
         QCOMPARE(navigation->contentsMargins(), initialNavigation);
+    }
+
+    void customFontsApplyToListsTreesTabsAndStatusBars()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        const QFont plasma = QApplication::font();
+        const QList<FolderTree *> trees = window.findChildren<FolderTree *>();
+        QVERIFY(!trees.isEmpty());
+        const auto fontsAre = [&](const QFont &list, const QFont &tree, const QFont &tabs, const QFont &status) {
+            for (Pane *pane : {window.activePane(), window.inactivePane()}) {
+                if (pane->view()->currentView()->font() != list || pane->findChild<QTabBar *>()->font() != tabs || pane->statusBarWidget()->font() != status) {
+                    return false;
+                }
+            }
+            for (FolderTree *folderTree : trees) {
+                if (folderTree->font() != tree) {
+                    return false;
+                }
+            }
+            return window.statusBar()->font() == status;
+        };
+        QVERIFY(fontsAre(plasma, plasma, plasma, plasma));
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        const QStringList entries{QStringLiteral("FileListFont"), QStringLiteral("FolderTreeFont"), QStringLiteral("TabFont"), QStringLiteral("StatusBarFont")};
+        QList<FontOverrideChooser *> choosers;
+        for (const QString &entry : entries) {
+            choosers.append(dialog.findChild<FontOverrideChooser *>(QStringLiteral("kcfg_") + entry));
+            QVERIFY2(choosers.last(), qPrintable(entry));
+        }
+        QFont tabs(plasma.family(), 14);
+        tabs.setItalic(true);
+        const QList<QFont> custom{QFont(plasma.family(), 17), QFont(plasma.family(), 15), tabs, QFont(plasma.family(), 7)};
+        for (int index = 0; index < choosers.size(); ++index) {
+            choosers[index]->setFontSetting(AppFonts::toSetting(custom[index]));
+        }
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(AppFonts::fromSetting(Settings::fileListFont()).pointSize(), 17);
+        QVERIFY(AppFonts::fromSetting(Settings::tabFont()).italic());
+        const auto applied = [&plasma](const QString &setting) {
+            return AppFonts::fromSetting(setting).resolve(plasma);
+        };
+        QVERIFY(
+            fontsAre(applied(Settings::fileListFont()), applied(Settings::folderTreeFont()), applied(Settings::tabFont()), applied(Settings::statusBarFont())));
+
+        for (FontOverrideChooser *chooser : std::as_const(choosers)) {
+            chooser->setFontSetting(QString());
+        }
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::fileListFont().isEmpty());
+        QVERIFY(Settings::statusBarFont().isEmpty());
+        QVERIFY(fontsAre(plasma, plasma, plasma, plasma));
     }
 
     void toolbarAppearanceSettingsApplyToEveryToolbar()

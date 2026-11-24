@@ -290,6 +290,32 @@ private:
     QPushButton *m_down;
 };
 
+class KFontRequester;
+
+/**
+ * Follows Plasma's font or chooses an app-local font for one area, such as
+ * file lists. Bound to a font setting stored by AppFonts::toSetting().
+ */
+class FontOverrideChooser : public QWidget
+{
+    Q_OBJECT
+    Q_PROPERTY(QString fontSetting READ fontSetting WRITE setFontSetting NOTIFY fontSettingChanged USER true)
+
+public:
+    /// @param accessibleName names the area, such as "File list font"
+    explicit FontOverrideChooser(const QString &accessibleName, QWidget *parent = nullptr);
+    /// The chosen font, or empty to follow Plasma.
+    QString fontSetting() const;
+    void setFontSetting(const QString &setting);
+
+Q_SIGNALS:
+    void fontSettingChanged();
+
+private:
+    QCheckBox *m_custom;
+    KFontRequester *m_requester;
+};
+
 class IconInformationList : public QListWidget
 {
     Q_OBJECT

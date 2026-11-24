@@ -4,6 +4,7 @@
 #include "metadataeditdialog.h"
 
 #include "appearancestyle.h"
+#include "appfonts.h"
 #include "archives.h"
 #include "archivewriter.h"
 #include "batchrenamedialog.h"
@@ -4683,12 +4684,30 @@ void MainWindow::refreshFolderColors()
     }
 }
 
+void MainWindow::applyFonts()
+{
+    const QFont list = AppFonts::fromSetting(Settings::fileListFont());
+    const QFont tree = AppFonts::fromSetting(Settings::folderTreeFont());
+    const QFont tabs = AppFonts::fromSetting(Settings::tabFont());
+    const QFont status = AppFonts::fromSetting(Settings::statusBarFont());
+    for (Pane *pane : {m_left, m_right}) {
+        pane->view()->setListFont(list);
+        pane->setTabFont(tabs);
+        pane->statusBarWidget()->setFont(status);
+    }
+    for (FolderTree *folderTree : {m_folderTree, m_combinedPanel->folderTree()}) {
+        folderTree->setFont(tree);
+    }
+    statusBar()->setFont(status);
+}
+
 void MainWindow::applySettings()
 {
     applyColorScheme();
     applyWindowEffects();
     applyBackgroundOpacity();
     applyAppearanceStyle();
+    applyFonts();
     refreshFolderColors();
     const bool translucency = Settings::windowOpacity() < 100 || Settings::paneOpacity() < 100 || Settings::panelOpacity() < 100;
     if (const QString reason = WindowEffects::unavailableReason(this, Settings::backgroundBlur(), translucency); !reason.isEmpty()) {

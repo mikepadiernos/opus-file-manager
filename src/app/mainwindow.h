@@ -129,6 +129,8 @@ private:
     void applyAppearanceStyle();
     /// Redraws folder colours on icons, names, tabs and breadcrumbs after they or their style change.
     void refreshFolderColors();
+    /// Applies the app-local fonts of file lists, the folder trees, tabs and status bars.
+    void applyFonts();
     /// Places the workspace selector in the View menu, the status bar or both.
     void applyWorkspaceSelectorPlacement();
     /// Gives each pane its configured location bar, replacing the current choice only when the setting changes.

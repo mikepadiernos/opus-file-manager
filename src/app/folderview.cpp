@@ -453,7 +453,7 @@ public:
         if (Settings::highlightFilterMatches() && role == Qt::FontRole && index.column() == KDirModel::Name && m_filter.appliesTo(itemAt(index).isDir())
             && !m_filter.text().trimmed().isEmpty() && !m_filter.text().contains(u'*') && !m_filter.text().contains(u'?') && !m_filter.text().contains(u'[')
             && itemAt(index).name().contains(m_filter.text().trimmed(), Qt::CaseInsensitive)) {
-            QFont font = QApplication::font();
+            QFont font;
             font.setBold(true);
             return font;
         }
@@ -1960,6 +1960,16 @@ void FolderView::applyCardPreferences()
     // The preview generator renders at the view's icon size.
     m_cards->setIconSize(QSize(preview, preview));
     updateCardLayout();
+}
+
+void FolderView::setListFont(const QFont &font)
+{
+    setFont(font);
+    // The icon grid and card cells are sized from the font.
+    setIconSizes(m_detailsIconSize, m_iconsIconSize);
+    updateCardLayout();
+    m_details->doItemsLayout();
+    m_compact->doItemsLayout();
 }
 
 void FolderView::updateCardLayout()

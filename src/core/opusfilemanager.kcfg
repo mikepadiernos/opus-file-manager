@@ -1050,5 +1050,21 @@
       <label>Rules that colour folders without their own colour by path, name pattern or tag, as JSON objects checked in order</label>
       <default></default>
     </entry>
+    <entry name="FileListFont" type="String">
+      <label>Font for file lists as stored by QFont::toString(), or empty to follow Plasma</label>
+      <default></default>
+    </entry>
+    <entry name="FolderTreeFont" type="String">
+      <label>Font for the folder tree as stored by QFont::toString(), or empty to follow Plasma</label>
+      <default></default>
+    </entry>
+    <entry name="TabFont" type="String">
+      <label>Font for pane tabs as stored by QFont::toString(), or empty to follow Plasma</label>
+      <default></default>
+    </entry>
+    <entry name="StatusBarFont" type="String">
+      <label>Font for the status bars as stored by QFont::toString(), or empty to follow Plasma</label>
+      <default></default>
+    </entry>
   </group>
 </kcfg>
