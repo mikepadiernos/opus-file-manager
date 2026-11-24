@@ -128,7 +128,7 @@ including saved searches and folder comparison or synchronization profiles.
 Profiles remain separate from workspace layouts and reusable elsewhere.
 Switching a workspace does not run tasks or change shared defaults; existing
 previews and confirmations still apply. See
-[#585](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/585).
+[#585](https://github.com/mikepadiernos/plasma-opus/issues/585).
 
 An optional local vault can give a workspace a note-oriented view, using the
 built-in text editor for Markdown, note links and backlinks. It remains a normal

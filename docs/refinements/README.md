@@ -2,7 +2,7 @@
 
 **[Documentation](../README.md)** · **[Roadmap](../ROADMAP.md#m32-refinements)**
 ·
-**[M32 issue](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/28)**
+**[M32 issue](https://github.com/mikepadiernos/plasma-opus/issues/28)**
 · **[Project board](https://github.com/users/mikepadiernos/projects/3)**
 
 These plans cover menus, layouts, interaction, settings, performance and

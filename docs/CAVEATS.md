@@ -53,20 +53,20 @@ its saved layout remains unapplied until the user switches to it. A visible
 terminal requires an existing session; metadata and toolbar editors must be
 closed before saving or switching. Incompatible linked panes must be unlinked
 first. Older snapshots may require replacement before they can be applied.
-([#581](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/581))
+([#581](https://github.com/mikepadiernos/plasma-opus/issues/581))
 
 - **Recommendation:** Save editor drafts separately and start a terminal session
   before switching to a layout that shows it. Finish metadata and toolbar edits,
   and unlink panes when prompted. Replace older snapshots with **Save Current
   Layout**. Explicitly switch to apply a saved layout after startup.
   - Comment:
-    [#581.7074690958](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/581#issuecomment-7074690958)
+    [#581.7074690958](https://github.com/mikepadiernos/plasma-opus/issues/581#issuecomment-7074690958)
 
 ## Native tag groups
 
 Tag groups are native-tagging data and are not implemented as workspace
 assignments. The provider and stable identities are planned in M23
-([#252](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/252)).
+([#252](https://github.com/mikepadiernos/plasma-opus/issues/252)).
 
 - **Recommendation:** Until #252 provides a stable catalog, show ordinary tag
   presentation without inferred groups or workspace scope. Do not derive
@@ -77,21 +77,21 @@ assignments. The provider and stable identities are planned in M23
   report missing or incomplete providers rather than creating hidden fallback
   groups.
   - Comment:
-    [#252.7083417087](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/252#issuecomment-7083417087)
+    [#252.7083417087](https://github.com/mikepadiernos/plasma-opus/issues/252#issuecomment-7083417087)
 
 ## Native title and header padding
 
 Native Qt/KDE dock titles and column headers follow the active widget style;
 their horizontal padding can be less than eight logical pixels. For example,
 Breeze's column-label rectangle starts six pixels from the section edge.
-([#560](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/560))
+([#560](https://github.com/mikepadiernos/plasma-opus/issues/560))
 
 - **Recommendation:** Keep native rendering and choose a widget style whose
   spacing is comfortable for your needs. Check the active style after changing
   desktop appearance; Plasma Opus does not guarantee an eight-pixel minimum for
   these controls.
   - Comment:
-    [#560.7071231166](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/560#issuecomment-7071231166)
+    [#560.7071231166](https://github.com/mikepadiernos/plasma-opus/issues/560#issuecomment-7071231166)
 
 ## Jalali dates
 
@@ -101,14 +101,14 @@ ISO 8601 listing format remains Gregorian; an explicit calendar override takes
 precedence. KDE controls dates in its own dialogs and tooltips, and the
 additional file information shown under icons in icon and compact views uses
 KDE's `KFileItemDelegate`; these dates may remain Gregorian.
-([#436](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/436))
+([#436](https://github.com/mikepadiernos/plasma-opus/issues/436))
 
 - **Recommendation:** Use Details view or the Plasma Opus Information panel for
   Jalali dates. Select Jalali explicitly, or use a Persian regional locale with
   the automatic calendar and a Locale listing format. Verify the calendar before
   interpreting KDE-provided dates.
   - Comment:
-    [#436.7041290164](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/436#issuecomment-7041290164)
+    [#436.7041290164](https://github.com/mikepadiernos/plasma-opus/issues/436#issuecomment-7041290164)
 
 ## Translation format overrides
 
@@ -120,7 +120,7 @@ can use their own locale or desktop settings. With a C/POSIX message locale, an
 explicitly selected non-English interface language also requires an installed
 non-C UTF-8 message locale; Plasma Opus warns and follows the system language if
 none can be used.
-([#440](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/440))
+([#440](https://github.com/mikepadiernos/plasma-opus/issues/440))
 
 - **Recommendation:** Use Details view or the Information panel for overridden
   file dates and verify other displays against the desktop locale. Configure
@@ -128,7 +128,7 @@ none can be used.
   is unavailable under C/POSIX, install a non-C UTF-8 system locale and restart
   Plasma Opus.
   - Comment:
-    [#440.7045227580](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/440#issuecomment-7045227580)
+    [#440.7045227580](https://github.com/mikepadiernos/plasma-opus/issues/440#issuecomment-7045227580)
 
 ## Archives
 
@@ -144,7 +144,7 @@ none can be used.
     - Comment: [#265.7021749894][comment-265]
   - **Alternative:** Stage remote files locally with Dolphin.
     - Comment:
-      [#265.7029669109](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/265#issuecomment-7029669109)
+      [#265.7029669109](https://github.com/mikepadiernos/plasma-opus/issues/265#issuecomment-7029669109)
   - **Planned:** [M27 remote connection profiles](ROADMAP.md#m27-integrations)
     are not a commitment to support remote archive creation or testing.
     - Comment: [#265.7021749894][comment-265]
@@ -165,10 +165,10 @@ none can be used.
   - **Alternatives:**
     - Encrypt an entire archive separately with GnuPG.
       - Comment:
-        [#255.7029665897](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/255#issuecomment-7029665897)
+        [#255.7029665897](https://github.com/mikepadiernos/plasma-opus/issues/255#issuecomment-7029665897)
     - Extract into a fresh staging directory first.
       - Comment:
-        [#256.7029666231](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/256#issuecomment-7029666231)
+        [#256.7029666231](https://github.com/mikepadiernos/plasma-opus/issues/256#issuecomment-7029666231)
 
 - **Encrypted 7z:** Extraction uses KArchive and can fail even for valid
   archives. Integrity testing uses the `7z` executable when available and
@@ -183,7 +183,7 @@ none can be used.
     - Comment: [#255.7021741358][comment-255]
   - **Alternative:** Try standalone Ark with its 7z backend.
     - Comment:
-      [#36.7029665511](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/36#issuecomment-7029665511)
+      [#36.7029665511](https://github.com/mikepadiernos/plasma-opus/issues/36#issuecomment-7029665511)
   - **Planned:** [M27 Ark integration](ROADMAP.md#m27-integrations) does not
     guarantee encrypted 7z support or safe password handling.
     - Comment: [#36.7021740511][comment-36]
@@ -207,7 +207,7 @@ operation before assuming passwords are not exposed in process arguments.
 - **Alternative proposal:** Consider a user-controlled external archiver
   handoff.
   - Comment:
-    [#313.7029672463](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/313#issuecomment-7029672463)
+    [#313.7029672463](https://github.com/mikepadiernos/plasma-opus/issues/313#issuecomment-7029672463)
 - **Planned:** [M27](ROADMAP.md#m27-integrations) includes Ark integration; its
   precise backend and safeguards still need to be established.
   - Comment: [#313.7021757012][comment-313]
@@ -229,10 +229,10 @@ operation before assuming passwords are not exposed in process arguments.
   - **Alternatives:**
     - Keep a versioned copy of metadata outside Plasma Opus.
       - Comment:
-        [#257.7029666537](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/257#issuecomment-7029666537)
+        [#257.7029666537](https://github.com/mikepadiernos/plasma-opus/issues/257#issuecomment-7029666537)
     - Use ordinary hidden filenames where appropriate.
       - Comment:
-        [#258.7029666857](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/258#issuecomment-7029666857)
+        [#258.7029666857](https://github.com/mikepadiernos/plasma-opus/issues/258#issuecomment-7029666857)
   - **Planned:** [M23 native tagging](ROADMAP.md#m23-native-tagging) is a
     separate library and does not make `.mfm.json` writes lossless.
     - Comment: [#257.7021742864][comment-257]
@@ -247,7 +247,7 @@ operation before assuming passwords are not exposed in process arguments.
     - Comment: [#263.7021748197][comment-263]
   - **Alternative:** Keep longer notes in a separate file.
     - Comment:
-      [#263.7029668469](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/263#issuecomment-7029668469)
+      [#263.7029668469](https://github.com/mikepadiernos/plasma-opus/issues/263#issuecomment-7029668469)
   - **Planned:** [M23 library text fields](ROADMAP.md#m23-native-tagging) are
     separate from folder notes and do not remove these metadata limits.
     - Comment: [#263.7021748197][comment-263]
@@ -263,7 +263,7 @@ operation before assuming passwords are not exposed in process arguments.
     - Comment: [#261.7021745774][comment-261]
   - **Alternative:** Use live search and reveal a result in its folder.
     - Comment:
-      [#261.7029667831](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/261#issuecomment-7029667831)
+      [#261.7029667831](https://github.com/mikepadiernos/plasma-opus/issues/261#issuecomment-7029667831)
 
 - **Folder sizes:** Background calculations skip symbolic links to directories.
   Calculated sizes are snapshots and can become stale when changes occur outside
@@ -277,7 +277,7 @@ operation before assuming passwords are not exposed in process arguments.
     - Comment: [#262.7021746538][comment-262]
   - **Alternative:** Take an on-demand size snapshot with GNU `du`.
     - Comment:
-      [#262.7029668154](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/262#issuecomment-7029668154)
+      [#262.7029668154](https://github.com/mikepadiernos/plasma-opus/issues/262#issuecomment-7029668154)
 
 ## Planned password-gated folders
 
@@ -287,9 +287,9 @@ access control. Other file managers and processes with the same user permissions
 could access the underlying folder without the password. Standard filesystem
 permissions and ACLs distinguish users and groups, not applications running with
 the same credentials.
-([#406](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/406);
+([#406](https://github.com/mikepadiernos/plasma-opus/issues/406);
 feature
-[#402](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/402))
+[#402](https://github.com/mikepadiernos/plasma-opus/issues/402))
 
 - **Recommendation:** For confidential files, use a separate encrypted vault
   such as [KDE Plasma Vault](https://github.com/KDE/plasma-vault). Applications
@@ -299,25 +299,25 @@ feature
   passphrase; handle any original unencrypted copies separately. Backend
   availability and behaviour vary.
   - Comment:
-    [#406.7040077820](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/406#issuecomment-7040077820)
+    [#406.7040077820](https://github.com/mikepadiernos/plasma-opus/issues/406#issuecomment-7040077820)
 - **Alternatives:**
   - **Cooperative prompts:** Explore a shared gate only with file managers that
     explicitly support it. Unsupported apps and direct access can bypass it;
     cross-manager support is not established and this is not security.
     - Comment:
-      [#406.7040078439](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/406#issuecomment-7040078439)
+      [#406.7040078439](https://github.com/mikepadiernos/plasma-opus/issues/406#issuecomment-7040078439)
   - **Separate identities:** Use ownership and ACLs to restrict access to
     selected user or service identities. Apps with the same credentials retain
     the same ordinary access; this does not add a folder-password prompt.
     Privileged users can override controls, and administration requires care.
     - Comment:
-      [#406.7040079139](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/406#issuecomment-7040079139)
+      [#406.7040079139](https://github.com/mikepadiernos/plasma-opus/issues/406#issuecomment-7040079139)
   - **Application sandboxing:** Restrict a controlled set of sandboxed apps and
     grant chosen apps access through supported sandbox or portal mechanisms.
     Unsandboxed same-user processes can still access the folder; support and
     permissions vary, so this is not universal password enforcement.
     - Comment:
-      [#406.7040079777](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/406#issuecomment-7040079777)
+      [#406.7040079777](https://github.com/mikepadiernos/plasma-opus/issues/406#issuecomment-7040079777)
 
 ## Previews and gallery
 
@@ -332,7 +332,7 @@ feature
     - Comment: [#259.7021744368][comment-259]
   - **Alternative:** Open the file with a separate application.
     - Comment:
-      [#259.7029667136](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/259#issuecomment-7029667136)
+      [#259.7029667136](https://github.com/mikepadiernos/plasma-opus/issues/259#issuecomment-7029667136)
 
 - **Preview limits:** Images are limited to 8 MiB and 40 megapixels. Text
   previews use UTF-8 and default to the first 1 MiB; lines longer than 16,384
@@ -347,7 +347,7 @@ feature
     - Comment: [#264.7021749088][comment-264]
   - **Alternative:** Use Kate or KWrite for long-line text.
     - Comment:
-      [#264.7029668772](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/264#issuecomment-7029668772)
+      [#264.7029668772](https://github.com/mikepadiernos/plasma-opus/issues/264#issuecomment-7029668772)
   - **Planned:** [M27 editor integrations](ROADMAP.md#m27-integrations) would
     launch separate editors; they do not increase Plasma Opus preview limits.
     - Comment: [#264.7021749088][comment-264]
@@ -360,7 +360,7 @@ feature
     - Comment: [#267.7021751490][comment-267]
   - **Alternative:** Use a separate browser for trusted rendered documents.
     - Comment:
-      [#267.7029669771](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/267#issuecomment-7029669771)
+      [#267.7029669771](https://github.com/mikepadiernos/plasma-opus/issues/267#issuecomment-7029669771)
 
 - **Gallery:** The gallery supports local files only. Gallery images and batch
   conversion inputs are limited to 128 MiB and 40 megapixels. Saving edits or
@@ -377,10 +377,10 @@ feature
   - **Alternatives:**
     - Keep the metadata-bearing original alongside an edited copy.
       - Comment:
-        [#260.7029667492](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/260#issuecomment-7029667492)
+        [#260.7029667492](https://github.com/mikepadiernos/plasma-opus/issues/260#issuecomment-7029667492)
     - Try a separate image viewer for a local copy.
       - Comment:
-        [#266.7029669439](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/266#issuecomment-7029669439)
+        [#266.7029669439](https://github.com/mikepadiernos/plasma-opus/issues/266#issuecomment-7029669439)
 
 - **Batch conversion:** Conversion reads files on disk, not unsaved gallery
   edits, and turns animated images into still images. The conversion dialog
@@ -393,7 +393,7 @@ feature
   - **Alternative proposal:** Consider a future animation-aware conversion
     backend.
     - Comment:
-      [#303.7029670421](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/303#issuecomment-7029670421)
+      [#303.7029670421](https://github.com/mikepadiernos/plasma-opus/issues/303#issuecomment-7029670421)
 
 - **Conversion output:** The destination filesystem must support atomic
   no-replace renames, which prevent overwriting files, including those created
@@ -409,10 +409,10 @@ feature
   - **Alternatives:**
     - Use a separate conversion tool with a fresh destination.
       - Comment:
-        [#302.7029670102](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/302#issuecomment-7029670102)
+        [#302.7029670102](https://github.com/mikepadiernos/plasma-opus/issues/302#issuecomment-7029670102)
     - Use a targeted ACL when sharing converted output.
       - Comment:
-        [#304.7029670734](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/304#issuecomment-7029670734)
+        [#304.7029670734](https://github.com/mikepadiernos/plasma-opus/issues/304#issuecomment-7029670734)
 
 ## Editor
 
@@ -426,7 +426,7 @@ feature
     - Comment: [#307.7021754467][comment-307]
   - **Alternative:** Use a standalone editor and an explicit backup copy.
     - Comment:
-      [#307.7029671086](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/307#issuecomment-7029671086)
+      [#307.7029671086](https://github.com/mikepadiernos/plasma-opus/issues/307#issuecomment-7029671086)
   - **Planned:** [M27 editor integrations](ROADMAP.md#m27-integrations) are
     separate applications and do not expand Plasma Opus draft storage.
     - Comment: [#307.7021754467][comment-307]
@@ -460,7 +460,7 @@ feature
   - **Alternative:** Compare a saved copy against the original before adopting
     edits.
     - Comment:
-      [#309.7029671476](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/309#issuecomment-7029671476)
+      [#309.7029671476](https://github.com/mikepadiernos/plasma-opus/issues/309#issuecomment-7029671476)
   - **Planned:** [M27 editor integrations](ROADMAP.md#m27-integrations) do not
     change the built-in visual editor's Markdown limitations.
     - Comment: [#309.7021755164][comment-309]
@@ -468,7 +468,7 @@ feature
 ## Search
 
 Tracked in
-[#362](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/362).
+[#362](https://github.com/mikepadiernos/plasma-opus/issues/362).
 
 - **Live search:** Scans local folders only and skips symbolic links. Content
   search covers UTF-8 files up to 2 MiB without NUL bytes. Search stops after
@@ -505,7 +505,7 @@ Tracked in
   - Comment: [#362.7023269364][comment-362]
 - **Alternative:** Use a separately maintained locate database for filenames.
   - Comment:
-    [#362.7029675758](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/362#issuecomment-7029675758)
+    [#362.7029675758](https://github.com/mikepadiernos/plasma-opus/issues/362#issuecomment-7029675758)
 - **Planned:** [M21 advanced search](ROADMAP.md#m21-advanced-search) reuses M09
   search; its new interface and criteria do not by themselves remove current
   backend limits. [M27 Baloo integration](ROADMAP.md#m27-integrations) plans
@@ -517,7 +517,7 @@ Tracked in
 ## Batch rename
 
 Tracked in
-[#372](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/372).
+[#372](https://github.com/mikepadiernos/plasma-opus/issues/372).
 
 - **Inputs and destinations:** Only local items are supported. The destination
   filesystem must support Linux atomic no-replace renames. Preview rejects
@@ -545,7 +545,7 @@ Tracked in
   - Comment: [#372.7024683530][comment-372]
 - **Alternative:** Try a separate batch renamer on copies.
   - Comment:
-    [#372.7029676077](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/372#issuecomment-7029676077)
+    [#372.7029676077](https://github.com/mikepadiernos/plasma-opus/issues/372#issuecomment-7029676077)
 - **Planned:** [M23](ROADMAP.md#m23-native-tagging) plans to track Plasma
   Opus-initiated moves and renames in its library; it does not promise to
   migrate existing per-folder annotations.
@@ -554,7 +554,7 @@ Tracked in
 ## Filtered folder comparison
 
 Tracked in
-[#376](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/376).
+[#376](https://github.com/mikepadiernos/plasma-opus/issues/376).
 
 - **Scope:** Comparison requires two separate local folders. Patterns match
   relative paths case-sensitively; excluded folders are not traversed. Links can
@@ -573,7 +573,7 @@ Tracked in
   - Comment: [#376.7026216329][comment-376]
 - **Alternative:** Use a separate graphical directory comparison.
   - Comment:
-    [#376.7029677475](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/376#issuecomment-7029677475)
+    [#376.7029677475](https://github.com/mikepadiernos/plasma-opus/issues/376#issuecomment-7029677475)
 - **Planned:** The [M27 rsync backend](ROADMAP.md#m27-integrations) is for
   folder synchronization; it does not promise remote support in this standalone
   comparison.
@@ -582,7 +582,7 @@ Tracked in
 ## Folder synchronization
 
 Tracked in
-[#377](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/377).
+[#377](https://github.com/mikepadiernos/plasma-opus/issues/377).
 
 - **Supported operations:** Synchronization is local-only. It copies, overwrites
   and permanently deletes regular files and creates missing folders. Links,
@@ -607,7 +607,7 @@ Tracked in
   - Comment: [#377.7026633904][comment-377]
 - **Alternative:** Use rsync separately with a reviewed dry run.
   - Comment:
-    [#377.7029677824](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/377#issuecomment-7029677824)
+    [#377.7029677824](https://github.com/mikepadiernos/plasma-opus/issues/377#issuecomment-7029677824)
 - **Planned:** [M27](ROADMAP.md#m27-integrations) proposes an optional rsync
   backend for local and SSH locations, with a reviewed dry run. It is not
   available yet and would still require confirmation and recovery precautions.
@@ -616,7 +616,7 @@ Tracked in
 ## Metadata editing
 
 Tracked in
-[#374](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/374).
+[#374](https://github.com/mikepadiernos/plasma-opus/issues/374).
 
 - **Formats and dependencies:** Edit one local JPEG or TIFF (description, artist
   and copyright) or MP3 (title, artist and album) at a time. ExifTool is
@@ -639,7 +639,7 @@ Tracked in
   - Comment: [#374.7025134952][comment-374]
 - **Alternative:** Try a dedicated tag editor for other audio fields.
   - Comment:
-    [#374.7029676829](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/374#issuecomment-7029676829)
+    [#374.7029676829](https://github.com/mikepadiernos/plasma-opus/issues/374#issuecomment-7029676829)
 - **Planned:** [M23](ROADMAP.md#m23-native-tagging) plans to read and map
   selected embedded metadata but reuses M09 for supported writes; it does not
   promise additional writable formats or preservation guarantees.
@@ -648,7 +648,7 @@ Tracked in
 ## Transfer queue
 
 Tracked in
-[#375](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/375).
+[#375](https://github.com/mikepadiernos/plasma-opus/issues/375).
 
 - **Coverage:** The queue handles pane, context-menu and gallery copy and move
   actions. Clipboard paste and drag-and-drop use KIO directly; they do not
@@ -675,7 +675,7 @@ Tracked in
   - Comment: [#375.7025250130][comment-375]
 - **Alternative proposal:** Consider adding paste and drop jobs to the queue.
   - Comment:
-    [#375.7029677171](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/375#issuecomment-7029677171)
+    [#375.7029677171](https://github.com/mikepadiernos/plasma-opus/issues/375#issuecomment-7029677171)
 - **Planned:** [M27](ROADMAP.md#m27-integrations) proposes remote-profile
   transfers through the queue where available and Plasma Opus-owned job
   notifications; neither promises to route paste or drag-and-drop through the
@@ -685,7 +685,7 @@ Tracked in
 ## Custom commands
 
 Tracked in
-[#373](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/373).
+[#373](https://github.com/mikepadiernos/plasma-opus/issues/373).
 
 - **Inputs:** Commands require a local working folder and local selections.
   Placeholders occupy whole arguments; a single empty literal argument and line
@@ -707,7 +707,7 @@ Tracked in
   - Comment: [#373.7024944292][comment-373]
 - **Alternative:** Use a reviewed script instead of a complex inline template.
   - Comment:
-    [#373.7029676403](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/373#issuecomment-7029676403)
+    [#373.7029676403](https://github.com/mikepadiernos/plasma-opus/issues/373#issuecomment-7029676403)
 
 ## File comparison
 
@@ -723,7 +723,7 @@ MiB. Binary differences are reported without a visual binary diff.
   - Comment: [#311.7021755780][comment-311]
 - **Alternative:** Use a separate graphical comparison tool.
   - Comment:
-    [#311.7029671783](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/311#issuecomment-7029671783)
+    [#311.7029671783](https://github.com/mikepadiernos/plasma-opus/issues/311#issuecomment-7029671783)
 
 ## Symbolic links
 
@@ -738,7 +738,7 @@ link is created beside its target; another destination cannot be chosen.
   - Comment: [#312.7021756400][comment-312]
 - **Alternative:** Use an SFTP client with explicit symbolic-link support.
   - Comment:
-    [#312.7029672139](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/312#issuecomment-7029672139)
+    [#312.7029672139](https://github.com/mikepadiernos/plasma-opus/issues/312#issuecomment-7029672139)
 
 ## Listing export
 
@@ -747,7 +747,7 @@ or compact view. By default it uses the visible details columns; export-specific
 columns can be selected in Preferences, but are limited to the supported listing
 fields. Output is local only, and wide PDF tables may wrap or clip. CSV prefixes
 cells that could be interpreted as spreadsheet formulas with an apostrophe.
-([#314](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/314))
+([#314](https://github.com/mikepadiernos/plasma-opus/issues/314))
 
 - **Recommendation:** Check the filter and selected export columns before
   exporting, and reduce columns for wide PDF tables. Keep CSV formula protection
@@ -758,7 +758,7 @@ cells that could be interpreted as spreadsheet formulas with an apostrophe.
   - Comment: [#314.7021757620][comment-314]
 - **Alternative:** Produce a custom-field export with a separate script.
   - Comment:
-    [#314.7029672795](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/314#issuecomment-7029672795)
+    [#314.7029672795](https://github.com/mikepadiernos/plasma-opus/issues/314#issuecomment-7029672795)
 
 ## Folder content chart
 
@@ -767,7 +767,7 @@ breakdowns or a largest-file drilldown. It includes hidden entries, skips
 top-level symbolic links and entries without a known size, and relies on KIO
 workers for recursive traversal. Scans can be canceled but have no entry or time
 limit and can be costly; results are snapshots.
-([#315](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/315))
+([#315](https://github.com/mikepadiernos/plasma-opus/issues/315))
 
 - **Recommendation:** Scan smaller folders when possible, cancel expensive scans
   and rescan when current results are needed. Use another tool for extension
@@ -777,7 +777,7 @@ limit and can be costly; results are snapshots.
   - Comment: [#315.7021758275][comment-315]
 - **Alternative:** Inspect local disk usage with QDirStat.
   - Comment:
-    [#315.7029673162](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/315#issuecomment-7029673162)
+    [#315.7029673162](https://github.com/mikepadiernos/plasma-opus/issues/315#issuecomment-7029673162)
 
 ## Checksum files
 
@@ -786,7 +786,7 @@ the same folder. Other algorithms, remote files, symbolic links, path entries
 and non-UTF-8 names are unsupported. Manifests are limited to 10,000 entries.
 Files can change during hashing; cancellation near completion can race with
 publication of the checksum file.
-([#316](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/316))
+([#316](https://github.com/mikepadiernos/plasma-opus/issues/316))
 
 - **Recommendation:** Use local regular files in the same folder and keep
   manifests within 10,000 entries. Avoid changing files while hashing, and check
@@ -796,7 +796,7 @@ publication of the checksum file.
   - Comment: [#316.7021845379][comment-316]
 - **Alternative:** Use a separate checksum tool for other algorithms.
   - Comment:
-    [#316.7029673498](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/316#issuecomment-7029673498)
+    [#316.7029673498](https://github.com/mikepadiernos/plasma-opus/issues/316#issuecomment-7029673498)
 
 ## Pane folder comparison
 
@@ -804,7 +804,7 @@ Comparison covers immediate entries only. Files are compared by size and
 modification time, not contents; subfolders are not compared. Results are
 snapshots, and hidden or filtered entries may not be selectable. Large or remote
 listings may be costly.
-([#317](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/317))
+([#317](https://github.com/mikepadiernos/plasma-opus/issues/317))
 
 - **Recommendation:** Use file comparison for individual files or filtered
   folder comparison for local recursive comparisons, enabling content comparison
@@ -814,7 +814,7 @@ listings may be costly.
   - Comment: [#317.7021904155][comment-317]
 - **Alternative:** Inspect a folder-sync comparison without applying changes.
   - Comment:
-    [#317.7029673828](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/317#issuecomment-7029673828)
+    [#317.7029673828](https://github.com/mikepadiernos/plasma-opus/issues/317#issuecomment-7029673828)
 
 ## Split and combine files
 
@@ -823,7 +823,7 @@ combining uses the displayed order and cannot detect missing, altered or
 incorrectly ordered parts. Inputs can change during processing. Failures or
 cancellation can leave incomplete output, and many small parts can be expensive.
 Existing outputs are never overwritten and new files are owner-only.
-([#318](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/318))
+([#318](https://github.com/mikepadiernos/plasma-opus/issues/318))
 
 - **Recommendation:** Check the complete part list and order before combining,
   keep originals and verify the reconstructed file with a checksum. Avoid
@@ -836,7 +836,7 @@ Existing outputs are never overwritten and new files are owner-only.
   - Comment: [#318.7022199214][comment-318]
 - **Alternative:** Create separate recovery information with PAR2.
   - Comment:
-    [#318.7029674177](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/318#issuecomment-7029674177)
+    [#318.7029674177](https://github.com/mikepadiernos/plasma-opus/issues/318#issuecomment-7029674177)
 
 ## Embedded terminal
 
@@ -848,7 +848,7 @@ it does not change a running shell's directory. Remote or missing folders are
 reported without switching sessions. Sessions accumulate until their tabs are
 closed. Hiding the panel keeps them running; closing the window ends them and
 can affect running programs.
-([#321](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/321))
+([#321](https://github.com/mikepadiernos/plasma-opus/issues/321))
 
 - **Recommendation:** Install the Konsole terminal component for embedded
   sessions; on Arch Linux it is supplied by the `konsole` package. For remote
@@ -860,7 +860,7 @@ can affect running programs.
 - **Alternative:** Use a terminal multiplexer for independently retained
   sessions.
   - Comment:
-    [#321.7029674455](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/321#issuecomment-7029674455)
+    [#321.7029674455](https://github.com/mikepadiernos/plasma-opus/issues/321#issuecomment-7029674455)
 - **Planned:** [M27](ROADMAP.md#m27-integrations) proposes additional terminal
   providers and separate SSH sessions for SSH profiles; it does not promise
   embedded remote working directories or persistent sessions after exit.
@@ -873,7 +873,7 @@ starting folders. It unlinks when navigation leaves either tree, a matching
 folder is missing, a symbolic link resolves outside its tree, or a pane is
 hidden. Tab and history changes also participate and may unlink. Filesystem
 changes can invalidate folders between checks and navigation.
-([#322](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/322))
+([#322](https://github.com/mikepadiernos/plasma-opus/issues/322))
 
 - **Recommendation:** Start from corresponding local folders with matching
   subfolder names. Check both panes after navigating, especially when
@@ -882,7 +882,7 @@ changes can invalidate folders between checks and navigation.
   - Comment: [#322.7022490696][comment-322]
 - **Alternative:** Navigate the two locations independently.
   - Comment:
-    [#322.7029674758](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/322#issuecomment-7029674758)
+    [#322.7029674758](https://github.com/mikepadiernos/plasma-opus/issues/322#issuecomment-7029674758)
 
 ## Cushion treemap
 
@@ -892,7 +892,7 @@ aggregated rather than shown simultaneously; activate a folder in the list to
 rescan it. Empty, unmeasured and skipped entries have no visible tile, and very
 small shares may be difficult to see. Measurements are snapshots and the
 [folder content chart](#folder-content-chart) scan limits also apply.
-([#335](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/335))
+([#335](https://github.com/mikepadiernos/plasma-opus/issues/335))
 
 - **Recommendation:** Activate folders in the list to inspect their contents,
   and use the size table for empty, skipped or very small entries. Scan smaller
@@ -901,7 +901,7 @@ small shares may be difficult to see. Measurements are snapshots and the
   - Comment: [#335.7022647720][comment-335]
 - **Alternative:** Use Filelight for a separate nested radial view.
   - Comment:
-    [#335.7029675089](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/335#issuecomment-7029675089)
+    [#335.7029675089](https://github.com/mikepadiernos/plasma-opus/issues/335#issuecomment-7029675089)
 
 ## Duplicate finder
 
@@ -913,7 +913,7 @@ but files can change afterward. Symbolic links are skipped; hard links may
 appear as separate paths, and unknown entry types are skipped. Errors are shown,
 but scans are unbounded and matching hashes are not a guarantee of byte
 identity.
-([#336](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/336))
+([#336](https://github.com/mikepadiernos/plasma-opus/issues/336))
 
 - **Recommendation:** Review groups and errors, verify current file contents and
   paths independently, and keep at least one confirmed copy and backups before
@@ -923,20 +923,20 @@ identity.
   - Comment: [#336.7022793474][comment-336]
 - **Alternative:** Compare candidate files byte-for-byte before deletion.
   - Comment:
-    [#336.7029675367](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/336#issuecomment-7029675367)
+    [#336.7029675367](https://github.com/mikepadiernos/plasma-opus/issues/336#issuecomment-7029675367)
 
 ## File-list minimap
 
 The minimap samples at most 512 top-level listing rows rather than showing every
 item or expanded child row. It tracks only the vertical scrollbar, so it cannot
 navigate horizontally scrolling columns in compact view.
-([#434](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/434))
+([#434](https://github.com/mikepadiernos/plasma-opus/issues/434))
 
 - **Recommendation:** Use the ordinary scrollbar or keyboard navigation for
   compact view and expanded folders, and treat the minimap as a sampled overview
   rather than a complete list.
   - Comment:
-    [#434.7040730100](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/434#issuecomment-7040730100)
+    [#434.7040730100](https://github.com/mikepadiernos/plasma-opus/issues/434#issuecomment-7040730100)
 
 ## Settings backups
 
@@ -947,7 +947,7 @@ paths. A matching value can instead exclude an entire settings entry. Current
 session tabs and expanded folder locations, saved custom commands and shared KDE
 settings are excluded; restoring preserves the corresponding current state
 rather than recovering it from the backup.
-([#433](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/433))
+([#433](https://github.com/mikepadiernos/plasma-opus/issues/433))
 
 - **Recommendation:** Review backup contents privately before sharing or
   restoring, protect the archive with restrictive access and encryption, and
@@ -955,7 +955,7 @@ rather than recovering it from the backup.
   commands and other needed data; after restoration, verify important settings
   and recreate excluded items as needed.
   - Comment:
-    [#433.7040727966](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/433#issuecomment-7040727966)
+    [#433.7040727966](https://github.com/mikepadiernos/plasma-opus/issues/433#issuecomment-7040727966)
 
 ## Build, installation and references
 
@@ -1009,122 +1009,122 @@ workers should be installed through the system's KDE packages, not treated as
 standalone CLI replacements. The PDF engine used by Pandoc is a separate
 dependency and varies with the chosen output method.
 
-[issue-36]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/36
+[issue-36]: https://github.com/mikepadiernos/plasma-opus/issues/36
 [issue-255]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/255
+  https://github.com/mikepadiernos/plasma-opus/issues/255
 [issue-256]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/256
+  https://github.com/mikepadiernos/plasma-opus/issues/256
 [issue-257]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/257
+  https://github.com/mikepadiernos/plasma-opus/issues/257
 [issue-258]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/258
+  https://github.com/mikepadiernos/plasma-opus/issues/258
 [issue-259]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/259
+  https://github.com/mikepadiernos/plasma-opus/issues/259
 [issue-260]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/260
+  https://github.com/mikepadiernos/plasma-opus/issues/260
 [issue-261]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/261
+  https://github.com/mikepadiernos/plasma-opus/issues/261
 [issue-262]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/262
+  https://github.com/mikepadiernos/plasma-opus/issues/262
 [issue-263]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/263
+  https://github.com/mikepadiernos/plasma-opus/issues/263
 [issue-264]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/264
+  https://github.com/mikepadiernos/plasma-opus/issues/264
 [issue-265]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/265
+  https://github.com/mikepadiernos/plasma-opus/issues/265
 [issue-266]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/266
+  https://github.com/mikepadiernos/plasma-opus/issues/266
 [issue-267]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/267
+  https://github.com/mikepadiernos/plasma-opus/issues/267
 [issue-302]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/302
+  https://github.com/mikepadiernos/plasma-opus/issues/302
 [issue-303]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/303
+  https://github.com/mikepadiernos/plasma-opus/issues/303
 [issue-304]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/304
+  https://github.com/mikepadiernos/plasma-opus/issues/304
 [issue-307]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/307
+  https://github.com/mikepadiernos/plasma-opus/issues/307
 [issue-309]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/309
+  https://github.com/mikepadiernos/plasma-opus/issues/309
 [issue-311]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/311
+  https://github.com/mikepadiernos/plasma-opus/issues/311
 [issue-312]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/312
+  https://github.com/mikepadiernos/plasma-opus/issues/312
 [issue-313]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/313
+  https://github.com/mikepadiernos/plasma-opus/issues/313
 [comment-36]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/36#issuecomment-7021740511
+  https://github.com/mikepadiernos/plasma-opus/issues/36#issuecomment-7021740511
 [comment-255]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/255#issuecomment-7021741358
+  https://github.com/mikepadiernos/plasma-opus/issues/255#issuecomment-7021741358
 [comment-256]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/256#issuecomment-7021742119
+  https://github.com/mikepadiernos/plasma-opus/issues/256#issuecomment-7021742119
 [comment-257]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/257#issuecomment-7021742864
+  https://github.com/mikepadiernos/plasma-opus/issues/257#issuecomment-7021742864
 [comment-258]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/258#issuecomment-7021743599
+  https://github.com/mikepadiernos/plasma-opus/issues/258#issuecomment-7021743599
 [comment-259]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/259#issuecomment-7021744368
+  https://github.com/mikepadiernos/plasma-opus/issues/259#issuecomment-7021744368
 [comment-260]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/260#issuecomment-7021745029
+  https://github.com/mikepadiernos/plasma-opus/issues/260#issuecomment-7021745029
 [comment-261]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/261#issuecomment-7021745774
+  https://github.com/mikepadiernos/plasma-opus/issues/261#issuecomment-7021745774
 [comment-262]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/262#issuecomment-7021746538
+  https://github.com/mikepadiernos/plasma-opus/issues/262#issuecomment-7021746538
 [comment-263]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/263#issuecomment-7021748197
+  https://github.com/mikepadiernos/plasma-opus/issues/263#issuecomment-7021748197
 [comment-264]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/264#issuecomment-7021749088
+  https://github.com/mikepadiernos/plasma-opus/issues/264#issuecomment-7021749088
 [comment-265]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/265#issuecomment-7021749894
+  https://github.com/mikepadiernos/plasma-opus/issues/265#issuecomment-7021749894
 [comment-266]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/266#issuecomment-7021750778
+  https://github.com/mikepadiernos/plasma-opus/issues/266#issuecomment-7021750778
 [comment-267]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/267#issuecomment-7021751490
+  https://github.com/mikepadiernos/plasma-opus/issues/267#issuecomment-7021751490
 [comment-302]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/302#issuecomment-7021752278
+  https://github.com/mikepadiernos/plasma-opus/issues/302#issuecomment-7021752278
 [comment-303]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/303#issuecomment-7021753023
+  https://github.com/mikepadiernos/plasma-opus/issues/303#issuecomment-7021753023
 [comment-304]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/304#issuecomment-7021753785
+  https://github.com/mikepadiernos/plasma-opus/issues/304#issuecomment-7021753785
 [comment-307]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/307#issuecomment-7021754467
+  https://github.com/mikepadiernos/plasma-opus/issues/307#issuecomment-7021754467
 [comment-309]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/309#issuecomment-7021755164
+  https://github.com/mikepadiernos/plasma-opus/issues/309#issuecomment-7021755164
 [comment-311]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/311#issuecomment-7021755780
+  https://github.com/mikepadiernos/plasma-opus/issues/311#issuecomment-7021755780
 [comment-312]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/312#issuecomment-7021756400
+  https://github.com/mikepadiernos/plasma-opus/issues/312#issuecomment-7021756400
 [comment-313]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/313#issuecomment-7021757012
+  https://github.com/mikepadiernos/plasma-opus/issues/313#issuecomment-7021757012
 [comment-314]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/314#issuecomment-7021757620
+  https://github.com/mikepadiernos/plasma-opus/issues/314#issuecomment-7021757620
 [comment-315]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/315#issuecomment-7021758275
+  https://github.com/mikepadiernos/plasma-opus/issues/315#issuecomment-7021758275
 [comment-316]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/316#issuecomment-7021845379
+  https://github.com/mikepadiernos/plasma-opus/issues/316#issuecomment-7021845379
 [comment-317]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/317#issuecomment-7021904155
+  https://github.com/mikepadiernos/plasma-opus/issues/317#issuecomment-7021904155
 [comment-318]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/318#issuecomment-7022199214
+  https://github.com/mikepadiernos/plasma-opus/issues/318#issuecomment-7022199214
 [comment-321]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/321#issuecomment-7022392302
+  https://github.com/mikepadiernos/plasma-opus/issues/321#issuecomment-7022392302
 [comment-322]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/322#issuecomment-7022490696
+  https://github.com/mikepadiernos/plasma-opus/issues/322#issuecomment-7022490696
 [comment-335]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/335#issuecomment-7022647720
+  https://github.com/mikepadiernos/plasma-opus/issues/335#issuecomment-7022647720
 [comment-336]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/336#issuecomment-7022793474
+  https://github.com/mikepadiernos/plasma-opus/issues/336#issuecomment-7022793474
 [comment-362]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/362#issuecomment-7023269364
+  https://github.com/mikepadiernos/plasma-opus/issues/362#issuecomment-7023269364
 [comment-372]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/372#issuecomment-7024683530
+  https://github.com/mikepadiernos/plasma-opus/issues/372#issuecomment-7024683530
 [comment-373]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/373#issuecomment-7024944292
+  https://github.com/mikepadiernos/plasma-opus/issues/373#issuecomment-7024944292
 [comment-374]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/374#issuecomment-7025134952
+  https://github.com/mikepadiernos/plasma-opus/issues/374#issuecomment-7025134952
 [comment-375]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/375#issuecomment-7025250130
+  https://github.com/mikepadiernos/plasma-opus/issues/375#issuecomment-7025250130
 [comment-376]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/376#issuecomment-7026216329
+  https://github.com/mikepadiernos/plasma-opus/issues/376#issuecomment-7026216329
 [comment-377]:
-  https://github.com/mikepadiernos/plasma-opus-file-manager/issues/377#issuecomment-7026633904
+  https://github.com/mikepadiernos/plasma-opus/issues/377#issuecomment-7026633904

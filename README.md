@@ -16,7 +16,7 @@ with C++20, Qt 6 Widgets and KDE Frameworks 6.
 ![Plasma Opus with stacked panes and an image preview](preview.png)
 
 > [!NOTE] The latest published MVP is
-> [v0.2.0](https://github.com/mikepadiernos/plasma-opus-file-manager/releases/tag/v0.2.0).
+> [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0).
 > Features on `main` include changes made after that release. Development
 > branches may contain additional, unfinished work.
 

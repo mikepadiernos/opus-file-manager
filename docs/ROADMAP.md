@@ -10,7 +10,7 @@ Widgets and KDE Frameworks 6. The
 Manager behaviour that informs its parity goals.
 
 > [!NOTE] The latest published MVP is
-> [v0.2.0](https://github.com/mikepadiernos/plasma-opus-file-manager/releases/tag/v0.2.0).
+> [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0).
 > This roadmap tracks completed and planned work. M15 Workspaces is in
 > development; see [pending tasks](TODO.md) for branch-specific handoffs.
 
@@ -87,7 +87,7 @@ features are ordered by priority, effort and dependencies within their groups.
 ### M01: Core dual pane
 
 **Project:**
-[M01 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/12)
+[M01 milestone](https://github.com/mikepadiernos/plasma-opus/issues/12)
 
 - [x] KXmlGui main window with hamburger menu, editable toolbar and shortcuts
 - [x] Theme icons for app actions and pane controls, preferring symbolic
@@ -114,7 +114,7 @@ features are ordered by priority, effort and dependencies within their groups.
 ### M02: Core dual pane settings
 
 **Project:**
-[M02 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/13)
+[M02 milestone](https://github.com/mikepadiernos/plasma-opus/issues/13)
 
 Settings for M01 features, modelled on Dolphin and Orcinus. Plasma Opus settings
 are stored in KConfig; Places sections and trash/delete confirmations are shared
@@ -157,7 +157,7 @@ with Dolphin.
 ### M03: Listing depth
 
 **Project:**
-[M03 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/14)
+[M03 milestone](https://github.com/mikepadiernos/plasma-opus/issues/14)
 
 - [x] Combined Places/Folders panel: combines Places and folder navigation in
       one panel by default instead of showing separate Places and Folders
@@ -217,7 +217,7 @@ in [#36], [#255], [#256], [#257], [#258], [#261], [#262], [#263] and [#265].
 ### M04: Listing depth settings
 
 **Project:**
-[M04 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/15)
+[M04 milestone](https://github.com/mikepadiernos/plasma-opus/issues/15)
 
 Settings for M03 listing depth, stored in KConfig.
 
@@ -275,7 +275,7 @@ in [#257], [#258], [#262] and [#263].
 ### M05: Preview and gallery
 
 **Project:**
-[M05 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/16)
+[M05 milestone](https://github.com/mikepadiernos/plasma-opus/issues/16)
 
 - [x] Preview panel: images (up to 8 MiB and 40 megapixels) and UTF-8 text
       (first 1 MiB by default), PDF and office documents with an installed
@@ -309,7 +309,7 @@ in [#257], [#258], [#262] and [#263].
 ### M06: Preview and gallery settings
 
 **Project:**
-[M06 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/17)
+[M06 milestone](https://github.com/mikepadiernos/plasma-opus/issues/17)
 
 Settings for M05 preview and gallery, stored in KConfig.
 
@@ -351,7 +351,7 @@ are unchanged, and the preview panel's Open button opens the application.
 ### M07: Editor
 
 **Project:**
-[M07 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/18)
+[M07 milestone](https://github.com/mikepadiernos/plasma-opus/issues/18)
 
 - [x] KTextEditor-based editor: use it as a panel alongside Information or
       Preview, or as a separate embedded area below or to the right of both
@@ -365,7 +365,7 @@ are unchanged, and the preview panel's Open button opens the application.
 ### M08: Editor settings
 
 **Project:**
-[M08 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/19)
+[M08 milestone](https://github.com/mikepadiernos/plasma-opus/issues/19)
 
 Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 
@@ -392,7 +392,7 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 ### M09: Tools
 
 **Project:**
-[M09 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/20)
+[M09 milestone](https://github.com/mikepadiernos/plasma-opus/issues/20)
 
 - [x] Live search and indexed search: choose filename or content search and
       current-folder or indexed scope; indicate when locations are not indexed,
@@ -462,7 +462,7 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 ### M10: Tools settings
 
 **Project:**
-[M10 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/21)
+[M10 milestone](https://github.com/mikepadiernos/plasma-opus/issues/21)
 
 Settings for M09 tools, stored in KConfig.
 
@@ -562,7 +562,7 @@ Settings for M09 tools, stored in KConfig.
 ### M11: UI Customizations
 
 **Project:**
-[M11 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/22)
+[M11 milestone](https://github.com/mikepadiernos/plasma-opus/issues/22)
 
 - [x] Edit the main toolbar beyond the `KEditToolBar` dialog: drag entries on,
       off and around it directly, add separators and spacers, and choose icons,
@@ -616,7 +616,7 @@ Settings for M09 tools, stored in KConfig.
 ### M12: UI Customization settings
 
 **Project:**
-[M12 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/23)
+[M12 milestone](https://github.com/mikepadiernos/plasma-opus/issues/23)
 
 Settings for M11 UI customizations, stored in KConfig.
 
@@ -682,7 +682,7 @@ Settings for M11 UI customizations, stored in KConfig.
 ### M13: Translations
 
 **Project:**
-[M13 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/26)
+[M13 milestone](https://github.com/mikepadiernos/plasma-opus/issues/26)
 
 - [x] Translation catalogues through `ki18n`, fed by the `i18n()` and `i18nc()`
       calls already used throughout the code; provide extraction and
@@ -695,7 +695,7 @@ Settings for M11 UI customizations, stored in KConfig.
 ### M14: Translation settings
 
 **Project:**
-[M14 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/27)
+[M14 milestone](https://github.com/mikepadiernos/plasma-opus/issues/27)
 
 Settings for M13 translations, stored in KConfig.
 
@@ -726,7 +726,7 @@ in [#440].
 ### M15: Workspaces
 
 **Project:**
-[M15 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/24)
+[M15 milestone](https://github.com/mikepadiernos/plasma-opus/issues/24)
 
 Organize locations into focused workspace profiles. Each profile can include
 features, layouts, a theme and other preferences; see the
@@ -785,7 +785,7 @@ Remaining features are ordered by priority, effort and dependencies.
 ### M16: Workspace settings
 
 **Project:**
-[M16 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/25)
+[M16 milestone](https://github.com/mikepadiernos/plasma-opus/issues/25)
 
 Settings for M15 workspaces, stored in KConfig.
 
@@ -823,7 +823,7 @@ Settings for M15 workspaces, stored in KConfig.
 ### M17: Themes
 
 **Project:**
-[M17 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/341)
+[M17 milestone](https://github.com/mikepadiernos/plasma-opus/issues/341)
 
 - [ ] Follow the active Plasma colour scheme by default. Offer app-local light
       and dark presets and installed KDE schemes without changing the desktop's
@@ -849,7 +849,7 @@ Settings for M15 workspaces, stored in KConfig.
 ### M18: Theme settings
 
 **Project:**
-[M18 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/352)
+[M18 milestone](https://github.com/mikepadiernos/plasma-opus/issues/352)
 
 Settings for M17 themes, stored in KConfig.
 
@@ -869,7 +869,7 @@ Settings for M17 themes, stored in KConfig.
 ### M19: Branding
 
 **Project:**
-[M19 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/337)
+[M19 milestone](https://github.com/mikepadiernos/plasma-opus/issues/337)
 
 - [ ] Use a consistent, translatable application name and description in the
       desktop entry, app metadata, About dialog and documentation.
@@ -883,7 +883,7 @@ Settings for M17 themes, stored in KConfig.
 ### M20: Branding settings
 
 **Project:**
-[M20 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/346)
+[M20 milestone](https://github.com/mikepadiernos/plasma-opus/issues/346)
 
 Settings for M19 branding, stored in KConfig and separate from theme settings.
 
@@ -895,7 +895,7 @@ Settings for M19 branding, stored in KConfig and separate from theme settings.
 ### M21: Advanced search
 
 **Project:**
-[M21 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/30)
+[M21 milestone](https://github.com/mikepadiernos/plasma-opus/issues/30)
 
 Extend the M09 search tools and reuse their search scopes, filters and saved
 searches rather than introducing a separate search system. M27 extends the Baloo
@@ -924,7 +924,7 @@ integration without blocking this milestone.
 ### M22: Advanced search settings
 
 **Project:**
-[M22 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/31)
+[M22 milestone](https://github.com/mikepadiernos/plasma-opus/issues/31)
 
 Settings for M21 advanced search, stored in KConfig.
 
@@ -940,7 +940,7 @@ Settings for M21 advanced search, stored in KConfig.
 ### M23: Native tagging
 
 **Project:**
-[M23 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/32)
+[M23 milestone](https://github.com/mikepadiernos/plasma-opus/issues/32)
 
 A native KDE tagging workflow inspired by TagStudio, integrated into Plasma Opus
 rather than requiring TagStudio or changing the user's folder structure.
@@ -970,7 +970,7 @@ rather than requiring TagStudio or changing the user's folder structure.
 - [ ] Organize tag groups independently of locations and workspaces. Until the
       native tag-group provider is available, keep all groups visible; recommend
       stable identities and no hidden or implicit assignment in
-      [#252](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/252).
+      [#252](https://github.com/mikepadiernos/plasma-opus/issues/252).
 - [ ] Add editable text and date fields to library entries alongside existing
       labels, ratings and notes, without silently replacing or converting them
 - [ ] Read supported EXIF image metadata and ID3 audio tags for display and
@@ -985,7 +985,7 @@ rather than requiring TagStudio or changing the user's folder structure.
 ### M24: Tagging settings
 
 **Project:**
-[M24 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/33)
+[M24 milestone](https://github.com/mikepadiernos/plasma-opus/issues/33)
 
 Settings for M23 tagging, stored in KConfig.
 
@@ -1004,7 +1004,7 @@ Settings for M23 tagging, stored in KConfig.
 ### M25: Yazi mode
 
 **Project:**
-[M25 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/407)
+[M25 milestone](https://github.com/mikepadiernos/plasma-opus/issues/407)
 
 Offer an optional native Qt/KDE browsing mode inspired by
 [Yazi](https://yazi-rs.github.io/docs/quick-start/), a terminal file manager.
@@ -1043,7 +1043,7 @@ process or a promise of Yazi configuration or plugin compatibility.
 ### M26: Yazi mode settings
 
 **Project:**
-[M26 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/416)
+[M26 milestone](https://github.com/mikepadiernos/plasma-opus/issues/416)
 
 Settings for M25 Yazi mode, stored in KConfig and coordinated with workspace
 layouts.
@@ -1069,7 +1069,7 @@ layouts.
 ### M27: Integrations
 
 **Project:**
-[M27 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/34)
+[M27 milestone](https://github.com/mikepadiernos/plasma-opus/issues/34)
 
 - **M27.01: KDE Plasma and desktop services**
 
@@ -1269,7 +1269,7 @@ layouts.
 ### M28: Integration settings
 
 **Project:**
-[M28 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/35)
+[M28 milestone](https://github.com/mikepadiernos/plasma-opus/issues/35)
 
 Settings for M27 integrations, stored in KConfig.
 
@@ -1387,7 +1387,7 @@ Settings for M27 integrations, stored in KConfig.
 ### M29: Nextcloud integration
 
 **Project:**
-[M29 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/586)
+[M29 milestone](https://github.com/mikepadiernos/plasma-opus/issues/586)
 
 Provide optional native Nextcloud navigation, file management and digital asset
 management, reusing M27 KDE Online Accounts and KIO WebDAV rather than replacing
@@ -1414,7 +1414,7 @@ the Nextcloud desktop client or its synchronization engine.
 ### M30: Nextcloud settings
 
 **Project:**
-[M30 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/587)
+[M30 milestone](https://github.com/mikepadiernos/plasma-opus/issues/587)
 
 Settings for M29 Nextcloud integration, stored in KConfig without credentials:
 
@@ -1427,7 +1427,7 @@ Settings for M29 Nextcloud integration, stored in KConfig without credentials:
 ### M31: Keyboard shortcut settings
 
 **Project:**
-[M31 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/29)
+[M31 milestone](https://github.com/mikepadiernos/plasma-opus/issues/29)
 
 - [ ] Configure simultaneous key combinations and sequential key chords with
       conflict detection, clear feedback and reset to defaults; use KDE shortcut
@@ -1466,7 +1466,7 @@ Settings for M29 Nextcloud integration, stored in KConfig without credentials:
 ### M32: Refinements
 
 **Project:**
-[M32 milestone](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/28)
+[M32 milestone](https://github.com/mikepadiernos/plasma-opus/issues/28)
 
 Polish the existing interface across menus, settings, layouts and workflows.
 Preserve user customizations and use KDE facilities; review future pages as they
@@ -1509,7 +1509,7 @@ subsection details.
         column and embedded panes in either side column, the middle column or
         footer. Preserve existing placements and saved layouts, and integrate
         the advanced-search panel and tag manager when available; see
-        [#583](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/583).
+        [#583](https://github.com/mikepadiernos/plasma-opus/issues/583).
         Review first-run pane, tab, panel, toolbar and window-layout defaults;
         apply revised defaults only to new configurations or an explicitly
         confirmed reset, never over saved layouts or sessions.
@@ -1787,46 +1787,46 @@ branching and merging. Record blocked work in [pending tasks](TODO.md) and
 document feature limitations in [caveats and limitations](CAVEATS.md). Native
 dock and column-header spacing follows the
 [active widget style](CAVEATS.md#native-title-and-header-padding)
-([#560](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/560)).
+([#560](https://github.com/mikepadiernos/plasma-opus/issues/560)).
 
-[#36]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/36
-[#255]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/255
-[#256]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/256
-[#257]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/257
-[#258]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/258
-[#259]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/259
-[#260]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/260
-[#261]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/261
-[#262]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/262
-[#263]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/263
-[#264]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/264
-[#265]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/265
-[#266]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/266
-[#267]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/267
-[#302]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/302
-[#303]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/303
-[#304]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/304
-[#307]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/307
-[#309]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/309
-[#311]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/311
-[#312]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/312
-[#314]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/314
-[#315]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/315
-[#316]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/316
-[#317]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/317
-[#318]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/318
-[#321]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/321
-[#322]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/322
-[#335]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/335
-[#336]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/336
-[#362]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/362
-[#372]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/372
-[#373]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/373
-[#374]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/374
-[#375]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/375
-[#376]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/376
-[#377]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/377
-[#406]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/406
-[#433]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/433
-[#434]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/434
-[#436]: https://github.com/mikepadiernos/plasma-opus-file-manager/issues/436
+[#36]: https://github.com/mikepadiernos/plasma-opus/issues/36
+[#255]: https://github.com/mikepadiernos/plasma-opus/issues/255
+[#256]: https://github.com/mikepadiernos/plasma-opus/issues/256
+[#257]: https://github.com/mikepadiernos/plasma-opus/issues/257
+[#258]: https://github.com/mikepadiernos/plasma-opus/issues/258
+[#259]: https://github.com/mikepadiernos/plasma-opus/issues/259
+[#260]: https://github.com/mikepadiernos/plasma-opus/issues/260
+[#261]: https://github.com/mikepadiernos/plasma-opus/issues/261
+[#262]: https://github.com/mikepadiernos/plasma-opus/issues/262
+[#263]: https://github.com/mikepadiernos/plasma-opus/issues/263
+[#264]: https://github.com/mikepadiernos/plasma-opus/issues/264
+[#265]: https://github.com/mikepadiernos/plasma-opus/issues/265
+[#266]: https://github.com/mikepadiernos/plasma-opus/issues/266
+[#267]: https://github.com/mikepadiernos/plasma-opus/issues/267
+[#302]: https://github.com/mikepadiernos/plasma-opus/issues/302
+[#303]: https://github.com/mikepadiernos/plasma-opus/issues/303
+[#304]: https://github.com/mikepadiernos/plasma-opus/issues/304
+[#307]: https://github.com/mikepadiernos/plasma-opus/issues/307
+[#309]: https://github.com/mikepadiernos/plasma-opus/issues/309
+[#311]: https://github.com/mikepadiernos/plasma-opus/issues/311
+[#312]: https://github.com/mikepadiernos/plasma-opus/issues/312
+[#314]: https://github.com/mikepadiernos/plasma-opus/issues/314
+[#315]: https://github.com/mikepadiernos/plasma-opus/issues/315
+[#316]: https://github.com/mikepadiernos/plasma-opus/issues/316
+[#317]: https://github.com/mikepadiernos/plasma-opus/issues/317
+[#318]: https://github.com/mikepadiernos/plasma-opus/issues/318
+[#321]: https://github.com/mikepadiernos/plasma-opus/issues/321
+[#322]: https://github.com/mikepadiernos/plasma-opus/issues/322
+[#335]: https://github.com/mikepadiernos/plasma-opus/issues/335
+[#336]: https://github.com/mikepadiernos/plasma-opus/issues/336
+[#362]: https://github.com/mikepadiernos/plasma-opus/issues/362
+[#372]: https://github.com/mikepadiernos/plasma-opus/issues/372
+[#373]: https://github.com/mikepadiernos/plasma-opus/issues/373
+[#374]: https://github.com/mikepadiernos/plasma-opus/issues/374
+[#375]: https://github.com/mikepadiernos/plasma-opus/issues/375
+[#376]: https://github.com/mikepadiernos/plasma-opus/issues/376
+[#377]: https://github.com/mikepadiernos/plasma-opus/issues/377
+[#406]: https://github.com/mikepadiernos/plasma-opus/issues/406
+[#433]: https://github.com/mikepadiernos/plasma-opus/issues/433
+[#434]: https://github.com/mikepadiernos/plasma-opus/issues/434
+[#436]: https://github.com/mikepadiernos/plasma-opus/issues/436

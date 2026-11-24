@@ -159,7 +159,7 @@ regions. Preserve existing placements and saved layouts, including file-pane
 state when an embedded pane occupies the middle column. Integrate planned panes
 as they become available without blocking existing work, including the
 advanced-search panel and tag manager. Track this work in
-[#583](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/583).
+[#583](https://github.com/mikepadiernos/plasma-opus/issues/583).
 
 Introduce the unified
 [customization mode](../philosophy/designs.md#toolbars-and-customization)
@@ -176,31 +176,31 @@ and address-bar widgets.
 1. Inventory defaults and saved layouts for both pane orientations, panels, tabs
    and toolbars. Agree on revised defaults and apply them only to new
    configurations or explicitly confirmed resets.
-   ([#461](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/461))
+   ([#461](https://github.com/mikepadiernos/plasma-opus/issues/461))
 2. Establish KDE-native spacing, alignment, icons and visual hierarchy; check
    small windows, high DPI, long translations and right-to-left layouts.
    Preserve theme choices and keep both panes and essential controls usable.
-   ([#462](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/462),
-   [#464](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/464))
+   ([#462](https://github.com/mikepadiernos/plasma-opus/issues/462),
+   [#464](https://github.com/mikepadiernos/plasma-opus/issues/464))
 3. Review restore behavior after monitor, resolution and scale changes, and
    splitter or panel changes after orientation, maximize, hide and swap. Provide
    recovery for unusably small panels without discarding saved geometry or
    overriding window-manager placement.
-   ([#483](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/483),
-   [#484](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/484))
+   ([#483](https://github.com/mikepadiernos/plasma-opus/issues/483),
+   [#484](https://github.com/mikepadiernos/plasma-opus/issues/484))
 4. Extend the existing customizer for custom items on the main and each pane
    toolbar. Preserve per-toolbar order, labels and icons across restarts, and
    report unavailable items without silently deleting saved choices. Coordinate
    pane targeting and keyboard access with [interaction](03-interaction.md).
-   ([#492](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/492),
-   [#493](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/493))
+   ([#492](https://github.com/mikepadiernos/plasma-opus/issues/492),
+   [#493](https://github.com/mikepadiernos/plasma-opus/issues/493))
 5. Provide a searchable, labeled reference for built-in actions, including newly
    introduced actions, as a sliding or floating pane without resetting
    customized toolbars. Add session-level toolbar edit reversion and confirmed
    individual-toolbar reset without changing other toolbars, menus or saved
    commands.
-   ([#539](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/539),
-   [#540](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/540))
+   ([#539](https://github.com/mikepadiernos/plasma-opus/issues/539),
+   [#540](https://github.com/mikepadiernos/plasma-opus/issues/540))
 6. Test restored and new layouts, placements and pane state, missing actions,
    customization mode on and off, keyboard access and reset, screen changes,
    large text and both pane orientations. Keep previous user settings intact in
