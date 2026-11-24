@@ -7,6 +7,7 @@
 #include "settings.h"
 #include "settingsbackup.h"
 #include "symbolicactionicons.h"
+#include "workspacestartup.h"
 
 #include <KAboutData>
 #include <KConfigGroup>
@@ -22,6 +23,7 @@
 #include <QIcon>
 #include <QMessageBox>
 #include <QStandardPaths>
+#include <QStatusBar>
 #include <QUrl>
 
 namespace
@@ -135,9 +137,24 @@ int main(int argc, char **argv)
     }
     applyLayoutDirection(reverseRequested, Settings::translationDirection());
 
+    QString workspaceWarning;
+    {
+        // A separate configuration object, like the window's, so pending
+        // shared changes cannot block or be mixed into the catalog update.
+        const auto shared = KSharedConfig::openConfig();
+        KConfig workspaceConfig(shared->name(), shared->openFlags(), shared->locationType());
+        WorkspaceStartup::apply(workspaceConfig.group(QStringLiteral("Workspaces")), Settings::startupWorkspace(), &workspaceWarning);
+        if (!shared->isDirty()) {
+            shared->reparseConfiguration();
+        }
+    }
+
     auto *window = new MainWindow;
     window->openUrls(urlsFromArguments(parser.positionalArguments(), QDir::currentPath()));
     window->show();
+    if (!workspaceWarning.isEmpty()) {
+        window->statusBar()->showMessage(workspaceWarning);
+    }
 
     QObject::connect(&service, &KDBusService::activateRequested, window, [window](const QStringList &arguments, const QString &workingDirectory) {
         QCommandLineParser instanceParser;

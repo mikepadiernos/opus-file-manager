@@ -169,7 +169,10 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createSelectionFiltersPage(), i18nc("@title:tab", "Selection Filters")}},
                   i18nc("@title:group", "Files"),
                   QStringLiteral("folder"));
-    addTabbedPage({{createWorkspaceManagementPage(), i18nc("@title:tab", "Management")}}, i18nc("@title:group", "Workspaces"), QStringLiteral("view-grid"));
+    addTabbedPage({{createWorkspaceManagementPage(), i18nc("@title:tab", "Management")}, {createWorkspaceStartupPage(), i18nc("@title:tab", "Startup")}},
+                  i18nc("@title:group", "Workspaces"),
+                  QStringLiteral("view-grid"));
+    reloadWorkspaces();
     addTabbedPage({{createOpeningPage(), i18nc("@title:tab", "Opening")},
                    {createGalleryInformationPage(), i18nc("@title:tab", "Information")},
                    {createGalleryDisplayPage(), i18nc("@title:tab", "Display")},
@@ -481,13 +484,31 @@ QWidget *SettingsDialog::createWorkspaceManagementPage()
     manage->setObjectName(QStringLiteral("manageWorkspaces"));
     connect(manage, &QPushButton::clicked, this, &SettingsDialog::manageWorkspacesRequested);
     layout->addWidget(manage, 0, Qt::AlignLeft);
-    reloadWorkspaces();
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceStartupPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    m_startupWorkspace = bound(new StartupWorkspaceCombo, QStringLiteral("StartupWorkspace"), "workspace");
+    form->addRow(i18nc("@label:listbox", "Startup workspace:"), m_startupWorkspace);
+    layout->addLayout(form);
+    auto *notice = new QLabel(i18nc("@info",
+                                    "The startup workspace becomes active when Plasma Opus starts. Its saved layout is not applied, so the startup "
+                                    "folder and session choices under Interface still decide which folders and tabs open. Switch workspaces to "
+                                    "restore a saved layout."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addStretch();
     return page;
 }
 
 void SettingsDialog::reloadWorkspaces()
 {
-    if (!m_workspaceSummary) {
+    if (!m_workspaceSummary || !m_startupWorkspace) {
         return;
     }
     m_workspaceSummary->clear();
@@ -501,8 +522,8 @@ void SettingsDialog::reloadWorkspaces()
     }
     if (catalog.workspaces.isEmpty()) {
         m_workspaceSummary->addItem(i18nc("@item:inlistbox", "No workspaces"));
-        return;
     }
+    QList<std::pair<QString, QString>> names;
     QMap<QString, int> assigned;
     for (const QString &workspaceId : std::as_const(catalog.locationAssignments)) {
         ++assigned[workspaceId];
@@ -519,7 +540,9 @@ void SettingsDialog::reloadWorkspaces()
         }
         auto *item = new QListWidgetItem(text, m_workspaceSummary);
         item->setData(Qt::UserRole, workspace.id);
+        names.append({workspace.id, i18nc("@item:inlistbox workspace name and short label", "%1 (%2)", workspace.name, workspace.shortLabel)});
     }
+    m_startupWorkspace->setWorkspaces(names);
 }
 
 void SettingsDialog::createSettingsBackup()

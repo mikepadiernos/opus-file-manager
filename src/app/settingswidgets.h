@@ -35,6 +35,33 @@ Q_SIGNALS:
     void localeNameChanged();
 };
 
+/**
+ * Chooses the startup workspace: the last used one, none, or a saved
+ * workspace. A chosen workspace that no longer exists stays selected as
+ * unavailable, so its reference is kept until the user changes it.
+ */
+class StartupWorkspaceCombo : public QComboBox
+{
+    Q_OBJECT
+    Q_PROPERTY(QString workspace READ workspace WRITE setWorkspace NOTIFY workspaceChanged USER true)
+
+public:
+    explicit StartupWorkspaceCombo(QWidget *parent = nullptr);
+    QString workspace() const;
+    void setWorkspace(const QString &workspace);
+    /**
+     * Lists the catalog's workspaces, keeping the current choice.
+     * @param workspaces each workspace's UUID and display name
+     */
+    void setWorkspaces(const QList<std::pair<QString, QString>> &workspaces);
+
+Q_SIGNALS:
+    void workspaceChanged();
+
+private:
+    QList<std::pair<QString, QString>> m_workspaces;
+};
+
 class RuleListEditor : public QWidget
 {
     Q_OBJECT

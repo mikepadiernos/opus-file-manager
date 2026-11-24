@@ -754,4 +754,10 @@
       <max>64</max>
     </entry>
   </group>
+  <group name="WorkspaceSettings">
+    <entry name="StartupWorkspace" type="String">
+      <label>Workspace made active at startup: empty for the last used workspace, "none" for no workspace, or a workspace UUID</label>
+      <default></default>
+    </entry>
+  </group>
 </kcfg>

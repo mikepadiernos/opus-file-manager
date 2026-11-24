@@ -137,6 +137,43 @@ private Q_SLOTS:
         QCOMPARE(summary->count(), 1);
     }
 
+    void startupWorkspacePersistsAndKeepsUnavailableReference()
+    {
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY2(WorkspaceCatalog::create(catalog, QStringLiteral("Research"), QStringLiteral("RS"), error), qPrintable(error));
+        const QString id = catalog.workspaces.first().id;
+        QVERIFY2(WorkspaceCatalog::save(KSharedConfig::openConfig()->group(QStringLiteral("Workspaces")), catalog, error), qPrintable(error));
+        KSharedConfig::openConfig()->sync();
+
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *startup = dialog.findChild<StartupWorkspaceCombo *>(QStringLiteral("kcfg_StartupWorkspace"));
+            QVERIFY(startup);
+            QCOMPARE(startup->count(), 3);
+            QCOMPARE(startup->workspace(), QString());
+            startup->setCurrentIndex(startup->findData(id));
+            QCOMPARE(startup->workspace(), id);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QCOMPARE(Settings::startupWorkspace(), id);
+
+        QVERIFY2(WorkspaceCatalog::remove(catalog, id, error), qPrintable(error));
+        QVERIFY2(WorkspaceCatalog::save(KSharedConfig::openConfig()->group(QStringLiteral("Workspaces")), catalog, error), qPrintable(error));
+        KSharedConfig::openConfig()->sync();
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *startup = dialog.findChild<StartupWorkspaceCombo *>(QStringLiteral("kcfg_StartupWorkspace"));
+            QVERIFY(startup);
+            QCOMPARE(startup->workspace(), id);
+            QVERIFY(startup->currentText().contains(QStringLiteral("Unavailable")));
+            startup->setCurrentIndex(startup->findData(QStringLiteral("none")));
+            dialog.reject();
+        }
+        QCOMPARE(Settings::startupWorkspace(), id);
+    }
+
     void toolbarSettingsOpenExistingEditors()
     {
         MainWindow window;

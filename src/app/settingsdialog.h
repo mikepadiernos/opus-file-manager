@@ -13,6 +13,7 @@ class QCheckBox;
 class QListWidget;
 class QTabWidget;
 class RuleListEditor;
+class StartupWorkspaceCombo;
 
 /**
  * The Preferences dialog: a sidebar of pages, each holding one tab per
@@ -118,6 +119,7 @@ private:
     QWidget *createFileMetadataPage();
     QWidget *createSelectionFiltersPage();
     QWidget *createWorkspaceManagementPage();
+    QWidget *createWorkspaceStartupPage();
     void createSettingsBackup();
     void restoreSettingsBackup();
     void exportWorkspaceProfiles();
@@ -133,6 +135,7 @@ private:
     KPageWidgetItem *m_toolbarPage = nullptr;
     QTabWidget *m_toolbarTabs = nullptr;
     QListWidget *m_workspaceSummary = nullptr;
+    StartupWorkspaceCombo *m_startupWorkspace = nullptr;
     /// A checkbox for a setting kept outside Settings, in config that KIO
     /// shares with Dolphin.
     struct SharedToggle {
