@@ -812,7 +812,7 @@ Settings for M15 workspaces, stored in KConfig.
       confirm before returning to the saved layout
 - [x] **Pane location bars:** choose full breadcrumbs, abbreviated ancestors or
       an editable full path for each pane; restore these choices with the layout
-- [ ] **Features:** choose all, selected or none of a workspace's applicable
+- [x] **Features:** choose all, selected or none of a workspace's applicable
       behaviours, including location presentation, search scope, layouts, and
       pane and tab restoration. Preserve unselected state and existing defaults;
       reuse settings.
