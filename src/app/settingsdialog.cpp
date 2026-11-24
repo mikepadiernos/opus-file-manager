@@ -162,7 +162,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createHighlightsPage(), i18nc("@title:tab", "Highlights")},
                    {createFolderColorsPage(), i18nc("@title:tab", "Folder Colours")},
                    {createFontsPage(), i18nc("@title:tab", "Fonts")},
-                   {createSpacingPage(), i18nc("@title:tab", "Spacing")}},
+                   {createSpacingPage(), i18nc("@title:tab", "Spacing")},
+                   {createBarStylePage(), i18nc("@title:tab", "Tabs and Status Bars")}},
                   i18nc("@title:group", "Themes"),
                   QStringLiteral("preferences-desktop-theme"));
     addTabbedPage({{createViewGeneralPage(), i18nc("@title:tab", "General")},
@@ -1842,6 +1843,49 @@ QWidget *SettingsDialog::createSpacingPage()
     auto *note = new QLabel(i18nc("@info",
                                   "Scales the padding and spacing of toolbars, tabs, panels and status bars. Bars with a Compact, Very "
                                   "compact or Custom bar density keep that spacing, and file lists keep their item density."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createBarStylePage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    auto *shape = comboBox(QStringLiteral("TabShape"),
+                           {i18nc("@item:inlistbox tab shape", "Follow widget style"),
+                            i18nc("@item:inlistbox tab shape", "Rounded"),
+                            i18nc("@item:inlistbox tab shape", "Square"),
+                            i18nc("@item:inlistbox tab shape", "Flat")});
+    auto *indicator = comboBox(QStringLiteral("TabIndicator"),
+                               {i18nc("@item:inlistbox active tab indicator", "Line"),
+                                i18nc("@item:inlistbox active tab indicator", "Thick line"),
+                                i18nc("@item:inlistbox active tab indicator", "None")});
+    const auto updateIndicator = [shape, indicator] {
+        indicator->setEnabled(shape->currentIndex() != Settings::EnumTabShape::FollowStyle);
+    };
+    connect(shape, &QComboBox::currentIndexChanged, page, updateIndicator);
+    updateIndicator();
+    form->addRow(i18nc("@label:listbox", "Tab shape:"), shape);
+    form->addRow(i18nc("@label:listbox", "Active tab indicator:"), indicator);
+    form->addRow(i18nc("@label:listbox", "Tab colours:"),
+                 comboBox(QStringLiteral("TabColorStrength"),
+                          {i18nc("@item:inlistbox tab colour strength", "Coloured text"),
+                           i18nc("@item:inlistbox tab colour strength", "Light tint"),
+                           i18nc("@item:inlistbox tab colour strength", "Strong fill")}));
+    form->addRow(i18nc("@label:listbox", "Status bars:"),
+                 comboBox(QStringLiteral("StatusBarStyle"),
+                          {i18nc("@item:inlistbox status bar style", "Follow widget style"),
+                           i18nc("@item:inlistbox status bar style", "Separated"),
+                           i18nc("@item:inlistbox status bar style", "Shaded")}));
+    layout->addLayout(form);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Rounded tabs use the corner radius from Effects. Flat tabs always keep an indicator on the active tab. "
+                                  "Tab colours are chosen from a tab's context menu and shown when folder-based tab colours are enabled "
+                                  "in Interface settings; text on tinted and filled tabs is adjusted to stay readable."),
                             page);
     note->setWordWrap(true);
     layout->addWidget(note);

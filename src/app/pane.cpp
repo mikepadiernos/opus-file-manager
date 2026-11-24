@@ -2,6 +2,7 @@
 
 #include "pane.h"
 
+#include "appearancestyle.h"
 #include "colorschemes.h"
 
 #include "filterbar.h"
@@ -1375,9 +1376,19 @@ void Pane::updateTabText(int index)
         }
     }
     m_tabBar->setTabIcon(index, icon);
-    QColor textColor = Settings::showTabColors() ? LabelColors::rgb(m_colors->colorFor(url)) : QColor();
+    const QColor tabColor = Settings::showTabColors() ? LabelColors::rgb(m_colors->colorFor(url)) : QColor();
+    const QColor window = m_tabBar->palette().color(QPalette::Window);
+    const AppearanceStyle::TabColorStrength strength = AppearanceStyle::configured().tabColorStrength;
+    QColor textColor = tabColor;
+    if (tabColor.isValid() && strength != AppearanceStyle::TabColorStrength::Text) {
+        // The style fills the tab with its colour, so the text only needs to stay readable on the fill.
+        // The active tab's fill is the strongest, so text readable there is readable on every tab.
+        const QColor fill = AppearanceStyle::tabColorFill(window, tabColor, strength, true);
+        textColor = ColorSchemes::readable(m_tabBar->palette().color(QPalette::WindowText), fill, 4.5);
+    }
+    m_tabBar->setTabData(index, strength == AppearanceStyle::TabColorStrength::Text ? QVariant() : QVariant(tabColor));
     if (!textColor.isValid() && folderStyle == FolderColors::Style::Name && folderColor.isValid()) {
-        textColor = ColorSchemes::readable(folderColor, m_tabBar->palette().color(QPalette::Window), 4.5);
+        textColor = ColorSchemes::readable(folderColor, window, 4.5);
     }
     m_tabBar->setTabTextColor(index, textColor);
 

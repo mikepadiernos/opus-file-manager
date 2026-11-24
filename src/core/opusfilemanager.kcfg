@@ -1072,5 +1072,42 @@
       <min>50</min>
       <max>200</max>
     </entry>
+    <entry name="TabShape" type="Enum">
+      <label>Shape of pane tabs</label>
+      <choices>
+        <choice name="FollowStyle"/>
+        <choice name="Rounded"/>
+        <choice name="Square"/>
+        <choice name="Flat"/>
+      </choices>
+      <default>FollowStyle</default>
+    </entry>
+    <entry name="TabIndicator" type="Enum">
+      <label>Indicator on the active tab for tab shapes other than the widget style's</label>
+      <choices>
+        <choice name="Line"/>
+        <choice name="ThickLine"/>
+        <choice name="None"/>
+      </choices>
+      <default>Line</default>
+    </entry>
+    <entry name="TabColorStrength" type="Enum">
+      <label>How strongly folder-based tab colours show</label>
+      <choices>
+        <choice name="Text"/>
+        <choice name="Tint"/>
+        <choice name="Strong"/>
+      </choices>
+      <default>Text</default>
+    </entry>
+    <entry name="StatusBarStyle" type="Enum">
+      <label>How the window and pane status bars are drawn</label>
+      <choices>
+        <choice name="FollowStyle"/>
+        <choice name="Separated"/>
+        <choice name="Shaded"/>
+      </choices>
+      <default>FollowStyle</default>
+    </entry>
   </group>
 </kcfg>

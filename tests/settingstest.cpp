@@ -18,6 +18,7 @@
 #include "previewpanel.h"
 #include "settingsdialog.h"
 #include "settingswidgets.h"
+#include "tabcolors.h"
 #include "tabmodel.h"
 #include "treelines.h"
 #include "windoweffects.h"
@@ -2186,6 +2187,111 @@ private Q_SLOTS:
         QCOMPARE(spacing(window.centralWidget()), windowSpacing);
         QCOMPARE(navigation->contentsMargins(), navigationMargins);
         QCOMPARE(paneStatus->contentsMargins(), paneStatusMargins);
+    }
+
+    void tabShapesColoursAndStatusBarStylesApply()
+    {
+        const QString originalName = QApplication::style()->name();
+        MainWindow window;
+        auto *colors = window.findChild<TabColors *>();
+        QVERIFY(colors);
+        auto restore = qScopeGuard([&] {
+            colors->setColor(m_a, LabelColor::None);
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            if (AppearanceStyle::installed()) {
+                QApplication::setStyle(QStyleFactory::create(originalName));
+            }
+        });
+        window.openUrls({m_a});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        const QColor red = LabelColors::rgb(LabelColor::Red);
+        colors->setColor(m_a, LabelColor::Red);
+        auto *bar = window.activePane()->findChild<QTabBar *>();
+        QVERIFY(bar && bar->count() > 0);
+        const int current = bar->currentIndex();
+        QTRY_COMPARE(bar->tabTextColor(current), red);
+        QVERIFY(!bar->tabData(current).isValid());
+        const QImage plainStatus = window.statusBar()->grab().toImage();
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        const auto choose = [&dialog](const QString &entry, int index) {
+            auto *combo = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_") + entry);
+            QVERIFY2(combo, qPrintable(entry));
+            combo->setCurrentIndex(index);
+            Q_EMIT combo->activated(index);
+        };
+        auto *indicator = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TabIndicator"));
+        QVERIFY(indicator && !indicator->isEnabled());
+        choose(QStringLiteral("TabShape"), Settings::EnumTabShape::Flat);
+        QVERIFY(indicator->isEnabled());
+        choose(QStringLiteral("TabIndicator"), Settings::EnumTabIndicator::None);
+        choose(QStringLiteral("TabColorStrength"), Settings::EnumTabColorStrength::Strong);
+        choose(QStringLiteral("StatusBarStyle"), Settings::EnumStatusBarStyle::Shaded);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(int(Settings::tabShape()), int(Settings::EnumTabShape::Flat));
+        AppearanceStyle *style = AppearanceStyle::installed();
+        QVERIFY(style);
+
+        // Strong tab colours fill the tab, and its text stays readable on the fill.
+        const QColor windowColor = bar->palette().color(QPalette::Window);
+        const QColor fill = AppearanceStyle::tabColorFill(windowColor, red, AppearanceStyle::TabColorStrength::Strong, true);
+        QCOMPARE(bar->tabData(current).value<QColor>(), red);
+        QVERIFY(ColorSchemes::contrastRatio(bar->tabTextColor(current), fill) >= 4.5);
+
+        const QPalette palette = QApplication::palette();
+        const QColor highlight = palette.color(QPalette::Active, QPalette::Highlight);
+        QStyleOptionTab tab;
+        tab.palette = palette;
+        tab.shape = QTabBar::RoundedNorth;
+        tab.state = QStyle::State_Enabled | QStyle::State_Active | QStyle::State_Selected;
+        const auto drawTab = [&](int tabIndex) {
+            QImage image(40, 20, QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            tab.rect = image.rect();
+            tab.tabIndex = tabIndex;
+            style->drawControl(QStyle::CE_TabBarTabShape, &tab, &painter, bar);
+            painter.end();
+            return image;
+        };
+        // Flat tabs have no fill but keep an indicator, even when indicators are off.
+        QImage image = drawTab(-1);
+        QCOMPARE(qAlpha(image.pixel(20, 8)), 0);
+        QCOMPARE(image.pixelColor(20, 18), highlight);
+        image = drawTab(current);
+        QCOMPARE(image.pixelColor(20, 8).rgb(), fill.rgb());
+
+        // Square tabs fill their corners; a thick indicator is twice as tall.
+        Settings::setTabShape(Settings::EnumTabShape::Square);
+        Settings::setTabIndicator(Settings::EnumTabIndicator::ThickLine);
+        window.applySettings();
+        image = drawTab(-1);
+        QVERIFY(qAlpha(image.pixel(1, 1)) > 0);
+        QCOMPARE(image.pixelColor(20, 16), highlight);
+        Settings::setTabIndicator(Settings::EnumTabIndicator::None);
+        window.applySettings();
+        QVERIFY(drawTab(-1).pixelColor(20, 18) != highlight);
+
+        // Coloured text leaves the tab unfilled.
+        Settings::setTabColorStrength(Settings::EnumTabColorStrength::Text);
+        window.applySettings();
+        QVERIFY(!bar->tabData(current).isValid());
+        QCOMPARE(bar->tabTextColor(current), red);
+
+        // Shaded status bars get a background and a divider.
+        const QImage shadedStatus = window.statusBar()->grab().toImage();
+        QCOMPARE(shadedStatus.size(), plainStatus.size());
+        QVERIFY(shadedStatus.pixelColor(shadedStatus.width() / 2, 0) != plainStatus.pixelColor(plainStatus.width() / 2, 0));
+        QVERIFY(shadedStatus.pixelColor(1, shadedStatus.height() / 2) != plainStatus.pixelColor(1, plainStatus.height() / 2));
+        Settings::setStatusBarStyle(Settings::EnumStatusBarStyle::FollowStyle);
+        window.applySettings();
+        const QImage restoredStatus = window.statusBar()->grab().toImage();
+        QCOMPARE(restoredStatus.pixelColor(restoredStatus.width() / 2, 0), plainStatus.pixelColor(plainStatus.width() / 2, 0));
+        QCOMPARE(restoredStatus.pixelColor(1, restoredStatus.height() / 2), plainStatus.pixelColor(1, plainStatus.height() / 2));
     }
 
     void toolbarAppearanceSettingsApplyToEveryToolbar()

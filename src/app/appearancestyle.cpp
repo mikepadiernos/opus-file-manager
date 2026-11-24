@@ -15,6 +15,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QSplitterHandle>
+#include <QStatusBar>
 #include <QStyleOption>
 #include <QTabBar>
 #include <QToolBar>
@@ -90,6 +91,12 @@ void fillPath(QPainter *painter, const QPainterPath &path, const QColor &color, 
 bool isLineShape(int shape)
 {
     return shape == QFrame::HLine || shape == QFrame::VLine;
+}
+
+/// Whether @p widget is a window's status bar or a pane's status bar.
+bool isStatusBar(const QWidget *widget)
+{
+    return qobject_cast<const QStatusBar *>(widget) || widget->objectName() == QLatin1String("paneStatusBar");
 }
 
 /// How much highlight a light selection and a light hover mix into the background.
@@ -192,6 +199,10 @@ AppearanceStyle::Options AppearanceStyle::configured()
     options.selection = static_cast<Selection>(std::clamp(int(Settings::selectionStyle()), 0, int(Selection::AccentBar)));
     options.hoverHighlight = Settings::hoverHighlight();
     options.spacingScale = std::clamp(Settings::spacingScale(), MinimumSpacingScale, MaximumSpacingScale);
+    options.tabShape = static_cast<TabShape>(std::clamp(int(Settings::tabShape()), 0, int(TabShape::Flat)));
+    options.tabIndicator = static_cast<TabIndicator>(std::clamp(int(Settings::tabIndicator()), 0, int(TabIndicator::None)));
+    options.tabColorStrength = static_cast<TabColorStrength>(std::clamp(int(Settings::tabColorStrength()), 0, int(TabColorStrength::Strong)));
+    options.statusBarStyle = static_cast<StatusBarStyle>(std::clamp(int(Settings::statusBarStyle()), 0, int(StatusBarStyle::Shaded)));
     return options;
 }
 
@@ -284,6 +295,41 @@ void AppearanceStyle::polish(QWidget *widget)
     if (qobject_cast<QSplitterHandle *>(widget) || qobject_cast<QMainWindow *>(widget)) {
         widget->setAttribute(Qt::WA_Hover);
     }
+    if (isStatusBar(widget)) {
+        widget->installEventFilter(this);
+    }
+}
+
+void AppearanceStyle::unpolish(QWidget *widget)
+{
+    if (isStatusBar(widget)) {
+        widget->removeEventFilter(this);
+    }
+    QProxyStyle::unpolish(widget);
+}
+
+bool AppearanceStyle::eventFilter(QObject *watched, QEvent *event)
+{
+    // Bars draw no background of their own, so the style paints before their contents.
+    if (event->type() == QEvent::Paint && m_options.statusBarStyle != StatusBarStyle::FollowStyle) {
+        if (auto *bar = qobject_cast<QWidget *>(watched); bar && isStatusBar(bar) && qobject_cast<const KMainWindow *>(bar->window())) {
+            paintStatusBar(bar);
+        }
+    }
+    return QProxyStyle::eventFilter(watched, event);
+}
+
+void AppearanceStyle::paintStatusBar(QWidget *bar) const
+{
+    QPainter painter(bar);
+    const QPalette::ColorGroup group = bar->isActiveWindow() ? QPalette::Active : QPalette::Inactive;
+    const QPalette palette = bar->palette();
+    const QColor window = palette.color(group, QPalette::Window);
+    const QColor text = palette.color(group, QPalette::WindowText);
+    if (m_options.statusBarStyle == StatusBarStyle::Shaded) {
+        painter.fillRect(bar->rect(), mixed(window, text, 0.06));
+    }
+    painter.fillRect(QRect(0, 0, bar->width(), 1), mixed(window, text, 0.2));
 }
 
 bool AppearanceStyle::isRestyledFrame(const QWidget *widget) const
@@ -527,48 +573,119 @@ void AppearanceStyle::drawControl(ControlElement element, const QStyleOption *op
             break;
         }
     }
-    const int radius = m_options.radius;
-    if (radius != FollowStyle && element == CE_TabBarTabShape) {
+    if (element == CE_TabBarTabShape) {
         if (const auto *tab = qstyleoption_cast<const QStyleOptionTab *>(option)) {
-            const bool selected = tab->state & State_Selected;
-            const bool hovered = (tab->state & State_MouseOver) && (tab->state & State_Enabled);
-            if (!selected && !hovered) {
+            TabShape shape = m_options.tabShape;
+            if (shape == TabShape::FollowStyle && m_options.radius != FollowStyle) {
+                shape = TabShape::Rounded;
+            }
+            const QColor color = tabColor(*tab, widget);
+            if (shape != TabShape::FollowStyle) {
+                drawTabShape(*tab, shape, color, painter);
                 return;
             }
-            const QPalette::ColorGroup group = colorGroup(tab);
-            QColor highlight = tab->palette.color(group, QPalette::Highlight);
-            QColor fill = highlight;
-            fill.setAlphaF(selected ? 0.2 : 0.1);
-            const QRectF rect = QRectF(tab->rect).adjusted(1, 1, -1, -1);
-            fillPath(painter, roundedPath(rect, radius, true, true), fill);
-            if (selected) {
-                // The selected tab keeps an indicator on the edge facing its
-                // content, so it does not rely on the fill alone.
-                QRectF indicator;
-                constexpr qreal size = 2;
-                switch (tab->shape) {
-                case QTabBar::RoundedSouth:
-                case QTabBar::TriangularSouth:
-                    indicator = QRectF(rect.left() + radius, rect.top(), rect.width() - 2 * radius, size);
-                    break;
-                case QTabBar::RoundedWest:
-                case QTabBar::TriangularWest:
-                    indicator = QRectF(rect.right() - size, rect.top() + radius, size, rect.height() - 2 * radius);
-                    break;
-                case QTabBar::RoundedEast:
-                case QTabBar::TriangularEast:
-                    indicator = QRectF(rect.left(), rect.top() + radius, size, rect.height() - 2 * radius);
-                    break;
-                default:
-                    indicator = QRectF(rect.left() + radius, rect.bottom() - size, rect.width() - 2 * radius, size);
-                    break;
-                }
-                fillPath(painter, roundedPath(indicator, size / 2, true, true), highlight);
+            QProxyStyle::drawControl(element, option, painter, widget);
+            if (color.isValid()) {
+                QColor fill = color;
+                fill.setAlphaF(m_options.tabColorStrength == TabColorStrength::Strong ? 0.45 : 0.2);
+                painter->fillRect(tab->rect, fill);
             }
             return;
         }
     }
     QProxyStyle::drawControl(element, option, painter, widget);
+}
+
+QColor AppearanceStyle::tabColorFill(const QColor &window, const QColor &color, TabColorStrength strength, bool selected)
+{
+    switch (strength) {
+    case TabColorStrength::Tint:
+        return mixed(window, color, selected ? 0.3 : 0.2);
+    case TabColorStrength::Strong:
+        return mixed(window, color, selected ? 0.6 : 0.45);
+    case TabColorStrength::Text:
+        break;
+    }
+    return {};
+}
+
+QColor AppearanceStyle::tabColor(const QStyleOptionTab &tab, const QWidget *widget) const
+{
+    if (m_options.tabColorStrength == TabColorStrength::Text) {
+        return {};
+    }
+    const auto *bar = qobject_cast<const QTabBar *>(widget);
+    if (!bar || tab.tabIndex < 0 || tab.tabIndex >= bar->count()) {
+        return {};
+    }
+    const QVariant data = bar->tabData(tab.tabIndex);
+    return data.typeId() == QMetaType::QColor ? data.value<QColor>() : QColor();
+}
+
+void AppearanceStyle::drawTabShape(const QStyleOptionTab &tab, TabShape shape, const QColor &tabColor, QPainter *painter) const
+{
+    const bool selected = tab.state & State_Selected;
+    const bool hovered = (tab.state & State_MouseOver) && (tab.state & State_Enabled);
+    const QPalette::ColorGroup group = colorGroup(&tab);
+    const QColor highlight = tab.palette.color(group, QPalette::Highlight);
+    int radius = 0;
+    if (shape == TabShape::Rounded) {
+        radius = m_options.radius == FollowStyle ? DefaultRoundedRadius : m_options.radius;
+    }
+    const QRectF rect = QRectF(tab.rect).adjusted(1, 1, -1, -1);
+    QColor fill;
+    if (tabColor.isValid()) {
+        fill = tabColorFill(tab.palette.color(group, QPalette::Window), tabColor, m_options.tabColorStrength, selected);
+        if (hovered && !selected) {
+            fill = mixed(fill, highlight, LightHoverAmount);
+        }
+    } else if ((selected && shape != TabShape::Flat) || hovered) {
+        fill = highlight;
+        fill.setAlphaF(selected ? 0.2 : 0.1);
+    }
+    if (fill.isValid()) {
+        fillPath(painter, roundedPath(rect, radius, true, true), fill);
+    }
+    if (!selected) {
+        return;
+    }
+    // The active tab keeps an indicator on the edge facing its content, so it
+    // does not rely on the fill alone. Flat tabs have no fill, so they always
+    // keep one.
+    qreal size = 0;
+    switch (m_options.tabIndicator) {
+    case TabIndicator::ThickLine:
+        size = 4;
+        break;
+    case TabIndicator::None:
+        size = shape == TabShape::Flat ? 2 : 0;
+        break;
+    case TabIndicator::Line:
+        size = 2;
+        break;
+    }
+    if (size <= 0) {
+        return;
+    }
+    QRectF indicator;
+    switch (tab.shape) {
+    case QTabBar::RoundedSouth:
+    case QTabBar::TriangularSouth:
+        indicator = QRectF(rect.left() + radius, rect.top(), rect.width() - 2 * radius, size);
+        break;
+    case QTabBar::RoundedWest:
+    case QTabBar::TriangularWest:
+        indicator = QRectF(rect.right() - size, rect.top() + radius, size, rect.height() - 2 * radius);
+        break;
+    case QTabBar::RoundedEast:
+    case QTabBar::TriangularEast:
+        indicator = QRectF(rect.left(), rect.top() + radius, size, rect.height() - 2 * radius);
+        break;
+    default:
+        indicator = QRectF(rect.left() + radius, rect.bottom() - size, rect.width() - 2 * radius, size);
+        break;
+    }
+    fillPath(painter, roundedPath(indicator, size / 2, true, true), highlight);
 }
 
 int AppearanceStyle::pixelMetric(PixelMetric metric, const QStyleOption *option, const QWidget *widget) const

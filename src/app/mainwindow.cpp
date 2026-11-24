@@ -1753,6 +1753,7 @@ void MainWindow::setupStatusBar()
     statusBar()->addWidget(indicators, 1);
     for (Pane *pane : {m_left, m_right}) {
         auto *bar = new QWidget(pane);
+        bar->setObjectName(QStringLiteral("paneStatusBar"));
         auto *layout = new QHBoxLayout(bar);
         layout->setContentsMargins(8, 0, 8, 0);
         layout->setSpacing(8);
