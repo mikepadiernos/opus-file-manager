@@ -882,5 +882,25 @@
       <label>App-local palette role colours layered over the colour scheme, as Role=#rrggbb entries</label>
       <default></default>
     </entry>
+    <entry name="PaneTint" type="Enum">
+      <label>Which panes have a tinted folder view background</label>
+      <choices>
+        <choice name="None"/>
+        <choice name="AllPanes"/>
+        <choice name="ActivePane"/>
+        <choice name="InactivePane"/>
+      </choices>
+      <default>None</default>
+    </entry>
+    <entry name="PaneTintColor" type="Color">
+      <label>Colour mixed into the background of tinted panes</label>
+      <default>61,174,233</default>
+    </entry>
+    <entry name="PaneTintStrength" type="Int">
+      <label>Percentage of the tint colour mixed into the background of tinted panes, lowered when needed to keep text readable</label>
+      <default>10</default>
+      <min>1</min>
+      <max>50</max>
+    </entry>
   </group>
 </kcfg>

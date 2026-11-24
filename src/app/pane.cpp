@@ -2,6 +2,8 @@
 
 #include "pane.h"
 
+#include "colorschemes.h"
+
 #include "filterbar.h"
 #include "folderview.h"
 #include "settings.h"
@@ -603,6 +605,7 @@ void Pane::setActive(bool active)
     m_active = active;
     m_dimEffect->setEnabled(m_inactiveDimming && !active);
     m_navigator->setActive(active);
+    updateBackgroundTint();
     if (active) {
         m_view->currentView()->setFocus();
     }
@@ -613,6 +616,32 @@ void Pane::setInactiveDimming(bool enabled, int opacityPercent)
     m_inactiveDimming = enabled;
     m_dimEffect->setOpacity(qBound(20, opacityPercent, 100) / 100.0);
     m_dimEffect->setEnabled(enabled && !m_active);
+}
+
+void Pane::setBackgroundTint(BackgroundTint scope, const QColor &color, int strengthPercent)
+{
+    m_tintScope = scope;
+    m_tintColor = color;
+    m_tintStrength = strengthPercent;
+    updateBackgroundTint();
+}
+
+void Pane::updateBackgroundTint()
+{
+    const bool tinted = m_tintScope == BackgroundTint::AllPanes || (m_tintScope == BackgroundTint::ActivePane && m_active)
+        || (m_tintScope == BackgroundTint::InactivePane && !m_active);
+    // Only the tinted roles are resolved, so the view keeps following the
+    // application palette for every other role.
+    m_view->setPalette(
+        ColorSchemes::withOverrides(QPalette(), tinted ? ColorSchemes::paneTint(palette(), m_tintColor, m_tintStrength) : ColorSchemes::Overrides()));
+}
+
+void Pane::changeEvent(QEvent *event)
+{
+    QWidget::changeEvent(event);
+    if (event->type() == QEvent::PaletteChange) {
+        updateBackgroundTint();
+    }
 }
 
 void Pane::setTabBarForcedVisible(bool visible)

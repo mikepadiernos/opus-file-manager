@@ -384,6 +384,72 @@ private Q_SLOTS:
         QTRY_COMPARE(window.palette().color(QPalette::Active, QPalette::Highlight), dark.color(QPalette::Active, QPalette::Highlight));
     }
 
+    void paneTintFollowsTheChosenPanesAndScheme()
+    {
+        auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            ColorSchemes::apply(QString());
+        });
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        const QList<Pane *> panes = window.findChildren<Pane *>();
+        QCOMPARE(panes.size(), 2);
+        Pane *active = panes.at(0)->isActive() ? panes.at(0) : panes.at(1);
+        Pane *inactive = active == panes.at(0) ? panes.at(1) : panes.at(0);
+        QVERIFY(active->isActive() && !inactive->isActive());
+        const auto viewBase = [](Pane *pane) {
+            return pane->view()->palette().color(QPalette::Active, QPalette::Base);
+        };
+        const QColor base = window.palette().color(QPalette::Active, QPalette::Base);
+        QCOMPARE(viewBase(active), base);
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *tint = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_PaneTint"));
+        auto *color = dialog.findChild<KColorButton *>(QStringLiteral("kcfg_PaneTintColor"));
+        auto *strength = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_PaneTintStrength"));
+        QVERIFY(tint && color && strength);
+        QVERIFY(!color->isEnabled() && !strength->isEnabled());
+        tint->setCurrentIndex(Settings::EnumPaneTint::InactivePane);
+        QVERIFY(color->isEnabled() && strength->isEnabled());
+        color->setColor(QColor(200, 0, 0));
+        strength->setValue(20);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::paneTint(), int(Settings::EnumPaneTint::InactivePane));
+        QCOMPARE(Settings::paneTintColor(), QColor(200, 0, 0));
+
+        const QColor tinted = ColorSchemes::paneTint(window.palette(), QColor(200, 0, 0), 20).value(QPalette::Base);
+        QVERIFY(tinted != base);
+        QCOMPARE(viewBase(inactive), tinted);
+        QCOMPARE(viewBase(active), base);
+        // Text and selection colours are not tinted.
+        QCOMPARE(inactive->view()->palette().color(QPalette::Active, QPalette::Text), window.palette().color(QPalette::Active, QPalette::Text));
+
+        // The tint moves with the active pane.
+        active->setActive(false);
+        inactive->setActive(true);
+        QCOMPARE(viewBase(active), tinted);
+        QCOMPARE(viewBase(inactive), base);
+
+        // The tint is recomputed over a new colour scheme.
+        auto *combo = dialog.findChild<ColorSchemeCombo *>(QStringLiteral("kcfg_ColorScheme"));
+        combo->setCurrentIndex(combo->findData(QLatin1String(ColorSchemes::DarkPreset)));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        const QPalette dark = ColorSchemes::palette(QLatin1String(ColorSchemes::DarkPreset));
+        QTRY_COMPARE(viewBase(inactive), dark.color(QPalette::Active, QPalette::Base));
+        QTRY_COMPARE(viewBase(active), ColorSchemes::paneTint(dark, QColor(200, 0, 0), 20).value(QPalette::Base));
+
+        tint->setCurrentIndex(Settings::EnumPaneTint::None);
+        // The dialog tracks user selection in plain combo boxes.
+        Q_EMIT tint->activated(tint->currentIndex());
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(viewBase(active), dark.color(QPalette::Active, QPalette::Base));
+    }
+
     void pagesGroupFeaturesInTabs()
     {
         MainWindow window;
@@ -432,6 +498,7 @@ private Q_SLOTS:
         QCOMPARE(tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("configureMainToolbarEntries"))), QStringLiteral("Toolbars"));
         QCOMPARE(tabOf(QStringLiteral("ColorScheme")), QStringLiteral("Colour Scheme"));
         QCOMPARE(tabOf(QStringLiteral("AccentColor")), QStringLiteral("Colour Scheme"));
+        QCOMPARE(tabOf(QStringLiteral("PaneTint")), QStringLiteral("Colour Scheme"));
         QCOMPARE(tabOf(QStringLiteral("CustomColors")), QStringLiteral("Custom Colours"));
         QCOMPARE(tabOf(QStringLiteral("DefaultViewMode")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("ShowFileListMinimap")), QStringLiteral("General"));

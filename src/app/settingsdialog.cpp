@@ -16,6 +16,7 @@
 #include "workspacecatalog.h"
 
 #include <KActionCollection>
+#include <KColorButton>
 #include <KConfigGroup>
 #include <KLocalizedString>
 #include <KPageWidget>
@@ -1540,6 +1541,28 @@ QWidget *SettingsDialog::createColorSchemePage()
         m_accentColor->setScheme(m_colorScheme->scheme());
     });
     form->addRow(i18nc("@label", "Accent colour:"), m_accentColor);
+    auto *tint = comboBox(QStringLiteral("PaneTint"),
+                          {i18nc("@item:inlistbox pane tint", "No tint"),
+                           i18nc("@item:inlistbox pane tint", "All panes"),
+                           i18nc("@item:inlistbox pane tint", "Active pane"),
+                           i18nc("@item:inlistbox pane tint", "Inactive pane")});
+    auto *tintColor = new KColorButton;
+    tintColor->setObjectName(QStringLiteral("kcfg_PaneTintColor"));
+    tintColor->setAccessibleName(i18nc("@label", "Tint colour"));
+    auto *tintStrength = new QSpinBox;
+    tintStrength->setObjectName(QStringLiteral("kcfg_PaneTintStrength"));
+    tintStrength->setRange(1, 50);
+    tintStrength->setSuffix(i18nc("@item:valuesuffix percent", "%"));
+    tintStrength->setToolTip(i18nc("@info:tooltip", "The tint is weakened when needed to keep text readable."));
+    const auto updateTint = [tint, tintColor, tintStrength] {
+        tintColor->setEnabled(tint->currentIndex() > 0);
+        tintStrength->setEnabled(tint->currentIndex() > 0);
+    };
+    connect(tint, &QComboBox::currentIndexChanged, page, updateTint);
+    updateTint();
+    form->addRow(i18nc("@label:listbox", "Tint pane background:"), tint);
+    form->addRow(i18nc("@label", "Tint colour:"), tintColor);
+    form->addRow(i18nc("@label:spinbox", "Tint strength:"), tintStrength);
     layout->addLayout(form);
     auto *notice = new QLabel(i18nc("@info",
                                     "The colour scheme applies only to Plasma Opus. Plasma's global colour scheme, widget style and window "

@@ -106,6 +106,16 @@ QList<QPalette::ColorRole> accentRoles();
  */
 QStringList withAccent(const QString &id, const QString &accent, const QStringList &customColors);
 
+/**
+ * Overrides that blend a tint into the view background roles, Base and
+ * AlternateBase. The strength is lowered as needed so that view text keeps a
+ * 4.5:1 contrast, or its original contrast when that was already lower.
+ * @param palette the palette the tint is layered over
+ * @param tint the tint colour; an invalid colour gives no overrides
+ * @param strengthPercent how much of the tint to mix in, from 0 to 100
+ */
+Overrides paneTint(const QPalette &palette, const QColor &tint, int strengthPercent);
+
 /// WCAG 2 contrast ratio between two colours, from 1 to 21.
 double contrastRatio(const QColor &first, const QColor &second);
 

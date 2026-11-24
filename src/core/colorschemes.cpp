@@ -309,6 +309,31 @@ QStringList ColorSchemes::withAccent(const QString &id, const QString &accent, c
     return serializeOverrides(accentOverrides(palette(id), color)) + customColors;
 }
 
+ColorSchemes::Overrides ColorSchemes::paneTint(const QPalette &palette, const QColor &tint, int strengthPercent)
+{
+    if (!tint.isValid() || strengthPercent <= 0) {
+        return {};
+    }
+    const auto mix = [&tint](const QColor &color, int percent) {
+        const auto channel = [percent](int from, int to) {
+            return (from * (100 - percent) + to * percent + 50) / 100;
+        };
+        return QColor(channel(color.red(), tint.red()), channel(color.green(), tint.green()), channel(color.blue(), tint.blue()));
+    };
+    const QColor base = palette.color(QPalette::Active, QPalette::Base);
+    const QColor alternate = palette.color(QPalette::Active, QPalette::AlternateBase);
+    const QColor text = palette.color(QPalette::Active, QPalette::Text);
+    const double minimum = std::min(4.5, std::min(contrastRatio(text, base), contrastRatio(text, alternate)));
+    for (int percent = std::min(strengthPercent, 100); percent > 0; --percent) {
+        const QColor tintedBase = mix(base, percent);
+        const QColor tintedAlternate = mix(alternate, percent);
+        if (contrastRatio(text, tintedBase) >= minimum && contrastRatio(text, tintedAlternate) >= minimum) {
+            return {{QPalette::Base, tintedBase}, {QPalette::AlternateBase, tintedAlternate}};
+        }
+    }
+    return {};
+}
+
 double ColorSchemes::contrastRatio(const QColor &first, const QColor &second)
 {
     const auto luminance = [](const QColor &color) {

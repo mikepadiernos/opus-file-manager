@@ -4584,6 +4584,7 @@ void MainWindow::applySettings()
     m_automaticRemoteSizeDefault = Settings::automaticRemoteFolderSizes();
     for (Pane *pane : {m_left, m_right}) {
         pane->setInactiveDimming(Settings::dimInactivePane(), Settings::inactivePaneOpacity());
+        pane->setBackgroundTint(static_cast<Pane::BackgroundTint>(Settings::paneTint()), Settings::paneTintColor(), Settings::paneTintStrength());
         pane->reloadTabSettings();
         pane->reloadFilterSettings();
         pane->setNavigationBarVisible(Settings::showNavigationBar());

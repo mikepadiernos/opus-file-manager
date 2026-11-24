@@ -5,6 +5,7 @@
 #include "navigationhistory.h"
 #include "session.h"
 
+#include <QColor>
 #include <QPair>
 #include <QStringList>
 #include <QUrl>
@@ -48,6 +49,13 @@ public:
         AbbreviatedBreadcrumbs,
         EditablePath
     };
+    /// Which panes a background tint applies to; matches the PaneTint setting.
+    enum class BackgroundTint {
+        None,
+        AllPanes,
+        ActivePane,
+        InactivePane
+    };
     /**
      * @param places the window's places model, for the location bar
      * @param colors the tab colours shared by all panes
@@ -76,6 +84,13 @@ public:
     bool isActive() const;
     void setActive(bool active);
     void setInactiveDimming(bool enabled, int opacityPercent = 65);
+    /**
+     * Tints the folder view's background, keeping view text readable.
+     * @param scope whether the tint applies to this pane given its active state
+     * @param color the tint colour
+     * @param strengthPercent how much of the tint to mix into the background
+     */
+    void setBackgroundTint(BackgroundTint scope, const QColor &color, int strengthPercent);
 
     /// Forces the tab strip to show even with a single tab.
     void setTabBarForcedVisible(bool visible);
@@ -161,8 +176,10 @@ Q_SIGNALS:
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
     void resizeEvent(QResizeEvent *event) override;
+    void changeEvent(QEvent *event) override;
 
 private:
+    void updateBackgroundTint();
     /// Closes the pane's tabs and opens those of @p state with their pins, locks and names.
     void rebuildTabs(const PaneSession &state);
     void saveHistoryViewState();
@@ -208,6 +225,9 @@ private:
     bool m_active = false;
     bool m_inactiveDimming = false;
     QGraphicsOpacityEffect *m_dimEffect = nullptr;
+    BackgroundTint m_tintScope = BackgroundTint::None;
+    QColor m_tintColor;
+    int m_tintStrength = 0;
     bool m_tabBarForced = false;
     bool m_showTabIcons = true;
     bool m_newTabsAfterCurrent = false;

@@ -256,6 +256,28 @@ private Q_SLOTS:
         QCOMPARE(overrides.value(QPalette::Accent), QColor(0xe0, 0x60, 0x20));
         QVERIFY(overrides.contains(QPalette::HighlightedText));
     }
+
+    void paneTintKeepsViewTextReadable()
+    {
+        const QPalette light = ColorSchemes::palette(QLatin1String(ColorSchemes::LightPreset));
+        QVERIFY(ColorSchemes::paneTint(light, QColor(), 20).isEmpty());
+        QVERIFY(ColorSchemes::paneTint(light, Qt::blue, 0).isEmpty());
+
+        const ColorSchemes::Overrides gentle = ColorSchemes::paneTint(light, QColor(0, 0, 255), 10);
+        QCOMPARE(gentle.keys().size(), 2);
+        const QColor base = light.color(QPalette::Active, QPalette::Base);
+        QVERIFY(qAbs(gentle.value(QPalette::Base).blue() - (base.blue() + (255 - base.blue()) / 10)) <= 1);
+        QVERIFY(gentle.value(QPalette::Base).red() < base.red());
+
+        // Dark text on a light scheme: a strong dark tint is weakened until text stays readable.
+        const ColorSchemes::Overrides strong = ColorSchemes::paneTint(light, QColor(0, 0, 0), 50);
+        const QColor text = light.color(QPalette::Active, QPalette::Text);
+        QVERIFY(ColorSchemes::contrastRatio(text, strong.value(QPalette::Base)) >= 4.5);
+        QVERIFY(ColorSchemes::contrastRatio(text, strong.value(QPalette::AlternateBase)) >= 4.5);
+        QVERIFY(strong.value(QPalette::Base) != base);
+        const QColor fullStrength(base.red() / 2, base.green() / 2, base.blue() / 2);
+        QVERIFY(strong.value(QPalette::Base).lightness() > fullStrength.lightness());
+    }
 };
 
 QTEST_MAIN(ColorSchemesTest)
