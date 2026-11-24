@@ -15,6 +15,7 @@
 #include "settingsdialog.h"
 #include "settingswidgets.h"
 #include "tabmodel.h"
+#include "treelines.h"
 #include "windoweffects.h"
 
 #include <KActionCollection>
@@ -59,6 +60,7 @@
 #include <QSizeGrip>
 #include <QSpinBox>
 #include <QSplitter>
+#include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QStyleFactory>
@@ -703,6 +705,69 @@ private Q_SLOTS:
         QCOMPARE(frame->frameWidth(), styleFrameWidth);
     }
 
+    void treeLinesDrawSolidDottedOrHidden()
+    {
+        auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        QStandardItemModel model;
+        auto *parent = new QStandardItem(QStringLiteral("parent"));
+        parent->appendRow(new QStandardItem(QStringLiteral("first")));
+        parent->appendRow(new QStandardItem(QStringLiteral("second")));
+        model.appendRow(parent);
+        model.appendRow(new QStandardItem(QStringLiteral("sibling")));
+        QTreeView view;
+        view.setModel(&model);
+        view.setIndentation(20);
+        view.expandAll();
+        const QModelIndex first = model.index(0, 0, model.index(0, 0));
+        const QModelIndex second = model.index(1, 0, model.index(0, 0));
+
+        const auto draw = [&view](const QModelIndex &index, TreeLines::Style style, bool *handled = nullptr) {
+            QImage image(40, 20, QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            const bool result = TreeLines::drawBranches(&view, &painter, image.rect(), index, style);
+            painter.end();
+            if (handled) {
+                *handled = result;
+            }
+            return image;
+        };
+        bool handled = true;
+        draw(first, TreeLines::Style::FollowStyle, &handled);
+        QVERIFY(!handled);
+        Settings::setTreeLines(Settings::EnumTreeLines::Dotted);
+        QCOMPARE(TreeLines::configured(), TreeLines::Style::Dotted);
+
+        // The item's branch is in the inner cell; its parent's sibling line
+        // continues in the outer cell.
+        QImage image = draw(first, TreeLines::Style::Solid, &handled);
+        QVERIFY(handled);
+        QVERIFY(qAlpha(image.pixel(30, 2)) > 0);
+        QVERIFY(qAlpha(image.pixel(30, 18)) > 0);
+        QVERIFY(qAlpha(image.pixel(36, 10)) > 0);
+        QVERIFY(qAlpha(image.pixel(10, 3)) > 0);
+        QCOMPARE(qAlpha(image.pixel(25, 3)), 0);
+        // The last child has no line below it.
+        image = draw(second, TreeLines::Style::Solid);
+        QVERIFY(qAlpha(image.pixel(30, 2)) > 0);
+        QCOMPARE(qAlpha(image.pixel(30, 18)), 0);
+
+        image = draw(first, TreeLines::Style::Dotted);
+        QVERIFY((qAlpha(image.pixel(30, 2)) > 0) != (qAlpha(image.pixel(30, 3)) > 0));
+        QVERIFY((qAlpha(image.pixel(36, 10)) > 0) != (qAlpha(image.pixel(37, 10)) > 0));
+
+        image = draw(first, TreeLines::Style::Hidden, &handled);
+        QVERIFY(handled);
+        for (int x = 0; x < image.width(); ++x) {
+            for (int y = 0; y < image.height(); ++y) {
+                QCOMPARE(qAlpha(image.pixel(x, y)), 0);
+            }
+        }
+    }
+
     void paneTintFollowsTheChosenPanesAndScheme()
     {
         auto restore = qScopeGuard([] {
@@ -823,6 +888,7 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("CornerRadius")), QStringLiteral("Effects"));
         QCOMPARE(tabOf(QStringLiteral("Dividers")), QStringLiteral("Lines"));
         QCOMPARE(tabOf(QStringLiteral("RevealDividersOnHover")), QStringLiteral("Lines"));
+        QCOMPARE(tabOf(QStringLiteral("TreeLines")), QStringLiteral("Lines"));
         QCOMPARE(tabOf(QStringLiteral("CustomColors")), QStringLiteral("Custom Colours"));
         QCOMPARE(tabOf(QStringLiteral("DefaultViewMode")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("ShowFileListMinimap")), QStringLiteral("General"));

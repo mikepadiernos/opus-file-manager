@@ -955,5 +955,15 @@
       <label>Whether hidden splitter handles and panel separators appear while the pointer is over them</label>
       <default>true</default>
     </entry>
+    <entry name="TreeLines" type="Enum">
+      <label>Branch lines in the tree pane and inline folder expansion</label>
+      <choices>
+        <choice name="FollowStyle"/>
+        <choice name="Hidden"/>
+        <choice name="Solid"/>
+        <choice name="Dotted"/>
+      </choices>
+      <default>FollowStyle</default>
+    </entry>
   </group>
 </kcfg>

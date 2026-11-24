@@ -81,6 +81,8 @@ add_library(opusfm_app STATIC
     toolbarcustomizer.h
     transferqueuedialog.cpp
     transferqueuedialog.h
+    treelines.cpp
+    treelines.h
     windoweffects.cpp
     windoweffects.h
     workspacedialog.cpp

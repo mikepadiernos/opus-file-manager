@@ -2,6 +2,8 @@
 
 #include "detailsview.h"
 
+#include "treelines.h"
+
 #include <KDirModel>
 #include <KFileItemDelegate>
 
@@ -73,6 +75,13 @@ void DetailsView::mouseMoveEvent(QMouseEvent *event)
     m_band->setGeometry(QRect(m_bandOrigin, pos).normalized());
     m_band->show();
     selectRowsInBand(pos, m_bandKeepsSelection);
+}
+
+void DetailsView::drawBranches(QPainter *painter, const QRect &rect, const QModelIndex &index) const
+{
+    if (!TreeLines::drawBranches(this, painter, rect, index)) {
+        QTreeView::drawBranches(painter, rect, index);
+    }
 }
 
 void DetailsView::mouseReleaseEvent(QMouseEvent *event)

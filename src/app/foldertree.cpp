@@ -5,6 +5,7 @@
 #include "contentheight.h"
 #include "ignorelist.h"
 #include "symbolicicon.h"
+#include "treelines.h"
 
 #include <KDirLister>
 #include <KDirModel>
@@ -77,6 +78,21 @@ QUrl urlAt(const QModelIndex &index)
 {
     return index.data(KDirModel::FileItemRole).value<KFileItem>().url();
 }
+
+/// A folder tree with Plasma Opus tree lines.
+class FolderTreeView : public QTreeView
+{
+public:
+    using QTreeView::QTreeView;
+
+protected:
+    void drawBranches(QPainter *painter, const QRect &rect, const QModelIndex &index) const override
+    {
+        if (!TreeLines::drawBranches(this, painter, rect, index)) {
+            QTreeView::drawBranches(painter, rect, index);
+        }
+    }
+};
 }
 
 FolderTree::FolderTree(const QList<QUrl> &roots, QWidget *parent)
@@ -95,7 +111,7 @@ FolderTree::FolderTree(const QList<QUrl> &roots, QWidget *parent)
         proxy->setSourceModel(model);
         proxy->setSortCaseSensitivity(Qt::CaseInsensitive);
 
-        auto *tree = new QTreeView(this);
+        auto *tree = new FolderTreeView(this);
         tree->setModel(proxy);
         tree->setHeaderHidden(true);
         for (int column = 1; column < KDirModel::ColumnCount; ++column) {

@@ -130,6 +130,7 @@
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
+#include <QTreeView>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
 #if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
@@ -594,6 +595,10 @@ void MainWindow::changeEvent(QEvent *event)
 void MainWindow::applyAppearanceStyle()
 {
     AppearanceStyle::apply(AppearanceStyle::configured());
+    // Tree lines are drawn by the views themselves.
+    for (QTreeView *tree : findChildren<QTreeView *>()) {
+        tree->viewport()->update();
+    }
 }
 
 void MainWindow::childEvent(QChildEvent *event)

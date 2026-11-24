@@ -1693,6 +1693,12 @@ QWidget *SettingsDialog::createLinesPage()
     };
     connect(dividers, &QComboBox::currentIndexChanged, page, updateReveal);
     updateReveal();
+    form->addRow(i18nc("@label:listbox", "Tree lines:"),
+                 comboBox(QStringLiteral("TreeLines"),
+                          {i18nc("@item:inlistbox tree lines", "Follow widget style"),
+                           i18nc("@item:inlistbox tree lines", "Hidden"),
+                           i18nc("@item:inlistbox tree lines", "Solid"),
+                           i18nc("@item:inlistbox tree lines", "Dotted")}));
     layout->addLayout(form);
     auto *explanation = new QLabel(i18nc("@info",
                                          "Hidden splitters can still be dragged, change the pointer shape and can be moved with the Move Pane "
