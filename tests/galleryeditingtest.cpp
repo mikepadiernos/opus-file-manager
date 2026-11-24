@@ -363,7 +363,7 @@ private Q_SLOTS:
         auto *colours = gallery->findChild<QLabel *>(QStringLiteral("galleryColours"));
         auto *histogram = gallery->findChild<QLabel *>(QStringLiteral("galleryHistogram"));
         QVERIFY(info && colours && histogram);
-        info->click();
+        info->setChecked(true);
         QTRY_VERIFY(!histogram->pixmap().isNull());
         QVERIFY(!colours->pixmap().isNull());
 
