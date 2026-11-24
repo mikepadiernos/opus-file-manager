@@ -204,6 +204,52 @@ private Q_SLOTS:
         QVERIFY(!restored.workspaces.first().id.isEmpty());
         QVERIFY(otherId != selectedId);
     }
+
+    void importsOnlySelectedWorkspaceProfiles()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto sourceConfig = KSharedConfig::openConfig(root.filePath(QStringLiteral("source")));
+        WorkspaceCatalog::Catalog source;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(source, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(WorkspaceCatalog::create(source, QStringLiteral("Other"), QStringLiteral("O"), error));
+        QVERIFY(WorkspaceCatalog::save(sourceConfig->group(QStringLiteral("Workspaces")), source, error));
+        QVERIFY(sourceConfig->sync());
+        const QString workId = source.workspaces.first().id;
+        const QString otherId = source.workspaces.last().id;
+        const QString archivePath = root.filePath(QStringLiteral("workspaces.tar.gz"));
+        const auto state = KSharedConfig::openConfig(root.filePath(QStringLiteral("state")));
+        state->group(QStringLiteral("WindowLayout")).writeEntry("Stacked", true);
+        QVERIFY(state->sync());
+        const QString exportError = SettingsBackup::createWorkspaceProfiles(archivePath, sourceConfig, state, {workId, otherId});
+        QVERIFY2(exportError.isEmpty(), qPrintable(exportError));
+
+        const auto targetConfig = KSharedConfig::openConfig(root.filePath(QStringLiteral("target")));
+        WorkspaceCatalog::Catalog target;
+        QVERIFY(WorkspaceCatalog::create(target, QStringLiteral("Work"), QStringLiteral("Existing"), error));
+        QVERIFY(WorkspaceCatalog::save(targetConfig->group(QStringLiteral("Workspaces")), target, error));
+        QVERIFY(targetConfig->sync());
+
+        SettingsBackup::WorkspaceProfilesPreview preview;
+        QVERIFY2(SettingsBackup::inspectWorkspaceProfiles(archivePath, targetConfig, &preview).isEmpty(), "profile preview failed");
+        QCOMPARE(preview.ids, (QStringList{workId, otherId}));
+        QCOMPARE(preview.conflictIds, QStringList{workId});
+
+        QStringList imported;
+        const QStringList none;
+        QVERIFY(!SettingsBackup::importWorkspaceProfiles(archivePath, targetConfig, true, &imported, &none).isEmpty());
+        const QStringList unknown{QStringLiteral("missing")};
+        QVERIFY(!SettingsBackup::importWorkspaceProfiles(archivePath, targetConfig, true, &imported, &unknown).isEmpty());
+        const QStringList other{otherId};
+        QVERIFY2(SettingsBackup::importWorkspaceProfiles(archivePath, targetConfig, true, &imported, &other).isEmpty(), "selected import failed");
+        QCOMPARE(imported, QStringList{QStringLiteral("Other")});
+        WorkspaceCatalog::Catalog restored;
+        QVERIFY(WorkspaceCatalog::load(targetConfig->group(QStringLiteral("Workspaces")), restored, error));
+        QCOMPARE(restored.workspaces.size(), 2);
+        QCOMPARE(restored.workspaces.first().shortLabel, QStringLiteral("Existing"));
+        QCOMPARE(restored.workspaces.last().id, otherId);
+    }
 };
 
 QTEST_MAIN(SettingsBackupTest)

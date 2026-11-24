@@ -4,6 +4,7 @@
 
 #include "filecolorrules.h"
 #include "ignorelist.h"
+#include "workspacestartup.h"
 
 #include <KIO/PreviewJob>
 #include <KLanguageName>
@@ -112,6 +113,47 @@ void RegionalLocaleCombo::setLocaleName(const QString &name)
         index = count() - 1;
     }
     setCurrentIndex(index);
+}
+
+StartupWorkspaceCombo::StartupWorkspaceCombo(QWidget *parent)
+    : QComboBox(parent)
+{
+    setWorkspace(QString());
+    connect(this, &QComboBox::currentIndexChanged, this, &StartupWorkspaceCombo::workspaceChanged);
+}
+
+QString StartupWorkspaceCombo::workspace() const
+{
+    return currentData().toString();
+}
+
+void StartupWorkspaceCombo::setWorkspace(const QString &workspace)
+{
+    const QString previous = this->workspace();
+    {
+        const QSignalBlocker blocker(this);
+        clear();
+        addItem(i18nc("@item:inlistbox startup workspace", "Last used workspace"), QString());
+        addItem(i18nc("@item:inlistbox startup workspace", "No workspace"), QLatin1String(WorkspaceStartup::NoWorkspace));
+        for (const auto &[id, name] : std::as_const(m_workspaces)) {
+            addItem(name, id);
+        }
+        int index = findData(workspace);
+        if (index < 0) {
+            addItem(i18nc("@item:inlistbox startup workspace that was deleted", "Unavailable workspace (%1)", workspace), workspace);
+            index = count() - 1;
+        }
+        setCurrentIndex(index);
+    }
+    if (previous != this->workspace()) {
+        Q_EMIT workspaceChanged();
+    }
+}
+
+void StartupWorkspaceCombo::setWorkspaces(const QList<std::pair<QString, QString>> &workspaces)
+{
+    m_workspaces = workspaces;
+    setWorkspace(workspace());
 }
 
 RuleListEditor::RuleListEditor(Kind kind, QWidget *parent)

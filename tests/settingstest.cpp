@@ -239,6 +239,7 @@ private Q_SLOTS:
                               QStringLiteral("Context Menu"),
                               QStringLiteral("Archives"),
                               QStringLiteral("Files"),
+                              QStringLiteral("Workspaces"),
                               QStringLiteral("Gallery"),
                               QStringLiteral("Editor"),
                               QStringLiteral("Tools")}));

@@ -789,36 +789,39 @@ Remaining features are ordered by priority, effort and dependencies.
 
 Settings for M15 workspaces, stored in KConfig.
 
-- [ ] **Management:** create, switch, rename, duplicate and delete workspaces;
+- [x] **Management:** create, switch, rename, duplicate and delete workspaces;
       manage full names, short labels and locations. Preserve exclusive
       assignments and access to unassigned items; duplicating copies the layout
       without reassigning them. Confirm deletion and retain underlying files and
       locations. Store configuration locally without credentials and explain
       that workspaces are not a security boundary.
-- [ ] **Startup:** choose a startup workspace or restore the last used one
+- [x] **Startup:** choose a startup workspace or restore the last used one
       without overriding M02 startup folder or session choices
-- [ ] **Search:** choose workspace-scoped or all-location search as the default,
+- [x] **Search:** choose workspace-scoped or all-location search as the default,
       reusing M10 settings; allow searches outside the workspace
-- [ ] **Layouts:** choose which pane arrangements, views, toolbars and available
+- [x] **Layouts:** choose which pane arrangements, views, toolbars and available
       integration panels to restore; confirm before overwriting saved layouts.
-- [ ] **Snapshots:** choose which pane and tab state to restore from an explicit
+- [x] **Snapshots:** choose which pane and tab state to restore from an explicit
       workspace snapshot, respecting M02 startup and session choices. Preserve
       running jobs and confirm before replacing unsaved state.
-- [ ] **Recovery:** choose whether to prompt for retries when locations or
+- [x] **Recovery:** choose whether to prompt for retries when locations or
       providers are unavailable; identify what could not be restored and retain
       saved references until explicitly changed
-- [ ] **Indicators:** show the active workspace and unsaved layout state; choose
+- [x] **Indicators:** show the active workspace and unsaved layout state; choose
       the selector's placement without removing all ways to access it, and
       confirm before returning to the saved layout
-- [ ] **Pane location bars:** choose full breadcrumbs, abbreviated ancestors or
+- [x] **Pane location bars:** choose full breadcrumbs, abbreviated ancestors or
       an editable full path for each pane; restore these choices with the layout
-- [ ] **Features:** choose all, selected or none of a workspace's applicable
+- [x] **Features:** choose all, selected or none of a workspace's applicable
       behaviours, including location presentation, search scope, layouts, and
       pane and tab restoration. Preserve unselected state and existing defaults;
       reuse settings.
-- [ ] **Portability:** select profiles for import or export using M12 backup
+- [x] **Portability:** select profiles for import or export using M12 backup
       controls and review conflicts before applying changes. Exclude
       credentials; never execute commands or modify managed files during import.
+
+**Caveats:** [Workspace settings](CAVEATS.md#workspace-settings), tracked in
+[#609].
 
 ### M17: Themes
 
@@ -1121,7 +1124,31 @@ layouts.
         shared with other KDE applications; require explicit user action and
         report failures. Reuse the existing Plasma Opus-specific and
         Dolphin-shared visibility controls.
-  - [ ] Support the XDG portal file chooser
+  - [ ] Optional system file chooser that replaces application Open and Save
+        dialogs, as in [Strata](https://github.com/lgse/strata), by serving the
+        XDG portal file chooser. Implement
+        `org.freedesktop.impl.portal.FileChooser` (`OpenFile`, `SaveFile` and
+        `SaveFiles`) as a D-Bus-activated backend with a compact chooser that
+        reuses Plasma Opus views, places and search. Honour multiple and folder
+        selection, filters, choices, suggested names and folders, parent
+        windows and request cancellation, and confirm overwrites when saving.
+        Nothing changes without explicit opt-in through the M28 **File
+        manager** settings, `install.sh --file-chooser` or
+        `opus-file-manager --install-portal`. Restore the previous chooser from
+        the same settings row, `install.sh --uninstall` or
+        `opus-file-manager --uninstall-portal`. Setup installs per-user portal
+        metadata and an activation service, prefers Plasma Opus ahead of
+        `xdg-desktop-portal-kde` in the user's `kde-portals.conf` so the KDE
+        chooser remains the fallback, and restarts the portal frontend after
+        warning that open file dialogs may close. Restoring puts back the
+        previous configuration, or removes only Plasma Opus if the user has
+        changed it since. Keep this separate from default file manager
+        registration and the `org.freedesktop.FileManager1` service. Explain
+        that it affects applications that use the portal, such as Flatpak and
+        Snap apps and portal-enabled GTK, Electron and browser apps; native Qt
+        and KDE applications keep Plasma's in-process dialog. Do not change
+        platform themes or environment variables, and report a missing portal
+        service or setup failures.
 
 - **M27.02: Archives and application packages**
 
@@ -1278,7 +1305,9 @@ Settings for M27 integrations, stored in KConfig.
   - [ ] **Default:** show the current desktop file-manager association and offer
         an explicit action to set Plasma Opus as the user default; report
         failures
-  - [ ] **Portal:** enable or disable serving the XDG portal file chooser
+  - [ ] **System file chooser:** show whether Plasma Opus serves the XDG portal
+        file chooser, with explicit actions to complete setup or restore the
+        previous chooser; report failures
 
 - **Plasma notifications**
 
@@ -1754,6 +1783,8 @@ interfaces. The additions above draw on these sources:
 - [Max File Manager](https://github.com/majidasgari/max-file-manager), alongside
   this project's [UI](parity/ui.md) and [backend](parity/backend.md)
   inventories.
+- [Strata](https://github.com/lgse/strata), especially its opt-in system file
+  chooser served through the XDG file chooser portal.
 - [TagStudio](https://github.com/TagStudioDev/TagStudio), especially its
   libraries, tag relationships and search.
 - [TagSpaces workspaces](https://docs.tagspaces.org/workspaces/): workspace
@@ -1830,3 +1861,4 @@ dock and column-header spacing follows the
 [#433]: https://github.com/mikepadiernos/plasma-opus/issues/433
 [#434]: https://github.com/mikepadiernos/plasma-opus/issues/434
 [#436]: https://github.com/mikepadiernos/plasma-opus/issues/436
+[#609]: https://github.com/mikepadiernos/plasma-opus/issues/609

@@ -4,6 +4,7 @@
 #include "favoritesmodel.h"
 #include "foldersyncprofiles.h"
 #include "savedsearches.h"
+#include "settings.h"
 #include "workspacelocations.h"
 
 #include <KConfig>
@@ -22,6 +23,8 @@
 #include <QTest>
 #include <QTimer>
 
+#include <memory>
+
 class WorkspaceDialogTest : public QObject
 {
     Q_OBJECT
@@ -30,6 +33,11 @@ private Q_SLOTS:
     void initTestCase()
     {
         QStandardPaths::setTestModeEnabled(true);
+    }
+
+    void cleanup()
+    {
+        Settings::self()->setDefaults();
     }
 
     void createsRenamesAndDuplicates()
@@ -87,6 +95,60 @@ private Q_SLOTS:
         QVERIFY(!catalog.workspaces.at(1).behaviorSelection.locationPresentation);
     }
 
+    void newWorkspacesUseDefaultBehaviors()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        const auto group = config.group(QStringLiteral("Workspaces"));
+        Settings::setWorkspaceDefaultBehaviorMode(Settings::EnumWorkspaceDefaultBehaviorMode::Selected);
+        Settings::setWorkspaceDefaultSearchScope(false);
+        Settings::setWorkspaceDefaultPaneTabRestoration(false);
+        WorkspaceDialog dialog(
+            group,
+            [](WorkspaceCatalog::Layout &captured, QString &) {
+                captured = {QByteArray("window"), {200, 300}, {500, 100}, true, false, std::nullopt, {}};
+                return true;
+            },
+            [](const WorkspaceCatalog::Layout &, QString &) {
+                return true;
+            },
+            QString());
+        auto *name = dialog.findChild<QLineEdit *>(QStringLiteral("workspaceName"));
+        auto *label = dialog.findChild<QLineEdit *>(QStringLiteral("workspaceShortLabel"));
+        auto *list = dialog.findChild<QListWidget *>(QStringLiteral("workspaceList"));
+        auto *create = dialog.findChild<QPushButton *>(QStringLiteral("workspaceCreate"));
+        auto *duplicate = dialog.findChild<QPushButton *>(QStringLiteral("workspaceDuplicate"));
+        auto *behaviorMode = dialog.findChild<QComboBox *>(QStringLiteral("workspaceBehaviorMode"));
+        auto *searchScope = dialog.findChild<QCheckBox *>(QStringLiteral("workspaceSearchScope"));
+        QVERIFY(name && label && list && create && duplicate && behaviorMode && searchScope);
+        name->setText(QStringLiteral("Work"));
+        label->setText(QStringLiteral("W"));
+        create->click();
+        QCOMPARE(list->count(), 1);
+        list->setCurrentRow(0);
+        QCOMPARE(behaviorMode->currentData().toInt(), int(WorkspaceCatalog::BehaviorMode::Selected));
+        QVERIFY(!searchScope->isChecked());
+
+        // Duplicates keep the source's behaviors even when the defaults change.
+        Settings::setWorkspaceDefaultBehaviorMode(Settings::EnumWorkspaceDefaultBehaviorMode::None);
+        name->setText(QStringLiteral("Copy"));
+        label->setText(QStringLiteral("C"));
+        duplicate->click();
+        name->setText(QStringLiteral("Empty"));
+        label->setText(QStringLiteral("E"));
+        create->click();
+
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY2(WorkspaceCatalog::load(group, catalog, error), qPrintable(error));
+        QCOMPARE(catalog.workspaces.size(), 3);
+        const WorkspaceCatalog::BehaviorSelection selected{WorkspaceCatalog::BehaviorMode::Selected, true, false, true, false};
+        QCOMPARE(catalog.workspaces.at(0).behaviorSelection, selected);
+        QCOMPARE(catalog.workspaces.at(1).behaviorSelection, selected);
+        QCOMPARE(catalog.workspaces.at(2).behaviorSelection.mode, WorkspaceCatalog::BehaviorMode::None);
+    }
+
     void switchesAndDeletesWithoutChangingFiles()
     {
         QTemporaryDir directory;
@@ -109,7 +171,9 @@ private Q_SLOTS:
         QVERIFY(WorkspaceCatalog::setLayout(catalog, homeId, home, error));
         QVERIFY(WorkspaceCatalog::activate(catalog, workId, error));
         QVERIFY(WorkspaceCatalog::save(group, catalog, error));
-        WorkspaceCatalog::Layout current = work;
+        WorkspaceCatalog::Layout unsaved = work;
+        unsaved.paneSizes = {150, 150};
+        WorkspaceCatalog::Layout current = unsaved;
         WorkspaceDialog dialog(
             group,
             [&current](WorkspaceCatalog::Layout &layout, QString &) {
@@ -131,7 +195,7 @@ private Q_SLOTS:
             qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::No)->click();
         });
         activate->click();
-        QCOMPARE(current, work);
+        QCOMPARE(current, unsaved);
         QCOMPARE(changed.size(), 0);
         QTimer::singleShot(0, [] {
             qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
@@ -261,6 +325,244 @@ private Q_SLOTS:
         QCOMPARE(applied.session->activePane, currentSession.activePane);
         QCOMPARE(applied.paneSizes, saved.paneSizes);
         QCOMPARE(applied.workspaceSizes, saved.workspaceSizes);
+    }
+
+    void layoutRestoreOptionsKeepCurrentParts()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        const auto group = config.group(QStringLiteral("Workspaces"));
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        WindowSession savedSession;
+        savedSession.left.tabs = {QUrl::fromLocalFile(QStringLiteral("/saved"))};
+        savedSession.left.viewMode = 2;
+        savedSession.right.tabs = {QUrl::fromLocalFile(QStringLiteral("/saved-right"))};
+        WorkspaceCatalog::Presentation savedPresentation;
+        savedPresentation.toolbarActions = QStringList{QStringLiteral("saved_action")};
+        savedPresentation.previewVisible = true;
+        const WorkspaceCatalog::Layout saved{QByteArray("saved"), {1, 2}, {3, 4}, true, false, savedPresentation, savedSession};
+        QVERIFY(WorkspaceCatalog::setLayout(catalog, catalog.workspaces.first().id, saved, error));
+        QVERIFY(WorkspaceCatalog::save(group, catalog, error));
+
+        WindowSession currentSession;
+        currentSession.left.tabs = {QUrl::fromLocalFile(QStringLiteral("/current"))};
+        currentSession.right.tabs = {QUrl::fromLocalFile(QStringLiteral("/current-right"))};
+        WorkspaceCatalog::Presentation currentPresentation;
+        currentPresentation.toolbarActions = QStringList{QStringLiteral("current_action")};
+        const WorkspaceCatalog::Layout current{QByteArray("current"), {8, 9}, {10, 11}, false, true, currentPresentation, currentSession};
+        WorkspaceCatalog::Layout applied;
+        Settings::setWorkspaceRestoreViews(false);
+        Settings::setWorkspaceRestoreToolbars(false);
+        WorkspaceDialog dialog(
+            group,
+            [&current](WorkspaceCatalog::Layout &layout, QString &) {
+                layout = current;
+                return true;
+            },
+            [&applied](const WorkspaceCatalog::Layout &layout, QString &) {
+                applied = layout;
+                return true;
+            },
+            QString());
+        dialog.findChild<QListWidget *>(QStringLiteral("workspaceList"))->setCurrentRow(0);
+        QTimer::singleShot(0, [] {
+            qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("workspaceActivate"))->click();
+        Settings::self()->setDefaults();
+
+        QCOMPARE(applied.windowState, saved.windowState);
+        QCOMPARE(applied.paneSizes, saved.paneSizes);
+        QVERIFY(applied.presentation && applied.session);
+        QCOMPARE(applied.presentation->toolbarActions, currentPresentation.toolbarActions);
+        QVERIFY(applied.presentation->previewVisible);
+        QCOMPARE(applied.session->left.tabs, savedSession.left.tabs);
+        QCOMPARE(applied.session->left.viewMode, 0);
+    }
+
+    void layoutOverwriteConfirmationCanBeSkipped()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        const auto group = config.group(QStringLiteral("Workspaces"));
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(WorkspaceCatalog::save(group, catalog, error));
+        const WorkspaceCatalog::Layout current{QByteArray("current"), {8, 9}, {10, 11}, false, true, std::nullopt, std::nullopt};
+        Settings::setConfirmWorkspaceLayoutOverwrite(false);
+        WorkspaceDialog dialog(
+            group,
+            [&current](WorkspaceCatalog::Layout &layout, QString &) {
+                layout = current;
+                return true;
+            },
+            [](const WorkspaceCatalog::Layout &, QString &) {
+                return true;
+            },
+            QString());
+        dialog.findChild<QListWidget *>(QStringLiteral("workspaceList"))->setCurrentRow(0);
+        dialog.findChild<QPushButton *>(QStringLiteral("workspaceSaveLayout"))->click();
+        Settings::self()->setDefaults();
+        QVERIFY(WorkspaceCatalog::load(group, catalog, error));
+        QCOMPARE(catalog.workspaces.first().layout, std::optional<WorkspaceCatalog::Layout>(current));
+    }
+
+    void switchConfirmationFollowsSettingAndUnsavedState()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        const auto group = config.group(QStringLiteral("Workspaces"));
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Home"), QStringLiteral("H"), error));
+        const QString workId = catalog.workspaces.first().id;
+        const WorkspaceCatalog::Layout work{QByteArray("work"), {100, 200}, {300, 400}, true, false, std::nullopt, {}};
+        const WorkspaceCatalog::Layout home{QByteArray("home"), {200, 300}, {400, 500}, false, true, std::nullopt, {}};
+        QVERIFY(WorkspaceCatalog::setLayout(catalog, workId, work, error));
+        QVERIFY(WorkspaceCatalog::setLayout(catalog, catalog.workspaces.last().id, home, error));
+        QVERIFY(WorkspaceCatalog::activate(catalog, workId, error));
+        QVERIFY(WorkspaceCatalog::save(group, catalog, error));
+        WorkspaceCatalog::Layout current = work;
+        WorkspaceDialog dialog(
+            group,
+            [&current](WorkspaceCatalog::Layout &layout, QString &) {
+                layout = current;
+                return true;
+            },
+            [&current](const WorkspaceCatalog::Layout &layout, QString &) {
+                current = layout;
+                return true;
+            },
+            workId);
+        auto *list = dialog.findChild<QListWidget *>(QStringLiteral("workspaceList"));
+        auto *activate = dialog.findChild<QPushButton *>(QStringLiteral("workspaceActivate"));
+        const auto activateRow = [&](int row, QMessageBox::StandardButton answer) {
+            auto prompted = std::make_shared<bool>(false);
+            QTimer::singleShot(0, [prompted, answer] {
+                if (auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+                    *prompted = true;
+                    box->button(answer)->click();
+                }
+            });
+            list->setCurrentRow(row);
+            activate->click();
+            QCoreApplication::processEvents();
+            return *prompted;
+        };
+
+        // The default asks only when the current state is not saved in the active workspace.
+        QVERIFY(!activateRow(1, QMessageBox::No));
+        QCOMPARE(current, home);
+        current.paneSizes = {1, 1};
+        QVERIFY(activateRow(0, QMessageBox::No));
+        QCOMPARE(current.paneSizes, (QList<int>{1, 1}));
+
+        Settings::setConfirmWorkspaceSwitch(Settings::EnumConfirmWorkspaceSwitch::Never);
+        QVERIFY(!activateRow(0, QMessageBox::No));
+        QCOMPARE(current, work);
+
+        Settings::setConfirmWorkspaceSwitch(Settings::EnumConfirmWorkspaceSwitch::Always);
+        QVERIFY(activateRow(1, QMessageBox::No));
+        QCOMPARE(current, work);
+        Settings::self()->setDefaults();
+    }
+
+    void recoveryPromptRetriesAndKeepsSavedReferences()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        const auto group = config.group(QStringLiteral("Workspaces"));
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        const WorkspaceCatalog::Layout saved{QByteArray("saved"), {1, 2}, {3, 4}, true, false, std::nullopt, std::nullopt};
+        QVERIFY(WorkspaceCatalog::setLayout(catalog, catalog.workspaces.first().id, saved, error));
+        QVERIFY(WorkspaceCatalog::save(group, catalog, error));
+        Settings::setConfirmWorkspaceSwitch(Settings::EnumConfirmWorkspaceSwitch::Never);
+        int applied = 0;
+        WorkspaceDialog dialog(
+            group,
+            [](WorkspaceCatalog::Layout &layout, QString &) {
+                layout = {};
+                return true;
+            },
+            [&applied](const WorkspaceCatalog::Layout &, QString &) {
+                ++applied;
+                return true;
+            },
+            QString());
+        int checks = 0;
+        QStringList missing{QStringLiteral("/missing")};
+        dialog.setAvailabilityCheck([&](const WorkspaceCatalog::Layout &) {
+            ++checks;
+            return missing;
+        });
+        auto *list = dialog.findChild<QListWidget *>(QStringLiteral("workspaceList"));
+        auto *activate = dialog.findChild<QPushButton *>(QStringLiteral("workspaceActivate"));
+        list->setCurrentRow(0);
+        const auto answer = [](const std::function<void(QMessageBox *)> &respond) {
+            auto prompted = std::make_shared<bool>(false);
+            QTimer::singleShot(0, [prompted, respond] {
+                auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+                if (box && box->objectName() == QLatin1String("workspaceUnavailableItems")) {
+                    *prompted = true;
+                    QVERIFY(box->informativeText().contains(QStringLiteral("/missing")));
+                    respond(box);
+                }
+            });
+            return prompted;
+        };
+
+        auto prompted = answer([](QMessageBox *box) {
+            box->button(QMessageBox::Cancel)->click();
+        });
+        activate->click();
+        QVERIFY(*prompted);
+        QCOMPARE(applied, 0);
+        QCOMPARE(checks, 1);
+
+        prompted = answer([&missing](QMessageBox *box) {
+            missing.clear();
+            box->button(QMessageBox::Retry)->click();
+        });
+        activate->click();
+        QVERIFY(*prompted);
+        QCOMPARE(checks, 3);
+        QCOMPARE(applied, 1);
+
+        missing = {QStringLiteral("/missing")};
+        prompted = answer([](QMessageBox *box) {
+            const auto buttons = box->buttons();
+            for (QAbstractButton *button : buttons) {
+                if (box->buttonRole(button) == QMessageBox::AcceptRole) {
+                    button->click();
+                }
+            }
+        });
+        activate->click();
+        QVERIFY(*prompted);
+        QCOMPARE(applied, 2);
+
+        Settings::setWorkspaceRecoveryPrompt(false);
+        prompted = answer([](QMessageBox *box) {
+            box->button(QMessageBox::Cancel)->click();
+        });
+        activate->click();
+        QCoreApplication::processEvents();
+        QVERIFY(!*prompted);
+        QCOMPARE(applied, 3);
+
+        WorkspaceCatalog::Catalog stored;
+        QVERIFY(WorkspaceCatalog::load(group, stored, error));
+        QCOMPARE(stored.workspaces.first().layout, std::optional<WorkspaceCatalog::Layout>(saved));
     }
 
     void restoresPreviousLayoutWhenCatalogChangesDuringSwitch()

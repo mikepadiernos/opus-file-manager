@@ -36,8 +36,8 @@ This log records user-visible bugs and reliability issues. Consult the
 | [#549](https://github.com/mikepadiernos/plasma-opus/issues/549) | Combined panel section spacing and title accents                   | Yes       | Merged         |
 | [#555](https://github.com/mikepadiernos/plasma-opus/issues/555) | Application icon accent color and size                             | Yes       | Merged         |
 | [#558](https://github.com/mikepadiernos/plasma-opus/issues/558) | Headers, titles and status bar need horizontal padding             | Yes       | Merged         |
-| [#605](https://github.com/mikepadiernos/plasma-opus/issues/605) | Panes without a saved view mode open in Details                    | Yes       | Completed      |
-| [#606](https://github.com/mikepadiernos/plasma-opus/issues/606) | Visual Markdown editing loses formatting with a fixed-pitch font   | Yes       | Completed      |
+| [#605](https://github.com/mikepadiernos/plasma-opus/issues/605) | Panes without a saved view mode open in Details                    | Yes       | Merged         |
+| [#606](https://github.com/mikepadiernos/plasma-opus/issues/606) | Visual Markdown editing loses formatting with a fixed-pitch font   | Yes       | Merged         |
 
 ## Status legend
 
@@ -61,7 +61,7 @@ There are no open bug reports.
 ### Default view for restored panes
 
 - Severity: moderate
-- Status: Completed; [#605](https://github.com/mikepadiernos/plasma-opus/issues/605)
+- Status: Merged; [#605](https://github.com/mikepadiernos/plasma-opus/issues/605)
 - Summary: Restored session panes without a saved view mode open in Details
   instead of the configured default view mode.
 - Steps to reproduce: Set a default view mode other than Details, then restore
@@ -75,7 +75,7 @@ There are no open bug reports.
 ### Visual Markdown formatting with fixed-pitch fonts
 
 - Severity: high (data loss)
-- Status: Completed; [#606](https://github.com/mikepadiernos/plasma-opus/issues/606)
+- Status: Merged; [#606](https://github.com/mikepadiernos/plasma-opus/issues/606)
 - Summary: Saving a document edited in the visual Markdown editor writes all
   text as inline code and drops its formatting when the editor font is
   fixed-pitch, which is the default.

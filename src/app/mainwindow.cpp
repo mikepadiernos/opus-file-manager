@@ -74,6 +74,7 @@
 #include <KLocalizedString>
 #include <KMessageBox>
 #include <KNewFileMenu>
+#include <KProtocolInfo>
 #include <KSelectAction>
 #include <KSharedConfig>
 #include <KStandardAction>
@@ -124,6 +125,7 @@
 #include <QTabWidget>
 #include <QTimer>
 #include <QToolBar>
+#include <QToolButton>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
 
@@ -422,6 +424,7 @@ MainWindow::MainWindow(QWidget *parent)
     setupPanels();
     setupStatusBar();
     setupActions();
+    applyWorkspaceSelectorPlacement();
     m_combinedPanel->setWorkspaceLocations(m_workspaceLocations);
     connect(m_workspaceLocations, &WorkspaceLocations::changed, this, [this] {
         QTimer::singleShot(0, this, &MainWindow::refreshWorkspaceLocations);
@@ -536,6 +539,12 @@ void MainWindow::showWorkspaces()
         this,
         m_workspaceLocations);
     connect(dialog, &WorkspaceDialog::catalogChanged, this, &MainWindow::reloadWorkspaceCatalog);
+    dialog->setAvailabilityCheck([this](const WorkspaceCatalog::Layout &layout) {
+        QStringList unavailable;
+        QString error;
+        workspaceLayoutAvailable(layout, unavailable, error);
+        return unavailable;
+    });
     connect(this, &MainWindow::workspaceCatalogChanged, dialog, &WorkspaceDialog::refreshCatalog);
     connect(dialog, &WorkspaceDialog::currentWorkspaceChanged, this, [this](const QString &id) {
         m_currentWorkspaceId = id;
@@ -546,7 +555,7 @@ void MainWindow::showWorkspaces()
     dialog->show();
 }
 
-void MainWindow::selectWorkspace(int index)
+void MainWindow::selectWorkspace(int index, bool confirmed)
 {
     if (index < 0 || index >= m_workspaceCatalog.workspaces.size()) {
         return;
@@ -558,8 +567,44 @@ void MainWindow::selectWorkspace(int index)
         return;
     }
     dialog->selectWorkspace(id);
-    dialog->activateSelectedWorkspace();
+    dialog->activateSelectedWorkspace(confirmed);
     refreshWorkspaceSelector();
+}
+
+void MainWindow::restoreActiveWorkspaceLayout()
+{
+    const auto it = std::find_if(m_workspaceCatalog.workspaces.cbegin(), m_workspaceCatalog.workspaces.cend(), [this](const auto &workspace) {
+        return workspace.id == m_currentWorkspaceId;
+    });
+    if (it == m_workspaceCatalog.workspaces.cend()) {
+        return;
+    }
+    if (Settings::confirmWorkspaceLayoutRestore()
+        && QMessageBox::question(this,
+                                 i18nc("@title:window", "Restore Saved Workspace Layout"),
+                                 i18nc("@info",
+                                       "Return to the saved layout of %1? Changes to the layout, panes and tabs since it was saved will be "
+                                       "replaced. Running file transfers continue.",
+                                       it->name),
+                                 QMessageBox::Yes | QMessageBox::No,
+                                 QMessageBox::No)
+            != QMessageBox::Yes) {
+        return;
+    }
+    selectWorkspace(int(std::distance(m_workspaceCatalog.workspaces.cbegin(), it)), true);
+}
+
+void MainWindow::applyWorkspaceSelectorPlacement()
+{
+    const auto placement = Settings::workspaceSelectorPlacement();
+    m_workspaceSelectorAction->setVisible(placement != Settings::EnumWorkspaceSelectorPlacement::StatusBar);
+    m_workspaceStatusButton->setVisible(placement != Settings::EnumWorkspaceSelectorPlacement::ViewMenu);
+}
+
+void MainWindow::applyLocationPresentationDefaults()
+{
+    m_left->setDefaultLocationPresentation(static_cast<Pane::LocationPresentation>(Settings::leftLocationPresentation()));
+    m_right->setDefaultLocationPresentation(static_cast<Pane::LocationPresentation>(Settings::rightLocationPresentation()));
 }
 
 void MainWindow::refreshWorkspaceSelector()
@@ -581,16 +626,22 @@ void MainWindow::refreshWorkspaceSelector()
     m_workspaceSelectorAction->setItems(items);
     m_workspaceSelectorAction->setEnabled(!items.isEmpty());
     bool modified = current && !current->layout;
-    if (current && current->layout) {
+    if (current && current->layout && Settings::showWorkspaceUnsavedIndicator()) {
         WorkspaceCatalog::Layout layout;
         QString error;
         modified = !captureWorkspaceLayout(layout, error) || layout != *current->layout;
     }
+    modified = modified && Settings::showWorkspaceUnsavedIndicator();
     if (current) {
         m_workspaceSelectorAction->setText(i18nc("@action active workspace", "Workspace: %1%2", current->name, modified ? QStringLiteral(" *") : QString()));
         m_workspaceSelectorAction->setCurrentItem(currentIndex);
     } else {
         m_workspaceSelectorAction->setText(i18nc("@action no active workspace", "Workspace: None"));
+    }
+    if (m_workspaceStatusButton) {
+        m_workspaceStatusButton->setText(m_workspaceSelectorAction->text());
+        m_workspaceStatusButton->setToolTip(modified ? i18nc("@info:tooltip", "The current layout, panes or tabs differ from the workspace's saved layout.")
+                                                     : QString());
     }
     if (QAction *restore = actionCollection()->action(QStringLiteral("restore_workspace_layout"))) {
         restore->setEnabled(current && current->layout.has_value());
@@ -777,6 +828,9 @@ bool MainWindow::workspaceLayoutAvailable(const WorkspaceCatalog::Layout &layout
         for (const QUrl &url : pane->tabs) {
             if (url.isLocalFile() && !QFileInfo::exists(url.toLocalFile())) {
                 unavailable.append(url.toDisplayString(QUrl::PreferLocalFile));
+            } else if (!url.isLocalFile() && !KProtocolInfo::isKnownProtocol(url)) {
+                unavailable.append(
+                    i18nc("@item unavailable location provider and location", "%1 (no %2 provider)", url.toDisplayString(QUrl::RemovePassword), url.scheme()));
             }
         }
     }
@@ -942,6 +996,7 @@ void MainWindow::setupPanes()
     m_splitter->setChildrenCollapsible(false);
     m_left = new Pane(m_placesModel, m_tabColors, m_splitter, QStringLiteral("Left"));
     m_right = new Pane(m_placesModel, m_tabColors, m_splitter, QStringLiteral("Right"));
+    applyLocationPresentationDefaults();
     m_previewPanel = new PreviewPanel(m_splitter);
     m_splitter->addWidget(m_left);
     m_splitter->addWidget(m_right);
@@ -1617,15 +1672,18 @@ void MainWindow::setupActions()
 
     m_workspaceSelectorAction = new KSelectAction(i18nc("@action", "Workspace: None"), this);
     actions->addAction(QStringLiteral("workspace_selector"), m_workspaceSelectorAction);
-    connect(m_workspaceSelectorAction, &KSelectAction::indexTriggered, this, &MainWindow::selectWorkspace);
-    QAction *restoreWorkspace = actions->addAction(QStringLiteral("restore_workspace_layout"), this, [this] {
-        const auto it = std::find_if(m_workspaceCatalog.workspaces.cbegin(), m_workspaceCatalog.workspaces.cend(), [this](const auto &workspace) {
-            return workspace.id == m_currentWorkspaceId;
-        });
-        if (it != m_workspaceCatalog.workspaces.cend()) {
-            selectWorkspace(int(std::distance(m_workspaceCatalog.workspaces.cbegin(), it)));
-        }
+    connect(m_workspaceSelectorAction, &KSelectAction::indexTriggered, this, [this](int index) {
+        selectWorkspace(index);
     });
+    m_workspaceStatusButton = new QToolButton(this);
+    m_workspaceStatusButton->setObjectName(QStringLiteral("workspaceStatusButton"));
+    m_workspaceStatusButton->setAutoRaise(true);
+    m_workspaceStatusButton->setPopupMode(QToolButton::InstantPopup);
+    m_workspaceStatusButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    m_workspaceStatusButton->setMenu(m_workspaceSelectorAction->menu());
+    m_workspaceStatusButton->setText(m_workspaceSelectorAction->text());
+    statusBar()->addPermanentWidget(m_workspaceStatusButton);
+    QAction *restoreWorkspace = actions->addAction(QStringLiteral("restore_workspace_layout"), this, &MainWindow::restoreActiveWorkspaceLayout);
     restoreWorkspace->setText(i18nc("@action", "Restore Saved Workspace Layout…"));
     QAction *workspaces = actions->addAction(QStringLiteral("manage_workspaces"), this, &MainWindow::showWorkspaces);
     workspaces->setText(i18nc("@action", "Workspaces…"));
@@ -4461,6 +4519,9 @@ bool MainWindow::isDualLayout() const
 
 void MainWindow::applySettings()
 {
+    applyLocationPresentationDefaults();
+    applyWorkspaceSelectorPlacement();
+    scheduleWorkspaceSelectorRefresh();
     const bool toolbarsLocked = Settings::lockToolbars();
     QAction *customizeToolbar = actionCollection()->action(QStringLiteral("customize_main_toolbar"));
     customizeToolbar->setEnabled(!toolbarsLocked);
@@ -4644,6 +4705,8 @@ void MainWindow::showSettings()
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(dialog, &KConfigDialog::settingsChanged, this, &MainWindow::applySettings);
     connect(dialog, &SettingsDialog::customCommandsChanged, this, &MainWindow::refreshCustomCommandActions);
+    connect(dialog, &SettingsDialog::manageWorkspacesRequested, this, &MainWindow::showWorkspaces);
+    connect(this, &MainWindow::workspaceCatalogChanged, dialog, &SettingsDialog::reloadWorkspaces);
     dialog->show();
 }
 

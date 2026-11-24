@@ -35,6 +35,7 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -169,6 +170,19 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createSelectionFiltersPage(), i18nc("@title:tab", "Selection Filters")}},
                   i18nc("@title:group", "Files"),
                   QStringLiteral("folder"));
+    addTabbedPage({{createWorkspaceManagementPage(), i18nc("@title:tab", "Management")},
+                   {createWorkspaceStartupPage(), i18nc("@title:tab", "Startup")},
+                   {createWorkspaceSearchPage(), i18nc("@title:tab", "Search")},
+                   {createWorkspaceLayoutsPage(), i18nc("@title:tab", "Layouts")},
+                   {createWorkspaceSnapshotsPage(), i18nc("@title:tab", "Snapshots")},
+                   {createWorkspaceRecoveryPage(), i18nc("@title:tab", "Recovery")},
+                   {createWorkspaceIndicatorsPage(), i18nc("@title:tab", "Indicators")},
+                   {createWorkspaceLocationBarsPage(), i18nc("@title:tab", "Location Bars")},
+                   {createWorkspaceBehaviorsPage(), i18nc("@title:tab", "Behaviors")},
+                   {createWorkspacePortabilityPage(), i18nc("@title:tab", "Portability")}},
+                  i18nc("@title:group", "Workspaces"),
+                  QStringLiteral("view-grid"));
+    reloadWorkspaces();
     addTabbedPage({{createOpeningPage(), i18nc("@title:tab", "Opening")},
                    {createGalleryInformationPage(), i18nc("@title:tab", "Information")},
                    {createGalleryDisplayPage(), i18nc("@title:tab", "Display")},
@@ -438,6 +452,26 @@ QWidget *SettingsDialog::createSettingsBackupPage()
     restore->setObjectName(QStringLiteral("restoreSettingsBackup"));
     connect(restore, &QPushButton::clicked, this, &SettingsDialog::restoreSettingsBackup);
     layout->addWidget(restore);
+    auto *workspaces = new QLabel(i18nc("@info", "Export or import individual workspace profiles under Workspaces, Portability."), page);
+    workspaces->setWordWrap(true);
+    layout->addWidget(workspaces);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspacePortabilityPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("workspacePortabilityPage"));
+    auto *layout = new QVBoxLayout(page);
+    auto *description = new QLabel(i18nc("@info",
+                                         "Export selected workspace profiles to a settings backup archive, or import selected profiles from one. "
+                                         "Before importing, review which profiles share a name or identity with existing workspaces and choose "
+                                         "whether to replace or keep them. Profiles exclude credentials and secrets in remote locations; "
+                                         "importing changes workspace settings only and never runs commands or modifies managed files."),
+                                   page);
+    description->setWordWrap(true);
+    layout->addWidget(description);
     auto *exportWorkspaces = new QPushButton(i18nc("@action:button", "Export Workspace Profiles…"), page);
     exportWorkspaces->setObjectName(QStringLiteral("exportWorkspaceProfiles"));
     connect(exportWorkspaces, &QPushButton::clicked, this, &SettingsDialog::exportWorkspaceProfiles);
@@ -449,6 +483,264 @@ QWidget *SettingsDialog::createSettingsBackupPage()
     layout->addWidget(importWorkspaces);
     layout->addStretch();
     return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceManagementPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *description =
+        new QLabel(i18nc("@info",
+                         "Create, switch, rename, duplicate and delete workspaces, and manage their full names, short labels and assigned locations, in the "
+                         "workspace manager. Each location belongs to at most one workspace; unassigned locations stay available in every workspace. "
+                         "Duplicating a workspace copies its layout without reassigning locations. Deleting a workspace asks for confirmation and keeps "
+                         "its files and locations."),
+                   page);
+    description->setWordWrap(true);
+    layout->addWidget(description);
+    auto *security = new QLabel(i18nc("@info",
+                                      "Workspace configuration is stored locally in your Plasma Opus settings without credentials. Workspaces organize "
+                                      "what is shown; they are not a security boundary and do not restrict access to files."),
+                                page);
+    security->setObjectName(QStringLiteral("workspaceSecurityNotice"));
+    security->setWordWrap(true);
+    layout->addWidget(security);
+    m_workspaceSummary = new QListWidget(page);
+    m_workspaceSummary->setObjectName(QStringLiteral("workspaceSummary"));
+    m_workspaceSummary->setAccessibleName(i18nc("@label", "Workspaces"));
+    m_workspaceSummary->setSelectionMode(QAbstractItemView::NoSelection);
+    layout->addWidget(m_workspaceSummary);
+    auto *manage = new QPushButton(i18nc("@action:button", "Manage Workspaces…"), page);
+    manage->setObjectName(QStringLiteral("manageWorkspaces"));
+    connect(manage, &QPushButton::clicked, this, &SettingsDialog::manageWorkspacesRequested);
+    layout->addWidget(manage, 0, Qt::AlignLeft);
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceStartupPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    m_startupWorkspace = bound(new StartupWorkspaceCombo, QStringLiteral("StartupWorkspace"), "workspace");
+    form->addRow(i18nc("@label:listbox", "Startup workspace:"), m_startupWorkspace);
+    layout->addLayout(form);
+    auto *notice = new QLabel(i18nc("@info",
+                                    "The startup workspace becomes active when Plasma Opus starts. Its saved layout is not applied, so the startup "
+                                    "folder and session choices under Interface still decide which folders and tabs open. Switch workspaces to "
+                                    "restore a saved layout."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceSearchPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(checkBox(QStringLiteral("WorkspaceSearchByDefault"), i18nc("@option:check", "Limit new searches to the active workspace's locations")));
+    auto *notice = new QLabel(i18nc("@info",
+                                    "Applies when the active workspace includes search scope in its behaviors. Clear the option in the search "
+                                    "window at any time to search the current folder or indexed locations outside the workspace. Other search "
+                                    "defaults are under Tools, Search."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceLayoutsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *restore = new QGroupBox(i18nc("@title:group", "Restore When Switching Workspaces"), page);
+    auto *restoreLayout = new QVBoxLayout(restore);
+    restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestorePaneArrangement"),
+                                      i18nc("@option:check", "Pane arrangement: single or dual panes, stacking, sizes and second-pane placement")));
+    restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestoreViews"), i18nc("@option:check", "Each pane's view mode")));
+    restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestoreToolbars"), i18nc("@option:check", "Main and pane toolbar entries")));
+    restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestorePanels"),
+                                      i18nc("@option:check", "Panels: dock and toolbar positions, and the preview, editor and terminal panels")));
+    layout->addWidget(restore);
+    auto *notice = new QLabel(i18nc("@info",
+                                    "These options apply to workspaces whose behaviors include layouts. Parts that are not restored keep their "
+                                    "current state. Panels are restored only when their integrations are available."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addWidget(checkBox(QStringLiteral("ConfirmWorkspaceLayoutOverwrite"), i18nc("@option:check", "Ask before replacing a workspace's saved layout")));
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceSnapshotsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *restore = new QGroupBox(i18nc("@title:group", "Restore When Switching Workspaces"), page);
+    auto *restoreLayout = new QVBoxLayout(restore);
+    restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestoreTabs"), i18nc("@option:check", "Each pane's tabs, with their pins, locks and names")));
+    restoreLayout->addWidget(
+        checkBox(QStringLiteral("WorkspaceRestoreActiveTabs"), i18nc("@option:check", "The current tab of each pane and the active pane")));
+    restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestoreFilters"), i18nc("@option:check", "Each pane's name filter")));
+    layout->addWidget(restore);
+    auto *notice = new QLabel(i18nc("@info",
+                                    "These options apply to workspaces whose behaviors include pane and tab restoration. Snapshots are restored "
+                                    "only when you switch workspaces; the startup folder and session choices under Interface still decide what "
+                                    "opens at startup. Running file transfers continue when you switch."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    auto *form = new QFormLayout;
+    form->addRow(i18nc("@label:listbox", "Ask before switching:"),
+                 comboBox(QStringLiteral("ConfirmWorkspaceSwitch"),
+                          {i18nc("@item:inlistbox ask before switching workspaces", "Always"),
+                           i18nc("@item:inlistbox ask before switching workspaces", "When the current state is not saved in a workspace"),
+                           i18nc("@item:inlistbox ask before switching workspaces", "Never")}));
+    layout->addLayout(form);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceRecoveryPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(
+        checkBox(QStringLiteral("WorkspaceRecoveryPrompt"), i18nc("@option:check", "Offer to retry when locations, providers or panels are unavailable")));
+    auto *notice = new QLabel(i18nc("@info",
+                                    "When switching workspaces, Plasma Opus lists the folders, remote location providers and panels that cannot be "
+                                    "restored, so you can mount a drive or start a service and retry. When the option is cleared, the workspace "
+                                    "opens without them and the workspace manager lists them. Workspaces keep their saved references until you save "
+                                    "a new layout."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceIndicatorsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    form->addRow(i18nc("@label:listbox", "Show the workspace selector in:"),
+                 comboBox(QStringLiteral("WorkspaceSelectorPlacement"),
+                          {i18nc("@item:inlistbox workspace selector placement", "View menu"),
+                           i18nc("@item:inlistbox workspace selector placement", "Status bar"),
+                           i18nc("@item:inlistbox workspace selector placement", "View menu and status bar")}));
+    layout->addLayout(form);
+    layout->addWidget(checkBox(QStringLiteral("ShowWorkspaceUnsavedIndicator"),
+                               i18nc("@option:check", "Mark the active workspace with * when the window differs from its saved layout")));
+    layout->addWidget(checkBox(QStringLiteral("ConfirmWorkspaceLayoutRestore"), i18nc("@option:check", "Ask before returning to the saved workspace layout")));
+    auto *notice = new QLabel(i18nc("@info",
+                                    "The selector shows the active workspace. View, Workspaces… always stays available, so workspaces can be "
+                                    "managed and switched wherever the selector is placed."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceLocationBarsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    const QStringList choices{i18nc("@item:inlistbox location bar", "Full breadcrumbs"),
+                              i18nc("@item:inlistbox location bar", "Abbreviated breadcrumbs"),
+                              i18nc("@item:inlistbox location bar", "Editable full path")};
+    form->addRow(i18nc("@label:listbox", "Left or top pane:"), comboBox(QStringLiteral("LeftLocationPresentation"), choices));
+    form->addRow(i18nc("@label:listbox", "Right or bottom pane:"), comboBox(QStringLiteral("RightLocationPresentation"), choices));
+    layout->addLayout(form);
+    auto *notice = new QLabel(i18nc("@info",
+                                    "Changing a choice applies it to that pane now. The Path button in each pane changes its location bar until "
+                                    "the next change, and the session and workspace layouts remember it. Switching to a workspace that includes "
+                                    "location presentation in its behaviors restores the location bars saved with its layout."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceBehaviorsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    auto *mode = comboBox(QStringLiteral("WorkspaceDefaultBehaviorMode"),
+                          {i18nc("@item:inlistbox workspace behaviors", "All"),
+                           i18nc("@item:inlistbox workspace behaviors", "Selected"),
+                           i18nc("@item:inlistbox workspace behaviors", "None")});
+    form->addRow(i18nc("@label:listbox", "New workspaces apply:"), mode);
+    layout->addLayout(form);
+    auto *selected = new QGroupBox(i18nc("@title:group", "Selected Behaviors"), page);
+    auto *selectedLayout = new QVBoxLayout(selected);
+    selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultLocationPresentation"), i18nc("@option:check", "Location presentation")));
+    selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultSearchScope"), i18nc("@option:check", "Search scope")));
+    selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultLayout"), i18nc("@option:check", "Window and panel layout")));
+    selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultPaneTabRestoration"), i18nc("@option:check", "Pane and tab restoration")));
+    layout->addWidget(selected);
+    const auto updateSelected = [mode, selected] {
+        selected->setEnabled(mode->currentIndex() == Settings::EnumWorkspaceDefaultBehaviorMode::Selected);
+    };
+    connect(mode, &QComboBox::currentIndexChanged, selected, updateSelected);
+    updateSelected();
+    auto *notice = new QLabel(i18nc("@info",
+                                    "New workspaces start with these behaviors. Duplicated workspaces keep the behaviors of the workspace they "
+                                    "copy, and existing workspaces keep their own; change them in the workspace manager. Behaviors that are not "
+                                    "applied leave the current state unchanged when switching, and the options under Search, Layouts, Snapshots "
+                                    "and Location Bars still decide what each applied behavior restores."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addStretch();
+    return page;
+}
+
+void SettingsDialog::reloadWorkspaces()
+{
+    if (!m_workspaceSummary || !m_startupWorkspace) {
+        return;
+    }
+    m_workspaceSummary->clear();
+    const auto shared = KSharedConfig::openConfig();
+    const KConfig config(shared->name(), shared->openFlags(), shared->locationType());
+    WorkspaceCatalog::Catalog catalog;
+    QString error;
+    if (!WorkspaceCatalog::load(config.group(QStringLiteral("Workspaces")), catalog, error)) {
+        m_workspaceSummary->addItem(error);
+        return;
+    }
+    if (catalog.workspaces.isEmpty()) {
+        m_workspaceSummary->addItem(i18nc("@item:inlistbox", "No workspaces"));
+    }
+    QList<std::pair<QString, QString>> names;
+    QMap<QString, int> assigned;
+    for (const QString &workspaceId : std::as_const(catalog.locationAssignments)) {
+        ++assigned[workspaceId];
+    }
+    for (const auto &workspace : std::as_const(catalog.workspaces)) {
+        QString text = i18ncp("@item:inlistbox workspace name, short label and assigned location count",
+                              "%2 (%3): %1 assigned location",
+                              "%2 (%3): %1 assigned locations",
+                              assigned.value(workspace.id),
+                              workspace.name,
+                              workspace.shortLabel);
+        if (workspace.id == catalog.activeId) {
+            text = i18nc("@item:inlistbox active workspace", "%1 — active", text);
+        }
+        auto *item = new QListWidgetItem(text, m_workspaceSummary);
+        item->setData(Qt::UserRole, workspace.id);
+        names.append({workspace.id, i18nc("@item:inlistbox workspace name and short label", "%1 (%2)", workspace.name, workspace.shortLabel)});
+    }
+    m_startupWorkspace->setWorkspaces(names);
 }
 
 void SettingsDialog::createSettingsBackup()
@@ -596,24 +888,67 @@ void SettingsDialog::importWorkspaceProfiles()
         QMessageBox::information(this, i18nc("@title:window", "No Workspace Profiles"), i18nc("@info", "The backup contains no workspace profiles."));
         return;
     }
-    QMessageBox prompt(this);
-    prompt.setIcon(QMessageBox::Question);
-    prompt.setWindowTitle(i18nc("@title:window", "Preview Workspace Import"));
-    prompt.setText(
-        i18nc("@info",
-              "Import these workspace profiles?\n%1\n\nName or identity collisions:\n%2\n\nReplacing keeps the current workspace identity when possible. "
-              "Keeping existing profiles skips collisions. Import changes workspace settings only; it does not run commands or modify managed files.",
-              preview.profiles.join(QLatin1Char('\n')),
-              preview.conflicts.isEmpty() ? i18nc("@info", "None") : preview.conflicts.join(QLatin1Char('\n'))));
-    auto *replace = prompt.addButton(i18nc("@action:button", "Replace Conflicts"), QMessageBox::AcceptRole);
-    auto *keep = prompt.addButton(i18nc("@action:button", "Keep Existing"), QMessageBox::DestructiveRole);
-    prompt.addButton(QMessageBox::Cancel);
-    prompt.exec();
-    if (prompt.clickedButton() != replace && prompt.clickedButton() != keep) {
+    QDialog select(this);
+    select.setObjectName(QStringLiteral("workspaceImportSelection"));
+    select.setWindowTitle(i18nc("@title:window", "Preview Workspace Import"));
+    auto *layout = new QVBoxLayout(&select);
+    auto *intro = new QLabel(i18nc("@info",
+                                   "Choose the workspace profiles to import. Profiles marked as conflicts share a name or identity with an "
+                                   "existing workspace. Replacing keeps the current workspace identity when possible; keeping existing "
+                                   "workspaces skips conflicting profiles. Import changes workspace settings only; it does not run commands "
+                                   "or modify managed files."),
+                             &select);
+    intro->setWordWrap(true);
+    layout->addWidget(intro);
+    auto *profiles = new QListWidget(&select);
+    profiles->setObjectName(QStringLiteral("workspaceImportProfiles"));
+    profiles->setAccessibleName(i18nc("@label", "Workspace profiles to import"));
+    for (int i = 0; i < preview.profiles.size(); ++i) {
+        const bool conflict = preview.conflictIds.contains(preview.ids.at(i));
+        auto *item =
+            new QListWidgetItem(conflict ? i18nc("@item:inlistbox workspace profile", "%1 (conflict)", preview.profiles.at(i)) : preview.profiles.at(i),
+                                profiles);
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        item->setCheckState(Qt::Checked);
+        item->setData(Qt::UserRole, preview.ids.at(i));
+    }
+    layout->addWidget(profiles);
+    auto *buttons = new QDialogButtonBox(&select);
+    auto *replace = buttons->addButton(i18nc("@action:button", "Replace Conflicts"), QDialogButtonBox::AcceptRole);
+    auto *keep = buttons->addButton(i18nc("@action:button", "Keep Existing"), QDialogButtonBox::AcceptRole);
+    buttons->addButton(QDialogButtonBox::Cancel);
+    replace->setObjectName(QStringLiteral("workspaceImportReplace"));
+    keep->setObjectName(QStringLiteral("workspaceImportKeep"));
+    QAbstractButton *chosen = nullptr;
+    connect(buttons, &QDialogButtonBox::clicked, &select, [&chosen, &select, buttons](QAbstractButton *button) {
+        if (buttons->buttonRole(button) == QDialogButtonBox::AcceptRole) {
+            chosen = button;
+            select.accept();
+        } else {
+            select.reject();
+        }
+    });
+    const auto updateButtons = [profiles, replace, keep] {
+        bool any = false;
+        for (int i = 0; i < profiles->count(); ++i) {
+            any = any || profiles->item(i)->checkState() == Qt::Checked;
+        }
+        replace->setEnabled(any);
+        keep->setEnabled(any);
+    };
+    connect(profiles, &QListWidget::itemChanged, &select, updateButtons);
+    layout->addWidget(buttons);
+    if (select.exec() != QDialog::Accepted || !chosen) {
         return;
     }
+    QStringList ids;
+    for (int i = 0; i < profiles->count(); ++i) {
+        if (profiles->item(i)->checkState() == Qt::Checked) {
+            ids.append(profiles->item(i)->data(Qt::UserRole).toString());
+        }
+    }
     QStringList imported;
-    error = SettingsBackup::importWorkspaceProfiles(path, config, prompt.clickedButton() == replace, &imported);
+    error = SettingsBackup::importWorkspaceProfiles(path, config, chosen == replace, &imported, &ids);
     if (!error.isEmpty()) {
         QMessageBox::critical(this, i18nc("@title:window", "Could Not Import Workspace Profiles"), error);
         return;

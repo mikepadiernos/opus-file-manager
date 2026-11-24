@@ -100,6 +100,8 @@
 #include <QTreeView>
 #include <QTreeWidget>
 
+#include <functional>
+
 class WorkspaceTestJob : public KJob
 {
 public:
@@ -112,6 +114,20 @@ public:
         emitResult();
     }
 };
+
+// Answers the message box named objectName when it opens, polling briefly so
+// earlier prompts can close first.
+void answerMessageBox(const QString &objectName, const std::function<void(QMessageBox *)> &respond, int attempts = 200)
+{
+    QTimer::singleShot(10, [objectName, respond, attempts] {
+        auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+        if (box && box->isVisible() && box->objectName() == objectName) {
+            respond(box);
+        } else if (attempts > 0) {
+            answerMessageBox(objectName, respond, attempts - 1);
+        }
+    });
+}
 
 class MainWindowTest : public QObject
 {
@@ -228,6 +244,36 @@ private Q_SLOTS:
         restoreLayout->trigger();
         QTRY_COMPARE(window.activePane()->saveState(), savedTabs);
         QTRY_VERIFY(!selector->text().endsWith(QStringLiteral(" *")));
+
+        const auto resetIndicators = qScopeGuard([&window] {
+            Settings::setWorkspaceSelectorPlacement(Settings::EnumWorkspaceSelectorPlacement::ViewMenu);
+            Settings::setShowWorkspaceUnsavedIndicator(true);
+            Settings::setConfirmWorkspaceLayoutRestore(true);
+            window.applySettings();
+        });
+        auto *statusButton = window.findChild<QToolButton *>(QStringLiteral("workspaceStatusButton"));
+        QVERIFY(statusButton);
+        QVERIFY(selector->isVisible());
+        QVERIFY(!statusButton->isVisible());
+        Settings::setWorkspaceSelectorPlacement(Settings::EnumWorkspaceSelectorPlacement::StatusBar);
+        Settings::setShowWorkspaceUnsavedIndicator(false);
+        Settings::setConfirmWorkspaceLayoutRestore(false);
+        window.applySettings();
+        QVERIFY(!selector->isVisible());
+        QVERIFY(statusButton->isVisible());
+        QVERIFY(statusButton->menu());
+        QVERIFY(window.actionCollection()->action(QStringLiteral("manage_workspaces"))->isVisible());
+        window.activePane()->openInNewTab(m_c, true);
+        QTRY_VERIFY(statusButton->text().contains(QStringLiteral("Work")));
+        QTest::qWait(400);
+        QVERIFY(!selector->text().endsWith(QStringLiteral(" *")));
+        QVERIFY(!statusButton->text().endsWith(QStringLiteral(" *")));
+        // Returning to the saved layout no longer asks.
+        restoreLayout->trigger();
+        QTRY_COMPARE(window.activePane()->saveState(), savedTabs);
+        Settings::setWorkspaceSelectorPlacement(Settings::EnumWorkspaceSelectorPlacement::ViewMenuAndStatusBar);
+        window.applySettings();
+        QVERIFY(selector->isVisible() && statusButton->isVisible());
     }
 
     void switchesAndRestoresWorkspaceLocationVisibility()
@@ -367,6 +413,10 @@ private Q_SLOTS:
 
     void retriesWorkspaceWithUnavailableComponents()
     {
+        Settings::setConfirmWorkspaceSwitch(Settings::EnumConfirmWorkspaceSwitch::Always);
+        const auto resetConfirmation = qScopeGuard([] {
+            Settings::setConfirmWorkspaceSwitch(Settings::EnumConfirmWorkspaceSwitch::WhenUnsaved);
+        });
         const auto config = KSharedConfig::openConfig();
         KConfigGroup group = config->group(QStringLiteral("Workspaces"));
         const bool hadCatalog = group.hasKey("Catalog");
@@ -437,7 +487,19 @@ private Q_SLOTS:
         QTimer::singleShot(0, [] {
             qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
         });
+        bool listedUnavailable = false;
+        answerMessageBox(QStringLiteral("workspaceUnavailableItems"), [&](QMessageBox *box) {
+            listedUnavailable =
+                box->informativeText().contains(QStringLiteral("missingWorkspaceDock")) && box->informativeText().contains(missingLocation.toLocalFile());
+            const auto buttons = box->buttons();
+            for (QAbstractButton *button : buttons) {
+                if (box->buttonRole(button) == QMessageBox::AcceptRole) {
+                    button->click();
+                }
+            }
+        });
         activate->click();
+        QVERIFY(listedUnavailable);
         QVERIFY(status->text().contains(QStringLiteral("missingWorkspaceDock")));
         QVERIFY(status->text().contains(QStringLiteral("anotherMissingDock")));
         QVERIFY(status->text().contains(missingLocation.toLocalFile()));
@@ -2604,6 +2666,14 @@ private Q_SLOTS:
         pane->replaceState(snapshot);
         QCOMPARE(pane->saveState(), snapshot);
         QCOMPARE(pane->view()->viewMode(), FolderView::ViewMode::Compact);
+        pane->setUrl(QUrl::fromLocalFile(m_root.path()));
+        pane->setUrl(m_b);
+        QVERIFY(pane->tabs()->canGoBack());
+        PaneSession filtered = snapshot;
+        filtered.filterText = QStringLiteral("*.md");
+        pane->replaceState(filtered);
+        QCOMPARE(pane->saveState(), filtered);
+        QVERIFY2(pane->tabs()->canGoBack(), "replacing unchanged tabs keeps their history");
         const auto breadcrumbs = pane->findChildren<QToolButton *>(QStringLiteral("paneBreadcrumbSegment"));
         QVERIFY(std::any_of(breadcrumbs.cbegin(), breadcrumbs.cend(), [](const QToolButton *button) {
             return button->text() == QStringLiteral("m");
@@ -2617,6 +2687,38 @@ private Q_SLOTS:
         QCOMPARE((*ancestor)->toolTip(), QStringLiteral("__path"));
         (*ancestor)->click();
         QTRY_COMPARE(pane->url(), QUrl::fromLocalFile(QStringLiteral("/tmp/__path")));
+    }
+
+    void appliesConfiguredPaneLocationBars()
+    {
+        const auto reset = qScopeGuard([] {
+            Settings::setLeftLocationPresentation(Settings::EnumLeftLocationPresentation::FullBreadcrumbs);
+            Settings::setRightLocationPresentation(Settings::EnumRightLocationPresentation::FullBreadcrumbs);
+        });
+        Settings::setLeftLocationPresentation(Settings::EnumLeftLocationPresentation::EditablePath);
+        Settings::setRightLocationPresentation(Settings::EnumRightLocationPresentation::AbbreviatedBreadcrumbs);
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        Pane *const left = window.activePane();
+        Pane *const right = window.inactivePane();
+        QCOMPARE(left->locationPresentation(), Pane::LocationPresentation::EditablePath);
+        QCOMPARE(right->locationPresentation(), Pane::LocationPresentation::AbbreviatedBreadcrumbs);
+
+        // A choice made with the Path button survives unrelated settings changes.
+        left->setLocationPresentation(Pane::LocationPresentation::FullBreadcrumbs);
+        window.applySettings();
+        QCOMPARE(left->locationPresentation(), Pane::LocationPresentation::FullBreadcrumbs);
+        Settings::setRightLocationPresentation(Settings::EnumRightLocationPresentation::EditablePath);
+        window.applySettings();
+        QCOMPARE(left->locationPresentation(), Pane::LocationPresentation::FullBreadcrumbs);
+        QCOMPARE(right->locationPresentation(), Pane::LocationPresentation::EditablePath);
+
+        // A snapshot without a saved presentation uses the pane's configured default.
+        PaneSession snapshot = right->saveState();
+        snapshot.locationPresentation = -1;
+        right->setLocationPresentation(Pane::LocationPresentation::FullBreadcrumbs);
+        right->replaceState(snapshot);
+        QCOMPARE(right->locationPresentation(), Pane::LocationPresentation::EditablePath);
     }
 
     void init()

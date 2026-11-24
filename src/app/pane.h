@@ -115,6 +115,9 @@ public:
     /// Sets whether this pane shows full breadcrumbs, abbreviated breadcrumbs or an editable path.
     void setLocationPresentation(LocationPresentation presentation);
     LocationPresentation locationPresentation() const;
+    /// Sets the presentation used when no saved choice applies, and applies it when it changes.
+    void setDefaultLocationPresentation(LocationPresentation presentation);
+    LocationPresentation defaultLocationPresentation() const;
     QWidget *navigationBar() const;
     void setStatusBarWidget(QWidget *widget);
     QWidget *statusBarWidget() const;
@@ -160,6 +163,8 @@ protected:
     void resizeEvent(QResizeEvent *event) override;
 
 private:
+    /// Closes the pane's tabs and opens those of @p state with their pins, locks and names.
+    void rebuildTabs(const PaneSession &state);
     void saveHistoryViewState();
     void restoreHistoryViewState();
     void finishReveal();
@@ -208,6 +213,7 @@ private:
     bool m_newTabsAfterCurrent = false;
     bool m_followSymlinks = false;
     LocationPresentation m_locationPresentation = LocationPresentation::FullBreadcrumbs;
+    LocationPresentation m_defaultLocationPresentation = LocationPresentation::FullBreadcrumbs;
     int m_defaultFilterScope = 0;
     bool m_updatingTabBar = false;
     int m_lastTabCount = -1;

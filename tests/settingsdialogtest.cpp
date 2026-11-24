@@ -12,8 +12,11 @@
 #include "savedpathfilters.h"
 #include "searchstoredialog.h"
 #include "settings.h"
+#include "settingsbackup.h"
 #include "settingswidgets.h"
 #include "viewsettings.h"
+#include "workspacecatalog.h"
+#include "workspacerestore.h"
 
 #include <KActionCollection>
 #include <KConfig>
@@ -32,6 +35,7 @@
 #include <QDir>
 #include <QDockWidget>
 #include <QFile>
+#include <QFileDialog>
 #include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
@@ -40,6 +44,7 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScopeGuard>
+#include <QSignalSpy>
 #include <QSpinBox>
 #include <QStandardPaths>
 #include <QTabWidget>
@@ -73,6 +78,9 @@ private Q_SLOTS:
                                      QStringLiteral("StatusBar"),
                                      QStringLiteral("InformationPanel"),
                                      QStringLiteral("Views"),
+                                     QStringLiteral("Search"),
+                                     QStringLiteral("Workspaces"),
+                                     QStringLiteral("WorkspaceSettings"),
                                      QStringLiteral("ContextMenu")}) {
             KSharedConfig::openConfig()->deleteGroup(group);
         }
@@ -93,8 +101,167 @@ private Q_SLOTS:
         SettingsDialog dialog(&places, nullptr);
         QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("createSettingsBackup")));
         QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("restoreSettingsBackup")));
-        QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("exportWorkspaceProfiles")));
-        QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("importWorkspaceProfiles")));
+        auto *portability = dialog.findChild<QWidget *>(QStringLiteral("workspacePortabilityPage"));
+        QVERIFY(portability);
+        QVERIFY(portability->findChild<QPushButton *>(QStringLiteral("exportWorkspaceProfiles")));
+        QVERIFY(portability->findChild<QPushButton *>(QStringLiteral("importWorkspaceProfiles")));
+    }
+
+    void importsSelectedWorkspaceProfiles()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto sourceConfig = KSharedConfig::openConfig(root.filePath(QStringLiteral("source")));
+        WorkspaceCatalog::Catalog source;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(source, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(WorkspaceCatalog::create(source, QStringLiteral("Other"), QStringLiteral("O"), error));
+        QVERIFY(WorkspaceCatalog::create(source, QStringLiteral("Home"), QStringLiteral("H"), error));
+        QVERIFY(WorkspaceCatalog::save(sourceConfig->group(QStringLiteral("Workspaces")), source, error));
+        QVERIFY(sourceConfig->sync());
+        const QString archive = root.filePath(QStringLiteral("profiles.tar.gz"));
+        const QStringList ids{source.workspaces.at(0).id, source.workspaces.at(1).id, source.workspaces.at(2).id};
+        const auto state = KSharedConfig::openConfig(root.filePath(QStringLiteral("state")));
+        state->group(QStringLiteral("WindowLayout")).writeEntry("Stacked", true);
+        QVERIFY(state->sync());
+        const QString exportError = SettingsBackup::createWorkspaceProfiles(archive, sourceConfig, state, ids);
+        QVERIFY2(exportError.isEmpty(), qPrintable(exportError));
+
+        const auto config = KSharedConfig::openConfig();
+        WorkspaceCatalog::Catalog current;
+        QVERIFY(WorkspaceCatalog::create(current, QStringLiteral("Work"), QStringLiteral("Existing"), error));
+        QVERIFY(WorkspaceCatalog::save(config->group(QStringLiteral("Workspaces")), current, error));
+        QVERIFY(config->sync());
+
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *import = dialog.findChild<QPushButton *>(QStringLiteral("importWorkspaceProfiles"));
+        QVERIFY(import);
+        QApplication::setAttribute(Qt::AA_DontUseNativeDialogs);
+        const auto nativeDialogs = qScopeGuard([] {
+            QApplication::setAttribute(Qt::AA_DontUseNativeDialogs, false);
+        });
+        QStringList listed;
+        bool keepEnabledWithoutSelection = true;
+        QString result;
+        bool fileChosen = false;
+        bool profilesChosen = false;
+        QTimer dialogs;
+        dialogs.setInterval(20);
+        connect(&dialogs, &QTimer::timeout, &dialogs, [&] {
+            QWidget *modal = QApplication::activeModalWidget();
+            if (auto *files = qobject_cast<QFileDialog *>(modal); files && !fileChosen) {
+                fileChosen = true;
+                // The dialog opens in a missing Documents folder, so type the full path.
+                files->findChild<QLineEdit *>(QStringLiteral("fileNameEdit"))->setText(archive);
+                QMetaObject::invokeMethod(files, "accept", Qt::QueuedConnection);
+            } else if (modal && modal->objectName() == QLatin1String("workspaceImportSelection") && !profilesChosen) {
+                profilesChosen = true;
+                auto *profiles = modal->findChild<QListWidget *>(QStringLiteral("workspaceImportProfiles"));
+                auto *keep = modal->findChild<QPushButton *>(QStringLiteral("workspaceImportKeep"));
+                for (int i = 0; i < profiles->count(); ++i) {
+                    listed.append(profiles->item(i)->text());
+                    profiles->item(i)->setCheckState(Qt::Unchecked);
+                }
+                keepEnabledWithoutSelection = keep->isEnabled();
+                // Import Work, which conflicts, and Home, but not Other.
+                profiles->item(0)->setCheckState(Qt::Checked);
+                profiles->item(2)->setCheckState(Qt::Checked);
+                QMetaObject::invokeMethod(keep, &QPushButton::click, Qt::QueuedConnection);
+            } else if (auto *box = qobject_cast<QMessageBox *>(modal)) {
+                result = box->text();
+                dialogs.stop();
+                QMetaObject::invokeMethod(box, "accept", Qt::QueuedConnection);
+            }
+        });
+        dialogs.start();
+        import->click();
+        QTRY_VERIFY(!dialogs.isActive());
+
+        QCOMPARE(listed.size(), 3);
+        QVERIFY(listed.at(0).startsWith(QStringLiteral("Work")) && listed.at(0).contains(QStringLiteral("conflict")));
+        QVERIFY(!listed.at(2).contains(QStringLiteral("conflict")));
+        QVERIFY(!keepEnabledWithoutSelection);
+        QVERIFY2(result.contains(QStringLiteral("Home")), qPrintable(result));
+        WorkspaceCatalog::Catalog imported;
+        QVERIFY(WorkspaceCatalog::load(config->group(QStringLiteral("Workspaces")), imported, error));
+        QStringList names;
+        for (const auto &workspace : imported.workspaces) {
+            names.append(workspace.name + QLatin1Char('/') + workspace.shortLabel);
+        }
+        QCOMPARE(names, (QStringList{QStringLiteral("Work/Existing"), QStringLiteral("Home/H")}));
+    }
+
+    void workspaceManagementSummarizesCatalogAndOpensManager()
+    {
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY2(WorkspaceCatalog::create(catalog, QStringLiteral("Research"), QStringLiteral("RS"), error), qPrintable(error));
+        QVERIFY2(WorkspaceCatalog::create(catalog, QStringLiteral("Media"), QStringLiteral("MD"), error), qPrintable(error));
+        const QString research = catalog.workspaces.first().id;
+        QVERIFY2(WorkspaceCatalog::assignLocation(catalog, WorkspaceCatalog::locationId(QUrl::fromLocalFile(QStringLiteral("/srv/a"))), research, error),
+                 qPrintable(error));
+        QVERIFY2(WorkspaceCatalog::activate(catalog, research, error), qPrintable(error));
+        QVERIFY2(WorkspaceCatalog::save(KSharedConfig::openConfig()->group(QStringLiteral("Workspaces")), catalog, error), qPrintable(error));
+        KSharedConfig::openConfig()->sync();
+
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *summary = dialog.findChild<QListWidget *>(QStringLiteral("workspaceSummary"));
+        auto *manage = dialog.findChild<QPushButton *>(QStringLiteral("manageWorkspaces"));
+        QVERIFY(summary && manage);
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("workspaceSecurityNotice")));
+        QCOMPARE(summary->count(), 2);
+        QVERIFY(summary->item(0)->text().contains(QStringLiteral("Research (RS)")));
+        QVERIFY(summary->item(0)->text().contains(QStringLiteral("1 assigned location")));
+        QVERIFY(summary->item(0)->text().contains(QStringLiteral("active")));
+        QVERIFY(!summary->item(1)->text().contains(QStringLiteral("active")));
+        QSignalSpy requested(&dialog, &SettingsDialog::manageWorkspacesRequested);
+        manage->click();
+        QCOMPARE(requested.count(), 1);
+
+        QVERIFY2(WorkspaceCatalog::remove(catalog, catalog.workspaces.last().id, error), qPrintable(error));
+        QVERIFY2(WorkspaceCatalog::save(KSharedConfig::openConfig()->group(QStringLiteral("Workspaces")), catalog, error), qPrintable(error));
+        KSharedConfig::openConfig()->sync();
+        dialog.reloadWorkspaces();
+        QCOMPARE(summary->count(), 1);
+    }
+
+    void startupWorkspacePersistsAndKeepsUnavailableReference()
+    {
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY2(WorkspaceCatalog::create(catalog, QStringLiteral("Research"), QStringLiteral("RS"), error), qPrintable(error));
+        const QString id = catalog.workspaces.first().id;
+        QVERIFY2(WorkspaceCatalog::save(KSharedConfig::openConfig()->group(QStringLiteral("Workspaces")), catalog, error), qPrintable(error));
+        KSharedConfig::openConfig()->sync();
+
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *startup = dialog.findChild<StartupWorkspaceCombo *>(QStringLiteral("kcfg_StartupWorkspace"));
+            QVERIFY(startup);
+            QCOMPARE(startup->count(), 3);
+            QCOMPARE(startup->workspace(), QString());
+            startup->setCurrentIndex(startup->findData(id));
+            QCOMPARE(startup->workspace(), id);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QCOMPARE(Settings::startupWorkspace(), id);
+
+        QVERIFY2(WorkspaceCatalog::remove(catalog, id, error), qPrintable(error));
+        QVERIFY2(WorkspaceCatalog::save(KSharedConfig::openConfig()->group(QStringLiteral("Workspaces")), catalog, error), qPrintable(error));
+        KSharedConfig::openConfig()->sync();
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *startup = dialog.findChild<StartupWorkspaceCombo *>(QStringLiteral("kcfg_StartupWorkspace"));
+            QVERIFY(startup);
+            QCOMPARE(startup->workspace(), id);
+            QVERIFY(startup->currentText().contains(QStringLiteral("Unavailable")));
+            startup->setCurrentIndex(startup->findData(QStringLiteral("none")));
+            dialog.reject();
+        }
+        QCOMPARE(Settings::startupWorkspace(), id);
     }
 
     void toolbarSettingsOpenExistingEditors()
@@ -541,6 +708,157 @@ private Q_SLOTS:
         }
         QVERIFY(Settings::searchIndexedByDefault());
         QVERIFY(Settings::searchContentsByDefault());
+    }
+
+    void workspaceSearchDefaultPersists()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *workspace = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceSearchByDefault"));
+            QVERIFY(workspace);
+            QVERIFY(workspace->isChecked());
+            workspace->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QVERIFY(!Settings::workspaceSearchByDefault());
+        QVERIFY(!KSharedConfig::openConfig()->group(QStringLiteral("Search")).readEntry("WorkspaceSearchByDefault", true));
+    }
+
+    void workspaceLayoutRestoreOptionsPersist()
+    {
+        KFilePlacesModel places;
+        const QStringList entries{QStringLiteral("WorkspaceRestorePaneArrangement"),
+                                  QStringLiteral("WorkspaceRestoreViews"),
+                                  QStringLiteral("WorkspaceRestoreToolbars"),
+                                  QStringLiteral("WorkspaceRestorePanels"),
+                                  QStringLiteral("ConfirmWorkspaceLayoutOverwrite")};
+        {
+            SettingsDialog dialog(&places, nullptr);
+            for (const QString &entry : entries) {
+                auto *option = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_") + entry);
+                QVERIFY2(option, qPrintable(entry));
+                QVERIFY(option->isChecked());
+                option->setChecked(false);
+            }
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QVERIFY(!Settings::workspaceRestorePaneArrangement());
+        QVERIFY(!Settings::workspaceRestoreViews());
+        QVERIFY(!Settings::workspaceRestoreToolbars());
+        QVERIFY(!Settings::workspaceRestorePanels());
+        QVERIFY(!Settings::confirmWorkspaceLayoutOverwrite());
+        const auto group = KSharedConfig::openConfig()->group(QStringLiteral("WorkspaceSettings"));
+        for (const QString &entry : entries) {
+            QVERIFY2(!group.readEntry(entry, true), qPrintable(entry));
+        }
+    }
+
+    void workspaceSnapshotOptionsPersist()
+    {
+        KFilePlacesModel places;
+        const QStringList entries{QStringLiteral("WorkspaceRestoreTabs"),
+                                  QStringLiteral("WorkspaceRestoreActiveTabs"),
+                                  QStringLiteral("WorkspaceRestoreFilters")};
+        {
+            SettingsDialog dialog(&places, nullptr);
+            for (const QString &entry : entries) {
+                auto *option = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_") + entry);
+                QVERIFY2(option, qPrintable(entry));
+                QVERIFY(option->isChecked());
+                option->setChecked(false);
+            }
+            auto *confirm = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_ConfirmWorkspaceSwitch"));
+            QVERIFY(confirm);
+            QCOMPARE(confirm->currentIndex(), int(Settings::EnumConfirmWorkspaceSwitch::WhenUnsaved));
+            confirm->setCurrentIndex(Settings::EnumConfirmWorkspaceSwitch::Always);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        const auto options = WorkspaceRestore::fromSettings();
+        QVERIFY(!options.tabs && !options.activeTabs && !options.filters);
+        QVERIFY(options.paneArrangement && options.views && options.toolbars && options.panels);
+        QCOMPARE(Settings::confirmWorkspaceSwitch(), Settings::EnumConfirmWorkspaceSwitch::Always);
+    }
+
+    void workspaceRecoveryPromptPersists()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *prompt = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceRecoveryPrompt"));
+            QVERIFY(prompt);
+            QVERIFY(prompt->isChecked());
+            prompt->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QVERIFY(!Settings::workspaceRecoveryPrompt());
+    }
+
+    void workspaceDefaultBehaviorsPersist()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *mode = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_WorkspaceDefaultBehaviorMode"));
+            auto *location = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultLocationPresentation"));
+            auto *search = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultSearchScope"));
+            auto *layout = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultLayout"));
+            auto *panes = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultPaneTabRestoration"));
+            QVERIFY(mode && location && search && layout && panes);
+            QCOMPARE(mode->currentIndex(), int(Settings::EnumWorkspaceDefaultBehaviorMode::All));
+            QVERIFY(location->isChecked() && search->isChecked() && layout->isChecked() && panes->isChecked());
+            QVERIFY(!search->isEnabledTo(&dialog));
+            mode->setCurrentIndex(Settings::EnumWorkspaceDefaultBehaviorMode::Selected);
+            QVERIFY(search->isEnabledTo(&dialog));
+            search->setChecked(false);
+            layout->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QCOMPARE(Settings::workspaceDefaultBehaviorMode(), Settings::EnumWorkspaceDefaultBehaviorMode::Selected);
+        QVERIFY(Settings::workspaceDefaultLocationPresentation());
+        QVERIFY(!Settings::workspaceDefaultSearchScope());
+        QVERIFY(!Settings::workspaceDefaultLayout());
+        QVERIFY(Settings::workspaceDefaultPaneTabRestoration());
+    }
+
+    void workspaceIndicatorOptionsPersist()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *placement = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_WorkspaceSelectorPlacement"));
+            auto *unsaved = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowWorkspaceUnsavedIndicator"));
+            auto *restore = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ConfirmWorkspaceLayoutRestore"));
+            QVERIFY(placement && unsaved && restore);
+            QCOMPARE(placement->currentIndex(), int(Settings::EnumWorkspaceSelectorPlacement::ViewMenu));
+            QVERIFY(unsaved->isChecked() && restore->isChecked());
+            placement->setCurrentIndex(Settings::EnumWorkspaceSelectorPlacement::StatusBar);
+            unsaved->setChecked(false);
+            restore->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QCOMPARE(Settings::workspaceSelectorPlacement(), Settings::EnumWorkspaceSelectorPlacement::StatusBar);
+        QVERIFY(!Settings::showWorkspaceUnsavedIndicator());
+        QVERIFY(!Settings::confirmWorkspaceLayoutRestore());
+    }
+
+    void paneLocationBarsPersist()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *left = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_LeftLocationPresentation"));
+            auto *right = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_RightLocationPresentation"));
+            QVERIFY(left && right);
+            QCOMPARE(left->currentIndex(), int(Settings::EnumLeftLocationPresentation::FullBreadcrumbs));
+            QCOMPARE(right->currentIndex(), int(Settings::EnumRightLocationPresentation::FullBreadcrumbs));
+            QCOMPARE(left->count(), 3);
+            left->setCurrentIndex(Settings::EnumLeftLocationPresentation::EditablePath);
+            right->setCurrentIndex(Settings::EnumRightLocationPresentation::AbbreviatedBreadcrumbs);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QCOMPARE(Settings::leftLocationPresentation(), Settings::EnumLeftLocationPresentation::EditablePath);
+        QCOMPARE(Settings::rightLocationPresentation(), Settings::EnumRightLocationPresentation::AbbreviatedBreadcrumbs);
     }
 
     void duplicateFinderDefaultsPersistAndCancelLeavesThemUnchanged()

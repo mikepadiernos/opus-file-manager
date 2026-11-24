@@ -234,6 +234,32 @@ private Q_SLOTS:
         QCOMPARE(results->topLevelItemCount(), 3);
     }
 
+    void workspaceSearchDefaultFollowsPreference()
+    {
+        QTemporaryDir root;
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchrc")), KConfig::SimpleConfig);
+        const auto activeScope = [] {
+            SearchDialog::WorkspaceScope scope;
+            scope.active = true;
+            return scope;
+        };
+        {
+            SearchDialog dialog(QUrl::fromLocalFile(root.path()), nullptr, config, activeScope);
+            auto *workspaceOnly = dialog.findChild<QCheckBox *>(QStringLiteral("searchWorkspaceOnly"));
+            QVERIFY(workspaceOnly);
+            QVERIFY(workspaceOnly->isChecked());
+        }
+        config->group(QStringLiteral("Search")).writeEntry("WorkspaceSearchByDefault", false);
+        SearchDialog dialog(QUrl::fromLocalFile(root.path()), nullptr, config, activeScope);
+        auto *workspaceOnly = dialog.findChild<QCheckBox *>(QStringLiteral("searchWorkspaceOnly"));
+        auto *scope = dialog.findChild<QComboBox *>(QStringLiteral("searchScope"));
+        QVERIFY(workspaceOnly && scope);
+        QVERIFY(!workspaceOnly->isChecked());
+        QCOMPARE(scope->itemText(0), QStringLiteral("Current folder (live)"));
+        workspaceOnly->setChecked(true);
+        QCOMPARE(scope->itemText(0), QStringLiteral("Workspace locations (live)"));
+    }
+
     void workspaceSearchReportsUnsupportedLocations()
     {
         QTemporaryDir root;

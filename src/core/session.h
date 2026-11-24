@@ -27,7 +27,8 @@ struct PaneSession {
     QString filterText;
     /// -1 means no scope was saved; use the configured default.
     int filterScope = -1;
-    int locationPresentation = 0;
+    /// -1 means no presentation was saved; use the pane's configured default.
+    int locationPresentation = -1;
     int viewMode = 0;
 
     bool operator==(const PaneSession &other) const = default;

@@ -106,6 +106,9 @@ private Q_SLOTS:
         invalidFilter.left.filterScope = 5;
         QCOMPARE(invalidFilter.sanitized(home).left.filterScope, 2);
         QCOMPARE(WindowSession().sanitized(home).left.filterScope, -1);
+        QCOMPARE(WindowSession().sanitized(home).left.locationPresentation, -1);
+        invalidFilter.left.locationPresentation = 7;
+        QCOMPARE(invalidFilter.sanitized(home).left.locationPresentation, 2);
     }
 
     void tabStateRoundTripsAndSurvivesSanitizing()

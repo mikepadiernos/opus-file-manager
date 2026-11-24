@@ -286,9 +286,9 @@ bool readPaneSession(const QJsonValue &value, PaneSession &pane, bool *credentia
         pane.names.append(entry.toString());
     }
     const double scope = filterScope.toDouble(-2);
-    const double presentation = locationPresentation.toDouble(-1);
+    const double presentation = locationPresentation.toDouble(-2);
     const double mode = viewMode.toDouble(-1);
-    if (scope < -1 || scope > 2 || int(scope) != scope || presentation < 0 || presentation > 2 || int(presentation) != presentation || mode < 0 || mode > 2
+    if (scope < -1 || scope > 2 || int(scope) != scope || presentation < -1 || presentation > 2 || int(presentation) != presentation || mode < 0 || mode > 2
         || int(mode) != mode) {
         return false;
     }
@@ -307,7 +307,7 @@ bool validPaneSession(const PaneSession &pane)
         || pane.names.size() > pane.tabs.size() || pane.filterScope < -1 || pane.filterScope > 2 || pane.viewMode < 0 || pane.viewMode > 2) {
         return false;
     }
-    if (pane.locationPresentation < 0 || pane.locationPresentation > 2) {
+    if (pane.locationPresentation < -1 || pane.locationPresentation > 2) {
         return false;
     }
     for (const QUrl &url : pane.tabs) {

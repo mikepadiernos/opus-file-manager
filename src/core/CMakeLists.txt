@@ -102,6 +102,10 @@ add_library(opusfm_core STATIC
     viewsettings.h
     workspacecatalog.cpp
     workspacecatalog.h
+    workspacerestore.cpp
+    workspacerestore.h
+    workspacestartup.cpp
+    workspacestartup.h
 )
 
 kconfig_add_kcfg_files(opusfm_core GENERATE_MOC settings.kcfgc)

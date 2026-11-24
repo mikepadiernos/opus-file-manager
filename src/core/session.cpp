@@ -64,7 +64,7 @@ PaneSession loadPane(const KConfigGroup &group, int defaultViewMode)
     pane.names = group.readEntry(NamesKey, QStringList());
     pane.filterText = group.readEntry(FilterTextKey, QString());
     pane.filterScope = group.readEntry(FilterScopeKey, -1);
-    pane.locationPresentation = group.readEntry(LocationPresentationKey, 0);
+    pane.locationPresentation = group.readEntry(LocationPresentationKey, -1);
     pane.viewMode = group.readEntry(ViewModeKey, defaultViewMode);
     return pane;
 }
@@ -93,7 +93,7 @@ PaneSession sanitizePane(const PaneSession &pane, const QUrl &fallback)
     result.currentTab = qBound(0, pane.currentTab, result.tabs.size() - 1);
     result.filterText = pane.filterText;
     result.filterScope = qBound(-1, pane.filterScope, 2);
-    result.locationPresentation = qBound(0, pane.locationPresentation, 2);
+    result.locationPresentation = qBound(-1, pane.locationPresentation, 2);
     result.viewMode = qBound(0, pane.viewMode, 2);
     return result;
 }

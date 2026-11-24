@@ -3,7 +3,9 @@
 #include "workspacedialog.h"
 #include "foldersyncprofiles.h"
 #include "savedsearches.h"
+#include "settings.h"
 #include "workspacelocations.h"
+#include "workspacerestore.h"
 
 #include <KConfig>
 #include <KLocalizedString>
@@ -77,7 +79,9 @@ WorkspaceDialog::WorkspaceDialog(KConfigGroup group,
     auto *layoutButtons = new QHBoxLayout;
     auto *activate = new QPushButton(i18nc("@action:button", "Switch to Workspace"), this);
     activate->setObjectName(QStringLiteral("workspaceActivate"));
-    connect(activate, &QPushButton::clicked, this, &WorkspaceDialog::activateWorkspace);
+    connect(activate, &QPushButton::clicked, this, [this] {
+        activateWorkspace();
+    });
     layoutButtons->addWidget(activate);
     auto *save = new QPushButton(i18nc("@action:button", "Save Current Layout"), this);
     save->setObjectName(QStringLiteral("workspaceSaveLayout"));
@@ -228,9 +232,14 @@ void WorkspaceDialog::selectWorkspace(const QString &id)
     }
 }
 
-void WorkspaceDialog::activateSelectedWorkspace()
+void WorkspaceDialog::setAvailabilityCheck(CheckLayout check)
 {
-    activateWorkspace();
+    m_check = std::move(check);
+}
+
+void WorkspaceDialog::activateSelectedWorkspace(bool confirmed)
+{
+    activateWorkspace(confirmed);
 }
 
 void WorkspaceDialog::assignSelectedLocation()
@@ -386,6 +395,7 @@ void WorkspaceDialog::createWorkspace()
         return;
     }
     const QString id = updated.workspaces.last().id;
+    updated.workspaces.last().behaviorSelection = WorkspaceRestore::defaultBehaviorSelection();
     if (commit(updated)) {
         reload(id);
     }
@@ -443,7 +453,69 @@ void WorkspaceDialog::deleteWorkspace()
     }
 }
 
-void WorkspaceDialog::activateWorkspace()
+bool WorkspaceDialog::hasUnsavedState() const
+{
+    const auto active = std::find_if(m_catalog.workspaces.cbegin(), m_catalog.workspaces.cend(), [this](const auto &workspace) {
+        return workspace.id == m_currentId;
+    });
+    if (active == m_catalog.workspaces.cend() || !active->layout) {
+        return true;
+    }
+    WorkspaceCatalog::Layout layout;
+    QString error;
+    return !m_capture(layout, error) || layout != *active->layout;
+}
+
+bool WorkspaceDialog::confirmSwitch()
+{
+    const auto mode = Settings::confirmWorkspaceSwitch();
+    if (mode == Settings::EnumConfirmWorkspaceSwitch::Never) {
+        return true;
+    }
+    const bool unsaved = hasUnsavedState();
+    if (mode == Settings::EnumConfirmWorkspaceSwitch::WhenUnsaved && !unsaved) {
+        return true;
+    }
+    const QString text = unsaved
+        ? i18nc("@info",
+                "Switch to this workspace? The current layout, panes and tabs have changes that are not saved in a workspace. The workspace's "
+                "selected state will replace them. Running file transfers continue.")
+        : i18nc("@info",
+                "Switch to this workspace? Its selected layout, pane, tab and location-bar state will replace the current state. Running file "
+                "transfers continue.");
+    return QMessageBox::question(this, i18nc("@title:window", "Switch Workspace"), text, QMessageBox::Yes | QMessageBox::No, QMessageBox::No)
+        == QMessageBox::Yes;
+}
+
+bool WorkspaceDialog::confirmUnavailable(const WorkspaceCatalog::Layout &layout)
+{
+    if (!m_check || !Settings::workspaceRecoveryPrompt()) {
+        return true;
+    }
+    for (QStringList unavailable = m_check(layout); !unavailable.isEmpty(); unavailable = m_check(layout)) {
+        QMessageBox box(QMessageBox::Warning,
+                        i18nc("@title:window", "Workspace Items Unavailable"),
+                        i18nc("@info",
+                              "Some locations, providers or panels in this workspace are unavailable. Make them available and retry, or "
+                              "continue without them. The workspace keeps its saved references either way."),
+                        QMessageBox::Retry | QMessageBox::Cancel,
+                        this);
+        box.setObjectName(QStringLiteral("workspaceUnavailableItems"));
+        box.setInformativeText(unavailable.join(QLatin1Char('\n')));
+        QPushButton *continueButton = box.addButton(i18nc("@action:button", "Continue Without Them"), QMessageBox::AcceptRole);
+        box.setDefaultButton(QMessageBox::Retry);
+        box.exec();
+        if (box.clickedButton() == continueButton) {
+            return true;
+        }
+        if (box.clickedButton() != box.button(QMessageBox::Retry)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void WorkspaceDialog::activateWorkspace(bool confirmed)
 {
     const QString id = selectedId();
     const auto it = std::find_if(m_catalog.workspaces.cbegin(), m_catalog.workspaces.cend(), [&id](const auto &workspace) {
@@ -454,22 +526,13 @@ void WorkspaceDialog::activateWorkspace()
         return;
     }
     const WorkspaceCatalog::BehaviorSelection selection = it->behaviorSelection;
-    const bool restoreLayout = selection.applies(selection.layout);
-    const bool restorePanes = selection.applies(selection.paneTabRestoration);
-    const bool restoreLocationPresentation = selection.applies(selection.locationPresentation);
-    const bool restoreAnything = restoreLayout || restorePanes || restoreLocationPresentation;
+    const bool restoreAnything =
+        selection.applies(selection.layout) || selection.applies(selection.paneTabRestoration) || selection.applies(selection.locationPresentation);
     if (restoreAnything && !it->layout) {
         m_status->setText(i18nc("@info", "The selected workspace has no saved layout for its enabled behaviors."));
         return;
     }
-    if ((restoreLayout || restorePanes || restoreLocationPresentation)
-        && QMessageBox::question(
-               this,
-               i18nc("@title:window", "Switch Workspace"),
-               i18nc("@info", "Switch to this workspace? Selected layout, pane, tab or location-presentation state will replace the current state."),
-               QMessageBox::Yes | QMessageBox::No,
-               QMessageBox::No)
-            != QMessageBox::Yes) {
+    if (restoreAnything && !confirmed && !confirmSwitch()) {
         return;
     }
     const auto current = std::find_if(m_catalog.workspaces.cbegin(), m_catalog.workspaces.cend(), [&id](const auto &workspace) {
@@ -488,41 +551,13 @@ void WorkspaceDialog::activateWorkspace()
             m_status->setText(error);
             return;
         }
-        WorkspaceCatalog::Layout layout = *current->layout;
-        if (!restoreLayout) {
-            layout.windowState = previous.windowState;
-            layout.paneSizes = previous.paneSizes;
-            layout.workspaceSizes = previous.workspaceSizes;
-            layout.dual = previous.dual;
-            layout.stacked = previous.stacked;
-            layout.presentation = previous.presentation;
+        WorkspaceCatalog::Layout layout;
+        if (!WorkspaceRestore::merge(*current->layout, previous, selection, WorkspaceRestore::fromSettings(), layout, error)) {
+            m_status->setText(error);
+            return;
         }
-        if (selection.mode == WorkspaceCatalog::BehaviorMode::Selected) {
-            if (!restorePanes) {
-                if (!previous.session) {
-                    m_status->setText(i18nc("@info", "The current window has no pane snapshot to preserve."));
-                    return;
-                }
-                layout.session = previous.session;
-                if (restoreLocationPresentation) {
-                    if (!current->layout->session) {
-                        m_status->setText(i18nc("@info", "The selected workspace has no pane snapshot for its location presentation."));
-                        return;
-                    }
-                    layout.session->left.locationPresentation = current->layout->session->left.locationPresentation;
-                    layout.session->right.locationPresentation = current->layout->session->right.locationPresentation;
-                }
-            } else if (!restoreLocationPresentation) {
-                if (!layout.session || !previous.session) {
-                    m_status->setText(i18nc("@info", "A pane snapshot is unavailable for the selected behaviors."));
-                    return;
-                }
-                layout.session->left.locationPresentation = previous.session->left.locationPresentation;
-                layout.session->right.locationPresentation = previous.session->right.locationPresentation;
-            } else if (!layout.session) {
-                m_status->setText(i18nc("@info", "The selected workspace has no pane snapshot for restoration."));
-                return;
-            }
+        if (!confirmUnavailable(layout)) {
+            return;
         }
         if (!m_apply(layout, error)) {
             m_status->setText(error);
@@ -556,12 +591,13 @@ void WorkspaceDialog::saveLayout()
         m_status->setText(i18nc("@info", "Select a workspace first."));
         return;
     }
-    if (QMessageBox::question(this,
-                              i18nc("@title:window", "Save Workspace Layout"),
-                              i18nc("@info", "Replace the selected workspace's saved layout with the current window layout?"),
-                              QMessageBox::Yes | QMessageBox::No,
-                              QMessageBox::No)
-        != QMessageBox::Yes) {
+    if (Settings::confirmWorkspaceLayoutOverwrite()
+        && QMessageBox::question(this,
+                                 i18nc("@title:window", "Save Workspace Layout"),
+                                 i18nc("@info", "Replace the selected workspace's saved layout with the current window layout?"),
+                                 QMessageBox::Yes | QMessageBox::No,
+                                 QMessageBox::No)
+            != QMessageBox::Yes) {
         return;
     }
     auto updated = m_catalog;
