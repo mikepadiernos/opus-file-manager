@@ -106,6 +106,8 @@ protected:
     bool queryClose() override;
     bool eventFilter(QObject *watched, QEvent *event) override;
     void showEvent(QShowEvent *event) override;
+    void changeEvent(QEvent *event) override;
+    void childEvent(QChildEvent *event) override;
     void readProperties(const KConfigGroup &group) override;
     void saveProperties(KConfigGroup &group) override;
     void saveNewToolbarConfig() override;
@@ -120,6 +122,9 @@ private:
     void applyColorScheme();
     /// Applies background blur, combining the setting with the terminal's request.
     void applyWindowEffects();
+    /// Makes the window and docked panel backgrounds as translucent as configured.
+    void applyBackgroundOpacity();
+    void applyPanelOpacity(QDockWidget *dock);
     /// Places the workspace selector in the View menu, the status bar or both.
     void applyWorkspaceSelectorPlacement();
     /// Gives each pane its configured location bar, replacing the current choice only when the setting changes.

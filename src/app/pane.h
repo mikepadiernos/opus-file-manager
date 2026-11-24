@@ -91,6 +91,12 @@ public:
      * @param strengthPercent how much of the tint to mix into the background
      */
     void setBackgroundTint(BackgroundTint scope, const QColor &color, int strengthPercent);
+    /**
+     * Makes the folder view's background translucent when the window is,
+     * keeping text, icons and selection opaque.
+     * @param opacityPercent the background opacity; 100 is opaque
+     */
+    void setBackgroundOpacity(int opacityPercent);
 
     /// Forces the tab strip to show even with a single tab.
     void setTabBarForcedVisible(bool visible);
@@ -228,6 +234,7 @@ private:
     BackgroundTint m_tintScope = BackgroundTint::None;
     QColor m_tintColor;
     int m_tintStrength = 0;
+    int m_backgroundOpacity = 100;
     bool m_tabBarForced = false;
     bool m_showTabIcons = true;
     bool m_newTabsAfterCurrent = false;

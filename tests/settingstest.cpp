@@ -247,7 +247,7 @@ private Q_SLOTS:
         QCOMPARE(Settings::colorScheme(), QLatin1String(ColorSchemes::DarkPreset));
         // Widgets pick up application palette changes from posted events.
         QTRY_COMPARE(window.palette().color(QPalette::Active, QPalette::Window), QColor(32, 35, 38));
-        QCOMPARE(dialog.palette().color(QPalette::Active, QPalette::Window), QColor(32, 35, 38));
+        QTRY_COMPARE(dialog.palette().color(QPalette::Active, QPalette::Window), QColor(32, 35, 38));
         QCOMPARE(QApplication::style(), style);
 
         combo->setCurrentIndex(0);
@@ -418,6 +418,61 @@ private Q_SLOTS:
         QVERIFY(WindowEffects::unavailableReason(&opaque, false, true).contains(QLatin1String("compositing")));
     }
 
+    void backgroundOpacityKeepsContentOpaque()
+    {
+        auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        QVERIFY(WindowEffects::isTranslucent(&window));
+        Pane *pane = window.findChildren<Pane *>().constFirst();
+        auto *places = window.findChild<QDockWidget *>(QStringLiteral("placesDock"));
+        QVERIFY(places);
+        QCOMPARE(window.palette().color(QPalette::Active, QPalette::Window).alpha(), 255);
+        QCOMPARE(pane->view()->palette().color(QPalette::Active, QPalette::Base).alpha(), 255);
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_WindowOpacity"))->setValue(60);
+        dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_PaneOpacity"))->setValue(40);
+        dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_PanelOpacity"))->setValue(80);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+
+        const QPalette app = QApplication::palette();
+        QCOMPARE(window.palette().color(QPalette::Active, QPalette::Window).alpha(), 153);
+        QCOMPARE(window.palette().color(QPalette::Active, QPalette::Window).rgb(), app.color(QPalette::Active, QPalette::Window).rgb());
+        QCOMPARE(pane->view()->palette().color(QPalette::Active, QPalette::Base).alpha(), 102);
+        QCOMPARE(pane->view()->palette().color(QPalette::Active, QPalette::AlternateBase).alpha(), 102);
+        QCOMPARE(places->palette().color(QPalette::Active, QPalette::Base).alpha(), 204);
+        QCOMPARE(places->palette().color(QPalette::Active, QPalette::Window).alpha(), 204);
+        // Text, icons and selections stay opaque.
+        for (QWidget *widget : {static_cast<QWidget *>(&window), static_cast<QWidget *>(pane->view()), static_cast<QWidget *>(places)}) {
+            for (const QPalette::ColorRole role : {QPalette::Text, QPalette::WindowText, QPalette::Highlight, QPalette::HighlightedText}) {
+                QCOMPARE(widget->palette().color(QPalette::Active, role).alpha(), 255);
+            }
+        }
+        // Floating panels are separate opaque windows.
+        places->setFloating(true);
+        QCOMPARE(places->palette().color(QPalette::Active, QPalette::Base).alpha(), 255);
+        places->setFloating(false);
+        QCOMPARE(places->palette().color(QPalette::Active, QPalette::Base).alpha(), 204);
+
+        // The pane tint is made translucent too.
+        Settings::setPaneTint(Settings::EnumPaneTint::AllPanes);
+        window.applySettings();
+        QCOMPARE(pane->view()->palette().color(QPalette::Active, QPalette::Base).alpha(), 102);
+        QVERIFY(pane->view()->palette().color(QPalette::Active, QPalette::Base).rgb() != app.color(QPalette::Active, QPalette::Base).rgb());
+
+        // Opaque windows keep opaque colours.
+        QWidget opaque;
+        Pane standalone(placesOf(window), nullptr, &opaque);
+        standalone.setBackgroundOpacity(40);
+        QCOMPARE(standalone.view()->palette().color(QPalette::Active, QPalette::Base).alpha(), 255);
+    }
+
     void paneTintFollowsTheChosenPanesAndScheme()
     {
         auto restore = qScopeGuard([] {
@@ -534,6 +589,7 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("AccentColor")), QStringLiteral("Colour Scheme"));
         QCOMPARE(tabOf(QStringLiteral("PaneTint")), QStringLiteral("Colour Scheme"));
         QCOMPARE(tabOf(QStringLiteral("BackgroundBlur")), QStringLiteral("Effects"));
+        QCOMPARE(tabOf(QStringLiteral("PaneOpacity")), QStringLiteral("Effects"));
         QCOMPARE(tabOf(QStringLiteral("CustomColors")), QStringLiteral("Custom Colours"));
         QCOMPARE(tabOf(QStringLiteral("DefaultViewMode")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("ShowFileListMinimap")), QStringLiteral("General"));

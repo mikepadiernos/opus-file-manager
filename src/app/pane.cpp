@@ -11,6 +11,7 @@
 #include "symlinks.h"
 #include "tabcolors.h"
 #include "tabmodel.h"
+#include "windoweffects.h"
 
 #include <KConfigGroup>
 #include <KDirModel>
@@ -626,20 +627,32 @@ void Pane::setBackgroundTint(BackgroundTint scope, const QColor &color, int stre
     updateBackgroundTint();
 }
 
+void Pane::setBackgroundOpacity(int opacityPercent)
+{
+    m_backgroundOpacity = opacityPercent;
+    updateBackgroundTint();
+}
+
 void Pane::updateBackgroundTint()
 {
     const bool tinted = m_tintScope == BackgroundTint::AllPanes || (m_tintScope == BackgroundTint::ActivePane && m_active)
         || (m_tintScope == BackgroundTint::InactivePane && !m_active);
-    // Only the tinted roles are resolved, so the view keeps following the
+    ColorSchemes::Overrides overrides = tinted ? ColorSchemes::paneTint(palette(), m_tintColor, m_tintStrength) : ColorSchemes::Overrides();
+    // An opaque window cannot show what is behind it, so translucent colours
+    // would only darken the view.
+    if (WindowEffects::isTranslucent(this)) {
+        overrides.insert(
+            ColorSchemes::translucent(ColorSchemes::withOverrides(palette(), overrides), {QPalette::Base, QPalette::AlternateBase}, m_backgroundOpacity));
+    }
+    // Only these roles are resolved, so the view keeps following the
     // application palette for every other role.
-    m_view->setPalette(
-        ColorSchemes::withOverrides(QPalette(), tinted ? ColorSchemes::paneTint(palette(), m_tintColor, m_tintStrength) : ColorSchemes::Overrides()));
+    m_view->setPalette(ColorSchemes::withOverrides(QPalette(), overrides));
 }
 
 void Pane::changeEvent(QEvent *event)
 {
     QWidget::changeEvent(event);
-    if (event->type() == QEvent::PaletteChange) {
+    if (event->type() == QEvent::PaletteChange || event->type() == QEvent::ParentChange) {
         updateBackgroundTint();
     }
 }

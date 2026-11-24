@@ -278,6 +278,17 @@ private Q_SLOTS:
         const QColor fullStrength(base.red() / 2, base.green() / 2, base.blue() / 2);
         QVERIFY(strong.value(QPalette::Base).lightness() > fullStrength.lightness());
     }
+
+    void translucentBackgroundsKeepTheirColour()
+    {
+        const QPalette light = ColorSchemes::palette(QLatin1String(ColorSchemes::LightPreset));
+        QVERIFY(ColorSchemes::translucent(light, {QPalette::Window}, 100).isEmpty());
+        const ColorSchemes::Overrides overrides = ColorSchemes::translucent(light, {QPalette::Window, QPalette::Base}, 50);
+        QCOMPARE(overrides.size(), 2);
+        QCOMPARE(overrides.value(QPalette::Window).alpha(), 128);
+        QCOMPARE(overrides.value(QPalette::Window).rgb(), light.color(QPalette::Active, QPalette::Window).rgb());
+        QCOMPARE(overrides.value(QPalette::Base).rgb(), light.color(QPalette::Active, QPalette::Base).rgb());
+    }
 };
 
 QTEST_MAIN(ColorSchemesTest)

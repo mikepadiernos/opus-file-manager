@@ -116,6 +116,14 @@ QStringList withAccent(const QString &id, const QString &accent, const QStringLi
  */
 Overrides paneTint(const QPalette &palette, const QColor &tint, int strengthPercent);
 
+/**
+ * Overrides that make background roles translucent, keeping their colour.
+ * @param palette the palette whose colours are used
+ * @param roles the background roles to change; text and selection roles stay opaque
+ * @param opacityPercent the opacity from 0 to 100; 100 gives no overrides
+ */
+Overrides translucent(const QPalette &palette, const QList<QPalette::ColorRole> &roles, int opacityPercent);
+
 /// WCAG 2 contrast ratio between two colours, from 1 to 21.
 double contrastRatio(const QColor &first, const QColor &second);
 

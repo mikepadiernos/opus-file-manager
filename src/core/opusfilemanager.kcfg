@@ -906,5 +906,23 @@
       <label>Blur the desktop behind translucent backgrounds with KWin's blur effect</label>
       <default>false</default>
     </entry>
+    <entry name="WindowOpacity" type="Int">
+      <label>Opacity of the window background in percent, below the panes and panels</label>
+      <default>100</default>
+      <min>20</min>
+      <max>100</max>
+    </entry>
+    <entry name="PaneOpacity" type="Int">
+      <label>Opacity of the folder view background in each pane in percent, layered over the window background</label>
+      <default>100</default>
+      <min>20</min>
+      <max>100</max>
+    </entry>
+    <entry name="PanelOpacity" type="Int">
+      <label>Opacity of docked panel backgrounds in percent, layered over the window background</label>
+      <default>100</default>
+      <min>20</min>
+      <max>100</max>
+    </entry>
   </group>
 </kcfg>

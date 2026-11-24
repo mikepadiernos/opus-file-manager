@@ -334,6 +334,21 @@ ColorSchemes::Overrides ColorSchemes::paneTint(const QPalette &palette, const QC
     return {};
 }
 
+ColorSchemes::Overrides ColorSchemes::translucent(const QPalette &palette, const QList<QPalette::ColorRole> &roles, int opacityPercent)
+{
+    if (opacityPercent >= 100) {
+        return {};
+    }
+    const int alpha = qRound(255 * std::clamp(opacityPercent, 0, 100) / 100.0);
+    Overrides overrides;
+    for (const QPalette::ColorRole role : roles) {
+        QColor color = palette.color(QPalette::Active, role);
+        color.setAlpha(alpha);
+        overrides.insert(role, color);
+    }
+    return overrides;
+}
+
 double ColorSchemes::contrastRatio(const QColor &first, const QColor &second)
 {
     const auto luminance = [](const QColor &color) {

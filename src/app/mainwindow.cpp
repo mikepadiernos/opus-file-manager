@@ -546,6 +546,55 @@ void MainWindow::showEvent(QShowEvent *event)
     applyWindowEffects();
 }
 
+void MainWindow::applyBackgroundOpacity()
+{
+    // An opaque window cannot show what is behind it, so translucent colours
+    // would only darken it. Only the Window role is resolved, so the window
+    // keeps following the application palette for every other role.
+    const ColorSchemes::Overrides overrides = WindowEffects::isTranslucent(this)
+        ? ColorSchemes::translucent(QApplication::palette(this), {QPalette::Window}, Settings::windowOpacity())
+        : ColorSchemes::Overrides();
+    setPalette(ColorSchemes::withOverrides(QPalette(), overrides));
+    for (QDockWidget *dock : findChildren<QDockWidget *>(Qt::FindDirectChildrenOnly)) {
+        applyPanelOpacity(dock);
+    }
+}
+
+void MainWindow::applyPanelOpacity(QDockWidget *dock)
+{
+    if (!dock->property("opusPanelOpacity").toBool()) {
+        dock->setProperty("opusPanelOpacity", true);
+        connect(dock, &QDockWidget::topLevelChanged, this, [this, dock] {
+            applyPanelOpacity(dock);
+        });
+    }
+    // A floating panel is a separate window without a translucent background.
+    const ColorSchemes::Overrides overrides = WindowEffects::isTranslucent(this) && !dock->isFloating()
+        ? ColorSchemes::translucent(QApplication::palette(dock), {QPalette::Window, QPalette::Base, QPalette::AlternateBase}, Settings::panelOpacity())
+        : ColorSchemes::Overrides();
+    dock->setPalette(ColorSchemes::withOverrides(QPalette(), overrides));
+}
+
+void MainWindow::changeEvent(QEvent *event)
+{
+    KXmlGuiWindow::changeEvent(event);
+    // Recompute translucent colours from a new colour scheme. Setting an
+    // unchanged palette sends no further event.
+    if (event->type() == QEvent::PaletteChange) {
+        applyBackgroundOpacity();
+    }
+}
+
+void MainWindow::childEvent(QChildEvent *event)
+{
+    KXmlGuiWindow::childEvent(event);
+    if (event->type() == QEvent::ChildPolished) {
+        if (auto *dock = qobject_cast<QDockWidget *>(event->child())) {
+            applyPanelOpacity(dock);
+        }
+    }
+}
+
 MainWindow::~MainWindow()
 {
     delete findChild<WorkspaceDialog *>(QStringLiteral("workspaceDialog"));
@@ -4557,7 +4606,9 @@ void MainWindow::applySettings()
 {
     applyColorScheme();
     applyWindowEffects();
-    if (const QString reason = WindowEffects::unavailableReason(this, Settings::backgroundBlur(), false); !reason.isEmpty()) {
+    applyBackgroundOpacity();
+    const bool translucency = Settings::windowOpacity() < 100 || Settings::paneOpacity() < 100 || Settings::panelOpacity() < 100;
+    if (const QString reason = WindowEffects::unavailableReason(this, Settings::backgroundBlur(), translucency); !reason.isEmpty()) {
         statusBar()->showMessage(reason);
     }
     applyLocationPresentationDefaults();
@@ -4603,6 +4654,7 @@ void MainWindow::applySettings()
     for (Pane *pane : {m_left, m_right}) {
         pane->setInactiveDimming(Settings::dimInactivePane(), Settings::inactivePaneOpacity());
         pane->setBackgroundTint(static_cast<Pane::BackgroundTint>(Settings::paneTint()), Settings::paneTintColor(), Settings::paneTintStrength());
+        pane->setBackgroundOpacity(Settings::paneOpacity());
         pane->reloadTabSettings();
         pane->reloadFilterSettings();
         pane->setNavigationBarVisible(Settings::showNavigationBar());

@@ -1609,7 +1609,26 @@ QWidget *SettingsDialog::createEffectsPage()
     auto *blur = checkBox(QStringLiteral("BackgroundBlur"), i18nc("@option:check", "Blur the desktop behind translucent backgrounds"));
     blur->setToolTip(i18nc("@info:tooltip", "Uses KWin's blur effect; its strength follows the Blur settings in Desktop Effects."));
     form->addRow(i18nc("@title:group", "Background:"), blur);
+    const auto opacity = [](const QString &entry) {
+        auto *spin = new QSpinBox;
+        spin->setObjectName(QStringLiteral("kcfg_") + entry);
+        spin->setRange(20, 100);
+        spin->setSuffix(i18nc("@item:valuesuffix percent", "%"));
+        return spin;
+    };
+    auto *windowOpacity = opacity(QStringLiteral("WindowOpacity"));
+    auto *paneOpacity = opacity(QStringLiteral("PaneOpacity"));
+    auto *panelOpacity = opacity(QStringLiteral("PanelOpacity"));
+    form->addRow(i18nc("@label:spinbox", "Window opacity:"), windowOpacity);
+    form->addRow(i18nc("@label:spinbox", "Pane opacity:"), paneOpacity);
+    form->addRow(i18nc("@label:spinbox", "Panel opacity:"), panelOpacity);
     layout->addLayout(form);
+    auto *explanation = new QLabel(i18nc("@info",
+                                         "Only backgrounds become translucent; text, icons and selections stay opaque. Panes and panels are "
+                                         "drawn over the window background, so they are never more transparent than the window."),
+                                   page);
+    explanation->setWordWrap(true);
+    layout->addWidget(explanation);
     auto *notice = new KMessageWidget(page);
     notice->setObjectName(QStringLiteral("windowEffectsNotice"));
     notice->setMessageType(KMessageWidget::Information);
@@ -1617,12 +1636,16 @@ QWidget *SettingsDialog::createEffectsPage()
     notice->setWordWrap(true);
     notice->hide();
     layout->addWidget(notice);
-    const auto updateNotice = [this, blur, notice] {
-        const QString reason = WindowEffects::unavailableReason(parentWidget(), blur->isChecked(), false);
+    const auto updateNotice = [this, blur, windowOpacity, paneOpacity, panelOpacity, notice] {
+        const bool translucency = windowOpacity->value() < 100 || paneOpacity->value() < 100 || panelOpacity->value() < 100;
+        const QString reason = WindowEffects::unavailableReason(parentWidget(), blur->isChecked(), translucency);
         notice->setText(reason);
         notice->setVisible(!reason.isEmpty());
     };
     connect(blur, &QCheckBox::toggled, page, updateNotice);
+    for (QSpinBox *spin : {windowOpacity, paneOpacity, panelOpacity}) {
+        connect(spin, &QSpinBox::valueChanged, page, updateNotice);
+    }
     updateNotice();
     layout->addStretch();
     return page;
