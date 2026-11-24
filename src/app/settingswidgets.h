@@ -2,12 +2,19 @@
 
 #pragma once
 
+#include "foldercolorrules.h"
+
 #include <QComboBox>
+#include <QDialog>
 #include <QHash>
 #include <QListWidget>
 #include <QPalette>
 #include <QSpinBox>
 #include <QWidget>
+
+#include <optional>
+
+class QLineEdit;
 
 class InterfaceLanguageCombo : public QComboBox
 {
@@ -225,6 +232,62 @@ private:
     void editRule(int row);
     Kind m_kind;
     QListWidget *m_list;
+};
+
+/**
+ * Edits one folder colour rule: what it matches, the pattern, the colour and
+ * whether subfolders inherit it.
+ */
+class FolderColorRuleDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    explicit FolderColorRuleDialog(QWidget *parent = nullptr);
+    /// The edited rule, or nothing while the input is invalid.
+    std::optional<FolderColorRules::Rule> rule() const;
+    void setRule(const FolderColorRules::Rule &rule);
+
+private:
+    void validate();
+
+    QComboBox *m_match;
+    QLineEdit *m_pattern;
+    QPushButton *m_browse;
+    KColorButton *m_color;
+    QCheckBox *m_subfolders;
+    QPushButton *m_ok = nullptr;
+};
+
+/**
+ * Lists folder colour rules in the order they are checked, with buttons to
+ * add, edit, remove and reorder them. Bound to the FolderColorRules setting.
+ */
+class FolderColorRuleEditor : public QWidget
+{
+    Q_OBJECT
+    Q_PROPERTY(QStringList rules READ rules WRITE setRules NOTIFY rulesChanged USER true)
+
+public:
+    explicit FolderColorRuleEditor(QWidget *parent = nullptr);
+    QStringList rules() const;
+    void setRules(const QStringList &rules);
+    /// Moves the rule at @p row by @p offset rows, keeping it selected.
+    void moveRule(int row, int offset);
+
+Q_SIGNALS:
+    void rulesChanged();
+
+private:
+    void editRule(int row);
+    void updateButtons();
+
+    QListWidget *m_list;
+    QPushButton *m_add;
+    QPushButton *m_edit;
+    QPushButton *m_remove;
+    QPushButton *m_up;
+    QPushButton *m_down;
 };
 
 class IconInformationList : public QListWidget

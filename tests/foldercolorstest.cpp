@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "foldercolors.h"
+#include "foldercolorrules.h"
 #include "foldermetadata.h"
 #include "labelcolor.h"
 #include "settings.h"
@@ -8,6 +9,7 @@
 #include "testicontheme.h"
 
 #include <KFileItem>
+#include <QDir>
 #include <QPixmap>
 #include <QScopeGuard>
 #include <QStandardPaths>
@@ -58,6 +60,31 @@ private Q_SLOTS:
         FolderColors::clearCache();
         QCOMPARE(FolderColors::color(folder.path()), red);
         QCOMPARE(FolderColors::color(QUrl::fromLocalFile(folder.path())), red);
+    }
+
+    void ownColourTakesPrecedenceOverRules()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            FolderColors::clearCache();
+        });
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("own/child")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("plain/child")));
+        const QColor green = LabelColors::rgb(LabelColor::Green);
+        const QColor red = LabelColors::rgb(LabelColor::Red);
+        QVERIFY(FolderMetadata::setFolderColor(root.filePath(QStringLiteral("own")), red.name()));
+        Settings::setFolderColorRules({FolderColorRules::entry({FolderColorRules::Match::Path, root.path(), green, true})});
+        FolderColors::clearCache();
+        QCOMPARE(FolderColors::color(root.filePath(QStringLiteral("own"))), red);
+        QCOMPARE(FolderColors::color(root.filePath(QStringLiteral("own/child"))), green);
+        QCOMPARE(FolderColors::color(root.filePath(QStringLiteral("plain/child"))), green);
+        Settings::setFolderColorRules({});
+        QCOMPARE(FolderColors::color(root.filePath(QStringLiteral("plain"))), green);
+        FolderColors::clearCache();
+        QVERIFY2(!FolderColors::color(root.filePath(QStringLiteral("plain"))).isValid(), "rules are read again when the cache is cleared");
+        QVERIFY(FolderMetadata::read(root.filePath(QStringLiteral("plain"))).isEmpty());
     }
 
     void findsThemedFolderVariants()

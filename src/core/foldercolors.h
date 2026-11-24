@@ -32,13 +32,15 @@ enum class Style {
 Style configured();
 
 /**
- * The colour of a local folder, or an invalid colour. Results are cached
- * for two seconds, since views ask for them whenever rows are drawn.
+ * The colour of a local folder: its own colour from Folder Appearance, or
+ * else the colour of the first matching folder colour rule. Invalid when
+ * neither applies. Results are cached for two seconds, since views ask for
+ * them whenever rows are drawn.
  */
 QColor color(const QString &localPath);
 /// The colour of @p url when it is a local folder, otherwise invalid.
 QColor color(const QUrl &url);
-/// Forgets cached folder colours, such as after a folder colour changes.
+/// Forgets cached folder colours and reads the rules again, such as after a folder colour or the settings change.
 void clearCache();
 
 /**

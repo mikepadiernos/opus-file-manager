@@ -27,6 +27,8 @@ add_library(opusfm_core STATIC
     foldercomparison.h
     foldercolors.cpp
     foldercolors.h
+    foldercolorrules.cpp
+    foldercolorrules.h
     foldersync.cpp
     foldersync.h
     foldersyncprofiles.cpp

@@ -17,6 +17,10 @@
 
 #include <QCheckBox>
 #include <QColorDialog>
+#include <QDialogButtonBox>
+#include <QDir>
+#include <QFileDialog>
+#include <QFormLayout>
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -26,6 +30,7 @@
 #include <QLineEdit>
 #include <QLocale>
 #include <QMessageBox>
+#include <QPainter>
 #include <QPushButton>
 #include <QSet>
 #include <QSignalBlocker>
@@ -677,6 +682,240 @@ void RuleListEditor::editRule(int row)
         return;
     }
     setRules(sanitized);
+}
+
+namespace
+{
+QString ruleText(const FolderColorRules::Rule &rule)
+{
+    QString text;
+    switch (rule.match) {
+    case FolderColorRules::Match::Path:
+        text = i18nc("@item folder colour rule", "Folder %1", rule.pattern);
+        break;
+    case FolderColorRules::Match::Name:
+        text = i18nc("@item folder colour rule", "Name matches %1", rule.pattern);
+        break;
+    case FolderColorRules::Match::Tag:
+        text = i18nc("@item folder colour rule", "Tagged %1", rule.pattern);
+        break;
+    }
+    return rule.subfolders ? i18nc("@item folder colour rule that subfolders inherit", "%1, and subfolders", text) : text;
+}
+
+QIcon colorSwatch(const QColor &color)
+{
+    QPixmap swatch(16, 16);
+    swatch.fill(Qt::transparent);
+    QPainter painter(&swatch);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setPen(QPen(QColor(127, 127, 127), 1));
+    painter.setBrush(color);
+    painter.drawEllipse(QRectF(1.5, 1.5, 13, 13));
+    return QIcon(swatch);
+}
+}
+
+FolderColorRuleDialog::FolderColorRuleDialog(QWidget *parent)
+    : QDialog(parent)
+    , m_match(new QComboBox(this))
+    , m_pattern(new QLineEdit(this))
+    , m_browse(new QPushButton(QIcon::fromTheme(QStringLiteral("document-open-folder")), i18nc("@action:button", "Browse…"), this))
+    , m_color(new KColorButton(QColor(0x3d, 0xae, 0xe9), this))
+    , m_subfolders(new QCheckBox(i18nc("@option:check", "Also colour subfolders"), this))
+{
+    setWindowTitle(i18nc("@title:window", "Folder Colour Rule"));
+    m_match->addItem(i18nc("@item:inlistbox folder colour rule", "Folder path"), int(FolderColorRules::Match::Path));
+    m_match->addItem(i18nc("@item:inlistbox folder colour rule", "Folder name pattern"), int(FolderColorRules::Match::Name));
+    m_match->addItem(i18nc("@item:inlistbox folder colour rule", "Folder tag"), int(FolderColorRules::Match::Tag));
+    m_match->setCurrentIndex(1);
+    m_color->setAccessibleName(i18nc("@label", "Rule colour"));
+    auto *form = new QFormLayout(this);
+    form->addRow(i18nc("@label:listbox", "Match:"), m_match);
+    auto *patternRow = new QHBoxLayout;
+    patternRow->addWidget(m_pattern, 1);
+    patternRow->addWidget(m_browse);
+    form->addRow(i18nc("@label:textbox", "Pattern:"), patternRow);
+    form->addRow(i18nc("@label", "Colour:"), m_color);
+    form->addRow(QString(), m_subfolders);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+    m_ok = buttons->button(QDialogButtonBox::Ok);
+    form->addRow(buttons);
+    connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    connect(m_match, &QComboBox::currentIndexChanged, this, &FolderColorRuleDialog::validate);
+    connect(m_pattern, &QLineEdit::textChanged, this, &FolderColorRuleDialog::validate);
+    connect(m_browse, &QPushButton::clicked, this, [this] {
+        const QString start = m_pattern->text().startsWith(u'/') ? m_pattern->text() : QDir::homePath();
+        const QString folder = QFileDialog::getExistingDirectory(this, i18nc("@title:window", "Choose Folder"), start);
+        if (!folder.isEmpty()) {
+            m_pattern->setText(folder);
+        }
+    });
+    validate();
+}
+
+std::optional<FolderColorRules::Rule> FolderColorRuleDialog::rule() const
+{
+    FolderColorRules::Rule rule;
+    rule.match = static_cast<FolderColorRules::Match>(m_match->currentData().toInt());
+    rule.pattern = m_pattern->text();
+    rule.color = m_color->color();
+    rule.subfolders = m_subfolders->isChecked();
+    return FolderColorRules::parse(FolderColorRules::entry(rule));
+}
+
+void FolderColorRuleDialog::setRule(const FolderColorRules::Rule &rule)
+{
+    m_match->setCurrentIndex(std::max(0, m_match->findData(int(rule.match))));
+    m_pattern->setText(rule.pattern);
+    m_color->setColor(rule.color);
+    m_subfolders->setChecked(rule.subfolders);
+    validate();
+}
+
+void FolderColorRuleDialog::validate()
+{
+    const auto match = static_cast<FolderColorRules::Match>(m_match->currentData().toInt());
+    m_browse->setVisible(match == FolderColorRules::Match::Path);
+    switch (match) {
+    case FolderColorRules::Match::Path:
+        m_pattern->setPlaceholderText(i18nc("@info:placeholder", "/path/to/folder or ~/folder"));
+        break;
+    case FolderColorRules::Match::Name:
+        m_pattern->setPlaceholderText(i18nc("@info:placeholder", "Name or wildcard pattern, such as *-archive"));
+        break;
+    case FolderColorRules::Match::Tag:
+        m_pattern->setPlaceholderText(i18nc("@info:placeholder", "Tag name"));
+        break;
+    }
+    m_ok->setEnabled(rule().has_value());
+}
+
+FolderColorRuleEditor::FolderColorRuleEditor(QWidget *parent)
+    : QWidget(parent)
+    , m_list(new QListWidget(this))
+    , m_add(new QPushButton(QIcon::fromTheme(QStringLiteral("list-add")), i18nc("@action:button", "Add…"), this))
+    , m_edit(new QPushButton(QIcon::fromTheme(QStringLiteral("document-edit")), i18nc("@action:button", "Edit…"), this))
+    , m_remove(new QPushButton(QIcon::fromTheme(QStringLiteral("list-remove")), i18nc("@action:button", "Remove"), this))
+    , m_up(new QPushButton(QIcon::fromTheme(QStringLiteral("go-up")), i18nc("@action:button", "Move Up"), this))
+    , m_down(new QPushButton(QIcon::fromTheme(QStringLiteral("go-down")), i18nc("@action:button", "Move Down"), this))
+{
+    m_list->setAccessibleName(i18nc("@label", "Folder colour rules"));
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(m_list);
+    auto *buttons = new QHBoxLayout;
+    for (QPushButton *button : {m_add, m_edit, m_remove, m_up, m_down}) {
+        buttons->addWidget(button);
+    }
+    buttons->addStretch();
+    layout->addLayout(buttons);
+    connect(m_add, &QPushButton::clicked, this, [this] {
+        editRule(-1);
+    });
+    connect(m_edit, &QPushButton::clicked, this, [this] {
+        editRule(m_list->currentRow());
+    });
+    connect(m_list, &QListWidget::itemDoubleClicked, this, [this](QListWidgetItem *item) {
+        editRule(m_list->row(item));
+    });
+    connect(m_remove, &QPushButton::clicked, this, [this] {
+        if (const int row = m_list->currentRow(); row >= 0) {
+            delete m_list->takeItem(row);
+            updateButtons();
+            Q_EMIT rulesChanged();
+        }
+    });
+    connect(m_up, &QPushButton::clicked, this, [this] {
+        moveRule(m_list->currentRow(), -1);
+    });
+    connect(m_down, &QPushButton::clicked, this, [this] {
+        moveRule(m_list->currentRow(), 1);
+    });
+    connect(m_list, &QListWidget::currentRowChanged, this, &FolderColorRuleEditor::updateButtons);
+    updateButtons();
+}
+
+QStringList FolderColorRuleEditor::rules() const
+{
+    QStringList result;
+    for (int row = 0; row < m_list->count(); ++row) {
+        result.append(m_list->item(row)->data(Qt::UserRole).toString());
+    }
+    return result;
+}
+
+void FolderColorRuleEditor::setRules(const QStringList &rules)
+{
+    const int current = m_list->currentRow();
+    m_list->clear();
+    const QList<FolderColorRules::Rule> parsed = FolderColorRules(rules).rules();
+    for (const FolderColorRules::Rule &rule : parsed) {
+        auto *item = new QListWidgetItem(colorSwatch(rule.color), ruleText(rule), m_list);
+        item->setData(Qt::UserRole, FolderColorRules::entry(rule));
+    }
+    m_list->setCurrentRow(std::min(current, int(m_list->count()) - 1));
+    updateButtons();
+    Q_EMIT rulesChanged();
+}
+
+void FolderColorRuleEditor::moveRule(int row, int offset)
+{
+    const int target = row + offset;
+    if (row < 0 || row >= m_list->count() || target < 0 || target >= m_list->count()) {
+        return;
+    }
+    QStringList current = rules();
+    current.move(row, target);
+    setRules(current);
+    m_list->setCurrentRow(target);
+}
+
+void FolderColorRuleEditor::editRule(int row)
+{
+    if (row < -1 || row >= m_list->count()) {
+        return;
+    }
+    QStringList current = rules();
+    if (row < 0 && current.size() >= FolderColorRules::MaximumRules) {
+        QMessageBox::warning(this, i18nc("@title:window", "Invalid Rule"), i18nc("@info", "The list of folder colour rules is full."));
+        return;
+    }
+    FolderColorRuleDialog dialog(this);
+    if (row >= 0) {
+        if (const std::optional<FolderColorRules::Rule> rule = FolderColorRules::parse(current.at(row))) {
+            dialog.setRule(*rule);
+        }
+    }
+    if (dialog.exec() != QDialog::Accepted) {
+        return;
+    }
+    const std::optional<FolderColorRules::Rule> rule = dialog.rule();
+    if (!rule) {
+        return;
+    }
+    const QString entry = FolderColorRules::entry(*rule);
+    if (current.contains(entry) && (row < 0 || current.at(row) != entry)) {
+        QMessageBox::warning(this, i18nc("@title:window", "Invalid Rule"), i18nc("@info", "The same rule is already in the list."));
+        return;
+    }
+    if (row >= 0) {
+        current[row] = entry;
+    } else {
+        current.append(entry);
+    }
+    setRules(current);
+    m_list->setCurrentRow(row >= 0 ? row : m_list->count() - 1);
+}
+
+void FolderColorRuleEditor::updateButtons()
+{
+    const int row = m_list->currentRow();
+    m_edit->setEnabled(row >= 0);
+    m_remove->setEnabled(row >= 0);
+    m_up->setEnabled(row > 0);
+    m_down->setEnabled(row >= 0 && row + 1 < m_list->count());
 }
 
 IconInformationList::IconInformationList(QWidget *parent, bool cardFields)

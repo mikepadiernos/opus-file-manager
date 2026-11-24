@@ -1046,5 +1046,9 @@
       </choices>
       <default>Icon</default>
     </entry>
+    <entry name="FolderColorRules" type="StringList">
+      <label>Rules that colour folders without their own colour by path, name pattern or tag, as JSON objects checked in order</label>
+      <default></default>
+    </entry>
   </group>
 </kcfg>

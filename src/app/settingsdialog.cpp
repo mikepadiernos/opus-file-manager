@@ -1784,7 +1784,18 @@ QWidget *SettingsDialog::createFolderColorsPage()
                             page);
     note->setWordWrap(true);
     layout->addWidget(note);
-    layout->addStretch();
+    auto *rulesLabel = new QLabel(i18nc("@label", "Rules for folders without their own colour, checked in order:"), page);
+    rulesLabel->setWordWrap(true);
+    layout->addWidget(rulesLabel);
+    auto *rules = bound(new FolderColorRuleEditor(page), QStringLiteral("FolderColorRules"), "rules");
+    rulesLabel->setBuddy(rules);
+    layout->addWidget(rules, 1);
+    auto *rulesNote = new QLabel(i18nc("@info",
+                                       "A folder's own colour takes precedence over rules, and the first matching rule wins. Rules only change how "
+                                       "folders are shown; they never change the folders or their contents."),
+                                 page);
+    rulesNote->setWordWrap(true);
+    layout->addWidget(rulesNote);
     return page;
 }
 

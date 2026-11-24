@@ -3,6 +3,7 @@
 #include "foldercolors.h"
 
 #include "colorschemes.h"
+#include "foldercolorrules.h"
 #include "foldermetadata.h"
 #include "labelcolor.h"
 #include "settings.h"
@@ -44,6 +45,16 @@ quint64 &generation()
 {
     static quint64 value = 0;
     return value;
+}
+
+/// The configured folder colour rules, read again after FolderColors::clearCache().
+const FolderColorRules &configuredRules(bool reload = false)
+{
+    static FolderColorRules rules = FolderColorRules::configured();
+    if (reload) {
+        rules = FolderColorRules::configured();
+    }
+    return rules;
 }
 
 qint64 now()
@@ -285,7 +296,8 @@ QColor FolderColors::color(const QString &localPath)
     if (cache.size() > CacheLimit) {
         cache.clear();
     }
-    const QColor color = QColor::fromString(FolderMetadata::read(localPath).value(QStringLiteral("color")).toString());
+    const QColor explicitColor = QColor::fromString(FolderMetadata::read(localPath).value(QStringLiteral("color")).toString());
+    const QColor color = explicitColor.isValid() ? explicitColor : configuredRules().colorFor(localPath);
     cache.insert(localPath, {color, time});
     return color;
 }
@@ -298,6 +310,7 @@ QColor FolderColors::color(const QUrl &url)
 void FolderColors::clearCache()
 {
     colorCache().clear();
+    configuredRules(true);
     ++generation();
 }
 

@@ -1450,6 +1450,49 @@ private Q_SLOTS:
         QCOMPARE(previews.readEntry("MaximumSize", qulonglong(0)), qulonglong(5 * 1024 * 1024));
     }
 
+    void editsFolderColourRules()
+    {
+        FolderColorRuleDialog ruleDialog;
+        auto *ok = ruleDialog.findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok);
+        auto *match = ruleDialog.findChild<QComboBox *>();
+        auto *pattern = ruleDialog.findChild<QLineEdit *>();
+        QVERIFY(ok && match && pattern);
+        QVERIFY(!ok->isEnabled());
+        pattern->setText(QStringLiteral("*-archive"));
+        QVERIFY(ok->isEnabled());
+        match->setCurrentIndex(match->findData(int(FolderColorRules::Match::Path)));
+        QVERIFY2(!ok->isEnabled(), "path rules need an absolute or home-relative path");
+        pattern->setText(QStringLiteral("~/Work"));
+        QVERIFY(ok->isEnabled());
+        ruleDialog.findChild<QCheckBox *>()->setChecked(true);
+        const std::optional<FolderColorRules::Rule> rule = ruleDialog.rule();
+        QVERIFY(rule);
+        QCOMPARE(rule->match, FolderColorRules::Match::Path);
+        QVERIFY(rule->subfolders);
+
+        const QString first = FolderColorRules::entry({FolderColorRules::Match::Name, QStringLiteral("docs"), Qt::red, false});
+        const QString second = FolderColorRules::entry(*rule);
+        const auto restore = qScopeGuard([] {
+            Settings::setFolderColorRules({});
+            Settings::self()->save();
+        });
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *editor = dialog.findChild<FolderColorRuleEditor *>(QStringLiteral("kcfg_FolderColorRules"));
+        QVERIFY(editor);
+        QSignalSpy changed(editor, &FolderColorRuleEditor::rulesChanged);
+        editor->setRules({first, QStringLiteral("invalid"), second, first});
+        QCOMPARE(editor->rules(), QStringList({first, second}));
+        editor->moveRule(1, -1);
+        QCOMPARE(editor->rules(), QStringList({second, first}));
+        editor->moveRule(0, -1);
+        QCOMPARE(editor->rules(), QStringList({second, first}));
+        QVERIFY(changed.count() >= 2);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Ok)->click();
+        QCOMPARE(Settings::folderColorRules(), QStringList({second, first}));
+    }
+
     void cleanupTestCase()
     {
         const auto config = KSharedConfig::openConfig(QStringLiteral("kiorc"), KConfig::NoGlobals);
