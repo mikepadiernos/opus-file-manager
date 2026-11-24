@@ -13,11 +13,15 @@ namespace
 {
 constexpr qint64 MaxTextSize = 2 * 1024 * 1024;
 constexpr int MaxResults = 5000;
-constexpr int MaxEntries = 200000;
 }
 
-LiveSearch::Result
-LiveSearch::find(const QString &folder, const QString &text, Field field, const Cancel &cancel, const Progress &progress, const PathFilter &filter)
+LiveSearch::Result LiveSearch::find(const QString &folder,
+                                    const QString &text,
+                                    Field field,
+                                    const Cancel &cancel,
+                                    const Progress &progress,
+                                    const PathFilter &filter,
+                                    int entryLimit)
 {
     Result result;
     const QFileInfo root(folder);
@@ -56,7 +60,7 @@ LiveSearch::find(const QString &folder, const QString &text, Field field, const 
                 result.canceled = true;
                 return result;
             }
-            if (result.scannedEntries >= MaxEntries) {
+            if (result.scannedEntries >= entryLimit) {
                 result.limited = true;
                 return result;
             }

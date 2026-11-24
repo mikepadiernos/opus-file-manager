@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "settingsbackup.h"
+#include "workspacecatalog.h"
 
 #include <KArchiveDirectory>
 #include <KArchiveEntry>
@@ -16,6 +17,7 @@
 #include <QFileInfo>
 #include <QRegularExpression>
 #include <QSaveFile>
+#include <QSet>
 #include <QTemporaryDir>
 #include <QTemporaryFile>
 
@@ -65,35 +67,36 @@ bool isCredentialKey(const QString &key)
     return credentialKey.match(key).hasMatch();
 }
 
-void copySanitizedEntries(const KConfigGroup &source, KConfigGroup &destination, const QString &path, bool stateConfig)
+void copySanitizedEntries(const KConfigGroup &source, KConfigGroup &destination, const QString &path, bool stateConfig, bool allowWorkspaceCatalog)
 {
     for (const QString &key : source.keyList()) {
         const QString value = source.readEntry(key, QString());
         const bool panelLocations =
             stateConfig && path == QLatin1String("Panels") && (key == QLatin1String("FoldersExpanded") || key == QLatin1String("CombinedExpanded"));
-        if (!panelLocations && !isCredentialKey(key) && !hasCredential(value)) {
+        const bool selectedWorkspaceCatalog = allowWorkspaceCatalog && path == QLatin1String("Workspaces") && key == QLatin1String("Catalog");
+        if (!panelLocations && !isCredentialKey(key) && (selectedWorkspaceCatalog || !hasCredential(value))) {
             destination.writeEntry(key, value);
         }
     }
 }
 
-void copySanitizedGroup(const KConfigGroup &source, KConfigGroup &destination, const QString &path, bool stateConfig)
+void copySanitizedGroup(const KConfigGroup &source, KConfigGroup &destination, const QString &path, bool stateConfig, bool allowWorkspaceCatalog)
 {
-    copySanitizedEntries(source, destination, path, stateConfig);
+    copySanitizedEntries(source, destination, path, stateConfig, allowWorkspaceCatalog);
     for (const QString &name : source.groupList()) {
         KConfigGroup destinationGroup = destination.group(name);
         const QString childPath = path.isEmpty() ? name : path + QLatin1Char('/') + name;
-        copySanitizedGroup(source.group(name), destinationGroup, childPath, stateConfig);
+        copySanitizedGroup(source.group(name), destinationGroup, childPath, stateConfig, allowWorkspaceCatalog);
     }
 }
 
-QString copySanitizedConfig(const QString &sourcePath, const QString &destinationPath, bool stateConfig)
+QString copySanitizedConfig(const QString &sourcePath, const QString &destinationPath, bool stateConfig, bool allowWorkspaceCatalog)
 {
     KConfig source(sourcePath, KConfig::SimpleConfig);
     KConfig destination(destinationPath, KConfig::SimpleConfig);
     const KConfigGroup sourceRoot = source.group(QString());
     KConfigGroup destinationRoot = destination.group(QString());
-    copySanitizedEntries(sourceRoot, destinationRoot, {}, stateConfig);
+    copySanitizedEntries(sourceRoot, destinationRoot, {}, stateConfig, allowWorkspaceCatalog);
     for (const QString &name : source.groupList()) {
         if ((stateConfig && (name == QLatin1String("Session") || name == QLatin1String("Flat")))
             || (!stateConfig && (name == QLatin1String("CustomCommands") || name == QLatin1String("Credentials")))) {
@@ -101,7 +104,7 @@ QString copySanitizedConfig(const QString &sourcePath, const QString &destinatio
         }
         KConfigGroup destinationGroup = destination.group(name);
         destination.deleteGroup(name);
-        copySanitizedGroup(source.group(name), destinationGroup, name, stateConfig);
+        copySanitizedGroup(source.group(name), destinationGroup, name, stateConfig, allowWorkspaceCatalog);
     }
     if (!destination.sync()) {
         return i18nc("@info", "Could not write the sanitized settings file.");
@@ -217,6 +220,123 @@ QString writeAtomically(const QString &path, const QByteArray &contents)
     return {};
 }
 
+QString filterWorkspaceCatalog(const QString &path, const QStringList &workspaceIds)
+{
+    KConfig config(path, KConfig::SimpleConfig);
+    auto group = config.group(QStringLiteral("Workspaces"));
+    WorkspaceCatalog::Catalog catalog;
+    QString error;
+    if (!WorkspaceCatalog::load(group, catalog, error)) {
+        return error;
+    }
+    QSet<QString> selected(workspaceIds.cbegin(), workspaceIds.cend());
+    QSet<QString> found;
+    for (auto it = catalog.workspaces.begin(); it != catalog.workspaces.end();) {
+        if (!selected.contains(it->id)) {
+            it = catalog.workspaces.erase(it);
+            continue;
+        }
+        found.insert(it->id);
+        if (it->layout && it->layout->session) {
+            for (PaneSession *pane : {&it->layout->session->left, &it->layout->session->right}) {
+                for (QUrl &url : pane->tabs) {
+                    url = url.adjusted(QUrl::RemoveUserInfo | QUrl::RemoveQuery | QUrl::RemoveFragment);
+                }
+            }
+        }
+        ++it;
+    }
+    if (found != selected) {
+        return i18nc("@info", "One or more selected workspaces no longer exist.");
+    }
+    for (auto it = catalog.locationAssignments.begin(); it != catalog.locationAssignments.end();) {
+        if (!selected.contains(it.value())) {
+            it = catalog.locationAssignments.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    if (!selected.contains(catalog.activeId)) {
+        catalog.activeId.clear();
+    }
+    if (!WorkspaceCatalog::save(group, catalog, error)) {
+        return error;
+    }
+    if (hasCredential(QString::fromUtf8(group.readEntry("Catalog", QByteArray())))) {
+        return i18nc("@info", "A workspace contains credential-like data that cannot be included in an export.");
+    }
+    return {};
+}
+
+bool readWorkspaceCatalog(const QByteArray &settingsBytes, QTemporaryDir &temporary, WorkspaceCatalog::Catalog &catalog, QString *error)
+{
+    const QString path = temporary.filePath(QString::fromLatin1(SettingsEntry));
+    *error = writeAtomically(path, settingsBytes);
+    if (!error->isEmpty()) {
+        return false;
+    }
+    KConfig config(path, KConfig::SimpleConfig);
+    return WorkspaceCatalog::load(config.group(QStringLiteral("Workspaces")), catalog, *error);
+}
+
+bool workspaceConflict(const WorkspaceCatalog::Workspace &candidate, const WorkspaceCatalog::Catalog &current)
+{
+    return std::any_of(current.workspaces.cbegin(), current.workspaces.cend(), [&candidate](const auto &existing) {
+        return existing.id == candidate.id || existing.name.trimmed().toCaseFolded() == candidate.name.trimmed().toCaseFolded();
+    });
+}
+
+bool mergeWorkspaceProfiles(WorkspaceCatalog::Catalog &current,
+                            const WorkspaceCatalog::Catalog &incoming,
+                            bool replaceConflicts,
+                            QStringList *imported,
+                            QString *error)
+{
+    QStringList importedNames;
+    for (const WorkspaceCatalog::Workspace &source : incoming.workspaces) {
+        const auto conflict = std::find_if(current.workspaces.begin(), current.workspaces.end(), [&source](const auto &existing) {
+            return existing.id == source.id || existing.name.trimmed().toCaseFolded() == source.name.trimmed().toCaseFolded();
+        });
+        if (conflict != current.workspaces.end() && !replaceConflicts) {
+            continue;
+        }
+        WorkspaceCatalog::Workspace copy = source;
+        if (conflict != current.workspaces.end()) {
+            if (current.activeId == conflict->id) {
+                copy.id = conflict->id;
+            }
+            const QString replacedId = conflict->id;
+            current.workspaces.erase(conflict);
+            for (auto assignment = current.locationAssignments.begin(); assignment != current.locationAssignments.end();) {
+                if (assignment.value() == replacedId) {
+                    assignment = current.locationAssignments.erase(assignment);
+                } else {
+                    ++assignment;
+                }
+            }
+        }
+        if (std::any_of(current.workspaces.cbegin(), current.workspaces.cend(), [&copy](const auto &existing) {
+                return existing.name.trimmed().toCaseFolded() == copy.name.trimmed().toCaseFolded();
+            })) {
+            *error = i18nc("@info", "Workspace import would create a duplicate name: %1", copy.name);
+            return false;
+        }
+        current.workspaces.append(copy);
+        for (auto it = incoming.locationAssignments.cbegin(); it != incoming.locationAssignments.cend(); ++it) {
+            if (it.value() != source.id || current.locationAssignments.contains(it.key())) {
+                continue;
+            }
+            current.locationAssignments.insert(it.key(), copy.id);
+        }
+        importedNames.append(copy.name);
+    }
+    if (imported) {
+        *imported = importedNames;
+    }
+    error->clear();
+    return true;
+}
+
 bool readFile(const QString &path, QByteArray *contents, bool *exists, QString *error)
 {
     QFile input(path);
@@ -302,7 +422,8 @@ mergeCurrentExcludedSettings(const QString &currentPath, const QByteArray &backu
     return merged;
 }
 
-QString createArchive(const QString &archivePath, const KSharedConfig::Ptr &appConfig, const KSharedConfig::Ptr &stateConfig)
+QString
+createArchive(const QString &archivePath, const KSharedConfig::Ptr &appConfig, const KSharedConfig::Ptr &stateConfig, const QStringList *workspaceIds = nullptr)
 {
     if (!appConfig || !stateConfig || appConfig->name().isEmpty() || stateConfig->name().isEmpty()) {
         return i18nc("@info", "The application settings are unavailable.");
@@ -316,9 +437,12 @@ QString createArchive(const QString &archivePath, const KSharedConfig::Ptr &appC
     }
     const QString settingsPath = temporary.filePath(QString::fromLatin1(SettingsEntry));
     const QString layoutPath = temporary.filePath(QString::fromLatin1(LayoutEntry));
-    QString error = copySanitizedConfig(appConfig->name(), settingsPath, false);
+    QString error = copySanitizedConfig(appConfig->name(), settingsPath, false, workspaceIds != nullptr);
     if (error.isEmpty()) {
-        error = copySanitizedConfig(stateConfig->name(), layoutPath, true);
+        error = copySanitizedConfig(stateConfig->name(), layoutPath, true, false);
+    }
+    if (error.isEmpty() && workspaceIds) {
+        error = filterWorkspaceCatalog(settingsPath, *workspaceIds);
     }
     if (!error.isEmpty()) {
         return i18nc("@info", "Could not prepare the backup: %1", error);
@@ -360,6 +484,17 @@ QString SettingsBackup::create(const QString &archivePath, const KSharedConfig::
     return createArchive(archivePath, appConfig, stateConfig);
 }
 
+QString SettingsBackup::createWorkspaceProfiles(const QString &archivePath,
+                                                const KSharedConfig::Ptr &appConfig,
+                                                const KSharedConfig::Ptr &stateConfig,
+                                                const QStringList &workspaceIds)
+{
+    if (workspaceIds.isEmpty() || QSet<QString>(workspaceIds.cbegin(), workspaceIds.cend()).size() != workspaceIds.size()) {
+        return i18nc("@info", "Select one or more distinct workspace profiles to export.");
+    }
+    return createArchive(archivePath, appConfig, stateConfig, &workspaceIds);
+}
+
 QString SettingsBackup::inspect(const QString &archivePath, Preview *preview)
 {
     if (!preview) {
@@ -377,6 +512,79 @@ QString SettingsBackup::inspect(const QString &archivePath, Preview *preview)
     preview->excluded = {i18nc("@item:inlistbox", "Current tabs and folder locations"),
                          i18nc("@item:inlistbox", "Credential values and saved custom commands"),
                          i18nc("@item:inlistbox", "Shared KDE and KIO settings")};
+    return {};
+}
+
+QString SettingsBackup::inspectWorkspaceProfiles(const QString &archivePath, const KSharedConfig::Ptr &appConfig, WorkspaceProfilesPreview *preview)
+{
+    if (!appConfig || !preview) {
+        return i18nc("@info", "A workspace import preview and application settings are required.");
+    }
+    BackupContents contents;
+    QString error;
+    if (!readArchive(archivePath, &contents, &error)) {
+        return error;
+    }
+    QTemporaryDir temporary;
+    if (!temporary.isValid()) {
+        return i18nc("@info", "Could not create temporary files to inspect workspace profiles.");
+    }
+    WorkspaceCatalog::Catalog incoming;
+    if (!readWorkspaceCatalog(contents.settings, temporary, incoming, &error)) {
+        return error;
+    }
+    WorkspaceCatalog::Catalog current;
+    if (!WorkspaceCatalog::load(appConfig->group(QStringLiteral("Workspaces")), current, error)) {
+        return error;
+    }
+    preview->profiles.clear();
+    preview->conflicts.clear();
+    for (const WorkspaceCatalog::Workspace &workspace : incoming.workspaces) {
+        const QString label = i18nc("@item:inlistbox workspace profile with short label", "%1 (%2)", workspace.name, workspace.shortLabel);
+        preview->profiles.append(label);
+        if (workspaceConflict(workspace, current)) {
+            preview->conflicts.append(label);
+        }
+    }
+    return {};
+}
+
+QString SettingsBackup::importWorkspaceProfiles(const QString &archivePath, const KSharedConfig::Ptr &appConfig, bool replaceConflicts, QStringList *imported)
+{
+    if (!appConfig || appConfig->name().isEmpty()) {
+        return i18nc("@info", "The application settings are unavailable.");
+    }
+    BackupContents contents;
+    QString error;
+    if (!readArchive(archivePath, &contents, &error)) {
+        return error;
+    }
+    QTemporaryDir temporary;
+    if (!temporary.isValid()) {
+        return i18nc("@info", "Could not create temporary files to import workspace profiles.");
+    }
+    WorkspaceCatalog::Catalog incoming;
+    if (!readWorkspaceCatalog(contents.settings, temporary, incoming, &error)) {
+        return error;
+    }
+    if (!appConfig->sync()) {
+        return i18nc("@info", "Could not save current settings before importing workspace profiles.");
+    }
+    const KConfigGroup group = appConfig->group(QStringLiteral("Workspaces"));
+    WorkspaceCatalog::Catalog current;
+    if (!WorkspaceCatalog::load(group, current, error)) {
+        return error;
+    }
+    const WorkspaceCatalog::Catalog expected = current;
+    if (!mergeWorkspaceProfiles(current, incoming, replaceConflicts, imported, &error)) {
+        return error;
+    }
+    if (imported && imported->isEmpty()) {
+        return {};
+    }
+    if (!WorkspaceCatalog::saveIfUnchanged(group, expected, current, error)) {
+        return error;
+    }
     return {};
 }
 

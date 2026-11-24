@@ -50,6 +50,38 @@ private Q_SLOTS:
         QVERIFY(FolderSyncProfiles::load(group, &error).isEmpty());
         QVERIFY(!error.isEmpty());
     }
+
+    void assignsAndPersistsStableIdsForLegacyProfiles()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("profilesrc")), KConfig::SimpleConfig);
+        KConfigGroup group = config->group(QStringLiteral("FolderSyncProfiles"));
+        group.writeEntry(
+            "Profiles",
+            QByteArray(
+                R"([{"name":"Photos","include":[],"exclude":[],"recursive":true,"contents":false,"links":false},{"name":"Work","include":[],"exclude":[],"recursive":true,"contents":false,"links":false}])"));
+        QString error;
+        auto profiles = FolderSyncProfiles::load(group, &error);
+        QVERIFY(error.isEmpty());
+        QCOMPARE(profiles.size(), 2);
+        QVERIFY(!profiles.first().id.isEmpty());
+        QVERIFY(profiles.first().id != profiles.last().id);
+        const QString stableId = profiles.first().id;
+        profiles.first().name = QStringLiteral("Images");
+        QVERIFY(FolderSyncProfiles::save(group, profiles, &error));
+        config->reparseConfiguration();
+        profiles = FolderSyncProfiles::load(group, &error);
+        QVERIFY(error.isEmpty());
+        QCOMPARE(profiles.first().name, QStringLiteral("Images"));
+        QCOMPARE(profiles.first().id, stableId);
+        QVERIFY(FolderSyncProfiles::save(group, {}, &error));
+        QVERIFY(FolderSyncProfiles::save(group, {FolderSyncProfiles::Profile{QStringLiteral("Images"), {}, {}}}, &error));
+        config->reparseConfiguration();
+        profiles = FolderSyncProfiles::load(group, &error);
+        QVERIFY(error.isEmpty());
+        QVERIFY(profiles.first().id != stableId);
+    }
 };
 
 QTEST_GUILESS_MAIN(FolderSyncProfilesTest)

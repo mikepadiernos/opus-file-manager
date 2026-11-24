@@ -1315,6 +1315,35 @@ void ToolbarCustomizer::saveMenuCustomizations(QMenu *menu)
     group.sync();
 }
 
+QStringList ToolbarCustomizer::toolbarConfiguration() const
+{
+    const KConfigGroup group = KSharedConfig::openConfig()->group(QLatin1String(ToolbarGroup));
+    if (group.hasKey(QStringLiteral("Actions"))) {
+        return group.readEntry(QStringLiteral("Actions"), QStringList());
+    }
+    QStringList items;
+    for (QAction *action : m_toolbar->actions()) {
+        const QString kind = kindForAction(action);
+        if (kind == QLatin1String("action")) {
+            const QString name = persistenceName(action);
+            if (!name.isEmpty()) {
+                items.append(QStringLiteral("action:") + name);
+            }
+        } else {
+            items.append(kind);
+        }
+    }
+    return items;
+}
+
+void ToolbarCustomizer::setToolbarConfiguration(const QStringList &actions)
+{
+    KConfigGroup group = KSharedConfig::openConfig()->group(QLatin1String(ToolbarGroup));
+    group.writeEntry(QStringLiteral("Actions"), actions);
+    group.sync();
+    restoreToolbar();
+}
+
 void ToolbarCustomizer::restoreMenuCustomizations()
 {
     const KConfigGroup menuGroups = KSharedConfig::openConfig()->group(QLatin1String(ToolbarGroup)).group(QStringLiteral("Menus"));

@@ -128,6 +128,24 @@ private Q_SLOTS:
         QCOMPARE(loaded.index(1).data().toString(), QStringLiteral("a"));
     }
 
+    void reloadsChangesFromAnotherModel()
+    {
+        KConfig first(configPath(), KConfig::SimpleConfig);
+        KConfig second(configPath(), KConfig::SimpleConfig);
+        FavoritesModel original(first.group(QStringLiteral("Favorites")));
+        FavoritesModel other(second.group(QStringLiteral("Favorites")));
+        QVERIFY(original.add(m_a));
+        QVERIFY(original.add(m_b));
+        QVERIFY(original.setData(original.index(1), QStringLiteral("Other")));
+        QString error;
+        QVERIFY2(other.reload(error), qPrintable(error));
+        QCOMPARE(other.urls(), QList<QUrl>({m_a, m_b}));
+        QCOMPARE(other.index(1).data().toString(), QStringLiteral("Other"));
+        QVERIFY(original.remove(m_a));
+        QVERIFY(other.reload(error));
+        QCOMPARE(other.urls(), QList<QUrl>({m_b}));
+    }
+
     void dragEncodesUrls()
     {
         KConfig config(configPath(), KConfig::SimpleConfig);

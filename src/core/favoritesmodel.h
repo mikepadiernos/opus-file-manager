@@ -34,6 +34,13 @@ public:
     /// The favorite folders in display order.
     QList<QUrl> urls() const;
 
+    /**
+     * Reloads Favorites written by another window without writing configuration.
+     * @param error describes an unreadable configuration
+     * @returns whether the configuration was read successfully
+     */
+    bool reload(QString &error);
+
     /// Whether @p url is a favorite.
     bool contains(const QUrl &url) const;
 
@@ -83,6 +90,7 @@ private:
     struct Favorite {
         QUrl url;
         QString customTitle;
+        bool operator==(const Favorite &) const = default;
     };
 
     int rowOf(const QUrl &url) const;

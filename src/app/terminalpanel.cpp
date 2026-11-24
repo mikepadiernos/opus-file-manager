@@ -128,6 +128,11 @@ void TerminalPanel::setTitleVisible(bool visible)
     m_title->setVisible(visible);
 }
 
+bool TerminalPanel::hasSessions() const
+{
+    return m_tabs->count() > 0;
+}
+
 void TerminalPanel::setStatus(const QString &text, bool informational)
 {
     m_status->setText(text);

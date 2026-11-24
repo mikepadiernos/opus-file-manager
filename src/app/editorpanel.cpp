@@ -18,6 +18,7 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFontDatabase>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLocale>
@@ -549,7 +550,11 @@ void EditorPanel::applySettings()
     m_view->setConfigValue(QStringLiteral("font"), font);
     m_view->setConfigValue(QStringLiteral("dynamic-word-wrap"), Settings::editorWordWrap());
     m_syncingVisual = true;
-    m_visual->document()->setDefaultFont(font);
+    // A fixed-pitch default font makes QTextDocument::toMarkdown() write every
+    // fragment as inline code, so the visual editor uses the general font.
+    QFont visualFont = QFontDatabase::systemFont(QFontDatabase::GeneralFont);
+    visualFont.setPointSize(Settings::editorFontSize());
+    m_visual->document()->setDefaultFont(visualFont);
     m_visual->setLineWrapMode(Settings::editorWordWrap() ? QTextEdit::WidgetWidth : QTextEdit::NoWrap);
     m_syncingVisual = false;
     m_draftTimer->setInterval(Settings::editorDraftIntervalMs());

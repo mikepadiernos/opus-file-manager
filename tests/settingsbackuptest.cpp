@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "settingsbackup.h"
+#include "workspacecatalog.h"
 
 #include <KArchiveDirectory>
 #include <KArchiveFile>
@@ -132,6 +133,76 @@ private Q_SLOTS:
         QVERIFY(credentialArchive.close());
         QVERIFY(!SettingsBackup::inspect(credentialArchivePath, &preview).isEmpty());
         QVERIFY(!SettingsBackup::stageRestore(credentialArchivePath, root.filePath(QStringLiteral("data"))).isEmpty());
+    }
+
+    void exportsAndImportsSelectedWorkspaceProfilesWithoutCredentials()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto sourceConfig = KSharedConfig::openConfig(root.filePath(QStringLiteral("source")));
+        const auto sourceState = KSharedConfig::openConfig(root.filePath(QStringLiteral("source-state")));
+        sourceState->group(QStringLiteral("WindowLayout")).writeEntry("Stacked", true);
+        WorkspaceCatalog::Catalog source;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(source, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(WorkspaceCatalog::create(source, QStringLiteral("Other"), QStringLiteral("O"), error));
+        const QString selectedId = source.workspaces.first().id;
+        const QString otherId = source.workspaces.last().id;
+        WindowSession session;
+        session.left.tabs = {QUrl(QStringLiteral("sftp://user:password@example.invalid/folder?token=secret"))};
+        session.right.tabs = {QUrl::fromLocalFile(QStringLiteral("/tmp"))};
+        const WorkspaceCatalog::Layout layout{QByteArray("window"), {200, 300}, {500, 100}, true, false, std::nullopt, session};
+        QVERIFY(WorkspaceCatalog::setLayout(source, selectedId, layout, error));
+        QVERIFY(WorkspaceCatalog::save(sourceConfig->group(QStringLiteral("Workspaces")), source, error));
+        QVERIFY(sourceConfig->sync());
+
+        const QString archivePath = root.filePath(QStringLiteral("workspaces.tar.gz"));
+        const QString exportError = SettingsBackup::createWorkspaceProfiles(archivePath, sourceConfig, sourceState, {selectedId});
+        QVERIFY2(exportError.isEmpty(), qPrintable(exportError));
+        KTar archive(archivePath, QStringLiteral("application/gzip"));
+        QVERIFY(archive.open(QIODevice::ReadOnly));
+        const auto *settingsFile = static_cast<const KArchiveFile *>(archive.directory()->entry(QStringLiteral("settings.ini")));
+        QVERIFY(settingsFile);
+        const QByteArray settings = settingsFile->data();
+        QVERIFY(settings.contains("Work"));
+        QVERIFY(!settings.contains("Other"));
+        QVERIFY(!settings.contains("password"));
+        QVERIFY(!settings.contains("token=secret"));
+        QVERIFY(archive.close());
+
+        const auto targetConfig = KSharedConfig::openConfig(root.filePath(QStringLiteral("target")));
+        WorkspaceCatalog::Catalog target;
+        QVERIFY(WorkspaceCatalog::create(target, QStringLiteral("Work"), QStringLiteral("Existing"), error));
+        const QString currentId = target.workspaces.first().id;
+        QVERIFY(WorkspaceCatalog::activate(target, currentId, error));
+        QVERIFY(WorkspaceCatalog::save(targetConfig->group(QStringLiteral("Workspaces")), target, error));
+        QVERIFY(targetConfig->sync());
+        targetConfig->group(QStringLiteral("Preferences")).writeEntry("Keep", true);
+        QVERIFY(targetConfig->sync());
+
+        SettingsBackup::WorkspaceProfilesPreview preview;
+        QVERIFY2(SettingsBackup::inspectWorkspaceProfiles(archivePath, targetConfig, &preview).isEmpty(), "profile preview failed");
+        QCOMPARE(preview.profiles.size(), 1);
+        QCOMPARE(preview.conflicts.size(), 1);
+        QStringList imported;
+        QVERIFY2(SettingsBackup::importWorkspaceProfiles(archivePath, targetConfig, false, &imported).isEmpty(), "skip import failed");
+        QVERIFY(imported.isEmpty());
+        WorkspaceCatalog::Catalog unchanged;
+        QVERIFY(WorkspaceCatalog::load(targetConfig->group(QStringLiteral("Workspaces")), unchanged, error));
+        QCOMPARE(unchanged.workspaces.size(), 1);
+        QCOMPARE(unchanged.activeId, currentId);
+
+        QVERIFY2(SettingsBackup::importWorkspaceProfiles(archivePath, targetConfig, true, &imported).isEmpty(), "replace import failed");
+        QCOMPARE(imported, QStringList{QStringLiteral("Work")});
+        WorkspaceCatalog::Catalog restored;
+        QVERIFY(WorkspaceCatalog::load(targetConfig->group(QStringLiteral("Workspaces")), restored, error));
+        QCOMPARE(restored.workspaces.size(), 1);
+        QCOMPARE(restored.activeId, currentId);
+        QCOMPARE(restored.workspaces.first().id, currentId);
+        QCOMPARE(restored.workspaces.first().layout->session->left.tabs.first().toString(), QStringLiteral("sftp://example.invalid/folder"));
+        QVERIFY(targetConfig->group(QStringLiteral("Preferences")).readEntry("Keep", false));
+        QVERIFY(!restored.workspaces.first().id.isEmpty());
+        QVERIFY(otherId != selectedId);
     }
 };
 

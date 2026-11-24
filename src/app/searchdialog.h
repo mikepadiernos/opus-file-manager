@@ -14,6 +14,7 @@
 #include <memory>
 
 class QComboBox;
+class QCheckBox;
 class QLabel;
 class QLineEdit;
 class QProgressBar;
@@ -27,8 +28,16 @@ class SearchDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit SearchDialog(const QUrl &folder, QWidget *parent = nullptr, KSharedConfig::Ptr config = {});
+    struct WorkspaceScope {
+        bool active = false;
+        QList<QUrl> locations;
+    };
+    using WorkspaceScopeProvider = std::function<WorkspaceScope()>;
+
+    explicit SearchDialog(const QUrl &folder, QWidget *parent = nullptr, KSharedConfig::Ptr config = {}, WorkspaceScopeProvider workspaceScope = {});
     ~SearchDialog() override;
+    /// Refreshes the workspace scope control after a workspace change.
+    void refreshWorkspaceScope();
 
 Q_SIGNALS:
     void revealRequested(const QUrl &url);
@@ -39,7 +48,7 @@ private:
     void updateSavedSearches();
     void updateCollection(const QList<QUrl> &urls);
     PathFilter pathFilter() const;
-    SavedSearches::Search currentSearch(const QString &name) const;
+    SavedSearches::Search currentSearch(const QString &name, const QString &id = {}) const;
 
     QUrl m_folder;
     KSharedConfig::Ptr m_config;
@@ -48,6 +57,8 @@ private:
     QLineEdit *m_query;
     QComboBox *m_field;
     QComboBox *m_scope;
+    QCheckBox *m_workspaceOnly;
+    WorkspaceScopeProvider m_workspaceScope;
     PathFilterEditor *m_filterEditor;
     QComboBox *m_saved;
     QPushButton *m_search;

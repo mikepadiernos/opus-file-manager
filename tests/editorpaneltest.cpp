@@ -10,6 +10,7 @@
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QFile>
+#include <QFontInfo>
 #include <QImage>
 #include <QPushButton>
 #include <QStandardPaths>
@@ -41,6 +42,10 @@ private Q_SLOTS:
         auto *view = editor.findChild<KTextEditor::View *>();
         QVERIFY(view);
         QCOMPARE(view->configValue(QStringLiteral("font")).value<QFont>().pointSize(), 18);
+        auto *visual = editor.findChild<QTextEdit *>(QStringLiteral("editorVisualText"));
+        QVERIFY(visual);
+        QCOMPARE(visual->document()->defaultFont().pointSize(), 18);
+        QVERIFY(!QFontInfo(visual->document()->defaultFont()).fixedPitch());
         QVERIFY(view->configValue(QStringLiteral("dynamic-word-wrap")).toBool());
         QVERIFY(editor.document()->setText(QStringLiteral("unsaved")));
         QTest::qWait(900);

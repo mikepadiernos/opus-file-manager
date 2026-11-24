@@ -112,6 +112,8 @@ private:
     QWidget *createSelectionFiltersPage();
     void createSettingsBackup();
     void restoreSettingsBackup();
+    void exportWorkspaceProfiles();
+    void importWorkspaceProfiles();
 
     KFilePlacesModel *m_places = nullptr;
     PreviewSizeSpinBox *m_previewLimit = nullptr;

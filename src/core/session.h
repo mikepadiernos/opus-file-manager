@@ -27,6 +27,8 @@ struct PaneSession {
     QString filterText;
     /// -1 means no scope was saved; use the configured default.
     int filterScope = -1;
+    int locationPresentation = 0;
+    int viewMode = 0;
 
     bool operator==(const PaneSession &other) const = default;
 };
@@ -49,5 +51,7 @@ struct WindowSession {
 namespace Session
 {
 void save(const WindowSession &session, KConfigGroup &group);
-WindowSession load(const KConfigGroup &group);
+/// Panes without a saved view mode, such as sessions saved before view modes
+/// were recorded, use @p defaultViewMode.
+WindowSession load(const KConfigGroup &group, int defaultViewMode = 0);
 }

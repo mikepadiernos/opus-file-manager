@@ -9,9 +9,12 @@
 #include <KLocalizedString>
 
 #include <QApplication>
+#include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
 #include <QDialogButtonBox>
+#include <QDir>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -22,8 +25,10 @@
 #include <QProgressBar>
 #include <QPromise>
 #include <QPushButton>
+#include <QSet>
 #include <QTabWidget>
 #include <QTreeWidget>
+#include <QUuid>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
 
@@ -31,8 +36,14 @@
 
 namespace
 {
-QString scopeStatus(int index)
+QString scopeStatus(int index, bool workspaceOnly)
 {
+    if (workspaceOnly) {
+        return index == 0 ? i18nc("@info", "Searches saved locations assigned to the active workspace recursively. Symbolic links are skipped.")
+                          : i18nc("@info",
+                                  "Searches indexed files in saved locations assigned to the active workspace. Depth is measured from each location. "
+                                  "Baloo matches indexed terms, not literal substrings.");
+    }
     return index == 0 ? i18nc("@info", "Searches local folders recursively. Symbolic links are skipped.")
                       : i18nc("@info",
                               "Searches configured Baloo locations. A depth limit restricts results to the current local folder. Baloo matches "
@@ -40,7 +51,7 @@ QString scopeStatus(int index)
 }
 }
 
-SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::Ptr config)
+SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::Ptr config, WorkspaceScopeProvider workspaceScope)
     : QDialog(parent)
     , m_folder(folder)
     , m_config(config ? config : KSharedConfig::openConfig())
@@ -48,6 +59,8 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     , m_query(new QLineEdit(this))
     , m_field(new QComboBox(this))
     , m_scope(new QComboBox(this))
+    , m_workspaceOnly(new QCheckBox(this))
+    , m_workspaceScope(std::move(workspaceScope))
     , m_filterEditor(new PathFilterEditor(QStringLiteral("search"), this, m_config))
     , m_saved(new QComboBox(this))
     , m_search(new QPushButton(i18nc("@action:button", "Search"), this))
@@ -83,6 +96,12 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     form->addRow(i18nc("@label", "Find:"), m_query);
     form->addRow(i18nc("@label", "Search in:"), m_field);
     form->addRow(i18nc("@label", "Scope:"), m_scope);
+    m_workspaceOnly->setObjectName(QStringLiteral("searchWorkspaceOnly"));
+    m_workspaceOnly->setText(i18nc("@option:check", "Limit to saved locations assigned to the active workspace"));
+    m_workspaceOnly->setToolTip(i18nc("@info:tooltip", "Clear this to search the current folder or all indexed locations outside the workspace."));
+    m_workspaceOnly->setChecked(true);
+    form->addRow(QString(), m_workspaceOnly);
+    refreshWorkspaceScope();
     layout->addLayout(form);
     layout->addWidget(m_filterEditor);
     auto *savedRow = new QHBoxLayout;
@@ -107,7 +126,7 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_status->setObjectName(QStringLiteral("searchStatus"));
     m_status->setTextFormat(Qt::PlainText);
     m_status->setWordWrap(true);
-    m_status->setText(scopeStatus(m_scope->currentIndex()));
+    m_status->setText(scopeStatus(m_scope->currentIndex(), m_workspaceScope && m_workspaceScope().active && m_workspaceOnly->isChecked()));
     layout->addWidget(m_status);
     QString savedError;
     m_savedSearches = SavedSearches::load(m_config->group(QStringLiteral("SavedSearches")), &savedError);
@@ -236,7 +255,7 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
             m_status->setText(i18nc("@info", "This search changed elsewhere. Refresh the list before updating it."));
             return;
         }
-        *it = currentSearch(original.name);
+        *it = currentSearch(original.name, original.id);
         if (!SavedSearches::save(m_config->group(QStringLiteral("SavedSearches")), searches, &error)) {
             m_status->setText(error);
             return;
@@ -596,7 +615,11 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     connect(m_search, &QPushButton::clicked, this, &SearchDialog::start);
     connect(m_scope, &QComboBox::currentIndexChanged, this, [this](int index) {
         m_field->setItemText(1, index == 0 ? i18nc("@item:inlistbox", "File contents (UTF-8 text)") : i18nc("@item:inlistbox", "Indexed file contents"));
-        m_status->setText(scopeStatus(index));
+        m_status->setText(scopeStatus(index, m_workspaceScope && m_workspaceScope().active && m_workspaceOnly->isChecked()));
+    });
+    connect(m_workspaceOnly, &QCheckBox::toggled, this, [this] {
+        refreshWorkspaceScope();
+        m_status->setText(scopeStatus(m_scope->currentIndex(), m_workspaceScope && m_workspaceScope().active && m_workspaceOnly->isChecked()));
     });
     connect(m_query, &QLineEdit::returnPressed, this, &SearchDialog::start);
     connect(m_cancel, &QPushButton::clicked, this, &SearchDialog::cancel);
@@ -611,6 +634,7 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
         m_query->setEnabled(true);
         m_field->setEnabled(true);
         m_scope->setEnabled(true);
+        m_workspaceOnly->setEnabled(true);
         m_filterEditor->setEnabled(true);
         m_cancel->setEnabled(false);
         m_progress->hide();
@@ -643,6 +667,15 @@ SearchDialog::~SearchDialog()
     cancel();
 }
 
+void SearchDialog::refreshWorkspaceScope()
+{
+    const bool active = m_workspaceScope && m_workspaceScope().active;
+    m_workspaceOnly->setVisible(active);
+    m_scope->setItemText(0,
+                         active && m_workspaceOnly->isChecked() ? i18nc("@item:inlistbox", "Workspace locations (live)")
+                                                                : i18nc("@item:inlistbox", "Current folder (live)"));
+}
+
 void SearchDialog::updateSavedSearches()
 {
     m_saved->clear();
@@ -664,14 +697,15 @@ PathFilter SearchDialog::pathFilter() const
     return m_filterEditor->filter();
 }
 
-SavedSearches::Search SearchDialog::currentSearch(const QString &name) const
+SavedSearches::Search SearchDialog::currentSearch(const QString &name, const QString &id) const
 {
     return {name,
             m_query->text(),
             m_folder.isLocalFile() ? m_folder : QUrl(),
             m_field->currentIndex() == 0 ? LiveSearch::Field::FileName : LiveSearch::Field::Contents,
             m_scope->currentIndex() == 1,
-            pathFilter()};
+            pathFilter(),
+            id.isEmpty() ? QUuid::createUuid().toString(QUuid::WithoutBraces) : id};
 }
 
 void SearchDialog::start()
@@ -679,7 +713,10 @@ void SearchDialog::start()
     if (m_watcher.isRunning()) {
         return;
     }
-    if (m_scope->currentIndex() == 0 && !m_folder.isLocalFile()) {
+    const WorkspaceScope workspace = m_workspaceScope ? m_workspaceScope() : WorkspaceScope{};
+    refreshWorkspaceScope();
+    const bool workspaceOnly = workspace.active && m_workspaceOnly->isChecked();
+    if (!workspaceOnly && m_scope->currentIndex() == 0 && !m_folder.isLocalFile()) {
         m_status->setText(i18nc("@info", "Live search currently supports local folders only."));
         return;
     }
@@ -693,7 +730,7 @@ void SearchDialog::start()
         m_status->setText(filterError);
         return;
     }
-    if (m_scope->currentIndex() == 1 && filter.maxDepth >= 0 && !m_folder.isLocalFile()) {
+    if (!workspaceOnly && m_scope->currentIndex() == 1 && filter.maxDepth >= 0 && !m_folder.isLocalFile()) {
         m_status->setText(i18nc("@info", "A local current folder is required to limit indexed-search depth."));
         return;
     }
@@ -704,6 +741,7 @@ void SearchDialog::start()
     m_query->setEnabled(false);
     m_field->setEnabled(false);
     m_scope->setEnabled(false);
+    m_workspaceOnly->setEnabled(false);
     m_filterEditor->setEnabled(false);
     m_cancel->setEnabled(true);
     m_progress->show();
@@ -714,17 +752,84 @@ void SearchDialog::start()
     const QString text = m_query->text();
     const auto field = m_field->currentIndex() == 0 ? LiveSearch::Field::FileName : LiveSearch::Field::Contents;
     const bool indexed = m_scope->currentIndex() == 1;
-    m_watcher.setFuture(QtConcurrent::run([folder, text, field, canceled, indexed, filter](QPromise<LiveSearch::Result> &promise) {
-        promise.setProgressRange(0, 200000);
-        const LiveSearch::Cancel cancel = [canceled] {
-            return canceled->load();
-        };
-        const LiveSearch::Progress progress = [&promise](int count, const QString &) {
-            promise.setProgressValue(count);
-        };
-        promise.addResult(indexed ? IndexedSearch::find(folder, text, field, cancel, progress, filter)
-                                  : LiveSearch::find(folder, text, field, cancel, progress, filter));
-    }));
+    QStringList roots;
+    QStringList locationErrors;
+    if (workspaceOnly) {
+        for (const QUrl &url : workspace.locations) {
+            if (!url.isLocalFile() || !QDir::isAbsolutePath(url.toLocalFile())) {
+                locationErrors.append(i18nc("@info",
+                                            "Workspace search supports local folders only: %1",
+                                            url.toDisplayString(QUrl::RemoveUserInfo | QUrl::RemoveQuery | QUrl::RemoveFragment)));
+            } else {
+                const QString root = QDir::cleanPath(url.toLocalFile());
+                const QFileInfo folderInfo(root);
+                if (!folderInfo.isDir() || folderInfo.isSymLink()) {
+                    locationErrors.append(i18nc("@info", "Choose an existing local folder that is not a symbolic link: %1", root));
+                } else if (!roots.contains(root)) {
+                    roots.append(root);
+                }
+            }
+        }
+        if (roots.isEmpty() && locationErrors.isEmpty()) {
+            locationErrors.append(i18nc("@info", "The active workspace has no searchable saved locations."));
+        }
+    }
+    m_watcher.setFuture(
+        QtConcurrent::run([folder, text, field, canceled, indexed, filter, workspaceOnly, roots, locationErrors](QPromise<LiveSearch::Result> &promise) {
+            promise.setProgressRange(0, 200000);
+            const LiveSearch::Cancel cancel = [canceled] {
+                return canceled->load();
+            };
+            const LiveSearch::Progress progress = [&promise](int count, const QString &) {
+                promise.setProgressValue(count);
+            };
+            LiveSearch::Result result;
+            if (!workspaceOnly) {
+                result = indexed ? IndexedSearch::find(folder, text, field, cancel, progress, filter)
+                                 : LiveSearch::find(folder, text, field, cancel, progress, filter);
+            } else if (indexed && !roots.isEmpty()) {
+                result = IndexedSearch::find(folder, text, field, cancel, progress, filter, &roots);
+            } else if (!indexed) {
+                QSet<QString> seen;
+                for (const QString &root : roots) {
+                    const int offset = result.scannedEntries;
+                    const auto part = LiveSearch::find(
+                        root,
+                        text,
+                        field,
+                        cancel,
+                        [&progress, offset](int count, const QString &path) {
+                            progress(offset + count, path);
+                        },
+                        filter,
+                        200000 - offset);
+                    result.errors.append(part.errors);
+                    result.notices.append(part.notices);
+                    result.scannedEntries += part.scannedEntries;
+                    result.skippedFiles += part.skippedFiles;
+                    result.canceled = part.canceled;
+                    result.limited = part.limited;
+                    for (const QString &path : part.paths) {
+                        if (!seen.contains(path)) {
+                            seen.insert(path);
+                            result.paths.append(path);
+                        }
+                        if (result.paths.size() >= 5000) {
+                            result.limited = true;
+                            break;
+                        }
+                    }
+                    if (result.scannedEntries >= 200000) {
+                        result.limited = true;
+                    }
+                    if (result.canceled || result.limited) {
+                        break;
+                    }
+                }
+            }
+            result.errors.append(locationErrors);
+            promise.addResult(result);
+        }));
 }
 
 void SearchDialog::cancel()

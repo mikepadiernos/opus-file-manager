@@ -136,6 +136,16 @@ private Q_SLOTS:
         filter.pathText = QStringLiteral("nested");
         const auto limitedDepth = IndexedSearch::find(folder, QStringLiteral("opalneedle"), LiveSearch::Field::FileName, {}, {}, filter);
         QCOMPARE(limitedDepth.paths, QStringList{nested.fileName()});
+        filter.pathText.clear();
+        filter.maxDepth = -1;
+        const QStringList workspaceRoots{folder + QStringLiteral("/nested")};
+        const auto scoped = IndexedSearch::find(folder, QStringLiteral("opalneedle"), LiveSearch::Field::FileName, {}, {}, filter, &workspaceRoots);
+        QVERIFY(!scoped.paths.contains(named.fileName()));
+        QVERIFY(scoped.paths.contains(nested.fileName()));
+        QVERIFY(scoped.paths.contains(deep.fileName()));
+        filter.maxDepth = 0;
+        const auto scopedShallow = IndexedSearch::find(folder, QStringLiteral("opalneedle"), LiveSearch::Field::FileName, {}, {}, filter, &workspaceRoots);
+        QCOMPARE(scopedShallow.paths, QStringList{nested.fileName()});
         LiveSearch::Result content;
         QTRY_VERIFY_WITH_TIMEOUT(
             (content = IndexedSearch::find(folder, QStringLiteral("uniquekestrel"), LiveSearch::Field::Contents)).paths.contains(contents.fileName()),

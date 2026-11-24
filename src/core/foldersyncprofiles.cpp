@@ -8,6 +8,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QSet>
+#include <QUuid>
 
 namespace
 {
@@ -30,6 +31,21 @@ bool readPatterns(const QJsonValue &value, QStringList &patterns)
     }
     return true;
 }
+
+QString newId()
+{
+    return QUuid::createUuid().toString(QUuid::WithoutBraces);
+}
+
+bool validId(const QString &id)
+{
+    return !QUuid::fromString(id).isNull();
+}
+
+QString canonicalId(const QString &id)
+{
+    return QUuid::fromString(id).toString(QUuid::WithoutBraces);
+}
 }
 
 QList<FolderSyncProfiles::Profile> FolderSyncProfiles::load(const KConfigGroup &group, QString *error)
@@ -45,6 +61,8 @@ QList<FolderSyncProfiles::Profile> FolderSyncProfiles::load(const KConfigGroup &
     const auto document = QJsonDocument::fromJson(json, &parseError);
     QList<Profile> profiles;
     QSet<QString> names;
+    QSet<QString> ids;
+    bool needsMigration = false;
     bool validData = parseError.error == QJsonParseError::NoError && document.isArray();
     if (validData) {
         for (const auto &value : document.array()) {
@@ -52,8 +70,15 @@ QList<FolderSyncProfiles::Profile> FolderSyncProfiles::load(const KConfigGroup &
             const auto recursive = object.value(QStringLiteral("recursive"));
             const auto contents = object.value(QStringLiteral("contents"));
             const auto links = object.value(QStringLiteral("links"));
+            const auto idValue = object.value(QStringLiteral("id"));
             Profile profile;
             profile.name = object.value(QStringLiteral("name")).toString();
+            if (idValue.isUndefined()) {
+                profile.id = newId();
+                needsMigration = true;
+            } else if (idValue.isString()) {
+                profile.id = QUuid::fromString(idValue.toString()).toString(QUuid::WithoutBraces);
+            }
             validData = value.isObject() && object.value(QStringLiteral("name")).isString() && recursive.isBool() && contents.isBool() && links.isBool()
                 && readPatterns(object.value(QStringLiteral("include")), profile.options.includePatterns)
                 && readPatterns(object.value(QStringLiteral("exclude")), profile.options.excludePatterns);
@@ -61,11 +86,12 @@ QList<FolderSyncProfiles::Profile> FolderSyncProfiles::load(const KConfigGroup &
             profile.options.compareContents = contents.toBool();
             profile.options.compareSymlinks = links.toBool();
             const QString key = profile.name.trimmed().toCaseFolded();
-            if (!validData || !valid(profile) || names.contains(key)) {
+            if (!validData || !valid(profile) || !validId(profile.id) || names.contains(key) || ids.contains(profile.id)) {
                 validData = false;
                 break;
             }
             names.insert(key);
+            ids.insert(profile.id);
             profiles.append(profile);
         }
     }
@@ -73,6 +99,9 @@ QList<FolderSyncProfiles::Profile> FolderSyncProfiles::load(const KConfigGroup &
         if (error) {
             *error = i18nc("@info", "Saved folder comparison profiles are invalid and could not be loaded.");
         }
+        return {};
+    }
+    if (needsMigration && !save(group, profiles, error)) {
         return {};
     }
     return profiles;
@@ -84,18 +113,22 @@ bool FolderSyncProfiles::save(KConfigGroup group, const QList<Profile> &profiles
         error->clear();
     }
     QSet<QString> names;
+    QSet<QString> ids;
     QJsonArray entries;
     for (const Profile &profile : profiles) {
         const QString key = profile.name.trimmed().toCaseFolded();
-        if (!valid(profile) || names.contains(key)) {
+        const QString id = profile.id.isEmpty() ? newId() : canonicalId(profile.id);
+        if (!valid(profile) || !validId(id) || names.contains(key) || ids.contains(id)) {
             if (error) {
-                *error = i18nc("@info", "Profile names must be unique and each profile must have valid filters.");
+                *error = i18nc("@info", "Profile names and identifiers must be unique and each profile must have valid filters.");
             }
             return false;
         }
         names.insert(key);
+        ids.insert(id);
         QJsonObject entry;
         entry.insert(QStringLiteral("name"), profile.name);
+        entry.insert(QStringLiteral("id"), id);
         entry.insert(QStringLiteral("include"), QJsonArray::fromStringList(profile.options.includePatterns));
         entry.insert(QStringLiteral("exclude"), QJsonArray::fromStringList(profile.options.excludePatterns));
         entry.insert(QStringLiteral("recursive"), profile.options.recursive);

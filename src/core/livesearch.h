@@ -28,5 +28,12 @@ struct Result {
 using Cancel = std::function<bool()>;
 using Progress = std::function<void(int, const QString &)>;
 
-Result find(const QString &folder, const QString &text, Field field, const Cancel &cancel = {}, const Progress &progress = {}, const PathFilter &filter = {});
+/// Searches a local folder, stopping after at most entryLimit entries.
+Result find(const QString &folder,
+            const QString &text,
+            Field field,
+            const Cancel &cancel = {},
+            const Progress &progress = {},
+            const PathFilter &filter = {},
+            int entryLimit = 200000);
 }

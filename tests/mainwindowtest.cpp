@@ -8,6 +8,7 @@
 #include "customcommanddialog.h"
 #include "customcommands.h"
 #include "duplicatefinderdialog.h"
+#include "favoritesmodel.h"
 #include "filediffdialog.h"
 #include "fileoperations.h"
 #include "filesplitdialog.h"
@@ -28,14 +29,17 @@
 #include "settings.h"
 #include "settingsdialog.h"
 #include "tabmodel.h"
+#include "transferqueue.h"
 #include "transferqueuedialog.h"
 #include "viewsettings.h"
+#include "workspacedialog.h"
 
 #include <KActionCollection>
 #include <KConfigGroup>
 #include <KDirModel>
 #include <KEditToolBar>
 #include <KFileItemDelegate>
+#include <KFilePlacesModel>
 #include <KFilePlacesView>
 #include <KPageWidgetItem>
 #include <KSelectAction>
@@ -96,6 +100,19 @@
 #include <QTreeView>
 #include <QTreeWidget>
 
+class WorkspaceTestJob : public KJob
+{
+public:
+    void start() override
+    {
+    }
+
+    void finish()
+    {
+        emitResult();
+    }
+};
+
 class MainWindowTest : public QObject
 {
     Q_OBJECT
@@ -141,6 +158,540 @@ private Q_SLOTS:
         action->trigger();
         auto *dialog = window.findChild<TransferQueueDialog *>(QStringLiteral("transferQueueDialog"));
         QVERIFY(dialog);
+        dialog->close();
+    }
+
+    void opensWorkspaceSelector()
+    {
+        MainWindow window;
+        auto *action = window.actionCollection()->action(QStringLiteral("manage_workspaces"));
+        QVERIFY(action && action->isEnabled());
+        action->trigger();
+        auto *dialog = window.findChild<QDialog *>(QStringLiteral("workspaceDialog"));
+        QVERIFY(dialog);
+        dialog->close();
+    }
+
+    void showsWorkspaceChangesAndConfirmsRestore()
+    {
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup group = config->group(QStringLiteral("Workspaces"));
+        const bool hadCatalog = group.hasKey("Catalog");
+        const QByteArray previousCatalog = group.readEntry("Catalog", QByteArray());
+        group.deleteEntry("Catalog");
+        QVERIFY(group.sync());
+        const auto restore = qScopeGuard([config, hadCatalog, previousCatalog] {
+            config->reparseConfiguration();
+            KConfigGroup saved = config->group(QStringLiteral("Workspaces"));
+            if (hadCatalog) {
+                saved.writeEntry("Catalog", previousCatalog);
+            } else {
+                saved.deleteEntry("Catalog");
+            }
+            saved.sync();
+        });
+
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        QTRY_VERIFY(window.isVisible());
+        const PaneSession savedTabs = window.activePane()->saveState();
+        window.actionCollection()->action(QStringLiteral("manage_workspaces"))->trigger();
+        auto *dialog = window.findChild<WorkspaceDialog *>(QStringLiteral("workspaceDialog"));
+        QVERIFY(dialog);
+        dialog->findChild<QLineEdit *>(QStringLiteral("workspaceName"))->setText(QStringLiteral("Work"));
+        dialog->findChild<QLineEdit *>(QStringLiteral("workspaceShortLabel"))->setText(QStringLiteral("W"));
+        dialog->findChild<QPushButton *>(QStringLiteral("workspaceCreate"))->click();
+        QTimer::singleShot(0, [] {
+            qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+        });
+        dialog->findChild<QPushButton *>(QStringLiteral("workspaceActivate"))->click();
+        dialog->close();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+        QAction *selector = window.actionCollection()->action(QStringLiteral("workspace_selector"));
+        QAction *restoreLayout = window.actionCollection()->action(QStringLiteral("restore_workspace_layout"));
+        QVERIFY(selector && restoreLayout);
+        QTRY_VERIFY(restoreLayout->isEnabled());
+        QTRY_VERIFY(selector->text().contains(QStringLiteral("Work")));
+        window.activePane()->openInNewTab(m_c, true);
+        QTRY_VERIFY(selector->text().endsWith(QStringLiteral(" *")));
+        QTimer::singleShot(0, [] {
+            qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::No)->click();
+        });
+        restoreLayout->trigger();
+        QCOMPARE(window.activePane()->url(), m_c);
+        QTRY_VERIFY(selector->text().endsWith(QStringLiteral(" *")));
+        QTimer::singleShot(0, [] {
+            qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+        });
+        restoreLayout->trigger();
+        QTRY_COMPARE(window.activePane()->saveState(), savedTabs);
+        QTRY_VERIFY(!selector->text().endsWith(QStringLiteral(" *")));
+    }
+
+    void switchesAndRestoresWorkspaceLocationVisibility()
+    {
+        QTemporaryDir directory;
+        const auto config = KSharedConfig::openConfig();
+        const auto backup = KSharedConfig::openConfig(directory.filePath(QStringLiteral("backup")));
+        KConfigGroup favorites = config->group(QStringLiteral("Favorites"));
+        KConfigGroup workspaces = config->group(QStringLiteral("Workspaces"));
+        KConfigGroup savedFavorites = backup->group(QStringLiteral("Favorites"));
+        KConfigGroup savedWorkspaces = backup->group(QStringLiteral("Workspaces"));
+        favorites.copyTo(&savedFavorites);
+        workspaces.copyTo(&savedWorkspaces);
+        favorites.deleteGroup();
+        workspaces.deleteGroup();
+        QVERIFY(config->sync());
+        const auto restore = qScopeGuard([config, savedFavorites, savedWorkspaces]() mutable {
+            config->reparseConfiguration();
+            auto favorites = config->group(QStringLiteral("Favorites"));
+            auto workspaces = config->group(QStringLiteral("Workspaces"));
+            favorites.deleteGroup();
+            workspaces.deleteGroup();
+            savedFavorites.copyTo(&favorites);
+            savedWorkspaces.copyTo(&workspaces);
+            config->sync();
+        });
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        QVERIFY(window.favorites()->add(m_a));
+        QVERIFY(window.favorites()->add(m_b));
+        auto *places = window.findChild<KFilePlacesModel *>();
+        QVERIFY(places);
+        places->addPlace(QStringLiteral("Workspace test"), m_c);
+        const auto removePlace = qScopeGuard([&] {
+            for (int row = places->rowCount() - 1; row >= 0; --row) {
+                if (places->url(places->index(row, 0)) == m_c) {
+                    places->removePlace(places->index(row, 0));
+                }
+            }
+        });
+        auto *placesDock = window.findChild<QDockWidget *>(QStringLiteral("placesDock"));
+        QVERIFY(placesDock);
+        auto *placesView = qobject_cast<KFilePlacesView *>(placesDock->widget());
+        QVERIFY(placesView);
+        placesView->setShowAll(true);
+        auto *view = window.findChild<QListView *>(QStringLiteral("combinedFavoritesView"));
+        QVERIFY(view);
+        window.actionCollection()->action(QStringLiteral("manage_workspaces"))->trigger();
+        auto *dialog = window.findChild<QDialog *>(QStringLiteral("workspaceDialog"));
+        QVERIFY(dialog);
+        auto *name = dialog->findChild<QLineEdit *>(QStringLiteral("workspaceName"));
+        auto *label = dialog->findChild<QLineEdit *>(QStringLiteral("workspaceShortLabel"));
+        auto *list = dialog->findChild<QListWidget *>(QStringLiteral("workspaceList"));
+        auto *locations = dialog->findChild<QListWidget *>(QStringLiteral("workspaceLocationList"));
+        auto *create = dialog->findChild<QPushButton *>(QStringLiteral("workspaceCreate"));
+        auto *assign = dialog->findChild<QPushButton *>(QStringLiteral("workspaceAssignLocation"));
+        auto *activate = dialog->findChild<QPushButton *>(QStringLiteral("workspaceActivate"));
+        auto *status = dialog->findChild<QLabel *>(QStringLiteral("workspaceStatus"));
+        QVERIFY(name && label && list && locations && create && assign && activate && status);
+        name->setText(QStringLiteral("Work"));
+        label->setText(QStringLiteral("W"));
+        create->click();
+        name->setText(QStringLiteral("Home"));
+        label->setText(QStringLiteral("H"));
+        create->click();
+        QVERIFY2(list->count() == 2, qPrintable(status->text()));
+        list->setCurrentRow(0);
+        const QString locationId = WorkspaceCatalog::locationId(m_a);
+        for (int row = 0; row < locations->count(); ++row) {
+            if (locations->item(row)->data(Qt::UserRole).toString() == locationId) {
+                locations->setCurrentRow(row);
+                break;
+            }
+        }
+        QVERIFY(locations->currentItem());
+        assign->click();
+        const QString placeId = WorkspaceCatalog::locationId(m_c);
+        for (int row = 0; row < locations->count(); ++row) {
+            if (locations->item(row)->data(Qt::UserRole).toString() == placeId) {
+                locations->setCurrentRow(row);
+                break;
+            }
+        }
+        QVERIFY(locations->currentItem());
+        QCOMPARE(locations->currentItem()->data(Qt::UserRole).toString(), placeId);
+        assign->click();
+        MainWindow observer;
+        auto *observerView = observer.findChild<QListView *>(QStringLiteral("combinedFavoritesView"));
+        QVERIFY(observerView);
+        QVERIFY(!observerView->isRowHidden(0));
+        list->setCurrentRow(1);
+        QTimer::singleShot(0, [] {
+            qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+        });
+        activate->click();
+        QTRY_VERIFY(view->isRowHidden(0));
+        QTRY_VERIFY(observerView->isRowHidden(0));
+        QVERIFY(!view->isRowHidden(1));
+        const auto placeRow = [&] {
+            for (int row = 0; row < places->rowCount(); ++row) {
+                if (places->url(places->index(row, 0)) == m_c) {
+                    return row;
+                }
+            }
+            return -1;
+        };
+        QVERIFY(placeRow() >= 0);
+        QTRY_VERIFY(placesView->isRowHidden(placeRow()));
+        dialog->close();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        MainWindow reopened;
+        auto *reopenedView = reopened.findChild<QListView *>(QStringLiteral("combinedFavoritesView"));
+        QVERIFY(reopenedView);
+        QTRY_VERIFY(reopenedView->isRowHidden(0));
+        QVERIFY(!reopenedView->isRowHidden(1));
+        window.actionCollection()->action(QStringLiteral("manage_workspaces"))->trigger();
+        dialog = window.findChild<QDialog *>(QStringLiteral("workspaceDialog"));
+        QVERIFY(dialog);
+        list = dialog->findChild<QListWidget *>(QStringLiteral("workspaceList"));
+        locations = dialog->findChild<QListWidget *>(QStringLiteral("workspaceLocationList"));
+        assign = dialog->findChild<QPushButton *>(QStringLiteral("workspaceAssignLocation"));
+        list->setCurrentRow(1);
+        for (int row = 0; row < locations->count(); ++row) {
+            if (locations->item(row)->data(Qt::UserRole).toString() == locationId) {
+                locations->setCurrentRow(row);
+                break;
+            }
+        }
+        QVERIFY(locations->currentItem());
+        QTimer::singleShot(0, [] {
+            qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+        });
+        assign->click();
+        QTRY_VERIFY(!reopenedView->isRowHidden(0));
+        dialog->close();
+    }
+
+    void retriesWorkspaceWithUnavailableComponents()
+    {
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup group = config->group(QStringLiteral("Workspaces"));
+        const bool hadCatalog = group.hasKey("Catalog");
+        const QByteArray previousCatalog = group.readEntry("Catalog", QByteArray());
+        group.deleteEntry("Catalog");
+        QVERIFY(group.sync());
+        const auto restore = qScopeGuard([config, hadCatalog, previousCatalog] {
+            config->reparseConfiguration();
+            KConfigGroup group = config->group(QStringLiteral("Workspaces"));
+            if (hadCatalog) {
+                group.writeEntry("Catalog", previousCatalog);
+            } else {
+                group.deleteEntry("Catalog");
+            }
+            group.sync();
+        });
+
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        const QUrl missingLocation = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("temporarily-missing")));
+        window.activePane()->openInNewTab(missingLocation, true);
+        window.setStackedLayout(false);
+        auto *dock = new QDockWidget(&window);
+        dock->setObjectName(QStringLiteral("missingWorkspaceDock"));
+        window.addDockWidget(Qt::LeftDockWidgetArea, dock);
+        auto *anotherDock = new QDockWidget(&window);
+        anotherDock->setObjectName(QStringLiteral("anotherMissingDock"));
+        window.addDockWidget(Qt::RightDockWidgetArea, anotherDock);
+        window.actionCollection()->action(QStringLiteral("manage_workspaces"))->trigger();
+        auto *dialog = window.findChild<WorkspaceDialog *>(QStringLiteral("workspaceDialog"));
+        QVERIFY(dialog);
+        auto *name = dialog->findChild<QLineEdit *>(QStringLiteral("workspaceName"));
+        auto *label = dialog->findChild<QLineEdit *>(QStringLiteral("workspaceShortLabel"));
+        auto *list = dialog->findChild<QListWidget *>(QStringLiteral("workspaceList"));
+        auto *create = dialog->findChild<QPushButton *>(QStringLiteral("workspaceCreate"));
+        auto *activate = dialog->findChild<QPushButton *>(QStringLiteral("workspaceActivate"));
+        auto *status = dialog->findChild<QLabel *>(QStringLiteral("workspaceStatus"));
+        QVERIFY(name && label && list && create && activate && status);
+        name->setText(QStringLiteral("Work"));
+        label->setText(QStringLiteral("W"));
+        create->click();
+        QCOMPARE(list->count(), 1);
+        dialog->close();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        delete dock;
+        delete anotherDock;
+        auto *unrelated = new QObject(&window);
+        unrelated->setObjectName(QStringLiteral("anotherMissingDock"));
+
+        KConfig external(config->name(), config->openFlags(), config->locationType());
+        auto externalGroup = external.group(QStringLiteral("Workspaces"));
+        WorkspaceCatalog::Catalog saved;
+        QString error;
+        QVERIFY(WorkspaceCatalog::load(externalGroup, saved, error));
+        QVERIFY(saved.workspaces[0].layout->presentation->windowObjects.contains(QStringLiteral("missingWorkspaceDock")));
+        QVERIFY(saved.workspaces[0].layout->presentation->windowObjects.contains(QStringLiteral("anotherMissingDock")));
+
+        window.setStackedLayout(true);
+        const PaneSession leftTabs = window.activePane()->saveState();
+        const PaneSession rightTabs = window.inactivePane()->saveState();
+        window.actionCollection()->action(QStringLiteral("manage_workspaces"))->trigger();
+        dialog = window.findChild<WorkspaceDialog *>(QStringLiteral("workspaceDialog"));
+        QVERIFY(dialog);
+        list = dialog->findChild<QListWidget *>(QStringLiteral("workspaceList"));
+        activate = dialog->findChild<QPushButton *>(QStringLiteral("workspaceActivate"));
+        status = dialog->findChild<QLabel *>(QStringLiteral("workspaceStatus"));
+        list->setCurrentRow(0);
+        QTimer::singleShot(0, [] {
+            qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+        });
+        activate->click();
+        QVERIFY(status->text().contains(QStringLiteral("missingWorkspaceDock")));
+        QVERIFY(status->text().contains(QStringLiteral("anotherMissingDock")));
+        QVERIFY(status->text().contains(missingLocation.toLocalFile()));
+        QVERIFY(!window.isStackedLayout());
+        QCOMPARE(window.activePane()->saveState(), leftTabs);
+        QCOMPARE(window.inactivePane()->saveState(), rightTabs);
+        external.reparseConfiguration();
+        WorkspaceCatalog::Catalog retained;
+        QVERIFY(WorkspaceCatalog::load(externalGroup, retained, error));
+        QCOMPARE(retained.workspaces[0].layout, saved.workspaces[0].layout);
+
+        delete unrelated;
+        dock = new QDockWidget(&window);
+        dock->setObjectName(QStringLiteral("missingWorkspaceDock"));
+        window.addDockWidget(Qt::RightDockWidgetArea, dock);
+        anotherDock = new QDockWidget(&window);
+        anotherDock->setObjectName(QStringLiteral("anotherMissingDock"));
+        window.addDockWidget(Qt::LeftDockWidgetArea, anotherDock);
+        QVERIFY(QDir().mkpath(missingLocation.toLocalFile()));
+        QTimer::singleShot(0, [] {
+            qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+        });
+        activate->click();
+        QVERIFY2(status->text().isEmpty(), qPrintable(status->text()));
+        QCOMPARE(window.dockWidgetArea(dock), Qt::LeftDockWidgetArea);
+        QCOMPARE(window.dockWidgetArea(anotherDock), Qt::RightDockWidgetArea);
+        dialog->close();
+    }
+
+    void switchesWorkspaceLayoutWithoutLosingTabsOrEditor()
+    {
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup group = config->group(QStringLiteral("Workspaces"));
+        QTemporaryDir toolbarBackupDirectory;
+        const auto toolbarBackup = KSharedConfig::openConfig(toolbarBackupDirectory.filePath(QStringLiteral("settings")));
+        KConfigGroup paneToolbars = config->group(QStringLiteral("PaneToolbars"));
+        KConfigGroup savedPaneToolbars = toolbarBackup->group(QStringLiteral("PaneToolbars"));
+        paneToolbars.copyTo(&savedPaneToolbars);
+        const auto restorePaneToolbars = qScopeGuard([config, paneToolbars, savedPaneToolbars]() mutable {
+            paneToolbars.deleteGroup();
+            savedPaneToolbars.copyTo(&paneToolbars);
+            config->sync();
+        });
+        const bool hadCatalog = group.hasKey("Catalog");
+        const QByteArray previousCatalog = group.readEntry("Catalog", QByteArray());
+        group.deleteEntry("Catalog");
+        QVERIFY(group.sync());
+        const auto restore = qScopeGuard([config, hadCatalog, previousCatalog] {
+            config->reparseConfiguration();
+            KConfigGroup group = config->group(QStringLiteral("Workspaces"));
+            if (hadCatalog) {
+                group.writeEntry("Catalog", previousCatalog);
+            } else {
+                group.deleteEntry("Catalog");
+            }
+            group.sync();
+        });
+        const auto editorOpening = Settings::editorOpening();
+        const auto restoreEditor = qScopeGuard([editorOpening] {
+            Settings::setEditorOpening(editorOpening);
+            Settings::self()->save();
+        });
+        const auto previewPlacement = Settings::previewPlacement();
+        const auto restorePreview = qScopeGuard([previewPlacement] {
+            Settings::setPreviewPlacement(previewPlacement);
+            Settings::self()->save();
+        });
+        const auto state = KSharedConfig::openStateConfig();
+        KConfigGroup panels = state->group(QStringLiteral("Panels"));
+        const bool hadPanelLayout = panels.hasKey("Layout");
+        const QString previousPanelLayout = panels.readEntry("Layout", QString());
+        const auto restorePanels = qScopeGuard([panels, hadPanelLayout, previousPanelLayout]() mutable {
+            if (hadPanelLayout) {
+                panels.writeEntry("Layout", previousPanelLayout);
+            } else {
+                panels.deleteEntry("Layout");
+            }
+            panels.sync();
+        });
+        Settings::setEditorOpening(Settings::EnumEditorOpening::Panel);
+        Settings::setPreviewPlacement(Settings::EnumPreviewPlacement::Right);
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        window.setStackedLayout(false);
+        window.setPanelLayout(MainWindow::PanelLayout::Separate);
+        window.actionCollection()->action(QStringLiteral("open_editor"))->trigger();
+        auto *editor = window.findChild<EditorPanel *>(QStringLiteral("editorPanel"));
+        QVERIFY(editor && editor->document());
+        editor->document()->setText(QStringLiteral("unsaved workspace draft"));
+        QVERIFY(editor->document()->isModified());
+        auto *queue = FileOperations::transferQueue();
+        const int previousConcurrency = queue->concurrency();
+        queue->setConcurrency(0);
+        QPointer<WorkspaceTestJob> running;
+        auto *transfer = queue->enqueue(QStringLiteral("workspace test"), [&running] {
+            running = new WorkspaceTestJob;
+            return running.data();
+        });
+        const auto restoreQueue = qScopeGuard([queue, transfer, &running, previousConcurrency] {
+            if (transfer->state() == QueuedTransfer::State::Waiting) {
+                transfer->kill(KJob::EmitResult);
+            } else if (running && transfer->state() == QueuedTransfer::State::Running) {
+                running->finish();
+            }
+            queue->setConcurrency(previousConcurrency);
+            queue->clearFinished();
+        });
+        QTRY_VERIFY(running);
+        QCOMPARE(transfer->state(), QueuedTransfer::State::Running);
+        auto *previewAction = window.actionCollection()->action(QStringLiteral("show_preview_panel"));
+        QVERIFY(previewAction);
+        previewAction->setChecked(true);
+        window.actionCollection()->action(QStringLiteral("manage_workspaces"))->trigger();
+        auto *dialog = window.findChild<QDialog *>(QStringLiteral("workspaceDialog"));
+        QVERIFY(dialog);
+        auto *name = dialog->findChild<QLineEdit *>(QStringLiteral("workspaceName"));
+        auto *label = dialog->findChild<QLineEdit *>(QStringLiteral("workspaceShortLabel"));
+        auto *list = dialog->findChild<QListWidget *>(QStringLiteral("workspaceList"));
+        auto *create = dialog->findChild<QPushButton *>(QStringLiteral("workspaceCreate"));
+        auto *activate = dialog->findChild<QPushButton *>(QStringLiteral("workspaceActivate"));
+        auto *status = dialog->findChild<QLabel *>(QStringLiteral("workspaceStatus"));
+        QVERIFY(name && label && list && create && activate && status);
+        Pane *const savedActivePane = window.activePane();
+        Pane *const savedInactivePane = window.inactivePane();
+        const PaneSession savedActiveTabs = savedActivePane->saveState();
+        const PaneSession savedInactiveTabs = savedInactivePane->saveState();
+        const QStringList savedToolbarActions = savedActivePane->toolbarActions();
+        const QStringList savedVisibleToolbarActions = savedActivePane->visibleToolbarActions();
+        const QStringList savedHiddenToolbarActions = savedActivePane->hiddenToolbarActions();
+        QVERIFY(!savedToolbarActions.isEmpty());
+        QVERIFY(!savedVisibleToolbarActions.isEmpty());
+        QStringList alteredVisibleToolbarActions = savedVisibleToolbarActions;
+        alteredVisibleToolbarActions.removeFirst();
+        const QUrl savedActiveLocation = savedActivePane->url();
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(false);
+        name->setText(QStringLiteral("Work"));
+        label->setText(QStringLiteral("W"));
+        create->click();
+        QCOMPARE(list->count(), 1);
+        savedActivePane->setToolbarConfiguration(savedToolbarActions, alteredVisibleToolbarActions, savedHiddenToolbarActions);
+        Q_EMIT editor->placementRequested(EditorPanel::Placement::Window);
+        QVERIFY(editor->window() != &window);
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        auto *linked = window.actionCollection()->action(QStringLiteral("link_panes"));
+        QVERIFY(linked);
+        linked->setChecked(true);
+        QVERIFY(linked->isChecked());
+        QTimer::singleShot(0, [dialog] {
+            qobject_cast<WorkspaceDialog *>(dialog)->refreshCatalog();
+            qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+        });
+        activate->click();
+        QVERIFY(!status->text().isEmpty());
+        QVERIFY(linked->isChecked());
+        linked->setChecked(false);
+        window.setPanelLayout(MainWindow::PanelLayout::Combined);
+        previewAction->setChecked(false);
+        window.actionCollection()->action(QStringLiteral("move_second_pane_to_tab"))->trigger();
+        window.setStackedLayout(true);
+        QTimer::singleShot(0, [] {
+            qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+        });
+        activate->click();
+        QVERIFY2(status->text().isEmpty(), qPrintable(status->text()));
+        QVERIFY(!window.isStackedLayout());
+        QCOMPARE(window.panelLayout(), MainWindow::PanelLayout::Separate);
+        QVERIFY(previewAction->isChecked());
+        QVERIFY(window.actionCollection()->action(QStringLiteral("move_second_pane_to_tab"))->isEnabled());
+        QCOMPARE(window.activePane(), savedActivePane);
+        QCOMPARE(window.activePane()->url(), savedActiveLocation);
+        QCOMPARE(window.activePane()->saveState(), savedActiveTabs);
+        QCOMPARE(window.inactivePane()->saveState(), savedInactiveTabs);
+        QCOMPARE(savedActivePane->toolbarActions(), savedToolbarActions);
+        QCOMPARE(savedActivePane->visibleToolbarActions(), savedVisibleToolbarActions);
+        QCOMPARE(editor->document()->text(), QStringLiteral("unsaved workspace draft"));
+        QVERIFY(editor->document()->isModified());
+        QCOMPARE(editor->window(), static_cast<QWidget *>(&window));
+        QCOMPARE(transfer->state(), QueuedTransfer::State::Running);
+
+        window.actionCollection()->action(QStringLiteral("move_second_pane_to_tab"))->trigger();
+        name->setText(QStringLiteral("Study"));
+        label->setText(QStringLiteral("S"));
+        create->click();
+        QCOMPARE(list->count(), 2);
+        window.actionCollection()->action(QStringLiteral("restore_second_pane"))->trigger();
+        QTimer::singleShot(0, [] {
+            qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+        });
+        activate->click();
+        QVERIFY2(status->text().isEmpty(), qPrintable(status->text()));
+        QVERIFY(!window.actionCollection()->action(QStringLiteral("move_second_pane_to_tab"))->isEnabled());
+        QCOMPARE(editor->document()->text(), QStringLiteral("unsaved workspace draft"));
+        list->setCurrentRow(0);
+        QTimer::singleShot(0, [] {
+            qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+        });
+        activate->click();
+        QVERIFY2(status->text().isEmpty(), qPrintable(status->text()));
+        QVERIFY(window.actionCollection()->action(QStringLiteral("move_second_pane_to_tab"))->isEnabled());
+        dialog->close();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+        {
+            MainWindow reopened;
+            reopened.openUrls({m_c});
+            reopened.setStackedLayout(true);
+            reopened.actionCollection()->action(QStringLiteral("manage_workspaces"))->trigger();
+            auto *selector = reopened.findChild<QListWidget *>(QStringLiteral("workspaceList"));
+            QVERIFY(selector && selector->count() == 2);
+            QVERIFY(selector->item(0)->text().contains(QStringLiteral("current")));
+            QCOMPARE(reopened.activePane()->url(), m_c);
+            QVERIFY(reopened.isStackedLayout());
+        }
+
+        KConfig external(config->name(), config->openFlags(), config->locationType());
+        KConfigGroup externalGroup = external.group(QStringLiteral("Workspaces"));
+        WorkspaceCatalog::Catalog saved;
+        QString error;
+        QVERIFY(WorkspaceCatalog::load(externalGroup, saved, error));
+        auto broken = saved;
+        WorkspaceCatalog::Layout invalid = *broken.workspaces.first().layout;
+        invalid.windowState = QByteArray("not a Qt window state");
+        QVERIFY(WorkspaceCatalog::setLayout(broken, broken.workspaces.first().id, invalid, error));
+        QVERIFY2(WorkspaceCatalog::saveIfUnchanged(externalGroup, saved, broken, error), qPrintable(error));
+        window.setStackedLayout(true);
+        window.setPanelLayout(MainWindow::PanelLayout::Combined);
+        window.actionCollection()->action(QStringLiteral("manage_workspaces"))->trigger();
+        dialog = window.findChild<QDialog *>(QStringLiteral("workspaceDialog"));
+        QVERIFY(dialog);
+        list = dialog->findChild<QListWidget *>(QStringLiteral("workspaceList"));
+        activate = dialog->findChild<QPushButton *>(QStringLiteral("workspaceActivate"));
+        status = dialog->findChild<QLabel *>(QStringLiteral("workspaceStatus"));
+        QVERIFY(list && activate && status);
+        Pane *const activePaneBeforeFailure = window.activePane();
+        const QUrl activeLocationBeforeFailure = activePaneBeforeFailure->url();
+        const PaneSession activeTabsBeforeFailure = activePaneBeforeFailure->saveState();
+        const PaneSession inactiveTabsBeforeFailure = window.inactivePane()->saveState();
+        list->setCurrentRow(0);
+        QTimer::singleShot(0, [] {
+            qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+        });
+        activate->click();
+        QVERIFY(!status->text().isEmpty());
+        QVERIFY(window.isStackedLayout());
+        QCOMPARE(window.panelLayout(), MainWindow::PanelLayout::Combined);
+        QCOMPARE(window.activePane(), activePaneBeforeFailure);
+        QCOMPARE(window.activePane()->url(), activeLocationBeforeFailure);
+        QCOMPARE(window.activePane()->saveState(), activeTabsBeforeFailure);
+        QCOMPARE(window.inactivePane()->saveState(), inactiveTabsBeforeFailure);
+        QCOMPARE(editor->document()->text(), QStringLiteral("unsaved workspace draft"));
+        QVERIFY(editor->document()->isModified());
+        QCOMPARE(transfer->state(), QueuedTransfer::State::Running);
         dialog->close();
     }
 
@@ -956,12 +1507,12 @@ private Q_SLOTS:
         const auto drop = [](QWidget *target, const QString &source, const QString &kind, const QString &name, const QPointF &position) {
             QMimeData mimeData;
             mimeData.setData(QStringLiteral("application/x-opus-toolbar-item"), (source + QLatin1Char('\n') + kind + QLatin1Char('\n') + name).toUtf8());
-            QDragEnterEvent enter(position, Qt::MoveAction, &mimeData, Qt::LeftButton, Qt::NoModifier);
+            QDragEnterEvent enter(position.toPoint(), Qt::MoveAction, &mimeData, Qt::LeftButton, Qt::NoModifier);
             QApplication::sendEvent(target, &enter);
             if (!enter.isAccepted()) {
                 return false;
             }
-            QDragMoveEvent move(position, Qt::MoveAction, &mimeData, Qt::LeftButton, Qt::NoModifier);
+            QDragMoveEvent move(position.toPoint(), Qt::MoveAction, &mimeData, Qt::LeftButton, Qt::NoModifier);
             QApplication::sendEvent(target, &move);
             if (!move.isAccepted()) {
                 return false;
@@ -2033,6 +2584,39 @@ private Q_SLOTS:
         QVERIFY(QFile::link(m_b.toLocalFile(), link));
         pane->setUrl(QUrl::fromLocalFile(link));
         QCOMPARE(pane->url(), m_b);
+    }
+
+    void replacesWorkspacePaneSnapshot()
+    {
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        Pane *const pane = window.activePane();
+        PaneSession snapshot;
+        snapshot.tabs = {m_c, m_b, m_a};
+        snapshot.currentTab = 1;
+        snapshot.pinnedCount = 1;
+        snapshot.lockedTabs = {2};
+        snapshot.names = {QStringLiteral("Pinned"), {}, QStringLiteral("Locked")};
+        snapshot.filterText = QStringLiteral("*.txt");
+        snapshot.filterScope = 2;
+        snapshot.locationPresentation = int(Pane::LocationPresentation::AbbreviatedBreadcrumbs);
+        snapshot.viewMode = int(FolderView::ViewMode::Compact);
+        pane->replaceState(snapshot);
+        QCOMPARE(pane->saveState(), snapshot);
+        QCOMPARE(pane->view()->viewMode(), FolderView::ViewMode::Compact);
+        const auto breadcrumbs = pane->findChildren<QToolButton *>(QStringLiteral("paneBreadcrumbSegment"));
+        QVERIFY(std::any_of(breadcrumbs.cbegin(), breadcrumbs.cend(), [](const QToolButton *button) {
+            return button->text() == QStringLiteral("m");
+        }));
+        pane->setUrl(QUrl::fromLocalFile(QStringLiteral("/tmp/__path/current")));
+        const auto abbreviated = pane->findChildren<QToolButton *>(QStringLiteral("paneBreadcrumbSegment"));
+        auto ancestor = std::find_if(abbreviated.cbegin(), abbreviated.cend(), [](const QToolButton *button) {
+            return button->text() == QStringLiteral("__p");
+        });
+        QVERIFY(ancestor != abbreviated.cend());
+        QCOMPARE((*ancestor)->toolTip(), QStringLiteral("__path"));
+        (*ancestor)->click();
+        QTRY_COMPARE(pane->url(), QUrl::fromLocalFile(QStringLiteral("/tmp/__path")));
     }
 
     void init()

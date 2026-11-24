@@ -18,6 +18,8 @@ constexpr auto LockedTabsKey = "LockedTabs";
 constexpr auto NamesKey = "Names";
 constexpr auto FilterTextKey = "FilterText";
 constexpr auto FilterScopeKey = "FilterScope";
+constexpr auto LocationPresentationKey = "LocationPresentation";
+constexpr auto ViewModeKey = "ViewMode";
 
 QStringList toStrings(const QList<QUrl> &urls)
 {
@@ -48,9 +50,11 @@ void savePane(const PaneSession &pane, KConfigGroup group)
     group.writeEntry(NamesKey, pane.names);
     group.writeEntry(FilterTextKey, pane.filterText);
     group.writeEntry(FilterScopeKey, pane.filterScope);
+    group.writeEntry(LocationPresentationKey, pane.locationPresentation);
+    group.writeEntry(ViewModeKey, pane.viewMode);
 }
 
-PaneSession loadPane(const KConfigGroup &group)
+PaneSession loadPane(const KConfigGroup &group, int defaultViewMode)
 {
     PaneSession pane;
     pane.tabs = fromStrings(group.readEntry(TabsKey, QStringList()));
@@ -60,6 +64,8 @@ PaneSession loadPane(const KConfigGroup &group)
     pane.names = group.readEntry(NamesKey, QStringList());
     pane.filterText = group.readEntry(FilterTextKey, QString());
     pane.filterScope = group.readEntry(FilterScopeKey, -1);
+    pane.locationPresentation = group.readEntry(LocationPresentationKey, 0);
+    pane.viewMode = group.readEntry(ViewModeKey, defaultViewMode);
     return pane;
 }
 
@@ -87,6 +93,8 @@ PaneSession sanitizePane(const PaneSession &pane, const QUrl &fallback)
     result.currentTab = qBound(0, pane.currentTab, result.tabs.size() - 1);
     result.filterText = pane.filterText;
     result.filterScope = qBound(-1, pane.filterScope, 2);
+    result.locationPresentation = qBound(0, pane.locationPresentation, 2);
+    result.viewMode = qBound(0, pane.viewMode, 2);
     return result;
 }
 }
@@ -116,11 +124,11 @@ void Session::save(const WindowSession &session, KConfigGroup &group)
     group.writeEntry(StackedKey, session.stacked);
 }
 
-WindowSession Session::load(const KConfigGroup &group)
+WindowSession Session::load(const KConfigGroup &group, int defaultViewMode)
 {
     WindowSession session;
-    session.left = loadPane(group.group(QLatin1String(LeftGroup)));
-    session.right = loadPane(group.group(QLatin1String(RightGroup)));
+    session.left = loadPane(group.group(QLatin1String(LeftGroup)), defaultViewMode);
+    session.right = loadPane(group.group(QLatin1String(RightGroup)), defaultViewMode);
     session.activePane = group.readEntry(ActivePaneKey, 0);
     session.dual = group.readEntry(DualKey, true);
     session.stacked = group.readEntry(StackedKey, true);

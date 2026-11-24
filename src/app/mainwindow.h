@@ -5,6 +5,7 @@
 #include "editorpanel.h"
 #include "metadataeditdialog.h"
 #include "previewpanel.h"
+#include "workspacecatalog.h"
 
 #include <KFileItem>
 #include <KXmlGuiWindow>
@@ -13,12 +14,16 @@
 #include <QList>
 #include <QPointer>
 #include <QUrl>
+#include <memory>
 
 class CombinedPanel;
 class FavoritesModel;
+class WorkspaceLocations;
+class QFileSystemWatcher;
 class FolderTree;
 class InformationPanel;
 class KFileCopyToMenu;
+class KConfig;
 class KFileItemActions;
 class KFilePlacesModel;
 class KFilePlacesView;
@@ -37,6 +42,7 @@ class QHBoxLayout;
 class QMenu;
 class QSplitter;
 class QTabWidget;
+class QTimer;
 
 class MainWindow : public KXmlGuiWindow
 {
@@ -89,6 +95,9 @@ public:
      */
     void applySettings();
 
+Q_SIGNALS:
+    void workspaceCatalogChanged();
+
 public Q_SLOTS:
     void configureToolbars() override;
 
@@ -100,6 +109,23 @@ protected:
     void saveNewToolbarConfig() override;
 
 private:
+    /// Opens the workspace selector and management dialog.
+    void showWorkspaces();
+    void selectWorkspace(int index);
+    void refreshWorkspaceSelector();
+    void scheduleWorkspaceSelectorRefresh();
+    /// Loads workspace assignments and updates their presentation.
+    void reloadWorkspaceCatalog();
+    /// Applies current workspace visibility to the navigation panels.
+    void refreshWorkspaceLocations();
+    /// Watches the workspace configuration for changes from other windows.
+    void watchWorkspaceCatalog();
+    bool captureWorkspaceLayout(WorkspaceCatalog::Layout &layout, QString &error) const;
+    bool applyWorkspaceLayout(const WorkspaceCatalog::Layout &layout, QString &error);
+    bool workspaceLayoutAvailable(const WorkspaceCatalog::Layout &layout, QStringList &unavailable, QString &error) const;
+    bool restoreWorkspaceLayout(const WorkspaceCatalog::Layout &layout, QString &error, bool &changed);
+    void restoreWorkspacePanePlacement(WorkspaceCatalog::PanePlacement placement);
+    void restoreWorkspaceEditor(const WorkspaceCatalog::Presentation &presentation);
     void setupActions();
     void setupPanes();
     void updateTerminalPlacement();
@@ -238,6 +264,15 @@ private:
     void extractArchive(const QUrl &archive, const QUrl &target);
 
     KFilePlacesModel *m_placesModel = nullptr;
+    std::unique_ptr<KConfig> m_workspaceConfig;
+    QString m_currentWorkspaceId;
+    WorkspaceCatalog::Catalog m_workspaceCatalog;
+    WorkspaceLocations *m_workspaceLocations = nullptr;
+    QFileSystemWatcher *m_workspaceWatcher = nullptr;
+    QString m_workspaceConfigPath;
+    qint64 m_workspaceConfigModified = -1;
+    QTimer *m_workspaceIndicatorTimer = nullptr;
+    KSelectAction *m_workspaceSelectorAction = nullptr;
     KFilePlacesView *m_placesView = nullptr;
     FavoritesModel *m_favorites = nullptr;
     TabColors *m_tabColors = nullptr;
