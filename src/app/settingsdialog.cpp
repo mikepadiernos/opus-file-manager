@@ -169,7 +169,9 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createSelectionFiltersPage(), i18nc("@title:tab", "Selection Filters")}},
                   i18nc("@title:group", "Files"),
                   QStringLiteral("folder"));
-    addTabbedPage({{createWorkspaceManagementPage(), i18nc("@title:tab", "Management")}, {createWorkspaceStartupPage(), i18nc("@title:tab", "Startup")}},
+    addTabbedPage({{createWorkspaceManagementPage(), i18nc("@title:tab", "Management")},
+                   {createWorkspaceStartupPage(), i18nc("@title:tab", "Startup")},
+                   {createWorkspaceSearchPage(), i18nc("@title:tab", "Search")}},
                   i18nc("@title:group", "Workspaces"),
                   QStringLiteral("view-grid"));
     reloadWorkspaces();
@@ -499,6 +501,22 @@ QWidget *SettingsDialog::createWorkspaceStartupPage()
                                     "The startup workspace becomes active when Plasma Opus starts. Its saved layout is not applied, so the startup "
                                     "folder and session choices under Interface still decide which folders and tabs open. Switch workspaces to "
                                     "restore a saved layout."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceSearchPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(checkBox(QStringLiteral("WorkspaceSearchByDefault"), i18nc("@option:check", "Limit new searches to the active workspace's locations")));
+    auto *notice = new QLabel(i18nc("@info",
+                                    "Applies when the active workspace includes search scope in its behaviors. Clear the option in the search "
+                                    "window at any time to search the current folder or indexed locations outside the workspace. Other search "
+                                    "defaults are under Tools, Search."),
                               page);
     notice->setWordWrap(true);
     layout->addWidget(notice);

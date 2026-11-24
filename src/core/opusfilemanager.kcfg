@@ -395,6 +395,10 @@
       <label>Search file contents by default</label>
       <default>false</default>
     </entry>
+    <entry name="WorkspaceSearchByDefault" type="Bool">
+      <label>Limit searches to the active workspace's locations by default</label>
+      <default>true</default>
+    </entry>
   </group>
   <group name="DuplicateFinder">
     <entry name="DuplicateRequireSameFileName" type="Bool">

@@ -620,6 +620,21 @@ private Q_SLOTS:
         QVERIFY(Settings::searchContentsByDefault());
     }
 
+    void workspaceSearchDefaultPersists()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *workspace = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceSearchByDefault"));
+            QVERIFY(workspace);
+            QVERIFY(workspace->isChecked());
+            workspace->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QVERIFY(!Settings::workspaceSearchByDefault());
+        QVERIFY(!KSharedConfig::openConfig()->group(QStringLiteral("Search")).readEntry("WorkspaceSearchByDefault", true));
+    }
+
     void duplicateFinderDefaultsPersistAndCancelLeavesThemUnchanged()
     {
         KFilePlacesModel places;

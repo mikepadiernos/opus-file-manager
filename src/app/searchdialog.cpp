@@ -99,7 +99,7 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_workspaceOnly->setObjectName(QStringLiteral("searchWorkspaceOnly"));
     m_workspaceOnly->setText(i18nc("@option:check", "Limit to saved locations assigned to the active workspace"));
     m_workspaceOnly->setToolTip(i18nc("@info:tooltip", "Clear this to search the current folder or all indexed locations outside the workspace."));
-    m_workspaceOnly->setChecked(true);
+    m_workspaceOnly->setChecked(defaults.readEntry("WorkspaceSearchByDefault", true));
     form->addRow(QString(), m_workspaceOnly);
     refreshWorkspaceScope();
     layout->addLayout(form);

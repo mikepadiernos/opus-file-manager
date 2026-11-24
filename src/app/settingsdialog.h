@@ -120,6 +120,7 @@ private:
     QWidget *createSelectionFiltersPage();
     QWidget *createWorkspaceManagementPage();
     QWidget *createWorkspaceStartupPage();
+    QWidget *createWorkspaceSearchPage();
     void createSettingsBackup();
     void restoreSettingsBackup();
     void exportWorkspaceProfiles();
