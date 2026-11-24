@@ -816,9 +816,12 @@ Settings for M15 workspaces, stored in KConfig.
       behaviours, including location presentation, search scope, layouts, and
       pane and tab restoration. Preserve unselected state and existing defaults;
       reuse settings.
-- [ ] **Portability:** select profiles for import or export using M12 backup
+- [x] **Portability:** select profiles for import or export using M12 backup
       controls and review conflicts before applying changes. Exclude
       credentials; never execute commands or modify managed files during import.
+
+**Caveats:** [Workspace settings](CAVEATS.md#workspace-settings), tracked in
+[#609].
 
 ### M17: Themes
 
@@ -1858,3 +1861,4 @@ dock and column-header spacing follows the
 [#433]: https://github.com/mikepadiernos/plasma-opus/issues/433
 [#434]: https://github.com/mikepadiernos/plasma-opus/issues/434
 [#436]: https://github.com/mikepadiernos/plasma-opus/issues/436
+[#609]: https://github.com/mikepadiernos/plasma-opus/issues/609
