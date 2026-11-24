@@ -1017,5 +1017,24 @@
       <label>Tree line colours by nesting depth as #rrggbb, repeating after the last colour</label>
       <default>#3daee9,#27ae60,#f67400,#da4453,#9b59b6,#fdbc4b</default>
     </entry>
+    <entry name="StripeDetailsRows" type="Bool">
+      <label>Whether alternate rows in Details view have a slightly different background</label>
+      <default>false</default>
+    </entry>
+    <entry name="HoverHighlight" type="Bool">
+      <label>Whether items under the pointer are highlighted in file lists and other views</label>
+      <default>true</default>
+    </entry>
+    <entry name="SelectionStyle" type="Enum">
+      <label>How selected items are highlighted in file lists and other views</label>
+      <choices>
+        <choice name="FollowStyle"/>
+        <choice name="Filled"/>
+        <choice name="Outlined"/>
+        <choice name="Rounded"/>
+        <choice name="AccentBar"/>
+      </choices>
+      <default>FollowStyle</default>
+    </entry>
   </group>
 </kcfg>

@@ -7,6 +7,7 @@
 #include "combinedpanel.h"
 #include "compressdialog.h"
 #include "density.h"
+#include "detailsview.h"
 #include "fileoperations.h"
 #include "foldermetadata.h"
 #include "foldertree.h"
@@ -709,6 +710,164 @@ private Q_SLOTS:
         QCOMPARE(frame->frameWidth(), styleFrameWidth);
     }
 
+    void selectionStylesKeepFocusAndSelectionDistinct()
+    {
+        const QString originalName = QApplication::style()->name();
+        auto restore = qScopeGuard([originalName] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            if (AppearanceStyle::installed()) {
+                QApplication::setStyle(QStyleFactory::create(originalName));
+            }
+        });
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.applySettings();
+        QVERIFY(!AppearanceStyle::installed());
+        QCOMPARE(AppearanceStyle::selectionStyle(), AppearanceStyle::Selection::FollowStyle);
+        QVERIFY(AppearanceStyle::hoverHighlight());
+        auto *details = window.activePane()->view()->findChild<DetailsView *>();
+        QVERIFY(details);
+        QVERIFY(!details->alternatingRowColors());
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *selection = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_SelectionStyle"));
+        auto *hover = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_HoverHighlight"));
+        auto *stripes = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_StripeDetailsRows"));
+        QVERIFY(selection && hover && stripes);
+        QCOMPARE(selection->count(), 5);
+        QVERIFY(hover->isChecked());
+        QVERIFY(!stripes->isChecked());
+        selection->setCurrentIndex(Settings::EnumSelectionStyle::Outlined);
+        Q_EMIT selection->activated(Settings::EnumSelectionStyle::Outlined);
+        stripes->setChecked(true);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(int(Settings::selectionStyle()), int(Settings::EnumSelectionStyle::Outlined));
+        QVERIFY(Settings::stripeDetailsRows());
+        QVERIFY(details->alternatingRowColors());
+        AppearanceStyle *style = AppearanceStyle::installed();
+        QVERIFY(style);
+        QCOMPARE(style->options().selection, AppearanceStyle::Selection::Outlined);
+        QCOMPARE(AppearanceStyle::selectionStyle(), AppearanceStyle::Selection::Outlined);
+
+        QPalette palette;
+        palette.setColor(QPalette::Base, Qt::white);
+        palette.setColor(QPalette::Text, Qt::black);
+        palette.setColor(QPalette::Highlight, QColor(0x3d, 0xae, 0xe9));
+        palette.setColor(QPalette::HighlightedText, Qt::white);
+        const QColor highlight = palette.color(QPalette::Highlight);
+        QStyleOptionViewItem item;
+        item.palette = palette;
+        item.state = QStyle::State_Enabled | QStyle::State_Active | QStyle::State_Selected;
+        item.viewItemPosition = QStyleOptionViewItem::OnlyOne;
+        const auto drawItem = [&](const QWidget *widget = nullptr) {
+            QImage image(40, 20, QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            item.rect = image.rect();
+            style->drawPrimitive(QStyle::PE_PanelItemViewItem, &item, &painter, widget);
+            painter.end();
+            return image;
+        };
+
+        // White selected text is unreadable on a light outline selection, so
+        // an unprepared item gets a filled selection.
+        QImage image = drawItem();
+        QCOMPARE(image.pixelColor(20, 10), highlight);
+        // Prepared items keep the normal text colour on a light fill with an outline.
+        AppearanceStyle::prepareItem(&item);
+        QCOMPARE(item.palette.color(QPalette::Active, QPalette::HighlightedText), QColor(Qt::black));
+        image = drawItem();
+        QVERIFY(qAlpha(image.pixel(20, 10)) > 0);
+        QVERIFY(qAlpha(image.pixel(20, 10)) < 128);
+        QCOMPARE(qAlpha(image.pixel(0, 10)), 255);
+        QCOMPARE(qAlpha(image.pixel(20, 0)), 255);
+
+        // A selection spanning columns has no outline between its cells.
+        item.viewItemPosition = QStyleOptionViewItem::Middle;
+        image = drawItem();
+        QVERIFY(qAlpha(image.pixel(0, 10)) < 128);
+        QCOMPARE(qAlpha(image.pixel(20, 0)), 255);
+        item.viewItemPosition = QStyleOptionViewItem::OnlyOne;
+
+        // The current item has a dashed ring with or without a selection.
+        const auto ringPixels = [](const QImage &image) {
+            int opaque = 0;
+            for (int x = 6; x < 34; ++x) {
+                opaque += qAlpha(image.pixel(x, 2)) > 128 ? 1 : 0;
+            }
+            return opaque;
+        };
+        item.state = QStyle::State_Enabled | QStyle::State_Active | QStyle::State_HasFocus;
+        image = drawItem();
+        QCOMPARE(qAlpha(image.pixel(20, 10)), 0);
+        const int dashes = ringPixels(image);
+        QVERIFY2(dashes > 4 && dashes < 28, qPrintable(QString::number(dashes)));
+        item.state |= QStyle::State_Selected;
+        QVERIFY(ringPixels(drawItem()) > 4);
+
+        // Item views leave focus to the panels.
+        QStyleOptionFocusRect focus;
+        focus.palette = palette;
+        focus.rect = QRect(0, 0, 40, 20);
+        focus.state = QStyle::State_Enabled | QStyle::State_HasFocus;
+        QImage focusImage(40, 20, QImage::Format_ARGB32_Premultiplied);
+        focusImage.fill(Qt::transparent);
+        {
+            QPainter painter(&focusImage);
+            style->drawPrimitive(QStyle::PE_FrameFocusRect, &focus, &painter, details);
+        }
+        QCOMPARE(focusImage, [] {
+            QImage empty(40, 20, QImage::Format_ARGB32_Premultiplied);
+            empty.fill(Qt::transparent);
+            return empty;
+        }());
+
+        // An accent bar marks the start of the selection.
+        Settings::setSelectionStyle(Settings::EnumSelectionStyle::AccentBar);
+        window.applySettings();
+        item.state = QStyle::State_Enabled | QStyle::State_Active | QStyle::State_Selected;
+        image = drawItem();
+        QCOMPARE(qAlpha(image.pixel(1, 10)), 255);
+        QVERIFY(qAlpha(image.pixel(20, 10)) < 128);
+        QVERIFY(qAlpha(image.pixel(20, 0)) < 128);
+        item.direction = Qt::RightToLeft;
+        image = drawItem();
+        QCOMPARE(qAlpha(image.pixel(38, 10)), 255);
+        QVERIFY(qAlpha(image.pixel(1, 10)) < 128);
+        item.direction = Qt::LeftToRight;
+
+        // Filled selections are square; rounded ones are not.
+        Settings::setSelectionStyle(Settings::EnumSelectionStyle::Filled);
+        window.applySettings();
+        image = drawItem();
+        QCOMPARE(image.pixelColor(0, 0), highlight);
+        QCOMPARE(image.pixelColor(20, 10), highlight);
+        Settings::setSelectionStyle(Settings::EnumSelectionStyle::Rounded);
+        window.applySettings();
+        image = drawItem();
+        QCOMPARE(qAlpha(image.pixel(0, 0)), 0);
+        QCOMPARE(image.pixelColor(20, 10), highlight);
+
+        // Hover highlighting can be turned off, with or without a selection style.
+        item.state = QStyle::State_Enabled | QStyle::State_Active | QStyle::State_MouseOver;
+        QVERIFY(qAlpha(drawItem().pixel(20, 10)) > 0);
+        Settings::setHoverHighlight(false);
+        window.applySettings();
+        QVERIFY(!AppearanceStyle::hoverHighlight());
+        QCOMPARE(qAlpha(drawItem().pixel(20, 10)), 0);
+        Settings::setSelectionStyle(Settings::EnumSelectionStyle::FollowStyle);
+        window.applySettings();
+        QVERIFY(AppearanceStyle::installed());
+        QVERIFY(!AppearanceStyle::hoverHighlight());
+
+        Settings::setStripeDetailsRows(false);
+        window.applySettings();
+        QVERIFY(!details->alternatingRowColors());
+    }
+
     void treeLinesDrawSolidDottedOrHidden()
     {
         auto restore = qScopeGuard([] {
@@ -1031,6 +1190,9 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("TreeLineColors")), QStringLiteral("Lines"));
         QCOMPARE(tabOf(QStringLiteral("TreeLineColor")), QStringLiteral("Lines"));
         QCOMPARE(tabOf(QStringLiteral("TreeLinePalette")), QStringLiteral("Lines"));
+        QCOMPARE(tabOf(QStringLiteral("SelectionStyle")), QStringLiteral("Highlights"));
+        QCOMPARE(tabOf(QStringLiteral("HoverHighlight")), QStringLiteral("Highlights"));
+        QCOMPARE(tabOf(QStringLiteral("StripeDetailsRows")), QStringLiteral("Highlights"));
         QCOMPARE(tabOf(QStringLiteral("CustomColors")), QStringLiteral("Custom Colours"));
         QCOMPARE(tabOf(QStringLiteral("DefaultViewMode")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("ShowFileListMinimap")), QStringLiteral("General"));

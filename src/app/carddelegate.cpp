@@ -3,6 +3,7 @@
 #include "carddelegate.h"
 
 #include "appearancestyle.h"
+#include "colorschemes.h"
 #include "labelcolor.h"
 
 #include <KDirModel>
@@ -270,7 +271,7 @@ void CardDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, 
         return;
     }
     const bool selected = opt.state & QStyle::State_Selected;
-    const bool hovered = opt.state & QStyle::State_MouseOver;
+    const bool hovered = AppearanceStyle::hoverHighlight() && (opt.state & QStyle::State_MouseOver);
     const bool focused = opt.state & QStyle::State_HasFocus;
     const QPalette::ColorGroup group = !(opt.state & QStyle::State_Enabled) ? QPalette::Disabled
         : (opt.state & QStyle::State_Active)                                ? QPalette::Active
@@ -279,14 +280,19 @@ void CardDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, 
     const QColor base = palette.color(group, QPalette::Base);
     const QColor text = palette.color(group, QPalette::Text);
     const QColor highlight = palette.color(group, QPalette::Highlight);
-    const QColor highlightedText = palette.color(group, QPalette::HighlightedText);
     QColor background = mixed(base, text, 0.04);
     QColor border = mixed(base, text, 0.16);
+    const AppearanceStyle::Selection selection = AppearanceStyle::selectionStyle();
+    // A light selection keeps the normal text colour when it stays readable.
+    const QColor lightSelection = mixed(background, highlight, 0.2);
+    const bool light = AppearanceStyle::isLightSelection(selection) && ColorSchemes::contrastRatio(text, lightSelection) >= 4.5;
+    const QColor highlightedText = light ? text : palette.color(group, QPalette::HighlightedText);
+    const QColor accent = ColorSchemes::readable(highlight, base);
     if (selected) {
-        background = highlight;
-        border = highlight;
+        background = light ? lightSelection : highlight;
+        border = light ? accent : highlight;
     } else if (hovered) {
-        background = mixed(background, highlight, 0.15);
+        background = mixed(background, highlight, light ? 0.08 : 0.15);
         border = mixed(border, highlight, 0.6);
     }
 
@@ -297,17 +303,31 @@ void CardDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, 
     QPainterPath path;
     path.addRoundedRect(shape, radius, radius);
     painter->fillPath(path, background);
-    painter->setPen(QPen(border, 1));
+    if (selected && selection == AppearanceStyle::Selection::AccentBar && light) {
+        painter->save();
+        painter->setClipPath(path);
+        constexpr int bar = 4;
+        painter->fillRect(opt.direction == Qt::RightToLeft ? QRect(card.right() - bar + 1, card.top(), bar, card.height())
+                                                           : QRect(card.left(), card.top(), bar, card.height()),
+                          accent);
+        painter->restore();
+    }
+    painter->setPen(QPen(border, selected && selection == AppearanceStyle::Selection::Outlined && light ? 2 : 1));
     painter->drawPath(path);
     if (focused) {
-        // An inner ring keeps the current card visible with or without selection.
-        painter->setPen(QPen(selected ? highlightedText : highlight, 2));
+        // An inner ring keeps the current card visible with or without
+        // selection; a dashed ring stays distinct from a light selection.
+        QPen ring(selected && !light ? highlightedText : highlight, 2);
+        if (selected && light) {
+            ring.setStyle(Qt::DashLine);
+        }
+        painter->setPen(ring);
         const qreal inner = qMax<qreal>(0, radius - 2);
         painter->drawRoundedRect(shape.adjusted(2.5, 2.5, -2.5, -2.5), inner, inner);
     }
     painter->setRenderHint(QPainter::Antialiasing, false);
 
-    const QIcon::Mode mode = !(opt.state & QStyle::State_Enabled) ? QIcon::Disabled : selected ? QIcon::Selected : QIcon::Normal;
+    const QIcon::Mode mode = !(opt.state & QStyle::State_Enabled) ? QIcon::Disabled : selected && !light ? QIcon::Selected : QIcon::Normal;
     opt.icon.paint(painter, previewRect(card), Qt::AlignCenter, mode);
 
     const QFontMetrics metrics(opt.font);

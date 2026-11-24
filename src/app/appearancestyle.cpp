@@ -2,12 +2,15 @@
 
 #include "appearancestyle.h"
 
+#include "colorschemes.h"
 #include "settings.h"
 
 #include <KMainWindow>
 
+#include <QAbstractItemView>
 #include <QApplication>
 #include <QFrame>
+#include <QItemDelegate>
 #include <QMainWindow>
 #include <QPainter>
 #include <QPainterPath>
@@ -87,6 +90,59 @@ bool isLineShape(int shape)
 {
     return shape == QFrame::HLine || shape == QFrame::VLine;
 }
+
+/// How much highlight a light selection and a light hover mix into the background.
+constexpr qreal LightSelectionAmount = 0.2;
+constexpr qreal LightHoverAmount = 0.1;
+/// The radius of rounded selections when the corner radius follows the style or is square.
+constexpr int DefaultRoundedRadius = 6;
+/// Text contrast on a light selection, as for normal text under WCAG 2.
+constexpr double TextContrast = 4.5;
+
+QColor lightSelectionFill(const QPalette &palette, QPalette::ColorGroup group)
+{
+    return mixed(palette.color(group, QPalette::Base), palette.color(group, QPalette::Highlight), LightSelectionAmount);
+}
+
+bool readableOnLightSelection(const QColor &text, const QPalette &palette, QPalette::ColorGroup group)
+{
+    return ColorSchemes::contrastRatio(text, lightSelectionFill(palette, group)) >= TextContrast;
+}
+
+void prepareForSelection(QStyleOptionViewItem *option, AppearanceStyle::Selection selection)
+{
+    if (!AppearanceStyle::isLightSelection(selection)) {
+        return;
+    }
+    for (const QPalette::ColorGroup group : {QPalette::Active, QPalette::Inactive, QPalette::Disabled}) {
+        const QColor text = option->palette.color(group, QPalette::Text);
+        if (readableOnLightSelection(text, option->palette, group)) {
+            option->palette.setColor(group, QPalette::HighlightedText, text);
+        }
+    }
+}
+
+/**
+ * Strokes a rounded rectangle whose open sides continue into neighbouring
+ * cells of the same row, so that only the closed sides show.
+ */
+void strokeShape(QPainter *painter, QRectF shape, qreal radius, bool closedLeft, bool closedRight, const QPen &pen, const QRect &clip)
+{
+    const qreal overlap = radius + pen.widthF() + 2;
+    if (!closedLeft) {
+        shape.setLeft(shape.left() - overlap);
+    }
+    if (!closedRight) {
+        shape.setRight(shape.right() + overlap);
+    }
+    painter->save();
+    painter->setClipRect(clip, Qt::IntersectClip);
+    painter->setRenderHint(QPainter::Antialiasing);
+    painter->setPen(pen);
+    painter->setBrush(Qt::NoBrush);
+    painter->drawPath(roundedPath(shape, radius, true, true));
+    painter->restore();
+}
 }
 
 AppearanceStyle::AppearanceStyle(QStyle *base)
@@ -132,6 +188,8 @@ AppearanceStyle::Options AppearanceStyle::configured()
         break;
     }
     options.revealDividers = Settings::revealDividersOnHover();
+    options.selection = static_cast<Selection>(std::clamp(int(Settings::selectionStyle()), 0, int(Selection::AccentBar)));
+    options.hoverHighlight = Settings::hoverHighlight();
     return options;
 }
 
@@ -157,6 +215,33 @@ int AppearanceStyle::cornerRadius(int fallback)
 {
     const AppearanceStyle *style = installed();
     return style && style->radius() != FollowStyle ? style->radius() : fallback;
+}
+
+AppearanceStyle::Selection AppearanceStyle::selectionStyle()
+{
+    const AppearanceStyle *style = installed();
+    return style ? style->m_options.selection : Selection::FollowStyle;
+}
+
+bool AppearanceStyle::hoverHighlight()
+{
+    const AppearanceStyle *style = installed();
+    return !style || style->m_options.hoverHighlight;
+}
+
+bool AppearanceStyle::isLightSelection(Selection selection)
+{
+    return selection == Selection::Outlined || selection == Selection::AccentBar;
+}
+
+void AppearanceStyle::prepareItem(QStyleOptionViewItem *option)
+{
+    prepareForSelection(option, selectionStyle());
+}
+
+bool AppearanceStyle::customSelection() const
+{
+    return m_options.radius != FollowStyle || m_options.selection != Selection::FollowStyle;
 }
 
 AppearanceStyle::Options AppearanceStyle::options() const
@@ -238,49 +323,26 @@ void AppearanceStyle::drawPrimitive(PrimitiveElement element, const QStyleOption
             break;
         }
     }
+    if (element == PE_PanelItemViewItem || element == PE_PanelItemViewRow) {
+        if (const auto *item = qstyleoption_cast<const QStyleOptionViewItem *>(option)) {
+            drawItemPanel(element, *item, painter, widget);
+            return;
+        }
+    }
+    if (element == PE_FrameFocusRect && m_options.selection != Selection::FollowStyle) {
+        // Item panels draw their own focus indicator. QItemDelegate draws its
+        // selection without them, so its views keep the style's indicator.
+        const auto *view = qobject_cast<const QAbstractItemView *>(widget);
+        if (view && !qobject_cast<const QItemDelegate *>(view->itemDelegate())) {
+            return;
+        }
+    }
     if (m_options.radius == FollowStyle) {
         QProxyStyle::drawPrimitive(element, option, painter, widget);
         return;
     }
     const int radius = m_options.radius;
     switch (element) {
-    case PE_PanelItemViewRow:
-        // Item panels draw the rounded selection; a row-wide fill would hide it.
-        if (const auto *row = qstyleoption_cast<const QStyleOptionViewItem *>(option)) {
-            QStyleOptionViewItem plain(*row);
-            plain.state &= ~(State_Selected | State_MouseOver);
-            QProxyStyle::drawPrimitive(element, &plain, painter, widget);
-            return;
-        }
-        break;
-    case PE_PanelItemViewItem:
-        if (const auto *item = qstyleoption_cast<const QStyleOptionViewItem *>(option)) {
-            const bool selected = item->state & State_Selected;
-            const bool hovered = (item->state & State_MouseOver) && (item->state & State_Enabled);
-            QStyleOptionViewItem plain(*item);
-            plain.state &= ~(State_Selected | State_MouseOver);
-            QProxyStyle::drawPrimitive(element, &plain, painter, widget);
-            if (selected || hovered) {
-                QColor color = item->palette.color(colorGroup(item), QPalette::Highlight);
-                if (!selected) {
-                    color.setAlphaF(0.3);
-                }
-                // Round only the outer ends of a selection that spans columns.
-                bool start = true;
-                bool end = true;
-                if (item->viewItemPosition == QStyleOptionViewItem::Beginning) {
-                    end = false;
-                } else if (item->viewItemPosition == QStyleOptionViewItem::Middle) {
-                    start = end = false;
-                } else if (item->viewItemPosition == QStyleOptionViewItem::End) {
-                    start = false;
-                }
-                const bool rtl = item->direction == Qt::RightToLeft;
-                fillPath(painter, roundedPath(item->rect, radius, rtl ? end : start, rtl ? start : end), color);
-            }
-            return;
-        }
-        break;
     case PE_PanelLineEdit:
     case PE_FrameLineEdit:
         if (const auto *frame = qstyleoption_cast<const QStyleOptionFrame *>(option); frame && frame->lineWidth > 0) {
@@ -311,8 +373,107 @@ void AppearanceStyle::drawPrimitive(PrimitiveElement element, const QStyleOption
     QProxyStyle::drawPrimitive(element, option, painter, widget);
 }
 
+void AppearanceStyle::drawItemPanel(PrimitiveElement element, const QStyleOptionViewItem &item, QPainter *painter, const QWidget *widget) const
+{
+    QStyleOptionViewItem plain(item);
+    if (!m_options.hoverHighlight) {
+        plain.state &= ~State_MouseOver;
+    }
+    if (!customSelection()) {
+        QProxyStyle::drawPrimitive(element, &plain, painter, widget);
+        return;
+    }
+    // Item panels draw the selection; a row-wide fill would hide it.
+    plain.state &= ~(State_Selected | State_MouseOver);
+    QProxyStyle::drawPrimitive(element, &plain, painter, widget);
+    if (element != PE_PanelItemViewItem) {
+        return;
+    }
+    const bool selected = item.state & State_Selected;
+    const bool hovered = m_options.hoverHighlight && (item.state & State_MouseOver) && (item.state & State_Enabled);
+    const bool focused = m_options.selection != Selection::FollowStyle && (item.state & State_HasFocus);
+    if (!selected && !hovered && !focused) {
+        return;
+    }
+
+    const QPalette::ColorGroup group = colorGroup(&item);
+    const QColor highlight = item.palette.color(group, QPalette::Highlight);
+    const QColor base = item.palette.color(group, QPalette::Base);
+    Selection selection = m_options.selection;
+    qreal radius = 0;
+    switch (selection) {
+    case Selection::FollowStyle:
+        // Only the corner radius differs from the widget style.
+        selection = Selection::Filled;
+        radius = m_options.radius;
+        break;
+    case Selection::Filled:
+        break;
+    case Selection::Rounded:
+        radius = m_options.radius > 0 ? m_options.radius : DefaultRoundedRadius;
+        break;
+    case Selection::Outlined:
+    case Selection::AccentBar:
+        radius = std::max(m_options.radius, 0);
+        // Delegates that were not prepared draw selected text that may be
+        // unreadable on a light highlight, so they get a solid one.
+        if (!readableOnLightSelection(item.palette.color(group, QPalette::HighlightedText), item.palette, group)) {
+            selection = Selection::Filled;
+        }
+        break;
+    }
+    const bool light = isLightSelection(selection);
+
+    // Round only the outer ends of a selection that spans columns.
+    bool start = true;
+    bool end = true;
+    if (item.viewItemPosition == QStyleOptionViewItem::Beginning) {
+        end = false;
+    } else if (item.viewItemPosition == QStyleOptionViewItem::Middle) {
+        start = end = false;
+    } else if (item.viewItemPosition == QStyleOptionViewItem::End) {
+        start = false;
+    }
+    const bool rtl = item.direction == Qt::RightToLeft;
+    const bool left = rtl ? end : start;
+    const bool right = rtl ? start : end;
+    const QRectF rect(item.rect);
+
+    if (selected || hovered) {
+        QColor fill = highlight;
+        if (light) {
+            fill.setAlphaF(selected ? LightSelectionAmount : LightHoverAmount);
+        } else if (!selected) {
+            fill.setAlphaF(0.3);
+        }
+        fillPath(painter, roundedPath(rect, radius, left, right), fill);
+    }
+    const QColor accent = ColorSchemes::readable(highlight, base);
+    if (selected && selection == Selection::Outlined) {
+        strokeShape(painter, rect.adjusted(0.5, 0.5, -0.5, -0.5), radius, left, right, QPen(accent, 1), item.rect);
+    } else if (selected && selection == Selection::AccentBar && start) {
+        constexpr qreal width = 3;
+        const QRectF bar = rtl ? QRectF(rect.right() - width, rect.top(), width, rect.height()) : QRectF(rect.left(), rect.top(), width, rect.height());
+        fillPath(painter, roundedPath(bar, width / 2, true, true), accent);
+    }
+    if (focused) {
+        // A dashed ring marks the current item, so keyboard focus stays
+        // visible with and without a selection.
+        const QColor color = selected && !light ? item.palette.color(group, QPalette::HighlightedText) : accent;
+        strokeShape(painter, rect.adjusted(2.5, 2.5, -2.5, -2.5), std::max<qreal>(0, radius - 2), left, right, QPen(color, 1, Qt::DashLine), item.rect);
+    }
+}
+
 void AppearanceStyle::drawControl(ControlElement element, const QStyleOption *option, QPainter *painter, const QWidget *widget) const
 {
+    if (element == CE_ItemViewItem && isLightSelection(m_options.selection)) {
+        if (const auto *item = qstyleoption_cast<const QStyleOptionViewItem *>(option)) {
+            QStyleOptionViewItem prepared(*item);
+            prepareForSelection(&prepared, m_options.selection);
+            QProxyStyle::drawControl(element, &prepared, painter, widget);
+            return;
+        }
+    }
     if (m_options.dividers != Dividers::FollowStyle) {
         switch (element) {
         case CE_Splitter:

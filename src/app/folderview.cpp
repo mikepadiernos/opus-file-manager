@@ -2,6 +2,7 @@
 
 #include "folderview.h"
 
+#include "appearancestyle.h"
 #include "carddelegate.h"
 #include "density.h"
 #include "detailsview.h"
@@ -681,8 +682,10 @@ public:
 
     void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override
     {
+        QStyleOptionViewItem prepared(option);
+        AppearanceStyle::prepareItem(&prepared);
         if (!firstInGroup(index)) {
-            KFileItemDelegate::paint(painter, option, index);
+            KFileItemDelegate::paint(painter, prepared, index);
             if (index.column() == 0 && (m_folder->selectionMarkersVisible() || m_folder->selectionMode())) {
                 paintSelectionMarker(painter, option);
             }
@@ -698,7 +701,7 @@ public:
             const QRect labelRect = QStyle::visualRect(option.direction, headerRect, headerRect.adjusted(8, 0, -8, 0));
             painter->drawText(labelRect, QStyle::visualAlignment(option.direction, Qt::AlignVCenter | Qt::AlignLeft), m_model->groupLabel(index));
         }
-        QStyleOptionViewItem itemOption(option);
+        QStyleOptionViewItem itemOption(prepared);
         itemOption.rect.setTop(itemOption.rect.top() + HeaderHeight);
         KFileItemDelegate::paint(painter, itemOption, index);
         if (index.column() == 0 && (m_folder->selectionMarkersVisible() || m_folder->selectionMode())) {
@@ -732,7 +735,9 @@ public:
 
     void paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const override
     {
-        KFileItemDelegate::paint(painter, option, index);
+        QStyleOptionViewItem prepared(option);
+        AppearanceStyle::prepareItem(&prepared);
+        KFileItemDelegate::paint(painter, prepared, index);
         if (m_folder->selectionMarkersVisible() || m_folder->selectionMode()) {
             paintSelectionMarker(painter, option);
         }
@@ -2001,6 +2006,7 @@ void FolderView::applyDetailsPreferences()
     }
     m_details->setRootIsDecorated(expandable);
     m_details->setItemsExpandable(expandable);
+    m_details->setAlternatingRowColors(Settings::stripeDetailsRows());
     QHeaderView *header = m_details->header();
     const int width = Settings::detailsColumnWidth();
     header->setSectionResizeMode(width == Settings::EnumDetailsColumnWidth::Automatic ? QHeaderView::ResizeToContents : QHeaderView::Interactive);

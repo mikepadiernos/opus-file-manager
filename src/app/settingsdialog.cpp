@@ -158,7 +158,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     addTabbedPage({{createColorSchemePage(), i18nc("@title:tab", "Colour Scheme")},
                    {createCustomColorsPage(), i18nc("@title:tab", "Custom Colours")},
                    {createEffectsPage(), i18nc("@title:tab", "Effects")},
-                   {createLinesPage(), i18nc("@title:tab", "Lines")}},
+                   {createLinesPage(), i18nc("@title:tab", "Lines")},
+                   {createHighlightsPage(), i18nc("@title:tab", "Highlights")}},
                   i18nc("@title:group", "Themes"),
                   QStringLiteral("preferences-desktop-theme"));
     addTabbedPage({{createViewGeneralPage(), i18nc("@title:tab", "General")},
@@ -1733,6 +1734,32 @@ QWidget *SettingsDialog::createLinesPage()
                                  page);
     colorNote->setWordWrap(true);
     layout->addWidget(colorNote);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createHighlightsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    form->addRow(i18nc("@label:listbox", "Selection:"),
+                 comboBox(QStringLiteral("SelectionStyle"),
+                          {i18nc("@item:inlistbox selection style", "Follow widget style"),
+                           i18nc("@item:inlistbox selection style", "Filled"),
+                           i18nc("@item:inlistbox selection style", "Outlined"),
+                           i18nc("@item:inlistbox selection style", "Rounded"),
+                           i18nc("@item:inlistbox selection style", "Accent bar")}));
+    form->addRow(i18nc("@title:group", "Highlight:"), checkBox(QStringLiteral("HoverHighlight"), i18nc("@option:check", "Items under the pointer")));
+    form->addRow(i18nc("@title:group", "Details view:"), checkBox(QStringLiteral("StripeDetailsRows"), i18nc("@option:check", "Alternate row backgrounds")));
+    layout->addLayout(form);
+    auto *note = new QLabel(i18nc("@info",
+                                  "With a selection style other than the widget style's, the current item has a dashed outline, so keyboard "
+                                  "focus stays visible with and without a selection. Outlined and accent bar selections keep the normal text "
+                                  "colour; views whose text would not be readable on them use a filled selection instead."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
     layout->addStretch();
     return page;
 }

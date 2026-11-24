@@ -4,6 +4,8 @@
 
 #include <QProxyStyle>
 
+class QStyleOptionViewItem;
+
 /**
  * App-local style rules layered over Plasma's widget style. The style is
  * installed only when an option differs from the widget style's own
@@ -24,11 +26,27 @@ public:
         Hidden,
     };
 
+    /// How selected items are highlighted in item views.
+    enum class Selection {
+        FollowStyle,
+        /// A solid highlight with square corners.
+        Filled,
+        /// A light highlight with an outline.
+        Outlined,
+        /// A solid highlight with rounded corners.
+        Rounded,
+        /// A light highlight with a bar at the start of the item or row.
+        AccentBar,
+    };
+
     struct Options {
         int radius = FollowStyle;
         Dividers dividers = Dividers::FollowStyle;
         /// Whether hidden splitter handles and panel separators appear on hover.
         bool revealDividers = true;
+        Selection selection = Selection::FollowStyle;
+        /// Whether items under the pointer are highlighted.
+        bool hoverHighlight = true;
 
         bool operator==(const Options &) const = default;
     };
@@ -55,6 +73,18 @@ public:
      * @param fallback the radius to use when following the widget style
      */
     static int cornerRadius(int fallback);
+    /// The selection style of the installed style, or FollowStyle.
+    static Selection selectionStyle();
+    /// Whether items under the pointer are highlighted.
+    static bool hoverHighlight();
+    /// Whether @p selection draws a light highlight behind normal text.
+    static bool isLightSelection(Selection selection);
+    /**
+     * Prepares an item for a delegate that draws selected text in the
+     * HighlightedText colour. With a light selection style, selected text
+     * keeps the normal text colour when it is readable on the highlight.
+     */
+    static void prepareItem(QStyleOptionViewItem *option);
 
     Options options() const;
     void setOptions(const Options &options);
@@ -70,6 +100,9 @@ public:
 private:
     /// Draws a divider line along the long axis of a rectangle, or nothing when dividers are hidden.
     void drawDivider(const QStyleOption *option, QPainter *painter, bool hoverable) const;
+    /// Draws an item or row panel with the chosen selection style and hover highlight.
+    void drawItemPanel(PrimitiveElement element, const QStyleOptionViewItem &item, QPainter *painter, const QWidget *widget) const;
+    bool customSelection() const;
     bool isRestyledFrame(const QWidget *widget) const;
 
     Options m_options;
