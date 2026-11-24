@@ -810,7 +810,7 @@ Settings for M15 workspaces, stored in KConfig.
 - [x] **Indicators:** show the active workspace and unsaved layout state; choose
       the selector's placement without removing all ways to access it, and
       confirm before returning to the saved layout
-- [ ] **Pane location bars:** choose full breadcrumbs, abbreviated ancestors or
+- [x] **Pane location bars:** choose full breadcrumbs, abbreviated ancestors or
       an editable full path for each pane; restore these choices with the layout
 - [ ] **Features:** choose all, selected or none of a workspace's applicable
       behaviours, including location presentation, search scope, layouts, and
