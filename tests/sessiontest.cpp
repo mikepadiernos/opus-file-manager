@@ -62,6 +62,21 @@ private Q_SLOTS:
         QVERIFY(!Session::load(group).stacked);
     }
 
+    void missingViewModeUsesTheDefault()
+    {
+        QTemporaryDir dir;
+        KConfig config(dir.filePath(QStringLiteral("staterc")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Session"));
+        QCOMPARE(Session::load(group, 1).left.viewMode, 1);
+        QCOMPARE(Session::load(group, 1).right.viewMode, 1);
+
+        group.group(QStringLiteral("LeftPane")).writeEntry("ViewMode", 2);
+        group.group(QStringLiteral("RightPane")).writeEntry("ViewMode", 0);
+        const WindowSession saved = Session::load(group, 1);
+        QCOMPARE(saved.left.viewMode, 2);
+        QCOMPARE(saved.right.viewMode, 0);
+    }
+
     void sanitizedFillsGapsAndClamps()
     {
         const QUrl home = QUrl::fromLocalFile(QStringLiteral("/home/me"));
