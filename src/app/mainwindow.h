@@ -105,6 +105,7 @@ public Q_SLOTS:
 protected:
     bool queryClose() override;
     bool eventFilter(QObject *watched, QEvent *event) override;
+    void showEvent(QShowEvent *event) override;
     void readProperties(const KConfigGroup &group) override;
     void saveProperties(KConfigGroup &group) override;
     void saveNewToolbarConfig() override;
@@ -117,6 +118,8 @@ private:
     void restoreActiveWorkspaceLayout();
     /// Applies the configured colour scheme and reports when it cannot be used.
     void applyColorScheme();
+    /// Applies background blur, combining the setting with the terminal's request.
+    void applyWindowEffects();
     /// Places the workspace selector in the View menu, the status bar or both.
     void applyWorkspaceSelectorPlacement();
     /// Gives each pane its configured location bar, replacing the current choice only when the setting changes.
@@ -306,6 +309,8 @@ private:
     QWidget *m_rightPlaceholder = nullptr;
     QPointer<QMainWindow> m_rightWindow;
     TerminalPanel *m_terminalPanel = nullptr;
+    /// Whether a terminal profile asks for blur behind the window.
+    bool m_terminalBlur = false;
     EditorPanel *m_editor = nullptr;
     QDockWidget *m_editorDock = nullptr;
     QDialog *m_editorWindow = nullptr;

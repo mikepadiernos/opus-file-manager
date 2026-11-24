@@ -902,5 +902,9 @@
       <min>1</min>
       <max>50</max>
     </entry>
+    <entry name="BackgroundBlur" type="Bool">
+      <label>Blur the desktop behind translucent backgrounds with KWin's blur effect</label>
+      <default>false</default>
+    </entry>
   </group>
 </kcfg>

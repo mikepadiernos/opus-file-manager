@@ -13,12 +13,14 @@
 #include "settings.h"
 #include "settingsbackup.h"
 #include "settingswidgets.h"
+#include "windoweffects.h"
 #include "workspacecatalog.h"
 
 #include <KActionCollection>
 #include <KColorButton>
 #include <KConfigGroup>
 #include <KLocalizedString>
+#include <KMessageWidget>
 #include <KPageWidget>
 #include <KPluginMetaData>
 #include <KSharedConfig>
@@ -153,7 +155,9 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                   i18nc("@title:group", "Interface"),
                                   QStringLiteral("window"),
                                   &m_toolbarTabs);
-    addTabbedPage({{createColorSchemePage(), i18nc("@title:tab", "Colour Scheme")}, {createCustomColorsPage(), i18nc("@title:tab", "Custom Colours")}},
+    addTabbedPage({{createColorSchemePage(), i18nc("@title:tab", "Colour Scheme")},
+                   {createCustomColorsPage(), i18nc("@title:tab", "Custom Colours")},
+                   {createEffectsPage(), i18nc("@title:tab", "Effects")}},
                   i18nc("@title:group", "Themes"),
                   QStringLiteral("preferences-desktop-theme"));
     addTabbedPage({{createViewGeneralPage(), i18nc("@title:tab", "General")},
@@ -1594,6 +1598,33 @@ QWidget *SettingsDialog::createCustomColorsPage()
         editor->setAccent(m_accentColor->accent());
     });
     layout->addWidget(editor, 1);
+    return page;
+}
+
+QWidget *SettingsDialog::createEffectsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    auto *blur = checkBox(QStringLiteral("BackgroundBlur"), i18nc("@option:check", "Blur the desktop behind translucent backgrounds"));
+    blur->setToolTip(i18nc("@info:tooltip", "Uses KWin's blur effect; its strength follows the Blur settings in Desktop Effects."));
+    form->addRow(i18nc("@title:group", "Background:"), blur);
+    layout->addLayout(form);
+    auto *notice = new KMessageWidget(page);
+    notice->setObjectName(QStringLiteral("windowEffectsNotice"));
+    notice->setMessageType(KMessageWidget::Information);
+    notice->setCloseButtonVisible(false);
+    notice->setWordWrap(true);
+    notice->hide();
+    layout->addWidget(notice);
+    const auto updateNotice = [this, blur, notice] {
+        const QString reason = WindowEffects::unavailableReason(parentWidget(), blur->isChecked(), false);
+        notice->setText(reason);
+        notice->setVisible(!reason.isEmpty());
+    };
+    connect(blur, &QCheckBox::toggled, page, updateNotice);
+    updateNotice();
+    layout->addStretch();
     return page;
 }
 

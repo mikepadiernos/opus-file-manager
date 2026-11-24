@@ -14,6 +14,7 @@
 #include "settingsdialog.h"
 #include "settingswidgets.h"
 #include "tabmodel.h"
+#include "windoweffects.h"
 
 #include <KActionCollection>
 #include <KColorButton>
@@ -384,6 +385,39 @@ private Q_SLOTS:
         QTRY_COMPARE(window.palette().color(QPalette::Active, QPalette::Highlight), dark.color(QPalette::Active, QPalette::Highlight));
     }
 
+    void backgroundBlurReportsWhenUnavailable()
+    {
+        auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        QVERIFY(WindowEffects::isTranslucent(&window));
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *blur = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_BackgroundBlur"));
+        auto *notice = dialog.findChild<KMessageWidget *>(QStringLiteral("windowEffectsNotice"));
+        QVERIFY(blur && notice);
+        QVERIFY(notice->isHidden());
+
+        // The offscreen platform has no KWin blur effect.
+        QVERIFY(!WindowEffects::isBlurAvailable(&window));
+        blur->setChecked(true);
+        QVERIFY(!notice->isHidden());
+        QVERIFY(notice->text().contains(QLatin1String("blur effect is not available")));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::backgroundBlur());
+        QCOMPARE(window.statusBar()->currentMessage(), notice->text());
+
+        blur->setChecked(false);
+        QVERIFY(notice->isHidden());
+
+        QWidget opaque;
+        QVERIFY(WindowEffects::unavailableReason(&opaque, false, false).isEmpty());
+        QVERIFY(WindowEffects::unavailableReason(&opaque, false, true).contains(QLatin1String("compositing")));
+    }
+
     void paneTintFollowsTheChosenPanesAndScheme()
     {
         auto restore = qScopeGuard([] {
@@ -499,6 +533,7 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("ColorScheme")), QStringLiteral("Colour Scheme"));
         QCOMPARE(tabOf(QStringLiteral("AccentColor")), QStringLiteral("Colour Scheme"));
         QCOMPARE(tabOf(QStringLiteral("PaneTint")), QStringLiteral("Colour Scheme"));
+        QCOMPARE(tabOf(QStringLiteral("BackgroundBlur")), QStringLiteral("Effects"));
         QCOMPARE(tabOf(QStringLiteral("CustomColors")), QStringLiteral("Custom Colours"));
         QCOMPARE(tabOf(QStringLiteral("DefaultViewMode")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("ShowFileListMinimap")), QStringLiteral("General"));

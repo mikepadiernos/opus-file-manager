@@ -107,6 +107,7 @@ private:
     QWidget *createInformationPanelPage();
     QWidget *createColorSchemePage();
     QWidget *createCustomColorsPage();
+    QWidget *createEffectsPage();
     QWidget *createViewGeneralPage();
     QWidget *createDetailsPage();
     QWidget *createCompactPage();

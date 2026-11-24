@@ -46,6 +46,7 @@
 #include "transferqueue.h"
 #include "transferqueuedialog.h"
 #include "viewsettings.h"
+#include "windoweffects.h"
 #include "workspacedialog.h"
 #include "workspacelocations.h"
 
@@ -528,6 +529,21 @@ void MainWindow::applyColorScheme()
         statusBar()->showMessage(
             i18nc("@info:status", "High contrast is requested, so Plasma Opus follows the Plasma colour scheme instead of its own colours."));
     }
+}
+
+void MainWindow::applyWindowEffects()
+{
+    if (windowHandle()) {
+        // Blur the whole window, so other translucent areas supplied by the
+        // active style are included.
+        KWindowEffects::enableBlurBehind(windowHandle(), m_terminalBlur || (Settings::backgroundBlur() && WindowEffects::isBlurAvailable(this)));
+    }
+}
+
+void MainWindow::showEvent(QShowEvent *event)
+{
+    KXmlGuiWindow::showEvent(event);
+    applyWindowEffects();
 }
 
 MainWindow::~MainWindow()
@@ -1034,10 +1050,8 @@ void MainWindow::setupPanes()
     m_splitter->setStretchFactor(1, 1);
     m_terminalPanel = new TerminalPanel(m_workspaceSplitter);
     connect(m_terminalPanel, &TerminalPanel::blurRegionChanged, this, [this](const QRegion &region) {
-        if (windowHandle()) {
-            // Include other translucent areas supplied by the active style.
-            KWindowEffects::enableBlurBehind(windowHandle(), !region.isEmpty());
-        }
+        m_terminalBlur = !region.isEmpty();
+        applyWindowEffects();
     });
     m_terminalPanel->hide();
     m_workspaceSplitter->addWidget(m_splitter);
@@ -4542,6 +4556,10 @@ bool MainWindow::isDualLayout() const
 void MainWindow::applySettings()
 {
     applyColorScheme();
+    applyWindowEffects();
+    if (const QString reason = WindowEffects::unavailableReason(this, Settings::backgroundBlur(), false); !reason.isEmpty()) {
+        statusBar()->showMessage(reason);
+    }
     applyLocationPresentationDefaults();
     applyWorkspaceSelectorPlacement();
     scheduleWorkspaceSelectorRefresh();
