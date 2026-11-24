@@ -807,7 +807,7 @@ Settings for M15 workspaces, stored in KConfig.
 - [x] **Recovery:** choose whether to prompt for retries when locations or
       providers are unavailable; identify what could not be restored and retain
       saved references until explicitly changed
-- [ ] **Indicators:** show the active workspace and unsaved layout state; choose
+- [x] **Indicators:** show the active workspace and unsaved layout state; choose
       the selector's placement without removing all ways to access it, and
       confirm before returning to the saved layout
 - [ ] **Pane location bars:** choose full breadcrumbs, abbreviated ancestors or
