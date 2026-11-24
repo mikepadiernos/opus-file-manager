@@ -2689,6 +2689,38 @@ private Q_SLOTS:
         QTRY_COMPARE(pane->url(), QUrl::fromLocalFile(QStringLiteral("/tmp/__path")));
     }
 
+    void appliesConfiguredPaneLocationBars()
+    {
+        const auto reset = qScopeGuard([] {
+            Settings::setLeftLocationPresentation(Settings::EnumLeftLocationPresentation::FullBreadcrumbs);
+            Settings::setRightLocationPresentation(Settings::EnumRightLocationPresentation::FullBreadcrumbs);
+        });
+        Settings::setLeftLocationPresentation(Settings::EnumLeftLocationPresentation::EditablePath);
+        Settings::setRightLocationPresentation(Settings::EnumRightLocationPresentation::AbbreviatedBreadcrumbs);
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        Pane *const left = window.activePane();
+        Pane *const right = window.inactivePane();
+        QCOMPARE(left->locationPresentation(), Pane::LocationPresentation::EditablePath);
+        QCOMPARE(right->locationPresentation(), Pane::LocationPresentation::AbbreviatedBreadcrumbs);
+
+        // A choice made with the Path button survives unrelated settings changes.
+        left->setLocationPresentation(Pane::LocationPresentation::FullBreadcrumbs);
+        window.applySettings();
+        QCOMPARE(left->locationPresentation(), Pane::LocationPresentation::FullBreadcrumbs);
+        Settings::setRightLocationPresentation(Settings::EnumRightLocationPresentation::EditablePath);
+        window.applySettings();
+        QCOMPARE(left->locationPresentation(), Pane::LocationPresentation::FullBreadcrumbs);
+        QCOMPARE(right->locationPresentation(), Pane::LocationPresentation::EditablePath);
+
+        // A snapshot without a saved presentation uses the pane's configured default.
+        PaneSession snapshot = right->saveState();
+        snapshot.locationPresentation = -1;
+        right->setLocationPresentation(Pane::LocationPresentation::FullBreadcrumbs);
+        right->replaceState(snapshot);
+        QCOMPARE(right->locationPresentation(), Pane::LocationPresentation::EditablePath);
+    }
+
     void init()
     {
         // Start from a clean session so the first window does not inherit

@@ -176,7 +176,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createWorkspaceLayoutsPage(), i18nc("@title:tab", "Layouts")},
                    {createWorkspaceSnapshotsPage(), i18nc("@title:tab", "Snapshots")},
                    {createWorkspaceRecoveryPage(), i18nc("@title:tab", "Recovery")},
-                   {createWorkspaceIndicatorsPage(), i18nc("@title:tab", "Indicators")}},
+                   {createWorkspaceIndicatorsPage(), i18nc("@title:tab", "Indicators")},
+                   {createWorkspaceLocationBarsPage(), i18nc("@title:tab", "Location Bars")}},
                   i18nc("@title:group", "Workspaces"),
                   QStringLiteral("view-grid"));
     reloadWorkspaces();
@@ -617,6 +618,28 @@ QWidget *SettingsDialog::createWorkspaceIndicatorsPage()
     auto *notice = new QLabel(i18nc("@info",
                                     "The selector shows the active workspace. View, Workspaces… always stays available, so workspaces can be "
                                     "managed and switched wherever the selector is placed."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceLocationBarsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    const QStringList choices{i18nc("@item:inlistbox location bar", "Full breadcrumbs"),
+                              i18nc("@item:inlistbox location bar", "Abbreviated breadcrumbs"),
+                              i18nc("@item:inlistbox location bar", "Editable full path")};
+    form->addRow(i18nc("@label:listbox", "Left or top pane:"), comboBox(QStringLiteral("LeftLocationPresentation"), choices));
+    form->addRow(i18nc("@label:listbox", "Right or bottom pane:"), comboBox(QStringLiteral("RightLocationPresentation"), choices));
+    layout->addLayout(form);
+    auto *notice = new QLabel(i18nc("@info",
+                                    "Changing a choice applies it to that pane now. The Path button in each pane changes its location bar until "
+                                    "the next change, and the session and workspace layouts remember it. Switching to a workspace that includes "
+                                    "location presentation in its behaviors restores the location bars saved with its layout."),
                               page);
     notice->setWordWrap(true);
     layout->addWidget(notice);

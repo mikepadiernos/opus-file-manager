@@ -601,6 +601,12 @@ void MainWindow::applyWorkspaceSelectorPlacement()
     m_workspaceStatusButton->setVisible(placement != Settings::EnumWorkspaceSelectorPlacement::ViewMenu);
 }
 
+void MainWindow::applyLocationPresentationDefaults()
+{
+    m_left->setDefaultLocationPresentation(static_cast<Pane::LocationPresentation>(Settings::leftLocationPresentation()));
+    m_right->setDefaultLocationPresentation(static_cast<Pane::LocationPresentation>(Settings::rightLocationPresentation()));
+}
+
 void MainWindow::refreshWorkspaceSelector()
 {
     if (!m_workspaceSelectorAction) {
@@ -990,6 +996,7 @@ void MainWindow::setupPanes()
     m_splitter->setChildrenCollapsible(false);
     m_left = new Pane(m_placesModel, m_tabColors, m_splitter, QStringLiteral("Left"));
     m_right = new Pane(m_placesModel, m_tabColors, m_splitter, QStringLiteral("Right"));
+    applyLocationPresentationDefaults();
     m_previewPanel = new PreviewPanel(m_splitter);
     m_splitter->addWidget(m_left);
     m_splitter->addWidget(m_right);
@@ -4512,6 +4519,7 @@ bool MainWindow::isDualLayout() const
 
 void MainWindow::applySettings()
 {
+    applyLocationPresentationDefaults();
     applyWorkspaceSelectorPlacement();
     scheduleWorkspaceSelectorRefresh();
     const bool toolbarsLocked = Settings::lockToolbars();

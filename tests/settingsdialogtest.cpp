@@ -726,6 +726,25 @@ private Q_SLOTS:
         QVERIFY(!Settings::confirmWorkspaceLayoutRestore());
     }
 
+    void paneLocationBarsPersist()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *left = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_LeftLocationPresentation"));
+            auto *right = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_RightLocationPresentation"));
+            QVERIFY(left && right);
+            QCOMPARE(left->currentIndex(), int(Settings::EnumLeftLocationPresentation::FullBreadcrumbs));
+            QCOMPARE(right->currentIndex(), int(Settings::EnumRightLocationPresentation::FullBreadcrumbs));
+            QCOMPARE(left->count(), 3);
+            left->setCurrentIndex(Settings::EnumLeftLocationPresentation::EditablePath);
+            right->setCurrentIndex(Settings::EnumRightLocationPresentation::AbbreviatedBreadcrumbs);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QCOMPARE(Settings::leftLocationPresentation(), Settings::EnumLeftLocationPresentation::EditablePath);
+        QCOMPARE(Settings::rightLocationPresentation(), Settings::EnumRightLocationPresentation::AbbreviatedBreadcrumbs);
+    }
+
     void duplicateFinderDefaultsPersistAndCancelLeavesThemUnchanged()
     {
         KFilePlacesModel places;

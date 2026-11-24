@@ -117,6 +117,8 @@ private:
     void restoreActiveWorkspaceLayout();
     /// Places the workspace selector in the View menu, the status bar or both.
     void applyWorkspaceSelectorPlacement();
+    /// Gives each pane its configured location bar, replacing the current choice only when the setting changes.
+    void applyLocationPresentationDefaults();
     void refreshWorkspaceSelector();
     void scheduleWorkspaceSelectorRefresh();
     /// Loads workspace assignments and updates their presentation.

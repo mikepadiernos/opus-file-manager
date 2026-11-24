@@ -825,5 +825,23 @@
       <label>Ask before returning to the active workspace's saved layout</label>
       <default>true</default>
     </entry>
+    <entry name="LeftLocationPresentation" type="Enum">
+      <label>How the left or top pane shows its location when no saved choice applies</label>
+      <choices>
+        <choice name="FullBreadcrumbs"/>
+        <choice name="AbbreviatedBreadcrumbs"/>
+        <choice name="EditablePath"/>
+      </choices>
+      <default>FullBreadcrumbs</default>
+    </entry>
+    <entry name="RightLocationPresentation" type="Enum">
+      <label>How the right or bottom pane shows its location when no saved choice applies</label>
+      <choices>
+        <choice name="FullBreadcrumbs"/>
+        <choice name="AbbreviatedBreadcrumbs"/>
+        <choice name="EditablePath"/>
+      </choices>
+      <default>FullBreadcrumbs</default>
+    </entry>
   </group>
 </kcfg>
