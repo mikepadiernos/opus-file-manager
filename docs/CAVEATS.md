@@ -34,6 +34,7 @@ recommendation and external tools are separate applications.
 - **Other:** [Embedded terminal](#embedded-terminal),
   [linked navigation](#linked-pane-navigation),
   [workspace layouts](#workspace-layouts),
+  [workspace settings](#workspace-settings),
   [native tag groups](#native-tag-groups),
   [native title and header padding](#native-title-and-header-padding),
   [file-list minimap](#file-list-minimap),
@@ -61,6 +62,45 @@ first. Older snapshots may require replacement before they can be applied.
   Layout**. Explicitly switch to apply a saved layout after startup.
   - Comment:
     [#581.7074690958](https://github.com/mikepadiernos/plasma-opus/issues/581#issuecomment-7074690958)
+
+## Workspace settings
+
+The M16 settings have these limits
+([#609](https://github.com/mikepadiernos/plasma-opus/issues/609)):
+
+- **Panels:** the Layouts panels option restores the saved window state as one
+  unit, including main toolbar positions and dock placement. The toolbars
+  option only controls toolbar entries.
+- **Remote locations:** recovery checks only that a remote location's KIO
+  protocol is installed. It never contacts the server, so a known but
+  unreachable remote location is not listed and fails when its tab loads.
+- **Unsaved state:** the unsaved marker and the **When unsaved** switch
+  confirmation compare the whole captured layout. This includes parts that
+  the workspace's behaviors or the restore options would not restore.
+- **Import conflicts:** you choose which profiles to import one by one, but
+  the replace or keep choice applies to all selected conflicts.
+- **Default behaviors:** these apply only to workspaces created in the
+  workspace manager. Duplicated and imported workspaces keep their own.
+
+- **Recommendation:**
+  - **Panels:** to keep the current docks and toolbar positions while
+    restoring toolbar entries, clear the panels option.
+  - **Remote locations:** connect to them before switching, then reload any
+    remote tab that was unreachable.
+  - **Unsaved state:** use **Save Current Layout** after deliberate changes,
+    or set the switch confirmation to **Never** or **Always** if it asks too
+    often.
+  - **Import conflicts:** import conflicting profiles in separate passes when
+    some should replace existing workspaces and others should be kept.
+  - **Behaviors:** review the behaviors of duplicated and imported workspaces
+    in the workspace manager.
+  - Comment:
+    [#609.7144292691](https://github.com/mikepadiernos/plasma-opus/issues/609#issuecomment-7144292691)
+- **Proposed improvements:**
+  - Split window state so that toolbar positions follow the toolbars option.
+  - Optionally probe remote locations with a bounded, cancellable KIO stat.
+  - Compare only the restorable parts of a layout when marking unsaved state.
+  - Choose to replace or keep each conflicting profile separately.
 
 ## Native tag groups
 
