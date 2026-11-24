@@ -763,5 +763,25 @@
       <label>Workspace made active at startup: empty for the last used workspace, "none" for no workspace, or a workspace UUID</label>
       <default></default>
     </entry>
+    <entry name="WorkspaceRestorePaneArrangement" type="Bool">
+      <label>Restore single or dual panes, stacking, pane sizes and second-pane placement when switching workspaces</label>
+      <default>true</default>
+    </entry>
+    <entry name="WorkspaceRestoreViews" type="Bool">
+      <label>Restore each pane's view mode when switching workspaces</label>
+      <default>true</default>
+    </entry>
+    <entry name="WorkspaceRestoreToolbars" type="Bool">
+      <label>Restore main and pane toolbar entries when switching workspaces</label>
+      <default>true</default>
+    </entry>
+    <entry name="WorkspaceRestorePanels" type="Bool">
+      <label>Restore dock and toolbar positions and the preview, editor and terminal panels when switching workspaces</label>
+      <default>true</default>
+    </entry>
+    <entry name="ConfirmWorkspaceLayoutOverwrite" type="Bool">
+      <label>Ask before replacing a workspace's saved layout</label>
+      <default>true</default>
+    </entry>
   </group>
 </kcfg>

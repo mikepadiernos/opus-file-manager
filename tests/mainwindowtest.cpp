@@ -2604,6 +2604,14 @@ private Q_SLOTS:
         pane->replaceState(snapshot);
         QCOMPARE(pane->saveState(), snapshot);
         QCOMPARE(pane->view()->viewMode(), FolderView::ViewMode::Compact);
+        pane->setUrl(QUrl::fromLocalFile(m_root.path()));
+        pane->setUrl(m_b);
+        QVERIFY(pane->tabs()->canGoBack());
+        PaneSession filtered = snapshot;
+        filtered.filterText = QStringLiteral("*.md");
+        pane->replaceState(filtered);
+        QCOMPARE(pane->saveState(), filtered);
+        QVERIFY2(pane->tabs()->canGoBack(), "replacing unchanged tabs keeps their history");
         const auto breadcrumbs = pane->findChildren<QToolButton *>(QStringLiteral("paneBreadcrumbSegment"));
         QVERIFY(std::any_of(breadcrumbs.cbegin(), breadcrumbs.cend(), [](const QToolButton *button) {
             return button->text() == QStringLiteral("m");

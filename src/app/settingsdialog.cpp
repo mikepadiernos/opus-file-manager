@@ -35,6 +35,7 @@
 #include <QDir>
 #include <QFileDialog>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -171,7 +172,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                   QStringLiteral("folder"));
     addTabbedPage({{createWorkspaceManagementPage(), i18nc("@title:tab", "Management")},
                    {createWorkspaceStartupPage(), i18nc("@title:tab", "Startup")},
-                   {createWorkspaceSearchPage(), i18nc("@title:tab", "Search")}},
+                   {createWorkspaceSearchPage(), i18nc("@title:tab", "Search")},
+                   {createWorkspaceLayoutsPage(), i18nc("@title:tab", "Layouts")}},
                   i18nc("@title:group", "Workspaces"),
                   QStringLiteral("view-grid"));
     reloadWorkspaces();
@@ -520,6 +522,30 @@ QWidget *SettingsDialog::createWorkspaceSearchPage()
                               page);
     notice->setWordWrap(true);
     layout->addWidget(notice);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceLayoutsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *restore = new QGroupBox(i18nc("@title:group", "Restore When Switching Workspaces"), page);
+    auto *restoreLayout = new QVBoxLayout(restore);
+    restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestorePaneArrangement"),
+                                      i18nc("@option:check", "Pane arrangement: single or dual panes, stacking, sizes and second-pane placement")));
+    restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestoreViews"), i18nc("@option:check", "Each pane's view mode")));
+    restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestoreToolbars"), i18nc("@option:check", "Main and pane toolbar entries")));
+    restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestorePanels"),
+                                      i18nc("@option:check", "Panels: dock and toolbar positions, and the preview, editor and terminal panels")));
+    layout->addWidget(restore);
+    auto *notice = new QLabel(i18nc("@info",
+                                    "These options apply to workspaces whose behaviors include layouts. Parts that are not restored keep their "
+                                    "current state. Panels are restored only when their integrations are available."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addWidget(checkBox(QStringLiteral("ConfirmWorkspaceLayoutOverwrite"), i18nc("@option:check", "Ask before replacing a workspace's saved layout")));
     layout->addStretch();
     return page;
 }

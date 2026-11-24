@@ -160,6 +160,8 @@ protected:
     void resizeEvent(QResizeEvent *event) override;
 
 private:
+    /// Closes the pane's tabs and opens those of @p state with their pins, locks and names.
+    void rebuildTabs(const PaneSession &state);
     void saveHistoryViewState();
     void restoreHistoryViewState();
     void finishReveal();

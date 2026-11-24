@@ -3,7 +3,9 @@
 #include "workspacedialog.h"
 #include "foldersyncprofiles.h"
 #include "savedsearches.h"
+#include "settings.h"
 #include "workspacelocations.h"
+#include "workspacerestore.h"
 
 #include <KConfig>
 #include <KLocalizedString>
@@ -454,15 +456,13 @@ void WorkspaceDialog::activateWorkspace()
         return;
     }
     const WorkspaceCatalog::BehaviorSelection selection = it->behaviorSelection;
-    const bool restoreLayout = selection.applies(selection.layout);
-    const bool restorePanes = selection.applies(selection.paneTabRestoration);
-    const bool restoreLocationPresentation = selection.applies(selection.locationPresentation);
-    const bool restoreAnything = restoreLayout || restorePanes || restoreLocationPresentation;
+    const bool restoreAnything =
+        selection.applies(selection.layout) || selection.applies(selection.paneTabRestoration) || selection.applies(selection.locationPresentation);
     if (restoreAnything && !it->layout) {
         m_status->setText(i18nc("@info", "The selected workspace has no saved layout for its enabled behaviors."));
         return;
     }
-    if ((restoreLayout || restorePanes || restoreLocationPresentation)
+    if (restoreAnything
         && QMessageBox::question(
                this,
                i18nc("@title:window", "Switch Workspace"),
@@ -488,41 +488,10 @@ void WorkspaceDialog::activateWorkspace()
             m_status->setText(error);
             return;
         }
-        WorkspaceCatalog::Layout layout = *current->layout;
-        if (!restoreLayout) {
-            layout.windowState = previous.windowState;
-            layout.paneSizes = previous.paneSizes;
-            layout.workspaceSizes = previous.workspaceSizes;
-            layout.dual = previous.dual;
-            layout.stacked = previous.stacked;
-            layout.presentation = previous.presentation;
-        }
-        if (selection.mode == WorkspaceCatalog::BehaviorMode::Selected) {
-            if (!restorePanes) {
-                if (!previous.session) {
-                    m_status->setText(i18nc("@info", "The current window has no pane snapshot to preserve."));
-                    return;
-                }
-                layout.session = previous.session;
-                if (restoreLocationPresentation) {
-                    if (!current->layout->session) {
-                        m_status->setText(i18nc("@info", "The selected workspace has no pane snapshot for its location presentation."));
-                        return;
-                    }
-                    layout.session->left.locationPresentation = current->layout->session->left.locationPresentation;
-                    layout.session->right.locationPresentation = current->layout->session->right.locationPresentation;
-                }
-            } else if (!restoreLocationPresentation) {
-                if (!layout.session || !previous.session) {
-                    m_status->setText(i18nc("@info", "A pane snapshot is unavailable for the selected behaviors."));
-                    return;
-                }
-                layout.session->left.locationPresentation = previous.session->left.locationPresentation;
-                layout.session->right.locationPresentation = previous.session->right.locationPresentation;
-            } else if (!layout.session) {
-                m_status->setText(i18nc("@info", "The selected workspace has no pane snapshot for restoration."));
-                return;
-            }
+        WorkspaceCatalog::Layout layout;
+        if (!WorkspaceRestore::merge(*current->layout, previous, selection, WorkspaceRestore::fromSettings(), layout, error)) {
+            m_status->setText(error);
+            return;
         }
         if (!m_apply(layout, error)) {
             m_status->setText(error);
@@ -556,12 +525,13 @@ void WorkspaceDialog::saveLayout()
         m_status->setText(i18nc("@info", "Select a workspace first."));
         return;
     }
-    if (QMessageBox::question(this,
-                              i18nc("@title:window", "Save Workspace Layout"),
-                              i18nc("@info", "Replace the selected workspace's saved layout with the current window layout?"),
-                              QMessageBox::Yes | QMessageBox::No,
-                              QMessageBox::No)
-        != QMessageBox::Yes) {
+    if (Settings::confirmWorkspaceLayoutOverwrite()
+        && QMessageBox::question(this,
+                                 i18nc("@title:window", "Save Workspace Layout"),
+                                 i18nc("@info", "Replace the selected workspace's saved layout with the current window layout?"),
+                                 QMessageBox::Yes | QMessageBox::No,
+                                 QMessageBox::No)
+            != QMessageBox::Yes) {
         return;
     }
     auto updated = m_catalog;

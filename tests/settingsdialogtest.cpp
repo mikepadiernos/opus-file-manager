@@ -635,6 +635,35 @@ private Q_SLOTS:
         QVERIFY(!KSharedConfig::openConfig()->group(QStringLiteral("Search")).readEntry("WorkspaceSearchByDefault", true));
     }
 
+    void workspaceLayoutRestoreOptionsPersist()
+    {
+        KFilePlacesModel places;
+        const QStringList entries{QStringLiteral("WorkspaceRestorePaneArrangement"),
+                                  QStringLiteral("WorkspaceRestoreViews"),
+                                  QStringLiteral("WorkspaceRestoreToolbars"),
+                                  QStringLiteral("WorkspaceRestorePanels"),
+                                  QStringLiteral("ConfirmWorkspaceLayoutOverwrite")};
+        {
+            SettingsDialog dialog(&places, nullptr);
+            for (const QString &entry : entries) {
+                auto *option = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_") + entry);
+                QVERIFY2(option, qPrintable(entry));
+                QVERIFY(option->isChecked());
+                option->setChecked(false);
+            }
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QVERIFY(!Settings::workspaceRestorePaneArrangement());
+        QVERIFY(!Settings::workspaceRestoreViews());
+        QVERIFY(!Settings::workspaceRestoreToolbars());
+        QVERIFY(!Settings::workspaceRestorePanels());
+        QVERIFY(!Settings::confirmWorkspaceLayoutOverwrite());
+        const auto group = KSharedConfig::openConfig()->group(QStringLiteral("WorkspaceSettings"));
+        for (const QString &entry : entries) {
+            QVERIFY2(!group.readEntry(entry, true), qPrintable(entry));
+        }
+    }
+
     void duplicateFinderDefaultsPersistAndCancelLeavesThemUnchanged()
     {
         KFilePlacesModel places;

@@ -4,6 +4,7 @@
 #include "favoritesmodel.h"
 #include "foldersyncprofiles.h"
 #include "savedsearches.h"
+#include "settings.h"
 #include "workspacelocations.h"
 
 #include <KConfig>
@@ -261,6 +262,91 @@ private Q_SLOTS:
         QCOMPARE(applied.session->activePane, currentSession.activePane);
         QCOMPARE(applied.paneSizes, saved.paneSizes);
         QCOMPARE(applied.workspaceSizes, saved.workspaceSizes);
+    }
+
+    void layoutRestoreOptionsKeepCurrentParts()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        const auto group = config.group(QStringLiteral("Workspaces"));
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        WindowSession savedSession;
+        savedSession.left.tabs = {QUrl::fromLocalFile(QStringLiteral("/saved"))};
+        savedSession.left.viewMode = 2;
+        savedSession.right.tabs = {QUrl::fromLocalFile(QStringLiteral("/saved-right"))};
+        WorkspaceCatalog::Presentation savedPresentation;
+        savedPresentation.toolbarActions = QStringList{QStringLiteral("saved_action")};
+        savedPresentation.previewVisible = true;
+        const WorkspaceCatalog::Layout saved{QByteArray("saved"), {1, 2}, {3, 4}, true, false, savedPresentation, savedSession};
+        QVERIFY(WorkspaceCatalog::setLayout(catalog, catalog.workspaces.first().id, saved, error));
+        QVERIFY(WorkspaceCatalog::save(group, catalog, error));
+
+        WindowSession currentSession;
+        currentSession.left.tabs = {QUrl::fromLocalFile(QStringLiteral("/current"))};
+        currentSession.right.tabs = {QUrl::fromLocalFile(QStringLiteral("/current-right"))};
+        WorkspaceCatalog::Presentation currentPresentation;
+        currentPresentation.toolbarActions = QStringList{QStringLiteral("current_action")};
+        const WorkspaceCatalog::Layout current{QByteArray("current"), {8, 9}, {10, 11}, false, true, currentPresentation, currentSession};
+        WorkspaceCatalog::Layout applied;
+        Settings::setWorkspaceRestoreViews(false);
+        Settings::setWorkspaceRestoreToolbars(false);
+        WorkspaceDialog dialog(
+            group,
+            [&current](WorkspaceCatalog::Layout &layout, QString &) {
+                layout = current;
+                return true;
+            },
+            [&applied](const WorkspaceCatalog::Layout &layout, QString &) {
+                applied = layout;
+                return true;
+            },
+            QString());
+        dialog.findChild<QListWidget *>(QStringLiteral("workspaceList"))->setCurrentRow(0);
+        QTimer::singleShot(0, [] {
+            qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("workspaceActivate"))->click();
+        Settings::self()->setDefaults();
+
+        QCOMPARE(applied.windowState, saved.windowState);
+        QCOMPARE(applied.paneSizes, saved.paneSizes);
+        QVERIFY(applied.presentation && applied.session);
+        QCOMPARE(applied.presentation->toolbarActions, currentPresentation.toolbarActions);
+        QVERIFY(applied.presentation->previewVisible);
+        QCOMPARE(applied.session->left.tabs, savedSession.left.tabs);
+        QCOMPARE(applied.session->left.viewMode, 0);
+    }
+
+    void layoutOverwriteConfirmationCanBeSkipped()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        const auto group = config.group(QStringLiteral("Workspaces"));
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(WorkspaceCatalog::save(group, catalog, error));
+        const WorkspaceCatalog::Layout current{QByteArray("current"), {8, 9}, {10, 11}, false, true, std::nullopt, std::nullopt};
+        Settings::setConfirmWorkspaceLayoutOverwrite(false);
+        WorkspaceDialog dialog(
+            group,
+            [&current](WorkspaceCatalog::Layout &layout, QString &) {
+                layout = current;
+                return true;
+            },
+            [](const WorkspaceCatalog::Layout &, QString &) {
+                return true;
+            },
+            QString());
+        dialog.findChild<QListWidget *>(QStringLiteral("workspaceList"))->setCurrentRow(0);
+        dialog.findChild<QPushButton *>(QStringLiteral("workspaceSaveLayout"))->click();
+        Settings::self()->setDefaults();
+        QVERIFY(WorkspaceCatalog::load(group, catalog, error));
+        QCOMPARE(catalog.workspaces.first().layout, std::optional<WorkspaceCatalog::Layout>(current));
     }
 
     void restoresPreviousLayoutWhenCatalogChangesDuringSwitch()

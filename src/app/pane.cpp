@@ -1186,6 +1186,26 @@ void Pane::replaceState(const PaneSession &state)
     if (state.tabs.isEmpty()) {
         return;
     }
+    const PaneSession current = saveState();
+    QStringList names = state.names;
+    while (names.size() < state.tabs.size()) {
+        names.append(QString());
+    }
+    // Rebuilding unchanged tabs would discard their history and selection.
+    const bool sameTabs =
+        current.tabs == state.tabs && current.pinnedCount == state.pinnedCount && current.lockedTabs == state.lockedTabs && current.names == names;
+    if (!sameTabs) {
+        rebuildTabs(state);
+    }
+    m_tabs->setCurrentIndex(qBound(0, state.currentTab, m_tabs->count() - 1));
+    const int scope = state.filterScope < 0 ? Settings::defaultFilterScope() : state.filterScope;
+    m_filterBar->setFilter(NameFilter(state.filterText, static_cast<NameFilter::Scope>(qBound(0, scope, 2))));
+    setLocationPresentation(static_cast<LocationPresentation>(qBound(0, state.locationPresentation, 2)));
+    m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, 2)));
+}
+
+void Pane::rebuildTabs(const PaneSession &state)
+{
     for (int i = 0; i < m_tabs->count(); ++i) {
         m_tabs->setLocked(i, false);
     }
@@ -1212,11 +1232,6 @@ void Pane::replaceState(const PaneSession &state)
     for (int i = 0; i < state.names.size(); ++i) {
         m_tabs->setName(i, state.names.at(i));
     }
-    m_tabs->setCurrentIndex(qBound(0, state.currentTab, m_tabs->count() - 1));
-    const int scope = state.filterScope < 0 ? Settings::defaultFilterScope() : state.filterScope;
-    m_filterBar->setFilter(NameFilter(state.filterText, static_cast<NameFilter::Scope>(qBound(0, scope, 2))));
-    setLocationPresentation(static_cast<LocationPresentation>(qBound(0, state.locationPresentation, 2)));
-    m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, 2)));
 }
 
 void Pane::reloadFilterSettings()
