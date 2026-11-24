@@ -103,6 +103,7 @@ private:
     QWidget *createPlacesPage();
     QWidget *createStatusBarPage();
     QWidget *createInformationPanelPage();
+    QWidget *createColorSchemePage();
     QWidget *createViewGeneralPage();
     QWidget *createDetailsPage();
     QWidget *createCompactPage();

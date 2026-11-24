@@ -152,6 +152,9 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                   i18nc("@title:group", "Interface"),
                                   QStringLiteral("window"),
                                   &m_toolbarTabs);
+    addTabbedPage({{createColorSchemePage(), i18nc("@title:tab", "Colour Scheme")}},
+                  i18nc("@title:group", "Themes"),
+                  QStringLiteral("preferences-desktop-theme"));
     addTabbedPage({{createViewGeneralPage(), i18nc("@title:tab", "General")},
                    {createDetailsPage(), i18nc("@title:tab", "Details")},
                    {createIconsPage(), i18nc("@title:tab", "Icons")},
@@ -1522,6 +1525,23 @@ QWidget *SettingsDialog::createFoldersAndTabsPage()
     form->addRow(i18nc("@title:group", "History:"),
                  checkBox(QStringLiteral("RestoreHistorySelection"), i18nc("@option:check", "Restore selection when navigating back or forward")));
     form->addRow({}, checkBox(QStringLiteral("RestoreHistoryScroll"), i18nc("@option:check", "Restore scroll position when navigating back or forward")));
+    return page;
+}
+
+QWidget *SettingsDialog::createColorSchemePage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    form->addRow(i18nc("@label:listbox", "Colour scheme:"), bound(new ColorSchemeCombo, QStringLiteral("ColorScheme"), "scheme"));
+    layout->addLayout(form);
+    auto *notice = new QLabel(i18nc("@info",
+                                    "The colour scheme applies only to Plasma Opus. Plasma's global colour scheme, widget style and window "
+                                    "decoration theme are not changed. Follow the Plasma colour scheme to use the desktop's colours again."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addStretch();
     return page;
 }
 

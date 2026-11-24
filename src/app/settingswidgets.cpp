@@ -2,6 +2,7 @@
 
 #include "settingswidgets.h"
 
+#include "colorschemes.h"
 #include "filecolorrules.h"
 #include "ignorelist.h"
 #include "workspacestartup.h"
@@ -154,6 +155,48 @@ void StartupWorkspaceCombo::setWorkspaces(const QList<std::pair<QString, QString
 {
     m_workspaces = workspaces;
     setWorkspace(workspace());
+}
+
+ColorSchemeCombo::ColorSchemeCombo(QWidget *parent)
+    : QComboBox(parent)
+{
+    // KConfigDialogManager would otherwise watch QComboBox::activated, which
+    // misses programmatic changes.
+    setProperty("kcfg_propertyNotify", QByteArray(SIGNAL(schemeChanged())));
+    setScheme(QString());
+    connect(this, &QComboBox::currentIndexChanged, this, &ColorSchemeCombo::schemeChanged);
+}
+
+QString ColorSchemeCombo::scheme() const
+{
+    return currentData().toString();
+}
+
+void ColorSchemeCombo::setScheme(const QString &scheme)
+{
+    const QString previous = this->scheme();
+    {
+        const QSignalBlocker blocker(this);
+        clear();
+        addItem(i18nc("@item:inlistbox colour scheme", "Follow Plasma colour scheme"), QString());
+        bool presets = true;
+        for (const ColorSchemes::Scheme &available : ColorSchemes::available()) {
+            if (presets && !available.preset) {
+                insertSeparator(count());
+                presets = false;
+            }
+            addItem(available.name, available.id);
+        }
+        int index = findData(scheme);
+        if (index < 0) {
+            addItem(i18nc("@item:inlistbox colour scheme that is no longer installed", "Unavailable colour scheme (%1)", scheme), scheme);
+            index = count() - 1;
+        }
+        setCurrentIndex(index);
+    }
+    if (previous != this->scheme()) {
+        Q_EMIT schemeChanged();
+    }
 }
 
 RuleListEditor::RuleListEditor(Kind kind, QWidget *parent)

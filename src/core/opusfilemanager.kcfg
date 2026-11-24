@@ -869,4 +869,10 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="Themes">
+    <entry name="ColorScheme" type="String">
+      <label>App-local colour scheme: empty follows Plasma, otherwise a bundled preset or an installed colour scheme</label>
+      <default></default>
+    </entry>
+  </group>
 </kcfg>

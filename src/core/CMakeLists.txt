@@ -9,6 +9,8 @@ add_library(opusfm_core STATIC
     batchrenamepresets.h
     checksums.cpp
     checksums.h
+    colorschemes.cpp
+    colorschemes.h
     customcommands.cpp
     customcommands.h
     filecolorrules.cpp
@@ -126,6 +128,7 @@ target_link_libraries(opusfm_core
         KF6::I18n
         KF6::KIOCore
         KF6::ConfigGui
+        KF6::ColorScheme
         KF6::FileMetaData
         KF6::GuiAddons
         KF6::KIOGui

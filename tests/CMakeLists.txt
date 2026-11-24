@@ -217,6 +217,11 @@ ecm_add_test(combinedpaneltest.cpp
     NAME_PREFIX "opusfm-"
     GUI
 )
+ecm_add_test(colorschemestest.cpp
+    LINK_LIBRARIES opusfm_core Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
 
 ecm_add_test(settingstest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test

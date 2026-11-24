@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "settings.h"
+#include "colorschemes.h"
 #include "combinedpanel.h"
 #include "compressdialog.h"
 #include "fileoperations.h"
@@ -221,6 +222,50 @@ private Q_SLOTS:
         QCOMPARE(Settings::folderSizeRefreshInterval(), 60);
     }
 
+    void colorSchemesApplyOnlyToPlasmaOpus()
+    {
+        auto restore = qScopeGuard([] {
+            ColorSchemes::apply(QString());
+        });
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *combo = dialog.findChild<ColorSchemeCombo *>(QStringLiteral("kcfg_ColorScheme"));
+        QVERIFY(combo);
+        QCOMPARE(combo->scheme(), QString());
+        QCOMPARE(combo->itemData(1).toString(), QLatin1String(ColorSchemes::LightPreset));
+        QCOMPARE(combo->itemData(2).toString(), QLatin1String(ColorSchemes::DarkPreset));
+        const QStyle *style = QApplication::style();
+
+        combo->setCurrentIndex(combo->findData(QLatin1String(ColorSchemes::DarkPreset)));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::colorScheme(), QLatin1String(ColorSchemes::DarkPreset));
+        // Widgets pick up application palette changes from posted events.
+        QTRY_COMPARE(window.palette().color(QPalette::Active, QPalette::Window), QColor(32, 35, 38));
+        QCOMPARE(dialog.palette().color(QPalette::Active, QPalette::Window), QColor(32, 35, 38));
+        QCOMPARE(QApplication::style(), style);
+
+        combo->setCurrentIndex(0);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::colorScheme().isEmpty());
+        QVERIFY(!QCoreApplication::testAttribute(Qt::AA_SetPalette));
+        QVERIFY(!qApp->property("KDE_COLOR_SCHEME_PATH").isValid());
+    }
+
+    void unavailableColorSchemesAreKeptAndReported()
+    {
+        Settings::setColorScheme(QStringLiteral("MissingTestScheme"));
+        MainWindow window;
+        QVERIFY(window.statusBar()->currentMessage().contains(QLatin1String("MissingTestScheme")));
+        QVERIFY(!QCoreApplication::testAttribute(Qt::AA_SetPalette));
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *combo = dialog.findChild<ColorSchemeCombo *>(QStringLiteral("kcfg_ColorScheme"));
+        QCOMPARE(combo->scheme(), QStringLiteral("MissingTestScheme"));
+        QVERIFY(combo->currentText().contains(QLatin1String("MissingTestScheme")));
+    }
+
     void pagesGroupFeaturesInTabs()
     {
         MainWindow window;
@@ -235,6 +280,7 @@ private Q_SLOTS:
                               QStringLiteral("Translation"),
                               QStringLiteral("Backup"),
                               QStringLiteral("Interface"),
+                              QStringLiteral("Themes"),
                               QStringLiteral("View"),
                               QStringLiteral("Context Menu"),
                               QStringLiteral("Archives"),
@@ -266,6 +312,7 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("ShowFreeSpace")), QStringLiteral("Status and Location Bars"));
         QCOMPARE(tabOf(QStringLiteral("StatusBarIndicatorOrder")), QStringLiteral("Status and Location Bars"));
         QCOMPARE(tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("configureMainToolbarEntries"))), QStringLiteral("Toolbars"));
+        QCOMPARE(tabOf(QStringLiteral("ColorScheme")), QStringLiteral("Colour Scheme"));
         QCOMPARE(tabOf(QStringLiteral("DefaultViewMode")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("ShowFileListMinimap")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("FileListMinimapWidth")), QStringLiteral("General"));

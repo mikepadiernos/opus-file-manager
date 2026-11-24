@@ -7,6 +7,7 @@
 #include "archivewriter.h"
 #include "batchrenamedialog.h"
 #include "checksumdialog.h"
+#include "colorschemes.h"
 #include "combinedpanel.h"
 #include "compressdialog.h"
 #include "contentchartdialog.h"
@@ -4519,6 +4520,11 @@ bool MainWindow::isDualLayout() const
 
 void MainWindow::applySettings()
 {
+    if (!ColorSchemes::apply(Settings::colorScheme())) {
+        statusBar()->showMessage(i18nc("@info:status",
+                                       "Colour scheme %1 is not installed, so Plasma Opus follows the Plasma colour scheme until it is available.",
+                                       Settings::colorScheme()));
+    }
     applyLocationPresentationDefaults();
     applyWorkspaceSelectorPlacement();
     scheduleWorkspaceSelectorRefresh();

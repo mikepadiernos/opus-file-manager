@@ -62,6 +62,25 @@ private:
     QList<std::pair<QString, QString>> m_workspaces;
 };
 
+/**
+ * Chooses the app-local colour scheme: follow Plasma, a bundled preset or an
+ * installed KDE colour scheme. A chosen scheme that is no longer installed
+ * stays selected as unavailable, so its reference is kept until changed.
+ */
+class ColorSchemeCombo : public QComboBox
+{
+    Q_OBJECT
+    Q_PROPERTY(QString scheme READ scheme WRITE setScheme NOTIFY schemeChanged USER true)
+
+public:
+    explicit ColorSchemeCombo(QWidget *parent = nullptr);
+    QString scheme() const;
+    void setScheme(const QString &scheme);
+
+Q_SIGNALS:
+    void schemeChanged();
+};
+
 class RuleListEditor : public QWidget
 {
     Q_OBJECT
