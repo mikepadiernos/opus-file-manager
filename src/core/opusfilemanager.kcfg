@@ -1036,5 +1036,15 @@
       </choices>
       <default>FollowStyle</default>
     </entry>
+    <entry name="FolderColorStyle" type="Enum">
+      <label>How folder colours from Folder Appearance are shown on folder icons and names</label>
+      <choices>
+        <choice name="Icon"/>
+        <choice name="Badge"/>
+        <choice name="Name"/>
+        <choice name="Hidden"/>
+      </choices>
+      <default>Icon</default>
+    </entry>
   </group>
 </kcfg>

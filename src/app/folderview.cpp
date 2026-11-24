@@ -10,6 +10,7 @@
 #include "filelistminimap.h"
 #include "fileoperations.h"
 #include "flatview.h"
+#include "foldercolors.h"
 #include "foldermetadata.h"
 #include "ignorelist.h"
 #include "labelcolor.h"
@@ -421,6 +422,9 @@ public:
                 if (Settings::showFileLabels() && labelColor.isValid()) {
                     return labelColor;
                 }
+                if (const QColor folderColor = FolderColors::nameColor(item, QApplication::palette().color(QPalette::Base)); folderColor.isValid()) {
+                    return folderColor;
+                }
             }
             if (role == Qt::ToolTipRole) {
                 QStringList details;
@@ -456,7 +460,7 @@ public:
         const QVariant value = KDirSortFilterProxyModel::data(index, role);
         if (role == Qt::DecorationRole && value.typeId() == QMetaType::QIcon) {
             const KFileItem item = itemAt(index);
-            const QIcon icon = SymbolicIcon::wrap(value.value<QIcon>(), item.iconName(), item.overlays());
+            const QIcon icon = FolderColors::decorate(SymbolicIcon::wrap(value.value<QIcon>(), item.iconName(), item.overlays()), item);
             if (Settings::showFilePins() && metadataForItem(item).value(QStringLiteral("pins")).toArray().contains(item.name())) {
                 return KIconUtils::addOverlays(icon, {QStringLiteral("emblem-favorite")});
             }

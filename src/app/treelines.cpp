@@ -3,15 +3,13 @@
 #include "treelines.h"
 
 #include "colorschemes.h"
-#include "foldermetadata.h"
+#include "foldercolors.h"
 #include "settings.h"
 
 #include <KDirModel>
 #include <KFileItem>
 
 #include <QCursor>
-#include <QElapsedTimer>
-#include <QHash>
 #include <QItemSelectionModel>
 #include <QPainter>
 #include <QStyleOptionViewItem>
@@ -21,25 +19,6 @@
 
 namespace
 {
-struct CachedColor {
-    QColor color;
-    qint64 read = 0;
-};
-
-QHash<QString, CachedColor> &folderColors()
-{
-    static QHash<QString, CachedColor> cache;
-    return cache;
-}
-
-qint64 now()
-{
-    static QElapsedTimer clock;
-    if (!clock.isValid()) {
-        clock.start();
-    }
-    return clock.elapsed();
-}
 QColor mixed(const QColor &first, const QColor &second, qreal secondAmount)
 {
     return QColor::fromRgbF(first.redF() + (second.redF() - first.redF()) * secondAmount,
@@ -120,26 +99,12 @@ TreeLines::Colors TreeLines::configuredColors()
 
 QColor TreeLines::folderColor(const QModelIndex &folder)
 {
-    const QString path = folder.data(KDirModel::FileItemRole).value<KFileItem>().localPath();
-    if (path.isEmpty()) {
-        return {};
-    }
-    QHash<QString, CachedColor> &cache = folderColors();
-    const qint64 time = now();
-    if (const auto found = cache.constFind(path); found != cache.constEnd() && time - found->read < 2000) {
-        return found->color;
-    }
-    if (cache.size() > 2000) {
-        cache.clear();
-    }
-    const QColor color = QColor::fromString(FolderMetadata::read(path).value(QStringLiteral("color")).toString());
-    cache.insert(path, {color, time});
-    return color;
+    return FolderColors::color(folder.data(KDirModel::FileItemRole).value<KFileItem>().localPath());
 }
 
 void TreeLines::clearFolderColorCache()
 {
-    folderColors().clear();
+    FolderColors::clearCache();
 }
 
 bool TreeLines::drawBranches(const QTreeView *view, QPainter *painter, const QRect &rect, const QModelIndex &index, Style style, const Colors &colors)

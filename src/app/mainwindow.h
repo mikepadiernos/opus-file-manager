@@ -127,6 +127,8 @@ private:
     void applyPanelOpacity(QDockWidget *dock);
     /// Applies the app-local corner radius, dividers and other style rules.
     void applyAppearanceStyle();
+    /// Redraws folder colours on icons, names, tabs and breadcrumbs after they or their style change.
+    void refreshFolderColors();
     /// Places the workspace selector in the View menu, the status bar or both.
     void applyWorkspaceSelectorPlacement();
     /// Gives each pane its configured location bar, replacing the current choice only when the setting changes.

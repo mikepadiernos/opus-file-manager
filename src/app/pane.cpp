@@ -5,6 +5,7 @@
 #include "colorschemes.h"
 
 #include "filterbar.h"
+#include "foldercolors.h"
 #include "folderview.h"
 #include "settings.h"
 #include "symbolicicon.h"
@@ -776,6 +777,20 @@ void Pane::updateBreadcrumbs(const QUrl &url)
         button->setAutoRaise(true);
         button->setFocusPolicy(Qt::StrongFocus);
         button->setEnabled(!current);
+        const FolderColors::Style folderStyle = FolderColors::configured();
+        if (const QColor color = folderStyle == FolderColors::Style::Hidden ? QColor() : FolderColors::color(target); color.isValid()) {
+            if (folderStyle == FolderColors::Style::Name) {
+                QPalette palette = button->palette();
+                const QColor text = ColorSchemes::readable(color, palette.color(QPalette::Window), 4.5);
+                palette.setColor(QPalette::Active, QPalette::ButtonText, text);
+                palette.setColor(QPalette::Inactive, QPalette::ButtonText, text);
+                button->setPalette(palette);
+            } else {
+                button->setIcon(FolderColors::dot(color));
+                button->setIconSize(QSize(8, 8));
+                button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+            }
+        }
         connect(button, &QToolButton::clicked, this, [this, target] {
             setUrl(target);
         });
@@ -1311,6 +1326,17 @@ void Pane::reloadTabSettings()
     }
 }
 
+void Pane::refreshFolderColors()
+{
+    for (int index = 0; index < m_tabBar->count(); ++index) {
+        updateTabText(index);
+    }
+    updateBreadcrumbs(m_tabs->currentUrl());
+    if (QAbstractItemView *view = m_view->currentView()) {
+        view->viewport()->update();
+    }
+}
+
 void Pane::updateTabText(int index)
 {
     if (index < 0 || index >= m_tabBar->count()) {
@@ -1334,8 +1360,21 @@ void Pane::updateTabText(int index)
     }
     m_tabBar->setTabToolTip(index, toolTip);
     const QString iconName = pinned ? QStringLiteral("pin") : locked ? QStringLiteral("object-locked") : KIO::iconNameForUrl(url);
-    m_tabBar->setTabIcon(index, m_showTabIcons ? SymbolicIcon::fromTheme(iconName) : QIcon());
-    m_tabBar->setTabTextColor(index, Settings::showTabColors() ? LabelColors::rgb(m_colors->colorFor(url)) : QColor());
+    const FolderColors::Style folderStyle = FolderColors::configured();
+    const QColor folderColor = folderStyle == FolderColors::Style::Hidden ? QColor() : FolderColors::color(url);
+    QIcon icon;
+    if (m_showTabIcons) {
+        icon = SymbolicIcon::fromTheme(iconName);
+        if (!pinned && !locked) {
+            icon = FolderColors::decorate(icon, iconName, {}, folderColor, folderStyle);
+        }
+    }
+    m_tabBar->setTabIcon(index, icon);
+    QColor textColor = Settings::showTabColors() ? LabelColors::rgb(m_colors->colorFor(url)) : QColor();
+    if (!textColor.isValid() && folderStyle == FolderColors::Style::Name && folderColor.isValid()) {
+        textColor = ColorSchemes::readable(folderColor, m_tabBar->palette().color(QPalette::Window), 4.5);
+    }
+    m_tabBar->setTabTextColor(index, textColor);
 
     const auto closeSide = static_cast<QTabBar::ButtonPosition>(m_tabBar->style()->styleHint(QStyle::SH_TabBar_CloseButtonPosition, nullptr, m_tabBar));
     if (QWidget *closeButton = m_tabBar->tabButton(index, closeSide)) {

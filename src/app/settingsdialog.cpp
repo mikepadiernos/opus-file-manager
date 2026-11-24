@@ -159,7 +159,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createCustomColorsPage(), i18nc("@title:tab", "Custom Colours")},
                    {createEffectsPage(), i18nc("@title:tab", "Effects")},
                    {createLinesPage(), i18nc("@title:tab", "Lines")},
-                   {createHighlightsPage(), i18nc("@title:tab", "Highlights")}},
+                   {createHighlightsPage(), i18nc("@title:tab", "Highlights")},
+                   {createFolderColorsPage(), i18nc("@title:tab", "Folder Colours")}},
                   i18nc("@title:group", "Themes"),
                   QStringLiteral("preferences-desktop-theme"));
     addTabbedPage({{createViewGeneralPage(), i18nc("@title:tab", "General")},
@@ -1757,6 +1758,29 @@ QWidget *SettingsDialog::createHighlightsPage()
                                   "With a selection style other than the widget style's, the current item has a dashed outline, so keyboard "
                                   "focus stays visible with and without a selection. Outlined and accent bar selections keep the normal text "
                                   "colour; views whose text would not be readable on them use a filled selection instead."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createFolderColorsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    form->addRow(i18nc("@label:listbox", "Show folder colours as:"),
+                 comboBox(QStringLiteral("FolderColorStyle"),
+                          {i18nc("@item:inlistbox folder colour style", "Coloured icons"),
+                           i18nc("@item:inlistbox folder colour style", "Badges on icons"),
+                           i18nc("@item:inlistbox folder colour style", "Coloured names"),
+                           i18nc("@item:inlistbox folder colour style", "Hidden")}));
+    layout->addLayout(form);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Folder colours are set with Folder Appearance and shown in file lists, the folder tree, Places, tabs and the "
+                                  "abbreviated location bar. Coloured icons use the icon theme's coloured folders where it has them and tint "
+                                  "other icons. Coloured names are darkened or lightened to stay readable."),
                             page);
     note->setWordWrap(true);
     layout->addWidget(note);

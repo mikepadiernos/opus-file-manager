@@ -21,6 +21,7 @@
 #include "filediffdialog.h"
 #include "fileoperations.h"
 #include "filesplitdialog.h"
+#include "foldercolors.h"
 #include "foldercomparisondialog.h"
 #include "foldermetadata.h"
 #include "foldersyncdialog.h"
@@ -46,7 +47,7 @@
 #include "toolbarcustomizer.h"
 #include "transferqueue.h"
 #include "transferqueuedialog.h"
-#include "treelines.h"
+
 #include "viewsettings.h"
 #include "windoweffects.h"
 #include "workspacedialog.h"
@@ -339,9 +340,16 @@ public:
         if (role != Qt::DecorationRole || value.typeId() != QMetaType::QIcon) {
             return value;
         }
-        return SymbolicIcon::wrap(value.value<QIcon>(),
-                                  KFilePlacesModel::data(index, IconNameRole).toString(),
-                                  isDevice(index) ? deviceForIndex(index).emblems() : QStringList());
+        const QString iconName = KFilePlacesModel::data(index, IconNameRole).toString();
+        if (isDevice(index)) {
+            return SymbolicIcon::wrap(value.value<QIcon>(), iconName, deviceForIndex(index).emblems());
+        }
+        const QIcon icon = SymbolicIcon::wrap(value.value<QIcon>(), iconName, {});
+        const FolderColors::Style style = FolderColors::configured();
+        if (style != FolderColors::Style::Icon && style != FolderColors::Style::Badge) {
+            return icon;
+        }
+        return FolderColors::decorate(icon, iconName, {}, FolderColors::color(url(index)), style);
     }
 };
 
@@ -1579,7 +1587,7 @@ void MainWindow::editFolderLook(const QUrl &folder)
         showStatusMessage(i18nc("@info:status", "Could not set the folder colour: %1", error));
         return;
     }
-    TreeLines::clearFolderColorCache();
+    refreshFolderColors();
     KConfigGroup desktopEntry = directoryConfig.group(QStringLiteral("Desktop Entry"));
     const QString iconName = icon->currentData().toString();
     if (iconName.isEmpty()) {
@@ -4663,12 +4671,25 @@ bool MainWindow::isDualLayout() const
     return m_dualLayoutAction->isChecked();
 }
 
+void MainWindow::refreshFolderColors()
+{
+    FolderColors::clearCache();
+    for (Pane *pane : {m_left, m_right}) {
+        pane->refreshFolderColors();
+    }
+    const auto views = findChildren<QAbstractItemView *>();
+    for (QAbstractItemView *view : views) {
+        view->viewport()->update();
+    }
+}
+
 void MainWindow::applySettings()
 {
     applyColorScheme();
     applyWindowEffects();
     applyBackgroundOpacity();
     applyAppearanceStyle();
+    refreshFolderColors();
     const bool translucency = Settings::windowOpacity() < 100 || Settings::paneOpacity() < 100 || Settings::panelOpacity() < 100;
     if (const QString reason = WindowEffects::unavailableReason(this, Settings::backgroundBlur(), translucency); !reason.isEmpty()) {
         statusBar()->showMessage(reason);

@@ -111,6 +111,8 @@ public:
     void setTabBarPosition(TabBarPosition position);
     TabBarPosition tabBarPosition() const;
     void reloadTabSettings();
+    /// Redraws folder colours on tabs, breadcrumbs and the view.
+    void refreshFolderColors();
     void reloadFilterSettings();
     void setBarDensity(const QString &density);
 

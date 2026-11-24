@@ -110,6 +110,7 @@ private:
     QWidget *createEffectsPage();
     QWidget *createLinesPage();
     QWidget *createHighlightsPage();
+    QWidget *createFolderColorsPage();
     QWidget *createViewGeneralPage();
     QWidget *createDetailsPage();
     QWidget *createCompactPage();

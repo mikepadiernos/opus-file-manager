@@ -3,6 +3,7 @@
 #include "foldertree.h"
 
 #include "contentheight.h"
+#include "foldercolors.h"
 #include "ignorelist.h"
 #include "symbolicicon.h"
 #include "treelines.h"
@@ -56,7 +57,13 @@ public:
         const QVariant value = KDirSortFilterProxyModel::data(index, role);
         if (role == Qt::DecorationRole && value.typeId() == QMetaType::QIcon) {
             const KFileItem item = index.data(KDirModel::FileItemRole).value<KFileItem>();
-            return SymbolicIcon::wrap(value.value<QIcon>(), item.iconName(), item.overlays());
+            return FolderColors::decorate(SymbolicIcon::wrap(value.value<QIcon>(), item.iconName(), item.overlays()), item);
+        }
+        if (role == Qt::ForegroundRole && index.column() == KDirModel::Name) {
+            const KFileItem item = index.data(KDirModel::FileItemRole).value<KFileItem>();
+            if (const QColor color = FolderColors::nameColor(item, QGuiApplication::palette().color(QPalette::Base)); color.isValid()) {
+                return color;
+            }
         }
         return value;
     }

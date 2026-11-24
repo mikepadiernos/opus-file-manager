@@ -57,6 +57,7 @@ ecm_add_tests(
     favoritesmodeltest.cpp
     filesplittertest.cpp
     foldermetadatatest.cpp
+    foldercolorstest.cpp
     foldercomparisontest.cpp
     foldersynctest.cpp
     foldersyncprofilestest.cpp

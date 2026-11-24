@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "carddelegate.h"
+#include "colorschemes.h"
 #include "filterbar.h"
+#include "foldercolors.h"
 #include "foldermetadata.h"
 #include "folderview.h"
 #include "labelcolor.h"
@@ -578,6 +580,40 @@ private Q_SLOTS:
         view.setNameFilter(NameFilter(QStringLiteral("#blue")));
         QCOMPARE(view.itemCount(), 1);
         QCOMPARE(FolderMetadata::read(root.path()), original);
+    }
+
+    void folderColoursShowOnIconsOrNames()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("Projects")));
+        const QColor color(0x12, 0x34, 0x56);
+        QVERIFY(FolderMetadata::setFolderColor(root.filePath(QStringLiteral("Projects")), color.name()));
+        const auto restore = qScopeGuard([] {
+            Settings::setFolderColorStyle(Settings::EnumFolderColorStyle::Icon);
+            FolderColors::clearCache();
+        });
+        FolderColors::clearCache();
+        FolderView view;
+        view.setUrl(QUrl::fromLocalFile(root.path()));
+        QTRY_COMPARE(view.itemCount(), 1);
+        const QModelIndex folder = view.currentView()->model()->index(0, 0);
+        QCOMPARE(folder.data().toString(), QStringLiteral("Projects"));
+        const auto badgePixel = [&folder] {
+            return folder.data(Qt::DecorationRole).value<QIcon>().pixmap(48).toImage().pixelColor(38, 38);
+        };
+
+        Settings::setFolderColorStyle(Settings::EnumFolderColorStyle::Badge);
+        QCOMPARE(badgePixel(), color);
+        QVERIFY(!folder.data(Qt::ForegroundRole).value<QColor>().isValid());
+
+        Settings::setFolderColorStyle(Settings::EnumFolderColorStyle::Hidden);
+        QVERIFY(badgePixel() != color);
+        QVERIFY(!folder.data(Qt::ForegroundRole).value<QColor>().isValid());
+
+        Settings::setFolderColorStyle(Settings::EnumFolderColorStyle::Name);
+        QVERIFY(badgePixel() != color);
+        QCOMPARE(folder.data(Qt::ForegroundRole).value<QColor>(), ColorSchemes::readable(color, QApplication::palette().color(QPalette::Base), 4.5));
     }
 
     void selectionPatternsSelectAndDeselectInBothViews()
