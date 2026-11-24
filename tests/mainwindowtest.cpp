@@ -100,6 +100,8 @@
 #include <QTreeView>
 #include <QTreeWidget>
 
+#include <functional>
+
 class WorkspaceTestJob : public KJob
 {
 public:
@@ -112,6 +114,20 @@ public:
         emitResult();
     }
 };
+
+// Answers the message box named objectName when it opens, polling briefly so
+// earlier prompts can close first.
+void answerMessageBox(const QString &objectName, const std::function<void(QMessageBox *)> &respond, int attempts = 200)
+{
+    QTimer::singleShot(10, [objectName, respond, attempts] {
+        auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+        if (box && box->isVisible() && box->objectName() == objectName) {
+            respond(box);
+        } else if (attempts > 0) {
+            answerMessageBox(objectName, respond, attempts - 1);
+        }
+    });
+}
 
 class MainWindowTest : public QObject
 {
@@ -367,6 +383,10 @@ private Q_SLOTS:
 
     void retriesWorkspaceWithUnavailableComponents()
     {
+        Settings::setConfirmWorkspaceSwitch(Settings::EnumConfirmWorkspaceSwitch::Always);
+        const auto resetConfirmation = qScopeGuard([] {
+            Settings::setConfirmWorkspaceSwitch(Settings::EnumConfirmWorkspaceSwitch::WhenUnsaved);
+        });
         const auto config = KSharedConfig::openConfig();
         KConfigGroup group = config->group(QStringLiteral("Workspaces"));
         const bool hadCatalog = group.hasKey("Catalog");
@@ -437,7 +457,19 @@ private Q_SLOTS:
         QTimer::singleShot(0, [] {
             qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
         });
+        bool listedUnavailable = false;
+        answerMessageBox(QStringLiteral("workspaceUnavailableItems"), [&](QMessageBox *box) {
+            listedUnavailable =
+                box->informativeText().contains(QStringLiteral("missingWorkspaceDock")) && box->informativeText().contains(missingLocation.toLocalFile());
+            const auto buttons = box->buttons();
+            for (QAbstractButton *button : buttons) {
+                if (box->buttonRole(button) == QMessageBox::AcceptRole) {
+                    button->click();
+                }
+            }
+        });
         activate->click();
+        QVERIFY(listedUnavailable);
         QVERIFY(status->text().contains(QStringLiteral("missingWorkspaceDock")));
         QVERIFY(status->text().contains(QStringLiteral("anotherMissingDock")));
         QVERIFY(status->text().contains(missingLocation.toLocalFile()));

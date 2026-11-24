@@ -230,6 +230,11 @@ void WorkspaceDialog::selectWorkspace(const QString &id)
     }
 }
 
+void WorkspaceDialog::setAvailabilityCheck(CheckLayout check)
+{
+    m_check = std::move(check);
+}
+
 void WorkspaceDialog::activateSelectedWorkspace()
 {
     activateWorkspace();
@@ -479,6 +484,34 @@ bool WorkspaceDialog::confirmSwitch()
         == QMessageBox::Yes;
 }
 
+bool WorkspaceDialog::confirmUnavailable(const WorkspaceCatalog::Layout &layout)
+{
+    if (!m_check || !Settings::workspaceRecoveryPrompt()) {
+        return true;
+    }
+    for (QStringList unavailable = m_check(layout); !unavailable.isEmpty(); unavailable = m_check(layout)) {
+        QMessageBox box(QMessageBox::Warning,
+                        i18nc("@title:window", "Workspace Items Unavailable"),
+                        i18nc("@info",
+                              "Some locations, providers or panels in this workspace are unavailable. Make them available and retry, or "
+                              "continue without them. The workspace keeps its saved references either way."),
+                        QMessageBox::Retry | QMessageBox::Cancel,
+                        this);
+        box.setObjectName(QStringLiteral("workspaceUnavailableItems"));
+        box.setInformativeText(unavailable.join(QLatin1Char('\n')));
+        QPushButton *continueButton = box.addButton(i18nc("@action:button", "Continue Without Them"), QMessageBox::AcceptRole);
+        box.setDefaultButton(QMessageBox::Retry);
+        box.exec();
+        if (box.clickedButton() == continueButton) {
+            return true;
+        }
+        if (box.clickedButton() != box.button(QMessageBox::Retry)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 void WorkspaceDialog::activateWorkspace()
 {
     const QString id = selectedId();
@@ -518,6 +551,9 @@ void WorkspaceDialog::activateWorkspace()
         WorkspaceCatalog::Layout layout;
         if (!WorkspaceRestore::merge(*current->layout, previous, selection, WorkspaceRestore::fromSettings(), layout, error)) {
             m_status->setText(error);
+            return;
+        }
+        if (!confirmUnavailable(layout)) {
             return;
         }
         if (!m_apply(layout, error)) {

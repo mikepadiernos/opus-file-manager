@@ -174,7 +174,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createWorkspaceStartupPage(), i18nc("@title:tab", "Startup")},
                    {createWorkspaceSearchPage(), i18nc("@title:tab", "Search")},
                    {createWorkspaceLayoutsPage(), i18nc("@title:tab", "Layouts")},
-                   {createWorkspaceSnapshotsPage(), i18nc("@title:tab", "Snapshots")}},
+                   {createWorkspaceSnapshotsPage(), i18nc("@title:tab", "Snapshots")},
+                   {createWorkspaceRecoveryPage(), i18nc("@title:tab", "Recovery")}},
                   i18nc("@title:group", "Workspaces"),
                   QStringLiteral("view-grid"));
     reloadWorkspaces();
@@ -576,6 +577,24 @@ QWidget *SettingsDialog::createWorkspaceSnapshotsPage()
                            i18nc("@item:inlistbox ask before switching workspaces", "When the current state is not saved in a workspace"),
                            i18nc("@item:inlistbox ask before switching workspaces", "Never")}));
     layout->addLayout(form);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceRecoveryPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(
+        checkBox(QStringLiteral("WorkspaceRecoveryPrompt"), i18nc("@option:check", "Offer to retry when locations, providers or panels are unavailable")));
+    auto *notice = new QLabel(i18nc("@info",
+                                    "When switching workspaces, Plasma Opus lists the folders, remote location providers and panels that cannot be "
+                                    "restored, so you can mount a drive or start a service and retry. When the option is cleared, the workspace "
+                                    "opens without them and the workspace manager lists them. Workspaces keep their saved references until you save "
+                                    "a new layout."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
     layout->addStretch();
     return page;
 }

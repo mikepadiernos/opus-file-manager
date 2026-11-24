@@ -691,6 +691,20 @@ private Q_SLOTS:
         QCOMPARE(Settings::confirmWorkspaceSwitch(), Settings::EnumConfirmWorkspaceSwitch::Always);
     }
 
+    void workspaceRecoveryPromptPersists()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *prompt = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceRecoveryPrompt"));
+            QVERIFY(prompt);
+            QVERIFY(prompt->isChecked());
+            prompt->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QVERIFY(!Settings::workspaceRecoveryPrompt());
+    }
+
     void duplicateFinderDefaultsPersistAndCancelLeavesThemUnchanged()
     {
         KFilePlacesModel places;

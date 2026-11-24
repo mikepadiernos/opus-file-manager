@@ -74,6 +74,7 @@
 #include <KLocalizedString>
 #include <KMessageBox>
 #include <KNewFileMenu>
+#include <KProtocolInfo>
 #include <KSelectAction>
 #include <KSharedConfig>
 #include <KStandardAction>
@@ -536,6 +537,12 @@ void MainWindow::showWorkspaces()
         this,
         m_workspaceLocations);
     connect(dialog, &WorkspaceDialog::catalogChanged, this, &MainWindow::reloadWorkspaceCatalog);
+    dialog->setAvailabilityCheck([this](const WorkspaceCatalog::Layout &layout) {
+        QStringList unavailable;
+        QString error;
+        workspaceLayoutAvailable(layout, unavailable, error);
+        return unavailable;
+    });
     connect(this, &MainWindow::workspaceCatalogChanged, dialog, &WorkspaceDialog::refreshCatalog);
     connect(dialog, &WorkspaceDialog::currentWorkspaceChanged, this, [this](const QString &id) {
         m_currentWorkspaceId = id;
@@ -777,6 +784,9 @@ bool MainWindow::workspaceLayoutAvailable(const WorkspaceCatalog::Layout &layout
         for (const QUrl &url : pane->tabs) {
             if (url.isLocalFile() && !QFileInfo::exists(url.toLocalFile())) {
                 unavailable.append(url.toDisplayString(QUrl::PreferLocalFile));
+            } else if (!url.isLocalFile() && !KProtocolInfo::isKnownProtocol(url)) {
+                unavailable.append(
+                    i18nc("@item unavailable location provider and location", "%1 (no %2 provider)", url.toDisplayString(QUrl::RemovePassword), url.scheme()));
             }
         }
     }

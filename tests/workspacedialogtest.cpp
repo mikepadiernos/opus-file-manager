@@ -420,6 +420,97 @@ private Q_SLOTS:
         Settings::self()->setDefaults();
     }
 
+    void recoveryPromptRetriesAndKeepsSavedReferences()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        const auto group = config.group(QStringLiteral("Workspaces"));
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        const WorkspaceCatalog::Layout saved{QByteArray("saved"), {1, 2}, {3, 4}, true, false, std::nullopt, std::nullopt};
+        QVERIFY(WorkspaceCatalog::setLayout(catalog, catalog.workspaces.first().id, saved, error));
+        QVERIFY(WorkspaceCatalog::save(group, catalog, error));
+        Settings::setConfirmWorkspaceSwitch(Settings::EnumConfirmWorkspaceSwitch::Never);
+        int applied = 0;
+        WorkspaceDialog dialog(
+            group,
+            [](WorkspaceCatalog::Layout &layout, QString &) {
+                layout = {};
+                return true;
+            },
+            [&applied](const WorkspaceCatalog::Layout &, QString &) {
+                ++applied;
+                return true;
+            },
+            QString());
+        int checks = 0;
+        QStringList missing{QStringLiteral("/missing")};
+        dialog.setAvailabilityCheck([&](const WorkspaceCatalog::Layout &) {
+            ++checks;
+            return missing;
+        });
+        auto *list = dialog.findChild<QListWidget *>(QStringLiteral("workspaceList"));
+        auto *activate = dialog.findChild<QPushButton *>(QStringLiteral("workspaceActivate"));
+        list->setCurrentRow(0);
+        const auto answer = [](const std::function<void(QMessageBox *)> &respond) {
+            auto prompted = std::make_shared<bool>(false);
+            QTimer::singleShot(0, [prompted, respond] {
+                auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+                if (box && box->objectName() == QLatin1String("workspaceUnavailableItems")) {
+                    *prompted = true;
+                    QVERIFY(box->informativeText().contains(QStringLiteral("/missing")));
+                    respond(box);
+                }
+            });
+            return prompted;
+        };
+
+        auto prompted = answer([](QMessageBox *box) {
+            box->button(QMessageBox::Cancel)->click();
+        });
+        activate->click();
+        QVERIFY(*prompted);
+        QCOMPARE(applied, 0);
+        QCOMPARE(checks, 1);
+
+        prompted = answer([&missing](QMessageBox *box) {
+            missing.clear();
+            box->button(QMessageBox::Retry)->click();
+        });
+        activate->click();
+        QVERIFY(*prompted);
+        QCOMPARE(checks, 3);
+        QCOMPARE(applied, 1);
+
+        missing = {QStringLiteral("/missing")};
+        prompted = answer([](QMessageBox *box) {
+            const auto buttons = box->buttons();
+            for (QAbstractButton *button : buttons) {
+                if (box->buttonRole(button) == QMessageBox::AcceptRole) {
+                    button->click();
+                }
+            }
+        });
+        activate->click();
+        QVERIFY(*prompted);
+        QCOMPARE(applied, 2);
+
+        Settings::setWorkspaceRecoveryPrompt(false);
+        prompted = answer([](QMessageBox *box) {
+            box->button(QMessageBox::Cancel)->click();
+        });
+        activate->click();
+        QCoreApplication::processEvents();
+        QVERIFY(!*prompted);
+        QCOMPARE(applied, 3);
+
+        WorkspaceCatalog::Catalog stored;
+        QVERIFY(WorkspaceCatalog::load(group, stored, error));
+        QCOMPARE(stored.workspaces.first().layout, std::optional<WorkspaceCatalog::Layout>(saved));
+    }
+
     void restoresPreviousLayoutWhenCatalogChangesDuringSwitch()
     {
         QTemporaryDir directory;

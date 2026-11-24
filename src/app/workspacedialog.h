@@ -21,6 +21,8 @@ class WorkspaceDialog : public QDialog
 public:
     using CaptureLayout = std::function<bool(WorkspaceCatalog::Layout &, QString &)>;
     using ApplyLayout = std::function<bool(const WorkspaceCatalog::Layout &, QString &)>;
+    /// Lists the locations, providers and panels of a layout that are unavailable.
+    using CheckLayout = std::function<QStringList(const WorkspaceCatalog::Layout &)>;
 
     /// Manages profiles in group and applies their layouts using the supplied callbacks.
     WorkspaceDialog(KConfigGroup group,
@@ -30,6 +32,12 @@ public:
                     QWidget *parent = nullptr,
                     WorkspaceLocations *locations = nullptr);
     void selectWorkspace(const QString &id);
+    /**
+     * Sets how to find unavailable parts of a layout before switching, so the
+     * user can make them available and retry.
+     * @param check lists the unavailable parts of a layout
+     */
+    void setAvailabilityCheck(CheckLayout check);
 
 public Q_SLOTS:
     /// Reloads the catalog after an update from another window.
@@ -53,6 +61,8 @@ private:
     bool hasUnsavedState() const;
     /// Asks before switching, as set by the ConfirmWorkspaceSwitch setting.
     bool confirmSwitch();
+    /// Offers to retry while parts of @p layout are unavailable; false to cancel.
+    bool confirmUnavailable(const WorkspaceCatalog::Layout &layout);
     void saveLayout();
     void refreshProfileLinks();
     void saveProfileLinks();
@@ -68,6 +78,7 @@ private:
     KConfigGroup m_group;
     CaptureLayout m_capture;
     ApplyLayout m_apply;
+    CheckLayout m_check;
     WorkspaceCatalog::Catalog m_catalog;
     QString m_currentId;
     QListWidget *m_list = nullptr;
