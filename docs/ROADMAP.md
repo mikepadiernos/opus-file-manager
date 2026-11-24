@@ -789,7 +789,7 @@ Remaining features are ordered by priority, effort and dependencies.
 
 Settings for M15 workspaces, stored in KConfig.
 
-- [ ] **Management:** create, switch, rename, duplicate and delete workspaces;
+- [x] **Management:** create, switch, rename, duplicate and delete workspaces;
       manage full names, short labels and locations. Preserve exclusive
       assignments and access to unassigned items; duplicating copies the layout
       without reassigning them. Confirm deletion and retain underlying files and
