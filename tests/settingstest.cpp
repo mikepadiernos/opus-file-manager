@@ -21,6 +21,7 @@
 #include <KActionCollection>
 #include <KColorButton>
 #include <KDirModel>
+#include <KFileItem>
 #include <KFileItemDelegate>
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
@@ -57,6 +58,7 @@
 #include <QProxyStyle>
 #include <QPushButton>
 #include <QScopeGuard>
+#include <QSignalSpy>
 #include <QSizeGrip>
 #include <QSpinBox>
 #include <QSplitter>
@@ -768,6 +770,141 @@ private Q_SLOTS:
         }
     }
 
+    void treeLinesUseSingleDepthOrFolderColours()
+    {
+        auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            TreeLines::clearFolderColorCache();
+        });
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("parent")));
+        const QString parentPath = root.filePath(QStringLiteral("parent"));
+
+        QStandardItemModel model;
+        auto *parent = new QStandardItem(QStringLiteral("parent"));
+        parent->setData(QVariant::fromValue(KFileItem(QUrl::fromLocalFile(parentPath))), KDirModel::FileItemRole);
+        auto *child = new QStandardItem(QStringLiteral("child"));
+        child->appendRow(new QStandardItem(QStringLiteral("grandchild")));
+        child->appendRow(new QStandardItem(QStringLiteral("last")));
+        parent->appendRow(child);
+        parent->appendRow(new QStandardItem(QStringLiteral("second")));
+        model.appendRow(parent);
+        QTreeView view;
+        view.setModel(&model);
+        view.setIndentation(20);
+        view.expandAll();
+        QPalette palette = view.palette();
+        palette.setColor(QPalette::Base, Qt::white);
+        palette.setColor(QPalette::Text, Qt::black);
+        view.setPalette(palette);
+        const QModelIndex grandchild = model.index(0, 0, model.index(0, 0, model.index(0, 0)));
+
+        // Cells from the left: root level, the parent's children, the item.
+        const auto draw = [&view, &grandchild](const TreeLines::Colors &colors) {
+            QImage image(60, 20, QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            TreeLines::drawBranches(&view, &painter, image.rect(), grandchild, TreeLines::Style::Solid, colors);
+            return image;
+        };
+        const auto isGrey = [](QRgb pixel) {
+            return qAlpha(pixel) > 0 && qAbs(qRed(pixel) - qGreen(pixel)) < 8 && qAbs(qGreen(pixel) - qBlue(pixel)) < 8;
+        };
+
+        QImage image = draw({});
+        QVERIFY(isGrey(image.pixel(50, 2)));
+        QVERIFY(isGrey(image.pixel(30, 2)));
+
+        TreeLines::Colors single{TreeLines::Coloring::Single, QColor(0, 120, 0), {}};
+        image = draw(single);
+        QCOMPARE(QColor(image.pixel(50, 2)), QColor(0, 120, 0));
+        QCOMPARE(QColor(image.pixel(30, 2)), QColor(0, 120, 0));
+
+        // Depth colours repeat; a pale colour is darkened against white.
+        TreeLines::Colors depth{TreeLines::Coloring::Depth, {}, {QColor(200, 0, 0), QColor(0, 0, 200), QColor(255, 255, 200)}};
+        image = draw(depth);
+        QCOMPARE(QColor(image.pixel(30, 2)), QColor(0, 0, 200));
+        const QColor adjusted(image.pixel(50, 2));
+        QVERIFY2(ColorSchemes::contrastRatio(adjusted, Qt::white) >= 3.0, qPrintable(adjusted.name()));
+        QVERIFY(adjusted.red() > adjusted.blue());
+        depth.palette = {QColor(200, 0, 0), QColor(0, 0, 200)};
+        image = draw(depth);
+        QCOMPARE(QColor(image.pixel(50, 2)), QColor(200, 0, 0));
+
+        // Lines take the colour of the folder they belong to; folders
+        // without a colour keep neutral lines.
+        TreeLines::Colors folder{TreeLines::Coloring::Folder, {}, {}};
+        image = draw(folder);
+        QVERIFY(isGrey(image.pixel(50, 2)));
+        QVERIFY(isGrey(image.pixel(30, 2)));
+        QVERIFY(FolderMetadata::setFolderColor(parentPath, QStringLiteral("#c00000")));
+        image = draw(folder);
+        QVERIFY2(isGrey(image.pixel(30, 2)), "The cached colour should be used until it is cleared");
+        TreeLines::clearFolderColorCache();
+        image = draw(folder);
+        QCOMPARE(QColor(image.pixel(30, 2)), QColor(0xc0, 0, 0));
+        QVERIFY(isGrey(image.pixel(50, 2)));
+
+        Settings::setTreeLineColors(Settings::EnumTreeLineColors::Depth);
+        Settings::setTreeLinePalette({QStringLiteral("#112233"), QStringLiteral("not a colour")});
+        const TreeLines::Colors configured = TreeLines::configuredColors();
+        QCOMPARE(configured.coloring, TreeLines::Coloring::Depth);
+        QCOMPARE(configured.palette, QList<QColor>{QColor(0x11, 0x22, 0x33)});
+    }
+
+    void colourListEditorAddsRemovesAndWarnsAboutContrast()
+    {
+        {
+            MainWindow window;
+            SettingsDialog dialog(placesOf(window), &window);
+            auto *mode = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TreeLineColors"));
+            auto *single = dialog.findChild<KColorButton *>(QStringLiteral("kcfg_TreeLineColor"));
+            auto *depths = dialog.findChild<ColorListEditor *>(QStringLiteral("kcfg_TreeLinePalette"));
+            QVERIFY(mode && single && depths);
+            QVERIFY(!single->isEnabled() && !depths->isEnabled());
+            QCOMPARE(depths->colors().size(), 6);
+            mode->setCurrentIndex(Settings::EnumTreeLineColors::Single);
+            QVERIFY(single->isEnabled() && !depths->isEnabled());
+            mode->setCurrentIndex(Settings::EnumTreeLineColors::Depth);
+            QVERIFY(!single->isEnabled() && depths->isEnabled());
+        }
+        ColorListEditor editor;
+        editor.setBackground(Qt::white);
+        QSignalSpy changed(&editor, &ColorListEditor::colorsChanged);
+        editor.setColors({QStringLiteral("#102030"), QStringLiteral("bogus"), QStringLiteral("#405060")});
+        QCOMPARE(editor.colors(), (QStringList{QStringLiteral("#102030"), QStringLiteral("#405060")}));
+        QCOMPARE(changed.count(), 1);
+        auto *add = editor.findChild<QToolButton *>(QStringLiteral("addColour"));
+        auto *remove = editor.findChild<QToolButton *>(QStringLiteral("removeColour"));
+        auto *notice = editor.findChild<KMessageWidget *>(QStringLiteral("colourListContrastNotice"));
+        QVERIFY(add && remove && notice);
+        QVERIFY(notice->isHidden());
+
+        add->click();
+        QCOMPARE(editor.colors().size(), 3);
+        QCOMPARE(editor.colors().constLast(), QStringLiteral("#102030"));
+        QCOMPARE(changed.count(), 2);
+        remove->click();
+        remove->click();
+        QCOMPARE(editor.colors(), QStringList{QStringLiteral("#102030")});
+        QVERIFY(!remove->isEnabled());
+
+        editor.setColors(QStringList(ColorListEditor::MaximumColors + 2, QStringLiteral("#000000")));
+        QCOMPARE(editor.colors().size(), ColorListEditor::MaximumColors);
+        QVERIFY(!add->isEnabled());
+
+        editor.setColors({QStringLiteral("#000000"), QStringLiteral("#fafaf0")});
+        QVERIFY(!notice->isHidden());
+        QVERIFY2(notice->text().contains(QLatin1Char('2')), qPrintable(notice->text()));
+        editor.setBackground(Qt::black);
+        QVERIFY(!notice->isHidden());
+        QVERIFY2(notice->text().contains(QLatin1Char('1')), qPrintable(notice->text()));
+        editor.setColors({QStringLiteral("#fafaf0")});
+        QVERIFY(notice->isHidden());
+    }
+
     void paneTintFollowsTheChosenPanesAndScheme()
     {
         auto restore = qScopeGuard([] {
@@ -889,6 +1026,9 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("Dividers")), QStringLiteral("Lines"));
         QCOMPARE(tabOf(QStringLiteral("RevealDividersOnHover")), QStringLiteral("Lines"));
         QCOMPARE(tabOf(QStringLiteral("TreeLines")), QStringLiteral("Lines"));
+        QCOMPARE(tabOf(QStringLiteral("TreeLineColors")), QStringLiteral("Lines"));
+        QCOMPARE(tabOf(QStringLiteral("TreeLineColor")), QStringLiteral("Lines"));
+        QCOMPARE(tabOf(QStringLiteral("TreeLinePalette")), QStringLiteral("Lines"));
         QCOMPARE(tabOf(QStringLiteral("CustomColors")), QStringLiteral("Custom Colours"));
         QCOMPARE(tabOf(QStringLiteral("DefaultViewMode")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("ShowFileListMinimap")), QStringLiteral("General"));

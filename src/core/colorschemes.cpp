@@ -362,6 +362,28 @@ double ColorSchemes::contrastRatio(const QColor &first, const QColor &second)
     return (lighter + 0.05) / (darker + 0.05);
 }
 
+QColor ColorSchemes::readable(const QColor &color, const QColor &background, double minimum)
+{
+    if (!color.isValid()) {
+        return color;
+    }
+    const QColor opaque(color.rgb());
+    if (contrastRatio(opaque, background) >= minimum) {
+        return opaque;
+    }
+    const QColor target = contrastRatio(Qt::black, background) >= contrastRatio(Qt::white, background) ? QColor(Qt::black) : QColor(Qt::white);
+    for (int percent = 5; percent < 100; percent += 5) {
+        const double amount = percent / 100.0;
+        const QColor candidate = QColor::fromRgbF(opaque.redF() + (target.redF() - opaque.redF()) * amount,
+                                                  opaque.greenF() + (target.greenF() - opaque.greenF()) * amount,
+                                                  opaque.blueF() + (target.blueF() - opaque.blueF()) * amount);
+        if (contrastRatio(candidate, background) >= minimum) {
+            return candidate;
+        }
+    }
+    return target;
+}
+
 QList<ColorSchemes::ContrastIssue> ColorSchemes::contrastIssues(const QPalette &palette, const QList<QPalette::ColorRole> &changed)
 {
     struct Pair {

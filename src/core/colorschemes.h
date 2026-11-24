@@ -127,6 +127,13 @@ Overrides translucent(const QPalette &palette, const QList<QPalette::ColorRole> 
 /// WCAG 2 contrast ratio between two colours, from 1 to 21.
 double contrastRatio(const QColor &first, const QColor &second);
 
+/**
+ * A colour as close as possible to @p color that has at least @p minimum
+ * contrast against @p background, mixing in black or white as needed. Lines
+ * and other non-text indicators need 3:1 under WCAG 2.
+ */
+QColor readable(const QColor &color, const QColor &background, double minimum = 3.0);
+
 struct ContrastIssue {
     /// Describes the colour pair, such as "Text on view background".
     QString pair;

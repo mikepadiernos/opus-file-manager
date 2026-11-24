@@ -1699,6 +1699,26 @@ QWidget *SettingsDialog::createLinesPage()
                            i18nc("@item:inlistbox tree lines", "Hidden"),
                            i18nc("@item:inlistbox tree lines", "Solid"),
                            i18nc("@item:inlistbox tree lines", "Dotted")}));
+    auto *lineColors = comboBox(QStringLiteral("TreeLineColors"),
+                                {i18nc("@item:inlistbox tree line colours", "Neutral"),
+                                 i18nc("@item:inlistbox tree line colours", "Single colour"),
+                                 i18nc("@item:inlistbox tree line colours", "By nesting depth"),
+                                 i18nc("@item:inlistbox tree line colours", "By folder colour")});
+    lineColors->setToolTip(i18nc("@info:tooltip", "Applies to solid and dotted tree lines. Folders without a colour use the neutral line colour."));
+    form->addRow(i18nc("@label:listbox", "Tree line colours:"), lineColors);
+    auto *lineColor = new KColorButton;
+    lineColor->setObjectName(QStringLiteral("kcfg_TreeLineColor"));
+    lineColor->setAccessibleName(i18nc("@label", "Tree line colour"));
+    form->addRow(i18nc("@label", "Line colour:"), lineColor);
+    auto *linePalette = bound(new ColorListEditor, QStringLiteral("TreeLinePalette"), "colors");
+    linePalette->setBackground(page->palette().color(QPalette::Base));
+    form->addRow(i18nc("@label", "Depth colours:"), linePalette);
+    const auto updateLineColors = [lineColors, lineColor, linePalette] {
+        lineColor->setEnabled(lineColors->currentIndex() == Settings::EnumTreeLineColors::Single);
+        linePalette->setEnabled(lineColors->currentIndex() == Settings::EnumTreeLineColors::Depth);
+    };
+    connect(lineColors, &QComboBox::currentIndexChanged, page, updateLineColors);
+    updateLineColors();
     layout->addLayout(form);
     auto *explanation = new QLabel(i18nc("@info",
                                          "Hidden splitters can still be dragged, change the pointer shape and can be moved with the Move Pane "
@@ -1706,6 +1726,12 @@ QWidget *SettingsDialog::createLinesPage()
                                    page);
     explanation->setWordWrap(true);
     layout->addWidget(explanation);
+    auto *colorNote = new QLabel(i18nc("@info",
+                                       "Tree line positions show nesting; colours only supplement them. Colours that are too close to the view or "
+                                       "selection background are darkened or lightened to stay visible."),
+                                 page);
+    colorNote->setWordWrap(true);
+    layout->addWidget(colorNote);
     layout->addStretch();
     return page;
 }

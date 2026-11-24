@@ -88,6 +88,8 @@ class KMessageWidget;
 class QCheckBox;
 class QFrame;
 class QPushButton;
+class QHBoxLayout;
+class QToolButton;
 
 /**
  * Follows the colour scheme's accent or chooses an app-local accent colour,
@@ -165,6 +167,40 @@ private:
     QFrame *m_preview;
     KMessageWidget *m_contrast;
     QPushButton *m_revert = nullptr;
+};
+
+/**
+ * Edits a short list of colours as #rrggbb, such as tree line colours by
+ * nesting depth, and reports colours that are adjusted for contrast against
+ * the view background. Bound to a StringList setting by KConfigDialog.
+ */
+class ColorListEditor : public QWidget
+{
+    Q_OBJECT
+    Q_PROPERTY(QStringList colors READ colors WRITE setColors NOTIFY colorsChanged USER true)
+
+public:
+    static constexpr int MaximumColors = 8;
+
+    explicit ColorListEditor(QWidget *parent = nullptr);
+    QStringList colors() const;
+    void setColors(const QStringList &colors);
+    /// Sets the background that colours are validated against.
+    void setBackground(const QColor &background);
+
+Q_SIGNALS:
+    void colorsChanged();
+
+private:
+    void addButton(const QColor &color);
+    void refresh();
+
+    QList<KColorButton *> m_buttons;
+    QHBoxLayout *m_row;
+    QToolButton *m_add;
+    QToolButton *m_remove;
+    KMessageWidget *m_contrast;
+    QColor m_background;
 };
 
 class RuleListEditor : public QWidget

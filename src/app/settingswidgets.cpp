@@ -20,13 +20,16 @@
 #include <QFrame>
 #include <QGridLayout>
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
+#include <QLocale>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSet>
 #include <QSignalBlocker>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -463,6 +466,126 @@ void ColorPaletteEditor::refresh()
     const QPalette palette = ColorSchemes::withOverrides(m_base, m_overrides);
     m_preview->setPalette(palette);
     showContrastIssues(m_contrast, i18nc("@info", "Some colours may be hard to read:"), ColorSchemes::contrastIssues(palette, m_overrides.keys()));
+}
+
+ColorListEditor::ColorListEditor(QWidget *parent)
+    : QWidget(parent)
+    , m_row(new QHBoxLayout)
+    , m_add(new QToolButton(this))
+    , m_remove(new QToolButton(this))
+    , m_contrast(new KMessageWidget(this))
+    , m_background(palette().color(QPalette::Base))
+{
+    setProperty("kcfg_propertyNotify", QByteArray(SIGNAL(colorsChanged())));
+    m_add->setObjectName(QStringLiteral("addColour"));
+    m_add->setIcon(QIcon::fromTheme(QStringLiteral("list-add-symbolic")));
+    m_add->setToolTip(i18nc("@info:tooltip", "Add a colour"));
+    m_add->setAccessibleName(m_add->toolTip());
+    m_remove->setObjectName(QStringLiteral("removeColour"));
+    m_remove->setIcon(QIcon::fromTheme(QStringLiteral("list-remove-symbolic")));
+    m_remove->setToolTip(i18nc("@info:tooltip", "Remove the last colour"));
+    m_remove->setAccessibleName(m_remove->toolTip());
+    m_contrast->setObjectName(QStringLiteral("colourListContrastNotice"));
+    m_contrast->setMessageType(KMessageWidget::Information);
+    m_contrast->setCloseButtonVisible(false);
+    m_contrast->setWordWrap(true);
+    m_contrast->hide();
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    auto *row = new QHBoxLayout;
+    m_row->setContentsMargins(0, 0, 0, 0);
+    row->addLayout(m_row);
+    row->addWidget(m_add);
+    row->addWidget(m_remove);
+    row->addStretch();
+    layout->addLayout(row);
+    layout->addWidget(m_contrast);
+    connect(m_add, &QToolButton::clicked, this, [this] {
+        addButton(m_buttons.isEmpty() ? palette().color(QPalette::Highlight) : m_buttons.constFirst()->color());
+        refresh();
+        Q_EMIT colorsChanged();
+    });
+    connect(m_remove, &QToolButton::clicked, this, [this] {
+        if (m_buttons.size() > 1) {
+            delete m_buttons.takeLast();
+            refresh();
+            Q_EMIT colorsChanged();
+        }
+    });
+    addButton(palette().color(QPalette::Highlight));
+    refresh();
+}
+
+QStringList ColorListEditor::colors() const
+{
+    QStringList names;
+    for (const KColorButton *button : m_buttons) {
+        names.append(QColor(button->color().rgb()).name(QColor::HexRgb));
+    }
+    return names;
+}
+
+void ColorListEditor::setColors(const QStringList &colors)
+{
+    const QStringList previous = this->colors();
+    QList<QColor> valid;
+    for (const QString &name : colors) {
+        if (const QColor color = QColor::fromString(name); color.isValid() && valid.size() < MaximumColors) {
+            valid.append(color);
+        }
+    }
+    if (valid.isEmpty()) {
+        valid.append(palette().color(QPalette::Highlight));
+    }
+    qDeleteAll(m_buttons);
+    m_buttons.clear();
+    for (const QColor &color : std::as_const(valid)) {
+        addButton(color);
+    }
+    refresh();
+    if (previous != this->colors()) {
+        Q_EMIT colorsChanged();
+    }
+}
+
+void ColorListEditor::setBackground(const QColor &background)
+{
+    m_background = background;
+    refresh();
+}
+
+void ColorListEditor::addButton(const QColor &color)
+{
+    auto *button = new KColorButton(color, this);
+    button->setAccessibleName(i18nc("@label colour by nesting depth", "Depth %1 colour", m_buttons.size() + 1));
+    m_row->addWidget(button);
+    m_buttons.append(button);
+    connect(button, &KColorButton::changed, this, [this] {
+        refresh();
+        Q_EMIT colorsChanged();
+    });
+}
+
+void ColorListEditor::refresh()
+{
+    m_add->setEnabled(m_buttons.size() < MaximumColors);
+    m_remove->setEnabled(m_buttons.size() > 1);
+    QStringList adjusted;
+    for (int i = 0; i < m_buttons.size(); ++i) {
+        if (ColorSchemes::contrastRatio(m_buttons.at(i)->color(), m_background) < 3.0) {
+            adjusted.append(QString::number(i + 1));
+        }
+    }
+    if (adjusted.isEmpty()) {
+        m_contrast->hide();
+        return;
+    }
+    m_contrast->setText(i18ncp("@info %2 is a list of depths",
+                               "The colour for depth %2 is darkened or lightened to stay visible against the view background.",
+                               "The colours for depths %2 are darkened or lightened to stay visible against the view background.",
+                               adjusted.size(),
+                               QLocale().createSeparatedList(adjusted)));
+    m_contrast->show();
 }
 
 RuleListEditor::RuleListEditor(Kind kind, QWidget *parent)

@@ -228,6 +228,25 @@ private Q_SLOTS:
         QVERIFY(ColorSchemes::contrastIssues(palette, {QPalette::ToolTipBase}).isEmpty());
     }
 
+    void readableColoursKeepTheirHueAndReachTheMinimum()
+    {
+        const QColor blue(0x3d, 0xae, 0xe9);
+        QCOMPARE(ColorSchemes::readable(blue, Qt::black), blue);
+        QVERIFY(!ColorSchemes::readable(QColor(), Qt::white).isValid());
+        QCOMPARE(ColorSchemes::readable(QColor(0x3d, 0xae, 0xe9, 0x40), Qt::black).alpha(), 255);
+
+        const QColor pale(0xf0, 0xf0, 0xd0);
+        const QColor onWhite = ColorSchemes::readable(pale, Qt::white);
+        QVERIFY(ColorSchemes::contrastRatio(onWhite, Qt::white) >= 3.0);
+        QVERIFY(onWhite.lightness() < pale.lightness());
+        QVERIFY(onWhite.blue() < onWhite.red());
+
+        const QColor dark(0x20, 0x10, 0x40);
+        const QColor onBlack = ColorSchemes::readable(dark, Qt::black, 4.5);
+        QVERIFY(ColorSchemes::contrastRatio(onBlack, Qt::black) >= 4.5);
+        QVERIFY(onBlack.lightness() > dark.lightness());
+    }
+
     void accentKeepsSelectionTextReadable()
     {
         const QPalette light = ColorSchemes::palette(QLatin1String(ColorSchemes::LightPreset));

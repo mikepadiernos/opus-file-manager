@@ -46,6 +46,7 @@
 #include "toolbarcustomizer.h"
 #include "transferqueue.h"
 #include "transferqueuedialog.h"
+#include "treelines.h"
 #include "viewsettings.h"
 #include "windoweffects.h"
 #include "workspacedialog.h"
@@ -1578,6 +1579,7 @@ void MainWindow::editFolderLook(const QUrl &folder)
         showStatusMessage(i18nc("@info:status", "Could not set the folder colour: %1", error));
         return;
     }
+    TreeLines::clearFolderColorCache();
     KConfigGroup desktopEntry = directoryConfig.group(QStringLiteral("Desktop Entry"));
     const QString iconName = icon->currentData().toString();
     if (iconName.isEmpty()) {

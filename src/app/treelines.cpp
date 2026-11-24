@@ -2,9 +2,16 @@
 
 #include "treelines.h"
 
+#include "colorschemes.h"
+#include "foldermetadata.h"
 #include "settings.h"
 
+#include <KDirModel>
+#include <KFileItem>
+
 #include <QCursor>
+#include <QElapsedTimer>
+#include <QHash>
 #include <QItemSelectionModel>
 #include <QPainter>
 #include <QStyleOptionViewItem>
@@ -14,6 +21,25 @@
 
 namespace
 {
+struct CachedColor {
+    QColor color;
+    qint64 read = 0;
+};
+
+QHash<QString, CachedColor> &folderColors()
+{
+    static QHash<QString, CachedColor> cache;
+    return cache;
+}
+
+qint64 now()
+{
+    static QElapsedTimer clock;
+    if (!clock.isValid()) {
+        clock.start();
+    }
+    return clock.elapsed();
+}
 QColor mixed(const QColor &first, const QColor &second, qreal secondAmount)
 {
     return QColor::fromRgbF(first.redF() + (second.redF() - first.redF()) * secondAmount,
@@ -63,10 +89,60 @@ TreeLines::Style TreeLines::configured()
 
 bool TreeLines::drawBranches(const QTreeView *view, QPainter *painter, const QRect &rect, const QModelIndex &index)
 {
-    return drawBranches(view, painter, rect, index, configured());
+    return drawBranches(view, painter, rect, index, configured(), configuredColors());
 }
 
-bool TreeLines::drawBranches(const QTreeView *view, QPainter *painter, const QRect &rect, const QModelIndex &index, Style style)
+TreeLines::Colors TreeLines::configuredColors()
+{
+    Colors colors;
+    switch (Settings::treeLineColors()) {
+    case Settings::EnumTreeLineColors::Single:
+        colors.coloring = Coloring::Single;
+        break;
+    case Settings::EnumTreeLineColors::Depth:
+        colors.coloring = Coloring::Depth;
+        break;
+    case Settings::EnumTreeLineColors::Folder:
+        colors.coloring = Coloring::Folder;
+        break;
+    default:
+        break;
+    }
+    colors.single = Settings::treeLineColor();
+    const QStringList palette = Settings::treeLinePalette();
+    for (const QString &name : palette) {
+        if (const QColor color = QColor::fromString(name); color.isValid()) {
+            colors.palette.append(color);
+        }
+    }
+    return colors;
+}
+
+QColor TreeLines::folderColor(const QModelIndex &folder)
+{
+    const QString path = folder.data(KDirModel::FileItemRole).value<KFileItem>().localPath();
+    if (path.isEmpty()) {
+        return {};
+    }
+    QHash<QString, CachedColor> &cache = folderColors();
+    const qint64 time = now();
+    if (const auto found = cache.constFind(path); found != cache.constEnd() && time - found->read < 2000) {
+        return found->color;
+    }
+    if (cache.size() > 2000) {
+        cache.clear();
+    }
+    const QColor color = QColor::fromString(FolderMetadata::read(path).value(QStringLiteral("color")).toString());
+    cache.insert(path, {color, time});
+    return color;
+}
+
+void TreeLines::clearFolderColorCache()
+{
+    folderColors().clear();
+}
+
+bool TreeLines::drawBranches(const QTreeView *view, QPainter *painter, const QRect &rect, const QModelIndex &index, Style style, const Colors &colors)
 {
     if (style == Style::FollowStyle) {
         return false;
@@ -91,10 +167,36 @@ bool TreeLines::drawBranches(const QTreeView *view, QPainter *painter, const QRe
     const QPalette::ColorGroup group = !view->isEnabled() ? QPalette::Disabled : (view->isActiveWindow() ? QPalette::Active : QPalette::Inactive);
     const bool selected = view->selectionModel() && view->selectionModel()->isSelected(index);
     const bool decorationSelected = view->style()->styleHint(QStyle::SH_ItemView_ShowDecorationSelected, nullptr, view);
-    QColor color = selected && decorationSelected ? mixed(palette.color(group, QPalette::Highlight), palette.color(group, QPalette::HighlightedText), 0.6)
-                                                  : mixed(palette.color(group, QPalette::Base), palette.color(group, QPalette::Text), 0.45);
+    const bool onSelection = selected && decorationSelected;
+    const QColor background = palette.color(group, onSelection ? QPalette::Highlight : QPalette::Base);
+    const QColor neutral = onSelection ? mixed(palette.color(group, QPalette::Highlight), palette.color(group, QPalette::HighlightedText), 0.6)
+                                       : mixed(palette.color(group, QPalette::Base), palette.color(group, QPalette::Text), 0.45);
+    // Colours only supplement nesting, which the line positions already show;
+    // each colour is adjusted to stay visible against the row background.
+    const auto colorFor = [&](int depth, const QModelIndex &folder) {
+        QColor color;
+        switch (colors.coloring) {
+        case Coloring::Single:
+            color = colors.single;
+            break;
+        case Coloring::Depth:
+            if (!colors.palette.isEmpty()) {
+                color = colors.palette.at(depth % colors.palette.size());
+            }
+            break;
+        case Coloring::Folder:
+            if (folder.isValid()) {
+                color = folderColor(folder);
+            }
+            break;
+        case Coloring::Neutral:
+            break;
+        }
+        return color.isValid() ? ColorSchemes::readable(color, background) : neutral;
+    };
     const bool dotted = style == Style::Dotted;
     const bool lines = style != Style::Hidden;
+    QColor color = colorFor(level, item.parent());
 
     // Start with the item's own branch, then go out level by level.
     QRect cell(reverse ? rect.left() : rect.right() + 1 - indent, rect.top(), indent, rect.height());
@@ -136,7 +238,7 @@ bool TreeLines::drawBranches(const QTreeView *view, QPainter *painter, const QRe
         cell.moveLeft(reverse ? cell.left() + indent : cell.left() - indent);
         if (hasMoreSiblings(current)) {
             const int x = cell.left() + cell.width() / 2;
-            drawLine(painter, QPoint(x, cell.top()), QPoint(x, cell.bottom()), color, dotted);
+            drawLine(painter, QPoint(x, cell.top()), QPoint(x, cell.bottom()), colorFor(level, current.parent()), dotted);
         }
         current = current.parent();
     }

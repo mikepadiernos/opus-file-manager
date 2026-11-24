@@ -965,5 +965,23 @@
       </choices>
       <default>FollowStyle</default>
     </entry>
+    <entry name="TreeLineColors" type="Enum">
+      <label>How tree lines are coloured</label>
+      <choices>
+        <choice name="Neutral"/>
+        <choice name="Single"/>
+        <choice name="Depth"/>
+        <choice name="Folder"/>
+      </choices>
+      <default>Neutral</default>
+    </entry>
+    <entry name="TreeLineColor" type="Color">
+      <label>Colour of tree lines when they use a single colour</label>
+      <default>61,174,233</default>
+    </entry>
+    <entry name="TreeLinePalette" type="StringList">
+      <label>Tree line colours by nesting depth as #rrggbb, repeating after the last colour</label>
+      <default>#3daee9,#27ae60,#f67400,#da4453,#9b59b6,#fdbc4b</default>
+    </entry>
   </group>
 </kcfg>
