@@ -1622,6 +1622,29 @@ QWidget *SettingsDialog::createEffectsPage()
     form->addRow(i18nc("@label:spinbox", "Window opacity:"), windowOpacity);
     form->addRow(i18nc("@label:spinbox", "Pane opacity:"), paneOpacity);
     form->addRow(i18nc("@label:spinbox", "Panel opacity:"), panelOpacity);
+    auto *corners = comboBox(QStringLiteral("CornerRadius"),
+                             {i18nc("@item:inlistbox corner radius", "Follow widget style"),
+                              i18nc("@item:inlistbox corner radius", "Square"),
+                              i18nc("@item:inlistbox corner radius", "Small"),
+                              i18nc("@item:inlistbox corner radius", "Medium"),
+                              i18nc("@item:inlistbox corner radius", "Large"),
+                              i18nc("@item:inlistbox corner radius", "Custom")});
+    corners->setToolTip(i18nc("@info:tooltip", "Rounds item highlights, input fields, tabs and tooltips."));
+    auto *customCorners = new QSpinBox;
+    customCorners->setObjectName(QStringLiteral("kcfg_CustomCornerRadius"));
+    customCorners->setRange(0, 24);
+    customCorners->setSuffix(i18nc("@item:valuesuffix logical pixels", " px"));
+    customCorners->setAccessibleName(i18nc("@label:spinbox", "Custom corner radius"));
+    const auto updateCorners = [corners, customCorners] {
+        customCorners->setEnabled(corners->currentIndex() == Settings::EnumCornerRadius::Custom);
+    };
+    connect(corners, &QComboBox::currentIndexChanged, page, updateCorners);
+    updateCorners();
+    auto *cornerRow = new QHBoxLayout;
+    cornerRow->addWidget(corners);
+    cornerRow->addWidget(customCorners);
+    cornerRow->addStretch();
+    form->addRow(i18nc("@label:listbox", "Corner radius:"), cornerRow);
     layout->addLayout(form);
     auto *explanation = new QLabel(i18nc("@info",
                                          "Only backgrounds become translucent; text, icons and selections stay opaque. Panes and panels are "

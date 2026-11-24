@@ -125,6 +125,8 @@ private:
     /// Makes the window and docked panel backgrounds as translucent as configured.
     void applyBackgroundOpacity();
     void applyPanelOpacity(QDockWidget *dock);
+    /// Rounds highlights, input fields, tabs and tooltips as configured.
+    void applyCornerRadius();
     /// Places the workspace selector in the View menu, the status bar or both.
     void applyWorkspaceSelectorPlacement();
     /// Gives each pane its configured location bar, replacing the current choice only when the setting changes.

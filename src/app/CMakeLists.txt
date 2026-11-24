@@ -1,4 +1,6 @@
 add_library(opusfm_app STATIC
+    appearancestyle.cpp
+    appearancestyle.h
     batchconversiondialog.cpp
     batchconversiondialog.h
     batchrenamedialog.cpp

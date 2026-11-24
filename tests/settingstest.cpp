@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "settings.h"
+#include "appearancestyle.h"
 #include "colorschemes.h"
 #include "combinedpanel.h"
 #include "compressdialog.h"
@@ -50,6 +51,7 @@
 #include <QMenu>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QPainter>
 #include <QPlainTextEdit>
 #include <QProxyStyle>
 #include <QPushButton>
@@ -58,6 +60,8 @@
 #include <QSpinBox>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <QStyleFactory>
+#include <QStyleOption>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QTemporaryDir>
@@ -471,6 +475,126 @@ private Q_SLOTS:
         Pane standalone(placesOf(window), nullptr, &opaque);
         standalone.setBackgroundOpacity(40);
         QCOMPARE(standalone.view()->palette().color(QPalette::Active, QPalette::Base).alpha(), 255);
+    }
+
+    void cornerRadiusRoundsHighlightsTabsAndFields()
+    {
+        const QString originalName = QApplication::style()->name();
+        auto restore = qScopeGuard([originalName] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            if (AppearanceStyle::installed()) {
+                QApplication::setStyle(QStyleFactory::create(originalName));
+            }
+        });
+        QCOMPARE(AppearanceStyle::radiusForSetting(Settings::EnumCornerRadius::FollowStyle, 6), int(AppearanceStyle::FollowStyle));
+        QCOMPARE(AppearanceStyle::radiusForSetting(Settings::EnumCornerRadius::None, 6), 0);
+        QCOMPARE(AppearanceStyle::radiusForSetting(Settings::EnumCornerRadius::Large, 6), 8);
+        QCOMPARE(AppearanceStyle::radiusForSetting(Settings::EnumCornerRadius::Custom, 99), 24);
+
+        // Following the widget style leaves the application style alone.
+        QStyle *original = QApplication::style();
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.applySettings();
+        QCOMPARE(QApplication::style(), original);
+        QVERIFY(!AppearanceStyle::installed());
+        QCOMPARE(AppearanceStyle::cornerRadius(3), 3);
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *corners = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_CornerRadius"));
+        auto *custom = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_CustomCornerRadius"));
+        QVERIFY(corners && custom);
+        QVERIFY(!custom->isEnabled());
+        corners->setCurrentIndex(Settings::EnumCornerRadius::Custom);
+        Q_EMIT corners->activated(Settings::EnumCornerRadius::Custom);
+        QVERIFY(custom->isEnabled());
+        custom->setValue(8);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::cornerRadius(), int(Settings::EnumCornerRadius::Custom));
+        QCOMPARE(Settings::customCornerRadius(), 8);
+        AppearanceStyle *style = AppearanceStyle::installed();
+        QVERIFY(style);
+        QCOMPARE(style->radius(), 8);
+        QCOMPARE(AppearanceStyle::cornerRadius(3), 8);
+        QCOMPARE(style->baseStyle(), original);
+        Pane *pane = window.findChildren<Pane *>().constFirst();
+        QCOMPARE(pane->view()->style(), style);
+
+        const QPalette palette = QApplication::palette();
+        const QColor highlight = palette.color(QPalette::Active, QPalette::Highlight);
+        const auto draw = [style](const auto &paint) {
+            QImage image(40, 20, QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            paint(&painter, image.rect());
+            painter.end();
+            return image;
+        };
+        QStyleOptionViewItem item;
+        item.palette = palette;
+        item.state = QStyle::State_Enabled | QStyle::State_Active | QStyle::State_Selected;
+        item.viewItemPosition = QStyleOptionViewItem::OnlyOne;
+        const auto drawItem = [&] {
+            return draw([&](QPainter *painter, const QRect &rect) {
+                item.rect = rect;
+                style->drawPrimitive(QStyle::PE_PanelItemViewItem, &item, painter, nullptr);
+            });
+        };
+        QImage image = drawItem();
+        QCOMPARE(qAlpha(image.pixel(0, 0)), 0);
+        QCOMPARE(qAlpha(image.pixel(39, 19)), 0);
+        QCOMPARE(image.pixelColor(20, 10), highlight);
+        // A selection spanning columns is rounded only at its outer ends.
+        item.viewItemPosition = QStyleOptionViewItem::Beginning;
+        image = drawItem();
+        QCOMPARE(qAlpha(image.pixel(0, 0)), 0);
+        QCOMPARE(image.pixelColor(39, 0), highlight);
+        item.viewItemPosition = QStyleOptionViewItem::Middle;
+        image = drawItem();
+        QCOMPARE(image.pixelColor(0, 0), highlight);
+        QCOMPARE(image.pixelColor(39, 19), highlight);
+
+        // The selected tab has a fill and an indicator; other tabs are flat.
+        QStyleOptionTab tab;
+        tab.palette = palette;
+        tab.shape = QTabBar::RoundedNorth;
+        tab.state = QStyle::State_Enabled | QStyle::State_Active;
+        const auto drawTab = [&] {
+            return draw([&](QPainter *painter, const QRect &rect) {
+                tab.rect = rect;
+                style->drawControl(QStyle::CE_TabBarTabShape, &tab, painter, nullptr);
+            });
+        };
+        image = drawTab();
+        QCOMPARE(qAlpha(image.pixel(20, 10)), 0);
+        tab.state |= QStyle::State_Selected;
+        image = drawTab();
+        QCOMPARE(qAlpha(image.pixel(1, 1)), 0);
+        QCOMPARE(image.pixelColor(20, 17), highlight);
+        QVERIFY(qAlpha(image.pixel(20, 10)) > 0);
+        QVERIFY(qAlpha(image.pixel(20, 10)) < 255);
+
+        // Square corners fill the whole highlight.
+        Settings::setCornerRadius(Settings::EnumCornerRadius::None);
+        window.applySettings();
+        QCOMPARE(style->radius(), 0);
+        item.viewItemPosition = QStyleOptionViewItem::OnlyOne;
+        QCOMPARE(drawItem().pixelColor(0, 0), highlight);
+
+        // A replacement widget style is wrapped again.
+        QApplication::setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
+        QTRY_VERIFY(AppearanceStyle::installed());
+        QCOMPARE(AppearanceStyle::installed()->radius(), 0);
+        QCOMPARE(AppearanceStyle::installed()->baseStyle()->name(), QStringLiteral("fusion"));
+
+        // Following the style again passes drawing through.
+        Settings::setCornerRadius(Settings::EnumCornerRadius::FollowStyle);
+        window.applySettings();
+        QCOMPARE(AppearanceStyle::installed()->radius(), int(AppearanceStyle::FollowStyle));
+        QCOMPARE(AppearanceStyle::cornerRadius(3), 3);
     }
 
     void paneTintFollowsTheChosenPanesAndScheme()

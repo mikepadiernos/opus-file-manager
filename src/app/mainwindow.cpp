@@ -3,6 +3,7 @@
 #include "mainwindow.h"
 #include "metadataeditdialog.h"
 
+#include "appearancestyle.h"
 #include "archives.h"
 #include "archivewriter.h"
 #include "batchrenamedialog.h"
@@ -582,7 +583,17 @@ void MainWindow::changeEvent(QEvent *event)
     // unchanged palette sends no further event.
     if (event->type() == QEvent::PaletteChange) {
         applyBackgroundOpacity();
+    } else if (event->type() == QEvent::StyleChange) {
+        // A new Plasma widget style replaces the application style, including
+        // the corner radius proxy; wrap the new style again once the style
+        // change has reached every widget.
+        QMetaObject::invokeMethod(this, &MainWindow::applyCornerRadius, Qt::QueuedConnection);
     }
+}
+
+void MainWindow::applyCornerRadius()
+{
+    AppearanceStyle::applyCornerRadius(AppearanceStyle::radiusForSetting(Settings::cornerRadius(), Settings::customCornerRadius()));
 }
 
 void MainWindow::childEvent(QChildEvent *event)
@@ -4607,6 +4618,7 @@ void MainWindow::applySettings()
     applyColorScheme();
     applyWindowEffects();
     applyBackgroundOpacity();
+    applyCornerRadius();
     const bool translucency = Settings::windowOpacity() < 100 || Settings::paneOpacity() < 100 || Settings::panelOpacity() < 100;
     if (const QString reason = WindowEffects::unavailableReason(this, Settings::backgroundBlur(), translucency); !reason.isEmpty()) {
         statusBar()->showMessage(reason);

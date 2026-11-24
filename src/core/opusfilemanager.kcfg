@@ -924,5 +924,23 @@
       <min>20</min>
       <max>100</max>
     </entry>
+    <entry name="CornerRadius" type="Enum">
+      <label>Corner radius of item highlights, input fields, tabs and tooltips</label>
+      <choices>
+        <choice name="FollowStyle"/>
+        <choice name="None"/>
+        <choice name="Small"/>
+        <choice name="Medium"/>
+        <choice name="Large"/>
+        <choice name="Custom"/>
+      </choices>
+      <default>FollowStyle</default>
+    </entry>
+    <entry name="CustomCornerRadius" type="Int">
+      <label>Corner radius in logical pixels when the corner radius is custom</label>
+      <default>6</default>
+      <min>0</min>
+      <max>24</max>
+    </entry>
   </group>
 </kcfg>
