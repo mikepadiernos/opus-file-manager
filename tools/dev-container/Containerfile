@@ -1,0 +1,61 @@
+# Headless Linux build and test environment for Plasma Opus.
+#
+# This extends the Plasma Impresario development image, which provides the
+# Fedora toolchain, Qt 6, Extra CMake Modules, ccache and the offscreen Qt
+# platform, with the KDE Frameworks and tools that Plasma Opus needs. It does
+# not provide a Plasma session, so KWin effects, Plasma theming and other
+# visual behavior still need verification on Plasma.
+#
+# Build and use it through tools/dev-container/run.sh.
+
+ARG BASE_IMAGE=plasma-impresario-dev
+FROM ${BASE_IMAGE}
+
+# run.sh compares this label with the current base image to decide when to
+# rebuild.
+ARG BASE_IMAGE_ID=unknown
+LABEL io.github.mikepadiernos.plasma-opus.base-image-id=${BASE_IMAGE_ID}
+
+RUN dnf -y install --setopt=install_weak_deps=False \
+        gettext \
+        libarchive-devel \
+        qt6-qtbase-private-devel \
+        qt6-qtmultimedia-devel \
+        kf6-karchive-devel \
+        kf6-kbookmarks-devel \
+        kf6-kconfig-devel \
+        kf6-kconfigwidgets-devel \
+        kf6-kcoreaddons-devel \
+        kf6-kcrash-devel \
+        kf6-kdbusaddons-devel \
+        kf6-kfilemetadata-devel \
+        kf6-kguiaddons-devel \
+        kf6-ki18n-devel \
+        kf6-kiconthemes-devel \
+        kf6-kio-devel \
+        kf6-kitemviews-devel \
+        kf6-kparts-devel \
+        kf6-ktexteditor-devel \
+        kf6-kwidgetsaddons-devel \
+        kf6-kwindowsystem-devel \
+        kf6-kxmlgui-devel \
+        kf6-solid-devel \
+        kf6-syntax-highlighting-devel \
+        kf6-baloo-devel \
+        kf6-baloo-file \
+        konsole-part \
+        kio-extras \
+        kde-dev-scripts \
+        glibc-langpack-en \
+        glibc-langpack-fa \
+        perl-Image-ExifTool \
+        ffmpeg-free \
+        poppler-utils \
+        7zip \
+        dbus-daemon \
+        diffutils \
+    && dnf clean all
+
+# Gettext ignores LANGUAGE under the C locale, which the translation tests
+# need.
+ENV LANG=en_US.UTF-8
