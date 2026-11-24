@@ -277,15 +277,15 @@ Text editor content
 2. Propose consistent names, grouping and placement for existing actions.
    Review menu changes against keyboard access, translations, active-pane
    context and destructive-action confirmations before implementing them.
-   ([#458](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/458))
+   ([#458](https://github.com/mikepadiernos/plasma-opus/issues/458))
 3. Improve toolbar and pane-action discovery and narrow-window overflow.
    Preserve shortcut bindings, current toolbar configuration and an obvious
    indication of which pane an action affects.
-   ([#460](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/460))
+   ([#460](https://github.com/mikepadiernos/plasma-opus/issues/460))
 4. Synchronize enabled, checked and visible action state after selection,
    navigation and tab changes. Keep an open context menu tied to the
    selection for which it was invoked.
-   ([#482](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/482))
+   ([#482](https://github.com/mikepadiernos/plasma-opus/issues/482))
 5. Exercise mouse and keyboard menu use, empty and mixed selections, remote
    locations, pane changes while a menu is open and restored customizations.
    Add focused regression tests alongside the changes.

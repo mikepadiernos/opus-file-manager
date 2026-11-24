@@ -50,7 +50,7 @@ other's private data or change its settings without explicit user action.
   explicit save, it may ask the file manager to reveal the saved location using
   a supported desktop interface. Plasma Opus's planned
   [FileManager1 service](../ROADMAP.md#m27-integrations) is tracked in
-  [#279](https://github.com/mikepadiernos/plasma-opus-file-manager/issues/279).
+  [#279](https://github.com/mikepadiernos/plasma-opus/issues/279).
 - Preserve the selected destination, file identity and conflict handling; show
   errors for unavailable or removed files. Do not access message stores,
   download attachments automatically or infer that a saved file is safe.
