@@ -37,6 +37,16 @@ QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
 ./build/bin/opus-file-manager
 ```
 
+Without the Linux dependencies, for example on macOS, use the headless Docker
+dev container. It extends the `plasma-impresario-dev` image and is built
+automatically from a sibling `plasma-impresario` checkout, or from
+`IMPRESARIO_DIR`:
+
+```bash
+tools/dev-container/run.sh sh -c 'cmake -S . -B build-container -G Ninja -DCMAKE_BUILD_TYPE=Debug && cmake --build build-container'
+tools/dev-container/run.sh ctest --test-dir build-container --output-on-failure -j4
+```
+
 Pass folders or URLs as arguments: the first opens in the active pane, the
 second in the other pane, and additional arguments in tabs in the active pane.
 Without arguments, the configured startup or restored session is used.
