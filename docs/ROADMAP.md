@@ -804,7 +804,7 @@ Settings for M15 workspaces, stored in KConfig.
 - [x] **Snapshots:** choose which pane and tab state to restore from an explicit
       workspace snapshot, respecting M02 startup and session choices. Preserve
       running jobs and confirm before replacing unsaved state.
-- [ ] **Recovery:** choose whether to prompt for retries when locations or
+- [x] **Recovery:** choose whether to prompt for retries when locations or
       providers are unavailable; identify what could not be restored and retain
       saved references until explicitly changed
 - [ ] **Indicators:** show the active workspace and unsaved layout state; choose
@@ -1121,7 +1121,31 @@ layouts.
         shared with other KDE applications; require explicit user action and
         report failures. Reuse the existing Plasma Opus-specific and
         Dolphin-shared visibility controls.
-  - [ ] Support the XDG portal file chooser
+  - [ ] Optional system file chooser that replaces application Open and Save
+        dialogs, as in [Strata](https://github.com/lgse/strata), by serving the
+        XDG portal file chooser. Implement
+        `org.freedesktop.impl.portal.FileChooser` (`OpenFile`, `SaveFile` and
+        `SaveFiles`) as a D-Bus-activated backend with a compact chooser that
+        reuses Plasma Opus views, places and search. Honour multiple and folder
+        selection, filters, choices, suggested names and folders, parent
+        windows and request cancellation, and confirm overwrites when saving.
+        Nothing changes without explicit opt-in through the M28 **File
+        manager** settings, `install.sh --file-chooser` or
+        `opus-file-manager --install-portal`. Restore the previous chooser from
+        the same settings row, `install.sh --uninstall` or
+        `opus-file-manager --uninstall-portal`. Setup installs per-user portal
+        metadata and an activation service, prefers Plasma Opus ahead of
+        `xdg-desktop-portal-kde` in the user's `kde-portals.conf` so the KDE
+        chooser remains the fallback, and restarts the portal frontend after
+        warning that open file dialogs may close. Restoring puts back the
+        previous configuration, or removes only Plasma Opus if the user has
+        changed it since. Keep this separate from default file manager
+        registration and the `org.freedesktop.FileManager1` service. Explain
+        that it affects applications that use the portal, such as Flatpak and
+        Snap apps and portal-enabled GTK, Electron and browser apps; native Qt
+        and KDE applications keep Plasma's in-process dialog. Do not change
+        platform themes or environment variables, and report a missing portal
+        service or setup failures.
 
 - **M27.02: Archives and application packages**
 
@@ -1278,7 +1302,9 @@ Settings for M27 integrations, stored in KConfig.
   - [ ] **Default:** show the current desktop file-manager association and offer
         an explicit action to set Plasma Opus as the user default; report
         failures
-  - [ ] **Portal:** enable or disable serving the XDG portal file chooser
+  - [ ] **System file chooser:** show whether Plasma Opus serves the XDG portal
+        file chooser, with explicit actions to complete setup or restore the
+        previous chooser; report failures
 
 - **Plasma notifications**
 
@@ -1754,6 +1780,8 @@ interfaces. The additions above draw on these sources:
 - [Max File Manager](https://github.com/majidasgari/max-file-manager), alongside
   this project's [UI](parity/ui.md) and [backend](parity/backend.md)
   inventories.
+- [Strata](https://github.com/lgse/strata), especially its opt-in system file
+  chooser served through the XDG file chooser portal.
 - [TagStudio](https://github.com/TagStudioDev/TagStudio), especially its
   libraries, tag relationships and search.
 - [TagSpaces workspaces](https://docs.tagspaces.org/workspaces/): workspace
