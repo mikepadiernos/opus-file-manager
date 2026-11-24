@@ -203,6 +203,7 @@ AppearanceStyle::Options AppearanceStyle::configured()
     options.tabIndicator = static_cast<TabIndicator>(std::clamp(int(Settings::tabIndicator()), 0, int(TabIndicator::None)));
     options.tabColorStrength = static_cast<TabColorStrength>(std::clamp(int(Settings::tabColorStrength()), 0, int(TabColorStrength::Strong)));
     options.statusBarStyle = static_cast<StatusBarStyle>(std::clamp(int(Settings::statusBarStyle()), 0, int(StatusBarStyle::Shaded)));
+    options.animations = static_cast<Animations>(std::clamp(int(Settings::animations()), 0, int(Animations::Off)));
     return options;
 }
 
@@ -750,5 +751,28 @@ int AppearanceStyle::styleHint(StyleHint hint, const QStyleOption *option, const
         const QColor color = m_options.dividers == Dividers::Hidden ? QColor(Qt::transparent) : dividerColor(option);
         return static_cast<int>(color.rgba());
     }
+    switch (m_options.animations) {
+    case Animations::Off:
+        if (hint == SH_Widget_Animation_Duration || hint == SH_Widget_Animate) {
+            return 0;
+        }
+        break;
+    case Animations::Reduced:
+        if (hint == SH_Widget_Animation_Duration) {
+            return QProxyStyle::styleHint(hint, option, widget, returnData) / 2;
+        }
+        break;
+    case Animations::FollowPlasma:
+        break;
+    }
     return QProxyStyle::styleHint(hint, option, widget, returnData);
+}
+
+bool AppearanceStyle::panelAnimationsEnabled(const QWidget *widget)
+{
+    const AppearanceStyle *style = installed();
+    if (style && style->m_options.animations != Animations::FollowPlasma) {
+        return false;
+    }
+    return QApplication::style()->styleHint(SH_Widget_Animation_Duration, nullptr, widget) > 0;
 }

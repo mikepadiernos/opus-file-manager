@@ -163,7 +163,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createFolderColorsPage(), i18nc("@title:tab", "Folder Colours")},
                    {createFontsPage(), i18nc("@title:tab", "Fonts")},
                    {createSpacingPage(), i18nc("@title:tab", "Spacing")},
-                   {createBarStylePage(), i18nc("@title:tab", "Tabs and Status Bars")}},
+                   {createBarStylePage(), i18nc("@title:tab", "Tabs and Status Bars")},
+                   {createMotionPage(), i18nc("@title:tab", "Motion and Accessibility")}},
                   i18nc("@title:group", "Themes"),
                   QStringLiteral("preferences-desktop-theme"));
     addTabbedPage({{createViewGeneralPage(), i18nc("@title:tab", "General")},
@@ -1886,6 +1887,28 @@ QWidget *SettingsDialog::createBarStylePage()
                                   "Rounded tabs use the corner radius from Effects. Flat tabs always keep an indicator on the active tab. "
                                   "Tab colours are chosen from a tab's context menu and shown when folder-based tab colours are enabled "
                                   "in Interface settings; text on tinted and filled tabs is adjusted to stay readable."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createMotionPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    form->addRow(i18nc("@label:listbox", "Animations:"),
+                 comboBox(QStringLiteral("Animations"),
+                          {i18nc("@item:inlistbox animation speed", "Follow Plasma"),
+                           i18nc("@item:inlistbox animation speed", "Reduced"),
+                           i18nc("@item:inlistbox animation speed", "Off")}));
+    layout->addLayout(form);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Follow Plasma uses the animation speed from System Settings. Reduced halves transitions such as "
+                                  "places appearing and disappearing, and moves panels without animation. Off turns these transitions off. "
+                                  "Animations drawn by the widget style itself, such as button hover fades, follow Plasma."),
                             page);
     note->setWordWrap(true);
     layout->addWidget(note);

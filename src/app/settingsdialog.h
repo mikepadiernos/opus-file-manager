@@ -114,6 +114,7 @@ private:
     QWidget *createFontsPage();
     QWidget *createSpacingPage();
     QWidget *createBarStylePage();
+    QWidget *createMotionPage();
     QWidget *createViewGeneralPage();
     QWidget *createDetailsPage();
     QWidget *createCompactPage();

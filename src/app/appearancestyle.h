@@ -79,6 +79,15 @@ public:
         Shaded,
     };
 
+    /// How long transitions take; the order matches the Animations setting.
+    enum class Animations {
+        /// The widget style's durations, which follow Plasma's animation speed.
+        FollowPlasma,
+        /// Half the widget style's durations, without panel animations.
+        Reduced,
+        Off,
+    };
+
     struct Options {
         int radius = FollowStyle;
         Dividers dividers = Dividers::FollowStyle;
@@ -93,6 +102,7 @@ public:
         TabIndicator tabIndicator = TabIndicator::Line;
         TabColorStrength tabColorStrength = TabColorStrength::Text;
         StatusBarStyle statusBarStyle = StatusBarStyle::FollowStyle;
+        Animations animations = Animations::FollowPlasma;
 
         bool operator==(const Options &) const = default;
     };
@@ -133,6 +143,12 @@ public:
      * @returns an invalid colour for TabColorStrength::Text
      */
     static QColor tabColorFill(const QColor &window, const QColor &color, TabColorStrength strength, bool selected);
+    /**
+     * Whether panels and other large areas may move in transitions, which
+     * reduced motion leaves out.
+     * @param widget the widget whose style's animation duration applies
+     */
+    static bool panelAnimationsEnabled(const QWidget *widget);
     /**
      * Prepares an item for a delegate that draws selected text in the
      * HighlightedText colour. With a light selection style, selected text

@@ -1109,5 +1109,14 @@
       </choices>
       <default>FollowStyle</default>
     </entry>
+    <entry name="Animations" type="Enum">
+      <label>Whether Plasma Opus transitions follow Plasma's animation speed, are shortened or are turned off</label>
+      <choices>
+        <choice name="FollowPlasma"/>
+        <choice name="Reduced"/>
+        <choice name="Off"/>
+      </choices>
+      <default>FollowPlasma</default>
+    </entry>
   </group>
 </kcfg>

@@ -616,6 +616,7 @@ void MainWindow::changeEvent(QEvent *event)
 void MainWindow::applyAppearanceStyle()
 {
     AppearanceStyle::apply(AppearanceStyle::configured());
+    setDockOptions(dockOptions().setFlag(QMainWindow::AnimatedDocks, AppearanceStyle::panelAnimationsEnabled(this)));
     // Tree lines are drawn by the views themselves.
     for (QTreeView *tree : findChildren<QTreeView *>()) {
         tree->viewport()->update();

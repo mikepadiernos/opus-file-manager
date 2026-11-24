@@ -2294,6 +2294,48 @@ private Q_SLOTS:
         QCOMPARE(restoredStatus.pixelColor(1, restoredStatus.height() / 2), plainStatus.pixelColor(1, plainStatus.height() / 2));
     }
 
+    void animationsFollowPlasmaReduceOrTurnOff()
+    {
+        const QString originalName = QApplication::style()->name();
+        auto restore = qScopeGuard([originalName] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            if (AppearanceStyle::installed()) {
+                QApplication::setStyle(QStyleFactory::create(originalName));
+            }
+        });
+        MainWindow window;
+        const auto duration = [&window] {
+            return window.style()->styleHint(QStyle::SH_Widget_Animation_Duration, nullptr, &window);
+        };
+        const int plasma = duration();
+        QVERIFY(plasma > 0);
+        QVERIFY(window.dockOptions().testFlag(QMainWindow::AnimatedDocks));
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *animations = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_Animations"));
+        QVERIFY(animations);
+        animations->setCurrentIndex(Settings::EnumAnimations::Reduced);
+        Q_EMIT animations->activated(Settings::EnumAnimations::Reduced);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(duration(), plasma / 2);
+        QVERIFY(window.style()->styleHint(QStyle::SH_Widget_Animate, nullptr, &window));
+        QVERIFY(!window.dockOptions().testFlag(QMainWindow::AnimatedDocks));
+
+        Settings::setAnimations(Settings::EnumAnimations::Off);
+        window.applySettings();
+        QCOMPARE(duration(), 0);
+        QVERIFY(!window.style()->styleHint(QStyle::SH_Widget_Animate, nullptr, &window));
+        QVERIFY(!window.dockOptions().testFlag(QMainWindow::AnimatedDocks));
+
+        Settings::setAnimations(Settings::EnumAnimations::FollowPlasma);
+        window.applySettings();
+        QCOMPARE(duration(), plasma);
+        QVERIFY(window.dockOptions().testFlag(QMainWindow::AnimatedDocks));
+    }
+
     void toolbarAppearanceSettingsApplyToEveryToolbar()
     {
         MainWindow window;
