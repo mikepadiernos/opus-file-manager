@@ -112,6 +112,7 @@ private:
     QWidget *createHighlightsPage();
     QWidget *createFolderColorsPage();
     QWidget *createFontsPage();
+    QWidget *createSpacingPage();
     QWidget *createViewGeneralPage();
     QWidget *createDetailsPage();
     QWidget *createCompactPage();

@@ -161,7 +161,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createLinesPage(), i18nc("@title:tab", "Lines")},
                    {createHighlightsPage(), i18nc("@title:tab", "Highlights")},
                    {createFolderColorsPage(), i18nc("@title:tab", "Folder Colours")},
-                   {createFontsPage(), i18nc("@title:tab", "Fonts")}},
+                   {createFontsPage(), i18nc("@title:tab", "Fonts")},
+                   {createSpacingPage(), i18nc("@title:tab", "Spacing")}},
                   i18nc("@title:group", "Themes"),
                   QStringLiteral("preferences-desktop-theme"));
     addTabbedPage({{createViewGeneralPage(), i18nc("@title:tab", "General")},
@@ -1818,6 +1819,29 @@ QWidget *SettingsDialog::createFontsPage()
     auto *note = new QLabel(i18nc("@info",
                                   "Areas without a custom font follow Plasma's General font. Custom fonts are stored in points, so they "
                                   "scale with the display like Plasma's fonts. File lists include their column headers."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createSpacingPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    auto *scale = new QSpinBox;
+    scale->setObjectName(QStringLiteral("kcfg_SpacingScale"));
+    scale->setRange(50, 200);
+    scale->setSingleStep(10);
+    scale->setSuffix(i18nc("@item:valuesuffix percent", "%"));
+    scale->setToolTip(i18nc("@info:tooltip", "100% follows the spacing of Plasma's widget style."));
+    form->addRow(i18nc("@label:spinbox", "Spacing scale:"), scale);
+    layout->addLayout(form);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Scales the padding and spacing of toolbars, tabs, panels and status bars. Bars with a Compact, Very "
+                                  "compact or Custom bar density keep that spacing, and file lists keep their item density."),
                             page);
     note->setWordWrap(true);
     layout->addWidget(note);

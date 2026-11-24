@@ -17,6 +17,7 @@
 #include <QSplitterHandle>
 #include <QStyleOption>
 #include <QTabBar>
+#include <QToolBar>
 #include <QWidget>
 
 #include <algorithm>
@@ -190,6 +191,7 @@ AppearanceStyle::Options AppearanceStyle::configured()
     options.revealDividers = Settings::revealDividersOnHover();
     options.selection = static_cast<Selection>(std::clamp(int(Settings::selectionStyle()), 0, int(Selection::AccentBar)));
     options.hoverHighlight = Settings::hoverHighlight();
+    options.spacingScale = std::clamp(Settings::spacingScale(), MinimumSpacingScale, MaximumSpacingScale);
     return options;
 }
 
@@ -253,10 +255,11 @@ void AppearanceStyle::setOptions(const Options &options)
 {
     Options normalized = options;
     normalized.radius = std::max(normalized.radius, int(FollowStyle));
+    normalized.spacingScale = std::clamp(normalized.spacingScale, MinimumSpacingScale, MaximumSpacingScale);
     if (normalized == m_options) {
         return;
     }
-    const bool metrics = normalized.dividers != m_options.dividers;
+    const bool metrics = normalized.dividers != m_options.dividers || normalized.spacingScale != m_options.spacingScale;
     m_options = normalized;
     const QWidgetList widgets = QApplication::allWidgets();
     for (QWidget *widget : widgets) {
@@ -573,7 +576,55 @@ int AppearanceStyle::pixelMetric(PixelMetric metric, const QStyleOption *option,
     if (metric == PM_DefaultFrameWidth && isRestyledFrame(widget)) {
         return m_options.dividers == Dividers::Thin ? 1 : 0;
     }
-    return QProxyStyle::pixelMetric(metric, option, widget);
+    const int value = QProxyStyle::pixelMetric(metric, option, widget);
+    if (isSpacingMetric(metric) && isRespacedWidget(widget)) {
+        return scaledSpacing(value);
+    }
+    return value;
+}
+
+QSize AppearanceStyle::sizeFromContents(ContentsType type, const QStyleOption *option, const QSize &contentsSize, const QWidget *widget) const
+{
+    const QSize size = QProxyStyle::sizeFromContents(type, option, contentsSize, widget);
+    const bool padded = type == CT_TabBarTab || (type == CT_ToolButton && widget && qobject_cast<const QToolBar *>(widget->parentWidget()));
+    if (!padded || !isRespacedWidget(widget) || !size.isValid()) {
+        return size;
+    }
+    // Only the padding around the contents is scaled, so text and icons keep their size.
+    const QSize padding = (size - contentsSize).expandedTo(QSize(0, 0));
+    return contentsSize + QSize(scaledSpacing(padding.width()), scaledSpacing(padding.height()));
+}
+
+bool AppearanceStyle::isSpacingMetric(PixelMetric metric)
+{
+    switch (metric) {
+    case PM_LayoutLeftMargin:
+    case PM_LayoutTopMargin:
+    case PM_LayoutRightMargin:
+    case PM_LayoutBottomMargin:
+    case PM_LayoutHorizontalSpacing:
+    case PM_LayoutVerticalSpacing:
+    case PM_ToolBarItemSpacing:
+    case PM_ToolBarItemMargin:
+    case PM_TabBarTabHSpace:
+    case PM_TabBarTabVSpace:
+    case PM_DockWidgetTitleMargin:
+    case PM_DockWidgetTitleBarButtonMargin:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool AppearanceStyle::isRespacedWidget(const QWidget *widget) const
+{
+    // Dialogs keep the widget style's spacing, as they keep Plasma's fonts.
+    return m_options.spacingScale != 100 && widget && qobject_cast<const KMainWindow *>(widget->window());
+}
+
+int AppearanceStyle::scaledSpacing(int value) const
+{
+    return value > 0 ? qRound(value * m_options.spacingScale / 100.0) : value;
 }
 
 int AppearanceStyle::styleHint(StyleHint hint, const QStyleOption *option, const QWidget *widget, QStyleHintReturn *returnData) const

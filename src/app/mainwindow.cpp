@@ -311,9 +311,16 @@ Density::Bars barDensity(Settings::EnumBarDensity::type density)
  * Sets the margins and spacing of a bar's layout, remembering the style's
  * own on first use so -1 restores them.
  */
-void setBarMargin(QWidget *bar, int margin)
+/**
+ * Sets the margin and spacing of a bar's layout.
+ * @param margin the margin, or -1 for the bar's own margins scaled by @p scale percent
+ */
+void setBarMargin(QWidget *bar, int margin, int scale)
 {
     QLayout *layout = bar->layout();
+    if (!layout) {
+        return;
+    }
     constexpr auto MarginsKey = "opusfmStyleMargins";
     constexpr auto SpacingKey = "opusfmStyleSpacing";
     if (!bar->property(MarginsKey).isValid()) {
@@ -321,8 +328,12 @@ void setBarMargin(QWidget *bar, int margin)
         bar->setProperty(SpacingKey, layout->spacing());
     }
     if (margin < 0) {
-        layout->setContentsMargins(bar->property(MarginsKey).value<QMargins>());
-        layout->setSpacing(bar->property(SpacingKey).toInt());
+        const auto scaled = [scale](int value) {
+            return value > 0 ? qRound(value * scale / 100.0) : value;
+        };
+        const QMargins margins = bar->property(MarginsKey).value<QMargins>();
+        layout->setContentsMargins(scaled(margins.left()), scaled(margins.top()), scaled(margins.right()), scaled(margins.bottom()));
+        layout->setSpacing(scaled(bar->property(SpacingKey).toInt()));
     } else {
         layout->setContentsMargins(margin, margin, margin, margin);
         layout->setSpacing(margin);
@@ -4794,13 +4805,17 @@ void MainWindow::applySettings()
     }
     updateTabBars();
     const int barMargin = Density::barMargin(barDensity(Settings::barDensity()), Settings::barCustomSpacing());
+    const int spacingScale = AppearanceStyle::configured().spacingScale;
     const auto bars = toolBars();
     for (KToolBar *bar : bars) {
-        setBarMargin(bar, barMargin);
+        setBarMargin(bar, barMargin, spacingScale);
     }
-    setBarMargin(statusBar(), barMargin);
-    setBarMargin(m_left->navigationBar(), barMargin);
-    setBarMargin(m_right->navigationBar(), barMargin);
+    setBarMargin(statusBar(), barMargin, spacingScale);
+    for (Pane *pane : {m_left, m_right}) {
+        setBarMargin(pane->navigationBar(), barMargin, spacingScale);
+        // Pane status bars are already as tight as Compact, so they only follow the spacing scale.
+        setBarMargin(pane->statusBarWidget(), -1, spacingScale);
+    }
     applyPanelSettings();
     applyEmbeddedPanelTitles();
     updateStatusBarIndicatorOrder();

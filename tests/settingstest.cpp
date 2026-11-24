@@ -2145,6 +2145,49 @@ private Q_SLOTS:
         QVERIFY(fontsAre(plasma, plasma, plasma, plasma));
     }
 
+    void spacingScaleAppliesToBarsTabsAndPanelsButNotDialogs()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        auto *tabBar = window.activePane()->findChild<QTabBar *>();
+        QVERIFY(tabBar && tabBar->count() > 0);
+        QLayout *navigation = window.activePane()->navigationBar()->layout();
+        QLayout *paneStatus = window.activePane()->statusBarWidget()->layout();
+        const QSize tab = tabBar->tabRect(0).size();
+        const QMargins navigationMargins = navigation->contentsMargins();
+        const QMargins paneStatusMargins = paneStatus->contentsMargins();
+        QDialog dialog;
+        const auto spacing = [](const QWidget *widget) {
+            return QApplication::style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, nullptr, widget);
+        };
+        const int windowSpacing = spacing(window.centralWidget());
+        const int dialogSpacing = spacing(&dialog);
+        QVERIFY(windowSpacing > 0);
+
+        Settings::setSpacingScale(200);
+        window.applySettings();
+        QVERIFY(tabBar->tabRect(0).height() > tab.height());
+        QCOMPARE(spacing(window.centralWidget()), 2 * windowSpacing);
+        QCOMPARE(spacing(&dialog), dialogSpacing);
+        QCOMPARE(navigation->contentsMargins(), navigationMargins * 2);
+        QCOMPARE(paneStatus->contentsMargins(), paneStatusMargins * 2);
+
+        // Explicit bar densities keep their spacing.
+        Settings::setBarDensity(Settings::EnumBarDensity::VeryCompact);
+        window.applySettings();
+        QCOMPARE(navigation->contentsMargins(), QMargins());
+
+        Settings::setBarDensity(Settings::EnumBarDensity::Normal);
+        Settings::setSpacingScale(100);
+        window.applySettings();
+        QCOMPARE(tabBar->tabRect(0).size(), tab);
+        QCOMPARE(spacing(window.centralWidget()), windowSpacing);
+        QCOMPARE(navigation->contentsMargins(), navigationMargins);
+        QCOMPARE(paneStatus->contentsMargins(), paneStatusMargins);
+    }
+
     void toolbarAppearanceSettingsApplyToEveryToolbar()
     {
         MainWindow window;

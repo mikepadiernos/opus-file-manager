@@ -18,6 +18,8 @@ class AppearanceStyle : public QProxyStyle
 public:
     /// A corner radius that leaves corners to the widget style.
     static constexpr int FollowStyle = -1;
+    static constexpr int MinimumSpacingScale = 50;
+    static constexpr int MaximumSpacingScale = 200;
 
     /// How splitter handles, separators, header and grid lines and frames are drawn.
     enum class Dividers {
@@ -47,6 +49,8 @@ public:
         Selection selection = Selection::FollowStyle;
         /// Whether items under the pointer are highlighted.
         bool hoverHighlight = true;
+        /// Padding and spacing of toolbars, tabs, panels and status bars, in percent of the widget style's.
+        int spacingScale = 100;
 
         bool operator==(const Options &) const = default;
     };
@@ -95,6 +99,7 @@ public:
     void drawPrimitive(PrimitiveElement element, const QStyleOption *option, QPainter *painter, const QWidget *widget = nullptr) const override;
     void drawControl(ControlElement element, const QStyleOption *option, QPainter *painter, const QWidget *widget = nullptr) const override;
     int pixelMetric(PixelMetric metric, const QStyleOption *option = nullptr, const QWidget *widget = nullptr) const override;
+    QSize sizeFromContents(ContentsType type, const QStyleOption *option, const QSize &contentsSize, const QWidget *widget = nullptr) const override;
     int styleHint(StyleHint hint, const QStyleOption *option = nullptr, const QWidget *widget = nullptr, QStyleHintReturn *returnData = nullptr) const override;
 
 private:
@@ -104,6 +109,12 @@ private:
     void drawItemPanel(PrimitiveElement element, const QStyleOptionViewItem &item, QPainter *painter, const QWidget *widget) const;
     bool customSelection() const;
     bool isRestyledFrame(const QWidget *widget) const;
+    /// Whether @p metric is padding or spacing that the spacing scale applies to.
+    static bool isSpacingMetric(PixelMetric metric);
+    /// Whether the spacing scale applies to @p widget.
+    bool isRespacedWidget(const QWidget *widget) const;
+    /// A padding or spacing scaled by the spacing scale.
+    int scaledSpacing(int value) const;
 
     Options m_options;
 };

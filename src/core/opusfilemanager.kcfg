@@ -1066,5 +1066,11 @@
       <label>Font for the status bars as stored by QFont::toString(), or empty to follow Plasma</label>
       <default></default>
     </entry>
+    <entry name="SpacingScale" type="Int">
+      <label>Scale of the padding and spacing of toolbars, tabs, panels and status bars, in percent of Plasma's widget style</label>
+      <default>100</default>
+      <min>50</min>
+      <max>200</max>
+    </entry>
   </group>
 </kcfg>
