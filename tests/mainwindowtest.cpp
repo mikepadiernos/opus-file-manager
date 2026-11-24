@@ -244,6 +244,36 @@ private Q_SLOTS:
         restoreLayout->trigger();
         QTRY_COMPARE(window.activePane()->saveState(), savedTabs);
         QTRY_VERIFY(!selector->text().endsWith(QStringLiteral(" *")));
+
+        const auto resetIndicators = qScopeGuard([&window] {
+            Settings::setWorkspaceSelectorPlacement(Settings::EnumWorkspaceSelectorPlacement::ViewMenu);
+            Settings::setShowWorkspaceUnsavedIndicator(true);
+            Settings::setConfirmWorkspaceLayoutRestore(true);
+            window.applySettings();
+        });
+        auto *statusButton = window.findChild<QToolButton *>(QStringLiteral("workspaceStatusButton"));
+        QVERIFY(statusButton);
+        QVERIFY(selector->isVisible());
+        QVERIFY(!statusButton->isVisible());
+        Settings::setWorkspaceSelectorPlacement(Settings::EnumWorkspaceSelectorPlacement::StatusBar);
+        Settings::setShowWorkspaceUnsavedIndicator(false);
+        Settings::setConfirmWorkspaceLayoutRestore(false);
+        window.applySettings();
+        QVERIFY(!selector->isVisible());
+        QVERIFY(statusButton->isVisible());
+        QVERIFY(statusButton->menu());
+        QVERIFY(window.actionCollection()->action(QStringLiteral("manage_workspaces"))->isVisible());
+        window.activePane()->openInNewTab(m_c, true);
+        QTRY_VERIFY(statusButton->text().contains(QStringLiteral("Work")));
+        QTest::qWait(400);
+        QVERIFY(!selector->text().endsWith(QStringLiteral(" *")));
+        QVERIFY(!statusButton->text().endsWith(QStringLiteral(" *")));
+        // Returning to the saved layout no longer asks.
+        restoreLayout->trigger();
+        QTRY_COMPARE(window.activePane()->saveState(), savedTabs);
+        Settings::setWorkspaceSelectorPlacement(Settings::EnumWorkspaceSelectorPlacement::ViewMenuAndStatusBar);
+        window.applySettings();
+        QVERIFY(selector->isVisible() && statusButton->isVisible());
     }
 
     void switchesAndRestoresWorkspaceLocationVisibility()

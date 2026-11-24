@@ -808,5 +808,22 @@
       <label>Offer to retry when a workspace's locations, providers or panels are unavailable when switching</label>
       <default>true</default>
     </entry>
+    <entry name="WorkspaceSelectorPlacement" type="Enum">
+      <label>Where the active workspace selector appears; Workspaces stays in the View menu</label>
+      <choices>
+        <choice name="ViewMenu"/>
+        <choice name="StatusBar"/>
+        <choice name="ViewMenuAndStatusBar"/>
+      </choices>
+      <default>ViewMenu</default>
+    </entry>
+    <entry name="ShowWorkspaceUnsavedIndicator" type="Bool">
+      <label>Mark the active workspace when the window differs from its saved layout</label>
+      <default>true</default>
+    </entry>
+    <entry name="ConfirmWorkspaceLayoutRestore" type="Bool">
+      <label>Ask before returning to the active workspace's saved layout</label>
+      <default>true</default>
+    </entry>
   </group>
 </kcfg>

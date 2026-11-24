@@ -124,6 +124,7 @@ private:
     QWidget *createWorkspaceLayoutsPage();
     QWidget *createWorkspaceSnapshotsPage();
     QWidget *createWorkspaceRecoveryPage();
+    QWidget *createWorkspaceIndicatorsPage();
     void createSettingsBackup();
     void restoreSettingsBackup();
     void exportWorkspaceProfiles();

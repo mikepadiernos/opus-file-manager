@@ -175,7 +175,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createWorkspaceSearchPage(), i18nc("@title:tab", "Search")},
                    {createWorkspaceLayoutsPage(), i18nc("@title:tab", "Layouts")},
                    {createWorkspaceSnapshotsPage(), i18nc("@title:tab", "Snapshots")},
-                   {createWorkspaceRecoveryPage(), i18nc("@title:tab", "Recovery")}},
+                   {createWorkspaceRecoveryPage(), i18nc("@title:tab", "Recovery")},
+                   {createWorkspaceIndicatorsPage(), i18nc("@title:tab", "Indicators")}},
                   i18nc("@title:group", "Workspaces"),
                   QStringLiteral("view-grid"));
     reloadWorkspaces();
@@ -592,6 +593,30 @@ QWidget *SettingsDialog::createWorkspaceRecoveryPage()
                                     "restored, so you can mount a drive or start a service and retry. When the option is cleared, the workspace "
                                     "opens without them and the workspace manager lists them. Workspaces keep their saved references until you save "
                                     "a new layout."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceIndicatorsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    form->addRow(i18nc("@label:listbox", "Show the workspace selector in:"),
+                 comboBox(QStringLiteral("WorkspaceSelectorPlacement"),
+                          {i18nc("@item:inlistbox workspace selector placement", "View menu"),
+                           i18nc("@item:inlistbox workspace selector placement", "Status bar"),
+                           i18nc("@item:inlistbox workspace selector placement", "View menu and status bar")}));
+    layout->addLayout(form);
+    layout->addWidget(checkBox(QStringLiteral("ShowWorkspaceUnsavedIndicator"),
+                               i18nc("@option:check", "Mark the active workspace with * when the window differs from its saved layout")));
+    layout->addWidget(checkBox(QStringLiteral("ConfirmWorkspaceLayoutRestore"), i18nc("@option:check", "Ask before returning to the saved workspace layout")));
+    auto *notice = new QLabel(i18nc("@info",
+                                    "The selector shows the active workspace. View, Workspaces… always stays available, so workspaces can be "
+                                    "managed and switched wherever the selector is placed."),
                               page);
     notice->setWordWrap(true);
     layout->addWidget(notice);

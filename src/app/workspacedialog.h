@@ -42,7 +42,11 @@ public:
 public Q_SLOTS:
     /// Reloads the catalog after an update from another window.
     void refreshCatalog();
-    void activateSelectedWorkspace();
+    /**
+     * Switches to the selected workspace.
+     * @param confirmed true when the user already confirmed replacing the current state
+     */
+    void activateSelectedWorkspace(bool confirmed = false);
 
 Q_SIGNALS:
     void currentWorkspaceChanged(const QString &id);
@@ -56,7 +60,7 @@ private:
     void renameWorkspace();
     void duplicateWorkspace();
     void deleteWorkspace();
-    void activateWorkspace();
+    void activateWorkspace(bool confirmed = false);
     /// Whether the window differs from the active workspace's saved layout.
     bool hasUnsavedState() const;
     /// Asks before switching, as set by the ConfirmWorkspaceSwitch setting.

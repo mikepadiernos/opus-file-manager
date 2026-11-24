@@ -79,7 +79,9 @@ WorkspaceDialog::WorkspaceDialog(KConfigGroup group,
     auto *layoutButtons = new QHBoxLayout;
     auto *activate = new QPushButton(i18nc("@action:button", "Switch to Workspace"), this);
     activate->setObjectName(QStringLiteral("workspaceActivate"));
-    connect(activate, &QPushButton::clicked, this, &WorkspaceDialog::activateWorkspace);
+    connect(activate, &QPushButton::clicked, this, [this] {
+        activateWorkspace();
+    });
     layoutButtons->addWidget(activate);
     auto *save = new QPushButton(i18nc("@action:button", "Save Current Layout"), this);
     save->setObjectName(QStringLiteral("workspaceSaveLayout"));
@@ -235,9 +237,9 @@ void WorkspaceDialog::setAvailabilityCheck(CheckLayout check)
     m_check = std::move(check);
 }
 
-void WorkspaceDialog::activateSelectedWorkspace()
+void WorkspaceDialog::activateSelectedWorkspace(bool confirmed)
 {
-    activateWorkspace();
+    activateWorkspace(confirmed);
 }
 
 void WorkspaceDialog::assignSelectedLocation()
@@ -512,7 +514,7 @@ bool WorkspaceDialog::confirmUnavailable(const WorkspaceCatalog::Layout &layout)
     return true;
 }
 
-void WorkspaceDialog::activateWorkspace()
+void WorkspaceDialog::activateWorkspace(bool confirmed)
 {
     const QString id = selectedId();
     const auto it = std::find_if(m_catalog.workspaces.cbegin(), m_catalog.workspaces.cend(), [&id](const auto &workspace) {
@@ -529,7 +531,7 @@ void WorkspaceDialog::activateWorkspace()
         m_status->setText(i18nc("@info", "The selected workspace has no saved layout for its enabled behaviors."));
         return;
     }
-    if (restoreAnything && !confirmSwitch()) {
+    if (restoreAnything && !confirmed && !confirmSwitch()) {
         return;
     }
     const auto current = std::find_if(m_catalog.workspaces.cbegin(), m_catalog.workspaces.cend(), [&id](const auto &workspace) {

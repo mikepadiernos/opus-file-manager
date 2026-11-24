@@ -705,6 +705,27 @@ private Q_SLOTS:
         QVERIFY(!Settings::workspaceRecoveryPrompt());
     }
 
+    void workspaceIndicatorOptionsPersist()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *placement = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_WorkspaceSelectorPlacement"));
+            auto *unsaved = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowWorkspaceUnsavedIndicator"));
+            auto *restore = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ConfirmWorkspaceLayoutRestore"));
+            QVERIFY(placement && unsaved && restore);
+            QCOMPARE(placement->currentIndex(), int(Settings::EnumWorkspaceSelectorPlacement::ViewMenu));
+            QVERIFY(unsaved->isChecked() && restore->isChecked());
+            placement->setCurrentIndex(Settings::EnumWorkspaceSelectorPlacement::StatusBar);
+            unsaved->setChecked(false);
+            restore->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QCOMPARE(Settings::workspaceSelectorPlacement(), Settings::EnumWorkspaceSelectorPlacement::StatusBar);
+        QVERIFY(!Settings::showWorkspaceUnsavedIndicator());
+        QVERIFY(!Settings::confirmWorkspaceLayoutRestore());
+    }
+
     void duplicateFinderDefaultsPersistAndCancelLeavesThemUnchanged()
     {
         KFilePlacesModel places;
