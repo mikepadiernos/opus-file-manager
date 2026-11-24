@@ -538,21 +538,32 @@ QString SettingsBackup::inspectWorkspaceProfiles(const QString &archivePath, con
         return error;
     }
     preview->profiles.clear();
+    preview->ids.clear();
     preview->conflicts.clear();
+    preview->conflictIds.clear();
     for (const WorkspaceCatalog::Workspace &workspace : incoming.workspaces) {
         const QString label = i18nc("@item:inlistbox workspace profile with short label", "%1 (%2)", workspace.name, workspace.shortLabel);
         preview->profiles.append(label);
+        preview->ids.append(workspace.id);
         if (workspaceConflict(workspace, current)) {
             preview->conflicts.append(label);
+            preview->conflictIds.append(workspace.id);
         }
     }
     return {};
 }
 
-QString SettingsBackup::importWorkspaceProfiles(const QString &archivePath, const KSharedConfig::Ptr &appConfig, bool replaceConflicts, QStringList *imported)
+QString SettingsBackup::importWorkspaceProfiles(const QString &archivePath,
+                                                const KSharedConfig::Ptr &appConfig,
+                                                bool replaceConflicts,
+                                                QStringList *imported,
+                                                const QStringList *workspaceIds)
 {
     if (!appConfig || appConfig->name().isEmpty()) {
         return i18nc("@info", "The application settings are unavailable.");
+    }
+    if (workspaceIds && workspaceIds->isEmpty()) {
+        return i18nc("@info", "Select one or more workspace profiles to import.");
     }
     BackupContents contents;
     QString error;
@@ -566,6 +577,18 @@ QString SettingsBackup::importWorkspaceProfiles(const QString &archivePath, cons
     WorkspaceCatalog::Catalog incoming;
     if (!readWorkspaceCatalog(contents.settings, temporary, incoming, &error)) {
         return error;
+    }
+    if (workspaceIds) {
+        for (const QString &id : *workspaceIds) {
+            if (std::none_of(incoming.workspaces.cbegin(), incoming.workspaces.cend(), [&id](const auto &workspace) {
+                    return workspace.id == id;
+                })) {
+                return i18nc("@info", "A selected workspace profile is not in the backup.");
+            }
+        }
+        incoming.workspaces.removeIf([workspaceIds](const WorkspaceCatalog::Workspace &workspace) {
+            return !workspaceIds->contains(workspace.id);
+        });
     }
     if (!appConfig->sync()) {
         return i18nc("@info", "Could not save current settings before importing workspace profiles.");

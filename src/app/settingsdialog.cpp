@@ -178,7 +178,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createWorkspaceRecoveryPage(), i18nc("@title:tab", "Recovery")},
                    {createWorkspaceIndicatorsPage(), i18nc("@title:tab", "Indicators")},
                    {createWorkspaceLocationBarsPage(), i18nc("@title:tab", "Location Bars")},
-                   {createWorkspaceBehaviorsPage(), i18nc("@title:tab", "Behaviors")}},
+                   {createWorkspaceBehaviorsPage(), i18nc("@title:tab", "Behaviors")},
+                   {createWorkspacePortabilityPage(), i18nc("@title:tab", "Portability")}},
                   i18nc("@title:group", "Workspaces"),
                   QStringLiteral("view-grid"));
     reloadWorkspaces();
@@ -451,6 +452,26 @@ QWidget *SettingsDialog::createSettingsBackupPage()
     restore->setObjectName(QStringLiteral("restoreSettingsBackup"));
     connect(restore, &QPushButton::clicked, this, &SettingsDialog::restoreSettingsBackup);
     layout->addWidget(restore);
+    auto *workspaces = new QLabel(i18nc("@info", "Export or import individual workspace profiles under Workspaces, Portability."), page);
+    workspaces->setWordWrap(true);
+    layout->addWidget(workspaces);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspacePortabilityPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("workspacePortabilityPage"));
+    auto *layout = new QVBoxLayout(page);
+    auto *description = new QLabel(i18nc("@info",
+                                         "Export selected workspace profiles to a settings backup archive, or import selected profiles from one. "
+                                         "Before importing, review which profiles share a name or identity with existing workspaces and choose "
+                                         "whether to replace or keep them. Profiles exclude credentials and secrets in remote locations; "
+                                         "importing changes workspace settings only and never runs commands or modifies managed files."),
+                                   page);
+    description->setWordWrap(true);
+    layout->addWidget(description);
     auto *exportWorkspaces = new QPushButton(i18nc("@action:button", "Export Workspace Profiles…"), page);
     exportWorkspaces->setObjectName(QStringLiteral("exportWorkspaceProfiles"));
     connect(exportWorkspaces, &QPushButton::clicked, this, &SettingsDialog::exportWorkspaceProfiles);
@@ -867,24 +888,67 @@ void SettingsDialog::importWorkspaceProfiles()
         QMessageBox::information(this, i18nc("@title:window", "No Workspace Profiles"), i18nc("@info", "The backup contains no workspace profiles."));
         return;
     }
-    QMessageBox prompt(this);
-    prompt.setIcon(QMessageBox::Question);
-    prompt.setWindowTitle(i18nc("@title:window", "Preview Workspace Import"));
-    prompt.setText(
-        i18nc("@info",
-              "Import these workspace profiles?\n%1\n\nName or identity collisions:\n%2\n\nReplacing keeps the current workspace identity when possible. "
-              "Keeping existing profiles skips collisions. Import changes workspace settings only; it does not run commands or modify managed files.",
-              preview.profiles.join(QLatin1Char('\n')),
-              preview.conflicts.isEmpty() ? i18nc("@info", "None") : preview.conflicts.join(QLatin1Char('\n'))));
-    auto *replace = prompt.addButton(i18nc("@action:button", "Replace Conflicts"), QMessageBox::AcceptRole);
-    auto *keep = prompt.addButton(i18nc("@action:button", "Keep Existing"), QMessageBox::DestructiveRole);
-    prompt.addButton(QMessageBox::Cancel);
-    prompt.exec();
-    if (prompt.clickedButton() != replace && prompt.clickedButton() != keep) {
+    QDialog select(this);
+    select.setObjectName(QStringLiteral("workspaceImportSelection"));
+    select.setWindowTitle(i18nc("@title:window", "Preview Workspace Import"));
+    auto *layout = new QVBoxLayout(&select);
+    auto *intro = new QLabel(i18nc("@info",
+                                   "Choose the workspace profiles to import. Profiles marked as conflicts share a name or identity with an "
+                                   "existing workspace. Replacing keeps the current workspace identity when possible; keeping existing "
+                                   "workspaces skips conflicting profiles. Import changes workspace settings only; it does not run commands "
+                                   "or modify managed files."),
+                             &select);
+    intro->setWordWrap(true);
+    layout->addWidget(intro);
+    auto *profiles = new QListWidget(&select);
+    profiles->setObjectName(QStringLiteral("workspaceImportProfiles"));
+    profiles->setAccessibleName(i18nc("@label", "Workspace profiles to import"));
+    for (int i = 0; i < preview.profiles.size(); ++i) {
+        const bool conflict = preview.conflictIds.contains(preview.ids.at(i));
+        auto *item =
+            new QListWidgetItem(conflict ? i18nc("@item:inlistbox workspace profile", "%1 (conflict)", preview.profiles.at(i)) : preview.profiles.at(i),
+                                profiles);
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        item->setCheckState(Qt::Checked);
+        item->setData(Qt::UserRole, preview.ids.at(i));
+    }
+    layout->addWidget(profiles);
+    auto *buttons = new QDialogButtonBox(&select);
+    auto *replace = buttons->addButton(i18nc("@action:button", "Replace Conflicts"), QDialogButtonBox::AcceptRole);
+    auto *keep = buttons->addButton(i18nc("@action:button", "Keep Existing"), QDialogButtonBox::AcceptRole);
+    buttons->addButton(QDialogButtonBox::Cancel);
+    replace->setObjectName(QStringLiteral("workspaceImportReplace"));
+    keep->setObjectName(QStringLiteral("workspaceImportKeep"));
+    QAbstractButton *chosen = nullptr;
+    connect(buttons, &QDialogButtonBox::clicked, &select, [&chosen, &select, buttons](QAbstractButton *button) {
+        if (buttons->buttonRole(button) == QDialogButtonBox::AcceptRole) {
+            chosen = button;
+            select.accept();
+        } else {
+            select.reject();
+        }
+    });
+    const auto updateButtons = [profiles, replace, keep] {
+        bool any = false;
+        for (int i = 0; i < profiles->count(); ++i) {
+            any = any || profiles->item(i)->checkState() == Qt::Checked;
+        }
+        replace->setEnabled(any);
+        keep->setEnabled(any);
+    };
+    connect(profiles, &QListWidget::itemChanged, &select, updateButtons);
+    layout->addWidget(buttons);
+    if (select.exec() != QDialog::Accepted || !chosen) {
         return;
     }
+    QStringList ids;
+    for (int i = 0; i < profiles->count(); ++i) {
+        if (profiles->item(i)->checkState() == Qt::Checked) {
+            ids.append(profiles->item(i)->data(Qt::UserRole).toString());
+        }
+    }
     QStringList imported;
-    error = SettingsBackup::importWorkspaceProfiles(path, config, prompt.clickedButton() == replace, &imported);
+    error = SettingsBackup::importWorkspaceProfiles(path, config, chosen == replace, &imported, &ids);
     if (!error.isEmpty()) {
         QMessageBox::critical(this, i18nc("@title:window", "Could Not Import Workspace Profiles"), error);
         return;

@@ -127,6 +127,7 @@ private:
     QWidget *createWorkspaceIndicatorsPage();
     QWidget *createWorkspaceLocationBarsPage();
     QWidget *createWorkspaceBehaviorsPage();
+    QWidget *createWorkspacePortabilityPage();
     void createSettingsBackup();
     void restoreSettingsBackup();
     void exportWorkspaceProfiles();

@@ -12,6 +12,7 @@
 #include "savedpathfilters.h"
 #include "searchstoredialog.h"
 #include "settings.h"
+#include "settingsbackup.h"
 #include "settingswidgets.h"
 #include "viewsettings.h"
 #include "workspacecatalog.h"
@@ -34,6 +35,7 @@
 #include <QDir>
 #include <QDockWidget>
 #include <QFile>
+#include <QFileDialog>
 #include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
@@ -99,8 +101,95 @@ private Q_SLOTS:
         SettingsDialog dialog(&places, nullptr);
         QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("createSettingsBackup")));
         QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("restoreSettingsBackup")));
-        QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("exportWorkspaceProfiles")));
-        QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("importWorkspaceProfiles")));
+        auto *portability = dialog.findChild<QWidget *>(QStringLiteral("workspacePortabilityPage"));
+        QVERIFY(portability);
+        QVERIFY(portability->findChild<QPushButton *>(QStringLiteral("exportWorkspaceProfiles")));
+        QVERIFY(portability->findChild<QPushButton *>(QStringLiteral("importWorkspaceProfiles")));
+    }
+
+    void importsSelectedWorkspaceProfiles()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto sourceConfig = KSharedConfig::openConfig(root.filePath(QStringLiteral("source")));
+        WorkspaceCatalog::Catalog source;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(source, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(WorkspaceCatalog::create(source, QStringLiteral("Other"), QStringLiteral("O"), error));
+        QVERIFY(WorkspaceCatalog::create(source, QStringLiteral("Home"), QStringLiteral("H"), error));
+        QVERIFY(WorkspaceCatalog::save(sourceConfig->group(QStringLiteral("Workspaces")), source, error));
+        QVERIFY(sourceConfig->sync());
+        const QString archive = root.filePath(QStringLiteral("profiles.tar.gz"));
+        const QStringList ids{source.workspaces.at(0).id, source.workspaces.at(1).id, source.workspaces.at(2).id};
+        const auto state = KSharedConfig::openConfig(root.filePath(QStringLiteral("state")));
+        state->group(QStringLiteral("WindowLayout")).writeEntry("Stacked", true);
+        QVERIFY(state->sync());
+        const QString exportError = SettingsBackup::createWorkspaceProfiles(archive, sourceConfig, state, ids);
+        QVERIFY2(exportError.isEmpty(), qPrintable(exportError));
+
+        const auto config = KSharedConfig::openConfig();
+        WorkspaceCatalog::Catalog current;
+        QVERIFY(WorkspaceCatalog::create(current, QStringLiteral("Work"), QStringLiteral("Existing"), error));
+        QVERIFY(WorkspaceCatalog::save(config->group(QStringLiteral("Workspaces")), current, error));
+        QVERIFY(config->sync());
+
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *import = dialog.findChild<QPushButton *>(QStringLiteral("importWorkspaceProfiles"));
+        QVERIFY(import);
+        QApplication::setAttribute(Qt::AA_DontUseNativeDialogs);
+        const auto nativeDialogs = qScopeGuard([] {
+            QApplication::setAttribute(Qt::AA_DontUseNativeDialogs, false);
+        });
+        QStringList listed;
+        bool keepEnabledWithoutSelection = true;
+        QString result;
+        bool fileChosen = false;
+        bool profilesChosen = false;
+        QTimer dialogs;
+        dialogs.setInterval(20);
+        connect(&dialogs, &QTimer::timeout, &dialogs, [&] {
+            QWidget *modal = QApplication::activeModalWidget();
+            if (auto *files = qobject_cast<QFileDialog *>(modal); files && !fileChosen) {
+                fileChosen = true;
+                // The dialog opens in a missing Documents folder, so type the full path.
+                files->findChild<QLineEdit *>(QStringLiteral("fileNameEdit"))->setText(archive);
+                QMetaObject::invokeMethod(files, "accept", Qt::QueuedConnection);
+            } else if (modal && modal->objectName() == QLatin1String("workspaceImportSelection") && !profilesChosen) {
+                profilesChosen = true;
+                auto *profiles = modal->findChild<QListWidget *>(QStringLiteral("workspaceImportProfiles"));
+                auto *keep = modal->findChild<QPushButton *>(QStringLiteral("workspaceImportKeep"));
+                for (int i = 0; i < profiles->count(); ++i) {
+                    listed.append(profiles->item(i)->text());
+                    profiles->item(i)->setCheckState(Qt::Unchecked);
+                }
+                keepEnabledWithoutSelection = keep->isEnabled();
+                // Import Work, which conflicts, and Home, but not Other.
+                profiles->item(0)->setCheckState(Qt::Checked);
+                profiles->item(2)->setCheckState(Qt::Checked);
+                QMetaObject::invokeMethod(keep, &QPushButton::click, Qt::QueuedConnection);
+            } else if (auto *box = qobject_cast<QMessageBox *>(modal)) {
+                result = box->text();
+                dialogs.stop();
+                QMetaObject::invokeMethod(box, "accept", Qt::QueuedConnection);
+            }
+        });
+        dialogs.start();
+        import->click();
+        QTRY_VERIFY(!dialogs.isActive());
+
+        QCOMPARE(listed.size(), 3);
+        QVERIFY(listed.at(0).startsWith(QStringLiteral("Work")) && listed.at(0).contains(QStringLiteral("conflict")));
+        QVERIFY(!listed.at(2).contains(QStringLiteral("conflict")));
+        QVERIFY(!keepEnabledWithoutSelection);
+        QVERIFY2(result.contains(QStringLiteral("Home")), qPrintable(result));
+        WorkspaceCatalog::Catalog imported;
+        QVERIFY(WorkspaceCatalog::load(config->group(QStringLiteral("Workspaces")), imported, error));
+        QStringList names;
+        for (const auto &workspace : imported.workspaces) {
+            names.append(workspace.name + QLatin1Char('/') + workspace.shortLabel);
+        }
+        QCOMPARE(names, (QStringList{QStringLiteral("Work/Existing"), QStringLiteral("Home/H")}));
     }
 
     void workspaceManagementSummarizesCatalogAndOpensManager()
