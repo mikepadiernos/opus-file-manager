@@ -49,6 +49,10 @@ private:
     void duplicateWorkspace();
     void deleteWorkspace();
     void activateWorkspace();
+    /// Whether the window differs from the active workspace's saved layout.
+    bool hasUnsavedState() const;
+    /// Asks before switching, as set by the ConfirmWorkspaceSwitch setting.
+    bool confirmSwitch();
     void saveLayout();
     void refreshProfileLinks();
     void saveProfileLinks();

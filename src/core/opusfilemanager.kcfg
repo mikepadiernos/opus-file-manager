@@ -783,5 +783,26 @@
       <label>Ask before replacing a workspace's saved layout</label>
       <default>true</default>
     </entry>
+    <entry name="WorkspaceRestoreTabs" type="Bool">
+      <label>Restore each pane's tabs, with their pins, locks and names, when switching workspaces</label>
+      <default>true</default>
+    </entry>
+    <entry name="WorkspaceRestoreActiveTabs" type="Bool">
+      <label>Restore each pane's current tab and the active pane when switching workspaces</label>
+      <default>true</default>
+    </entry>
+    <entry name="WorkspaceRestoreFilters" type="Bool">
+      <label>Restore each pane's name filter when switching workspaces</label>
+      <default>true</default>
+    </entry>
+    <entry name="ConfirmWorkspaceSwitch" type="Enum">
+      <label>When to ask before switching workspaces replaces the current layout, panes and tabs</label>
+      <choices>
+        <choice name="Always"/>
+        <choice name="WhenUnsaved"/>
+        <choice name="Never"/>
+      </choices>
+      <default>WhenUnsaved</default>
+    </entry>
   </group>
 </kcfg>

@@ -15,6 +15,7 @@
 #include "settingswidgets.h"
 #include "viewsettings.h"
 #include "workspacecatalog.h"
+#include "workspacerestore.h"
 
 #include <KActionCollection>
 #include <KConfig>
@@ -662,6 +663,32 @@ private Q_SLOTS:
         for (const QString &entry : entries) {
             QVERIFY2(!group.readEntry(entry, true), qPrintable(entry));
         }
+    }
+
+    void workspaceSnapshotOptionsPersist()
+    {
+        KFilePlacesModel places;
+        const QStringList entries{QStringLiteral("WorkspaceRestoreTabs"),
+                                  QStringLiteral("WorkspaceRestoreActiveTabs"),
+                                  QStringLiteral("WorkspaceRestoreFilters")};
+        {
+            SettingsDialog dialog(&places, nullptr);
+            for (const QString &entry : entries) {
+                auto *option = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_") + entry);
+                QVERIFY2(option, qPrintable(entry));
+                QVERIFY(option->isChecked());
+                option->setChecked(false);
+            }
+            auto *confirm = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_ConfirmWorkspaceSwitch"));
+            QVERIFY(confirm);
+            QCOMPARE(confirm->currentIndex(), int(Settings::EnumConfirmWorkspaceSwitch::WhenUnsaved));
+            confirm->setCurrentIndex(Settings::EnumConfirmWorkspaceSwitch::Always);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        const auto options = WorkspaceRestore::fromSettings();
+        QVERIFY(!options.tabs && !options.activeTabs && !options.filters);
+        QVERIFY(options.paneArrangement && options.views && options.toolbars && options.panels);
+        QCOMPARE(Settings::confirmWorkspaceSwitch(), Settings::EnumConfirmWorkspaceSwitch::Always);
     }
 
     void duplicateFinderDefaultsPersistAndCancelLeavesThemUnchanged()

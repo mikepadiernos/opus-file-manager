@@ -16,6 +16,9 @@ WorkspaceRestore::Options WorkspaceRestore::fromSettings()
     options.views = Settings::workspaceRestoreViews();
     options.toolbars = Settings::workspaceRestoreToolbars();
     options.panels = Settings::workspaceRestorePanels();
+    options.tabs = Settings::workspaceRestoreTabs();
+    options.activeTabs = Settings::workspaceRestoreActiveTabs();
+    options.filters = Settings::workspaceRestoreFilters();
     return options;
 }
 

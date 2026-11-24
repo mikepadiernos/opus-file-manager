@@ -173,7 +173,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     addTabbedPage({{createWorkspaceManagementPage(), i18nc("@title:tab", "Management")},
                    {createWorkspaceStartupPage(), i18nc("@title:tab", "Startup")},
                    {createWorkspaceSearchPage(), i18nc("@title:tab", "Search")},
-                   {createWorkspaceLayoutsPage(), i18nc("@title:tab", "Layouts")}},
+                   {createWorkspaceLayoutsPage(), i18nc("@title:tab", "Layouts")},
+                   {createWorkspaceSnapshotsPage(), i18nc("@title:tab", "Snapshots")}},
                   i18nc("@title:group", "Workspaces"),
                   QStringLiteral("view-grid"));
     reloadWorkspaces();
@@ -546,6 +547,35 @@ QWidget *SettingsDialog::createWorkspaceLayoutsPage()
     notice->setWordWrap(true);
     layout->addWidget(notice);
     layout->addWidget(checkBox(QStringLiteral("ConfirmWorkspaceLayoutOverwrite"), i18nc("@option:check", "Ask before replacing a workspace's saved layout")));
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceSnapshotsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *restore = new QGroupBox(i18nc("@title:group", "Restore When Switching Workspaces"), page);
+    auto *restoreLayout = new QVBoxLayout(restore);
+    restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestoreTabs"), i18nc("@option:check", "Each pane's tabs, with their pins, locks and names")));
+    restoreLayout->addWidget(
+        checkBox(QStringLiteral("WorkspaceRestoreActiveTabs"), i18nc("@option:check", "The current tab of each pane and the active pane")));
+    restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestoreFilters"), i18nc("@option:check", "Each pane's name filter")));
+    layout->addWidget(restore);
+    auto *notice = new QLabel(i18nc("@info",
+                                    "These options apply to workspaces whose behaviors include pane and tab restoration. Snapshots are restored "
+                                    "only when you switch workspaces; the startup folder and session choices under Interface still decide what "
+                                    "opens at startup. Running file transfers continue when you switch."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    auto *form = new QFormLayout;
+    form->addRow(i18nc("@label:listbox", "Ask before switching:"),
+                 comboBox(QStringLiteral("ConfirmWorkspaceSwitch"),
+                          {i18nc("@item:inlistbox ask before switching workspaces", "Always"),
+                           i18nc("@item:inlistbox ask before switching workspaces", "When the current state is not saved in a workspace"),
+                           i18nc("@item:inlistbox ask before switching workspaces", "Never")}));
+    layout->addLayout(form);
     layout->addStretch();
     return page;
 }

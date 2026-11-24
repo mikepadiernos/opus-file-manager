@@ -445,6 +445,40 @@ void WorkspaceDialog::deleteWorkspace()
     }
 }
 
+bool WorkspaceDialog::hasUnsavedState() const
+{
+    const auto active = std::find_if(m_catalog.workspaces.cbegin(), m_catalog.workspaces.cend(), [this](const auto &workspace) {
+        return workspace.id == m_currentId;
+    });
+    if (active == m_catalog.workspaces.cend() || !active->layout) {
+        return true;
+    }
+    WorkspaceCatalog::Layout layout;
+    QString error;
+    return !m_capture(layout, error) || layout != *active->layout;
+}
+
+bool WorkspaceDialog::confirmSwitch()
+{
+    const auto mode = Settings::confirmWorkspaceSwitch();
+    if (mode == Settings::EnumConfirmWorkspaceSwitch::Never) {
+        return true;
+    }
+    const bool unsaved = hasUnsavedState();
+    if (mode == Settings::EnumConfirmWorkspaceSwitch::WhenUnsaved && !unsaved) {
+        return true;
+    }
+    const QString text = unsaved
+        ? i18nc("@info",
+                "Switch to this workspace? The current layout, panes and tabs have changes that are not saved in a workspace. The workspace's "
+                "selected state will replace them. Running file transfers continue.")
+        : i18nc("@info",
+                "Switch to this workspace? Its selected layout, pane, tab and location-bar state will replace the current state. Running file "
+                "transfers continue.");
+    return QMessageBox::question(this, i18nc("@title:window", "Switch Workspace"), text, QMessageBox::Yes | QMessageBox::No, QMessageBox::No)
+        == QMessageBox::Yes;
+}
+
 void WorkspaceDialog::activateWorkspace()
 {
     const QString id = selectedId();
@@ -462,14 +496,7 @@ void WorkspaceDialog::activateWorkspace()
         m_status->setText(i18nc("@info", "The selected workspace has no saved layout for its enabled behaviors."));
         return;
     }
-    if (restoreAnything
-        && QMessageBox::question(
-               this,
-               i18nc("@title:window", "Switch Workspace"),
-               i18nc("@info", "Switch to this workspace? Selected layout, pane, tab or location-presentation state will replace the current state."),
-               QMessageBox::Yes | QMessageBox::No,
-               QMessageBox::No)
-            != QMessageBox::Yes) {
+    if (restoreAnything && !confirmSwitch()) {
         return;
     }
     const auto current = std::find_if(m_catalog.workspaces.cbegin(), m_catalog.workspaces.cend(), [&id](const auto &workspace) {
