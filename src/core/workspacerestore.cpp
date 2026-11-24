@@ -22,6 +22,17 @@ WorkspaceRestore::Options WorkspaceRestore::fromSettings()
     return options;
 }
 
+WorkspaceCatalog::BehaviorSelection WorkspaceRestore::defaultBehaviorSelection()
+{
+    WorkspaceCatalog::BehaviorSelection selection;
+    selection.mode = static_cast<WorkspaceCatalog::BehaviorMode>(qBound(0, int(Settings::workspaceDefaultBehaviorMode()), 2));
+    selection.locationPresentation = Settings::workspaceDefaultLocationPresentation();
+    selection.searchScope = Settings::workspaceDefaultSearchScope();
+    selection.layout = Settings::workspaceDefaultLayout();
+    selection.paneTabRestoration = Settings::workspaceDefaultPaneTabRestoration();
+    return selection;
+}
+
 namespace
 {
 void mergePresentation(Presentation &result, const Presentation &current, bool arrangement, bool panels, bool toolbars)

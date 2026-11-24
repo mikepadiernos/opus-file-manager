@@ -705,6 +705,33 @@ private Q_SLOTS:
         QVERIFY(!Settings::workspaceRecoveryPrompt());
     }
 
+    void workspaceDefaultBehaviorsPersist()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *mode = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_WorkspaceDefaultBehaviorMode"));
+            auto *location = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultLocationPresentation"));
+            auto *search = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultSearchScope"));
+            auto *layout = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultLayout"));
+            auto *panes = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultPaneTabRestoration"));
+            QVERIFY(mode && location && search && layout && panes);
+            QCOMPARE(mode->currentIndex(), int(Settings::EnumWorkspaceDefaultBehaviorMode::All));
+            QVERIFY(location->isChecked() && search->isChecked() && layout->isChecked() && panes->isChecked());
+            QVERIFY(!search->isEnabledTo(&dialog));
+            mode->setCurrentIndex(Settings::EnumWorkspaceDefaultBehaviorMode::Selected);
+            QVERIFY(search->isEnabledTo(&dialog));
+            search->setChecked(false);
+            layout->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QCOMPARE(Settings::workspaceDefaultBehaviorMode(), Settings::EnumWorkspaceDefaultBehaviorMode::Selected);
+        QVERIFY(Settings::workspaceDefaultLocationPresentation());
+        QVERIFY(!Settings::workspaceDefaultSearchScope());
+        QVERIFY(!Settings::workspaceDefaultLayout());
+        QVERIFY(Settings::workspaceDefaultPaneTabRestoration());
+    }
+
     void workspaceIndicatorOptionsPersist()
     {
         KFilePlacesModel places;

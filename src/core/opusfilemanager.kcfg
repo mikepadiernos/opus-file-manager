@@ -843,5 +843,30 @@
       </choices>
       <default>FullBreadcrumbs</default>
     </entry>
+    <entry name="WorkspaceDefaultBehaviorMode" type="Enum">
+      <label>Which behaviors new workspaces apply when switching to them</label>
+      <choices>
+        <choice name="All"/>
+        <choice name="Selected"/>
+        <choice name="None"/>
+      </choices>
+      <default>All</default>
+    </entry>
+    <entry name="WorkspaceDefaultLocationPresentation" type="Bool">
+      <label>Whether new workspaces with selected behaviors restore location presentation</label>
+      <default>true</default>
+    </entry>
+    <entry name="WorkspaceDefaultSearchScope" type="Bool">
+      <label>Whether new workspaces with selected behaviors scope searches to their locations</label>
+      <default>true</default>
+    </entry>
+    <entry name="WorkspaceDefaultLayout" type="Bool">
+      <label>Whether new workspaces with selected behaviors restore the window and panel layout</label>
+      <default>true</default>
+    </entry>
+    <entry name="WorkspaceDefaultPaneTabRestoration" type="Bool">
+      <label>Whether new workspaces with selected behaviors restore panes and tabs</label>
+      <default>true</default>
+    </entry>
   </group>
 </kcfg>

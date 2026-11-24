@@ -95,6 +95,60 @@ private Q_SLOTS:
         QVERIFY(!catalog.workspaces.at(1).behaviorSelection.locationPresentation);
     }
 
+    void newWorkspacesUseDefaultBehaviors()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        const auto group = config.group(QStringLiteral("Workspaces"));
+        Settings::setWorkspaceDefaultBehaviorMode(Settings::EnumWorkspaceDefaultBehaviorMode::Selected);
+        Settings::setWorkspaceDefaultSearchScope(false);
+        Settings::setWorkspaceDefaultPaneTabRestoration(false);
+        WorkspaceDialog dialog(
+            group,
+            [](WorkspaceCatalog::Layout &captured, QString &) {
+                captured = {QByteArray("window"), {200, 300}, {500, 100}, true, false, std::nullopt, {}};
+                return true;
+            },
+            [](const WorkspaceCatalog::Layout &, QString &) {
+                return true;
+            },
+            QString());
+        auto *name = dialog.findChild<QLineEdit *>(QStringLiteral("workspaceName"));
+        auto *label = dialog.findChild<QLineEdit *>(QStringLiteral("workspaceShortLabel"));
+        auto *list = dialog.findChild<QListWidget *>(QStringLiteral("workspaceList"));
+        auto *create = dialog.findChild<QPushButton *>(QStringLiteral("workspaceCreate"));
+        auto *duplicate = dialog.findChild<QPushButton *>(QStringLiteral("workspaceDuplicate"));
+        auto *behaviorMode = dialog.findChild<QComboBox *>(QStringLiteral("workspaceBehaviorMode"));
+        auto *searchScope = dialog.findChild<QCheckBox *>(QStringLiteral("workspaceSearchScope"));
+        QVERIFY(name && label && list && create && duplicate && behaviorMode && searchScope);
+        name->setText(QStringLiteral("Work"));
+        label->setText(QStringLiteral("W"));
+        create->click();
+        QCOMPARE(list->count(), 1);
+        list->setCurrentRow(0);
+        QCOMPARE(behaviorMode->currentData().toInt(), int(WorkspaceCatalog::BehaviorMode::Selected));
+        QVERIFY(!searchScope->isChecked());
+
+        // Duplicates keep the source's behaviors even when the defaults change.
+        Settings::setWorkspaceDefaultBehaviorMode(Settings::EnumWorkspaceDefaultBehaviorMode::None);
+        name->setText(QStringLiteral("Copy"));
+        label->setText(QStringLiteral("C"));
+        duplicate->click();
+        name->setText(QStringLiteral("Empty"));
+        label->setText(QStringLiteral("E"));
+        create->click();
+
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY2(WorkspaceCatalog::load(group, catalog, error), qPrintable(error));
+        QCOMPARE(catalog.workspaces.size(), 3);
+        const WorkspaceCatalog::BehaviorSelection selected{WorkspaceCatalog::BehaviorMode::Selected, true, false, true, false};
+        QCOMPARE(catalog.workspaces.at(0).behaviorSelection, selected);
+        QCOMPARE(catalog.workspaces.at(1).behaviorSelection, selected);
+        QCOMPARE(catalog.workspaces.at(2).behaviorSelection.mode, WorkspaceCatalog::BehaviorMode::None);
+    }
+
     void switchesAndDeletesWithoutChangingFiles()
     {
         QTemporaryDir directory;

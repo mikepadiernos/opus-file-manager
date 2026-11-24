@@ -40,6 +40,13 @@ struct Options {
 Options fromSettings();
 
 /**
+ * Reads the behavior selection given to new workspaces from the Settings
+ * singleton. Duplicated workspaces keep their source's selection instead.
+ * @returns the configured default behavior selection
+ */
+WorkspaceCatalog::BehaviorSelection defaultBehaviorSelection();
+
+/**
  * Builds the layout to apply when switching to a workspace. Parts that are
  * not restored keep their current state.
  * @param saved the workspace's saved layout

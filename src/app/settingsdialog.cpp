@@ -177,7 +177,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createWorkspaceSnapshotsPage(), i18nc("@title:tab", "Snapshots")},
                    {createWorkspaceRecoveryPage(), i18nc("@title:tab", "Recovery")},
                    {createWorkspaceIndicatorsPage(), i18nc("@title:tab", "Indicators")},
-                   {createWorkspaceLocationBarsPage(), i18nc("@title:tab", "Location Bars")}},
+                   {createWorkspaceLocationBarsPage(), i18nc("@title:tab", "Location Bars")},
+                   {createWorkspaceBehaviorsPage(), i18nc("@title:tab", "Behaviors")}},
                   i18nc("@title:group", "Workspaces"),
                   QStringLiteral("view-grid"));
     reloadWorkspaces();
@@ -640,6 +641,41 @@ QWidget *SettingsDialog::createWorkspaceLocationBarsPage()
                                     "Changing a choice applies it to that pane now. The Path button in each pane changes its location bar until "
                                     "the next change, and the session and workspace layouts remember it. Switching to a workspace that includes "
                                     "location presentation in its behaviors restores the location bars saved with its layout."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceBehaviorsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    auto *mode = comboBox(QStringLiteral("WorkspaceDefaultBehaviorMode"),
+                          {i18nc("@item:inlistbox workspace behaviors", "All"),
+                           i18nc("@item:inlistbox workspace behaviors", "Selected"),
+                           i18nc("@item:inlistbox workspace behaviors", "None")});
+    form->addRow(i18nc("@label:listbox", "New workspaces apply:"), mode);
+    layout->addLayout(form);
+    auto *selected = new QGroupBox(i18nc("@title:group", "Selected Behaviors"), page);
+    auto *selectedLayout = new QVBoxLayout(selected);
+    selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultLocationPresentation"), i18nc("@option:check", "Location presentation")));
+    selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultSearchScope"), i18nc("@option:check", "Search scope")));
+    selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultLayout"), i18nc("@option:check", "Window and panel layout")));
+    selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultPaneTabRestoration"), i18nc("@option:check", "Pane and tab restoration")));
+    layout->addWidget(selected);
+    const auto updateSelected = [mode, selected] {
+        selected->setEnabled(mode->currentIndex() == Settings::EnumWorkspaceDefaultBehaviorMode::Selected);
+    };
+    connect(mode, &QComboBox::currentIndexChanged, selected, updateSelected);
+    updateSelected();
+    auto *notice = new QLabel(i18nc("@info",
+                                    "New workspaces start with these behaviors. Duplicated workspaces keep the behaviors of the workspace they "
+                                    "copy, and existing workspaces keep their own; change them in the workspace manager. Behaviors that are not "
+                                    "applied leave the current state unchanged when switching, and the options under Search, Layouts, Snapshots "
+                                    "and Location Bars still decide what each applied behavior restores."),
                               page);
     notice->setWordWrap(true);
     layout->addWidget(notice);

@@ -395,6 +395,7 @@ void WorkspaceDialog::createWorkspace()
         return;
     }
     const QString id = updated.workspaces.last().id;
+    updated.workspaces.last().behaviorSelection = WorkspaceRestore::defaultBehaviorSelection();
     if (commit(updated)) {
         reload(id);
     }

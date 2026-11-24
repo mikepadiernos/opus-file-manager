@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "workspacerestore.h"
+#include "settings.h"
 
 #include <QStandardPaths>
 #include <QTest>
@@ -157,6 +158,17 @@ private Q_SLOTS:
         const BehaviorSelection none{BehaviorMode::None, true, true, true, true};
         QVERIFY2(WorkspaceRestore::merge(savedLayout(), currentLayout(), none, {}, result, error), qPrintable(error));
         QCOMPARE(result, currentLayout());
+    }
+
+    void readsDefaultBehaviorSelection()
+    {
+        QCOMPARE(WorkspaceRestore::defaultBehaviorSelection(), BehaviorSelection{});
+        Settings::setWorkspaceDefaultBehaviorMode(Settings::EnumWorkspaceDefaultBehaviorMode::Selected);
+        Settings::setWorkspaceDefaultLocationPresentation(false);
+        Settings::setWorkspaceDefaultLayout(false);
+        const BehaviorSelection expected{BehaviorMode::Selected, false, true, false, true};
+        QCOMPARE(WorkspaceRestore::defaultBehaviorSelection(), expected);
+        Settings::self()->setDefaults();
     }
 
     void reportsMissingSnapshots()
