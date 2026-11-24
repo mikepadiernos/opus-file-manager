@@ -13,6 +13,7 @@
 #include <QUrl>
 #include <QWidget>
 
+class CardDelegate;
 class KDirLister;
 class KDirModel;
 class KDirSortFilterProxyModel;
@@ -32,7 +33,7 @@ class DirectorySizeJob;
 }
 
 /**
- * One folder listing: details, icon and compact views sharing a
+ * One folder listing: details, icon, compact and card views sharing a
  * KDirModel. Drops are delegated to KIO::DropJob; drags come from the
  * model. The view never navigates on its own; it asks via signals.
  */
@@ -45,6 +46,7 @@ public:
         Details,
         Icons,
         Compact,
+        Cards,
     };
     Q_ENUM(ViewMode)
 
@@ -64,6 +66,12 @@ public:
     bool selectionMode() const;
     void setSelectionMode(bool enabled);
     void setInformationHoverEnabled(bool enabled);
+    /**
+     * Starts renaming the only selected item in place, in views that
+     * support it.
+     * @returns false when the caller should use the Rename dialog instead
+     */
+    bool renameInline();
 
     bool showHiddenFiles() const;
     void setShowHiddenFiles(bool show);
@@ -207,6 +215,8 @@ private:
     void updateFolderSizeRefreshTimer();
     void applyDetailsPreferences();
     void applyCompactPreferences();
+    void applyCardPreferences();
+    void updateCardLayout();
     KFileItem itemAt(QAbstractItemView *view, const QPoint &viewportPos) const;
 
     KDirLister *m_lister = nullptr;
@@ -237,6 +247,8 @@ private:
     DetailsView *m_details = nullptr;
     QListView *m_icons = nullptr;
     QListView *m_compact = nullptr;
+    QListView *m_cards = nullptr;
+    CardDelegate *m_cardDelegate = nullptr;
     QWidget *m_selectionBar = nullptr;
     bool m_selectionMarkers = false;
     bool m_selectionMode = false;
@@ -246,6 +258,7 @@ private:
     KFilePreviewGenerator *m_detailsPreviews = nullptr;
     KFilePreviewGenerator *m_iconPreviews = nullptr;
     KFilePreviewGenerator *m_compactPreviews = nullptr;
+    KFilePreviewGenerator *m_cardPreviews = nullptr;
     KFileItemDelegate *m_iconDelegate = nullptr;
     ViewMode m_viewMode = ViewMode::Details;
     int m_detailsIconSize = 0;

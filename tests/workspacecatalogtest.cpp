@@ -233,7 +233,7 @@ private Q_SLOTS:
         session.left.lockedTabs = {1};
         session.left.names = {QStringLiteral("Pinned"), QStringLiteral("Current")};
         session.left.locationPresentation = 1;
-        session.left.viewMode = 2;
+        session.left.viewMode = 3;
         session.right.tabs = {QUrl::fromLocalFile(QStringLiteral("/tmp/right"))};
         session.right.filterText = QStringLiteral("*.txt");
         session.right.filterScope = 2;

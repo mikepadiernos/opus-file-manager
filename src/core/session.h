@@ -29,7 +29,9 @@ struct PaneSession {
     int filterScope = -1;
     /// -1 means no presentation was saved; use the pane's configured default.
     int locationPresentation = -1;
+    /// FolderView::ViewMode: details, icons, compact or cards.
     int viewMode = 0;
+    static constexpr int MaximumViewMode = 3;
 
     bool operator==(const PaneSession &other) const = default;
 };

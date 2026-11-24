@@ -679,13 +679,13 @@ void RuleListEditor::editRule(int row)
     setRules(sanitized);
 }
 
-IconInformationList::IconInformationList(QWidget *parent)
+IconInformationList::IconInformationList(QWidget *parent, bool cardFields)
     : QListWidget(parent)
 {
     setDragDropMode(QAbstractItemView::InternalMove);
     setDefaultDropAction(Qt::MoveAction);
     setSelectionMode(QAbstractItemView::SingleSelection);
-    const QList<QPair<QString, QString>> options{
+    QList<QPair<QString, QString>> options{
         {QStringLiteral("size"), i18nc("@option:check", "Size")},
         {QStringLiteral("permissions"), i18nc("@option:check", "Permissions")},
         {QStringLiteral("octalPermissions"), i18nc("@option:check", "Permissions (octal)")},
@@ -700,6 +700,11 @@ IconInformationList::IconInformationList(QWidget *parent)
         {QStringLiteral("localPathOrUrl"), i18nc("@option:check", "Path or URL")},
         {QStringLiteral("comment"), i18nc("@option:check", "Comment")},
     };
+    if (cardFields) {
+        options.append({QStringLiteral("tags"), i18nc("@option:check", "Tags")});
+        options.append({QStringLiteral("rating"), i18nc("@option:check", "Rating")});
+        options.append({QStringLiteral("label"), i18nc("@option:check", "Colour label")});
+    }
     for (const auto &[key, label] : options) {
         auto *item = new QListWidgetItem(label, this);
         item->setData(Qt::UserRole, key);

@@ -33,6 +33,7 @@ const QStringList AllowedColumns{QStringLiteral("type"),
                                  QStringLiteral("links"),
                                  QStringLiteral("dims"),
                                  QStringLiteral("rating")};
+const QStringList AllowedViews{QStringLiteral("list"), QStringLiteral("grid"), QStringLiteral("compact"), QStringLiteral("cards")};
 const QStringList AllowedGroups{QStringLiteral("none"),
                                 QStringLiteral("name"),
                                 QStringLiteral("type"),
@@ -385,8 +386,7 @@ bool FolderMetadata::setFolderColor(const QString &folder, const QString &color,
 
 bool FolderMetadata::setFormat(const QString &folder, const Format &formatValue, QString *error)
 {
-    if ((formatValue.view != QLatin1String("list") && formatValue.view != QLatin1String("grid") && formatValue.view != QLatin1String("compact"))
-        || !AllowedGroups.contains(formatValue.group)) {
+    if (!AllowedViews.contains(formatValue.view) || !AllowedGroups.contains(formatValue.group)) {
         if (error) {
             *error = QStringLiteral("Invalid folder view format");
         }
@@ -437,8 +437,7 @@ bool FolderMetadata::format(const QJsonObject &metadata, Format *result)
     const QString view = object.value(QStringLiteral("view")).toString();
     const QString group = object.value(QStringLiteral("group")).toString();
     const QString sortKey = object.value(QStringLiteral("sortKey")).toString();
-    if ((view != QLatin1String("list") && view != QLatin1String("grid") && view != QLatin1String("compact")) || !AllowedGroups.contains(group)
-        || sortKey.size() > 19) {
+    if (!AllowedViews.contains(view) || !AllowedGroups.contains(group) || sortKey.size() > 19) {
         return false;
     }
     QStringList columns;

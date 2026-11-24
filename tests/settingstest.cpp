@@ -2,9 +2,11 @@
 
 #include "settings.h"
 #include "appearancestyle.h"
+#include "carddelegate.h"
 #include "colorschemes.h"
 #include "combinedpanel.h"
 #include "compressdialog.h"
+#include "density.h"
 #include "fileoperations.h"
 #include "foldermetadata.h"
 #include "foldertree.h"
@@ -1038,6 +1040,10 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("DefaultSelectionMarkers")), QStringLiteral("Selection"));
         QCOMPARE(tabOf(QStringLiteral("DefaultFilterScope")), QStringLiteral("Filters"));
         QCOMPARE(tabOf(QStringLiteral("CompactIconSize")), QStringLiteral("Compact"));
+        QCOMPARE(tabOf(QStringLiteral("CardPreviewSize")), QStringLiteral("Cards"));
+        QCOMPARE(tabOf(QStringLiteral("CardColumns")), QStringLiteral("Cards"));
+        QCOMPARE(tabOf(QStringLiteral("CardsDensity")), QStringLiteral("Cards"));
+        QCOMPARE(tabOf(QStringLiteral("CardInformation")), QStringLiteral("Cards"));
         QCOMPARE(tabOf(QStringLiteral("AutomaticLocalFolderSizes")), QStringLiteral("Folder Formats"));
         QCOMPARE(tabOf(QStringLiteral("ShowFilePins")), QStringLiteral("Metadata"));
         QCOMPARE(tabOf(QStringLiteral("ShowSizeColumn")), QStringLiteral("Details"));
@@ -1429,6 +1435,59 @@ private Q_SLOTS:
         auto *delegate = qobject_cast<KFileItemDelegate *>(compact->itemDelegate());
         QVERIFY(delegate);
         QCOMPARE(delegate->showInformation(), (KFileItemDelegate::InformationList{KFileItemDelegate::Size, KFileItemDelegate::Owner}));
+    }
+
+    void cardViewSettingsApply()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setCardPreviewSize(96);
+            Settings::self()->setCardColumns(0);
+            Settings::self()->setCardsDensity(Settings::EnumCardsDensity::Normal);
+            Settings::self()->setCardInformation({QStringLiteral("size"),
+                                                  QStringLiteral("modificationTime"),
+                                                  QStringLiteral("friendlyMimeType"),
+                                                  QStringLiteral("tags"),
+                                                  QStringLiteral("rating"),
+                                                  QStringLiteral("label")});
+            Settings::self()->save();
+        });
+        MainWindow window;
+        window.openUrls({m_a});
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_CardPreviewSize"))->setValue(128);
+        auto *columns = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_CardColumns"));
+        QVERIFY(columns);
+        QCOMPARE(columns->specialValueText(), QStringLiteral("Automatic"));
+        auto *density = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_CardsDensity"));
+        QVERIFY(density);
+        density->setCurrentIndex(int(Density::Items::VeryCompact));
+        Q_EMIT density->activated(density->currentIndex());
+        auto *information = dialog.findChild<IconInformationList *>(QStringLiteral("kcfg_CardInformation"));
+        QVERIFY(information);
+        QStringList offered;
+        for (int row = 0; row < information->count(); ++row) {
+            offered.append(information->item(row)->data(Qt::UserRole).toString());
+        }
+        QVERIFY(offered.contains(QStringLiteral("tags")));
+        QVERIFY(offered.contains(QStringLiteral("rating")));
+        QVERIFY(offered.contains(QStringLiteral("label")));
+        QVERIFY(!dialog.findChild<IconInformationList *>(QStringLiteral("kcfg_IconInformation"))->findItems(QStringLiteral("Tags"), Qt::MatchExactly).size());
+        information->setInformation({QStringLiteral("rating"), QStringLiteral("size")});
+        Q_EMIT information->informationChanged();
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::cardPreviewSize(), 128);
+        FolderView *view = window.activePane()->view();
+        view->setViewMode(FolderView::ViewMode::Cards);
+        auto *cards = qobject_cast<QListView *>(view->currentView());
+        QVERIFY(cards);
+        QCOMPARE(cards->iconSize(), QSize(128, 128));
+        auto *delegate = qobject_cast<CardDelegate *>(cards->itemDelegate());
+        QVERIFY(delegate);
+        QCOMPARE(delegate->previewSize(), 128);
+        QCOMPARE(delegate->itemSpace(), 0);
+        QCOMPARE(delegate->information(), (QStringList{QStringLiteral("rating"), QStringLiteral("size")}));
     }
 
     void selectionFiltersCanBeManagedInSettings()

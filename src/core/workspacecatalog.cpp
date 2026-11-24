@@ -288,8 +288,8 @@ bool readPaneSession(const QJsonValue &value, PaneSession &pane, bool *credentia
     const double scope = filterScope.toDouble(-2);
     const double presentation = locationPresentation.toDouble(-2);
     const double mode = viewMode.toDouble(-1);
-    if (scope < -1 || scope > 2 || int(scope) != scope || presentation < -1 || presentation > 2 || int(presentation) != presentation || mode < 0 || mode > 2
-        || int(mode) != mode) {
+    if (scope < -1 || scope > 2 || int(scope) != scope || presentation < -1 || presentation > 2 || int(presentation) != presentation || mode < 0
+        || mode > PaneSession::MaximumViewMode || int(mode) != mode) {
         return false;
     }
     pane.currentTab = currentTab.toInt();
@@ -304,7 +304,8 @@ bool readPaneSession(const QJsonValue &value, PaneSession &pane, bool *credentia
 bool validPaneSession(const PaneSession &pane)
 {
     if (pane.tabs.isEmpty() || pane.currentTab < 0 || pane.currentTab >= pane.tabs.size() || pane.pinnedCount < 0 || pane.pinnedCount > pane.tabs.size()
-        || pane.names.size() > pane.tabs.size() || pane.filterScope < -1 || pane.filterScope > 2 || pane.viewMode < 0 || pane.viewMode > 2) {
+        || pane.names.size() > pane.tabs.size() || pane.filterScope < -1 || pane.filterScope > 2 || pane.viewMode < 0
+        || pane.viewMode > PaneSession::MaximumViewMode) {
         return false;
     }
     if (pane.locationPresentation < -1 || pane.locationPresentation > 2) {

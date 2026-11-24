@@ -2002,6 +2002,10 @@ private Q_SLOTS:
         compactView->trigger();
         QCOMPARE(left->view()->viewMode(), FolderView::ViewMode::Compact);
         QVERIFY(right->view()->viewMode() != FolderView::ViewMode::Compact);
+        const auto viewActions = viewButton->menu()->actions();
+        QVERIFY(std::any_of(viewActions.cbegin(), viewActions.cend(), [](QAction *action) {
+            return action->text() == QStringLiteral("Cards");
+        }));
 
         auto *navigationLayout = qobject_cast<QBoxLayout *>(left->navigationBar()->layout());
         QVERIFY(navigationLayout);
@@ -3949,6 +3953,9 @@ private Q_SLOTS:
         QCOMPARE(other->view()->viewMode(), FolderView::ViewMode::Details);
         window.actionCollection()->action(QStringLiteral("compact_view"))->trigger();
         QCOMPARE(active->view()->viewMode(), FolderView::ViewMode::Compact);
+        QCOMPARE(other->view()->viewMode(), FolderView::ViewMode::Details);
+        window.actionCollection()->action(QStringLiteral("card_view"))->trigger();
+        QCOMPARE(active->view()->viewMode(), FolderView::ViewMode::Cards);
         QCOMPARE(other->view()->viewMode(), FolderView::ViewMode::Details);
         window.actionCollection()->action(QStringLiteral("toggle_view_mode"))->trigger();
         QCOMPARE(active->view()->viewMode(), FolderView::ViewMode::Details);

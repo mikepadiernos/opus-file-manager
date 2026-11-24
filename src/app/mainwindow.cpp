@@ -2117,6 +2117,12 @@ void MainWindow::setupActions()
     });
     compactView->setText(i18nc("@action", "Compact View"));
     compactView->setIcon(QIcon::fromTheme(QStringLiteral("view-list-tree")));
+    QAction *cardView = actions->addAction(QStringLiteral("card_view"), this, [this] {
+        activePane()->view()->setViewMode(FolderView::ViewMode::Cards);
+        updateActions();
+    });
+    cardView->setText(i18nc("@action", "Card View"));
+    cardView->setIcon(QIcon::fromTheme(QStringLiteral("view-grid"), QIcon::fromTheme(QStringLiteral("view-list-icons"))));
 
     QAction *formatSource = actions->addAction(QStringLiteral("folder_format_source"));
     formatSource->setEnabled(false);
@@ -3987,8 +3993,7 @@ void MainWindow::resetMovedPaneDisplayStyle()
     if (Settings::paneMoveDisplayStyle() != Settings::EnumPaneMoveDisplayStyle::ResetToDefault) {
         return;
     }
-    const auto mode = Settings::defaultViewMode() == Settings::EnumDefaultViewMode::Icons ? FolderView::ViewMode::Icons : FolderView::ViewMode::Details;
-    m_right->view()->setViewMode(mode);
+    m_right->view()->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, int(Settings::defaultViewMode()), int(FolderView::ViewMode::Cards))));
 }
 
 void MainWindow::moveSecondPaneToDual()
@@ -4079,6 +4084,8 @@ void MainWindow::rename()
             return item.url().isLocalFile();
         })) {
         batchRename();
+    } else if (items.size() == 1 && activePane()->view()->renameInline()) {
+        return;
     } else {
         FileOperations::rename(items, this);
     }
@@ -4834,7 +4841,7 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 
 void MainWindow::applyViewDefaults()
 {
-    const auto mode = Settings::defaultViewMode() == Settings::EnumDefaultViewMode::Icons ? FolderView::ViewMode::Icons : FolderView::ViewMode::Details;
+    const auto mode = static_cast<FolderView::ViewMode>(qBound(0, int(Settings::defaultViewMode()), int(FolderView::ViewMode::Cards)));
     const Qt::SortOrder order = Settings::sortDescending() ? Qt::DescendingOrder : Qt::AscendingOrder;
     for (Pane *pane : {m_left, m_right}) {
         pane->view()->setViewMode(mode);

@@ -109,6 +109,12 @@ private Q_SLOTS:
         QCOMPARE(WindowSession().sanitized(home).left.locationPresentation, -1);
         invalidFilter.left.locationPresentation = 7;
         QCOMPARE(invalidFilter.sanitized(home).left.locationPresentation, 2);
+
+        WindowSession cards;
+        cards.left.viewMode = 3;
+        cards.right.viewMode = 9;
+        QCOMPARE(cards.sanitized(home).left.viewMode, 3);
+        QCOMPARE(cards.sanitized(home).right.viewMode, PaneSession::MaximumViewMode);
     }
 
     void tabStateRoundTripsAndSurvivesSanitizing()

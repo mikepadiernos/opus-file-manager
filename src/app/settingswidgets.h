@@ -233,7 +233,8 @@ class IconInformationList : public QListWidget
     Q_PROPERTY(QStringList information READ information WRITE setInformation NOTIFY informationChanged USER true)
 
 public:
-    explicit IconInformationList(QWidget *parent = nullptr);
+    /// @param cardFields also offer the tags, rating and colour label fields that cards show
+    explicit IconInformationList(QWidget *parent = nullptr, bool cardFields = false);
     QStringList information() const;
     void setInformation(const QStringList &information);
 

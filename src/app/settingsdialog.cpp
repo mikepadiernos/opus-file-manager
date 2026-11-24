@@ -165,6 +165,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createDetailsPage(), i18nc("@title:tab", "Details")},
                    {createIconsPage(), i18nc("@title:tab", "Icons")},
                    {createCompactPage(), i18nc("@title:tab", "Compact")},
+                   {createCardsPage(), i18nc("@title:tab", "Cards")},
                    {createSelectionPage(), i18nc("@title:tab", "Selection")},
                    {createFiltersPage(), i18nc("@title:tab", "Filters")},
                    {createFolderFormatsPage(), i18nc("@title:tab", "Folder Formats")}},
@@ -1740,8 +1741,11 @@ QWidget *SettingsDialog::createViewGeneralPage()
 {
     auto *page = new QWidget;
     auto *form = new QFormLayout(page);
-    form->addRow(i18nc("@label:listbox", "View mode in new windows:"),
-                 comboBox(QStringLiteral("DefaultViewMode"), {i18nc("@item:inlistbox", "Details"), i18nc("@item:inlistbox", "Icons")}));
+    form->addRow(
+        i18nc("@label:listbox", "View mode in new windows:"),
+        comboBox(
+            QStringLiteral("DefaultViewMode"),
+            {i18nc("@item:inlistbox", "Details"), i18nc("@item:inlistbox", "Icons"), i18nc("@item:inlistbox", "Compact"), i18nc("@item:inlistbox", "Cards")}));
     form->addRow(i18nc("@label:listbox", "Sort by in new windows:"),
                  comboBox(QStringLiteral("SortColumn"),
                           {i18nc("@item:inlistbox", "Name"),
@@ -1836,6 +1840,22 @@ QWidget *SettingsDialog::createCompactPage()
     form->addRow(i18nc("@label:spinbox", "Icon size:"), pixelSpinBox(QStringLiteral("CompactIconSize"), 16, 64));
     form->addRow(i18nc("@label:spinbox", "Space between items:"), pixelSpinBox(QStringLiteral("CompactItemSpacing"), 0, 20));
     form->addRow(i18nc("@label", "Additional information:"), bound(new IconInformationList, QStringLiteral("CompactInformation"), "information"));
+    return page;
+}
+
+QWidget *SettingsDialog::createCardsPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(i18nc("@label:spinbox", "Preview size:"), pixelSpinBox(QStringLiteral("CardPreviewSize"), 48, 256));
+    auto *columns = new QSpinBox;
+    columns->setObjectName(QStringLiteral("kcfg_CardColumns"));
+    columns->setRange(0, 12);
+    columns->setSpecialValueText(i18nc("@item:inrange card columns", "Automatic"));
+    columns->setToolTip(i18nc("@info:tooltip", "Automatic fits as many cards as the pane is wide."));
+    form->addRow(i18nc("@label:spinbox", "Columns:"), columns);
+    addDensityRows(form, QStringLiteral("CardsDensity"), QStringLiteral("CardsCustomSpace"));
+    form->addRow(i18nc("@label", "Metadata shown:"), bound(new IconInformationList(nullptr, true), QStringLiteral("CardInformation"), "information"));
     return page;
 }
 

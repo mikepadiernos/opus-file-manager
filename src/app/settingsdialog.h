@@ -112,6 +112,7 @@ private:
     QWidget *createViewGeneralPage();
     QWidget *createDetailsPage();
     QWidget *createCompactPage();
+    QWidget *createCardsPage();
     QWidget *createSelectionPage();
     QWidget *createFiltersPage();
     QWidget *createFolderFormatsPage();

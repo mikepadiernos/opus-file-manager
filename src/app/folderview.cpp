@@ -2,6 +2,8 @@
 
 #include "folderview.h"
 
+#include "carddelegate.h"
+#include "density.h"
 #include "detailsview.h"
 #include "filecolorrules.h"
 #include "filelistminimap.h"
@@ -25,6 +27,7 @@
 #include <KDirSortFilterProxyModel>
 #include <KFileItemDelegate>
 #include <KFileItemListProperties>
+#include <KFileMetaData/UserMetaData>
 #include <KFilePreviewGenerator>
 #include <KIO/DirectorySizeJob>
 #include <KIO/DropJob>
@@ -180,6 +183,7 @@ public:
         m_metadata = metadata;
         m_metadataDirectory = directory.isEmpty() ? QString() : QFileInfo(directory).absoluteFilePath();
         m_metadataCache.clear();
+        m_tagsCache.clear();
         endFilterChange(QSortFilterProxyModel::Direction::Rows);
         sort(sortColumn(), sortOrder());
     }
@@ -362,6 +366,27 @@ public:
             if (modified.isValid()) {
                 return LocalizedDates::listingDateTime(modified, m_settings.dateFormat == QLatin1String("iso"), m_settings.showSeconds);
             }
+        }
+        if (role == CardRoles::Rating || role == CardRoles::Label) {
+            const KFileItem item = itemAt(index);
+            const QJsonObject metadata = metadataForItem(item);
+            if (role == CardRoles::Rating) {
+                const int rating = metadata.value(QStringLiteral("ratings")).toObject().value(item.name()).toInt();
+                return Settings::showFileRatings() && rating > 0 ? QVariant(rating) : QVariant();
+            }
+            const QString label = metadata.value(QStringLiteral("labels")).toObject().value(item.name()).toString();
+            return Settings::showFileLabels() && !label.isEmpty() ? QVariant(label) : QVariant();
+        }
+        if (role == CardRoles::Tags) {
+            const QString path = itemAt(index).localPath();
+            if (path.isEmpty()) {
+                return QStringList();
+            }
+            auto found = m_tagsCache.constFind(path);
+            if (found == m_tagsCache.cend()) {
+                found = m_tagsCache.insert(path, KFileMetaData::UserMetaData(path).tags());
+            }
+            return found.value();
         }
         if (role == KCategorizedSortFilterProxyModel::CategorySortRole) {
             return m_groupBy == QLatin1String("none") ? QString() : groupSortKey(index);
@@ -605,6 +630,7 @@ private:
     QJsonObject m_metadata;
     QString m_metadataDirectory;
     mutable QHash<QString, QJsonObject> m_metadataCache;
+    mutable QHash<QString, QStringList> m_tagsCache;
     QHash<QUrl, quint64> m_folderSizes;
     QString m_groupBy = QStringLiteral("none");
     bool m_ratingColumn = false;
@@ -726,6 +752,7 @@ FolderView::FolderView(QWidget *parent)
     , m_details(new DetailsView(this))
     , m_icons(new KCategorizedView(this))
     , m_compact(new QListView(this))
+    , m_cards(new KCategorizedView(this))
 {
     m_sizeRefreshTimer->setObjectName(QStringLiteral("folderSizeRefreshTimer"));
     connect(m_sizeRefreshTimer, &QTimer::timeout, this, [this] {
@@ -810,7 +837,21 @@ FolderView::FolderView(QWidget *parent)
     m_compact->setIconSize(QSize(16, 16));
     setupView(m_compact);
 
-    const QList<QAbstractItemView *> views{m_details, m_icons, m_compact};
+    m_cards->setObjectName(QStringLiteral("cardView"));
+    m_cards->setModel(m_proxy);
+    static_cast<KCategorizedView *>(m_cards)->setCategoryDrawer(new KCategoryDrawer(static_cast<KCategorizedView *>(m_cards)));
+    m_cards->setSelectionModel(m_details->selectionModel());
+    m_cards->setViewMode(QListView::IconMode);
+    m_cards->setResizeMode(QListView::Adjust);
+    m_cards->setFlow(QListView::LeftToRight);
+    m_cards->setWrapping(true);
+    m_cards->setMovement(QListView::Static);
+    m_cards->setUniformItemSizes(true);
+    m_cards->setSpacing(0);
+    m_cards->viewport()->setAttribute(Qt::WA_Hover);
+    setupView(m_cards);
+
+    const QList<QAbstractItemView *> views{m_details, m_icons, m_compact, m_cards};
     for (QAbstractItemView *view : views) {
         connect(view, &QAbstractItemView::entered, this, [this](const QModelIndex &index) {
             if (!m_informationHoverEnabled) {
@@ -831,11 +872,13 @@ FolderView::FolderView(QWidget *parent)
     m_detailsPreviews = new KFilePreviewGenerator(m_details);
     m_iconPreviews = new KFilePreviewGenerator(m_icons);
     m_compactPreviews = new KFilePreviewGenerator(m_compact);
+    m_cardPreviews = new KFilePreviewGenerator(m_cards);
     setPreviewsEnabled(true);
 
     m_stack->addWidget(m_details);
     m_stack->addWidget(m_icons);
     m_stack->addWidget(m_compact);
+    m_stack->addWidget(m_cards);
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -984,6 +1027,7 @@ FolderView::FolderView(QWidget *parent)
     });
     applyDetailsPreferences();
     applyCompactPreferences();
+    applyCardPreferences();
     m_defaultSelectionMarkers = Settings::defaultSelectionMarkers();
     m_defaultSelectionMode = Settings::defaultSelectionMode();
     setSelectionMarkersVisible(m_defaultSelectionMarkers);
@@ -1004,6 +1048,12 @@ void FolderView::setupView(QAbstractItemView *view)
     } else if (view == m_icons) {
         m_iconDelegate = new SelectionMarkerDelegate(this, view);
         view->setItemDelegate(m_iconDelegate);
+    } else if (view == m_cards) {
+        m_cardDelegate = new CardDelegate(view);
+        m_cardDelegate->setSelectionMarkersVisible([this] {
+            return m_selectionMarkers || m_selectionMode;
+        });
+        view->setItemDelegate(m_cardDelegate);
     } else {
         view->setItemDelegate(new SelectionMarkerDelegate(this, view));
     }
@@ -1099,7 +1149,7 @@ void FolderView::setSelectionMode(bool enabled)
 void FolderView::setInformationHoverEnabled(bool enabled)
 {
     m_informationHoverEnabled = enabled;
-    const QList<QAbstractItemView *> views{m_details, m_icons, m_compact};
+    const QList<QAbstractItemView *> views{m_details, m_icons, m_compact, m_cards};
     for (QAbstractItemView *view : views) {
         view->setMouseTracking(enabled);
         view->viewport()->setMouseTracking(enabled);
@@ -1150,6 +1200,12 @@ void FolderView::adjustIconSize(int steps)
         m_detailsIconSize = qBound(MinimumSize, m_detailsIconSize + steps * StepSize, MaximumSize);
     } else if (m_viewMode == ViewMode::Icons) {
         m_iconsIconSize = qBound(MinimumSize, m_iconsIconSize + steps * StepSize, MaximumSize);
+    } else if (m_viewMode == ViewMode::Cards) {
+        const int size = qBound(48, m_cardDelegate->previewSize() + steps * 16, 256);
+        m_cardDelegate->setPreviewSize(size);
+        m_cards->setIconSize(QSize(size, size));
+        updateCardLayout();
+        return;
     } else {
         const int size = qBound(MinimumSize, m_compact->iconSize().width() + steps * StepSize, MaximumSize);
         m_compact->setIconSize(QSize(size, size));
@@ -1201,6 +1257,7 @@ void FolderView::setPreviewPlugins(const QStringList &plugins)
     m_detailsPreviews->setEnabledPlugins(plugins);
     m_iconPreviews->setEnabledPlugins(plugins);
     m_compactPreviews->setEnabledPlugins(plugins);
+    m_cardPreviews->setEnabledPlugins(plugins);
 }
 
 QStringList FolderView::previewPlugins() const
@@ -1294,6 +1351,7 @@ void FolderView::updatePreviews()
     m_detailsPreviews->setPreviewShown(shown);
     m_iconPreviews->setPreviewShown(shown);
     m_compactPreviews->setPreviewShown(shown);
+    m_cardPreviews->setPreviewShown(shown);
 }
 
 KFileItem FolderView::rootItem() const
@@ -1516,7 +1574,14 @@ QAbstractItemView *FolderView::currentView() const
     if (m_viewMode == ViewMode::Details) {
         return m_details;
     }
-    return m_viewMode == ViewMode::Icons ? m_icons : m_compact;
+    switch (m_viewMode) {
+    case ViewMode::Icons:
+        return m_icons;
+    case ViewMode::Cards:
+        return m_cards;
+    default:
+        return m_compact;
+    }
 }
 
 NameFilter FolderView::nameFilter() const
@@ -1577,6 +1642,7 @@ void FolderView::reloadMetadata()
     m_details->viewport()->update();
     m_icons->viewport()->update();
     m_compact->viewport()->update();
+    m_cards->viewport()->update();
     if (!m_formatLocked && m_formatRuleSource.isEmpty()) {
         m_proxy->setGroupBy(settings.groupBy);
     }
@@ -1848,6 +1914,7 @@ void FolderView::reloadListingSettings()
     updateFolderSizeRefreshTimer();
     applyDetailsPreferences();
     applyCompactPreferences();
+    applyCardPreferences();
     if (m_defaultSelectionMarkers != Settings::defaultSelectionMarkers()) {
         m_defaultSelectionMarkers = Settings::defaultSelectionMarkers();
         setSelectionMarkersVisible(m_defaultSelectionMarkers);
@@ -1863,6 +1930,7 @@ void FolderView::reloadListingSettings()
     m_details->viewport()->update();
     m_icons->viewport()->update();
     m_compact->viewport()->update();
+    m_cards->viewport()->update();
 }
 
 void FolderView::applyCompactPreferences()
@@ -1872,6 +1940,52 @@ void FolderView::applyCompactPreferences()
     m_compact->setSpacing(Settings::compactItemSpacing());
     static_cast<KFileItemDelegate *>(m_compact->itemDelegate())->setShowInformation(informationForKeys(Settings::compactInformation()));
     m_compact->doItemsLayout();
+}
+
+void FolderView::applyCardPreferences()
+{
+    const int preview = Settings::cardPreviewSize();
+    m_cardDelegate->setPreviewSize(preview);
+    m_cardDelegate->setItemSpace(Density::itemSpace(static_cast<Density::Items>(qBound(0, int(Settings::cardsDensity()), 3)), Settings::cardsCustomSpace()));
+    m_cardDelegate->setInformation(Settings::cardInformation());
+    // The preview generator renders at the view's icon size.
+    m_cards->setIconSize(QSize(preview, preview));
+    updateCardLayout();
+}
+
+void FolderView::updateCardLayout()
+{
+    const int columns = Settings::cardColumns();
+    int width = 0;
+    if (columns > 0) {
+        // Always reserve the scroll bar so showing it cannot change the column width.
+        const int available = m_cards->width() - 2 * m_cards->frameWidth() - m_cards->style()->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, m_cards);
+        width = qMax(m_cardDelegate->minimumCellWidth(), available / columns);
+    }
+    m_cardDelegate->setCellWidth(width);
+    const QSize cell = m_cardDelegate->cellSize(m_cards->font());
+    if (m_cards->gridSize() != cell) {
+        m_cards->setGridSize(cell);
+    } else {
+        m_cards->doItemsLayout();
+    }
+    m_cards->viewport()->update();
+}
+
+bool FolderView::renameInline()
+{
+    if (m_viewMode != ViewMode::Cards) {
+        return false;
+    }
+    const QModelIndexList rows = m_cards->selectionModel()->selectedRows();
+    if (rows.size() != 1 || !(rows.first().flags() & Qt::ItemIsEditable)) {
+        return false;
+    }
+    const QModelIndex index = rows.first();
+    m_cards->selectionModel()->setCurrentIndex(index, QItemSelectionModel::NoUpdate);
+    m_cards->scrollTo(index);
+    m_cards->edit(index);
+    return m_cards->indexWidget(index) != nullptr;
 }
 
 void FolderView::applyDetailsPreferences()
@@ -1915,7 +2029,10 @@ void FolderView::loadFolderFormat()
         format = lockedFormat;
     }
     if (m_formatLocked || foundRule) {
-        setViewMode(format.view == QLatin1String("grid") ? ViewMode::Icons : format.view == QLatin1String("compact") ? ViewMode::Compact : ViewMode::Details);
+        setViewMode(format.view == QLatin1String("grid")          ? ViewMode::Icons
+                        : format.view == QLatin1String("compact") ? ViewMode::Compact
+                        : format.view == QLatin1String("cards")   ? ViewMode::Cards
+                                                                  : ViewMode::Details);
         m_proxy->setGroupBy(format.group);
         m_proxy->setRatingColumn(format.columns.contains(QStringLiteral("rating")));
         for (const auto &[column, key] : OptionalColumns) {
@@ -1949,7 +2066,7 @@ void FolderView::loadFolderFormat()
         setColumnVisible(KDirModel::Owner, Settings::showOwnerColumn());
         setColumnVisible(KDirModel::Group, Settings::showGroupColumn() || Settings::showRatingColumn());
         setColumnVisible(KDirModel::Type, Settings::showTypeColumn());
-        setViewMode(Settings::defaultViewMode() == Settings::EnumDefaultViewMode::Icons ? ViewMode::Icons : ViewMode::Details);
+        setViewMode(static_cast<ViewMode>(qBound(0, int(Settings::defaultViewMode()), int(ViewMode::Cards))));
         m_details->sortByColumn(Settings::sortColumn(), Settings::sortDescending() ? Qt::DescendingOrder : Qt::AscendingOrder);
         setShowHiddenFiles(Settings::showHiddenFiles());
     }
@@ -1999,7 +2116,20 @@ void FolderView::saveFolderFormat()
 FolderMetadata::Format FolderView::currentFormat() const
 {
     FolderMetadata::Format format;
-    format.view = m_viewMode == ViewMode::Icons ? QStringLiteral("grid") : m_viewMode == ViewMode::Compact ? QStringLiteral("compact") : QStringLiteral("list");
+    switch (m_viewMode) {
+    case ViewMode::Icons:
+        format.view = QStringLiteral("grid");
+        break;
+    case ViewMode::Compact:
+        format.view = QStringLiteral("compact");
+        break;
+    case ViewMode::Cards:
+        format.view = QStringLiteral("cards");
+        break;
+    case ViewMode::Details:
+        format.view = QStringLiteral("list");
+        break;
+    }
     for (int visual = 0; visual < m_details->header()->count(); ++visual) {
         const int column = m_details->header()->logicalIndex(visual);
         if (column == KDirModel::Name || m_details->isColumnHidden(column)) {
@@ -2223,8 +2353,20 @@ bool FolderView::eventFilter(QObject *watched, QEvent *event)
     if (!view) {
         return QWidget::eventFilter(watched, event);
     }
+    const auto markerHit = [this, view](const QModelIndex &index, const QPoint &pos) {
+        const QRect rect = view->visualRect(index);
+        if (view == m_cards) {
+            return CardDelegate::markerRect(CardDelegate::cardRect(rect, m_cardDelegate->itemSpace()), view->layoutDirection()).contains(pos);
+        }
+        return selectionMarkerRect(rect, view->layoutDirection()).contains(pos);
+    };
 
     switch (event->type()) {
+    case QEvent::Resize:
+        if (watched == m_cards && Settings::cardColumns() > 0) {
+            updateCardLayout();
+        }
+        break;
     case QEvent::DragEnter:
     case QEvent::DragMove:
     case QEvent::Drop:
@@ -2242,9 +2384,7 @@ bool FolderView::eventFilter(QObject *watched, QEvent *event)
             const QModelIndex index = view->indexAt(mouse->position().toPoint());
             const QModelIndex nameIndex = index.siblingAtColumn(0);
             if (mouse->button() == Qt::LeftButton && mouse->modifiers() == Qt::NoModifier && index.isValid()
-                && (m_selectionMode
-                    || (m_selectionMarkers
-                        && selectionMarkerRect(view->visualRect(nameIndex), view->layoutDirection()).contains(mouse->position().toPoint())))) {
+                && (m_selectionMode || (m_selectionMarkers && markerHit(nameIndex, mouse->position().toPoint())))) {
                 view->selectionModel()->setCurrentIndex(nameIndex, QItemSelectionModel::NoUpdate);
                 view->selectionModel()->select(nameIndex, QItemSelectionModel::Toggle | QItemSelectionModel::Rows);
                 m_markerPress = true;
@@ -2262,8 +2402,7 @@ bool FolderView::eventFilter(QObject *watched, QEvent *event)
         if (watched == view->viewport() && (m_selectionMode || m_selectionMarkers)) {
             auto *mouse = static_cast<QMouseEvent *>(event);
             const QModelIndex index = view->indexAt(mouse->position().toPoint()).siblingAtColumn(0);
-            if (index.isValid()
-                && (m_selectionMode || selectionMarkerRect(view->visualRect(index), view->layoutDirection()).contains(mouse->position().toPoint()))) {
+            if (index.isValid() && (m_selectionMode || markerHit(index, mouse->position().toPoint()))) {
                 m_markerPress = true;
                 return true;
             }

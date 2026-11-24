@@ -141,6 +141,8 @@
       <choices>
         <choice name="Details"/>
         <choice name="Icons"/>
+        <choice name="Compact"/>
+        <choice name="Cards"/>
       </choices>
       <default>Details</default>
     </entry>
@@ -327,6 +329,38 @@
     <entry name="CompactIconSize" type="Int"><default>16</default><min>16</min><max>64</max></entry>
     <entry name="CompactItemSpacing" type="Int"><default>0</default><min>0</min><max>20</max></entry>
     <entry name="CompactInformation" type="StringList"><default></default></entry>
+    <entry name="CardPreviewSize" type="Int">
+      <label>Preview and icon size in the card view</label>
+      <default>96</default>
+      <min>48</min>
+      <max>256</max>
+    </entry>
+    <entry name="CardColumns" type="Int">
+      <label>Number of card columns; zero fits as many cards as the width allows</label>
+      <default>0</default>
+      <min>0</min>
+      <max>12</max>
+    </entry>
+    <entry name="CardsDensity" type="Enum">
+      <label>Space around cards in the card view</label>
+      <choices>
+        <choice name="Normal"/>
+        <choice name="Compact"/>
+        <choice name="VeryCompact"/>
+        <choice name="Custom"/>
+      </choices>
+      <default>Normal</default>
+    </entry>
+    <entry name="CardsCustomSpace" type="Int">
+      <label>Pixels around each card with custom density</label>
+      <default>2</default>
+      <min>0</min>
+      <max>10</max>
+    </entry>
+    <entry name="CardInformation" type="StringList">
+      <label>Metadata shown on each card, in display order</label>
+      <default>size,modificationTime,friendlyMimeType,tags,rating,label</default>
+    </entry>
     <entry name="DefaultFilterScope" type="Enum">
       <choices><choice name="Files"/><choice name="Folders"/><choice name="FilesAndFolders"/></choices>
       <default>Files</default>

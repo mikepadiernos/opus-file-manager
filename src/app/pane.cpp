@@ -111,6 +111,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
         {FolderView::ViewMode::Details, i18nc("@item:inmenu", "Details")},
         {FolderView::ViewMode::Icons, i18nc("@item:inmenu", "Icons")},
         {FolderView::ViewMode::Compact, i18nc("@item:inmenu", "Compact")},
+        {FolderView::ViewMode::Cards, i18nc("@item:inmenu", "Cards")},
     };
     for (const auto &[mode, label] : viewModes) {
         QAction *action = viewMenu->addAction(label);
@@ -1235,7 +1236,7 @@ void Pane::restoreState(const PaneSession &state)
     m_filterBar->setFilter(NameFilter(state.filterText, static_cast<NameFilter::Scope>(qBound(0, scope, 2))));
     setLocationPresentation(state.locationPresentation < 0 ? m_defaultLocationPresentation
                                                            : static_cast<LocationPresentation>(qBound(0, state.locationPresentation, 2)));
-    m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, 2)));
+    m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, PaneSession::MaximumViewMode)));
 }
 
 void Pane::replaceState(const PaneSession &state)
@@ -1259,7 +1260,7 @@ void Pane::replaceState(const PaneSession &state)
     m_filterBar->setFilter(NameFilter(state.filterText, static_cast<NameFilter::Scope>(qBound(0, scope, 2))));
     setLocationPresentation(state.locationPresentation < 0 ? m_defaultLocationPresentation
                                                            : static_cast<LocationPresentation>(qBound(0, state.locationPresentation, 2)));
-    m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, 2)));
+    m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, PaneSession::MaximumViewMode)));
 }
 
 void Pane::rebuildTabs(const PaneSession &state)

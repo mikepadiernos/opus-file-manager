@@ -131,6 +131,13 @@ private Q_SLOTS:
         QVERIFY(FolderMetadata::findFormat(grandchild, &actual, &source, &error));
         QCOMPARE(source, child);
         QCOMPARE(actual.view, QStringLiteral("compact"));
+
+        local.view = QStringLiteral("cards");
+        QVERIFY(FolderMetadata::setFormat(child, local));
+        QVERIFY(FolderMetadata::findFormat(grandchild, &actual, &source, &error));
+        QCOMPARE(actual.view, QStringLiteral("cards"));
+        local.view = QStringLiteral("gallery");
+        QVERIFY(!FolderMetadata::setFormat(child, local));
     }
 
     void clearingFormatPreservesMetadataAndRevealsInheritedRule()
