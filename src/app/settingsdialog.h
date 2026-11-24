@@ -10,6 +10,7 @@
 class KPageWidgetItem;
 class PreviewSizeSpinBox;
 class QCheckBox;
+class QListWidget;
 class QTabWidget;
 class RuleListEditor;
 
@@ -34,8 +35,14 @@ public:
     SettingsDialog(KFilePlacesModel *places, QWidget *parent);
     void showToolbarPage();
 
+public Q_SLOTS:
+    /// Reloads workspace names and assignments after the catalog changes.
+    void reloadWorkspaces();
+
 Q_SIGNALS:
     void customCommandsChanged();
+    /// Asks the main window to open its workspace manager.
+    void manageWorkspacesRequested();
 
 protected:
     void updateSettings() override;
@@ -110,6 +117,7 @@ private:
     QWidget *createFileRulesPage();
     QWidget *createFileMetadataPage();
     QWidget *createSelectionFiltersPage();
+    QWidget *createWorkspaceManagementPage();
     void createSettingsBackup();
     void restoreSettingsBackup();
     void exportWorkspaceProfiles();
@@ -124,6 +132,7 @@ private:
     QList<std::pair<KPageWidgetItem *, QString>> m_pageIcons;
     KPageWidgetItem *m_toolbarPage = nullptr;
     QTabWidget *m_toolbarTabs = nullptr;
+    QListWidget *m_workspaceSummary = nullptr;
     /// A checkbox for a setting kept outside Settings, in config that KIO
     /// shares with Dolphin.
     struct SharedToggle {

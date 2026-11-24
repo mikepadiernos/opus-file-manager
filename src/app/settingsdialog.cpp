@@ -169,6 +169,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createSelectionFiltersPage(), i18nc("@title:tab", "Selection Filters")}},
                   i18nc("@title:group", "Files"),
                   QStringLiteral("folder"));
+    addTabbedPage({{createWorkspaceManagementPage(), i18nc("@title:tab", "Management")}}, i18nc("@title:group", "Workspaces"), QStringLiteral("view-grid"));
     addTabbedPage({{createOpeningPage(), i18nc("@title:tab", "Opening")},
                    {createGalleryInformationPage(), i18nc("@title:tab", "Information")},
                    {createGalleryDisplayPage(), i18nc("@title:tab", "Display")},
@@ -449,6 +450,76 @@ QWidget *SettingsDialog::createSettingsBackupPage()
     layout->addWidget(importWorkspaces);
     layout->addStretch();
     return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceManagementPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *description =
+        new QLabel(i18nc("@info",
+                         "Create, switch, rename, duplicate and delete workspaces, and manage their full names, short labels and assigned locations, in the "
+                         "workspace manager. Each location belongs to at most one workspace; unassigned locations stay available in every workspace. "
+                         "Duplicating a workspace copies its layout without reassigning locations. Deleting a workspace asks for confirmation and keeps "
+                         "its files and locations."),
+                   page);
+    description->setWordWrap(true);
+    layout->addWidget(description);
+    auto *security = new QLabel(i18nc("@info",
+                                      "Workspace configuration is stored locally in your Plasma Opus settings without credentials. Workspaces organize "
+                                      "what is shown; they are not a security boundary and do not restrict access to files."),
+                                page);
+    security->setObjectName(QStringLiteral("workspaceSecurityNotice"));
+    security->setWordWrap(true);
+    layout->addWidget(security);
+    m_workspaceSummary = new QListWidget(page);
+    m_workspaceSummary->setObjectName(QStringLiteral("workspaceSummary"));
+    m_workspaceSummary->setAccessibleName(i18nc("@label", "Workspaces"));
+    m_workspaceSummary->setSelectionMode(QAbstractItemView::NoSelection);
+    layout->addWidget(m_workspaceSummary);
+    auto *manage = new QPushButton(i18nc("@action:button", "Manage Workspaces…"), page);
+    manage->setObjectName(QStringLiteral("manageWorkspaces"));
+    connect(manage, &QPushButton::clicked, this, &SettingsDialog::manageWorkspacesRequested);
+    layout->addWidget(manage, 0, Qt::AlignLeft);
+    reloadWorkspaces();
+    return page;
+}
+
+void SettingsDialog::reloadWorkspaces()
+{
+    if (!m_workspaceSummary) {
+        return;
+    }
+    m_workspaceSummary->clear();
+    const auto shared = KSharedConfig::openConfig();
+    const KConfig config(shared->name(), shared->openFlags(), shared->locationType());
+    WorkspaceCatalog::Catalog catalog;
+    QString error;
+    if (!WorkspaceCatalog::load(config.group(QStringLiteral("Workspaces")), catalog, error)) {
+        m_workspaceSummary->addItem(error);
+        return;
+    }
+    if (catalog.workspaces.isEmpty()) {
+        m_workspaceSummary->addItem(i18nc("@item:inlistbox", "No workspaces"));
+        return;
+    }
+    QMap<QString, int> assigned;
+    for (const QString &workspaceId : std::as_const(catalog.locationAssignments)) {
+        ++assigned[workspaceId];
+    }
+    for (const auto &workspace : std::as_const(catalog.workspaces)) {
+        QString text = i18ncp("@item:inlistbox workspace name, short label and assigned location count",
+                              "%2 (%3): %1 assigned location",
+                              "%2 (%3): %1 assigned locations",
+                              assigned.value(workspace.id),
+                              workspace.name,
+                              workspace.shortLabel);
+        if (workspace.id == catalog.activeId) {
+            text = i18nc("@item:inlistbox active workspace", "%1 — active", text);
+        }
+        auto *item = new QListWidgetItem(text, m_workspaceSummary);
+        item->setData(Qt::UserRole, workspace.id);
+    }
 }
 
 void SettingsDialog::createSettingsBackup()

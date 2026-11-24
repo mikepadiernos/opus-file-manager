@@ -4644,6 +4644,8 @@ void MainWindow::showSettings()
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(dialog, &KConfigDialog::settingsChanged, this, &MainWindow::applySettings);
     connect(dialog, &SettingsDialog::customCommandsChanged, this, &MainWindow::refreshCustomCommandActions);
+    connect(dialog, &SettingsDialog::manageWorkspacesRequested, this, &MainWindow::showWorkspaces);
+    connect(this, &MainWindow::workspaceCatalogChanged, dialog, &SettingsDialog::reloadWorkspaces);
     dialog->show();
 }
 

@@ -14,6 +14,7 @@
 #include "settings.h"
 #include "settingswidgets.h"
 #include "viewsettings.h"
+#include "workspacecatalog.h"
 
 #include <KActionCollection>
 #include <KConfig>
@@ -40,6 +41,7 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScopeGuard>
+#include <QSignalSpy>
 #include <QSpinBox>
 #include <QStandardPaths>
 #include <QTabWidget>
@@ -73,6 +75,9 @@ private Q_SLOTS:
                                      QStringLiteral("StatusBar"),
                                      QStringLiteral("InformationPanel"),
                                      QStringLiteral("Views"),
+                                     QStringLiteral("Search"),
+                                     QStringLiteral("Workspaces"),
+                                     QStringLiteral("WorkspaceSettings"),
                                      QStringLiteral("ContextMenu")}) {
             KSharedConfig::openConfig()->deleteGroup(group);
         }
@@ -95,6 +100,41 @@ private Q_SLOTS:
         QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("restoreSettingsBackup")));
         QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("exportWorkspaceProfiles")));
         QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("importWorkspaceProfiles")));
+    }
+
+    void workspaceManagementSummarizesCatalogAndOpensManager()
+    {
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY2(WorkspaceCatalog::create(catalog, QStringLiteral("Research"), QStringLiteral("RS"), error), qPrintable(error));
+        QVERIFY2(WorkspaceCatalog::create(catalog, QStringLiteral("Media"), QStringLiteral("MD"), error), qPrintable(error));
+        const QString research = catalog.workspaces.first().id;
+        QVERIFY2(WorkspaceCatalog::assignLocation(catalog, WorkspaceCatalog::locationId(QUrl::fromLocalFile(QStringLiteral("/srv/a"))), research, error),
+                 qPrintable(error));
+        QVERIFY2(WorkspaceCatalog::activate(catalog, research, error), qPrintable(error));
+        QVERIFY2(WorkspaceCatalog::save(KSharedConfig::openConfig()->group(QStringLiteral("Workspaces")), catalog, error), qPrintable(error));
+        KSharedConfig::openConfig()->sync();
+
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *summary = dialog.findChild<QListWidget *>(QStringLiteral("workspaceSummary"));
+        auto *manage = dialog.findChild<QPushButton *>(QStringLiteral("manageWorkspaces"));
+        QVERIFY(summary && manage);
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("workspaceSecurityNotice")));
+        QCOMPARE(summary->count(), 2);
+        QVERIFY(summary->item(0)->text().contains(QStringLiteral("Research (RS)")));
+        QVERIFY(summary->item(0)->text().contains(QStringLiteral("1 assigned location")));
+        QVERIFY(summary->item(0)->text().contains(QStringLiteral("active")));
+        QVERIFY(!summary->item(1)->text().contains(QStringLiteral("active")));
+        QSignalSpy requested(&dialog, &SettingsDialog::manageWorkspacesRequested);
+        manage->click();
+        QCOMPARE(requested.count(), 1);
+
+        QVERIFY2(WorkspaceCatalog::remove(catalog, catalog.workspaces.last().id, error), qPrintable(error));
+        QVERIFY2(WorkspaceCatalog::save(KSharedConfig::openConfig()->group(QStringLiteral("Workspaces")), catalog, error), qPrintable(error));
+        KSharedConfig::openConfig()->sync();
+        dialog.reloadWorkspaces();
+        QCOMPARE(summary->count(), 1);
     }
 
     void toolbarSettingsOpenExistingEditors()
