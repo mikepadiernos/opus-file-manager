@@ -9,6 +9,9 @@
 
 class AccentColorChooser;
 class ColorSchemeCombo;
+class EmbeddedMetadataKeyList;
+class EmbeddedMetadataMappingTable;
+class FieldTemplateEditor;
 class KPageWidgetItem;
 class PreviewSizeSpinBox;
 class QCheckBox;
@@ -169,6 +172,9 @@ private:
     QWidget *createTaggingTagsPage();
     QWidget *createTaggingSearchPage();
     QWidget *createTaggingFieldsPage();
+    QWidget *createTaggingEmbeddedMetadataPage();
+    /// Offers the fields of the registered libraries and of new libraries as embedded metadata targets.
+    void reloadEmbeddedMetadataFields();
     /// Lists the registered libraries in the Fields tab, keeping the chosen one when it is still registered, and reloads its fields.
     void reloadFieldLibraries();
     /// Lists the registered tag libraries with their storage and state, selecting @p select when listed.
@@ -216,6 +222,8 @@ private:
     QComboBox *m_fieldLibrary = nullptr;
     QLabel *m_noFieldLibraries = nullptr;
     TagFieldManagerWidget *m_fieldManager = nullptr;
+    FieldTemplateEditor *m_fieldTemplates = nullptr;
+    EmbeddedMetadataMappingTable *m_metadataMappings = nullptr;
     /// A checkbox for a setting kept outside Settings, in config that KIO
     /// shares with Dolphin.
     struct SharedToggle {

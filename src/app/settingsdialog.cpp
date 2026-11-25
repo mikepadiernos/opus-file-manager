@@ -8,6 +8,7 @@
 #include "customcommanddialog.h"
 #include "density.h"
 #include "doubleshift.h"
+#include "embeddedmetadatasettings.h"
 #include "libraryarchive.h"
 #include "libraryconfirmations.h"
 #include "libraryregistry.h"
@@ -241,7 +242,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createTaggingLibrariesPage(), i18nc("@title:tab", "Libraries")},
                    {createTaggingTagsPage(), i18nc("@title:tab", "Tags")},
                    {createTaggingSearchPage(), i18nc("@title:tab", "Search")},
-                   {createTaggingFieldsPage(), i18nc("@title:tab", "Fields")}},
+                   {createTaggingFieldsPage(), i18nc("@title:tab", "Fields")},
+                   {createTaggingEmbeddedMetadataPage(), i18nc("@title:tab", "Embedded Metadata")}},
                   i18nc("@title:group", "Tagging"),
                   QStringLiteral("tag"));
     addTabbedPage({{createWorkspaceManagementPage(), i18nc("@title:tab", "Management")},
@@ -2927,10 +2929,13 @@ QWidget *SettingsDialog::createTaggingFieldsPage()
         m_fieldManager->setLibrary(m_fieldLibrary->currentData().toString());
     });
     connect(m_fieldManager, &TagFieldManagerWidget::libraryChanged, this, &SettingsDialog::libraryChanged);
+    connect(m_fieldManager, &TagFieldManagerWidget::libraryChanged, this, &SettingsDialog::reloadEmbeddedMetadataFields);
 
     auto *newLibraries = new QGroupBox(i18nc("@title:group", "Fields for New Libraries"), page);
     auto *newLayout = new QVBoxLayout(newLibraries);
     auto *templates = bound(new FieldTemplateEditor(newLibraries), QStringLiteral("NewLibraryFields"), "templates");
+    m_fieldTemplates = templates;
+    connect(templates, &FieldTemplateEditor::templatesChanged, this, &SettingsDialog::reloadEmbeddedMetadataFields);
     templates->setMinimumHeight(140);
     newLayout->addWidget(templates);
     auto *templatesHelp = new QLabel(i18nc("@info",
@@ -2950,6 +2955,92 @@ QWidget *SettingsDialog::createTaggingFieldsPage()
     scroll->setWidgetResizable(true);
     scroll->setWidget(page);
     return scroll;
+}
+
+QWidget *SettingsDialog::createTaggingEmbeddedMetadataPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("taggingEmbeddedMetadataPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *read = new QGroupBox(i18nc("@title:group", "Properties to Read"), page);
+    auto *readLayout = new QVBoxLayout(read);
+    auto *keys = bound(new EmbeddedMetadataKeyList(read), QStringLiteral("DisabledEmbeddedMetadataKeys"), "disabledKeys");
+    readLayout->addWidget(keys);
+    auto *readHelp = new QLabel(i18nc("@info",
+                                      "EXIF properties are read from images and audio tags such as ID3 from audio files. Unchecked properties "
+                                      "aren't read or shown: metadata: search criteria and Select by Query ignore them, the preview panel and "
+                                      "gallery don't show them, and importing doesn't offer them. Files are never changed."),
+                                read);
+    readHelp->setObjectName(QStringLiteral("taggingEmbeddedMetadataReadHelp"));
+    readHelp->setWordWrap(true);
+    readLayout->addWidget(readHelp);
+    layout->addWidget(read);
+
+    auto *import = new QGroupBox(i18nc("@title:group", "Importing into Libraries"), page);
+    auto *importLayout = new QVBoxLayout(import);
+    m_metadataMappings = bound(new EmbeddedMetadataMappingTable(import), QStringLiteral("EmbeddedMetadataMappings"), "mappings");
+    importLayout->addWidget(m_metadataMappings);
+    auto *mappingHelp = new QLabel(i18nc("@info",
+                                         "Tags › Import Embedded Metadata starts with these choices and saves the ones you import with. A "
+                                         "field is found by name in each library, ignoring case; libraries without a suitable field of that "
+                                         "name skip the property. Date fields only take dates. The fields offered are those of your libraries "
+                                         "and of new libraries."),
+                                   import);
+    mappingHelp->setObjectName(QStringLiteral("taggingEmbeddedMetadataMappingHelp"));
+    mappingHelp->setWordWrap(true);
+    importLayout->addWidget(mappingHelp);
+    auto *importForm = new QFormLayout;
+    QComboBox *conflicts = comboBox(QStringLiteral("EmbeddedMetadataConflicts"),
+                                    {i18nc("@item:inlistbox embedded metadata conflicts", "Keep existing values"),
+                                     i18nc("@item:inlistbox embedded metadata conflicts", "Replace existing values")});
+    conflicts->setToolTip(i18nc("@info:tooltip", "What happens when a field already has a different value; the import dialog can change it each time"));
+    importForm->addRow(i18nc("@label:listbox", "Different field values:"), conflicts);
+    importLayout->addLayout(importForm);
+    QCheckBox *onRefresh =
+        checkBox(QStringLiteral("ImportEmbeddedMetadataOnRefresh"), i18nc("@option:check", "Import the metadata of new items when a library is refreshed"));
+    onRefresh->setToolTip(i18nc("@info:tooltip", "Manual and automatic refreshes import the files they add, without a preview"));
+    importLayout->addWidget(onRefresh);
+    auto *refreshHint = new QLabel(i18nc("@info", "Choose how at least one property is imported to import on refresh."), import);
+    refreshHint->setObjectName(QStringLiteral("taggingEmbeddedMetadataRefreshHint"));
+    refreshHint->setWordWrap(true);
+    importLayout->addWidget(refreshHint);
+    layout->addWidget(import);
+    layout->addStretch();
+
+    const auto update = [keys, mappings = m_metadataMappings, onRefresh, refreshHint] {
+        mappings->setVisibleKeys(keys->enabledKeys());
+        const bool mapped = mappings->hasVisibleMappings();
+        onRefresh->setEnabled(mapped);
+        refreshHint->setHidden(mapped);
+    };
+    connect(keys, &EmbeddedMetadataKeyList::disabledKeysChanged, this, update);
+    connect(m_metadataMappings, &EmbeddedMetadataMappingTable::mappingsChanged, this, update);
+    update();
+    reloadEmbeddedMetadataFields();
+
+    auto *scroll = new QScrollArea;
+    scroll->setObjectName(QStringLiteral("taggingEmbeddedMetadataScroll"));
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setWidgetResizable(true);
+    scroll->setWidget(page);
+    return scroll;
+}
+
+void SettingsDialog::reloadEmbeddedMetadataFields()
+{
+    if (!m_metadataMappings) {
+        return;
+    }
+    QList<TagLibrary::Field> fields;
+    for (const QString &root : LibraryRegistry::roots()) {
+        const TagLibrary::Library library = TagLibrary::Library::load(root);
+        fields.append(library.fields());
+    }
+    if (m_fieldTemplates) {
+        fields.append(TagLibrary::parseFieldTemplates(m_fieldTemplates->templates()));
+    }
+    m_metadataMappings->setFields(fields);
 }
 
 void SettingsDialog::reloadFieldLibraries()
@@ -3015,6 +3106,7 @@ void SettingsDialog::reloadLibraries(const QString &select)
     }
     updateLibraryButtons();
     reloadFieldLibraries();
+    reloadEmbeddedMetadataFields();
 }
 
 QString SettingsDialog::selectedLibrary() const

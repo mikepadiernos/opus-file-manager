@@ -3,6 +3,7 @@
 #pragma once
 
 #include "libraryscan.h"
+#include "metadataimport.h"
 #include "taglibrary.h"
 #include "tagsearch.h"
 
@@ -23,6 +24,21 @@ TagSearch::Options tagSearchOptions();
 
 /// The lowercase #rrggbb colour for new tags, or empty for none or an invalid setting.
 QString defaultTagColor();
+
+/// The embedded metadata properties that are read, from Preferences › Tagging › Embedded Metadata.
+QStringList embeddedMetadataKeys();
+
+/// The saved embedded metadata mappings, including those of properties that aren't read.
+MetadataImport::NamedMappings embeddedMetadataMappings();
+
+/// Saves @p mappings as the embedded metadata mappings, without writing the configuration file.
+void setEmbeddedMetadataMappings(const MetadataImport::NamedMappings &mappings);
+
+/// Whether imported embedded metadata keeps or replaces different field values.
+MetadataImport::Policy embeddedMetadataPolicy();
+
+/// Whether library refreshes import embedded metadata: the setting is on and a read property is mapped.
+bool importsEmbeddedMetadataOnRefresh();
 
 /**
  * Moves a tag panel placement remembered in the state configuration by

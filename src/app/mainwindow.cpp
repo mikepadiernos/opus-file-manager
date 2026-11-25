@@ -3534,7 +3534,12 @@ void MainWindow::selectByQuery(bool select)
         }
         const auto query = SearchQuery::Query::parse(edit->text());
         QString message;
-        const int matched = view->applySelectionQuery(query, LibraryRegistry::roots(), TaggingSettings::tagSearchOptions(), select, &message);
+        const int matched = view->applySelectionQuery(query,
+                                                      LibraryRegistry::roots(),
+                                                      TaggingSettings::tagSearchOptions(),
+                                                      TaggingSettings::embeddedMetadataKeys(),
+                                                      select,
+                                                      &message);
         if (matched < 0) {
             status->setText(message);
             return;

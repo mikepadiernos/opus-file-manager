@@ -44,6 +44,32 @@ QString TaggingSettings::defaultTagColor()
     return TagLibrary::isValidColor(color) ? color.toLower() : QString();
 }
 
+QStringList TaggingSettings::embeddedMetadataKeys()
+{
+    return EmbeddedMetadata::enabledKeys(Settings::disabledEmbeddedMetadataKeys());
+}
+
+MetadataImport::NamedMappings TaggingSettings::embeddedMetadataMappings()
+{
+    return MetadataImport::parseMappings(Settings::embeddedMetadataMappings());
+}
+
+void TaggingSettings::setEmbeddedMetadataMappings(const MetadataImport::NamedMappings &mappings)
+{
+    Settings::setEmbeddedMetadataMappings(MetadataImport::serializeMappings(mappings));
+}
+
+MetadataImport::Policy TaggingSettings::embeddedMetadataPolicy()
+{
+    return Settings::embeddedMetadataConflicts() == Settings::EnumEmbeddedMetadataConflicts::Replace ? MetadataImport::Policy::Replace
+                                                                                                     : MetadataImport::Policy::Keep;
+}
+
+bool TaggingSettings::importsEmbeddedMetadataOnRefresh()
+{
+    return Settings::importEmbeddedMetadataOnRefresh() && !MetadataImport::mappedKeys(embeddedMetadataMappings(), embeddedMetadataKeys()).isEmpty();
+}
+
 void TaggingSettings::migrateTagPanelPlacement()
 {
     KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel"));

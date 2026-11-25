@@ -37,6 +37,8 @@ add_library(opusfm_app STATIC
     filelistminimap.h
     editorpanel.cpp
     editorpanel.h
+    embeddedmetadatasettings.cpp
+    embeddedmetadatasettings.h
     filediffdialog.cpp
     filediffdialog.h
     filesplitdialog.cpp

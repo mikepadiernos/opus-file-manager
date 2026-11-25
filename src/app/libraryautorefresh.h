@@ -3,6 +3,7 @@
 #pragma once
 
 #include "libraryscan.h"
+#include "metadataimport.h"
 
 #include <QDateTime>
 #include <QFutureWatcher>
@@ -20,7 +21,10 @@ class QUrl;
  * Preferences › Tagging › Libraries: when Plasma Opus starts or when a folder
  * in a library is opened. One instance serves every window, and libraries
  * are refreshed one at a time, at most once per refresh interval. Manual
- * refreshes take precedence over automatic ones of the same library.
+ * refreshes take precedence over automatic ones of the same library. When
+ * Preferences › Tagging › Embedded Metadata imports on refresh, the embedded
+ * metadata of the files a refresh added is read and imported before the
+ * refresh ends.
  */
 class LibraryAutoRefresh : public QObject
 {
@@ -70,12 +74,22 @@ private:
     explicit LibraryAutoRefresh(QObject *parent);
     void startNext();
     void finish();
+    void finishImport();
 
     QStringList m_queue;
     QString m_current;
     LibraryScan::Options m_options;
     QHash<QString, int> m_manual;
     QFutureWatcher<LibraryScan::Result> m_watcher;
+    QFutureWatcher<QList<EmbeddedMetadata::Reading>> m_importWatcher;
+    /// The library whose embedded metadata is read, with the refresh's message and change, and the import settings.
+    QString m_importRoot;
+    QString m_importMessage;
+    bool m_importChanged = false;
+    MetadataImport::NamedMappings m_mappings;
+    QStringList m_keys;
+    MetadataImport::Policy m_policy = MetadataImport::Policy::Keep;
+    QString m_tagColor;
     std::shared_ptr<std::atomic_bool> m_canceled;
     bool m_startupDone = false;
     bool m_quitting = false;

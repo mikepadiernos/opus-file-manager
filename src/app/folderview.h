@@ -123,11 +123,16 @@ public:
     int applySelectionPathFilter(const PathFilter &filter, bool select, QString *error);
     /**
      * Selects or deselects the listed local items that match @p query, using
-     * @p tagLibraries and @p tagOptions for tag criteria. Content criteria aren't supported.
+     * @p tagLibraries and @p tagOptions for tag criteria, and the embedded metadata
+     * properties @p metadataKeys for metadata criteria. Content criteria aren't supported.
      * @returns the number of matching items, or -1 with @p error set
      */
-    int
-    applySelectionQuery(const SearchQuery::Query &query, const QStringList &tagLibraries, const TagSearch::Options &tagOptions, bool select, QString *error);
+    int applySelectionQuery(const SearchQuery::Query &query,
+                            const QStringList &tagLibraries,
+                            const TagSearch::Options &tagOptions,
+                            const QStringList &metadataKeys,
+                            bool select,
+                            QString *error);
     void clearSelection();
     void selectUrls(const QList<QUrl> &urls);
     bool expandForHistorySelection(const QList<QUrl> &urls);

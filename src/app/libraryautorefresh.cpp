@@ -42,6 +42,7 @@ LibraryAutoRefresh::LibraryAutoRefresh(QObject *parent)
     : QObject(parent)
 {
     connect(&m_watcher, &QFutureWatcher<LibraryScan::Result>::finished, this, &LibraryAutoRefresh::finish);
+    connect(&m_importWatcher, &QFutureWatcher<QList<EmbeddedMetadata::Reading>>::finished, this, &LibraryAutoRefresh::finishImport);
     if (auto *application = QCoreApplication::instance()) {
         connect(application, &QCoreApplication::aboutToQuit, this, [this] {
             m_quitting = true;
@@ -138,8 +139,10 @@ void LibraryAutoRefresh::cancel()
         m_canceled->store(true);
     }
     m_watcher.waitForFinished();
-    // The finished signal may still arrive; with no current library its result is dropped.
+    m_importWatcher.waitForFinished();
+    // The finished signals may still arrive; with no current library their results are dropped.
     m_current.clear();
+    m_importRoot.clear();
 }
 
 QDateTime LibraryAutoRefresh::lastRefresh(const QString &root)
@@ -156,7 +159,7 @@ void LibraryAutoRefresh::recordRefresh(const QString &root, const QDateTime &tim
 
 void LibraryAutoRefresh::startNext()
 {
-    if (m_quitting || m_watcher.isRunning() || !m_current.isEmpty() || m_queue.isEmpty()) {
+    if (m_quitting || m_watcher.isRunning() || m_importWatcher.isRunning() || !m_current.isEmpty() || m_queue.isEmpty()) {
         return;
     }
     m_current = m_queue.takeFirst();
@@ -204,7 +207,63 @@ void LibraryAutoRefresh::finish()
                 message = i18nc("@info:status %1 is a library name, %2 the changes", "Refreshed library %1: %2", name, list);
             }
         }
+        if (applied.saved && !changes.addedFiles.isEmpty() && TaggingSettings::importsEmbeddedMetadataOnRefresh()) {
+            // The library stays current until its new files' metadata is imported.
+            m_current = root;
+            m_importRoot = root;
+            m_importMessage = message;
+            m_importChanged = changed;
+            m_mappings = TaggingSettings::embeddedMetadataMappings();
+            m_keys = TaggingSettings::embeddedMetadataKeys();
+            m_policy = TaggingSettings::embeddedMetadataPolicy();
+            m_tagColor = TaggingSettings::defaultTagColor();
+            const QStringList files = changes.addedFiles;
+            const QStringList keys = MetadataImport::mappedKeys(m_mappings, m_keys);
+            const auto canceled = m_canceled;
+            m_importWatcher.setFuture(QtConcurrent::run([root, files, keys, canceled] {
+                return MetadataImport::readFiles(root, files, keys, [canceled] {
+                    return canceled->load();
+                });
+            }));
+            return;
+        }
         Q_EMIT refreshed(root, message, changed);
     }
+    startNext();
+}
+
+void LibraryAutoRefresh::finishImport()
+{
+    const QString root = std::exchange(m_importRoot, QString());
+    if (root.isEmpty() || root != m_current) {
+        startNext();
+        return;
+    }
+    m_current.clear();
+    QString message = m_importMessage;
+    bool changed = m_importChanged;
+    if (!m_canceled->load() && LibraryRegistry::contains(root)) {
+        const QString name = libraryName(root);
+        MetadataImport::Result result;
+        QString error;
+        if (!MetadataImport::importReadings(root, m_importWatcher.result(), m_mappings, m_keys, m_policy, m_tagColor, &result, &error)) {
+            message = message.isEmpty()
+                ? i18nc("@info:status %1 is a library name, %2 the reason", "Could not import embedded metadata into library %1: %2", name, error)
+                : i18nc("@info:status %1 is a refresh message, %2 the reason", "%1; could not import embedded metadata: %2", message, error);
+        } else if (result.items > 0) {
+            changed = true;
+            message = message.isEmpty() ? i18ncp("@info:status %2 is a library name",
+                                                 "Imported embedded metadata for one item in library %2",
+                                                 "Imported embedded metadata for %1 items in library %2",
+                                                 result.items,
+                                                 name)
+                                        : i18ncp("@info:status %2 is a refresh message",
+                                                 "%2; imported embedded metadata for one item",
+                                                 "%2; imported embedded metadata for %1 items",
+                                                 result.items,
+                                                 message);
+        }
+    }
+    Q_EMIT refreshed(root, message, changed);
     startNext();
 }

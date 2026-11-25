@@ -1531,6 +1531,7 @@ int FolderView::applySelectionPathFilter(const PathFilter &filter, bool select, 
 int FolderView::applySelectionQuery(const SearchQuery::Query &query,
                                     const QStringList &tagLibraries,
                                     const TagSearch::Options &tagOptions,
+                                    const QStringList &metadataKeys,
                                     bool select,
                                     QString *error)
 {
@@ -1563,7 +1564,7 @@ int FolderView::applySelectionQuery(const SearchQuery::Query &query,
             return -1;
         }
         const QString path = item.url().toLocalFile();
-        if (query.matches(QFileInfo(path), {}, tags.matcher(path), EmbeddedMetadata::lazySearchTexts(path))) {
+        if (query.matches(QFileInfo(path), {}, tags.matcher(path), EmbeddedMetadata::lazySearchTexts(path, metadataKeys))) {
             matches.append(index);
         }
     }
