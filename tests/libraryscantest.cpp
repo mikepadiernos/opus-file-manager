@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "libraryscan.h"
+#include "librarymoves.h"
 #include "libraryregistry.h"
 #include "taglibrary.h"
 
@@ -8,6 +9,9 @@
 #include <QDir>
 #include <QDirIterator>
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -58,6 +62,28 @@ private:
         }
         result.sort();
         return result;
+    }
+
+    /// Returns @p library with a tag assigned to the entries at @p tagged.
+    static TagLibrary::Library withTag(const TagLibrary::Library &library, const QStringList &tagged)
+    {
+        QJsonObject document = library.toJson();
+        document[u"tags"_s] = QJsonArray{QJsonObject{{u"id"_s, u"t1"_s}, {u"name"_s, u"Tag"_s}}};
+        QJsonArray entries = document.value(u"entries"_s).toArray();
+        for (qsizetype i = 0; i < entries.size(); ++i) {
+            QJsonObject entry = entries.at(i).toObject();
+            if (tagged.contains(entry.value(u"path"_s).toString())) {
+                entry[u"tags"_s] = QJsonArray{u"t1"_s};
+            }
+            entries[i] = entry;
+        }
+        document[u"entries"_s] = entries;
+        return TagLibrary::Library::fromJson(document, library.root());
+    }
+
+    static void writeLibrary(const TagLibrary::Library &library)
+    {
+        write(library.filePath(), QJsonDocument(library.toJson()).toJson());
     }
 
 private Q_SLOTS:
@@ -204,6 +230,167 @@ private Q_SLOTS:
         QVERIFY(document.open(QIODevice::ReadOnly));
         QCOMPARE(document.readAll(), "not json");
         QCOMPARE(LibraryRegistry::roots(), QStringList{root});
+    }
+
+    void movingPathsKeepsMetadataWithEntries()
+    {
+        QTemporaryDir dir;
+        write(dir.filePath(u"a.txt"_s));
+        write(dir.filePath(u"b.txt"_s));
+        write(dir.filePath(u"Trips/x.jpg"_s));
+        write(dir.filePath(u"Trips/Day 1/y.jpg"_s));
+        write(dir.filePath(u"Tripsy/z.jpg"_s));
+        TagLibrary::Library scanned(dir.path());
+        scanned.applyScan(LibraryScan::scan(dir.path()).items, true);
+        TagLibrary::Library library = withTag(scanned, {u"a.txt"_s, u"Trips/Day 1/y.jpg"_s});
+        const QString aId = library.entry(u"a.txt"_s)->id;
+        const QString bId = library.entry(u"b.txt"_s)->id;
+        const QString yId = library.entry(u"Trips/Day 1/y.jpg"_s)->id;
+
+        // Swapped names move together.
+        QCOMPARE(library.movePaths({{u"a.txt"_s, u"b.txt"_s}, {u"b.txt"_s, u"a.txt"_s}}), 2);
+        QCOMPARE(library.entry(u"b.txt"_s)->id, aId);
+        QCOMPARE(library.entry(u"a.txt"_s)->id, bId);
+
+        // A folder moves with its descendants, but not with a sibling sharing its prefix.
+        QCOMPARE(library.movePaths({{u"Trips"_s, u"Archive/Trips"_s}}), 4);
+        QCOMPARE(library.entry(u"Archive/Trips/Day 1/y.jpg"_s)->id, yId);
+        QCOMPARE(library.entry(u"Archive/Trips/Day 1/y.jpg"_s)->tags, QStringList{u"t1"_s});
+        QVERIFY(library.entry(u"Tripsy/z.jpg"_s));
+        QVERIFY(!library.entry(u"Trips"_s));
+
+        // Overwriting a file replaces the entry that described it.
+        QCOMPARE(library.movePaths({{u"b.txt"_s, u"a.txt"_s}}), 1);
+        QCOMPARE(library.entry(u"a.txt"_s)->id, aId);
+        QVERIFY(!library.entry(u"b.txt"_s));
+        QVERIFY(!library.entryById(bId));
+
+        // Invalid moves change nothing.
+        QCOMPARE(library.movePaths({{u"a.txt"_s, u"../a.txt"_s}, {u"Archive"_s, u"Archive/Inner"_s}, {u"none"_s, u"other"_s}}), 0);
+
+        QCOMPARE(library.markMissing(u"Archive/Trips"_s), 4);
+        QVERIFY(library.entry(u"Archive/Trips/x.jpg"_s)->missing);
+        QVERIFY(!library.entry(u"Tripsy/z.jpg"_s)->missing);
+    }
+
+    void relinkingNeedsAnExplicitChoice()
+    {
+        QTemporaryDir dir;
+        write(dir.filePath(u"photo.jpg"_s), "12345");
+        write(dir.filePath(u"Album/song.mp3"_s));
+        write(dir.filePath(u"other.jpg"_s), "12345");
+        TagLibrary::Library scanned(dir.path());
+        scanned.applyScan(LibraryScan::scan(dir.path()).items, true);
+        TagLibrary::Library library = withTag(scanned, {u"photo.jpg"_s, u"Album/song.mp3"_s, u"other.jpg"_s});
+        const QString photoId = library.entry(u"photo.jpg"_s)->id;
+        const QString albumId = library.entry(u"Album"_s)->id;
+
+        // Moved outside Plasma Opus: a refresh marks the old paths missing and indexes the new ones.
+        QVERIFY(QDir().mkpath(dir.filePath(u"Moved"_s)));
+        QVERIFY(QFile::rename(dir.filePath(u"photo.jpg"_s), dir.filePath(u"Moved/photo.jpg"_s)));
+        QVERIFY(QFile::rename(dir.filePath(u"Album"_s), dir.filePath(u"Music"_s)));
+        write(dir.filePath(u"Copies/photo.jpg"_s), "12345");
+        const TagLibrary::ScanChanges changes = library.applyScan(LibraryScan::scan(dir.path()).items, true);
+        QCOMPARE(changes.missing, 3);
+        QVERIFY(library.entryById(photoId)->missing);
+        QCOMPARE(library.entryById(photoId)->tags, QStringList{u"t1"_s});
+
+        // Candidates are suggested strongest first, never applied.
+        const QStringList candidates = library.relinkCandidates(photoId);
+        QCOMPARE(candidates.size(), 2);
+        QCOMPARE(library.entryById(candidates.first())->path, u"Moved/photo.jpg"_s);
+        QCOMPARE(library.entryById(candidates.last())->path, u"Copies/photo.jpg"_s);
+        QVERIFY(library.entryById(photoId)->missing);
+        QVERIFY(library.relinkCandidates(library.entry(u"other.jpg"_s)->id).isEmpty());
+
+        // Relinking never overwrites an entry with metadata or crosses kinds.
+        TagLibrary::Observation target;
+        QString error;
+        QVERIFY(LibraryScan::observe(dir.path(), dir.filePath(u"other.jpg"_s), &target));
+        QVERIFY(!library.relink(photoId, target, &error));
+        QVERIFY(!error.isEmpty());
+        QVERIFY(LibraryScan::observe(dir.path(), dir.filePath(u"Music"_s), &target));
+        QVERIFY(!library.relink(photoId, target, &error));
+
+        const qsizetype before = library.entries().size();
+        QVERIFY(LibraryScan::observe(dir.path(), dir.filePath(u"Moved/photo.jpg"_s), &target));
+        QVERIFY(library.relink(photoId, target, &error));
+        QCOMPARE(library.entry(u"Moved/photo.jpg"_s)->id, photoId);
+        QVERIFY(!library.entryById(photoId)->missing);
+        QCOMPARE(library.entries().size(), before - 1);
+
+        // A relinked folder brings its missing descendants.
+        QCOMPARE(library.relinkCandidates(albumId).size(), 1);
+        QCOMPARE(library.entryById(library.relinkCandidates(albumId).first())->path, u"Music"_s);
+        QVERIFY(LibraryScan::observe(dir.path(), dir.filePath(u"Music"_s), &target));
+        QVERIFY(library.relink(albumId, target, &error));
+        QCOMPARE(library.entry(u"Music/song.mp3"_s)->tags, QStringList{u"t1"_s});
+        QVERIFY(!library.entry(u"Album/song.mp3"_s));
+        QVERIFY(library.save(&error));
+        QCOMPARE(TagLibrary::Library::load(dir.path()).entry(u"Music/song.mp3"_s)->tags, QStringList{u"t1"_s});
+
+        QCOMPARE(library.removeEntry(library.entry(u"Copies"_s)->id), 1);
+        QVERIFY(library.entry(u"Copies/photo.jpg"_s));
+    }
+
+    void appliesOnlyConfirmedMoves()
+    {
+        QTemporaryDir dir;
+        const QString root = dir.filePath(u"Library"_s);
+        const QString other = dir.filePath(u"Other"_s);
+        write(root + u"/a.txt"_s);
+        write(root + u"/b.txt"_s);
+        write(root + u"/c.txt"_s);
+        write(other + u"/d.txt"_s);
+        TagLibrary::Library scanned(root);
+        scanned.applyScan(LibraryScan::scan(root).items, true);
+        writeLibrary(withTag(scanned, {u"a.txt"_s, u"b.txt"_s, u"c.txt"_s}));
+        const TagLibrary::Library before = TagLibrary::Library::load(root);
+        QVERIFY(!before.isNull());
+
+        QVERIFY(QFile::rename(root + u"/a.txt"_s, root + u"/renamed.txt"_s));
+        QVERIFY(QFile::rename(root + u"/b.txt"_s, other + u"/b.txt"_s));
+        QVERIFY(QFile::rename(other + u"/d.txt"_s, root + u"/d.txt"_s));
+        const LibraryMoves::Outcome outcome = LibraryMoves::apply({{root + u"/a.txt"_s, root + u"/renamed.txt"_s},
+                                                                   {root + u"/b.txt"_s, other + u"/b.txt"_s},
+                                                                   {other + u"/d.txt"_s, root + u"/d.txt"_s},
+                                                                   // Not confirmed: the source still exists.
+                                                                   {root + u"/c.txt"_s, root + u"/elsewhere.txt"_s},
+                                                                   {root, dir.filePath(u"Moved"_s)}},
+                                                                  {root});
+        QCOMPARE(outcome.changed, QStringList{root});
+        QVERIFY(outcome.errors.isEmpty());
+        const TagLibrary::Library after = TagLibrary::Library::load(root);
+        QCOMPARE(after.entry(u"renamed.txt"_s)->id, before.entry(u"a.txt"_s)->id);
+        QCOMPARE(after.entry(u"renamed.txt"_s)->tags, QStringList{u"t1"_s});
+        QVERIFY(after.entry(u"b.txt"_s)->missing);
+        QVERIFY(after.entry(u"d.txt"_s));
+        QVERIFY(after.entry(u"d.txt"_s)->tags.isEmpty());
+        QVERIFY(!after.entry(u"c.txt"_s)->missing);
+        QVERIFY(!after.entry(u"elsewhere.txt"_s));
+
+        // Swapped names are confirmed by identity.
+        TagLibrary::Observation c;
+        TagLibrary::Observation renamed;
+        QVERIFY(LibraryScan::observe(root, root + u"/c.txt"_s, &c));
+        QVERIFY(LibraryScan::observe(root, root + u"/renamed.txt"_s, &renamed));
+        QVERIFY(QFile::rename(root + u"/c.txt"_s, root + u"/swap"_s));
+        QVERIFY(QFile::rename(root + u"/renamed.txt"_s, root + u"/c.txt"_s));
+        QVERIFY(QFile::rename(root + u"/swap"_s, root + u"/renamed.txt"_s));
+        const QString cId = after.entry(u"c.txt"_s)->id;
+        QCOMPARE(LibraryMoves::apply({{root + u"/c.txt"_s, root + u"/renamed.txt"_s, c.device, c.inode},
+                                      {root + u"/renamed.txt"_s, root + u"/c.txt"_s, renamed.device, renamed.inode}},
+                                     {root})
+                     .changed,
+                 QStringList{root});
+        const TagLibrary::Library swapped = TagLibrary::Library::load(root);
+        QCOMPARE(swapped.entry(u"renamed.txt"_s)->id, cId);
+        QCOMPARE(swapped.entry(u"c.txt"_s)->id, after.entry(u"renamed.txt"_s)->id);
+        // A wrong identity is never applied.
+        QVERIFY(LibraryMoves::apply({{root + u"/c.txt"_s, root + u"/renamed.txt"_s, c.device, c.inode + 1}}, {root}).changed.isEmpty());
+
+        // Nothing to apply leaves the document alone.
+        QVERIFY(LibraryMoves::apply({{root + u"/c.txt"_s, root + u"/x.txt"_s}}, {root}).changed.isEmpty());
     }
 };
 
