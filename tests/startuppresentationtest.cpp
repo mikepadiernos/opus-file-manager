@@ -189,6 +189,22 @@ private Q_SLOTS:
         QCOMPARE(presentation.colors().text, QColor(Qt::yellow));
     }
 
+    void previewDrawsTheCard()
+    {
+        const QPalette palette = QApplication::palette();
+        const QPixmap logo = StartupPresentation::renderLogo(Branding::presentationColors(Branding::LogoVariant::DarkText, palette, false), 200, 2.0);
+        QCOMPARE(logo.deviceIndependentSize().toSize(), QSize(200, 41));
+        QCOMPARE(logo.devicePixelRatio(), 2.0);
+        QVERIFY(StartupPresentation::renderLogo({}, 0, 1.0).isNull());
+
+        const QPixmap card = StartupPresentation::preview(Branding::LogoVariant::LightText, palette, false, 320, 1.0);
+        QCOMPARE(card.width(), 320);
+        QVERIFY(card.height() > 320 * 160 / 768);
+        const QImage image = card.toImage();
+        QCOMPARE(image.pixelColor(card.width() / 2, 4), Branding::presentationColors(Branding::LogoVariant::LightText, palette, false).background);
+        QCOMPARE(image.pixelColor(0, 0).alpha(), 0);
+    }
+
     void narrowWindowShrinksLogo()
     {
         Window window;

@@ -4,6 +4,7 @@
 
 #include "archivewriter.h"
 #include "batchrenamedialog.h"
+#include "branding.h"
 #include "customcommanddialog.h"
 #include "filecolorrules.h"
 #include "ignorelist.h"
@@ -81,7 +82,8 @@ private Q_SLOTS:
                                      QStringLiteral("Search"),
                                      QStringLiteral("Workspaces"),
                                      QStringLiteral("WorkspaceSettings"),
-                                     QStringLiteral("ContextMenu")}) {
+                                     QStringLiteral("ContextMenu"),
+                                     QStringLiteral("Branding")}) {
             KSharedConfig::openConfig()->deleteGroup(group);
         }
         KSharedConfig::openConfig(QStringLiteral("kiorc"), KConfig::NoGlobals)->deleteGroup(QStringLiteral("Confirmations"));
@@ -105,6 +107,69 @@ private Q_SLOTS:
         QVERIFY(portability);
         QVERIFY(portability->findChild<QPushButton *>(QStringLiteral("exportWorkspaceProfiles")));
         QVERIFY(portability->findChild<QPushButton *>(QStringLiteral("importWorkspaceProfiles")));
+    }
+
+    void brandingPresentationSettings()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *enabled = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_StartupPresentation"));
+        auto *variant = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_LogoVariant"));
+        auto *preview = dialog.findChild<QLabel *>(QStringLiteral("brandingPreview"));
+        QVERIFY(enabled && variant && preview);
+        auto *tabs = qobject_cast<QTabWidget *>(preview->parentWidget()->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->tabText(tabs->indexOf(preview->parentWidget())), QStringLiteral("Presentation"));
+
+        // Off and following the colour scheme by default, with the logo choice disabled.
+        QVERIFY(!enabled->isChecked());
+        QCOMPARE(variant->currentIndex(), int(Branding::LogoVariant::Automatic));
+        QVERIFY(!variant->isEnabled());
+        QVERIFY(!preview->pixmap().isNull());
+
+        enabled->setChecked(true);
+        QVERIFY(variant->isEnabled());
+        QVERIFY(preview->isEnabled());
+
+        // The preview follows the selected variant.
+        variant->setCurrentIndex(int(Branding::LogoVariant::DarkText));
+        const QImage dark = preview->pixmap().toImage();
+        variant->setCurrentIndex(int(Branding::LogoVariant::LightText));
+        // The dialog tracks user selection in plain combo boxes.
+        Q_EMIT variant->activated(variant->currentIndex());
+        const QImage light = preview->pixmap().toImage();
+        QVERIFY(!dark.isNull() && !light.isNull());
+        QVERIFY(dark != light);
+        const QPoint centre(dark.width() / 2, 4 * dark.devicePixelRatio());
+        QVERIFY(dark.pixelColor(centre).lightnessF() > 0.5);
+        QVERIFY(light.pixelColor(centre).lightnessF() < 0.5);
+
+        // Following the colour scheme, the preview redraws when the palette changes.
+        variant->setCurrentIndex(int(Branding::LogoVariant::Automatic));
+        QPalette palette = preview->palette();
+        palette.setColor(QPalette::Window, QColor(20, 20, 20));
+        palette.setColor(QPalette::WindowText, Qt::white);
+        preview->setPalette(palette);
+        QVERIFY(preview->pixmap().toImage().pixelColor(centre).lightnessF() < 0.5);
+        palette.setColor(QPalette::Window, QColor(240, 240, 240));
+        palette.setColor(QPalette::WindowText, Qt::black);
+        preview->setPalette(palette);
+        QVERIFY(preview->pixmap().toImage().pixelColor(centre).lightnessF() > 0.5);
+        variant->setCurrentIndex(int(Branding::LogoVariant::LightText));
+        Q_EMIT variant->activated(variant->currentIndex());
+
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::startupPresentation());
+        QCOMPARE(int(Settings::logoVariant()), int(Branding::LogoVariant::LightText));
+
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QVERIFY(!enabled->isChecked());
+        QCOMPARE(variant->currentIndex(), int(Branding::LogoVariant::Automatic));
+        QVERIFY(!variant->isEnabled());
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::startupPresentation());
+        QCOMPARE(int(Settings::logoVariant()), int(Branding::LogoVariant::Automatic));
     }
 
     void importsSelectedWorkspaceProfiles()
