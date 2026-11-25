@@ -80,6 +80,13 @@ ordinary local file management.
 - **Disk images and network locations:** Reuse Dolphin's Mount ISO action,
   Solid, and KIO's SMB, FTP and `network:/` workers rather than custom mount or
   discovery code. ([M27](../ROADMAP.md#m27-integrations))
+- **Mounts and remote drives:** List, mount, unmount and eject file systems
+  through Solid and UDisks2, and mount remote locations as local folders through
+  KIO FUSE or installed FUSE backends such as sshfs and davfs2. Keep credentials
+  in KDE's facilities, ask before changing fstab or backend configuration, and
+  unmount only what Plasma Opus mounted.
+  ([#702](https://github.com/mikepadiernos/plasma-opus/issues/702),
+  [#703](https://github.com/mikepadiernos/plasma-opus/issues/703))
 - **Nextcloud:** Reuse KDE accounts, credentials and KIO for optional native
   browsing and asset workflows; leave sync ownership with the desktop client.
   ([M29](../ROADMAP.md#m29-nextcloud-integration),

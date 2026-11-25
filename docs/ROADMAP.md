@@ -1337,6 +1337,17 @@ layouts.
         and KDE applications keep Plasma's in-process dialog. Do not change
         platform themes or environment variables, and report a missing portal
         service or setup failures.
+  - [ ] Mount manager, like Krusader's
+        [MountMan](https://docs.kde.org/trunk_kf6/en/krusader/krusader/mount-man.html):
+        list mounted and fstab-defined file systems with their device, type,
+        mount point, size, free space and a usage chart, optionally showing
+        only removable devices. Open a file system in the active pane, and
+        mount, unmount or eject it through Solid and UDisks2 with KDE's
+        authorization prompts where required. Offer a toolbar quick-mount menu
+        that shows each mount point's current state, and include network and
+        FUSE mounts such as remote drives. Leave partitioning, formatting and
+        fstab editing to KDE Partition Manager. Report busy devices, denied
+        authorization and failed operations. (Krusader)
 
 - **M27.02: Archives and application packages**
 
@@ -1464,6 +1475,23 @@ layouts.
         mounting it on request. Never read, store or change rclone credentials
         or configuration; report missing tools, failed mounts and unsupported
         operations, and stop processes that Plasma Opus started. (MiXplorer)
+  - [ ] Mount remote storage as local folders, like
+        [RaiDrive](https://www.raidrive.com/) drives, so applications without
+        KIO support can open, edit and save files in place. Mount saved SSH,
+        SFTP, WebDAV, FTP or FTPS and SMB profiles, Nextcloud, S3-compatible
+        storage and KDE Online Accounts locations in an empty folder under the
+        user's runtime directory or a chosen location, and show them in Places
+        until unmounted. Prefer KDE's KIO FUSE, and offer installed backends as
+        alternatives to rclone: sshfs for SFTP, davfs2 for WebDAV with its file
+        locks, s3fs-fuse for S3 and the kernel CIFS client for SMB. Offer
+        read-only mounts, mounting at login or when a workspace is activated,
+        and unmounting on exit; stream media from a mount where the backend
+        reads ranges rather than whole files. Never write credentials into
+        fstab, backend configuration or Plasma Opus settings without explicit
+        consent, and use KDE credential facilities where the backend accepts
+        them. Report missing FUSE support or tools, mounts that need an fstab
+        entry or administrator authorization, stale or busy mounts and failed
+        unmounts; unmount only what Plasma Opus mounted. (RaiDrive)
   - [ ] Temporary LAN sharing: serve selected files or a folder over HTTP or
         WebDAV to devices on the local network, with optional TLS, a QR code,
         a random access token, read-only access by default and an optional
@@ -1581,6 +1609,12 @@ Settings for M27 integrations, stored in KConfig.
   - [ ] **Operations:** choose which Plasma Opus-owned operation events produce
         notifications; use KDE's notification settings for shared controls
 
+- **Mount manager**
+
+  - [ ] **Display:** show only removable devices by default, hide pseudo, snap
+        and other system file systems, and show the quick-mount menu on the
+        toolbar
+
 - **Baloo**
 
   - [ ] **Search:** choose whether to offer fuzzy ranking and live-search
@@ -1643,6 +1677,10 @@ Settings for M27 integrations, stored in KConfig.
 
   - [ ] **rclone:** enable the integration, choose which remotes to show and
         whether to serve them over WebDAV or mount them
+  - [ ] **Remote drives:** choose the mount backend for each protocol from KIO
+        FUSE and installed alternatives, the mount folder, read-only by
+        default, and whether to mount at login or workspace activation and
+        unmount on exit
 
 - **LAN sharing**
 
@@ -2096,7 +2134,8 @@ interfaces. The additions above draw on these sources:
   [source and destination](https://docs.dopus.com/doku.php?id=basic_concepts:source_and_destination)
   and
   [filter bar](https://docs.dopus.com/doku.php?id=basic_concepts:searching_and_filtering:filter_bar).
-- [Krusader synchronizer](https://docs.kde.org/trunk_kf6/en/krusader/krusader/synchronizer.html)
+- [Krusader synchronizer](https://docs.kde.org/trunk_kf6/en/krusader/krusader/synchronizer.html),
+  [MountMan](https://docs.kde.org/trunk_kf6/en/krusader/krusader/mount-man.html)
   and
   [features](https://docs.kde.org/trunk_kf6/en/krusader/krusader/features.html).
 - [Max File Manager](https://github.com/majidasgari/max-file-manager), alongside
@@ -2104,6 +2143,9 @@ interfaces. The additions above draw on these sources:
   inventories.
 - [Strata](https://github.com/lgse/strata), especially its opt-in system file
   chooser served through the XDG file chooser portal.
+- [RaiDrive](https://www.raidrive.com/), which mounts cloud, S3-compatible and
+  NAS storage as local drives, informing remote drives built on KIO FUSE and
+  FUSE backends as alternatives to rclone.
 - [MiXplorer](https://mixplorer.com/) and its
   [MiX Silver listing](https://play.google.com/store/apps/details?id=com.mixplorer.silver),
   an Android file manager whose encrypted containers, file encryption, LAN
