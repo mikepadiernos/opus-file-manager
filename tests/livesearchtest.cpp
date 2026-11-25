@@ -3,11 +3,16 @@
 #include "livesearch.h"
 #include "taglibrary.h"
 
+#include <KPluginMetaData>
+
 #include <QDir>
 #include <QFile>
+#include <QImage>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+
+#include <algorithm>
 
 class LiveSearchTest : public QObject
 {
@@ -253,6 +258,42 @@ private Q_SLOTS:
         QVERIFY(LiveSearch::find(root.path(), QStringLiteral("tag:kitty"), LiveSearch::Field::Query, {}, {}, {}, 200000, &libraries, names).paths.isEmpty());
         QCOMPARE(LiveSearch::find(root.path(), QStringLiteral("tag:cat"), LiveSearch::Field::Query, {}, {}, {}, 200000, &libraries, names).paths,
                  QStringList{root.filePath(QStringLiteral("cat.jpg"))});
+    }
+
+    void searchesOnlyReadEmbeddedMetadata()
+    {
+        const auto plugins = KPluginMetaData::findPlugins(QStringLiteral("kf6/kfilemetadata"));
+        if (std::none_of(plugins.cbegin(), plugins.cend(), [](const KPluginMetaData &plugin) {
+                return plugin.pluginId().contains(QLatin1String("exiv2"));
+            })) {
+            QSKIP("No EXIF metadata extractor is installed");
+        }
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        // A JPEG whose EXIF data names the camera maker "Acme".
+        const QString photo = root.filePath(QStringLiteral("photo.jpg"));
+        QImage image(4, 4, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        QVERIFY(image.save(photo));
+        QFile file(photo);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QByteArray jpeg = file.readAll();
+        file.close();
+        jpeg.insert(2, QByteArray::fromHex("ffe1002745786966000049492a000800000001000f010200050000001a0000000000000041636d6500"));
+        QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        QCOMPARE(file.write(jpeg), jpeg.size());
+        file.close();
+
+        const QStringList none;
+        const auto find = [&root, &none](const QStringList &keys) {
+            return LiveSearch::find(root.path(), QStringLiteral("meta:acme"), LiveSearch::Field::Query, {}, {}, {}, 200000, &none, {}, keys).paths;
+        };
+        QCOMPARE(find(EmbeddedMetadata::keys()), QStringList{photo});
+        QCOMPARE(find({QStringLiteral("manufacturer")}), QStringList{photo});
+        QStringList withoutManufacturer = EmbeddedMetadata::keys();
+        withoutManufacturer.removeAll(QStringLiteral("manufacturer"));
+        QVERIFY(find(withoutManufacturer).isEmpty());
+        QVERIFY(find({}).isEmpty());
     }
 };
 

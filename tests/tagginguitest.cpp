@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "embeddedmetadata.h"
 #include "fieldeditdialog.h"
 #include "informationpanel.h"
 #include "libraryarchive.h"
@@ -18,6 +19,7 @@
 #include "tageditdialog.h"
 #include "tagfieldmanagerwidget.h"
 #include "taggingcontroller.h"
+#include "taggingsettings.h"
 #include "taggroupdialog.h"
 #include "taggroupmanagerwidget.h"
 #include "taglibrary.h"
@@ -64,6 +66,35 @@ class TaggingUiTest : public QObject
         QFile file(path);
         QVERIFY(file.open(QIODevice::WriteOnly));
         file.write("data");
+    }
+
+    static bool hasExifExtractor()
+    {
+        const auto plugins = KPluginMetaData::findPlugins(QStringLiteral("kf6/kfilemetadata"));
+        return std::any_of(plugins.cbegin(), plugins.cend(), [](const KPluginMetaData &plugin) {
+            return plugin.pluginId().contains(QLatin1String("exiv2"));
+        });
+    }
+
+    /// Writes a JPEG whose EXIF data names the camera maker "Acme", returning its contents.
+    static QByteArray writeExifJpeg(const QString &path)
+    {
+        QImage image(4, 4, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        if (!image.save(path)) {
+            return {};
+        }
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly)) {
+            return {};
+        }
+        QByteArray jpeg = file.readAll();
+        file.close();
+        jpeg.insert(2, QByteArray::fromHex("ffe1002745786966000049492a000800000001000f010200050000001a0000000000000041636d6500"));
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate) || file.write(jpeg) != jpeg.size()) {
+            return {};
+        }
+        return jpeg;
     }
 
     static void refresh(const QString &root, TagLibrary::ScanChanges *changes, QString *message, bool cancel = false)
@@ -984,27 +1015,18 @@ private Q_SLOTS:
 
     void importsEmbeddedMetadata()
     {
-        const auto plugins = KPluginMetaData::findPlugins(QStringLiteral("kf6/kfilemetadata"));
-        if (std::none_of(plugins.cbegin(), plugins.cend(), [](const KPluginMetaData &plugin) {
-                return plugin.pluginId().contains(QLatin1String("exiv2"));
-            })) {
+        if (!hasExifExtractor()) {
             QSKIP("No EXIF metadata extractor is installed");
         }
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
-        // A JPEG whose EXIF data names the camera maker "Acme".
         const QString photo = dir.filePath(QStringLiteral("photo.jpg"));
-        QImage image(4, 4, QImage::Format_RGB32);
-        image.fill(Qt::red);
-        QVERIFY(image.save(photo));
-        QFile file(photo);
-        QVERIFY(file.open(QIODevice::ReadOnly));
-        QByteArray jpeg = file.readAll();
-        file.close();
-        jpeg.insert(2, QByteArray::fromHex("ffe1002745786966000049492a000800000001000f010200050000001a0000000000000041636d6500"));
-        QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
-        QCOMPARE(file.write(jpeg), jpeg.size());
-        file.close();
+        const QByteArray jpeg = writeExifJpeg(photo);
+        QVERIFY(!jpeg.isEmpty());
         const QString notes = dir.filePath(QStringLiteral("notes.txt"));
         write(notes);
         QCOMPARE(LibraryRegistry::create(dir.path()), QString());
@@ -1027,10 +1049,11 @@ private Q_SLOTS:
             auto *apply = dialog.findChild<QPushButton *>(QStringLiteral("metadataImportApply"));
             auto *changes = dialog.findChild<QTreeWidget *>(QStringLiteral("metadataImportChanges"));
             QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("metadataImportEditEmbedded"))->isVisibleTo(&dialog));
-            // A field named like the property is suggested.
+            // A field named like the property is suggested, and the conflict policy defaults to keeping values.
             QComboBox *maker = dialog.mapping(QStringLiteral("manufacturer"));
             QVERIFY(maker);
             QCOMPARE(maker->currentData().toString(), QStringLiteral("maker"));
+            QVERIFY(!dialog.findChild<QCheckBox *>(QStringLiteral("metadataImportReplace"))->isChecked());
             QVERIFY(preview->isEnabled());
             QVERIFY(!apply->isEnabled());
 
@@ -1054,6 +1077,10 @@ private Q_SLOTS:
             QCOMPARE(dialog.importResult().valuesSet, 1);
             QCOMPARE(dialog.result(), int(QDialog::Accepted));
         }
+        // The import saves the mappings by field name.
+        QCOMPARE(Settings::embeddedMetadataMappings(), QStringList{QStringLiteral("manufacturer=field:Manufacturer")});
+        QCOMPARE(KSharedConfig::openConfig()->group(QStringLiteral("Tagging")).readEntry("EmbeddedMetadataMappings", QStringList()),
+                 Settings::embeddedMetadataMappings());
         TagLibrary::Library library = TagLibrary::Library::load(dir.path());
         QCOMPARE(library.entry(QStringLiteral("photo.jpg"))->fields.value(QStringLiteral("maker")), QStringLiteral("Acme"));
         QVERIFY(library.findTags(QStringLiteral("Acme")).isEmpty());
@@ -1127,6 +1154,137 @@ private Q_SLOTS:
         status.clear();
         actions.action(QStringLiteral("import_metadata"))->trigger();
         QVERIFY(!status.isEmpty());
+
+        // Saved mappings and the conflict policy are preselected; mappings of properties not shown are kept.
+        Settings::setEmbeddedMetadataMappings({QStringLiteral("genre=tags"), QStringLiteral("manufacturer=tags")});
+        Settings::setEmbeddedMetadataConflicts(Settings::EnumEmbeddedMetadataConflicts::Replace);
+        {
+            MetadataImportDialog dialog(dir.path(), {photo});
+            QTRY_VERIFY(dialog.isReady());
+            QCOMPARE(dialog.mapping(QStringLiteral("manufacturer"))->currentData().toString(), MetadataImport::tagsTarget());
+            QVERIFY(dialog.findChild<QCheckBox *>(QStringLiteral("metadataImportReplace"))->isChecked());
+            QVERIFY(dialog.preview());
+            QCOMPARE(dialog.plan().count(MetadataImport::Action::CreateTag), 1);
+            QVERIFY(dialog.import());
+        }
+        QCOMPARE(Settings::embeddedMetadataMappings(), (QStringList{QStringLiteral("manufacturer=tags"), QStringLiteral("genre=tags")}));
+        QCOMPARE(TagLibrary::Library::load(dir.path()).findTags(QStringLiteral("Acme")).size(), 1);
+
+        // Properties that aren't read are not listed.
+        Settings::setDisabledEmbeddedMetadataKeys({QStringLiteral("manufacturer")});
+        {
+            MetadataImportDialog dialog(dir.path(), {photo});
+            QTRY_VERIFY(dialog.isReady());
+            QVERIFY(!dialog.mapping(QStringLiteral("manufacturer")));
+            QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("metadataImportIntro"))->text().contains(QStringLiteral("turned off")));
+            QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("metadataImportPreview"))->isEnabled());
+        }
+        Settings::setDisabledEmbeddedMetadataKeys(EmbeddedMetadata::keys());
+        {
+            MetadataImportDialog dialog(dir.path(), {photo});
+            QTRY_VERIFY(dialog.isReady());
+            QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("metadataImportIntro"))->text().contains(QStringLiteral("every property")));
+        }
+    }
+
+    void importsEmbeddedMetadataOnRefresh()
+    {
+        if (!hasExifExtractor()) {
+            QSKIP("No EXIF metadata extractor is installed");
+        }
+        const auto restore = qScopeGuard([] {
+            LibraryAutoRefresh::instance()->cancel();
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString root = dir.filePath(QStringLiteral("Photos"));
+        QVERIFY(QDir().mkpath(root));
+        QVERIFY(!writeExifJpeg(root + QStringLiteral("/old.jpg")).isEmpty());
+        QCOMPARE(LibraryRegistry::create(root), QString());
+        QString error;
+        QVERIFY2(TagLibrary::update(
+                     root,
+                     [](TagLibrary::Library &library, QString *problem) {
+                         return library.setField({QStringLiteral("maker"), QStringLiteral("Camera Maker"), TagLibrary::FieldType::Text}, problem);
+                     },
+                     &error),
+                 qPrintable(error));
+        const auto refreshWithImport = [&root](QString *message, int *imported, int *changes) {
+            LibraryRefreshDialog dialog(root);
+            QSignalSpy finished(&dialog, &LibraryRefreshDialog::refreshFinished);
+            QSignalSpy changed(&dialog, &LibraryRefreshDialog::libraryChanged);
+            dialog.start();
+            QVERIFY(finished.wait(10000) || finished.count() == 1);
+            QVERIFY(!dialog.isRunning());
+            *message = dialog.message();
+            *imported = dialog.importedItems();
+            *changes = int(changed.count());
+        };
+        QString message;
+        int imported = -1;
+        int changes = 0;
+
+        // Without mappings, refreshing only indexes.
+        Settings::setImportEmbeddedMetadataOnRefresh(true);
+        QVERIFY(!TaggingSettings::importsEmbeddedMetadataOnRefresh());
+        refreshWithImport(&message, &imported, &changes);
+        QCOMPARE(imported, 0);
+        QCOMPARE(changes, 1);
+        QVERIFY(!message.contains(QStringLiteral("embedded metadata")));
+        QVERIFY(TagLibrary::Library::load(root).entry(QStringLiteral("old.jpg"))->fields.isEmpty());
+
+        // With mappings, the files a refresh adds are imported, matching the field by name; indexed files are not.
+        Settings::setEmbeddedMetadataMappings({QStringLiteral("manufacturer=field:camera maker")});
+        QVERIFY(TaggingSettings::importsEmbeddedMetadataOnRefresh());
+        QVERIFY(!writeExifJpeg(root + QStringLiteral("/new.jpg")).isEmpty());
+        write(root + QStringLiteral("/notes.txt"));
+        refreshWithImport(&message, &imported, &changes);
+        QCOMPARE(imported, 1);
+        QCOMPARE(changes, 2);
+        QVERIFY2(message.contains(QStringLiteral("Imported embedded metadata for one item.")), qPrintable(message));
+        TagLibrary::Library library = TagLibrary::Library::load(root);
+        QCOMPARE(library.entry(QStringLiteral("new.jpg"))->fields.value(QStringLiteral("maker")), QStringLiteral("Acme"));
+        QVERIFY(library.entry(QStringLiteral("old.jpg"))->fields.isEmpty());
+        QVERIFY(library.entry(QStringLiteral("notes.txt")));
+
+        // A refresh that adds nothing imports nothing.
+        refreshWithImport(&message, &imported, &changes);
+        QCOMPARE(imported, 0);
+        QVERIFY(!message.contains(QStringLiteral("embedded metadata")));
+
+        // Tags created by the import get the default tag colour.
+        Settings::setEmbeddedMetadataMappings({QStringLiteral("manufacturer=tags")});
+        Settings::setDefaultTagColor(QStringLiteral("#336699"));
+        QVERIFY(!writeExifJpeg(root + QStringLiteral("/third.jpg")).isEmpty());
+        refreshWithImport(&message, &imported, &changes);
+        QCOMPARE(imported, 1);
+        library = TagLibrary::Library::load(root);
+        const QStringList acme = library.findTags(QStringLiteral("Acme"));
+        QCOMPARE(acme.size(), 1);
+        QCOMPARE(library.tag(acme.constFirst())->color, QStringLiteral("#336699"));
+        QCOMPARE(library.entry(QStringLiteral("third.jpg"))->tags, acme);
+
+        // Automatic refreshes import too, and say so.
+        LibraryAutoRefresh *refresher = LibraryAutoRefresh::instance();
+        QSignalSpy refreshed(refresher, &LibraryAutoRefresh::refreshed);
+        QVERIFY(!writeExifJpeg(root + QStringLiteral("/fourth.jpg")).isEmpty());
+        refresher->enqueue(root, true);
+        QVERIFY(refreshed.wait(10000));
+        QCOMPARE(refreshed.constLast().at(0).toString(), root);
+        QCOMPARE(refreshed.constLast().at(1).toString(), QStringLiteral("Refreshed library Photos: 1 added; imported embedded metadata for one item"));
+        QVERIFY(refreshed.constLast().at(2).toBool());
+        QVERIFY(!refresher->isPending(root));
+        QCOMPARE(TagLibrary::Library::load(root).entry(QStringLiteral("fourth.jpg"))->tags, acme);
+
+        // Disabled properties are not imported.
+        Settings::setDisabledEmbeddedMetadataKeys({QStringLiteral("manufacturer")});
+        QVERIFY(!TaggingSettings::importsEmbeddedMetadataOnRefresh());
+        QVERIFY(!writeExifJpeg(root + QStringLiteral("/fifth.jpg")).isEmpty());
+        refreshWithImport(&message, &imported, &changes);
+        QCOMPARE(imported, 0);
+        QVERIFY(TagLibrary::Library::load(root).entry(QStringLiteral("fifth.jpg"))->tags.isEmpty());
     }
 
     void exportsAndRestoresTheLibrary()

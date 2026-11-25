@@ -6,6 +6,8 @@
 #include "batchrenamedialog.h"
 #include "branding.h"
 #include "customcommanddialog.h"
+#include "embeddedmetadata.h"
+#include "embeddedmetadatasettings.h"
 #include "filecolorrules.h"
 #include "ignorelist.h"
 #include "libraryarchive.h"
@@ -699,6 +701,163 @@ private Q_SLOTS:
         QVERIFY(templates->templates().isEmpty());
         dialog.button(QDialogButtonBox::Apply)->click();
         QVERIFY(Settings::newLibraryFields().isEmpty());
+    }
+
+    void taggingEmbeddedMetadataSettings()
+    {
+        for (const QString &root : LibraryRegistry::roots()) {
+            LibraryRegistry::remove(root);
+        }
+        const auto cleanup = qScopeGuard([] {
+            for (const QString &root : LibraryRegistry::roots()) {
+                LibraryRegistry::remove(root);
+            }
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        QTemporaryDir dir;
+        const QString photos = dir.filePath(QStringLiteral("Photos"));
+        QVERIFY(QDir().mkpath(photos));
+        QVERIFY(LibraryRegistry::create(photos,
+                                        TagLibrary::Storage::LibraryFolder,
+                                        TagLibrary::parseFieldTemplates({QStringLiteral("text:Camera"), QStringLiteral("date:Shot on")}))
+                    .isEmpty());
+        Settings::setNewLibraryFields({QStringLiteral("text:Caption"), QStringLiteral("text:camera")});
+        Settings::self()->save();
+
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        const auto group = [] {
+            return KSharedConfig::openConfig()->group(QStringLiteral("Tagging"));
+        };
+
+        // The Embedded Metadata tab is the last Tagging tab, after Fields.
+        auto *scroll = dialog.findChild<QWidget *>(QStringLiteral("taggingEmbeddedMetadataScroll"));
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("taggingEmbeddedMetadataPage"));
+        QVERIFY(scroll && page);
+        auto *tabs = qobject_cast<QTabWidget *>(scroll->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->tabText(tabs->indexOf(scroll)), QStringLiteral("Embedded Metadata"));
+        QCOMPARE(tabs->indexOf(scroll), tabs->indexOf(dialog.findChild<QWidget *>(QStringLiteral("taggingFieldsScroll"))) + 1);
+        QCOMPARE(tabs->indexOf(scroll), tabs->count() - 1);
+
+        auto *keys = page->findChild<EmbeddedMetadataKeyList *>(QStringLiteral("kcfg_DisabledEmbeddedMetadataKeys"));
+        auto *table = page->findChild<EmbeddedMetadataMappingTable *>(QStringLiteral("kcfg_EmbeddedMetadataMappings"));
+        auto *conflicts = page->findChild<QComboBox *>(QStringLiteral("kcfg_EmbeddedMetadataConflicts"));
+        auto *onRefresh = page->findChild<QCheckBox *>(QStringLiteral("kcfg_ImportEmbeddedMetadataOnRefresh"));
+        auto *hint = page->findChild<QLabel *>(QStringLiteral("taggingEmbeddedMetadataRefreshHint"));
+        QVERIFY(keys && table && conflicts && onRefresh && hint);
+        auto *tree = keys->findChild<QTreeWidget *>(QStringLiteral("embeddedMetadataKeyTree"));
+        auto *mappingTree = table->findChild<QTreeWidget *>(QStringLiteral("embeddedMetadataMappingTable"));
+        QVERIFY(tree && mappingTree);
+        const auto rowHidden = [mappingTree, table](const QString &key) {
+            for (int row = 0; row < mappingTree->topLevelItemCount(); ++row) {
+                if (mappingTree->itemWidget(mappingTree->topLevelItem(row), 1) == table->target(key)) {
+                    return mappingTree->topLevelItem(row)->isHidden();
+                }
+            }
+            return false;
+        };
+
+        // Every property is read by default, grouped by the files it's read from.
+        QCOMPARE(keys->enabledKeys(), EmbeddedMetadata::keys());
+        QVERIFY(keys->disabledKeys().isEmpty());
+        QCOMPARE(tree->topLevelItemCount(), 3);
+        QCOMPARE(tree->topLevelItem(0)->text(0), QStringLiteral("Images"));
+        QCOMPARE(tree->topLevelItem(1)->text(0), QStringLiteral("Audio"));
+        QCOMPARE(tree->topLevelItem(2)->text(0), QStringLiteral("Images and Audio"));
+        QCOMPARE(tree->topLevelItem(0)->child(0)->text(0), EmbeddedMetadata::displayName(EmbeddedMetadata::imageKeys().constFirst()));
+        int listed = 0;
+        for (int group = 0; group < tree->topLevelItemCount(); ++group) {
+            QCOMPARE(tree->topLevelItem(group)->checkState(0), Qt::Checked);
+            listed += tree->topLevelItem(group)->childCount();
+        }
+        QCOMPARE(listed, EmbeddedMetadata::keys().size());
+        QCOMPARE(mappingTree->topLevelItemCount(), EmbeddedMetadata::keys().size());
+
+        // Nothing is imported by default, so importing on refresh is unavailable.
+        QVERIFY(table->mappings().isEmpty());
+        QCOMPARE(table->target(QStringLiteral("genre"))->currentIndex(), 0);
+        QCOMPARE(conflicts->currentIndex(), 0);
+        QVERIFY(!onRefresh->isChecked());
+        QVERIFY(!onRefresh->isEnabled());
+        QVERIFY(!hint->isHidden());
+
+        // Fields of libraries and of new libraries are offered once each, for the properties they can hold.
+        QComboBox *model = table->target(QStringLiteral("model"));
+        QComboBox *taken = table->target(QStringLiteral("photoDateTimeOriginal"));
+        QVERIFY(model && taken);
+        QCOMPARE(model->count(), 4);
+        QCOMPARE(model->itemData(1).toString(), QStringLiteral("tags"));
+        QVERIFY(model->findData(QStringLiteral("field:Camera")) >= 0);
+        QVERIFY(model->findData(QStringLiteral("field:Caption")) >= 0);
+        QCOMPARE(model->findData(QStringLiteral("field:Shot on")), -1);
+        QVERIFY(taken->findData(QStringLiteral("field:Shot on")) >= 0);
+
+        // Unchecking a property hides its mapping, and Apply saves it.
+        keys->setKeyEnabled(QStringLiteral("genre"), false);
+        QCOMPARE(tree->topLevelItem(1)->checkState(0), Qt::PartiallyChecked);
+        QVERIFY(rowHidden(QStringLiteral("genre")));
+        QVERIFY(!rowHidden(QStringLiteral("model")));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::disabledEmbeddedMetadataKeys(), QStringList{QStringLiteral("genre")});
+        QCOMPARE(group().readEntry("DisabledEmbeddedMetadataKeys", QStringList()), QStringList{QStringLiteral("genre")});
+        QVERIFY(!TaggingSettings::embeddedMetadataKeys().contains(QStringLiteral("genre")));
+
+        // Choosing targets allows importing on refresh, and Apply saves the choices.
+        model->setCurrentIndex(model->findData(QStringLiteral("field:Camera")));
+        QComboBox *manufacturer = table->target(QStringLiteral("manufacturer"));
+        manufacturer->setCurrentIndex(manufacturer->findData(QStringLiteral("tags")));
+        QVERIFY(onRefresh->isEnabled());
+        QVERIFY(hint->isHidden());
+        onRefresh->setChecked(true);
+        conflicts->setCurrentIndex(1);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        const QStringList saved{QStringLiteral("manufacturer=tags"), QStringLiteral("model=field:Camera")};
+        QCOMPARE(Settings::embeddedMetadataMappings(), saved);
+        QCOMPARE(group().readEntry("EmbeddedMetadataMappings", QStringList()), saved);
+        QCOMPARE(Settings::embeddedMetadataConflicts(), Settings::EnumEmbeddedMetadataConflicts::Replace);
+        QVERIFY(Settings::importEmbeddedMetadataOnRefresh());
+        QVERIFY(TaggingSettings::importsEmbeddedMetadataOnRefresh());
+        QCOMPARE(TaggingSettings::embeddedMetadataPolicy(), MetadataImport::Policy::Replace);
+
+        // Mappings of unchecked properties are kept but don't allow importing on refresh.
+        keys->setKeyEnabled(QStringLiteral("manufacturer"), false);
+        keys->setKeyEnabled(QStringLiteral("model"), false);
+        QVERIFY(!onRefresh->isEnabled());
+        QVERIFY(!hint->isHidden());
+        QCOMPARE(table->mappings(), saved);
+        keys->setKeyEnabled(QStringLiteral("manufacturer"), true);
+        keys->setKeyEnabled(QStringLiteral("model"), true);
+        QVERIFY(onRefresh->isEnabled());
+
+        // Fields added on the Fields tab are offered at once, keeping the choice.
+        auto *templates = dialog.findChild<FieldTemplateEditor *>(QStringLiteral("kcfg_NewLibraryFields"));
+        QVERIFY(templates);
+        templates->setTemplates({QStringLiteral("text:Caption"), QStringLiteral("text:Lens")});
+        QVERIFY(model->findData(QStringLiteral("field:Lens")) >= 0);
+        QCOMPARE(model->currentData().toString(), QStringLiteral("field:Camera"));
+
+        // A saved field that no library has yet is still shown.
+        table->setMappings({QStringLiteral("album=field:Album Name")});
+        QCOMPARE(table->target(QStringLiteral("album"))->currentData().toString(), QStringLiteral("field:Album Name"));
+        QCOMPARE(table->target(QStringLiteral("model"))->currentIndex(), 0);
+
+        // Defaults read every property and import none.
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QVERIFY(keys->disabledKeys().isEmpty());
+        QVERIFY(!rowHidden(QStringLiteral("genre")));
+        QVERIFY(table->mappings().isEmpty());
+        QCOMPARE(conflicts->currentIndex(), 0);
+        QVERIFY(!onRefresh->isChecked());
+        QVERIFY(!onRefresh->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::disabledEmbeddedMetadataKeys().isEmpty());
+        QVERIFY(Settings::embeddedMetadataMappings().isEmpty());
+        QCOMPARE(Settings::embeddedMetadataConflicts(), Settings::EnumEmbeddedMetadataConflicts::Keep);
+        QVERIFY(!Settings::importEmbeddedMetadataOnRefresh());
     }
 
     void brandingPresentationSettings()

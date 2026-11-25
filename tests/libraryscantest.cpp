@@ -368,12 +368,14 @@ private Q_SLOTS:
         TagLibrary::Library library(dir.path());
         TagLibrary::ScanChanges changes = library.applyScan(LibraryScan::scan(dir.path()).items, true);
         QCOMPARE(changes.added, 2);
+        QCOMPARE(QSet<QString>(changes.addedFiles.cbegin(), changes.addedFiles.cend()), (QSet<QString>{u"a.txt"_s, u"b.txt"_s}));
         const QString id = library.entry(u"a.txt"_s)->id;
 
         QVERIFY(QFile::remove(dir.filePath(u"a.txt"_s)));
         changes = library.applyScan(LibraryScan::scan(dir.path()).items, true);
         QCOMPARE(changes.added, 0);
         QCOMPARE(changes.missing, 1);
+        QVERIFY(changes.addedFiles.isEmpty());
         QVERIFY(library.entry(u"a.txt"_s)->missing);
         QCOMPARE(library.entry(u"a.txt"_s)->id, id);
 
@@ -387,13 +389,22 @@ private Q_SLOTS:
         changes = library.applyScan(LibraryScan::scan(dir.path()).items, true);
         QCOMPARE(changes.found, 1);
         QCOMPARE(changes.added, 1);
+        // Entries found again are not new.
+        QCOMPARE(changes.addedFiles, QStringList{u"c.txt"_s});
         QVERIFY(!library.entry(u"a.txt"_s)->missing);
         QCOMPARE(library.entry(u"a.txt"_s)->size, 7);
         QCOMPARE(library.entry(u"a.txt"_s)->id, id);
 
+        // New folders are not listed as files.
+        QVERIFY(QDir().mkpath(dir.filePath(u"Trips"_s)));
+        write(dir.filePath(u"Trips/d.txt"_s));
+        changes = library.applyScan(LibraryScan::scan(dir.path()).items, true);
+        QCOMPARE(changes.added, 2);
+        QCOMPARE(changes.addedFiles, QStringList{u"Trips/d.txt"_s});
+
         QVERIFY(library.save());
         const TagLibrary::Library loaded = TagLibrary::Library::load(dir.path());
-        QCOMPARE(loaded.entries().size(), 3);
+        QCOMPARE(loaded.entries().size(), 5);
         QCOMPARE(loaded.entry(u"a.txt"_s)->id, id);
     }
 

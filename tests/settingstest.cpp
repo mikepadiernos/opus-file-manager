@@ -250,6 +250,30 @@ private Q_SLOTS:
         QCOMPARE(fields.at(1).type, TagLibrary::FieldType::Date);
         Settings::self()->setDefaults();
 
+        QVERIFY(Settings::disabledEmbeddedMetadataKeys().isEmpty());
+        QCOMPARE(TaggingSettings::embeddedMetadataKeys(), EmbeddedMetadata::keys());
+        QVERIFY(Settings::embeddedMetadataMappings().isEmpty());
+        QVERIFY(TaggingSettings::embeddedMetadataMappings().isEmpty());
+        QCOMPARE(Settings::embeddedMetadataConflicts(), Settings::EnumEmbeddedMetadataConflicts::Keep);
+        QCOMPARE(TaggingSettings::embeddedMetadataPolicy(), MetadataImport::Policy::Keep);
+        QVERIFY(!Settings::importEmbeddedMetadataOnRefresh());
+        QVERIFY(!TaggingSettings::importsEmbeddedMetadataOnRefresh());
+        Settings::setDisabledEmbeddedMetadataKeys({QStringLiteral("genre")});
+        QVERIFY(!TaggingSettings::embeddedMetadataKeys().contains(QStringLiteral("genre")));
+        QCOMPARE(TaggingSettings::embeddedMetadataKeys().size(), EmbeddedMetadata::keys().size() - 1);
+        Settings::setEmbeddedMetadataConflicts(Settings::EnumEmbeddedMetadataConflicts::Replace);
+        QCOMPARE(TaggingSettings::embeddedMetadataPolicy(), MetadataImport::Policy::Replace);
+        // Importing on refresh needs a mapping of a property that is read.
+        Settings::setImportEmbeddedMetadataOnRefresh(true);
+        QVERIFY(!TaggingSettings::importsEmbeddedMetadataOnRefresh());
+        TaggingSettings::setEmbeddedMetadataMappings({{QStringLiteral("genre"), QString()}});
+        QCOMPARE(Settings::embeddedMetadataMappings(), QStringList{QStringLiteral("genre=tags")});
+        QVERIFY(!TaggingSettings::importsEmbeddedMetadataOnRefresh());
+        TaggingSettings::setEmbeddedMetadataMappings({{QStringLiteral("genre"), QString()}, {QStringLiteral("model"), QStringLiteral("Camera")}});
+        QCOMPARE(TaggingSettings::embeddedMetadataMappings().value(QStringLiteral("model")), QStringLiteral("Camera"));
+        QVERIFY(TaggingSettings::importsEmbeddedMetadataOnRefresh());
+        Settings::self()->setDefaults();
+
         // Earlier versions remembered the placement in the state configuration.
         const auto rememberPlacement = [](const QString &placement) {
             KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel"));
@@ -1293,6 +1317,12 @@ private Q_SLOTS:
             QCOMPARE(tabOf(entry), QStringLiteral("Search"));
         }
         QCOMPARE(tabOf(QStringLiteral("NewLibraryFields")), QStringLiteral("Fields"));
+        for (const QString &entry : {QStringLiteral("DisabledEmbeddedMetadataKeys"),
+                                     QStringLiteral("EmbeddedMetadataMappings"),
+                                     QStringLiteral("EmbeddedMetadataConflicts"),
+                                     QStringLiteral("ImportEmbeddedMetadataOnRefresh")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("Embedded Metadata"));
+        }
         QCOMPARE(tabOf(QStringLiteral("InterfaceLanguage")), QStringLiteral("Language and Layout"));
         QCOMPARE(tabOf(QStringLiteral("CustomDateFormat")), QStringLiteral("Dates"));
         QCOMPARE(tabOf(QStringLiteral("StartupMode")), QStringLiteral("Folders and Tabs"));
