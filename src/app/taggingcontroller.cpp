@@ -3,9 +3,11 @@
 #include "taggingcontroller.h"
 
 #include "fieldeditdialog.h"
+#include "libraryexportdialog.h"
 #include "librarymovetracker.h"
 #include "libraryrefreshdialog.h"
 #include "libraryregistry.h"
+#include "libraryrestoredialog.h"
 #include "libraryreviewdialog.h"
 #include "metadataimportdialog.h"
 #include "tagassignment.h"
@@ -92,6 +94,24 @@ TaggingController::TaggingController(QWidget *window, KActionCollection *actions
     import->setIcon(QIcon::fromTheme(QStringLiteral("document-import")));
     import->setToolTip(i18nc("@info:tooltip", "Import EXIF and audio tags of the selected files as library tags or field values"));
 
+    QAction *exportLibrary = actions->addAction(QStringLiteral("export_library"), this, [this] {
+        if (const QString root = currentLibrary(); !root.isEmpty()) {
+            this->exportLibrary(root);
+        }
+    });
+    exportLibrary->setText(i18nc("@action", "Export Library Metadata…"));
+    exportLibrary->setIcon(QIcon::fromTheme(QStringLiteral("document-export")));
+    exportLibrary->setToolTip(i18nc("@info:tooltip", "Save the tags, groups, fields and item metadata of the current library to a file"));
+
+    QAction *restore = actions->addAction(QStringLiteral("restore_library"), this, [this] {
+        if (const QString root = currentLibrary(); !root.isEmpty()) {
+            restoreLibrary(root);
+        }
+    });
+    restore->setText(i18nc("@action", "Restore Library Metadata…"));
+    restore->setIcon(QIcon::fromTheme(QStringLiteral("document-revert")));
+    restore->setToolTip(i18nc("@info:tooltip", "Replace the metadata of the current library with an export, after a preview"));
+
     LibraryMoveTracker *tracker = LibraryMoveTracker::instance();
     connect(tracker, &LibraryMoveTracker::librariesChanged, this, [this](const QStringList &roots) {
         for (const QString &root : roots) {
@@ -122,6 +142,8 @@ void TaggingController::updateActions()
     m_actions->action(QStringLiteral("manage_tags"))->setEnabled(!library.isEmpty());
     m_actions->action(QStringLiteral("edit_fields"))->setEnabled(!library.isEmpty());
     m_actions->action(QStringLiteral("import_metadata"))->setEnabled(!library.isEmpty());
+    m_actions->action(QStringLiteral("export_library"))->setEnabled(!library.isEmpty());
+    m_actions->action(QStringLiteral("restore_library"))->setEnabled(!library.isEmpty());
 }
 
 QStringList TaggingController::selectedPaths(const QString &none, const QString &remote, const QString &link) const
@@ -275,6 +297,31 @@ QWidget *TaggingController::importMetadata(const QStringList &absolutePaths)
                               result.changedSincePreview);
         }
         m_context.status(message + QLatin1Char('.'));
+    });
+    dialog->open();
+    return dialog;
+}
+
+QWidget *TaggingController::exportLibrary(const QString &root)
+{
+    auto *dialog = new LibraryExportDialog(root, m_window);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &LibraryExportDialog::exported, this, [this, root](const QString &path) {
+        m_context.status(i18nc("@info", "Exported the metadata of the library %1 to %2.", root, path));
+    });
+    dialog->open();
+    return dialog;
+}
+
+QWidget *TaggingController::restoreLibrary(const QString &root)
+{
+    auto *dialog = new LibraryRestoreDialog(root, m_window);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &LibraryRestoreDialog::libraryChanged, this, &TaggingController::libraryChanged);
+    connect(dialog, &QDialog::accepted, this, [this, root, dialog] {
+        const QString backup = dialog->backupPath();
+        m_context.status(backup.isEmpty() ? i18nc("@info", "Restored the metadata of the library %1.", root)
+                                          : i18nc("@info", "Restored the metadata of the library %1; the previous metadata was kept in %2.", root, backup));
     });
     dialog->open();
     return dialog;

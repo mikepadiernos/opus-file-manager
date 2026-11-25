@@ -58,6 +58,10 @@ public:
      * they can't be imported together in the status bar and returns null.
      */
     QWidget *importMetadata(const QStringList &absolutePaths);
+    /// Opens the export of @p root's metadata; returns the dialog.
+    QWidget *exportLibrary(const QString &root);
+    /// Opens the restore of @p root's metadata from an export; returns the dialog.
+    QWidget *restoreLibrary(const QString &root);
 
 Q_SIGNALS:
     /// A library was created, removed or changed.

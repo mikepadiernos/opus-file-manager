@@ -140,6 +140,8 @@
       <Action name="create_library"/>
       <Action name="refresh_library"/>
       <Action name="review_library"/>
+      <Action name="export_library"/>
+      <Action name="restore_library"/>
       <Separator/>
       <Action name="remove_library"/>
     </Menu>
