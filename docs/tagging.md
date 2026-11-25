@@ -149,4 +149,47 @@ except the library document.
   couldn't be read, records what it found but marks nothing missing.
 - A missing entry found again at its recorded path is no longer missing.
 
+The refresh summary offers **Review Missing Entries…** when entries are
+missing. **Tags › Refresh Library** and **Tags › Review Missing Entries…**
+act on the library containing the active folder.
+
+### Moves and renames in Plasma Opus
+
+Moves and renames that Plasma Opus starts keep their tags and fields: moving
+or cutting and pasting, dropping, renaming in the rename dialog, renaming
+inline in the cards view, and batch renaming. `LibraryMoveTracker` follows
+them and `LibraryMoves` in `src/core/librarymoves.h` applies them.
+
+- A move is applied only once it is confirmed on disk: the destination has
+  the renamed item's device and inode, or, for KIO moves, the source is gone
+  and the destination exists. Skipped, failed and canceled items aren't
+  applied.
+- Entries below a moved folder move with it, and swapped names are applied
+  together.
+- An entry at an overwritten destination is replaced. When a folder is merged
+  into an existing folder, neither folder's tags are replaced: the moved
+  folder's entry is kept as missing if both have tags or fields.
+- Moving an item out of a library marks its entries missing, and moving an
+  item into a library indexes it without tags. Tags aren't copied between
+  libraries.
+- Copies, and moves and renames made by other programs, aren't followed.
+  The next refresh marks the old paths missing for review.
+
+### Reviewing missing entries
+
+**Review Missing Entries** lists the entries the last refresh didn't find,
+with their tag and field counts. For the selected entry it suggests indexed
+items of the same kind that have no tags or fields and either the same device
+and inode, or the same name and, for files, the same size. Suggestions are
+only shown; metadata moves only when you choose one:
+
+- **Relink to Suggestion** attaches the entry to the selected suggestion.
+- **Choose Item…** attaches it to a file or folder you pick inside the
+  library. Symbolic links and items outside the library are refused.
+- **Forget Entry…** removes the entry and its tags and fields after
+  confirmation. No files are deleted.
+
+Relinking never overwrites an entry that has tags or fields. Relinking a
+folder also relinks the missing entries inside it.
+
 [TagStudio]: https://github.com/TagStudioDev/TagStudio
