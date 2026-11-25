@@ -1154,7 +1154,7 @@ rather than requiring TagStudio or changing the user's folder structure.
 - [x] Manage tags with stable identities, names, aliases, shorthand, colours and
       parent relationships; disambiguate duplicate names and prevent hierarchy
       cycles
-- [ ] Assign and remove multiple tags on selected files and folders from
+- [x] Assign and remove multiple tags on selected files and folders from
       listings or previews, and show assignments in the file interface. Provide
       a searchable, keyboard-accessible tag manager as an embedded pane using
       existing supported placements without replacing file panes.
