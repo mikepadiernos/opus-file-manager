@@ -177,7 +177,9 @@ Preferences also include [tool defaults](docs/ROADMAP.md#m10-tools-settings),
 [workspace settings](docs/ROADMAP.md#m16-workspace-settings). App-local themes,
 colours and view styles from [M17](docs/ROADMAP.md#m17-themes) are configured
 on the Themes page with the [M18 settings](docs/ROADMAP.md#m18-theme-settings),
-and workspaces can save their own appearance.
+and workspaces can save their own appearance. The separate Branding page turns
+the optional startup presentation on and chooses its logo
+([M20](docs/ROADMAP.md#m20-branding-settings)).
 
 ## Safety and limitations
 

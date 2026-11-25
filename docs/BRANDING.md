@@ -82,15 +82,11 @@ recolour, stretch or re-typeset the wordmark.
   light card or light text on a dark card; the folder and "Opus" follow the
   accent colour.
 
-  Until [M20](ROADMAP.md#m20-branding-settings) adds these options to
-  Preferences, set them in `~/.config/opus-file-managerrc`:
-
-  ```ini
-  [Branding]
-  StartupPresentation=true
-  # Automatic, DarkText or LightText
-  LogoVariant=Automatic
-  ```
+  Turn it on and choose the logo in **Preferences ▸ Branding ▸ Presentation**,
+  which previews the card for the current colour scheme. These options are
+  stored in the `[Branding]` group of `~/.config/opus-file-managerrc`,
+  separately from theme settings, and don't change the application name, icon
+  or About dialog.
 
 - **Release materials:** release notes start from the
   [release notes template](releases/TEMPLATE.md), which uses the logo variant

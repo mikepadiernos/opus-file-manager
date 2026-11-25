@@ -225,7 +225,7 @@ The M18 theme settings have these limits
 
 ## Branding
 
-The M19 branding has these limits
+The M19 branding and its M20 settings have these limits
 ([#689](https://github.com/mikepadiernos/plasma-opus/issues/689)):
 
 - **High contrast:** the startup presentation uses the colour scheme's window
@@ -244,19 +244,19 @@ The M19 branding has these limits
   scheme; elsewhere they use their built-in Breeze colours.
 - **Release notes:** the v0.1.0 and v0.2.0 release notes predate the
   [release notes template](releases/TEMPLATE.md) and were not rewritten.
-- **Plasma session:** the presentation and icons have been tested only
-  headlessly, without a Plasma session.
+- **Plasma session:** the presentation, its settings preview and the icons
+  have been tested only headlessly, without a Plasma session.
 
 - **Recommendation:**
   - **High contrast:** read the version and description, which use the text
     colour. If the accent contrasts poorly with the card, choose a stronger
     accent in Plasma's System Settings, or leave the startup presentation off
-    (the default).
+    (the default) in **Preferences ▸ Branding ▸ Presentation**.
   - **Screen readers:** use **Help ▸ About Plasma Opus** for the name, version
     and description.
   - **Duration:** press any key, click or scroll to dismiss the presentation
-    early. Input still reaches the window. Leave the presentation off if it
-    distracts.
+    early. Input still reaches the window. If it distracts, turn it off in
+    **Preferences ▸ Branding ▸ Presentation**.
   - **Icon themes and other desktops:** to see the Plasma Opus icon under a
     theme that overrides it, remove the theme's `org.kde.opusfilemanager` icon
     or choose another icon theme. Outside Plasma, expect the Breeze blue folder.
