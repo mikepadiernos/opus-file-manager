@@ -2,13 +2,17 @@
 
 #include "informationpanel.h"
 
+#include "libraryregistry.h"
 #include "localizeddates.h"
 #include "localizednumbers.h"
 #include "symbolicicon.h"
+#include "tagassignment.h"
 
 #include <KIO/Global>
 #include <KLocalizedString>
 
+#include <QDate>
+#include <QDir>
 #include <QFormLayout>
 #include <QLabel>
 #include <QMenu>
@@ -122,6 +126,7 @@ InformationPanel::InformationPanel(QWidget *parent)
     m_layout->setAlignment(m_panelOptions, Qt::AlignRight);
     m_layout->setFieldGrowthPolicy(QFormLayout::AllNonFixedFieldsGrow);
     m_layout->setContentsMargins(8, 8, 8, 8);
+    rebuild();
 }
 
 void InformationPanel::setTitleVisible(bool visible)
@@ -162,6 +167,56 @@ void InformationPanel::refresh()
         const QString text = valueFor(m_item, field);
         m_values.value(field)->setText(text.isEmpty() ? i18nc("@info:file metadata", "Unavailable") : text);
     }
+    refreshTags();
+}
+
+void InformationPanel::refreshTags()
+{
+    if (!m_tags) {
+        return;
+    }
+    const QString path = m_item.isNull() || !m_item.url().isLocalFile() ? QString() : QDir::cleanPath(m_item.url().toLocalFile());
+    const QString root = path.isEmpty() ? QString() : LibraryRegistry::rootFor(path);
+    const TagLibrary::Library library = root.isEmpty() || root == path ? TagLibrary::Library() : TagAssignment::cachedLibrary(root);
+    m_layout->setRowVisible(m_tags, !library.isNull());
+    m_layout->setRowVisible(m_libraryFields, !library.isNull() && !library.fields().isEmpty());
+    if (library.isNull()) {
+        m_tags->clear();
+        m_tags->setToolTip({});
+        m_libraryFields->clear();
+        return;
+    }
+    const TagLibrary::Entry *entry = library.entry(library.relativePath(path));
+    const QStringList direct = entry ? entry->tags : QStringList();
+    const QString separator = i18nc("@item list separator", ", ");
+    QStringList names;
+    QStringList inherited;
+    for (const QString &id : direct) {
+        names.append(library.displayName(id));
+        for (const QString &ancestor : library.ancestors(id)) {
+            const QString name = library.displayName(ancestor);
+            if (!direct.contains(ancestor) && !inherited.contains(name)) {
+                inherited.append(name);
+            }
+        }
+    }
+    m_tags->setText(names.isEmpty() ? i18nc("@info:file metadata", "No tags") : names.join(separator));
+    m_tags->setToolTip(inherited.isEmpty() ? QString() : i18nc("@info:tooltip", "Inherited tags: %1", inherited.join(separator)));
+
+    QStringList lines;
+    for (const TagLibrary::Field &field : library.fields()) {
+        QString value = entry ? entry->fields.value(field.id) : QString();
+        if (value.isEmpty()) {
+            continue;
+        }
+        if (field.type == TagLibrary::FieldType::Date) {
+            if (const QDate date = QDate::fromString(value, Qt::ISODate); date.isValid()) {
+                value = LocalizedDates::date(date);
+            }
+        }
+        lines.append(i18nc("@info:file metadata field name and value", "%1: %2", field.name, value));
+    }
+    m_libraryFields->setText(lines.isEmpty() ? i18nc("@info:file metadata no field values", "None") : lines.join(QLatin1Char('\n')));
 }
 
 void InformationPanel::rebuild()
@@ -170,11 +225,12 @@ void InformationPanel::rebuild()
         m_layout->removeRow(1);
     }
     m_values.clear();
+    m_tags = nullptr;
+    m_libraryFields = nullptr;
     if (m_fields.isEmpty()) {
         auto *emptyMessage = new QLabel(i18nc("@info", "No metadata fields are enabled."), this);
         emptyMessage->setWordWrap(true);
         m_layout->addRow(emptyMessage);
-        return;
     }
     const auto definitions = fieldDefinitions();
     for (const QString &field : m_fields) {
@@ -191,5 +247,17 @@ void InformationPanel::rebuild()
         m_layout->addRow(definition->second, value);
         m_values.insert(field, value);
     }
+    m_tags = new QLabel(this);
+    m_tags->setObjectName(QStringLiteral("informationTags"));
+    m_tags->setTextFormat(Qt::PlainText);
+    m_tags->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    m_tags->setWordWrap(true);
+    m_layout->addRow(i18nc("@label:file information", "Tags"), m_tags);
+    m_libraryFields = new QLabel(this);
+    m_libraryFields->setObjectName(QStringLiteral("informationLibraryFields"));
+    m_libraryFields->setTextFormat(Qt::PlainText);
+    m_libraryFields->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    m_libraryFields->setWordWrap(true);
+    m_layout->addRow(i18nc("@label:file information tag library fields", "Fields"), m_libraryFields);
     refresh();
 }

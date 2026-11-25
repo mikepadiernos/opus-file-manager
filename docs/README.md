@@ -22,6 +22,7 @@ Find the right guide for using, building and planning Plasma Opus.
 | 📸  | [Screenshots](screenshots/README.md)           | Captured views and how they were made            |
 | 🌐  | [Translations](../po/README.md)                | Catalogue extraction, installation and fallback  |
 | 🎨  | [Branding](BRANDING.md)                        | Name, logo, icons and startup presentation       |
+| 🔖  | [Native tagging](tagging.md)                   | Library format, tags, fields, search and backups |
 | 📝  | [Release notes template](releases/TEMPLATE.md) | Starting point for GitHub release notes          |
 | 🎯  | [Scope and objective](philosophy/scope.md)     | Product direction and boundaries                 |
 | 💡  | [Inspirations](philosophy/inspirations.md)     | Sources and their influence                      |

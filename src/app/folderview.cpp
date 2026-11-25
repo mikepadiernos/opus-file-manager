@@ -2,6 +2,7 @@
 
 #include "folderview.h"
 #include "effectiveappearance.h"
+#include "embeddedmetadata.h"
 
 #include "appearancestyle.h"
 #include "carddelegate.h"
@@ -17,8 +18,10 @@
 #include "labelcolor.h"
 #include "localizeddates.h"
 #include "localizednumbers.h"
+#include "searchquery.h"
 #include "settings.h"
 #include "symbolicicon.h"
+#include "tagsearch.h"
 #include "viewsettings.h"
 
 #include <KCategorizedSortFilterProxyModel>
@@ -1517,6 +1520,54 @@ int FolderView::applySelectionPathFilter(const PathFilter &filter, bool select, 
         if (filter.matches(m_folder.toLocalFile(), item.url().toLocalFile())) {
             matches.append(index);
         }
+    }
+    const auto operation = select ? QItemSelectionModel::Select : QItemSelectionModel::Deselect;
+    for (const QModelIndex &index : std::as_const(matches)) {
+        currentView()->selectionModel()->select(index, operation | QItemSelectionModel::Rows);
+    }
+    return matches.size();
+}
+
+int FolderView::applySelectionQuery(const SearchQuery::Query &query, const QStringList &tagLibraries, bool select, QString *error)
+{
+    if (error) {
+        error->clear();
+    }
+    QString problem;
+    if (!query.isValid()) {
+        problem = query.error();
+    } else if (query.usesContent()) {
+        problem = i18nc("@info", "Selection queries can't use content criteria. Use Search to find text within files.");
+    } else if (!m_folder.isLocalFile()) {
+        problem = i18nc("@info", "Selection queries support local folders only.");
+    }
+    if (!problem.isEmpty()) {
+        if (error) {
+            *error = problem;
+        }
+        return -1;
+    }
+    TagSearch::Context tags(tagLibraries);
+    QList<QModelIndex> matches;
+    for (int row = 0; row < m_proxy->rowCount(); ++row) {
+        const QModelIndex index = m_proxy->index(row, 0);
+        const KFileItem item = m_model->itemForIndex(m_proxy->mapToSource(index));
+        if (!item.url().isLocalFile()) {
+            if (error) {
+                *error = i18nc("@info", "The listing contains a non-local item; no selection was changed.");
+            }
+            return -1;
+        }
+        const QString path = item.url().toLocalFile();
+        if (query.matches(QFileInfo(path), {}, tags.matcher(path), EmbeddedMetadata::lazySearchTexts(path))) {
+            matches.append(index);
+        }
+    }
+    if (!tags.errors().isEmpty()) {
+        if (error) {
+            *error = tags.errors().join(QLatin1Char('\n'));
+        }
+        return -1;
     }
     const auto operation = select ? QItemSelectionModel::Select : QItemSelectionModel::Deselect;
     for (const QModelIndex &index : std::as_const(matches)) {

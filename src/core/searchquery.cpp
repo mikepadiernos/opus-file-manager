@@ -6,6 +6,7 @@
 
 #include <QMimeDatabase>
 
+#include <algorithm>
 #include <cmath>
 #include <optional>
 
@@ -138,6 +139,15 @@ std::optional<Field> fieldNamed(const QString &name)
     if (key == QLatin1String("content") || key == QLatin1String("contents")) {
         return Field::Content;
     }
+    if (key == QLatin1String("tag") || key == QLatin1String("tags")) {
+        return Field::Tag;
+    }
+    if (key == QLatin1String("tagged")) {
+        return Field::Tagged;
+    }
+    if (key == QLatin1String("meta") || key == QLatin1String("metadata")) {
+        return Field::Metadata;
+    }
     return std::nullopt;
 }
 
@@ -221,7 +231,8 @@ QString buildTerm(const Token &token, const QDateTime &now, Term &term)
         const std::optional<Field> field = fieldNamed(token.field);
         if (!field) {
             return i18nc("@info",
-                         "Unknown field “%1”. Use name, path, type, size, modified or content, or quote the text to search for it literally.",
+                         "Unknown field “%1”. Use name, path, type, size, modified, content, tag, tagged or meta, or quote the text to search for it "
+                         "literally.",
                          token.field);
         }
         term.field = *field;
@@ -239,8 +250,14 @@ QString buildTerm(const Token &token, const QDateTime &now, Term &term)
     case Field::Name:
     case Field::Path:
     case Field::Content:
+    case Field::Tag:
+    case Field::Metadata:
         if (ordered(term.comparison)) {
-            return i18nc("@info", "Name, path and content criteria can't use <, <=, > or >=: %1", token.source);
+            if (term.field == Field::Metadata) {
+                return i18nc("@info", "Metadata criteria can't use <, <=, > or >=: %1", token.source);
+            }
+            return term.field == Field::Tag ? i18nc("@info", "Tag criteria can't use <, <=, > or >=: %1", token.source)
+                                            : i18nc("@info", "Name, path and content criteria can't use <, <=, > or >=: %1", token.source);
         }
         if (term.field == Field::Content && term.comparison == Comparison::Equal) {
             return i18nc("@info", "Content criteria match text within files; use content: instead of content=: %1", token.source);
@@ -308,6 +325,22 @@ QString buildTerm(const Token &token, const QDateTime &now, Term &term)
             term.comparison = Comparison::Equal;
         }
         break;
+    case Field::Tagged: {
+        if (ordered(term.comparison)) {
+            return i18nc("@info", "Tag criteria can't use <, <=, > or >=: %1", token.source);
+        }
+        const QString value = term.text.toLower();
+        if (value == QLatin1String("yes") || value == QLatin1String("true")) {
+            term.tagged = true;
+        } else if (value == QLatin1String("no") || value == QLatin1String("false")) {
+            term.tagged = false;
+        } else {
+            return i18nc("@info", "“%1” is not a valid tagged value. Use tagged:yes or tagged:no.", term.text);
+        }
+        term.text = term.tagged ? QStringLiteral("yes") : QStringLiteral("no");
+        term.comparison = Comparison::Contains;
+        break;
+    }
     }
     return {};
 }
@@ -485,7 +518,7 @@ bool matchesText(const Term &term, const QString &value)
     return term.comparison == Comparison::Equal ? value.compare(term.text, Qt::CaseInsensitive) == 0 : value.contains(term.text, Qt::CaseInsensitive);
 }
 
-bool matchesTerm(const Term &term, const QFileInfo &entry, const ContentMatcher &content)
+bool matchesTerm(const Term &term, const QFileInfo &entry, const ContentMatcher &content, const TagMatcher &tags, const MetadataReader &metadata)
 {
     switch (term.field) {
     case Field::Name:
@@ -527,28 +560,40 @@ bool matchesTerm(const Term &term, const QFileInfo &entry, const ContentMatcher 
     }
     case Field::Content:
         return entry.isFile() && content && content(term.text);
+    case Field::Tag:
+    case Field::Tagged:
+        return tags && tags(term);
+    case Field::Metadata: {
+        if (!entry.isFile() || !metadata) {
+            return false;
+        }
+        const QStringList texts = metadata();
+        return std::any_of(texts.cbegin(), texts.cend(), [&term](const QString &text) {
+            return matchesText(term, text);
+        });
+    }
     }
     return false;
 }
 
-bool evaluate(const Node &node, const QFileInfo &entry, const ContentMatcher &content)
+bool evaluate(const Node &node, const QFileInfo &entry, const ContentMatcher &content, const TagMatcher &tags, const MetadataReader &metadata)
 {
     switch (node.kind) {
     case Node::Kind::Term:
-        return matchesTerm(node.term, entry, content);
+        return matchesTerm(node.term, entry, content, tags, metadata);
     case Node::Kind::Not:
-        return !evaluate(node.children.front(), entry, content);
+        return !evaluate(node.children.front(), entry, content, tags, metadata);
     case Node::Kind::And:
     case Node::Kind::Or: {
         const bool all = node.kind == Node::Kind::And;
-        // Check content last so cheap criteria can decide first.
-        for (const bool contentPass : {false, true}) {
+        // Check content and metadata last so cheap criteria can decide first; both read the file.
+        for (const bool slowPass : {false, true}) {
             for (const Node &child : node.children) {
-                const bool isContent = child.kind == Node::Kind::Term && child.term.field == Field::Content;
-                if (isContent != contentPass) {
+                const bool isSlow = child.kind == Node::Kind::Term && (child.term.field == Field::Content || child.term.field == Field::Metadata);
+                if (isSlow != slowPass) {
                     continue;
                 }
-                if (evaluate(child, entry, content) != all) {
+                if (evaluate(child, entry, content, tags, metadata) != all) {
                     return !all;
                 }
             }
@@ -573,7 +618,7 @@ QString describe(const Node &node)
 {
     switch (node.kind) {
     case Node::Kind::Term: {
-        static const char *const names[] = {"name", "path", "type", "size", "modified", "content"};
+        static const char *const names[] = {"name", "path", "type", "size", "modified", "content", "tag", "tagged", "meta"};
         static const char *const operators[] = {":", "=", "<", "<=", ">", ">="};
         QString text = QString::fromLatin1(names[static_cast<int>(node.term.field)]) + QString::fromLatin1(operators[static_cast<int>(node.term.comparison)]);
         const bool prefix = node.term.field == Field::Type && node.term.type == TypeMatch::MimePrefix;
@@ -620,6 +665,28 @@ bool Query::usesContent() const
     return !contentTerms().isEmpty();
 }
 
+bool Query::usesTags() const
+{
+    bool uses = false;
+    if (isValid()) {
+        visitTerms(m_root, [&uses](const Term &term) {
+            uses = uses || term.field == Field::Tag || term.field == Field::Tagged;
+        });
+    }
+    return uses;
+}
+
+bool Query::usesMetadata() const
+{
+    bool uses = false;
+    if (isValid()) {
+        visitTerms(m_root, [&uses](const Term &term) {
+            uses = uses || term.field == Field::Metadata;
+        });
+    }
+    return uses;
+}
+
 QStringList Query::contentTerms() const
 {
     QStringList terms;
@@ -655,9 +722,9 @@ QList<Term> Query::requiredTerms() const
     return terms;
 }
 
-bool Query::matches(const QFileInfo &entry, const ContentMatcher &content) const
+bool Query::matches(const QFileInfo &entry, const ContentMatcher &content, const TagMatcher &tags, const MetadataReader &metadata) const
 {
-    return isValid() && evaluate(m_root, entry, content);
+    return isValid() && evaluate(m_root, entry, content, tags, metadata);
 }
 
 QString Query::toString() const

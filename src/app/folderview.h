@@ -27,6 +27,10 @@ class QAbstractItemView;
 class QListView;
 class QStackedWidget;
 class QTimer;
+namespace SearchQuery
+{
+class Query;
+}
 namespace KIO
 {
 class DirectorySizeJob;
@@ -113,6 +117,12 @@ public:
     void selectAll();
     int applySelectionPattern(const QString &pattern, bool select);
     int applySelectionPathFilter(const PathFilter &filter, bool select, QString *error);
+    /**
+     * Selects or deselects the listed local items that match @p query, using
+     * @p tagLibraries for tag criteria. Content criteria aren't supported.
+     * @returns the number of matching items, or -1 with @p error set
+     */
+    int applySelectionQuery(const SearchQuery::Query &query, const QStringList &tagLibraries, bool select, QString *error);
     void clearSelection();
     void selectUrls(const QList<QUrl> &urls);
     bool expandForHistorySelection(const QList<QUrl> &urls);

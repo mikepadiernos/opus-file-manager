@@ -36,6 +36,7 @@
 #include "gallerywindow.h"
 #include "informationpanel.h"
 #include "labelcolor.h"
+#include "libraryregistry.h"
 #include "linkednavigation.h"
 #include "localizeddates.h"
 #include "pane.h"
@@ -43,6 +44,7 @@
 #include "previewpanel.h"
 #include "searchdefaults.h"
 #include "searchpanel.h"
+#include "searchquery.h"
 #include "searchtoolbaraction.h"
 #include "session.h"
 #include "settings.h"
@@ -51,6 +53,8 @@
 #include "symbolicicon.h"
 #include "tabcolors.h"
 #include "tabmodel.h"
+#include "tagassignment.h"
+#include "taggingcontroller.h"
 #include "terminalpanel.h"
 #include "toolbarcustomizer.h"
 #include "transferqueue.h"
@@ -1607,6 +1611,39 @@ void MainWindow::setupPanels()
     });
     connect(m_informationPanel, &InformationPanel::closeRequested, m_informationDock, &QDockWidget::hide);
     m_informationDock->hide();
+
+    m_tagPanel = new TagPanel;
+    m_tagDock = new QDockWidget(i18nc("@title:window", "Tags"), this);
+    m_tagDock->setObjectName(QStringLiteral("tagDock"));
+    m_tagDock->setWidget(m_tagPanel);
+    m_tagDock->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::RightDockWidgetArea);
+    m_tagDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetClosable);
+    const bool tagsBelow =
+        KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel")).readEntry("Placement", QStringLiteral("right")) == QLatin1String("below");
+    addDockWidget(tagsBelow ? Qt::BottomDockWidgetArea : Qt::RightDockWidgetArea, m_tagDock);
+    m_tagPanel->setPlacement(tagsBelow ? TagPanel::Placement::Below : TagPanel::Placement::Right);
+    m_tagDock->hide();
+    connect(m_tagPanel, &TagPanel::placementRequested, this, &MainWindow::setTagPanelPlacement);
+    connect(m_tagPanel, &TagPanel::closeRequested, m_tagDock, &QDockWidget::hide);
+    connect(m_tagDock, &QDockWidget::dockLocationChanged, this, [this](Qt::DockWidgetArea area) {
+        if (area == Qt::RightDockWidgetArea || area == Qt::BottomDockWidgetArea) {
+            const bool below = area == Qt::BottomDockWidgetArea;
+            m_tagPanel->setPlacement(below ? TagPanel::Placement::Below : TagPanel::Placement::Right);
+            KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel")).writeEntry("Placement", below ? "below" : "right");
+        }
+    });
+    connect(m_tagDock, &QDockWidget::visibilityChanged, this, [this](bool visible) {
+        if (visible) {
+            updateTagPanel();
+            m_tagPanel->reload();
+        } else if (m_tagDock->isHidden() && m_tagDock->property("opusPanelShown").toBool()) {
+            savePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
+        }
+    });
+    connect(m_tagPanel, &TagPanel::libraryChanged, this, [this](const QString &root) {
+        TagAssignment::invalidate(root);
+        updateInformationPanel();
+    });
 }
 
 void MainWindow::setPanelLayout(PanelLayout layout)
@@ -2223,6 +2260,19 @@ void MainWindow::setupActions()
     connect(deselectPaths, &QAction::triggered, this, [this] {
         selectByPathFilter(false);
     });
+    QAction *selectQuery = actions->addAction(QStringLiteral("select_by_query"));
+    selectQuery->setText(i18nc("@action:inmenu", "Select by Query…"));
+    selectQuery->setToolTip(i18nc("@info:tooltip", "Select items that match a search query, such as tag:holiday type:image/*"));
+    selectMenu->addAction(selectQuery);
+    connect(selectQuery, &QAction::triggered, this, [this] {
+        selectByQuery(true);
+    });
+    QAction *deselectQuery = actions->addAction(QStringLiteral("deselect_by_query"));
+    deselectQuery->setText(i18nc("@action:inmenu", "Deselect by Query…"));
+    selectMenu->addAction(deselectQuery);
+    connect(deselectQuery, &QAction::triggered, this, [this] {
+        selectByQuery(false);
+    });
     selectMenu->addSeparator();
     QAction *saveSelection = selectMenu->addAction(i18nc("@action:inmenu", "Save Selection Filter…"));
     connect(saveSelection, &QAction::triggered, this, &MainWindow::saveSelectionFilter);
@@ -2764,6 +2814,58 @@ void MainWindow::setupActions()
         setPanelLayout(index == 0 ? PanelLayout::Combined : PanelLayout::Separate);
     });
 
+    m_tagging = new TaggingController(this,
+                                      actions,
+                                      {[this] {
+                                           return activePane()->url();
+                                       },
+                                       [this] {
+                                           return activePane()->view()->selectedItems();
+                                       },
+                                       [this](const QString &message) {
+                                           showStatusMessage(message);
+                                       }});
+    connect(m_tagging, &TaggingController::libraryChanged, this, [this](const QString &root) {
+        TagAssignment::invalidate(root);
+        if (!m_tagDock->isHidden()) {
+            m_tagPanel->reload();
+        }
+        updateInformationPanel();
+    });
+    connect(m_tagPanel, &TagPanel::manageRequested, m_tagging, [this](const QString &root) {
+        if (!root.isEmpty()) {
+            m_tagging->manageTags(root);
+        }
+    });
+    connect(m_tagging, &TaggingController::editEmbeddedRequested, this, &MainWindow::openMetadataEditor);
+    QAction *tagPanelAction = actions->addAction(QStringLiteral("show_tag_panel"));
+    tagPanelAction->setText(i18nc("@action", "Tag Panel"));
+    tagPanelAction->setIcon(QIcon::fromTheme(QStringLiteral("tag")));
+    tagPanelAction->setCheckable(true);
+    connect(tagPanelAction, &QAction::triggered, this, [this](bool checked) {
+        m_tagDock->setVisible(checked);
+        if (checked) {
+            m_tagDock->setProperty("opusPanelShown", true);
+            restorePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
+        }
+    });
+    connect(m_tagDock, &QDockWidget::visibilityChanged, tagPanelAction, [this, tagPanelAction] {
+        tagPanelAction->setChecked(!m_tagDock->isHidden());
+    });
+    QAction *assignTags = actions->addAction(QStringLiteral("assign_tags"), this, [this] {
+        if (m_tagDock->isHidden()) {
+            m_tagDock->show();
+            m_tagDock->setProperty("opusPanelShown", true);
+            restorePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
+        }
+        m_tagDock->raise();
+        updateTagPanel();
+        m_tagPanel->focusSearch();
+    });
+    assignTags->setText(i18nc("@action", "Assign Tags…"));
+    assignTags->setIcon(QIcon::fromTheme(QStringLiteral("tag")));
+    assignTags->setToolTip(i18nc("@info:tooltip", "Show the tag panel to assign or remove tags on the selected items"));
+
     // Settings
     KStandardAction::preferences(this, &MainWindow::showSettings, actions);
     QAction *showMenuBar = KStandardAction::showMenubar(menuBar(), &QMenuBar::setVisible, actions);
@@ -2923,6 +3025,9 @@ bool MainWindow::queryClose()
     }
     if (m_previewDock && !m_previewDock->isHidden()) {
         savePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
+    }
+    if (m_tagDock && !m_tagDock->isHidden()) {
+        savePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
     }
     for (const auto &dock : std::as_const(m_metadataDocks)) {
         if (dock && !dock->isHidden()) {
@@ -3086,6 +3191,10 @@ void MainWindow::updateActions()
     m_viewModeAction->setIcon(SymbolicIcon::fromTheme(details ? QStringLiteral("view-list-icons") : QStringLiteral("view-list-details")));
     actions->action(QStringLiteral("calculate_occupied_space"))->setEnabled(!view->rootItem().isNull());
     m_jumpBackAction->setEnabled(m_jumpBackPoints.value(activePane()).isValid());
+    if (m_tagging) {
+        m_tagging->updateActions();
+        actions->action(QStringLiteral("assign_tags"))->setEnabled(!m_tagging->currentLibrary().isEmpty());
+    }
     actions->action(QStringLiteral("move_second_pane_to_tab"))->setEnabled(!m_secondPaneInTab);
     actions->action(QStringLiteral("move_second_pane_to_window"))->setEnabled(!m_rightWindow);
     const bool moveToTab = Settings::paneMoveDestination() == Settings::EnumPaneMoveDestination::Tab;
@@ -3358,6 +3467,70 @@ void MainWindow::selectByPathFilter(bool select)
             return;
         }
         showStatusMessage(i18ncp(select ? "@info:status selected items by path" : "@info:status deselected items by path",
+                                 select ? "Selected %1 item" : "Deselected %1 item",
+                                 select ? "Selected %1 items" : "Deselected %1 items",
+                                 matched));
+        dialog.accept();
+    });
+    dialog.exec();
+}
+
+void MainWindow::selectByQuery(bool select)
+{
+    const QPointer<FolderView> view = activePane()->view();
+    if (!view->url().isLocalFile()) {
+        showStatusMessage(i18nc("@info", "Selection queries support local folders only."));
+        return;
+    }
+    const QUrl folder = view->url();
+    QDialog dialog(this);
+    dialog.setObjectName(QStringLiteral("selectionQueryDialog"));
+    dialog.setWindowTitle(select ? i18nc("@title:window", "Select by Query") : i18nc("@title:window", "Deselect by Query"));
+    auto *layout = new QVBoxLayout(&dialog);
+    auto *description = new QLabel(i18nc("@info",
+                                         "Combine name:, path:, type:, size:, modified:, tag: and tagged: criteria with AND, OR, NOT and parentheses. "
+                                         "Applies to the current top-level listing, or all shown items in flat view."),
+                                   &dialog);
+    description->setWordWrap(true);
+    layout->addWidget(description);
+    auto *edit = new QLineEdit(m_selectionQuery, &dialog);
+    edit->setObjectName(QStringLiteral("selectionQuery"));
+    edit->setAccessibleName(i18nc("@label:textbox", "Query"));
+    edit->setPlaceholderText(i18nc("@info:placeholder", "For example: tag:holiday NOT tagged:no"));
+    edit->setClearButtonEnabled(true);
+    layout->addWidget(edit);
+    auto *status = new QLabel(&dialog);
+    status->setObjectName(QStringLiteral("selectionQueryStatus"));
+    status->setTextFormat(Qt::PlainText);
+    status->setWordWrap(true);
+    layout->addWidget(status);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    layout->addWidget(buttons);
+    const auto describe = [edit, status] {
+        if (edit->text().trimmed().isEmpty()) {
+            status->clear();
+            return;
+        }
+        const auto query = SearchQuery::Query::parse(edit->text());
+        status->setText(query.isValid() ? i18nc("@info", "Query: %1", query.toString()) : query.error());
+    };
+    connect(edit, &QLineEdit::textChanged, &dialog, describe);
+    describe();
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, [&] {
+        if (!view || view->url() != folder || view->isLoading()) {
+            status->setText(i18nc("@info", "The folder changed or is still loading. Close this dialog and try again."));
+            return;
+        }
+        const auto query = SearchQuery::Query::parse(edit->text());
+        QString message;
+        const int matched = view->applySelectionQuery(query, LibraryRegistry::roots(), select, &message);
+        if (matched < 0) {
+            status->setText(message);
+            return;
+        }
+        m_selectionQuery = edit->text().trimmed();
+        showStatusMessage(i18ncp(select ? "@info:status selected items by query" : "@info:status deselected items by query",
                                  select ? "Selected %1 item" : "Deselected %1 item",
                                  select ? "Selected %1 items" : "Deselected %1 items",
                                  matched));
@@ -3864,6 +4037,11 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     const bool allLocal = std::all_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
         return !item.localPath().isEmpty();
     });
+    if (allLocal && actions->action(QStringLiteral("assign_tags"))->isEnabled()) {
+        menu.addAction(actions->action(QStringLiteral("assign_tags")));
+        menu.addAction(actions->action(QStringLiteral("edit_fields")));
+        menu.addAction(actions->action(QStringLiteral("import_metadata")));
+    }
     if (allLocal) {
         QMenu *metadata = menu.addMenu(i18nc("@menu", "Metadata"));
         QMenu *labels = metadata->addMenu(i18nc("@menu", "Label"));
@@ -4492,7 +4670,12 @@ void MainWindow::editMetadata()
         showStatusMessage(i18nc("@info", "Select one local regular file to edit metadata."));
         return;
     }
-    auto *dialog = new MetadataEditDialog(items.first().url().toLocalFile(), this);
+    openMetadataEditor(items.first().url().toLocalFile());
+}
+
+void MainWindow::openMetadataEditor(const QString &path)
+{
+    auto *dialog = new MetadataEditDialog(path, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     auto *dock = new MetadataDock(dialog, this);
     dock->setObjectName(QStringLiteral("metadataEditorDock%1").arg(++m_metadataDockSerial));
@@ -4757,6 +4940,9 @@ void MainWindow::saveSplitterSizes()
     if (!m_previewDock->isHidden()) {
         savePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
     }
+    if (!m_tagDock->isHidden()) {
+        savePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
+    }
     for (const auto &dock : std::as_const(m_metadataDocks)) {
         if (dock && !dock->isHidden()) {
             savePanelDockSize(dock, QStringLiteral("MetadataDock"));
@@ -4956,6 +5142,8 @@ void MainWindow::resetSplitterSizes()
     group.writeEntry("PreviewDockBelow", 2500);
     group.writeEntry("MetadataDockRight", 2500);
     group.writeEntry("MetadataDockBelow", 2500);
+    group.writeEntry("TagDockRight", 2000);
+    group.writeEntry("TagDockBelow", 2000);
     state->sync();
     m_splitter->setSizes(QList<int>(m_splitter->count(), 1));
     m_workspaceSplitter->setSizes({3, 1, 1});
@@ -4965,6 +5153,7 @@ void MainWindow::resetSplitterSizes()
         resizeDocks({m_editorDock}, {qMax(1, (right ? width() : height()) / 4)}, right ? Qt::Horizontal : Qt::Vertical);
     }
     restorePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
+    restorePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
     for (const auto &dock : std::as_const(m_metadataDocks)) {
         restorePanelDockSize(dock, QStringLiteral("MetadataDock"));
     }
@@ -4980,6 +5169,9 @@ void MainWindow::setStackedLayout(bool stacked)
         if (!m_previewDock->isHidden()) {
             savePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
         }
+        if (!m_tagDock->isHidden()) {
+            savePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
+        }
         for (const auto &dock : std::as_const(m_metadataDocks)) {
             if (dock && !dock->isHidden()) {
                 savePanelDockSize(dock, QStringLiteral("MetadataDock"));
@@ -4992,6 +5184,7 @@ void MainWindow::setStackedLayout(bool stacked)
     restoreSplitterSizes(true, true, changed);
     restoreEditorDockSize();
     restorePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
+    restorePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
     for (const auto &dock : std::as_const(m_metadataDocks)) {
         restorePanelDockSize(dock, QStringLiteral("MetadataDock"));
     }
@@ -5064,6 +5257,7 @@ void MainWindow::updatePreviewPanel()
 
 void MainWindow::updateInformationPanel()
 {
+    updateTagPanel();
     if (!m_informationPanel) {
         return;
     }
@@ -5084,6 +5278,28 @@ void MainWindow::updateInformationPanel()
 bool MainWindow::isStackedLayout() const
 {
     return m_splitter->orientation() == Qt::Vertical;
+}
+
+void MainWindow::updateTagPanel()
+{
+    if (!m_tagPanel || !m_tagDock || m_tagDock->isHidden() || !m_left) {
+        return;
+    }
+    m_tagPanel->setContext(activePane()->url(), activePane()->view()->selectedItems());
+}
+
+void MainWindow::setTagPanelPlacement(TagPanel::Placement placement)
+{
+    const bool below = placement == TagPanel::Placement::Below;
+    const bool shown = !m_tagDock->isHidden();
+    if (shown) {
+        savePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
+    }
+    addDockWidget(below ? Qt::BottomDockWidgetArea : Qt::RightDockWidgetArea, m_tagDock);
+    m_tagDock->setVisible(shown);
+    m_tagPanel->setPlacement(placement);
+    KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel")).writeEntry("Placement", below ? "below" : "right");
+    restorePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
 }
 
 bool MainWindow::isDualLayout() const
@@ -5319,6 +5535,8 @@ void MainWindow::applyEmbeddedPanelTitles()
     setDockTitleVisible(m_previewDock, visible);
     setDockTitleVisible(m_editorDock, visible);
     setDockTitleVisible(m_informationDock, visible);
+    setDockTitleVisible(m_tagDock, visible);
+    m_tagPanel->setTitleVisible(visible);
     m_informationPanel->setTitleVisible(visible);
     for (const auto &dock : std::as_const(m_metadataDocks)) {
         setDockTitleVisible(dock, visible);

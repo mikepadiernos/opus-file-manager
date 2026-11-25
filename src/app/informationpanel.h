@@ -26,10 +26,14 @@ Q_SIGNALS:
 
 private:
     void refresh();
+    /// Shows the tags of an item in a tag library, with inherited tags in the tooltip, and its library field values.
+    void refreshTags();
     void rebuild();
 
     QFormLayout *m_layout = nullptr;
     QToolButton *m_panelOptions = nullptr;
+    QLabel *m_tags = nullptr;
+    QLabel *m_libraryFields = nullptr;
     KFileItem m_item;
     QStringList m_fields;
     QHash<QString, QLabel *> m_values;

@@ -3,6 +3,7 @@
 #include "searchwidget.h"
 
 #include "indexedsearch.h"
+#include "libraryregistry.h"
 #include "pathfiltereditor.h"
 #include "searchcollection.h"
 #include "searchhistory.h"
@@ -194,8 +195,8 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_field->addItem(i18nc("@item:inlistbox", "Advanced query"));
     m_field->setItemData(QueryField,
                          i18nc("@info:tooltip",
-                               "Combine name:, path:, type:, size:, modified: and content: criteria with AND, OR, NOT and parentheses, "
-                               "for example: report type:pdf size>1M NOT path:archive"),
+                               "Combine name:, path:, type:, size:, modified:, content:, tag: and tagged: criteria with AND, OR, NOT and "
+                               "parentheses, for example: report type:pdf size>1M NOT path:archive"),
                          Qt::ToolTipRole);
     m_scope->setObjectName(QStringLiteral("searchScope"));
     m_scope->addItem(i18nc("@item:inlistbox", "Current folder (live)"));
@@ -1232,8 +1233,10 @@ bool SearchWidget::start()
         }
     }
     const bool multipleRoots = workspaceOnly || searchFolders;
-    m_watcher.setFuture(
-        QtConcurrent::run([folder, text, field, canceled, indexed, filter, multipleRoots, roots, locationErrors](QPromise<LiveSearch::Result> &promise) {
+    // Read on this thread: worker threads keep their own, possibly stale, copy of the configuration.
+    const QStringList libraries = LibraryRegistry::roots();
+    m_watcher.setFuture(QtConcurrent::run(
+        [folder, text, field, canceled, indexed, filter, multipleRoots, roots, locationErrors, libraries](QPromise<LiveSearch::Result> &promise) {
             promise.setProgressRange(0, 200000);
             const LiveSearch::Cancel cancel = [canceled] {
                 return canceled->load();
@@ -1243,10 +1246,10 @@ bool SearchWidget::start()
             };
             LiveSearch::Result result;
             if (!multipleRoots) {
-                result = indexed ? IndexedSearch::find(folder, text, field, cancel, progress, filter)
-                                 : LiveSearch::find(folder, text, field, cancel, progress, filter);
+                result = indexed ? IndexedSearch::find(folder, text, field, cancel, progress, filter, nullptr, &libraries)
+                                 : LiveSearch::find(folder, text, field, cancel, progress, filter, 200000, &libraries);
             } else if (indexed && !roots.isEmpty()) {
-                result = IndexedSearch::find(folder, text, field, cancel, progress, filter, &roots);
+                result = IndexedSearch::find(folder, text, field, cancel, progress, filter, &roots, &libraries);
             } else if (!indexed) {
                 QSet<QString> seen;
                 for (const QString &root : roots) {
@@ -1260,7 +1263,8 @@ bool SearchWidget::start()
                             progress(offset + count, path);
                         },
                         filter,
-                        200000 - offset);
+                        200000 - offset,
+                        &libraries);
                     result.errors.append(part.errors);
                     result.notices.append(part.notices);
                     result.scannedEntries += part.scannedEntries;

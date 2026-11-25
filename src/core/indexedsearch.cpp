@@ -2,7 +2,10 @@
 
 #include "indexedsearch.h"
 
+#include "embeddedmetadata.h"
+#include "libraryregistry.h"
 #include "searchquery.h"
+#include "tagsearch.h"
 
 #include <KLocalizedString>
 
@@ -53,7 +56,8 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
                                        const LiveSearch::Cancel &cancel,
                                        const LiveSearch::Progress &progress,
                                        const PathFilter &filter,
-                                       const QStringList *workspaceRoots)
+                                       const QStringList *workspaceRoots,
+                                       const QStringList *tagLibraries)
 {
     LiveSearch::Result result;
     if (text.trimmed().isEmpty()) {
@@ -161,6 +165,10 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
         }
     }
     const QStringList roots = workspaceRoots ? *workspaceRoots : QStringList{filter.maxDepth >= 0 ? QDir::cleanPath(currentFolder) : QStringLiteral("/")};
+    std::optional<TagSearch::Context> tags;
+    if (query && query->usesTags()) {
+        tags.emplace(tagLibraries ? *tagLibraries : LibraryRegistry::roots());
+    }
     auto iterator = balooQuery(seed, seedIsContent).exec();
     while (iterator.next()) {
         if (cancel && cancel()) {
@@ -187,12 +195,21 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
         }
         if (query) {
             const QFileInfo entry(path);
-            const bool queryMatches = entry.exists() && query->matches(entry, [&](const QString &needle) {
-                if (seedIsContent && needle.compare(seed, Qt::CaseInsensitive) == 0) {
-                    return true;
-                }
-                return contentMatches.value(needle.toCaseFolded()).contains(path);
-            });
+            const qsizetype tagErrors = tags ? tags->errors().size() : 0;
+            const bool queryMatches = entry.exists()
+                && query->matches(
+                    entry,
+                    [&](const QString &needle) {
+                        if (seedIsContent && needle.compare(seed, Qt::CaseInsensitive) == 0) {
+                            return true;
+                        }
+                        return contentMatches.value(needle.toCaseFolded()).contains(path);
+                    },
+                    tags ? tags->matcher(path) : SearchQuery::TagMatcher(),
+                    EmbeddedMetadata::lazySearchTexts(path));
+            if (tags && tags->errors().size() > tagErrors) {
+                result.errors.append(tags->errors().mid(tagErrors));
+            }
             if (!queryMatches) {
                 continue;
             }
@@ -213,6 +230,7 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
     Q_UNUSED(progress)
     Q_UNUSED(seed)
     Q_UNUSED(seedIsContent)
+    Q_UNUSED(tagLibraries)
     result.errors.append(i18nc("@info", "Indexed search is unavailable because Plasma Opus was built without Baloo."));
 #endif
     return result;

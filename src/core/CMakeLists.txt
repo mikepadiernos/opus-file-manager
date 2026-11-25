@@ -55,6 +55,14 @@ add_library(opusfm_core STATIC
     indexedsearch.h
     interfacelanguage.cpp
     interfacelanguage.h
+    librarymoves.cpp
+    librarymoves.h
+    libraryarchive.cpp
+    libraryarchive.h
+    libraryregistry.cpp
+    libraryregistry.h
+    libraryscan.cpp
+    libraryscan.h
     livesearch.cpp
     livesearch.h
     listingexport.cpp
@@ -63,6 +71,8 @@ add_library(opusfm_core STATIC
     markdownexport.h
     metadataeditor.cpp
     metadataeditor.h
+    metadataimport.cpp
+    metadataimport.h
     density.cpp
     density.h
     doubleshift.cpp
@@ -75,6 +85,8 @@ add_library(opusfm_core STATIC
     effectiveappearance.h
     executables.cpp
     executables.h
+    embeddedmetadata.cpp
+    embeddedmetadata.h
     imagedetails.cpp
     imagedetails.h
     imageconversion.cpp
@@ -122,6 +134,12 @@ add_library(opusfm_core STATIC
     symbolicicon.h
     tabmodel.cpp
     tabmodel.h
+    tagassignment.cpp
+    tagassignment.h
+    taglibrary.cpp
+    taglibrary.h
+    tagsearch.cpp
+    tagsearch.h
     themeprofiles.cpp
     themeprofiles.h
     treemap.cpp

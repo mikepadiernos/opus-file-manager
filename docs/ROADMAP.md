@@ -22,18 +22,18 @@ Manager behaviour that informs its parity goals.
 Status follows each milestone's parent issue on the
 [project board](https://github.com/users/mikepadiernos/projects/3).
 
-|     | Milestones | Focus                                        | Status     |
-| --- | ---------- | -------------------------------------------- | ---------- |
-| 🧱  | M01–M04    | Core dual pane and listing depth             | ✅ Merged  |
-| 🖼️  | M05–M08    | Preview, gallery and editor                  | ✅ Merged  |
-| 🧰  | M09–M14    | Tools, interface customization, translations | ✅ Merged  |
-| 🗂️  | M15–M16    | Workspaces and their settings                | ✅ Merged  |
-| 🎨  | M17–M18    | Themes and their settings                    | ✅ Merged  |
-| 🏷️  | M19–M20    | Branding and its settings                    | ✅ Merged  |
-| 🔎  | M21–M22    | Advanced search and its settings             | ✅ Merged  |
-| 🔖  | M23–M26    | Native tagging and Yazi mode                 | 📋 Planned |
-| 🔌  | M27–M31    | Integrations, Nextcloud and shortcuts        | 📋 Planned |
-| ✨  | M32        | Refinements                                  | 📋 Planned |
+|     | Milestones | Focus                                        | Status         |
+| --- | ---------- | -------------------------------------------- | -------------- |
+| 🧱  | M01–M04    | Core dual pane and listing depth             | ✅ Merged      |
+| 🖼️  | M05–M08    | Preview, gallery and editor                  | ✅ Merged      |
+| 🧰  | M09–M14    | Tools, interface customization, translations | ✅ Merged      |
+| 🗂️  | M15–M16    | Workspaces and their settings                | ✅ Merged      |
+| 🎨  | M17–M18    | Themes and their settings                    | ✅ Merged      |
+| 🏷️  | M19–M20    | Branding and its settings                    | ✅ Merged      |
+| 🔎  | M21–M22    | Advanced search and its settings             | ✅ Merged      |
+| 🔖  | M23–M26    | Native tagging and Yazi mode                 | 🚧 In progress |
+| 🔌  | M27–M31    | Integrations, Nextcloud and shortcuts        | 📋 Planned     |
+| ✨  | M32        | Refinements                                  | 📋 Planned     |
 
 ## Contents
 
@@ -1139,42 +1139,45 @@ Settings for M21 advanced search, stored in KConfig.
 A native KDE tagging workflow inspired by TagStudio, integrated into Plasma Opus
 rather than requiring TagStudio or changing the user's folder structure.
 
-- [ ] Evaluate Rust for tag relationships, library metadata and search using the
+- [x] Evaluate Rust for tag relationships, library metadata and search using the
       M21 pilot. Keep Qt/KDE integration in C++ and use C++ for the core if
       build and interoperability costs are not justified.
-- [ ] Store library metadata in an open, documented format without requiring a
+- [x] Store library metadata in an open, documented format without requiring a
       sidecar per file; preserve existing `.mfm.json` metadata and report
       unsupported or read-only locations
-- [ ] Create opt-in libraries rooted in existing local folders; index files of
+- [x] Create opt-in libraries rooted in existing local folders; index files of
       any type without moving, renaming or duplicating them
-- [ ] Refresh libraries with progress and cancellation. Track moves and renames
+- [x] Refresh libraries with progress and cancellation. Track moves and renames
       initiated by Plasma Opus, and offer review and manual relinking for
       missing or externally moved files without silently attaching metadata to
       uncertain matches.
-- [ ] Manage tags with stable identities, names, aliases, shorthand, colours and
+- [x] Manage tags with stable identities, names, aliases, shorthand, colours and
       parent relationships; disambiguate duplicate names and prevent hierarchy
       cycles
-- [ ] Assign and remove multiple tags on selected files and folders from
+- [x] Assign and remove multiple tags on selected files and folders from
       listings or previews, and show assignments in the file interface. Provide
       a searchable, keyboard-accessible tag manager as an embedded pane using
       existing supported placements without replacing file panes.
-- [ ] Search and filter by tags, inherited parent tags, untagged items, paths
+- [x] Search and filter by tags, inherited parent tags, untagged items, paths
       and file types using AND, OR, NOT and grouped expressions; reuse existing
       search and selection workflows
-- [ ] Organize tag groups independently of locations and workspaces. Until the
+- [x] Organize tag groups independently of locations and workspaces. Until the
       native tag-group provider is available, keep all groups visible; recommend
       stable identities and no hidden or implicit assignment in
       [#252](https://github.com/mikepadiernos/plasma-opus/issues/252).
-- [ ] Add editable text and date fields to library entries alongside existing
+- [x] Add editable text and date fields to library entries alongside existing
       labels, ratings and notes, without silently replacing or converting them
-- [ ] Read supported EXIF image metadata and ID3 audio tags for display and
+- [x] Read supported EXIF image metadata and ID3 audio tags for display and
       search. Let users map selected fields to library tags or fields with
       preview and conflict handling. Reuse M09 metadata editing for supported
       writes, with explicit consent and clear reporting of unsupported formats
       and failures.
-- [ ] Export and restore library metadata with preview and explicit
+- [x] Export and restore library metadata with preview and explicit
       confirmation; never modify or delete original files during either
       operation
+
+**Caveats:** [Native tagging](CAVEATS.md#native-tagging), tracked in
+[#714](https://github.com/mikepadiernos/plasma-opus/issues/714).
 
 ### M24: Tagging settings
 

@@ -17,6 +17,9 @@ pub enum Field {
     Size,
     Modified,
     Content,
+    Tag,
+    Tagged,
+    Metadata,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -208,6 +211,9 @@ fn field_named(name: &str) -> Option<Field> {
         "size" => Some(Field::Size),
         "modified" | "date" => Some(Field::Modified),
         "content" | "contents" => Some(Field::Content),
+        "tag" | "tags" => Some(Field::Tag),
+        "tagged" => Some(Field::Tagged),
+        "meta" | "metadata" => Some(Field::Metadata),
         _ => None,
     }
 }
@@ -356,7 +362,7 @@ fn build_term(token: &Token) -> Result<Term, String> {
     if !token.field.is_empty() {
         term.field = field_named(&token.field).ok_or_else(|| {
             format!(
-                "Unknown field “{}”. Use name, path, type, size, modified or content, or quote the text to search for it literally.",
+                "Unknown field “{}”. Use name, path, type, size, modified, content, tag, tagged or meta, or quote the text to search for it literally.",
                 token.field
             )
         })?;
@@ -380,12 +386,21 @@ fn build_term(token: &Token) -> Result<Term, String> {
         )
     };
     match term.field {
-        Field::Name | Field::Path | Field::Content => {
+        Field::Name | Field::Path | Field::Content | Field::Tag | Field::Metadata => {
             if ordered(term.comparison) {
-                return Err(format!(
-                    "Name, path and content criteria can't use <, <=, > or >=: {}",
-                    token.source
-                ));
+                return Err(if term.field == Field::Metadata {
+                    format!(
+                        "Metadata criteria can't use <, <=, > or >=: {}",
+                        token.source
+                    )
+                } else if term.field == Field::Tag {
+                    format!("Tag criteria can't use <, <=, > or >=: {}", token.source)
+                } else {
+                    format!(
+                        "Name, path and content criteria can't use <, <=, > or >=: {}",
+                        token.source
+                    )
+                });
             }
             if term.field == Field::Content && term.comparison == Comparison::Equal {
                 return Err(format!(
@@ -451,6 +466,25 @@ fn build_term(token: &Token) -> Result<Term, String> {
             if term.comparison == Comparison::Contains {
                 term.comparison = Comparison::Equal;
             }
+        }
+        Field::Tagged => {
+            if ordered(term.comparison) {
+                return Err(format!(
+                    "Tag criteria can't use <, <=, > or >=: {}",
+                    token.source
+                ));
+            }
+            term.text = match term.text.to_lowercase().as_str() {
+                "yes" | "true" => "yes".to_owned(),
+                "no" | "false" => "no".to_owned(),
+                _ => {
+                    return Err(format!(
+                        "“{}” is not a valid tagged value. Use tagged:yes or tagged:no.",
+                        term.text
+                    ));
+                }
+            };
+            term.comparison = Comparison::Contains;
         }
     }
     Ok(term)
@@ -595,6 +629,9 @@ impl fmt::Display for Node {
                     Field::Size => "size",
                     Field::Modified => "modified",
                     Field::Content => "content",
+                    Field::Tag => "tag",
+                    Field::Tagged => "tagged",
+                    Field::Metadata => "meta",
                 };
                 let op = match term.comparison {
                     Comparison::Contains => ":",
@@ -662,6 +699,14 @@ mod tests {
         assert_eq!(normalized("type:FOLDER"), "type:\"FOLDER\"");
         assert_eq!(normalized("type:Image/*"), "type:\"image/*\"");
         assert_eq!(normalized("size:10M"), "size=\"10M\"");
+        assert_eq!(
+            normalized("Tags=Cat tagged:FALSE"),
+            "(tag=\"Cat\" AND tagged:\"no\")"
+        );
+        assert_eq!(
+            normalized("Metadata:Canon meta=Jazz"),
+            "(meta:\"Canon\" AND meta=\"Jazz\")"
+        );
     }
 
     #[test]
@@ -676,6 +721,10 @@ mod tests {
             "size:big",
             "modified:2025-02-29",
             "content=x",
+            "tag>a",
+            "tagged:maybe",
+            "tagged<yes",
+            "meta>2020",
         ] {
             assert!(parse(input).is_err(), "{input:?} should be invalid");
         }

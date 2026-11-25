@@ -98,6 +98,8 @@ ecm_add_tests(
     flatviewtest.cpp
     ignorelisttest.cpp
     indexedsearchtest.cpp
+    libraryscantest.cpp
+    libraryarchivetest.cpp
     linkednavigationtest.cpp
     localizeddatestest.cpp
     livesearchtest.cpp
@@ -111,6 +113,7 @@ ecm_add_tests(
     imagedetailstest.cpp
     markdownexporttest.cpp
     metadataeditortest.cpp
+    metadataimporttest.cpp
     navigationhistorytest.cpp
     previewcontenttest.cpp
     servicemenustest.cpp
@@ -127,6 +130,7 @@ ecm_add_tests(
     symlinkstest.cpp
     symboliciconstest.cpp
     tabmodeltest.cpp
+    taglibrarytest.cpp
     themeprofilestest.cpp
     treemaptest.cpp
     transferqueuetest.cpp
@@ -164,6 +168,12 @@ ecm_add_test(batchrenamedialogtest.cpp
 )
 
 ecm_add_test(customcommanddialogtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
+ecm_add_test(tagginguitest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
     GUI

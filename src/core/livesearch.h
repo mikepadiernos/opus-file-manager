@@ -30,12 +30,17 @@ struct Result {
 using Cancel = std::function<bool()>;
 using Progress = std::function<void(int, const QString &)>;
 
-/// Searches a local folder, stopping after at most entryLimit entries.
+/**
+ * Searches a local folder, stopping after at most entryLimit entries.
+ * @param tagLibraries the registered tag library roots for tag: and tagged:
+ *        criteria, or null to read them from LibraryRegistry on this thread
+ */
 Result find(const QString &folder,
             const QString &text,
             Field field,
             const Cancel &cancel = {},
             const Progress &progress = {},
             const PathFilter &filter = {},
-            int entryLimit = 200000);
+            int entryLimit = 200000,
+            const QStringList *tagLibraries = nullptr);
 }

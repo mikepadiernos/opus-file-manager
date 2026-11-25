@@ -5,12 +5,15 @@
 #include "appearancestyle.h"
 #include "colorschemes.h"
 #include "labelcolor.h"
+#include "librarymovetracker.h"
 
 #include <KDirModel>
 #include <KFileItem>
 #include <KLocalizedString>
 
 #include <QApplication>
+#include <QDir>
+#include <QFileInfo>
 #include <QLineEdit>
 #include <QLocale>
 #include <QMimeDatabase>
@@ -427,6 +430,10 @@ void CardDelegate::setModelData(QWidget *editor, QAbstractItemModel *model, cons
     if (name.isEmpty() || name.contains(QLatin1Char('/')) || name == QLatin1String(".") || name == QLatin1String("..")
         || (!item.isNull() && name == item.name())) {
         return;
+    }
+    if (!item.isNull() && item.url().isLocalFile()) {
+        const QString from = item.url().toLocalFile();
+        LibraryMoveTracker::instance()->expectRename(from, QFileInfo(from).dir().filePath(name));
     }
     model->setData(index, name, Qt::EditRole);
 }

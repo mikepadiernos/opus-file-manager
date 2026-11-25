@@ -3,6 +3,7 @@
 #include "fileoperations.h"
 
 #include "executables.h"
+#include "librarymovetracker.h"
 #include "settings.h"
 #include "symlinks.h"
 #include "transferqueue.h"
@@ -106,6 +107,7 @@ KJob *FileOperations::move(const QList<QUrl> &sources, const QUrl &destination, 
             job->setAutoRename(conflict == Settings::EnumTransferConflictPolicy::Rename);
             attachWindow(job, safeWindow);
             KIO::FileUndoManager::self()->recordCopyJob(job);
+            LibraryMoveTracker::instance()->trackCopyJob(job);
             return job;
         });
 }
@@ -137,6 +139,7 @@ void FileOperations::rename(const KFileItemList &items, QWidget *window)
     }
     auto *dialog = new KIO::RenameFileDialog(items, window);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
+    LibraryMoveTracker::instance()->trackRenameDialog(dialog, items);
     dialog->show();
 }
 
@@ -173,6 +176,7 @@ bool FileOperations::paste(const QUrl &destination, QWidget *window)
     }
     KIO::PasteJob *job = KIO::paste(mimeData, destination);
     attachWindow(job, window);
+    QObject::connect(job, &KIO::PasteJob::copyJobStarted, LibraryMoveTracker::instance(), &LibraryMoveTracker::trackCopyJob);
     return true;
 }
 
@@ -224,6 +228,7 @@ KIO::DropJob *FileOperations::drop(const QDropEvent *event, const QUrl &destinat
         job = KIO::drop(&decided, destination);
     }
     KJobWidgets::setWindow(job, window);
+    QObject::connect(job, &KIO::DropJob::copyJobStarted, LibraryMoveTracker::instance(), &LibraryMoveTracker::trackCopyJob);
     return job;
 }
 

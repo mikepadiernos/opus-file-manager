@@ -10,6 +10,7 @@
 #include "duplicatefinderdialog.h"
 #include "effectiveappearance.h"
 #include "favoritesmodel.h"
+#include "fieldeditdialog.h"
 #include "filediffdialog.h"
 #include "fileoperations.h"
 #include "filesplitdialog.h"
@@ -21,8 +22,10 @@
 #include "gallerywindow.h"
 #include "informationpanel.h"
 #include "interfacelanguage.h"
+#include "libraryregistry.h"
 #include "localizeddates.h"
 #include "metadataeditdialog.h"
+#include "metadataimportdialog.h"
 #include "pane.h"
 #include "previewpanel.h"
 #include "savedpathfilters.h"
@@ -30,6 +33,12 @@
 #include "settings.h"
 #include "settingsdialog.h"
 #include "tabmodel.h"
+#include "tagfieldmanagerwidget.h"
+#include "taggroupdialog.h"
+#include "taggroupmanagerwidget.h"
+#include "taglibrary.h"
+#include "tagmanagerwidget.h"
+#include "tagpanel.h"
 #include "transferqueue.h"
 #include "transferqueuedialog.h"
 #include "viewsettings.h"
@@ -194,6 +203,95 @@ private Q_SLOTS:
             delete window;
         }
         QVERIFY(emitted);
+    }
+
+    void tagPanelFollowsTheSelection()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        QFile file(folder.filePath(QStringLiteral("x.txt")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("x");
+        file.close();
+        QCOMPARE(LibraryRegistry::create(folder.path()), QString());
+        const auto unregister = qScopeGuard([&folder] {
+            LibraryRegistry::remove(folder.path());
+        });
+
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(folder.path())});
+        window.show();
+        auto *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        auto *dock = window.findChild<QDockWidget *>(QStringLiteral("tagDock"));
+        auto *panel = window.findChild<TagPanel *>(QStringLiteral("tagPanel"));
+        auto *assign = window.actionCollection()->action(QStringLiteral("assign_tags"));
+        auto *toggle = window.actionCollection()->action(QStringLiteral("show_tag_panel"));
+        QVERIFY(dock && panel && assign && toggle);
+        QVERIFY(dock->isHidden());
+        QVERIFY(assign->isEnabled());
+
+        view->selectUrls({QUrl::fromLocalFile(folder.filePath(QStringLiteral("x.txt")))});
+        assign->trigger();
+        QVERIFY(dock->isVisible());
+        QVERIFY(toggle->isChecked());
+        QCOMPARE(panel->library(), folder.path());
+        QVERIFY(panel->createAndAssign(QStringLiteral("Draft")));
+        const TagLibrary::Library library = TagLibrary::Library::load(folder.path());
+        QCOMPARE(library.entry(QStringLiteral("x.txt"))->tags, library.findTags(QStringLiteral("Draft")));
+
+        // Manage Tags has a Groups tab, and its changes reach the tag panel.
+        window.actionCollection()->action(QStringLiteral("manage_tags"))->trigger();
+        auto *tagsDialog = window.findChild<QDialog *>(QStringLiteral("tagsDialog"));
+        QVERIFY(tagsDialog && tagsDialog->findChild<TagManagerWidget *>());
+        auto *groupManager = tagsDialog->findChild<TagGroupManagerWidget *>();
+        QVERIFY(groupManager);
+        TagGroupDialog *groupDialog = groupManager->createGroup();
+        QVERIFY(groupDialog);
+        groupDialog->findChild<QLineEdit *>(QStringLiteral("tagGroupName"))->setText(QStringLiteral("Status"));
+        groupDialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click();
+        auto *tagList = panel->findChild<QTreeWidget *>(QStringLiteral("tagPanelList"));
+        QCOMPARE(tagList->topLevelItemCount(), 2);
+        QCOMPARE(tagList->topLevelItem(0)->text(0), QStringLiteral("Status"));
+
+        // Manage Tags has a Fields tab, and Edit Fields sets values on the selection.
+        auto *fieldManager = tagsDialog->findChild<TagFieldManagerWidget *>();
+        QVERIFY(fieldManager);
+        TagFieldDialog *fieldDialog = fieldManager->createField();
+        fieldDialog->findChild<QLineEdit *>(QStringLiteral("tagFieldName"))->setText(QStringLiteral("Owner"));
+        const QString owner = fieldDialog->field().id;
+        fieldDialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click();
+        tagsDialog->close();
+        auto *editFields = window.actionCollection()->action(QStringLiteral("edit_fields"));
+        QVERIFY(editFields->isEnabled());
+        editFields->trigger();
+        auto *fieldEditor = window.findChild<FieldEditDialog *>();
+        QVERIFY(fieldEditor && fieldEditor->editor(owner));
+        QTest::keyClicks(fieldEditor->editor(owner), QStringLiteral("Ann"));
+        QVERIFY(fieldEditor->apply());
+        QCOMPARE(TagLibrary::Library::load(folder.path()).entry(QStringLiteral("x.txt"))->fields.value(owner), QStringLiteral("Ann"));
+
+        // Import Embedded Metadata reads the selection in the background.
+        auto *importMetadata = window.actionCollection()->action(QStringLiteral("import_metadata"));
+        QVERIFY(importMetadata->isEnabled());
+        importMetadata->trigger();
+        auto *importDialog = window.findChild<MetadataImportDialog *>();
+        QVERIFY(importDialog);
+        QTRY_VERIFY(importDialog->isReady());
+        QVERIFY(!importDialog->findChild<QPushButton *>(QStringLiteral("metadataImportPreview"))->isEnabled());
+        importDialog->reject();
+
+        panel->findChild<QAction *>(QStringLiteral("tagPanelPlaceBelow"))->trigger();
+        QCOMPARE(window.dockWidgetArea(dock), Qt::BottomDockWidgetArea);
+        QCOMPARE(KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel")).readEntry("Placement"), QStringLiteral("below"));
+        panel->findChild<QAction *>(QStringLiteral("tagPanelPlaceRight"))->trigger();
+        QCOMPARE(window.dockWidgetArea(dock), Qt::RightDockWidgetArea);
+        toggle->trigger();
+        QVERIFY(dock->isHidden());
+
+        window.activePane()->setUrl(m_a);
+        QTRY_VERIFY(!assign->isEnabled());
+        QVERIFY(!editFields->isEnabled());
     }
 
     void opensMediaWithMpvWithoutShellInterpolation()
@@ -2811,6 +2909,69 @@ private Q_SLOTS:
         action->trigger();
         QCOMPARE(view->selectedItems().size(), 1);
         QCOMPARE(view->selectedItems().first().name(), QStringLiteral("keep.txt"));
+    }
+
+    void selectsItemsByQuery()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        for (const QString &name : {QStringLiteral("a.txt"), QStringLiteral("b.txt")}) {
+            QFile file(folder.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        QCOMPARE(LibraryRegistry::create(folder.path()), QString());
+        const auto unregister = qScopeGuard([&folder] {
+            LibraryRegistry::remove(folder.path());
+        });
+        QString error;
+        const bool updated = TagLibrary::update(
+            folder.path(),
+            [](TagLibrary::Library &library, QString *error) {
+                return library.setTag({QStringLiteral("t-draft"), QStringLiteral("Draft"), {}, {}, {}, {}}, error)
+                    && library.assignTags({{QStringLiteral("a.txt"), false, 0, 0, 0, 0}}, {QStringLiteral("t-draft")}, {}, nullptr, error);
+            },
+            &error);
+        QVERIFY2(updated, qPrintable(error));
+
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(folder.path())});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+        QTRY_VERIFY(!view->isLoading());
+        auto *select = window.actionCollection()->action(QStringLiteral("select_by_query"));
+        auto *deselect = window.actionCollection()->action(QStringLiteral("deselect_by_query"));
+        QVERIFY(select && deselect);
+        QTimer::singleShot(0, [&] {
+            auto *dialog = window.findChild<QDialog *>(QStringLiteral("selectionQueryDialog"));
+            QVERIFY(dialog);
+            auto *edit = dialog->findChild<QLineEdit *>(QStringLiteral("selectionQuery"));
+            auto *status = dialog->findChild<QLabel *>(QStringLiteral("selectionQueryStatus"));
+            auto *ok = dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok);
+            edit->setText(QStringLiteral("tag:draft AND"));
+            QVERIFY(!status->text().isEmpty());
+            ok->click();
+            QVERIFY(dialog->isVisible());
+            edit->setText(QStringLiteral("content:x"));
+            ok->click();
+            QVERIFY(dialog->isVisible());
+            QVERIFY(view->selectedItems().isEmpty());
+            edit->setText(QStringLiteral("tag:draft"));
+            QVERIFY(status->text().contains(QStringLiteral("tag:\"draft\"")));
+            ok->click();
+        });
+        select->trigger();
+        QCOMPARE(view->selectedItems().size(), 1);
+        QCOMPARE(view->selectedItems().first().name(), QStringLiteral("a.txt"));
+
+        // The last query is offered again.
+        QTimer::singleShot(0, [&] {
+            auto *dialog = window.findChild<QDialog *>(QStringLiteral("selectionQueryDialog"));
+            QVERIFY(dialog);
+            QCOMPARE(dialog->findChild<QLineEdit *>(QStringLiteral("selectionQuery"))->text(), QStringLiteral("tag:draft"));
+            dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click();
+        });
+        deselect->trigger();
+        QVERIFY(view->selectedItems().isEmpty());
     }
 
     void selectsUsingSharedPathFilter()

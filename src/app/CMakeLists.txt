@@ -29,6 +29,10 @@ add_library(opusfm_app STATIC
     detailsview.h
     duplicatefinderdialog.cpp
     duplicatefinderdialog.h
+    fieldeditdialog.cpp
+    fieldeditdialog.h
+    metadataimportdialog.cpp
+    metadataimportdialog.h
     filelistminimap.cpp
     filelistminimap.h
     editorpanel.cpp
@@ -55,6 +59,16 @@ add_library(opusfm_app STATIC
     imagebackground.h
     informationpanel.cpp
     informationpanel.h
+    librarymovetracker.cpp
+    librarymovetracker.h
+    libraryexportdialog.cpp
+    libraryexportdialog.h
+    libraryrefreshdialog.cpp
+    libraryrefreshdialog.h
+    libraryrestoredialog.cpp
+    libraryrestoredialog.h
+    libraryreviewdialog.cpp
+    libraryreviewdialog.h
     mainwindow.cpp
     mainwindow.h
     metadataeditdialog.cpp
@@ -85,6 +99,20 @@ add_library(opusfm_app STATIC
     startuppresentation.h
     symbolicactionicons.cpp
     symbolicactionicons.h
+    tageditdialog.cpp
+    tageditdialog.h
+    tagfieldmanagerwidget.cpp
+    tagfieldmanagerwidget.h
+    taggingcontroller.cpp
+    taggingcontroller.h
+    taggroupdialog.cpp
+    taggroupdialog.h
+    taggroupmanagerwidget.cpp
+    taggroupmanagerwidget.h
+    tagmanagerwidget.cpp
+    tagmanagerwidget.h
+    tagpanel.cpp
+    tagpanel.h
     terminalpanel.cpp
     terminalpanel.h
     toolbarcustomizer.cpp

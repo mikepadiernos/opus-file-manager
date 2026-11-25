@@ -94,6 +94,15 @@ QStringList fixedCorpus()
         QStringLiteral("size<x"),
         QStringLiteral("modified:2026-13-01"),
         QStringLiteral("modified:soon"),
+        QStringLiteral("Tag:Cat tags=\"Big cat\" tag:a*"),
+        QStringLiteral("tagged:YES OR tagged=false"),
+        QStringLiteral("tag>a"),
+        QStringLiteral("tagged:maybe"),
+        QStringLiteral("tagged<yes"),
+        QStringLiteral("tag:"),
+        QStringLiteral("Meta:Canon metadata=Jazz meta:20*"),
+        QStringLiteral("meta>1"),
+        QStringLiteral("meta:"),
     };
 }
 
@@ -129,6 +138,12 @@ QStringList generatedCorpus(int count)
         QStringLiteral("content:invoice"),
         QStringLiteral("content=x"),
         QStringLiteral("foo:bar"),
+        QStringLiteral("tag:cat"),
+        QStringLiteral("tag=a*"),
+        QStringLiteral("tagged:no"),
+        QStringLiteral("tagged:x"),
+        QStringLiteral("meta:canon"),
+        QStringLiteral("meta<=x"),
         QStringLiteral("café"),
     };
     QStringList queries;

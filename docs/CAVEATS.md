@@ -31,7 +31,8 @@ recommendation and external tools are separate applications.
   [transfer queue](#transfer-queue),
   [custom commands](#custom-commands), [symbolic links](#symbolic-links),
   [listing export](#listing-export), [checksums](#checksum-files),
-  [split and combine](#split-and-combine-files)
+  [split and combine](#split-and-combine-files),
+  [native tagging](#native-tagging)
 - **🔀 Comparison and analysis:**
   [Filtered folder comparison](#filtered-folder-comparison),
   [folder synchronization](#folder-synchronization),
@@ -41,8 +42,7 @@ recommendation and external tools are separate applications.
   [duplicate finder](#duplicate-finder)
 - **🧭 Workspaces and panes:** [Workspace layouts](#workspace-layouts),
   [workspace settings](#workspace-settings),
-  [linked navigation](#linked-pane-navigation),
-  [native tag groups](#native-tag-groups)
+  [linked navigation](#linked-pane-navigation)
 - **🎨 Appearance:** [Themes](#themes), [theme settings](#theme-settings),
   [branding](#branding),
   [native title and header padding](#native-title-and-header-padding)
@@ -273,22 +273,98 @@ The M19 branding and its M20 settings have these limits
   - Offer an option to announce the presentation to screen readers.
   - Make the duration configurable.
 
-## Native tag groups
+## Native tagging
 
-Tag groups are native-tagging data and are not implemented as workspace
-assignments. The provider and stable identities are planned in M23
-([#252](https://github.com/mikepadiernos/plasma-opus/issues/252)).
+The M23 [native tagging](tagging.md) libraries have these limits
+([#714](https://github.com/mikepadiernos/plasma-opus/issues/714)):
 
-- **Recommendation:** Until #252 provides a stable catalog, show ordinary tag
-  presentation without inferred groups or workspace scope. Do not derive
-  assignments from names or hide tags based on a workspace.
-- **Planned:** Give each tag and tag group a stable identity, group names,
-  aliases and relationships. Keep groups independent of locations and
-  workspaces. Workspace operations must not own or modify group memberships;
-  report missing or incomplete providers rather than creating hidden fallback
-  groups.
+- **Libraries and indexing:** libraries are local folders only. Symbolic links
+  aren't indexed or followed, and names that aren't valid in the system
+  encoding are skipped. A library is a single JSON document that is read and
+  rewritten whole on each edit, so very large libraries make edits and
+  searches slower. Saves detect changes from other windows and retry, but
+  there is no file lock, so two processes saving at the same moment can still
+  lose one edit.
+- **Moves and renames:** only moves and renames started in Plasma Opus are
+  followed. Moves by other programs, copies and KIO undo aren't, and the next
+  refresh marks the old paths missing. A folder moved into a library is
+  indexed at its top level only until the next refresh. Tags aren't copied
+  between libraries. When the rename dialog reports an error, the renames it
+  completed aren't applied to the library. Moving or renaming a library's root
+  folder leaves its registration pointing at the old path.
+- **Showing tags:** library tags appear in the tag panel and the Information
+  panel only. Views have no Tags column or emblem; the cards view's tags field
+  shows Baloo file tags, not library tags. The gallery window can't assign
+  tags. The tag panel doesn't notice changes made by other windows or
+  programs until the selection or folder changes.
+- **Tag panel:** creating a tag from the search field and assigning it are
+  separate saves, so if the assignment fails the new tag is kept unassigned.
+- **Tag groups:** groups are reordered with Move Up and Move Down only, not by
+  drag and drop. Groups are library data, independent of workspaces and
+  locations, as recommended in
+  [#252](https://github.com/mikepadiernos/plasma-opus/issues/252).
+- **Fields:** library fields can't be searched with query criteria. A field's
+  type can't change while any item has a value for it.
+- **Searching:** tag criteria match only items inside registered libraries;
+  `tagged:no` doesn't match items outside them. A search uses a snapshot of
+  each library taken when it starts. Indexed search still needs a name or
+  content term. Select by Query can't use `content:`, and its `meta:` criteria
+  read every listed file on the interface thread, so large folders can make
+  the window unresponsive until it finishes.
+- **Embedded metadata:** reading uses KDE's extractors, so the available
+  properties depend on the installed extractor plugins. `meta:` criteria read
+  each candidate file and are slow without cheaper criteria. Writing embedded
+  metadata is limited to single JPEG, TIFF and MP3 files through
+  [metadata editing](#metadata-editing). Import mappings aren't remembered
+  between imports, and the import dialog's field list isn't refreshed if
+  fields are changed elsewhere while it's open.
+- **Export and restore:** restoring replaces the whole library document; it
+  doesn't merge. Items are matched by path only. An export reflects the
+  library as loaded, including repairs made when it was read. Backups of
+  replaced documents accumulate and aren't pruned. Exports have no size limit.
+- **Settings:** tagging has no settings page yet.
+
+- **Recommendation:**
+  - **Libraries and indexing:** keep libraries on local folders, and rename
+    files with unusual encodings before indexing them. Split very large
+    collections into several libraries, and avoid editing the same library
+    from several windows or programs at once.
+  - **Moves and renames:** move and rename tagged items in Plasma Opus. After
+    moving items with other programs, undoing a move or moving a folder into a
+    library, use **Tags › Refresh Library** and **Review Missing Entries…** to
+    relink. To move a library's root folder, remove the library, move the
+    folder, then create the library again from the new location; its document
+    is adopted with its tags.
+  - **Showing tags:** select items to see their tags in the tag panel or the
+    Information panel. Change the selection to refresh the tag panel after
+    editing in another window.
+  - **Tag panel:** if creating and assigning a tag reports an error, check the
+    new tag again to assign it.
+  - **Fields:** to find items by a field, import or copy the value as a tag. To
+    change a field's type, create a new field and copy the values to it.
+  - **Searching:** use `NOT tagged:yes` to include items outside libraries,
+    and repeat a search after editing tags. Use Search rather than Select by
+    Query for content, and combine `meta:` with name or type criteria, as in
+    `type:image/* meta:canon`.
+  - **Embedded metadata:** install KDE's metadata extractors, and ExifTool for
+    writing images. Use a dedicated tag editor for other formats or several
+    files. Reopen the import dialog after changing fields.
+  - **Export and restore:** export before restoring and review the preview.
+    Remove old backups from `~/.local/share/opus-file-manager/library-backups/`
+    when they are no longer needed.
   - Comment:
-    [#252.7083417087](https://github.com/mikepadiernos/plasma-opus/issues/252#issuecomment-7083417087)
+    [#714.7171889508](https://github.com/mikepadiernos/plasma-opus/issues/714#issuecomment-7171889508)
+- **Planned:** [M24 tagging settings](ROADMAP.md#m24-tagging-settings) plans
+  library locations, refresh, display, search defaults and saved import
+  mappings.
+- **Proposed improvements:**
+  - Show library tags in a Tags column or emblem, and allow tagging in the
+    gallery.
+  - Refresh the tag panel when the library document changes.
+  - Index the contents of folders moved into a library, and follow renames of
+    the library root.
+  - Search library fields with query criteria.
+  - Merge restores and prune backups.
 
 ## Native title and header padding
 
@@ -444,8 +520,8 @@ operation before assuming passwords are not exposed in process arguments.
     - Use ordinary hidden filenames where appropriate.
       - Comment:
         [#258.7029666857](https://github.com/mikepadiernos/plasma-opus/issues/258#issuecomment-7029666857)
-  - **Planned:** [M23 native tagging](ROADMAP.md#m23-native-tagging) is a
-    separate library and does not make `.mfm.json` writes lossless.
+  - **Native tagging:** [M23 libraries](#native-tagging) are separate from
+    `.mfm.json` and do not make its writes lossless.
     - Comment: [#257.7021742864][comment-257]
 
 - **Metadata limits:** Metadata files are limited to 4,096 bytes, notes to 500
@@ -459,8 +535,8 @@ operation before assuming passwords are not exposed in process arguments.
   - **Alternative:** Keep longer notes in a separate file.
     - Comment:
       [#263.7029668469](https://github.com/mikepadiernos/plasma-opus/issues/263#issuecomment-7029668469)
-  - **Planned:** [M23 library text fields](ROADMAP.md#m23-native-tagging) are
-    separate from folder notes and do not remove these metadata limits.
+  - **Native tagging:** [M23 library fields](#native-tagging) are separate
+    from folder notes and do not remove these metadata limits.
     - Comment: [#263.7021748197][comment-263]
 
 - **Flat view:** The `filenamesearch:/` KIO worker is required and is normally
@@ -863,9 +939,9 @@ Tracked in
 - **Alternative:** Try a separate batch renamer on copies.
   - Comment:
     [#372.7029676077](https://github.com/mikepadiernos/plasma-opus/issues/372#issuecomment-7029676077)
-- **Planned:** [M23](ROADMAP.md#m23-native-tagging) plans to track Plasma
-  Opus-initiated moves and renames in its library; it does not promise to
-  migrate existing per-folder annotations.
+- **Native tagging:** [M23 libraries](#native-tagging) follow batch renames in
+  Plasma Opus, keeping library tags and fields; existing per-folder annotations
+  are not migrated.
   - Comment: [#372.7024683530][comment-372]
 
 ## Filtered folder comparison
@@ -957,9 +1033,9 @@ Tracked in
 - **Alternative:** Try a dedicated tag editor for other audio fields.
   - Comment:
     [#374.7029676829](https://github.com/mikepadiernos/plasma-opus/issues/374#issuecomment-7029676829)
-- **Planned:** [M23](ROADMAP.md#m23-native-tagging) plans to read and map
-  selected embedded metadata but reuses M09 for supported writes; it does not
-  promise additional writable formats or preservation guarantees.
+- **Native tagging:** [M23](#native-tagging) reads and maps selected embedded
+  metadata into libraries and reuses this editor for supported writes; it adds
+  no writable formats or preservation guarantees.
   - Comment: [#374.7025134952][comment-374]
 
 ## Transfer queue

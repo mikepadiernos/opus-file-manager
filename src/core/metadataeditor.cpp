@@ -197,3 +197,8 @@ QString MetadataEditor::write(const Snapshot &snapshot, const QMap<QString, QStr
     }
     return {};
 }
+
+bool MetadataEditor::supports(const QString &mimeType)
+{
+    return !tagsFor(mimeType).isEmpty();
+}

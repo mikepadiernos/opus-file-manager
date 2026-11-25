@@ -13,8 +13,8 @@
 #include <vector>
 
 /**
- * Advanced search queries: name, path, type, size, modified and content
- * criteria combined with AND, OR, NOT and parentheses.
+ * Advanced search queries: name, path, type, size, modified, content, tag,
+ * tagged and meta criteria combined with AND, OR, NOT and parentheses.
  *
  * Words without a field match file names. Juxtaposed terms are combined with
  * AND, which binds more tightly than OR. Operators are recognised only in
@@ -29,6 +29,12 @@ enum class Field {
     Size,
     Modified,
     Content,
+    /// A library tag by name, alias or shorthand; tag: includes child tags, tag= doesn't.
+    Tag,
+    /// Whether a library item has tags.
+    Tagged,
+    /// An embedded EXIF or audio tag value, such as a camera model or genre.
+    Metadata,
 };
 
 enum class Comparison {
@@ -60,6 +66,8 @@ struct Term {
     /// Start (inclusive) and end (exclusive) of a modified-date period, in local time.
     QDateTime from;
     QDateTime to;
+    /// For tagged criteria, whether matching items have tags.
+    bool tagged = true;
 };
 
 struct Node {
@@ -76,6 +84,10 @@ struct Node {
 
 /// Reports whether the entry's text contains @p needle; files that can't be searched as text don't.
 using ContentMatcher = std::function<bool(const QString &needle)>;
+/// Reports whether the entry satisfies a tag or tagged @p term; entries outside a tag library satisfy none.
+using TagMatcher = std::function<bool(const Term &term)>;
+/// Returns the entry's embedded metadata texts; entries without metadata return none.
+using MetadataReader = std::function<QStringList()>;
 
 class Query
 {
@@ -87,12 +99,18 @@ public:
     /// Explains why the query is invalid, or is empty.
     QString error() const;
     bool usesContent() const;
+    bool usesTags() const;
+    bool usesMetadata() const;
     /// The distinct values of content terms, in query order.
     QStringList contentTerms() const;
     /// Positive literal name and content terms that every match must satisfy.
     QList<Term> requiredTerms() const;
-    /// Evaluates the query; @p content is called only for content terms that affect the result.
-    bool matches(const QFileInfo &entry, const ContentMatcher &content = {}) const;
+    /**
+     * Evaluates the query; @p content, @p tags and @p metadata are called
+     * only for the terms that affect the result. Without @p tags, no tag term
+     * matches; without @p metadata, no meta term matches.
+     */
+    bool matches(const QFileInfo &entry, const ContentMatcher &content = {}, const TagMatcher &tags = {}, const MetadataReader &metadata = {}) const;
     /// Normalized form with explicit operators and grouping.
     QString toString() const;
 

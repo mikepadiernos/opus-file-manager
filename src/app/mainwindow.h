@@ -5,6 +5,7 @@
 #include "editorpanel.h"
 #include "metadataeditdialog.h"
 #include "previewpanel.h"
+#include "tagpanel.h"
 #include "workspacecatalog.h"
 
 #include <KConfigWatcher>
@@ -34,6 +35,7 @@ class KToggleAction;
 class Pane;
 class PreviewPanel;
 class SearchPanel;
+class TaggingController;
 class TabColors;
 class TerminalPanel;
 class ToolbarCustomizer;
@@ -211,6 +213,7 @@ private:
     void applySelectionFilter(const QString &pattern);
     void selectByPattern(bool select);
     void selectByPathFilter(bool select);
+    void selectByQuery(bool select);
     void saveSelectionFilter();
     void calculateOccupiedSpace();
     void jumpBack();
@@ -268,6 +271,9 @@ private:
     void setEditorPlacement(EditorPanel::Placement placement);
     void setPreviewPlacement(PreviewPanel::Placement placement);
     void setMetadataPlacement(MetadataEditDialog *dialog, QDockWidget *dock, MetadataEditDialog::Placement placement);
+    void setTagPanelPlacement(TagPanel::Placement placement);
+    /// Shows the active pane's folder and selection in the tag panel while it is shown.
+    void updateTagPanel();
 
     void copyToOtherPane();
     void moveToOtherPane();
@@ -277,6 +283,8 @@ private:
     void rename();
     void batchRename();
     void editMetadata();
+    /// Opens the embedded metadata editor for the file at @p path, which previews and confirms each write.
+    void openMetadataEditor(const QString &path);
     void showCustomCommand();
     void showCustomCommandPreset(const QString &name);
     void refreshCustomCommandActions();
@@ -343,6 +351,8 @@ private:
     WorkspaceLocations *m_workspaceLocations = nullptr;
     QFileSystemWatcher *m_workspaceWatcher = nullptr;
     QString m_workspaceConfigPath;
+    /// The last query used to select or deselect items.
+    QString m_selectionQuery;
     qint64 m_workspaceConfigModified = -1;
     QTimer *m_workspaceIndicatorTimer = nullptr;
     /// Watches Plasma's colours, so its accent can follow over an app-local scheme.
@@ -364,6 +374,9 @@ private:
     QStringList m_flatLocations;
     PanelLayout m_panelLayout = PanelLayout::Combined;
     KFileItemActions *m_fileItemActions = nullptr;
+    TaggingController *m_tagging = nullptr;
+    TagPanel *m_tagPanel = nullptr;
+    QDockWidget *m_tagDock = nullptr;
     KFileCopyToMenu *m_copyToMenu = nullptr;
     KNewFileMenu *m_newFileMenu = nullptr;
     QSplitter *m_splitter = nullptr;
