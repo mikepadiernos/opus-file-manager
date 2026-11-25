@@ -27,9 +27,11 @@
 #include <KPageWidget>
 #include <KPluginMetaData>
 #include <KSharedConfig>
+#include <KToolBar>
 #include <KUrlRequester>
 
 #include <QAbstractItemView>
+#include <QAction>
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
@@ -863,6 +865,64 @@ private Q_SLOTS:
         const auto search = KSharedConfig::openConfig()->group(QStringLiteral("Search"));
         QCOMPARE(search.readEntry("DefaultSearchResultPresentation", QString()), QStringLiteral("NamesAndFolders"));
         QVERIFY(!search.readEntry("RetainSearchHistory", true));
+    }
+
+    void toolbarSearchFieldSettingsUseTheMainToolbar()
+    {
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup customization = config->group(QStringLiteral("ToolbarCustomization"));
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto backup = KSharedConfig::openConfig(root.filePath(QStringLiteral("toolbar-backup")));
+        KConfigGroup savedCustomization = backup->group(QStringLiteral("ToolbarCustomization"));
+        customization.copyTo(&savedCustomization);
+        customization.deleteGroup();
+        const auto restore = qScopeGuard([&] {
+            customization.deleteGroup();
+            savedCustomization.copyTo(&customization);
+            config->sync();
+            Settings::setToolbarSearchOpensPanel(true);
+            Settings::self()->save();
+        });
+        MainWindow window;
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        auto *places = window.findChild<KFilePlacesModel *>();
+        QAction *field = window.actionCollection()->action(QStringLiteral("search_toolbar"));
+        QAction *searchButton = window.actionCollection()->action(QStringLiteral("search_folder"));
+        QVERIFY(places && field && searchButton);
+        QVERIFY(!window.toolBar()->actions().contains(field));
+        {
+            SettingsDialog dialog(places, &window);
+            auto *show = dialog.findChild<QCheckBox *>(QStringLiteral("searchToolbarField"));
+            auto *opens = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ToolbarSearchOpensPanel"));
+            QVERIFY(show && opens);
+            QVERIFY(show->isEnabled());
+            QVERIFY(!show->isChecked());
+            QVERIFY(opens->isChecked());
+            show->setChecked(true);
+            opens->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QList<QAction *> entries = window.toolBar()->actions();
+        QVERIFY(entries.contains(field));
+        QCOMPARE(entries.indexOf(field) + 1, entries.indexOf(searchButton));
+        QVERIFY(!Settings::toolbarSearchOpensPanel());
+        QTRY_VERIFY(customization.readEntry("Actions", QStringList()).contains(QStringLiteral("action:search_toolbar")));
+        {
+            SettingsDialog dialog(places, &window);
+            auto *show = dialog.findChild<QCheckBox *>(QStringLiteral("searchToolbarField"));
+            QVERIFY(show->isChecked());
+            show->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QVERIFY(!window.toolBar()->actions().contains(field));
+        QTRY_VERIFY(!customization.readEntry("Actions", QStringList()).contains(QStringLiteral("action:search_toolbar")));
+
+        // Without a main window the option can't apply.
+        KFilePlacesModel model;
+        SettingsDialog detached(&model, nullptr);
+        QVERIFY(!detached.findChild<QCheckBox *>(QStringLiteral("searchToolbarField"))->isEnabled());
     }
 
     void workspaceLayoutRestoreOptionsPersist()

@@ -44,6 +44,7 @@
 #include <QSpinBox>
 #include <QSplitter>
 #include <QStandardPaths>
+#include <QStatusBar>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QTemporaryDir>
@@ -1117,6 +1118,47 @@ private Q_SLOTS:
         QVERIFY(toggle->isChecked());
         QTRY_COMPARE(results->topLevelItemCount(), 1);
         QCOMPARE(search->findChild<QComboBox *>(QStringLiteral("searchSaved"))->currentText(), saved.name);
+
+        // Preferences can leave the panel hidden; the status bar then reports the outcome.
+        Settings::setToolbarSearchOpensPanel(false);
+        Settings::self()->save();
+        const auto restoreOpening = qScopeGuard([] {
+            Settings::setToolbarSearchOpensPanel(true);
+            Settings::self()->save();
+        });
+        toggle->setChecked(false);
+        results->clear();
+        field->setFocus();
+        field->clear();
+        QTest::keyClicks(field, QStringLiteral("needle"));
+        QTest::keyClick(field, Qt::Key_Return);
+        QVERIFY(!toggle->isChecked());
+        QTRY_COMPARE(results->topLevelItemCount(), 1);
+        QTRY_VERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("1 match")));
+        QCOMPARE(QApplication::focusWidget(), field);
+        // Down then shows the panel with its results.
+        QTest::keyClick(field, Qt::Key_Down);
+        QVERIFY(toggle->isChecked());
+        QCOMPARE(QApplication::focusWidget(), results);
+
+        // Saved searches follow the same choice, and a search that can't start is reported.
+        toggle->setChecked(false);
+        window.statusBar()->clearMessage();
+        savedAction->trigger();
+        QTRY_VERIFY((menu = field->findChild<QMenu *>(QStringLiteral("toolbarSavedSearchesMenu"))));
+        menu->actions().constFirst()->trigger();
+        menu->close();
+        QVERIFY(!toggle->isChecked());
+        QTRY_VERIFY(!window.statusBar()->currentMessage().isEmpty());
+        QTRY_VERIFY(search->findChild<QPushButton *>(QStringLiteral("searchStart"))->isEnabled());
+        search->findChild<QComboBox *>(QStringLiteral("searchField"))->setCurrentIndex(2);
+        window.statusBar()->clearMessage();
+        field->setFocus();
+        field->setText(QStringLiteral("(unbalanced"));
+        QTest::keyClick(field, Qt::Key_Return);
+        QVERIFY(!toggle->isChecked());
+        QCOMPARE(window.statusBar()->currentMessage(), search->status());
+        QVERIFY(!search->status().isEmpty());
     }
 
     void opensResultsAndRevealsWithKeyboard()
