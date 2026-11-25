@@ -98,6 +98,8 @@ add_library(opusfm_core STATIC
     tabcolors.h
     startup.cpp
     startup.h
+    stylesheets.cpp
+    stylesheets.h
     symlinks.cpp
     symlinks.h
     symbolicicon.cpp

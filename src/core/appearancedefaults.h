@@ -22,9 +22,9 @@ inline constexpr auto Group = "Themes";
 QStringList keptEntries();
 
 /**
- * Whether blur, translucency, pane tints, custom corner radii and tinted tabs
- * are suspended: the SuspendEffectsInHighContrast setting is on and the
- * platform asks for high contrast.
+ * Whether blur, translucency, pane tints, custom corner radii, tinted tabs
+ * and the custom stylesheet are suspended: the SuspendEffectsInHighContrast
+ * setting is on and the platform asks for high contrast.
  */
 bool effectsSuspended();
 

@@ -89,6 +89,7 @@ ecm_add_tests(
     searchcollectiontest.cpp
     tabcolorstest.cpp
     startuptest.cpp
+    stylesheetstest.cpp
     symlinkstest.cpp
     symboliciconstest.cpp
     tabmodeltest.cpp

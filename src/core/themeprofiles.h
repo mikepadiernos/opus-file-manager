@@ -54,6 +54,12 @@ QVariantMap capture(const KCoreConfigSkeleton *settings);
 /// The default values of entries(), which follow Plasma.
 QVariantMap defaults(const KCoreConfigSkeleton *settings);
 
+/// The entries that hold the custom stylesheet, which an export can leave out.
+QStringList styleSheetEntries();
+
+/// Whether @p values hold custom stylesheet text, applied or not.
+bool hasStyleSheet(const QVariantMap &values);
+
 /**
  * Checks a profile name: not empty after trimming, at most
  * MaximumNameLength characters and without control characters.

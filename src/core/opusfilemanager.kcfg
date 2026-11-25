@@ -1118,8 +1118,16 @@
       </choices>
       <default>FollowPlasma</default>
     </entry>
+    <entry name="UseCustomStyleSheet" type="Bool">
+      <label>Whether the app-local Qt Style Sheet is applied</label>
+      <default>false</default>
+    </entry>
+    <entry name="CustomStyleSheet" type="String">
+      <label>An app-local Qt Style Sheet applied over the other appearance options</label>
+      <default></default>
+    </entry>
     <entry name="SuspendEffectsInHighContrast" type="Bool">
-      <label>Whether blur, translucency, tints, custom corner radii and tinted tabs are suspended while high contrast is requested</label>
+      <label>Whether blur, translucency, tints, custom corner radii, tinted tabs and the custom stylesheet are suspended while high contrast is requested</label>
       <default>true</default>
     </entry>
   </group>

@@ -4,6 +4,7 @@
 
 #include "appfonts.h"
 #include "colorschemes.h"
+#include "stylesheets.h"
 
 #include <KCoreConfigSkeleton>
 #include <KLocalizedString>
@@ -83,7 +84,15 @@ bool validValue(const QString &entry, const QVariant &value)
         QFont parsed;
         return font.isEmpty() || (!hasControlCharacter(font) && parsed.fromString(font));
     }
+    if (entry == QLatin1String("CustomStyleSheet")) {
+        return StyleSheets::check(value.toString()).isEmpty();
+    }
     return true;
+}
+
+qsizetype maximumLength(const KConfigSkeletonItem *item)
+{
+    return item->name() == QLatin1String("CustomStyleSheet") ? StyleSheets::MaximumSize : MaximumStringLength;
 }
 
 QJsonValue encode(const KConfigSkeletonItem *item, const QVariant &value)
@@ -162,7 +171,7 @@ std::optional<QVariant> decode(const KConfigSkeletonItem *item, const QJsonValue
             }
             break;
         case QMetaType::QString:
-            if (json.isString() && json.toString().size() <= MaximumStringLength) {
+            if (json.isString() && json.toString().size() <= maximumLength(item)) {
                 value = json.toString();
             }
             break;
@@ -265,6 +274,16 @@ QVariantMap ThemeProfiles::defaults(const KCoreConfigSkeleton *settings)
         values.insert(item->name(), item->getDefault());
     }
     return values;
+}
+
+QStringList ThemeProfiles::styleSheetEntries()
+{
+    return {QStringLiteral("UseCustomStyleSheet"), QStringLiteral("CustomStyleSheet")};
+}
+
+bool ThemeProfiles::hasStyleSheet(const QVariantMap &values)
+{
+    return !values.value(QStringLiteral("CustomStyleSheet")).toString().trimmed().isEmpty();
 }
 
 QString ThemeProfiles::nameError(const QString &name)

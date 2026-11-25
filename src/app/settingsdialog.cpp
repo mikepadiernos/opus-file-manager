@@ -169,6 +169,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createSpacingPage(), i18nc("@title:tab", "Spacing")},
                    {createBarStylePage(), i18nc("@title:tab", "Tabs and Status Bars")},
                    {createMotionPage(), i18nc("@title:tab", "Motion and Accessibility")},
+                   {createStyleSheetPage(), i18nc("@title:tab", "Stylesheet")},
                    {createThemeProfilesPage(), i18nc("@title:tab", "Profiles")}},
                   i18nc("@title:group", "Themes"),
                   QStringLiteral("preferences-desktop-theme"));
@@ -1943,7 +1944,8 @@ QWidget *SettingsDialog::createMotionPage()
                            i18nc("@item:inlistbox animation speed", "Reduced"),
                            i18nc("@item:inlistbox animation speed", "Off")}));
     form->addRow(i18nc("@title:group", "High contrast:"),
-                 checkBox(QStringLiteral("SuspendEffectsInHighContrast"), i18nc("@option:check", "Suspend blur, translucency, tints and custom corners")));
+                 checkBox(QStringLiteral("SuspendEffectsInHighContrast"),
+                          i18nc("@option:check", "Suspend blur, translucency, tints, custom corners and the stylesheet")));
     layout->addLayout(form);
     auto *note = new QLabel(i18nc("@info",
                                   "Follow Plasma uses the animation speed from System Settings. Reduced halves transitions such as "
@@ -1952,11 +1954,12 @@ QWidget *SettingsDialog::createMotionPage()
                             page);
     note->setWordWrap(true);
     layout->addWidget(note);
-    auto *contrastNote = new QLabel(i18nc("@info",
-                                          "When Plasma asks for high contrast, Plasma Opus always follows the Plasma colour scheme. With the "
-                                          "option above, it also makes backgrounds opaque, removes blur and pane tints, uses the widget style's "
-                                          "corners and shows tab colours as text only, until high contrast is turned off again."),
-                                    page);
+    auto *contrastNote =
+        new QLabel(i18nc("@info",
+                         "When Plasma asks for high contrast, Plasma Opus always follows the Plasma colour scheme. With the "
+                         "option above, it also makes backgrounds opaque, removes blur and pane tints, uses the widget style's "
+                         "corners, shows tab colours as text only and removes the custom stylesheet, until high contrast is turned off again."),
+                   page);
     contrastNote->setWordWrap(true);
     layout->addWidget(contrastNote);
     if (ColorSchemes::highContrastPreferred()) {
@@ -2034,6 +2037,23 @@ void SettingsDialog::setAppearanceValues(const QVariantMap &values)
         }
     }
     updateButtons();
+}
+
+QWidget *SettingsDialog::createStyleSheetPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(checkBox(QStringLiteral("UseCustomStyleSheet"), i18nc("@option:check", "Apply a custom Qt stylesheet")));
+    auto *note = new QLabel(i18nc("@info",
+                                  "Qt Style Sheets are a CSS-like subset for Qt widgets, not full web CSS. The stylesheet applies to Plasma "
+                                  "Opus windows and their dialogs after every other Themes option, and is refused if Qt cannot read it. "
+                                  "For safety, only images built into Plasma Opus (url(:/…)) can be used, and @import and qproperty- "
+                                  "are refused. If a window becomes hard to use, start Plasma Opus with --reset-appearance."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    layout->addWidget(bound(new StyleSheetEditor(page), QStringLiteral("CustomStyleSheet"), "sheet"), 1);
+    return page;
 }
 
 QWidget *SettingsDialog::createThemeProfilesPage()

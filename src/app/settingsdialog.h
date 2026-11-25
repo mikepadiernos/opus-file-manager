@@ -126,6 +126,7 @@ private:
     QWidget *createBarStylePage();
     QWidget *createMotionPage();
     QWidget *createThemeProfilesPage();
+    QWidget *createStyleSheetPage();
     QWidget *createViewGeneralPage();
     QWidget *createDetailsPage();
     QWidget *createCompactPage();

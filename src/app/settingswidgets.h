@@ -331,6 +331,45 @@ private:
     KFontRequester *m_requester;
 };
 
+class QPlainTextEdit;
+class QTimer;
+
+/**
+ * Edits the app-local Qt Style Sheet, checks it as it is typed and previews
+ * it on sample widgets. Bound to the CustomStyleSheet setting.
+ */
+class StyleSheetEditor : public QWidget
+{
+    Q_OBJECT
+    Q_PROPERTY(QString sheet READ sheet WRITE setSheet NOTIFY sheetChanged USER true)
+
+public:
+    explicit StyleSheetEditor(QWidget *parent = nullptr);
+    QString sheet() const;
+    void setSheet(const QString &sheet);
+    /// The problem found by the last check, or an empty string.
+    QString problem() const;
+    /// Checks the text and updates the status and the preview now.
+    void check();
+    /// Replaces the text with a stylesheet file.
+    bool importFile(const QString &path);
+    bool exportFile(const QString &path);
+    /// Returns to the saved stylesheet.
+    void revert();
+
+Q_SIGNALS:
+    void sheetChanged();
+
+private:
+    void showStatus(int type, const QString &text);
+
+    QPlainTextEdit *m_text;
+    KMessageWidget *m_status;
+    QFrame *m_preview;
+    QTimer *m_checkTimer;
+    QString m_problem;
+};
+
 /**
  * Saves, loads, imports, exports and removes theme profiles. Saved profiles
  * are written at once; loading a profile only fills the settings dialog, so
@@ -364,7 +403,7 @@ public:
     bool loadProfile(const QString &id);
     /// Imports a profile file, asking before replacing a profile with its name.
     bool importProfile(const QString &path);
-    bool exportProfile(const QString &id, const QString &path);
+    bool exportProfile(const QString &id, const QString &path, bool includeStyleSheet = true);
     bool removeProfile(const QString &id);
 
 private:

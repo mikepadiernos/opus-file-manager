@@ -137,6 +137,8 @@ private:
     void applyPanelOpacity(QDockWidget *dock);
     /// Applies the app-local corner radius, dividers and other style rules.
     void applyAppearanceStyle();
+    /// Applies the custom stylesheet after every other appearance option, or removes it.
+    void applyCustomStyleSheet();
     /// Redraws folder colours on icons, names, tabs and breadcrumbs after they or their style change.
     void refreshFolderColors();
     /// Applies the app-local fonts of file lists, the folder trees, tabs and status bars.

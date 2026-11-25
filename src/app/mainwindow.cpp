@@ -15,6 +15,7 @@
 #include "compressdialog.h"
 #include "contentchartdialog.h"
 #include "customcommanddialog.h"
+#include "customstylesheet.h"
 #include "density.h"
 #include "duplicatefinderdialog.h"
 #include "editorpanel.h"
@@ -551,7 +552,8 @@ bool suspendableEffectsConfigured()
 {
     return Settings::backgroundBlur() || Settings::windowOpacity() < 100 || Settings::paneOpacity() < 100 || Settings::panelOpacity() < 100
         || Settings::paneTint() != Settings::EnumPaneTint::None || Settings::cornerRadius() != Settings::EnumCornerRadius::FollowStyle
-        || Settings::tabColorStrength() != Settings::EnumTabColorStrength::Text;
+        || Settings::tabColorStrength() != Settings::EnumTabColorStrength::Text
+        || (Settings::useCustomStyleSheet() && !Settings::customStyleSheet().trimmed().isEmpty());
 }
 }
 
@@ -568,12 +570,13 @@ void MainWindow::applyColorScheme()
     } else if (highContrast && customScheme && effectsSuspended) {
         statusBar()->showMessage(i18nc("@info:status",
                                        "High contrast is requested, so Plasma Opus follows the Plasma colour scheme and suspends blur, "
-                                       "translucency, tints and custom corners."));
+                                       "translucency, tints, custom corners and the custom stylesheet."));
     } else if (highContrast && customScheme) {
         statusBar()->showMessage(
             i18nc("@info:status", "High contrast is requested, so Plasma Opus follows the Plasma colour scheme instead of its own colours."));
     } else if (effectsSuspended) {
-        statusBar()->showMessage(i18nc("@info:status", "High contrast is requested, so Plasma Opus suspends blur, translucency, tints and custom corners."));
+        statusBar()->showMessage(
+            i18nc("@info:status", "High contrast is requested, so Plasma Opus suspends blur, translucency, tints, custom corners and the custom stylesheet."));
     }
 }
 
@@ -584,6 +587,7 @@ void MainWindow::applyContrastDependentAppearance()
     applyBackgroundOpacity();
     applyAppearanceStyle();
     applyPaneBackgrounds();
+    applyCustomStyleSheet();
 }
 
 void MainWindow::applyPaneBackgrounds()
@@ -680,6 +684,18 @@ void MainWindow::applyAppearanceStyle()
     // Tree lines are drawn by the views themselves.
     for (QTreeView *tree : findChildren<QTreeView *>()) {
         tree->viewport()->update();
+    }
+}
+
+void MainWindow::applyCustomStyleSheet()
+{
+    QString error;
+    const QString sheet = CustomStyleSheet::configured(&error);
+    if (styleSheet() != sheet) {
+        setStyleSheet(sheet);
+    }
+    if (!error.isEmpty()) {
+        statusBar()->showMessage(i18nc("@info:status %1 is the reason", "The custom stylesheet was not applied. %1", error));
     }
 }
 
@@ -4782,6 +4798,7 @@ void MainWindow::applySettings()
     applyAppearanceStyle();
     applyFonts();
     refreshFolderColors();
+    applyCustomStyleSheet();
     const bool translucency = Settings::windowOpacity() < 100 || Settings::paneOpacity() < 100 || Settings::panelOpacity() < 100;
     if (AppearanceDefaults::effectsSuspended()) {
         // applyColorScheme() reports the suspended effects instead.

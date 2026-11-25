@@ -8,6 +8,7 @@
 #include "colorschemes.h"
 #include "combinedpanel.h"
 #include "compressdialog.h"
+#include "customstylesheet.h"
 #include "density.h"
 #include "detailsview.h"
 #include "fileoperations.h"
@@ -2563,6 +2564,97 @@ private Q_SLOTS:
         QCOMPARE(scheme->scheme(), QStringLiteral("NoSuchSchemeOpus"));
         QCOMPARE(spacing->value(), 100);
         QCOMPARE(message->messageType(), KMessageWidget::Warning);
+    }
+
+    void customStyleSheetPreviewsAppliesAndIsRefusedWhenUnsafe()
+    {
+        auto restore = qScopeGuard([] {
+            ColorSchemes::setHighContrastPreferredForTesting(std::nullopt);
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            KSharedConfig::openConfig()->deleteGroup(QLatin1String(ThemeProfiles::Group));
+        });
+        const QString sheet = QStringLiteral("QStatusBar { background: #ff0000; }");
+        QVERIFY(CustomStyleSheet::error(sheet).isEmpty());
+        QVERIFY(!CustomStyleSheet::error(QStringLiteral("QPushButton {} ]")).isEmpty());
+        QVERIFY(!CustomStyleSheet::error(QStringLiteral("QLabel { image: url(/etc/a.png); }")).isEmpty());
+
+        Settings::setCustomStyleSheet(sheet);
+        Settings::self()->save();
+        MainWindow window;
+        window.applySettings();
+        QVERIFY(window.styleSheet().isEmpty());
+
+        // Applied over the other options to the window only, and removed when turned off.
+        QStyle *const appStyle = QApplication::style();
+        Settings::setUseCustomStyleSheet(true);
+        window.applySettings();
+        QCOMPARE(window.styleSheet(), sheet);
+        QCOMPARE(QApplication::style(), appStyle);
+        QVERIFY(qApp->styleSheet().isEmpty());
+        ColorSchemes::setHighContrastPreferredForTesting(true);
+        window.applySettings();
+        QVERIFY(window.styleSheet().isEmpty());
+        ColorSchemes::setHighContrastPreferredForTesting(false);
+        window.applySettings();
+        QCOMPARE(window.styleSheet(), sheet);
+
+        // An unsafe stylesheet is refused with a message.
+        Settings::setCustomStyleSheet(QStringLiteral("QStatusBar { background-image: url(https://example.com/a.png); }"));
+        window.applySettings();
+        QVERIFY(window.styleSheet().isEmpty());
+        QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("https://example.com/a.png")));
+        Settings::setCustomStyleSheet(sheet);
+        Settings::self()->save();
+        window.applySettings();
+
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *editor = dialog.findChild<StyleSheetEditor *>(QStringLiteral("kcfg_CustomStyleSheet"));
+        auto *preview = dialog.findChild<QWidget *>(QStringLiteral("styleSheetPreview"));
+        auto *status = dialog.findChild<KMessageWidget *>(QStringLiteral("styleSheetStatus"));
+        QVERIFY(editor && preview && status);
+        QCOMPARE(editor->sheet(), sheet);
+
+        // Previews show only on sample widgets until Apply.
+        const QString green = QStringLiteral("QPushButton { color: #00ff00; }");
+        editor->setSheet(green);
+        QCOMPARE(preview->styleSheet(), green);
+        QCOMPARE(status->messageType(), KMessageWidget::Positive);
+        QCOMPARE(window.styleSheet(), sheet);
+        editor->setSheet(QStringLiteral("QPushButton { color: red;"));
+        QVERIFY(!editor->problem().isEmpty());
+        QCOMPARE(status->messageType(), KMessageWidget::Error);
+        QVERIFY(preview->styleSheet().isEmpty());
+        editor->revert();
+        QCOMPARE(editor->sheet(), sheet);
+        QVERIFY(editor->problem().isEmpty());
+
+        // Import and export separately.
+        QTemporaryDir files;
+        const QString path = files.filePath(QStringLiteral("green.qss"));
+        editor->setSheet(green);
+        QVERIFY(editor->exportFile(path));
+        editor->revert();
+        QVERIFY(editor->importFile(path));
+        QCOMPARE(editor->sheet(), green);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::customStyleSheet(), green);
+        QCOMPARE(window.styleSheet(), green);
+
+        // Profiles include the stylesheet unless an export leaves it out.
+        auto *manager = dialog.findChild<ThemeProfileManager *>(QStringLiteral("themeProfileManager"));
+        QVERIFY(manager->saveCurrent(QStringLiteral("Green")));
+        const QString withSheet = files.filePath(QStringLiteral("with.json"));
+        const QString withoutSheet = files.filePath(QStringLiteral("without.json"));
+        QVERIFY(manager->exportProfile(manager->selectedId(), withSheet));
+        QVERIFY(manager->exportProfile(manager->selectedId(), withoutSheet, false));
+        QString error;
+        QCOMPARE(ThemeProfiles::importFile(Settings::self(), withSheet, &error)->values.value(QStringLiteral("CustomStyleSheet")).toString(), green);
+        const auto without = ThemeProfiles::importFile(Settings::self(), withoutSheet, &error);
+        QVERIFY(without->values.value(QStringLiteral("CustomStyleSheet")).toString().isEmpty());
+        QVERIFY(!without->values.value(QStringLiteral("UseCustomStyleSheet")).toBool());
     }
 
     void customColoursReportLowContrast()

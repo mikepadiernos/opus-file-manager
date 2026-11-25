@@ -63,6 +63,9 @@ private Q_SLOTS:
         Settings::setTreeLinePalette({QStringLiteral("#ff0000"), QStringLiteral("#00ff00")});
         Settings::setCustomColors({QStringLiteral("Window=#101010")});
         Settings::setTabFont(QStringLiteral("Noto Sans,14,-1,5,400,0,0,0,0,0,0,0,0,0,0,1"));
+        // Stylesheets may be longer than other text options.
+        Settings::setUseCustomStyleSheet(true);
+        Settings::setCustomStyleSheet(QStringLiteral("QLabel { color: #ff0000; }\n").repeated(300));
         const ThemeProfiles::Profile profile{QString(), QStringLiteral("  Night  "), ThemeProfiles::capture(Settings::self())};
 
         const QByteArray json = ThemeProfiles::toJson(Settings::self(), profile);
@@ -119,6 +122,8 @@ private Q_SLOTS:
                                            << QStringLiteral("CustomColors");
         QTest::newRow("empty palette") << document({{QStringLiteral("TreeLinePalette"), QJsonArray{}}}) << QStringLiteral("TreeLinePalette");
         QTest::newRow("scheme path") << document({{QStringLiteral("ColorScheme"), QStringLiteral("../../etc/passwd")}}) << QStringLiteral("ColorScheme");
+        QTest::newRow("external stylesheet resource") << document({{QStringLiteral("CustomStyleSheet"), QStringLiteral("QLabel { image: url(/etc/a.png); }")}})
+                                                      << QStringLiteral("CustomStyleSheet");
         QTest::newRow("too large") << QByteArray(ThemeProfiles::MaximumFileSize + 1, ' ') << QString();
     }
 

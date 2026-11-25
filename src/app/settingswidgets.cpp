@@ -4,9 +4,11 @@
 
 #include "appfonts.h"
 #include "colorschemes.h"
+#include "customstylesheet.h"
 #include "filecolorrules.h"
 #include "ignorelist.h"
 #include "settings.h"
+#include "stylesheets.h"
 #include "workspacestartup.h"
 
 #include <KColorButton>
@@ -24,6 +26,7 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileDialog>
+#include <QFontDatabase>
 #include <QFormLayout>
 #include <QFrame>
 #include <QGridLayout>
@@ -35,11 +38,15 @@
 #include <QLocale>
 #include <QMessageBox>
 #include <QPainter>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QSet>
 #include <QSignalBlocker>
 #include <QStandardPaths>
+#include <QStatusBar>
+#include <QTabBar>
+#include <QTimer>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -1030,6 +1037,188 @@ void FontOverrideChooser::setFontSetting(const QString &setting)
     Q_EMIT fontSettingChanged();
 }
 
+StyleSheetEditor::StyleSheetEditor(QWidget *parent)
+    : QWidget(parent)
+    , m_text(new QPlainTextEdit(this))
+    , m_status(new KMessageWidget(this))
+    , m_preview(new QFrame(this))
+    , m_checkTimer(new QTimer(this))
+{
+    setProperty("kcfg_propertyNotify", QByteArray(SIGNAL(sheetChanged())));
+    m_text->setObjectName(QStringLiteral("styleSheetText"));
+    m_text->setAccessibleName(i18nc("@label", "Custom stylesheet"));
+    m_text->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    m_text->setLineWrapMode(QPlainTextEdit::NoWrap);
+    m_text->setTabChangesFocus(true);
+    m_text->setPlaceholderText(QStringLiteral("QStatusBar {\n    border-top: 1px solid palette(mid);\n}"));
+    m_status->setObjectName(QStringLiteral("styleSheetStatus"));
+    m_status->setWordWrap(true);
+    m_status->setCloseButtonVisible(false);
+    m_status->hide();
+    m_checkTimer->setSingleShot(true);
+    m_checkTimer->setInterval(300);
+
+    auto *buttons = new QHBoxLayout;
+    auto *import = new QPushButton(QIcon::fromTheme(QStringLiteral("document-import")), i18nc("@action:button", "Import…"), this);
+    auto *exportButton = new QPushButton(QIcon::fromTheme(QStringLiteral("document-export")), i18nc("@action:button", "Export…"), this);
+    auto *revertButton = new QPushButton(QIcon::fromTheme(QStringLiteral("document-revert")), i18nc("@action:button", "Revert"), this);
+    import->setObjectName(QStringLiteral("importStyleSheet"));
+    exportButton->setObjectName(QStringLiteral("exportStyleSheet"));
+    revertButton->setObjectName(QStringLiteral("revertStyleSheet"));
+    revertButton->setToolTip(i18nc("@info:tooltip", "Returns to the stylesheet that was last applied."));
+    buttons->addWidget(import);
+    buttons->addWidget(exportButton);
+    buttons->addWidget(revertButton);
+    buttons->addStretch();
+
+    // Sample widgets show the stylesheet without applying it to any window.
+    m_preview->setObjectName(QStringLiteral("styleSheetPreview"));
+    m_preview->setAccessibleName(i18nc("@label", "Stylesheet preview"));
+    m_preview->setFrameShape(QFrame::StyledPanel);
+    auto *sample = new QGridLayout(m_preview);
+    auto *tabs = new QTabBar(m_preview);
+    tabs->addTab(i18nc("@title:tab sample tab", "Documents"));
+    tabs->addTab(i18nc("@title:tab sample tab", "Pictures"));
+    tabs->setFocusPolicy(Qt::NoFocus);
+    auto *files = new QListWidget(m_preview);
+    files->addItems({i18nc("@item sample file", "Report.odt"), i18nc("@item sample file", "Holiday.jpg"), i18nc("@item sample file", "Notes.txt")});
+    files->setCurrentRow(1);
+    files->setMaximumHeight(files->sizeHintForRow(0) * 4);
+    files->setFocusPolicy(Qt::NoFocus);
+    auto *filter = new QLineEdit(m_preview);
+    filter->setPlaceholderText(i18nc("@info:placeholder sample", "Filter…"));
+    filter->setFocusPolicy(Qt::NoFocus);
+    auto *button = new QPushButton(i18nc("@action:button sample", "Open"), m_preview);
+    button->setFocusPolicy(Qt::NoFocus);
+    auto *hidden = new QCheckBox(i18nc("@option:check sample", "Show hidden files"), m_preview);
+    hidden->setFocusPolicy(Qt::NoFocus);
+    auto *status = new QStatusBar(m_preview);
+    status->showMessage(i18nc("@info:status sample", "3 files"));
+    status->setSizeGripEnabled(false);
+    sample->addWidget(tabs, 0, 0, 1, 2);
+    sample->addWidget(files, 1, 0, 1, 2);
+    sample->addWidget(filter, 2, 0);
+    sample->addWidget(button, 2, 1);
+    sample->addWidget(hidden, 3, 0, 1, 2);
+    sample->addWidget(status, 4, 0, 1, 2);
+
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    auto *editors = new QHBoxLayout;
+    editors->addWidget(m_text, 3);
+    auto *previewColumn = new QVBoxLayout;
+    previewColumn->addWidget(new QLabel(i18nc("@title:group", "Preview:"), this));
+    previewColumn->addWidget(m_preview);
+    previewColumn->addStretch();
+    editors->addLayout(previewColumn, 2);
+    layout->addLayout(editors, 1);
+    layout->addWidget(m_status);
+    layout->addLayout(buttons);
+
+    connect(m_text, &QPlainTextEdit::textChanged, this, [this] {
+        m_checkTimer->start();
+        Q_EMIT sheetChanged();
+    });
+    connect(m_checkTimer, &QTimer::timeout, this, &StyleSheetEditor::check);
+    connect(import, &QPushButton::clicked, this, [this] {
+        const QString path = QFileDialog::getOpenFileName(this,
+                                                          i18nc("@title:window", "Import Stylesheet"),
+                                                          QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
+                                                          i18nc("@item:inlistbox", "Qt Style Sheets (*.qss *.css)"));
+        if (!path.isEmpty()) {
+            importFile(path);
+        }
+    });
+    connect(exportButton, &QPushButton::clicked, this, [this] {
+        QString path =
+            QFileDialog::getSaveFileName(this,
+                                         i18nc("@title:window", "Export Stylesheet"),
+                                         QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)).filePath(QStringLiteral("plasma-opus.qss")),
+                                         i18nc("@item:inlistbox", "Qt Style Sheets (*.qss)"));
+        if (path.isEmpty()) {
+            return;
+        }
+        if (!path.endsWith(QLatin1String(".qss"), Qt::CaseInsensitive) && !path.endsWith(QLatin1String(".css"), Qt::CaseInsensitive)) {
+            path.append(QStringLiteral(".qss"));
+        }
+        exportFile(path);
+    });
+    connect(revertButton, &QPushButton::clicked, this, &StyleSheetEditor::revert);
+}
+
+QString StyleSheetEditor::sheet() const
+{
+    return m_text->toPlainText();
+}
+
+void StyleSheetEditor::setSheet(const QString &sheet)
+{
+    if (sheet == this->sheet()) {
+        return;
+    }
+    m_text->setPlainText(sheet);
+    check();
+}
+
+QString StyleSheetEditor::problem() const
+{
+    return m_problem;
+}
+
+void StyleSheetEditor::check()
+{
+    m_checkTimer->stop();
+    const QString text = sheet();
+    m_problem = CustomStyleSheet::error(text);
+    if (!m_problem.isEmpty()) {
+        m_preview->setStyleSheet(QString());
+        showStatus(KMessageWidget::Error, m_problem);
+    } else {
+        m_preview->setStyleSheet(text);
+        if (text.trimmed().isEmpty()) {
+            m_status->hide();
+        } else {
+            showStatus(KMessageWidget::Positive, i18nc("@info", "No problems found. The preview shows the stylesheet."));
+        }
+    }
+}
+
+bool StyleSheetEditor::importFile(const QString &path)
+{
+    QString error;
+    const std::optional<QString> imported = StyleSheets::readFile(path, &error);
+    if (!imported) {
+        showStatus(KMessageWidget::Error, i18nc("@info %1 is the reason", "The stylesheet was not imported. %1", error));
+        return false;
+    }
+    m_text->setPlainText(*imported);
+    check();
+    return true;
+}
+
+bool StyleSheetEditor::exportFile(const QString &path)
+{
+    if (const QString error = StyleSheets::writeFile(path, sheet()); !error.isEmpty()) {
+        showStatus(KMessageWidget::Error, error);
+        return false;
+    }
+    showStatus(KMessageWidget::Positive, i18nc("@info", "Exported the stylesheet to %1.", QDir::toNativeSeparators(path)));
+    return true;
+}
+
+void StyleSheetEditor::revert()
+{
+    m_text->setPlainText(Settings::customStyleSheet());
+    check();
+}
+
+void StyleSheetEditor::showStatus(int type, const QString &text)
+{
+    m_status->setMessageType(static_cast<KMessageWidget::MessageType>(type));
+    m_status->setText(text);
+    m_status->show();
+}
+
 ThemeProfileManager::ThemeProfileManager(Callbacks callbacks, QWidget *parent)
     : QWidget(parent)
     , m_callbacks(std::move(callbacks))
@@ -1134,7 +1323,22 @@ ThemeProfileManager::ThemeProfileManager(Callbacks callbacks, QWidget *parent)
         if (!path.endsWith(QLatin1String(".json"), Qt::CaseInsensitive)) {
             path.append(QStringLiteral(".opus-theme.json"));
         }
-        exportProfile(id, path);
+        bool includeStyleSheet = true;
+        const auto profile = std::find_if(m_profiles.cbegin(), m_profiles.cend(), [&id](const ThemeProfiles::Profile &candidate) {
+            return candidate.id == id;
+        });
+        if (profile != m_profiles.cend() && ThemeProfiles::hasStyleSheet(profile->values)) {
+            const auto answer = QMessageBox::question(this,
+                                                      i18nc("@title:window", "Export Theme Profile"),
+                                                      i18nc("@info", "Include the profile's custom stylesheet in the exported file?"),
+                                                      QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel,
+                                                      QMessageBox::Yes);
+            if (answer == QMessageBox::Cancel) {
+                return;
+            }
+            includeStyleSheet = answer == QMessageBox::Yes;
+        }
+        exportProfile(id, path, includeStyleSheet);
     });
     connect(m_remove, &QPushButton::clicked, this, [this] {
         removeProfile(selectedId());
@@ -1287,7 +1491,7 @@ bool ThemeProfileManager::importProfile(const QString &path)
     return true;
 }
 
-bool ThemeProfileManager::exportProfile(const QString &id, const QString &path)
+bool ThemeProfileManager::exportProfile(const QString &id, const QString &path, bool includeStyleSheet)
 {
     const auto profile = std::find_if(m_profiles.cbegin(), m_profiles.cend(), [&id](const ThemeProfiles::Profile &candidate) {
         return candidate.id == id;
@@ -1295,7 +1499,13 @@ bool ThemeProfileManager::exportProfile(const QString &id, const QString &path)
     if (id.isEmpty() || profile == m_profiles.cend()) {
         return false;
     }
-    if (const QString error = ThemeProfiles::exportFile(Settings::self(), *profile, path); !error.isEmpty()) {
+    ThemeProfiles::Profile exported = *profile;
+    if (!includeStyleSheet) {
+        for (const QString &entry : ThemeProfiles::styleSheetEntries()) {
+            exported.values.remove(entry);
+        }
+    }
+    if (const QString error = ThemeProfiles::exportFile(Settings::self(), exported, path); !error.isEmpty()) {
         showMessage(KMessageWidget::Error, error);
         return false;
     }

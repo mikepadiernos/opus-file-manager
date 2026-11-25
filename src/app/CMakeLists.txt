@@ -21,6 +21,8 @@ add_library(opusfm_app STATIC
     cushiontreemap.h
     customcommanddialog.cpp
     customcommanddialog.h
+    customstylesheet.cpp
+    customstylesheet.h
     densitydelegate.cpp
     densitydelegate.h
     detailsview.cpp
