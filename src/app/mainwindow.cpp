@@ -36,6 +36,7 @@
 #include "gallerywindow.h"
 #include "informationpanel.h"
 #include "labelcolor.h"
+#include "libraryregistry.h"
 #include "linkednavigation.h"
 #include "localizeddates.h"
 #include "pane.h"
@@ -43,6 +44,7 @@
 #include "previewpanel.h"
 #include "searchdefaults.h"
 #include "searchpanel.h"
+#include "searchquery.h"
 #include "searchtoolbaraction.h"
 #include "session.h"
 #include "settings.h"
@@ -2258,6 +2260,19 @@ void MainWindow::setupActions()
     connect(deselectPaths, &QAction::triggered, this, [this] {
         selectByPathFilter(false);
     });
+    QAction *selectQuery = actions->addAction(QStringLiteral("select_by_query"));
+    selectQuery->setText(i18nc("@action:inmenu", "Select by Query…"));
+    selectQuery->setToolTip(i18nc("@info:tooltip", "Select items that match a search query, such as tag:holiday type:image/*"));
+    selectMenu->addAction(selectQuery);
+    connect(selectQuery, &QAction::triggered, this, [this] {
+        selectByQuery(true);
+    });
+    QAction *deselectQuery = actions->addAction(QStringLiteral("deselect_by_query"));
+    deselectQuery->setText(i18nc("@action:inmenu", "Deselect by Query…"));
+    selectMenu->addAction(deselectQuery);
+    connect(deselectQuery, &QAction::triggered, this, [this] {
+        selectByQuery(false);
+    });
     selectMenu->addSeparator();
     QAction *saveSelection = selectMenu->addAction(i18nc("@action:inmenu", "Save Selection Filter…"));
     connect(saveSelection, &QAction::triggered, this, &MainWindow::saveSelectionFilter);
@@ -3451,6 +3466,70 @@ void MainWindow::selectByPathFilter(bool select)
             return;
         }
         showStatusMessage(i18ncp(select ? "@info:status selected items by path" : "@info:status deselected items by path",
+                                 select ? "Selected %1 item" : "Deselected %1 item",
+                                 select ? "Selected %1 items" : "Deselected %1 items",
+                                 matched));
+        dialog.accept();
+    });
+    dialog.exec();
+}
+
+void MainWindow::selectByQuery(bool select)
+{
+    const QPointer<FolderView> view = activePane()->view();
+    if (!view->url().isLocalFile()) {
+        showStatusMessage(i18nc("@info", "Selection queries support local folders only."));
+        return;
+    }
+    const QUrl folder = view->url();
+    QDialog dialog(this);
+    dialog.setObjectName(QStringLiteral("selectionQueryDialog"));
+    dialog.setWindowTitle(select ? i18nc("@title:window", "Select by Query") : i18nc("@title:window", "Deselect by Query"));
+    auto *layout = new QVBoxLayout(&dialog);
+    auto *description = new QLabel(i18nc("@info",
+                                         "Combine name:, path:, type:, size:, modified:, tag: and tagged: criteria with AND, OR, NOT and parentheses. "
+                                         "Applies to the current top-level listing, or all shown items in flat view."),
+                                   &dialog);
+    description->setWordWrap(true);
+    layout->addWidget(description);
+    auto *edit = new QLineEdit(m_selectionQuery, &dialog);
+    edit->setObjectName(QStringLiteral("selectionQuery"));
+    edit->setAccessibleName(i18nc("@label:textbox", "Query"));
+    edit->setPlaceholderText(i18nc("@info:placeholder", "For example: tag:holiday NOT tagged:no"));
+    edit->setClearButtonEnabled(true);
+    layout->addWidget(edit);
+    auto *status = new QLabel(&dialog);
+    status->setObjectName(QStringLiteral("selectionQueryStatus"));
+    status->setTextFormat(Qt::PlainText);
+    status->setWordWrap(true);
+    layout->addWidget(status);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    layout->addWidget(buttons);
+    const auto describe = [edit, status] {
+        if (edit->text().trimmed().isEmpty()) {
+            status->clear();
+            return;
+        }
+        const auto query = SearchQuery::Query::parse(edit->text());
+        status->setText(query.isValid() ? i18nc("@info", "Query: %1", query.toString()) : query.error());
+    };
+    connect(edit, &QLineEdit::textChanged, &dialog, describe);
+    describe();
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, [&] {
+        if (!view || view->url() != folder || view->isLoading()) {
+            status->setText(i18nc("@info", "The folder changed or is still loading. Close this dialog and try again."));
+            return;
+        }
+        const auto query = SearchQuery::Query::parse(edit->text());
+        QString message;
+        const int matched = view->applySelectionQuery(query, LibraryRegistry::roots(), select, &message);
+        if (matched < 0) {
+            status->setText(message);
+            return;
+        }
+        m_selectionQuery = edit->text().trimmed();
+        showStatusMessage(i18ncp(select ? "@info:status selected items by query" : "@info:status deselected items by query",
                                  select ? "Selected %1 item" : "Deselected %1 item",
                                  select ? "Selected %1 items" : "Deselected %1 items",
                                  matched));

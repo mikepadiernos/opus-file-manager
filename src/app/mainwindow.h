@@ -213,6 +213,7 @@ private:
     void applySelectionFilter(const QString &pattern);
     void selectByPattern(bool select);
     void selectByPathFilter(bool select);
+    void selectByQuery(bool select);
     void saveSelectionFilter();
     void calculateOccupiedSpace();
     void jumpBack();
@@ -348,6 +349,8 @@ private:
     WorkspaceLocations *m_workspaceLocations = nullptr;
     QFileSystemWatcher *m_workspaceWatcher = nullptr;
     QString m_workspaceConfigPath;
+    /// The last query used to select or deselect items.
+    QString m_selectionQuery;
     qint64 m_workspaceConfigModified = -1;
     QTimer *m_workspaceIndicatorTimer = nullptr;
     /// Watches Plasma's colours, so its accent can follow over an app-local scheme.
