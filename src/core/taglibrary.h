@@ -74,6 +74,25 @@ struct Entry {
     QMap<QString, QString> fields;
 };
 
+/// A file or folder found below a library root by a scan.
+struct Observation {
+    QString path;
+    bool folder = false;
+    qint64 size = 0;
+    qint64 modified = 0;
+    quint64 device = 0;
+    quint64 inode = 0;
+};
+
+struct ScanChanges {
+    int added = 0;
+    int updated = 0;
+    /// Entries no longer found; their metadata is kept.
+    int missing = 0;
+    /// Missing entries found again at their recorded path.
+    int found = 0;
+};
+
 /// Describes why @p root can't hold a library, or returns an empty string.
 /// @param readOnly set when the folder is supported but can't be written
 QString checkLocation(const QString &root, bool *readOnly = nullptr);
@@ -123,6 +142,13 @@ public:
     const Entry *entryById(const QString &id) const;
     /// The relative path of @p absolutePath, or an empty string outside the library.
     QString relativePath(const QString &absolutePath) const;
+
+    /**
+     * Records scanned files and folders: new paths become entries and known
+     * ones are updated. Only a @p complete scan marks unseen entries missing;
+     * missing entries keep their tags and fields.
+     */
+    ScanChanges applyScan(const QList<Observation> &observed, bool complete);
 
 private:
     QString m_root;

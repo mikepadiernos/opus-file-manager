@@ -599,6 +599,56 @@ QString TagLibrary::Library::relativePath(const QString &absolutePath) const
     return clean.mid(m_root.size() + 1);
 }
 
+TagLibrary::ScanChanges TagLibrary::Library::applyScan(const QList<Observation> &observed, bool complete)
+{
+    ScanChanges changes;
+    QSet<QString> seen;
+    for (const Observation &item : observed) {
+        if (!validRelativePath(item.path) || seen.contains(item.path)) {
+            continue;
+        }
+        seen.insert(item.path);
+        const auto it = m_entryIndex.constFind(item.path);
+        if (it == m_entryIndex.cend()) {
+            Entry entry;
+            entry.id = createId();
+            entry.path = item.path;
+            entry.folder = item.folder;
+            entry.size = item.size;
+            entry.modified = item.modified;
+            entry.device = item.device;
+            entry.inode = item.inode;
+            m_entryIndex.insert(entry.path, m_entries.size());
+            m_entries.append(entry);
+            ++changes.added;
+            continue;
+        }
+        Entry &entry = m_entries[*it];
+        const bool changed = entry.folder != item.folder || entry.size != item.size || entry.modified != item.modified || entry.device != item.device
+            || entry.inode != item.inode;
+        entry.folder = item.folder;
+        entry.size = item.size;
+        entry.modified = item.modified;
+        entry.device = item.device;
+        entry.inode = item.inode;
+        if (entry.missing) {
+            entry.missing = false;
+            ++changes.found;
+        } else if (changed) {
+            ++changes.updated;
+        }
+    }
+    if (complete) {
+        for (Entry &entry : m_entries) {
+            if (!entry.missing && !seen.contains(entry.path)) {
+                entry.missing = true;
+                ++changes.missing;
+            }
+        }
+    }
+    return changes;
+}
+
 void TagLibrary::Library::reindex()
 {
     m_entryIndex.clear();
