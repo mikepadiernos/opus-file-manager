@@ -163,6 +163,41 @@ private Q_SLOTS:
         QCOMPARE(result.paths.size(), 5000);
         QVERIFY(result.limited);
     }
+
+    void evaluatesAdvancedQueries()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("reports/archive")));
+        const auto write = [&root](const QString &name, const QByteArray &data) {
+            QFile file(root.filePath(name));
+            return file.open(QIODevice::WriteOnly) && file.write(data) == data.size();
+        };
+        QVERIFY(write(QStringLiteral("reports/q1.txt"), "Invoice total"));
+        QVERIFY(write(QStringLiteral("reports/q2.txt"), "draft"));
+        QVERIFY(write(QStringLiteral("reports/archive/q0.txt"), "invoice"));
+        QVERIFY(write(QStringLiteral("reports/scan.bin"), QByteArray("invoice\0", 8)));
+        QVERIFY(write(QStringLiteral("notes.md"), "invoice"));
+
+        const auto contents = LiveSearch::find(root.path(), QStringLiteral("type:txt content:invoice -path:archive"), LiveSearch::Field::Query);
+        QVERIFY(contents.errors.isEmpty());
+        QCOMPARE(contents.paths, QStringList{root.filePath(QStringLiteral("reports/q1.txt"))});
+        // Only files whose type matched were read.
+        QCOMPARE(contents.skippedFiles, 0);
+
+        const auto binary = LiveSearch::find(root.path(), QStringLiteral("content:invoice"), LiveSearch::Field::Query);
+        QCOMPARE(binary.skippedFiles, 1);
+        QCOMPARE(binary.paths.size(), 3);
+
+        const auto grouped = LiveSearch::find(root.path(), QStringLiteral("(name:q1 OR name:q2) OR type:folder"), LiveSearch::Field::Query);
+        QCOMPARE(grouped.paths.size(), 4);
+        QVERIFY(grouped.paths.contains(root.filePath(QStringLiteral("reports"))));
+        QVERIFY(grouped.paths.contains(root.filePath(QStringLiteral("reports/q2.txt"))));
+
+        const auto invalid = LiveSearch::find(root.path(), QStringLiteral("report AND"), LiveSearch::Field::Query);
+        QCOMPARE(invalid.errors.size(), 1);
+        QCOMPARE(invalid.scannedEntries, 0);
+    }
 };
 
 QTEST_GUILESS_MAIN(LiveSearchTest)

@@ -26,7 +26,7 @@
 #include "pane.h"
 #include "previewpanel.h"
 #include "savedpathfilters.h"
-#include "searchdialog.h"
+#include "searchwidget.h"
 #include "settings.h"
 #include "settingsdialog.h"
 #include "tabmodel.h"
@@ -818,6 +818,29 @@ private Q_SLOTS:
         WorkspaceCatalog::Catalog saved;
         QString error;
         QVERIFY(WorkspaceCatalog::load(externalGroup, saved, error));
+        {
+            // Layouts saved before the search panel existed have one workspace size fewer.
+            auto legacy = saved;
+            WorkspaceCatalog::Layout legacyLayout = *legacy.workspaces.first().layout;
+            QCOMPARE(legacyLayout.workspaceSizes.size(), 3);
+            legacyLayout.workspaceSizes.removeLast();
+            QVERIFY(WorkspaceCatalog::setLayout(legacy, legacy.workspaces.first().id, legacyLayout, error));
+            QVERIFY2(WorkspaceCatalog::saveIfUnchanged(externalGroup, saved, legacy, error), qPrintable(error));
+            window.actionCollection()->action(QStringLiteral("manage_workspaces"))->trigger();
+            dialog = window.findChild<QDialog *>(QStringLiteral("workspaceDialog"));
+            QVERIFY(dialog);
+            dialog->findChild<QListWidget *>(QStringLiteral("workspaceList"))->setCurrentRow(0);
+            QTimer::singleShot(0, [] {
+                qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+            });
+            dialog->findChild<QPushButton *>(QStringLiteral("workspaceActivate"))->click();
+            const QString legacyStatus = dialog->findChild<QLabel *>(QStringLiteral("workspaceStatus"))->text();
+            QVERIFY2(legacyStatus.isEmpty(), qPrintable(legacyStatus));
+            dialog->close();
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            external.reparseConfiguration();
+            QVERIFY(WorkspaceCatalog::load(externalGroup, saved, error));
+        }
         auto broken = saved;
         WorkspaceCatalog::Layout invalid = *broken.workspaces.first().layout;
         invalid.windowState = QByteArray("not a Qt window state");
@@ -2114,7 +2137,7 @@ private Q_SLOTS:
         QAction *search = right->findChild<QAction *>(QStringLiteral("paneSearch"));
         QVERIFY(search);
         search->trigger();
-        auto *dialog = window.findChild<SearchDialog *>();
+        auto *dialog = window.findChild<SearchWidget *>();
         QVERIFY(dialog);
         const QUrl resultUrl = QUrl::fromLocalFile(root.filePath(QStringLiteral("right/sub/result.txt")));
         dialog->revealRequested(resultUrl);

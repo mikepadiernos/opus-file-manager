@@ -1292,6 +1292,44 @@ private Q_SLOTS:
         QTRY_COMPARE(readArgument(), QByteArray("kcm_filetypes"));
     }
 
+    void searchFoldersAndExclusionsAreEditable()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *folders = dialog.findChild<FolderListEditor *>(QStringLiteral("kcfg_SearchFolders"));
+        auto *exclusions = dialog.findChild<FolderListEditor *>(QStringLiteral("kcfg_SearchExclusions"));
+        auto *doubleShift = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_DoubleShiftSearch"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("doubleShiftStatus"));
+        QVERIFY(folders && exclusions && doubleShift && status);
+        QVERIFY(!status->text().isEmpty());
+        QVERIFY(doubleShift->isChecked());
+        auto *remove = folders->findChild<QPushButton *>(QStringLiteral("removeFolder"));
+        QVERIFY(remove && !remove->isEnabled());
+
+        QVERIFY(!folders->addFolder(QStringLiteral("relative")));
+        QVERIFY(folders->addFolder(root.path() + QStringLiteral("/")));
+        QVERIFY(!folders->addFolder(root.path()));
+        QVERIFY(folders->addFolder(root.filePath(QStringLiteral("other"))));
+        QVERIFY(exclusions->addFolder(root.filePath(QStringLiteral("cache"))));
+        QCOMPARE(folders->folders(), (QStringList{root.path(), root.filePath(QStringLiteral("other"))}));
+        QVERIFY(remove->isEnabled());
+        remove->click();
+        QCOMPARE(folders->folders(), QStringList{root.path()});
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::searchFolders(), QStringList{root.path()});
+        QCOMPARE(Settings::searchExclusions(), QStringList{root.filePath(QStringLiteral("cache"))});
+
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QVERIFY(folders->folders().isEmpty());
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::searchFolders().isEmpty());
+        QVERIFY(Settings::searchExclusions().isEmpty());
+    }
+
     void fileSearchSettingsReportsMissingModule()
     {
         KFilePlacesModel places;

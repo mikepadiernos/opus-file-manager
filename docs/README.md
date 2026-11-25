@@ -37,6 +37,7 @@ Find the right guide for using, building and planning Plasma Opus.
 | ⚠️  | [Caveats and limitations](CAVEATS.md)         | Restrictions, dependencies and workarounds          |
 | 🧪  | [Edge cases](EDGE.md)                         | Potential boundary conditions and test scenarios    |
 | ✨  | [M32 refinement plans](refinements/README.md) | Editable designs and proposed execution order       |
+| 🦀  | [Rust prototype](rust-prototype.md)           | M21 query-parser pilot, findings and criteria       |
 | 🛠️  | [Project instructions](../CLAUDE.md)          | Development conventions and workflows               |
 
 > [!IMPORTANT]

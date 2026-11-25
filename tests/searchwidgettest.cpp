@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include "searchdialog.h"
+#include "searchwidget.h"
 
 #include "favoritesmodel.h"
 #include "folderview.h"
@@ -8,12 +8,14 @@
 #include "pane.h"
 #include "savedpathfilters.h"
 #include "searchcollection.h"
+#include "searchpanel.h"
 #include "settings.h"
 #include "workspacelocations.h"
 
 #include <KActionCollection>
 #include <KFilePlacesModel>
 #include <KSharedConfig>
+#include <KToolBar>
 
 #include <QAction>
 #include <QApplication>
@@ -25,21 +27,28 @@
 #include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QScopeGuard>
+#include <QScrollArea>
 #include <QSignalSpy>
 #include <QSpinBox>
+#include <QSplitter>
 #include <QStandardPaths>
+#include <QTabBar>
 #include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QToolBar>
+#include <QToolButton>
 #include <QTreeWidget>
+#include <QWidgetAction>
 
-class SearchDialogTest : public QObject
+class SearchWidgetTest : public QObject
 {
     Q_OBJECT
 
@@ -58,7 +67,7 @@ private Q_SLOTS:
         defaults.writeEntry("SearchIndexedByDefault", true);
         defaults.writeEntry("SearchContentsByDefault", true);
         QVERIFY(defaults.sync());
-        SearchDialog indexed(QUrl::fromLocalFile(root.path()), nullptr, config);
+        SearchWidget indexed(QUrl::fromLocalFile(root.path()), nullptr, config);
         auto *scope = indexed.findChild<QComboBox *>(QStringLiteral("searchScope"));
         auto *field = indexed.findChild<QComboBox *>(QStringLiteral("searchField"));
         QVERIFY(scope && field);
@@ -69,7 +78,7 @@ private Q_SLOTS:
         defaults.writeEntry("SearchIndexedByDefault", false);
         defaults.writeEntry("SearchContentsByDefault", false);
         QVERIFY(defaults.sync());
-        SearchDialog live(QUrl::fromLocalFile(root.path()), nullptr, config);
+        SearchWidget live(QUrl::fromLocalFile(root.path()), nullptr, config);
         QCOMPARE(live.findChild<QComboBox *>(QStringLiteral("searchScope"))->currentIndex(), 0);
         QCOMPARE(live.findChild<QComboBox *>(QStringLiteral("searchField"))->currentIndex(), 0);
     }
@@ -81,7 +90,7 @@ private Q_SLOTS:
         Settings::setSearchIndexedByDefault(true);
         Settings::setSearchContentsByDefault(true);
         Settings::self()->save();
-        SearchDialog dialog(QUrl::fromLocalFile(root.path()));
+        SearchWidget dialog(QUrl::fromLocalFile(root.path()));
         QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("searchScope"))->currentIndex(), 1);
         QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("searchField"))->currentIndex(), 1);
         Settings::setSearchIndexedByDefault(false);
@@ -106,7 +115,7 @@ private Q_SLOTS:
         QString error;
         const PathFilter filter{QStringLiteral("report"), QStringLiteral("parent"), {root.filePath(QStringLiteral("parent/excluded"))}, 1};
         QVERIFY(SavedPathFilters::save(config->group(QStringLiteral("SavedPathFilters")), {{QStringLiteral("Work"), filter}}, &error));
-        SearchDialog dialog(QUrl::fromLocalFile(root.path()), nullptr, config);
+        SearchWidget dialog(QUrl::fromLocalFile(root.path()), nullptr, config);
         QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("searchFilterPresets"))->currentText(), QStringLiteral("Work"));
         dialog.findChild<QPushButton *>(QStringLiteral("searchLoadFilterPreset"))->click();
         QCOMPARE(dialog.findChild<QLineEdit *>(QStringLiteral("searchPathFilter"))->text(), filter.pathText);
@@ -135,7 +144,7 @@ private Q_SLOTS:
         QVERIFY(file.open(QIODevice::WriteOnly));
         QCOMPARE(file.write("matching content"), 16);
         file.close();
-        SearchDialog dialog(QUrl::fromLocalFile(root.path()));
+        SearchWidget dialog(QUrl::fromLocalFile(root.path()));
         auto *query = dialog.findChild<QLineEdit *>(QStringLiteral("searchQuery"));
         auto *field = dialog.findChild<QComboBox *>(QStringLiteral("searchField"));
         auto *start = dialog.findChild<QPushButton *>(QStringLiteral("searchStart"));
@@ -159,6 +168,39 @@ private Q_SLOTS:
         QTRY_VERIFY(start->isEnabled());
         QCOMPARE(results->topLevelItemCount(), 1);
         QCOMPARE(results->topLevelItem(0)->text(0), file.fileName());
+    }
+
+    void runsAdvancedQueries()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        for (const QString &name : {QStringLiteral("report.pdf"), QStringLiteral("report.txt")}) {
+            QFile file(root.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        SearchWidget dialog(QUrl::fromLocalFile(root.path()));
+        auto *query = dialog.findChild<QLineEdit *>(QStringLiteral("searchQuery"));
+        auto *field = dialog.findChild<QComboBox *>(QStringLiteral("searchField"));
+        auto *start = dialog.findChild<QPushButton *>(QStringLiteral("searchStart"));
+        auto *results = dialog.findChild<QTreeWidget *>(QStringLiteral("searchResults"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("searchStatus"));
+        QVERIFY(query && field && start && results && status);
+        QCOMPARE(field->count(), 3);
+        field->setCurrentIndex(2);
+        query->setFocus();
+        QTest::keyClicks(query, QStringLiteral("report OR"));
+        QVERIFY(status->text().contains(QStringLiteral("after OR")));
+        start->click();
+        QVERIFY(start->isEnabled());
+        QVERIFY(status->text().contains(QStringLiteral("after OR")));
+        QCOMPARE(results->topLevelItemCount(), 0);
+        query->clear();
+        QTest::keyClicks(query, QStringLiteral("report -type:txt"));
+        QVERIFY(status->text().contains(QStringLiteral("(name:\"report\" AND NOT type:\"txt\")")));
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QCOMPARE(results->topLevelItemCount(), 1);
+        QCOMPARE(results->topLevelItem(0)->text(0), root.filePath(QStringLiteral("report.pdf")));
     }
 
     void searchesWorkspaceLocationsOrExplicitlyOutside()
@@ -188,8 +230,8 @@ private Q_SLOTS:
                                                  WorkspaceCatalog::locationId(QUrl::fromLocalFile(root.filePath(folders[2]))),
                                                  catalog.workspaces.last().id,
                                                  error));
-        SearchDialog dialog(QUrl::fromLocalFile(root.path()), nullptr, config, [&] {
-            SearchDialog::WorkspaceScope scope;
+        SearchWidget dialog(QUrl::fromLocalFile(root.path()), nullptr, config, [&] {
+            SearchWidget::WorkspaceScope scope;
             scope.active = !active.isEmpty();
             for (const auto &location : locations.locations()) {
                 if (!active.isEmpty() && catalog.locationAssignments.value(location.id) == active) {
@@ -239,18 +281,18 @@ private Q_SLOTS:
         QTemporaryDir root;
         const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchrc")), KConfig::SimpleConfig);
         const auto activeScope = [] {
-            SearchDialog::WorkspaceScope scope;
+            SearchWidget::WorkspaceScope scope;
             scope.active = true;
             return scope;
         };
         {
-            SearchDialog dialog(QUrl::fromLocalFile(root.path()), nullptr, config, activeScope);
+            SearchWidget dialog(QUrl::fromLocalFile(root.path()), nullptr, config, activeScope);
             auto *workspaceOnly = dialog.findChild<QCheckBox *>(QStringLiteral("searchWorkspaceOnly"));
             QVERIFY(workspaceOnly);
             QVERIFY(workspaceOnly->isChecked());
         }
         config->group(QStringLiteral("Search")).writeEntry("WorkspaceSearchByDefault", false);
-        SearchDialog dialog(QUrl::fromLocalFile(root.path()), nullptr, config, activeScope);
+        SearchWidget dialog(QUrl::fromLocalFile(root.path()), nullptr, config, activeScope);
         auto *workspaceOnly = dialog.findChild<QCheckBox *>(QStringLiteral("searchWorkspaceOnly"));
         auto *scope = dialog.findChild<QComboBox *>(QStringLiteral("searchScope"));
         QVERIFY(workspaceOnly && scope);
@@ -267,8 +309,8 @@ private Q_SLOTS:
         QFile file(root.filePath(QStringLiteral("needle.txt")));
         QVERIFY(file.open(QIODevice::WriteOnly));
         QList<QUrl> locations{QUrl(QStringLiteral("sftp://user:secret@example.invalid/path")), QUrl::fromLocalFile(root.path())};
-        SearchDialog dialog(QUrl::fromLocalFile(root.path()), nullptr, config, [&] {
-            return SearchDialog::WorkspaceScope{true, locations};
+        SearchWidget dialog(QUrl::fromLocalFile(root.path()), nullptr, config, [&] {
+            return SearchWidget::WorkspaceScope{true, locations};
         });
         dialog.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("needle"));
         auto *start = dialog.findChild<QPushButton *>(QStringLiteral("searchStart"));
@@ -290,6 +332,66 @@ private Q_SLOTS:
         QTRY_VERIFY(start->isEnabled());
         QCOMPARE(errors->topLevelItemCount(), 1);
         QVERIFY(errors->topLevelItem(0)->text(0).contains(QStringLiteral("existing local folder")));
+    }
+
+    void searchesSearchFoldersAndSkipsExclusions()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        for (const QString &folder : {QStringLiteral("docs/cache"), QStringLiteral("music"), QStringLiteral("elsewhere")}) {
+            QVERIFY(QDir(root.path()).mkpath(folder));
+            QFile file(root.filePath(folder + QStringLiteral("/needle.txt")));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        QFile docs(root.filePath(QStringLiteral("docs/needle.txt")));
+        QVERIFY(docs.open(QIODevice::WriteOnly));
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchrc")), KConfig::SimpleConfig);
+        SearchWidget dialog(QUrl::fromLocalFile(root.filePath(QStringLiteral("elsewhere"))), nullptr, config);
+        auto *scope = dialog.findChild<QComboBox *>(QStringLiteral("searchScope"));
+        QCOMPARE(scope->count(), 3);
+        scope->setCurrentIndex(2);
+        dialog.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("needle"));
+        auto *start = dialog.findChild<QPushButton *>(QStringLiteral("searchStart"));
+        auto *results = dialog.findChild<QTreeWidget *>(QStringLiteral("searchResults"));
+        auto *errors = dialog.findChild<QTreeWidget *>(QStringLiteral("searchErrors"));
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QCOMPARE(results->topLevelItemCount(), 0);
+        QCOMPARE(errors->topLevelItemCount(), 1);
+        QVERIFY(errors->topLevelItem(0)->text(0).contains(QStringLiteral("No search folders")));
+
+        auto search = config->group(QStringLiteral("Search"));
+        search.writeEntry("SearchFolders", QStringList{root.filePath(QStringLiteral("docs")), root.filePath(QStringLiteral("music"))});
+        search.writeEntry("SearchExclusions", QStringList{root.filePath(QStringLiteral("docs/cache"))});
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QStringList paths;
+        for (int i = 0; i < results->topLevelItemCount(); ++i) {
+            paths.append(results->topLevelItem(i)->text(0));
+        }
+        paths.sort();
+        QCOMPARE(paths, (QStringList{root.filePath(QStringLiteral("docs/needle.txt")), root.filePath(QStringLiteral("music/needle.txt"))}));
+        QCOMPARE(errors->topLevelItemCount(), 0);
+
+        // Exclusions apply to the current folder scope too.
+        search.writeEntry("SearchExclusions", QStringList{root.filePath(QStringLiteral("elsewhere"))});
+        scope->setCurrentIndex(0);
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QCOMPARE(results->topLevelItemCount(), 0);
+
+        scope->setCurrentIndex(2);
+        QTimer::singleShot(0, [] {
+            auto *input = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
+            QVERIFY(input);
+            input->setTextValue(QStringLiteral("Folders"));
+            input->accept();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("searchSave"))->click();
+        SearchWidget restored(QUrl::fromLocalFile(root.path()), nullptr, config);
+        QCOMPARE(restored.findChild<QComboBox *>(QStringLiteral("searchScope"))->currentIndex(), 0);
+        restored.findChild<QPushButton *>(QStringLiteral("searchLoad"))->click();
+        QCOMPARE(restored.findChild<QComboBox *>(QStringLiteral("searchScope"))->currentIndex(), 2);
     }
 
     void mainWindowScopesSearchToWorkspace()
@@ -363,7 +465,7 @@ private Q_SLOTS:
             for (int entry = 0; entry < entries.size(); ++entry) {
                 QVERIFY(entries[entry]);
                 entries[entry]->trigger();
-                auto *dialog = window.findChild<SearchDialog *>(QStringLiteral("searchDialog"));
+                auto *dialog = window.findChild<SearchWidget *>(QStringLiteral("searchWidget"));
                 QVERIFY(dialog);
                 auto *workspaceOnly = dialog->findChild<QCheckBox *>(QStringLiteral("searchWorkspaceOnly"));
                 QVERIFY(workspaceOnly && workspaceOnly->isChecked());
@@ -389,15 +491,15 @@ private Q_SLOTS:
                     start->click();
                     QTRY_VERIFY(start->isEnabled());
                     QCOMPARE(results->topLevelItemCount(), broaderCount);
+                    workspaceOnly->setChecked(true);
                 }
-                delete dialog;
             }
         }
     }
 
     void refusesRemoteFolders()
     {
-        SearchDialog dialog(QUrl(QStringLiteral("sftp://example.invalid/path")));
+        SearchWidget dialog(QUrl(QStringLiteral("sftp://example.invalid/path")));
         dialog.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("x"));
         dialog.findChild<QPushButton *>(QStringLiteral("searchStart"))->click();
         QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("searchStatus"))->text().contains(QStringLiteral("local folders only")));
@@ -405,7 +507,7 @@ private Q_SLOTS:
 
     void indexedScopeReportsInvalidQueries()
     {
-        SearchDialog dialog(QUrl(QStringLiteral("sftp://example.invalid/path")));
+        SearchWidget dialog(QUrl(QStringLiteral("sftp://example.invalid/path")));
         auto *scope = dialog.findChild<QComboBox *>(QStringLiteral("searchScope"));
         auto *start = dialog.findChild<QPushButton *>(QStringLiteral("searchStart"));
         auto *errors = dialog.findChild<QTreeWidget *>(QStringLiteral("searchErrors"));
@@ -423,16 +525,301 @@ private Q_SLOTS:
         QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("searchStatus"))->text().contains(QStringLiteral("local current folder")));
     }
 
-    void mainWindowOpensSearch()
+    void mainWindowOpensSearchPanel()
     {
         QTemporaryDir root;
         QVERIFY(root.isValid());
         MainWindow window;
-        window.openUrls({QUrl::fromLocalFile(root.path())});
+        window.resize(1200, 900);
+        window.openUrls({QUrl::fromLocalFile(root.path()), QUrl::fromLocalFile(root.path())});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
         QAction *action = window.actionCollection()->action(QStringLiteral("search_folder"));
-        QVERIFY(action);
+        auto *toggle = window.actionCollection()->action(QStringLiteral("show_search_panel"));
+        auto *panel = window.findChild<SearchPanel *>(QStringLiteral("searchPanel"));
+        auto *workspace = window.findChild<QSplitter *>(QStringLiteral("workspaceSplitter"));
+        QVERIFY(action && toggle && toggle->isCheckable() && panel && workspace);
+        QVERIFY(panel->isHidden());
+        QCOMPARE(workspace->indexOf(panel), 2);
+        QCOMPARE(window.findChildren<SearchWidget *>().size(), 1);
+
         action->trigger();
-        QVERIFY(window.findChild<SearchDialog *>(QStringLiteral("searchDialog")));
+        QVERIFY(toggle->isChecked());
+        QVERIFY(panel->isVisible());
+        QVERIFY(window.activePane()->isVisible());
+        QVERIFY(window.inactivePane()->isVisible());
+        auto *search = panel->searchWidget();
+        QCOMPARE(search->folder(), QUrl::fromLocalFile(root.path()));
+        QTRY_COMPARE(QApplication::focusWidget(), search->findChild<QLineEdit *>(QStringLiteral("searchQuery")));
+        QVERIFY2(workspace->sizes().at(0) > workspace->sizes().at(2),
+                 qPrintable(QDebug::toString(workspace->sizes()) + QDebug::toString(panel->minimumSizeHint())));
+
+        // Showing the preview in a pane keeps both panes while an embedded panel is visible.
+        auto *preview = window.actionCollection()->action(QStringLiteral("show_preview_panel"));
+        QVERIFY(preview);
+        preview->setChecked(true);
+        QVERIFY(window.activePane()->isVisible());
+        QVERIFY(window.inactivePane()->isVisible());
+        preview->setChecked(false);
+
+        panel->findChild<QToolButton *>(QStringLiteral("searchPanelClose"))->click();
+        QVERIFY(!toggle->isChecked());
+        QVERIFY(panel->isHidden());
+        QTRY_VERIFY(window.activePane()->isAncestorOf(QApplication::focusWidget()));
+        toggle->setChecked(true);
+        QVERIFY(panel->isVisible());
+        QCOMPARE(window.findChildren<SearchWidget *>().size(), 1);
+
+        window.actionCollection()->action(QStringLiteral("show_embedded_terminal"))->setChecked(true);
+        QCOMPARE(workspace->indexOf(window.findChild<QWidget *>(QStringLiteral("terminalPanel"))), 1);
+        QVERIFY(panel->isVisible());
+        const QList<int> sizes = workspace->sizes();
+        QVERIFY2(sizes.at(0) * 10 >= (sizes.at(0) + sizes.at(1) + sizes.at(2)) * 5, qPrintable(QDebug::toString(sizes)));
+        window.actionCollection()->action(QStringLiteral("show_embedded_terminal"))->setChecked(false);
+    }
+
+    void searchPanelScopeFollowsRequestingPane()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("left")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("right")));
+        const QUrl left = QUrl::fromLocalFile(root.filePath(QStringLiteral("left")));
+        const QUrl right = QUrl::fromLocalFile(root.filePath(QStringLiteral("right")));
+        MainWindow window;
+        window.openUrls({left, right});
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        Pane *inactive = window.inactivePane();
+        QTRY_COMPARE(inactive->url(), right);
+        inactive->toolbarAction(QStringLiteral("paneSearch"))->trigger();
+        auto *search = window.findChild<SearchWidget *>(QStringLiteral("searchWidget"));
+        QVERIFY(search);
+        QCOMPARE(window.activePane(), inactive);
+        QCOMPARE(search->folder(), right);
+        QCOMPARE(search->findChild<QLabel *>(QStringLiteral("searchFolder"))->text(), right.toDisplayString());
+    }
+
+    void tabOrderFollowsLayout()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        SearchWidget widget(QUrl::fromLocalFile(root.path()));
+        widget.resize(500, 900);
+        widget.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&widget));
+        widget.focusQuery();
+        QTRY_COMPARE(QApplication::focusWidget(), widget.findChild<QLineEdit *>(QStringLiteral("searchQuery")));
+        QList<QWidget *> visited;
+        for (int i = 0; i < 40; ++i) {
+            QTest::keyClick(QApplication::focusWidget(), Qt::Key_Tab);
+            QWidget *focused = QApplication::focusWidget();
+            QVERIFY(focused);
+            if (focused->objectName() == QLatin1String("searchQuery")) {
+                break;
+            }
+            QVERIFY2(!visited.contains(focused), qPrintable(QStringLiteral("Tab stayed on ") + focused->objectName() + QStringLiteral(" after ") + [&visited] {
+                QStringList names;
+                for (QWidget *w : visited) {
+                    names.append(w->objectName());
+                }
+                return names.join(QLatin1Char(','));
+            }()));
+            QVERIFY2(!qobject_cast<QScrollArea *>(focused), qPrintable(focused->objectName()));
+            visited.append(focused);
+        }
+        QCOMPARE(QApplication::focusWidget()->objectName(), QStringLiteral("searchQuery"));
+        const auto position = [&visited, &widget](const QString &name) {
+            return visited.indexOf(widget.findChild<QWidget *>(name));
+        };
+        QCOMPARE(position(QStringLiteral("searchField")), 0);
+        QVERIFY(position(QStringLiteral("searchExcludedFolders")) >= 0);
+        QVERIFY(position(QStringLiteral("searchExcludedFolders")) < position(QStringLiteral("searchMaxDepth")));
+        QVERIFY(position(QStringLiteral("searchSaved")) < position(QStringLiteral("searchSave")));
+        auto *tabs = widget.findChild<QTabWidget *>(QStringLiteral("searchResultTabs"));
+        QVERIFY(tabs);
+        QVERIFY(visited.indexOf(tabs->tabBar()) >= 0);
+        QVERIFY(position(QStringLiteral("searchSave")) < visited.indexOf(tabs->tabBar()));
+        QVERIFY(visited.indexOf(tabs->tabBar()) < position(QStringLiteral("searchResults")));
+        QVERIFY(position(QStringLiteral("searchResults")) < position(QStringLiteral("searchStart")));
+    }
+
+    void toolbarSearchFieldSearchesActivePane()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("left")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("right")));
+        QFile needle(root.filePath(QStringLiteral("left/needle.txt")));
+        QVERIFY(needle.open(QIODevice::WriteOnly));
+        needle.close();
+        const QUrl left = QUrl::fromLocalFile(root.filePath(QStringLiteral("left")));
+        const QUrl right = QUrl::fromLocalFile(root.filePath(QStringLiteral("right")));
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup customization = config->group(QStringLiteral("ToolbarCustomization"));
+        const auto backup = KSharedConfig::openConfig(root.filePath(QStringLiteral("toolbar-backup")));
+        KConfigGroup savedCustomization = backup->group(QStringLiteral("ToolbarCustomization"));
+        customization.copyTo(&savedCustomization);
+        customization.deleteGroup();
+        const auto restoreCustomization = qScopeGuard([&] {
+            customization.deleteGroup();
+            savedCustomization.copyTo(&customization);
+            config->sync();
+        });
+        MainWindow window;
+        window.resize(1200, 900);
+        window.openUrls({left, right});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        QTRY_COMPARE(window.activePane()->url(), left);
+
+        auto *action = qobject_cast<QWidgetAction *>(window.actionCollection()->action(QStringLiteral("search_toolbar")));
+        QVERIFY(action);
+        QVERIFY(!action->text().isEmpty());
+        QVERIFY(!action->icon().isNull());
+        QToolBar *toolbar = window.toolBar();
+        QVERIFY(toolbar);
+        QVERIFY(!toolbar->actions().contains(action));
+        window.actionCollection()->action(QStringLiteral("customize_main_toolbar"))->trigger();
+        auto *actionList = window.findChild<QListWidget *>(QStringLiteral("toolbarActionList"));
+        QVERIFY(actionList);
+        const auto listed = [actionList] {
+            for (int row = 0; row < actionList->count(); ++row) {
+                if (actionList->item(row)->data(Qt::UserRole + 1).toString() == QLatin1String("search_toolbar")) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        QVERIFY(listed());
+        toolbar->addAction(action);
+        QTRY_VERIFY(!listed());
+        QTRY_VERIFY(customization.readEntry("Actions", QStringList()).contains(QStringLiteral("action:search_toolbar")));
+        window.actionCollection()->action(QStringLiteral("customize_main_toolbar"))->trigger();
+        auto *field = toolbar->findChild<QLineEdit *>(QStringLiteral("toolbarSearch"));
+        QVERIFY(field);
+        QTRY_VERIFY(field->isVisible());
+
+        auto *panel = window.findChild<SearchPanel *>(QStringLiteral("searchPanel"));
+        auto *toggle = window.actionCollection()->action(QStringLiteral("show_search_panel"));
+        QVERIFY(panel && toggle);
+        SearchWidget *search = panel->searchWidget();
+        QVERIFY(search->setFolder(right));
+
+        // Empty text only opens the panel and focuses its query.
+        field->setFocus();
+        QTest::keyClick(field, Qt::Key_Return);
+        QVERIFY(toggle->isChecked());
+        QCOMPARE(search->folder(), left);
+        QTRY_COMPARE(QApplication::focusWidget(), search->findChild<QLineEdit *>(QStringLiteral("searchQuery")));
+
+        toggle->setChecked(false);
+        QVERIFY(search->setFolder(right));
+        field->setFocus();
+        QTest::keyClicks(field, QStringLiteral("needle"));
+        QTest::keyClick(field, Qt::Key_Return);
+        QVERIFY(toggle->isChecked());
+        QVERIFY(panel->isVisible());
+        QCOMPARE(search->folder(), left);
+        QCOMPARE(search->findChild<QLineEdit *>(QStringLiteral("searchQuery"))->text(), QStringLiteral("needle"));
+        auto *results = search->findChild<QTreeWidget *>(QStringLiteral("searchResults"));
+        QVERIFY(results);
+        QTRY_COMPARE(results->topLevelItemCount(), 1);
+        QVERIFY(!search->isRunning());
+        QCOMPARE(QApplication::focusWidget(), field);
+
+        // Down moves from the field to the results, Escape returns to the active pane.
+        QTest::keyClick(field, Qt::Key_Down);
+        QCOMPARE(QApplication::focusWidget(), results);
+        QVERIFY(results->currentItem());
+        QTest::keyClick(results, Qt::Key_Escape);
+        QVERIFY(panel->isVisible());
+        QVERIFY(window.activePane()->isAncestorOf(QApplication::focusWidget()));
+        auto *query = search->findChild<QLineEdit *>(QStringLiteral("searchQuery"));
+        search->focusQuery();
+        QTest::keyClick(query, Qt::Key_Down);
+        QCOMPARE(QApplication::focusWidget(), results);
+        field->setFocus();
+        QTest::keyClick(field, Qt::Key_Escape);
+        QVERIFY(window.activePane()->isAncestorOf(QApplication::focusWidget()));
+
+        // Without results, Down moves to the panel's query; with the panel hidden it stays put.
+        results->clear();
+        field->setFocus();
+        QTest::keyClick(field, Qt::Key_Down);
+        QCOMPARE(QApplication::focusWidget(), query);
+        toggle->setChecked(false);
+        field->setFocus();
+        QTest::keyClick(field, Qt::Key_Down);
+        QCOMPARE(QApplication::focusWidget(), field);
+    }
+
+    void opensResultsAndRevealsWithKeyboard()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("match-folder")));
+        const QString filePath = root.filePath(QStringLiteral("match-folder/match-file.txt"));
+        QFile file(filePath);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(root.path())});
+        window.actionCollection()->action(QStringLiteral("search_folder"))->trigger();
+        auto *search = window.findChild<SearchWidget *>(QStringLiteral("searchWidget"));
+        QVERIFY(search);
+        auto *open = search->findChild<QPushButton *>(QStringLiteral("searchOpen"));
+        auto *start = search->findChild<QPushButton *>(QStringLiteral("searchStart"));
+        auto *results = search->findChild<QTreeWidget *>(QStringLiteral("searchResults"));
+        auto *status = search->findChild<QLabel *>(QStringLiteral("searchStatus"));
+        QVERIFY(open && start && results && status);
+        QVERIFY(!open->isEnabled());
+        QSignalSpy opened(search, &SearchWidget::openRequested);
+        QSignalSpy revealed(search, &SearchWidget::revealRequested);
+        search->search(QStringLiteral("match"));
+        QTRY_VERIFY(start->isEnabled());
+        QCOMPARE(results->topLevelItemCount(), 2);
+        QTreeWidgetItem *folderItem = results->findItems(root.filePath(QStringLiteral("match-folder")), Qt::MatchExactly).value(0);
+        QTreeWidgetItem *fileItem = results->findItems(filePath, Qt::MatchExactly).value(0);
+        QVERIFY(folderItem && fileItem);
+
+        results->setCurrentItem(fileItem);
+        QTest::keyClick(results, Qt::Key_Return, Qt::ControlModifier);
+        QCOMPARE(revealed.size(), 1);
+        QCOMPARE(revealed.takeFirst().first().toUrl(), QUrl::fromLocalFile(filePath));
+        QTest::keyClick(results, Qt::Key_Return);
+        QCOMPARE(opened.size(), 1);
+        QCOMPARE(opened.takeFirst().first().toUrl(), QUrl::fromLocalFile(filePath));
+
+        Pane *pane = window.activePane();
+        results->setCurrentItem(folderItem);
+        QVERIFY(open->isEnabled());
+        open->click();
+        QCOMPARE(opened.size(), 1);
+        QTRY_COMPARE(pane->url(), QUrl::fromLocalFile(root.filePath(QStringLiteral("match-folder"))));
+        opened.clear();
+
+        QVERIFY(QFile::remove(filePath));
+        results->setCurrentItem(fileItem);
+        open->click();
+        QVERIFY(opened.isEmpty());
+        QVERIFY(status->text().contains(QStringLiteral("no longer exists")));
+    }
+
+    void setFolderIsIgnoredWhileSearching()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        SearchWidget search(QUrl::fromLocalFile(root.path()));
+        QVERIFY(search.setFolder(QUrl::fromLocalFile(QDir::rootPath())));
+        QCOMPARE(search.folder(), QUrl::fromLocalFile(QDir::rootPath()));
+        search.search(QStringLiteral("a-name-that-should-not-exist-anywhere"));
+        QVERIFY(search.isRunning());
+        QVERIFY(!search.setFolder(QUrl::fromLocalFile(root.path())));
+        QCOMPARE(search.folder(), QUrl::fromLocalFile(QDir::rootPath()));
+        search.findChild<QPushButton *>(QStringLiteral("searchCancel"))->click();
+        QTRY_VERIFY(!search.isRunning());
+        QVERIFY(search.setFolder(QUrl::fromLocalFile(root.path())));
     }
 
     void revealsResultInActivePaneAndReportsMissingItems()
@@ -447,7 +834,7 @@ private Q_SLOTS:
         MainWindow window;
         window.openUrls({QUrl::fromLocalFile(root.path())});
         window.actionCollection()->action(QStringLiteral("search_folder"))->trigger();
-        auto *dialog = window.findChild<SearchDialog *>(QStringLiteral("searchDialog"));
+        auto *dialog = window.findChild<SearchWidget *>(QStringLiteral("searchWidget"));
         QVERIFY(dialog);
         auto *query = dialog->findChild<QLineEdit *>(QStringLiteral("searchQuery"));
         auto *start = dialog->findChild<QPushButton *>(QStringLiteral("searchStart"));
@@ -495,7 +882,7 @@ private Q_SLOTS:
         file.close();
         const auto config = KSharedConfig::openConfig(configDir.filePath(QStringLiteral("searchesrc")), KConfig::SimpleConfig);
         {
-            SearchDialog dialog(QUrl::fromLocalFile(root.path()), nullptr, config);
+            SearchWidget dialog(QUrl::fromLocalFile(root.path()), nullptr, config);
             dialog.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("needle"));
             dialog.findChild<QComboBox *>(QStringLiteral("searchField"))->setCurrentIndex(1);
             dialog.findChild<QLineEdit *>(QStringLiteral("searchPathFilter"))->setText(QStringLiteral("result"));
@@ -516,7 +903,7 @@ private Q_SLOTS:
         defaults.writeEntry("SearchContentsByDefault", false);
         QVERIFY(defaults.sync());
         config->reparseConfiguration();
-        SearchDialog restored(QUrl::fromLocalFile(QStringLiteral("/")), nullptr, config);
+        SearchWidget restored(QUrl::fromLocalFile(QStringLiteral("/")), nullptr, config);
         QCOMPARE(restored.findChild<QComboBox *>(QStringLiteral("searchSaved"))->count(), 1);
         QCOMPARE(restored.findChild<QComboBox *>(QStringLiteral("searchScope"))->currentIndex(), 1);
         QCOMPARE(restored.findChild<QComboBox *>(QStringLiteral("searchField"))->currentIndex(), 0);
@@ -557,9 +944,9 @@ private Q_SLOTS:
         QTemporaryDir root;
         QVERIFY(root.isValid());
         const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchesrc")), KConfig::SimpleConfig);
-        SearchDialog first(QUrl::fromLocalFile(root.path()), nullptr, config);
-        SearchDialog second(QUrl::fromLocalFile(root.path()), nullptr, config);
-        const auto save = [](SearchDialog &dialog, const QString &name) {
+        SearchWidget first(QUrl::fromLocalFile(root.path()), nullptr, config);
+        SearchWidget second(QUrl::fromLocalFile(root.path()), nullptr, config);
+        const auto save = [](SearchWidget &dialog, const QString &name) {
             dialog.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("term"));
             QTimer::singleShot(0, [name] {
                 auto *input = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
@@ -571,7 +958,7 @@ private Q_SLOTS:
         };
         save(first, QStringLiteral("One"));
         save(second, QStringLiteral("Two"));
-        SearchDialog restored(QUrl::fromLocalFile(root.path()), nullptr, config);
+        SearchWidget restored(QUrl::fromLocalFile(root.path()), nullptr, config);
         auto *saved = restored.findChild<QComboBox *>(QStringLiteral("searchSaved"));
         QCOMPARE(saved->count(), 2);
         QCOMPARE(saved->itemText(0), QStringLiteral("One"));
@@ -590,8 +977,8 @@ private Q_SLOTS:
                                 {{QStringLiteral("Work"), QStringLiteral("old"), QUrl::fromLocalFile(root.path()), LiveSearch::Field::FileName, false, {}, {}}},
                                 &error));
         const QString stableId = SavedSearches::load(group, &error).first().id;
-        SearchDialog first(QUrl::fromLocalFile(root.path()), nullptr, config);
-        SearchDialog second(QUrl::fromLocalFile(root.path()), nullptr, config);
+        SearchWidget first(QUrl::fromLocalFile(root.path()), nullptr, config);
+        SearchWidget second(QUrl::fromLocalFile(root.path()), nullptr, config);
         first.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("new"));
         first.findChild<QPushButton *>(QStringLiteral("searchUpdate"))->click();
         auto saved = SavedSearches::load(group, &error);
@@ -620,7 +1007,7 @@ private Q_SLOTS:
         const QUrl b = QUrl::fromLocalFile(root.filePath(QStringLiteral("b")));
         QString error;
         QVERIFY(SearchCollection::save(group, {a}, &error));
-        SearchDialog dialog(QUrl::fromLocalFile(root.path()), nullptr, config);
+        SearchWidget dialog(QUrl::fromLocalFile(root.path()), nullptr, config);
         dialog.findChild<QTabWidget *>(QStringLiteral("searchResultTabs"))->setCurrentIndex(1);
         QTimer::singleShot(0, [] {
             auto *input = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
@@ -665,7 +1052,7 @@ private Q_SLOTS:
         QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("searchStatus"))->text().contains(QStringLiteral("changed elsewhere")));
         QCOMPARE(SearchCollection::load(group, &error), (QList<QUrl>{a}));
         config->reparseConfiguration();
-        SearchDialog restored(QUrl::fromLocalFile(root.path()), nullptr, config);
+        SearchWidget restored(QUrl::fromLocalFile(root.path()), nullptr, config);
         QCOMPARE(restored.findChild<QComboBox *>(QStringLiteral("searchSavedCollections"))->currentText(), QStringLiteral("First"));
         QCOMPARE(SearchCollection::load(group, &error), (QList<QUrl>{a}));
     }
@@ -686,7 +1073,7 @@ private Q_SLOTS:
         b.close();
         const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchesrc")), KConfig::SimpleConfig);
         for (const QString &folder : {root.filePath(QStringLiteral("first")), root.filePath(QStringLiteral("second"))}) {
-            SearchDialog dialog(QUrl::fromLocalFile(folder), nullptr, config);
+            SearchWidget dialog(QUrl::fromLocalFile(folder), nullptr, config);
             dialog.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("match"));
             auto *start = dialog.findChild<QPushButton *>(QStringLiteral("searchStart"));
             start->click();
@@ -697,14 +1084,14 @@ private Q_SLOTS:
             dialog.findChild<QPushButton *>(QStringLiteral("searchCollect"))->click();
         }
         config->reparseConfiguration();
-        SearchDialog dialog(QUrl::fromLocalFile(root.path()), nullptr, config);
+        SearchWidget dialog(QUrl::fromLocalFile(root.path()), nullptr, config);
         dialog.findChild<QTabWidget *>(QStringLiteral("searchResultTabs"))->setCurrentIndex(1);
         auto *collection = dialog.findChild<QTreeWidget *>(QStringLiteral("searchCollection"));
         QCOMPARE(collection->topLevelItemCount(), 2);
         QCOMPARE(collection->topLevelItem(0)->text(0), first);
         QCOMPARE(collection->topLevelItem(1)->text(0), second);
         collection->setCurrentItem(collection->topLevelItem(0));
-        QSignalSpy reveal(&dialog, &SearchDialog::revealRequested);
+        QSignalSpy reveal(&dialog, &SearchWidget::revealRequested);
         dialog.findChild<QPushButton *>(QStringLiteral("searchReveal"))->click();
         QCOMPARE(reveal.size(), 1);
         QCOMPARE(reveal.first().first().toUrl(), QUrl::fromLocalFile(first));
@@ -714,5 +1101,5 @@ private Q_SLOTS:
     }
 };
 
-QTEST_MAIN(SearchDialogTest)
-#include "searchdialogtest.moc"
+QTEST_MAIN(SearchWidgetTest)
+#include "searchwidgettest.moc"

@@ -3,4 +3,5 @@
 /build-container/
 /.cache/
 compile_commands.json
+/rust/*/target/
 *.user

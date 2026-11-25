@@ -433,6 +433,18 @@
       <label>Limit searches to the active workspace's locations by default</label>
       <default>true</default>
     </entry>
+    <entry name="SearchFolders" type="StringList">
+      <label>Local folders searched by the search folders scope</label>
+      <default></default>
+    </entry>
+    <entry name="SearchExclusions" type="StringList">
+      <label>Local folders that every search skips</label>
+      <default></default>
+    </entry>
+    <entry name="DoubleShiftSearch" type="Bool">
+      <label>Open search by pressing Shift twice</label>
+      <default>true</default>
+    </entry>
   </group>
   <group name="DuplicateFinder">
     <entry name="DuplicateRequireSameFileName" type="Bool">

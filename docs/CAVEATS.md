@@ -699,10 +699,57 @@ Tracked in
   top-level listings or the visible flat list, not expanded child rows. Excluded
   folders are entered one per line, so paths containing newlines cannot be
   entered; exclusions are lexical paths, not resolved links.
-- **Results and collections:** Results can be revealed in the active pane, but
-  hidden or filtered items may not be visible and flat view must be turned off.
-  Directly opening results is not yet available. The shared collection stores
-  local URLs, not file contents; references can become stale.
+- **Results and collections:** Results can be opened or revealed in the active
+  pane, but hidden or filtered items may not be visible and flat view must be
+  turned off. A folder result opens in the active pane; a file opens in its
+  application. The shared collection stores local URLs, not file contents;
+  references can become stale.
+- **Search panel:** The panel searches the folder it was opened for and does
+  not follow later navigation; search again from a pane to change it. While a
+  search runs, the folder can't change until the search finishes or is
+  canceled. The panel follows the embedded terminal's placement, below or
+  beside the panes, and is hidden again at startup. Hiding the panel does not
+  cancel a running search.
+- **Toolbar search field:** The optional Search Field toolbar entry is not on
+  any toolbar by default; add it with Customize Main Toolbar. Pressing Enter
+  searches the active pane's current folder with the text typed, but uses the
+  other criteria, such as scope and filters, currently set in the search
+  panel. While a search runs, Enter does not start another search. The field
+  can be placed on the main toolbar only, not on pane toolbars, and does not
+  show suggestions or history.
+- **Search keyboard navigation:** Down in the toolbar field or the panel's
+  query moves to the visible result list, or from the toolbar field to the
+  query when there are no results. Escape cancels a running search; otherwise
+  it returns focus to the active pane and leaves the panel open. Tab moves
+  through the panel in layout order, but between the toolbar, panel and panes
+  it follows the window's widget order. There are no dedicated shortcuts for
+  focusing the toolbar field or the panel.
+- **Advanced queries:** AND, OR and NOT are operators only in upper case;
+  quote a value that contains a colon, starts with `-` or is one of those
+  words. Words without a field match file names, and unquoted name and path
+  values treat `*` and `?` as wildcards. Size criteria match files only, so
+  NOT size criteria also match folders. Sizes use binary units: 1K is 1,024
+  bytes, and `size:10M` matches exactly 10 MiB. Dates use local time. An
+  extension such as `type:pdf` compares names only; a MIME type is detected
+  from the name and, if needed, the contents, which can slow live searches and
+  miss misnamed files. Content criteria use live search's text
+  limits; unreadable, binary and oversized files never contain a term, so
+  NOT content criteria match them. Indexed queries need a name or content
+  term that every result must match, which selects Baloo candidates; other
+  content terms use Baloo's word matching rather than substrings, and
+  name, path, type, size and date criteria are checked against the files
+  found. The normalized query shown while typing uses English field names.
+- **Search folders and exclusions:** The search folders and excluded folders
+  set on Preferences' Search page apply only to Plasma Opus. They do not
+  change what Baloo indexes, and an excluded folder is still searched by other
+  applications. Search folders are searched live, so they share live search's
+  local-only, symbolic-link and result limits. Exclusions are lexical paths:
+  a symbolic link elsewhere does not inherit its target's exclusion.
+- **Double Shift:** Pressing Shift twice opens search only while a Plasma Opus
+  main window has keyboard focus; it is not a global shortcut and can't be
+  assigned in Configure Keyboard Shortcuts. It is turned off while Sticky Keys
+  is on in Plasma's accessibility settings, and Plasma Opus can't detect input
+  methods or remappings that intercept Shift.
 
 - **Recommendation:** Check Baloo's indexing configuration and status; use live
   search for a current local folder, search smaller folders, inspect errors and
@@ -712,14 +759,31 @@ Tracked in
   Opus limits are unsuitable; check each tool's hidden-file, ignore, encoding
   and symbolic-link behavior. If a revealed result is hidden or filtered, adjust
   the pane's visibility settings. Re-run saved searches and check collection
-  references after files change.
+  references after files change. Use KDE File Search settings to change what
+  Baloo indexes for every application. When pressing Shift twice is
+  unavailable, use the Search shortcut (Ctrl+Alt+F by default), which can be
+  changed in Configure Keyboard Shortcuts. To search another folder from the
+  search panel, use Search from that pane's toolbar or the Search shortcut
+  while the pane is active, or type in the toolbar search field. Check the
+  panel's criteria before searching from the toolbar field. Press Down to
+  reach the results and Escape to return to the active pane; click the panel
+  or use Tab when keyboard focus needs to move elsewhere. Check the normalized
+  query shown while typing to confirm grouping, use parentheses where AND and
+  OR are mixed, and search the current folder or search folders when an
+  advanced query has no required name or content term.
   - Comment: [#362.7023269364][comment-362]
 - **Alternative:** Use a separately maintained locate database for filenames.
   - Comment:
     [#362.7029675758](https://github.com/mikepadiernos/plasma-opus/issues/362#issuecomment-7029675758)
 - **Planned:** [M21 advanced search](ROADMAP.md#m21-advanced-search) reuses M09
   search; its new interface and criteria do not by themselves remove current
-  backend limits. [M27 Baloo integration](ROADMAP.md#m27-integrations) plans
+  backend limits. [M22 advanced search settings](ROADMAP.md#m22-advanced-search-settings)
+  plans choosing the panel's placement and restoring its visibility at startup.
+  [M31 keyboard shortcut settings](ROADMAP.md#m31-keyboard-shortcut-settings)
+  plans configurable shortcuts
+  ([#230](https://github.com/mikepadiernos/plasma-opus/issues/230)), which
+  could include focusing the search field and panel.
+  [M27 Baloo integration](ROADMAP.md#m27-integrations) plans
   better status, metadata queries, result ranking and an explicit live fallback,
   not guaranteed index completeness. [M15 workspaces](ROADMAP.md#m15-workspaces)
   plan search scoping, not a security boundary.

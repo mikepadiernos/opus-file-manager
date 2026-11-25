@@ -18,6 +18,7 @@
 #include "customcommanddialog.h"
 #include "customstylesheet.h"
 #include "density.h"
+#include "doubleshift.h"
 #include "duplicatefinderdialog.h"
 #include "editorpanel.h"
 #include "effectiveappearance.h"
@@ -40,7 +41,8 @@
 #include "pane.h"
 #include "pathfiltereditor.h"
 #include "previewpanel.h"
-#include "searchdialog.h"
+#include "searchpanel.h"
+#include "searchtoolbaraction.h"
 #include "session.h"
 #include "settings.h"
 #include "settingsdialog.h"
@@ -976,8 +978,8 @@ void MainWindow::refreshWorkspaceLocations()
 {
     applyWorkspaceAppearance();
     m_combinedPanel->setWorkspaceState(m_workspaceCatalog, m_currentWorkspaceId);
-    const auto dialogs = findChildren<SearchDialog *>();
-    for (SearchDialog *dialog : dialogs) {
+    const auto dialogs = findChildren<SearchWidget *>();
+    for (SearchWidget *dialog : dialogs) {
         dialog->refreshWorkspaceScope();
     }
     for (int row = 0; row < m_placesModel->rowCount(); ++row) {
@@ -1233,12 +1235,17 @@ bool MainWindow::restoreWorkspaceLayout(const WorkspaceCatalog::Layout &layout, 
     m_terminalPanel->setVisible(p.terminalVisible);
     m_dualLayoutAction->setChecked(layout.dual);
     toggleLayout(layout.dual);
-    if (m_splitter->count() != layout.paneSizes.size() || m_workspaceSplitter->count() != layout.workspaceSizes.size()) {
+    QList<int> workspaceSizes = layout.workspaceSizes;
+    if (workspaceSizes.size() == m_workspaceSplitter->count() - 1) {
+        // Layouts saved before the search panel existed lack its size; keep the current one.
+        workspaceSizes.append(m_workspaceSplitter->sizes().constLast());
+    }
+    if (m_splitter->count() != layout.paneSizes.size() || m_workspaceSplitter->count() != workspaceSizes.size()) {
         error = i18nc("@info", "The saved workspace splitter arrangement is unavailable.");
         return false;
     }
     m_splitter->setSizes(layout.paneSizes);
-    m_workspaceSplitter->setSizes(layout.workspaceSizes);
+    m_workspaceSplitter->setSizes(workspaceSizes);
     m_left->replaceState(layout.session->left);
     m_right->replaceState(layout.session->right);
     setActivePane(layout.session->activePane == 1 ? m_right : m_left);
@@ -1315,10 +1322,40 @@ void MainWindow::setupPanes()
         applyWindowEffects();
     });
     m_terminalPanel->hide();
+    m_searchPanel = new SearchPanel(
+        [this] {
+            SearchWidget::WorkspaceScope scope;
+            const auto workspace = std::find_if(m_workspaceCatalog.workspaces.cbegin(), m_workspaceCatalog.workspaces.cend(), [this](const auto &entry) {
+                return entry.id == m_currentWorkspaceId;
+            });
+            scope.active = workspace != m_workspaceCatalog.workspaces.cend() && workspace->behaviorSelection.applies(workspace->behaviorSelection.searchScope);
+            if (scope.active) {
+                for (const auto &location : m_workspaceLocations->locations()) {
+                    if (m_workspaceCatalog.locationAssignments.value(location.id) == m_currentWorkspaceId) {
+                        scope.locations.append(location.url);
+                    }
+                }
+            }
+            return scope;
+        },
+        m_workspaceSplitter);
+    m_searchPanel->hide();
+    connect(m_searchPanel->searchWidget(), &SearchWidget::revealRequested, this, [this](const QUrl &url) {
+        activePane()->revealUrl(url);
+    });
+    connect(m_searchPanel->searchWidget(), &SearchWidget::openRequested, this, [this](const QUrl &url) {
+        if (QFileInfo(url.toLocalFile()).isDir()) {
+            activePane()->setUrl(url);
+        } else {
+            FileOperations::open(KFileItem(url), this);
+        }
+    });
     m_workspaceSplitter->addWidget(m_splitter);
     m_workspaceSplitter->addWidget(m_terminalPanel);
+    m_workspaceSplitter->addWidget(m_searchPanel);
     m_workspaceSplitter->setStretchFactor(0, 3);
     m_workspaceSplitter->setStretchFactor(1, 1);
+    m_workspaceSplitter->setStretchFactor(2, 1);
     m_paneTabs = new QTabWidget(this);
     m_paneTabs->setObjectName(QStringLiteral("paneLayoutTabs"));
     m_paneTabs->addTab(m_workspaceSplitter, QString());
@@ -2056,6 +2093,7 @@ void MainWindow::setupActions()
     QAction *search = actions->addAction(QStringLiteral("search_folder"), this, &MainWindow::showSearch);
     search->setText(i18nc("@action", "Search Current Folder…"));
     search->setIcon(QIcon::fromTheme(QStringLiteral("edit-find")));
+    actions->setDefaultShortcut(search, Qt::CTRL | Qt::ALT | Qt::Key_F);
     QAction *duplicateFinder = actions->addAction(QStringLiteral("find_duplicates"), this, &MainWindow::showDuplicateFinder);
     duplicateFinder->setText(i18nc("@action", "Find Duplicate Files…"));
     QAction *compareFolders = actions->addAction(QStringLiteral("compare_pane_folders"), this, &MainWindow::comparePaneFolders);
@@ -2270,7 +2308,50 @@ void MainWindow::setupActions()
         }
         m_terminalPanel->setVisible(shown);
         toggleLayout(m_dualLayoutAction->isChecked());
-        restoreSplitterSizes(false, true);
+        restoreSplitterSizes(false, true, true);
+    });
+
+    m_searchPanelAction = new KToggleAction(i18nc("@action", "Show Search Panel"), this);
+    m_searchPanelAction->setIcon(QIcon::fromTheme(QStringLiteral("edit-find")));
+    actions->addAction(QStringLiteral("show_search_panel"), m_searchPanelAction);
+    connect(m_searchPanel, &SearchPanel::closeRequested, this, [this] {
+        m_searchPanelAction->setChecked(false);
+    });
+    connect(m_searchPanelAction, &KToggleAction::toggled, this, [this](bool shown) {
+        SearchWidget *search = m_searchPanel->searchWidget();
+        if (shown && search->folder().isEmpty()) {
+            search->setFolder(activePane()->url());
+        }
+        const bool hadFocus = m_searchPanel->isAncestorOf(QApplication::focusWidget());
+        m_searchPanel->setVisible(shown);
+        toggleLayout(m_dualLayoutAction->isChecked());
+        restoreSplitterSizes(false, true, true);
+        if (shown) {
+            search->focusQuery();
+        } else if (hadFocus) {
+            activePane()->view()->currentView()->setFocus();
+        }
+    });
+
+    auto *toolbarSearch = new SearchToolbarAction(this);
+    actions->addAction(QStringLiteral("search_toolbar"), toolbarSearch);
+    connect(toolbarSearch, &SearchToolbarAction::searchRequested, this, &MainWindow::searchFromToolbar);
+    connect(toolbarSearch, &SearchToolbarAction::resultsRequested, this, [this] {
+        SearchWidget *search = m_searchPanel->searchWidget();
+        if (m_searchPanelAction->isChecked() && !search->focusResults()) {
+            search->focusQuery();
+        }
+    });
+    connect(toolbarSearch, &SearchToolbarAction::escapePressed, this, [this] {
+        SearchWidget *search = m_searchPanel->searchWidget();
+        if (search->isRunning()) {
+            search->cancel();
+        } else {
+            activePane()->view()->currentView()->setFocus(Qt::OtherFocusReason);
+        }
+    });
+    connect(m_searchPanel->searchWidget(), &SearchWidget::dismissRequested, this, [this] {
+        activePane()->view()->currentView()->setFocus(Qt::OtherFocusReason);
     });
 
     m_linkedPanesAction = new KToggleAction(i18nc("@action", "Link Pane Navigation"), this);
@@ -3919,26 +4000,32 @@ void MainWindow::showSearch()
 
 void MainWindow::showSearchForPane(Pane *pane)
 {
-    auto *dialog = new SearchDialog(pane->url(), this, {}, [this] {
-        SearchDialog::WorkspaceScope scope;
-        const auto workspace = std::find_if(m_workspaceCatalog.workspaces.cbegin(), m_workspaceCatalog.workspaces.cend(), [this](const auto &entry) {
-            return entry.id == m_currentWorkspaceId;
-        });
-        scope.active = workspace != m_workspaceCatalog.workspaces.cend() && workspace->behaviorSelection.applies(workspace->behaviorSelection.searchScope);
-        if (scope.active) {
-            for (const auto &location : m_workspaceLocations->locations()) {
-                if (m_workspaceCatalog.locationAssignments.value(location.id) == m_currentWorkspaceId) {
-                    scope.locations.append(location.url);
-                }
-            }
-        }
-        return scope;
-    });
-    connect(dialog, &SearchDialog::revealRequested, this, [pane](const QUrl &url) {
-        pane->revealUrl(url);
-    });
-    dialog->setAttribute(Qt::WA_DeleteOnClose);
-    dialog->show();
+    if (pane != activePane()) {
+        setActivePane(pane);
+    }
+    SearchWidget *search = m_searchPanel->searchWidget();
+    if (!search->setFolder(pane->url())) {
+        showStatusMessage(i18nc("@info:status", "A search is running. Cancel it to search another folder."));
+    }
+    m_searchPanelAction->setChecked(true);
+    search->focusQuery();
+}
+
+void MainWindow::searchFromToolbar(const QString &text)
+{
+    if (text.trimmed().isEmpty()) {
+        showSearch();
+        return;
+    }
+    QWidget *field = QApplication::focusWidget();
+    SearchWidget *search = m_searchPanel->searchWidget();
+    // A running search keeps its folder; search() then reports that it is busy.
+    search->setFolder(activePane()->url());
+    m_searchPanelAction->setChecked(true);
+    search->search(text);
+    if (field) {
+        field->setFocus(Qt::OtherFocusReason);
+    }
 }
 
 void MainWindow::showDuplicateFinder()
@@ -4503,7 +4590,7 @@ void MainWindow::toggleLayout(bool dual)
     const bool editorEmbedded = m_editor
         && ((m_editorPlacement == EditorPanel::Placement::Panel && !m_editor->isHidden())
             || ((m_editorPlacement == EditorPanel::Placement::Below || m_editorPlacement == EditorPanel::Placement::Right) && !m_editorDock->isHidden()));
-    const bool terminalShown = m_terminalPanelAction && m_terminalPanelAction->isChecked();
+    const bool terminalShown = (m_terminalPanelAction && m_terminalPanelAction->isChecked()) || (m_searchPanelAction && m_searchPanelAction->isChecked());
     const bool previewInPane = preview && m_previewPlacement == PreviewPanel::Placement::Pane;
     m_left->setVisible((dual && (!previewInPane || editorEmbedded || terminalShown)) || activePane() == m_left);
     if (!m_secondPaneInTab && !m_rightWindow) {
@@ -4565,7 +4652,8 @@ void MainWindow::saveSplitterSizes()
           {m_right, QStringLiteral("SecondPane")},
           {m_previewPanel, QStringLiteral("Preview")},
           {m_editor, QStringLiteral("Editor")}});
-    save(m_workspaceSplitter, {{m_splitter, QStringLiteral("Workspace")}, {m_terminalPanel, QStringLiteral("Terminal")}});
+    save(m_workspaceSplitter,
+         {{m_splitter, QStringLiteral("Workspace")}, {m_terminalPanel, QStringLiteral("Terminal")}, {m_searchPanel, QStringLiteral("Search")}});
     if (m_editorDock && !m_editorDock->isHidden() && !m_editorDock->isFloating()) {
         const bool right = dockWidgetArea(m_editorDock) == Qt::RightDockWidgetArea;
         const int dimension = right ? width() : height();
@@ -4638,19 +4726,41 @@ void MainWindow::restoreSplitterSizes(bool panes, bool workspace, bool defaultsI
             };
             if (splitter == m_splitter) {
                 preservePrimaryArea(m_left, m_right, 6000);
-            } else if (splitter == m_workspaceSplitter && !m_terminalPanel->isHidden()) {
+            } else if (splitter == m_workspaceSplitter) {
+                // Embedded panels share at most 40% so the panes keep the primary area.
                 const int workspaceIndex = splitter->indexOf(m_splitter);
-                const int terminalIndex = splitter->indexOf(m_terminalPanel);
-                if (workspaceIndex >= 0 && terminalIndex >= 0) {
-                    const int total = sizes.at(workspaceIndex) + sizes.at(terminalIndex);
+                int panels = 0;
+                for (int i = 0; i < splitter->count(); ++i) {
+                    if (i != workspaceIndex && !splitter->widget(i)->isHidden()) {
+                        panels += sizes.at(i);
+                    }
+                }
+                if (workspaceIndex >= 0 && panels > 0) {
+                    const int total = sizes.at(workspaceIndex) + panels;
                     const int primary = qMax(total * 6000 / 10000, sizes.at(workspaceIndex));
                     sizes[workspaceIndex] = primary;
-                    sizes[terminalIndex] = total - primary;
+                    for (int i = 0; i < splitter->count(); ++i) {
+                        if (i != workspaceIndex && !splitter->widget(i)->isHidden()) {
+                            sizes[i] = qMax(1, int(qint64(sizes.at(i)) * (total - primary) / panels));
+                        }
+                    }
                 }
             }
             splitter->setSizes(sizes);
         } else if (defaultsIfMissing) {
-            splitter->setSizes(defaults);
+            // Scale the default weights to the splitter so minimum sizes do not dominate them.
+            const int extent = splitter->orientation() == Qt::Horizontal ? splitter->width() : splitter->height();
+            int weight = 0;
+            for (int i = 0; i < splitter->count(); ++i) {
+                if (!splitter->widget(i)->isHidden()) {
+                    weight += defaults.value(i);
+                }
+            }
+            QList<int> scaled;
+            for (int i = 0; i < splitter->count(); ++i) {
+                scaled.append(weight > 0 && extent > 0 ? qMax(1, int(qint64(defaults.value(i)) * extent / weight)) : defaults.value(i));
+            }
+            splitter->setSizes(scaled);
         }
     };
     if (panes) {
@@ -4662,7 +4772,9 @@ void MainWindow::restoreSplitterSizes(bool panes, bool workspace, bool defaultsI
                 QList<int>(m_splitter->count(), 1));
     }
     if (workspace) {
-        restore(m_workspaceSplitter, {{m_splitter, QStringLiteral("Workspace")}, {m_terminalPanel, QStringLiteral("Terminal")}}, {3, 1});
+        restore(m_workspaceSplitter,
+                {{m_splitter, QStringLiteral("Workspace")}, {m_terminalPanel, QStringLiteral("Terminal")}, {m_searchPanel, QStringLiteral("Search")}},
+                {3, 1, 1});
     }
 }
 
@@ -4753,7 +4865,7 @@ void MainWindow::resetSplitterSizes()
     group.writeEntry("MetadataDockBelow", 2500);
     state->sync();
     m_splitter->setSizes(QList<int>(m_splitter->count(), 1));
-    m_workspaceSplitter->setSizes({3, 1});
+    m_workspaceSplitter->setSizes({3, 1, 1});
     if (m_editorDock && !m_editorDock->isHidden() && !m_editorDock->isFloating()) {
         const bool right = dockWidgetArea(m_editorDock) == Qt::RightDockWidgetArea;
         resizeDocks({m_editorDock}, {qMax(1, (right ? width() : height()) / 4)}, right ? Qt::Horizontal : Qt::Vertical);
@@ -4991,7 +5103,32 @@ void MainWindow::applySettings()
     setPreviewPlacement(static_cast<PreviewPanel::Placement>(Settings::previewPlacement()));
     m_previewPanel->applyPresentationSettings();
     updatePreviewPanel();
+    updateDoubleShift();
     updateActions();
+}
+
+void MainWindow::updateDoubleShift()
+{
+    const bool wanted = Settings::doubleShiftSearch() && DoubleShiftDetector::unavailableReason().isEmpty();
+    if (!wanted) {
+        delete m_doubleShift;
+        m_doubleShift = nullptr;
+        return;
+    }
+    if (m_doubleShift) {
+        return;
+    }
+    auto *detector = new DoubleShiftDetector(
+        [this] {
+            return windowHandle();
+        },
+        this);
+    connect(detector, &DoubleShiftDetector::triggered, this, [this] {
+        if (QAction *search = actionCollection()->action(QStringLiteral("search_folder")); search && search->isEnabled()) {
+            search->trigger();
+        }
+    });
+    m_doubleShift = detector;
 }
 
 void MainWindow::applyAppearance()
@@ -5053,6 +5190,7 @@ void MainWindow::applyEmbeddedPanelTitles()
 {
     const bool visible = Settings::embeddedPanelTitlesVisible();
     m_terminalPanel->setTitleVisible(visible);
+    m_searchPanel->setTitleVisible(visible);
     m_previewPanel->setTitleVisible(visible);
     setDockTitleVisible(m_previewDock, visible);
     setDockTitleVisible(m_editorDock, visible);

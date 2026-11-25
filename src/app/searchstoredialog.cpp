@@ -54,7 +54,7 @@ SearchStoreDialog::SearchStoreDialog(QWidget *parent, KSharedConfig::Ptr config)
     m_searchDetails->setTextFormat(Qt::PlainText);
     m_searchDetails->setWordWrap(true);
     searchLayout->addWidget(m_searchDetails);
-    auto *searchHint = new QLabel(i18nc("@info", "Load and update search criteria in the Search Files dialog."), searchPage);
+    auto *searchHint = new QLabel(i18nc("@info", "Load and update search criteria in the search panel."), searchPage);
     searchHint->setWordWrap(true);
     searchLayout->addWidget(searchHint);
     auto *searchActions = new QHBoxLayout;
@@ -170,9 +170,15 @@ void SearchStoreDialog::showSearch()
     m_searchDetails->setText(i18nc("@info",
                                    "Query: %1\nFolder: %2\nScope: %3\nField: %4",
                                    search.text,
-                                   search.folder.isEmpty() ? i18nc("@info", "All indexed locations") : search.folder.toDisplayString(),
-                                   search.indexed ? i18nc("@info", "Indexed") : i18nc("@info", "Current folder"),
-                                   search.field == LiveSearch::Field::FileName ? i18nc("@info", "File name") : i18nc("@info", "File contents")));
+                                   search.searchFolders          ? i18nc("@info", "Search folders")
+                                       : search.folder.isEmpty() ? i18nc("@info", "All indexed locations")
+                                                                 : search.folder.toDisplayString(),
+                                   search.indexed             ? i18nc("@info", "Indexed")
+                                       : search.searchFolders ? i18nc("@info", "Search folders (live)")
+                                                              : i18nc("@info", "Current folder"),
+                                   search.field == LiveSearch::Field::FileName    ? i18nc("@info", "File name")
+                                       : search.field == LiveSearch::Field::Query ? i18nc("@info", "Advanced query")
+                                                                                  : i18nc("@info", "File contents")));
 }
 
 void SearchStoreDialog::showCollection()

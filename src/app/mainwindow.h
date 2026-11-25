@@ -33,6 +33,7 @@ class KSelectAction;
 class KToggleAction;
 class Pane;
 class PreviewPanel;
+class SearchPanel;
 class TabColors;
 class TerminalPanel;
 class ToolbarCustomizer;
@@ -189,6 +190,8 @@ private:
     void setupStatusBar();
     void applyPanelSettings();
     void applyEmbeddedPanelTitles();
+    /// Creates or removes the double Shift search trigger to follow its setting.
+    void updateDoubleShift();
 
     void setActivePane(Pane *pane);
     void connectPane(Pane *pane);
@@ -229,6 +232,8 @@ private:
     void showContentChart();
     void showSearch();
     void showSearchForPane(Pane *pane);
+    /// Searches the active pane's folder from a toolbar search field.
+    void searchFromToolbar(const QString &text);
     void showDuplicateFinder();
     void createChecksumFile();
     void verifyChecksumFile();
@@ -363,6 +368,9 @@ private:
     QWidget *m_rightPlaceholder = nullptr;
     QPointer<QMainWindow> m_rightWindow;
     TerminalPanel *m_terminalPanel = nullptr;
+    SearchPanel *m_searchPanel = nullptr;
+    /// Opens search on two Shift taps, while enabled and available.
+    QObject *m_doubleShift = nullptr;
     /// Whether a terminal profile asks for blur behind the window.
     bool m_terminalBlur = false;
     EditorPanel *m_editor = nullptr;
@@ -395,6 +403,7 @@ private:
     KToggleAction *m_previewsAction = nullptr;
     KToggleAction *m_previewPanelAction = nullptr;
     KToggleAction *m_terminalPanelAction = nullptr;
+    KToggleAction *m_searchPanelAction = nullptr;
     KToggleAction *m_linkedPanesAction = nullptr;
     QUrl m_linkedLeftRoot;
     QUrl m_linkedRightRoot;

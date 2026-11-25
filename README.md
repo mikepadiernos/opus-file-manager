@@ -36,8 +36,8 @@
 > [!NOTE]
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0).
-> Since that release, `main` has gained workspaces (M15–M16), themes (M17–M18)
-> and branding (M19–M20). M21 Advanced search is in development; see the
+> Since that release, `main` has gained workspaces (M15–M16), themes (M17–M18),
+> branding (M19–M20) and advanced search (M21); see the
 > [roadmap](docs/ROADMAP.md#at-a-glance) for status.
 
 ## Features
@@ -55,9 +55,10 @@ preview. Both behaviours can be changed in Preferences.
   files.
 - 🔀 **Compare and sync:** compare files or folders and preview per-item actions
   before synchronizing local folders.
-- 🔎 **Search and automate:** search local folders or a Baloo index, save
-  searches and collections, and preview scripts or commands before running
-  them.
+- 🔎 **Search and automate:** search local folders or a Baloo index from the
+  toolbar or an embedded search panel, combine name, path, type, size, date and
+  content criteria with AND, OR and NOT, save searches and collections, and
+  preview scripts or commands before running them.
 - 🖼️ **Preview and edit:** preview documents and media, use the image gallery,
   edit text with drafts and edit supported media metadata. Preview, text and
   metadata panels can be placed beside or below the panes.

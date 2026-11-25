@@ -1,0 +1,12 @@
+[package]
+name = "opus_searchquery"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+description = "Prototype parser and validator for Plasma Opus advanced search queries"
+publish = false
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]

@@ -7,6 +7,7 @@
 #include "colorschemes.h"
 #include "customcommanddialog.h"
 #include "density.h"
+#include "doubleshift.h"
 #include "localizednumbers.h"
 #include "pane.h"
 #include "pathfilterpresetsdialog.h"
@@ -1046,6 +1047,29 @@ QWidget *SettingsDialog::createSearchPage()
     auto *layout = new QVBoxLayout(page);
     layout->addWidget(checkBox(QStringLiteral("SearchIndexedByDefault"), i18nc("@option:check", "Search indexed locations by default")));
     layout->addWidget(checkBox(QStringLiteral("SearchContentsByDefault"), i18nc("@option:check", "Search file contents by default")));
+    auto *foldersLabel = new QLabel(i18nc("@label", "Search folders, searched together by the \"Search folders\" scope:"), page);
+    foldersLabel->setWordWrap(true);
+    layout->addWidget(foldersLabel);
+    auto *folders = bound(new FolderListEditor(i18nc("@title:window", "Choose a Search Folder"), page), QStringLiteral("SearchFolders"), "folders");
+    foldersLabel->setBuddy(folders);
+    layout->addWidget(folders);
+    auto *exclusionsLabel = new QLabel(i18nc("@label", "Excluded folders, skipped by every Plasma Opus search:"), page);
+    exclusionsLabel->setWordWrap(true);
+    layout->addWidget(exclusionsLabel);
+    auto *exclusions = bound(new FolderListEditor(i18nc("@title:window", "Choose a Folder to Exclude"), page), QStringLiteral("SearchExclusions"), "folders");
+    exclusionsLabel->setBuddy(exclusions);
+    layout->addWidget(exclusions);
+    layout->addWidget(checkBox(QStringLiteral("DoubleShiftSearch"), i18nc("@option:check", "Open search by pressing Shift twice")));
+    auto *doubleShiftStatus = new QLabel(page);
+    doubleShiftStatus->setObjectName(QStringLiteral("doubleShiftStatus"));
+    doubleShiftStatus->setWordWrap(true);
+    doubleShiftStatus->setTextFormat(Qt::PlainText);
+    const QString unavailable = DoubleShiftDetector::unavailableReason();
+    doubleShiftStatus->setText(unavailable.isEmpty() ? i18nc("@info",
+                                                             "Press Shift twice quickly in a Plasma Opus window to search the active folder. Change the "
+                                                             "Search shortcut under Configure Keyboard Shortcuts.")
+                                                     : i18nc("@info", "Pressing Shift twice is unavailable: %1", unavailable));
+    layout->addWidget(doubleShiftStatus);
     auto *manageFilters = new QPushButton(i18nc("@action:button", "Manage Shared Path Filters…"), page);
     manageFilters->setObjectName(QStringLiteral("managePathFilters"));
     layout->addWidget(manageFilters);

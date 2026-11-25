@@ -65,6 +65,8 @@ add_library(opusfm_core STATIC
     metadataeditor.h
     density.cpp
     density.h
+    doubleshift.cpp
+    doubleshift.h
     draftstore.cpp
     draftstore.h
     duplicatefinder.cpp
@@ -93,6 +95,10 @@ add_library(opusfm_core STATIC
     savedsearches.h
     searchcollection.cpp
     searchcollection.h
+    searchlocations.cpp
+    searchlocations.h
+    searchquery.cpp
+    searchquery.h
     safetextdocument.h
     session.cpp
     settingsbackup.cpp

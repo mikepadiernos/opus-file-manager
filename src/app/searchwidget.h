@@ -6,9 +6,9 @@
 #include "savedsearches.h"
 
 #include <KSharedConfig>
-#include <QDialog>
 #include <QFutureWatcher>
 #include <QUrl>
+#include <QWidget>
 
 #include <atomic>
 #include <memory>
@@ -23,7 +23,8 @@ class QTabWidget;
 class QTreeWidget;
 class PathFilterEditor;
 
-class SearchDialog : public QDialog
+/// Search criteria, progress, results and collections, embedded in the search panel.
+class SearchWidget : public QWidget
 {
     Q_OBJECT
 
@@ -34,17 +35,37 @@ public:
     };
     using WorkspaceScopeProvider = std::function<WorkspaceScope()>;
 
-    explicit SearchDialog(const QUrl &folder, QWidget *parent = nullptr, KSharedConfig::Ptr config = {}, WorkspaceScopeProvider workspaceScope = {});
-    ~SearchDialog() override;
+    explicit SearchWidget(const QUrl &folder, QWidget *parent = nullptr, KSharedConfig::Ptr config = {}, WorkspaceScopeProvider workspaceScope = {});
+    ~SearchWidget() override;
     /// Refreshes the workspace scope control after a workspace change.
     void refreshWorkspaceScope();
+    /// Sets the current folder searched by the live scope. Ignored while a search runs.
+    bool setFolder(const QUrl &folder);
+    QUrl folder() const;
+    bool isRunning() const;
+    void focusQuery();
+    /// Focuses the visible result list when it has items; returns whether it did.
+    bool focusResults();
+    /// Replaces the query text and starts a search with the current criteria.
+    void search(const QString &text);
+    /// Cancels a running search; does nothing otherwise.
+    void cancel();
 
 Q_SIGNALS:
+    /// Escape was pressed while no search was running.
+    void dismissRequested();
     void revealRequested(const QUrl &url);
+    /// Requests opening an existing result: a folder in a pane, a file in its application.
+    void openRequested(const QUrl &url);
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
 
 private:
     void start();
-    void cancel();
+    void openSelected();
+    void revealSelected();
     void updateSavedSearches();
     void updateCollection(const QList<QUrl> &urls);
     PathFilter pathFilter() const;

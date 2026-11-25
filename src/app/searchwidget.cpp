@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include "searchdialog.h"
+#include "searchwidget.h"
 
 #include "indexedsearch.h"
 #include "pathfiltereditor.h"
 #include "searchcollection.h"
+#include "searchlocations.h"
+#include "searchquery.h"
 
 #include <KLocalizedString>
 
@@ -12,20 +14,24 @@
 #include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
-#include <QDialogButtonBox>
 #include <QDir>
+#include <QEvent>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QInputDialog>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QProgressBar>
 #include <QPromise>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QSet>
+#include <QSplitter>
+#include <QTabBar>
 #include <QTabWidget>
 #include <QTreeWidget>
 #include <QUuid>
@@ -36,8 +42,65 @@
 
 namespace
 {
+enum Scope {
+    CurrentFolder,
+    Indexed,
+    SearchFolders,
+};
+
+enum FieldIndex {
+    NameField,
+    ContentsField,
+    QueryField,
+};
+
+LiveSearch::Field fieldAt(int index)
+{
+    return index == QueryField ? LiveSearch::Field::Query : index == ContentsField ? LiveSearch::Field::Contents : LiveSearch::Field::FileName;
+}
+
+int fieldIndex(LiveSearch::Field field)
+{
+    return field == LiveSearch::Field::Query ? QueryField : field == LiveSearch::Field::Contents ? ContentsField : NameField;
+}
+
+/// Appends the keyboard-focusable widgets in @p layout in layout order, descending into containers.
+void collectTabStops(QLayout *layout, QList<QWidget *> &stops)
+{
+    for (int i = 0; i < layout->count(); ++i) {
+        QLayoutItem *item = layout->itemAt(i);
+        if (QLayout *child = item->layout()) {
+            collectTabStops(child, stops);
+            continue;
+        }
+        QWidget *widget = item->widget();
+        if (!widget) {
+            continue;
+        }
+        if (auto *tabs = qobject_cast<QTabWidget *>(widget)) {
+            // The tab widget forwards focus to its tab bar.
+            stops.append(tabs);
+            for (int page = 0; page < tabs->count(); ++page) {
+                QWidget *pageWidget = tabs->widget(page);
+                if (pageWidget->focusPolicy() & Qt::TabFocus) {
+                    stops.append(pageWidget);
+                } else if (pageWidget->layout()) {
+                    collectTabStops(pageWidget->layout(), stops);
+                }
+            }
+        } else if (widget->focusPolicy() & Qt::TabFocus) {
+            stops.append(widget);
+        } else if (widget->layout()) {
+            collectTabStops(widget->layout(), stops);
+        }
+    }
+}
+
 QString scopeStatus(int index, bool workspaceOnly)
 {
+    if (index == SearchFolders) {
+        return i18nc("@info", "Searches the search folders set in Preferences recursively. Symbolic links and excluded folders are skipped.");
+    }
     if (workspaceOnly) {
         return index == 0 ? i18nc("@info", "Searches saved locations assigned to the active workspace recursively. Symbolic links are skipped.")
                           : i18nc("@info",
@@ -51,8 +114,8 @@ QString scopeStatus(int index, bool workspaceOnly)
 }
 }
 
-SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::Ptr config, WorkspaceScopeProvider workspaceScope)
-    : QDialog(parent)
+SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::Ptr config, WorkspaceScopeProvider workspaceScope)
+    : QWidget(parent)
     , m_folder(folder)
     , m_config(config ? config : KSharedConfig::openConfig())
     , m_folderLabel(new QLabel(folder.toDisplayString(), this))
@@ -72,10 +135,33 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     , m_resultTabs(new QTabWidget(this))
     , m_errors(new QTreeWidget(this))
 {
-    setObjectName(QStringLiteral("searchDialog"));
-    setWindowTitle(i18nc("@title:window", "Search Files"));
-    resize(750, 500);
-    auto *layout = new QVBoxLayout(this);
+    setObjectName(QStringLiteral("searchWidget"));
+    auto *outerLayout = new QVBoxLayout(this);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+    auto *splitter = new QSplitter(Qt::Vertical, this);
+    splitter->setObjectName(QStringLiteral("searchSplitter"));
+    splitter->setChildrenCollapsible(false);
+    outerLayout->addWidget(splitter);
+    // Both parts scroll so a narrow panel beside the panes does not force a wide minimum size.
+    auto *criteriaArea = new QScrollArea(splitter);
+    criteriaArea->setObjectName(QStringLiteral("searchCriteriaArea"));
+    criteriaArea->setWidgetResizable(true);
+    criteriaArea->setFrameShape(QFrame::NoFrame);
+    auto *criteria = new QWidget(criteriaArea);
+    auto *layout = new QVBoxLayout(criteria);
+    criteriaArea->setWidget(criteria);
+    auto *resultsScroll = new QScrollArea(splitter);
+    resultsScroll->setObjectName(QStringLiteral("searchResultsArea"));
+    resultsScroll->setWidgetResizable(true);
+    resultsScroll->setFrameShape(QFrame::NoFrame);
+    auto *resultsArea = new QWidget(resultsScroll);
+    auto *resultsLayout = new QVBoxLayout(resultsArea);
+    resultsScroll->setWidget(resultsArea);
+    splitter->addWidget(criteriaArea);
+    splitter->addWidget(resultsScroll);
+    splitter->setStretchFactor(0, 1);
+    splitter->setStretchFactor(1, 2);
+    m_folderLabel->setObjectName(QStringLiteral("searchFolder"));
     m_folderLabel->setTextFormat(Qt::PlainText);
     m_folderLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     layout->addWidget(m_folderLabel);
@@ -84,9 +170,16 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_field->setObjectName(QStringLiteral("searchField"));
     m_field->addItem(i18nc("@item:inlistbox", "File name"));
     m_field->addItem(i18nc("@item:inlistbox", "File contents (UTF-8 text)"));
+    m_field->addItem(i18nc("@item:inlistbox", "Advanced query"));
+    m_field->setItemData(QueryField,
+                         i18nc("@info:tooltip",
+                               "Combine name:, path:, type:, size:, modified: and content: criteria with AND, OR, NOT and parentheses, "
+                               "for example: report type:pdf size>1M NOT path:archive"),
+                         Qt::ToolTipRole);
     m_scope->setObjectName(QStringLiteral("searchScope"));
     m_scope->addItem(i18nc("@item:inlistbox", "Current folder (live)"));
     m_scope->addItem(i18nc("@item:inlistbox", "Indexed locations (Baloo)"));
+    m_scope->addItem(i18nc("@item:inlistbox", "Search folders (live)"));
     const auto defaults = m_config->group(QStringLiteral("Search"));
     m_scope->setCurrentIndex(defaults.readEntry("SearchIndexedByDefault", false) ? 1 : 0);
     m_field->setCurrentIndex(defaults.readEntry("SearchContentsByDefault", false) ? 1 : 0);
@@ -123,11 +216,12 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     savedRow->addWidget(refreshSearches);
     savedRow->addWidget(deleteSearch);
     layout->addLayout(savedRow);
+    layout->addStretch(1);
     m_status->setObjectName(QStringLiteral("searchStatus"));
     m_status->setTextFormat(Qt::PlainText);
     m_status->setWordWrap(true);
     m_status->setText(scopeStatus(m_scope->currentIndex(), m_workspaceScope && m_workspaceScope().active && m_workspaceOnly->isChecked()));
-    layout->addWidget(m_status);
+    resultsLayout->addWidget(m_status);
     QString savedError;
     m_savedSearches = SavedSearches::load(m_config->group(QStringLiteral("SavedSearches")), &savedError);
     updateSavedSearches();
@@ -210,8 +304,8 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
             m_folderLabel->setText(m_folder.toDisplayString());
         }
         m_query->setText(search.text);
-        m_scope->setCurrentIndex(search.indexed ? 1 : 0);
-        m_field->setCurrentIndex(search.field == LiveSearch::Field::FileName ? 0 : 1);
+        m_scope->setCurrentIndex(search.searchFolders ? SearchFolders : search.indexed ? Indexed : CurrentFolder);
+        m_field->setCurrentIndex(fieldIndex(search.field));
         m_filterEditor->setFilter(search.filter);
         m_status->setText(i18nc("@info", "Saved criteria loaded. Review them and start the search."));
     });
@@ -310,7 +404,7 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_progress->setObjectName(QStringLiteral("searchProgress"));
     m_progress->setRange(0, 0);
     m_progress->hide();
-    layout->addWidget(m_progress);
+    resultsLayout->addWidget(m_progress);
     m_results->setObjectName(QStringLiteral("searchResults"));
     m_results->setHeaderLabels({i18nc("@title:column", "Matching path")});
     m_results->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -347,7 +441,7 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     collectionLayout->addWidget(collectionHint);
     collectionLayout->addWidget(m_collection);
     m_resultTabs->addTab(collectionPage, i18nc("@title:tab", "Collection"));
-    layout->addWidget(m_resultTabs);
+    resultsLayout->addWidget(m_resultTabs, 1);
     QString collectionError;
     const auto collection = SearchCollection::load(m_config->group(QStringLiteral("SearchCollection")), &collectionError);
     updateCollection(collection);
@@ -515,31 +609,41 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_errors->setObjectName(QStringLiteral("searchErrors"));
     m_errors->setHeaderLabels({i18nc("@title:column", "Search errors")});
     m_errors->hide();
-    layout->addWidget(m_errors);
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
+    resultsLayout->addWidget(m_errors);
+    auto *buttons = new QHBoxLayout;
+    auto *open = new QPushButton(i18nc("@action:button", "Open"), this);
     auto *copy = new QPushButton(i18nc("@action:button", "Copy Selected URL"), this);
     auto *reveal = new QPushButton(i18nc("@action:button", "Show in Folder"), this);
     auto *addReference = new QPushButton(i18nc("@action:button", "Add to Collection"), this);
     auto *removeReference = new QPushButton(i18nc("@action:button", "Remove from Collection"), this);
     addReference->setObjectName(QStringLiteral("searchCollect"));
     removeReference->setObjectName(QStringLiteral("searchUncollect"));
+    open->setObjectName(QStringLiteral("searchOpen"));
+    open->setToolTip(i18nc("@info:tooltip", "Open the selected file in its application, or the selected folder in the active pane (Enter)"));
+    open->setEnabled(false);
     reveal->setObjectName(QStringLiteral("searchReveal"));
+    reveal->setToolTip(i18nc("@info:tooltip", "Show the selected item in its folder in the active pane (Ctrl+Enter)"));
     reveal->setEnabled(false);
     copy->setObjectName(QStringLiteral("searchCopy"));
     copy->setEnabled(false);
     m_search->setObjectName(QStringLiteral("searchStart"));
     m_cancel->setObjectName(QStringLiteral("searchCancel"));
     m_cancel->setEnabled(false);
-    buttons->addButton(m_search, QDialogButtonBox::ActionRole);
-    buttons->addButton(m_cancel, QDialogButtonBox::ActionRole);
-    buttons->addButton(copy, QDialogButtonBox::ActionRole);
-    buttons->addButton(reveal, QDialogButtonBox::ActionRole);
-    buttons->addButton(addReference, QDialogButtonBox::ActionRole);
-    buttons->addButton(removeReference, QDialogButtonBox::ActionRole);
-    layout->addWidget(buttons);
-    const auto updateActions = [this, copy, reveal, addReference, removeReference] {
+    buttons->addWidget(m_search);
+    buttons->addWidget(m_cancel);
+    buttons->addStretch(1);
+    buttons->addWidget(open);
+    buttons->addWidget(reveal);
+    buttons->addWidget(copy);
+    buttons->addWidget(addReference);
+    buttons->addWidget(removeReference);
+    resultsLayout->addLayout(buttons);
+    m_results->installEventFilter(this);
+    m_collection->installEventFilter(this);
+    const auto updateActions = [this, open, copy, reveal, addReference, removeReference] {
         const bool showingResults = m_resultTabs->currentWidget() == m_results;
         const auto selected = showingResults ? m_results->selectedItems() : m_collection->selectedItems();
+        open->setEnabled(selected.size() == 1);
         copy->setEnabled(selected.size() == 1);
         reveal->setEnabled(selected.size() == 1);
         addReference->setEnabled(showingResults && !selected.isEmpty());
@@ -567,12 +671,11 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
             m_status->setText(i18nc("@info", "Copied the selected URL."));
         }
     });
-    connect(reveal, &QPushButton::clicked, this, [this] {
-        const auto selected = (m_resultTabs->currentWidget() == m_results ? m_results : m_collection)->selectedItems();
-        if (!selected.isEmpty()) {
-            Q_EMIT revealRequested(QUrl::fromLocalFile(selected.first()->text(0)));
-        }
-    });
+    connect(open, &QPushButton::clicked, this, &SearchWidget::openSelected);
+    connect(reveal, &QPushButton::clicked, this, &SearchWidget::revealSelected);
+    // Double-click rather than itemActivated: with Plasma's single-click setting, activation would open on selection.
+    connect(m_results, &QTreeWidget::itemDoubleClicked, this, &SearchWidget::openSelected);
+    connect(m_collection, &QTreeWidget::itemDoubleClicked, this, &SearchWidget::openSelected);
     connect(addReference, &QPushButton::clicked, this, [this] {
         QString error;
         const auto group = m_config->group(QStringLiteral("SearchCollection"));
@@ -612,21 +715,31 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
         updateCollection(urls);
         m_status->setText(i18nc("@info", "References removed from the collection. Original files were not removed."));
     });
-    connect(m_search, &QPushButton::clicked, this, &SearchDialog::start);
+    connect(m_search, &QPushButton::clicked, this, &SearchWidget::start);
     connect(m_scope, &QComboBox::currentIndexChanged, this, [this](int index) {
-        m_field->setItemText(1, index == 0 ? i18nc("@item:inlistbox", "File contents (UTF-8 text)") : i18nc("@item:inlistbox", "Indexed file contents"));
+        m_field->setItemText(1, index == Indexed ? i18nc("@item:inlistbox", "Indexed file contents") : i18nc("@item:inlistbox", "File contents (UTF-8 text)"));
         m_status->setText(scopeStatus(index, m_workspaceScope && m_workspaceScope().active && m_workspaceOnly->isChecked()));
     });
     connect(m_workspaceOnly, &QCheckBox::toggled, this, [this] {
         refreshWorkspaceScope();
         m_status->setText(scopeStatus(m_scope->currentIndex(), m_workspaceScope && m_workspaceScope().active && m_workspaceOnly->isChecked()));
     });
-    connect(m_query, &QLineEdit::returnPressed, this, &SearchDialog::start);
-    connect(m_cancel, &QPushButton::clicked, this, &SearchDialog::cancel);
-    connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::close);
+    connect(m_query, &QLineEdit::returnPressed, this, &SearchWidget::start);
+    // Show how an advanced query is grouped, or why it can't be run, as it is edited.
+    const auto describeQuery = [this] {
+        if (m_field->currentIndex() != QueryField || m_query->text().trimmed().isEmpty()) {
+            return;
+        }
+        const auto query = SearchQuery::Query::parse(m_query->text());
+        m_status->setText(query.isValid() ? i18nc("@info", "Query: %1", query.toString()) : query.error());
+    };
+    connect(m_query, &QLineEdit::textEdited, this, describeQuery);
+    connect(m_field, &QComboBox::activated, this, describeQuery);
+    connect(m_cancel, &QPushButton::clicked, this, &SearchWidget::cancel);
     connect(&m_watcher, &QFutureWatcher<LiveSearch::Result>::progressValueChanged, this, [this](int count) {
-        m_status->setText(m_scope->currentIndex() == 0 ? i18np("Searching: %1 entry scanned.", "Searching: %1 entries scanned.", count)
-                                                       : i18np("Searching: %1 indexed match retrieved.", "Searching: %1 indexed matches retrieved.", count));
+        m_status->setText(m_scope->currentIndex() != Indexed
+                              ? i18np("Searching: %1 entry scanned.", "Searching: %1 entries scanned.", count)
+                              : i18np("Searching: %1 indexed match retrieved.", "Searching: %1 indexed matches retrieved.", count));
     });
     connect(&m_watcher, &QFutureWatcher<LiveSearch::Result>::finished, this, [this] {
         const LiveSearch::Result result = m_watcher.result();
@@ -660,14 +773,131 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
         }
         m_status->setText(status);
     });
+    criteriaArea->setFocusPolicy(Qt::NoFocus);
+    resultsScroll->setFocusPolicy(Qt::NoFocus);
+    m_query->installEventFilter(this);
+    // Follow the visual layout rather than widget creation order.
+    QList<QWidget *> stops;
+    collectTabStops(layout, stops);
+    collectTabStops(resultsLayout, stops);
+    for (qsizetype i = 1; i < stops.size(); ++i) {
+        QWidget::setTabOrder(stops.at(i - 1), stops.at(i));
+    }
 }
 
-SearchDialog::~SearchDialog()
+SearchWidget::~SearchWidget()
 {
     cancel();
 }
 
-void SearchDialog::refreshWorkspaceScope()
+bool SearchWidget::setFolder(const QUrl &folder)
+{
+    if (m_watcher.isRunning()) {
+        return false;
+    }
+    m_folder = folder;
+    m_folderLabel->setText(folder.toDisplayString());
+    return true;
+}
+
+QUrl SearchWidget::folder() const
+{
+    return m_folder;
+}
+
+bool SearchWidget::isRunning() const
+{
+    return m_watcher.isRunning();
+}
+
+void SearchWidget::focusQuery()
+{
+    m_query->setFocus(Qt::ShortcutFocusReason);
+    m_query->selectAll();
+}
+
+bool SearchWidget::focusResults()
+{
+    auto *list = qobject_cast<QTreeWidget *>(m_resultTabs->currentWidget());
+    if (!list || list->topLevelItemCount() == 0) {
+        return false;
+    }
+    if (!list->currentItem()) {
+        list->setCurrentItem(list->topLevelItem(0));
+    }
+    list->setFocus(Qt::OtherFocusReason);
+    return true;
+}
+
+void SearchWidget::keyPressEvent(QKeyEvent *event)
+{
+    if (event->key() == Qt::Key_Escape && (event->modifiers() & ~Qt::KeypadModifier) == Qt::NoModifier) {
+        if (isRunning()) {
+            cancel();
+        } else {
+            Q_EMIT dismissRequested();
+        }
+        event->accept();
+        return;
+    }
+    QWidget::keyPressEvent(event);
+}
+
+void SearchWidget::search(const QString &text)
+{
+    if (m_watcher.isRunning()) {
+        m_status->setText(i18nc("@info", "Wait for the current search to finish or cancel it before starting another."));
+        return;
+    }
+    m_query->setText(text);
+    start();
+}
+
+bool SearchWidget::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == m_query && event->type() == QEvent::KeyPress) {
+        const auto *key = static_cast<QKeyEvent *>(event);
+        if (key->key() == Qt::Key_Down && (key->modifiers() & ~Qt::KeypadModifier) == Qt::NoModifier && focusResults()) {
+            return true;
+        }
+    }
+    if ((watched == m_results || watched == m_collection) && event->type() == QEvent::KeyPress) {
+        const auto *key = static_cast<QKeyEvent *>(event);
+        if (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter) {
+            if (key->modifiers().testFlag(Qt::ControlModifier)) {
+                revealSelected();
+            } else {
+                openSelected();
+            }
+            return true;
+        }
+    }
+    return QWidget::eventFilter(watched, event);
+}
+
+void SearchWidget::revealSelected()
+{
+    const auto selected = (m_resultTabs->currentWidget() == m_results ? m_results : m_collection)->selectedItems();
+    if (selected.size() == 1) {
+        Q_EMIT revealRequested(QUrl::fromLocalFile(selected.first()->text(0)));
+    }
+}
+
+void SearchWidget::openSelected()
+{
+    const auto selected = (m_resultTabs->currentWidget() == m_results ? m_results : m_collection)->selectedItems();
+    if (selected.size() != 1) {
+        return;
+    }
+    const QString path = selected.first()->text(0);
+    if (!QFileInfo::exists(path)) {
+        m_status->setText(i18nc("@info", "%1 no longer exists. Search again to refresh the results.", path));
+        return;
+    }
+    Q_EMIT openRequested(QUrl::fromLocalFile(path));
+}
+
+void SearchWidget::refreshWorkspaceScope()
 {
     const bool active = m_workspaceScope && m_workspaceScope().active;
     m_workspaceOnly->setVisible(active);
@@ -676,7 +906,7 @@ void SearchDialog::refreshWorkspaceScope()
                                                                 : i18nc("@item:inlistbox", "Current folder (live)"));
 }
 
-void SearchDialog::updateSavedSearches()
+void SearchWidget::updateSavedSearches()
 {
     m_saved->clear();
     for (const auto &search : std::as_const(m_savedSearches)) {
@@ -684,7 +914,7 @@ void SearchDialog::updateSavedSearches()
     }
 }
 
-void SearchDialog::updateCollection(const QList<QUrl> &urls)
+void SearchWidget::updateCollection(const QList<QUrl> &urls)
 {
     m_collection->clear();
     for (const QUrl &url : urls) {
@@ -692,31 +922,33 @@ void SearchDialog::updateCollection(const QList<QUrl> &urls)
     }
 }
 
-PathFilter SearchDialog::pathFilter() const
+PathFilter SearchWidget::pathFilter() const
 {
     return m_filterEditor->filter();
 }
 
-SavedSearches::Search SearchDialog::currentSearch(const QString &name, const QString &id) const
+SavedSearches::Search SearchWidget::currentSearch(const QString &name, const QString &id) const
 {
     return {name,
             m_query->text(),
             m_folder.isLocalFile() ? m_folder : QUrl(),
-            m_field->currentIndex() == 0 ? LiveSearch::Field::FileName : LiveSearch::Field::Contents,
-            m_scope->currentIndex() == 1,
+            fieldAt(m_field->currentIndex()),
+            m_scope->currentIndex() == Indexed,
             pathFilter(),
-            id.isEmpty() ? QUuid::createUuid().toString(QUuid::WithoutBraces) : id};
+            id.isEmpty() ? QUuid::createUuid().toString(QUuid::WithoutBraces) : id,
+            m_scope->currentIndex() == SearchFolders};
 }
 
-void SearchDialog::start()
+void SearchWidget::start()
 {
     if (m_watcher.isRunning()) {
         return;
     }
     const WorkspaceScope workspace = m_workspaceScope ? m_workspaceScope() : WorkspaceScope{};
     refreshWorkspaceScope();
-    const bool workspaceOnly = workspace.active && m_workspaceOnly->isChecked();
-    if (!workspaceOnly && m_scope->currentIndex() == 0 && !m_folder.isLocalFile()) {
+    const bool searchFolders = m_scope->currentIndex() == SearchFolders;
+    const bool workspaceOnly = !searchFolders && workspace.active && m_workspaceOnly->isChecked();
+    if (!workspaceOnly && m_scope->currentIndex() == CurrentFolder && !m_folder.isLocalFile()) {
         m_status->setText(i18nc("@info", "Live search currently supports local folders only."));
         return;
     }
@@ -724,13 +956,22 @@ void SearchDialog::start()
         m_status->setText(i18nc("@info", "Enter text to search for."));
         return;
     }
-    const PathFilter filter = pathFilter();
-    const QString filterError = filter.error();
+    if (m_field->currentIndex() == QueryField) {
+        if (const auto query = SearchQuery::Query::parse(m_query->text()); !query.isValid()) {
+            m_status->setText(query.error());
+            return;
+        }
+    }
+    const PathFilter chosenFilter = pathFilter();
+    const QString filterError = chosenFilter.error();
     if (!filterError.isEmpty()) {
         m_status->setText(filterError);
         return;
     }
-    if (!workspaceOnly && m_scope->currentIndex() == 1 && filter.maxDepth >= 0 && !m_folder.isLocalFile()) {
+    const auto searchSettings = m_config->group(QStringLiteral("Search"));
+    const QStringList exclusions = searchSettings.readEntry("SearchExclusions", QStringList());
+    const PathFilter filter = SearchLocations::withExclusions(chosenFilter, exclusions);
+    if (!workspaceOnly && m_scope->currentIndex() == Indexed && filter.maxDepth >= 0 && !m_folder.isLocalFile()) {
         m_status->setText(i18nc("@info", "A local current folder is required to limit indexed-search depth."));
         return;
     }
@@ -750,11 +991,16 @@ void SearchDialog::start()
     const auto canceled = m_canceled;
     const QString folder = m_folder.toLocalFile();
     const QString text = m_query->text();
-    const auto field = m_field->currentIndex() == 0 ? LiveSearch::Field::FileName : LiveSearch::Field::Contents;
-    const bool indexed = m_scope->currentIndex() == 1;
+    const auto field = fieldAt(m_field->currentIndex());
+    const bool indexed = m_scope->currentIndex() == Indexed;
     QStringList roots;
     QStringList locationErrors;
-    if (workspaceOnly) {
+    if (searchFolders) {
+        roots = SearchLocations::searchRoots(searchSettings.readEntry("SearchFolders", QStringList()), exclusions, &locationErrors);
+        if (roots.isEmpty() && locationErrors.isEmpty()) {
+            locationErrors.append(i18nc("@info", "No search folders are set. Add them in Preferences, on the Search page of Tools."));
+        }
+    } else if (workspaceOnly) {
         for (const QUrl &url : workspace.locations) {
             if (!url.isLocalFile() || !QDir::isAbsolutePath(url.toLocalFile())) {
                 locationErrors.append(i18nc("@info",
@@ -774,8 +1020,9 @@ void SearchDialog::start()
             locationErrors.append(i18nc("@info", "The active workspace has no searchable saved locations."));
         }
     }
+    const bool multipleRoots = workspaceOnly || searchFolders;
     m_watcher.setFuture(
-        QtConcurrent::run([folder, text, field, canceled, indexed, filter, workspaceOnly, roots, locationErrors](QPromise<LiveSearch::Result> &promise) {
+        QtConcurrent::run([folder, text, field, canceled, indexed, filter, multipleRoots, roots, locationErrors](QPromise<LiveSearch::Result> &promise) {
             promise.setProgressRange(0, 200000);
             const LiveSearch::Cancel cancel = [canceled] {
                 return canceled->load();
@@ -784,7 +1031,7 @@ void SearchDialog::start()
                 promise.setProgressValue(count);
             };
             LiveSearch::Result result;
-            if (!workspaceOnly) {
+            if (!multipleRoots) {
                 result = indexed ? IndexedSearch::find(folder, text, field, cancel, progress, filter)
                                  : LiveSearch::find(folder, text, field, cancel, progress, filter);
             } else if (indexed && !roots.isEmpty()) {
@@ -832,7 +1079,7 @@ void SearchDialog::start()
         }));
 }
 
-void SearchDialog::cancel()
+void SearchWidget::cancel()
 {
     if (m_canceled && m_watcher.isRunning()) {
         m_canceled->store(true);

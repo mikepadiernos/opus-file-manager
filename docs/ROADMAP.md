@@ -13,27 +13,27 @@ Manager behaviour that informs its parity goals.
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
 > released after M14. M15 Workspaces, M16 Workspace settings, M17 Themes,
-> M18 Theme settings, M19 Branding and M20 Branding settings are merged into
-> `main`, and M21 Advanced search is in development. See
-> [pending tasks](TODO.md) for blocked work and branch-specific handoffs.
+> M18 Theme settings, M19 Branding, M20 Branding settings and M21 Advanced
+> search are merged into `main`. See [pending tasks](TODO.md) for blocked work
+> and branch-specific handoffs.
 
 ## At a glance
 
 Status follows each milestone's parent issue on the
 [project board](https://github.com/users/mikepadiernos/projects/3).
 
-|     | Milestones | Focus                                         | Status            |
-| --- | ---------- | --------------------------------------------- | ----------------- |
-| 🧱  | M01–M04    | Core dual pane and listing depth              | ✅ Merged         |
-| 🖼️  | M05–M08    | Preview, gallery and editor                   | ✅ Merged         |
-| 🧰  | M09–M14    | Tools, interface customization, translations  | ✅ Merged         |
-| 🗂️  | M15–M16    | Workspaces and their settings                 | ✅ Merged         |
-| 🎨  | M17–M18    | Themes and their settings                     | ✅ Merged         |
-| 🏷️  | M19–M20    | Branding and its settings                     | ✅ Merged         |
-| 🔎  | M21        | Advanced search                               | 🚧 In development |
-| 🔖  | M22–M26    | Search settings, native tagging and Yazi mode | 📋 Planned        |
-| 🔌  | M27–M31    | Integrations, Nextcloud and shortcuts         | 📋 Planned        |
-| ✨  | M32        | Refinements                                   | 📋 Planned        |
+|     | Milestones | Focus                                         | Status     |
+| --- | ---------- | --------------------------------------------- | ---------- |
+| 🧱  | M01–M04    | Core dual pane and listing depth              | ✅ Merged  |
+| 🖼️  | M05–M08    | Preview, gallery and editor                   | ✅ Merged  |
+| 🧰  | M09–M14    | Tools, interface customization, translations  | ✅ Merged  |
+| 🗂️  | M15–M16    | Workspaces and their settings                 | ✅ Merged  |
+| 🎨  | M17–M18    | Themes and their settings                     | ✅ Merged  |
+| 🏷️  | M19–M20    | Branding and its settings                     | ✅ Merged  |
+| 🔎  | M21        | Advanced search                               | ✅ Merged  |
+| 🔖  | M22–M26    | Search settings, native tagging and Yazi mode | 📋 Planned |
+| 🔌  | M27–M31    | Integrations, Nextcloud and shortcuts         | 📋 Planned |
+| ✨  | M32        | Refinements                                   | 📋 Planned |
 
 ## Contents
 
@@ -77,7 +77,8 @@ performance hotspots, not a wholesale rewrite of C++ features. Keep widgets,
 settings and file operations in Qt/KDE, including KIO for local and remote
 operations. The M21 Rust pilot can inform later work, including consideration of
 M09 duplicate detection and rename or sync planning; this evaluation does not
-block M09 or change KIO's role.
+block M09 or change KIO's role. See the [pilot evaluation](rust-prototype.md)
+for its findings and the criteria for later Rust components.
 
 ## Plasma-native decisions
 
@@ -1091,24 +1092,24 @@ Extend the M09 search tools and reuse their search scopes, filters and saved
 searches rather than introducing a separate search system. M27 extends the Baloo
 integration without blocking this milestone.
 
-- [ ] **Indexing:** configure search folders and exclusions, and use existing
+- [x] **Indexing:** configure search folders and exclusions, and use existing
       KDE facilities for the search shortcut. Use double Shift where supported,
       report when it is unavailable.
-- [ ] Provide an embedded search pane using existing supported placements.
+- [x] Provide an embedded search pane using existing supported placements.
       Placing it alongside file panes must not replace either pane.
-- [ ] Show M09 search results in the embedded panel, reusing progress,
+- [x] Show M09 search results in the embedded panel, reusing progress,
       cancellation, error reporting and open and reveal actions without moving
       files
-- [ ] Offer an optional main-toolbar search widget to enter queries, search the
+- [x] Offer an optional main-toolbar search widget to enter queries, search the
       shared scope (initially the active pane's location) and open the advanced
       search panel
-- [ ] Support keyboard navigation and focus between the toolbar widget, search
+- [x] Support keyboard navigation and focus between the toolbar widget, search
       panel and panes
-- [ ] Prototype query parsing and validation in Rust behind a narrow C++/Rust
+- [x] Prototype query parsing and validation in Rust behind a narrow C++/Rust
       interface. Test boundary error handling, ownership, path handling and
       threading, and evaluate build and maintenance costs before broader Rust
       adoption; keep the search UI and KIO integration in C++.
-- [ ] Combine filename, path, file type, size, date and content criteria using
+- [x] Combine filename, path, file type, size, date and content criteria using
       AND, OR and NOT; validate queries and explain unsupported criteria
 
 ### M22: Advanced search settings
