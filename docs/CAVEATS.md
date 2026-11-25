@@ -43,7 +43,7 @@ recommendation and external tools are separate applications.
   [linked navigation](#linked-pane-navigation),
   [workspace layouts](#workspace-layouts),
   [workspace settings](#workspace-settings), [themes](#themes),
-  [theme settings](#theme-settings),
+  [theme settings](#theme-settings), [branding](#branding),
   [native tag groups](#native-tag-groups),
   [native title and header padding](#native-title-and-header-padding),
   [file-list minimap](#file-list-minimap),
@@ -222,6 +222,54 @@ The M18 theme settings have these limits
   - Preview in every window and keep the preview after applying settings.
   - Show every saved option in the workspace appearance editor.
   - Allow a per-workspace stylesheet.
+
+## Branding
+
+The M19 branding has these limits
+([#689](https://github.com/mikepadiernos/plasma-opus/issues/689)):
+
+- **High contrast:** the startup presentation uses the colour scheme's window
+  and text colours with a solid border, but the folder and the word "Opus"
+  keep the accent colour, which can contrast less with the card than the text
+  does. The version and description are always drawn in the text colour.
+- **Screen readers:** the presentation has an accessible name (name and
+  version) and description, but it is not announced when it appears, so it
+  doesn't interrupt reading.
+- **Duration:** the presentation stays for two seconds; the duration can't be
+  changed.
+- **Icon themes and other desktops:** the small and symbolic icons install to
+  `hicolor`, so an icon theme that ships its own `org.kde.opusfilemanager` icon
+  takes precedence. The folder follows the Plasma accent and the symbolic icon
+  follows the text colour only where KDE's icon loader applies the colour
+  scheme; elsewhere they use their built-in Breeze colours.
+- **Release notes:** the v0.1.0 and v0.2.0 release notes predate the
+  [release notes template](releases/TEMPLATE.md) and were not rewritten.
+- **Plasma session:** the presentation and icons have been tested only
+  headlessly, without a Plasma session.
+
+- **Recommendation:**
+  - **High contrast:** read the version and description, which use the text
+    colour. If the accent contrasts poorly with the card, choose a stronger
+    accent in Plasma's System Settings, or leave the startup presentation off
+    (the default).
+  - **Screen readers:** use **Help ▸ About Plasma Opus** for the name, version
+    and description.
+  - **Duration:** press any key, click or scroll to dismiss the presentation
+    early. Input still reaches the window. Leave the presentation off if it
+    distracts.
+  - **Icon themes and other desktops:** to see the Plasma Opus icon under a
+    theme that overrides it, remove the theme's `org.kde.opusfilemanager` icon
+    or choose another icon theme. Outside Plasma, expect the Breeze blue folder.
+  - **Release notes:** start new releases from the template.
+  - **Plasma session:** check the presentation's appearance on Plasma,
+    including fractional scaling and Wayland, before relying on it in
+    screenshots or release materials.
+  - Comment:
+    [#689.7150293713](https://github.com/mikepadiernos/plasma-opus/issues/689#issuecomment-7150293713)
+- **Proposed improvements:**
+  - Draw the folder and "Opus" in the text colour under high contrast.
+  - Offer an option to announce the presentation to screen readers.
+  - Make the duration configurable.
 
 ## Native tag groups
 
