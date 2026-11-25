@@ -1,7 +1,9 @@
-# Max File Manager: backend feature inventory (src/main, src/preload, src/shared)
+# ⚙️ Max File Manager backend inventory
 
 **[Documentation](../README.md)** · **[UI inventory](ui.md)** ·
 **[Roadmap](../ROADMAP.md)**
+
+Source: `max-file-manager/src/main`, `src/preload` and `src/shared` (Electron).
 
 > [!NOTE]
 > This reviewed upstream snapshot is not current Plasma Opus behaviour or

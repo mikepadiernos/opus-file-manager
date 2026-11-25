@@ -117,6 +117,28 @@ Reviewed against Plasma Impresario `main` at `2c27f2e7`:
   or write the other application's workspace or account configuration, and
   keep unassociated workspaces and accounts unaffected.
 
+### Share theme settings
+
+- Carry theme settings over in both directions. Plasma Opus already saves,
+  imports and exports versioned [theme profiles](../ROADMAP.md#m17-themes) as
+  JSON documents (`"format": "plasma-opus-theme"`, version 1). It could import
+  a profile exported by Plasma Impresario, once or by following later changes,
+  and export its own for Plasma Impresario to import. Plasma Impresario tracks
+  its side in
+  [plasma-impresario#268](https://github.com/mikepadiernos/plasma-impresario/issues/268).
+- Agree on a versioned shared format covering the appearance choice (follow the
+  system, a light or dark preset or an installed KDE colour scheme), named
+  palette roles and an optional Qt Style Sheet. Map roles that only one
+  application uses to the nearest shared role or leave them at their defaults.
+- Keep applying a shared theme opt-in, previewable and reversible, and offer
+  the choice in [theme settings](../ROADMAP.md#m18-theme-settings). Validate
+  imported profiles, ignore unknown roles, keep text, selection and focus
+  indicators readable, never execute code from theme files and block external
+  resources in stylesheets. Fall back to the active Plasma colour scheme when a
+  profile is missing, invalid or unsupported.
+- Exchange profiles through export and import files or a documented shared
+  location; neither application writes the other's configuration.
+
 ## Considered features
 
 Plasma Opus is considering these features, but they are **not on the
@@ -208,6 +230,10 @@ Test with isolated files and synthetic messages; never send a real message as
 part of an automated test. Standard desktop handoffs should continue to work
 with other mail clients.
 
+For theme sharing, verify import, export, following changes, invalid and
+missing profiles, and use without Plasma Impresario installed, using isolated
+configuration.
+
 Plasma Impresario changes that would complete these workflows, for its own
 roadmap:
 
@@ -218,6 +244,8 @@ roadmap:
 - Optionally register `message/rfc822` if it should open mail files.
 - Define a stable message link and an interface to open it, if notes or kanban
   cards should link back to messages.
+- Import and export theme profiles in the agreed shared format
+  ([#268](https://github.com/mikepadiernos/plasma-impresario/issues/268)).
 
 Any Plasma Impresario-specific capability remains optional until its interface
 and availability are confirmed.

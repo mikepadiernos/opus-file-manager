@@ -26,9 +26,9 @@ ordinary local file management.
   choices and Plasma Opus-specific visibility settings.
 - **Appearance and controls:** use the active icon theme, Plasma styling,
   KXmlGui, KDE toolbar and shortcut facilities, and localized strings.
-  Application-specific themes are in development in
-  [M17](../ROADMAP.md#m17-themes), with their settings planned in
-  [M18](../ROADMAP.md#m18-theme-settings).
+  Optional app-local themes from [M17](../ROADMAP.md#m17-themes), configured
+  through [M18](../ROADMAP.md#m18-theme-settings), follow Plasma's appearance
+  by default and never change the desktop's global settings.
 
 ## Planned integrations
 

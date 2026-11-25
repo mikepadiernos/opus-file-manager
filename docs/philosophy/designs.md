@@ -125,8 +125,9 @@ a KDE Plasma Activity with settings selected per Activity.
 
 A workspace can attach a theme profile and selected appearance options, such as
 Card view, folder colour rules, blur, corner radius and divider visibility.
-Unselected options follow the global appearance. This is planned in the
-[themes milestone](../ROADMAP.md#m17-themes).
+Unselected options follow the global appearance. This is implemented by the
+[themes](../ROADMAP.md#m17-themes) and
+[theme settings](../ROADMAP.md#m18-theme-settings) milestones.
 
 Workspaces link reusable task profiles, inspired by
 [Krusader profiles](https://docs.kde.org/trunk_kf6/en/krusader/krusader/profiles.html),
@@ -144,8 +145,9 @@ or modify Obsidian configuration. See the
 
 Plasma Opus provides workspace management through **View → Workspaces**, with
 location assignments, saved layouts, explicit pane and tab snapshots, linked
-task profiles and workspace settings. Activity associations are planned. Tag
-groups belong to the separate native tagging system. See the
+task profiles, appearance overrides and workspace settings. Activity
+associations are planned. Tag groups belong to the separate native tagging
+system. See the
 [workspace](../ROADMAP.md#m15-workspaces),
 [workspace settings](../ROADMAP.md#m16-workspace-settings),
 [native tagging](../ROADMAP.md#m23-native-tagging) and

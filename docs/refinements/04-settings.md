@@ -55,7 +55,8 @@ and import/export or advanced integrations.
 - `[proposed]` identifies M32 navigation or controls not yet established.
 - `[future]` reserves a place for roadmap work; the marker also applies to its
   descendants. It does not claim the feature exists or make it a prerequisite
-  for M32.
+  for M32. Settings from M16, M18 and M20 have since merged into the current
+  dialog; their markers record where this proposal would place them.
 
 ```text
 Settings

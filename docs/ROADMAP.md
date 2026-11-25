@@ -14,25 +14,26 @@ Manager behaviour that informs its parity goals.
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
 > released after M14. M15 Workspaces, M16 Workspace settings, M17 Themes,
 > M18 Theme settings, M19 Branding and M20 Branding settings are merged into
-> `main`. See [pending tasks](TODO.md) for blocked work and branch-specific
-> handoffs.
+> `main`, and M21 Advanced search is in development. See
+> [pending tasks](TODO.md) for blocked work and branch-specific handoffs.
 
 ## At a glance
 
 Status follows each milestone's parent issue on the
 [project board](https://github.com/users/mikepadiernos/projects/3).
 
-|     | Milestones | Focus                                         | Status     |
-| --- | ---------- | --------------------------------------------- | ---------- |
-| 🧱  | M01–M04    | Core dual pane and listing depth              | ✅ Merged  |
-| 🖼️  | M05–M08    | Preview, gallery and editor                   | ✅ Merged  |
-| 🧰  | M09–M14    | Tools, interface customization, translations  | ✅ Merged  |
-| 🗂️  | M15–M16    | Workspaces and their settings                 | ✅ Merged  |
-| 🎨  | M17–M18    | Themes and their settings                     | ✅ Merged  |
-| 🏷️  | M19–M20    | Branding and its settings                     | ✅ Merged  |
-| 🔎  | M21–M26    | Advanced search, native tagging and Yazi mode | 📋 Planned |
-| 🔌  | M27–M31    | Integrations, Nextcloud and shortcuts         | 📋 Planned |
-| ✨  | M32        | Refinements                                   | 📋 Planned |
+|     | Milestones | Focus                                         | Status            |
+| --- | ---------- | --------------------------------------------- | ----------------- |
+| 🧱  | M01–M04    | Core dual pane and listing depth              | ✅ Merged         |
+| 🖼️  | M05–M08    | Preview, gallery and editor                   | ✅ Merged         |
+| 🧰  | M09–M14    | Tools, interface customization, translations  | ✅ Merged         |
+| 🗂️  | M15–M16    | Workspaces and their settings                 | ✅ Merged         |
+| 🎨  | M17–M18    | Themes and their settings                     | ✅ Merged         |
+| 🏷️  | M19–M20    | Branding and its settings                     | ✅ Merged         |
+| 🔎  | M21        | Advanced search                               | 🚧 In development |
+| 🔖  | M22–M26    | Search settings, native tagging and Yazi mode | 📋 Planned        |
+| 🔌  | M27–M31    | Integrations, Nextcloud and shortcuts         | 📋 Planned        |
+| ✨  | M32        | Refinements                                   | 📋 Planned        |
 
 ## Contents
 

@@ -12,8 +12,11 @@ This log records user-visible bugs and reliability issues. Consult the
 > **Merged**. Completed does not necessarily mean merged into `main`.
 > [Edge cases](EDGE.md) are possible scenarios, not confirmed bugs.
 
-> [!TIP]
-> All 15 tracked bugs are merged into `main`, and there are no open reports.
+> [!NOTE]
+> 15 of 17 tracked bugs are merged into `main`. Two test reliability reports,
+> [#694](https://github.com/mikepadiernos/plasma-opus/issues/694) and
+> [#696](https://github.com/mikepadiernos/plasma-opus/issues/696), are open in
+> Backlog.
 
 ## Contents
 
@@ -24,23 +27,25 @@ This log records user-visible bugs and reliability issues. Consult the
 
 ## Current tracked issues
 
-| Issue                                                           | Bug                                                                | Complete? | Project status |
-| --------------------------------------------------------------- | ------------------------------------------------------------------ | --------- | -------------- |
-| [#37](https://github.com/mikepadiernos/plasma-opus/issues/37)   | Combined panel header and accordion titles are misaligned          | ✅ Yes    | 🟣 Merged      |
-| [#378](https://github.com/mikepadiernos/plasma-opus/issues/378) | Embedded Konsole terminal does not honor profile background blur   | ✅ Yes    | 🟣 Merged      |
-| [#383](https://github.com/mikepadiernos/plasma-opus/issues/383) | Editor settings should use the notepad symbolic icon               | ✅ Yes    | 🟣 Merged      |
-| [#444](https://github.com/mikepadiernos/plasma-opus/issues/444) | KDE toolbar editor separators and spacers do not match the toolbar | ✅ Yes    | 🟣 Merged      |
-| [#446](https://github.com/mikepadiernos/plasma-opus/issues/446) | Metadata editing fails with an unusable ExifTool installation      | ✅ Yes    | 🟣 Merged      |
-| [#457](https://github.com/mikepadiernos/plasma-opus/issues/457) | Embedded terminal panel controls and background blur               | ✅ Yes    | 🟣 Merged      |
-| [#476](https://github.com/mikepadiernos/plasma-opus/issues/476) | Toolbar context menus and symbolic icons                           | ✅ Yes    | 🟣 Merged      |
-| [#532](https://github.com/mikepadiernos/plasma-opus/issues/532) | Consistent panel placement beside or below the panes               | ✅ Yes    | 🟣 Merged      |
-| [#533](https://github.com/mikepadiernos/plasma-opus/issues/533) | Embedded panel titles cannot be hidden like Explorer               | ✅ Yes    | 🟣 Merged      |
-| [#549](https://github.com/mikepadiernos/plasma-opus/issues/549) | Combined panel section spacing and title accents                   | ✅ Yes    | 🟣 Merged      |
-| [#555](https://github.com/mikepadiernos/plasma-opus/issues/555) | Application icon accent color and size                             | ✅ Yes    | 🟣 Merged      |
-| [#558](https://github.com/mikepadiernos/plasma-opus/issues/558) | Headers, titles and status bar need horizontal padding             | ✅ Yes    | 🟣 Merged      |
-| [#605](https://github.com/mikepadiernos/plasma-opus/issues/605) | Panes without a saved view mode open in Details                    | ✅ Yes    | 🟣 Merged      |
-| [#606](https://github.com/mikepadiernos/plasma-opus/issues/606) | Visual Markdown editing loses formatting with a fixed-pitch font   | ✅ Yes    | 🟣 Merged      |
-| [#682](https://github.com/mikepadiernos/plasma-opus/issues/682) | Icons view shows image thumbnails at Details size                  | ✅ Yes    | 🟣 Merged      |
+| Issue                                                           | Bug                                                                   | Complete? | Project status |
+| --------------------------------------------------------------- | --------------------------------------------------------------------- | --------- | -------------- |
+| [#37](https://github.com/mikepadiernos/plasma-opus/issues/37)   | Combined panel header and accordion titles are misaligned             | ✅ Yes    | 🟣 Merged      |
+| [#378](https://github.com/mikepadiernos/plasma-opus/issues/378) | Embedded Konsole terminal does not honor profile background blur      | ✅ Yes    | 🟣 Merged      |
+| [#383](https://github.com/mikepadiernos/plasma-opus/issues/383) | Editor settings should use the notepad symbolic icon                  | ✅ Yes    | 🟣 Merged      |
+| [#444](https://github.com/mikepadiernos/plasma-opus/issues/444) | KDE toolbar editor separators and spacers do not match the toolbar    | ✅ Yes    | 🟣 Merged      |
+| [#446](https://github.com/mikepadiernos/plasma-opus/issues/446) | Metadata editing fails with an unusable ExifTool installation         | ✅ Yes    | 🟣 Merged      |
+| [#457](https://github.com/mikepadiernos/plasma-opus/issues/457) | Embedded terminal panel controls and background blur                  | ✅ Yes    | 🟣 Merged      |
+| [#476](https://github.com/mikepadiernos/plasma-opus/issues/476) | Toolbar context menus and symbolic icons                              | ✅ Yes    | 🟣 Merged      |
+| [#532](https://github.com/mikepadiernos/plasma-opus/issues/532) | Consistent panel placement beside or below the panes                  | ✅ Yes    | 🟣 Merged      |
+| [#533](https://github.com/mikepadiernos/plasma-opus/issues/533) | Embedded panel titles cannot be hidden like Explorer                  | ✅ Yes    | 🟣 Merged      |
+| [#549](https://github.com/mikepadiernos/plasma-opus/issues/549) | Combined panel section spacing and title accents                      | ✅ Yes    | 🟣 Merged      |
+| [#555](https://github.com/mikepadiernos/plasma-opus/issues/555) | Application icon accent color and size                                | ✅ Yes    | 🟣 Merged      |
+| [#558](https://github.com/mikepadiernos/plasma-opus/issues/558) | Headers, titles and status bar need horizontal padding                | ✅ Yes    | 🟣 Merged      |
+| [#605](https://github.com/mikepadiernos/plasma-opus/issues/605) | Panes without a saved view mode open in Details                       | ✅ Yes    | 🟣 Merged      |
+| [#606](https://github.com/mikepadiernos/plasma-opus/issues/606) | Visual Markdown editing loses formatting with a fixed-pitch font      | ✅ Yes    | 🟣 Merged      |
+| [#682](https://github.com/mikepadiernos/plasma-opus/issues/682) | Icons view shows image thumbnails at Details size                     | ✅ Yes    | 🟣 Merged      |
+| [#694](https://github.com/mikepadiernos/plasma-opus/issues/694) | `mainwindowtest` intermittently crashes after restoring a pane filter | ❌ No     | ⚪ Backlog     |
+| [#696](https://github.com/mikepadiernos/plasma-opus/issues/696) | Checksum test times out waiting for the folder listing under load     | ❌ No     | ⚪ Backlog     |
 
 ## Status legend
 
@@ -55,7 +60,45 @@ This log records user-visible bugs and reliability issues. Consult the
 
 ## Open reports
 
-There are no open bug reports.
+### Intermittent mainwindowtest crash
+
+- Severity: moderate (test reliability)
+- Status: Backlog; [#694](https://github.com/mikepadiernos/plasma-opus/issues/694)
+- Summary: `mainwindowtest` intermittently crashed with SIGSEGV in
+  `filterPersistsWithThePaneSession()`, which closes a window with a file filter
+  and restores the pane session in a new window.
+- Steps to reproduce: Run the full suite with
+  `ctest --test-dir build-container --output-on-failure -j4` in the dev
+  container. The crash appeared in about 1 of 3 runs, on a bug-fix branch and
+  on unchanged `main`.
+- Expected behaviour: The restored window keeps the filter and the test passes.
+- Actual behaviour: The test process occasionally crashes. It did not recur in
+  26 later runs, including runs under CPU load, so no backtrace is available
+  yet. A separate timing failure under load is tracked in
+  [#696](#checksum-test-listing-timeout).
+- Next steps: Repeat the suite under `gdb` or AddressSanitizer to capture a
+  backtrace, and check pending listing, preview and session work when a window
+  is destroyed.
+
+### Checksum test listing timeout
+
+- Severity: low (test reliability)
+- Status: Backlog; [#696](https://github.com/mikepadiernos/plasma-opus/issues/696)
+- Summary: `createsAndVerifiesChecksumFiles()` timed out at
+  `tests/mainwindowtest.cpp:3745` while waiting for the folder view to show
+  the new checksum file.
+- Steps to reproduce: Run `mainwindowtest` repeatedly in the dev container
+  while other processes load the CPU. It failed in 1 of 8 loaded runs and in
+  none of 18 runs without load.
+- Expected behaviour: The view lists `source.txt` and the new manifest, and
+  the test verifies the manifest.
+- Actual behaviour: The view held 0 items, not 1, when the 5 s wait expired.
+  This suggests the folder was still being relisted after the change rather
+  than missing the new file; whether users can briefly see an empty folder is
+  not yet known.
+- Next steps: Confirm whether the change triggers a full relisting, wait for
+  the listing to complete in the test, and consider keeping existing items
+  visible while a folder refreshes.
 
 ## Completed reports
 
