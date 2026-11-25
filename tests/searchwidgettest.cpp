@@ -9,6 +9,7 @@
 #include "savedpathfilters.h"
 #include "searchcollection.h"
 #include "searchdefaults.h"
+#include "searchhistory.h"
 #include "searchpanel.h"
 #include "settings.h"
 #include "workspacelocations.h"
@@ -18,13 +19,16 @@
 #include <KSharedConfig>
 #include <KToolBar>
 
+#include <QAbstractItemView>
 #include <QAction>
 #include <QApplication>
 #include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
+#include <QCompleter>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
@@ -202,6 +206,115 @@ private Q_SLOTS:
         auto *results = search.findChild<QTreeWidget *>(QStringLiteral("searchResults"));
         QCOMPARE(results->topLevelItemCount(), 1);
         QCOMPARE(results->topLevelItem(0)->text(0), file.fileName());
+    }
+
+    void presentsResultsByDefaultAndKeepsFullPaths()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QFile file(root.filePath(QStringLiteral("needle.txt")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchrc")), KConfig::SimpleConfig);
+        auto defaults = config->group(QStringLiteral("Search"));
+        defaults.writeEntry("DefaultSearchResultPresentation", QStringLiteral("NamesAndFolders"));
+        QVERIFY(defaults.sync());
+        QCOMPARE(SearchDefaults::read(defaults).presentation, SearchDefaults::Presentation::NamesAndFolders);
+        SearchWidget search(QUrl::fromLocalFile(root.path()), nullptr, config);
+        auto *presentation = search.findChild<QComboBox *>(QStringLiteral("searchPresentation"));
+        auto *results = search.findChild<QTreeWidget *>(QStringLiteral("searchResults"));
+        auto *collection = search.findChild<QTreeWidget *>(QStringLiteral("searchCollection"));
+        QVERIFY(presentation && results && collection);
+        QCOMPARE(presentation->currentIndex(), int(SearchDefaults::Presentation::NamesAndFolders));
+        QCOMPARE(results->columnCount(), 2);
+
+        search.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("needle"));
+        search.findChild<QPushButton *>(QStringLiteral("searchStart"))->click();
+        QTRY_VERIFY(search.findChild<QPushButton *>(QStringLiteral("searchStart"))->isEnabled());
+        QCOMPARE(results->topLevelItemCount(), 1);
+        QCOMPARE(results->topLevelItem(0)->text(0), QStringLiteral("needle.txt"));
+        QCOMPARE(results->topLevelItem(0)->text(1), QFileInfo(file.fileName()).path());
+        QCOMPARE(results->topLevelItem(0)->toolTip(0), file.fileName());
+
+        // Actions keep using the full path.
+        results->setCurrentItem(results->topLevelItem(0));
+        search.findChild<QPushButton *>(QStringLiteral("searchCopy"))->click();
+        QCOMPARE(QApplication::clipboard()->text(), QUrl::fromLocalFile(file.fileName()).toString(QUrl::FullyEncoded));
+        QSignalSpy reveal(&search, &SearchWidget::revealRequested);
+        search.findChild<QPushButton *>(QStringLiteral("searchReveal"))->click();
+        QCOMPARE(reveal.size(), 1);
+        QCOMPARE(reveal.first().first().toUrl(), QUrl::fromLocalFile(file.fileName()));
+        search.findChild<QPushButton *>(QStringLiteral("searchCollect"))->click();
+        QCOMPARE(collection->topLevelItemCount(), 1);
+        QCOMPARE(collection->topLevelItem(0)->text(0), QStringLiteral("needle.txt"));
+
+        // Switching presentation relists the existing items.
+        presentation->setCurrentIndex(int(SearchDefaults::Presentation::FullPaths));
+        QCOMPARE(results->columnCount(), 1);
+        QCOMPARE(results->topLevelItem(0)->text(0), file.fileName());
+        QCOMPARE(collection->topLevelItem(0)->text(0), file.fileName());
+
+        // A changed choice is kept when the default changes; an unchanged one follows it.
+        search.applyDefaults();
+        QCOMPARE(presentation->currentIndex(), int(SearchDefaults::Presentation::FullPaths));
+        SearchWidget fresh(QUrl::fromLocalFile(root.path()), nullptr, config);
+        auto *freshPresentation = fresh.findChild<QComboBox *>(QStringLiteral("searchPresentation"));
+        defaults.writeEntry("DefaultSearchResultPresentation", QStringLiteral("FullPaths"));
+        fresh.applyDefaults();
+        QCOMPARE(freshPresentation->currentIndex(), int(SearchDefaults::Presentation::FullPaths));
+    }
+
+    void retainsAndClearsSearchHistory()
+    {
+        auto historyGroup = KSharedConfig::openStateConfig()->group(QStringLiteral("SearchHistory"));
+        historyGroup.deleteGroup();
+        QVERIFY(historyGroup.sync());
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchrc")), KConfig::SimpleConfig);
+        SearchWidget search(QUrl::fromLocalFile(root.path()), nullptr, config);
+        auto *query = search.findChild<QLineEdit *>(QStringLiteral("searchQuery"));
+        auto *status = search.findChild<QLabel *>(QStringLiteral("searchStatus"));
+        QVERIFY(query && status && query->completer());
+        QVERIFY(search.history().isEmpty());
+        for (const QString &text : {QStringLiteral("alpha"), QStringLiteral("beta"), QStringLiteral(" alpha ")}) {
+            query->setText(text);
+            search.findChild<QPushButton *>(QStringLiteral("searchStart"))->click();
+            QTRY_VERIFY(search.findChild<QPushButton *>(QStringLiteral("searchStart"))->isEnabled());
+        }
+        QCOMPARE(search.history(), (QStringList{QStringLiteral("alpha"), QStringLiteral("beta")}));
+        query->clear();
+        search.findChild<QPushButton *>(QStringLiteral("searchStart"))->click();
+        QVERIFY(status->text().contains(QStringLiteral("Enter text")));
+        QCOMPARE(search.history().size(), 2);
+
+        // Another widget sees the shared history and lists it with Alt+Down.
+        SearchWidget other(QUrl::fromLocalFile(root.path()), nullptr, config);
+        auto *otherQuery = other.findChild<QLineEdit *>(QStringLiteral("searchQuery"));
+        QCOMPARE(otherQuery->completer()->model()->rowCount(), 2);
+        other.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&other));
+        otherQuery->setFocus();
+        QTest::keyClick(otherQuery, Qt::Key_Down, Qt::AltModifier);
+        QTRY_VERIFY(otherQuery->completer()->popup()->isVisible());
+        QCOMPARE(otherQuery->completer()->completionCount(), 2);
+        otherQuery->completer()->popup()->hide();
+
+        // Turning retention off discards the history and stops recording.
+        auto defaults = config->group(QStringLiteral("Search"));
+        defaults.writeEntry("RetainSearchHistory", false);
+        QVERIFY(!SearchHistory::retained(defaults));
+        search.applyDefaults();
+        QVERIFY(SearchHistory::load(KSharedConfig::openStateConfig()->group(QStringLiteral("SearchHistory"))).isEmpty());
+        QCOMPARE(query->completer()->model()->rowCount(), 0);
+        query->setText(QStringLiteral("gamma"));
+        search.findChild<QPushButton *>(QStringLiteral("searchStart"))->click();
+        QTRY_VERIFY(search.findChild<QPushButton *>(QStringLiteral("searchStart"))->isEnabled());
+        QVERIFY(search.history().isEmpty());
+        query->setFocus();
+        QTest::keyClick(query, Qt::Key_Down, Qt::AltModifier);
+        QVERIFY(status->text().contains(QStringLiteral("not remembered")));
+        defaults.deleteEntry("RetainSearchHistory");
     }
 
     void usesApplicationSettings()

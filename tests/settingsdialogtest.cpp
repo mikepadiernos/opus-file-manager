@@ -11,6 +11,7 @@
 #include "mainwindow.h"
 #include "pathfilterpresetsdialog.h"
 #include "savedpathfilters.h"
+#include "searchhistory.h"
 #include "searchstoredialog.h"
 #include "settings.h"
 #include "settingsbackup.h"
@@ -819,6 +820,49 @@ private Q_SLOTS:
         }
         QVERIFY(!Settings::workspaceSearchByDefault());
         QVERIFY(!KSharedConfig::openConfig()->group(QStringLiteral("Search")).readEntry("WorkspaceSearchByDefault", true));
+    }
+
+    void searchResultAndHistorySettingsPersist()
+    {
+        KFilePlacesModel places;
+        auto history = KSharedConfig::openStateConfig()->group(QStringLiteral("SearchHistory"));
+        SearchHistory::save(history, {QStringLiteral("alpha"), QStringLiteral("beta")});
+        QVERIFY(history.sync());
+        const auto restore = qScopeGuard([] {
+            Settings::setDefaultSearchResultPresentation(Settings::EnumDefaultSearchResultPresentation::FullPaths);
+            Settings::setRetainSearchHistory(true);
+            Settings::self()->save();
+        });
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *presentation = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultSearchResultPresentation"));
+            auto *retain = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_RetainSearchHistory"));
+            auto *clear = dialog.findChild<QPushButton *>(QStringLiteral("clearSearchHistory"));
+            QVERIFY(presentation && retain && clear);
+            QCOMPARE(presentation->currentIndex(), int(Settings::EnumDefaultSearchResultPresentation::FullPaths));
+            QVERIFY(retain->isChecked());
+            QVERIFY(clear->isEnabled());
+            // Clearing takes effect at once, even when the dialog is cancelled.
+            clear->click();
+            QVERIFY(!clear->isEnabled());
+            presentation->setCurrentIndex(Settings::EnumDefaultSearchResultPresentation::NamesAndFolders);
+            retain->setChecked(false);
+            dialog.reject();
+        }
+        QVERIFY(SearchHistory::load(KSharedConfig::openStateConfig()->group(QStringLiteral("SearchHistory"))).isEmpty());
+        QCOMPARE(Settings::defaultSearchResultPresentation(), int(Settings::EnumDefaultSearchResultPresentation::FullPaths));
+        QVERIFY(Settings::retainSearchHistory());
+        {
+            SettingsDialog dialog(&places, nullptr);
+            QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("clearSearchHistory"))->isEnabled());
+            dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultSearchResultPresentation"))
+                ->setCurrentIndex(Settings::EnumDefaultSearchResultPresentation::NamesAndFolders);
+            dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_RetainSearchHistory"))->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        const auto search = KSharedConfig::openConfig()->group(QStringLiteral("Search"));
+        QCOMPARE(search.readEntry("DefaultSearchResultPresentation", QString()), QStringLiteral("NamesAndFolders"));
+        QVERIFY(!search.readEntry("RetainSearchHistory", true));
     }
 
     void workspaceLayoutRestoreOptionsPersist()
