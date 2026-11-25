@@ -18,6 +18,7 @@
 #include "customcommanddialog.h"
 #include "customstylesheet.h"
 #include "density.h"
+#include "doubleshift.h"
 #include "duplicatefinderdialog.h"
 #include "editorpanel.h"
 #include "effectiveappearance.h"
@@ -2056,6 +2057,7 @@ void MainWindow::setupActions()
     QAction *search = actions->addAction(QStringLiteral("search_folder"), this, &MainWindow::showSearch);
     search->setText(i18nc("@action", "Search Current Folder…"));
     search->setIcon(QIcon::fromTheme(QStringLiteral("edit-find")));
+    actions->setDefaultShortcut(search, Qt::CTRL | Qt::ALT | Qt::Key_F);
     QAction *duplicateFinder = actions->addAction(QStringLiteral("find_duplicates"), this, &MainWindow::showDuplicateFinder);
     duplicateFinder->setText(i18nc("@action", "Find Duplicate Files…"));
     QAction *compareFolders = actions->addAction(QStringLiteral("compare_pane_folders"), this, &MainWindow::comparePaneFolders);
@@ -4991,7 +4993,32 @@ void MainWindow::applySettings()
     setPreviewPlacement(static_cast<PreviewPanel::Placement>(Settings::previewPlacement()));
     m_previewPanel->applyPresentationSettings();
     updatePreviewPanel();
+    updateDoubleShift();
     updateActions();
+}
+
+void MainWindow::updateDoubleShift()
+{
+    const bool wanted = Settings::doubleShiftSearch() && DoubleShiftDetector::unavailableReason().isEmpty();
+    if (!wanted) {
+        delete m_doubleShift;
+        m_doubleShift = nullptr;
+        return;
+    }
+    if (m_doubleShift) {
+        return;
+    }
+    auto *detector = new DoubleShiftDetector(
+        [this] {
+            return windowHandle();
+        },
+        this);
+    connect(detector, &DoubleShiftDetector::triggered, this, [this] {
+        if (QAction *search = actionCollection()->action(QStringLiteral("search_folder")); search && search->isEnabled()) {
+            search->trigger();
+        }
+    });
+    m_doubleShift = detector;
 }
 
 void MainWindow::applyAppearance()

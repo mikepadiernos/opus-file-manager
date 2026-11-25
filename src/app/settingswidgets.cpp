@@ -1765,3 +1765,74 @@ void PreviewSizeSpinBox::setBytes(qulonglong bytes)
     const qulonglong mib = std::max<qulonglong>(1, (bytes + MiB - 1) / MiB);
     setValue(int(std::min<qulonglong>(mib, MaximumMiB)));
 }
+
+FolderListEditor::FolderListEditor(const QString &chooserTitle, QWidget *parent)
+    : QWidget(parent)
+    , m_chooserTitle(chooserTitle)
+    , m_list(new QListWidget(this))
+    , m_remove(new QPushButton(QIcon::fromTheme(QStringLiteral("list-remove")), i18nc("@action:button", "Remove"), this))
+{
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    m_list->setObjectName(QStringLiteral("folderList"));
+    layout->addWidget(m_list);
+    auto *buttons = new QHBoxLayout;
+    auto *add = new QPushButton(QIcon::fromTheme(QStringLiteral("list-add")), i18nc("@action:button", "Add Folder…"), this);
+    add->setObjectName(QStringLiteral("addFolder"));
+    m_remove->setObjectName(QStringLiteral("removeFolder"));
+    m_remove->setEnabled(false);
+    buttons->addWidget(add);
+    buttons->addWidget(m_remove);
+    buttons->addStretch();
+    layout->addLayout(buttons);
+    connect(add, &QPushButton::clicked, this, [this] {
+        const QString folder = QFileDialog::getExistingDirectory(this, m_chooserTitle, QDir::homePath());
+        if (!folder.isEmpty()) {
+            addFolder(folder);
+        }
+    });
+    connect(m_remove, &QPushButton::clicked, this, [this] {
+        const int row = m_list->currentRow();
+        if (row >= 0) {
+            delete m_list->takeItem(row);
+            Q_EMIT foldersChanged();
+        }
+    });
+    connect(m_list, &QListWidget::currentRowChanged, this, [this](int row) {
+        m_remove->setEnabled(row >= 0);
+    });
+}
+
+QStringList FolderListEditor::folders() const
+{
+    QStringList folders;
+    for (int row = 0; row < m_list->count(); ++row) {
+        folders.append(m_list->item(row)->text());
+    }
+    return folders;
+}
+
+void FolderListEditor::setFolders(const QStringList &folders)
+{
+    if (folders == this->folders()) {
+        return;
+    }
+    m_list->clear();
+    m_list->addItems(folders);
+    Q_EMIT foldersChanged();
+}
+
+bool FolderListEditor::addFolder(const QString &folder)
+{
+    if (folder.isEmpty() || !QDir::isAbsolutePath(folder)) {
+        return false;
+    }
+    const QString clean = QDir::cleanPath(folder);
+    if (folders().contains(clean)) {
+        return false;
+    }
+    m_list->addItem(clean);
+    m_list->setCurrentRow(m_list->count() - 1);
+    Q_EMIT foldersChanged();
+    return true;
+}

@@ -189,6 +189,8 @@ private:
     void setupStatusBar();
     void applyPanelSettings();
     void applyEmbeddedPanelTitles();
+    /// Creates or removes the double Shift search trigger to follow its setting.
+    void updateDoubleShift();
 
     void setActivePane(Pane *pane);
     void connectPane(Pane *pane);
@@ -363,6 +365,8 @@ private:
     QWidget *m_rightPlaceholder = nullptr;
     QPointer<QMainWindow> m_rightWindow;
     TerminalPanel *m_terminalPanel = nullptr;
+    /// Opens search on two Shift taps, while enabled and available.
+    QObject *m_doubleShift = nullptr;
     /// Whether a terminal profile asks for blur behind the window.
     bool m_terminalBlur = false;
     EditorPanel *m_editor = nullptr;

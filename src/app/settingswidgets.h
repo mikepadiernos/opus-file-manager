@@ -256,6 +256,32 @@ private:
 };
 
 /**
+ * Lists absolute local folders, with buttons to add folders from a folder
+ * chooser and remove the selected one. Bound to a StringList setting.
+ */
+class FolderListEditor : public QWidget
+{
+    Q_OBJECT
+    Q_PROPERTY(QStringList folders READ folders WRITE setFolders NOTIFY foldersChanged USER true)
+
+public:
+    /// @param chooserTitle the folder chooser's title
+    explicit FolderListEditor(const QString &chooserTitle, QWidget *parent = nullptr);
+    QStringList folders() const;
+    void setFolders(const QStringList &folders);
+    /// Adds a folder unless it is already listed or not an absolute path.
+    bool addFolder(const QString &folder);
+
+Q_SIGNALS:
+    void foldersChanged();
+
+private:
+    QString m_chooserTitle;
+    QListWidget *m_list;
+    QPushButton *m_remove;
+};
+
+/**
  * Edits one folder colour rule: what it matches, the pattern, the colour and
  * whether subfolders inherit it.
  */
