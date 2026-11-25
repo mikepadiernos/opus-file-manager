@@ -2829,6 +2829,51 @@ private Q_SLOTS:
         QVERIFY(folderNotice->isHidden());
     }
 
+    void folderColourStyleAndRulesApplyFromTheDialog()
+    {
+        auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *style = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_FolderColorStyle"));
+        auto *rules = dialog.findChild<FolderColorRuleEditor *>(QStringLiteral("kcfg_FolderColorRules"));
+        QVERIFY(style && rules);
+        QCOMPARE(style->count(), 4);
+
+        FolderColorRules::Rule archive;
+        archive.match = FolderColorRules::Match::Name;
+        archive.pattern = QStringLiteral("*-archive");
+        archive.color = QColor(0xda, 0x44, 0x53);
+        archive.subfolders = true;
+        FolderColorRules::Rule work = archive;
+        work.pattern = QStringLiteral("work");
+        work.color = QColor(0x27, 0xae, 0x60);
+        work.subfolders = false;
+        const QString archiveEntry = FolderColorRules::entry(archive);
+        const QString workEntry = FolderColorRules::entry(work);
+
+        style->setCurrentIndex(Settings::EnumFolderColorStyle::Badge);
+        Q_EMIT style->activated(Settings::EnumFolderColorStyle::Badge);
+        rules->setRules({archiveEntry, workEntry});
+        // Rules are checked in order, which the editor can change.
+        rules->moveRule(1, -1);
+        QCOMPARE(rules->rules(), (QStringList{workEntry, archiveEntry}));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(int(Settings::folderColorStyle()), int(Settings::EnumFolderColorStyle::Badge));
+        QCOMPARE(Settings::folderColorRules(), (QStringList{workEntry, archiveEntry}));
+        const auto stored = FolderColorRules::parse(Settings::folderColorRules().constLast());
+        QVERIFY(stored && stored->subfolders);
+
+        style->setCurrentIndex(Settings::EnumFolderColorStyle::Name);
+        Q_EMIT style->activated(Settings::EnumFolderColorStyle::Name);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(int(Settings::folderColorStyle()), int(Settings::EnumFolderColorStyle::Name));
+    }
+
     void toolbarAppearanceSettingsApplyToEveryToolbar()
     {
         MainWindow window;
