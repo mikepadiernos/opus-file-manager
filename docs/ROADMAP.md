@@ -1055,7 +1055,7 @@ M18.08.
 **Project:**
 [M19 milestone](https://github.com/mikepadiernos/plasma-opus/issues/337)
 
-- [ ] Use a consistent, translatable application name and description in the
+- [x] Use a consistent, translatable application name and description in the
       desktop entry, app metadata, About dialog and documentation.
 - [ ] Create original, appropriately licensed Plasma Opus logo and application
       icon assets in suitable sizes and light/dark variants. Continue to source
