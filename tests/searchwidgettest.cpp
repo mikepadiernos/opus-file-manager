@@ -700,6 +700,96 @@ private Q_SLOTS:
         window.actionCollection()->action(QStringLiteral("show_embedded_terminal"))->setChecked(false);
     }
 
+    void searchPanelPlacementAndStartupVisibility()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QUrl url = QUrl::fromLocalFile(root.path());
+        Settings::setTerminalPlacement(Settings::EnumTerminalPlacement::Below);
+        Settings::setSearchPanelPlacement(Settings::EnumSearchPanelPlacement::Right);
+        Settings::setRestoreSearchPanel(false);
+        {
+            MainWindow window;
+            window.resize(1200, 900);
+            window.openUrls({url, url});
+            window.show();
+            QVERIFY(QTest::qWaitForWindowExposed(&window));
+            window.setStackedLayout(false);
+            window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+            auto *panel = window.findChild<SearchPanel *>(QStringLiteral("searchPanel"));
+            auto *workspace = window.findChild<QSplitter *>(QStringLiteral("workspaceSplitter"));
+            auto *outer = window.findChild<QSplitter *>(QStringLiteral("searchSplitter"));
+            auto *terminal = window.findChild<QWidget *>(QStringLiteral("terminalPanel"));
+            QVERIFY(panel && workspace && outer && terminal);
+
+            // Right of the panes while the terminal stays below them.
+            QCOMPARE(workspace->orientation(), Qt::Vertical);
+            QCOMPARE(outer->orientation(), Qt::Horizontal);
+            QCOMPARE(outer->indexOf(workspace), 0);
+            QCOMPARE(outer->indexOf(panel), 1);
+            QCOMPARE(workspace->indexOf(panel), -1);
+            window.actionCollection()->action(QStringLiteral("show_search_panel"))->setChecked(true);
+            window.actionCollection()->action(QStringLiteral("show_embedded_terminal"))->setChecked(true);
+            QVERIFY(panel->isVisible());
+            QVERIFY(terminal->isVisible());
+            QVERIFY(window.activePane()->isVisible());
+            QVERIFY(window.inactivePane()->isVisible());
+            const QList<int> outerSizes = outer->sizes();
+            QVERIFY2(outerSizes.at(0) * 10 >= (outerSizes.at(0) + outerSizes.at(1)) * 6 - 10, qPrintable(QDebug::toString(outerSizes)));
+
+            // Following the terminal moves the panel beside it and keeps it visible.
+            Settings::setSearchPanelPlacement(Settings::EnumSearchPanelPlacement::WithTerminal);
+            window.applySettings();
+            QCOMPARE(workspace->indexOf(panel), 2);
+            QCOMPARE(outer->indexOf(panel), -1);
+            QVERIFY(panel->isVisible());
+
+            // An explicit placement matching the terminal also shares its splitter.
+            Settings::setSearchPanelPlacement(Settings::EnumSearchPanelPlacement::Below);
+            window.applySettings();
+            QCOMPARE(workspace->indexOf(panel), 2);
+            Settings::setTerminalPlacement(Settings::EnumTerminalPlacement::Right);
+            window.applySettings();
+            QCOMPARE(workspace->orientation(), Qt::Horizontal);
+            QCOMPARE(outer->orientation(), Qt::Vertical);
+            QCOMPARE(outer->indexOf(panel), 1);
+            QVERIFY(panel->isVisible());
+            QVERIFY(window.activePane()->isVisible());
+            QVERIFY(window.inactivePane()->isVisible());
+            window.actionCollection()->action(QStringLiteral("show_embedded_terminal"))->setChecked(false);
+        }
+        Settings::setTerminalPlacement(Settings::EnumTerminalPlacement::Automatic);
+        Settings::setSearchPanelPlacement(Settings::EnumSearchPanelPlacement::WithTerminal);
+
+        // The panel was open when the window closed, but is restored only when enabled.
+        {
+            MainWindow window;
+            window.openUrls({url});
+            QTest::qWait(50);
+            QVERIFY(!window.actionCollection()->action(QStringLiteral("show_search_panel"))->isChecked());
+        }
+        Settings::setRestoreSearchPanel(true);
+        {
+            MainWindow window;
+            window.openUrls({url});
+            window.show();
+            QVERIFY(QTest::qWaitForWindowExposed(&window));
+            auto *panel = window.findChild<SearchPanel *>(QStringLiteral("searchPanel"));
+            QTRY_VERIFY(window.actionCollection()->action(QStringLiteral("show_search_panel"))->isChecked());
+            QVERIFY(panel->isVisible());
+            QCOMPARE(panel->searchWidget()->folder(), url);
+            QVERIFY(!panel->isAncestorOf(QApplication::focusWidget()));
+            window.actionCollection()->action(QStringLiteral("show_search_panel"))->setChecked(false);
+        }
+        {
+            MainWindow window;
+            window.openUrls({url});
+            QTest::qWait(50);
+            QVERIFY(!window.actionCollection()->action(QStringLiteral("show_search_panel"))->isChecked());
+        }
+        Settings::setRestoreSearchPanel(false);
+    }
+
     void searchPanelScopeFollowsRequestingPane()
     {
         QTemporaryDir root;

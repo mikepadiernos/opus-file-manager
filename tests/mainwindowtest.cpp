@@ -841,6 +841,39 @@ private Q_SLOTS:
             external.reparseConfiguration();
             QVERIFY(WorkspaceCatalog::load(externalGroup, saved, error));
         }
+        {
+            // A layout saved with the search panel beside the terminal restores while it is placed apart.
+            auto shared = saved;
+            WorkspaceCatalog::Layout sharedLayout = *shared.workspaces.first().layout;
+            while (sharedLayout.workspaceSizes.size() < 3) {
+                sharedLayout.workspaceSizes.append(1);
+            }
+            QVERIFY(sharedLayout.presentation);
+            const bool terminalRight = sharedLayout.presentation->terminalPlacement == WorkspaceCatalog::TerminalPlacement::Right;
+            QVERIFY(WorkspaceCatalog::setLayout(shared, shared.workspaces.first().id, sharedLayout, error));
+            QVERIFY2(WorkspaceCatalog::saveIfUnchanged(externalGroup, saved, shared, error), qPrintable(error));
+            Settings::setSearchPanelPlacement(terminalRight ? Settings::EnumSearchPanelPlacement::Below : Settings::EnumSearchPanelPlacement::Right);
+            window.actionCollection()->action(QStringLiteral("manage_workspaces"))->trigger();
+            dialog = window.findChild<QDialog *>(QStringLiteral("workspaceDialog"));
+            QVERIFY(dialog);
+            dialog->findChild<QListWidget *>(QStringLiteral("workspaceList"))->setCurrentRow(0);
+            QTimer::singleShot(0, [] {
+                qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+            });
+            dialog->findChild<QPushButton *>(QStringLiteral("workspaceActivate"))->click();
+            const QString separateStatus = dialog->findChild<QLabel *>(QStringLiteral("workspaceStatus"))->text();
+            QVERIFY2(separateStatus.isEmpty(), qPrintable(separateStatus));
+            auto *outer = window.findChild<QSplitter *>(QStringLiteral("searchSplitter"));
+            QVERIFY(outer);
+            QCOMPARE(outer->indexOf(window.findChild<QWidget *>(QStringLiteral("searchPanel"))), 1);
+            Settings::setSearchPanelPlacement(Settings::EnumSearchPanelPlacement::WithTerminal);
+            window.applySettings();
+            QCOMPARE(outer->count(), 1);
+            dialog->close();
+            QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+            external.reparseConfiguration();
+            QVERIFY(WorkspaceCatalog::load(externalGroup, saved, error));
+        }
         auto broken = saved;
         WorkspaceCatalog::Layout invalid = *broken.workspaces.first().layout;
         invalid.windowState = QByteArray("not a Qt window state");
