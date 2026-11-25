@@ -56,6 +56,11 @@ RUN dnf -y install --setopt=install_weak_deps=False \
         7zip \
         dbus-daemon \
         diffutils \
+        rust \
+        cargo \
+        rustfmt \
+        clippy \
+        corrosion \
     && dnf clean all
 
 # Gettext ignores LANGUAGE under the C locale, which the translation tests
