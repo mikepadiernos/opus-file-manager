@@ -263,7 +263,7 @@ private Q_SLOTS:
     void matcherLetsUnboundKeysThrough()
     {
         YaziMode::KeyMatcher matcher(YaziMode::presetKeymap(YaziMode::Preset::Vim));
-        QCOMPARE(matcher.feed(Qt::Key_X), Result::NoMatch);
+        QCOMPARE(matcher.feed(Qt::Key_W), Result::NoMatch);
         QCOMPARE(matcher.feed(Qt::Key_0), Result::NoMatch);
         QCOMPARE(matcher.feed(Qt::ControlModifier | Qt::Key_C), Result::NoMatch);
         QCOMPARE(matcher.feed(Qt::Key_Shift), Result::NoMatch);
@@ -314,7 +314,7 @@ private Q_SLOTS:
         QCOMPARE(matcher.feed(Qt::Key_G), Result::Pending);
         QCOMPARE(matcher.feed(Qt::Key_Z), Result::Pending);
         QCOMPARE(matcher.pendingText(), QStringLiteral("z"));
-        QCOMPARE(matcher.feed(Qt::Key_X), Result::NoMatch);
+        QCOMPARE(matcher.feed(Qt::Key_W), Result::NoMatch);
         QVERIFY(!matcher.isPending());
     }
 
@@ -345,7 +345,7 @@ private Q_SLOTS:
         }
         QCOMPARE(matcher.pendingCount(), YaziMode::MaximumCount);
         // A count followed by an unbound key is dropped with it.
-        QCOMPARE(matcher.feed(Qt::Key_X), Result::NoMatch);
+        QCOMPARE(matcher.feed(Qt::Key_W), Result::NoMatch);
         QVERIFY(!matcher.isPending());
         QCOMPARE(matcher.feed(Qt::Key_K), Result::Matched);
         QCOMPARE(matcher.count(), 1);
@@ -363,7 +363,7 @@ private Q_SLOTS:
         QVERIFY(!matcher.isPending());
         QCOMPARE(matcher.feed(Qt::Key_G), Result::Pending);
         QCOMPARE(matcher.test(Qt::Key_G), Result::Matched);
-        QCOMPARE(matcher.test(Qt::Key_X), Result::NoMatch);
+        QCOMPARE(matcher.test(Qt::Key_W), Result::NoMatch);
         QVERIFY(matcher.isPending());
         QCOMPARE(matcher.pendingKeys(), YaziMode::KeySequence{Qt::Key_G});
         matcher.reset();
@@ -438,17 +438,129 @@ private Q_SLOTS:
     void commandsHaveDistinctIdentifiers()
     {
         QStringList ids;
-        for (int i = int(YaziMode::Command::MoveUp); i <= int(YaziMode::Command::Leave); ++i) {
+        for (int i = int(YaziMode::Command::MoveUp); i <= int(YaziMode::LastCommand); ++i) {
             const QString id = YaziMode::commandId(YaziMode::Command(i));
             QVERIFY(!id.isEmpty());
             QVERIFY2(!ids.contains(id), qPrintable(id));
             ids.append(id);
         }
         QCOMPARE(YaziMode::commandId(YaziMode::Command::MoveDown), QStringLiteral("move-down"));
+        QCOMPARE(YaziMode::commandId(YaziMode::Command::Trash), QStringLiteral("trash"));
         QVERIFY(YaziMode::commandTakesCount(YaziMode::Command::MoveDown));
         QVERIFY(YaziMode::commandTakesCount(YaziMode::Command::HalfPageUp));
+        QVERIFY(YaziMode::commandTakesCount(YaziMode::Command::ToggleSelectionDown));
         QVERIFY(!YaziMode::commandTakesCount(YaziMode::Command::Parent));
         QVERIFY(!YaziMode::commandTakesCount(YaziMode::Command::Leave));
+        QVERIFY(!YaziMode::commandTakesCount(YaziMode::Command::Trash));
+        QVERIFY(!YaziMode::commandTakesCount(YaziMode::Command::Paste));
+    }
+
+    void fileCommandsRunWindowActions()
+    {
+        for (int i = int(YaziMode::Command::MoveUp); i <= int(YaziMode::LastCommand); ++i) {
+            const auto command = YaziMode::Command(i);
+            const QString id = YaziMode::commandId(command);
+            QVERIFY2(!(YaziMode::isFileCommand(command) && YaziMode::isSelectionCommand(command)), qPrintable(id));
+            if (YaziMode::commandUsesSelection(command)) {
+                QVERIFY2(YaziMode::isFileCommand(command), qPrintable(id));
+            }
+            if (!YaziMode::commandAction(command).isEmpty()) {
+                QVERIFY2(YaziMode::isFileCommand(command), qPrintable(id));
+            }
+        }
+        QCOMPARE(YaziMode::commandAction(YaziMode::Command::Trash), QStringLiteral("move_to_trash"));
+        QCOMPARE(YaziMode::commandAction(YaziMode::Command::Copy), QStringLiteral("edit_copy"));
+        QCOMPARE(YaziMode::commandAction(YaziMode::Command::Paste), QStringLiteral("edit_paste"));
+        QCOMPARE(YaziMode::commandAction(YaziMode::Command::Undo), QStringLiteral("edit_undo"));
+        QVERIFY(YaziMode::commandAction(YaziMode::Command::MoveDown).isEmpty());
+        QVERIFY(YaziMode::commandUsesSelection(YaziMode::Command::Trash));
+        QVERIFY(!YaziMode::commandUsesSelection(YaziMode::Command::Paste));
+        QVERIFY(!YaziMode::commandUsesSelection(YaziMode::Command::Undo));
+    }
+
+    void noCommandDeletesPermanently()
+    {
+        const QStringList permanent = YaziMode::permanentDeletionActions();
+        QVERIFY(permanent.contains(QStringLiteral("delete")));
+        for (int i = int(YaziMode::Command::MoveUp); i <= int(YaziMode::LastCommand); ++i) {
+            const auto command = YaziMode::Command(i);
+            QVERIFY2(!permanent.contains(YaziMode::commandAction(command)), qPrintable(YaziMode::commandId(command)));
+            QVERIFY2(!YaziMode::commandId(command).contains(QStringLiteral("delete")), qPrintable(YaziMode::commandId(command)));
+        }
+        // Not even a preset binding: in Yazi, D deletes permanently, so the Vim keys leave it unbound.
+        for (YaziMode::Preset preset : {YaziMode::Preset::Standard, YaziMode::Preset::Vim}) {
+            const YaziMode::Keymap keymap = YaziMode::presetKeymap(preset);
+            for (const YaziMode::Binding &binding : keymap.bindings) {
+                QVERIFY(!permanent.contains(YaziMode::commandAction(binding.command)));
+                QVERIFY(binding.keys != YaziMode::KeySequence{Qt::ShiftModifier | Qt::Key_D});
+                QVERIFY(binding.keys != YaziMode::KeySequence{Qt::ShiftModifier | Qt::Key_Delete});
+            }
+            YaziMode::KeyMatcher matcher(keymap);
+            QCOMPARE(matcher.feed(Qt::ShiftModifier | Qt::Key_D), Result::NoMatch);
+        }
+    }
+
+    void vimKeysSelectAndRunFileActions()
+    {
+        YaziMode::KeyMatcher matcher(YaziMode::presetKeymap(YaziMode::Preset::Vim));
+        // The command @p keys run, or -1.
+        const auto run = [&matcher](const YaziMode::KeySequence &keys) {
+            for (qsizetype i = 0; i + 1 < keys.size(); ++i) {
+                if (matcher.feed(keys.at(i)) != Result::Pending) {
+                    return -1;
+                }
+            }
+            return matcher.feed(keys.last()) == Result::Matched ? int(matcher.command()) : -1;
+        };
+        using Command = YaziMode::Command;
+        QCOMPARE(run({Qt::Key_Space}), int(Command::ToggleSelectionDown));
+        QCOMPARE(run({Qt::ControlModifier | Qt::Key_Space}), int(Command::ToggleSelection));
+        QCOMPARE(run({Qt::Key_V}), int(Command::VisualSelection));
+        QCOMPARE(run({Qt::ShiftModifier | Qt::Key_V}), int(Command::SelectAll));
+        QCOMPARE(run({Qt::ControlModifier | Qt::Key_A}), int(Command::SelectAll));
+        QCOMPARE(run({Qt::Key_Y, Qt::Key_Y}), int(Command::Copy));
+        QCOMPARE(run({Qt::Key_X}), int(Command::Cut));
+        QCOMPARE(run({Qt::Key_P}), int(Command::Paste));
+        QCOMPARE(run({Qt::Key_R}), int(Command::Rename));
+        QCOMPARE(run({Qt::Key_D, Qt::Key_D}), int(Command::Trash));
+        QCOMPARE(run({Qt::Key_A}), int(Command::Create));
+        QCOMPARE(run({Qt::Key_O}), int(Command::OpenWith));
+        QCOMPARE(run({Qt::Key_C}), int(Command::CopyToOtherPane));
+        QCOMPARE(run({Qt::Key_M}), int(Command::MoveToOtherPane));
+        QCOMPARE(run({Qt::Key_U}), int(Command::Undo));
+        QCOMPARE(run({Qt::Key_Period}), int(Command::ToggleHidden));
+        // A count repeats Space.
+        QCOMPARE(matcher.feed(Qt::Key_3), Result::Pending);
+        QCOMPARE(matcher.feed(Qt::Key_Space), Result::Matched);
+        QCOMPARE(matcher.count(), 3);
+        // Escape is left to the view, which clears the selection, unless it cancels a sequence.
+        QCOMPARE(matcher.feed(Qt::Key_Escape), Result::NoMatch);
+        QCOMPARE(matcher.feed(Qt::Key_D), Result::Pending);
+        QCOMPARE(matcher.feed(Qt::Key_Escape), Result::Cancelled);
+    }
+
+    void standardKeysLeaveFileShortcutsToTheWindow()
+    {
+        const YaziMode::KeyMatcher matcher(YaziMode::presetKeymap(YaziMode::Preset::Standard));
+        // Space stays Open Gallery; the window's file shortcuts pass through.
+        for (QKeyCombination key : {QKeyCombination(Qt::Key_Space),
+                                    QKeyCombination(Qt::Key_Delete),
+                                    QKeyCombination(Qt::Key_F2),
+                                    QKeyCombination(Qt::Key_F5),
+                                    QKeyCombination(Qt::Key_F6),
+                                    QKeyCombination(Qt::Key_F7),
+                                    QKeyCombination(Qt::Key_F8),
+                                    Qt::ControlModifier | Qt::Key_A,
+                                    Qt::ControlModifier | Qt::Key_C,
+                                    Qt::ControlModifier | Qt::Key_X,
+                                    Qt::ControlModifier | Qt::Key_V,
+                                    Qt::ControlModifier | Qt::Key_Z,
+                                    Qt::ControlModifier | Qt::Key_H,
+                                    QKeyCombination(Qt::Key_D),
+                                    QKeyCombination(Qt::Key_Y)}) {
+            QCOMPARE(matcher.test(key), Result::NoMatch);
+        }
+        QCOMPARE(matcher.test(Qt::ControlModifier | Qt::Key_Space), Result::Matched);
     }
 
     void keysShowAsTyped()

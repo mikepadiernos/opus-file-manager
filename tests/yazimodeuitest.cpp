@@ -16,11 +16,14 @@
 #include <KActionCollection>
 #include <KConfigGroup>
 #include <KDirModel>
+#include <KIO/FileUndoManager>
 #include <KSharedConfig>
 
 #include <QAbstractItemModel>
 #include <QApplication>
+#include <QClipboard>
 #include <QComboBox>
+#include <QDialog>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -29,6 +32,7 @@
 #include <QListView>
 #include <QMenu>
 #include <QMessageBox>
+#include <QMimeData>
 #include <QPushButton>
 #include <QScopeGuard>
 #include <QScrollBar>
@@ -83,6 +87,55 @@ QList<QUrl> selectedUrls(const FolderView *view)
 QUrl stripped(const QUrl &url)
 {
     return url.adjusted(QUrl::StripTrailingSlash);
+}
+
+// The names of the selected rows of @p view, sorted.
+QStringList selectedNames(const QAbstractItemView *view)
+{
+    QStringList names;
+    const QModelIndexList rows = view->selectionModel()->selectedRows();
+    for (const QModelIndex &row : rows) {
+        names.append(row.data().toString());
+    }
+    names.sort();
+    return names;
+}
+
+// A visible dialog other than @p window, such as a confirmation or a conflict dialog.
+QDialog *openDialog(const QWidget *window)
+{
+    const QList<QWidget *> widgets = QApplication::topLevelWidgets();
+    for (QWidget *widget : widgets) {
+        auto *dialog = qobject_cast<QDialog *>(widget);
+        if (dialog && dialog != window && dialog->isVisible()) {
+            return dialog;
+        }
+    }
+    return nullptr;
+}
+
+QList<QUrl> clipboardUrls()
+{
+    const QMimeData *data = QApplication::clipboard()->mimeData();
+    return data ? data->urls() : QList<QUrl>();
+}
+
+QByteArray clipboardData(const QString &format)
+{
+    const QMimeData *data = QApplication::clipboard()->mimeData();
+    return data ? data->data(format) : QByteArray();
+}
+
+QByteArray contents(const QString &path)
+{
+    QFile file(path);
+    return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+}
+
+bool writeFile(const QString &path, const QByteArray &data)
+{
+    QFile file(path);
+    return file.open(QIODevice::WriteOnly | QIODevice::Truncate) && file.write(data) == data.size();
 }
 
 // Makes the item named @p name current without changing the selection.
@@ -1214,16 +1267,16 @@ private Q_SLOTS:
         auto *filterBar = pane->findChild<FilterBar *>();
         QVERIFY(filterBar);
         QVERIFY(!filterBar->isVisible());
-        pressOnFocus(Qt::Key_O);
+        pressOnFocus(Qt::Key_E);
         QTRY_VERIFY(filterBar->isVisible());
-        QCOMPARE(filterBar->filter().text(), QStringLiteral("o"));
+        QCOMPARE(filterBar->filter().text(), QStringLiteral("e"));
 
         // The filter bar takes the preset's letters as text.
         QVERIFY(qobject_cast<QLineEdit *>(QApplication::focusWidget()));
         for (Qt::Key key : {Qt::Key_H, Qt::Key_J, Qt::Key_G, Qt::Key_G, Qt::Key_Q}) {
             pressOnFocus(key);
         }
-        QCOMPARE(filterBar->filter().text(), QStringLiteral("ohjggq"));
+        QCOMPARE(filterBar->filter().text(), QStringLiteral("ehjggq"));
         QCOMPARE(pane->url(), m_a);
         QVERIFY(pane->yaziMode());
         QVERIFY(!pane->yaziColumns()->keys()->isPending());
@@ -1385,6 +1438,353 @@ private Q_SLOTS:
 
         pane->setYaziMode(false);
         QVERIFY(!focusParent->isEnabled());
+    }
+
+    void vimSpaceAndRangeSelectionMarkItems()
+    {
+        Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
+        MainWindow window;
+        showWithFocusOnItems(window, m_many, true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        YaziColumns *columns = pane->yaziColumns();
+        // In grid views, j moves a row of items; use a list to count rows, in name order.
+        pane->view()->setViewMode(FolderView::ViewMode::Details);
+        pane->view()->setSorting(KDirModel::Name, Qt::AscendingOrder);
+        QAbstractItemView *items = pane->view()->currentView();
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+        QLabel *count = columns->selectionIndicator();
+        QVERIFY(count);
+        const auto name = [](int number) {
+            return QStringLiteral("file%1.txt").arg(number, 3, 10, QLatin1Char('0'));
+        };
+        const auto names = [&name](std::initializer_list<int> numbers) {
+            QStringList list;
+            for (int number : numbers) {
+                list.append(name(number));
+            }
+            return list;
+        };
+        const auto focused = [items] {
+            return items->currentIndex().data().toString();
+        };
+        QTRY_VERIFY(rowNamed(items, name(ManyFiles - 1)).isValid());
+        items->setCurrentIndex(rowNamed(items, name(0)));
+        QCOMPARE(selectedNames(items), names({0}));
+        QVERIFY(!columns->isMarking());
+        QVERIFY(!count->isVisible());
+
+        // Space marks the focused item and moves down; moving keeps the marks.
+        pressOnFocus(Qt::Key_Space);
+        QCOMPARE(focused(), name(1));
+        QCOMPARE(selectedNames(items), names({0}));
+        QVERIFY(columns->isMarking());
+        QVERIFY(count->isVisible());
+        QCOMPARE(count->text(), QStringLiteral("1 selected"));
+        pressOnFocus(Qt::Key_Space);
+        pressOnFocus(Qt::Key_J);
+        QCOMPARE(focused(), name(3));
+        QCOMPARE(selectedNames(items), names({0, 1}));
+        pressOnFocus(Qt::Key_Space);
+        QCOMPARE(selectedNames(items), names({0, 1, 3}));
+        QCOMPARE(count->text(), QStringLiteral("3 selected"));
+        // On a marked item, Space unmarks it.
+        pressOnFocus(Qt::Key_K);
+        pressOnFocus(Qt::Key_Space);
+        QCOMPARE(selectedNames(items), names({0, 1}));
+        QCOMPARE(focused(), name(4));
+        // Ctrl+Space toggles without moving, and a count repeats Space.
+        pressOnFocus(Qt::Key_Space, Qt::ControlModifier);
+        QCOMPARE(focused(), name(4));
+        QCOMPARE(selectedNames(items), names({0, 1, 4}));
+        pressOnFocus(Qt::Key_3);
+        pressOnFocus(Qt::Key_Space);
+        QCOMPARE(selectedNames(items), names({0, 1, 5, 6}));
+        QCOMPARE(focused(), name(7));
+
+        // Escape clears the selection, and moving selects the focused item again.
+        pressOnFocus(Qt::Key_Escape);
+        QVERIFY(selectedNames(items).isEmpty());
+        QVERIFY(!columns->isMarking());
+        QVERIFY(!count->isVisible());
+        pressOnFocus(Qt::Key_J);
+        QCOMPARE(selectedNames(items), names({8}));
+
+        // v selects the range between where it started and the focused item.
+        items->setCurrentIndex(rowNamed(items, name(10)));
+        pressOnFocus(Qt::Key_V);
+        QVERIFY(columns->isVisual());
+        QCOMPARE(selectedNames(items), names({10}));
+        pressOnFocus(Qt::Key_J);
+        pressOnFocus(Qt::Key_J);
+        QCOMPARE(selectedNames(items), names({10, 11, 12}));
+        QCOMPARE(count->text(), QStringLiteral("Visual · 3 selected"));
+        pressOnFocus(Qt::Key_3);
+        pressOnFocus(Qt::Key_K);
+        QCOMPARE(focused(), name(9));
+        QCOMPARE(selectedNames(items), names({9, 10}));
+        // v again ends it and keeps the range marked.
+        pressOnFocus(Qt::Key_V);
+        QVERIFY(!columns->isVisual());
+        QVERIFY(columns->isMarking());
+        pressOnFocus(Qt::Key_G, Qt::ShiftModifier);
+        QCOMPARE(focused(), name(ManyFiles - 1));
+        QCOMPARE(selectedNames(items), names({9, 10}));
+        QCOMPARE(count->text(), QStringLiteral("2 selected"));
+        // A new range adds to the marks made before it.
+        pressOnFocus(Qt::Key_V);
+        pressOnFocus(Qt::Key_K);
+        QCOMPARE(selectedNames(items), names({9, 10, ManyFiles - 2, ManyFiles - 1}));
+        // Escape ends range selection and clears the selection.
+        pressOnFocus(Qt::Key_Escape);
+        QVERIFY(!columns->isVisual());
+        QVERIFY(!columns->isMarking());
+        QVERIFY(selectedNames(items).isEmpty());
+
+        // V and Ctrl+A select everything.
+        pressOnFocus(Qt::Key_V, Qt::ShiftModifier);
+        QCOMPARE(items->selectionModel()->selectedRows().size(), ManyFiles);
+        QCOMPARE(count->text(), QStringLiteral("200 selected"));
+        pressOnFocus(Qt::Key_Escape);
+        QVERIFY(selectedNames(items).isEmpty());
+        pressOnFocus(Qt::Key_A, Qt::ControlModifier);
+        QCOMPARE(items->selectionModel()->selectedRows().size(), ManyFiles);
+        pressOnFocus(Qt::Key_Escape);
+        QVERIFY(selectedNames(items).isEmpty());
+
+        // In the parent column, the selection keys only explain where they work.
+        QSignalSpy messages(pane, &Pane::statusMessage);
+        QVERIFY(columns->focusColumn(YaziColumns::Column::Parent));
+        QTRY_VERIFY(columns->parentColumn()->hasFocus());
+        pressOnFocus(Qt::Key_Space);
+        QCOMPARE(messages.count(), 1);
+        QVERIFY(selectedNames(items).isEmpty());
+    }
+
+    void vimFileKeysRunTheWindowActions()
+    {
+        Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
+        MainWindow window;
+        showWithFocusOnItems(window, m_a, true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        FolderView *view = pane->view();
+        view->setViewMode(FolderView::ViewMode::Details);
+        QAbstractItemView *items = view->currentView();
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+        QTRY_VERIFY(rowNamed(items, QStringLiteral("file.txt")).isValid());
+        const auto action = [&window](const char *name) {
+            return window.actionCollection()->action(QLatin1String(name));
+        };
+        // Stand in for the actions' slots, so nothing is trashed, renamed, transferred or undone.
+        QAction *trash = action("move_to_trash");
+        QAction *permanent = action("delete");
+        QAction *rename = action("rename");
+        QAction *copyTo = action("copy_to_other_pane");
+        QAction *moveTo = action("move_to_other_pane");
+        QAction *undo = action("edit_undo");
+        for (QAction *each : {trash, permanent, rename, copyTo, moveTo, undo}) {
+            QVERIFY(each);
+            QObject::disconnect(each, &QAction::triggered, &window, nullptr);
+        }
+        QObject::disconnect(undo, &QAction::triggered, KIO::FileUndoManager::self(), nullptr);
+        QSignalSpy trashed(trash, &QAction::triggered);
+        QSignalSpy deleted(permanent, &QAction::triggered);
+        QSignalSpy renamed(rename, &QAction::triggered);
+        QSignalSpy copied(copyTo, &QAction::triggered);
+        QSignalSpy moved(moveTo, &QAction::triggered);
+        QSignalSpy undone(undo, &QAction::triggered);
+
+        // With nothing selected, dd moves the focused item to the trash.
+        items->selectionModel()->clearSelection();
+        focusRow(items, QStringLiteral("file.txt"));
+        QVERIFY(view->selectedItems().isEmpty());
+        pressOnFocus(Qt::Key_D);
+        QVERIFY(pane->yaziColumns()->keys()->isPending());
+        QTest::qWait(20);
+        QCOMPARE(trashed.count(), 0);
+        pressOnFocus(Qt::Key_D);
+        QTRY_COMPARE(trashed.count(), 1);
+        QCOMPARE(selectedUrls(view), QList<QUrl>{m_file});
+
+        // yy copies and x cuts to the clipboard.
+        const QString cutFormat = QStringLiteral("application/x-kde-cutselection");
+        pressOnFocus(Qt::Key_Y);
+        pressOnFocus(Qt::Key_Y);
+        QTRY_COMPARE(clipboardUrls(), QList<QUrl>{m_file});
+        QCOMPARE(clipboardData(cutFormat), QByteArray("0"));
+        pressOnFocus(Qt::Key_X);
+        QTRY_COMPARE(clipboardData(cutFormat), QByteArray("1"));
+        QCOMPARE(clipboardUrls(), QList<QUrl>{m_file});
+
+        // r renames, and c and m copy and move to the other pane.
+        pressOnFocus(Qt::Key_R);
+        QTRY_COMPARE(renamed.count(), 1);
+        pressOnFocus(Qt::Key_C);
+        QTRY_COMPARE(copied.count(), 1);
+        pressOnFocus(Qt::Key_M);
+        QTRY_COMPARE(moved.count(), 1);
+
+        // With items marked, the keys act on all of them.
+        pressOnFocus(Qt::Key_Space, Qt::ControlModifier);
+        pressOnFocus(Qt::Key_K);
+        QCOMPARE(items->currentIndex().data().toString(), QStringLiteral("sub"));
+        pressOnFocus(Qt::Key_Space, Qt::ControlModifier);
+        pressOnFocus(Qt::Key_D);
+        pressOnFocus(Qt::Key_D);
+        QTRY_COMPARE(trashed.count(), 2);
+        QList<QUrl> marked{m_file, m_sub};
+        std::sort(marked.begin(), marked.end());
+        QCOMPARE(selectedUrls(view), marked);
+
+        // u runs the window's undo action.
+        undo->setEnabled(true);
+        pressOnFocus(Qt::Key_U);
+        QTRY_COMPARE(undone.count(), 1);
+
+        // . shows and hides hidden files.
+        QAction *hidden = action("show_hidden_files");
+        const bool showing = hidden->isChecked();
+        pressOnFocus(Qt::Key_Period);
+        QTRY_COMPARE(hidden->isChecked(), !showing);
+        QTRY_VERIFY(items->hasFocus());
+        pressOnFocus(Qt::Key_Period);
+        QTRY_COMPARE(hidden->isChecked(), showing);
+        QTRY_VERIFY(items->hasFocus());
+
+        // From the parent column, the keys don't act on the current column's items.
+        QSignalSpy messages(pane, &Pane::statusMessage);
+        QVERIFY(pane->yaziColumns()->focusColumn(YaziColumns::Column::Parent));
+        QTRY_VERIFY(pane->yaziColumns()->parentColumn()->hasFocus());
+        pressOnFocus(Qt::Key_D);
+        pressOnFocus(Qt::Key_D);
+        QTRY_COMPARE(messages.count(), 1);
+        QTest::qWait(20);
+        QCOMPARE(trashed.count(), 2);
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+
+        // a offers to create a folder or file below the focused item.
+        pressOnFocus(Qt::Key_A);
+        QTRY_VERIFY(qobject_cast<QMenu *>(QApplication::activePopupWidget()));
+        QApplication::activePopupWidget()->close();
+        QTRY_VERIFY(!QApplication::activePopupWidget());
+
+        // With the standard keys, the window's own shortcuts pass through.
+        pane->yaziColumns()->keys()->setPreset(YaziMode::Preset::Standard);
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+        QVERIFY(!view->selectedItems().isEmpty());
+        pressOnFocus(Qt::Key_Delete);
+        QTRY_COMPARE(trashed.count(), 3);
+
+        // Nothing ever deleted permanently.
+        QCOMPARE(deleted.count(), 0);
+        QVERIFY(QFileInfo::exists(m_file.toLocalFile()));
+        QVERIFY(QFileInfo::exists(m_sub.toLocalFile()));
+    }
+
+    void trashKeepsItsConfirmation()
+    {
+        Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        const QString path = folder.filePath(QStringLiteral("keep.txt"));
+        QVERIFY(writeFile(path, "keep"));
+        // KIO asks before trashing when the user chose so.
+        KSharedConfig::Ptr kiorc = KSharedConfig::openConfig(QStringLiteral("kiorc"), KConfig::NoGlobals);
+        kiorc->group(QStringLiteral("Confirmations")).writeEntry("ConfirmTrash", true);
+        kiorc->sync();
+        const auto restore = qScopeGuard([kiorc] {
+            kiorc->group(QStringLiteral("Confirmations")).deleteEntry("ConfirmTrash");
+            kiorc->sync();
+        });
+        MainWindow window;
+        showWithFocusOnItems(window, QUrl::fromLocalFile(folder.path()), true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        QAbstractItemView *items = pane->view()->currentView();
+        QTRY_VERIFY(rowNamed(items, QStringLiteral("keep.txt")).isValid());
+        QAction *permanent = window.actionCollection()->action(QStringLiteral("delete"));
+        QVERIFY(permanent);
+        QSignalSpy deleted(permanent, &QAction::triggered);
+
+        items->selectionModel()->clearSelection();
+        focusRow(items, QStringLiteral("keep.txt"));
+        pressOnFocus(Qt::Key_D);
+        pressOnFocus(Qt::Key_D);
+        QDialog *dialog = nullptr;
+        QTRY_VERIFY((dialog = openDialog(&window)));
+        dialog->reject();
+        QTRY_VERIFY(!openDialog(&window));
+        QTest::qWait(200);
+        QVERIFY(QFileInfo::exists(path));
+        QCOMPARE(deleted.count(), 0);
+    }
+
+    void yankAndPasteCopyWithConflictHandling()
+    {
+        Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
+        const auto conflictPolicy = Settings::transferConflictPolicy();
+        const auto restore = qScopeGuard([conflictPolicy] {
+            Settings::setTransferConflictPolicy(conflictPolicy);
+        });
+        Settings::setTransferConflictPolicy(Settings::EnumTransferConflictPolicy::Ask);
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        const QDir root(folder.path());
+        QVERIFY(root.mkpath(QStringLiteral("from")));
+        QVERIFY(root.mkpath(QStringLiteral("to")));
+        const QString source = folder.filePath(QStringLiteral("from/note.txt"));
+        const QString copy = folder.filePath(QStringLiteral("to/note.txt"));
+        QVERIFY(writeFile(source, "new"));
+        const QUrl from = QUrl::fromLocalFile(folder.filePath(QStringLiteral("from")));
+        const QUrl to = QUrl::fromLocalFile(folder.filePath(QStringLiteral("to")));
+
+        MainWindow window;
+        showWithFocusOnItems(window, from, true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        QAbstractItemView *items = pane->view()->currentView();
+        QTRY_VERIFY(rowNamed(items, QStringLiteral("note.txt")).isValid());
+        items->selectionModel()->clearSelection();
+        focusRow(items, QStringLiteral("note.txt"));
+        pressOnFocus(Qt::Key_Y);
+        pressOnFocus(Qt::Key_Y);
+        QTRY_COMPARE(clipboardUrls(), QList<QUrl>{QUrl::fromLocalFile(source)});
+
+        // p pastes into the folder the pane shows.
+        pane->setUrl(to);
+        QTRY_COMPARE(stripped(pane->url()), stripped(to));
+        QTRY_VERIFY(!pane->view()->isLoading());
+        items = pane->view()->currentView();
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+        pressOnFocus(Qt::Key_P);
+        QTRY_COMPARE(contents(copy), QByteArray("new"));
+        QCOMPARE(contents(source), QByteArray("new"));
+
+        // Pasting again over an existing file asks; cancelling keeps the file.
+        QVERIFY(writeFile(copy, "old"));
+        QTRY_VERIFY(rowNamed(items, QStringLiteral("note.txt")).isValid());
+        pressOnFocus(Qt::Key_P);
+        QDialog *dialog = nullptr;
+        QTRY_VERIFY((dialog = openDialog(&window)));
+        dialog->reject();
+        QTRY_VERIFY(!openDialog(&window));
+        QTest::qWait(200);
+        QCOMPARE(contents(copy), QByteArray("old"));
+        QCOMPARE(contents(source), QByteArray("new"));
     }
 
 private:
