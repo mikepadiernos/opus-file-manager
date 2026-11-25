@@ -1043,10 +1043,22 @@ private Q_SLOTS:
         {
             MainWindow window;
             SettingsDialog dialog(placesOf(window), &window);
+            auto *lines = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TreeLines"));
             auto *mode = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TreeLineColors"));
             auto *single = dialog.findChild<KColorButton *>(QStringLiteral("kcfg_TreeLineColor"));
             auto *depths = dialog.findChild<ColorListEditor *>(QStringLiteral("kcfg_TreeLinePalette"));
-            QVERIFY(mode && single && depths);
+            QVERIFY(lines && mode && single && depths);
+            // Colours apply only to solid and dotted lines.
+            QVERIFY(!mode->isEnabled());
+            mode->setCurrentIndex(Settings::EnumTreeLineColors::Single);
+            QVERIFY(!single->isEnabled());
+            lines->setCurrentIndex(Settings::EnumTreeLines::Dotted);
+            QVERIFY(mode->isEnabled() && single->isEnabled());
+            lines->setCurrentIndex(Settings::EnumTreeLines::Hidden);
+            QVERIFY(!mode->isEnabled() && !single->isEnabled());
+            lines->setCurrentIndex(Settings::EnumTreeLines::Solid);
+            mode->setCurrentIndex(Settings::EnumTreeLineColors::Neutral);
+            QVERIFY(mode->isEnabled());
             QVERIFY(!single->isEnabled() && !depths->isEnabled());
             QCOMPARE(depths->colors().size(), 6);
             mode->setCurrentIndex(Settings::EnumTreeLineColors::Single);
@@ -2795,6 +2807,7 @@ private Q_SLOTS:
         auto *lineColor = dialog.findChild<KColorButton *>(QStringLiteral("kcfg_TreeLineColor"));
         auto *lineNotice = dialog.findChild<KMessageWidget *>(QStringLiteral("treeLineContrastNotice"));
         QVERIFY(lineColors && lineColor && lineNotice);
+        dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TreeLines"))->setCurrentIndex(Settings::EnumTreeLines::Solid);
         lineColor->setColor(lightBase);
         QVERIFY(lineNotice->isHidden());
         lineColors->setCurrentIndex(Settings::EnumTreeLineColors::Single);

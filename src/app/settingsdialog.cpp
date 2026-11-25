@@ -1738,12 +1738,12 @@ QWidget *SettingsDialog::createLinesPage()
     };
     connect(dividers, &QComboBox::currentIndexChanged, page, updateReveal);
     updateReveal();
-    form->addRow(i18nc("@label:listbox", "Tree lines:"),
-                 comboBox(QStringLiteral("TreeLines"),
-                          {i18nc("@item:inlistbox tree lines", "Follow widget style"),
-                           i18nc("@item:inlistbox tree lines", "Hidden"),
-                           i18nc("@item:inlistbox tree lines", "Solid"),
-                           i18nc("@item:inlistbox tree lines", "Dotted")}));
+    auto *treeLines = comboBox(QStringLiteral("TreeLines"),
+                               {i18nc("@item:inlistbox tree lines", "Follow widget style"),
+                                i18nc("@item:inlistbox tree lines", "Hidden"),
+                                i18nc("@item:inlistbox tree lines", "Solid"),
+                                i18nc("@item:inlistbox tree lines", "Dotted")});
+    form->addRow(i18nc("@label:listbox", "Tree lines:"), treeLines);
     auto *lineColors = comboBox(QStringLiteral("TreeLineColors"),
                                 {i18nc("@item:inlistbox tree line colours", "Neutral"),
                                  i18nc("@item:inlistbox tree line colours", "Single colour"),
@@ -1759,15 +1759,19 @@ QWidget *SettingsDialog::createLinesPage()
     form->addRow(i18nc("@label", "Depth colours:"), linePalette);
     auto *lineNotice = createContrastNotice(QStringLiteral("treeLineContrastNotice"), true, page);
     form->addRow(QString(), lineNotice);
-    const auto updateLineColors = [this, lineColors, lineColor, linePalette, lineNotice] {
-        const bool single = lineColors->currentIndex() == Settings::EnumTreeLineColors::Single;
+    const auto updateLineColors = [this, treeLines, lineColors, lineColor, linePalette, lineNotice] {
+        // Colours apply only to the lines Plasma Opus draws itself.
+        const bool drawn = treeLines->currentIndex() == Settings::EnumTreeLines::Solid || treeLines->currentIndex() == Settings::EnumTreeLines::Dotted;
+        lineColors->setEnabled(drawn);
+        const bool single = drawn && lineColors->currentIndex() == Settings::EnumTreeLineColors::Single;
         lineColor->setEnabled(single);
-        linePalette->setEnabled(lineColors->currentIndex() == Settings::EnumTreeLineColors::Depth);
+        linePalette->setEnabled(drawn && lineColors->currentIndex() == Settings::EnumTreeLineColors::Depth);
         const QColor background = ColorSchemes::palette(m_colorScheme->scheme()).color(QPalette::Active, QPalette::Base);
         linePalette->setBackground(background);
         lineNotice->setText(i18nc("@info", "This line colour is darkened or lightened to stay visible against the view background."));
         lineNotice->setVisible(single && ColorSchemes::contrastRatio(lineColor->color(), background) < 3.0);
     };
+    connect(treeLines, &QComboBox::currentIndexChanged, page, updateLineColors);
     connect(lineColors, &QComboBox::currentIndexChanged, page, updateLineColors);
     connect(lineColor, &KColorButton::changed, page, updateLineColors);
     connect(m_colorScheme, &ColorSchemeCombo::schemeChanged, page, updateLineColors);
