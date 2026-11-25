@@ -1139,7 +1139,7 @@ Settings for M21 advanced search, stored in KConfig.
 A native KDE tagging workflow inspired by TagStudio, integrated into Plasma Opus
 rather than requiring TagStudio or changing the user's folder structure.
 
-- [ ] Evaluate Rust for tag relationships, library metadata and search using the
+- [x] Evaluate Rust for tag relationships, library metadata and search using the
       M21 pilot. Keep Qt/KDE integration in C++ and use C++ for the core if
       build and interoperability costs are not justified.
 - [ ] Store library metadata in an open, documented format without requiring a
