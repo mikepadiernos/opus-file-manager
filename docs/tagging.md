@@ -560,9 +560,10 @@ missing folder or an unreadable document.
 
 - **Add Library…** picks a local folder and asks the same question as
   **Tags › Create Library from Folder…**. A new document follows **Store
-  metadata of new libraries** as currently shown in the Privacy tab, and an
-  existing one is adopted where it is. The new library then gets its first
-  refresh in the background.
+  metadata of new libraries** as currently shown in the Privacy tab and starts
+  with the [fields for new libraries](#fields-1), and an existing one is
+  adopted where it is. The new library then gets its first refresh in the
+  background.
 - **Remove…** unregisters the selected library after confirmation. Its
   document is kept and no files are deleted.
 - **Keep Metadata Privately** or **Keep Metadata in Library Folder**, as fits
@@ -623,6 +624,28 @@ current folder.
 
 Searches already running keep the settings they started with. Child tags
 follow **Match child tags in tag: searches** in [Tags settings](#tags-1).
+
+### Fields
+
+**Library Fields** manages the fields of one library at a time. Choose it
+under **Library**, which lists the registered libraries and follows libraries
+added or removed in the Libraries tab; without libraries, the tab says how to
+add one. The list below works like the **Fields** tab of **Manage Tags…**:
+**New Field…**, **Edit…** and **Delete…** save to the library's metadata
+immediately, even if Preferences is canceled, and open windows update their
+Information panel. A library whose metadata can't be read shows why, and a
+read-only one can be viewed but not changed. See [Fields](#fields).
+
+| Setting                      | Default | Effect                                                                                                                                                                                                                                    |
+| ---------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Fields for New Libraries** | Empty   | The fields, with their type, that a library starts with when **Create Library from Folder…** or **Add Library…** creates its metadata, in the order listed. **Add…**, **Edit…**, **Remove**, **Move Up** and **Move Down** edit the list. |
+
+Field names must be unique, ignoring case. The list is stored as
+`text:Name` or `date:Name` entries; entries without a known type or a valid
+name, and repeated names, are ignored. Existing libraries aren't changed, and
+neither is existing metadata that a library adopts when its folder is added
+again. **Add Library…** uses the list as currently shown, even before it is
+applied.
 
 ## Searching by tags
 
