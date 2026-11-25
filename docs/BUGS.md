@@ -13,8 +13,9 @@ This log records user-visible bugs and reliability issues. Consult the
 > [Edge cases](EDGE.md) are possible scenarios, not confirmed bugs.
 
 > [!NOTE]
-> 15 of 16 tracked bugs are merged into `main`. One reliability report,
-> [#694](https://github.com/mikepadiernos/plasma-opus/issues/694), is open in
+> 15 of 17 tracked bugs are merged into `main`. Two test reliability reports,
+> [#694](https://github.com/mikepadiernos/plasma-opus/issues/694) and
+> [#696](https://github.com/mikepadiernos/plasma-opus/issues/696), are open in
 > Backlog.
 
 ## Contents
@@ -44,6 +45,7 @@ This log records user-visible bugs and reliability issues. Consult the
 | [#606](https://github.com/mikepadiernos/plasma-opus/issues/606) | Visual Markdown editing loses formatting with a fixed-pitch font      | ✅ Yes    | 🟣 Merged      |
 | [#682](https://github.com/mikepadiernos/plasma-opus/issues/682) | Icons view shows image thumbnails at Details size                     | ✅ Yes    | 🟣 Merged      |
 | [#694](https://github.com/mikepadiernos/plasma-opus/issues/694) | `mainwindowtest` intermittently crashes after restoring a pane filter | ❌ No     | ⚪ Backlog     |
+| [#696](https://github.com/mikepadiernos/plasma-opus/issues/696) | Checksum test times out waiting for the folder listing under load     | ❌ No     | ⚪ Backlog     |
 
 ## Status legend
 
@@ -72,11 +74,31 @@ This log records user-visible bugs and reliability issues. Consult the
 - Expected behaviour: The restored window keeps the filter and the test passes.
 - Actual behaviour: The test process occasionally crashes. It did not recur in
   26 later runs, including runs under CPU load, so no backtrace is available
-  yet. A separate timing failure in `createsAndVerifiesChecksumFiles()` appeared
-  once under load.
+  yet. A separate timing failure under load is tracked in
+  [#696](#checksum-test-listing-timeout).
 - Next steps: Repeat the suite under `gdb` or AddressSanitizer to capture a
   backtrace, and check pending listing, preview and session work when a window
   is destroyed.
+
+### Checksum test listing timeout
+
+- Severity: low (test reliability)
+- Status: Backlog; [#696](https://github.com/mikepadiernos/plasma-opus/issues/696)
+- Summary: `createsAndVerifiesChecksumFiles()` timed out at
+  `tests/mainwindowtest.cpp:3745` while waiting for the folder view to show
+  the new checksum file.
+- Steps to reproduce: Run `mainwindowtest` repeatedly in the dev container
+  while other processes load the CPU. It failed in 1 of 8 loaded runs and in
+  none of 18 runs without load.
+- Expected behaviour: The view lists `source.txt` and the new manifest, and
+  the test verifies the manifest.
+- Actual behaviour: The view held 0 items, not 1, when the 5 s wait expired.
+  This suggests the folder was still being relisted after the change rather
+  than missing the new file; whether users can briefly see an empty folder is
+  not yet known.
+- Next steps: Confirm whether the change triggers a full relisting, wait for
+  the listing to complete in the test, and consider keeping existing items
+  visible while a folder refreshes.
 
 ## Completed reports
 
