@@ -246,6 +246,8 @@ private Q_SLOTS:
         QCOMPARE(replace.count(MetadataImport::Action::SetField), 3);
         QCOMPARE(replace.count(MetadataImport::Action::Conflict), 1);
 
+        // Created tags get the plan's colour.
+        plan.tagColor = QStringLiteral("#336699");
         MetadataImport::Result result;
         QVERIFY2(MetadataImport::apply(plan, &result, &error), qPrintable(error));
         QCOMPARE(result.tagsCreated, 1);
@@ -258,6 +260,7 @@ private Q_SLOTS:
         QCOMPARE(entry->tags.size(), 2);
         QVERIFY(entry->tags.contains(QStringLiteral("acme")));
         QCOMPARE(library.findTags(QStringLiteral("beach")).size(), 1);
+        QCOMPARE(library.tag(library.findTags(QStringLiteral("beach")).constFirst())->color, QStringLiteral("#336699"));
         QCOMPARE(entry->fields.value(QStringLiteral("camera")), QStringLiteral("One"));
         QCOMPARE(entry->fields.value(QStringLiteral("taken")), QStringLiteral("2026-02-28"));
         QCOMPARE(library.entry(QStringLiteral("other.jpg"))->fields.value(QStringLiteral("camera")), QStringLiteral("Old"));

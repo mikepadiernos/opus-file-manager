@@ -683,6 +683,28 @@ private Q_SLOTS:
         QVERIFY(!matches(u"tagged:no"_s, TagLibrary::fileName()));
         QVERIFY(context.errors().isEmpty());
 
+        // Without child tags, tag: selects only the tags it names, like tag=.
+        TagSearch::Context direct({dir.path()}, {false});
+        const auto matchesDirectly = [&direct, &dir](const QString &text, const QString &relativePath) {
+            const SearchQuery::Query query = SearchQuery::Query::parse(text);
+            const QString path = dir.path() + u'/' + relativePath;
+            return query.isValid() && query.matches(QFileInfo(path), {}, direct.matcher(path));
+        };
+        QVERIFY(!matchesDirectly(u"tag:Animal"_s, cat));
+        QVERIFY(!matchesDirectly(u"tag:ani*"_s, cat));
+        QVERIFY(matchesDirectly(u"tag:cat"_s, cat));
+        QVERIFY(matchesDirectly(u"tag:KITTY"_s, cat));
+        QVERIFY(matchesDirectly(u"tag:kit*"_s, cat));
+        QVERIFY(matchesDirectly(u"tag=cat"_s, cat));
+        QVERIFY(matchesDirectly(u"tagged:yes"_s, cat));
+        QVERIFY(!matchesDirectly(u"tag:Animal"_s, u"photos/dog.jpg"_s));
+        QVERIFY(direct.errors().isEmpty());
+        SearchQuery::Term animal;
+        animal.field = SearchQuery::Field::Tag;
+        animal.text = u"Animal"_s;
+        QCOMPARE(TagSearch::selectedTags(library, animal), (QSet<QString>{u"t-animal"_s, u"t-cat"_s}));
+        QCOMPARE(TagSearch::selectedTags(library, animal, {false}), QSet<QString>{u"t-animal"_s});
+
         // A library that can't be read is reported once and matches nothing.
         QTemporaryDir empty;
         TagSearch::Context broken({empty.path()});

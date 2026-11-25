@@ -22,6 +22,7 @@
 #include "settingswidgets.h"
 #include "tabcolors.h"
 #include "tabmodel.h"
+#include "taggingsettings.h"
 #include "themeprofiles.h"
 #include "treelines.h"
 #include "windoweffects.h"
@@ -216,6 +217,69 @@ private Q_SLOTS:
         QVERIFY(!Settings::panelTitlesVisible());
         QVERIFY(Settings::informationHover());
         QCOMPARE(Settings::sidebarIconSize(), 16);
+    }
+
+    void tagSettingsDefaultsMigrationAndApply()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("TagPanel"));
+            KSharedConfig::openStateConfig()->sync();
+        });
+        QCOMPARE(Settings::tagPanelPlacement(), Settings::EnumTagPanelPlacement::Right);
+        QVERIFY(Settings::showTagColors());
+        QVERIFY(Settings::defaultTagColor().isEmpty());
+        QVERIFY(Settings::showTagsInInformationPanel());
+        QVERIFY(!Settings::showInheritedTags());
+        QVERIFY(Settings::tagMatchesChildTags());
+
+        // Earlier versions remembered the placement in the state configuration.
+        const auto rememberPlacement = [](const QString &placement) {
+            KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel"));
+            state.writeEntry("Placement", placement);
+            state.sync();
+        };
+        const auto remembered = [] {
+            return KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel")).hasKey("Placement");
+        };
+        rememberPlacement(QStringLiteral("below"));
+        TaggingSettings::migrateTagPanelPlacement();
+        QCOMPARE(Settings::tagPanelPlacement(), Settings::EnumTagPanelPlacement::Below);
+        QVERIFY(!remembered());
+        KSharedConfig::openConfig()->reparseConfiguration();
+        Settings::self()->load();
+        QCOMPARE(Settings::tagPanelPlacement(), Settings::EnumTagPanelPlacement::Below);
+
+        // A changed setting wins over a stale entry, which is still removed.
+        rememberPlacement(QStringLiteral("right"));
+        TaggingSettings::migrateTagPanelPlacement();
+        QCOMPARE(Settings::tagPanelPlacement(), Settings::EnumTagPanelPlacement::Below);
+        QVERIFY(!remembered());
+        TaggingSettings::migrateTagPanelPlacement();
+        QCOMPARE(Settings::tagPanelPlacement(), Settings::EnumTagPanelPlacement::Below);
+
+        // A new window migrates the entry before placing the panel.
+        Settings::self()->setDefaults();
+        Settings::self()->save();
+        rememberPlacement(QStringLiteral("below"));
+        MainWindow window;
+        auto *dock = window.findChild<QDockWidget *>(QStringLiteral("tagDock"));
+        QVERIFY(dock);
+        QVERIFY(!remembered());
+        const auto area = [&window, dock] {
+            return window.dockWidgetArea(dock) == Qt::BottomDockWidgetArea ? Settings::EnumTagPanelPlacement::Below : Settings::EnumTagPanelPlacement::Right;
+        };
+        QCOMPARE(area(), Settings::tagPanelPlacement());
+
+        // Preferences move the panel of an open window.
+        Settings::setTagPanelPlacement(Settings::EnumTagPanelPlacement::Right);
+        window.applySettings();
+        QCOMPARE(window.dockWidgetArea(dock), Qt::RightDockWidgetArea);
+        Settings::setTagPanelPlacement(Settings::EnumTagPanelPlacement::Below);
+        window.applySettings();
+        QCOMPARE(window.dockWidgetArea(dock), Qt::BottomDockWidgetArea);
+        QCOMPARE(Settings::tagPanelPlacement(), Settings::EnumTagPanelPlacement::Below);
     }
 
     void dialogHasAWidgetForEverySetting()
@@ -1201,6 +1265,14 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("NewLibraryStorage")), QStringLiteral("Privacy"));
         QCOMPARE(tabOf(QStringLiteral("LibraryExclusions")), QStringLiteral("Libraries"));
         QCOMPARE(tabOf(QStringLiteral("AutomaticLibraryRefresh")), QStringLiteral("Libraries"));
+        for (const QString &entry : {QStringLiteral("TagPanelPlacement"),
+                                     QStringLiteral("ShowTagColors"),
+                                     QStringLiteral("DefaultTagColor"),
+                                     QStringLiteral("ShowTagsInInformationPanel"),
+                                     QStringLiteral("ShowInheritedTags"),
+                                     QStringLiteral("TagMatchesChildTags")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("Tags"));
+        }
         QCOMPARE(tabOf(QStringLiteral("InterfaceLanguage")), QStringLiteral("Language and Layout"));
         QCOMPARE(tabOf(QStringLiteral("CustomDateFormat")), QStringLiteral("Dates"));
         QCOMPARE(tabOf(QStringLiteral("StartupMode")), QStringLiteral("Folders and Tabs"));

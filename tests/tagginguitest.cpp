@@ -727,10 +727,92 @@ private Q_SLOTS:
         QCOMPARE(tags->text(), QStringLiteral("Child"));
         QVERIFY(tags->toolTip().contains(QStringLiteral("Tag")));
 
+        // Inherited tags can follow the item's own tags, and the tags can be hidden.
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        const KFileItem child(QUrl::fromLocalFile(dir.filePath(QStringLiteral("b.txt"))));
+        Settings::setShowInheritedTags(true);
+        panel.setItem(child);
+        QCOMPARE(tags->text(), QStringLiteral("Child, Tag (inherited)"));
+        QVERIFY(tags->toolTip().contains(QStringLiteral("Tag")));
+        panel.setItem(KFileItem(QUrl::fromLocalFile(dir.filePath(QStringLiteral("a.txt")))));
+        QCOMPARE(tags->text(), QStringLiteral("Tag"));
+        Settings::setShowTagsInInformationPanel(false);
+        panel.setItem(child);
+        QVERIFY(tags->isHidden());
+        Settings::setShowTagsInInformationPanel(true);
+        panel.setItem(child);
+        QVERIFY(!tags->isHidden());
+        Settings::setShowInheritedTags(false);
+
         QTemporaryDir outside;
         write(outside.filePath(QStringLiteral("c.txt")));
         panel.setItem(KFileItem(QUrl::fromLocalFile(outside.filePath(QStringLiteral("c.txt")))));
         QVERIFY(tags->isHidden());
+    }
+
+    void appliesTheTagsSettings()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        write(dir.filePath(QStringLiteral("a.txt")));
+        QCOMPARE(LibraryRegistry::create(dir.path()), QString());
+        indexWithTag(dir.path(), {});
+        const KFileItem a(QUrl::fromLocalFile(dir.filePath(QStringLiteral("a.txt"))));
+
+        // New tags get the default colour, if it is valid.
+        Settings::setDefaultTagColor(QStringLiteral("#AA3355"));
+        TagPanel panel;
+        panel.setContext(QUrl::fromLocalFile(dir.path()), {a});
+        QVERIFY(panel.createAndAssign(QStringLiteral("Red")));
+        Settings::setDefaultTagColor(QStringLiteral("crimson"));
+        QVERIFY(panel.createAndAssign(QStringLiteral("Plain")));
+        TagLibrary::Library library = TagLibrary::Library::load(dir.path());
+        QCOMPARE(library.tag(library.findTags(QStringLiteral("Red")).constFirst())->color, QStringLiteral("#aa3355"));
+        QVERIFY(library.tag(library.findTags(QStringLiteral("Plain")).constFirst())->color.isEmpty());
+
+        Settings::setDefaultTagColor(QStringLiteral("#112233"));
+        TagManagerWidget manager;
+        manager.setLibrary(dir.path());
+        TagEditDialog *dialog = manager.createTag();
+        QVERIFY(dialog);
+        QVERIFY(dialog->findChild<QCheckBox *>(QStringLiteral("tagUseColor"))->isChecked());
+        QCOMPARE(dialog->tag().color, QStringLiteral("#112233"));
+        dialog->reject();
+        Settings::setDefaultTagColor(QString());
+        dialog = manager.createTag();
+        QVERIFY(!dialog->findChild<QCheckBox *>(QStringLiteral("tagUseColor"))->isChecked());
+        QVERIFY(dialog->tag().color.isEmpty());
+        dialog->reject();
+
+        // Hidden colours show a plain tag icon and stay stored.
+        const auto centre = [](const QIcon &icon) {
+            return icon.pixmap(16, 16).toImage().pixelColor(8, 8);
+        };
+        QCOMPARE(centre(tagColorIcon(QStringLiteral("#aa3355"))), QColor(QStringLiteral("#aa3355")));
+        auto *list = panel.findChild<QTreeWidget *>(QStringLiteral("tagPanelList"));
+        const auto iconOf = [list](const QString &name) {
+            for (int i = 0; i < list->topLevelItemCount(); ++i) {
+                if (list->topLevelItem(i)->text(0) == name) {
+                    return list->topLevelItem(i)->icon(0);
+                }
+            }
+            return QIcon();
+        };
+        QCOMPARE(centre(iconOf(QStringLiteral("Red"))), QColor(QStringLiteral("#aa3355")));
+        Settings::setShowTagColors(false);
+        QVERIFY(centre(tagColorIcon(QStringLiteral("#aa3355"))) != QColor(QStringLiteral("#aa3355")));
+        panel.reload();
+        QVERIFY(centre(iconOf(QStringLiteral("Red"))) != QColor(QStringLiteral("#aa3355")));
+        library = TagLibrary::Library::load(dir.path());
+        QCOMPARE(library.tag(library.findTags(QStringLiteral("Red")).constFirst())->color, QStringLiteral("#aa3355"));
+        Settings::setShowTagColors(true);
     }
 
     void editsFieldValues()

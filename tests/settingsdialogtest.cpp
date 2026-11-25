@@ -27,6 +27,7 @@
 #include "workspacerestore.h"
 
 #include <KActionCollection>
+#include <KColorButton>
 #include <KConfig>
 #include <KConfigGroup>
 #include <KEditListWidget>
@@ -331,6 +332,95 @@ private Q_SLOTS:
         remove->click();
         QVERIFY(LibraryRegistry::contains(other));
         QCOMPARE(libraries->topLevelItemCount(), 2);
+    }
+
+    void taggingTagsSettings()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+
+        // The Tags tab follows Libraries.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("taggingTagsPage"));
+        auto *scroll = dialog.findChild<QWidget *>(QStringLiteral("taggingTagsScroll"));
+        QVERIFY(page && scroll);
+        auto *tabs = qobject_cast<QTabWidget *>(scroll->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->tabText(tabs->indexOf(scroll)), QStringLiteral("Tags"));
+        QCOMPARE(tabs->indexOf(scroll), tabs->indexOf(dialog.findChild<QWidget *>(QStringLiteral("taggingLibrariesScroll"))) + 1);
+
+        auto *placement = page->findChild<QComboBox *>(QStringLiteral("kcfg_TagPanelPlacement"));
+        auto *showColors = page->findChild<QCheckBox *>(QStringLiteral("kcfg_ShowTagColors"));
+        auto *defaultColor = page->findChild<TagColorChooser *>(QStringLiteral("kcfg_DefaultTagColor"));
+        auto *showTags = page->findChild<QCheckBox *>(QStringLiteral("kcfg_ShowTagsInInformationPanel"));
+        auto *showInherited = page->findChild<QCheckBox *>(QStringLiteral("kcfg_ShowInheritedTags"));
+        auto *childTags = page->findChild<QCheckBox *>(QStringLiteral("kcfg_TagMatchesChildTags"));
+        QVERIFY(placement && showColors && defaultColor && showTags && showInherited && childTags);
+        auto *colorEnabled = defaultColor->findChild<QCheckBox *>(QStringLiteral("defaultTagColorEnabled"));
+        auto *colorButton = defaultColor->findChild<KColorButton *>(QStringLiteral("defaultTagColorButton"));
+        QVERIFY(colorEnabled && colorButton);
+        QVERIFY(page->findChild<QLabel *>(QStringLiteral("taggingChildTagsHelp"))->text().contains(QStringLiteral("tag=")));
+
+        // Defaults: the panel on the right, colours shown, no colour for new tags, direct tags only and child tags matched.
+        QCOMPARE(placement->count(), 2);
+        QCOMPARE(placement->currentIndex(), int(Settings::EnumTagPanelPlacement::Right));
+        QVERIFY(showColors->isChecked());
+        QVERIFY(defaultColor->color().isEmpty());
+        QVERIFY(!colorEnabled->isChecked());
+        QVERIFY(!colorButton->isEnabled());
+        QVERIFY(showTags->isChecked());
+        QVERIFY(!showInherited->isChecked());
+        QVERIFY(showInherited->isEnabled());
+        QVERIFY(childTags->isChecked());
+        QVERIFY(TaggingSettings::tagSearchOptions().childTags);
+        QVERIFY(TaggingSettings::defaultTagColor().isEmpty());
+
+        // Inherited tags are only listed where tags are shown.
+        showTags->setChecked(false);
+        QVERIFY(!showInherited->isEnabled());
+        showTags->setChecked(true);
+        QVERIFY(showInherited->isEnabled());
+
+        // Checking the colour enables the button and reports its colour.
+        QSignalSpy colorChanged(defaultColor, &TagColorChooser::colorChanged);
+        colorEnabled->setChecked(true);
+        QVERIFY(colorButton->isEnabled());
+        QCOMPARE(colorChanged.size(), 1);
+        colorButton->setColor(QColor(QStringLiteral("#AA3355")));
+        QCOMPARE(defaultColor->color(), QStringLiteral("#aa3355"));
+
+        placement->setCurrentIndex(int(Settings::EnumTagPanelPlacement::Below));
+        showColors->setChecked(false);
+        showInherited->setChecked(true);
+        childTags->setChecked(false);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::tagPanelPlacement(), Settings::EnumTagPanelPlacement::Below);
+        QVERIFY(!Settings::showTagColors());
+        QCOMPARE(Settings::defaultTagColor(), QStringLiteral("#aa3355"));
+        QVERIFY(Settings::showInheritedTags());
+        QVERIFY(!Settings::tagMatchesChildTags());
+        QVERIFY(!TaggingSettings::tagSearchOptions().childTags);
+        QCOMPARE(TaggingSettings::defaultTagColor(), QStringLiteral("#aa3355"));
+
+        // No default colour saves an empty value.
+        colorEnabled->setChecked(false);
+        QVERIFY(!colorButton->isEnabled());
+        QVERIFY(defaultColor->color().isEmpty());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::defaultTagColor().isEmpty());
+
+        // A value that isn't #rrggbb reads as no colour.
+        defaultColor->setColor(QStringLiteral("#123456"));
+        QVERIFY(colorEnabled->isChecked());
+        QCOMPARE(defaultColor->color(), QStringLiteral("#123456"));
+        defaultColor->setColor(QStringLiteral("red"));
+        QVERIFY(!colorEnabled->isChecked());
+        QVERIFY(defaultColor->color().isEmpty());
+        Settings::setDefaultTagColor(QStringLiteral("#12345"));
+        QVERIFY(TaggingSettings::defaultTagColor().isEmpty());
+        Settings::setDefaultTagColor(QStringLiteral(" #ABCDEF "));
+        QCOMPARE(TaggingSettings::defaultTagColor(), QStringLiteral("#abcdef"));
+        Settings::self()->setDefaults();
+        Settings::self()->save();
     }
 
     void brandingPresentationSettings()
