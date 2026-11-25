@@ -94,14 +94,14 @@ All of them match. Two differences are known and asserted in
 Measured in the dev container (Fedora 44, aarch64, rustc 1.100, Corrosion
 0.5.2):
 
-| Item | Cost |
-|---|---|
-| Toolchain | `rust`, `cargo`, `rustfmt`, `clippy` and `corrosion` packages in the dev image; distributions need the same to build with the option on |
-| Crate build | under a second from clean, debug or release; no third-party crates |
-| Static library | about 45 MB, almost all of it the Rust standard library, which the linker mostly discards |
-| Linked size | the debug comparison test is 1.3 MB stripped, against 0.2 MB for `searchquerytest`; about 0.6 MB is Rust code |
-| Source | 650 lines of Rust for the parser and 150 for the ABI, against 670 lines of C++ for the parser and evaluator |
-| Tooling | `cargo fmt` and `cargo clippy -D warnings` alongside clang-format; a second test runner under ctest |
+| Item           | Cost                                                                                                                                    |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Toolchain      | `rust`, `cargo`, `rustfmt`, `clippy` and `corrosion` packages in the dev image; distributions need the same to build with the option on |
+| Crate build    | under a second from clean, debug or release; no third-party crates                                                                      |
+| Static library | about 45 MB, almost all of it the Rust standard library, which the linker mostly discards                                               |
+| Linked size    | the debug comparison test is 1.3 MB stripped, against 0.2 MB for `searchquerytest`; about 0.6 MB is Rust code                           |
+| Source         | 650 lines of Rust for the parser and 150 for the ABI, against 670 lines of C++ for the parser and evaluator                             |
+| Tooling        | `cargo fmt` and `cargo clippy -D warnings` alongside clang-format; a second test runner under ctest                                     |
 
 The larger maintenance cost is keeping two implementations equivalent:
 every change to the query syntax or its messages must be made twice and kept
@@ -129,5 +129,33 @@ as a reference for the boundary patterns: status codes, Rust-owned buffers
 with an explicit free function, panic containment, surrogate-safe encoding
 and comparison testing.
 
+## M23 tagging evaluation
+
+M23 ([#250]) applied these criteria to the three candidate areas for native
+tagging. The decision is to implement the tagging core in C++, in
+`src/core/`, and to keep Rust limited to the M21 prototype.
+
+| Area                                                                              | CPU-bound or untrusted input                                                                        | Qt or KDE needs                                                                 | Text and errors                                                                                                                                                               | Fit  |
+| --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
+| Tag relationships: identities, aliases, parents, cycle checks, inherited matching | No; a library holds hundreds to a few thousand tags, and ancestor sets are computed once per search | Colours as `QColor` names, localized names in the UI                            | Duplicate-name and cycle errors are user-visible, so they need codes and a second catalogue                                                                                   | Poor |
+| Library metadata: the open JSON format, entries, fields, export and restore       | No; loading and saving are dominated by disk I/O                                                    | `QJsonDocument`, `QSaveFile` for atomic writes, `QStandardPaths` test isolation | Paths are arbitrary bytes on Linux, so the ABI would need byte strings; a JSON parser in Rust means a third-party crate such as `serde_json`, which distributions must vendor | Poor |
+| Search logic: tag, untagged and metadata terms in advanced queries                | Matching is per entry and cheap; refresh and search are I/O-bound                                   | `QFileInfo`, `QMimeDatabase`, and `KFileMetaData` for EXIF and ID3              | The query parser stays in C++ after M21, so tag terms extend it                                                                                                               | Poor |
+
+None of the areas is a profiled hotspot, and each depends on Qt or KDE for
+most of its work. Moving them to Rust would add callbacks into Qt, a
+byte-oriented path ABI and a second error catalogue, while the C++ versions
+reuse existing tested facilities. A library refresh walks folders and calls
+`stat()`, so its cost is the file system, not the language.
+
+Tag search terms extend the C++ query parser, so the Rust prototype must
+mirror them to keep its comparison test passing. That is the dual-maintenance
+cost M21 identified, and another reason not to split the search logic.
+
+Revisit this decision if profiling shows that loading, matching or saving very
+large libraries, with hundreds of thousands of entries, is CPU-bound. Because
+the library format is open and documented, a later implementation in any
+language can read and write it.
+
 [#242]: https://github.com/mikepadiernos/plasma-opus/issues/242
+[#250]: https://github.com/mikepadiernos/plasma-opus/issues/250
 [Corrosion]: https://github.com/corrosion-rs/corrosion
