@@ -1176,6 +1176,9 @@ rather than requiring TagStudio or changing the user's folder structure.
       confirmation; never modify or delete original files during either
       operation
 
+**Caveats:** [Native tagging](CAVEATS.md#native-tagging), tracked in
+[#714](https://github.com/mikepadiernos/plasma-opus/issues/714).
+
 ### M24: Tagging settings
 
 **Project:**
