@@ -22,6 +22,7 @@
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QVariantAnimation>
+#include <QtMath>
 
 #include <algorithm>
 
@@ -42,6 +43,26 @@ void setTextColor(QWidget *widget, const QColor &color)
     palette.setColor(QPalette::WindowText, color);
     palette.setColor(QPalette::Text, color);
     widget->setPalette(palette);
+}
+
+int cardMargin(const QStyle *style)
+{
+    return style->pixelMetric(QStyle::PM_LayoutLeftMargin) * 2;
+}
+
+void paintCard(QPainter &painter, const QRectF &rect, const Branding::PresentationColors &colors, bool highContrast, const QStyle *style)
+{
+    painter.setRenderHint(QPainter::Antialiasing);
+    const int border = highContrast ? 2 : 1;
+    QColor outline = colors.text;
+    if (!highContrast) {
+        outline.setAlphaF(0.2);
+    }
+    painter.setPen(QPen(outline, border));
+    painter.setBrush(colors.background);
+    const qreal inset = border / 2.0;
+    const int radius = AppearanceStyle::cornerRadius(style->pixelMetric(QStyle::PM_LayoutLeftMargin));
+    painter.drawRoundedRect(rect.adjusted(inset, inset, -inset, -inset), radius, radius);
 }
 }
 
@@ -91,7 +112,7 @@ StartupPresentation::StartupPresentation(QWidget *window, Branding::LogoVariant 
     }
 
     auto *layout = new QVBoxLayout(this);
-    const int margin = style()->pixelMetric(QStyle::PM_LayoutLeftMargin) * 2;
+    const int margin = cardMargin(style());
     layout->setContentsMargins(margin, margin, margin, margin);
     layout->addWidget(m_logo);
     layout->addWidget(versionLabel);
@@ -199,17 +220,46 @@ void StartupPresentation::paintEvent(QPaintEvent *event)
 {
     Q_UNUSED(event)
     QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing);
-    const int border = m_highContrast ? 2 : 1;
-    QColor outline = m_colors.text;
-    if (!m_highContrast) {
-        outline.setAlphaF(0.2);
+    paintCard(painter, rect(), m_colors, m_highContrast, style());
+}
+
+QPixmap StartupPresentation::renderLogo(const Branding::PresentationColors &colors, int logicalWidth, qreal devicePixelRatio)
+{
+    initBrandingResources();
+    QFile file(QStringLiteral(":/branding/plasma-opus-logo.svg"));
+    if (logicalWidth <= 0 || !file.open(QIODevice::ReadOnly)) {
+        return {};
     }
-    painter.setPen(QPen(outline, border));
-    painter.setBrush(m_colors.background);
-    const qreal inset = border / 2.0;
-    const int radius = AppearanceStyle::cornerRadius(style()->pixelMetric(QStyle::PM_LayoutLeftMargin));
-    painter.drawRoundedRect(QRectF(rect()).adjusted(inset, inset, -inset, -inset), radius, radius);
+    QByteArray svg = Branding::recolor(file.readAll(), colors.text, colors.accent);
+    QBuffer buffer(&svg);
+    QImageReader reader(&buffer, "svg");
+    const QSize logical(logicalWidth, logicalWidth * LogoSize.height() / LogoSize.width());
+    reader.setScaledSize(logical * devicePixelRatio);
+    QImage image = reader.read();
+    if (image.isNull()) {
+        return {};
+    }
+    image.setDevicePixelRatio(devicePixelRatio);
+    return QPixmap::fromImage(image);
+}
+
+QPixmap StartupPresentation::preview(Branding::LogoVariant variant, const QPalette &palette, bool highContrast, int logicalWidth, qreal devicePixelRatio)
+{
+    const QStyle *style = QApplication::style();
+    const int margin = cardMargin(style);
+    const QPixmap logo = renderLogo(Branding::presentationColors(variant, palette, highContrast), logicalWidth - 2 * margin, devicePixelRatio);
+    if (logo.isNull()) {
+        return {};
+    }
+    const QSizeF logoSize = logo.deviceIndependentSize();
+    const QSize card(logicalWidth, qCeil(logoSize.height()) + 2 * margin);
+    QPixmap pixmap(card * devicePixelRatio);
+    pixmap.setDevicePixelRatio(devicePixelRatio);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    paintCard(painter, QRectF(QPointF(), card), Branding::presentationColors(variant, palette, highContrast), highContrast, style);
+    painter.drawPixmap(QPointF(margin, margin), logo);
+    return pixmap;
 }
 
 void StartupPresentation::updateLogo()
@@ -220,26 +270,13 @@ void StartupPresentation::updateLogo()
     const QMargins margins = contentsMargins() + layout()->contentsMargins();
     const int available = m_window->width() - 2 * (margins.left() + margins.right());
     const int width = std::clamp(available, PreferredLogoWidth / 2, PreferredLogoWidth);
-    const QSize logical(width, width * LogoSize.height() / LogoSize.width());
-    if (!m_logo->pixmap().isNull() && m_logo->pixmap().deviceIndependentSize().toSize() == logical) {
+    if (!m_logo->pixmap().isNull() && qRound(m_logo->pixmap().deviceIndependentSize().width()) == width) {
         return;
     }
-
-    QFile file(QStringLiteral(":/branding/plasma-opus-logo.svg"));
-    if (!file.open(QIODevice::ReadOnly)) {
-        return;
+    const QPixmap logo = renderLogo(m_colors, width, m_window->devicePixelRatioF());
+    if (!logo.isNull()) {
+        m_logo->setPixmap(logo);
     }
-    QByteArray svg = Branding::recolor(file.readAll(), m_colors.text, m_colors.accent);
-    QBuffer buffer(&svg);
-    QImageReader reader(&buffer, "svg");
-    const qreal ratio = m_window->devicePixelRatioF();
-    reader.setScaledSize(logical * ratio);
-    QImage image = reader.read();
-    if (image.isNull()) {
-        return;
-    }
-    image.setDevicePixelRatio(ratio);
-    m_logo->setPixmap(QPixmap::fromImage(image));
 }
 
 void StartupPresentation::reposition()
