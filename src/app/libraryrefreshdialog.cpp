@@ -7,11 +7,14 @@
 #include <KLocalizedString>
 
 #include <QDialogButtonBox>
+#include <QIcon>
 #include <QLabel>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
+
+#include <algorithm>
 
 LibraryRefreshDialog::LibraryRefreshDialog(const QString &root, QWidget *parent)
     : QDialog(parent)
@@ -19,6 +22,7 @@ LibraryRefreshDialog::LibraryRefreshDialog(const QString &root, QWidget *parent)
     , m_status(new QLabel(this))
     , m_progress(new QProgressBar(this))
     , m_buttons(new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Close, this))
+    , m_review(m_buttons->addButton(i18nc("@action:button", "&Review Missing Entries…"), QDialogButtonBox::ActionRole))
     , m_canceled(std::make_shared<std::atomic_bool>(false))
     , m_scanned(std::make_shared<std::atomic_int>(0))
 {
@@ -38,6 +42,12 @@ LibraryRefreshDialog::LibraryRefreshDialog(const QString &root, QWidget *parent)
     layout->addWidget(m_status);
     layout->addWidget(m_buttons);
     m_buttons->button(QDialogButtonBox::Close)->hide();
+    m_review->setObjectName(QStringLiteral("libraryReviewMissing"));
+    m_review->setIcon(QIcon::fromTheme(QStringLiteral("link")));
+    m_review->hide();
+    connect(m_review, &QPushButton::clicked, this, [this] {
+        Q_EMIT reviewRequested(m_root);
+    });
     connect(m_buttons->button(QDialogButtonBox::Cancel), &QPushButton::clicked, this, &LibraryRefreshDialog::cancel);
     connect(m_buttons->button(QDialogButtonBox::Close), &QPushButton::clicked, this, &QDialog::accept);
     m_progressTimer.setInterval(100);
@@ -69,6 +79,7 @@ void LibraryRefreshDialog::start()
     m_progress->show();
     m_buttons->button(QDialogButtonBox::Cancel)->show();
     m_buttons->button(QDialogButtonBox::Close)->hide();
+    m_review->hide();
     m_progressTimer.start();
     const QString root = m_root;
     const auto canceled = m_canceled;
@@ -106,6 +117,11 @@ TagLibrary::ScanChanges LibraryRefreshDialog::changes() const
     return m_changes;
 }
 
+int LibraryRefreshDialog::missingEntries() const
+{
+    return m_missingEntries;
+}
+
 QString LibraryRefreshDialog::message() const
 {
     return m_message;
@@ -126,16 +142,22 @@ void LibraryRefreshDialog::finish()
     const LibraryScan::Result result = m_watcher.result();
     QString error;
     TagLibrary::ScanChanges changes;
+    int missing = 0;
     const bool complete = !result.canceled && result.errors.isEmpty();
-    const bool saved = !result.items.isEmpty() || complete ? TagLibrary::update(
-                                                                 m_root,
-                                                                 [&](TagLibrary::Library &library, QString *) {
-                                                                     changes = library.applyScan(result.items, complete);
-                                                                     return true;
-                                                                 },
-                                                                 &error)
-                                                           : true;
+    const bool saved = !result.items.isEmpty() || complete
+        ? TagLibrary::update(
+              m_root,
+              [&](TagLibrary::Library &library, QString *) {
+                  changes = library.applyScan(result.items, complete);
+                  missing = int(std::count_if(library.entries().cbegin(), library.entries().cend(), [](const TagLibrary::Entry &entry) {
+                      return entry.missing;
+                  }));
+                  return true;
+              },
+              &error)
+        : true;
     m_changes = changes;
+    m_missingEntries = saved ? missing : 0;
     QStringList lines;
     if (!saved) {
         lines.append(error);
@@ -171,6 +193,7 @@ void LibraryRefreshDialog::finish()
     m_progress->hide();
     m_buttons->button(QDialogButtonBox::Cancel)->hide();
     m_buttons->button(QDialogButtonBox::Close)->show();
+    m_review->setVisible(m_missingEntries > 0);
     m_buttons->button(QDialogButtonBox::Close)->setFocus();
     if (saved) {
         Q_EMIT libraryChanged(m_root);

@@ -39,6 +39,8 @@ public:
     void removeLibrary();
     /// Indexes or refreshes @p root with progress; returns the dialog.
     QWidget *refreshLibrary(const QString &root);
+    /// Opens the review of missing entries in @p root; returns the dialog.
+    QWidget *reviewLibrary(const QString &root);
 
 Q_SIGNALS:
     /// A library was created, removed or changed.

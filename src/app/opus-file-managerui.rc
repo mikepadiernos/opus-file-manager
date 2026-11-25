@@ -132,6 +132,9 @@
     <Menu name="tags">
       <text>&amp;Tags</text>
       <Action name="create_library"/>
+      <Action name="refresh_library"/>
+      <Action name="review_library"/>
+      <Separator/>
       <Action name="remove_library"/>
     </Menu>
     <Menu name="settings">

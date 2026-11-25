@@ -55,8 +55,12 @@ add_library(opusfm_app STATIC
     imagebackground.h
     informationpanel.cpp
     informationpanel.h
+    librarymovetracker.cpp
+    librarymovetracker.h
     libraryrefreshdialog.cpp
     libraryrefreshdialog.h
+    libraryreviewdialog.cpp
+    libraryreviewdialog.h
     mainwindow.cpp
     mainwindow.h
     metadataeditdialog.cpp

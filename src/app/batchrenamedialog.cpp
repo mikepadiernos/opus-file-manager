@@ -3,6 +3,7 @@
 #include "batchrenamedialog.h"
 
 #include "imagedetails.h"
+#include "librarymovetracker.h"
 
 #include <KLocalizedString>
 
@@ -366,6 +367,13 @@ BatchRenameDialog::BatchRenameDialog(const QStringList &paths, QWidget *parent, 
         const auto result = m_applyWatcher.result();
         m_cancel->setEnabled(false);
         m_apply->setEnabled(false);
+        QList<LibraryMoves::Move> moves;
+        for (const auto &row : std::as_const(m_plan.rows)) {
+            if (row.source != row.destination && result.renamed.contains(row.destination)) {
+                moves.append({row.source, row.destination, row.device, row.inode});
+            }
+        }
+        LibraryMoveTracker::instance()->apply(moves);
         for (int i = 0; i < m_plan.rows.size(); ++i) {
             const auto &row = m_plan.rows.at(i);
             const QString state = result.renamed.contains(row.destination) ? i18nc("@info:status", "Renamed")
@@ -474,13 +482,14 @@ void BatchRenameDialog::apply()
     if (!m_plan.valid() || m_previewWatcher.isRunning() || m_applyWatcher.isRunning()) {
         return;
     }
-    if (QMessageBox::question(this,
-                              i18nc("@title:window", "Confirm Batch Rename"),
-                              i18nc("@info",
-                                    "Rename the previewed items? Completed renames cannot be undone by this tool. "
-                                    "Folder labels, colors, ratings, notes and pins remain attached to the old names."),
-                              QMessageBox::Yes | QMessageBox::No,
-                              QMessageBox::No)
+    if (QMessageBox::question(
+            this,
+            i18nc("@title:window", "Confirm Batch Rename"),
+            i18nc("@info",
+                  "Rename the previewed items? Completed renames cannot be undone by this tool. "
+                  "Folder labels, colors, ratings, notes and pins remain attached to the old names; tags in libraries follow the renamed items."),
+            QMessageBox::Yes | QMessageBox::No,
+            QMessageBox::No)
         != QMessageBox::Yes) {
         return;
     }
