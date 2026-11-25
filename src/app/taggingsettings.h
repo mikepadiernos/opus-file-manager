@@ -12,6 +12,9 @@ namespace TaggingSettings
 /// Where new libraries keep their document, from Preferences › Tagging › Privacy.
 TagLibrary::Storage newLibraryStorage();
 
+/// The fields new library documents start with, from Preferences › Tagging › Fields.
+QList<TagLibrary::Field> newLibraryFields();
+
 /// What library refreshes index, from Preferences › Tagging › Libraries.
 LibraryScan::Options scanOptions();
 

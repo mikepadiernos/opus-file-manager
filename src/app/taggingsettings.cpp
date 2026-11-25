@@ -13,6 +13,11 @@ TagLibrary::Storage TaggingSettings::newLibraryStorage()
                                                                                            : TagLibrary::Storage::LibraryFolder;
 }
 
+QList<TagLibrary::Field> TaggingSettings::newLibraryFields()
+{
+    return TagLibrary::parseFieldTemplates(Settings::newLibraryFields());
+}
+
 LibraryScan::Options TaggingSettings::scanOptions()
 {
     LibraryScan::Options options;

@@ -184,7 +184,7 @@ void TaggingController::createLibrary()
     if (!LibraryConfirmations::ask(m_window, confirmation)) {
         return;
     }
-    if (const QString error = LibraryRegistry::create(root, storage); !error.isEmpty()) {
+    if (const QString error = LibraryRegistry::create(root, storage, TaggingSettings::newLibraryFields()); !error.isEmpty()) {
         KMessageBox::error(m_window, error, confirmation.title);
         return;
     }

@@ -21,6 +21,7 @@
 #include "settingsbackup.h"
 #include "settingswidgets.h"
 #include "startuppresentation.h"
+#include "tagfieldmanagerwidget.h"
 #include "taggingsettings.h"
 #include "taglibrary.h"
 #include "themeprofiles.h"
@@ -239,7 +240,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     addTabbedPage({{createTaggingPrivacyPage(), i18nc("@title:tab", "Privacy")},
                    {createTaggingLibrariesPage(), i18nc("@title:tab", "Libraries")},
                    {createTaggingTagsPage(), i18nc("@title:tab", "Tags")},
-                   {createTaggingSearchPage(), i18nc("@title:tab", "Search")}},
+                   {createTaggingSearchPage(), i18nc("@title:tab", "Search")},
+                   {createTaggingFieldsPage(), i18nc("@title:tab", "Fields")}},
                   i18nc("@title:group", "Tagging"),
                   QStringLiteral("tag"));
     addTabbedPage({{createWorkspaceManagementPage(), i18nc("@title:tab", "Management")},
@@ -2888,6 +2890,90 @@ QWidget *SettingsDialog::createTaggingSearchPage()
     return scroll;
 }
 
+QWidget *SettingsDialog::createTaggingFieldsPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("taggingFieldsPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *libraryFields = new QGroupBox(i18nc("@title:group", "Library Fields"), page);
+    auto *libraryLayout = new QVBoxLayout(libraryFields);
+    auto *pickerForm = new QFormLayout;
+    m_fieldLibrary = new QComboBox(libraryFields);
+    m_fieldLibrary->setObjectName(QStringLiteral("taggingFieldLibrary"));
+    m_fieldLibrary->setSizeAdjustPolicy(QComboBox::AdjustToMinimumContentsLengthWithIcon);
+    m_fieldLibrary->setMinimumContentsLength(30);
+    pickerForm->addRow(i18nc("@label:listbox", "Library:"), m_fieldLibrary);
+    libraryLayout->addLayout(pickerForm);
+    m_noFieldLibraries =
+        new QLabel(i18nc("@info", "There are no libraries yet. Add one in the Libraries tab or with Tags › Create Library from Folder."), libraryFields);
+    m_noFieldLibraries->setObjectName(QStringLiteral("taggingNoFieldLibraries"));
+    m_noFieldLibraries->setWordWrap(true);
+    libraryLayout->addWidget(m_noFieldLibraries);
+    m_fieldManager = new TagFieldManagerWidget(libraryFields);
+    m_fieldManager->setObjectName(QStringLiteral("taggingFieldManager"));
+    m_fieldManager->setMinimumHeight(200);
+    libraryLayout->addWidget(m_fieldManager, 1);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Changes to a library's fields are saved to its metadata immediately, even if you cancel Preferences. Deleting a "
+                                  "field removes its values from every item; no files are changed."),
+                            libraryFields);
+    note->setObjectName(QStringLiteral("taggingFieldsNote"));
+    note->setWordWrap(true);
+    libraryLayout->addWidget(note);
+    layout->addWidget(libraryFields, 1);
+
+    connect(m_fieldLibrary, &QComboBox::currentIndexChanged, this, [this] {
+        m_fieldManager->setLibrary(m_fieldLibrary->currentData().toString());
+    });
+    connect(m_fieldManager, &TagFieldManagerWidget::libraryChanged, this, &SettingsDialog::libraryChanged);
+
+    auto *newLibraries = new QGroupBox(i18nc("@title:group", "Fields for New Libraries"), page);
+    auto *newLayout = new QVBoxLayout(newLibraries);
+    auto *templates = bound(new FieldTemplateEditor(newLibraries), QStringLiteral("NewLibraryFields"), "templates");
+    templates->setMinimumHeight(140);
+    newLayout->addWidget(templates);
+    auto *templatesHelp = new QLabel(i18nc("@info",
+                                           "A library created from now on starts with these fields, in this order. Existing libraries, and "
+                                           "library metadata that is adopted when a folder is added again, aren't changed."),
+                                     newLibraries);
+    templatesHelp->setObjectName(QStringLiteral("taggingFieldTemplatesHelp"));
+    templatesHelp->setWordWrap(true);
+    newLayout->addWidget(templatesHelp);
+    layout->addWidget(newLibraries);
+
+    reloadFieldLibraries();
+
+    auto *scroll = new QScrollArea;
+    scroll->setObjectName(QStringLiteral("taggingFieldsScroll"));
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setWidgetResizable(true);
+    scroll->setWidget(page);
+    return scroll;
+}
+
+void SettingsDialog::reloadFieldLibraries()
+{
+    if (!m_fieldLibrary) {
+        return;
+    }
+    const QString current = m_fieldLibrary->currentData().toString();
+    const QStringList roots = LibraryRegistry::roots();
+    {
+        const QSignalBlocker blocker(m_fieldLibrary);
+        m_fieldLibrary->clear();
+        for (const QString &root : roots) {
+            m_fieldLibrary->addItem(QIcon::fromTheme(QStringLiteral("folder")), root, root);
+            m_fieldLibrary->setItemData(m_fieldLibrary->count() - 1, root, Qt::ToolTipRole);
+        }
+        m_fieldLibrary->setCurrentIndex(std::max(0, int(m_fieldLibrary->findData(current))));
+    }
+    m_fieldLibrary->setEnabled(!roots.isEmpty());
+    m_noFieldLibraries->setVisible(roots.isEmpty());
+    m_fieldManager->setVisible(!roots.isEmpty());
+    m_fieldManager->setLibrary(m_fieldLibrary->currentData().toString());
+}
+
 void SettingsDialog::reloadLibraries(const QString &select)
 {
     if (!m_libraries) {
@@ -2928,6 +3014,7 @@ void SettingsDialog::reloadLibraries(const QString &select)
         m_libraries->setCurrentItem(current);
     }
     updateLibraryButtons();
+    reloadFieldLibraries();
 }
 
 QString SettingsDialog::selectedLibrary() const
@@ -2960,18 +3047,22 @@ void SettingsDialog::addLibrary()
         reloadLibraries(root);
         return;
     }
-    // The Privacy tab's choice applies here even before it is saved, as the user sees it.
+    // The Privacy and Fields tabs' choices apply here even before they are saved, as the user sees them.
     TagLibrary::Storage preferred = TaggingSettings::newLibraryStorage();
     if (const auto *storage = findChild<QComboBox *>(QStringLiteral("kcfg_NewLibraryStorage"))) {
         preferred =
             storage->currentIndex() == Settings::EnumNewLibraryStorage::PrivateFolder ? TagLibrary::Storage::PrivateFolder : TagLibrary::Storage::LibraryFolder;
     }
     const TagLibrary::Storage storage = LibraryRegistry::storageFor(root, preferred);
+    QList<TagLibrary::Field> fields = TaggingSettings::newLibraryFields();
+    if (const auto *templates = findChild<FieldTemplateEditor *>(QStringLiteral("kcfg_NewLibraryFields"))) {
+        fields = TagLibrary::parseFieldTemplates(templates->templates());
+    }
     const LibraryConfirmations::Confirmation confirmation = LibraryConfirmations::create(root, storage, preferred);
     if (!m_confirmLibrary(confirmation)) {
         return;
     }
-    if (const QString error = LibraryRegistry::create(root, storage); !error.isEmpty()) {
+    if (const QString error = LibraryRegistry::create(root, storage, fields); !error.isEmpty()) {
         KMessageBox::error(this, error, confirmation.title);
         return;
     }

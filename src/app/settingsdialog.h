@@ -13,12 +13,14 @@ class KPageWidgetItem;
 class PreviewSizeSpinBox;
 class QCheckBox;
 class QComboBox;
+class QLabel;
 class QListWidget;
 class QPushButton;
 class QTabWidget;
 class QTreeWidget;
 class RuleListEditor;
 class StartupWorkspaceCombo;
+class TagFieldManagerWidget;
 
 namespace LibraryConfirmations
 {
@@ -70,7 +72,7 @@ Q_SIGNALS:
     void customCommandsChanged();
     /// Asks the main window to open its workspace manager.
     void manageWorkspacesRequested();
-    /// A tag library was added, removed or had its metadata moved in the Libraries tab; this takes effect immediately.
+    /// A tag library was added, removed or had its metadata moved in the Libraries tab, or its fields changed in the Fields tab; this takes effect immediately.
     void libraryChanged(const QString &root);
     /// A tag library was added in the Libraries tab and needs its first refresh.
     void libraryAdded(const QString &root);
@@ -166,6 +168,9 @@ private:
     QWidget *createTaggingLibrariesPage();
     QWidget *createTaggingTagsPage();
     QWidget *createTaggingSearchPage();
+    QWidget *createTaggingFieldsPage();
+    /// Lists the registered libraries in the Fields tab, keeping the chosen one when it is still registered, and reloads its fields.
+    void reloadFieldLibraries();
     /// Lists the registered tag libraries with their storage and state, selecting @p select when listed.
     void reloadLibraries(const QString &select = {});
     void updateLibraryButtons();
@@ -208,6 +213,9 @@ private:
     QTreeWidget *m_libraries = nullptr;
     QPushButton *m_removeLibrary = nullptr;
     QPushButton *m_moveLibraryDocument = nullptr;
+    QComboBox *m_fieldLibrary = nullptr;
+    QLabel *m_noFieldLibraries = nullptr;
+    TagFieldManagerWidget *m_fieldManager = nullptr;
     /// A checkbox for a setting kept outside Settings, in config that KIO
     /// shares with Dolphin.
     struct SharedToggle {
