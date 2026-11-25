@@ -131,6 +131,33 @@ void answerMessageBox(const QString &objectName, const std::function<void(QMessa
     });
 }
 
+// Emits a pane signal while MainWindow's children are being destroyed, after
+// its members are gone, as KCoreDirListerCache can when the places model's
+// lister stops a shared job.
+class TeardownEmitter : public QObject
+{
+public:
+    TeardownEmitter(FolderView *view, bool *emitted, QObject *parent)
+        : QObject(parent)
+        , m_view(view)
+        , m_emitted(emitted)
+    {
+    }
+
+    ~TeardownEmitter() override
+    {
+        if (m_view) {
+            *m_emitted = true;
+            Q_EMIT m_view->itemCountChanged();
+            Q_EMIT m_view->selectionChanged();
+        }
+    }
+
+private:
+    QPointer<FolderView> m_view;
+    bool *m_emitted;
+};
+
 class MainWindowTest : public QObject
 {
     Q_OBJECT
@@ -150,6 +177,23 @@ private Q_SLOTS:
         m_a = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("a")));
         m_b = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("b")));
         m_c = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("c")));
+    }
+
+    void ignoresPaneSignalsDuringTeardown()
+    {
+        bool emitted = false;
+        {
+            auto *window = new MainWindow;
+            window->openUrls({m_a, m_b});
+            QObject *firstChild = window->children().constFirst();
+            FolderView *view = window->activePane()->view();
+            for (QObject *ancestor = view; ancestor; ancestor = ancestor->parent()) {
+                QVERIFY(ancestor != firstChild);
+            }
+            new TeardownEmitter(view, &emitted, firstChild);
+            delete window;
+        }
+        QVERIFY(emitted);
     }
 
     void opensMediaWithMpvWithoutShellInterpolation()

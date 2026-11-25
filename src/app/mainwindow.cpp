@@ -750,9 +750,25 @@ MainWindow::~MainWindow()
     if (m_toolbarCustomizer) {
         m_toolbarCustomizer->setEditing(false);
     }
-    if (m_editorDock) {
-        disconnect(m_editorDock, nullptr, this, nullptr);
+    // Children are destroyed after this window's members, and destroying one,
+    // such as the places model's lister, can still make panes emit signals.
+    // Stop those signals from reaching handlers that use destroyed members.
+    const auto disconnectTree = [this](QObject *root) {
+        if (!root) {
+            return;
+        }
+        disconnect(root, nullptr, this, nullptr);
+        const QList<QObject *> descendants = root->findChildren<QObject *>();
+        for (QObject *descendant : descendants) {
+            disconnect(descendant, nullptr, this, nullptr);
+        }
+    };
+    const QList<QObject *> children = findChildren<QObject *>();
+    for (QObject *child : children) {
+        disconnect(child, nullptr, this, nullptr);
     }
+    disconnectTree(m_left);
+    disconnectTree(m_right);
 }
 
 void MainWindow::showWorkspaces()
