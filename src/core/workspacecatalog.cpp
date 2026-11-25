@@ -167,7 +167,8 @@ bool readBehaviorSelection(const QJsonValue &value, WorkspaceCatalog::BehaviorSe
     return true;
 }
 
-constexpr qsizetype MaximumAppearanceOverrides = 32;
+// Every appearance option a workspace can override, with room for options added later.
+constexpr qsizetype MaximumAppearanceOverrides = 64;
 constexpr qsizetype MaximumAppearanceText = 4096;
 constexpr qsizetype MaximumAppearanceList = 100;
 

@@ -28,10 +28,14 @@ class KCoreConfigSkeleton;
 namespace WorkspaceAppearance
 {
 /**
- * The options a workspace can override, in display order: the view mode,
- * such as Card view, folder colour rules, blur, corner radius and dividers.
+ * The options a workspace can override: the view mode, such as Card view,
+ * folder colour rules and every option a theme profile holds except the
+ * custom stylesheet, which stays in the last layer.
  */
-QStringList overrideEntries();
+QStringList overrideEntries(const KCoreConfigSkeleton *settings);
+
+/// The global values of every overrideEntries() option, to save all of them with a workspace.
+QVariantMap captureOverrides(const KCoreConfigSkeleton *settings);
 
 /// Encodes override values for the catalog, skipping entries outside overrideEntries().
 QJsonObject encodeOverrides(const KCoreConfigSkeleton *settings, const QVariantMap &values);
