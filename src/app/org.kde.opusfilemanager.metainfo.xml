@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-FileCopyrightText: 2026 Mike Padiernos -->
+<!-- SPDX-License-Identifier: CC0-1.0 -->
+<component type="desktop-application">
+  <id>org.kde.opusfilemanager</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+  <name>Plasma Opus</name>
+  <summary>Dual-pane file manager for KDE Plasma</summary>
+  <developer id="io.github.mikepadiernos">
+    <name translate="no">Mike Padiernos</name>
+  </developer>
+  <description>
+    <p>Plasma Opus is a dual-pane file manager for KDE Plasma with power-user workflows built on KDE file operations, Places and settings.</p>
+    <ul>
+      <li>Browse side-by-side or stacked panes with tabs, history, session restoration and Details, Icons, Compact, Card or flat views</li>
+      <li>Copy, move, rename in batches, find duplicates, browse archives and verify checksums with queued, undoable KDE file operations</li>
+      <li>Compare files and folders, and preview each action before synchronizing local folders</li>
+      <li>Search local folders or a Baloo index, and save searches and collections</li>
+      <li>Preview documents and media, browse an image gallery, edit text and edit supported media metadata</li>
+      <li>Save named workspaces with their locations, layouts and appearance</li>
+      <li>Embed a Konsole terminal and customize colours, fonts, spacing and effects without changing the desktop's appearance</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">org.kde.opusfilemanager.desktop</launchable>
+  <url type="homepage">https://github.com/mikepadiernos/plasma-opus</url>
+  <url type="bugtracker">https://github.com/mikepadiernos/plasma-opus/issues</url>
+  <url type="vcs-browser">https://github.com/mikepadiernos/plasma-opus</url>
+  <provides>
+    <binary>opus-file-manager</binary>
+  </provides>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Side-by-side panes with Places and the folder tree</caption>
+      <image>https://raw.githubusercontent.com/mikepadiernos/plasma-opus/main/docs/screenshots/dual-pane.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>The preview panel showing the selected image</caption>
+      <image>https://raw.githubusercontent.com/mikepadiernos/plasma-opus/main/docs/screenshots/image-preview.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>A Konsole terminal below the panes</caption>
+      <image>https://raw.githubusercontent.com/mikepadiernos/plasma-opus/main/docs/screenshots/embedded-terminal.png</image>
+    </screenshot>
+  </screenshots>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.2.0" date="2026-11-20">
+      <url type="details">https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0</url>
+    </release>
+    <release version="0.1.0" date="2026-11-19">
+      <url type="details">https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.1.0</url>
+    </release>
+  </releases>
+</component>

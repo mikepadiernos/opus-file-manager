@@ -2,7 +2,7 @@
 Type=Application
 Name=Plasma Opus
 GenericName=Dual-Pane File Manager
-Comment=Browse and manage files in two panes
+Comment=Dual-pane file manager for KDE Plasma
 Exec=@KDE_INSTALL_FULL_BINDIR@/opus-file-manager %U
 TryExec=@KDE_INSTALL_FULL_BINDIR@/opus-file-manager
 Icon=org.kde.opusfilemanager
@@ -13,5 +13,5 @@ Keywords=files;folders;manager;explorer;dual;pane;
 StartupNotify=true
 StartupWMClass=opus-file-manager
 DBusActivatable=false
-X-DBUS-ServiceName=org.kde.opusfilemanager
+X-DBUS-ServiceName=org.kde.opus-file-manager
 X-KDE-StartupNotify=true

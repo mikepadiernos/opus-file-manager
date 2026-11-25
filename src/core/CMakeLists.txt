@@ -3,6 +3,8 @@ add_library(opusfm_core STATIC
     appearancedefaults.h
     appfonts.cpp
     appfonts.h
+    appidentity.cpp
+    appidentity.h
     archives.cpp
     archives.h
     archivewriter.cpp
@@ -141,6 +143,7 @@ target_link_libraries(opusfm_core
         Qt6::Gui
         KF6::Archive
         KF6::ConfigCore
+        KF6::CoreAddons
         KF6::I18n
         KF6::KIOCore
         KF6::ConfigGui

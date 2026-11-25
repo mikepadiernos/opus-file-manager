@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "appearancedefaults.h"
+#include "appidentity.h"
 #include "interfacelanguage.h"
 #include "localizednumbers.h"
 #include "mainwindow.h"
@@ -83,16 +84,9 @@ int main(int argc, char **argv)
         QApplication::setLayoutDirection(InterfaceLanguage::layoutDirection(KLocalizedString::languages()));
     }
 
-    KAboutData aboutData(QStringLiteral("opus-file-manager"),
-                         i18n("Plasma Opus"),
-                         QStringLiteral(OPUSFM_VERSION_STRING),
-                         i18n("Dual-pane file manager for KDE Plasma"),
-                         KAboutLicense::GPL_V3,
-                         i18n("© 2026 Mike Padiernos"));
-    aboutData.addAuthor(i18n("Mike Padiernos"), i18n("Author"));
-    aboutData.setDesktopFileName(QStringLiteral("org.kde.opusfilemanager"));
+    KAboutData aboutData = AppIdentity::aboutData(QStringLiteral(OPUSFM_VERSION_STRING));
     KAboutData::setApplicationData(aboutData);
-    QApplication::setWindowIcon(QIcon::fromTheme(QStringLiteral("org.kde.opusfilemanager"), QIcon(QStringLiteral(":/icons/org.kde.opusfilemanager.svg"))));
+    QApplication::setWindowIcon(QIcon::fromTheme(AppIdentity::desktopFileName(), QIcon(QStringLiteral(":/icons/%1.svg").arg(AppIdentity::desktopFileName()))));
 
     KCrash::initialize();
 

@@ -140,8 +140,44 @@ target_link_libraries(opus-file-manager
 
 # Exec= carries the absolute bindir so a --user install under ~/.local works
 # even when ~/.local/bin is not on PATH.
-configure_file(org.kde.opusfilemanager.desktop.in ${CMAKE_CURRENT_BINARY_DIR}/org.kde.opusfilemanager.desktop @ONLY)
+configure_file(org.kde.opusfilemanager.desktop.in ${CMAKE_CURRENT_BINARY_DIR}/org.kde.opusfilemanager.desktop.untranslated @ONLY)
+
+# Merge the catalogues' translations of the desktop entry and AppStream
+# metadata. msgfmt expects <language>.po files and a LINGUAS list in one folder.
+set(opusfm_desktop_file ${CMAKE_CURRENT_BINARY_DIR}/org.kde.opusfilemanager.desktop)
+set(opusfm_metainfo_file ${CMAKE_CURRENT_BINARY_DIR}/org.kde.opusfilemanager.metainfo.xml)
+set(opusfm_metadata_po_dir ${CMAKE_CURRENT_BINARY_DIR}/metadata-po)
+set(opusfm_metadata_languages)
+set(opusfm_metadata_catalogs)
+if(NOT KF_SKIP_PO_PROCESSING)
+    file(GLOB opusfm_po_files ${PROJECT_SOURCE_DIR}/po/*/opus-file-manager.po)
+    foreach(po_file IN LISTS opusfm_po_files)
+        get_filename_component(language_dir ${po_file} DIRECTORY)
+        get_filename_component(language ${language_dir} NAME)
+        configure_file(${po_file} ${opusfm_metadata_po_dir}/${language}.po COPYONLY)
+        list(APPEND opusfm_metadata_languages ${language})
+        list(APPEND opusfm_metadata_catalogs ${opusfm_metadata_po_dir}/${language}.po)
+    endforeach()
+endif()
+list(JOIN opusfm_metadata_languages "\n" opusfm_linguas)
+file(CONFIGURE OUTPUT ${opusfm_metadata_po_dir}/LINGUAS CONTENT "${opusfm_linguas}\n")
+add_custom_command(
+    OUTPUT ${opusfm_desktop_file}
+    COMMAND ${GETTEXT_MSGFMT_EXECUTABLE} --desktop --template=${CMAKE_CURRENT_BINARY_DIR}/org.kde.opusfilemanager.desktop.untranslated
+            -d ${opusfm_metadata_po_dir} -o ${opusfm_desktop_file}
+    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/org.kde.opusfilemanager.desktop.untranslated ${opusfm_metadata_po_dir}/LINGUAS ${opusfm_metadata_catalogs}
+    VERBATIM
+)
+add_custom_command(
+    OUTPUT ${opusfm_metainfo_file}
+    COMMAND ${GETTEXT_MSGFMT_EXECUTABLE} --xml --template=${CMAKE_CURRENT_SOURCE_DIR}/org.kde.opusfilemanager.metainfo.xml
+            -d ${opusfm_metadata_po_dir} -o ${opusfm_metainfo_file}
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/org.kde.opusfilemanager.metainfo.xml ${opusfm_metadata_po_dir}/LINGUAS ${opusfm_metadata_catalogs}
+    VERBATIM
+)
+add_custom_target(opusfm-metadata ALL DEPENDS ${opusfm_desktop_file} ${opusfm_metainfo_file})
 
 install(TARGETS opus-file-manager ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
-install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/org.kde.opusfilemanager.desktop DESTINATION ${KDE_INSTALL_APPDIR})
+install(PROGRAMS ${opusfm_desktop_file} DESTINATION ${KDE_INSTALL_APPDIR})
+install(FILES ${opusfm_metainfo_file} DESTINATION ${KDE_INSTALL_METAINFODIR})
 install(FILES org.kde.opusfilemanager.svg DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps)
