@@ -55,6 +55,29 @@ private Q_SLOTS:
         QVERIFY(!SavedSearches::save(group, {{QStringLiteral("bad"), QStringLiteral("term"), {}, LiveSearch::Field::FileName, false, {}, {}}}, &error));
     }
 
+    void persistsAdvancedQueries()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const auto config = KSharedConfig::openConfig(dir.filePath(QStringLiteral("searchesrc")), KConfig::SimpleConfig);
+        KConfigGroup group = config->group(QStringLiteral("SavedSearches"));
+        QString error;
+        const QList<SavedSearches::Search> searches{
+            {QStringLiteral("Query"), QStringLiteral("report type:pdf OR content:\"two words\""), {}, LiveSearch::Field::Query, true, {}, {}},
+        };
+        QVERIFY(SavedSearches::save(group, searches, &error));
+        QVERIFY(group.readEntry("Searches", QByteArray()).contains("\"field\":\"query\""));
+        config->reparseConfiguration();
+        const auto loaded = SavedSearches::load(group, &error);
+        QVERIFY2(error.isEmpty(), qPrintable(error));
+        QCOMPARE(loaded.size(), 1);
+        QCOMPARE(loaded.first().field, LiveSearch::Field::Query);
+        QCOMPARE(loaded.first().text, searches.first().text);
+        group.writeEntry("Searches", QByteArray(R"([{"name":"x","text":"y","folder":"","field":"other","indexed":true}])"));
+        QVERIFY(SavedSearches::load(group, &error).isEmpty());
+        QVERIFY(!error.isEmpty());
+    }
+
     void reportsCorruptConfiguration()
     {
         QTemporaryDir dir;

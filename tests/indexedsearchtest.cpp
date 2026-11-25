@@ -35,6 +35,15 @@ private Q_SLOTS:
         QVERIFY(IndexedSearch::find({}, QStringLiteral("needle"), LiveSearch::Field::FileName, [] {
                     return true;
                 }).canceled);
+        const auto broad = IndexedSearch::find({}, QStringLiteral("size>1M OR type:pdf"), LiveSearch::Field::Query);
+        QCOMPARE(broad.errors.size(), 1);
+        QVERIFY(broad.errors.first().contains(QStringLiteral("name or content term")));
+        QVERIFY(!IndexedSearch::find({}, QStringLiteral("report AND"), LiveSearch::Field::Query).errors.isEmpty());
+        const auto quoted = IndexedSearch::find({}, QStringLiteral("\"two words\" type:pdf"), LiveSearch::Field::Query, [] {
+            return true;
+        });
+        QVERIFY(quoted.errors.isEmpty());
+        QVERIFY(quoted.canceled);
     }
 
     void isolatedBaloo()
@@ -152,6 +161,16 @@ private Q_SLOTS:
             8000);
         QVERIFY(content.errors.isEmpty());
         QVERIFY(!content.paths.contains(named.fileName()));
+        const auto query = IndexedSearch::find(folder, QStringLiteral("opalneedle type:txt -path:deep -name:nested"), LiveSearch::Field::Query);
+        QVERIFY(query.errors.isEmpty());
+        QCOMPARE(query.paths, QStringList{named.fileName()});
+        const auto contentQuery = IndexedSearch::find(folder, QStringLiteral("content:uniquekestrel name:other"), LiveSearch::Field::Query);
+        QCOMPARE(contentQuery.paths, QStringList{contents.fileName()});
+        QVERIFY(IndexedSearch::find(folder, QStringLiteral("opalneedle content:uniquekestrel"), LiveSearch::Field::Query).paths.isEmpty());
+        const auto either = IndexedSearch::find(folder, QStringLiteral("txt (content:uniquekestrel OR content:ordinary)"), LiveSearch::Field::Query);
+        QVERIFY(either.paths.contains(named.fileName()));
+        QVERIFY(either.paths.contains(contents.fileName()));
+        QVERIFY(!either.paths.contains(nested.fileName()));
         const auto elsewhere = IndexedSearch::find(root + QStringLiteral("/missing"), QStringLiteral("opalneedle"), LiveSearch::Field::FileName);
         QVERIFY(!elsewhere.notices.isEmpty());
         QVERIFY(elsewhere.notices.first().contains(QStringLiteral("not configured")));
@@ -175,6 +194,9 @@ private Q_SLOTS:
         const auto noContent = IndexedSearch::find(folder, QStringLiteral("uniquekestrel"), LiveSearch::Field::Contents);
         QVERIFY(!noContent.errors.isEmpty());
         QVERIFY(noContent.errors.first().contains(QStringLiteral("disabled")));
+        const auto noContentQuery = IndexedSearch::find(folder, QStringLiteral("opalneedle content:x"), LiveSearch::Field::Query);
+        QVERIFY(!noContentQuery.errors.isEmpty());
+        QVERIFY(noContentQuery.errors.first().contains(QStringLiteral("disabled")));
         qputenv("BALOO_DB_PATH", (root + QStringLiteral("/missing-db")).toLocal8Bit());
         const auto noIndex = IndexedSearch::find(folder, QStringLiteral("opalneedle"), LiveSearch::Field::FileName);
         QVERIFY(!noIndex.errors.isEmpty());

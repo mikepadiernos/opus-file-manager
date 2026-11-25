@@ -176,7 +176,9 @@ void SearchStoreDialog::showSearch()
                                    search.indexed             ? i18nc("@info", "Indexed")
                                        : search.searchFolders ? i18nc("@info", "Search folders (live)")
                                                               : i18nc("@info", "Current folder"),
-                                   search.field == LiveSearch::Field::FileName ? i18nc("@info", "File name") : i18nc("@info", "File contents")));
+                                   search.field == LiveSearch::Field::FileName    ? i18nc("@info", "File name")
+                                       : search.field == LiveSearch::Field::Query ? i18nc("@info", "Advanced query")
+                                                                                  : i18nc("@info", "File contents")));
 }
 
 void SearchStoreDialog::showCollection()

@@ -2,6 +2,8 @@
 
 #include "livesearch.h"
 
+#include "searchquery.h"
+
 #include <KLocalizedString>
 
 #include <QDir>
@@ -9,10 +11,42 @@
 #include <QFileInfo>
 #include <QStringConverter>
 
+#include <optional>
+
 namespace
 {
 constexpr qint64 MaxTextSize = 2 * 1024 * 1024;
 constexpr int MaxResults = 5000;
+
+enum class TextRead {
+    Text,
+    Skipped,
+    Failed,
+};
+
+/// Reads a small UTF-8 text file; binary, oversized and invalid files are skipped.
+TextRead readText(const QFileInfo &entry, QString &contents, QString &error)
+{
+    if (entry.size() > MaxTextSize) {
+        return TextRead::Skipped;
+    }
+    QFile file(entry.absoluteFilePath());
+    if (!file.open(QIODevice::ReadOnly)) {
+        error = i18nc("@info", "Could not read %1: %2", entry.absoluteFilePath(), file.errorString());
+        return TextRead::Failed;
+    }
+    const QByteArray bytes = file.read(MaxTextSize + 1);
+    if (file.error() != QFileDevice::NoError) {
+        error = i18nc("@info", "Could not read %1: %2", entry.absoluteFilePath(), file.errorString());
+        return TextRead::Failed;
+    }
+    if (bytes.size() > MaxTextSize || bytes.contains('\0')) {
+        return TextRead::Skipped;
+    }
+    QStringDecoder decoder(QStringDecoder::Utf8);
+    contents = decoder.decode(bytes);
+    return decoder.hasError() ? TextRead::Skipped : TextRead::Text;
+}
 }
 
 LiveSearch::Result LiveSearch::find(const QString &folder,
@@ -37,6 +71,14 @@ LiveSearch::Result LiveSearch::find(const QString &folder,
     if (!filterError.isEmpty()) {
         result.errors.append(filterError);
         return result;
+    }
+    std::optional<SearchQuery::Query> query;
+    if (field == Field::Query) {
+        query = SearchQuery::Query::parse(text);
+        if (!query->isValid()) {
+            result.errors.append(query->error());
+            return result;
+        }
     }
     if (filter.excludes(root.absoluteFilePath())) {
         return result;
@@ -89,33 +131,39 @@ LiveSearch::Result LiveSearch::find(const QString &folder,
             bool matches = false;
             if (field == Field::FileName) {
                 matches = entry.fileName().contains(text, Qt::CaseInsensitive);
+            } else if (field == Field::Query) {
+                std::optional<TextRead> read;
+                QString contents;
+                matches = query->matches(entry, [&](const QString &needle) {
+                    if (!read) {
+                        QString error;
+                        read = readText(entry, contents, error);
+                        if (*read == TextRead::Skipped) {
+                            ++result.skippedFiles;
+                        } else if (*read == TextRead::Failed) {
+                            result.errors.append(error);
+                        }
+                    }
+                    return *read == TextRead::Text && contents.contains(needle, Qt::CaseInsensitive);
+                });
+                if (read && cancel && cancel()) {
+                    result.canceled = true;
+                    return result;
+                }
             } else if (entry.isFile()) {
-                if (entry.size() > MaxTextSize) {
-                    ++result.skippedFiles;
-                    continue;
-                }
-                QFile file(entry.absoluteFilePath());
-                if (!file.open(QIODevice::ReadOnly)) {
-                    result.errors.append(i18nc("@info", "Could not read %1: %2", entry.absoluteFilePath(), file.errorString()));
-                    continue;
-                }
-                const QByteArray bytes = file.read(MaxTextSize + 1);
+                QString contents;
+                QString error;
+                const TextRead read = readText(entry, contents, error);
                 if (cancel && cancel()) {
                     result.canceled = true;
                     return result;
                 }
-                if (file.error() != QFileDevice::NoError) {
-                    result.errors.append(i18nc("@info", "Could not read %1: %2", entry.absoluteFilePath(), file.errorString()));
-                    continue;
-                }
-                if (bytes.size() > MaxTextSize || bytes.contains('\0')) {
+                if (read == TextRead::Skipped) {
                     ++result.skippedFiles;
                     continue;
                 }
-                QStringDecoder decoder(QStringDecoder::Utf8);
-                const QString contents = decoder.decode(bytes);
-                if (decoder.hasError()) {
-                    ++result.skippedFiles;
+                if (read == TextRead::Failed) {
+                    result.errors.append(error);
                     continue;
                 }
                 matches = contents.contains(text, Qt::CaseInsensitive);

@@ -2,13 +2,18 @@
 
 #include "indexedsearch.h"
 
+#include "searchquery.h"
+
 #include <KLocalizedString>
 
 #include <QDir>
 #include <QFileInfo>
+#include <QHash>
+#include <QSet>
 #include <QStandardPaths>
 
 #include <algorithm>
+#include <optional>
 
 #ifdef OPUSFM_HAVE_BALOO
 #include <Baloo/IndexerConfig>
@@ -55,9 +60,33 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
         result.errors.append(i18nc("@info", "Enter text to search for."));
         return result;
     }
-    if (text.contains(QLatin1Char('"'))) {
+    if (text.contains(QLatin1Char('"')) && field != LiveSearch::Field::Query) {
         result.errors.append(i18nc("@info", "Indexed search does not support double quotes in the search text."));
         return result;
+    }
+    std::optional<SearchQuery::Query> query;
+    // The Baloo term that selects candidates and whether it searches content.
+    QString seed = text;
+    bool seedIsContent = field == LiveSearch::Field::Contents;
+    if (field == LiveSearch::Field::Query) {
+        query = SearchQuery::Query::parse(text);
+        if (!query->isValid()) {
+            result.errors.append(query->error());
+            return result;
+        }
+        const QList<SearchQuery::Term> required = query->requiredTerms();
+        if (required.isEmpty()) {
+            result.errors.append(i18nc("@info",
+                                       "Indexed queries need a name or content term that every result must match, such as report or content:invoice. "
+                                       "Search the current folder or selected locations for other queries."));
+            return result;
+        }
+        const auto content = std::find_if(required.cbegin(), required.cend(), [](const SearchQuery::Term &term) {
+            return term.field == SearchQuery::Field::Content;
+        });
+        const SearchQuery::Term &term = content != required.cend() ? *content : required.first();
+        seed = term.text;
+        seedIsContent = term.field == SearchQuery::Field::Content;
     }
     const QString filterError = filter.error();
     if (!filterError.isEmpty()) {
@@ -82,7 +111,7 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
         result.errors.append(i18nc("@info", "Baloo file indexing is disabled. Enable it in System Settings or use current-folder search."));
         return result;
     }
-    if (field == LiveSearch::Field::Contents && config.onlyBasicIndexing()) {
+    if ((field == LiveSearch::Field::Contents || (query && query->usesContent())) && config.onlyBasicIndexing()) {
         result.errors.append(i18nc("@info", "Baloo content indexing is disabled. Enable it in System Settings or use current-folder search."));
         return result;
     }
@@ -105,12 +134,34 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
         return result;
     }
 
-    Baloo::Query query;
-    query.setSearchString((field == LiveSearch::Field::FileName ? QStringLiteral("filename:\"") : QStringLiteral("content:\"")) + text + QLatin1Char('"'));
-    query.setSortingOption(Baloo::Query::SortNone);
-    query.setLimit(filter.isActive() || workspaceRoots ? 200001 : 5001);
+    const int limit = filter.isActive() || workspaceRoots || query ? 200001 : 5001;
+    const auto balooQuery = [limit](const QString &term, bool content) {
+        Baloo::Query baloo;
+        baloo.setSearchString((content ? QStringLiteral("content:\"") : QStringLiteral("filename:\"")) + term + QLatin1Char('"'));
+        baloo.setSortingOption(Baloo::Query::SortNone);
+        baloo.setLimit(limit);
+        return baloo;
+    };
+    // Content terms other than the seed are resolved to the set of indexed files containing them.
+    QHash<QString, QSet<QString>> contentMatches;
+    if (query) {
+        for (const QString &term : query->contentTerms()) {
+            if (seedIsContent && term.compare(seed, Qt::CaseInsensitive) == 0) {
+                continue;
+            }
+            QSet<QString> &paths = contentMatches[term.toCaseFolded()];
+            auto iterator = balooQuery(term, true).exec();
+            while (iterator.next()) {
+                if (cancel && cancel()) {
+                    result.canceled = true;
+                    return result;
+                }
+                paths.insert(iterator.filePath());
+            }
+        }
+    }
     const QStringList roots = workspaceRoots ? *workspaceRoots : QStringList{filter.maxDepth >= 0 ? QDir::cleanPath(currentFolder) : QStringLiteral("/")};
-    auto iterator = query.exec();
+    auto iterator = balooQuery(seed, seedIsContent).exec();
     while (iterator.next()) {
         if (cancel && cancel()) {
             result.canceled = true;
@@ -134,6 +185,18 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
         if (!matches) {
             continue;
         }
+        if (query) {
+            const QFileInfo entry(path);
+            const bool queryMatches = entry.exists() && query->matches(entry, [&](const QString &needle) {
+                if (seedIsContent && needle.compare(seed, Qt::CaseInsensitive) == 0) {
+                    return true;
+                }
+                return contentMatches.value(needle.toCaseFolded()).contains(path);
+            });
+            if (!queryMatches) {
+                continue;
+            }
+        }
         if (result.paths.size() == 5000) {
             result.limited = true;
             break;
@@ -148,6 +211,8 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
     Q_UNUSED(currentFolder)
     Q_UNUSED(field)
     Q_UNUSED(progress)
+    Q_UNUSED(seed)
+    Q_UNUSED(seedIsContent)
     result.errors.append(i18nc("@info", "Indexed search is unavailable because Plasma Opus was built without Baloo."));
 #endif
     return result;

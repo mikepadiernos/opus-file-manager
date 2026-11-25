@@ -6,6 +6,7 @@
 #include "pathfiltereditor.h"
 #include "searchcollection.h"
 #include "searchlocations.h"
+#include "searchquery.h"
 
 #include <KLocalizedString>
 
@@ -46,6 +47,22 @@ enum Scope {
     Indexed,
     SearchFolders,
 };
+
+enum FieldIndex {
+    NameField,
+    ContentsField,
+    QueryField,
+};
+
+LiveSearch::Field fieldAt(int index)
+{
+    return index == QueryField ? LiveSearch::Field::Query : index == ContentsField ? LiveSearch::Field::Contents : LiveSearch::Field::FileName;
+}
+
+int fieldIndex(LiveSearch::Field field)
+{
+    return field == LiveSearch::Field::Query ? QueryField : field == LiveSearch::Field::Contents ? ContentsField : NameField;
+}
 
 /// Appends the keyboard-focusable widgets in @p layout in layout order, descending into containers.
 void collectTabStops(QLayout *layout, QList<QWidget *> &stops)
@@ -153,6 +170,12 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_field->setObjectName(QStringLiteral("searchField"));
     m_field->addItem(i18nc("@item:inlistbox", "File name"));
     m_field->addItem(i18nc("@item:inlistbox", "File contents (UTF-8 text)"));
+    m_field->addItem(i18nc("@item:inlistbox", "Advanced query"));
+    m_field->setItemData(QueryField,
+                         i18nc("@info:tooltip",
+                               "Combine name:, path:, type:, size:, modified: and content: criteria with AND, OR, NOT and parentheses, "
+                               "for example: report type:pdf size>1M NOT path:archive"),
+                         Qt::ToolTipRole);
     m_scope->setObjectName(QStringLiteral("searchScope"));
     m_scope->addItem(i18nc("@item:inlistbox", "Current folder (live)"));
     m_scope->addItem(i18nc("@item:inlistbox", "Indexed locations (Baloo)"));
@@ -282,7 +305,7 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
         }
         m_query->setText(search.text);
         m_scope->setCurrentIndex(search.searchFolders ? SearchFolders : search.indexed ? Indexed : CurrentFolder);
-        m_field->setCurrentIndex(search.field == LiveSearch::Field::FileName ? 0 : 1);
+        m_field->setCurrentIndex(fieldIndex(search.field));
         m_filterEditor->setFilter(search.filter);
         m_status->setText(i18nc("@info", "Saved criteria loaded. Review them and start the search."));
     });
@@ -702,6 +725,16 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
         m_status->setText(scopeStatus(m_scope->currentIndex(), m_workspaceScope && m_workspaceScope().active && m_workspaceOnly->isChecked()));
     });
     connect(m_query, &QLineEdit::returnPressed, this, &SearchWidget::start);
+    // Show how an advanced query is grouped, or why it can't be run, as it is edited.
+    const auto describeQuery = [this] {
+        if (m_field->currentIndex() != QueryField || m_query->text().trimmed().isEmpty()) {
+            return;
+        }
+        const auto query = SearchQuery::Query::parse(m_query->text());
+        m_status->setText(query.isValid() ? i18nc("@info", "Query: %1", query.toString()) : query.error());
+    };
+    connect(m_query, &QLineEdit::textEdited, this, describeQuery);
+    connect(m_field, &QComboBox::activated, this, describeQuery);
     connect(m_cancel, &QPushButton::clicked, this, &SearchWidget::cancel);
     connect(&m_watcher, &QFutureWatcher<LiveSearch::Result>::progressValueChanged, this, [this](int count) {
         m_status->setText(m_scope->currentIndex() != Indexed
@@ -899,7 +932,7 @@ SavedSearches::Search SearchWidget::currentSearch(const QString &name, const QSt
     return {name,
             m_query->text(),
             m_folder.isLocalFile() ? m_folder : QUrl(),
-            m_field->currentIndex() == 0 ? LiveSearch::Field::FileName : LiveSearch::Field::Contents,
+            fieldAt(m_field->currentIndex()),
             m_scope->currentIndex() == Indexed,
             pathFilter(),
             id.isEmpty() ? QUuid::createUuid().toString(QUuid::WithoutBraces) : id,
@@ -922,6 +955,12 @@ void SearchWidget::start()
     if (m_query->text().trimmed().isEmpty()) {
         m_status->setText(i18nc("@info", "Enter text to search for."));
         return;
+    }
+    if (m_field->currentIndex() == QueryField) {
+        if (const auto query = SearchQuery::Query::parse(m_query->text()); !query.isValid()) {
+            m_status->setText(query.error());
+            return;
+        }
     }
     const PathFilter chosenFilter = pathFilter();
     const QString filterError = chosenFilter.error();
@@ -952,7 +991,7 @@ void SearchWidget::start()
     const auto canceled = m_canceled;
     const QString folder = m_folder.toLocalFile();
     const QString text = m_query->text();
-    const auto field = m_field->currentIndex() == 0 ? LiveSearch::Field::FileName : LiveSearch::Field::Contents;
+    const auto field = fieldAt(m_field->currentIndex());
     const bool indexed = m_scope->currentIndex() == Indexed;
     QStringList roots;
     QStringList locationErrors;

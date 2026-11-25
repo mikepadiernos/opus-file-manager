@@ -170,6 +170,39 @@ private Q_SLOTS:
         QCOMPARE(results->topLevelItem(0)->text(0), file.fileName());
     }
 
+    void runsAdvancedQueries()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        for (const QString &name : {QStringLiteral("report.pdf"), QStringLiteral("report.txt")}) {
+            QFile file(root.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        SearchWidget dialog(QUrl::fromLocalFile(root.path()));
+        auto *query = dialog.findChild<QLineEdit *>(QStringLiteral("searchQuery"));
+        auto *field = dialog.findChild<QComboBox *>(QStringLiteral("searchField"));
+        auto *start = dialog.findChild<QPushButton *>(QStringLiteral("searchStart"));
+        auto *results = dialog.findChild<QTreeWidget *>(QStringLiteral("searchResults"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("searchStatus"));
+        QVERIFY(query && field && start && results && status);
+        QCOMPARE(field->count(), 3);
+        field->setCurrentIndex(2);
+        query->setFocus();
+        QTest::keyClicks(query, QStringLiteral("report OR"));
+        QVERIFY(status->text().contains(QStringLiteral("after OR")));
+        start->click();
+        QVERIFY(start->isEnabled());
+        QVERIFY(status->text().contains(QStringLiteral("after OR")));
+        QCOMPARE(results->topLevelItemCount(), 0);
+        query->clear();
+        QTest::keyClicks(query, QStringLiteral("report -type:txt"));
+        QVERIFY(status->text().contains(QStringLiteral("(name:\"report\" AND NOT type:\"txt\")")));
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QCOMPARE(results->topLevelItemCount(), 1);
+        QCOMPARE(results->topLevelItem(0)->text(0), root.filePath(QStringLiteral("report.pdf")));
+    }
+
     void searchesWorkspaceLocationsOrExplicitlyOutside()
     {
         QTemporaryDir root;

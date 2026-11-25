@@ -13,6 +13,8 @@ namespace LiveSearch
 enum class Field {
     FileName,
     Contents,
+    /// An advanced query; see SearchQuery::Query.
+    Query,
 };
 
 struct Result {
