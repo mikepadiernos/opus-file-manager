@@ -74,6 +74,27 @@ private:
 };
 
 /**
+ * Chooses the shared saved path filter applied to new searches, or none. A
+ * chosen filter that no longer exists stays selected as unavailable, so its
+ * reference is kept until the user changes it.
+ */
+class SavedPathFilterCombo : public QComboBox
+{
+    Q_OBJECT
+    Q_PROPERTY(QString filterName READ filterName WRITE setFilterName NOTIFY filterNameChanged USER true)
+
+public:
+    explicit SavedPathFilterCombo(QWidget *parent = nullptr);
+    QString filterName() const;
+    void setFilterName(const QString &name);
+    /// Rereads the shared saved path filters, keeping the current choice.
+    void reload();
+
+Q_SIGNALS:
+    void filterNameChanged();
+};
+
+/**
  * Chooses the app-local colour scheme: follow Plasma, a bundled preset or an
  * installed KDE colour scheme. A chosen scheme that is no longer installed
  * stays selected as unavailable, so its reference is kept until changed.

@@ -185,6 +185,8 @@ private:
     void setupActions();
     void setupPanes();
     void updateTerminalPlacement();
+    /// Keeps the search panel beside the terminal when their orientations match, otherwise in the outer search splitter.
+    void updateSearchPlacement();
     void setupPlaces();
     void setupPanels();
     void setupStatusBar();
@@ -234,6 +236,8 @@ private:
     void showSearchForPane(Pane *pane);
     /// Searches the active pane's folder from a toolbar search field.
     void searchFromToolbar(const QString &text);
+    /// Shows the search panel for a toolbar search when Preferences ask for it, or reports the outcome in the status bar.
+    void presentToolbarSearch(bool started);
     void showDuplicateFinder();
     void createChecksumFile();
     void verifyChecksumFile();
@@ -364,6 +368,8 @@ private:
     KNewFileMenu *m_newFileMenu = nullptr;
     QSplitter *m_splitter = nullptr;
     QSplitter *m_workspaceSplitter = nullptr;
+    /// Holds the workspace splitter and, when it is placed separately from the terminal, the search panel.
+    QSplitter *m_searchSplitter = nullptr;
     QTabWidget *m_paneTabs = nullptr;
     QWidget *m_rightPlaceholder = nullptr;
     QPointer<QMainWindow> m_rightWindow;
@@ -410,6 +416,9 @@ private:
     bool m_syncingLinkedPanes = false;
     bool m_secondPaneInTab = false;
     bool m_movingSecondPane = false;
+    bool m_restoringSearchPanel = false;
+    /// Whether a search started from the toolbar field reports its outcome in the status bar while the panel is hidden.
+    bool m_reportToolbarSearch = false;
     QAction *m_viewModeAction = nullptr;
     QAction *m_selectionModeAction = nullptr;
     QAction *m_selectionMarkersAction = nullptr;

@@ -11,6 +11,7 @@
 #include "localizednumbers.h"
 #include "pane.h"
 #include "pathfilterpresetsdialog.h"
+#include "searchhistory.h"
 #include "searchstoredialog.h"
 #include "servicemenus.h"
 #include "settings.h"
@@ -30,6 +31,7 @@
 #include <KPluginMetaData>
 #include <KSharedConfig>
 #include <KTextEditor/Editor>
+#include <KToolBar>
 #include <KUrlRequester>
 #include <KXmlGuiWindow>
 
@@ -1045,8 +1047,94 @@ QWidget *SettingsDialog::createSearchPage()
 {
     auto *page = new QWidget;
     auto *layout = new QVBoxLayout(page);
-    layout->addWidget(checkBox(QStringLiteral("SearchIndexedByDefault"), i18nc("@option:check", "Search indexed locations by default")));
-    layout->addWidget(checkBox(QStringLiteral("SearchContentsByDefault"), i18nc("@option:check", "Search file contents by default")));
+    auto *defaultsLabel = new QLabel(i18nc("@info",
+                                           "The toolbar search field and the search panel start with these criteria. Criteria changed in an "
+                                           "open search panel are kept when these defaults change."),
+                                     page);
+    defaultsLabel->setWordWrap(true);
+    layout->addWidget(defaultsLabel);
+    auto *defaults = new QFormLayout;
+    defaults->addRow(i18nc("@label:listbox", "Default scope:"),
+                     comboBox(QStringLiteral("DefaultSearchScope"),
+                              {i18nc("@item:inlistbox", "Current folder (live)"),
+                               i18nc("@item:inlistbox", "Indexed locations (Baloo)"),
+                               i18nc("@item:inlistbox", "Search folders (live)")}));
+    defaults->addRow(i18nc("@label:listbox", "Default search in:"),
+                     comboBox(QStringLiteral("DefaultSearchField"),
+                              {i18nc("@item:inlistbox", "File name"), i18nc("@item:inlistbox", "File contents"), i18nc("@item:inlistbox", "Advanced query")}));
+    auto *defaultFilter = bound(new SavedPathFilterCombo(page), QStringLiteral("DefaultSearchPathFilter"), "filterName");
+    defaults->addRow(i18nc("@label:listbox", "Default path filter:"), defaultFilter);
+    layout->addLayout(defaults);
+    auto *panel = new QFormLayout;
+    panel->addRow(i18nc("@label:listbox", "Search panel placement:"),
+                  comboBox(QStringLiteral("SearchPanelPlacement"),
+                           {i18nc("@item:inlistbox", "With the embedded terminal"),
+                            i18nc("@item:inlistbox", "Below the panes"),
+                            i18nc("@item:inlistbox", "Right of the panes")}));
+    panel->addRow(checkBox(QStringLiteral("RestoreSearchPanel"), i18nc("@option:check", "Show the search panel at startup if it was open when last used")));
+    panel->addRow(
+        i18nc("@label:listbox", "Default result presentation:"),
+        comboBox(QStringLiteral("DefaultSearchResultPresentation"), {i18nc("@item:inlistbox", "Full paths"), i18nc("@item:inlistbox", "Names and folders")}));
+    auto *historyRow = new QHBoxLayout;
+    historyRow->addWidget(checkBox(QStringLiteral("RetainSearchHistory"), i18nc("@option:check", "Remember recent search queries")));
+    historyRow->addStretch(1);
+    auto *clearHistory = new QPushButton(i18nc("@action:button", "Clear Search History"), page);
+    clearHistory->setObjectName(QStringLiteral("clearSearchHistory"));
+    clearHistory->setToolTip(i18nc("@info:tooltip", "Forget recent search queries now, in every Plasma Opus window"));
+    historyRow->addWidget(clearHistory);
+    panel->addRow(historyRow);
+    const auto history = [] {
+        return KSharedConfig::openStateConfig()->group(QStringLiteral("SearchHistory"));
+    };
+    clearHistory->setEnabled(!SearchHistory::load(history()).isEmpty());
+    connect(clearHistory, &QPushButton::clicked, this, [clearHistory, history] {
+        KConfigGroup group = history();
+        SearchHistory::save(group, {});
+        group.sync();
+        clearHistory->setEnabled(false);
+    });
+    layout->addLayout(panel);
+    auto *toolbar = new QFormLayout;
+    auto *mainWindow = qobject_cast<KXmlGuiWindow *>(parentWidget());
+    QPointer<QAction> fieldAction = mainWindow ? mainWindow->actionCollection()->action(QStringLiteral("search_toolbar")) : nullptr;
+    const QPointer<KXmlGuiWindow> window(mainWindow);
+    QCheckBox *showField = addSharedToggle(
+        QStringLiteral("searchToolbarField"),
+        i18nc("@option:check", "Show the search field on the main toolbar"),
+        [window, fieldAction]() -> bool {
+            return window && fieldAction && window->toolBar()->actions().contains(fieldAction.data());
+        },
+        [window, fieldAction](bool shown) {
+            if (!window || !fieldAction) {
+                return;
+            }
+            QToolBar *bar = window->toolBar();
+            const QList<QAction *> entries = bar->actions();
+            if (entries.contains(fieldAction.data()) == shown) {
+                return;
+            }
+            if (!shown) {
+                bar->removeAction(fieldAction);
+                return;
+            }
+            // Place the field next to the Search button, or before the hamburger menu.
+            QAction *before = nullptr;
+            for (const QString &name : {QStringLiteral("search_folder"), QStringLiteral("hamburger_menu")}) {
+                QAction *candidate = window->actionCollection()->action(name);
+                if (candidate && entries.contains(candidate)) {
+                    before = candidate;
+                    break;
+                }
+            }
+            bar->insertAction(before, fieldAction);
+        },
+        false);
+    showField->setEnabled(!fieldAction.isNull());
+    showField->setToolTip(i18nc("@info:tooltip", "Adds or removes the Search Field entry, like the main toolbar editor on the Toolbars page"));
+    toolbar->addRow(i18nc("@title:group", "Toolbar search field:"), showField);
+    toolbar->addRow(QString(),
+                    checkBox(QStringLiteral("ToolbarSearchOpensPanel"), i18nc("@option:check", "Show the search panel when a search starts from the field")));
+    layout->addLayout(toolbar);
     auto *foldersLabel = new QLabel(i18nc("@label", "Search folders, searched together by the \"Search folders\" scope:"), page);
     foldersLabel->setWordWrap(true);
     layout->addWidget(foldersLabel);
@@ -1073,9 +1161,10 @@ QWidget *SettingsDialog::createSearchPage()
     auto *manageFilters = new QPushButton(i18nc("@action:button", "Manage Shared Path Filters…"), page);
     manageFilters->setObjectName(QStringLiteral("managePathFilters"));
     layout->addWidget(manageFilters);
-    connect(manageFilters, &QPushButton::clicked, this, [this] {
+    connect(manageFilters, &QPushButton::clicked, this, [this, defaultFilter] {
         PathFilterPresetsDialog dialog(this);
         dialog.exec();
+        defaultFilter->reload();
     });
     auto *manageSearches = new QPushButton(i18nc("@action:button", "Manage Saved Searches and Collections…"), page);
     manageSearches->setObjectName(QStringLiteral("manageSavedSearches"));

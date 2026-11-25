@@ -4,6 +4,7 @@
 
 #include "livesearch.h"
 #include "savedsearches.h"
+#include "searchdefaults.h"
 
 #include <KSharedConfig>
 #include <QFutureWatcher>
@@ -19,8 +20,10 @@ class QLabel;
 class QLineEdit;
 class QProgressBar;
 class QPushButton;
+class QStringListModel;
 class QTabWidget;
 class QTreeWidget;
+class QTreeWidgetItem;
 class PathFilterEditor;
 
 /// Search criteria, progress, results and collections, embedded in the search panel.
@@ -46,14 +49,32 @@ public:
     void focusQuery();
     /// Focuses the visible result list when it has items; returns whether it did.
     bool focusResults();
-    /// Replaces the query text and starts a search with the current criteria.
-    void search(const QString &text);
+    /// Replaces the query text and starts a search with the current criteria; returns whether it started.
+    bool search(const QString &text);
+    /// Returns the text of the panel's status line.
+    QString status() const;
+    /// Returns whether the visible result list has items.
+    bool hasResults() const;
     /// Cancels a running search; does nothing otherwise.
     void cancel();
+    /**
+     * Applies changed search defaults from Preferences. Criteria still showing
+     * the previous defaults change; criteria the user changed are kept. While
+     * a search runs, the defaults are applied when it finishes.
+     */
+    void applyDefaults();
+    /// Rereads the saved searches and returns their names, for the toolbar search field.
+    QStringList savedSearchNames();
+    /// Loads the named saved search's criteria and starts it; returns whether it started.
+    bool runSavedSearch(const QString &name);
+    /// Rereads and returns the recent queries, most recent first; empty when history is not retained.
+    QStringList history();
 
 Q_SIGNALS:
     /// Escape was pressed while no search was running.
     void dismissRequested();
+    /// A search ended; @p status summarizes its outcome.
+    void finished(const QString &status);
     void revealRequested(const QUrl &url);
     /// Requests opening an existing result: a folder in a pane, a file in its application.
     void openRequested(const QUrl &url);
@@ -63,11 +84,17 @@ protected:
     void keyPressEvent(QKeyEvent *event) override;
 
 private:
-    void start();
+    bool start();
+    QString applyDefaultsNow();
+    bool loadSavedSearch(const QString &name);
     void openSelected();
     void revealSelected();
     void updateSavedSearches();
     void updateCollection(const QList<QUrl> &urls);
+    void applyPresentation();
+    void setItemPath(QTreeWidgetItem *item, const QString &path) const;
+    void recordHistory(const QString &query);
+    void showHistory();
     PathFilter pathFilter() const;
     SavedSearches::Search currentSearch(const QString &name, const QString &id = {}) const;
 
@@ -76,6 +103,7 @@ private:
     QList<SavedSearches::Search> m_savedSearches;
     QLabel *m_folderLabel;
     QLineEdit *m_query;
+    QStringListModel *m_historyModel;
     QComboBox *m_field;
     QComboBox *m_scope;
     QCheckBox *m_workspaceOnly;
@@ -89,7 +117,11 @@ private:
     QTreeWidget *m_results;
     QTreeWidget *m_collection;
     QTabWidget *m_resultTabs;
+    QComboBox *m_presentation;
     QTreeWidget *m_errors;
     QFutureWatcher<LiveSearch::Result> m_watcher;
     std::shared_ptr<std::atomic_bool> m_canceled;
+    SearchDefaults::Defaults m_appliedDefaults;
+    PathFilter m_appliedFilter;
+    bool m_defaultsPending = false;
 };

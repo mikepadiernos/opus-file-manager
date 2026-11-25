@@ -118,6 +118,7 @@ ecm_add_tests(
     savedpathfilterstest.cpp
     savedsearchestest.cpp
     searchcollectiontest.cpp
+    searchhistorytest.cpp
     searchlocationstest.cpp
     searchquerytest.cpp
     tabcolorstest.cpp

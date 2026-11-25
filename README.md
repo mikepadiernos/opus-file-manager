@@ -37,7 +37,7 @@
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0).
 > Since that release, `main` has gained workspaces (M15–M16), themes (M17–M18),
-> branding (M19–M20) and advanced search (M21); see the
+> branding (M19–M20) and advanced search with its settings (M21–M22); see the
 > [roadmap](docs/ROADMAP.md#at-a-glance) for status.
 
 ## Features

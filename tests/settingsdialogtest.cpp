@@ -11,6 +11,7 @@
 #include "mainwindow.h"
 #include "pathfilterpresetsdialog.h"
 #include "savedpathfilters.h"
+#include "searchhistory.h"
 #include "searchstoredialog.h"
 #include "settings.h"
 #include "settingsbackup.h"
@@ -26,9 +27,11 @@
 #include <KPageWidget>
 #include <KPluginMetaData>
 #include <KSharedConfig>
+#include <KToolBar>
 #include <KUrlRequester>
 
 #include <QAbstractItemView>
+#include <QAction>
 #include <QApplication>
 #include <QCheckBox>
 #include <QComboBox>
@@ -749,30 +752,61 @@ private Q_SLOTS:
     void searchDefaultsPersistAndCancelLeavesThemUnchanged()
     {
         KFilePlacesModel places;
+        QString error;
+        QVERIFY(SavedPathFilters::save(KSharedConfig::openConfig()->group(QStringLiteral("SavedPathFilters")),
+                                       {{QStringLiteral("Reports"), PathFilter{QStringLiteral("reports"), {}, {}, -1}}},
+                                       &error));
+        const auto removeFilters = qScopeGuard([] {
+            KSharedConfig::openConfig()->deleteGroup(QStringLiteral("SavedPathFilters"));
+            Settings::setDefaultSearchPathFilter(QString());
+            Settings::self()->save();
+        });
         {
             SettingsDialog dialog(&places, nullptr);
-            auto *indexed = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_SearchIndexedByDefault"));
-            auto *contents = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_SearchContentsByDefault"));
-            QVERIFY(indexed && contents);
-            QVERIFY(!indexed->isChecked());
-            QVERIFY(!contents->isChecked());
-            indexed->setChecked(true);
-            contents->setChecked(true);
+            auto *scope = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultSearchScope"));
+            auto *field = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultSearchField"));
+            auto *filter = dialog.findChild<SavedPathFilterCombo *>(QStringLiteral("kcfg_DefaultSearchPathFilter"));
+            QVERIFY(scope && field && filter);
+            QCOMPARE(scope->currentIndex(), int(Settings::EnumDefaultSearchScope::CurrentFolder));
+            QCOMPARE(field->currentIndex(), int(Settings::EnumDefaultSearchField::FileName));
+            QCOMPARE(filter->filterName(), QString());
+            QCOMPARE(filter->count(), 2);
+            scope->setCurrentIndex(Settings::EnumDefaultSearchScope::SearchFolders);
+            field->setCurrentIndex(Settings::EnumDefaultSearchField::Query);
+            filter->setCurrentIndex(filter->findData(QStringLiteral("Reports")));
             dialog.button(QDialogButtonBox::Ok)->click();
         }
+        QCOMPARE(KSharedConfig::openConfig()->group(QStringLiteral("Search")).readEntry("DefaultSearchScope", QString()), QStringLiteral("SearchFolders"));
         {
             SettingsDialog dialog(&places, nullptr);
-            auto *indexed = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_SearchIndexedByDefault"));
-            auto *contents = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_SearchContentsByDefault"));
-            QVERIFY(indexed && contents);
-            QVERIFY(indexed->isChecked());
-            QVERIFY(contents->isChecked());
-            indexed->setChecked(false);
-            contents->setChecked(false);
+            auto *scope = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultSearchScope"));
+            auto *field = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultSearchField"));
+            auto *filter = dialog.findChild<SavedPathFilterCombo *>(QStringLiteral("kcfg_DefaultSearchPathFilter"));
+            QVERIFY(scope && field && filter);
+            QCOMPARE(scope->currentIndex(), int(Settings::EnumDefaultSearchScope::SearchFolders));
+            QCOMPARE(field->currentIndex(), int(Settings::EnumDefaultSearchField::Query));
+            QCOMPARE(filter->filterName(), QStringLiteral("Reports"));
+            scope->setCurrentIndex(Settings::EnumDefaultSearchScope::Indexed);
+            filter->setCurrentIndex(0);
             dialog.reject();
         }
-        QVERIFY(Settings::searchIndexedByDefault());
-        QVERIFY(Settings::searchContentsByDefault());
+        QCOMPARE(Settings::defaultSearchScope(), int(Settings::EnumDefaultSearchScope::SearchFolders));
+        QCOMPARE(Settings::defaultSearchField(), int(Settings::EnumDefaultSearchField::Query));
+        QCOMPARE(Settings::defaultSearchPathFilter(), QStringLiteral("Reports"));
+
+        // A removed filter stays chosen as unavailable until the user changes it.
+        QVERIFY(SavedPathFilters::save(KSharedConfig::openConfig()->group(QStringLiteral("SavedPathFilters")), {}, &error));
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *filter = dialog.findChild<SavedPathFilterCombo *>(QStringLiteral("kcfg_DefaultSearchPathFilter"));
+            QVERIFY(filter);
+            QCOMPARE(filter->filterName(), QStringLiteral("Reports"));
+            QVERIFY(filter->currentText().contains(QStringLiteral("Unavailable")));
+            dialog.reject();
+        }
+        Settings::setDefaultSearchScope(Settings::EnumDefaultSearchScope::CurrentFolder);
+        Settings::setDefaultSearchField(Settings::EnumDefaultSearchField::FileName);
+        Settings::self()->save();
     }
 
     void workspaceSearchDefaultPersists()
@@ -788,6 +822,107 @@ private Q_SLOTS:
         }
         QVERIFY(!Settings::workspaceSearchByDefault());
         QVERIFY(!KSharedConfig::openConfig()->group(QStringLiteral("Search")).readEntry("WorkspaceSearchByDefault", true));
+    }
+
+    void searchResultAndHistorySettingsPersist()
+    {
+        KFilePlacesModel places;
+        auto history = KSharedConfig::openStateConfig()->group(QStringLiteral("SearchHistory"));
+        SearchHistory::save(history, {QStringLiteral("alpha"), QStringLiteral("beta")});
+        QVERIFY(history.sync());
+        const auto restore = qScopeGuard([] {
+            Settings::setDefaultSearchResultPresentation(Settings::EnumDefaultSearchResultPresentation::FullPaths);
+            Settings::setRetainSearchHistory(true);
+            Settings::self()->save();
+        });
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *presentation = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultSearchResultPresentation"));
+            auto *retain = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_RetainSearchHistory"));
+            auto *clear = dialog.findChild<QPushButton *>(QStringLiteral("clearSearchHistory"));
+            QVERIFY(presentation && retain && clear);
+            QCOMPARE(presentation->currentIndex(), int(Settings::EnumDefaultSearchResultPresentation::FullPaths));
+            QVERIFY(retain->isChecked());
+            QVERIFY(clear->isEnabled());
+            // Clearing takes effect at once, even when the dialog is cancelled.
+            clear->click();
+            QVERIFY(!clear->isEnabled());
+            presentation->setCurrentIndex(Settings::EnumDefaultSearchResultPresentation::NamesAndFolders);
+            retain->setChecked(false);
+            dialog.reject();
+        }
+        QVERIFY(SearchHistory::load(KSharedConfig::openStateConfig()->group(QStringLiteral("SearchHistory"))).isEmpty());
+        QCOMPARE(Settings::defaultSearchResultPresentation(), int(Settings::EnumDefaultSearchResultPresentation::FullPaths));
+        QVERIFY(Settings::retainSearchHistory());
+        {
+            SettingsDialog dialog(&places, nullptr);
+            QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("clearSearchHistory"))->isEnabled());
+            dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultSearchResultPresentation"))
+                ->setCurrentIndex(Settings::EnumDefaultSearchResultPresentation::NamesAndFolders);
+            dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_RetainSearchHistory"))->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        const auto search = KSharedConfig::openConfig()->group(QStringLiteral("Search"));
+        QCOMPARE(search.readEntry("DefaultSearchResultPresentation", QString()), QStringLiteral("NamesAndFolders"));
+        QVERIFY(!search.readEntry("RetainSearchHistory", true));
+    }
+
+    void toolbarSearchFieldSettingsUseTheMainToolbar()
+    {
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup customization = config->group(QStringLiteral("ToolbarCustomization"));
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto backup = KSharedConfig::openConfig(root.filePath(QStringLiteral("toolbar-backup")));
+        KConfigGroup savedCustomization = backup->group(QStringLiteral("ToolbarCustomization"));
+        customization.copyTo(&savedCustomization);
+        customization.deleteGroup();
+        const auto restore = qScopeGuard([&] {
+            customization.deleteGroup();
+            savedCustomization.copyTo(&customization);
+            config->sync();
+            Settings::setToolbarSearchOpensPanel(true);
+            Settings::self()->save();
+        });
+        MainWindow window;
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        auto *places = window.findChild<KFilePlacesModel *>();
+        QAction *field = window.actionCollection()->action(QStringLiteral("search_toolbar"));
+        QAction *searchButton = window.actionCollection()->action(QStringLiteral("search_folder"));
+        QVERIFY(places && field && searchButton);
+        QVERIFY(!window.toolBar()->actions().contains(field));
+        {
+            SettingsDialog dialog(places, &window);
+            auto *show = dialog.findChild<QCheckBox *>(QStringLiteral("searchToolbarField"));
+            auto *opens = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ToolbarSearchOpensPanel"));
+            QVERIFY(show && opens);
+            QVERIFY(show->isEnabled());
+            QVERIFY(!show->isChecked());
+            QVERIFY(opens->isChecked());
+            show->setChecked(true);
+            opens->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QList<QAction *> entries = window.toolBar()->actions();
+        QVERIFY(entries.contains(field));
+        QCOMPARE(entries.indexOf(field) + 1, entries.indexOf(searchButton));
+        QVERIFY(!Settings::toolbarSearchOpensPanel());
+        QTRY_VERIFY(customization.readEntry("Actions", QStringList()).contains(QStringLiteral("action:search_toolbar")));
+        {
+            SettingsDialog dialog(places, &window);
+            auto *show = dialog.findChild<QCheckBox *>(QStringLiteral("searchToolbarField"));
+            QVERIFY(show->isChecked());
+            show->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QVERIFY(!window.toolBar()->actions().contains(field));
+        QTRY_VERIFY(!customization.readEntry("Actions", QStringList()).contains(QStringLiteral("action:search_toolbar")));
+
+        // Without a main window the option can't apply.
+        KFilePlacesModel model;
+        SettingsDialog detached(&model, nullptr);
+        QVERIFY(!detached.findChild<QCheckBox *>(QStringLiteral("searchToolbarField"))->isEnabled());
     }
 
     void workspaceLayoutRestoreOptionsPersist()

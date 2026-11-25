@@ -707,19 +707,46 @@ Tracked in
 - **Search panel:** The panel searches the folder it was opened for and does
   not follow later navigation; search again from a pane to change it. While a
   search runs, the folder can't change until the search finishes or is
-  canceled. The panel follows the embedded terminal's placement, below or
-  beside the panes, and is hidden again at startup. Hiding the panel does not
-  cancel a running search.
+  canceled. By default the panel follows the embedded terminal's placement,
+  below or beside the panes. Preferences' Search page can instead place it
+  below or right of the panes; when that direction differs from the
+  terminal's, the panel spans the panes and terminal together and its size is
+  remembered separately. The panel is hidden at startup unless Preferences
+  enables reopening it. Each new window then reopens it, without taking focus,
+  if it was shown when last toggled in any window; this state is not kept per
+  window or workspace. Workspace layouts don't record the search panel's
+  placement or visibility. Hiding the panel does not cancel a running search.
 - **Toolbar search field:** The optional Search Field toolbar entry is not on
-  any toolbar by default; add it with Customize Main Toolbar. Pressing Enter
-  searches the active pane's current folder with the text typed, but uses the
-  other criteria, such as scope and filters, currently set in the search
-  panel. While a search runs, Enter does not start another search. The field
-  can be placed on the main toolbar only, not on pane toolbars, and does not
-  show suggestions or history.
+  any toolbar by default; add it from Preferences' Search page, which places
+  it before the Search button, or with Customize Main Toolbar. Both change the
+  same main toolbar entries, so restoring default toolbars removes it, and
+  the Preferences option is applied even when toolbars are locked. Pressing
+  Enter searches the active pane's current folder with the text typed, but
+  uses the other criteria, such as scope and filters, currently set in the
+  search panel. While a search runs, Enter does not start another search. The
+  field's Saved Searches menu runs a saved search with all its saved criteria,
+  including its folder, and replaces the panel's criteria. Searching from the
+  field shows the search panel unless Preferences turn this off; the status
+  bar then reports how the search ended for five seconds, or why it could not
+  start, but errors and skipped files are listed only in the panel. Empty
+  text still shows the panel. The field can be placed on the main toolbar
+  only, not on pane toolbars. It suggests recent queries while typing, and
+  Alt+Down lists them.
+- **Result presentation and history:** Results and collection references are
+  listed by full path or by name with their folder; the choice next to the
+  result tabs applies to the current panel and Preferences' Search page sets
+  its default. Copying, opening and revealing always use the full
+  path. Recent queries, up to 50, are shared by every window and kept as plain
+  text in Plasma Opus's state file, not in a protected store. A query is
+  remembered when its search starts, including searches started from the
+  toolbar field or a saved search. Turning off Remember recent search queries
+  forgets stored queries the next time a window applies Preferences, and
+  Clear Search History forgets them at once; neither removes queries already
+  shown in an open completion list or saved searches.
 - **Search keyboard navigation:** Down in the toolbar field or the panel's
   query moves to the visible result list, or from the toolbar field to the
-  query when there are no results. Escape cancels a running search; otherwise
+  query when there are no results. With the panel hidden, Down in the field
+  shows it only when it holds results. Escape cancels a running search; otherwise
   it returns focus to the active pane and leaves the panel open. Tab moves
   through the panel in layout order, but between the toolbar, panel and panes
   it follows the window's widget order. There are no dedicated shortcuts for
@@ -745,6 +772,14 @@ Tracked in
   applications. Search folders are searched live, so they share live search's
   local-only, symbolic-link and result limits. Exclusions are lexical paths:
   a symbolic link elsewhere does not inherit its target's exclusion.
+- **Search defaults:** The default scope, search field and path filter on
+  Preferences' Search page set the panel's initial criteria, which the toolbar
+  field also uses. When they change, an open panel updates only criteria still
+  showing the previous defaults, and waits until a running search finishes.
+  The default path filter is stored by name: renaming or deleting the shared
+  filter leaves it unavailable, so searches start without a path filter and
+  report it until another filter is chosen. Settings from before M22 are
+  migrated when Plasma Opus starts; the earlier Boolean keys are removed.
 - **Double Shift:** Pressing Shift twice opens search only while a Plasma Opus
   main window has keyboard focus; it is not a global shortcut and can't be
   assigned in Configure Keyboard Shortcuts. It is turned off while Sticky Keys
@@ -770,15 +805,22 @@ Tracked in
   or use Tab when keyboard focus needs to move elsewhere. Check the normalized
   query shown while typing to confirm grouping, use parentheses where AND and
   OR are mixed, and search the current folder or search folders when an
-  advanced query has no required name or content term.
+  advanced query has no required name or content term. After renaming or
+  deleting a shared path filter, choose the default path filter again on
+  Preferences' Search page. With several windows open, hide the search panel in
+  the last window you use if it should stay closed at the next startup. Turn
+  off Remember recent search queries before searching for sensitive text, or
+  use Clear Search History afterwards. Choose Names and folders when long
+  paths make results hard to scan. When toolbar searches leave the panel
+  hidden, press Down in the field after a search to check its errors and
+  results.
   - Comment: [#362.7023269364][comment-362]
 - **Alternative:** Use a separately maintained locate database for filenames.
   - Comment:
     [#362.7029675758](https://github.com/mikepadiernos/plasma-opus/issues/362#issuecomment-7029675758)
 - **Planned:** [M21 advanced search](ROADMAP.md#m21-advanced-search) reuses M09
   search; its new interface and criteria do not by themselves remove current
-  backend limits. [M22 advanced search settings](ROADMAP.md#m22-advanced-search-settings)
-  plans choosing the panel's placement and restoring its visibility at startup.
+  backend limits.
   [M31 keyboard shortcut settings](ROADMAP.md#m31-keyboard-shortcut-settings)
   plans configurable shortcuts
   ([#230](https://github.com/mikepadiernos/plasma-opus/issues/230)), which

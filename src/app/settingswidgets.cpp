@@ -7,6 +7,7 @@
 #include "customstylesheet.h"
 #include "filecolorrules.h"
 #include "ignorelist.h"
+#include "savedpathfilters.h"
 #include "settings.h"
 #include "stylesheets.h"
 #include "workspacestartup.h"
@@ -206,6 +207,49 @@ void StartupWorkspaceCombo::setWorkspaces(const QList<std::pair<QString, QString
 {
     m_workspaces = workspaces;
     setWorkspace(workspace());
+}
+
+SavedPathFilterCombo::SavedPathFilterCombo(QWidget *parent)
+    : QComboBox(parent)
+{
+    // KConfigDialogManager would otherwise watch QComboBox::activated, which
+    // misses programmatic changes.
+    setProperty("kcfg_propertyNotify", QByteArray(SIGNAL(filterNameChanged())));
+    setFilterName(QString());
+    connect(this, &QComboBox::currentIndexChanged, this, &SavedPathFilterCombo::filterNameChanged);
+}
+
+QString SavedPathFilterCombo::filterName() const
+{
+    return currentData().toString();
+}
+
+void SavedPathFilterCombo::setFilterName(const QString &name)
+{
+    const QString previous = filterName();
+    {
+        const QSignalBlocker blocker(this);
+        clear();
+        addItem(i18nc("@item:inlistbox default path filter", "None"), QString());
+        QString error;
+        for (const auto &preset : SavedPathFilters::load(KSharedConfig::openConfig()->group(QStringLiteral("SavedPathFilters")), &error)) {
+            addItem(preset.name, preset.name);
+        }
+        int index = findData(name);
+        if (index < 0) {
+            addItem(i18nc("@item:inlistbox saved path filter that was deleted or renamed", "Unavailable filter (%1)", name), name);
+            index = count() - 1;
+        }
+        setCurrentIndex(index);
+    }
+    if (previous != filterName()) {
+        Q_EMIT filterNameChanged();
+    }
+}
+
+void SavedPathFilterCombo::reload()
+{
+    setFilterName(filterName());
 }
 
 ColorSchemeCombo::ColorSchemeCombo(QWidget *parent)
