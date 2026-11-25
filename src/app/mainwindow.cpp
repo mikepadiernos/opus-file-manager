@@ -546,6 +546,16 @@ MainWindow::MainWindow(QWidget *parent)
             this,
             &MainWindow::applyContrastDependentAppearance);
 #endif
+    // An app-local scheme does not follow Plasma's palette, so Plasma's accent
+    // is layered over it again when it changes.
+    m_plasmaColorsWatcher = KConfigWatcher::create(KSharedConfig::openConfig(QStringLiteral("kdeglobals")));
+    connect(m_plasmaColorsWatcher.data(), &KConfigWatcher::configChanged, this, [this](const KConfigGroup &group) {
+        if ((group.name() == QLatin1String("General") || group.name().startsWith(QLatin1String("Colors:")))
+            && EffectiveAppearance::accentColor() == QLatin1String(ColorSchemes::PlasmaAccent)
+            && !ColorSchemes::path(EffectiveAppearance::colorScheme()).isEmpty()) {
+            applyColorScheme();
+        }
+    });
     applySettings();
     updateActions();
 }

@@ -66,7 +66,7 @@ bool validValue(const QString &entry, const QVariant &value)
     }
     if (entry == QLatin1String("AccentColor")) {
         const QString accent = value.toString();
-        return accent.isEmpty() || QColor::fromString(accent).isValid();
+        return accent.isEmpty() || accent == QLatin1String(ColorSchemes::PlasmaAccent) || QColor::fromString(accent).isValid();
     }
     if (entry == QLatin1String("CustomColors")) {
         const QStringList colors = value.toStringList();

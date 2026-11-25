@@ -363,11 +363,11 @@ private Q_SLOTS:
         auto *chooser = dialog.findChild<AccentColorChooser *>(QStringLiteral("kcfg_AccentColor"));
         auto *editor = dialog.findChild<ColorPaletteEditor *>(QStringLiteral("kcfg_CustomColors"));
         QVERIFY(combo && chooser && editor);
-        auto *custom = chooser->findChild<QCheckBox *>(QStringLiteral("customAccent"));
+        auto *mode = chooser->findChild<QComboBox *>(QStringLiteral("accentMode"));
         auto *button = chooser->findChild<KColorButton *>(QStringLiteral("accentColour"));
         auto *warning = chooser->findChild<KMessageWidget *>(QStringLiteral("accentContrastWarning"));
         auto *highlightButton = editor->findChild<KColorButton *>(QStringLiteral("colourHighlight"));
-        QVERIFY(custom && button && warning && highlightButton);
+        QVERIFY(mode && button && warning && highlightButton);
         QVERIFY(chooser->accent().isEmpty());
         QVERIFY(!button->isEnabled());
 
@@ -376,7 +376,7 @@ private Q_SLOTS:
         const QPalette dark = ColorSchemes::palette(QLatin1String(ColorSchemes::DarkPreset));
         QCOMPARE(button->color(), dark.color(QPalette::Active, QPalette::Accent));
 
-        custom->setChecked(true);
+        mode->setCurrentIndex(AccentColorChooser::Custom);
         QVERIFY(button->isEnabled());
         // A dark accent on a dark scheme is hard to see against the view background.
         button->setColor(QColor(30, 30, 30));
@@ -394,7 +394,24 @@ private Q_SLOTS:
         QCOMPARE(window.palette().color(QPalette::Active, QPalette::Accent), QColor(0xe0, 0x60, 0x20));
         QCOMPARE(window.palette().color(QPalette::Active, QPalette::Window), QColor(32, 35, 38));
 
-        custom->setChecked(false);
+        // Plasma's accent is layered over the app-local scheme.
+        const QColor plasmaAccent = ColorSchemes::palette(QString()).color(QPalette::Active, QPalette::Accent);
+        mode->setCurrentIndex(AccentColorChooser::FollowPlasma);
+        QCOMPARE(chooser->accent(), QLatin1String(ColorSchemes::PlasmaAccent));
+        QVERIFY(!button->isEnabled());
+        QCOMPARE(button->color(), plasmaAccent);
+        QCOMPARE(highlightButton->color(), plasmaAccent);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::accentColor(), QLatin1String(ColorSchemes::PlasmaAccent));
+        QTRY_COMPARE(window.palette().color(QPalette::Active, QPalette::Accent), plasmaAccent);
+        QCOMPARE(window.palette().color(QPalette::Active, QPalette::Window), QColor(32, 35, 38));
+        chooser->setAccent(QString());
+        QCOMPARE(mode->currentIndex(), int(AccentColorChooser::FollowScheme));
+        chooser->setAccent(QLatin1String(ColorSchemes::PlasmaAccent));
+        QCOMPARE(mode->currentIndex(), int(AccentColorChooser::FollowPlasma));
+
+        mode->setCurrentIndex(AccentColorChooser::FollowScheme);
         QVERIFY(chooser->accent().isEmpty());
         QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
         dialog.button(QDialogButtonBox::Apply)->click();

@@ -109,9 +109,9 @@ class QToolButton;
 KMessageWidget *createContrastNotice(const QString &objectName, bool adjusted, QWidget *parent);
 
 /**
- * Follows the colour scheme's accent or chooses an app-local accent colour,
- * reporting when it lacks contrast against the selected scheme. Bound to the
- * AccentColor setting.
+ * Follows the colour scheme's accent or Plasma's accent, or chooses an
+ * app-local accent colour, reporting when it lacks contrast against the
+ * selected scheme. Bound to the AccentColor setting.
  */
 class AccentColorChooser : public QWidget
 {
@@ -119,8 +119,15 @@ class AccentColorChooser : public QWidget
     Q_PROPERTY(QString accent READ accent WRITE setAccent NOTIFY accentChanged USER true)
 
 public:
+    /// Items of the accent mode combo box.
+    enum Mode {
+        FollowScheme,
+        FollowPlasma,
+        Custom
+    };
+
     explicit AccentColorChooser(QWidget *parent = nullptr);
-    /// The chosen colour as #rrggbb, or empty to follow the scheme.
+    /// The chosen colour as #rrggbb, ColorSchemes::PlasmaAccent, or empty to follow the scheme.
     QString accent() const;
     void setAccent(const QString &accent);
     /// Validates the accent against the given ColorScheme setting value.
@@ -132,10 +139,11 @@ Q_SIGNALS:
 private:
     void refresh();
 
-    QCheckBox *m_custom;
+    QComboBox *m_mode;
     KColorButton *m_button;
     KMessageWidget *m_contrast;
     QPalette m_base;
+    bool m_schemeFollowsPlasma = true;
 };
 
 /**

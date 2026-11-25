@@ -263,15 +263,22 @@ KMessageWidget *createContrastNotice(const QString &objectName, bool adjusted, Q
 
 AccentColorChooser::AccentColorChooser(QWidget *parent)
     : QWidget(parent)
-    , m_custom(new QCheckBox(i18nc("@option:check", "Use an app-local accent colour"), this))
+    , m_mode(new QComboBox(this))
     , m_button(new KColorButton(this))
     , m_contrast(new KMessageWidget(this))
     , m_base(ColorSchemes::palette(QString()))
 {
     setProperty("kcfg_propertyNotify", QByteArray(SIGNAL(accentChanged())));
-    m_custom->setObjectName(QStringLiteral("customAccent"));
+    m_mode->setObjectName(QStringLiteral("accentMode"));
+    m_mode->setAccessibleName(i18nc("@label", "Accent colour"));
+    m_mode->addItem(i18nc("@item:inlistbox accent colour", "Follow the colour scheme"));
+    m_mode->addItem(i18nc("@item:inlistbox accent colour", "Follow Plasma's accent colour"));
+    m_mode->addItem(i18nc("@item:inlistbox accent colour", "App-local colour"));
+    m_mode->setToolTip(i18nc("@info:tooltip",
+                             "Follow Plasma's accent colour keeps Plasma's accent over an app-local colour scheme. When the colour "
+                             "scheme follows Plasma, both follow options are the same."));
     m_button->setObjectName(QStringLiteral("accentColour"));
-    m_button->setAccessibleName(i18nc("@label", "Accent colour"));
+    m_button->setAccessibleName(i18nc("@label", "App-local accent colour"));
     m_contrast->setObjectName(QStringLiteral("accentContrastWarning"));
     m_contrast->setMessageType(KMessageWidget::Warning);
     m_contrast->setCloseButtonVisible(false);
@@ -280,17 +287,17 @@ AccentColorChooser::AccentColorChooser(QWidget *parent)
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     auto *row = new QHBoxLayout;
-    row->addWidget(m_custom);
+    row->addWidget(m_mode);
     row->addWidget(m_button);
     row->addStretch();
     layout->addLayout(row);
     layout->addWidget(m_contrast);
-    connect(m_custom, &QCheckBox::toggled, this, [this] {
+    connect(m_mode, &QComboBox::currentIndexChanged, this, [this] {
         refresh();
         Q_EMIT accentChanged();
     });
     connect(m_button, &KColorButton::changed, this, [this] {
-        if (m_custom->isChecked()) {
+        if (m_mode->currentIndex() == Custom) {
             refresh();
             Q_EMIT accentChanged();
         }
@@ -300,19 +307,29 @@ AccentColorChooser::AccentColorChooser(QWidget *parent)
 
 QString AccentColorChooser::accent() const
 {
-    return m_custom->isChecked() ? QColor(m_button->color().rgb()).name(QColor::HexRgb) : QString();
+    switch (m_mode->currentIndex()) {
+    case FollowPlasma:
+        return QLatin1String(ColorSchemes::PlasmaAccent);
+    case Custom:
+        return QColor(m_button->color().rgb()).name(QColor::HexRgb);
+    default:
+        return {};
+    }
 }
 
 void AccentColorChooser::setAccent(const QString &accent)
 {
-    const QColor color = QColor::fromString(accent);
     const QString previous = this->accent();
     {
-        const QSignalBlocker checkBlocker(m_custom);
+        const QSignalBlocker modeBlocker(m_mode);
         const QSignalBlocker buttonBlocker(m_button);
-        m_custom->setChecked(!accent.isEmpty() && color.isValid());
-        if (m_custom->isChecked()) {
+        if (accent == QLatin1String(ColorSchemes::PlasmaAccent)) {
+            m_mode->setCurrentIndex(FollowPlasma);
+        } else if (const QColor color = ColorSchemes::accentColor(accent); color.isValid()) {
+            m_mode->setCurrentIndex(Custom);
             m_button->setColor(color);
+        } else {
+            m_mode->setCurrentIndex(FollowScheme);
         }
     }
     refresh();
@@ -324,15 +341,20 @@ void AccentColorChooser::setAccent(const QString &accent)
 void AccentColorChooser::setScheme(const QString &id)
 {
     m_base = ColorSchemes::palette(id);
+    m_schemeFollowsPlasma = ColorSchemes::path(id).isEmpty();
     refresh();
 }
 
 void AccentColorChooser::refresh()
 {
-    m_button->setEnabled(m_custom->isChecked());
-    if (!m_custom->isChecked()) {
+    const int mode = m_mode->currentIndex();
+    m_button->setEnabled(mode == Custom);
+    if (mode != Custom) {
         const QSignalBlocker blocker(m_button);
-        m_button->setColor(m_base.color(QPalette::Active, QPalette::Accent));
+        m_button->setColor(mode == FollowPlasma ? ColorSchemes::accentColor(accent()) : m_base.color(QPalette::Active, QPalette::Accent));
+    }
+    // Plasma's own scheme and accent, or the scheme's own accent, are not checked.
+    if (mode == FollowScheme || (mode == FollowPlasma && m_schemeFollowsPlasma)) {
         m_contrast->hide();
         return;
     }
@@ -478,7 +500,8 @@ void ColorPaletteEditor::setAccent(const QString &accent)
 void ColorPaletteEditor::updateBase()
 {
     const QPalette scheme = ColorSchemes::palette(m_scheme);
-    m_base = ColorSchemes::withOverrides(scheme, ColorSchemes::accentOverrides(scheme, QColor::fromString(m_accent)));
+    const bool plasmaOverPlasma = m_accent == QLatin1String(ColorSchemes::PlasmaAccent) && ColorSchemes::path(m_scheme).isEmpty();
+    m_base = plasmaOverPlasma ? scheme : ColorSchemes::withOverrides(scheme, ColorSchemes::accentOverrides(scheme, ColorSchemes::accentColor(m_accent)));
     refresh();
 }
 

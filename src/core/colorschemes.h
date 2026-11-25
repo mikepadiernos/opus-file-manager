@@ -23,6 +23,8 @@ namespace ColorSchemes
 inline constexpr auto LightPreset = "preset:light";
 /// Setting value of the bundled dark preset.
 inline constexpr auto DarkPreset = "preset:dark";
+/// AccentColor setting value that layers Plasma's accent colour over an app-local scheme.
+inline constexpr auto PlasmaAccent = "plasma";
 
 struct Scheme {
     /// Setting value: a preset id or an installed scheme's file base name.
@@ -106,10 +108,18 @@ Overrides accentOverrides(const QPalette &palette, const QColor &accent);
 QList<QPalette::ColorRole> accentRoles();
 
 /**
+ * Resolves an AccentColor setting value.
+ * @returns the colour, Plasma's current accent colour for PlasmaAccent, or an
+ *          invalid colour when the accent follows the colour scheme
+ */
+QColor accentColor(const QString &accent);
+
+/**
  * Combines the AccentColor and CustomColors settings into CustomColors
  * entries for apply(). Custom colours take precedence over the accent.
  * @param id the ColorScheme setting value the accent is layered over
- * @param accent an AccentColor setting value; empty follows the scheme
+ * @param accent an AccentColor setting value; empty follows the scheme and
+ *        PlasmaAccent follows Plasma's accent colour
  * @param customColors CustomColors setting entries
  */
 QStringList withAccent(const QString &id, const QString &accent, const QStringList &customColors);

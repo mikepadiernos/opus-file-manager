@@ -7,6 +7,7 @@
 #include "previewpanel.h"
 #include "workspacecatalog.h"
 
+#include <KConfigWatcher>
 #include <KFileItem>
 #include <KXmlGuiWindow>
 
@@ -327,6 +328,8 @@ private:
     QString m_workspaceConfigPath;
     qint64 m_workspaceConfigModified = -1;
     QTimer *m_workspaceIndicatorTimer = nullptr;
+    /// Watches Plasma's colours, so its accent can follow over an app-local scheme.
+    KConfigWatcher::Ptr m_plasmaColorsWatcher;
     KSelectAction *m_workspaceSelectorAction = nullptr;
     QToolButton *m_workspaceStatusButton = nullptr;
     KFilePlacesView *m_placesView = nullptr;
