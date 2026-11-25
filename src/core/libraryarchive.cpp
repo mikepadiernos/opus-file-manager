@@ -4,6 +4,7 @@
 
 #include <KLocalizedString>
 
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -11,6 +12,7 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonParseError>
+#include <QRegularExpression>
 #include <QSaveFile>
 #include <QSet>
 #include <QStandardPaths>
@@ -51,6 +53,12 @@ QJsonObject readObject(const QString &path, QString *problem)
 bool isExport(const QJsonObject &document)
 {
     return document.value(QStringLiteral("format")).toString() == LibraryArchive::formatName();
+}
+
+/// Identifies the library at @p root in backup names, so libraries in folders with the same name are told apart.
+QString backupTag(const QString &root)
+{
+    return QString::fromLatin1(QCryptographicHash::hash(QDir::cleanPath(root).toUtf8(), QCryptographicHash::Sha1).toHex().left(8));
 }
 
 /// Marks the entries of @p library whose file or folder isn't below @p root missing; returns how many aren't there.
@@ -268,9 +276,60 @@ QString LibraryArchive::suggestedFileName(const QString &root, const QDate &date
                  date.toString(Qt::ISODate));
 }
 
-QString LibraryArchive::backupDirectory()
+QString LibraryArchive::backupDirectory(const QString &folder)
 {
+    if (!folder.isEmpty() && QDir::isAbsolutePath(folder)) {
+        return QDir::cleanPath(folder);
+    }
     return QDir(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)).filePath(QStringLiteral("library-backups"));
+}
+
+int LibraryArchive::pruneBackups(const QString &folder, const QString &root, int limit, const QString &keep)
+{
+    if (limit <= 0) {
+        return 0;
+    }
+    const QString clean = QDir::cleanPath(root);
+    const QRegularExpression pattern(QStringLiteral("^%1 (\\d{4}-\\d{2}-\\d{2} \\d{6}) %2(?: \\((\\d+)\\))?\\.json$")
+                                         .arg(QRegularExpression::escape(QFileInfo(clean).fileName()), backupTag(clean)));
+    const QString kept = keep.isEmpty() ? QString() : QFileInfo(keep).absoluteFilePath();
+    struct Backup {
+        QString path;
+        QString stamp;
+        int number = 1;
+    };
+    QList<Backup> backups;
+    bool keepFound = false;
+    const QFileInfoList files = QDir(folder).entryInfoList(QDir::Files | QDir::Hidden | QDir::NoSymLinks | QDir::NoDotAndDotDot);
+    for (const QFileInfo &info : files) {
+        const QRegularExpressionMatch match = pattern.match(info.fileName());
+        if (!match.hasMatch() || info.isSymLink() || !info.isFile()) {
+            continue;
+        }
+        if (info.absoluteFilePath() == kept) {
+            keepFound = true;
+            continue;
+        }
+        // Private documents record their root; a copy of another library's document is never deleted.
+        QString problem;
+        const QJsonObject document = readObject(info.filePath(), &problem);
+        const QJsonValue recorded = document.value(QStringLiteral("root"));
+        if (recorded.isString() && QDir::cleanPath(recorded.toString()) != clean) {
+            continue;
+        }
+        backups.append({info.absoluteFilePath(), match.captured(1), match.captured(2).isEmpty() ? 1 : match.captured(2).toInt()});
+    }
+    std::sort(backups.begin(), backups.end(), [](const Backup &a, const Backup &b) {
+        return a.stamp != b.stamp ? a.stamp > b.stamp : a.number > b.number;
+    });
+    const qsizetype budget = std::max(0, limit - (keepFound ? 1 : 0));
+    int removed = 0;
+    for (qsizetype i = budget; i < backups.size(); ++i) {
+        if (QFile::remove(backups.at(i).path)) {
+            ++removed;
+        }
+    }
+    return removed;
 }
 
 LibraryArchive::Summary LibraryArchive::summarize(const TagLibrary::Library &library)
@@ -475,6 +534,11 @@ LibraryArchive::Plan LibraryArchive::preview(const QString &root, const QString 
 
 bool LibraryArchive::restore(const Plan &plan, QString *backup, QString *error)
 {
+    return restore(plan, BackupOptions{}, backup, error);
+}
+
+bool LibraryArchive::restore(const Plan &plan, const BackupOptions &options, QString *backup, QString *error)
+{
     if (backup) {
         backup->clear();
     }
@@ -488,7 +552,9 @@ bool LibraryArchive::restore(const Plan &plan, QString *backup, QString *error)
         return false;
     }
     if (readOnly) {
-        fail(error, i18nc("@info", "The library folder is read-only: %1", plan.root));
+        fail(error,
+             TagLibrary::isPrivate(plan.root) ? i18nc("@info", "The library document %1 can't be written.", TagLibrary::documentPath(plan.root))
+                                              : i18nc("@info", "The library folder is read-only: %1", plan.root));
         return false;
     }
     const QString changed = i18nc("@info", "The library changed since the preview. Preview the restore again.");
@@ -513,16 +579,17 @@ bool LibraryArchive::restore(const Plan &plan, QString *backup, QString *error)
         library = TagLibrary::Library(plan.root);
     }
 
-    const QString document = QDir(plan.root).filePath(TagLibrary::fileName());
+    const QString document = TagLibrary::documentPath(plan.root);
+    const QDir folder(backupDirectory(options.folder));
     QString copy;
     if (QFileInfo::exists(document)) {
-        const QDir folder(backupDirectory());
         if (!folder.mkpath(QStringLiteral("."))) {
             fail(error, i18nc("@info", "Could not create the backup folder %1.", folder.path()));
             return false;
         }
         const QString base =
-            QStringLiteral("%1 %2").arg(QFileInfo(plan.root).fileName(), QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HHmmss")));
+            QStringLiteral("%1 %2 %3")
+                .arg(QFileInfo(plan.root).fileName(), QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HHmmss")), backupTag(plan.root));
         copy = folder.filePath(base + QStringLiteral(".json"));
         for (int n = 2; QFileInfo::exists(copy); ++n) {
             copy = folder.filePath(QStringLiteral("%1 (%2).json").arg(base).arg(n));
@@ -543,6 +610,9 @@ bool LibraryArchive::restore(const Plan &plan, QString *backup, QString *error)
     }
     if (backup) {
         *backup = copy;
+    }
+    if (!copy.isEmpty()) {
+        pruneBackups(folder.path(), plan.root, options.limit, copy);
     }
     return true;
 }

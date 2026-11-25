@@ -25,8 +25,29 @@ QString formatName();
 /// A file name for an export of @p root, such as "Photos library 2026-11-25.json".
 QString suggestedFileName(const QString &root, const QDate &date);
 
-/// The folder that keeps copies of library documents replaced by a restore.
-QString backupDirectory();
+/**
+ * The folder that keeps copies of library documents replaced by a restore:
+ * @p folder when it's an absolute path, otherwise library-backups in Plasma
+ * Opus's data folder.
+ */
+QString backupDirectory(const QString &folder = {});
+
+/// Where restore() keeps copies of replaced library documents.
+struct BackupOptions {
+    /// The backup folder; see backupDirectory().
+    QString folder;
+    /// The most copies to keep per library, counting the new one; 0 keeps all.
+    int limit = 0;
+};
+
+/**
+ * Deletes the oldest backups of the library at @p root in @p folder so at
+ * most @p limit remain, never deleting @p keep. Only regular files named like
+ * the backups restore() makes for that library are considered, and copies
+ * that record a different library root are left alone.
+ * @returns the number of backups deleted
+ */
+int pruneBackups(const QString &folder, const QString &root, int limit, const QString &keep = {});
 
 struct Summary {
     int tags = 0;
@@ -122,9 +143,13 @@ Plan preview(const QString &root, const QString &source, QString *error = nullpt
 
 /**
  * Replaces the library document with the restored metadata of @p plan. Fails
- * without writing when the folder is read-only or the document changed since
- * the preview. The previous document is first copied to backupDirectory().
+ * without writing when the document can't be written or changed since the
+ * preview. The previous document is first copied to backupDirectory(), and
+ * older copies beyond the backup limit are then deleted.
  * @param backup receives the path of the copy, or an empty string when there was no document
  */
+bool restore(const Plan &plan, const BackupOptions &options, QString *backup = nullptr, QString *error = nullptr);
+
+/// Restores @p plan with the default backup folder, keeping all backups.
 bool restore(const Plan &plan, QString *backup = nullptr, QString *error = nullptr);
 }

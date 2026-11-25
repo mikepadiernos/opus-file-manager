@@ -1205,4 +1205,27 @@
       <default>Automatic</default>
     </entry>
   </group>
+  <group name="Tagging">
+    <entry name="NewLibraryStorage" type="Enum">
+      <label>Where new tag libraries keep their metadata: in the library folder or privately in Plasma Opus's data folder</label>
+      <choices>
+        <choice name="LibraryFolder"/>
+        <choice name="PrivateFolder"/>
+      </choices>
+      <default>LibraryFolder</default>
+    </entry>
+    <entry name="LibraryBackupFolder" type="Url">
+      <label>The folder that keeps copies of library documents replaced by a restore; empty for library-backups in Plasma Opus's data folder</label>
+    </entry>
+    <entry name="LibraryBackupLimit" type="Int">
+      <label>The most backups kept per library; 0 keeps all</label>
+      <default>20</default>
+      <min>0</min>
+      <max>1000</max>
+    </entry>
+    <entry name="AllowEmbeddedMetadataWrites" type="Bool">
+      <label>Whether library values may be written into files' embedded metadata, always after a preview and confirmation</label>
+      <default>false</default>
+    </entry>
+  </group>
 </kcfg>

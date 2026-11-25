@@ -9,7 +9,7 @@
 #include <KSharedConfig>
 
 #include <QDir>
-#include <QFile>
+#include <QFileInfo>
 
 namespace
 {
@@ -46,11 +46,21 @@ QStringList LibraryRegistry::roots()
     return result;
 }
 
-QString LibraryRegistry::create(const QString &root)
+TagLibrary::Storage LibraryRegistry::storageFor(const QString &root, TagLibrary::Storage preferred)
+{
+    if (QFileInfo::exists(TagLibrary::privateDocumentPath(root))) {
+        return TagLibrary::Storage::PrivateFolder;
+    }
+    if (QFileInfo::exists(TagLibrary::folderDocumentPath(root))) {
+        return TagLibrary::Storage::LibraryFolder;
+    }
+    return preferred;
+}
+
+QString LibraryRegistry::create(const QString &root, TagLibrary::Storage storage)
 {
     const QString clean = QDir::cleanPath(root);
-    bool readOnly = false;
-    if (const QString problem = TagLibrary::checkLocation(clean, &readOnly); !problem.isEmpty()) {
+    if (const QString problem = TagLibrary::checkLocation(clean); !problem.isEmpty()) {
         return problem;
     }
     const QStringList existing = roots();
@@ -66,15 +76,21 @@ QString LibraryRegistry::create(const QString &root)
         }
     }
     QString error;
-    if (QFile::exists(QDir(clean).filePath(TagLibrary::fileName()))) {
+    if (QFileInfo::exists(TagLibrary::documentPath(clean))) {
         if (TagLibrary::Library::load(clean, &error).isNull()) {
             return error;
         }
     } else {
-        if (readOnly) {
-            return i18nc("@info", "The folder is read-only, so a library can't be created there: %1", clean);
+        TagLibrary::Library library(clean, storage);
+        if (library.isReadOnly()) {
+            if (storage == TagLibrary::Storage::PrivateFolder) {
+                return i18nc("@info", "The library document %1 can't be written.", library.filePath());
+            }
+            return i18nc("@info",
+                         "The folder is read-only, so a library can't be created there: %1. To keep its metadata privately instead, change "
+                         "Preferences › Tagging › Privacy.",
+                         clean);
         }
-        TagLibrary::Library library(clean);
         if (!library.save(&error)) {
             return error;
         }
