@@ -25,6 +25,7 @@ enum Column {
     NameColumn,
     ShorthandColumn,
     ParentsColumn,
+    GroupsColumn,
     ItemsColumn,
 };
 }
@@ -45,8 +46,11 @@ TagManagerWidget::TagManagerWidget(QWidget *parent)
     m_filter->setClearButtonEnabled(true);
     m_list->setObjectName(QStringLiteral("tagList"));
     m_list->setAccessibleName(i18nc("@info:accessible", "Tags"));
-    m_list->setHeaderLabels(
-        {i18nc("@title:column", "Tag"), i18nc("@title:column", "Shorthand"), i18nc("@title:column", "Parents"), i18nc("@title:column", "Items")});
+    m_list->setHeaderLabels({i18nc("@title:column", "Tag"),
+                             i18nc("@title:column", "Shorthand"),
+                             i18nc("@title:column", "Parents"),
+                             i18nc("@title:column", "Groups"),
+                             i18nc("@title:column", "Items")});
     m_list->setRootIsDecorated(false);
     m_list->setUniformRowHeights(true);
     m_list->setSortingEnabled(true);
@@ -138,6 +142,11 @@ void TagManagerWidget::reload()
             parents.append(m_library.displayName(parent));
         }
         item->setText(ParentsColumn, parents.join(i18nc("@item list separator", ", ")));
+        QStringList groups;
+        for (const QString &group : m_library.groupsOf(tag.id)) {
+            groups.append(m_library.group(group)->name);
+        }
+        item->setText(GroupsColumn, groups.join(i18nc("@item list separator", ", ")));
         item->setData(ItemsColumn, Qt::DisplayRole, m_library.usageCount(tag.id));
         item->setTextAlignment(ItemsColumn, Qt::AlignRight | Qt::AlignVCenter);
         if (!tag.aliases.isEmpty()) {
@@ -280,15 +289,7 @@ void TagManagerWidget::applyFilter()
     const QString needle = m_filter->text().trimmed();
     for (int i = 0; i < m_list->topLevelItemCount(); ++i) {
         QTreeWidgetItem *item = m_list->topLevelItem(i);
-        const TagLibrary::Tag *tag = m_library.tag(item->data(NameColumn, IdRole).toString());
-        bool matches = needle.isEmpty() || item->text(NameColumn).contains(needle, Qt::CaseInsensitive);
-        if (!matches && tag) {
-            matches = tag->shorthand.contains(needle, Qt::CaseInsensitive)
-                || std::any_of(tag->aliases.cbegin(), tag->aliases.cend(), [&needle](const QString &alias) {
-                          return alias.contains(needle, Qt::CaseInsensitive);
-                      });
-        }
-        item->setHidden(!matches);
+        item->setHidden(!tagMatchesFilter(m_library, item->data(NameColumn, IdRole).toString(), item->text(NameColumn), needle));
     }
 }
 

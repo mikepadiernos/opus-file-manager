@@ -20,7 +20,9 @@ class QTreeWidgetItem;
  * The tag manager pane: a searchable, keyboard-accessible list of a
  * library's tags whose check boxes show and change how each tag is assigned
  * to the selected files and folders. A partly checked tag is assigned to
- * some of them; checking it assigns it to all.
+ * some of them; checking it assigns it to all. When the library has tag
+ * groups, every group is listed in order with its tags below it, followed by
+ * the tags that aren't in a group; a tag in several groups appears in each.
  */
 class TagPanel : public QWidget
 {

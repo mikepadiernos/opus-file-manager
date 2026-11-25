@@ -95,6 +95,10 @@ add_library(opusfm_app STATIC
     tageditdialog.h
     taggingcontroller.cpp
     taggingcontroller.h
+    taggroupdialog.cpp
+    taggroupdialog.h
+    taggroupmanagerwidget.cpp
+    taggroupmanagerwidget.h
     tagmanagerwidget.cpp
     tagmanagerwidget.h
     tagpanel.cpp

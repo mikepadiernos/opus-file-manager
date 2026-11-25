@@ -6,6 +6,7 @@
 #include "libraryrefreshdialog.h"
 #include "libraryregistry.h"
 #include "libraryreviewdialog.h"
+#include "taggroupmanagerwidget.h"
 #include "taglibrary.h"
 #include "tagmanagerwidget.h"
 
@@ -19,6 +20,7 @@
 #include <QDir>
 #include <QIcon>
 #include <QLabel>
+#include <QTabWidget>
 #include <QVBoxLayout>
 
 TaggingController::TaggingController(QWidget *window, KActionCollection *actions, Context context)
@@ -60,7 +62,7 @@ TaggingController::TaggingController(QWidget *window, KActionCollection *actions
     });
     manage->setText(i18nc("@action", "Manage Tags…"));
     manage->setIcon(QIcon::fromTheme(QStringLiteral("tag")));
-    manage->setToolTip(i18nc("@info:tooltip", "Create, edit and delete the tags of the current library"));
+    manage->setToolTip(i18nc("@info:tooltip", "Create, edit, group and delete the tags of the current library"));
 
     LibraryMoveTracker *tracker = LibraryMoveTracker::instance();
     connect(tracker, &LibraryMoveTracker::librariesChanged, this, [this](const QStringList &roots) {
@@ -178,9 +180,11 @@ QWidget *TaggingController::manageTags(const QString &root)
 {
     if (auto *existing = m_window->findChild<QDialog *>(QStringLiteral("tagsDialog"), Qt::FindDirectChildrenOnly)) {
         auto *manager = existing->findChild<TagManagerWidget *>();
+        auto *groups = existing->findChild<TagGroupManagerWidget *>();
         auto *intro = existing->findChild<QLabel *>(QStringLiteral("tagsDialogIntro"));
         if (manager->library() != root) {
             manager->setLibrary(root);
+            groups->setLibrary(root);
             intro->setText(xi18nc("@info", "Tags of the library <filename>%1</filename>.", root));
         }
         existing->raise();
@@ -194,14 +198,24 @@ QWidget *TaggingController::manageTags(const QString &root)
     auto *intro = new QLabel(xi18nc("@info", "Tags of the library <filename>%1</filename>.", root), dialog);
     intro->setObjectName(QStringLiteral("tagsDialogIntro"));
     intro->setWordWrap(true);
-    auto *manager = new TagManagerWidget(dialog);
+    auto *tabs = new QTabWidget(dialog);
+    tabs->setObjectName(QStringLiteral("tagsDialogTabs"));
+    auto *manager = new TagManagerWidget(tabs);
     manager->setLibrary(root);
+    auto *groups = new TagGroupManagerWidget(tabs);
+    groups->setLibrary(root);
+    tabs->addTab(manager, QIcon::fromTheme(QStringLiteral("tag")), i18nc("@title:tab", "&Tags"));
+    tabs->addTab(groups, QIcon::fromTheme(QStringLiteral("folder-tag"), QIcon::fromTheme(QStringLiteral("folder"))), i18nc("@title:tab", "&Groups"));
+    // Tag names appear in the groups list and group names in the tags list.
+    connect(manager, &TagManagerWidget::libraryChanged, groups, &TagGroupManagerWidget::reload);
+    connect(groups, &TagGroupManagerWidget::libraryChanged, manager, &TagManagerWidget::reload);
     connect(manager, &TagManagerWidget::libraryChanged, this, &TaggingController::libraryChanged);
+    connect(groups, &TagGroupManagerWidget::libraryChanged, this, &TaggingController::libraryChanged);
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, dialog);
     connect(buttons, &QDialogButtonBox::rejected, dialog, &QDialog::reject);
     auto *layout = new QVBoxLayout(dialog);
     layout->addWidget(intro);
-    layout->addWidget(manager, 1);
+    layout->addWidget(tabs, 1);
     layout->addWidget(buttons);
     dialog->resize(640, 480);
     dialog->show();

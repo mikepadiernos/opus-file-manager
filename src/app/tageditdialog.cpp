@@ -50,6 +50,18 @@ QIcon tagColorIcon(const QString &color)
     return icon;
 }
 
+bool tagMatchesFilter(const TagLibrary::Library &library, const QString &id, const QString &shown, const QString &needle)
+{
+    if (needle.isEmpty() || shown.contains(needle, Qt::CaseInsensitive)) {
+        return true;
+    }
+    const TagLibrary::Tag *tag = library.tag(id);
+    return tag
+        && (tag->shorthand.contains(needle, Qt::CaseInsensitive) || std::any_of(tag->aliases.cbegin(), tag->aliases.cend(), [&needle](const QString &alias) {
+                return alias.contains(needle, Qt::CaseInsensitive);
+            }));
+}
+
 TagEditDialog::TagEditDialog(const TagLibrary::Library &library, const TagLibrary::Tag &tag, QWidget *parent)
     : QDialog(parent)
     , m_library(library)
@@ -215,15 +227,7 @@ void TagEditDialog::filterParents(const QString &text)
     const QString needle = text.trimmed();
     for (int i = 0; i < m_parentList->count(); ++i) {
         QListWidgetItem *item = m_parentList->item(i);
-        const TagLibrary::Tag *candidate = m_library.tag(item->data(IdRole).toString());
-        bool matches = needle.isEmpty() || item->text().contains(needle, Qt::CaseInsensitive);
-        if (!matches && candidate) {
-            matches = candidate->shorthand.contains(needle, Qt::CaseInsensitive)
-                || std::any_of(candidate->aliases.cbegin(), candidate->aliases.cend(), [&needle](const QString &alias) {
-                          return alias.contains(needle, Qt::CaseInsensitive);
-                      });
-        }
-        item->setHidden(!matches);
+        item->setHidden(!tagMatchesFilter(m_library, item->data(IdRole).toString(), item->text(), needle));
     }
 }
 

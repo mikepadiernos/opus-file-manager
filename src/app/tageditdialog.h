@@ -18,6 +18,9 @@ class QPlainTextEdit;
 /// A colour swatch for a tag or group, or a plain tag icon without a colour.
 QIcon tagColorIcon(const QString &color);
 
+/// Whether the tag @p id, shown as @p shown, matches the search @p needle by name, alias or shorthand.
+bool tagMatchesFilter(const TagLibrary::Library &library, const QString &id, const QString &shown, const QString &needle);
+
 /**
  * Edits a tag's name, aliases, shorthand, colour and parents. Parents that
  * would form a cycle can't be chosen, and a name shared with another tag

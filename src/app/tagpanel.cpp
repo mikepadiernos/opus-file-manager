@@ -22,13 +22,43 @@
 #include <QSet>
 #include <QToolButton>
 #include <QTreeWidget>
+#include <QTreeWidgetItemIterator>
 #include <QVBoxLayout>
 
 #include <algorithm>
 
 namespace
 {
+/// The tag identifier of a tag item.
 constexpr int IdRole = Qt::UserRole;
+/// Identifies an item across reloads: the tag, or the group and tag when grouped.
+constexpr int KeyRole = Qt::UserRole + 1;
+/// Set on group headers to the group identifier, or an empty string for ungrouped tags.
+constexpr int GroupRole = Qt::UserRole + 2;
+/// The position of a group header.
+constexpr int OrderRole = Qt::UserRole + 3;
+
+/// Keeps group headers in the library's order while tags are sorted by name.
+class TagItem : public QTreeWidgetItem
+{
+public:
+    using QTreeWidgetItem::QTreeWidgetItem;
+
+    bool operator<(const QTreeWidgetItem &other) const override
+    {
+        const QVariant order = data(0, OrderRole);
+        const QVariant otherOrder = other.data(0, OrderRole);
+        if (order.isValid() && otherOrder.isValid()) {
+            return order.toInt() < otherOrder.toInt();
+        }
+        return QTreeWidgetItem::operator<(other);
+    }
+};
+
+bool isGroupHeader(const QTreeWidgetItem *item)
+{
+    return item->data(0, GroupRole).isValid();
+}
 }
 
 TagPanel::TagPanel(QWidget *parent)
@@ -126,7 +156,7 @@ TagPanel::TagPanel(QWidget *parent)
         }
         const QString id = item->data(0, IdRole).toString();
         const Qt::CheckState state = item->checkState(0);
-        if (state != assignment(id)) {
+        if (!id.isEmpty() && state != assignment(id)) {
             setAssigned(id, state == Qt::Checked);
         }
     });
@@ -217,26 +247,33 @@ void TagPanel::reload()
     m_updating = true;
     const bool assigning = isAssigning();
     const bool writable = !m_library.isNull() && !m_library.isReadOnly();
-    QHash<QString, QTreeWidgetItem *> existing;
-    for (int i = 0; i < m_list->topLevelItemCount(); ++i) {
-        QTreeWidgetItem *item = m_list->topLevelItem(i);
-        existing.insert(item->data(0, IdRole).toString(), item);
-    }
+    const bool grouped = !m_library.groups().isEmpty();
     // Items are updated in place so that a check box toggled in the list
     // survives the reload that follows it.
-    if (!m_list->property("opusAssigning").isValid() || m_list->property("opusAssigning").toBool() != assigning) {
-        qDeleteAll(existing);
-        existing.clear();
-        m_list->setProperty("opusAssigning", assigning);
+    const QVariantList layout{assigning, grouped};
+    if (m_list->property("opusLayout").toList() != layout) {
+        m_list->clear();
+        m_list->setProperty("opusLayout", layout);
+    }
+    QHash<QString, QTreeWidgetItem *> existing;
+    for (QTreeWidgetItemIterator it(m_list); *it; ++it) {
+        existing.insert((*it)->data(0, KeyRole).toString(), *it);
     }
     m_list->setSortingEnabled(false);
     const QString separator = i18nc("@item list separator", ", ");
-    for (const TagLibrary::Tag &tag : m_library.tags()) {
-        QTreeWidgetItem *item = existing.take(tag.id);
-        if (!item) {
-            item = new QTreeWidgetItem(m_list);
-            item->setData(0, IdRole, tag.id);
+    const auto take = [this, &existing](const QString &key, QTreeWidgetItem *parent, bool *created = nullptr) {
+        QTreeWidgetItem *item = existing.take(key);
+        if (created) {
+            *created = !item;
         }
+        if (!item) {
+            item = parent ? new TagItem(parent) : new TagItem(m_list);
+            item->setData(0, KeyRole, key);
+        }
+        return item;
+    };
+    const auto showTag = [&](QTreeWidgetItem *item, const TagLibrary::Tag &tag) {
+        item->setData(0, IdRole, tag.id);
         item->setText(0, m_library.displayName(tag.id));
         item->setIcon(0, tagColorIcon(tag.color));
         QStringList tooltip;
@@ -264,8 +301,54 @@ void TagPanel::reload()
         }
         item->setFlags(flags);
         item->setToolTip(0, tooltip.join(QLatin1Char('\n')));
+    };
+    const auto showHeader = [&](const QString &groupId, const QString &name, const QString &color, int order, const QStringList &tags) {
+        bool created = false;
+        QTreeWidgetItem *header = take(QStringLiteral("group:") + groupId, nullptr, &created);
+        header->setData(0, GroupRole, groupId);
+        header->setData(0, OrderRole, order);
+        header->setText(0, name);
+        header->setIcon(0, groupId.isEmpty() ? QIcon() : tagColorIcon(color));
+        header->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+        QFont font = header->font(0);
+        font.setBold(true);
+        header->setFont(0, font);
+        header->setToolTip(0, tags.isEmpty() ? i18nc("@info:tooltip", "No tags in this group") : i18ncp("@info:tooltip", "One tag", "%1 tags", tags.size()));
+        for (const QString &id : tags) {
+            if (const TagLibrary::Tag *tag = m_library.tag(id)) {
+                showTag(take(groupId + QLatin1Char('/') + id, header), *tag);
+            }
+        }
+        if (created) {
+            header->setExpanded(true);
+        }
+    };
+    if (grouped) {
+        int order = 0;
+        for (const TagLibrary::Group &group : m_library.groups()) {
+            showHeader(group.id, group.name, group.color, order++, group.tags);
+        }
+        QStringList ungrouped;
+        for (const TagLibrary::Tag &tag : m_library.tags()) {
+            if (m_library.groupsOf(tag.id).isEmpty()) {
+                ungrouped.append(tag.id);
+            }
+        }
+        if (!ungrouped.isEmpty()) {
+            showHeader(QString(), i18nc("@item tags that aren't in a group", "Other Tags"), QString(), order, ungrouped);
+        }
+    } else {
+        for (const TagLibrary::Tag &tag : m_library.tags()) {
+            showTag(take(tag.id, nullptr), tag);
+        }
     }
-    qDeleteAll(existing);
+    // Children go first, so a removed group header doesn't delete them twice.
+    QList<QTreeWidgetItem *> removed = existing.values();
+    std::stable_partition(removed.begin(), removed.end(), [](const QTreeWidgetItem *item) {
+        return item->parent();
+    });
+    qDeleteAll(removed);
+    m_list->setRootIsDecorated(grouped);
     m_list->setSortingEnabled(true);
     m_updating = false;
 
@@ -389,17 +472,25 @@ bool TagPanel::isAssigning() const
 void TagPanel::applyFilter()
 {
     const QString needle = m_filter->text().trimmed();
+    const auto matches = [this, &needle](const QTreeWidgetItem *item) {
+        return tagMatchesFilter(m_library, item->data(0, IdRole).toString(), item->text(0), needle);
+    };
     for (int i = 0; i < m_list->topLevelItemCount(); ++i) {
         QTreeWidgetItem *item = m_list->topLevelItem(i);
-        const TagLibrary::Tag *tag = m_library.tag(item->data(0, IdRole).toString());
-        bool matches = needle.isEmpty() || item->text(0).contains(needle, Qt::CaseInsensitive);
-        if (!matches && tag) {
-            matches = tag->shorthand.contains(needle, Qt::CaseInsensitive)
-                || std::any_of(tag->aliases.cbegin(), tag->aliases.cend(), [&needle](const QString &alias) {
-                          return alias.contains(needle, Qt::CaseInsensitive);
-                      });
+        if (!isGroupHeader(item)) {
+            item->setHidden(!matches(item));
+            continue;
         }
-        item->setHidden(!matches);
+        // Searching for a group's name shows all of its tags; empty groups are only hidden while searching.
+        const bool groupMatches = needle.isEmpty() || (!item->data(0, GroupRole).toString().isEmpty() && item->text(0).contains(needle, Qt::CaseInsensitive));
+        bool any = false;
+        for (int j = 0; j < item->childCount(); ++j) {
+            QTreeWidgetItem *child = item->child(j);
+            const bool shown = groupMatches || matches(child);
+            child->setHidden(!shown);
+            any = any || shown;
+        }
+        item->setHidden(!groupMatches && !any);
     }
 }
 
@@ -418,9 +509,10 @@ void TagPanel::activateSearch()
     }
     const QString id = matches.first();
     if (!isAssigning()) {
-        for (int i = 0; i < m_list->topLevelItemCount(); ++i) {
-            if (m_list->topLevelItem(i)->data(0, IdRole).toString() == id) {
-                m_list->setCurrentItem(m_list->topLevelItem(i));
+        for (QTreeWidgetItemIterator it(m_list); *it; ++it) {
+            if ((*it)->data(0, IdRole).toString() == id) {
+                m_list->setCurrentItem(*it);
+                break;
             }
         }
         return;
@@ -478,10 +570,9 @@ void TagPanel::setMessage(const QString &message, bool error)
 
 QTreeWidgetItem *TagPanel::firstVisibleItem() const
 {
-    for (int i = 0; i < m_list->topLevelItemCount(); ++i) {
-        QTreeWidgetItem *item = m_list->topLevelItem(i);
-        if (!item->isHidden()) {
-            return item;
+    for (QTreeWidgetItemIterator it(m_list, QTreeWidgetItemIterator::NotHidden); *it; ++it) {
+        if (!isGroupHeader(*it) && !((*it)->parent() && (*it)->parent()->isHidden())) {
+            return *it;
         }
     }
     return nullptr;
