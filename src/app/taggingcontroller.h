@@ -41,6 +41,8 @@ public:
     QWidget *refreshLibrary(const QString &root);
     /// Opens the review of missing entries in @p root; returns the dialog.
     QWidget *reviewLibrary(const QString &root);
+    /// Opens the tag manager for @p root, reusing an open one; returns the dialog.
+    QWidget *manageTags(const QString &root);
 
 Q_SIGNALS:
     /// A library was created, removed or changed.

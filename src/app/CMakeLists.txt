@@ -91,8 +91,12 @@ add_library(opusfm_app STATIC
     startuppresentation.h
     symbolicactionicons.cpp
     symbolicactionicons.h
+    tageditdialog.cpp
+    tageditdialog.h
     taggingcontroller.cpp
     taggingcontroller.h
+    tagmanagerwidget.cpp
+    tagmanagerwidget.h
     terminalpanel.cpp
     terminalpanel.h
     toolbarcustomizer.cpp

@@ -7,14 +7,19 @@
 #include "libraryregistry.h"
 #include "libraryreviewdialog.h"
 #include "taglibrary.h"
+#include "tagmanagerwidget.h"
 
 #include <KActionCollection>
 #include <KLocalizedString>
 #include <KMessageBox>
 
 #include <QAction>
+#include <QDialog>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QIcon>
+#include <QLabel>
+#include <QVBoxLayout>
 
 TaggingController::TaggingController(QWidget *window, KActionCollection *actions, Context context)
     : QObject(window)
@@ -48,6 +53,15 @@ TaggingController::TaggingController(QWidget *window, KActionCollection *actions
     review->setText(i18nc("@action", "Review Missing Entries…"));
     review->setIcon(QIcon::fromTheme(QStringLiteral("link")));
 
+    QAction *manage = actions->addAction(QStringLiteral("manage_tags"), this, [this] {
+        if (const QString root = currentLibrary(); !root.isEmpty()) {
+            manageTags(root);
+        }
+    });
+    manage->setText(i18nc("@action", "Manage Tags…"));
+    manage->setIcon(QIcon::fromTheme(QStringLiteral("tag")));
+    manage->setToolTip(i18nc("@info:tooltip", "Create, edit and delete the tags of the current library"));
+
     LibraryMoveTracker *tracker = LibraryMoveTracker::instance();
     connect(tracker, &LibraryMoveTracker::librariesChanged, this, [this](const QStringList &roots) {
         for (const QString &root : roots) {
@@ -75,6 +89,7 @@ void TaggingController::updateActions()
     m_actions->action(QStringLiteral("remove_library"))->setEnabled(!library.isEmpty());
     m_actions->action(QStringLiteral("refresh_library"))->setEnabled(!library.isEmpty());
     m_actions->action(QStringLiteral("review_library"))->setEnabled(!library.isEmpty());
+    m_actions->action(QStringLiteral("manage_tags"))->setEnabled(!library.isEmpty());
 }
 
 void TaggingController::createLibrary()
@@ -155,6 +170,40 @@ QWidget *TaggingController::reviewLibrary(const QString &root)
     auto *dialog = new LibraryReviewDialog(root, m_window);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     connect(dialog, &LibraryReviewDialog::libraryChanged, this, &TaggingController::libraryChanged);
+    dialog->show();
+    return dialog;
+}
+
+QWidget *TaggingController::manageTags(const QString &root)
+{
+    if (auto *existing = m_window->findChild<QDialog *>(QStringLiteral("tagsDialog"), Qt::FindDirectChildrenOnly)) {
+        auto *manager = existing->findChild<TagManagerWidget *>();
+        auto *intro = existing->findChild<QLabel *>(QStringLiteral("tagsDialogIntro"));
+        if (manager->library() != root) {
+            manager->setLibrary(root);
+            intro->setText(xi18nc("@info", "Tags of the library <filename>%1</filename>.", root));
+        }
+        existing->raise();
+        existing->activateWindow();
+        return existing;
+    }
+    auto *dialog = new QDialog(m_window);
+    dialog->setObjectName(QStringLiteral("tagsDialog"));
+    dialog->setWindowTitle(i18nc("@title:window", "Manage Tags"));
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    auto *intro = new QLabel(xi18nc("@info", "Tags of the library <filename>%1</filename>.", root), dialog);
+    intro->setObjectName(QStringLiteral("tagsDialogIntro"));
+    intro->setWordWrap(true);
+    auto *manager = new TagManagerWidget(dialog);
+    manager->setLibrary(root);
+    connect(manager, &TagManagerWidget::libraryChanged, this, &TaggingController::libraryChanged);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, dialog);
+    connect(buttons, &QDialogButtonBox::rejected, dialog, &QDialog::reject);
+    auto *layout = new QVBoxLayout(dialog);
+    layout->addWidget(intro);
+    layout->addWidget(manager, 1);
+    layout->addWidget(buttons);
+    dialog->resize(640, 480);
     dialog->show();
     return dialog;
 }
