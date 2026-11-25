@@ -37,7 +37,7 @@
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0).
 > `main` also includes the M15 and M16 workspace milestones, merged after that
-> release, and the M17 and M18 theme milestones; see the
+> release, the M17 and M18 theme milestones and M19 Branding; see the
 > [roadmap](docs/ROADMAP.md#at-a-glance) for status.
 
 ## Features
