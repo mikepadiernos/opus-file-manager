@@ -232,4 +232,38 @@ it affects. The tag is removed from those items, from its child tags' parents
 and from tag groups; child tags keep their other parents. No files are
 changed.
 
-[TagStudio]: https://github.com/TagStudioDev/TagStudio
+## Assigning tags
+
+**Tags › Tag Panel** shows the tag panel to the right of or below the panes;
+its options menu, or dragging its title bar, moves it, and the choice is
+remembered. **Assign Tags…**, in the Tags menu and the context menu of items
+in a library, shows the panel and moves the keyboard focus to its search
+field.
+
+The panel lists the tags of the library that contains the selected items.
+Each tag's check box shows whether it is assigned to all of them, some of
+them (partly checked) or none. Checking a tag assigns it to every selected
+item, and clearing it removes it from every selected item. Items that aren't
+indexed yet, such as files added since the last refresh, are indexed when they
+are tagged.
+
+The panel can be used from the keyboard:
+
+- Type in the search field to filter tags by name, alias or shorthand.
+- Press <kbd>Enter</kbd> to assign or remove the tag whose name, alias or
+  shorthand matches exactly, or to create a tag with the typed name and
+  assign it.
+- Press <kbd>Down</kbd> to move to the list, then <kbd>Space</kbd> or
+  <kbd>Enter</kbd> to assign or remove the current tag.
+
+Tags can only be assigned within one library. The panel explains why when
+the selection includes items in different libraries, items outside any
+library, the library folder itself, symbolic links or remote items, and shows
+the current folder's tags without check boxes. With nothing selected it shows
+the tags of the library containing the current folder.
+
+The Information panel shows a **Tags** row for items in a library. It lists
+the tags assigned directly; its tooltip lists the tags they inherit from
+their parents.
+
+[TagStudio]: https://github.com/TagStudioDev/TagStudio: https://github.com/TagStudioDev/TagStudio
