@@ -34,6 +34,9 @@ struct PaneSession {
     static constexpr int MaximumViewMode = 3;
     /// Whether the pane shows its folder view in Yazi mode's columns.
     bool yaziMode = false;
+    /// Whether Yazi mode shows the preview column: 1 shown, 0 hidden, -1 not
+    /// saved; use the YaziPreviewVisible default.
+    int yaziPreview = -1;
 
     bool operator==(const PaneSession &other) const = default;
 };

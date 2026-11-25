@@ -54,6 +54,7 @@ void savePane(const PaneSession &pane, KConfigGroup group)
     group.writeEntry(LocationPresentationKey, pane.locationPresentation);
     group.writeEntry(ViewModeKey, pane.viewMode);
     YaziMode::writeSession(group, pane.yaziMode);
+    YaziMode::writeSessionPreview(group, pane.yaziPreview);
 }
 
 PaneSession loadPane(const KConfigGroup &group, int defaultViewMode)
@@ -69,6 +70,7 @@ PaneSession loadPane(const KConfigGroup &group, int defaultViewMode)
     pane.locationPresentation = group.readEntry(LocationPresentationKey, -1);
     pane.viewMode = group.readEntry(ViewModeKey, defaultViewMode);
     pane.yaziMode = YaziMode::readSession(group);
+    pane.yaziPreview = YaziMode::readSessionPreview(group);
     return pane;
 }
 
@@ -99,6 +101,7 @@ PaneSession sanitizePane(const PaneSession &pane, const QUrl &fallback)
     result.locationPresentation = qBound(-1, pane.locationPresentation, 2);
     result.viewMode = qBound(0, pane.viewMode, PaneSession::MaximumViewMode);
     result.yaziMode = pane.yaziMode;
+    result.yaziPreview = qBound(-1, pane.yaziPreview, 1);
     return result;
 }
 }

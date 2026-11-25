@@ -1331,4 +1331,10 @@
       <default>false</default>
     </entry>
   </group>
+  <group name="YaziMode">
+    <entry name="YaziPreviewVisible" type="Bool">
+      <label>Whether panes in Yazi mode show the preview column unless the pane's session says otherwise</label>
+      <default>true</default>
+    </entry>
+  </group>
 </kcfg>
