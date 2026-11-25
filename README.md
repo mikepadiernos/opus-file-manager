@@ -1,7 +1,10 @@
 # Plasma Opus
 
 <p align="center">
-  <img src="src/app/org.kde.opusfilemanager.svg" alt="Plasma Opus application icon" width="160" height="160">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="src/app/branding/plasma-opus-logo-dark.svg">
+    <img src="src/app/branding/plasma-opus-logo.svg" alt="Plasma Opus" width="480" height="100">
+  </picture>
 </p>
 
 <p align="center">
@@ -129,6 +132,7 @@ default folder handler. The installer uses `build-plasma` with tests disabled;
 set `OPUSFM_BUILD_DIR` to choose another build tree. Uninstall using the same
 build tree. The app icon, desktop entry and AppStream metadata are installed
 with the application; file and action icons follow the active desktop theme.
+See [branding](docs/BRANDING.md) for the logo and icon assets.
 
 > [!TIP]
 > If `build` was created before the project folder was renamed, use a fresh

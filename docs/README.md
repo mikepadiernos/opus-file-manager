@@ -21,6 +21,7 @@ Find the right guide for using, building and planning Plasma Opus.
 | 🏠  | [Project README](../README.md)             | Features, installation and safety               |
 | 📸  | [Screenshots](screenshots/README.md)       | Captured views and how they were made           |
 | 🌐  | [Translations](../po/README.md)            | Catalogue extraction, installation and fallback |
+| 🎨  | [Branding](BRANDING.md)                    | Name, logo, icons and their licence             |
 | 🎯  | [Scope and objective](philosophy/scope.md) | Product direction and boundaries                |
 | 💡  | [Inspirations](philosophy/inspirations.md) | Sources and their influence                     |
 | 📐  | [Interface design](philosophy/designs.md)  | Planned structure, panes and workspaces         |
