@@ -13,6 +13,8 @@ add_library(opusfm_core STATIC
     batchrename.h
     batchrenamepresets.cpp
     batchrenamepresets.h
+    branding.cpp
+    branding.h
     checksums.cpp
     checksums.h
     colorschemes.cpp
