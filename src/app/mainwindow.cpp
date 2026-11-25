@@ -2336,6 +2336,23 @@ void MainWindow::setupActions()
     auto *toolbarSearch = new SearchToolbarAction(this);
     actions->addAction(QStringLiteral("search_toolbar"), toolbarSearch);
     connect(toolbarSearch, &SearchToolbarAction::searchRequested, this, &MainWindow::searchFromToolbar);
+    connect(toolbarSearch, &SearchToolbarAction::resultsRequested, this, [this] {
+        SearchWidget *search = m_searchPanel->searchWidget();
+        if (m_searchPanelAction->isChecked() && !search->focusResults()) {
+            search->focusQuery();
+        }
+    });
+    connect(toolbarSearch, &SearchToolbarAction::escapePressed, this, [this] {
+        SearchWidget *search = m_searchPanel->searchWidget();
+        if (search->isRunning()) {
+            search->cancel();
+        } else {
+            activePane()->view()->currentView()->setFocus(Qt::OtherFocusReason);
+        }
+    });
+    connect(m_searchPanel->searchWidget(), &SearchWidget::dismissRequested, this, [this] {
+        activePane()->view()->currentView()->setFocus(Qt::OtherFocusReason);
+    });
 
     m_linkedPanesAction = new KToggleAction(i18nc("@action", "Link Pane Navigation"), this);
     actions->addAction(QStringLiteral("link_panes"), m_linkedPanesAction);

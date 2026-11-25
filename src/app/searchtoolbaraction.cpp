@@ -6,6 +6,7 @@
 
 #include <KLocalizedString>
 
+#include <QKeyEvent>
 #include <QLineEdit>
 
 SearchToolbarAction::SearchToolbarAction(QObject *parent)
@@ -30,5 +31,24 @@ QWidget *SearchToolbarAction::createWidget(QWidget *parent)
     connect(field, &QLineEdit::returnPressed, this, [this, field] {
         Q_EMIT searchRequested(field->text());
     });
+    field->installEventFilter(this);
     return field;
+}
+
+bool SearchToolbarAction::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() == QEvent::KeyPress && qobject_cast<QLineEdit *>(watched)) {
+        const auto *key = static_cast<QKeyEvent *>(event);
+        if ((key->modifiers() & ~Qt::KeypadModifier) == Qt::NoModifier) {
+            if (key->key() == Qt::Key_Down) {
+                Q_EMIT resultsRequested();
+                return true;
+            }
+            if (key->key() == Qt::Key_Escape) {
+                Q_EMIT escapePressed();
+                return true;
+            }
+        }
+    }
+    return QWidgetAction::eventFilter(watched, event);
 }

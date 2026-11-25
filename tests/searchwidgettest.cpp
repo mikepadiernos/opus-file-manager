@@ -33,10 +33,12 @@
 #include <QProgressBar>
 #include <QPushButton>
 #include <QScopeGuard>
+#include <QScrollArea>
 #include <QSignalSpy>
 #include <QSpinBox>
 #include <QSplitter>
 #include <QStandardPaths>
+#include <QTabBar>
 #include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTest>
@@ -565,6 +567,50 @@ private Q_SLOTS:
         QCOMPARE(search->findChild<QLabel *>(QStringLiteral("searchFolder"))->text(), right.toDisplayString());
     }
 
+    void tabOrderFollowsLayout()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        SearchWidget widget(QUrl::fromLocalFile(root.path()));
+        widget.resize(500, 900);
+        widget.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&widget));
+        widget.focusQuery();
+        QTRY_COMPARE(QApplication::focusWidget(), widget.findChild<QLineEdit *>(QStringLiteral("searchQuery")));
+        QList<QWidget *> visited;
+        for (int i = 0; i < 40; ++i) {
+            QTest::keyClick(QApplication::focusWidget(), Qt::Key_Tab);
+            QWidget *focused = QApplication::focusWidget();
+            QVERIFY(focused);
+            if (focused->objectName() == QLatin1String("searchQuery")) {
+                break;
+            }
+            QVERIFY2(!visited.contains(focused), qPrintable(QStringLiteral("Tab stayed on ") + focused->objectName() + QStringLiteral(" after ") + [&visited] {
+                QStringList names;
+                for (QWidget *w : visited) {
+                    names.append(w->objectName());
+                }
+                return names.join(QLatin1Char(','));
+            }()));
+            QVERIFY2(!qobject_cast<QScrollArea *>(focused), qPrintable(focused->objectName()));
+            visited.append(focused);
+        }
+        QCOMPARE(QApplication::focusWidget()->objectName(), QStringLiteral("searchQuery"));
+        const auto position = [&visited, &widget](const QString &name) {
+            return visited.indexOf(widget.findChild<QWidget *>(name));
+        };
+        QCOMPARE(position(QStringLiteral("searchField")), 0);
+        QVERIFY(position(QStringLiteral("searchExcludedFolders")) >= 0);
+        QVERIFY(position(QStringLiteral("searchExcludedFolders")) < position(QStringLiteral("searchMaxDepth")));
+        QVERIFY(position(QStringLiteral("searchSaved")) < position(QStringLiteral("searchSave")));
+        auto *tabs = widget.findChild<QTabWidget *>(QStringLiteral("searchResultTabs"));
+        QVERIFY(tabs);
+        QVERIFY(visited.indexOf(tabs->tabBar()) >= 0);
+        QVERIFY(position(QStringLiteral("searchSave")) < visited.indexOf(tabs->tabBar()));
+        QVERIFY(visited.indexOf(tabs->tabBar()) < position(QStringLiteral("searchResults")));
+        QVERIFY(position(QStringLiteral("searchResults")) < position(QStringLiteral("searchStart")));
+    }
+
     void toolbarSearchFieldSearchesActivePane()
     {
         QTemporaryDir root;
@@ -647,6 +693,31 @@ private Q_SLOTS:
         QVERIFY(results);
         QTRY_COMPARE(results->topLevelItemCount(), 1);
         QVERIFY(!search->isRunning());
+        QCOMPARE(QApplication::focusWidget(), field);
+
+        // Down moves from the field to the results, Escape returns to the active pane.
+        QTest::keyClick(field, Qt::Key_Down);
+        QCOMPARE(QApplication::focusWidget(), results);
+        QVERIFY(results->currentItem());
+        QTest::keyClick(results, Qt::Key_Escape);
+        QVERIFY(panel->isVisible());
+        QVERIFY(window.activePane()->isAncestorOf(QApplication::focusWidget()));
+        auto *query = search->findChild<QLineEdit *>(QStringLiteral("searchQuery"));
+        search->focusQuery();
+        QTest::keyClick(query, Qt::Key_Down);
+        QCOMPARE(QApplication::focusWidget(), results);
+        field->setFocus();
+        QTest::keyClick(field, Qt::Key_Escape);
+        QVERIFY(window.activePane()->isAncestorOf(QApplication::focusWidget()));
+
+        // Without results, Down moves to the panel's query; with the panel hidden it stays put.
+        results->clear();
+        field->setFocus();
+        QTest::keyClick(field, Qt::Key_Down);
+        QCOMPARE(QApplication::focusWidget(), query);
+        toggle->setChecked(false);
+        field->setFocus();
+        QTest::keyClick(field, Qt::Key_Down);
         QCOMPARE(QApplication::focusWidget(), field);
     }
 

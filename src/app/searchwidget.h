@@ -44,20 +44,26 @@ public:
     QUrl folder() const;
     bool isRunning() const;
     void focusQuery();
+    /// Focuses the visible result list when it has items; returns whether it did.
+    bool focusResults();
     /// Replaces the query text and starts a search with the current criteria.
     void search(const QString &text);
+    /// Cancels a running search; does nothing otherwise.
+    void cancel();
 
 Q_SIGNALS:
+    /// Escape was pressed while no search was running.
+    void dismissRequested();
     void revealRequested(const QUrl &url);
     /// Requests opening an existing result: a folder in a pane, a file in its application.
     void openRequested(const QUrl &url);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
 
 private:
     void start();
-    void cancel();
     void openSelected();
     void revealSelected();
     void updateSavedSearches();

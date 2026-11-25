@@ -29,6 +29,8 @@ PathFilterEditor::PathFilterEditor(const QString &objectPrefix, QWidget *parent,
     m_excluded->setObjectName(objectPrefix + QStringLiteral("ExcludedFolders"));
     m_excluded->setPlaceholderText(i18nc("@info:placeholder", "One absolute local folder path per line"));
     m_excluded->setMaximumHeight(m_excluded->fontMetrics().lineSpacing() * 3);
+    // Paths never contain tabs that need typing here; keep Tab for keyboard navigation.
+    m_excluded->setTabChangesFocus(true);
     m_depth->setObjectName(objectPrefix + QStringLiteral("MaxDepth"));
     m_depth->setRange(-1, std::numeric_limits<int>::max());
     m_depth->setSpecialValueText(i18nc("@item:inlistbox", "Unlimited"));

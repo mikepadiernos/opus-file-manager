@@ -15,7 +15,12 @@ public:
 Q_SIGNALS:
     /// Emitted when Return is pressed in a field; @p text may be empty.
     void searchRequested(const QString &text);
+    /// Emitted when Down is pressed in a field, to move focus to the results.
+    void resultsRequested();
+    /// Emitted when Escape is pressed in a field.
+    void escapePressed();
 
 protected:
     QWidget *createWidget(QWidget *parent) override;
+    bool eventFilter(QObject *watched, QEvent *event) override;
 };

@@ -30,6 +30,7 @@
 #include <QScrollArea>
 #include <QSet>
 #include <QSplitter>
+#include <QTabBar>
 #include <QTabWidget>
 #include <QTreeWidget>
 #include <QUuid>
@@ -45,6 +46,38 @@ enum Scope {
     Indexed,
     SearchFolders,
 };
+
+/// Appends the keyboard-focusable widgets in @p layout in layout order, descending into containers.
+void collectTabStops(QLayout *layout, QList<QWidget *> &stops)
+{
+    for (int i = 0; i < layout->count(); ++i) {
+        QLayoutItem *item = layout->itemAt(i);
+        if (QLayout *child = item->layout()) {
+            collectTabStops(child, stops);
+            continue;
+        }
+        QWidget *widget = item->widget();
+        if (!widget) {
+            continue;
+        }
+        if (auto *tabs = qobject_cast<QTabWidget *>(widget)) {
+            // The tab widget forwards focus to its tab bar.
+            stops.append(tabs);
+            for (int page = 0; page < tabs->count(); ++page) {
+                QWidget *pageWidget = tabs->widget(page);
+                if (pageWidget->focusPolicy() & Qt::TabFocus) {
+                    stops.append(pageWidget);
+                } else if (pageWidget->layout()) {
+                    collectTabStops(pageWidget->layout(), stops);
+                }
+            }
+        } else if (widget->focusPolicy() & Qt::TabFocus) {
+            stops.append(widget);
+        } else if (widget->layout()) {
+            collectTabStops(widget->layout(), stops);
+        }
+    }
+}
 
 QString scopeStatus(int index, bool workspaceOnly)
 {
@@ -707,6 +740,16 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
         }
         m_status->setText(status);
     });
+    criteriaArea->setFocusPolicy(Qt::NoFocus);
+    resultsScroll->setFocusPolicy(Qt::NoFocus);
+    m_query->installEventFilter(this);
+    // Follow the visual layout rather than widget creation order.
+    QList<QWidget *> stops;
+    collectTabStops(layout, stops);
+    collectTabStops(resultsLayout, stops);
+    for (qsizetype i = 1; i < stops.size(); ++i) {
+        QWidget::setTabOrder(stops.at(i - 1), stops.at(i));
+    }
 }
 
 SearchWidget::~SearchWidget()
@@ -740,6 +783,33 @@ void SearchWidget::focusQuery()
     m_query->selectAll();
 }
 
+bool SearchWidget::focusResults()
+{
+    auto *list = qobject_cast<QTreeWidget *>(m_resultTabs->currentWidget());
+    if (!list || list->topLevelItemCount() == 0) {
+        return false;
+    }
+    if (!list->currentItem()) {
+        list->setCurrentItem(list->topLevelItem(0));
+    }
+    list->setFocus(Qt::OtherFocusReason);
+    return true;
+}
+
+void SearchWidget::keyPressEvent(QKeyEvent *event)
+{
+    if (event->key() == Qt::Key_Escape && (event->modifiers() & ~Qt::KeypadModifier) == Qt::NoModifier) {
+        if (isRunning()) {
+            cancel();
+        } else {
+            Q_EMIT dismissRequested();
+        }
+        event->accept();
+        return;
+    }
+    QWidget::keyPressEvent(event);
+}
+
 void SearchWidget::search(const QString &text)
 {
     if (m_watcher.isRunning()) {
@@ -752,6 +822,12 @@ void SearchWidget::search(const QString &text)
 
 bool SearchWidget::eventFilter(QObject *watched, QEvent *event)
 {
+    if (watched == m_query && event->type() == QEvent::KeyPress) {
+        const auto *key = static_cast<QKeyEvent *>(event);
+        if (key->key() == Qt::Key_Down && (key->modifiers() & ~Qt::KeypadModifier) == Qt::NoModifier && focusResults()) {
+            return true;
+        }
+    }
     if ((watched == m_results || watched == m_collection) && event->type() == QEvent::KeyPress) {
         const auto *key = static_cast<QKeyEvent *>(event);
         if (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter) {
