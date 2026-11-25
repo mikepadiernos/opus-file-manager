@@ -546,6 +546,16 @@ MainWindow::MainWindow(QWidget *parent)
             this,
             &MainWindow::applyContrastDependentAppearance);
 #endif
+    // An app-local scheme does not follow Plasma's palette, so Plasma's accent
+    // is layered over it again when it changes.
+    m_plasmaColorsWatcher = KConfigWatcher::create(KSharedConfig::openConfig(QStringLiteral("kdeglobals")));
+    connect(m_plasmaColorsWatcher.data(), &KConfigWatcher::configChanged, this, [this](const KConfigGroup &group) {
+        if ((group.name() == QLatin1String("General") || group.name().startsWith(QLatin1String("Colors:")))
+            && EffectiveAppearance::accentColor() == QLatin1String(ColorSchemes::PlasmaAccent)
+            && !ColorSchemes::path(EffectiveAppearance::colorScheme()).isEmpty()) {
+            applyColorScheme();
+        }
+    });
     applySettings();
     updateActions();
 }
@@ -755,6 +765,9 @@ void MainWindow::showWorkspaces()
         return unavailable;
     });
     connect(this, &MainWindow::workspaceCatalogChanged, dialog, &WorkspaceDialog::refreshCatalog);
+    dialog->setAppearancePreview([this](const WorkspaceCatalog::Appearance *appearance) {
+        previewWorkspaceAppearance(appearance);
+    });
     connect(dialog, &WorkspaceDialog::currentWorkspaceChanged, this, [this](const QString &id) {
         m_currentWorkspaceId = id;
         refreshWorkspaceLocations();
@@ -919,17 +932,8 @@ void MainWindow::applyWorkspaceAppearance()
         return;
     }
     updateWorkspaceAppearanceLayer();
-    const QVariantMap layer = EffectiveAppearance::layer();
-    if (layer != m_appliedAppearanceLayer) {
-        m_appliedAppearanceLayer = layer;
-        applyAppearance();
-        applyPaneBackgrounds();
-        for (Pane *pane : {m_left, m_right}) {
-            pane->reloadTabSettings();
-            pane->view()->reloadListingSettings();
-        }
-        applyBarMargins();
-    }
+    applyAppearanceLayer();
+    const QVariantMap &layer = EffectiveAppearance::layer();
     // The workspace's view mode, such as Card view, replaces the restored one when switching to it.
     if (switched && layer.contains(QStringLiteral("DefaultViewMode"))) {
         const auto mode = static_cast<FolderView::ViewMode>(qBound(0, int(EffectiveAppearance::defaultViewMode()), int(FolderView::ViewMode::Cards)));
@@ -937,6 +941,34 @@ void MainWindow::applyWorkspaceAppearance()
             pane->view()->setViewMode(mode);
         }
     }
+}
+
+void MainWindow::applyAppearanceLayer()
+{
+    const QVariantMap layer = EffectiveAppearance::layer();
+    if (layer == m_appliedAppearanceLayer) {
+        return;
+    }
+    m_appliedAppearanceLayer = layer;
+    applyAppearance();
+    applyPaneBackgrounds();
+    for (Pane *pane : {m_left, m_right}) {
+        pane->reloadTabSettings();
+        pane->view()->reloadListingSettings();
+    }
+    applyBarMargins();
+}
+
+void MainWindow::previewWorkspaceAppearance(const WorkspaceCatalog::Appearance *appearance)
+{
+    if (appearance) {
+        const QList<ThemeProfiles::Profile> profiles =
+            ThemeProfiles::load(Settings::self(), KSharedConfig::openConfig()->group(QLatin1String(ThemeProfiles::Group)));
+        EffectiveAppearance::setLayer(WorkspaceAppearance::resolve(Settings::self(), *appearance, profiles).values);
+    } else {
+        updateWorkspaceAppearanceLayer();
+    }
+    applyAppearanceLayer();
 }
 
 void MainWindow::refreshWorkspaceLocations()

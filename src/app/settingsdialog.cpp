@@ -142,6 +142,10 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     : KConfigDialog(parent, QLatin1String(Name), Settings::self())
     , m_places(places)
 {
+    m_confirm = [this](const QString &question) {
+        return QMessageBox::question(this, i18nc("@title:window", "Reset Appearance"), question, QMessageBox::Yes | QMessageBox::No, QMessageBox::No)
+            == QMessageBox::Yes;
+    };
     addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}}, i18nc("@title:group", "General"), QStringLiteral("configure"));
     addTabbedPage({{createLanguagePage(), i18nc("@title:tab", "Language and Layout")}, {createDateLanguagePage(), i18nc("@title:tab", "Dates")}},
                   i18nc("@title:group", "Translation"),
@@ -1669,7 +1673,10 @@ QWidget *SettingsDialog::createEffectsPage()
                               i18nc("@item:inlistbox corner radius", "Medium"),
                               i18nc("@item:inlistbox corner radius", "Large"),
                               i18nc("@item:inlistbox corner radius", "Custom")});
-    corners->setToolTip(i18nc("@info:tooltip", "Rounds item highlights, input fields, tabs and tooltips."));
+    corners->setToolTip(i18nc("@info:tooltip",
+                              "Rounds item highlights, cards, input fields, tabs and tooltips. Buttons, combo boxes and panels keep the "
+                              "widget style's corners."));
+    m_cornerRadius = corners;
     auto *customCorners = new QSpinBox;
     customCorners->setObjectName(QStringLiteral("kcfg_CustomCornerRadius"));
     customCorners->setRange(0, 24);
@@ -1732,12 +1739,12 @@ QWidget *SettingsDialog::createLinesPage()
     };
     connect(dividers, &QComboBox::currentIndexChanged, page, updateReveal);
     updateReveal();
-    form->addRow(i18nc("@label:listbox", "Tree lines:"),
-                 comboBox(QStringLiteral("TreeLines"),
-                          {i18nc("@item:inlistbox tree lines", "Follow widget style"),
-                           i18nc("@item:inlistbox tree lines", "Hidden"),
-                           i18nc("@item:inlistbox tree lines", "Solid"),
-                           i18nc("@item:inlistbox tree lines", "Dotted")}));
+    auto *treeLines = comboBox(QStringLiteral("TreeLines"),
+                               {i18nc("@item:inlistbox tree lines", "Follow widget style"),
+                                i18nc("@item:inlistbox tree lines", "Hidden"),
+                                i18nc("@item:inlistbox tree lines", "Solid"),
+                                i18nc("@item:inlistbox tree lines", "Dotted")});
+    form->addRow(i18nc("@label:listbox", "Tree lines:"), treeLines);
     auto *lineColors = comboBox(QStringLiteral("TreeLineColors"),
                                 {i18nc("@item:inlistbox tree line colours", "Neutral"),
                                  i18nc("@item:inlistbox tree line colours", "Single colour"),
@@ -1753,15 +1760,19 @@ QWidget *SettingsDialog::createLinesPage()
     form->addRow(i18nc("@label", "Depth colours:"), linePalette);
     auto *lineNotice = createContrastNotice(QStringLiteral("treeLineContrastNotice"), true, page);
     form->addRow(QString(), lineNotice);
-    const auto updateLineColors = [this, lineColors, lineColor, linePalette, lineNotice] {
-        const bool single = lineColors->currentIndex() == Settings::EnumTreeLineColors::Single;
+    const auto updateLineColors = [this, treeLines, lineColors, lineColor, linePalette, lineNotice] {
+        // Colours apply only to the lines Plasma Opus draws itself.
+        const bool drawn = treeLines->currentIndex() == Settings::EnumTreeLines::Solid || treeLines->currentIndex() == Settings::EnumTreeLines::Dotted;
+        lineColors->setEnabled(drawn);
+        const bool single = drawn && lineColors->currentIndex() == Settings::EnumTreeLineColors::Single;
         lineColor->setEnabled(single);
-        linePalette->setEnabled(lineColors->currentIndex() == Settings::EnumTreeLineColors::Depth);
+        linePalette->setEnabled(drawn && lineColors->currentIndex() == Settings::EnumTreeLineColors::Depth);
         const QColor background = ColorSchemes::palette(m_colorScheme->scheme()).color(QPalette::Active, QPalette::Base);
         linePalette->setBackground(background);
         lineNotice->setText(i18nc("@info", "This line colour is darkened or lightened to stay visible against the view background."));
         lineNotice->setVisible(single && ColorSchemes::contrastRatio(lineColor->color(), background) < 3.0);
     };
+    connect(treeLines, &QComboBox::currentIndexChanged, page, updateLineColors);
     connect(lineColors, &QComboBox::currentIndexChanged, page, updateLineColors);
     connect(lineColor, &KColorButton::changed, page, updateLineColors);
     connect(m_colorScheme, &ColorSchemeCombo::schemeChanged, page, updateLineColors);
@@ -1905,10 +1916,17 @@ QWidget *SettingsDialog::createBarStylePage()
                                {i18nc("@item:inlistbox active tab indicator", "Line"),
                                 i18nc("@item:inlistbox active tab indicator", "Thick line"),
                                 i18nc("@item:inlistbox active tab indicator", "None")});
-    const auto updateIndicator = [shape, indicator] {
-        indicator->setEnabled(shape->currentIndex() != Settings::EnumTabShape::FollowStyle);
+    // Tabs that follow the widget style are drawn rounded, with the indicator,
+    // when the corner radius does not follow the widget style.
+    QComboBox *corners = m_cornerRadius;
+    const auto updateIndicator = [shape, indicator, corners] {
+        indicator->setEnabled(shape->currentIndex() != Settings::EnumTabShape::FollowStyle
+                              || (corners && corners->currentIndex() != Settings::EnumCornerRadius::FollowStyle));
     };
     connect(shape, &QComboBox::currentIndexChanged, page, updateIndicator);
+    if (corners) {
+        connect(corners, &QComboBox::currentIndexChanged, page, updateIndicator);
+    }
     updateIndicator();
     form->addRow(i18nc("@label:listbox", "Tab shape:"), shape);
     form->addRow(i18nc("@label:listbox", "Active tab indicator:"), indicator);
@@ -1924,7 +1942,8 @@ QWidget *SettingsDialog::createBarStylePage()
                            i18nc("@item:inlistbox status bar style", "Shaded")}));
     layout->addLayout(form);
     auto *note = new QLabel(i18nc("@info",
-                                  "Rounded tabs use the corner radius from Effects. Flat tabs always keep an indicator on the active tab. "
+                                  "Rounded tabs use the corner radius from Effects, and tabs that follow the widget style are drawn "
+                                  "rounded when that corner radius does not. Flat tabs always keep an indicator on the active tab. "
                                   "Tab colours are chosen from a tab's context menu and shown when folder-based tab colours are enabled "
                                   "in Interface settings; text on tinted and filled tabs is adjusted to stay readable."),
                             page);
@@ -1976,7 +1995,13 @@ QWidget *SettingsDialog::createMotionPage()
     reset->setToolTip(i18nc("@info:tooltip",
                             "Sets every Themes option to follow Plasma. Folder colour rules are kept. Apply or OK saves the change; "
                             "Cancel discards it."));
-    connect(reset, &QPushButton::clicked, this, &SettingsDialog::resetAppearanceToDefaults);
+    connect(reset, &QPushButton::clicked, this, [this] {
+        if (m_confirm(i18nc("@info",
+                            "Reset every Themes option to follow Plasma? Folder colour rules and saved theme profiles are kept, "
+                            "and Cancel in this dialog still discards the change."))) {
+            resetAppearanceToDefaults();
+        }
+    });
     resetRow->addWidget(reset);
     resetRow->addStretch();
     layout->addLayout(resetRow);
@@ -2002,6 +2027,11 @@ void SettingsDialog::resetAppearanceToDefaults()
         }
     }
     setAppearanceValues(values);
+}
+
+void SettingsDialog::setConfirmation(std::function<bool(const QString &)> confirm)
+{
+    m_confirm = std::move(confirm);
 }
 
 QVariantMap SettingsDialog::appearanceValues() const

@@ -276,6 +276,23 @@ private Q_SLOTS:
         QVERIFY(overrides.contains(QPalette::HighlightedText));
     }
 
+    void plasmaAccentIsLayeredOverAppLocalSchemes()
+    {
+        const QColor plasma = ColorSchemes::palette(QString()).color(QPalette::Active, QPalette::Accent);
+        QCOMPARE(ColorSchemes::accentColor(QLatin1String(ColorSchemes::PlasmaAccent)), plasma);
+        QVERIFY(!ColorSchemes::accentColor(QString()).isValid());
+        QCOMPARE(ColorSchemes::accentColor(QStringLiteral("#e06020")), QColor(0xe0, 0x60, 0x20));
+
+        // Following Plasma's scheme already follows its accent.
+        const QStringList custom{QStringLiteral("Window=#405060")};
+        QCOMPARE(ColorSchemes::withAccent(QString(), QLatin1String(ColorSchemes::PlasmaAccent), custom), custom);
+        const ColorSchemes::Overrides overrides =
+            ColorSchemes::parseOverrides(ColorSchemes::withAccent(QLatin1String(ColorSchemes::DarkPreset), QLatin1String(ColorSchemes::PlasmaAccent), custom));
+        QCOMPARE(overrides.value(QPalette::Accent), QColor(plasma.rgb()));
+        QCOMPARE(overrides.value(QPalette::Highlight), QColor(plasma.rgb()));
+        QCOMPARE(overrides.value(QPalette::Window), QColor(0x40, 0x50, 0x60));
+    }
+
     void paneTintKeepsViewTextReadable()
     {
         const QPalette light = ColorSchemes::palette(QLatin1String(ColorSchemes::LightPreset));

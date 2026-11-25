@@ -7,6 +7,7 @@
 #include "previewpanel.h"
 #include "workspacecatalog.h"
 
+#include <KConfigWatcher>
 #include <KFileItem>
 #include <KXmlGuiWindow>
 
@@ -152,8 +153,16 @@ private:
      * workspace over the global settings, and reports what is unavailable.
      */
     void updateWorkspaceAppearanceLayer();
+    /// Applies the appearance layer in effect when it differs from the one last applied.
+    void applyAppearanceLayer();
     /// Applies the active workspace's appearance live when it or the workspace changes.
     void applyWorkspaceAppearance();
+    /**
+     * Previews @p appearance over the global settings without saving it, or
+     * restores the active workspace's appearance when @p appearance is null.
+     * Open panes keep their view mode.
+     */
+    void previewWorkspaceAppearance(const WorkspaceCatalog::Appearance *appearance);
     /// Places the workspace selector in the View menu, the status bar or both.
     void applyWorkspaceSelectorPlacement();
     /// Gives each pane its configured location bar, replacing the current choice only when the setting changes.
@@ -327,6 +336,8 @@ private:
     QString m_workspaceConfigPath;
     qint64 m_workspaceConfigModified = -1;
     QTimer *m_workspaceIndicatorTimer = nullptr;
+    /// Watches Plasma's colours, so its accent can follow over an app-local scheme.
+    KConfigWatcher::Ptr m_plasmaColorsWatcher;
     KSelectAction *m_workspaceSelectorAction = nullptr;
     QToolButton *m_workspaceStatusButton = nullptr;
     KFilePlacesView *m_placesView = nullptr;

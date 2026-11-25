@@ -313,10 +313,23 @@ ColorSchemes::Overrides ColorSchemes::accentOverrides(const QPalette &palette, c
     return {{QPalette::Highlight, opaque}, {QPalette::Accent, opaque}, {QPalette::HighlightedText, text}};
 }
 
+QColor ColorSchemes::accentColor(const QString &accent)
+{
+    if (accent == QLatin1String(PlasmaAccent)) {
+        return palette(QString()).color(QPalette::Active, QPalette::Accent);
+    }
+    return accent.isEmpty() ? QColor() : QColor::fromString(accent);
+}
+
 QStringList ColorSchemes::withAccent(const QString &id, const QString &accent, const QStringList &customColors)
 {
-    const QColor color = QColor::fromString(accent);
-    if (accent.isEmpty() || !color.isValid()) {
+    // Following Plasma's scheme already follows its accent, and live changes
+    // to it as well.
+    if (accent == QLatin1String(PlasmaAccent) && path(id).isEmpty()) {
+        return customColors;
+    }
+    const QColor color = accentColor(accent);
+    if (!color.isValid()) {
         return customColors;
     }
     return serializeOverrides(accentOverrides(palette(id), color)) + customColors;

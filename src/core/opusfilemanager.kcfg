@@ -913,7 +913,7 @@
       <default></default>
     </entry>
     <entry name="AccentColor" type="String">
-      <label>App-local accent colour for selection, focus, progress and tab indicators as #rrggbb; empty follows the colour scheme</label>
+      <label>App-local accent colour for selection, focus, progress and tab indicators as #rrggbb, or plasma for Plasma's accent colour over an app-local scheme; empty follows the colour scheme</label>
       <default></default>
     </entry>
     <entry name="CustomColors" type="StringList">

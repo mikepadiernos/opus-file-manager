@@ -9,21 +9,33 @@
 
 #include <algorithm>
 
-QStringList WorkspaceAppearance::overrideEntries()
+QStringList WorkspaceAppearance::overrideEntries(const KCoreConfigSkeleton *settings)
 {
-    return {QStringLiteral("DefaultViewMode"),
-            QStringLiteral("FolderColorRules"),
-            QStringLiteral("BackgroundBlur"),
-            QStringLiteral("CornerRadius"),
-            QStringLiteral("CustomCornerRadius"),
-            QStringLiteral("Dividers"),
-            QStringLiteral("RevealDividersOnHover")};
+    QStringList entries{QStringLiteral("DefaultViewMode"), QStringLiteral("FolderColorRules")};
+    const QStringList styleSheet = ThemeProfiles::styleSheetEntries();
+    for (const QString &entry : ThemeProfiles::entries(settings)) {
+        if (!styleSheet.contains(entry)) {
+            entries.append(entry);
+        }
+    }
+    return entries;
+}
+
+QVariantMap WorkspaceAppearance::captureOverrides(const KCoreConfigSkeleton *settings)
+{
+    QVariantMap values;
+    for (const QString &entry : overrideEntries(settings)) {
+        if (const KConfigSkeletonItem *item = settings->findItem(entry)) {
+            values.insert(entry, item->property());
+        }
+    }
+    return values;
 }
 
 QJsonObject WorkspaceAppearance::encodeOverrides(const KCoreConfigSkeleton *settings, const QVariantMap &values)
 {
     QJsonObject encoded;
-    const QStringList entries = overrideEntries();
+    const QStringList entries = overrideEntries(settings);
     for (auto it = values.cbegin(); it != values.cend(); ++it) {
         const KConfigSkeletonItem *item = entries.contains(it.key()) ? settings->findItem(it.key()) : nullptr;
         const QJsonValue value = item ? ThemeProfiles::encodeValue(item, it.value()) : QJsonValue();
@@ -37,7 +49,7 @@ QJsonObject WorkspaceAppearance::encodeOverrides(const KCoreConfigSkeleton *sett
 QVariantMap WorkspaceAppearance::decodeOverrides(const KCoreConfigSkeleton *settings, const QJsonObject &overrides, QStringList *problems)
 {
     QVariantMap values;
-    const QStringList entries = overrideEntries();
+    const QStringList entries = overrideEntries(settings);
     for (auto it = overrides.constBegin(); it != overrides.constEnd(); ++it) {
         const KConfigSkeletonItem *item = entries.contains(it.key()) ? settings->findItem(it.key()) : nullptr;
         const std::optional<QVariant> value = item ? ThemeProfiles::decodeValue(item, it.value()) : std::nullopt;

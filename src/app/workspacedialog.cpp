@@ -124,6 +124,9 @@ WorkspaceDialog::WorkspaceDialog(KConfigGroup group,
     behaviorLayout->addStretch();
     m_appearance = new WorkspaceAppearanceEditor(this);
     connect(m_appearance, &WorkspaceAppearanceEditor::saveRequested, this, &WorkspaceDialog::saveAppearance);
+    connect(m_appearance, &WorkspaceAppearanceEditor::previewRequested, this, &WorkspaceDialog::previewAppearance);
+    connect(m_appearance, &WorkspaceAppearanceEditor::revertRequested, this, &WorkspaceDialog::revertAppearancePreview);
+    connect(this, &QDialog::finished, this, &WorkspaceDialog::revertAppearancePreview);
     auto *behaviorRow = new QHBoxLayout;
     behaviorRow->addWidget(behaviorGroup);
     behaviorRow->addWidget(m_appearance, 1);
@@ -245,6 +248,42 @@ void WorkspaceDialog::setAvailabilityCheck(CheckLayout check)
     m_check = std::move(check);
 }
 
+WorkspaceDialog::~WorkspaceDialog()
+{
+    revertAppearancePreview();
+}
+
+void WorkspaceDialog::setAppearancePreview(PreviewAppearance preview)
+{
+    revertAppearancePreview();
+    m_preview = std::move(preview);
+    m_appearance->setPreviewAvailable(bool(m_preview));
+}
+
+void WorkspaceDialog::previewAppearance()
+{
+    if (!m_preview || selectedId().isEmpty()) {
+        return;
+    }
+    const WorkspaceCatalog::Appearance appearance = m_appearance->appearance();
+    m_preview(&appearance);
+    m_previewing = true;
+    m_appearance->setPreviewing(true);
+    m_status->setText(i18nc("@info", "Previewing the workspace appearance. It is not saved, and it is reverted when this dialog closes."));
+}
+
+void WorkspaceDialog::revertAppearancePreview()
+{
+    if (!m_previewing) {
+        return;
+    }
+    m_previewing = false;
+    if (m_preview) {
+        m_preview(nullptr);
+    }
+    m_appearance->setPreviewing(false);
+}
+
 void WorkspaceDialog::activateSelectedWorkspace(bool confirmed)
 {
     activateWorkspace(confirmed);
@@ -352,6 +391,7 @@ bool WorkspaceDialog::commit(const WorkspaceCatalog::Catalog &updated)
 
 void WorkspaceDialog::refreshBehaviorSelection()
 {
+    revertAppearancePreview();
     const QString id = selectedId();
     const auto workspace = std::find_if(m_catalog.workspaces.cbegin(), m_catalog.workspaces.cend(), [&id](const auto &entry) {
         return entry.id == id;
@@ -404,9 +444,15 @@ void WorkspaceDialog::saveAppearance()
     QString error;
     if (id.isEmpty()) {
         m_status->setText(i18nc("@info", "Select a workspace first."));
-    } else if (!WorkspaceCatalog::setAppearance(updated, id, m_appearance->appearance(), error)) {
+        return;
+    }
+    if (!WorkspaceCatalog::setAppearance(updated, id, m_appearance->appearance(), error)) {
         m_status->setText(error);
-    } else if (commit(updated)) {
+        return;
+    }
+    // The saved appearance replaces the preview once the window reloads the catalog.
+    revertAppearancePreview();
+    if (commit(updated)) {
         reload(id);
         m_status->setText(id == m_currentId ? i18nc("@info", "Workspace appearance saved and applied.")
                                             : i18nc("@info", "Workspace appearance saved. It applies when you switch to the workspace."));

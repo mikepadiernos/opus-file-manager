@@ -43,6 +43,7 @@ recommendation and external tools are separate applications.
   [linked navigation](#linked-pane-navigation),
   [workspace layouts](#workspace-layouts),
   [workspace settings](#workspace-settings), [themes](#themes),
+  [theme settings](#theme-settings),
   [native tag groups](#native-tag-groups),
   [native title and header padding](#native-title-and-header-padding),
   [file-list minimap](#file-list-minimap),
@@ -171,6 +172,56 @@ The M17 theme options have these limits
   - Notify other windows when theme profiles or workspace appearance change.
   - Name skipped theme profiles and offer to export or remove them.
   - Edit folder colour rules per workspace.
+
+## Theme settings
+
+The M18 theme settings have these limits
+([#687](https://github.com/mikepadiernos/plasma-opus/issues/687)):
+
+- **Corner radius:** a corner radius other than **Follow widget style** rounds
+  item highlights, cards, text fields, tabs and tooltips. Buttons, combo boxes
+  and panel frames keep the widget style's corners.
+- **Plasma accent:** colours that follow the Plasma accent are updated live
+  only when Plasma announces a change to `kdeglobals`. An accent change written
+  without a change notification appears after the next settings change or
+  restart.
+- **Workspace preview:**
+  - Previewing a workspace's appearance doesn't switch the view mode of open
+    panes.
+  - Applying settings while a preview is shown replaces the preview.
+  - The preview is shown in the window that opened the workspace manager,
+    although the workspace appearance layer is shared by all windows.
+- **All options:** when a workspace saves all appearance options, options that
+  have no row in the workspace appearance editor take the workspace's saved
+  values, or the current global values when they are first saved. They can't
+  be edited individually there.
+- **Stylesheet:** a workspace's own options never include the custom
+  stylesheet. Only a theme profile attached to the workspace can supply one.
+- **Blur and translucency:** these are reported per workspace only when the
+  workspace saves those options; otherwise the global values apply.
+- **Plasma session:** the theme settings have been tested only headlessly,
+  without a Plasma session.
+
+- **Recommendation:**
+  - **Corner radius:** choose the radius closest to the widget style's own
+    corners so that rounded and unrounded controls look consistent.
+  - **Plasma accent:** if the accent changes without updating the window,
+    apply settings again or restart Plasma Opus.
+  - **Workspace preview:** preview before applying other settings, then choose
+    **Revert** or save. To check view modes, switch to the workspace after
+    saving it.
+  - **All options:** set those options in the settings dialog first, then save
+    the workspace with **All options**, or use **Selected options** to save only
+    the options you edit.
+  - **Stylesheet:** save a theme profile with the stylesheet and attach it to
+    the workspaces that need it.
+  - Comment:
+    [#687.7149624993](https://github.com/mikepadiernos/plasma-opus/issues/687#issuecomment-7149624993)
+- **Proposed improvements:**
+  - Round buttons, combo boxes and panel frames with the chosen radius.
+  - Preview in every window and keep the preview after applying settings.
+  - Show every saved option in the workspace appearance editor.
+  - Allow a per-workspace stylesheet.
 
 ## Native tag groups
 

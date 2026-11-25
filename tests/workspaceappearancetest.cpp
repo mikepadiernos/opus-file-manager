@@ -117,7 +117,7 @@ private Q_SLOTS:
         QCOMPARE(catalog, original);
 
         QJsonObject tooMany;
-        for (int i = 0; i < 33; ++i) {
+        for (int i = 0; i < 65; ++i) {
             tooMany.insert(QStringLiteral("Option%1").arg(i), true);
         }
         QVERIFY(!setAppearance(catalog, id, {QString(), tooMany}, error));
@@ -144,10 +144,44 @@ private Q_SLOTS:
         QCOMPARE(problems.size(), 2);
 
         // Encoding leaves out entries a workspace cannot override.
-        const QJsonObject encoded = WorkspaceAppearance::encodeOverrides(
-            Settings::self(),
-            {{QStringLiteral("ColorScheme"), QStringLiteral("BreezeDark")}, {QStringLiteral("Dividers"), int(Settings::EnumDividers::Hidden)}});
+        const QJsonObject encoded = WorkspaceAppearance::encodeOverrides(Settings::self(),
+                                                                         {{QStringLiteral("UseCustomStyleSheet"), true},
+                                                                          {QStringLiteral("SuspendEffectsInHighContrast"), false},
+                                                                          {QStringLiteral("ShowHiddenFiles"), true},
+                                                                          {QStringLiteral("Dividers"), int(Settings::EnumDividers::Hidden)}});
         QCOMPARE(encoded, (QJsonObject{{QStringLiteral("Dividers"), QStringLiteral("Hidden")}}));
+    }
+
+    void overridesCoverEveryAppearanceOptionButTheStyleSheet()
+    {
+        const QStringList entries = WorkspaceAppearance::overrideEntries(Settings::self());
+        for (const QString &entry : {QStringLiteral("DefaultViewMode"),
+                                     QStringLiteral("FolderColorRules"),
+                                     QStringLiteral("ColorScheme"),
+                                     QStringLiteral("WindowOpacity"),
+                                     QStringLiteral("FileListFont"),
+                                     QStringLiteral("Animations")}) {
+            QVERIFY2(entries.contains(entry), qPrintable(entry));
+        }
+        for (const QString &entry :
+             {QStringLiteral("UseCustomStyleSheet"), QStringLiteral("CustomStyleSheet"), QStringLiteral("SuspendEffectsInHighContrast")}) {
+            QVERIFY2(!entries.contains(entry), qPrintable(entry));
+        }
+
+        // Every option round-trips through the catalog.
+        Settings::setWindowOpacity(80);
+        const QVariantMap captured = WorkspaceAppearance::captureOverrides(Settings::self());
+        QCOMPARE(QStringList(captured.keys()).size(), entries.size());
+        QCOMPARE(captured.value(QStringLiteral("WindowOpacity")).toInt(), 80);
+        Catalog catalog;
+        QString error;
+        QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        const QJsonObject all = WorkspaceAppearance::encodeOverrides(Settings::self(), captured);
+        QCOMPARE(all.size(), entries.size());
+        QVERIFY2(setAppearance(catalog, catalog.workspaces.first().id, {QString(), all}, error), qPrintable(error));
+        QStringList problems;
+        QCOMPARE(WorkspaceAppearance::decodeOverrides(Settings::self(), all, &problems), captured);
+        QVERIFY2(problems.isEmpty(), qPrintable(problems.join(QLatin1String(", "))));
     }
 
     void layersOverridesOverTheProfile()

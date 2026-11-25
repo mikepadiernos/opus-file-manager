@@ -109,9 +109,9 @@ class QToolButton;
 KMessageWidget *createContrastNotice(const QString &objectName, bool adjusted, QWidget *parent);
 
 /**
- * Follows the colour scheme's accent or chooses an app-local accent colour,
- * reporting when it lacks contrast against the selected scheme. Bound to the
- * AccentColor setting.
+ * Follows the colour scheme's accent or Plasma's accent, or chooses an
+ * app-local accent colour, reporting when it lacks contrast against the
+ * selected scheme. Bound to the AccentColor setting.
  */
 class AccentColorChooser : public QWidget
 {
@@ -119,8 +119,15 @@ class AccentColorChooser : public QWidget
     Q_PROPERTY(QString accent READ accent WRITE setAccent NOTIFY accentChanged USER true)
 
 public:
+    /// Items of the accent mode combo box.
+    enum Mode {
+        FollowScheme,
+        FollowPlasma,
+        Custom
+    };
+
     explicit AccentColorChooser(QWidget *parent = nullptr);
-    /// The chosen colour as #rrggbb, or empty to follow the scheme.
+    /// The chosen colour as #rrggbb, ColorSchemes::PlasmaAccent, or empty to follow the scheme.
     QString accent() const;
     void setAccent(const QString &accent);
     /// Validates the accent against the given ColorScheme setting value.
@@ -132,10 +139,11 @@ Q_SIGNALS:
 private:
     void refresh();
 
-    QCheckBox *m_custom;
+    QComboBox *m_mode;
     KColorButton *m_button;
     KMessageWidget *m_contrast;
     QPalette m_base;
+    bool m_schemeFollowsPlasma = true;
 };
 
 /**
@@ -354,6 +362,14 @@ public:
     /// Replaces the text with a stylesheet file.
     bool importFile(const QString &path);
     bool exportFile(const QString &path);
+    /**
+     * Exports to @p path, as chosen in a file dialog. Adds the .qss suffix
+     * when the name has no .qss or .css suffix and asks before replacing a
+     * file with the suffixed name, which the file dialog did not ask about.
+     */
+    bool exportChosen(QString path);
+    /// Replaces the yes or no question, for tests.
+    void setConfirmation(std::function<bool(const QString &)> confirm);
     /// Returns to the saved stylesheet.
     void revert();
 
@@ -368,6 +384,7 @@ private:
     QFrame *m_preview;
     QTimer *m_checkTimer;
     QString m_problem;
+    std::function<bool(const QString &)> m_confirm;
 };
 
 /**
@@ -404,6 +421,13 @@ public:
     /// Imports a profile file, asking before replacing a profile with its name.
     bool importProfile(const QString &path);
     bool exportProfile(const QString &id, const QString &path, bool includeStyleSheet = true);
+    /**
+     * Exports the selected profile to @p path, as chosen in a file dialog.
+     * Adds the .opus-theme.json suffix when the name has no .json suffix and
+     * asks before replacing a file with the suffixed name, which the file
+     * dialog did not ask about, and whether to include a custom stylesheet.
+     */
+    bool exportSelected(QString path);
     bool removeProfile(const QString &id);
 
 private:

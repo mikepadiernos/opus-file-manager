@@ -804,21 +804,30 @@ private Q_SLOTS:
             auto *search = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultSearchScope"));
             auto *layout = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultLayout"));
             auto *panes = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultPaneTabRestoration"));
-            QVERIFY(mode && location && search && layout && panes);
+            auto *appearance = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultAppearance"));
+            QVERIFY(mode && location && search && layout && panes && appearance);
             QCOMPARE(mode->currentIndex(), int(Settings::EnumWorkspaceDefaultBehaviorMode::All));
-            QVERIFY(location->isChecked() && search->isChecked() && layout->isChecked() && panes->isChecked());
+            QVERIFY(location->isChecked() && search->isChecked() && layout->isChecked() && panes->isChecked() && appearance->isChecked());
             QVERIFY(!search->isEnabledTo(&dialog));
+            QVERIFY(!appearance->isEnabledTo(&dialog));
             mode->setCurrentIndex(Settings::EnumWorkspaceDefaultBehaviorMode::Selected);
             QVERIFY(search->isEnabledTo(&dialog));
+            QVERIFY(appearance->isEnabledTo(&dialog));
             search->setChecked(false);
             layout->setChecked(false);
+            appearance->setChecked(false);
             dialog.button(QDialogButtonBox::Ok)->click();
         }
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
         QCOMPARE(Settings::workspaceDefaultBehaviorMode(), Settings::EnumWorkspaceDefaultBehaviorMode::Selected);
         QVERIFY(Settings::workspaceDefaultLocationPresentation());
         QVERIFY(!Settings::workspaceDefaultSearchScope());
         QVERIFY(!Settings::workspaceDefaultLayout());
         QVERIFY(Settings::workspaceDefaultPaneTabRestoration());
+        QVERIFY(!Settings::workspaceDefaultAppearance());
     }
 
     void workspaceIndicatorOptionsPersist()

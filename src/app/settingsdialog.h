@@ -12,6 +12,7 @@ class ColorSchemeCombo;
 class KPageWidgetItem;
 class PreviewSizeSpinBox;
 class QCheckBox;
+class QComboBox;
 class QListWidget;
 class QTabWidget;
 class RuleListEditor;
@@ -43,6 +44,8 @@ public:
      * applied.
      */
     void resetAppearanceToDefaults();
+    /// Replaces the yes or no question asked before resetting the appearance, for tests.
+    void setConfirmation(std::function<bool(const QString &)> confirm);
     /// The theme profile options shown in the dialog, which may not be applied yet.
     QVariantMap appearanceValues() const;
     /// Shows Themes options in the dialog without applying them.
@@ -171,6 +174,8 @@ private:
     StartupWorkspaceCombo *m_startupWorkspace = nullptr;
     ColorSchemeCombo *m_colorScheme = nullptr;
     AccentColorChooser *m_accentColor = nullptr;
+    QComboBox *m_cornerRadius = nullptr;
+    std::function<bool(const QString &)> m_confirm;
     /// A checkbox for a setting kept outside Settings, in config that KIO
     /// shares with Dolphin.
     struct SharedToggle {

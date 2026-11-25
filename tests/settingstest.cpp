@@ -364,11 +364,11 @@ private Q_SLOTS:
         auto *chooser = dialog.findChild<AccentColorChooser *>(QStringLiteral("kcfg_AccentColor"));
         auto *editor = dialog.findChild<ColorPaletteEditor *>(QStringLiteral("kcfg_CustomColors"));
         QVERIFY(combo && chooser && editor);
-        auto *custom = chooser->findChild<QCheckBox *>(QStringLiteral("customAccent"));
+        auto *mode = chooser->findChild<QComboBox *>(QStringLiteral("accentMode"));
         auto *button = chooser->findChild<KColorButton *>(QStringLiteral("accentColour"));
         auto *warning = chooser->findChild<KMessageWidget *>(QStringLiteral("accentContrastWarning"));
         auto *highlightButton = editor->findChild<KColorButton *>(QStringLiteral("colourHighlight"));
-        QVERIFY(custom && button && warning && highlightButton);
+        QVERIFY(mode && button && warning && highlightButton);
         QVERIFY(chooser->accent().isEmpty());
         QVERIFY(!button->isEnabled());
 
@@ -377,7 +377,7 @@ private Q_SLOTS:
         const QPalette dark = ColorSchemes::palette(QLatin1String(ColorSchemes::DarkPreset));
         QCOMPARE(button->color(), dark.color(QPalette::Active, QPalette::Accent));
 
-        custom->setChecked(true);
+        mode->setCurrentIndex(AccentColorChooser::Custom);
         QVERIFY(button->isEnabled());
         // A dark accent on a dark scheme is hard to see against the view background.
         button->setColor(QColor(30, 30, 30));
@@ -395,7 +395,24 @@ private Q_SLOTS:
         QCOMPARE(window.palette().color(QPalette::Active, QPalette::Accent), QColor(0xe0, 0x60, 0x20));
         QCOMPARE(window.palette().color(QPalette::Active, QPalette::Window), QColor(32, 35, 38));
 
-        custom->setChecked(false);
+        // Plasma's accent is layered over the app-local scheme.
+        const QColor plasmaAccent = ColorSchemes::palette(QString()).color(QPalette::Active, QPalette::Accent);
+        mode->setCurrentIndex(AccentColorChooser::FollowPlasma);
+        QCOMPARE(chooser->accent(), QLatin1String(ColorSchemes::PlasmaAccent));
+        QVERIFY(!button->isEnabled());
+        QCOMPARE(button->color(), plasmaAccent);
+        QCOMPARE(highlightButton->color(), plasmaAccent);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::accentColor(), QLatin1String(ColorSchemes::PlasmaAccent));
+        QTRY_COMPARE(window.palette().color(QPalette::Active, QPalette::Accent), plasmaAccent);
+        QCOMPARE(window.palette().color(QPalette::Active, QPalette::Window), QColor(32, 35, 38));
+        chooser->setAccent(QString());
+        QCOMPARE(mode->currentIndex(), int(AccentColorChooser::FollowScheme));
+        chooser->setAccent(QLatin1String(ColorSchemes::PlasmaAccent));
+        QCOMPARE(mode->currentIndex(), int(AccentColorChooser::FollowPlasma));
+
+        mode->setCurrentIndex(AccentColorChooser::FollowScheme);
         QVERIFY(chooser->accent().isEmpty());
         QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
         dialog.button(QDialogButtonBox::Apply)->click();
@@ -520,6 +537,7 @@ private Q_SLOTS:
         auto *corners = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_CornerRadius"));
         auto *custom = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_CustomCornerRadius"));
         QVERIFY(corners && custom);
+        QVERIFY(corners->toolTip().contains(QLatin1String("cards")));
         QVERIFY(!custom->isEnabled());
         corners->setCurrentIndex(Settings::EnumCornerRadius::Custom);
         Q_EMIT corners->activated(Settings::EnumCornerRadius::Custom);
@@ -1026,10 +1044,22 @@ private Q_SLOTS:
         {
             MainWindow window;
             SettingsDialog dialog(placesOf(window), &window);
+            auto *lines = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TreeLines"));
             auto *mode = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TreeLineColors"));
             auto *single = dialog.findChild<KColorButton *>(QStringLiteral("kcfg_TreeLineColor"));
             auto *depths = dialog.findChild<ColorListEditor *>(QStringLiteral("kcfg_TreeLinePalette"));
-            QVERIFY(mode && single && depths);
+            QVERIFY(lines && mode && single && depths);
+            // Colours apply only to solid and dotted lines.
+            QVERIFY(!mode->isEnabled());
+            mode->setCurrentIndex(Settings::EnumTreeLineColors::Single);
+            QVERIFY(!single->isEnabled());
+            lines->setCurrentIndex(Settings::EnumTreeLines::Dotted);
+            QVERIFY(mode->isEnabled() && single->isEnabled());
+            lines->setCurrentIndex(Settings::EnumTreeLines::Hidden);
+            QVERIFY(!mode->isEnabled() && !single->isEnabled());
+            lines->setCurrentIndex(Settings::EnumTreeLines::Solid);
+            mode->setCurrentIndex(Settings::EnumTreeLineColors::Neutral);
+            QVERIFY(mode->isEnabled());
             QVERIFY(!single->isEnabled() && !depths->isEnabled());
             QCOMPARE(depths->colors().size(), 6);
             mode->setCurrentIndex(Settings::EnumTreeLineColors::Single);
@@ -1610,6 +1640,7 @@ private Q_SLOTS:
         const auto restore = qScopeGuard([] {
             Settings::self()->setCardPreviewSize(96);
             Settings::self()->setCardColumns(0);
+            Settings::self()->setDefaultViewMode(Settings::EnumDefaultViewMode::Details);
             Settings::self()->setCardsDensity(Settings::EnumCardsDensity::Normal);
             Settings::self()->setCardInformation({QStringLiteral("size"),
                                                   QStringLiteral("modificationTime"),
@@ -1631,6 +1662,11 @@ private Q_SLOTS:
         QVERIFY(density);
         density->setCurrentIndex(int(Density::Items::VeryCompact));
         Q_EMIT density->activated(density->currentIndex());
+        auto *viewMode = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultViewMode"));
+        QVERIFY(viewMode);
+        QCOMPARE(viewMode->itemText(int(Settings::EnumDefaultViewMode::Cards)), QStringLiteral("Cards"));
+        viewMode->setCurrentIndex(int(Settings::EnumDefaultViewMode::Cards));
+        Q_EMIT viewMode->activated(viewMode->currentIndex());
         auto *information = dialog.findChild<IconInformationList *>(QStringLiteral("kcfg_CardInformation"));
         QVERIFY(information);
         QStringList offered;
@@ -1646,6 +1682,12 @@ private Q_SLOTS:
         QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
         dialog.button(QDialogButtonBox::Apply)->click();
         QCOMPARE(Settings::cardPreviewSize(), 128);
+        QCOMPARE(int(Settings::defaultViewMode()), int(Settings::EnumDefaultViewMode::Cards));
+        {
+            MainWindow fresh;
+            fresh.openUrls({m_a});
+            QCOMPARE(int(fresh.activePane()->view()->viewMode()), int(FolderView::ViewMode::Cards));
+        }
         FolderView *view = window.activePane()->view();
         view->setViewMode(FolderView::ViewMode::Cards);
         auto *cards = qobject_cast<QListView *>(view->currentView());
@@ -2193,6 +2235,32 @@ private Q_SLOTS:
         QCOMPARE(paneStatus->contentsMargins(), paneStatusMargins);
     }
 
+    void spacingScaleAppliesFromTheDialog()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setSpacingScale(100);
+            Settings::self()->save();
+        });
+        MainWindow window;
+        window.openUrls({m_a});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        QLayout *navigation = window.activePane()->navigationBar()->layout();
+        const QMargins navigationMargins = navigation->contentsMargins();
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *scale = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_SpacingScale"));
+        QVERIFY(scale);
+        QCOMPARE(scale->minimum(), 50);
+        QCOMPARE(scale->maximum(), 200);
+        QCOMPARE(scale->value(), 100);
+        scale->setValue(200);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::spacingScale(), 200);
+        QCOMPARE(navigation->contentsMargins(), navigationMargins * 2);
+    }
+
     void tabShapesColoursAndStatusBarStylesApply()
     {
         const QString originalName = QApplication::style()->name();
@@ -2229,6 +2297,12 @@ private Q_SLOTS:
         };
         auto *indicator = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TabIndicator"));
         QVERIFY(indicator && !indicator->isEnabled());
+        // A corner radius makes tabs that follow the widget style rounded, so
+        // their indicator applies too.
+        choose(QStringLiteral("CornerRadius"), Settings::EnumCornerRadius::Medium);
+        QVERIFY(indicator->isEnabled());
+        choose(QStringLiteral("CornerRadius"), Settings::EnumCornerRadius::FollowStyle);
+        QVERIFY(!indicator->isEnabled());
         choose(QStringLiteral("TabShape"), Settings::EnumTabShape::Flat);
         QVERIFY(indicator->isEnabled());
         choose(QStringLiteral("TabIndicator"), Settings::EnumTabIndicator::None);
@@ -2377,8 +2451,17 @@ private Q_SLOTS:
         // The saved options are kept for when high contrast is turned off.
         QCOMPARE(int(Settings::paneTint()), int(Settings::EnumPaneTint::AllPanes));
 
-        Settings::setSuspendEffectsInHighContrast(false);
-        window.applySettings();
+        {
+            SettingsDialog dialog(placesOf(window), &window);
+            connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+            auto *suspend = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_SuspendEffectsInHighContrast"));
+            QVERIFY(suspend);
+            QVERIFY(suspend->isChecked());
+            suspend->setChecked(false);
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+        }
+        QVERIFY(!Settings::suspendEffectsInHighContrast());
         QVERIFY(viewBase() != base);
         QCOMPARE(AppearanceStyle::configured().radius, 8);
 
@@ -2430,8 +2513,22 @@ private Q_SLOTS:
             SettingsDialog dialog(placesOf(window), &window);
             connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
             auto *reset = dialog.findChild<QPushButton *>(QStringLiteral("resetAppearance"));
-            QVERIFY(reset);
+            auto *spacing = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_SpacingScale"));
+            QVERIFY(reset && spacing);
+            // The reset asks first and changes nothing when refused.
+            QStringList questions;
+            bool confirm = false;
+            dialog.setConfirmation([&questions, &confirm](const QString &question) {
+                questions.append(question);
+                return confirm;
+            });
             reset->click();
+            QCOMPARE(questions.size(), 1);
+            QCOMPARE(spacing->value(), 150);
+            confirm = true;
+            reset->click();
+            QCOMPARE(questions.size(), 2);
+            QCOMPARE(spacing->value(), 100);
             QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
             dialog.button(QDialogButtonBox::Apply)->click();
         }
@@ -2515,8 +2612,12 @@ private Q_SLOTS:
         QVERIFY(!manager->saveCurrent(QStringLiteral("Bad\nname")));
         QCOMPARE(message->messageType(), KMessageWidget::Error);
 
-        // The safe reset and loading only change the dialog until Apply.
+        // The safe reset asks first, and it and loading only change the dialog until Apply.
         dialog.findChild<QPushButton *>(QStringLiteral("resetThemeProfileAppearance"))->click();
+        QCOMPARE(spacing->value(), 60);
+        confirm = true;
+        dialog.findChild<QPushButton *>(QStringLiteral("resetThemeProfileAppearance"))->click();
+        confirm = false;
         QCOMPARE(spacing->value(), 100);
         QCOMPARE(tabShape->currentIndex(), int(Settings::EnumTabShape::FollowStyle));
         QVERIFY(manager->loadProfile(id));
@@ -2532,6 +2633,31 @@ private Q_SLOTS:
         const QString path = files.filePath(QStringLiteral("night.opus-theme.json"));
         QVERIFY(manager->exportProfile(id, path));
         QVERIFY(QFile::exists(path));
+
+        // A file dialog name without .json gets the suffix, and replacing a
+        // file with the suffixed name asks first.
+        QCOMPARE(manager->selectedId(), id);
+        QFile existing(path);
+        QVERIFY(existing.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        existing.write("old");
+        existing.close();
+        const qsizetype asked = questions.size();
+        QVERIFY(!manager->exportSelected(files.filePath(QStringLiteral("night"))));
+        QCOMPARE(questions.size(), asked + 1);
+        QVERIFY(questions.constLast().contains(QStringLiteral("night.opus-theme.json")));
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QCOMPARE(existing.readAll(), QByteArray("old"));
+        existing.close();
+        confirm = true;
+        QVERIFY(manager->exportSelected(files.filePath(QStringLiteral("night"))));
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QVERIFY(existing.readAll().contains("plasma-opus-theme"));
+        existing.close();
+        QVERIFY(manager->exportSelected(files.filePath(QStringLiteral("plain.JSON"))));
+        QVERIFY(QFile::exists(files.filePath(QStringLiteral("plain.JSON"))));
+        QCOMPARE(questions.size(), asked + 2);
+        confirm = false;
+
         QVERIFY(!manager->removeProfile(id));
         QCOMPARE(list->count(), 1);
         confirm = true;
@@ -2638,10 +2764,52 @@ private Q_SLOTS:
         editor->revert();
         QVERIFY(editor->importFile(path));
         QCOMPARE(editor->sheet(), green);
+
+        // A chosen name without a suffix gets .qss, and replacing a file with
+        // the suffixed name asks first.
+        QStringList questions;
+        bool confirm = false;
+        editor->setConfirmation([&questions, &confirm](const QString &question) {
+            questions.append(question);
+            return confirm;
+        });
+        QFile existing(path);
+        QVERIFY(existing.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        existing.write("old");
+        existing.close();
+        QVERIFY(!editor->exportChosen(files.filePath(QStringLiteral("green"))));
+        QCOMPARE(questions.size(), 1);
+        QVERIFY(questions.constFirst().contains(QStringLiteral("green.qss")));
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QCOMPARE(existing.readAll(), QByteArray("old"));
+        existing.close();
+        confirm = true;
+        QVERIFY(editor->exportChosen(files.filePath(QStringLiteral("green"))));
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromUtf8(existing.readAll()), green);
+        existing.close();
+        QVERIFY(editor->exportChosen(files.filePath(QStringLiteral("plain.CSS"))));
+        QVERIFY(QFile::exists(files.filePath(QStringLiteral("plain.CSS"))));
+        QCOMPARE(questions.size(), 2);
+
         QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
         connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
         dialog.button(QDialogButtonBox::Apply)->click();
         QCOMPARE(Settings::customStyleSheet(), green);
+        QCOMPARE(window.styleSheet(), green);
+
+        // The checkbox turns the stylesheet off and on again.
+        auto *use = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_UseCustomStyleSheet"));
+        QVERIFY(use && use->isChecked());
+        use->setChecked(false);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::useCustomStyleSheet());
+        QVERIFY(window.styleSheet().isEmpty());
+        use->setChecked(true);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::useCustomStyleSheet());
         QCOMPARE(window.styleSheet(), green);
 
         // Profiles include the stylesheet unless an export leaves it out.
@@ -2693,6 +2861,7 @@ private Q_SLOTS:
         auto *lineColor = dialog.findChild<KColorButton *>(QStringLiteral("kcfg_TreeLineColor"));
         auto *lineNotice = dialog.findChild<KMessageWidget *>(QStringLiteral("treeLineContrastNotice"));
         QVERIFY(lineColors && lineColor && lineNotice);
+        dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TreeLines"))->setCurrentIndex(Settings::EnumTreeLines::Solid);
         lineColor->setColor(lightBase);
         QVERIFY(lineNotice->isHidden());
         lineColors->setCurrentIndex(Settings::EnumTreeLineColors::Single);
@@ -2726,6 +2895,51 @@ private Q_SLOTS:
         rule.color = ruleDialog.palette().color(QPalette::Text);
         ruleDialog.setRule(rule);
         QVERIFY(folderNotice->isHidden());
+    }
+
+    void folderColourStyleAndRulesApplyFromTheDialog()
+    {
+        auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *style = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_FolderColorStyle"));
+        auto *rules = dialog.findChild<FolderColorRuleEditor *>(QStringLiteral("kcfg_FolderColorRules"));
+        QVERIFY(style && rules);
+        QCOMPARE(style->count(), 4);
+
+        FolderColorRules::Rule archive;
+        archive.match = FolderColorRules::Match::Name;
+        archive.pattern = QStringLiteral("*-archive");
+        archive.color = QColor(0xda, 0x44, 0x53);
+        archive.subfolders = true;
+        FolderColorRules::Rule work = archive;
+        work.pattern = QStringLiteral("work");
+        work.color = QColor(0x27, 0xae, 0x60);
+        work.subfolders = false;
+        const QString archiveEntry = FolderColorRules::entry(archive);
+        const QString workEntry = FolderColorRules::entry(work);
+
+        style->setCurrentIndex(Settings::EnumFolderColorStyle::Badge);
+        Q_EMIT style->activated(Settings::EnumFolderColorStyle::Badge);
+        rules->setRules({archiveEntry, workEntry});
+        // Rules are checked in order, which the editor can change.
+        rules->moveRule(1, -1);
+        QCOMPARE(rules->rules(), (QStringList{workEntry, archiveEntry}));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(int(Settings::folderColorStyle()), int(Settings::EnumFolderColorStyle::Badge));
+        QCOMPARE(Settings::folderColorRules(), (QStringList{workEntry, archiveEntry}));
+        const auto stored = FolderColorRules::parse(Settings::folderColorRules().constLast());
+        QVERIFY(stored && stored->subfolders);
+
+        style->setCurrentIndex(Settings::EnumFolderColorStyle::Name);
+        Q_EMIT style->activated(Settings::EnumFolderColorStyle::Name);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(int(Settings::folderColorStyle()), int(Settings::EnumFolderColorStyle::Name));
     }
 
     void toolbarAppearanceSettingsApplyToEveryToolbar()

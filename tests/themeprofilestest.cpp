@@ -100,6 +100,10 @@ private Q_SLOTS:
         QCOMPARE(read->values.size(), ThemeProfiles::entries(Settings::self()).size());
         QCOMPARE(warnings.size(), 1);
         QVERIFY(warnings.constFirst().contains(QStringLiteral("Future")));
+
+        const auto plasmaAccent = ThemeProfiles::fromJson(Settings::self(), document({{QStringLiteral("AccentColor"), QStringLiteral("plasma")}}), &error);
+        QVERIFY2(plasmaAccent, qPrintable(error));
+        QCOMPARE(plasmaAccent->values.value(QStringLiteral("AccentColor")).toString(), QLatin1String(ColorSchemes::PlasmaAccent));
     }
 
     void rejectsInvalidProfiles_data()
