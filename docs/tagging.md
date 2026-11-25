@@ -10,10 +10,13 @@ The implementation is C++ in `src/core/`; see the
 
 ## Library format
 
-A library is the file `.opus-library.json` at the library root. There are no
-per-file sidecars, and the format is plain UTF-8 JSON that other tools can
-read and write. `TagLibrary::Library` in `src/core/taglibrary.h` implements
-it.
+A library is one document. By default it is the file `.opus-library.json` at
+the library root. A library can instead keep it privately in Plasma Opus's
+data folder, so nothing is written to the library folder, which suits shared
+drives and read-only folders; see [Where libraries are kept](#where-libraries-are-kept).
+There are no per-file sidecars, and the format is plain UTF-8 JSON that other
+tools can read and write. `TagLibrary::Library` in `src/core/taglibrary.h`
+implements it.
 
 ```json
 {
@@ -55,6 +58,7 @@ it.
 | `groups`  | Tag groups with a stable `id`, a `name`, an optional `color` and member `tags` in display order.                         |
 | `fields`  | Field definitions with a stable `id`, a `name` and a `type` of `text` or `date`.                                         |
 | `entries` | Indexed files and folders.                                                                                               |
+| `root`    | Private documents only: the library folder the document belongs to. It is ignored when the document is read.             |
 
 Each entry has:
 
@@ -74,6 +78,33 @@ Each entry has:
 Identifiers are opaque strings; Plasma Opus creates UUIDs. Names may repeat,
 so other data always refers to tags, groups and fields by identifier.
 
+### Where libraries are kept
+
+`TagLibrary::documentPath()` finds the document of a library:
+
+- A private document is
+  `~/.local/share/opus-file-manager/libraries/<hash>.json` (below
+  `$XDG_DATA_HOME` when that is set). `<hash>` is the hexadecimal SHA-1 of
+  the library folder's cleaned path in UTF-8. The `libraries` folder is
+  created readable only by you.
+- When a private document exists for a folder, it is used; otherwise the
+  library is `.opus-library.json` in the folder.
+
+**Store metadata of new libraries** in
+[Preferences › Tagging › Privacy](#privacy) chooses where
+**Create Library from Folder…** creates the document. An existing document is
+always adopted where it is, so a library never ends up with two: a private
+document first, then one in the folder. `TagLibrary::moveDocument()` moves a
+document between the two places. It checks the document, writes it
+atomically to the target, reads it back and only then deletes the original.
+It refuses to replace an existing document and touches no other file.
+
+A private document is keyed by the folder's path. When a library folder is
+moved or renamed, its private document isn't found at the new path. Create the
+library again at the new path and use **Restore Library Metadata…** with an
+export or with the old private document; copies of library documents are
+accepted. The old private document is left in place.
+
 ### Reading and writing
 
 - Unknown top-level keys are preserved when Plasma Opus saves a library.
@@ -85,7 +116,9 @@ so other data always refers to tags, groups and fields by identifier.
   repaired when the library is loaded and reported as warnings; the document
   on disk changes only when the library is next saved.
 - Saves are atomic: the document is written to a temporary file next to it
-  and renamed into place.
+  and renamed into place. This applies to private documents too.
+- A private document also records the library folder under `root`. The key
+  is dropped when the document is read, so it never reaches exports.
 - A save is refused when the document changed on disk since it was loaded,
   for example from another window. Edits are applied to a freshly loaded copy
   and retried, so concurrent edits aren't lost.
@@ -106,10 +139,14 @@ library document itself.
 - the file system root;
 - folders that can't be read.
 
-A folder that can be read but not written, on a read-only file system or
-without write permission, or a library document that can't be written, opens
-read-only. Its tags can still be shown and searched, but edits are refused
-with a message.
+A library whose document can't be written opens read-only. For a document in
+the folder, that is a folder on a read-only file system or without write
+permission, or a document that can't be written. For a private document, only
+the private folder and the document count, so a folder you can read but not
+write can still hold a writable private library. A read-only library's tags
+can still be shown and searched, but edits are refused with a message.
+Creating a library in a read-only folder is refused unless its metadata is
+stored privately.
 
 ## Libraries
 
@@ -119,9 +156,12 @@ confirmation and then registers the active folder as a library root:
 - Registered roots are stored in the `Tag Libraries` group of the Plasma Opus
   configuration. `LibraryRegistry` in `src/core/libraryregistry.h` manages
   them.
-- When the folder has no library document, an empty one is created. A valid
-  existing document is adopted, so tags survive removing and creating a
-  library again; an unreadable one is reported and left unchanged.
+- When the folder has no library document, an empty one is created in the
+  place chosen in [Preferences › Tagging › Privacy](#privacy). A valid
+  existing document is adopted where it is, so tags survive removing and
+  creating a library again; an unreadable one is reported and left unchanged.
+  When an existing document isn't where the setting asks, the confirmation
+  and the status bar say so.
 - Libraries can't be nested: a folder inside a library, or a folder that
   contains one, can't become a library.
 - Creating a library runs a first refresh, described below.
@@ -233,12 +273,22 @@ its path any more are restored as missing, so **Review Missing Entries** can
 relink them. A library document that is missing or can't be read can be
 restored too.
 
-Before writing, the previous library document is copied to
+Before writing, the previous library document is copied to the backup folder
+set in [Preferences › Tagging › Privacy](#privacy). By default this is
 `~/.local/share/opus-file-manager/library-backups/` (below `$XDG_DATA_HOME`
-when that is set), and the status bar names the copy; restore it like an
-export to undo. The restore is refused, without writing, when the library
-changed after the preview or its folder is read-only. Exports from newer
-versions of Plasma Opus are refused rather than restored partially.
+when that is set). The status bar names the copy; restore it like an export
+to undo. Copies are named after the folder, the time and the first eight
+characters of the library's hash, such as
+`Photos 2026-11-25 100000 1a2b3c4d.json`. After a restore, the oldest copies
+of that library beyond **Keep at most … backups per library** are deleted.
+Only regular files named like that library's copies are considered. Copies
+that record another library folder, copies made before Plasma Opus added the
+hash to the name, and any other file are never deleted.
+
+The restore is refused, without writing, when the library changed after the
+preview or its document can't be written. A private library is restored in
+place, so nothing is written to its folder. Exports from newer versions of
+Plasma Opus are refused rather than restored partially.
 
 ## Tags
 
@@ -420,7 +470,10 @@ library can be previewed but not imported into.
 The import only changes the library document. To change the metadata stored
 in a file itself, use **Edit Metadata…**, or **Edit Embedded Metadata…** in the
 import dialog when a single JPEG, TIFF or MP3 file is selected. It previews
-the new values and writes the file only after you confirm.
+the new values and writes the file only after you confirm. The import
+dialog's button is disabled until you allow writing to files in
+[Preferences › Tagging › Privacy](#privacy); **Tools › Edit Metadata…** isn't
+affected.
 
 ### Searching embedded metadata
 
@@ -439,6 +492,31 @@ May 2024. `metadata:` is accepted for `meta:`. Metadata criteria can't use
 `<`, `<=`, `>` or `>=`. Like `content:`, they read each candidate file, so
 they're checked after cheaper criteria; combine them with a name or type
 criterion, as in `type:image/* meta:canon`, to keep searches fast.
+
+## Settings
+
+**Preferences › Tagging** holds the tagging settings, which are stored in the
+`Tagging` group of the Plasma Opus configuration.
+
+### Privacy
+
+The tab starts by explaining what Plasma Opus stores:
+
+- A library's metadata holds its tags, aliases, shorthand, colours and groups;
+  its field definitions and values; the indexed items' paths relative to the
+  library folder, with size, modification time and file system identity
+  numbers; and which items have which tags.
+- The list of library folders is kept in the configuration, and backups are
+  kept in the backup folder.
+- Nothing is sent over the network.
+- Files themselves only change when you write embedded metadata.
+
+| Setting                                                        | Default               | Effect                                                                                                                                                                                |
+| -------------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Store metadata of new libraries**                            | In the library folder | Where **Create Library from Folder…** creates the document of a new library: in the folder, or privately in Plasma Opus's data folder. Existing documents are adopted where they are. |
+| **Backup folder**                                              | Empty                 | Where restores keep a copy of the replaced library document. Empty uses `library-backups` in Plasma Opus's data folder, shown as the placeholder.                                     |
+| **Keep at most … backups per library**                         | 20                    | How many copies of each library a restore keeps, from 0 (**All**) to 1000. See [Export and restore](#export-and-restore).                                                             |
+| **Allow writing library values into files' embedded metadata** | Off                   | Enables **Edit Embedded Metadata…** in the import dialog. Plasma Opus always previews the changes and asks before changing a file.                                                    |
 
 ## Searching by tags
 
