@@ -1158,7 +1158,7 @@ rather than requiring TagStudio or changing the user's folder structure.
       listings or previews, and show assignments in the file interface. Provide
       a searchable, keyboard-accessible tag manager as an embedded pane using
       existing supported placements without replacing file panes.
-- [ ] Search and filter by tags, inherited parent tags, untagged items, paths
+- [x] Search and filter by tags, inherited parent tags, untagged items, paths
       and file types using AND, OR, NOT and grouped expressions; reuse existing
       search and selection workflows
 - [ ] Organize tag groups independently of locations and workspaces. Until the
