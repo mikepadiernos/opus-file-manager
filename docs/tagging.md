@@ -192,4 +192,44 @@ only shown; metadata moves only when you choose one:
 Relinking never overwrites an entry that has tags or fields. Relinking a
 folder also relinks the missing entries inside it.
 
+## Tags
+
+**Tags › Manage Tags…** lists the tags of the library containing the active
+folder. The list can be searched by name, alias and shorthand, and shows each
+tag's colour, parents and the number of items it is assigned to. Edits are
+saved to the library document straight away; a read-only library can be
+browsed but not changed.
+
+Each tag has:
+
+- a stable identifier, so renaming a tag keeps its assignments, parents and
+  group memberships;
+- a name, which is required and may repeat;
+- aliases, one per line, that also find the tag. Repeated aliases and aliases
+  that match the tag's name are dropped;
+- an optional shorthand without spaces;
+- an optional colour;
+- parent tags. Items with a tag also match searches for its parents and their
+  parents.
+
+### Duplicate names
+
+Tags may share a name, ignoring case, such as _Jaguar_ the animal and _Jaguar_
+the car. Plasma Opus always refers to tags by identifier, and shows a shared
+name followed by the first of these that tells the tags apart: the tag's
+parents, its shorthand or the start of its identifier. The tag editor shows
+how a new or renamed tag will appear before it is saved.
+
+### Hierarchy
+
+A tag can have several parents, but the hierarchy can't contain cycles. In
+the tag editor, the tag itself and the tags below it can't be chosen as
+parents. Libraries written by other tools that contain cycles are repaired
+when they are loaded, as described in [Reading and writing](#reading-and-writing).
+
+Deleting a tag asks for confirmation and says how many items and child tags
+it affects. The tag is removed from those items, from its child tags' parents
+and from tag groups; child tags keep their other parents. No files are
+changed.
+
 [TagStudio]: https://github.com/TagStudioDev/TagStudio
