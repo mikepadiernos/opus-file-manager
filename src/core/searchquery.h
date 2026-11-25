@@ -84,7 +84,7 @@ struct Node {
 
 /// Reports whether the entry's text contains @p needle; files that can't be searched as text don't.
 using ContentMatcher = std::function<bool(const QString &needle)>;
-/// Reports whether the entry satisfies a tag or tagged @p term; entries outside a tag library satisfy none.
+/// Reports whether the entry satisfies a tag or tagged @p term; entries outside a tag library satisfy none, unless options let tagged:no match them.
 using TagMatcher = std::function<bool(const Term &term)>;
 /// Returns the entry's embedded metadata texts; entries without metadata return none.
 using MetadataReader = std::function<QStringList()>;
