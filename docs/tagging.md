@@ -232,6 +232,33 @@ it affects. The tag is removed from those items, from its child tags' parents
 and from tag groups; child tags keep their other parents. No files are
 changed.
 
+### Tag groups
+
+Tag groups organize how a library's tags are listed, for example _People_,
+_Places_ and _Projects_. They are part of the library, so they are shared by
+every window and workspace, and they don't depend on the current location or
+workspace. Groups don't change what items are tagged with or what searches
+match.
+
+The **Groups** tab of **Manage Tags…** lists the groups in display order:
+
+- **New Group…** and **Edit…** set a group's name, an optional colour and its
+  tags. The tag list can be filtered by name, alias or shorthand. A tag can be
+  in several groups, and group names may repeat.
+- **Move Up** and **Move Down** change the order of the groups.
+- **Delete…** asks for confirmation and removes only the group; its tags and
+  their assignments are kept.
+
+Groups have stable identifiers, so renaming a group or its tags keeps its
+members. The **Tags** tab shows each tag's groups.
+
+When a library has groups, the tag panel lists every group in order with its
+tags below it, followed by **Other Tags** for tags that aren't in a group. A
+tag in several groups appears under each, and checking any copy assigns it.
+No group is hidden unless a search in the panel matches neither its name nor
+any of its tags; searching for a group's name shows all of its tags. Libraries
+without groups show a flat list.
+
 ## Assigning tags
 
 **Tags › Tag Panel** shows the tag panel to the right of or below the panes;
