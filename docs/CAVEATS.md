@@ -714,9 +714,11 @@ Tracked in
   any toolbar by default; add it with Customize Main Toolbar. Pressing Enter
   searches the active pane's current folder with the text typed, but uses the
   other criteria, such as scope and filters, currently set in the search
-  panel. While a search runs, Enter does not start another search. The field
-  can be placed on the main toolbar only, not on pane toolbars, and does not
-  show suggestions or history.
+  panel. While a search runs, Enter does not start another search. The field's
+  Saved Searches menu runs a saved search with all its saved criteria,
+  including its folder, and replaces the panel's criteria. The field can be
+  placed on the main toolbar only, not on pane toolbars, and does not show
+  suggestions or history.
 - **Search keyboard navigation:** Down in the toolbar field or the panel's
   query moves to the visible result list, or from the toolbar field to the
   query when there are no results. Escape cancels a running search; otherwise
@@ -745,6 +747,14 @@ Tracked in
   applications. Search folders are searched live, so they share live search's
   local-only, symbolic-link and result limits. Exclusions are lexical paths:
   a symbolic link elsewhere does not inherit its target's exclusion.
+- **Search defaults:** The default scope, search field and path filter on
+  Preferences' Search page set the panel's initial criteria, which the toolbar
+  field also uses. When they change, an open panel updates only criteria still
+  showing the previous defaults, and waits until a running search finishes.
+  The default path filter is stored by name: renaming or deleting the shared
+  filter leaves it unavailable, so searches start without a path filter and
+  report it until another filter is chosen. Settings from before M22 are
+  migrated when Plasma Opus starts; the earlier Boolean keys are removed.
 - **Double Shift:** Pressing Shift twice opens search only while a Plasma Opus
   main window has keyboard focus; it is not a global shortcut and can't be
   assigned in Configure Keyboard Shortcuts. It is turned off while Sticky Keys
@@ -770,7 +780,9 @@ Tracked in
   or use Tab when keyboard focus needs to move elsewhere. Check the normalized
   query shown while typing to confirm grouping, use parentheses where AND and
   OR are mixed, and search the current folder or search folders when an
-  advanced query has no required name or content term.
+  advanced query has no required name or content term. After renaming or
+  deleting a shared path filter, choose the default path filter again on
+  Preferences' Search page.
   - Comment: [#362.7023269364][comment-362]
 - **Alternative:** Use a separately maintained locate database for filenames.
   - Comment:
