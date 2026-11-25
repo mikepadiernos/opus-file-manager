@@ -240,6 +240,36 @@ QString YaziMode::commandId(Command command)
         return QStringLiteral("toggle-preview");
     case Command::Leave:
         return QStringLiteral("leave");
+    case Command::ToggleSelection:
+        return QStringLiteral("toggle-selection");
+    case Command::ToggleSelectionDown:
+        return QStringLiteral("toggle-selection-down");
+    case Command::VisualSelection:
+        return QStringLiteral("visual-selection");
+    case Command::SelectAll:
+        return QStringLiteral("select-all");
+    case Command::Copy:
+        return QStringLiteral("copy");
+    case Command::Cut:
+        return QStringLiteral("cut");
+    case Command::Paste:
+        return QStringLiteral("paste");
+    case Command::Rename:
+        return QStringLiteral("rename");
+    case Command::Trash:
+        return QStringLiteral("trash");
+    case Command::Create:
+        return QStringLiteral("create");
+    case Command::OpenWith:
+        return QStringLiteral("open-with");
+    case Command::CopyToOtherPane:
+        return QStringLiteral("copy-to-other-pane");
+    case Command::MoveToOtherPane:
+        return QStringLiteral("move-to-other-pane");
+    case Command::Undo:
+        return QStringLiteral("undo");
+    case Command::ToggleHidden:
+        return QStringLiteral("toggle-hidden");
     }
     return {};
 }
@@ -253,10 +283,94 @@ bool YaziMode::commandTakesCount(Command command)
     case Command::PageDown:
     case Command::HalfPageUp:
     case Command::HalfPageDown:
+    case Command::ToggleSelectionDown:
         return true;
     default:
         return false;
     }
+}
+
+bool YaziMode::isSelectionCommand(Command command)
+{
+    switch (command) {
+    case Command::ToggleSelection:
+    case Command::ToggleSelectionDown:
+    case Command::VisualSelection:
+    case Command::SelectAll:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool YaziMode::isFileCommand(Command command)
+{
+    switch (command) {
+    case Command::Copy:
+    case Command::Cut:
+    case Command::Paste:
+    case Command::Rename:
+    case Command::Trash:
+    case Command::Create:
+    case Command::OpenWith:
+    case Command::CopyToOtherPane:
+    case Command::MoveToOtherPane:
+    case Command::Undo:
+    case Command::ToggleHidden:
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool YaziMode::commandUsesSelection(Command command)
+{
+    switch (command) {
+    case Command::Copy:
+    case Command::Cut:
+    case Command::Rename:
+    case Command::Trash:
+    case Command::OpenWith:
+    case Command::CopyToOtherPane:
+    case Command::MoveToOtherPane:
+        return true;
+    default:
+        return false;
+    }
+}
+
+QString YaziMode::commandAction(Command command)
+{
+    switch (command) {
+    case Command::Copy:
+        return QStringLiteral("edit_copy");
+    case Command::Cut:
+        return QStringLiteral("edit_cut");
+    case Command::Paste:
+        return QStringLiteral("edit_paste");
+    case Command::Rename:
+        return QStringLiteral("rename");
+    case Command::Trash:
+        return QStringLiteral("move_to_trash");
+    case Command::Create:
+        return QStringLiteral("new_menu");
+    case Command::CopyToOtherPane:
+        return QStringLiteral("copy_to_other_pane");
+    case Command::MoveToOtherPane:
+        return QStringLiteral("move_to_other_pane");
+    case Command::Undo:
+        return QStringLiteral("edit_undo");
+    case Command::ToggleHidden:
+        return QStringLiteral("show_hidden_files");
+    default:
+        // Open With shows the applications menu of the context menu; it has no window action.
+        return {};
+    }
+}
+
+QStringList YaziMode::permanentDeletionActions()
+{
+    return {QStringLiteral("delete")};
 }
 
 YaziMode::Keymap YaziMode::presetKeymap(Preset preset)
@@ -273,6 +387,9 @@ YaziMode::Keymap YaziMode::presetKeymap(Preset preset)
         bind({Qt::Key_Right}, Command::Open),
         bind({Qt::Key_Return}, Command::Open),
         bind({Qt::Key_Enter}, Command::Open),
+        // Space alone stays the window's Open Gallery shortcut, and the
+        // window's file shortcuts, such as Ctrl+C and Delete, pass through.
+        bind({Qt::ControlModifier | Qt::Key_Space}, Command::ToggleSelection),
     };
     if (preset == Preset::Vim) {
         keymap.counts = true;
@@ -293,6 +410,22 @@ YaziMode::Keymap YaziMode::presetKeymap(Preset preset)
             bind({Qt::Key_G, Qt::Key_V}, Command::FocusPreview),
             bind({Qt::Key_Z, Qt::Key_P}, Command::TogglePreview),
             bind({Qt::Key_Q}, Command::Leave),
+            bind({Qt::Key_Space}, Command::ToggleSelectionDown),
+            bind({Qt::Key_V}, Command::VisualSelection),
+            bind({Qt::ShiftModifier | Qt::Key_V}, Command::SelectAll),
+            bind({Qt::ControlModifier | Qt::Key_A}, Command::SelectAll),
+            bind({Qt::Key_Y, Qt::Key_Y}, Command::Copy),
+            bind({Qt::Key_X}, Command::Cut),
+            bind({Qt::Key_P}, Command::Paste),
+            bind({Qt::Key_R}, Command::Rename),
+            // Never permanent deletion: D is deliberately left unbound.
+            bind({Qt::Key_D, Qt::Key_D}, Command::Trash),
+            bind({Qt::Key_A}, Command::Create),
+            bind({Qt::Key_O}, Command::OpenWith),
+            bind({Qt::Key_C}, Command::CopyToOtherPane),
+            bind({Qt::Key_M}, Command::MoveToOtherPane),
+            bind({Qt::Key_U}, Command::Undo),
+            bind({Qt::Key_Period}, Command::ToggleHidden),
         };
     }
     return keymap;

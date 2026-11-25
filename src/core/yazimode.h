@@ -4,6 +4,7 @@
 
 #include <QKeyCombination>
 #include <QList>
+#include <QStringList>
 #include <QUrl>
 
 class KConfigGroup;
@@ -95,7 +96,8 @@ ColumnWidths columnWidths(int available, bool preview, const Ratios &ratios = {}
 /**
  * What a key or key sequence does in Yazi mode. To add a command, add it
  * here, give it an identifier in commandId(), bind it in presetKeymap() and
- * run it in Pane::runYaziCommand().
+ * run it in Pane::runYaziCommand(). File commands run the window's existing
+ * actions; see commandAction().
  */
 enum class Command {
     MoveUp,
@@ -118,12 +120,59 @@ enum class Command {
     FocusPreview,
     TogglePreview,
     Leave,
+    /// Selects or deselects the focused item, keeping the selection while moving.
+    ToggleSelection,
+    /// Selects or deselects the focused item and moves down, as Space does in Yazi.
+    ToggleSelectionDown,
+    /// Starts or ends range selection, which selects every item between where it started and the focused item.
+    VisualSelection,
+    SelectAll,
+    /// Copies the selected or focused items to the clipboard.
+    Copy,
+    /// Cuts the selected or focused items to the clipboard.
+    Cut,
+    /// Pastes the clipboard into the current folder.
+    Paste,
+    Rename,
+    /// Moves the selected or focused items to the trash, never deleting them permanently.
+    Trash,
+    /// Offers to create a folder or file in the current folder.
+    Create,
+    OpenWith,
+    CopyToOtherPane,
+    MoveToOtherPane,
+    Undo,
+    ToggleHidden,
 };
+
+/// The last command, for iterating over every command.
+constexpr Command LastCommand = Command::ToggleHidden;
 
 /// A stable identifier for @p command, such as "move-down", for settings and documentation.
 QString commandId(Command command);
 /// Whether a count typed first, as in 5j, repeats @p command.
 bool commandTakesCount(Command command);
+/// Whether @p command changes the selection of the current column.
+bool isSelectionCommand(Command command);
+/// Whether @p command is a file action that the window runs through its own action.
+bool isFileCommand(Command command);
+/**
+ * Whether @p command acts on the selected items. When nothing is selected,
+ * the focused item is selected first, so the command acts on it.
+ */
+bool commandUsesSelection(Command command);
+/**
+ * The name of the window action that runs the file command @p command, such
+ * as "move_to_trash", or empty when the command isn't a file command or is
+ * run without a window action. Running the window's actions keeps their
+ * confirmations, conflict dialogs, transfer queue and undo.
+ */
+QString commandAction(Command command);
+/**
+ * The names of the window actions that delete files permanently. No command
+ * may run them: Yazi mode only moves files to the trash.
+ */
+QStringList permanentDeletionActions();
 
 using KeySequence = QList<QKeyCombination>;
 
@@ -146,6 +195,7 @@ enum class Preset {
     /// Arrow keys, Home, End, Page Up and Page Down; Left opens the parent folder and Right or Return the focused item.
     Standard,
     /// The standard keys, plus Vim-style letters, multi-key sequences such as gg and counts such as 5j.
+    /// It also binds Yazi's selection keys and file actions, but never permanent deletion.
     Vim,
 };
 
