@@ -111,4 +111,42 @@ without write permission, or a library document that can't be written, opens
 read-only. Its tags can still be shown and searched, but edits are refused
 with a message.
 
+## Libraries
+
+Libraries are opt-in. **Tags › Create Library from Folder…** asks for
+confirmation and then registers the active folder as a library root:
+
+- Registered roots are stored in the `Tag Libraries` group of the Plasma Opus
+  configuration. `LibraryRegistry` in `src/core/libraryregistry.h` manages
+  them.
+- When the folder has no library document, an empty one is created. A valid
+  existing document is adopted, so tags survive removing and creating a
+  library again; an unreadable one is reported and left unchanged.
+- Libraries can't be nested: a folder inside a library, or a folder that
+  contains one, can't become a library.
+- Creating a library runs a first refresh, described below.
+
+**Tags › Remove Library…** unregisters the library that contains the active
+folder after confirmation. Its document is kept and no files are deleted.
+
+### Indexing
+
+A refresh walks the library root in the background with progress and can be
+canceled. `LibraryScan` in `src/core/libraryscan.h` implements it. Refreshing
+only reads the file system: nothing is moved, renamed, copied or written
+except the library document.
+
+- Files and folders of every type are indexed, including hidden ones.
+- Symbolic links are not indexed, and linked folders are not followed, so a
+  library never reaches outside its root or loops.
+- `.mfm.json` files and the library document are skipped.
+- Names that aren't valid in the system encoding are skipped and counted in
+  the summary, because they can't be stored as UTF-8 paths.
+- New paths become entries, and known paths have their size, modification
+  time and identity hints updated.
+- Entries that a complete refresh doesn't find are marked `missing` and keep
+  their tags and fields. A canceled refresh, or one where some folders
+  couldn't be read, records what it found but marks nothing missing.
+- A missing entry found again at its recorded path is no longer missing.
+
 [TagStudio]: https://github.com/TagStudioDev/TagStudio
