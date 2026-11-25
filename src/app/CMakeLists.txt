@@ -77,6 +77,8 @@ add_library(opusfm_app STATIC
     settingsdialog.h
     settingswidgets.cpp
     settingswidgets.h
+    startuppresentation.cpp
+    startuppresentation.h
     symbolicactionicons.cpp
     symbolicactionicons.h
     terminalpanel.cpp
@@ -96,6 +98,7 @@ add_library(opusfm_app STATIC
     workspacelocations.cpp
     workspacelocations.h
     opusfm.qrc
+    branding.qrc
 )
 
 target_include_directories(opusfm_app PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_BINARY_DIR}/src)

@@ -8,6 +8,7 @@
 #include "opusfm_version.h"
 #include "settings.h"
 #include "settingsbackup.h"
+#include "startuppresentation.h"
 #include "symbolicactionicons.h"
 #include "workspacestartup.h"
 
@@ -86,7 +87,7 @@ int main(int argc, char **argv)
 
     KAboutData aboutData = AppIdentity::aboutData(QStringLiteral(OPUSFM_VERSION_STRING));
     KAboutData::setApplicationData(aboutData);
-    QApplication::setWindowIcon(QIcon::fromTheme(AppIdentity::desktopFileName(), QIcon(QStringLiteral(":/icons/%1.svg").arg(AppIdentity::desktopFileName()))));
+    QApplication::setWindowIcon(AppIdentity::applicationIcon());
 
     KCrash::initialize();
 
@@ -165,6 +166,7 @@ int main(int argc, char **argv)
     auto *window = new MainWindow;
     window->openUrls(urlsFromArguments(parser.positionalArguments(), QDir::currentPath()));
     window->show();
+    StartupPresentation::presentIfEnabled(window);
     if (!workspaceWarning.isEmpty()) {
         window->statusBar()->showMessage(workspaceWarning);
     } else if (!appearanceMessage.isEmpty()) {

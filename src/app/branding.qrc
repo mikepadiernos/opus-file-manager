@@ -1,0 +1,6 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/branding">
+    <file alias="plasma-opus-logo.svg">branding/plasma-opus-logo.svg</file>
+  </qresource>
+</RCC>
