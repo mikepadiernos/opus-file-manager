@@ -60,7 +60,8 @@ LiveSearch::Result LiveSearch::find(const QString &folder,
                                     const PathFilter &filter,
                                     int entryLimit,
                                     const QStringList *tagLibraries,
-                                    const TagSearch::Options &tagOptions)
+                                    const TagSearch::Options &tagOptions,
+                                    const QStringList &metadataKeys)
 {
     Result result;
     const QFileInfo root(folder);
@@ -159,7 +160,7 @@ LiveSearch::Result LiveSearch::find(const QString &folder,
                         return *read == TextRead::Text && contents.contains(needle, Qt::CaseInsensitive);
                     },
                     tags ? tags->matcher(entry.absoluteFilePath()) : SearchQuery::TagMatcher(),
-                    EmbeddedMetadata::lazySearchTexts(entry.absoluteFilePath()));
+                    EmbeddedMetadata::lazySearchTexts(entry.absoluteFilePath(), metadataKeys));
                 if (tags && tags->errors().size() > tagErrors) {
                     result.errors.append(tags->errors().mid(tagErrors));
                 }

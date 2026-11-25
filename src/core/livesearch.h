@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "embeddedmetadata.h"
 #include "pathfilter.h"
 #include "tagsearch.h"
 
@@ -36,6 +37,7 @@ using Progress = std::function<void(int, const QString &)>;
  * @param tagLibraries the registered tag library roots for tag: and tagged:
  *        criteria, or null to read them from LibraryRegistry on this thread
  * @param tagOptions how tag: criteria select tags
+ * @param metadataKeys the embedded metadata properties metadata: criteria match
  */
 Result find(const QString &folder,
             const QString &text,
@@ -45,5 +47,6 @@ Result find(const QString &folder,
             const PathFilter &filter = {},
             int entryLimit = 200000,
             const QStringList *tagLibraries = nullptr,
-            const TagSearch::Options &tagOptions = {});
+            const TagSearch::Options &tagOptions = {},
+            const QStringList &metadataKeys = EmbeddedMetadata::keys());
 }

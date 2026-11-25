@@ -96,19 +96,44 @@ KFileMetaData::ExtractorCollection &extractors()
     static thread_local KFileMetaData::ExtractorCollection collection;
     return collection;
 }
+
+QStringList keysOf(const QList<Property::Property> &properties)
+{
+    QStringList result;
+    for (const Property::Property property : properties) {
+        const QString key = KFileMetaData::PropertyInfo(property).name();
+        if (!result.contains(key)) {
+            result.append(key);
+        }
+    }
+    return result;
+}
 }
 
 QStringList EmbeddedMetadata::keys()
 {
-    QStringList result;
-    for (const auto &list : {imageProperties(), audioProperties()}) {
-        for (const Property::Property property : list) {
-            const QString key = KFileMetaData::PropertyInfo(property).name();
-            if (!result.contains(key)) {
-                result.append(key);
-            }
-        }
-    }
+    static const QStringList result = keysOf(imageProperties() + audioProperties());
+    return result;
+}
+
+QStringList EmbeddedMetadata::imageKeys()
+{
+    static const QStringList result = keysOf(imageProperties());
+    return result;
+}
+
+QStringList EmbeddedMetadata::audioKeys()
+{
+    static const QStringList result = keysOf(audioProperties());
+    return result;
+}
+
+QStringList EmbeddedMetadata::enabledKeys(const QStringList &disabled)
+{
+    QStringList result = keys();
+    result.removeIf([&disabled](const QString &key) {
+        return disabled.contains(key);
+    });
     return result;
 }
 
@@ -123,7 +148,7 @@ bool EmbeddedMetadata::isDate(const QString &key)
     return isDateProperty(KFileMetaData::PropertyInfo::fromName(key).property());
 }
 
-EmbeddedMetadata::Reading EmbeddedMetadata::read(const QString &path)
+EmbeddedMetadata::Reading EmbeddedMetadata::read(const QString &path, const QStringList &enabled)
 {
     Reading result;
     result.path = path;
@@ -146,12 +171,21 @@ EmbeddedMetadata::Reading EmbeddedMetadata::read(const QString &path)
         return result;
     }
     result.supported = true;
+    QList<Property::Property> wanted;
+    for (const Property::Property property : image ? imageProperties() : audioProperties()) {
+        if (enabled.contains(KFileMetaData::PropertyInfo(property).name())) {
+            wanted.append(property);
+        }
+    }
+    if (wanted.isEmpty()) {
+        return result;
+    }
     KFileMetaData::SimpleExtractionResult extraction(path, result.mimeType, KFileMetaData::ExtractionResult::ExtractMetaData);
     for (KFileMetaData::Extractor *extractor : available) {
         extractor->extract(&extraction);
     }
     const KFileMetaData::PropertyMultiMap properties = extraction.properties();
-    for (const Property::Property property : image ? imageProperties() : audioProperties()) {
+    for (const Property::Property property : std::as_const(wanted)) {
         // QMultiMap::values() lists the most recently inserted value first.
         QList<QVariant> raw = properties.values(property);
         std::reverse(raw.begin(), raw.end());
@@ -177,10 +211,13 @@ EmbeddedMetadata::Reading EmbeddedMetadata::read(const QString &path)
     return result;
 }
 
-QStringList EmbeddedMetadata::searchTexts(const Reading &reading)
+QStringList EmbeddedMetadata::searchTexts(const Reading &reading, const QStringList &enabled)
 {
     QStringList texts;
     for (const Value &value : reading.values) {
+        if (!enabled.contains(value.key)) {
+            continue;
+        }
         texts.append(value.items);
         if (value.date.isValid()) {
             texts.append(value.date.toString(Qt::ISODate));
@@ -189,12 +226,12 @@ QStringList EmbeddedMetadata::searchTexts(const Reading &reading)
     return texts;
 }
 
-std::function<QStringList()> EmbeddedMetadata::lazySearchTexts(const QString &path)
+std::function<QStringList()> EmbeddedMetadata::lazySearchTexts(const QString &path, const QStringList &enabled)
 {
     auto cache = std::make_shared<std::optional<QStringList>>();
-    return [path, cache]() {
+    return [path, enabled, cache]() {
         if (!*cache) {
-            *cache = searchTexts(read(path));
+            *cache = enabled.isEmpty() ? QStringList() : searchTexts(read(path, enabled), enabled);
         }
         return **cache;
     };

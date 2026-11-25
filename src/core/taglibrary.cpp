@@ -846,6 +846,9 @@ TagLibrary::Library::applyScan(const QList<Observation> &observed, bool complete
             m_entryIndex.insert(entry.path, m_entries.size());
             m_entries.append(entry);
             ++changes.added;
+            if (!item.folder) {
+                changes.addedFiles.append(item.path);
+            }
             continue;
         }
         Entry &entry = m_entries[*it];

@@ -126,6 +126,8 @@ struct ScanChanges {
     int missing = 0;
     /// Missing entries found again at their recorded path.
     int found = 0;
+    /// The paths, relative to the root, of the new entries that are files.
+    QStringList addedFiles;
 };
 
 /// Describes why @p root can't hold a library, or returns an empty string.

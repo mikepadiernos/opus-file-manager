@@ -1310,5 +1310,25 @@
       <label>Fields added to the document of each newly created tag library, in order, as text:Name or date:Name</label>
       <default></default>
     </entry>
+    <entry name="DisabledEmbeddedMetadataKeys" type="StringList">
+      <label>The embedded metadata properties, by KFileMetaData property name, that are not read for search, display or import</label>
+      <default></default>
+    </entry>
+    <entry name="EmbeddedMetadataMappings" type="StringList">
+      <label>How embedded metadata properties are imported into tag libraries, as key=tags or key=field:Name</label>
+      <default></default>
+    </entry>
+    <entry name="EmbeddedMetadataConflicts" type="Enum">
+      <label>Whether imported embedded metadata keeps or replaces different existing field values</label>
+      <choices>
+        <choice name="Keep"/>
+        <choice name="Replace"/>
+      </choices>
+      <default>Keep</default>
+    </entry>
+    <entry name="ImportEmbeddedMetadataOnRefresh" type="Bool">
+      <label>Whether refreshing a tag library imports the embedded metadata of newly indexed items using the saved mappings</label>
+      <default>false</default>
+    </entry>
   </group>
 </kcfg>

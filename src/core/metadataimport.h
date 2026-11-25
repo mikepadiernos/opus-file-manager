@@ -9,6 +9,8 @@
 #include <QMap>
 #include <QString>
 
+#include <functional>
+
 /**
  * Imports embedded EXIF and audio metadata into a tag library as tags or
  * field values. A preview lists every change first; applying it only changes
@@ -83,6 +85,8 @@ struct Result {
     int valuesSet = 0;
     /// Field values not set because the item's value changed after the preview.
     int changedSincePreview = 0;
+    /// The number of items whose tags or field values changed.
+    int items = 0;
 };
 
 /**
@@ -91,4 +95,65 @@ struct Result {
  * field values that changed since the preview are kept.
  */
 bool apply(const Plan &plan, Result *result = nullptr, QString *error = nullptr);
+
+/**
+ * Saved mappings, independent of a library: property keys mapped to a field
+ * name, or to an empty name to import each value as a tag.
+ */
+using NamedMappings = QMap<QString, QString>;
+
+/**
+ * Reads mappings saved as "key=tags" or "key=field:Name". "tags" and "field:"
+ * match ignoring case and spaces around the name are dropped. Entries for
+ * unknown keys, with another target or without a name are ignored, as are
+ * later entries for a key that is already mapped.
+ */
+NamedMappings parseMappings(const QStringList &entries);
+
+/// Writes @p mappings in EmbeddedMetadata::keys() order, as parseMappings() reads them; unknown keys are left out.
+QStringList serializeMappings(const NamedMappings &mappings);
+
+/// Whether a field of @p type can hold property @p key: text fields hold any property, date fields only dates.
+bool canMap(const QString &key, TagLibrary::FieldType type);
+
+/**
+ * Resolves @p mappings against @p library into the mappings preview() takes.
+ * Fields are found by name, ignoring case, among those whose type can hold
+ * the property. Keys not in @p enabled and fields the library doesn't have
+ * are left out.
+ */
+QMap<QString, QString>
+resolveMappings(const TagLibrary::Library &library, const NamedMappings &mappings, const QStringList &enabled = EmbeddedMetadata::keys());
+
+/// The keys of @p enabled that @p mappings map, in keys() order: the properties an import with them reads.
+QStringList mappedKeys(const NamedMappings &mappings, const QStringList &enabled = EmbeddedMetadata::keys());
+
+/**
+ * Reads the properties @p keys of the files at @p relativePaths below @p root
+ * and keeps the readings that have values. It can run on a worker thread; it
+ * stops when @p canceled returns true and reports the number of files read so
+ * far to @p progress.
+ */
+QList<EmbeddedMetadata::Reading> readFiles(const QString &root,
+                                           const QStringList &relativePaths,
+                                           const QStringList &keys,
+                                           const std::function<bool()> &canceled = {},
+                                           const std::function<void(int)> &progress = {});
+
+/**
+ * Imports @p readings into the library at @p root without a review, as a
+ * library refresh does: @p mappings are resolved against the library with
+ * @p enabled, and the changes preview() finds with @p policy are applied, with
+ * @p tagColor for new tags. Unreadable files are left out. Like apply(), it
+ * uses the library registry, so call it on the thread that owns the
+ * configuration.
+ */
+bool importReadings(const QString &root,
+                    const QList<EmbeddedMetadata::Reading> &readings,
+                    const NamedMappings &mappings,
+                    const QStringList &enabled,
+                    Policy policy,
+                    const QString &tagColor,
+                    Result *result = nullptr,
+                    QString *error = nullptr);
 }

@@ -58,7 +58,8 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
                                        const PathFilter &filter,
                                        const QStringList *workspaceRoots,
                                        const QStringList *tagLibraries,
-                                       const TagSearch::Options &tagOptions)
+                                       const TagSearch::Options &tagOptions,
+                                       const QStringList &metadataKeys)
 {
     LiveSearch::Result result;
     if (text.trimmed().isEmpty()) {
@@ -207,7 +208,7 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
                         return contentMatches.value(needle.toCaseFolded()).contains(path);
                     },
                     tags ? tags->matcher(path) : SearchQuery::TagMatcher(),
-                    EmbeddedMetadata::lazySearchTexts(path));
+                    EmbeddedMetadata::lazySearchTexts(path, metadataKeys));
             if (tags && tags->errors().size() > tagErrors) {
                 result.errors.append(tags->errors().mid(tagErrors));
             }
@@ -233,6 +234,7 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
     Q_UNUSED(seedIsContent)
     Q_UNUSED(tagLibraries)
     Q_UNUSED(tagOptions)
+    Q_UNUSED(metadataKeys)
     result.errors.append(i18nc("@info", "Indexed search is unavailable because Plasma Opus was built without Baloo."));
 #endif
     return result;
