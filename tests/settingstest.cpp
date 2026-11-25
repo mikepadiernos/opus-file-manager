@@ -2296,6 +2296,12 @@ private Q_SLOTS:
         };
         auto *indicator = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TabIndicator"));
         QVERIFY(indicator && !indicator->isEnabled());
+        // A corner radius makes tabs that follow the widget style rounded, so
+        // their indicator applies too.
+        choose(QStringLiteral("CornerRadius"), Settings::EnumCornerRadius::Medium);
+        QVERIFY(indicator->isEnabled());
+        choose(QStringLiteral("CornerRadius"), Settings::EnumCornerRadius::FollowStyle);
+        QVERIFY(!indicator->isEnabled());
         choose(QStringLiteral("TabShape"), Settings::EnumTabShape::Flat);
         QVERIFY(indicator->isEnabled());
         choose(QStringLiteral("TabIndicator"), Settings::EnumTabIndicator::None);

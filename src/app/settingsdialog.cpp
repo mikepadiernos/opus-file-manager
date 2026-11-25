@@ -1676,6 +1676,7 @@ QWidget *SettingsDialog::createEffectsPage()
     corners->setToolTip(i18nc("@info:tooltip",
                               "Rounds item highlights, cards, input fields, tabs and tooltips. Buttons, combo boxes and panels keep the "
                               "widget style's corners."));
+    m_cornerRadius = corners;
     auto *customCorners = new QSpinBox;
     customCorners->setObjectName(QStringLiteral("kcfg_CustomCornerRadius"));
     customCorners->setRange(0, 24);
@@ -1915,10 +1916,17 @@ QWidget *SettingsDialog::createBarStylePage()
                                {i18nc("@item:inlistbox active tab indicator", "Line"),
                                 i18nc("@item:inlistbox active tab indicator", "Thick line"),
                                 i18nc("@item:inlistbox active tab indicator", "None")});
-    const auto updateIndicator = [shape, indicator] {
-        indicator->setEnabled(shape->currentIndex() != Settings::EnumTabShape::FollowStyle);
+    // Tabs that follow the widget style are drawn rounded, with the indicator,
+    // when the corner radius does not follow the widget style.
+    QComboBox *corners = m_cornerRadius;
+    const auto updateIndicator = [shape, indicator, corners] {
+        indicator->setEnabled(shape->currentIndex() != Settings::EnumTabShape::FollowStyle
+                              || (corners && corners->currentIndex() != Settings::EnumCornerRadius::FollowStyle));
     };
     connect(shape, &QComboBox::currentIndexChanged, page, updateIndicator);
+    if (corners) {
+        connect(corners, &QComboBox::currentIndexChanged, page, updateIndicator);
+    }
     updateIndicator();
     form->addRow(i18nc("@label:listbox", "Tab shape:"), shape);
     form->addRow(i18nc("@label:listbox", "Active tab indicator:"), indicator);
@@ -1934,7 +1942,8 @@ QWidget *SettingsDialog::createBarStylePage()
                            i18nc("@item:inlistbox status bar style", "Shaded")}));
     layout->addLayout(form);
     auto *note = new QLabel(i18nc("@info",
-                                  "Rounded tabs use the corner radius from Effects. Flat tabs always keep an indicator on the active tab. "
+                                  "Rounded tabs use the corner radius from Effects, and tabs that follow the widget style are drawn "
+                                  "rounded when that corner radius does not. Flat tabs always keep an indicator on the active tab. "
                                   "Tab colours are chosen from a tab's context menu and shown when folder-based tab colours are enabled "
                                   "in Interface settings; text on tinted and filled tabs is adjusted to stay readable."),
                             page);

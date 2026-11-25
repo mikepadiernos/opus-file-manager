@@ -12,6 +12,7 @@ class ColorSchemeCombo;
 class KPageWidgetItem;
 class PreviewSizeSpinBox;
 class QCheckBox;
+class QComboBox;
 class QListWidget;
 class QTabWidget;
 class RuleListEditor;
@@ -173,6 +174,7 @@ private:
     StartupWorkspaceCombo *m_startupWorkspace = nullptr;
     ColorSchemeCombo *m_colorScheme = nullptr;
     AccentColorChooser *m_accentColor = nullptr;
+    QComboBox *m_cornerRadius = nullptr;
     std::function<bool(const QString &)> m_confirm;
     /// A checkbox for a setting kept outside Settings, in config that KIO
     /// shares with Dolphin.
