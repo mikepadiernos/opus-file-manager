@@ -331,6 +331,54 @@ private Q_SLOTS:
         QCOMPARE(library.removeTag(u"t-cat"_s), 0);
     }
 
+    void managesGroups()
+    {
+        QTemporaryDir dir;
+        QVERIFY(writeDocument(dir.path(), sampleDocument()));
+        TagLibrary::Library library = TagLibrary::Library::load(dir.path());
+        QCOMPARE(library.groupsOf(u"t-cat"_s), QStringList{u"g-1"_s});
+
+        // Invalid groups are refused without changing anything.
+        QString error;
+        QVERIFY(!library.setGroup({{}, u"Places"_s, {}, {}}, &error));
+        QVERIFY(!error.isEmpty());
+        QVERIFY(!library.setGroup({u"g-2"_s, u" Places"_s, {}, {}}));
+        QVERIFY(!library.setGroup({u"g-2"_s, u"Places"_s, u"red"_s, {}}));
+        QCOMPARE(library.groups().size(), 1);
+
+        // Unknown and repeated tags are dropped; a tag can be in several groups and names may repeat.
+        QVERIFY(library.setGroup({u"g-2"_s, u"Subjects"_s, u"#aa0000"_s, {u"t-cat"_s, u"t-gone"_s, u"t-cat"_s}}));
+        QCOMPARE(library.group(u"g-2"_s)->tags, QStringList{u"t-cat"_s});
+        QCOMPARE(library.groupsOf(u"t-cat"_s), (QStringList{u"g-1"_s, u"g-2"_s}));
+        QVERIFY(library.setGroup({u"g-3"_s, u"Empty"_s, {}, {}}));
+
+        // Replacing keeps the position; moving clamps the index.
+        QVERIFY(library.setGroup({u"g-1"_s, u"Topics"_s, {}, {u"t-animal"_s}}));
+        QCOMPARE(library.groups().first().name, u"Topics"_s);
+        QCOMPARE(library.groupsOf(u"t-cat"_s), QStringList{u"g-2"_s});
+        QVERIFY(library.moveGroup(u"g-1"_s, 10));
+        QVERIFY(library.moveGroup(u"g-3"_s, -1));
+        QStringList order;
+        for (const TagLibrary::Group &group : library.groups()) {
+            order.append(group.id);
+        }
+        QCOMPARE(order, (QStringList{u"g-3"_s, u"g-2"_s, u"g-1"_s}));
+        QVERIFY(!library.moveGroup(u"g-gone"_s, 0));
+
+        // Removing a group keeps its tags and their assignments.
+        QVERIFY(library.removeGroup(u"g-2"_s));
+        QVERIFY(!library.removeGroup(u"g-2"_s));
+        QVERIFY(library.tag(u"t-cat"_s));
+        QCOMPARE(library.usageCount(u"t-cat"_s), 1);
+        QVERIFY(library.groupsOf(u"t-cat"_s).isEmpty());
+
+        QVERIFY(library.save(&error));
+        const TagLibrary::Library loaded = TagLibrary::Library::load(dir.path());
+        QCOMPARE(loaded.groups().size(), 2);
+        QCOMPARE(loaded.groups().first().id, u"g-3"_s);
+        QCOMPARE(loaded.group(u"g-1"_s)->tags, QStringList{u"t-animal"_s});
+    }
+
     void assignsAndCountsTags()
     {
         QTemporaryDir dir;

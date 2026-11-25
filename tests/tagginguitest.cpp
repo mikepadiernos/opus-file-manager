@@ -8,6 +8,8 @@
 #include "libraryscan.h"
 #include "tagassignment.h"
 #include "tageditdialog.h"
+#include "taggroupdialog.h"
+#include "taggroupmanagerwidget.h"
 #include "taglibrary.h"
 #include "tagmanagerwidget.h"
 #include "tagpanel.h"
@@ -317,6 +319,128 @@ private Q_SLOTS:
         QVERIFY(library.tag(childId)->parents.isEmpty());
         QCOMPARE(library.displayName(childId), QStringLiteral("tag"));
         QCOMPARE(list->topLevelItemCount(), 1);
+    }
+
+    void organizesTagGroups()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        write(dir.filePath(QStringLiteral("a.txt")));
+        QCOMPARE(LibraryRegistry::create(dir.path()), QString());
+        indexWithTag(dir.path(), {});
+        QVERIFY(TagLibrary::update(dir.path(), [](TagLibrary::Library &library, QString *error) {
+            return library.setTag({QStringLiteral("t2"), QStringLiteral("Beach"), {}, {}, {}, {}}, error)
+                && library.setTag({QStringLiteral("t3"), QStringLiteral("Loose"), {}, {}, {}, {}}, error);
+        }));
+
+        TagGroupManagerWidget groups;
+        QSignalSpy changed(&groups, &TagGroupManagerWidget::libraryChanged);
+        groups.setLibrary(dir.path());
+        auto *groupList = groups.findChild<QTreeWidget *>(QStringLiteral("tagGroupList"));
+        QCOMPARE(groupList->topLevelItemCount(), 0);
+        QVERIFY(!groups.message().isEmpty());
+
+        // A new group with two tags.
+        TagGroupDialog *dialog = groups.createGroup();
+        QVERIFY(dialog);
+        auto *ok = dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok);
+        QVERIFY(!ok->isEnabled());
+        dialog->findChild<QLineEdit *>(QStringLiteral("tagGroupName"))->setText(QStringLiteral("Places"));
+        QVERIFY(ok->isEnabled());
+        auto *members = dialog->findChild<QListWidget *>(QStringLiteral("tagGroupTags"));
+        QCOMPARE(members->count(), 3);
+        dialog->findChild<QLineEdit *>(QStringLiteral("tagGroupTagFilter"))->setText(QStringLiteral("bea"));
+        int visible = 0;
+        for (int i = 0; i < members->count(); ++i) {
+            visible += members->item(i)->isHidden() ? 0 : 1;
+        }
+        QCOMPARE(visible, 1);
+        members->findItems(QStringLiteral("Beach"), Qt::MatchExactly).first()->setCheckState(Qt::Checked);
+        members->findItems(QStringLiteral("Tag"), Qt::MatchExactly).first()->setCheckState(Qt::Checked);
+        const QString places = dialog->group().id;
+        ok->click();
+        QCOMPARE(changed.count(), 1);
+        TagLibrary::Library library = TagLibrary::Library::load(dir.path());
+        QCOMPARE(library.group(places)->name, QStringLiteral("Places"));
+        QCOMPARE(library.group(places)->tags, (QStringList{QStringLiteral("t2"), QStringLiteral("t1")}));
+        QCOMPARE(groups.currentGroup(), places);
+
+        // A second group sharing a tag, moved to the top.
+        dialog = groups.createGroup();
+        dialog->findChild<QLineEdit *>(QStringLiteral("tagGroupName"))->setText(QStringLiteral("Subjects"));
+        dialog->findChild<QListWidget *>(QStringLiteral("tagGroupTags"))
+            ->findItems(QStringLiteral("Tag"), Qt::MatchExactly)
+            .first()
+            ->setCheckState(Qt::Checked);
+        const QString subjects = dialog->group().id;
+        dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click();
+        QCOMPARE(groupList->topLevelItemCount(), 2);
+        QVERIFY(!groups.findChild<QPushButton *>(QStringLiteral("tagGroupDown"))->isEnabled());
+        groups.findChild<QPushButton *>(QStringLiteral("tagGroupUp"))->click();
+        library = TagLibrary::Library::load(dir.path());
+        QCOMPARE(library.groups().first().id, subjects);
+        QCOMPARE(library.groupsOf(QStringLiteral("t1")), (QStringList{subjects, places}));
+        QCOMPARE(groupList->topLevelItem(0)->text(0), QStringLiteral("Subjects"));
+        QVERIFY(!groups.moveGroup(subjects, -1));
+
+        // The tag manager lists each tag's groups.
+        TagManagerWidget manager;
+        manager.setLibrary(dir.path());
+        auto *tagList = manager.findChild<QTreeWidget *>(QStringLiteral("tagList"));
+        QCOMPARE(tagList->findItems(QStringLiteral("Tag"), Qt::MatchExactly).first()->text(3), QStringLiteral("Subjects, Places"));
+
+        // The tag panel lists every group in order, then the tags without a group.
+        TagPanel panel;
+        auto *list = panel.findChild<QTreeWidget *>(QStringLiteral("tagPanelList"));
+        auto *filter = panel.findChild<QLineEdit *>(QStringLiteral("tagPanelFilter"));
+        panel.setContext(QUrl::fromLocalFile(dir.path()), {KFileItem(QUrl::fromLocalFile(dir.filePath(QStringLiteral("a.txt"))))});
+        QCOMPARE(list->topLevelItemCount(), 3);
+        QCOMPARE(list->topLevelItem(0)->text(0), QStringLiteral("Subjects"));
+        QCOMPARE(list->topLevelItem(1)->text(0), QStringLiteral("Places"));
+        QCOMPARE(list->topLevelItem(2)->childCount(), 1);
+        QCOMPARE(list->topLevelItem(2)->child(0)->text(0), QStringLiteral("Loose"));
+        QVERIFY(!(list->topLevelItem(0)->flags() & Qt::ItemIsUserCheckable));
+        QVERIFY(list->topLevelItem(0)->isExpanded());
+        QTreeWidgetItem *places0 = list->topLevelItem(1);
+        QCOMPARE(places0->child(0)->text(0), QStringLiteral("Beach"));
+
+        // Checking a tag in one group checks its copy in the other.
+        places0->child(1)->setCheckState(0, Qt::Checked);
+        QCOMPARE(panel.assignment(QStringLiteral("t1")), Qt::Checked);
+        QCOMPARE(list->topLevelItem(0)->child(0)->checkState(0), Qt::Checked);
+        QCOMPARE(TagLibrary::Library::load(dir.path()).entry(QStringLiteral("a.txt"))->tags, QStringList{QStringLiteral("t1")});
+
+        // Searching a group's name shows its tags; other groups without matches are hidden.
+        filter->setText(QStringLiteral("places"));
+        QVERIFY(list->topLevelItem(0)->isHidden());
+        QVERIFY(!places0->isHidden());
+        QVERIFY(!places0->child(0)->isHidden() && !places0->child(1)->isHidden());
+        filter->setText(QStringLiteral("loo"));
+        QVERIFY(list->topLevelItem(0)->isHidden() && list->topLevelItem(1)->isHidden());
+        panel.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&panel));
+        filter->setFocus();
+        QTest::keyClick(filter, Qt::Key_Down);
+        QCOMPARE(list->currentItem()->data(0, Qt::UserRole).toString(), QStringLiteral("t3"));
+        filter->clear();
+        QVERIFY(!list->topLevelItem(0)->isHidden());
+
+        // Deleting a group keeps its tags, which move to the ungrouped section.
+        QVERIFY(groups.removeGroup(places));
+        library = TagLibrary::Library::load(dir.path());
+        QVERIFY(library.tag(QStringLiteral("t2")));
+        QCOMPARE(library.entry(QStringLiteral("a.txt"))->tags, QStringList{QStringLiteral("t1")});
+        TagAssignment::invalidate(dir.path());
+        panel.reload();
+        QCOMPARE(list->topLevelItemCount(), 2);
+        QCOMPARE(list->topLevelItem(1)->childCount(), 2);
+
+        // Without groups the panel shows a flat list again.
+        QVERIFY(groups.removeGroup(subjects));
+        TagAssignment::invalidate(dir.path());
+        panel.reload();
+        QCOMPARE(list->topLevelItemCount(), 3);
+        QCOMPARE(list->topLevelItem(0)->childCount(), 0);
     }
 
     void resolvesAndAppliesAssignments()

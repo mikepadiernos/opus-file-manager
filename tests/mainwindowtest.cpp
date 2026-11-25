@@ -31,7 +31,10 @@
 #include "settings.h"
 #include "settingsdialog.h"
 #include "tabmodel.h"
+#include "taggroupdialog.h"
+#include "taggroupmanagerwidget.h"
 #include "taglibrary.h"
+#include "tagmanagerwidget.h"
 #include "tagpanel.h"
 #include "transferqueue.h"
 #include "transferqueuedialog.h"
@@ -233,6 +236,21 @@ private Q_SLOTS:
         QVERIFY(panel->createAndAssign(QStringLiteral("Draft")));
         const TagLibrary::Library library = TagLibrary::Library::load(folder.path());
         QCOMPARE(library.entry(QStringLiteral("x.txt"))->tags, library.findTags(QStringLiteral("Draft")));
+
+        // Manage Tags has a Groups tab, and its changes reach the tag panel.
+        window.actionCollection()->action(QStringLiteral("manage_tags"))->trigger();
+        auto *tagsDialog = window.findChild<QDialog *>(QStringLiteral("tagsDialog"));
+        QVERIFY(tagsDialog && tagsDialog->findChild<TagManagerWidget *>());
+        auto *groupManager = tagsDialog->findChild<TagGroupManagerWidget *>();
+        QVERIFY(groupManager);
+        TagGroupDialog *groupDialog = groupManager->createGroup();
+        QVERIFY(groupDialog);
+        groupDialog->findChild<QLineEdit *>(QStringLiteral("tagGroupName"))->setText(QStringLiteral("Status"));
+        groupDialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click();
+        auto *tagList = panel->findChild<QTreeWidget *>(QStringLiteral("tagPanelList"));
+        QCOMPARE(tagList->topLevelItemCount(), 2);
+        QCOMPARE(tagList->topLevelItem(0)->text(0), QStringLiteral("Status"));
+        tagsDialog->close();
 
         panel->findChild<QAction *>(QStringLiteral("tagPanelPlaceBelow"))->trigger();
         QCOMPARE(window.dockWidgetArea(dock), Qt::BottomDockWidgetArea);
