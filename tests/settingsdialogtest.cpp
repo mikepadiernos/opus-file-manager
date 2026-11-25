@@ -20,6 +20,7 @@
 #include "settings.h"
 #include "settingsbackup.h"
 #include "settingswidgets.h"
+#include "tagfieldmanagerwidget.h"
 #include "taggingsettings.h"
 #include "taglibrary.h"
 #include "viewsettings.h"
@@ -477,6 +478,227 @@ private Q_SLOTS:
         QCOMPARE(scope->currentIndex(), int(Settings::EnumTagSearchScope::CurrentFolder));
         QVERIFY(aliases->isChecked());
         QVERIFY(!outside->isChecked());
+    }
+
+    void taggingFieldsSettings()
+    {
+        for (const QString &root : LibraryRegistry::roots()) {
+            LibraryRegistry::remove(root);
+        }
+        const auto cleanup = qScopeGuard([] {
+            for (const QString &root : LibraryRegistry::roots()) {
+                LibraryRegistry::remove(root);
+            }
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        const auto fieldNames = [](const QString &root) {
+            QStringList names;
+            const TagLibrary::Library library = TagLibrary::Library::load(root);
+            for (const TagLibrary::Field &field : library.fields()) {
+                names.append(field.name);
+            }
+            return names;
+        };
+        const auto ok = [](TagFieldDialog *editor) {
+            return editor->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok);
+        };
+        const auto nameOf = [](TagFieldDialog *editor) {
+            return editor->findChild<QLineEdit *>(QStringLiteral("tagFieldName"));
+        };
+        const auto typeOf = [](TagFieldDialog *editor) {
+            return editor->findChild<QComboBox *>(QStringLiteral("tagFieldType"));
+        };
+
+        {
+            // Without libraries, the tab says how to add one instead of showing an empty editor.
+            KFilePlacesModel places;
+            SettingsDialog dialog(&places, nullptr);
+            auto *picker = dialog.findChild<QComboBox *>(QStringLiteral("taggingFieldLibrary"));
+            auto *placeholder = dialog.findChild<QLabel *>(QStringLiteral("taggingNoFieldLibraries"));
+            auto *manager = dialog.findChild<TagFieldManagerWidget *>(QStringLiteral("taggingFieldManager"));
+            QVERIFY(picker && placeholder && manager);
+            QCOMPARE(picker->count(), 0);
+            QVERIFY(!picker->isEnabled());
+            QVERIFY(!placeholder->isHidden());
+            QVERIFY(manager->isHidden());
+            QVERIFY(manager->library().isEmpty());
+        }
+
+        QTemporaryDir dir;
+        const QString music = dir.filePath(QStringLiteral("Music"));
+        const QString photos = dir.filePath(QStringLiteral("Photos"));
+        const QString broken = dir.filePath(QStringLiteral("Broken"));
+        for (const QString &root : {music, photos, broken}) {
+            QVERIFY(QDir().mkpath(root));
+        }
+        QVERIFY(
+            LibraryRegistry::create(photos, TagLibrary::Storage::LibraryFolder, TagLibrary::parseFieldTemplates({QStringLiteral("date:Shot on")})).isEmpty());
+        QVERIFY(LibraryRegistry::create(music).isEmpty());
+        QVERIFY(LibraryRegistry::create(broken).isEmpty());
+        {
+            QFile document(TagLibrary::documentPath(broken));
+            QVERIFY(document.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            document.write("not json");
+        }
+
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        dialog.setLibraryConfirmation([](const LibraryConfirmations::Confirmation &) {
+            return true;
+        });
+        QSignalSpy changed(&dialog, &SettingsDialog::libraryChanged);
+
+        // The Fields tab follows Search.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("taggingFieldsPage"));
+        auto *scroll = dialog.findChild<QWidget *>(QStringLiteral("taggingFieldsScroll"));
+        QVERIFY(page && scroll);
+        auto *tabs = qobject_cast<QTabWidget *>(scroll->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->tabText(tabs->indexOf(scroll)), QStringLiteral("Fields"));
+        QCOMPARE(tabs->indexOf(scroll), tabs->indexOf(dialog.findChild<QWidget *>(QStringLiteral("taggingSearchScroll"))) + 1);
+
+        auto *picker = page->findChild<QComboBox *>(QStringLiteral("taggingFieldLibrary"));
+        auto *placeholder = page->findChild<QLabel *>(QStringLiteral("taggingNoFieldLibraries"));
+        auto *manager = page->findChild<TagFieldManagerWidget *>(QStringLiteral("taggingFieldManager"));
+        auto *note = page->findChild<QLabel *>(QStringLiteral("taggingFieldsNote"));
+        auto *templates = page->findChild<FieldTemplateEditor *>(QStringLiteral("kcfg_NewLibraryFields"));
+        QVERIFY(picker && placeholder && manager && note && templates);
+        QVERIFY(note->text().contains(QStringLiteral("immediately")));
+        auto *fieldList = manager->findChild<QTreeWidget *>(QStringLiteral("tagFieldList"));
+        auto *newField = manager->findChild<QPushButton *>(QStringLiteral("tagFieldNew"));
+        QVERIFY(fieldList && newField);
+
+        // The picker lists the registered libraries, sorted, and the editor shows the first one's fields.
+        QCOMPARE(picker->count(), 3);
+        QCOMPARE(picker->itemData(0).toString(), broken);
+        QCOMPARE(picker->itemData(1).toString(), music);
+        QCOMPARE(picker->itemData(2).toString(), photos);
+        QVERIFY(picker->isEnabled());
+        QVERIFY(placeholder->isHidden());
+        QVERIFY(!manager->isHidden());
+
+        // An unreadable library is reported and can't be edited.
+        QCOMPARE(manager->library(), broken);
+        QCOMPARE(fieldList->topLevelItemCount(), 0);
+        QVERIFY(!manager->message().isEmpty());
+        QVERIFY(!newField->isEnabled());
+
+        // Switching libraries loads the chosen library's fields.
+        picker->setCurrentIndex(2);
+        QCOMPARE(manager->library(), photos);
+        QCOMPARE(fieldList->topLevelItemCount(), 1);
+        QCOMPARE(fieldList->topLevelItem(0)->text(0), QStringLiteral("Shot on"));
+        QCOMPARE(fieldList->topLevelItem(0)->text(1), QStringLiteral("Date"));
+        picker->setCurrentIndex(1);
+        QCOMPARE(manager->library(), music);
+        QCOMPARE(fieldList->topLevelItemCount(), 0);
+        QVERIFY(newField->isEnabled());
+
+        // A new field is saved to the library at once, without applying Preferences, and open windows are told.
+        TagFieldDialog *editor = manager->createField();
+        QVERIFY(editor);
+        nameOf(editor)->setText(QStringLiteral("Artist"));
+        ok(editor)->click();
+        QCOMPARE(fieldNames(music), QStringList{QStringLiteral("Artist")});
+        QCOMPARE(fieldList->topLevelItemCount(), 1);
+        QCOMPARE(changed.size(), 1);
+        QCOMPARE(changed.constLast().constFirst().toString(), music);
+
+        // The picker follows libraries added and removed in the Libraries tab, keeping the chosen library.
+        const QString books = dir.filePath(QStringLiteral("Books"));
+        QVERIFY(QDir().mkpath(books));
+        dialog.setLibraryFolderChooser([books] {
+            return books;
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("taggingAddLibrary"))->click();
+        QVERIFY(LibraryRegistry::contains(books));
+        QCOMPARE(picker->count(), 4);
+        QCOMPARE(picker->itemData(0).toString(), books);
+        QCOMPARE(picker->currentData().toString(), music);
+        QCOMPARE(manager->library(), music);
+        QVERIFY(fieldNames(books).isEmpty());
+
+        auto *libraries = dialog.findChild<QTreeWidget *>(QStringLiteral("taggingLibraries"));
+        for (int row = 0; row < libraries->topLevelItemCount(); ++row) {
+            if (libraries->topLevelItem(row)->data(0, Qt::UserRole).toString() == music) {
+                libraries->setCurrentItem(libraries->topLevelItem(row));
+            }
+        }
+        dialog.findChild<QPushButton *>(QStringLiteral("taggingRemoveLibrary"))->click();
+        QVERIFY(!LibraryRegistry::contains(music));
+        QCOMPARE(picker->count(), 3);
+        QCOMPARE(picker->findData(music), -1);
+        QCOMPARE(manager->library(), picker->currentData().toString());
+
+        // Fields for new libraries: empty by default, edited in a list and saved when applied.
+        QVERIFY(templates->templates().isEmpty());
+        auto *templateList = templates->findChild<QTreeWidget *>(QStringLiteral("fieldTemplateList"));
+        auto *removeTemplate = templates->findChild<QPushButton *>(QStringLiteral("fieldTemplateRemove"));
+        auto *upTemplate = templates->findChild<QPushButton *>(QStringLiteral("fieldTemplateUp"));
+        QVERIFY(templateList && removeTemplate && upTemplate);
+        QVERIFY(!removeTemplate->isEnabled());
+
+        editor = templates->addField();
+        QVERIFY(!ok(editor)->isEnabled());
+        nameOf(editor)->setText(QStringLiteral("Title"));
+        ok(editor)->click();
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        editor = templates->addField();
+        nameOf(editor)->setText(QStringLiteral("title"));
+        QVERIFY(!ok(editor)->isEnabled());
+        nameOf(editor)->setText(QStringLiteral("Shot on"));
+        typeOf(editor)->setCurrentIndex(typeOf(editor)->findData(int(TagLibrary::FieldType::Date)));
+        ok(editor)->click();
+        editor = templates->addField();
+        nameOf(editor)->setText(QStringLiteral("Draft"));
+        ok(editor)->click();
+        QCOMPARE(templates->templates(), (QStringList{QStringLiteral("text:Title"), QStringLiteral("date:Shot on"), QStringLiteral("text:Draft")}));
+        QCOMPARE(templateList->topLevelItem(1)->text(1), QStringLiteral("Date"));
+        QCOMPARE(templates->currentRow(), 2);
+
+        // Editing keeps the row, removing drops it and the order can change.
+        editor = templates->editField(0);
+        QVERIFY(editor);
+        nameOf(editor)->setText(QStringLiteral("Caption"));
+        ok(editor)->click();
+        QVERIFY(!templates->editField(5));
+        QCOMPARE(templates->currentRow(), 0);
+        templates->setCurrentRow(2);
+        removeTemplate->click();
+        QCOMPARE(templates->templates(), (QStringList{QStringLiteral("text:Caption"), QStringLiteral("date:Shot on")}));
+        templates->setCurrentRow(1);
+        upTemplate->click();
+        QCOMPARE(templates->templates(), (QStringList{QStringLiteral("date:Shot on"), QStringLiteral("text:Caption")}));
+        QCOMPARE(templates->currentRow(), 0);
+        QVERIFY(Settings::newLibraryFields().isEmpty());
+
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::newLibraryFields(), (QStringList{QStringLiteral("date:Shot on"), QStringLiteral("text:Caption")}));
+        QCOMPARE(KSharedConfig::openConfig()->group(QStringLiteral("Tagging")).readEntry("NewLibraryFields", QStringList()), Settings::newLibraryFields());
+        QVERIFY(!dialog.button(QDialogButtonBox::Apply)->isEnabled());
+
+        // Libraries added in the Libraries tab start with the fields as shown, even before they are applied.
+        editor = templates->addField();
+        nameOf(editor)->setText(QStringLiteral("Place"));
+        ok(editor)->click();
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        const QString films = dir.filePath(QStringLiteral("Films"));
+        QVERIFY(QDir().mkpath(films));
+        dialog.setLibraryFolderChooser([films] {
+            return films;
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("taggingAddLibrary"))->click();
+        QCOMPARE(fieldNames(films), (QStringList{QStringLiteral("Shot on"), QStringLiteral("Caption"), QStringLiteral("Place")}));
+        QCOMPARE(TagLibrary::Library::load(films).fields().constFirst().type, TagLibrary::FieldType::Date);
+
+        // Invalid and repeated stored entries are left out, and Defaults clear the list.
+        templates->setTemplates({QStringLiteral("text:A"), QStringLiteral("bogus"), QStringLiteral("date:a")});
+        QCOMPARE(templates->templates(), QStringList{QStringLiteral("text:A")});
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QVERIFY(templates->templates().isEmpty());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::newLibraryFields().isEmpty());
     }
 
     void brandingPresentationSettings()

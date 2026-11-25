@@ -111,6 +111,44 @@ private Q_SLOTS:
         QCOMPARE(again.toJson().value(u"futureKey"_s).toObject().value(u"kept"_s).toBool(), true);
     }
 
+    void parsesFieldTemplates()
+    {
+        const QList<TagLibrary::Field> fields = TagLibrary::parseFieldTemplates({u"text:Title"_s,
+                                                                                 u"DATE: Shot on "_s,
+                                                                                 u"text:title"_s,
+                                                                                 u"date:TITLE"_s,
+                                                                                 u"number:Count"_s,
+                                                                                 u"Plain"_s,
+                                                                                 u"text:"_s,
+                                                                                 u"text:   "_s,
+                                                                                 u"text:"_s + QString(201, u'x'),
+                                                                                 u" Text :Place: Town"_s,
+                                                                                 QString()});
+        QCOMPARE(fields.size(), 3);
+        QCOMPARE(fields.at(0).name, u"Title"_s);
+        QCOMPARE(fields.at(0).type, TagLibrary::FieldType::Text);
+        QCOMPARE(fields.at(1).name, u"Shot on"_s);
+        QCOMPARE(fields.at(1).type, TagLibrary::FieldType::Date);
+        QCOMPARE(fields.at(2).name, u"Place: Town"_s);
+        QCOMPARE(fields.at(2).type, TagLibrary::FieldType::Text);
+        QStringList ids;
+        for (const TagLibrary::Field &field : fields) {
+            QVERIFY(!field.id.isEmpty());
+            ids.append(field.id);
+        }
+        ids.removeDuplicates();
+        QCOMPARE(ids.size(), 3);
+        QVERIFY(TagLibrary::parseFieldTemplates({}).isEmpty());
+
+        // Templates round-trip.
+        QStringList written;
+        for (const TagLibrary::Field &field : fields) {
+            written.append(TagLibrary::fieldTemplate(field));
+        }
+        QCOMPARE(written, (QStringList{u"text:Title"_s, u"date:Shot on"_s, u"text:Place: Town"_s}));
+        QCOMPARE(TagLibrary::parseFieldTemplates(written).size(), 3);
+    }
+
     void rejectsInvalidDocuments_data()
     {
         QTest::addColumn<QString>("key");

@@ -499,6 +499,58 @@ private Q_SLOTS:
         QVERIFY(QFile::exists(TagLibrary::folderDocumentPath(root)));
     }
 
+    void registryAddsFieldsToNewDocumentsOnly()
+    {
+        QTemporaryDir dir;
+        const QList<TagLibrary::Field> fields = TagLibrary::parseFieldTemplates({u"text:Title"_s, u"date:Shot on"_s})
+            + QList<TagLibrary::Field>{{QString(), u"Place"_s, TagLibrary::FieldType::Text}};
+
+        // A new document starts with the fields, in order; one without an identifier gets one.
+        const QString root = dir.filePath(u"New"_s);
+        QVERIFY(QDir().mkpath(root));
+        QCOMPARE(LibraryRegistry::create(root, TagLibrary::Storage::LibraryFolder, fields), QString());
+        TagLibrary::Library created = TagLibrary::Library::load(root);
+        QCOMPARE(created.fields().size(), 3);
+        QCOMPARE(created.fields().at(0).name, u"Title"_s);
+        QCOMPARE(created.fields().at(1).name, u"Shot on"_s);
+        QCOMPARE(created.fields().at(1).type, TagLibrary::FieldType::Date);
+        QCOMPARE(created.fields().at(2).name, u"Place"_s);
+        QVERIFY(!created.fields().at(2).id.isEmpty());
+        QVERIFY(created.entries().isEmpty());
+
+        // So does a new private document; fields a library refuses, such as repeated names, are skipped.
+        const QString privateRoot = dir.filePath(u"Private"_s);
+        QVERIFY(QDir().mkpath(privateRoot));
+        QCOMPARE(LibraryRegistry::create(privateRoot,
+                                         TagLibrary::Storage::PrivateFolder,
+                                         fields + QList<TagLibrary::Field>{{QString(), u"TITLE"_s, TagLibrary::FieldType::Date}}),
+                 QString());
+        QVERIFY(TagLibrary::isPrivate(privateRoot));
+        QCOMPARE(TagLibrary::Library::load(privateRoot).fields().size(), 3);
+
+        // An adopted document keeps its fields as they are.
+        const QString existingRoot = dir.filePath(u"Existing"_s);
+        QVERIFY(QDir().mkpath(existingRoot));
+        TagLibrary::Library existing(existingRoot);
+        QVERIFY(existing.setField({u"f-own"_s, u"Own"_s, TagLibrary::FieldType::Text}));
+        QVERIFY(existing.save());
+        QFile document(TagLibrary::folderDocumentPath(existingRoot));
+        QVERIFY(document.open(QIODevice::ReadOnly));
+        const QByteArray contents = document.readAll();
+        document.close();
+        QCOMPARE(LibraryRegistry::create(existingRoot, TagLibrary::Storage::LibraryFolder, fields), QString());
+        QVERIFY(document.open(QIODevice::ReadOnly));
+        QCOMPARE(document.readAll(), contents);
+        const TagLibrary::Library adopted = TagLibrary::Library::load(existingRoot);
+        QCOMPARE(adopted.fields().size(), 1);
+        QCOMPARE(adopted.fields().constFirst().name, u"Own"_s);
+
+        // A refused registration writes nothing.
+        QVERIFY(QDir().mkpath(root + u"/Inner"_s));
+        QVERIFY(!LibraryRegistry::create(root + u"/Inner"_s, TagLibrary::Storage::LibraryFolder, fields).isEmpty());
+        QVERIFY(!QFile::exists(TagLibrary::folderDocumentPath(root + u"/Inner"_s)));
+    }
+
     void registryCreatesPrivateLibrariesOfReadOnlyFolders()
     {
         if (::geteuid() == 0) {

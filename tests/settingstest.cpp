@@ -241,6 +241,14 @@ private Q_SLOTS:
         QVERIFY(options.aliases);
         QVERIFY(!options.untaggedOutsideLibraries);
         QCOMPARE(options.scope, TagSearch::Scope::CurrentFolder);
+        QVERIFY(Settings::newLibraryFields().isEmpty());
+        QVERIFY(TaggingSettings::newLibraryFields().isEmpty());
+        Settings::setNewLibraryFields({QStringLiteral("text:Title"), QStringLiteral("date:Title"), QStringLiteral("date:Shot on")});
+        const QList<TagLibrary::Field> fields = TaggingSettings::newLibraryFields();
+        QCOMPARE(fields.size(), 2);
+        QCOMPARE(fields.at(0).name, QStringLiteral("Title"));
+        QCOMPARE(fields.at(1).type, TagLibrary::FieldType::Date);
+        Settings::self()->setDefaults();
 
         // Earlier versions remembered the placement in the state configuration.
         const auto rememberPlacement = [](const QString &placement) {
@@ -1284,6 +1292,7 @@ private Q_SLOTS:
         for (const QString &entry : {QStringLiteral("TagSearchScope"), QStringLiteral("TagMatchAliases"), QStringLiteral("UntaggedIncludesOutsideLibraries")}) {
             QCOMPARE(tabOf(entry), QStringLiteral("Search"));
         }
+        QCOMPARE(tabOf(QStringLiteral("NewLibraryFields")), QStringLiteral("Fields"));
         QCOMPARE(tabOf(QStringLiteral("InterfaceLanguage")), QStringLiteral("Language and Layout"));
         QCOMPARE(tabOf(QStringLiteral("CustomDateFormat")), QStringLiteral("Dates"));
         QCOMPARE(tabOf(QStringLiteral("StartupMode")), QStringLiteral("Folders and Tabs"));
