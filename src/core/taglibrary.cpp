@@ -480,6 +480,17 @@ QJsonObject TagLibrary::Library::toJson() const
     return document;
 }
 
+void TagLibrary::Library::replaceContents(const Library &other)
+{
+    m_tags = other.m_tags;
+    m_groups = other.m_groups;
+    m_fields = other.m_fields;
+    m_entries = other.m_entries;
+    m_extra = other.m_extra;
+    m_warnings = other.m_warnings;
+    reindex();
+}
+
 bool TagLibrary::Library::save(QString *error)
 {
     const auto fail = [error](const QString &message) {

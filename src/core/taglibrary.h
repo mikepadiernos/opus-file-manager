@@ -126,6 +126,12 @@ public:
      */
     bool save(QString *error = nullptr);
     QJsonObject toJson() const;
+    /**
+     * Replaces the tags, groups, fields, entries and unknown top-level keys
+     * with those of @p other, keeping this library's root and the state of
+     * its document on disk, so save() writes them in place.
+     */
+    void replaceContents(const Library &other);
 
     bool isNull() const;
     QString root() const;
