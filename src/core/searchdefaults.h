@@ -15,12 +15,19 @@ enum class Scope {
     SearchFolders,
 };
 
+/// How search results and collection references are listed.
+enum class Presentation {
+    FullPaths,
+    NamesAndFolders,
+};
+
 struct Defaults {
     Scope scope = Scope::CurrentFolder;
     LiveSearch::Field field = LiveSearch::Field::FileName;
     bool workspaceOnly = true;
     /// Name of the shared saved path filter applied initially; empty for none.
     QString pathFilter;
+    Presentation presentation = Presentation::FullPaths;
     bool operator==(const Defaults &other) const = default;
 };
 

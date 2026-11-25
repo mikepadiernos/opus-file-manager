@@ -97,6 +97,8 @@ add_library(opusfm_core STATIC
     searchcollection.h
     searchdefaults.cpp
     searchdefaults.h
+    searchhistory.cpp
+    searchhistory.h
     searchlocations.cpp
     searchlocations.h
     searchquery.cpp

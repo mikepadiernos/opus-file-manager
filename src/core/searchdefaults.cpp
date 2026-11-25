@@ -38,6 +38,12 @@ const QStringList &fieldNames()
     static const QStringList names{QStringLiteral("FileName"), QStringLiteral("Contents"), QStringLiteral("Query")};
     return names;
 }
+
+const QStringList &presentationNames()
+{
+    static const QStringList names{QStringLiteral("FullPaths"), QStringLiteral("NamesAndFolders")};
+    return names;
+}
 }
 
 namespace SearchDefaults
@@ -51,6 +57,7 @@ Defaults read(const KConfigGroup &search)
     defaults.field = LiveSearch::Field(choice(search, FieldKey, fieldNames(), legacyField));
     defaults.workspaceOnly = search.readEntry("WorkspaceSearchByDefault", true);
     defaults.pathFilter = search.readEntry("DefaultSearchPathFilter", QString());
+    defaults.presentation = Presentation(choice(search, "DefaultSearchResultPresentation", presentationNames(), int(Presentation::FullPaths)));
     return defaults;
 }
 

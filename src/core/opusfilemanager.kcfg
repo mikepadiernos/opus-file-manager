@@ -456,6 +456,18 @@
       <label>Show the search panel at startup when it was open when last used</label>
       <default>false</default>
     </entry>
+    <entry name="DefaultSearchResultPresentation" type="Enum">
+      <label>Initial presentation of search results and collection references</label>
+      <choices>
+        <choice name="FullPaths"/>
+        <choice name="NamesAndFolders"/>
+      </choices>
+      <default>FullPaths</default>
+    </entry>
+    <entry name="RetainSearchHistory" type="Bool">
+      <label>Remember recent search queries</label>
+      <default>true</default>
+    </entry>
     <entry name="WorkspaceSearchByDefault" type="Bool">
       <label>Limit searches to the active workspace's locations by default</label>
       <default>true</default>
