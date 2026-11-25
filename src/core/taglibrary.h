@@ -190,6 +190,46 @@ public:
     /// Forgets an entry and, for a folder, the missing entries below it; returns how many were removed.
     int removeEntry(const QString &entryId);
 
+    /// Identifiers of the tags that @p id inherits from, nearest first, without repeats.
+    QStringList ancestors(const QString &id) const;
+    /// Identifiers of the tags that inherit from @p id, nearest first, without repeats.
+    QStringList descendants(const QString &id) const;
+
+    /**
+     * The name to show for tag @p id. When another tag has the same name,
+     * ignoring case, the name is followed by the tag's parents, its shorthand
+     * or, failing those, the start of its identifier, so the tags can be told
+     * apart.
+     */
+    QString displayName(const QString &id) const;
+
+    /// Tags whose name, an alias or shorthand equals @p text, ignoring case; name matches come first.
+    QStringList findTags(const QString &text) const;
+
+    /// The number of entries that have tag @p id assigned directly.
+    int usageCount(const QString &id) const;
+
+    /**
+     * Describes why @p tag can't be saved, such as an invalid name or colour,
+     * an unknown parent or a parent that would form a cycle, or returns an
+     * empty string. Names may repeat.
+     */
+    QString checkTag(const Tag &tag) const;
+
+    /**
+     * Adds @p tag, or replaces the tag with the same identifier, if
+     * checkTag() accepts it. Aliases are trimmed, and empty, repeated and
+     * name-matching aliases are dropped.
+     */
+    bool setTag(const Tag &tag, QString *error = nullptr);
+
+    /**
+     * Removes tag @p id and every reference to it from other tags' parents,
+     * groups and entries. Its child tags keep their other parents.
+     * @returns the number of entries it was removed from
+     */
+    int removeTag(const QString &id);
+
 private:
     QString m_root;
     QList<Tag> m_tags;

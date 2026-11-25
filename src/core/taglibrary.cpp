@@ -870,6 +870,201 @@ int TagLibrary::Library::removeEntry(const QString &entryId)
     return int(erase.size());
 }
 
+QStringList TagLibrary::Library::ancestors(const QString &id) const
+{
+    QStringList result;
+    QStringList queue;
+    if (const Tag *start = tag(id)) {
+        queue = start->parents;
+    }
+    for (qsizetype i = 0; i < queue.size(); ++i) {
+        const QString current = queue.at(i);
+        if (current == id || result.contains(current)) {
+            continue;
+        }
+        result.append(current);
+        if (const Tag *parent = tag(current)) {
+            queue.append(parent->parents);
+        }
+    }
+    return result;
+}
+
+QStringList TagLibrary::Library::descendants(const QString &id) const
+{
+    QHash<QString, QStringList> children;
+    for (const Tag &tag : m_tags) {
+        for (const QString &parent : tag.parents) {
+            children[parent].append(tag.id);
+        }
+    }
+    QStringList result;
+    QStringList queue = children.value(id);
+    for (qsizetype i = 0; i < queue.size(); ++i) {
+        const QString current = queue.at(i);
+        if (current == id || result.contains(current)) {
+            continue;
+        }
+        result.append(current);
+        queue.append(children.value(current));
+    }
+    return result;
+}
+
+QString TagLibrary::Library::displayName(const QString &id) const
+{
+    const Tag *named = tag(id);
+    if (!named) {
+        return {};
+    }
+    QList<const Tag *> namesakes;
+    for (const Tag &other : m_tags) {
+        if (other.id != id && other.name.compare(named->name, Qt::CaseInsensitive) == 0) {
+            namesakes.append(&other);
+        }
+    }
+    if (namesakes.isEmpty()) {
+        return named->name;
+    }
+    const auto parentNames = [this](const Tag &of) {
+        QStringList names;
+        for (const QString &parent : of.parents) {
+            if (const Tag *found = tag(parent)) {
+                names.append(found->name);
+            }
+        }
+        return names.join(QStringLiteral(", "));
+    };
+    const auto distinct = [&namesakes](const QString &qualifier, const std::function<QString(const Tag &)> &of) {
+        return !qualifier.isEmpty() && std::none_of(namesakes.cbegin(), namesakes.cend(), [&](const Tag *other) {
+            return of(*other).compare(qualifier, Qt::CaseInsensitive) == 0;
+        });
+    };
+    const QString parents = parentNames(*named);
+    if (distinct(parents, parentNames)) {
+        return i18nc("@item tag name followed by its parent tags", "%1 (%2)", named->name, parents);
+    }
+    const auto shorthandOf = [](const Tag &of) {
+        return of.shorthand;
+    };
+    if (distinct(named->shorthand, shorthandOf)) {
+        return i18nc("@item tag name followed by its shorthand", "%1 (%2)", named->name, named->shorthand);
+    }
+    return i18nc("@item tag name followed by the start of its identifier", "%1 (%2)", named->name, id.left(8));
+}
+
+QStringList TagLibrary::Library::findTags(const QString &text) const
+{
+    const QString wanted = text.trimmed();
+    QStringList byName;
+    QStringList byOther;
+    if (wanted.isEmpty()) {
+        return {};
+    }
+    for (const Tag &tag : m_tags) {
+        if (tag.name.compare(wanted, Qt::CaseInsensitive) == 0) {
+            byName.append(tag.id);
+        } else if (tag.shorthand.compare(wanted, Qt::CaseInsensitive) == 0 || tag.aliases.contains(wanted, Qt::CaseInsensitive)) {
+            byOther.append(tag.id);
+        }
+    }
+    return byName + byOther;
+}
+
+int TagLibrary::Library::usageCount(const QString &id) const
+{
+    return int(std::count_if(m_entries.cbegin(), m_entries.cend(), [&id](const Entry &entry) {
+        return entry.tags.contains(id);
+    }));
+}
+
+QString TagLibrary::Library::checkTag(const Tag &tag) const
+{
+    if (tag.id.isEmpty()) {
+        return i18nc("@info", "The tag has no identifier.");
+    }
+    if (!validName(tag.name)) {
+        return tag.name.trimmed().isEmpty() ? i18nc("@info", "Enter a name for the tag.")
+                                            : i18nc("@info", "Tag names can't start or end with spaces or be longer than %1 characters.", maxNameLength);
+    }
+    for (const QString &alias : tag.aliases) {
+        if (alias.trimmed().size() > maxNameLength) {
+            return i18nc("@info", "Aliases can't be longer than %1 characters.", maxNameLength);
+        }
+    }
+    if (tag.shorthand.size() > maxNameLength || std::any_of(tag.shorthand.cbegin(), tag.shorthand.cend(), [](QChar c) {
+            return c.isSpace();
+        })) {
+        return i18nc("@info", "The shorthand can't contain spaces or be longer than %1 characters.", maxNameLength);
+    }
+    if (!validColor(tag.color)) {
+        return i18nc("@info", "The colour must be written as #rrggbb.");
+    }
+    const QStringList below = descendants(tag.id);
+    for (const QString &parent : tag.parents) {
+        if (parent == tag.id) {
+            return i18nc("@info", "A tag can't be its own parent.");
+        }
+        const Tag *found = this->tag(parent);
+        if (!found) {
+            return i18nc("@info", "A parent tag no longer exists.");
+        }
+        if (below.contains(parent)) {
+            return i18nc("@info", "“%1” can't be a parent because it is already below this tag.", displayName(parent));
+        }
+    }
+    return {};
+}
+
+bool TagLibrary::Library::setTag(const Tag &tag, QString *error)
+{
+    if (const QString problem = checkTag(tag); !problem.isEmpty()) {
+        if (error) {
+            *error = problem;
+        }
+        return false;
+    }
+    Tag saved = tag;
+    saved.aliases.clear();
+    for (const QString &alias : tag.aliases) {
+        const QString trimmed = alias.trimmed();
+        if (!trimmed.isEmpty() && trimmed.compare(tag.name, Qt::CaseInsensitive) != 0 && !saved.aliases.contains(trimmed, Qt::CaseInsensitive)) {
+            saved.aliases.append(trimmed);
+        }
+    }
+    saved.parents.removeDuplicates();
+    for (Tag &existing : m_tags) {
+        if (existing.id == saved.id) {
+            existing = saved;
+            return true;
+        }
+    }
+    m_tags.append(saved);
+    return true;
+}
+
+int TagLibrary::Library::removeTag(const QString &id)
+{
+    const qsizetype before = m_tags.size();
+    m_tags.removeIf([&id](const Tag &tag) {
+        return tag.id == id;
+    });
+    if (m_tags.size() == before) {
+        return 0;
+    }
+    for (Tag &tag : m_tags) {
+        tag.parents.removeAll(id);
+    }
+    for (Group &group : m_groups) {
+        group.tags.removeAll(id);
+    }
+    int removed = 0;
+    for (Entry &entry : m_entries) {
+        removed += entry.tags.removeAll(id) > 0 ? 1 : 0;
+    }
+    return removed;
+}
+
 bool TagLibrary::update(const QString &root, const std::function<bool(Library &library, QString *error)> &change, QString *error)
 {
     for (int attempt = 0; attempt < 3; ++attempt) {
