@@ -2234,6 +2234,32 @@ private Q_SLOTS:
         QCOMPARE(paneStatus->contentsMargins(), paneStatusMargins);
     }
 
+    void spacingScaleAppliesFromTheDialog()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setSpacingScale(100);
+            Settings::self()->save();
+        });
+        MainWindow window;
+        window.openUrls({m_a});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        QLayout *navigation = window.activePane()->navigationBar()->layout();
+        const QMargins navigationMargins = navigation->contentsMargins();
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *scale = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_SpacingScale"));
+        QVERIFY(scale);
+        QCOMPARE(scale->minimum(), 50);
+        QCOMPARE(scale->maximum(), 200);
+        QCOMPARE(scale->value(), 100);
+        scale->setValue(200);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::spacingScale(), 200);
+        QCOMPARE(navigation->contentsMargins(), navigationMargins * 2);
+    }
+
     void tabShapesColoursAndStatusBarStylesApply()
     {
         const QString originalName = QApplication::style()->name();
