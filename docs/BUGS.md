@@ -13,9 +13,8 @@ This log records user-visible bugs and reliability issues. Consult the
 > [Edge cases](EDGE.md) are possible scenarios, not confirmed bugs.
 
 > [!NOTE]
-> 15 of 17 tracked bugs are merged into `main`. Two test reliability reports,
-> [#694](https://github.com/mikepadiernos/plasma-opus/issues/694) and
-> [#696](https://github.com/mikepadiernos/plasma-opus/issues/696), are open in
+> 16 of 17 tracked bugs are merged into `main`. One test reliability report,
+> [#696](https://github.com/mikepadiernos/plasma-opus/issues/696), is open in
 > Backlog.
 
 ## Contents
@@ -44,7 +43,7 @@ This log records user-visible bugs and reliability issues. Consult the
 | [#605](https://github.com/mikepadiernos/plasma-opus/issues/605) | Panes without a saved view mode open in Details                       | ✅ Yes    | 🟣 Merged      |
 | [#606](https://github.com/mikepadiernos/plasma-opus/issues/606) | Visual Markdown editing loses formatting with a fixed-pitch font      | ✅ Yes    | 🟣 Merged      |
 | [#682](https://github.com/mikepadiernos/plasma-opus/issues/682) | Icons view shows image thumbnails at Details size                     | ✅ Yes    | 🟣 Merged      |
-| [#694](https://github.com/mikepadiernos/plasma-opus/issues/694) | `mainwindowtest` intermittently crashes after restoring a pane filter | ❌ No     | ⚪ Backlog     |
+| [#694](https://github.com/mikepadiernos/plasma-opus/issues/694) | `mainwindowtest` intermittently crashes after restoring a pane filter | ✅ Yes    | 🟣 Merged      |
 | [#696](https://github.com/mikepadiernos/plasma-opus/issues/696) | Checksum test times out waiting for the folder listing under load     | ❌ No     | ⚪ Backlog     |
 
 ## Status legend
@@ -59,26 +58,6 @@ This log records user-visible bugs and reliability issues. Consult the
 | 🔴 **Untriaged**   | Logged here but not yet created or assigned on the board |
 
 ## Open reports
-
-### Intermittent mainwindowtest crash
-
-- Severity: moderate (test reliability)
-- Status: Backlog; [#694](https://github.com/mikepadiernos/plasma-opus/issues/694)
-- Summary: `mainwindowtest` intermittently crashed with SIGSEGV in
-  `filterPersistsWithThePaneSession()`, which closes a window with a file filter
-  and restores the pane session in a new window.
-- Steps to reproduce: Run the full suite with
-  `ctest --test-dir build-container --output-on-failure -j4` in the dev
-  container. The crash appeared in about 1 of 3 runs, on a bug-fix branch and
-  on unchanged `main`.
-- Expected behaviour: The restored window keeps the filter and the test passes.
-- Actual behaviour: The test process occasionally crashes. It did not recur in
-  26 later runs, including runs under CPU load, so no backtrace is available
-  yet. A separate timing failure under load is tracked in
-  [#696](#checksum-test-listing-timeout).
-- Next steps: Repeat the suite under `gdb` or AddressSanitizer to capture a
-  backtrace, and check pending listing, preview and session work when a window
-  is destroyed.
 
 ### Checksum test listing timeout
 
@@ -101,6 +80,25 @@ This log records user-visible bugs and reliability issues. Consult the
   visible while a folder refreshes.
 
 ## Completed reports
+
+### Intermittent mainwindowtest crash
+
+- Severity: moderate (test reliability)
+- Status: Merged; [#694](https://github.com/mikepadiernos/plasma-opus/issues/694)
+- Summary: `mainwindowtest` intermittently crashed with SIGSEGV when a main
+  window was destroyed, first seen in `filterPersistsWithThePaneSession()`.
+- Steps to reproduce: Run `mainwindowtest` repeatedly in the dev container. It
+  crashed in about 3 of 8 runs, on feature branches and on unchanged `main`.
+- Expected behaviour: Closing a window never crashes, and the test passes.
+- Actual behaviour: The process crashed during window teardown. A `gdb`
+  backtrace showed that destroying the places model stopped its shared
+  directory lister job, which made a pane's lister report items. The pane's
+  item-count signal then updated the status bar through a window member that
+  had already been destroyed, because Qt destroys child widgets after the
+  window's own members.
+- Resolution: The main window disconnects its panes and other children from
+  itself before its members are destroyed. A regression test emits pane
+  signals during child teardown.
 
 ### Icons view thumbnail size
 
