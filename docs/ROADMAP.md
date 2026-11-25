@@ -1198,6 +1198,9 @@ Settings for M23 tagging, stored in KConfig.
 - [x] **Embedded metadata:** select EXIF and ID3 fields to read or map to
       library metadata, and control refresh and conflict handling
 
+**Caveats:** [Tagging settings](CAVEATS.md#tagging-settings), tracked in
+[#716](https://github.com/mikepadiernos/plasma-opus/issues/716).
+
 ### M25: Yazi mode
 
 **Project:**
