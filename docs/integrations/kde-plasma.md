@@ -87,6 +87,13 @@ ordinary local file management.
   unmount only what Plasma Opus mounted.
   ([#702](https://github.com/mikepadiernos/plasma-opus/issues/702),
   [#703](https://github.com/mikepadiernos/plasma-opus/issues/703))
+- **Cloud sync and activity:** Keep chosen local folders in two-way sync with
+  KIO, KDE Online Accounts or rclone locations, with backup modes and conflict
+  choices that never overwrite changes silently, and show transfers, quota,
+  pending uploads and cache limits. Keep credentials in KDE's facilities and
+  stay clear of folders owned by the Nextcloud desktop client.
+  ([#718](https://github.com/mikepadiernos/plasma-opus/issues/718),
+  [#719](https://github.com/mikepadiernos/plasma-opus/issues/719))
 - **KWin scripts:** Optionally install a Plasma Opus KWin script for window
   placement that Wayland applications cannot perform themselves, and offer a
   drop-down window. See [KWin scripts](#kwin-scripts).
