@@ -32,7 +32,8 @@ recommendation and external tools are separate applications.
   [custom commands](#custom-commands), [symbolic links](#symbolic-links),
   [listing export](#listing-export), [checksums](#checksum-files),
   [split and combine](#split-and-combine-files),
-  [native tagging](#native-tagging)
+  [native tagging](#native-tagging),
+  [tagging settings](#tagging-settings)
 - **🔀 Comparison and analysis:**
   [Filtered folder comparison](#filtered-folder-comparison),
   [folder synchronization](#folder-synchronization),
@@ -306,7 +307,8 @@ The M23 [native tagging](tagging.md) libraries have these limits
 - **Fields:** library fields can't be searched with query criteria. A field's
   type can't change while any item has a value for it.
 - **Searching:** tag criteria match only items inside registered libraries;
-  `tagged:no` doesn't match items outside them. A search uses a snapshot of
+  `tagged:no` matches items outside them only when
+  [tagging settings](#tagging-settings) allow it. A search uses a snapshot of
   each library taken when it starts. Indexed search still needs a name or
   content term. Select by Query can't use `content:`, and its `meta:` criteria
   read every listed file on the interface thread, so large folders can make
@@ -315,14 +317,12 @@ The M23 [native tagging](tagging.md) libraries have these limits
   properties depend on the installed extractor plugins. `meta:` criteria read
   each candidate file and are slow without cheaper criteria. Writing embedded
   metadata is limited to single JPEG, TIFF and MP3 files through
-  [metadata editing](#metadata-editing). Import mappings aren't remembered
-  between imports, and the import dialog's field list isn't refreshed if
-  fields are changed elsewhere while it's open.
+  [metadata editing](#metadata-editing). The import dialog's field list isn't
+  refreshed if fields are changed elsewhere while it's open.
 - **Export and restore:** restoring replaces the whole library document; it
   doesn't merge. Items are matched by path only. An export reflects the
-  library as loaded, including repairs made when it was read. Backups of
-  replaced documents accumulate and aren't pruned. Exports have no size limit.
-- **Settings:** tagging has no settings page yet.
+  library as loaded, including repairs made when it was read. Backups made
+  before the backup limit was added aren't pruned. Exports have no size limit.
 
 - **Recommendation:**
   - **Libraries and indexing:** keep libraries on local folders, and rename
@@ -342,21 +342,22 @@ The M23 [native tagging](tagging.md) libraries have these limits
     new tag again to assign it.
   - **Fields:** to find items by a field, import or copy the value as a tag. To
     change a field's type, create a new field and copy the values to it.
-  - **Searching:** use `NOT tagged:yes` to include items outside libraries,
-    and repeat a search after editing tags. Use Search rather than Select by
+  - **Searching:** turn on **Include items outside libraries in tagged:no
+    searches** in **Preferences › Tagging › Search**, or use `NOT tagged:yes`,
+    to include items outside libraries, and repeat a search after editing
+    tags. Use Search rather than Select by
     Query for content, and combine `meta:` with name or type criteria, as in
     `type:image/* meta:canon`.
   - **Embedded metadata:** install KDE's metadata extractors, and ExifTool for
     writing images. Use a dedicated tag editor for other formats or several
     files. Reopen the import dialog after changing fields.
   - **Export and restore:** export before restoring and review the preview.
-    Remove old backups from `~/.local/share/opus-file-manager/library-backups/`
-    when they are no longer needed.
+    Set **Keep at most … backups per library** in **Preferences › Tagging ›
+    Privacy**, and remove older backups without the library's hash in their
+    name from the backup folder by hand.
   - Comment:
     [#714.7171889508](https://github.com/mikepadiernos/plasma-opus/issues/714#issuecomment-7171889508)
-- **Planned:** [M24 tagging settings](ROADMAP.md#m24-tagging-settings) plans
-  library locations, refresh, display, search defaults and saved import
-  mappings.
+
 - **Proposed improvements:**
   - Show library tags in a Tags column or emblem, and allow tagging in the
     gallery.
@@ -364,7 +365,83 @@ The M23 [native tagging](tagging.md) libraries have these limits
   - Index the contents of folders moved into a library, and follow renames of
     the library root.
   - Search library fields with query criteria.
-  - Merge restores and prune backups.
+  - Merge restores.
+
+## Tagging settings
+
+The M24 [tagging settings](tagging.md#settings) have these limits
+([#716](https://github.com/mikepadiernos/plasma-opus/issues/716)):
+
+- **Private storage:** a private library document is keyed by the library
+  folder's path. Moving or renaming the folder leaves the document behind,
+  and the library must be created again and restored.
+- **Backup folder:** the setting accepts a URL, but only local folders are
+  used. A remote location silently falls back to the default
+  `library-backups` folder.
+- **Preferences:** the Libraries and Fields tabs read every library document
+  on the interface thread, so many or very large libraries make Preferences
+  slower to open. **Add Library…** uses the storage choice and new-library
+  fields as currently shown, even before Apply. The Fields tab's library
+  picker doesn't show whether a library is read-only or unreadable.
+- **Applying settings:** Apply updates the window Preferences was opened
+  from. Other windows move their tag panel when they are opened again, and
+  show colour and Information panel changes when those panels next refresh.
+  Automatic refresh reports its results in the active window only.
+- **Library scope:** exclusions, hidden items, depth and item limits apply to
+  refreshes only; entries already indexed keep their tags and fields.
+- **Search:** with the whole-library scope, path filters and the depth limit
+  count from the library folder, and the notice that the search widened
+  appears only when it finishes. Searches already running keep the settings
+  they started with. When `tagged:no` matches items outside libraries, a
+  search outside any library matches everything it lists.
+- **Fields:** new libraries get their own field identifiers, so fields with
+  the same name are distinct between libraries. Invalid stored field
+  templates are dropped silently.
+- **Embedded metadata:** disabled properties are hidden in the preview panel
+  and gallery but still extracted there. Mappings are stored by field name
+  and apply only in libraries with a field of that name and a compatible
+  type. When Preferences and the import dialog are both open, whichever saves
+  mappings last wins. Importing on refresh has no preview, covers only items
+  that refresh added and reads every new file, so the first refresh of a
+  large library is slow.
+
+- **Recommendation:**
+  - **Private storage:** to move a privately stored library's folder, remove
+    the library, move the folder, create the library again at the new path
+    and use **Tags › Restore Library Metadata…** with an export or the old
+    private document. Alternatively, switch the library to **Keep Metadata in
+    Library Folder** before moving it.
+  - **Backup folder:** choose a local folder for backups.
+  - **Preferences:** keep the number of registered libraries modest, and split
+    very large collections. Apply the Privacy and Fields tabs before adding
+    libraries if you want the choices saved.
+  - **Applying settings:** reopen other windows, or change their selection,
+    after changing tagging settings. Keep the window you care about active
+    while an automatic refresh runs, or refresh manually with **Tags ›
+    Refresh Library**.
+  - **Library scope:** remove tags and field values from items before
+    excluding them if you no longer want that metadata.
+  - **Search:** with the whole-library scope, write path filters relative to
+    the library folder. Start a new search after changing search settings.
+    Leave `tagged:no` outside libraries off unless you search limited
+    folders, or combine it with name or type criteria.
+  - **Fields:** set up fields for new libraries before creating them, and use
+    the same names across libraries so saved mappings apply.
+  - **Embedded metadata:** disable unwanted properties to keep search fast.
+    Create the mapped fields in each library, with a date type for date
+    properties. Close the import dialog before changing mappings in
+    Preferences. Leave importing on refresh off for the first refresh of a
+    large library and run **Import Embedded Metadata…** with a preview
+    instead.
+  - Comment:
+    [#716.7175386572](https://github.com/mikepadiernos/plasma-opus/issues/716#issuecomment-7175386572)
+- **Proposed improvements:**
+  - Key private documents by a stable library identifier and follow folder
+    moves.
+  - Read library state in Preferences in the background.
+  - Apply tagging settings to every open window.
+  - Offer to remove entries that new exclusions or limits leave out.
+  - Share field identifiers between libraries, or map by identifier.
 
 ## Native title and header padding
 
