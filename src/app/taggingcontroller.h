@@ -41,8 +41,18 @@ public:
     QWidget *refreshLibrary(const QString &root);
     /// Opens the review of missing entries in @p root; returns the dialog.
     QWidget *reviewLibrary(const QString &root);
-    /// Opens the tag manager for @p root, reusing an open one; returns the dialog.
-    QWidget *manageTags(const QString &root);
+    enum class ManagerPage {
+        Tags,
+        Groups,
+        Fields,
+    };
+    /// Opens the tag manager for @p root on @p page, reusing an open one; returns the dialog.
+    QWidget *manageTags(const QString &root, ManagerPage page = ManagerPage::Tags);
+    /**
+     * Opens the field editor for @p absolutePaths, or reports why they can't
+     * be edited together in the status bar and returns null.
+     */
+    QWidget *editFields(const QStringList &absolutePaths);
 
 Q_SIGNALS:
     /// A library was created, removed or changed.

@@ -29,6 +29,8 @@ add_library(opusfm_app STATIC
     detailsview.h
     duplicatefinderdialog.cpp
     duplicatefinderdialog.h
+    fieldeditdialog.cpp
+    fieldeditdialog.h
     filelistminimap.cpp
     filelistminimap.h
     editorpanel.cpp
@@ -93,6 +95,8 @@ add_library(opusfm_app STATIC
     symbolicactionicons.h
     tageditdialog.cpp
     tageditdialog.h
+    tagfieldmanagerwidget.cpp
+    tagfieldmanagerwidget.h
     taggingcontroller.cpp
     taggingcontroller.h
     taggroupdialog.cpp

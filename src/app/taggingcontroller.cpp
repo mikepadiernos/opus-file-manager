@@ -2,10 +2,13 @@
 
 #include "taggingcontroller.h"
 
+#include "fieldeditdialog.h"
 #include "librarymovetracker.h"
 #include "libraryrefreshdialog.h"
 #include "libraryregistry.h"
 #include "libraryreviewdialog.h"
+#include "tagassignment.h"
+#include "tagfieldmanagerwidget.h"
 #include "taggroupmanagerwidget.h"
 #include "taglibrary.h"
 #include "tagmanagerwidget.h"
@@ -62,7 +65,31 @@ TaggingController::TaggingController(QWidget *window, KActionCollection *actions
     });
     manage->setText(i18nc("@action", "Manage Tags…"));
     manage->setIcon(QIcon::fromTheme(QStringLiteral("tag")));
-    manage->setToolTip(i18nc("@info:tooltip", "Create, edit, group and delete the tags of the current library"));
+    manage->setToolTip(i18nc("@info:tooltip", "Create, edit, group and delete the tags and fields of the current library"));
+
+    QAction *fields = actions->addAction(QStringLiteral("edit_fields"), this, [this] {
+        const KFileItemList items = m_context.selection ? m_context.selection() : KFileItemList();
+        if (items.isEmpty()) {
+            m_context.status(i18nc("@info", "Select the items whose fields you want to edit."));
+            return;
+        }
+        QStringList paths;
+        for (const KFileItem &item : items) {
+            if (!item.url().isLocalFile()) {
+                m_context.status(i18nc("@info", "Only local files and folders have fields."));
+                return;
+            }
+            if (item.isLink()) {
+                m_context.status(i18nc("@info", "Symbolic links can't have fields."));
+                return;
+            }
+            paths.append(QDir::cleanPath(item.url().toLocalFile()));
+        }
+        editFields(paths);
+    });
+    fields->setText(i18nc("@action", "Edit Fields…"));
+    fields->setIcon(QIcon::fromTheme(QStringLiteral("document-edit")));
+    fields->setToolTip(i18nc("@info:tooltip", "Edit the library's text and date fields of the selected items"));
 
     LibraryMoveTracker *tracker = LibraryMoveTracker::instance();
     connect(tracker, &LibraryMoveTracker::librariesChanged, this, [this](const QStringList &roots) {
@@ -92,6 +119,7 @@ void TaggingController::updateActions()
     m_actions->action(QStringLiteral("refresh_library"))->setEnabled(!library.isEmpty());
     m_actions->action(QStringLiteral("review_library"))->setEnabled(!library.isEmpty());
     m_actions->action(QStringLiteral("manage_tags"))->setEnabled(!library.isEmpty());
+    m_actions->action(QStringLiteral("edit_fields"))->setEnabled(!library.isEmpty());
 }
 
 void TaggingController::createLibrary()
@@ -176,16 +204,43 @@ QWidget *TaggingController::reviewLibrary(const QString &root)
     return dialog;
 }
 
-QWidget *TaggingController::manageTags(const QString &root)
+QWidget *TaggingController::editFields(const QStringList &absolutePaths)
+{
+    const TagAssignment::Selection selection = TagAssignment::resolve(absolutePaths);
+    if (!selection.problem.isEmpty()) {
+        m_context.status(selection.problem);
+        return nullptr;
+    }
+    auto *dialog = new FieldEditDialog(selection.root, absolutePaths, m_window);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &FieldEditDialog::libraryChanged, this, &TaggingController::libraryChanged);
+    connect(dialog, &FieldEditDialog::manageFieldsRequested, this, [this](const QString &root) {
+        manageTags(root, ManagerPage::Fields);
+    });
+    connect(dialog, &QDialog::accepted, this, [this, dialog] {
+        if (const int changed = dialog->changedCount(); changed > 0) {
+            m_context.status(i18ncp("@info", "Updated the fields of one item.", "Updated the fields of %1 items.", changed));
+        }
+    });
+    dialog->open();
+    return dialog;
+}
+
+QWidget *TaggingController::manageTags(const QString &root, ManagerPage page)
 {
     if (auto *existing = m_window->findChild<QDialog *>(QStringLiteral("tagsDialog"), Qt::FindDirectChildrenOnly)) {
         auto *manager = existing->findChild<TagManagerWidget *>();
         auto *groups = existing->findChild<TagGroupManagerWidget *>();
+        auto *fields = existing->findChild<TagFieldManagerWidget *>();
         auto *intro = existing->findChild<QLabel *>(QStringLiteral("tagsDialogIntro"));
         if (manager->library() != root) {
             manager->setLibrary(root);
             groups->setLibrary(root);
+            fields->setLibrary(root);
             intro->setText(xi18nc("@info", "Tags of the library <filename>%1</filename>.", root));
+        }
+        if (page != ManagerPage::Tags) {
+            existing->findChild<QTabWidget *>(QStringLiteral("tagsDialogTabs"))->setCurrentIndex(int(page));
         }
         existing->raise();
         existing->activateWindow();
@@ -206,11 +261,16 @@ QWidget *TaggingController::manageTags(const QString &root)
     groups->setLibrary(root);
     tabs->addTab(manager, QIcon::fromTheme(QStringLiteral("tag")), i18nc("@title:tab", "&Tags"));
     tabs->addTab(groups, QIcon::fromTheme(QStringLiteral("folder-tag"), QIcon::fromTheme(QStringLiteral("folder"))), i18nc("@title:tab", "&Groups"));
+    auto *fields = new TagFieldManagerWidget(tabs);
+    fields->setLibrary(root);
+    tabs->addTab(fields, QIcon::fromTheme(QStringLiteral("view-list-details")), i18nc("@title:tab", "&Fields"));
+    tabs->setCurrentIndex(int(page));
     // Tag names appear in the groups list and group names in the tags list.
     connect(manager, &TagManagerWidget::libraryChanged, groups, &TagGroupManagerWidget::reload);
     connect(groups, &TagGroupManagerWidget::libraryChanged, manager, &TagManagerWidget::reload);
     connect(manager, &TagManagerWidget::libraryChanged, this, &TaggingController::libraryChanged);
     connect(groups, &TagGroupManagerWidget::libraryChanged, this, &TaggingController::libraryChanged);
+    connect(fields, &TagFieldManagerWidget::libraryChanged, this, &TaggingController::libraryChanged);
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, dialog);
     connect(buttons, &QDialogButtonBox::rejected, dialog, &QDialog::reject);
     auto *layout = new QVBoxLayout(dialog);

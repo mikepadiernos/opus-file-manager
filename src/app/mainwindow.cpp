@@ -4038,6 +4038,7 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     });
     if (allLocal && actions->action(QStringLiteral("assign_tags"))->isEnabled()) {
         menu.addAction(actions->action(QStringLiteral("assign_tags")));
+        menu.addAction(actions->action(QStringLiteral("edit_fields")));
     }
     if (allLocal) {
         QMenu *metadata = menu.addMenu(i18nc("@menu", "Metadata"));
