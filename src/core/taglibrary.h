@@ -196,8 +196,11 @@ public:
      * Records scanned files and folders: new paths become entries and known
      * ones are updated. Only a @p complete scan marks unseen entries missing;
      * missing entries keep their tags and fields.
+     * @param inScope when set, a complete scan only marks the unseen entries
+     *        it accepts missing, given their path relative to the root and
+     *        whether they're folders; the others are left unchanged
      */
-    ScanChanges applyScan(const QList<Observation> &observed, bool complete);
+    ScanChanges applyScan(const QList<Observation> &observed, bool complete, const std::function<bool(const QString &relativePath, bool folder)> &inScope = {});
 
     /**
      * Records that Plasma Opus moved or renamed paths, as pairs of paths

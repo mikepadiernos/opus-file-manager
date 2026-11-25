@@ -1227,5 +1227,40 @@
       <label>Whether library values may be written into files' embedded metadata, always after a preview and confirmation</label>
       <default>false</default>
     </entry>
+    <entry name="LibraryExclusions" type="StringList">
+      <label>Wildcard patterns of items that library refreshes don't index: names at any depth, or paths relative to the library folder when they contain /</label>
+      <default></default>
+    </entry>
+    <entry name="IndexHiddenItems" type="Bool">
+      <label>Whether library refreshes index hidden files and folders</label>
+      <default>true</default>
+    </entry>
+    <entry name="LibraryScanLimit" type="Int">
+      <label>The most items one library refresh indexes; 0 for no limit</label>
+      <default>0</default>
+      <min>0</min>
+      <max>10000000</max>
+    </entry>
+    <entry name="LibraryScanDepth" type="Int">
+      <label>How many folder levels below a library folder a refresh indexes, 1 for its direct contents only; 0 for no limit</label>
+      <default>0</default>
+      <min>0</min>
+      <max>1000</max>
+    </entry>
+    <entry name="AutomaticLibraryRefresh" type="Enum">
+      <label>When libraries are refreshed in the background: never, when Plasma Opus starts or when a folder in the library is opened</label>
+      <choices>
+        <choice name="Never"/>
+        <choice name="AtStartup"/>
+        <choice name="WhenOpened"/>
+      </choices>
+      <default>Never</default>
+    </entry>
+    <entry name="LibraryRefreshInterval" type="Int">
+      <label>The fewest minutes between automatic refreshes of the same library</label>
+      <default>60</default>
+      <min>1</min>
+      <max>10080</max>
+    </entry>
   </group>
 </kcfg>

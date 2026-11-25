@@ -789,7 +789,8 @@ QString TagLibrary::Library::relativePath(const QString &absolutePath) const
     return clean.mid(m_root.size() + 1);
 }
 
-TagLibrary::ScanChanges TagLibrary::Library::applyScan(const QList<Observation> &observed, bool complete)
+TagLibrary::ScanChanges
+TagLibrary::Library::applyScan(const QList<Observation> &observed, bool complete, const std::function<bool(const QString &, bool)> &inScope)
 {
     ScanChanges changes;
     QSet<QString> seen;
@@ -830,7 +831,7 @@ TagLibrary::ScanChanges TagLibrary::Library::applyScan(const QList<Observation> 
     }
     if (complete) {
         for (Entry &entry : m_entries) {
-            if (!entry.missing && !seen.contains(entry.path)) {
+            if (!entry.missing && !seen.contains(entry.path) && (!inScope || inScope(entry.path, entry.folder))) {
                 entry.missing = true;
                 ++changes.missing;
             }
