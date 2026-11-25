@@ -1189,7 +1189,7 @@ Settings for M23 tagging, stored in KConfig.
 - [x] **Privacy:** control library metadata and backup locations, explain what
       is stored and require explicit consent before writing tags into file
       metadata
-- [ ] **Libraries:** manage roots and exclusions, automatic refresh and scan
+- [x] **Libraries:** manage roots and exclusions, automatic refresh and scan
       limits
 - [ ] **Tags:** configure colours, display, parent-tag matching defaults and
       embedded-pane placement
