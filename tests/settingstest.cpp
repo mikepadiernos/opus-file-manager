@@ -2662,10 +2662,52 @@ private Q_SLOTS:
         editor->revert();
         QVERIFY(editor->importFile(path));
         QCOMPARE(editor->sheet(), green);
+
+        // A chosen name without a suffix gets .qss, and replacing a file with
+        // the suffixed name asks first.
+        QStringList questions;
+        bool confirm = false;
+        editor->setConfirmation([&questions, &confirm](const QString &question) {
+            questions.append(question);
+            return confirm;
+        });
+        QFile existing(path);
+        QVERIFY(existing.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        existing.write("old");
+        existing.close();
+        QVERIFY(!editor->exportChosen(files.filePath(QStringLiteral("green"))));
+        QCOMPARE(questions.size(), 1);
+        QVERIFY(questions.constFirst().contains(QStringLiteral("green.qss")));
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QCOMPARE(existing.readAll(), QByteArray("old"));
+        existing.close();
+        confirm = true;
+        QVERIFY(editor->exportChosen(files.filePath(QStringLiteral("green"))));
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromUtf8(existing.readAll()), green);
+        existing.close();
+        QVERIFY(editor->exportChosen(files.filePath(QStringLiteral("plain.CSS"))));
+        QVERIFY(QFile::exists(files.filePath(QStringLiteral("plain.CSS"))));
+        QCOMPARE(questions.size(), 2);
+
         QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
         connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
         dialog.button(QDialogButtonBox::Apply)->click();
         QCOMPARE(Settings::customStyleSheet(), green);
+        QCOMPARE(window.styleSheet(), green);
+
+        // The checkbox turns the stylesheet off and on again.
+        auto *use = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_UseCustomStyleSheet"));
+        QVERIFY(use && use->isChecked());
+        use->setChecked(false);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::useCustomStyleSheet());
+        QVERIFY(window.styleSheet().isEmpty());
+        use->setChecked(true);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::useCustomStyleSheet());
         QCOMPARE(window.styleSheet(), green);
 
         // Profiles include the stylesheet unless an export leaves it out.

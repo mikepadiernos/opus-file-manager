@@ -354,6 +354,14 @@ public:
     /// Replaces the text with a stylesheet file.
     bool importFile(const QString &path);
     bool exportFile(const QString &path);
+    /**
+     * Exports to @p path, as chosen in a file dialog. Adds the .qss suffix
+     * when the name has no .qss or .css suffix and asks before replacing a
+     * file with the suffixed name, which the file dialog did not ask about.
+     */
+    bool exportChosen(QString path);
+    /// Replaces the yes or no question, for tests.
+    void setConfirmation(std::function<bool(const QString &)> confirm);
     /// Returns to the saved stylesheet.
     void revert();
 
@@ -368,6 +376,7 @@ private:
     QFrame *m_preview;
     QTimer *m_checkTimer;
     QString m_problem;
+    std::function<bool(const QString &)> m_confirm;
 };
 
 /**

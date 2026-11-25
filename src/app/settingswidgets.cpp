@@ -1046,6 +1046,10 @@ StyleSheetEditor::StyleSheetEditor(QWidget *parent)
     , m_checkTimer(new QTimer(this))
 {
     setProperty("kcfg_propertyNotify", QByteArray(SIGNAL(sheetChanged())));
+    m_confirm = [this](const QString &question) {
+        return QMessageBox::question(this, i18nc("@title:window", "Export Stylesheet"), question, QMessageBox::Yes | QMessageBox::No, QMessageBox::No)
+            == QMessageBox::Yes;
+    };
     m_text->setObjectName(QStringLiteral("styleSheetText"));
     m_text->setAccessibleName(i18nc("@label", "Custom stylesheet"));
     m_text->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
@@ -1131,18 +1135,14 @@ StyleSheetEditor::StyleSheetEditor(QWidget *parent)
         }
     });
     connect(exportButton, &QPushButton::clicked, this, [this] {
-        QString path =
+        const QString path =
             QFileDialog::getSaveFileName(this,
                                          i18nc("@title:window", "Export Stylesheet"),
                                          QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)).filePath(QStringLiteral("plasma-opus.qss")),
                                          i18nc("@item:inlistbox", "Qt Style Sheets (*.qss)"));
-        if (path.isEmpty()) {
-            return;
+        if (!path.isEmpty()) {
+            exportChosen(path);
         }
-        if (!path.endsWith(QLatin1String(".qss"), Qt::CaseInsensitive) && !path.endsWith(QLatin1String(".css"), Qt::CaseInsensitive)) {
-            path.append(QStringLiteral(".qss"));
-        }
-        exportFile(path);
     });
     connect(revertButton, &QPushButton::clicked, this, &StyleSheetEditor::revert);
 }
@@ -1205,6 +1205,22 @@ bool StyleSheetEditor::exportFile(const QString &path)
     }
     showStatus(KMessageWidget::Positive, i18nc("@info", "Exported the stylesheet to %1.", QDir::toNativeSeparators(path)));
     return true;
+}
+
+bool StyleSheetEditor::exportChosen(QString path)
+{
+    if (!path.endsWith(QLatin1String(".qss"), Qt::CaseInsensitive) && !path.endsWith(QLatin1String(".css"), Qt::CaseInsensitive)) {
+        path.append(QStringLiteral(".qss"));
+        if (QFileInfo::exists(path) && !m_confirm(i18nc("@info", "Replace the existing file “%1”?", QDir::toNativeSeparators(path)))) {
+            return false;
+        }
+    }
+    return exportFile(path);
+}
+
+void StyleSheetEditor::setConfirmation(std::function<bool(const QString &)> confirm)
+{
+    m_confirm = std::move(confirm);
 }
 
 void StyleSheetEditor::revert()
