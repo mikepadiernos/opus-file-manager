@@ -1142,7 +1142,7 @@ rather than requiring TagStudio or changing the user's folder structure.
 - [x] Evaluate Rust for tag relationships, library metadata and search using the
       M21 pilot. Keep Qt/KDE integration in C++ and use C++ for the core if
       build and interoperability costs are not justified.
-- [ ] Store library metadata in an open, documented format without requiring a
+- [x] Store library metadata in an open, documented format without requiring a
       sidecar per file; preserve existing `.mfm.json` metadata and report
       unsupported or read-only locations
 - [ ] Create opt-in libraries rooted in existing local folders; index files of
