@@ -233,6 +233,29 @@ public:
      */
     int removeTag(const QString &id);
 
+    /// Identifiers of the groups that contain tag @p id, in group order.
+    QStringList groupsOf(const QString &tagId) const;
+
+    /**
+     * Describes why @p group can't be saved, such as a missing identifier or
+     * an invalid name or colour, or returns an empty string. Names may repeat.
+     */
+    QString checkGroup(const Group &group) const;
+
+    /**
+     * Adds @p group after the other groups, or replaces the group with the
+     * same identifier in place, if checkGroup() accepts it. Unknown and
+     * repeated tags are dropped, so a group stays valid when another window
+     * deleted one of its tags.
+     */
+    bool setGroup(const Group &group, QString *error = nullptr);
+
+    /// Removes group @p id; its tags and their assignments are kept.
+    bool removeGroup(const QString &id);
+
+    /// Moves group @p id to position @p index, clamped to the list of groups.
+    bool moveGroup(const QString &id, int index);
+
     /// For each tag assigned directly to an entry at @p relativePaths, the number of those entries that have it.
     QHash<QString, int> tagCounts(const QStringList &relativePaths) const;
 

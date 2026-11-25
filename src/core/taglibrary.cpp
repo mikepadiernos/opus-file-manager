@@ -335,6 +335,7 @@ TagLibrary::Library TagLibrary::Library::fromJson(const QJsonObject &document, c
         if (!validColor(group.color)) {
             group.color.clear();
         }
+        group.tags.removeDuplicates();
         const qsizetype before = group.tags.size();
         group.tags.removeIf([&tagIds](const QString &id) {
             return !tagIds.contains(id);
@@ -1068,6 +1069,78 @@ int TagLibrary::Library::removeTag(const QString &id)
         removed += entry.tags.removeAll(id) > 0 ? 1 : 0;
     }
     return removed;
+}
+
+QStringList TagLibrary::Library::groupsOf(const QString &tagId) const
+{
+    QStringList result;
+    for (const Group &group : m_groups) {
+        if (group.tags.contains(tagId)) {
+            result.append(group.id);
+        }
+    }
+    return result;
+}
+
+QString TagLibrary::Library::checkGroup(const Group &group) const
+{
+    if (group.id.isEmpty()) {
+        return i18nc("@info", "The group has no identifier.");
+    }
+    if (!validName(group.name)) {
+        return group.name.trimmed().isEmpty() ? i18nc("@info", "Enter a name for the group.")
+                                              : i18nc("@info", "Group names can't start or end with spaces or be longer than %1 characters.", maxNameLength);
+    }
+    if (!validColor(group.color)) {
+        return i18nc("@info", "The colour must be written as #rrggbb.");
+    }
+    return {};
+}
+
+bool TagLibrary::Library::setGroup(const Group &group, QString *error)
+{
+    if (const QString problem = checkGroup(group); !problem.isEmpty()) {
+        if (error) {
+            *error = problem;
+        }
+        return false;
+    }
+    Group saved = group;
+    saved.tags.clear();
+    for (const QString &id : group.tags) {
+        if (tag(id) && !saved.tags.contains(id)) {
+            saved.tags.append(id);
+        }
+    }
+    for (Group &existing : m_groups) {
+        if (existing.id == saved.id) {
+            existing = saved;
+            return true;
+        }
+    }
+    m_groups.append(saved);
+    return true;
+}
+
+bool TagLibrary::Library::removeGroup(const QString &id)
+{
+    return m_groups.removeIf([&id](const Group &group) {
+        return group.id == id;
+    }) > 0;
+}
+
+bool TagLibrary::Library::moveGroup(const QString &id, int index)
+{
+    const auto found = std::find_if(m_groups.cbegin(), m_groups.cend(), [&id](const Group &group) {
+        return group.id == id;
+    });
+    if (found == m_groups.cend()) {
+        return false;
+    }
+    const qsizetype from = found - m_groups.cbegin();
+    const qsizetype to = std::clamp<qsizetype>(index, 0, m_groups.size() - 1);
+    m_groups.move(from, to);
+    return true;
 }
 
 QHash<QString, int> TagLibrary::Library::tagCounts(const QStringList &relativePaths) const
