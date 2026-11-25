@@ -468,6 +468,10 @@
       <label>Remember recent search queries</label>
       <default>true</default>
     </entry>
+    <entry name="ToolbarSearchOpensPanel" type="Bool">
+      <label>Show the search panel when a query is submitted from the toolbar search field</label>
+      <default>true</default>
+    </entry>
     <entry name="WorkspaceSearchByDefault" type="Bool">
       <label>Limit searches to the active workspace's locations by default</label>
       <default>true</default>
