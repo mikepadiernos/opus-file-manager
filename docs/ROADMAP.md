@@ -1161,7 +1161,7 @@ rather than requiring TagStudio or changing the user's folder structure.
 - [x] Search and filter by tags, inherited parent tags, untagged items, paths
       and file types using AND, OR, NOT and grouped expressions; reuse existing
       search and selection workflows
-- [ ] Organize tag groups independently of locations and workspaces. Until the
+- [x] Organize tag groups independently of locations and workspaces. Until the
       native tag-group provider is available, keep all groups visible; recommend
       stable identities and no hidden or implicit assignment in
       [#252](https://github.com/mikepadiernos/plasma-opus/issues/252).
