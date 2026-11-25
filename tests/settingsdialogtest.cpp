@@ -749,30 +749,61 @@ private Q_SLOTS:
     void searchDefaultsPersistAndCancelLeavesThemUnchanged()
     {
         KFilePlacesModel places;
+        QString error;
+        QVERIFY(SavedPathFilters::save(KSharedConfig::openConfig()->group(QStringLiteral("SavedPathFilters")),
+                                       {{QStringLiteral("Reports"), PathFilter{QStringLiteral("reports"), {}, {}, -1}}},
+                                       &error));
+        const auto removeFilters = qScopeGuard([] {
+            KSharedConfig::openConfig()->deleteGroup(QStringLiteral("SavedPathFilters"));
+            Settings::setDefaultSearchPathFilter(QString());
+            Settings::self()->save();
+        });
         {
             SettingsDialog dialog(&places, nullptr);
-            auto *indexed = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_SearchIndexedByDefault"));
-            auto *contents = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_SearchContentsByDefault"));
-            QVERIFY(indexed && contents);
-            QVERIFY(!indexed->isChecked());
-            QVERIFY(!contents->isChecked());
-            indexed->setChecked(true);
-            contents->setChecked(true);
+            auto *scope = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultSearchScope"));
+            auto *field = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultSearchField"));
+            auto *filter = dialog.findChild<SavedPathFilterCombo *>(QStringLiteral("kcfg_DefaultSearchPathFilter"));
+            QVERIFY(scope && field && filter);
+            QCOMPARE(scope->currentIndex(), int(Settings::EnumDefaultSearchScope::CurrentFolder));
+            QCOMPARE(field->currentIndex(), int(Settings::EnumDefaultSearchField::FileName));
+            QCOMPARE(filter->filterName(), QString());
+            QCOMPARE(filter->count(), 2);
+            scope->setCurrentIndex(Settings::EnumDefaultSearchScope::SearchFolders);
+            field->setCurrentIndex(Settings::EnumDefaultSearchField::Query);
+            filter->setCurrentIndex(filter->findData(QStringLiteral("Reports")));
             dialog.button(QDialogButtonBox::Ok)->click();
         }
+        QCOMPARE(KSharedConfig::openConfig()->group(QStringLiteral("Search")).readEntry("DefaultSearchScope", QString()), QStringLiteral("SearchFolders"));
         {
             SettingsDialog dialog(&places, nullptr);
-            auto *indexed = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_SearchIndexedByDefault"));
-            auto *contents = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_SearchContentsByDefault"));
-            QVERIFY(indexed && contents);
-            QVERIFY(indexed->isChecked());
-            QVERIFY(contents->isChecked());
-            indexed->setChecked(false);
-            contents->setChecked(false);
+            auto *scope = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultSearchScope"));
+            auto *field = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultSearchField"));
+            auto *filter = dialog.findChild<SavedPathFilterCombo *>(QStringLiteral("kcfg_DefaultSearchPathFilter"));
+            QVERIFY(scope && field && filter);
+            QCOMPARE(scope->currentIndex(), int(Settings::EnumDefaultSearchScope::SearchFolders));
+            QCOMPARE(field->currentIndex(), int(Settings::EnumDefaultSearchField::Query));
+            QCOMPARE(filter->filterName(), QStringLiteral("Reports"));
+            scope->setCurrentIndex(Settings::EnumDefaultSearchScope::Indexed);
+            filter->setCurrentIndex(0);
             dialog.reject();
         }
-        QVERIFY(Settings::searchIndexedByDefault());
-        QVERIFY(Settings::searchContentsByDefault());
+        QCOMPARE(Settings::defaultSearchScope(), int(Settings::EnumDefaultSearchScope::SearchFolders));
+        QCOMPARE(Settings::defaultSearchField(), int(Settings::EnumDefaultSearchField::Query));
+        QCOMPARE(Settings::defaultSearchPathFilter(), QStringLiteral("Reports"));
+
+        // A removed filter stays chosen as unavailable until the user changes it.
+        QVERIFY(SavedPathFilters::save(KSharedConfig::openConfig()->group(QStringLiteral("SavedPathFilters")), {}, &error));
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *filter = dialog.findChild<SavedPathFilterCombo *>(QStringLiteral("kcfg_DefaultSearchPathFilter"));
+            QVERIFY(filter);
+            QCOMPARE(filter->filterName(), QStringLiteral("Reports"));
+            QVERIFY(filter->currentText().contains(QStringLiteral("Unavailable")));
+            dialog.reject();
+        }
+        Settings::setDefaultSearchScope(Settings::EnumDefaultSearchScope::CurrentFolder);
+        Settings::setDefaultSearchField(Settings::EnumDefaultSearchField::FileName);
+        Settings::self()->save();
     }
 
     void workspaceSearchDefaultPersists()

@@ -8,6 +8,7 @@
 #include "pane.h"
 #include "savedpathfilters.h"
 #include "searchcollection.h"
+#include "searchdefaults.h"
 #include "searchpanel.h"
 #include "settings.h"
 #include "workspacelocations.h"
@@ -28,6 +29,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QProgressBar>
@@ -64,8 +66,8 @@ private Q_SLOTS:
         QVERIFY(root.isValid());
         const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchrc")), KConfig::SimpleConfig);
         auto defaults = config->group(QStringLiteral("Search"));
-        defaults.writeEntry("SearchIndexedByDefault", true);
-        defaults.writeEntry("SearchContentsByDefault", true);
+        defaults.writeEntry("DefaultSearchScope", QStringLiteral("Indexed"));
+        defaults.writeEntry("DefaultSearchField", QStringLiteral("Contents"));
         QVERIFY(defaults.sync());
         SearchWidget indexed(QUrl::fromLocalFile(root.path()), nullptr, config);
         auto *scope = indexed.findChild<QComboBox *>(QStringLiteral("searchScope"));
@@ -75,26 +77,145 @@ private Q_SLOTS:
         QCOMPARE(field->currentIndex(), 1);
         QVERIFY(field->currentText().contains(QStringLiteral("Indexed")));
         QVERIFY(indexed.findChild<QLabel *>(QStringLiteral("searchStatus"))->text().contains(QStringLiteral("Baloo")));
-        defaults.writeEntry("SearchIndexedByDefault", false);
-        defaults.writeEntry("SearchContentsByDefault", false);
+        defaults.writeEntry("DefaultSearchScope", QStringLiteral("SearchFolders"));
+        defaults.writeEntry("DefaultSearchField", QStringLiteral("Query"));
+        QVERIFY(defaults.sync());
+        SearchWidget folders(QUrl::fromLocalFile(root.path()), nullptr, config);
+        QCOMPARE(folders.findChild<QComboBox *>(QStringLiteral("searchScope"))->currentIndex(), 2);
+        QCOMPARE(folders.findChild<QComboBox *>(QStringLiteral("searchField"))->currentIndex(), 2);
+        defaults.deleteEntry("DefaultSearchScope");
+        defaults.deleteEntry("DefaultSearchField");
         QVERIFY(defaults.sync());
         SearchWidget live(QUrl::fromLocalFile(root.path()), nullptr, config);
         QCOMPARE(live.findChild<QComboBox *>(QStringLiteral("searchScope"))->currentIndex(), 0);
         QCOMPARE(live.findChild<QComboBox *>(QStringLiteral("searchField"))->currentIndex(), 0);
     }
 
+    void readsAndMigratesLegacySearchDefaults()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchrc")), KConfig::SimpleConfig);
+        auto defaults = config->group(QStringLiteral("Search"));
+        defaults.writeEntry("SearchIndexedByDefault", true);
+        defaults.writeEntry("SearchContentsByDefault", true);
+        QCOMPARE(SearchDefaults::read(defaults).scope, SearchDefaults::Scope::Indexed);
+        QCOMPARE(SearchDefaults::read(defaults).field, LiveSearch::Field::Contents);
+        SearchWidget legacy(QUrl::fromLocalFile(root.path()), nullptr, config);
+        QCOMPARE(legacy.findChild<QComboBox *>(QStringLiteral("searchScope"))->currentIndex(), 1);
+        QCOMPARE(legacy.findChild<QComboBox *>(QStringLiteral("searchField"))->currentIndex(), 1);
+
+        QVERIFY(SearchDefaults::migrate(defaults));
+        QVERIFY(!defaults.hasKey("SearchIndexedByDefault"));
+        QVERIFY(!defaults.hasKey("SearchContentsByDefault"));
+        QCOMPARE(defaults.readEntry("DefaultSearchScope", QString()), QStringLiteral("Indexed"));
+        QCOMPARE(defaults.readEntry("DefaultSearchField", QString()), QStringLiteral("Contents"));
+        QVERIFY(!SearchDefaults::migrate(defaults));
+
+        // A newer value wins over a leftover legacy key.
+        defaults.writeEntry("DefaultSearchScope", QStringLiteral("SearchFolders"));
+        defaults.writeEntry("SearchIndexedByDefault", true);
+        QVERIFY(SearchDefaults::migrate(defaults));
+        QCOMPARE(SearchDefaults::read(defaults).scope, SearchDefaults::Scope::SearchFolders);
+        // Unknown values fall back to the defaults; indexes are accepted like KConfigSkeleton.
+        defaults.writeEntry("DefaultSearchScope", QStringLiteral("Elsewhere"));
+        defaults.writeEntry("DefaultSearchField", 2);
+        QCOMPARE(SearchDefaults::read(defaults).scope, SearchDefaults::Scope::CurrentFolder);
+        QCOMPARE(SearchDefaults::read(defaults).field, LiveSearch::Field::Query);
+    }
+
+    void appliesDefaultPathFilterAndKeepsChangedCriteria()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchrc")), KConfig::SimpleConfig);
+        QString error;
+        PathFilter reports;
+        reports.pathText = QStringLiteral("reports");
+        reports.maxDepth = 2;
+        PathFilter drafts;
+        drafts.parentText = QStringLiteral("drafts");
+        QVERIFY(SavedPathFilters::save(config->group(QStringLiteral("SavedPathFilters")),
+                                       {{QStringLiteral("Reports"), reports}, {QStringLiteral("Drafts"), drafts}},
+                                       &error));
+        auto defaults = config->group(QStringLiteral("Search"));
+        defaults.writeEntry("DefaultSearchPathFilter", QStringLiteral("Reports"));
+        QVERIFY(defaults.sync());
+        SearchWidget search(QUrl::fromLocalFile(root.path()), nullptr, config);
+        auto *path = search.findChild<QLineEdit *>(QStringLiteral("searchPathFilter"));
+        auto *parent = search.findChild<QLineEdit *>(QStringLiteral("searchParentFilter"));
+        auto *depth = search.findChild<QSpinBox *>(QStringLiteral("searchMaxDepth"));
+        auto *scope = search.findChild<QComboBox *>(QStringLiteral("searchScope"));
+        auto *field = search.findChild<QComboBox *>(QStringLiteral("searchField"));
+        auto *status = search.findChild<QLabel *>(QStringLiteral("searchStatus"));
+        QVERIFY(path && parent && depth && scope && field && status);
+        QCOMPARE(path->text(), QStringLiteral("reports"));
+        QCOMPARE(depth->value(), 2);
+
+        // Unchanged criteria follow new defaults; the scope the user chose is kept.
+        scope->setCurrentIndex(2);
+        defaults.writeEntry("DefaultSearchScope", QStringLiteral("Indexed"));
+        defaults.writeEntry("DefaultSearchField", QStringLiteral("Query"));
+        defaults.writeEntry("DefaultSearchPathFilter", QStringLiteral("Drafts"));
+        search.applyDefaults();
+        QCOMPARE(scope->currentIndex(), 2);
+        QCOMPARE(field->currentIndex(), 2);
+        QCOMPARE(path->text(), QString());
+        QCOMPARE(parent->text(), QStringLiteral("drafts"));
+        QCOMPARE(depth->value(), -1);
+
+        // An edited filter is kept, and a missing default filter is reported.
+        path->setText(QStringLiteral("mine"));
+        defaults.writeEntry("DefaultSearchPathFilter", QStringLiteral("Removed"));
+        search.applyDefaults();
+        QCOMPARE(path->text(), QStringLiteral("mine"));
+        QVERIFY(status->text().contains(QStringLiteral("Removed")));
+        SearchWidget missing(QUrl::fromLocalFile(root.path()), nullptr, config);
+        QCOMPARE(missing.findChild<QLineEdit *>(QStringLiteral("searchPathFilter"))->text(), QString());
+        QVERIFY(missing.findChild<QLabel *>(QStringLiteral("searchStatus"))->text().contains(QStringLiteral("Removed")));
+    }
+
+    void runsSavedSearchesByName()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QFile file(root.filePath(QStringLiteral("needle.txt")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchrc")), KConfig::SimpleConfig);
+        SearchWidget search(QUrl::fromLocalFile(QStringLiteral("/")), nullptr, config);
+        QVERIFY(search.savedSearchNames().isEmpty());
+        QString error;
+        SavedSearches::Search saved;
+        saved.name = QStringLiteral("Needles & pins");
+        saved.text = QStringLiteral("needle");
+        saved.folder = QUrl::fromLocalFile(root.path());
+        QVERIFY(SavedSearches::save(config->group(QStringLiteral("SavedSearches")), {saved}, &error));
+        QCOMPARE(search.savedSearchNames(), QStringList{saved.name});
+        QCOMPARE(search.findChild<QComboBox *>(QStringLiteral("searchSaved"))->count(), 1);
+        QVERIFY(!search.runSavedSearch(QStringLiteral("Missing")));
+        QVERIFY(search.findChild<QLabel *>(QStringLiteral("searchStatus"))->text().contains(QStringLiteral("no longer exists")));
+        QVERIFY(search.runSavedSearch(saved.name));
+        QCOMPARE(search.folder(), saved.folder);
+        QCOMPARE(search.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->text(), QStringLiteral("needle"));
+        QTRY_VERIFY(!search.isRunning());
+        auto *results = search.findChild<QTreeWidget *>(QStringLiteral("searchResults"));
+        QCOMPARE(results->topLevelItemCount(), 1);
+        QCOMPARE(results->topLevelItem(0)->text(0), file.fileName());
+    }
+
     void usesApplicationSettings()
     {
         QTemporaryDir root;
         QVERIFY(root.isValid());
-        Settings::setSearchIndexedByDefault(true);
-        Settings::setSearchContentsByDefault(true);
+        Settings::setDefaultSearchScope(Settings::EnumDefaultSearchScope::Indexed);
+        Settings::setDefaultSearchField(Settings::EnumDefaultSearchField::Contents);
         Settings::self()->save();
         SearchWidget dialog(QUrl::fromLocalFile(root.path()));
         QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("searchScope"))->currentIndex(), 1);
         QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("searchField"))->currentIndex(), 1);
-        Settings::setSearchIndexedByDefault(false);
-        Settings::setSearchContentsByDefault(false);
+        Settings::setDefaultSearchScope(Settings::EnumDefaultSearchScope::CurrentFolder);
+        Settings::setDefaultSearchField(Settings::EnumDefaultSearchField::FileName);
         Settings::self()->save();
     }
 
@@ -752,6 +873,47 @@ private Q_SLOTS:
         field->setFocus();
         QTest::keyClick(field, Qt::Key_Down);
         QCOMPARE(QApplication::focusWidget(), field);
+
+        // Defaults changed in Preferences reach the open panel used by the field.
+        auto *fieldChoice = search->findChild<QComboBox *>(QStringLiteral("searchField"));
+        QCOMPARE(fieldChoice->currentIndex(), 0);
+        Settings::setDefaultSearchField(Settings::EnumDefaultSearchField::Contents);
+        Settings::self()->save();
+        window.applySettings();
+        QCOMPARE(fieldChoice->currentIndex(), 1);
+        Settings::setDefaultSearchField(Settings::EnumDefaultSearchField::FileName);
+        Settings::self()->save();
+        window.applySettings();
+        QCOMPARE(fieldChoice->currentIndex(), 0);
+
+        // The field's menu runs the panel's saved searches.
+        KConfigGroup savedGroup = config->group(QStringLiteral("SavedSearches"));
+        KConfigGroup savedBackup = backup->group(QStringLiteral("SavedSearches"));
+        savedGroup.copyTo(&savedBackup);
+        const auto restoreSaved = qScopeGuard([&] {
+            savedGroup.deleteGroup();
+            savedBackup.copyTo(&savedGroup);
+            config->sync();
+        });
+        SavedSearches::Search saved;
+        saved.name = QStringLiteral("Needles");
+        saved.text = QStringLiteral("needle");
+        saved.folder = left;
+        QString error;
+        QVERIFY(SavedSearches::save(savedGroup, {saved}, &error));
+        results->clear();
+        auto *savedAction = field->findChild<QAction *>(QStringLiteral("toolbarSavedSearches"));
+        QVERIFY(savedAction);
+        savedAction->trigger();
+        QMenu *menu = nullptr;
+        QTRY_VERIFY((menu = field->findChild<QMenu *>(QStringLiteral("toolbarSavedSearchesMenu"))));
+        QCOMPARE(menu->actions().size(), 1);
+        QCOMPARE(menu->actions().constFirst()->text(), saved.name);
+        menu->actions().constFirst()->trigger();
+        menu->close();
+        QVERIFY(toggle->isChecked());
+        QTRY_COMPARE(results->topLevelItemCount(), 1);
+        QCOMPARE(search->findChild<QComboBox *>(QStringLiteral("searchSaved"))->currentText(), saved.name);
     }
 
     void opensResultsAndRevealsWithKeyboard()
@@ -899,8 +1061,8 @@ private Q_SLOTS:
             QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("searchSaved"))->count(), 1);
         }
         auto defaults = config->group(QStringLiteral("Search"));
-        defaults.writeEntry("SearchIndexedByDefault", true);
-        defaults.writeEntry("SearchContentsByDefault", false);
+        defaults.writeEntry("DefaultSearchScope", QStringLiteral("Indexed"));
+        defaults.writeEntry("DefaultSearchField", QStringLiteral("FileName"));
         QVERIFY(defaults.sync());
         config->reparseConfiguration();
         SearchWidget restored(QUrl::fromLocalFile(QStringLiteral("/")), nullptr, config);
