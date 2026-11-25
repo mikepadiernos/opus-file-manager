@@ -266,4 +266,36 @@ The Information panel shows a **Tags** row for items in a library. It lists
 the tags assigned directly; its tooltip lists the tags they inherit from
 their parents.
 
-[TagStudio]: https://github.com/TagStudioDev/TagStudio: https://github.com/TagStudioDev/TagStudio
+## Searching by tags
+
+Advanced queries, in **Search** and in **Select › Select by Query…**, accept
+tag criteria alongside the name, path, type, size and modified criteria, and
+combine them with `AND`, `OR`, `NOT` and parentheses:
+
+| Criterion    | Matches items in a library that                                                                   |
+| ------------ | ------------------------------------------------------------------------------------------------- |
+| `tag:Animal` | have a tag whose name, an alias or shorthand is `Animal`, ignoring case, or one of its child tags |
+| `tag=Animal` | have such a tag assigned directly, not through a child tag                                        |
+| `tag:ani*`   | have a tag whose name, an alias or shorthand matches the wildcard pattern, or one of its children |
+| `tagged:yes` | have at least one tag                                                                             |
+| `tagged:no`  | have no tags, including items that aren't indexed yet                                             |
+
+For example, `tag:holiday type:image/* NOT tag:private` finds holiday images
+that aren't private, and `tagged:no type:file` finds files still to be
+tagged. Quote a value to match `*` and `?` literally, as in `tag:"what?"`.
+`tags:` is accepted for `tag:`.
+
+Tag criteria only match items inside a registered library. Outside a library,
+none match, not even `tagged:no`, so `NOT tagged:yes` is the way to include
+items outside libraries. Entries whose file is missing are treated as
+untagged, because a different file may now be at their path, and the library
+document itself is never a result. A search reads each library once, so
+changes made while it runs aren't reflected in its results.
+
+**Select by Query…** and **Deselect by Query…** apply a query to the items
+listed in the active pane, or to every shown item in flat view. They support
+local folders only and can't use `content:` criteria; use Search to find text
+within files. Indexed search still needs a name or content term, such as
+`report tag:work`.
+
+[TagStudio]: https://github.com/TagStudioDev/TagStudio
