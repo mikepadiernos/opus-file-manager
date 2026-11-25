@@ -604,19 +604,39 @@ windows show colour and Information panel changes when those panels next
 refresh, and move their tag panel when they are opened again. Searches use
 the setting from when they start.
 
+### Search
+
+| Setting                                                   | Default            | Effect                                                                                                                                                                                                                                                                                                    |
+| --------------------------------------------------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Search tags in**                                        | The current folder | **The current folder** or **The whole library**. With the whole library, a search of the current folder whose query has `tag:`, `tag=` or `tagged:` criteria starts in the deepest library folder that contains the current folder, and the finished status says **Searched the whole tag library in …**. |
+| **Match tag aliases and shorthands**                      | On                 | When off, `tag:` and `tag=` match tag names only, also with wildcards, in searches and **Select by Query…**.                                                                                                                                                                                              |
+| **Include items outside libraries in tagged:no searches** | Off                | When on, `tagged:no` also matches items outside every library, in searches and **Select by Query…**. `tagged:yes` and `tag:` still don't match them, and library documents and library folders themselves never match.                                                                                    |
+
+**Search tags in** only widens searches of the current folder, live or
+indexed with a depth limit; path filters and the depth limit then count from
+the library folder. Indexed searches without a depth limit already cover the
+whole index. Search folders, workspace searches and **Select by Query…**,
+which works on the listed items, are not affected, and neither are queries
+without tag criteria or folders outside libraries. A library folder that is
+missing or a symbolic link isn't searched from; the search stays in the
+current folder.
+
+Searches already running keep the settings they started with. Child tags
+follow **Match child tags in tag: searches** in [Tags settings](#tags-1).
+
 ## Searching by tags
 
 Advanced queries, in **Search** and in **Select › Select by Query…**, accept
 tag criteria alongside the name, path, type, size and modified criteria, and
 combine them with `AND`, `OR`, `NOT` and parentheses:
 
-| Criterion    | Matches items in a library that                                                                    |
-| ------------ | -------------------------------------------------------------------------------------------------- |
-| `tag:Animal` | have a tag whose name, an alias or shorthand is `Animal`, ignoring case, or one of its child tags¹ |
-| `tag=Animal` | have such a tag assigned directly, not through a child tag                                         |
-| `tag:ani*`   | have a tag whose name, an alias or shorthand matches the wildcard pattern, or one of its children¹ |
-| `tagged:yes` | have at least one tag                                                                              |
-| `tagged:no`  | have no tags, including items that aren't indexed yet                                              |
+| Criterion    | Matches items in a library that                                                                     |
+| ------------ | --------------------------------------------------------------------------------------------------- |
+| `tag:Animal` | have a tag whose name, an alias or shorthand² is `Animal`, ignoring case, or one of its child tags¹ |
+| `tag=Animal` | have such a tag assigned directly, not through a child tag                                          |
+| `tag:ani*`   | have a tag whose name, an alias or shorthand² matches the wildcard pattern, or one of its children¹ |
+| `tagged:yes` | have at least one tag                                                                               |
+| `tagged:no`  | have no tags, including items that aren't indexed yet                                               |
 
 For example, `tag:holiday type:image/* NOT tag:private` finds holiday images
 that aren't private, and `tagged:no type:file` finds files still to be
@@ -626,12 +646,21 @@ tagged. Quote a value to match `*` and `?` literally, as in `tag:"what?"`.
 ¹ Child tags only match while **Match child tags in tag: searches** is on in
 [Tags settings](#tags-1).
 
+² Aliases and shorthands only match while **Match tag aliases and
+shorthands** is on in [Search settings](#search).
+
 Tag criteria only match items inside a registered library. Outside a library,
-none match, not even `tagged:no`, so `NOT tagged:yes` is the way to include
-items outside libraries. Entries whose file is missing are treated as
-untagged, because a different file may now be at their path, and the library
-document itself is never a result. A search reads each library once, so
-changes made while it runs aren't reflected in its results.
+none match, and `tagged:no` only does while **Include items outside libraries
+in tagged:no searches** is on in [Search settings](#search); `NOT tagged:yes`
+includes items outside libraries either way. Entries whose file is missing
+are treated as untagged, because a different file may now be at their path,
+and the library document itself is never a result. A search reads each
+library once, so changes made while it runs aren't reflected in its results.
+
+A search of the current folder with tag criteria covers only that folder,
+unless **Search tags in** is **The whole library** in
+[Search settings](#search); then it covers the library that contains the
+folder.
 
 **Select by Query…** and **Deselect by Query…** apply a query to the items
 listed in the active pane, or to every shown item in flat view. They support
