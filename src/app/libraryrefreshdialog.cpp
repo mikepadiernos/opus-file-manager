@@ -2,7 +2,9 @@
 
 #include "libraryrefreshdialog.h"
 
+#include "libraryautorefresh.h"
 #include "localizednumbers.h"
+#include "taggingsettings.h"
 
 #include <KLocalizedString>
 
@@ -13,8 +15,6 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
-
-#include <algorithm>
 
 LibraryRefreshDialog::LibraryRefreshDialog(const QString &root, QWidget *parent)
     : QDialog(parent)
@@ -63,6 +63,9 @@ LibraryRefreshDialog::~LibraryRefreshDialog()
 {
     m_canceled->store(true);
     m_watcher.waitForFinished();
+    if (m_manual) {
+        LibraryAutoRefresh::instance()->endManualRefresh(m_root, false);
+    }
 }
 
 void LibraryRefreshDialog::start()
@@ -81,12 +84,19 @@ void LibraryRefreshDialog::start()
     m_buttons->button(QDialogButtonBox::Close)->hide();
     m_review->hide();
     m_progressTimer.start();
+    if (!m_manual) {
+        LibraryAutoRefresh::instance()->beginManualRefresh(m_root);
+        m_manual = true;
+    }
+    m_options = TaggingSettings::scanOptions();
     const QString root = m_root;
+    const LibraryScan::Options options = m_options;
     const auto canceled = m_canceled;
     const auto scanned = m_scanned;
-    m_watcher.setFuture(QtConcurrent::run([root, canceled, scanned] {
+    m_watcher.setFuture(QtConcurrent::run([root, options, canceled, scanned] {
         return LibraryScan::scan(
             root,
+            options,
             [canceled] {
                 return canceled->load();
             },
@@ -140,62 +150,21 @@ void LibraryRefreshDialog::finish()
 {
     m_progressTimer.stop();
     const LibraryScan::Result result = m_watcher.result();
-    QString error;
-    TagLibrary::ScanChanges changes;
-    int missing = 0;
-    const bool complete = !result.canceled && result.errors.isEmpty();
-    const bool saved = !result.items.isEmpty() || complete
-        ? TagLibrary::update(
-              m_root,
-              [&](TagLibrary::Library &library, QString *) {
-                  changes = library.applyScan(result.items, complete);
-                  missing = int(std::count_if(library.entries().cbegin(), library.entries().cend(), [](const TagLibrary::Entry &entry) {
-                      return entry.missing;
-                  }));
-                  return true;
-              },
-              &error)
-        : true;
-    m_changes = changes;
-    m_missingEntries = saved ? missing : 0;
-    QStringList lines;
-    if (!saved) {
-        lines.append(error);
-    } else {
-        lines.append(i18ncp("@info", "Added one entry.", "Added %1 entries.", changes.added));
-        if (changes.updated) {
-            lines.append(i18ncp("@info", "Updated one entry.", "Updated %1 entries.", changes.updated));
-        }
-        if (changes.found) {
-            lines.append(i18ncp("@info", "Found one missing entry again.", "Found %1 missing entries again.", changes.found));
-        }
-        if (changes.missing) {
-            lines.append(i18ncp("@info",
-                                "One entry is missing; its tags and fields are kept until you review it.",
-                                "%1 entries are missing; their tags and fields are kept until you review them.",
-                                changes.missing));
-        }
+    const LibraryScan::Applied applied = LibraryScan::apply(m_root, result, m_options);
+    if (m_manual) {
+        LibraryAutoRefresh::instance()->endManualRefresh(m_root, !result.canceled && applied.saved);
+        m_manual = false;
     }
-    if (result.canceled) {
-        lines.prepend(i18nc("@info", "Refresh canceled. Items found so far were recorded; no entries were marked missing."));
-    } else if (!result.errors.isEmpty()) {
-        lines.prepend(i18nc("@info", "Some folders couldn't be read, so no entries were marked missing."));
-        lines.append(result.errors.mid(0, 5));
-    }
-    if (result.skipped) {
-        lines.append(i18ncp("@info",
-                            "Skipped one item whose name isn't valid in the system encoding.",
-                            "Skipped %1 items whose names aren't valid in the system encoding.",
-                            result.skipped));
-    }
-    m_message = lines.join(QLatin1Char('\n'));
+    m_changes = applied.changes;
+    m_missingEntries = applied.missing;
+    m_message = LibraryScan::summary(result, applied);
     m_status->setText(m_message);
     m_progress->hide();
     m_buttons->button(QDialogButtonBox::Cancel)->hide();
     m_buttons->button(QDialogButtonBox::Close)->show();
     m_review->setVisible(m_missingEntries > 0);
     m_buttons->button(QDialogButtonBox::Close)->setFocus();
-    if (saved) {
+    if (applied.saved) {
         Q_EMIT libraryChanged(m_root);
     }
     Q_EMIT refreshFinished();

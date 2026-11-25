@@ -274,6 +274,8 @@ private:
     void setTagPanelPlacement(TagPanel::Placement placement);
     /// Shows the active pane's folder and selection in the tag panel while it is shown.
     void updateTagPanel();
+    /// Shows the current state of the tag library at @p root after it was created, removed, moved or refreshed.
+    void reloadLibraryViews(const QString &root);
 
     void copyToOtherPane();
     void moveToOtherPane();

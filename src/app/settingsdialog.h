@@ -14,9 +14,16 @@ class PreviewSizeSpinBox;
 class QCheckBox;
 class QComboBox;
 class QListWidget;
+class QPushButton;
 class QTabWidget;
+class QTreeWidget;
 class RuleListEditor;
 class StartupWorkspaceCombo;
+
+namespace LibraryConfirmations
+{
+struct Confirmation;
+}
 
 /**
  * The Preferences dialog: a sidebar of pages, each holding one tab per
@@ -46,6 +53,10 @@ public:
     void resetAppearanceToDefaults();
     /// Replaces the yes or no question asked before resetting the appearance, for tests.
     void setConfirmation(std::function<bool(const QString &)> confirm);
+    /// Replaces the questions asked before adding, removing or moving a tag library, for tests.
+    void setLibraryConfirmation(std::function<bool(const LibraryConfirmations::Confirmation &)> confirm);
+    /// Replaces the folder chooser of Add Library, for tests; it returns an empty path when canceled.
+    void setLibraryFolderChooser(std::function<QString()> choose);
     /// The theme profile options shown in the dialog, which may not be applied yet.
     QVariantMap appearanceValues() const;
     /// Shows Themes options in the dialog without applying them.
@@ -59,6 +70,10 @@ Q_SIGNALS:
     void customCommandsChanged();
     /// Asks the main window to open its workspace manager.
     void manageWorkspacesRequested();
+    /// A tag library was added, removed or had its metadata moved in the Libraries tab; this takes effect immediately.
+    void libraryChanged(const QString &root);
+    /// A tag library was added in the Libraries tab and needs its first refresh.
+    void libraryAdded(const QString &root);
 
 protected:
     void updateSettings() override;
@@ -148,6 +163,14 @@ private:
     QWidget *createFileMetadataPage();
     QWidget *createSelectionFiltersPage();
     QWidget *createTaggingPrivacyPage();
+    QWidget *createTaggingLibrariesPage();
+    /// Lists the registered tag libraries with their storage and state, selecting @p select when listed.
+    void reloadLibraries(const QString &select = {});
+    void updateLibraryButtons();
+    QString selectedLibrary() const;
+    void addLibrary();
+    void removeLibrary();
+    void moveLibraryDocument();
     QWidget *createWorkspaceManagementPage();
     QWidget *createWorkspaceStartupPage();
     QWidget *createWorkspaceSearchPage();
@@ -178,6 +201,11 @@ private:
     AccentColorChooser *m_accentColor = nullptr;
     QComboBox *m_cornerRadius = nullptr;
     std::function<bool(const QString &)> m_confirm;
+    std::function<bool(const LibraryConfirmations::Confirmation &)> m_confirmLibrary;
+    std::function<QString()> m_chooseLibraryFolder;
+    QTreeWidget *m_libraries = nullptr;
+    QPushButton *m_removeLibrary = nullptr;
+    QPushButton *m_moveLibraryDocument = nullptr;
     /// A checkbox for a setting kept outside Settings, in config that KIO
     /// shares with Dolphin.
     struct SharedToggle {

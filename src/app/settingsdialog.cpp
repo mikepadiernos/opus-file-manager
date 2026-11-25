@@ -9,6 +9,8 @@
 #include "density.h"
 #include "doubleshift.h"
 #include "libraryarchive.h"
+#include "libraryconfirmations.h"
+#include "libraryregistry.h"
 #include "localizednumbers.h"
 #include "pane.h"
 #include "pathfilterpresetsdialog.h"
@@ -19,6 +21,8 @@
 #include "settingsbackup.h"
 #include "settingswidgets.h"
 #include "startuppresentation.h"
+#include "taggingsettings.h"
+#include "taglibrary.h"
 #include "themeprofiles.h"
 #include "windoweffects.h"
 #include "workspacecatalog.h"
@@ -26,7 +30,9 @@
 #include <KActionCollection>
 #include <KColorButton>
 #include <KConfigGroup>
+#include <KEditListWidget>
 #include <KLocalizedString>
+#include <KMessageBox>
 #include <KMessageWidget>
 #include <KPageWidget>
 #include <KPluginMetaData>
@@ -48,6 +54,7 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
+#include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -64,6 +71,7 @@
 #include <QTabWidget>
 #include <QTimer>
 #include <QToolBar>
+#include <QTreeWidget>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -169,6 +177,12 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
         return QMessageBox::question(this, i18nc("@title:window", "Reset Appearance"), question, QMessageBox::Yes | QMessageBox::No, QMessageBox::No)
             == QMessageBox::Yes;
     };
+    m_confirmLibrary = [this](const LibraryConfirmations::Confirmation &confirmation) {
+        return LibraryConfirmations::ask(this, confirmation);
+    };
+    m_chooseLibraryFolder = [this] {
+        return QFileDialog::getExistingDirectory(this, i18nc("@title:window", "Choose a Library Folder"), QDir::homePath());
+    };
     addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}}, i18nc("@title:group", "General"), QStringLiteral("configure"));
     addTabbedPage({{createLanguagePage(), i18nc("@title:tab", "Language and Layout")}, {createDateLanguagePage(), i18nc("@title:tab", "Dates")}},
                   i18nc("@title:group", "Translation"),
@@ -222,7 +236,9 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createSelectionFiltersPage(), i18nc("@title:tab", "Selection Filters")}},
                   i18nc("@title:group", "Files"),
                   QStringLiteral("folder"));
-    addTabbedPage({{createTaggingPrivacyPage(), i18nc("@title:tab", "Privacy")}}, i18nc("@title:group", "Tagging"), QStringLiteral("tag"));
+    addTabbedPage({{createTaggingPrivacyPage(), i18nc("@title:tab", "Privacy")}, {createTaggingLibrariesPage(), i18nc("@title:tab", "Libraries")}},
+                  i18nc("@title:group", "Tagging"),
+                  QStringLiteral("tag"));
     addTabbedPage({{createWorkspaceManagementPage(), i18nc("@title:tab", "Management")},
                    {createWorkspaceStartupPage(), i18nc("@title:tab", "Startup")},
                    {createWorkspaceSearchPage(), i18nc("@title:tab", "Search")},
@@ -2218,6 +2234,16 @@ void SettingsDialog::setConfirmation(std::function<bool(const QString &)> confir
     m_confirm = std::move(confirm);
 }
 
+void SettingsDialog::setLibraryConfirmation(std::function<bool(const LibraryConfirmations::Confirmation &)> confirm)
+{
+    m_confirmLibrary = std::move(confirm);
+}
+
+void SettingsDialog::setLibraryFolderChooser(std::function<QString()> choose)
+{
+    m_chooseLibraryFolder = std::move(choose);
+}
+
 QVariantMap SettingsDialog::appearanceValues() const
 {
     QVariantMap values;
@@ -2633,6 +2659,244 @@ QWidget *SettingsDialog::createTaggingPrivacyPage()
     return page;
 }
 
+QWidget *SettingsDialog::createTaggingLibrariesPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("taggingLibrariesPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *libraries = new QGroupBox(i18nc("@title:group", "Libraries"), page);
+    auto *librariesLayout = new QVBoxLayout(libraries);
+    m_libraries = new QTreeWidget(libraries);
+    m_libraries->setObjectName(QStringLiteral("taggingLibraries"));
+    m_libraries->setHeaderLabels({i18nc("@title:column", "Folder"), i18nc("@title:column", "Metadata"), i18nc("@title:column", "State")});
+    m_libraries->setRootIsDecorated(false);
+    m_libraries->setUniformRowHeights(true);
+    m_libraries->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_libraries->setMinimumHeight(140);
+    m_libraries->header()->setStretchLastSection(false);
+    m_libraries->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    m_libraries->header()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+    m_libraries->header()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
+    librariesLayout->addWidget(m_libraries);
+
+    auto *buttons = new QHBoxLayout;
+    auto *add = new QPushButton(QIcon::fromTheme(QStringLiteral("list-add")), i18nc("@action:button", "Add Library…"), libraries);
+    add->setObjectName(QStringLiteral("taggingAddLibrary"));
+    add->setToolTip(i18nc("@info:tooltip", "Index a local folder as a tag library without moving or changing its files"));
+    m_removeLibrary = new QPushButton(QIcon::fromTheme(QStringLiteral("list-remove")), i18nc("@action:button", "Remove…"), libraries);
+    m_removeLibrary->setObjectName(QStringLiteral("taggingRemoveLibrary"));
+    m_removeLibrary->setToolTip(i18nc("@info:tooltip", "Stop using the selected folder as a library; its metadata is kept and no files are deleted"));
+    m_moveLibraryDocument = new QPushButton(libraries);
+    m_moveLibraryDocument->setObjectName(QStringLiteral("taggingMoveLibraryMetadata"));
+    buttons->addWidget(add);
+    buttons->addWidget(m_removeLibrary);
+    buttons->addWidget(m_moveLibraryDocument);
+    buttons->addStretch();
+    librariesLayout->addLayout(buttons);
+
+    auto *note = new QLabel(i18nc("@info",
+                                  "Adding, removing and moving libraries takes effect immediately, even if you cancel Preferences. Removing a library "
+                                  "keeps its metadata, and no files are deleted."),
+                            libraries);
+    note->setObjectName(QStringLiteral("taggingLibrariesNote"));
+    note->setWordWrap(true);
+    librariesLayout->addWidget(note);
+    layout->addWidget(libraries);
+
+    connect(add, &QPushButton::clicked, this, &SettingsDialog::addLibrary);
+    connect(m_removeLibrary, &QPushButton::clicked, this, &SettingsDialog::removeLibrary);
+    connect(m_moveLibraryDocument, &QPushButton::clicked, this, &SettingsDialog::moveLibraryDocument);
+    connect(m_libraries, &QTreeWidget::itemSelectionChanged, this, &SettingsDialog::updateLibraryButtons);
+
+    auto *indexing = new QGroupBox(i18nc("@title:group", "Indexing"), page);
+    auto *indexingForm = new QFormLayout(indexing);
+    auto *exclusions = bound(new KEditListWidget(indexing), QStringLiteral("LibraryExclusions"), "items");
+    exclusions->setButtons(KEditListWidget::Add | KEditListWidget::Remove);
+    exclusions->setToolTip(i18nc("@info:tooltip", "Items that library refreshes don't index or look inside"));
+    indexingForm->addRow(i18nc("@label", "Exclude:"), exclusions);
+    auto *exclusionHelp = new QLabel(i18nc("@info",
+                                           "One wildcard pattern per entry, where * matches any characters and ? one character; case matters. A "
+                                           "pattern without / matches names at any depth, such as node_modules, *.tmp or .git. A pattern with / "
+                                           "matches the path below the library folder, such as Archive/Old or Exports/*. Excluded items that are "
+                                           "already indexed keep their tags and are not marked missing."),
+                                     indexing);
+    exclusionHelp->setObjectName(QStringLiteral("taggingExclusionsHelp"));
+    exclusionHelp->setWordWrap(true);
+    indexingForm->addRow({}, exclusionHelp);
+    indexingForm->addRow({}, checkBox(QStringLiteral("IndexHiddenItems"), i18nc("@option:check", "Index hidden files and folders")));
+
+    auto *limit = new QSpinBox(indexing);
+    limit->setObjectName(QStringLiteral("kcfg_LibraryScanLimit"));
+    limit->setRange(0, 10000000);
+    limit->setSingleStep(1000);
+    limit->setSpecialValueText(i18nc("@item:inrange no limit", "No limit"));
+    limit->setSuffix(i18nc("@item:valuesuffix", " items"));
+    limit->setToolTip(i18nc("@info:tooltip", "A refresh that reaches this number stops without marking any entry missing"));
+    indexingForm->addRow(i18nc("@label:spinbox", "Index at most:"), limit);
+
+    auto *depth = new QSpinBox(indexing);
+    depth->setObjectName(QStringLiteral("kcfg_LibraryScanDepth"));
+    depth->setRange(0, 1000);
+    depth->setSpecialValueText(i18nc("@item:inrange no limit", "No limit"));
+    depth->setSuffix(i18nc("@item:valuesuffix", " levels"));
+    depth->setToolTip(i18nc("@info:tooltip", "How many folder levels below the library folder are indexed; 1 indexes only its direct contents"));
+    indexingForm->addRow(i18nc("@label:spinbox", "Folder depth:"), depth);
+    layout->addWidget(indexing);
+
+    auto *automatic = new QGroupBox(i18nc("@title:group", "Automatic Refresh"), page);
+    auto *automaticForm = new QFormLayout(automatic);
+    QComboBox *when = comboBox(QStringLiteral("AutomaticLibraryRefresh"),
+                               {i18nc("@item:inlistbox refresh libraries automatically", "Never"),
+                                i18nc("@item:inlistbox refresh libraries automatically", "When Plasma Opus starts"),
+                                i18nc("@item:inlistbox refresh libraries automatically", "When a folder in the library is opened")});
+    when->setToolTip(i18nc("@info:tooltip", "Automatic refreshes run quietly in the background and report changes in the status bar"));
+    automaticForm->addRow(i18nc("@label:listbox", "Refresh libraries automatically:"), when);
+    auto *interval = new QSpinBox(automatic);
+    interval->setObjectName(QStringLiteral("kcfg_LibraryRefreshInterval"));
+    interval->setRange(1, 10080);
+    interval->setSuffix(i18nc("@item:valuesuffix", " minutes"));
+    interval->setToolTip(i18nc("@info:tooltip", "A library refreshed more recently than this, also by a quick restart, is not refreshed again automatically"));
+    automaticForm->addRow(i18nc("@label:spinbox", "At most once every:"), interval);
+    const auto updateInterval = [when, interval] {
+        interval->setEnabled(when->currentIndex() != Settings::EnumAutomaticLibraryRefresh::Never);
+    };
+    connect(when, &QComboBox::currentIndexChanged, interval, updateInterval);
+    updateInterval();
+    layout->addWidget(automatic);
+    layout->addStretch();
+
+    reloadLibraries();
+
+    auto *scroll = new QScrollArea;
+    scroll->setObjectName(QStringLiteral("taggingLibrariesScroll"));
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setWidgetResizable(true);
+    scroll->setWidget(page);
+    return scroll;
+}
+
+void SettingsDialog::reloadLibraries(const QString &select)
+{
+    if (!m_libraries) {
+        return;
+    }
+    const QString selected = select.isEmpty() ? selectedLibrary() : select;
+    m_libraries->clear();
+    QTreeWidgetItem *current = nullptr;
+    for (const QString &root : LibraryRegistry::roots()) {
+        bool readOnly = false;
+        QString state = TagLibrary::checkLocation(root, &readOnly);
+        if (state.isEmpty()) {
+            QString error;
+            const TagLibrary::Library library = TagLibrary::Library::load(root, &error);
+            if (library.isNull()) {
+                state = error;
+            } else if (readOnly || library.isReadOnly()) {
+                state = i18nc("@item library state", "Read-only");
+            } else {
+                state = i18nc("@item library state", "Ready");
+            }
+        }
+        auto *item = new QTreeWidgetItem(
+            m_libraries,
+            {root,
+             TagLibrary::isPrivate(root) ? i18nc("@item library metadata location", "Private") : i18nc("@item library metadata location", "Library folder"),
+             state});
+        item->setData(0, Qt::UserRole, root);
+        item->setIcon(0, QIcon::fromTheme(QStringLiteral("folder")));
+        item->setToolTip(0, root);
+        item->setToolTip(1, TagLibrary::documentPath(root));
+        item->setToolTip(2, state);
+        if (root == selected) {
+            current = item;
+        }
+    }
+    if (current) {
+        m_libraries->setCurrentItem(current);
+    }
+    updateLibraryButtons();
+}
+
+QString SettingsDialog::selectedLibrary() const
+{
+    const QList<QTreeWidgetItem *> items = m_libraries ? m_libraries->selectedItems() : QList<QTreeWidgetItem *>();
+    return items.isEmpty() ? QString() : items.constFirst()->data(0, Qt::UserRole).toString();
+}
+
+void SettingsDialog::updateLibraryButtons()
+{
+    const QString root = selectedLibrary();
+    m_removeLibrary->setEnabled(!root.isEmpty());
+    const bool makePrivate = root.isEmpty() || !TagLibrary::isPrivate(root);
+    m_moveLibraryDocument->setText(makePrivate ? i18nc("@action:button", "Keep Metadata Privately")
+                                               : i18nc("@action:button", "Keep Metadata in Library Folder"));
+    m_moveLibraryDocument->setIcon(QIcon::fromTheme(makePrivate ? QStringLiteral("security-high") : QStringLiteral("folder")));
+    m_moveLibraryDocument->setToolTip(makePrivate ? i18nc("@info:tooltip", "Move the selected library's metadata to Plasma Opus's data folder")
+                                                  : i18nc("@info:tooltip", "Move the selected library's metadata into the library folder"));
+    m_moveLibraryDocument->setEnabled(!root.isEmpty());
+}
+
+void SettingsDialog::addLibrary()
+{
+    const QString folder = m_chooseLibraryFolder ? m_chooseLibraryFolder() : QString();
+    if (folder.isEmpty()) {
+        return;
+    }
+    const QString root = QDir::cleanPath(folder);
+    if (LibraryRegistry::contains(root)) {
+        reloadLibraries(root);
+        return;
+    }
+    // The Privacy tab's choice applies here even before it is saved, as the user sees it.
+    TagLibrary::Storage preferred = TaggingSettings::newLibraryStorage();
+    if (const auto *storage = findChild<QComboBox *>(QStringLiteral("kcfg_NewLibraryStorage"))) {
+        preferred =
+            storage->currentIndex() == Settings::EnumNewLibraryStorage::PrivateFolder ? TagLibrary::Storage::PrivateFolder : TagLibrary::Storage::LibraryFolder;
+    }
+    const TagLibrary::Storage storage = LibraryRegistry::storageFor(root, preferred);
+    const LibraryConfirmations::Confirmation confirmation = LibraryConfirmations::create(root, storage, preferred);
+    if (!m_confirmLibrary(confirmation)) {
+        return;
+    }
+    if (const QString error = LibraryRegistry::create(root, storage); !error.isEmpty()) {
+        KMessageBox::error(this, error, confirmation.title);
+        return;
+    }
+    reloadLibraries(root);
+    Q_EMIT libraryChanged(root);
+    Q_EMIT libraryAdded(root);
+}
+
+void SettingsDialog::removeLibrary()
+{
+    const QString root = selectedLibrary();
+    if (root.isEmpty() || !m_confirmLibrary(LibraryConfirmations::remove(root))) {
+        return;
+    }
+    LibraryRegistry::remove(root);
+    reloadLibraries();
+    Q_EMIT libraryChanged(root);
+}
+
+void SettingsDialog::moveLibraryDocument()
+{
+    const QString root = selectedLibrary();
+    if (root.isEmpty()) {
+        return;
+    }
+    const TagLibrary::Storage target = TagLibrary::isPrivate(root) ? TagLibrary::Storage::LibraryFolder : TagLibrary::Storage::PrivateFolder;
+    const LibraryConfirmations::Confirmation confirmation = LibraryConfirmations::moveDocument(root, target);
+    if (!m_confirmLibrary(confirmation)) {
+        return;
+    }
+    if (const QString error = TagLibrary::moveDocument(root, target); !error.isEmpty()) {
+        KMessageBox::error(this, error, confirmation.title);
+    }
+    reloadLibraries(root);
+    Q_EMIT libraryChanged(root);
+}
+
 QWidget *SettingsDialog::createFileMetadataPage()
 {
     auto *page = new QWidget;
@@ -2871,6 +3135,8 @@ void SettingsDialog::updateWidgets()
     for (const SharedToggle &toggle : std::as_const(m_sharedToggles)) {
         toggle.check->setChecked(toggle.read());
     }
+    // Libraries may have been added or removed from the Tags menu since the dialog was shown.
+    reloadLibraries();
 }
 
 void SettingsDialog::updateWidgetsDefault()

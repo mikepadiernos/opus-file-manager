@@ -3,6 +3,7 @@
 #include "taggingcontroller.h"
 
 #include "fieldeditdialog.h"
+#include "libraryconfirmations.h"
 #include "libraryexportdialog.h"
 #include "librarymovetracker.h"
 #include "libraryrefreshdialog.h"
@@ -10,9 +11,9 @@
 #include "libraryrestoredialog.h"
 #include "libraryreviewdialog.h"
 #include "metadataimportdialog.h"
-#include "settings.h"
 #include "tagassignment.h"
 #include "tagfieldmanagerwidget.h"
+#include "taggingsettings.h"
 #include "taggroupmanagerwidget.h"
 #include "taglibrary.h"
 #include "tagmanagerwidget.h"
@@ -177,45 +178,14 @@ void TaggingController::createLibrary()
         return;
     }
     const QString root = QDir::cleanPath(folder.toLocalFile());
-    const TagLibrary::Storage preferred = Settings::newLibraryStorage() == Settings::EnumNewLibraryStorage::PrivateFolder ? TagLibrary::Storage::PrivateFolder
-                                                                                                                          : TagLibrary::Storage::LibraryFolder;
+    const TagLibrary::Storage preferred = TaggingSettings::newLibraryStorage();
     const TagLibrary::Storage storage = LibraryRegistry::storageFor(root, preferred);
-    QString question;
-    if (storage != preferred) {
-        question = xi18nc("@info",
-                          "<para>Create a tag library rooted at <filename>%1</filename>?</para>"
-                          "<para>A library document for this folder already exists at <filename>%2</filename>, so it is used where it is. "
-                          "Files aren't moved, renamed or copied, and existing labels, ratings and notes are kept.</para>",
-                          root,
-                          TagLibrary::documentPath(root));
-    } else if (storage == TagLibrary::Storage::PrivateFolder) {
-        question = xi18nc("@info",
-                          "<para>Create a tag library rooted at <filename>%1</filename>?</para>"
-                          "<para>Plasma Opus indexes the files and folders below it and stores tags, fields and entries privately in "
-                          "<filename>%2</filename>, so nothing is written to the folder. Files aren't moved, renamed or copied, and "
-                          "existing labels, ratings and notes are kept.</para>",
-                          root,
-                          TagLibrary::privateDocumentPath(root));
-    } else {
-        question = xi18nc("@info",
-                          "<para>Create a tag library rooted at <filename>%1</filename>?</para>"
-                          "<para>Plasma Opus indexes the files and folders below it and stores tags, fields and entries in "
-                          "<filename>%2</filename> in that folder. Files aren't moved, renamed or copied, and existing labels, "
-                          "ratings and notes are kept.</para>",
-                          root,
-                          TagLibrary::fileName());
-    }
-    const auto answer = KMessageBox::questionTwoActions(m_window,
-                                                        question,
-                                                        i18nc("@title:window", "Create Library"),
-                                                        KGuiItem(i18nc("@action:button", "Create Library"), QStringLiteral("tag-new")),
-                                                        KStandardGuiItem::cancel(),
-                                                        QStringLiteral("ConfirmCreateLibrary"));
-    if (answer != KMessageBox::PrimaryAction) {
+    const LibraryConfirmations::Confirmation confirmation = LibraryConfirmations::create(root, storage, preferred);
+    if (!LibraryConfirmations::ask(m_window, confirmation)) {
         return;
     }
     if (const QString error = LibraryRegistry::create(root, storage); !error.isEmpty()) {
-        KMessageBox::error(m_window, error, i18nc("@title:window", "Create Library"));
+        KMessageBox::error(m_window, error, confirmation.title);
         return;
     }
     if (storage != preferred) {
@@ -232,18 +202,7 @@ void TaggingController::removeLibrary()
     if (root.isEmpty()) {
         return;
     }
-    const auto answer =
-        KMessageBox::warningTwoActions(m_window,
-                                       xi18nc("@info",
-                                              "<para>Stop using <filename>%1</filename> as a tag library?</para>"
-                                              "<para>The library document <filename>%2</filename> is kept, so you can create the library again later "
-                                              "without losing tags. No files are deleted.</para>",
-                                              root,
-                                              TagLibrary::documentPath(root)),
-                                       i18nc("@title:window", "Remove Library"),
-                                       KGuiItem(i18nc("@action:button", "Remove Library"), QStringLiteral("list-remove")),
-                                       KStandardGuiItem::cancel());
-    if (answer != KMessageBox::PrimaryAction) {
+    if (!LibraryConfirmations::ask(m_window, LibraryConfirmations::remove(root))) {
         return;
     }
     LibraryRegistry::remove(root);

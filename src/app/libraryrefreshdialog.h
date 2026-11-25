@@ -19,7 +19,9 @@ class QPushButton;
 /**
  * Indexes or refreshes a tag library with progress and cancellation. The
  * scan runs in the background and its result is merged into the library
- * document; a canceled scan records what it found but marks nothing missing.
+ * document; a canceled scan, or one stopped at the scan limit, records what
+ * it found but marks nothing missing. It uses the scan options in
+ * Preferences › Tagging › Libraries.
  */
 class LibraryRefreshDialog : public QDialog
 {
@@ -60,6 +62,9 @@ private:
     QTimer m_progressTimer;
     std::shared_ptr<std::atomic_bool> m_canceled;
     std::shared_ptr<std::atomic_int> m_scanned;
+    LibraryScan::Options m_options;
+    /// Whether the background refresher was asked to leave this library alone.
+    bool m_manual = false;
     TagLibrary::ScanChanges m_changes;
     QString m_message;
     int m_missingEntries = 0;

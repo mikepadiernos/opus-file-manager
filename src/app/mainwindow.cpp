@@ -36,6 +36,7 @@
 #include "gallerywindow.h"
 #include "informationpanel.h"
 #include "labelcolor.h"
+#include "libraryautorefresh.h"
 #include "libraryregistry.h"
 #include "linkednavigation.h"
 #include "localizeddates.h"
@@ -666,6 +667,8 @@ void MainWindow::showEvent(QShowEvent *event)
 {
     KXmlGuiWindow::showEvent(event);
     applyWindowEffects();
+    // The refresher queues libraries only once per process, after the first window appears.
+    QTimer::singleShot(1000, LibraryAutoRefresh::instance(), &LibraryAutoRefresh::refreshAtStartup);
 }
 
 void MainWindow::applyBackgroundOpacity()
@@ -1445,6 +1448,7 @@ void MainWindow::connectPane(Pane *pane)
             updateWindowTitle();
             updateInformationPanel();
             syncFolderTrees();
+            LibraryAutoRefresh::instance()->folderOpened(url);
         } else if (m_active) {
             if (Settings::statusBarLayout() == Settings::EnumStatusBarLayout::PerPane) {
                 updateStatusBar();
@@ -2825,12 +2829,15 @@ void MainWindow::setupActions()
                                        [this](const QString &message) {
                                            showStatusMessage(message);
                                        }});
-    connect(m_tagging, &TaggingController::libraryChanged, this, [this](const QString &root) {
-        TagAssignment::invalidate(root);
-        if (!m_tagDock->isHidden()) {
-            m_tagPanel->reload();
+    connect(m_tagging, &TaggingController::libraryChanged, this, &MainWindow::reloadLibraryViews);
+    connect(LibraryAutoRefresh::instance(), &LibraryAutoRefresh::refreshed, this, [this](const QString &root, const QString &message, bool changed) {
+        if (changed) {
+            reloadLibraryViews(root);
         }
-        updateInformationPanel();
+        // Several windows share one refresher; only the one in use reports it.
+        if (!message.isEmpty() && (isActiveWindow() || !QApplication::activeWindow())) {
+            showStatusMessage(message);
+        }
     });
     connect(m_tagPanel, &TagPanel::manageRequested, m_tagging, [this](const QString &root) {
         if (!root.isEmpty()) {
@@ -5288,6 +5295,15 @@ void MainWindow::updateTagPanel()
     m_tagPanel->setContext(activePane()->url(), activePane()->view()->selectedItems());
 }
 
+void MainWindow::reloadLibraryViews(const QString &root)
+{
+    TagAssignment::invalidate(root);
+    if (!m_tagDock->isHidden()) {
+        m_tagPanel->reload();
+    }
+    updateInformationPanel();
+}
+
 void MainWindow::setTagPanelPlacement(TagPanel::Placement placement)
 {
     const bool below = placement == TagPanel::Placement::Below;
@@ -5590,6 +5606,19 @@ void MainWindow::showSettings()
     connect(dialog, &SettingsDialog::customCommandsChanged, this, &MainWindow::refreshCustomCommandActions);
     connect(dialog, &SettingsDialog::manageWorkspacesRequested, this, &MainWindow::showWorkspaces);
     connect(this, &MainWindow::workspaceCatalogChanged, dialog, &SettingsDialog::reloadWorkspaces);
+    // Library changes in Preferences apply at once, to every window.
+    connect(dialog, &SettingsDialog::libraryChanged, this, [](const QString &root) {
+        const QList<KMainWindow *> windows = KMainWindow::memberList();
+        for (KMainWindow *member : windows) {
+            if (auto *window = qobject_cast<MainWindow *>(member)) {
+                window->reloadLibraryViews(root);
+                window->updateActions();
+            }
+        }
+    });
+    connect(dialog, &SettingsDialog::libraryAdded, this, [](const QString &root) {
+        LibraryAutoRefresh::instance()->enqueue(root, true);
+    });
     dialog->show();
 }
 
