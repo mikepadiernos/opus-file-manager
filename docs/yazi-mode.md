@@ -22,10 +22,10 @@ Yazi mode is not an embedded Yazi process. Plasma Opus doesn't need Yazi
 installed, and it doesn't read Yazi's configuration, key maps, themes or
 plugins.
 
-The first M25 features provide the toggle, the parent and preview columns,
-narrow-pane adaptation, persistence and keyboard-first navigation with
-optional Vim-style keys. File operations from the keyboard follow in a later
-M25 feature; see the [roadmap](ROADMAP.md#m25-yazi-mode).
+The M25 features so far provide the toggle, the parent and preview columns,
+narrow-pane adaptation, persistence, keyboard-first navigation with optional
+Vim-style keys, and selection and file actions through Plasma Opus's own
+actions; see the [roadmap](ROADMAP.md#m25-yazi-mode).
 
 ## Entering and leaving
 
@@ -151,29 +151,54 @@ with M26.
 | Page Up, Page Down   | Move the focus a page up or down         |
 | Left                 | Open the parent folder                   |
 | Right, Return, Enter | Open the focused folder or file          |
+| Ctrl+Space           | Select or deselect the focused item      |
 
 In right-to-left layouts, Left and Right swap, as they do in the folder view.
+
+The standard keys add no letters for file actions. The window's own
+shortcuts, such as Ctrl+C, Ctrl+X, Ctrl+V, F2, Delete, F5, F6, Ctrl+Z and
+Ctrl+A, are not bound by the preset and keep working in the columns. Space
+alone stays **Open Gallery**.
 
 ### Vim-style keys
 
 All the standard keys, plus:
 
-| Keys             | Command                                       |
-| ---------------- | --------------------------------------------- |
-| `j`, `k`         | Move the focus down or up                     |
-| `gg`, `G`        | Move the focus to the first or last item      |
-| Ctrl+D, Ctrl+U   | Move the focus half a page down or up         |
-| `h`              | Open the parent folder                        |
-| `l`              | Open the focused folder or file               |
-| `H`, `L`         | Go back or forward in the tab's history       |
-| `gh`             | Open the home folder (**Go › Home**'s folder) |
-| `gp`, `gc`, `gv` | Focus the parent, current or preview column   |
-| `zp`             | Show or hide the preview column               |
-| `q`              | Leave Yazi mode                               |
+| Keys             | Command                                             |
+| ---------------- | --------------------------------------------------- |
+| `j`, `k`         | Move the focus down or up                           |
+| `gg`, `G`        | Move the focus to the first or last item            |
+| Ctrl+D, Ctrl+U   | Move the focus half a page down or up               |
+| `h`              | Open the parent folder                              |
+| `l`              | Open the focused folder or file                     |
+| `H`, `L`         | Go back or forward in the tab's history             |
+| `gh`             | Open the home folder (**Go › Home**'s folder)       |
+| `gp`, `gc`, `gv` | Focus the parent, current or preview column         |
+| `zp`             | Show or hide the preview column                     |
+| `q`              | Leave Yazi mode                                     |
+| Space            | Select or deselect the focused item, then move down |
+| `v`              | Start or end range selection                        |
+| `V`, Ctrl+A      | Select all                                          |
+| Escape           | Clear the selection                                 |
+| `yy`             | Copy the items to the clipboard                     |
+| `x`              | Cut the items to the clipboard                      |
+| `p`              | Paste into the current folder                       |
+| `r`              | Rename the items                                    |
+| `dd`             | Move the items to the Trash                         |
+| `a`              | Create a new folder or file                         |
+| `o`              | Open the items with another application             |
+| `c`, `m`         | Copy or move the items to the other pane            |
+| `u`              | Undo the last file operation                        |
+| `.`              | Show or hide hidden files                           |
 
-`G`, `H` and `L` are Shift with the letter. A number typed first repeats the
-movement commands: `5j` moves five items down and `2` Ctrl+D a whole page.
-Other commands ignore the number. Counts stop at 999.
+`G`, `H`, `L` and `V` are Shift with the letter. A number typed first repeats
+the movement commands and Space: `5j` moves five items down, `2` Ctrl+D a
+whole page and `3` Space selects or deselects three items. Other commands
+ignore the number. Counts stop at 999. Ctrl+Space, from the standard keys,
+selects or deselects without moving.
+
+"The items" are the selected items, or the focused item when nothing is
+selected; see [Selection and file actions](#selection-and-file-actions).
 
 ### How the commands behave
 
@@ -208,6 +233,8 @@ always do.
   the menu and elsewhere in the window.
 - With Vim-style keys, digits 1 to 9 start a count, so type-ahead can't begin
   with them in the columns. 0 is only part of a count after another digit.
+- With Vim-style keys, Space selects rather than opening the gallery in the
+  columns; **Go › Open Gallery** and its shortcut still work elsewhere.
 
 ### Key sequences
 
@@ -238,10 +265,83 @@ added to a toolbar:
 | `yazi_focus_parent_column`  | **Go › Yazi Columns › Focus Parent Column**  |
 | `yazi_focus_current_column` | **Go › Yazi Columns › Focus Current Column** |
 | `yazi_focus_preview`        | **Go › Yazi Columns › Focus Preview Column** |
+| `yazi_toggle_selection`     | **Edit › Toggle Selection of Focused Item**  |
+| `yazi_visual_selection`     | **Edit › Range Selection**                   |
 
-The column actions are enabled only while the active pane is in Yazi mode.
-The standard and Vim-style keys can't be changed yet; M26 adds a preset
-chooser and a review of conflicts with other shortcuts.
+The column and selection actions are enabled only while the active pane is in
+Yazi mode. The file keys use the window's existing actions, which already
+have their own shortcuts. The standard and Vim-style keys can't be changed
+yet; M26 adds a preset chooser and a review of conflicts with other
+shortcuts.
+
+## Selection and file actions
+
+Yazi mode selects and acts on files through Plasma Opus's own selection and
+actions, so the results are the same as from the menus, the context menu and
+the window's shortcuts.
+
+### Selection
+
+- File actions use the **selected items**. When nothing is selected, they use
+  the **focused item**, which is selected first so the action, and what it
+  shows afterwards, apply to it.
+- Selecting with Space or Ctrl+Space **marks** items. While items are marked,
+  moving the focus keeps the marks instead of selecting the focused item, so
+  items far apart can be marked one at a time. Marking stops when the
+  selection is cleared or only the focused item is left selected.
+- `v` starts range selection at the focused item. Moving then selects every
+  item between that item and the focus, added to any items already marked.
+  `v` again ends it and keeps the range marked. Space, select all, a click or
+  another change to the selection also ends it.
+- Escape clears the selection, as it does in the folder view. It does so only
+  when no key sequence or count is pending; otherwise it cancels that first.
+- While items are marked, or more than one is selected, the status row below
+  the columns shows how many, such as **3 selected**, or **Visual · 3
+  selected** during range selection.
+- Selection and the file actions on items work in the current column. From the
+  parent column, they show a status message instead of acting on the current
+  column's items.
+- Leaving the folder, or turning Yazi mode off, ends marking and range
+  selection. The selection itself is kept as the folder view keeps it.
+
+### File actions
+
+Each Vim-style file key triggers the window's existing action, so it is
+enabled, confirmed, queued and undone exactly as that action is:
+
+| Keys     | Action                                                                  |
+| -------- | ----------------------------------------------------------------------- |
+| `yy`     | **Edit › Copy**                                                         |
+| `x`      | **Edit › Cut**                                                          |
+| `p`      | **Edit › Paste**, into the folder the pane shows                        |
+| `r`      | **Rename…** (F2), with its inline rename, rename dialog or batch rename |
+| `dd`     | **Move to Trash**                                                       |
+| `a`      | The **Create New** menu, opened at the focused item                     |
+| `o`      | An **Open With** menu for the items, opened at the focus                |
+| `c`, `m` | **Copy to Other Pane** (F5) and **Move to Other Pane** (F6)             |
+| `u`      | **Edit › Undo**                                                         |
+| `.`      | **Show Hidden Files**                                                   |
+
+When the action isn't available, such as pasting an empty clipboard or
+moving to the Trash outside a local folder, a status message says so and
+nothing happens.
+
+### Safety
+
+- **No permanent deletion.** No preset binds permanent deletion. `dd` always
+  moves to the Trash, and `D` is not bound. **Delete Permanently** stays on
+  the window's own shortcut, Shift+Delete, and its menu item, with its usual
+  confirmation. The key engine has no command for permanent deletion, and a
+  test checks that none of the preset keys can reach it.
+- **Confirmations are kept.** Moving to the Trash asks first when KIO is set
+  to confirm trashing, as it does from the menu.
+- **Conflicts are always handled.** Pasting goes through KIO, which asks what
+  to do when an item already exists. Copying and moving to the other pane go
+  through the transfer queue and its **conflict policy**, as F5 and F6 do; the
+  default policy asks.
+- **Undo is available.** Copies, moves, renames, new folders and trashing are
+  recorded for **Edit › Undo**, from `u`, Ctrl+Z or the menu. Undoing a copy
+  deletes the copies, so KIO asks first.
 
 ## What is preserved
 
