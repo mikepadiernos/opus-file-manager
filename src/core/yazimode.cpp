@@ -6,6 +6,7 @@
 #include <KIO/Global>
 
 #include <QJsonObject>
+#include <QKeySequence>
 #include <QVarLengthArray>
 
 #include <algorithm>
@@ -16,6 +17,48 @@ constexpr auto SessionKey = "YaziMode";
 constexpr auto WorkspaceKey = "yaziMode";
 constexpr auto SessionPreviewKey = "YaziPreview";
 constexpr auto WorkspacePreviewKey = "yaziPreview";
+
+bool isModifierKey(int key)
+{
+    switch (key) {
+    case Qt::Key_Shift:
+    case Qt::Key_Control:
+    case Qt::Key_Meta:
+    case Qt::Key_Alt:
+    case Qt::Key_AltGr:
+    case Qt::Key_Super_L:
+    case Qt::Key_Super_R:
+    case Qt::Key_Hyper_L:
+    case Qt::Key_Hyper_R:
+    case Qt::Key_CapsLock:
+    case Qt::Key_NumLock:
+    case Qt::Key_ScrollLock:
+    case Qt::Key_Mode_switch:
+        return true;
+    default:
+        return false;
+    }
+}
+
+/// The digit @p key types without modifiers, or -1.
+int digitOf(QKeyCombination key)
+{
+    if (key.keyboardModifiers() != Qt::NoModifier || key.key() < Qt::Key_0 || key.key() > Qt::Key_9) {
+        return -1;
+    }
+    return int(key.key()) - int(Qt::Key_0);
+}
+
+/// Whether @p sequence equals @p longer or begins it.
+bool startsWith(const YaziMode::KeySequence &longer, const YaziMode::KeySequence &sequence)
+{
+    return sequence.size() <= longer.size() && std::equal(sequence.cbegin(), sequence.cend(), longer.cbegin());
+}
+
+YaziMode::Binding bind(std::initializer_list<QKeyCombination> keys, YaziMode::Command command)
+{
+    return {YaziMode::KeySequence(keys), command};
+}
 }
 
 bool YaziMode::readSession(const KConfigGroup &group)
@@ -156,4 +199,264 @@ YaziMode::ColumnWidths YaziMode::columnWidths(int available, bool preview, const
     });
     *(currentPending ? &widths.current : pending.last().width) += remaining - assigned;
     return widths;
+}
+
+QString YaziMode::commandId(Command command)
+{
+    switch (command) {
+    case Command::MoveUp:
+        return QStringLiteral("move-up");
+    case Command::MoveDown:
+        return QStringLiteral("move-down");
+    case Command::MoveFirst:
+        return QStringLiteral("move-first");
+    case Command::MoveLast:
+        return QStringLiteral("move-last");
+    case Command::PageUp:
+        return QStringLiteral("page-up");
+    case Command::PageDown:
+        return QStringLiteral("page-down");
+    case Command::HalfPageUp:
+        return QStringLiteral("half-page-up");
+    case Command::HalfPageDown:
+        return QStringLiteral("half-page-down");
+    case Command::Parent:
+        return QStringLiteral("parent");
+    case Command::Open:
+        return QStringLiteral("open");
+    case Command::Back:
+        return QStringLiteral("back");
+    case Command::Forward:
+        return QStringLiteral("forward");
+    case Command::Home:
+        return QStringLiteral("home");
+    case Command::FocusParent:
+        return QStringLiteral("focus-parent");
+    case Command::FocusCurrent:
+        return QStringLiteral("focus-current");
+    case Command::FocusPreview:
+        return QStringLiteral("focus-preview");
+    case Command::TogglePreview:
+        return QStringLiteral("toggle-preview");
+    case Command::Leave:
+        return QStringLiteral("leave");
+    }
+    return {};
+}
+
+bool YaziMode::commandTakesCount(Command command)
+{
+    switch (command) {
+    case Command::MoveUp:
+    case Command::MoveDown:
+    case Command::PageUp:
+    case Command::PageDown:
+    case Command::HalfPageUp:
+    case Command::HalfPageDown:
+        return true;
+    default:
+        return false;
+    }
+}
+
+YaziMode::Keymap YaziMode::presetKeymap(Preset preset)
+{
+    Keymap keymap;
+    keymap.bindings = {
+        bind({Qt::Key_Up}, Command::MoveUp),
+        bind({Qt::Key_Down}, Command::MoveDown),
+        bind({Qt::Key_Home}, Command::MoveFirst),
+        bind({Qt::Key_End}, Command::MoveLast),
+        bind({Qt::Key_PageUp}, Command::PageUp),
+        bind({Qt::Key_PageDown}, Command::PageDown),
+        bind({Qt::Key_Left}, Command::Parent),
+        bind({Qt::Key_Right}, Command::Open),
+        bind({Qt::Key_Return}, Command::Open),
+        bind({Qt::Key_Enter}, Command::Open),
+    };
+    if (preset == Preset::Vim) {
+        keymap.counts = true;
+        keymap.bindings += {
+            bind({Qt::Key_K}, Command::MoveUp),
+            bind({Qt::Key_J}, Command::MoveDown),
+            bind({Qt::Key_G, Qt::Key_G}, Command::MoveFirst),
+            bind({Qt::ShiftModifier | Qt::Key_G}, Command::MoveLast),
+            bind({Qt::ControlModifier | Qt::Key_U}, Command::HalfPageUp),
+            bind({Qt::ControlModifier | Qt::Key_D}, Command::HalfPageDown),
+            bind({Qt::Key_H}, Command::Parent),
+            bind({Qt::Key_L}, Command::Open),
+            bind({Qt::ShiftModifier | Qt::Key_H}, Command::Back),
+            bind({Qt::ShiftModifier | Qt::Key_L}, Command::Forward),
+            bind({Qt::Key_G, Qt::Key_H}, Command::Home),
+            bind({Qt::Key_G, Qt::Key_P}, Command::FocusParent),
+            bind({Qt::Key_G, Qt::Key_C}, Command::FocusCurrent),
+            bind({Qt::Key_G, Qt::Key_V}, Command::FocusPreview),
+            bind({Qt::Key_Z, Qt::Key_P}, Command::TogglePreview),
+            bind({Qt::Key_Q}, Command::Leave),
+        };
+    }
+    return keymap;
+}
+
+QList<YaziMode::Conflict> YaziMode::conflicts(const Keymap &keymap)
+{
+    QList<Conflict> found;
+    const QList<Binding> &bindings = keymap.bindings;
+    for (int i = 0; i < bindings.size(); ++i) {
+        const KeySequence &keys = bindings.at(i).keys;
+        const bool unusable = keys.isEmpty() || std::any_of(keys.cbegin(), keys.cend(), [](QKeyCombination key) {
+                                  return key.key() == Qt::Key_Escape || isModifierKey(key.key());
+                              });
+        if (unusable || (keymap.counts && digitOf(keys.first()) > 0)) {
+            found.append({i, -1});
+            continue;
+        }
+        for (int j = i + 1; j < bindings.size(); ++j) {
+            const KeySequence &other = bindings.at(j).keys;
+            if (!other.isEmpty() && (startsWith(keys, other) || startsWith(other, keys))) {
+                found.append({i, j});
+            }
+        }
+    }
+    return found;
+}
+
+QKeyCombination YaziMode::normalizedKey(QKeyCombination key)
+{
+    return QKeyCombination(key.keyboardModifiers() & ~(Qt::KeypadModifier | Qt::GroupSwitchModifier), key.key());
+}
+
+QString YaziMode::keyText(QKeyCombination key)
+{
+    const Qt::KeyboardModifiers modifiers = key.keyboardModifiers();
+    if (key.key() >= Qt::Key_A && key.key() <= Qt::Key_Z && (modifiers == Qt::NoModifier || modifiers == Qt::ShiftModifier)) {
+        const QChar letter(char16_t(u'a' + (int(key.key()) - int(Qt::Key_A))));
+        return modifiers == Qt::ShiftModifier ? QString(letter.toUpper()) : QString(letter);
+    }
+    return QKeySequence(key).toString(QKeySequence::NativeText);
+}
+
+QString YaziMode::sequenceText(const KeySequence &keys, int count)
+{
+    QStringList parts;
+    bool singleCharacters = true;
+    for (QKeyCombination key : keys) {
+        parts.append(keyText(key));
+        singleCharacters = singleCharacters && parts.last().size() == 1;
+    }
+    if (count > 0) {
+        parts.prepend(QString::number(count));
+    }
+    return parts.join(singleCharacters ? QString() : QStringLiteral(" "));
+}
+
+YaziMode::KeyMatcher::KeyMatcher(const Keymap &keymap)
+    : m_keymap(keymap)
+{
+}
+
+void YaziMode::KeyMatcher::setKeymap(const Keymap &keymap)
+{
+    m_keymap = keymap;
+    reset();
+}
+
+const YaziMode::Keymap &YaziMode::KeyMatcher::keymap() const
+{
+    return m_keymap;
+}
+
+YaziMode::KeyMatcher::Result YaziMode::KeyMatcher::feed(QKeyCombination key)
+{
+    key = normalizedKey(key);
+    if (isModifierKey(key.key())) {
+        return isPending() ? Result::Pending : Result::NoMatch;
+    }
+    if (key.key() == Qt::Key_Escape) {
+        if (!isPending()) {
+            return Result::NoMatch;
+        }
+        reset();
+        return Result::Cancelled;
+    }
+    if (isPending()) {
+        const Result result = advance(key);
+        if (result != Result::NoMatch) {
+            return result;
+        }
+        reset();
+    }
+    return advance(key);
+}
+
+YaziMode::KeyMatcher::Result YaziMode::KeyMatcher::test(QKeyCombination key) const
+{
+    KeyMatcher copy = *this;
+    return copy.feed(key);
+}
+
+YaziMode::KeyMatcher::Result YaziMode::KeyMatcher::advance(QKeyCombination key)
+{
+    const int digit = m_keymap.counts && m_pending.isEmpty() ? digitOf(key) : -1;
+    if (digit > 0 || (digit == 0 && m_pendingCount > 0)) {
+        m_pendingCount = qMin(MaximumCount, m_pendingCount * 10 + digit);
+        return Result::Pending;
+    }
+    KeySequence typed = m_pending;
+    typed.append(key);
+    bool longer = false;
+    for (const Binding &binding : std::as_const(m_keymap.bindings)) {
+        if (!startsWith(binding.keys, typed)) {
+            continue;
+        }
+        if (binding.keys.size() == typed.size()) {
+            m_command = binding.command;
+            m_count = qMax(1, m_pendingCount);
+            m_pending.clear();
+            m_pendingCount = 0;
+            return Result::Matched;
+        }
+        longer = true;
+    }
+    if (!longer) {
+        return Result::NoMatch;
+    }
+    m_pending = typed;
+    return Result::Pending;
+}
+
+YaziMode::Command YaziMode::KeyMatcher::command() const
+{
+    return m_command;
+}
+
+int YaziMode::KeyMatcher::count() const
+{
+    return m_count;
+}
+
+bool YaziMode::KeyMatcher::isPending() const
+{
+    return !m_pending.isEmpty() || m_pendingCount > 0;
+}
+
+YaziMode::KeySequence YaziMode::KeyMatcher::pendingKeys() const
+{
+    return m_pending;
+}
+
+int YaziMode::KeyMatcher::pendingCount() const
+{
+    return m_pendingCount;
+}
+
+QString YaziMode::KeyMatcher::pendingText() const
+{
+    return isPending() ? sequenceText(m_pending, m_pendingCount) : QString();
+}
+
+void YaziMode::KeyMatcher::reset()
+{
+    m_pending.clear();
+    m_pendingCount = 0;
 }

@@ -1336,5 +1336,13 @@
       <label>Whether panes in Yazi mode show the preview column unless the pane's session says otherwise</label>
       <default>true</default>
     </entry>
+    <entry name="YaziKeyPreset" type="Enum">
+      <label>The keys that navigate panes in Yazi mode: the standard keys, or Vim-style keys as well</label>
+      <choices>
+        <choice name="Standard"/>
+        <choice name="Vim"/>
+      </choices>
+      <default>Standard</default>
+    </entry>
   </group>
 </kcfg>

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <QKeyCombination>
+#include <QList>
 #include <QUrl>
 
 class KConfigGroup;
@@ -89,4 +91,147 @@ struct ColumnWidths {
  * @returns the widths; together with the handles they add up to @p available
  */
 ColumnWidths columnWidths(int available, bool preview, const Ratios &ratios = {}, int handleWidth = 0);
+
+/**
+ * What a key or key sequence does in Yazi mode. To add a command, add it
+ * here, give it an identifier in commandId(), bind it in presetKeymap() and
+ * run it in Pane::runYaziCommand().
+ */
+enum class Command {
+    MoveUp,
+    MoveDown,
+    MoveFirst,
+    MoveLast,
+    PageUp,
+    PageDown,
+    HalfPageUp,
+    HalfPageDown,
+    /// Opens the parent folder and focuses the folder just left.
+    Parent,
+    /// Opens the focused item as activating it would.
+    Open,
+    Back,
+    Forward,
+    Home,
+    FocusParent,
+    FocusCurrent,
+    FocusPreview,
+    TogglePreview,
+    Leave,
+};
+
+/// A stable identifier for @p command, such as "move-down", for settings and documentation.
+QString commandId(Command command);
+/// Whether a count typed first, as in 5j, repeats @p command.
+bool commandTakesCount(Command command);
+
+using KeySequence = QList<QKeyCombination>;
+
+struct Binding {
+    KeySequence keys;
+    Command command = Command::MoveDown;
+
+    bool operator==(const Binding &other) const = default;
+};
+
+/// The bindings of a key preset.
+struct Keymap {
+    QList<Binding> bindings;
+    /// Whether digits typed first, as in 5j, count how often to repeat the command.
+    bool counts = false;
+};
+
+/// The built-in key presets; the values match the YaziKeyPreset setting.
+enum class Preset {
+    /// Arrow keys, Home, End, Page Up and Page Down; Left opens the parent folder and Right or Return the focused item.
+    Standard,
+    /// The standard keys, plus Vim-style letters, multi-key sequences such as gg and counts such as 5j.
+    Vim,
+};
+
+Keymap presetKeymap(Preset preset);
+
+/// The longest count the matcher accepts; more digits keep this value.
+constexpr int MaximumCount = 999;
+
+/**
+ * Two bindings of a keymap that can't both work: one's keys are, or begin
+ * with, the other's. When second is -1, the binding at first is unusable on
+ * its own: it is empty, uses Escape or a modifier key alone, or starts with
+ * a digit that the keymap reads as a count.
+ */
+struct Conflict {
+    int first = -1;
+    int second = -1;
+
+    bool operator==(const Conflict &other) const = default;
+};
+
+/// The conflicts in @p keymap, in binding order; empty when every binding can be typed.
+QList<Conflict> conflicts(const Keymap &keymap);
+
+/// @p key without the keypad and group-switch modifiers, which don't change what the key means here.
+QKeyCombination normalizedKey(QKeyCombination key);
+/// How to show @p key to the user: "g" and "G" for letters, as typed, otherwise "Ctrl+D" or "PgDown".
+QString keyText(QKeyCombination key);
+/// How to show @p keys after an optional @p count: "5gg", or "2 Ctrl+D" when a key has a longer name.
+QString sequenceText(const KeySequence &keys, int count = 0);
+
+/**
+ * Matches typed keys against a keymap, one key at a time. A key that
+ * begins or continues a longer binding leaves the matcher pending until
+ * the binding completes, Escape cancels it or a key that doesn't fit
+ * arrives. The matcher has no timer: callers that want pending sequences
+ * to expire call reset().
+ *
+ * When a pending sequence is broken by a key that doesn't fit, the typed
+ * keys are dropped and that key is matched on its own, so g followed by j
+ * runs j's command. Modifier keys pressed alone are ignored.
+ */
+class KeyMatcher
+{
+public:
+    enum class Result {
+        /// The key doesn't belong to any binding; the caller should let it through.
+        NoMatch,
+        /// The key began or continued a binding; more keys are needed.
+        Pending,
+        /// The key completed a binding; see command() and count().
+        Matched,
+        /// Escape cancelled a pending sequence or count.
+        Cancelled,
+    };
+
+    KeyMatcher() = default;
+    explicit KeyMatcher(const Keymap &keymap);
+
+    /// Replaces the keymap and cancels a pending sequence.
+    void setKeymap(const Keymap &keymap);
+    const Keymap &keymap() const;
+
+    Result feed(QKeyCombination key);
+    /// What feed() would return for @p key, without changing the state.
+    Result test(QKeyCombination key) const;
+    /// The command of the binding the last Matched result completed.
+    Command command() const;
+    /// The count typed before that binding, or 1.
+    int count() const;
+
+    bool isPending() const;
+    KeySequence pendingKeys() const;
+    /// The count typed so far, or 0.
+    int pendingCount() const;
+    /// The pending count and keys as sequenceText() shows them, or empty.
+    QString pendingText() const;
+    void reset();
+
+private:
+    Result advance(QKeyCombination key);
+
+    Keymap m_keymap;
+    KeySequence m_pending;
+    int m_pendingCount = 0;
+    Command m_command = Command::MoveDown;
+    int m_count = 1;
+};
 }
