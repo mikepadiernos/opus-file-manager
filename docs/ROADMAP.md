@@ -1119,7 +1119,7 @@ integration without blocking this milestone.
 
 Settings for M21 advanced search, stored in KConfig.
 
-- [ ] **Defaults:** share M10 search scope, filter and saved-search settings
+- [x] **Defaults:** share M10 search scope, filter and saved-search settings
       between the toolbar and panel
 - [ ] **Panel:** choose an embedded-pane placement and whether to restore
       visibility at startup, preserving both file panes in shared placements
