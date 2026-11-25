@@ -28,7 +28,7 @@ bool matchesTag(const TagLibrary::Tag &tag, const SearchQuery::Term &term)
 }
 }
 
-QSet<QString> TagSearch::selectedTags(const TagLibrary::Library &library, const SearchQuery::Term &term)
+QSet<QString> TagSearch::selectedTags(const TagLibrary::Library &library, const SearchQuery::Term &term, const Options &options)
 {
     QSet<QString> selected;
     if (term.field != SearchQuery::Field::Tag) {
@@ -46,7 +46,7 @@ QSet<QString> TagSearch::selectedTags(const TagLibrary::Library &library, const 
     }
     for (const QString &id : std::as_const(found)) {
         selected.insert(id);
-        if (term.comparison != SearchQuery::Comparison::Equal) {
+        if (options.childTags && term.comparison != SearchQuery::Comparison::Equal) {
             for (const QString &child : library.descendants(id)) {
                 selected.insert(child);
             }
@@ -55,7 +55,8 @@ QSet<QString> TagSearch::selectedTags(const TagLibrary::Library &library, const 
     return selected;
 }
 
-TagSearch::Context::Context(const QStringList &roots)
+TagSearch::Context::Context(const QStringList &roots, const Options &options)
+    : m_options(options)
 {
     for (const QString &root : roots) {
         if (QDir::isAbsolutePath(root)) {
@@ -109,7 +110,7 @@ bool TagSearch::Context::matches(const QString &absolutePath, const SearchQuery:
     const QString key = QString::number(int(term.comparison)) + term.pattern.pattern() + QLatin1Char('\n') + term.text;
     auto selection = state->selections.find(key);
     if (selection == state->selections.end()) {
-        selection = state->selections.insert(key, selectedTags(library, term));
+        selection = state->selections.insert(key, selectedTags(library, term, m_options));
     }
     return std::any_of(tags.cbegin(), tags.cend(), [&selection](const QString &id) {
         return selection->contains(id);

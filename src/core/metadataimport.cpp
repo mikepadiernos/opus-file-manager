@@ -187,6 +187,7 @@ bool MetadataImport::apply(const Plan &plan, Result *result, QString *error)
                 TagLibrary::Tag tag;
                 tag.id = TagLibrary::createId();
                 tag.name = change.value;
+                tag.color = plan.tagColor;
                 if (!library.setTag(tag, problem)) {
                     return false;
                 }

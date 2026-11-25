@@ -8,7 +8,7 @@ namespace IndexedSearch
 {
 /**
  * Searches the index, optionally limiting matches and depth to workspaceRoots.
- * @param tagLibraries as for LiveSearch::find()
+ * @param tagLibraries, tagOptions as for LiveSearch::find()
  */
 LiveSearch::Result find(const QString &currentFolder,
                         const QString &text,
@@ -17,5 +17,6 @@ LiveSearch::Result find(const QString &currentFolder,
                         const LiveSearch::Progress &progress = {},
                         const PathFilter &filter = {},
                         const QStringList *workspaceRoots = nullptr,
-                        const QStringList *tagLibraries = nullptr);
+                        const QStringList *tagLibraries = nullptr,
+                        const TagSearch::Options &tagOptions = {});
 }

@@ -1262,5 +1262,33 @@
       <min>1</min>
       <max>10080</max>
     </entry>
+    <entry name="TagPanelPlacement" type="Enum">
+      <label>Where the embedded tag panel docks in the window: on the right or below the panes</label>
+      <choices>
+        <choice name="Right"/>
+        <choice name="Below"/>
+      </choices>
+      <default>Right</default>
+    </entry>
+    <entry name="ShowTagColors" type="Bool">
+      <label>Whether tag and tag group colours are shown as swatches; colours stay stored when hidden</label>
+      <default>true</default>
+    </entry>
+    <entry name="DefaultTagColor" type="String">
+      <label>The colour, as #rrggbb, given to newly created tags; empty for no colour</label>
+      <default></default>
+    </entry>
+    <entry name="ShowTagsInInformationPanel" type="Bool">
+      <label>Whether the information panel shows the tags of the selected item</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowInheritedTags" type="Bool">
+      <label>Whether the information panel lists tags inherited from parent tags after the direct tags, rather than only in its tooltip</label>
+      <default>false</default>
+    </entry>
+    <entry name="TagMatchesChildTags" type="Bool">
+      <label>Whether a tag: search term also matches items tagged with child tags of the named tag</label>
+      <default>true</default>
+    </entry>
   </group>
 </kcfg>

@@ -313,6 +313,11 @@ QString TagLibrary::moveDocument(const QString &root, Storage target)
     return {};
 }
 
+bool TagLibrary::isValidColor(const QString &color)
+{
+    return validColor(color);
+}
+
 QString TagLibrary::createId()
 {
     return QUuid::createUuid().toString(QUuid::WithoutBraces);

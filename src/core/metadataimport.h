@@ -59,6 +59,8 @@ struct Change {
 struct Plan {
     QString root;
     QList<Change> changes;
+    /// The #rrggbb colour given to tags the plan creates, or empty for none.
+    QString tagColor;
 
     int count(Action action) const;
     /// Whether applying the plan changes anything.

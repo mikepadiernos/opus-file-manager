@@ -59,7 +59,8 @@ LiveSearch::Result LiveSearch::find(const QString &folder,
                                     const Progress &progress,
                                     const PathFilter &filter,
                                     int entryLimit,
-                                    const QStringList *tagLibraries)
+                                    const QStringList *tagLibraries,
+                                    const TagSearch::Options &tagOptions)
 {
     Result result;
     const QFileInfo root(folder);
@@ -85,7 +86,7 @@ LiveSearch::Result LiveSearch::find(const QString &folder,
             return result;
         }
         if (query->usesTags()) {
-            tags.emplace(tagLibraries ? *tagLibraries : LibraryRegistry::roots());
+            tags.emplace(tagLibraries ? *tagLibraries : LibraryRegistry::roots(), tagOptions);
         }
     }
     if (filter.excludes(root.absoluteFilePath())) {

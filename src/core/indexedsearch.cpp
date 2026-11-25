@@ -57,7 +57,8 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
                                        const LiveSearch::Progress &progress,
                                        const PathFilter &filter,
                                        const QStringList *workspaceRoots,
-                                       const QStringList *tagLibraries)
+                                       const QStringList *tagLibraries,
+                                       const TagSearch::Options &tagOptions)
 {
     LiveSearch::Result result;
     if (text.trimmed().isEmpty()) {
@@ -167,7 +168,7 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
     const QStringList roots = workspaceRoots ? *workspaceRoots : QStringList{filter.maxDepth >= 0 ? QDir::cleanPath(currentFolder) : QStringLiteral("/")};
     std::optional<TagSearch::Context> tags;
     if (query && query->usesTags()) {
-        tags.emplace(tagLibraries ? *tagLibraries : LibraryRegistry::roots());
+        tags.emplace(tagLibraries ? *tagLibraries : LibraryRegistry::roots(), tagOptions);
     }
     auto iterator = balooQuery(seed, seedIsContent).exec();
     while (iterator.next()) {
@@ -231,6 +232,7 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
     Q_UNUSED(seed)
     Q_UNUSED(seedIsContent)
     Q_UNUSED(tagLibraries)
+    Q_UNUSED(tagOptions)
     result.errors.append(i18nc("@info", "Indexed search is unavailable because Plasma Opus was built without Baloo."));
 #endif
     return result;

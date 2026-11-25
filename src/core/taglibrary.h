@@ -57,6 +57,9 @@ bool isPrivate(const QString &root);
  */
 QString moveDocument(const QString &root, Storage target);
 
+/// Whether @p color is a valid tag or group colour: #rrggbb, or empty for none.
+bool isValidColor(const QString &color);
+
 struct Tag {
     QString id;
     QString name;

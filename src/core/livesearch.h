@@ -3,6 +3,7 @@
 #pragma once
 
 #include "pathfilter.h"
+#include "tagsearch.h"
 
 #include <QStringList>
 
@@ -34,6 +35,7 @@ using Progress = std::function<void(int, const QString &)>;
  * Searches a local folder, stopping after at most entryLimit entries.
  * @param tagLibraries the registered tag library roots for tag: and tagged:
  *        criteria, or null to read them from LibraryRegistry on this thread
+ * @param tagOptions how tag: criteria select tags
  */
 Result find(const QString &folder,
             const QString &text,
@@ -42,5 +44,6 @@ Result find(const QString &folder,
             const Progress &progress = {},
             const PathFilter &filter = {},
             int entryLimit = 200000,
-            const QStringList *tagLibraries = nullptr);
+            const QStringList *tagLibraries = nullptr,
+            const TagSearch::Options &tagOptions = {});
 }

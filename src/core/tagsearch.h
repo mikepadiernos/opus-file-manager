@@ -16,11 +16,18 @@
  */
 namespace TagSearch
 {
+/// How tag terms select tags.
+struct Options {
+    /// Whether tag: also selects the child tags of the tags it names; tag= never does.
+    bool childTags = true;
+};
+
 /**
  * The tags in @p library that the tag @p term selects: those whose name, an
- * alias or shorthand matches, ignoring case, and, for tag:, their child tags.
+ * alias or shorthand matches, ignoring case, and, for tag: when
+ * @p options allow, their child tags.
  */
-QSet<QString> selectedTags(const TagLibrary::Library &library, const SearchQuery::Term &term);
+QSet<QString> selectedTags(const TagLibrary::Library &library, const SearchQuery::Term &term, const Options &options = {});
 
 /**
  * Matches the items of one search. Each library is read at most once, so
@@ -31,7 +38,7 @@ class Context
 {
 public:
     /// Uses @p roots, the registered library roots, such as LibraryRegistry::roots().
-    explicit Context(const QStringList &roots);
+    explicit Context(const QStringList &roots, const Options &options = {});
 
     /// A matcher for the item at @p absolutePath, valid while the context exists.
     SearchQuery::TagMatcher matcher(const QString &absolutePath);
@@ -48,6 +55,7 @@ private:
     };
 
     QStringList m_roots;
+    Options m_options;
     QHash<QString, State> m_libraries;
     QStringList m_errors;
 };
