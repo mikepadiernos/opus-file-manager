@@ -181,3 +181,9 @@ install(TARGETS opus-file-manager ${KDE_INSTALL_TARGETS_DEFAULT_ARGS})
 install(PROGRAMS ${opusfm_desktop_file} DESTINATION ${KDE_INSTALL_APPDIR})
 install(FILES ${opusfm_metainfo_file} DESTINATION ${KDE_INSTALL_METAINFODIR})
 install(FILES org.kde.opusfilemanager.svg DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/scalable/apps)
+# Hand-drawn small sizes keep the mark legible on the pixel grid, where the
+# scaled-down scalable icon would blur.
+foreach(icon_size 16x16 22x22 32x32)
+    install(FILES icons/${icon_size}/org.kde.opusfilemanager.svg DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/${icon_size}/apps)
+endforeach()
+install(FILES icons/symbolic/org.kde.opusfilemanager-symbolic.svg DESTINATION ${KDE_INSTALL_ICONDIR}/hicolor/symbolic/apps)

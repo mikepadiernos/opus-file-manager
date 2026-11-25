@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+  <defs>
+    <style id="current-color-scheme" type="text/css">
+      .ColorScheme-Accent { color: #3daee9; }
+    </style>
+  </defs>
+  <path d="M1 2h5l1 1h8v10H1z" class="ColorScheme-Accent" fill="currentColor"/>
+  <path d="M1 2h5l1 1h8v10H1z" fill="#000000" fill-opacity=".26"/>
+  <path d="M2 4h12v3H2z" fill="#ffffff"/>
+  <path d="M1 6h5l1-1h8v9H1z" class="ColorScheme-Accent" fill="currentColor"/>
+  <path d="M8 7a3 3 0 1 0 0 6a3 3 0 1 0 0-6zm0 1a2 2 0 1 1 0 4a2 2 0 1 1 0-4z" fill="#ffffff"/>
+  <circle cx="8.5" cy="10.5" r="1" fill="#ffffff"/>
+</svg>
