@@ -127,8 +127,8 @@ is used.
 `./install.sh --help` for options. `./install.sh --default` also changes the
 default folder handler. The installer uses `build-plasma` with tests disabled;
 set `OPUSFM_BUILD_DIR` to choose another build tree. Uninstall using the same
-build tree. The app icon is installed with the application; file and action
-icons follow the active desktop theme.
+build tree. The app icon, desktop entry and AppStream metadata are installed
+with the application; file and action icons follow the active desktop theme.
 
 > [!TIP]
 > If `build` was created before the project folder was renamed, use a fresh
