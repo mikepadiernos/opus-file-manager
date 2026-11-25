@@ -17,6 +17,7 @@ These handoffs describe unfinished work and the branch or issue to resume.
 | 🎬 [mpv integration (#563)](#mpv-integration-563)                             | M27       | Backlog      |
 | 📝 [Markdown editor and backlinks (#564)](#markdown-editor-and-backlinks-564) | M27       | Backlog      |
 | 🗃️ [Workspace vault editing (#565)](#workspace-vault-editing-565)             | M27, M28  | Defined      |
+| 🔍 [M22 board updates (#31)](#m22-board-updates-31)                           | M22       | Development  |
 
 ## mpv integration (#563)
 
@@ -72,3 +73,36 @@ scans, duplicate names, link resolution, unavailable or removed roots, symlink
 boundaries and workspace deletion. Preserve the underlying files and existing
 Obsidian configuration. For #566, also verify workspace-scoped settings
 persistence and recovery when vault roots or editor features are unavailable.
+
+## M22 board updates (#31)
+
+GitHub Projects field updates for project 3 failed on 2026-11-25 with
+server errors (HTTP 502 and 504, and GraphQL "Something went wrong") after
+repeated retries with backoff. Reads, issue edits and comments still worked. The
+M22 implementation is complete and pushed on `feature/M22-advanced-search-settings`;
+the full test suite passed in the dev container.
+
+Confirmed state: #31 in Development, start 2026-11-25. Defaults
+([#248](https://github.com/mikepadiernos/plasma-opus/issues/248)) is Completed
+and checked in the roadmap. Panel
+([#245](https://github.com/mikepadiernos/plasma-opus/issues/245)) is in Review
+with target date 2026-11-25. Results
+([#247](https://github.com/mikepadiernos/plasma-opus/issues/247)) is in Review,
+checked in #31, without a target date. Toolbar
+([#246](https://github.com/mikepadiernos/plasma-opus/issues/246)) is Defined;
+it is implemented in commits `c0ce2d2` to `ec63a27`.
+
+When Projects updates work again, verify each status first, then:
+
+1. Set the #247 target date to 2026-11-25.
+2. Move #245 to Completed, close it as completed and check **Panel:** in the
+   M22 roadmap section.
+3. Move #246 to Development with start date 2026-11-25, then to Review with
+   target date 2026-11-25, and check **Toolbar:** in #31.
+4. Move #247 to Completed, close it and check **Results:** in the roadmap. Then
+   do the same for #246 and **Toolbar:**.
+5. Set the #31 target date to 2026-11-25, mark M22 complete in the roadmap
+   summary, open and merge the M22 pull request, and move #31, #245, #246, #247
+   and #248 to Merged, closed as completed. Leave
+   [#362](https://github.com/mikepadiernos/plasma-opus/issues/362) open.
+6. Remove this handoff and its roadmap link.

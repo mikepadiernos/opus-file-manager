@@ -1119,6 +1119,9 @@ integration without blocking this milestone.
 
 Settings for M21 advanced search, stored in KConfig.
 
+Board updates are pending; see the
+[pending handoff](TODO.md#m22-board-updates-31).
+
 - [x] **Defaults:** share M10 search scope, filter and saved-search settings
       between the toolbar and panel
 - [ ] **Panel:** choose an embedded-pane placement and whether to restore
