@@ -55,6 +55,8 @@ add_library(opusfm_app STATIC
     imagebackground.h
     informationpanel.cpp
     informationpanel.h
+    libraryrefreshdialog.cpp
+    libraryrefreshdialog.h
     mainwindow.cpp
     mainwindow.h
     metadataeditdialog.cpp
@@ -85,6 +87,8 @@ add_library(opusfm_app STATIC
     startuppresentation.h
     symbolicactionicons.cpp
     symbolicactionicons.h
+    taggingcontroller.cpp
+    taggingcontroller.h
     terminalpanel.cpp
     terminalpanel.h
     toolbarcustomizer.cpp

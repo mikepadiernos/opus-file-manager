@@ -51,6 +51,7 @@
 #include "symbolicicon.h"
 #include "tabcolors.h"
 #include "tabmodel.h"
+#include "taggingcontroller.h"
 #include "terminalpanel.h"
 #include "toolbarcustomizer.h"
 #include "transferqueue.h"
@@ -2748,6 +2749,18 @@ void MainWindow::setupActions()
         setPanelLayout(index == 0 ? PanelLayout::Combined : PanelLayout::Separate);
     });
 
+    m_tagging = new TaggingController(this,
+                                      actions,
+                                      {[this] {
+                                           return activePane()->url();
+                                       },
+                                       [this] {
+                                           return activePane()->view()->selectedItems();
+                                       },
+                                       [this](const QString &message) {
+                                           showStatusMessage(message);
+                                       }});
+
     // Settings
     KStandardAction::preferences(this, &MainWindow::showSettings, actions);
     QAction *showMenuBar = KStandardAction::showMenubar(menuBar(), &QMenuBar::setVisible, actions);
@@ -3070,6 +3083,9 @@ void MainWindow::updateActions()
     m_viewModeAction->setIcon(SymbolicIcon::fromTheme(details ? QStringLiteral("view-list-icons") : QStringLiteral("view-list-details")));
     actions->action(QStringLiteral("calculate_occupied_space"))->setEnabled(!view->rootItem().isNull());
     m_jumpBackAction->setEnabled(m_jumpBackPoints.value(activePane()).isValid());
+    if (m_tagging) {
+        m_tagging->updateActions();
+    }
     actions->action(QStringLiteral("move_second_pane_to_tab"))->setEnabled(!m_secondPaneInTab);
     actions->action(QStringLiteral("move_second_pane_to_window"))->setEnabled(!m_rightWindow);
     const bool moveToTab = Settings::paneMoveDestination() == Settings::EnumPaneMoveDestination::Tab;

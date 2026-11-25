@@ -34,6 +34,7 @@ class KToggleAction;
 class Pane;
 class PreviewPanel;
 class SearchPanel;
+class TaggingController;
 class TabColors;
 class TerminalPanel;
 class ToolbarCustomizer;
@@ -364,6 +365,7 @@ private:
     QStringList m_flatLocations;
     PanelLayout m_panelLayout = PanelLayout::Combined;
     KFileItemActions *m_fileItemActions = nullptr;
+    TaggingController *m_tagging = nullptr;
     KFileCopyToMenu *m_copyToMenu = nullptr;
     KNewFileMenu *m_newFileMenu = nullptr;
     QSplitter *m_splitter = nullptr;
