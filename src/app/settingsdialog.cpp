@@ -8,6 +8,7 @@
 #include "customcommanddialog.h"
 #include "density.h"
 #include "doubleshift.h"
+#include "libraryarchive.h"
 #include "localizednumbers.h"
 #include "pane.h"
 #include "pathfilterpresetsdialog.h"
@@ -221,6 +222,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createSelectionFiltersPage(), i18nc("@title:tab", "Selection Filters")}},
                   i18nc("@title:group", "Files"),
                   QStringLiteral("folder"));
+    addTabbedPage({{createTaggingPrivacyPage(), i18nc("@title:tab", "Privacy")}}, i18nc("@title:group", "Tagging"), QStringLiteral("tag"));
     addTabbedPage({{createWorkspaceManagementPage(), i18nc("@title:tab", "Management")},
                    {createWorkspaceStartupPage(), i18nc("@title:tab", "Startup")},
                    {createWorkspaceSearchPage(), i18nc("@title:tab", "Search")},
@@ -2578,6 +2580,56 @@ QWidget *SettingsDialog::createFileRulesPage()
     form->addRow(i18nc("@label", "Ignored names:"), bound(new RuleListEditor(RuleListEditor::Kind::Ignore), QStringLiteral("IgnoreList"), "rules"));
     form->addRow(i18nc("@label", "File colours by extension:"),
                  bound(new RuleListEditor(RuleListEditor::Kind::Color), QStringLiteral("ExtensionColors"), "rules"));
+    return page;
+}
+
+QWidget *SettingsDialog::createTaggingPrivacyPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("taggingPrivacyPage"));
+    auto *layout = new QVBoxLayout(page);
+    auto *explanation = new QLabel(
+        i18nc("@info",
+              "A library's metadata holds its tag names, aliases, shorthand, colours and groups; its field definitions and values; the paths of "
+              "indexed items relative to the library folder, with their size, modification time and file system identity numbers; and which items "
+              "have which tags. The list of library folders is kept in Plasma Opus's configuration, and the copy of a library's metadata made before "
+              "each restore is kept in the backup folder. Nothing is sent over the network. Files themselves are only changed when you write "
+              "embedded metadata."),
+        page);
+    explanation->setObjectName(QStringLiteral("taggingPrivacyExplanation"));
+    explanation->setWordWrap(true);
+    layout->addWidget(explanation);
+
+    auto *form = new QFormLayout;
+    QComboBox *storage = comboBox(QStringLiteral("NewLibraryStorage"),
+                                  {i18nc("@item:inlistbox library metadata location", "In the library folder"),
+                                   i18nc("@item:inlistbox library metadata location", "Privately, in Plasma Opus's data folder")});
+    storage->setToolTip(i18nc("@info:tooltip",
+                              "Private storage writes nothing to the library folder, which suits shared drives and read-only folders. An existing "
+                              "library document is always used where it is."));
+    form->addRow(i18nc("@label:listbox", "Store metadata of new libraries:"), storage);
+
+    KUrlRequester *backups = folderRequester(QStringLiteral("LibraryBackupFolder"));
+    backups->setPlaceholderText(LibraryArchive::backupDirectory());
+    backups->setToolTip(i18nc("@info:tooltip", "Where a copy of a library's metadata is kept before a restore replaces it"));
+    form->addRow(i18nc("@label:chooser", "Backup folder:"), backups);
+
+    auto *limit = new QSpinBox;
+    limit->setObjectName(QStringLiteral("kcfg_LibraryBackupLimit"));
+    limit->setRange(0, 1000);
+    limit->setSpecialValueText(i18nc("@item:inrange keep all backups", "All"));
+    limit->setSuffix(i18nc("@item:valuesuffix", " backups per library"));
+    limit->setToolTip(i18nc("@info:tooltip", "After a restore, the oldest backups of that library beyond this number are deleted"));
+    form->addRow(i18nc("@label:spinbox", "Keep at most:"), limit);
+    layout->addLayout(form);
+
+    layout->addWidget(
+        checkBox(QStringLiteral("AllowEmbeddedMetadataWrites"), i18nc("@option:check", "Allow writing library values into files' embedded metadata")));
+    auto *consent = new QLabel(i18nc("@info", "Plasma Opus always previews the changes and asks before changing a file."), page);
+    consent->setObjectName(QStringLiteral("taggingPrivacyWriteNote"));
+    consent->setWordWrap(true);
+    layout->addWidget(consent);
+    layout->addStretch();
     return page;
 }
 

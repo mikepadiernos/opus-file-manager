@@ -73,6 +73,7 @@ private:
     QCheckBox *m_replace;
     QPushButton *m_preview;
     QPushButton *m_editEmbedded;
+    QLabel *m_editEmbeddedNote;
     QTreeWidget *m_changes;
     QLabel *m_summary;
     KMessageWidget *m_error;

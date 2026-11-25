@@ -3,6 +3,7 @@
 #include "metadataimportdialog.h"
 
 #include "metadataeditor.h"
+#include "settings.h"
 
 #include <KLocalizedString>
 #include <KMessageWidget>
@@ -30,6 +31,7 @@ MetadataImportDialog::MetadataImportDialog(const QString &root, const QStringLis
     , m_replace(new QCheckBox(i18nc("@option:check", "&Replace existing field values"), this))
     , m_preview(new QPushButton(QIcon::fromTheme(QStringLiteral("view-preview")), i18nc("@action:button", "&Preview"), this))
     , m_editEmbedded(new QPushButton(QIcon::fromTheme(QStringLiteral("document-edit")), i18nc("@action:button", "&Edit Embedded Metadata…"), this))
+    , m_editEmbeddedNote(new QLabel(this))
     , m_changes(new QTreeWidget(this))
     , m_summary(new QLabel(this))
     , m_error(new KMessageWidget(this))
@@ -48,8 +50,18 @@ MetadataImportDialog::MetadataImportDialog(const QString &root, const QStringLis
     m_preview->setObjectName(QStringLiteral("metadataImportPreview"));
     m_preview->setEnabled(false);
     m_editEmbedded->setObjectName(QStringLiteral("metadataImportEditEmbedded"));
-    m_editEmbedded->setToolTip(i18nc("@info:tooltip", "Change the metadata stored in the file itself, with a preview before it is written"));
+    if (Settings::allowEmbeddedMetadataWrites()) {
+        m_editEmbedded->setToolTip(i18nc("@info:tooltip", "Change the metadata stored in the file itself, with a preview before it is written"));
+    } else {
+        const QString off = i18nc("@info", "Writing to files is turned off in Preferences › Tagging › Privacy.");
+        m_editEmbedded->setEnabled(false);
+        m_editEmbedded->setToolTip(off);
+        m_editEmbeddedNote->setText(off);
+    }
     m_editEmbedded->hide();
+    m_editEmbeddedNote->setObjectName(QStringLiteral("metadataImportEditEmbeddedNote"));
+    m_editEmbeddedNote->setWordWrap(true);
+    m_editEmbeddedNote->hide();
     m_changes->setObjectName(QStringLiteral("metadataImportChanges"));
     m_changes->setHeaderLabels(
         {i18nc("@title:column", "Item"), i18nc("@title:column", "Property"), i18nc("@title:column", "Value"), i18nc("@title:column", "Change")});
@@ -77,6 +89,7 @@ MetadataImportDialog::MetadataImportDialog(const QString &root, const QStringLis
     auto *row = new QHBoxLayout;
     row->addWidget(m_preview);
     row->addWidget(m_editEmbedded);
+    row->addWidget(m_editEmbeddedNote, 1);
     row->addStretch();
     layout->addLayout(row);
     layout->addWidget(m_changes, 1);
@@ -94,6 +107,9 @@ MetadataImportDialog::MetadataImportDialog(const QString &root, const QStringLis
     connect(m_replace, &QCheckBox::toggled, this, &MetadataImportDialog::invalidatePreview);
     connect(m_preview, &QPushButton::clicked, this, &MetadataImportDialog::preview);
     connect(m_editEmbedded, &QPushButton::clicked, this, [this] {
+        if (!Settings::allowEmbeddedMetadataWrites()) {
+            return;
+        }
         Q_EMIT editEmbeddedRequested(m_paths.constFirst());
         reject();
     });
@@ -178,6 +194,7 @@ void MetadataImportDialog::showReadings(const QList<EmbeddedMetadata::Reading> &
     }
     if (readings.size() == 1 && readings.constFirst().supported && MetadataEditor::supports(readings.constFirst().mimeType)) {
         m_editEmbedded->show();
+        m_editEmbeddedNote->setVisible(!m_editEmbedded->isEnabled());
     }
     m_ready = true;
     invalidatePreview();

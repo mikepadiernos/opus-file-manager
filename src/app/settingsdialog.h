@@ -147,6 +147,7 @@ private:
     QWidget *createFileRulesPage();
     QWidget *createFileMetadataPage();
     QWidget *createSelectionFiltersPage();
+    QWidget *createTaggingPrivacyPage();
     QWidget *createWorkspaceManagementPage();
     QWidget *createWorkspaceStartupPage();
     QWidget *createWorkspaceSearchPage();
