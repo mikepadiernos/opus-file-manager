@@ -723,8 +723,19 @@ Tracked in
   panel. While a search runs, Enter does not start another search. The field's
   Saved Searches menu runs a saved search with all its saved criteria,
   including its folder, and replaces the panel's criteria. The field can be
-  placed on the main toolbar only, not on pane toolbars, and does not show
-  suggestions or history.
+  placed on the main toolbar only, not on pane toolbars. It suggests recent
+  queries while typing, and Alt+Down lists them.
+- **Result presentation and history:** Results and collection references are
+  listed by full path or by name with their folder; the choice next to the
+  result tabs applies to the current panel and Preferences' Search page sets
+  its default. Copying, opening and revealing always use the full
+  path. Recent queries, up to 50, are shared by every window and kept as plain
+  text in Plasma Opus's state file, not in a protected store. A query is
+  remembered when its search starts, including searches started from the
+  toolbar field or a saved search. Turning off Remember recent search queries
+  forgets stored queries the next time a window applies Preferences, and
+  Clear Search History forgets them at once; neither removes queries already
+  shown in an open completion list or saved searches.
 - **Search keyboard navigation:** Down in the toolbar field or the panel's
   query moves to the visible result list, or from the toolbar field to the
   query when there are no results. Escape cancels a running search; otherwise
@@ -789,7 +800,10 @@ Tracked in
   advanced query has no required name or content term. After renaming or
   deleting a shared path filter, choose the default path filter again on
   Preferences' Search page. With several windows open, hide the search panel in
-  the last window you use if it should stay closed at the next startup.
+  the last window you use if it should stay closed at the next startup. Turn
+  off Remember recent search queries before searching for sensitive text, or
+  use Clear Search History afterwards. Choose Names and folders when long
+  paths make results hard to scan.
   - Comment: [#362.7023269364][comment-362]
 - **Alternative:** Use a separately maintained locate database for filenames.
   - Comment:
