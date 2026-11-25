@@ -1090,10 +1090,10 @@ Extend the M09 search tools and reuse their search scopes, filters and saved
 searches rather than introducing a separate search system. M27 extends the Baloo
 integration without blocking this milestone.
 
-- [ ] **Indexing:** configure search folders and exclusions, and use existing
+- [x] **Indexing:** configure search folders and exclusions, and use existing
       KDE facilities for the search shortcut. Use double Shift where supported,
       report when it is unavailable.
-- [ ] Provide an embedded search pane using existing supported placements.
+- [x] Provide an embedded search pane using existing supported placements.
       Placing it alongside file panes must not replace either pane.
 - [ ] Show M09 search results in the embedded panel, reusing progress,
       cancellation, error reporting and open and reveal actions without moving
