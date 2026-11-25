@@ -25,6 +25,7 @@
 #include "libraryregistry.h"
 #include "localizeddates.h"
 #include "metadataeditdialog.h"
+#include "metadataimportdialog.h"
 #include "pane.h"
 #include "previewpanel.h"
 #include "savedpathfilters.h"
@@ -269,6 +270,16 @@ private Q_SLOTS:
         QTest::keyClicks(fieldEditor->editor(owner), QStringLiteral("Ann"));
         QVERIFY(fieldEditor->apply());
         QCOMPARE(TagLibrary::Library::load(folder.path()).entry(QStringLiteral("x.txt"))->fields.value(owner), QStringLiteral("Ann"));
+
+        // Import Embedded Metadata reads the selection in the background.
+        auto *importMetadata = window.actionCollection()->action(QStringLiteral("import_metadata"));
+        QVERIFY(importMetadata->isEnabled());
+        importMetadata->trigger();
+        auto *importDialog = window.findChild<MetadataImportDialog *>();
+        QVERIFY(importDialog);
+        QTRY_VERIFY(importDialog->isReady());
+        QVERIFY(!importDialog->findChild<QPushButton *>(QStringLiteral("metadataImportPreview"))->isEnabled());
+        importDialog->reject();
 
         panel->findChild<QAction *>(QStringLiteral("tagPanelPlaceBelow"))->trigger();
         QCOMPARE(window.dockWidgetArea(dock), Qt::BottomDockWidgetArea);

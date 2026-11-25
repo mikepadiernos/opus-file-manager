@@ -46,6 +46,7 @@ private Q_SLOTS:
         QTest::newRow("value with colon") << QStringLiteral("path:\"C:x\"") << QStringLiteral("path:\"C:x\"");
         QTest::newRow("tags") << QStringLiteral("Tag:Cat tags=\"Big cat\"") << QStringLiteral("(tag:\"Cat\" AND tag=\"Big cat\")");
         QTest::newRow("tagged") << QStringLiteral("tagged:YES OR tagged=false") << QStringLiteral("(tagged:\"yes\" OR tagged:\"no\")");
+        QTest::newRow("metadata") << QStringLiteral("Meta:Canon metadata=Jazz") << QStringLiteral("(meta:\"Canon\" AND meta=\"Jazz\")");
     }
 
     void normalizesValidQueries()
@@ -88,7 +89,9 @@ private Q_SLOTS:
                                  "tag:",
                                  "tag>a",
                                  "tagged:maybe",
-                                 "tagged<=yes"}) {
+                                 "tagged<=yes",
+                                 "meta:",
+                                 "meta>2020"}) {
             QTest::newRow(text) << QString::fromUtf8(text);
         }
     }
@@ -261,6 +264,37 @@ private Q_SLOTS:
         QVERIFY(!Query::parse(QStringLiteral("tag:cat")).matches(entry));
         QVERIFY(!Query::parse(QStringLiteral("tagged:no")).matches(entry));
         QVERIFY(Query::parse(QStringLiteral("NOT tagged:yes")).matches(entry));
+    }
+
+    void evaluatesEmbeddedMetadataLazily()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QFile file(root.filePath(QStringLiteral("photo.jpg")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+        const QFileInfo fileInfo(file.fileName());
+        const QFileInfo folderInfo(root.path());
+        int reads = 0;
+        const SearchQuery::MetadataReader metadata = [&reads]() {
+            ++reads;
+            return QStringList{QStringLiteral("Canon"), QStringLiteral("Canon EOS R5"), QStringLiteral("2026-02-28")};
+        };
+
+        QVERIFY(Query::parse(QStringLiteral("meta:eos")).usesMetadata());
+        QVERIFY(!Query::parse(QStringLiteral("\"meta:eos\"")).usesMetadata());
+        QVERIFY(Query::parse(QStringLiteral("meta:eos")).matches(fileInfo, {}, {}, metadata));
+        QVERIFY(Query::parse(QStringLiteral("meta=canon")).matches(fileInfo, {}, {}, metadata));
+        QVERIFY(!Query::parse(QStringLiteral("meta=eos")).matches(fileInfo, {}, {}, metadata));
+        QVERIFY(Query::parse(QStringLiteral("meta:2026-02*")).matches(fileInfo, {}, {}, metadata));
+        QVERIFY(!Query::parse(QStringLiteral("meta:\"2026-02*\"")).matches(fileInfo, {}, {}, metadata));
+        reads = 0;
+        // Cheap criteria decide first, so the metadata isn't read.
+        QVERIFY(!Query::parse(QStringLiteral("meta:canon zzz")).matches(fileInfo, {}, {}, metadata));
+        QVERIFY(Query::parse(QStringLiteral("meta:nikon OR photo")).matches(fileInfo, {}, {}, metadata));
+        QVERIFY(!Query::parse(QStringLiteral("meta:canon")).matches(folderInfo, {}, {}, metadata));
+        QCOMPARE(reads, 0);
+        QVERIFY(!Query::parse(QStringLiteral("meta:canon")).matches(fileInfo));
     }
 };
 

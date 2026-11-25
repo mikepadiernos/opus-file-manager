@@ -112,6 +112,7 @@ ecm_add_tests(
     imagedetailstest.cpp
     markdownexporttest.cpp
     metadataeditortest.cpp
+    metadataimporttest.cpp
     navigationhistorytest.cpp
     previewcontenttest.cpp
     servicemenustest.cpp

@@ -8,6 +8,7 @@
 #include "libraryreviewdialog.h"
 #include "libraryscan.h"
 #include "localizeddates.h"
+#include "metadataimportdialog.h"
 #include "tagassignment.h"
 #include "tageditdialog.h"
 #include "tagfieldmanagerwidget.h"
@@ -21,6 +22,7 @@
 #include <KActionCollection>
 #include <KColorButton>
 #include <KIO/CopyJob>
+#include <KPluginMetaData>
 
 #include <QAction>
 #include <QCheckBox>
@@ -28,6 +30,7 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
+#include <QImage>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -771,6 +774,133 @@ private Q_SLOTS:
         QCOMPARE(manager->findChild<QTabWidget *>(QStringLiteral("tagsDialogTabs"))->currentIndex(), 2);
         QVERIFY(manager->findChild<TagFieldManagerWidget *>());
         manager->close();
+    }
+
+    void importsEmbeddedMetadata()
+    {
+        const auto plugins = KPluginMetaData::findPlugins(QStringLiteral("kf6/kfilemetadata"));
+        if (std::none_of(plugins.cbegin(), plugins.cend(), [](const KPluginMetaData &plugin) {
+                return plugin.pluginId().contains(QLatin1String("exiv2"));
+            })) {
+            QSKIP("No EXIF metadata extractor is installed");
+        }
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        // A JPEG whose EXIF data names the camera maker "Acme".
+        const QString photo = dir.filePath(QStringLiteral("photo.jpg"));
+        QImage image(4, 4, QImage::Format_RGB32);
+        image.fill(Qt::red);
+        QVERIFY(image.save(photo));
+        QFile file(photo);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QByteArray jpeg = file.readAll();
+        file.close();
+        jpeg.insert(2, QByteArray::fromHex("ffe1002745786966000049492a000800000001000f010200050000001a0000000000000041636d6500"));
+        QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        QCOMPARE(file.write(jpeg), jpeg.size());
+        file.close();
+        const QString notes = dir.filePath(QStringLiteral("notes.txt"));
+        write(notes);
+        QCOMPARE(LibraryRegistry::create(dir.path()), QString());
+        indexWithTag(dir.path(), {});
+        QString error;
+        QVERIFY2(TagLibrary::update(
+                     dir.path(),
+                     [](TagLibrary::Library &library, QString *problem) {
+                         return library.setField({QStringLiteral("maker"), QStringLiteral("Manufacturer"), TagLibrary::FieldType::Text}, problem);
+                     },
+                     &error),
+                 qPrintable(error));
+        const QByteArray original = jpeg;
+
+        {
+            MetadataImportDialog dialog(dir.path(), {photo, notes});
+            QSignalSpy changed(&dialog, &MetadataImportDialog::libraryChanged);
+            QTRY_VERIFY(dialog.isReady());
+            auto *preview = dialog.findChild<QPushButton *>(QStringLiteral("metadataImportPreview"));
+            auto *apply = dialog.findChild<QPushButton *>(QStringLiteral("metadataImportApply"));
+            auto *changes = dialog.findChild<QTreeWidget *>(QStringLiteral("metadataImportChanges"));
+            QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("metadataImportEditEmbedded"))->isVisibleTo(&dialog));
+            // A field named like the property is suggested.
+            QComboBox *maker = dialog.mapping(QStringLiteral("manufacturer"));
+            QVERIFY(maker);
+            QCOMPARE(maker->currentData().toString(), QStringLiteral("maker"));
+            QVERIFY(preview->isEnabled());
+            QVERIFY(!apply->isEnabled());
+
+            // Importing as tags creates the tag; the text file is reported, not changed.
+            maker->setCurrentIndex(maker->findData(MetadataImport::tagsTarget()));
+            preview->click();
+            QCOMPARE(changes->topLevelItemCount(), 2);
+            QCOMPARE(dialog.plan().count(MetadataImport::Action::CreateTag), 1);
+            QCOMPARE(dialog.plan().count(MetadataImport::Action::Unsupported), 1);
+            QVERIFY(apply->isEnabled());
+            QVERIFY(!dialog.findChild<QLabel *>(QStringLiteral("metadataImportSummary"))->text().isEmpty());
+
+            // Changing a mapping requires a new preview.
+            maker->setCurrentIndex(maker->findData(QStringLiteral("maker")));
+            QVERIFY(!apply->isEnabled());
+            QCOMPARE(changes->topLevelItemCount(), 0);
+            QVERIFY(dialog.preview());
+            QCOMPARE(dialog.plan().count(MetadataImport::Action::SetField), 1);
+            QVERIFY(dialog.import());
+            QCOMPARE(changed.count(), 1);
+            QCOMPARE(dialog.importResult().valuesSet, 1);
+            QCOMPARE(dialog.result(), int(QDialog::Accepted));
+        }
+        TagLibrary::Library library = TagLibrary::Library::load(dir.path());
+        QCOMPARE(library.entry(QStringLiteral("photo.jpg"))->fields.value(QStringLiteral("maker")), QStringLiteral("Acme"));
+        QVERIFY(library.findTags(QStringLiteral("Acme")).isEmpty());
+        QFile check(photo);
+        QVERIFY(check.open(QIODevice::ReadOnly));
+        QCOMPARE(check.readAll(), original);
+        check.close();
+
+        // A single editable file offers the embedded metadata editor; another preview finds nothing to import.
+        {
+            MetadataImportDialog dialog(dir.path(), {photo});
+            QTRY_VERIFY(dialog.isReady());
+            QVERIFY(dialog.preview());
+            QVERIFY(!dialog.plan().hasChanges());
+            QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("metadataImportApply"))->isEnabled());
+            QVERIFY(!dialog.import());
+            auto *edit = dialog.findChild<QPushButton *>(QStringLiteral("metadataImportEditEmbedded"));
+            QVERIFY(edit->isVisibleTo(&dialog));
+            QSignalSpy requested(&dialog, &MetadataImportDialog::editEmbeddedRequested);
+            edit->click();
+            QCOMPARE(requested.count(), 1);
+            QCOMPARE(requested.first().first().toString(), photo);
+        }
+
+        // The controller opens the import for the selection and refuses items outside libraries.
+        QWidget window;
+        KActionCollection actions(&window);
+        KFileItemList selection{KFileItem(QUrl::fromLocalFile(photo))};
+        QString status;
+        TaggingController controller(&window,
+                                     &actions,
+                                     {[&dir] {
+                                          return QUrl::fromLocalFile(dir.path());
+                                      },
+                                      [&selection] {
+                                          return selection;
+                                      },
+                                      [&status](const QString &message) {
+                                          status = message;
+                                      }});
+        controller.updateActions();
+        QVERIFY(actions.action(QStringLiteral("import_metadata"))->isEnabled());
+        actions.action(QStringLiteral("import_metadata"))->trigger();
+        auto *opened = window.findChild<MetadataImportDialog *>();
+        QVERIFY(opened);
+        QTRY_VERIFY(opened->isReady());
+        opened->reject();
+        QVERIFY(!controller.importMetadata({QDir::tempPath()}));
+        QVERIFY(!status.isEmpty());
+        selection.clear();
+        status.clear();
+        actions.action(QStringLiteral("import_metadata"))->trigger();
+        QVERIFY(!status.isEmpty());
     }
 };
 

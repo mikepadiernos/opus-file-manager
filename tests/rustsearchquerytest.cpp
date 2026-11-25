@@ -100,6 +100,9 @@ QStringList fixedCorpus()
         QStringLiteral("tagged:maybe"),
         QStringLiteral("tagged<yes"),
         QStringLiteral("tag:"),
+        QStringLiteral("Meta:Canon metadata=Jazz meta:20*"),
+        QStringLiteral("meta>1"),
+        QStringLiteral("meta:"),
     };
 }
 
@@ -139,6 +142,8 @@ QStringList generatedCorpus(int count)
         QStringLiteral("tag=a*"),
         QStringLiteral("tagged:no"),
         QStringLiteral("tagged:x"),
+        QStringLiteral("meta:canon"),
+        QStringLiteral("meta<=x"),
         QStringLiteral("café"),
     };
     QStringList queries;
