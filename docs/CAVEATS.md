@@ -34,7 +34,7 @@ recommendation and external tools are separate applications.
 - **Other:** [Embedded terminal](#embedded-terminal),
   [linked navigation](#linked-pane-navigation),
   [workspace layouts](#workspace-layouts),
-  [workspace settings](#workspace-settings),
+  [workspace settings](#workspace-settings), [themes](#themes),
   [native tag groups](#native-tag-groups),
   [native title and header padding](#native-title-and-header-padding),
   [file-list minimap](#file-list-minimap),
@@ -101,6 +101,68 @@ The M16 settings have these limits
   - Optionally probe remote locations with a bounded, cancellable KIO stat.
   - Compare only the restorable parts of a layout when marking unsaved state.
   - Choose to replace or keep each conflicting profile separately.
+
+## Themes
+
+The M17 theme options have these limits
+([#680](https://github.com/mikepadiernos/plasma-opus/issues/680)):
+
+- **Blur and translucency:** background blur uses KWin's blur effect through
+  `KWindowEffects`. Without KWin compositing it is reported as unavailable and
+  the background stays opaque. Blur and translucency have been tested only
+  headlessly, without a Plasma session.
+- **Stylesheets:** a custom Qt stylesheet is limited to 64 KiB and 2,000 rules.
+  `@import`, `qproperty-` declarations and `url()` references other than Qt
+  resources (`:/` or `qrc:/`) are refused, so local and remote images cannot
+  be used. Qt's parser is lenient, so some unsupported selectors or properties
+  are ignored without an error. The stylesheet is applied to each main window
+  and the dialogs it owns.
+- **Theme profiles:** invalid saved profiles are skipped when loading, with a
+  count but without naming them. Profiles leave out folder colour rules and the
+  high-contrast safeguard. Unavailable colour schemes and fonts in a profile
+  fall back to Plasma's until they are installed.
+- **Settings dialog and workspaces:** the settings dialog always edits the
+  global appearance. While the active workspace overrides an option, the dialog
+  shows the global value without a notice, and its changes appear only where
+  the workspace does not override them.
+- **Other windows:** changes to a theme profile attached to a workspace reach
+  other open windows only when they next apply settings or switch workspaces.
+- **View mode:** a workspace's view mode override sets the panes' view mode
+  when switching to the workspace, not at startup, where restored panes keep
+  their saved view modes.
+- **Folder colour rules:** a workspace keeps its own copy of folder colour
+  rules, taken from the global rules rather than edited per workspace.
+- **App-wide:** the active workspace is shared by all windows, so its
+  appearance applies to every window.
+
+- **Recommendation:**
+  - **Blur and translucency:** enable compositing and KWin's blur effect in
+    System Settings. If blur is unavailable, lower opacity only as far as text
+    stays readable, or keep backgrounds opaque.
+  - **Stylesheets:** keep stylesheets small and appearance-only, using colours,
+    borders and Qt resource images. Check the preview before applying, and
+    export the stylesheet before large edits so that you can revert.
+  - **Theme profiles:** export profiles you rely on as backups and re-import
+    them if the profile count drops. Keep folder colour rules in the global
+    settings or attach them to a workspace.
+  - **Settings dialog and workspaces:** change overridden options in
+    **Workspaces… → Workspace Appearance**, or clear the override there first.
+    Start with `--no-workspace-appearance` to see only the global appearance.
+  - **Other windows:** after editing an attached profile, apply settings or
+    switch workspaces in the other windows.
+  - **View mode:** switch to the workspace again, or choose the view mode for
+    each pane.
+  - **Folder colour rules:** edit the global rules, then choose **Copy of the
+    global rules** in the workspace's appearance and save it.
+  - **App-wide:** use separate workspaces for different appearances; M27 can
+    apply separate choices per Activity.
+  - Comment:
+    [#680.7148716042](https://github.com/mikepadiernos/plasma-opus/issues/680#issuecomment-7148716042)
+- **Proposed improvements:**
+  - Mark options that the active workspace overrides in the settings dialog.
+  - Notify other windows when theme profiles or workspace appearance change.
+  - Name skipped theme profiles and offer to export or remove them.
+  - Edit folder colour rules per workspace.
 
 ## Native tag groups
 
