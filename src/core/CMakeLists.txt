@@ -81,6 +81,8 @@ add_library(opusfm_core STATIC
     effectiveappearance.h
     executables.cpp
     executables.h
+    embeddedmetadata.cpp
+    embeddedmetadata.h
     imagedetails.cpp
     imagedetails.h
     imageconversion.cpp

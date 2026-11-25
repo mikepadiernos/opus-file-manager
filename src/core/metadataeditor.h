@@ -23,4 +23,6 @@ struct Snapshot {
 
 Snapshot read(const QString &path);
 QString write(const Snapshot &snapshot, const QMap<QString, QString> &values);
+/// Whether files of MIME type @p mimeType can be edited.
+bool supports(const QString &mimeType);
 }
