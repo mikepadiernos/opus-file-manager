@@ -211,7 +211,7 @@ private Q_SLOTS:
         }
         TagLibrary::Library library(root.path());
         QVERIFY(library.setTag({QStringLiteral("t-animal"), QStringLiteral("Animal"), {}, {}, {}, {}}));
-        QVERIFY(library.setTag({QStringLiteral("t-cat"), QStringLiteral("Cat"), {}, {}, {}, {QStringLiteral("t-animal")}}));
+        QVERIFY(library.setTag({QStringLiteral("t-cat"), QStringLiteral("Cat"), {QStringLiteral("Kitty")}, {}, {}, {QStringLiteral("t-animal")}}));
         QVERIFY(library.assignTags({{QStringLiteral("cat.jpg"), false, 0, 0, 0, 0}}, {QStringLiteral("t-cat")}, {}));
         QString error;
         QVERIFY2(library.save(&error), qPrintable(error));
@@ -231,6 +231,28 @@ private Q_SLOTS:
         QCOMPARE(find(QStringLiteral("type:jpg NOT tag:cat"), libraries).paths, QStringList{root.filePath(QStringLiteral("dog.jpg"))});
         // Outside a registered library, tag criteria match nothing.
         QVERIFY(find(QStringLiteral("tag:animal OR tagged:no"), {}).paths.isEmpty());
+
+        // Unless options let tagged:no match items outside every library; the stray library document still doesn't.
+        TagSearch::Options outside;
+        outside.untaggedOutsideLibraries = true;
+        const QStringList none;
+        const auto findOutside = [&root, &none, &outside](const QString &text) {
+            QStringList paths = LiveSearch::find(root.path(), text, LiveSearch::Field::Query, {}, {}, {}, 200000, &none, outside).paths;
+            paths.sort();
+            return paths;
+        };
+        QCOMPARE(
+            findOutside(QStringLiteral("tagged:no type:file")),
+            (QStringList{root.filePath(QStringLiteral("cat.jpg")), root.filePath(QStringLiteral("dog.jpg")), root.filePath(QStringLiteral("sub/plain.txt"))}));
+        QVERIFY(findOutside(QStringLiteral("tagged:yes OR tag:animal")).isEmpty());
+
+        // Without aliases, only tag names match.
+        QCOMPARE(find(QStringLiteral("tag:kitty"), libraries).paths, QStringList{root.filePath(QStringLiteral("cat.jpg"))});
+        TagSearch::Options names;
+        names.aliases = false;
+        QVERIFY(LiveSearch::find(root.path(), QStringLiteral("tag:kitty"), LiveSearch::Field::Query, {}, {}, {}, 200000, &libraries, names).paths.isEmpty());
+        QCOMPARE(LiveSearch::find(root.path(), QStringLiteral("tag:cat"), LiveSearch::Field::Query, {}, {}, {}, 200000, &libraries, names).paths,
+                 QStringList{root.filePath(QStringLiteral("cat.jpg"))});
     }
 };
 

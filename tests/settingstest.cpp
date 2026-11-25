@@ -233,6 +233,14 @@ private Q_SLOTS:
         QVERIFY(Settings::showTagsInInformationPanel());
         QVERIFY(!Settings::showInheritedTags());
         QVERIFY(Settings::tagMatchesChildTags());
+        QCOMPARE(Settings::tagSearchScope(), Settings::EnumTagSearchScope::CurrentFolder);
+        QVERIFY(Settings::tagMatchAliases());
+        QVERIFY(!Settings::untaggedIncludesOutsideLibraries());
+        const TagSearch::Options options = TaggingSettings::tagSearchOptions();
+        QVERIFY(options.childTags);
+        QVERIFY(options.aliases);
+        QVERIFY(!options.untaggedOutsideLibraries);
+        QCOMPARE(options.scope, TagSearch::Scope::CurrentFolder);
 
         // Earlier versions remembered the placement in the state configuration.
         const auto rememberPlacement = [](const QString &placement) {
@@ -1272,6 +1280,9 @@ private Q_SLOTS:
                                      QStringLiteral("ShowInheritedTags"),
                                      QStringLiteral("TagMatchesChildTags")}) {
             QCOMPARE(tabOf(entry), QStringLiteral("Tags"));
+        }
+        for (const QString &entry : {QStringLiteral("TagSearchScope"), QStringLiteral("TagMatchAliases"), QStringLiteral("UntaggedIncludesOutsideLibraries")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("Search"));
         }
         QCOMPARE(tabOf(QStringLiteral("InterfaceLanguage")), QStringLiteral("Language and Layout"));
         QCOMPARE(tabOf(QStringLiteral("CustomDateFormat")), QStringLiteral("Dates"));

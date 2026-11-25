@@ -705,6 +705,48 @@ private Q_SLOTS:
         QCOMPARE(TagSearch::selectedTags(library, animal), (QSet<QString>{u"t-animal"_s, u"t-cat"_s}));
         QCOMPARE(TagSearch::selectedTags(library, animal, {false}), QSet<QString>{u"t-animal"_s});
 
+        const auto matchesAt = [](TagSearch::Context &in, const QString &text, const QString &path) {
+            const SearchQuery::Query query = SearchQuery::Query::parse(text);
+            return query.isValid() && query.matches(QFileInfo(path), {}, in.matcher(path));
+        };
+        const QString catPath = dir.filePath(cat);
+
+        // Without aliases, tag: and tag= match tag names only, also with wildcards; child tags still match.
+        TagSearch::Context namesOnly({dir.path()}, {.aliases = false});
+        QVERIFY(!matchesAt(namesOnly, u"tag:KITTY"_s, catPath));
+        QVERIFY(!matchesAt(namesOnly, u"tag=kitty"_s, catPath));
+        QVERIFY(!matchesAt(namesOnly, u"tag:c"_s, catPath));
+        QVERIFY(!matchesAt(namesOnly, u"tag:kit*"_s, catPath));
+        QVERIFY(matchesAt(namesOnly, u"tag:CAT"_s, catPath));
+        QVERIFY(matchesAt(namesOnly, u"tag=cat"_s, catPath));
+        QVERIFY(matchesAt(namesOnly, u"tag:ca*"_s, catPath));
+        QVERIFY(matchesAt(namesOnly, u"tag:Animal"_s, catPath));
+        QVERIFY(matchesAt(namesOnly, u"tag:ani*"_s, catPath));
+        QVERIFY(namesOnly.errors().isEmpty());
+        SearchQuery::Term kitty;
+        kitty.field = SearchQuery::Field::Tag;
+        kitty.text = u" Kitty "_s;
+        QCOMPARE(TagSearch::selectedTags(library, kitty), QSet<QString>{u"t-cat"_s});
+        QVERIFY(TagSearch::selectedTags(library, kitty, {.aliases = false}).isEmpty());
+
+        // tagged:no can also match indexable items outside every library; no other tag term does.
+        QTemporaryDir outside;
+        const QString loose = outside.filePath(u"loose.txt"_s);
+        TagSearch::Context wide({dir.path()}, {.untaggedOutsideLibraries = true});
+        QVERIFY(!matchesAt(context, u"tagged:no"_s, loose));
+        QVERIFY(matchesAt(wide, u"tagged:no"_s, loose));
+        QVERIFY(matchesAt(wide, u"NOT tagged:yes"_s, loose));
+        QVERIFY(!matchesAt(wide, u"tagged:yes"_s, loose));
+        QVERIFY(!matchesAt(wide, u"tag:cat OR tag=cat OR tag:c*"_s, loose));
+        QVERIFY(!matchesAt(wide, u"tagged:no"_s, outside.filePath(TagLibrary::fileName())));
+        // Inside the library nothing changes, and the library folder itself still doesn't match.
+        QVERIFY(matchesAt(wide, u"tagged:no"_s, dir.filePath(u"photos/plain.txt"_s)));
+        QVERIFY(!matchesAt(wide, u"tagged:no"_s, catPath));
+        QVERIFY(!matchesAt(wide, u"tagged:no"_s, dir.path()));
+        QVERIFY(!matchesAt(wide, u"tagged:no"_s, dir.path() + u'/'));
+        QVERIFY(!matchesAt(wide, u"tagged:no"_s, dir.filePath(TagLibrary::fileName())));
+        QVERIFY(wide.errors().isEmpty());
+
         // A library that can't be read is reported once and matches nothing.
         QTemporaryDir empty;
         TagSearch::Context broken({empty.path()});
@@ -713,6 +755,53 @@ private Q_SLOTS:
         QVERIFY(!untagged.matches(QFileInfo(path), {}, broken.matcher(path)));
         QVERIFY(!untagged.matches(QFileInfo(path), {}, broken.matcher(path)));
         QCOMPARE(broken.errors().size(), 1);
+        // An unreadable library still holds its items, so tagged:no doesn't match them as outside.
+        TagSearch::Context brokenWide({empty.path()}, {.untaggedOutsideLibraries = true});
+        QVERIFY(!untagged.matches(QFileInfo(path), {}, brokenWide.matcher(path)));
+    }
+
+    void choosesTagSearchRoots()
+    {
+        using TagSearch::Scope;
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        for (const QString &folder : {u"library/nested/inner"_s, u"library2"_s, u"other"_s}) {
+            QVERIFY(QDir(dir.path()).mkpath(folder));
+        }
+        const QString library = dir.filePath(u"library"_s);
+        const QString nested = dir.filePath(u"library/nested"_s);
+        const QString inner = dir.filePath(u"library/nested/inner"_s);
+        const QStringList roots{library, nested, dir.filePath(u"missing"_s), u"relative"_s};
+        const SearchQuery::Query tagged = SearchQuery::Query::parse(u"report tagged:no"_s);
+        QVERIFY(tagged.isValid());
+
+        // The current folder by default, and for queries without tag criteria.
+        QCOMPARE(TagSearch::searchRoot(inner, tagged, roots, Scope::CurrentFolder), inner);
+        QCOMPARE(TagSearch::searchRoot(inner, SearchQuery::Query::parse(u"report OR type:file"_s), roots, Scope::LibraryRoot), inner);
+        QCOMPARE(TagSearch::searchRoot(inner, SearchQuery::Query::parse(u"\"tag:x\""_s), roots, Scope::LibraryRoot), inner);
+        QCOMPARE(TagSearch::searchRoot(inner, SearchQuery::Query::parse(u"tag:"_s), roots, Scope::LibraryRoot), inner);
+        QCOMPARE(TagSearch::searchRoot(inner, tagged, {}, Scope::LibraryRoot), inner);
+
+        // Otherwise the deepest library that contains or is the folder, with any tag criterion.
+        QCOMPARE(TagSearch::searchRoot(inner, tagged, roots, Scope::LibraryRoot), nested);
+        QCOMPARE(TagSearch::searchRoot(inner + u'/', tagged, roots, Scope::LibraryRoot), nested);
+        QCOMPARE(TagSearch::searchRoot(inner, SearchQuery::Query::parse(u"NOT tag=x"_s), roots, Scope::LibraryRoot), nested);
+        QCOMPARE(TagSearch::searchRoot(inner, SearchQuery::Query::parse(u"name:a OR tags:b*"_s), roots, Scope::LibraryRoot), nested);
+        QCOMPARE(TagSearch::searchRoot(nested, tagged, roots, Scope::LibraryRoot), nested);
+        QCOMPARE(TagSearch::searchRoot(dir.filePath(u"library/x"_s), tagged, roots, Scope::LibraryRoot), library);
+        QCOMPARE(TagSearch::searchRoot(library, tagged, roots, Scope::LibraryRoot), library);
+
+        // Folders outside every library, including a sibling whose name starts like one, stay as they are.
+        QCOMPARE(TagSearch::searchRoot(dir.filePath(u"library2"_s), tagged, roots, Scope::LibraryRoot), dir.filePath(u"library2"_s));
+        QCOMPARE(TagSearch::searchRoot(dir.filePath(u"other"_s), tagged, roots, Scope::LibraryRoot), dir.filePath(u"other"_s));
+        QCOMPARE(TagSearch::searchRoot(dir.path(), tagged, roots, Scope::LibraryRoot), dir.path());
+        QCOMPARE(TagSearch::searchRoot(u"relative/sub"_s, tagged, roots, Scope::LibraryRoot), u"relative/sub"_s);
+
+        // Library folders that are missing or symbolic links can't be searched from.
+        QCOMPARE(TagSearch::searchRoot(dir.filePath(u"missing/sub"_s), tagged, roots, Scope::LibraryRoot), dir.filePath(u"missing/sub"_s));
+        const QString link = dir.filePath(u"link"_s);
+        QVERIFY(QFile::link(library, link));
+        QCOMPARE(TagSearch::searchRoot(link + u"/nested"_s, tagged, {link}, Scope::LibraryRoot), link + u"/nested"_s);
     }
 };
 

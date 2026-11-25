@@ -423,6 +423,62 @@ private Q_SLOTS:
         Settings::self()->save();
     }
 
+    void taggingSearchSettings()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+
+        // The Search tab follows Tags.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("taggingSearchPage"));
+        auto *scroll = dialog.findChild<QWidget *>(QStringLiteral("taggingSearchScroll"));
+        QVERIFY(page && scroll);
+        auto *tabs = qobject_cast<QTabWidget *>(scroll->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->tabText(tabs->indexOf(scroll)), QStringLiteral("Search"));
+        QCOMPARE(tabs->indexOf(scroll), tabs->indexOf(dialog.findChild<QWidget *>(QStringLiteral("taggingTagsScroll"))) + 1);
+
+        auto *scope = page->findChild<QComboBox *>(QStringLiteral("kcfg_TagSearchScope"));
+        auto *aliases = page->findChild<QCheckBox *>(QStringLiteral("kcfg_TagMatchAliases"));
+        auto *outside = page->findChild<QCheckBox *>(QStringLiteral("kcfg_UntaggedIncludesOutsideLibraries"));
+        QVERIFY(scope && aliases && outside);
+        QVERIFY(page->findChild<QLabel *>(QStringLiteral("taggingSearchScopeHelp"))->text().contains(QStringLiteral("tagged:")));
+        QVERIFY(page->findChild<QLabel *>(QStringLiteral("taggingSearchMatchingHelp")));
+
+        // Defaults: the current folder, aliases matched and tagged:no limited to libraries.
+        QCOMPARE(scope->count(), 2);
+        QCOMPARE(scope->currentIndex(), int(Settings::EnumTagSearchScope::CurrentFolder));
+        QVERIFY(aliases->isChecked());
+        QVERIFY(!outside->isChecked());
+        TagSearch::Options options = TaggingSettings::tagSearchOptions();
+        QCOMPARE(options.scope, TagSearch::Scope::CurrentFolder);
+        QVERIFY(options.aliases);
+        QVERIFY(!options.untaggedOutsideLibraries);
+
+        scope->setCurrentIndex(int(Settings::EnumTagSearchScope::LibraryRoot));
+        aliases->setChecked(false);
+        outside->setChecked(true);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::tagSearchScope(), Settings::EnumTagSearchScope::LibraryRoot);
+        QVERIFY(!Settings::tagMatchAliases());
+        QVERIFY(Settings::untaggedIncludesOutsideLibraries());
+        options = TaggingSettings::tagSearchOptions();
+        QCOMPARE(options.scope, TagSearch::Scope::LibraryRoot);
+        QVERIFY(!options.aliases);
+        QVERIFY(options.untaggedOutsideLibraries);
+        // Child-tag matching stays with the Tags tab.
+        QVERIFY(options.childTags);
+
+        // Defaults restore every entry.
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QCOMPARE(scope->currentIndex(), int(Settings::EnumTagSearchScope::CurrentFolder));
+        QVERIFY(aliases->isChecked());
+        QVERIFY(!outside->isChecked());
+    }
+
     void brandingPresentationSettings()
     {
         KFilePlacesModel places;
