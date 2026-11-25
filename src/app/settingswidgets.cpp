@@ -1342,6 +1342,11 @@ ThemeProfileManager::ThemeProfileManager(Callbacks callbacks, QWidget *parent)
         removeProfile(selectedId());
     });
     connect(reset, &QPushButton::clicked, this, [this] {
+        if (!m_confirm(i18nc("@info",
+                             "Reset every Themes option except folder colour rules to follow Plasma? Saved profiles are kept, "
+                             "and Cancel in this dialog still discards the change."))) {
+            return;
+        }
         m_callbacks.reset();
         showMessage(KMessageWidget::Information,
                     i18nc("@info", "Plasma's defaults are shown in this dialog. Apply or OK uses them; Cancel keeps the current appearance."));

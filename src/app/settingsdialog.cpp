@@ -142,6 +142,10 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     : KConfigDialog(parent, QLatin1String(Name), Settings::self())
     , m_places(places)
 {
+    m_confirm = [this](const QString &question) {
+        return QMessageBox::question(this, i18nc("@title:window", "Reset Appearance"), question, QMessageBox::Yes | QMessageBox::No, QMessageBox::No)
+            == QMessageBox::Yes;
+    };
     addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}}, i18nc("@title:group", "General"), QStringLiteral("configure"));
     addTabbedPage({{createLanguagePage(), i18nc("@title:tab", "Language and Layout")}, {createDateLanguagePage(), i18nc("@title:tab", "Dates")}},
                   i18nc("@title:group", "Translation"),
@@ -1976,7 +1980,13 @@ QWidget *SettingsDialog::createMotionPage()
     reset->setToolTip(i18nc("@info:tooltip",
                             "Sets every Themes option to follow Plasma. Folder colour rules are kept. Apply or OK saves the change; "
                             "Cancel discards it."));
-    connect(reset, &QPushButton::clicked, this, &SettingsDialog::resetAppearanceToDefaults);
+    connect(reset, &QPushButton::clicked, this, [this] {
+        if (m_confirm(i18nc("@info",
+                            "Reset every Themes option to follow Plasma? Folder colour rules and saved theme profiles are kept, "
+                            "and Cancel in this dialog still discards the change."))) {
+            resetAppearanceToDefaults();
+        }
+    });
     resetRow->addWidget(reset);
     resetRow->addStretch();
     layout->addLayout(resetRow);
@@ -2002,6 +2012,11 @@ void SettingsDialog::resetAppearanceToDefaults()
         }
     }
     setAppearanceValues(values);
+}
+
+void SettingsDialog::setConfirmation(std::function<bool(const QString &)> confirm)
+{
+    m_confirm = std::move(confirm);
 }
 
 QVariantMap SettingsDialog::appearanceValues() const

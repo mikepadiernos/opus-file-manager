@@ -2429,8 +2429,22 @@ private Q_SLOTS:
             SettingsDialog dialog(placesOf(window), &window);
             connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
             auto *reset = dialog.findChild<QPushButton *>(QStringLiteral("resetAppearance"));
-            QVERIFY(reset);
+            auto *spacing = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_SpacingScale"));
+            QVERIFY(reset && spacing);
+            // The reset asks first and changes nothing when refused.
+            QStringList questions;
+            bool confirm = false;
+            dialog.setConfirmation([&questions, &confirm](const QString &question) {
+                questions.append(question);
+                return confirm;
+            });
             reset->click();
+            QCOMPARE(questions.size(), 1);
+            QCOMPARE(spacing->value(), 150);
+            confirm = true;
+            reset->click();
+            QCOMPARE(questions.size(), 2);
+            QCOMPARE(spacing->value(), 100);
             QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
             dialog.button(QDialogButtonBox::Apply)->click();
         }
@@ -2514,8 +2528,12 @@ private Q_SLOTS:
         QVERIFY(!manager->saveCurrent(QStringLiteral("Bad\nname")));
         QCOMPARE(message->messageType(), KMessageWidget::Error);
 
-        // The safe reset and loading only change the dialog until Apply.
+        // The safe reset asks first, and it and loading only change the dialog until Apply.
         dialog.findChild<QPushButton *>(QStringLiteral("resetThemeProfileAppearance"))->click();
+        QCOMPARE(spacing->value(), 60);
+        confirm = true;
+        dialog.findChild<QPushButton *>(QStringLiteral("resetThemeProfileAppearance"))->click();
+        confirm = false;
         QCOMPARE(spacing->value(), 100);
         QCOMPARE(tabShape->currentIndex(), int(Settings::EnumTabShape::FollowStyle));
         QVERIFY(manager->loadProfile(id));
