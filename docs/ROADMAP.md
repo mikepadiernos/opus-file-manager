@@ -12,8 +12,8 @@ Manager behaviour that informs its parity goals.
 > [!NOTE]
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
-> released after M14. M15 Workspaces, M16 Workspace settings and M17 Themes are
-> merged into `main`; M18 Theme settings is in development. See
+> released after M14. M15 Workspaces, M16 Workspace settings, M17 Themes and
+> M18 Theme settings are merged into `main`. See
 > [pending tasks](TODO.md) for blocked work and branch-specific handoffs.
 
 ## At a glance
@@ -21,18 +21,17 @@ Manager behaviour that informs its parity goals.
 Status follows each milestone's parent issue on the
 [project board](https://github.com/users/mikepadiernos/projects/3).
 
-|     | Milestones | Focus                                         | Status            |
-| --- | ---------- | --------------------------------------------- | ----------------- |
-| 🧱  | M01–M04    | Core dual pane and listing depth              | ✅ Merged         |
-| 🖼️  | M05–M08    | Preview, gallery and editor                   | ✅ Merged         |
-| 🧰  | M09–M14    | Tools, interface customization, translations  | ✅ Merged         |
-| 🗂️  | M15–M16    | Workspaces and their settings                 | ✅ Merged         |
-| 🎨  | M17        | Themes                                        | ✅ Merged         |
-| 🎛️  | M18        | Theme settings                                | 🚧 In development |
-| 🏷️  | M19–M20    | Branding and its settings                     | 📋 Planned        |
-| 🔎  | M21–M26    | Advanced search, native tagging and Yazi mode | 📋 Planned        |
-| 🔌  | M27–M31    | Integrations, Nextcloud and shortcuts         | 📋 Planned        |
-| ✨  | M32        | Refinements                                   | 📋 Planned        |
+|     | Milestones | Focus                                         | Status     |
+| --- | ---------- | --------------------------------------------- | ---------- |
+| 🧱  | M01–M04    | Core dual pane and listing depth              | ✅ Merged  |
+| 🖼️  | M05–M08    | Preview, gallery and editor                   | ✅ Merged  |
+| 🧰  | M09–M14    | Tools, interface customization, translations  | ✅ Merged  |
+| 🗂️  | M15–M16    | Workspaces and their settings                 | ✅ Merged  |
+| 🎨  | M17–M18    | Themes and their settings                     | ✅ Merged  |
+| 🏷️  | M19–M20    | Branding and its settings                     | 📋 Planned |
+| 🔎  | M21–M26    | Advanced search, native tagging and Yazi mode | 📋 Planned |
+| 🔌  | M27–M31    | Integrations, Nextcloud and shortcuts         | 📋 Planned |
+| ✨  | M32        | Refinements                                   | 📋 Planned |
 
 ## Contents
 
@@ -1045,9 +1044,11 @@ M18.08.
 
   - [x] **Theme:** let each workspace use an available theme profile or the
         global appearance
-  - [ ] **Overrides:** choose all, selected or none of the appearance options to
+  - [x] **Overrides:** choose all, selected or none of the appearance options to
         save with a workspace, independently of other workspace features;
         preview them and report unavailable effects
+
+**Caveats:** [Theme settings](CAVEATS.md#theme-settings), tracked in [#687].
 
 ### M19: Branding
 
@@ -2182,3 +2183,4 @@ dock and column-header spacing follows the
 [#436]: https://github.com/mikepadiernos/plasma-opus/issues/436
 [#609]: https://github.com/mikepadiernos/plasma-opus/issues/609
 [#680]: https://github.com/mikepadiernos/plasma-opus/issues/680
+[#687]: https://github.com/mikepadiernos/plasma-opus/issues/687

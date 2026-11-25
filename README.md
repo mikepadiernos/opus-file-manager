@@ -34,8 +34,8 @@
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0).
 > `main` also includes the M15 and M16 workspace milestones, merged after that
-> release, and M17 Themes. M18 Theme settings is in development on its
-> feature branch; see the [roadmap](docs/ROADMAP.md#at-a-glance) for status.
+> release, and the M17 and M18 theme milestones; see the
+> [roadmap](docs/ROADMAP.md#at-a-glance) for status.
 
 ## Features
 
@@ -172,8 +172,8 @@ Preferences also include [tool defaults](docs/ROADMAP.md#m10-tools-settings),
 [language and regional formats](docs/ROADMAP.md#m14-translation-settings) and
 [workspace settings](docs/ROADMAP.md#m16-workspace-settings). App-local themes,
 colours and view styles from [M17](docs/ROADMAP.md#m17-themes) are configured
-on the Themes page; its remaining
-[M18 settings](docs/ROADMAP.md#m18-theme-settings) are in development.
+on the Themes page with the [M18 settings](docs/ROADMAP.md#m18-theme-settings),
+and workspaces can save their own appearance.
 
 ## Safety and limitations
 
