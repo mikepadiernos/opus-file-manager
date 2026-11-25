@@ -421,13 +421,27 @@
     </entry>
   </group>
   <group name="Search">
-    <entry name="SearchIndexedByDefault" type="Bool">
-      <label>Use indexed locations as the initial search scope</label>
-      <default>false</default>
+    <entry name="DefaultSearchScope" type="Enum">
+      <label>Initial scope of the toolbar search field and search panel</label>
+      <choices>
+        <choice name="CurrentFolder"/>
+        <choice name="Indexed"/>
+        <choice name="SearchFolders"/>
+      </choices>
+      <default>CurrentFolder</default>
     </entry>
-    <entry name="SearchContentsByDefault" type="Bool">
-      <label>Search file contents by default</label>
-      <default>false</default>
+    <entry name="DefaultSearchField" type="Enum">
+      <label>Initial search field of the toolbar search field and search panel</label>
+      <choices>
+        <choice name="FileName"/>
+        <choice name="Contents"/>
+        <choice name="Query"/>
+      </choices>
+      <default>FileName</default>
+    </entry>
+    <entry name="DefaultSearchPathFilter" type="String">
+      <label>Name of the shared saved path filter applied to new searches</label>
+      <default></default>
     </entry>
     <entry name="WorkspaceSearchByDefault" type="Bool">
       <label>Limit searches to the active workspace's locations by default</label>
