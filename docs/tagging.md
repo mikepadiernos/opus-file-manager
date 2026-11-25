@@ -328,6 +328,70 @@ The Information panel shows a **Fields** row for items in a library that has
 fields, with one `Name: value` line per value. Dates are shown in the regional
 format.
 
+## Embedded metadata
+
+Images and audio files carry metadata of their own, such as the camera and
+date of a photo or the artist and genre of a song. Plasma Opus reads it with
+KDE's metadata extractors, the same ones that feed Baloo and the Information
+panel:
+
+- From images: date taken, date, camera make and model, title, description,
+  subject, keywords, artist, copyright, ISO, f-number, exposure time and focal
+  length.
+- From audio files: title, artist, album artist, album, genre, composer, year,
+  track and disc number and comment.
+
+Reading never changes the file, and a file that can't be read is reported
+rather than treated as empty.
+
+### Importing into a library
+
+**Import Embedded Metadata…**, in the Tags menu and the context menu of items
+in a library, copies embedded properties of the selected files into the
+library:
+
+1. The files are read in the background. The dialog then lists the properties
+   that were found, with example values, under **Import As**.
+2. Choose **Tags** or a field for each property, or leave it at **Don't
+   import**. A property is suggested for a field with the same name. Lists,
+   such as keywords, become one tag per value, and dates can go to date
+   fields.
+3. **Preview** lists every change per item: tags to assign, tags to create,
+   values to set or replace, values already imported, and values that are
+   skipped because they're invalid or conflict. Nothing is written yet.
+4. **Import** applies the preview. Tags with a matching name, alias or
+   shorthand are reused rather than created again, and importing the same
+   files twice changes nothing.
+
+By default, a field that already has a different value keeps it, and the
+preview shows it as a conflict. Check **Replace existing field values** to
+overwrite them. If a value changes in the library between the preview and the
+import, the newer value is kept and the status bar says so. A read-only
+library can be previewed but not imported into.
+
+The import only changes the library document. To change the metadata stored
+in a file itself, use **Edit Metadata…**, or **Edit Embedded Metadata…** in the
+import dialog when a single JPEG, TIFF or MP3 file is selected. It previews
+the new values and writes the file only after you confirm.
+
+### Searching embedded metadata
+
+`meta:` criteria match the embedded properties listed above, in any library
+or folder:
+
+| Criterion    | Matches files with an embedded property that |
+| ------------ | -------------------------------------------- |
+| `meta:canon` | contains `canon`, ignoring case              |
+| `meta=Jazz`  | is exactly `Jazz`, ignoring case             |
+| `meta:20*`   | matches the wildcard pattern                 |
+
+Each value of a list, such as one keyword, is matched on its own, and dates
+are also matched as `YYYY-MM-DD`, so `meta:2024-05*` finds photos taken in
+May 2024. `metadata:` is accepted for `meta:`. Metadata criteria can't use
+`<`, `<=`, `>` or `>=`. Like `content:`, they read each candidate file, so
+they're checked after cheaper criteria; combine them with a name or type
+criterion, as in `type:image/* meta:canon`, to keep searches fast.
+
 ## Searching by tags
 
 Advanced queries, in **Search** and in **Select › Select by Query…**, accept
@@ -357,7 +421,8 @@ changes made while it runs aren't reflected in its results.
 **Select by Query…** and **Deselect by Query…** apply a query to the items
 listed in the active pane, or to every shown item in flat view. They support
 local folders only and can't use `content:` criteria; use Search to find text
-within files. Indexed search still needs a name or content term, such as
-`report tag:work`.
+within files. `meta:` criteria work there, but read every listed file before
+the selection changes, so they can be slow in large folders. Indexed search
+still needs a name or content term, such as `report tag:work`.
 
 [TagStudio]: https://github.com/TagStudioDev/TagStudio
