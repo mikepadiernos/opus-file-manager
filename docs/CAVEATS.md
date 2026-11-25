@@ -708,6 +708,13 @@ Tracked in
   canceled. The panel follows the embedded terminal's placement, below or
   beside the panes, and is hidden again at startup. Hiding the panel does not
   cancel a running search.
+- **Toolbar search field:** The optional Search Field toolbar entry is not on
+  any toolbar by default; add it with Customize Main Toolbar. Pressing Enter
+  searches the active pane's current folder with the text typed, but uses the
+  other criteria, such as scope and filters, currently set in the search
+  panel. While a search runs, Enter does not start another search. The field
+  can be placed on the main toolbar only, not on pane toolbars, and does not
+  show suggestions or history.
 - **Search folders and exclusions:** The search folders and excluded folders
   set on Preferences' Search page apply only to Plasma Opus. They do not
   change what Baloo indexes, and an excluded folder is still searched by other
@@ -733,7 +740,8 @@ Tracked in
   unavailable, use the Search shortcut (Ctrl+Alt+F by default), which can be
   changed in Configure Keyboard Shortcuts. To search another folder from the
   search panel, use Search from that pane's toolbar or the Search shortcut
-  while the pane is active.
+  while the pane is active, or type in the toolbar search field. Check the
+  panel's criteria before searching from the toolbar field.
   - Comment: [#362.7023269364][comment-362]
 - **Alternative:** Use a separately maintained locate database for filenames.
   - Comment:
