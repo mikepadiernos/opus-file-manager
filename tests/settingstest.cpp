@@ -2450,8 +2450,17 @@ private Q_SLOTS:
         // The saved options are kept for when high contrast is turned off.
         QCOMPARE(int(Settings::paneTint()), int(Settings::EnumPaneTint::AllPanes));
 
-        Settings::setSuspendEffectsInHighContrast(false);
-        window.applySettings();
+        {
+            SettingsDialog dialog(placesOf(window), &window);
+            connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+            auto *suspend = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_SuspendEffectsInHighContrast"));
+            QVERIFY(suspend);
+            QVERIFY(suspend->isChecked());
+            suspend->setChecked(false);
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+        }
+        QVERIFY(!Settings::suspendEffectsInHighContrast());
         QVERIFY(viewBase() != base);
         QCOMPARE(AppearanceStyle::configured().radius, 8);
 
