@@ -37,6 +37,15 @@ bool apply(const QString &root,
            QString *error = nullptr);
 
 /**
+ * Sets the library field values in @p values on @p absolutePaths in the
+ * library at @p root, like apply(). An empty value clears the field; fields
+ * not in @p values are kept. Files and their labels, ratings and notes are
+ * never changed.
+ * @param changed receives the number of items whose values changed
+ */
+bool applyFields(const QString &root, const QStringList &absolutePaths, const QMap<QString, QString> &values, int *changed = nullptr, QString *error = nullptr);
+
+/**
  * The library at @p root, read from a per-thread cache that is refreshed when
  * the document changes on disk. Returns a null library and sets @p error when
  * it can't be read.

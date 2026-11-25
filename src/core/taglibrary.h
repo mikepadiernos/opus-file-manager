@@ -256,6 +256,38 @@ public:
     /// Moves group @p id to position @p index, clamped to the list of groups.
     bool moveGroup(const QString &id, int index);
 
+    /// The number of entries that have a value for field @p id.
+    int fieldUsage(const QString &id) const;
+
+    /**
+     * Describes why @p field can't be saved, such as a missing identifier, an
+     * invalid name or a type change while entries have values, or returns an
+     * empty string. Values are never converted between types.
+     */
+    QString checkField(const Field &field) const;
+
+    /// Adds @p field after the other fields, or replaces the field with the same identifier, if checkField() accepts it.
+    bool setField(const Field &field, QString *error = nullptr);
+
+    /// Removes field @p id and its values; returns the number of entries that had a value.
+    int removeField(const QString &id);
+
+    /**
+     * Describes why @p value can't be stored in field @p fieldId, or returns
+     * an empty string. Dates are written as YYYY-MM-DD; an empty value clears
+     * the field.
+     */
+    QString checkFieldValue(const QString &fieldId, const QString &value) const;
+
+    /**
+     * Sets the field values in @p values on the entries for @p items; an
+     * empty value clears the field and fields not in @p values are kept.
+     * Items that aren't indexed yet are indexed first.
+     * @param changed receives the number of entries whose values changed
+     * @returns false, changing nothing, when a field doesn't exist or a value is invalid
+     */
+    bool setFieldValues(const QList<Observation> &items, const QMap<QString, QString> &values, int *changed = nullptr, QString *error = nullptr);
+
     /// For each tag assigned directly to an entry at @p relativePaths, the number of those entries that have it.
     QHash<QString, int> tagCounts(const QStringList &relativePaths) const;
 

@@ -27,6 +27,7 @@ namespace
 const QLatin1String formatName("plasma-opus-library");
 constexpr int formatVersion = 1;
 constexpr qsizetype maxNameLength = 200;
+constexpr qsizetype maxValueLength = 10000;
 
 QString signatureOf(const QString &path)
 {
@@ -1140,6 +1141,118 @@ bool TagLibrary::Library::moveGroup(const QString &id, int index)
     const qsizetype from = found - m_groups.cbegin();
     const qsizetype to = std::clamp<qsizetype>(index, 0, m_groups.size() - 1);
     m_groups.move(from, to);
+    return true;
+}
+
+int TagLibrary::Library::fieldUsage(const QString &id) const
+{
+    return int(std::count_if(m_entries.cbegin(), m_entries.cend(), [&id](const Entry &entry) {
+        return entry.fields.contains(id);
+    }));
+}
+
+QString TagLibrary::Library::checkField(const Field &field) const
+{
+    if (field.id.isEmpty()) {
+        return i18nc("@info", "The field has no identifier.");
+    }
+    if (!validName(field.name)) {
+        return field.name.trimmed().isEmpty() ? i18nc("@info", "Enter a name for the field.")
+                                              : i18nc("@info", "Field names can't start or end with spaces or be longer than %1 characters.", maxNameLength);
+    }
+    const Field *existing = this->field(field.id);
+    if (existing && existing->type != field.type && fieldUsage(field.id) > 0) {
+        return i18nc("@info", "The type can't be changed while items have a value for this field, because values aren't converted.");
+    }
+    return {};
+}
+
+bool TagLibrary::Library::setField(const Field &field, QString *error)
+{
+    if (const QString problem = checkField(field); !problem.isEmpty()) {
+        if (error) {
+            *error = problem;
+        }
+        return false;
+    }
+    for (Field &existing : m_fields) {
+        if (existing.id == field.id) {
+            existing = field;
+            return true;
+        }
+    }
+    m_fields.append(field);
+    return true;
+}
+
+int TagLibrary::Library::removeField(const QString &id)
+{
+    const qsizetype before = m_fields.size();
+    m_fields.removeIf([&id](const Field &field) {
+        return field.id == id;
+    });
+    if (m_fields.size() == before) {
+        return 0;
+    }
+    int removed = 0;
+    for (Entry &entry : m_entries) {
+        removed += entry.fields.remove(id) > 0 ? 1 : 0;
+    }
+    return removed;
+}
+
+QString TagLibrary::Library::checkFieldValue(const QString &fieldId, const QString &value) const
+{
+    const Field *found = field(fieldId);
+    if (!found) {
+        return i18nc("@info", "A field no longer exists.");
+    }
+    if (value.trimmed().isEmpty()) {
+        return {};
+    }
+    if (found->type == FieldType::Date && !validDate(value)) {
+        return i18nc("@info", "“%1” must be a date written as YYYY-MM-DD.", found->name);
+    }
+    if (value.size() > maxValueLength) {
+        return i18nc("@info", "“%1” can't be longer than %2 characters.", found->name, maxValueLength);
+    }
+    return {};
+}
+
+bool TagLibrary::Library::setFieldValues(const QList<Observation> &items, const QMap<QString, QString> &values, int *changed, QString *error)
+{
+    if (changed) {
+        *changed = 0;
+    }
+    for (auto it = values.cbegin(); it != values.cend(); ++it) {
+        if (const QString problem = checkFieldValue(it.key(), it.value()); !problem.isEmpty()) {
+            if (error) {
+                *error = problem;
+            }
+            return false;
+        }
+    }
+    applyScan(items, false);
+    QSet<QString> done;
+    for (const Observation &item : items) {
+        const auto found = m_entryIndex.constFind(item.path);
+        if (found == m_entryIndex.cend() || done.contains(item.path)) {
+            continue;
+        }
+        done.insert(item.path);
+        Entry &entry = m_entries[*found];
+        const QMap<QString, QString> before = entry.fields;
+        for (auto it = values.cbegin(); it != values.cend(); ++it) {
+            if (it.value().trimmed().isEmpty()) {
+                entry.fields.remove(it.key());
+            } else {
+                entry.fields.insert(it.key(), it.value());
+            }
+        }
+        if (changed && entry.fields != before) {
+            ++*changed;
+        }
+    }
     return true;
 }
 

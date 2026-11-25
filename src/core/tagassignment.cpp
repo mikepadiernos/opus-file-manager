@@ -25,6 +25,28 @@ QHash<QString, Cached> &cache()
     thread_local QHash<QString, Cached> libraries;
     return libraries;
 }
+
+/// Observes @p absolutePaths in the library at @p root, refusing symbolic links and items outside it.
+bool observeAll(const QString &root, const QStringList &absolutePaths, QList<TagLibrary::Observation> *items, QString *error)
+{
+    for (const QString &path : absolutePaths) {
+        TagLibrary::Observation observation;
+        if (QFileInfo(path).isSymLink()) {
+            if (error) {
+                *error = i18nc("@info", "Symbolic links can't be tagged: %1", path);
+            }
+            return false;
+        }
+        if (LibraryRegistry::rootFor(path) != root || !LibraryScan::observe(root, path, &observation)) {
+            if (error) {
+                *error = i18nc("@info", "This item can't be tagged in the library: %1", path);
+            }
+            return false;
+        }
+        items->append(observation);
+    }
+    return true;
+}
 }
 
 TagAssignment::Selection TagAssignment::resolve(const QStringList &absolutePaths)
@@ -62,26 +84,29 @@ bool TagAssignment::apply(const QString &root,
                           QString *error)
 {
     QList<TagLibrary::Observation> items;
-    for (const QString &path : absolutePaths) {
-        TagLibrary::Observation observation;
-        if (QFileInfo(path).isSymLink()) {
-            if (error) {
-                *error = i18nc("@info", "Symbolic links can't be tagged: %1", path);
-            }
-            return false;
-        }
-        if (LibraryRegistry::rootFor(path) != root || !LibraryScan::observe(root, path, &observation)) {
-            if (error) {
-                *error = i18nc("@info", "This item can't be tagged in the library: %1", path);
-            }
-            return false;
-        }
-        items.append(observation);
+    if (!observeAll(root, absolutePaths, &items, error)) {
+        return false;
     }
     const bool saved = TagLibrary::update(
         root,
         [&](TagLibrary::Library &library, QString *problem) {
             return library.assignTags(items, add, remove, changed, problem);
+        },
+        error);
+    invalidate(root);
+    return saved;
+}
+
+bool TagAssignment::applyFields(const QString &root, const QStringList &absolutePaths, const QMap<QString, QString> &values, int *changed, QString *error)
+{
+    QList<TagLibrary::Observation> items;
+    if (!observeAll(root, absolutePaths, &items, error)) {
+        return false;
+    }
+    const bool saved = TagLibrary::update(
+        root,
+        [&](TagLibrary::Library &library, QString *problem) {
+            return library.setFieldValues(items, values, changed, problem);
         },
         error);
     invalidate(root);
