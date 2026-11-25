@@ -122,6 +122,8 @@ add_library(opusfm_core STATIC
     symbolicicon.h
     tabmodel.cpp
     tabmodel.h
+    taglibrary.cpp
+    taglibrary.h
     themeprofiles.cpp
     themeprofiles.h
     treemap.cpp
