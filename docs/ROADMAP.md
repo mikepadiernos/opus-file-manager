@@ -1104,11 +1104,11 @@ integration without blocking this milestone.
       search panel
 - [x] Support keyboard navigation and focus between the toolbar widget, search
       panel and panes
-- [ ] Prototype query parsing and validation in Rust behind a narrow C++/Rust
+- [x] Prototype query parsing and validation in Rust behind a narrow C++/Rust
       interface. Test boundary error handling, ownership, path handling and
       threading, and evaluate build and maintenance costs before broader Rust
       adoption; keep the search UI and KIO integration in C++.
-- [ ] Combine filename, path, file type, size, date and content criteria using
+- [x] Combine filename, path, file type, size, date and content criteria using
       AND, OR and NOT; validate queries and explain unsupported criteria
 
 ### M22: Advanced search settings
