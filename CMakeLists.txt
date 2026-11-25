@@ -52,6 +52,13 @@ find_package(KF6 ${KF_MIN_VERSION} REQUIRED COMPONENTS
 
 add_subdirectory(src)
 
+option(OPUSFM_RUST_PROTOTYPE "Build and test the Rust prototype of the advanced search query parser" OFF)
+add_feature_info(RustPrototype OPUSFM_RUST_PROTOTYPE "Rust prototype of the advanced search query parser, compared with the C++ parser in tests")
+if(OPUSFM_RUST_PROTOTYPE)
+    find_package(Corrosion 0.5 REQUIRED)
+    add_subdirectory(rust/searchquery)
+endif()
+
 ki18n_install(po)
 
 add_custom_target(extract-messages
@@ -64,7 +71,7 @@ if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
 
-file(GLOB_RECURSE ALL_CLANG_FORMAT_SOURCE_FILES src/*.cpp src/*.h tests/*.cpp tests/*.h)
+file(GLOB_RECURSE ALL_CLANG_FORMAT_SOURCE_FILES src/*.cpp src/*.h tests/*.cpp tests/*.h rust/*.h)
 kde_clang_format(${ALL_CLANG_FORMAT_SOURCE_FILES})
 kde_configure_git_pre_commit_hook(CHECKS CLANG_FORMAT)
 
