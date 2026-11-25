@@ -6,6 +6,7 @@
 #include "symbolicicon.h"
 #include "tagassignment.h"
 #include "tageditdialog.h"
+#include "taggingsettings.h"
 
 #include <KLocalizedString>
 
@@ -428,6 +429,7 @@ bool TagPanel::createAndAssign(const QString &name)
     TagLibrary::Tag tag;
     tag.id = TagLibrary::createId();
     tag.name = trimmed;
+    tag.color = TaggingSettings::defaultTagColor();
     QString error;
     const bool created = TagLibrary::update(
         m_root,

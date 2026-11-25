@@ -168,6 +168,29 @@ private:
 };
 
 /**
+ * Chooses the colour given to new tags, or no colour. Bound to the
+ * DefaultTagColor setting; a value that isn't #rrggbb reads as no colour.
+ */
+class TagColorChooser : public QWidget
+{
+    Q_OBJECT
+    Q_PROPERTY(QString color READ color WRITE setColor NOTIFY colorChanged USER true)
+
+public:
+    explicit TagColorChooser(QWidget *parent = nullptr);
+    /// The chosen colour as lowercase #rrggbb, or empty for no colour.
+    QString color() const;
+    void setColor(const QString &color);
+
+Q_SIGNALS:
+    void colorChanged();
+
+private:
+    QCheckBox *m_enabled;
+    KColorButton *m_button;
+};
+
+/**
  * Edits app-local palette role colours layered over the selected colour
  * scheme, with a live preview and contrast feedback. Unchecked roles follow
  * the scheme. Bound to the CustomColors setting by KConfigDialog; Revert and

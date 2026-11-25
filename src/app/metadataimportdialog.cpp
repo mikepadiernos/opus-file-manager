@@ -4,6 +4,7 @@
 
 #include "metadataeditor.h"
 #include "settings.h"
+#include "taggingsettings.h"
 
 #include <KLocalizedString>
 #include <KMessageWidget>
@@ -271,6 +272,7 @@ bool MetadataImportDialog::preview()
         }
     }
     m_plan = MetadataImport::preview(m_library, m_readings, mappings, m_replace->isChecked() ? MetadataImport::Policy::Replace : MetadataImport::Policy::Keep);
+    m_plan.tagColor = TaggingSettings::defaultTagColor();
     m_changes->clear();
     for (const MetadataImport::Change &change : std::as_const(m_plan.changes)) {
         auto *item = new QTreeWidgetItem(m_changes,

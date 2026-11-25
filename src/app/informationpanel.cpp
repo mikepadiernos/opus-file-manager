@@ -5,6 +5,7 @@
 #include "libraryregistry.h"
 #include "localizeddates.h"
 #include "localizednumbers.h"
+#include "settings.h"
 #include "symbolicicon.h"
 #include "tagassignment.h"
 
@@ -178,7 +179,7 @@ void InformationPanel::refreshTags()
     const QString path = m_item.isNull() || !m_item.url().isLocalFile() ? QString() : QDir::cleanPath(m_item.url().toLocalFile());
     const QString root = path.isEmpty() ? QString() : LibraryRegistry::rootFor(path);
     const TagLibrary::Library library = root.isEmpty() || root == path ? TagLibrary::Library() : TagAssignment::cachedLibrary(root);
-    m_layout->setRowVisible(m_tags, !library.isNull());
+    m_layout->setRowVisible(m_tags, !library.isNull() && Settings::showTagsInInformationPanel());
     m_layout->setRowVisible(m_libraryFields, !library.isNull() && !library.fields().isEmpty());
     if (library.isNull()) {
         m_tags->clear();
@@ -198,6 +199,11 @@ void InformationPanel::refreshTags()
             if (!direct.contains(ancestor) && !inherited.contains(name)) {
                 inherited.append(name);
             }
+        }
+    }
+    if (Settings::showInheritedTags()) {
+        for (const QString &name : std::as_const(inherited)) {
+            names.append(i18nc("@item:intext a tag inherited from a parent tag", "%1 (inherited)", name));
         }
     }
     m_tags->setText(names.isEmpty() ? i18nc("@info:file metadata", "No tags") : names.join(separator));

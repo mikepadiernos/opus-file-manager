@@ -56,6 +56,9 @@
 #include "tabmodel.h"
 #include "tagassignment.h"
 #include "taggingcontroller.h"
+#include "taggingsettings.h"
+#include "taggroupmanagerwidget.h"
+#include "tagmanagerwidget.h"
 #include "terminalpanel.h"
 #include "toolbarcustomizer.h"
 #include "transferqueue.h"
@@ -1622,8 +1625,8 @@ void MainWindow::setupPanels()
     m_tagDock->setWidget(m_tagPanel);
     m_tagDock->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::RightDockWidgetArea);
     m_tagDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetClosable);
-    const bool tagsBelow =
-        KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel")).readEntry("Placement", QStringLiteral("right")) == QLatin1String("below");
+    TaggingSettings::migrateTagPanelPlacement();
+    const bool tagsBelow = Settings::tagPanelPlacement() == Settings::EnumTagPanelPlacement::Below;
     addDockWidget(tagsBelow ? Qt::BottomDockWidgetArea : Qt::RightDockWidgetArea, m_tagDock);
     m_tagPanel->setPlacement(tagsBelow ? TagPanel::Placement::Below : TagPanel::Placement::Right);
     m_tagDock->hide();
@@ -1633,7 +1636,7 @@ void MainWindow::setupPanels()
         if (area == Qt::RightDockWidgetArea || area == Qt::BottomDockWidgetArea) {
             const bool below = area == Qt::BottomDockWidgetArea;
             m_tagPanel->setPlacement(below ? TagPanel::Placement::Below : TagPanel::Placement::Right);
-            KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel")).writeEntry("Placement", below ? "below" : "right");
+            saveTagPanelPlacement(below);
         }
     });
     connect(m_tagDock, &QDockWidget::visibilityChanged, this, [this](bool visible) {
@@ -3531,7 +3534,7 @@ void MainWindow::selectByQuery(bool select)
         }
         const auto query = SearchQuery::Query::parse(edit->text());
         QString message;
-        const int matched = view->applySelectionQuery(query, LibraryRegistry::roots(), select, &message);
+        const int matched = view->applySelectionQuery(query, LibraryRegistry::roots(), TaggingSettings::tagSearchOptions(), select, &message);
         if (matched < 0) {
             status->setText(message);
             return;
@@ -5314,8 +5317,35 @@ void MainWindow::setTagPanelPlacement(TagPanel::Placement placement)
     addDockWidget(below ? Qt::BottomDockWidgetArea : Qt::RightDockWidgetArea, m_tagDock);
     m_tagDock->setVisible(shown);
     m_tagPanel->setPlacement(placement);
-    KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel")).writeEntry("Placement", below ? "below" : "right");
+    saveTagPanelPlacement(below);
     restorePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
+}
+
+void MainWindow::applyTagSettings()
+{
+    const bool below = Settings::tagPanelPlacement() == Settings::EnumTagPanelPlacement::Below;
+    if ((dockWidgetArea(m_tagDock) == Qt::BottomDockWidgetArea) != below) {
+        setTagPanelPlacement(below ? TagPanel::Placement::Below : TagPanel::Placement::Right);
+    }
+    // Tag colours may have been shown or hidden.
+    if (!m_tagDock->isHidden()) {
+        m_tagPanel->reload();
+    }
+    for (TagManagerWidget *manager : findChildren<TagManagerWidget *>()) {
+        manager->reload();
+    }
+    for (TagGroupManagerWidget *groups : findChildren<TagGroupManagerWidget *>()) {
+        groups->reload();
+    }
+}
+
+void MainWindow::saveTagPanelPlacement(bool below)
+{
+    const auto placement = below ? Settings::EnumTagPanelPlacement::Below : Settings::EnumTagPanelPlacement::Right;
+    if (Settings::tagPanelPlacement() != placement) {
+        Settings::setTagPanelPlacement(placement);
+        Settings::self()->save();
+    }
 }
 
 bool MainWindow::isDualLayout() const
@@ -5447,6 +5477,7 @@ void MainWindow::applySettings()
     updateStatusBarIndicatorOrder();
     updateStatusBar();
     updateFreeSpace();
+    applyTagSettings();
     updateInformationPanel();
 
     QAction *switchPane = actionCollection()->action(QStringLiteral("switch_pane"));

@@ -164,6 +164,7 @@ private:
     QWidget *createSelectionFiltersPage();
     QWidget *createTaggingPrivacyPage();
     QWidget *createTaggingLibrariesPage();
+    QWidget *createTaggingTagsPage();
     /// Lists the registered tag libraries with their storage and state, selecting @p select when listed.
     void reloadLibraries(const QString &select = {});
     void updateLibraryButtons();

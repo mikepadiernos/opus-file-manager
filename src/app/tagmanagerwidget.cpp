@@ -3,6 +3,7 @@
 #include "tagmanagerwidget.h"
 
 #include "tageditdialog.h"
+#include "taggingsettings.h"
 
 #include <KLocalizedString>
 #include <KMessageBox>
@@ -188,6 +189,7 @@ TagEditDialog *TagManagerWidget::createTag()
     }
     TagLibrary::Tag tag;
     tag.name = m_filter->text().trimmed();
+    tag.color = TaggingSettings::defaultTagColor();
     return openEditor(tag);
 }
 

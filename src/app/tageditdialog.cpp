@@ -2,6 +2,7 @@
 
 #include "tageditdialog.h"
 
+#include "settings.h"
 #include "symbolicicon.h"
 
 #include <KColorButton>
@@ -31,7 +32,7 @@ constexpr int IdRole = Qt::UserRole;
 QIcon tagColorIcon(const QString &color)
 {
     const QColor fill(color);
-    if (color.isEmpty() || !fill.isValid()) {
+    if (color.isEmpty() || !fill.isValid() || !Settings::showTagColors()) {
         return SymbolicIcon::fromTheme(QStringLiteral("tag"));
     }
     QIcon icon;

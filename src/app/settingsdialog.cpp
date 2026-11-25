@@ -236,7 +236,9 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createSelectionFiltersPage(), i18nc("@title:tab", "Selection Filters")}},
                   i18nc("@title:group", "Files"),
                   QStringLiteral("folder"));
-    addTabbedPage({{createTaggingPrivacyPage(), i18nc("@title:tab", "Privacy")}, {createTaggingLibrariesPage(), i18nc("@title:tab", "Libraries")}},
+    addTabbedPage({{createTaggingPrivacyPage(), i18nc("@title:tab", "Privacy")},
+                   {createTaggingLibrariesPage(), i18nc("@title:tab", "Libraries")},
+                   {createTaggingTagsPage(), i18nc("@title:tab", "Tags")}},
                   i18nc("@title:group", "Tagging"),
                   QStringLiteral("tag"));
     addTabbedPage({{createWorkspaceManagementPage(), i18nc("@title:tab", "Management")},
@@ -2770,6 +2772,65 @@ QWidget *SettingsDialog::createTaggingLibrariesPage()
 
     auto *scroll = new QScrollArea;
     scroll->setObjectName(QStringLiteral("taggingLibrariesScroll"));
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setWidgetResizable(true);
+    scroll->setWidget(page);
+    return scroll;
+}
+
+QWidget *SettingsDialog::createTaggingTagsPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("taggingTagsPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *panel = new QGroupBox(i18nc("@title:group", "Tag Panel"), page);
+    auto *panelForm = new QFormLayout(panel);
+    QComboBox *placement =
+        comboBox(QStringLiteral("TagPanelPlacement"),
+                 {i18nc("@item:inlistbox tag panel placement", "On the right"), i18nc("@item:inlistbox tag panel placement", "Below the panes")});
+    placement->setToolTip(i18nc("@info:tooltip", "The tag panel's own placement menu and dragging the panel also change this"));
+    panelForm->addRow(i18nc("@label:listbox", "Show the tag panel:"), placement);
+    layout->addWidget(panel);
+
+    auto *colors = new QGroupBox(i18nc("@title:group", "Colours"), page);
+    auto *colorsLayout = new QVBoxLayout(colors);
+    QCheckBox *showColors = checkBox(QStringLiteral("ShowTagColors"), i18nc("@option:check", "Show tag and group colours"));
+    showColors->setToolTip(i18nc("@info:tooltip", "When unchecked, tags and groups show a plain tag icon; their colours are kept"));
+    colorsLayout->addWidget(showColors);
+    auto *defaultColor = bound(new TagColorChooser(colors), QStringLiteral("DefaultTagColor"), "color");
+    defaultColor->setToolTip(i18nc("@info:tooltip", "The colour of tags created in the tag panel, the tag manager and metadata imports"));
+    colorsLayout->addWidget(defaultColor);
+    layout->addWidget(colors);
+
+    auto *information = new QGroupBox(i18nc("@title:group", "Information Panel"), page);
+    auto *informationLayout = new QVBoxLayout(information);
+    QCheckBox *showTags = checkBox(QStringLiteral("ShowTagsInInformationPanel"), i18nc("@option:check", "Show the tags of the selected item"));
+    informationLayout->addWidget(showTags);
+    QCheckBox *showInherited = checkBox(QStringLiteral("ShowInheritedTags"), i18nc("@option:check", "List tags inherited from parent tags"));
+    showInherited->setToolTip(i18nc("@info:tooltip",
+                                    "Inherited tags follow the item's own tags, marked as inherited. When unchecked, they are listed in the "
+                                    "tooltip of the tags."));
+    informationLayout->addWidget(showInherited);
+    connect(showTags, &QCheckBox::toggled, showInherited, &QWidget::setEnabled);
+    showInherited->setEnabled(showTags->isChecked());
+    layout->addWidget(information);
+
+    auto *searching = new QGroupBox(i18nc("@title:group", "Searching"), page);
+    auto *searchingLayout = new QVBoxLayout(searching);
+    searchingLayout->addWidget(checkBox(QStringLiteral("TagMatchesChildTags"), i18nc("@option:check", "Match child tags in tag: searches")));
+    auto *searchingHelp = new QLabel(i18nc("@info",
+                                           "When checked, tag:Animals also finds items tagged only with a child tag of Animals, such as Cats. "
+                                           "tag=Animals always finds only items tagged Animals. This applies to searches and selection queries."),
+                                     searching);
+    searchingHelp->setObjectName(QStringLiteral("taggingChildTagsHelp"));
+    searchingHelp->setWordWrap(true);
+    searchingLayout->addWidget(searchingHelp);
+    layout->addWidget(searching);
+    layout->addStretch();
+
+    auto *scroll = new QScrollArea;
+    scroll->setObjectName(QStringLiteral("taggingTagsScroll"));
     scroll->setFrameShape(QFrame::NoFrame);
     scroll->setWidgetResizable(true);
     scroll->setWidget(page);

@@ -9,6 +9,7 @@
 #include "searchhistory.h"
 #include "searchlocations.h"
 #include "searchquery.h"
+#include "taggingsettings.h"
 
 #include <KLocalizedString>
 
@@ -1235,8 +1236,9 @@ bool SearchWidget::start()
     const bool multipleRoots = workspaceOnly || searchFolders;
     // Read on this thread: worker threads keep their own, possibly stale, copy of the configuration.
     const QStringList libraries = LibraryRegistry::roots();
+    const TagSearch::Options tagOptions = TaggingSettings::tagSearchOptions();
     m_watcher.setFuture(QtConcurrent::run(
-        [folder, text, field, canceled, indexed, filter, multipleRoots, roots, locationErrors, libraries](QPromise<LiveSearch::Result> &promise) {
+        [folder, text, field, canceled, indexed, filter, multipleRoots, roots, locationErrors, libraries, tagOptions](QPromise<LiveSearch::Result> &promise) {
             promise.setProgressRange(0, 200000);
             const LiveSearch::Cancel cancel = [canceled] {
                 return canceled->load();
@@ -1246,10 +1248,10 @@ bool SearchWidget::start()
             };
             LiveSearch::Result result;
             if (!multipleRoots) {
-                result = indexed ? IndexedSearch::find(folder, text, field, cancel, progress, filter, nullptr, &libraries)
-                                 : LiveSearch::find(folder, text, field, cancel, progress, filter, 200000, &libraries);
+                result = indexed ? IndexedSearch::find(folder, text, field, cancel, progress, filter, nullptr, &libraries, tagOptions)
+                                 : LiveSearch::find(folder, text, field, cancel, progress, filter, 200000, &libraries, tagOptions);
             } else if (indexed && !roots.isEmpty()) {
-                result = IndexedSearch::find(folder, text, field, cancel, progress, filter, &roots, &libraries);
+                result = IndexedSearch::find(folder, text, field, cancel, progress, filter, &roots, &libraries, tagOptions);
             } else if (!indexed) {
                 QSet<QString> seen;
                 for (const QString &root : roots) {
@@ -1264,7 +1266,8 @@ bool SearchWidget::start()
                         },
                         filter,
                         200000 - offset,
-                        &libraries);
+                        &libraries,
+                        tagOptions);
                     result.errors.append(part.errors);
                     result.notices.append(part.notices);
                     result.scannedEntries += part.scannedEntries;
