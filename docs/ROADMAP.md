@@ -1151,7 +1151,7 @@ rather than requiring TagStudio or changing the user's folder structure.
       initiated by Plasma Opus, and offer review and manual relinking for
       missing or externally moved files without silently attaching metadata to
       uncertain matches.
-- [ ] Manage tags with stable identities, names, aliases, shorthand, colours and
+- [x] Manage tags with stable identities, names, aliases, shorthand, colours and
       parent relationships; disambiguate duplicate names and prevent hierarchy
       cycles
 - [ ] Assign and remove multiple tags on selected files and folders from
