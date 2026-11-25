@@ -16,6 +16,9 @@ msgstr "پلاسما اوپوس"
 msgid "Dual-pane file manager for KDE Plasma"
 msgstr "مدیر پروندهٔ دو قسمتی برای کی‌دی‌ای پلاسما"
 
+msgid "Dual-Pane File Manager"
+msgstr "مدیر پروندهٔ دو قسمتی"
+
 msgid "&File"
 msgstr "&پرونده"
 

@@ -22,3 +22,11 @@ xgettext --language=C++ --from-code=UTF-8 --kde \
     --keyword=i18np:1,2 --keyword=i18ncp:1c,2,3 \
     --add-comments=i18n --files-from="$sources" \
     --package-name=opus-file-manager --output="$1"
+
+# Desktop entry keys and AppStream metadata, merged back by msgfmt at build time.
+xgettext --from-code=UTF-8 --join-existing --language=Desktop \
+    --package-name=opus-file-manager --output="$1" \
+    src/app/org.kde.opusfilemanager.desktop.in
+xgettext --from-code=UTF-8 --join-existing \
+    --package-name=opus-file-manager --output="$1" \
+    src/app/org.kde.opusfilemanager.metainfo.xml

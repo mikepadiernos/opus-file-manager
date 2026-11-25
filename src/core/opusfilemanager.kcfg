@@ -1135,4 +1135,19 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="Branding">
+    <entry name="StartupPresentation" type="Bool">
+      <label>Whether a brief, non-blocking Plasma Opus presentation appears over the window at startup</label>
+      <default>false</default>
+    </entry>
+    <entry name="LogoVariant" type="Enum">
+      <label>Which logo the startup presentation shows: matching the colour scheme, with dark text on a light card or with light text on a dark card</label>
+      <choices>
+        <choice name="Automatic"/>
+        <choice name="DarkText"/>
+        <choice name="LightText"/>
+      </choices>
+      <default>Automatic</default>
+    </entry>
+  </group>
 </kcfg>

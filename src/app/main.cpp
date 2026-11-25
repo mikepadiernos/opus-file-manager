@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "appearancedefaults.h"
+#include "appidentity.h"
 #include "interfacelanguage.h"
 #include "localizednumbers.h"
 #include "mainwindow.h"
 #include "opusfm_version.h"
 #include "settings.h"
 #include "settingsbackup.h"
+#include "startuppresentation.h"
 #include "symbolicactionicons.h"
 #include "workspacestartup.h"
 
@@ -83,16 +85,9 @@ int main(int argc, char **argv)
         QApplication::setLayoutDirection(InterfaceLanguage::layoutDirection(KLocalizedString::languages()));
     }
 
-    KAboutData aboutData(QStringLiteral("opus-file-manager"),
-                         i18n("Plasma Opus"),
-                         QStringLiteral(OPUSFM_VERSION_STRING),
-                         i18n("Dual-pane file manager for KDE Plasma"),
-                         KAboutLicense::GPL_V3,
-                         i18n("© 2026 Mike Padiernos"));
-    aboutData.addAuthor(i18n("Mike Padiernos"), i18n("Author"));
-    aboutData.setDesktopFileName(QStringLiteral("org.kde.opusfilemanager"));
+    KAboutData aboutData = AppIdentity::aboutData(QStringLiteral(OPUSFM_VERSION_STRING));
     KAboutData::setApplicationData(aboutData);
-    QApplication::setWindowIcon(QIcon::fromTheme(QStringLiteral("org.kde.opusfilemanager"), QIcon(QStringLiteral(":/icons/org.kde.opusfilemanager.svg"))));
+    QApplication::setWindowIcon(AppIdentity::applicationIcon());
 
     KCrash::initialize();
 
@@ -171,6 +166,7 @@ int main(int argc, char **argv)
     auto *window = new MainWindow;
     window->openUrls(urlsFromArguments(parser.positionalArguments(), QDir::currentPath()));
     window->show();
+    StartupPresentation::presentIfEnabled(window);
     if (!workspaceWarning.isEmpty()) {
         window->statusBar()->showMessage(workspaceWarning);
     } else if (!appearanceMessage.isEmpty()) {

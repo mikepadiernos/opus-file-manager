@@ -18,6 +18,8 @@ LABEL io.github.mikepadiernos.plasma-opus.base-image-id=${BASE_IMAGE_ID}
 
 RUN dnf -y install --setopt=install_weak_deps=False \
         gettext \
+        appstream \
+        desktop-file-utils \
         libarchive-devel \
         qt6-qtbase-private-devel \
         qt6-qtmultimedia-devel \

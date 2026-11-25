@@ -1,11 +1,33 @@
 [Icon Theme]
 Name=Application Icon Test
 FollowsColorScheme=true
-Directories=scalable/apps
+Directories=16x16/apps,22x22/apps,32x32/apps,scalable/apps,symbolic/apps
+
+[16x16/apps]
+Size=16
+Type=Fixed
+Context=Applications
+
+[22x22/apps]
+Size=22
+Type=Fixed
+Context=Applications
+
+[32x32/apps]
+Size=32
+Type=Fixed
+Context=Applications
 
 [scalable/apps]
 Size=48
 MinSize=1
+MaxSize=512
+Type=Scalable
+Context=Applications
+
+[symbolic/apps]
+Size=16
+MinSize=8
 MaxSize=512
 Type=Scalable
 Context=Applications

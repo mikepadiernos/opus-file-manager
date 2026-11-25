@@ -190,6 +190,8 @@ private Q_SLOTS:
         QVERIFY(messages.contains("msgid \"&File\""));
         QVERIFY(messages.contains("src/app/opus-file-managerui.rc:6"));
         QVERIFY(messages.contains("msgid \"What the window shows when Plasma Opus starts\""));
+        QVERIFY(messages.contains("src/app/org.kde.opusfilemanager.desktop.in:4\nmsgid \"Dual-Pane File Manager\""));
+        QVERIFY(messages.contains("msgid \"Side-by-side panes with Places and the folder tree\""));
     }
 };
 

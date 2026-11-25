@@ -6,6 +6,7 @@
 #include "appearancedefaults.h"
 #include "appearancestyle.h"
 #include "appfonts.h"
+#include "appidentity.h"
 #include "archives.h"
 #include "archivewriter.h"
 #include "batchrenamedialog.h"
@@ -433,7 +434,7 @@ MainWindow::MainWindow(QWidget *parent)
     if (ViewSettings::migrateColumns(legacyView, views)) {
         Settings::self()->load();
     }
-    setComponentName(QStringLiteral("opus-file-manager"), i18n("Plasma Opus"));
+    setComponentName(AppIdentity::componentName(), AppIdentity::displayName());
     m_flatLocations = KSharedConfig::openStateConfig()->group(QLatin1String(FlatGroup)).readEntry("Locations", QStringList());
     m_favorites = new FavoritesModel(KSharedConfig::openConfig()->group(QStringLiteral("Favorites")), this);
     m_workspaceLocations = new WorkspaceLocations(m_favorites, m_placesModel, this);
