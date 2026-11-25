@@ -36,9 +36,8 @@
 > [!NOTE]
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0).
-> `main` also includes the M15 and M16 workspace milestones, merged after that
-> release, the M17 and M18 theme milestones and the M19 and M20 branding
-> milestones; see the
+> Since that release, `main` has gained workspaces (M15–M16), themes (M17–M18)
+> and branding (M19–M20). M21 Advanced search is in development; see the
 > [roadmap](docs/ROADMAP.md#at-a-glance) for status.
 
 ## Features
@@ -48,7 +47,7 @@ preview. Pane navigation starts linked, and activating most files opens a
 preview. Both behaviours can be changed in Preferences.
 
 - 🗂️ **Browse:** side-by-side or stacked panes with tabs, history and session
-  restoration. Details, icon, compact or flat views, with filtering and
+  restoration. Details, Icons, Compact, Card or flat views, with filtering and
   per-folder formats.
 - 📦 **Manage files:** KDE file actions, queued transfers, undo, batch rename,
   duplicate finding and listing export. Browse and manage archives, including
@@ -65,6 +64,11 @@ preview. Both behaviours can be changed in Preferences.
 - 🧭 **Workspaces:** named workspaces with assigned locations, saved layouts,
   explicit pane and tab snapshots, workspace-scoped search, a startup choice,
   recovery options and profile import or export.
+- 🎨 **Themes:** app-local colour schemes, accents and pane tints, blur,
+  opacity and corner radius, dividers and coloured tree lines, folder colour
+  rules, fonts, spacing and motion. Save them as theme profiles with an
+  optional stylesheet, or let each workspace apply its own appearance. Plasma's
+  appearance remains the default.
 - 💻 **Terminal:** embed Konsole below or beside the panes, with optional
   active-folder following. Hiding the panel retains its sessions.
 - 🌐 **Languages:** translation catalogues, right-to-left layouts, Jalali dates
@@ -76,15 +80,17 @@ Captured headless in the dev container with synthetic demo files, so KWin
 decorations, blur and the Plasma theme are absent. See the
 [screenshot notes](docs/screenshots/README.md).
 
-| Dual panes                 | Image preview                  |
-| -------------------------- | ------------------------------ |
-| [![Dual panes][s1]][s1]    | [![Image preview][s2]][s2]     |
-| **Code preview**           | **Embedded terminal**          |
-| [![Code preview][s3]][s3]  | [![Embedded terminal][s4]][s4] |
-| **Image gallery**          | **Batch rename**               |
-| [![Image gallery][s5]][s5] | [![Batch rename][s6]][s6]      |
-| **Content chart**          | **Theme settings**             |
-| [![Content chart][s7]][s7] | [![Theme settings][s8]][s8]    |
+| Dual panes                     | Card view                        |
+| ------------------------------ | -------------------------------- |
+| [![Dual panes][s1]][s1]        | [![Card view][s9]][s9]           |
+| **Image preview**              | **Code preview**                 |
+| [![Image preview][s2]][s2]     | [![Code preview][s3]][s3]        |
+| **Embedded terminal**          | **Image gallery**                |
+| [![Embedded terminal][s4]][s4] | [![Image gallery][s5]][s5]       |
+| **Batch rename**               | **Content chart**                |
+| [![Batch rename][s6]][s6]      | [![Content chart][s7]][s7]       |
+| **Theme settings**             | **Branding settings**            |
+| [![Theme settings][s8]][s8]    | [![Branding settings][s10]][s10] |
 
 [s1]: docs/screenshots/dual-pane.png
 [s2]: docs/screenshots/image-preview.png
@@ -94,6 +100,8 @@ decorations, blur and the Plasma theme are absent. See the
 [s6]: docs/screenshots/batch-rename.png
 [s7]: docs/screenshots/content-chart.png
 [s8]: docs/screenshots/settings-themes.png
+[s9]: docs/screenshots/card-view.png
+[s10]: docs/screenshots/settings-branding.png
 
 ## Build and run
 
@@ -163,6 +171,12 @@ the embedded terminal, and ExifTool supports media metadata editing. See the
   Choose Information panel fields and their order, with optional hover
   information. Set a theme, light, dark or checkerboard background for
   transparent images without changing the image.
+- **🎨 Appearance:** The Themes page sets app-local colours, effects, lines,
+  views, folder colours, text and motion, and manages theme profiles
+  ([M17](docs/ROADMAP.md#m17-themes),
+  [M18](docs/ROADMAP.md#m18-theme-settings)). The Branding page turns the
+  optional startup presentation on and chooses its logo
+  ([M20](docs/ROADMAP.md#m20-branding-settings)).
 - **💾 Backup:** Back up settings and window and panel layouts, or preview a
   restore that applies on the next launch. Review the
   [backup limitations](docs/CAVEATS.md#settings-backups) before sharing or
@@ -175,12 +189,8 @@ the embedded terminal, and ExifTool supports media metadata editing. See the
 
 Preferences also include [tool defaults](docs/ROADMAP.md#m10-tools-settings),
 [language and regional formats](docs/ROADMAP.md#m14-translation-settings) and
-[workspace settings](docs/ROADMAP.md#m16-workspace-settings). App-local themes,
-colours and view styles from [M17](docs/ROADMAP.md#m17-themes) are configured
-on the Themes page with the [M18 settings](docs/ROADMAP.md#m18-theme-settings),
-and workspaces can save their own appearance. The separate Branding page turns
-the optional startup presentation on and chooses its logo
-([M20](docs/ROADMAP.md#m20-branding-settings)).
+[workspace settings](docs/ROADMAP.md#m16-workspace-settings). Edit a
+workspace's theme profile and appearance overrides in **View → Workspaces**.
 
 ## Safety and limitations
 
@@ -195,10 +205,15 @@ for possible scenarios that are not confirmed bugs.
 
 ## Documentation
 
-| 📚                                                                 | Guide                                               |
-| ------------------------------------------------------------------ | --------------------------------------------------- |
-| [Documentation index](docs/README.md)                              | Design, plans, integrations and upstream references |
-| [Roadmap](docs/ROADMAP.md)                                         | Architecture, milestone status and planned features |
-| [Pending tasks](docs/TODO.md)                                      | Blocked work and handoffs                           |
-| [Caveats](docs/CAVEATS.md)                                         | Limitations, dependencies and workarounds           |
-| [Project board](https://github.com/users/mikepadiernos/projects/3) | Issue status from Backlog to Merged                 |
+|     | Guide                                                              | What it covers                                      |
+| --- | ------------------------------------------------------------------ | --------------------------------------------------- |
+| 📚  | [Documentation index](docs/README.md)                              | Design, plans, integrations and upstream references |
+| 🗺️  | [Roadmap](docs/ROADMAP.md)                                         | Architecture, milestone status and planned features |
+| 📋  | [Project board](https://github.com/users/mikepadiernos/projects/3) | Issue status from Backlog to Merged                 |
+| ⏳  | [Pending tasks](docs/TODO.md)                                      | Blocked work and handoffs                           |
+| ⚠️  | [Caveats](docs/CAVEATS.md)                                         | Limitations, dependencies and workarounds           |
+| 🐞  | [Reported bugs](docs/BUGS.md)                                      | Bug reports and their status                        |
+| 🧪  | [Edge cases](docs/EDGE.md)                                         | Possible scenarios worth testing                    |
+| 🎨  | [Branding](docs/BRANDING.md)                                       | Name, logo, icons and startup presentation          |
+| 📸  | [Screenshots](docs/screenshots/README.md)                          | Captured views and how they were made               |
+| 🌐  | [Translations](po/README.md)                                       | Catalogues, languages and regional formats          |
