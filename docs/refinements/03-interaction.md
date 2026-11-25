@@ -1,4 +1,4 @@
-# M32.03 Interaction
+# 🖱️ M32.03 Interaction
 
 **[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m32-refinements)** ·
 **[Testing](06-testing.md)**

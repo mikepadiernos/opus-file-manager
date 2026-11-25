@@ -1,15 +1,23 @@
-# Caveats and limitations
+# ⚠️ Caveats and limitations
 
 **[Documentation](README.md)** · **[Roadmap](ROADMAP.md)** ·
-**[Reported bugs](BUGS.md)** · **[Edge cases](EDGE.md)**
+**[Reported bugs](BUGS.md)** · **[Edge cases](EDGE.md)** ·
+**[Project board](https://github.com/users/mikepadiernos/projects/3)**
 
 Use this guide to find limitations, precautions and practical recommendations
 for current features and, where marked, planned features. Tracked caveats link
 to their issues and recommendation comments; alternatives supplement the primary
 recommendation and external tools are separate applications.
 
-> [!NOTE] Proposed improvements are not implemented features. The
+> [!NOTE]
+> Proposed improvements are not implemented features. The
 > [roadmap](ROADMAP.md) defines scope and status.
+
+> [!TIP]
+> Each caveat describes the current behaviour first, then a
+> **Recommendation** for what to do today. Alternatives and external tools
+> follow where useful; **Planned** and proposed improvements are not yet
+> implemented.
 
 ## Find a caveat
 
@@ -45,7 +53,7 @@ recommendation and external tools are separate applications.
 
 ## Workspace layouts
 
-On the M15 development branch, workspace layouts save pane and tab locations,
+Workspace layouts, merged in M15, save pane and tab locations,
 active tabs, view and location-bar modes, toolbar action lists, splitter sizes,
 terminal orientation, detached-pane geometry, and supported panel placement and
 visibility. They do not persist editor drafts or terminal sessions; running jobs
@@ -1163,121 +1171,62 @@ standalone CLI replacements. The PDF engine used by Pandoc is a separate
 dependency and varies with the chosen output method.
 
 [issue-36]: https://github.com/mikepadiernos/plasma-opus/issues/36
-[issue-255]:
-  https://github.com/mikepadiernos/plasma-opus/issues/255
-[issue-256]:
-  https://github.com/mikepadiernos/plasma-opus/issues/256
-[issue-257]:
-  https://github.com/mikepadiernos/plasma-opus/issues/257
-[issue-258]:
-  https://github.com/mikepadiernos/plasma-opus/issues/258
-[issue-259]:
-  https://github.com/mikepadiernos/plasma-opus/issues/259
-[issue-260]:
-  https://github.com/mikepadiernos/plasma-opus/issues/260
-[issue-261]:
-  https://github.com/mikepadiernos/plasma-opus/issues/261
-[issue-262]:
-  https://github.com/mikepadiernos/plasma-opus/issues/262
-[issue-263]:
-  https://github.com/mikepadiernos/plasma-opus/issues/263
-[issue-264]:
-  https://github.com/mikepadiernos/plasma-opus/issues/264
-[issue-265]:
-  https://github.com/mikepadiernos/plasma-opus/issues/265
-[issue-266]:
-  https://github.com/mikepadiernos/plasma-opus/issues/266
-[issue-267]:
-  https://github.com/mikepadiernos/plasma-opus/issues/267
-[issue-302]:
-  https://github.com/mikepadiernos/plasma-opus/issues/302
-[issue-303]:
-  https://github.com/mikepadiernos/plasma-opus/issues/303
-[issue-304]:
-  https://github.com/mikepadiernos/plasma-opus/issues/304
-[issue-307]:
-  https://github.com/mikepadiernos/plasma-opus/issues/307
-[issue-309]:
-  https://github.com/mikepadiernos/plasma-opus/issues/309
-[issue-311]:
-  https://github.com/mikepadiernos/plasma-opus/issues/311
-[issue-312]:
-  https://github.com/mikepadiernos/plasma-opus/issues/312
-[issue-313]:
-  https://github.com/mikepadiernos/plasma-opus/issues/313
-[comment-36]:
-  https://github.com/mikepadiernos/plasma-opus/issues/36#issuecomment-7021740511
-[comment-255]:
-  https://github.com/mikepadiernos/plasma-opus/issues/255#issuecomment-7021741358
-[comment-256]:
-  https://github.com/mikepadiernos/plasma-opus/issues/256#issuecomment-7021742119
-[comment-257]:
-  https://github.com/mikepadiernos/plasma-opus/issues/257#issuecomment-7021742864
-[comment-258]:
-  https://github.com/mikepadiernos/plasma-opus/issues/258#issuecomment-7021743599
-[comment-259]:
-  https://github.com/mikepadiernos/plasma-opus/issues/259#issuecomment-7021744368
-[comment-260]:
-  https://github.com/mikepadiernos/plasma-opus/issues/260#issuecomment-7021745029
-[comment-261]:
-  https://github.com/mikepadiernos/plasma-opus/issues/261#issuecomment-7021745774
-[comment-262]:
-  https://github.com/mikepadiernos/plasma-opus/issues/262#issuecomment-7021746538
-[comment-263]:
-  https://github.com/mikepadiernos/plasma-opus/issues/263#issuecomment-7021748197
-[comment-264]:
-  https://github.com/mikepadiernos/plasma-opus/issues/264#issuecomment-7021749088
-[comment-265]:
-  https://github.com/mikepadiernos/plasma-opus/issues/265#issuecomment-7021749894
-[comment-266]:
-  https://github.com/mikepadiernos/plasma-opus/issues/266#issuecomment-7021750778
-[comment-267]:
-  https://github.com/mikepadiernos/plasma-opus/issues/267#issuecomment-7021751490
-[comment-302]:
-  https://github.com/mikepadiernos/plasma-opus/issues/302#issuecomment-7021752278
-[comment-303]:
-  https://github.com/mikepadiernos/plasma-opus/issues/303#issuecomment-7021753023
-[comment-304]:
-  https://github.com/mikepadiernos/plasma-opus/issues/304#issuecomment-7021753785
-[comment-307]:
-  https://github.com/mikepadiernos/plasma-opus/issues/307#issuecomment-7021754467
-[comment-309]:
-  https://github.com/mikepadiernos/plasma-opus/issues/309#issuecomment-7021755164
-[comment-311]:
-  https://github.com/mikepadiernos/plasma-opus/issues/311#issuecomment-7021755780
-[comment-312]:
-  https://github.com/mikepadiernos/plasma-opus/issues/312#issuecomment-7021756400
-[comment-313]:
-  https://github.com/mikepadiernos/plasma-opus/issues/313#issuecomment-7021757012
-[comment-314]:
-  https://github.com/mikepadiernos/plasma-opus/issues/314#issuecomment-7021757620
-[comment-315]:
-  https://github.com/mikepadiernos/plasma-opus/issues/315#issuecomment-7021758275
-[comment-316]:
-  https://github.com/mikepadiernos/plasma-opus/issues/316#issuecomment-7021845379
-[comment-317]:
-  https://github.com/mikepadiernos/plasma-opus/issues/317#issuecomment-7021904155
-[comment-318]:
-  https://github.com/mikepadiernos/plasma-opus/issues/318#issuecomment-7022199214
-[comment-321]:
-  https://github.com/mikepadiernos/plasma-opus/issues/321#issuecomment-7022392302
-[comment-322]:
-  https://github.com/mikepadiernos/plasma-opus/issues/322#issuecomment-7022490696
-[comment-335]:
-  https://github.com/mikepadiernos/plasma-opus/issues/335#issuecomment-7022647720
-[comment-336]:
-  https://github.com/mikepadiernos/plasma-opus/issues/336#issuecomment-7022793474
-[comment-362]:
-  https://github.com/mikepadiernos/plasma-opus/issues/362#issuecomment-7023269364
-[comment-372]:
-  https://github.com/mikepadiernos/plasma-opus/issues/372#issuecomment-7024683530
-[comment-373]:
-  https://github.com/mikepadiernos/plasma-opus/issues/373#issuecomment-7024944292
-[comment-374]:
-  https://github.com/mikepadiernos/plasma-opus/issues/374#issuecomment-7025134952
-[comment-375]:
-  https://github.com/mikepadiernos/plasma-opus/issues/375#issuecomment-7025250130
-[comment-376]:
-  https://github.com/mikepadiernos/plasma-opus/issues/376#issuecomment-7026216329
-[comment-377]:
-  https://github.com/mikepadiernos/plasma-opus/issues/377#issuecomment-7026633904
+[issue-255]: https://github.com/mikepadiernos/plasma-opus/issues/255
+[issue-256]: https://github.com/mikepadiernos/plasma-opus/issues/256
+[issue-257]: https://github.com/mikepadiernos/plasma-opus/issues/257
+[issue-258]: https://github.com/mikepadiernos/plasma-opus/issues/258
+[issue-259]: https://github.com/mikepadiernos/plasma-opus/issues/259
+[issue-260]: https://github.com/mikepadiernos/plasma-opus/issues/260
+[issue-261]: https://github.com/mikepadiernos/plasma-opus/issues/261
+[issue-262]: https://github.com/mikepadiernos/plasma-opus/issues/262
+[issue-263]: https://github.com/mikepadiernos/plasma-opus/issues/263
+[issue-264]: https://github.com/mikepadiernos/plasma-opus/issues/264
+[issue-265]: https://github.com/mikepadiernos/plasma-opus/issues/265
+[issue-266]: https://github.com/mikepadiernos/plasma-opus/issues/266
+[issue-267]: https://github.com/mikepadiernos/plasma-opus/issues/267
+[issue-302]: https://github.com/mikepadiernos/plasma-opus/issues/302
+[issue-303]: https://github.com/mikepadiernos/plasma-opus/issues/303
+[issue-304]: https://github.com/mikepadiernos/plasma-opus/issues/304
+[issue-307]: https://github.com/mikepadiernos/plasma-opus/issues/307
+[issue-309]: https://github.com/mikepadiernos/plasma-opus/issues/309
+[issue-311]: https://github.com/mikepadiernos/plasma-opus/issues/311
+[issue-312]: https://github.com/mikepadiernos/plasma-opus/issues/312
+[issue-313]: https://github.com/mikepadiernos/plasma-opus/issues/313
+[comment-36]: https://github.com/mikepadiernos/plasma-opus/issues/36#issuecomment-7021740511
+[comment-255]: https://github.com/mikepadiernos/plasma-opus/issues/255#issuecomment-7021741358
+[comment-256]: https://github.com/mikepadiernos/plasma-opus/issues/256#issuecomment-7021742119
+[comment-257]: https://github.com/mikepadiernos/plasma-opus/issues/257#issuecomment-7021742864
+[comment-258]: https://github.com/mikepadiernos/plasma-opus/issues/258#issuecomment-7021743599
+[comment-259]: https://github.com/mikepadiernos/plasma-opus/issues/259#issuecomment-7021744368
+[comment-260]: https://github.com/mikepadiernos/plasma-opus/issues/260#issuecomment-7021745029
+[comment-261]: https://github.com/mikepadiernos/plasma-opus/issues/261#issuecomment-7021745774
+[comment-262]: https://github.com/mikepadiernos/plasma-opus/issues/262#issuecomment-7021746538
+[comment-263]: https://github.com/mikepadiernos/plasma-opus/issues/263#issuecomment-7021748197
+[comment-264]: https://github.com/mikepadiernos/plasma-opus/issues/264#issuecomment-7021749088
+[comment-265]: https://github.com/mikepadiernos/plasma-opus/issues/265#issuecomment-7021749894
+[comment-266]: https://github.com/mikepadiernos/plasma-opus/issues/266#issuecomment-7021750778
+[comment-267]: https://github.com/mikepadiernos/plasma-opus/issues/267#issuecomment-7021751490
+[comment-302]: https://github.com/mikepadiernos/plasma-opus/issues/302#issuecomment-7021752278
+[comment-303]: https://github.com/mikepadiernos/plasma-opus/issues/303#issuecomment-7021753023
+[comment-304]: https://github.com/mikepadiernos/plasma-opus/issues/304#issuecomment-7021753785
+[comment-307]: https://github.com/mikepadiernos/plasma-opus/issues/307#issuecomment-7021754467
+[comment-309]: https://github.com/mikepadiernos/plasma-opus/issues/309#issuecomment-7021755164
+[comment-311]: https://github.com/mikepadiernos/plasma-opus/issues/311#issuecomment-7021755780
+[comment-312]: https://github.com/mikepadiernos/plasma-opus/issues/312#issuecomment-7021756400
+[comment-313]: https://github.com/mikepadiernos/plasma-opus/issues/313#issuecomment-7021757012
+[comment-314]: https://github.com/mikepadiernos/plasma-opus/issues/314#issuecomment-7021757620
+[comment-315]: https://github.com/mikepadiernos/plasma-opus/issues/315#issuecomment-7021758275
+[comment-316]: https://github.com/mikepadiernos/plasma-opus/issues/316#issuecomment-7021845379
+[comment-317]: https://github.com/mikepadiernos/plasma-opus/issues/317#issuecomment-7021904155
+[comment-318]: https://github.com/mikepadiernos/plasma-opus/issues/318#issuecomment-7022199214
+[comment-321]: https://github.com/mikepadiernos/plasma-opus/issues/321#issuecomment-7022392302
+[comment-322]: https://github.com/mikepadiernos/plasma-opus/issues/322#issuecomment-7022490696
+[comment-335]: https://github.com/mikepadiernos/plasma-opus/issues/335#issuecomment-7022647720
+[comment-336]: https://github.com/mikepadiernos/plasma-opus/issues/336#issuecomment-7022793474
+[comment-362]: https://github.com/mikepadiernos/plasma-opus/issues/362#issuecomment-7023269364
+[comment-372]: https://github.com/mikepadiernos/plasma-opus/issues/372#issuecomment-7024683530
+[comment-373]: https://github.com/mikepadiernos/plasma-opus/issues/373#issuecomment-7024944292
+[comment-374]: https://github.com/mikepadiernos/plasma-opus/issues/374#issuecomment-7025134952
+[comment-375]: https://github.com/mikepadiernos/plasma-opus/issues/375#issuecomment-7025250130
+[comment-376]: https://github.com/mikepadiernos/plasma-opus/issues/376#issuecomment-7026216329
+[comment-377]: https://github.com/mikepadiernos/plasma-opus/issues/377#issuecomment-7026633904

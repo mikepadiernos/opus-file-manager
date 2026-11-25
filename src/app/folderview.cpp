@@ -71,6 +71,7 @@
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <utility>
 
 namespace
 {
@@ -1190,6 +1191,7 @@ void FolderView::setViewMode(ViewMode mode)
     }
     m_viewMode = mode;
     m_stack->setCurrentWidget(currentView());
+    updatePreviews();
     m_minimap->setView(currentView());
     if (hadFocus) {
         currentView()->setFocus();
@@ -1259,7 +1261,7 @@ void FolderView::setRemotePreviewsEnabled(bool enabled)
 
 bool FolderView::previewsShown() const
 {
-    return m_detailsPreviews->isPreviewShown();
+    return m_previewsEnabled && (m_folder.isLocalFile() || m_remotePreviewsEnabled);
 }
 
 void FolderView::setPreviewPlugins(const QStringList &plugins)
@@ -1357,11 +1359,26 @@ bool FolderView::showToolTips() const
 
 void FolderView::updatePreviews()
 {
-    const bool shown = m_previewsEnabled && (m_folder.isLocalFile() || m_remotePreviewsEnabled);
-    m_detailsPreviews->setPreviewShown(shown);
-    m_iconPreviews->setPreviewShown(shown);
-    m_compactPreviews->setPreviewShown(shown);
-    m_cardPreviews->setPreviewShown(shown);
+    // The views share one model, so every enabled generator writes its own
+    // preview size into the same decoration role. Only the visible view may
+    // generate previews, or a smaller view's thumbnails replace its own.
+    const bool shown = previewsShown();
+    const QList<std::pair<KFilePreviewGenerator *, ViewMode>> generators{
+        {m_detailsPreviews, ViewMode::Details},
+        {m_iconPreviews, ViewMode::Icons},
+        {m_compactPreviews, ViewMode::Compact},
+        {m_cardPreviews, ViewMode::Cards},
+    };
+    for (const auto &[generator, mode] : generators) {
+        if (mode != m_viewMode) {
+            generator->setPreviewShown(false);
+        }
+    }
+    for (const auto &[generator, mode] : generators) {
+        if (mode == m_viewMode) {
+            generator->setPreviewShown(shown);
+        }
+    }
 }
 
 KFileItem FolderView::rootItem() const

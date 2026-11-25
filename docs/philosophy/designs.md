@@ -1,9 +1,10 @@
-# Interface design
+# 📐 Interface design
 
 **[Documentation](../README.md)** ·
 **[Refinements](../refinements/02-layouts.md)** · **[Roadmap](../ROADMAP.md)**
 
-> [!NOTE] This document describes the target design. Placement and customization
+> [!NOTE]
+> This document describes the target design. Placement and customization
 > options are not all implemented; see the linked milestones for their status.
 
 ## Contents
@@ -122,7 +123,12 @@ A workspace is a named profile for a workflow. The target profile can include
 features, layout, theme and other preferences, and optionally be associated with
 a KDE Plasma Activity with settings selected per Activity.
 
-Workspaces are planned to link reusable task profiles, inspired by
+A workspace can attach a theme profile and selected appearance options, such as
+Card view, folder colour rules, blur, corner radius and divider visibility.
+Unselected options follow the global appearance. This is planned in the
+[themes milestone](../ROADMAP.md#m17-themes).
+
+Workspaces link reusable task profiles, inspired by
 [Krusader profiles](https://docs.kde.org/trunk_kf6/en/krusader/krusader/profiles.html),
 including saved searches and folder comparison or synchronization profiles.
 Profiles remain separate from workspace layouts and reusable elsewhere.
@@ -130,18 +136,21 @@ Switching a workspace does not run tasks or change shared defaults; existing
 previews and confirmations still apply. See
 [#585](https://github.com/mikepadiernos/plasma-opus/issues/585).
 
-An optional local vault can give a workspace a note-oriented view, using the
-built-in text editor for Markdown, note links and backlinks. It remains a normal
-folder: workspace management does not move or delete its notes or modify
-Obsidian configuration.
+An optional local vault is planned to give a workspace a note-oriented view,
+using the built-in text editor for Markdown, note links and backlinks. It
+remains a normal folder: workspace management does not move or delete its notes
+or modify Obsidian configuration. See the
+[vault handoff](../TODO.md#workspace-vault-editing-565).
 
-Plasma Opus provides workspace management through **View → Workspaces**,
-location assignments and partial layout snapshots. Richer layouts and Activity
-associations are planned. Tag groups belong to the separate native tagging
-system; see the [workspace milestone](../ROADMAP.md#m15-workspaces),
-[layout caveat](../CAVEATS.md#workspace-layouts) and
-[native tagging milestone](../ROADMAP.md#m23-native-tagging) and
-[Activity integration](../ROADMAP.md#m27-integrations) milestones.
+Plasma Opus provides workspace management through **View → Workspaces**, with
+location assignments, saved layouts, explicit pane and tab snapshots, linked
+task profiles and workspace settings. Activity associations are planned. Tag
+groups belong to the separate native tagging system. See the
+[workspace](../ROADMAP.md#m15-workspaces),
+[workspace settings](../ROADMAP.md#m16-workspace-settings),
+[native tagging](../ROADMAP.md#m23-native-tagging) and
+[Activity integration](../ROADMAP.md#m27-integrations) milestones, and the
+[layout caveat](../CAVEATS.md#workspace-layouts).
 
 ## Translation ideas
 
@@ -168,7 +177,11 @@ Ideas below are proposals, not claims of implemented functionality.
 - **Alternative library views:** Explore calendar, map or kanban presentations
   of existing files and metadata, inspired by
   [TagSpaces perspectives](https://docs.tagspaces.org/). Keep the underlying
-  files in place and make missing metadata or unavailable providers clear.
+  files in place and make missing metadata or unavailable providers clear. See
+  the [considered features](../integrations/plasma-impresario.md#considered-features)
+  for these views and a notes journal, including how they could work with
+  Plasma Impresario and
+  [Nextcloud apps](../integrations/nextcloud.md#considered-features).
 - **Copy path components:** Explore keyboard-accessible actions for copying a
   file's path, parent path, filename or basename, inspired by
   [Yazi](https://yazi-rs.github.io/docs/quick-start/). Reuse existing clipboard

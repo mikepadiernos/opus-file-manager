@@ -33,6 +33,7 @@
 #include <KFileItemDelegate>
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
+#include <KFilePreviewGenerator>
 #include <KMessageWidget>
 #include <KPageWidget>
 #include <KSharedConfig>
@@ -3569,6 +3570,41 @@ private Q_SLOTS:
         Settings::setShowRemotePreviews(true);
         window.applySettings();
         QVERIFY(view->previewsShown());
+    }
+
+    void previewsOnlyGenerateForTheCurrentView()
+    {
+        Settings::setShowPreviews(true);
+        MainWindow window;
+        window.openUrls({m_a});
+        FolderView *view = window.activePane()->view();
+        const QList<KFilePreviewGenerator *> generators = view->findChildren<KFilePreviewGenerator *>();
+        QCOMPARE(generators.size(), 4);
+
+        const auto verifyOnlyCurrentGenerates = [&] {
+            for (const KFilePreviewGenerator *generator : generators) {
+                const bool current = generator->parent() == view->currentView();
+                QCOMPARE(generator->isPreviewShown(), current);
+            }
+        };
+        const QList<FolderView::ViewMode> modes{FolderView::ViewMode::Icons,
+                                                FolderView::ViewMode::Compact,
+                                                FolderView::ViewMode::Cards,
+                                                FolderView::ViewMode::Details};
+        for (const FolderView::ViewMode mode : modes) {
+            view->setViewMode(mode);
+            QVERIFY(view->previewsShown());
+            verifyOnlyCurrentGenerates();
+        }
+
+        view->setPreviewsEnabled(false);
+        QVERIFY(!view->previewsShown());
+        for (const KFilePreviewGenerator *generator : generators) {
+            QVERIFY(!generator->isPreviewShown());
+        }
+        view->setViewMode(FolderView::ViewMode::Icons);
+        view->setPreviewsEnabled(true);
+        verifyOnlyCurrentGenerates();
     }
 
     void previewSizeSpinBoxMapsZeroToNoLimit()

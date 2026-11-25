@@ -1,4 +1,4 @@
-# Scope and objective
+# 🎯 Scope and objective
 
 **[Documentation](../README.md)** · **[Inspirations](inspirations.md)** ·
 **[Roadmap](../ROADMAP.md)**

@@ -1,4 +1,4 @@
-# Inspirations
+# 💡 Inspirations
 
 **[Documentation](../README.md)** · **[Scope](scope.md)** ·
 **[Roadmap](../ROADMAP.md)**
@@ -7,7 +7,8 @@ Plasma Opus combines dual-pane and power-user ideas from several file managers
 with KDE's native desktop integration. Each reference contributes ideas; none
 dictates the application's interface or implementation.
 
-> [!NOTE] The [roadmap](../ROADMAP.md) is the source of truth for feature
+> [!NOTE]
+> The [roadmap](../ROADMAP.md) is the source of truth for feature
 > status. Ideas described here are not necessarily implemented.
 
 ## Contents
@@ -16,6 +17,8 @@ dictates the application's interface or implementation.
 - [Dolphin — KDE desktop model](#dolphin--kde-desktop-model)
 - [Directory Opus — power-user benchmark](#directory-opus--power-user-benchmark)
 - [Krusader — two-pane tools](#krusader--two-pane-tools)
+- [MiXplorer — mobile power tools](#mixplorer--mobile-power-tools)
+- [Strata — system file chooser](#strata--system-file-chooser)
 - [Orcinus — power-user workflows for Dolphin](#orcinus--power-user-workflows-for-dolphin)
 - [TagSpaces — focused workspaces](#tagspaces--focused-workspaces)
 - [TagStudio — native tagging](#tagstudio--native-tagging)
@@ -60,6 +63,26 @@ archive testing, comparison, checksums, split and combine, and an embedded
 terminal alongside both panes. Copy and move transfers can be queued; folder
 synchronization previews filtered, per-item actions before applying them.
 
+## MiXplorer — mobile power tools
+
+[MiXplorer](https://mixplorer.com/) packs desktop-class tools into an Android
+file manager. Its encrypted containers, file encryption, LAN servers, cloud
+providers, archive editing, file-type categories and menu customization inform
+planned [integrations](../ROADMAP.md#m27-integrations). Plasma Opus adapts them
+to KDE facilities, such as Plasma Vault, KIO workers, Ark and KDE's credential
+storage, rather than reimplementing them, and does not copy MiXplorer's mobile
+interface.
+
+## Strata — system file chooser
+
+[Strata](https://github.com/lgse/strata) can serve as the desktop's Open and
+Save dialog through the XDG file chooser portal, as an explicit opt-in. Its
+setup informs the optional
+[system file chooser](../ROADMAP.md#m27-integrations) planned for Plasma Opus:
+users opt in through settings, the installer or a command-line option, KDE's
+chooser remains the fallback, and the previous chooser can be restored the
+same ways.
+
 ## Orcinus — power-user workflows for Dolphin
 
 Earlier project notes attribute several Dolphin-oriented power-user ideas to
@@ -70,9 +93,9 @@ authoritative upstream source has not been verified for these entries.
 ## TagSpaces — focused workspaces
 
 [TagSpaces workspaces](https://docs.tagspaces.org/workspaces/) group locations
-by context and scope global searches to the active workspace. Plasma Opus's
-[workspace plan](../ROADMAP.md#m15-workspaces) adds saved pane, toolbar and
-panel layouts for different workflows. Workspaces organize the interface and
+by context and scope global searches to the active workspace. Plasma Opus
+[workspaces](../ROADMAP.md#m15-workspaces) also save pane, toolbar and panel
+layouts for different workflows. Workspaces organize the interface and
 search scope; native tag groups remain independent in the
 [tagging plan](../ROADMAP.md#m23-native-tagging). Workspaces are not a security
 boundary.
