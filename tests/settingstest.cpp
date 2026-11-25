@@ -2531,6 +2531,31 @@ private Q_SLOTS:
         const QString path = files.filePath(QStringLiteral("night.opus-theme.json"));
         QVERIFY(manager->exportProfile(id, path));
         QVERIFY(QFile::exists(path));
+
+        // A file dialog name without .json gets the suffix, and replacing a
+        // file with the suffixed name asks first.
+        QCOMPARE(manager->selectedId(), id);
+        QFile existing(path);
+        QVERIFY(existing.open(QIODevice::WriteOnly | QIODevice::Truncate));
+        existing.write("old");
+        existing.close();
+        const qsizetype asked = questions.size();
+        QVERIFY(!manager->exportSelected(files.filePath(QStringLiteral("night"))));
+        QCOMPARE(questions.size(), asked + 1);
+        QVERIFY(questions.constLast().contains(QStringLiteral("night.opus-theme.json")));
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QCOMPARE(existing.readAll(), QByteArray("old"));
+        existing.close();
+        confirm = true;
+        QVERIFY(manager->exportSelected(files.filePath(QStringLiteral("night"))));
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QVERIFY(existing.readAll().contains("plasma-opus-theme"));
+        existing.close();
+        QVERIFY(manager->exportSelected(files.filePath(QStringLiteral("plain.JSON"))));
+        QVERIFY(QFile::exists(files.filePath(QStringLiteral("plain.JSON"))));
+        QCOMPARE(questions.size(), asked + 2);
+        confirm = false;
+
         QVERIFY(!manager->removeProfile(id));
         QCOMPARE(list->count(), 1);
         confirm = true;

@@ -404,6 +404,13 @@ public:
     /// Imports a profile file, asking before replacing a profile with its name.
     bool importProfile(const QString &path);
     bool exportProfile(const QString &id, const QString &path, bool includeStyleSheet = true);
+    /**
+     * Exports the selected profile to @p path, as chosen in a file dialog.
+     * Adds the .opus-theme.json suffix when the name has no .json suffix and
+     * asks before replacing a file with the suffixed name, which the file
+     * dialog did not ask about, and whether to include a custom stylesheet.
+     */
+    bool exportSelected(QString path);
     bool removeProfile(const QString &id);
 
 private:

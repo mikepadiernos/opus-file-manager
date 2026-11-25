@@ -26,6 +26,7 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFontDatabase>
 #include <QFormLayout>
 #include <QFrame>
@@ -1313,32 +1314,13 @@ ThemeProfileManager::ThemeProfileManager(Callbacks callbacks, QWidget *parent)
         fileName.replace(QRegularExpression(QStringLiteral(R"([/\\:*?"<>|]+)")), QStringLiteral("-"));
         const QString defaultPath =
             QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)).filePath(fileName + QStringLiteral(".opus-theme.json"));
-        QString path = QFileDialog::getSaveFileName(this,
-                                                    i18nc("@title:window", "Export Theme Profile"),
-                                                    defaultPath,
-                                                    i18nc("@item:inlistbox", "Plasma Opus theme profile (*.json)"));
-        if (path.isEmpty()) {
-            return;
+        const QString path = QFileDialog::getSaveFileName(this,
+                                                          i18nc("@title:window", "Export Theme Profile"),
+                                                          defaultPath,
+                                                          i18nc("@item:inlistbox", "Plasma Opus theme profile (*.json)"));
+        if (!path.isEmpty()) {
+            exportSelected(path);
         }
-        if (!path.endsWith(QLatin1String(".json"), Qt::CaseInsensitive)) {
-            path.append(QStringLiteral(".opus-theme.json"));
-        }
-        bool includeStyleSheet = true;
-        const auto profile = std::find_if(m_profiles.cbegin(), m_profiles.cend(), [&id](const ThemeProfiles::Profile &candidate) {
-            return candidate.id == id;
-        });
-        if (profile != m_profiles.cend() && ThemeProfiles::hasStyleSheet(profile->values)) {
-            const auto answer = QMessageBox::question(this,
-                                                      i18nc("@title:window", "Export Theme Profile"),
-                                                      i18nc("@info", "Include the profile's custom stylesheet in the exported file?"),
-                                                      QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel,
-                                                      QMessageBox::Yes);
-            if (answer == QMessageBox::Cancel) {
-                return;
-            }
-            includeStyleSheet = answer == QMessageBox::Yes;
-        }
-        exportProfile(id, path, includeStyleSheet);
     });
     connect(m_remove, &QPushButton::clicked, this, [this] {
         removeProfile(selectedId());
@@ -1511,6 +1493,36 @@ bool ThemeProfileManager::exportProfile(const QString &id, const QString &path, 
     }
     showMessage(KMessageWidget::Positive, i18nc("@info", "Exported “%1” to %2.", profile->name, QDir::toNativeSeparators(path)));
     return true;
+}
+
+bool ThemeProfileManager::exportSelected(QString path)
+{
+    const QString id = selectedId();
+    const auto profile = std::find_if(m_profiles.cbegin(), m_profiles.cend(), [&id](const ThemeProfiles::Profile &candidate) {
+        return candidate.id == id;
+    });
+    if (id.isEmpty() || profile == m_profiles.cend()) {
+        return false;
+    }
+    if (!path.endsWith(QLatin1String(".json"), Qt::CaseInsensitive)) {
+        path.append(QStringLiteral(".opus-theme.json"));
+        if (QFileInfo::exists(path) && !m_confirm(i18nc("@info", "Replace the existing file “%1”?", QDir::toNativeSeparators(path)))) {
+            return false;
+        }
+    }
+    bool includeStyleSheet = true;
+    if (ThemeProfiles::hasStyleSheet(profile->values)) {
+        const auto answer = QMessageBox::question(this,
+                                                  i18nc("@title:window", "Export Theme Profile"),
+                                                  i18nc("@info", "Include the profile's custom stylesheet in the exported file?"),
+                                                  QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel,
+                                                  QMessageBox::Yes);
+        if (answer == QMessageBox::Cancel) {
+            return false;
+        }
+        includeStyleSheet = answer == QMessageBox::Yes;
+    }
+    return exportProfile(id, path, includeStyleSheet);
 }
 
 bool ThemeProfileManager::removeProfile(const QString &id)
