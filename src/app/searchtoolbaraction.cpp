@@ -6,21 +6,43 @@
 
 #include <KLocalizedString>
 
+#include <QCompleter>
 #include <QKeyEvent>
 #include <QLineEdit>
 #include <QMenu>
+#include <QStringListModel>
 
 SearchToolbarAction::SearchToolbarAction(QObject *parent)
     : QWidgetAction(parent)
 {
     setText(i18nc("@action", "Search Field"));
     setIcon(QIcon::fromTheme(QStringLiteral("edit-find")));
-    setToolTip(i18nc("@info:tooltip", "Search with the search panel's scope and filters, set by default on the Search page of Preferences"));
+    setToolTip(i18nc("@info:tooltip",
+                     "Search with the search panel's scope and filters, set by default on the Search page of Preferences. Press Alt+Down to list "
+                     "recent searches."));
 }
 
 void SearchToolbarAction::setSavedSearchProvider(SavedSearchProvider provider)
 {
     m_savedSearches = std::move(provider);
+}
+
+void SearchToolbarAction::setHistoryProvider(HistoryProvider provider)
+{
+    m_history = std::move(provider);
+}
+
+bool SearchToolbarAction::refreshHistory(QLineEdit *field)
+{
+    auto *model = qobject_cast<QStringListModel *>(field->completer() ? field->completer()->model() : nullptr);
+    if (!model) {
+        return false;
+    }
+    const QStringList queries = m_history ? m_history() : QStringList();
+    if (model->stringList() != queries) {
+        model->setStringList(queries);
+    }
+    return !queries.isEmpty();
 }
 
 QWidget *SearchToolbarAction::createWidget(QWidget *parent)
@@ -31,6 +53,10 @@ QWidget *SearchToolbarAction::createWidget(QWidget *parent)
     field->setToolTip(toolTip());
     field->setAccessibleName(i18nc("@label", "Search"));
     field->setClearButtonEnabled(true);
+    auto *completer = new QCompleter(new QStringListModel(field), field);
+    completer->setCaseSensitivity(Qt::CaseInsensitive);
+    completer->setFilterMode(Qt::MatchContains);
+    field->setCompleter(completer);
     field->addAction(SymbolicIcon::fromTheme(QStringLiteral("edit-find")), QLineEdit::LeadingPosition);
     auto *saved = field->addAction(SymbolicIcon::fromTheme(QStringLiteral("view-list-details")), QLineEdit::TrailingPosition);
     saved->setObjectName(QStringLiteral("toolbarSavedSearches"));
@@ -70,8 +96,19 @@ void SearchToolbarAction::showSavedSearches(QWidget *field)
 
 bool SearchToolbarAction::eventFilter(QObject *watched, QEvent *event)
 {
-    if (event->type() == QEvent::KeyPress && qobject_cast<QLineEdit *>(watched)) {
+    auto *field = qobject_cast<QLineEdit *>(watched);
+    if (field && event->type() == QEvent::FocusIn) {
+        refreshHistory(field);
+    }
+    if (event->type() == QEvent::KeyPress && field) {
         const auto *key = static_cast<QKeyEvent *>(event);
+        if (key->key() == Qt::Key_Down && (key->modifiers() & ~Qt::KeypadModifier) == Qt::AltModifier) {
+            if (refreshHistory(field)) {
+                field->completer()->setCompletionPrefix(QString());
+                field->completer()->complete();
+            }
+            return true;
+        }
         if ((key->modifiers() & ~Qt::KeypadModifier) == Qt::NoModifier) {
             if (key->key() == Qt::Key_Down) {
                 Q_EMIT resultsRequested();

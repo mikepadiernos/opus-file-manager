@@ -5,6 +5,7 @@
 #include "indexedsearch.h"
 #include "pathfiltereditor.h"
 #include "searchcollection.h"
+#include "searchhistory.h"
 #include "searchlocations.h"
 #include "searchquery.h"
 
@@ -14,6 +15,7 @@
 #include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
+#include <QCompleter>
 #include <QDir>
 #include <QEvent>
 #include <QFileInfo>
@@ -31,6 +33,7 @@
 #include <QScrollArea>
 #include <QSet>
 #include <QSplitter>
+#include <QStringListModel>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QTreeWidget>
@@ -64,6 +67,19 @@ int fieldIndex(LiveSearch::Field field)
     return field == LiveSearch::Field::Query ? QueryField : field == LiveSearch::Field::Contents ? ContentsField : NameField;
 }
 
+/// Holds each result's and reference's full path, whichever presentation is shown.
+constexpr int PathRole = Qt::UserRole;
+
+QString itemPath(const QTreeWidgetItem *item)
+{
+    return item->data(0, PathRole).toString();
+}
+
+KConfigGroup historyGroup()
+{
+    return KSharedConfig::openStateConfig()->group(QStringLiteral("SearchHistory"));
+}
+
 /// Appends the keyboard-focusable widgets in @p layout in layout order, descending into containers.
 void collectTabStops(QLayout *layout, QList<QWidget *> &stops)
 {
@@ -80,6 +96,9 @@ void collectTabStops(QLayout *layout, QList<QWidget *> &stops)
         if (auto *tabs = qobject_cast<QTabWidget *>(widget)) {
             // The tab widget forwards focus to its tab bar.
             stops.append(tabs);
+            if (QWidget *corner = tabs->cornerWidget(Qt::TopRightCorner); corner && (corner->focusPolicy() & Qt::TabFocus)) {
+                stops.append(corner);
+            }
             for (int page = 0; page < tabs->count(); ++page) {
                 QWidget *pageWidget = tabs->widget(page);
                 if (pageWidget->focusPolicy() & Qt::TabFocus) {
@@ -120,6 +139,7 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
     , m_config(config ? config : KSharedConfig::openConfig())
     , m_folderLabel(new QLabel(folder.toDisplayString(), this))
     , m_query(new QLineEdit(this))
+    , m_historyModel(new QStringListModel(this))
     , m_field(new QComboBox(this))
     , m_scope(new QComboBox(this))
     , m_workspaceOnly(new QCheckBox(this))
@@ -133,6 +153,7 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
     , m_results(new QTreeWidget(this))
     , m_collection(new QTreeWidget(this))
     , m_resultTabs(new QTabWidget(this))
+    , m_presentation(new QComboBox(this))
     , m_errors(new QTreeWidget(this))
 {
     setObjectName(QStringLiteral("searchWidget"));
@@ -180,6 +201,12 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_scope->addItem(i18nc("@item:inlistbox", "Current folder (live)"));
     m_scope->addItem(i18nc("@item:inlistbox", "Indexed locations (Baloo)"));
     m_scope->addItem(i18nc("@item:inlistbox", "Search folders (live)"));
+    m_presentation->setObjectName(QStringLiteral("searchPresentation"));
+    m_presentation->addItem(i18nc("@item:inlistbox", "Full paths"));
+    m_presentation->addItem(i18nc("@item:inlistbox", "Names and folders"));
+    m_presentation->setAccessibleName(i18nc("@label:listbox", "Result presentation"));
+    m_presentation->setToolTip(i18nc("@info:tooltip", "List results and collection references by full path, or by name with their folder"));
+    m_presentation->setSizeAdjustPolicy(QComboBox::AdjustToContents);
     // Match the initial Defaults so applyDefaultsNow() replaces every criterion.
     m_workspaceOnly->setChecked(m_appliedDefaults.workspaceOnly);
     const QString defaultsNotice = applyDefaultsNow();
@@ -187,6 +214,12 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
         m_field->setItemText(1, i18nc("@item:inlistbox", "Indexed file contents"));
     }
     form->addRow(i18nc("@label", "Find:"), m_query);
+    auto *completer = new QCompleter(m_historyModel, m_query);
+    completer->setCaseSensitivity(Qt::CaseInsensitive);
+    completer->setFilterMode(Qt::MatchContains);
+    m_query->setCompleter(completer);
+    m_query->setToolTip(i18nc("@info:tooltip", "Recent queries are suggested while typing; press Alt+Down to list them all"));
+    m_historyModel->setStringList(history());
     form->addRow(i18nc("@label", "Search in:"), m_field);
     form->addRow(i18nc("@label", "Scope:"), m_scope);
     m_workspaceOnly->setObjectName(QStringLiteral("searchWorkspaceOnly"));
@@ -378,14 +411,13 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_progress->hide();
     resultsLayout->addWidget(m_progress);
     m_results->setObjectName(QStringLiteral("searchResults"));
-    m_results->setHeaderLabels({i18nc("@title:column", "Matching path")});
     m_results->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    m_results->header()->setSectionResizeMode(0, QHeaderView::Stretch);
     m_collection->setObjectName(QStringLiteral("searchCollection"));
-    m_collection->setHeaderLabels({i18nc("@title:column", "Referenced path")});
     m_collection->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    m_collection->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+    applyPresentation();
+    connect(m_presentation, &QComboBox::currentIndexChanged, this, &SearchWidget::applyPresentation);
     m_resultTabs->setObjectName(QStringLiteral("searchResultTabs"));
+    m_resultTabs->setCornerWidget(m_presentation, Qt::TopRightCorner);
     m_resultTabs->addTab(m_results, i18nc("@title:tab", "Results"));
     auto *collectionPage = new QWidget(m_resultTabs);
     auto *collectionLayout = new QVBoxLayout(collectionPage);
@@ -639,7 +671,7 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
     connect(copy, &QPushButton::clicked, this, [this] {
         const auto selected = (m_resultTabs->currentWidget() == m_results ? m_results : m_collection)->selectedItems();
         if (!selected.isEmpty()) {
-            QApplication::clipboard()->setText(QUrl::fromLocalFile(selected.first()->text(0)).toString(QUrl::FullyEncoded));
+            QApplication::clipboard()->setText(QUrl::fromLocalFile(itemPath(selected.first())).toString(QUrl::FullyEncoded));
             m_status->setText(i18nc("@info", "Copied the selected URL."));
         }
     });
@@ -657,7 +689,7 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
             return;
         }
         for (const QTreeWidgetItem *item : m_results->selectedItems()) {
-            const QUrl url = QUrl::fromLocalFile(item->text(0));
+            const QUrl url = QUrl::fromLocalFile(itemPath(item));
             if (!urls.contains(url)) {
                 urls.append(url);
             }
@@ -678,7 +710,7 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
             return;
         }
         for (const QTreeWidgetItem *item : m_collection->selectedItems()) {
-            urls.removeAll(QUrl::fromLocalFile(item->text(0)));
+            urls.removeAll(QUrl::fromLocalFile(itemPath(item)));
         }
         if (!SearchCollection::save(group, urls, &error)) {
             m_status->setText(error);
@@ -727,7 +759,7 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
             applyDefaults();
         }
         for (const QString &path : result.paths) {
-            new QTreeWidgetItem(m_results, {path});
+            setItemPath(new QTreeWidgetItem(m_results), path);
         }
         for (const QString &error : result.errors) {
             new QTreeWidgetItem(m_errors, {error});
@@ -858,6 +890,18 @@ QString SearchWidget::applyDefaultsNow()
     if (pathFilter() == m_appliedFilter) {
         m_filterEditor->setFilter(filter);
     }
+    if (m_presentation->currentIndex() == int(m_appliedDefaults.presentation)) {
+        m_presentation->setCurrentIndex(int(defaults.presentation));
+    }
+    if (!SearchHistory::retained(m_config->group(QStringLiteral("Search")))) {
+        // Not retaining history also discards what was kept before.
+        KConfigGroup group = historyGroup();
+        if (!SearchHistory::load(group).isEmpty()) {
+            SearchHistory::save(group, {});
+            group.sync();
+        }
+        m_historyModel->setStringList({});
+    }
     m_appliedDefaults = defaults;
     m_appliedFilter = filter;
     return notice;
@@ -934,9 +978,17 @@ bool SearchWidget::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched == m_query && event->type() == QEvent::KeyPress) {
         const auto *key = static_cast<QKeyEvent *>(event);
+        if (key->key() == Qt::Key_Down && (key->modifiers() & ~Qt::KeypadModifier) == Qt::AltModifier) {
+            showHistory();
+            return true;
+        }
         if (key->key() == Qt::Key_Down && (key->modifiers() & ~Qt::KeypadModifier) == Qt::NoModifier && focusResults()) {
             return true;
         }
+    }
+    if (watched == m_query && event->type() == QEvent::FocusIn) {
+        // Another window may have recorded or cleared queries.
+        history();
     }
     if ((watched == m_results || watched == m_collection) && event->type() == QEvent::KeyPress) {
         const auto *key = static_cast<QKeyEvent *>(event);
@@ -956,7 +1008,7 @@ void SearchWidget::revealSelected()
 {
     const auto selected = (m_resultTabs->currentWidget() == m_results ? m_results : m_collection)->selectedItems();
     if (selected.size() == 1) {
-        Q_EMIT revealRequested(QUrl::fromLocalFile(selected.first()->text(0)));
+        Q_EMIT revealRequested(QUrl::fromLocalFile(itemPath(selected.first())));
     }
 }
 
@@ -966,7 +1018,7 @@ void SearchWidget::openSelected()
     if (selected.size() != 1) {
         return;
     }
-    const QString path = selected.first()->text(0);
+    const QString path = itemPath(selected.first());
     if (!QFileInfo::exists(path)) {
         m_status->setText(i18nc("@info", "%1 no longer exists. Search again to refresh the results.", path));
         return;
@@ -995,8 +1047,77 @@ void SearchWidget::updateCollection(const QList<QUrl> &urls)
 {
     m_collection->clear();
     for (const QUrl &url : urls) {
-        new QTreeWidgetItem(m_collection, {url.toLocalFile()});
+        setItemPath(new QTreeWidgetItem(m_collection), url.toLocalFile());
     }
+}
+
+void SearchWidget::setItemPath(QTreeWidgetItem *item, const QString &path) const
+{
+    item->setData(0, PathRole, path);
+    if (m_presentation->currentIndex() == int(SearchDefaults::Presentation::NamesAndFolders)) {
+        const QFileInfo info(path);
+        const QString name = info.fileName();
+        item->setText(0, name.isEmpty() ? path : name);
+        item->setText(1, name.isEmpty() ? QString() : info.path());
+        item->setToolTip(0, path);
+    } else {
+        item->setText(0, path);
+        item->setToolTip(0, QString());
+    }
+}
+
+void SearchWidget::applyPresentation()
+{
+    const bool names = m_presentation->currentIndex() == int(SearchDefaults::Presentation::NamesAndFolders);
+    for (QTreeWidget *list : {m_results, m_collection}) {
+        list->setColumnCount(names ? 2 : 1);
+        if (names) {
+            list->setHeaderLabels({i18nc("@title:column", "Name"), i18nc("@title:column", "Folder")});
+            list->header()->setSectionResizeMode(0, QHeaderView::Interactive);
+            list->header()->setSectionResizeMode(1, QHeaderView::Stretch);
+            list->header()->resizeSection(0, list->fontMetrics().averageCharWidth() * 28);
+        } else {
+            list->setHeaderLabels({list == m_results ? i18nc("@title:column", "Matching path") : i18nc("@title:column", "Referenced path")});
+            list->header()->setSectionResizeMode(0, QHeaderView::Stretch);
+        }
+        for (int i = 0; i < list->topLevelItemCount(); ++i) {
+            QTreeWidgetItem *item = list->topLevelItem(i);
+            setItemPath(item, itemPath(item));
+        }
+    }
+}
+
+QStringList SearchWidget::history()
+{
+    const QStringList queries = SearchHistory::retained(m_config->group(QStringLiteral("Search"))) ? SearchHistory::load(historyGroup()) : QStringList();
+    if (queries != m_historyModel->stringList()) {
+        m_historyModel->setStringList(queries);
+    }
+    return queries;
+}
+
+void SearchWidget::recordHistory(const QString &query)
+{
+    if (!SearchHistory::retained(m_config->group(QStringLiteral("Search")))) {
+        return;
+    }
+    KConfigGroup group = historyGroup();
+    const QStringList queries = SearchHistory::added(SearchHistory::load(group), query);
+    SearchHistory::save(group, queries);
+    group.sync();
+    m_historyModel->setStringList(queries);
+}
+
+void SearchWidget::showHistory()
+{
+    if (history().isEmpty()) {
+        m_status->setText(SearchHistory::retained(m_config->group(QStringLiteral("Search")))
+                              ? i18nc("@info", "There are no recent searches.")
+                              : i18nc("@info", "Recent searches are not remembered. Turn this on from the Search page of Preferences."));
+        return;
+    }
+    m_query->completer()->setCompletionPrefix(QString());
+    m_query->completer()->complete();
 }
 
 PathFilter SearchWidget::pathFilter() const
@@ -1055,6 +1176,7 @@ bool SearchWidget::start()
     m_results->clear();
     m_errors->clear();
     m_errors->hide();
+    recordHistory(m_query->text());
     m_search->setEnabled(false);
     m_query->setEnabled(false);
     m_field->setEnabled(false);

@@ -20,8 +20,10 @@ class QLabel;
 class QLineEdit;
 class QProgressBar;
 class QPushButton;
+class QStringListModel;
 class QTabWidget;
 class QTreeWidget;
+class QTreeWidgetItem;
 class PathFilterEditor;
 
 /// Search criteria, progress, results and collections, embedded in the search panel.
@@ -61,6 +63,8 @@ public:
     QStringList savedSearchNames();
     /// Loads the named saved search's criteria and starts it; returns whether it started.
     bool runSavedSearch(const QString &name);
+    /// Rereads and returns the recent queries, most recent first; empty when history is not retained.
+    QStringList history();
 
 Q_SIGNALS:
     /// Escape was pressed while no search was running.
@@ -81,6 +85,10 @@ private:
     void revealSelected();
     void updateSavedSearches();
     void updateCollection(const QList<QUrl> &urls);
+    void applyPresentation();
+    void setItemPath(QTreeWidgetItem *item, const QString &path) const;
+    void recordHistory(const QString &query);
+    void showHistory();
     PathFilter pathFilter() const;
     SavedSearches::Search currentSearch(const QString &name, const QString &id = {}) const;
 
@@ -89,6 +97,7 @@ private:
     QList<SavedSearches::Search> m_savedSearches;
     QLabel *m_folderLabel;
     QLineEdit *m_query;
+    QStringListModel *m_historyModel;
     QComboBox *m_field;
     QComboBox *m_scope;
     QCheckBox *m_workspaceOnly;
@@ -102,6 +111,7 @@ private:
     QTreeWidget *m_results;
     QTreeWidget *m_collection;
     QTabWidget *m_resultTabs;
+    QComboBox *m_presentation;
     QTreeWidget *m_errors;
     QFutureWatcher<LiveSearch::Result> m_watcher;
     std::shared_ptr<std::atomic_bool> m_canceled;

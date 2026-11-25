@@ -2365,6 +2365,9 @@ void MainWindow::setupActions()
     toolbarSearch->setSavedSearchProvider([this] {
         return m_searchPanel->searchWidget()->savedSearchNames();
     });
+    toolbarSearch->setHistoryProvider([this] {
+        return m_searchPanel->searchWidget()->history();
+    });
     connect(toolbarSearch, &SearchToolbarAction::savedSearchRequested, this, [this](const QString &name) {
         m_searchPanelAction->setChecked(true);
         m_searchPanel->searchWidget()->runSavedSearch(name);

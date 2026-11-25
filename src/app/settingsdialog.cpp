@@ -11,6 +11,7 @@
 #include "localizednumbers.h"
 #include "pane.h"
 #include "pathfilterpresetsdialog.h"
+#include "searchhistory.h"
 #include "searchstoredialog.h"
 #include "servicemenus.h"
 #include "settings.h"
@@ -1070,6 +1071,27 @@ QWidget *SettingsDialog::createSearchPage()
                             i18nc("@item:inlistbox", "Below the panes"),
                             i18nc("@item:inlistbox", "Right of the panes")}));
     panel->addRow(checkBox(QStringLiteral("RestoreSearchPanel"), i18nc("@option:check", "Show the search panel at startup if it was open when last used")));
+    panel->addRow(
+        i18nc("@label:listbox", "Default result presentation:"),
+        comboBox(QStringLiteral("DefaultSearchResultPresentation"), {i18nc("@item:inlistbox", "Full paths"), i18nc("@item:inlistbox", "Names and folders")}));
+    auto *historyRow = new QHBoxLayout;
+    historyRow->addWidget(checkBox(QStringLiteral("RetainSearchHistory"), i18nc("@option:check", "Remember recent search queries")));
+    historyRow->addStretch(1);
+    auto *clearHistory = new QPushButton(i18nc("@action:button", "Clear Search History"), page);
+    clearHistory->setObjectName(QStringLiteral("clearSearchHistory"));
+    clearHistory->setToolTip(i18nc("@info:tooltip", "Forget recent search queries now, in every Plasma Opus window"));
+    historyRow->addWidget(clearHistory);
+    panel->addRow(historyRow);
+    const auto history = [] {
+        return KSharedConfig::openStateConfig()->group(QStringLiteral("SearchHistory"));
+    };
+    clearHistory->setEnabled(!SearchHistory::load(history()).isEmpty());
+    connect(clearHistory, &QPushButton::clicked, this, [clearHistory, history] {
+        KConfigGroup group = history();
+        SearchHistory::save(group, {});
+        group.sync();
+        clearHistory->setEnabled(false);
+    });
     layout->addLayout(panel);
     auto *foldersLabel = new QLabel(i18nc("@label", "Search folders, searched together by the \"Search folders\" scope:"), page);
     foldersLabel->setWordWrap(true);

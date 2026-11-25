@@ -6,6 +6,7 @@
 
 #include <functional>
 
+class QLineEdit;
 class QMenu;
 
 /**
@@ -19,10 +20,13 @@ class SearchToolbarAction : public QWidgetAction
 
 public:
     using SavedSearchProvider = std::function<QStringList()>;
+    using HistoryProvider = std::function<QStringList()>;
 
     explicit SearchToolbarAction(QObject *parent = nullptr);
     /// Sets the source of the saved search names offered by each field's menu.
     void setSavedSearchProvider(SavedSearchProvider provider);
+    /// Sets the source of the recent queries each field suggests, reread when a field gains focus.
+    void setHistoryProvider(HistoryProvider provider);
 
 Q_SIGNALS:
     /// Emitted when Return is pressed in a field; @p text may be empty.
@@ -40,6 +44,9 @@ protected:
 
 private:
     void showSavedSearches(QWidget *field);
+    /// Refreshes @p field's suggestions; returns whether there are any.
+    bool refreshHistory(QLineEdit *field);
 
     SavedSearchProvider m_savedSearches;
+    HistoryProvider m_history;
 };
