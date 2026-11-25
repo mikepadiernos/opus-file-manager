@@ -76,7 +76,8 @@ performance hotspots, not a wholesale rewrite of C++ features. Keep widgets,
 settings and file operations in Qt/KDE, including KIO for local and remote
 operations. The M21 Rust pilot can inform later work, including consideration of
 M09 duplicate detection and rename or sync planning; this evaluation does not
-block M09 or change KIO's role.
+block M09 or change KIO's role. See the [pilot evaluation](rust-prototype.md)
+for its findings and the criteria for later Rust components.
 
 ## Plasma-native decisions
 
