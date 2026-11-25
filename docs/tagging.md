@@ -293,6 +293,41 @@ The Information panel shows a **Tags** row for items in a library. It lists
 the tags assigned directly; its tooltip lists the tags they inherit from
 their parents.
 
+## Fields
+
+Fields store text or a date on items in a library alongside their tags, for
+example a _Title_ or the date a photo was _Shot on_. They are kept in the
+library document; files and their labels, ratings and notes aren't changed.
+
+The **Fields** tab of **Manage Tags…** lists the library's fields with their
+type and the number of items that have a value:
+
+- **New Field…** and **Edit…** set a field's name and type, **Text** or
+  **Date**. Field names must be unique, ignoring case.
+- A field's type can't be changed while any item has a value for it, because
+  values aren't converted between types.
+- **Delete…** asks for confirmation, says how many items have a value and
+  removes the field with its values.
+
+**Edit Fields…**, in the Tags menu and the context menu of items in a
+library, edits the values of the selected items. It has one row per field:
+
+- Text fields accept any text up to 10,000 characters.
+- Date fields are written as `YYYY-MM-DD`; the calendar button picks a date.
+  Invalid dates, such as `2026-02-30`, are refused before anything is saved.
+- When the selected items have different values, the row shows **Several
+  values**. Only the rows you edit are applied, so the other values are kept.
+- Clearing a row removes that value from every selected item.
+
+Items that aren't indexed yet are indexed when a value is set. Like tags,
+fields can only be edited within one library; the status bar explains why
+when the selection can't be edited. When a library has no fields, the editor
+offers **Manage Fields…**.
+
+The Information panel shows a **Fields** row for items in a library that has
+fields, with one `Name: value` line per value. Dates are shown in the regional
+format.
+
 ## Searching by tags
 
 Advanced queries, in **Search** and in **Select › Select by Query…**, accept
