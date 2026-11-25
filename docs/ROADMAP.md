@@ -1165,7 +1165,7 @@ rather than requiring TagStudio or changing the user's folder structure.
       native tag-group provider is available, keep all groups visible; recommend
       stable identities and no hidden or implicit assignment in
       [#252](https://github.com/mikepadiernos/plasma-opus/issues/252).
-- [ ] Add editable text and date fields to library entries alongside existing
+- [x] Add editable text and date fields to library entries alongside existing
       labels, ratings and notes, without silently replacing or converting them
 - [ ] Read supported EXIF image metadata and ID3 audio tags for display and
       search. Let users map selected fields to library tags or fields with
