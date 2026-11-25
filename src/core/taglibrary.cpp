@@ -15,6 +15,7 @@
 #include <QSet>
 #include <QUuid>
 
+#include <algorithm>
 #include <cmath>
 
 #include <sys/stat.h>
@@ -60,6 +61,12 @@ bool validRelativePath(const QString &path)
     }
     const QStringList parts = path.split(QLatin1Char('/'));
     return !parts.contains(QStringLiteral("..")) && !parts.contains(QString());
+}
+
+/// Whether @p path is @p prefix or below it.
+bool isBelow(const QString &path, const QString &prefix)
+{
+    return path == prefix || (path.size() > prefix.size() && path.startsWith(prefix) && path.at(prefix.size()) == QLatin1Char('/'));
 }
 
 QStringList stringList(const QJsonValue &value, bool *ok)
@@ -146,6 +153,11 @@ bool TagLibrary::isLibraryFile(const QString &name)
 QString TagLibrary::createId()
 {
     return QUuid::createUuid().toString(QUuid::WithoutBraces);
+}
+
+bool TagLibrary::hasMetadata(const Entry &entry)
+{
+    return !entry.tags.isEmpty() || !entry.fields.isEmpty();
 }
 
 QString TagLibrary::checkLocation(const QString &root, bool *readOnly)
@@ -655,6 +667,207 @@ void TagLibrary::Library::reindex()
     for (qsizetype i = 0; i < m_entries.size(); ++i) {
         m_entryIndex.insert(m_entries.at(i).path, i);
     }
+}
+
+qsizetype TagLibrary::Library::indexOfId(const QString &id) const
+{
+    for (qsizetype i = 0; i < m_entries.size(); ++i) {
+        if (m_entries.at(i).id == id) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+void TagLibrary::Library::eraseEntries(QSet<qsizetype> indices)
+{
+    if (indices.isEmpty()) {
+        return;
+    }
+    QList<Entry> kept;
+    kept.reserve(m_entries.size() - indices.size());
+    for (qsizetype i = 0; i < m_entries.size(); ++i) {
+        if (!indices.contains(i)) {
+            kept.append(m_entries.at(i));
+        }
+    }
+    m_entries = kept;
+}
+
+int TagLibrary::Library::movePaths(const QList<QPair<QString, QString>> &moves)
+{
+    QHash<qsizetype, QString> destinations;
+    for (qsizetype i = 0; i < m_entries.size(); ++i) {
+        const QString &path = m_entries.at(i).path;
+        qsizetype best = -1;
+        for (qsizetype m = 0; m < moves.size(); ++m) {
+            const auto &[from, to] = moves.at(m);
+            if (!validRelativePath(from) || !validRelativePath(to) || from == to || isBelow(to, from) || !isBelow(path, from)) {
+                continue;
+            }
+            if (best < 0 || from.size() > moves.at(best).first.size()) {
+                best = m;
+            }
+        }
+        if (best >= 0) {
+            const auto &[from, to] = moves.at(best);
+            destinations.insert(i, to + path.mid(from.size()));
+        }
+    }
+    QSet<qsizetype> erase;
+    QSet<qsizetype> stay;
+    for (auto it = destinations.cbegin(); it != destinations.cend(); ++it) {
+        const auto existing = m_entryIndex.constFind(it.value());
+        if (existing == m_entryIndex.cend() || destinations.contains(*existing)) {
+            continue;
+        }
+        Entry &moving = m_entries[it.key()];
+        const Entry &other = m_entries.at(*existing);
+        if (moving.folder && other.folder && hasMetadata(other)) {
+            // Folders were merged; neither folder's metadata is silently replaced.
+            if (hasMetadata(moving)) {
+                moving.missing = true;
+            } else {
+                erase.insert(it.key());
+            }
+            stay.insert(it.key());
+            continue;
+        }
+        erase.insert(*existing);
+    }
+    int moved = 0;
+    for (auto it = destinations.cbegin(); it != destinations.cend(); ++it) {
+        if (!stay.contains(it.key())) {
+            m_entries[it.key()].path = it.value();
+            ++moved;
+        }
+    }
+    eraseEntries(erase);
+    reindex();
+    return moved;
+}
+
+int TagLibrary::Library::markMissing(const QString &relativePath)
+{
+    int changed = 0;
+    for (Entry &entry : m_entries) {
+        if (!entry.missing && isBelow(entry.path, relativePath)) {
+            entry.missing = true;
+            ++changed;
+        }
+    }
+    return changed;
+}
+
+QStringList TagLibrary::Library::relinkCandidates(const QString &entryId) const
+{
+    const Entry *missing = entryById(entryId);
+    if (!missing || !missing->missing) {
+        return {};
+    }
+    const QString name = missing->path.section(QLatin1Char('/'), -1);
+    QList<QPair<int, const Entry *>> scored;
+    for (const Entry &entry : m_entries) {
+        if (entry.missing || entry.folder != missing->folder || hasMetadata(entry)) {
+            continue;
+        }
+        const bool identity = missing->inode != 0 && entry.inode == missing->inode && entry.device == missing->device;
+        const bool sameName = entry.path.section(QLatin1Char('/'), -1) == name;
+        const bool sameSize = !missing->folder && entry.size == missing->size;
+        if (!identity && !(sameName && (missing->folder || sameSize))) {
+            continue;
+        }
+        scored.append({(identity ? 4 : 0) + (sameName ? 2 : 0) + (sameSize ? 1 : 0), &entry});
+    }
+    std::stable_sort(scored.begin(), scored.end(), [](const auto &a, const auto &b) {
+        return a.first != b.first ? a.first > b.first : a.second->path < b.second->path;
+    });
+    QStringList ids;
+    for (const auto &[score, entry] : std::as_const(scored)) {
+        ids.append(entry->id);
+    }
+    return ids;
+}
+
+bool TagLibrary::Library::relink(const QString &entryId, const Observation &target, QString *error)
+{
+    const auto fail = [error](const QString &message) {
+        if (error) {
+            *error = message;
+        }
+        return false;
+    };
+    const qsizetype index = indexOfId(entryId);
+    if (index < 0) {
+        return fail(i18nc("@info", "The library entry no longer exists."));
+    }
+    const Entry original = m_entries.at(index);
+    if (!original.missing) {
+        return fail(i18nc("@info", "“%1” isn't missing.", original.path));
+    }
+    if (!validRelativePath(target.path)) {
+        return fail(i18nc("@info", "The chosen item isn't inside the library."));
+    }
+    if (target.folder != original.folder) {
+        return fail(original.folder ? i18nc("@info", "A missing folder can only be relinked to a folder.")
+                                    : i18nc("@info", "A missing file can only be relinked to a file."));
+    }
+    if (target.path != original.path && original.folder && isBelow(target.path, original.path)) {
+        return fail(i18nc("@info", "A folder can't be relinked to a folder inside itself."));
+    }
+    QSet<qsizetype> erase;
+    if (const Entry *existing = entry(target.path); existing && existing->id != entryId) {
+        if (hasMetadata(*existing)) {
+            return fail(i18nc("@info", "“%1” already has tags or fields in this library.", target.path));
+        }
+        erase.insert(m_entryIndex.value(target.path));
+    }
+    Entry &relinked = m_entries[index];
+    relinked.path = target.path;
+    relinked.size = target.size;
+    relinked.modified = target.modified;
+    relinked.device = target.device;
+    relinked.inode = target.inode;
+    relinked.missing = false;
+    if (original.folder && target.path != original.path) {
+        for (qsizetype i = 0; i < m_entries.size(); ++i) {
+            Entry &child = m_entries[i];
+            if (i == index || !child.missing || !isBelow(child.path, original.path)) {
+                continue;
+            }
+            const QString destination = target.path + child.path.mid(original.path.size());
+            if (const auto existing = m_entryIndex.constFind(destination); existing != m_entryIndex.cend() && *existing != i) {
+                if (hasMetadata(m_entries.at(*existing))) {
+                    continue;
+                }
+                erase.insert(*existing);
+            }
+            child.path = destination;
+        }
+    }
+    eraseEntries(erase);
+    reindex();
+    return true;
+}
+
+int TagLibrary::Library::removeEntry(const QString &entryId)
+{
+    const qsizetype index = indexOfId(entryId);
+    if (index < 0) {
+        return 0;
+    }
+    const Entry removed = m_entries.at(index);
+    QSet<qsizetype> erase{index};
+    if (removed.folder) {
+        for (qsizetype i = 0; i < m_entries.size(); ++i) {
+            if (m_entries.at(i).missing && isBelow(m_entries.at(i).path, removed.path)) {
+                erase.insert(i);
+            }
+        }
+    }
+    eraseEntries(erase);
+    reindex();
+    return int(erase.size());
 }
 
 bool TagLibrary::update(const QString &root, const std::function<bool(Library &library, QString *error)> &change, QString *error)

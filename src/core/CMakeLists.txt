@@ -55,6 +55,8 @@ add_library(opusfm_core STATIC
     indexedsearch.h
     interfacelanguage.cpp
     interfacelanguage.h
+    librarymoves.cpp
+    librarymoves.h
     libraryregistry.cpp
     libraryregistry.h
     libraryscan.cpp

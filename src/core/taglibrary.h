@@ -6,6 +6,8 @@
 #include <QJsonObject>
 #include <QList>
 #include <QMap>
+#include <QPair>
+#include <QSet>
 #include <QString>
 #include <QStringList>
 
@@ -100,6 +102,9 @@ QString checkLocation(const QString &root, bool *readOnly = nullptr);
 /// Creates a stable identifier for a new tag, group, field or entry.
 QString createId();
 
+/// Whether @p entry has tags or field values.
+bool hasMetadata(const Entry &entry);
+
 class Library
 {
 public:
@@ -150,6 +155,41 @@ public:
      */
     ScanChanges applyScan(const QList<Observation> &observed, bool complete);
 
+    /**
+     * Records that Plasma Opus moved or renamed paths, as pairs of paths
+     * relative to the root. The moves are applied together, so swapped names
+     * are handled, and entries below a moved folder move with it. An entry
+     * already at a destination is replaced because the file it described was
+     * overwritten. When a folder is merged into an existing folder, the
+     * existing folder's entry is kept if it has tags or fields, and the
+     * moved folder's entry is marked missing for review if it has them too.
+     * @returns the number of entries moved
+     */
+    int movePaths(const QList<QPair<QString, QString>> &moves);
+
+    /// Marks the entry at @p relativePath and the entries below it missing; returns how many changed.
+    int markMissing(const QString &relativePath);
+
+    /**
+     * Suggestions for relinking the missing entry @p entryId: indexed entries
+     * of the same kind without tags or fields that have the same device and
+     * inode, or the same name and, for files, the same size. The strongest
+     * suggestions come first. Suggestions are never applied automatically.
+     */
+    QStringList relinkCandidates(const QString &entryId) const;
+
+    /**
+     * Attaches the missing entry @p entryId to @p target after the user
+     * chose it. An entry at the target without tags or fields is merged into
+     * it; one with tags or fields is never overwritten. Missing entries below
+     * a relinked folder move with it unless their destination has tags or
+     * fields.
+     */
+    bool relink(const QString &entryId, const Observation &target, QString *error = nullptr);
+
+    /// Forgets an entry and, for a folder, the missing entries below it; returns how many were removed.
+    int removeEntry(const QString &entryId);
+
 private:
     QString m_root;
     QList<Tag> m_tags;
@@ -163,6 +203,8 @@ private:
     bool m_readOnly = false;
 
     void reindex();
+    qsizetype indexOfId(const QString &id) const;
+    void eraseEntries(QSet<qsizetype> indices);
 };
 
 /**
