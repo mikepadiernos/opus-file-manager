@@ -1,4 +1,4 @@
-# M32.01 Menus
+# 🧭 M32.01 Menus
 
 **[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m32-refinements)** ·
 **[Layouts](02-layouts.md)**
@@ -15,7 +15,7 @@ KDE integration or user-customized menus and toolbars.
 ## Proposed menu layout
 
 > [!NOTE]
-> This editable design is not the current menu order. Branches labeled *group*
+> This editable design is not the current menu order. Branches labeled _group_
 > organize actions visually and do not necessarily require nested submenus.
 > Names and order can change; offer only actions supported by the current
 > location, selection and provider. Future features are not required.

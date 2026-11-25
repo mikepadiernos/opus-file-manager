@@ -1,4 +1,4 @@
-# M32.04 Settings
+# ⚙️ M32.04 Settings
 
 **[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m32-refinements)** ·
 **[Performance](05-performance.md)**
@@ -14,7 +14,8 @@ without promising rollback of changes owned by other components.
 
 ## Proposed settings layout
 
-> [!NOTE] This tree is a design proposal, not the current dialog. The current
+> [!NOTE]
+> This tree is a design proposal, not the current dialog. The current
 > dialog has sidebar groups with tabs.
 
 Inspired by the supplied KDE System Settings example, add a second navigation

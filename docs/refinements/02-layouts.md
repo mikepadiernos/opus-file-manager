@@ -1,4 +1,4 @@
-# M32.02 Layouts
+# 🪟 M32.02 Layouts
 
 **[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m32-refinements)** ·
 **[Menus](01-menus.md)**
@@ -14,7 +14,8 @@ window, panel, toolbar or session choices.
 
 ## Proposed toolbar layouts
 
-> [!NOTE] These editable defaults do not replace saved toolbars. Brackets mark
+> [!NOTE]
+> These editable defaults do not replace saved toolbars. Brackets mark
 > widgets and layout items: `[Separator]` is a divider, and `[Expanding space]`
 > pushes following items toward the trailing edge.
 

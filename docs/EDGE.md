@@ -1,4 +1,4 @@
-# Edge cases
+# 🧪 Edge cases
 
 **[Documentation](README.md)** · **[Testing plan](refinements/06-testing.md)** ·
 **[Reported bugs](BUGS.md)** · **[Caveats](CAVEATS.md)**
@@ -225,9 +225,9 @@ References: [settings backup](../src/core/settingsbackup.cpp),
   implemented, verify desktop motion preferences and the app's disabled-motion
   behavior without relying on animation to communicate state.
 - **Locale boundaries:** [#526][issue-526]. Exercise calendar and digit
-  overrides around date boundaries, missing translations and mixed KDE/Plasma Opus
-  formatting. Check the documented distinction between Plasma Opus and KDE-controlled
-  displays.
+  overrides around date boundaries, missing translations and mixed KDE and
+  Plasma Opus formatting. Check the documented distinction between Plasma Opus
+  and KDE-controlled displays.
 
 References: [terminal panel](../src/app/terminalpanel.cpp),
 [terminal tests](../tests/terminalpaneltest.cpp),
