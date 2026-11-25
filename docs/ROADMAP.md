@@ -1215,7 +1215,7 @@ process or a promise of Yazi configuration or plugin compatibility.
       Preserve both panes and their tabs, locations, selections and normal view
       settings when switching; let M15 workspaces restore the mode when
       available.
-- [ ] Show parent and current folders with an optional preview in the active
+- [x] Show parent and current folders with an optional preview in the active
       pane. Adapt or hide columns in narrow windows without replacing the other
       pane; keep navigation and preview accessible.
 - [ ] Provide keyboard-first navigation with optional Vim-style movement and
