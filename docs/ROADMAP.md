@@ -13,27 +13,27 @@ Manager behaviour that informs its parity goals.
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
 > released after M14. M15 Workspaces, M16 Workspace settings, M17 Themes,
-> M18 Theme settings, M19 Branding, M20 Branding settings and M21 Advanced
-> search are merged into `main`. See [pending tasks](TODO.md) for blocked work
-> and branch-specific handoffs.
+> M18 Theme settings, M19 Branding, M20 Branding settings, M21 Advanced
+> search and M22 Advanced search settings are merged into `main`. See
+> [pending tasks](TODO.md) for blocked work and branch-specific handoffs.
 
 ## At a glance
 
 Status follows each milestone's parent issue on the
 [project board](https://github.com/users/mikepadiernos/projects/3).
 
-|     | Milestones | Focus                                         | Status     |
-| --- | ---------- | --------------------------------------------- | ---------- |
-| 🧱  | M01–M04    | Core dual pane and listing depth              | ✅ Merged  |
-| 🖼️  | M05–M08    | Preview, gallery and editor                   | ✅ Merged  |
-| 🧰  | M09–M14    | Tools, interface customization, translations  | ✅ Merged  |
-| 🗂️  | M15–M16    | Workspaces and their settings                 | ✅ Merged  |
-| 🎨  | M17–M18    | Themes and their settings                     | ✅ Merged  |
-| 🏷️  | M19–M20    | Branding and its settings                     | ✅ Merged  |
-| 🔎  | M21        | Advanced search                               | ✅ Merged  |
-| 🔖  | M22–M26    | Search settings, native tagging and Yazi mode | 📋 Planned |
-| 🔌  | M27–M31    | Integrations, Nextcloud and shortcuts         | 📋 Planned |
-| ✨  | M32        | Refinements                                   | 📋 Planned |
+|     | Milestones | Focus                                        | Status     |
+| --- | ---------- | -------------------------------------------- | ---------- |
+| 🧱  | M01–M04    | Core dual pane and listing depth             | ✅ Merged  |
+| 🖼️  | M05–M08    | Preview, gallery and editor                  | ✅ Merged  |
+| 🧰  | M09–M14    | Tools, interface customization, translations | ✅ Merged  |
+| 🗂️  | M15–M16    | Workspaces and their settings                | ✅ Merged  |
+| 🎨  | M17–M18    | Themes and their settings                    | ✅ Merged  |
+| 🏷️  | M19–M20    | Branding and its settings                    | ✅ Merged  |
+| 🔎  | M21–M22    | Advanced search and its settings             | ✅ Merged  |
+| 🔖  | M23–M26    | Native tagging and Yazi mode                 | 📋 Planned |
+| 🔌  | M27–M31    | Integrations, Nextcloud and shortcuts        | 📋 Planned |
+| ✨  | M32        | Refinements                                  | 📋 Planned |
 
 ## Contents
 
@@ -1119,17 +1119,17 @@ integration without blocking this milestone.
 
 Settings for M21 advanced search, stored in KConfig.
 
-Board updates are pending; see the
-[pending handoff](TODO.md#m22-board-updates-31).
-
 - [x] **Defaults:** share M10 search scope, filter and saved-search settings
       between the toolbar and panel
 - [x] **Panel:** choose an embedded-pane placement and whether to restore
       visibility at startup, preserving both file panes in shared placements
 - [x] **Results:** choose the default presentation and whether to retain search
       history; allow history to be cleared
-- [ ] **Toolbar:** show or hide the search widget using M12 toolbar controls and
+- [x] **Toolbar:** show or hide the search widget using M12 toolbar controls and
       choose whether submitting a query opens the panel
+
+**Caveats:** [Search](CAVEATS.md#search), tracked in
+[#362](https://github.com/mikepadiernos/plasma-opus/issues/362).
 
 ### M23: Native tagging
 
