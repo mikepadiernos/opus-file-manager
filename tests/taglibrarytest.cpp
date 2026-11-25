@@ -379,6 +379,63 @@ private Q_SLOTS:
         QCOMPARE(loaded.group(u"g-1"_s)->tags, QStringList{u"t-animal"_s});
     }
 
+    void managesFieldsAndValues()
+    {
+        QTemporaryDir dir;
+        QVERIFY(writeDocument(dir.path(), sampleDocument()));
+        TagLibrary::Library library = TagLibrary::Library::load(dir.path());
+        QCOMPARE(library.fieldUsage(u"f-shot"_s), 1);
+
+        // Types can't change while values exist, because values aren't converted.
+        QString error;
+        QVERIFY(!library.setField({u"f-shot"_s, u"Shot"_s, TagLibrary::FieldType::Text}, &error));
+        QVERIFY(!error.isEmpty());
+        QVERIFY(!library.setField({u"f-note"_s, u" Note"_s, TagLibrary::FieldType::Text}));
+        QVERIFY(!library.setField({{}, u"Note"_s, TagLibrary::FieldType::Text}));
+        QVERIFY(library.setField({u"f-note"_s, u"Note"_s, TagLibrary::FieldType::Text}));
+        QVERIFY(library.setField({u"f-note"_s, u"Due"_s, TagLibrary::FieldType::Date}));
+        QVERIFY(library.setField({u"f-shot"_s, u"Taken"_s, TagLibrary::FieldType::Date}));
+        QCOMPARE(library.fields().size(), 3);
+        QCOMPARE(library.field(u"f-note"_s)->type, TagLibrary::FieldType::Date);
+
+        QVERIFY(library.checkFieldValue(u"f-shot"_s, u"2026-03-01"_s).isEmpty());
+        QVERIFY(library.checkFieldValue(u"f-shot"_s, QString()).isEmpty());
+        QVERIFY(!library.checkFieldValue(u"f-shot"_s, u"2026-02-30"_s).isEmpty());
+        QVERIFY(!library.checkFieldValue(u"f-shot"_s, u"1 March 2026"_s).isEmpty());
+        QVERIFY(!library.checkFieldValue(u"f-gone"_s, u"x"_s).isEmpty());
+        QVERIFY(!library.checkFieldValue(u"f-title"_s, QString(10001, u'x')).isEmpty());
+
+        // An invalid value changes nothing.
+        TagLibrary::Observation cat{u"photos/cat.jpg"_s, false, 12, 1700000000000, 0, 0};
+        TagLibrary::Observation dog{u"photos/dog.jpg"_s, false, 3, 1700000000000, 0, 0};
+        int changed = -1;
+        QVERIFY(!library.setFieldValues({cat, dog}, {{u"f-title"_s, u"Rex"_s}, {u"f-shot"_s, u"soon"_s}}, &changed, &error));
+        QVERIFY(!library.entry(u"photos/dog.jpg"_s));
+        QCOMPARE(library.entry(u"photos/cat.jpg"_s)->fields.value(u"f-title"_s), u"Whiskers"_s);
+
+        // Setting values indexes new items, clears empty values and keeps other fields.
+        QVERIFY(library.setFieldValues({cat, dog, cat}, {{u"f-title"_s, u"Rex"_s}, {u"f-shot"_s, u" "_s}}, &changed, &error));
+        QCOMPARE(changed, 2);
+        QCOMPARE(library.entry(u"photos/cat.jpg"_s)->fields, (QMap<QString, QString>{{u"f-title"_s, u"Rex"_s}}));
+        QCOMPARE(library.entry(u"photos/dog.jpg"_s)->fields.value(u"f-title"_s), u"Rex"_s);
+        QCOMPARE(library.entry(u"photos/cat.jpg"_s)->tags, QStringList{u"t-cat"_s});
+        QVERIFY(library.setFieldValues({cat}, {{u"f-title"_s, u"Rex"_s}}, &changed));
+        QCOMPARE(changed, 0);
+        QVERIFY(library.setFieldValues({dog}, {{u"f-note"_s, u"2026-12-01"_s}}, &changed));
+        QVERIFY(library.save(&error));
+
+        TagLibrary::Library loaded = TagLibrary::Library::load(dir.path());
+        QCOMPARE(loaded.entry(u"photos/dog.jpg"_s)->fields.value(u"f-note"_s), u"2026-12-01"_s);
+        QCOMPARE(loaded.field(u"f-shot"_s)->name, u"Taken"_s);
+
+        // Removing a field removes its values only.
+        QCOMPARE(loaded.removeField(u"f-title"_s), 2);
+        QCOMPARE(loaded.removeField(u"f-title"_s), 0);
+        QVERIFY(loaded.entry(u"photos/cat.jpg"_s)->fields.isEmpty());
+        QCOMPARE(loaded.entry(u"photos/dog.jpg"_s)->fields.size(), 1);
+        QCOMPARE(loaded.entry(u"photos/cat.jpg"_s)->tags, QStringList{u"t-cat"_s});
+    }
+
     void assignsAndCountsTags()
     {
         QTemporaryDir dir;
