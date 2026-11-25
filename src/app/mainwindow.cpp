@@ -42,6 +42,7 @@
 #include "pathfiltereditor.h"
 #include "previewpanel.h"
 #include "searchpanel.h"
+#include "searchtoolbaraction.h"
 #include "session.h"
 #include "settings.h"
 #include "settingsdialog.h"
@@ -2332,6 +2333,10 @@ void MainWindow::setupActions()
         }
     });
 
+    auto *toolbarSearch = new SearchToolbarAction(this);
+    actions->addAction(QStringLiteral("search_toolbar"), toolbarSearch);
+    connect(toolbarSearch, &SearchToolbarAction::searchRequested, this, &MainWindow::searchFromToolbar);
+
     m_linkedPanesAction = new KToggleAction(i18nc("@action", "Link Pane Navigation"), this);
     actions->addAction(QStringLiteral("link_panes"), m_linkedPanesAction);
     connect(m_linkedPanesAction, &KToggleAction::toggled, this, [this](bool linked) {
@@ -3987,6 +3992,23 @@ void MainWindow::showSearchForPane(Pane *pane)
     }
     m_searchPanelAction->setChecked(true);
     search->focusQuery();
+}
+
+void MainWindow::searchFromToolbar(const QString &text)
+{
+    if (text.trimmed().isEmpty()) {
+        showSearch();
+        return;
+    }
+    QWidget *field = QApplication::focusWidget();
+    SearchWidget *search = m_searchPanel->searchWidget();
+    // A running search keeps its folder; search() then reports that it is busy.
+    search->setFolder(activePane()->url());
+    m_searchPanelAction->setChecked(true);
+    search->search(text);
+    if (field) {
+        field->setFocus(Qt::OtherFocusReason);
+    }
 }
 
 void MainWindow::showDuplicateFinder()

@@ -232,6 +232,8 @@ private:
     void showContentChart();
     void showSearch();
     void showSearchForPane(Pane *pane);
+    /// Searches the active pane's folder from a toolbar search field.
+    void searchFromToolbar(const QString &text);
     void showDuplicateFinder();
     void createChecksumFile();
     void verifyChecksumFile();

@@ -15,6 +15,7 @@
 #include <KActionCollection>
 #include <KFilePlacesModel>
 #include <KSharedConfig>
+#include <KToolBar>
 
 #include <QAction>
 #include <QApplication>
@@ -26,6 +27,7 @@
 #include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QMessageBox>
 #include <QPlainTextEdit>
 #include <QProgressBar>
@@ -39,8 +41,10 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QToolBar>
 #include <QToolButton>
 #include <QTreeWidget>
+#include <QWidgetAction>
 
 class SearchWidgetTest : public QObject
 {
@@ -559,6 +563,91 @@ private Q_SLOTS:
         QCOMPARE(window.activePane(), inactive);
         QCOMPARE(search->folder(), right);
         QCOMPARE(search->findChild<QLabel *>(QStringLiteral("searchFolder"))->text(), right.toDisplayString());
+    }
+
+    void toolbarSearchFieldSearchesActivePane()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("left")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("right")));
+        QFile needle(root.filePath(QStringLiteral("left/needle.txt")));
+        QVERIFY(needle.open(QIODevice::WriteOnly));
+        needle.close();
+        const QUrl left = QUrl::fromLocalFile(root.filePath(QStringLiteral("left")));
+        const QUrl right = QUrl::fromLocalFile(root.filePath(QStringLiteral("right")));
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup customization = config->group(QStringLiteral("ToolbarCustomization"));
+        const auto backup = KSharedConfig::openConfig(root.filePath(QStringLiteral("toolbar-backup")));
+        KConfigGroup savedCustomization = backup->group(QStringLiteral("ToolbarCustomization"));
+        customization.copyTo(&savedCustomization);
+        customization.deleteGroup();
+        const auto restoreCustomization = qScopeGuard([&] {
+            customization.deleteGroup();
+            savedCustomization.copyTo(&customization);
+            config->sync();
+        });
+        MainWindow window;
+        window.resize(1200, 900);
+        window.openUrls({left, right});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        QTRY_COMPARE(window.activePane()->url(), left);
+
+        auto *action = qobject_cast<QWidgetAction *>(window.actionCollection()->action(QStringLiteral("search_toolbar")));
+        QVERIFY(action);
+        QVERIFY(!action->text().isEmpty());
+        QVERIFY(!action->icon().isNull());
+        QToolBar *toolbar = window.toolBar();
+        QVERIFY(toolbar);
+        QVERIFY(!toolbar->actions().contains(action));
+        window.actionCollection()->action(QStringLiteral("customize_main_toolbar"))->trigger();
+        auto *actionList = window.findChild<QListWidget *>(QStringLiteral("toolbarActionList"));
+        QVERIFY(actionList);
+        const auto listed = [actionList] {
+            for (int row = 0; row < actionList->count(); ++row) {
+                if (actionList->item(row)->data(Qt::UserRole + 1).toString() == QLatin1String("search_toolbar")) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        QVERIFY(listed());
+        toolbar->addAction(action);
+        QTRY_VERIFY(!listed());
+        QTRY_VERIFY(customization.readEntry("Actions", QStringList()).contains(QStringLiteral("action:search_toolbar")));
+        window.actionCollection()->action(QStringLiteral("customize_main_toolbar"))->trigger();
+        auto *field = toolbar->findChild<QLineEdit *>(QStringLiteral("toolbarSearch"));
+        QVERIFY(field);
+        QTRY_VERIFY(field->isVisible());
+
+        auto *panel = window.findChild<SearchPanel *>(QStringLiteral("searchPanel"));
+        auto *toggle = window.actionCollection()->action(QStringLiteral("show_search_panel"));
+        QVERIFY(panel && toggle);
+        SearchWidget *search = panel->searchWidget();
+        QVERIFY(search->setFolder(right));
+
+        // Empty text only opens the panel and focuses its query.
+        field->setFocus();
+        QTest::keyClick(field, Qt::Key_Return);
+        QVERIFY(toggle->isChecked());
+        QCOMPARE(search->folder(), left);
+        QTRY_COMPARE(QApplication::focusWidget(), search->findChild<QLineEdit *>(QStringLiteral("searchQuery")));
+
+        toggle->setChecked(false);
+        QVERIFY(search->setFolder(right));
+        field->setFocus();
+        QTest::keyClicks(field, QStringLiteral("needle"));
+        QTest::keyClick(field, Qt::Key_Return);
+        QVERIFY(toggle->isChecked());
+        QVERIFY(panel->isVisible());
+        QCOMPARE(search->folder(), left);
+        QCOMPARE(search->findChild<QLineEdit *>(QStringLiteral("searchQuery"))->text(), QStringLiteral("needle"));
+        auto *results = search->findChild<QTreeWidget *>(QStringLiteral("searchResults"));
+        QVERIFY(results);
+        QTRY_COMPARE(results->topLevelItemCount(), 1);
+        QVERIFY(!search->isRunning());
+        QCOMPARE(QApplication::focusWidget(), field);
     }
 
     void opensResultsAndRevealsWithKeyboard()
