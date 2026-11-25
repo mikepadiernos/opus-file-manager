@@ -697,10 +697,17 @@ Tracked in
   top-level listings or the visible flat list, not expanded child rows. Excluded
   folders are entered one per line, so paths containing newlines cannot be
   entered; exclusions are lexical paths, not resolved links.
-- **Results and collections:** Results can be revealed in the active pane, but
-  hidden or filtered items may not be visible and flat view must be turned off.
-  Directly opening results is not yet available. The shared collection stores
-  local URLs, not file contents; references can become stale.
+- **Results and collections:** Results can be opened or revealed in the active
+  pane, but hidden or filtered items may not be visible and flat view must be
+  turned off. A folder result opens in the active pane; a file opens in its
+  application. The shared collection stores local URLs, not file contents;
+  references can become stale.
+- **Search panel:** The panel searches the folder it was opened for and does
+  not follow later navigation; search again from a pane to change it. While a
+  search runs, the folder can't change until the search finishes or is
+  canceled. The panel follows the embedded terminal's placement, below or
+  beside the panes, and is hidden again at startup. Hiding the panel does not
+  cancel a running search.
 - **Search folders and exclusions:** The search folders and excluded folders
   set on Preferences' Search page apply only to Plasma Opus. They do not
   change what Baloo indexes, and an excluded folder is still searched by other
@@ -724,14 +731,18 @@ Tracked in
   references after files change. Use KDE File Search settings to change what
   Baloo indexes for every application. When pressing Shift twice is
   unavailable, use the Search shortcut (Ctrl+Alt+F by default), which can be
-  changed in Configure Keyboard Shortcuts.
+  changed in Configure Keyboard Shortcuts. To search another folder from the
+  search panel, use Search from that pane's toolbar or the Search shortcut
+  while the pane is active.
   - Comment: [#362.7023269364][comment-362]
 - **Alternative:** Use a separately maintained locate database for filenames.
   - Comment:
     [#362.7029675758](https://github.com/mikepadiernos/plasma-opus/issues/362#issuecomment-7029675758)
 - **Planned:** [M21 advanced search](ROADMAP.md#m21-advanced-search) reuses M09
   search; its new interface and criteria do not by themselves remove current
-  backend limits. [M27 Baloo integration](ROADMAP.md#m27-integrations) plans
+  backend limits. [M22 advanced search settings](ROADMAP.md#m22-advanced-search-settings)
+  plans choosing the panel's placement and restoring its visibility at startup.
+  [M27 Baloo integration](ROADMAP.md#m27-integrations) plans
   better status, metadata queries, result ranking and an explicit live fallback,
   not guaranteed index completeness. [M15 workspaces](ROADMAP.md#m15-workspaces)
   plan search scoping, not a security boundary.

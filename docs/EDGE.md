@@ -149,13 +149,13 @@ References: [archives](../src/core/archives.cpp),
   index data. Verify notices and cancellation, and do not assume indexed results
   are complete or silently substitute a different search scope.
 - **Changing search state:** [#514][issue-514]. Cancel a search while results
-  arrive, start a new search or close the dialog; delete or move a saved
+  arrive, start a new search or hide the search panel; delete or move a saved
   collection's referenced files. Verify stale results are not attributed to the
   new search and collection operations do not modify referenced files.
 
 References: [live search](../src/core/livesearch.cpp),
 [indexed search](../src/core/indexedsearch.cpp),
-[search dialog](../src/app/searchdialog.cpp),
+[search widget](../src/app/searchwidget.cpp),
 [live-search tests](../tests/livesearchtest.cpp) and
 [index tests](../tests/indexedsearchtest.cpp).
 
