@@ -7,6 +7,7 @@
 #include "libraryrefreshdialog.h"
 #include "libraryregistry.h"
 #include "libraryreviewdialog.h"
+#include "metadataimportdialog.h"
 #include "tagassignment.h"
 #include "tagfieldmanagerwidget.h"
 #include "taggroupmanagerwidget.h"
@@ -68,28 +69,28 @@ TaggingController::TaggingController(QWidget *window, KActionCollection *actions
     manage->setToolTip(i18nc("@info:tooltip", "Create, edit, group and delete the tags and fields of the current library"));
 
     QAction *fields = actions->addAction(QStringLiteral("edit_fields"), this, [this] {
-        const KFileItemList items = m_context.selection ? m_context.selection() : KFileItemList();
-        if (items.isEmpty()) {
-            m_context.status(i18nc("@info", "Select the items whose fields you want to edit."));
-            return;
+        const QStringList paths = selectedPaths(i18nc("@info", "Select the items whose fields you want to edit."),
+                                                i18nc("@info", "Only local files and folders have fields."),
+                                                i18nc("@info", "Symbolic links can't have fields."));
+        if (!paths.isEmpty()) {
+            editFields(paths);
         }
-        QStringList paths;
-        for (const KFileItem &item : items) {
-            if (!item.url().isLocalFile()) {
-                m_context.status(i18nc("@info", "Only local files and folders have fields."));
-                return;
-            }
-            if (item.isLink()) {
-                m_context.status(i18nc("@info", "Symbolic links can't have fields."));
-                return;
-            }
-            paths.append(QDir::cleanPath(item.url().toLocalFile()));
-        }
-        editFields(paths);
     });
     fields->setText(i18nc("@action", "Edit Fields…"));
     fields->setIcon(QIcon::fromTheme(QStringLiteral("document-edit")));
     fields->setToolTip(i18nc("@info:tooltip", "Edit the library's text and date fields of the selected items"));
+
+    QAction *import = actions->addAction(QStringLiteral("import_metadata"), this, [this] {
+        const QStringList paths = selectedPaths(i18nc("@info", "Select the images or audio files whose metadata you want to import."),
+                                                i18nc("@info", "Only local files have embedded metadata to import."),
+                                                i18nc("@info", "Symbolic links can't be tagged."));
+        if (!paths.isEmpty()) {
+            importMetadata(paths);
+        }
+    });
+    import->setText(i18nc("@action", "Import Embedded Metadata…"));
+    import->setIcon(QIcon::fromTheme(QStringLiteral("document-import")));
+    import->setToolTip(i18nc("@info:tooltip", "Import EXIF and audio tags of the selected files as library tags or field values"));
 
     LibraryMoveTracker *tracker = LibraryMoveTracker::instance();
     connect(tracker, &LibraryMoveTracker::librariesChanged, this, [this](const QStringList &roots) {
@@ -120,6 +121,29 @@ void TaggingController::updateActions()
     m_actions->action(QStringLiteral("review_library"))->setEnabled(!library.isEmpty());
     m_actions->action(QStringLiteral("manage_tags"))->setEnabled(!library.isEmpty());
     m_actions->action(QStringLiteral("edit_fields"))->setEnabled(!library.isEmpty());
+    m_actions->action(QStringLiteral("import_metadata"))->setEnabled(!library.isEmpty());
+}
+
+QStringList TaggingController::selectedPaths(const QString &none, const QString &remote, const QString &link) const
+{
+    const KFileItemList items = m_context.selection ? m_context.selection() : KFileItemList();
+    if (items.isEmpty()) {
+        m_context.status(none);
+        return {};
+    }
+    QStringList paths;
+    for (const KFileItem &item : items) {
+        if (!item.url().isLocalFile()) {
+            m_context.status(remote);
+            return {};
+        }
+        if (item.isLink()) {
+            m_context.status(link);
+            return {};
+        }
+        paths.append(QDir::cleanPath(item.url().toLocalFile()));
+    }
+    return paths;
 }
 
 void TaggingController::createLibrary()
@@ -221,6 +245,36 @@ QWidget *TaggingController::editFields(const QStringList &absolutePaths)
         if (const int changed = dialog->changedCount(); changed > 0) {
             m_context.status(i18ncp("@info", "Updated the fields of one item.", "Updated the fields of %1 items.", changed));
         }
+    });
+    dialog->open();
+    return dialog;
+}
+
+QWidget *TaggingController::importMetadata(const QStringList &absolutePaths)
+{
+    const TagAssignment::Selection selection = TagAssignment::resolve(absolutePaths);
+    if (!selection.problem.isEmpty()) {
+        m_context.status(selection.problem);
+        return nullptr;
+    }
+    auto *dialog = new MetadataImportDialog(selection.root, absolutePaths, m_window);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &MetadataImportDialog::libraryChanged, this, &TaggingController::libraryChanged);
+    connect(dialog, &MetadataImportDialog::editEmbeddedRequested, this, &TaggingController::editEmbeddedRequested);
+    connect(dialog, &QDialog::accepted, this, [this, dialog] {
+        const MetadataImport::Result result = dialog->importResult();
+        QString message = i18ncp("@info", "Imported metadata: tagged one item", "Imported metadata: tagged %1 items", result.itemsTagged);
+        message += i18ncp("@info appended to the import summary", ", set one value", ", set %1 values", result.valuesSet);
+        if (result.tagsCreated > 0) {
+            message += i18ncp("@info appended to the import summary", ", created one tag", ", created %1 tags", result.tagsCreated);
+        }
+        if (result.changedSincePreview > 0) {
+            message += i18ncp("@info appended to the import summary",
+                              "; one value changed since the preview and was kept",
+                              "; %1 values changed since the preview and were kept",
+                              result.changedSincePreview);
+        }
+        m_context.status(message + QLatin1Char('.'));
     });
     dialog->open();
     return dialog;

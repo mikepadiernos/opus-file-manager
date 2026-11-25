@@ -31,6 +31,8 @@ add_library(opusfm_app STATIC
     duplicatefinderdialog.h
     fieldeditdialog.cpp
     fieldeditdialog.h
+    metadataimportdialog.cpp
+    metadataimportdialog.h
     filelistminimap.cpp
     filelistminimap.h
     editorpanel.cpp

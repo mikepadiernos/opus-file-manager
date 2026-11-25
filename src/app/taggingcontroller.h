@@ -53,12 +53,21 @@ public:
      * be edited together in the status bar and returns null.
      */
     QWidget *editFields(const QStringList &absolutePaths);
+    /**
+     * Opens the embedded metadata import for @p absolutePaths, or reports why
+     * they can't be imported together in the status bar and returns null.
+     */
+    QWidget *importMetadata(const QStringList &absolutePaths);
 
 Q_SIGNALS:
     /// A library was created, removed or changed.
     void libraryChanged(const QString &root);
+    /// The user asked to edit the metadata stored in the file at @p path.
+    void editEmbeddedRequested(const QString &path);
 
 private:
+    /// The selected items' local paths, or an empty list after reporting why they can't be used.
+    QStringList selectedPaths(const QString &none, const QString &remote, const QString &link) const;
     QWidget *m_window;
     KActionCollection *m_actions;
     Context m_context;

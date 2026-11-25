@@ -2837,6 +2837,7 @@ void MainWindow::setupActions()
             m_tagging->manageTags(root);
         }
     });
+    connect(m_tagging, &TaggingController::editEmbeddedRequested, this, &MainWindow::openMetadataEditor);
     QAction *tagPanelAction = actions->addAction(QStringLiteral("show_tag_panel"));
     tagPanelAction->setText(i18nc("@action", "Tag Panel"));
     tagPanelAction->setIcon(QIcon::fromTheme(QStringLiteral("tag")));
@@ -4039,6 +4040,7 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     if (allLocal && actions->action(QStringLiteral("assign_tags"))->isEnabled()) {
         menu.addAction(actions->action(QStringLiteral("assign_tags")));
         menu.addAction(actions->action(QStringLiteral("edit_fields")));
+        menu.addAction(actions->action(QStringLiteral("import_metadata")));
     }
     if (allLocal) {
         QMenu *metadata = menu.addMenu(i18nc("@menu", "Metadata"));
@@ -4668,7 +4670,12 @@ void MainWindow::editMetadata()
         showStatusMessage(i18nc("@info", "Select one local regular file to edit metadata."));
         return;
     }
-    auto *dialog = new MetadataEditDialog(items.first().url().toLocalFile(), this);
+    openMetadataEditor(items.first().url().toLocalFile());
+}
+
+void MainWindow::openMetadataEditor(const QString &path)
+{
+    auto *dialog = new MetadataEditDialog(path, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     auto *dock = new MetadataDock(dialog, this);
     dock->setObjectName(QStringLiteral("metadataEditorDock%1").arg(++m_metadataDockSerial));

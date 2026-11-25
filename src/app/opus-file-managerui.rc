@@ -133,6 +133,7 @@
       <text>&amp;Tags</text>
       <Action name="assign_tags"/>
       <Action name="edit_fields"/>
+      <Action name="import_metadata"/>
       <Action name="show_tag_panel"/>
       <Action name="manage_tags"/>
       <Separator/>

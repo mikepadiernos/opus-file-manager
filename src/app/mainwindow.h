@@ -283,6 +283,8 @@ private:
     void rename();
     void batchRename();
     void editMetadata();
+    /// Opens the embedded metadata editor for the file at @p path, which previews and confirms each write.
+    void openMetadataEditor(const QString &path);
     void showCustomCommand();
     void showCustomCommandPreset(const QString &name);
     void refreshCustomCommandActions();
