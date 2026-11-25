@@ -31,6 +31,7 @@ private Q_SLOTS:
         session.left.filterText = QStringLiteral("*.cpp");
         session.left.filterScope = 2;
         session.left.yaziMode = true;
+        session.left.yaziPreview = 0;
         session.right.tabs = {QUrl(QStringLiteral("trash:/")), QUrl(QStringLiteral("sftp://host/dir"))};
         session.right.currentTab = 0;
         session.activePane = 1;
@@ -134,6 +135,32 @@ private Q_SLOTS:
         const WindowSession clean = loaded.sanitized(QUrl::fromLocalFile(QStringLiteral("/home/me")));
         QVERIFY(!clean.left.yaziMode);
         QVERIFY(clean.right.yaziMode);
+    }
+
+    void yaziPreviewIsUnsetUnlessSavedAndSurvivesSanitizing()
+    {
+        QTemporaryDir dir;
+        KConfig config(dir.filePath(QStringLiteral("staterc")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Session"));
+        QCOMPARE(Session::load(group).left.yaziPreview, -1);
+        QCOMPARE(Session::load(group).right.yaziPreview, -1);
+
+        group.group(QStringLiteral("RightPane")).writeEntry("YaziPreview", false);
+        WindowSession loaded = Session::load(group);
+        QCOMPARE(loaded.left.yaziPreview, -1);
+        QCOMPARE(loaded.right.yaziPreview, 0);
+
+        loaded.left.yaziPreview = 7;
+        const WindowSession clean = loaded.sanitized(QUrl::fromLocalFile(QStringLiteral("/home/me")));
+        QCOMPARE(clean.left.yaziPreview, 1);
+        QCOMPARE(clean.right.yaziPreview, 0);
+
+        // Saving an unset choice leaves no entry for older versions to trip on.
+        WindowSession unset = loaded;
+        unset.left.yaziPreview = -1;
+        Session::save(unset, group);
+        QVERIFY(!group.group(QStringLiteral("LeftPane")).hasKey("YaziPreview"));
+        QCOMPARE(Session::load(group).left.yaziPreview, -1);
     }
 
     void tabStateRoundTripsAndSurvivesSanitizing()

@@ -286,6 +286,45 @@ private Q_SLOTS:
         QVERIFY(!load(group, rejected, error));
     }
 
+    void readsYaziPreviewOnlyAsAnOptionalBoolean()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Workspaces"));
+        Catalog catalog;
+        QString error;
+        QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        Layout layout;
+        WindowSession session;
+        session.left.tabs = {QUrl::fromLocalFile(QStringLiteral("/tmp/left"))};
+        session.right.tabs = {QUrl::fromLocalFile(QStringLiteral("/tmp/right"))};
+        session.left.yaziPreview = -1;
+        session.right.yaziPreview = 0;
+        layout.session = session;
+        QVERIFY(setLayout(catalog, catalog.workspaces.first().id, layout, error));
+        QVERIFY(save(group, catalog, error));
+        const QByteArray stored = group.readEntry("Catalog", QByteArray());
+        QCOMPARE(stored.count("\"yaziPreview\""), 1);
+        QCOMPARE(stored.count(",\"yaziPreview\":false"), 1);
+        Catalog loaded;
+        QVERIFY2(load(group, loaded, error), qPrintable(error));
+        QCOMPARE(loaded.workspaces.first().layout->session->left.yaziPreview, -1);
+        QCOMPARE(loaded.workspaces.first().layout->session->right.yaziPreview, 0);
+
+        QByteArray shown = stored;
+        shown.replace(",\"yaziPreview\":false", ",\"yaziPreview\":true");
+        group.writeEntry("Catalog", shown);
+        QVERIFY2(load(group, loaded, error), qPrintable(error));
+        QCOMPARE(loaded.workspaces.first().layout->session->right.yaziPreview, 1);
+
+        QByteArray invalid = stored;
+        invalid.replace(",\"yaziPreview\":false", ",\"yaziPreview\":0");
+        group.writeEntry("Catalog", invalid);
+        Catalog rejected;
+        QVERIFY(!load(group, rejected, error));
+    }
+
     void removesCredentialDataFromStoredPaneLocations()
     {
         QTemporaryDir directory;
