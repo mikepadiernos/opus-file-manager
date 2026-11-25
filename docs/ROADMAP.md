@@ -1145,7 +1145,7 @@ rather than requiring TagStudio or changing the user's folder structure.
 - [x] Store library metadata in an open, documented format without requiring a
       sidecar per file; preserve existing `.mfm.json` metadata and report
       unsupported or read-only locations
-- [ ] Create opt-in libraries rooted in existing local folders; index files of
+- [x] Create opt-in libraries rooted in existing local folders; index files of
       any type without moving, renaming or duplicating them
 - [ ] Refresh libraries with progress and cancellation. Track moves and renames
       initiated by Plasma Opus, and offer review and manual relinking for
