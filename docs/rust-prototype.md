@@ -153,8 +153,8 @@ cost M21 identified, and another reason not to split the search logic.
 
 Revisit this decision if profiling shows that loading, matching or saving very
 large libraries, with hundreds of thousands of entries, is CPU-bound. Because
-the library format is open and documented, a later implementation in any
-language can read and write it.
+the [library format](tagging.md#library-format) is open and documented, a
+later implementation in any language can read and write it.
 
 [#242]: https://github.com/mikepadiernos/plasma-opus/issues/242
 [#250]: https://github.com/mikepadiernos/plasma-opus/issues/250
