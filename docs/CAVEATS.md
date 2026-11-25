@@ -701,6 +701,17 @@ Tracked in
   hidden or filtered items may not be visible and flat view must be turned off.
   Directly opening results is not yet available. The shared collection stores
   local URLs, not file contents; references can become stale.
+- **Search folders and exclusions:** The search folders and excluded folders
+  set on Preferences' Search page apply only to Plasma Opus. They do not
+  change what Baloo indexes, and an excluded folder is still searched by other
+  applications. Search folders are searched live, so they share live search's
+  local-only, symbolic-link and result limits. Exclusions are lexical paths:
+  a symbolic link elsewhere does not inherit its target's exclusion.
+- **Double Shift:** Pressing Shift twice opens search only while a Plasma Opus
+  main window has keyboard focus; it is not a global shortcut and can't be
+  assigned in Configure Keyboard Shortcuts. It is turned off while Sticky Keys
+  is on in Plasma's accessibility settings, and Plasma Opus can't detect input
+  methods or remappings that intercept Shift.
 
 - **Recommendation:** Check Baloo's indexing configuration and status; use live
   search for a current local folder, search smaller folders, inspect errors and
@@ -710,7 +721,10 @@ Tracked in
   Opus limits are unsuitable; check each tool's hidden-file, ignore, encoding
   and symbolic-link behavior. If a revealed result is hidden or filtered, adjust
   the pane's visibility settings. Re-run saved searches and check collection
-  references after files change.
+  references after files change. Use KDE File Search settings to change what
+  Baloo indexes for every application. When pressing Shift twice is
+  unavailable, use the Search shortcut (Ctrl+Alt+F by default), which can be
+  changed in Configure Keyboard Shortcuts.
   - Comment: [#362.7023269364][comment-362]
 - **Alternative:** Use a separately maintained locate database for filenames.
   - Comment:
