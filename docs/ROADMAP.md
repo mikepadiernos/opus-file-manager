@@ -1191,7 +1191,7 @@ Settings for M23 tagging, stored in KConfig.
       metadata
 - [x] **Libraries:** manage roots and exclusions, automatic refresh and scan
       limits
-- [ ] **Tags:** configure colours, display, parent-tag matching defaults and
+- [x] **Tags:** configure colours, display, parent-tag matching defaults and
       embedded-pane placement
 - [ ] **Search:** choose the default tag-search scope and matching behaviour
 - [ ] **Fields:** manage available text and date fields
