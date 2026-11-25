@@ -55,7 +55,9 @@ private Q_SLOTS:
             QSKIP("The fixture is run separately.");
         }
         const QString dbus = QStandardPaths::findExecutable(QStringLiteral("dbus-run-session"));
-        const QString indexer = QStandardPaths::findExecutable(QStringLiteral("baloo_file"), {QStringLiteral("/usr/lib/kf6"), QStringLiteral("/usr/libexec")});
+        const QString indexer =
+            QStandardPaths::findExecutable(QStringLiteral("baloo_file"),
+                                           {QStringLiteral("/usr/lib/kf6"), QStringLiteral("/usr/libexec/kf6"), QStringLiteral("/usr/libexec")});
         if (dbus.isEmpty() || indexer.isEmpty()) {
             QSKIP("Isolated Baloo integration requires dbus-run-session and baloo_file.");
         }
@@ -167,10 +169,10 @@ private Q_SLOTS:
         const auto contentQuery = IndexedSearch::find(folder, QStringLiteral("content:uniquekestrel name:other"), LiveSearch::Field::Query);
         QCOMPARE(contentQuery.paths, QStringList{contents.fileName()});
         QVERIFY(IndexedSearch::find(folder, QStringLiteral("opalneedle content:uniquekestrel"), LiveSearch::Field::Query).paths.isEmpty());
-        const auto either = IndexedSearch::find(folder, QStringLiteral("txt (content:uniquekestrel OR content:ordinary)"), LiveSearch::Field::Query);
-        QVERIFY(either.paths.contains(named.fileName()));
-        QVERIFY(either.paths.contains(contents.fileName()));
-        QVERIFY(!either.paths.contains(nested.fileName()));
+        const auto either = IndexedSearch::find(folder, QStringLiteral("txt (content:uniquekestrel OR name:nested)"), LiveSearch::Field::Query);
+        QVERIFY2(either.paths.contains(contents.fileName()), qPrintable(either.paths.join(QLatin1Char(',')) + either.errors.join(QLatin1Char(','))));
+        QVERIFY(either.paths.contains(nested.fileName()));
+        QVERIFY(!either.paths.contains(named.fileName()));
         const auto elsewhere = IndexedSearch::find(root + QStringLiteral("/missing"), QStringLiteral("opalneedle"), LiveSearch::Field::FileName);
         QVERIFY(!elsewhere.notices.isEmpty());
         QVERIFY(elsewhere.notices.first().contains(QStringLiteral("not configured")));
