@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="41" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="42" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -131,6 +131,8 @@
     </Menu>
     <Menu name="tags">
       <text>&amp;Tags</text>
+      <Action name="assign_tags"/>
+      <Action name="show_tag_panel"/>
       <Action name="manage_tags"/>
       <Separator/>
       <Action name="create_library"/>

@@ -51,6 +51,7 @@
 #include "symbolicicon.h"
 #include "tabcolors.h"
 #include "tabmodel.h"
+#include "tagassignment.h"
 #include "taggingcontroller.h"
 #include "terminalpanel.h"
 #include "toolbarcustomizer.h"
@@ -1608,6 +1609,39 @@ void MainWindow::setupPanels()
     });
     connect(m_informationPanel, &InformationPanel::closeRequested, m_informationDock, &QDockWidget::hide);
     m_informationDock->hide();
+
+    m_tagPanel = new TagPanel;
+    m_tagDock = new QDockWidget(i18nc("@title:window", "Tags"), this);
+    m_tagDock->setObjectName(QStringLiteral("tagDock"));
+    m_tagDock->setWidget(m_tagPanel);
+    m_tagDock->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::RightDockWidgetArea);
+    m_tagDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetClosable);
+    const bool tagsBelow =
+        KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel")).readEntry("Placement", QStringLiteral("right")) == QLatin1String("below");
+    addDockWidget(tagsBelow ? Qt::BottomDockWidgetArea : Qt::RightDockWidgetArea, m_tagDock);
+    m_tagPanel->setPlacement(tagsBelow ? TagPanel::Placement::Below : TagPanel::Placement::Right);
+    m_tagDock->hide();
+    connect(m_tagPanel, &TagPanel::placementRequested, this, &MainWindow::setTagPanelPlacement);
+    connect(m_tagPanel, &TagPanel::closeRequested, m_tagDock, &QDockWidget::hide);
+    connect(m_tagDock, &QDockWidget::dockLocationChanged, this, [this](Qt::DockWidgetArea area) {
+        if (area == Qt::RightDockWidgetArea || area == Qt::BottomDockWidgetArea) {
+            const bool below = area == Qt::BottomDockWidgetArea;
+            m_tagPanel->setPlacement(below ? TagPanel::Placement::Below : TagPanel::Placement::Right);
+            KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel")).writeEntry("Placement", below ? "below" : "right");
+        }
+    });
+    connect(m_tagDock, &QDockWidget::visibilityChanged, this, [this](bool visible) {
+        if (visible) {
+            updateTagPanel();
+            m_tagPanel->reload();
+        } else if (m_tagDock->isHidden() && m_tagDock->property("opusPanelShown").toBool()) {
+            savePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
+        }
+    });
+    connect(m_tagPanel, &TagPanel::libraryChanged, this, [this](const QString &root) {
+        TagAssignment::invalidate(root);
+        updateInformationPanel();
+    });
 }
 
 void MainWindow::setPanelLayout(PanelLayout layout)
@@ -2776,6 +2810,45 @@ void MainWindow::setupActions()
                                        [this](const QString &message) {
                                            showStatusMessage(message);
                                        }});
+    connect(m_tagging, &TaggingController::libraryChanged, this, [this](const QString &root) {
+        TagAssignment::invalidate(root);
+        if (!m_tagDock->isHidden()) {
+            m_tagPanel->reload();
+        }
+        updateInformationPanel();
+    });
+    connect(m_tagPanel, &TagPanel::manageRequested, m_tagging, [this](const QString &root) {
+        if (!root.isEmpty()) {
+            m_tagging->manageTags(root);
+        }
+    });
+    QAction *tagPanelAction = actions->addAction(QStringLiteral("show_tag_panel"));
+    tagPanelAction->setText(i18nc("@action", "Tag Panel"));
+    tagPanelAction->setIcon(QIcon::fromTheme(QStringLiteral("tag")));
+    tagPanelAction->setCheckable(true);
+    connect(tagPanelAction, &QAction::triggered, this, [this](bool checked) {
+        m_tagDock->setVisible(checked);
+        if (checked) {
+            m_tagDock->setProperty("opusPanelShown", true);
+            restorePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
+        }
+    });
+    connect(m_tagDock, &QDockWidget::visibilityChanged, tagPanelAction, [this, tagPanelAction] {
+        tagPanelAction->setChecked(!m_tagDock->isHidden());
+    });
+    QAction *assignTags = actions->addAction(QStringLiteral("assign_tags"), this, [this] {
+        if (m_tagDock->isHidden()) {
+            m_tagDock->show();
+            m_tagDock->setProperty("opusPanelShown", true);
+            restorePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
+        }
+        m_tagDock->raise();
+        updateTagPanel();
+        m_tagPanel->focusSearch();
+    });
+    assignTags->setText(i18nc("@action", "Assign Tags…"));
+    assignTags->setIcon(QIcon::fromTheme(QStringLiteral("tag")));
+    assignTags->setToolTip(i18nc("@info:tooltip", "Show the tag panel to assign or remove tags on the selected items"));
 
     // Settings
     KStandardAction::preferences(this, &MainWindow::showSettings, actions);
@@ -2936,6 +3009,9 @@ bool MainWindow::queryClose()
     }
     if (m_previewDock && !m_previewDock->isHidden()) {
         savePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
+    }
+    if (m_tagDock && !m_tagDock->isHidden()) {
+        savePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
     }
     for (const auto &dock : std::as_const(m_metadataDocks)) {
         if (dock && !dock->isHidden()) {
@@ -3101,6 +3177,7 @@ void MainWindow::updateActions()
     m_jumpBackAction->setEnabled(m_jumpBackPoints.value(activePane()).isValid());
     if (m_tagging) {
         m_tagging->updateActions();
+        actions->action(QStringLiteral("assign_tags"))->setEnabled(!m_tagging->currentLibrary().isEmpty());
     }
     actions->action(QStringLiteral("move_second_pane_to_tab"))->setEnabled(!m_secondPaneInTab);
     actions->action(QStringLiteral("move_second_pane_to_window"))->setEnabled(!m_rightWindow);
@@ -3880,6 +3957,9 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     const bool allLocal = std::all_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
         return !item.localPath().isEmpty();
     });
+    if (allLocal && actions->action(QStringLiteral("assign_tags"))->isEnabled()) {
+        menu.addAction(actions->action(QStringLiteral("assign_tags")));
+    }
     if (allLocal) {
         QMenu *metadata = menu.addMenu(i18nc("@menu", "Metadata"));
         QMenu *labels = metadata->addMenu(i18nc("@menu", "Label"));
@@ -4773,6 +4853,9 @@ void MainWindow::saveSplitterSizes()
     if (!m_previewDock->isHidden()) {
         savePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
     }
+    if (!m_tagDock->isHidden()) {
+        savePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
+    }
     for (const auto &dock : std::as_const(m_metadataDocks)) {
         if (dock && !dock->isHidden()) {
             savePanelDockSize(dock, QStringLiteral("MetadataDock"));
@@ -4972,6 +5055,8 @@ void MainWindow::resetSplitterSizes()
     group.writeEntry("PreviewDockBelow", 2500);
     group.writeEntry("MetadataDockRight", 2500);
     group.writeEntry("MetadataDockBelow", 2500);
+    group.writeEntry("TagDockRight", 2000);
+    group.writeEntry("TagDockBelow", 2000);
     state->sync();
     m_splitter->setSizes(QList<int>(m_splitter->count(), 1));
     m_workspaceSplitter->setSizes({3, 1, 1});
@@ -4981,6 +5066,7 @@ void MainWindow::resetSplitterSizes()
         resizeDocks({m_editorDock}, {qMax(1, (right ? width() : height()) / 4)}, right ? Qt::Horizontal : Qt::Vertical);
     }
     restorePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
+    restorePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
     for (const auto &dock : std::as_const(m_metadataDocks)) {
         restorePanelDockSize(dock, QStringLiteral("MetadataDock"));
     }
@@ -4996,6 +5082,9 @@ void MainWindow::setStackedLayout(bool stacked)
         if (!m_previewDock->isHidden()) {
             savePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
         }
+        if (!m_tagDock->isHidden()) {
+            savePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
+        }
         for (const auto &dock : std::as_const(m_metadataDocks)) {
             if (dock && !dock->isHidden()) {
                 savePanelDockSize(dock, QStringLiteral("MetadataDock"));
@@ -5008,6 +5097,7 @@ void MainWindow::setStackedLayout(bool stacked)
     restoreSplitterSizes(true, true, changed);
     restoreEditorDockSize();
     restorePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
+    restorePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
     for (const auto &dock : std::as_const(m_metadataDocks)) {
         restorePanelDockSize(dock, QStringLiteral("MetadataDock"));
     }
@@ -5080,6 +5170,7 @@ void MainWindow::updatePreviewPanel()
 
 void MainWindow::updateInformationPanel()
 {
+    updateTagPanel();
     if (!m_informationPanel) {
         return;
     }
@@ -5100,6 +5191,28 @@ void MainWindow::updateInformationPanel()
 bool MainWindow::isStackedLayout() const
 {
     return m_splitter->orientation() == Qt::Vertical;
+}
+
+void MainWindow::updateTagPanel()
+{
+    if (!m_tagPanel || !m_tagDock || m_tagDock->isHidden() || !m_left) {
+        return;
+    }
+    m_tagPanel->setContext(activePane()->url(), activePane()->view()->selectedItems());
+}
+
+void MainWindow::setTagPanelPlacement(TagPanel::Placement placement)
+{
+    const bool below = placement == TagPanel::Placement::Below;
+    const bool shown = !m_tagDock->isHidden();
+    if (shown) {
+        savePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
+    }
+    addDockWidget(below ? Qt::BottomDockWidgetArea : Qt::RightDockWidgetArea, m_tagDock);
+    m_tagDock->setVisible(shown);
+    m_tagPanel->setPlacement(placement);
+    KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel")).writeEntry("Placement", below ? "below" : "right");
+    restorePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
 }
 
 bool MainWindow::isDualLayout() const
@@ -5335,6 +5448,8 @@ void MainWindow::applyEmbeddedPanelTitles()
     setDockTitleVisible(m_previewDock, visible);
     setDockTitleVisible(m_editorDock, visible);
     setDockTitleVisible(m_informationDock, visible);
+    setDockTitleVisible(m_tagDock, visible);
+    m_tagPanel->setTitleVisible(visible);
     m_informationPanel->setTitleVisible(visible);
     for (const auto &dock : std::as_const(m_metadataDocks)) {
         setDockTitleVisible(dock, visible);

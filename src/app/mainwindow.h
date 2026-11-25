@@ -5,6 +5,7 @@
 #include "editorpanel.h"
 #include "metadataeditdialog.h"
 #include "previewpanel.h"
+#include "tagpanel.h"
 #include "workspacecatalog.h"
 
 #include <KConfigWatcher>
@@ -269,6 +270,9 @@ private:
     void setEditorPlacement(EditorPanel::Placement placement);
     void setPreviewPlacement(PreviewPanel::Placement placement);
     void setMetadataPlacement(MetadataEditDialog *dialog, QDockWidget *dock, MetadataEditDialog::Placement placement);
+    void setTagPanelPlacement(TagPanel::Placement placement);
+    /// Shows the active pane's folder and selection in the tag panel while it is shown.
+    void updateTagPanel();
 
     void copyToOtherPane();
     void moveToOtherPane();
@@ -366,6 +370,8 @@ private:
     PanelLayout m_panelLayout = PanelLayout::Combined;
     KFileItemActions *m_fileItemActions = nullptr;
     TaggingController *m_tagging = nullptr;
+    TagPanel *m_tagPanel = nullptr;
+    QDockWidget *m_tagDock = nullptr;
     KFileCopyToMenu *m_copyToMenu = nullptr;
     KNewFileMenu *m_newFileMenu = nullptr;
     QSplitter *m_splitter = nullptr;
