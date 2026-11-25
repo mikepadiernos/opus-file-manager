@@ -334,9 +334,10 @@ Each tag has:
 - aliases, one per line, that also find the tag. Repeated aliases and aliases
   that match the tag's name are dropped;
 - an optional shorthand without spaces;
-- an optional colour;
-- parent tags. Items with a tag also match searches for its parents and their
-  parents.
+- an optional colour. **Give new tags a colour** in [Tags settings](#tags-1)
+  preselects one for new tags;
+- parent tags. Items with a tag also match `tag:` searches for its parents and
+  their parents, unless **Match child tags in tag: searches** is off.
 
 ### Duplicate names
 
@@ -388,10 +389,12 @@ without groups show a flat list.
 ## Assigning tags
 
 **Tags › Tag Panel** shows the tag panel to the right of or below the panes;
-its options menu, or dragging its title bar, moves it, and the choice is
-remembered. **Assign Tags…**, in the Tags menu and the context menu of items
-in a library, shows the panel and moves the keyboard focus to its search
-field.
+its options menu, dragging its title bar or **Show the tag panel** in
+Preferences moves it, and the choice is kept in the `TagPanelPlacement`
+setting. A placement remembered by an earlier version is moved into the
+setting the first time a window opens. **Assign Tags…**, in the Tags menu
+and the context menu of items in a library, shows the panel and moves the
+keyboard focus to its search field.
 
 The panel lists the tags of the library that contains the selected items.
 Each tag's check box shows whether it is assigned to all of them, some of
@@ -415,9 +418,11 @@ library, the library folder itself, symbolic links or remote items, and shows
 the current folder's tags without check boxes. With nothing selected it shows
 the tags of the library containing the current folder.
 
-The Information panel shows a **Tags** row for items in a library. It lists
-the tags assigned directly; its tooltip lists the tags they inherit from
-their parents.
+The Information panel shows a **Tags** row for items in a library, unless
+**Show the tags of the selected item** is off. It lists the tags assigned
+directly; its tooltip lists the tags they inherit from their parents. With
+**List tags inherited from parent tags** on, the inherited tags also follow
+the direct ones in the row, each marked **(inherited)**.
 
 ## Fields
 
@@ -582,24 +587,44 @@ A pattern with `/` matches the path below the library folder, such as
 Scope settings apply only to refreshes: entries already indexed keep their
 tags and fields, as described in [Indexing](#indexing).
 
+### Tags
+
+| Setting                                  | Default      | Effect                                                                                                                                                                                                                  |
+| ---------------------------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Show the tag panel**                   | On the right | **On the right** or **Below the panes**. The panel's own menu and dragging it change the setting too.                                                                                                                   |
+| **Show tag and group colours**           | On           | When off, the tag panel, **Manage Tags…** and the tag and group editors' lists show a plain tag icon instead of colour swatches, for groups too. Colours stay stored and can still be edited.                           |
+| **Give new tags a colour**               | Off          | A colour, stored as `#rrggbb`, for tags created in the tag panel, with **New Tag…** in **Manage Tags…** and by metadata imports. Off, or a stored value that isn't `#rrggbb`, creates tags without a colour.            |
+| **Show the tags of the selected item**   | On           | Shows the **Tags** row in the Information panel. Library field values are shown either way.                                                                                                                             |
+| **List tags inherited from parent tags** | Off          | Lists inherited tags after the item's own tags in the **Tags** row, marked **(inherited)**; the tooltip lists them either way. Disabled while the row is hidden.                                                        |
+| **Match child tags in tag: searches**    | On           | When off, `tag:` matches only items with a tag it names, as `tag=` does, in searches and **Select by Query…**. Searches already running keep the setting they started with. Filtering in the tag panel is not affected. |
+
+Applying the tab moves the tag panel and updates the tag panel and an open
+**Manage Tags…** dialog in the window Preferences was opened from. Other
+windows show colour and Information panel changes when those panels next
+refresh, and move their tag panel when they are opened again. Searches use
+the setting from when they start.
+
 ## Searching by tags
 
 Advanced queries, in **Search** and in **Select › Select by Query…**, accept
 tag criteria alongside the name, path, type, size and modified criteria, and
 combine them with `AND`, `OR`, `NOT` and parentheses:
 
-| Criterion    | Matches items in a library that                                                                   |
-| ------------ | ------------------------------------------------------------------------------------------------- |
-| `tag:Animal` | have a tag whose name, an alias or shorthand is `Animal`, ignoring case, or one of its child tags |
-| `tag=Animal` | have such a tag assigned directly, not through a child tag                                        |
-| `tag:ani*`   | have a tag whose name, an alias or shorthand matches the wildcard pattern, or one of its children |
-| `tagged:yes` | have at least one tag                                                                             |
-| `tagged:no`  | have no tags, including items that aren't indexed yet                                             |
+| Criterion    | Matches items in a library that                                                                    |
+| ------------ | -------------------------------------------------------------------------------------------------- |
+| `tag:Animal` | have a tag whose name, an alias or shorthand is `Animal`, ignoring case, or one of its child tags¹ |
+| `tag=Animal` | have such a tag assigned directly, not through a child tag                                         |
+| `tag:ani*`   | have a tag whose name, an alias or shorthand matches the wildcard pattern, or one of its children¹ |
+| `tagged:yes` | have at least one tag                                                                              |
+| `tagged:no`  | have no tags, including items that aren't indexed yet                                              |
 
 For example, `tag:holiday type:image/* NOT tag:private` finds holiday images
 that aren't private, and `tagged:no type:file` finds files still to be
 tagged. Quote a value to match `*` and `?` literally, as in `tag:"what?"`.
 `tags:` is accepted for `tag:`.
+
+¹ Child tags only match while **Match child tags in tag: searches** is on in
+[Tags settings](#tags-1).
 
 Tag criteria only match items inside a registered library. Outside a library,
 none match, not even `tagged:no`, so `NOT tagged:yes` is the way to include
