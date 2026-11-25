@@ -87,6 +87,11 @@ ordinary local file management.
   unmount only what Plasma Opus mounted.
   ([#702](https://github.com/mikepadiernos/plasma-opus/issues/702),
   [#703](https://github.com/mikepadiernos/plasma-opus/issues/703))
+- **KWin scripts:** Optionally install a Plasma Opus KWin script for window
+  placement that Wayland applications cannot perform themselves, and offer a
+  drop-down window. See [KWin scripts](#kwin-scripts).
+  ([#707](https://github.com/mikepadiernos/plasma-opus/issues/707),
+  [#708](https://github.com/mikepadiernos/plasma-opus/issues/708))
 - **Nextcloud:** Reuse KDE accounts, credentials and KIO for optional native
   browsing and asset workflows; leave sync ownership with the desktop client.
   ([M29](../ROADMAP.md#m29-nextcloud-integration),
@@ -97,10 +102,66 @@ Settings for the general desktop integrations belong in
 [M30](../ROADMAP.md#m30-nextcloud-settings). Link to shared KDE controls rather
 than creating conflicting settings.
 
+## KWin scripts
+
+[KWin scripts](https://develop.kde.org/docs/plasma/kwin/) are JavaScript or QML
+packages that run inside KWin. On Wayland, applications cannot choose their own
+screen, position, virtual desktop or tile, so an optional Plasma Opus script can
+do this for Plasma Opus windows. Plasma Opus would install it per user as a
+`KWin/Script` KPackage, enable it through KWin's configuration and talk to it
+over D-Bus.
+
+### Planned
+
+- **Workspace windows:** restore each window's screen, virtual desktop, size,
+  tile and keep-above state when applying a workspace or Activity association.
+  ([#707](https://github.com/mikepadiernos/plasma-opus/issues/707))
+- **Tiled companions:** place terminals, editors and detached previews opened
+  from Plasma Opus beside the file manager using KWin's tiles.
+  ([#707](https://github.com/mikepadiernos/plasma-opus/issues/707))
+- **Virtual desktops:** optionally apply the workspace assigned to the virtual
+  desktop that becomes current.
+  ([#707](https://github.com/mikepadiernos/plasma-opus/issues/707))
+- **Drop-down window:** slide a Plasma Opus window in from a screen edge, like
+  [Yakuake](https://apps.kde.org/yakuake/), toggled by a global shortcut or a
+  screen or touch-screen edge.
+  ([#708](https://github.com/mikepadiernos/plasma-opus/issues/708))
+
+### Proposed, not yet on the roadmap
+
+- **Dual-window mode:** open the second pane as its own window, tiled beside the
+  first or on another screen, keeping source and destination behaviour.
+- **Picture-in-picture previews:** keep a detached video or image preview above
+  other windows and on all virtual desktops.
+- **Workspace window appearance:** apply window opacity or hide the title bar as
+  part of a theme attached to a workspace, alongside M17 blur.
+- **Raise existing windows:** bring forward the Plasma Opus window already
+  showing a requested folder instead of opening a duplicate, where XDG
+  activation alone is not enough.
+- **Transfer focus:** keep the file manager in view while a long copy or move
+  runs, and briefly highlight its window when the operation needs attention,
+  without stealing focus.
+
+### Boundaries
+
+- Install or enable nothing without explicit action. Removing the integration
+  removes only the Plasma Opus script.
+- Act only on Plasma Opus windows, identified by its desktop file name; never
+  move, resize or close other applications' windows.
+- Use KWindowSystem, XDG activation and KWin's window rules where they suffice.
+  Link to KWin's Window Rules and KWin Scripts settings instead of editing
+  `kwinrulesrc`, other scripts or global KWin settings.
+- Version the D-Bus interface and check the installed script's version. KWin's
+  scripting API changes between Plasma releases, so test each supported
+  version.
+- Keep the script passive while Plasma Opus is not running. When KWin is not
+  the compositor or scripting is disabled, report the integration as
+  unavailable and keep ordinary window behaviour.
+
 ## Validation
 
-Exercise supported Plasma and Qt/KDE versions, unavailable services, remote
-locations, sandbox and portal access, permission failures and cancellation. Use
-temporary test configuration and synthetic credentials. Verify that disabling an
-optional integration preserves existing files, layouts, accounts and desktop
-settings.
+Exercise supported Plasma and Qt/KDE versions, KWin script compatibility,
+unavailable services, remote locations, sandbox and portal access, permission
+failures and cancellation. Use temporary test configuration and synthetic
+credentials. Verify that disabling an optional integration preserves existing
+files, layouts, accounts, window rules and desktop settings.
