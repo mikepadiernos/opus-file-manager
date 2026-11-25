@@ -118,6 +118,7 @@ ecm_add_tests(
     savedpathfilterstest.cpp
     savedsearchestest.cpp
     searchcollectiontest.cpp
+    searchlocationstest.cpp
     tabcolorstest.cpp
     startuptest.cpp
     stylesheetstest.cpp
@@ -210,6 +211,12 @@ ecm_add_test(duplicatefinderdialogtest.cpp
 
 ecm_add_test(searchdialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
+ecm_add_test(doubleshifttest.cpp
+    LINK_LIBRARIES opusfm_core Qt6::Test
     NAME_PREFIX "opusfm-"
     GUI
 )

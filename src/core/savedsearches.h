@@ -17,6 +17,8 @@ struct Search {
     bool indexed = false;
     PathFilter filter{};
     QString id;
+    /// Searches the configured search folders instead of the folder.
+    bool searchFolders = false;
     bool operator==(const Search &other) const = default;
 };
 

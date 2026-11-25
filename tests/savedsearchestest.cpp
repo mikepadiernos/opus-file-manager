@@ -117,6 +117,32 @@ private Q_SLOTS:
         QVERIFY(error.isEmpty());
         QVERIFY(searches.first().id != stableId);
     }
+
+    void persistsSearchFoldersScope()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const auto config = KSharedConfig::openConfig(dir.filePath(QStringLiteral("searchesrc")), KConfig::SimpleConfig);
+        KConfigGroup group = config->group(QStringLiteral("SavedSearches"));
+        SavedSearches::Search search{QStringLiteral("Folders"), QStringLiteral("notes"), {}, LiveSearch::Field::FileName, false, {}, {}, true};
+        search.filter.maxDepth = 1;
+        QString error;
+        QVERIFY(SavedSearches::save(group, {search}, &error));
+        QVERIFY(group.readEntry("Searches", QByteArray()).contains("\"searchFolders\":true"));
+        config->reparseConfiguration();
+        const auto loaded = SavedSearches::load(group, &error);
+        QVERIFY(error.isEmpty());
+        QCOMPARE(loaded.size(), 1);
+        QVERIFY(loaded.first().searchFolders);
+        QVERIFY(!loaded.first().indexed);
+        QCOMPARE(loaded.first().filter.maxDepth, 1);
+
+        search.indexed = true;
+        QVERIFY(!SavedSearches::save(group, {search}, &error));
+        group.writeEntry("Searches", QByteArray(R"([{"name":"bad","text":"x","folder":"","field":"name","indexed":false,"searchFolders":"yes"}])"));
+        QVERIFY(SavedSearches::load(group, &error).isEmpty());
+        QVERIFY(!error.isEmpty());
+    }
 };
 
 QTEST_GUILESS_MAIN(SavedSearchesTest)

@@ -16,9 +16,10 @@ namespace
 bool valid(const SavedSearches::Search &search)
 {
     return !search.name.trimmed().isEmpty() && !search.text.trimmed().isEmpty()
-        && (search.field == LiveSearch::Field::FileName || search.field == LiveSearch::Field::Contents)
-        && (search.folder.isEmpty() ? search.indexed : (search.folder.isLocalFile() && QDir::isAbsolutePath(search.folder.toLocalFile())))
-        && search.filter.error().isEmpty() && (search.filter.maxDepth < 0 || !search.folder.isEmpty());
+        && (search.field == LiveSearch::Field::FileName || search.field == LiveSearch::Field::Contents) && !(search.indexed && search.searchFolders)
+        && (search.folder.isEmpty() ? search.indexed || search.searchFolders
+                                    : (search.folder.isLocalFile() && QDir::isAbsolutePath(search.folder.toLocalFile())))
+        && search.filter.error().isEmpty() && (search.filter.maxDepth < 0 || !search.folder.isEmpty() || search.searchFolders);
 }
 
 QString newId()
@@ -80,9 +81,12 @@ QList<SavedSearches::Search> SavedSearches::load(const KConfigGroup &group, QStr
         }
         const QJsonValue filterValue = entry.value(QStringLiteral("filter"));
         const bool validFilter = filterValue.isUndefined() || PathFilter::fromJson(filterValue, &search.filter);
+        const QJsonValue searchFolders = entry.value(QStringLiteral("searchFolders"));
+        search.searchFolders = searchFolders.toBool();
         const QString key = search.name.trimmed().toCaseFolded();
-        if (!value.isObject() || !indexed.isBool() || !validFilter || (field != QLatin1String("name") && field != QLatin1String("contents")) || !valid(search)
-            || !validId(search.id) || names.contains(key) || ids.contains(search.id)) {
+        if (!value.isObject() || !indexed.isBool() || !validFilter || (!searchFolders.isUndefined() && !searchFolders.isBool())
+            || (field != QLatin1String("name") && field != QLatin1String("contents")) || !valid(search) || !validId(search.id) || names.contains(key)
+            || ids.contains(search.id)) {
             if (error) {
                 *error = i18nc("@info", "Saved searches are invalid and could not be loaded.");
             }
@@ -125,6 +129,9 @@ bool SavedSearches::save(KConfigGroup group, const QList<Search> &searches, QStr
         entry.insert(QStringLiteral("field"), search.field == LiveSearch::Field::Contents ? QStringLiteral("contents") : QStringLiteral("name"));
         entry.insert(QStringLiteral("indexed"), search.indexed);
         entry.insert(QStringLiteral("filter"), search.filter.toJson());
+        if (search.searchFolders) {
+            entry.insert(QStringLiteral("searchFolders"), true);
+        }
         entries.append(entry);
     }
     const QByteArray previous = group.readEntry("Searches", QByteArray());
