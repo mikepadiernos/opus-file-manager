@@ -15,6 +15,16 @@ ecm_add_test(appidentitytest.cpp
     NAME_PREFIX "opusfm-"
 )
 add_dependencies(appidentitytest opusfm-metadata)
+ecm_add_test(brandingtest.cpp
+    LINK_LIBRARIES opusfm_core Qt6::Test
+    NAME_PREFIX "opusfm-"
+)
+target_compile_definitions(brandingtest PRIVATE OPUSFM_LOGO_FILE="${PROJECT_SOURCE_DIR}/src/app/branding/plasma-opus-logo.svg")
+ecm_add_test(startuppresentationtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
 target_compile_definitions(appidentitytest PRIVATE
     OPUSFM_PROJECT_VERSION="${PROJECT_VERSION}"
     OPUSFM_DESKTOP_FILE="${opusfm_desktop_file}"

@@ -4,6 +4,9 @@
 
 #include <QFile>
 #include <QHash>
+#include <QIcon>
+#include <QImage>
+#include <QPixmap>
 #include <QStandardPaths>
 #include <QTest>
 #include <QXmlStreamReader>
@@ -104,6 +107,10 @@ private Q_SLOTS:
         QCOMPARE(about.homepage(), AppIdentity::homepage());
         QCOMPARE(about.bugAddress(), AppIdentity::bugAddress());
         QCOMPARE(int(about.licenses().constFirst().key()), int(KAboutLicense::GPL_V3));
+        // KAboutApplicationDialog prefers a pixmap or image logo; an icon keeps every size sharp.
+        QCOMPARE(about.programLogo().metaType(), QMetaType::fromType<QIcon>());
+        QVERIFY(!about.programLogo().canConvert<QPixmap>());
+        QVERIFY(!about.programLogo().canConvert<QImage>());
 
         QStringList domain = about.organizationDomain().split(QLatin1Char('.'));
         std::reverse(domain.begin(), domain.end());
@@ -156,6 +163,6 @@ private Q_SLOTS:
     }
 };
 
-QTEST_GUILESS_MAIN(AppIdentityTest)
+QTEST_MAIN(AppIdentityTest)
 
 #include "appidentitytest.moc"
