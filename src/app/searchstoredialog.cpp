@@ -170,8 +170,12 @@ void SearchStoreDialog::showSearch()
     m_searchDetails->setText(i18nc("@info",
                                    "Query: %1\nFolder: %2\nScope: %3\nField: %4",
                                    search.text,
-                                   search.folder.isEmpty() ? i18nc("@info", "All indexed locations") : search.folder.toDisplayString(),
-                                   search.indexed ? i18nc("@info", "Indexed") : i18nc("@info", "Current folder"),
+                                   search.searchFolders          ? i18nc("@info", "Search folders")
+                                       : search.folder.isEmpty() ? i18nc("@info", "All indexed locations")
+                                                                 : search.folder.toDisplayString(),
+                                   search.indexed             ? i18nc("@info", "Indexed")
+                                       : search.searchFolders ? i18nc("@info", "Search folders (live)")
+                                                              : i18nc("@info", "Current folder"),
                                    search.field == LiveSearch::Field::FileName ? i18nc("@info", "File name") : i18nc("@info", "File contents")));
 }
 

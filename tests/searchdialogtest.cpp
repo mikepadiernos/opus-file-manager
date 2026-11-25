@@ -292,6 +292,66 @@ private Q_SLOTS:
         QVERIFY(errors->topLevelItem(0)->text(0).contains(QStringLiteral("existing local folder")));
     }
 
+    void searchesSearchFoldersAndSkipsExclusions()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        for (const QString &folder : {QStringLiteral("docs/cache"), QStringLiteral("music"), QStringLiteral("elsewhere")}) {
+            QVERIFY(QDir(root.path()).mkpath(folder));
+            QFile file(root.filePath(folder + QStringLiteral("/needle.txt")));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        QFile docs(root.filePath(QStringLiteral("docs/needle.txt")));
+        QVERIFY(docs.open(QIODevice::WriteOnly));
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchrc")), KConfig::SimpleConfig);
+        SearchDialog dialog(QUrl::fromLocalFile(root.filePath(QStringLiteral("elsewhere"))), nullptr, config);
+        auto *scope = dialog.findChild<QComboBox *>(QStringLiteral("searchScope"));
+        QCOMPARE(scope->count(), 3);
+        scope->setCurrentIndex(2);
+        dialog.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->setText(QStringLiteral("needle"));
+        auto *start = dialog.findChild<QPushButton *>(QStringLiteral("searchStart"));
+        auto *results = dialog.findChild<QTreeWidget *>(QStringLiteral("searchResults"));
+        auto *errors = dialog.findChild<QTreeWidget *>(QStringLiteral("searchErrors"));
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QCOMPARE(results->topLevelItemCount(), 0);
+        QCOMPARE(errors->topLevelItemCount(), 1);
+        QVERIFY(errors->topLevelItem(0)->text(0).contains(QStringLiteral("No search folders")));
+
+        auto search = config->group(QStringLiteral("Search"));
+        search.writeEntry("SearchFolders", QStringList{root.filePath(QStringLiteral("docs")), root.filePath(QStringLiteral("music"))});
+        search.writeEntry("SearchExclusions", QStringList{root.filePath(QStringLiteral("docs/cache"))});
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QStringList paths;
+        for (int i = 0; i < results->topLevelItemCount(); ++i) {
+            paths.append(results->topLevelItem(i)->text(0));
+        }
+        paths.sort();
+        QCOMPARE(paths, (QStringList{root.filePath(QStringLiteral("docs/needle.txt")), root.filePath(QStringLiteral("music/needle.txt"))}));
+        QCOMPARE(errors->topLevelItemCount(), 0);
+
+        // Exclusions apply to the current folder scope too.
+        search.writeEntry("SearchExclusions", QStringList{root.filePath(QStringLiteral("elsewhere"))});
+        scope->setCurrentIndex(0);
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QCOMPARE(results->topLevelItemCount(), 0);
+
+        scope->setCurrentIndex(2);
+        QTimer::singleShot(0, [] {
+            auto *input = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
+            QVERIFY(input);
+            input->setTextValue(QStringLiteral("Folders"));
+            input->accept();
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("searchSave"))->click();
+        SearchDialog restored(QUrl::fromLocalFile(root.path()), nullptr, config);
+        QCOMPARE(restored.findChild<QComboBox *>(QStringLiteral("searchScope"))->currentIndex(), 0);
+        restored.findChild<QPushButton *>(QStringLiteral("searchLoad"))->click();
+        QCOMPARE(restored.findChild<QComboBox *>(QStringLiteral("searchScope"))->currentIndex(), 2);
+    }
+
     void mainWindowScopesSearchToWorkspace()
     {
         QTemporaryDir root;
