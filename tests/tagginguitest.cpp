@@ -2,9 +2,12 @@
 
 #include "fieldeditdialog.h"
 #include "informationpanel.h"
+#include "libraryarchive.h"
+#include "libraryexportdialog.h"
 #include "librarymovetracker.h"
 #include "libraryrefreshdialog.h"
 #include "libraryregistry.h"
+#include "libraryrestoredialog.h"
 #include "libraryreviewdialog.h"
 #include "libraryscan.h"
 #include "localizeddates.h"
@@ -22,6 +25,7 @@
 #include <KActionCollection>
 #include <KColorButton>
 #include <KIO/CopyJob>
+#include <KMessageWidget>
 #include <KPluginMetaData>
 
 #include <QAction>
@@ -901,6 +905,142 @@ private Q_SLOTS:
         status.clear();
         actions.action(QStringLiteral("import_metadata"))->trigger();
         QVERIFY(!status.isEmpty());
+    }
+
+    void exportsAndRestoresTheLibrary()
+    {
+        QTemporaryDir dir;
+        QTemporaryDir exports;
+        QVERIFY(dir.isValid() && exports.isValid());
+        write(dir.filePath(QStringLiteral("a.txt")));
+        write(dir.filePath(QStringLiteral("b.txt")));
+        QCOMPARE(LibraryRegistry::create(dir.path()), QString());
+        indexWithTag(dir.path(), {QStringLiteral("a.txt")});
+        const QString exported = exports.filePath(QStringLiteral("tags.json"));
+        const auto addTag = [&dir](const QString &id, const QString &name) {
+            QVERIFY(TagLibrary::update(dir.path(), [id, name](TagLibrary::Library &library, QString *problem) {
+                return library.setTag({id, name, {}, {}, {}, {}}, problem);
+            }));
+        };
+
+        {
+            LibraryExportDialog dialog(dir.path());
+            QSignalSpy done(&dialog, &LibraryExportDialog::exported);
+            auto *apply = dialog.findChild<QPushButton *>(QStringLiteral("libraryExportApply"));
+            auto *status = dialog.findChild<QLabel *>(QStringLiteral("libraryExportDestinationStatus"));
+            QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("libraryExportSummary"))->text().contains(QStringLiteral("1 tag")));
+            QVERIFY(dialog.destination().endsWith(QStringLiteral(".json")));
+
+            // Files other than earlier exports are never replaced.
+            dialog.setDestination(dir.filePath(QStringLiteral("a.txt")));
+            QVERIFY(!apply->isEnabled());
+            QVERIFY(!status->text().isEmpty());
+            QVERIFY(!dialog.exportLibrary());
+            dialog.setDestination(exported);
+            QVERIFY(apply->isEnabled());
+            QVERIFY(status->text().isEmpty());
+
+            // A library changed while the dialog is open is summarized again before it is exported.
+            addTag(QStringLiteral("t2"), QStringLiteral("Extra"));
+            QVERIFY(!dialog.exportLibrary());
+            QVERIFY(!QFileInfo::exists(exported));
+            QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("libraryExportSummary"))->text().contains(QStringLiteral("2 tags")));
+            QVERIFY(dialog.exportLibrary());
+            QCOMPARE(done.count(), 1);
+            QCOMPARE(done.first().first().toString(), exported);
+            QCOMPARE(dialog.result(), int(QDialog::Accepted));
+        }
+        QVERIFY(QFileInfo::exists(exported));
+        QFile file(dir.filePath(QStringLiteral("a.txt")));
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QCOMPARE(file.readAll(), QByteArray("data"));
+        file.close();
+
+        QVERIFY(TagLibrary::update(dir.path(), [](TagLibrary::Library &library, QString *) {
+            library.removeTag(QStringLiteral("t1"));
+            return true;
+        }));
+        {
+            LibraryRestoreDialog dialog(dir.path());
+            QSignalSpy changed(&dialog, &LibraryRestoreDialog::libraryChanged);
+            auto *preview = dialog.findChild<QPushButton *>(QStringLiteral("libraryRestorePreview"));
+            auto *apply = dialog.findChild<QPushButton *>(QStringLiteral("libraryRestoreApply"));
+            auto *confirm = dialog.findChild<QCheckBox *>(QStringLiteral("libraryRestoreConfirm"));
+            auto *changes = dialog.findChild<QTreeWidget *>(QStringLiteral("libraryRestoreChanges"));
+            QVERIFY(!preview->isEnabled());
+            QVERIFY(!apply->isEnabled());
+            dialog.setSource(exported);
+            QVERIFY(preview->isEnabled());
+            preview->click();
+            QVERIFY(dialog.plan().hasChanges());
+            QCOMPARE(changes->topLevelItemCount(), 2);
+            QVERIFY(!dialog.findChild<QLabel *>(QStringLiteral("libraryRestoreDetails"))->text().isEmpty());
+
+            // Restoring needs explicit confirmation after the preview.
+            QVERIFY(!apply->isEnabled());
+            QVERIFY(!dialog.restore());
+            QVERIFY(confirm->isEnabled());
+            confirm->setChecked(true);
+            QVERIFY(apply->isEnabled());
+
+            // Choosing another export needs another preview and confirmation.
+            dialog.setSource(exported + QStringLiteral(".missing"));
+            QVERIFY(!apply->isEnabled());
+            QVERIFY(!confirm->isChecked());
+            QCOMPARE(changes->topLevelItemCount(), 0);
+            QVERIFY(!dialog.preview());
+            QVERIFY(dialog.findChild<KMessageWidget *>(QStringLiteral("libraryRestoreError"))->isVisibleTo(&dialog));
+            dialog.setSource(exported);
+            QVERIFY(dialog.preview());
+            confirm->setChecked(true);
+            QVERIFY(dialog.restore());
+            QCOMPARE(changed.count(), 1);
+            QVERIFY(!dialog.backupPath().isEmpty());
+            QVERIFY(QFileInfo::exists(dialog.backupPath()));
+        }
+        const TagLibrary::Library library = TagLibrary::Library::load(dir.path());
+        QCOMPARE(library.entry(QStringLiteral("a.txt"))->tags, QStringList{QStringLiteral("t1")});
+        QVERIFY(library.tag(QStringLiteral("t2")));
+
+        // Another preview finds nothing to restore.
+        {
+            LibraryRestoreDialog dialog(dir.path());
+            dialog.setSource(exported);
+            QVERIFY(dialog.preview());
+            QVERIFY(!dialog.plan().hasChanges());
+            QVERIFY(!dialog.findChild<QCheckBox *>(QStringLiteral("libraryRestoreConfirm"))->isEnabled());
+            QVERIFY(!dialog.restore());
+        }
+
+        // The controller offers both for the current library only.
+        QWidget window;
+        KActionCollection actions(&window);
+        QUrl folder = QUrl::fromLocalFile(dir.path());
+        TaggingController controller(&window,
+                                     &actions,
+                                     {[&folder] {
+                                          return folder;
+                                      },
+                                      [] {
+                                          return KFileItemList();
+                                      },
+                                      [](const QString &) { }});
+        controller.updateActions();
+        QVERIFY(actions.action(QStringLiteral("export_library"))->isEnabled());
+        QVERIFY(actions.action(QStringLiteral("restore_library"))->isEnabled());
+        actions.action(QStringLiteral("export_library"))->trigger();
+        auto *exportDialog = window.findChild<LibraryExportDialog *>();
+        QVERIFY(exportDialog);
+        exportDialog->reject();
+        actions.action(QStringLiteral("restore_library"))->trigger();
+        auto *restoreDialog = window.findChild<LibraryRestoreDialog *>();
+        QVERIFY(restoreDialog);
+        restoreDialog->reject();
+        folder = QUrl::fromLocalFile(exports.path());
+        controller.updateActions();
+        QVERIFY(!actions.action(QStringLiteral("export_library"))->isEnabled());
+        QVERIFY(!actions.action(QStringLiteral("restore_library"))->isEnabled());
+        QDir(LibraryArchive::backupDirectory()).removeRecursively();
     }
 };
 

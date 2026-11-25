@@ -99,6 +99,7 @@ ecm_add_tests(
     ignorelisttest.cpp
     indexedsearchtest.cpp
     libraryscantest.cpp
+    libraryarchivetest.cpp
     linkednavigationtest.cpp
     localizeddatestest.cpp
     livesearchtest.cpp
