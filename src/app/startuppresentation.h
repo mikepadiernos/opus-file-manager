@@ -35,6 +35,14 @@ public:
 
     StartupPresentation(QWidget *window, Branding::LogoVariant variant, bool highContrast);
 
+    /// Renders the logo in @p colors, @p logicalWidth pixels wide.
+    static QPixmap renderLogo(const Branding::PresentationColors &colors, int logicalWidth, qreal devicePixelRatio);
+    /**
+     * Renders the card with the logo for @p variant, @p logicalWidth pixels
+     * wide, as the presentation would show it with @p palette.
+     */
+    static QPixmap preview(Branding::LogoVariant variant, const QPalette &palette, bool highContrast, int logicalWidth, qreal devicePixelRatio);
+
     /// The card's colours.
     Branding::PresentationColors colors() const;
     /// The logo shown on the card.

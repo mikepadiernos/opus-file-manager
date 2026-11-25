@@ -223,12 +223,7 @@ private Q_SLOTS:
         MainWindow window;
         SettingsDialog dialog(placesOf(window), &window);
         const auto items = Settings::self()->items();
-        // M20 adds the Branding page; remove these when it does.
-        const QStringList pending{QStringLiteral("StartupPresentation"), QStringLiteral("LogoVariant")};
         for (const KConfigSkeletonItem *item : items) {
-            if (pending.contains(item->name())) {
-                continue;
-            }
             QVERIFY2(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + item->name()), qPrintable(item->name()));
         }
     }
@@ -1188,6 +1183,7 @@ private Q_SLOTS:
                               QStringLiteral("Backup"),
                               QStringLiteral("Interface"),
                               QStringLiteral("Themes"),
+                              QStringLiteral("Branding"),
                               QStringLiteral("View"),
                               QStringLiteral("Context Menu"),
                               QStringLiteral("Archives"),

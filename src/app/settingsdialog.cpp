@@ -15,6 +15,7 @@
 #include "settings.h"
 #include "settingsbackup.h"
 #include "settingswidgets.h"
+#include "startuppresentation.h"
 #include "themeprofiles.h"
 #include "windoweffects.h"
 #include "workspacecatalog.h"
@@ -62,6 +63,7 @@
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <functional>
 #include <limits>
 
 namespace
@@ -136,6 +138,23 @@ KUrlRequester *folderRequester(const QString &entry)
     requester->setMode(KFile::Directory | KFile::ExistingOnly);
     return requester;
 }
+
+/// A label that redraws its preview when its palette or style changes.
+class PreviewLabel : public QLabel
+{
+public:
+    using QLabel::QLabel;
+    std::function<void()> refresh;
+
+protected:
+    void changeEvent(QEvent *event) override
+    {
+        QLabel::changeEvent(event);
+        if (refresh && (event->type() == QEvent::PaletteChange || event->type() == QEvent::StyleChange)) {
+            refresh();
+        }
+    }
+};
 }
 
 SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
@@ -177,6 +196,9 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createThemeProfilesPage(), i18nc("@title:tab", "Profiles")}},
                   i18nc("@title:group", "Themes"),
                   QStringLiteral("preferences-desktop-theme"));
+    addTabbedPage({{createBrandingPresentationPage(), i18nc("@title:tab", "Presentation")}},
+                  i18nc("@title:group", "Branding"),
+                  QStringLiteral("org.kde.opusfilemanager"));
     addTabbedPage({{createViewGeneralPage(), i18nc("@title:tab", "General")},
                    {createDetailsPage(), i18nc("@title:tab", "Details")},
                    {createIconsPage(), i18nc("@title:tab", "Icons")},
@@ -1950,6 +1972,53 @@ QWidget *SettingsDialog::createBarStylePage()
     note->setWordWrap(true);
     layout->addWidget(note);
     layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createBrandingPresentationPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    QCheckBox *enabled =
+        checkBox(QStringLiteral("StartupPresentation"), i18nc("@option:check", "Show a brief presentation of the logo and version at startup"));
+    QComboBox *variant = comboBox(QStringLiteral("LogoVariant"),
+                                  {i18nc("@item:inlistbox logo variant", "Match the colour scheme"),
+                                   i18nc("@item:inlistbox logo variant", "Dark text on a light card"),
+                                   i18nc("@item:inlistbox logo variant", "Light text on a dark card")});
+    form->addRow(i18nc("@title:group", "Startup:"), enabled);
+    form->addRow(i18nc("@label:listbox", "Logo:"), variant);
+    layout->addLayout(form);
+
+    auto *preview = new PreviewLabel(page);
+    preview->setObjectName(QStringLiteral("brandingPreview"));
+    preview->setAlignment(Qt::AlignCenter);
+    layout->addWidget(preview);
+
+    auto *note = new QLabel(i18nc("@info",
+                                  "The presentation appears over the main window after it opens and hides itself after a moment. It never "
+                                  "delays or blocks startup: the window can be used while it shows, and any key, click or scroll dismisses it. "
+                                  "It fades only when animations are on, and uses the colour scheme instead of the logo choice while Plasma "
+                                  "asks for high contrast. The application name, icon and About dialog stay the same."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    layout->addStretch();
+
+    const auto update = [enabled, variant, preview] {
+        variant->setEnabled(enabled->isChecked());
+        preview->setEnabled(enabled->isChecked());
+        const auto logoVariant = static_cast<Branding::LogoVariant>(std::max(variant->currentIndex(), 0));
+        constexpr int PreviewWidth = 320;
+        const QPixmap card =
+            StartupPresentation::preview(logoVariant, preview->palette(), ColorSchemes::highContrastPreferred(), PreviewWidth, preview->devicePixelRatioF());
+        preview->setPixmap(card);
+        preview->setAccessibleName(i18nc("@info accessible name", "Presentation preview: %1", variant->currentText()));
+    };
+    connect(enabled, &QCheckBox::toggled, page, update);
+    connect(variant, &QComboBox::currentIndexChanged, page, update);
+    preview->refresh = update;
+    update();
     return page;
 }
 

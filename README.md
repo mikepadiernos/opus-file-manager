@@ -37,7 +37,8 @@
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0).
 > `main` also includes the M15 and M16 workspace milestones, merged after that
-> release, the M17 and M18 theme milestones and M19 Branding; see the
+> release, the M17 and M18 theme milestones and the M19 and M20 branding
+> milestones; see the
 > [roadmap](docs/ROADMAP.md#at-a-glance) for status.
 
 ## Features
@@ -177,7 +178,9 @@ Preferences also include [tool defaults](docs/ROADMAP.md#m10-tools-settings),
 [workspace settings](docs/ROADMAP.md#m16-workspace-settings). App-local themes,
 colours and view styles from [M17](docs/ROADMAP.md#m17-themes) are configured
 on the Themes page with the [M18 settings](docs/ROADMAP.md#m18-theme-settings),
-and workspaces can save their own appearance.
+and workspaces can save their own appearance. The separate Branding page turns
+the optional startup presentation on and chooses its logo
+([M20](docs/ROADMAP.md#m20-branding-settings)).
 
 ## Safety and limitations
 

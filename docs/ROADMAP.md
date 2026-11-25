@@ -13,25 +13,26 @@ Manager behaviour that informs its parity goals.
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
 > released after M14. M15 Workspaces, M16 Workspace settings, M17 Themes,
-> M18 Theme settings and M19 Branding are merged into `main`. See
-> [pending tasks](TODO.md) for blocked work and branch-specific handoffs.
+> M18 Theme settings, M19 Branding and M20 Branding settings are merged into
+> `main`. See [pending tasks](TODO.md) for blocked work and branch-specific
+> handoffs.
 
 ## At a glance
 
 Status follows each milestone's parent issue on the
 [project board](https://github.com/users/mikepadiernos/projects/3).
 
-|     | Milestones | Focus                                         | Status         |
-| --- | ---------- | --------------------------------------------- | -------------- |
-| 🧱  | M01–M04    | Core dual pane and listing depth              | ✅ Merged      |
-| 🖼️  | M05–M08    | Preview, gallery and editor                   | ✅ Merged      |
-| 🧰  | M09–M14    | Tools, interface customization, translations  | ✅ Merged      |
-| 🗂️  | M15–M16    | Workspaces and their settings                 | ✅ Merged      |
-| 🎨  | M17–M18    | Themes and their settings                     | ✅ Merged      |
-| 🏷️  | M19–M20    | Branding and its settings                     | 🚧 In progress |
-| 🔎  | M21–M26    | Advanced search, native tagging and Yazi mode | 📋 Planned     |
-| 🔌  | M27–M31    | Integrations, Nextcloud and shortcuts         | 📋 Planned     |
-| ✨  | M32        | Refinements                                   | 📋 Planned     |
+|     | Milestones | Focus                                         | Status     |
+| --- | ---------- | --------------------------------------------- | ---------- |
+| 🧱  | M01–M04    | Core dual pane and listing depth              | ✅ Merged  |
+| 🖼️  | M05–M08    | Preview, gallery and editor                   | ✅ Merged  |
+| 🧰  | M09–M14    | Tools, interface customization, translations  | ✅ Merged  |
+| 🗂️  | M15–M16    | Workspaces and their settings                 | ✅ Merged  |
+| 🎨  | M17–M18    | Themes and their settings                     | ✅ Merged  |
+| 🏷️  | M19–M20    | Branding and its settings                     | ✅ Merged  |
+| 🔎  | M21–M26    | Advanced search, native tagging and Yazi mode | 📋 Planned |
+| 🔌  | M27–M31    | Integrations, Nextcloud and shortcuts         | 📋 Planned |
+| ✨  | M32        | Refinements                                   | 📋 Planned |
 
 ## Contents
 
@@ -1075,8 +1076,10 @@ Settings for M19 branding, stored in KConfig and separate from theme settings.
 
 - **Branding**
 
-  - [ ] **Presentation:** enable or disable the optional startup presentation
+  - [x] **Presentation:** enable or disable the optional startup presentation
         and select available branding variants without changing the app identity
+
+**Caveats:** [Branding](CAVEATS.md#branding), tracked in [#689].
 
 ### M21: Advanced search
 
