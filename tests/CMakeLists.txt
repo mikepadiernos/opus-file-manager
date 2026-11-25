@@ -309,3 +309,14 @@ ecm_add_test(symbolicappiconstest.cpp
     NAME_PREFIX "opusfm-"
     GUI
 )
+
+if(OPUSFM_RUST_PROTOTYPE)
+    ecm_add_test(rustsearchquerytest.cpp
+        LINK_LIBRARIES opusfm_core opus_searchquery Qt6::Test Qt6::Concurrent
+        NAME_PREFIX "opusfm-"
+    )
+    add_test(NAME opusfm-rust-searchquery-cargo
+        COMMAND ${CMAKE_COMMAND} -E env CARGO_TARGET_DIR=${CMAKE_CURRENT_BINARY_DIR}/cargo-test
+            ${Rust_CARGO_CACHED} test --offline --manifest-path ${PROJECT_SOURCE_DIR}/rust/searchquery/Cargo.toml
+    )
+endif()
