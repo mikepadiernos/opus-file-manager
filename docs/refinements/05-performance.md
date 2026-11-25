@@ -1,4 +1,4 @@
-# M32.05 Performance and startup
+# ⚡ M32.05 Performance and startup
 
 **[Refinements](README.md)** ·
 **[Roadmap](../ROADMAP.md#m32-refinements)** ·

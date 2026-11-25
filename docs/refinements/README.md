@@ -1,14 +1,15 @@
-# M32 Refinements
+# ✨ M32 Refinements
 
-**[Documentation](../README.md)** · **[Roadmap](../ROADMAP.md#m32-refinements)**
-·
-**[M32 issue](https://github.com/mikepadiernos/plasma-opus/issues/28)**
-· **[Project board](https://github.com/users/mikepadiernos/projects/3)**
+**[Documentation](../README.md)** ·
+**[Roadmap](../ROADMAP.md#m32-refinements)** ·
+**[M32 issue](https://github.com/mikepadiernos/plasma-opus/issues/28)** ·
+**[Project board](https://github.com/users/mikepadiernos/projects/3)**
 
 These plans cover menus, layouts, interaction, settings, performance and
 testing, guided by the [interface design](../philosophy/designs.md).
 
-> [!IMPORTANT] These are proposals for review, not implementation or completion
+> [!IMPORTANT]
+> These are proposals for review, not implementation or completion
 > reports. The roadmap defines scope; the issue and board track status.
 > Reconcile accepted scope changes with the roadmap and issues—plan text alone
 > does not change their status.

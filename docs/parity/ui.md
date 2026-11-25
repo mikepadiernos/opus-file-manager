@@ -1,4 +1,4 @@
-# Max File Manager UI inventory
+# 🧭 Max File Manager UI inventory
 
 **[Documentation](../README.md)** · **[Backend inventory](backend.md)** ·
 **[Roadmap](../ROADMAP.md)**

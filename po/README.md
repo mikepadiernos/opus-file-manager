@@ -1,4 +1,7 @@
-# Translations
+# 🌐 Translations
+
+**[Application](../README.md)** · **[Documentation](../docs/README.md)** ·
+**[Caveats](../docs/CAVEATS.md#translation-format-overrides)**
 
 Plasma Opus follows the system interface language by default. Preferences →
 Translation can select a language independently of regional formats and can

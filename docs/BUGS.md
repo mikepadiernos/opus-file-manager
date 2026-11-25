@@ -1,6 +1,7 @@
-# Reported bugs
+# 🐞 Reported bugs
 
-**[Documentation](README.md)** · **[Project board](https://github.com/users/mikepadiernos/projects/3)** ·
+**[Documentation](README.md)** ·
+**[Project board](https://github.com/users/mikepadiernos/projects/3)** ·
 **[Edge cases](EDGE.md)** · **[Caveats](CAVEATS.md)**
 
 This log records user-visible bugs and reliability issues. Consult the
@@ -11,7 +12,8 @@ This log records user-visible bugs and reliability issues. Consult the
 > **Merged**. Completed does not necessarily mean merged into `main`.
 > [Edge cases](EDGE.md) are possible scenarios, not confirmed bugs.
 
----
+> [!TIP]
+> All 15 tracked bugs are merged into `main`, and there are no open reports.
 
 ## Contents
 
@@ -24,41 +26,43 @@ This log records user-visible bugs and reliability issues. Consult the
 
 | Issue                                                           | Bug                                                                | Complete? | Project status |
 | --------------------------------------------------------------- | ------------------------------------------------------------------ | --------- | -------------- |
-| [#37](https://github.com/mikepadiernos/plasma-opus/issues/37)   | Combined panel header and accordion titles are misaligned          | Yes       | Merged         |
-| [#378](https://github.com/mikepadiernos/plasma-opus/issues/378) | Embedded Konsole terminal does not honor profile background blur   | Yes       | Merged         |
-| [#383](https://github.com/mikepadiernos/plasma-opus/issues/383) | Editor settings should use the notepad symbolic icon               | Yes       | Merged         |
-| [#444](https://github.com/mikepadiernos/plasma-opus/issues/444) | KDE toolbar editor separators and spacers do not match the toolbar | Yes       | Merged         |
-| [#446](https://github.com/mikepadiernos/plasma-opus/issues/446) | Metadata editing fails with an unusable ExifTool installation      | Yes       | Merged         |
-| [#457](https://github.com/mikepadiernos/plasma-opus/issues/457) | Embedded terminal panel controls and background blur               | Yes       | Merged         |
-| [#476](https://github.com/mikepadiernos/plasma-opus/issues/476) | Toolbar context menus and symbolic icons                           | Yes       | Merged         |
-| [#532](https://github.com/mikepadiernos/plasma-opus/issues/532) | Consistent panel placement beside or below the panes               | Yes       | Merged         |
-| [#533](https://github.com/mikepadiernos/plasma-opus/issues/533) | Embedded panel titles cannot be hidden like Explorer               | Yes       | Merged         |
-| [#549](https://github.com/mikepadiernos/plasma-opus/issues/549) | Combined panel section spacing and title accents                   | Yes       | Merged         |
-| [#555](https://github.com/mikepadiernos/plasma-opus/issues/555) | Application icon accent color and size                             | Yes       | Merged         |
-| [#558](https://github.com/mikepadiernos/plasma-opus/issues/558) | Headers, titles and status bar need horizontal padding             | Yes       | Merged         |
-| [#605](https://github.com/mikepadiernos/plasma-opus/issues/605) | Panes without a saved view mode open in Details                    | Yes       | Merged         |
-| [#606](https://github.com/mikepadiernos/plasma-opus/issues/606) | Visual Markdown editing loses formatting with a fixed-pitch font   | Yes       | Merged         |
-| [#682](https://github.com/mikepadiernos/plasma-opus/issues/682) | Icons view shows image thumbnails at Details size                  | No        | Review         |
+| [#37](https://github.com/mikepadiernos/plasma-opus/issues/37)   | Combined panel header and accordion titles are misaligned          | ✅ Yes    | 🟣 Merged      |
+| [#378](https://github.com/mikepadiernos/plasma-opus/issues/378) | Embedded Konsole terminal does not honor profile background blur   | ✅ Yes    | 🟣 Merged      |
+| [#383](https://github.com/mikepadiernos/plasma-opus/issues/383) | Editor settings should use the notepad symbolic icon               | ✅ Yes    | 🟣 Merged      |
+| [#444](https://github.com/mikepadiernos/plasma-opus/issues/444) | KDE toolbar editor separators and spacers do not match the toolbar | ✅ Yes    | 🟣 Merged      |
+| [#446](https://github.com/mikepadiernos/plasma-opus/issues/446) | Metadata editing fails with an unusable ExifTool installation      | ✅ Yes    | 🟣 Merged      |
+| [#457](https://github.com/mikepadiernos/plasma-opus/issues/457) | Embedded terminal panel controls and background blur               | ✅ Yes    | 🟣 Merged      |
+| [#476](https://github.com/mikepadiernos/plasma-opus/issues/476) | Toolbar context menus and symbolic icons                           | ✅ Yes    | 🟣 Merged      |
+| [#532](https://github.com/mikepadiernos/plasma-opus/issues/532) | Consistent panel placement beside or below the panes               | ✅ Yes    | 🟣 Merged      |
+| [#533](https://github.com/mikepadiernos/plasma-opus/issues/533) | Embedded panel titles cannot be hidden like Explorer               | ✅ Yes    | 🟣 Merged      |
+| [#549](https://github.com/mikepadiernos/plasma-opus/issues/549) | Combined panel section spacing and title accents                   | ✅ Yes    | 🟣 Merged      |
+| [#555](https://github.com/mikepadiernos/plasma-opus/issues/555) | Application icon accent color and size                             | ✅ Yes    | 🟣 Merged      |
+| [#558](https://github.com/mikepadiernos/plasma-opus/issues/558) | Headers, titles and status bar need horizontal padding             | ✅ Yes    | 🟣 Merged      |
+| [#605](https://github.com/mikepadiernos/plasma-opus/issues/605) | Panes without a saved view mode open in Details                    | ✅ Yes    | 🟣 Merged      |
+| [#606](https://github.com/mikepadiernos/plasma-opus/issues/606) | Visual Markdown editing loses formatting with a fixed-pitch font   | ✅ Yes    | 🟣 Merged      |
+| [#682](https://github.com/mikepadiernos/plasma-opus/issues/682) | Icons view shows image thumbnails at Details size                  | ✅ Yes    | 🟣 Merged      |
 
 ## Status legend
 
-- **Completed**: issue is closed and marked completed, but not necessarily merged.
-- **Merged**: issue has been merged into `main`.
-- **Review**: implementation is ready for review.
-- **Development**: work is in progress.
-- **Backlog**: issue has been recorded on the project board but work has not
-  started.
-- **Untriaged**: issue has been logged locally but has not yet been created or
-  assigned on the project board.
-
----
+| Status             | Meaning                                                  |
+| ------------------ | -------------------------------------------------------- |
+| 🟣 **Merged**      | Merged into `main`                                       |
+| 🟢 **Completed**   | Closed as completed, but not necessarily merged          |
+| 🔵 **Review**      | Implementation is ready for review                       |
+| 🟡 **Development** | Work is in progress                                      |
+| ⚪ **Backlog**     | Recorded on the project board; work has not started      |
+| 🔴 **Untriaged**   | Logged here but not yet created or assigned on the board |
 
 ## Open reports
+
+There are no open bug reports.
+
+## Completed reports
 
 ### Icons view thumbnail size
 
 - Severity: moderate
-- Status: Review; [#682](https://github.com/mikepadiernos/plasma-opus/issues/682)
+- Status: Merged; [#682](https://github.com/mikepadiernos/plasma-opus/issues/682)
 - Summary: With previews enabled, image thumbnails in Icons view render at
   Details-view size, about 16 px, inside full-size icon cells.
 - Steps to reproduce: Enable **View → Show Previews**, switch a pane to Icons
@@ -69,8 +73,6 @@ This log records user-visible bugs and reliability issues. Consult the
   and Compact previews overwrote the Icons previews.
 - Resolution: Only the current view's preview generator is enabled, and
   switching views refreshes the previews at the new view's size.
-
-## Completed reports
 
 ### Default view for restored panes
 
@@ -110,7 +112,8 @@ This log records user-visible bugs and reliability issues. Consult the
 - Resolution: Application-owned headers, titles and status-bar content have
   at least eight logical pixels of horizontal padding. Native dock titles and
   column headers retain their active style; see the
-  [padding caveat](CAVEATS.md#native-title-and-header-padding) ([#560](https://github.com/mikepadiernos/plasma-opus/issues/560)).
+  [padding caveat](CAVEATS.md#native-title-and-header-padding)
+  ([#560](https://github.com/mikepadiernos/plasma-opus/issues/560)).
 
 ### Application icon accent color and size
 
@@ -217,9 +220,9 @@ This log records user-visible bugs and reliability issues. Consult the
   close the panel without ending a session. Blur reportedly does not persist.
 - Resolution: [#459](https://github.com/mikepadiernos/plasma-opus/pull/459)
   adds panel controls to hide the panel without ending sessions and dismiss
-  messages. When the Konsole profile enables blur, Plasma Opus reapplies a window-wide
-  blur request during repaint so the active style cannot replace it with an
-  incomplete region. The previous blur report was
+  messages. When the Konsole profile enables blur, Plasma Opus reapplies a
+  window-wide blur request during repaint so the active style cannot replace it
+  with an incomplete region. The previous blur report was
   [#378](https://github.com/mikepadiernos/plasma-opus/issues/378).
 
 ### KDE toolbar editor separators and spacers
@@ -229,8 +232,8 @@ This log records user-visible bugs and reliability issues. Consult the
 - Summary: Separators and expanding spacers in KDE's toolbar editor did not
   match the live or restored toolbar.
 - Evidence: The reporter's screenshots identify the KDE toolbar editor and the
-  resulting toolbar. KDE replaced the toolbar on Apply, leaving Plasma Opus with the
-  old toolbar and saved layout.
+  resulting toolbar. KDE replaced the toolbar on Apply, leaving Plasma Opus with
+  the old toolbar and saved layout.
 - Resolution: [#454](https://github.com/mikepadiernos/plasma-opus/pull/454)
   synchronizes the editor with the current layout and saves the rebuilt toolbar.
   [#452](https://github.com/mikepadiernos/plasma-opus/pull/452) also
@@ -248,7 +251,8 @@ This log records user-visible bugs and reliability issues. Consult the
   pass in an isolated environment using that installation.
 - Resolution: [#451](https://github.com/mikepadiernos/plasma-opus/pull/451)
   improved diagnostics to identify the executable and report silent failures.
-  Desktop-launched Plasma Opus must also have the working executable on its PATH.
+  Desktop-launched Plasma Opus must also have the working executable on its
+  PATH.
 
 ### Combined panel header and accordion alignment
 

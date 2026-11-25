@@ -1,4 +1,4 @@
-# M32.06 Functional and security testing
+# 🛡️ M32.06 Functional and security testing
 
 **[Refinements](README.md)** ·
 **[Roadmap](../ROADMAP.md#m32-refinements)** ·

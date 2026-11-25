@@ -1,7 +1,8 @@
-# KDE Plasma integration
+# 🖥️ KDE Plasma integration
 
 **[Documentation](../README.md)** · **[Roadmap](../ROADMAP.md)** ·
-**[Plasma Mail integration](plasma-mail.md)**
+**[Plasma Impresario integration](plasma-impresario.md)** ·
+**[Nextcloud integration](nextcloud.md)**
 
 ## Status and principles
 
@@ -24,9 +25,10 @@ ordinary local file management.
   Open With and the active desktop's file associations. Preserve the user's
   choices and Plasma Opus-specific visibility settings.
 - **Appearance and controls:** use the active icon theme, Plasma styling,
-  KXmlGui, KDE toolbar and shortcut facilities, and localized strings. The
-  application-specific theme and editor additions remain planned in
-  [M17](../ROADMAP.md#m17-themes).
+  KXmlGui, KDE toolbar and shortcut facilities, and localized strings.
+  Application-specific themes are in development in
+  [M17](../ROADMAP.md#m17-themes), with their settings planned in
+  [M18](../ROADMAP.md#m18-theme-settings).
 
 ## Planned integrations
 
@@ -71,9 +73,17 @@ ordinary local file management.
   explicit authorization and clear failure reporting, not a persistent elevated
   application session.
   ([#288](https://github.com/mikepadiernos/plasma-opus/issues/288))
+- **Plasma Vault and encryption:** Open, close and reveal Plasma Vault
+  containers through its D-Bus interface and reuse GnuPG and Kleopatra for file
+  encryption. Leave passwords and vault configuration to those tools.
+  ([M27](../ROADMAP.md#m27-integrations))
+- **Disk images and network locations:** Reuse Dolphin's Mount ISO action,
+  Solid, and KIO's SMB, FTP and `network:/` workers rather than custom mount or
+  discovery code. ([M27](../ROADMAP.md#m27-integrations))
 - **Nextcloud:** Reuse KDE accounts, credentials and KIO for optional native
   browsing and asset workflows; leave sync ownership with the desktop client.
-  ([M29](../ROADMAP.md#m29-nextcloud-integration))
+  ([M29](../ROADMAP.md#m29-nextcloud-integration),
+  [Nextcloud integration](nextcloud.md))
 
 Settings for the general desktop integrations belong in
 [M28](../ROADMAP.md#m28-integration-settings); Nextcloud settings belong in
