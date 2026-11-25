@@ -15,7 +15,7 @@ TagLibrary::Storage newLibraryStorage();
 /// What library refreshes index, from Preferences › Tagging › Libraries.
 LibraryScan::Options scanOptions();
 
-/// How tag: search terms select tags, from Preferences › Tagging › Tags.
+/// How tag search terms select tags and items, from Preferences › Tagging › Tags and Search.
 TagSearch::Options tagSearchOptions();
 
 /// The lowercase #rrggbb colour for new tags, or empty for none or an invalid setting.

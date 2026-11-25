@@ -238,7 +238,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                   QStringLiteral("folder"));
     addTabbedPage({{createTaggingPrivacyPage(), i18nc("@title:tab", "Privacy")},
                    {createTaggingLibrariesPage(), i18nc("@title:tab", "Libraries")},
-                   {createTaggingTagsPage(), i18nc("@title:tab", "Tags")}},
+                   {createTaggingTagsPage(), i18nc("@title:tab", "Tags")},
+                   {createTaggingSearchPage(), i18nc("@title:tab", "Search")}},
                   i18nc("@title:group", "Tagging"),
                   QStringLiteral("tag"));
     addTabbedPage({{createWorkspaceManagementPage(), i18nc("@title:tab", "Management")},
@@ -2831,6 +2832,56 @@ QWidget *SettingsDialog::createTaggingTagsPage()
 
     auto *scroll = new QScrollArea;
     scroll->setObjectName(QStringLiteral("taggingTagsScroll"));
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setWidgetResizable(true);
+    scroll->setWidget(page);
+    return scroll;
+}
+
+QWidget *SettingsDialog::createTaggingSearchPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("taggingSearchPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *scope = new QGroupBox(i18nc("@title:group", "Scope"), page);
+    auto *scopeForm = new QFormLayout(scope);
+    QComboBox *where = comboBox(
+        QStringLiteral("TagSearchScope"),
+        {i18nc("@item:inlistbox where tag searches start", "The current folder"), i18nc("@item:inlistbox where tag searches start", "The whole library")});
+    where->setToolTip(i18nc("@info:tooltip", "Where a search of the current folder starts when its query has tag criteria"));
+    scopeForm->addRow(i18nc("@label:listbox", "Search tags in:"), where);
+    auto *scopeHelp = new QLabel(i18nc("@info",
+                                       "With the whole library, a search of the current folder whose query has tag:, tag= or tagged: criteria "
+                                       "starts in the folder of the library that contains the current folder, and its status says so. Search "
+                                       "folders, workspace searches and Select by Query are not affected."),
+                                 scope);
+    scopeHelp->setObjectName(QStringLiteral("taggingSearchScopeHelp"));
+    scopeHelp->setWordWrap(true);
+    scopeForm->addRow({}, scopeHelp);
+    layout->addWidget(scope);
+
+    auto *matching = new QGroupBox(i18nc("@title:group", "Matching"), page);
+    auto *matchingLayout = new QVBoxLayout(matching);
+    QCheckBox *aliases = checkBox(QStringLiteral("TagMatchAliases"), i18nc("@option:check", "Match tag aliases and shorthands"));
+    aliases->setToolTip(i18nc("@info:tooltip", "When unchecked, tag:Kitty only finds items with a tag named Kitty, not with a tag that has Kitty as an alias"));
+    matchingLayout->addWidget(aliases);
+    QCheckBox *outside =
+        checkBox(QStringLiteral("UntaggedIncludesOutsideLibraries"), i18nc("@option:check", "Include items outside libraries in tagged:no searches"));
+    outside->setToolTip(i18nc("@info:tooltip", "tagged:yes and tag: criteria never match items outside libraries"));
+    matchingLayout->addWidget(outside);
+    auto *matchingHelp = new QLabel(i18nc("@info",
+                                          "Matching applies to searches and Select by Query. Searches already running keep the settings they "
+                                          "started with."),
+                                    matching);
+    matchingHelp->setObjectName(QStringLiteral("taggingSearchMatchingHelp"));
+    matchingHelp->setWordWrap(true);
+    matchingLayout->addWidget(matchingHelp);
+    layout->addWidget(matching);
+    layout->addStretch();
+
+    auto *scroll = new QScrollArea;
+    scroll->setObjectName(QStringLiteral("taggingSearchScroll"));
     scroll->setFrameShape(QFrame::NoFrame);
     scroll->setWidgetResizable(true);
     scroll->setWidget(page);

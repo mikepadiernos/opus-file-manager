@@ -1202,7 +1202,7 @@ bool SearchWidget::start()
     m_status->setText(i18nc("@info", "Searching…"));
     m_canceled = std::make_shared<std::atomic_bool>(false);
     const auto canceled = m_canceled;
-    const QString folder = m_folder.toLocalFile();
+    QString folder = m_folder.toLocalFile();
     const QString text = m_query->text();
     const auto field = fieldAt(m_field->currentIndex());
     const bool indexed = m_scope->currentIndex() == Indexed;
@@ -1237,8 +1237,18 @@ bool SearchWidget::start()
     // Read on this thread: worker threads keep their own, possibly stale, copy of the configuration.
     const QStringList libraries = LibraryRegistry::roots();
     const TagSearch::Options tagOptions = TaggingSettings::tagSearchOptions();
-    m_watcher.setFuture(QtConcurrent::run(
-        [folder, text, field, canceled, indexed, filter, multipleRoots, roots, locationErrors, libraries, tagOptions](QPromise<LiveSearch::Result> &promise) {
+    QStringList scopeNotices;
+    // Unlimited indexed searches cover the whole index, so only a depth limit makes the starting folder matter.
+    if (!multipleRoots && field == LiveSearch::Field::Query && (!indexed || filter.maxDepth >= 0)) {
+        const QString root = TagSearch::searchRoot(folder, SearchQuery::Query::parse(text), libraries, tagOptions.scope);
+        if (QDir::cleanPath(root) != QDir::cleanPath(folder)) {
+            folder = root;
+            scopeNotices.append(i18nc("@info", "Searched the whole tag library in %1.", root));
+        }
+    }
+    m_watcher.setFuture(
+        QtConcurrent::run([folder, text, field, canceled, indexed, filter, multipleRoots, roots, locationErrors, libraries, tagOptions, scopeNotices](
+                              QPromise<LiveSearch::Result> &promise) {
             promise.setProgressRange(0, 200000);
             const LiveSearch::Cancel cancel = [canceled] {
                 return canceled->load();
@@ -1293,6 +1303,7 @@ bool SearchWidget::start()
                 }
             }
             result.errors.append(locationErrors);
+            result.notices = scopeNotices + result.notices;
             promise.addResult(result);
         }));
     return true;

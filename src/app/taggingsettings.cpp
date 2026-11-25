@@ -27,6 +27,9 @@ TagSearch::Options TaggingSettings::tagSearchOptions()
 {
     TagSearch::Options options;
     options.childTags = Settings::tagMatchesChildTags();
+    options.aliases = Settings::tagMatchAliases();
+    options.untaggedOutsideLibraries = Settings::untaggedIncludesOutsideLibraries();
+    options.scope = Settings::tagSearchScope() == Settings::EnumTagSearchScope::LibraryRoot ? TagSearch::Scope::LibraryRoot : TagSearch::Scope::CurrentFolder;
     return options;
 }
 
