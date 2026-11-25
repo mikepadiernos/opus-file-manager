@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "taglibrary.h"
+#include "libraryscan.h"
 #include "searchquery.h"
 #include "tagsearch.h"
 
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -55,7 +58,29 @@ private:
         return file.open(QIODevice::WriteOnly) && file.write(QJsonDocument(document).toJson()) > 0;
     }
 
+    static QString privateFolder()
+    {
+        return QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + u"/libraries"_s;
+    }
+
+    static QByteArray readAll(const QString &path)
+    {
+        QFile file(path);
+        return file.open(QIODevice::ReadOnly) ? file.readAll() : QByteArray();
+    }
+
 private Q_SLOTS:
+    void initTestCase()
+    {
+        QStandardPaths::setTestModeEnabled(true);
+        QDir(privateFolder()).removeRecursively();
+    }
+
+    void cleanup()
+    {
+        QDir(privateFolder()).removeRecursively();
+    }
+
     void documentRoundTrips()
     {
         QTemporaryDir dir;
@@ -168,6 +193,139 @@ private Q_SLOTS:
         QVERIFY(TagLibrary::isLibraryFile(TagLibrary::fileName()));
         QVERIFY(TagLibrary::isLibraryFile(TagLibrary::fileName() + u".XyZ123"_s));
         QVERIFY(!TagLibrary::isLibraryFile(u".mfm.json"_s));
+    }
+
+    void resolvesPrivateDocuments()
+    {
+        QTemporaryDir dir;
+        const QString root = QDir::cleanPath(dir.path());
+        const QString inFolder = QDir(root).filePath(TagLibrary::fileName());
+        const QString hash = QString::fromLatin1(QCryptographicHash::hash(root.toUtf8(), QCryptographicHash::Sha1).toHex());
+        const QString privatePath = privateFolder() + u"/"_s + hash + u".json"_s;
+        QCOMPARE(TagLibrary::privateDocumentPath(root), privatePath);
+        QCOMPARE(TagLibrary::privateDocumentPath(root + u"/"_s), privatePath);
+        QCOMPARE(TagLibrary::folderDocumentPath(root), inFolder);
+        // Without a private document, the library is kept in its folder.
+        QCOMPARE(TagLibrary::documentPath(root), inFolder);
+        QVERIFY(!TagLibrary::isPrivate(root));
+
+        TagLibrary::Library library(root, TagLibrary::Storage::PrivateFolder);
+        QVERIFY(library.isPrivate());
+        QCOMPARE(library.filePath(), privatePath);
+        QString error;
+        QVERIFY2(library.save(&error), qPrintable(error));
+        // Nothing is written to the library folder, and the private folder is the user's alone.
+        QVERIFY(QDir(root).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot).isEmpty());
+        QVERIFY(QFile::exists(privatePath));
+        QCOMPARE(QFileInfo(privateFolder()).permissions() & (QFile::ReadGroup | QFile::ReadOther | QFile::WriteGroup | QFile::WriteOther),
+                 QFile::Permissions());
+        QCOMPARE(TagLibrary::documentPath(root), privatePath);
+        QVERIFY(TagLibrary::isPrivate(root));
+        QCOMPARE(QJsonDocument::fromJson(readAll(privatePath)).object().value(u"root"_s).toString(), root);
+
+        // The recorded root isn't carried into other documents, such as exports.
+        TagLibrary::Library loaded = TagLibrary::Library::load(root, &error);
+        QVERIFY2(!loaded.isNull(), qPrintable(error));
+        QVERIFY(loaded.isPrivate());
+        QVERIFY(!loaded.isReadOnly());
+        QVERIFY(!loaded.toJson().contains(u"root"_s));
+        QVERIFY(!loaded.changedOnDisk());
+        const QString signature = TagLibrary::documentSignature(root);
+        QVERIFY(!signature.isEmpty());
+
+        // A private document takes precedence over one in the folder, which doesn't affect its signature.
+        QVERIFY(writeDocument(root, sampleDocument()));
+        QCOMPARE(TagLibrary::documentPath(root), privatePath);
+        QCOMPARE(TagLibrary::documentSignature(root), signature);
+        QVERIFY(TagLibrary::Library::load(root).tags().isEmpty());
+
+        // The in-folder document is still never indexed.
+        QVERIFY(!LibraryScan::indexable(TagLibrary::fileName()));
+    }
+
+    void privateLibrariesOfReadOnlyFoldersAreWritable()
+    {
+        if (::geteuid() == 0) {
+            QSKIP("Permission checks don't apply to root.");
+        }
+        QTemporaryDir dir;
+        const QString root = QDir::cleanPath(dir.path());
+        QVERIFY(QFile::setPermissions(root, QFile::ReadOwner | QFile::ExeOwner));
+        bool readOnly = false;
+        QVERIFY(TagLibrary::checkLocation(root, &readOnly).isEmpty());
+        QVERIFY(readOnly);
+        QVERIFY(TagLibrary::Library(root).isReadOnly());
+
+        TagLibrary::Library library(root, TagLibrary::Storage::PrivateFolder);
+        QVERIFY(!library.isReadOnly());
+        QString error;
+        QVERIFY2(library.save(&error), qPrintable(error));
+        QVERIFY(TagLibrary::checkLocation(root, &readOnly).isEmpty());
+        QVERIFY(!readOnly);
+        QVERIFY(TagLibrary::update(
+            root,
+            [](TagLibrary::Library &library, QString *error) {
+                return library.setTag({u"t"_s, u"Tag"_s, {}, {}, {}, {}}, error);
+            },
+            &error));
+        QCOMPARE(TagLibrary::Library::load(root).tags().size(), 1);
+        // Moving the document into the read-only folder is refused and keeps it private.
+        QVERIFY(!TagLibrary::moveDocument(root, TagLibrary::Storage::LibraryFolder).isEmpty());
+        QVERIFY(TagLibrary::isPrivate(root));
+        QVERIFY(QFile::setPermissions(root, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+    }
+
+    void movesDocumentsBetweenLocations()
+    {
+        QTemporaryDir dir;
+        const QString root = QDir::cleanPath(dir.path());
+        const QString inFolder = TagLibrary::folderDocumentPath(root);
+        const QString privatePath = TagLibrary::privateDocumentPath(root);
+        QFile other(QDir(root).filePath(u"keep.txt"_s));
+        QVERIFY(other.open(QIODevice::WriteOnly));
+        other.write("keep");
+        other.close();
+        QVERIFY(writeDocument(root, sampleDocument()));
+        const QByteArray original = readAll(inFolder);
+
+        // Already there: nothing changes.
+        QCOMPARE(TagLibrary::moveDocument(root, TagLibrary::Storage::LibraryFolder), QString());
+        QCOMPARE(readAll(inFolder), original);
+
+        QCOMPARE(TagLibrary::moveDocument(root, TagLibrary::Storage::PrivateFolder), QString());
+        QVERIFY(!QFile::exists(inFolder));
+        QCOMPARE(readAll(privatePath), original);
+        QVERIFY(TagLibrary::isPrivate(root));
+        QCOMPARE(TagLibrary::Library::load(root).toJson(), TagLibrary::Library::fromJson(sampleDocument(), root).toJson());
+        QCOMPARE(readAll(QDir(root).filePath(u"keep.txt"_s)), QByteArray("keep"));
+
+        // A document already at the target is never replaced, and the source is kept.
+        QVERIFY(writeDocument(root, QJsonObject{{u"format"_s, u"plasma-opus-library"_s}, {u"version"_s, 1}}));
+        const QByteArray blocking = readAll(inFolder);
+        QVERIFY(!TagLibrary::moveDocument(root, TagLibrary::Storage::LibraryFolder).isEmpty());
+        QCOMPARE(readAll(inFolder), blocking);
+        QCOMPARE(readAll(privatePath), original);
+        QVERIFY(QFile::remove(inFolder));
+
+        QCOMPARE(TagLibrary::moveDocument(root, TagLibrary::Storage::LibraryFolder), QString());
+        QVERIFY(!QFile::exists(privatePath));
+        QCOMPARE(readAll(inFolder), original);
+        QVERIFY(!TagLibrary::isPrivate(root));
+        QCOMPARE(QDir(root).entryList(QDir::Files | QDir::Hidden).size(), 2);
+
+        // An invalid document isn't moved.
+        QFile broken(inFolder);
+        QVERIFY(broken.open(QIODevice::WriteOnly));
+        broken.write("not json");
+        broken.close();
+        QVERIFY(!TagLibrary::moveDocument(root, TagLibrary::Storage::PrivateFolder).isEmpty());
+        QCOMPARE(readAll(inFolder), QByteArray("not json"));
+        QVERIFY(!QFile::exists(privatePath));
+
+        // Without a document there is nothing to move.
+        QVERIFY(QFile::remove(inFolder));
+        QVERIFY(!TagLibrary::moveDocument(root, TagLibrary::Storage::PrivateFolder).isEmpty());
+        QVERIFY(!QFile::exists(privatePath));
     }
 
     void reportsUnsupportedLocations()

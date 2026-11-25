@@ -8,6 +8,7 @@
 #include "customcommanddialog.h"
 #include "filecolorrules.h"
 #include "ignorelist.h"
+#include "libraryarchive.h"
 #include "mainwindow.h"
 #include "pathfilterpresetsdialog.h"
 #include "savedpathfilters.h"
@@ -86,6 +87,7 @@ private Q_SLOTS:
                                      QStringLiteral("Workspaces"),
                                      QStringLiteral("WorkspaceSettings"),
                                      QStringLiteral("ContextMenu"),
+                                     QStringLiteral("Tagging"),
                                      QStringLiteral("Branding")}) {
             KSharedConfig::openConfig()->deleteGroup(group);
         }
@@ -110,6 +112,53 @@ private Q_SLOTS:
         QVERIFY(portability);
         QVERIFY(portability->findChild<QPushButton *>(QStringLiteral("exportWorkspaceProfiles")));
         QVERIFY(portability->findChild<QPushButton *>(QStringLiteral("importWorkspaceProfiles")));
+    }
+
+    void taggingPrivacySettings()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+
+        // The Tagging page follows the Files page.
+        auto *pages = dialog.findChild<KPageWidget *>();
+        QVERIFY(pages);
+        QStringList titles;
+        for (int row = 0; row < pages->model()->rowCount(); ++row) {
+            titles.append(pages->model()->index(row, 0).data(Qt::DisplayRole).toString());
+        }
+        QVERIFY(titles.contains(QStringLiteral("Tagging")));
+        QCOMPARE(titles.indexOf(QStringLiteral("Tagging")), titles.indexOf(QStringLiteral("Files")) + 1);
+
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("taggingPrivacyPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->tabText(tabs->indexOf(page)), QStringLiteral("Privacy"));
+
+        auto *explanation = page->findChild<QLabel *>(QStringLiteral("taggingPrivacyExplanation"));
+        auto *storage = page->findChild<QComboBox *>(QStringLiteral("kcfg_NewLibraryStorage"));
+        auto *folder = page->findChild<KUrlRequester *>(QStringLiteral("kcfg_LibraryBackupFolder"));
+        auto *limit = page->findChild<QSpinBox *>(QStringLiteral("kcfg_LibraryBackupLimit"));
+        auto *writes = page->findChild<QCheckBox *>(QStringLiteral("kcfg_AllowEmbeddedMetadataWrites"));
+        QVERIFY(explanation && storage && folder && limit && writes);
+        QVERIFY(explanation->wordWrap());
+        QVERIFY(explanation->text().contains(QStringLiteral("network")));
+
+        // Defaults: in the library folder, the default backup folder, 20 backups and no writes to files.
+        QCOMPARE(storage->count(), 2);
+        QCOMPARE(storage->currentIndex(), int(Settings::EnumNewLibraryStorage::LibraryFolder));
+        QVERIFY(folder->url().isEmpty());
+        QCOMPARE(folder->placeholderText(), LibraryArchive::backupDirectory());
+        QCOMPARE(limit->value(), 20);
+        QCOMPARE(limit->minimum(), 0);
+        QCOMPARE(limit->maximum(), 1000);
+        limit->setValue(0);
+        QCOMPARE(limit->text(), QStringLiteral("All"));
+        QVERIFY(!writes->isChecked());
+        QCOMPARE(Settings::newLibraryStorage(), Settings::EnumNewLibraryStorage::LibraryFolder);
+        QCOMPARE(Settings::libraryBackupLimit(), 20);
+        QVERIFY(Settings::libraryBackupFolder().isEmpty());
+        QVERIFY(!Settings::allowEmbeddedMetadataWrites());
     }
 
     void brandingPresentationSettings()

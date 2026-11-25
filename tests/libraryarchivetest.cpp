@@ -4,11 +4,14 @@
 #include "libraryscan.h"
 #include "taglibrary.h"
 
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QHash>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -62,6 +65,8 @@ private Q_SLOTS:
     void restoresCopiesOfLibraryDocuments();
     void refusesInvalidExports_data();
     void refusesInvalidExports();
+    void restoresPrivateLibraries();
+    void prunesOnlyOlderBackupsOfTheLibrary();
 
 private:
     QString path(const QString &relative) const;
@@ -95,6 +100,7 @@ QHash<QString, QByteArray> LibraryArchiveTest::userFiles() const
 void LibraryArchiveTest::init()
 {
     QDir(LibraryArchive::backupDirectory()).removeRecursively();
+    QDir(QFileInfo(TagLibrary::privateDocumentPath(QStringLiteral("/"))).absolutePath()).removeRecursively();
     m_dir = std::make_unique<QTemporaryDir>();
     m_exports = std::make_unique<QTemporaryDir>();
     QVERIFY(m_dir->isValid() && m_exports->isValid());
@@ -128,6 +134,7 @@ void LibraryArchiveTest::init()
 void LibraryArchiveTest::cleanup()
 {
     QDir(LibraryArchive::backupDirectory()).removeRecursively();
+    QDir(QFileInfo(TagLibrary::privateDocumentPath(QStringLiteral("/"))).absolutePath()).removeRecursively();
 }
 
 void LibraryArchiveTest::exportsTheLibraryDocument()
@@ -391,6 +398,108 @@ void LibraryArchiveTest::refusesInvalidExports()
     QCOMPARE(readAll(path(TagLibrary::fileName())), document);
 
     QVERIFY(LibraryArchive::preview(m_root, QDir(m_exports->path()).filePath(QStringLiteral("absent.json")), &error).isNull());
+}
+
+void LibraryArchiveTest::restoresPrivateLibraries()
+{
+    QCOMPARE(TagLibrary::moveDocument(m_root, TagLibrary::Storage::PrivateFolder), QString());
+    QVERIFY(!QFileInfo::exists(path(TagLibrary::fileName())));
+    const QString exported = QDir(m_exports->path()).filePath(QStringLiteral("export.json"));
+    const TagLibrary::Library original = TagLibrary::Library::load(m_root);
+    QVERIFY(LibraryArchive::write(original, exported));
+    QVERIFY(!readObject(exported).value(QStringLiteral("library")).toObject().contains(QStringLiteral("root")));
+    QVERIFY(TagLibrary::update(m_root, [](TagLibrary::Library &library, QString *) {
+        library.removeTag(QStringLiteral("cat"));
+        return true;
+    }));
+    const QByteArray changed = readAll(TagLibrary::privateDocumentPath(m_root));
+    QCOMPARE(readObject(TagLibrary::privateDocumentPath(m_root)).value(QStringLiteral("root")).toString(), m_root);
+
+    // A configured backup folder is used instead of the default one.
+    const QString folder = QDir(m_exports->path()).filePath(QStringLiteral("backups"));
+    QCOMPARE(LibraryArchive::backupDirectory(folder + QStringLiteral("/")), folder);
+    QCOMPARE(LibraryArchive::backupDirectory(QStringLiteral("relative")), LibraryArchive::backupDirectory());
+    QVERIFY(LibraryArchive::backupDirectory().endsWith(QStringLiteral("/library-backups")));
+
+    QString error;
+    const LibraryArchive::Plan plan = LibraryArchive::preview(m_root, exported, &error);
+    QVERIFY2(!plan.isNull(), qPrintable(error));
+    QVERIFY(plan.hasChanges());
+    QString backup;
+    QVERIFY2(LibraryArchive::restore(plan, {folder, 20}, &backup, &error), qPrintable(error));
+    QVERIFY(backup.startsWith(folder + QStringLiteral("/")));
+    QCOMPARE(readAll(backup), changed);
+    QVERIFY(!QFileInfo::exists(LibraryArchive::backupDirectory()));
+    // The private document is restored in place; nothing is written to the library folder.
+    QVERIFY(TagLibrary::isPrivate(m_root));
+    QVERIFY(!QFileInfo::exists(path(TagLibrary::fileName())));
+    QCOMPARE(TagLibrary::Library::load(m_root).toJson(), original.toJson());
+}
+
+void LibraryArchiveTest::prunesOnlyOlderBackupsOfTheLibrary()
+{
+    const QString folder = QDir(m_exports->path()).filePath(QStringLiteral("backups"));
+    QVERIFY(QDir().mkpath(folder));
+    const QString name = QFileInfo(m_root).fileName();
+    const QString hash = QString::fromLatin1(QCryptographicHash::hash(m_root.toUtf8(), QCryptographicHash::Sha1).toHex().left(8));
+    const auto backupPath = [&](const QString &stamp, const QString &tag) {
+        return QDir(folder).filePath(QStringLiteral("%1 %2 %3.json").arg(name, stamp, tag));
+    };
+    // Files that aren't backups of this library are never deleted.
+    const QStringList unrelated{QDir(folder).filePath(QStringLiteral("notes.txt")),
+                                backupPath(QStringLiteral("2020-01-01 000000"), QStringLiteral("0badc0de")),
+                                QDir(folder).filePath(name + QStringLiteral(" 2020-01-01 000000.json")),
+                                backupPath(QStringLiteral("2020-01-01 000000"), hash)};
+    for (const QString &file : unrelated.mid(0, 3)) {
+        QVERIFY(writeAll(file, "{}"));
+    }
+    // A copy named like this library's backups but recording another root.
+    QVERIFY(writeAll(unrelated.at(3), "{\"format\": \"plasma-opus-library\", \"version\": 1, \"root\": \"/elsewhere\"}"));
+    const QString link = backupPath(QStringLiteral("2019-01-01 000000"), hash);
+    QVERIFY(QFile::link(unrelated.at(0), link));
+    const QString oldest = backupPath(QStringLiteral("2020-01-01 000001"), hash);
+    QVERIFY(writeAll(oldest, "{}"));
+
+    QString error;
+    const QString exported = QDir(m_exports->path()).filePath(QStringLiteral("export.json"));
+    QVERIFY(LibraryArchive::write(TagLibrary::Library::load(m_root), exported));
+    QStringList backups;
+    for (int i = 0; i < 4; ++i) {
+        QVERIFY(TagLibrary::update(m_root, [i](TagLibrary::Library &library, QString *error) {
+            return library.setTag({QStringLiteral("t%1").arg(i), QStringLiteral("T%1").arg(i), {}, {}, {}, {}}, error);
+        }));
+        const LibraryArchive::Plan plan = LibraryArchive::preview(m_root, exported, &error);
+        QVERIFY2(!plan.isNull(), qPrintable(error));
+        QString backup;
+        QVERIFY2(LibraryArchive::restore(plan, {folder, 3}, &backup, &error), qPrintable(error));
+        QVERIFY(QFileInfo(backup).fileName().contains(hash));
+        backups.append(backup);
+    }
+
+    const QRegularExpression ours(QStringLiteral(" %1( \\(\\d+\\))?\\.json$").arg(hash));
+    QStringList kept;
+    for (const QFileInfo &info : QDir(folder).entryInfoList(QDir::Files | QDir::NoSymLinks)) {
+        if (ours.match(info.fileName()).hasMatch() && info.absoluteFilePath() != unrelated.at(3)) {
+            kept.append(info.absoluteFilePath());
+        }
+    }
+    kept.sort();
+    QStringList newest = backups.mid(1);
+    newest.sort();
+    QCOMPARE(kept, newest);
+    QVERIFY(!QFileInfo::exists(oldest));
+    for (const QString &file : unrelated) {
+        QVERIFY2(QFileInfo::exists(file), qPrintable(file));
+    }
+    QVERIFY(QFileInfo(link).isSymLink());
+
+    // A limit of 0 keeps every backup.
+    QCOMPARE(LibraryArchive::pruneBackups(folder, m_root, 0), 0);
+    QCOMPARE(LibraryArchive::pruneBackups(folder, m_root, 1, backups.last()), 2);
+    QVERIFY(QFileInfo::exists(backups.last()));
+    for (const QString &file : unrelated) {
+        QVERIFY(QFileInfo::exists(file));
+    }
 }
 
 QTEST_GUILESS_MAIN(LibraryArchiveTest)

@@ -16,6 +16,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <unistd.h>
+
 using namespace Qt::StringLiterals;
 
 class LibraryScanTest : public QObject
@@ -86,6 +88,11 @@ private:
         write(library.filePath(), QJsonDocument(library.toJson()).toJson());
     }
 
+    static QString privateFolder()
+    {
+        return QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + u"/libraries"_s;
+    }
+
 private Q_SLOTS:
     void initTestCase()
     {
@@ -97,6 +104,12 @@ private Q_SLOTS:
         for (const QString &root : LibraryRegistry::roots()) {
             LibraryRegistry::remove(root);
         }
+        QDir(privateFolder()).removeRecursively();
+    }
+
+    void cleanup()
+    {
+        QDir(privateFolder()).removeRecursively();
     }
 
     void scansFilesOfAnyTypeWithoutChangingThem()
@@ -230,6 +243,88 @@ private Q_SLOTS:
         QVERIFY(document.open(QIODevice::ReadOnly));
         QCOMPARE(document.readAll(), "not json");
         QCOMPARE(LibraryRegistry::roots(), QStringList{root});
+    }
+
+    void registryCreatesPrivateLibraries()
+    {
+        QTemporaryDir dir;
+        const QString root = dir.filePath(u"Shared"_s);
+        write(root + u"/photo.jpg"_s);
+        const QByteArray before = treeHash(root);
+        const QStringList names = QDir(root).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot);
+
+        QCOMPARE(LibraryRegistry::storageFor(root, TagLibrary::Storage::PrivateFolder), TagLibrary::Storage::PrivateFolder);
+        QCOMPARE(LibraryRegistry::create(root, TagLibrary::Storage::PrivateFolder), QString());
+        QVERIFY(QFile::exists(TagLibrary::privateDocumentPath(root)));
+        QCOMPARE(QDir(root).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot), names);
+        QCOMPARE(treeHash(root), before);
+        QVERIFY(TagLibrary::isPrivate(root));
+        QCOMPARE(LibraryRegistry::roots(), QStringList{root});
+
+        // Scanning and saving keep writing privately.
+        TagLibrary::Library library = TagLibrary::Library::load(root);
+        library.applyScan(LibraryScan::scan(root).items, true);
+        QVERIFY(library.save());
+        QCOMPARE(QDir(root).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot), names);
+
+        // An existing private document is adopted whatever the preferred storage.
+        LibraryRegistry::remove(root);
+        QCOMPARE(LibraryRegistry::storageFor(root, TagLibrary::Storage::LibraryFolder), TagLibrary::Storage::PrivateFolder);
+        QCOMPARE(LibraryRegistry::create(root, TagLibrary::Storage::LibraryFolder), QString());
+        QVERIFY(!QFile::exists(TagLibrary::folderDocumentPath(root)));
+        QCOMPARE(TagLibrary::Library::load(root).entries().size(), 1);
+    }
+
+    void registryAdoptsDocumentsInTheFolder()
+    {
+        QTemporaryDir dir;
+        const QString root = dir.filePath(u"Pictures"_s);
+        write(root + u"/photo.jpg"_s);
+        TagLibrary::Library existing(root);
+        existing.applyScan(LibraryScan::scan(root).items, true);
+        QVERIFY(existing.save());
+
+        // An in-folder document is used in place even when private storage is preferred.
+        QCOMPARE(LibraryRegistry::storageFor(root, TagLibrary::Storage::PrivateFolder), TagLibrary::Storage::LibraryFolder);
+        QCOMPARE(LibraryRegistry::create(root, TagLibrary::Storage::PrivateFolder), QString());
+        QVERIFY(!QFile::exists(TagLibrary::privateDocumentPath(root)));
+        QVERIFY(!TagLibrary::isPrivate(root));
+        QCOMPARE(TagLibrary::Library::load(root).entries().size(), 1);
+        // The in-folder document is never indexed.
+        for (const auto &item : LibraryScan::scan(root).items) {
+            QVERIFY(!TagLibrary::isLibraryFile(item.path));
+        }
+
+        // With documents in both places, the private one is used.
+        LibraryRegistry::remove(root);
+        TagLibrary::Library privateCopy(root, TagLibrary::Storage::PrivateFolder);
+        QVERIFY(privateCopy.save());
+        QCOMPARE(LibraryRegistry::storageFor(root, TagLibrary::Storage::LibraryFolder), TagLibrary::Storage::PrivateFolder);
+        QCOMPARE(LibraryRegistry::create(root), QString());
+        QVERIFY(TagLibrary::Library::load(root).entries().isEmpty());
+        QVERIFY(QFile::exists(TagLibrary::folderDocumentPath(root)));
+    }
+
+    void registryCreatesPrivateLibrariesOfReadOnlyFolders()
+    {
+        if (::geteuid() == 0) {
+            QSKIP("Permission checks don't apply to root.");
+        }
+        QTemporaryDir dir;
+        const QString root = dir.filePath(u"ReadOnly"_s);
+        write(root + u"/photo.jpg"_s);
+        QVERIFY(QFile::setPermissions(root, QFile::ReadOwner | QFile::ExeOwner));
+        const QString error = LibraryRegistry::create(root);
+        QVERIFY(!error.isEmpty());
+        QVERIFY(LibraryRegistry::roots().isEmpty());
+        QCOMPARE(LibraryRegistry::create(root, TagLibrary::Storage::PrivateFolder), QString());
+        QCOMPARE(LibraryRegistry::roots(), QStringList{root});
+        TagLibrary::Library library = TagLibrary::Library::load(root);
+        QVERIFY(!library.isReadOnly());
+        library.applyScan(LibraryScan::scan(root).items, true);
+        QVERIFY(library.save());
+        QVERIFY(!QFile::exists(TagLibrary::folderDocumentPath(root)));
+        QVERIFY(QFile::setPermissions(root, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
     }
 
     void movingPathsKeepsMetadataWithEntries()

@@ -12,6 +12,7 @@
 #include "libraryscan.h"
 #include "localizeddates.h"
 #include "metadataimportdialog.h"
+#include "settings.h"
 #include "tagassignment.h"
 #include "tageditdialog.h"
 #include "tagfieldmanagerwidget.h"
@@ -868,13 +869,33 @@ private Q_SLOTS:
             QVERIFY(!dialog.plan().hasChanges());
             QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("metadataImportApply"))->isEnabled());
             QVERIFY(!dialog.import());
+            // Writing to files needs consent in Preferences, so the editor is offered but turned off by default.
+            QVERIFY(!Settings::allowEmbeddedMetadataWrites());
+            auto *edit = dialog.findChild<QPushButton *>(QStringLiteral("metadataImportEditEmbedded"));
+            auto *note = dialog.findChild<QLabel *>(QStringLiteral("metadataImportEditEmbeddedNote"));
+            QVERIFY(edit->isVisibleTo(&dialog));
+            QVERIFY(!edit->isEnabled());
+            QVERIFY(note->isVisibleTo(&dialog));
+            QVERIFY(note->text().contains(QStringLiteral("Privacy")));
+            QVERIFY(edit->toolTip().contains(QStringLiteral("Privacy")));
+            QSignalSpy requested(&dialog, &MetadataImportDialog::editEmbeddedRequested);
+            edit->click();
+            QCOMPARE(requested.count(), 0);
+        }
+        Settings::setAllowEmbeddedMetadataWrites(true);
+        {
+            MetadataImportDialog dialog(dir.path(), {photo});
+            QTRY_VERIFY(dialog.isReady());
             auto *edit = dialog.findChild<QPushButton *>(QStringLiteral("metadataImportEditEmbedded"));
             QVERIFY(edit->isVisibleTo(&dialog));
+            QVERIFY(edit->isEnabled());
+            QVERIFY(!dialog.findChild<QLabel *>(QStringLiteral("metadataImportEditEmbeddedNote"))->isVisibleTo(&dialog));
             QSignalSpy requested(&dialog, &MetadataImportDialog::editEmbeddedRequested);
             edit->click();
             QCOMPARE(requested.count(), 1);
             QCOMPARE(requested.first().first().toString(), photo);
         }
+        Settings::setAllowEmbeddedMetadataWrites(false);
 
         // The controller opens the import for the selection and refuses items outside libraries.
         QWidget window;
