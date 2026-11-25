@@ -6,9 +6,12 @@
 #include <KConfigGroup>
 
 #include <QJsonObject>
+#include <QKeySequence>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+
+Q_DECLARE_METATYPE(YaziMode::Preset)
 
 class YaziModeTest : public QObject
 {
@@ -218,6 +221,251 @@ private Q_SLOTS:
             QVERIFY(hadPreview);
         }
     }
+
+    void matcherMatchesSingleKeys()
+    {
+        YaziMode::KeyMatcher matcher(YaziMode::presetKeymap(YaziMode::Preset::Vim));
+        QCOMPARE(matcher.feed(Qt::Key_J), Result::Matched);
+        QCOMPARE(matcher.command(), YaziMode::Command::MoveDown);
+        QCOMPARE(matcher.count(), 1);
+        QVERIFY(!matcher.isPending());
+        QCOMPARE(matcher.feed(Qt::ShiftModifier | Qt::Key_G), Result::Matched);
+        QCOMPARE(matcher.command(), YaziMode::Command::MoveLast);
+        QCOMPARE(matcher.feed(Qt::ControlModifier | Qt::Key_D), Result::Matched);
+        QCOMPARE(matcher.command(), YaziMode::Command::HalfPageDown);
+        // The keypad modifier doesn't change what a key means.
+        QCOMPARE(matcher.feed(Qt::KeypadModifier | Qt::Key_Enter), Result::Matched);
+        QCOMPARE(matcher.command(), YaziMode::Command::Open);
+    }
+
+    void matcherWaitsForTheRestOfASequence()
+    {
+        YaziMode::KeyMatcher matcher(YaziMode::presetKeymap(YaziMode::Preset::Vim));
+        QCOMPARE(matcher.feed(Qt::Key_G), Result::Pending);
+        QVERIFY(matcher.isPending());
+        QCOMPARE(matcher.pendingKeys(), YaziMode::KeySequence{Qt::Key_G});
+        QCOMPARE(matcher.pendingText(), QStringLiteral("g"));
+        // Modifier keys pressed alone, as before Shift+G, keep the sequence.
+        QCOMPARE(matcher.feed(Qt::ShiftModifier | Qt::Key_Shift), Result::Pending);
+        QCOMPARE(matcher.feed(Qt::Key_G), Result::Matched);
+        QCOMPARE(matcher.command(), YaziMode::Command::MoveFirst);
+        QVERIFY(!matcher.isPending());
+        QVERIFY(matcher.pendingText().isEmpty());
+
+        QCOMPARE(matcher.feed(Qt::Key_G), Result::Pending);
+        QCOMPARE(matcher.feed(Qt::Key_H), Result::Matched);
+        QCOMPARE(matcher.command(), YaziMode::Command::Home);
+        QCOMPARE(matcher.feed(Qt::Key_Z), Result::Pending);
+        QCOMPARE(matcher.feed(Qt::Key_P), Result::Matched);
+        QCOMPARE(matcher.command(), YaziMode::Command::TogglePreview);
+    }
+
+    void matcherLetsUnboundKeysThrough()
+    {
+        YaziMode::KeyMatcher matcher(YaziMode::presetKeymap(YaziMode::Preset::Vim));
+        QCOMPARE(matcher.feed(Qt::Key_X), Result::NoMatch);
+        QCOMPARE(matcher.feed(Qt::Key_0), Result::NoMatch);
+        QCOMPARE(matcher.feed(Qt::ControlModifier | Qt::Key_C), Result::NoMatch);
+        QCOMPARE(matcher.feed(Qt::Key_Shift), Result::NoMatch);
+        QVERIFY(!matcher.isPending());
+
+        // Standard keys leave letters, Escape and modified arrows alone.
+        YaziMode::KeyMatcher standard(YaziMode::presetKeymap(YaziMode::Preset::Standard));
+        QCOMPARE(standard.feed(Qt::Key_J), Result::NoMatch);
+        QCOMPARE(standard.feed(Qt::Key_5), Result::NoMatch);
+        QCOMPARE(standard.feed(Qt::ShiftModifier | Qt::Key_Down), Result::NoMatch);
+        QCOMPARE(standard.feed(Qt::AltModifier | Qt::Key_Left), Result::NoMatch);
+        QCOMPARE(standard.feed(Qt::Key_Down), Result::Matched);
+        QCOMPARE(standard.command(), YaziMode::Command::MoveDown);
+        QCOMPARE(standard.feed(Qt::Key_Left), Result::Matched);
+        QCOMPARE(standard.command(), YaziMode::Command::Parent);
+    }
+
+    void escapeCancelsOnlyWhatIsPending()
+    {
+        YaziMode::KeyMatcher matcher(YaziMode::presetKeymap(YaziMode::Preset::Vim));
+        QCOMPARE(matcher.feed(Qt::Key_Escape), Result::NoMatch);
+        QCOMPARE(matcher.feed(Qt::Key_G), Result::Pending);
+        QCOMPARE(matcher.test(Qt::Key_Escape), Result::Cancelled);
+        QCOMPARE(matcher.feed(Qt::Key_Escape), Result::Cancelled);
+        QVERIFY(!matcher.isPending());
+        QCOMPARE(matcher.feed(Qt::Key_Escape), Result::NoMatch);
+        // After cancelling, g starts a new sequence rather than completing gg.
+        QCOMPARE(matcher.feed(Qt::Key_G), Result::Pending);
+        // A digit breaks the sequence and starts a count.
+        QCOMPARE(matcher.feed(Qt::Key_3), Result::Pending);
+        QVERIFY(matcher.pendingKeys().isEmpty());
+        QCOMPARE(matcher.pendingCount(), 3);
+        QCOMPARE(matcher.feed(Qt::Key_Escape), Result::Cancelled);
+        QVERIFY(!matcher.isPending());
+
+        QCOMPARE(matcher.feed(Qt::Key_4), Result::Pending);
+        QCOMPARE(matcher.feed(Qt::Key_Escape), Result::Cancelled);
+        QCOMPARE(matcher.pendingCount(), 0);
+    }
+
+    void brokenSequenceRetriesTheKeyOnItsOwn()
+    {
+        YaziMode::KeyMatcher matcher(YaziMode::presetKeymap(YaziMode::Preset::Vim));
+        QCOMPARE(matcher.feed(Qt::Key_G), Result::Pending);
+        QCOMPARE(matcher.feed(Qt::Key_J), Result::Matched);
+        QCOMPARE(matcher.command(), YaziMode::Command::MoveDown);
+
+        QCOMPARE(matcher.feed(Qt::Key_G), Result::Pending);
+        QCOMPARE(matcher.feed(Qt::Key_Z), Result::Pending);
+        QCOMPARE(matcher.pendingText(), QStringLiteral("z"));
+        QCOMPARE(matcher.feed(Qt::Key_X), Result::NoMatch);
+        QVERIFY(!matcher.isPending());
+    }
+
+    void countsRepeatCommands()
+    {
+        YaziMode::KeyMatcher matcher(YaziMode::presetKeymap(YaziMode::Preset::Vim));
+        QCOMPARE(matcher.feed(Qt::Key_1), Result::Pending);
+        QCOMPARE(matcher.feed(Qt::Key_2), Result::Pending);
+        QCOMPARE(matcher.pendingCount(), 12);
+        QCOMPARE(matcher.pendingText(), QStringLiteral("12"));
+        QCOMPARE(matcher.feed(Qt::Key_J), Result::Matched);
+        QCOMPARE(matcher.command(), YaziMode::Command::MoveDown);
+        QCOMPARE(matcher.count(), 12);
+
+        QCOMPARE(matcher.feed(Qt::Key_5), Result::Pending);
+        QCOMPARE(matcher.feed(Qt::Key_G), Result::Pending);
+        QCOMPARE(matcher.pendingText(), QStringLiteral("5g"));
+        QCOMPARE(matcher.feed(Qt::Key_G), Result::Matched);
+        QCOMPARE(matcher.count(), 5);
+
+        QCOMPARE(matcher.feed(Qt::Key_2), Result::Pending);
+        QCOMPARE(matcher.feed(Qt::ControlModifier | Qt::Key_D), Result::Matched);
+        QCOMPARE(matcher.count(), 2);
+
+        // Counts stop growing at the maximum.
+        for (int i = 0; i < 6; ++i) {
+            QCOMPARE(matcher.feed(Qt::Key_9), Result::Pending);
+        }
+        QCOMPARE(matcher.pendingCount(), YaziMode::MaximumCount);
+        // A count followed by an unbound key is dropped with it.
+        QCOMPARE(matcher.feed(Qt::Key_X), Result::NoMatch);
+        QVERIFY(!matcher.isPending());
+        QCOMPARE(matcher.feed(Qt::Key_K), Result::Matched);
+        QCOMPARE(matcher.count(), 1);
+
+        // The standard keys don't take counts.
+        YaziMode::KeyMatcher standard(YaziMode::presetKeymap(YaziMode::Preset::Standard));
+        QCOMPARE(standard.feed(Qt::Key_3), Result::NoMatch);
+        QVERIFY(!standard.isPending());
+    }
+
+    void testLeavesTheStateAlone()
+    {
+        YaziMode::KeyMatcher matcher(YaziMode::presetKeymap(YaziMode::Preset::Vim));
+        QCOMPARE(matcher.test(Qt::Key_G), Result::Pending);
+        QVERIFY(!matcher.isPending());
+        QCOMPARE(matcher.feed(Qt::Key_G), Result::Pending);
+        QCOMPARE(matcher.test(Qt::Key_G), Result::Matched);
+        QCOMPARE(matcher.test(Qt::Key_X), Result::NoMatch);
+        QVERIFY(matcher.isPending());
+        QCOMPARE(matcher.pendingKeys(), YaziMode::KeySequence{Qt::Key_G});
+        matcher.reset();
+        QVERIFY(!matcher.isPending());
+    }
+
+    void setKeymapCancelsAPendingSequence()
+    {
+        YaziMode::KeyMatcher matcher(YaziMode::presetKeymap(YaziMode::Preset::Vim));
+        QCOMPARE(matcher.feed(Qt::Key_G), Result::Pending);
+        matcher.setKeymap(YaziMode::presetKeymap(YaziMode::Preset::Standard));
+        QVERIFY(!matcher.isPending());
+        QCOMPARE(matcher.feed(Qt::Key_G), Result::NoMatch);
+    }
+
+    void presetsHaveNoConflicts_data()
+    {
+        QTest::addColumn<YaziMode::Preset>("preset");
+        QTest::newRow("standard") << YaziMode::Preset::Standard;
+        QTest::newRow("vim") << YaziMode::Preset::Vim;
+    }
+
+    void presetsHaveNoConflicts()
+    {
+        QFETCH(YaziMode::Preset, preset);
+        const YaziMode::Keymap keymap = YaziMode::presetKeymap(preset);
+        QVERIFY(!keymap.bindings.isEmpty());
+        QCOMPARE(YaziMode::conflicts(keymap), QList<YaziMode::Conflict>());
+        // Every binding can be typed and runs its own command.
+        for (const YaziMode::Binding &binding : keymap.bindings) {
+            YaziMode::KeyMatcher matcher(keymap);
+            for (qsizetype i = 0; i < binding.keys.size(); ++i) {
+                const Result result = matcher.feed(binding.keys.at(i));
+                QCOMPARE(result, i + 1 < binding.keys.size() ? Result::Pending : Result::Matched);
+            }
+            QCOMPARE(matcher.command(), binding.command);
+            QVERIFY(!YaziMode::commandId(binding.command).isEmpty());
+        }
+    }
+
+    void vimKeysExtendTheStandardKeys()
+    {
+        const YaziMode::Keymap standard = YaziMode::presetKeymap(YaziMode::Preset::Standard);
+        const YaziMode::Keymap vim = YaziMode::presetKeymap(YaziMode::Preset::Vim);
+        QVERIFY(!standard.counts);
+        QVERIFY(vim.counts);
+        for (const YaziMode::Binding &binding : standard.bindings) {
+            QVERIFY(vim.bindings.contains(binding));
+        }
+    }
+
+    void conflictsFindPrefixesAndUnusableBindings()
+    {
+        YaziMode::Keymap keymap;
+        keymap.bindings = {
+            {{Qt::Key_G}, YaziMode::Command::MoveFirst},
+            {{Qt::Key_G, Qt::Key_G}, YaziMode::Command::MoveLast},
+            {{Qt::Key_J}, YaziMode::Command::MoveDown},
+            {{Qt::Key_J}, YaziMode::Command::MoveUp},
+            {{}, YaziMode::Command::Open},
+            {{Qt::Key_Escape}, YaziMode::Command::Leave},
+            {{Qt::Key_5, Qt::Key_J}, YaziMode::Command::PageDown},
+            {{Qt::Key_0}, YaziMode::Command::Home},
+        };
+        // Without counts, digits are ordinary keys.
+        QCOMPARE(YaziMode::conflicts(keymap), (QList<YaziMode::Conflict>{{0, 1}, {2, 3}, {4, -1}, {5, -1}}));
+        keymap.counts = true;
+        // With counts, 5 can't start a binding, though 0 can.
+        QCOMPARE(YaziMode::conflicts(keymap), (QList<YaziMode::Conflict>{{0, 1}, {2, 3}, {4, -1}, {5, -1}, {6, -1}}));
+    }
+
+    void commandsHaveDistinctIdentifiers()
+    {
+        QStringList ids;
+        for (int i = int(YaziMode::Command::MoveUp); i <= int(YaziMode::Command::Leave); ++i) {
+            const QString id = YaziMode::commandId(YaziMode::Command(i));
+            QVERIFY(!id.isEmpty());
+            QVERIFY2(!ids.contains(id), qPrintable(id));
+            ids.append(id);
+        }
+        QCOMPARE(YaziMode::commandId(YaziMode::Command::MoveDown), QStringLiteral("move-down"));
+        QVERIFY(YaziMode::commandTakesCount(YaziMode::Command::MoveDown));
+        QVERIFY(YaziMode::commandTakesCount(YaziMode::Command::HalfPageUp));
+        QVERIFY(!YaziMode::commandTakesCount(YaziMode::Command::Parent));
+        QVERIFY(!YaziMode::commandTakesCount(YaziMode::Command::Leave));
+    }
+
+    void keysShowAsTyped()
+    {
+        QCOMPARE(YaziMode::keyText(Qt::Key_G), QStringLiteral("g"));
+        QCOMPARE(YaziMode::keyText(Qt::ShiftModifier | Qt::Key_G), QStringLiteral("G"));
+        QCOMPARE(YaziMode::keyText(Qt::ControlModifier | Qt::Key_D), QKeySequence(Qt::ControlModifier | Qt::Key_D).toString(QKeySequence::NativeText));
+        QCOMPARE(YaziMode::sequenceText({Qt::Key_G, Qt::Key_G}), QStringLiteral("gg"));
+        QCOMPARE(YaziMode::sequenceText({Qt::Key_G}, 5), QStringLiteral("5g"));
+        QCOMPARE(YaziMode::sequenceText({}, 12), QStringLiteral("12"));
+        QCOMPARE(YaziMode::sequenceText({Qt::ControlModifier | Qt::Key_D}, 2),
+                 QStringLiteral("2 ") + QKeySequence(Qt::ControlModifier | Qt::Key_D).toString(QKeySequence::NativeText));
+        QCOMPARE(YaziMode::normalizedKey(Qt::KeypadModifier | Qt::Key_Up), QKeyCombination(Qt::Key_Up));
+    }
+
+private:
+    using Result = YaziMode::KeyMatcher::Result;
 };
 
 QTEST_GUILESS_MAIN(YaziModeTest)

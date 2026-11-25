@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "filterbar.h"
 #include "folderview.h"
 #include "mainwindow.h"
 #include "pane.h"
@@ -9,6 +10,7 @@
 #include "tabmodel.h"
 #include "workspacedialog.h"
 #include "yazicolumns.h"
+#include "yazikeys.h"
 #include "yazipreview.h"
 
 #include <KActionCollection>
@@ -18,8 +20,10 @@
 
 #include <QAbstractItemModel>
 #include <QApplication>
+#include <QComboBox>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListView>
@@ -157,6 +161,7 @@ private Q_SLOTS:
 
     void init()
     {
+        Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Standard);
         Settings::setConfirmClosingMultipleTabs(false);
         Settings::setStartupMode(Settings::EnumStartupMode::RestoreSession);
         KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Session"));
@@ -1009,7 +1014,397 @@ private Q_SLOTS:
         QTRY_VERIFY(!selector->text().endsWith(QStringLiteral(" *")));
     }
 
+    void vimKeysMoveTheCurrentItem()
+    {
+        Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
+        MainWindow window;
+        showWithFocusOnItems(window, m_many, true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        // In grid views, j moves a row of items as Down does; use a list to count rows.
+        FolderView *view = window.activePane()->view();
+        view->setViewMode(FolderView::ViewMode::Details);
+        QAbstractItemView *items = view->currentView();
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+        QTRY_COMPARE(items->model()->rowCount(items->rootIndex()), ManyFiles);
+        items->setCurrentIndex(items->model()->index(0, 0, items->rootIndex()));
+        const auto row = [items] {
+            return items->currentIndex().row();
+        };
+        QCOMPARE(row(), 0);
+
+        pressOnFocus(Qt::Key_J);
+        QCOMPARE(row(), 1);
+        QVERIFY(items->selectionModel()->isSelected(items->currentIndex()));
+        QCOMPARE(items->selectionModel()->selectedRows().size(), 1);
+        pressOnFocus(Qt::Key_K);
+        QCOMPARE(row(), 0);
+        pressOnFocus(Qt::Key_5);
+        pressOnFocus(Qt::Key_J);
+        QCOMPARE(row(), 5);
+        pressOnFocus(Qt::Key_G, Qt::ShiftModifier);
+        QCOMPARE(row(), ManyFiles - 1);
+        pressOnFocus(Qt::Key_G);
+        QCOMPARE(row(), ManyFiles - 1);
+        pressOnFocus(Qt::Key_G);
+        QCOMPARE(row(), 0);
+        QVERIFY(items->selectionModel()->isSelected(items->currentIndex()));
+
+        // Ctrl+D overrides the window's shortcut while the columns have the focus.
+        pressOnFocus(Qt::Key_D, Qt::ControlModifier);
+        const int halfPage = row();
+        QVERIFY2(halfPage > 1, qPrintable(QString::number(halfPage)));
+        pressOnFocus(Qt::Key_U, Qt::ControlModifier);
+        QCOMPARE(row(), 0);
+
+        // The standard keys keep working.
+        pressOnFocus(Qt::Key_Down);
+        QCOMPARE(row(), 1);
+        QCOMPARE(QApplication::focusWidget(), static_cast<QWidget *>(items));
+    }
+
+    void vimKeysGoToTheParentAndOpenFolders()
+    {
+        Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
+        MainWindow window;
+        showWithFocusOnItems(window, m_sub, true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        FolderView *view = pane->view();
+        QAbstractItemView *items = view->currentView();
+        YaziColumns *columns = pane->yaziColumns();
+        QListView *parent = columns->parentColumn();
+
+        // h opens the parent folder with the folder just left focused and selected.
+        pressOnFocus(Qt::Key_H);
+        QTRY_COMPARE(pane->url(), m_a);
+        QTRY_COMPARE(selectedUrls(view), QList<QUrl>{m_sub});
+        QCOMPARE(items->currentIndex().data().toString(), QStringLiteral("sub"));
+        QTRY_COMPARE(parent->currentIndex().data().toString(), QStringLiteral("a"));
+        QVERIFY(items->hasFocus());
+
+        // l opens the focused folder; H and L go back and forward.
+        pressOnFocus(Qt::Key_L);
+        QTRY_COMPARE(pane->url(), m_sub);
+        pressOnFocus(Qt::Key_H, Qt::ShiftModifier);
+        QTRY_COMPARE(pane->url(), m_a);
+        pressOnFocus(Qt::Key_L, Qt::ShiftModifier);
+        QTRY_COMPARE(pane->url(), m_sub);
+        QTRY_COMPARE(parent->currentIndex().data().toString(), QStringLiteral("sub"));
+
+        // gp focuses the parent column, where the keys move and open its items.
+        pressOnFocus(Qt::Key_G);
+        pressOnFocus(Qt::Key_P);
+        QVERIFY(parent->hasFocus());
+        pressOnFocus(Qt::Key_K);
+        QCOMPARE(parent->currentIndex().data().toString(), QStringLiteral("other"));
+        QCOMPARE(pane->url(), m_sub);
+        pressOnFocus(Qt::Key_L);
+        QTRY_COMPARE(pane->url(), m_other);
+        QTRY_COMPARE(parent->currentIndex().data().toString(), QStringLiteral("other"));
+
+        // gc and gv focus the current and preview columns; zp toggles the preview.
+        pressOnFocus(Qt::Key_G);
+        pressOnFocus(Qt::Key_C);
+        QVERIFY(items->hasFocus());
+        QVERIFY(pane->yaziPreview());
+        pressOnFocus(Qt::Key_G);
+        pressOnFocus(Qt::Key_V);
+        QVERIFY(columns->preview());
+        QVERIFY(columns->preview()->hasFocus());
+        pressOnFocus(Qt::Key_Z);
+        pressOnFocus(Qt::Key_P);
+        QTRY_VERIFY(!pane->yaziPreview());
+        QVERIFY(items->hasFocus());
+        pressOnFocus(Qt::Key_Z);
+        pressOnFocus(Qt::Key_P);
+        QTRY_VERIFY(pane->yaziPreview());
+
+        // gh opens the home folder.
+        const QUrl home = QUrl::fromLocalFile(m_root.filePath(QStringLiteral("b")));
+        const QUrl previousHome = Settings::homeUrl();
+        const auto restoreHome = qScopeGuard([previousHome] {
+            Settings::setHomeUrl(previousHome);
+        });
+        Settings::setHomeUrl(home);
+        pressOnFocus(Qt::Key_G);
+        pressOnFocus(Qt::Key_H);
+        QTRY_COMPARE(stripped(pane->url()), m_b);
+
+        // q leaves the mode.
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+        pressOnFocus(Qt::Key_Q);
+        QTRY_VERIFY(!pane->yaziMode());
+    }
+
+    void standardKeysGoToTheParentAndOpenFolders()
+    {
+        MainWindow window;
+        showWithFocusOnItems(window, m_sub, true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        QAbstractItemView *items = pane->view()->currentView();
+        QCOMPARE(pane->yaziColumns()->modeIndicator()->text(), QStringLiteral("Yazi"));
+
+        pressOnFocus(Qt::Key_Left);
+        QTRY_COMPARE(pane->url(), m_a);
+        QTRY_COMPARE(selectedUrls(pane->view()), QList<QUrl>{m_sub});
+        pressOnFocus(Qt::Key_Right);
+        QTRY_COMPARE(pane->url(), m_sub);
+
+        // Vim-style letters don't apply; they filter as usual.
+        pressOnFocus(Qt::Key_Left);
+        QTRY_COMPARE(pane->url(), m_a);
+        QTRY_COMPARE(items->currentIndex().data().toString(), QStringLiteral("sub"));
+        const bool typeAhead = Settings::filterTypeAhead();
+        const auto restore = qScopeGuard([typeAhead] {
+            Settings::setFilterTypeAhead(typeAhead);
+        });
+        Settings::setFilterTypeAhead(true);
+        pressOnFocus(Qt::Key_J);
+        auto *filterBar = pane->findChild<FilterBar *>();
+        QVERIFY(filterBar);
+        QTRY_VERIFY(filterBar->isVisible());
+        QCOMPARE(filterBar->filter().text(), QStringLiteral("j"));
+        QCOMPARE(pane->url(), m_a);
+    }
+
+    void keysAreLeftToTypingAndToPanesOutsideTheMode()
+    {
+        Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
+        const bool typeAhead = Settings::filterTypeAhead();
+        const auto restore = qScopeGuard([typeAhead] {
+            Settings::setFilterTypeAhead(typeAhead);
+        });
+        Settings::setFilterTypeAhead(false);
+        MainWindow window;
+        showWithFocusOnItems(window, m_a, false);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        FolderView *view = pane->view();
+        QAbstractItemView *items = view->currentView();
+        QTRY_VERIFY(rowNamed(items, QStringLiteral("sub")).isValid());
+        items->setCurrentIndex(rowNamed(items, QStringLiteral("sub")));
+
+        // Outside Yazi mode, the keys do nothing of their own.
+        QVERIFY(!pane->yaziMode());
+        for (Qt::Key key : {Qt::Key_J, Qt::Key_K, Qt::Key_L, Qt::Key_H, Qt::Key_Q}) {
+            pressOnFocus(key);
+        }
+        pressOnFocus(Qt::Key_G, Qt::ShiftModifier);
+        QTest::qWait(50);
+        QCOMPARE(pane->url(), m_a);
+        QCOMPARE(items->currentIndex().data().toString(), QStringLiteral("sub"));
+        QVERIFY(!pane->yaziMode());
+
+        // In the mode, letters the preset doesn't bind still reach type-ahead.
+        pane->setYaziMode(true);
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+        Settings::setFilterTypeAhead(true);
+        auto *filterBar = pane->findChild<FilterBar *>();
+        QVERIFY(filterBar);
+        QVERIFY(!filterBar->isVisible());
+        pressOnFocus(Qt::Key_O);
+        QTRY_VERIFY(filterBar->isVisible());
+        QCOMPARE(filterBar->filter().text(), QStringLiteral("o"));
+
+        // The filter bar takes the preset's letters as text.
+        QVERIFY(qobject_cast<QLineEdit *>(QApplication::focusWidget()));
+        for (Qt::Key key : {Qt::Key_H, Qt::Key_J, Qt::Key_G, Qt::Key_G, Qt::Key_Q}) {
+            pressOnFocus(key);
+        }
+        QCOMPARE(filterBar->filter().text(), QStringLiteral("ohjggq"));
+        QCOMPARE(pane->url(), m_a);
+        QVERIFY(pane->yaziMode());
+        QVERIFY(!pane->yaziColumns()->keys()->isPending());
+        filterBar->close();
+        QTRY_VERIFY(filterBar->filter().text().isEmpty());
+        Settings::setFilterTypeAhead(false);
+
+        // So does the location bar.
+        pane->editUrl();
+        QTRY_VERIFY(YaziKeys::isTypingWidget(QApplication::focusWidget()));
+        QWidget *locationWidget = QApplication::focusWidget();
+        auto *combo = qobject_cast<QComboBox *>(locationWidget);
+        QLineEdit *location = combo ? combo->lineEdit() : qobject_cast<QLineEdit *>(locationWidget);
+        QVERIFY(location);
+        pressOnFocus(Qt::Key_End);
+        pressOnFocus(Qt::Key_H);
+        QVERIFY(location->text().endsWith(QLatin1Char('h')));
+        QTest::qWait(50);
+        QCOMPARE(pane->url(), m_a);
+        pressOnFocus(Qt::Key_Escape);
+
+        // And an inline rename editor in the current column.
+        view->setViewMode(FolderView::ViewMode::Cards);
+        QAbstractItemView *cards = view->currentView();
+        QTRY_VERIFY(rowNamed(cards, QStringLiteral("sub")).isValid());
+        cards->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(cards->hasFocus());
+        cards->selectionModel()->select(rowNamed(cards, QStringLiteral("sub")), QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+        // The keys apply in the cards view until the editor opens.
+        pressOnFocus(Qt::Key_G);
+        QVERIFY(pane->yaziColumns()->keys()->isPending());
+        pressOnFocus(Qt::Key_Escape);
+        QVERIFY(!pane->yaziColumns()->keys()->isPending());
+        QVERIFY(view->renameInline());
+        QTRY_VERIFY(YaziKeys::isTypingWidget(QApplication::focusWidget()));
+        QWidget *editor = QApplication::focusWidget();
+        QVERIFY(cards->isAncestorOf(editor));
+        for (Qt::Key key : {Qt::Key_End, Qt::Key_H, Qt::Key_L, Qt::Key_G}) {
+            pressOnFocus(key);
+        }
+        QTest::qWait(50);
+        QCOMPARE(pane->url(), m_a);
+        QVERIFY(!pane->yaziColumns()->keys()->isPending());
+        if (auto *lineEdit = qobject_cast<QLineEdit *>(editor)) {
+            QVERIFY2(lineEdit->text().endsWith(QStringLiteral("hlg")), qPrintable(lineEdit->text()));
+        }
+        pressOnFocus(Qt::Key_Escape);
+        QTRY_VERIFY(cards->hasFocus());
+        QVERIFY(QFileInfo::exists(m_sub.toLocalFile()));
+    }
+
+    void indicatorShowsThePresetAndPendingKeys()
+    {
+        Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
+        MainWindow window;
+        showWithFocusOnItems(window, m_a, true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        YaziColumns *columns = pane->yaziColumns();
+        QLabel *indicator = columns->modeIndicator();
+        QAbstractItemView *items = pane->view()->currentView();
+        QCOMPARE(indicator->text(), QStringLiteral("Yazi · Vim"));
+        QCOMPARE(indicator->accessibleName(), QStringLiteral("Yazi mode with Vim-style keys"));
+
+        pressOnFocus(Qt::Key_G);
+        QCOMPARE(indicator->text(), QStringLiteral("Yazi · Vim · g…"));
+        QCOMPARE(indicator->accessibleName(), QStringLiteral("Yazi mode with Vim-style keys, waiting for the keys after g"));
+        // Escape cancels the sequence and nothing else.
+        pressOnFocus(Qt::Key_Escape);
+        QCOMPARE(indicator->text(), QStringLiteral("Yazi · Vim"));
+        QCOMPARE(indicator->accessibleName(), QStringLiteral("Yazi mode with Vim-style keys"));
+        QVERIFY(pane->yaziMode());
+        QVERIFY(items->hasFocus());
+
+        // A pending sequence expires.
+        pressOnFocus(Qt::Key_2);
+        pressOnFocus(Qt::Key_G);
+        QCOMPARE(indicator->text(), QStringLiteral("Yazi · Vim · 2g…"));
+        QTRY_COMPARE_WITH_TIMEOUT(indicator->text(), QStringLiteral("Yazi · Vim"), 3000);
+        QVERIFY(!columns->keys()->isPending());
+
+        // Moving the focus cancels it.
+        pressOnFocus(Qt::Key_Z);
+        QCOMPARE(indicator->text(), QStringLiteral("Yazi · Vim · z…"));
+        columns->parentColumn()->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(columns->parentColumn()->hasFocus());
+        QCOMPARE(indicator->text(), QStringLiteral("Yazi · Vim"));
+
+        // The View menu action switches the preset.
+        QAction *vimKeys = window.actionCollection()->action(QStringLiteral("toggle_yazi_vim_keys"));
+        QVERIFY(vimKeys);
+        QVERIFY(vimKeys->isChecked());
+        vimKeys->trigger();
+        QCOMPARE(Settings::yaziKeyPreset(), int(Settings::EnumYaziKeyPreset::Standard));
+        QCOMPARE(indicator->text(), QStringLiteral("Yazi"));
+        QCOMPARE(indicator->accessibleName(), QStringLiteral("Yazi mode"));
+        QCOMPARE(window.inactivePane()->yaziColumns()->keys()->preset(), YaziMode::Preset::Standard);
+        pressOnFocus(Qt::Key_G);
+        QVERIFY(!columns->keys()->isPending());
+        QCOMPARE(indicator->text(), QStringLiteral("Yazi"));
+        vimKeys->trigger();
+        QCOMPARE(Settings::yaziKeyPreset(), int(Settings::EnumYaziKeyPreset::Vim));
+        QCOMPARE(indicator->text(), QStringLiteral("Yazi · Vim"));
+    }
+
+    void columnActionsAreRebindableAndFollowTheMode()
+    {
+        MainWindow window;
+        showWithFocusOnItems(window, m_sub, false);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        const auto action = [&window](const char *name) {
+            return window.actionCollection()->action(QLatin1String(name));
+        };
+        QAction *focusParent = action("yazi_focus_parent_column");
+        QAction *focusCurrent = action("yazi_focus_current_column");
+        QAction *focusPreview = action("yazi_focus_preview");
+        QAction *vimKeys = action("toggle_yazi_vim_keys");
+        for (QAction *each : {focusParent, focusCurrent, focusPreview, vimKeys}) {
+            QVERIFY(each);
+            QVERIFY(each->shortcuts().isEmpty());
+            QVERIFY(!each->text().isEmpty());
+        }
+        QVERIFY(vimKeys->isCheckable());
+        QVERIFY(!vimKeys->isChecked());
+        auto *viewMenu = window.findChild<QMenu *>(QStringLiteral("view"));
+        QVERIFY(viewMenu);
+        QVERIFY(viewMenu->actions().contains(vimKeys));
+        auto *columnsMenu = window.findChild<QMenu *>(QStringLiteral("yazi_columns"));
+        QVERIFY(columnsMenu);
+        QCOMPARE(columnsMenu->actions(), (QList<QAction *>{focusParent, focusCurrent, focusPreview}));
+
+        QVERIFY(!focusParent->isEnabled());
+        // Without the mode, the actions do nothing even if triggered.
+        focusParent->trigger();
+        QVERIFY(!pane->yaziColumns()->parentColumn()->hasFocus());
+
+        pane->setYaziMode(true);
+        QVERIFY(focusParent->isEnabled());
+        QVERIFY(focusCurrent->isEnabled());
+        QVERIFY(focusPreview->isEnabled());
+        focusParent->trigger();
+        QTRY_VERIFY(pane->yaziColumns()->parentColumn()->hasFocus());
+        focusPreview->trigger();
+        QTRY_VERIFY(pane->yaziColumns()->preview()->hasFocus());
+        focusCurrent->trigger();
+        QTRY_VERIFY(pane->view()->currentView()->hasFocus());
+
+        // A hidden preview column can't take the focus.
+        pane->setYaziPreview(false);
+        QSignalSpy messages(pane, &Pane::statusMessage);
+        focusPreview->trigger();
+        QCOMPARE(messages.count(), 1);
+        QVERIFY(pane->view()->currentView()->hasFocus());
+
+        pane->setYaziMode(false);
+        QVERIFY(!focusParent->isEnabled());
+    }
+
 private:
+    // Shows @p window with the active pane at @p url, optionally in Yazi mode, and focuses its items.
+    void showWithFocusOnItems(MainWindow &window, const QUrl &url, bool yazi)
+    {
+        window.resize(1400, 600);
+        window.openUrls({url, m_b});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        Pane *pane = window.activePane();
+        QTRY_VERIFY(!pane->view()->isLoading());
+        pane->setYaziMode(yazi);
+        QAbstractItemView *items = pane->view()->currentView();
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+    }
+
     QTemporaryDir m_root;
     QUrl m_a;
     QUrl m_b;
