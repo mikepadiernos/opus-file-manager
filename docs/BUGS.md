@@ -38,6 +38,7 @@ This log records user-visible bugs and reliability issues. Consult the
 | [#558](https://github.com/mikepadiernos/plasma-opus/issues/558) | Headers, titles and status bar need horizontal padding             | Yes       | Merged         |
 | [#605](https://github.com/mikepadiernos/plasma-opus/issues/605) | Panes without a saved view mode open in Details                    | Yes       | Merged         |
 | [#606](https://github.com/mikepadiernos/plasma-opus/issues/606) | Visual Markdown editing loses formatting with a fixed-pitch font   | Yes       | Merged         |
+| [#682](https://github.com/mikepadiernos/plasma-opus/issues/682) | Icons view shows image thumbnails at Details size                  | No        | Review         |
 
 ## Status legend
 
@@ -54,7 +55,20 @@ This log records user-visible bugs and reliability issues. Consult the
 
 ## Open reports
 
-There are no open bug reports.
+### Icons view thumbnail size
+
+- Severity: moderate
+- Status: Review; [#682](https://github.com/mikepadiernos/plasma-opus/issues/682)
+- Summary: With previews enabled, image thumbnails in Icons view render at
+  Details-view size, about 16 px, inside full-size icon cells.
+- Steps to reproduce: Enable **View → Show Previews**, switch a pane to Icons
+  view and open a folder that contains images.
+- Expected behaviour: Thumbnails fill the icon cell at the Icons view's size.
+- Actual behaviour: Thumbnails appear at Details-view size. The views share one
+  model, and every view's preview generator was enabled, so the smaller Details
+  and Compact previews overwrote the Icons previews.
+- Resolution: Only the current view's preview generator is enabled, and
+  switching views refreshes the previews at the new view's size.
 
 ## Completed reports
 
