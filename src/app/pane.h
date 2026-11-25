@@ -189,8 +189,8 @@ public:
     /**
      * Runs a Yazi mode command in this pane, as its keys or actions do.
      * Does nothing while the pane is not in Yazi mode. Showing or hiding the
-     * preview and leaving the mode happen once control returns to the event
-     * loop, since they can delete the focused widget.
+     * preview, leaving the mode and file commands happen once control returns
+     * to the event loop, since they can delete the focused widget.
      * @param command the command to run
      * @param count how many times to repeat a command that takes a count
      */
@@ -219,6 +219,12 @@ Q_SIGNALS:
     void searchRequested();
     void yaziModeChanged(bool enabled);
     void yaziPreviewChanged(bool visible);
+    /**
+     * A Yazi mode file command, such as Trash, should run through the
+     * window's action. For a command that uses the selection, the focused
+     * item has been selected if nothing was.
+     */
+    void yaziFileCommandRequested(YaziMode::Command command);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;

@@ -109,6 +109,7 @@
 #include <KXMLGUIFactory>
 #include <Solid/Device>
 
+#include <QAbstractItemView>
 #include <QApplication>
 #include <QClipboard>
 #include <QCloseEvent>
@@ -1439,6 +1440,9 @@ void MainWindow::connectPane(Pane *pane)
             updateActions();
         }
     });
+    connect(pane, &Pane::yaziFileCommandRequested, this, [this, pane](YaziMode::Command command) {
+        runYaziFileCommand(pane, command);
+    });
     connect(pane, &Pane::urlChanged, this, [this, pane](const QUrl &url) {
         syncLinkedPane(pane, url);
         recordFolderVisit(pane, url);
@@ -2582,6 +2586,16 @@ void MainWindow::setupActions()
                         i18nc("@action", "Focus Preview Column"),
                         i18nc("@info:tooltip", "Move the keyboard focus to the preview column in the active pane's Yazi mode"),
                         YaziMode::Command::FocusPreview);
+    addYaziColumnAction(QStringLiteral("yazi_toggle_selection"),
+                        i18nc("@action", "Toggle Selection of Focused Item"),
+                        i18nc("@info:tooltip",
+                              "Select or deselect the focused item in the active pane's Yazi mode; the selection stays as the focus moves until it is cleared"),
+                        YaziMode::Command::ToggleSelection);
+    addYaziColumnAction(
+        QStringLiteral("yazi_visual_selection"),
+        i18nc("@action", "Range Selection"),
+        i18nc("@info:tooltip", "Start or end selecting every item between the focused item and where the range started, in the active pane's Yazi mode"),
+        YaziMode::Command::VisualSelection);
 
     QAction *formatSource = actions->addAction(QStringLiteral("folder_format_source"));
     formatSource->setEnabled(false);
@@ -4932,6 +4946,81 @@ void MainWindow::showNewMenu()
     m_newFileMenu->setWorkingDirectory(activePane()->url());
     m_newFileMenu->checkUpToDate();
     m_newFileMenu->menu()->popup(QCursor::pos());
+}
+
+void MainWindow::runYaziFileCommand(Pane *pane, YaziMode::Command command)
+{
+    if (!pane || !pane->yaziMode()) {
+        return;
+    }
+    using YaziMode::Command;
+    const QString name = YaziMode::commandAction(command);
+    if (YaziMode::permanentDeletionActions().contains(name)) {
+        return;
+    }
+    setActivePane(pane);
+    updateActions();
+    QAction *action = name.isEmpty() ? nullptr : actionCollection()->action(name);
+    const auto unavailable = [this](const QString &text) {
+        QString title = KLocalizedString::removeAcceleratorMarker(text);
+        title.remove(QStringLiteral("…"));
+        title.remove(QStringLiteral("..."));
+        showStatusMessage(i18nc("@info:status %1 is an action such as Move to Trash", "%1 is not available here.", title));
+    };
+    switch (command) {
+    case Command::Paste:
+        // Ctrl+V pastes into a single selected folder; as in Yazi, p pastes
+        // into the current folder, since the focused item is selected as the
+        // focus moves. KIO's paste asks about conflicts and records undo.
+        if (!m_pasteAction->isEnabled() || !FileOperations::paste(pane->url(), this)) {
+            unavailable(i18nc("@action", "Paste"));
+        }
+        return;
+    case Command::Create:
+        if (!action || !action->isEnabled()) {
+            unavailable(i18nc("@action", "Create New"));
+            return;
+        }
+        m_newFileMenu->setWorkingDirectory(pane->url());
+        m_newFileMenu->checkUpToDate();
+        m_newFileMenu->menu()->popup(yaziMenuPosition(pane));
+        return;
+    case Command::OpenWith: {
+        const KFileItemList items = pane->view()->selectedItems();
+        auto *menu = new QMenu(this);
+        menu->setObjectName(QStringLiteral("yaziOpenWithMenu"));
+        menu->setAttribute(Qt::WA_DeleteOnClose);
+        if (!items.isEmpty()) {
+            m_fileItemActions->setItemListProperties(KFileItemListProperties(items));
+            m_fileItemActions->insertOpenWithActionsTo(nullptr, menu, QStringList());
+        }
+        if (menu->isEmpty()) {
+            delete menu;
+            unavailable(i18nc("@action", "Open With"));
+            return;
+        }
+        menu->popup(yaziMenuPosition(pane));
+        return;
+    }
+    default:
+        break;
+    }
+    if (!action) {
+        return;
+    }
+    if (!action->isEnabled()) {
+        unavailable(action->text());
+        return;
+    }
+    action->trigger();
+}
+
+QPoint MainWindow::yaziMenuPosition(Pane *pane) const
+{
+    QAbstractItemView *items = pane->view()->currentView();
+    const QRect rect = items->visualRect(items->currentIndex());
+    const bool shown = rect.isValid() && items->viewport()->rect().intersects(rect);
+    return items->viewport()->mapToGlobal(shown ? rect.bottomLeft() : QPoint(0, 0));
 }
 
 void MainWindow::toggleLayout(bool dual)

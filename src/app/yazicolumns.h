@@ -4,7 +4,9 @@
 
 #include "yazimode.h"
 
+#include <QItemSelection>
 #include <QList>
+#include <QPersistentModelIndex>
 #include <QPointer>
 #include <QUrl>
 #include <QWidget>
@@ -87,6 +89,8 @@ public:
     QSplitter *splitter() const;
     /// The label that tells the user the pane is in Yazi mode, with the key preset and any pending keys.
     QLabel *modeIndicator() const;
+    /// The label after the mode indicator that counts the selected items while several are selected or marked.
+    QLabel *selectionIndicator() const;
     /// Adds @p widget to the row below the columns, after the mode indicator.
     void addStatusWidget(QWidget *widget, int stretch = 0);
 
@@ -118,6 +122,29 @@ public:
      */
     void openParentItem();
 
+    /**
+     * Selects or deselects the current column's focused item and starts
+     * marking: until the selection is cleared, moving the focus keeps the
+     * selection instead of selecting the focused item. When nothing is
+     * marked yet, the focused item becomes the only selected item.
+     * @param moveDown whether to move the focus down after each toggle
+     * @param count how many items to toggle when moving down
+     */
+    void toggleSelection(bool moveDown, int count = 1);
+    /**
+     * Starts range (visual) selection at the current column's focused item,
+     * or ends it and keeps the selected items. While it is on, moving the
+     * focus selects every item between where it started and the focused
+     * item, in addition to the items marked before.
+     */
+    void toggleVisualSelection();
+    /// Selects every item of the current column and starts marking.
+    void selectAll();
+    /// Whether moving the focus keeps the selection, after a selection command.
+    bool isMarking() const;
+    /// Whether range selection is on.
+    bool isVisual() const;
+
 Q_SIGNALS:
     /// A folder in the parent column was chosen; the pane should open it.
     void folderRequested(const QUrl &url);
@@ -146,6 +173,17 @@ private:
     void labelCurrentColumn();
     void restoreCurrentColumnLabels();
     void updateIndicator();
+    /// Follows a selection change that the selection commands didn't make.
+    void selectionChanged();
+    void updateSelectionIndicator();
+    /// Ends marking and range selection, keeping the selection.
+    void resetSelectionState();
+    /// Selects the items marked before range selection and the range to the focused item.
+    void applyVisualRange();
+    /// The rows from @p from to @p to as the current column shows them, in either order.
+    QItemSelection rowsBetween(const QModelIndex &from, const QModelIndex &to) const;
+    /// Whether the current column's selection is empty or only its focused item.
+    bool selectionIsFocusOnly() const;
     /// Whether @p widget takes the keys with the focus in it.
     bool acceptsKeys(QWidget *widget) const;
     /// Whether @p view has an inline editor open, as when renaming in place.
@@ -165,11 +203,18 @@ private:
     QWidget *m_statusRow = nullptr;
     QHBoxLayout *m_statusLayout = nullptr;
     QLabel *m_indicator = nullptr;
+    QLabel *m_selectionLabel = nullptr;
     YaziKeys *m_keys = nullptr;
     QUrl m_url;
     QUrl m_parentUrl;
     QUrl m_pendingRequest;
     bool m_showHiddenFiles = false;
+    bool m_marking = false;
+    bool m_visual = false;
+    /// Set while the selection commands change the selection themselves.
+    bool m_changingSelection = false;
+    QPersistentModelIndex m_visualAnchor;
+    QItemSelection m_visualBase;
     YaziMode::Ratios m_ratios;
     QList<SavedAccessibility> m_savedAccessibility;
 };

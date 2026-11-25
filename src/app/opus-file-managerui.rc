@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="46" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="47" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -54,6 +54,8 @@
       <Action name="edit_select_all"/>
       <Action name="select_menu"/>
       <Action name="selection_mode"/>
+      <Action name="yazi_toggle_selection"/>
+      <Action name="yazi_visual_selection"/>
       <Separator/>
       <Action name="show_filter_bar"/>
     </Menu>

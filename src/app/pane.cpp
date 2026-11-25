@@ -36,6 +36,7 @@
 #include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
 #include <QInputDialog>
+#include <QItemSelectionModel>
 #include <QLabel>
 #include <QListWidget>
 #include <QMenu>
@@ -1176,6 +1177,55 @@ void Pane::runYaziCommand(YaziMode::Command command, int count)
             this,
             [this] {
                 setYaziMode(false);
+            },
+            Qt::QueuedConnection);
+        break;
+    case Command::ToggleSelection:
+    case Command::ToggleSelectionDown:
+    case Command::VisualSelection:
+    case Command::SelectAll:
+        if (m_yaziColumns->focusedColumn() == YaziColumns::Column::Parent) {
+            Q_EMIT statusMessage(i18nc("@info:status", "Select items in the current column; the parent column only opens folders."));
+        } else if (command == Command::VisualSelection) {
+            m_yaziColumns->toggleVisualSelection();
+        } else if (command == Command::SelectAll) {
+            m_yaziColumns->selectAll();
+        } else {
+            m_yaziColumns->toggleSelection(command == Command::ToggleSelectionDown, count);
+        }
+        break;
+    case Command::Copy:
+    case Command::Cut:
+    case Command::Paste:
+    case Command::Rename:
+    case Command::Trash:
+    case Command::Create:
+    case Command::OpenWith:
+    case Command::CopyToOtherPane:
+    case Command::MoveToOtherPane:
+    case Command::Undo:
+    case Command::ToggleHidden:
+        if (YaziMode::commandUsesSelection(command)) {
+            // The parent column's focused item is not the selection; acting on the current column's items from there would surprise.
+            if (m_yaziColumns->focusedColumn() == YaziColumns::Column::Parent) {
+                Q_EMIT statusMessage(i18nc("@info:status", "Focus the current column to act on its items."));
+                break;
+            }
+            // Like Yazi, act on the focused item when nothing is selected.
+            if (m_view->selectedItems().isEmpty()) {
+                QAbstractItemView *items = m_view->currentView();
+                const QModelIndex current = items->currentIndex();
+                if (current.isValid()) {
+                    items->selectionModel()->select(current, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+                }
+            }
+        }
+        QMetaObject::invokeMethod(
+            this,
+            [this, command] {
+                if (m_yaziMode) {
+                    Q_EMIT yaziFileCommandRequested(command);
+                }
             },
             Qt::QueuedConnection);
         break;

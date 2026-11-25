@@ -16,9 +16,12 @@
 #include <QApplication>
 #include <QEvent>
 #include <QHBoxLayout>
+#include <QItemSelectionModel>
 #include <QLabel>
 #include <QListView>
+#include <QScopedValueRollback>
 #include <QSplitter>
+#include <QTreeView>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -113,12 +116,18 @@ YaziColumns::YaziColumns(QWidget *parent)
     m_indicator->setAutoFillBackground(true);
     m_indicator->setContentsMargins(6, 0, 6, 0);
 
+    m_selectionLabel = new QLabel(this);
+    m_selectionLabel->setObjectName(QStringLiteral("yaziSelectionIndicator"));
+    m_selectionLabel->setToolTip(i18nc("@info:tooltip", "File actions in Yazi mode act on the selected items"));
+    m_selectionLabel->hide();
+
     m_statusRow = new QWidget(this);
     m_statusRow->setObjectName(QStringLiteral("yaziStatusRow"));
     m_statusLayout = new QHBoxLayout(m_statusRow);
     m_statusLayout->setContentsMargins(2, 2, 2, 2);
     m_statusLayout->setSpacing(6);
     m_statusLayout->addWidget(m_indicator);
+    m_statusLayout->addWidget(m_selectionLabel);
     m_statusLayout->addStretch(1);
 
     m_keys = new YaziKeys(this);
@@ -185,6 +194,7 @@ void YaziColumns::setCurrentView(FolderView *view)
         updateTabOrder();
         m_keys->watch(m_view->currentView());
     });
+    connect(m_view, &FolderView::selectionChanged, this, &YaziColumns::selectionChanged);
     m_keys->setEnabled(true);
     labelCurrentColumn();
     if (YaziPreview *builtIn = preview()) {
@@ -192,6 +202,7 @@ void YaziColumns::setCurrentView(FolderView *view)
     }
     updateTabOrder();
     applyColumnWidths();
+    resetSelectionState();
 }
 
 FolderView *YaziColumns::takeCurrentView()
@@ -212,6 +223,7 @@ FolderView *YaziColumns::takeCurrentView()
     }
     restoreCurrentColumnLabels();
     m_view = nullptr;
+    resetSelectionState();
     view->setParent(parentWidget());
     return view;
 }
@@ -223,6 +235,9 @@ FolderView *YaziColumns::currentView() const
 
 void YaziColumns::setUrl(const QUrl &url)
 {
+    if (stripped(url) != stripped(m_url)) {
+        resetSelectionState();
+    }
     m_url = url;
     m_pendingRequest.clear();
     const QUrl parent = YaziMode::parentFolder(url);
@@ -426,6 +441,11 @@ QLabel *YaziColumns::modeIndicator() const
     return m_indicator;
 }
 
+QLabel *YaziColumns::selectionIndicator() const
+{
+    return m_selectionLabel;
+}
+
 void YaziColumns::addStatusWidget(QWidget *widget, int stretch)
 {
     m_statusLayout->insertWidget(m_statusLayout->count() - 1, widget, stretch);
@@ -539,13 +559,27 @@ void YaziColumns::moveFocus(YaziMode::Command command, int count)
         return;
     }
     // The view's own keys move the focus and selection as they always do,
-    // in every view mode and through expanded folders.
+    // in every view mode and through expanded folders. While marking, the
+    // selection is put back after each step, so it stays as marked.
+    QItemSelectionModel *selection = view->selectionModel();
+    const bool keepMarks = m_marking && m_view && view == m_view->currentView() && selection;
+    const QScopedValueRollback changing(m_changingSelection, m_changingSelection || keepMarks);
+    const QItemSelection marked = keepMarks ? selection->selection() : QItemSelection();
     for (int step = 0; step < steps; ++step) {
         const QPersistentModelIndex before = view->currentIndex();
         m_keys->sendKey(view, key);
+        if (keepMarks) {
+            selection->select(marked, QItemSelectionModel::ClearAndSelect);
+        }
         if (before == view->currentIndex()) {
             break;
         }
+    }
+    if (keepMarks && m_visual) {
+        applyVisualRange();
+    }
+    if (keepMarks) {
+        updateSelectionIndicator();
     }
 }
 
@@ -582,6 +616,196 @@ void YaziColumns::openParentItem()
         return;
     }
     request(index);
+}
+
+void YaziColumns::toggleSelection(bool moveDown, int count)
+{
+    if (!m_view) {
+        return;
+    }
+    QAbstractItemView *items = m_view->currentView();
+    QItemSelectionModel *selection = items->selectionModel();
+    const int steps = moveDown ? qBound(1, count, YaziMode::MaximumCount) : 1;
+    for (int step = 0; step < steps; ++step) {
+        const QModelIndex current = items->currentIndex();
+        if (!current.isValid()) {
+            break;
+        }
+        {
+            const QScopedValueRollback changing(m_changingSelection, true);
+            // Toggling ends range selection and keeps its items marked.
+            m_visual = false;
+            m_visualAnchor = QPersistentModelIndex();
+            m_visualBase.clear();
+            // The focused item is selected as the focus moves; the first toggle marks it rather than deselecting it.
+            const bool first = !m_marking && selectionIsFocusOnly();
+            selection->select(current, (first ? QItemSelectionModel::ClearAndSelect : QItemSelectionModel::Toggle) | QItemSelectionModel::Rows);
+            m_marking = selection->hasSelection();
+        }
+        if (moveDown) {
+            moveFocus(YaziMode::Command::MoveDown);
+            if (items->currentIndex() == current) {
+                break;
+            }
+        }
+    }
+    updateSelectionIndicator();
+}
+
+void YaziColumns::toggleVisualSelection()
+{
+    if (!m_view) {
+        return;
+    }
+    if (m_visual) {
+        m_visual = false;
+        m_visualAnchor = QPersistentModelIndex();
+        m_visualBase.clear();
+        updateSelectionIndicator();
+        return;
+    }
+    QAbstractItemView *items = m_view->currentView();
+    const QModelIndex current = items->currentIndex();
+    if (!current.isValid()) {
+        return;
+    }
+    m_visualBase = m_marking ? items->selectionModel()->selection() : QItemSelection();
+    m_visualAnchor = current.siblingAtColumn(0);
+    m_visual = true;
+    m_marking = true;
+    applyVisualRange();
+    updateSelectionIndicator();
+}
+
+void YaziColumns::selectAll()
+{
+    if (!m_view) {
+        return;
+    }
+    {
+        const QScopedValueRollback changing(m_changingSelection, true);
+        m_visual = false;
+        m_visualAnchor = QPersistentModelIndex();
+        m_visualBase.clear();
+        m_view->selectAll();
+        m_marking = m_view->currentView()->selectionModel()->hasSelection();
+    }
+    updateSelectionIndicator();
+}
+
+bool YaziColumns::isMarking() const
+{
+    return m_marking;
+}
+
+bool YaziColumns::isVisual() const
+{
+    return m_visual;
+}
+
+void YaziColumns::selectionChanged()
+{
+    if (m_changingSelection) {
+        return;
+    }
+    // Another change, such as a click, Escape or the Edit menu, ends range
+    // selection; once only the focused item is left, the selection follows
+    // the focus again.
+    m_visual = false;
+    m_visualAnchor = QPersistentModelIndex();
+    m_visualBase.clear();
+    if (m_marking && selectionIsFocusOnly()) {
+        m_marking = false;
+    }
+    updateSelectionIndicator();
+}
+
+void YaziColumns::resetSelectionState()
+{
+    m_marking = false;
+    m_visual = false;
+    m_visualAnchor = QPersistentModelIndex();
+    m_visualBase.clear();
+    updateSelectionIndicator();
+}
+
+bool YaziColumns::selectionIsFocusOnly() const
+{
+    if (!m_view) {
+        return true;
+    }
+    const QAbstractItemView *items = m_view->currentView();
+    const QModelIndexList rows = items->selectionModel()->selectedRows();
+    return rows.isEmpty() || (rows.size() == 1 && rows.first() == items->currentIndex().siblingAtColumn(0));
+}
+
+void YaziColumns::applyVisualRange()
+{
+    if (!m_view || !m_visual) {
+        return;
+    }
+    QAbstractItemView *items = m_view->currentView();
+    const QModelIndex current = items->currentIndex();
+    if (!m_visualAnchor.isValid() || !current.isValid()) {
+        // The item where it started is gone, as after a reload.
+        m_visual = false;
+        m_visualBase.clear();
+        return;
+    }
+    QItemSelection selected = m_visualBase;
+    selected.merge(rowsBetween(m_visualAnchor, current), QItemSelectionModel::Select);
+    const QScopedValueRollback changing(m_changingSelection, true);
+    items->selectionModel()->select(selected, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+}
+
+QItemSelection YaziColumns::rowsBetween(const QModelIndex &from, const QModelIndex &to) const
+{
+    const QModelIndex first = from.siblingAtColumn(0);
+    const QModelIndex last = to.siblingAtColumn(0);
+    if (!first.isValid() || !last.isValid()) {
+        return {};
+    }
+    if (const auto *tree = qobject_cast<const QTreeView *>(m_view->currentView())) {
+        // Expanded folders put rows of other parents in between; walk the rows as shown.
+        for (const auto &[start, end] : {std::pair(first, last), std::pair(last, first)}) {
+            QItemSelection rows;
+            for (QModelIndex index = start; index.isValid(); index = tree->indexBelow(index)) {
+                rows.select(index, index);
+                if (index == end) {
+                    return rows;
+                }
+            }
+        }
+        return {};
+    }
+    if (first.parent() != last.parent()) {
+        return {};
+    }
+    const QAbstractItemModel *model = first.model();
+    const int top = qMin(first.row(), last.row());
+    const int bottom = qMax(first.row(), last.row());
+    return QItemSelection(model->index(top, 0, first.parent()), model->index(bottom, 0, first.parent()));
+}
+
+void YaziColumns::updateSelectionIndicator()
+{
+    if (!m_view) {
+        m_selectionLabel->hide();
+        return;
+    }
+    const int count = int(m_view->currentView()->selectionModel()->selectedRows().size());
+    if (!m_visual && !m_marking && count < 2) {
+        m_selectionLabel->hide();
+        return;
+    }
+    if (m_visual) {
+        m_selectionLabel->setText(i18ncp("@info:status range selection in Yazi mode", "Visual · %1 selected", "Visual · %1 selected", count));
+        m_selectionLabel->setAccessibleName(i18ncp("@info:accessibility", "Range selection, %1 item selected", "Range selection, %1 items selected", count));
+    } else {
+        m_selectionLabel->setText(i18ncp("@info:status", "%1 selected", "%1 selected", count));
+        m_selectionLabel->setAccessibleName(i18ncp("@info:accessibility", "%1 item selected", "%1 items selected", count));
+    }
+    m_selectionLabel->show();
 }
 
 bool YaziColumns::eventFilter(QObject *watched, QEvent *event)

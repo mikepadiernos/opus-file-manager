@@ -7,6 +7,7 @@
 #include "previewpanel.h"
 #include "tagpanel.h"
 #include "workspacecatalog.h"
+#include "yazimode.h"
 
 #include <KConfigWatcher>
 #include <KFileItem>
@@ -224,6 +225,14 @@ private:
     void saveSession();
 
     void showContextMenu(Pane *pane, const QPoint &globalPos, const KFileItemList &items);
+    /**
+     * Runs a Yazi mode file command of @p pane through the window's own
+     * action, so its confirmations, conflict dialogs, transfer queue and undo
+     * apply. Never runs an action that deletes permanently.
+     */
+    void runYaziFileCommand(Pane *pane, YaziMode::Command command);
+    /// Where a menu that a Yazi mode key opens should appear: below @p pane's focused item.
+    QPoint yaziMenuPosition(Pane *pane) const;
     void addTransferMenu(QMenu *menu, const KFileItemList &items, bool move);
     void activateItem(const KFileItem &item);
     void activatePaneItem(Pane *pane, const KFileItem &item);
