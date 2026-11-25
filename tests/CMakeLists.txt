@@ -8,6 +8,27 @@ ecm_add_test(applicationicontest.cpp applicationicontest.qrc
 )
 add_test(NAME opusfm-installer COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/installtest.sh ${PROJECT_SOURCE_DIR}/install.sh)
 
+set(opusfm_desktop_file ${PROJECT_BINARY_DIR}/src/app/org.kde.opusfilemanager.desktop)
+set(opusfm_metainfo_file ${PROJECT_BINARY_DIR}/src/app/org.kde.opusfilemanager.metainfo.xml)
+ecm_add_test(appidentitytest.cpp
+    LINK_LIBRARIES opusfm_core Qt6::Test
+    NAME_PREFIX "opusfm-"
+)
+add_dependencies(appidentitytest opusfm-metadata)
+target_compile_definitions(appidentitytest PRIVATE
+    OPUSFM_PROJECT_VERSION="${PROJECT_VERSION}"
+    OPUSFM_DESKTOP_FILE="${opusfm_desktop_file}"
+    OPUSFM_METAINFO_FILE="${opusfm_metainfo_file}"
+)
+find_program(APPSTREAMCLI_EXECUTABLE appstreamcli)
+if(APPSTREAMCLI_EXECUTABLE)
+    add_test(NAME opusfm-appstream-validate COMMAND ${APPSTREAMCLI_EXECUTABLE} validate --no-net --pedantic --explain ${opusfm_metainfo_file})
+endif()
+find_program(DESKTOP_FILE_VALIDATE_EXECUTABLE desktop-file-validate)
+if(DESKTOP_FILE_VALIDATE_EXECUTABLE)
+    add_test(NAME opusfm-desktop-file-validate COMMAND ${DESKTOP_FILE_VALIDATE_EXECUTABLE} ${opusfm_desktop_file})
+endif()
+
 set(translation_test_catalog ${CMAKE_CURRENT_BINARY_DIR}/translation-locale/fa/LC_MESSAGES/opus-file-manager.mo)
 add_custom_command(
     OUTPUT ${translation_test_catalog}
