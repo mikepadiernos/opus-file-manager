@@ -185,6 +185,8 @@ private:
     void setupActions();
     void setupPanes();
     void updateTerminalPlacement();
+    /// Keeps the search panel beside the terminal when their orientations match, otherwise in the outer search splitter.
+    void updateSearchPlacement();
     void setupPlaces();
     void setupPanels();
     void setupStatusBar();
@@ -364,6 +366,8 @@ private:
     KNewFileMenu *m_newFileMenu = nullptr;
     QSplitter *m_splitter = nullptr;
     QSplitter *m_workspaceSplitter = nullptr;
+    /// Holds the workspace splitter and, when it is placed separately from the terminal, the search panel.
+    QSplitter *m_searchSplitter = nullptr;
     QTabWidget *m_paneTabs = nullptr;
     QWidget *m_rightPlaceholder = nullptr;
     QPointer<QMainWindow> m_rightWindow;
@@ -410,6 +414,7 @@ private:
     bool m_syncingLinkedPanes = false;
     bool m_secondPaneInTab = false;
     bool m_movingSecondPane = false;
+    bool m_restoringSearchPanel = false;
     QAction *m_viewModeAction = nullptr;
     QAction *m_selectionModeAction = nullptr;
     QAction *m_selectionMarkersAction = nullptr;

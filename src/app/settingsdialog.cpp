@@ -1063,6 +1063,14 @@ QWidget *SettingsDialog::createSearchPage()
     auto *defaultFilter = bound(new SavedPathFilterCombo(page), QStringLiteral("DefaultSearchPathFilter"), "filterName");
     defaults->addRow(i18nc("@label:listbox", "Default path filter:"), defaultFilter);
     layout->addLayout(defaults);
+    auto *panel = new QFormLayout;
+    panel->addRow(i18nc("@label:listbox", "Search panel placement:"),
+                  comboBox(QStringLiteral("SearchPanelPlacement"),
+                           {i18nc("@item:inlistbox", "With the embedded terminal"),
+                            i18nc("@item:inlistbox", "Below the panes"),
+                            i18nc("@item:inlistbox", "Right of the panes")}));
+    panel->addRow(checkBox(QStringLiteral("RestoreSearchPanel"), i18nc("@option:check", "Show the search panel at startup if it was open when last used")));
+    layout->addLayout(panel);
     auto *foldersLabel = new QLabel(i18nc("@label", "Search folders, searched together by the \"Search folders\" scope:"), page);
     foldersLabel->setWordWrap(true);
     layout->addWidget(foldersLabel);

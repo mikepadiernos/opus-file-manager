@@ -519,6 +519,7 @@ MainWindow::MainWindow(QWidget *parent)
     }
     connect(m_splitter, &QSplitter::splitterMoved, this, scheduleWorkspaceIndicator);
     connect(m_workspaceSplitter, &QSplitter::splitterMoved, this, scheduleWorkspaceIndicator);
+    connect(m_searchSplitter, &QSplitter::splitterMoved, this, scheduleWorkspaceIndicator);
     for (const QString &name : {QStringLiteral("dual_layout"),
                                 QStringLiteral("stacked_layout"),
                                 QStringLiteral("show_preview_panel"),
@@ -567,6 +568,13 @@ MainWindow::MainWindow(QWidget *parent)
     });
     applySettings();
     updateActions();
+    if (Settings::restoreSearchPanel() && KSharedConfig::openStateConfig()->group(QStringLiteral("SearchPanel")).readEntry("Visible", false)) {
+        // Deferred so the panel searches the folder opened after construction.
+        QTimer::singleShot(0, this, [this] {
+            const QScopedValueRollback<bool> restoring(m_restoringSearchPanel, true);
+            m_searchPanelAction->setChecked(true);
+        });
+    }
 }
 
 namespace
@@ -1217,6 +1225,7 @@ bool MainWindow::restoreWorkspaceLayout(const WorkspaceCatalog::Layout &layout, 
     setActivePane(active);
     setStackedLayout(layout.stacked);
     m_workspaceSplitter->setOrientation(p.terminalPlacement == WorkspaceCatalog::TerminalPlacement::Right ? Qt::Horizontal : Qt::Vertical);
+    updateSearchPlacement();
     setPanelLayout(p.panelLayout == WorkspaceCatalog::PanelLayout::Combined ? PanelLayout::Combined : PanelLayout::Separate);
     setPreviewPlacement(static_cast<PreviewPanel::Placement>(p.previewPlacement));
     restoreWorkspaceEditor(p);
@@ -1243,8 +1252,11 @@ bool MainWindow::restoreWorkspaceLayout(const WorkspaceCatalog::Layout &layout, 
     toggleLayout(layout.dual);
     QList<int> workspaceSizes = layout.workspaceSizes;
     if (workspaceSizes.size() == m_workspaceSplitter->count() - 1) {
-        // Layouts saved before the search panel existed lack its size; keep the current one.
+        // Layouts saved before the search panel existed, or while it was placed apart from the terminal, lack its size; keep the current one.
         workspaceSizes.append(m_workspaceSplitter->sizes().constLast());
+    } else if (workspaceSizes.size() == m_workspaceSplitter->count() + 1) {
+        // The search panel was saved beside the terminal but is now placed apart from it.
+        workspaceSizes.removeLast();
     }
     if (m_splitter->count() != layout.paneSizes.size() || m_workspaceSplitter->count() != workspaceSizes.size()) {
         error = i18nc("@info", "The saved workspace splitter arrangement is unavailable.");
@@ -1362,9 +1374,14 @@ void MainWindow::setupPanes()
     m_workspaceSplitter->setStretchFactor(0, 3);
     m_workspaceSplitter->setStretchFactor(1, 1);
     m_workspaceSplitter->setStretchFactor(2, 1);
+    m_searchSplitter = new QSplitter(Qt::Vertical, this);
+    m_searchSplitter->setObjectName(QStringLiteral("searchSplitter"));
+    m_searchSplitter->setChildrenCollapsible(false);
+    m_searchSplitter->addWidget(m_workspaceSplitter);
+    m_searchSplitter->setStretchFactor(0, 3);
     m_paneTabs = new QTabWidget(this);
     m_paneTabs->setObjectName(QStringLiteral("paneLayoutTabs"));
-    m_paneTabs->addTab(m_workspaceSplitter, QString());
+    m_paneTabs->addTab(m_searchSplitter, QString());
     m_paneTabs->tabBar()->hide();
     setCentralWidget(m_paneTabs);
     connect(m_paneTabs, &QTabWidget::currentChanged, this, [this](int index) {
@@ -2332,9 +2349,12 @@ void MainWindow::setupActions()
         m_searchPanel->setVisible(shown);
         toggleLayout(m_dualLayoutAction->isChecked());
         restoreSplitterSizes(false, true, true);
-        if (shown) {
+        const auto state = KSharedConfig::openStateConfig();
+        state->group(QStringLiteral("SearchPanel")).writeEntry("Visible", shown);
+        state->sync();
+        if (shown && !m_restoringSearchPanel) {
             search->focusQuery();
-        } else if (hadFocus) {
+        } else if (!shown && hadFocus) {
             activePane()->view()->currentView()->setFocus();
         }
     });
@@ -2735,7 +2755,7 @@ Pane *MainWindow::inactivePane() const
 void MainWindow::setActivePane(Pane *pane)
 {
     if (m_paneTabs && m_secondPaneInTab) {
-        m_paneTabs->setCurrentWidget(pane == m_right ? static_cast<QWidget *>(m_right) : m_workspaceSplitter);
+        m_paneTabs->setCurrentWidget(pane == m_right ? static_cast<QWidget *>(m_right) : m_searchSplitter);
     }
     if (!pane || pane == m_active) {
         return;
@@ -4667,6 +4687,7 @@ void MainWindow::saveSplitterSizes()
           {m_editor, QStringLiteral("Editor")}});
     save(m_workspaceSplitter,
          {{m_splitter, QStringLiteral("Workspace")}, {m_terminalPanel, QStringLiteral("Terminal")}, {m_searchPanel, QStringLiteral("Search")}});
+    save(m_searchSplitter, {{m_workspaceSplitter, QStringLiteral("SearchWorkspace")}, {m_searchPanel, QStringLiteral("SeparateSearch")}});
     if (m_editorDock && !m_editorDock->isHidden() && !m_editorDock->isFloating()) {
         const bool right = dockWidgetArea(m_editorDock) == Qt::RightDockWidgetArea;
         const int dimension = right ? width() : height();
@@ -4739,9 +4760,9 @@ void MainWindow::restoreSplitterSizes(bool panes, bool workspace, bool defaultsI
             };
             if (splitter == m_splitter) {
                 preservePrimaryArea(m_left, m_right, 6000);
-            } else if (splitter == m_workspaceSplitter) {
+            } else if (splitter == m_workspaceSplitter || splitter == m_searchSplitter) {
                 // Embedded panels share at most 40% so the panes keep the primary area.
-                const int workspaceIndex = splitter->indexOf(m_splitter);
+                const int workspaceIndex = splitter->indexOf(splitter == m_workspaceSplitter ? static_cast<QWidget *>(m_splitter) : m_workspaceSplitter);
                 int panels = 0;
                 for (int i = 0; i < splitter->count(); ++i) {
                     if (i != workspaceIndex && !splitter->widget(i)->isHidden()) {
@@ -4788,6 +4809,7 @@ void MainWindow::restoreSplitterSizes(bool panes, bool workspace, bool defaultsI
         restore(m_workspaceSplitter,
                 {{m_splitter, QStringLiteral("Workspace")}, {m_terminalPanel, QStringLiteral("Terminal")}, {m_searchPanel, QStringLiteral("Search")}},
                 {3, 1, 1});
+        restore(m_searchSplitter, {{m_workspaceSplitter, QStringLiteral("SearchWorkspace")}, {m_searchPanel, QStringLiteral("SeparateSearch")}}, {3, 1});
     }
 }
 
@@ -4879,6 +4901,7 @@ void MainWindow::resetSplitterSizes()
     state->sync();
     m_splitter->setSizes(QList<int>(m_splitter->count(), 1));
     m_workspaceSplitter->setSizes({3, 1, 1});
+    m_searchSplitter->setSizes({3, 1});
     if (m_editorDock && !m_editorDock->isHidden() && !m_editorDock->isFloating()) {
         const bool right = dockWidgetArea(m_editorDock) == Qt::RightDockWidgetArea;
         resizeDocks({m_editorDock}, {qMax(1, (right ? width() : height()) / 4)}, right ? Qt::Horizontal : Qt::Vertical);
@@ -4935,6 +4958,32 @@ void MainWindow::updateTerminalPlacement()
     const auto placement = Settings::terminalPlacement();
     const bool right = placement == Settings::EnumTerminalPlacement::Right || (placement == Settings::EnumTerminalPlacement::Automatic && isStackedLayout());
     m_workspaceSplitter->setOrientation(right ? Qt::Horizontal : Qt::Vertical);
+    updateSearchPlacement();
+}
+
+void MainWindow::updateSearchPlacement()
+{
+    if (!m_searchSplitter) {
+        return;
+    }
+    const auto placement = Settings::searchPanelPlacement();
+    const Qt::Orientation orientation = placement == Settings::EnumSearchPanelPlacement::Right ? Qt::Horizontal
+        : placement == Settings::EnumSearchPanelPlacement::Below                               ? Qt::Vertical
+                                                                                               : m_workspaceSplitter->orientation();
+    m_searchSplitter->setOrientation(orientation);
+    // A splitter has one orientation, so a panel placed across the terminal's direction needs the outer splitter.
+    QSplitter *target = orientation == m_workspaceSplitter->orientation() ? m_workspaceSplitter : m_searchSplitter;
+    if (m_searchPanel->parentWidget() == target) {
+        return;
+    }
+    const bool hidden = m_searchPanel->isHidden();
+    const QPointer<QWidget> focus = m_searchPanel->isAncestorOf(QApplication::focusWidget()) ? QApplication::focusWidget() : nullptr;
+    target->addWidget(m_searchPanel);
+    target->setStretchFactor(target->indexOf(m_searchPanel), 1);
+    m_searchPanel->setVisible(!hidden);
+    if (focus) {
+        focus->setFocus(Qt::OtherFocusReason);
+    }
 }
 
 void MainWindow::updatePreviewPanel()
@@ -5038,9 +5087,12 @@ void MainWindow::applySettings()
     }
 
     const auto terminalOrientation = m_workspaceSplitter->orientation();
+    const auto searchOrientation = m_searchSplitter->orientation();
+    const QWidget *searchParent = m_searchPanel->parentWidget();
     updateTerminalPlacement();
-    if (terminalOrientation != m_workspaceSplitter->orientation()) {
-        restoreSplitterSizes(false, true);
+    const bool searchMoved = searchParent != m_searchPanel->parentWidget();
+    if (terminalOrientation != m_workspaceSplitter->orientation() || searchOrientation != m_searchSplitter->orientation() || searchMoved) {
+        restoreSplitterSizes(false, true, searchMoved);
     }
     actionCollection()->action(QStringLiteral("dim_inactive_pane"))->setChecked(Settings::dimInactivePane());
     actionCollection()->action(QStringLiteral("stacked_tab_bars_together"))->setChecked(Settings::stackedTabBarsTogether());

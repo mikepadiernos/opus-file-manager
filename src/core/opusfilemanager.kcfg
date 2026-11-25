@@ -443,6 +443,19 @@
       <label>Name of the shared saved path filter applied to new searches</label>
       <default></default>
     </entry>
+    <entry name="SearchPanelPlacement" type="Enum">
+      <label>Position of the search panel</label>
+      <choices>
+        <choice name="WithTerminal"/>
+        <choice name="Below"/>
+        <choice name="Right"/>
+      </choices>
+      <default>WithTerminal</default>
+    </entry>
+    <entry name="RestoreSearchPanel" type="Bool">
+      <label>Show the search panel at startup when it was open when last used</label>
+      <default>false</default>
+    </entry>
     <entry name="WorkspaceSearchByDefault" type="Bool">
       <label>Limit searches to the active workspace's locations by default</label>
       <default>true</default>
