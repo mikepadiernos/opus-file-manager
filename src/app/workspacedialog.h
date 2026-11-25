@@ -12,6 +12,7 @@ class QCheckBox;
 class QComboBox;
 class QLineEdit;
 class QListWidget;
+class WorkspaceAppearanceEditor;
 class WorkspaceLocations;
 
 class WorkspaceDialog : public QDialog
@@ -72,6 +73,8 @@ private:
     void saveProfileLinks();
     void refreshBehaviorSelection();
     void saveBehaviorSelection();
+    /// Saves the theme profile and appearance options edited for the selected workspace.
+    void saveAppearance();
     /// Refreshes the list of assignable and unavailable saved locations.
     void refreshLocations();
     /// Assigns the selected saved location to the selected workspace.
@@ -98,4 +101,6 @@ private:
     QCheckBox *m_searchScope = nullptr;
     QCheckBox *m_layoutBehavior = nullptr;
     QCheckBox *m_paneTabRestoration = nullptr;
+    QCheckBox *m_appearanceBehavior = nullptr;
+    WorkspaceAppearanceEditor *m_appearance = nullptr;
 };

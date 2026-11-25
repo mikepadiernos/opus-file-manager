@@ -2,6 +2,8 @@
 
 #include "startup.h"
 
+#include "effectiveappearance.h"
+
 namespace
 {
 QUrl orFallback(const QUrl &url, const QUrl &fallback)
@@ -39,7 +41,7 @@ WindowSession Startup::resolve(const WindowSession &saved, const StartupOptions 
         break;
     }
     if (options.mode != Settings::EnumStartupMode::RestoreSession) {
-        const int viewMode = static_cast<int>(Settings::defaultViewMode());
+        const int viewMode = static_cast<int>(EffectiveAppearance::defaultViewMode());
         session.left.viewMode = viewMode;
         session.right.viewMode = viewMode;
     }

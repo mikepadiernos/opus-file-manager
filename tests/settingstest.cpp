@@ -1,8 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "settings.h"
+#include "appearancedefaults.h"
+#include "appearancestyle.h"
+#include "appfonts.h"
+#include "carddelegate.h"
+#include "colorschemes.h"
 #include "combinedpanel.h"
 #include "compressdialog.h"
+#include "customstylesheet.h"
+#include "density.h"
+#include "detailsview.h"
 #include "fileoperations.h"
 #include "foldermetadata.h"
 #include "foldertree.h"
@@ -12,13 +20,20 @@
 #include "previewpanel.h"
 #include "settingsdialog.h"
 #include "settingswidgets.h"
+#include "tabcolors.h"
 #include "tabmodel.h"
+#include "themeprofiles.h"
+#include "treelines.h"
+#include "windoweffects.h"
 
 #include <KActionCollection>
+#include <KColorButton>
 #include <KDirModel>
+#include <KFileItem>
 #include <KFileItemDelegate>
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
+#include <KMessageWidget>
 #include <KPageWidget>
 #include <KSharedConfig>
 #include <KToolBar>
@@ -35,6 +50,7 @@
 #include <QDockWidget>
 #include <QDropEvent>
 #include <QFile>
+#include <QFrame>
 #include <QGraphicsOpacityEffect>
 #include <QHeaderView>
 #include <QLabel>
@@ -45,14 +61,20 @@
 #include <QMenu>
 #include <QMimeData>
 #include <QMouseEvent>
+#include <QPainter>
 #include <QPlainTextEdit>
 #include <QProxyStyle>
 #include <QPushButton>
 #include <QScopeGuard>
+#include <QSignalSpy>
 #include <QSizeGrip>
 #include <QSpinBox>
+#include <QSplitter>
+#include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <QStyleFactory>
+#include <QStyleOption>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QTemporaryDir>
@@ -221,6 +243,900 @@ private Q_SLOTS:
         QCOMPARE(Settings::folderSizeRefreshInterval(), 60);
     }
 
+    void colorSchemesApplyOnlyToPlasmaOpus()
+    {
+        auto restore = qScopeGuard([] {
+            ColorSchemes::apply(QString());
+        });
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *combo = dialog.findChild<ColorSchemeCombo *>(QStringLiteral("kcfg_ColorScheme"));
+        QVERIFY(combo);
+        QCOMPARE(combo->scheme(), QString());
+        QCOMPARE(combo->itemData(1).toString(), QLatin1String(ColorSchemes::LightPreset));
+        QCOMPARE(combo->itemData(2).toString(), QLatin1String(ColorSchemes::DarkPreset));
+        const QStyle *style = QApplication::style();
+
+        combo->setCurrentIndex(combo->findData(QLatin1String(ColorSchemes::DarkPreset)));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::colorScheme(), QLatin1String(ColorSchemes::DarkPreset));
+        // Widgets pick up application palette changes from posted events.
+        QTRY_COMPARE(window.palette().color(QPalette::Active, QPalette::Window), QColor(32, 35, 38));
+        QTRY_COMPARE(dialog.palette().color(QPalette::Active, QPalette::Window), QColor(32, 35, 38));
+        QCOMPARE(QApplication::style(), style);
+
+        combo->setCurrentIndex(0);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::colorScheme().isEmpty());
+        QVERIFY(!QCoreApplication::testAttribute(Qt::AA_SetPalette));
+        QVERIFY(!qApp->property("KDE_COLOR_SCHEME_PATH").isValid());
+    }
+
+    void unavailableColorSchemesAreKeptAndReported()
+    {
+        Settings::setColorScheme(QStringLiteral("MissingTestScheme"));
+        MainWindow window;
+        QVERIFY(window.statusBar()->currentMessage().contains(QLatin1String("MissingTestScheme")));
+        QVERIFY(!QCoreApplication::testAttribute(Qt::AA_SetPalette));
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *combo = dialog.findChild<ColorSchemeCombo *>(QStringLiteral("kcfg_ColorScheme"));
+        QCOMPARE(combo->scheme(), QStringLiteral("MissingTestScheme"));
+        QVERIFY(combo->currentText().contains(QLatin1String("MissingTestScheme")));
+    }
+
+    void customColoursPreviewValidateAndRevert()
+    {
+        auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            ColorSchemes::apply(QString());
+        });
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *combo = dialog.findChild<ColorSchemeCombo *>(QStringLiteral("kcfg_ColorScheme"));
+        auto *editor = dialog.findChild<ColorPaletteEditor *>(QStringLiteral("kcfg_CustomColors"));
+        QVERIFY(combo && editor);
+        auto *preview = editor->findChild<QFrame *>(QStringLiteral("colourPreview"));
+        auto *warning = editor->findChild<KMessageWidget *>(QStringLiteral("contrastWarning"));
+        auto *overrideText = editor->findChild<QCheckBox *>(QStringLiteral("overrideText"));
+        auto *textButton = editor->findChild<KColorButton *>(QStringLiteral("colourText"));
+        auto *windowButton = editor->findChild<KColorButton *>(QStringLiteral("colourWindow"));
+        QVERIFY(preview && warning && overrideText && textButton && windowButton);
+        QVERIFY(editor->colors().isEmpty());
+
+        // Roles that are not overridden show the selected scheme's colours.
+        combo->setCurrentIndex(combo->findData(QLatin1String(ColorSchemes::DarkPreset)));
+        QCOMPARE(windowButton->color(), QColor(32, 35, 38));
+        QCOMPARE(preview->palette().color(QPalette::Active, QPalette::Window), QColor(32, 35, 38));
+        QVERIFY(!textButton->isEnabled());
+
+        overrideText->setChecked(true);
+        QVERIFY(textButton->isEnabled());
+        textButton->setColor(QColor(40, 44, 48));
+        QCOMPARE(preview->palette().color(QPalette::Active, QPalette::Text), QColor(40, 44, 48));
+        QVERIFY(!warning->isHidden());
+        QVERIFY(warning->text().contains(QLatin1String("View text on view background")));
+        textButton->setColor(QColor(250, 250, 250));
+        QVERIFY(warning->isHidden());
+        QCOMPARE(editor->colors(), QStringList({QStringLiteral("Text=#fafafa")}));
+        // Previewing does not change the application.
+        QVERIFY(!QCoreApplication::testAttribute(Qt::AA_SetPalette));
+
+        // Revert discards edits that were not applied.
+        auto *revert = editor->findChild<QPushButton *>(QStringLiteral("revertColours"));
+        QVERIFY(revert && revert->isEnabled());
+        revert->click();
+        QVERIFY(editor->colors().isEmpty());
+        QVERIFY(!revert->isEnabled());
+        QVERIFY(!textButton->isEnabled());
+
+        overrideText->setChecked(true);
+        textButton->setColor(QColor(250, 250, 250));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::customColors(), QStringList({QStringLiteral("Text=#fafafa")}));
+        QTRY_COMPARE(window.palette().color(QPalette::Active, QPalette::Text), QColor(250, 250, 250));
+        QCOMPARE(window.palette().color(QPalette::Active, QPalette::Window), QColor(32, 35, 38));
+        QVERIFY(!revert->isEnabled());
+
+        editor->findChild<QPushButton *>(QStringLiteral("useSchemeColours"))->click();
+        QVERIFY(editor->colors().isEmpty());
+        QVERIFY(revert->isEnabled());
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+    }
+
+    void accentColourAppliesAndWarnsAboutContrast()
+    {
+        auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            ColorSchemes::apply(QString());
+        });
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *combo = dialog.findChild<ColorSchemeCombo *>(QStringLiteral("kcfg_ColorScheme"));
+        auto *chooser = dialog.findChild<AccentColorChooser *>(QStringLiteral("kcfg_AccentColor"));
+        auto *editor = dialog.findChild<ColorPaletteEditor *>(QStringLiteral("kcfg_CustomColors"));
+        QVERIFY(combo && chooser && editor);
+        auto *custom = chooser->findChild<QCheckBox *>(QStringLiteral("customAccent"));
+        auto *button = chooser->findChild<KColorButton *>(QStringLiteral("accentColour"));
+        auto *warning = chooser->findChild<KMessageWidget *>(QStringLiteral("accentContrastWarning"));
+        auto *highlightButton = editor->findChild<KColorButton *>(QStringLiteral("colourHighlight"));
+        QVERIFY(custom && button && warning && highlightButton);
+        QVERIFY(chooser->accent().isEmpty());
+        QVERIFY(!button->isEnabled());
+
+        // Without an app-local accent, the button shows the scheme's accent.
+        combo->setCurrentIndex(combo->findData(QLatin1String(ColorSchemes::DarkPreset)));
+        const QPalette dark = ColorSchemes::palette(QLatin1String(ColorSchemes::DarkPreset));
+        QCOMPARE(button->color(), dark.color(QPalette::Active, QPalette::Accent));
+
+        custom->setChecked(true);
+        QVERIFY(button->isEnabled());
+        // A dark accent on a dark scheme is hard to see against the view background.
+        button->setColor(QColor(30, 30, 30));
+        QVERIFY(!warning->isHidden());
+        button->setColor(QColor(0xe0, 0x60, 0x20));
+        QVERIFY(warning->isHidden());
+        QCOMPARE(chooser->accent(), QStringLiteral("#e06020"));
+        // The custom colour editor shows the accent for roles it does not override.
+        QCOMPARE(highlightButton->color(), QColor(0xe0, 0x60, 0x20));
+
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::accentColor(), QStringLiteral("#e06020"));
+        QTRY_COMPARE(window.palette().color(QPalette::Active, QPalette::Highlight), QColor(0xe0, 0x60, 0x20));
+        QCOMPARE(window.palette().color(QPalette::Active, QPalette::Accent), QColor(0xe0, 0x60, 0x20));
+        QCOMPARE(window.palette().color(QPalette::Active, QPalette::Window), QColor(32, 35, 38));
+
+        custom->setChecked(false);
+        QVERIFY(chooser->accent().isEmpty());
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::accentColor().isEmpty());
+        QTRY_COMPARE(window.palette().color(QPalette::Active, QPalette::Highlight), dark.color(QPalette::Active, QPalette::Highlight));
+    }
+
+    void backgroundBlurReportsWhenUnavailable()
+    {
+        auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        QVERIFY(WindowEffects::isTranslucent(&window));
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *blur = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_BackgroundBlur"));
+        auto *notice = dialog.findChild<KMessageWidget *>(QStringLiteral("windowEffectsNotice"));
+        QVERIFY(blur && notice);
+        QVERIFY(notice->isHidden());
+
+        // The offscreen platform has no KWin blur effect.
+        QVERIFY(!WindowEffects::isBlurAvailable(&window));
+        blur->setChecked(true);
+        QVERIFY(!notice->isHidden());
+        QVERIFY(notice->text().contains(QLatin1String("blur effect is not available")));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::backgroundBlur());
+        QCOMPARE(window.statusBar()->currentMessage(), notice->text());
+
+        blur->setChecked(false);
+        QVERIFY(notice->isHidden());
+
+        QWidget opaque;
+        QVERIFY(WindowEffects::unavailableReason(&opaque, false, false).isEmpty());
+        QVERIFY(WindowEffects::unavailableReason(&opaque, false, true).contains(QLatin1String("compositing")));
+    }
+
+    void backgroundOpacityKeepsContentOpaque()
+    {
+        auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        QVERIFY(WindowEffects::isTranslucent(&window));
+        Pane *pane = window.findChildren<Pane *>().constFirst();
+        auto *places = window.findChild<QDockWidget *>(QStringLiteral("placesDock"));
+        QVERIFY(places);
+        QCOMPARE(window.palette().color(QPalette::Active, QPalette::Window).alpha(), 255);
+        QCOMPARE(pane->view()->palette().color(QPalette::Active, QPalette::Base).alpha(), 255);
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_WindowOpacity"))->setValue(60);
+        dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_PaneOpacity"))->setValue(40);
+        dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_PanelOpacity"))->setValue(80);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+
+        const QPalette app = QApplication::palette();
+        QCOMPARE(window.palette().color(QPalette::Active, QPalette::Window).alpha(), 153);
+        QCOMPARE(window.palette().color(QPalette::Active, QPalette::Window).rgb(), app.color(QPalette::Active, QPalette::Window).rgb());
+        QCOMPARE(pane->view()->palette().color(QPalette::Active, QPalette::Base).alpha(), 102);
+        QCOMPARE(pane->view()->palette().color(QPalette::Active, QPalette::AlternateBase).alpha(), 102);
+        QCOMPARE(places->palette().color(QPalette::Active, QPalette::Base).alpha(), 204);
+        QCOMPARE(places->palette().color(QPalette::Active, QPalette::Window).alpha(), 204);
+        // Text, icons and selections stay opaque.
+        for (QWidget *widget : {static_cast<QWidget *>(&window), static_cast<QWidget *>(pane->view()), static_cast<QWidget *>(places)}) {
+            for (const QPalette::ColorRole role : {QPalette::Text, QPalette::WindowText, QPalette::Highlight, QPalette::HighlightedText}) {
+                QCOMPARE(widget->palette().color(QPalette::Active, role).alpha(), 255);
+            }
+        }
+        // Floating panels are separate opaque windows.
+        places->setFloating(true);
+        QCOMPARE(places->palette().color(QPalette::Active, QPalette::Base).alpha(), 255);
+        places->setFloating(false);
+        QCOMPARE(places->palette().color(QPalette::Active, QPalette::Base).alpha(), 204);
+
+        // The pane tint is made translucent too.
+        Settings::setPaneTint(Settings::EnumPaneTint::AllPanes);
+        window.applySettings();
+        QCOMPARE(pane->view()->palette().color(QPalette::Active, QPalette::Base).alpha(), 102);
+        QVERIFY(pane->view()->palette().color(QPalette::Active, QPalette::Base).rgb() != app.color(QPalette::Active, QPalette::Base).rgb());
+
+        // Opaque windows keep opaque colours.
+        QWidget opaque;
+        Pane standalone(placesOf(window), nullptr, &opaque);
+        standalone.setBackgroundOpacity(40);
+        QCOMPARE(standalone.view()->palette().color(QPalette::Active, QPalette::Base).alpha(), 255);
+    }
+
+    void cornerRadiusRoundsHighlightsTabsAndFields()
+    {
+        const QString originalName = QApplication::style()->name();
+        auto restore = qScopeGuard([originalName] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            if (AppearanceStyle::installed()) {
+                QApplication::setStyle(QStyleFactory::create(originalName));
+            }
+        });
+        QCOMPARE(AppearanceStyle::radiusForSetting(Settings::EnumCornerRadius::FollowStyle, 6), int(AppearanceStyle::FollowStyle));
+        QCOMPARE(AppearanceStyle::radiusForSetting(Settings::EnumCornerRadius::None, 6), 0);
+        QCOMPARE(AppearanceStyle::radiusForSetting(Settings::EnumCornerRadius::Large, 6), 8);
+        QCOMPARE(AppearanceStyle::radiusForSetting(Settings::EnumCornerRadius::Custom, 99), 24);
+
+        // Following the widget style leaves the application style alone.
+        QStyle *original = QApplication::style();
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.applySettings();
+        QCOMPARE(QApplication::style(), original);
+        QVERIFY(!AppearanceStyle::installed());
+        QCOMPARE(AppearanceStyle::cornerRadius(3), 3);
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *corners = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_CornerRadius"));
+        auto *custom = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_CustomCornerRadius"));
+        QVERIFY(corners && custom);
+        QVERIFY(!custom->isEnabled());
+        corners->setCurrentIndex(Settings::EnumCornerRadius::Custom);
+        Q_EMIT corners->activated(Settings::EnumCornerRadius::Custom);
+        QVERIFY(custom->isEnabled());
+        custom->setValue(8);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::cornerRadius(), int(Settings::EnumCornerRadius::Custom));
+        QCOMPARE(Settings::customCornerRadius(), 8);
+        AppearanceStyle *style = AppearanceStyle::installed();
+        QVERIFY(style);
+        QCOMPARE(style->radius(), 8);
+        QCOMPARE(AppearanceStyle::cornerRadius(3), 8);
+        QCOMPARE(style->baseStyle(), original);
+        Pane *pane = window.findChildren<Pane *>().constFirst();
+        QCOMPARE(pane->view()->style(), style);
+
+        const QPalette palette = QApplication::palette();
+        const QColor highlight = palette.color(QPalette::Active, QPalette::Highlight);
+        const auto draw = [style](const auto &paint) {
+            QImage image(40, 20, QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            paint(&painter, image.rect());
+            painter.end();
+            return image;
+        };
+        QStyleOptionViewItem item;
+        item.palette = palette;
+        item.state = QStyle::State_Enabled | QStyle::State_Active | QStyle::State_Selected;
+        item.viewItemPosition = QStyleOptionViewItem::OnlyOne;
+        const auto drawItem = [&] {
+            return draw([&](QPainter *painter, const QRect &rect) {
+                item.rect = rect;
+                style->drawPrimitive(QStyle::PE_PanelItemViewItem, &item, painter, nullptr);
+            });
+        };
+        QImage image = drawItem();
+        QCOMPARE(qAlpha(image.pixel(0, 0)), 0);
+        QCOMPARE(qAlpha(image.pixel(39, 19)), 0);
+        QCOMPARE(image.pixelColor(20, 10), highlight);
+        // A selection spanning columns is rounded only at its outer ends.
+        item.viewItemPosition = QStyleOptionViewItem::Beginning;
+        image = drawItem();
+        QCOMPARE(qAlpha(image.pixel(0, 0)), 0);
+        QCOMPARE(image.pixelColor(39, 0), highlight);
+        item.viewItemPosition = QStyleOptionViewItem::Middle;
+        image = drawItem();
+        QCOMPARE(image.pixelColor(0, 0), highlight);
+        QCOMPARE(image.pixelColor(39, 19), highlight);
+
+        // The selected tab has a fill and an indicator; other tabs are flat.
+        QStyleOptionTab tab;
+        tab.palette = palette;
+        tab.shape = QTabBar::RoundedNorth;
+        tab.state = QStyle::State_Enabled | QStyle::State_Active;
+        const auto drawTab = [&] {
+            return draw([&](QPainter *painter, const QRect &rect) {
+                tab.rect = rect;
+                style->drawControl(QStyle::CE_TabBarTabShape, &tab, painter, nullptr);
+            });
+        };
+        image = drawTab();
+        QCOMPARE(qAlpha(image.pixel(20, 10)), 0);
+        tab.state |= QStyle::State_Selected;
+        image = drawTab();
+        QCOMPARE(qAlpha(image.pixel(1, 1)), 0);
+        QCOMPARE(image.pixelColor(20, 17), highlight);
+        QVERIFY(qAlpha(image.pixel(20, 10)) > 0);
+        QVERIFY(qAlpha(image.pixel(20, 10)) < 255);
+
+        // Square corners fill the whole highlight.
+        Settings::setCornerRadius(Settings::EnumCornerRadius::None);
+        window.applySettings();
+        QCOMPARE(style->radius(), 0);
+        item.viewItemPosition = QStyleOptionViewItem::OnlyOne;
+        QCOMPARE(drawItem().pixelColor(0, 0), highlight);
+
+        // A replacement widget style is wrapped again.
+        QApplication::setStyle(QStyleFactory::create(QStringLiteral("Fusion")));
+        QTRY_VERIFY(AppearanceStyle::installed());
+        QCOMPARE(AppearanceStyle::installed()->radius(), 0);
+        QCOMPARE(AppearanceStyle::installed()->baseStyle()->name(), QStringLiteral("fusion"));
+
+        // Following the style again passes drawing through.
+        Settings::setCornerRadius(Settings::EnumCornerRadius::FollowStyle);
+        window.applySettings();
+        QCOMPARE(AppearanceStyle::installed()->radius(), int(AppearanceStyle::FollowStyle));
+        QCOMPARE(AppearanceStyle::cornerRadius(3), 3);
+    }
+
+    void dividersThinHideAndRevealOnHover()
+    {
+        const QString originalName = QApplication::style()->name();
+        auto restore = qScopeGuard([originalName] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            if (AppearanceStyle::installed()) {
+                QApplication::setStyle(QStyleFactory::create(originalName));
+            }
+        });
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.resize(1000, 600);
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        auto *frame = new QFrame(&window);
+        frame->setFrameShape(QFrame::StyledPanel);
+        const int styleFrameWidth = frame->frameWidth();
+        auto *dialogFrame = new QFrame;
+        auto deleteDialogFrame = qScopeGuard([dialogFrame] {
+            delete dialogFrame;
+        });
+        dialogFrame->setFrameShape(QFrame::StyledPanel);
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *dividers = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_Dividers"));
+        auto *reveal = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_RevealDividersOnHover"));
+        QVERIFY(dividers && reveal);
+        QVERIFY(!reveal->isEnabled());
+        dividers->setCurrentIndex(Settings::EnumDividers::Hidden);
+        Q_EMIT dividers->activated(Settings::EnumDividers::Hidden);
+        QVERIFY(reveal->isEnabled());
+        QVERIFY(reveal->isChecked());
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::dividers(), int(Settings::EnumDividers::Hidden));
+        AppearanceStyle *style = AppearanceStyle::installed();
+        QVERIFY(style);
+        QCOMPARE(style->options().dividers, AppearanceStyle::Dividers::Hidden);
+        QCOMPARE(style->radius(), int(AppearanceStyle::FollowStyle));
+
+        // Frames in the main window disappear; dialog frames stay.
+        QCOMPARE(frame->frameWidth(), 0);
+        QCOMPARE(dialogFrame->frameWidth(), styleFrameWidth);
+
+        // Hidden splitter handles keep their resize area and hover state.
+        auto *splitter = window.findChild<QSplitter *>(QStringLiteral("paneSplitter"));
+        QVERIFY(splitter);
+        QVERIFY(splitter->handle(1)->testAttribute(Qt::WA_Hover));
+        QVERIFY(splitter->handleWidth() > 0);
+        QCOMPARE(splitter->handle(1)->cursor().shape(), splitter->orientation() == Qt::Horizontal ? Qt::SplitHCursor : Qt::SplitVCursor);
+
+        const QPalette palette = QApplication::palette();
+        const QColor highlight = palette.color(QPalette::Active, QPalette::Highlight);
+        QStyleOption handle;
+        handle.palette = palette;
+        handle.rect = QRect(0, 0, 7, 40);
+        handle.state = QStyle::State_Enabled | QStyle::State_Active | QStyle::State_Horizontal;
+        const auto drawHandle = [&] {
+            QImage image(7, 40, QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            style->drawControl(QStyle::CE_Splitter, &handle, &painter, nullptr);
+            painter.end();
+            return image;
+        };
+        QImage image = drawHandle();
+        QCOMPARE(qAlpha(image.pixel(3, 20)), 0);
+        handle.state |= QStyle::State_MouseOver;
+        image = drawHandle();
+        QCOMPARE(image.pixelColor(3, 20), highlight);
+        QCOMPARE(qAlpha(image.pixel(0, 20)), 0);
+        QCOMPARE(style->styleHint(QStyle::SH_Table_GridLineColor, &handle), 0);
+
+        Settings::setRevealDividersOnHover(false);
+        window.applySettings();
+        QCOMPARE(qAlpha(drawHandle().pixel(3, 20)), 0);
+
+        // Thin dividers draw a single line and a one pixel frame.
+        Settings::setDividers(Settings::EnumDividers::Thin);
+        window.applySettings();
+        QCOMPARE(frame->frameWidth(), 1);
+        handle.state &= ~QStyle::State_MouseOver;
+        image = drawHandle();
+        QCOMPARE(image.pixel(3, 20) >> 24, 255u);
+        QVERIFY(image.pixelColor(3, 20) != highlight);
+        QCOMPARE(qAlpha(image.pixel(0, 20)), 0);
+        QCOMPARE(qAlpha(image.pixel(6, 20)), 0);
+
+        // The divider between the panes moves from the keyboard.
+        const QList<int> before = splitter->sizes();
+        window.actionCollection()->action(QStringLiteral("move_pane_divider_forward"))->trigger();
+        QList<int> after = splitter->sizes();
+        QVERIFY2(after.at(0) > before.at(0), qPrintable(QStringLiteral("%1 -> %2").arg(before.at(0)).arg(after.at(0))));
+        QCOMPARE(after.at(0) + after.at(1), before.at(0) + before.at(1));
+        window.actionCollection()->action(QStringLiteral("move_pane_divider_back"))->trigger();
+        after = splitter->sizes();
+        QVERIFY(qAbs(after.at(0) - before.at(0)) <= 1);
+
+        Settings::setDividers(Settings::EnumDividers::FollowStyle);
+        window.applySettings();
+        QCOMPARE(frame->frameWidth(), styleFrameWidth);
+    }
+
+    void selectionStylesKeepFocusAndSelectionDistinct()
+    {
+        const QString originalName = QApplication::style()->name();
+        auto restore = qScopeGuard([originalName] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            if (AppearanceStyle::installed()) {
+                QApplication::setStyle(QStyleFactory::create(originalName));
+            }
+        });
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.applySettings();
+        QVERIFY(!AppearanceStyle::installed());
+        QCOMPARE(AppearanceStyle::selectionStyle(), AppearanceStyle::Selection::FollowStyle);
+        QVERIFY(AppearanceStyle::hoverHighlight());
+        auto *details = window.activePane()->view()->findChild<DetailsView *>();
+        QVERIFY(details);
+        QVERIFY(!details->alternatingRowColors());
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *selection = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_SelectionStyle"));
+        auto *hover = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_HoverHighlight"));
+        auto *stripes = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_StripeDetailsRows"));
+        QVERIFY(selection && hover && stripes);
+        QCOMPARE(selection->count(), 5);
+        QVERIFY(hover->isChecked());
+        QVERIFY(!stripes->isChecked());
+        selection->setCurrentIndex(Settings::EnumSelectionStyle::Outlined);
+        Q_EMIT selection->activated(Settings::EnumSelectionStyle::Outlined);
+        stripes->setChecked(true);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(int(Settings::selectionStyle()), int(Settings::EnumSelectionStyle::Outlined));
+        QVERIFY(Settings::stripeDetailsRows());
+        QVERIFY(details->alternatingRowColors());
+        AppearanceStyle *style = AppearanceStyle::installed();
+        QVERIFY(style);
+        QCOMPARE(style->options().selection, AppearanceStyle::Selection::Outlined);
+        QCOMPARE(AppearanceStyle::selectionStyle(), AppearanceStyle::Selection::Outlined);
+
+        QPalette palette;
+        palette.setColor(QPalette::Base, Qt::white);
+        palette.setColor(QPalette::Text, Qt::black);
+        palette.setColor(QPalette::Highlight, QColor(0x3d, 0xae, 0xe9));
+        palette.setColor(QPalette::HighlightedText, Qt::white);
+        const QColor highlight = palette.color(QPalette::Highlight);
+        QStyleOptionViewItem item;
+        item.palette = palette;
+        item.state = QStyle::State_Enabled | QStyle::State_Active | QStyle::State_Selected;
+        item.viewItemPosition = QStyleOptionViewItem::OnlyOne;
+        const auto drawItem = [&](const QWidget *widget = nullptr) {
+            QImage image(40, 20, QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            item.rect = image.rect();
+            style->drawPrimitive(QStyle::PE_PanelItemViewItem, &item, &painter, widget);
+            painter.end();
+            return image;
+        };
+
+        // White selected text is unreadable on a light outline selection, so
+        // an unprepared item gets a filled selection.
+        QImage image = drawItem();
+        QCOMPARE(image.pixelColor(20, 10), highlight);
+        // Prepared items keep the normal text colour on a light fill with an outline.
+        AppearanceStyle::prepareItem(&item);
+        QCOMPARE(item.palette.color(QPalette::Active, QPalette::HighlightedText), QColor(Qt::black));
+        image = drawItem();
+        QVERIFY(qAlpha(image.pixel(20, 10)) > 0);
+        QVERIFY(qAlpha(image.pixel(20, 10)) < 128);
+        QCOMPARE(qAlpha(image.pixel(0, 10)), 255);
+        QCOMPARE(qAlpha(image.pixel(20, 0)), 255);
+
+        // A selection spanning columns has no outline between its cells.
+        item.viewItemPosition = QStyleOptionViewItem::Middle;
+        image = drawItem();
+        QVERIFY(qAlpha(image.pixel(0, 10)) < 128);
+        QCOMPARE(qAlpha(image.pixel(20, 0)), 255);
+        item.viewItemPosition = QStyleOptionViewItem::OnlyOne;
+
+        // The current item has a dashed ring with or without a selection.
+        const auto ringPixels = [](const QImage &image) {
+            int opaque = 0;
+            for (int x = 6; x < 34; ++x) {
+                opaque += qAlpha(image.pixel(x, 2)) > 128 ? 1 : 0;
+            }
+            return opaque;
+        };
+        item.state = QStyle::State_Enabled | QStyle::State_Active | QStyle::State_HasFocus;
+        image = drawItem();
+        QCOMPARE(qAlpha(image.pixel(20, 10)), 0);
+        const int dashes = ringPixels(image);
+        QVERIFY2(dashes > 4 && dashes < 28, qPrintable(QString::number(dashes)));
+        item.state |= QStyle::State_Selected;
+        QVERIFY(ringPixels(drawItem()) > 4);
+
+        // Item views leave focus to the panels.
+        QStyleOptionFocusRect focus;
+        focus.palette = palette;
+        focus.rect = QRect(0, 0, 40, 20);
+        focus.state = QStyle::State_Enabled | QStyle::State_HasFocus;
+        QImage focusImage(40, 20, QImage::Format_ARGB32_Premultiplied);
+        focusImage.fill(Qt::transparent);
+        {
+            QPainter painter(&focusImage);
+            style->drawPrimitive(QStyle::PE_FrameFocusRect, &focus, &painter, details);
+        }
+        QCOMPARE(focusImage, [] {
+            QImage empty(40, 20, QImage::Format_ARGB32_Premultiplied);
+            empty.fill(Qt::transparent);
+            return empty;
+        }());
+
+        // An accent bar marks the start of the selection.
+        Settings::setSelectionStyle(Settings::EnumSelectionStyle::AccentBar);
+        window.applySettings();
+        item.state = QStyle::State_Enabled | QStyle::State_Active | QStyle::State_Selected;
+        image = drawItem();
+        QCOMPARE(qAlpha(image.pixel(1, 10)), 255);
+        QVERIFY(qAlpha(image.pixel(20, 10)) < 128);
+        QVERIFY(qAlpha(image.pixel(20, 0)) < 128);
+        item.direction = Qt::RightToLeft;
+        image = drawItem();
+        QCOMPARE(qAlpha(image.pixel(38, 10)), 255);
+        QVERIFY(qAlpha(image.pixel(1, 10)) < 128);
+        item.direction = Qt::LeftToRight;
+
+        // Filled selections are square; rounded ones are not.
+        Settings::setSelectionStyle(Settings::EnumSelectionStyle::Filled);
+        window.applySettings();
+        image = drawItem();
+        QCOMPARE(image.pixelColor(0, 0), highlight);
+        QCOMPARE(image.pixelColor(20, 10), highlight);
+        Settings::setSelectionStyle(Settings::EnumSelectionStyle::Rounded);
+        window.applySettings();
+        image = drawItem();
+        QCOMPARE(qAlpha(image.pixel(0, 0)), 0);
+        QCOMPARE(image.pixelColor(20, 10), highlight);
+
+        // Hover highlighting can be turned off, with or without a selection style.
+        item.state = QStyle::State_Enabled | QStyle::State_Active | QStyle::State_MouseOver;
+        QVERIFY(qAlpha(drawItem().pixel(20, 10)) > 0);
+        Settings::setHoverHighlight(false);
+        window.applySettings();
+        QVERIFY(!AppearanceStyle::hoverHighlight());
+        QCOMPARE(qAlpha(drawItem().pixel(20, 10)), 0);
+        Settings::setSelectionStyle(Settings::EnumSelectionStyle::FollowStyle);
+        window.applySettings();
+        QVERIFY(AppearanceStyle::installed());
+        QVERIFY(!AppearanceStyle::hoverHighlight());
+
+        Settings::setStripeDetailsRows(false);
+        window.applySettings();
+        QVERIFY(!details->alternatingRowColors());
+    }
+
+    void treeLinesDrawSolidDottedOrHidden()
+    {
+        auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        QStandardItemModel model;
+        auto *parent = new QStandardItem(QStringLiteral("parent"));
+        parent->appendRow(new QStandardItem(QStringLiteral("first")));
+        parent->appendRow(new QStandardItem(QStringLiteral("second")));
+        model.appendRow(parent);
+        model.appendRow(new QStandardItem(QStringLiteral("sibling")));
+        QTreeView view;
+        view.setModel(&model);
+        view.setIndentation(20);
+        view.expandAll();
+        const QModelIndex first = model.index(0, 0, model.index(0, 0));
+        const QModelIndex second = model.index(1, 0, model.index(0, 0));
+
+        const auto draw = [&view](const QModelIndex &index, TreeLines::Style style, bool *handled = nullptr) {
+            QImage image(40, 20, QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            const bool result = TreeLines::drawBranches(&view, &painter, image.rect(), index, style);
+            painter.end();
+            if (handled) {
+                *handled = result;
+            }
+            return image;
+        };
+        bool handled = true;
+        draw(first, TreeLines::Style::FollowStyle, &handled);
+        QVERIFY(!handled);
+        Settings::setTreeLines(Settings::EnumTreeLines::Dotted);
+        QCOMPARE(TreeLines::configured(), TreeLines::Style::Dotted);
+
+        // The item's branch is in the inner cell; its parent's sibling line
+        // continues in the outer cell.
+        QImage image = draw(first, TreeLines::Style::Solid, &handled);
+        QVERIFY(handled);
+        QVERIFY(qAlpha(image.pixel(30, 2)) > 0);
+        QVERIFY(qAlpha(image.pixel(30, 18)) > 0);
+        QVERIFY(qAlpha(image.pixel(36, 10)) > 0);
+        QVERIFY(qAlpha(image.pixel(10, 3)) > 0);
+        QCOMPARE(qAlpha(image.pixel(25, 3)), 0);
+        // The last child has no line below it.
+        image = draw(second, TreeLines::Style::Solid);
+        QVERIFY(qAlpha(image.pixel(30, 2)) > 0);
+        QCOMPARE(qAlpha(image.pixel(30, 18)), 0);
+
+        image = draw(first, TreeLines::Style::Dotted);
+        QVERIFY((qAlpha(image.pixel(30, 2)) > 0) != (qAlpha(image.pixel(30, 3)) > 0));
+        QVERIFY((qAlpha(image.pixel(36, 10)) > 0) != (qAlpha(image.pixel(37, 10)) > 0));
+
+        image = draw(first, TreeLines::Style::Hidden, &handled);
+        QVERIFY(handled);
+        for (int x = 0; x < image.width(); ++x) {
+            for (int y = 0; y < image.height(); ++y) {
+                QCOMPARE(qAlpha(image.pixel(x, y)), 0);
+            }
+        }
+    }
+
+    void treeLinesUseSingleDepthOrFolderColours()
+    {
+        auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            TreeLines::clearFolderColorCache();
+        });
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("parent")));
+        const QString parentPath = root.filePath(QStringLiteral("parent"));
+
+        QStandardItemModel model;
+        auto *parent = new QStandardItem(QStringLiteral("parent"));
+        parent->setData(QVariant::fromValue(KFileItem(QUrl::fromLocalFile(parentPath))), KDirModel::FileItemRole);
+        auto *child = new QStandardItem(QStringLiteral("child"));
+        child->appendRow(new QStandardItem(QStringLiteral("grandchild")));
+        child->appendRow(new QStandardItem(QStringLiteral("last")));
+        parent->appendRow(child);
+        parent->appendRow(new QStandardItem(QStringLiteral("second")));
+        model.appendRow(parent);
+        QTreeView view;
+        view.setModel(&model);
+        view.setIndentation(20);
+        view.expandAll();
+        QPalette palette = view.palette();
+        palette.setColor(QPalette::Base, Qt::white);
+        palette.setColor(QPalette::Text, Qt::black);
+        view.setPalette(palette);
+        const QModelIndex grandchild = model.index(0, 0, model.index(0, 0, model.index(0, 0)));
+
+        // Cells from the left: root level, the parent's children, the item.
+        const auto draw = [&view, &grandchild](const TreeLines::Colors &colors) {
+            QImage image(60, 20, QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            TreeLines::drawBranches(&view, &painter, image.rect(), grandchild, TreeLines::Style::Solid, colors);
+            return image;
+        };
+        const auto isGrey = [](QRgb pixel) {
+            return qAlpha(pixel) > 0 && qAbs(qRed(pixel) - qGreen(pixel)) < 8 && qAbs(qGreen(pixel) - qBlue(pixel)) < 8;
+        };
+
+        QImage image = draw({});
+        QVERIFY(isGrey(image.pixel(50, 2)));
+        QVERIFY(isGrey(image.pixel(30, 2)));
+
+        TreeLines::Colors single{TreeLines::Coloring::Single, QColor(0, 120, 0), {}};
+        image = draw(single);
+        QCOMPARE(QColor(image.pixel(50, 2)), QColor(0, 120, 0));
+        QCOMPARE(QColor(image.pixel(30, 2)), QColor(0, 120, 0));
+
+        // Depth colours repeat; a pale colour is darkened against white.
+        TreeLines::Colors depth{TreeLines::Coloring::Depth, {}, {QColor(200, 0, 0), QColor(0, 0, 200), QColor(255, 255, 200)}};
+        image = draw(depth);
+        QCOMPARE(QColor(image.pixel(30, 2)), QColor(0, 0, 200));
+        const QColor adjusted(image.pixel(50, 2));
+        QVERIFY2(ColorSchemes::contrastRatio(adjusted, Qt::white) >= 3.0, qPrintable(adjusted.name()));
+        QVERIFY(adjusted.red() > adjusted.blue());
+        depth.palette = {QColor(200, 0, 0), QColor(0, 0, 200)};
+        image = draw(depth);
+        QCOMPARE(QColor(image.pixel(50, 2)), QColor(200, 0, 0));
+
+        // Lines take the colour of the folder they belong to; folders
+        // without a colour keep neutral lines.
+        TreeLines::Colors folder{TreeLines::Coloring::Folder, {}, {}};
+        image = draw(folder);
+        QVERIFY(isGrey(image.pixel(50, 2)));
+        QVERIFY(isGrey(image.pixel(30, 2)));
+        QVERIFY(FolderMetadata::setFolderColor(parentPath, QStringLiteral("#c00000")));
+        image = draw(folder);
+        QVERIFY2(isGrey(image.pixel(30, 2)), "The cached colour should be used until it is cleared");
+        TreeLines::clearFolderColorCache();
+        image = draw(folder);
+        QCOMPARE(QColor(image.pixel(30, 2)), QColor(0xc0, 0, 0));
+        QVERIFY(isGrey(image.pixel(50, 2)));
+
+        Settings::setTreeLineColors(Settings::EnumTreeLineColors::Depth);
+        Settings::setTreeLinePalette({QStringLiteral("#112233"), QStringLiteral("not a colour")});
+        const TreeLines::Colors configured = TreeLines::configuredColors();
+        QCOMPARE(configured.coloring, TreeLines::Coloring::Depth);
+        QCOMPARE(configured.palette, QList<QColor>{QColor(0x11, 0x22, 0x33)});
+    }
+
+    void colourListEditorAddsRemovesAndWarnsAboutContrast()
+    {
+        {
+            MainWindow window;
+            SettingsDialog dialog(placesOf(window), &window);
+            auto *mode = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TreeLineColors"));
+            auto *single = dialog.findChild<KColorButton *>(QStringLiteral("kcfg_TreeLineColor"));
+            auto *depths = dialog.findChild<ColorListEditor *>(QStringLiteral("kcfg_TreeLinePalette"));
+            QVERIFY(mode && single && depths);
+            QVERIFY(!single->isEnabled() && !depths->isEnabled());
+            QCOMPARE(depths->colors().size(), 6);
+            mode->setCurrentIndex(Settings::EnumTreeLineColors::Single);
+            QVERIFY(single->isEnabled() && !depths->isEnabled());
+            mode->setCurrentIndex(Settings::EnumTreeLineColors::Depth);
+            QVERIFY(!single->isEnabled() && depths->isEnabled());
+        }
+        ColorListEditor editor;
+        editor.setBackground(Qt::white);
+        QSignalSpy changed(&editor, &ColorListEditor::colorsChanged);
+        editor.setColors({QStringLiteral("#102030"), QStringLiteral("bogus"), QStringLiteral("#405060")});
+        QCOMPARE(editor.colors(), (QStringList{QStringLiteral("#102030"), QStringLiteral("#405060")}));
+        QCOMPARE(changed.count(), 1);
+        auto *add = editor.findChild<QToolButton *>(QStringLiteral("addColour"));
+        auto *remove = editor.findChild<QToolButton *>(QStringLiteral("removeColour"));
+        auto *notice = editor.findChild<KMessageWidget *>(QStringLiteral("colourListContrastNotice"));
+        QVERIFY(add && remove && notice);
+        QVERIFY(notice->isHidden());
+
+        add->click();
+        QCOMPARE(editor.colors().size(), 3);
+        QCOMPARE(editor.colors().constLast(), QStringLiteral("#102030"));
+        QCOMPARE(changed.count(), 2);
+        remove->click();
+        remove->click();
+        QCOMPARE(editor.colors(), QStringList{QStringLiteral("#102030")});
+        QVERIFY(!remove->isEnabled());
+
+        editor.setColors(QStringList(ColorListEditor::MaximumColors + 2, QStringLiteral("#000000")));
+        QCOMPARE(editor.colors().size(), ColorListEditor::MaximumColors);
+        QVERIFY(!add->isEnabled());
+
+        editor.setColors({QStringLiteral("#000000"), QStringLiteral("#fafaf0")});
+        QVERIFY(!notice->isHidden());
+        QVERIFY2(notice->text().contains(QLatin1Char('2')), qPrintable(notice->text()));
+        editor.setBackground(Qt::black);
+        QVERIFY(!notice->isHidden());
+        QVERIFY2(notice->text().contains(QLatin1Char('1')), qPrintable(notice->text()));
+        editor.setColors({QStringLiteral("#fafaf0")});
+        QVERIFY(notice->isHidden());
+    }
+
+    void paneTintFollowsTheChosenPanesAndScheme()
+    {
+        auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            ColorSchemes::apply(QString());
+        });
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        const QList<Pane *> panes = window.findChildren<Pane *>();
+        QCOMPARE(panes.size(), 2);
+        Pane *active = panes.at(0)->isActive() ? panes.at(0) : panes.at(1);
+        Pane *inactive = active == panes.at(0) ? panes.at(1) : panes.at(0);
+        QVERIFY(active->isActive() && !inactive->isActive());
+        const auto viewBase = [](Pane *pane) {
+            return pane->view()->palette().color(QPalette::Active, QPalette::Base);
+        };
+        const QColor base = window.palette().color(QPalette::Active, QPalette::Base);
+        QCOMPARE(viewBase(active), base);
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *tint = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_PaneTint"));
+        auto *color = dialog.findChild<KColorButton *>(QStringLiteral("kcfg_PaneTintColor"));
+        auto *strength = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_PaneTintStrength"));
+        QVERIFY(tint && color && strength);
+        QVERIFY(!color->isEnabled() && !strength->isEnabled());
+        tint->setCurrentIndex(Settings::EnumPaneTint::InactivePane);
+        QVERIFY(color->isEnabled() && strength->isEnabled());
+        color->setColor(QColor(200, 0, 0));
+        strength->setValue(20);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::paneTint(), int(Settings::EnumPaneTint::InactivePane));
+        QCOMPARE(Settings::paneTintColor(), QColor(200, 0, 0));
+
+        const QColor tinted = ColorSchemes::paneTint(window.palette(), QColor(200, 0, 0), 20).value(QPalette::Base);
+        QVERIFY(tinted != base);
+        QCOMPARE(viewBase(inactive), tinted);
+        QCOMPARE(viewBase(active), base);
+        // Text and selection colours are not tinted.
+        QCOMPARE(inactive->view()->palette().color(QPalette::Active, QPalette::Text), window.palette().color(QPalette::Active, QPalette::Text));
+
+        // The tint moves with the active pane.
+        active->setActive(false);
+        inactive->setActive(true);
+        QCOMPARE(viewBase(active), tinted);
+        QCOMPARE(viewBase(inactive), base);
+
+        // The tint is recomputed over a new colour scheme.
+        auto *combo = dialog.findChild<ColorSchemeCombo *>(QStringLiteral("kcfg_ColorScheme"));
+        combo->setCurrentIndex(combo->findData(QLatin1String(ColorSchemes::DarkPreset)));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        const QPalette dark = ColorSchemes::palette(QLatin1String(ColorSchemes::DarkPreset));
+        QTRY_COMPARE(viewBase(inactive), dark.color(QPalette::Active, QPalette::Base));
+        QTRY_COMPARE(viewBase(active), ColorSchemes::paneTint(dark, QColor(200, 0, 0), 20).value(QPalette::Base));
+
+        tint->setCurrentIndex(Settings::EnumPaneTint::None);
+        // The dialog tracks user selection in plain combo boxes.
+        Q_EMIT tint->activated(tint->currentIndex());
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(viewBase(active), dark.color(QPalette::Active, QPalette::Base));
+    }
+
     void pagesGroupFeaturesInTabs()
     {
         MainWindow window;
@@ -235,6 +1151,7 @@ private Q_SLOTS:
                               QStringLiteral("Translation"),
                               QStringLiteral("Backup"),
                               QStringLiteral("Interface"),
+                              QStringLiteral("Themes"),
                               QStringLiteral("View"),
                               QStringLiteral("Context Menu"),
                               QStringLiteral("Archives"),
@@ -266,6 +1183,22 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("ShowFreeSpace")), QStringLiteral("Status and Location Bars"));
         QCOMPARE(tabOf(QStringLiteral("StatusBarIndicatorOrder")), QStringLiteral("Status and Location Bars"));
         QCOMPARE(tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("configureMainToolbarEntries"))), QStringLiteral("Toolbars"));
+        QCOMPARE(tabOf(QStringLiteral("ColorScheme")), QStringLiteral("Colour Scheme"));
+        QCOMPARE(tabOf(QStringLiteral("AccentColor")), QStringLiteral("Colour Scheme"));
+        QCOMPARE(tabOf(QStringLiteral("PaneTint")), QStringLiteral("Colour Scheme"));
+        QCOMPARE(tabOf(QStringLiteral("BackgroundBlur")), QStringLiteral("Effects"));
+        QCOMPARE(tabOf(QStringLiteral("PaneOpacity")), QStringLiteral("Effects"));
+        QCOMPARE(tabOf(QStringLiteral("CornerRadius")), QStringLiteral("Effects"));
+        QCOMPARE(tabOf(QStringLiteral("Dividers")), QStringLiteral("Lines"));
+        QCOMPARE(tabOf(QStringLiteral("RevealDividersOnHover")), QStringLiteral("Lines"));
+        QCOMPARE(tabOf(QStringLiteral("TreeLines")), QStringLiteral("Lines"));
+        QCOMPARE(tabOf(QStringLiteral("TreeLineColors")), QStringLiteral("Lines"));
+        QCOMPARE(tabOf(QStringLiteral("TreeLineColor")), QStringLiteral("Lines"));
+        QCOMPARE(tabOf(QStringLiteral("TreeLinePalette")), QStringLiteral("Lines"));
+        QCOMPARE(tabOf(QStringLiteral("SelectionStyle")), QStringLiteral("Highlights"));
+        QCOMPARE(tabOf(QStringLiteral("HoverHighlight")), QStringLiteral("Highlights"));
+        QCOMPARE(tabOf(QStringLiteral("StripeDetailsRows")), QStringLiteral("Highlights"));
+        QCOMPARE(tabOf(QStringLiteral("CustomColors")), QStringLiteral("Custom Colours"));
         QCOMPARE(tabOf(QStringLiteral("DefaultViewMode")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("ShowFileListMinimap")), QStringLiteral("General"));
         QCOMPARE(tabOf(QStringLiteral("FileListMinimapWidth")), QStringLiteral("General"));
@@ -274,6 +1207,10 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("DefaultSelectionMarkers")), QStringLiteral("Selection"));
         QCOMPARE(tabOf(QStringLiteral("DefaultFilterScope")), QStringLiteral("Filters"));
         QCOMPARE(tabOf(QStringLiteral("CompactIconSize")), QStringLiteral("Compact"));
+        QCOMPARE(tabOf(QStringLiteral("CardPreviewSize")), QStringLiteral("Cards"));
+        QCOMPARE(tabOf(QStringLiteral("CardColumns")), QStringLiteral("Cards"));
+        QCOMPARE(tabOf(QStringLiteral("CardsDensity")), QStringLiteral("Cards"));
+        QCOMPARE(tabOf(QStringLiteral("CardInformation")), QStringLiteral("Cards"));
         QCOMPARE(tabOf(QStringLiteral("AutomaticLocalFolderSizes")), QStringLiteral("Folder Formats"));
         QCOMPARE(tabOf(QStringLiteral("ShowFilePins")), QStringLiteral("Metadata"));
         QCOMPARE(tabOf(QStringLiteral("ShowSizeColumn")), QStringLiteral("Details"));
@@ -665,6 +1602,59 @@ private Q_SLOTS:
         auto *delegate = qobject_cast<KFileItemDelegate *>(compact->itemDelegate());
         QVERIFY(delegate);
         QCOMPARE(delegate->showInformation(), (KFileItemDelegate::InformationList{KFileItemDelegate::Size, KFileItemDelegate::Owner}));
+    }
+
+    void cardViewSettingsApply()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setCardPreviewSize(96);
+            Settings::self()->setCardColumns(0);
+            Settings::self()->setCardsDensity(Settings::EnumCardsDensity::Normal);
+            Settings::self()->setCardInformation({QStringLiteral("size"),
+                                                  QStringLiteral("modificationTime"),
+                                                  QStringLiteral("friendlyMimeType"),
+                                                  QStringLiteral("tags"),
+                                                  QStringLiteral("rating"),
+                                                  QStringLiteral("label")});
+            Settings::self()->save();
+        });
+        MainWindow window;
+        window.openUrls({m_a});
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_CardPreviewSize"))->setValue(128);
+        auto *columns = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_CardColumns"));
+        QVERIFY(columns);
+        QCOMPARE(columns->specialValueText(), QStringLiteral("Automatic"));
+        auto *density = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_CardsDensity"));
+        QVERIFY(density);
+        density->setCurrentIndex(int(Density::Items::VeryCompact));
+        Q_EMIT density->activated(density->currentIndex());
+        auto *information = dialog.findChild<IconInformationList *>(QStringLiteral("kcfg_CardInformation"));
+        QVERIFY(information);
+        QStringList offered;
+        for (int row = 0; row < information->count(); ++row) {
+            offered.append(information->item(row)->data(Qt::UserRole).toString());
+        }
+        QVERIFY(offered.contains(QStringLiteral("tags")));
+        QVERIFY(offered.contains(QStringLiteral("rating")));
+        QVERIFY(offered.contains(QStringLiteral("label")));
+        QVERIFY(!dialog.findChild<IconInformationList *>(QStringLiteral("kcfg_IconInformation"))->findItems(QStringLiteral("Tags"), Qt::MatchExactly).size());
+        information->setInformation({QStringLiteral("rating"), QStringLiteral("size")});
+        Q_EMIT information->informationChanged();
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::cardPreviewSize(), 128);
+        FolderView *view = window.activePane()->view();
+        view->setViewMode(FolderView::ViewMode::Cards);
+        auto *cards = qobject_cast<QListView *>(view->currentView());
+        QVERIFY(cards);
+        QCOMPARE(cards->iconSize(), QSize(128, 128));
+        auto *delegate = qobject_cast<CardDelegate *>(cards->itemDelegate());
+        QVERIFY(delegate);
+        QCOMPARE(delegate->previewSize(), 128);
+        QCOMPARE(delegate->itemSpace(), 0);
+        QCOMPARE(delegate->information(), (QStringList{QStringLiteral("rating"), QStringLiteral("size")}));
     }
 
     void selectionFiltersCanBeManagedInSettings()
@@ -1099,6 +2089,642 @@ private Q_SLOTS:
         window.applySettings();
         QCOMPARE(toolbar->contentsMargins(), initialToolbar);
         QCOMPARE(navigation->contentsMargins(), initialNavigation);
+    }
+
+    void customFontsApplyToListsTreesTabsAndStatusBars()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        const QFont plasma = QApplication::font();
+        const QList<FolderTree *> trees = window.findChildren<FolderTree *>();
+        QVERIFY(!trees.isEmpty());
+        const auto fontsAre = [&](const QFont &list, const QFont &tree, const QFont &tabs, const QFont &status) {
+            for (Pane *pane : {window.activePane(), window.inactivePane()}) {
+                if (pane->view()->currentView()->font() != list || pane->findChild<QTabBar *>()->font() != tabs || pane->statusBarWidget()->font() != status) {
+                    return false;
+                }
+            }
+            for (FolderTree *folderTree : trees) {
+                if (folderTree->font() != tree) {
+                    return false;
+                }
+            }
+            return window.statusBar()->font() == status;
+        };
+        QVERIFY(fontsAre(plasma, plasma, plasma, plasma));
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        const QStringList entries{QStringLiteral("FileListFont"), QStringLiteral("FolderTreeFont"), QStringLiteral("TabFont"), QStringLiteral("StatusBarFont")};
+        QList<FontOverrideChooser *> choosers;
+        for (const QString &entry : entries) {
+            choosers.append(dialog.findChild<FontOverrideChooser *>(QStringLiteral("kcfg_") + entry));
+            QVERIFY2(choosers.last(), qPrintable(entry));
+        }
+        QFont tabs(plasma.family(), 14);
+        tabs.setItalic(true);
+        const QList<QFont> custom{QFont(plasma.family(), 17), QFont(plasma.family(), 15), tabs, QFont(plasma.family(), 7)};
+        for (int index = 0; index < choosers.size(); ++index) {
+            choosers[index]->setFontSetting(AppFonts::toSetting(custom[index]));
+        }
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(AppFonts::fromSetting(Settings::fileListFont()).pointSize(), 17);
+        QVERIFY(AppFonts::fromSetting(Settings::tabFont()).italic());
+        const auto applied = [&plasma](const QString &setting) {
+            return AppFonts::fromSetting(setting).resolve(plasma);
+        };
+        QVERIFY(
+            fontsAre(applied(Settings::fileListFont()), applied(Settings::folderTreeFont()), applied(Settings::tabFont()), applied(Settings::statusBarFont())));
+
+        for (FontOverrideChooser *chooser : std::as_const(choosers)) {
+            chooser->setFontSetting(QString());
+        }
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::fileListFont().isEmpty());
+        QVERIFY(Settings::statusBarFont().isEmpty());
+        QVERIFY(fontsAre(plasma, plasma, plasma, plasma));
+    }
+
+    void spacingScaleAppliesToBarsTabsAndPanelsButNotDialogs()
+    {
+        MainWindow window;
+        window.openUrls({m_a});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        auto *tabBar = window.activePane()->findChild<QTabBar *>();
+        QVERIFY(tabBar && tabBar->count() > 0);
+        QLayout *navigation = window.activePane()->navigationBar()->layout();
+        QLayout *paneStatus = window.activePane()->statusBarWidget()->layout();
+        const QSize tab = tabBar->tabRect(0).size();
+        const QMargins navigationMargins = navigation->contentsMargins();
+        const QMargins paneStatusMargins = paneStatus->contentsMargins();
+        QDialog dialog;
+        const auto spacing = [](const QWidget *widget) {
+            return QApplication::style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing, nullptr, widget);
+        };
+        const int windowSpacing = spacing(window.centralWidget());
+        const int dialogSpacing = spacing(&dialog);
+        QVERIFY(windowSpacing > 0);
+
+        Settings::setSpacingScale(200);
+        window.applySettings();
+        QVERIFY(tabBar->tabRect(0).height() > tab.height());
+        QCOMPARE(spacing(window.centralWidget()), 2 * windowSpacing);
+        QCOMPARE(spacing(&dialog), dialogSpacing);
+        QCOMPARE(navigation->contentsMargins(), navigationMargins * 2);
+        QCOMPARE(paneStatus->contentsMargins(), paneStatusMargins * 2);
+
+        // Explicit bar densities keep their spacing.
+        Settings::setBarDensity(Settings::EnumBarDensity::VeryCompact);
+        window.applySettings();
+        QCOMPARE(navigation->contentsMargins(), QMargins());
+
+        Settings::setBarDensity(Settings::EnumBarDensity::Normal);
+        Settings::setSpacingScale(100);
+        window.applySettings();
+        QCOMPARE(tabBar->tabRect(0).size(), tab);
+        QCOMPARE(spacing(window.centralWidget()), windowSpacing);
+        QCOMPARE(navigation->contentsMargins(), navigationMargins);
+        QCOMPARE(paneStatus->contentsMargins(), paneStatusMargins);
+    }
+
+    void tabShapesColoursAndStatusBarStylesApply()
+    {
+        const QString originalName = QApplication::style()->name();
+        MainWindow window;
+        auto *colors = window.findChild<TabColors *>();
+        QVERIFY(colors);
+        auto restore = qScopeGuard([&] {
+            colors->setColor(m_a, LabelColor::None);
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            if (AppearanceStyle::installed()) {
+                QApplication::setStyle(QStyleFactory::create(originalName));
+            }
+        });
+        window.openUrls({m_a});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        const QColor red = LabelColors::rgb(LabelColor::Red);
+        colors->setColor(m_a, LabelColor::Red);
+        auto *bar = window.activePane()->findChild<QTabBar *>();
+        QVERIFY(bar && bar->count() > 0);
+        const int current = bar->currentIndex();
+        QTRY_COMPARE(bar->tabTextColor(current), red);
+        QVERIFY(!bar->tabData(current).isValid());
+        const QImage plainStatus = window.statusBar()->grab().toImage();
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        const auto choose = [&dialog](const QString &entry, int index) {
+            auto *combo = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_") + entry);
+            QVERIFY2(combo, qPrintable(entry));
+            combo->setCurrentIndex(index);
+            Q_EMIT combo->activated(index);
+        };
+        auto *indicator = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TabIndicator"));
+        QVERIFY(indicator && !indicator->isEnabled());
+        choose(QStringLiteral("TabShape"), Settings::EnumTabShape::Flat);
+        QVERIFY(indicator->isEnabled());
+        choose(QStringLiteral("TabIndicator"), Settings::EnumTabIndicator::None);
+        choose(QStringLiteral("TabColorStrength"), Settings::EnumTabColorStrength::Strong);
+        choose(QStringLiteral("StatusBarStyle"), Settings::EnumStatusBarStyle::Shaded);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(int(Settings::tabShape()), int(Settings::EnumTabShape::Flat));
+        AppearanceStyle *style = AppearanceStyle::installed();
+        QVERIFY(style);
+
+        // Strong tab colours fill the tab, and its text stays readable on the fill.
+        const QColor windowColor = bar->palette().color(QPalette::Window);
+        const QColor fill = AppearanceStyle::tabColorFill(windowColor, red, AppearanceStyle::TabColorStrength::Strong, true);
+        QCOMPARE(bar->tabData(current).value<QColor>(), red);
+        QVERIFY(ColorSchemes::contrastRatio(bar->tabTextColor(current), fill) >= 4.5);
+
+        const QPalette palette = QApplication::palette();
+        const QColor highlight = palette.color(QPalette::Active, QPalette::Highlight);
+        QStyleOptionTab tab;
+        tab.palette = palette;
+        tab.shape = QTabBar::RoundedNorth;
+        tab.state = QStyle::State_Enabled | QStyle::State_Active | QStyle::State_Selected;
+        const auto drawTab = [&](int tabIndex) {
+            QImage image(40, 20, QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            QPainter painter(&image);
+            tab.rect = image.rect();
+            tab.tabIndex = tabIndex;
+            style->drawControl(QStyle::CE_TabBarTabShape, &tab, &painter, bar);
+            painter.end();
+            return image;
+        };
+        // Flat tabs have no fill but keep an indicator, even when indicators are off.
+        QImage image = drawTab(-1);
+        QCOMPARE(qAlpha(image.pixel(20, 8)), 0);
+        QCOMPARE(image.pixelColor(20, 18), highlight);
+        image = drawTab(current);
+        QCOMPARE(image.pixelColor(20, 8).rgb(), fill.rgb());
+
+        // Square tabs fill their corners; a thick indicator is twice as tall.
+        Settings::setTabShape(Settings::EnumTabShape::Square);
+        Settings::setTabIndicator(Settings::EnumTabIndicator::ThickLine);
+        window.applySettings();
+        image = drawTab(-1);
+        QVERIFY(qAlpha(image.pixel(1, 1)) > 0);
+        QCOMPARE(image.pixelColor(20, 16), highlight);
+        Settings::setTabIndicator(Settings::EnumTabIndicator::None);
+        window.applySettings();
+        QVERIFY(drawTab(-1).pixelColor(20, 18) != highlight);
+
+        // Coloured text leaves the tab unfilled.
+        Settings::setTabColorStrength(Settings::EnumTabColorStrength::Text);
+        window.applySettings();
+        QVERIFY(!bar->tabData(current).isValid());
+        QCOMPARE(bar->tabTextColor(current), red);
+
+        // Shaded status bars get a background and a divider.
+        const QImage shadedStatus = window.statusBar()->grab().toImage();
+        QCOMPARE(shadedStatus.size(), plainStatus.size());
+        QVERIFY(shadedStatus.pixelColor(shadedStatus.width() / 2, 0) != plainStatus.pixelColor(plainStatus.width() / 2, 0));
+        QVERIFY(shadedStatus.pixelColor(1, shadedStatus.height() / 2) != plainStatus.pixelColor(1, plainStatus.height() / 2));
+        Settings::setStatusBarStyle(Settings::EnumStatusBarStyle::FollowStyle);
+        window.applySettings();
+        const QImage restoredStatus = window.statusBar()->grab().toImage();
+        QCOMPARE(restoredStatus.pixelColor(restoredStatus.width() / 2, 0), plainStatus.pixelColor(plainStatus.width() / 2, 0));
+        QCOMPARE(restoredStatus.pixelColor(1, restoredStatus.height() / 2), plainStatus.pixelColor(1, plainStatus.height() / 2));
+    }
+
+    void animationsFollowPlasmaReduceOrTurnOff()
+    {
+        const QString originalName = QApplication::style()->name();
+        auto restore = qScopeGuard([originalName] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            if (AppearanceStyle::installed()) {
+                QApplication::setStyle(QStyleFactory::create(originalName));
+            }
+        });
+        MainWindow window;
+        const auto duration = [&window] {
+            return window.style()->styleHint(QStyle::SH_Widget_Animation_Duration, nullptr, &window);
+        };
+        const int plasma = duration();
+        QVERIFY(plasma > 0);
+        QVERIFY(window.dockOptions().testFlag(QMainWindow::AnimatedDocks));
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *animations = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_Animations"));
+        QVERIFY(animations);
+        animations->setCurrentIndex(Settings::EnumAnimations::Reduced);
+        Q_EMIT animations->activated(Settings::EnumAnimations::Reduced);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(duration(), plasma / 2);
+        QVERIFY(window.style()->styleHint(QStyle::SH_Widget_Animate, nullptr, &window));
+        QVERIFY(!window.dockOptions().testFlag(QMainWindow::AnimatedDocks));
+
+        Settings::setAnimations(Settings::EnumAnimations::Off);
+        window.applySettings();
+        QCOMPARE(duration(), 0);
+        QVERIFY(!window.style()->styleHint(QStyle::SH_Widget_Animate, nullptr, &window));
+        QVERIFY(!window.dockOptions().testFlag(QMainWindow::AnimatedDocks));
+
+        Settings::setAnimations(Settings::EnumAnimations::FollowPlasma);
+        window.applySettings();
+        QCOMPARE(duration(), plasma);
+        QVERIFY(window.dockOptions().testFlag(QMainWindow::AnimatedDocks));
+    }
+
+    void highContrastSuspendsEffectsUnlessTurnedOff()
+    {
+        const QString originalName = QApplication::style()->name();
+        auto restore = qScopeGuard([originalName] {
+            ColorSchemes::setHighContrastPreferredForTesting(std::nullopt);
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            ColorSchemes::apply(QString());
+            if (AppearanceStyle::installed()) {
+                QApplication::setStyle(QStyleFactory::create(originalName));
+            }
+        });
+        ColorSchemes::setHighContrastPreferredForTesting(false);
+        Settings::setPaneTint(Settings::EnumPaneTint::AllPanes);
+        Settings::setPaneTintColor(QColor(200, 0, 0));
+        Settings::setPaneTintStrength(20);
+        Settings::setCornerRadius(Settings::EnumCornerRadius::Large);
+        Settings::setTabColorStrength(Settings::EnumTabColorStrength::Strong);
+        MainWindow window;
+        Pane *pane = window.activePane();
+        const QColor base = window.palette().color(QPalette::Active, QPalette::Base);
+        const auto viewBase = [pane] {
+            return pane->view()->palette().color(QPalette::Active, QPalette::Base);
+        };
+        QVERIFY(viewBase() != base);
+        QCOMPARE(AppearanceStyle::configured().radius, 8);
+        QCOMPARE(AppearanceStyle::configured().tabColorStrength, AppearanceStyle::TabColorStrength::Strong);
+
+        ColorSchemes::setHighContrastPreferredForTesting(true);
+        window.applySettings();
+        QCOMPARE(viewBase(), base);
+        QCOMPARE(AppearanceStyle::configured().radius, AppearanceStyle::FollowStyle);
+        QCOMPARE(AppearanceStyle::configured().tabColorStrength, AppearanceStyle::TabColorStrength::Text);
+        QVERIFY2(window.statusBar()->currentMessage().contains(QLatin1String("suspends")), qPrintable(window.statusBar()->currentMessage()));
+        // The saved options are kept for when high contrast is turned off.
+        QCOMPARE(int(Settings::paneTint()), int(Settings::EnumPaneTint::AllPanes));
+
+        Settings::setSuspendEffectsInHighContrast(false);
+        window.applySettings();
+        QVERIFY(viewBase() != base);
+        QCOMPARE(AppearanceStyle::configured().radius, 8);
+
+        Settings::setSuspendEffectsInHighContrast(true);
+        ColorSchemes::setHighContrastPreferredForTesting(false);
+        window.applySettings();
+        QVERIFY(viewBase() != base);
+    }
+
+    void resetAppearanceRestoresPlasmaDefaultsButKeepsFolderColourRules()
+    {
+        const QString originalName = QApplication::style()->name();
+        auto restore = qScopeGuard([originalName] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            ColorSchemes::apply(QString());
+            if (AppearanceStyle::installed()) {
+                QApplication::setStyle(QStyleFactory::create(originalName));
+            }
+        });
+        FolderColorRules::Rule archiveRule;
+        archiveRule.match = FolderColorRules::Match::Name;
+        archiveRule.pattern = QStringLiteral("*-archive");
+        archiveRule.color = QColor(0xda, 0x44, 0x53);
+        const QStringList rules{FolderColorRules::entry(archiveRule)};
+        const auto customize = [&rules] {
+            Settings::setColorScheme(QLatin1String(ColorSchemes::DarkPreset));
+            Settings::setAccentColor(QStringLiteral("#27ae60"));
+            Settings::setCustomColors({QStringLiteral("Window=#202020")});
+            Settings::setPaneTint(Settings::EnumPaneTint::ActivePane);
+            Settings::setPaneTintColor(QColor(200, 0, 0));
+            Settings::setBackgroundBlur(true);
+            Settings::setWindowOpacity(80);
+            Settings::setCornerRadius(Settings::EnumCornerRadius::Custom);
+            Settings::setCustomCornerRadius(12);
+            Settings::setTreeLinePalette({QStringLiteral("#ff0000")});
+            Settings::setFileListFont(AppFonts::toSetting(QFont(QStringLiteral("Noto Sans"), 14)));
+            Settings::setSpacingScale(150);
+            Settings::setTabShape(Settings::EnumTabShape::Flat);
+            Settings::setAnimations(Settings::EnumAnimations::Off);
+            Settings::setSuspendEffectsInHighContrast(false);
+            Settings::setFolderColorRules(rules);
+            Settings::setDimInactivePane(true);
+            Settings::self()->save();
+        };
+        customize();
+        MainWindow window;
+        {
+            SettingsDialog dialog(placesOf(window), &window);
+            connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+            auto *reset = dialog.findChild<QPushButton *>(QStringLiteral("resetAppearance"));
+            QVERIFY(reset);
+            reset->click();
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+        }
+        // Every changed appearance option was reset by the dialog.
+        QVERIFY(Settings::colorScheme().isEmpty());
+        QVERIFY(Settings::accentColor().isEmpty());
+        QVERIFY(Settings::customColors().isEmpty());
+        QCOMPARE(int(Settings::cornerRadius()), int(Settings::EnumCornerRadius::FollowStyle));
+        QCOMPARE(Settings::spacingScale(), 100);
+        QVERIFY(Settings::fileListFont().isEmpty());
+        QVERIFY(Settings::suspendEffectsInHighContrast());
+        QVERIFY2(AppearanceDefaults::reset(Settings::self()).isEmpty(), "An appearance option has no editor that the reset button sets");
+        QCOMPARE(Settings::folderColorRules(), rules);
+        QVERIFY(Settings::dimInactivePane());
+        QCOMPARE(AppearanceStyle::configured().spacingScale, 100);
+
+        // The command line reset saves and applies the same defaults.
+        customize();
+        window.applySettings();
+        window.resetAppearance();
+        QCOMPARE(Settings::spacingScale(), 100);
+        QCOMPARE(AppearanceStyle::configured().spacingScale, 100);
+        QVERIFY(!KSharedConfig::openConfig()->group(QStringLiteral("Themes")).hasKey("SpacingScale"));
+        QCOMPARE(Settings::folderColorRules(), rules);
+        window.resetAppearance();
+        QCOMPARE(window.statusBar()->currentMessage(), QStringLiteral("The appearance options already follow Plasma."));
+    }
+
+    void themeProfilesSaveLoadImportAndExport()
+    {
+        const auto clearProfiles = [] {
+            KSharedConfig::openConfig()->deleteGroup(QLatin1String(ThemeProfiles::Group));
+            KSharedConfig::openConfig()->sync();
+        };
+        auto restore = qScopeGuard([clearProfiles] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            ColorSchemes::apply(QString());
+            clearProfiles();
+        });
+        clearProfiles();
+        Settings::setTabShape(Settings::EnumTabShape::Flat);
+        Settings::setFolderColorRules({});
+        Settings::self()->save();
+        QTemporaryDir files;
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *manager = dialog.findChild<ThemeProfileManager *>(QStringLiteral("themeProfileManager"));
+        auto *list = dialog.findChild<QListWidget *>(QStringLiteral("themeProfiles"));
+        auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("themeProfileMessage"));
+        auto *spacing = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_SpacingScale"));
+        auto *tabShape = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TabShape"));
+        auto *scheme = dialog.findChild<ColorSchemeCombo *>(QStringLiteral("kcfg_ColorScheme"));
+        QVERIFY(manager && list && message && spacing && tabShape && scheme);
+        bool confirm = false;
+        QStringList questions;
+        manager->setConfirmation([&confirm, &questions](const QString &question) {
+            questions.append(question);
+            return confirm;
+        });
+
+        // Saving includes changes that are not applied yet and is written at once.
+        spacing->setValue(175);
+        QVERIFY(manager->saveCurrent(QStringLiteral(" Night ")));
+        QCOMPARE(list->count(), 1);
+        QCOMPARE(list->item(0)->text(), QStringLiteral("Night"));
+        const QString id = manager->selectedId();
+        const auto group = KSharedConfig::openConfig()->group(QLatin1String(ThemeProfiles::Group));
+        QList<ThemeProfiles::Profile> stored = ThemeProfiles::load(Settings::self(), group);
+        QCOMPARE(stored.size(), 1);
+        QCOMPARE(stored.constFirst().values.value(QStringLiteral("SpacingScale")).toInt(), 175);
+        QCOMPARE(stored.constFirst().values.value(QStringLiteral("TabShape")).toInt(), int(Settings::EnumTabShape::Flat));
+        QCOMPARE(Settings::spacingScale(), 100);
+
+        // Replacing a profile asks first.
+        spacing->setValue(60);
+        QVERIFY(!manager->saveCurrent(QStringLiteral("NIGHT")));
+        QCOMPARE(questions.size(), 1);
+        QVERIFY(questions.constFirst().contains(QStringLiteral("Night")));
+        QCOMPARE(ThemeProfiles::load(Settings::self(), group).constFirst().values.value(QStringLiteral("SpacingScale")).toInt(), 175);
+        QVERIFY(!manager->saveCurrent(QStringLiteral("Bad\nname")));
+        QCOMPARE(message->messageType(), KMessageWidget::Error);
+
+        // The safe reset and loading only change the dialog until Apply.
+        dialog.findChild<QPushButton *>(QStringLiteral("resetThemeProfileAppearance"))->click();
+        QCOMPARE(spacing->value(), 100);
+        QCOMPARE(tabShape->currentIndex(), int(Settings::EnumTabShape::FollowStyle));
+        QVERIFY(manager->loadProfile(id));
+        QCOMPARE(spacing->value(), 175);
+        QCOMPARE(tabShape->currentIndex(), int(Settings::EnumTabShape::Flat));
+        QCOMPARE(message->messageType(), KMessageWidget::Positive);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::spacingScale(), 175);
+        QCOMPARE(int(Settings::tabShape()), int(Settings::EnumTabShape::Flat));
+
+        // Export, remove and import again.
+        const QString path = files.filePath(QStringLiteral("night.opus-theme.json"));
+        QVERIFY(manager->exportProfile(id, path));
+        QVERIFY(QFile::exists(path));
+        QVERIFY(!manager->removeProfile(id));
+        QCOMPARE(list->count(), 1);
+        confirm = true;
+        QVERIFY(manager->removeProfile(id));
+        QCOMPARE(list->count(), 0);
+        QVERIFY(manager->importProfile(path));
+        QCOMPARE(list->count(), 1);
+        QCOMPARE(list->item(0)->text(), QStringLiteral("Night"));
+
+        // Invalid files are rejected; unavailable schemes are reported and kept.
+        const QString invalid = files.filePath(QStringLiteral("invalid.json"));
+        QFile invalidFile(invalid);
+        QVERIFY(invalidFile.open(QIODevice::WriteOnly));
+        invalidFile.write(R"({"format":"plasma-opus-theme","version":1,"name":"Bad","appearance":{"SpacingScale":9000}})");
+        invalidFile.close();
+        QVERIFY(!manager->importProfile(invalid));
+        QCOMPARE(message->messageType(), KMessageWidget::Error);
+        QVERIFY(message->text().contains(QStringLiteral("SpacingScale")));
+        QCOMPARE(list->count(), 1);
+
+        const QString missing = files.filePath(QStringLiteral("missing.json"));
+        QFile missingFile(missing);
+        QVERIFY(missingFile.open(QIODevice::WriteOnly));
+        missingFile.write(R"({"format":"plasma-opus-theme","version":1,"name":"Missing","appearance":{"ColorScheme":"NoSuchSchemeOpus"}})");
+        missingFile.close();
+        QVERIFY(manager->importProfile(missing));
+        QCOMPARE(message->messageType(), KMessageWidget::Warning);
+        QVERIFY(message->text().contains(QStringLiteral("NoSuchSchemeOpus")));
+        QCOMPARE(list->count(), 2);
+        QVERIFY(manager->loadProfile(manager->selectedId()));
+        QCOMPARE(scheme->scheme(), QStringLiteral("NoSuchSchemeOpus"));
+        QCOMPARE(spacing->value(), 100);
+        QCOMPARE(message->messageType(), KMessageWidget::Warning);
+    }
+
+    void customStyleSheetPreviewsAppliesAndIsRefusedWhenUnsafe()
+    {
+        auto restore = qScopeGuard([] {
+            ColorSchemes::setHighContrastPreferredForTesting(std::nullopt);
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            KSharedConfig::openConfig()->deleteGroup(QLatin1String(ThemeProfiles::Group));
+        });
+        const QString sheet = QStringLiteral("QStatusBar { background: #ff0000; }");
+        QVERIFY(CustomStyleSheet::error(sheet).isEmpty());
+        QVERIFY(!CustomStyleSheet::error(QStringLiteral("QPushButton {} ]")).isEmpty());
+        QVERIFY(!CustomStyleSheet::error(QStringLiteral("QLabel { image: url(/etc/a.png); }")).isEmpty());
+
+        Settings::setCustomStyleSheet(sheet);
+        Settings::self()->save();
+        MainWindow window;
+        window.applySettings();
+        QVERIFY(window.styleSheet().isEmpty());
+
+        // Applied over the other options to the window only, and removed when turned off.
+        QStyle *const appStyle = QApplication::style();
+        Settings::setUseCustomStyleSheet(true);
+        window.applySettings();
+        QCOMPARE(window.styleSheet(), sheet);
+        QCOMPARE(QApplication::style(), appStyle);
+        QVERIFY(qApp->styleSheet().isEmpty());
+        ColorSchemes::setHighContrastPreferredForTesting(true);
+        window.applySettings();
+        QVERIFY(window.styleSheet().isEmpty());
+        ColorSchemes::setHighContrastPreferredForTesting(false);
+        window.applySettings();
+        QCOMPARE(window.styleSheet(), sheet);
+
+        // An unsafe stylesheet is refused with a message.
+        Settings::setCustomStyleSheet(QStringLiteral("QStatusBar { background-image: url(https://example.com/a.png); }"));
+        window.applySettings();
+        QVERIFY(window.styleSheet().isEmpty());
+        QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("https://example.com/a.png")));
+        Settings::setCustomStyleSheet(sheet);
+        Settings::self()->save();
+        window.applySettings();
+
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *editor = dialog.findChild<StyleSheetEditor *>(QStringLiteral("kcfg_CustomStyleSheet"));
+        auto *preview = dialog.findChild<QWidget *>(QStringLiteral("styleSheetPreview"));
+        auto *status = dialog.findChild<KMessageWidget *>(QStringLiteral("styleSheetStatus"));
+        QVERIFY(editor && preview && status);
+        QCOMPARE(editor->sheet(), sheet);
+
+        // Previews show only on sample widgets until Apply.
+        const QString green = QStringLiteral("QPushButton { color: #00ff00; }");
+        editor->setSheet(green);
+        QCOMPARE(preview->styleSheet(), green);
+        QCOMPARE(status->messageType(), KMessageWidget::Positive);
+        QCOMPARE(window.styleSheet(), sheet);
+        editor->setSheet(QStringLiteral("QPushButton { color: red;"));
+        QVERIFY(!editor->problem().isEmpty());
+        QCOMPARE(status->messageType(), KMessageWidget::Error);
+        QVERIFY(preview->styleSheet().isEmpty());
+        editor->revert();
+        QCOMPARE(editor->sheet(), sheet);
+        QVERIFY(editor->problem().isEmpty());
+
+        // Import and export separately.
+        QTemporaryDir files;
+        const QString path = files.filePath(QStringLiteral("green.qss"));
+        editor->setSheet(green);
+        QVERIFY(editor->exportFile(path));
+        editor->revert();
+        QVERIFY(editor->importFile(path));
+        QCOMPARE(editor->sheet(), green);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::customStyleSheet(), green);
+        QCOMPARE(window.styleSheet(), green);
+
+        // Profiles include the stylesheet unless an export leaves it out.
+        auto *manager = dialog.findChild<ThemeProfileManager *>(QStringLiteral("themeProfileManager"));
+        QVERIFY(manager->saveCurrent(QStringLiteral("Green")));
+        const QString withSheet = files.filePath(QStringLiteral("with.json"));
+        const QString withoutSheet = files.filePath(QStringLiteral("without.json"));
+        QVERIFY(manager->exportProfile(manager->selectedId(), withSheet));
+        QVERIFY(manager->exportProfile(manager->selectedId(), withoutSheet, false));
+        QString error;
+        QCOMPARE(ThemeProfiles::importFile(Settings::self(), withSheet, &error)->values.value(QStringLiteral("CustomStyleSheet")).toString(), green);
+        const auto without = ThemeProfiles::importFile(Settings::self(), withoutSheet, &error);
+        QVERIFY(without->values.value(QStringLiteral("CustomStyleSheet")).toString().isEmpty());
+        QVERIFY(!without->values.value(QStringLiteral("UseCustomStyleSheet")).toBool());
+    }
+
+    void customColoursReportLowContrast()
+    {
+        auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *scheme = dialog.findChild<ColorSchemeCombo *>(QStringLiteral("kcfg_ColorScheme"));
+        QVERIFY(scheme);
+        scheme->setCurrentIndex(scheme->findData(QLatin1String(ColorSchemes::LightPreset)));
+        const QPalette light = ColorSchemes::palette(QLatin1String(ColorSchemes::LightPreset));
+        const QColor lightBase = light.color(QPalette::Active, QPalette::Base);
+
+        // A strong dark tint over a light scheme is weakened.
+        auto *tint = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_PaneTint"));
+        auto *tintColor = dialog.findChild<KColorButton *>(QStringLiteral("kcfg_PaneTintColor"));
+        auto *strength = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_PaneTintStrength"));
+        auto *tintNotice = dialog.findChild<KMessageWidget *>(QStringLiteral("paneTintContrastNotice"));
+        QVERIFY(tint && tintColor && strength && tintNotice);
+        QVERIFY(tintNotice->isHidden());
+        tint->setCurrentIndex(Settings::EnumPaneTint::AllPanes);
+        tintColor->setColor(Qt::black);
+        strength->setValue(50);
+        QVERIFY(!tintNotice->isHidden());
+        const int effective = ColorSchemes::paneTintStrength(light, Qt::black, 50);
+        QVERIFY2(tintNotice->text().contains(QString::number(effective)), qPrintable(tintNotice->text()));
+        strength->setValue(effective);
+        QVERIFY(tintNotice->isHidden());
+
+        // A single tree line colour too close to the view background is adjusted.
+        auto *lineColors = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TreeLineColors"));
+        auto *lineColor = dialog.findChild<KColorButton *>(QStringLiteral("kcfg_TreeLineColor"));
+        auto *lineNotice = dialog.findChild<KMessageWidget *>(QStringLiteral("treeLineContrastNotice"));
+        QVERIFY(lineColors && lineColor && lineNotice);
+        lineColor->setColor(lightBase);
+        QVERIFY(lineNotice->isHidden());
+        lineColors->setCurrentIndex(Settings::EnumTreeLineColors::Single);
+        QVERIFY(!lineNotice->isHidden());
+        lineColor->setColor(light.color(QPalette::Active, QPalette::Text));
+        QVERIFY(lineNotice->isHidden());
+
+        // File colours are used as they are, so unreadable ones are reported.
+        auto *fileColors = dialog.findChild<RuleListEditor *>(QStringLiteral("kcfg_ExtensionColors"));
+        auto *fileNotice = dialog.findChild<KMessageWidget *>(QStringLiteral("fileColourContrastWarning"));
+        QVERIFY(fileColors && fileNotice);
+        const QColor fileBase = fileColors->palette().color(QPalette::Base);
+        fileColors->setRules({QStringLiteral("txt=") + fileBase.name(), QStringLiteral("md=") + fileColors->palette().color(QPalette::Text).name()});
+        QVERIFY(!fileNotice->isHidden());
+        QVERIFY(fileNotice->text().contains(QLatin1String("txt")));
+        QVERIFY(!fileNotice->text().contains(QLatin1String("md")));
+        fileColors->setRules({});
+        QVERIFY(fileNotice->isHidden());
+
+        // Folder colour rules warn when icons would be hard to see.
+        FolderColorRuleDialog ruleDialog;
+        auto *folderNotice = ruleDialog.findChild<KMessageWidget *>(QStringLiteral("folderColourContrastNotice"));
+        QVERIFY(folderNotice);
+        FolderColorRules::Rule rule;
+        rule.match = FolderColorRules::Match::Name;
+        rule.pattern = QStringLiteral("*-archive");
+        rule.color = ruleDialog.palette().color(QPalette::Base);
+        ruleDialog.setRule(rule);
+        QVERIFY(!folderNotice->isHidden());
+        QCOMPARE(folderNotice->messageType(), KMessageWidget::Warning);
+        rule.color = ruleDialog.palette().color(QPalette::Text);
+        ruleDialog.setRule(rule);
+        QVERIFY(folderNotice->isHidden());
     }
 
     void toolbarAppearanceSettingsApplyToEveryToolbar()

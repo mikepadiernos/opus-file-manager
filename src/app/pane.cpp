@@ -2,13 +2,18 @@
 
 #include "pane.h"
 
+#include "appearancestyle.h"
+#include "colorschemes.h"
+
 #include "filterbar.h"
+#include "foldercolors.h"
 #include "folderview.h"
 #include "settings.h"
 #include "symbolicicon.h"
 #include "symlinks.h"
 #include "tabcolors.h"
 #include "tabmodel.h"
+#include "windoweffects.h"
 
 #include <KConfigGroup>
 #include <KDirModel>
@@ -108,6 +113,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
         {FolderView::ViewMode::Details, i18nc("@item:inmenu", "Details")},
         {FolderView::ViewMode::Icons, i18nc("@item:inmenu", "Icons")},
         {FolderView::ViewMode::Compact, i18nc("@item:inmenu", "Compact")},
+        {FolderView::ViewMode::Cards, i18nc("@item:inmenu", "Cards")},
     };
     for (const auto &[mode, label] : viewModes) {
         QAction *action = viewMenu->addAction(label);
@@ -603,6 +609,7 @@ void Pane::setActive(bool active)
     m_active = active;
     m_dimEffect->setEnabled(m_inactiveDimming && !active);
     m_navigator->setActive(active);
+    updateBackgroundTint();
     if (active) {
         m_view->currentView()->setFocus();
     }
@@ -613,6 +620,44 @@ void Pane::setInactiveDimming(bool enabled, int opacityPercent)
     m_inactiveDimming = enabled;
     m_dimEffect->setOpacity(qBound(20, opacityPercent, 100) / 100.0);
     m_dimEffect->setEnabled(enabled && !m_active);
+}
+
+void Pane::setBackgroundTint(BackgroundTint scope, const QColor &color, int strengthPercent)
+{
+    m_tintScope = scope;
+    m_tintColor = color;
+    m_tintStrength = strengthPercent;
+    updateBackgroundTint();
+}
+
+void Pane::setBackgroundOpacity(int opacityPercent)
+{
+    m_backgroundOpacity = opacityPercent;
+    updateBackgroundTint();
+}
+
+void Pane::updateBackgroundTint()
+{
+    const bool tinted = m_tintScope == BackgroundTint::AllPanes || (m_tintScope == BackgroundTint::ActivePane && m_active)
+        || (m_tintScope == BackgroundTint::InactivePane && !m_active);
+    ColorSchemes::Overrides overrides = tinted ? ColorSchemes::paneTint(palette(), m_tintColor, m_tintStrength) : ColorSchemes::Overrides();
+    // An opaque window cannot show what is behind it, so translucent colours
+    // would only darken the view.
+    if (WindowEffects::isTranslucent(this)) {
+        overrides.insert(
+            ColorSchemes::translucent(ColorSchemes::withOverrides(palette(), overrides), {QPalette::Base, QPalette::AlternateBase}, m_backgroundOpacity));
+    }
+    // Only these roles are resolved, so the view keeps following the
+    // application palette for every other role.
+    m_view->setPalette(ColorSchemes::withOverrides(QPalette(), overrides));
+}
+
+void Pane::changeEvent(QEvent *event)
+{
+    QWidget::changeEvent(event);
+    if (event->type() == QEvent::PaletteChange || event->type() == QEvent::ParentChange) {
+        updateBackgroundTint();
+    }
 }
 
 void Pane::setTabBarForcedVisible(bool visible)
@@ -733,6 +778,20 @@ void Pane::updateBreadcrumbs(const QUrl &url)
         button->setAutoRaise(true);
         button->setFocusPolicy(Qt::StrongFocus);
         button->setEnabled(!current);
+        const FolderColors::Style folderStyle = FolderColors::configured();
+        if (const QColor color = folderStyle == FolderColors::Style::Hidden ? QColor() : FolderColors::color(target); color.isValid()) {
+            if (folderStyle == FolderColors::Style::Name) {
+                QPalette palette = button->palette();
+                const QColor text = ColorSchemes::readable(color, palette.color(QPalette::Window), 4.5);
+                palette.setColor(QPalette::Active, QPalette::ButtonText, text);
+                palette.setColor(QPalette::Inactive, QPalette::ButtonText, text);
+                button->setPalette(palette);
+            } else {
+                button->setIcon(FolderColors::dot(color));
+                button->setIconSize(QSize(8, 8));
+                button->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+            }
+        }
         connect(button, &QToolButton::clicked, this, [this, target] {
             setUrl(target);
         });
@@ -1193,7 +1252,7 @@ void Pane::restoreState(const PaneSession &state)
     m_filterBar->setFilter(NameFilter(state.filterText, static_cast<NameFilter::Scope>(qBound(0, scope, 2))));
     setLocationPresentation(state.locationPresentation < 0 ? m_defaultLocationPresentation
                                                            : static_cast<LocationPresentation>(qBound(0, state.locationPresentation, 2)));
-    m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, 2)));
+    m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, PaneSession::MaximumViewMode)));
 }
 
 void Pane::replaceState(const PaneSession &state)
@@ -1217,7 +1276,7 @@ void Pane::replaceState(const PaneSession &state)
     m_filterBar->setFilter(NameFilter(state.filterText, static_cast<NameFilter::Scope>(qBound(0, scope, 2))));
     setLocationPresentation(state.locationPresentation < 0 ? m_defaultLocationPresentation
                                                            : static_cast<LocationPresentation>(qBound(0, state.locationPresentation, 2)));
-    m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, 2)));
+    m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, PaneSession::MaximumViewMode)));
 }
 
 void Pane::rebuildTabs(const PaneSession &state)
@@ -1268,6 +1327,22 @@ void Pane::reloadTabSettings()
     }
 }
 
+void Pane::setTabFont(const QFont &font)
+{
+    m_tabBar->setFont(font);
+}
+
+void Pane::refreshFolderColors()
+{
+    for (int index = 0; index < m_tabBar->count(); ++index) {
+        updateTabText(index);
+    }
+    updateBreadcrumbs(m_tabs->currentUrl());
+    if (QAbstractItemView *view = m_view->currentView()) {
+        view->viewport()->update();
+    }
+}
+
 void Pane::updateTabText(int index)
 {
     if (index < 0 || index >= m_tabBar->count()) {
@@ -1291,8 +1366,31 @@ void Pane::updateTabText(int index)
     }
     m_tabBar->setTabToolTip(index, toolTip);
     const QString iconName = pinned ? QStringLiteral("pin") : locked ? QStringLiteral("object-locked") : KIO::iconNameForUrl(url);
-    m_tabBar->setTabIcon(index, m_showTabIcons ? SymbolicIcon::fromTheme(iconName) : QIcon());
-    m_tabBar->setTabTextColor(index, Settings::showTabColors() ? LabelColors::rgb(m_colors->colorFor(url)) : QColor());
+    const FolderColors::Style folderStyle = FolderColors::configured();
+    const QColor folderColor = folderStyle == FolderColors::Style::Hidden ? QColor() : FolderColors::color(url);
+    QIcon icon;
+    if (m_showTabIcons) {
+        icon = SymbolicIcon::fromTheme(iconName);
+        if (!pinned && !locked) {
+            icon = FolderColors::decorate(icon, iconName, {}, folderColor, folderStyle);
+        }
+    }
+    m_tabBar->setTabIcon(index, icon);
+    const QColor tabColor = Settings::showTabColors() ? LabelColors::rgb(m_colors->colorFor(url)) : QColor();
+    const QColor window = m_tabBar->palette().color(QPalette::Window);
+    const AppearanceStyle::TabColorStrength strength = AppearanceStyle::configured().tabColorStrength;
+    QColor textColor = tabColor;
+    if (tabColor.isValid() && strength != AppearanceStyle::TabColorStrength::Text) {
+        // The style fills the tab with its colour, so the text only needs to stay readable on the fill.
+        // The active tab's fill is the strongest, so text readable there is readable on every tab.
+        const QColor fill = AppearanceStyle::tabColorFill(window, tabColor, strength, true);
+        textColor = ColorSchemes::readable(m_tabBar->palette().color(QPalette::WindowText), fill, 4.5);
+    }
+    m_tabBar->setTabData(index, strength == AppearanceStyle::TabColorStrength::Text ? QVariant() : QVariant(tabColor));
+    if (!textColor.isValid() && folderStyle == FolderColors::Style::Name && folderColor.isValid()) {
+        textColor = ColorSchemes::readable(folderColor, window, 4.5);
+    }
+    m_tabBar->setTabTextColor(index, textColor);
 
     const auto closeSide = static_cast<QTabBar::ButtonPosition>(m_tabBar->style()->styleHint(QStyle::SH_TabBar_CloseButtonPosition, nullptr, m_tabBar));
     if (QWidget *closeButton = m_tabBar->tabButton(index, closeSide)) {

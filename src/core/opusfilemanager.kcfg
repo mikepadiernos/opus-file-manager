@@ -141,6 +141,8 @@
       <choices>
         <choice name="Details"/>
         <choice name="Icons"/>
+        <choice name="Compact"/>
+        <choice name="Cards"/>
       </choices>
       <default>Details</default>
     </entry>
@@ -327,6 +329,38 @@
     <entry name="CompactIconSize" type="Int"><default>16</default><min>16</min><max>64</max></entry>
     <entry name="CompactItemSpacing" type="Int"><default>0</default><min>0</min><max>20</max></entry>
     <entry name="CompactInformation" type="StringList"><default></default></entry>
+    <entry name="CardPreviewSize" type="Int">
+      <label>Preview and icon size in the card view</label>
+      <default>96</default>
+      <min>48</min>
+      <max>256</max>
+    </entry>
+    <entry name="CardColumns" type="Int">
+      <label>Number of card columns; zero fits as many cards as the width allows</label>
+      <default>0</default>
+      <min>0</min>
+      <max>12</max>
+    </entry>
+    <entry name="CardsDensity" type="Enum">
+      <label>Space around cards in the card view</label>
+      <choices>
+        <choice name="Normal"/>
+        <choice name="Compact"/>
+        <choice name="VeryCompact"/>
+        <choice name="Custom"/>
+      </choices>
+      <default>Normal</default>
+    </entry>
+    <entry name="CardsCustomSpace" type="Int">
+      <label>Pixels around each card with custom density</label>
+      <default>2</default>
+      <min>0</min>
+      <max>10</max>
+    </entry>
+    <entry name="CardInformation" type="StringList">
+      <label>Metadata shown on each card, in display order</label>
+      <default>size,modificationTime,friendlyMimeType,tags,rating,label</default>
+    </entry>
     <entry name="DefaultFilterScope" type="Enum">
       <choices><choice name="Files"/><choice name="Folders"/><choice name="FilesAndFolders"/></choices>
       <default>Files</default>
@@ -866,6 +900,238 @@
     </entry>
     <entry name="WorkspaceDefaultPaneTabRestoration" type="Bool">
       <label>Whether new workspaces with selected behaviors restore panes and tabs</label>
+      <default>true</default>
+    </entry>
+    <entry name="WorkspaceDefaultAppearance" type="Bool">
+      <label>Whether new workspaces with selected behaviors apply their attached theme profile and appearance options</label>
+      <default>true</default>
+    </entry>
+  </group>
+  <group name="Themes">
+    <entry name="ColorScheme" type="String">
+      <label>App-local colour scheme: empty follows Plasma, otherwise a bundled preset or an installed colour scheme</label>
+      <default></default>
+    </entry>
+    <entry name="AccentColor" type="String">
+      <label>App-local accent colour for selection, focus, progress and tab indicators as #rrggbb; empty follows the colour scheme</label>
+      <default></default>
+    </entry>
+    <entry name="CustomColors" type="StringList">
+      <label>App-local palette role colours layered over the colour scheme, as Role=#rrggbb entries</label>
+      <default></default>
+    </entry>
+    <entry name="PaneTint" type="Enum">
+      <label>Which panes have a tinted folder view background</label>
+      <choices>
+        <choice name="None"/>
+        <choice name="AllPanes"/>
+        <choice name="ActivePane"/>
+        <choice name="InactivePane"/>
+      </choices>
+      <default>None</default>
+    </entry>
+    <entry name="PaneTintColor" type="Color">
+      <label>Colour mixed into the background of tinted panes</label>
+      <default>61,174,233</default>
+    </entry>
+    <entry name="PaneTintStrength" type="Int">
+      <label>Percentage of the tint colour mixed into the background of tinted panes, lowered when needed to keep text readable</label>
+      <default>10</default>
+      <min>1</min>
+      <max>50</max>
+    </entry>
+    <entry name="BackgroundBlur" type="Bool">
+      <label>Blur the desktop behind translucent backgrounds with KWin's blur effect</label>
+      <default>false</default>
+    </entry>
+    <entry name="WindowOpacity" type="Int">
+      <label>Opacity of the window background in percent, below the panes and panels</label>
+      <default>100</default>
+      <min>20</min>
+      <max>100</max>
+    </entry>
+    <entry name="PaneOpacity" type="Int">
+      <label>Opacity of the folder view background in each pane in percent, layered over the window background</label>
+      <default>100</default>
+      <min>20</min>
+      <max>100</max>
+    </entry>
+    <entry name="PanelOpacity" type="Int">
+      <label>Opacity of docked panel backgrounds in percent, layered over the window background</label>
+      <default>100</default>
+      <min>20</min>
+      <max>100</max>
+    </entry>
+    <entry name="CornerRadius" type="Enum">
+      <label>Corner radius of item highlights, input fields, tabs and tooltips</label>
+      <choices>
+        <choice name="FollowStyle"/>
+        <choice name="None"/>
+        <choice name="Small"/>
+        <choice name="Medium"/>
+        <choice name="Large"/>
+        <choice name="Custom"/>
+      </choices>
+      <default>FollowStyle</default>
+    </entry>
+    <entry name="CustomCornerRadius" type="Int">
+      <label>Corner radius in logical pixels when the corner radius is custom</label>
+      <default>6</default>
+      <min>0</min>
+      <max>24</max>
+    </entry>
+    <entry name="Dividers" type="Enum">
+      <label>How splitter handles, panel and toolbar separators, header and grid lines and pane frames are drawn</label>
+      <choices>
+        <choice name="FollowStyle"/>
+        <choice name="Thin"/>
+        <choice name="Hidden"/>
+      </choices>
+      <default>FollowStyle</default>
+    </entry>
+    <entry name="RevealDividersOnHover" type="Bool">
+      <label>Whether hidden splitter handles and panel separators appear while the pointer is over them</label>
+      <default>true</default>
+    </entry>
+    <entry name="TreeLines" type="Enum">
+      <label>Branch lines in the tree pane and inline folder expansion</label>
+      <choices>
+        <choice name="FollowStyle"/>
+        <choice name="Hidden"/>
+        <choice name="Solid"/>
+        <choice name="Dotted"/>
+      </choices>
+      <default>FollowStyle</default>
+    </entry>
+    <entry name="TreeLineColors" type="Enum">
+      <label>How tree lines are coloured</label>
+      <choices>
+        <choice name="Neutral"/>
+        <choice name="Single"/>
+        <choice name="Depth"/>
+        <choice name="Folder"/>
+      </choices>
+      <default>Neutral</default>
+    </entry>
+    <entry name="TreeLineColor" type="Color">
+      <label>Colour of tree lines when they use a single colour</label>
+      <default>61,174,233</default>
+    </entry>
+    <entry name="TreeLinePalette" type="StringList">
+      <label>Tree line colours by nesting depth as #rrggbb, repeating after the last colour</label>
+      <default>#3daee9,#27ae60,#f67400,#da4453,#9b59b6,#fdbc4b</default>
+    </entry>
+    <entry name="StripeDetailsRows" type="Bool">
+      <label>Whether alternate rows in Details view have a slightly different background</label>
+      <default>false</default>
+    </entry>
+    <entry name="HoverHighlight" type="Bool">
+      <label>Whether items under the pointer are highlighted in file lists and other views</label>
+      <default>true</default>
+    </entry>
+    <entry name="SelectionStyle" type="Enum">
+      <label>How selected items are highlighted in file lists and other views</label>
+      <choices>
+        <choice name="FollowStyle"/>
+        <choice name="Filled"/>
+        <choice name="Outlined"/>
+        <choice name="Rounded"/>
+        <choice name="AccentBar"/>
+      </choices>
+      <default>FollowStyle</default>
+    </entry>
+    <entry name="FolderColorStyle" type="Enum">
+      <label>How folder colours from Folder Appearance are shown on folder icons and names</label>
+      <choices>
+        <choice name="Icon"/>
+        <choice name="Badge"/>
+        <choice name="Name"/>
+        <choice name="Hidden"/>
+      </choices>
+      <default>Icon</default>
+    </entry>
+    <entry name="FolderColorRules" type="StringList">
+      <label>Rules that colour folders without their own colour by path, name pattern or tag, as JSON objects checked in order</label>
+      <default></default>
+    </entry>
+    <entry name="FileListFont" type="String">
+      <label>Font for file lists as stored by QFont::toString(), or empty to follow Plasma</label>
+      <default></default>
+    </entry>
+    <entry name="FolderTreeFont" type="String">
+      <label>Font for the folder tree as stored by QFont::toString(), or empty to follow Plasma</label>
+      <default></default>
+    </entry>
+    <entry name="TabFont" type="String">
+      <label>Font for pane tabs as stored by QFont::toString(), or empty to follow Plasma</label>
+      <default></default>
+    </entry>
+    <entry name="StatusBarFont" type="String">
+      <label>Font for the status bars as stored by QFont::toString(), or empty to follow Plasma</label>
+      <default></default>
+    </entry>
+    <entry name="SpacingScale" type="Int">
+      <label>Scale of the padding and spacing of toolbars, tabs, panels and status bars, in percent of Plasma's widget style</label>
+      <default>100</default>
+      <min>50</min>
+      <max>200</max>
+    </entry>
+    <entry name="TabShape" type="Enum">
+      <label>Shape of pane tabs</label>
+      <choices>
+        <choice name="FollowStyle"/>
+        <choice name="Rounded"/>
+        <choice name="Square"/>
+        <choice name="Flat"/>
+      </choices>
+      <default>FollowStyle</default>
+    </entry>
+    <entry name="TabIndicator" type="Enum">
+      <label>Indicator on the active tab for tab shapes other than the widget style's</label>
+      <choices>
+        <choice name="Line"/>
+        <choice name="ThickLine"/>
+        <choice name="None"/>
+      </choices>
+      <default>Line</default>
+    </entry>
+    <entry name="TabColorStrength" type="Enum">
+      <label>How strongly folder-based tab colours show</label>
+      <choices>
+        <choice name="Text"/>
+        <choice name="Tint"/>
+        <choice name="Strong"/>
+      </choices>
+      <default>Text</default>
+    </entry>
+    <entry name="StatusBarStyle" type="Enum">
+      <label>How the window and pane status bars are drawn</label>
+      <choices>
+        <choice name="FollowStyle"/>
+        <choice name="Separated"/>
+        <choice name="Shaded"/>
+      </choices>
+      <default>FollowStyle</default>
+    </entry>
+    <entry name="Animations" type="Enum">
+      <label>Whether Plasma Opus transitions follow Plasma's animation speed, are shortened or are turned off</label>
+      <choices>
+        <choice name="FollowPlasma"/>
+        <choice name="Reduced"/>
+        <choice name="Off"/>
+      </choices>
+      <default>FollowPlasma</default>
+    </entry>
+    <entry name="UseCustomStyleSheet" type="Bool">
+      <label>Whether the app-local Qt Style Sheet is applied</label>
+      <default>false</default>
+    </entry>
+    <entry name="CustomStyleSheet" type="String">
+      <label>An app-local Qt Style Sheet applied over the other appearance options</label>
+      <default></default>
+    </entry>
+    <entry name="SuspendEffectsInHighContrast" type="Bool">
+      <label>Whether blur, translucency, tints, custom corner radii, tinted tabs and the custom stylesheet are suspended while high contrast is requested</label>
       <default>true</default>
     </entry>
   </group>

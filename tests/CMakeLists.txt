@@ -49,6 +49,8 @@ target_compile_definitions(informationtranslationtest PRIVATE
 )
 
 ecm_add_tests(
+    appearancedefaultstest.cpp
+    appfontstest.cpp
     archivestest.cpp
     batchrenametest.cpp
     batchrenamepresetstest.cpp
@@ -57,6 +59,8 @@ ecm_add_tests(
     favoritesmodeltest.cpp
     filesplittertest.cpp
     foldermetadatatest.cpp
+    foldercolorstest.cpp
+    foldercolorrulestest.cpp
     foldercomparisontest.cpp
     foldersynctest.cpp
     foldersyncprofilestest.cpp
@@ -85,12 +89,15 @@ ecm_add_tests(
     searchcollectiontest.cpp
     tabcolorstest.cpp
     startuptest.cpp
+    stylesheetstest.cpp
     symlinkstest.cpp
     symboliciconstest.cpp
     tabmodeltest.cpp
+    themeprofilestest.cpp
     treemaptest.cpp
     transferqueuetest.cpp
     viewsettingstest.cpp
+    workspaceappearancetest.cpp
     workspacecatalogtest.cpp
     workspacerestoretest.cpp
     workspacestartuptest.cpp
@@ -214,6 +221,11 @@ ecm_add_test(
 
 ecm_add_test(combinedpaneltest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+ecm_add_test(colorschemestest.cpp
+    LINK_LIBRARIES opusfm_core Qt6::Test
     NAME_PREFIX "opusfm-"
     GUI
 )

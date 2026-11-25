@@ -3,8 +3,10 @@
 #include "foldertree.h"
 
 #include "contentheight.h"
+#include "foldercolors.h"
 #include "ignorelist.h"
 #include "symbolicicon.h"
+#include "treelines.h"
 
 #include <KDirLister>
 #include <KDirModel>
@@ -55,7 +57,13 @@ public:
         const QVariant value = KDirSortFilterProxyModel::data(index, role);
         if (role == Qt::DecorationRole && value.typeId() == QMetaType::QIcon) {
             const KFileItem item = index.data(KDirModel::FileItemRole).value<KFileItem>();
-            return SymbolicIcon::wrap(value.value<QIcon>(), item.iconName(), item.overlays());
+            return FolderColors::decorate(SymbolicIcon::wrap(value.value<QIcon>(), item.iconName(), item.overlays()), item);
+        }
+        if (role == Qt::ForegroundRole && index.column() == KDirModel::Name) {
+            const KFileItem item = index.data(KDirModel::FileItemRole).value<KFileItem>();
+            if (const QColor color = FolderColors::nameColor(item, QGuiApplication::palette().color(QPalette::Base)); color.isValid()) {
+                return color;
+            }
         }
         return value;
     }
@@ -77,6 +85,21 @@ QUrl urlAt(const QModelIndex &index)
 {
     return index.data(KDirModel::FileItemRole).value<KFileItem>().url();
 }
+
+/// A folder tree with Plasma Opus tree lines.
+class FolderTreeView : public QTreeView
+{
+public:
+    using QTreeView::QTreeView;
+
+protected:
+    void drawBranches(QPainter *painter, const QRect &rect, const QModelIndex &index) const override
+    {
+        if (!TreeLines::drawBranches(this, painter, rect, index)) {
+            QTreeView::drawBranches(painter, rect, index);
+        }
+    }
+};
 }
 
 FolderTree::FolderTree(const QList<QUrl> &roots, QWidget *parent)
@@ -95,7 +118,7 @@ FolderTree::FolderTree(const QList<QUrl> &roots, QWidget *parent)
         proxy->setSourceModel(model);
         proxy->setSortCaseSensitivity(Qt::CaseInsensitive);
 
-        auto *tree = new QTreeView(this);
+        auto *tree = new FolderTreeView(this);
         tree->setModel(proxy);
         tree->setHeaderHidden(true);
         for (int column = 1; column < KDirModel::ColumnCount; ++column) {

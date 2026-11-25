@@ -94,7 +94,7 @@ PaneSession sanitizePane(const PaneSession &pane, const QUrl &fallback)
     result.filterText = pane.filterText;
     result.filterScope = qBound(-1, pane.filterScope, 2);
     result.locationPresentation = qBound(-1, pane.locationPresentation, 2);
-    result.viewMode = qBound(0, pane.viewMode, 2);
+    result.viewMode = qBound(0, pane.viewMode, PaneSession::MaximumViewMode);
     return result;
 }
 }

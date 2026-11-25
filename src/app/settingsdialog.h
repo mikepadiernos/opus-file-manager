@@ -7,6 +7,8 @@
 
 #include <functional>
 
+class AccentColorChooser;
+class ColorSchemeCombo;
 class KPageWidgetItem;
 class PreviewSizeSpinBox;
 class QCheckBox;
@@ -35,6 +37,16 @@ public:
      */
     SettingsDialog(KFilePlacesModel *places, QWidget *parent);
     void showToolbarPage();
+    /**
+     * Sets the appearance options in the dialog to Plasma's defaults, except
+     * AppearanceDefaults::keptEntries(). Nothing is saved until they are
+     * applied.
+     */
+    void resetAppearanceToDefaults();
+    /// The theme profile options shown in the dialog, which may not be applied yet.
+    QVariantMap appearanceValues() const;
+    /// Shows Themes options in the dialog without applying them.
+    void setAppearanceValues(const QVariantMap &values);
 
 public Q_SLOTS:
     /// Reloads workspace names and assignments after the catalog changes.
@@ -103,9 +115,22 @@ private:
     QWidget *createPlacesPage();
     QWidget *createStatusBarPage();
     QWidget *createInformationPanelPage();
+    QWidget *createColorSchemePage();
+    QWidget *createCustomColorsPage();
+    QWidget *createEffectsPage();
+    QWidget *createLinesPage();
+    QWidget *createHighlightsPage();
+    QWidget *createFolderColorsPage();
+    QWidget *createFontsPage();
+    QWidget *createSpacingPage();
+    QWidget *createBarStylePage();
+    QWidget *createMotionPage();
+    QWidget *createThemeProfilesPage();
+    QWidget *createStyleSheetPage();
     QWidget *createViewGeneralPage();
     QWidget *createDetailsPage();
     QWidget *createCompactPage();
+    QWidget *createCardsPage();
     QWidget *createSelectionPage();
     QWidget *createFiltersPage();
     QWidget *createFolderFormatsPage();
@@ -144,6 +169,8 @@ private:
     QTabWidget *m_toolbarTabs = nullptr;
     QListWidget *m_workspaceSummary = nullptr;
     StartupWorkspaceCombo *m_startupWorkspace = nullptr;
+    ColorSchemeCombo *m_colorScheme = nullptr;
+    AccentColorChooser *m_accentColor = nullptr;
     /// A checkbox for a setting kept outside Settings, in config that KIO
     /// shares with Dolphin.
     struct SharedToggle {

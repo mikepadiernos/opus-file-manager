@@ -2,10 +2,21 @@
 
 #pragma once
 
+#include "foldercolorrules.h"
+#include "themeprofiles.h"
+
 #include <QComboBox>
+#include <QDialog>
+#include <QHash>
 #include <QListWidget>
+#include <QPalette>
 #include <QSpinBox>
 #include <QWidget>
+
+#include <functional>
+#include <optional>
+
+class QLineEdit;
 
 class InterfaceLanguageCombo : public QComboBox
 {
@@ -62,6 +73,153 @@ private:
     QList<std::pair<QString, QString>> m_workspaces;
 };
 
+/**
+ * Chooses the app-local colour scheme: follow Plasma, a bundled preset or an
+ * installed KDE colour scheme. A chosen scheme that is no longer installed
+ * stays selected as unavailable, so its reference is kept until changed.
+ */
+class ColorSchemeCombo : public QComboBox
+{
+    Q_OBJECT
+    Q_PROPERTY(QString scheme READ scheme WRITE setScheme NOTIFY schemeChanged USER true)
+
+public:
+    explicit ColorSchemeCombo(QWidget *parent = nullptr);
+    QString scheme() const;
+    void setScheme(const QString &scheme);
+
+Q_SIGNALS:
+    void schemeChanged();
+};
+
+class KColorButton;
+class KMessageWidget;
+class QCheckBox;
+class QFrame;
+class QPushButton;
+class QHBoxLayout;
+class QToolButton;
+
+/**
+ * Creates a hidden, word-wrapped message for contrast feedback below a colour
+ * editor.
+ * @param adjusted whether Plasma Opus adjusts the colour to stay readable, so
+ *        the message informs rather than warns
+ */
+KMessageWidget *createContrastNotice(const QString &objectName, bool adjusted, QWidget *parent);
+
+/**
+ * Follows the colour scheme's accent or chooses an app-local accent colour,
+ * reporting when it lacks contrast against the selected scheme. Bound to the
+ * AccentColor setting.
+ */
+class AccentColorChooser : public QWidget
+{
+    Q_OBJECT
+    Q_PROPERTY(QString accent READ accent WRITE setAccent NOTIFY accentChanged USER true)
+
+public:
+    explicit AccentColorChooser(QWidget *parent = nullptr);
+    /// The chosen colour as #rrggbb, or empty to follow the scheme.
+    QString accent() const;
+    void setAccent(const QString &accent);
+    /// Validates the accent against the given ColorScheme setting value.
+    void setScheme(const QString &id);
+
+Q_SIGNALS:
+    void accentChanged();
+
+private:
+    void refresh();
+
+    QCheckBox *m_custom;
+    KColorButton *m_button;
+    KMessageWidget *m_contrast;
+    QPalette m_base;
+};
+
+/**
+ * Edits app-local palette role colours layered over the selected colour
+ * scheme, with a live preview and contrast feedback. Unchecked roles follow
+ * the scheme. Bound to the CustomColors setting by KConfigDialog; Revert and
+ * the dialog's Cancel discard unsaved edits.
+ */
+class ColorPaletteEditor : public QWidget
+{
+    Q_OBJECT
+    Q_PROPERTY(QStringList colors READ colors WRITE setColors NOTIFY colorsChanged USER true)
+
+public:
+    explicit ColorPaletteEditor(QWidget *parent = nullptr);
+    QStringList colors() const;
+    void setColors(const QStringList &colors);
+    /**
+     * Shows the given scheme's colours for roles that are not overridden.
+     * @param id a ColorScheme setting value
+     */
+    void setScheme(const QString &id);
+    /**
+     * Shows the given accent colour for the roles it sets.
+     * @param accent an AccentColor setting value
+     */
+    void setAccent(const QString &accent);
+
+Q_SIGNALS:
+    void colorsChanged();
+
+private:
+    struct Row {
+        QPalette::ColorRole role;
+        QCheckBox *override;
+        KColorButton *button;
+    };
+    void updateBase();
+    void refresh();
+
+    QList<Row> m_rows;
+    QHash<QPalette::ColorRole, QColor> m_overrides;
+    QString m_scheme;
+    QString m_accent;
+    QPalette m_base;
+    QFrame *m_preview;
+    KMessageWidget *m_contrast;
+    QPushButton *m_revert = nullptr;
+};
+
+/**
+ * Edits a short list of colours as #rrggbb, such as tree line colours by
+ * nesting depth, and reports colours that are adjusted for contrast against
+ * the view background. Bound to a StringList setting by KConfigDialog.
+ */
+class ColorListEditor : public QWidget
+{
+    Q_OBJECT
+    Q_PROPERTY(QStringList colors READ colors WRITE setColors NOTIFY colorsChanged USER true)
+
+public:
+    static constexpr int MaximumColors = 8;
+
+    explicit ColorListEditor(QWidget *parent = nullptr);
+    QStringList colors() const;
+    void setColors(const QStringList &colors);
+    /// Sets the background that colours are validated against.
+    void setBackground(const QColor &background);
+
+Q_SIGNALS:
+    void colorsChanged();
+
+private:
+    void addButton(const QColor &color);
+    void refresh();
+
+    QList<KColorButton *> m_buttons;
+    QHBoxLayout *m_row;
+    QToolButton *m_add;
+    QToolButton *m_remove;
+    KMessageWidget *m_contrast;
+    QColor m_background;
+};
+
 class RuleListEditor : public QWidget
 {
     Q_OBJECT
@@ -82,8 +240,187 @@ Q_SIGNALS:
 
 private:
     void editRule(int row);
+    void updateContrast();
     Kind m_kind;
     QListWidget *m_list;
+    /// Reports file colours that are hard to read; only for Kind::Color.
+    KMessageWidget *m_contrast = nullptr;
+};
+
+/**
+ * Edits one folder colour rule: what it matches, the pattern, the colour and
+ * whether subfolders inherit it.
+ */
+class FolderColorRuleDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    explicit FolderColorRuleDialog(QWidget *parent = nullptr);
+    /// The edited rule, or nothing while the input is invalid.
+    std::optional<FolderColorRules::Rule> rule() const;
+    void setRule(const FolderColorRules::Rule &rule);
+
+private:
+    void validate();
+    void updateContrast();
+
+    QComboBox *m_match;
+    QLineEdit *m_pattern;
+    QPushButton *m_browse;
+    KColorButton *m_color;
+    QCheckBox *m_subfolders;
+    KMessageWidget *m_contrast;
+    QPushButton *m_ok = nullptr;
+};
+
+/**
+ * Lists folder colour rules in the order they are checked, with buttons to
+ * add, edit, remove and reorder them. Bound to the FolderColorRules setting.
+ */
+class FolderColorRuleEditor : public QWidget
+{
+    Q_OBJECT
+    Q_PROPERTY(QStringList rules READ rules WRITE setRules NOTIFY rulesChanged USER true)
+
+public:
+    explicit FolderColorRuleEditor(QWidget *parent = nullptr);
+    QStringList rules() const;
+    void setRules(const QStringList &rules);
+    /// Moves the rule at @p row by @p offset rows, keeping it selected.
+    void moveRule(int row, int offset);
+
+Q_SIGNALS:
+    void rulesChanged();
+
+private:
+    void editRule(int row);
+    void updateButtons();
+
+    QListWidget *m_list;
+    QPushButton *m_add;
+    QPushButton *m_edit;
+    QPushButton *m_remove;
+    QPushButton *m_up;
+    QPushButton *m_down;
+};
+
+class KFontRequester;
+
+/**
+ * Follows Plasma's font or chooses an app-local font for one area, such as
+ * file lists. Bound to a font setting stored by AppFonts::toSetting().
+ */
+class FontOverrideChooser : public QWidget
+{
+    Q_OBJECT
+    Q_PROPERTY(QString fontSetting READ fontSetting WRITE setFontSetting NOTIFY fontSettingChanged USER true)
+
+public:
+    /// @param accessibleName names the area, such as "File list font"
+    explicit FontOverrideChooser(const QString &accessibleName, QWidget *parent = nullptr);
+    /// The chosen font, or empty to follow Plasma.
+    QString fontSetting() const;
+    void setFontSetting(const QString &setting);
+
+Q_SIGNALS:
+    void fontSettingChanged();
+
+private:
+    QCheckBox *m_custom;
+    KFontRequester *m_requester;
+};
+
+class QPlainTextEdit;
+class QTimer;
+
+/**
+ * Edits the app-local Qt Style Sheet, checks it as it is typed and previews
+ * it on sample widgets. Bound to the CustomStyleSheet setting.
+ */
+class StyleSheetEditor : public QWidget
+{
+    Q_OBJECT
+    Q_PROPERTY(QString sheet READ sheet WRITE setSheet NOTIFY sheetChanged USER true)
+
+public:
+    explicit StyleSheetEditor(QWidget *parent = nullptr);
+    QString sheet() const;
+    void setSheet(const QString &sheet);
+    /// The problem found by the last check, or an empty string.
+    QString problem() const;
+    /// Checks the text and updates the status and the preview now.
+    void check();
+    /// Replaces the text with a stylesheet file.
+    bool importFile(const QString &path);
+    bool exportFile(const QString &path);
+    /// Returns to the saved stylesheet.
+    void revert();
+
+Q_SIGNALS:
+    void sheetChanged();
+
+private:
+    void showStatus(int type, const QString &text);
+
+    QPlainTextEdit *m_text;
+    KMessageWidget *m_status;
+    QFrame *m_preview;
+    QTimer *m_checkTimer;
+    QString m_problem;
+};
+
+/**
+ * Saves, loads, imports, exports and removes theme profiles. Saved profiles
+ * are written at once; loading a profile only fills the settings dialog, so
+ * Apply, OK or Cancel decide whether it is used.
+ */
+class ThemeProfileManager : public QWidget
+{
+    Q_OBJECT
+
+public:
+    struct Callbacks {
+        /// The appearance values currently shown in the dialog.
+        std::function<QVariantMap()> current;
+        /// Shows @p values in the dialog without applying them.
+        std::function<void(const QVariantMap &values)> show;
+        /// Shows Plasma's defaults in the dialog without applying them.
+        std::function<void()> reset;
+    };
+
+    explicit ThemeProfileManager(Callbacks callbacks, QWidget *parent = nullptr);
+
+    /// Replaces the question asked before replacing or removing a profile, for tests.
+    void setConfirmation(std::function<bool(const QString &question)> confirm);
+
+    /// The id of the selected profile, or an empty string.
+    QString selectedId() const;
+
+    /// Saves the dialog's values as @p name, asking before replacing a profile.
+    bool saveCurrent(const QString &name);
+    /// Shows a saved profile's values in the dialog.
+    bool loadProfile(const QString &id);
+    /// Imports a profile file, asking before replacing a profile with its name.
+    bool importProfile(const QString &path);
+    bool exportProfile(const QString &id, const QString &path, bool includeStyleSheet = true);
+    bool removeProfile(const QString &id);
+
+private:
+    void reload(const QString &selectId = QString());
+    void updateButtons();
+    void showMessage(int type, const QString &text);
+    bool store(const QString &name, const QVariantMap &values, QString *id);
+    QString unavailableText(const QVariantMap &values) const;
+
+    Callbacks m_callbacks;
+    std::function<bool(const QString &)> m_confirm;
+    QList<ThemeProfiles::Profile> m_profiles;
+    QListWidget *m_list;
+    KMessageWidget *m_message;
+    QPushButton *m_load;
+    QPushButton *m_export;
+    QPushButton *m_remove;
 };
 
 class IconInformationList : public QListWidget
@@ -92,7 +429,8 @@ class IconInformationList : public QListWidget
     Q_PROPERTY(QStringList information READ information WRITE setInformation NOTIFY informationChanged USER true)
 
 public:
-    explicit IconInformationList(QWidget *parent = nullptr);
+    /// @param cardFields also offer the tags, rating and colour label fields that cards show
+    explicit IconInformationList(QWidget *parent = nullptr, bool cardFields = false);
     QStringList information() const;
     void setInformation(const QStringList &information);
 

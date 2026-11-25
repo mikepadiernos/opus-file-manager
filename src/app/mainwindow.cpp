@@ -3,22 +3,29 @@
 #include "mainwindow.h"
 #include "metadataeditdialog.h"
 
+#include "appearancedefaults.h"
+#include "appearancestyle.h"
+#include "appfonts.h"
 #include "archives.h"
 #include "archivewriter.h"
 #include "batchrenamedialog.h"
 #include "checksumdialog.h"
+#include "colorschemes.h"
 #include "combinedpanel.h"
 #include "compressdialog.h"
 #include "contentchartdialog.h"
 #include "customcommanddialog.h"
+#include "customstylesheet.h"
 #include "density.h"
 #include "duplicatefinderdialog.h"
 #include "editorpanel.h"
+#include "effectiveappearance.h"
 #include "executables.h"
 #include "favoritesmodel.h"
 #include "filediffdialog.h"
 #include "fileoperations.h"
 #include "filesplitdialog.h"
+#include "foldercolors.h"
 #include "foldercomparisondialog.h"
 #include "foldermetadata.h"
 #include "foldersyncdialog.h"
@@ -44,7 +51,11 @@
 #include "toolbarcustomizer.h"
 #include "transferqueue.h"
 #include "transferqueuedialog.h"
+
+#include "themeprofiles.h"
 #include "viewsettings.h"
+#include "windoweffects.h"
+#include "workspaceappearance.h"
 #include "workspacedialog.h"
 #include "workspacelocations.h"
 
@@ -121,13 +132,18 @@
 #include <QSplitter>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <QStyleHints>
 #include <QStyleOption>
 #include <QTabWidget>
 #include <QTimer>
 #include <QToolBar>
 #include <QToolButton>
+#include <QTreeView>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+#include <QAccessibilityHints>
+#endif
 
 #include <algorithm>
 
@@ -300,9 +316,16 @@ Density::Bars barDensity(Settings::EnumBarDensity::type density)
  * Sets the margins and spacing of a bar's layout, remembering the style's
  * own on first use so -1 restores them.
  */
-void setBarMargin(QWidget *bar, int margin)
+/**
+ * Sets the margin and spacing of a bar's layout.
+ * @param margin the margin, or -1 for the bar's own margins scaled by @p scale percent
+ */
+void setBarMargin(QWidget *bar, int margin, int scale)
 {
     QLayout *layout = bar->layout();
+    if (!layout) {
+        return;
+    }
     constexpr auto MarginsKey = "opusfmStyleMargins";
     constexpr auto SpacingKey = "opusfmStyleSpacing";
     if (!bar->property(MarginsKey).isValid()) {
@@ -310,8 +333,12 @@ void setBarMargin(QWidget *bar, int margin)
         bar->setProperty(SpacingKey, layout->spacing());
     }
     if (margin < 0) {
-        layout->setContentsMargins(bar->property(MarginsKey).value<QMargins>());
-        layout->setSpacing(bar->property(SpacingKey).toInt());
+        const auto scaled = [scale](int value) {
+            return value > 0 ? qRound(value * scale / 100.0) : value;
+        };
+        const QMargins margins = bar->property(MarginsKey).value<QMargins>();
+        layout->setContentsMargins(scaled(margins.left()), scaled(margins.top()), scaled(margins.right()), scaled(margins.bottom()));
+        layout->setSpacing(scaled(bar->property(SpacingKey).toInt()));
     } else {
         layout->setContentsMargins(margin, margin, margin, margin);
         layout->setSpacing(margin);
@@ -330,9 +357,16 @@ public:
         if (role != Qt::DecorationRole || value.typeId() != QMetaType::QIcon) {
             return value;
         }
-        return SymbolicIcon::wrap(value.value<QIcon>(),
-                                  KFilePlacesModel::data(index, IconNameRole).toString(),
-                                  isDevice(index) ? deviceForIndex(index).emblems() : QStringList());
+        const QString iconName = KFilePlacesModel::data(index, IconNameRole).toString();
+        if (isDevice(index)) {
+            return SymbolicIcon::wrap(value.value<QIcon>(), iconName, deviceForIndex(index).emblems());
+        }
+        const QIcon icon = SymbolicIcon::wrap(value.value<QIcon>(), iconName, {});
+        const FolderColors::Style style = FolderColors::configured();
+        if (style != FolderColors::Style::Icon && style != FolderColors::Style::Badge) {
+            return icon;
+        }
+        return FolderColors::decorate(icon, iconName, {}, FolderColors::color(url(index)), style);
     }
 };
 
@@ -409,6 +443,8 @@ MainWindow::MainWindow(QWidget *parent)
     if (WorkspaceCatalog::load(m_workspaceConfig->group(QStringLiteral("Workspaces")), m_workspaceCatalog, workspaceError)) {
         m_currentWorkspaceId = m_workspaceCatalog.activeId;
     }
+    // Layer the active workspace's appearance before the panes are created, so they start in its view mode.
+    updateWorkspaceAppearanceLayer();
     m_tabColors = new TabColors(KSharedConfig::openConfig()->group(QStringLiteral("TabColors")), this);
     const KConfigGroup popular = KSharedConfig::openConfig()->group(QLatin1String(PopularFoldersGroup));
     const QStringList popularUrls = popular.readEntry("Urls", QStringList());
@@ -504,8 +540,181 @@ MainWindow::MainWindow(QWidget *parent)
 
     applyViewDefaults();
     setActivePane(m_left);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 10, 0)
+    connect(QGuiApplication::styleHints()->accessibility(),
+            &QAccessibilityHints::contrastPreferenceChanged,
+            this,
+            &MainWindow::applyContrastDependentAppearance);
+#endif
     applySettings();
     updateActions();
+}
+
+namespace
+{
+/// Whether any option that high contrast can suspend differs from Plasma's appearance.
+bool suspendableEffectsConfigured()
+{
+    return EffectiveAppearance::backgroundBlur() || EffectiveAppearance::windowOpacity() < 100 || EffectiveAppearance::paneOpacity() < 100
+        || EffectiveAppearance::panelOpacity() < 100 || EffectiveAppearance::paneTint() != Settings::EnumPaneTint::None
+        || EffectiveAppearance::cornerRadius() != Settings::EnumCornerRadius::FollowStyle
+        || EffectiveAppearance::tabColorStrength() != Settings::EnumTabColorStrength::Text
+        || (EffectiveAppearance::useCustomStyleSheet() && !EffectiveAppearance::customStyleSheet().trimmed().isEmpty());
+}
+}
+
+void MainWindow::applyColorScheme()
+{
+    const QString scheme = EffectiveAppearance::colorScheme();
+    const QStringList customColors = ColorSchemes::withAccent(scheme, EffectiveAppearance::accentColor(), EffectiveAppearance::customColors());
+    const bool highContrast = ColorSchemes::highContrastPreferred();
+    const bool customScheme = !scheme.isEmpty() || !customColors.isEmpty();
+    const bool effectsSuspended = AppearanceDefaults::effectsSuspended() && suspendableEffectsConfigured();
+    if (!ColorSchemes::apply(scheme, customColors, highContrast)) {
+        statusBar()->showMessage(
+            i18nc("@info:status", "Colour scheme %1 is not installed, so Plasma Opus follows the Plasma colour scheme until it is available.", scheme));
+    } else if (highContrast && customScheme && effectsSuspended) {
+        statusBar()->showMessage(i18nc("@info:status",
+                                       "High contrast is requested, so Plasma Opus follows the Plasma colour scheme and suspends blur, "
+                                       "translucency, tints, custom corners and the custom stylesheet."));
+    } else if (highContrast && customScheme) {
+        statusBar()->showMessage(
+            i18nc("@info:status", "High contrast is requested, so Plasma Opus follows the Plasma colour scheme instead of its own colours."));
+    } else if (effectsSuspended) {
+        statusBar()->showMessage(
+            i18nc("@info:status", "High contrast is requested, so Plasma Opus suspends blur, translucency, tints, custom corners and the custom stylesheet."));
+    }
+}
+
+void MainWindow::applyContrastDependentAppearance()
+{
+    applyColorScheme();
+    applyWindowEffects();
+    applyBackgroundOpacity();
+    applyAppearanceStyle();
+    applyPaneBackgrounds();
+    applyCustomStyleSheet();
+}
+
+void MainWindow::applyPaneBackgrounds()
+{
+    const bool suspended = AppearanceDefaults::effectsSuspended();
+    const auto tint = suspended ? Pane::BackgroundTint::None : static_cast<Pane::BackgroundTint>(EffectiveAppearance::paneTint());
+    for (Pane *pane : {m_left, m_right}) {
+        pane->setBackgroundTint(tint, EffectiveAppearance::paneTintColor(), EffectiveAppearance::paneTintStrength());
+        pane->setBackgroundOpacity(suspended ? 100 : EffectiveAppearance::paneOpacity());
+    }
+}
+
+void MainWindow::resetAppearance()
+{
+    if (AppearanceDefaults::reset(Settings::self()).isEmpty()) {
+        statusBar()->showMessage(i18nc("@info:status", "The appearance options already follow Plasma."));
+        return;
+    }
+    Settings::self()->save();
+    // An open settings dialog would otherwise offer to apply the old appearance again.
+    if (auto *dialog = qobject_cast<SettingsDialog *>(KConfigDialog::exists(QLatin1String(SettingsDialog::Name)))) {
+        dialog->resetAppearanceToDefaults();
+    }
+    applySettings();
+    statusBar()->showMessage(i18nc("@info:status", "The appearance options were reset to follow Plasma."));
+}
+
+void MainWindow::applyWindowEffects()
+{
+    if (windowHandle()) {
+        // Blur the whole window, so other translucent areas supplied by the
+        // active style are included.
+        const bool blur = EffectiveAppearance::backgroundBlur() && !AppearanceDefaults::effectsSuspended() && WindowEffects::isBlurAvailable(this);
+        KWindowEffects::enableBlurBehind(windowHandle(), m_terminalBlur || blur);
+    }
+}
+
+void MainWindow::showEvent(QShowEvent *event)
+{
+    KXmlGuiWindow::showEvent(event);
+    applyWindowEffects();
+}
+
+void MainWindow::applyBackgroundOpacity()
+{
+    // An opaque window cannot show what is behind it, so translucent colours
+    // would only darken it. Only the Window role is resolved, so the window
+    // keeps following the application palette for every other role.
+    const ColorSchemes::Overrides overrides = WindowEffects::isTranslucent(this)
+        ? ColorSchemes::translucent(QApplication::palette(this),
+                                    {QPalette::Window},
+                                    AppearanceDefaults::effectsSuspended() ? 100 : EffectiveAppearance::windowOpacity())
+        : ColorSchemes::Overrides();
+    setPalette(ColorSchemes::withOverrides(QPalette(), overrides));
+    for (QDockWidget *dock : findChildren<QDockWidget *>(Qt::FindDirectChildrenOnly)) {
+        applyPanelOpacity(dock);
+    }
+}
+
+void MainWindow::applyPanelOpacity(QDockWidget *dock)
+{
+    if (!dock->property("opusPanelOpacity").toBool()) {
+        dock->setProperty("opusPanelOpacity", true);
+        connect(dock, &QDockWidget::topLevelChanged, this, [this, dock] {
+            applyPanelOpacity(dock);
+        });
+    }
+    // A floating panel is a separate window without a translucent background.
+    const ColorSchemes::Overrides overrides = WindowEffects::isTranslucent(this) && !dock->isFloating()
+        ? ColorSchemes::translucent(QApplication::palette(dock),
+                                    {QPalette::Window, QPalette::Base, QPalette::AlternateBase},
+                                    AppearanceDefaults::effectsSuspended() ? 100 : EffectiveAppearance::panelOpacity())
+        : ColorSchemes::Overrides();
+    dock->setPalette(ColorSchemes::withOverrides(QPalette(), overrides));
+}
+
+void MainWindow::changeEvent(QEvent *event)
+{
+    KXmlGuiWindow::changeEvent(event);
+    // Recompute translucent colours from a new colour scheme. Setting an
+    // unchanged palette sends no further event.
+    if (event->type() == QEvent::PaletteChange) {
+        applyBackgroundOpacity();
+    } else if (event->type() == QEvent::StyleChange) {
+        // A new Plasma widget style replaces the application style, including
+        // the app-local style proxy; wrap the new style again once the style
+        // change has reached every widget.
+        QMetaObject::invokeMethod(this, &MainWindow::applyAppearanceStyle, Qt::QueuedConnection);
+    }
+}
+
+void MainWindow::applyAppearanceStyle()
+{
+    AppearanceStyle::apply(AppearanceStyle::configured());
+    setDockOptions(dockOptions().setFlag(QMainWindow::AnimatedDocks, AppearanceStyle::panelAnimationsEnabled(this)));
+    // Tree lines are drawn by the views themselves.
+    for (QTreeView *tree : findChildren<QTreeView *>()) {
+        tree->viewport()->update();
+    }
+}
+
+void MainWindow::applyCustomStyleSheet()
+{
+    QString error;
+    const QString sheet = CustomStyleSheet::configured(&error);
+    if (styleSheet() != sheet) {
+        setStyleSheet(sheet);
+    }
+    if (!error.isEmpty()) {
+        statusBar()->showMessage(i18nc("@info:status %1 is the reason", "The custom stylesheet was not applied. %1", error));
+    }
+}
+
+void MainWindow::childEvent(QChildEvent *event)
+{
+    KXmlGuiWindow::childEvent(event);
+    if (event->type() == QEvent::ChildPolished) {
+        if (auto *dock = qobject_cast<QDockWidget *>(event->child())) {
+            applyPanelOpacity(dock);
+        }
+    }
 }
 
 MainWindow::~MainWindow()
@@ -674,8 +883,65 @@ void MainWindow::reloadWorkspaceCatalog()
     Q_EMIT workspaceCatalogChanged();
 }
 
+void MainWindow::updateWorkspaceAppearanceLayer()
+{
+    const auto workspace = std::find_if(m_workspaceCatalog.workspaces.cbegin(), m_workspaceCatalog.workspaces.cend(), [this](const auto &entry) {
+        return entry.id == m_currentWorkspaceId;
+    });
+    const WorkspaceCatalog::Workspace *current = workspace != m_workspaceCatalog.workspaces.cend() ? &*workspace : nullptr;
+    m_appearanceWorkspaceId = m_currentWorkspaceId;
+    m_workspaceAppearance = current ? current->appearance : WorkspaceCatalog::Appearance{};
+    m_workspaceAppearanceApplies = current && current->behaviorSelection.applies(current->behaviorSelection.appearance);
+    const QList<ThemeProfiles::Profile> profiles =
+        ThemeProfiles::load(Settings::self(), KSharedConfig::openConfig()->group(QLatin1String(ThemeProfiles::Group)));
+    const WorkspaceAppearance::Resolved resolved = WorkspaceAppearance::resolve(Settings::self(), current, profiles);
+    EffectiveAppearance::setLayer(resolved.values);
+    if (resolved.problems != m_workspaceAppearanceProblems) {
+        m_workspaceAppearanceProblems = resolved.problems;
+        if (current && !resolved.problems.isEmpty()) {
+            statusBar()->showMessage(i18nc("@info:status %1 is a workspace name, %2 a list of themes, fonts or options",
+                                           "Some appearance attached to %1 is unavailable and was skipped: %2. It applies again once available.",
+                                           current->name,
+                                           resolved.problems.join(i18nc("@item list separator", ", "))));
+        }
+    }
+}
+
+void MainWindow::applyWorkspaceAppearance()
+{
+    const auto workspace = std::find_if(m_workspaceCatalog.workspaces.cbegin(), m_workspaceCatalog.workspaces.cend(), [this](const auto &entry) {
+        return entry.id == m_currentWorkspaceId;
+    });
+    const bool found = workspace != m_workspaceCatalog.workspaces.cend();
+    const bool switched = m_appearanceWorkspaceId != m_currentWorkspaceId;
+    if (!switched && (found ? workspace->appearance : WorkspaceCatalog::Appearance{}) == m_workspaceAppearance
+        && (found && workspace->behaviorSelection.applies(workspace->behaviorSelection.appearance)) == m_workspaceAppearanceApplies) {
+        return;
+    }
+    updateWorkspaceAppearanceLayer();
+    const QVariantMap layer = EffectiveAppearance::layer();
+    if (layer != m_appliedAppearanceLayer) {
+        m_appliedAppearanceLayer = layer;
+        applyAppearance();
+        applyPaneBackgrounds();
+        for (Pane *pane : {m_left, m_right}) {
+            pane->reloadTabSettings();
+            pane->view()->reloadListingSettings();
+        }
+        applyBarMargins();
+    }
+    // The workspace's view mode, such as Card view, replaces the restored one when switching to it.
+    if (switched && layer.contains(QStringLiteral("DefaultViewMode"))) {
+        const auto mode = static_cast<FolderView::ViewMode>(qBound(0, int(EffectiveAppearance::defaultViewMode()), int(FolderView::ViewMode::Cards)));
+        for (Pane *pane : {m_left, m_right}) {
+            pane->view()->setViewMode(mode);
+        }
+    }
+}
+
 void MainWindow::refreshWorkspaceLocations()
 {
+    applyWorkspaceAppearance();
     m_combinedPanel->setWorkspaceState(m_workspaceCatalog, m_currentWorkspaceId);
     const auto dialogs = findChildren<SearchDialog *>();
     for (SearchDialog *dialog : dialogs) {
@@ -1012,10 +1278,8 @@ void MainWindow::setupPanes()
     m_splitter->setStretchFactor(1, 1);
     m_terminalPanel = new TerminalPanel(m_workspaceSplitter);
     connect(m_terminalPanel, &TerminalPanel::blurRegionChanged, this, [this](const QRegion &region) {
-        if (windowHandle()) {
-            // Include other translucent areas supplied by the active style.
-            KWindowEffects::enableBlurBehind(windowHandle(), !region.isEmpty());
-        }
+        m_terminalBlur = !region.isEmpty();
+        applyWindowEffects();
     });
     m_terminalPanel->hide();
     m_workspaceSplitter->addWidget(m_splitter);
@@ -1477,6 +1741,7 @@ void MainWindow::editFolderLook(const QUrl &folder)
         showStatusMessage(i18nc("@info:status", "Could not set the folder colour: %1", error));
         return;
     }
+    refreshFolderColors();
     KConfigGroup desktopEntry = directoryConfig.group(QStringLiteral("Desktop Entry"));
     const QString iconName = icon->currentData().toString();
     if (iconName.isEmpty()) {
@@ -1630,6 +1895,7 @@ void MainWindow::setupStatusBar()
     statusBar()->addWidget(indicators, 1);
     for (Pane *pane : {m_left, m_right}) {
         auto *bar = new QWidget(pane);
+        bar->setObjectName(QStringLiteral("paneStatusBar"));
         auto *layout = new QHBoxLayout(bar);
         layout->setContentsMargins(8, 0, 8, 0);
         layout->setSpacing(8);
@@ -1895,6 +2161,17 @@ void MainWindow::setupActions()
     saveSizes->setText(i18nc("@action", "Save Pane and Panel Sizes"));
     auto *resetSizes = actions->addAction(QStringLiteral("reset_splitter_sizes"), this, &MainWindow::resetSplitterSizes);
     resetSizes->setText(i18nc("@action", "Reset Pane and Panel Sizes"));
+    // Keyboard resizing works the same whether the divider is visible or hidden.
+    auto *dividerBack = actions->addAction(QStringLiteral("move_pane_divider_back"), this, [this] {
+        movePaneDivider(-1);
+    });
+    dividerBack->setText(i18nc("@action", "Move Pane Divider Left or Up"));
+    actions->setDefaultShortcuts(dividerBack, {Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_Left, Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_Up});
+    auto *dividerForward = actions->addAction(QStringLiteral("move_pane_divider_forward"), this, [this] {
+        movePaneDivider(1);
+    });
+    dividerForward->setText(i18nc("@action", "Move Pane Divider Right or Down"));
+    actions->setDefaultShortcuts(dividerForward, {Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_Right, Qt::CTRL | Qt::ALT | Qt::SHIFT | Qt::Key_Down});
     auto *customizeCombinedPanel = actions->addAction(QStringLiteral("customize_combined_panel"), m_combinedPanel, &CombinedPanel::configureSections);
     customizeCombinedPanel->setText(i18nc("@action", "Customize Combined Panel…"));
     auto *tabPosition = new KSelectAction(i18nc("@action", "Active Pane Tab Bar Position"), this);
@@ -2003,6 +2280,12 @@ void MainWindow::setupActions()
     });
     compactView->setText(i18nc("@action", "Compact View"));
     compactView->setIcon(QIcon::fromTheme(QStringLiteral("view-list-tree")));
+    QAction *cardView = actions->addAction(QStringLiteral("card_view"), this, [this] {
+        activePane()->view()->setViewMode(FolderView::ViewMode::Cards);
+        updateActions();
+    });
+    cardView->setText(i18nc("@action", "Card View"));
+    cardView->setIcon(QIcon::fromTheme(QStringLiteral("view-grid"), QIcon::fromTheme(QStringLiteral("view-list-icons"))));
 
     QAction *formatSource = actions->addAction(QStringLiteral("folder_format_source"));
     formatSource->setEnabled(false);
@@ -2387,7 +2670,7 @@ void MainWindow::restoreSession()
 {
     m_sessionRestored = true;
     const KConfigGroup group = KSharedConfig::openStateConfig()->group(QLatin1String(SessionGroup));
-    const WindowSession session = Startup::resolve(Session::load(group, int(Settings::defaultViewMode())), Startup::fromSettings());
+    const WindowSession session = Startup::resolve(Session::load(group, int(EffectiveAppearance::defaultViewMode())), Startup::fromSettings());
 
     m_left->restoreState(session.left);
     m_right->restoreState(session.right);
@@ -2477,7 +2760,7 @@ bool MainWindow::queryClose()
 
 void MainWindow::readProperties(const KConfigGroup &group)
 {
-    const WindowSession session = Session::load(group, int(Settings::defaultViewMode())).sanitized(QUrl::fromLocalFile(QDir::homePath()));
+    const WindowSession session = Session::load(group, int(EffectiveAppearance::defaultViewMode())).sanitized(QUrl::fromLocalFile(QDir::homePath()));
     m_sessionRestored = true;
     m_left->restoreState(session.left);
     m_right->restoreState(session.right);
@@ -3873,8 +4156,7 @@ void MainWindow::resetMovedPaneDisplayStyle()
     if (Settings::paneMoveDisplayStyle() != Settings::EnumPaneMoveDisplayStyle::ResetToDefault) {
         return;
     }
-    const auto mode = Settings::defaultViewMode() == Settings::EnumDefaultViewMode::Icons ? FolderView::ViewMode::Icons : FolderView::ViewMode::Details;
-    m_right->view()->setViewMode(mode);
+    m_right->view()->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, int(EffectiveAppearance::defaultViewMode()), int(FolderView::ViewMode::Cards))));
 }
 
 void MainWindow::moveSecondPaneToDual()
@@ -3965,6 +4247,8 @@ void MainWindow::rename()
             return item.url().isLocalFile();
         })) {
         batchRename();
+    } else if (items.size() == 1 && activePane()->view()->renameInline()) {
+        return;
     } else {
         FileOperations::rename(items, this);
     }
@@ -4398,6 +4682,31 @@ void MainWindow::restorePanelDockSize(QDockWidget *dock, const QString &name)
     }
 }
 
+void MainWindow::movePaneDivider(int direction)
+{
+    QList<int> sizes = m_splitter->sizes();
+    const int first = m_splitter->indexOf(m_left);
+    const int second = m_splitter->indexOf(m_right);
+    if (first < 0 || second != first + 1 || !m_right->isVisible()) {
+        return;
+    }
+    const int total = sizes.at(first) + sizes.at(second);
+    const bool horizontal = m_splitter->orientation() == Qt::Horizontal;
+    const int minimum = std::max(horizontal ? m_left->minimumSizeHint().width() : m_left->minimumSizeHint().height(), 1);
+    const int maximum = total - std::max(horizontal ? m_right->minimumSizeHint().width() : m_right->minimumSizeHint().height(), 1);
+    if (maximum < minimum) {
+        return;
+    }
+    // Move by a twentieth of the panes, as the arrow keys do for sliders.
+    int step = std::max(total / 20, 1) * direction;
+    if (horizontal && layoutDirection() == Qt::RightToLeft) {
+        step = -step;
+    }
+    sizes[first] = std::clamp(sizes.at(first) + step, minimum, maximum);
+    sizes[second] = total - sizes.at(first);
+    m_splitter->setSizes(sizes);
+}
+
 void MainWindow::resetSplitterSizes()
 {
     const auto state = KSharedConfig::openStateConfig();
@@ -4517,8 +4826,41 @@ bool MainWindow::isDualLayout() const
     return m_dualLayoutAction->isChecked();
 }
 
+void MainWindow::refreshFolderColors()
+{
+    FolderColors::clearCache();
+    for (Pane *pane : {m_left, m_right}) {
+        pane->refreshFolderColors();
+    }
+    const auto views = findChildren<QAbstractItemView *>();
+    for (QAbstractItemView *view : views) {
+        view->viewport()->update();
+    }
+}
+
+void MainWindow::applyFonts()
+{
+    const QFont list = AppFonts::fromSetting(EffectiveAppearance::fileListFont());
+    const QFont tree = AppFonts::fromSetting(EffectiveAppearance::folderTreeFont());
+    const QFont tabs = AppFonts::fromSetting(EffectiveAppearance::tabFont());
+    const QFont status = AppFonts::fromSetting(EffectiveAppearance::statusBarFont());
+    for (Pane *pane : {m_left, m_right}) {
+        pane->view()->setListFont(list);
+        pane->setTabFont(tabs);
+        pane->statusBarWidget()->setFont(status);
+    }
+    for (FolderTree *folderTree : {m_folderTree, m_combinedPanel->folderTree()}) {
+        folderTree->setFont(tree);
+    }
+    statusBar()->setFont(status);
+}
+
 void MainWindow::applySettings()
 {
+    // Saved theme profiles may have changed.
+    updateWorkspaceAppearanceLayer();
+    m_appliedAppearanceLayer = EffectiveAppearance::layer();
+    applyAppearance();
     applyLocationPresentationDefaults();
     applyWorkspaceSelectorPlacement();
     scheduleWorkspaceSelectorRefresh();
@@ -4559,6 +4901,7 @@ void MainWindow::applySettings()
         m_automaticLocalSizeDefault != Settings::automaticLocalFolderSizes() || m_automaticRemoteSizeDefault != Settings::automaticRemoteFolderSizes();
     m_automaticLocalSizeDefault = Settings::automaticLocalFolderSizes();
     m_automaticRemoteSizeDefault = Settings::automaticRemoteFolderSizes();
+    applyPaneBackgrounds();
     for (Pane *pane : {m_left, m_right}) {
         pane->setInactiveDimming(Settings::dimInactivePane(), Settings::inactivePaneOpacity());
         pane->reloadTabSettings();
@@ -4597,14 +4940,7 @@ void MainWindow::applySettings()
         m_hoveredInformationItem = {};
     }
     updateTabBars();
-    const int barMargin = Density::barMargin(barDensity(Settings::barDensity()), Settings::barCustomSpacing());
-    const auto bars = toolBars();
-    for (KToolBar *bar : bars) {
-        setBarMargin(bar, barMargin);
-    }
-    setBarMargin(statusBar(), barMargin);
-    setBarMargin(m_left->navigationBar(), barMargin);
-    setBarMargin(m_right->navigationBar(), barMargin);
+    applyBarMargins();
     applyPanelSettings();
     applyEmbeddedPanelTitles();
     updateStatusBarIndicatorOrder();
@@ -4623,6 +4959,40 @@ void MainWindow::applySettings()
     m_previewPanel->applyPresentationSettings();
     updatePreviewPanel();
     updateActions();
+}
+
+void MainWindow::applyAppearance()
+{
+    applyColorScheme();
+    applyWindowEffects();
+    applyBackgroundOpacity();
+    applyAppearanceStyle();
+    applyFonts();
+    refreshFolderColors();
+    applyCustomStyleSheet();
+    const bool translucency =
+        EffectiveAppearance::windowOpacity() < 100 || EffectiveAppearance::paneOpacity() < 100 || EffectiveAppearance::panelOpacity() < 100;
+    if (AppearanceDefaults::effectsSuspended()) {
+        // applyColorScheme() reports the suspended effects instead.
+    } else if (const QString reason = WindowEffects::unavailableReason(this, EffectiveAppearance::backgroundBlur(), translucency); !reason.isEmpty()) {
+        statusBar()->showMessage(reason);
+    }
+}
+
+void MainWindow::applyBarMargins()
+{
+    const int barMargin = Density::barMargin(barDensity(Settings::barDensity()), Settings::barCustomSpacing());
+    const int spacingScale = AppearanceStyle::configured().spacingScale;
+    const auto bars = toolBars();
+    for (KToolBar *bar : bars) {
+        setBarMargin(bar, barMargin, spacingScale);
+    }
+    setBarMargin(statusBar(), barMargin, spacingScale);
+    for (Pane *pane : {m_left, m_right}) {
+        setBarMargin(pane->navigationBar(), barMargin, spacingScale);
+        // Pane status bars are already as tight as Compact, so they only follow the spacing scale.
+        setBarMargin(pane->statusBarWidget(), -1, spacingScale);
+    }
 }
 
 void MainWindow::applyPanelSettings()
@@ -4685,7 +5055,7 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
 
 void MainWindow::applyViewDefaults()
 {
-    const auto mode = Settings::defaultViewMode() == Settings::EnumDefaultViewMode::Icons ? FolderView::ViewMode::Icons : FolderView::ViewMode::Details;
+    const auto mode = static_cast<FolderView::ViewMode>(qBound(0, int(EffectiveAppearance::defaultViewMode()), int(FolderView::ViewMode::Cards)));
     const Qt::SortOrder order = Settings::sortDescending() ? Qt::DescendingOrder : Qt::AscendingOrder;
     for (Pane *pane : {m_left, m_right}) {
         pane->view()->setViewMode(mode);

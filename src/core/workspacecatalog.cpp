@@ -135,7 +135,8 @@ QJsonObject writeBehaviorSelection(const WorkspaceCatalog::BehaviorSelection &se
             {QStringLiteral("locationPresentation"), selection.locationPresentation},
             {QStringLiteral("searchScope"), selection.searchScope},
             {QStringLiteral("layout"), selection.layout},
-            {QStringLiteral("paneTabRestoration"), selection.paneTabRestoration}};
+            {QStringLiteral("paneTabRestoration"), selection.paneTabRestoration},
+            {QStringLiteral("appearance"), selection.appearance}};
 }
 
 bool readBehaviorSelection(const QJsonValue &value, WorkspaceCatalog::BehaviorSelection &selection)
@@ -149,9 +150,12 @@ bool readBehaviorSelection(const QJsonValue &value, WorkspaceCatalog::BehaviorSe
     const QJsonValue searchScope = object.value(QStringLiteral("searchScope"));
     const QJsonValue layout = object.value(QStringLiteral("layout"));
     const QJsonValue paneTabRestoration = object.value(QStringLiteral("paneTabRestoration"));
+    // Catalogs before version 8 have no appearance choice; attached appearance applies by default.
+    const QJsonValue appearance = object.value(QStringLiteral("appearance"));
     const double modeNumber = mode.toDouble(-1);
     if (!mode.isDouble() || modeNumber < 0 || modeNumber > int(WorkspaceCatalog::BehaviorMode::None) || int(modeNumber) != modeNumber
-        || !locationPresentation.isBool() || !searchScope.isBool() || !layout.isBool() || !paneTabRestoration.isBool()) {
+        || !locationPresentation.isBool() || !searchScope.isBool() || !layout.isBool() || !paneTabRestoration.isBool()
+        || !(appearance.isBool() || appearance.isUndefined())) {
         return false;
     }
     selection.mode = static_cast<WorkspaceCatalog::BehaviorMode>(int(modeNumber));
@@ -159,7 +163,65 @@ bool readBehaviorSelection(const QJsonValue &value, WorkspaceCatalog::BehaviorSe
     selection.searchScope = searchScope.toBool();
     selection.layout = layout.toBool();
     selection.paneTabRestoration = paneTabRestoration.toBool();
+    selection.appearance = appearance.toBool(true);
     return true;
+}
+
+constexpr qsizetype MaximumAppearanceOverrides = 32;
+constexpr qsizetype MaximumAppearanceText = 4096;
+constexpr qsizetype MaximumAppearanceList = 100;
+
+/**
+ * Checks the shape and size of attached appearance. Values are checked
+ * against the settings when they are applied, so unknown or currently
+ * invalid entries are kept rather than rejecting the catalog.
+ */
+bool validAppearance(const WorkspaceCatalog::Appearance &appearance)
+{
+    if ((!appearance.themeProfileId.isEmpty() && !validId(appearance.themeProfileId)) || appearance.overrides.size() > MaximumAppearanceOverrides) {
+        return false;
+    }
+    for (auto it = appearance.overrides.constBegin(); it != appearance.overrides.constEnd(); ++it) {
+        if (!validText(it.key()) || it.key().size() > 64) {
+            return false;
+        }
+        const QJsonValue value = it.value();
+        if (value.isArray()) {
+            const QJsonArray list = value.toArray();
+            if (list.size() > MaximumAppearanceList || !std::all_of(list.cbegin(), list.cend(), [](const QJsonValue &entry) {
+                    return entry.isString() && entry.toString().size() <= MaximumAppearanceText;
+                })) {
+                return false;
+            }
+        } else if (!value.isBool() && !value.isDouble() && !(value.isString() && value.toString().size() <= MaximumAppearanceText)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+QJsonObject writeAppearance(const WorkspaceCatalog::Appearance &appearance)
+{
+    QJsonObject object{{QStringLiteral("overrides"), appearance.overrides}};
+    if (!appearance.themeProfileId.isEmpty()) {
+        object.insert(QStringLiteral("themeProfileId"), appearance.themeProfileId);
+    }
+    return object;
+}
+
+bool readAppearance(const QJsonValue &value, WorkspaceCatalog::Appearance &appearance)
+{
+    if (value.isUndefined()) {
+        return true;
+    }
+    const QJsonValue profile = value.toObject().value(QStringLiteral("themeProfileId"));
+    const QJsonValue overrides = value.toObject().value(QStringLiteral("overrides"));
+    if (!value.isObject() || !(profile.isString() || profile.isUndefined()) || !(overrides.isObject() || overrides.isUndefined())) {
+        return false;
+    }
+    appearance.themeProfileId = profile.toString();
+    appearance.overrides = overrides.toObject();
+    return validAppearance(appearance);
 }
 
 QJsonArray writeSizes(const QList<int> &sizes)
@@ -288,8 +350,8 @@ bool readPaneSession(const QJsonValue &value, PaneSession &pane, bool *credentia
     const double scope = filterScope.toDouble(-2);
     const double presentation = locationPresentation.toDouble(-2);
     const double mode = viewMode.toDouble(-1);
-    if (scope < -1 || scope > 2 || int(scope) != scope || presentation < -1 || presentation > 2 || int(presentation) != presentation || mode < 0 || mode > 2
-        || int(mode) != mode) {
+    if (scope < -1 || scope > 2 || int(scope) != scope || presentation < -1 || presentation > 2 || int(presentation) != presentation || mode < 0
+        || mode > PaneSession::MaximumViewMode || int(mode) != mode) {
         return false;
     }
     pane.currentTab = currentTab.toInt();
@@ -304,7 +366,8 @@ bool readPaneSession(const QJsonValue &value, PaneSession &pane, bool *credentia
 bool validPaneSession(const PaneSession &pane)
 {
     if (pane.tabs.isEmpty() || pane.currentTab < 0 || pane.currentTab >= pane.tabs.size() || pane.pinnedCount < 0 || pane.pinnedCount > pane.tabs.size()
-        || pane.names.size() > pane.tabs.size() || pane.filterScope < -1 || pane.filterScope > 2 || pane.viewMode < 0 || pane.viewMode > 2) {
+        || pane.names.size() > pane.tabs.size() || pane.filterScope < -1 || pane.filterScope > 2 || pane.viewMode < 0
+        || pane.viewMode > PaneSession::MaximumViewMode) {
         return false;
     }
     if (pane.locationPresentation < -1 || pane.locationPresentation > 2) {
@@ -514,7 +577,7 @@ bool validCatalog(const WorkspaceCatalog::Catalog &catalog)
         if (!validId(workspace.id) || ids.contains(workspace.id) || !validText(workspace.name) || !validText(workspace.shortLabel) || names.contains(name)
             || (workspace.layout && !validLayout(*workspace.layout)) || !validReferenceIds(workspace.savedSearchIds)
             || !validReferenceIds(workspace.folderSyncProfileIds) || workspace.behaviorSelection.mode < WorkspaceCatalog::BehaviorMode::All
-            || workspace.behaviorSelection.mode > WorkspaceCatalog::BehaviorMode::None) {
+            || workspace.behaviorSelection.mode > WorkspaceCatalog::BehaviorMode::None || !validAppearance(workspace.appearance)) {
             return false;
         }
         ids.insert(workspace.id);
@@ -567,7 +630,7 @@ bool WorkspaceCatalog::load(const KConfigGroup &group, Catalog &catalog, QString
     const QJsonValue active = root.value(QStringLiteral("activeId"));
     const QJsonValue assignments = root.value(QStringLiteral("locationAssignments"));
     const double versionNumber = version.toDouble();
-    bool valid = parseError.error == QJsonParseError::NoError && document.isObject() && version.isDouble() && (versionNumber >= 1 && versionNumber <= 7)
+    bool valid = parseError.error == QJsonParseError::NoError && document.isObject() && version.isDouble() && (versionNumber >= 1 && versionNumber <= 8)
         && entries.isArray() && active.isString() && (versionNumber >= 4 ? assignments.isObject() : assignments.isUndefined());
     Catalog loaded;
     bool credentialsScrubbed = false;
@@ -582,13 +645,17 @@ bool WorkspaceCatalog::load(const KConfigGroup &group, Catalog &catalog, QString
                 valid = false;
                 break;
             }
-            Workspace workspace{id.toString(), name.toString(), label.toString(), std::nullopt, {}, {}, {}};
+            Workspace workspace{id.toString(), name.toString(), label.toString(), std::nullopt, {}, {}, {}, {}};
             if (!readReferenceIds(object.value(QStringLiteral("savedSearchIds")), workspace.savedSearchIds)
                 || !readReferenceIds(object.value(QStringLiteral("folderSyncProfileIds")), workspace.folderSyncProfileIds)) {
                 valid = false;
                 break;
             }
             if (versionNumber >= 6 && !readBehaviorSelection(object.value(QStringLiteral("behaviorSelection")), workspace.behaviorSelection)) {
+                valid = false;
+                break;
+            }
+            if (versionNumber >= 8 && !readAppearance(object.value(QStringLiteral("appearance")), workspace.appearance)) {
                 valid = false;
                 break;
             }
@@ -642,13 +709,16 @@ bool WorkspaceCatalog::save(KConfigGroup group, const Catalog &catalog, QString 
         if (workspace.layout) {
             entry.insert(QStringLiteral("layout"), writeLayout(*workspace.layout));
         }
+        if (!workspace.appearance.isEmpty()) {
+            entry.insert(QStringLiteral("appearance"), writeAppearance(workspace.appearance));
+        }
         entries.append(entry);
     }
     QJsonObject assignments;
     for (auto it = catalog.locationAssignments.cbegin(); it != catalog.locationAssignments.cend(); ++it) {
         assignments.insert(it.key(), it.value());
     }
-    const QJsonObject root{{QStringLiteral("version"), 7},
+    const QJsonObject root{{QStringLiteral("version"), 8},
                            {QStringLiteral("workspaces"), entries},
                            {QStringLiteral("activeId"), catalog.activeId},
                            {QStringLiteral("locationAssignments"), assignments}};
@@ -713,7 +783,7 @@ bool WorkspaceCatalog::saveIfUnchanged(KConfigGroup group, const Catalog &expect
 bool WorkspaceCatalog::create(Catalog &catalog, const QString &name, const QString &shortLabel, QString &error)
 {
     Catalog updated = catalog;
-    updated.workspaces.append({QUuid::createUuid().toString(QUuid::WithoutBraces), name.trimmed(), shortLabel.trimmed(), std::nullopt, {}, {}, {}});
+    updated.workspaces.append({QUuid::createUuid().toString(QUuid::WithoutBraces), name.trimmed(), shortLabel.trimmed(), std::nullopt, {}, {}, {}, {}});
     if (!checkCatalog(updated, error)) {
         return false;
     }
@@ -753,6 +823,26 @@ bool WorkspaceCatalog::setLayout(Catalog &catalog, const QString &id, const Layo
     }
     Catalog updated = catalog;
     updated.workspaces[index].layout = layout;
+    if (!checkCatalog(updated, error)) {
+        return false;
+    }
+    catalog = updated;
+    return true;
+}
+
+bool WorkspaceCatalog::setAppearance(Catalog &catalog, const QString &id, const Appearance &appearance, QString &error)
+{
+    const int index = indexOf(catalog, id);
+    if (index < 0) {
+        error = i18nc("@info", "The workspace no longer exists.");
+        return false;
+    }
+    if (!validAppearance(appearance)) {
+        error = i18nc("@info", "The workspace appearance options are invalid.");
+        return false;
+    }
+    Catalog updated = catalog;
+    updated.workspaces[index].appearance = appearance;
     if (!checkCatalog(updated, error)) {
         return false;
     }

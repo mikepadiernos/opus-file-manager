@@ -1,8 +1,12 @@
 add_library(opusfm_app STATIC
+    appearancestyle.cpp
+    appearancestyle.h
     batchconversiondialog.cpp
     batchconversiondialog.h
     batchrenamedialog.cpp
     batchrenamedialog.h
+    carddelegate.cpp
+    carddelegate.h
     checksumdialog.cpp
     checksumdialog.h
     combinedpanel.cpp
@@ -17,6 +21,8 @@ add_library(opusfm_app STATIC
     cushiontreemap.h
     customcommanddialog.cpp
     customcommanddialog.h
+    customstylesheet.cpp
+    customstylesheet.h
     densitydelegate.cpp
     densitydelegate.h
     detailsview.cpp
@@ -79,8 +85,14 @@ add_library(opusfm_app STATIC
     toolbarcustomizer.h
     transferqueuedialog.cpp
     transferqueuedialog.h
+    treelines.cpp
+    treelines.h
+    windoweffects.cpp
+    windoweffects.h
     workspacedialog.cpp
     workspacedialog.h
+    workspaceappearanceeditor.cpp
+    workspaceappearanceeditor.h
     workspacelocations.cpp
     workspacelocations.h
     opusfm.qrc

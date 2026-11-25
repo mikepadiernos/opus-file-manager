@@ -838,6 +838,7 @@ void GalleryWindow::scheduleDetails()
     ++m_detailsGeneration;
     m_detailsPending = false;
     m_colours->clear();
+    m_histogramData.clear();
     m_histogram->clear();
     m_statsPanel->setVisible(!m_image.isNull());
     if (m_infoPanel->isHidden() || m_image.isNull()) {
@@ -904,19 +905,34 @@ void GalleryWindow::showDetails(const ImageDetails::Data &details)
     }
     m_colours->setPixmap(colours);
 
+    m_histogramData = details.histogram;
+    paintHistogram();
+}
+
+void GalleryWindow::paintHistogram()
+{
     QPixmap histogram(200, 70);
     histogram.fill(palette().base().color());
     QPainter histogramPainter(&histogram);
     histogramPainter.setPen(Qt::NoPen);
     histogramPainter.setBrush(palette().highlight());
-    const int maximum = details.histogram.isEmpty() ? 0 : *std::max_element(details.histogram.cbegin(), details.histogram.cend());
+    const int maximum = m_histogramData.isEmpty() ? 0 : *std::max_element(m_histogramData.cbegin(), m_histogramData.cend());
     if (maximum > 0) {
-        for (int i = 0; i < details.histogram.size(); ++i) {
-            const int height = 68 * details.histogram.at(i) / maximum;
+        for (int i = 0; i < m_histogramData.size(); ++i) {
+            const int height = 68 * m_histogramData.at(i) / maximum;
             histogramPainter.drawRect(i * 5, 70 - height, 4, height);
         }
     }
+    histogramPainter.end();
     m_histogram->setPixmap(histogram);
+}
+
+void GalleryWindow::changeEvent(QEvent *event)
+{
+    QDialog::changeEvent(event);
+    if (event->type() == QEvent::PaletteChange && !m_histogram->pixmap().isNull()) {
+        paintHistogram();
+    }
 }
 
 void GalleryWindow::fitImage()

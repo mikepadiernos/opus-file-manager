@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "carddelegate.h"
+#include "colorschemes.h"
 #include "filterbar.h"
+#include "foldercolors.h"
 #include "foldermetadata.h"
 #include "folderview.h"
 #include "labelcolor.h"
@@ -579,6 +582,40 @@ private Q_SLOTS:
         QCOMPARE(FolderMetadata::read(root.path()), original);
     }
 
+    void folderColoursShowOnIconsOrNames()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("Projects")));
+        const QColor color(0x12, 0x34, 0x56);
+        QVERIFY(FolderMetadata::setFolderColor(root.filePath(QStringLiteral("Projects")), color.name()));
+        const auto restore = qScopeGuard([] {
+            Settings::setFolderColorStyle(Settings::EnumFolderColorStyle::Icon);
+            FolderColors::clearCache();
+        });
+        FolderColors::clearCache();
+        FolderView view;
+        view.setUrl(QUrl::fromLocalFile(root.path()));
+        QTRY_COMPARE(view.itemCount(), 1);
+        const QModelIndex folder = view.currentView()->model()->index(0, 0);
+        QCOMPARE(folder.data().toString(), QStringLiteral("Projects"));
+        const auto badgePixel = [&folder] {
+            return folder.data(Qt::DecorationRole).value<QIcon>().pixmap(48).toImage().pixelColor(38, 38);
+        };
+
+        Settings::setFolderColorStyle(Settings::EnumFolderColorStyle::Badge);
+        QCOMPARE(badgePixel(), color);
+        QVERIFY(!folder.data(Qt::ForegroundRole).value<QColor>().isValid());
+
+        Settings::setFolderColorStyle(Settings::EnumFolderColorStyle::Hidden);
+        QVERIFY(badgePixel() != color);
+        QVERIFY(!folder.data(Qt::ForegroundRole).value<QColor>().isValid());
+
+        Settings::setFolderColorStyle(Settings::EnumFolderColorStyle::Name);
+        QVERIFY(badgePixel() != color);
+        QCOMPARE(folder.data(Qt::ForegroundRole).value<QColor>(), ColorSchemes::readable(color, QApplication::palette().color(QPalette::Base), 4.5));
+    }
+
     void selectionPatternsSelectAndDeselectInBothViews()
     {
         FolderView view;
@@ -627,6 +664,107 @@ private Q_SLOTS:
         QCOMPARE(view.viewMode(), FolderView::ViewMode::Compact);
     }
 
+    void cardViewLaysOutCardsAndRemembersFormat()
+    {
+        const QString path = m_root.filePath(QStringLiteral("cards"));
+        QVERIFY(QDir().mkpath(path));
+        for (int i = 0; i < 6; ++i) {
+            QFile file(QDir(path).filePath(QStringLiteral("card%1.txt").arg(i)));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        FolderView view;
+        view.resize(800, 500);
+        view.setUrl(QUrl::fromLocalFile(path));
+        view.setViewMode(FolderView::ViewMode::Cards);
+        view.show();
+        QTRY_COMPARE(view.itemCount(), 6);
+        auto *cards = qobject_cast<QListView *>(view.currentView());
+        QVERIFY(cards);
+        QCOMPARE(cards->objectName(), QStringLiteral("cardView"));
+        QCOMPARE(cards->viewMode(), QListView::IconMode);
+        QVERIFY(qobject_cast<CardDelegate *>(cards->itemDelegate()));
+        QCOMPARE(cards->iconSize(), QSize(Settings::cardPreviewSize(), Settings::cardPreviewSize()));
+        QVERIFY(cards->gridSize().height() > Settings::cardPreviewSize());
+        const QModelIndex first = cards->model()->index(0, 0);
+        const QModelIndex second = cards->model()->index(1, 0);
+        QTRY_VERIFY(!cards->visualRect(second).isEmpty());
+        QCOMPARE(cards->visualRect(second).top(), cards->visualRect(first).top());
+        QVERIFY(cards->visualRect(second).left() > cards->visualRect(first).left());
+
+        const auto restoreColumns = qScopeGuard([] {
+            Settings::self()->setCardColumns(0);
+        });
+        Settings::self()->setCardColumns(2);
+        view.reloadListingSettings();
+        QTRY_VERIFY(cards->visualRect(cards->model()->index(2, 0)).top() > cards->visualRect(first).top());
+        QVERIFY(cards->gridSize().width() * 2 <= cards->viewport()->width());
+        QVERIFY(cards->gridSize().width() * 3 > cards->viewport()->width());
+
+        view.selectUrls({QUrl::fromLocalFile(QDir(path).filePath(QStringLiteral("card0.txt")))});
+        QCOMPARE(view.selectedItems().size(), 1);
+        view.setViewMode(FolderView::ViewMode::Details);
+        QCOMPARE(view.selectedItems().size(), 1);
+        view.setViewMode(FolderView::ViewMode::Cards);
+        QCOMPARE(view.selectedItems().size(), 1);
+        view.setUrl(m_b);
+        view.setUrl(QUrl::fromLocalFile(path));
+        QCOMPARE(view.viewMode(), FolderView::ViewMode::Cards);
+        FolderMetadata::Format format;
+        QVERIFY(FolderMetadata::format(FolderMetadata::read(path), &format));
+        QCOMPARE(format.view, QStringLiteral("cards"));
+    }
+
+    void cardInformationShowsRatingLabelAndTags()
+    {
+        const QString path = m_root.filePath(QStringLiteral("cardinfo"));
+        QVERIFY(QDir().mkpath(path));
+        QFile file(QDir(path).filePath(QStringLiteral("rated.txt")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("hello");
+        file.close();
+        QVERIFY(FolderMetadata::setRating(path, QStringLiteral("rated.txt"), 3));
+        QVERIFY(FolderMetadata::setLabel(path, QStringLiteral("rated.txt"), QStringLiteral("red")));
+        FolderView view;
+        view.setUrl(QUrl::fromLocalFile(path));
+        view.setViewMode(FolderView::ViewMode::Cards);
+        QTRY_COMPARE(view.itemCount(), 1);
+        const QModelIndex index = view.currentView()->model()->index(0, 0);
+        QCOMPARE(index.data(CardRoles::Rating).toInt(), 3);
+        QCOMPARE(index.data(CardRoles::Label).toString(), QStringLiteral("red"));
+        QVERIFY(index.data(CardRoles::Tags).canConvert<QStringList>());
+        QCOMPARE(CardDelegate::informationText(index, QStringLiteral("rating")), QStringLiteral("★★★☆☆"));
+        QCOMPARE(CardDelegate::informationText(index, QStringLiteral("label")), QStringLiteral("Red"));
+        QVERIFY(!CardDelegate::informationText(index, QStringLiteral("size")).isEmpty());
+        QVERIFY(CardDelegate::informationText(index, QStringLiteral("unknown")).isEmpty());
+    }
+
+    void cardViewRenamesInPlace()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QFile file(dir.filePath(QStringLiteral("before.txt")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+        FolderView view;
+        view.resize(600, 400);
+        view.setUrl(QUrl::fromLocalFile(dir.path()));
+        view.setViewMode(FolderView::ViewMode::Details);
+        view.show();
+        QTRY_COMPARE(view.itemCount(), 1);
+        view.selectUrls({QUrl::fromLocalFile(file.fileName())});
+        QVERIFY(!view.renameInline());
+        view.setViewMode(FolderView::ViewMode::Cards);
+        QVERIFY(view.renameInline());
+        auto *editor = view.findChild<QLineEdit *>(QStringLiteral("cardNameEditor"));
+        QVERIFY(editor);
+        QCOMPARE(editor->text(), QStringLiteral("before.txt"));
+        QTRY_COMPARE(editor->selectedText(), QStringLiteral("before"));
+        editor->setText(QStringLiteral("after.txt"));
+        QTest::keyClick(editor, Qt::Key_Return);
+        QTRY_VERIFY(QFile::exists(dir.filePath(QStringLiteral("after.txt"))));
+        QVERIFY(!QFile::exists(dir.filePath(QStringLiteral("before.txt"))));
+    }
+
     void columnMenuFitsVisibleColumns()
     {
         FolderView view;
@@ -671,16 +809,18 @@ private Q_SLOTS:
         QSignalSpy activated(&view, &FolderView::itemActivated);
         view.setSelectionMarkersVisible(true);
 
-        for (const auto mode : {FolderView::ViewMode::Details, FolderView::ViewMode::Icons, FolderView::ViewMode::Compact}) {
+        for (const auto mode : {FolderView::ViewMode::Details, FolderView::ViewMode::Icons, FolderView::ViewMode::Compact, FolderView::ViewMode::Cards}) {
             view.setViewMode(mode);
             view.clearSelection();
             auto *listing = view.currentView();
             const QModelIndex index = listing->model()->index(0, 0);
             QTRY_VERIFY(!listing->visualRect(index).isEmpty());
             const QRect rect = listing->visualRect(index);
-            QTest::mouseClick(listing->viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(rect.left() + 8, rect.bottom() - 8));
+            // Cards put their marker in the top-left corner; other views in the bottom-left.
+            const QPoint marker = mode == FolderView::ViewMode::Cards ? rect.topLeft() + QPoint(10, 10) : QPoint(rect.left() + 8, rect.bottom() - 8);
+            QTest::mouseClick(listing->viewport(), Qt::LeftButton, Qt::NoModifier, marker);
             QCOMPARE(view.selectedItems().size(), 1);
-            QTest::mouseClick(listing->viewport(), Qt::LeftButton, Qt::NoModifier, QPoint(rect.left() + 8, rect.bottom() - 8));
+            QTest::mouseClick(listing->viewport(), Qt::LeftButton, Qt::NoModifier, marker);
             QVERIFY(view.selectedItems().isEmpty());
         }
         QCOMPARE(activated.size(), 0);

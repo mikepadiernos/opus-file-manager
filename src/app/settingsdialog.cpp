@@ -2,7 +2,9 @@
 
 #include "settingsdialog.h"
 
+#include "appearancedefaults.h"
 #include "batchrenamedialog.h"
+#include "colorschemes.h"
 #include "customcommanddialog.h"
 #include "density.h"
 #include "localizednumbers.h"
@@ -13,11 +15,15 @@
 #include "settings.h"
 #include "settingsbackup.h"
 #include "settingswidgets.h"
+#include "themeprofiles.h"
+#include "windoweffects.h"
 #include "workspacecatalog.h"
 
 #include <KActionCollection>
+#include <KColorButton>
 #include <KConfigGroup>
 #include <KLocalizedString>
+#include <KMessageWidget>
 #include <KPageWidget>
 #include <KPluginMetaData>
 #include <KSharedConfig>
@@ -42,6 +48,7 @@
 #include <QListWidget>
 #include <QMessageBox>
 #include <QMetaEnum>
+#include <QMetaProperty>
 #include <QPointer>
 #include <QProcess>
 #include <QPushButton>
@@ -152,10 +159,25 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                   i18nc("@title:group", "Interface"),
                                   QStringLiteral("window"),
                                   &m_toolbarTabs);
+    addTabbedPage({{createColorSchemePage(), i18nc("@title:tab", "Colour Scheme")},
+                   {createCustomColorsPage(), i18nc("@title:tab", "Custom Colours")},
+                   {createEffectsPage(), i18nc("@title:tab", "Effects")},
+                   {createLinesPage(), i18nc("@title:tab", "Lines")},
+                   {createHighlightsPage(), i18nc("@title:tab", "Highlights")},
+                   {createFolderColorsPage(), i18nc("@title:tab", "Folder Colours")},
+                   {createFontsPage(), i18nc("@title:tab", "Fonts")},
+                   {createSpacingPage(), i18nc("@title:tab", "Spacing")},
+                   {createBarStylePage(), i18nc("@title:tab", "Tabs and Status Bars")},
+                   {createMotionPage(), i18nc("@title:tab", "Motion and Accessibility")},
+                   {createStyleSheetPage(), i18nc("@title:tab", "Stylesheet")},
+                   {createThemeProfilesPage(), i18nc("@title:tab", "Profiles")}},
+                  i18nc("@title:group", "Themes"),
+                  QStringLiteral("preferences-desktop-theme"));
     addTabbedPage({{createViewGeneralPage(), i18nc("@title:tab", "General")},
                    {createDetailsPage(), i18nc("@title:tab", "Details")},
                    {createIconsPage(), i18nc("@title:tab", "Icons")},
                    {createCompactPage(), i18nc("@title:tab", "Compact")},
+                   {createCardsPage(), i18nc("@title:tab", "Cards")},
                    {createSelectionPage(), i18nc("@title:tab", "Selection")},
                    {createFiltersPage(), i18nc("@title:tab", "Filters")},
                    {createFolderFormatsPage(), i18nc("@title:tab", "Folder Formats")}},
@@ -686,6 +708,7 @@ QWidget *SettingsDialog::createWorkspaceBehaviorsPage()
     selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultSearchScope"), i18nc("@option:check", "Search scope")));
     selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultLayout"), i18nc("@option:check", "Window and panel layout")));
     selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultPaneTabRestoration"), i18nc("@option:check", "Pane and tab restoration")));
+    selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultAppearance"), i18nc("@option:check", "Theme profile and appearance")));
     layout->addWidget(selected);
     const auto updateSelected = [mode, selected] {
         selected->setEnabled(mode->currentIndex() == Settings::EnumWorkspaceDefaultBehaviorMode::Selected);
@@ -1525,12 +1548,539 @@ QWidget *SettingsDialog::createFoldersAndTabsPage()
     return page;
 }
 
+QWidget *SettingsDialog::createColorSchemePage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    form->addRow(i18nc("@label:listbox", "Colour scheme:"), bound(m_colorScheme = new ColorSchemeCombo, QStringLiteral("ColorScheme"), "scheme"));
+    m_accentColor = bound(new AccentColorChooser, QStringLiteral("AccentColor"), "accent");
+    m_accentColor->setScheme(m_colorScheme->scheme());
+    connect(m_colorScheme, &ColorSchemeCombo::schemeChanged, m_accentColor, [this] {
+        m_accentColor->setScheme(m_colorScheme->scheme());
+    });
+    form->addRow(i18nc("@label", "Accent colour:"), m_accentColor);
+    auto *tint = comboBox(QStringLiteral("PaneTint"),
+                          {i18nc("@item:inlistbox pane tint", "No tint"),
+                           i18nc("@item:inlistbox pane tint", "All panes"),
+                           i18nc("@item:inlistbox pane tint", "Active pane"),
+                           i18nc("@item:inlistbox pane tint", "Inactive pane")});
+    auto *tintColor = new KColorButton;
+    tintColor->setObjectName(QStringLiteral("kcfg_PaneTintColor"));
+    tintColor->setAccessibleName(i18nc("@label", "Tint colour"));
+    auto *tintStrength = new QSpinBox;
+    tintStrength->setObjectName(QStringLiteral("kcfg_PaneTintStrength"));
+    tintStrength->setRange(1, 50);
+    tintStrength->setSuffix(i18nc("@item:valuesuffix percent", "%"));
+    tintStrength->setToolTip(i18nc("@info:tooltip", "The tint is weakened when needed to keep text readable."));
+    const auto updateTint = [tint, tintColor, tintStrength] {
+        tintColor->setEnabled(tint->currentIndex() > 0);
+        tintStrength->setEnabled(tint->currentIndex() > 0);
+    };
+    connect(tint, &QComboBox::currentIndexChanged, page, updateTint);
+    updateTint();
+    form->addRow(i18nc("@label:listbox", "Tint pane background:"), tint);
+    form->addRow(i18nc("@label", "Tint colour:"), tintColor);
+    form->addRow(i18nc("@label:spinbox", "Tint strength:"), tintStrength);
+    auto *tintNotice = createContrastNotice(QStringLiteral("paneTintContrastNotice"), true, page);
+    form->addRow(QString(), tintNotice);
+    const auto updateTintNotice = [this, tint, tintColor, tintStrength, tintNotice] {
+        const int requested = tintStrength->value();
+        const int effective = tint->currentIndex() > 0
+            ? ColorSchemes::paneTintStrength(ColorSchemes::palette(m_colorScheme->scheme()), tintColor->color(), requested)
+            : requested;
+        if (effective >= requested) {
+            tintNotice->hide();
+            return;
+        }
+        tintNotice->setText(effective > 0 ? i18nc("@info",
+                                                  "With the selected colour scheme, this tint is weakened to %1% so that text in file lists "
+                                                  "stays readable.",
+                                                  effective)
+                                          : i18nc("@info",
+                                                  "With the selected colour scheme, this tint is not shown, because any amount of it would "
+                                                  "make text in file lists hard to read."));
+        tintNotice->show();
+    };
+    connect(tint, &QComboBox::currentIndexChanged, page, updateTintNotice);
+    connect(tintColor, &KColorButton::changed, page, updateTintNotice);
+    connect(tintStrength, &QSpinBox::valueChanged, page, updateTintNotice);
+    connect(m_colorScheme, &ColorSchemeCombo::schemeChanged, page, updateTintNotice);
+    updateTintNotice();
+    layout->addLayout(form);
+    auto *notice = new QLabel(i18nc("@info",
+                                    "The colour scheme applies only to Plasma Opus. Plasma's global colour scheme, widget style and window "
+                                    "decoration theme are not changed. Follow the Plasma colour scheme to use the desktop's colours again."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createCustomColorsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *notice = new QLabel(i18nc("@info",
+                                    "Override palette roles of the selected colour scheme. Unchecked roles use the scheme's colour. The preview "
+                                    "updates as you edit; Revert or Cancel discards changes that have not been applied."),
+                              page);
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    auto *editor = bound(new ColorPaletteEditor, QStringLiteral("CustomColors"), "colors");
+    editor->setScheme(m_colorScheme->scheme());
+    editor->setAccent(m_accentColor->accent());
+    connect(m_colorScheme, &ColorSchemeCombo::schemeChanged, editor, [this, editor] {
+        editor->setScheme(m_colorScheme->scheme());
+    });
+    connect(m_accentColor, &AccentColorChooser::accentChanged, editor, [this, editor] {
+        editor->setAccent(m_accentColor->accent());
+    });
+    layout->addWidget(editor, 1);
+    return page;
+}
+
+QWidget *SettingsDialog::createEffectsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    auto *blur = checkBox(QStringLiteral("BackgroundBlur"), i18nc("@option:check", "Blur the desktop behind translucent backgrounds"));
+    blur->setToolTip(i18nc("@info:tooltip", "Uses KWin's blur effect; its strength follows the Blur settings in Desktop Effects."));
+    form->addRow(i18nc("@title:group", "Background:"), blur);
+    const auto opacity = [](const QString &entry) {
+        auto *spin = new QSpinBox;
+        spin->setObjectName(QStringLiteral("kcfg_") + entry);
+        spin->setRange(20, 100);
+        spin->setSuffix(i18nc("@item:valuesuffix percent", "%"));
+        return spin;
+    };
+    auto *windowOpacity = opacity(QStringLiteral("WindowOpacity"));
+    auto *paneOpacity = opacity(QStringLiteral("PaneOpacity"));
+    auto *panelOpacity = opacity(QStringLiteral("PanelOpacity"));
+    form->addRow(i18nc("@label:spinbox", "Window opacity:"), windowOpacity);
+    form->addRow(i18nc("@label:spinbox", "Pane opacity:"), paneOpacity);
+    form->addRow(i18nc("@label:spinbox", "Panel opacity:"), panelOpacity);
+    auto *corners = comboBox(QStringLiteral("CornerRadius"),
+                             {i18nc("@item:inlistbox corner radius", "Follow widget style"),
+                              i18nc("@item:inlistbox corner radius", "Square"),
+                              i18nc("@item:inlistbox corner radius", "Small"),
+                              i18nc("@item:inlistbox corner radius", "Medium"),
+                              i18nc("@item:inlistbox corner radius", "Large"),
+                              i18nc("@item:inlistbox corner radius", "Custom")});
+    corners->setToolTip(i18nc("@info:tooltip", "Rounds item highlights, input fields, tabs and tooltips."));
+    auto *customCorners = new QSpinBox;
+    customCorners->setObjectName(QStringLiteral("kcfg_CustomCornerRadius"));
+    customCorners->setRange(0, 24);
+    customCorners->setSuffix(i18nc("@item:valuesuffix logical pixels", " px"));
+    customCorners->setAccessibleName(i18nc("@label:spinbox", "Custom corner radius"));
+    const auto updateCorners = [corners, customCorners] {
+        customCorners->setEnabled(corners->currentIndex() == Settings::EnumCornerRadius::Custom);
+    };
+    connect(corners, &QComboBox::currentIndexChanged, page, updateCorners);
+    updateCorners();
+    auto *cornerRow = new QHBoxLayout;
+    cornerRow->addWidget(corners);
+    cornerRow->addWidget(customCorners);
+    cornerRow->addStretch();
+    form->addRow(i18nc("@label:listbox", "Corner radius:"), cornerRow);
+    layout->addLayout(form);
+    auto *explanation = new QLabel(i18nc("@info",
+                                         "Only backgrounds become translucent; text, icons and selections stay opaque. Panes and panels are "
+                                         "drawn over the window background, so they are never more transparent than the window."),
+                                   page);
+    explanation->setWordWrap(true);
+    layout->addWidget(explanation);
+    auto *notice = new KMessageWidget(page);
+    notice->setObjectName(QStringLiteral("windowEffectsNotice"));
+    notice->setMessageType(KMessageWidget::Information);
+    notice->setCloseButtonVisible(false);
+    notice->setWordWrap(true);
+    notice->hide();
+    layout->addWidget(notice);
+    const auto updateNotice = [this, blur, windowOpacity, paneOpacity, panelOpacity, notice] {
+        const bool translucency = windowOpacity->value() < 100 || paneOpacity->value() < 100 || panelOpacity->value() < 100;
+        const QString reason = WindowEffects::unavailableReason(parentWidget(), blur->isChecked(), translucency);
+        notice->setText(reason);
+        notice->setVisible(!reason.isEmpty());
+    };
+    connect(blur, &QCheckBox::toggled, page, updateNotice);
+    for (QSpinBox *spin : {windowOpacity, paneOpacity, panelOpacity}) {
+        connect(spin, &QSpinBox::valueChanged, page, updateNotice);
+    }
+    updateNotice();
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createLinesPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    auto *dividers = comboBox(
+        QStringLiteral("Dividers"),
+        {i18nc("@item:inlistbox dividers", "Follow widget style"), i18nc("@item:inlistbox dividers", "Thin"), i18nc("@item:inlistbox dividers", "Hidden")});
+    dividers->setToolTip(
+        i18nc("@info:tooltip", "Applies to splitter handles, panel and toolbar separators, header and grid lines and the frames of panes and panels."));
+    form->addRow(i18nc("@label:listbox", "Dividers:"), dividers);
+    auto *reveal = checkBox(QStringLiteral("RevealDividersOnHover"), i18nc("@option:check", "Show hidden dividers under the pointer"));
+    form->addRow(QString(), reveal);
+    const auto updateReveal = [dividers, reveal] {
+        reveal->setEnabled(dividers->currentIndex() == Settings::EnumDividers::Hidden);
+    };
+    connect(dividers, &QComboBox::currentIndexChanged, page, updateReveal);
+    updateReveal();
+    form->addRow(i18nc("@label:listbox", "Tree lines:"),
+                 comboBox(QStringLiteral("TreeLines"),
+                          {i18nc("@item:inlistbox tree lines", "Follow widget style"),
+                           i18nc("@item:inlistbox tree lines", "Hidden"),
+                           i18nc("@item:inlistbox tree lines", "Solid"),
+                           i18nc("@item:inlistbox tree lines", "Dotted")}));
+    auto *lineColors = comboBox(QStringLiteral("TreeLineColors"),
+                                {i18nc("@item:inlistbox tree line colours", "Neutral"),
+                                 i18nc("@item:inlistbox tree line colours", "Single colour"),
+                                 i18nc("@item:inlistbox tree line colours", "By nesting depth"),
+                                 i18nc("@item:inlistbox tree line colours", "By folder colour")});
+    lineColors->setToolTip(i18nc("@info:tooltip", "Applies to solid and dotted tree lines. Folders without a colour use the neutral line colour."));
+    form->addRow(i18nc("@label:listbox", "Tree line colours:"), lineColors);
+    auto *lineColor = new KColorButton;
+    lineColor->setObjectName(QStringLiteral("kcfg_TreeLineColor"));
+    lineColor->setAccessibleName(i18nc("@label", "Tree line colour"));
+    form->addRow(i18nc("@label", "Line colour:"), lineColor);
+    auto *linePalette = bound(new ColorListEditor, QStringLiteral("TreeLinePalette"), "colors");
+    form->addRow(i18nc("@label", "Depth colours:"), linePalette);
+    auto *lineNotice = createContrastNotice(QStringLiteral("treeLineContrastNotice"), true, page);
+    form->addRow(QString(), lineNotice);
+    const auto updateLineColors = [this, lineColors, lineColor, linePalette, lineNotice] {
+        const bool single = lineColors->currentIndex() == Settings::EnumTreeLineColors::Single;
+        lineColor->setEnabled(single);
+        linePalette->setEnabled(lineColors->currentIndex() == Settings::EnumTreeLineColors::Depth);
+        const QColor background = ColorSchemes::palette(m_colorScheme->scheme()).color(QPalette::Active, QPalette::Base);
+        linePalette->setBackground(background);
+        lineNotice->setText(i18nc("@info", "This line colour is darkened or lightened to stay visible against the view background."));
+        lineNotice->setVisible(single && ColorSchemes::contrastRatio(lineColor->color(), background) < 3.0);
+    };
+    connect(lineColors, &QComboBox::currentIndexChanged, page, updateLineColors);
+    connect(lineColor, &KColorButton::changed, page, updateLineColors);
+    connect(m_colorScheme, &ColorSchemeCombo::schemeChanged, page, updateLineColors);
+    updateLineColors();
+    layout->addLayout(form);
+    auto *explanation = new QLabel(i18nc("@info",
+                                         "Hidden splitters can still be dragged, change the pointer shape and can be moved with the Move Pane "
+                                         "Divider actions. Reset Pane and Panel Sizes restores their default positions."),
+                                   page);
+    explanation->setWordWrap(true);
+    layout->addWidget(explanation);
+    auto *colorNote = new QLabel(i18nc("@info",
+                                       "Tree line positions show nesting; colours only supplement them. Colours that are too close to the view or "
+                                       "selection background are darkened or lightened to stay visible."),
+                                 page);
+    colorNote->setWordWrap(true);
+    layout->addWidget(colorNote);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createHighlightsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    form->addRow(i18nc("@label:listbox", "Selection:"),
+                 comboBox(QStringLiteral("SelectionStyle"),
+                          {i18nc("@item:inlistbox selection style", "Follow widget style"),
+                           i18nc("@item:inlistbox selection style", "Filled"),
+                           i18nc("@item:inlistbox selection style", "Outlined"),
+                           i18nc("@item:inlistbox selection style", "Rounded"),
+                           i18nc("@item:inlistbox selection style", "Accent bar")}));
+    form->addRow(i18nc("@title:group", "Highlight:"), checkBox(QStringLiteral("HoverHighlight"), i18nc("@option:check", "Items under the pointer")));
+    form->addRow(i18nc("@title:group", "Details view:"), checkBox(QStringLiteral("StripeDetailsRows"), i18nc("@option:check", "Alternate row backgrounds")));
+    layout->addLayout(form);
+    auto *note = new QLabel(i18nc("@info",
+                                  "With a selection style other than the widget style's, the current item has a dashed outline, so keyboard "
+                                  "focus stays visible with and without a selection. Outlined and accent bar selections keep the normal text "
+                                  "colour; views whose text would not be readable on them use a filled selection instead."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createFolderColorsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    form->addRow(i18nc("@label:listbox", "Show folder colours as:"),
+                 comboBox(QStringLiteral("FolderColorStyle"),
+                          {i18nc("@item:inlistbox folder colour style", "Coloured icons"),
+                           i18nc("@item:inlistbox folder colour style", "Badges on icons"),
+                           i18nc("@item:inlistbox folder colour style", "Coloured names"),
+                           i18nc("@item:inlistbox folder colour style", "Hidden")}));
+    layout->addLayout(form);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Folder colours are set with Folder Appearance and shown in file lists, the folder tree, Places, tabs and the "
+                                  "abbreviated location bar. Coloured icons use the icon theme's coloured folders where it has them and tint "
+                                  "other icons. Coloured names are darkened or lightened to stay readable."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    auto *rulesLabel = new QLabel(i18nc("@label", "Rules for folders without their own colour, checked in order:"), page);
+    rulesLabel->setWordWrap(true);
+    layout->addWidget(rulesLabel);
+    auto *rules = bound(new FolderColorRuleEditor(page), QStringLiteral("FolderColorRules"), "rules");
+    rulesLabel->setBuddy(rules);
+    layout->addWidget(rules, 1);
+    auto *rulesNote = new QLabel(i18nc("@info",
+                                       "A folder's own colour takes precedence over rules, and the first matching rule wins. Rules only change how "
+                                       "folders are shown; they never change the folders or their contents."),
+                                 page);
+    rulesNote->setWordWrap(true);
+    layout->addWidget(rulesNote);
+    return page;
+}
+
+QWidget *SettingsDialog::createFontsPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    const QList<std::tuple<QString, QString, QString>> areas{
+        {QStringLiteral("FileListFont"), i18nc("@label", "File lists:"), i18nc("@label", "File list font")},
+        {QStringLiteral("FolderTreeFont"), i18nc("@label", "Folder tree:"), i18nc("@label", "Folder tree font")},
+        {QStringLiteral("TabFont"), i18nc("@label", "Tabs:"), i18nc("@label", "Tab font")},
+        {QStringLiteral("StatusBarFont"), i18nc("@label", "Status bars:"), i18nc("@label", "Status bar font")},
+    };
+    for (const auto &[entry, label, name] : areas) {
+        form->addRow(label, bound(new FontOverrideChooser(name), entry, "fontSetting"));
+    }
+    layout->addLayout(form);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Areas without a custom font follow Plasma's General font. Custom fonts are stored in points, so they "
+                                  "scale with the display like Plasma's fonts. File lists include their column headers."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createSpacingPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    auto *scale = new QSpinBox;
+    scale->setObjectName(QStringLiteral("kcfg_SpacingScale"));
+    scale->setRange(50, 200);
+    scale->setSingleStep(10);
+    scale->setSuffix(i18nc("@item:valuesuffix percent", "%"));
+    scale->setToolTip(i18nc("@info:tooltip", "100% follows the spacing of Plasma's widget style."));
+    form->addRow(i18nc("@label:spinbox", "Spacing scale:"), scale);
+    layout->addLayout(form);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Scales the padding and spacing of toolbars, tabs, panels and status bars. Bars with a Compact, Very "
+                                  "compact or Custom bar density keep that spacing, and file lists keep their item density."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createBarStylePage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    auto *shape = comboBox(QStringLiteral("TabShape"),
+                           {i18nc("@item:inlistbox tab shape", "Follow widget style"),
+                            i18nc("@item:inlistbox tab shape", "Rounded"),
+                            i18nc("@item:inlistbox tab shape", "Square"),
+                            i18nc("@item:inlistbox tab shape", "Flat")});
+    auto *indicator = comboBox(QStringLiteral("TabIndicator"),
+                               {i18nc("@item:inlistbox active tab indicator", "Line"),
+                                i18nc("@item:inlistbox active tab indicator", "Thick line"),
+                                i18nc("@item:inlistbox active tab indicator", "None")});
+    const auto updateIndicator = [shape, indicator] {
+        indicator->setEnabled(shape->currentIndex() != Settings::EnumTabShape::FollowStyle);
+    };
+    connect(shape, &QComboBox::currentIndexChanged, page, updateIndicator);
+    updateIndicator();
+    form->addRow(i18nc("@label:listbox", "Tab shape:"), shape);
+    form->addRow(i18nc("@label:listbox", "Active tab indicator:"), indicator);
+    form->addRow(i18nc("@label:listbox", "Tab colours:"),
+                 comboBox(QStringLiteral("TabColorStrength"),
+                          {i18nc("@item:inlistbox tab colour strength", "Coloured text"),
+                           i18nc("@item:inlistbox tab colour strength", "Light tint"),
+                           i18nc("@item:inlistbox tab colour strength", "Strong fill")}));
+    form->addRow(i18nc("@label:listbox", "Status bars:"),
+                 comboBox(QStringLiteral("StatusBarStyle"),
+                          {i18nc("@item:inlistbox status bar style", "Follow widget style"),
+                           i18nc("@item:inlistbox status bar style", "Separated"),
+                           i18nc("@item:inlistbox status bar style", "Shaded")}));
+    layout->addLayout(form);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Rounded tabs use the corner radius from Effects. Flat tabs always keep an indicator on the active tab. "
+                                  "Tab colours are chosen from a tab's context menu and shown when folder-based tab colours are enabled "
+                                  "in Interface settings; text on tinted and filled tabs is adjusted to stay readable."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    layout->addStretch();
+    return page;
+}
+
+QWidget *SettingsDialog::createMotionPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    auto *form = new QFormLayout;
+    form->addRow(i18nc("@label:listbox", "Animations:"),
+                 comboBox(QStringLiteral("Animations"),
+                          {i18nc("@item:inlistbox animation speed", "Follow Plasma"),
+                           i18nc("@item:inlistbox animation speed", "Reduced"),
+                           i18nc("@item:inlistbox animation speed", "Off")}));
+    form->addRow(i18nc("@title:group", "High contrast:"),
+                 checkBox(QStringLiteral("SuspendEffectsInHighContrast"),
+                          i18nc("@option:check", "Suspend blur, translucency, tints, custom corners and the stylesheet")));
+    layout->addLayout(form);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Follow Plasma uses the animation speed from System Settings. Reduced halves transitions such as "
+                                  "places appearing and disappearing, and moves panels without animation. Off turns these transitions off. "
+                                  "Animations drawn by the widget style itself, such as button hover fades, follow Plasma."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    auto *contrastNote =
+        new QLabel(i18nc("@info",
+                         "When Plasma asks for high contrast, Plasma Opus always follows the Plasma colour scheme. With the "
+                         "option above, it also makes backgrounds opaque, removes blur and pane tints, uses the widget style's "
+                         "corners, shows tab colours as text only and removes the custom stylesheet, until high contrast is turned off again."),
+                   page);
+    contrastNote->setWordWrap(true);
+    layout->addWidget(contrastNote);
+    if (ColorSchemes::highContrastPreferred()) {
+        auto *active = new KMessageWidget(i18nc("@info", "Plasma currently asks for high contrast."), page);
+        active->setObjectName(QStringLiteral("highContrastActive"));
+        active->setMessageType(KMessageWidget::Information);
+        active->setCloseButtonVisible(false);
+        layout->addWidget(active);
+    }
+    auto *resetRow = new QHBoxLayout;
+    auto *reset = new QPushButton(QIcon::fromTheme(QStringLiteral("edit-reset")), i18nc("@action:button", "Reset Appearance to Plasma Defaults"), page);
+    reset->setObjectName(QStringLiteral("resetAppearance"));
+    reset->setToolTip(i18nc("@info:tooltip",
+                            "Sets every Themes option to follow Plasma. Folder colour rules are kept. Apply or OK saves the change; "
+                            "Cancel discards it."));
+    connect(reset, &QPushButton::clicked, this, &SettingsDialog::resetAppearanceToDefaults);
+    resetRow->addWidget(reset);
+    resetRow->addStretch();
+    layout->addLayout(resetRow);
+    auto *resetNote = new QLabel(i18nc("@info",
+                                       "You can also reset the appearance by starting Plasma Opus with --reset-appearance, for example when "
+                                       "its window is hard to use. Start it with --no-workspace-appearance to ignore appearance options "
+                                       "attached to workspaces for that session."),
+                                 page);
+    resetNote->setWordWrap(true);
+    layout->addWidget(resetNote);
+    layout->addStretch();
+    return page;
+}
+
+void SettingsDialog::resetAppearanceToDefaults()
+{
+    QVariantMap values;
+    const QStringList kept = AppearanceDefaults::keptEntries();
+    const KConfigSkeletonItem::List items = Settings::self()->items();
+    for (const KConfigSkeletonItem *item : items) {
+        if (item->group() == QLatin1String(AppearanceDefaults::Group) && !kept.contains(item->name())) {
+            values.insert(item->name(), item->getDefault());
+        }
+    }
+    setAppearanceValues(values);
+}
+
+QVariantMap SettingsDialog::appearanceValues() const
+{
+    QVariantMap values;
+    for (const QString &name : ThemeProfiles::entries(Settings::self())) {
+        const auto *editor = findChild<QWidget *>(QStringLiteral("kcfg_") + name);
+        if (!editor) {
+            values.insert(name, Settings::self()->findItem(name)->property());
+        } else if (const QByteArray property = editor->property("kcfg_property").toByteArray(); !property.isEmpty()) {
+            values.insert(name, editor->property(property.constData()));
+        } else if (const auto *combo = qobject_cast<const QComboBox *>(editor)) {
+            values.insert(name, combo->currentIndex());
+        } else if (const QMetaProperty user = editor->metaObject()->userProperty(); user.isValid()) {
+            values.insert(name, user.read(editor));
+        }
+    }
+    return values;
+}
+
+void SettingsDialog::setAppearanceValues(const QVariantMap &values)
+{
+    for (auto it = values.constBegin(); it != values.constEnd(); ++it) {
+        auto *editor = findChild<QWidget *>(QStringLiteral("kcfg_") + it.key());
+        if (!editor) {
+            continue;
+        }
+        if (const QByteArray property = editor->property("kcfg_property").toByteArray(); !property.isEmpty()) {
+            editor->setProperty(property.constData(), it.value());
+        } else if (auto *combo = qobject_cast<QComboBox *>(editor)) {
+            combo->setCurrentIndex(it.value().toInt());
+        } else if (const QMetaProperty user = editor->metaObject()->userProperty(); user.isValid()) {
+            user.write(editor, it.value());
+        }
+    }
+    updateButtons();
+}
+
+QWidget *SettingsDialog::createStyleSheetPage()
+{
+    auto *page = new QWidget;
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(checkBox(QStringLiteral("UseCustomStyleSheet"), i18nc("@option:check", "Apply a custom Qt stylesheet")));
+    auto *note = new QLabel(i18nc("@info",
+                                  "Qt Style Sheets are a CSS-like subset for Qt widgets, not full web CSS. The stylesheet applies to Plasma "
+                                  "Opus windows and their dialogs after every other Themes option, and is refused if Qt cannot read it. "
+                                  "For safety, only images built into Plasma Opus (url(:/…)) can be used, and @import and qproperty- "
+                                  "are refused. If a window becomes hard to use, start Plasma Opus with --reset-appearance."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    layout->addWidget(bound(new StyleSheetEditor(page), QStringLiteral("CustomStyleSheet"), "sheet"), 1);
+    return page;
+}
+
+QWidget *SettingsDialog::createThemeProfilesPage()
+{
+    auto *manager = new ThemeProfileManager({[this] {
+                                                 return appearanceValues();
+                                             },
+                                             [this](const QVariantMap &values) {
+                                                 setAppearanceValues(values);
+                                             },
+                                             [this] {
+                                                 resetAppearanceToDefaults();
+                                             }});
+    manager->setObjectName(QStringLiteral("themeProfileManager"));
+    return manager;
+}
+
 QWidget *SettingsDialog::createViewGeneralPage()
 {
     auto *page = new QWidget;
     auto *form = new QFormLayout(page);
-    form->addRow(i18nc("@label:listbox", "View mode in new windows:"),
-                 comboBox(QStringLiteral("DefaultViewMode"), {i18nc("@item:inlistbox", "Details"), i18nc("@item:inlistbox", "Icons")}));
+    form->addRow(
+        i18nc("@label:listbox", "View mode in new windows:"),
+        comboBox(
+            QStringLiteral("DefaultViewMode"),
+            {i18nc("@item:inlistbox", "Details"), i18nc("@item:inlistbox", "Icons"), i18nc("@item:inlistbox", "Compact"), i18nc("@item:inlistbox", "Cards")}));
     form->addRow(i18nc("@label:listbox", "Sort by in new windows:"),
                  comboBox(QStringLiteral("SortColumn"),
                           {i18nc("@item:inlistbox", "Name"),
@@ -1625,6 +2175,22 @@ QWidget *SettingsDialog::createCompactPage()
     form->addRow(i18nc("@label:spinbox", "Icon size:"), pixelSpinBox(QStringLiteral("CompactIconSize"), 16, 64));
     form->addRow(i18nc("@label:spinbox", "Space between items:"), pixelSpinBox(QStringLiteral("CompactItemSpacing"), 0, 20));
     form->addRow(i18nc("@label", "Additional information:"), bound(new IconInformationList, QStringLiteral("CompactInformation"), "information"));
+    return page;
+}
+
+QWidget *SettingsDialog::createCardsPage()
+{
+    auto *page = new QWidget;
+    auto *form = new QFormLayout(page);
+    form->addRow(i18nc("@label:spinbox", "Preview size:"), pixelSpinBox(QStringLiteral("CardPreviewSize"), 48, 256));
+    auto *columns = new QSpinBox;
+    columns->setObjectName(QStringLiteral("kcfg_CardColumns"));
+    columns->setRange(0, 12);
+    columns->setSpecialValueText(i18nc("@item:inrange card columns", "Automatic"));
+    columns->setToolTip(i18nc("@info:tooltip", "Automatic fits as many cards as the pane is wide."));
+    form->addRow(i18nc("@label:spinbox", "Columns:"), columns);
+    addDensityRows(form, QStringLiteral("CardsDensity"), QStringLiteral("CardsCustomSpace"));
+    form->addRow(i18nc("@label", "Metadata shown:"), bound(new IconInformationList(nullptr, true), QStringLiteral("CardInformation"), "information"));
     return page;
 }
 

@@ -136,10 +136,14 @@ protected:
             line.setPosition(QPointF(0, (textRect.height() - line.height()) / 2));
         }
         textLayout.endLayout();
-        painter.setPen(option.palette.color(QPalette::ButtonText));
+        // Dim at paint time so the title follows palette and colour scheme changes.
+        QPalette dimmed = palette();
+        dimmed.setColor(QPalette::ButtonText, dimmed.color(QPalette::Disabled, QPalette::WindowText));
+        painter.setPen(dimmed.color(QPalette::ButtonText));
         textLayout.draw(&painter, textRect.topLeft());
         QStyleOption arrow;
         arrow.initFrom(this);
+        arrow.palette = dimmed;
         arrow.rect = arrowRect;
         const auto indicator = arrowType() == Qt::DownArrow ? QStyle::PE_IndicatorArrowDown
             : layoutDirection() == Qt::RightToLeft          ? QStyle::PE_IndicatorArrowLeft
@@ -166,9 +170,6 @@ QToolButton *sectionHeader(const QString &title, QWidget *content)
     header->setChecked(true);
     header->setArrowType(Qt::DownArrow);
     header->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    QPalette palette = header->palette();
-    palette.setColor(QPalette::ButtonText, palette.color(QPalette::Disabled, QPalette::WindowText));
-    header->setPalette(palette);
     QObject::connect(header, &QToolButton::clicked, content, [header, content] {
         setSectionExpanded(header, content, content->isHidden());
     });

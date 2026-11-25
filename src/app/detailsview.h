@@ -26,6 +26,7 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
+    void drawBranches(QPainter *painter, const QRect &rect, const QModelIndex &index) const override;
 
 private:
     /// Whether @p pos lies on a row but outside its icon and name.

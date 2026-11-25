@@ -1,4 +1,8 @@
 add_library(opusfm_core STATIC
+    appearancedefaults.cpp
+    appearancedefaults.h
+    appfonts.cpp
+    appfonts.h
     archives.cpp
     archives.h
     archivewriter.cpp
@@ -9,6 +13,8 @@ add_library(opusfm_core STATIC
     batchrenamepresets.h
     checksums.cpp
     checksums.h
+    colorschemes.cpp
+    colorschemes.h
     customcommands.cpp
     customcommands.h
     filecolorrules.cpp
@@ -23,6 +29,10 @@ add_library(opusfm_core STATIC
     foldermetadata.h
     foldercomparison.cpp
     foldercomparison.h
+    foldercolors.cpp
+    foldercolors.h
+    foldercolorrules.cpp
+    foldercolorrules.h
     foldersync.cpp
     foldersync.h
     foldersyncprofiles.cpp
@@ -55,6 +65,8 @@ add_library(opusfm_core STATIC
     draftstore.h
     duplicatefinder.cpp
     duplicatefinder.h
+    effectiveappearance.cpp
+    effectiveappearance.h
     executables.cpp
     executables.h
     imagedetails.cpp
@@ -88,12 +100,16 @@ add_library(opusfm_core STATIC
     tabcolors.h
     startup.cpp
     startup.h
+    stylesheets.cpp
+    stylesheets.h
     symlinks.cpp
     symlinks.h
     symbolicicon.cpp
     symbolicicon.h
     tabmodel.cpp
     tabmodel.h
+    themeprofiles.cpp
+    themeprofiles.h
     treemap.cpp
     treemap.h
     transferqueue.cpp
@@ -102,6 +118,8 @@ add_library(opusfm_core STATIC
     viewsettings.h
     workspacecatalog.cpp
     workspacecatalog.h
+    workspaceappearance.cpp
+    workspaceappearance.h
     workspacerestore.cpp
     workspacerestore.h
     workspacestartup.cpp
@@ -126,6 +144,7 @@ target_link_libraries(opusfm_core
         KF6::I18n
         KF6::KIOCore
         KF6::ConfigGui
+        KF6::ColorScheme
         KF6::FileMetaData
         KF6::GuiAddons
         KF6::KIOGui

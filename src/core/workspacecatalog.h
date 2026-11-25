@@ -6,6 +6,7 @@
 
 #include <KConfigGroup>
 #include <QByteArray>
+#include <QJsonObject>
 #include <QList>
 #include <QMap>
 #include <QRect>
@@ -53,6 +54,7 @@ struct BehaviorSelection {
     bool searchScope = true;
     bool layout = true;
     bool paneTabRestoration = true;
+    bool appearance = true;
     bool applies(bool selected) const
     {
         return mode == BehaviorMode::All || (mode == BehaviorMode::Selected && selected);
@@ -95,6 +97,23 @@ struct Layout {
     bool operator==(const Layout &other) const = default;
 };
 
+/**
+ * A theme profile and appearance options attached to a workspace. Override
+ * values are kept in their JSON form, as WorkspaceAppearance encodes them, so
+ * values that cannot be applied now are preserved for a later retry.
+ */
+struct Appearance {
+    /// The attached theme profile's id, or empty for none.
+    QString themeProfileId;
+    /// Encoded setting values by entry name.
+    QJsonObject overrides;
+    bool isEmpty() const
+    {
+        return themeProfileId.isEmpty() && overrides.isEmpty();
+    }
+    bool operator==(const Appearance &other) const = default;
+};
+
 struct Workspace {
     QString id;
     QString name;
@@ -103,6 +122,7 @@ struct Workspace {
     QStringList savedSearchIds;
     QStringList folderSyncProfileIds;
     BehaviorSelection behaviorSelection;
+    Appearance appearance;
     bool operator==(const Workspace &other) const = default;
 };
 
@@ -124,6 +144,11 @@ bool saveIfUnchanged(KConfigGroup group, const Catalog &expected, const Catalog 
 bool create(Catalog &catalog, const QString &name, const QString &shortLabel, QString &error);
 bool duplicate(Catalog &catalog, const QString &id, const QString &name, const QString &shortLabel, QString &error);
 bool setLayout(Catalog &catalog, const QString &id, const Layout &layout, QString &error);
+/**
+ * Attaches @p appearance to a workspace, replacing what was attached.
+ * @returns false and sets error if the workspace is missing or the values are invalid
+ */
+bool setAppearance(Catalog &catalog, const QString &id, const Appearance &appearance, QString &error);
 bool rename(Catalog &catalog, const QString &id, const QString &name, const QString &shortLabel, QString &error);
 bool activate(Catalog &catalog, const QString &id, QString &error);
 bool remove(Catalog &catalog, const QString &id, QString &error);

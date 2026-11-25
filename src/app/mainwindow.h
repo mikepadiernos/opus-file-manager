@@ -96,6 +96,12 @@ public:
      */
     void applySettings();
 
+    /**
+     * Resets the global appearance options to Plasma's defaults, saves them
+     * and applies them, as requested with --reset-appearance.
+     */
+    void resetAppearance();
+
 Q_SIGNALS:
     void workspaceCatalogChanged();
 
@@ -105,6 +111,9 @@ public Q_SLOTS:
 protected:
     bool queryClose() override;
     bool eventFilter(QObject *watched, QEvent *event) override;
+    void showEvent(QShowEvent *event) override;
+    void changeEvent(QEvent *event) override;
+    void childEvent(QChildEvent *event) override;
     void readProperties(const KConfigGroup &group) override;
     void saveProperties(KConfigGroup &group) override;
     void saveNewToolbarConfig() override;
@@ -115,6 +124,36 @@ private:
     void selectWorkspace(int index, bool confirmed = false);
     /// Asks, if enabled, and returns to the active workspace's saved layout.
     void restoreActiveWorkspaceLayout();
+    /// Applies the configured colour scheme and reports when it cannot be used.
+    void applyColorScheme();
+    /// Reapplies colours and effects that depend on the high contrast preference.
+    void applyContrastDependentAppearance();
+    /// Applies the configured tint and translucency of the pane backgrounds.
+    void applyPaneBackgrounds();
+    /// Applies background blur, combining the setting with the terminal's request.
+    void applyWindowEffects();
+    /// Makes the window and docked panel backgrounds as translucent as configured.
+    void applyBackgroundOpacity();
+    void applyPanelOpacity(QDockWidget *dock);
+    /// Applies the app-local corner radius, dividers and other style rules.
+    void applyAppearanceStyle();
+    /// Applies the custom stylesheet after every other appearance option, or removes it.
+    void applyCustomStyleSheet();
+    /// Redraws folder colours on icons, names, tabs and breadcrumbs after they or their style change.
+    void refreshFolderColors();
+    /// Applies the app-local fonts of file lists, the folder trees, tabs and status bars.
+    void applyFonts();
+    /// Applies the appearance options in effect, including the active workspace's, without other settings.
+    void applyAppearance();
+    /// Scales the margins of the toolbars, navigation bars and status bars.
+    void applyBarMargins();
+    /**
+     * Layers the theme profile and appearance options attached to the active
+     * workspace over the global settings, and reports what is unavailable.
+     */
+    void updateWorkspaceAppearanceLayer();
+    /// Applies the active workspace's appearance live when it or the workspace changes.
+    void applyWorkspaceAppearance();
     /// Places the workspace selector in the View menu, the status bar or both.
     void applyWorkspaceSelectorPlacement();
     /// Gives each pane its configured location bar, replacing the current choice only when the setting changes.
@@ -199,6 +238,8 @@ private:
     void saveSplitterSizes();
     void restoreSplitterSizes(bool panes = true, bool workspace = true, bool defaultsIfMissing = false);
     void resetSplitterSizes();
+    /// Moves the divider between the file panes towards the end (1) or start (-1).
+    void movePaneDivider(int direction);
     void restoreEditorDockSize();
     void savePanelDockSize(QDockWidget *dock, const QString &name);
     void restorePanelDockSize(QDockWidget *dock, const QString &name);
@@ -274,6 +315,13 @@ private:
     std::unique_ptr<KConfig> m_workspaceConfig;
     QString m_currentWorkspaceId;
     WorkspaceCatalog::Catalog m_workspaceCatalog;
+    /// The workspace whose appearance this window last applied, and what was attached to it.
+    QString m_appearanceWorkspaceId;
+    WorkspaceCatalog::Appearance m_workspaceAppearance;
+    bool m_workspaceAppearanceApplies = false;
+    QStringList m_workspaceAppearanceProblems;
+    /// The layered appearance values this window last applied.
+    QVariantMap m_appliedAppearanceLayer;
     WorkspaceLocations *m_workspaceLocations = nullptr;
     QFileSystemWatcher *m_workspaceWatcher = nullptr;
     QString m_workspaceConfigPath;
@@ -304,6 +352,8 @@ private:
     QWidget *m_rightPlaceholder = nullptr;
     QPointer<QMainWindow> m_rightWindow;
     TerminalPanel *m_terminalPanel = nullptr;
+    /// Whether a terminal profile asks for blur behind the window.
+    bool m_terminalBlur = false;
     EditorPanel *m_editor = nullptr;
     QDockWidget *m_editorDock = nullptr;
     QDialog *m_editorWindow = nullptr;

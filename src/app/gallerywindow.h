@@ -42,6 +42,7 @@ Q_SIGNALS:
     void currentUrlChanged(const QUrl &url);
 
 protected:
+    void changeEvent(QEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
     bool eventFilter(QObject *watched, QEvent *event) override;
     void reject() override;
@@ -66,6 +67,7 @@ private:
     void scheduleDetails();
     void startDetails();
     void showDetails(const ImageDetails::Data &details);
+    void paintHistogram();
     void fitImage();
     void zoom(qreal factor);
     void toggleSlideshow();
@@ -103,6 +105,7 @@ private:
     bool m_detailsPending = false;
     quint64 m_detailsGeneration = 0;
     QString m_baseInfo;
+    QList<int> m_histogramData;
     qint64 m_originalSize = -1;
     QDateTime m_originalModified;
     QLabel *m_title = nullptr;

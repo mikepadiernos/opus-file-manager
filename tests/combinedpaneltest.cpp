@@ -15,6 +15,7 @@
 #include <KSharedConfig>
 
 #include <QAccessible>
+#include <QApplication>
 #include <QContextMenuEvent>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -410,6 +411,41 @@ private Q_SLOTS:
         const int headerTop = treeHeader->mapTo(scroll->viewport(), QPoint()).y();
         QVERIFY(headerTop >= 0);
         QVERIFY(headerTop + treeHeader->height() <= scroll->viewport()->height());
+    }
+
+    void sectionTitlesFollowPaletteChanges()
+    {
+        KFilePlacesModel places;
+        FavoritesModel favorites(KSharedConfig::openConfig()->group(QStringLiteral("Favorites")));
+        CombinedPanel panel(&places, &favorites);
+        panel.resize(400, 600);
+        panel.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&panel));
+        auto *header = panel.findChild<QToolButton *>(QStringLiteral("favorites"));
+        QVERIFY(header);
+        const QPalette original = QApplication::palette();
+        const auto restore = qScopeGuard([&original] {
+            QApplication::setPalette(original);
+        });
+        const auto titlePixels = [header](const QColor &color) {
+            QImage image(header->size(), QImage::Format_ARGB32_Premultiplied);
+            image.fill(Qt::transparent);
+            header->render(&image);
+            int count = 0;
+            for (int y = 0; y < image.height(); ++y) {
+                for (int x = 0; x < image.width(); ++x) {
+                    count += image.pixelColor(x, y) == color ? 1 : 0;
+                }
+            }
+            return count;
+        };
+        for (const QColor &color : {QColor(0, 200, 0), QColor(200, 0, 0)}) {
+            QPalette palette = original;
+            palette.setColor(QPalette::Disabled, QPalette::WindowText, color);
+            QApplication::setPalette(palette);
+            QTRY_COMPARE(header->palette().color(QPalette::Disabled, QPalette::WindowText), color);
+            QVERIFY(titlePixels(color) > 0);
+        }
     }
 
     void sectionTitlesRenderMnemonics()
