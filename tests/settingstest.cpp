@@ -1639,6 +1639,7 @@ private Q_SLOTS:
         const auto restore = qScopeGuard([] {
             Settings::self()->setCardPreviewSize(96);
             Settings::self()->setCardColumns(0);
+            Settings::self()->setDefaultViewMode(Settings::EnumDefaultViewMode::Details);
             Settings::self()->setCardsDensity(Settings::EnumCardsDensity::Normal);
             Settings::self()->setCardInformation({QStringLiteral("size"),
                                                   QStringLiteral("modificationTime"),
@@ -1660,6 +1661,11 @@ private Q_SLOTS:
         QVERIFY(density);
         density->setCurrentIndex(int(Density::Items::VeryCompact));
         Q_EMIT density->activated(density->currentIndex());
+        auto *viewMode = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_DefaultViewMode"));
+        QVERIFY(viewMode);
+        QCOMPARE(viewMode->itemText(int(Settings::EnumDefaultViewMode::Cards)), QStringLiteral("Cards"));
+        viewMode->setCurrentIndex(int(Settings::EnumDefaultViewMode::Cards));
+        Q_EMIT viewMode->activated(viewMode->currentIndex());
         auto *information = dialog.findChild<IconInformationList *>(QStringLiteral("kcfg_CardInformation"));
         QVERIFY(information);
         QStringList offered;
@@ -1675,6 +1681,12 @@ private Q_SLOTS:
         QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
         dialog.button(QDialogButtonBox::Apply)->click();
         QCOMPARE(Settings::cardPreviewSize(), 128);
+        QCOMPARE(int(Settings::defaultViewMode()), int(Settings::EnumDefaultViewMode::Cards));
+        {
+            MainWindow fresh;
+            fresh.openUrls({m_a});
+            QCOMPARE(int(fresh.activePane()->view()->viewMode()), int(FolderView::ViewMode::Cards));
+        }
         FolderView *view = window.activePane()->view();
         view->setViewMode(FolderView::ViewMode::Cards);
         auto *cards = qobject_cast<QListView *>(view->currentView());
