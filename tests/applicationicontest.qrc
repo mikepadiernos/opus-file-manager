@@ -2,5 +2,13 @@
   <qresource prefix="/icons/opusfm-accent-test">
     <file alias="index.theme">data/application-icon/index.theme</file>
     <file alias="scalable/apps/org.kde.opusfilemanager.svg">../src/app/org.kde.opusfilemanager.svg</file>
+    <file alias="16x16/apps/org.kde.opusfilemanager.svg">../src/app/icons/16x16/org.kde.opusfilemanager.svg</file>
+    <file alias="22x22/apps/org.kde.opusfilemanager.svg">../src/app/icons/22x22/org.kde.opusfilemanager.svg</file>
+    <file alias="32x32/apps/org.kde.opusfilemanager.svg">../src/app/icons/32x32/org.kde.opusfilemanager.svg</file>
+    <file alias="symbolic/apps/org.kde.opusfilemanager-symbolic.svg">../src/app/icons/symbolic/org.kde.opusfilemanager-symbolic.svg</file>
+  </qresource>
+  <qresource prefix="/branding">
+    <file alias="plasma-opus-logo.svg">../src/app/branding/plasma-opus-logo.svg</file>
+    <file alias="plasma-opus-logo-dark.svg">../src/app/branding/plasma-opus-logo-dark.svg</file>
   </qresource>
 </RCC>
