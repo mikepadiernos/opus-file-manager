@@ -29,6 +29,8 @@
 #include <QFileInfo>
 #include <QMimeData>
 #include <QPointer>
+#include <QProcess>
+#include <QStandardPaths>
 
 namespace
 {
@@ -37,6 +39,28 @@ void attachWindow(KJob *job, QWidget *window)
     job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, window));
     KJobWidgets::setWindow(job, window);
 }
+}
+
+QString FileOperations::openWithMpv(const QList<QUrl> &urls)
+{
+    QStringList arguments{QStringLiteral("--")};
+    for (const QUrl &url : urls) {
+        if (!url.isLocalFile()) {
+            return i18nc("@info", "Opening media in mpv requires local files.");
+        }
+        arguments.append(url.toLocalFile());
+    }
+    if (urls.isEmpty()) {
+        return i18nc("@info", "Select a media file to open in mpv.");
+    }
+    const QString executable = QStandardPaths::findExecutable(QStringLiteral("mpv"));
+    if (executable.isEmpty()) {
+        return i18nc("@info", "The mpv application is not installed or is not in PATH.");
+    }
+    if (!QProcess::startDetached(executable, arguments)) {
+        return i18nc("@info", "Could not start the mpv application.");
+    }
+    return {};
 }
 
 TransferQueue *FileOperations::transferQueue()

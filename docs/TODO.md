@@ -21,11 +21,10 @@ These handoffs describe unfinished work and the branch or issue to resume.
 ## mpv integration (#563)
 
 [#563](https://github.com/mikepadiernos/plasma-opus/issues/563) is in Backlog.
-Earlier work exists only on the unmerged `feature/M25-integrations` branch,
-which predates the current milestone numbering: commits tagged GH563 add an
-external **Open with mpv** action for selected media, with explicit errors for
-remote locations, a missing executable or launch failure. Rebase or port that
-work onto an M27 branch before resuming; it is not in `main`.
+`main` has the partial work, merged from `feature/M27-integrations`: an external
+**Open with mpv** context-menu action for local audio and video selections,
+with explicit errors for remote locations, a missing executable or launch
+failure. Continue on `feature/M27-integrations` when M27 starts.
 
 Embedded playback is not implemented. KDE's MpvQt uses Qt Quick's OpenGL
 renderer, changes the process numeric locale and can terminate the application
@@ -39,9 +38,9 @@ moving the issue to Review.
 ## Markdown editor and backlinks (#564)
 
 [#564](https://github.com/mikepadiernos/plasma-opus/issues/564) is in Backlog.
-The same unmerged `feature/M25-integrations` branch has commits tagged GH564
-that add a Qt CommonMark preview dialect alongside the existing GitHub-flavored
-dialect; they do not change visual editing or export and are not in `main`.
+`main` has the partial work, merged from `feature/M27-integrations`: a Qt
+CommonMark preview dialect alongside the existing GitHub-flavored dialect. It
+does not change visual editing or export.
 
 Backlinks, vault selection and wiki-link navigation are not implemented. Qt's
 rich-text renderer supports a subset of Markdown, so verify CommonMark

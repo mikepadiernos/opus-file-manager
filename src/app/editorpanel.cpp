@@ -74,6 +74,13 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
     auto *preview = new QPushButton(i18nc("@action", "Markdown Preview"), this);
     preview->setObjectName(QStringLiteral("editorMarkdownPreview"));
     preview->setCheckable(true);
+    auto *dialect = new QComboBox(this);
+    dialect->setObjectName(QStringLiteral("editorMarkdownDialect"));
+    dialect->setAccessibleName(i18nc("@label", "Markdown preview dialect"));
+    dialect->setToolTip(i18nc("@info:tooltip", "Choose the preview dialect. Visual editing and PDF export use their existing Markdown behavior."));
+    dialect->addItem(i18nc("@item:inlistbox", "GitHub Markdown"));
+    dialect->addItem(i18nc("@item:inlistbox", "CommonMark"));
+    dialect->hide();
     auto *pdf = new QPushButton(i18nc("@action", "Export PDF…"), this);
     pdf->setObjectName(QStringLiteral("editorExportPdf"));
     auto *placement = new QToolButton(this);
@@ -153,6 +160,7 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
     visualTools->addWidget(bold);
     visualTools->addWidget(italic);
     layout->addWidget(m_visualToolbar);
+    layout->addWidget(dialect, 0, Qt::AlignLeft);
     auto *splitter = new QSplitter(this);
     m_editorStack = new QStackedWidget(splitter);
     m_view = m_document->createView(m_editorStack);
@@ -260,16 +268,26 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
             syncVisual();
         }
     });
-    connect(preview, &QPushButton::toggled, this, [this](bool shown) {
-        if (shown) {
-            m_preview->setMarkdown(m_document->text());
+    const auto updateMarkdownPreview = [this, dialect] {
+        const auto features = dialect->currentIndex() == 1 ? QTextDocument::MarkdownDialectCommonMark : QTextDocument::MarkdownDialectGitHub;
+        m_preview->document()->setMarkdown(m_document->text(), features);
+    };
+    connect(dialect, &QComboBox::currentIndexChanged, this, [preview, updateMarkdownPreview] {
+        if (preview->isChecked()) {
+            updateMarkdownPreview();
         }
+    });
+    connect(preview, &QPushButton::toggled, this, [this, dialect, updateMarkdownPreview](bool shown) {
+        if (shown) {
+            updateMarkdownPreview();
+        }
+        dialect->setVisible(shown);
         m_preview->setVisible(shown);
     });
-    connect(m_document, &KTextEditor::Document::textChanged, this, [this, preview] {
+    connect(m_document, &KTextEditor::Document::textChanged, this, [this, preview, updateMarkdownPreview] {
         ++m_editRevision;
         if (preview->isChecked()) {
-            m_preview->setMarkdown(m_document->text());
+            updateMarkdownPreview();
         }
         if (!m_syncingVisual && !m_visualPending && m_editorStack->currentWidget() == m_visual) {
             refreshVisual();
