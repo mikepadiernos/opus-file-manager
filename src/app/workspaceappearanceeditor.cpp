@@ -32,6 +32,7 @@ const QString CornersEntry = QStringLiteral("CornerRadius");
 const QString CustomCornersEntry = QStringLiteral("CustomCornerRadius");
 const QString DividersEntry = QStringLiteral("Dividers");
 const QString RevealEntry = QStringLiteral("RevealDividersOnHover");
+const QStringList OpacityEntries{QStringLiteral("WindowOpacity"), QStringLiteral("PaneOpacity"), QStringLiteral("PanelOpacity")};
 }
 
 WorkspaceAppearanceEditor::WorkspaceAppearanceEditor(QWidget *parent)
@@ -41,7 +42,7 @@ WorkspaceAppearanceEditor::WorkspaceAppearanceEditor(QWidget *parent)
     auto *layout = new QVBoxLayout(this);
     auto *description = new QLabel(i18nc("@info",
                                          "Applies while this workspace is active, without changing the global settings. Plasma's appearance, the global "
-                                         "settings, the theme profile and these options apply in that order, then the custom stylesheet."),
+                                         "settings, the theme profile and the options saved here apply in that order, then the custom stylesheet."),
                                    this);
     description->setWordWrap(true);
     layout->addWidget(description);
@@ -52,6 +53,19 @@ WorkspaceAppearanceEditor::WorkspaceAppearanceEditor(QWidget *parent)
     profileLabel->setBuddy(m_profile);
     grid->addWidget(profileLabel, 0, 0);
     grid->addWidget(m_profile, 0, 1);
+    m_mode = new QComboBox(this);
+    m_mode->setObjectName(QStringLiteral("workspaceOverrideMode"));
+    m_mode->addItems({i18nc("@item:inlistbox appearance options saved with a workspace", "None, use the profile or global values"),
+                      i18nc("@item:inlistbox appearance options saved with a workspace", "Selected options"),
+                      i18nc("@item:inlistbox appearance options saved with a workspace", "All appearance options")});
+    m_mode->setToolTip(i18nc("@info:tooltip",
+                             "All saves every appearance option except the custom stylesheet. Options not shown here keep their saved "
+                             "values or take the global values in effect when the dialog was opened."));
+    auto *modeLabel = new QLabel(i18nc("@label:listbox", "Options to save:"), this);
+    modeLabel->setBuddy(m_mode);
+    grid->addWidget(modeLabel, 1, 0);
+    grid->addWidget(m_mode, 1, 1);
+    connect(m_mode, &QComboBox::currentIndexChanged, this, &WorkspaceAppearanceEditor::updateEnabled);
 
     const auto addRow = [this, grid](const QString &name, const QString &text, const QStringList &entries, const QList<QWidget *> &editors) {
         auto *check = new QCheckBox(text, this);
@@ -120,10 +134,25 @@ WorkspaceAppearanceEditor::WorkspaceAppearanceEditor(QWidget *parent)
     m_problems->setWordWrap(true);
     m_problems->hide();
     layout->addWidget(m_problems);
+    auto *buttons = new QHBoxLayout;
+    m_preview = new QPushButton(i18nc("@action:button", "Preview"), this);
+    m_preview->setObjectName(QStringLiteral("workspacePreviewAppearance"));
+    m_preview->setToolTip(i18nc("@info:tooltip", "Shows this appearance in the window without saving it, until it is reverted or the dialog closes."));
+    connect(m_preview, &QPushButton::clicked, this, &WorkspaceAppearanceEditor::previewRequested);
+    m_revert = new QPushButton(i18nc("@action:button", "Revert Preview"), this);
+    m_revert->setObjectName(QStringLiteral("workspaceRevertAppearance"));
+    m_revert->setEnabled(false);
+    connect(m_revert, &QPushButton::clicked, this, &WorkspaceAppearanceEditor::revertRequested);
+    m_preview->hide();
+    m_revert->hide();
     auto *save = new QPushButton(i18nc("@action:button", "Save Workspace Appearance"), this);
     save->setObjectName(QStringLiteral("workspaceSaveAppearance"));
     connect(save, &QPushButton::clicked, this, &WorkspaceAppearanceEditor::saveRequested);
-    layout->addWidget(save);
+    buttons->addWidget(m_preview);
+    buttons->addWidget(m_revert);
+    buttons->addStretch();
+    buttons->addWidget(save);
+    layout->addLayout(buttons);
     connect(m_profile, &QComboBox::currentIndexChanged, this, &WorkspaceAppearanceEditor::updateProblems);
     setAppearance({});
 }
@@ -186,22 +215,59 @@ void WorkspaceAppearanceEditor::setAppearance(const WorkspaceCatalog::Appearance
     if (values.contains(RevealEntry)) {
         m_revealDividers->setChecked(values.value(RevealEntry).toBool());
     }
+    QStringList rowEntries;
     for (const Row &row : std::as_const(m_rows)) {
         const QSignalBlocker blocker(row.override);
         row.override->setChecked(std::any_of(row.entries.cbegin(), row.entries.cend(), [&values](const QString &entry) {
             return values.contains(entry);
         }));
+        rowEntries.append(row.entries);
+    }
+    m_snapshot = WorkspaceAppearance::captureOverrides(Settings::self());
+    for (auto it = values.cbegin(); it != values.cend(); ++it) {
+        m_snapshot.insert(it.key(), it.value());
+    }
+    // Only All saves options without a row. Saved values that cannot be applied now keep at least Selected, so they are kept.
+    const bool beyondRows = std::any_of(values.keyBegin(), values.keyEnd(), [&rowEntries](const QString &entry) {
+        return !rowEntries.contains(entry);
+    });
+    const OverrideMode mode = beyondRows ? OverrideMode::All : appearance.overrides.isEmpty() ? OverrideMode::None : OverrideMode::Selected;
+    {
+        const QSignalBlocker blocker(m_mode);
+        m_mode->setCurrentIndex(int(mode));
     }
     updateEnabled();
 }
 
+WorkspaceAppearanceEditor::OverrideMode WorkspaceAppearanceEditor::overrideMode() const
+{
+    return static_cast<OverrideMode>(qBound(0, m_mode->currentIndex(), int(OverrideMode::All)));
+}
+
+void WorkspaceAppearanceEditor::setPreviewAvailable(bool available)
+{
+    m_previewAvailable = available;
+    m_preview->setVisible(available);
+    m_revert->setVisible(available);
+    updateProblems();
+}
+
+void WorkspaceAppearanceEditor::setPreviewing(bool previewing)
+{
+    m_revert->setEnabled(previewing);
+}
+
 WorkspaceCatalog::Appearance WorkspaceAppearanceEditor::appearance() const
 {
+    const OverrideMode mode = overrideMode();
     QVariantMap values;
-    const auto checked = [this](const QString &entry) {
-        return std::any_of(m_rows.cbegin(), m_rows.cend(), [&entry](const Row &row) {
-            return row.entries.contains(entry) && row.override->isChecked();
-        });
+    if (mode == OverrideMode::All) {
+        values = m_snapshot;
+    }
+    const auto checked = [this, mode](const QString &entry) {
+        return mode == OverrideMode::All || (mode == OverrideMode::Selected && std::any_of(m_rows.cbegin(), m_rows.cend(), [&entry](const Row &row) {
+                                                 return row.entries.contains(entry) && row.override->isChecked();
+                                             }));
     };
     if (checked(ViewModeEntry)) {
         values.insert(ViewModeEntry, m_viewMode->currentIndex());
@@ -223,10 +289,11 @@ WorkspaceCatalog::Appearance WorkspaceAppearanceEditor::appearance() const
     WorkspaceCatalog::Appearance result;
     result.themeProfileId = m_profile->currentData().toString();
     result.overrides = WorkspaceAppearance::encodeOverrides(Settings::self(), values);
-    // Keep saved values this editor cannot show, such as values that are invalid now, unless they were replaced.
+    // Keep saved values this editor cannot show, such as values that are invalid now, unless they were replaced
+    // or no options are saved any more.
     const QVariantMap valid = WorkspaceAppearance::decodeOverrides(Settings::self(), m_stored.overrides);
-    for (auto it = m_stored.overrides.constBegin(); it != m_stored.overrides.constEnd(); ++it) {
-        if (!valid.contains(it.key()) && !checked(it.key())) {
+    for (auto it = m_stored.overrides.constBegin(); mode != OverrideMode::None && it != m_stored.overrides.constEnd(); ++it) {
+        if (!valid.contains(it.key()) && !result.overrides.contains(it.key())) {
             result.overrides.insert(it.key(), it.value());
         }
     }
@@ -235,9 +302,11 @@ WorkspaceCatalog::Appearance WorkspaceAppearanceEditor::appearance() const
 
 void WorkspaceAppearanceEditor::updateEnabled()
 {
+    const OverrideMode mode = overrideMode();
     for (const Row &row : std::as_const(m_rows)) {
+        row.override->setEnabled(mode == OverrideMode::Selected);
         for (QWidget *editor : row.editors) {
-            editor->setEnabled(row.override->isChecked());
+            editor->setEnabled(mode == OverrideMode::All || (mode == OverrideMode::Selected && row.override->isChecked()));
         }
     }
     m_customCorners->setEnabled(m_customCorners->isEnabled() && m_corners->currentIndex() == Settings::EnumCornerRadius::Custom);
@@ -248,9 +317,11 @@ void WorkspaceAppearanceEditor::updateEnabled()
 void WorkspaceAppearanceEditor::updateProblems()
 {
     QStringList messages;
-    if (AppearanceDefaults::workspaceOverridesDisabled()) {
+    const bool disabled = AppearanceDefaults::workspaceOverridesDisabled();
+    if (disabled) {
         messages.append(i18nc("@info", "Workspace appearance is turned off for this session, so the global appearance applies."));
     }
+    m_preview->setEnabled(m_previewAvailable && !disabled);
     const QList<ThemeProfiles::Profile> profiles =
         ThemeProfiles::load(Settings::self(), KSharedConfig::openConfig()->group(QLatin1String(ThemeProfiles::Group)));
     const WorkspaceAppearance::Resolved resolved = WorkspaceAppearance::resolve(Settings::self(), appearance(), profiles);
@@ -259,8 +330,16 @@ void WorkspaceAppearanceEditor::updateProblems()
                               "Unavailable now and kept for retry: %1.",
                               resolved.problems.join(i18nc("@item list separator", ", "))));
     }
-    if (resolved.values.value(BlurEntry).toBool()) {
-        if (const QString reason = WindowEffects::unavailableReason(window(), true, false); !reason.isEmpty()) {
+    // Report the effects the workspace asks for, together with the global ones it leaves in effect.
+    const bool layered = resolved.values.contains(BlurEntry) || std::any_of(OpacityEntries.cbegin(), OpacityEntries.cend(), [&resolved](const QString &entry) {
+                             return resolved.values.contains(entry);
+                         });
+    const bool blur = resolved.values.value(BlurEntry, Settings::backgroundBlur()).toBool();
+    const bool translucent = resolved.values.value(QStringLiteral("WindowOpacity"), Settings::windowOpacity()).toInt() < 100
+        || resolved.values.value(QStringLiteral("PaneOpacity"), Settings::paneOpacity()).toInt() < 100
+        || resolved.values.value(QStringLiteral("PanelOpacity"), Settings::panelOpacity()).toInt() < 100;
+    if (layered && (blur || translucent)) {
+        if (const QString reason = WindowEffects::unavailableReason(window(), blur, translucent); !reason.isEmpty()) {
             messages.append(reason);
         }
     }

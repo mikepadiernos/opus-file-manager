@@ -6,6 +6,8 @@
 #include "savedsearches.h"
 #include "settings.h"
 #include "themeprofiles.h"
+#include "workspaceappearance.h"
+#include "workspaceappearanceeditor.h"
 #include "workspacelocations.h"
 
 #include <KConfig>
@@ -199,6 +201,16 @@ private Q_SLOTS:
         list->setCurrentRow(0);
         QVERIFY(appearanceBehavior->isChecked());
         QVERIFY(!viewMode->isEnabled());
+        using Mode = WorkspaceAppearanceEditor::OverrideMode;
+        auto *mode = dialog.findChild<QComboBox *>(QStringLiteral("workspaceOverrideMode"));
+        QVERIFY(mode);
+        QCOMPARE(mode->currentIndex(), int(Mode::None));
+        QVERIFY(!overrideViewMode->isEnabled());
+        // Without a window to preview in, there is nothing to preview.
+        QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("workspacePreviewAppearance"))->isVisibleTo(&dialog));
+        mode->setCurrentIndex(int(Mode::Selected));
+        QVERIFY(overrideViewMode->isEnabled());
+        QVERIFY(!viewMode->isEnabled());
 
         profile->setCurrentIndex(profile->findData(profileId));
         overrideViewMode->setChecked(true);
@@ -230,6 +242,129 @@ private Q_SLOTS:
         QVERIFY2(WorkspaceCatalog::load(group, catalog, error), qPrintable(error));
         QCOMPARE(catalog.workspaces.first().appearance.themeProfileId, profileId);
         QCOMPARE(catalog.workspaces.first().appearance.overrides, (QJsonObject{{QStringLiteral("DefaultViewMode"), QStringLiteral("Cards")}}));
+        QCOMPARE(mode->currentIndex(), int(Mode::Selected));
+
+        // All saves every appearance option, keeping the edited ones.
+        mode->setCurrentIndex(int(Mode::All));
+        QVERIFY(!overrideDividers->isEnabled());
+        QVERIFY(dividers->isEnabled());
+        QVERIFY(viewMode->isEnabled());
+        save->click();
+        QVERIFY2(WorkspaceCatalog::load(group, catalog, error), qPrintable(error));
+        const QJsonObject all = catalog.workspaces.first().appearance.overrides;
+        QCOMPARE(all.size(), WorkspaceAppearance::overrideEntries(Settings::self()).size());
+        QCOMPARE(all.value(QStringLiteral("DefaultViewMode")).toString(), QStringLiteral("Cards"));
+        QCOMPARE(all.value(QStringLiteral("WindowOpacity")).toInt(), Settings::windowOpacity());
+        QCOMPARE(mode->currentIndex(), int(Mode::All));
+
+        // None removes every saved option but keeps the theme profile.
+        mode->setCurrentIndex(int(Mode::None));
+        QVERIFY(!viewMode->isEnabled());
+        save->click();
+        QVERIFY2(WorkspaceCatalog::load(group, catalog, error), qPrintable(error));
+        QVERIFY(catalog.workspaces.first().appearance.overrides.isEmpty());
+        QCOMPARE(catalog.workspaces.first().appearance.themeProfileId, profileId);
+        QCOMPARE(mode->currentIndex(), int(Mode::None));
+    }
+
+    void previewsAppearanceUntilRevertedOrClosed()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        const auto group = config.group(QStringLiteral("Workspaces"));
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Home"), QStringLiteral("H"), error));
+        QVERIFY(WorkspaceCatalog::save(group, catalog, error));
+        QList<std::optional<WorkspaceCatalog::Appearance>> previews;
+        {
+            WorkspaceDialog dialog(
+                group,
+                [](WorkspaceCatalog::Layout &, QString &) {
+                    return true;
+                },
+                [](const WorkspaceCatalog::Layout &, QString &) {
+                    return true;
+                },
+                QString());
+            dialog.setAppearancePreview([&previews](const WorkspaceCatalog::Appearance *appearance) {
+                previews.append(appearance ? std::optional(*appearance) : std::nullopt);
+            });
+            auto *list = dialog.findChild<QListWidget *>(QStringLiteral("workspaceList"));
+            auto *mode = dialog.findChild<QComboBox *>(QStringLiteral("workspaceOverrideMode"));
+            auto *overrideBlur = dialog.findChild<QCheckBox *>(QStringLiteral("workspaceOverrideBlur"));
+            auto *blur = dialog.findChild<QCheckBox *>(QStringLiteral("workspaceBlur"));
+            auto *preview = dialog.findChild<QPushButton *>(QStringLiteral("workspacePreviewAppearance"));
+            auto *revert = dialog.findChild<QPushButton *>(QStringLiteral("workspaceRevertAppearance"));
+            QVERIFY(list && mode && overrideBlur && blur && preview && revert);
+            QVERIFY(preview->isVisibleTo(&dialog));
+            QVERIFY(!revert->isEnabled());
+            list->setCurrentRow(0);
+            mode->setCurrentIndex(int(WorkspaceAppearanceEditor::OverrideMode::Selected));
+            overrideBlur->setChecked(true);
+            blur->setChecked(true);
+            preview->click();
+            QCOMPARE(previews.size(), 1);
+            QVERIFY(previews.last());
+            QCOMPARE(previews.last()->overrides, (QJsonObject{{QStringLiteral("BackgroundBlur"), true}}));
+            QVERIFY(revert->isEnabled());
+            revert->click();
+            QCOMPARE(previews.size(), 2);
+            QVERIFY(!previews.last());
+            QVERIFY(!revert->isEnabled());
+
+            // Showing another workspace reverts the preview, and nothing was saved.
+            preview->click();
+            list->setCurrentRow(1);
+            QCOMPARE(previews.size(), 4);
+            QVERIFY(!previews.last());
+            QVERIFY2(WorkspaceCatalog::load(group, catalog, error), qPrintable(error));
+            QVERIFY(catalog.workspaces.first().appearance.isEmpty());
+
+            // Closing the dialog reverts it too.
+            list->setCurrentRow(0);
+            preview->click();
+            QCOMPARE(previews.size(), 5);
+            dialog.reject();
+            QCOMPARE(previews.size(), 6);
+            QVERIFY(!previews.last());
+        }
+        QCOMPARE(previews.size(), 6);
+    }
+
+    void reportsUnavailableTranslucency()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        const auto group = config.group(QStringLiteral("Workspaces"));
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(WorkspaceCatalog::save(group, catalog, error));
+        Settings::setWindowOpacity(80);
+        WorkspaceDialog dialog(
+            group,
+            [](WorkspaceCatalog::Layout &, QString &) {
+                return true;
+            },
+            [](const WorkspaceCatalog::Layout &, QString &) {
+                return true;
+            },
+            QString());
+        auto *list = dialog.findChild<QListWidget *>(QStringLiteral("workspaceList"));
+        auto *mode = dialog.findChild<QComboBox *>(QStringLiteral("workspaceOverrideMode"));
+        auto *problems = dialog.findChild<QLabel *>(QStringLiteral("workspaceAppearanceProblems"));
+        QVERIFY(list && mode && problems);
+        list->setCurrentRow(0);
+        // The global translucency is reported by the settings, not for each workspace.
+        QVERIFY(!problems->isVisibleTo(&dialog));
+        // An offscreen dialog is not translucent, so the opacity saved with the workspace cannot be shown.
+        mode->setCurrentIndex(int(WorkspaceAppearanceEditor::OverrideMode::All));
+        QVERIFY(problems->isVisibleTo(&dialog));
+        QVERIFY2(problems->text().contains(QLatin1String("compositing")), qPrintable(problems->text()));
     }
 
     void switchesAndDeletesWithoutChangingFiles()

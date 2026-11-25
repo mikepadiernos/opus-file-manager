@@ -33,6 +33,7 @@
 #include "transferqueue.h"
 #include "transferqueuedialog.h"
 #include "viewsettings.h"
+#include "workspaceappearanceeditor.h"
 #include "workspacedialog.h"
 
 #include <KActionCollection>
@@ -454,6 +455,9 @@ private Q_SLOTS:
         create->click();
         QCOMPARE(list->count(), 2);
         list->setCurrentRow(0);
+        auto *mode = dialog->findChild<QComboBox *>(QStringLiteral("workspaceOverrideMode"));
+        QVERIFY(mode);
+        mode->setCurrentIndex(int(WorkspaceAppearanceEditor::OverrideMode::Selected));
         overrideViewMode->setChecked(true);
         viewMode->setCurrentIndex(Settings::EnumDefaultViewMode::Cards);
         overrideDividers->setChecked(true);
@@ -479,7 +483,29 @@ private Q_SLOTS:
         activate->click();
         QTRY_VERIFY(EffectiveAppearance::layer().isEmpty());
         QCOMPARE(int(EffectiveAppearance::dividers()), int(Settings::EnumDividers::FollowStyle));
+
+        // Previewing another workspace's appearance applies it without switching to it or changing the panes' view modes.
+        auto *preview = dialog->findChild<QPushButton *>(QStringLiteral("workspacePreviewAppearance"));
+        auto *revert = dialog->findChild<QPushButton *>(QStringLiteral("workspaceRevertAppearance"));
+        QVERIFY(preview && revert && preview->isEnabled());
+        const FolderView::ViewMode homeMode = window.activePane()->view()->viewMode();
+        list->setCurrentRow(0);
+        dividers->setCurrentIndex(Settings::EnumDividers::Thin);
+        preview->click();
+        QCOMPARE(int(EffectiveAppearance::dividers()), int(Settings::EnumDividers::Thin));
+        QCOMPARE(window.activePane()->view()->viewMode(), homeMode);
+        revert->click();
+        QVERIFY(EffectiveAppearance::layer().isEmpty());
+        preview->click();
+        QVERIFY(!EffectiveAppearance::layer().isEmpty());
         dialog->close();
+        QVERIFY(EffectiveAppearance::layer().isEmpty());
+        // The preview was not saved.
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        config->reparseConfiguration();
+        QVERIFY2(WorkspaceCatalog::load(config->group(QStringLiteral("Workspaces")), catalog, error), qPrintable(error));
+        QCOMPARE(catalog.workspaces.first().appearance.overrides.value(QStringLiteral("Dividers")).toString(), QStringLiteral("Hidden"));
     }
 
     void retriesWorkspaceWithUnavailableComponents()

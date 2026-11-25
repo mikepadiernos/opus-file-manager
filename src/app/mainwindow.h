@@ -153,8 +153,16 @@ private:
      * workspace over the global settings, and reports what is unavailable.
      */
     void updateWorkspaceAppearanceLayer();
+    /// Applies the appearance layer in effect when it differs from the one last applied.
+    void applyAppearanceLayer();
     /// Applies the active workspace's appearance live when it or the workspace changes.
     void applyWorkspaceAppearance();
+    /**
+     * Previews @p appearance over the global settings without saving it, or
+     * restores the active workspace's appearance when @p appearance is null.
+     * Open panes keep their view mode.
+     */
+    void previewWorkspaceAppearance(const WorkspaceCatalog::Appearance *appearance);
     /// Places the workspace selector in the View menu, the status bar or both.
     void applyWorkspaceSelectorPlacement();
     /// Gives each pane its configured location bar, replacing the current choice only when the setting changes.
