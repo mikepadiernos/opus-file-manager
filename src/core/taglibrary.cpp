@@ -155,6 +155,11 @@ QString TagLibrary::createId()
     return QUuid::createUuid().toString(QUuid::WithoutBraces);
 }
 
+QString TagLibrary::documentSignature(const QString &root)
+{
+    return signatureOf(QDir(QDir::cleanPath(root)).filePath(fileName()));
+}
+
 bool TagLibrary::hasMetadata(const Entry &entry)
 {
     return !entry.tags.isEmpty() || !entry.fields.isEmpty();
@@ -1063,6 +1068,62 @@ int TagLibrary::Library::removeTag(const QString &id)
         removed += entry.tags.removeAll(id) > 0 ? 1 : 0;
     }
     return removed;
+}
+
+QHash<QString, int> TagLibrary::Library::tagCounts(const QStringList &relativePaths) const
+{
+    QHash<QString, int> counts;
+    QSet<QString> seen;
+    for (const QString &path : relativePaths) {
+        if (seen.contains(path)) {
+            continue;
+        }
+        seen.insert(path);
+        if (const Entry *found = entry(path)) {
+            for (const QString &id : found->tags) {
+                ++counts[id];
+            }
+        }
+    }
+    return counts;
+}
+
+bool TagLibrary::Library::assignTags(const QList<Observation> &items, const QStringList &add, const QStringList &remove, int *changed, QString *error)
+{
+    if (changed) {
+        *changed = 0;
+    }
+    for (const QString &id : add) {
+        if (!tag(id)) {
+            if (error) {
+                *error = i18nc("@info", "A tag to assign no longer exists.");
+            }
+            return false;
+        }
+    }
+    applyScan(items, false);
+    QSet<QString> done;
+    for (const Observation &item : items) {
+        const auto it = m_entryIndex.constFind(item.path);
+        if (it == m_entryIndex.cend() || done.contains(item.path)) {
+            continue;
+        }
+        done.insert(item.path);
+        Entry &entry = m_entries[*it];
+        const QStringList before = entry.tags;
+        for (const QString &id : remove) {
+            entry.tags.removeAll(id);
+        }
+        for (const QString &id : add) {
+            if (!entry.tags.contains(id)) {
+                entry.tags.append(id);
+            }
+        }
+        if (changed && entry.tags != before) {
+            ++*changed;
+        }
+    }
+    return true;
 }
 
 bool TagLibrary::update(const QString &root, const std::function<bool(Library &library, QString *error)> &change, QString *error)

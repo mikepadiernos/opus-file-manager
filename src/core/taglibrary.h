@@ -102,6 +102,9 @@ QString checkLocation(const QString &root, bool *readOnly = nullptr);
 /// Creates a stable identifier for a new tag, group, field or entry.
 QString createId();
 
+/// Identifies the current version of the library document at @p root, so callers can tell when to reload it.
+QString documentSignature(const QString &root);
+
 /// Whether @p entry has tags or field values.
 bool hasMetadata(const Entry &entry);
 
@@ -229,6 +232,18 @@ public:
      * @returns the number of entries it was removed from
      */
     int removeTag(const QString &id);
+
+    /// For each tag assigned directly to an entry at @p relativePaths, the number of those entries that have it.
+    QHash<QString, int> tagCounts(const QStringList &relativePaths) const;
+
+    /**
+     * Assigns the tags @p add and removes the tags @p remove on the entries
+     * for @p items. Items that aren't indexed yet are indexed first, and
+     * missing entries found at their path are no longer missing.
+     * @param changed receives the number of entries whose tags changed
+     * @returns false, changing nothing, when a tag to add doesn't exist
+     */
+    bool assignTags(const QList<Observation> &items, const QStringList &add, const QStringList &remove, int *changed = nullptr, QString *error = nullptr);
 
 private:
     QString m_root;

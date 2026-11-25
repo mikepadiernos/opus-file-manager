@@ -128,6 +128,8 @@ add_library(opusfm_core STATIC
     symbolicicon.h
     tabmodel.cpp
     tabmodel.h
+    tagassignment.cpp
+    tagassignment.h
     taglibrary.cpp
     taglibrary.h
     themeprofiles.cpp
