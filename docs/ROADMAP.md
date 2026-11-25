@@ -1218,7 +1218,7 @@ process or a promise of Yazi configuration or plugin compatibility.
 - [x] Show parent and current folders with an optional preview in the active
       pane. Adapt or hide columns in narrow windows without replacing the other
       pane; keep navigation and preview accessible.
-- [ ] Provide keyboard-first navigation with optional Vim-style movement and
+- [x] Provide keyboard-first navigation with optional Vim-style movement and
       multi-key actions. Reuse KDE shortcut facilities; show the active mode and
       do not intercept typing in editors, search fields or the terminal.
 - [ ] Support focused-item and multi-item selection, copy, move, rename, trash
