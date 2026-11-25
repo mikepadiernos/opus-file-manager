@@ -65,14 +65,14 @@ its saved layout remains unapplied until the user switches to it. A visible
 terminal requires an existing session; metadata and toolbar editors must be
 closed before saving or switching. Incompatible linked panes must be unlinked
 first. Older snapshots may require replacement before they can be applied.
-([#581](https://github.com/mikepadiernos/plasma-opus/issues/581))
+([#700](https://github.com/mikepadiernos/plasma-opus/issues/700))
 
 - **Recommendation:** Save editor drafts separately and start a terminal session
   before switching to a layout that shows it. Finish metadata and toolbar edits,
   and unlink panes when prompted. Replace older snapshots with **Save Current
   Layout**. Explicitly switch to apply a saved layout after startup.
   - Comment:
-    [#581.7074690958](https://github.com/mikepadiernos/plasma-opus/issues/581#issuecomment-7074690958)
+    [#700.7163113449](https://github.com/mikepadiernos/plasma-opus/issues/700#issuecomment-7163113449)
 
 ## Workspace settings
 
