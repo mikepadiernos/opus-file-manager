@@ -1098,7 +1098,7 @@ integration without blocking this milestone.
 - [x] Show M09 search results in the embedded panel, reusing progress,
       cancellation, error reporting and open and reveal actions without moving
       files
-- [ ] Offer an optional main-toolbar search widget to enter queries, search the
+- [x] Offer an optional main-toolbar search widget to enter queries, search the
       shared scope (initially the active pane's location) and open the advanced
       search panel
 - [ ] Support keyboard navigation and focus between the toolbar widget, search
