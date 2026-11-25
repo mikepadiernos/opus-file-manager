@@ -1147,7 +1147,7 @@ rather than requiring TagStudio or changing the user's folder structure.
       unsupported or read-only locations
 - [x] Create opt-in libraries rooted in existing local folders; index files of
       any type without moving, renaming or duplicating them
-- [ ] Refresh libraries with progress and cancellation. Track moves and renames
+- [x] Refresh libraries with progress and cancellation. Track moves and renames
       initiated by Plasma Opus, and offer review and manual relinking for
       missing or externally moved files without silently attaching metadata to
       uncertain matches.
