@@ -9,14 +9,14 @@ application's own identity is drawn here.
 
 ## Identity
 
-| Item             | Value                                                    |
-| ---------------- | -------------------------------------------------------- |
-| Name             | Plasma Opus                                              |
-| Summary          | Dual-pane file manager for KDE Plasma                    |
-| Desktop entry    | `org.kde.opusfilemanager.desktop`                        |
-| Icon name        | `org.kde.opusfilemanager`, `org.kde.opusfilemanager-symbolic` |
-| Executable       | `opus-file-manager`                                      |
-| D-Bus service    | `org.kde.opus-file-manager`                              |
+| Item          | Value                                                         |
+| ------------- | ------------------------------------------------------------- |
+| Name          | Plasma Opus                                                   |
+| Summary       | Dual-pane file manager for KDE Plasma                         |
+| Desktop entry | `org.kde.opusfilemanager.desktop`                             |
+| Icon name     | `org.kde.opusfilemanager`, `org.kde.opusfilemanager-symbolic` |
+| Executable    | `opus-file-manager`                                           |
+| D-Bus service | `org.kde.opus-file-manager`                                   |
 
 The name and summary are defined once in `src/core/appidentity.cpp` and are
 translated through the application catalogue, which also translates the
@@ -32,13 +32,13 @@ elsewhere. The spiral is always white.
 
 ## Assets
 
-| Asset                       | File                                                          | Use                                  |
-| --------------------------- | ------------------------------------------------------------- | ------------------------------------ |
-| Application icon            | `src/app/org.kde.opusfilemanager.svg`                         | Scalable, 48 px and larger           |
-| Small application icons     | `src/app/icons/{16x16,22x22,32x32}/org.kde.opusfilemanager.svg` | Pixel-aligned artwork for small sizes |
-| Symbolic icon               | `src/app/icons/symbolic/org.kde.opusfilemanager-symbolic.svg` | Monochrome, follows the text colour  |
-| Logo for light backgrounds  | `src/app/branding/plasma-opus-logo.svg`                       | Documentation and release materials |
-| Logo for dark backgrounds   | `src/app/branding/plasma-opus-logo-dark.svg`                  | Documentation and release materials |
+| Asset                      | File                                                            | Use                                   |
+| -------------------------- | --------------------------------------------------------------- | ------------------------------------- |
+| Application icon           | `src/app/org.kde.opusfilemanager.svg`                           | Scalable, 48 px and larger            |
+| Small application icons    | `src/app/icons/{16x16,22x22,32x32}/org.kde.opusfilemanager.svg` | Pixel-aligned artwork for small sizes |
+| Symbolic icon              | `src/app/icons/symbolic/org.kde.opusfilemanager-symbolic.svg`   | Monochrome, follows the text colour   |
+| Logo for light backgrounds | `src/app/branding/plasma-opus-logo.svg`                         | Documentation and release materials   |
+| Logo for dark backgrounds  | `src/app/branding/plasma-opus-logo-dark.svg`                    | Documentation and release materials   |
 
 The icons install to the `hicolor` theme so that any icon theme can override
 them. The small sizes simplify the spiral to rings that stay legible on the
@@ -52,13 +52,50 @@ with `prefers-color-scheme`:
 
 ```html
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="src/app/branding/plasma-opus-logo-dark.svg">
-  <img src="src/app/branding/plasma-opus-logo.svg" alt="Plasma Opus" width="384" height="80">
+  <source
+    media="(prefers-color-scheme: dark)"
+    srcset="src/app/branding/plasma-opus-logo-dark.svg"
+  />
+  <img
+    src="src/app/branding/plasma-opus-logo.svg"
+    alt="Plasma Opus"
+    width="384"
+    height="80"
+  />
 </picture>
 ```
 
 Keep clear space of at least the folder tab's height around the logo, and do not
 recolour, stretch or re-typeset the wordmark.
+
+## Presentation
+
+- **About:** Help ▸ About Plasma Opus shows the application icon, name,
+  version and summary from the shared identity.
+- **Startup presentation:** an optional card with the logo, version and
+  summary appears over the window for two seconds at startup. It is off by
+  default. It never delays or blocks use: the window opens and accepts input
+  as usual, clicks pass through the card, it never takes focus, and any key,
+  click, scroll or touch dismisses it. It fades out only when animations are
+  enabled, and in high contrast it uses the colour scheme's own colours with a
+  solid border. The logo can follow the colour scheme or use dark text on a
+  light card or light text on a dark card; the folder and "Opus" follow the
+  accent colour.
+
+  Until [M20](ROADMAP.md#m20-branding-settings) adds these options to
+  Preferences, set them in `~/.config/opus-file-managerrc`:
+
+  ```ini
+  [Branding]
+  StartupPresentation=true
+  # Automatic, DarkText or LightText
+  LogoVariant=Automatic
+  ```
+
+- **Release materials:** release notes start from the
+  [release notes template](releases/TEMPLATE.md), which uses the logo variant
+  for the reader's colour scheme, the shared name and summary, and the
+  section order used by previous releases.
 
 ## Licence
 
