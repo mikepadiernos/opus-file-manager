@@ -2369,12 +2369,21 @@ void MainWindow::setupActions()
         return m_searchPanel->searchWidget()->history();
     });
     connect(toolbarSearch, &SearchToolbarAction::savedSearchRequested, this, [this](const QString &name) {
-        m_searchPanelAction->setChecked(true);
-        m_searchPanel->searchWidget()->runSavedSearch(name);
+        if (Settings::toolbarSearchOpensPanel()) {
+            m_searchPanelAction->setChecked(true);
+        }
+        presentToolbarSearch(m_searchPanel->searchWidget()->runSavedSearch(name));
     });
     connect(toolbarSearch, &SearchToolbarAction::resultsRequested, this, [this] {
         SearchWidget *search = m_searchPanel->searchWidget();
-        if (m_searchPanelAction->isChecked() && !search->focusResults()) {
+        if (!m_searchPanelAction->isChecked()) {
+            // Results found while the panel stayed hidden are one key away.
+            if (!search->hasResults()) {
+                return;
+            }
+            m_searchPanelAction->setChecked(true);
+        }
+        if (!search->focusResults()) {
             search->focusQuery();
         }
     });
@@ -2388,6 +2397,12 @@ void MainWindow::setupActions()
     });
     connect(m_searchPanel->searchWidget(), &SearchWidget::dismissRequested, this, [this] {
         activePane()->view()->currentView()->setFocus(Qt::OtherFocusReason);
+    });
+    connect(m_searchPanel->searchWidget(), &SearchWidget::finished, this, [this](const QString &status) {
+        if (std::exchange(m_reportToolbarSearch, false) && !m_searchPanelAction->isChecked()) {
+            showStatusMessage(
+                i18nc("@info:status %1 is the search outcome", "%1 Press Down in the search field or show the search panel to see the results.", status));
+        }
     });
 
     m_linkedPanesAction = new KToggleAction(i18nc("@action", "Link Pane Navigation"), this);
@@ -4057,10 +4072,20 @@ void MainWindow::searchFromToolbar(const QString &text)
     SearchWidget *search = m_searchPanel->searchWidget();
     // A running search keeps its folder; search() then reports that it is busy.
     search->setFolder(activePane()->url());
-    m_searchPanelAction->setChecked(true);
-    search->search(text);
+    if (Settings::toolbarSearchOpensPanel()) {
+        m_searchPanelAction->setChecked(true);
+    }
+    presentToolbarSearch(search->search(text));
     if (field) {
         field->setFocus(Qt::OtherFocusReason);
+    }
+}
+
+void MainWindow::presentToolbarSearch(bool started)
+{
+    m_reportToolbarSearch = started && !m_searchPanelAction->isChecked();
+    if (!started && !m_searchPanelAction->isChecked()) {
+        showStatusMessage(m_searchPanel->searchWidget()->status());
     }
 }
 

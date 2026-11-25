@@ -49,8 +49,12 @@ public:
     void focusQuery();
     /// Focuses the visible result list when it has items; returns whether it did.
     bool focusResults();
-    /// Replaces the query text and starts a search with the current criteria.
-    void search(const QString &text);
+    /// Replaces the query text and starts a search with the current criteria; returns whether it started.
+    bool search(const QString &text);
+    /// Returns the text of the panel's status line.
+    QString status() const;
+    /// Returns whether the visible result list has items.
+    bool hasResults() const;
     /// Cancels a running search; does nothing otherwise.
     void cancel();
     /**
@@ -69,6 +73,8 @@ public:
 Q_SIGNALS:
     /// Escape was pressed while no search was running.
     void dismissRequested();
+    /// A search ended; @p status summarizes its outcome.
+    void finished(const QString &status);
     void revealRequested(const QUrl &url);
     /// Requests opening an existing result: a folder in a pane, a file in its application.
     void openRequested(const QUrl &url);

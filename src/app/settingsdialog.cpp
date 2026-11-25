@@ -31,6 +31,7 @@
 #include <KPluginMetaData>
 #include <KSharedConfig>
 #include <KTextEditor/Editor>
+#include <KToolBar>
 #include <KUrlRequester>
 #include <KXmlGuiWindow>
 
@@ -1093,6 +1094,47 @@ QWidget *SettingsDialog::createSearchPage()
         clearHistory->setEnabled(false);
     });
     layout->addLayout(panel);
+    auto *toolbar = new QFormLayout;
+    auto *mainWindow = qobject_cast<KXmlGuiWindow *>(parentWidget());
+    QPointer<QAction> fieldAction = mainWindow ? mainWindow->actionCollection()->action(QStringLiteral("search_toolbar")) : nullptr;
+    const QPointer<KXmlGuiWindow> window(mainWindow);
+    QCheckBox *showField = addSharedToggle(
+        QStringLiteral("searchToolbarField"),
+        i18nc("@option:check", "Show the search field on the main toolbar"),
+        [window, fieldAction]() -> bool {
+            return window && fieldAction && window->toolBar()->actions().contains(fieldAction.data());
+        },
+        [window, fieldAction](bool shown) {
+            if (!window || !fieldAction) {
+                return;
+            }
+            QToolBar *bar = window->toolBar();
+            const QList<QAction *> entries = bar->actions();
+            if (entries.contains(fieldAction.data()) == shown) {
+                return;
+            }
+            if (!shown) {
+                bar->removeAction(fieldAction);
+                return;
+            }
+            // Place the field next to the Search button, or before the hamburger menu.
+            QAction *before = nullptr;
+            for (const QString &name : {QStringLiteral("search_folder"), QStringLiteral("hamburger_menu")}) {
+                QAction *candidate = window->actionCollection()->action(name);
+                if (candidate && entries.contains(candidate)) {
+                    before = candidate;
+                    break;
+                }
+            }
+            bar->insertAction(before, fieldAction);
+        },
+        false);
+    showField->setEnabled(!fieldAction.isNull());
+    showField->setToolTip(i18nc("@info:tooltip", "Adds or removes the Search Field entry, like the main toolbar editor on the Toolbars page"));
+    toolbar->addRow(i18nc("@title:group", "Toolbar search field:"), showField);
+    toolbar->addRow(QString(),
+                    checkBox(QStringLiteral("ToolbarSearchOpensPanel"), i18nc("@option:check", "Show the search panel when a search starts from the field")));
+    layout->addLayout(toolbar);
     auto *foldersLabel = new QLabel(i18nc("@label", "Search folders, searched together by the \"Search folders\" scope:"), page);
     foldersLabel->setWordWrap(true);
     layout->addWidget(foldersLabel);

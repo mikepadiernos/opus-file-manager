@@ -236,6 +236,8 @@ private:
     void showSearchForPane(Pane *pane);
     /// Searches the active pane's folder from a toolbar search field.
     void searchFromToolbar(const QString &text);
+    /// Shows the search panel for a toolbar search when Preferences ask for it, or reports the outcome in the status bar.
+    void presentToolbarSearch(bool started);
     void showDuplicateFinder();
     void createChecksumFile();
     void verifyChecksumFile();
@@ -415,6 +417,8 @@ private:
     bool m_secondPaneInTab = false;
     bool m_movingSecondPane = false;
     bool m_restoringSearchPanel = false;
+    /// Whether a search started from the toolbar field reports its outcome in the status bar while the panel is hidden.
+    bool m_reportToolbarSearch = false;
     QAction *m_viewModeAction = nullptr;
     QAction *m_selectionModeAction = nullptr;
     QAction *m_selectionMarkersAction = nullptr;

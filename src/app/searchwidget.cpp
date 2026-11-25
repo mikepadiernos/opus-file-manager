@@ -779,6 +779,7 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
             status += QLatin1Char(' ') + notice;
         }
         m_status->setText(status);
+        Q_EMIT finished(status);
     });
     criteriaArea->setFocusPolicy(Qt::NoFocus);
     resultsScroll->setFocusPolicy(Qt::NoFocus);
@@ -850,14 +851,25 @@ void SearchWidget::keyPressEvent(QKeyEvent *event)
     QWidget::keyPressEvent(event);
 }
 
-void SearchWidget::search(const QString &text)
+bool SearchWidget::search(const QString &text)
 {
     if (m_watcher.isRunning()) {
         m_status->setText(i18nc("@info", "Wait for the current search to finish or cancel it before starting another."));
-        return;
+        return false;
     }
     m_query->setText(text);
-    start();
+    return start();
+}
+
+QString SearchWidget::status() const
+{
+    return m_status->text();
+}
+
+bool SearchWidget::hasResults() const
+{
+    const auto *list = qobject_cast<QTreeWidget *>(m_resultTabs->currentWidget());
+    return list && list->topLevelItemCount() > 0;
 }
 
 void SearchWidget::applyDefaults()
