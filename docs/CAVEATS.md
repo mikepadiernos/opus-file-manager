@@ -715,6 +715,13 @@ Tracked in
   panel. While a search runs, Enter does not start another search. The field
   can be placed on the main toolbar only, not on pane toolbars, and does not
   show suggestions or history.
+- **Search keyboard navigation:** Down in the toolbar field or the panel's
+  query moves to the visible result list, or from the toolbar field to the
+  query when there are no results. Escape cancels a running search; otherwise
+  it returns focus to the active pane and leaves the panel open. Tab moves
+  through the panel in layout order, but between the toolbar, panel and panes
+  it follows the window's widget order. There are no dedicated shortcuts for
+  focusing the toolbar field or the panel.
 - **Search folders and exclusions:** The search folders and excluded folders
   set on Preferences' Search page apply only to Plasma Opus. They do not
   change what Baloo indexes, and an excluded folder is still searched by other
@@ -741,7 +748,9 @@ Tracked in
   changed in Configure Keyboard Shortcuts. To search another folder from the
   search panel, use Search from that pane's toolbar or the Search shortcut
   while the pane is active, or type in the toolbar search field. Check the
-  panel's criteria before searching from the toolbar field.
+  panel's criteria before searching from the toolbar field. Press Down to
+  reach the results and Escape to return to the active pane; click the panel
+  or use Tab when keyboard focus needs to move elsewhere.
   - Comment: [#362.7023269364][comment-362]
 - **Alternative:** Use a separately maintained locate database for filenames.
   - Comment:
@@ -750,6 +759,10 @@ Tracked in
   search; its new interface and criteria do not by themselves remove current
   backend limits. [M22 advanced search settings](ROADMAP.md#m22-advanced-search-settings)
   plans choosing the panel's placement and restoring its visibility at startup.
+  [M31 keyboard shortcut settings](ROADMAP.md#m31-keyboard-shortcut-settings)
+  plans configurable shortcuts
+  ([#230](https://github.com/mikepadiernos/plasma-opus/issues/230)), which
+  could include focusing the search field and panel.
   [M27 Baloo integration](ROADMAP.md#m27-integrations) plans
   better status, metadata queries, result ranking and an explicit live fallback,
   not guaranteed index completeness. [M15 workspaces](ROADMAP.md#m15-workspaces)
