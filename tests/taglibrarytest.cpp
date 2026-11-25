@@ -392,6 +392,7 @@ private Q_SLOTS:
         QVERIFY(!error.isEmpty());
         QVERIFY(!library.setField({u"f-note"_s, u" Note"_s, TagLibrary::FieldType::Text}));
         QVERIFY(!library.setField({{}, u"Note"_s, TagLibrary::FieldType::Text}));
+        QVERIFY(!library.setField({u"f-note"_s, u"title"_s, TagLibrary::FieldType::Text}));
         QVERIFY(library.setField({u"f-note"_s, u"Note"_s, TagLibrary::FieldType::Text}));
         QVERIFY(library.setField({u"f-note"_s, u"Due"_s, TagLibrary::FieldType::Date}));
         QVERIFY(library.setField({u"f-shot"_s, u"Taken"_s, TagLibrary::FieldType::Date}));

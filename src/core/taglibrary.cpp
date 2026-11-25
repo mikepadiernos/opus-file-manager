@@ -1160,6 +1160,11 @@ QString TagLibrary::Library::checkField(const Field &field) const
         return field.name.trimmed().isEmpty() ? i18nc("@info", "Enter a name for the field.")
                                               : i18nc("@info", "Field names can't start or end with spaces or be longer than %1 characters.", maxNameLength);
     }
+    for (const Field &other : m_fields) {
+        if (other.id != field.id && other.name.compare(field.name, Qt::CaseInsensitive) == 0) {
+            return i18nc("@info", "Another field is already named “%1”.", other.name);
+        }
+    }
     const Field *existing = this->field(field.id);
     if (existing && existing->type != field.type && fieldUsage(field.id) > 0) {
         return i18nc("@info", "The type can't be changed while items have a value for this field, because values aren't converted.");
