@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "appearancestyle.h"
+#include "effectiveappearance.h"
 
 #include "appearancedefaults.h"
 #include "colorschemes.h"
@@ -185,8 +186,8 @@ void AppearanceStyle::apply(const Options &options)
 AppearanceStyle::Options AppearanceStyle::configured()
 {
     Options options;
-    options.radius = radiusForSetting(Settings::cornerRadius(), Settings::customCornerRadius());
-    switch (Settings::dividers()) {
+    options.radius = radiusForSetting(EffectiveAppearance::cornerRadius(), EffectiveAppearance::customCornerRadius());
+    switch (EffectiveAppearance::dividers()) {
     case Settings::EnumDividers::Thin:
         options.dividers = Dividers::Thin;
         break;
@@ -196,15 +197,15 @@ AppearanceStyle::Options AppearanceStyle::configured()
     default:
         break;
     }
-    options.revealDividers = Settings::revealDividersOnHover();
-    options.selection = static_cast<Selection>(std::clamp(int(Settings::selectionStyle()), 0, int(Selection::AccentBar)));
-    options.hoverHighlight = Settings::hoverHighlight();
-    options.spacingScale = std::clamp(Settings::spacingScale(), MinimumSpacingScale, MaximumSpacingScale);
-    options.tabShape = static_cast<TabShape>(std::clamp(int(Settings::tabShape()), 0, int(TabShape::Flat)));
-    options.tabIndicator = static_cast<TabIndicator>(std::clamp(int(Settings::tabIndicator()), 0, int(TabIndicator::None)));
-    options.tabColorStrength = static_cast<TabColorStrength>(std::clamp(int(Settings::tabColorStrength()), 0, int(TabColorStrength::Strong)));
-    options.statusBarStyle = static_cast<StatusBarStyle>(std::clamp(int(Settings::statusBarStyle()), 0, int(StatusBarStyle::Shaded)));
-    options.animations = static_cast<Animations>(std::clamp(int(Settings::animations()), 0, int(Animations::Off)));
+    options.revealDividers = EffectiveAppearance::revealDividersOnHover();
+    options.selection = static_cast<Selection>(std::clamp(int(EffectiveAppearance::selectionStyle()), 0, int(Selection::AccentBar)));
+    options.hoverHighlight = EffectiveAppearance::hoverHighlight();
+    options.spacingScale = std::clamp(EffectiveAppearance::spacingScale(), MinimumSpacingScale, MaximumSpacingScale);
+    options.tabShape = static_cast<TabShape>(std::clamp(int(EffectiveAppearance::tabShape()), 0, int(TabShape::Flat)));
+    options.tabIndicator = static_cast<TabIndicator>(std::clamp(int(EffectiveAppearance::tabIndicator()), 0, int(TabIndicator::None)));
+    options.tabColorStrength = static_cast<TabColorStrength>(std::clamp(int(EffectiveAppearance::tabColorStrength()), 0, int(TabColorStrength::Strong)));
+    options.statusBarStyle = static_cast<StatusBarStyle>(std::clamp(int(EffectiveAppearance::statusBarStyle()), 0, int(StatusBarStyle::Shaded)));
+    options.animations = static_cast<Animations>(std::clamp(int(EffectiveAppearance::animations()), 0, int(Animations::Off)));
     if (AppearanceDefaults::effectsSuspended()) {
         options.radius = FollowStyle;
         options.tabColorStrength = TabColorStrength::Text;

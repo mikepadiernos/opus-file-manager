@@ -5,6 +5,7 @@
 #include <KConfigGroup>
 
 #include <QByteArray>
+#include <QJsonValue>
 #include <QList>
 #include <QString>
 #include <QStringList>
@@ -47,6 +48,18 @@ struct Profile {
  */
 QList<KConfigSkeletonItem *> items(const KCoreConfigSkeleton *settings);
 QStringList entries(const KCoreConfigSkeleton *settings);
+
+/**
+ * Encodes one setting value as JSON: enums as choice names, colours as
+ * #rrggbb names. @returns null when the value cannot be encoded
+ */
+QJsonValue encodeValue(const KConfigSkeletonItem *item, const QVariant &value);
+
+/**
+ * Decodes and validates one JSON setting value, checking ranges, lengths and
+ * entry-specific rules. @returns std::nullopt when it is invalid
+ */
+std::optional<QVariant> decodeValue(const KConfigSkeletonItem *item, const QJsonValue &json);
 
 /// The current values of entries() in @p settings.
 QVariantMap capture(const KCoreConfigSkeleton *settings);

@@ -65,6 +65,8 @@ add_library(opusfm_core STATIC
     draftstore.h
     duplicatefinder.cpp
     duplicatefinder.h
+    effectiveappearance.cpp
+    effectiveappearance.h
     executables.cpp
     executables.h
     imagedetails.cpp
@@ -116,6 +118,8 @@ add_library(opusfm_core STATIC
     viewsettings.h
     workspacecatalog.cpp
     workspacecatalog.h
+    workspaceappearance.cpp
+    workspaceappearance.h
     workspacerestore.cpp
     workspacerestore.h
     workspacestartup.cpp

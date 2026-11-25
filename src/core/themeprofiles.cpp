@@ -4,6 +4,7 @@
 
 #include "appfonts.h"
 #include "colorschemes.h"
+#include "foldercolorrules.h"
 #include "stylesheets.h"
 
 #include <KCoreConfigSkeleton>
@@ -86,6 +87,12 @@ bool validValue(const QString &entry, const QVariant &value)
     }
     if (entry == QLatin1String("CustomStyleSheet")) {
         return StyleSheets::check(value.toString()).isEmpty();
+    }
+    if (entry == QLatin1String("FolderColorRules")) {
+        const QStringList rules = value.toStringList();
+        return rules.size() <= FolderColorRules::MaximumRules && std::all_of(rules.cbegin(), rules.cend(), [](const QString &rule) {
+                   return FolderColorRules::parse(rule).has_value();
+               });
     }
     return true;
 }
@@ -256,6 +263,16 @@ QStringList ThemeProfiles::entries(const KCoreConfigSkeleton *settings)
         names.append(item->name());
     }
     return names;
+}
+
+QJsonValue ThemeProfiles::encodeValue(const KConfigSkeletonItem *item, const QVariant &value)
+{
+    return encode(item, value);
+}
+
+std::optional<QVariant> ThemeProfiles::decodeValue(const KConfigSkeletonItem *item, const QJsonValue &json)
+{
+    return decode(item, json);
 }
 
 QVariantMap ThemeProfiles::capture(const KCoreConfigSkeleton *settings)

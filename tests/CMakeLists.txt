@@ -97,6 +97,7 @@ ecm_add_tests(
     treemaptest.cpp
     transferqueuetest.cpp
     viewsettingstest.cpp
+    workspaceappearancetest.cpp
     workspacecatalogtest.cpp
     workspacerestoretest.cpp
     workspacestartuptest.cpp

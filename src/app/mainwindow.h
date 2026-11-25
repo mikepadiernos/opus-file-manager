@@ -143,6 +143,17 @@ private:
     void refreshFolderColors();
     /// Applies the app-local fonts of file lists, the folder trees, tabs and status bars.
     void applyFonts();
+    /// Applies the appearance options in effect, including the active workspace's, without other settings.
+    void applyAppearance();
+    /// Scales the margins of the toolbars, navigation bars and status bars.
+    void applyBarMargins();
+    /**
+     * Layers the theme profile and appearance options attached to the active
+     * workspace over the global settings, and reports what is unavailable.
+     */
+    void updateWorkspaceAppearanceLayer();
+    /// Applies the active workspace's appearance live when it or the workspace changes.
+    void applyWorkspaceAppearance();
     /// Places the workspace selector in the View menu, the status bar or both.
     void applyWorkspaceSelectorPlacement();
     /// Gives each pane its configured location bar, replacing the current choice only when the setting changes.
@@ -304,6 +315,13 @@ private:
     std::unique_ptr<KConfig> m_workspaceConfig;
     QString m_currentWorkspaceId;
     WorkspaceCatalog::Catalog m_workspaceCatalog;
+    /// The workspace whose appearance this window last applied, and what was attached to it.
+    QString m_appearanceWorkspaceId;
+    WorkspaceCatalog::Appearance m_workspaceAppearance;
+    bool m_workspaceAppearanceApplies = false;
+    QStringList m_workspaceAppearanceProblems;
+    /// The layered appearance values this window last applied.
+    QVariantMap m_appliedAppearanceLayer;
     WorkspaceLocations *m_workspaceLocations = nullptr;
     QFileSystemWatcher *m_workspaceWatcher = nullptr;
     QString m_workspaceConfigPath;

@@ -30,6 +30,7 @@ WorkspaceCatalog::BehaviorSelection WorkspaceRestore::defaultBehaviorSelection()
     selection.searchScope = Settings::workspaceDefaultSearchScope();
     selection.layout = Settings::workspaceDefaultLayout();
     selection.paneTabRestoration = Settings::workspaceDefaultPaneTabRestoration();
+    selection.appearance = Settings::workspaceDefaultAppearance();
     return selection;
 }
 

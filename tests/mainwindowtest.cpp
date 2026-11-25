@@ -8,6 +8,7 @@
 #include "customcommanddialog.h"
 #include "customcommands.h"
 #include "duplicatefinderdialog.h"
+#include "effectiveappearance.h"
 #include "favoritesmodel.h"
 #include "filediffdialog.h"
 #include "fileoperations.h"
@@ -408,6 +409,76 @@ private Q_SLOTS:
         });
         assign->click();
         QTRY_VERIFY(!reopenedView->isRowHidden(0));
+        dialog->close();
+    }
+
+    void appliesWorkspaceAppearanceWhenSwitching()
+    {
+        QTemporaryDir directory;
+        const auto config = KSharedConfig::openConfig();
+        const auto backup = KSharedConfig::openConfig(directory.filePath(QStringLiteral("backup")));
+        KConfigGroup workspaces = config->group(QStringLiteral("Workspaces"));
+        KConfigGroup savedWorkspaces = backup->group(QStringLiteral("Workspaces"));
+        workspaces.copyTo(&savedWorkspaces);
+        workspaces.deleteGroup();
+        QVERIFY(config->sync());
+        const auto restore = qScopeGuard([config, savedWorkspaces]() mutable {
+            EffectiveAppearance::setLayer({});
+            config->reparseConfiguration();
+            auto workspaces = config->group(QStringLiteral("Workspaces"));
+            workspaces.deleteGroup();
+            savedWorkspaces.copyTo(&workspaces);
+            config->sync();
+        });
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.actionCollection()->action(QStringLiteral("manage_workspaces"))->trigger();
+        auto *dialog = window.findChild<QDialog *>(QStringLiteral("workspaceDialog"));
+        QVERIFY(dialog);
+        auto *name = dialog->findChild<QLineEdit *>(QStringLiteral("workspaceName"));
+        auto *label = dialog->findChild<QLineEdit *>(QStringLiteral("workspaceShortLabel"));
+        auto *list = dialog->findChild<QListWidget *>(QStringLiteral("workspaceList"));
+        auto *create = dialog->findChild<QPushButton *>(QStringLiteral("workspaceCreate"));
+        auto *activate = dialog->findChild<QPushButton *>(QStringLiteral("workspaceActivate"));
+        auto *overrideViewMode = dialog->findChild<QCheckBox *>(QStringLiteral("workspaceOverrideViewMode"));
+        auto *viewMode = dialog->findChild<QComboBox *>(QStringLiteral("workspaceViewMode"));
+        auto *overrideDividers = dialog->findChild<QCheckBox *>(QStringLiteral("workspaceOverrideDividers"));
+        auto *dividers = dialog->findChild<QComboBox *>(QStringLiteral("workspaceDividers"));
+        auto *saveAppearance = dialog->findChild<QPushButton *>(QStringLiteral("workspaceSaveAppearance"));
+        QVERIFY(name && label && list && create && activate && overrideViewMode && viewMode && overrideDividers && dividers && saveAppearance);
+        name->setText(QStringLiteral("Work"));
+        label->setText(QStringLiteral("W"));
+        create->click();
+        name->setText(QStringLiteral("Home"));
+        label->setText(QStringLiteral("H"));
+        create->click();
+        QCOMPARE(list->count(), 2);
+        list->setCurrentRow(0);
+        overrideViewMode->setChecked(true);
+        viewMode->setCurrentIndex(Settings::EnumDefaultViewMode::Cards);
+        overrideDividers->setChecked(true);
+        dividers->setCurrentIndex(Settings::EnumDividers::Hidden);
+        saveAppearance->click();
+        QCOMPARE(int(EffectiveAppearance::dividers()), int(Settings::dividers()));
+
+        QTimer::singleShot(0, [] {
+            qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+        });
+        activate->click();
+        QTRY_COMPARE(int(EffectiveAppearance::dividers()), int(Settings::EnumDividers::Hidden));
+        QTRY_COMPARE(window.activePane()->view()->viewMode(), FolderView::ViewMode::Cards);
+        QCOMPARE(window.inactivePane()->view()->viewMode(), FolderView::ViewMode::Cards);
+        // The global settings keep their values.
+        QCOMPARE(int(Settings::dividers()), int(Settings::EnumDividers::FollowStyle));
+        QCOMPARE(int(Settings::defaultViewMode()), int(Settings::EnumDefaultViewMode::Details));
+
+        list->setCurrentRow(1);
+        QTimer::singleShot(0, [] {
+            qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+        });
+        activate->click();
+        QTRY_VERIFY(EffectiveAppearance::layer().isEmpty());
+        QCOMPARE(int(EffectiveAppearance::dividers()), int(Settings::EnumDividers::FollowStyle));
         dialog->close();
     }
 

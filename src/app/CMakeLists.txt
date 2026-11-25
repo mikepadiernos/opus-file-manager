@@ -91,6 +91,8 @@ add_library(opusfm_app STATIC
     windoweffects.h
     workspacedialog.cpp
     workspacedialog.h
+    workspaceappearanceeditor.cpp
+    workspaceappearanceeditor.h
     workspacelocations.cpp
     workspacelocations.h
     opusfm.qrc

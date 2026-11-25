@@ -902,6 +902,10 @@
       <label>Whether new workspaces with selected behaviors restore panes and tabs</label>
       <default>true</default>
     </entry>
+    <entry name="WorkspaceDefaultAppearance" type="Bool">
+      <label>Whether new workspaces with selected behaviors apply their attached theme profile and appearance options</label>
+      <default>true</default>
+    </entry>
   </group>
   <group name="Themes">
     <entry name="ColorScheme" type="String">

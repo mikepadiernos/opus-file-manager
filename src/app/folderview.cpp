@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "folderview.h"
+#include "effectiveappearance.h"
 
 #include "appearancestyle.h"
 #include "carddelegate.h"
@@ -2020,7 +2021,7 @@ void FolderView::applyDetailsPreferences()
     }
     m_details->setRootIsDecorated(expandable);
     m_details->setItemsExpandable(expandable);
-    m_details->setAlternatingRowColors(Settings::stripeDetailsRows());
+    m_details->setAlternatingRowColors(EffectiveAppearance::stripeDetailsRows());
     QHeaderView *header = m_details->header();
     const int width = Settings::detailsColumnWidth();
     header->setSectionResizeMode(width == Settings::EnumDetailsColumnWidth::Automatic ? QHeaderView::ResizeToContents : QHeaderView::Interactive);
@@ -2086,7 +2087,7 @@ void FolderView::loadFolderFormat()
         setColumnVisible(KDirModel::Owner, Settings::showOwnerColumn());
         setColumnVisible(KDirModel::Group, Settings::showGroupColumn() || Settings::showRatingColumn());
         setColumnVisible(KDirModel::Type, Settings::showTypeColumn());
-        setViewMode(static_cast<ViewMode>(qBound(0, int(Settings::defaultViewMode()), int(ViewMode::Cards))));
+        setViewMode(static_cast<ViewMode>(qBound(0, int(EffectiveAppearance::defaultViewMode()), int(ViewMode::Cards))));
         m_details->sortByColumn(Settings::sortColumn(), Settings::sortDescending() ? Qt::DescendingOrder : Qt::AscendingOrder);
         setShowHiddenFiles(Settings::showHiddenFiles());
     }

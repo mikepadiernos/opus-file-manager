@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "foldercolors.h"
+#include "effectiveappearance.h"
 
 #include "colorschemes.h"
 #include "foldercolorrules.h"
@@ -271,7 +272,7 @@ private:
 
 FolderColors::Style FolderColors::configured()
 {
-    switch (Settings::folderColorStyle()) {
+    switch (EffectiveAppearance::folderColorStyle()) {
     case Settings::EnumFolderColorStyle::Badge:
         return Style::Badge;
     case Settings::EnumFolderColorStyle::Name:

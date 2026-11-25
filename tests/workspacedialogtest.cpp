@@ -5,18 +5,22 @@
 #include "foldersyncprofiles.h"
 #include "savedsearches.h"
 #include "settings.h"
+#include "themeprofiles.h"
 #include "workspacelocations.h"
 
 #include <KConfig>
 #include <KFilePlacesModel>
+#include <KSharedConfig>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFile>
+#include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -147,6 +151,85 @@ private Q_SLOTS:
         QCOMPARE(catalog.workspaces.at(0).behaviorSelection, selected);
         QCOMPARE(catalog.workspaces.at(1).behaviorSelection, selected);
         QCOMPARE(catalog.workspaces.at(2).behaviorSelection.mode, WorkspaceCatalog::BehaviorMode::None);
+    }
+
+    void savesWorkspaceAppearance()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        const auto group = config.group(QStringLiteral("Workspaces"));
+        KConfigGroup profilesGroup = KSharedConfig::openConfig()->group(QLatin1String(ThemeProfiles::Group));
+        const auto clearProfiles = qScopeGuard([] {
+            KSharedConfig::openConfig()->deleteGroup(QLatin1String(ThemeProfiles::Group));
+        });
+        QList<ThemeProfiles::Profile> profiles{{QString(), QStringLiteral("Night"), ThemeProfiles::capture(Settings::self())}};
+        QString error;
+        QVERIFY2(ThemeProfiles::save(Settings::self(), profilesGroup, profiles, &error), qPrintable(error));
+        const QString profileId = profiles.first().id;
+        QVERIFY(!profileId.isEmpty());
+
+        WorkspaceDialog dialog(
+            group,
+            [](WorkspaceCatalog::Layout &captured, QString &) {
+                captured = {QByteArray("window"), {200, 300}, {500, 100}, true, false, std::nullopt, {}};
+                return true;
+            },
+            [](const WorkspaceCatalog::Layout &, QString &) {
+                return true;
+            },
+            QString());
+        auto *name = dialog.findChild<QLineEdit *>(QStringLiteral("workspaceName"));
+        auto *label = dialog.findChild<QLineEdit *>(QStringLiteral("workspaceShortLabel"));
+        auto *list = dialog.findChild<QListWidget *>(QStringLiteral("workspaceList"));
+        auto *create = dialog.findChild<QPushButton *>(QStringLiteral("workspaceCreate"));
+        auto *profile = dialog.findChild<QComboBox *>(QStringLiteral("workspaceThemeProfile"));
+        auto *overrideViewMode = dialog.findChild<QCheckBox *>(QStringLiteral("workspaceOverrideViewMode"));
+        auto *viewMode = dialog.findChild<QComboBox *>(QStringLiteral("workspaceViewMode"));
+        auto *overrideDividers = dialog.findChild<QCheckBox *>(QStringLiteral("workspaceOverrideDividers"));
+        auto *dividers = dialog.findChild<QComboBox *>(QStringLiteral("workspaceDividers"));
+        auto *reveal = dialog.findChild<QCheckBox *>(QStringLiteral("workspaceRevealDividers"));
+        auto *save = dialog.findChild<QPushButton *>(QStringLiteral("workspaceSaveAppearance"));
+        auto *appearanceBehavior = dialog.findChild<QCheckBox *>(QStringLiteral("workspaceAppearanceBehavior"));
+        QVERIFY(name && label && list && create && profile && overrideViewMode && viewMode && overrideDividers && dividers && reveal && save
+                && appearanceBehavior);
+        name->setText(QStringLiteral("Work"));
+        label->setText(QStringLiteral("W"));
+        create->click();
+        list->setCurrentRow(0);
+        QVERIFY(appearanceBehavior->isChecked());
+        QVERIFY(!viewMode->isEnabled());
+
+        profile->setCurrentIndex(profile->findData(profileId));
+        overrideViewMode->setChecked(true);
+        QVERIFY(viewMode->isEnabled());
+        viewMode->setCurrentIndex(Settings::EnumDefaultViewMode::Cards);
+        overrideDividers->setChecked(true);
+        dividers->setCurrentIndex(Settings::EnumDividers::Hidden);
+        QVERIFY(reveal->isEnabled());
+        reveal->setChecked(true);
+        save->click();
+
+        WorkspaceCatalog::Catalog catalog;
+        QVERIFY2(WorkspaceCatalog::load(group, catalog, error), qPrintable(error));
+        const WorkspaceCatalog::Appearance saved = catalog.workspaces.first().appearance;
+        QCOMPARE(saved.themeProfileId, profileId);
+        QCOMPARE(saved.overrides,
+                 (QJsonObject{{QStringLiteral("DefaultViewMode"), QStringLiteral("Cards")},
+                              {QStringLiteral("Dividers"), QStringLiteral("Hidden")},
+                              {QStringLiteral("RevealDividersOnHover"), true}}));
+
+        // A removed profile stays attached for a retry, and unchecking a row removes its override.
+        profilesGroup.deleteGroup();
+        list->setCurrentRow(0);
+        dialog.findChild<QPushButton *>(QStringLiteral("workspaceSaveBehaviors"))->click();
+        QCOMPARE(profile->currentData().toString(), profileId);
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("workspaceAppearanceProblems"))->isVisibleTo(&dialog));
+        overrideDividers->setChecked(false);
+        save->click();
+        QVERIFY2(WorkspaceCatalog::load(group, catalog, error), qPrintable(error));
+        QCOMPARE(catalog.workspaces.first().appearance.themeProfileId, profileId);
+        QCOMPARE(catalog.workspaces.first().appearance.overrides, (QJsonObject{{QStringLiteral("DefaultViewMode"), QStringLiteral("Cards")}}));
     }
 
     void switchesAndDeletesWithoutChangingFiles()

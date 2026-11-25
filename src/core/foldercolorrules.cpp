@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "foldercolorrules.h"
+#include "effectiveappearance.h"
 
 #include "settings.h"
 
@@ -77,7 +78,7 @@ FolderColorRules::FolderColorRules(const QStringList &entries)
 
 FolderColorRules FolderColorRules::configured()
 {
-    return FolderColorRules(Settings::folderColorRules());
+    return FolderColorRules(EffectiveAppearance::folderColorRules());
 }
 
 std::optional<FolderColorRules::Rule> FolderColorRules::parse(const QString &entry)

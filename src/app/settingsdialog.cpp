@@ -708,6 +708,7 @@ QWidget *SettingsDialog::createWorkspaceBehaviorsPage()
     selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultSearchScope"), i18nc("@option:check", "Search scope")));
     selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultLayout"), i18nc("@option:check", "Window and panel layout")));
     selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultPaneTabRestoration"), i18nc("@option:check", "Pane and tab restoration")));
+    selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultAppearance"), i18nc("@option:check", "Theme profile and appearance")));
     layout->addWidget(selected);
     const auto updateSelected = [mode, selected] {
         selected->setEnabled(mode->currentIndex() == Settings::EnumWorkspaceDefaultBehaviorMode::Selected);

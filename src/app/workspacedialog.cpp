@@ -4,6 +4,7 @@
 #include "foldersyncprofiles.h"
 #include "savedsearches.h"
 #include "settings.h"
+#include "workspaceappearanceeditor.h"
 #include "workspacelocations.h"
 #include "workspacerestore.h"
 
@@ -42,7 +43,7 @@ WorkspaceDialog::WorkspaceDialog(KConfigGroup group,
 {
     setObjectName(QStringLiteral("workspaceDialog"));
     setWindowTitle(i18nc("@title:window", "Workspaces"));
-    resize(620, locations ? 650 : 430);
+    resize(760, locations ? 720 : 520);
     auto *layout = new QVBoxLayout(this);
     auto *description = new QLabel(
         i18nc("@info",
@@ -115,11 +116,18 @@ WorkspaceDialog::WorkspaceDialog(KConfigGroup group,
     m_searchScope = addBehavior(QStringLiteral("workspaceSearchScope"), i18nc("@option:check", "Search scope"));
     m_layoutBehavior = addBehavior(QStringLiteral("workspaceLayoutBehavior"), i18nc("@option:check", "Window and panel layout"));
     m_paneTabRestoration = addBehavior(QStringLiteral("workspacePaneTabRestoration"), i18nc("@option:check", "Pane and tab restoration"));
+    m_appearanceBehavior = addBehavior(QStringLiteral("workspaceAppearanceBehavior"), i18nc("@option:check", "Theme profile and appearance"));
     auto *saveBehaviors = new QPushButton(i18nc("@action:button", "Save Workspace Behaviors"), behaviorGroup);
     saveBehaviors->setObjectName(QStringLiteral("workspaceSaveBehaviors"));
     connect(saveBehaviors, &QPushButton::clicked, this, &WorkspaceDialog::saveBehaviorSelection);
     behaviorLayout->addWidget(saveBehaviors);
-    layout->addWidget(behaviorGroup);
+    behaviorLayout->addStretch();
+    m_appearance = new WorkspaceAppearanceEditor(this);
+    connect(m_appearance, &WorkspaceAppearanceEditor::saveRequested, this, &WorkspaceDialog::saveAppearance);
+    auto *behaviorRow = new QHBoxLayout;
+    behaviorRow->addWidget(behaviorGroup);
+    behaviorRow->addWidget(m_appearance, 1);
+    layout->addLayout(behaviorRow);
     auto *profileLists = new QHBoxLayout;
     auto *searchGroup = new QGroupBox(i18nc("@title:group", "Saved Searches"), this);
     auto *searchLayout = new QVBoxLayout(searchGroup);
@@ -355,11 +363,15 @@ void WorkspaceDialog::refreshBehaviorSelection()
     const QSignalBlocker searchBlocker(m_searchScope);
     const QSignalBlocker layoutBlocker(m_layoutBehavior);
     const QSignalBlocker panesBlocker(m_paneTabRestoration);
+    const QSignalBlocker appearanceBlocker(m_appearanceBehavior);
     m_behaviorMode->setCurrentIndex(m_behaviorMode->findData(int(selection.mode)));
     m_locationPresentation->setChecked(selection.locationPresentation);
     m_searchScope->setChecked(selection.searchScope);
     m_layoutBehavior->setChecked(selection.layout);
     m_paneTabRestoration->setChecked(selection.paneTabRestoration);
+    m_appearanceBehavior->setChecked(selection.appearance);
+    m_appearance->setEnabled(workspace != m_catalog.workspaces.cend());
+    m_appearance->setAppearance(workspace == m_catalog.workspaces.cend() ? WorkspaceCatalog::Appearance{} : workspace->appearance);
 }
 
 void WorkspaceDialog::saveBehaviorSelection()
@@ -377,10 +389,27 @@ void WorkspaceDialog::saveBehaviorSelection()
                                     m_locationPresentation->isChecked(),
                                     m_searchScope->isChecked(),
                                     m_layoutBehavior->isChecked(),
-                                    m_paneTabRestoration->isChecked()};
+                                    m_paneTabRestoration->isChecked(),
+                                    m_appearanceBehavior->isChecked()};
     if (commit(updated)) {
         reload(id);
         m_status->setText(i18nc("@info", "Workspace behaviors saved."));
+    }
+}
+
+void WorkspaceDialog::saveAppearance()
+{
+    const QString id = selectedId();
+    auto updated = m_catalog;
+    QString error;
+    if (id.isEmpty()) {
+        m_status->setText(i18nc("@info", "Select a workspace first."));
+    } else if (!WorkspaceCatalog::setAppearance(updated, id, m_appearance->appearance(), error)) {
+        m_status->setText(error);
+    } else if (commit(updated)) {
+        reload(id);
+        m_status->setText(id == m_currentId ? i18nc("@info", "Workspace appearance saved and applied.")
+                                            : i18nc("@info", "Workspace appearance saved. It applies when you switch to the workspace."));
     }
 }
 

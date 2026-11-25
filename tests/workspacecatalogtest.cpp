@@ -179,7 +179,7 @@ private Q_SLOTS:
         QVERIFY(!error.isEmpty());
         QCOMPARE(group.readEntry("Catalog", QByteArray()), previous);
 
-        group.writeEntry("Catalog", QByteArray(R"({"version":8,"workspaces":[],"activeId":""})"));
+        group.writeEntry("Catalog", QByteArray(R"({"version":9,"workspaces":[],"activeId":""})"));
         const Catalog original = catalog;
         QVERIFY(!load(group, catalog, error));
         QVERIFY(!error.isEmpty());
@@ -404,7 +404,7 @@ private Q_SLOTS:
         QCOMPARE(catalog.workspaces.size(), 1);
         QVERIFY(!catalog.workspaces.first().layout.has_value());
         QVERIFY(save(group, catalog, error));
-        QCOMPARE(QJsonDocument::fromJson(group.readEntry("Catalog", QByteArray())).object().value(QStringLiteral("version")).toInt(), 7);
+        QCOMPARE(QJsonDocument::fromJson(group.readEntry("Catalog", QByteArray())).object().value(QStringLiteral("version")).toInt(), 8);
     }
 
     void managesExclusiveLocationAssignments()

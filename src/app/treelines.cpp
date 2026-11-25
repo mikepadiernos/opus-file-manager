@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "treelines.h"
+#include "effectiveappearance.h"
 
 #include "colorschemes.h"
 #include "foldercolors.h"
@@ -54,7 +55,7 @@ void drawLine(QPainter *painter, const QPoint &from, const QPoint &to, const QCo
 
 TreeLines::Style TreeLines::configured()
 {
-    switch (Settings::treeLines()) {
+    switch (EffectiveAppearance::treeLines()) {
     case Settings::EnumTreeLines::Hidden:
         return Style::Hidden;
     case Settings::EnumTreeLines::Solid:
@@ -74,7 +75,7 @@ bool TreeLines::drawBranches(const QTreeView *view, QPainter *painter, const QRe
 TreeLines::Colors TreeLines::configuredColors()
 {
     Colors colors;
-    switch (Settings::treeLineColors()) {
+    switch (EffectiveAppearance::treeLineColors()) {
     case Settings::EnumTreeLineColors::Single:
         colors.coloring = Coloring::Single;
         break;
@@ -87,8 +88,8 @@ TreeLines::Colors TreeLines::configuredColors()
     default:
         break;
     }
-    colors.single = Settings::treeLineColor();
-    const QStringList palette = Settings::treeLinePalette();
+    colors.single = EffectiveAppearance::treeLineColor();
+    const QStringList palette = EffectiveAppearance::treeLinePalette();
     for (const QString &name : palette) {
         if (const QColor color = QColor::fromString(name); color.isValid()) {
             colors.palette.append(color);

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "customstylesheet.h"
+#include "effectiveappearance.h"
 
 #include "appearancedefaults.h"
 #include "settings.h"
@@ -57,8 +58,8 @@ QString CustomStyleSheet::configured(QString *error)
     if (error) {
         error->clear();
     }
-    const QString sheet = Settings::customStyleSheet();
-    if (!Settings::useCustomStyleSheet() || sheet.trimmed().isEmpty() || AppearanceDefaults::effectsSuspended()) {
+    const QString sheet = EffectiveAppearance::customStyleSheet();
+    if (!EffectiveAppearance::useCustomStyleSheet() || sheet.trimmed().isEmpty() || AppearanceDefaults::effectsSuspended()) {
         return {};
     }
     if (const QString problem = CustomStyleSheet::error(sheet); !problem.isEmpty()) {
