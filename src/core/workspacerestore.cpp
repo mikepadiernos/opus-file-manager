@@ -92,6 +92,7 @@ PaneSession mergePane(const PaneSession &saved, const PaneSession &current, cons
     }
     if (parts.views) {
         result.viewMode = saved.viewMode;
+        result.yaziMode = saved.yaziMode;
     }
     return result;
 }

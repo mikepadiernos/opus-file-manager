@@ -857,7 +857,7 @@
       <default>true</default>
     </entry>
     <entry name="WorkspaceRestoreViews" type="Bool">
-      <label>Restore each pane's view mode when switching workspaces</label>
+      <label>Restore each pane's view mode and Yazi mode when switching workspaces</label>
       <default>true</default>
     </entry>
     <entry name="WorkspaceRestoreToolbars" type="Bool">

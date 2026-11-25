@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "session.h"
+#include "yazimode.h"
 
 #include <KConfigGroup>
 
@@ -52,6 +53,7 @@ void savePane(const PaneSession &pane, KConfigGroup group)
     group.writeEntry(FilterScopeKey, pane.filterScope);
     group.writeEntry(LocationPresentationKey, pane.locationPresentation);
     group.writeEntry(ViewModeKey, pane.viewMode);
+    YaziMode::writeSession(group, pane.yaziMode);
 }
 
 PaneSession loadPane(const KConfigGroup &group, int defaultViewMode)
@@ -66,6 +68,7 @@ PaneSession loadPane(const KConfigGroup &group, int defaultViewMode)
     pane.filterScope = group.readEntry(FilterScopeKey, -1);
     pane.locationPresentation = group.readEntry(LocationPresentationKey, -1);
     pane.viewMode = group.readEntry(ViewModeKey, defaultViewMode);
+    pane.yaziMode = YaziMode::readSession(group);
     return pane;
 }
 
@@ -95,6 +98,7 @@ PaneSession sanitizePane(const PaneSession &pane, const QUrl &fallback)
     result.filterScope = qBound(-1, pane.filterScope, 2);
     result.locationPresentation = qBound(-1, pane.locationPresentation, 2);
     result.viewMode = qBound(0, pane.viewMode, PaneSession::MaximumViewMode);
+    result.yaziMode = pane.yaziMode;
     return result;
 }
 }

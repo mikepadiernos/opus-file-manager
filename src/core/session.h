@@ -32,6 +32,8 @@ struct PaneSession {
     /// FolderView::ViewMode: details, icons, compact or cards.
     int viewMode = 0;
     static constexpr int MaximumViewMode = 3;
+    /// Whether the pane shows its folder view in Yazi mode's columns.
+    bool yaziMode = false;
 
     bool operator==(const PaneSession &other) const = default;
 };

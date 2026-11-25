@@ -18,7 +18,7 @@ struct Options {
     /// Single or dual panes, stacking, splitter sizes, second-pane placement
     /// and detached-pane geometry.
     bool paneArrangement = true;
-    /// Each pane's view mode.
+    /// Each pane's view mode and Yazi mode.
     bool views = true;
     /// Main and pane toolbar entries.
     bool toolbars = true;

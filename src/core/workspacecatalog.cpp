@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "workspacecatalog.h"
+#include "yazimode.h"
 
 #include <KConfig>
 #include <KLocalizedString>
@@ -284,15 +285,17 @@ QJsonObject writePaneSession(const PaneSession &pane)
     for (int index : pane.lockedTabs) {
         lockedTabs.append(index);
     }
-    return {{QStringLiteral("tabs"), tabs},
-            {QStringLiteral("currentTab"), pane.currentTab},
-            {QStringLiteral("pinnedCount"), pane.pinnedCount},
-            {QStringLiteral("lockedTabs"), lockedTabs},
-            {QStringLiteral("names"), QJsonArray::fromStringList(pane.names)},
-            {QStringLiteral("filterText"), pane.filterText},
-            {QStringLiteral("filterScope"), pane.filterScope},
-            {QStringLiteral("locationPresentation"), pane.locationPresentation},
-            {QStringLiteral("viewMode"), pane.viewMode}};
+    QJsonObject object{{QStringLiteral("tabs"), tabs},
+                       {QStringLiteral("currentTab"), pane.currentTab},
+                       {QStringLiteral("pinnedCount"), pane.pinnedCount},
+                       {QStringLiteral("lockedTabs"), lockedTabs},
+                       {QStringLiteral("names"), QJsonArray::fromStringList(pane.names)},
+                       {QStringLiteral("filterText"), pane.filterText},
+                       {QStringLiteral("filterScope"), pane.filterScope},
+                       {QStringLiteral("locationPresentation"), pane.locationPresentation},
+                       {QStringLiteral("viewMode"), pane.viewMode}};
+    YaziMode::writeWorkspace(object, pane.yaziMode);
+    return object;
 }
 
 bool readPaneSession(const QJsonValue &value, PaneSession &pane, bool *credentialsScrubbed = nullptr)
@@ -353,6 +356,9 @@ bool readPaneSession(const QJsonValue &value, PaneSession &pane, bool *credentia
     const double mode = viewMode.toDouble(-1);
     if (scope < -1 || scope > 2 || int(scope) != scope || presentation < -1 || presentation > 2 || int(presentation) != presentation || mode < 0
         || mode > PaneSession::MaximumViewMode || int(mode) != mode) {
+        return false;
+    }
+    if (!YaziMode::readWorkspace(object, pane.yaziMode)) {
         return false;
     }
     pane.currentTab = currentTab.toInt();
