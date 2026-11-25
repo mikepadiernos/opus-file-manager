@@ -23,9 +23,9 @@ installed, and it doesn't read Yazi's configuration, key maps, themes or
 plugins.
 
 The first M25 features provide the toggle, the parent and preview columns,
-narrow-pane adaptation and persistence. Keyboard-first navigation and
-Vim-style keys follow in later M25 features; see the
-[roadmap](ROADMAP.md#m25-yazi-mode).
+narrow-pane adaptation, persistence and keyboard-first navigation with
+optional Vim-style keys. File operations from the keyboard follow in a later
+M25 feature; see the [roadmap](ROADMAP.md#m25-yazi-mode).
 
 ## Entering and leaving
 
@@ -35,8 +35,11 @@ Vim-style keys follow in later M25 features; see the
 - The action has no default shortcut, so existing bindings don't change.
   Assign one in **Settings › Configure Keyboard Shortcuts** (action
   `toggle_yazi_mode`) or add it to a toolbar.
-- While the mode is on, a **Yazi** label below the columns marks the pane. Its
-  accessible name is "Yazi mode", so screen readers announce it too.
+- While the mode is on, a label below the columns marks the pane: **Yazi**, or
+  **Yazi · Vim** with Vim-style keys. Its accessible name is "Yazi mode" or
+  "Yazi mode with Vim-style keys", so screen readers announce it too. While a
+  key sequence is being typed, the label shows the keys so far, such as
+  **Yazi · Vim · g…**; see [Keyboard](#keyboard).
 
 In the parent column:
 
@@ -122,6 +125,123 @@ original names are restored when the mode is turned off.
 - Focusing the parent column or the preview makes its pane the active pane.
 - When columns are hidden in a narrow pane, the current column keeps all of
   its keyboard navigation.
+
+## Keyboard
+
+Yazi mode can be browsed from the keyboard alone. Its keys come in two
+presets:
+
+- **Standard**, the default, uses the arrow keys and the usual navigation
+  keys;
+- **Vim-style** adds Vim-like letters, multi-key sequences such as `gg` and
+  counts such as `5j` to the standard keys.
+
+Choose **View › Vim-Style Keys in Yazi Mode** (action `toggle_yazi_vim_keys`,
+no default shortcut) to switch between them. The choice applies to both panes
+and is saved as the `YaziKeyPreset` entry (`Standard` or `Vim`) in the
+`[YaziMode]` group of the configuration. A preset chooser in Preferences comes
+with M26.
+
+### Standard keys
+
+| Key                  | Command                                  |
+| -------------------- | ---------------------------------------- |
+| Up, Down             | Move the focus up or down                |
+| Home, End            | Move the focus to the first or last item |
+| Page Up, Page Down   | Move the focus a page up or down         |
+| Left                 | Open the parent folder                   |
+| Right, Return, Enter | Open the focused folder or file          |
+
+In right-to-left layouts, Left and Right swap, as they do in the folder view.
+
+### Vim-style keys
+
+All the standard keys, plus:
+
+| Keys             | Command                                       |
+| ---------------- | --------------------------------------------- |
+| `j`, `k`         | Move the focus down or up                     |
+| `gg`, `G`        | Move the focus to the first or last item      |
+| Ctrl+D, Ctrl+U   | Move the focus half a page down or up         |
+| `h`              | Open the parent folder                        |
+| `l`              | Open the focused folder or file               |
+| `H`, `L`         | Go back or forward in the tab's history       |
+| `gh`             | Open the home folder (**Go › Home**'s folder) |
+| `gp`, `gc`, `gv` | Focus the parent, current or preview column   |
+| `zp`             | Show or hide the preview column               |
+| `q`              | Leave Yazi mode                               |
+
+`G`, `H` and `L` are Shift with the letter. A number typed first repeats the
+movement commands: `5j` moves five items down and `2` Ctrl+D a whole page.
+Other commands ignore the number. Counts stop at 999.
+
+### How the commands behave
+
+- Movement acts on the focused column: the parent column when it has the
+  focus, otherwise the current column. It moves the focus and selection
+  exactly as the column's own arrow keys would, so in icon and card views
+  Up and Down move by a row of items.
+- Opening the parent folder focuses and selects the folder just left, and the
+  parent column highlights the new current folder.
+- Opening an item uses the same path as activating it: folders open in the
+  pane and files open as they normally would. In the parent column, opening
+  the current folder moves the focus to the current column.
+- Focusing a hidden parent or preview column shows a status message instead.
+
+### When the keys apply
+
+The keys apply only while the pane is in Yazi mode and the keyboard focus is
+in one of its columns: the parent column, the current column's items or the
+preview. Elsewhere, and in panes outside Yazi mode, keys behave as they
+always do.
+
+- Typing is never intercepted. Text fields, such as the filter bar, the
+  location bar, search fields and an inline rename editor, spin boxes and
+  combo boxes keep every key, and so do the terminal and editor panels.
+- Keys the preset doesn't bind are let through untouched, so the views' own
+  keys, type-ahead filtering and window shortcuts keep working. With
+  Vim-style keys, the bound letters are taken in the columns, but other
+  letters still start type-ahead.
+- Keys the preset binds take precedence over window shortcuts while the focus
+  is in the columns. With Vim-style keys, Ctrl+D moves half a page there
+  rather than adding a favourite; **Go › Add to Favorites** still works from
+  the menu and elsewhere in the window.
+- With Vim-style keys, digits 1 to 9 start a count, so type-ahead can't begin
+  with them in the columns. 0 is only part of a count after another digit.
+
+### Key sequences
+
+- After the first key of a sequence such as `g`, the mode waits for the next
+  key and the indicator shows the keys so far, such as **Yazi · Vim · g…**,
+  with a matching accessible name.
+- A pending sequence or count is cancelled after about one second without a
+  key, when the focus moves, or with Escape. Escape cancels only; it doesn't
+  leave the mode and is otherwise left to the columns, so Escape in the
+  preview still returns to the current column.
+- A key that doesn't continue the sequence cancels it and then counts on its
+  own, so `g` followed by `j` moves down.
+- Modifier keys pressed on their own, such as Shift before `G`, don't break a
+  sequence.
+
+### Shortcuts
+
+The multi-key sequences and counts are Yazi mode's own and are not listed in
+**Settings › Configure Keyboard Shortcuts**. Commands that make sense on their
+own are also actions, with no default shortcuts, so they can be bound there or
+added to a toolbar:
+
+| Action                      | Menu                                         |
+| --------------------------- | -------------------------------------------- |
+| `toggle_yazi_mode`          | **View › Yazi Mode**                         |
+| `toggle_yazi_preview`       | **View › Yazi Preview**                      |
+| `toggle_yazi_vim_keys`      | **View › Vim-Style Keys in Yazi Mode**       |
+| `yazi_focus_parent_column`  | **Go › Yazi Columns › Focus Parent Column**  |
+| `yazi_focus_current_column` | **Go › Yazi Columns › Focus Current Column** |
+| `yazi_focus_preview`        | **Go › Yazi Columns › Focus Preview Column** |
+
+The column actions are enabled only while the active pane is in Yazi mode.
+The standard and Vim-style keys can't be changed yet; M26 adds a preset
+chooser and a review of conflicts with other shortcuts.
 
 ## What is preserved
 
