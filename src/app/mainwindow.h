@@ -33,6 +33,7 @@ class KSelectAction;
 class KToggleAction;
 class Pane;
 class PreviewPanel;
+class SearchPanel;
 class TabColors;
 class TerminalPanel;
 class ToolbarCustomizer;
@@ -365,6 +366,7 @@ private:
     QWidget *m_rightPlaceholder = nullptr;
     QPointer<QMainWindow> m_rightWindow;
     TerminalPanel *m_terminalPanel = nullptr;
+    SearchPanel *m_searchPanel = nullptr;
     /// Opens search on two Shift taps, while enabled and available.
     QObject *m_doubleShift = nullptr;
     /// Whether a terminal profile asks for blur behind the window.
@@ -399,6 +401,7 @@ private:
     KToggleAction *m_previewsAction = nullptr;
     KToggleAction *m_previewPanelAction = nullptr;
     KToggleAction *m_terminalPanelAction = nullptr;
+    KToggleAction *m_searchPanelAction = nullptr;
     KToggleAction *m_linkedPanesAction = nullptr;
     QUrl m_linkedLeftRoot;
     QUrl m_linkedRightRoot;

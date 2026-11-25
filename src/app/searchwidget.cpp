@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-#include "searchdialog.h"
+#include "searchwidget.h"
 
 #include "indexedsearch.h"
 #include "pathfiltereditor.h"
@@ -13,20 +13,23 @@
 #include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
-#include <QDialogButtonBox>
 #include <QDir>
+#include <QEvent>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QInputDialog>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QProgressBar>
 #include <QPromise>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QSet>
+#include <QSplitter>
 #include <QTabWidget>
 #include <QTreeWidget>
 #include <QUuid>
@@ -61,8 +64,8 @@ QString scopeStatus(int index, bool workspaceOnly)
 }
 }
 
-SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::Ptr config, WorkspaceScopeProvider workspaceScope)
-    : QDialog(parent)
+SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::Ptr config, WorkspaceScopeProvider workspaceScope)
+    : QWidget(parent)
     , m_folder(folder)
     , m_config(config ? config : KSharedConfig::openConfig())
     , m_folderLabel(new QLabel(folder.toDisplayString(), this))
@@ -82,10 +85,33 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     , m_resultTabs(new QTabWidget(this))
     , m_errors(new QTreeWidget(this))
 {
-    setObjectName(QStringLiteral("searchDialog"));
-    setWindowTitle(i18nc("@title:window", "Search Files"));
-    resize(750, 500);
-    auto *layout = new QVBoxLayout(this);
+    setObjectName(QStringLiteral("searchWidget"));
+    auto *outerLayout = new QVBoxLayout(this);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+    auto *splitter = new QSplitter(Qt::Vertical, this);
+    splitter->setObjectName(QStringLiteral("searchSplitter"));
+    splitter->setChildrenCollapsible(false);
+    outerLayout->addWidget(splitter);
+    // Both parts scroll so a narrow panel beside the panes does not force a wide minimum size.
+    auto *criteriaArea = new QScrollArea(splitter);
+    criteriaArea->setObjectName(QStringLiteral("searchCriteriaArea"));
+    criteriaArea->setWidgetResizable(true);
+    criteriaArea->setFrameShape(QFrame::NoFrame);
+    auto *criteria = new QWidget(criteriaArea);
+    auto *layout = new QVBoxLayout(criteria);
+    criteriaArea->setWidget(criteria);
+    auto *resultsScroll = new QScrollArea(splitter);
+    resultsScroll->setObjectName(QStringLiteral("searchResultsArea"));
+    resultsScroll->setWidgetResizable(true);
+    resultsScroll->setFrameShape(QFrame::NoFrame);
+    auto *resultsArea = new QWidget(resultsScroll);
+    auto *resultsLayout = new QVBoxLayout(resultsArea);
+    resultsScroll->setWidget(resultsArea);
+    splitter->addWidget(criteriaArea);
+    splitter->addWidget(resultsScroll);
+    splitter->setStretchFactor(0, 1);
+    splitter->setStretchFactor(1, 2);
+    m_folderLabel->setObjectName(QStringLiteral("searchFolder"));
     m_folderLabel->setTextFormat(Qt::PlainText);
     m_folderLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     layout->addWidget(m_folderLabel);
@@ -134,11 +160,12 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     savedRow->addWidget(refreshSearches);
     savedRow->addWidget(deleteSearch);
     layout->addLayout(savedRow);
+    layout->addStretch(1);
     m_status->setObjectName(QStringLiteral("searchStatus"));
     m_status->setTextFormat(Qt::PlainText);
     m_status->setWordWrap(true);
     m_status->setText(scopeStatus(m_scope->currentIndex(), m_workspaceScope && m_workspaceScope().active && m_workspaceOnly->isChecked()));
-    layout->addWidget(m_status);
+    resultsLayout->addWidget(m_status);
     QString savedError;
     m_savedSearches = SavedSearches::load(m_config->group(QStringLiteral("SavedSearches")), &savedError);
     updateSavedSearches();
@@ -321,7 +348,7 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_progress->setObjectName(QStringLiteral("searchProgress"));
     m_progress->setRange(0, 0);
     m_progress->hide();
-    layout->addWidget(m_progress);
+    resultsLayout->addWidget(m_progress);
     m_results->setObjectName(QStringLiteral("searchResults"));
     m_results->setHeaderLabels({i18nc("@title:column", "Matching path")});
     m_results->setSelectionMode(QAbstractItemView::ExtendedSelection);
@@ -358,7 +385,7 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     collectionLayout->addWidget(collectionHint);
     collectionLayout->addWidget(m_collection);
     m_resultTabs->addTab(collectionPage, i18nc("@title:tab", "Collection"));
-    layout->addWidget(m_resultTabs);
+    resultsLayout->addWidget(m_resultTabs, 1);
     QString collectionError;
     const auto collection = SearchCollection::load(m_config->group(QStringLiteral("SearchCollection")), &collectionError);
     updateCollection(collection);
@@ -526,31 +553,41 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_errors->setObjectName(QStringLiteral("searchErrors"));
     m_errors->setHeaderLabels({i18nc("@title:column", "Search errors")});
     m_errors->hide();
-    layout->addWidget(m_errors);
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
+    resultsLayout->addWidget(m_errors);
+    auto *buttons = new QHBoxLayout;
+    auto *open = new QPushButton(i18nc("@action:button", "Open"), this);
     auto *copy = new QPushButton(i18nc("@action:button", "Copy Selected URL"), this);
     auto *reveal = new QPushButton(i18nc("@action:button", "Show in Folder"), this);
     auto *addReference = new QPushButton(i18nc("@action:button", "Add to Collection"), this);
     auto *removeReference = new QPushButton(i18nc("@action:button", "Remove from Collection"), this);
     addReference->setObjectName(QStringLiteral("searchCollect"));
     removeReference->setObjectName(QStringLiteral("searchUncollect"));
+    open->setObjectName(QStringLiteral("searchOpen"));
+    open->setToolTip(i18nc("@info:tooltip", "Open the selected file in its application, or the selected folder in the active pane (Enter)"));
+    open->setEnabled(false);
     reveal->setObjectName(QStringLiteral("searchReveal"));
+    reveal->setToolTip(i18nc("@info:tooltip", "Show the selected item in its folder in the active pane (Ctrl+Enter)"));
     reveal->setEnabled(false);
     copy->setObjectName(QStringLiteral("searchCopy"));
     copy->setEnabled(false);
     m_search->setObjectName(QStringLiteral("searchStart"));
     m_cancel->setObjectName(QStringLiteral("searchCancel"));
     m_cancel->setEnabled(false);
-    buttons->addButton(m_search, QDialogButtonBox::ActionRole);
-    buttons->addButton(m_cancel, QDialogButtonBox::ActionRole);
-    buttons->addButton(copy, QDialogButtonBox::ActionRole);
-    buttons->addButton(reveal, QDialogButtonBox::ActionRole);
-    buttons->addButton(addReference, QDialogButtonBox::ActionRole);
-    buttons->addButton(removeReference, QDialogButtonBox::ActionRole);
-    layout->addWidget(buttons);
-    const auto updateActions = [this, copy, reveal, addReference, removeReference] {
+    buttons->addWidget(m_search);
+    buttons->addWidget(m_cancel);
+    buttons->addStretch(1);
+    buttons->addWidget(open);
+    buttons->addWidget(reveal);
+    buttons->addWidget(copy);
+    buttons->addWidget(addReference);
+    buttons->addWidget(removeReference);
+    resultsLayout->addLayout(buttons);
+    m_results->installEventFilter(this);
+    m_collection->installEventFilter(this);
+    const auto updateActions = [this, open, copy, reveal, addReference, removeReference] {
         const bool showingResults = m_resultTabs->currentWidget() == m_results;
         const auto selected = showingResults ? m_results->selectedItems() : m_collection->selectedItems();
+        open->setEnabled(selected.size() == 1);
         copy->setEnabled(selected.size() == 1);
         reveal->setEnabled(selected.size() == 1);
         addReference->setEnabled(showingResults && !selected.isEmpty());
@@ -578,12 +615,11 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
             m_status->setText(i18nc("@info", "Copied the selected URL."));
         }
     });
-    connect(reveal, &QPushButton::clicked, this, [this] {
-        const auto selected = (m_resultTabs->currentWidget() == m_results ? m_results : m_collection)->selectedItems();
-        if (!selected.isEmpty()) {
-            Q_EMIT revealRequested(QUrl::fromLocalFile(selected.first()->text(0)));
-        }
-    });
+    connect(open, &QPushButton::clicked, this, &SearchWidget::openSelected);
+    connect(reveal, &QPushButton::clicked, this, &SearchWidget::revealSelected);
+    // Double-click rather than itemActivated: with Plasma's single-click setting, activation would open on selection.
+    connect(m_results, &QTreeWidget::itemDoubleClicked, this, &SearchWidget::openSelected);
+    connect(m_collection, &QTreeWidget::itemDoubleClicked, this, &SearchWidget::openSelected);
     connect(addReference, &QPushButton::clicked, this, [this] {
         QString error;
         const auto group = m_config->group(QStringLiteral("SearchCollection"));
@@ -623,7 +659,7 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
         updateCollection(urls);
         m_status->setText(i18nc("@info", "References removed from the collection. Original files were not removed."));
     });
-    connect(m_search, &QPushButton::clicked, this, &SearchDialog::start);
+    connect(m_search, &QPushButton::clicked, this, &SearchWidget::start);
     connect(m_scope, &QComboBox::currentIndexChanged, this, [this](int index) {
         m_field->setItemText(1, index == Indexed ? i18nc("@item:inlistbox", "Indexed file contents") : i18nc("@item:inlistbox", "File contents (UTF-8 text)"));
         m_status->setText(scopeStatus(index, m_workspaceScope && m_workspaceScope().active && m_workspaceOnly->isChecked()));
@@ -632,9 +668,8 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
         refreshWorkspaceScope();
         m_status->setText(scopeStatus(m_scope->currentIndex(), m_workspaceScope && m_workspaceScope().active && m_workspaceOnly->isChecked()));
     });
-    connect(m_query, &QLineEdit::returnPressed, this, &SearchDialog::start);
-    connect(m_cancel, &QPushButton::clicked, this, &SearchDialog::cancel);
-    connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::close);
+    connect(m_query, &QLineEdit::returnPressed, this, &SearchWidget::start);
+    connect(m_cancel, &QPushButton::clicked, this, &SearchWidget::cancel);
     connect(&m_watcher, &QFutureWatcher<LiveSearch::Result>::progressValueChanged, this, [this](int count) {
         m_status->setText(m_scope->currentIndex() != Indexed
                               ? i18np("Searching: %1 entry scanned.", "Searching: %1 entries scanned.", count)
@@ -674,12 +709,86 @@ SearchDialog::SearchDialog(const QUrl &folder, QWidget *parent, KSharedConfig::P
     });
 }
 
-SearchDialog::~SearchDialog()
+SearchWidget::~SearchWidget()
 {
     cancel();
 }
 
-void SearchDialog::refreshWorkspaceScope()
+bool SearchWidget::setFolder(const QUrl &folder)
+{
+    if (m_watcher.isRunning()) {
+        return false;
+    }
+    m_folder = folder;
+    m_folderLabel->setText(folder.toDisplayString());
+    return true;
+}
+
+QUrl SearchWidget::folder() const
+{
+    return m_folder;
+}
+
+bool SearchWidget::isRunning() const
+{
+    return m_watcher.isRunning();
+}
+
+void SearchWidget::focusQuery()
+{
+    m_query->setFocus(Qt::ShortcutFocusReason);
+    m_query->selectAll();
+}
+
+void SearchWidget::search(const QString &text)
+{
+    if (m_watcher.isRunning()) {
+        m_status->setText(i18nc("@info", "Wait for the current search to finish or cancel it before starting another."));
+        return;
+    }
+    m_query->setText(text);
+    start();
+}
+
+bool SearchWidget::eventFilter(QObject *watched, QEvent *event)
+{
+    if ((watched == m_results || watched == m_collection) && event->type() == QEvent::KeyPress) {
+        const auto *key = static_cast<QKeyEvent *>(event);
+        if (key->key() == Qt::Key_Return || key->key() == Qt::Key_Enter) {
+            if (key->modifiers().testFlag(Qt::ControlModifier)) {
+                revealSelected();
+            } else {
+                openSelected();
+            }
+            return true;
+        }
+    }
+    return QWidget::eventFilter(watched, event);
+}
+
+void SearchWidget::revealSelected()
+{
+    const auto selected = (m_resultTabs->currentWidget() == m_results ? m_results : m_collection)->selectedItems();
+    if (selected.size() == 1) {
+        Q_EMIT revealRequested(QUrl::fromLocalFile(selected.first()->text(0)));
+    }
+}
+
+void SearchWidget::openSelected()
+{
+    const auto selected = (m_resultTabs->currentWidget() == m_results ? m_results : m_collection)->selectedItems();
+    if (selected.size() != 1) {
+        return;
+    }
+    const QString path = selected.first()->text(0);
+    if (!QFileInfo::exists(path)) {
+        m_status->setText(i18nc("@info", "%1 no longer exists. Search again to refresh the results.", path));
+        return;
+    }
+    Q_EMIT openRequested(QUrl::fromLocalFile(path));
+}
+
+void SearchWidget::refreshWorkspaceScope()
 {
     const bool active = m_workspaceScope && m_workspaceScope().active;
     m_workspaceOnly->setVisible(active);
@@ -688,7 +797,7 @@ void SearchDialog::refreshWorkspaceScope()
                                                                 : i18nc("@item:inlistbox", "Current folder (live)"));
 }
 
-void SearchDialog::updateSavedSearches()
+void SearchWidget::updateSavedSearches()
 {
     m_saved->clear();
     for (const auto &search : std::as_const(m_savedSearches)) {
@@ -696,7 +805,7 @@ void SearchDialog::updateSavedSearches()
     }
 }
 
-void SearchDialog::updateCollection(const QList<QUrl> &urls)
+void SearchWidget::updateCollection(const QList<QUrl> &urls)
 {
     m_collection->clear();
     for (const QUrl &url : urls) {
@@ -704,12 +813,12 @@ void SearchDialog::updateCollection(const QList<QUrl> &urls)
     }
 }
 
-PathFilter SearchDialog::pathFilter() const
+PathFilter SearchWidget::pathFilter() const
 {
     return m_filterEditor->filter();
 }
 
-SavedSearches::Search SearchDialog::currentSearch(const QString &name, const QString &id) const
+SavedSearches::Search SearchWidget::currentSearch(const QString &name, const QString &id) const
 {
     return {name,
             m_query->text(),
@@ -721,7 +830,7 @@ SavedSearches::Search SearchDialog::currentSearch(const QString &name, const QSt
             m_scope->currentIndex() == SearchFolders};
 }
 
-void SearchDialog::start()
+void SearchWidget::start()
 {
     if (m_watcher.isRunning()) {
         return;
@@ -855,7 +964,7 @@ void SearchDialog::start()
         }));
 }
 
-void SearchDialog::cancel()
+void SearchWidget::cancel()
 {
     if (m_canceled && m_watcher.isRunning()) {
         m_canceled->store(true);

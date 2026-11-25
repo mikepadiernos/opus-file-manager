@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="38" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="39" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -100,6 +100,7 @@
       <Action name="show_preview_panel"/>
       <Action name="show_information_panel"/>
       <Action name="show_embedded_terminal"/>
+      <Action name="show_search_panel"/>
       <Action name="open_gallery"/>
       <Action name="show_hidden_files"/>
       <Action name="show_flat"/>

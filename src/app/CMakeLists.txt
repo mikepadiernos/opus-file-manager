@@ -69,10 +69,12 @@ add_library(opusfm_app STATIC
     pathfilterpresetsdialog.h
     previewpanel.cpp
     previewpanel.h
-    searchdialog.cpp
-    searchdialog.h
+    searchpanel.cpp
+    searchpanel.h
     searchstoredialog.cpp
     searchstoredialog.h
+    searchwidget.cpp
+    searchwidget.h
     settingsdialog.cpp
     settingsdialog.h
     settingswidgets.cpp

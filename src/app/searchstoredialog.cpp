@@ -54,7 +54,7 @@ SearchStoreDialog::SearchStoreDialog(QWidget *parent, KSharedConfig::Ptr config)
     m_searchDetails->setTextFormat(Qt::PlainText);
     m_searchDetails->setWordWrap(true);
     searchLayout->addWidget(m_searchDetails);
-    auto *searchHint = new QLabel(i18nc("@info", "Load and update search criteria in the Search Files dialog."), searchPage);
+    auto *searchHint = new QLabel(i18nc("@info", "Load and update search criteria in the search panel."), searchPage);
     searchHint->setWordWrap(true);
     searchLayout->addWidget(searchHint);
     auto *searchActions = new QHBoxLayout;
