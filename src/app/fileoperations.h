@@ -47,6 +47,13 @@ QString pasteActionText(const KFileItem &destination, bool *enabled);
 void open(const KFileItem &item, QWidget *window);
 
 /**
+ * Opens local media files in the separate mpv application.
+ * @param urls local media URLs to pass to mpv
+ * @returns an error message, or an empty string on success
+ */
+QString openWithMpv(const QList<QUrl> &urls);
+
+/**
  * Starts a KIO drop. Without a modifier key held, the DropAction setting
  * can copy or move without asking, as if Ctrl or Shift were held.
  * @param event the drop event
