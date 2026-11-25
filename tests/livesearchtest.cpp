@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "livesearch.h"
+#include "taglibrary.h"
 
 #include <QDir>
 #include <QFile>
@@ -197,6 +198,39 @@ private Q_SLOTS:
         const auto invalid = LiveSearch::find(root.path(), QStringLiteral("report AND"), LiveSearch::Field::Query);
         QCOMPARE(invalid.errors.size(), 1);
         QCOMPARE(invalid.scannedEntries, 0);
+    }
+
+    void searchesByTags()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("sub")));
+        for (const QString &name : {QStringLiteral("cat.jpg"), QStringLiteral("dog.jpg"), QStringLiteral("sub/plain.txt")}) {
+            QFile file(root.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        TagLibrary::Library library(root.path());
+        QVERIFY(library.setTag({QStringLiteral("t-animal"), QStringLiteral("Animal"), {}, {}, {}, {}}));
+        QVERIFY(library.setTag({QStringLiteral("t-cat"), QStringLiteral("Cat"), {}, {}, {}, {QStringLiteral("t-animal")}}));
+        QVERIFY(library.assignTags({{QStringLiteral("cat.jpg"), false, 0, 0, 0, 0}}, {QStringLiteral("t-cat")}, {}));
+        QString error;
+        QVERIFY2(library.save(&error), qPrintable(error));
+        const QStringList libraries{root.path()};
+        const auto find = [&root, &libraries](const QString &text, const QStringList &registered) {
+            return LiveSearch::find(root.path(), text, LiveSearch::Field::Query, {}, {}, {}, 200000, &registered);
+        };
+
+        const auto inherited = find(QStringLiteral("tag:animal"), libraries);
+        QVERIFY(inherited.errors.isEmpty());
+        QCOMPARE(inherited.paths, QStringList{root.filePath(QStringLiteral("cat.jpg"))});
+        QVERIFY(find(QStringLiteral("tag=animal"), libraries).paths.isEmpty());
+        // The library document isn't an untagged item.
+        QStringList untagged = find(QStringLiteral("tagged:no type:file"), libraries).paths;
+        untagged.sort();
+        QCOMPARE(untagged, (QStringList{root.filePath(QStringLiteral("dog.jpg")), root.filePath(QStringLiteral("sub/plain.txt"))}));
+        QCOMPARE(find(QStringLiteral("type:jpg NOT tag:cat"), libraries).paths, QStringList{root.filePath(QStringLiteral("dog.jpg"))});
+        // Outside a registered library, tag criteria match nothing.
+        QVERIFY(find(QStringLiteral("tag:animal OR tagged:no"), {}).paths.isEmpty());
     }
 };
 

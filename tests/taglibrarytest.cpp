@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "taglibrary.h"
+#include "searchquery.h"
+#include "tagsearch.h"
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -365,6 +368,65 @@ private Q_SLOTS:
         QCOMPARE(counts.value(u"t-cat"_s), 2);
         QVERIFY(!counts.contains(u"t-animal"_s));
         QCOMPARE(library.entry(u"photos/cat.jpg"_s)->tags, QStringList{u"t-cat"_s});
+    }
+
+    void searchesByTags()
+    {
+        QTemporaryDir dir;
+        QVERIFY(writeDocument(dir.path(), sampleDocument()));
+        TagLibrary::Library library = TagLibrary::Library::load(dir.path());
+        QVERIFY(library.setTag({u"t-dog"_s, u"Dog"_s, {}, {}, {}, {}}));
+        const TagLibrary::Observation dog{u"photos/dog.jpg"_s, false, 5, 0, 1, 43};
+        const TagLibrary::Observation plain{u"photos/plain.txt"_s, false, 5, 0, 1, 44};
+        const TagLibrary::Observation gone{u"photos/gone.jpg"_s, false, 5, 0, 1, 45};
+        QVERIFY(library.assignTags({dog}, {u"t-dog"_s}, {}));
+        QVERIFY(library.assignTags({plain, gone}, {u"t-cat"_s}, {}));
+        QVERIFY(library.assignTags({plain}, {}, {u"t-cat"_s}));
+        QCOMPARE(library.markMissing(u"photos/gone.jpg"_s), 1);
+        QVERIFY(library.save());
+
+        TagSearch::Context context({dir.path()});
+        const auto matches = [&context, &dir](const QString &text, const QString &relativePath) {
+            const SearchQuery::Query query = SearchQuery::Query::parse(text);
+            const QString path = dir.path() + u'/' + relativePath;
+            return query.isValid() && query.matches(QFileInfo(path), {}, context.matcher(path));
+        };
+        const QString cat = u"photos/cat.jpg"_s;
+        // Parent tags match items tagged with their children, unless the match must be exact.
+        QVERIFY(matches(u"tag:Animal"_s, cat));
+        QVERIFY(!matches(u"tag=Animal"_s, cat));
+        QVERIFY(matches(u"tag=cat"_s, cat));
+        QVERIFY(!matches(u"tag:Animal"_s, u"photos/dog.jpg"_s));
+        // Aliases, shorthand and wildcards.
+        QVERIFY(matches(u"tag:KITTY"_s, cat));
+        QVERIFY(matches(u"tag:c"_s, cat));
+        QVERIFY(matches(u"tag:kit*"_s, cat));
+        QVERIFY(matches(u"tag:ani*"_s, cat));
+        QVERIFY(!matches(u"tag=ani*"_s, cat));
+        QVERIFY(!matches(u"tag:\"kit*\""_s, cat));
+        QVERIFY(!matches(u"tag:zebra"_s, cat));
+        QVERIFY(matches(u"tag:dog OR tag:cat"_s, u"photos/dog.jpg"_s));
+        QVERIFY(matches(u"tag:cat NOT tag:dog"_s, cat));
+        // Untagged items: indexed or not, and entries whose file is missing, but only inside the library.
+        QVERIFY(matches(u"tagged:yes"_s, cat));
+        QVERIFY(!matches(u"tagged:no"_s, cat));
+        QVERIFY(matches(u"tagged:no"_s, u"photos/plain.txt"_s));
+        QVERIFY(matches(u"tagged:no"_s, u"photos/new.txt"_s));
+        QVERIFY(matches(u"tagged:no"_s, u"photos/gone.jpg"_s));
+        QVERIFY(!matches(u"tag:cat"_s, u"photos/gone.jpg"_s));
+        QVERIFY(!matches(u"tagged:no"_s, u"../outside.txt"_s));
+        QVERIFY(!matches(u"tagged:no"_s, QString()));
+        QVERIFY(!matches(u"tagged:no"_s, TagLibrary::fileName()));
+        QVERIFY(context.errors().isEmpty());
+
+        // A library that can't be read is reported once and matches nothing.
+        QTemporaryDir empty;
+        TagSearch::Context broken({empty.path()});
+        const QString path = empty.filePath(u"a.txt"_s);
+        const SearchQuery::Query untagged = SearchQuery::Query::parse(u"tagged:no"_s);
+        QVERIFY(!untagged.matches(QFileInfo(path), {}, broken.matcher(path)));
+        QVERIFY(!untagged.matches(QFileInfo(path), {}, broken.matcher(path)));
+        QCOMPARE(broken.errors().size(), 1);
     }
 };
 

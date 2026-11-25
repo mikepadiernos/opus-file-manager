@@ -44,6 +44,8 @@ private Q_SLOTS:
         QTest::newRow("mime type") << QStringLiteral("type:Image/PNG") << QStringLiteral("type:\"image/png\"");
         QTest::newRow("mime prefix") << QStringLiteral("type:Image/*") << QStringLiteral("type:\"image/*\"");
         QTest::newRow("value with colon") << QStringLiteral("path:\"C:x\"") << QStringLiteral("path:\"C:x\"");
+        QTest::newRow("tags") << QStringLiteral("Tag:Cat tags=\"Big cat\"") << QStringLiteral("(tag:\"Cat\" AND tag=\"Big cat\")");
+        QTest::newRow("tagged") << QStringLiteral("tagged:YES OR tagged=false") << QStringLiteral("(tagged:\"yes\" OR tagged:\"no\")");
     }
 
     void normalizesValidQueries()
@@ -82,7 +84,11 @@ private Q_SLOTS:
                                  "size:big",
                                  "size<x",
                                  "modified:2026-13-01",
-                                 "modified:soon"}) {
+                                 "modified:soon",
+                                 "tag:",
+                                 "tag>a",
+                                 "tagged:maybe",
+                                 "tagged<=yes"}) {
             QTest::newRow(text) << QString::fromUtf8(text);
         }
     }
@@ -113,6 +119,9 @@ private Q_SLOTS:
         QVERIFY(Query::parse(QStringLiteral("name:*.pdf size>1K")).requiredTerms().isEmpty());
         QVERIFY(Query::parse(QStringLiteral("-report")).requiredTerms().isEmpty());
         QVERIFY(!Query::parse(QStringLiteral("report")).usesContent());
+        QVERIFY(Query::parse(QStringLiteral("a OR NOT tagged:no")).usesTags());
+        QVERIFY(Query::parse(QStringLiteral("tag:x")).requiredTerms().isEmpty());
+        QVERIFY(!Query::parse(QStringLiteral("\"tag:x\"")).usesTags());
     }
 
     void evaluatesMetadata()
@@ -221,6 +230,37 @@ private Q_SLOTS:
         QVERIFY(Query::parse(QStringLiteral("NOT content:other")).matches(fileInfo, content));
         QCOMPARE(needles, QStringList{QStringLiteral("other")});
         QVERIFY(!Query::parse(QStringLiteral("content:hello")).matches(fileInfo));
+    }
+
+    void evaluatesTagsThroughTheMatcher()
+    {
+        const QFileInfo entry(QDir::tempPath());
+        QList<SearchQuery::Term> seen;
+        const SearchQuery::TagMatcher tags = [&seen](const SearchQuery::Term &term) {
+            seen.append(term);
+            if (term.field == SearchQuery::Field::Tagged) {
+                return term.tagged;
+            }
+            return term.text == QLatin1String("cat") && term.comparison == SearchQuery::Comparison::Contains;
+        };
+        QVERIFY(Query::parse(QStringLiteral("tag:cat")).matches(entry, {}, tags));
+        QCOMPARE(seen.size(), 1);
+        QVERIFY(seen.first().pattern.pattern().isEmpty());
+        QVERIFY(!Query::parse(QStringLiteral("tag=cat")).matches(entry, {}, tags));
+        QVERIFY(Query::parse(QStringLiteral("tagged:yes NOT tag:dog")).matches(entry, {}, tags));
+        QVERIFY(!Query::parse(QStringLiteral("tagged:no")).matches(entry, {}, tags));
+        seen.clear();
+        QVERIFY(!Query::parse(QStringLiteral("tag:ca*")).matches(entry, {}, tags));
+        QCOMPARE(seen.size(), 1);
+        QVERIFY(seen.first().pattern.match(QStringLiteral("CAT")).hasMatch());
+        QVERIFY(!seen.first().pattern.match(QStringLiteral("scat")).hasMatch());
+        seen.clear();
+        QVERIFY(!Query::parse(QStringLiteral("tag:\"ca*\"")).matches(entry, {}, tags));
+        QVERIFY(seen.first().pattern.pattern().isEmpty());
+        // Without a matcher, no tag term matches, not even tagged:no.
+        QVERIFY(!Query::parse(QStringLiteral("tag:cat")).matches(entry));
+        QVERIFY(!Query::parse(QStringLiteral("tagged:no")).matches(entry));
+        QVERIFY(Query::parse(QStringLiteral("NOT tagged:yes")).matches(entry));
     }
 };
 

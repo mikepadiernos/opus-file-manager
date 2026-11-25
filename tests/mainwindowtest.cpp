@@ -2863,6 +2863,69 @@ private Q_SLOTS:
         QCOMPARE(view->selectedItems().first().name(), QStringLiteral("keep.txt"));
     }
 
+    void selectsItemsByQuery()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        for (const QString &name : {QStringLiteral("a.txt"), QStringLiteral("b.txt")}) {
+            QFile file(folder.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        QCOMPARE(LibraryRegistry::create(folder.path()), QString());
+        const auto unregister = qScopeGuard([&folder] {
+            LibraryRegistry::remove(folder.path());
+        });
+        QString error;
+        const bool updated = TagLibrary::update(
+            folder.path(),
+            [](TagLibrary::Library &library, QString *error) {
+                return library.setTag({QStringLiteral("t-draft"), QStringLiteral("Draft"), {}, {}, {}, {}}, error)
+                    && library.assignTags({{QStringLiteral("a.txt"), false, 0, 0, 0, 0}}, {QStringLiteral("t-draft")}, {}, nullptr, error);
+            },
+            &error);
+        QVERIFY2(updated, qPrintable(error));
+
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(folder.path())});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+        QTRY_VERIFY(!view->isLoading());
+        auto *select = window.actionCollection()->action(QStringLiteral("select_by_query"));
+        auto *deselect = window.actionCollection()->action(QStringLiteral("deselect_by_query"));
+        QVERIFY(select && deselect);
+        QTimer::singleShot(0, [&] {
+            auto *dialog = window.findChild<QDialog *>(QStringLiteral("selectionQueryDialog"));
+            QVERIFY(dialog);
+            auto *edit = dialog->findChild<QLineEdit *>(QStringLiteral("selectionQuery"));
+            auto *status = dialog->findChild<QLabel *>(QStringLiteral("selectionQueryStatus"));
+            auto *ok = dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok);
+            edit->setText(QStringLiteral("tag:draft AND"));
+            QVERIFY(!status->text().isEmpty());
+            ok->click();
+            QVERIFY(dialog->isVisible());
+            edit->setText(QStringLiteral("content:x"));
+            ok->click();
+            QVERIFY(dialog->isVisible());
+            QVERIFY(view->selectedItems().isEmpty());
+            edit->setText(QStringLiteral("tag:draft"));
+            QVERIFY(status->text().contains(QStringLiteral("tag:\"draft\"")));
+            ok->click();
+        });
+        select->trigger();
+        QCOMPARE(view->selectedItems().size(), 1);
+        QCOMPARE(view->selectedItems().first().name(), QStringLiteral("a.txt"));
+
+        // The last query is offered again.
+        QTimer::singleShot(0, [&] {
+            auto *dialog = window.findChild<QDialog *>(QStringLiteral("selectionQueryDialog"));
+            QVERIFY(dialog);
+            QCOMPARE(dialog->findChild<QLineEdit *>(QStringLiteral("selectionQuery"))->text(), QStringLiteral("tag:draft"));
+            dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click();
+        });
+        deselect->trigger();
+        QVERIFY(view->selectedItems().isEmpty());
+    }
+
     void selectsUsingSharedPathFilter()
     {
         QTemporaryDir root;
