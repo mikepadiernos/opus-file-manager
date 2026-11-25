@@ -3,6 +3,7 @@
 #pragma once
 
 #include "foldercolorrules.h"
+#include "themeprofiles.h"
 
 #include <QComboBox>
 #include <QDialog>
@@ -12,6 +13,7 @@
 #include <QSpinBox>
 #include <QWidget>
 
+#include <functional>
 #include <optional>
 
 class QLineEdit;
@@ -327,6 +329,59 @@ Q_SIGNALS:
 private:
     QCheckBox *m_custom;
     KFontRequester *m_requester;
+};
+
+/**
+ * Saves, loads, imports, exports and removes theme profiles. Saved profiles
+ * are written at once; loading a profile only fills the settings dialog, so
+ * Apply, OK or Cancel decide whether it is used.
+ */
+class ThemeProfileManager : public QWidget
+{
+    Q_OBJECT
+
+public:
+    struct Callbacks {
+        /// The appearance values currently shown in the dialog.
+        std::function<QVariantMap()> current;
+        /// Shows @p values in the dialog without applying them.
+        std::function<void(const QVariantMap &values)> show;
+        /// Shows Plasma's defaults in the dialog without applying them.
+        std::function<void()> reset;
+    };
+
+    explicit ThemeProfileManager(Callbacks callbacks, QWidget *parent = nullptr);
+
+    /// Replaces the question asked before replacing or removing a profile, for tests.
+    void setConfirmation(std::function<bool(const QString &question)> confirm);
+
+    /// The id of the selected profile, or an empty string.
+    QString selectedId() const;
+
+    /// Saves the dialog's values as @p name, asking before replacing a profile.
+    bool saveCurrent(const QString &name);
+    /// Shows a saved profile's values in the dialog.
+    bool loadProfile(const QString &id);
+    /// Imports a profile file, asking before replacing a profile with its name.
+    bool importProfile(const QString &path);
+    bool exportProfile(const QString &id, const QString &path);
+    bool removeProfile(const QString &id);
+
+private:
+    void reload(const QString &selectId = QString());
+    void updateButtons();
+    void showMessage(int type, const QString &text);
+    bool store(const QString &name, const QVariantMap &values, QString *id);
+    QString unavailableText(const QVariantMap &values) const;
+
+    Callbacks m_callbacks;
+    std::function<bool(const QString &)> m_confirm;
+    QList<ThemeProfiles::Profile> m_profiles;
+    QListWidget *m_list;
+    KMessageWidget *m_message;
+    QPushButton *m_load;
+    QPushButton *m_export;
+    QPushButton *m_remove;
 };
 
 class IconInformationList : public QListWidget

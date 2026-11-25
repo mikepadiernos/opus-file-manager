@@ -15,6 +15,7 @@
 #include "settings.h"
 #include "settingsbackup.h"
 #include "settingswidgets.h"
+#include "themeprofiles.h"
 #include "windoweffects.h"
 #include "workspacecatalog.h"
 
@@ -167,7 +168,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createFontsPage(), i18nc("@title:tab", "Fonts")},
                    {createSpacingPage(), i18nc("@title:tab", "Spacing")},
                    {createBarStylePage(), i18nc("@title:tab", "Tabs and Status Bars")},
-                   {createMotionPage(), i18nc("@title:tab", "Motion and Accessibility")}},
+                   {createMotionPage(), i18nc("@title:tab", "Motion and Accessibility")},
+                   {createThemeProfilesPage(), i18nc("@title:tab", "Profiles")}},
                   i18nc("@title:group", "Themes"),
                   QStringLiteral("preferences-desktop-theme"));
     addTabbedPage({{createViewGeneralPage(), i18nc("@title:tab", "General")},
@@ -1987,26 +1989,66 @@ QWidget *SettingsDialog::createMotionPage()
 
 void SettingsDialog::resetAppearanceToDefaults()
 {
+    QVariantMap values;
     const QStringList kept = AppearanceDefaults::keptEntries();
     const KConfigSkeletonItem::List items = Settings::self()->items();
-    for (KConfigSkeletonItem *item : items) {
-        if (item->group() != QLatin1String(AppearanceDefaults::Group) || kept.contains(item->name())) {
-            continue;
+    for (const KConfigSkeletonItem *item : items) {
+        if (item->group() == QLatin1String(AppearanceDefaults::Group) && !kept.contains(item->name())) {
+            values.insert(item->name(), item->getDefault());
         }
-        auto *editor = findChild<QWidget *>(QStringLiteral("kcfg_") + item->name());
+    }
+    setAppearanceValues(values);
+}
+
+QVariantMap SettingsDialog::appearanceValues() const
+{
+    QVariantMap values;
+    for (const QString &name : ThemeProfiles::entries(Settings::self())) {
+        const auto *editor = findChild<QWidget *>(QStringLiteral("kcfg_") + name);
+        if (!editor) {
+            values.insert(name, Settings::self()->findItem(name)->property());
+        } else if (const QByteArray property = editor->property("kcfg_property").toByteArray(); !property.isEmpty()) {
+            values.insert(name, editor->property(property.constData()));
+        } else if (const auto *combo = qobject_cast<const QComboBox *>(editor)) {
+            values.insert(name, combo->currentIndex());
+        } else if (const QMetaProperty user = editor->metaObject()->userProperty(); user.isValid()) {
+            values.insert(name, user.read(editor));
+        }
+    }
+    return values;
+}
+
+void SettingsDialog::setAppearanceValues(const QVariantMap &values)
+{
+    for (auto it = values.constBegin(); it != values.constEnd(); ++it) {
+        auto *editor = findChild<QWidget *>(QStringLiteral("kcfg_") + it.key());
         if (!editor) {
             continue;
         }
-        const QVariant value = item->getDefault();
         if (const QByteArray property = editor->property("kcfg_property").toByteArray(); !property.isEmpty()) {
-            editor->setProperty(property.constData(), value);
+            editor->setProperty(property.constData(), it.value());
         } else if (auto *combo = qobject_cast<QComboBox *>(editor)) {
-            combo->setCurrentIndex(value.toInt());
+            combo->setCurrentIndex(it.value().toInt());
         } else if (const QMetaProperty user = editor->metaObject()->userProperty(); user.isValid()) {
-            user.write(editor, value);
+            user.write(editor, it.value());
         }
     }
     updateButtons();
+}
+
+QWidget *SettingsDialog::createThemeProfilesPage()
+{
+    auto *manager = new ThemeProfileManager({[this] {
+                                                 return appearanceValues();
+                                             },
+                                             [this](const QVariantMap &values) {
+                                                 setAppearanceValues(values);
+                                             },
+                                             [this] {
+                                                 resetAppearanceToDefaults();
+                                             }});
+    manager->setObjectName(QStringLiteral("themeProfileManager"));
+    return manager;
 }
 
 QWidget *SettingsDialog::createViewGeneralPage()

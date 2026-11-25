@@ -92,6 +92,7 @@ ecm_add_tests(
     symlinkstest.cpp
     symboliciconstest.cpp
     tabmodeltest.cpp
+    themeprofilestest.cpp
     treemaptest.cpp
     transferqueuetest.cpp
     viewsettingstest.cpp

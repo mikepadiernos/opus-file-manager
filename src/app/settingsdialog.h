@@ -43,6 +43,10 @@ public:
      * applied.
      */
     void resetAppearanceToDefaults();
+    /// The theme profile options shown in the dialog, which may not be applied yet.
+    QVariantMap appearanceValues() const;
+    /// Shows Themes options in the dialog without applying them.
+    void setAppearanceValues(const QVariantMap &values);
 
 public Q_SLOTS:
     /// Reloads workspace names and assignments after the catalog changes.
@@ -121,6 +125,7 @@ private:
     QWidget *createSpacingPage();
     QWidget *createBarStylePage();
     QWidget *createMotionPage();
+    QWidget *createThemeProfilesPage();
     QWidget *createViewGeneralPage();
     QWidget *createDetailsPage();
     QWidget *createCompactPage();

@@ -104,6 +104,8 @@ add_library(opusfm_core STATIC
     symbolicicon.h
     tabmodel.cpp
     tabmodel.h
+    themeprofiles.cpp
+    themeprofiles.h
     treemap.cpp
     treemap.h
     transferqueue.cpp

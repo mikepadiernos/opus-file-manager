@@ -16,6 +16,7 @@
 #include <KLocalizedString>
 #include <KMessageWidget>
 #include <KPluginMetaData>
+#include <KSharedConfig>
 
 #include <QApplication>
 #include <QCheckBox>
@@ -35,8 +36,10 @@
 #include <QMessageBox>
 #include <QPainter>
 #include <QPushButton>
+#include <QRegularExpression>
 #include <QSet>
 #include <QSignalBlocker>
+#include <QStandardPaths>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -1025,6 +1028,303 @@ void FontOverrideChooser::setFontSetting(const QString &setting)
     m_requester->setEnabled(custom);
     m_requester->setFont(custom ? font : QApplication::font());
     Q_EMIT fontSettingChanged();
+}
+
+ThemeProfileManager::ThemeProfileManager(Callbacks callbacks, QWidget *parent)
+    : QWidget(parent)
+    , m_callbacks(std::move(callbacks))
+    , m_list(new QListWidget(this))
+    , m_message(new KMessageWidget(this))
+    , m_load(new QPushButton(QIcon::fromTheme(QStringLiteral("document-open")), i18nc("@action:button", "Load"), this))
+    , m_export(new QPushButton(QIcon::fromTheme(QStringLiteral("document-export")), i18nc("@action:button", "Export…"), this))
+    , m_remove(new QPushButton(QIcon::fromTheme(QStringLiteral("list-remove")), i18nc("@action:button", "Remove"), this))
+{
+    m_confirm = [this](const QString &question) {
+        return QMessageBox::question(this, i18nc("@title:window", "Theme Profiles"), question, QMessageBox::Yes | QMessageBox::No, QMessageBox::No)
+            == QMessageBox::Yes;
+    };
+    auto *layout = new QVBoxLayout(this);
+    auto *intro = new QLabel(i18nc("@info",
+                                   "A theme profile stores every Themes option except folder colour rules and the high contrast safeguard. "
+                                   "Loading a profile shows it in this dialog: Apply or OK uses it, and Cancel discards it. Profiles hold "
+                                   "only setting values, so importing one never runs code."),
+                             this);
+    intro->setWordWrap(true);
+    layout->addWidget(intro);
+
+    m_list->setObjectName(QStringLiteral("themeProfiles"));
+    m_list->setAccessibleName(i18nc("@label", "Theme profiles"));
+    m_list->setSelectionMode(QAbstractItemView::SingleSelection);
+    layout->addWidget(m_list, 1);
+
+    auto *buttons = new QHBoxLayout;
+    auto *save = new QPushButton(QIcon::fromTheme(QStringLiteral("document-save")), i18nc("@action:button", "Save Current…"), this);
+    auto *import = new QPushButton(QIcon::fromTheme(QStringLiteral("document-import")), i18nc("@action:button", "Import…"), this);
+    save->setObjectName(QStringLiteral("saveThemeProfile"));
+    save->setToolTip(i18nc("@info:tooltip", "Saves the options shown in this dialog, including changes that are not applied yet."));
+    m_load->setObjectName(QStringLiteral("loadThemeProfile"));
+    import->setObjectName(QStringLiteral("importThemeProfile"));
+    m_export->setObjectName(QStringLiteral("exportThemeProfile"));
+    m_remove->setObjectName(QStringLiteral("removeThemeProfile"));
+    for (QPushButton *button : {save, m_load, import, m_export, m_remove}) {
+        buttons->addWidget(button);
+    }
+    buttons->addStretch();
+    layout->addLayout(buttons);
+
+    m_message->setObjectName(QStringLiteral("themeProfileMessage"));
+    m_message->setWordWrap(true);
+    m_message->setCloseButtonVisible(true);
+    m_message->hide();
+    layout->addWidget(m_message);
+
+    auto *resetRow = new QHBoxLayout;
+    auto *reset = new QPushButton(QIcon::fromTheme(QStringLiteral("edit-reset")), i18nc("@action:button", "Reset to Plasma Defaults"), this);
+    reset->setObjectName(QStringLiteral("resetThemeProfileAppearance"));
+    reset->setToolTip(i18nc("@info:tooltip", "Shows Plasma's defaults for every Themes option except folder colour rules. Saved profiles are kept."));
+    resetRow->addWidget(reset);
+    resetRow->addStretch();
+    layout->addLayout(resetRow);
+
+    connect(save, &QPushButton::clicked, this, [this] {
+        const QListWidgetItem *selected = m_list->currentItem();
+        bool accepted = false;
+        const QString name = QInputDialog::getText(this,
+                                                   i18nc("@title:window", "Save Theme Profile"),
+                                                   i18nc("@label:textbox", "Profile name:"),
+                                                   QLineEdit::Normal,
+                                                   selected ? selected->text() : QString(),
+                                                   &accepted);
+        if (accepted) {
+            saveCurrent(name);
+        }
+    });
+    connect(m_load, &QPushButton::clicked, this, [this] {
+        loadProfile(selectedId());
+    });
+    connect(m_list, &QListWidget::itemActivated, this, [this] {
+        loadProfile(selectedId());
+    });
+    connect(import, &QPushButton::clicked, this, [this] {
+        const QString path = QFileDialog::getOpenFileName(this,
+                                                          i18nc("@title:window", "Import Theme Profile"),
+                                                          QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation),
+                                                          i18nc("@item:inlistbox", "Plasma Opus theme profile (*.json)"));
+        if (!path.isEmpty()) {
+            importProfile(path);
+        }
+    });
+    connect(m_export, &QPushButton::clicked, this, [this] {
+        const QString id = selectedId();
+        const QListWidgetItem *selected = m_list->currentItem();
+        if (id.isEmpty() || !selected) {
+            return;
+        }
+        QString fileName = selected->text();
+        fileName.replace(QRegularExpression(QStringLiteral(R"([/\\:*?"<>|]+)")), QStringLiteral("-"));
+        const QString defaultPath =
+            QDir(QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)).filePath(fileName + QStringLiteral(".opus-theme.json"));
+        QString path = QFileDialog::getSaveFileName(this,
+                                                    i18nc("@title:window", "Export Theme Profile"),
+                                                    defaultPath,
+                                                    i18nc("@item:inlistbox", "Plasma Opus theme profile (*.json)"));
+        if (path.isEmpty()) {
+            return;
+        }
+        if (!path.endsWith(QLatin1String(".json"), Qt::CaseInsensitive)) {
+            path.append(QStringLiteral(".opus-theme.json"));
+        }
+        exportProfile(id, path);
+    });
+    connect(m_remove, &QPushButton::clicked, this, [this] {
+        removeProfile(selectedId());
+    });
+    connect(reset, &QPushButton::clicked, this, [this] {
+        m_callbacks.reset();
+        showMessage(KMessageWidget::Information,
+                    i18nc("@info", "Plasma's defaults are shown in this dialog. Apply or OK uses them; Cancel keeps the current appearance."));
+    });
+    connect(m_list, &QListWidget::currentItemChanged, this, &ThemeProfileManager::updateButtons);
+    reload();
+}
+
+void ThemeProfileManager::setConfirmation(std::function<bool(const QString &)> confirm)
+{
+    m_confirm = std::move(confirm);
+}
+
+QString ThemeProfileManager::selectedId() const
+{
+    const QListWidgetItem *item = m_list->currentItem();
+    return item ? item->data(Qt::UserRole).toString() : QString();
+}
+
+void ThemeProfileManager::reload(const QString &selectId)
+{
+    QString error;
+    m_profiles = ThemeProfiles::load(Settings::self(), KSharedConfig::openConfig()->group(QLatin1String(ThemeProfiles::Group)), &error);
+    const QSignalBlocker blocker(m_list);
+    m_list->clear();
+    for (const ThemeProfiles::Profile &profile : std::as_const(m_profiles)) {
+        auto *item = new QListWidgetItem(QIcon::fromTheme(QStringLiteral("preferences-desktop-theme")), profile.name, m_list);
+        item->setData(Qt::UserRole, profile.id);
+        if (profile.id == selectId) {
+            m_list->setCurrentItem(item);
+        }
+    }
+    if (!error.isEmpty()) {
+        showMessage(KMessageWidget::Warning, error);
+    }
+    updateButtons();
+}
+
+void ThemeProfileManager::updateButtons()
+{
+    const bool selected = m_list->currentItem() != nullptr;
+    m_load->setEnabled(selected);
+    m_export->setEnabled(selected);
+    m_remove->setEnabled(selected);
+}
+
+void ThemeProfileManager::showMessage(int type, const QString &text)
+{
+    m_message->setMessageType(static_cast<KMessageWidget::MessageType>(type));
+    m_message->setText(text);
+    m_message->animatedShow();
+}
+
+QString ThemeProfileManager::unavailableText(const QVariantMap &values) const
+{
+    const QStringList missing = ThemeProfiles::unavailable(values);
+    if (missing.isEmpty()) {
+        return {};
+    }
+    return i18nc("@info %1 is a list of colour schemes and fonts",
+                 "Not installed: %1. Plasma's own is used instead, and the profile keeps them, so they apply once they are installed.",
+                 QLocale().createSeparatedList(missing));
+}
+
+bool ThemeProfileManager::store(const QString &name, const QVariantMap &values, QString *id)
+{
+    if (const QString error = ThemeProfiles::nameError(name); !error.isEmpty()) {
+        showMessage(KMessageWidget::Error, error);
+        return false;
+    }
+    QList<ThemeProfiles::Profile> profiles = m_profiles;
+    const qsizetype existing = ThemeProfiles::indexOfName(profiles, name);
+    if (existing >= 0) {
+        if (!m_confirm(i18nc("@info", "Replace the theme profile “%1”?", profiles.at(existing).name))) {
+            return false;
+        }
+        profiles[existing].name = name.trimmed();
+        profiles[existing].values = values;
+    } else {
+        if (profiles.size() >= ThemeProfiles::MaximumProfiles) {
+            showMessage(KMessageWidget::Error,
+                        i18ncp("@info",
+                               "You can save at most %1 theme profile. Remove one first.",
+                               "You can save at most %1 theme profiles. Remove one first.",
+                               ThemeProfiles::MaximumProfiles));
+            return false;
+        }
+        profiles.append(ThemeProfiles::Profile{QString(), name.trimmed(), values});
+    }
+    QString error;
+    if (!ThemeProfiles::save(Settings::self(), KSharedConfig::openConfig()->group(QLatin1String(ThemeProfiles::Group)), profiles, &error)) {
+        showMessage(KMessageWidget::Error, error);
+        return false;
+    }
+    *id = profiles.at(existing >= 0 ? existing : profiles.size() - 1).id;
+    reload(*id);
+    return true;
+}
+
+bool ThemeProfileManager::saveCurrent(const QString &name)
+{
+    QString id;
+    if (!store(name, m_callbacks.current(), &id)) {
+        return false;
+    }
+    showMessage(KMessageWidget::Positive, i18nc("@info", "Saved the theme profile “%1”.", name.trimmed()));
+    return true;
+}
+
+bool ThemeProfileManager::loadProfile(const QString &id)
+{
+    const auto profile = std::find_if(m_profiles.cbegin(), m_profiles.cend(), [&id](const ThemeProfiles::Profile &candidate) {
+        return candidate.id == id;
+    });
+    if (id.isEmpty() || profile == m_profiles.cend()) {
+        return false;
+    }
+    m_callbacks.show(profile->values);
+    const QString loaded = i18nc("@info", "“%1” is shown in this dialog. Apply or OK uses it; Cancel keeps the current appearance.", profile->name);
+    const QString missing = unavailableText(profile->values);
+    showMessage(missing.isEmpty() ? KMessageWidget::Positive : KMessageWidget::Warning, missing.isEmpty() ? loaded : loaded + QLatin1Char(' ') + missing);
+    return true;
+}
+
+bool ThemeProfileManager::importProfile(const QString &path)
+{
+    QString error;
+    QStringList warnings;
+    const auto profile = ThemeProfiles::importFile(Settings::self(), path, &error, &warnings);
+    if (!profile) {
+        showMessage(KMessageWidget::Error, i18nc("@info %1 is the reason", "The theme profile was not imported. %1", error));
+        return false;
+    }
+    QString id;
+    if (!store(profile->name, profile->values, &id)) {
+        return false;
+    }
+    QStringList notes = warnings;
+    if (const QString missing = unavailableText(profile->values); !missing.isEmpty()) {
+        notes.append(missing);
+    }
+    const QString imported = i18nc("@info", "Imported the theme profile “%1”. Load it to see it in this dialog.", profile->name);
+    showMessage(notes.isEmpty() ? KMessageWidget::Positive : KMessageWidget::Warning,
+                notes.isEmpty() ? imported : imported + QLatin1Char(' ') + notes.join(QLatin1Char(' ')));
+    return true;
+}
+
+bool ThemeProfileManager::exportProfile(const QString &id, const QString &path)
+{
+    const auto profile = std::find_if(m_profiles.cbegin(), m_profiles.cend(), [&id](const ThemeProfiles::Profile &candidate) {
+        return candidate.id == id;
+    });
+    if (id.isEmpty() || profile == m_profiles.cend()) {
+        return false;
+    }
+    if (const QString error = ThemeProfiles::exportFile(Settings::self(), *profile, path); !error.isEmpty()) {
+        showMessage(KMessageWidget::Error, error);
+        return false;
+    }
+    showMessage(KMessageWidget::Positive, i18nc("@info", "Exported “%1” to %2.", profile->name, QDir::toNativeSeparators(path)));
+    return true;
+}
+
+bool ThemeProfileManager::removeProfile(const QString &id)
+{
+    QList<ThemeProfiles::Profile> profiles = m_profiles;
+    const auto profile = std::find_if(profiles.begin(), profiles.end(), [&id](const ThemeProfiles::Profile &candidate) {
+        return candidate.id == id;
+    });
+    if (id.isEmpty() || profile == profiles.end()) {
+        return false;
+    }
+    const QString name = profile->name;
+    if (!m_confirm(i18nc("@info", "Remove the theme profile “%1”? The current appearance is not changed.", name))) {
+        return false;
+    }
+    profiles.erase(profile);
+    QString error;
+    if (!ThemeProfiles::save(Settings::self(), KSharedConfig::openConfig()->group(QLatin1String(ThemeProfiles::Group)), profiles, &error)) {
+        showMessage(KMessageWidget::Error, error);
+        return false;
+    }
+    reload();
+    showMessage(KMessageWidget::Information, i18nc("@info", "Removed the theme profile “%1”.", name));
+    return true;
 }
 
 IconInformationList::IconInformationList(QWidget *parent, bool cardFields)

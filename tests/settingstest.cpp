@@ -21,6 +21,7 @@
 #include "settingswidgets.h"
 #include "tabcolors.h"
 #include "tabmodel.h"
+#include "themeprofiles.h"
 #include "treelines.h"
 #include "windoweffects.h"
 
@@ -2455,6 +2456,113 @@ private Q_SLOTS:
         QCOMPARE(Settings::folderColorRules(), rules);
         window.resetAppearance();
         QCOMPARE(window.statusBar()->currentMessage(), QStringLiteral("The appearance options already follow Plasma."));
+    }
+
+    void themeProfilesSaveLoadImportAndExport()
+    {
+        const auto clearProfiles = [] {
+            KSharedConfig::openConfig()->deleteGroup(QLatin1String(ThemeProfiles::Group));
+            KSharedConfig::openConfig()->sync();
+        };
+        auto restore = qScopeGuard([clearProfiles] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            ColorSchemes::apply(QString());
+            clearProfiles();
+        });
+        clearProfiles();
+        Settings::setTabShape(Settings::EnumTabShape::Flat);
+        Settings::setFolderColorRules({});
+        Settings::self()->save();
+        QTemporaryDir files;
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *manager = dialog.findChild<ThemeProfileManager *>(QStringLiteral("themeProfileManager"));
+        auto *list = dialog.findChild<QListWidget *>(QStringLiteral("themeProfiles"));
+        auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("themeProfileMessage"));
+        auto *spacing = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_SpacingScale"));
+        auto *tabShape = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_TabShape"));
+        auto *scheme = dialog.findChild<ColorSchemeCombo *>(QStringLiteral("kcfg_ColorScheme"));
+        QVERIFY(manager && list && message && spacing && tabShape && scheme);
+        bool confirm = false;
+        QStringList questions;
+        manager->setConfirmation([&confirm, &questions](const QString &question) {
+            questions.append(question);
+            return confirm;
+        });
+
+        // Saving includes changes that are not applied yet and is written at once.
+        spacing->setValue(175);
+        QVERIFY(manager->saveCurrent(QStringLiteral(" Night ")));
+        QCOMPARE(list->count(), 1);
+        QCOMPARE(list->item(0)->text(), QStringLiteral("Night"));
+        const QString id = manager->selectedId();
+        const auto group = KSharedConfig::openConfig()->group(QLatin1String(ThemeProfiles::Group));
+        QList<ThemeProfiles::Profile> stored = ThemeProfiles::load(Settings::self(), group);
+        QCOMPARE(stored.size(), 1);
+        QCOMPARE(stored.constFirst().values.value(QStringLiteral("SpacingScale")).toInt(), 175);
+        QCOMPARE(stored.constFirst().values.value(QStringLiteral("TabShape")).toInt(), int(Settings::EnumTabShape::Flat));
+        QCOMPARE(Settings::spacingScale(), 100);
+
+        // Replacing a profile asks first.
+        spacing->setValue(60);
+        QVERIFY(!manager->saveCurrent(QStringLiteral("NIGHT")));
+        QCOMPARE(questions.size(), 1);
+        QVERIFY(questions.constFirst().contains(QStringLiteral("Night")));
+        QCOMPARE(ThemeProfiles::load(Settings::self(), group).constFirst().values.value(QStringLiteral("SpacingScale")).toInt(), 175);
+        QVERIFY(!manager->saveCurrent(QStringLiteral("Bad\nname")));
+        QCOMPARE(message->messageType(), KMessageWidget::Error);
+
+        // The safe reset and loading only change the dialog until Apply.
+        dialog.findChild<QPushButton *>(QStringLiteral("resetThemeProfileAppearance"))->click();
+        QCOMPARE(spacing->value(), 100);
+        QCOMPARE(tabShape->currentIndex(), int(Settings::EnumTabShape::FollowStyle));
+        QVERIFY(manager->loadProfile(id));
+        QCOMPARE(spacing->value(), 175);
+        QCOMPARE(tabShape->currentIndex(), int(Settings::EnumTabShape::Flat));
+        QCOMPARE(message->messageType(), KMessageWidget::Positive);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::spacingScale(), 175);
+        QCOMPARE(int(Settings::tabShape()), int(Settings::EnumTabShape::Flat));
+
+        // Export, remove and import again.
+        const QString path = files.filePath(QStringLiteral("night.opus-theme.json"));
+        QVERIFY(manager->exportProfile(id, path));
+        QVERIFY(QFile::exists(path));
+        QVERIFY(!manager->removeProfile(id));
+        QCOMPARE(list->count(), 1);
+        confirm = true;
+        QVERIFY(manager->removeProfile(id));
+        QCOMPARE(list->count(), 0);
+        QVERIFY(manager->importProfile(path));
+        QCOMPARE(list->count(), 1);
+        QCOMPARE(list->item(0)->text(), QStringLiteral("Night"));
+
+        // Invalid files are rejected; unavailable schemes are reported and kept.
+        const QString invalid = files.filePath(QStringLiteral("invalid.json"));
+        QFile invalidFile(invalid);
+        QVERIFY(invalidFile.open(QIODevice::WriteOnly));
+        invalidFile.write(R"({"format":"plasma-opus-theme","version":1,"name":"Bad","appearance":{"SpacingScale":9000}})");
+        invalidFile.close();
+        QVERIFY(!manager->importProfile(invalid));
+        QCOMPARE(message->messageType(), KMessageWidget::Error);
+        QVERIFY(message->text().contains(QStringLiteral("SpacingScale")));
+        QCOMPARE(list->count(), 1);
+
+        const QString missing = files.filePath(QStringLiteral("missing.json"));
+        QFile missingFile(missing);
+        QVERIFY(missingFile.open(QIODevice::WriteOnly));
+        missingFile.write(R"({"format":"plasma-opus-theme","version":1,"name":"Missing","appearance":{"ColorScheme":"NoSuchSchemeOpus"}})");
+        missingFile.close();
+        QVERIFY(manager->importProfile(missing));
+        QCOMPARE(message->messageType(), KMessageWidget::Warning);
+        QVERIFY(message->text().contains(QStringLiteral("NoSuchSchemeOpus")));
+        QCOMPARE(list->count(), 2);
+        QVERIFY(manager->loadProfile(manager->selectedId()));
+        QCOMPARE(scheme->scheme(), QStringLiteral("NoSuchSchemeOpus"));
+        QCOMPARE(spacing->value(), 100);
+        QCOMPARE(message->messageType(), KMessageWidget::Warning);
     }
 
     void customColoursReportLowContrast()
