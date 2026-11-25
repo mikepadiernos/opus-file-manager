@@ -536,6 +536,7 @@ private Q_SLOTS:
         auto *corners = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_CornerRadius"));
         auto *custom = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_CustomCornerRadius"));
         QVERIFY(corners && custom);
+        QVERIFY(corners->toolTip().contains(QLatin1String("cards")));
         QVERIFY(!custom->isEnabled());
         corners->setCurrentIndex(Settings::EnumCornerRadius::Custom);
         Q_EMIT corners->activated(Settings::EnumCornerRadius::Custom);

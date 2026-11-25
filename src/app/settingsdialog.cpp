@@ -1673,7 +1673,9 @@ QWidget *SettingsDialog::createEffectsPage()
                               i18nc("@item:inlistbox corner radius", "Medium"),
                               i18nc("@item:inlistbox corner radius", "Large"),
                               i18nc("@item:inlistbox corner radius", "Custom")});
-    corners->setToolTip(i18nc("@info:tooltip", "Rounds item highlights, input fields, tabs and tooltips."));
+    corners->setToolTip(i18nc("@info:tooltip",
+                              "Rounds item highlights, cards, input fields, tabs and tooltips. Buttons, combo boxes and panels keep the "
+                              "widget style's corners."));
     auto *customCorners = new QSpinBox;
     customCorners->setObjectName(QStringLiteral("kcfg_CustomCornerRadius"));
     customCorners->setRange(0, 24);
