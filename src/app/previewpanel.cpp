@@ -293,22 +293,22 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     m_renderedText->setOpenExternalLinks(false);
     m_renderedText->setLineWrapMode(QTextEdit::NoWrap);
 
-    auto *close = new QToolButton(this);
-    close->setObjectName(QStringLiteral("previewClose"));
-    close->setIcon(SymbolicIcon::fromTheme(QStringLiteral("window-close")));
-    close->setToolTip(i18nc("@info:tooltip", "Close preview"));
-    close->setAccessibleName(i18nc("@action", "Close preview"));
-    connect(close, &QToolButton::clicked, this, &PreviewPanel::closeRequested);
+    m_close = new QToolButton(this);
+    m_close->setObjectName(QStringLiteral("previewClose"));
+    m_close->setIcon(SymbolicIcon::fromTheme(QStringLiteral("window-close")));
+    m_close->setToolTip(i18nc("@info:tooltip", "Close preview"));
+    m_close->setAccessibleName(i18nc("@action", "Close preview"));
+    connect(m_close, &QToolButton::clicked, this, &PreviewPanel::closeRequested);
     m_header = new QHBoxLayout;
     m_header->setObjectName(QStringLiteral("previewHeaderLayout"));
     m_header->addWidget(m_title, 1);
-    auto *placement = new QToolButton(this);
-    placement->setObjectName(QStringLiteral("previewPlacement"));
-    placement->setIcon(SymbolicIcon::fromTheme(QStringLiteral("configure")));
-    placement->setToolTip(i18nc("@info:tooltip", "Preview panel placement"));
-    placement->setAccessibleName(i18nc("@action", "Preview panel placement"));
-    placement->setPopupMode(QToolButton::InstantPopup);
-    auto *placementMenu = new QMenu(placement);
+    m_placement = new QToolButton(this);
+    m_placement->setObjectName(QStringLiteral("previewPlacement"));
+    m_placement->setIcon(SymbolicIcon::fromTheme(QStringLiteral("configure")));
+    m_placement->setToolTip(i18nc("@info:tooltip", "Preview panel placement"));
+    m_placement->setAccessibleName(i18nc("@action", "Preview panel placement"));
+    m_placement->setPopupMode(QToolButton::InstantPopup);
+    auto *placementMenu = new QMenu(m_placement);
     m_placementActions = new QActionGroup(placementMenu);
     m_placementActions->setExclusive(true);
     const auto addPlacement = [this, placementMenu](const QString &name, const QString &text, Placement value) {
@@ -324,7 +324,7 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     addPlacement(QStringLiteral("previewPlacePane"), i18nc("@action", "Pane"), Placement::Pane);
     addPlacement(QStringLiteral("previewPlaceBelow"), i18nc("@action", "Below Panes"), Placement::Below);
     addPlacement(QStringLiteral("previewPlaceRight"), i18nc("@action", "Right of Panes"), Placement::Right);
-    placement->setMenu(placementMenu);
+    m_placement->setMenu(placementMenu);
     m_previous->setObjectName(QStringLiteral("previewPrevious"));
     m_next->setObjectName(QStringLiteral("previewNext"));
     m_gallery->setObjectName(QStringLiteral("previewGallery"));
@@ -374,8 +374,8 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     m_header->addWidget(m_gallery);
     m_header->addWidget(m_renderMode);
     m_header->addWidget(m_autoplay);
-    m_header->addWidget(placement);
-    m_header->addWidget(close);
+    m_header->addWidget(m_placement);
+    m_header->addWidget(m_close);
 
     m_content->addWidget(m_message);
     m_content->addWidget(m_imageLabel);
@@ -411,6 +411,43 @@ void PreviewPanel::setPlacement(Placement placement)
     for (QAction *action : m_placementActions->actions()) {
         action->setChecked(action->data().toInt() == static_cast<int>(placement));
     }
+}
+
+void PreviewPanel::setCompact(bool compact)
+{
+    if (compact == m_compact) {
+        return;
+    }
+    m_compact = compact;
+    for (QToolButton *button : {m_close, m_placement, m_previous, m_next, m_gallery, m_open}) {
+        button->setVisible(!compact);
+    }
+    setMinimumWidth(compact ? 0 : 240);
+    if (m_url.isEmpty() && m_baseFooter.isEmpty()) {
+        clear();
+    }
+}
+
+bool PreviewPanel::isCompact() const
+{
+    return m_compact;
+}
+
+void PreviewPanel::showFolder(const KFileItem &item)
+{
+    clear();
+    if (item.isNull()) {
+        return;
+    }
+    m_title->setText(item.text());
+    m_title->show();
+    m_baseFooter = LocalizedDates::fileTime(item);
+    m_footer->setText(m_baseFooter);
+    QStringList lines{item.mimeComment().isEmpty() ? i18nc("@info", "Folder") : item.mimeComment()};
+    if (item.isLink()) {
+        lines.append(i18nc("@info", "Link to %1", item.linkDest()));
+    }
+    showMessage(lines.join(QLatin1Char('\n')));
 }
 
 PreviewPanel::~PreviewPanel()
@@ -560,7 +597,7 @@ void PreviewPanel::clear()
     m_next->setEnabled(false);
     m_gallery->setEnabled(false);
     m_open->setEnabled(false);
-    showMessage(i18nc("@info", "Select one file to preview."));
+    showMessage(m_compact ? i18nc("@info", "Nothing to preview.") : i18nc("@info", "Select one file to preview."));
 }
 
 void PreviewPanel::startRemotePreview(const QUrl &url)

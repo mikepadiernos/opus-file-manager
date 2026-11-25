@@ -170,6 +170,17 @@ public:
      */
     void setYaziMode(bool enabled);
     bool yaziMode() const;
+    /**
+     * Shows or hides the preview column of the focused item while the pane is
+     * in Yazi mode, and records the choice for the session. The choice is kept
+     * when the mode is off. Until a choice is made or restored, the pane
+     * follows the YaziPreviewVisible setting.
+     * @param visible true to show the preview column
+     */
+    void setYaziPreview(bool visible);
+    bool yaziPreview() const;
+    /// Applies a changed YaziPreviewVisible setting unless the pane has its own choice.
+    void reloadYaziPreviewSetting();
     /// The columns that host the folder view in Yazi mode; they exist even when the mode is off.
     YaziColumns *yaziColumns() const;
 
@@ -195,6 +206,7 @@ Q_SIGNALS:
     void statusMessage(const QString &message);
     void searchRequested();
     void yaziModeChanged(bool enabled);
+    void yaziPreviewChanged(bool visible);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -203,6 +215,9 @@ protected:
 
 private:
     void updateBackgroundTint();
+    /// Applies a saved preview choice (1, 0 or -1 for the setting) without marking the workspace changed.
+    void restoreYaziPreview(int choice);
+    void applyYaziPreview(bool visible);
     /// Closes the pane's tabs and opens those of @p state with their pins, locks and names.
     void rebuildTabs(const PaneSession &state);
     void saveHistoryViewState();
@@ -245,6 +260,9 @@ private:
     FolderView *m_view = nullptr;
     YaziColumns *m_yaziColumns = nullptr;
     bool m_yaziMode = false;
+    bool m_yaziPreview = true;
+    /// The saved preview choice: 1 shown, 0 hidden, -1 none, following the setting.
+    int m_yaziPreviewChoice = -1;
     FilterBar *m_filterBar = nullptr;
     QVBoxLayout *m_layout = nullptr;
     QHBoxLayout *m_outerLayout = nullptr;

@@ -43,6 +43,18 @@ public:
     void clear();
     void setPlacement(Placement placement);
     void setTitleVisible(bool visible);
+    /**
+     * Sets the presentation for embedding the panel in a narrow column: it
+     * hides the close, placement, gallery, image navigation and open buttons,
+     * whose signals the host does not handle, and drops the minimum width.
+     */
+    void setCompact(bool compact);
+    bool isCompact() const;
+    /**
+     * Shows a summary of the folder @p item, its name, type and modification
+     * time, instead of a preview. Pending previews are cancelled.
+     */
+    void showFolder(const KFileItem &item);
 
 Q_SIGNALS:
     void closeRequested();
@@ -79,6 +91,9 @@ private:
     QHBoxLayout *m_header = nullptr;
     QHBoxLayout *m_footerLayout = nullptr;
     bool m_titleVisible = true;
+    bool m_compact = false;
+    QToolButton *m_close = nullptr;
+    QToolButton *m_placement = nullptr;
     QToolButton *m_previous = nullptr;
     QToolButton *m_next = nullptr;
     QToolButton *m_gallery = nullptr;

@@ -636,7 +636,7 @@ QWidget *SettingsDialog::createWorkspaceLayoutsPage()
     auto *restoreLayout = new QVBoxLayout(restore);
     restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestorePaneArrangement"),
                                       i18nc("@option:check", "Pane arrangement: single or dual panes, stacking, sizes and second-pane placement")));
-    restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestoreViews"), i18nc("@option:check", "Each pane's view mode and Yazi mode")));
+    restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestoreViews"), i18nc("@option:check", "Each pane's view mode, Yazi mode and Yazi preview")));
     restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestoreToolbars"), i18nc("@option:check", "Main and pane toolbar entries")));
     restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestorePanels"),
                                       i18nc("@option:check", "Panels: dock and toolbar positions, and the preview, editor and terminal panels")));
@@ -2476,6 +2476,9 @@ QWidget *SettingsDialog::createPreviewsPage()
     form->addRow(QString(), checkBox(QStringLiteral("ShowPreviews"), i18nc("@option:check", "Show previews in new windows")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowRemotePreviews"), i18nc("@option:check", "Show previews in remote folders")));
     form->addRow(QString(), checkBox(QStringLiteral("PreviewMediaAutoplay"), i18nc("@option:check", "Automatically play audio and video previews")));
+    form->addRow(
+        QString(),
+        checkBox(QStringLiteral("YaziPreviewVisible"), i18nc("@option:check", "Show the preview column in Yazi mode unless a pane was set otherwise")));
     form->addRow(QString(), checkBox(QStringLiteral("PreviewFormatted"), i18nc("@option:check", "Show formatted HTML and Markdown by default")));
     form->addRow(QString(), checkBox(QStringLiteral("PreviewLineNumbers"), i18nc("@option:check", "Show line numbers in text previews")));
     form->addRow(QString(), checkBox(QStringLiteral("PreviewSyntaxHighlighting"), i18nc("@option:check", "Highlight syntax in text previews")));

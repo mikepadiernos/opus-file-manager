@@ -4,6 +4,7 @@
 
 #include "folderview.h"
 #include "yazimode.h"
+#include "yazipreview.h"
 
 #include <KDirLister>
 #include <KDirModel>
@@ -11,6 +12,7 @@
 #include <KFileItem>
 #include <KLocalizedString>
 
+#include <QApplication>
 #include <QEvent>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -45,6 +47,8 @@ YaziColumns::YaziColumns(QWidget *parent)
     m_parentColumn = new QListView(this);
     m_parentColumn->setObjectName(QStringLiteral("yaziParentColumn"));
     m_parentColumn->setAccessibleName(i18nc("@info:accessibility", "Parent folder"));
+    m_parentColumn->setAccessibleDescription(i18nc("@info:accessibility", "The items next to the current folder; choose one to open it"));
+    m_parentColumn->setMinimumWidth(YaziMode::MinimumParentWidth);
     m_parentColumn->setModel(m_proxy);
     m_parentColumn->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_parentColumn->setDragDropMode(QAbstractItemView::NoDragDrop);
@@ -59,6 +63,9 @@ YaziColumns::YaziColumns(QWidget *parent)
 
     m_previewSlot = new QWidget(this);
     m_previewSlot->setObjectName(QStringLiteral("yaziPreviewSlot"));
+    m_previewSlot->setAccessibleName(i18nc("@info:accessibility", "Preview"));
+    m_previewSlot->setAccessibleDescription(i18nc("@info:accessibility", "A preview of the focused item in the current folder"));
+    m_previewSlot->setMinimumWidth(YaziMode::MinimumPreviewWidth);
     m_previewLayout = new QVBoxLayout(m_previewSlot);
     m_previewLayout->setContentsMargins(0, 0, 0, 0);
     m_previewSlot->hide();
@@ -68,6 +75,16 @@ YaziColumns::YaziColumns(QWidget *parent)
     m_splitter->setChildrenCollapsible(false);
     m_splitter->addWidget(m_parentColumn);
     m_splitter->addWidget(m_previewSlot);
+    // Columns are hidden rather than squeezed, so the columns never make the
+    // pane wider than its folder view alone would.
+    m_splitter->setMinimumWidth(1);
+    m_splitter->installEventFilter(this);
+    connect(m_splitter, &QSplitter::splitterMoved, this, &YaziColumns::rememberRatios);
+    connect(qApp, &QApplication::focusChanged, this, [this](QWidget *, QWidget *now) {
+        if (now && m_previewSlot->isAncestorOf(now)) {
+            Q_EMIT activated();
+        }
+    });
 
     m_indicator = new QLabel(i18nc("@info:status short name of the Yazi browsing mode", "Yazi"), this);
     m_indicator->setObjectName(QStringLiteral("yaziModeIndicator"));
@@ -97,6 +114,8 @@ YaziColumns::YaziColumns(QWidget *parent)
 YaziColumns::~YaziColumns()
 {
     m_lister->disconnect(this);
+    // Deleting the columns can move the focus; the handler uses them.
+    disconnect(qApp, nullptr, this, nullptr);
 }
 
 void YaziColumns::resetLister()
@@ -131,15 +150,35 @@ void YaziColumns::setCurrentView(FolderView *view)
     m_splitter->setStretchFactor(CurrentColumn, 3);
     m_splitter->setStretchFactor(CurrentColumn + 1, 2);
     m_view->show();
+    m_view->installEventFilter(this);
+    m_parentColumn->setFont(m_view->font());
+    connect(m_view, &FolderView::viewModeChanged, this, [this] {
+        restoreCurrentColumnLabels();
+        labelCurrentColumn();
+        updateTabOrder();
+    });
+    labelCurrentColumn();
+    if (YaziPreview *builtIn = preview()) {
+        builtIn->setView(m_view);
+    }
+    updateTabOrder();
+    applyColumnWidths();
 }
 
 FolderView *YaziColumns::takeCurrentView()
 {
     FolderView *view = m_view;
-    m_view = nullptr;
-    if (view) {
-        view->setParent(parentWidget());
+    if (!view) {
+        return nullptr;
     }
+    if (YaziPreview *builtIn = preview()) {
+        builtIn->setView(nullptr);
+    }
+    view->removeEventFilter(this);
+    view->disconnect(this);
+    restoreCurrentColumnLabels();
+    m_view = nullptr;
+    view->setParent(parentWidget());
     return view;
 }
 
@@ -202,18 +241,145 @@ void YaziColumns::setPreviewWidget(QWidget *widget)
     if (widget == m_previewWidget) {
         return;
     }
+    QWidget *focus = QApplication::focusWidget();
+    if (m_previewWidget && focus && (focus == m_previewWidget || m_previewWidget->isAncestorOf(focus)) && m_view) {
+        m_view->currentView()->setFocus();
+    }
     delete m_previewWidget;
     m_previewWidget = widget;
     if (m_previewWidget) {
         m_previewLayout->addWidget(m_previewWidget);
         m_previewWidget->show();
     }
-    m_previewSlot->setVisible(m_previewWidget != nullptr);
+    if (YaziPreview *builtIn = preview()) {
+        builtIn->setView(m_view);
+    }
+    updateTabOrder();
+    applyColumnWidths();
 }
 
 QWidget *YaziColumns::previewWidget() const
 {
     return m_previewWidget;
+}
+
+void YaziColumns::setPreviewEnabled(bool enabled)
+{
+    if (enabled == previewEnabled()) {
+        return;
+    }
+    setPreviewWidget(enabled ? new YaziPreview : nullptr);
+}
+
+bool YaziColumns::previewEnabled() const
+{
+    return m_previewWidget != nullptr;
+}
+
+YaziPreview *YaziColumns::preview() const
+{
+    return qobject_cast<YaziPreview *>(m_previewWidget.data());
+}
+
+YaziMode::Ratios YaziColumns::ratios() const
+{
+    return m_ratios;
+}
+
+void YaziColumns::setRatios(const YaziMode::Ratios &ratios)
+{
+    m_ratios = ratios;
+    applyColumnWidths();
+}
+
+void YaziColumns::applyColumnWidths()
+{
+    const bool preview = m_previewWidget != nullptr;
+    if (!m_splitter->isVisible()) {
+        // Without a width yet, show what is wanted; showing the splitter sizes it.
+        m_parentColumn->setVisible(true);
+        m_previewSlot->setVisible(preview);
+        return;
+    }
+    const YaziMode::ColumnWidths widths = YaziMode::columnWidths(m_splitter->contentsRect().width(), preview, m_ratios, m_splitter->handleWidth());
+    const bool parentShown = widths.parent > 0;
+    const bool previewShown = widths.preview > 0;
+    QWidget *focus = QApplication::focusWidget();
+    if (focus && m_view
+        && ((!parentShown && (focus == m_parentColumn || m_parentColumn->isAncestorOf(focus))) || (!previewShown && m_previewSlot->isAncestorOf(focus)))) {
+        m_view->currentView()->setFocus();
+    }
+    const bool layoutChanged = m_parentColumn->isVisible() != parentShown || m_previewSlot->isVisible() != previewShown;
+    m_parentColumn->setVisible(parentShown);
+    m_previewSlot->setVisible(previewShown);
+    if (layoutChanged) {
+        // Show or hide the handles now rather than on the next layout request,
+        // so the sizes below share the width without the hidden columns' handles.
+        m_splitter->refresh();
+    }
+    QList<int> sizes;
+    for (int i = 0; i < m_splitter->count(); ++i) {
+        const QWidget *column = m_splitter->widget(i);
+        sizes.append(column == m_parentColumn ? widths.parent : column == m_previewSlot ? widths.preview : widths.current);
+    }
+    m_splitter->setSizes(sizes);
+}
+
+void YaziColumns::rememberRatios()
+{
+    if (!m_view || m_parentColumn->isHidden()) {
+        return;
+    }
+    const int parent = m_parentColumn->width();
+    const int current = m_view->width();
+    if (!m_previewSlot->isHidden()) {
+        m_ratios = {parent, current, m_previewSlot->width()};
+    } else {
+        // Keep the hidden preview column's share in proportion to the others.
+        const qint64 before = qint64(qMax(1, m_ratios.parent)) + qMax(1, m_ratios.current);
+        const int preview = int(qMax<qint64>(1, qint64(qMax(1, m_ratios.preview)) * (parent + current) / before));
+        m_ratios = {parent, current, preview};
+    }
+    // Enforces the minimum width of the current column, which the splitter doesn't know.
+    applyColumnWidths();
+}
+
+void YaziColumns::updateTabOrder()
+{
+    if (!m_view) {
+        return;
+    }
+    QWidget *current = m_view->currentView();
+    QWidget::setTabOrder(m_parentColumn, current);
+    if (m_previewWidget && m_previewWidget->focusPolicy() != Qt::NoFocus) {
+        QWidget::setTabOrder(current, m_previewWidget);
+    }
+}
+
+void YaziColumns::labelCurrentColumn()
+{
+    if (!m_view) {
+        return;
+    }
+    const QString name = i18nc("@info:accessibility", "Current folder");
+    const QString description = i18nc("@info:accessibility", "The items in the folder this pane shows");
+    for (QWidget *widget : {static_cast<QWidget *>(m_view), static_cast<QWidget *>(m_view->currentView())}) {
+        m_savedAccessibility.append({widget, widget->accessibleName(), widget->accessibleDescription()});
+        widget->setAccessibleName(name);
+        widget->setAccessibleDescription(description);
+    }
+}
+
+void YaziColumns::restoreCurrentColumnLabels()
+{
+    // Restore in reverse so a widget labelled twice gets its original text back.
+    for (auto it = m_savedAccessibility.crbegin(); it != m_savedAccessibility.crend(); ++it) {
+        if (it->widget) {
+            it->widget->setAccessibleName(it->name);
+            it->widget->setAccessibleDescription(it->description);
+        }
+    }
+    m_savedAccessibility.clear();
 }
 
 QSplitter *YaziColumns::splitter() const
@@ -236,6 +402,14 @@ bool YaziColumns::eventFilter(QObject *watched, QEvent *event)
     if ((watched == m_parentColumn && event->type() == QEvent::FocusIn)
         || (watched == m_parentColumn->viewport() && event->type() == QEvent::MouseButtonPress)) {
         Q_EMIT activated();
+    } else if (watched == m_parentColumn && event->type() == QEvent::Show) {
+        highlightCurrent();
+    } else if (watched == m_splitter && (event->type() == QEvent::Show || (event->type() == QEvent::Resize && m_splitter->isVisible()))) {
+        applyColumnWidths();
+    } else if (watched == m_view && event->type() == QEvent::FontChange) {
+        m_parentColumn->setFont(m_view->font());
+        // The new font changes the row heights once the column lays out again.
+        QMetaObject::invokeMethod(this, &YaziColumns::highlightCurrent, Qt::QueuedConnection);
     }
     return QWidget::eventFilter(watched, event);
 }
@@ -246,10 +420,12 @@ void YaziColumns::highlightCurrent()
         return;
     }
     const QModelIndex index = m_proxy->mapFromSource(m_model->indexForUrl(stripped(m_url)));
-    if (!index.isValid() || index == m_parentColumn->currentIndex()) {
+    if (!index.isValid()) {
         return;
     }
-    m_parentColumn->selectionModel()->setCurrentIndex(index, QItemSelectionModel::ClearAndSelect);
+    if (index != m_parentColumn->currentIndex() || !m_parentColumn->selectionModel()->isSelected(index)) {
+        m_parentColumn->selectionModel()->setCurrentIndex(index, QItemSelectionModel::ClearAndSelect);
+    }
     m_parentColumn->scrollTo(index);
 }
 

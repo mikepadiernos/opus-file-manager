@@ -282,6 +282,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     m_layout->addWidget(m_view, 1);
     m_yaziColumns = new YaziColumns(this);
     m_yaziColumns->hide();
+    m_yaziPreview = Settings::yaziPreviewVisible();
     m_yaziColumns->setShowHiddenFiles(m_view->showHiddenFiles());
     m_statusBarWidget = new QWidget(this);
     m_statusBarWidget->setObjectName(QStringLiteral("paneStatusBar"));
@@ -634,7 +635,10 @@ void Pane::setActive(bool active)
     m_dimEffect->setEnabled(m_inactiveDimming && !active);
     m_navigator->setActive(active);
     updateBackgroundTint();
-    if (active && QApplication::focusWidget() != m_yaziColumns->parentColumn()) {
+    // Keep the focus in the parent or preview column when that activated the pane.
+    QWidget *focus = QApplication::focusWidget();
+    const bool focusInOtherColumn = focus && m_yaziColumns->isAncestorOf(focus) && focus != m_view && !m_view->isAncestorOf(focus);
+    if (active && !focusInOtherColumn) {
         m_view->currentView()->setFocus();
     }
 }
@@ -1030,8 +1034,10 @@ void Pane::setYaziMode(bool enabled)
         delete m_layout->replaceWidget(m_view, m_yaziColumns);
         m_yaziColumns->setCurrentView(m_view);
         m_yaziColumns->setUrl(m_view->url());
+        m_yaziColumns->setPreviewEnabled(m_yaziPreview);
         m_yaziColumns->show();
     } else {
+        m_yaziColumns->setPreviewEnabled(false);
         m_yaziColumns->takeCurrentView();
         delete m_layout->replaceWidget(m_yaziColumns, m_view);
         m_yaziColumns->hide();
@@ -1048,6 +1054,47 @@ void Pane::setYaziMode(bool enabled)
 bool Pane::yaziMode() const
 {
     return m_yaziMode;
+}
+
+void Pane::setYaziPreview(bool visible)
+{
+    const int choice = visible ? 1 : 0;
+    const bool chosen = choice != m_yaziPreviewChoice;
+    m_yaziPreviewChoice = choice;
+    applyYaziPreview(visible);
+    if (chosen) {
+        Q_EMIT workspaceLayoutChanged();
+    }
+}
+
+void Pane::reloadYaziPreviewSetting()
+{
+    if (m_yaziPreviewChoice < 0) {
+        applyYaziPreview(Settings::yaziPreviewVisible());
+    }
+}
+
+void Pane::restoreYaziPreview(int choice)
+{
+    m_yaziPreviewChoice = qBound(-1, choice, 1);
+    applyYaziPreview(m_yaziPreviewChoice < 0 ? Settings::yaziPreviewVisible() : m_yaziPreviewChoice != 0);
+}
+
+void Pane::applyYaziPreview(bool visible)
+{
+    if (visible == m_yaziPreview) {
+        return;
+    }
+    m_yaziPreview = visible;
+    if (m_yaziMode) {
+        m_yaziColumns->setPreviewEnabled(visible);
+    }
+    Q_EMIT yaziPreviewChanged(visible);
+}
+
+bool Pane::yaziPreview() const
+{
+    return m_yaziPreview;
 }
 
 YaziColumns *Pane::yaziColumns() const
@@ -1299,6 +1346,7 @@ PaneSession Pane::saveState() const
     state.locationPresentation = int(m_locationPresentation);
     state.viewMode = int(m_view->viewMode());
     state.yaziMode = m_yaziMode;
+    state.yaziPreview = m_yaziPreviewChoice;
     return state;
 }
 
@@ -1322,6 +1370,7 @@ void Pane::restoreState(const PaneSession &state)
     setLocationPresentation(state.locationPresentation < 0 ? m_defaultLocationPresentation
                                                            : static_cast<LocationPresentation>(qBound(0, state.locationPresentation, 2)));
     m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, PaneSession::MaximumViewMode)));
+    restoreYaziPreview(state.yaziPreview);
     setYaziMode(state.yaziMode);
 }
 
@@ -1347,6 +1396,7 @@ void Pane::replaceState(const PaneSession &state)
     setLocationPresentation(state.locationPresentation < 0 ? m_defaultLocationPresentation
                                                            : static_cast<LocationPresentation>(qBound(0, state.locationPresentation, 2)));
     m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, PaneSession::MaximumViewMode)));
+    restoreYaziPreview(state.yaziPreview);
     setYaziMode(state.yaziMode);
 }
 

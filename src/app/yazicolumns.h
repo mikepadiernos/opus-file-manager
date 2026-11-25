@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "yazimode.h"
+
+#include <QList>
 #include <QPointer>
 #include <QUrl>
 #include <QWidget>
@@ -16,6 +19,7 @@ class QListView;
 class QModelIndex;
 class QSplitter;
 class QVBoxLayout;
+class YaziPreview;
 
 /**
  * The columns a pane shows in Yazi mode: a read-only listing of the parent
@@ -24,6 +28,11 @@ class QVBoxLayout;
  * with setCurrentView() when entering the mode and takes it back with
  * takeCurrentView() when leaving, so its model, selection, scroll position,
  * filter, sorting and view mode are untouched.
+ *
+ * The columns share the width as YaziMode::columnWidths() allocates it: a
+ * narrow pane hides the preview column first and then the parent column,
+ * and shows them again when it widens. Dragging a handle changes the
+ * columns' ratios, which are kept while columns are hidden.
  */
 class YaziColumns : public QWidget
 {
@@ -58,6 +67,19 @@ public:
      */
     void setPreviewWidget(QWidget *widget);
     QWidget *previewWidget() const;
+    /**
+     * Shows a YaziPreview of the current column's focused item in the preview
+     * column, or removes the preview widget. Enabling keeps a preview widget
+     * that is already set.
+     */
+    void setPreviewEnabled(bool enabled);
+    /// Whether the preview column has a widget, even if the width hides it.
+    bool previewEnabled() const;
+    /// The built-in preview of the focused item, or nullptr when the column has none or another widget.
+    YaziPreview *preview() const;
+    /// The relative widths of the columns; dragging a handle updates them.
+    YaziMode::Ratios ratios() const;
+    void setRatios(const YaziMode::Ratios &ratios);
     QSplitter *splitter() const;
     /// The label that tells the user the pane is in Yazi mode.
     QLabel *modeIndicator() const;
@@ -69,16 +91,28 @@ Q_SIGNALS:
     void folderRequested(const QUrl &url);
     /// A file in the parent column was chosen; the pane should open @p folder and select @p item.
     void itemRequested(const QUrl &folder, const QUrl &item);
-    /// The parent column received focus or a click; the pane should become active.
+    /// The parent column or the preview column received focus or a click; the pane should become active.
     void activated();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
+    struct SavedAccessibility {
+        QPointer<QWidget> widget;
+        QString name;
+        QString description;
+    };
+
     void resetLister();
     void highlightCurrent();
     void request(const QModelIndex &index);
+    /// Shows, hides and sizes the columns for the splitter's width.
+    void applyColumnWidths();
+    void rememberRatios();
+    void updateTabOrder();
+    void labelCurrentColumn();
+    void restoreCurrentColumnLabels();
 
     QSplitter *m_splitter = nullptr;
     QListView *m_parentColumn = nullptr;
@@ -96,4 +130,6 @@ private:
     QUrl m_parentUrl;
     QUrl m_pendingRequest;
     bool m_showHiddenFiles = false;
+    YaziMode::Ratios m_ratios;
+    QList<SavedAccessibility> m_savedAccessibility;
 };

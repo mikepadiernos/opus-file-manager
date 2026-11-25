@@ -1434,6 +1434,11 @@ void MainWindow::connectPane(Pane *pane)
             updateActions();
         }
     });
+    connect(pane, &Pane::yaziPreviewChanged, this, [this, pane] {
+        if (pane == activePane()) {
+            updateActions();
+        }
+    });
     connect(pane, &Pane::urlChanged, this, [this, pane](const QUrl &url) {
         syncLinkedPane(pane, url);
         recordFolderVisit(pane, url);
@@ -2539,6 +2544,12 @@ void MainWindow::setupActions()
     connect(m_yaziModeAction, &KToggleAction::triggered, this, [this](bool enabled) {
         activePane()->setYaziMode(enabled);
     });
+    m_yaziPreviewAction = new KToggleAction(SymbolicIcon::fromTheme(QStringLiteral("document-preview")), i18nc("@action", "Yazi Preview"), this);
+    m_yaziPreviewAction->setToolTip(i18nc("@info:tooltip", "Show a preview of the focused item in the active pane's Yazi mode"));
+    actions->addAction(QStringLiteral("toggle_yazi_preview"), m_yaziPreviewAction);
+    connect(m_yaziPreviewAction, &KToggleAction::triggered, this, [this](bool visible) {
+        activePane()->setYaziPreview(visible);
+    });
 
     QAction *formatSource = actions->addAction(QStringLiteral("folder_format_source"));
     formatSource->setEnabled(false);
@@ -3195,6 +3206,8 @@ void MainWindow::updateActions()
 
     m_selectionModeAction->setChecked(view->selectionMode());
     m_yaziModeAction->setChecked(activePane()->yaziMode());
+    m_yaziPreviewAction->setChecked(activePane()->yaziPreview());
+    m_yaziPreviewAction->setEnabled(activePane()->yaziMode());
     m_selectionMarkersAction->setChecked(view->selectionMarkersVisible());
     actions->action(QStringLiteral("folder_format_source"))->setText(view->formatRuleDescription());
     actions->action(QStringLiteral("open_folder_format_source"))
@@ -5460,6 +5473,7 @@ void MainWindow::applySettings()
         pane->reloadFilterSettings();
         pane->setNavigationBarVisible(Settings::showNavigationBar());
         pane->setNewTabsAfterCurrent(Settings::newTabsAfterCurrent());
+        pane->reloadYaziPreviewSetting();
         pane->setFollowSymlinks(Settings::followSymlinks());
 
         FolderView *view = pane->view();
