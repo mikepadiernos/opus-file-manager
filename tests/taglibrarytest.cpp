@@ -244,6 +244,89 @@ private Q_SLOTS:
             &error));
         QVERIFY(error.contains(empty.path()));
     }
+
+    void managesTagsWithoutCycles()
+    {
+        QTemporaryDir dir;
+        QVERIFY(writeDocument(dir.path(), sampleDocument()));
+        TagLibrary::Library library = TagLibrary::Library::load(dir.path());
+
+        TagLibrary::Tag kitten{u"t-kitten"_s, u"Kitten"_s, {u" Kit "_s, u"kit"_s, u"kitten"_s, u""_s}, u"k"_s, u"#aabbcc"_s, {u"t-cat"_s}};
+        QString error;
+        QVERIFY2(library.setTag(kitten, &error), qPrintable(error));
+        QCOMPARE(library.tag(u"t-kitten"_s)->aliases, QStringList{u"Kit"_s});
+        QCOMPARE(library.ancestors(u"t-kitten"_s), (QStringList{u"t-cat"_s, u"t-animal"_s}));
+        QCOMPARE(library.descendants(u"t-animal"_s), (QStringList{u"t-cat"_s, u"t-kitten"_s}));
+
+        // A parent below the tag, or the tag itself, would form a cycle.
+        TagLibrary::Tag animal = *library.tag(u"t-animal"_s);
+        animal.parents = {u"t-kitten"_s};
+        QVERIFY(!library.setTag(animal, &error));
+        QVERIFY(error.contains(u"Kitten"_s));
+        animal.parents = {u"t-animal"_s};
+        QVERIFY(!library.setTag(animal, &error));
+        animal.parents = {u"t-unknown"_s};
+        QVERIFY(!library.setTag(animal, &error));
+        QVERIFY(library.tag(u"t-animal"_s)->parents.isEmpty());
+
+        // Invalid names, shorthands and colours are refused.
+        TagLibrary::Tag invalid{u"t-new"_s, u" padded"_s, {}, {}, {}, {}};
+        QVERIFY(!library.setTag(invalid, &error));
+        invalid.name = u"Valid"_s;
+        invalid.shorthand = u"two words"_s;
+        QVERIFY(!library.setTag(invalid, &error));
+        invalid.shorthand.clear();
+        invalid.color = u"red"_s;
+        QVERIFY(!library.setTag(invalid, &error));
+        QVERIFY(!library.tag(u"t-new"_s));
+
+        // Lookups match names, aliases and shorthand, ignoring case.
+        QCOMPARE(library.findTags(u"KITTY"_s), QStringList{u"t-cat"_s});
+        QCOMPARE(library.findTags(u"k"_s), QStringList{u"t-kitten"_s});
+        QVERIFY(library.findTags(u"Dog"_s).isEmpty());
+
+        QVERIFY(library.save(&error));
+        const TagLibrary::Library reloaded = TagLibrary::Library::load(dir.path());
+        QCOMPARE(reloaded.tag(u"t-kitten"_s)->color, u"#aabbcc"_s);
+        QCOMPARE(reloaded.tag(u"t-kitten"_s)->parents, QStringList{u"t-cat"_s});
+    }
+
+    void disambiguatesDuplicateNames()
+    {
+        TagLibrary::Library library(QDir::tempPath());
+        QVERIFY(library.setTag({u"t-animal"_s, u"Animal"_s, {}, {}, {}, {}}));
+        QVERIFY(library.setTag({u"t-band"_s, u"Band"_s, {}, {}, {}, {}}));
+        QVERIFY(library.setTag({u"t-jaguar-animal"_s, u"Jaguar"_s, {}, {}, {}, {u"t-animal"_s}}));
+        QVERIFY(library.setTag({u"t-jaguar-car"_s, u"jaguar"_s, {}, u"car"_s, {}, {}}));
+        QVERIFY(library.setTag({u"t-jaguar-other"_s, u"Jaguar"_s, {}, {}, {}, {}}));
+        QCOMPARE(library.displayName(u"t-animal"_s), u"Animal"_s);
+        QCOMPARE(library.displayName(u"t-jaguar-animal"_s), u"Jaguar (Animal)"_s);
+        QCOMPARE(library.displayName(u"t-jaguar-car"_s), u"jaguar (car)"_s);
+        QCOMPARE(library.displayName(u"t-jaguar-other"_s), u"Jaguar (t-jaguar)"_s);
+        QCOMPARE(library.findTags(u"jaguar"_s).size(), 3);
+    }
+
+    void removingTagsClearsReferences()
+    {
+        QTemporaryDir dir;
+        QVERIFY(writeDocument(dir.path(), sampleDocument()));
+        TagLibrary::Library library = TagLibrary::Library::load(dir.path());
+        QVERIFY(library.setTag({u"t-pet"_s, u"Pet"_s, {}, {}, {}, {}}));
+        TagLibrary::Tag cat = *library.tag(u"t-cat"_s);
+        cat.parents.append(u"t-pet"_s);
+        QVERIFY(library.setTag(cat));
+        QCOMPARE(library.usageCount(u"t-cat"_s), 1);
+
+        QCOMPARE(library.removeTag(u"t-animal"_s), 0);
+        QVERIFY(!library.tag(u"t-animal"_s));
+        QCOMPARE(library.tag(u"t-cat"_s)->parents, QStringList{u"t-pet"_s});
+        QCOMPARE(library.groups().first().tags, QStringList{u"t-cat"_s});
+
+        QCOMPARE(library.removeTag(u"t-cat"_s), 1);
+        QVERIFY(library.entry(u"photos/cat.jpg"_s)->tags.isEmpty());
+        QVERIFY(library.groups().first().tags.isEmpty());
+        QCOMPARE(library.removeTag(u"t-cat"_s), 0);
+    }
 };
 
 QTEST_GUILESS_MAIN(TagLibraryTest)

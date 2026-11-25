@@ -5,16 +5,24 @@
 #include "libraryregistry.h"
 #include "libraryreviewdialog.h"
 #include "libraryscan.h"
+#include "tageditdialog.h"
 #include "taglibrary.h"
+#include "tagmanagerwidget.h"
 
+#include <KColorButton>
 #include <KIO/CopyJob>
 
+#include <QCheckBox>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
+#include <QLineEdit>
+#include <QListWidget>
+#include <QPlainTextEdit>
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QStandardPaths>
@@ -235,6 +243,77 @@ private Q_SLOTS:
         QVERIFY(dialog.removeSelected());
         QCOMPARE(missing->topLevelItemCount(), 0);
         QVERIFY(!TagLibrary::Library::load(dir.path()).entry(QStringLiteral("note.txt")));
+    }
+
+    void managesTagsInTheTagManager()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QCOMPARE(LibraryRegistry::create(dir.path()), QString());
+        indexWithTag(dir.path(), {});
+
+        TagManagerWidget manager;
+        QSignalSpy changed(&manager, &TagManagerWidget::libraryChanged);
+        manager.setLibrary(dir.path());
+        auto *list = manager.findChild<QTreeWidget *>(QStringLiteral("tagList"));
+        QCOMPARE(list->topLevelItemCount(), 1);
+
+        // A new tag below the existing one, with a duplicate name.
+        TagEditDialog *dialog = manager.createTag();
+        QVERIFY(dialog);
+        auto *ok = dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok);
+        QVERIFY(!ok->isEnabled());
+        dialog->findChild<QLineEdit *>(QStringLiteral("tagName"))->setText(QStringLiteral("tag"));
+        dialog->findChild<QPlainTextEdit *>(QStringLiteral("tagAliases"))->setPlainText(QStringLiteral("Label\n\nlabel"));
+        dialog->findChild<QLineEdit *>(QStringLiteral("tagShorthand"))->setText(QStringLiteral("t 2"));
+        QVERIFY(!ok->isEnabled());
+        QVERIFY(!dialog->problem().isEmpty());
+        dialog->findChild<QLineEdit *>(QStringLiteral("tagShorthand"))->setText(QStringLiteral("t2"));
+        QVERIFY(ok->isEnabled());
+        QCOMPARE(dialog->duplicateNote().contains(QStringLiteral("tag (t2)")), true);
+        auto *parents = dialog->findChild<QListWidget *>(QStringLiteral("tagParents"));
+        QCOMPARE(parents->count(), 1);
+        parents->item(0)->setCheckState(Qt::Checked);
+        QCOMPARE(dialog->duplicateNote().contains(QStringLiteral("tag (Tag)")), true);
+        const QString childId = dialog->tag().id;
+        ok->click();
+        QCOMPARE(changed.count(), 1);
+        QCOMPARE(list->topLevelItemCount(), 2);
+        QCOMPARE(manager.currentTag(), childId);
+
+        TagLibrary::Library library = TagLibrary::Library::load(dir.path());
+        QCOMPARE(library.tag(childId)->aliases, QStringList{QStringLiteral("Label")});
+        QCOMPARE(library.tag(childId)->parents, QStringList{QStringLiteral("t1")});
+        QCOMPARE(library.displayName(childId), QStringLiteral("tag (Tag)"));
+
+        // The parent can't become a child of its own child.
+        dialog = manager.editTag(QStringLiteral("t1"));
+        QVERIFY(dialog);
+        parents = dialog->findChild<QListWidget *>(QStringLiteral("tagParents"));
+        QCOMPARE(parents->count(), 1);
+        QVERIFY(!(parents->item(0)->flags() & Qt::ItemIsEnabled));
+        dialog->findChild<QCheckBox *>(QStringLiteral("tagUseColor"))->setChecked(true);
+        dialog->findChild<KColorButton *>(QStringLiteral("tagColor"))->setColor(QColor(QStringLiteral("#112233")));
+        dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click();
+        QCOMPARE(TagLibrary::Library::load(dir.path()).tag(QStringLiteral("t1"))->color, QStringLiteral("#112233"));
+
+        // Searching matches aliases and shorthand.
+        auto *filter = manager.findChild<QLineEdit *>(QStringLiteral("tagFilter"));
+        filter->setText(QStringLiteral("labe"));
+        int visible = 0;
+        for (int i = 0; i < list->topLevelItemCount(); ++i) {
+            visible += list->topLevelItem(i)->isHidden() ? 0 : 1;
+        }
+        QCOMPARE(visible, 1);
+        filter->clear();
+
+        // Deleting the parent keeps the child.
+        QVERIFY(manager.removeTag(QStringLiteral("t1")));
+        library = TagLibrary::Library::load(dir.path());
+        QVERIFY(!library.tag(QStringLiteral("t1")));
+        QVERIFY(library.tag(childId)->parents.isEmpty());
+        QCOMPARE(library.displayName(childId), QStringLiteral("tag"));
+        QCOMPARE(list->topLevelItemCount(), 1);
     }
 };
 
