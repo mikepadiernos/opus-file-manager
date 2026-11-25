@@ -1194,8 +1194,8 @@ Settings for M23 tagging, stored in KConfig.
 - [x] **Tags:** configure colours, display, parent-tag matching defaults and
       embedded-pane placement
 - [x] **Search:** choose the default tag-search scope and matching behaviour
-- [ ] **Fields:** manage available text and date fields
-- [ ] **Embedded metadata:** select EXIF and ID3 fields to read or map to
+- [x] **Fields:** manage available text and date fields
+- [x] **Embedded metadata:** select EXIF and ID3 fields to read or map to
       library metadata, and control refresh and conflict handling
 
 ### M25: Yazi mode
