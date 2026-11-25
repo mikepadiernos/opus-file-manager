@@ -1348,6 +1348,29 @@ layouts.
         FUSE mounts such as remote drives. Leave partitioning, formatting and
         fstab editing to KDE Partition Manager. Report busy devices, denied
         authorization and failed operations. (Krusader)
+  - [ ] Optional KWin script for window management that Wayland applications
+        cannot perform themselves: install, enable, update and remove a Plasma
+        Opus KWin script package only through explicit action, using KPackage
+        and KWin's scripting D-Bus interface. When applying an M15 workspace or
+        Activity association, restore each Plasma Opus window's screen,
+        virtual desktop, size, tile and keep-above state. Optionally place
+        windows opened from Plasma Opus, such as terminals, editors and
+        detached previews, beside the file manager using KWin's tiles, and
+        apply an assigned workspace when the virtual desktop changes. Act only
+        on Plasma Opus windows and communicate through a versioned D-Bus
+        interface, checking the installed script version. Prefer
+        KWindowSystem, XDG activation and window rules where they suffice, and
+        open KWin's settings instead of editing window rules, other scripts or
+        global KWin settings. Report when KWin or scripting is unavailable,
+        such as on other compositors, without affecting file management.
+  - [ ] Drop-down window, like Yakuake: optionally slide a Plasma Opus window
+        in from a chosen screen edge and hide it again, toggled by a KDE global
+        shortcut or by a screen edge or touch-screen edge registered by the
+        KWin script. Keep it above other windows and out of the taskbar and
+        pager, open it on the active screen and optionally hide it when it
+        loses focus, but not while a dialog or confirmation needs attention.
+        Restore its own layout or an assigned workspace, and fall back to a
+        regular window when KWin or the script is unavailable. (Yakuake)
 
 - **M27.02: Archives and application packages**
 
@@ -1614,6 +1637,17 @@ Settings for M27 integrations, stored in KConfig.
   - [ ] **Display:** show only removable devices by default, hide pseudo, snap
         and other system file systems, and show the quick-mount menu on the
         toolbar
+
+- **KWin scripts**
+
+  - [ ] **Window management:** show whether the Plasma Opus KWin script is
+        installed and enabled, with explicit actions to install, update,
+        disable or remove it; choose which behaviours it applies, such as
+        workspace window restoration, tiling opened windows and following
+        virtual desktops, and open KWin's settings for shared window rules
+  - [ ] **Drop-down window:** enable it and choose its screen edge, width,
+        height, screen, animation and trigger, and whether it hides when it
+        loses focus
 
 - **Baloo**
 
@@ -2141,6 +2175,9 @@ interfaces. The additions above draw on these sources:
 - [Max File Manager](https://github.com/majidasgari/max-file-manager), alongside
   this project's [UI](parity/ui.md) and [backend](parity/backend.md)
   inventories.
+- [KWin scripting](https://develop.kde.org/docs/plasma/kwin/), for window
+  placement that Wayland applications cannot perform themselves, and
+  [Yakuake](https://apps.kde.org/yakuake/)'s drop-down window.
 - [Strata](https://github.com/lgse/strata), especially its opt-in system file
   chooser served through the XDG file chooser portal.
 - [RaiDrive](https://www.raidrive.com/), which mounts cloud, S3-compatible and
