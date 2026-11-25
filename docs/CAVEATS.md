@@ -707,9 +707,15 @@ Tracked in
 - **Search panel:** The panel searches the folder it was opened for and does
   not follow later navigation; search again from a pane to change it. While a
   search runs, the folder can't change until the search finishes or is
-  canceled. The panel follows the embedded terminal's placement, below or
-  beside the panes, and is hidden again at startup. Hiding the panel does not
-  cancel a running search.
+  canceled. By default the panel follows the embedded terminal's placement,
+  below or beside the panes. Preferences' Search page can instead place it
+  below or right of the panes; when that direction differs from the
+  terminal's, the panel spans the panes and terminal together and its size is
+  remembered separately. The panel is hidden at startup unless Preferences
+  enables reopening it. Each new window then reopens it, without taking focus,
+  if it was shown when last toggled in any window; this state is not kept per
+  window or workspace. Workspace layouts don't record the search panel's
+  placement or visibility. Hiding the panel does not cancel a running search.
 - **Toolbar search field:** The optional Search Field toolbar entry is not on
   any toolbar by default; add it with Customize Main Toolbar. Pressing Enter
   searches the active pane's current folder with the text typed, but uses the
@@ -782,15 +788,15 @@ Tracked in
   OR are mixed, and search the current folder or search folders when an
   advanced query has no required name or content term. After renaming or
   deleting a shared path filter, choose the default path filter again on
-  Preferences' Search page.
+  Preferences' Search page. With several windows open, hide the search panel in
+  the last window you use if it should stay closed at the next startup.
   - Comment: [#362.7023269364][comment-362]
 - **Alternative:** Use a separately maintained locate database for filenames.
   - Comment:
     [#362.7029675758](https://github.com/mikepadiernos/plasma-opus/issues/362#issuecomment-7029675758)
 - **Planned:** [M21 advanced search](ROADMAP.md#m21-advanced-search) reuses M09
   search; its new interface and criteria do not by themselves remove current
-  backend limits. [M22 advanced search settings](ROADMAP.md#m22-advanced-search-settings)
-  plans choosing the panel's placement and restoring its visibility at startup.
+  backend limits.
   [M31 keyboard shortcut settings](ROADMAP.md#m31-keyboard-shortcut-settings)
   plans configurable shortcuts
   ([#230](https://github.com/mikepadiernos/plasma-opus/issues/230)), which
