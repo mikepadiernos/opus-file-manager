@@ -22,18 +22,18 @@ Manager behaviour that informs its parity goals.
 Status follows each milestone's parent issue on the
 [project board](https://github.com/users/mikepadiernos/projects/3).
 
-|     | Milestones | Focus                                        | Status     |
-| --- | ---------- | -------------------------------------------- | ---------- |
-| 🧱  | M01–M04    | Core dual pane and listing depth             | ✅ Merged  |
-| 🖼️  | M05–M08    | Preview, gallery and editor                  | ✅ Merged  |
-| 🧰  | M09–M14    | Tools, interface customization, translations | ✅ Merged  |
-| 🗂️  | M15–M16    | Workspaces and their settings                | ✅ Merged  |
-| 🎨  | M17–M18    | Themes and their settings                    | ✅ Merged  |
-| 🏷️  | M19–M20    | Branding and its settings                    | ✅ Merged  |
-| 🔎  | M21–M22    | Advanced search and its settings             | ✅ Merged  |
-| 🔖  | M23–M26    | Native tagging and Yazi mode                 | 📋 Planned |
-| 🔌  | M27–M31    | Integrations, Nextcloud and shortcuts        | 📋 Planned |
-| ✨  | M32        | Refinements                                  | 📋 Planned |
+|     | Milestones | Focus                                        | Status         |
+| --- | ---------- | -------------------------------------------- | -------------- |
+| 🧱  | M01–M04    | Core dual pane and listing depth             | ✅ Merged      |
+| 🖼️  | M05–M08    | Preview, gallery and editor                  | ✅ Merged      |
+| 🧰  | M09–M14    | Tools, interface customization, translations | ✅ Merged      |
+| 🗂️  | M15–M16    | Workspaces and their settings                | ✅ Merged      |
+| 🎨  | M17–M18    | Themes and their settings                    | ✅ Merged      |
+| 🏷️  | M19–M20    | Branding and its settings                    | ✅ Merged      |
+| 🔎  | M21–M22    | Advanced search and its settings             | ✅ Merged      |
+| 🔖  | M23–M26    | Native tagging and Yazi mode                 | 🚧 In progress |
+| 🔌  | M27–M31    | Integrations, Nextcloud and shortcuts        | 📋 Planned     |
+| ✨  | M32        | Refinements                                  | 📋 Planned     |
 
 ## Contents
 
