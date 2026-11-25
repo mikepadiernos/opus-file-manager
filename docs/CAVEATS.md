@@ -21,32 +21,34 @@ recommendation and external tools are separate applications.
 
 ## Find a caveat
 
-- **Browsing and viewing:** [Archives](#archives),
+- **🗂️ Browsing and viewing:** [Archives](#archives),
   [folder metadata and listings](#folder-metadata-and-listings),
   [planned password-gated folders](#planned-password-gated-folders),
   [previews and gallery](#previews-and-gallery), [editor](#editor),
-  [Jalali dates](#jalali-dates),
-  [translation format overrides](#translation-format-overrides)
-- **Search and operations:** [Search](#search), [batch rename](#batch-rename),
-  [metadata editing](#metadata-editing), [transfer queue](#transfer-queue),
+  [file-list minimap](#file-list-minimap)
+- **🔎 Search and operations:** [Search](#search),
+  [batch rename](#batch-rename), [metadata editing](#metadata-editing),
+  [transfer queue](#transfer-queue),
   [custom commands](#custom-commands), [symbolic links](#symbolic-links),
   [listing export](#listing-export), [checksums](#checksum-files),
   [split and combine](#split-and-combine-files)
-- **Comparison and analysis:**
+- **🔀 Comparison and analysis:**
   [Filtered folder comparison](#filtered-folder-comparison),
   [folder synchronization](#folder-synchronization),
   [file comparison](#file-comparison),
   [folder content chart](#folder-content-chart),
   [pane comparison](#pane-folder-comparison), [treemap](#cushion-treemap),
   [duplicate finder](#duplicate-finder)
-- **Other:** [Embedded terminal](#embedded-terminal),
+- **🧭 Workspaces and panes:** [Workspace layouts](#workspace-layouts),
+  [workspace settings](#workspace-settings),
   [linked navigation](#linked-pane-navigation),
-  [workspace layouts](#workspace-layouts),
-  [workspace settings](#workspace-settings), [themes](#themes),
-  [theme settings](#theme-settings), [branding](#branding),
-  [native tag groups](#native-tag-groups),
-  [native title and header padding](#native-title-and-header-padding),
-  [file-list minimap](#file-list-minimap),
+  [native tag groups](#native-tag-groups)
+- **🎨 Appearance:** [Themes](#themes), [theme settings](#theme-settings),
+  [branding](#branding),
+  [native title and header padding](#native-title-and-header-padding)
+- **🌐 Languages:** [Jalali dates](#jalali-dates),
+  [translation format overrides](#translation-format-overrides)
+- **🛠️ Setup and tools:** [Embedded terminal](#embedded-terminal),
   [settings backups](#settings-backups),
   [build and installation](#build-installation-and-references),
   [installing optional tools](#installing-optional-alternatives)
