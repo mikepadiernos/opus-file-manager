@@ -327,6 +327,45 @@ private Q_SLOTS:
         QVERIFY(library.groups().first().tags.isEmpty());
         QCOMPARE(library.removeTag(u"t-cat"_s), 0);
     }
+
+    void assignsAndCountsTags()
+    {
+        QTemporaryDir dir;
+        QVERIFY(writeDocument(dir.path(), sampleDocument()));
+        TagLibrary::Library library = TagLibrary::Library::load(dir.path());
+        TagLibrary::Observation cat{u"photos/cat.jpg"_s, false, 12, 1700000000000, 1, 42};
+        TagLibrary::Observation dog{u"photos/dog.jpg"_s, false, 5, 1700000000000, 1, 43};
+        TagLibrary::Observation photos{u"photos"_s, true, 0, 0, 1, 2};
+
+        // An unknown tag changes nothing.
+        int changed = -1;
+        QString error;
+        QVERIFY(!library.assignTags({dog}, {u"t-missing"_s}, {}, &changed, &error));
+        QVERIFY(!error.isEmpty());
+        QVERIFY(!library.entry(u"photos/dog.jpg"_s));
+
+        // Unindexed items are indexed, and a missing entry found at its path is restored.
+        QVERIFY(library.assignTags({cat, dog, photos, dog}, {u"t-animal"_s}, {}, &changed));
+        QCOMPARE(changed, 3);
+        QVERIFY(library.entry(u"photos/dog.jpg"_s));
+        QVERIFY(!library.entry(u"photos"_s)->missing);
+        QCOMPARE(library.entry(u"photos/cat.jpg"_s)->tags, (QStringList{u"t-cat"_s, u"t-animal"_s}));
+        QVERIFY(library.assignTags({cat}, {u"t-animal"_s}, {}, &changed));
+        QCOMPARE(changed, 0);
+
+        const QStringList paths{u"photos/cat.jpg"_s, u"photos/dog.jpg"_s, u"photos/cat.jpg"_s, u"unknown"_s};
+        QHash<QString, int> counts = library.tagCounts(paths);
+        QCOMPARE(counts.value(u"t-animal"_s), 2);
+        QCOMPARE(counts.value(u"t-cat"_s), 1);
+
+        // Removing and adding at once; inherited tags aren't counted.
+        QVERIFY(library.assignTags({cat, dog}, {u"t-cat"_s}, {u"t-animal"_s}, &changed));
+        QCOMPARE(changed, 2);
+        counts = library.tagCounts(paths);
+        QCOMPARE(counts.value(u"t-cat"_s), 2);
+        QVERIFY(!counts.contains(u"t-animal"_s));
+        QCOMPARE(library.entry(u"photos/cat.jpg"_s)->tags, QStringList{u"t-cat"_s});
+    }
 };
 
 QTEST_GUILESS_MAIN(TagLibraryTest)

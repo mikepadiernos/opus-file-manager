@@ -21,6 +21,7 @@
 #include "gallerywindow.h"
 #include "informationpanel.h"
 #include "interfacelanguage.h"
+#include "libraryregistry.h"
 #include "localizeddates.h"
 #include "metadataeditdialog.h"
 #include "pane.h"
@@ -30,6 +31,8 @@
 #include "settings.h"
 #include "settingsdialog.h"
 #include "tabmodel.h"
+#include "taglibrary.h"
+#include "tagpanel.h"
 #include "transferqueue.h"
 #include "transferqueuedialog.h"
 #include "viewsettings.h"
@@ -194,6 +197,53 @@ private Q_SLOTS:
             delete window;
         }
         QVERIFY(emitted);
+    }
+
+    void tagPanelFollowsTheSelection()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        QFile file(folder.filePath(QStringLiteral("x.txt")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("x");
+        file.close();
+        QCOMPARE(LibraryRegistry::create(folder.path()), QString());
+        const auto unregister = qScopeGuard([&folder] {
+            LibraryRegistry::remove(folder.path());
+        });
+
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(folder.path())});
+        window.show();
+        auto *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        auto *dock = window.findChild<QDockWidget *>(QStringLiteral("tagDock"));
+        auto *panel = window.findChild<TagPanel *>(QStringLiteral("tagPanel"));
+        auto *assign = window.actionCollection()->action(QStringLiteral("assign_tags"));
+        auto *toggle = window.actionCollection()->action(QStringLiteral("show_tag_panel"));
+        QVERIFY(dock && panel && assign && toggle);
+        QVERIFY(dock->isHidden());
+        QVERIFY(assign->isEnabled());
+
+        view->selectUrls({QUrl::fromLocalFile(folder.filePath(QStringLiteral("x.txt")))});
+        assign->trigger();
+        QVERIFY(dock->isVisible());
+        QVERIFY(toggle->isChecked());
+        QCOMPARE(panel->library(), folder.path());
+        QVERIFY(panel->createAndAssign(QStringLiteral("Draft")));
+        const TagLibrary::Library library = TagLibrary::Library::load(folder.path());
+        QCOMPARE(library.entry(QStringLiteral("x.txt"))->tags, library.findTags(QStringLiteral("Draft")));
+
+        panel->findChild<QAction *>(QStringLiteral("tagPanelPlaceBelow"))->trigger();
+        QCOMPARE(window.dockWidgetArea(dock), Qt::BottomDockWidgetArea);
+        QCOMPARE(KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel")).readEntry("Placement"), QStringLiteral("below"));
+        panel->findChild<QAction *>(QStringLiteral("tagPanelPlaceRight"))->trigger();
+        QCOMPARE(window.dockWidgetArea(dock), Qt::RightDockWidgetArea);
+        toggle->trigger();
+        QVERIFY(dock->isHidden());
+
+        window.activePane()->setUrl(m_a);
+        QTRY_VERIFY(!assign->isEnabled());
     }
 
     void opensMediaWithMpvWithoutShellInterpolation()

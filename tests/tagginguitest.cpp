@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "informationpanel.h"
 #include "librarymovetracker.h"
 #include "libraryrefreshdialog.h"
 #include "libraryregistry.h"
 #include "libraryreviewdialog.h"
 #include "libraryscan.h"
+#include "tagassignment.h"
 #include "tageditdialog.h"
 #include "taglibrary.h"
 #include "tagmanagerwidget.h"
+#include "tagpanel.h"
 
 #include <KColorButton>
 #include <KIO/CopyJob>
@@ -314,6 +317,161 @@ private Q_SLOTS:
         QVERIFY(library.tag(childId)->parents.isEmpty());
         QCOMPARE(library.displayName(childId), QStringLiteral("tag"));
         QCOMPARE(list->topLevelItemCount(), 1);
+    }
+
+    void resolvesAndAppliesAssignments()
+    {
+        QTemporaryDir dir;
+        QTemporaryDir other;
+        QVERIFY(dir.isValid() && other.isValid());
+        write(dir.filePath(QStringLiteral("a.txt")));
+        write(other.filePath(QStringLiteral("b.txt")));
+        QVERIFY(QFile::link(dir.filePath(QStringLiteral("a.txt")), dir.filePath(QStringLiteral("link.txt"))));
+        QCOMPARE(LibraryRegistry::create(dir.path()), QString());
+        QCOMPARE(LibraryRegistry::create(other.path()), QString());
+        indexWithTag(dir.path(), {});
+
+        TagAssignment::Selection selection = TagAssignment::resolve({dir.filePath(QStringLiteral("a.txt"))});
+        QCOMPARE(selection.root, dir.path());
+        QCOMPARE(selection.relativePaths, QStringList{QStringLiteral("a.txt")});
+        QVERIFY(selection.problem.isEmpty());
+        selection = TagAssignment::resolve({dir.filePath(QStringLiteral("a.txt")), other.filePath(QStringLiteral("b.txt"))});
+        QVERIFY(selection.root.isEmpty());
+        QVERIFY(!selection.problem.isEmpty());
+        QVERIFY(!TagAssignment::resolve({dir.path()}).problem.isEmpty());
+        QVERIFY(!TagAssignment::resolve({}).problem.isEmpty());
+
+        QString error;
+        QVERIFY(!TagAssignment::apply(dir.path(), {dir.filePath(QStringLiteral("link.txt"))}, {QStringLiteral("t1")}, {}, nullptr, &error));
+        QVERIFY(!error.isEmpty());
+        QVERIFY(!TagAssignment::apply(dir.path(), {other.filePath(QStringLiteral("b.txt"))}, {QStringLiteral("t1")}, {}, nullptr, &error));
+
+        // The cache follows writes in this process.
+        QVERIFY(TagAssignment::cachedLibrary(dir.path()).entry(QStringLiteral("a.txt"))->tags.isEmpty());
+        int changed = 0;
+        QVERIFY2(TagAssignment::apply(dir.path(), {dir.filePath(QStringLiteral("a.txt"))}, {QStringLiteral("t1")}, {}, &changed, &error), qPrintable(error));
+        QCOMPARE(changed, 1);
+        QCOMPARE(TagAssignment::cachedLibrary(dir.path()).entry(QStringLiteral("a.txt"))->tags, QStringList{QStringLiteral("t1")});
+    }
+
+    void assignsTagsInTheTagPanel()
+    {
+        QTemporaryDir dir;
+        QTemporaryDir other;
+        QVERIFY(dir.isValid() && other.isValid());
+        write(dir.filePath(QStringLiteral("a.txt")));
+        write(dir.filePath(QStringLiteral("b.txt")));
+        write(other.filePath(QStringLiteral("c.txt")));
+        QCOMPARE(LibraryRegistry::create(dir.path()), QString());
+        QCOMPARE(LibraryRegistry::create(other.path()), QString());
+        indexWithTag(dir.path(), {QStringLiteral("a.txt")});
+        // Created after indexing, so assigning a tag indexes it.
+        write(dir.filePath(QStringLiteral("new.txt")));
+        const auto item = [](const QString &path) {
+            return KFileItem(QUrl::fromLocalFile(path));
+        };
+        const KFileItem a = item(dir.filePath(QStringLiteral("a.txt")));
+        const KFileItem b = item(dir.filePath(QStringLiteral("b.txt")));
+
+        TagPanel panel;
+        QSignalSpy changed(&panel, &TagPanel::libraryChanged);
+        auto *list = panel.findChild<QTreeWidget *>(QStringLiteral("tagPanelList"));
+        auto *filter = panel.findChild<QLineEdit *>(QStringLiteral("tagPanelFilter"));
+        auto *create = panel.findChild<QPushButton *>(QStringLiteral("tagPanelCreate"));
+        panel.setContext(QUrl::fromLocalFile(dir.path()), {a, b});
+        QCOMPARE(panel.library(), dir.path());
+        QCOMPARE(list->topLevelItemCount(), 1);
+        QCOMPARE(panel.assignment(QStringLiteral("t1")), Qt::PartiallyChecked);
+        QCOMPARE(list->topLevelItem(0)->checkState(0), Qt::PartiallyChecked);
+        QVERIFY(list->topLevelItem(0)->flags() & Qt::ItemIsUserCheckable);
+
+        // Checking a partly assigned tag assigns it to every item.
+        list->topLevelItem(0)->setCheckState(0, Qt::Checked);
+        QCOMPARE(changed.count(), 1);
+        QCOMPARE(panel.assignment(QStringLiteral("t1")), Qt::Checked);
+        QCOMPARE(TagLibrary::Library::load(dir.path()).entry(QStringLiteral("b.txt"))->tags, QStringList{QStringLiteral("t1")});
+        QVERIFY(panel.setAssigned(QStringLiteral("t1"), false));
+        QCOMPARE(list->topLevelItem(0)->checkState(0), Qt::Unchecked);
+        QVERIFY(TagLibrary::Library::load(dir.path()).entry(QStringLiteral("a.txt"))->tags.isEmpty());
+
+        // Typing a new name and pressing Enter creates and assigns it; Enter on a match toggles it.
+        filter->setText(QStringLiteral("Travel"));
+        QVERIFY(create->isEnabled());
+        QTest::keyClick(filter, Qt::Key_Return);
+        QVERIFY(filter->text().isEmpty());
+        TagLibrary::Library library = TagLibrary::Library::load(dir.path());
+        QCOMPARE(library.tags().size(), 2);
+        const QString travel = library.findTags(QStringLiteral("travel")).value(0);
+        QVERIFY(!travel.isEmpty());
+        QCOMPARE(library.entry(QStringLiteral("a.txt"))->tags, QStringList{travel});
+        QCOMPARE(panel.assignment(travel), Qt::Checked);
+        filter->setText(QStringLiteral("travel"));
+        QVERIFY(!create->isEnabled());
+        QTest::keyClick(filter, Qt::Key_Return);
+        QCOMPARE(panel.assignment(travel), Qt::Unchecked);
+
+        // Down moves to the list, where Space toggles the current tag.
+        panel.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&panel));
+        filter->setFocus();
+        filter->setText(QStringLiteral("tag"));
+        QTest::keyClick(filter, Qt::Key_Down);
+        QCOMPARE(list->currentItem()->data(0, Qt::UserRole).toString(), QStringLiteral("t1"));
+        QTest::keyClick(list, Qt::Key_Space);
+        QCOMPARE(panel.assignment(QStringLiteral("t1")), Qt::Checked);
+
+        // Unindexed items are indexed when tagged.
+        panel.setContext(QUrl::fromLocalFile(dir.path()), {item(dir.filePath(QStringLiteral("new.txt")))});
+        QVERIFY(panel.setAssigned(travel, true));
+        QCOMPARE(TagLibrary::Library::load(dir.path()).entry(QStringLiteral("new.txt"))->tags, QStringList{travel});
+
+        // Items in different libraries can't be tagged together.
+        panel.setContext(QUrl::fromLocalFile(dir.path()), {a, item(other.filePath(QStringLiteral("c.txt")))});
+        QVERIFY(panel.message().contains(QStringLiteral("different libraries")));
+        QCOMPARE(panel.library(), dir.path());
+        QVERIFY(!panel.setAssigned(QStringLiteral("t1"), true));
+        QVERIFY(!list->topLevelItem(0)->data(0, Qt::CheckStateRole).isValid());
+
+        // Without a selection the folder's library is shown without check boxes.
+        panel.setContext(QUrl::fromLocalFile(dir.path()), {});
+        QCOMPARE(list->topLevelItemCount(), 2);
+        QVERIFY(!(list->topLevelItem(0)->flags() & Qt::ItemIsUserCheckable));
+        QTemporaryDir outside;
+        panel.setContext(QUrl::fromLocalFile(outside.path()), {});
+        QVERIFY(panel.library().isEmpty());
+        QCOMPARE(list->topLevelItemCount(), 0);
+        QVERIFY(!panel.message().isEmpty());
+    }
+
+    void showsTagsInTheInformationPanel()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        write(dir.filePath(QStringLiteral("a.txt")));
+        write(dir.filePath(QStringLiteral("b.txt")));
+        QCOMPARE(LibraryRegistry::create(dir.path()), QString());
+        indexWithTag(dir.path(), {QStringLiteral("a.txt")});
+        QVERIFY(TagLibrary::update(dir.path(), [](TagLibrary::Library &library, QString *error) {
+            return library.setTag({QStringLiteral("t2"), QStringLiteral("Child"), {}, {}, {}, {QStringLiteral("t1")}}, error);
+        }));
+        TagAssignment::invalidate();
+        QVERIFY(TagAssignment::apply(dir.path(), {dir.filePath(QStringLiteral("b.txt"))}, {QStringLiteral("t2")}, {}));
+
+        InformationPanel panel;
+        panel.setFields({QStringLiteral("size")});
+        auto *tags = panel.findChild<QLabel *>(QStringLiteral("informationTags"));
+        QVERIFY(tags);
+        panel.setItem(KFileItem(QUrl::fromLocalFile(dir.filePath(QStringLiteral("a.txt")))));
+        QVERIFY(!tags->isHidden());
+        QCOMPARE(tags->text(), QStringLiteral("Tag"));
+        panel.setItem(KFileItem(QUrl::fromLocalFile(dir.filePath(QStringLiteral("b.txt")))));
+        QCOMPARE(tags->text(), QStringLiteral("Child"));
+        QVERIFY(tags->toolTip().contains(QStringLiteral("Tag")));
+
+        QTemporaryDir outside;
+        write(outside.filePath(QStringLiteral("c.txt")));
+        panel.setItem(KFileItem(QUrl::fromLocalFile(outside.filePath(QStringLiteral("c.txt")))));
+        QVERIFY(tags->isHidden());
     }
 };
 
