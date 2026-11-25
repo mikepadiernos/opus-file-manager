@@ -17,6 +17,7 @@ class KFilePlacesModel;
 class KUrlNavigator;
 class TabColors;
 class TabModel;
+class YaziColumns;
 class QTabBar;
 class QGraphicsOpacityEffect;
 class QBoxLayout;
@@ -161,6 +162,17 @@ public:
      */
     void setFollowSymlinks(bool follow);
 
+    /**
+     * Shows the folder view in Yazi mode's columns, with the parent folder
+     * before it, or back on its own. The tabs, location, selection, filter,
+     * sorting and view mode are kept either way.
+     * @param enabled true to enter Yazi mode
+     */
+    void setYaziMode(bool enabled);
+    bool yaziMode() const;
+    /// The columns that host the folder view in Yazi mode; they exist even when the mode is off.
+    YaziColumns *yaziColumns() const;
+
 public Q_SLOTS:
     void setUrl(const QUrl &url);
     void revealUrl(const QUrl &url);
@@ -182,6 +194,7 @@ Q_SIGNALS:
     void workspaceLayoutChanged();
     void statusMessage(const QString &message);
     void searchRequested();
+    void yaziModeChanged(bool enabled);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -195,6 +208,8 @@ private:
     void saveHistoryViewState();
     void restoreHistoryViewState();
     void finishReveal();
+    /// Opens @p folder and selects @p item once it is listed.
+    void showFolderItem(const QUrl &folder, const QUrl &item);
     void syncTabBar();
     void updateBreadcrumbs(const QUrl &url);
     void updateTabStripVisibility();
@@ -228,6 +243,8 @@ private:
     QToolButton *m_locationModeButton = nullptr;
     TabColors *m_colors = nullptr;
     FolderView *m_view = nullptr;
+    YaziColumns *m_yaziColumns = nullptr;
+    bool m_yaziMode = false;
     FilterBar *m_filterBar = nullptr;
     QVBoxLayout *m_layout = nullptr;
     QHBoxLayout *m_outerLayout = nullptr;

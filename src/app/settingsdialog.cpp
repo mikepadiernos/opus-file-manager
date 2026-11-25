@@ -636,7 +636,7 @@ QWidget *SettingsDialog::createWorkspaceLayoutsPage()
     auto *restoreLayout = new QVBoxLayout(restore);
     restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestorePaneArrangement"),
                                       i18nc("@option:check", "Pane arrangement: single or dual panes, stacking, sizes and second-pane placement")));
-    restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestoreViews"), i18nc("@option:check", "Each pane's view mode")));
+    restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestoreViews"), i18nc("@option:check", "Each pane's view mode and Yazi mode")));
     restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestoreToolbars"), i18nc("@option:check", "Main and pane toolbar entries")));
     restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestorePanels"),
                                       i18nc("@option:check", "Panels: dock and toolbar positions, and the preview, editor and terminal panels")));

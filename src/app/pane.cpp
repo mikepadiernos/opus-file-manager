@@ -14,6 +14,7 @@
 #include "tabcolors.h"
 #include "tabmodel.h"
 #include "windoweffects.h"
+#include "yazicolumns.h"
 
 #include <KConfigGroup>
 #include <KDirModel>
@@ -279,6 +280,9 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     m_layout->addWidget(m_tabStrip);
     m_layout->addWidget(m_navigationBar);
     m_layout->addWidget(m_view, 1);
+    m_yaziColumns = new YaziColumns(this);
+    m_yaziColumns->hide();
+    m_yaziColumns->setShowHiddenFiles(m_view->showHiddenFiles());
     m_statusBarWidget = new QWidget(this);
     m_statusBarWidget->setObjectName(QStringLiteral("paneStatusBar"));
     m_statusBarWidget->hide();
@@ -399,6 +403,20 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
         m_tabs->replaceCurrentUrl(url);
         m_navigator->setLocationUrl(url);
     });
+    connect(m_view, &FolderView::urlChanged, this, [this](const QUrl &url) {
+        if (m_yaziMode) {
+            m_yaziColumns->setUrl(url);
+        }
+    });
+    connect(m_view, &FolderView::redirected, this, [this](const QUrl &url) {
+        if (m_yaziMode) {
+            m_yaziColumns->setUrl(url);
+        }
+    });
+    connect(m_view, &FolderView::hiddenFilesChanged, m_yaziColumns, &YaziColumns::setShowHiddenFiles);
+    connect(m_yaziColumns, &YaziColumns::folderRequested, this, &Pane::setUrl);
+    connect(m_yaziColumns, &YaziColumns::itemRequested, this, &Pane::showFolderItem);
+    connect(m_yaziColumns, &YaziColumns::activated, this, &Pane::activated);
     connect(m_view, &FolderView::activated, this, &Pane::activated);
     connect(m_view, &FolderView::typeAheadRequested, m_filterBar, &FilterBar::open);
     connect(m_filterBar, &FilterBar::filterChanged, m_view, &FolderView::setNameFilter);
@@ -442,7 +460,13 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     setLocationPresentation(LocationPresentation::FullBreadcrumbs);
 }
 
-Pane::~Pane() = default;
+Pane::~Pane()
+{
+    // Yazi mode reparents the view, which changes the order the pane's
+    // children are destroyed in; its listers can still emit then.
+    m_view->disconnect(this);
+    m_yaziColumns->disconnect(this);
+}
 
 void Pane::saveHistoryViewState()
 {
@@ -610,7 +634,7 @@ void Pane::setActive(bool active)
     m_dimEffect->setEnabled(m_inactiveDimming && !active);
     m_navigator->setActive(active);
     updateBackgroundTint();
-    if (active) {
+    if (active && QApplication::focusWidget() != m_yaziColumns->parentColumn()) {
         m_view->currentView()->setFocus();
     }
 }
@@ -650,6 +674,9 @@ void Pane::updateBackgroundTint()
     // Only these roles are resolved, so the view keeps following the
     // application palette for every other role.
     m_view->setPalette(ColorSchemes::withOverrides(QPalette(), overrides));
+    if (m_yaziColumns) {
+        m_yaziColumns->parentColumn()->setPalette(m_view->palette());
+    }
 }
 
 void Pane::changeEvent(QEvent *event)
@@ -971,20 +998,61 @@ void Pane::goUp()
 {
     const QUrl parent = KIO::upUrl(url());
     if (parent.isValid() && parent != url()) {
-        const QUrl child = url();
-        m_tabs->setCurrentUrl(parent);
         // Highlight the folder we just left, once it is listed.
-        connect(
-            m_view,
-            &FolderView::loadingChanged,
-            this,
-            [this, child](bool loading) {
-                if (!loading) {
-                    m_view->selectUrls({child});
-                }
-            },
-            Qt::SingleShotConnection);
+        showFolderItem(parent, url());
     }
+}
+
+void Pane::showFolderItem(const QUrl &folder, const QUrl &item)
+{
+    m_tabs->setCurrentUrl(folder);
+    connect(
+        m_view,
+        &FolderView::loadingChanged,
+        this,
+        [this, item](bool loading) {
+            if (!loading) {
+                m_view->selectUrls({item});
+            }
+        },
+        Qt::SingleShotConnection);
+}
+
+void Pane::setYaziMode(bool enabled)
+{
+    if (enabled == m_yaziMode) {
+        return;
+    }
+    QWidget *focus = QApplication::focusWidget();
+    const bool hadFocus = focus && (m_view->isAncestorOf(focus) || m_yaziColumns->isAncestorOf(focus));
+    m_yaziMode = enabled;
+    if (enabled) {
+        delete m_layout->replaceWidget(m_view, m_yaziColumns);
+        m_yaziColumns->setCurrentView(m_view);
+        m_yaziColumns->setUrl(m_view->url());
+        m_yaziColumns->show();
+    } else {
+        m_yaziColumns->takeCurrentView();
+        delete m_layout->replaceWidget(m_yaziColumns, m_view);
+        m_yaziColumns->hide();
+        m_yaziColumns->setUrl(QUrl());
+        m_view->show();
+    }
+    if (hadFocus) {
+        m_view->currentView()->setFocus();
+    }
+    Q_EMIT yaziModeChanged(enabled);
+    Q_EMIT workspaceLayoutChanged();
+}
+
+bool Pane::yaziMode() const
+{
+    return m_yaziMode;
+}
+
+YaziColumns *Pane::yaziColumns() const
+{
+    return m_yaziColumns;
 }
 
 void Pane::reload()
@@ -1230,6 +1298,7 @@ PaneSession Pane::saveState() const
     state.filterScope = static_cast<int>(filter.scope());
     state.locationPresentation = int(m_locationPresentation);
     state.viewMode = int(m_view->viewMode());
+    state.yaziMode = m_yaziMode;
     return state;
 }
 
@@ -1253,6 +1322,7 @@ void Pane::restoreState(const PaneSession &state)
     setLocationPresentation(state.locationPresentation < 0 ? m_defaultLocationPresentation
                                                            : static_cast<LocationPresentation>(qBound(0, state.locationPresentation, 2)));
     m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, PaneSession::MaximumViewMode)));
+    setYaziMode(state.yaziMode);
 }
 
 void Pane::replaceState(const PaneSession &state)
@@ -1277,6 +1347,7 @@ void Pane::replaceState(const PaneSession &state)
     setLocationPresentation(state.locationPresentation < 0 ? m_defaultLocationPresentation
                                                            : static_cast<LocationPresentation>(qBound(0, state.locationPresentation, 2)));
     m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, PaneSession::MaximumViewMode)));
+    setYaziMode(state.yaziMode);
 }
 
 void Pane::rebuildTabs(const PaneSession &state)

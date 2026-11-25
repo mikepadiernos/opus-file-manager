@@ -423,6 +423,7 @@ private:
     QHash<Pane *, QLabel *> m_paneItemsLabels;
     QHash<Pane *, QLabel *> m_paneFreeSpaceLabels;
     KToggleAction *m_dualLayoutAction = nullptr;
+    KToggleAction *m_yaziModeAction = nullptr;
     KToggleAction *m_stackedLayoutAction = nullptr;
     KToggleAction *m_hiddenFilesAction = nullptr;
     KToggleAction *m_previewsAction = nullptr;

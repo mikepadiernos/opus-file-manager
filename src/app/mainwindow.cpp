@@ -1429,6 +1429,11 @@ void MainWindow::connectPane(Pane *pane)
     connect(pane, &Pane::searchRequested, this, [this, pane] {
         showSearchForPane(pane);
     });
+    connect(pane, &Pane::yaziModeChanged, this, [this, pane] {
+        if (pane == activePane()) {
+            updateActions();
+        }
+    });
     connect(pane, &Pane::urlChanged, this, [this, pane](const QUrl &url) {
         syncLinkedPane(pane, url);
         recordFolderVisit(pane, url);
@@ -2525,6 +2530,16 @@ void MainWindow::setupActions()
     cardView->setText(i18nc("@action", "Card View"));
     cardView->setIcon(QIcon::fromTheme(QStringLiteral("view-grid"), QIcon::fromTheme(QStringLiteral("view-list-icons"))));
 
+    m_yaziModeAction =
+        new KToggleAction(SymbolicIcon::wrap(QIcon::fromTheme(QStringLiteral("view-file-columns"), QIcon::fromTheme(QStringLiteral("view-split-left-right")))),
+                          i18nc("@action", "Yazi Mode"),
+                          this);
+    m_yaziModeAction->setToolTip(i18nc("@info:tooltip", "Show the active pane's folder in columns with its parent folder"));
+    actions->addAction(QStringLiteral("toggle_yazi_mode"), m_yaziModeAction);
+    connect(m_yaziModeAction, &KToggleAction::triggered, this, [this](bool enabled) {
+        activePane()->setYaziMode(enabled);
+    });
+
     QAction *formatSource = actions->addAction(QStringLiteral("folder_format_source"));
     formatSource->setEnabled(false);
     QAction *openFormatSource = actions->addAction(QStringLiteral("open_folder_format_source"), this, [this] {
@@ -3179,6 +3194,7 @@ void MainWindow::updateActions()
         ->setEnabled(tabs->count() > 1 && !tabs->isPinned(tabs->currentIndex()) && !tabs->isLocked(tabs->currentIndex()));
 
     m_selectionModeAction->setChecked(view->selectionMode());
+    m_yaziModeAction->setChecked(activePane()->yaziMode());
     m_selectionMarkersAction->setChecked(view->selectionMarkersVisible());
     actions->action(QStringLiteral("folder_format_source"))->setText(view->formatRuleDescription());
     actions->action(QStringLiteral("open_folder_format_source"))

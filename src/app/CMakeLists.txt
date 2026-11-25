@@ -137,6 +137,8 @@ add_library(opusfm_app STATIC
     workspaceappearanceeditor.h
     workspacelocations.cpp
     workspacelocations.h
+    yazicolumns.cpp
+    yazicolumns.h
     opusfm.qrc
     branding.qrc
 )
