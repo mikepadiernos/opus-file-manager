@@ -41,6 +41,11 @@ QString AppIdentity::summary()
     return i18n("Dual-pane file manager for KDE Plasma");
 }
 
+QIcon AppIdentity::applicationIcon()
+{
+    return QIcon::fromTheme(desktopFileName(), QIcon(QStringLiteral(":/icons/%1.svg").arg(desktopFileName())));
+}
+
 KAboutData AppIdentity::aboutData(const QString &version)
 {
     KAboutData about(componentName(), displayName(), version, summary(), KAboutLicense::GPL_V3, i18n("© 2026 Mike Padiernos"));
@@ -48,5 +53,7 @@ KAboutData AppIdentity::aboutData(const QString &version)
     about.setHomepage(homepage());
     about.setBugAddress(bugAddress().toUtf8());
     about.setDesktopFileName(desktopFileName());
+    // About shows the program logo beside the name and version.
+    about.setProgramLogo(applicationIcon());
     return about;
 }

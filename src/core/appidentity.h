@@ -4,6 +4,7 @@
 
 #include <KAboutData>
 
+#include <QIcon>
 #include <QString>
 
 /// The application's name, description and identifiers. The desktop entry and
@@ -24,5 +25,12 @@ QString displayName();
 /// The translated one-line description shown in About, the desktop entry and AppStream.
 QString summary();
 
+/**
+ * The application icon from the icon theme, falling back to the copy compiled
+ * into the executable when it is not installed.
+ */
+QIcon applicationIcon();
+
+/// About data with the name, description, links and icon shared by every presentation.
 KAboutData aboutData(const QString &version);
 }
