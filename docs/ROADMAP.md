@@ -1126,7 +1126,7 @@ Board updates are pending; see the
       between the toolbar and panel
 - [x] **Panel:** choose an embedded-pane placement and whether to restore
       visibility at startup, preserving both file panes in shared placements
-- [ ] **Results:** choose the default presentation and whether to retain search
+- [x] **Results:** choose the default presentation and whether to retain search
       history; allow history to be cleared
 - [ ] **Toolbar:** show or hide the search widget using M12 toolbar controls and
       choose whether submitting a query opens the panel
