@@ -141,6 +141,17 @@ QString documentSignature(const QString &root);
 /// Whether @p entry has tags or field values.
 bool hasMetadata(const Entry &entry);
 
+/**
+ * Parses field templates written as "text:Name" or "date:Name", each with a
+ * new identifier. The type is matched ignoring case and spaces around the
+ * name are dropped. Entries without a known type or a valid name, and later
+ * entries whose name repeats an earlier one ignoring case, are ignored.
+ */
+QList<Field> parseFieldTemplates(const QStringList &templates);
+
+/// Writes @p field as a template that parseFieldTemplates() reads.
+QString fieldTemplate(const Field &field);
+
 class Library
 {
 public:

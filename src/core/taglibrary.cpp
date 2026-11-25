@@ -333,6 +333,35 @@ bool TagLibrary::hasMetadata(const Entry &entry)
     return !entry.tags.isEmpty() || !entry.fields.isEmpty();
 }
 
+QList<TagLibrary::Field> TagLibrary::parseFieldTemplates(const QStringList &templates)
+{
+    Library checked;
+    for (const QString &text : templates) {
+        const qsizetype colon = text.indexOf(u':');
+        if (colon < 0) {
+            continue;
+        }
+        const QString type = text.first(colon).trimmed();
+        Field field;
+        if (type.compare(QLatin1String("text"), Qt::CaseInsensitive) == 0) {
+            field.type = FieldType::Text;
+        } else if (type.compare(QLatin1String("date"), Qt::CaseInsensitive) == 0) {
+            field.type = FieldType::Date;
+        } else {
+            continue;
+        }
+        field.id = createId();
+        field.name = text.sliced(colon + 1).trimmed();
+        checked.setField(field);
+    }
+    return checked.fields();
+}
+
+QString TagLibrary::fieldTemplate(const Field &field)
+{
+    return (field.type == FieldType::Date ? QLatin1String("date:") : QLatin1String("text:")) + field.name;
+}
+
 QString TagLibrary::checkLocation(const QString &root, bool *readOnly)
 {
     if (readOnly) {

@@ -1306,5 +1306,9 @@
       <label>Whether tagged:no also matches items outside every tag library</label>
       <default>false</default>
     </entry>
+    <entry name="NewLibraryFields" type="StringList">
+      <label>Fields added to the document of each newly created tag library, in order, as text:Name or date:Name</label>
+      <default></default>
+    </entry>
   </group>
 </kcfg>

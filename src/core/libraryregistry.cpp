@@ -57,7 +57,7 @@ TagLibrary::Storage LibraryRegistry::storageFor(const QString &root, TagLibrary:
     return preferred;
 }
 
-QString LibraryRegistry::create(const QString &root, TagLibrary::Storage storage)
+QString LibraryRegistry::create(const QString &root, TagLibrary::Storage storage, const QList<TagLibrary::Field> &fields)
 {
     const QString clean = QDir::cleanPath(root);
     if (const QString problem = TagLibrary::checkLocation(clean); !problem.isEmpty()) {
@@ -90,6 +90,12 @@ QString LibraryRegistry::create(const QString &root, TagLibrary::Storage storage
                          "The folder is read-only, so a library can't be created there: %1. To keep its metadata privately instead, change "
                          "Preferences › Tagging › Privacy.",
                          clean);
+        }
+        for (TagLibrary::Field field : fields) {
+            if (field.id.isEmpty()) {
+                field.id = TagLibrary::createId();
+            }
+            library.setField(field);
         }
         if (!library.save(&error)) {
             return error;

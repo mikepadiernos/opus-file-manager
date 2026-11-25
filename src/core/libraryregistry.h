@@ -26,9 +26,12 @@ TagLibrary::Storage storageFor(const QString &root, TagLibrary::Storage preferre
  * Registers @p root, adopting a valid existing library document where it is
  * (see storageFor()) or creating an empty one in @p storage. With private
  * storage, a readable folder that can't be written can be a library.
+ * @param fields added to a newly created document, in order; fields without
+ *        an identifier get a new one, and fields the document refuses, such
+ *        as repeated names, are skipped. An adopted document is left unchanged.
  * @returns an error message, or an empty string on success
  */
-QString create(const QString &root, TagLibrary::Storage storage = TagLibrary::Storage::LibraryFolder);
+QString create(const QString &root, TagLibrary::Storage storage = TagLibrary::Storage::LibraryFolder, const QList<TagLibrary::Field> &fields = {});
 
 /// Unregisters @p root; the library document is kept.
 void remove(const QString &root);
