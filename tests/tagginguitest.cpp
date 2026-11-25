@@ -1,23 +1,30 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "fieldeditdialog.h"
 #include "informationpanel.h"
 #include "librarymovetracker.h"
 #include "libraryrefreshdialog.h"
 #include "libraryregistry.h"
 #include "libraryreviewdialog.h"
 #include "libraryscan.h"
+#include "localizeddates.h"
 #include "tagassignment.h"
 #include "tageditdialog.h"
+#include "tagfieldmanagerwidget.h"
+#include "taggingcontroller.h"
 #include "taggroupdialog.h"
 #include "taggroupmanagerwidget.h"
 #include "taglibrary.h"
 #include "tagmanagerwidget.h"
 #include "tagpanel.h"
 
+#include <KActionCollection>
 #include <KColorButton>
 #include <KIO/CopyJob>
 
+#include <QAction>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFile>
@@ -31,6 +38,7 @@
 #include <QPushButton>
 #include <QSignalSpy>
 #include <QStandardPaths>
+#include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTreeWidget>
@@ -596,6 +604,173 @@ private Q_SLOTS:
         write(outside.filePath(QStringLiteral("c.txt")));
         panel.setItem(KFileItem(QUrl::fromLocalFile(outside.filePath(QStringLiteral("c.txt")))));
         QVERIFY(tags->isHidden());
+    }
+
+    void editsFieldValues()
+    {
+        QTemporaryDir dir;
+        QTemporaryDir other;
+        QVERIFY(dir.isValid() && other.isValid());
+        write(dir.filePath(QStringLiteral("a.txt")));
+        write(dir.filePath(QStringLiteral("b.txt")));
+        write(other.filePath(QStringLiteral("c.txt")));
+        QCOMPARE(LibraryRegistry::create(dir.path()), QString());
+        QCOMPARE(LibraryRegistry::create(other.path()), QString());
+        indexWithTag(dir.path(), {});
+        // Created after indexing, so setting a value indexes it.
+        write(dir.filePath(QStringLiteral("new.txt")));
+        const QString a = dir.filePath(QStringLiteral("a.txt"));
+        const QString b = dir.filePath(QStringLiteral("b.txt"));
+        const QString fresh = dir.filePath(QStringLiteral("new.txt"));
+
+        // Without fields the editor offers to create them.
+        {
+            FieldEditDialog dialog(dir.path(), {a});
+            QSignalSpy manage(&dialog, &FieldEditDialog::manageFieldsRequested);
+            QVERIFY(!dialog.findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->isEnabled());
+            dialog.findChild<QPushButton *>(QStringLiteral("fieldEditManage"))->click();
+            QCOMPARE(manage.count(), 1);
+        }
+
+        // A text field and a date field; names must be unique.
+        TagFieldManagerWidget fields;
+        QSignalSpy fieldsChanged(&fields, &TagFieldManagerWidget::libraryChanged);
+        fields.setLibrary(dir.path());
+        auto *fieldList = fields.findChild<QTreeWidget *>(QStringLiteral("tagFieldList"));
+        QCOMPARE(fieldList->topLevelItemCount(), 0);
+        TagFieldDialog *fieldDialog = fields.createField();
+        QVERIFY(fieldDialog);
+        auto *ok = fieldDialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok);
+        QVERIFY(!ok->isEnabled());
+        fieldDialog->findChild<QLineEdit *>(QStringLiteral("tagFieldName"))->setText(QStringLiteral("Title"));
+        const QString title = fieldDialog->field().id;
+        ok->click();
+        fieldDialog = fields.createField();
+        fieldDialog->findChild<QLineEdit *>(QStringLiteral("tagFieldName"))->setText(QStringLiteral("title"));
+        QVERIFY(!fieldDialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->isEnabled());
+        fieldDialog->findChild<QLineEdit *>(QStringLiteral("tagFieldName"))->setText(QStringLiteral("Taken"));
+        auto *type = fieldDialog->findChild<QComboBox *>(QStringLiteral("tagFieldType"));
+        QVERIFY(type->isEnabled());
+        type->setCurrentIndex(type->findData(int(TagLibrary::FieldType::Date)));
+        const QString taken = fieldDialog->field().id;
+        fieldDialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click();
+        QCOMPARE(fieldsChanged.count(), 2);
+        QCOMPARE(fieldList->topLevelItemCount(), 2);
+        TagLibrary::Library library = TagLibrary::Library::load(dir.path());
+        QCOMPARE(library.field(taken)->type, TagLibrary::FieldType::Date);
+        QCOMPARE(library.field(title)->name, QStringLiteral("Title"));
+
+        // Values are validated, then set on every item, indexing new ones.
+        {
+            FieldEditDialog dialog(dir.path(), {a, b, fresh});
+            QSignalSpy changed(&dialog, &FieldEditDialog::libraryChanged);
+            auto *dialogOk = dialog.findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok);
+            QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("fieldEditNote")));
+            QTest::keyClicks(dialog.editor(title), QStringLiteral("Whiskers"));
+            QTest::keyClicks(dialog.editor(taken), QStringLiteral("2026-02-30"));
+            QVERIFY(!dialogOk->isEnabled());
+            QVERIFY(!dialog.problem().isEmpty());
+            dialog.editor(taken)->selectAll();
+            QTest::keyClicks(dialog.editor(taken), QStringLiteral("2026-02-28"));
+            QVERIFY(dialogOk->isEnabled());
+            QVERIFY(dialog.findChild<QAction *>(QStringLiteral("fieldDatePicker_") + taken));
+            QVERIFY(!dialog.findChild<QAction *>(QStringLiteral("fieldDatePicker_") + title));
+            dialogOk->click();
+            QCOMPARE(changed.count(), 1);
+            QCOMPARE(dialog.changedCount(), 3);
+        }
+        library = TagLibrary::Library::load(dir.path());
+        QCOMPARE(library.entry(QStringLiteral("a.txt"))->fields.value(title), QStringLiteral("Whiskers"));
+        QCOMPARE(library.entry(QStringLiteral("new.txt"))->fields.value(taken), QStringLiteral("2026-02-28"));
+
+        // The information panel shows the values, with dates in the regional format.
+        TagAssignment::invalidate();
+        InformationPanel panel;
+        panel.setFields({QStringLiteral("size")});
+        auto *values = panel.findChild<QLabel *>(QStringLiteral("informationLibraryFields"));
+        QVERIFY(values);
+        panel.setItem(KFileItem(QUrl::fromLocalFile(a)));
+        QVERIFY(!values->isHidden());
+        QCOMPARE(values->text(), QStringLiteral("Title: Whiskers\nTaken: ") + LocalizedDates::date(QDate(2026, 2, 28)));
+
+        // Mixed values are shown as such and kept unless edited; clearing a value removes it.
+        QString error;
+        QVERIFY2(TagAssignment::applyFields(dir.path(), {b}, {{title, QStringLiteral("Tom")}}, nullptr, &error), qPrintable(error));
+        {
+            FieldEditDialog dialog(dir.path(), {a, b});
+            QVERIFY(dialog.editor(title)->text().isEmpty());
+            QVERIFY(!dialog.editor(title)->placeholderText().isEmpty());
+            QCOMPARE(dialog.editor(taken)->text(), QStringLiteral("2026-02-28"));
+            dialog.editor(taken)->selectAll();
+            QTest::keyClick(dialog.editor(taken), Qt::Key_Backspace);
+            QCOMPARE(dialog.edits(), (QMap<QString, QString>{{taken, QString()}}));
+            QVERIFY(dialog.apply());
+            QCOMPARE(dialog.changedCount(), 2);
+        }
+        library = TagLibrary::Library::load(dir.path());
+        QCOMPARE(library.entry(QStringLiteral("a.txt"))->fields, (QMap<QString, QString>{{title, QStringLiteral("Whiskers")}}));
+        QCOMPARE(library.entry(QStringLiteral("b.txt"))->fields, (QMap<QString, QString>{{title, QStringLiteral("Tom")}}));
+        TagAssignment::invalidate();
+        panel.setItem(KFileItem(QUrl::fromLocalFile(b)));
+        QCOMPARE(values->text(), QStringLiteral("Title: Tom"));
+
+        // A field with values keeps its type; deleting it removes its values.
+        fields.reload();
+        QCOMPARE(fieldList->topLevelItem(0)->text(2), QStringLiteral("3"));
+        fieldDialog = fields.editField(title);
+        QVERIFY(!fieldDialog->findChild<QComboBox *>(QStringLiteral("tagFieldType"))->isEnabled());
+        fieldDialog->reject();
+        QVERIFY(fields.removeField(title));
+        QVERIFY(fields.message().contains(QStringLiteral("3")));
+        QVERIFY(!fields.removeField(title));
+        QVERIFY(!fields.message().isEmpty());
+        library = TagLibrary::Library::load(dir.path());
+        QVERIFY(!library.field(title));
+        QVERIFY(library.entry(QStringLiteral("a.txt"))->fields.isEmpty());
+        TagAssignment::invalidate();
+        panel.setItem(KFileItem(QUrl::fromLocalFile(a)));
+        QCOMPARE(values->text(), QStringLiteral("None"));
+
+        // The controller opens the editor for the selection and refuses items in different libraries.
+        QWidget window;
+        KActionCollection actions(&window);
+        KFileItemList selection{KFileItem(QUrl::fromLocalFile(a))};
+        QString status;
+        TaggingController controller(&window,
+                                     &actions,
+                                     {[&dir] {
+                                          return QUrl::fromLocalFile(dir.path());
+                                      },
+                                      [&selection] {
+                                          return selection;
+                                      },
+                                      [&status](const QString &message) {
+                                          status = message;
+                                      }});
+        controller.updateActions();
+        QVERIFY(actions.action(QStringLiteral("edit_fields"))->isEnabled());
+        actions.action(QStringLiteral("edit_fields"))->trigger();
+        auto *editor = window.findChild<FieldEditDialog *>();
+        QVERIFY(editor);
+        QVERIFY(editor->editor(taken));
+        QSignalSpy controllerChanged(&controller, &TaggingController::libraryChanged);
+        QTest::keyClicks(editor->editor(taken), QStringLiteral("2026-03-01"));
+        QVERIFY(editor->apply());
+        QCOMPARE(controllerChanged.count(), 1);
+        QVERIFY(!status.isEmpty());
+        status.clear();
+        QVERIFY(!controller.editFields({a, other.filePath(QStringLiteral("c.txt"))}));
+        QVERIFY(!status.isEmpty());
+        selection.clear();
+        status.clear();
+        actions.action(QStringLiteral("edit_fields"))->trigger();
+        QVERIFY(!status.isEmpty());
+
+        // Manage Tags can open on the Fields tab.
+        QWidget *manager = controller.manageTags(dir.path(), TaggingController::ManagerPage::Fields);
+        QCOMPARE(manager->findChild<QTabWidget *>(QStringLiteral("tagsDialogTabs"))->currentIndex(), 2);
+        QVERIFY(manager->findChild<TagFieldManagerWidget *>());
+        manager->close();
     }
 };
 

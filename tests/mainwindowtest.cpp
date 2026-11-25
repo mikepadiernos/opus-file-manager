@@ -10,6 +10,7 @@
 #include "duplicatefinderdialog.h"
 #include "effectiveappearance.h"
 #include "favoritesmodel.h"
+#include "fieldeditdialog.h"
 #include "filediffdialog.h"
 #include "fileoperations.h"
 #include "filesplitdialog.h"
@@ -31,6 +32,7 @@
 #include "settings.h"
 #include "settingsdialog.h"
 #include "tabmodel.h"
+#include "tagfieldmanagerwidget.h"
 #include "taggroupdialog.h"
 #include "taggroupmanagerwidget.h"
 #include "taglibrary.h"
@@ -250,7 +252,23 @@ private Q_SLOTS:
         auto *tagList = panel->findChild<QTreeWidget *>(QStringLiteral("tagPanelList"));
         QCOMPARE(tagList->topLevelItemCount(), 2);
         QCOMPARE(tagList->topLevelItem(0)->text(0), QStringLiteral("Status"));
+
+        // Manage Tags has a Fields tab, and Edit Fields sets values on the selection.
+        auto *fieldManager = tagsDialog->findChild<TagFieldManagerWidget *>();
+        QVERIFY(fieldManager);
+        TagFieldDialog *fieldDialog = fieldManager->createField();
+        fieldDialog->findChild<QLineEdit *>(QStringLiteral("tagFieldName"))->setText(QStringLiteral("Owner"));
+        const QString owner = fieldDialog->field().id;
+        fieldDialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click();
         tagsDialog->close();
+        auto *editFields = window.actionCollection()->action(QStringLiteral("edit_fields"));
+        QVERIFY(editFields->isEnabled());
+        editFields->trigger();
+        auto *fieldEditor = window.findChild<FieldEditDialog *>();
+        QVERIFY(fieldEditor && fieldEditor->editor(owner));
+        QTest::keyClicks(fieldEditor->editor(owner), QStringLiteral("Ann"));
+        QVERIFY(fieldEditor->apply());
+        QCOMPARE(TagLibrary::Library::load(folder.path()).entry(QStringLiteral("x.txt"))->fields.value(owner), QStringLiteral("Ann"));
 
         panel->findChild<QAction *>(QStringLiteral("tagPanelPlaceBelow"))->trigger();
         QCOMPARE(window.dockWidgetArea(dock), Qt::BottomDockWidgetArea);
@@ -262,6 +280,7 @@ private Q_SLOTS:
 
         window.activePane()->setUrl(m_a);
         QTRY_VERIFY(!assign->isEnabled());
+        QVERIFY(!editFields->isEnabled());
     }
 
     void opensMediaWithMpvWithoutShellInterpolation()
