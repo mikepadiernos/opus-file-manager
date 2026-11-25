@@ -206,6 +206,9 @@ except the library document.
   marked missing. Tagging an excluded item explicitly, or moving it in Plasma
   Opus, still indexes it.
 - A missing entry found again at its recorded path is no longer missing.
+- When [Embedded Metadata settings](#embedded-metadata-1) import on refresh,
+  the embedded metadata of the new files is then imported, as described in
+  [Importing into a library](#importing-into-a-library).
 
 The refresh summary offers **Review Missing Entries…** when entries are
 missing. **Tags › Refresh Library** and **Tags › Review Missing Entries…**
@@ -473,7 +476,10 @@ panel:
   track and disc number and comment.
 
 Reading never changes the file, and a file that can't be read is reported
-rather than treated as empty.
+rather than treated as empty. Properties turned off in
+[Preferences › Tagging › Embedded Metadata](#embedded-metadata-1) aren't
+read for searches or imports, and the preview panel and gallery don't show
+them.
 
 ### Importing into a library
 
@@ -482,23 +488,44 @@ in a library, copies embedded properties of the selected files into the
 library:
 
 1. The files are read in the background. The dialog then lists the properties
-   that were found, with example values, under **Import As**.
+   that were found, with example values, under **Import As**. Only the
+   properties read in [Embedded Metadata settings](#embedded-metadata-1) are
+   read and listed; when some or all are turned off and nothing is found, the
+   dialog says so.
 2. Choose **Tags** or a field for each property, or leave it at **Don't
-   import**. A property is suggested for a field with the same name. Lists,
-   such as keywords, become one tag per value, and dates can go to date
-   fields.
+   import**. Each property starts with its saved choice when the library has
+   a suitable field of that name; otherwise a field with the same name as the
+   property is suggested. Lists, such as keywords, become one tag per value,
+   and dates can go to date fields.
 3. **Preview** lists every change per item: tags to assign, tags to create,
    values to set or replace, values already imported, and values that are
    skipped because they're invalid or conflict. Nothing is written yet.
 4. **Import** applies the preview. Tags with a matching name, alias or
    shorthand are reused rather than created again, and importing the same
-   files twice changes nothing.
+   files twice changes nothing. A successful import saves the choices of the
+   listed properties, by field name, as the
+   [saved mappings](#embedded-metadata-1); **Don't import** removes a saved
+   choice, and the choices of properties that weren't listed are kept.
 
 By default, a field that already has a different value keeps it, and the
 preview shows it as a conflict. Check **Replace existing field values** to
-overwrite them. If a value changes in the library between the preview and the
+overwrite them; **Different field values** in the settings chooses whether it
+starts checked. If a value changes in the library between the preview and the
 import, the newer value is kept and the status bar says so. A read-only
 library can be previewed but not imported into.
+
+With **Import the metadata of new items when a library is refreshed** on,
+manual and automatic [refreshes](#indexing) also import the files they add,
+without a preview: after the refresh is saved, the mapped properties of the
+new files are read in the background, and the saved mappings are resolved
+against the library and applied with the **Different field values** setting.
+Mappings to fields the library doesn't have, or whose type can't hold the
+property, are skipped. Folders, files indexed by earlier refreshes and files
+found again at their recorded path aren't imported; import those with
+**Import Embedded Metadata…**. The refresh dialog adds a line such as
+**Imported embedded metadata for 3 items.**, and automatic refreshes add
+**imported embedded metadata for 3 items** to their status bar message.
+Canceling the refresh dialog while it reads imports nothing.
 
 The import only changes the library document. To change the metadata stored
 in a file itself, use **Edit Metadata…**, or **Edit Embedded Metadata…** in the
@@ -511,7 +538,9 @@ affected.
 ### Searching embedded metadata
 
 `meta:` criteria match the embedded properties listed above, in any library
-or folder:
+or folder, except those turned off in
+[Embedded Metadata settings](#embedded-metadata-1). With every property off,
+`meta:` criteria match nothing and files aren't read for them:
 
 | Criterion    | Matches files with an embedded property that |
 | ------------ | -------------------------------------------- |
@@ -524,7 +553,9 @@ are also matched as `YYYY-MM-DD`, so `meta:2024-05*` finds photos taken in
 May 2024. `metadata:` is accepted for `meta:`. Metadata criteria can't use
 `<`, `<=`, `>` or `>=`. Like `content:`, they read each candidate file, so
 they're checked after cheaper criteria; combine them with a name or type
-criterion, as in `type:image/* meta:canon`, to keep searches fast.
+criterion, as in `type:image/* meta:canon`, to keep searches fast. Live and
+indexed searches and **Select by Query…** use the properties read when they
+start.
 
 ## Settings
 
@@ -646,6 +677,37 @@ name, and repeated names, are ignored. Existing libraries aren't changed, and
 neither is existing metadata that a library adopts when its folder is added
 again. **Add Library…** uses the list as currently shown, even before it is
 applied.
+
+### Embedded Metadata
+
+**Properties to Read** lists every
+[embedded property](#embedded-metadata) under **Images**, **Audio**, and
+**Images and Audio** for those both are read from, such as title and artist.
+Checking or clearing a heading changes all of its properties. **Importing
+into Libraries** has a table with one row per property that is read; its
+**Import As** choice offers **Not imported**, **Tags** or **Field “Name”**.
+
+| Setting                                                          | Default              | Effect                                                                                                                                                                                                                                                                                                              |
+| ---------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Properties to Read**                                           | All checked          | Unchecked properties aren't read or shown: `meta:` criteria in searches and **Select by Query…** ignore them, the preview panel and gallery hide them, **Import Embedded Metadata…** doesn't list them and refreshes don't import them. Stored as `DisabledEmbeddedMetadataKeys`, the KFileMetaData property names. |
+| **Import As**                                                    | Not imported         | The saved mapping of each property: **Tags**, or a field chosen by name. **Import Embedded Metadata…** starts with it and saves the choices it imports with. Stored as `EmbeddedMetadataMappings` entries such as `genre=tags` or `model=field:Camera`.                                                             |
+| **Different field values**                                       | Keep existing values | **Keep existing values** or **Replace existing values**, for fields that already have a different value: whether **Replace existing field values** starts checked in the import dialog, and what refreshes do.                                                                                                      |
+| **Import the metadata of new items when a library is refreshed** | Off                  | Imports the files a refresh adds with the saved mappings, without a preview. See [Importing into a library](#importing-into-a-library). Disabled, with a hint, until a property that is read has a mapping.                                                                                                         |
+
+The fields offered are the union of the fields of every registered library
+and the [fields for new libraries](#fields-1) as currently shown, each name
+once, ignoring case; date fields are offered only for date properties. A
+saved field name that no library has yet is still shown. Because mappings
+name fields rather than identify them, one mapping works for every library:
+when importing, the field is found by name in that library, ignoring case,
+and skipped if it is missing or its type can't hold the property. Properties
+that aren't read keep their mappings, hidden, but don't count for importing on
+refresh. Entries for unknown properties or without a valid target are ignored.
+
+Searches, imports and refreshes already running keep the settings they started
+with. An import dialog that is open when Preferences is applied, or
+Preferences open while an import saves its choices, can overwrite the other's
+mappings when it saves.
 
 ## Searching by tags
 
