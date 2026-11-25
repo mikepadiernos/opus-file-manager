@@ -1101,7 +1101,7 @@ integration without blocking this milestone.
 - [x] Offer an optional main-toolbar search widget to enter queries, search the
       shared scope (initially the active pane's location) and open the advanced
       search panel
-- [ ] Support keyboard navigation and focus between the toolbar widget, search
+- [x] Support keyboard navigation and focus between the toolbar widget, search
       panel and panes
 - [ ] Prototype query parsing and validation in Rust behind a narrow C++/Rust
       interface. Test boundary error handling, ownership, path handling and
