@@ -1186,7 +1186,7 @@ rather than requiring TagStudio or changing the user's folder structure.
 
 Settings for M23 tagging, stored in KConfig.
 
-- [ ] **Privacy:** control library metadata and backup locations, explain what
+- [x] **Privacy:** control library metadata and backup locations, explain what
       is stored and require explicit consent before writing tags into file
       metadata
 - [ ] **Libraries:** manage roots and exclusions, automatic refresh and scan
