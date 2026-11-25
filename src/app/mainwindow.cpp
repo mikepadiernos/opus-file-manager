@@ -41,6 +41,7 @@
 #include "pane.h"
 #include "pathfiltereditor.h"
 #include "previewpanel.h"
+#include "searchdefaults.h"
 #include "searchpanel.h"
 #include "searchtoolbaraction.h"
 #include "session.h"
@@ -433,7 +434,12 @@ MainWindow::MainWindow(QWidget *parent)
     }
     KConfigGroup legacyView = KSharedConfig::openConfig()->group(QStringLiteral("View"));
     KConfigGroup views = KSharedConfig::openConfig()->group(QStringLiteral("Views"));
-    if (ViewSettings::migrateColumns(legacyView, views)) {
+    KConfigGroup searchDefaults = KSharedConfig::openConfig()->group(QStringLiteral("Search"));
+    const bool searchDefaultsMigrated = SearchDefaults::migrate(searchDefaults);
+    if (searchDefaultsMigrated) {
+        searchDefaults.sync();
+    }
+    if (ViewSettings::migrateColumns(legacyView, views) || searchDefaultsMigrated) {
         Settings::self()->load();
     }
     setComponentName(AppIdentity::componentName(), AppIdentity::displayName());
@@ -2336,6 +2342,13 @@ void MainWindow::setupActions()
     auto *toolbarSearch = new SearchToolbarAction(this);
     actions->addAction(QStringLiteral("search_toolbar"), toolbarSearch);
     connect(toolbarSearch, &SearchToolbarAction::searchRequested, this, &MainWindow::searchFromToolbar);
+    toolbarSearch->setSavedSearchProvider([this] {
+        return m_searchPanel->searchWidget()->savedSearchNames();
+    });
+    connect(toolbarSearch, &SearchToolbarAction::savedSearchRequested, this, [this](const QString &name) {
+        m_searchPanelAction->setChecked(true);
+        m_searchPanel->searchWidget()->runSavedSearch(name);
+    });
     connect(toolbarSearch, &SearchToolbarAction::resultsRequested, this, [this] {
         SearchWidget *search = m_searchPanel->searchWidget();
         if (m_searchPanelAction->isChecked() && !search->focusResults()) {
@@ -5039,6 +5052,7 @@ void MainWindow::applySettings()
     if (m_terminalPanelAction && m_terminalPanelAction->isChecked()) {
         m_terminalPanel->start(activePane()->url());
     }
+    m_searchPanel->searchWidget()->applyDefaults();
     if (m_editor) {
         m_editor->applySettings();
     }

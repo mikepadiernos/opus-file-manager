@@ -4,6 +4,7 @@
 
 #include "livesearch.h"
 #include "savedsearches.h"
+#include "searchdefaults.h"
 
 #include <KSharedConfig>
 #include <QFutureWatcher>
@@ -50,6 +51,16 @@ public:
     void search(const QString &text);
     /// Cancels a running search; does nothing otherwise.
     void cancel();
+    /**
+     * Applies changed search defaults from Preferences. Criteria still showing
+     * the previous defaults change; criteria the user changed are kept. While
+     * a search runs, the defaults are applied when it finishes.
+     */
+    void applyDefaults();
+    /// Rereads the saved searches and returns their names, for the toolbar search field.
+    QStringList savedSearchNames();
+    /// Loads the named saved search's criteria and starts it; returns whether it started.
+    bool runSavedSearch(const QString &name);
 
 Q_SIGNALS:
     /// Escape was pressed while no search was running.
@@ -63,7 +74,9 @@ protected:
     void keyPressEvent(QKeyEvent *event) override;
 
 private:
-    void start();
+    bool start();
+    QString applyDefaultsNow();
+    bool loadSavedSearch(const QString &name);
     void openSelected();
     void revealSelected();
     void updateSavedSearches();
@@ -92,4 +105,7 @@ private:
     QTreeWidget *m_errors;
     QFutureWatcher<LiveSearch::Result> m_watcher;
     std::shared_ptr<std::atomic_bool> m_canceled;
+    SearchDefaults::Defaults m_appliedDefaults;
+    PathFilter m_appliedFilter;
+    bool m_defaultsPending = false;
 };

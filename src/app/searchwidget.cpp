@@ -180,10 +180,10 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_scope->addItem(i18nc("@item:inlistbox", "Current folder (live)"));
     m_scope->addItem(i18nc("@item:inlistbox", "Indexed locations (Baloo)"));
     m_scope->addItem(i18nc("@item:inlistbox", "Search folders (live)"));
-    const auto defaults = m_config->group(QStringLiteral("Search"));
-    m_scope->setCurrentIndex(defaults.readEntry("SearchIndexedByDefault", false) ? 1 : 0);
-    m_field->setCurrentIndex(defaults.readEntry("SearchContentsByDefault", false) ? 1 : 0);
-    if (m_scope->currentIndex() == 1) {
+    // Match the initial Defaults so applyDefaultsNow() replaces every criterion.
+    m_workspaceOnly->setChecked(m_appliedDefaults.workspaceOnly);
+    const QString defaultsNotice = applyDefaultsNow();
+    if (m_scope->currentIndex() == Indexed) {
         m_field->setItemText(1, i18nc("@item:inlistbox", "Indexed file contents"));
     }
     form->addRow(i18nc("@label", "Find:"), m_query);
@@ -192,7 +192,6 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_workspaceOnly->setObjectName(QStringLiteral("searchWorkspaceOnly"));
     m_workspaceOnly->setText(i18nc("@option:check", "Limit to saved locations assigned to the active workspace"));
     m_workspaceOnly->setToolTip(i18nc("@info:tooltip", "Clear this to search the current folder or all indexed locations outside the workspace."));
-    m_workspaceOnly->setChecked(defaults.readEntry("WorkspaceSearchByDefault", true));
     form->addRow(QString(), m_workspaceOnly);
     refreshWorkspaceScope();
     layout->addLayout(form);
@@ -221,6 +220,9 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_status->setTextFormat(Qt::PlainText);
     m_status->setWordWrap(true);
     m_status->setText(scopeStatus(m_scope->currentIndex(), m_workspaceScope && m_workspaceScope().active && m_workspaceOnly->isChecked()));
+    if (!defaultsNotice.isEmpty()) {
+        m_status->setText(defaultsNotice);
+    }
     resultsLayout->addWidget(m_status);
     QString savedError;
     m_savedSearches = SavedSearches::load(m_config->group(QStringLiteral("SavedSearches")), &savedError);
@@ -275,39 +277,9 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
         if (index < 0 || index >= m_savedSearches.size()) {
             return;
         }
-        if (m_watcher.isRunning()) {
-            m_status->setText(i18nc("@info", "Wait for the current search to finish before loading saved criteria."));
-            return;
+        if (loadSavedSearch(m_savedSearches.at(index).name)) {
+            m_status->setText(i18nc("@info", "Saved criteria loaded. Review them and start the search."));
         }
-        const QString name = m_savedSearches.at(index).name;
-        QString error;
-        const auto current = SavedSearches::load(m_config->group(QStringLiteral("SavedSearches")), &error);
-        if (!error.isEmpty()) {
-            m_status->setText(error);
-            return;
-        }
-        auto it = std::find_if(current.cbegin(), current.cend(), [&name](const SavedSearches::Search &search) {
-            return search.name == name;
-        });
-        if (it == current.cend()) {
-            m_savedSearches = current;
-            updateSavedSearches();
-            m_status->setText(i18nc("@info", "This saved search no longer exists."));
-            return;
-        }
-        const auto search = *it;
-        m_savedSearches = current;
-        updateSavedSearches();
-        m_saved->setCurrentIndex(m_saved->findText(search.name));
-        if (!search.folder.isEmpty()) {
-            m_folder = search.folder;
-            m_folderLabel->setText(m_folder.toDisplayString());
-        }
-        m_query->setText(search.text);
-        m_scope->setCurrentIndex(search.searchFolders ? SearchFolders : search.indexed ? Indexed : CurrentFolder);
-        m_field->setCurrentIndex(fieldIndex(search.field));
-        m_filterEditor->setFilter(search.filter);
-        m_status->setText(i18nc("@info", "Saved criteria loaded. Review them and start the search."));
     });
     connect(refreshSearches, &QPushButton::clicked, this, [this, saveSearch] {
         const QString selected = m_saved->currentText();
@@ -751,6 +723,9 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
         m_filterEditor->setEnabled(true);
         m_cancel->setEnabled(false);
         m_progress->hide();
+        if (m_defaultsPending) {
+            applyDefaults();
+        }
         for (const QString &path : result.paths) {
             new QTreeWidgetItem(m_results, {path});
         }
@@ -853,6 +828,108 @@ void SearchWidget::search(const QString &text)
     start();
 }
 
+void SearchWidget::applyDefaults()
+{
+    if (m_watcher.isRunning()) {
+        m_defaultsPending = true;
+        return;
+    }
+    const QString notice = applyDefaultsNow();
+    if (!notice.isEmpty()) {
+        m_status->setText(notice);
+    }
+}
+
+QString SearchWidget::applyDefaultsNow()
+{
+    m_defaultsPending = false;
+    const auto defaults = SearchDefaults::read(m_config->group(QStringLiteral("Search")));
+    QString notice;
+    const PathFilter filter = SearchDefaults::pathFilter(defaults.pathFilter, m_config->group(QStringLiteral("SavedPathFilters")), &notice);
+    if (m_scope->currentIndex() == int(m_appliedDefaults.scope)) {
+        m_scope->setCurrentIndex(int(defaults.scope));
+    }
+    if (m_field->currentIndex() == fieldIndex(m_appliedDefaults.field)) {
+        m_field->setCurrentIndex(fieldIndex(defaults.field));
+    }
+    if (m_workspaceOnly->isChecked() == m_appliedDefaults.workspaceOnly) {
+        m_workspaceOnly->setChecked(defaults.workspaceOnly);
+    }
+    if (pathFilter() == m_appliedFilter) {
+        m_filterEditor->setFilter(filter);
+    }
+    m_appliedDefaults = defaults;
+    m_appliedFilter = filter;
+    return notice;
+}
+
+QStringList SearchWidget::savedSearchNames()
+{
+    QString error;
+    const auto searches = SavedSearches::load(m_config->group(QStringLiteral("SavedSearches")), &error);
+    if (!error.isEmpty()) {
+        m_status->setText(error);
+        return {};
+    }
+    if (searches != m_savedSearches) {
+        const QString selected = m_saved->currentText();
+        m_savedSearches = searches;
+        updateSavedSearches();
+        m_saved->setCurrentIndex(m_saved->findText(selected));
+    }
+    QStringList names;
+    for (const auto &search : searches) {
+        names.append(search.name);
+    }
+    return names;
+}
+
+bool SearchWidget::runSavedSearch(const QString &name)
+{
+    if (m_watcher.isRunning()) {
+        m_status->setText(i18nc("@info", "Wait for the current search to finish or cancel it before starting another."));
+        return false;
+    }
+    if (!loadSavedSearch(name)) {
+        return false;
+    }
+    return start();
+}
+
+bool SearchWidget::loadSavedSearch(const QString &name)
+{
+    if (m_watcher.isRunning()) {
+        m_status->setText(i18nc("@info", "Wait for the current search to finish before loading saved criteria."));
+        return false;
+    }
+    QString error;
+    const auto current = SavedSearches::load(m_config->group(QStringLiteral("SavedSearches")), &error);
+    if (!error.isEmpty()) {
+        m_status->setText(error);
+        return false;
+    }
+    auto it = std::find_if(current.cbegin(), current.cend(), [&name](const SavedSearches::Search &search) {
+        return search.name == name;
+    });
+    m_savedSearches = current;
+    updateSavedSearches();
+    if (it == current.cend()) {
+        m_status->setText(i18nc("@info", "This saved search no longer exists."));
+        return false;
+    }
+    const auto search = *it;
+    m_saved->setCurrentIndex(m_saved->findText(search.name));
+    if (!search.folder.isEmpty()) {
+        m_folder = search.folder;
+        m_folderLabel->setText(m_folder.toDisplayString());
+    }
+    m_query->setText(search.text);
+    m_scope->setCurrentIndex(search.searchFolders ? SearchFolders : search.indexed ? Indexed : CurrentFolder);
+    m_field->setCurrentIndex(fieldIndex(search.field));
+    m_filterEditor->setFilter(search.filter);
+    return true;
+}
+
 bool SearchWidget::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched == m_query && event->type() == QEvent::KeyPress) {
@@ -939,10 +1016,10 @@ SavedSearches::Search SearchWidget::currentSearch(const QString &name, const QSt
             m_scope->currentIndex() == SearchFolders};
 }
 
-void SearchWidget::start()
+bool SearchWidget::start()
 {
     if (m_watcher.isRunning()) {
-        return;
+        return false;
     }
     const WorkspaceScope workspace = m_workspaceScope ? m_workspaceScope() : WorkspaceScope{};
     refreshWorkspaceScope();
@@ -950,30 +1027,30 @@ void SearchWidget::start()
     const bool workspaceOnly = !searchFolders && workspace.active && m_workspaceOnly->isChecked();
     if (!workspaceOnly && m_scope->currentIndex() == CurrentFolder && !m_folder.isLocalFile()) {
         m_status->setText(i18nc("@info", "Live search currently supports local folders only."));
-        return;
+        return false;
     }
     if (m_query->text().trimmed().isEmpty()) {
         m_status->setText(i18nc("@info", "Enter text to search for."));
-        return;
+        return false;
     }
     if (m_field->currentIndex() == QueryField) {
         if (const auto query = SearchQuery::Query::parse(m_query->text()); !query.isValid()) {
             m_status->setText(query.error());
-            return;
+            return false;
         }
     }
     const PathFilter chosenFilter = pathFilter();
     const QString filterError = chosenFilter.error();
     if (!filterError.isEmpty()) {
         m_status->setText(filterError);
-        return;
+        return false;
     }
     const auto searchSettings = m_config->group(QStringLiteral("Search"));
     const QStringList exclusions = searchSettings.readEntry("SearchExclusions", QStringList());
     const PathFilter filter = SearchLocations::withExclusions(chosenFilter, exclusions);
     if (!workspaceOnly && m_scope->currentIndex() == Indexed && filter.maxDepth >= 0 && !m_folder.isLocalFile()) {
         m_status->setText(i18nc("@info", "A local current folder is required to limit indexed-search depth."));
-        return;
+        return false;
     }
     m_results->clear();
     m_errors->clear();
@@ -1077,6 +1154,7 @@ void SearchWidget::start()
             result.errors.append(locationErrors);
             promise.addResult(result);
         }));
+    return true;
 }
 
 void SearchWidget::cancel()

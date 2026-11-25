@@ -1045,8 +1045,24 @@ QWidget *SettingsDialog::createSearchPage()
 {
     auto *page = new QWidget;
     auto *layout = new QVBoxLayout(page);
-    layout->addWidget(checkBox(QStringLiteral("SearchIndexedByDefault"), i18nc("@option:check", "Search indexed locations by default")));
-    layout->addWidget(checkBox(QStringLiteral("SearchContentsByDefault"), i18nc("@option:check", "Search file contents by default")));
+    auto *defaultsLabel = new QLabel(i18nc("@info",
+                                           "The toolbar search field and the search panel start with these criteria. Criteria changed in an "
+                                           "open search panel are kept when these defaults change."),
+                                     page);
+    defaultsLabel->setWordWrap(true);
+    layout->addWidget(defaultsLabel);
+    auto *defaults = new QFormLayout;
+    defaults->addRow(i18nc("@label:listbox", "Default scope:"),
+                     comboBox(QStringLiteral("DefaultSearchScope"),
+                              {i18nc("@item:inlistbox", "Current folder (live)"),
+                               i18nc("@item:inlistbox", "Indexed locations (Baloo)"),
+                               i18nc("@item:inlistbox", "Search folders (live)")}));
+    defaults->addRow(i18nc("@label:listbox", "Default search in:"),
+                     comboBox(QStringLiteral("DefaultSearchField"),
+                              {i18nc("@item:inlistbox", "File name"), i18nc("@item:inlistbox", "File contents"), i18nc("@item:inlistbox", "Advanced query")}));
+    auto *defaultFilter = bound(new SavedPathFilterCombo(page), QStringLiteral("DefaultSearchPathFilter"), "filterName");
+    defaults->addRow(i18nc("@label:listbox", "Default path filter:"), defaultFilter);
+    layout->addLayout(defaults);
     auto *foldersLabel = new QLabel(i18nc("@label", "Search folders, searched together by the \"Search folders\" scope:"), page);
     foldersLabel->setWordWrap(true);
     layout->addWidget(foldersLabel);
@@ -1073,9 +1089,10 @@ QWidget *SettingsDialog::createSearchPage()
     auto *manageFilters = new QPushButton(i18nc("@action:button", "Manage Shared Path Filters…"), page);
     manageFilters->setObjectName(QStringLiteral("managePathFilters"));
     layout->addWidget(manageFilters);
-    connect(manageFilters, &QPushButton::clicked, this, [this] {
+    connect(manageFilters, &QPushButton::clicked, this, [this, defaultFilter] {
         PathFilterPresetsDialog dialog(this);
         dialog.exec();
+        defaultFilter->reload();
     });
     auto *manageSearches = new QPushButton(i18nc("@action:button", "Manage Saved Searches and Collections…"), page);
     manageSearches->setObjectName(QStringLiteral("manageSavedSearches"));
