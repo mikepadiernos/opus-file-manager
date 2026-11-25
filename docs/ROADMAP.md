@@ -1211,7 +1211,7 @@ Offer an optional native Qt/KDE browsing mode inspired by
 Reuse Plasma Opus's file models and KDE services; this is not an embedded Yazi
 process or a promise of Yazi configuration or plugin compatibility.
 
-- [ ] Allow the mode to be entered or left per pane, keeping it off by default.
+- [x] Allow the mode to be entered or left per pane, keeping it off by default.
       Preserve both panes and their tabs, locations, selections and normal view
       settings when switching; let M15 workspaces restore the mode when
       available.
