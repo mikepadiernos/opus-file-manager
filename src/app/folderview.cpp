@@ -2,6 +2,7 @@
 
 #include "folderview.h"
 #include "effectiveappearance.h"
+#include "embeddedmetadata.h"
 
 #include "appearancestyle.h"
 #include "carddelegate.h"
@@ -1558,7 +1559,7 @@ int FolderView::applySelectionQuery(const SearchQuery::Query &query, const QStri
             return -1;
         }
         const QString path = item.url().toLocalFile();
-        if (query.matches(QFileInfo(path), {}, tags.matcher(path))) {
+        if (query.matches(QFileInfo(path), {}, tags.matcher(path), EmbeddedMetadata::lazySearchTexts(path))) {
             matches.append(index);
         }
     }

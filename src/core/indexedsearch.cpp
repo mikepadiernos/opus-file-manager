@@ -2,6 +2,7 @@
 
 #include "indexedsearch.h"
 
+#include "embeddedmetadata.h"
 #include "libraryregistry.h"
 #include "searchquery.h"
 #include "tagsearch.h"
@@ -204,7 +205,8 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
                         }
                         return contentMatches.value(needle.toCaseFolded()).contains(path);
                     },
-                    tags ? tags->matcher(path) : SearchQuery::TagMatcher());
+                    tags ? tags->matcher(path) : SearchQuery::TagMatcher(),
+                    EmbeddedMetadata::lazySearchTexts(path));
             if (tags && tags->errors().size() > tagErrors) {
                 result.errors.append(tags->errors().mid(tagErrors));
             }

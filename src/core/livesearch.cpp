@@ -2,6 +2,7 @@
 
 #include "livesearch.h"
 
+#include "embeddedmetadata.h"
 #include "libraryregistry.h"
 #include "searchquery.h"
 #include "tagsearch.h"
@@ -156,7 +157,8 @@ LiveSearch::Result LiveSearch::find(const QString &folder,
                         }
                         return *read == TextRead::Text && contents.contains(needle, Qt::CaseInsensitive);
                     },
-                    tags ? tags->matcher(entry.absoluteFilePath()) : SearchQuery::TagMatcher());
+                    tags ? tags->matcher(entry.absoluteFilePath()) : SearchQuery::TagMatcher(),
+                    EmbeddedMetadata::lazySearchTexts(entry.absoluteFilePath()));
                 if (tags && tags->errors().size() > tagErrors) {
                     result.errors.append(tags->errors().mid(tagErrors));
                 }

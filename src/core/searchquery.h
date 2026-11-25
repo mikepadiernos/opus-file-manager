@@ -13,8 +13,8 @@
 #include <vector>
 
 /**
- * Advanced search queries: name, path, type, size, modified, content, tag
- * and tagged criteria combined with AND, OR, NOT and parentheses.
+ * Advanced search queries: name, path, type, size, modified, content, tag,
+ * tagged and meta criteria combined with AND, OR, NOT and parentheses.
  *
  * Words without a field match file names. Juxtaposed terms are combined with
  * AND, which binds more tightly than OR. Operators are recognised only in
@@ -33,6 +33,8 @@ enum class Field {
     Tag,
     /// Whether a library item has tags.
     Tagged,
+    /// An embedded EXIF or audio tag value, such as a camera model or genre.
+    Metadata,
 };
 
 enum class Comparison {
@@ -84,6 +86,8 @@ struct Node {
 using ContentMatcher = std::function<bool(const QString &needle)>;
 /// Reports whether the entry satisfies a tag or tagged @p term; entries outside a tag library satisfy none.
 using TagMatcher = std::function<bool(const Term &term)>;
+/// Returns the entry's embedded metadata texts; entries without metadata return none.
+using MetadataReader = std::function<QStringList()>;
 
 class Query
 {
@@ -96,15 +100,17 @@ public:
     QString error() const;
     bool usesContent() const;
     bool usesTags() const;
+    bool usesMetadata() const;
     /// The distinct values of content terms, in query order.
     QStringList contentTerms() const;
     /// Positive literal name and content terms that every match must satisfy.
     QList<Term> requiredTerms() const;
     /**
-     * Evaluates the query; @p content and @p tags are called only for the
-     * terms that affect the result. Without @p tags, no tag term matches.
+     * Evaluates the query; @p content, @p tags and @p metadata are called
+     * only for the terms that affect the result. Without @p tags, no tag term
+     * matches; without @p metadata, no meta term matches.
      */
-    bool matches(const QFileInfo &entry, const ContentMatcher &content = {}, const TagMatcher &tags = {}) const;
+    bool matches(const QFileInfo &entry, const ContentMatcher &content = {}, const TagMatcher &tags = {}, const MetadataReader &metadata = {}) const;
     /// Normalized form with explicit operators and grouping.
     QString toString() const;
 
