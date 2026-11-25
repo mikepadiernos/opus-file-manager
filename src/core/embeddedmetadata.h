@@ -42,17 +42,29 @@ struct Reading {
 
 /// The keys of the properties that are read, images first, then audio.
 QStringList keys();
+/// The keys of the properties read from images, in keys() order.
+QStringList imageKeys();
+/// The keys of the properties read from audio files, in keys() order; some are also read from images.
+QStringList audioKeys();
+/// The keys() not in @p disabled, in keys() order.
+QStringList enabledKeys(const QStringList &disabled);
 /// The localized name of property @p key.
 QString displayName(const QString &key);
 /// Whether property @p key holds a date and time.
 bool isDate(const QString &key);
 
-/// Reads the supported properties of the regular file at @p path; symbolic links are not followed.
-Reading read(const QString &path);
+/**
+ * Reads the supported properties of the regular file at @p path; symbolic links are not followed.
+ * Only the properties whose keys are in @p enabled are read; the file isn't opened when none apply.
+ */
+Reading read(const QString &path, const QStringList &enabled = keys());
 
-/// The texts search criteria match: each value and, for dates, the date as YYYY-MM-DD.
-QStringList searchTexts(const Reading &reading);
+/// The texts search criteria match: each value of the properties in @p enabled and, for dates, the date as YYYY-MM-DD.
+QStringList searchTexts(const Reading &reading, const QStringList &enabled = keys());
 
-/// Returns a function that reads the search texts of @p path once, on first call, and then returns them again.
-std::function<QStringList()> lazySearchTexts(const QString &path);
+/**
+ * Returns a function that reads the search texts of the properties in @p enabled of @p path once, on first call,
+ * and then returns them again. Nothing is read when @p enabled is empty.
+ */
+std::function<QStringList()> lazySearchTexts(const QString &path, const QStringList &enabled = keys());
 }

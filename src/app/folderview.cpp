@@ -1528,7 +1528,12 @@ int FolderView::applySelectionPathFilter(const PathFilter &filter, bool select, 
     return matches.size();
 }
 
-int FolderView::applySelectionQuery(const SearchQuery::Query &query, const QStringList &tagLibraries, bool select, QString *error)
+int FolderView::applySelectionQuery(const SearchQuery::Query &query,
+                                    const QStringList &tagLibraries,
+                                    const TagSearch::Options &tagOptions,
+                                    const QStringList &metadataKeys,
+                                    bool select,
+                                    QString *error)
 {
     if (error) {
         error->clear();
@@ -1547,7 +1552,7 @@ int FolderView::applySelectionQuery(const SearchQuery::Query &query, const QStri
         }
         return -1;
     }
-    TagSearch::Context tags(tagLibraries);
+    TagSearch::Context tags(tagLibraries, tagOptions);
     QList<QModelIndex> matches;
     for (int row = 0; row < m_proxy->rowCount(); ++row) {
         const QModelIndex index = m_proxy->index(row, 0);
@@ -1559,7 +1564,7 @@ int FolderView::applySelectionQuery(const SearchQuery::Query &query, const QStri
             return -1;
         }
         const QString path = item.url().toLocalFile();
-        if (query.matches(QFileInfo(path), {}, tags.matcher(path), EmbeddedMetadata::lazySearchTexts(path))) {
+        if (query.matches(QFileInfo(path), {}, tags.matcher(path), EmbeddedMetadata::lazySearchTexts(path, metadataKeys))) {
             matches.append(index);
         }
     }

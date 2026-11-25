@@ -16,6 +16,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <unistd.h>
+
 using namespace Qt::StringLiterals;
 
 class LibraryScanTest : public QObject
@@ -86,6 +88,11 @@ private:
         write(library.filePath(), QJsonDocument(library.toJson()).toJson());
     }
 
+    static QString privateFolder()
+    {
+        return QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + u"/libraries"_s;
+    }
+
 private Q_SLOTS:
     void initTestCase()
     {
@@ -97,6 +104,12 @@ private Q_SLOTS:
         for (const QString &root : LibraryRegistry::roots()) {
             LibraryRegistry::remove(root);
         }
+        QDir(privateFolder()).removeRecursively();
+    }
+
+    void cleanup()
+    {
+        QDir(privateFolder()).removeRecursively();
     }
 
     void scansFilesOfAnyTypeWithoutChangingThem()
@@ -153,6 +166,200 @@ private Q_SLOTS:
         QVERIFY(result.items.size() < 20);
     }
 
+    void scopeMatchesNamesAndPaths()
+    {
+        LibraryScan::Options options;
+        options.exclusions = {u"node_modules"_s, u"*.tmp"_s, u"Archive/Old"_s, u"Exports/*"_s, u"cache/"_s, u"  "_s};
+        const LibraryScan::Scope scope(options);
+        QVERIFY(!scope.isUnrestricted());
+
+        // Names match at any depth, and everything below an excluded folder is excluded.
+        QVERIFY(!scope.contains(u"node_modules"_s, true));
+        QVERIFY(!scope.contains(u"src/node_modules"_s, true));
+        QVERIFY(!scope.contains(u"src/node_modules/lib/index.js"_s, false));
+        QVERIFY(scope.contains(u"src/node_modules_old"_s, true));
+        QVERIFY(!scope.contains(u"a.tmp"_s, false));
+        QVERIFY(!scope.contains(u"deep/down/b.tmp"_s, false));
+        QVERIFY(scope.contains(u"a.TMP"_s, false));
+        QVERIFY(scope.contains(u"a.tmp.txt"_s, false));
+
+        // Paths match from the library root.
+        QVERIFY(!scope.contains(u"Archive/Old"_s, true));
+        QVERIFY(!scope.contains(u"Archive/Old/photo.jpg"_s, false));
+        QVERIFY(scope.contains(u"Archive"_s, true));
+        QVERIFY(scope.contains(u"Archive/Older"_s, true));
+        QVERIFY(scope.contains(u"Other/Archive/Old"_s, true));
+        QVERIFY(scope.contains(u"archive/old"_s, true));
+        QVERIFY(scope.contains(u"Exports"_s, true));
+        QVERIFY(!scope.contains(u"Exports/a.png"_s, false));
+        QVERIFY(!scope.contains(u"Exports/sub/a.png"_s, false));
+
+        // A trailing / matches folders only.
+        QVERIFY(!scope.contains(u"cache"_s, true));
+        QVERIFY(scope.contains(u"cache"_s, false));
+        QVERIFY(!scope.contains(u"cache/item"_s, false));
+
+        QVERIFY(LibraryScan::inScope(options, u"notes/todo.txt"_s, false));
+        QVERIFY(!LibraryScan::inScope(options, u"notes/todo.tmp"_s, false));
+        QVERIFY(LibraryScan::Scope(LibraryScan::Options()).isUnrestricted());
+    }
+
+    void scopeHandlesHiddenItemsAndDepth()
+    {
+        LibraryScan::Options options;
+        QVERIFY(LibraryScan::inScope(options, u".git/config"_s, false));
+        options.hidden = false;
+        QVERIFY(!LibraryScan::inScope(options, u".git"_s, true));
+        QVERIFY(!LibraryScan::inScope(options, u".git/config"_s, false));
+        QVERIFY(!LibraryScan::inScope(options, u"notes/.hidden"_s, false));
+        QVERIFY(LibraryScan::inScope(options, u"notes/visible.txt"_s, false));
+
+        options = {};
+        options.depth = 2;
+        QVERIFY(LibraryScan::inScope(options, u"a"_s, true));
+        QVERIFY(LibraryScan::inScope(options, u"a/b"_s, true));
+        QVERIFY(!LibraryScan::inScope(options, u"a/b/c"_s, false));
+    }
+
+    void scanSkipsExcludedHiddenAndDeepItems()
+    {
+        QTemporaryDir dir;
+        write(dir.filePath(u"a.txt"_s));
+        write(dir.filePath(u"a.tmp"_s));
+        write(dir.filePath(u"node_modules/x.js"_s));
+        write(dir.filePath(u".git/config"_s));
+        write(dir.filePath(u"notes/.hidden"_s));
+        write(dir.filePath(u"notes/todo.txt"_s));
+        write(dir.filePath(u"notes/deep/z.txt"_s));
+        write(dir.filePath(u"Archive/Old/o.txt"_s));
+        write(dir.filePath(u"Archive/New/n.txt"_s));
+
+        LibraryScan::Options options;
+        options.exclusions = {u"node_modules"_s, u"*.tmp"_s, u"Archive/Old"_s};
+        LibraryScan::Result result = LibraryScan::scan(dir.path(), options);
+        QVERIFY(result.isComplete());
+        QCOMPARE(paths(result.items),
+                 (QStringList{u".git"_s,
+                              u".git/config"_s,
+                              u"Archive"_s,
+                              u"Archive/New"_s,
+                              u"Archive/New/n.txt"_s,
+                              u"a.txt"_s,
+                              u"notes"_s,
+                              u"notes/.hidden"_s,
+                              u"notes/deep"_s,
+                              u"notes/deep/z.txt"_s,
+                              u"notes/todo.txt"_s}));
+
+        options.hidden = false;
+        result = LibraryScan::scan(dir.path(), options);
+        QCOMPARE(paths(result.items),
+                 (QStringList{u"Archive"_s,
+                              u"Archive/New"_s,
+                              u"Archive/New/n.txt"_s,
+                              u"a.txt"_s,
+                              u"notes"_s,
+                              u"notes/deep"_s,
+                              u"notes/deep/z.txt"_s,
+                              u"notes/todo.txt"_s}));
+
+        LibraryScan::Options shallow;
+        shallow.depth = 1;
+        result = LibraryScan::scan(dir.path(), shallow);
+        QVERIFY(result.isComplete());
+        QCOMPARE(paths(result.items), (QStringList{u".git"_s, u"Archive"_s, u"a.tmp"_s, u"a.txt"_s, u"node_modules"_s, u"notes"_s}));
+        shallow.depth = 2;
+        result = LibraryScan::scan(dir.path(), shallow);
+        QVERIFY(paths(result.items).contains(u"notes/deep"_s));
+        QVERIFY(!paths(result.items).contains(u"notes/deep/z.txt"_s));
+    }
+
+    void scanLimitStopsAnIncompleteRefresh()
+    {
+        QTemporaryDir dir;
+        for (int i = 0; i < 10; ++i) {
+            write(dir.filePath(u"file%1"_s.arg(i)));
+        }
+        TagLibrary::Library library(dir.path());
+        QVERIFY(library.save());
+        QCOMPARE(LibraryScan::apply(dir.path(), LibraryScan::scan(dir.path()), {}).changes.added, 10);
+        QVERIFY(QFile::remove(dir.filePath(u"file0"_s)));
+        QVERIFY(QFile::remove(dir.filePath(u"file1"_s)));
+        write(dir.filePath(u"new"_s));
+
+        LibraryScan::Options options;
+        options.limit = 4;
+        const LibraryScan::Result limited = LibraryScan::scan(dir.path(), options);
+        QVERIFY(limited.limited);
+        QVERIFY(!limited.canceled);
+        QVERIFY(!limited.isComplete());
+        QCOMPARE(limited.items.size(), 4);
+        const LibraryScan::Applied applied = LibraryScan::apply(dir.path(), limited, options);
+        QVERIFY(applied.saved);
+        QCOMPARE(applied.changes.missing, 0);
+        QCOMPARE(applied.missing, 0);
+        QVERIFY(LibraryScan::summary(limited, applied).contains(u"Stopped after indexing 4 items"_s));
+
+        // A limit equal to the number of items doesn't stop the refresh.
+        options.limit = 9;
+        const LibraryScan::Result exact = LibraryScan::scan(dir.path(), options);
+        QVERIFY(!exact.limited);
+        QVERIFY(exact.isComplete());
+        QCOMPARE(exact.items.size(), 9);
+        const LibraryScan::Applied full = LibraryScan::apply(dir.path(), exact, options);
+        QCOMPARE(full.changes.missing, 2);
+        QCOMPARE(full.missing, 2);
+        QVERIFY(!LibraryScan::summary(exact, full).contains(u"Stopped after"_s));
+    }
+
+    void completeScansKeepEntriesOutOfScope()
+    {
+        QTemporaryDir dir;
+        write(dir.filePath(u"a.txt"_s));
+        write(dir.filePath(u"b.txt"_s));
+        write(dir.filePath(u"node_modules/x.js"_s));
+        write(dir.filePath(u".hidden"_s));
+        write(dir.filePath(u"deep/er/c.txt"_s));
+        TagLibrary::Library library(dir.path());
+        library.applyScan(LibraryScan::scan(dir.path()).items, true);
+        writeLibrary(withTag(library, {u"node_modules/x.js"_s, u".hidden"_s, u"deep/er/c.txt"_s}));
+
+        QVERIFY(QFile::remove(dir.filePath(u"b.txt"_s)));
+        LibraryScan::Options options;
+        options.exclusions = {u"node_modules"_s};
+        options.hidden = false;
+        options.depth = 2;
+        const LibraryScan::Result result = LibraryScan::scan(dir.path(), options);
+        QVERIFY(result.isComplete());
+        const LibraryScan::Applied applied = LibraryScan::apply(dir.path(), result, options);
+        QVERIFY(applied.saved);
+        QCOMPARE(applied.changes.missing, 1);
+        QCOMPARE(applied.missing, 1);
+
+        const TagLibrary::Library loaded = TagLibrary::Library::load(dir.path());
+        QVERIFY(loaded.entry(u"b.txt"_s)->missing);
+        QVERIFY(!loaded.entry(u"a.txt"_s)->missing);
+        for (const QString &path : {u"node_modules/x.js"_s, u".hidden"_s, u"deep/er/c.txt"_s}) {
+            QVERIFY2(!loaded.entry(path)->missing, qPrintable(path));
+            QCOMPARE(loaded.entry(path)->tags, QStringList{u"t1"_s});
+        }
+        QVERIFY(!loaded.entry(u"node_modules"_s)->missing);
+
+        // Out-of-scope entries that are really gone aren't marked missing either; the predicate decides.
+        TagLibrary::Library direct = loaded;
+        const TagLibrary::ScanChanges changes = direct.applyScan({}, true, [](const QString &path, bool) {
+            return path == u"a.txt"_s;
+        });
+        QCOMPARE(changes.missing, 1);
+        QVERIFY(direct.entry(u"a.txt"_s)->missing);
+        QVERIFY(!direct.entry(u"deep/er/c.txt"_s)->missing);
+
+        // observe() isn't restricted by the options, so excluded items can still be tagged explicitly.
+        TagLibrary::Observation observation;
+        QVERIFY(LibraryScan::observe(dir.path(), dir.filePath(u"node_modules/x.js"_s), &observation));
+        QCOMPARE(observation.path, u"node_modules/x.js"_s);
+    }
+
     void applyingScansKeepsMetadataForMissingFiles()
     {
         QTemporaryDir dir;
@@ -161,12 +368,14 @@ private Q_SLOTS:
         TagLibrary::Library library(dir.path());
         TagLibrary::ScanChanges changes = library.applyScan(LibraryScan::scan(dir.path()).items, true);
         QCOMPARE(changes.added, 2);
+        QCOMPARE(QSet<QString>(changes.addedFiles.cbegin(), changes.addedFiles.cend()), (QSet<QString>{u"a.txt"_s, u"b.txt"_s}));
         const QString id = library.entry(u"a.txt"_s)->id;
 
         QVERIFY(QFile::remove(dir.filePath(u"a.txt"_s)));
         changes = library.applyScan(LibraryScan::scan(dir.path()).items, true);
         QCOMPARE(changes.added, 0);
         QCOMPARE(changes.missing, 1);
+        QVERIFY(changes.addedFiles.isEmpty());
         QVERIFY(library.entry(u"a.txt"_s)->missing);
         QCOMPARE(library.entry(u"a.txt"_s)->id, id);
 
@@ -180,13 +389,22 @@ private Q_SLOTS:
         changes = library.applyScan(LibraryScan::scan(dir.path()).items, true);
         QCOMPARE(changes.found, 1);
         QCOMPARE(changes.added, 1);
+        // Entries found again are not new.
+        QCOMPARE(changes.addedFiles, QStringList{u"c.txt"_s});
         QVERIFY(!library.entry(u"a.txt"_s)->missing);
         QCOMPARE(library.entry(u"a.txt"_s)->size, 7);
         QCOMPARE(library.entry(u"a.txt"_s)->id, id);
 
+        // New folders are not listed as files.
+        QVERIFY(QDir().mkpath(dir.filePath(u"Trips"_s)));
+        write(dir.filePath(u"Trips/d.txt"_s));
+        changes = library.applyScan(LibraryScan::scan(dir.path()).items, true);
+        QCOMPARE(changes.added, 2);
+        QCOMPARE(changes.addedFiles, QStringList{u"Trips/d.txt"_s});
+
         QVERIFY(library.save());
         const TagLibrary::Library loaded = TagLibrary::Library::load(dir.path());
-        QCOMPARE(loaded.entries().size(), 3);
+        QCOMPARE(loaded.entries().size(), 5);
         QCOMPARE(loaded.entry(u"a.txt"_s)->id, id);
     }
 
@@ -230,6 +448,140 @@ private Q_SLOTS:
         QVERIFY(document.open(QIODevice::ReadOnly));
         QCOMPARE(document.readAll(), "not json");
         QCOMPARE(LibraryRegistry::roots(), QStringList{root});
+    }
+
+    void registryCreatesPrivateLibraries()
+    {
+        QTemporaryDir dir;
+        const QString root = dir.filePath(u"Shared"_s);
+        write(root + u"/photo.jpg"_s);
+        const QByteArray before = treeHash(root);
+        const QStringList names = QDir(root).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot);
+
+        QCOMPARE(LibraryRegistry::storageFor(root, TagLibrary::Storage::PrivateFolder), TagLibrary::Storage::PrivateFolder);
+        QCOMPARE(LibraryRegistry::create(root, TagLibrary::Storage::PrivateFolder), QString());
+        QVERIFY(QFile::exists(TagLibrary::privateDocumentPath(root)));
+        QCOMPARE(QDir(root).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot), names);
+        QCOMPARE(treeHash(root), before);
+        QVERIFY(TagLibrary::isPrivate(root));
+        QCOMPARE(LibraryRegistry::roots(), QStringList{root});
+
+        // Scanning and saving keep writing privately.
+        TagLibrary::Library library = TagLibrary::Library::load(root);
+        library.applyScan(LibraryScan::scan(root).items, true);
+        QVERIFY(library.save());
+        QCOMPARE(QDir(root).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot), names);
+
+        // An existing private document is adopted whatever the preferred storage.
+        LibraryRegistry::remove(root);
+        QCOMPARE(LibraryRegistry::storageFor(root, TagLibrary::Storage::LibraryFolder), TagLibrary::Storage::PrivateFolder);
+        QCOMPARE(LibraryRegistry::create(root, TagLibrary::Storage::LibraryFolder), QString());
+        QVERIFY(!QFile::exists(TagLibrary::folderDocumentPath(root)));
+        QCOMPARE(TagLibrary::Library::load(root).entries().size(), 1);
+    }
+
+    void registryAdoptsDocumentsInTheFolder()
+    {
+        QTemporaryDir dir;
+        const QString root = dir.filePath(u"Pictures"_s);
+        write(root + u"/photo.jpg"_s);
+        TagLibrary::Library existing(root);
+        existing.applyScan(LibraryScan::scan(root).items, true);
+        QVERIFY(existing.save());
+
+        // An in-folder document is used in place even when private storage is preferred.
+        QCOMPARE(LibraryRegistry::storageFor(root, TagLibrary::Storage::PrivateFolder), TagLibrary::Storage::LibraryFolder);
+        QCOMPARE(LibraryRegistry::create(root, TagLibrary::Storage::PrivateFolder), QString());
+        QVERIFY(!QFile::exists(TagLibrary::privateDocumentPath(root)));
+        QVERIFY(!TagLibrary::isPrivate(root));
+        QCOMPARE(TagLibrary::Library::load(root).entries().size(), 1);
+        // The in-folder document is never indexed.
+        for (const auto &item : LibraryScan::scan(root).items) {
+            QVERIFY(!TagLibrary::isLibraryFile(item.path));
+        }
+
+        // With documents in both places, the private one is used.
+        LibraryRegistry::remove(root);
+        TagLibrary::Library privateCopy(root, TagLibrary::Storage::PrivateFolder);
+        QVERIFY(privateCopy.save());
+        QCOMPARE(LibraryRegistry::storageFor(root, TagLibrary::Storage::LibraryFolder), TagLibrary::Storage::PrivateFolder);
+        QCOMPARE(LibraryRegistry::create(root), QString());
+        QVERIFY(TagLibrary::Library::load(root).entries().isEmpty());
+        QVERIFY(QFile::exists(TagLibrary::folderDocumentPath(root)));
+    }
+
+    void registryAddsFieldsToNewDocumentsOnly()
+    {
+        QTemporaryDir dir;
+        const QList<TagLibrary::Field> fields = TagLibrary::parseFieldTemplates({u"text:Title"_s, u"date:Shot on"_s})
+            + QList<TagLibrary::Field>{{QString(), u"Place"_s, TagLibrary::FieldType::Text}};
+
+        // A new document starts with the fields, in order; one without an identifier gets one.
+        const QString root = dir.filePath(u"New"_s);
+        QVERIFY(QDir().mkpath(root));
+        QCOMPARE(LibraryRegistry::create(root, TagLibrary::Storage::LibraryFolder, fields), QString());
+        TagLibrary::Library created = TagLibrary::Library::load(root);
+        QCOMPARE(created.fields().size(), 3);
+        QCOMPARE(created.fields().at(0).name, u"Title"_s);
+        QCOMPARE(created.fields().at(1).name, u"Shot on"_s);
+        QCOMPARE(created.fields().at(1).type, TagLibrary::FieldType::Date);
+        QCOMPARE(created.fields().at(2).name, u"Place"_s);
+        QVERIFY(!created.fields().at(2).id.isEmpty());
+        QVERIFY(created.entries().isEmpty());
+
+        // So does a new private document; fields a library refuses, such as repeated names, are skipped.
+        const QString privateRoot = dir.filePath(u"Private"_s);
+        QVERIFY(QDir().mkpath(privateRoot));
+        QCOMPARE(LibraryRegistry::create(privateRoot,
+                                         TagLibrary::Storage::PrivateFolder,
+                                         fields + QList<TagLibrary::Field>{{QString(), u"TITLE"_s, TagLibrary::FieldType::Date}}),
+                 QString());
+        QVERIFY(TagLibrary::isPrivate(privateRoot));
+        QCOMPARE(TagLibrary::Library::load(privateRoot).fields().size(), 3);
+
+        // An adopted document keeps its fields as they are.
+        const QString existingRoot = dir.filePath(u"Existing"_s);
+        QVERIFY(QDir().mkpath(existingRoot));
+        TagLibrary::Library existing(existingRoot);
+        QVERIFY(existing.setField({u"f-own"_s, u"Own"_s, TagLibrary::FieldType::Text}));
+        QVERIFY(existing.save());
+        QFile document(TagLibrary::folderDocumentPath(existingRoot));
+        QVERIFY(document.open(QIODevice::ReadOnly));
+        const QByteArray contents = document.readAll();
+        document.close();
+        QCOMPARE(LibraryRegistry::create(existingRoot, TagLibrary::Storage::LibraryFolder, fields), QString());
+        QVERIFY(document.open(QIODevice::ReadOnly));
+        QCOMPARE(document.readAll(), contents);
+        const TagLibrary::Library adopted = TagLibrary::Library::load(existingRoot);
+        QCOMPARE(adopted.fields().size(), 1);
+        QCOMPARE(adopted.fields().constFirst().name, u"Own"_s);
+
+        // A refused registration writes nothing.
+        QVERIFY(QDir().mkpath(root + u"/Inner"_s));
+        QVERIFY(!LibraryRegistry::create(root + u"/Inner"_s, TagLibrary::Storage::LibraryFolder, fields).isEmpty());
+        QVERIFY(!QFile::exists(TagLibrary::folderDocumentPath(root + u"/Inner"_s)));
+    }
+
+    void registryCreatesPrivateLibrariesOfReadOnlyFolders()
+    {
+        if (::geteuid() == 0) {
+            QSKIP("Permission checks don't apply to root.");
+        }
+        QTemporaryDir dir;
+        const QString root = dir.filePath(u"ReadOnly"_s);
+        write(root + u"/photo.jpg"_s);
+        QVERIFY(QFile::setPermissions(root, QFile::ReadOwner | QFile::ExeOwner));
+        const QString error = LibraryRegistry::create(root);
+        QVERIFY(!error.isEmpty());
+        QVERIFY(LibraryRegistry::roots().isEmpty());
+        QCOMPARE(LibraryRegistry::create(root, TagLibrary::Storage::PrivateFolder), QString());
+        QCOMPARE(LibraryRegistry::roots(), QStringList{root});
+        TagLibrary::Library library = TagLibrary::Library::load(root);
+        QVERIFY(!library.isReadOnly());
+        library.applyScan(LibraryScan::scan(root).items, true);
+        QVERIFY(library.save());
+        QVERIFY(!QFile::exists(TagLibrary::folderDocumentPath(root)));
+        QVERIFY(QFile::setPermissions(root, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
     }
 
     void movingPathsKeepsMetadataWithEntries()

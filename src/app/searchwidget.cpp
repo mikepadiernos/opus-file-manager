@@ -9,6 +9,7 @@
 #include "searchhistory.h"
 #include "searchlocations.h"
 #include "searchquery.h"
+#include "taggingsettings.h"
 
 #include <KLocalizedString>
 
@@ -1201,7 +1202,7 @@ bool SearchWidget::start()
     m_status->setText(i18nc("@info", "Searching…"));
     m_canceled = std::make_shared<std::atomic_bool>(false);
     const auto canceled = m_canceled;
-    const QString folder = m_folder.toLocalFile();
+    QString folder = m_folder.toLocalFile();
     const QString text = m_query->text();
     const auto field = fieldAt(m_field->currentIndex());
     const bool indexed = m_scope->currentIndex() == Indexed;
@@ -1235,8 +1236,20 @@ bool SearchWidget::start()
     const bool multipleRoots = workspaceOnly || searchFolders;
     // Read on this thread: worker threads keep their own, possibly stale, copy of the configuration.
     const QStringList libraries = LibraryRegistry::roots();
+    const TagSearch::Options tagOptions = TaggingSettings::tagSearchOptions();
+    const QStringList metadataKeys = TaggingSettings::embeddedMetadataKeys();
+    QStringList scopeNotices;
+    // Unlimited indexed searches cover the whole index, so only a depth limit makes the starting folder matter.
+    if (!multipleRoots && field == LiveSearch::Field::Query && (!indexed || filter.maxDepth >= 0)) {
+        const QString root = TagSearch::searchRoot(folder, SearchQuery::Query::parse(text), libraries, tagOptions.scope);
+        if (QDir::cleanPath(root) != QDir::cleanPath(folder)) {
+            folder = root;
+            scopeNotices.append(i18nc("@info", "Searched the whole tag library in %1.", root));
+        }
+    }
     m_watcher.setFuture(QtConcurrent::run(
-        [folder, text, field, canceled, indexed, filter, multipleRoots, roots, locationErrors, libraries](QPromise<LiveSearch::Result> &promise) {
+        [folder, text, field, canceled, indexed, filter, multipleRoots, roots, locationErrors, libraries, tagOptions, metadataKeys, scopeNotices](
+            QPromise<LiveSearch::Result> &promise) {
             promise.setProgressRange(0, 200000);
             const LiveSearch::Cancel cancel = [canceled] {
                 return canceled->load();
@@ -1246,10 +1259,10 @@ bool SearchWidget::start()
             };
             LiveSearch::Result result;
             if (!multipleRoots) {
-                result = indexed ? IndexedSearch::find(folder, text, field, cancel, progress, filter, nullptr, &libraries)
-                                 : LiveSearch::find(folder, text, field, cancel, progress, filter, 200000, &libraries);
+                result = indexed ? IndexedSearch::find(folder, text, field, cancel, progress, filter, nullptr, &libraries, tagOptions, metadataKeys)
+                                 : LiveSearch::find(folder, text, field, cancel, progress, filter, 200000, &libraries, tagOptions, metadataKeys);
             } else if (indexed && !roots.isEmpty()) {
-                result = IndexedSearch::find(folder, text, field, cancel, progress, filter, &roots, &libraries);
+                result = IndexedSearch::find(folder, text, field, cancel, progress, filter, &roots, &libraries, tagOptions, metadataKeys);
             } else if (!indexed) {
                 QSet<QString> seen;
                 for (const QString &root : roots) {
@@ -1264,7 +1277,9 @@ bool SearchWidget::start()
                         },
                         filter,
                         200000 - offset,
-                        &libraries);
+                        &libraries,
+                        tagOptions,
+                        metadataKeys);
                     result.errors.append(part.errors);
                     result.notices.append(part.notices);
                     result.scannedEntries += part.scannedEntries;
@@ -1290,6 +1305,7 @@ bool SearchWidget::start()
                 }
             }
             result.errors.append(locationErrors);
+            result.notices = scopeNotices + result.notices;
             promise.addResult(result);
         }));
     return true;

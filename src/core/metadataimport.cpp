@@ -6,6 +6,7 @@
 
 #include <KLocalizedString>
 
+#include <QDir>
 #include <QHash>
 #include <QSet>
 
@@ -187,6 +188,7 @@ bool MetadataImport::apply(const Plan &plan, Result *result, QString *error)
                 TagLibrary::Tag tag;
                 tag.id = TagLibrary::createId();
                 tag.name = change.value;
+                tag.color = plan.tagColor;
                 if (!library.setTag(tag, problem)) {
                     return false;
                 }
@@ -212,6 +214,7 @@ bool MetadataImport::apply(const Plan &plan, Result *result, QString *error)
                         ++applied.changedSincePreview;
                     }
                 }
+                const int tagged = applied.itemsTagged;
                 if (!add.isEmpty()) {
                     int changed = 0;
                     if (!library.assignTags({items.at(i)}, add, {}, &changed, problem)) {
@@ -225,6 +228,9 @@ bool MetadataImport::apply(const Plan &plan, Result *result, QString *error)
                     }
                     applied.valuesSet += static_cast<int>(values.size());
                 }
+                if (applied.itemsTagged != tagged || !values.isEmpty()) {
+                    ++applied.items;
+                }
             }
             return true;
         },
@@ -234,4 +240,142 @@ bool MetadataImport::apply(const Plan &plan, Result *result, QString *error)
         *result = applied;
     }
     return saved;
+}
+
+MetadataImport::NamedMappings MetadataImport::parseMappings(const QStringList &entries)
+{
+    const QStringList known = EmbeddedMetadata::keys();
+    NamedMappings mappings;
+    for (const QString &entry : entries) {
+        const qsizetype separator = entry.indexOf(QLatin1Char('='));
+        if (separator < 0) {
+            continue;
+        }
+        const QString key = entry.left(separator).trimmed();
+        const QString target = entry.mid(separator + 1).trimmed();
+        if (!known.contains(key) || mappings.contains(key)) {
+            continue;
+        }
+        if (target.compare(QLatin1String("tags"), Qt::CaseInsensitive) == 0) {
+            mappings.insert(key, QString());
+        } else if (target.startsWith(QLatin1String("field:"), Qt::CaseInsensitive)) {
+            const QString name = target.mid(6).trimmed();
+            if (!name.isEmpty()) {
+                mappings.insert(key, name);
+            }
+        }
+    }
+    return mappings;
+}
+
+QStringList MetadataImport::serializeMappings(const NamedMappings &mappings)
+{
+    QStringList entries;
+    for (const QString &key : EmbeddedMetadata::keys()) {
+        const auto it = mappings.constFind(key);
+        if (it == mappings.cend()) {
+            continue;
+        }
+        const QString name = it->trimmed();
+        entries.append(name.isEmpty() ? QString(key + QLatin1String("=tags")) : QString(key + QLatin1String("=field:") + name));
+    }
+    return entries;
+}
+
+bool MetadataImport::canMap(const QString &key, TagLibrary::FieldType type)
+{
+    return type == TagLibrary::FieldType::Text || EmbeddedMetadata::isDate(key);
+}
+
+QMap<QString, QString> MetadataImport::resolveMappings(const TagLibrary::Library &library, const NamedMappings &mappings, const QStringList &enabled)
+{
+    QMap<QString, QString> resolved;
+    for (auto it = mappings.cbegin(); it != mappings.cend(); ++it) {
+        if (!enabled.contains(it.key())) {
+            continue;
+        }
+        if (it->isEmpty()) {
+            resolved.insert(it.key(), tagsTarget());
+            continue;
+        }
+        for (const TagLibrary::Field &field : library.fields()) {
+            if (field.name.compare(*it, Qt::CaseInsensitive) == 0 && canMap(it.key(), field.type)) {
+                resolved.insert(it.key(), field.id);
+                break;
+            }
+        }
+    }
+    return resolved;
+}
+
+QStringList MetadataImport::mappedKeys(const NamedMappings &mappings, const QStringList &enabled)
+{
+    QStringList keys;
+    for (const QString &key : EmbeddedMetadata::keys()) {
+        if (mappings.contains(key) && enabled.contains(key)) {
+            keys.append(key);
+        }
+    }
+    return keys;
+}
+
+QList<EmbeddedMetadata::Reading> MetadataImport::readFiles(const QString &root,
+                                                           const QStringList &relativePaths,
+                                                           const QStringList &keys,
+                                                           const std::function<bool()> &canceled,
+                                                           const std::function<void(int)> &progress)
+{
+    QList<EmbeddedMetadata::Reading> readings;
+    if (keys.isEmpty()) {
+        return readings;
+    }
+    const QDir dir(root);
+    int done = 0;
+    for (const QString &path : relativePaths) {
+        if (canceled && canceled()) {
+            break;
+        }
+        EmbeddedMetadata::Reading reading = EmbeddedMetadata::read(dir.filePath(path), keys);
+        if (reading.supported && !reading.values.isEmpty()) {
+            readings.append(reading);
+        }
+        if (progress) {
+            progress(++done);
+        }
+    }
+    return readings;
+}
+
+bool MetadataImport::importReadings(const QString &root,
+                                    const QList<EmbeddedMetadata::Reading> &readings,
+                                    const NamedMappings &mappings,
+                                    const QStringList &enabled,
+                                    Policy policy,
+                                    const QString &tagColor,
+                                    Result *result,
+                                    QString *error)
+{
+    if (result) {
+        *result = {};
+    }
+    QList<EmbeddedMetadata::Reading> readable;
+    for (const EmbeddedMetadata::Reading &reading : readings) {
+        if (reading.supported && !reading.values.isEmpty()) {
+            readable.append(reading);
+        }
+    }
+    if (readable.isEmpty()) {
+        return true;
+    }
+    const TagLibrary::Library library = TagLibrary::Library::load(root, error);
+    if (library.isNull()) {
+        return false;
+    }
+    const QMap<QString, QString> resolved = resolveMappings(library, mappings, enabled);
+    if (resolved.isEmpty()) {
+        return true;
+    }
+    Plan plan = preview(library, readable, resolved, policy);
+    plan.tagColor = tagColor;
+    return apply(plan, result, error);
 }

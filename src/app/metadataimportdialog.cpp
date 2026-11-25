@@ -3,6 +3,8 @@
 #include "metadataimportdialog.h"
 
 #include "metadataeditor.h"
+#include "settings.h"
+#include "taggingsettings.h"
 
 #include <KLocalizedString>
 #include <KMessageWidget>
@@ -25,11 +27,14 @@ MetadataImportDialog::MetadataImportDialog(const QString &root, const QStringLis
     : QDialog(parent)
     , m_root(root)
     , m_paths(absolutePaths)
+    , m_keys(TaggingSettings::embeddedMetadataKeys())
+    , m_savedMappings(TaggingSettings::embeddedMetadataMappings())
     , m_intro(new QLabel(this))
     , m_form(new QFormLayout)
     , m_replace(new QCheckBox(i18nc("@option:check", "&Replace existing field values"), this))
     , m_preview(new QPushButton(QIcon::fromTheme(QStringLiteral("view-preview")), i18nc("@action:button", "&Preview"), this))
     , m_editEmbedded(new QPushButton(QIcon::fromTheme(QStringLiteral("document-edit")), i18nc("@action:button", "&Edit Embedded Metadata…"), this))
+    , m_editEmbeddedNote(new QLabel(this))
     , m_changes(new QTreeWidget(this))
     , m_summary(new QLabel(this))
     , m_error(new KMessageWidget(this))
@@ -44,12 +49,23 @@ MetadataImportDialog::MetadataImportDialog(const QString &root, const QStringLis
     m_intro->setText(
         i18ncp("@info", "Reading the embedded metadata of the selected item…", "Reading the embedded metadata of %1 items…", absolutePaths.size()));
     m_replace->setObjectName(QStringLiteral("metadataImportReplace"));
+    m_replace->setChecked(TaggingSettings::embeddedMetadataPolicy() == MetadataImport::Policy::Replace);
     m_replace->setToolTip(i18nc("@info:tooltip", "When unchecked, fields that already have a different value keep it"));
     m_preview->setObjectName(QStringLiteral("metadataImportPreview"));
     m_preview->setEnabled(false);
     m_editEmbedded->setObjectName(QStringLiteral("metadataImportEditEmbedded"));
-    m_editEmbedded->setToolTip(i18nc("@info:tooltip", "Change the metadata stored in the file itself, with a preview before it is written"));
+    if (Settings::allowEmbeddedMetadataWrites()) {
+        m_editEmbedded->setToolTip(i18nc("@info:tooltip", "Change the metadata stored in the file itself, with a preview before it is written"));
+    } else {
+        const QString off = i18nc("@info", "Writing to files is turned off in Preferences › Tagging › Privacy.");
+        m_editEmbedded->setEnabled(false);
+        m_editEmbedded->setToolTip(off);
+        m_editEmbeddedNote->setText(off);
+    }
     m_editEmbedded->hide();
+    m_editEmbeddedNote->setObjectName(QStringLiteral("metadataImportEditEmbeddedNote"));
+    m_editEmbeddedNote->setWordWrap(true);
+    m_editEmbeddedNote->hide();
     m_changes->setObjectName(QStringLiteral("metadataImportChanges"));
     m_changes->setHeaderLabels(
         {i18nc("@title:column", "Item"), i18nc("@title:column", "Property"), i18nc("@title:column", "Value"), i18nc("@title:column", "Change")});
@@ -77,6 +93,7 @@ MetadataImportDialog::MetadataImportDialog(const QString &root, const QStringLis
     auto *row = new QHBoxLayout;
     row->addWidget(m_preview);
     row->addWidget(m_editEmbedded);
+    row->addWidget(m_editEmbeddedNote, 1);
     row->addStretch();
     layout->addLayout(row);
     layout->addWidget(m_changes, 1);
@@ -94,6 +111,9 @@ MetadataImportDialog::MetadataImportDialog(const QString &root, const QStringLis
     connect(m_replace, &QCheckBox::toggled, this, &MetadataImportDialog::invalidatePreview);
     connect(m_preview, &QPushButton::clicked, this, &MetadataImportDialog::preview);
     connect(m_editEmbedded, &QPushButton::clicked, this, [this] {
+        if (!Settings::allowEmbeddedMetadataWrites()) {
+            return;
+        }
         Q_EMIT editEmbeddedRequested(m_paths.constFirst());
         reject();
     });
@@ -105,17 +125,18 @@ MetadataImportDialog::MetadataImportDialog(const QString &root, const QStringLis
         }
     });
     m_watcher->setFuture(QtConcurrent::run(
-        [](QPromise<QList<EmbeddedMetadata::Reading>> &promise, const QStringList &paths) {
+        [](QPromise<QList<EmbeddedMetadata::Reading>> &promise, const QStringList &paths, const QStringList &keys) {
             QList<EmbeddedMetadata::Reading> readings;
             for (const QString &path : paths) {
                 if (promise.isCanceled()) {
                     return;
                 }
-                readings.append(EmbeddedMetadata::read(path));
+                readings.append(EmbeddedMetadata::read(path, keys));
             }
             promise.addResult(readings);
         },
-        absolutePaths));
+        absolutePaths,
+        m_keys));
     resize(720, 560);
 }
 
@@ -158,18 +179,27 @@ void MetadataImportDialog::showReadings(const QList<EmbeddedMetadata::Reading> &
             }
         }
     }
-    for (const QString &key : EmbeddedMetadata::keys()) {
+    const QMap<QString, QString> saved = m_library.isNull() ? QMap<QString, QString>() : MetadataImport::resolveMappings(m_library, m_savedMappings, m_keys);
+    for (const QString &key : std::as_const(m_keys)) {
         if (examples.contains(key)) {
-            addMapping(key, examples.value(key));
+            addMapping(key, examples.value(key), saved.value(key));
         }
     }
     if (m_mappings.isEmpty()) {
-        m_intro->setText(supported == 0
-                             ? i18ncp("@info",
-                                      "The selected item has no embedded metadata that can be read. Images and audio files can be imported.",
-                                      "None of the %1 selected items has embedded metadata that can be read. Images and audio files can be imported.",
-                                      readings.size())
-                             : i18nc("@info", "No supported EXIF or audio properties were found in the selected items."));
+        if (m_keys.isEmpty()) {
+            m_intro->setText(i18nc("@info", "Reading embedded metadata is turned off for every property in Preferences › Tagging › Embedded Metadata."));
+        } else if (supported == 0) {
+            m_intro->setText(i18ncp("@info",
+                                    "The selected item has no embedded metadata that can be read. Images and audio files can be imported.",
+                                    "None of the %1 selected items has embedded metadata that can be read. Images and audio files can be imported.",
+                                    readings.size()));
+        } else if (m_keys.size() < EmbeddedMetadata::keys().size()) {
+            m_intro->setText(i18nc("@info",
+                                   "No supported EXIF or audio properties were found in the selected items. Some properties aren't read because "
+                                   "they are turned off in Preferences › Tagging › Embedded Metadata."));
+        } else {
+            m_intro->setText(i18nc("@info", "No supported EXIF or audio properties were found in the selected items."));
+        }
     } else {
         m_intro->setText(i18ncp("@info",
                                 "Choose how to import the embedded metadata of the selected item, then preview the changes. The file isn't changed.",
@@ -178,13 +208,14 @@ void MetadataImportDialog::showReadings(const QList<EmbeddedMetadata::Reading> &
     }
     if (readings.size() == 1 && readings.constFirst().supported && MetadataEditor::supports(readings.constFirst().mimeType)) {
         m_editEmbedded->show();
+        m_editEmbeddedNote->setVisible(!m_editEmbedded->isEnabled());
     }
     m_ready = true;
     invalidatePreview();
     Q_EMIT ready();
 }
 
-void MetadataImportDialog::addMapping(const QString &key, const QStringList &examples)
+void MetadataImportDialog::addMapping(const QString &key, const QStringList &examples, const QString &saved)
 {
     auto *combo = new QComboBox(this);
     combo->setObjectName(QStringLiteral("metadataMapping_") + key);
@@ -192,14 +223,24 @@ void MetadataImportDialog::addMapping(const QString &key, const QStringList &exa
     combo->setAccessibleName(name);
     combo->addItem(i18nc("@item:inlistbox", "Don't import"), QString());
     combo->addItem(QIcon::fromTheme(QStringLiteral("tag")), i18nc("@item:inlistbox", "Tags"), MetadataImport::tagsTarget());
+    if (saved == MetadataImport::tagsTarget()) {
+        combo->setCurrentIndex(1);
+    }
     if (!m_library.isNull()) {
         for (const TagLibrary::Field &field : m_library.fields()) {
             const QString label = field.type == TagLibrary::FieldType::Date ? i18nc("@item:inlistbox field name and type", "Field: %1 (date)", field.name)
                                                                             : i18nc("@item:inlistbox field name", "Field: %1", field.name);
             combo->addItem(label, field.id);
-            // Suggest a field named like the property, such as a "Genre" field for the genre.
-            if (combo->currentIndex() == 0 && field.name.compare(name, Qt::CaseInsensitive) == 0) {
+            if (field.id == saved) {
                 combo->setCurrentIndex(combo->count() - 1);
+            }
+        }
+        // Without a saved mapping, suggest a field named like the property, such as a "Genre" field for the genre.
+        for (int i = 2; saved.isEmpty() && i < combo->count(); ++i) {
+            const TagLibrary::Field *field = m_library.field(combo->itemData(i).toString());
+            if (field && field->name.compare(name, Qt::CaseInsensitive) == 0) {
+                combo->setCurrentIndex(i);
+                break;
             }
         }
     }
@@ -254,6 +295,7 @@ bool MetadataImportDialog::preview()
         }
     }
     m_plan = MetadataImport::preview(m_library, m_readings, mappings, m_replace->isChecked() ? MetadataImport::Policy::Replace : MetadataImport::Policy::Keep);
+    m_plan.tagColor = TaggingSettings::defaultTagColor();
     m_changes->clear();
     for (const MetadataImport::Change &change : std::as_const(m_plan.changes)) {
         auto *item = new QTreeWidgetItem(m_changes,
@@ -312,9 +354,29 @@ bool MetadataImportDialog::import()
         m_error->show();
         return false;
     }
+    saveMappings();
     Q_EMIT libraryChanged(m_root);
     accept();
     return true;
+}
+
+void MetadataImportDialog::saveMappings()
+{
+    // Mappings of properties the selected items don't have are kept.
+    MetadataImport::NamedMappings mappings = TaggingSettings::embeddedMetadataMappings();
+    for (auto it = m_mappings.cbegin(); it != m_mappings.cend(); ++it) {
+        const QString target = it.value()->currentData().toString();
+        const TagLibrary::Field *field = target.isEmpty() ? nullptr : m_library.field(target);
+        if (target == MetadataImport::tagsTarget()) {
+            mappings.insert(it.key(), QString());
+        } else if (field) {
+            mappings.insert(it.key(), field->name);
+        } else {
+            mappings.remove(it.key());
+        }
+    }
+    TaggingSettings::setEmbeddedMetadataMappings(mappings);
+    Settings::self()->save();
 }
 
 QString MetadataImportDialog::describe(const MetadataImport::Change &change) const

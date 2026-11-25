@@ -9,14 +9,26 @@
 
 class AccentColorChooser;
 class ColorSchemeCombo;
+class EmbeddedMetadataKeyList;
+class EmbeddedMetadataMappingTable;
+class FieldTemplateEditor;
 class KPageWidgetItem;
 class PreviewSizeSpinBox;
 class QCheckBox;
 class QComboBox;
+class QLabel;
 class QListWidget;
+class QPushButton;
 class QTabWidget;
+class QTreeWidget;
 class RuleListEditor;
 class StartupWorkspaceCombo;
+class TagFieldManagerWidget;
+
+namespace LibraryConfirmations
+{
+struct Confirmation;
+}
 
 /**
  * The Preferences dialog: a sidebar of pages, each holding one tab per
@@ -46,6 +58,10 @@ public:
     void resetAppearanceToDefaults();
     /// Replaces the yes or no question asked before resetting the appearance, for tests.
     void setConfirmation(std::function<bool(const QString &)> confirm);
+    /// Replaces the questions asked before adding, removing or moving a tag library, for tests.
+    void setLibraryConfirmation(std::function<bool(const LibraryConfirmations::Confirmation &)> confirm);
+    /// Replaces the folder chooser of Add Library, for tests; it returns an empty path when canceled.
+    void setLibraryFolderChooser(std::function<QString()> choose);
     /// The theme profile options shown in the dialog, which may not be applied yet.
     QVariantMap appearanceValues() const;
     /// Shows Themes options in the dialog without applying them.
@@ -59,6 +75,10 @@ Q_SIGNALS:
     void customCommandsChanged();
     /// Asks the main window to open its workspace manager.
     void manageWorkspacesRequested();
+    /// A tag library was added, removed or had its metadata moved in the Libraries tab, or its fields changed in the Fields tab; this takes effect immediately.
+    void libraryChanged(const QString &root);
+    /// A tag library was added in the Libraries tab and needs its first refresh.
+    void libraryAdded(const QString &root);
 
 protected:
     void updateSettings() override;
@@ -147,6 +167,23 @@ private:
     QWidget *createFileRulesPage();
     QWidget *createFileMetadataPage();
     QWidget *createSelectionFiltersPage();
+    QWidget *createTaggingPrivacyPage();
+    QWidget *createTaggingLibrariesPage();
+    QWidget *createTaggingTagsPage();
+    QWidget *createTaggingSearchPage();
+    QWidget *createTaggingFieldsPage();
+    QWidget *createTaggingEmbeddedMetadataPage();
+    /// Offers the fields of the registered libraries and of new libraries as embedded metadata targets.
+    void reloadEmbeddedMetadataFields();
+    /// Lists the registered libraries in the Fields tab, keeping the chosen one when it is still registered, and reloads its fields.
+    void reloadFieldLibraries();
+    /// Lists the registered tag libraries with their storage and state, selecting @p select when listed.
+    void reloadLibraries(const QString &select = {});
+    void updateLibraryButtons();
+    QString selectedLibrary() const;
+    void addLibrary();
+    void removeLibrary();
+    void moveLibraryDocument();
     QWidget *createWorkspaceManagementPage();
     QWidget *createWorkspaceStartupPage();
     QWidget *createWorkspaceSearchPage();
@@ -177,6 +214,16 @@ private:
     AccentColorChooser *m_accentColor = nullptr;
     QComboBox *m_cornerRadius = nullptr;
     std::function<bool(const QString &)> m_confirm;
+    std::function<bool(const LibraryConfirmations::Confirmation &)> m_confirmLibrary;
+    std::function<QString()> m_chooseLibraryFolder;
+    QTreeWidget *m_libraries = nullptr;
+    QPushButton *m_removeLibrary = nullptr;
+    QPushButton *m_moveLibraryDocument = nullptr;
+    QComboBox *m_fieldLibrary = nullptr;
+    QLabel *m_noFieldLibraries = nullptr;
+    TagFieldManagerWidget *m_fieldManager = nullptr;
+    FieldTemplateEditor *m_fieldTemplates = nullptr;
+    EmbeddedMetadataMappingTable *m_metadataMappings = nullptr;
     /// A checkbox for a setting kept outside Settings, in config that KIO
     /// shares with Dolphin.
     struct SharedToggle {

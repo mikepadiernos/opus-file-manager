@@ -37,6 +37,8 @@ add_library(opusfm_app STATIC
     filelistminimap.h
     editorpanel.cpp
     editorpanel.h
+    embeddedmetadatasettings.cpp
+    embeddedmetadatasettings.h
     filediffdialog.cpp
     filediffdialog.h
     filesplitdialog.cpp
@@ -61,6 +63,10 @@ add_library(opusfm_app STATIC
     informationpanel.h
     librarymovetracker.cpp
     librarymovetracker.h
+    libraryautorefresh.cpp
+    libraryautorefresh.h
+    libraryconfirmations.cpp
+    libraryconfirmations.h
     libraryexportdialog.cpp
     libraryexportdialog.h
     libraryrefreshdialog.cpp
@@ -105,6 +111,8 @@ add_library(opusfm_app STATIC
     tagfieldmanagerwidget.h
     taggingcontroller.cpp
     taggingcontroller.h
+    taggingsettings.cpp
+    taggingsettings.h
     taggroupdialog.cpp
     taggroupdialog.h
     taggroupmanagerwidget.cpp

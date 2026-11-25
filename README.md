@@ -38,7 +38,8 @@
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0).
 > Since that release, `main` has gained workspaces (M15–M16), themes (M17–M18),
 > branding (M19–M20), advanced search with its settings (M21–M22) and native
-> tagging (M23); see the [roadmap](docs/ROADMAP.md#at-a-glance) for status.
+> tagging with its settings (M23–M24); see the
+> [roadmap](docs/ROADMAP.md#at-a-glance) for status.
 
 ## Features
 
@@ -61,8 +62,8 @@ preview. Both behaviours can be changed in Preferences.
   preview scripts or commands before running them.
 - 🔖 **Tag:** opt-in [tag libraries](docs/tagging.md) in existing folders, with
   hierarchical tags, groups, text and date fields, a tag panel, tag and
-  embedded-metadata search criteria, metadata import, and export and restore.
-  Files are never moved or renamed.
+  embedded-metadata search criteria, metadata import, export and restore, and
+  a Tagging page in Preferences. Files are never moved or renamed.
 - 🖼️ **Preview and edit:** preview documents and media, use the image gallery,
   edit text with drafts and edit supported media metadata. Preview, text and
   metadata panels can be placed beside or below the panes.

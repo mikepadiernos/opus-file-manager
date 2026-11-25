@@ -59,7 +59,9 @@ LiveSearch::Result LiveSearch::find(const QString &folder,
                                     const Progress &progress,
                                     const PathFilter &filter,
                                     int entryLimit,
-                                    const QStringList *tagLibraries)
+                                    const QStringList *tagLibraries,
+                                    const TagSearch::Options &tagOptions,
+                                    const QStringList &metadataKeys)
 {
     Result result;
     const QFileInfo root(folder);
@@ -85,7 +87,7 @@ LiveSearch::Result LiveSearch::find(const QString &folder,
             return result;
         }
         if (query->usesTags()) {
-            tags.emplace(tagLibraries ? *tagLibraries : LibraryRegistry::roots());
+            tags.emplace(tagLibraries ? *tagLibraries : LibraryRegistry::roots(), tagOptions);
         }
     }
     if (filter.excludes(root.absoluteFilePath())) {
@@ -158,7 +160,7 @@ LiveSearch::Result LiveSearch::find(const QString &folder,
                         return *read == TextRead::Text && contents.contains(needle, Qt::CaseInsensitive);
                     },
                     tags ? tags->matcher(entry.absoluteFilePath()) : SearchQuery::TagMatcher(),
-                    EmbeddedMetadata::lazySearchTexts(entry.absoluteFilePath()));
+                    EmbeddedMetadata::lazySearchTexts(entry.absoluteFilePath(), metadataKeys));
                 if (tags && tags->errors().size() > tagErrors) {
                     result.errors.append(tags->errors().mid(tagErrors));
                 }

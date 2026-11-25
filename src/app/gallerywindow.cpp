@@ -878,6 +878,8 @@ void GalleryWindow::showDetails(const ImageDetails::Data &details)
 {
     QStringList lines;
     using namespace KFileMetaData;
+    // Properties turned off in Preferences › Tagging › Embedded Metadata aren't shown.
+    const QStringList disabled = Settings::disabledEmbeddedMetadataKeys();
     for (const Property::Property property : {Property::Manufacturer,
                                               Property::Model,
                                               Property::PhotoDateTimeOriginal,
@@ -886,7 +888,7 @@ void GalleryWindow::showDetails(const ImageDetails::Data &details)
                                               Property::PhotoExposureTime,
                                               Property::PhotoFocalLength}) {
         const QList<QVariant> values = details.metadata.values(property);
-        if (values.isEmpty()) {
+        if (values.isEmpty() || disabled.contains(PropertyInfo(property).name())) {
             continue;
         }
         const PropertyInfo info(property);

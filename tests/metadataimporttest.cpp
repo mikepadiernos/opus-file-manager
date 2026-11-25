@@ -11,6 +11,7 @@
 #include <QFile>
 #include <QImage>
 #include <QProcess>
+#include <QSet>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -143,6 +144,21 @@ private Q_SLOTS:
         QVERIFY(EmbeddedMetadata::searchTexts(image_).contains(QStringLiteral("2026-02-28")));
         QVERIFY(EmbeddedMetadata::lazySearchTexts(photo)().contains(QStringLiteral("Acme One")));
 
+        // Disabled properties are neither read nor searched.
+        QStringList withoutModel = EmbeddedMetadata::keys();
+        withoutModel.removeAll(QStringLiteral("model"));
+        const EmbeddedMetadata::Reading filtered = EmbeddedMetadata::read(photo, withoutModel);
+        QVERIFY(filtered.supported);
+        QVERIFY(find(filtered, QStringLiteral("manufacturer")));
+        QVERIFY(!find(filtered, QStringLiteral("model")));
+        const EmbeddedMetadata::Reading none = EmbeddedMetadata::read(photo, {});
+        QVERIFY(none.supported);
+        QVERIFY(none.values.isEmpty());
+        const QStringList makeOnly = EmbeddedMetadata::lazySearchTexts(photo, {QStringLiteral("manufacturer")})();
+        QVERIFY(makeOnly.contains(QStringLiteral("Acme")));
+        QVERIFY(!makeOnly.contains(QStringLiteral("Acme One")));
+        QVERIFY(EmbeddedMetadata::lazySearchTexts(photo, {})().isEmpty());
+
         const EmbeddedMetadata::Reading audio = EmbeddedMetadata::read(song);
         QVERIFY2(audio.supported, qPrintable(audio.problem));
         QVERIFY(find(audio, QStringLiteral("genre")));
@@ -170,6 +186,236 @@ private Q_SLOTS:
         QVERIFY(EmbeddedMetadata::lazySearchTexts(notes)().isEmpty());
         QVERIFY(EmbeddedMetadata::keys().contains(QStringLiteral("genre")));
         QVERIFY(!EmbeddedMetadata::displayName(QStringLiteral("genre")).isEmpty());
+    }
+
+    void filtersKeys()
+    {
+        const QStringList keys = EmbeddedMetadata::keys();
+        const QStringList images = EmbeddedMetadata::imageKeys();
+        const QStringList audio = EmbeddedMetadata::audioKeys();
+        QVERIFY(images.contains(QStringLiteral("manufacturer")));
+        QVERIFY(!audio.contains(QStringLiteral("manufacturer")));
+        QVERIFY(audio.contains(QStringLiteral("genre")));
+        QVERIFY(!images.contains(QStringLiteral("genre")));
+        QVERIFY(images.contains(QStringLiteral("title")) && audio.contains(QStringLiteral("title")));
+        for (const QString &key : images + audio) {
+            QVERIFY(keys.contains(key));
+        }
+        QCOMPARE(keys.size(), QSet<QString>(images.cbegin(), images.cend()).unite(QSet<QString>(audio.cbegin(), audio.cend())).size());
+
+        QCOMPARE(EmbeddedMetadata::enabledKeys({}), keys);
+        const QStringList enabled = EmbeddedMetadata::enabledKeys({QStringLiteral("genre"), QStringLiteral("unknown")});
+        QCOMPARE(enabled.size(), keys.size() - 1);
+        QVERIFY(!enabled.contains(QStringLiteral("genre")));
+        QVERIFY(EmbeddedMetadata::enabledKeys(keys).isEmpty());
+
+        const EmbeddedMetadata::Reading song =
+            reading(QStringLiteral("/song.mp3"),
+                    {value(QStringLiteral("genre"), {QStringLiteral("Jazz"), QStringLiteral("Bop")}),
+                     value(QStringLiteral("releaseYear"), {QStringLiteral("1957")}),
+                     value(QStringLiteral("photoDateTimeOriginal"), {QStringLiteral("2026-02-28T10:30:00")}, QDate(2026, 2, 28))});
+        QCOMPARE(EmbeddedMetadata::searchTexts(song),
+                 (QStringList{QStringLiteral("Jazz"),
+                              QStringLiteral("Bop"),
+                              QStringLiteral("1957"),
+                              QStringLiteral("2026-02-28T10:30:00"),
+                              QStringLiteral("2026-02-28")}));
+        QCOMPARE(EmbeddedMetadata::searchTexts(song, {QStringLiteral("genre")}), (QStringList{QStringLiteral("Jazz"), QStringLiteral("Bop")}));
+        QVERIFY(EmbeddedMetadata::searchTexts(song, {}).isEmpty());
+    }
+
+    void parsesSerializesAndResolvesMappings()
+    {
+        const MetadataImport::NamedMappings parsed = MetadataImport::parseMappings({
+            QStringLiteral("genre=tags"),
+            QStringLiteral(" manufacturer = TAGS "),
+            QStringLiteral("model=Field: Camera "),
+            QStringLiteral("photoDateTimeOriginal=field:Taken"),
+            QStringLiteral("artist=field:Taken"),
+            QStringLiteral("genre=field:Genre"),
+            QStringLiteral("unknown=tags"),
+            QStringLiteral("title"),
+            QStringLiteral("album=field:"),
+            QStringLiteral("composer=other"),
+            QStringLiteral("=tags"),
+        });
+        const MetadataImport::NamedMappings expected{
+            {QStringLiteral("genre"), QString()},
+            {QStringLiteral("manufacturer"), QString()},
+            {QStringLiteral("model"), QStringLiteral("Camera")},
+            {QStringLiteral("photoDateTimeOriginal"), QStringLiteral("Taken")},
+            {QStringLiteral("artist"), QStringLiteral("Taken")},
+        };
+        QCOMPARE(parsed, expected);
+        QVERIFY(MetadataImport::parseMappings({}).isEmpty());
+
+        const QStringList serialized = MetadataImport::serializeMappings(parsed);
+        QCOMPARE(serialized.size(), 5);
+        QVERIFY(serialized.contains(QStringLiteral("genre=tags")));
+        QVERIFY(serialized.contains(QStringLiteral("model=field:Camera")));
+        QVERIFY(serialized.indexOf(QStringLiteral("manufacturer=tags")) < serialized.indexOf(QStringLiteral("genre=tags")));
+        QCOMPARE(MetadataImport::parseMappings(serialized), parsed);
+        QCOMPARE(MetadataImport::serializeMappings({{QStringLiteral("unknown"), QString()}}), QStringList());
+
+        QVERIFY(MetadataImport::canMap(QStringLiteral("model"), TagLibrary::FieldType::Text));
+        QVERIFY(MetadataImport::canMap(QStringLiteral("photoDateTimeOriginal"), TagLibrary::FieldType::Text));
+        QVERIFY(MetadataImport::canMap(QStringLiteral("photoDateTimeOriginal"), TagLibrary::FieldType::Date));
+        QVERIFY(!MetadataImport::canMap(QStringLiteral("model"), TagLibrary::FieldType::Date));
+
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString root = dir.path();
+        QCOMPARE(LibraryRegistry::create(root), QString());
+        QString error;
+        QVERIFY2(TagLibrary::update(
+                     root,
+                     [](TagLibrary::Library &library, QString *problem) {
+                         return library.setField({QStringLiteral("camera"), QStringLiteral("Camera"), TagLibrary::FieldType::Text}, problem)
+                             && library.setField({QStringLiteral("taken"), QStringLiteral("taken"), TagLibrary::FieldType::Date}, problem);
+                     },
+                     &error),
+                 qPrintable(error));
+        const TagLibrary::Library library = TagLibrary::Library::load(root);
+        const MetadataImport::NamedMappings named{
+            {QStringLiteral("genre"), QString()},
+            {QStringLiteral("model"), QStringLiteral("CAMERA")},
+            {QStringLiteral("photoDateTimeOriginal"), QStringLiteral("Taken")},
+            // A text property can't fill a date field, and a missing field is skipped.
+            {QStringLiteral("artist"), QStringLiteral("Taken")},
+            {QStringLiteral("album"), QStringLiteral("Album")},
+        };
+        const QMap<QString, QString> resolved{
+            {QStringLiteral("genre"), MetadataImport::tagsTarget()},
+            {QStringLiteral("model"), QStringLiteral("camera")},
+            {QStringLiteral("photoDateTimeOriginal"), QStringLiteral("taken")},
+        };
+        QCOMPARE(MetadataImport::resolveMappings(library, named), resolved);
+        QStringList withoutGenre = EmbeddedMetadata::keys();
+        withoutGenre.removeAll(QStringLiteral("genre"));
+        QVERIFY(!MetadataImport::resolveMappings(library, named, withoutGenre).contains(QStringLiteral("genre")));
+        QCOMPARE(MetadataImport::resolveMappings(library, named, withoutGenre).size(), 2);
+
+        QCOMPARE(MetadataImport::mappedKeys(named).size(), 5);
+        QVERIFY(!MetadataImport::mappedKeys(named, withoutGenre).contains(QStringLiteral("genre")));
+        QVERIFY(MetadataImport::mappedKeys(named, {}).isEmpty());
+        QVERIFY(MetadataImport::mappedKeys({}).isEmpty());
+    }
+
+    void importsReadingsWithoutReview()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString root = dir.path();
+        QCOMPARE(LibraryRegistry::create(root), QString());
+        const QString photo = dir.filePath(QStringLiteral("photo.jpg"));
+        const QString other = dir.filePath(QStringLiteral("other.jpg"));
+        const QString notes = dir.filePath(QStringLiteral("notes.txt"));
+        touch(photo);
+        touch(other);
+        touch(notes);
+        QString error;
+        QVERIFY2(TagLibrary::update(
+                     root,
+                     [](TagLibrary::Library &library, QString *problem) {
+                         return library.setField({QStringLiteral("camera"), QStringLiteral("Camera"), TagLibrary::FieldType::Text}, problem);
+                     },
+                     &error),
+                 qPrintable(error));
+        QVERIFY2(TagAssignment::applyFields(root, {other}, {{QStringLiteral("camera"), QStringLiteral("Old")}}, nullptr, &error), qPrintable(error));
+
+        const QList<EmbeddedMetadata::Reading> readings{
+            reading(photo, {value(QStringLiteral("manufacturer"), {QStringLiteral("Acme")}), value(QStringLiteral("model"), {QStringLiteral("One")})}),
+            reading(other, {value(QStringLiteral("model"), {QStringLiteral("Two")})}),
+            EmbeddedMetadata::Reading{notes, QStringLiteral("text/plain"), false, {}, QStringLiteral("Not supported")},
+        };
+        const MetadataImport::NamedMappings named{
+            {QStringLiteral("manufacturer"), QString()},
+            {QStringLiteral("model"), QStringLiteral("camera")},
+            {QStringLiteral("album"), QStringLiteral("Album")},
+        };
+
+        // Nothing is imported without resolvable mappings or readable files.
+        MetadataImport::Result result;
+        result.items = 7;
+        QVERIFY(MetadataImport::importReadings(root,
+                                               readings,
+                                               {{QStringLiteral("album"), QStringLiteral("Album")}},
+                                               EmbeddedMetadata::keys(),
+                                               MetadataImport::Policy::Keep,
+                                               {},
+                                               &result,
+                                               &error));
+        QCOMPARE(result.items, 0);
+        QVERIFY(
+            MetadataImport::importReadings(root, {readings.constLast()}, named, EmbeddedMetadata::keys(), MetadataImport::Policy::Keep, {}, &result, &error));
+        QCOMPARE(result.items, 0);
+        QVERIFY(TagLibrary::Library::load(root).tags().isEmpty());
+
+        QVERIFY2(MetadataImport::importReadings(root,
+                                                readings,
+                                                named,
+                                                EmbeddedMetadata::keys(),
+                                                MetadataImport::Policy::Keep,
+                                                QStringLiteral("#336699"),
+                                                &result,
+                                                &error),
+                 qPrintable(error));
+        QCOMPARE(result.tagsCreated, 1);
+        QCOMPARE(result.itemsTagged, 1);
+        QCOMPARE(result.valuesSet, 1);
+        QCOMPARE(result.items, 1);
+        TagLibrary::Library library = TagLibrary::Library::load(root);
+        QCOMPARE(library.tags().size(), 1);
+        QCOMPARE(library.tags().constFirst().color, QStringLiteral("#336699"));
+        QCOMPARE(library.entry(QStringLiteral("photo.jpg"))->fields.value(QStringLiteral("camera")), QStringLiteral("One"));
+        QCOMPARE(library.entry(QStringLiteral("other.jpg"))->fields.value(QStringLiteral("camera")), QStringLiteral("Old"));
+        QVERIFY(!library.entry(QStringLiteral("notes.txt")));
+
+        // Replacing changes the conflicting value; disabled properties are left out.
+        QStringList withoutManufacturer = EmbeddedMetadata::keys();
+        withoutManufacturer.removeAll(QStringLiteral("manufacturer"));
+        QVERIFY2(MetadataImport::importReadings(root, readings, named, withoutManufacturer, MetadataImport::Policy::Replace, {}, &result, &error),
+                 qPrintable(error));
+        QCOMPARE(result.tagsCreated, 0);
+        QCOMPARE(result.valuesSet, 1);
+        QCOMPARE(result.items, 1);
+        library = TagLibrary::Library::load(root);
+        QCOMPARE(library.entry(QStringLiteral("other.jpg"))->fields.value(QStringLiteral("camera")), QStringLiteral("Two"));
+        QVERIFY(library.entry(QStringLiteral("other.jpg"))->tags.isEmpty());
+
+        // A library that can't be loaded reports an error.
+        error.clear();
+        QVERIFY(!MetadataImport::importReadings(dir.filePath(QStringLiteral("missing")),
+                                                readings,
+                                                named,
+                                                EmbeddedMetadata::keys(),
+                                                MetadataImport::Policy::Keep,
+                                                {},
+                                                &result,
+                                                &error));
+        QVERIFY(!error.isEmpty());
+
+        // Reading files keeps only those with values.
+        QVERIFY(MetadataImport::readFiles(root, {QStringLiteral("notes.txt"), QStringLiteral("photo.jpg")}, {}).isEmpty());
+        int progress = 0;
+        QVERIFY(
+            MetadataImport::readFiles(root, {QStringLiteral("notes.txt"), QStringLiteral("photo.jpg")}, EmbeddedMetadata::keys(), {}, [&progress](int done) {
+                progress = done;
+            }).isEmpty());
+        QCOMPARE(progress, 2);
+        progress = 0;
+        QVERIFY(MetadataImport::readFiles(
+                    root,
+                    {QStringLiteral("notes.txt")},
+                    EmbeddedMetadata::keys(),
+                    [] {
+                        return true;
+                    },
+                    [&progress](int done) {
+                        progress = done;
+                    })
+                    .isEmpty());
+        QCOMPARE(progress, 0);
     }
 
     void previewsAndAppliesImport()
@@ -246,6 +492,8 @@ private Q_SLOTS:
         QCOMPARE(replace.count(MetadataImport::Action::SetField), 3);
         QCOMPARE(replace.count(MetadataImport::Action::Conflict), 1);
 
+        // Created tags get the plan's colour.
+        plan.tagColor = QStringLiteral("#336699");
         MetadataImport::Result result;
         QVERIFY2(MetadataImport::apply(plan, &result, &error), qPrintable(error));
         QCOMPARE(result.tagsCreated, 1);
@@ -258,6 +506,7 @@ private Q_SLOTS:
         QCOMPARE(entry->tags.size(), 2);
         QVERIFY(entry->tags.contains(QStringLiteral("acme")));
         QCOMPARE(library.findTags(QStringLiteral("beach")).size(), 1);
+        QCOMPARE(library.tag(library.findTags(QStringLiteral("beach")).constFirst())->color, QStringLiteral("#336699"));
         QCOMPARE(entry->fields.value(QStringLiteral("camera")), QStringLiteral("One"));
         QCOMPARE(entry->fields.value(QStringLiteral("taken")), QStringLiteral("2026-02-28"));
         QCOMPARE(library.entry(QStringLiteral("other.jpg"))->fields.value(QStringLiteral("camera")), QStringLiteral("Old"));

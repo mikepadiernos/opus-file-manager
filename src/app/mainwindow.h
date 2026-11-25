@@ -272,8 +272,14 @@ private:
     void setPreviewPlacement(PreviewPanel::Placement placement);
     void setMetadataPlacement(MetadataEditDialog *dialog, QDockWidget *dock, MetadataEditDialog::Placement placement);
     void setTagPanelPlacement(TagPanel::Placement placement);
+    /// Stores the tag panel placement in the TagPanelPlacement setting.
+    void saveTagPanelPlacement(bool below);
+    /// Applies Preferences › Tagging › Tags to the tag panel and open tag managers.
+    void applyTagSettings();
     /// Shows the active pane's folder and selection in the tag panel while it is shown.
     void updateTagPanel();
+    /// Shows the current state of the tag library at @p root after it was created, removed, moved or refreshed.
+    void reloadLibraryViews(const QString &root);
 
     void copyToOtherPane();
     void moveToOtherPane();

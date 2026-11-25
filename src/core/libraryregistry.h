@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "taglibrary.h"
+
 #include <QStringList>
 
 /**
@@ -14,11 +16,22 @@ namespace LibraryRegistry
 QStringList roots();
 
 /**
- * Registers @p root, creating an empty library document there when none
- * exists or adopting a valid existing one.
+ * Where the document of a library at @p root is kept when it's registered:
+ * an existing private document comes first, then an existing document in the
+ * folder, and only when neither exists @p preferred.
+ */
+TagLibrary::Storage storageFor(const QString &root, TagLibrary::Storage preferred);
+
+/**
+ * Registers @p root, adopting a valid existing library document where it is
+ * (see storageFor()) or creating an empty one in @p storage. With private
+ * storage, a readable folder that can't be written can be a library.
+ * @param fields added to a newly created document, in order; fields without
+ *        an identifier get a new one, and fields the document refuses, such
+ *        as repeated names, are skipped. An adopted document is left unchanged.
  * @returns an error message, or an empty string on success
  */
-QString create(const QString &root);
+QString create(const QString &root, TagLibrary::Storage storage = TagLibrary::Storage::LibraryFolder, const QList<TagLibrary::Field> &fields = {});
 
 /// Unregisters @p root; the library document is kept.
 void remove(const QString &root);

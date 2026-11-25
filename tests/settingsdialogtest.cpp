@@ -6,8 +6,14 @@
 #include "batchrenamedialog.h"
 #include "branding.h"
 #include "customcommanddialog.h"
+#include "embeddedmetadata.h"
+#include "embeddedmetadatasettings.h"
 #include "filecolorrules.h"
 #include "ignorelist.h"
+#include "libraryarchive.h"
+#include "libraryconfirmations.h"
+#include "libraryregistry.h"
+#include "libraryscan.h"
 #include "mainwindow.h"
 #include "pathfilterpresetsdialog.h"
 #include "savedpathfilters.h"
@@ -16,13 +22,18 @@
 #include "settings.h"
 #include "settingsbackup.h"
 #include "settingswidgets.h"
+#include "tagfieldmanagerwidget.h"
+#include "taggingsettings.h"
+#include "taglibrary.h"
 #include "viewsettings.h"
 #include "workspacecatalog.h"
 #include "workspacerestore.h"
 
 #include <KActionCollection>
+#include <KColorButton>
 #include <KConfig>
 #include <KConfigGroup>
+#include <KEditListWidget>
 #include <KFilePlacesModel>
 #include <KPageWidget>
 #include <KPluginMetaData>
@@ -55,6 +66,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QTreeWidget>
 
 class SettingsDialogTest : public QObject
 {
@@ -86,6 +98,7 @@ private Q_SLOTS:
                                      QStringLiteral("Workspaces"),
                                      QStringLiteral("WorkspaceSettings"),
                                      QStringLiteral("ContextMenu"),
+                                     QStringLiteral("Tagging"),
                                      QStringLiteral("Branding")}) {
             KSharedConfig::openConfig()->deleteGroup(group);
         }
@@ -110,6 +123,741 @@ private Q_SLOTS:
         QVERIFY(portability);
         QVERIFY(portability->findChild<QPushButton *>(QStringLiteral("exportWorkspaceProfiles")));
         QVERIFY(portability->findChild<QPushButton *>(QStringLiteral("importWorkspaceProfiles")));
+    }
+
+    void taggingPrivacySettings()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+
+        // The Tagging page follows the Files page.
+        auto *pages = dialog.findChild<KPageWidget *>();
+        QVERIFY(pages);
+        QStringList titles;
+        for (int row = 0; row < pages->model()->rowCount(); ++row) {
+            titles.append(pages->model()->index(row, 0).data(Qt::DisplayRole).toString());
+        }
+        QVERIFY(titles.contains(QStringLiteral("Tagging")));
+        QCOMPARE(titles.indexOf(QStringLiteral("Tagging")), titles.indexOf(QStringLiteral("Files")) + 1);
+
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("taggingPrivacyPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->tabText(tabs->indexOf(page)), QStringLiteral("Privacy"));
+
+        auto *explanation = page->findChild<QLabel *>(QStringLiteral("taggingPrivacyExplanation"));
+        auto *storage = page->findChild<QComboBox *>(QStringLiteral("kcfg_NewLibraryStorage"));
+        auto *folder = page->findChild<KUrlRequester *>(QStringLiteral("kcfg_LibraryBackupFolder"));
+        auto *limit = page->findChild<QSpinBox *>(QStringLiteral("kcfg_LibraryBackupLimit"));
+        auto *writes = page->findChild<QCheckBox *>(QStringLiteral("kcfg_AllowEmbeddedMetadataWrites"));
+        QVERIFY(explanation && storage && folder && limit && writes);
+        QVERIFY(explanation->wordWrap());
+        QVERIFY(explanation->text().contains(QStringLiteral("network")));
+
+        // Defaults: in the library folder, the default backup folder, 20 backups and no writes to files.
+        QCOMPARE(storage->count(), 2);
+        QCOMPARE(storage->currentIndex(), int(Settings::EnumNewLibraryStorage::LibraryFolder));
+        QVERIFY(folder->url().isEmpty());
+        QCOMPARE(folder->placeholderText(), LibraryArchive::backupDirectory());
+        QCOMPARE(limit->value(), 20);
+        QCOMPARE(limit->minimum(), 0);
+        QCOMPARE(limit->maximum(), 1000);
+        limit->setValue(0);
+        QCOMPARE(limit->text(), QStringLiteral("All"));
+        QVERIFY(!writes->isChecked());
+        QCOMPARE(Settings::newLibraryStorage(), Settings::EnumNewLibraryStorage::LibraryFolder);
+        QCOMPARE(Settings::libraryBackupLimit(), 20);
+        QVERIFY(Settings::libraryBackupFolder().isEmpty());
+        QVERIFY(!Settings::allowEmbeddedMetadataWrites());
+    }
+
+    void taggingLibrariesSettings()
+    {
+        for (const QString &root : LibraryRegistry::roots()) {
+            LibraryRegistry::remove(root);
+        }
+        const QString privateFolder = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + QStringLiteral("/libraries");
+        const auto cleanup = qScopeGuard([privateFolder] {
+            for (const QString &root : LibraryRegistry::roots()) {
+                LibraryRegistry::remove(root);
+            }
+            QDir(privateFolder).removeRecursively();
+        });
+        QTemporaryDir dir;
+        const QString root = dir.filePath(QStringLiteral("Photos"));
+        QVERIFY(QDir().mkpath(root));
+        QVERIFY(LibraryRegistry::create(root).isEmpty());
+
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        QList<LibraryConfirmations::Confirmation> asked;
+        dialog.setLibraryConfirmation([&asked](const LibraryConfirmations::Confirmation &confirmation) {
+            asked.append(confirmation);
+            return true;
+        });
+        QSignalSpy changed(&dialog, &SettingsDialog::libraryChanged);
+        QSignalSpy added(&dialog, &SettingsDialog::libraryAdded);
+
+        // The Libraries tab follows Privacy.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("taggingLibrariesPage"));
+        auto *scroll = dialog.findChild<QWidget *>(QStringLiteral("taggingLibrariesScroll"));
+        QVERIFY(page && scroll);
+        auto *tabs = qobject_cast<QTabWidget *>(scroll->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->tabText(tabs->indexOf(scroll)), QStringLiteral("Libraries"));
+        QCOMPARE(tabs->indexOf(scroll), tabs->indexOf(dialog.findChild<QWidget *>(QStringLiteral("taggingPrivacyPage"))) + 1);
+
+        auto *libraries = page->findChild<QTreeWidget *>(QStringLiteral("taggingLibraries"));
+        auto *add = page->findChild<QPushButton *>(QStringLiteral("taggingAddLibrary"));
+        auto *remove = page->findChild<QPushButton *>(QStringLiteral("taggingRemoveLibrary"));
+        auto *move = page->findChild<QPushButton *>(QStringLiteral("taggingMoveLibraryMetadata"));
+        auto *note = page->findChild<QLabel *>(QStringLiteral("taggingLibrariesNote"));
+        auto *exclusions = page->findChild<KEditListWidget *>(QStringLiteral("kcfg_LibraryExclusions"));
+        auto *hidden = page->findChild<QCheckBox *>(QStringLiteral("kcfg_IndexHiddenItems"));
+        auto *limit = page->findChild<QSpinBox *>(QStringLiteral("kcfg_LibraryScanLimit"));
+        auto *depth = page->findChild<QSpinBox *>(QStringLiteral("kcfg_LibraryScanDepth"));
+        auto *automatic = page->findChild<QComboBox *>(QStringLiteral("kcfg_AutomaticLibraryRefresh"));
+        auto *interval = page->findChild<QSpinBox *>(QStringLiteral("kcfg_LibraryRefreshInterval"));
+        QVERIFY(libraries && add && remove && move && note && exclusions && hidden && limit && depth && automatic && interval);
+        QVERIFY(note->text().contains(QStringLiteral("immediately")));
+
+        // Defaults: no exclusions, hidden items indexed, no limits and no automatic refresh.
+        QVERIFY(exclusions->items().isEmpty());
+        QVERIFY(hidden->isChecked());
+        QCOMPARE(limit->value(), 0);
+        QCOMPARE(limit->maximum(), 10000000);
+        QCOMPARE(limit->text(), QStringLiteral("No limit"));
+        QCOMPARE(depth->value(), 0);
+        QCOMPARE(depth->maximum(), 1000);
+        QCOMPARE(depth->text(), QStringLiteral("No limit"));
+        QCOMPARE(automatic->count(), 3);
+        QCOMPARE(automatic->currentIndex(), int(Settings::EnumAutomaticLibraryRefresh::Never));
+        QCOMPARE(interval->value(), 60);
+        QCOMPARE(interval->minimum(), 1);
+        QCOMPARE(interval->maximum(), 10080);
+        QVERIFY(!interval->isEnabled());
+        automatic->setCurrentIndex(int(Settings::EnumAutomaticLibraryRefresh::WhenOpened));
+        QVERIFY(interval->isEnabled());
+
+        // Exclusions are saved as a string list.
+        exclusions->setItems({QStringLiteral("node_modules"), QStringLiteral("Exports/*")});
+        hidden->setChecked(false);
+        limit->setValue(500);
+        depth->setValue(3);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::libraryExclusions(), (QStringList{QStringLiteral("node_modules"), QStringLiteral("Exports/*")}));
+        QVERIFY(!Settings::indexHiddenItems());
+        QCOMPARE(Settings::libraryScanLimit(), 500);
+        QCOMPARE(Settings::libraryScanDepth(), 3);
+        QCOMPARE(Settings::automaticLibraryRefresh(), Settings::EnumAutomaticLibraryRefresh::WhenOpened);
+        const LibraryScan::Options options = TaggingSettings::scanOptions();
+        QCOMPARE(options.exclusions, Settings::libraryExclusions());
+        QVERIFY(!options.hidden);
+        QCOMPARE(options.limit, 500);
+        QCOMPARE(options.depth, 3);
+
+        // The registered library is listed, ready, with its metadata in the folder; nothing is selected yet.
+        QCOMPARE(libraries->topLevelItemCount(), 1);
+        QTreeWidgetItem *item = libraries->topLevelItem(0);
+        QCOMPARE(item->text(0), root);
+        QCOMPARE(item->text(1), QStringLiteral("Library folder"));
+        QCOMPARE(item->text(2), QStringLiteral("Ready"));
+        QVERIFY(add->isEnabled());
+        QVERIFY(!remove->isEnabled());
+        QVERIFY(!move->isEnabled());
+
+        // Moving the metadata keeps it privately, and the button then offers to move it back.
+        libraries->setCurrentItem(item);
+        QVERIFY(remove->isEnabled());
+        QVERIFY(move->isEnabled());
+        QCOMPARE(move->text(), QStringLiteral("Keep Metadata Privately"));
+        move->click();
+        QCOMPARE(asked.size(), 1);
+        QCOMPARE(asked.constLast().title, QStringLiteral("Move Library Metadata"));
+        QVERIFY(TagLibrary::isPrivate(root));
+        QVERIFY(!QFile::exists(TagLibrary::folderDocumentPath(root)));
+        QCOMPARE(changed.size(), 1);
+        QCOMPARE(changed.constLast().constFirst().toString(), root);
+        QCOMPARE(libraries->topLevelItem(0)->text(1), QStringLiteral("Private"));
+        QCOMPARE(move->text(), QStringLiteral("Keep Metadata in Library Folder"));
+
+        // Removing unregisters the library and keeps its document.
+        remove->click();
+        QCOMPARE(asked.size(), 2);
+        QVERIFY(asked.constLast().warning);
+        QVERIFY(asked.constLast().question.contains(QStringLiteral("No files are deleted")));
+        QVERIFY(!LibraryRegistry::contains(root));
+        QVERIFY(QFile::exists(TagLibrary::privateDocumentPath(root)));
+        QCOMPARE(libraries->topLevelItemCount(), 0);
+        QCOMPARE(changed.size(), 2);
+        QVERIFY(!remove->isEnabled());
+        QVERIFY(!move->isEnabled());
+
+        // Adding a folder registers it, adopting the kept private document, and asks for its first refresh.
+        dialog.setLibraryFolderChooser([] {
+            return QString();
+        });
+        add->click();
+        QCOMPARE(asked.size(), 2);
+        dialog.setLibraryFolderChooser([root] {
+            return root;
+        });
+        add->click();
+        QCOMPARE(asked.size(), 3);
+        QCOMPARE(asked.constLast().title, QStringLiteral("Create Library"));
+        QCOMPARE(asked.constLast().dontAskAgainName, QStringLiteral("ConfirmCreateLibrary"));
+        QVERIFY(LibraryRegistry::contains(root));
+        QVERIFY(TagLibrary::isPrivate(root));
+        QCOMPARE(added.size(), 1);
+        QCOMPARE(added.constLast().constFirst().toString(), root);
+        QCOMPARE(changed.size(), 3);
+        QCOMPARE(libraries->topLevelItemCount(), 1);
+        QCOMPARE(libraries->currentItem()->text(1), QStringLiteral("Private"));
+
+        // A new folder follows the storage shown in the Privacy tab.
+        const QString other = dir.filePath(QStringLiteral("Music"));
+        QVERIFY(QDir().mkpath(other));
+        dialog.findChild<QComboBox *>(QStringLiteral("kcfg_NewLibraryStorage"))->setCurrentIndex(int(Settings::EnumNewLibraryStorage::PrivateFolder));
+        dialog.setLibraryFolderChooser([other] {
+            return other;
+        });
+        add->click();
+        QVERIFY(LibraryRegistry::contains(other));
+        QVERIFY(TagLibrary::isPrivate(other));
+        QVERIFY(!QFile::exists(TagLibrary::folderDocumentPath(other)));
+        QCOMPARE(libraries->topLevelItemCount(), 2);
+
+        // A declined question changes nothing.
+        dialog.setLibraryConfirmation([](const LibraryConfirmations::Confirmation &) {
+            return false;
+        });
+        remove->click();
+        QVERIFY(LibraryRegistry::contains(other));
+        QCOMPARE(libraries->topLevelItemCount(), 2);
+    }
+
+    void taggingTagsSettings()
+    {
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+
+        // The Tags tab follows Libraries.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("taggingTagsPage"));
+        auto *scroll = dialog.findChild<QWidget *>(QStringLiteral("taggingTagsScroll"));
+        QVERIFY(page && scroll);
+        auto *tabs = qobject_cast<QTabWidget *>(scroll->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->tabText(tabs->indexOf(scroll)), QStringLiteral("Tags"));
+        QCOMPARE(tabs->indexOf(scroll), tabs->indexOf(dialog.findChild<QWidget *>(QStringLiteral("taggingLibrariesScroll"))) + 1);
+
+        auto *placement = page->findChild<QComboBox *>(QStringLiteral("kcfg_TagPanelPlacement"));
+        auto *showColors = page->findChild<QCheckBox *>(QStringLiteral("kcfg_ShowTagColors"));
+        auto *defaultColor = page->findChild<TagColorChooser *>(QStringLiteral("kcfg_DefaultTagColor"));
+        auto *showTags = page->findChild<QCheckBox *>(QStringLiteral("kcfg_ShowTagsInInformationPanel"));
+        auto *showInherited = page->findChild<QCheckBox *>(QStringLiteral("kcfg_ShowInheritedTags"));
+        auto *childTags = page->findChild<QCheckBox *>(QStringLiteral("kcfg_TagMatchesChildTags"));
+        QVERIFY(placement && showColors && defaultColor && showTags && showInherited && childTags);
+        auto *colorEnabled = defaultColor->findChild<QCheckBox *>(QStringLiteral("defaultTagColorEnabled"));
+        auto *colorButton = defaultColor->findChild<KColorButton *>(QStringLiteral("defaultTagColorButton"));
+        QVERIFY(colorEnabled && colorButton);
+        QVERIFY(page->findChild<QLabel *>(QStringLiteral("taggingChildTagsHelp"))->text().contains(QStringLiteral("tag=")));
+
+        // Defaults: the panel on the right, colours shown, no colour for new tags, direct tags only and child tags matched.
+        QCOMPARE(placement->count(), 2);
+        QCOMPARE(placement->currentIndex(), int(Settings::EnumTagPanelPlacement::Right));
+        QVERIFY(showColors->isChecked());
+        QVERIFY(defaultColor->color().isEmpty());
+        QVERIFY(!colorEnabled->isChecked());
+        QVERIFY(!colorButton->isEnabled());
+        QVERIFY(showTags->isChecked());
+        QVERIFY(!showInherited->isChecked());
+        QVERIFY(showInherited->isEnabled());
+        QVERIFY(childTags->isChecked());
+        QVERIFY(TaggingSettings::tagSearchOptions().childTags);
+        QVERIFY(TaggingSettings::defaultTagColor().isEmpty());
+
+        // Inherited tags are only listed where tags are shown.
+        showTags->setChecked(false);
+        QVERIFY(!showInherited->isEnabled());
+        showTags->setChecked(true);
+        QVERIFY(showInherited->isEnabled());
+
+        // Checking the colour enables the button and reports its colour.
+        QSignalSpy colorChanged(defaultColor, &TagColorChooser::colorChanged);
+        colorEnabled->setChecked(true);
+        QVERIFY(colorButton->isEnabled());
+        QCOMPARE(colorChanged.size(), 1);
+        colorButton->setColor(QColor(QStringLiteral("#AA3355")));
+        QCOMPARE(defaultColor->color(), QStringLiteral("#aa3355"));
+
+        placement->setCurrentIndex(int(Settings::EnumTagPanelPlacement::Below));
+        showColors->setChecked(false);
+        showInherited->setChecked(true);
+        childTags->setChecked(false);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::tagPanelPlacement(), Settings::EnumTagPanelPlacement::Below);
+        QVERIFY(!Settings::showTagColors());
+        QCOMPARE(Settings::defaultTagColor(), QStringLiteral("#aa3355"));
+        QVERIFY(Settings::showInheritedTags());
+        QVERIFY(!Settings::tagMatchesChildTags());
+        QVERIFY(!TaggingSettings::tagSearchOptions().childTags);
+        QCOMPARE(TaggingSettings::defaultTagColor(), QStringLiteral("#aa3355"));
+
+        // No default colour saves an empty value.
+        colorEnabled->setChecked(false);
+        QVERIFY(!colorButton->isEnabled());
+        QVERIFY(defaultColor->color().isEmpty());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::defaultTagColor().isEmpty());
+
+        // A value that isn't #rrggbb reads as no colour.
+        defaultColor->setColor(QStringLiteral("#123456"));
+        QVERIFY(colorEnabled->isChecked());
+        QCOMPARE(defaultColor->color(), QStringLiteral("#123456"));
+        defaultColor->setColor(QStringLiteral("red"));
+        QVERIFY(!colorEnabled->isChecked());
+        QVERIFY(defaultColor->color().isEmpty());
+        Settings::setDefaultTagColor(QStringLiteral("#12345"));
+        QVERIFY(TaggingSettings::defaultTagColor().isEmpty());
+        Settings::setDefaultTagColor(QStringLiteral(" #ABCDEF "));
+        QCOMPARE(TaggingSettings::defaultTagColor(), QStringLiteral("#abcdef"));
+        Settings::self()->setDefaults();
+        Settings::self()->save();
+    }
+
+    void taggingSearchSettings()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+
+        // The Search tab follows Tags.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("taggingSearchPage"));
+        auto *scroll = dialog.findChild<QWidget *>(QStringLiteral("taggingSearchScroll"));
+        QVERIFY(page && scroll);
+        auto *tabs = qobject_cast<QTabWidget *>(scroll->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->tabText(tabs->indexOf(scroll)), QStringLiteral("Search"));
+        QCOMPARE(tabs->indexOf(scroll), tabs->indexOf(dialog.findChild<QWidget *>(QStringLiteral("taggingTagsScroll"))) + 1);
+
+        auto *scope = page->findChild<QComboBox *>(QStringLiteral("kcfg_TagSearchScope"));
+        auto *aliases = page->findChild<QCheckBox *>(QStringLiteral("kcfg_TagMatchAliases"));
+        auto *outside = page->findChild<QCheckBox *>(QStringLiteral("kcfg_UntaggedIncludesOutsideLibraries"));
+        QVERIFY(scope && aliases && outside);
+        QVERIFY(page->findChild<QLabel *>(QStringLiteral("taggingSearchScopeHelp"))->text().contains(QStringLiteral("tagged:")));
+        QVERIFY(page->findChild<QLabel *>(QStringLiteral("taggingSearchMatchingHelp")));
+
+        // Defaults: the current folder, aliases matched and tagged:no limited to libraries.
+        QCOMPARE(scope->count(), 2);
+        QCOMPARE(scope->currentIndex(), int(Settings::EnumTagSearchScope::CurrentFolder));
+        QVERIFY(aliases->isChecked());
+        QVERIFY(!outside->isChecked());
+        TagSearch::Options options = TaggingSettings::tagSearchOptions();
+        QCOMPARE(options.scope, TagSearch::Scope::CurrentFolder);
+        QVERIFY(options.aliases);
+        QVERIFY(!options.untaggedOutsideLibraries);
+
+        scope->setCurrentIndex(int(Settings::EnumTagSearchScope::LibraryRoot));
+        aliases->setChecked(false);
+        outside->setChecked(true);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::tagSearchScope(), Settings::EnumTagSearchScope::LibraryRoot);
+        QVERIFY(!Settings::tagMatchAliases());
+        QVERIFY(Settings::untaggedIncludesOutsideLibraries());
+        options = TaggingSettings::tagSearchOptions();
+        QCOMPARE(options.scope, TagSearch::Scope::LibraryRoot);
+        QVERIFY(!options.aliases);
+        QVERIFY(options.untaggedOutsideLibraries);
+        // Child-tag matching stays with the Tags tab.
+        QVERIFY(options.childTags);
+
+        // Defaults restore every entry.
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QCOMPARE(scope->currentIndex(), int(Settings::EnumTagSearchScope::CurrentFolder));
+        QVERIFY(aliases->isChecked());
+        QVERIFY(!outside->isChecked());
+    }
+
+    void taggingFieldsSettings()
+    {
+        for (const QString &root : LibraryRegistry::roots()) {
+            LibraryRegistry::remove(root);
+        }
+        const auto cleanup = qScopeGuard([] {
+            for (const QString &root : LibraryRegistry::roots()) {
+                LibraryRegistry::remove(root);
+            }
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        const auto fieldNames = [](const QString &root) {
+            QStringList names;
+            const TagLibrary::Library library = TagLibrary::Library::load(root);
+            for (const TagLibrary::Field &field : library.fields()) {
+                names.append(field.name);
+            }
+            return names;
+        };
+        const auto ok = [](TagFieldDialog *editor) {
+            return editor->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok);
+        };
+        const auto nameOf = [](TagFieldDialog *editor) {
+            return editor->findChild<QLineEdit *>(QStringLiteral("tagFieldName"));
+        };
+        const auto typeOf = [](TagFieldDialog *editor) {
+            return editor->findChild<QComboBox *>(QStringLiteral("tagFieldType"));
+        };
+
+        {
+            // Without libraries, the tab says how to add one instead of showing an empty editor.
+            KFilePlacesModel places;
+            SettingsDialog dialog(&places, nullptr);
+            auto *picker = dialog.findChild<QComboBox *>(QStringLiteral("taggingFieldLibrary"));
+            auto *placeholder = dialog.findChild<QLabel *>(QStringLiteral("taggingNoFieldLibraries"));
+            auto *manager = dialog.findChild<TagFieldManagerWidget *>(QStringLiteral("taggingFieldManager"));
+            QVERIFY(picker && placeholder && manager);
+            QCOMPARE(picker->count(), 0);
+            QVERIFY(!picker->isEnabled());
+            QVERIFY(!placeholder->isHidden());
+            QVERIFY(manager->isHidden());
+            QVERIFY(manager->library().isEmpty());
+        }
+
+        QTemporaryDir dir;
+        const QString music = dir.filePath(QStringLiteral("Music"));
+        const QString photos = dir.filePath(QStringLiteral("Photos"));
+        const QString broken = dir.filePath(QStringLiteral("Broken"));
+        for (const QString &root : {music, photos, broken}) {
+            QVERIFY(QDir().mkpath(root));
+        }
+        QVERIFY(
+            LibraryRegistry::create(photos, TagLibrary::Storage::LibraryFolder, TagLibrary::parseFieldTemplates({QStringLiteral("date:Shot on")})).isEmpty());
+        QVERIFY(LibraryRegistry::create(music).isEmpty());
+        QVERIFY(LibraryRegistry::create(broken).isEmpty());
+        {
+            QFile document(TagLibrary::documentPath(broken));
+            QVERIFY(document.open(QIODevice::WriteOnly | QIODevice::Truncate));
+            document.write("not json");
+        }
+
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        dialog.setLibraryConfirmation([](const LibraryConfirmations::Confirmation &) {
+            return true;
+        });
+        QSignalSpy changed(&dialog, &SettingsDialog::libraryChanged);
+
+        // The Fields tab follows Search.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("taggingFieldsPage"));
+        auto *scroll = dialog.findChild<QWidget *>(QStringLiteral("taggingFieldsScroll"));
+        QVERIFY(page && scroll);
+        auto *tabs = qobject_cast<QTabWidget *>(scroll->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->tabText(tabs->indexOf(scroll)), QStringLiteral("Fields"));
+        QCOMPARE(tabs->indexOf(scroll), tabs->indexOf(dialog.findChild<QWidget *>(QStringLiteral("taggingSearchScroll"))) + 1);
+
+        auto *picker = page->findChild<QComboBox *>(QStringLiteral("taggingFieldLibrary"));
+        auto *placeholder = page->findChild<QLabel *>(QStringLiteral("taggingNoFieldLibraries"));
+        auto *manager = page->findChild<TagFieldManagerWidget *>(QStringLiteral("taggingFieldManager"));
+        auto *note = page->findChild<QLabel *>(QStringLiteral("taggingFieldsNote"));
+        auto *templates = page->findChild<FieldTemplateEditor *>(QStringLiteral("kcfg_NewLibraryFields"));
+        QVERIFY(picker && placeholder && manager && note && templates);
+        QVERIFY(note->text().contains(QStringLiteral("immediately")));
+        auto *fieldList = manager->findChild<QTreeWidget *>(QStringLiteral("tagFieldList"));
+        auto *newField = manager->findChild<QPushButton *>(QStringLiteral("tagFieldNew"));
+        QVERIFY(fieldList && newField);
+
+        // The picker lists the registered libraries, sorted, and the editor shows the first one's fields.
+        QCOMPARE(picker->count(), 3);
+        QCOMPARE(picker->itemData(0).toString(), broken);
+        QCOMPARE(picker->itemData(1).toString(), music);
+        QCOMPARE(picker->itemData(2).toString(), photos);
+        QVERIFY(picker->isEnabled());
+        QVERIFY(placeholder->isHidden());
+        QVERIFY(!manager->isHidden());
+
+        // An unreadable library is reported and can't be edited.
+        QCOMPARE(manager->library(), broken);
+        QCOMPARE(fieldList->topLevelItemCount(), 0);
+        QVERIFY(!manager->message().isEmpty());
+        QVERIFY(!newField->isEnabled());
+
+        // Switching libraries loads the chosen library's fields.
+        picker->setCurrentIndex(2);
+        QCOMPARE(manager->library(), photos);
+        QCOMPARE(fieldList->topLevelItemCount(), 1);
+        QCOMPARE(fieldList->topLevelItem(0)->text(0), QStringLiteral("Shot on"));
+        QCOMPARE(fieldList->topLevelItem(0)->text(1), QStringLiteral("Date"));
+        picker->setCurrentIndex(1);
+        QCOMPARE(manager->library(), music);
+        QCOMPARE(fieldList->topLevelItemCount(), 0);
+        QVERIFY(newField->isEnabled());
+
+        // A new field is saved to the library at once, without applying Preferences, and open windows are told.
+        TagFieldDialog *editor = manager->createField();
+        QVERIFY(editor);
+        nameOf(editor)->setText(QStringLiteral("Artist"));
+        ok(editor)->click();
+        QCOMPARE(fieldNames(music), QStringList{QStringLiteral("Artist")});
+        QCOMPARE(fieldList->topLevelItemCount(), 1);
+        QCOMPARE(changed.size(), 1);
+        QCOMPARE(changed.constLast().constFirst().toString(), music);
+
+        // The picker follows libraries added and removed in the Libraries tab, keeping the chosen library.
+        const QString books = dir.filePath(QStringLiteral("Books"));
+        QVERIFY(QDir().mkpath(books));
+        dialog.setLibraryFolderChooser([books] {
+            return books;
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("taggingAddLibrary"))->click();
+        QVERIFY(LibraryRegistry::contains(books));
+        QCOMPARE(picker->count(), 4);
+        QCOMPARE(picker->itemData(0).toString(), books);
+        QCOMPARE(picker->currentData().toString(), music);
+        QCOMPARE(manager->library(), music);
+        QVERIFY(fieldNames(books).isEmpty());
+
+        auto *libraries = dialog.findChild<QTreeWidget *>(QStringLiteral("taggingLibraries"));
+        for (int row = 0; row < libraries->topLevelItemCount(); ++row) {
+            if (libraries->topLevelItem(row)->data(0, Qt::UserRole).toString() == music) {
+                libraries->setCurrentItem(libraries->topLevelItem(row));
+            }
+        }
+        dialog.findChild<QPushButton *>(QStringLiteral("taggingRemoveLibrary"))->click();
+        QVERIFY(!LibraryRegistry::contains(music));
+        QCOMPARE(picker->count(), 3);
+        QCOMPARE(picker->findData(music), -1);
+        QCOMPARE(manager->library(), picker->currentData().toString());
+
+        // Fields for new libraries: empty by default, edited in a list and saved when applied.
+        QVERIFY(templates->templates().isEmpty());
+        auto *templateList = templates->findChild<QTreeWidget *>(QStringLiteral("fieldTemplateList"));
+        auto *removeTemplate = templates->findChild<QPushButton *>(QStringLiteral("fieldTemplateRemove"));
+        auto *upTemplate = templates->findChild<QPushButton *>(QStringLiteral("fieldTemplateUp"));
+        QVERIFY(templateList && removeTemplate && upTemplate);
+        QVERIFY(!removeTemplate->isEnabled());
+
+        editor = templates->addField();
+        QVERIFY(!ok(editor)->isEnabled());
+        nameOf(editor)->setText(QStringLiteral("Title"));
+        ok(editor)->click();
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        editor = templates->addField();
+        nameOf(editor)->setText(QStringLiteral("title"));
+        QVERIFY(!ok(editor)->isEnabled());
+        nameOf(editor)->setText(QStringLiteral("Shot on"));
+        typeOf(editor)->setCurrentIndex(typeOf(editor)->findData(int(TagLibrary::FieldType::Date)));
+        ok(editor)->click();
+        editor = templates->addField();
+        nameOf(editor)->setText(QStringLiteral("Draft"));
+        ok(editor)->click();
+        QCOMPARE(templates->templates(), (QStringList{QStringLiteral("text:Title"), QStringLiteral("date:Shot on"), QStringLiteral("text:Draft")}));
+        QCOMPARE(templateList->topLevelItem(1)->text(1), QStringLiteral("Date"));
+        QCOMPARE(templates->currentRow(), 2);
+
+        // Editing keeps the row, removing drops it and the order can change.
+        editor = templates->editField(0);
+        QVERIFY(editor);
+        nameOf(editor)->setText(QStringLiteral("Caption"));
+        ok(editor)->click();
+        QVERIFY(!templates->editField(5));
+        QCOMPARE(templates->currentRow(), 0);
+        templates->setCurrentRow(2);
+        removeTemplate->click();
+        QCOMPARE(templates->templates(), (QStringList{QStringLiteral("text:Caption"), QStringLiteral("date:Shot on")}));
+        templates->setCurrentRow(1);
+        upTemplate->click();
+        QCOMPARE(templates->templates(), (QStringList{QStringLiteral("date:Shot on"), QStringLiteral("text:Caption")}));
+        QCOMPARE(templates->currentRow(), 0);
+        QVERIFY(Settings::newLibraryFields().isEmpty());
+
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::newLibraryFields(), (QStringList{QStringLiteral("date:Shot on"), QStringLiteral("text:Caption")}));
+        QCOMPARE(KSharedConfig::openConfig()->group(QStringLiteral("Tagging")).readEntry("NewLibraryFields", QStringList()), Settings::newLibraryFields());
+        QVERIFY(!dialog.button(QDialogButtonBox::Apply)->isEnabled());
+
+        // Libraries added in the Libraries tab start with the fields as shown, even before they are applied.
+        editor = templates->addField();
+        nameOf(editor)->setText(QStringLiteral("Place"));
+        ok(editor)->click();
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        const QString films = dir.filePath(QStringLiteral("Films"));
+        QVERIFY(QDir().mkpath(films));
+        dialog.setLibraryFolderChooser([films] {
+            return films;
+        });
+        dialog.findChild<QPushButton *>(QStringLiteral("taggingAddLibrary"))->click();
+        QCOMPARE(fieldNames(films), (QStringList{QStringLiteral("Shot on"), QStringLiteral("Caption"), QStringLiteral("Place")}));
+        QCOMPARE(TagLibrary::Library::load(films).fields().constFirst().type, TagLibrary::FieldType::Date);
+
+        // Invalid and repeated stored entries are left out, and Defaults clear the list.
+        templates->setTemplates({QStringLiteral("text:A"), QStringLiteral("bogus"), QStringLiteral("date:a")});
+        QCOMPARE(templates->templates(), QStringList{QStringLiteral("text:A")});
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QVERIFY(templates->templates().isEmpty());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::newLibraryFields().isEmpty());
+    }
+
+    void taggingEmbeddedMetadataSettings()
+    {
+        for (const QString &root : LibraryRegistry::roots()) {
+            LibraryRegistry::remove(root);
+        }
+        const auto cleanup = qScopeGuard([] {
+            for (const QString &root : LibraryRegistry::roots()) {
+                LibraryRegistry::remove(root);
+            }
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        QTemporaryDir dir;
+        const QString photos = dir.filePath(QStringLiteral("Photos"));
+        QVERIFY(QDir().mkpath(photos));
+        QVERIFY(LibraryRegistry::create(photos,
+                                        TagLibrary::Storage::LibraryFolder,
+                                        TagLibrary::parseFieldTemplates({QStringLiteral("text:Camera"), QStringLiteral("date:Shot on")}))
+                    .isEmpty());
+        Settings::setNewLibraryFields({QStringLiteral("text:Caption"), QStringLiteral("text:camera")});
+        Settings::self()->save();
+
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        const auto group = [] {
+            return KSharedConfig::openConfig()->group(QStringLiteral("Tagging"));
+        };
+
+        // The Embedded Metadata tab is the last Tagging tab, after Fields.
+        auto *scroll = dialog.findChild<QWidget *>(QStringLiteral("taggingEmbeddedMetadataScroll"));
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("taggingEmbeddedMetadataPage"));
+        QVERIFY(scroll && page);
+        auto *tabs = qobject_cast<QTabWidget *>(scroll->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->tabText(tabs->indexOf(scroll)), QStringLiteral("Embedded Metadata"));
+        QCOMPARE(tabs->indexOf(scroll), tabs->indexOf(dialog.findChild<QWidget *>(QStringLiteral("taggingFieldsScroll"))) + 1);
+        QCOMPARE(tabs->indexOf(scroll), tabs->count() - 1);
+
+        auto *keys = page->findChild<EmbeddedMetadataKeyList *>(QStringLiteral("kcfg_DisabledEmbeddedMetadataKeys"));
+        auto *table = page->findChild<EmbeddedMetadataMappingTable *>(QStringLiteral("kcfg_EmbeddedMetadataMappings"));
+        auto *conflicts = page->findChild<QComboBox *>(QStringLiteral("kcfg_EmbeddedMetadataConflicts"));
+        auto *onRefresh = page->findChild<QCheckBox *>(QStringLiteral("kcfg_ImportEmbeddedMetadataOnRefresh"));
+        auto *hint = page->findChild<QLabel *>(QStringLiteral("taggingEmbeddedMetadataRefreshHint"));
+        QVERIFY(keys && table && conflicts && onRefresh && hint);
+        auto *tree = keys->findChild<QTreeWidget *>(QStringLiteral("embeddedMetadataKeyTree"));
+        auto *mappingTree = table->findChild<QTreeWidget *>(QStringLiteral("embeddedMetadataMappingTable"));
+        QVERIFY(tree && mappingTree);
+        const auto rowHidden = [mappingTree, table](const QString &key) {
+            for (int row = 0; row < mappingTree->topLevelItemCount(); ++row) {
+                if (mappingTree->itemWidget(mappingTree->topLevelItem(row), 1) == table->target(key)) {
+                    return mappingTree->topLevelItem(row)->isHidden();
+                }
+            }
+            return false;
+        };
+
+        // Every property is read by default, grouped by the files it's read from.
+        QCOMPARE(keys->enabledKeys(), EmbeddedMetadata::keys());
+        QVERIFY(keys->disabledKeys().isEmpty());
+        QCOMPARE(tree->topLevelItemCount(), 3);
+        QCOMPARE(tree->topLevelItem(0)->text(0), QStringLiteral("Images"));
+        QCOMPARE(tree->topLevelItem(1)->text(0), QStringLiteral("Audio"));
+        QCOMPARE(tree->topLevelItem(2)->text(0), QStringLiteral("Images and Audio"));
+        QCOMPARE(tree->topLevelItem(0)->child(0)->text(0), EmbeddedMetadata::displayName(EmbeddedMetadata::imageKeys().constFirst()));
+        int listed = 0;
+        for (int group = 0; group < tree->topLevelItemCount(); ++group) {
+            QCOMPARE(tree->topLevelItem(group)->checkState(0), Qt::Checked);
+            listed += tree->topLevelItem(group)->childCount();
+        }
+        QCOMPARE(listed, EmbeddedMetadata::keys().size());
+        QCOMPARE(mappingTree->topLevelItemCount(), EmbeddedMetadata::keys().size());
+
+        // Nothing is imported by default, so importing on refresh is unavailable.
+        QVERIFY(table->mappings().isEmpty());
+        QCOMPARE(table->target(QStringLiteral("genre"))->currentIndex(), 0);
+        QCOMPARE(conflicts->currentIndex(), 0);
+        QVERIFY(!onRefresh->isChecked());
+        QVERIFY(!onRefresh->isEnabled());
+        QVERIFY(!hint->isHidden());
+
+        // Fields of libraries and of new libraries are offered once each, for the properties they can hold.
+        QComboBox *model = table->target(QStringLiteral("model"));
+        QComboBox *taken = table->target(QStringLiteral("photoDateTimeOriginal"));
+        QVERIFY(model && taken);
+        QCOMPARE(model->count(), 4);
+        QCOMPARE(model->itemData(1).toString(), QStringLiteral("tags"));
+        QVERIFY(model->findData(QStringLiteral("field:Camera")) >= 0);
+        QVERIFY(model->findData(QStringLiteral("field:Caption")) >= 0);
+        QCOMPARE(model->findData(QStringLiteral("field:Shot on")), -1);
+        QVERIFY(taken->findData(QStringLiteral("field:Shot on")) >= 0);
+
+        // Unchecking a property hides its mapping, and Apply saves it.
+        keys->setKeyEnabled(QStringLiteral("genre"), false);
+        QCOMPARE(tree->topLevelItem(1)->checkState(0), Qt::PartiallyChecked);
+        QVERIFY(rowHidden(QStringLiteral("genre")));
+        QVERIFY(!rowHidden(QStringLiteral("model")));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::disabledEmbeddedMetadataKeys(), QStringList{QStringLiteral("genre")});
+        QCOMPARE(group().readEntry("DisabledEmbeddedMetadataKeys", QStringList()), QStringList{QStringLiteral("genre")});
+        QVERIFY(!TaggingSettings::embeddedMetadataKeys().contains(QStringLiteral("genre")));
+
+        // Choosing targets allows importing on refresh, and Apply saves the choices.
+        model->setCurrentIndex(model->findData(QStringLiteral("field:Camera")));
+        QComboBox *manufacturer = table->target(QStringLiteral("manufacturer"));
+        manufacturer->setCurrentIndex(manufacturer->findData(QStringLiteral("tags")));
+        QVERIFY(onRefresh->isEnabled());
+        QVERIFY(hint->isHidden());
+        onRefresh->setChecked(true);
+        conflicts->setCurrentIndex(1);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        const QStringList saved{QStringLiteral("manufacturer=tags"), QStringLiteral("model=field:Camera")};
+        QCOMPARE(Settings::embeddedMetadataMappings(), saved);
+        QCOMPARE(group().readEntry("EmbeddedMetadataMappings", QStringList()), saved);
+        QCOMPARE(Settings::embeddedMetadataConflicts(), Settings::EnumEmbeddedMetadataConflicts::Replace);
+        QVERIFY(Settings::importEmbeddedMetadataOnRefresh());
+        QVERIFY(TaggingSettings::importsEmbeddedMetadataOnRefresh());
+        QCOMPARE(TaggingSettings::embeddedMetadataPolicy(), MetadataImport::Policy::Replace);
+
+        // Mappings of unchecked properties are kept but don't allow importing on refresh.
+        keys->setKeyEnabled(QStringLiteral("manufacturer"), false);
+        keys->setKeyEnabled(QStringLiteral("model"), false);
+        QVERIFY(!onRefresh->isEnabled());
+        QVERIFY(!hint->isHidden());
+        QCOMPARE(table->mappings(), saved);
+        keys->setKeyEnabled(QStringLiteral("manufacturer"), true);
+        keys->setKeyEnabled(QStringLiteral("model"), true);
+        QVERIFY(onRefresh->isEnabled());
+
+        // Fields added on the Fields tab are offered at once, keeping the choice.
+        auto *templates = dialog.findChild<FieldTemplateEditor *>(QStringLiteral("kcfg_NewLibraryFields"));
+        QVERIFY(templates);
+        templates->setTemplates({QStringLiteral("text:Caption"), QStringLiteral("text:Lens")});
+        QVERIFY(model->findData(QStringLiteral("field:Lens")) >= 0);
+        QCOMPARE(model->currentData().toString(), QStringLiteral("field:Camera"));
+
+        // A saved field that no library has yet is still shown.
+        table->setMappings({QStringLiteral("album=field:Album Name")});
+        QCOMPARE(table->target(QStringLiteral("album"))->currentData().toString(), QStringLiteral("field:Album Name"));
+        QCOMPARE(table->target(QStringLiteral("model"))->currentIndex(), 0);
+
+        // Defaults read every property and import none.
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QVERIFY(keys->disabledKeys().isEmpty());
+        QVERIFY(!rowHidden(QStringLiteral("genre")));
+        QVERIFY(table->mappings().isEmpty());
+        QCOMPARE(conflicts->currentIndex(), 0);
+        QVERIFY(!onRefresh->isChecked());
+        QVERIFY(!onRefresh->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::disabledEmbeddedMetadataKeys().isEmpty());
+        QVERIFY(Settings::embeddedMetadataMappings().isEmpty());
+        QCOMPARE(Settings::embeddedMetadataConflicts(), Settings::EnumEmbeddedMetadataConflicts::Keep);
+        QVERIFY(!Settings::importEmbeddedMetadataOnRefresh());
     }
 
     void brandingPresentationSettings()

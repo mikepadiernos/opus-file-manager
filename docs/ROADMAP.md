@@ -1186,17 +1186,20 @@ rather than requiring TagStudio or changing the user's folder structure.
 
 Settings for M23 tagging, stored in KConfig.
 
-- [ ] **Privacy:** control library metadata and backup locations, explain what
+- [x] **Privacy:** control library metadata and backup locations, explain what
       is stored and require explicit consent before writing tags into file
       metadata
-- [ ] **Libraries:** manage roots and exclusions, automatic refresh and scan
+- [x] **Libraries:** manage roots and exclusions, automatic refresh and scan
       limits
-- [ ] **Tags:** configure colours, display, parent-tag matching defaults and
+- [x] **Tags:** configure colours, display, parent-tag matching defaults and
       embedded-pane placement
-- [ ] **Search:** choose the default tag-search scope and matching behaviour
-- [ ] **Fields:** manage available text and date fields
-- [ ] **Embedded metadata:** select EXIF and ID3 fields to read or map to
+- [x] **Search:** choose the default tag-search scope and matching behaviour
+- [x] **Fields:** manage available text and date fields
+- [x] **Embedded metadata:** select EXIF and ID3 fields to read or map to
       library metadata, and control refresh and conflict handling
+
+**Caveats:** [Tagging settings](CAVEATS.md#tagging-settings), tracked in
+[#716](https://github.com/mikepadiernos/plasma-opus/issues/716).
 
 ### M25: Yazi mode
 

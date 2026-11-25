@@ -22,6 +22,7 @@
 #include "settingswidgets.h"
 #include "tabcolors.h"
 #include "tabmodel.h"
+#include "taggingsettings.h"
 #include "themeprofiles.h"
 #include "treelines.h"
 #include "windoweffects.h"
@@ -216,6 +217,109 @@ private Q_SLOTS:
         QVERIFY(!Settings::panelTitlesVisible());
         QVERIFY(Settings::informationHover());
         QCOMPARE(Settings::sidebarIconSize(), 16);
+    }
+
+    void tagSettingsDefaultsMigrationAndApply()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("TagPanel"));
+            KSharedConfig::openStateConfig()->sync();
+        });
+        QCOMPARE(Settings::tagPanelPlacement(), Settings::EnumTagPanelPlacement::Right);
+        QVERIFY(Settings::showTagColors());
+        QVERIFY(Settings::defaultTagColor().isEmpty());
+        QVERIFY(Settings::showTagsInInformationPanel());
+        QVERIFY(!Settings::showInheritedTags());
+        QVERIFY(Settings::tagMatchesChildTags());
+        QCOMPARE(Settings::tagSearchScope(), Settings::EnumTagSearchScope::CurrentFolder);
+        QVERIFY(Settings::tagMatchAliases());
+        QVERIFY(!Settings::untaggedIncludesOutsideLibraries());
+        const TagSearch::Options options = TaggingSettings::tagSearchOptions();
+        QVERIFY(options.childTags);
+        QVERIFY(options.aliases);
+        QVERIFY(!options.untaggedOutsideLibraries);
+        QCOMPARE(options.scope, TagSearch::Scope::CurrentFolder);
+        QVERIFY(Settings::newLibraryFields().isEmpty());
+        QVERIFY(TaggingSettings::newLibraryFields().isEmpty());
+        Settings::setNewLibraryFields({QStringLiteral("text:Title"), QStringLiteral("date:Title"), QStringLiteral("date:Shot on")});
+        const QList<TagLibrary::Field> fields = TaggingSettings::newLibraryFields();
+        QCOMPARE(fields.size(), 2);
+        QCOMPARE(fields.at(0).name, QStringLiteral("Title"));
+        QCOMPARE(fields.at(1).type, TagLibrary::FieldType::Date);
+        Settings::self()->setDefaults();
+
+        QVERIFY(Settings::disabledEmbeddedMetadataKeys().isEmpty());
+        QCOMPARE(TaggingSettings::embeddedMetadataKeys(), EmbeddedMetadata::keys());
+        QVERIFY(Settings::embeddedMetadataMappings().isEmpty());
+        QVERIFY(TaggingSettings::embeddedMetadataMappings().isEmpty());
+        QCOMPARE(Settings::embeddedMetadataConflicts(), Settings::EnumEmbeddedMetadataConflicts::Keep);
+        QCOMPARE(TaggingSettings::embeddedMetadataPolicy(), MetadataImport::Policy::Keep);
+        QVERIFY(!Settings::importEmbeddedMetadataOnRefresh());
+        QVERIFY(!TaggingSettings::importsEmbeddedMetadataOnRefresh());
+        Settings::setDisabledEmbeddedMetadataKeys({QStringLiteral("genre")});
+        QVERIFY(!TaggingSettings::embeddedMetadataKeys().contains(QStringLiteral("genre")));
+        QCOMPARE(TaggingSettings::embeddedMetadataKeys().size(), EmbeddedMetadata::keys().size() - 1);
+        Settings::setEmbeddedMetadataConflicts(Settings::EnumEmbeddedMetadataConflicts::Replace);
+        QCOMPARE(TaggingSettings::embeddedMetadataPolicy(), MetadataImport::Policy::Replace);
+        // Importing on refresh needs a mapping of a property that is read.
+        Settings::setImportEmbeddedMetadataOnRefresh(true);
+        QVERIFY(!TaggingSettings::importsEmbeddedMetadataOnRefresh());
+        TaggingSettings::setEmbeddedMetadataMappings({{QStringLiteral("genre"), QString()}});
+        QCOMPARE(Settings::embeddedMetadataMappings(), QStringList{QStringLiteral("genre=tags")});
+        QVERIFY(!TaggingSettings::importsEmbeddedMetadataOnRefresh());
+        TaggingSettings::setEmbeddedMetadataMappings({{QStringLiteral("genre"), QString()}, {QStringLiteral("model"), QStringLiteral("Camera")}});
+        QCOMPARE(TaggingSettings::embeddedMetadataMappings().value(QStringLiteral("model")), QStringLiteral("Camera"));
+        QVERIFY(TaggingSettings::importsEmbeddedMetadataOnRefresh());
+        Settings::self()->setDefaults();
+
+        // Earlier versions remembered the placement in the state configuration.
+        const auto rememberPlacement = [](const QString &placement) {
+            KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel"));
+            state.writeEntry("Placement", placement);
+            state.sync();
+        };
+        const auto remembered = [] {
+            return KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel")).hasKey("Placement");
+        };
+        rememberPlacement(QStringLiteral("below"));
+        TaggingSettings::migrateTagPanelPlacement();
+        QCOMPARE(Settings::tagPanelPlacement(), Settings::EnumTagPanelPlacement::Below);
+        QVERIFY(!remembered());
+        KSharedConfig::openConfig()->reparseConfiguration();
+        Settings::self()->load();
+        QCOMPARE(Settings::tagPanelPlacement(), Settings::EnumTagPanelPlacement::Below);
+
+        // A changed setting wins over a stale entry, which is still removed.
+        rememberPlacement(QStringLiteral("right"));
+        TaggingSettings::migrateTagPanelPlacement();
+        QCOMPARE(Settings::tagPanelPlacement(), Settings::EnumTagPanelPlacement::Below);
+        QVERIFY(!remembered());
+        TaggingSettings::migrateTagPanelPlacement();
+        QCOMPARE(Settings::tagPanelPlacement(), Settings::EnumTagPanelPlacement::Below);
+
+        // A new window migrates the entry before placing the panel.
+        Settings::self()->setDefaults();
+        Settings::self()->save();
+        rememberPlacement(QStringLiteral("below"));
+        MainWindow window;
+        auto *dock = window.findChild<QDockWidget *>(QStringLiteral("tagDock"));
+        QVERIFY(dock);
+        QVERIFY(!remembered());
+        const auto area = [&window, dock] {
+            return window.dockWidgetArea(dock) == Qt::BottomDockWidgetArea ? Settings::EnumTagPanelPlacement::Below : Settings::EnumTagPanelPlacement::Right;
+        };
+        QCOMPARE(area(), Settings::tagPanelPlacement());
+
+        // Preferences move the panel of an open window.
+        Settings::setTagPanelPlacement(Settings::EnumTagPanelPlacement::Right);
+        window.applySettings();
+        QCOMPARE(window.dockWidgetArea(dock), Qt::RightDockWidgetArea);
+        Settings::setTagPanelPlacement(Settings::EnumTagPanelPlacement::Below);
+        window.applySettings();
+        QCOMPARE(window.dockWidgetArea(dock), Qt::BottomDockWidgetArea);
+        QCOMPARE(Settings::tagPanelPlacement(), Settings::EnumTagPanelPlacement::Below);
     }
 
     void dialogHasAWidgetForEverySetting()
@@ -1188,6 +1292,7 @@ private Q_SLOTS:
                               QStringLiteral("Context Menu"),
                               QStringLiteral("Archives"),
                               QStringLiteral("Files"),
+                              QStringLiteral("Tagging"),
                               QStringLiteral("Workspaces"),
                               QStringLiteral("Gallery"),
                               QStringLiteral("Editor"),
@@ -1197,6 +1302,27 @@ private Q_SLOTS:
             return tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + entry));
         };
         QCOMPARE(tabOf(QStringLiteral("SidebarTitlePosition")), QStringLiteral("Settings Dialog"));
+        QCOMPARE(tabOf(QStringLiteral("NewLibraryStorage")), QStringLiteral("Privacy"));
+        QCOMPARE(tabOf(QStringLiteral("LibraryExclusions")), QStringLiteral("Libraries"));
+        QCOMPARE(tabOf(QStringLiteral("AutomaticLibraryRefresh")), QStringLiteral("Libraries"));
+        for (const QString &entry : {QStringLiteral("TagPanelPlacement"),
+                                     QStringLiteral("ShowTagColors"),
+                                     QStringLiteral("DefaultTagColor"),
+                                     QStringLiteral("ShowTagsInInformationPanel"),
+                                     QStringLiteral("ShowInheritedTags"),
+                                     QStringLiteral("TagMatchesChildTags")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("Tags"));
+        }
+        for (const QString &entry : {QStringLiteral("TagSearchScope"), QStringLiteral("TagMatchAliases"), QStringLiteral("UntaggedIncludesOutsideLibraries")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("Search"));
+        }
+        QCOMPARE(tabOf(QStringLiteral("NewLibraryFields")), QStringLiteral("Fields"));
+        for (const QString &entry : {QStringLiteral("DisabledEmbeddedMetadataKeys"),
+                                     QStringLiteral("EmbeddedMetadataMappings"),
+                                     QStringLiteral("EmbeddedMetadataConflicts"),
+                                     QStringLiteral("ImportEmbeddedMetadataOnRefresh")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("Embedded Metadata"));
+        }
         QCOMPARE(tabOf(QStringLiteral("InterfaceLanguage")), QStringLiteral("Language and Layout"));
         QCOMPARE(tabOf(QStringLiteral("CustomDateFormat")), QStringLiteral("Dates"));
         QCOMPARE(tabOf(QStringLiteral("StartupMode")), QStringLiteral("Folders and Tabs"));

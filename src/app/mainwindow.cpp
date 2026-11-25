@@ -36,6 +36,7 @@
 #include "gallerywindow.h"
 #include "informationpanel.h"
 #include "labelcolor.h"
+#include "libraryautorefresh.h"
 #include "libraryregistry.h"
 #include "linkednavigation.h"
 #include "localizeddates.h"
@@ -55,6 +56,9 @@
 #include "tabmodel.h"
 #include "tagassignment.h"
 #include "taggingcontroller.h"
+#include "taggingsettings.h"
+#include "taggroupmanagerwidget.h"
+#include "tagmanagerwidget.h"
 #include "terminalpanel.h"
 #include "toolbarcustomizer.h"
 #include "transferqueue.h"
@@ -666,6 +670,8 @@ void MainWindow::showEvent(QShowEvent *event)
 {
     KXmlGuiWindow::showEvent(event);
     applyWindowEffects();
+    // The refresher queues libraries only once per process, after the first window appears.
+    QTimer::singleShot(1000, LibraryAutoRefresh::instance(), &LibraryAutoRefresh::refreshAtStartup);
 }
 
 void MainWindow::applyBackgroundOpacity()
@@ -1445,6 +1451,7 @@ void MainWindow::connectPane(Pane *pane)
             updateWindowTitle();
             updateInformationPanel();
             syncFolderTrees();
+            LibraryAutoRefresh::instance()->folderOpened(url);
         } else if (m_active) {
             if (Settings::statusBarLayout() == Settings::EnumStatusBarLayout::PerPane) {
                 updateStatusBar();
@@ -1618,8 +1625,8 @@ void MainWindow::setupPanels()
     m_tagDock->setWidget(m_tagPanel);
     m_tagDock->setAllowedAreas(Qt::BottomDockWidgetArea | Qt::RightDockWidgetArea);
     m_tagDock->setFeatures(QDockWidget::DockWidgetMovable | QDockWidget::DockWidgetClosable);
-    const bool tagsBelow =
-        KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel")).readEntry("Placement", QStringLiteral("right")) == QLatin1String("below");
+    TaggingSettings::migrateTagPanelPlacement();
+    const bool tagsBelow = Settings::tagPanelPlacement() == Settings::EnumTagPanelPlacement::Below;
     addDockWidget(tagsBelow ? Qt::BottomDockWidgetArea : Qt::RightDockWidgetArea, m_tagDock);
     m_tagPanel->setPlacement(tagsBelow ? TagPanel::Placement::Below : TagPanel::Placement::Right);
     m_tagDock->hide();
@@ -1629,7 +1636,7 @@ void MainWindow::setupPanels()
         if (area == Qt::RightDockWidgetArea || area == Qt::BottomDockWidgetArea) {
             const bool below = area == Qt::BottomDockWidgetArea;
             m_tagPanel->setPlacement(below ? TagPanel::Placement::Below : TagPanel::Placement::Right);
-            KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel")).writeEntry("Placement", below ? "below" : "right");
+            saveTagPanelPlacement(below);
         }
     });
     connect(m_tagDock, &QDockWidget::visibilityChanged, this, [this](bool visible) {
@@ -2825,12 +2832,15 @@ void MainWindow::setupActions()
                                        [this](const QString &message) {
                                            showStatusMessage(message);
                                        }});
-    connect(m_tagging, &TaggingController::libraryChanged, this, [this](const QString &root) {
-        TagAssignment::invalidate(root);
-        if (!m_tagDock->isHidden()) {
-            m_tagPanel->reload();
+    connect(m_tagging, &TaggingController::libraryChanged, this, &MainWindow::reloadLibraryViews);
+    connect(LibraryAutoRefresh::instance(), &LibraryAutoRefresh::refreshed, this, [this](const QString &root, const QString &message, bool changed) {
+        if (changed) {
+            reloadLibraryViews(root);
         }
-        updateInformationPanel();
+        // Several windows share one refresher; only the one in use reports it.
+        if (!message.isEmpty() && (isActiveWindow() || !QApplication::activeWindow())) {
+            showStatusMessage(message);
+        }
     });
     connect(m_tagPanel, &TagPanel::manageRequested, m_tagging, [this](const QString &root) {
         if (!root.isEmpty()) {
@@ -3524,7 +3534,12 @@ void MainWindow::selectByQuery(bool select)
         }
         const auto query = SearchQuery::Query::parse(edit->text());
         QString message;
-        const int matched = view->applySelectionQuery(query, LibraryRegistry::roots(), select, &message);
+        const int matched = view->applySelectionQuery(query,
+                                                      LibraryRegistry::roots(),
+                                                      TaggingSettings::tagSearchOptions(),
+                                                      TaggingSettings::embeddedMetadataKeys(),
+                                                      select,
+                                                      &message);
         if (matched < 0) {
             status->setText(message);
             return;
@@ -5288,6 +5303,15 @@ void MainWindow::updateTagPanel()
     m_tagPanel->setContext(activePane()->url(), activePane()->view()->selectedItems());
 }
 
+void MainWindow::reloadLibraryViews(const QString &root)
+{
+    TagAssignment::invalidate(root);
+    if (!m_tagDock->isHidden()) {
+        m_tagPanel->reload();
+    }
+    updateInformationPanel();
+}
+
 void MainWindow::setTagPanelPlacement(TagPanel::Placement placement)
 {
     const bool below = placement == TagPanel::Placement::Below;
@@ -5298,8 +5322,35 @@ void MainWindow::setTagPanelPlacement(TagPanel::Placement placement)
     addDockWidget(below ? Qt::BottomDockWidgetArea : Qt::RightDockWidgetArea, m_tagDock);
     m_tagDock->setVisible(shown);
     m_tagPanel->setPlacement(placement);
-    KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel")).writeEntry("Placement", below ? "below" : "right");
+    saveTagPanelPlacement(below);
     restorePanelDockSize(m_tagDock, QStringLiteral("TagDock"));
+}
+
+void MainWindow::applyTagSettings()
+{
+    const bool below = Settings::tagPanelPlacement() == Settings::EnumTagPanelPlacement::Below;
+    if ((dockWidgetArea(m_tagDock) == Qt::BottomDockWidgetArea) != below) {
+        setTagPanelPlacement(below ? TagPanel::Placement::Below : TagPanel::Placement::Right);
+    }
+    // Tag colours may have been shown or hidden.
+    if (!m_tagDock->isHidden()) {
+        m_tagPanel->reload();
+    }
+    for (TagManagerWidget *manager : findChildren<TagManagerWidget *>()) {
+        manager->reload();
+    }
+    for (TagGroupManagerWidget *groups : findChildren<TagGroupManagerWidget *>()) {
+        groups->reload();
+    }
+}
+
+void MainWindow::saveTagPanelPlacement(bool below)
+{
+    const auto placement = below ? Settings::EnumTagPanelPlacement::Below : Settings::EnumTagPanelPlacement::Right;
+    if (Settings::tagPanelPlacement() != placement) {
+        Settings::setTagPanelPlacement(placement);
+        Settings::self()->save();
+    }
 }
 
 bool MainWindow::isDualLayout() const
@@ -5431,6 +5482,7 @@ void MainWindow::applySettings()
     updateStatusBarIndicatorOrder();
     updateStatusBar();
     updateFreeSpace();
+    applyTagSettings();
     updateInformationPanel();
 
     QAction *switchPane = actionCollection()->action(QStringLiteral("switch_pane"));
@@ -5590,6 +5642,19 @@ void MainWindow::showSettings()
     connect(dialog, &SettingsDialog::customCommandsChanged, this, &MainWindow::refreshCustomCommandActions);
     connect(dialog, &SettingsDialog::manageWorkspacesRequested, this, &MainWindow::showWorkspaces);
     connect(this, &MainWindow::workspaceCatalogChanged, dialog, &SettingsDialog::reloadWorkspaces);
+    // Library changes in Preferences apply at once, to every window.
+    connect(dialog, &SettingsDialog::libraryChanged, this, [](const QString &root) {
+        const QList<KMainWindow *> windows = KMainWindow::memberList();
+        for (KMainWindow *member : windows) {
+            if (auto *window = qobject_cast<MainWindow *>(member)) {
+                window->reloadLibraryViews(root);
+                window->updateActions();
+            }
+        }
+    });
+    connect(dialog, &SettingsDialog::libraryAdded, this, [](const QString &root) {
+        LibraryAutoRefresh::instance()->enqueue(root, true);
+    });
     dialog->show();
 }
 

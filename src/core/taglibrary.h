@@ -15,9 +15,10 @@
 
 /**
  * Tag libraries: opt-in metadata for the files below an existing local
- * folder. A library is stored as one open, documented JSON document at its
- * root (see docs/tagging.md) instead of a sidecar per file. Libraries never
- * read or write the per-folder .mfm.json metadata.
+ * folder. A library is stored as one open, documented JSON document, at its
+ * root or privately in Plasma Opus's data folder (see docs/tagging.md),
+ * instead of a sidecar per file. Libraries never read or write the
+ * per-folder .mfm.json metadata.
  */
 namespace TagLibrary
 {
@@ -26,6 +27,38 @@ QString fileName();
 
 /// Whether @p name is the library document or one of its temporary files.
 bool isLibraryFile(const QString &name);
+
+/// Where a library document is kept.
+enum class Storage {
+    /// fileName() in the library root.
+    LibraryFolder,
+    /// privateDocumentPath(), so nothing is written to the library folder.
+    PrivateFolder,
+};
+
+/// The path of the library document in @p root itself.
+QString folderDocumentPath(const QString &root);
+
+/// The path of the private library document for @p root in Plasma Opus's data folder, named after a hash of the cleaned root.
+QString privateDocumentPath(const QString &root);
+
+/// The library document of @p root: the private document when it exists, otherwise the one in the folder.
+QString documentPath(const QString &root);
+
+/// Whether the library document of @p root is kept privately.
+bool isPrivate(const QString &root);
+
+/**
+ * Moves the library document of @p root to @p target storage. The document
+ * is checked, written atomically to the target and read back before the
+ * source is deleted; no other file is touched. Refused when the target
+ * already holds a document or can't be written.
+ * @returns an error message, or an empty string on success or when the document is already there
+ */
+QString moveDocument(const QString &root, Storage target);
+
+/// Whether @p color is a valid tag or group colour: #rrggbb, or empty for none.
+bool isValidColor(const QString &color);
 
 struct Tag {
     QString id;
@@ -93,10 +126,12 @@ struct ScanChanges {
     int missing = 0;
     /// Missing entries found again at their recorded path.
     int found = 0;
+    /// The paths, relative to the root, of the new entries that are files.
+    QStringList addedFiles;
 };
 
 /// Describes why @p root can't hold a library, or returns an empty string.
-/// @param readOnly set when the folder is supported but can't be written
+/// @param readOnly set when the folder is supported but its library document, at documentPath(), can't be written
 QString checkLocation(const QString &root, bool *readOnly = nullptr);
 
 /// Creates a stable identifier for a new tag, group, field or entry.
@@ -108,12 +143,25 @@ QString documentSignature(const QString &root);
 /// Whether @p entry has tags or field values.
 bool hasMetadata(const Entry &entry);
 
+/**
+ * Parses field templates written as "text:Name" or "date:Name", each with a
+ * new identifier. The type is matched ignoring case and spaces around the
+ * name are dropped. Entries without a known type or a valid name, and later
+ * entries whose name repeats an earlier one ignoring case, are ignored.
+ */
+QList<Field> parseFieldTemplates(const QStringList &templates);
+
+/// Writes @p field as a template that parseFieldTemplates() reads.
+QString fieldTemplate(const Field &field);
+
 class Library
 {
 public:
     Library() = default;
-    /// An empty library for @p root; nothing is written until save().
+    /// An empty library for @p root at documentPath(); nothing is written until save().
     explicit Library(const QString &root);
+    /// An empty library for @p root kept in @p storage; nothing is written until save().
+    Library(const QString &root, Storage storage);
 
     /// Reads the library document at @p root.
     static Library load(const QString &root, QString *error = nullptr);
@@ -121,8 +169,9 @@ public:
     static Library fromJson(const QJsonObject &document, const QString &root, QString *error = nullptr);
 
     /**
-     * Atomically writes the document. Fails without writing when the folder
-     * is read-only or the document changed on disk since it was loaded.
+     * Atomically writes the document. Fails without writing when the
+     * document can't be written or changed on disk since it was loaded. A
+     * private document also records the library root.
      */
     bool save(QString *error = nullptr);
     QJsonObject toJson() const;
@@ -136,7 +185,9 @@ public:
     bool isNull() const;
     QString root() const;
     QString filePath() const;
-    /// Set when the folder or document can't be written.
+    /// Whether the document is kept in Plasma Opus's data folder rather than the library folder.
+    bool isPrivate() const;
+    /// Set when the document, or the folder that holds it, can't be written.
     bool isReadOnly() const;
     /// Problems repaired while loading, such as references to unknown tags.
     QStringList warnings() const;
@@ -161,8 +212,11 @@ public:
      * Records scanned files and folders: new paths become entries and known
      * ones are updated. Only a @p complete scan marks unseen entries missing;
      * missing entries keep their tags and fields.
+     * @param inScope when set, a complete scan only marks the unseen entries
+     *        it accepts missing, given their path relative to the root and
+     *        whether they're folders; the others are left unchanged
      */
-    ScanChanges applyScan(const QList<Observation> &observed, bool complete);
+    ScanChanges applyScan(const QList<Observation> &observed, bool complete, const std::function<bool(const QString &relativePath, bool folder)> &inScope = {});
 
     /**
      * Records that Plasma Opus moved or renamed paths, as pairs of paths
@@ -308,6 +362,7 @@ public:
 
 private:
     QString m_root;
+    QString m_path;
     QList<Tag> m_tags;
     QList<Group> m_groups;
     QList<Field> m_fields;

@@ -2,6 +2,8 @@
 
 #include "libraryrestoredialog.h"
 
+#include "settings.h"
+
 #include <KLocalizedString>
 #include <KMessageWidget>
 
@@ -20,6 +22,14 @@
 #include <QStandardPaths>
 #include <QTreeWidget>
 #include <QVBoxLayout>
+
+namespace
+{
+LibraryArchive::BackupOptions backupOptions()
+{
+    return {Settings::libraryBackupFolder().toLocalFile(), Settings::libraryBackupLimit()};
+}
+}
 
 LibraryRestoreDialog::LibraryRestoreDialog(const QString &root, QWidget *parent)
     : QDialog(parent)
@@ -60,7 +70,7 @@ LibraryRestoreDialog::LibraryRestoreDialog(const QString &root, QWidget *parent)
     m_confirm->setObjectName(QStringLiteral("libraryRestoreConfirm"));
     m_confirm->setToolTip(xi18nc("@info:tooltip",
                                  "A copy of the current library document is kept in <filename>%1</filename>, so it can be restored in turn.",
-                                 LibraryArchive::backupDirectory()));
+                                 LibraryArchive::backupDirectory(backupOptions().folder)));
     m_error->setObjectName(QStringLiteral("libraryRestoreError"));
     m_error->setWordWrap(true);
     m_error->setCloseButtonVisible(false);
@@ -256,7 +266,7 @@ bool LibraryRestoreDialog::restore()
         return false;
     }
     QString error;
-    if (!LibraryArchive::restore(m_plan, &m_backup, &error)) {
+    if (!LibraryArchive::restore(m_plan, backupOptions(), &m_backup, &error)) {
         m_error->setMessageType(KMessageWidget::Error);
         m_error->setText(i18nc("@info", "Could not restore the library: %1", error));
         m_error->show();

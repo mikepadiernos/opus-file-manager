@@ -10,6 +10,7 @@
 #include "savedpathfilters.h"
 #include "settings.h"
 #include "stylesheets.h"
+#include "taglibrary.h"
 #include "workspacestartup.h"
 
 #include <KColorButton>
@@ -406,6 +407,57 @@ void AccentColorChooser::refresh()
     showContrastIssues(m_contrast,
                        i18nc("@info", "The accent colour may be hard to see with this colour scheme:"),
                        ColorSchemes::contrastIssues(palette, ColorSchemes::accentRoles()));
+}
+
+TagColorChooser::TagColorChooser(QWidget *parent)
+    : QWidget(parent)
+    , m_enabled(new QCheckBox(i18nc("@option:check", "Give new tags a colour:"), this))
+    , m_button(new KColorButton(QColor(QStringLiteral("#3daee9")), this))
+{
+    setProperty("kcfg_propertyNotify", QByteArray(SIGNAL(colorChanged())));
+    m_enabled->setObjectName(QStringLiteral("defaultTagColorEnabled"));
+    m_enabled->setToolTip(i18nc("@info:tooltip", "When unchecked, new tags have no colour"));
+    m_button->setObjectName(QStringLiteral("defaultTagColorButton"));
+    m_button->setAccessibleName(i18nc("@label", "Colour of new tags"));
+    m_button->setEnabled(false);
+    auto *layout = new QHBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(m_enabled);
+    layout->addWidget(m_button);
+    layout->addStretch();
+    connect(m_enabled, &QCheckBox::toggled, this, [this](bool checked) {
+        m_button->setEnabled(checked);
+        Q_EMIT colorChanged();
+    });
+    connect(m_button, &KColorButton::changed, this, [this] {
+        if (m_enabled->isChecked()) {
+            Q_EMIT colorChanged();
+        }
+    });
+}
+
+QString TagColorChooser::color() const
+{
+    return m_enabled->isChecked() ? QColor(m_button->color().rgb()).name(QColor::HexRgb) : QString();
+}
+
+void TagColorChooser::setColor(const QString &color)
+{
+    const QString previous = this->color();
+    const QString trimmed = color.trimmed();
+    const bool valid = !trimmed.isEmpty() && TagLibrary::isValidColor(trimmed);
+    {
+        const QSignalBlocker enabledBlocker(m_enabled);
+        const QSignalBlocker buttonBlocker(m_button);
+        m_enabled->setChecked(valid);
+        if (valid) {
+            m_button->setColor(QColor(trimmed));
+        }
+    }
+    m_button->setEnabled(valid);
+    if (this->color() != previous) {
+        Q_EMIT colorChanged();
+    }
 }
 
 ColorPaletteEditor::ColorPaletteEditor(QWidget *parent)

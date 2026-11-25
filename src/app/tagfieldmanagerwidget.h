@@ -104,3 +104,48 @@ private:
     QPushButton *m_remove;
     QLabel *m_status;
 };
+
+/**
+ * Edits the fields new libraries start with, as "text:Name" or "date:Name"
+ * templates, with commands to add, edit, remove and reorder them. Bound to
+ * the NewLibraryFields setting, so nothing is saved until it is applied.
+ */
+class FieldTemplateEditor : public QWidget
+{
+    Q_OBJECT
+    Q_PROPERTY(QStringList templates READ templates WRITE setTemplates NOTIFY templatesChanged USER true)
+
+public:
+    explicit FieldTemplateEditor(QWidget *parent = nullptr);
+
+    QStringList templates() const;
+    /// Shows @p templates, leaving out invalid and repeated entries.
+    void setTemplates(const QStringList &templates);
+    /// The current row, or -1.
+    int currentRow() const;
+    void setCurrentRow(int row);
+
+    /// Opens the dialog for a new field; returns it so callers and tests can follow it.
+    TagFieldDialog *addField();
+    /// Opens the dialog for the field at @p row, or returns null when there is none.
+    TagFieldDialog *editField(int row);
+    void removeField(int row);
+    /// Moves the field at @p row by @p offset rows, keeping it current.
+    void moveField(int row, int offset);
+
+Q_SIGNALS:
+    void templatesChanged();
+
+private:
+    TagFieldDialog *openEditor(const TagLibrary::Field &field);
+    void setFields(const QList<TagLibrary::Field> &fields, const QString &current);
+    void updateButtons();
+
+    QList<TagLibrary::Field> m_fields;
+    QTreeWidget *m_list;
+    QPushButton *m_add;
+    QPushButton *m_edit;
+    QPushButton *m_remove;
+    QPushButton *m_up;
+    QPushButton *m_down;
+};

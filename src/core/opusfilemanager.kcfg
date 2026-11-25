@@ -1205,4 +1205,130 @@
       <default>Automatic</default>
     </entry>
   </group>
+  <group name="Tagging">
+    <entry name="NewLibraryStorage" type="Enum">
+      <label>Where new tag libraries keep their metadata: in the library folder or privately in Plasma Opus's data folder</label>
+      <choices>
+        <choice name="LibraryFolder"/>
+        <choice name="PrivateFolder"/>
+      </choices>
+      <default>LibraryFolder</default>
+    </entry>
+    <entry name="LibraryBackupFolder" type="Url">
+      <label>The folder that keeps copies of library documents replaced by a restore; empty for library-backups in Plasma Opus's data folder</label>
+    </entry>
+    <entry name="LibraryBackupLimit" type="Int">
+      <label>The most backups kept per library; 0 keeps all</label>
+      <default>20</default>
+      <min>0</min>
+      <max>1000</max>
+    </entry>
+    <entry name="AllowEmbeddedMetadataWrites" type="Bool">
+      <label>Whether library values may be written into files' embedded metadata, always after a preview and confirmation</label>
+      <default>false</default>
+    </entry>
+    <entry name="LibraryExclusions" type="StringList">
+      <label>Wildcard patterns of items that library refreshes don't index: names at any depth, or paths relative to the library folder when they contain /</label>
+      <default></default>
+    </entry>
+    <entry name="IndexHiddenItems" type="Bool">
+      <label>Whether library refreshes index hidden files and folders</label>
+      <default>true</default>
+    </entry>
+    <entry name="LibraryScanLimit" type="Int">
+      <label>The most items one library refresh indexes; 0 for no limit</label>
+      <default>0</default>
+      <min>0</min>
+      <max>10000000</max>
+    </entry>
+    <entry name="LibraryScanDepth" type="Int">
+      <label>How many folder levels below a library folder a refresh indexes, 1 for its direct contents only; 0 for no limit</label>
+      <default>0</default>
+      <min>0</min>
+      <max>1000</max>
+    </entry>
+    <entry name="AutomaticLibraryRefresh" type="Enum">
+      <label>When libraries are refreshed in the background: never, when Plasma Opus starts or when a folder in the library is opened</label>
+      <choices>
+        <choice name="Never"/>
+        <choice name="AtStartup"/>
+        <choice name="WhenOpened"/>
+      </choices>
+      <default>Never</default>
+    </entry>
+    <entry name="LibraryRefreshInterval" type="Int">
+      <label>The fewest minutes between automatic refreshes of the same library</label>
+      <default>60</default>
+      <min>1</min>
+      <max>10080</max>
+    </entry>
+    <entry name="TagPanelPlacement" type="Enum">
+      <label>Where the embedded tag panel docks in the window: on the right or below the panes</label>
+      <choices>
+        <choice name="Right"/>
+        <choice name="Below"/>
+      </choices>
+      <default>Right</default>
+    </entry>
+    <entry name="ShowTagColors" type="Bool">
+      <label>Whether tag and tag group colours are shown as swatches; colours stay stored when hidden</label>
+      <default>true</default>
+    </entry>
+    <entry name="DefaultTagColor" type="String">
+      <label>The colour, as #rrggbb, given to newly created tags; empty for no colour</label>
+      <default></default>
+    </entry>
+    <entry name="ShowTagsInInformationPanel" type="Bool">
+      <label>Whether the information panel shows the tags of the selected item</label>
+      <default>true</default>
+    </entry>
+    <entry name="ShowInheritedTags" type="Bool">
+      <label>Whether the information panel lists tags inherited from parent tags after the direct tags, rather than only in its tooltip</label>
+      <default>false</default>
+    </entry>
+    <entry name="TagMatchesChildTags" type="Bool">
+      <label>Whether a tag: search term also matches items tagged with child tags of the named tag</label>
+      <default>true</default>
+    </entry>
+    <entry name="TagSearchScope" type="Enum">
+      <label>Where a search of the current folder with tag criteria starts: in the current folder or in the folder of the library that contains it</label>
+      <choices>
+        <choice name="CurrentFolder"/>
+        <choice name="LibraryRoot"/>
+      </choices>
+      <default>CurrentFolder</default>
+    </entry>
+    <entry name="TagMatchAliases" type="Bool">
+      <label>Whether tag: and tag= search terms also match tag aliases and shorthands, rather than only tag names</label>
+      <default>true</default>
+    </entry>
+    <entry name="UntaggedIncludesOutsideLibraries" type="Bool">
+      <label>Whether tagged:no also matches items outside every tag library</label>
+      <default>false</default>
+    </entry>
+    <entry name="NewLibraryFields" type="StringList">
+      <label>Fields added to the document of each newly created tag library, in order, as text:Name or date:Name</label>
+      <default></default>
+    </entry>
+    <entry name="DisabledEmbeddedMetadataKeys" type="StringList">
+      <label>The embedded metadata properties, by KFileMetaData property name, that are not read for search, display or import</label>
+      <default></default>
+    </entry>
+    <entry name="EmbeddedMetadataMappings" type="StringList">
+      <label>How embedded metadata properties are imported into tag libraries, as key=tags or key=field:Name</label>
+      <default></default>
+    </entry>
+    <entry name="EmbeddedMetadataConflicts" type="Enum">
+      <label>Whether imported embedded metadata keeps or replaces different existing field values</label>
+      <choices>
+        <choice name="Keep"/>
+        <choice name="Replace"/>
+      </choices>
+      <default>Keep</default>
+    </entry>
+    <entry name="ImportEmbeddedMetadataOnRefresh" type="Bool">
+      <label>Whether refreshing a tag library imports the embedded metadata of newly indexed items using the saved mappings</label>
+      <default>false</default>
+    </entry>
+  </group>
 </kcfg>

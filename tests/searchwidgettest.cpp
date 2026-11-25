@@ -4,6 +4,7 @@
 
 #include "favoritesmodel.h"
 #include "folderview.h"
+#include "libraryregistry.h"
 #include "mainwindow.h"
 #include "pane.h"
 #include "savedpathfilters.h"
@@ -436,6 +437,62 @@ private Q_SLOTS:
         QTRY_VERIFY(start->isEnabled());
         QCOMPARE(results->topLevelItemCount(), 1);
         QCOMPARE(results->topLevelItem(0)->text(0), root.filePath(QStringLiteral("report.pdf")));
+    }
+
+    void widensTagSearchesToTheLibrary()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("sub")));
+        for (const QString &name : {QStringLiteral("top.txt"), QStringLiteral("sub/inner.txt")}) {
+            QFile file(root.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        QCOMPARE(LibraryRegistry::create(root.path()), QString());
+        const auto restore = qScopeGuard([&root] {
+            LibraryRegistry::remove(root.path());
+            Settings::setTagSearchScope(Settings::EnumTagSearchScope::CurrentFolder);
+            Settings::self()->save();
+        });
+        SearchWidget dialog(QUrl::fromLocalFile(root.filePath(QStringLiteral("sub"))));
+        auto *query = dialog.findChild<QLineEdit *>(QStringLiteral("searchQuery"));
+        auto *field = dialog.findChild<QComboBox *>(QStringLiteral("searchField"));
+        auto *start = dialog.findChild<QPushButton *>(QStringLiteral("searchStart"));
+        auto *results = dialog.findChild<QTreeWidget *>(QStringLiteral("searchResults"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("searchStatus"));
+        QVERIFY(query && field && start && results && status);
+        field->setCurrentIndex(2);
+        const auto found = [results] {
+            QStringList paths;
+            for (int row = 0; row < results->topLevelItemCount(); ++row) {
+                paths.append(results->topLevelItem(row)->text(0));
+            }
+            paths.sort();
+            return paths;
+        };
+        const QString inner = root.filePath(QStringLiteral("sub/inner.txt"));
+
+        // By default, tag searches stay in the current folder.
+        query->setText(QStringLiteral("tagged:no type:file"));
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QCOMPARE(found(), QStringList{inner});
+        QVERIFY(!status->text().contains(QStringLiteral("whole tag library")));
+
+        // With the library scope, they start in the library folder and say so.
+        Settings::setTagSearchScope(Settings::EnumTagSearchScope::LibraryRoot);
+        Settings::self()->save();
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QCOMPARE(found(), (QStringList{inner, root.filePath(QStringLiteral("top.txt"))}));
+        QVERIFY(status->text().contains(QStringLiteral("Searched the whole tag library in ") + root.path()));
+
+        // Queries without tag criteria still search the current folder.
+        query->setText(QStringLiteral("type:file"));
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QCOMPARE(found(), QStringList{inner});
+        QVERIFY(!status->text().contains(QStringLiteral("whole tag library")));
     }
 
     void searchesWorkspaceLocationsOrExplicitlyOutside()

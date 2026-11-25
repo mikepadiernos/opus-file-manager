@@ -2,7 +2,9 @@
 
 #include "libraryrefreshdialog.h"
 
+#include "libraryautorefresh.h"
 #include "localizednumbers.h"
+#include "taggingsettings.h"
 
 #include <KLocalizedString>
 
@@ -13,8 +15,6 @@
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
-
-#include <algorithm>
 
 LibraryRefreshDialog::LibraryRefreshDialog(const QString &root, QWidget *parent)
     : QDialog(parent)
@@ -52,10 +52,20 @@ LibraryRefreshDialog::LibraryRefreshDialog(const QString &root, QWidget *parent)
     connect(m_buttons->button(QDialogButtonBox::Close), &QPushButton::clicked, this, &QDialog::accept);
     m_progressTimer.setInterval(100);
     connect(&m_progressTimer, &QTimer::timeout, this, [this] {
-        m_status->setText(
-            i18ncp("@info", "Scanned one item…", "Scanned %2 items…", m_scanned->load(), LocalizedNumbers::shape(QString::number(m_scanned->load()))));
+        const int count = m_scanned->load();
+        if (m_importWatcher.isRunning()) {
+            m_progress->setValue(count);
+            m_status->setText(i18ncp("@info",
+                                     "Reading the embedded metadata of one new item: %2 read…",
+                                     "Reading the embedded metadata of %1 new items: %2 read…",
+                                     m_importFiles,
+                                     LocalizedNumbers::shape(QString::number(count))));
+            return;
+        }
+        m_status->setText(i18ncp("@info", "Scanned one item…", "Scanned %2 items…", count, LocalizedNumbers::shape(QString::number(count))));
     });
     connect(&m_watcher, &QFutureWatcher<LibraryScan::Result>::finished, this, &LibraryRefreshDialog::finish);
+    connect(&m_importWatcher, &QFutureWatcher<QList<EmbeddedMetadata::Reading>>::finished, this, &LibraryRefreshDialog::finishImport);
     resize(460, sizeHint().height());
 }
 
@@ -63,6 +73,10 @@ LibraryRefreshDialog::~LibraryRefreshDialog()
 {
     m_canceled->store(true);
     m_watcher.waitForFinished();
+    m_importWatcher.waitForFinished();
+    if (m_manual) {
+        LibraryAutoRefresh::instance()->endManualRefresh(m_root, false);
+    }
 }
 
 void LibraryRefreshDialog::start()
@@ -74,6 +88,7 @@ void LibraryRefreshDialog::start()
     m_scanned->store(0);
     m_message.clear();
     m_changes = {};
+    m_importedItems = 0;
     m_status->setText(i18nc("@info", "Scanning…"));
     m_progress->setRange(0, 0);
     m_progress->show();
@@ -81,12 +96,19 @@ void LibraryRefreshDialog::start()
     m_buttons->button(QDialogButtonBox::Close)->hide();
     m_review->hide();
     m_progressTimer.start();
+    if (!m_manual) {
+        LibraryAutoRefresh::instance()->beginManualRefresh(m_root);
+        m_manual = true;
+    }
+    m_options = TaggingSettings::scanOptions();
     const QString root = m_root;
+    const LibraryScan::Options options = m_options;
     const auto canceled = m_canceled;
     const auto scanned = m_scanned;
-    m_watcher.setFuture(QtConcurrent::run([root, canceled, scanned] {
+    m_watcher.setFuture(QtConcurrent::run([root, options, canceled, scanned] {
         return LibraryScan::scan(
             root,
+            options,
             [canceled] {
                 return canceled->load();
             },
@@ -104,7 +126,7 @@ void LibraryRefreshDialog::cancel()
 
 bool LibraryRefreshDialog::isRunning() const
 {
-    return m_watcher.isRunning();
+    return m_watcher.isRunning() || m_importWatcher.isRunning();
 }
 
 QString LibraryRefreshDialog::root() const
@@ -120,6 +142,11 @@ TagLibrary::ScanChanges LibraryRefreshDialog::changes() const
 int LibraryRefreshDialog::missingEntries() const
 {
     return m_missingEntries;
+}
+
+int LibraryRefreshDialog::importedItems() const
+{
+    return m_importedItems;
 }
 
 QString LibraryRefreshDialog::message() const
@@ -140,63 +167,83 @@ void LibraryRefreshDialog::finish()
 {
     m_progressTimer.stop();
     const LibraryScan::Result result = m_watcher.result();
-    QString error;
-    TagLibrary::ScanChanges changes;
-    int missing = 0;
-    const bool complete = !result.canceled && result.errors.isEmpty();
-    const bool saved = !result.items.isEmpty() || complete
-        ? TagLibrary::update(
-              m_root,
-              [&](TagLibrary::Library &library, QString *) {
-                  changes = library.applyScan(result.items, complete);
-                  missing = int(std::count_if(library.entries().cbegin(), library.entries().cend(), [](const TagLibrary::Entry &entry) {
-                      return entry.missing;
-                  }));
-                  return true;
-              },
-              &error)
-        : true;
-    m_changes = changes;
-    m_missingEntries = saved ? missing : 0;
-    QStringList lines;
-    if (!saved) {
-        lines.append(error);
+    const LibraryScan::Applied applied = LibraryScan::apply(m_root, result, m_options);
+    if (m_manual) {
+        LibraryAutoRefresh::instance()->endManualRefresh(m_root, !result.canceled && applied.saved);
+        m_manual = false;
+    }
+    m_changes = applied.changes;
+    m_missingEntries = applied.missing;
+    m_message = LibraryScan::summary(result, applied);
+    if (applied.saved) {
+        Q_EMIT libraryChanged(m_root);
+    }
+    if (applied.saved && !result.canceled && !m_changes.addedFiles.isEmpty() && TaggingSettings::importsEmbeddedMetadataOnRefresh()) {
+        startImport(m_changes.addedFiles);
+        return;
+    }
+    showFinished();
+}
+
+void LibraryRefreshDialog::startImport(const QStringList &files)
+{
+    m_mappings = TaggingSettings::embeddedMetadataMappings();
+    m_keys = TaggingSettings::embeddedMetadataKeys();
+    m_policy = TaggingSettings::embeddedMetadataPolicy();
+    m_tagColor = TaggingSettings::defaultTagColor();
+    m_importFiles = int(files.size());
+    m_scanned->store(0);
+    m_progress->setRange(0, m_importFiles);
+    m_progress->setValue(0);
+    m_status->setText(i18nc("@info", "Reading embedded metadata…"));
+    m_progressTimer.start();
+    const QString root = m_root;
+    const QStringList keys = MetadataImport::mappedKeys(m_mappings, m_keys);
+    const auto canceled = m_canceled;
+    const auto read = m_scanned;
+    m_importWatcher.setFuture(QtConcurrent::run([root, files, keys, canceled, read] {
+        return MetadataImport::readFiles(
+            root,
+            files,
+            keys,
+            [canceled] {
+                return canceled->load();
+            },
+            [read](int count) {
+                read->store(count);
+            });
+    }));
+}
+
+void LibraryRefreshDialog::finishImport()
+{
+    m_progressTimer.stop();
+    if (m_canceled->load()) {
+        m_message += QLatin1Char('\n') + i18nc("@info", "Embedded metadata import canceled; nothing was imported.");
     } else {
-        lines.append(i18ncp("@info", "Added one entry.", "Added %1 entries.", changes.added));
-        if (changes.updated) {
-            lines.append(i18ncp("@info", "Updated one entry.", "Updated %1 entries.", changes.updated));
-        }
-        if (changes.found) {
-            lines.append(i18ncp("@info", "Found one missing entry again.", "Found %1 missing entries again.", changes.found));
-        }
-        if (changes.missing) {
-            lines.append(i18ncp("@info",
-                                "One entry is missing; its tags and fields are kept until you review it.",
-                                "%1 entries are missing; their tags and fields are kept until you review them.",
-                                changes.missing));
+        MetadataImport::Result result;
+        QString error;
+        if (MetadataImport::importReadings(m_root, m_importWatcher.result(), m_mappings, m_keys, m_policy, m_tagColor, &result, &error)) {
+            m_importedItems = result.items;
+            m_message +=
+                QLatin1Char('\n') + i18ncp("@info", "Imported embedded metadata for one item.", "Imported embedded metadata for %1 items.", result.items);
+            if (result.items > 0) {
+                Q_EMIT libraryChanged(m_root);
+            }
+        } else {
+            m_message += QLatin1Char('\n') + i18nc("@info %1 is the reason", "Could not import embedded metadata: %1", error);
         }
     }
-    if (result.canceled) {
-        lines.prepend(i18nc("@info", "Refresh canceled. Items found so far were recorded; no entries were marked missing."));
-    } else if (!result.errors.isEmpty()) {
-        lines.prepend(i18nc("@info", "Some folders couldn't be read, so no entries were marked missing."));
-        lines.append(result.errors.mid(0, 5));
-    }
-    if (result.skipped) {
-        lines.append(i18ncp("@info",
-                            "Skipped one item whose name isn't valid in the system encoding.",
-                            "Skipped %1 items whose names aren't valid in the system encoding.",
-                            result.skipped));
-    }
-    m_message = lines.join(QLatin1Char('\n'));
+    showFinished();
+}
+
+void LibraryRefreshDialog::showFinished()
+{
     m_status->setText(m_message);
     m_progress->hide();
     m_buttons->button(QDialogButtonBox::Cancel)->hide();
     m_buttons->button(QDialogButtonBox::Close)->show();
     m_review->setVisible(m_missingEntries > 0);
     m_buttons->button(QDialogButtonBox::Close)->setFocus();
-    if (saved) {
-        Q_EMIT libraryChanged(m_root);
-    }
     Q_EMIT refreshFinished();
 }

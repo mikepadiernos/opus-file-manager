@@ -17,6 +17,8 @@
 #include <QTreeWidget>
 #include <QVBoxLayout>
 
+#include <algorithm>
+
 namespace
 {
 constexpr int IdRole = Qt::UserRole;
@@ -350,4 +352,167 @@ void TagFieldManagerWidget::setMessage(const QString &message)
     m_message = message;
     m_status->setText(message);
     m_status->setVisible(!message.isEmpty());
+}
+
+FieldTemplateEditor::FieldTemplateEditor(QWidget *parent)
+    : QWidget(parent)
+    , m_list(new QTreeWidget(this))
+    , m_add(new QPushButton(QIcon::fromTheme(QStringLiteral("list-add")), i18nc("@action:button", "Add…"), this))
+    , m_edit(new QPushButton(QIcon::fromTheme(QStringLiteral("document-edit")), i18nc("@action:button", "Edit…"), this))
+    , m_remove(new QPushButton(QIcon::fromTheme(QStringLiteral("list-remove")), i18nc("@action:button", "Remove"), this))
+    , m_up(new QPushButton(QIcon::fromTheme(QStringLiteral("go-up")), i18nc("@action:button", "Move Up"), this))
+    , m_down(new QPushButton(QIcon::fromTheme(QStringLiteral("go-down")), i18nc("@action:button", "Move Down"), this))
+{
+    m_list->setObjectName(QStringLiteral("fieldTemplateList"));
+    m_list->setAccessibleName(i18nc("@info:accessible", "Fields for new libraries"));
+    m_list->setHeaderLabels({i18nc("@title:column", "Field"), i18nc("@title:column", "Type")});
+    m_list->setRootIsDecorated(false);
+    m_list->setUniformRowHeights(true);
+    m_list->header()->setSectionResizeMode(NameColumn, QHeaderView::Stretch);
+    m_list->header()->setStretchLastSection(false);
+    m_add->setObjectName(QStringLiteral("fieldTemplateAdd"));
+    m_edit->setObjectName(QStringLiteral("fieldTemplateEdit"));
+    m_remove->setObjectName(QStringLiteral("fieldTemplateRemove"));
+    m_up->setObjectName(QStringLiteral("fieldTemplateUp"));
+    m_down->setObjectName(QStringLiteral("fieldTemplateDown"));
+
+    auto *buttons = new QHBoxLayout;
+    for (QPushButton *button : {m_add, m_edit, m_remove, m_up, m_down}) {
+        buttons->addWidget(button);
+    }
+    buttons->addStretch();
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(m_list, 1);
+    layout->addLayout(buttons);
+
+    connect(m_list, &QTreeWidget::currentItemChanged, this, &FieldTemplateEditor::updateButtons);
+    connect(m_list, &QTreeWidget::itemActivated, this, [this](QTreeWidgetItem *item) {
+        editField(m_list->indexOfTopLevelItem(item));
+    });
+    connect(m_add, &QPushButton::clicked, this, &FieldTemplateEditor::addField);
+    connect(m_edit, &QPushButton::clicked, this, [this] {
+        editField(currentRow());
+    });
+    connect(m_remove, &QPushButton::clicked, this, [this] {
+        removeField(currentRow());
+    });
+    connect(m_up, &QPushButton::clicked, this, [this] {
+        moveField(currentRow(), -1);
+    });
+    connect(m_down, &QPushButton::clicked, this, [this] {
+        moveField(currentRow(), 1);
+    });
+    updateButtons();
+}
+
+QStringList FieldTemplateEditor::templates() const
+{
+    QStringList result;
+    for (const TagLibrary::Field &field : m_fields) {
+        result.append(TagLibrary::fieldTemplate(field));
+    }
+    return result;
+}
+
+void FieldTemplateEditor::setTemplates(const QStringList &templates)
+{
+    const int row = currentRow();
+    const QList<TagLibrary::Field> fields = TagLibrary::parseFieldTemplates(templates);
+    setFields(fields, row >= 0 && row < fields.size() ? fields.at(row).id : QString());
+}
+
+int FieldTemplateEditor::currentRow() const
+{
+    return m_list->indexOfTopLevelItem(m_list->currentItem());
+}
+
+void FieldTemplateEditor::setCurrentRow(int row)
+{
+    m_list->setCurrentItem(m_list->topLevelItem(row));
+}
+
+TagFieldDialog *FieldTemplateEditor::addField()
+{
+    return openEditor({});
+}
+
+TagFieldDialog *FieldTemplateEditor::editField(int row)
+{
+    if (row < 0 || row >= m_fields.size()) {
+        return nullptr;
+    }
+    return openEditor(m_fields.at(row));
+}
+
+void FieldTemplateEditor::removeField(int row)
+{
+    if (row < 0 || row >= m_fields.size()) {
+        return;
+    }
+    QList<TagLibrary::Field> fields = m_fields;
+    fields.removeAt(row);
+    setFields(fields, row < fields.size() ? fields.at(row).id : (fields.isEmpty() ? QString() : fields.constLast().id));
+}
+
+void FieldTemplateEditor::moveField(int row, int offset)
+{
+    const int target = row + offset;
+    if (row < 0 || row >= m_fields.size() || target < 0 || target >= m_fields.size()) {
+        return;
+    }
+    QList<TagLibrary::Field> fields = m_fields;
+    fields.move(row, target);
+    setFields(fields, fields.at(target).id);
+}
+
+TagFieldDialog *FieldTemplateEditor::openEditor(const TagLibrary::Field &field)
+{
+    // The dialog checks names against the other templates as it would against a library's fields.
+    TagLibrary::Library others;
+    for (const TagLibrary::Field &other : std::as_const(m_fields)) {
+        others.setField(other);
+    }
+    auto *dialog = new TagFieldDialog(others, field, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &QDialog::accepted, this, [this, dialog] {
+        const TagLibrary::Field edited = dialog->field();
+        QList<TagLibrary::Field> fields = m_fields;
+        const auto existing = std::find_if(fields.begin(), fields.end(), [&edited](const TagLibrary::Field &other) {
+            return other.id == edited.id;
+        });
+        if (existing != fields.end()) {
+            *existing = edited;
+        } else {
+            fields.append(edited);
+        }
+        setFields(fields, edited.id);
+    });
+    dialog->open();
+    return dialog;
+}
+
+void FieldTemplateEditor::setFields(const QList<TagLibrary::Field> &fields, const QString &current)
+{
+    m_fields = fields;
+    m_list->clear();
+    for (const TagLibrary::Field &field : fields) {
+        auto *item = new QTreeWidgetItem(m_list, {field.name, tagFieldTypeName(field.type)});
+        item->setData(NameColumn, IdRole, field.id);
+        if (field.id == current) {
+            m_list->setCurrentItem(item);
+        }
+    }
+    m_list->resizeColumnToContents(TypeColumn);
+    updateButtons();
+    Q_EMIT templatesChanged();
+}
+
+void FieldTemplateEditor::updateButtons()
+{
+    const int row = currentRow();
+    m_edit->setEnabled(row >= 0);
+    m_remove->setEnabled(row >= 0);
+    m_up->setEnabled(row > 0);
+    m_down->setEnabled(row >= 0 && row + 1 < m_fields.size());
 }

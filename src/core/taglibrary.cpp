@@ -4,6 +4,7 @@
 
 #include <KLocalizedString>
 
+#include <QCryptographicHash>
 #include <QDate>
 #include <QDir>
 #include <QFile>
@@ -13,6 +14,7 @@
 #include <QRegularExpression>
 #include <QSaveFile>
 #include <QSet>
+#include <QStandardPaths>
 #include <QUuid>
 
 #include <algorithm>
@@ -36,6 +38,76 @@ QString signatureOf(const QString &path)
         return QStringLiteral("absent");
     }
     return QStringLiteral("%1:%2.%3:%4").arg(qint64(data.st_size)).arg(qint64(data.st_mtim.tv_sec)).arg(qint64(data.st_mtim.tv_nsec)).arg(quint64(data.st_ino));
+}
+
+/// Describes why @p root can't hold a library, wherever its document is kept.
+QString locationProblem(const QString &root)
+{
+    if (root.isEmpty() || !QDir::isAbsolutePath(root)) {
+        return i18nc("@info", "Libraries must be local folders: %1", root);
+    }
+    const QFileInfo info(root);
+    if (info.isSymLink()) {
+        return i18nc("@info", "Libraries can't be rooted at a symbolic link: %1", root);
+    }
+    if (!info.exists()) {
+        return i18nc("@info", "The folder doesn't exist: %1", root);
+    }
+    if (!info.isDir()) {
+        return i18nc("@info", "Libraries must be folders: %1", root);
+    }
+    if (QDir::cleanPath(info.absoluteFilePath()) == QLatin1String("/")) {
+        return i18nc("@info", "The root folder can't be a library; choose a folder inside it.");
+    }
+    if (!info.isReadable() || !info.isExecutable()) {
+        return i18nc("@info", "The folder can't be read: %1", root);
+    }
+    return {};
+}
+
+/// Whether the document at @p path can be written, or created in its folder or the nearest existing parent folder.
+bool documentWritable(const QString &path)
+{
+    QString folder = QFileInfo(path).absolutePath();
+    while (!QFileInfo::exists(folder)) {
+        const QString parent = QFileInfo(folder).absolutePath();
+        if (parent == folder) {
+            return false;
+        }
+        folder = parent;
+    }
+    const QByteArray encoded = QFile::encodeName(folder);
+    struct statvfs volume;
+    const bool readOnlyVolume = ::statvfs(encoded.constData(), &volume) == 0 && (volume.f_flag & ST_RDONLY);
+    const bool documentLocked = QFileInfo::exists(path) && ::access(QFile::encodeName(path).constData(), W_OK) != 0;
+    return !readOnlyVolume && ::access(encoded.constData(), W_OK) == 0 && !documentLocked;
+}
+
+QString readOnlyMessage(const TagLibrary::Library &library)
+{
+    return library.isPrivate() ? i18nc("@info", "The library document %1 can't be written.", library.filePath())
+                               : i18nc("@info", "The library folder is read-only: %1", library.root());
+}
+
+/// Creates the folder of a private document, readable only by the user.
+bool createPrivateFolder(const QString &folder)
+{
+    if (QFileInfo(folder).isDir()) {
+        return true;
+    }
+    const QFileInfo info(folder);
+    return QDir().mkpath(info.absolutePath()) && QDir().mkdir(folder, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+}
+
+/// Atomically writes @p data to @p path.
+bool writeFile(const QString &path, const QByteArray &data, QString *error)
+{
+    QSaveFile file(path);
+    if (!file.open(QIODevice::WriteOnly) || file.write(data) != data.size() || !file.commit()) {
+        *error = file.errorString();
+        return false;
+    }
+    return true;
 }
 
 bool validColor(const QString &color)
@@ -151,6 +223,101 @@ bool TagLibrary::isLibraryFile(const QString &name)
     return name.startsWith(fileName());
 }
 
+QString TagLibrary::folderDocumentPath(const QString &root)
+{
+    return QDir(QDir::cleanPath(root)).filePath(fileName());
+}
+
+QString TagLibrary::privateDocumentPath(const QString &root)
+{
+    const QByteArray hash = QCryptographicHash::hash(QDir::cleanPath(root).toUtf8(), QCryptographicHash::Sha1).toHex();
+    return QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + QStringLiteral("/libraries/") + QString::fromLatin1(hash)
+        + QStringLiteral(".json");
+}
+
+QString TagLibrary::documentPath(const QString &root)
+{
+    const QString privatePath = privateDocumentPath(root);
+    return QFileInfo::exists(privatePath) ? privatePath : folderDocumentPath(root);
+}
+
+bool TagLibrary::isPrivate(const QString &root)
+{
+    return QFileInfo::exists(privateDocumentPath(root));
+}
+
+QString TagLibrary::moveDocument(const QString &root, Storage target)
+{
+    const QString clean = QDir::cleanPath(root);
+    if (const QString problem = locationProblem(clean); !problem.isEmpty()) {
+        return problem;
+    }
+    const QString source = documentPath(clean);
+    const QString destination = target == Storage::PrivateFolder ? privateDocumentPath(clean) : folderDocumentPath(clean);
+    if (source == destination) {
+        return {};
+    }
+    const QFileInfo sourceInfo(source);
+    if (!sourceInfo.isFile()) {
+        return i18nc("@info", "There is no library at %1.", clean);
+    }
+    if (QFileInfo(destination).exists() || QFileInfo(destination).isSymLink()) {
+        return i18nc("@info", "%1 already exists, so the library metadata wasn't moved.", destination);
+    }
+    if (!documentWritable(destination)) {
+        return i18nc("@info", "%1 can't be written, so the library metadata wasn't moved.", QFileInfo(destination).absolutePath());
+    }
+    if (!documentWritable(source)) {
+        return i18nc("@info", "%1 can't be removed, so the library metadata wasn't moved.", source);
+    }
+
+    const QString signature = signatureOf(source);
+    QFile file(source);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return i18nc("@info", "Could not read the library %1: %2", source, file.errorString());
+    }
+    const QByteArray data = file.readAll();
+    file.close();
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(data, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        return i18nc("@info", "The library %1 is not valid JSON: %2", source, parseError.errorString());
+    }
+    QString error;
+    if (Library::fromJson(document.object(), clean, &error).isNull()) {
+        return error;
+    }
+
+    if (target == Storage::PrivateFolder && !createPrivateFolder(QFileInfo(destination).absolutePath())) {
+        return i18nc("@info", "Could not create the folder %1.", QFileInfo(destination).absolutePath());
+    }
+    if (!writeFile(destination, data, &error)) {
+        return i18nc("@info", "Could not write the library %1: %2", destination, error);
+    }
+    QFile written(destination);
+    const bool verified = written.open(QIODevice::ReadOnly) && written.readAll() == data;
+    written.close();
+    if (!verified) {
+        QFile::remove(destination);
+        return i18nc("@info", "The copy at %1 couldn't be verified, so the library metadata wasn't moved.", destination);
+    }
+    if (signatureOf(source) != signature) {
+        QFile::remove(destination);
+        return i18nc("@info", "The library %1 was changed by another window or program. Try again.", source);
+    }
+    if (!QFile::remove(source)) {
+        // Leave the library as it was rather than with two documents.
+        QFile::remove(destination);
+        return i18nc("@info", "Could not remove %1, so the library metadata wasn't moved.", source);
+    }
+    return {};
+}
+
+bool TagLibrary::isValidColor(const QString &color)
+{
+    return validColor(color);
+}
+
 QString TagLibrary::createId()
 {
     return QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -158,7 +325,7 @@ QString TagLibrary::createId()
 
 QString TagLibrary::documentSignature(const QString &root)
 {
-    return signatureOf(QDir(QDir::cleanPath(root)).filePath(fileName()));
+    return signatureOf(documentPath(root));
 }
 
 bool TagLibrary::hasMetadata(const Entry &entry)
@@ -166,48 +333,63 @@ bool TagLibrary::hasMetadata(const Entry &entry)
     return !entry.tags.isEmpty() || !entry.fields.isEmpty();
 }
 
+QList<TagLibrary::Field> TagLibrary::parseFieldTemplates(const QStringList &templates)
+{
+    Library checked;
+    for (const QString &text : templates) {
+        const qsizetype colon = text.indexOf(u':');
+        if (colon < 0) {
+            continue;
+        }
+        const QString type = text.first(colon).trimmed();
+        Field field;
+        if (type.compare(QLatin1String("text"), Qt::CaseInsensitive) == 0) {
+            field.type = FieldType::Text;
+        } else if (type.compare(QLatin1String("date"), Qt::CaseInsensitive) == 0) {
+            field.type = FieldType::Date;
+        } else {
+            continue;
+        }
+        field.id = createId();
+        field.name = text.sliced(colon + 1).trimmed();
+        checked.setField(field);
+    }
+    return checked.fields();
+}
+
+QString TagLibrary::fieldTemplate(const Field &field)
+{
+    return (field.type == FieldType::Date ? QLatin1String("date:") : QLatin1String("text:")) + field.name;
+}
+
 QString TagLibrary::checkLocation(const QString &root, bool *readOnly)
 {
     if (readOnly) {
         *readOnly = false;
     }
-    if (root.isEmpty() || !QDir::isAbsolutePath(root)) {
-        return i18nc("@info", "Libraries must be local folders: %1", root);
+    if (const QString problem = locationProblem(root); !problem.isEmpty()) {
+        return problem;
     }
-    const QFileInfo info(root);
-    if (info.isSymLink()) {
-        return i18nc("@info", "Libraries can't be rooted at a symbolic link: %1", root);
-    }
-    if (!info.exists()) {
-        return i18nc("@info", "The folder doesn't exist: %1", root);
-    }
-    if (!info.isDir()) {
-        return i18nc("@info", "Libraries must be folders: %1", root);
-    }
-    if (QDir::cleanPath(info.absoluteFilePath()) == QLatin1String("/")) {
-        return i18nc("@info", "The root folder can't be a library; choose a folder inside it.");
-    }
-    if (!info.isReadable() || !info.isExecutable()) {
-        return i18nc("@info", "The folder can't be read: %1", root);
-    }
-    const QByteArray encoded = QFile::encodeName(root);
-    struct statvfs volume;
-    const bool readOnlyVolume = ::statvfs(encoded.constData(), &volume) == 0 && (volume.f_flag & ST_RDONLY);
-    const QFileInfo document(QDir(root).filePath(fileName()));
-    const bool documentLocked = document.exists() && ::access(QFile::encodeName(document.filePath()).constData(), W_OK) != 0;
-    if (readOnlyVolume || ::access(encoded.constData(), W_OK) != 0 || documentLocked) {
-        if (readOnly) {
-            *readOnly = true;
-        }
+    if (readOnly) {
+        *readOnly = !documentWritable(documentPath(root));
     }
     return {};
 }
 
 TagLibrary::Library::Library(const QString &root)
     : m_root(QDir::cleanPath(root))
-    , m_signature(signatureOf(QDir(m_root).filePath(fileName())))
+    , m_path(documentPath(m_root))
+    , m_signature(signatureOf(m_path))
 {
     checkLocation(m_root, &m_readOnly);
+}
+
+TagLibrary::Library::Library(const QString &root, Storage storage)
+    : m_root(QDir::cleanPath(root))
+    , m_path(storage == Storage::PrivateFolder ? privateDocumentPath(m_root) : folderDocumentPath(m_root))
+    , m_signature(signatureOf(m_path))
+{
+    m_readOnly = locationProblem(m_root).isEmpty() && !documentWritable(m_path);
 }
 
 TagLibrary::Library TagLibrary::Library::load(const QString &root, QString *error)
@@ -219,7 +401,7 @@ TagLibrary::Library TagLibrary::Library::load(const QString &root, QString *erro
         }
         return {};
     }
-    const QString path = QDir(clean).filePath(fileName());
+    const QString path = documentPath(clean);
     const QString signature = signatureOf(path);
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
@@ -239,7 +421,9 @@ TagLibrary::Library TagLibrary::Library::load(const QString &root, QString *erro
     }
     Library library = fromJson(document.object(), clean, error);
     if (!library.isNull()) {
+        library.m_path = path;
         library.m_signature = signature;
+        library.m_readOnly = !documentWritable(path);
     }
     return library;
 }
@@ -264,8 +448,10 @@ TagLibrary::Library TagLibrary::Library::fromJson(const QJsonObject &document, c
     }
 
     Library library(root);
+    // The root recorded in private documents describes where they belong, so it isn't carried into other documents.
     const QSet<QString> known{QStringLiteral("format"),
                               QStringLiteral("version"),
+                              QStringLiteral("root"),
                               QStringLiteral("tags"),
                               QStringLiteral("groups"),
                               QStringLiteral("fields"),
@@ -502,22 +688,25 @@ bool TagLibrary::Library::save(QString *error)
     if (isNull()) {
         return fail(i18nc("@info", "No library is open."));
     }
-    checkLocation(m_root, &m_readOnly);
+    m_readOnly = locationProblem(m_root).isEmpty() && !documentWritable(m_path);
     if (m_readOnly) {
-        return fail(i18nc("@info", "The library folder is read-only: %1", m_root));
+        return fail(readOnlyMessage(*this));
     }
     if (changedOnDisk()) {
         return fail(i18nc("@info", "The library %1 was changed by another window or program. Reload it and try again.", filePath()));
     }
-    QSaveFile file(filePath());
-    if (!file.open(QIODevice::WriteOnly)) {
-        return fail(i18nc("@info", "Could not write the library %1: %2", filePath(), file.errorString()));
+    QJsonObject document = toJson();
+    if (isPrivate()) {
+        document.insert(QStringLiteral("root"), m_root);
+        if (!createPrivateFolder(QFileInfo(m_path).absolutePath())) {
+            return fail(i18nc("@info", "Could not create the folder %1.", QFileInfo(m_path).absolutePath()));
+        }
     }
-    file.write(QJsonDocument(toJson()).toJson(QJsonDocument::Indented));
-    if (!file.commit()) {
-        return fail(i18nc("@info", "Could not write the library %1: %2", filePath(), file.errorString()));
+    QString writeError;
+    if (!writeFile(m_path, QJsonDocument(document).toJson(QJsonDocument::Indented), &writeError)) {
+        return fail(i18nc("@info", "Could not write the library %1: %2", m_path, writeError));
     }
-    m_signature = signatureOf(filePath());
+    m_signature = signatureOf(m_path);
     return true;
 }
 
@@ -533,7 +722,12 @@ QString TagLibrary::Library::root() const
 
 QString TagLibrary::Library::filePath() const
 {
-    return isNull() ? QString() : QDir(m_root).filePath(fileName());
+    return m_path;
+}
+
+bool TagLibrary::Library::isPrivate() const
+{
+    return !isNull() && m_path == privateDocumentPath(m_root);
 }
 
 bool TagLibrary::Library::isReadOnly() const
@@ -629,7 +823,8 @@ QString TagLibrary::Library::relativePath(const QString &absolutePath) const
     return clean.mid(m_root.size() + 1);
 }
 
-TagLibrary::ScanChanges TagLibrary::Library::applyScan(const QList<Observation> &observed, bool complete)
+TagLibrary::ScanChanges
+TagLibrary::Library::applyScan(const QList<Observation> &observed, bool complete, const std::function<bool(const QString &, bool)> &inScope)
 {
     ScanChanges changes;
     QSet<QString> seen;
@@ -651,6 +846,9 @@ TagLibrary::ScanChanges TagLibrary::Library::applyScan(const QList<Observation> 
             m_entryIndex.insert(entry.path, m_entries.size());
             m_entries.append(entry);
             ++changes.added;
+            if (!item.folder) {
+                changes.addedFiles.append(item.path);
+            }
             continue;
         }
         Entry &entry = m_entries[*it];
@@ -670,7 +868,7 @@ TagLibrary::ScanChanges TagLibrary::Library::applyScan(const QList<Observation> 
     }
     if (complete) {
         for (Entry &entry : m_entries) {
-            if (!entry.missing && !seen.contains(entry.path)) {
+            if (!entry.missing && !seen.contains(entry.path) && (!inScope || inScope(entry.path, entry.folder))) {
                 entry.missing = true;
                 ++changes.missing;
             }
@@ -1337,7 +1535,7 @@ bool TagLibrary::update(const QString &root, const std::function<bool(Library &l
         }
         if (library.isReadOnly()) {
             if (error) {
-                *error = i18nc("@info", "The library folder is read-only: %1", library.root());
+                *error = readOnlyMessage(library);
             }
             return false;
         }

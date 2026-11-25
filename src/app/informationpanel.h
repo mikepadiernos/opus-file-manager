@@ -26,7 +26,11 @@ Q_SIGNALS:
 
 private:
     void refresh();
-    /// Shows the tags of an item in a tag library, with inherited tags in the tooltip, and its library field values.
+    /**
+     * Shows the tags of an item in a tag library, unless the settings hide
+     * them, with inherited tags in the tooltip and, if the settings ask,
+     * after the item's own tags; and its library field values.
+     */
     void refreshTags();
     void rebuild();
 

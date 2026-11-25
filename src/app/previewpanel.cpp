@@ -862,9 +862,11 @@ void PreviewPanel::startMetadata()
                                             Property::PhotoFocalLength}
                 : QList<Property::Property>{Property::Title, Property::Artist, Property::Album, Property::ReleaseYear};
             m_metadataLabels.clear();
+            // Properties turned off in Preferences › Tagging › Embedded Metadata aren't shown.
+            const QStringList disabled = Settings::disabledEmbeddedMetadataKeys();
             for (const Property::Property property : properties) {
                 const auto values = metadata.values(property);
-                if (!values.isEmpty()) {
+                if (!values.isEmpty() && !disabled.contains(PropertyInfo(property).name())) {
                     const PropertyInfo info(property);
                     const QString value = info.formatAsDisplayString(values.first()).left(160);
                     if (!value.isEmpty()) {

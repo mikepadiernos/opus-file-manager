@@ -15,7 +15,7 @@ class QLineEdit;
 class QListWidget;
 class QPlainTextEdit;
 
-/// A colour swatch for a tag or group, or a plain tag icon without a colour.
+/// A colour swatch for a tag or group, or a plain tag icon without a colour or when the ShowTagColors setting is off.
 QIcon tagColorIcon(const QString &color);
 
 /// Whether the tag @p id, shown as @p shown, matches the search @p needle by name, alias or shorthand.

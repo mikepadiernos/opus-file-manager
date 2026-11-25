@@ -25,6 +25,10 @@ class QTreeWidget;
  * tags or field values. The files are read in the background; each property
  * found is mapped to tags, a field or nothing, and the import is previewed
  * before anything changes. Only the library document is written.
+ *
+ * Only the properties read in Preferences › Tagging › Embedded Metadata are
+ * listed. The saved mappings and conflict policy there are preselected, and a
+ * successful import saves the chosen mappings of the listed properties.
  */
 class MetadataImportDialog : public QDialog
 {
@@ -55,12 +59,16 @@ Q_SIGNALS:
 
 private:
     void showReadings(const QList<EmbeddedMetadata::Reading> &readings);
-    void addMapping(const QString &key, const QStringList &examples);
+    /// Adds the mapping for @p key, preselecting the resolved @p saved target, or a field named like the property.
+    void addMapping(const QString &key, const QStringList &examples, const QString &saved);
+    void saveMappings();
     void invalidatePreview();
     QString describe(const MetadataImport::Change &change) const;
 
     QString m_root;
     QStringList m_paths;
+    QStringList m_keys;
+    MetadataImport::NamedMappings m_savedMappings;
     TagLibrary::Library m_library;
     QList<EmbeddedMetadata::Reading> m_readings;
     QHash<QString, QComboBox *> m_mappings;
@@ -73,6 +81,7 @@ private:
     QCheckBox *m_replace;
     QPushButton *m_preview;
     QPushButton *m_editEmbedded;
+    QLabel *m_editEmbeddedNote;
     QTreeWidget *m_changes;
     QLabel *m_summary;
     KMessageWidget *m_error;

@@ -283,9 +283,10 @@ private Q_SLOTS:
 
         panel->findChild<QAction *>(QStringLiteral("tagPanelPlaceBelow"))->trigger();
         QCOMPARE(window.dockWidgetArea(dock), Qt::BottomDockWidgetArea);
-        QCOMPARE(KSharedConfig::openStateConfig()->group(QStringLiteral("TagPanel")).readEntry("Placement"), QStringLiteral("below"));
+        QCOMPARE(Settings::tagPanelPlacement(), Settings::EnumTagPanelPlacement::Below);
         panel->findChild<QAction *>(QStringLiteral("tagPanelPlaceRight"))->trigger();
         QCOMPARE(window.dockWidgetArea(dock), Qt::RightDockWidgetArea);
+        QCOMPARE(Settings::tagPanelPlacement(), Settings::EnumTagPanelPlacement::Right);
         toggle->trigger();
         QVERIFY(dock->isHidden());
 
