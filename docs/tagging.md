@@ -192,6 +192,54 @@ only shown; metadata moves only when you choose one:
 Relinking never overwrites an entry that has tags or fields. Relinking a
 folder also relinks the missing entries inside it.
 
+### Export and restore
+
+**Export Library Metadata…** and **Restore Library Metadata…**, in the Tags
+menu, save a library's tags, groups, fields and entries to a file and bring
+them back later. Both only read or write the export and the library document;
+the files in the library are never changed, copied, moved or deleted.
+
+The export dialog summarizes what will be exported and suggests a file such as
+`Photos library 2026-11-25.json` in your Documents folder. It only replaces an
+earlier export: other files, symbolic links and files named
+`.opus-library.json` are refused. If the library changes while the dialog is
+open, the summary is updated and you export again.
+
+An export is plain JSON that wraps the [library document](#library-format):
+
+```json
+{
+  "format": "plasma-opus-library-export",
+  "version": 1,
+  "exported": "2026-11-25T10:00:00Z",
+  "root": "/home/user/Photos",
+  "library": { "format": "plasma-opus-library", "version": 1, "…": "…" }
+}
+```
+
+Restoring replaces the library document as a whole:
+
+1. Choose an export, or a copy of a library document, and **Preview** it. The
+   preview lists the tags, groups and fields that are restored, removed or
+   changed, and the items whose tags or field values change, with the
+   library's counts now and after restoring. Nothing is written yet.
+2. Check **Replace the library's current tags, groups, fields and item
+   metadata**, then **Restore**. Choosing another file clears the preview and
+   the confirmation.
+
+Items are matched by their path inside the library, so an export can be
+restored into a library that has moved. Entries whose file or folder isn't at
+its path any more are restored as missing, so **Review Missing Entries** can
+relink them. A library document that is missing or can't be read can be
+restored too.
+
+Before writing, the previous library document is copied to
+`~/.local/share/opus-file-manager/library-backups/` (below `$XDG_DATA_HOME`
+when that is set), and the status bar names the copy; restore it like an
+export to undo. The restore is refused, without writing, when the library
+changed after the preview or its folder is read-only. Exports from newer
+versions of Plasma Opus are refused rather than restored partially.
+
 ## Tags
 
 **Tags › Manage Tags…** lists the tags of the library containing the active
