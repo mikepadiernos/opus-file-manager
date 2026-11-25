@@ -132,6 +132,8 @@ add_library(opusfm_core STATIC
     tagassignment.h
     taglibrary.cpp
     taglibrary.h
+    tagsearch.cpp
+    tagsearch.h
     themeprofiles.cpp
     themeprofiles.h
     treemap.cpp

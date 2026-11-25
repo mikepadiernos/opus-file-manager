@@ -31,6 +31,9 @@ using Progress = std::function<void(int, const QString &)>;
  */
 Result scan(const QString &root, const Cancel &cancel = {}, const Progress &progress = {});
 
+/// Whether a file or folder named @p name can be indexed; the library document and .mfm.json files can't.
+bool indexable(const QString &name);
+
 /// Reads a single path below @p root, or returns false if it can't be indexed.
 bool observe(const QString &root, const QString &absolutePath, TagLibrary::Observation *observation);
 }

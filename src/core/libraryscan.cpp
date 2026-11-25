@@ -9,12 +9,9 @@
 
 #include <sys/stat.h>
 
-namespace
-{
-bool indexable(const QString &name)
+bool LibraryScan::indexable(const QString &name)
 {
     return !TagLibrary::isLibraryFile(name) && name != QLatin1String(".mfm.json");
-}
 }
 
 bool LibraryScan::observe(const QString &root, const QString &absolutePath, TagLibrary::Observation *observation)

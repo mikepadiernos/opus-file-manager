@@ -2,7 +2,9 @@
 
 #include "livesearch.h"
 
+#include "libraryregistry.h"
 #include "searchquery.h"
+#include "tagsearch.h"
 
 #include <KLocalizedString>
 
@@ -55,7 +57,8 @@ LiveSearch::Result LiveSearch::find(const QString &folder,
                                     const Cancel &cancel,
                                     const Progress &progress,
                                     const PathFilter &filter,
-                                    int entryLimit)
+                                    int entryLimit,
+                                    const QStringList *tagLibraries)
 {
     Result result;
     const QFileInfo root(folder);
@@ -73,11 +76,15 @@ LiveSearch::Result LiveSearch::find(const QString &folder,
         return result;
     }
     std::optional<SearchQuery::Query> query;
+    std::optional<TagSearch::Context> tags;
     if (field == Field::Query) {
         query = SearchQuery::Query::parse(text);
         if (!query->isValid()) {
             result.errors.append(query->error());
             return result;
+        }
+        if (query->usesTags()) {
+            tags.emplace(tagLibraries ? *tagLibraries : LibraryRegistry::roots());
         }
     }
     if (filter.excludes(root.absoluteFilePath())) {
@@ -134,18 +141,25 @@ LiveSearch::Result LiveSearch::find(const QString &folder,
             } else if (field == Field::Query) {
                 std::optional<TextRead> read;
                 QString contents;
-                matches = query->matches(entry, [&](const QString &needle) {
-                    if (!read) {
-                        QString error;
-                        read = readText(entry, contents, error);
-                        if (*read == TextRead::Skipped) {
-                            ++result.skippedFiles;
-                        } else if (*read == TextRead::Failed) {
-                            result.errors.append(error);
+                const qsizetype tagErrors = tags ? tags->errors().size() : 0;
+                matches = query->matches(
+                    entry,
+                    [&](const QString &needle) {
+                        if (!read) {
+                            QString error;
+                            read = readText(entry, contents, error);
+                            if (*read == TextRead::Skipped) {
+                                ++result.skippedFiles;
+                            } else if (*read == TextRead::Failed) {
+                                result.errors.append(error);
+                            }
                         }
-                    }
-                    return *read == TextRead::Text && contents.contains(needle, Qt::CaseInsensitive);
-                });
+                        return *read == TextRead::Text && contents.contains(needle, Qt::CaseInsensitive);
+                    },
+                    tags ? tags->matcher(entry.absoluteFilePath()) : SearchQuery::TagMatcher());
+                if (tags && tags->errors().size() > tagErrors) {
+                    result.errors.append(tags->errors().mid(tagErrors));
+                }
                 if (read && cancel && cancel()) {
                     result.canceled = true;
                     return result;
