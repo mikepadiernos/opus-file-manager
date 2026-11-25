@@ -169,6 +169,12 @@ confirmation and then registers the active folder as a library root:
 **Tags › Remove Library…** unregisters the library that contains the active
 folder after confirmation. Its document is kept and no files are deleted.
 
+[Preferences › Tagging › Libraries](#libraries-1) lists every library and
+can add and remove libraries or move a library's metadata between the
+library folder and private storage. The Tags menu and Preferences ask the
+same questions, from `LibraryConfirmations` in
+`src/app/libraryconfirmations.h`.
+
 ### Indexing
 
 A refresh walks the library root in the background with progress and can be
@@ -176,7 +182,14 @@ canceled. `LibraryScan` in `src/core/libraryscan.h` implements it. Refreshing
 only reads the file system: nothing is moved, renamed, copied or written
 except the library document.
 
-- Files and folders of every type are indexed, including hidden ones.
+- Files and folders of every type are indexed, including hidden ones unless
+  [**Index hidden files and folders**](#libraries-1) is off. An item is
+  hidden when any part of its path below the root starts with `.`.
+- Items matching an exclusion pattern, and items deeper than the folder depth
+  limit, are neither indexed nor looked into.
+- A refresh indexes at most the item limit set in Preferences. A refresh that
+  reaches it stops, records what it found and marks nothing missing, and its
+  summary says so.
 - Symbolic links are not indexed, and linked folders are not followed, so a
   library never reaches outside its root or loops.
 - `.mfm.json` files and the library document are skipped.
@@ -185,13 +198,28 @@ except the library document.
 - New paths become entries, and known paths have their size, modification
   time and identity hints updated.
 - Entries that a complete refresh doesn't find are marked `missing` and keep
-  their tags and fields. A canceled refresh, or one where some folders
-  couldn't be read, records what it found but marks nothing missing.
+  their tags and fields. A canceled refresh, one stopped by the item limit,
+  or one where some folders couldn't be read, records what it found but marks
+  nothing missing.
+- Entries that the exclusions, hidden items setting or depth limit put out of
+  scope are left as they are: they keep their tags and fields and aren't
+  marked missing. Tagging an excluded item explicitly, or moving it in Plasma
+  Opus, still indexes it.
 - A missing entry found again at its recorded path is no longer missing.
 
 The refresh summary offers **Review Missing Entries…** when entries are
 missing. **Tags › Refresh Library** and **Tags › Review Missing Entries…**
 act on the library containing the active folder.
+
+Libraries can also be refreshed automatically, as set in
+[Preferences › Tagging › Libraries](#libraries-1). `LibraryAutoRefresh` in
+`src/app/libraryautorefresh.h` refreshes one library at a time in the
+background for all windows, with the same scope and limits, and reports
+added and missing entries and errors briefly in the status bar of the active
+window. It records each library's last refresh in the `LibraryRefresh` group
+of the state configuration, skips a library refreshed within the interval,
+and gives way to a manual refresh of the same library. Refreshes in progress
+are canceled when Plasma Opus quits.
 
 ### Moves and renames in Plasma Opus
 
@@ -517,6 +545,42 @@ The tab starts by explaining what Plasma Opus stores:
 | **Backup folder**                                              | Empty                 | Where restores keep a copy of the replaced library document. Empty uses `library-backups` in Plasma Opus's data folder, shown as the placeholder.                                     |
 | **Keep at most … backups per library**                         | 20                    | How many copies of each library a restore keeps, from 0 (**All**) to 1000. See [Export and restore](#export-and-restore).                                                             |
 | **Allow writing library values into files' embedded metadata** | Off                   | Enables **Edit Embedded Metadata…** in the import dialog. Plasma Opus always previews the changes and asks before changing a file.                                                    |
+
+### Libraries
+
+The tab lists the registered libraries with their folder, where their
+metadata is kept (**Library folder** or **Private**) and their state:
+**Ready**, **Read-only**, or the reason the library can't be used, such as a
+missing folder or an unreadable document.
+
+- **Add Library…** picks a local folder and asks the same question as
+  **Tags › Create Library from Folder…**. A new document follows **Store
+  metadata of new libraries** as currently shown in the Privacy tab, and an
+  existing one is adopted where it is. The new library then gets its first
+  refresh in the background.
+- **Remove…** unregisters the selected library after confirmation. Its
+  document is kept and no files are deleted.
+- **Keep Metadata Privately** or **Keep Metadata in Library Folder**, as fits
+  the selected library, moves its document after confirmation. See
+  [Where libraries are kept](#where-libraries-are-kept).
+
+These changes take effect immediately, even if Preferences is canceled, and
+open windows update their tag panel and Information panel.
+
+| Setting                             | Default | Effect                                                                                                                                                                                                                             |
+| ----------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Exclude**                         | Empty   | Wildcard patterns, one per entry, of items refreshes don't index or look into. `*` matches any characters and `?` one; case matters. Without `/`, a pattern matches names at any depth, such as `node_modules`, `*.tmp` or `.git`. |
+| **Index hidden files and folders**  | On      | When off, refreshes skip items with any part of their path starting with `.`.                                                                                                                                                      |
+| **Index at most … items**           | 0       | The most items one refresh indexes, up to 10,000,000; 0 shows **No limit**. A refresh that reaches it marks nothing missing.                                                                                                       |
+| **Folder depth**                    | 0       | How many folder levels below the library folder are indexed, up to 1000; 1 indexes only its direct contents, and 0 shows **No limit**.                                                                                             |
+| **Refresh libraries automatically** | Never   | **Never**, **When Plasma Opus starts**, which refreshes every library once shortly after the first window appears, or **When a folder in the library is opened** in the active pane.                                               |
+| **At most once every … minutes**    | 60      | From 1 to 10,080 minutes. Libraries refreshed more recently, also by a quick restart or a manual refresh, aren't refreshed automatically. Disabled when automatic refresh is **Never**.                                            |
+
+A pattern with `/` matches the path below the library folder, such as
+`Archive/Old` or `Exports/*`; there `*` and `?` don't match `/`. A trailing
+`/` matches folders only. Items inside an excluded folder are excluded too.
+Scope settings apply only to refreshes: entries already indexed keep their
+tags and fields, as described in [Indexing](#indexing).
 
 ## Searching by tags
 
