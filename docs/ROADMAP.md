@@ -1124,7 +1124,7 @@ Board updates are pending; see the
 
 - [x] **Defaults:** share M10 search scope, filter and saved-search settings
       between the toolbar and panel
-- [ ] **Panel:** choose an embedded-pane placement and whether to restore
+- [x] **Panel:** choose an embedded-pane placement and whether to restore
       visibility at startup, preserving both file panes in shared placements
 - [ ] **Results:** choose the default presentation and whether to retain search
       history; allow history to be cleared
