@@ -717,14 +717,21 @@ Tracked in
   window or workspace. Workspace layouts don't record the search panel's
   placement or visibility. Hiding the panel does not cancel a running search.
 - **Toolbar search field:** The optional Search Field toolbar entry is not on
-  any toolbar by default; add it with Customize Main Toolbar. Pressing Enter
-  searches the active pane's current folder with the text typed, but uses the
-  other criteria, such as scope and filters, currently set in the search
-  panel. While a search runs, Enter does not start another search. The field's
-  Saved Searches menu runs a saved search with all its saved criteria,
-  including its folder, and replaces the panel's criteria. The field can be
-  placed on the main toolbar only, not on pane toolbars. It suggests recent
-  queries while typing, and Alt+Down lists them.
+  any toolbar by default; add it from Preferences' Search page, which places
+  it before the Search button, or with Customize Main Toolbar. Both change the
+  same main toolbar entries, so restoring default toolbars removes it, and
+  the Preferences option is applied even when toolbars are locked. Pressing
+  Enter searches the active pane's current folder with the text typed, but
+  uses the other criteria, such as scope and filters, currently set in the
+  search panel. While a search runs, Enter does not start another search. The
+  field's Saved Searches menu runs a saved search with all its saved criteria,
+  including its folder, and replaces the panel's criteria. Searching from the
+  field shows the search panel unless Preferences turn this off; the status
+  bar then reports how the search ended for five seconds, or why it could not
+  start, but errors and skipped files are listed only in the panel. Empty
+  text still shows the panel. The field can be placed on the main toolbar
+  only, not on pane toolbars. It suggests recent queries while typing, and
+  Alt+Down lists them.
 - **Result presentation and history:** Results and collection references are
   listed by full path or by name with their folder; the choice next to the
   result tabs applies to the current panel and Preferences' Search page sets
@@ -738,7 +745,8 @@ Tracked in
   shown in an open completion list or saved searches.
 - **Search keyboard navigation:** Down in the toolbar field or the panel's
   query moves to the visible result list, or from the toolbar field to the
-  query when there are no results. Escape cancels a running search; otherwise
+  query when there are no results. With the panel hidden, Down in the field
+  shows it only when it holds results. Escape cancels a running search; otherwise
   it returns focus to the active pane and leaves the panel open. Tab moves
   through the panel in layout order, but between the toolbar, panel and panes
   it follows the window's widget order. There are no dedicated shortcuts for
@@ -803,7 +811,9 @@ Tracked in
   the last window you use if it should stay closed at the next startup. Turn
   off Remember recent search queries before searching for sensitive text, or
   use Clear Search History afterwards. Choose Names and folders when long
-  paths make results hard to scan.
+  paths make results hard to scan. When toolbar searches leave the panel
+  hidden, press Down in the field after a search to check its errors and
+  results.
   - Comment: [#362.7023269364][comment-362]
 - **Alternative:** Use a separately maintained locate database for filenames.
   - Comment:
