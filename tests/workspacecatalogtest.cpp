@@ -237,6 +237,7 @@ private Q_SLOTS:
         session.right.tabs = {QUrl::fromLocalFile(QStringLiteral("/tmp/right"))};
         session.right.filterText = QStringLiteral("*.txt");
         session.right.filterScope = 2;
+        session.right.yaziMode = true;
         session.activePane = 1;
         session.dual = layout.dual;
         session.stacked = layout.stacked;
@@ -246,6 +247,43 @@ private Q_SLOTS:
         Catalog loaded;
         QVERIFY2(load(group, loaded, error), qPrintable(error));
         QCOMPARE(loaded.workspaces.first().layout, std::optional<Layout>(layout));
+    }
+
+    void readsYaziModeOnlyAsAnOptionalBoolean()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Workspaces"));
+        Catalog catalog;
+        QString error;
+        QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        Layout layout;
+        WindowSession session;
+        session.left.tabs = {QUrl::fromLocalFile(QStringLiteral("/tmp/left"))};
+        session.right.tabs = {QUrl::fromLocalFile(QStringLiteral("/tmp/right"))};
+        session.right.yaziMode = true;
+        layout.session = session;
+        QVERIFY(setLayout(catalog, catalog.workspaces.first().id, layout, error));
+        QVERIFY(save(group, catalog, error));
+        const QByteArray stored = group.readEntry("Catalog", QByteArray());
+        QCOMPARE(stored.count(",\"yaziMode\":false"), 1);
+        QCOMPARE(stored.count(",\"yaziMode\":true"), 1);
+
+        QByteArray legacy = stored;
+        legacy.replace(",\"yaziMode\":false", "");
+        legacy.replace(",\"yaziMode\":true", "");
+        group.writeEntry("Catalog", legacy);
+        Catalog loaded;
+        QVERIFY2(load(group, loaded, error), qPrintable(error));
+        QVERIFY(!loaded.workspaces.first().layout->session->left.yaziMode);
+        QVERIFY(!loaded.workspaces.first().layout->session->right.yaziMode);
+
+        QByteArray invalid = stored;
+        invalid.replace(",\"yaziMode\":true", ",\"yaziMode\":1");
+        group.writeEntry("Catalog", invalid);
+        Catalog rejected;
+        QVERIFY(!load(group, rejected, error));
     }
 
     void removesCredentialDataFromStoredPaneLocations()

@@ -30,6 +30,7 @@ private Q_SLOTS:
         session.left.currentTab = 1;
         session.left.filterText = QStringLiteral("*.cpp");
         session.left.filterScope = 2;
+        session.left.yaziMode = true;
         session.right.tabs = {QUrl(QStringLiteral("trash:/")), QUrl(QStringLiteral("sftp://host/dir"))};
         session.right.currentTab = 0;
         session.activePane = 1;
@@ -115,6 +116,24 @@ private Q_SLOTS:
         cards.right.viewMode = 9;
         QCOMPARE(cards.sanitized(home).left.viewMode, 3);
         QCOMPARE(cards.sanitized(home).right.viewMode, PaneSession::MaximumViewMode);
+    }
+
+    void yaziModeIsOffUnlessSavedAndSurvivesSanitizing()
+    {
+        QTemporaryDir dir;
+        KConfig config(dir.filePath(QStringLiteral("staterc")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Session"));
+        QVERIFY(!Session::load(group).left.yaziMode);
+        QVERIFY(!Session::load(group).right.yaziMode);
+
+        group.group(QStringLiteral("RightPane")).writeEntry("YaziMode", true);
+        const WindowSession loaded = Session::load(group);
+        QVERIFY(!loaded.left.yaziMode);
+        QVERIFY(loaded.right.yaziMode);
+
+        const WindowSession clean = loaded.sanitized(QUrl::fromLocalFile(QStringLiteral("/home/me")));
+        QVERIFY(!clean.left.yaziMode);
+        QVERIFY(clean.right.yaziMode);
     }
 
     void tabStateRoundTripsAndSurvivesSanitizing()
