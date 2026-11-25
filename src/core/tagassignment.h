@@ -23,6 +23,9 @@ struct Selection {
 /// Finds the registered library that contains all of @p absolutePaths.
 Selection resolve(const QStringList &absolutePaths);
 
+/// Observes @p absolutePaths in the library at @p root for writing, refusing symbolic links and items outside it.
+bool observe(const QString &root, const QStringList &absolutePaths, QList<TagLibrary::Observation> *items, QString *error = nullptr);
+
 /**
  * Assigns @p add and removes @p remove on @p absolutePaths in the library at
  * @p root, indexing items that aren't indexed yet. Symbolic links and items

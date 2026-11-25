@@ -69,6 +69,8 @@ add_library(opusfm_core STATIC
     markdownexport.h
     metadataeditor.cpp
     metadataeditor.h
+    metadataimport.cpp
+    metadataimport.h
     density.cpp
     density.h
     doubleshift.cpp
