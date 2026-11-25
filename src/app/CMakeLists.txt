@@ -139,6 +139,8 @@ add_library(opusfm_app STATIC
     workspacelocations.h
     yazicolumns.cpp
     yazicolumns.h
+    yazikeys.cpp
+    yazikeys.h
     yazipreview.cpp
     yazipreview.h
     opusfm.qrc

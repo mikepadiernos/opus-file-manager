@@ -15,6 +15,7 @@
 #include "tabmodel.h"
 #include "windoweffects.h"
 #include "yazicolumns.h"
+#include "yazikeys.h"
 
 #include <KConfigGroup>
 #include <KDirModel>
@@ -284,6 +285,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     m_yaziColumns->hide();
     m_yaziPreview = Settings::yaziPreviewVisible();
     m_yaziColumns->setShowHiddenFiles(m_view->showHiddenFiles());
+    reloadYaziKeySettings();
     m_statusBarWidget = new QWidget(this);
     m_statusBarWidget->setObjectName(QStringLiteral("paneStatusBar"));
     m_statusBarWidget->hide();
@@ -418,6 +420,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     connect(m_yaziColumns, &YaziColumns::folderRequested, this, &Pane::setUrl);
     connect(m_yaziColumns, &YaziColumns::itemRequested, this, &Pane::showFolderItem);
     connect(m_yaziColumns, &YaziColumns::activated, this, &Pane::activated);
+    connect(m_yaziColumns->keys(), &YaziKeys::commandTriggered, this, &Pane::runYaziCommand);
     connect(m_view, &FolderView::activated, this, &Pane::activated);
     connect(m_view, &FolderView::typeAheadRequested, m_filterBar, &FilterBar::open);
     connect(m_filterBar, &FilterBar::filterChanged, m_view, &FolderView::setNameFilter);
@@ -467,6 +470,7 @@ Pane::~Pane()
     // children are destroyed in; its listers can still emit then.
     m_view->disconnect(this);
     m_yaziColumns->disconnect(this);
+    m_yaziColumns->keys()->disconnect(this);
 }
 
 void Pane::saveHistoryViewState()
@@ -1100,6 +1104,82 @@ bool Pane::yaziPreview() const
 YaziColumns *Pane::yaziColumns() const
 {
     return m_yaziColumns;
+}
+
+void Pane::reloadYaziKeySettings()
+{
+    m_yaziColumns->keys()->setPreset(Settings::yaziKeyPreset() == Settings::EnumYaziKeyPreset::Vim ? YaziMode::Preset::Vim : YaziMode::Preset::Standard);
+}
+
+void Pane::runYaziCommand(YaziMode::Command command, int count)
+{
+    if (!m_yaziMode) {
+        return;
+    }
+    using YaziMode::Command;
+    const auto focus = [this](YaziColumns::Column column, const QString &unavailable) {
+        if (!m_yaziColumns->focusColumn(column)) {
+            Q_EMIT statusMessage(unavailable);
+        }
+    };
+    switch (command) {
+    case Command::MoveUp:
+    case Command::MoveDown:
+    case Command::MoveFirst:
+    case Command::MoveLast:
+    case Command::PageUp:
+    case Command::PageDown:
+    case Command::HalfPageUp:
+    case Command::HalfPageDown:
+        m_yaziColumns->moveFocus(command, count);
+        break;
+    case Command::Parent:
+        goUp();
+        break;
+    case Command::Open:
+        if (m_yaziColumns->focusedColumn() == YaziColumns::Column::Parent) {
+            m_yaziColumns->openParentItem();
+        } else {
+            m_view->activateCurrentItem();
+        }
+        break;
+    case Command::Back:
+        goBack();
+        break;
+    case Command::Forward:
+        goForward();
+        break;
+    case Command::Home:
+        setUrl(Settings::homeUrl());
+        break;
+    case Command::FocusParent:
+        focus(YaziColumns::Column::Parent, i18nc("@info:status", "The parent column isn't shown in this pane."));
+        break;
+    case Command::FocusCurrent:
+        focus(YaziColumns::Column::Current, QString());
+        break;
+    case Command::FocusPreview:
+        focus(YaziColumns::Column::Preview, i18nc("@info:status", "The preview column isn't shown in this pane."));
+        break;
+    case Command::TogglePreview:
+        QMetaObject::invokeMethod(
+            this,
+            [this] {
+                if (m_yaziMode) {
+                    setYaziPreview(!m_yaziPreview);
+                }
+            },
+            Qt::QueuedConnection);
+        break;
+    case Command::Leave:
+        QMetaObject::invokeMethod(
+            this,
+            [this] {
+                setYaziMode(false);
+            },
+            Qt::QueuedConnection);
+        break;
+    }
 }
 
 void Pane::reload()

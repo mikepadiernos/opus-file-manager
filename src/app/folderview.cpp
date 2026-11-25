@@ -2354,6 +2354,14 @@ void FolderView::showColumnMenu(const QPoint &pos)
     menu.exec(m_details->header()->mapToGlobal(pos));
 }
 
+void FolderView::activateCurrentItem()
+{
+    const QModelIndex index = currentView()->currentIndex();
+    if (index.isValid()) {
+        onActivated(index);
+    }
+}
+
 void FolderView::activateFirstItem()
 {
     const NameFilter filter = m_proxy->nameFilter();

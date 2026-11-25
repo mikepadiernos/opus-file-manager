@@ -4,6 +4,7 @@
 
 #include "navigationhistory.h"
 #include "session.h"
+#include "yazimode.h"
 
 #include <QColor>
 #include <QPair>
@@ -181,8 +182,19 @@ public:
     bool yaziPreview() const;
     /// Applies a changed YaziPreviewVisible setting unless the pane has its own choice.
     void reloadYaziPreviewSetting();
+    /// Applies the YaziKeyPreset setting to the keys of Yazi mode.
+    void reloadYaziKeySettings();
     /// The columns that host the folder view in Yazi mode; they exist even when the mode is off.
     YaziColumns *yaziColumns() const;
+    /**
+     * Runs a Yazi mode command in this pane, as its keys or actions do.
+     * Does nothing while the pane is not in Yazi mode. Showing or hiding the
+     * preview and leaving the mode happen once control returns to the event
+     * loop, since they can delete the focused widget.
+     * @param command the command to run
+     * @param count how many times to repeat a command that takes a count
+     */
+    void runYaziCommand(YaziMode::Command command, int count = 1);
 
 public Q_SLOTS:
     void setUrl(const QUrl &url);

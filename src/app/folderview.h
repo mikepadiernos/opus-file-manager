@@ -154,6 +154,8 @@ public:
      * scope is shown.
      */
     void activateFirstItem();
+    /// Activates the current item, as Return or a double-click would.
+    void activateCurrentItem();
 
     bool isFlat() const;
     /**

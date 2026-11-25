@@ -425,6 +425,8 @@ private:
     KToggleAction *m_dualLayoutAction = nullptr;
     KToggleAction *m_yaziModeAction = nullptr;
     KToggleAction *m_yaziPreviewAction = nullptr;
+    KToggleAction *m_yaziVimKeysAction = nullptr;
+    QList<QAction *> m_yaziColumnActions;
     KToggleAction *m_stackedLayoutAction = nullptr;
     KToggleAction *m_hiddenFilesAction = nullptr;
     KToggleAction *m_previewsAction = nullptr;

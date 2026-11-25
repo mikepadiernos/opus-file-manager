@@ -3,6 +3,7 @@
 #include "yazicolumns.h"
 
 #include "folderview.h"
+#include "yazikeys.h"
 #include "yazimode.h"
 #include "yazipreview.h"
 
@@ -20,6 +21,8 @@
 #include <QSplitter>
 #include <QVBoxLayout>
 
+#include <algorithm>
+
 namespace
 {
 constexpr int ParentColumn = 0;
@@ -28,6 +31,20 @@ constexpr int CurrentColumn = 1;
 QUrl stripped(const QUrl &url)
 {
     return url.adjusted(QUrl::StripTrailingSlash);
+}
+
+/// About half the rows @p view shows at once.
+int halfPageRows(const QAbstractItemView *view)
+{
+    QModelIndex probe = view->currentIndex();
+    if (!probe.isValid() && view->model()) {
+        probe = view->model()->index(0, 0, view->rootIndex());
+    }
+    int rowHeight = probe.isValid() ? view->visualRect(probe).height() : 0;
+    if (rowHeight <= 0) {
+        rowHeight = view->fontMetrics().height();
+    }
+    return qMax(1, view->viewport()->height() / qMax(1, rowHeight) / 2);
 }
 }
 
@@ -104,6 +121,14 @@ YaziColumns::YaziColumns(QWidget *parent)
     m_statusLayout->addWidget(m_indicator);
     m_statusLayout->addStretch(1);
 
+    m_keys = new YaziKeys(this);
+    m_keys->setFocusFilter([this](QWidget *widget) {
+        return acceptsKeys(widget);
+    });
+    m_keys->watch(m_parentColumn);
+    m_keys->watch(m_previewSlot);
+    connect(m_keys, &YaziKeys::stateChanged, this, &YaziColumns::updateIndicator);
+
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(0);
@@ -114,8 +139,9 @@ YaziColumns::YaziColumns(QWidget *parent)
 YaziColumns::~YaziColumns()
 {
     m_lister->disconnect(this);
-    // Deleting the columns can move the focus; the handler uses them.
+    // Deleting the columns can move the focus; the handlers use them.
     disconnect(qApp, nullptr, this, nullptr);
+    m_keys->disconnect(this);
 }
 
 void YaziColumns::resetLister()
@@ -152,11 +178,14 @@ void YaziColumns::setCurrentView(FolderView *view)
     m_view->show();
     m_view->installEventFilter(this);
     m_parentColumn->setFont(m_view->font());
+    m_keys->watch(m_view->currentView());
     connect(m_view, &FolderView::viewModeChanged, this, [this] {
         restoreCurrentColumnLabels();
         labelCurrentColumn();
         updateTabOrder();
+        m_keys->watch(m_view->currentView());
     });
+    m_keys->setEnabled(true);
     labelCurrentColumn();
     if (YaziPreview *builtIn = preview()) {
         builtIn->setView(m_view);
@@ -176,6 +205,11 @@ FolderView *YaziColumns::takeCurrentView()
     }
     view->removeEventFilter(this);
     view->disconnect(this);
+    m_keys->setEnabled(false);
+    const QList<QAbstractItemView *> itemViews = view->findChildren<QAbstractItemView *>();
+    for (QAbstractItemView *items : itemViews) {
+        items->removeEventFilter(m_keys);
+    }
     restoreCurrentColumnLabels();
     m_view = nullptr;
     view->setParent(parentWidget());
@@ -395,6 +429,159 @@ QLabel *YaziColumns::modeIndicator() const
 void YaziColumns::addStatusWidget(QWidget *widget, int stretch)
 {
     m_statusLayout->insertWidget(m_statusLayout->count() - 1, widget, stretch);
+}
+
+YaziKeys *YaziColumns::keys() const
+{
+    return m_keys;
+}
+
+void YaziColumns::updateIndicator()
+{
+    const bool vim = m_keys->preset() == YaziMode::Preset::Vim;
+    QString text = vim ? i18nc("@info:status short name of the Yazi browsing mode with Vim-style keys", "Yazi · Vim")
+                       : i18nc("@info:status short name of the Yazi browsing mode", "Yazi");
+    QString name = vim ? i18nc("@info:accessibility", "Yazi mode with Vim-style keys") : i18nc("@info:accessibility", "Yazi mode");
+    const QString pending = m_keys->pendingText();
+    if (!pending.isEmpty()) {
+        text = i18nc("@info:status %1 is the mode, %2 the keys typed so far of a key sequence", "%1 · %2…", text, pending);
+        name = i18nc("@info:accessibility %1 is the mode, %2 the keys typed so far of a key sequence", "%1, waiting for the keys after %2", name, pending);
+    }
+    m_indicator->setText(text);
+    m_indicator->setAccessibleName(name);
+}
+
+bool YaziColumns::isEditing(const QAbstractItemView *view)
+{
+    // QAbstractItemView::state() is protected; an inline editor is a typing widget on the viewport.
+    const QList<QWidget *> children = view->viewport()->findChildren<QWidget *>(Qt::FindDirectChildrenOnly);
+    return std::any_of(children.cbegin(), children.cend(), [](const QWidget *child) {
+        return child->isVisible() && YaziKeys::isTypingWidget(child);
+    });
+}
+
+bool YaziColumns::acceptsKeys(QWidget *widget) const
+{
+    if (!m_view || !widget) {
+        return false;
+    }
+    if (auto *items = qobject_cast<QAbstractItemView *>(widget); items && isEditing(items)) {
+        return false;
+    }
+    return widget == m_parentColumn || widget == m_view->currentView() || m_previewSlot->isAncestorOf(widget);
+}
+
+std::optional<YaziColumns::Column> YaziColumns::focusedColumn() const
+{
+    QWidget *focus = QApplication::focusWidget();
+    if (!focus) {
+        return std::nullopt;
+    }
+    if (focus == m_parentColumn || m_parentColumn->isAncestorOf(focus)) {
+        return Column::Parent;
+    }
+    if (m_view && (focus == m_view || m_view->isAncestorOf(focus))) {
+        return Column::Current;
+    }
+    if (m_previewSlot->isAncestorOf(focus)) {
+        return Column::Preview;
+    }
+    return std::nullopt;
+}
+
+QAbstractItemView *YaziColumns::movementTarget() const
+{
+    if (focusedColumn() == Column::Parent) {
+        return m_parentColumn;
+    }
+    return m_view ? m_view->currentView() : nullptr;
+}
+
+void YaziColumns::moveFocus(YaziMode::Command command, int count)
+{
+    QAbstractItemView *view = movementTarget();
+    if (!view) {
+        return;
+    }
+    using YaziMode::Command;
+    Qt::Key key = Qt::Key_unknown;
+    int steps = qBound(1, count, YaziMode::MaximumCount);
+    switch (command) {
+    case Command::MoveUp:
+        key = Qt::Key_Up;
+        break;
+    case Command::MoveDown:
+        key = Qt::Key_Down;
+        break;
+    case Command::MoveFirst:
+        key = Qt::Key_Home;
+        steps = 1;
+        break;
+    case Command::MoveLast:
+        key = Qt::Key_End;
+        steps = 1;
+        break;
+    case Command::PageUp:
+        key = Qt::Key_PageUp;
+        break;
+    case Command::PageDown:
+        key = Qt::Key_PageDown;
+        break;
+    case Command::HalfPageUp:
+        key = Qt::Key_Up;
+        steps *= halfPageRows(view);
+        break;
+    case Command::HalfPageDown:
+        key = Qt::Key_Down;
+        steps *= halfPageRows(view);
+        break;
+    default:
+        return;
+    }
+    // The view's own keys move the focus and selection as they always do,
+    // in every view mode and through expanded folders.
+    for (int step = 0; step < steps; ++step) {
+        const QPersistentModelIndex before = view->currentIndex();
+        m_keys->sendKey(view, key);
+        if (before == view->currentIndex()) {
+            break;
+        }
+    }
+}
+
+bool YaziColumns::focusColumn(Column column)
+{
+    QWidget *target = nullptr;
+    switch (column) {
+    case Column::Parent:
+        target = m_parentColumn->isVisible() ? m_parentColumn : nullptr;
+        break;
+    case Column::Current:
+        target = m_view ? m_view->currentView() : nullptr;
+        break;
+    case Column::Preview:
+        target = m_previewSlot->isVisible() && m_previewWidget && m_previewWidget->focusPolicy() != Qt::NoFocus ? m_previewWidget.data() : nullptr;
+        break;
+    }
+    if (!target) {
+        return false;
+    }
+    target->setFocus(Qt::ShortcutFocusReason);
+    return true;
+}
+
+void YaziColumns::openParentItem()
+{
+    const QModelIndex index = m_parentColumn->currentIndex();
+    const KFileItem item = m_model->itemForIndex(m_proxy->mapToSource(index));
+    if (item.isNull()) {
+        return;
+    }
+    if (stripped(item.url()) == stripped(m_url)) {
+        focusColumn(Column::Current);
+        return;
+    }
+    request(index);
 }
 
 bool YaziColumns::eventFilter(QObject *watched, QEvent *event)

@@ -2550,6 +2550,38 @@ void MainWindow::setupActions()
     connect(m_yaziPreviewAction, &KToggleAction::triggered, this, [this](bool visible) {
         activePane()->setYaziPreview(visible);
     });
+    m_yaziVimKeysAction = new KToggleAction(i18nc("@action", "Vim-Style Keys in Yazi Mode"), this);
+    m_yaziVimKeysAction->setToolTip(
+        i18nc("@info:tooltip", "Navigate Yazi mode's columns with Vim-style keys such as h, j, k, l and gg as well as the standard keys"));
+    m_yaziVimKeysAction->setChecked(Settings::yaziKeyPreset() == Settings::EnumYaziKeyPreset::Vim);
+    actions->addAction(QStringLiteral("toggle_yazi_vim_keys"), m_yaziVimKeysAction);
+    connect(m_yaziVimKeysAction, &KToggleAction::triggered, this, [this](bool vim) {
+        Settings::setYaziKeyPreset(vim ? Settings::EnumYaziKeyPreset::Vim : Settings::EnumYaziKeyPreset::Standard);
+        Settings::self()->save();
+        for (Pane *pane : {m_left, m_right}) {
+            pane->reloadYaziKeySettings();
+        }
+    });
+    const auto addYaziColumnAction = [this, actions](const QString &name, const QString &text, const QString &toolTip, YaziMode::Command command) {
+        QAction *action = actions->addAction(name, this, [this, command] {
+            activePane()->runYaziCommand(command);
+        });
+        action->setText(text);
+        action->setToolTip(toolTip);
+        m_yaziColumnActions.append(action);
+    };
+    addYaziColumnAction(QStringLiteral("yazi_focus_parent_column"),
+                        i18nc("@action", "Focus Parent Column"),
+                        i18nc("@info:tooltip", "Move the keyboard focus to the parent folder's column in the active pane's Yazi mode"),
+                        YaziMode::Command::FocusParent);
+    addYaziColumnAction(QStringLiteral("yazi_focus_current_column"),
+                        i18nc("@action", "Focus Current Column"),
+                        i18nc("@info:tooltip", "Move the keyboard focus to the current folder's column in the active pane's Yazi mode"),
+                        YaziMode::Command::FocusCurrent);
+    addYaziColumnAction(QStringLiteral("yazi_focus_preview"),
+                        i18nc("@action", "Focus Preview Column"),
+                        i18nc("@info:tooltip", "Move the keyboard focus to the preview column in the active pane's Yazi mode"),
+                        YaziMode::Command::FocusPreview);
 
     QAction *formatSource = actions->addAction(QStringLiteral("folder_format_source"));
     formatSource->setEnabled(false);
@@ -3208,6 +3240,9 @@ void MainWindow::updateActions()
     m_yaziModeAction->setChecked(activePane()->yaziMode());
     m_yaziPreviewAction->setChecked(activePane()->yaziPreview());
     m_yaziPreviewAction->setEnabled(activePane()->yaziMode());
+    for (QAction *action : std::as_const(m_yaziColumnActions)) {
+        action->setEnabled(activePane()->yaziMode());
+    }
     m_selectionMarkersAction->setChecked(view->selectionMarkersVisible());
     actions->action(QStringLiteral("folder_format_source"))->setText(view->formatRuleDescription());
     actions->action(QStringLiteral("open_folder_format_source"))
@@ -5467,6 +5502,7 @@ void MainWindow::applySettings()
     m_automaticLocalSizeDefault = Settings::automaticLocalFolderSizes();
     m_automaticRemoteSizeDefault = Settings::automaticRemoteFolderSizes();
     applyPaneBackgrounds();
+    m_yaziVimKeysAction->setChecked(Settings::yaziKeyPreset() == Settings::EnumYaziKeyPreset::Vim);
     for (Pane *pane : {m_left, m_right}) {
         pane->setInactiveDimming(Settings::dimInactivePane(), Settings::inactivePaneOpacity());
         pane->reloadTabSettings();
@@ -5474,6 +5510,7 @@ void MainWindow::applySettings()
         pane->setNavigationBarVisible(Settings::showNavigationBar());
         pane->setNewTabsAfterCurrent(Settings::newTabsAfterCurrent());
         pane->reloadYaziPreviewSetting();
+        pane->reloadYaziKeySettings();
         pane->setFollowSymlinks(Settings::followSymlinks());
 
         FolderView *view = pane->view();

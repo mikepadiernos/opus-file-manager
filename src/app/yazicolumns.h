@@ -9,16 +9,20 @@
 #include <QUrl>
 #include <QWidget>
 
+#include <optional>
+
 class FolderView;
 class KDirLister;
 class KDirModel;
 class KDirSortFilterProxyModel;
+class QAbstractItemView;
 class QHBoxLayout;
 class QLabel;
 class QListView;
 class QModelIndex;
 class QSplitter;
 class QVBoxLayout;
+class YaziKeys;
 class YaziPreview;
 
 /**
@@ -81,10 +85,38 @@ public:
     YaziMode::Ratios ratios() const;
     void setRatios(const YaziMode::Ratios &ratios);
     QSplitter *splitter() const;
-    /// The label that tells the user the pane is in Yazi mode.
+    /// The label that tells the user the pane is in Yazi mode, with the key preset and any pending keys.
     QLabel *modeIndicator() const;
     /// Adds @p widget to the row below the columns, after the mode indicator.
     void addStatusWidget(QWidget *widget, int stretch = 0);
+
+    /**
+     * The keys of the mode. They apply while the columns have a current view
+     * and the focus is in the parent column, the current column's items or
+     * the preview, but never in an inline editor or another typing widget.
+     */
+    YaziKeys *keys() const;
+    /**
+     * Moves the focused item of the parent column when it has the focus, and
+     * otherwise of the current column, as the view's own keys would.
+     * @param command one of the YaziMode::Command movement commands
+     * @param count how many times to move; jumps to the first or last item ignore it
+     */
+    void moveFocus(YaziMode::Command command, int count = 1);
+    enum class Column {
+        Parent,
+        Current,
+        Preview,
+    };
+    /// Focuses @p column; returns false when the column is hidden or has nothing to focus.
+    bool focusColumn(Column column);
+    /// The column that has the keyboard focus, if the focus is in one.
+    std::optional<Column> focusedColumn() const;
+    /**
+     * Opens the parent column's focused item as choosing it would. For the
+     * folder the current column shows, focuses the current column instead.
+     */
+    void openParentItem();
 
 Q_SIGNALS:
     /// A folder in the parent column was chosen; the pane should open it.
@@ -113,6 +145,13 @@ private:
     void updateTabOrder();
     void labelCurrentColumn();
     void restoreCurrentColumnLabels();
+    void updateIndicator();
+    /// Whether @p widget takes the keys with the focus in it.
+    bool acceptsKeys(QWidget *widget) const;
+    /// Whether @p view has an inline editor open, as when renaming in place.
+    static bool isEditing(const QAbstractItemView *view);
+    /// The column item view the movement keys act on.
+    QAbstractItemView *movementTarget() const;
 
     QSplitter *m_splitter = nullptr;
     QListView *m_parentColumn = nullptr;
@@ -126,6 +165,7 @@ private:
     QWidget *m_statusRow = nullptr;
     QHBoxLayout *m_statusLayout = nullptr;
     QLabel *m_indicator = nullptr;
+    YaziKeys *m_keys = nullptr;
     QUrl m_url;
     QUrl m_parentUrl;
     QUrl m_pendingRequest;
