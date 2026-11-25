@@ -1,4 +1,4 @@
-# Plasma Opus roadmap
+# 🗺️ Plasma Opus roadmap
 
 **[Documentation](README.md)** · **[Scope](philosophy/scope.md)** ·
 **[Inspirations](philosophy/inspirations.md)** ·
@@ -9,13 +9,34 @@ Widgets and KDE Frameworks 6. The
 [upstream inventories](README.md#behaviour-references) record the Max File
 Manager behaviour that informs its parity goals.
 
-> [!NOTE] The latest published MVP is
-> [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0).
-> This roadmap tracks completed and planned work. M15 Workspaces is in
-> development; see [pending tasks](TODO.md) for branch-specific handoffs.
+> [!NOTE]
+> The latest published MVP is
+> [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
+> released after M14. M15 Workspaces, M16 Workspace settings and M17 Themes are
+> merged into `main`; M18 Theme settings is in development. See
+> [pending tasks](TODO.md) for blocked work and branch-specific handoffs.
+
+## At a glance
+
+Status follows each milestone's parent issue on the
+[project board](https://github.com/users/mikepadiernos/projects/3).
+
+|     | Milestones | Focus                                         | Status            |
+| --- | ---------- | --------------------------------------------- | ----------------- |
+| 🧱  | M01–M04    | Core dual pane and listing depth              | ✅ Merged         |
+| 🖼️  | M05–M08    | Preview, gallery and editor                   | ✅ Merged         |
+| 🧰  | M09–M14    | Tools, interface customization, translations  | ✅ Merged         |
+| 🗂️  | M15–M16    | Workspaces and their settings                 | ✅ Merged         |
+| 🎨  | M17        | Themes                                        | ✅ Merged         |
+| 🎛️  | M18        | Theme settings                                | 🚧 In development |
+| 🏷️  | M19–M20    | Branding and its settings                     | 📋 Planned        |
+| 🔎  | M21–M26    | Advanced search, native tagging and Yazi mode | 📋 Planned        |
+| 🔌  | M27–M31    | Integrations, Nextcloud and shortcuts         | 📋 Planned        |
+| ✨  | M32        | Refinements                                   | 📋 Planned        |
 
 ## Contents
 
+- [At a glance](#at-a-glance)
 - [Architecture](#architecture) ·
   [Plasma-native decisions](#plasma-native-decisions)
 - [Milestones](#milestones)
@@ -828,46 +849,205 @@ Settings for M15 workspaces, stored in KConfig.
 **Project:**
 [M17 milestone](https://github.com/mikepadiernos/plasma-opus/issues/341)
 
-- [x] Follow the active Plasma colour scheme by default. Offer app-local light
-      and dark presets and installed KDE schemes without changing the desktop's
-      global appearance, widget style or window decorations.
-- [x] Apply app-local colours consistently across supported Plasma Opus windows,
-      panes and dialogs, respecting accessibility settings, native icon themes
-      and the appearance boundaries of embedded or external components.
-- [x] Provide an app-local colour editor with named palette roles and live
-      preview. Preserve readable text, selection and focus indicators; validate
-      contrast and allow changes to be reverted without saving.
-- [ ] Save, import and export versioned app-owned theme profiles with palette
-      choices and optional stylesheets. Validate them, confirm overwrites and
-      offer a safe reset to system appearance; do not execute code from theme
-      files. Allow workspace layouts to save and restore an available theme and
-      include theme application in workspace feature selection. Report
-      unavailable themes and preserve saved references for retry.
-- [ ] Support an optional app-local Qt Style Sheet (QSS, a CSS-like subset
-      rather than full web CSS) entered in a text box or imported from a file.
-      Allow preview, application, disabling, reversion and export separately or
-      with a theme profile. Report invalid or unsupported input, bound resource
-      use and prevent unapproved external resource loading.
+Customize the appearance of Plasma Opus without changing the desktop's global
+appearance. Every option follows Plasma by default, can be saved in a theme
+profile and can be attached to a workspace; see the
+[interface design](philosophy/designs.md#workspaces).
+
+- **M17.01: Colour schemes**
+
+  - [x] Follow the active Plasma colour scheme by default. Offer app-local
+        light and dark presets and installed KDE schemes without changing the
+        desktop's global appearance, widget style or window decorations.
+  - [x] Apply app-local colours consistently across supported Plasma Opus
+        windows, panes and dialogs, respecting accessibility settings, native
+        icon themes and the appearance boundaries of embedded or external
+        components.
+  - [x] Provide an app-local colour editor with named palette roles and live
+        preview. Preserve readable text, selection and focus indicators;
+        validate contrast and allow changes to be reverted without saving.
+  - [x] Follow Plasma's accent colour by default or choose an app-local accent
+        for selection, focus, the active pane, progress and tab indicators.
+        Validate contrast against the active colour scheme.
+  - [x] Tint the background of all panes, or only the active or inactive pane,
+        complementing M11 inactive pane dimming. Keep text, selection and file
+        colours readable.
+
+- **M17.02: Effects and shape**
+
+  - [x] Optional background blur behind translucent windows and panels using
+        KWin's blur effect through `KWindowEffects`; blur strength follows
+        KWin's effect settings. Without KWin compositing, report blur as
+        unavailable and keep an opaque background. If translucency cannot be
+        changed live, apply it when the window next opens.
+  - [x] Adjust background opacity separately for windows, panes and panels,
+        with or without blur, while keeping text, icons and selection fully
+        opaque.
+  - [x] Choose a corner radius (none, small, medium, large or a custom value
+        scaled with the display) for item highlights, cards, panels, input
+        fields, tabs and tooltips, using custom delegates and app-local style
+        rules. Leave window corners to KWin and the window decoration, and
+        document controls that the widget style draws without a radius.
+
+- **M17.03: Lines and dividers**
+
+  - [x] Show, thin or hide visible dividers, including splitter handles, panel
+        and toolbar separators, header and grid lines and pane frames. Hidden
+        splitters keep a resize area, cursor feedback, keyboard resizing and
+        the M11 size reset, and can optionally reveal themselves on hover.
+  - [x] Show or hide tree lines in the tree pane and M03 inline folder
+        expansion, and choose solid or dotted lines. Draw the lines in Plasma
+        Opus when the widget style does not provide the chosen style.
+  - [x] Colour tree lines with a single colour, a configurable palette by
+        nesting depth or each folder's colour. Validate contrast and keep
+        nesting distinguishable without relying on colour alone.
+
+- **M17.04: Views**
+
+  - [x] Add a Card view mode alongside Details, Icons and Compact. Show each
+        item as a card with a preview or icon, its name and chosen metadata
+        such as size, modification date, type, tags, rating and colour label.
+        Support card size, columns and density, selection markers, inline
+        renaming, drag and drop and keyboard navigation, and remember the mode
+        wherever other view modes are remembered, including workspace layouts.
+  - [x] Choose row striping in Details view, hover highlighting and a selection
+        style such as filled, outlined, rounded or an accent bar. Keep focus and
+        selection distinguishable for keyboard users.
+
+- **M17.05: Folder colours**
+
+  - [x] Extend M03 folder colours to tint folder icons consistently across
+        views, the tree pane, places, breadcrumbs and tabs. Use the icon
+        theme's coloured folder icons, such as Breeze's `folder-red`, when
+        available and tint them otherwise; alternatively show a colour badge
+        or coloured name.
+  - [x] Colour folders by rules that match a path, name pattern or tag, with
+        optional inheritance by subfolders. Explicit folder colours take
+        precedence over rules, and rules never modify folders or their
+        contents.
+
+- **M17.06: Text and spacing**
+
+  - [x] Follow Plasma's fonts by default or override the font family, size and
+        weight for file lists, the tree pane, tabs and the status bar, scaled
+        consistently with the display.
+  - [x] Scale padding and spacing globally, extending M02 item density to
+        toolbars, tabs, panels and the status bar.
+  - [x] Style tabs and the status bar, including the tab shape, active tab
+        indicator and the strength of M03 tab colours.
+
+- **M17.07: Motion and accessibility**
+
+  - [x] Follow Plasma's animation speed by default, or reduce or disable Plasma
+        Opus transitions such as view changes, hover fades and panel
+        animations.
+  - [x] Offer to suspend blur, translucency, tints and custom corner radii with
+        high-contrast colour schemes, and validate contrast for every custom
+        colour. Provide a one-step reset of global appearance options to Plasma
+        defaults from settings and the command line, and a way to start
+        without workspace appearance overrides.
+
+- **M17.08: Profiles and stylesheets**
+
+  - [x] Save, import and export versioned app-owned theme profiles with
+        palette choices, the appearance options in this milestone and optional
+        stylesheets. Validate them, confirm overwrites and offer a safe reset
+        to system appearance; do not execute code from theme files. Report
+        unavailable themes and preserve saved references for retry.
+  - [x] Support an optional app-local Qt Style Sheet (QSS, a CSS-like subset
+        rather than full web CSS) entered in a text box or imported from a
+        file. Allow preview, application, disabling, reversion and export
+        separately or with a theme profile. Report invalid or unsupported
+        input, bound resource use and prevent unapproved external resource
+        loading.
+
+- **M17.09: Workspaces**
+
+  - [x] Attach a theme profile and selected appearance options, such as Card
+        view, folder colour rules, blur, corner radius and divider visibility,
+        to a workspace. Choose all, selected or none of them as M15 workspace
+        behaviours and apply them live when switching workspaces. Layer them in
+        a documented order from Plasma defaults through the theme profile and
+        workspace overrides to the custom stylesheet. Preserve unselected
+        global state, report unavailable themes or effects, such as blur
+        without KWin, and keep saved references for retry; M27 can apply
+        separate choices per Activity.
+
+**Caveats:** [Themes](CAVEATS.md#themes), tracked in [#680].
 
 ### M18: Theme settings
 
 **Project:**
 [M18 milestone](https://github.com/mikepadiernos/plasma-opus/issues/352)
 
-Settings for M17 themes, stored in KConfig.
+Settings for M17 themes, stored in KConfig. Workspaces can override them; see
+M18.08.
 
-- **Themes**
+- **M18.01: Themes**
 
-  - [ ] **Appearance:** follow the system or select an available app-local
+  - [x] **Appearance:** follow the system or select an available app-local
         preset or installed KDE colour scheme
-  - [ ] **Custom colours:** edit, preview, save and reset app-local palette
+  - [x] **Custom colours:** edit, preview, save and reset app-local palette
         roles with contrast feedback and reversible preview
-  - [ ] **Profiles:** manage, import and export validated app-owned profiles and
-        optional stylesheets with overwrite confirmation; let workspaces select
-        an available profile and control theme application independently of
-        other workspace features
-  - [ ] **Custom stylesheet:** enable or disable QSS, edit it in a text box,
+  - [x] **Profiles:** manage, import and export validated app-owned profiles and
+        optional stylesheets with overwrite confirmation
+  - [x] **Custom stylesheet:** enable or disable QSS, edit it in a text box,
         import or export it, and preview or revert changes
+  - [x] **Reset:** restore global appearance options to Plasma defaults with
+        confirmation
+
+- **M18.02: Colours**
+
+  - [x] **Accent:** follow Plasma or choose an app-local accent colour
+  - [x] **Pane tint:** tint all, active or inactive pane backgrounds and adjust
+        the strength
+  - [x] **Folder colours:** choose an icon tint, badge or coloured name; manage
+        colour rules, their order and subfolder inheritance
+
+- **M18.03: Effects and shape**
+
+  - [x] **Blur:** enable background blur where KWin supports it and show its
+        availability
+  - [x] **Opacity:** adjust window, pane and panel background opacity
+  - [x] **Corner radius:** choose a preset or custom radius for items, cards,
+        panels and controls
+
+- **M18.04: Lines and dividers**
+
+  - [x] **Dividers:** show, thin or hide splitter handles, separators, grid
+        lines and frames; choose whether hidden splitters appear on hover
+  - [x] **Tree lines:** show or hide them; choose solid or dotted lines and a
+        single colour, a depth palette or folder colours
+
+- **M18.05: Views**
+
+  - [x] **Cards:** card size, columns, density and shown metadata; add Card to
+        the M02 default view mode choices
+  - [x] **Rows and selection:** row striping, hover highlighting and selection
+        style
+
+- **M18.06: Text and spacing**
+
+  - [x] **Fonts:** follow Plasma or choose app-local fonts for file lists, the
+        tree pane, tabs and the status bar
+  - [x] **Spacing:** global padding and spacing scale
+  - [x] **Tabs and status bar:** tab shape, active tab indicator and tab colour
+        strength
+
+- **M18.07: Accessibility**
+
+  - [x] **Motion:** follow Plasma's animation speed or reduce or disable Plasma
+        Opus animations
+  - [x] **High contrast:** whether to suspend blur, translucency, tints and
+        custom corner radii with high-contrast colour schemes
+
+- **M18.08: Workspaces**
+
+  - [x] **Theme:** let each workspace use an available theme profile or the
+        global appearance
+  - [ ] **Overrides:** choose all, selected or none of the appearance options to
+        save with a workspace, independently of other workspace features;
+        preview them and report unavailable effects
 
 ### M19: Branding
 
@@ -1153,6 +1333,16 @@ layouts.
 - **M27.02: Archives and application packages**
 
   - [ ] Integrate deeply with ARK
+  - [ ] Extend archive creation through Ark: create 7z, password-protected and
+        split archives, encrypting file names where the format supports it,
+        and add, rename or remove entries in existing archives. Keep M03's
+        non-overwriting behaviour, confirm changes to existing archives and
+        report formats that installed Ark backends can only extract, such as
+        RAR. (MiXplorer)
+  - [ ] Mount and unmount ISO and other disk images through the Mount ISO
+        action from Dolphin's plugins when installed, and show mounted images
+        in Places through Solid. Report a missing plugin or denied
+        authorization. (MiXplorer)
   - [ ] Integrate deeply with AppImage, Flatpak and Snap: identify packages and
         show available application details and actions. Support AppImage
         launching and optional desktop integration, and use the respective
@@ -1176,6 +1366,11 @@ layouts.
         live-search fallback for supported local folders, retaining its limits,
         progress, cancellation and error reporting; never silently broaden scope
         or substitute another search.
+  - [ ] Show file-type categories in Places, such as documents, images, audio,
+        video, archives, ebooks, application packages and large files, as Baloo
+        searches alongside KDE's existing **Search For** entries. Explain when
+        indexing is off or incomplete and offer a live search of a chosen
+        folder instead. (MiXplorer)
 
 - **M27.04: Terminals and command history**
 
@@ -1235,6 +1430,11 @@ layouts.
         autoplay and remote preview behavior; report unavailable backends,
         playback errors and unsupported locations. See the
         [pending handoff](TODO.md#mpv-integration-563).
+  - [ ] Preview ebooks, comics and help files, such as EPUB, MOBI, FictionBook,
+        CBZ, DjVu and CHM, with Okular's KPart when installed, within the M05
+        preview limits. Preview fonts with editable sample text through
+        Plasma's font viewer part where available, and offer installation
+        through KDE's font management. Report missing providers. (MiXplorer)
 
 - **M27.06: Accounts, remote access and synchronization**
 
@@ -1245,6 +1445,25 @@ layouts.
         authentication where available, use KDE credential facilities and
         respect SSH host-key and WebDAV TLS certificate verification. Report
         connection, authentication and unsupported-operation errors explicitly.
+  - [ ] Extend remote profiles to SMB and FTP or FTPS through KDE's KIO
+        workers, and show services discovered on the local network through
+        KIO's `network:/` location. Warn that plain FTP sends credentials
+        unencrypted, and use KDE credential facilities. (MiXplorer)
+  - [ ] Optional [rclone](https://rclone.org/) integration for cloud providers
+        without KDE support, such as Dropbox, OneDrive, Box, MEGA and pCloud.
+        List the user's configured remotes through rclone and open one in
+        either pane by serving it over WebDAV on the loopback interface or by
+        mounting it on request. Never read, store or change rclone credentials
+        or configuration; report missing tools, failed mounts and unsupported
+        operations, and stop processes that Plasma Opus started. (MiXplorer)
+  - [ ] Temporary LAN sharing: serve selected files or a folder over HTTP or
+        WebDAV to devices on the local network, with optional TLS, a QR code,
+        a random access token, read-only access by default and an optional
+        upload folder with conflict handling. Bind only to chosen interfaces,
+        show active sessions and transfers, stop after a timeout or on exit,
+        and never open firewall ports. Warn that transfers without TLS can be
+        observed on the network, and point to KDE Connect and Samba sharing
+        for paired devices and persistent shares. (MiXplorer)
   - [ ] Integrate with KDE Online Accounts: discover available accounts and
         their supported file services, let users explicitly connect or open them
         in either pane through the appropriate KDE provider or KIO worker, and
@@ -1280,6 +1499,18 @@ layouts.
         and KDE credential facilities where appropriate. Report unavailable
         protection and failures rather than silently bypassing the gate; provide
         explicit password change and removal workflows.
+  - [ ] Plasma Vault integration: list encrypted vaults (CryFS, gocryptfs or
+        EncFS) with their lock state, and open, close or create them through
+        Plasma Vault's `org.kde.plasmavault` D-Bus interface, revealing an
+        opened vault in a pane. Leave passwords and vault configuration to
+        Plasma Vault, warn before closing a vault with files in use and report
+        an unavailable service. (MiXplorer)
+  - [ ] File encryption: offer encrypt, decrypt, sign and verify actions for
+        selected files through GnuPG, reusing Kleopatra's file actions when
+        installed, and write new files without replacing the originals.
+        Identify encrypted and signed files. Support AES Crypt (`.aes`) files,
+        as used by MiXplorer, only through an installed `aescrypt` tool and
+        without exposing passwords in command lines. (MiXplorer)
 
 - **M27.08: Development tooling**
 
@@ -1288,6 +1519,34 @@ layouts.
         tasks. Document setup and system-provided Qt, KDE and other
         dependencies, including versions needed to reproduce builds; keep the
         existing CMake workflow usable without mise.
+
+- **M27.09: Plasma Impresario and mail**
+
+  - [ ] Send selected files by email: offer an explicit action that opens the
+        user's preferred mail client, such as
+        [Plasma Impresario](https://github.com/mikepadiernos/plasma-impresario),
+        through KIO's `KEMailClientLauncherJob` or the XDG Email portal when
+        sandboxed. Show the selected files, offer private local copies of
+        remote files through KIO with consent, and never send mail. Report
+        missing clients and clients that cannot accept attachments; Plasma
+        Impresario currently ignores `mailto:` attachments. See the
+        [companion workflows](integrations/plasma-impresario.md#compose-with-selected-files).
+  - [ ] Mail attachments: verify dragging local files into Plasma Impresario's
+        composer and offer private local copies for remote items. Recognize
+        its private attachment drag format and explain that the attachment
+        must be saved from the mail client instead of saving the reference as
+        a file; accept real file content or URLs through the existing KIO drop
+        and conflict handling when provided. Never contact a mail server.
+  - [ ] Mail file preview: show local `.eml` (`message/rfc822`) headers,
+        plain-text body and attachment list in the preview panel without
+        loading remote content, running scripts or decrypting messages. Offer
+        explicit attachment extraction with normal conflict handling and
+        opening through the registered application; never import messages.
+  - [ ] Shared context with Plasma Impresario: use Plasma Activities, not a
+        private API, as the only shared context with its planned
+        account-to-workspace associations. Each application follows Activity
+        changes with its own associations; do not read or change the other
+        application's workspace, account or mail data.
 
 **Planned caveat:**
 [Password-gated folders](CAVEATS.md#planned-password-gated-folders), tracked in
@@ -1319,6 +1578,8 @@ Settings for M27 integrations, stored in KConfig.
   - [ ] **Search:** choose whether to offer fuzzy ranking and live-search
         fallback; reuse M10 and M22 settings and open KDE's shared indexing
         controls rather than duplicating or silently changing them.
+  - [ ] **Categories:** choose which file-type categories appear in Places and
+        their criteria, such as the large-file size
 
 - **Terminal**
 
@@ -1344,6 +1605,11 @@ Settings for M27 integrations, stored in KConfig.
   - [ ] **Provider:** choose an available office application for editing and use
         installed preview providers where supported; report unavailable choices
 
+- **Ebooks and fonts**
+
+  - [ ] **Previews:** enable ebook, comic, help-file and font previews and set
+        the font sample text
+
 - **Media**
 
   - [ ] **Backend:** choose Qt Multimedia or the optional embedded mpv backend
@@ -1360,9 +1626,20 @@ Settings for M27 integrations, stored in KConfig.
 
 - **Remote connections**
 
-  - [ ] **Profiles:** manage SSH, SFTP and WebDAV hosts, ports, usernames and
-        connection defaults; use KDE credential facilities instead of storing
-        credentials in KConfig or URLs
+  - [ ] **Profiles:** manage SSH, SFTP, SMB, FTP or FTPS and WebDAV hosts,
+        ports, usernames and connection defaults; use KDE credential facilities
+        instead of storing credentials in KConfig or URLs
+  - [ ] **Discovery:** show or hide services discovered on the local network
+
+- **Cloud storage**
+
+  - [ ] **rclone:** enable the integration, choose which remotes to show and
+        whether to serve them over WebDAV or mount them
+
+- **LAN sharing**
+
+  - [ ] **Defaults:** protocol, TLS, network interfaces, port, timeout and
+        whether uploads are allowed
 
 - **Online accounts**
 
@@ -1374,6 +1651,11 @@ Settings for M27 integrations, stored in KConfig.
 
   - [ ] **Integration:** independently enable AppImage, Flatpak and Snap actions
         and configure optional AppImage desktop integration
+
+- **Archives**
+
+  - [ ] **Creation:** default 7z or ZIP format, split size and whether to prompt
+        for encryption, extending M04 archive defaults
 
 - **rsync**
 
@@ -1392,6 +1674,16 @@ Settings for M27 integrations, stored in KConfig.
         workspace-switch prompts without changing KDE's Activity settings. For
         each association, inherit workspace defaults or select all, individual
         or no behaviours.
+
+- **Mail**
+
+  - [ ] **Client:** show the current default mail client and open Plasma's
+        Default Applications settings to change it; enable or disable the
+        Send by Email action
+  - [ ] **Remote files:** choose whether Send by Email asks before preparing
+        local copies of remote files, without allowing silent downloads
+  - [ ] **Mail file preview:** enable or disable `.eml` previews, within the
+        existing preview size limits
 
 - **KDE Connect**
 
@@ -1413,6 +1705,12 @@ Settings for M27 integrations, stored in KConfig.
   - [ ] **Access:** manage protected local folders and their passwords, with a
         clear warning that the gate applies only inside Plasma Opus
 
+- **Encryption**
+
+  - [ ] **Plasma Vault:** show or hide vaults and their lock state
+  - [ ] **Files:** enable GnuPG and AES Crypt actions and choose how output
+        files are named
+
 ### M29: Nextcloud integration
 
 **Project:**
@@ -1420,7 +1718,9 @@ Settings for M27 integrations, stored in KConfig.
 
 Provide optional native Nextcloud navigation, file management and digital asset
 management, reusing M27 KDE Online Accounts and KIO WebDAV rather than replacing
-the Nextcloud desktop client or its synchronization engine.
+the Nextcloud desktop client or its synchronization engine. See the
+[Nextcloud integration](integrations/nextcloud.md) for app interfaces and
+considered Calendar, Maps, Deck and Notes workflows.
 
 - [ ] Connect supported accounts through KDE Online Accounts or an explicit
       Nextcloud login. Use KDE credential facilities, verify TLS and report
@@ -1433,8 +1733,14 @@ the Nextcloud desktop client or its synchronization engine.
 - [ ] Search and organize assets using supported server metadata, tags and
       favorites. Keep server tags distinct from native local tags; identify
       unavailable features and incomplete results.
+- [ ] Browse Nextcloud Photos albums, shared albums and places as virtual
+      folders, sorting and grouping by server capture date and location
+      without downloading files. Add photos to albums or remove them with
+      confirmation; removing a photo from an album never deletes the file.
+      Respect shared-album permissions and report when Photos is unavailable.
 - [ ] View and manage supported Nextcloud shares with explicit authorization and
-      confirmation before broadening access or revoking a share.
+      confirmation before broadening access or revoking a share. Offer to send
+      a reviewed share link through the M27 Send by Email action.
 - [ ] Open configured local sync folders and the existing desktop client,
       showing available status and distinguishing remote, local, offline and
       unknown state. Never start a second sync engine or change the client's
@@ -1452,6 +1758,8 @@ Settings for M29 Nextcloud integration, stored in KConfig without credentials:
       integration. Reuse KDE Online Accounts, existing WebDAV profiles, remote
       preview policy and KDE credential facilities; explain unavailable server
       features and retain safe defaults.
+- [ ] Show or hide Photos albums, shared albums and places, choose their
+      default grouping and whether to confirm album changes
 
 ### M31: Keyboard shortcut settings
 
@@ -1517,6 +1825,9 @@ subsection details.
   - [ ] Make toolbar and pane actions consistent and discoverable, with overflow
         in narrow windows and a clear indication of the affected pane. Preserve
         toolbar customization and shortcut bindings.
+  - [ ] Reorder, hide and restore Plasma Opus actions in context menus,
+        extending the M02 action choices, with a reset to defaults. Keep KDE
+        service-menu order and Dolphin-shared visibility separate. (MiXplorer)
 
 - **M32.02: Layouts**
 
@@ -1785,6 +2096,14 @@ interfaces. The additions above draw on these sources:
   inventories.
 - [Strata](https://github.com/lgse/strata), especially its opt-in system file
   chooser served through the XDG file chooser portal.
+- [MiXplorer](https://mixplorer.com/) and its
+  [MiX Silver listing](https://play.google.com/store/apps/details?id=com.mixplorer.silver),
+  an Android file manager whose encrypted containers, file encryption, LAN
+  servers, cloud providers, archive editing, file-type categories and menu
+  customization are adapted to KDE facilities.
+- [Plasma Impresario](https://github.com/mikepadiernos/plasma-impresario), the
+  companion KDE mail client, and its
+  [Plasma Opus integration notes](https://github.com/mikepadiernos/plasma-impresario/blob/main/docs/integrations/plasma-opus.md).
 - [TagStudio](https://github.com/TagStudioDev/TagStudio), especially its
   libraries, tag relationships and search.
 - [TagSpaces workspaces](https://docs.tagspaces.org/workspaces/): workspace
@@ -1862,3 +2181,4 @@ dock and column-header spacing follows the
 [#434]: https://github.com/mikepadiernos/plasma-opus/issues/434
 [#436]: https://github.com/mikepadiernos/plasma-opus/issues/436
 [#609]: https://github.com/mikepadiernos/plasma-opus/issues/609
+[#680]: https://github.com/mikepadiernos/plasma-opus/issues/680
