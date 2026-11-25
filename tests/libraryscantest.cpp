@@ -166,6 +166,200 @@ private Q_SLOTS:
         QVERIFY(result.items.size() < 20);
     }
 
+    void scopeMatchesNamesAndPaths()
+    {
+        LibraryScan::Options options;
+        options.exclusions = {u"node_modules"_s, u"*.tmp"_s, u"Archive/Old"_s, u"Exports/*"_s, u"cache/"_s, u"  "_s};
+        const LibraryScan::Scope scope(options);
+        QVERIFY(!scope.isUnrestricted());
+
+        // Names match at any depth, and everything below an excluded folder is excluded.
+        QVERIFY(!scope.contains(u"node_modules"_s, true));
+        QVERIFY(!scope.contains(u"src/node_modules"_s, true));
+        QVERIFY(!scope.contains(u"src/node_modules/lib/index.js"_s, false));
+        QVERIFY(scope.contains(u"src/node_modules_old"_s, true));
+        QVERIFY(!scope.contains(u"a.tmp"_s, false));
+        QVERIFY(!scope.contains(u"deep/down/b.tmp"_s, false));
+        QVERIFY(scope.contains(u"a.TMP"_s, false));
+        QVERIFY(scope.contains(u"a.tmp.txt"_s, false));
+
+        // Paths match from the library root.
+        QVERIFY(!scope.contains(u"Archive/Old"_s, true));
+        QVERIFY(!scope.contains(u"Archive/Old/photo.jpg"_s, false));
+        QVERIFY(scope.contains(u"Archive"_s, true));
+        QVERIFY(scope.contains(u"Archive/Older"_s, true));
+        QVERIFY(scope.contains(u"Other/Archive/Old"_s, true));
+        QVERIFY(scope.contains(u"archive/old"_s, true));
+        QVERIFY(scope.contains(u"Exports"_s, true));
+        QVERIFY(!scope.contains(u"Exports/a.png"_s, false));
+        QVERIFY(!scope.contains(u"Exports/sub/a.png"_s, false));
+
+        // A trailing / matches folders only.
+        QVERIFY(!scope.contains(u"cache"_s, true));
+        QVERIFY(scope.contains(u"cache"_s, false));
+        QVERIFY(!scope.contains(u"cache/item"_s, false));
+
+        QVERIFY(LibraryScan::inScope(options, u"notes/todo.txt"_s, false));
+        QVERIFY(!LibraryScan::inScope(options, u"notes/todo.tmp"_s, false));
+        QVERIFY(LibraryScan::Scope(LibraryScan::Options()).isUnrestricted());
+    }
+
+    void scopeHandlesHiddenItemsAndDepth()
+    {
+        LibraryScan::Options options;
+        QVERIFY(LibraryScan::inScope(options, u".git/config"_s, false));
+        options.hidden = false;
+        QVERIFY(!LibraryScan::inScope(options, u".git"_s, true));
+        QVERIFY(!LibraryScan::inScope(options, u".git/config"_s, false));
+        QVERIFY(!LibraryScan::inScope(options, u"notes/.hidden"_s, false));
+        QVERIFY(LibraryScan::inScope(options, u"notes/visible.txt"_s, false));
+
+        options = {};
+        options.depth = 2;
+        QVERIFY(LibraryScan::inScope(options, u"a"_s, true));
+        QVERIFY(LibraryScan::inScope(options, u"a/b"_s, true));
+        QVERIFY(!LibraryScan::inScope(options, u"a/b/c"_s, false));
+    }
+
+    void scanSkipsExcludedHiddenAndDeepItems()
+    {
+        QTemporaryDir dir;
+        write(dir.filePath(u"a.txt"_s));
+        write(dir.filePath(u"a.tmp"_s));
+        write(dir.filePath(u"node_modules/x.js"_s));
+        write(dir.filePath(u".git/config"_s));
+        write(dir.filePath(u"notes/.hidden"_s));
+        write(dir.filePath(u"notes/todo.txt"_s));
+        write(dir.filePath(u"notes/deep/z.txt"_s));
+        write(dir.filePath(u"Archive/Old/o.txt"_s));
+        write(dir.filePath(u"Archive/New/n.txt"_s));
+
+        LibraryScan::Options options;
+        options.exclusions = {u"node_modules"_s, u"*.tmp"_s, u"Archive/Old"_s};
+        LibraryScan::Result result = LibraryScan::scan(dir.path(), options);
+        QVERIFY(result.isComplete());
+        QCOMPARE(paths(result.items),
+                 (QStringList{u".git"_s,
+                              u".git/config"_s,
+                              u"Archive"_s,
+                              u"Archive/New"_s,
+                              u"Archive/New/n.txt"_s,
+                              u"a.txt"_s,
+                              u"notes"_s,
+                              u"notes/.hidden"_s,
+                              u"notes/deep"_s,
+                              u"notes/deep/z.txt"_s,
+                              u"notes/todo.txt"_s}));
+
+        options.hidden = false;
+        result = LibraryScan::scan(dir.path(), options);
+        QCOMPARE(paths(result.items),
+                 (QStringList{u"Archive"_s,
+                              u"Archive/New"_s,
+                              u"Archive/New/n.txt"_s,
+                              u"a.txt"_s,
+                              u"notes"_s,
+                              u"notes/deep"_s,
+                              u"notes/deep/z.txt"_s,
+                              u"notes/todo.txt"_s}));
+
+        LibraryScan::Options shallow;
+        shallow.depth = 1;
+        result = LibraryScan::scan(dir.path(), shallow);
+        QVERIFY(result.isComplete());
+        QCOMPARE(paths(result.items), (QStringList{u".git"_s, u"Archive"_s, u"a.tmp"_s, u"a.txt"_s, u"node_modules"_s, u"notes"_s}));
+        shallow.depth = 2;
+        result = LibraryScan::scan(dir.path(), shallow);
+        QVERIFY(paths(result.items).contains(u"notes/deep"_s));
+        QVERIFY(!paths(result.items).contains(u"notes/deep/z.txt"_s));
+    }
+
+    void scanLimitStopsAnIncompleteRefresh()
+    {
+        QTemporaryDir dir;
+        for (int i = 0; i < 10; ++i) {
+            write(dir.filePath(u"file%1"_s.arg(i)));
+        }
+        TagLibrary::Library library(dir.path());
+        QVERIFY(library.save());
+        QCOMPARE(LibraryScan::apply(dir.path(), LibraryScan::scan(dir.path()), {}).changes.added, 10);
+        QVERIFY(QFile::remove(dir.filePath(u"file0"_s)));
+        QVERIFY(QFile::remove(dir.filePath(u"file1"_s)));
+        write(dir.filePath(u"new"_s));
+
+        LibraryScan::Options options;
+        options.limit = 4;
+        const LibraryScan::Result limited = LibraryScan::scan(dir.path(), options);
+        QVERIFY(limited.limited);
+        QVERIFY(!limited.canceled);
+        QVERIFY(!limited.isComplete());
+        QCOMPARE(limited.items.size(), 4);
+        const LibraryScan::Applied applied = LibraryScan::apply(dir.path(), limited, options);
+        QVERIFY(applied.saved);
+        QCOMPARE(applied.changes.missing, 0);
+        QCOMPARE(applied.missing, 0);
+        QVERIFY(LibraryScan::summary(limited, applied).contains(u"Stopped after indexing 4 items"_s));
+
+        // A limit equal to the number of items doesn't stop the refresh.
+        options.limit = 9;
+        const LibraryScan::Result exact = LibraryScan::scan(dir.path(), options);
+        QVERIFY(!exact.limited);
+        QVERIFY(exact.isComplete());
+        QCOMPARE(exact.items.size(), 9);
+        const LibraryScan::Applied full = LibraryScan::apply(dir.path(), exact, options);
+        QCOMPARE(full.changes.missing, 2);
+        QCOMPARE(full.missing, 2);
+        QVERIFY(!LibraryScan::summary(exact, full).contains(u"Stopped after"_s));
+    }
+
+    void completeScansKeepEntriesOutOfScope()
+    {
+        QTemporaryDir dir;
+        write(dir.filePath(u"a.txt"_s));
+        write(dir.filePath(u"b.txt"_s));
+        write(dir.filePath(u"node_modules/x.js"_s));
+        write(dir.filePath(u".hidden"_s));
+        write(dir.filePath(u"deep/er/c.txt"_s));
+        TagLibrary::Library library(dir.path());
+        library.applyScan(LibraryScan::scan(dir.path()).items, true);
+        writeLibrary(withTag(library, {u"node_modules/x.js"_s, u".hidden"_s, u"deep/er/c.txt"_s}));
+
+        QVERIFY(QFile::remove(dir.filePath(u"b.txt"_s)));
+        LibraryScan::Options options;
+        options.exclusions = {u"node_modules"_s};
+        options.hidden = false;
+        options.depth = 2;
+        const LibraryScan::Result result = LibraryScan::scan(dir.path(), options);
+        QVERIFY(result.isComplete());
+        const LibraryScan::Applied applied = LibraryScan::apply(dir.path(), result, options);
+        QVERIFY(applied.saved);
+        QCOMPARE(applied.changes.missing, 1);
+        QCOMPARE(applied.missing, 1);
+
+        const TagLibrary::Library loaded = TagLibrary::Library::load(dir.path());
+        QVERIFY(loaded.entry(u"b.txt"_s)->missing);
+        QVERIFY(!loaded.entry(u"a.txt"_s)->missing);
+        for (const QString &path : {u"node_modules/x.js"_s, u".hidden"_s, u"deep/er/c.txt"_s}) {
+            QVERIFY2(!loaded.entry(path)->missing, qPrintable(path));
+            QCOMPARE(loaded.entry(path)->tags, QStringList{u"t1"_s});
+        }
+        QVERIFY(!loaded.entry(u"node_modules"_s)->missing);
+
+        // Out-of-scope entries that are really gone aren't marked missing either; the predicate decides.
+        TagLibrary::Library direct = loaded;
+        const TagLibrary::ScanChanges changes = direct.applyScan({}, true, [](const QString &path, bool) {
+            return path == u"a.txt"_s;
+        });
+        QCOMPARE(changes.missing, 1);
+        QVERIFY(direct.entry(u"a.txt"_s)->missing);
+        QVERIFY(!direct.entry(u"deep/er/c.txt"_s)->missing);
+
+        // observe() isn't restricted by the options, so excluded items can still be tagged explicitly.
+        TagLibrary::Observation observation;
+        QVERIFY(LibraryScan::observe(dir.path(), dir.filePath(u"node_modules/x.js"_s), &observation));
+        QCOMPARE(observation.path, u"node_modules/x.js"_s);
+    }
+
     void applyingScansKeepsMetadataForMissingFiles()
     {
         QTemporaryDir dir;

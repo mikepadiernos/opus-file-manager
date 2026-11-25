@@ -9,6 +9,9 @@
 #include "filecolorrules.h"
 #include "ignorelist.h"
 #include "libraryarchive.h"
+#include "libraryconfirmations.h"
+#include "libraryregistry.h"
+#include "libraryscan.h"
 #include "mainwindow.h"
 #include "pathfilterpresetsdialog.h"
 #include "savedpathfilters.h"
@@ -17,6 +20,8 @@
 #include "settings.h"
 #include "settingsbackup.h"
 #include "settingswidgets.h"
+#include "taggingsettings.h"
+#include "taglibrary.h"
 #include "viewsettings.h"
 #include "workspacecatalog.h"
 #include "workspacerestore.h"
@@ -24,6 +29,7 @@
 #include <KActionCollection>
 #include <KConfig>
 #include <KConfigGroup>
+#include <KEditListWidget>
 #include <KFilePlacesModel>
 #include <KPageWidget>
 #include <KPluginMetaData>
@@ -56,6 +62,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QTreeWidget>
 
 class SettingsDialogTest : public QObject
 {
@@ -159,6 +166,171 @@ private Q_SLOTS:
         QCOMPARE(Settings::libraryBackupLimit(), 20);
         QVERIFY(Settings::libraryBackupFolder().isEmpty());
         QVERIFY(!Settings::allowEmbeddedMetadataWrites());
+    }
+
+    void taggingLibrariesSettings()
+    {
+        for (const QString &root : LibraryRegistry::roots()) {
+            LibraryRegistry::remove(root);
+        }
+        const QString privateFolder = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + QStringLiteral("/libraries");
+        const auto cleanup = qScopeGuard([privateFolder] {
+            for (const QString &root : LibraryRegistry::roots()) {
+                LibraryRegistry::remove(root);
+            }
+            QDir(privateFolder).removeRecursively();
+        });
+        QTemporaryDir dir;
+        const QString root = dir.filePath(QStringLiteral("Photos"));
+        QVERIFY(QDir().mkpath(root));
+        QVERIFY(LibraryRegistry::create(root).isEmpty());
+
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        QList<LibraryConfirmations::Confirmation> asked;
+        dialog.setLibraryConfirmation([&asked](const LibraryConfirmations::Confirmation &confirmation) {
+            asked.append(confirmation);
+            return true;
+        });
+        QSignalSpy changed(&dialog, &SettingsDialog::libraryChanged);
+        QSignalSpy added(&dialog, &SettingsDialog::libraryAdded);
+
+        // The Libraries tab follows Privacy.
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("taggingLibrariesPage"));
+        auto *scroll = dialog.findChild<QWidget *>(QStringLiteral("taggingLibrariesScroll"));
+        QVERIFY(page && scroll);
+        auto *tabs = qobject_cast<QTabWidget *>(scroll->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->tabText(tabs->indexOf(scroll)), QStringLiteral("Libraries"));
+        QCOMPARE(tabs->indexOf(scroll), tabs->indexOf(dialog.findChild<QWidget *>(QStringLiteral("taggingPrivacyPage"))) + 1);
+
+        auto *libraries = page->findChild<QTreeWidget *>(QStringLiteral("taggingLibraries"));
+        auto *add = page->findChild<QPushButton *>(QStringLiteral("taggingAddLibrary"));
+        auto *remove = page->findChild<QPushButton *>(QStringLiteral("taggingRemoveLibrary"));
+        auto *move = page->findChild<QPushButton *>(QStringLiteral("taggingMoveLibraryMetadata"));
+        auto *note = page->findChild<QLabel *>(QStringLiteral("taggingLibrariesNote"));
+        auto *exclusions = page->findChild<KEditListWidget *>(QStringLiteral("kcfg_LibraryExclusions"));
+        auto *hidden = page->findChild<QCheckBox *>(QStringLiteral("kcfg_IndexHiddenItems"));
+        auto *limit = page->findChild<QSpinBox *>(QStringLiteral("kcfg_LibraryScanLimit"));
+        auto *depth = page->findChild<QSpinBox *>(QStringLiteral("kcfg_LibraryScanDepth"));
+        auto *automatic = page->findChild<QComboBox *>(QStringLiteral("kcfg_AutomaticLibraryRefresh"));
+        auto *interval = page->findChild<QSpinBox *>(QStringLiteral("kcfg_LibraryRefreshInterval"));
+        QVERIFY(libraries && add && remove && move && note && exclusions && hidden && limit && depth && automatic && interval);
+        QVERIFY(note->text().contains(QStringLiteral("immediately")));
+
+        // Defaults: no exclusions, hidden items indexed, no limits and no automatic refresh.
+        QVERIFY(exclusions->items().isEmpty());
+        QVERIFY(hidden->isChecked());
+        QCOMPARE(limit->value(), 0);
+        QCOMPARE(limit->maximum(), 10000000);
+        QCOMPARE(limit->text(), QStringLiteral("No limit"));
+        QCOMPARE(depth->value(), 0);
+        QCOMPARE(depth->maximum(), 1000);
+        QCOMPARE(depth->text(), QStringLiteral("No limit"));
+        QCOMPARE(automatic->count(), 3);
+        QCOMPARE(automatic->currentIndex(), int(Settings::EnumAutomaticLibraryRefresh::Never));
+        QCOMPARE(interval->value(), 60);
+        QCOMPARE(interval->minimum(), 1);
+        QCOMPARE(interval->maximum(), 10080);
+        QVERIFY(!interval->isEnabled());
+        automatic->setCurrentIndex(int(Settings::EnumAutomaticLibraryRefresh::WhenOpened));
+        QVERIFY(interval->isEnabled());
+
+        // Exclusions are saved as a string list.
+        exclusions->setItems({QStringLiteral("node_modules"), QStringLiteral("Exports/*")});
+        hidden->setChecked(false);
+        limit->setValue(500);
+        depth->setValue(3);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::libraryExclusions(), (QStringList{QStringLiteral("node_modules"), QStringLiteral("Exports/*")}));
+        QVERIFY(!Settings::indexHiddenItems());
+        QCOMPARE(Settings::libraryScanLimit(), 500);
+        QCOMPARE(Settings::libraryScanDepth(), 3);
+        QCOMPARE(Settings::automaticLibraryRefresh(), Settings::EnumAutomaticLibraryRefresh::WhenOpened);
+        const LibraryScan::Options options = TaggingSettings::scanOptions();
+        QCOMPARE(options.exclusions, Settings::libraryExclusions());
+        QVERIFY(!options.hidden);
+        QCOMPARE(options.limit, 500);
+        QCOMPARE(options.depth, 3);
+
+        // The registered library is listed, ready, with its metadata in the folder; nothing is selected yet.
+        QCOMPARE(libraries->topLevelItemCount(), 1);
+        QTreeWidgetItem *item = libraries->topLevelItem(0);
+        QCOMPARE(item->text(0), root);
+        QCOMPARE(item->text(1), QStringLiteral("Library folder"));
+        QCOMPARE(item->text(2), QStringLiteral("Ready"));
+        QVERIFY(add->isEnabled());
+        QVERIFY(!remove->isEnabled());
+        QVERIFY(!move->isEnabled());
+
+        // Moving the metadata keeps it privately, and the button then offers to move it back.
+        libraries->setCurrentItem(item);
+        QVERIFY(remove->isEnabled());
+        QVERIFY(move->isEnabled());
+        QCOMPARE(move->text(), QStringLiteral("Keep Metadata Privately"));
+        move->click();
+        QCOMPARE(asked.size(), 1);
+        QCOMPARE(asked.constLast().title, QStringLiteral("Move Library Metadata"));
+        QVERIFY(TagLibrary::isPrivate(root));
+        QVERIFY(!QFile::exists(TagLibrary::folderDocumentPath(root)));
+        QCOMPARE(changed.size(), 1);
+        QCOMPARE(changed.constLast().constFirst().toString(), root);
+        QCOMPARE(libraries->topLevelItem(0)->text(1), QStringLiteral("Private"));
+        QCOMPARE(move->text(), QStringLiteral("Keep Metadata in Library Folder"));
+
+        // Removing unregisters the library and keeps its document.
+        remove->click();
+        QCOMPARE(asked.size(), 2);
+        QVERIFY(asked.constLast().warning);
+        QVERIFY(asked.constLast().question.contains(QStringLiteral("No files are deleted")));
+        QVERIFY(!LibraryRegistry::contains(root));
+        QVERIFY(QFile::exists(TagLibrary::privateDocumentPath(root)));
+        QCOMPARE(libraries->topLevelItemCount(), 0);
+        QCOMPARE(changed.size(), 2);
+        QVERIFY(!remove->isEnabled());
+        QVERIFY(!move->isEnabled());
+
+        // Adding a folder registers it, adopting the kept private document, and asks for its first refresh.
+        dialog.setLibraryFolderChooser([] {
+            return QString();
+        });
+        add->click();
+        QCOMPARE(asked.size(), 2);
+        dialog.setLibraryFolderChooser([root] {
+            return root;
+        });
+        add->click();
+        QCOMPARE(asked.size(), 3);
+        QCOMPARE(asked.constLast().title, QStringLiteral("Create Library"));
+        QCOMPARE(asked.constLast().dontAskAgainName, QStringLiteral("ConfirmCreateLibrary"));
+        QVERIFY(LibraryRegistry::contains(root));
+        QVERIFY(TagLibrary::isPrivate(root));
+        QCOMPARE(added.size(), 1);
+        QCOMPARE(added.constLast().constFirst().toString(), root);
+        QCOMPARE(changed.size(), 3);
+        QCOMPARE(libraries->topLevelItemCount(), 1);
+        QCOMPARE(libraries->currentItem()->text(1), QStringLiteral("Private"));
+
+        // A new folder follows the storage shown in the Privacy tab.
+        const QString other = dir.filePath(QStringLiteral("Music"));
+        QVERIFY(QDir().mkpath(other));
+        dialog.findChild<QComboBox *>(QStringLiteral("kcfg_NewLibraryStorage"))->setCurrentIndex(int(Settings::EnumNewLibraryStorage::PrivateFolder));
+        dialog.setLibraryFolderChooser([other] {
+            return other;
+        });
+        add->click();
+        QVERIFY(LibraryRegistry::contains(other));
+        QVERIFY(TagLibrary::isPrivate(other));
+        QVERIFY(!QFile::exists(TagLibrary::folderDocumentPath(other)));
+        QCOMPARE(libraries->topLevelItemCount(), 2);
+
+        // A declined question changes nothing.
+        dialog.setLibraryConfirmation([](const LibraryConfirmations::Confirmation &) {
+            return false;
+        });
+        remove->click();
+        QVERIFY(LibraryRegistry::contains(other));
+        QCOMPARE(libraries->topLevelItemCount(), 2);
     }
 
     void brandingPresentationSettings()

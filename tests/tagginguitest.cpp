@@ -3,6 +3,7 @@
 #include "fieldeditdialog.h"
 #include "informationpanel.h"
 #include "libraryarchive.h"
+#include "libraryautorefresh.h"
 #include "libraryexportdialog.h"
 #include "librarymovetracker.h"
 #include "libraryrefreshdialog.h"
@@ -28,6 +29,7 @@
 #include <KIO/CopyJob>
 #include <KMessageWidget>
 #include <KPluginMetaData>
+#include <KSharedConfig>
 
 #include <QAction>
 #include <QCheckBox>
@@ -44,12 +46,14 @@
 #include <QListWidget>
 #include <QPlainTextEdit>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTreeWidget>
+#include <QUrl>
 
 class TaggingUiTest : public QObject
 {
@@ -160,6 +164,121 @@ private Q_SLOTS:
         refresh(dir.path(), &changes, &message, true);
         QCOMPARE(changes.missing, 0);
         QVERIFY(!TagLibrary::Library::load(dir.path()).entry(QStringLiteral("keep.txt"))->missing);
+    }
+
+    void refreshFollowsTheScanSettings()
+    {
+        const auto reset = qScopeGuard([] {
+            Settings::setLibraryScanLimit(0);
+            Settings::setLibraryExclusions({});
+            Settings::self()->save();
+        });
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        write(dir.filePath(QStringLiteral("a.txt")));
+        write(dir.filePath(QStringLiteral("b.txt")));
+        write(dir.filePath(QStringLiteral("c.tmp")));
+        QCOMPARE(LibraryRegistry::create(dir.path()), QString());
+        TagLibrary::ScanChanges changes;
+        QString message;
+        refresh(dir.path(), &changes, &message);
+        QCOMPARE(changes.added, 3);
+
+        // An excluded item keeps its entry, and a refresh stopped by the limit marks nothing missing.
+        QVERIFY(QFile::remove(dir.filePath(QStringLiteral("a.txt"))));
+        Settings::setLibraryExclusions({QStringLiteral("*.tmp")});
+        Settings::setLibraryScanLimit(1);
+        Settings::self()->save();
+        write(dir.filePath(QStringLiteral("d.txt")));
+        refresh(dir.path(), &changes, &message);
+        QCOMPARE(changes.missing, 0);
+        QVERIFY(message.contains(QStringLiteral("Stopped after indexing one item, the limit set in Preferences › Tagging › Libraries.")));
+        QVERIFY(!TagLibrary::Library::load(dir.path()).entry(QStringLiteral("a.txt"))->missing);
+
+        Settings::setLibraryScanLimit(0);
+        Settings::self()->save();
+        QVERIFY(QFile::remove(dir.filePath(QStringLiteral("c.tmp"))));
+        refresh(dir.path(), &changes, &message);
+        QCOMPARE(changes.missing, 1);
+        QVERIFY(!message.contains(QStringLiteral("Stopped after")));
+        const TagLibrary::Library library = TagLibrary::Library::load(dir.path());
+        QVERIFY(library.entry(QStringLiteral("a.txt"))->missing);
+        QVERIFY(!library.entry(QStringLiteral("c.tmp"))->missing);
+        QVERIFY(library.entry(QStringLiteral("d.txt")));
+    }
+
+    void refreshesLibrariesAutomatically()
+    {
+        const auto reset = qScopeGuard([] {
+            Settings::setAutomaticLibraryRefresh(Settings::EnumAutomaticLibraryRefresh::Never);
+            Settings::setLibraryRefreshInterval(60);
+            Settings::self()->save();
+        });
+        KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("LibraryRefresh"));
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString root = dir.filePath(QStringLiteral("Photos"));
+        QVERIFY(QDir().mkpath(root + QStringLiteral("/trip")));
+        write(root + QStringLiteral("/a.jpg"));
+        write(root + QStringLiteral("/trip/b.jpg"));
+        QCOMPARE(LibraryRegistry::create(root), QString());
+
+        LibraryAutoRefresh *refresher = LibraryAutoRefresh::instance();
+        QCOMPARE(LibraryAutoRefresh::instance(), refresher);
+        QSignalSpy refreshed(refresher, &LibraryAutoRefresh::refreshed);
+
+        // A library never refreshed before is refreshed at once, and reported.
+        QVERIFY(!LibraryAutoRefresh::lastRefresh(root).isValid());
+        refresher->enqueue(root);
+        QVERIFY(refresher->isPending(root));
+        QVERIFY(refreshed.wait(10000));
+        QCOMPARE(refreshed.constLast().at(0).toString(), root);
+        QCOMPARE(refreshed.constLast().at(1).toString(), QStringLiteral("Refreshed library Photos: 3 added"));
+        QVERIFY(refreshed.constLast().at(2).toBool());
+        QVERIFY(!refresher->isPending(root));
+        QVERIFY(LibraryAutoRefresh::lastRefresh(root).isValid());
+        QCOMPARE(TagLibrary::Library::load(root).entries().size(), 3);
+
+        // Within the interval it's skipped, unless forced; an unchanged library reports nothing.
+        refresher->enqueue(root);
+        QVERIFY(!refresher->isPending(root));
+        refresher->enqueue(root, true);
+        QVERIFY(refresher->isPending(root));
+        QVERIFY(refreshed.wait(10000));
+        QCOMPARE(refreshed.size(), 2);
+        QVERIFY(refreshed.constLast().at(1).toString().isEmpty());
+        QVERIFY(!refreshed.constLast().at(2).toBool());
+
+        // Opening a folder in the library refreshes it only when chosen in the settings.
+        LibraryAutoRefresh::recordRefresh(root, QDateTime::currentDateTimeUtc().addSecs(-2 * 60 * 60));
+        QVERIFY(QFile::remove(root + QStringLiteral("/a.jpg")));
+        refresher->folderOpened(QUrl::fromLocalFile(root + QStringLiteral("/trip")));
+        QVERIFY(!refresher->isPending(root));
+        Settings::setAutomaticLibraryRefresh(Settings::EnumAutomaticLibraryRefresh::WhenOpened);
+        refresher->folderOpened(QUrl::fromLocalFile(dir.path()));
+        QVERIFY(!refresher->isPending(root));
+        refresher->folderOpened(QUrl::fromLocalFile(root + QStringLiteral("/trip")));
+        QVERIFY(refresher->isPending(root));
+        QVERIFY(refreshed.wait(10000));
+        QCOMPARE(refreshed.constLast().at(1).toString(), QStringLiteral("Refreshed library Photos: 1 missing"));
+        QVERIFY(TagLibrary::Library::load(root).entry(QStringLiteral("a.jpg"))->missing);
+
+        // A manual refresh takes precedence, and counts as the latest refresh.
+        LibraryAutoRefresh::recordRefresh(root, QDateTime::currentDateTimeUtc().addSecs(-2 * 60 * 60));
+        refresher->beginManualRefresh(root);
+        refresher->enqueue(root, true);
+        QVERIFY(!refresher->isPending(root));
+        refresher->endManualRefresh(root, true);
+        QVERIFY(LibraryAutoRefresh::lastRefresh(root).secsTo(QDateTime::currentDateTimeUtc()) < 60);
+
+        // Unregistered folders and canceled refreshes report nothing.
+        refresher->enqueue(dir.path(), true);
+        QVERIFY(!refresher->isPending(dir.path()));
+        refresher->enqueue(root, true);
+        refresher->cancel();
+        QVERIFY(!refresher->isPending(root));
+        QTest::qWait(100);
+        QCOMPARE(refreshed.size(), 3);
     }
 
     void tracksMovesAndRenamesPlasmaOpusMakes()

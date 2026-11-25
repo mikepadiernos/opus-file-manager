@@ -1188,6 +1188,7 @@ private Q_SLOTS:
                               QStringLiteral("Context Menu"),
                               QStringLiteral("Archives"),
                               QStringLiteral("Files"),
+                              QStringLiteral("Tagging"),
                               QStringLiteral("Workspaces"),
                               QStringLiteral("Gallery"),
                               QStringLiteral("Editor"),
@@ -1197,6 +1198,9 @@ private Q_SLOTS:
             return tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + entry));
         };
         QCOMPARE(tabOf(QStringLiteral("SidebarTitlePosition")), QStringLiteral("Settings Dialog"));
+        QCOMPARE(tabOf(QStringLiteral("NewLibraryStorage")), QStringLiteral("Privacy"));
+        QCOMPARE(tabOf(QStringLiteral("LibraryExclusions")), QStringLiteral("Libraries"));
+        QCOMPARE(tabOf(QStringLiteral("AutomaticLibraryRefresh")), QStringLiteral("Libraries"));
         QCOMPARE(tabOf(QStringLiteral("InterfaceLanguage")), QStringLiteral("Language and Layout"));
         QCOMPARE(tabOf(QStringLiteral("CustomDateFormat")), QStringLiteral("Dates"));
         QCOMPARE(tabOf(QStringLiteral("StartupMode")), QStringLiteral("Folders and Tabs"));
