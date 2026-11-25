@@ -1095,7 +1095,7 @@ integration without blocking this milestone.
       report when it is unavailable.
 - [x] Provide an embedded search pane using existing supported placements.
       Placing it alongside file panes must not replace either pane.
-- [ ] Show M09 search results in the embedded panel, reusing progress,
+- [x] Show M09 search results in the embedded panel, reusing progress,
       cancellation, error reporting and open and reveal actions without moving
       files
 - [ ] Offer an optional main-toolbar search widget to enter queries, search the
