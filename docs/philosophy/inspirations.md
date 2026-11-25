@@ -18,6 +18,7 @@ dictates the application's interface or implementation.
 - [Directory Opus — power-user benchmark](#directory-opus--power-user-benchmark)
 - [Krusader — two-pane tools](#krusader--two-pane-tools)
 - [MiXplorer — mobile power tools](#mixplorer--mobile-power-tools)
+- [RaiDrive — cloud storage as drives](#raidrive--cloud-storage-as-drives)
 - [Strata — system file chooser](#strata--system-file-chooser)
 - [Orcinus — power-user workflows for Dolphin](#orcinus--power-user-workflows-for-dolphin)
 - [TagSpaces — focused workspaces](#tagspaces--focused-workspaces)
@@ -61,7 +62,10 @@ Krusader shows how a two-panel file manager can support deeper file operations.
 Its influence includes group selection, occupied space, popular folders and
 archive testing, comparison, checksums, split and combine, and an embedded
 terminal alongside both panes. Copy and move transfers can be queued; folder
-synchronization previews filtered, per-item actions before applying them.
+synchronization previews filtered, per-item actions before applying them. Its
+[MountMan](https://docs.kde.org/trunk_kf6/en/krusader/krusader/mount-man.html)
+informs a planned [mount manager](../ROADMAP.md#m27-integrations) that lists,
+mounts and unmounts file systems through Solid.
 
 ## MiXplorer — mobile power tools
 
@@ -72,6 +76,17 @@ planned [integrations](../ROADMAP.md#m27-integrations). Plasma Opus adapts them
 to KDE facilities, such as Plasma Vault, KIO workers, Ark and KDE's credential
 storage, rather than reimplementing them, and does not copy MiXplorer's mobile
 interface.
+
+## RaiDrive — cloud storage as drives
+
+[RaiDrive](https://www.raidrive.com/) mounts cloud, S3-compatible and NAS
+storage over WebDAV, SFTP and FTP as local drives, so any application can open
+and save files in place. It also offers read-only connections, streamed playback
+and file locks. It informs the planned
+[remote drives](../ROADMAP.md#m27-integrations): Plasma Opus mounts saved
+remote locations as local folders through KDE's KIO FUSE or installed backends
+such as sshfs, davfs2 and s3fs-fuse, as alternatives to rclone. Accounts and
+credentials stay with KDE's facilities rather than a separate provider list.
 
 ## Strata — system file chooser
 
