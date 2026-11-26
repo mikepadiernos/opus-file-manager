@@ -147,6 +147,11 @@ void YaziMode::writeSession(KConfigGroup &group, bool enabled)
     group.writeEntry(SessionKey, enabled);
 }
 
+bool YaziMode::startupMode(const Activation &activation, std::optional<bool> saved)
+{
+    return activation.restore && saved ? *saved : activation.defaultMode;
+}
+
 int YaziMode::readSessionPreview(const KConfigGroup &group)
 {
     if (!group.hasKey(SessionPreviewKey)) {

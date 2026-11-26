@@ -4,6 +4,7 @@
 
 #include "session.h"
 #include "settings.h"
+#include "yazimode.h"
 
 #include <QUrl>
 
@@ -16,6 +17,9 @@ struct StartupOptions {
     QUrl home;
     QUrl leftFolder;
     QUrl rightFolder;
+    /// How the first and second panes choose their Yazi mode.
+    YaziMode::Activation leftYazi;
+    YaziMode::Activation rightYazi;
 };
 
 namespace Startup
@@ -25,7 +29,10 @@ namespace Startup
  * @param saved the session stored at the last close; may be empty
  * @param options the startup settings
  * @returns a sanitized session: every pane has at least one tab, and the
- *          stacked flag is always carried over from @p saved
+ *          stacked flag is always carried over from @p saved. Each pane's
+ *          Yazi mode follows YaziMode::startupMode(); a pane has a previous
+ *          choice only when the last session is restored and @p saved has
+ *          tabs for it
  */
 WindowSession resolve(const WindowSession &saved, const StartupOptions &options);
 

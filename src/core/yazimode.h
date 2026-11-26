@@ -23,6 +23,29 @@ namespace YaziMode
 bool readSession(const KConfigGroup &group);
 void writeSession(KConfigGroup &group, bool enabled);
 
+/// How a pane chooses its mode when a window starts. The values match the
+/// YaziLeftPaneDefault and YaziLeftPaneRestore settings and their second-pane
+/// counterparts.
+struct Activation {
+    /// The mode the pane starts with when it has no previous choice to restore.
+    bool defaultMode = false;
+    /// Whether the pane restores the mode it had when its session was saved.
+    bool restore = true;
+    bool operator==(const Activation &other) const = default;
+};
+
+/**
+ * The mode a pane starts with when a window opens. Explicitly switching to or
+ * restoring a workspace layout doesn't use this; the layout's behaviors decide.
+ * @param activation the pane's default mode and whether it restores its
+ *        previous choice
+ * @param saved the mode saved in the pane's restored session, or nullopt
+ *        when no session is restored for the pane, such as on the first start
+ *        or when the window opens the home folder or fixed folders
+ * @returns @p saved when restoring and there is one, otherwise the default
+ */
+bool startupMode(const Activation &activation, std::optional<bool> saved);
+
 /**
  * Reads whether a pane shows its preview column from a session group.
  * @returns 1 when shown, 0 when hidden and -1 when nothing was saved, as in
