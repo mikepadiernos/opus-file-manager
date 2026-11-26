@@ -328,12 +328,9 @@ private Q_SLOTS:
         SettingsDialog dialog(placesOf(window), &window);
         const auto items = Settings::self()->items();
         // M26 adds the Yazi key preset chooser, which the View menu sets until
-        // then, and the Yazi preview content, parent column and column ratio
-        // defaults, which the View menu and dragging the columns set until then.
-        const QStringList withoutWidget{QStringLiteral("YaziKeyPreset"),
-                                        QStringLiteral("YaziPreviewContent"),
-                                        QStringLiteral("YaziParentColumnVisible"),
-                                        QStringLiteral("YaziColumnRatios")};
+        // then, and the Yazi preview content default, which the View menu sets
+        // until then.
+        const QStringList withoutWidget{QStringLiteral("YaziKeyPreset"), QStringLiteral("YaziPreviewContent")};
         for (const KConfigSkeletonItem *item : items) {
             if (withoutWidget.contains(item->name())) {
                 continue;
@@ -1389,6 +1386,9 @@ private Q_SLOTS:
                                      QStringLiteral("YaziLeftPaneRestore"),
                                      QStringLiteral("YaziRightPaneRestore")}) {
             QCOMPARE(tabOf(entry), QStringLiteral("Activation"));
+        }
+        for (const QString &entry : {QStringLiteral("YaziParentColumnVisible"), QStringLiteral("YaziPreviewVisible"), QStringLiteral("YaziColumnRatios")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("Columns"));
         }
         QCOMPARE(tabOf(QStringLiteral("ShowOpenInNewTab")), QStringLiteral("Actions"));
         QCOMPARE(tabOf(QStringLiteral("ShowCopyMoveToMenus")), QStringLiteral("Actions"));

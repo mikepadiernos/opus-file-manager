@@ -12,6 +12,8 @@
 #include "searchwidget.h"
 #include "session.h"
 #include "settings.h"
+#include "settingsdialog.h"
+#include "settingswidgets.h"
 #include "tabmodel.h"
 #include "transferqueue.h"
 #include "transferqueuedialog.h"
@@ -23,15 +25,18 @@
 #include <KActionCollection>
 #include <KConfigGroup>
 #include <KDirModel>
+#include <KFilePlacesModel>
 #include <KIO/FileUndoManager>
 #include <KSharedConfig>
 
 #include <QAbstractItemModel>
 #include <QAccessible>
 #include <QApplication>
+#include <QCheckBox>
 #include <QClipboard>
 #include <QComboBox>
 #include <QDialog>
+#include <QDialogButtonBox>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
@@ -50,6 +55,7 @@
 #include <QScopeGuard>
 #include <QScrollBar>
 #include <QSignalSpy>
+#include <QSpinBox>
 #include <QSplitter>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -863,6 +869,73 @@ private Q_SLOTS:
         second.openUrls({m_a, m_b});
         QCOMPARE(YaziMode::ratiosToList(second.activePane()->yaziColumnRatios()), dragged);
         QVERIFY(second.activePane()->saveState().yaziColumnRatios.isEmpty());
+    }
+
+    void columnSettingsApplyToOpenPanes()
+    {
+        const auto reset = [] {
+            Settings::setYaziColumnRatios({1, 3, 2});
+            Settings::setYaziParentColumnVisible(true);
+            Settings::setYaziPreviewVisible(true);
+            Settings::self()->save();
+        };
+        const auto restore = qScopeGuard(reset);
+        reset();
+        MainWindow window;
+        window.resize(1400, 600);
+        window.openUrls({m_sub, m_b});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        Pane *first = window.activePane();
+        Pane *second = window.inactivePane();
+        first->setYaziMode(true);
+        second->setYaziMode(true);
+        second->setYaziColumnRatios({2, 5, 3});
+        second->setYaziPreview(true);
+        YaziColumns *columns = first->yaziColumns();
+        QTRY_VERIFY(columns->parentColumn()->isVisible() && columns->previewSlot()->isVisible());
+
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *editor = dialog.findChild<YaziColumnRatiosEditor *>(QStringLiteral("kcfg_YaziColumnRatios"));
+        auto *parentCheck = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_YaziParentColumnVisible"));
+        auto *previewCheck = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_YaziPreviewVisible"));
+        QVERIFY(editor && parentCheck && previewCheck);
+        const auto setWidths = [editor](int parent, int current, int preview) {
+            editor->findChild<QSpinBox *>(QStringLiteral("yaziParentRatio"))->setValue(parent);
+            editor->findChild<QSpinBox *>(QStringLiteral("yaziCurrentRatio"))->setValue(current);
+            editor->findChild<QSpinBox *>(QStringLiteral("yaziPreviewRatio"))->setValue(preview);
+        };
+
+        // Panes without a choice of their own follow the applied widths; the columns are resized at once.
+        setWidths(1, 1, 1);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(first->yaziColumnRatios(), YaziMode::Ratios({1, 1, 1}));
+        QVERIFY(first->saveState().yaziColumnRatios.isEmpty());
+        QSplitter *splitter = columns->splitter();
+        const auto expected = [splitter] {
+            const YaziMode::ColumnWidths widths = YaziMode::columnWidths(splitter->width(), true, {1, 1, 1}, splitter->handleWidth());
+            return QList<int>{widths.parent, widths.current, widths.preview};
+        };
+        QTRY_VERIFY2(nearlyEqual(splitter->sizes(), expected()), qPrintable(describe(splitter->sizes(), expected())));
+        QCOMPARE(second->yaziColumnRatios(), YaziMode::Ratios({2, 5, 3}));
+
+        // Hiding the columns by default leaves a pane's own choice and the other pane alone.
+        parentCheck->setChecked(false);
+        previewCheck->setChecked(false);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!first->yaziParentColumn());
+        QVERIFY(!first->yaziPreview());
+        QTRY_VERIFY(columns->parentColumn()->isHidden() && columns->previewSlot()->isHidden());
+        QVERIFY(first->view()->isVisible());
+        QVERIFY(!second->yaziParentColumn());
+        QVERIFY(second->yaziPreview());
+        QVERIFY(second->isVisible());
+        QVERIFY(second->yaziColumns()->previewSlot()->isVisible());
+        QCOMPARE(second->saveState().yaziColumnRatios, QList<int>({2, 5, 3}));
     }
 
     void paneMenusAndToolbarToggleTheMode()

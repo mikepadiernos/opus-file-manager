@@ -28,6 +28,7 @@
 #include "viewsettings.h"
 #include "workspacecatalog.h"
 #include "workspacerestore.h"
+#include "yazimode.h"
 
 #include <KActionCollection>
 #include <KColorButton>
@@ -68,6 +69,8 @@
 #include <QTest>
 #include <QTimer>
 #include <QTreeWidget>
+
+#include <array>
 
 class SettingsDialogTest : public QObject
 {
@@ -1850,6 +1853,144 @@ private Q_SLOTS:
         SettingsDialog reopened(&places, nullptr);
         QVERIFY(reopened.findChild<QCheckBox *>(QStringLiteral("kcfg_YaziLeftPaneDefault"))->isChecked());
         QVERIFY(!reopened.findChild<QCheckBox *>(QStringLiteral("kcfg_YaziRightPaneRestore"))->isChecked());
+    }
+
+    void yaziColumnsSettings()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        Settings::self()->setDefaults();
+        Settings::self()->save();
+        KFilePlacesModel places;
+        const auto spinsOf = [](QWidget *editor) {
+            return std::array<QSpinBox *, 3>{editor->findChild<QSpinBox *>(QStringLiteral("yaziParentRatio")),
+                                             editor->findChild<QSpinBox *>(QStringLiteral("yaziCurrentRatio")),
+                                             editor->findChild<QSpinBox *>(QStringLiteral("yaziPreviewRatio"))};
+        };
+        const auto valuesOf = [&spinsOf](QWidget *editor) {
+            const auto spins = spinsOf(editor);
+            return QList<int>{spins[0]->value(), spins[1]->value(), spins[2]->value()};
+        };
+        // Whether the dialog would leave YaziColumnRatios as it is, compared as KConfigDialogManager does.
+        const auto unchanged = [](YaziColumnRatiosEditor *editor) {
+            return Settings::self()->findItem(QStringLiteral("YaziColumnRatios"))->isEqual(editor->property("ratios"));
+        };
+        {
+            SettingsDialog dialog(&places, nullptr);
+
+            // Columns is the Yazi Mode page's second tab.
+            auto *page = dialog.findChild<QWidget *>(QStringLiteral("yaziColumnsPage"));
+            QVERIFY(page);
+            auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+            QVERIFY(tabs);
+            QCOMPARE(tabs->indexOf(page), 1);
+            QCOMPARE(tabs->tabText(1), QStringLiteral("Columns"));
+            QCOMPARE(tabs->tabText(0), QStringLiteral("Activation"));
+
+            // The preview checkbox moved here from Interface › Previews; each setting has one widget.
+            for (const QString &entry : {QStringLiteral("YaziParentColumnVisible"), QStringLiteral("YaziPreviewVisible"), QStringLiteral("YaziColumnRatios")}) {
+                QCOMPARE(dialog.findChildren<QWidget *>(QStringLiteral("kcfg_") + entry).size(), 1);
+                QVERIFY2(page->findChild<QWidget *>(QStringLiteral("kcfg_") + entry), qPrintable(entry));
+            }
+            auto *parent = page->findChild<QCheckBox *>(QStringLiteral("kcfg_YaziParentColumnVisible"));
+            auto *preview = page->findChild<QCheckBox *>(QStringLiteral("kcfg_YaziPreviewVisible"));
+            auto *editor = page->findChild<YaziColumnRatiosEditor *>(QStringLiteral("kcfg_YaziColumnRatios"));
+            QVERIFY(parent && preview && editor);
+            QVERIFY(parent->isChecked());
+            QVERIFY(preview->isChecked());
+            for (QSpinBox *spin : spinsOf(editor)) {
+                QVERIFY(spin);
+                QCOMPARE(spin->minimum(), 1);
+                QCOMPARE(spin->maximum(), YaziMode::MaximumRatio);
+            }
+            QCOMPARE(valuesOf(editor), QList<int>({1, 3, 2}));
+            auto *shares = editor->findChild<QLabel *>(QStringLiteral("yaziColumnShares"));
+            QVERIFY(shares);
+            for (const char *share : {"17%", "50%", "33%", "60%", "40%"}) {
+                QVERIFY2(shares->text().contains(QLatin1String(share)), qPrintable(shares->text()));
+            }
+            for (const char *name : {"yaziShownColumnsNotice", "yaziColumnWidthsNotice", "yaziNarrowPanesNotice"}) {
+                auto *notice = page->findChild<QLabel *>(QLatin1String(name));
+                QVERIFY2(notice && notice->wordWrap(), name);
+            }
+            const QString narrow = page->findChild<QLabel *>(QStringLiteral("yaziNarrowPanesNotice"))->text();
+            QVERIFY(narrow.contains(QString::number(YaziMode::ThreeColumnWidth)));
+            QVERIFY(narrow.contains(QString::number(YaziMode::TwoColumnWidth)));
+            QVERIFY(narrow.contains(QStringLiteral("other file pane")));
+
+            // Editing the widths changes the setting when applied.
+            QVERIFY(unchanged(editor));
+            const auto spins = spinsOf(editor);
+            spins[0]->setValue(2);
+            spins[1]->setValue(5);
+            spins[2]->setValue(3);
+            QCOMPARE(editor->ratios(), QList<int>({2, 5, 3}));
+            QVERIFY(shares->text().contains(QStringLiteral("20%")));
+            QVERIFY(!unchanged(editor));
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            parent->setChecked(false);
+            preview->setChecked(false);
+            dialog.button(QDialogButtonBox::Apply)->click();
+            QCOMPARE(Settings::yaziColumnRatios(), QList<int>({2, 5, 3}));
+            QVERIFY(!Settings::yaziParentColumnVisible());
+            QVERIFY(!Settings::yaziPreviewVisible());
+
+            // Restore Default Widths shows 1 : 3 : 2 without saving it.
+            editor->findChild<QPushButton *>(QStringLiteral("yaziRestoreColumnWidths"))->click();
+            QCOMPARE(valuesOf(editor), QList<int>({1, 3, 2}));
+            QCOMPARE(Settings::yaziColumnRatios(), QList<int>({2, 5, 3}));
+            QVERIFY(!unchanged(editor));
+            spins[0]->setValue(2);
+            spins[1]->setValue(5);
+            spins[2]->setValue(3);
+            QVERIFY(unchanged(editor));
+
+            // Widths saved by dragging a column's edge while the dialog is open are shown, unless edited here.
+            Settings::setYaziColumnRatios({240, 700, 460});
+            Settings::self()->save();
+            QCOMPARE(valuesOf(editor), QList<int>({240, 700, 460}));
+            QVERIFY(unchanged(editor));
+            spins[0]->setValue(300);
+            Settings::setYaziColumnRatios({250, 700, 450});
+            Settings::self()->save();
+            QCOMPARE(valuesOf(editor), QList<int>({300, 700, 460}));
+
+            // Defaults restores every column setting.
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::RestoreDefaults)->isEnabled());
+            dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+            QVERIFY(parent->isChecked());
+            QVERIFY(preview->isChecked());
+            QCOMPARE(valuesOf(editor), QList<int>({1, 3, 2}));
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QCOMPARE(Settings::yaziColumnRatios(), QList<int>({1, 3, 2}));
+        QVERIFY(Settings::yaziParentColumnVisible());
+        QVERIFY(Settings::yaziPreviewVisible());
+
+        // The dialog shows the saved widths, such as dragged pixel widths, and an invalid value as the defaults without changing it.
+        Settings::setYaziColumnRatios({240, 700, 460});
+        Settings::self()->save();
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *editor = dialog.findChild<YaziColumnRatiosEditor *>(QStringLiteral("kcfg_YaziColumnRatios"));
+            QCOMPARE(valuesOf(editor), QList<int>({240, 700, 460}));
+            QVERIFY(unchanged(editor));
+        }
+        Settings::setYaziColumnRatios({1, 0, 2});
+        Settings::self()->save();
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *editor = dialog.findChild<YaziColumnRatiosEditor *>(QStringLiteral("kcfg_YaziColumnRatios"));
+            QCOMPARE(valuesOf(editor), QList<int>({1, 3, 2}));
+            QCOMPARE(editor->ratios(), QList<int>({1, 0, 2}));
+            QVERIFY(unchanged(editor));
+            spinsOf(editor)[2]->setValue(4);
+            QCOMPARE(editor->ratios(), QList<int>({1, 3, 4}));
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QCOMPARE(Settings::yaziColumnRatios(), QList<int>({1, 3, 4}));
     }
 
     void workspaceIndicatorOptionsPersist()
