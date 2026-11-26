@@ -80,11 +80,12 @@ tracked in its own issue:
     are not a commitment to support remote archive creation or testing.
     - Comment: [#265.7021749894][comment-265]
 
-- **Password-protected archives:** Creation supports AES-encrypted ZIP only and
-  rejects symbolic links and other unsupported file types. ZIP entry names are
-  not encrypted. Extraction rejects links, unsafe paths and unsupported entry
-  types. If creation or extraction fails, a partial archive or extraction folder
-  may remain. ([#255][issue-255], [#256][issue-256])
+- **Password-protected archives:** Built-in creation supports AES-encrypted ZIP
+  only and rejects symbolic links and other unsupported file types. ZIP entry
+  names are not encrypted, and 7z archives are created without a password.
+  Extraction rejects links, unsafe paths and unsupported entry types. If
+  creation or extraction fails, a partial archive or extraction folder may
+  remain. ([#255][issue-255], [#256][issue-256])
 
   - **Recommendation:** Avoid sensitive ZIP entry names, and check for partial
     output after failures before retrying. Use another trusted archive tool if
@@ -100,6 +101,29 @@ tracked in its own issue:
     - Extract into a fresh staging directory first.
       - Comment:
         [#256.7029666231](https://github.com/mikepadiernos/plasma-opus/issues/256#issuecomment-7029666231)
+    - For encrypted 7z archives with encrypted file names, choose **More
+      Options in Ark…** in the Compress dialog; see
+      [Ark integration](#ark-integration).
+
+- **Split archives:** **Split into volumes** writes the whole archive, then cuts
+  it into raw numbered parts of at most the chosen size, such as
+  `photos.7z.001`, as 7-Zip does. They are not ZIP spanned or RAR multi-volume
+  archives, so only 7-Zip opens the first part directly; KIO archive browsing
+  and most other tools need the parts joined first. Splitting needs free space
+  for the whole archive and its parts, and creates the parts with owner-only
+  permissions. An archive smaller than the volume size stays a single file. If
+  splitting fails, the parts written so far are removed and the whole archive
+  is kept. ([#732][issue-732])
+
+  - **Recommendation:** Keep the parts together and open the first with 7-Zip,
+    or join them with **File › Combine Files**, naming the result after the
+    original archive. Check free space before splitting, and adjust the parts'
+    permissions before sharing them with other local users.
+    - Comment: [#732.7200937321][comment-732]
+  - **Alternative:** For RAR multi-volume archives, choose **More Options in
+    Ark…**; Ark offers them only when RAR's proprietary `rar` program is
+    installed.
+    - Comment: [#732.7200937321][comment-732]
 
 - **Encrypted 7z:** Extraction uses KArchive and can fail even for valid
   archives. Integrity testing uses the `7z` executable when available and
@@ -116,14 +140,16 @@ tracked in its own issue:
     in Ark**.
     - Comment:
       [#36.7029665511](https://github.com/mikepadiernos/plasma-opus/issues/36#issuecomment-7029665511)
-  - **Planned:** [M27 Ark archive creation](ROADMAP.md#m27-integrations) does
-    not guarantee encrypted 7z support or safe password handling.
+  - **Ark:** **More Options in Ark…** creates encrypted 7z archives through
+    Ark's dialog. It does not change built-in extraction or guarantee safe
+    password handling; see [Ark integration](#ark-integration).
     - Comment: [#36.7021740511][comment-36]
 
 ### Ark integration
 
 Plasma Opus hands archives to Ark, KDE's archiving tool, when it is installed
-([#313][issue-313], [#280](https://github.com/mikepadiernos/plasma-opus/issues/280)):
+([#313][issue-313], [#280](https://github.com/mikepadiernos/plasma-opus/issues/280),
+[#647](https://github.com/mikepadiernos/plasma-opus/issues/647)):
 
 - **Current behaviour:** **File › Open in Ark** opens one local archive in
   Ark's own window, where entries can be added, renamed or removed and
@@ -131,11 +157,20 @@ Plasma Opus hands archives to Ark, KDE's archiving tool, when it is installed
   Pane** uses Ark only for local formats that no KIO archive worker can
   browse, such as RAR. It creates a new, uniquely named folder in the other
   pane's local folder and runs Ark in batch mode there, so nothing existing is
-  overwritten. Plasma Opus reads which formats Ark can open from Ark's
-  installed backend plugins and the programs they need.
+  overwritten. **More Options in Ark…** in the Compress dialog opens Ark's own
+  Compress dialog for the selection, with encrypted 7z, encrypted file names,
+  compression levels and multi-volume archives where the installed backends
+  support them. **File › Add to Archive…** adds the selection to an archive
+  Ark can write, after a confirmation. Plasma Opus reads which formats Ark can
+  open and write from Ark's installed backend plugins and the programs they
+  need, and refuses formats Ark can only extract, such as RAR without `rar`.
 - **Limits:** Ark reports its own progress, password prompts and errors;
   Plasma Opus reports only a missing Ark or a failed start. If Ark fails or is
-  cancelled, the new folder stays, possibly empty. Remote archives and remote
+  cancelled, the new folder stays, possibly empty. **Add to Archive** changes
+  the archive in place, and Ark replaces an entry with the same name; entries
+  are named relative to the first selected item's folder. Ark chooses where its
+  Compress dialog saves, so the non-overwriting name and pane choices of the
+  built-in Compress dialog do not apply. Remote archives and remote
   destinations are not handed to Ark. Formats KIO can browse, including 7z
   and ZIP, still use the built-in extraction, and **Extract
   Password-Protected Archive** still uses KArchive.
@@ -149,15 +184,13 @@ Plasma Opus hands archives to Ark, KDE's archiving tool, when it is installed
   cannot open, use **Open in Ark** with its 7z backend installed. On shared
   systems, avoid typing sensitive passwords into Ark, or use 7-Zip at its own
   prompt instead. Remove an empty folder left by a cancelled Ark extraction.
+  Before **Add to Archive**, keep a copy of an archive you cannot recreate, and
+  check that no entry with the same name should be kept.
   - Comment: [#313.7021757012][comment-313]
 - **Alternative proposal:** Consider a user-controlled external archiver
   handoff.
   - Comment:
     [#313.7029672463](https://github.com/mikepadiernos/plasma-opus/issues/313#issuecomment-7029672463)
-- **Planned:** [M27 Ark archive creation](ROADMAP.md#m27-integrations) extends
-  archive creation and editing through Ark; it does not change how Ark
-  passes passwords to `7z`.
-  - Comment: [#313.7021757012][comment-313]
 
 ## Folder metadata and listings
 
@@ -2002,6 +2035,7 @@ dependency and varies with the chosen output method.
 [issue-311]: https://github.com/mikepadiernos/plasma-opus/issues/311
 [issue-312]: https://github.com/mikepadiernos/plasma-opus/issues/312
 [issue-313]: https://github.com/mikepadiernos/plasma-opus/issues/313
+[issue-732]: https://github.com/mikepadiernos/plasma-opus/issues/732
 [comment-36]: https://github.com/mikepadiernos/plasma-opus/issues/36#issuecomment-7021740511
 [comment-255]: https://github.com/mikepadiernos/plasma-opus/issues/255#issuecomment-7021741358
 [comment-256]: https://github.com/mikepadiernos/plasma-opus/issues/256#issuecomment-7021742119
@@ -2040,3 +2074,4 @@ dependency and varies with the chosen output method.
 [comment-375]: https://github.com/mikepadiernos/plasma-opus/issues/375#issuecomment-7025250130
 [comment-376]: https://github.com/mikepadiernos/plasma-opus/issues/376#issuecomment-7026216329
 [comment-377]: https://github.com/mikepadiernos/plasma-opus/issues/377#issuecomment-7026633904
+[comment-732]: https://github.com/mikepadiernos/plasma-opus/issues/732#issuecomment-7200937321
