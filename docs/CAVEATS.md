@@ -25,7 +25,7 @@ recommendation and external tools are separate applications.
   [folder metadata and listings](#folder-metadata-and-listings),
   [planned password-gated folders](#planned-password-gated-folders),
   [previews and gallery](#previews-and-gallery), [editor](#editor),
-  [file-list minimap](#file-list-minimap)
+  [file-list minimap](#file-list-minimap), [Yazi mode](#yazi-mode)
 - **🔎 Search and operations:** [Search](#search),
   [batch rename](#batch-rename), [metadata editing](#metadata-editing),
   [transfer queue](#transfer-queue),
@@ -442,6 +442,73 @@ The M24 [tagging settings](tagging.md#settings) have these limits
   - Apply tagging settings to every open window.
   - Offer to remove entries that new exclusions or limits leave out.
   - Share field identifiers between libraries, or map by identifier.
+
+## Yazi mode
+
+The M25 [Yazi mode](yazi-mode.md) has these limits
+([#723](https://github.com/mikepadiernos/plasma-opus/issues/723)):
+
+- **Scope:** Yazi mode is a native Qt/KDE browsing mode inspired by Yazi. It
+  doesn't run Yazi or read its configuration, keymaps, themes or plugins.
+- **Locations:** search results, recent items, tags, `remote:/` and
+  application lists aren't supported; the pane falls back to the normal view
+  there. Remote folders, archives, `trash:/` and `desktop:/` are limited: the
+  parent column and preview may load slowly, and listings stop after 10
+  seconds. Archives are recognised by file extension.
+- **Preview:** a folder preview lists at most 500 entries. Remote files are
+  downloaded for preview up to the existing size caps; there is no setting
+  that stops remote preview downloads. Oversized text is truncated rather
+  than refused. Hiding the preview stops media playback, and media may render
+  poorly in a narrow column.
+- **Keys:** with Vim-style keys, bound letters and digits no longer start
+  type-ahead in the columns, `Space` no longer opens the gallery, and Ctrl+D
+  (Add to Favorites) is overridden there. Ctrl+C doesn't cancel a search
+  because it is Copy. With Standard keys, Left and Right mean Parent and Open
+  in icon and card views. Caps Lock changes letter bindings.
+- **File actions:** `c` and `m` copy or move straight to the other pane like
+  F5 and F6, so they follow the transfer setting **Existing destination**;
+  with **Overwrite automatically** they overwrite without asking. `u`
+  undoing a copy deletes the copies after KIO asks. Window shortcuts such as
+  Delete don't fall back to the focused item when nothing is selected. Paste
+  and trash don't appear in the Yazi transfer indicator.
+- **Selection:** marked items stay selected while moving, unlike the normal
+  view. In grid views, range selection follows item order.
+- **Search:** the status row only tracks searches started with `s` or `S`
+  from that pane, and those keys change the Search panel's scope settings.
+- **Persistence:** a pane follows the default column ratios until they are
+  dragged; other panes pick up a new default only when settings are applied
+  again. Existing workspaces tie Yazi state to the views option until their
+  Yazi checkbox is changed. When startup opens the home folder or fixed
+  folders, panes start with the mode off.
+- **Performance:** the first listing of very large folders (10,000+ items)
+  is slow with or without Yazi mode.
+
+- **Recommendation:**
+  - **Scope:** use Yazi itself, for example in the embedded terminal, when
+    you need its plugins or configuration.
+  - **Locations:** browse unsupported locations in the normal view; the mode
+    resumes at the next supported folder. Hide the preview with **View › Yazi
+    Preview** in slow remote folders.
+  - **Preview:** switch the column to file information (`i` with Vim-style
+    keys) on slow connections, and open large files with **Open With**.
+  - **Keys:** keep the Standard preset if you rely on type-ahead, the gallery
+    on `Space` or Ctrl+D. Cancel searches with Escape or **Cancel**.
+  - **File actions:** keep **Existing destination** at **Ask** (the default)
+    before using `c` and `m`. Select items explicitly before using window
+    shortcuts.
+  - **Selection:** press Escape to clear marks before ordinary selection.
+  - **Search:** check the Search panel's scope after using `s` or `S`.
+  - **Persistence:** drag the columns once in each pane to fix its ratios,
+    and turn on a workspace's **Yazi mode** option to restore Yazi state
+    independently of views.
+  - **Performance:** filter or split very large folders.
+  - Comment:
+    [#723.7180859654](https://github.com/mikepadiernos/plasma-opus/issues/723#issuecomment-7180859654)
+- **Proposed improvements:**
+  - A remote preview download policy shared with the preview panel.
+  - Track paste and trash jobs in the Yazi transfer indicator.
+  - Faster first listings of very large folders.
+  - Apply new default column ratios to open panes.
 
 ## Native title and header padding
 
