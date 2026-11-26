@@ -70,6 +70,7 @@
 #include "workspaceappearance.h"
 #include "workspacedialog.h"
 #include "workspacelocations.h"
+#include "yazicolumns.h"
 
 #include <KActionCollection>
 #include <KConfig>
@@ -1443,6 +1444,18 @@ void MainWindow::connectPane(Pane *pane)
     connect(pane, &Pane::yaziFileCommandRequested, this, [this, pane](YaziMode::Command command) {
         runYaziFileCommand(pane, command);
     });
+    connect(pane, &Pane::yaziSearchRequested, this, [this, pane](bool contents) {
+        showYaziSearch(pane, contents);
+    });
+    connect(pane->yaziColumns(), &YaziColumns::searchCancelRequested, this, [this, pane] {
+        SearchWidget *search = m_searchPanel->searchWidget();
+        if (m_yaziSearchPane != pane || !search->isRunning()) {
+            pane->yaziColumns()->clearSearchStatus();
+            return;
+        }
+        search->cancel();
+        reportYaziSearch(search->status(), true);
+    });
     connect(pane, &Pane::urlChanged, this, [this, pane](const QUrl &url) {
         syncLinkedPane(pane, url);
         recordFolderVisit(pane, url);
@@ -2456,6 +2469,10 @@ void MainWindow::setupActions()
         return m_searchPanel->searchWidget()->history();
     });
     connect(toolbarSearch, &SearchToolbarAction::savedSearchRequested, this, [this](const QString &name) {
+        if (!m_searchPanel->searchWidget()->isRunning() && m_yaziSearchPane) {
+            m_yaziSearchPane->yaziColumns()->clearSearchStatus();
+            m_yaziSearchPane = nullptr;
+        }
         if (Settings::toolbarSearchOpensPanel()) {
             m_searchPanelAction->setChecked(true);
         }
@@ -2486,10 +2503,20 @@ void MainWindow::setupActions()
         activePane()->view()->currentView()->setFocus(Qt::OtherFocusReason);
     });
     connect(m_searchPanel->searchWidget(), &SearchWidget::finished, this, [this](const QString &status) {
+        reportYaziSearch(status, false);
         if (std::exchange(m_reportToolbarSearch, false) && !m_searchPanelAction->isChecked()) {
             showStatusMessage(
                 i18nc("@info:status %1 is the search outcome", "%1 Press Down in the search field or show the search panel to see the results.", status));
         }
+    });
+    connect(m_searchPanel->searchWidget(), &SearchWidget::started, this, [this] {
+        reportYaziSearch(QString(), true);
+    });
+    connect(m_searchPanel->searchWidget(), &SearchWidget::progressChanged, this, [this](const QString &status) {
+        reportYaziSearch(status, true);
+    });
+    connect(m_searchPanel->searchWidget(), &SearchWidget::startRejected, this, [this](const QString &message) {
+        reportYaziSearch(message, false);
     });
 
     m_linkedPanesAction = new KToggleAction(i18nc("@action", "Link Pane Navigation"), this);
@@ -4358,9 +4385,38 @@ void MainWindow::showSearchForPane(Pane *pane)
     SearchWidget *search = m_searchPanel->searchWidget();
     if (!search->setFolder(pane->url())) {
         showStatusMessage(i18nc("@info:status", "A search is running. Cancel it to search another folder."));
+    } else if (m_yaziSearchPane) {
+        // A search started from here isn't one the Yazi keys asked for.
+        m_yaziSearchPane->yaziColumns()->clearSearchStatus();
+        m_yaziSearchPane = nullptr;
     }
     m_searchPanelAction->setChecked(true);
     search->focusQuery();
+}
+
+void MainWindow::showYaziSearch(Pane *pane, bool contents)
+{
+    SearchWidget *search = m_searchPanel->searchWidget();
+    const bool running = search->isRunning();
+    showSearchForPane(pane);
+    if (running) {
+        if (m_yaziSearchPane != pane) {
+            pane->yaziColumns()->setSearchStatus(i18nc("@info:status", "A search is running. Cancel it to search another folder."), false);
+        }
+        return;
+    }
+    m_yaziSearchPane = pane;
+    search->prepareFolderSearch(contents ? LiveSearch::Field::Contents : LiveSearch::Field::FileName);
+    if (const QString limitation = search->locationLimitation(); !limitation.isEmpty()) {
+        pane->yaziColumns()->setSearchStatus(limitation, false);
+    }
+}
+
+void MainWindow::reportYaziSearch(const QString &status, bool running)
+{
+    if (m_yaziSearchPane) {
+        m_yaziSearchPane->yaziColumns()->setSearchStatus(status, running);
+    }
 }
 
 void MainWindow::searchFromToolbar(const QString &text)
@@ -4371,6 +4427,10 @@ void MainWindow::searchFromToolbar(const QString &text)
     }
     QWidget *field = QApplication::focusWidget();
     SearchWidget *search = m_searchPanel->searchWidget();
+    if (!search->isRunning() && m_yaziSearchPane) {
+        m_yaziSearchPane->yaziColumns()->clearSearchStatus();
+        m_yaziSearchPane = nullptr;
+    }
     // A running search keeps its folder; search() then reports that it is busy.
     search->setFolder(activePane()->url());
     if (Settings::toolbarSearchOpensPanel()) {

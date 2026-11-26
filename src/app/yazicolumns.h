@@ -17,12 +17,16 @@ class FolderView;
 class KDirLister;
 class KDirModel;
 class KDirSortFilterProxyModel;
+class KFileItem;
+class NameFilter;
 class QAbstractItemView;
 class QHBoxLayout;
 class QLabel;
 class QListView;
 class QModelIndex;
 class QSplitter;
+class QTimer;
+class QToolButton;
 class QVBoxLayout;
 class YaziKeys;
 class YaziPreview;
@@ -91,7 +95,32 @@ public:
     QLabel *modeIndicator() const;
     /// The label after the mode indicator that counts the selected items while several are selected or marked.
     QLabel *selectionIndicator() const;
-    /// Adds @p widget to the row below the columns, after the mode indicator.
+    /**
+     * Shows @p filter's text in the status row while it isn't empty, with a
+     * button that asks to clear it; see filterClearRequested().
+     */
+    void setFilter(const NameFilter &filter);
+    /// The label that shows the pane's filter; hidden while there is none.
+    QLabel *filterIndicator() const;
+    QToolButton *filterClearButton() const;
+    /// The label at the end of the status row that shows how the current column is sorted.
+    QLabel *sortIndicator() const;
+    /**
+     * Shows a search's progress or outcome in the status row. While
+     * @p running, a cancel button and Escape in the columns ask to cancel it;
+     * see searchCancelRequested(). An outcome is shown for
+     * SearchStatusTimeout milliseconds.
+     * @param status the search panel's status text, such as its progress or a reason it can't search
+     * @param running whether the search is still running
+     */
+    void setSearchStatus(const QString &status, bool running);
+    void clearSearchStatus();
+    bool isSearchRunning() const;
+    QLabel *searchIndicator() const;
+    QToolButton *searchCancelButton() const;
+    /// How long a search's outcome stays in the status row, in milliseconds.
+    static constexpr int SearchStatusTimeout = 10000;
+    /// Adds @p widget to the row below the columns, after the mode, selection, filter and search indicators.
     void addStatusWidget(QWidget *widget, int stretch = 0);
 
     /**
@@ -116,6 +145,8 @@ public:
     bool focusColumn(Column column);
     /// The column that has the keyboard focus, if the focus is in one.
     std::optional<Column> focusedColumn() const;
+    /// The parent column's focused item when it has the focus, otherwise the current column's focused item.
+    KFileItem focusedItem() const;
     /**
      * Opens the parent column's focused item as choosing it would. For the
      * folder the current column shows, focuses the current column instead.
@@ -152,6 +183,10 @@ Q_SIGNALS:
     void itemRequested(const QUrl &folder, const QUrl &item);
     /// The parent column or the preview column received focus or a click; the pane should become active.
     void activated();
+    /// The filter indicator's clear button was clicked; the pane should clear its filter.
+    void filterClearRequested();
+    /// The search cancel button was clicked, or Escape pressed in the columns while a search runs.
+    void searchCancelRequested();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -173,6 +208,7 @@ private:
     void labelCurrentColumn();
     void restoreCurrentColumnLabels();
     void updateIndicator();
+    void updateSortIndicator();
     /// Follows a selection change that the selection commands didn't make.
     void selectionChanged();
     void updateSelectionIndicator();
@@ -204,6 +240,13 @@ private:
     QHBoxLayout *m_statusLayout = nullptr;
     QLabel *m_indicator = nullptr;
     QLabel *m_selectionLabel = nullptr;
+    QLabel *m_filterLabel = nullptr;
+    QToolButton *m_filterClear = nullptr;
+    QLabel *m_searchLabel = nullptr;
+    QToolButton *m_searchCancel = nullptr;
+    QTimer *m_searchStatusTimeout = nullptr;
+    QLabel *m_sortLabel = nullptr;
+    bool m_searchRunning = false;
     YaziKeys *m_keys = nullptr;
     QUrl m_url;
     QUrl m_parentUrl;

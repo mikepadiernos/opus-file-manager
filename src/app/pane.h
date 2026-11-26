@@ -189,8 +189,9 @@ public:
     /**
      * Runs a Yazi mode command in this pane, as its keys or actions do.
      * Does nothing while the pane is not in Yazi mode. Showing or hiding the
-     * preview, leaving the mode and file commands happen once control returns
-     * to the event loop, since they can delete the focused widget.
+     * preview, leaving the mode, file commands and search requests happen
+     * once control returns to the event loop, since they can delete or move
+     * away from the focused widget.
      * @param command the command to run
      * @param count how many times to repeat a command that takes a count
      */
@@ -225,6 +226,11 @@ Q_SIGNALS:
      * item has been selected if nothing was.
      */
     void yaziFileCommandRequested(YaziMode::Command command);
+    /**
+     * A Yazi mode key asked to search the pane's folder in the search panel.
+     * @param contents true to search file contents, false to search file names
+     */
+    void yaziSearchRequested(bool contents);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;

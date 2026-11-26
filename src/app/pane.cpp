@@ -19,6 +19,7 @@
 
 #include <KConfigGroup>
 #include <KDirModel>
+#include <KFileItem>
 #include <KFilePlacesModel>
 #include <KIO/Global>
 #include <KLocalizedString>
@@ -425,6 +426,9 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     connect(m_view, &FolderView::activated, this, &Pane::activated);
     connect(m_view, &FolderView::typeAheadRequested, m_filterBar, &FilterBar::open);
     connect(m_filterBar, &FilterBar::filterChanged, m_view, &FolderView::setNameFilter);
+    connect(m_filterBar, &FilterBar::filterChanged, m_yaziColumns, &YaziColumns::setFilter);
+    m_yaziColumns->setFilter(m_filterBar->filter());
+    connect(m_yaziColumns, &YaziColumns::filterClearRequested, m_filterBar, &FilterBar::close);
     connect(m_filterBar, &FilterBar::activateFirstRequested, m_view, &FolderView::activateFirstItem);
     connect(m_filterBar, &FilterBar::closed, this, [this] {
         m_view->currentView()->setFocus();
@@ -1229,6 +1233,71 @@ void Pane::runYaziCommand(YaziMode::Command command, int count)
             },
             Qt::QueuedConnection);
         break;
+    case Command::Filter:
+        showFilterBar();
+        break;
+    case Command::ClearFilter:
+        if (m_filterBar->filter().isEmpty()) {
+            Q_EMIT statusMessage(i18nc("@info:status", "This pane has no filter to clear."));
+        } else {
+            m_filterBar->close();
+        }
+        break;
+    case Command::SearchNames:
+    case Command::SearchContents:
+        // Showing the search panel moves the focus out of the columns.
+        QMetaObject::invokeMethod(
+            this,
+            [this, contents = command == Command::SearchContents] {
+                if (m_yaziMode) {
+                    Q_EMIT yaziSearchRequested(contents);
+                }
+            },
+            Qt::QueuedConnection);
+        break;
+    case Command::SortByName:
+        m_view->setSorting(KDirModel::Name, m_view->sortOrder());
+        break;
+    case Command::SortBySize:
+        m_view->setSorting(KDirModel::Size, m_view->sortOrder());
+        break;
+    case Command::SortByModified:
+        m_view->setSorting(KDirModel::ModifiedTime, m_view->sortOrder());
+        break;
+    case Command::SortByType:
+        m_view->setSorting(KDirModel::Type, m_view->sortOrder());
+        break;
+    case Command::ReverseSort:
+        m_view->setSorting(m_view->sortColumn(), m_view->sortOrder() == Qt::AscendingOrder ? Qt::DescendingOrder : Qt::AscendingOrder);
+        break;
+    case Command::NewTab: {
+        const KFileItem item = m_yaziColumns->focusedItem();
+        openInNewTab(!item.isNull() && item.isDir() ? item.url() : m_view->url(), true);
+        break;
+    }
+    case Command::PreviousTab:
+    case Command::NextTab:
+        if (m_tabs->count() < 2) {
+            Q_EMIT statusMessage(i18nc("@info:status", "This pane has only one tab."));
+        } else if (command == Command::NextTab) {
+            m_tabs->activateNext();
+        } else {
+            m_tabs->activatePrevious();
+        }
+        break;
+    case Command::CloseTab: {
+        const int index = m_tabs->currentIndex();
+        if (m_tabs->count() < 2) {
+            Q_EMIT statusMessage(i18nc("@info:status", "The pane's only tab can't be closed."));
+        } else if (m_tabs->isPinned(index)) {
+            Q_EMIT statusMessage(i18nc("@info:status", "This tab is pinned. Unpin it to close it."));
+        } else if (m_tabs->isLocked(index)) {
+            Q_EMIT statusMessage(i18nc("@info:status", "This tab is locked. Unlock it to close it."));
+        } else {
+            closeCurrentTab();
+        }
+        break;
+    }
     }
 }
 

@@ -3,6 +3,8 @@
 #include "yazicolumns.h"
 
 #include "folderview.h"
+#include "namefilter.h"
+#include "symbolicicon.h"
 #include "yazikeys.h"
 #include "yazimode.h"
 #include "yazipreview.h"
@@ -21,6 +23,8 @@
 #include <QListView>
 #include <QScopedValueRollback>
 #include <QSplitter>
+#include <QTimer>
+#include <QToolButton>
 #include <QTreeView>
 #include <QVBoxLayout>
 
@@ -121,6 +125,47 @@ YaziColumns::YaziColumns(QWidget *parent)
     m_selectionLabel->setToolTip(i18nc("@info:tooltip", "File actions in Yazi mode act on the selected items"));
     m_selectionLabel->hide();
 
+    m_filterLabel = new QLabel(this);
+    m_filterLabel->setObjectName(QStringLiteral("yaziFilterIndicator"));
+    m_filterLabel->setTextFormat(Qt::PlainText);
+    m_filterLabel->setToolTip(i18nc("@info:tooltip", "The current column only shows the items that match this filter"));
+    m_filterLabel->hide();
+    m_filterClear = new QToolButton(this);
+    m_filterClear->setObjectName(QStringLiteral("yaziFilterClear"));
+    m_filterClear->setIcon(SymbolicIcon::fromTheme(QStringLiteral("edit-clear")));
+    m_filterClear->setToolTip(i18nc("@info:tooltip", "Clear the filter"));
+    m_filterClear->setAccessibleName(i18nc("@action:button", "Clear Filter"));
+    m_filterClear->setAutoRaise(true);
+    m_filterClear->setFocusPolicy(Qt::NoFocus);
+    m_filterClear->hide();
+    connect(m_filterClear, &QToolButton::clicked, this, &YaziColumns::filterClearRequested);
+
+    m_searchLabel = new QLabel(this);
+    m_searchLabel->setObjectName(QStringLiteral("yaziSearchIndicator"));
+    m_searchLabel->setTextFormat(Qt::PlainText);
+    // A long outcome is clipped rather than widening the pane; the tooltip shows all of it.
+    m_searchLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    m_searchLabel->setMinimumWidth(fontMetrics().averageCharWidth() * 12);
+
+    m_searchLabel->hide();
+    m_searchCancel = new QToolButton(this);
+    m_searchCancel->setObjectName(QStringLiteral("yaziSearchCancel"));
+    m_searchCancel->setIcon(SymbolicIcon::fromTheme(QStringLiteral("process-stop")));
+    m_searchCancel->setToolTip(i18nc("@info:tooltip", "Cancel the search (Escape)"));
+    m_searchCancel->setAccessibleName(i18nc("@action:button", "Cancel Search"));
+    m_searchCancel->setAutoRaise(true);
+    m_searchCancel->setFocusPolicy(Qt::NoFocus);
+    m_searchCancel->hide();
+    connect(m_searchCancel, &QToolButton::clicked, this, &YaziColumns::searchCancelRequested);
+    m_searchStatusTimeout = new QTimer(this);
+    m_searchStatusTimeout->setSingleShot(true);
+    m_searchStatusTimeout->setInterval(SearchStatusTimeout);
+    connect(m_searchStatusTimeout, &QTimer::timeout, this, &YaziColumns::clearSearchStatus);
+
+    m_sortLabel = new QLabel(this);
+    m_sortLabel->setObjectName(QStringLiteral("yaziSortIndicator"));
+    m_sortLabel->hide();
+
     m_statusRow = new QWidget(this);
     m_statusRow->setObjectName(QStringLiteral("yaziStatusRow"));
     m_statusLayout = new QHBoxLayout(m_statusRow);
@@ -128,15 +173,24 @@ YaziColumns::YaziColumns(QWidget *parent)
     m_statusLayout->setSpacing(6);
     m_statusLayout->addWidget(m_indicator);
     m_statusLayout->addWidget(m_selectionLabel);
+    m_statusLayout->addWidget(m_filterLabel);
+    m_statusLayout->addWidget(m_filterClear);
+    m_statusLayout->addWidget(m_searchLabel, 1);
+    m_statusLayout->addWidget(m_searchCancel);
     m_statusLayout->addStretch(1);
+    m_statusLayout->addWidget(m_sortLabel);
 
     m_keys = new YaziKeys(this);
     m_keys->setFocusFilter([this](QWidget *widget) {
         return acceptsKeys(widget);
     });
+    m_keys->setEscapeOverride([this] {
+        return m_searchRunning;
+    });
     m_keys->watch(m_parentColumn);
     m_keys->watch(m_previewSlot);
     connect(m_keys, &YaziKeys::stateChanged, this, &YaziColumns::updateIndicator);
+    connect(m_keys, &YaziKeys::escapePressed, this, &YaziColumns::searchCancelRequested);
 
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -195,6 +249,7 @@ void YaziColumns::setCurrentView(FolderView *view)
         m_keys->watch(m_view->currentView());
     });
     connect(m_view, &FolderView::selectionChanged, this, &YaziColumns::selectionChanged);
+    connect(m_view, &FolderView::sortingChanged, this, &YaziColumns::updateSortIndicator);
     m_keys->setEnabled(true);
     labelCurrentColumn();
     if (YaziPreview *builtIn = preview()) {
@@ -203,6 +258,7 @@ void YaziColumns::setCurrentView(FolderView *view)
     updateTabOrder();
     applyColumnWidths();
     resetSelectionState();
+    updateSortIndicator();
 }
 
 FolderView *YaziColumns::takeCurrentView()
@@ -224,6 +280,7 @@ FolderView *YaziColumns::takeCurrentView()
     restoreCurrentColumnLabels();
     m_view = nullptr;
     resetSelectionState();
+    updateSortIndicator();
     view->setParent(parentWidget());
     return view;
 }
@@ -448,7 +505,121 @@ QLabel *YaziColumns::selectionIndicator() const
 
 void YaziColumns::addStatusWidget(QWidget *widget, int stretch)
 {
-    m_statusLayout->insertWidget(m_statusLayout->count() - 1, widget, stretch);
+    // Before the stretch that keeps the sort indicator at the end of the row.
+    m_statusLayout->insertWidget(m_statusLayout->indexOf(m_sortLabel) - 1, widget, stretch);
+}
+
+void YaziColumns::setFilter(const NameFilter &filter)
+{
+    const QString text = filter.text();
+    if (text.isEmpty()) {
+        m_filterLabel->hide();
+        m_filterClear->hide();
+        m_filterLabel->clear();
+        return;
+    }
+    constexpr int MaximumShownLength = 40;
+    const QString shown = text.size() > MaximumShownLength ? text.left(MaximumShownLength - 1) + QStringLiteral("…") : text;
+    m_filterLabel->setText(i18nc("@info:status %1 is the filter text", "Filter: %1", shown));
+    m_filterLabel->setAccessibleName(i18nc("@info:accessibility %1 is the filter text", "Filtered by %1", text));
+    m_filterLabel->show();
+    m_filterClear->show();
+}
+
+QLabel *YaziColumns::filterIndicator() const
+{
+    return m_filterLabel;
+}
+
+QToolButton *YaziColumns::filterClearButton() const
+{
+    return m_filterClear;
+}
+
+QLabel *YaziColumns::sortIndicator() const
+{
+    return m_sortLabel;
+}
+
+void YaziColumns::updateSortIndicator()
+{
+    if (!m_view) {
+        m_sortLabel->hide();
+        return;
+    }
+    const int column = m_view->sortColumn();
+    const bool ascending = m_view->sortOrder() == Qt::AscendingOrder;
+    QString name;
+    switch (column) {
+    case KDirModel::Name:
+        name = i18nc("@info:status sort column", "Name");
+        break;
+    case KDirModel::Size:
+        name = i18nc("@info:status sort column", "Size");
+        break;
+    case KDirModel::ModifiedTime:
+        name = i18nc("@info:status sort column", "Modified");
+        break;
+    case KDirModel::Type:
+        name = i18nc("@info:status sort column", "Type");
+        break;
+    default:
+        if (const QAbstractItemModel *model = m_view->currentView()->model()) {
+            name = model->headerData(column, Qt::Horizontal, Qt::DisplayRole).toString();
+        }
+        break;
+    }
+    if (name.isEmpty()) {
+        m_sortLabel->hide();
+        return;
+    }
+    m_sortLabel->setText(ascending ? i18nc("@info:status %1 is the sort column", "%1 ↑", name) : i18nc("@info:status %1 is the sort column", "%1 ↓", name));
+    m_sortLabel->setAccessibleName(ascending ? i18nc("@info:accessibility %1 is the sort column", "Sorted by %1, ascending", name)
+                                             : i18nc("@info:accessibility %1 is the sort column", "Sorted by %1, descending", name));
+    m_sortLabel->setToolTip(m_sortLabel->accessibleName());
+    m_sortLabel->show();
+}
+
+void YaziColumns::setSearchStatus(const QString &status, bool running)
+{
+    if (status.isEmpty() && !running) {
+        clearSearchStatus();
+        return;
+    }
+    m_searchRunning = running;
+    m_searchLabel->setText(status.isEmpty() ? i18nc("@info:status", "Searching…") : status);
+    m_searchLabel->setToolTip(m_searchLabel->text());
+    m_searchLabel->show();
+    m_searchCancel->setVisible(running);
+    if (running) {
+        m_searchStatusTimeout->stop();
+    } else {
+        m_searchStatusTimeout->start();
+    }
+}
+
+void YaziColumns::clearSearchStatus()
+{
+    m_searchRunning = false;
+    m_searchStatusTimeout->stop();
+    m_searchLabel->hide();
+    m_searchLabel->clear();
+    m_searchCancel->hide();
+}
+
+bool YaziColumns::isSearchRunning() const
+{
+    return m_searchRunning;
+}
+
+QLabel *YaziColumns::searchIndicator() const
+{
+    return m_searchLabel;
+}
+
+QToolButton *YaziColumns::searchCancelButton() const
+{
+    return m_searchCancel;
 }
 
 YaziKeys *YaziColumns::keys() const
@@ -507,6 +678,14 @@ std::optional<YaziColumns::Column> YaziColumns::focusedColumn() const
         return Column::Preview;
     }
     return std::nullopt;
+}
+
+KFileItem YaziColumns::focusedItem() const
+{
+    if (focusedColumn() == Column::Parent) {
+        return m_model->itemForIndex(m_proxy->mapToSource(m_parentColumn->currentIndex()));
+    }
+    return m_view ? m_view->currentItem() : KFileItem();
 }
 
 QAbstractItemView *YaziColumns::movementTarget() const

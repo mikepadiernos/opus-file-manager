@@ -59,6 +59,17 @@ void YaziKeys::setFocusFilter(std::function<bool(QWidget *)> accepts)
     m_accepts = std::move(accepts);
 }
 
+void YaziKeys::setEscapeOverride(std::function<bool()> active)
+{
+    m_escapeActive = std::move(active);
+}
+
+bool YaziKeys::overridesEscape(QKeyCombination key) const
+{
+    return key.key() == Qt::Key_Escape && (key.keyboardModifiers() & ~Qt::KeypadModifier) == Qt::NoModifier && !m_matcher.isPending() && m_escapeActive
+        && m_escapeActive();
+}
+
 void YaziKeys::watch(QWidget *widget)
 {
     widget->installEventFilter(this);
@@ -119,10 +130,18 @@ bool YaziKeys::eventFilter(QObject *watched, QEvent *event)
     }
     using Result = YaziMode::KeyMatcher::Result;
     if (type == QEvent::ShortcutOverride) {
+        if (overridesEscape(key)) {
+            event->accept();
+            return true;
+        }
         if (m_matcher.test(key) == Result::NoMatch) {
             return QObject::eventFilter(watched, event);
         }
         event->accept();
+        return true;
+    }
+    if (overridesEscape(key)) {
+        Q_EMIT escapePressed();
         return true;
     }
 

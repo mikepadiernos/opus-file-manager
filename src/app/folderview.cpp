@@ -1035,6 +1035,8 @@ FolderView::FolderView(QWidget *parent)
     connect(m_details->header(), &QHeaderView::customContextMenuRequested, this, &FolderView::showColumnMenu);
     connect(m_details->header(), &QHeaderView::sortIndicatorChanged, this, [this] {
         saveFolderFormat();
+        // Header clicks and folder formats sort without setSorting().
+        Q_EMIT sortingChanged();
     });
     connect(m_details->header(), &QHeaderView::sectionMoved, this, [this] {
         saveFolderFormat();

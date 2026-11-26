@@ -42,6 +42,12 @@ public:
      * text, as isTypingWidget() tells, are always left alone.
      */
     void setFocusFilter(std::function<bool(QWidget *)> accepts);
+    /**
+     * Lets Escape, when no sequence is pending, emit escapePressed() instead
+     * of reaching the focus widget while @p active returns true, as when a
+     * search started from the columns can be cancelled.
+     */
+    void setEscapeOverride(std::function<bool()> active);
 
     /// Matches keys sent to @p widget and, for a container, keys its children let through.
     void watch(QWidget *widget);
@@ -62,17 +68,21 @@ Q_SIGNALS:
     void commandTriggered(YaziMode::Command command, int count);
     /// The preset or the pending keys changed.
     void stateChanged();
+    /// Escape was pressed while the escape override was active; see setEscapeOverride().
+    void escapePressed();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
     bool appliesTo(QWidget *focus) const;
+    bool overridesEscape(QKeyCombination key) const;
 
     YaziMode::Preset m_preset = YaziMode::Preset::Standard;
     YaziMode::KeyMatcher m_matcher;
     QTimer *m_timeout = nullptr;
     std::function<bool(QWidget *)> m_accepts;
+    std::function<bool()> m_escapeActive;
     bool m_enabled = false;
     bool m_sending = false;
 };
