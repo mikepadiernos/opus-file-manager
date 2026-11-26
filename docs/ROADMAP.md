@@ -1482,7 +1482,7 @@ for some features are recorded in [pending tasks](TODO.md).
 
 - **M27.04: Terminals and command history**
 
-  - [ ] Extend the existing open-terminal action and M09 embedded Konsole
+  - [x] Extend the existing open-terminal action and M09 embedded Konsole
         terminal with explicit separate Konsole, Yakuake or Kwi providers and an
         embedded Kwi KPart when available. Reuse the current Konsole integration
         and pane-preserving layout. Yakuake is a separate drop-down application,
