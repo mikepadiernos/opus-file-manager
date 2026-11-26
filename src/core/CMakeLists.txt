@@ -130,6 +130,8 @@ add_library(opusfm_core STATIC
     namefilter.h
     officeapps.cpp
     officeapps.h
+    onlineaccounts.cpp
+    onlineaccounts.h
     operationjob.cpp
     operationjob.h
     pathfilter.cpp
@@ -218,6 +220,12 @@ target_include_directories(opusfm_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAK
 if(KF6Baloo_FOUND)
     target_compile_definitions(opusfm_core PUBLIC OPUSFM_HAVE_BALOO)
     target_link_libraries(opusfm_core PUBLIC KF6::Baloo)
+endif()
+
+if(AccountsQt6_FOUND)
+    target_compile_definitions(opusfm_core PRIVATE OPUSFM_HAVE_ACCOUNTS)
+    target_include_directories(opusfm_core SYSTEM PRIVATE ${ACCOUNTSQT_INCLUDE_DIRS})
+    target_link_libraries(opusfm_core PRIVATE ${ACCOUNTSQT_LIBRARIES} Qt6::Xml)
 endif()
 
 target_link_libraries(opusfm_core

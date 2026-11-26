@@ -107,6 +107,7 @@ ecm_add_tests(
     indexstatustest.cpp
     kdeconnectsharetest.cpp
     lansharetest.cpp
+    onlineaccountstest.cpp
     kwinscripttest.cpp
     mounttabletest.cpp
     libraryscantest.cpp
@@ -167,6 +168,11 @@ ecm_add_tests(
     LINK_LIBRARIES opusfm_core Qt6::Test KF6::ConfigCore
     NAME_PREFIX "opusfm-"
 )
+if(AccountsQt6_FOUND)
+    target_compile_definitions(onlineaccountstest PRIVATE OPUSFM_HAVE_ACCOUNTS)
+    target_include_directories(onlineaccountstest SYSTEM PRIVATE ${ACCOUNTSQT_INCLUDE_DIRS})
+    target_link_libraries(onlineaccountstest ${ACCOUNTSQT_LIBRARIES} Qt6::Xml)
+endif()
 
 ecm_add_test(yazimodeuitest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
