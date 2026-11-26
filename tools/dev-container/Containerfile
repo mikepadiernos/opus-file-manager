@@ -45,6 +45,7 @@ RUN dnf -y install --setopt=install_weak_deps=False \
         libaccounts-qt6-devel \
         kaccounts-providers \
         kio-gdrive \
+        rsync \
         kf6-kparts-devel \
         kf6-krunner-devel \
         kf6-kstatusnotifieritem-devel \
