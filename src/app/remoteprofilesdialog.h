@@ -15,7 +15,7 @@ class QPushButton;
 class QSpinBox;
 
 /**
- * Adds, edits and removes saved SSH, SFTP and WebDAV connections, and opens
+ * Adds, edits and removes saved remote connections, and opens
  * one in a pane or an SSH terminal.
  */
 class RemoteProfilesDialog : public QDialog
@@ -23,7 +23,7 @@ class RemoteProfilesDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit RemoteProfilesDialog(const KConfigGroup &group, QWidget *parent = nullptr);
+    explicit RemoteProfilesDialog(const KConfigGroup &group, QWidget *parent = nullptr, RemoteProfiles::ProtocolCheck check = RemoteProfiles::isKnownProtocol);
 
     /// Whether "Open in Other Pane" is offered.
     void setOtherPaneAvailable(bool available);
@@ -45,6 +45,7 @@ private:
     void updateState();
 
     KConfigGroup m_group;
+    RemoteProfiles::ProtocolCheck m_check;
     QList<RemoteProfiles::Profile> m_profiles;
     QListWidget *m_list;
     QLineEdit *m_name;

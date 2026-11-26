@@ -24,9 +24,10 @@ using RemoteProfiles::Authentication;
 using RemoteProfiles::Profile;
 using RemoteProfiles::Protocol;
 
-RemoteProfilesDialog::RemoteProfilesDialog(const KConfigGroup &group, QWidget *parent)
+RemoteProfilesDialog::RemoteProfilesDialog(const KConfigGroup &group, QWidget *parent, RemoteProfiles::ProtocolCheck check)
     : QDialog(parent)
     , m_group(group)
+    , m_check(std::move(check))
     , m_list(new QListWidget(this))
     , m_name(new QLineEdit(this))
     , m_protocol(new QComboBox(this))
@@ -296,6 +297,10 @@ void RemoteProfilesDialog::updateState()
     if (!error.isEmpty() && !emptyNew) {
         messages.append(error);
     }
+    const QString unavailable = RemoteProfiles::unavailableReason(protocol, m_check);
+    if (!unavailable.isEmpty()) {
+        messages.append(unavailable);
+    }
     const QString warning = RemoteProfiles::securityWarning(profile);
     if (!warning.isEmpty()) {
         messages.append(warning);
@@ -305,7 +310,7 @@ void RemoteProfilesDialog::updateState()
 
     m_remove->setEnabled(editing);
     m_save->setEnabled(error.isEmpty());
-    m_open->setEnabled(error.isEmpty());
-    m_openOther->setEnabled(error.isEmpty() && m_otherPaneAvailable);
+    m_open->setEnabled(error.isEmpty() && unavailable.isEmpty());
+    m_openOther->setEnabled(error.isEmpty() && unavailable.isEmpty() && m_otherPaneAvailable);
     m_ssh->setEnabled(error.isEmpty() && ssh);
 }

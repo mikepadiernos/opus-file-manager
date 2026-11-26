@@ -140,6 +140,28 @@ private Q_SLOTS:
         QCOMPARE(ssh.first().at(0).value<Profile>().host, QStringLiteral("box.example.org"));
     }
 
+    void reportsMissingWorkers()
+    {
+        RemoteProfilesDialog dialog(group(), nullptr, [](const QString &scheme) {
+            return scheme != QLatin1String("ftps");
+        });
+        auto *protocol = dialog.findChild<QComboBox *>(QStringLiteral("remoteProfileProtocol"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("remoteProfileStatus"));
+        auto *open = dialog.findChild<QPushButton *>(QStringLiteral("remoteProfileOpen"));
+        auto *save = dialog.findChild<QPushButton *>(QStringLiteral("remoteProfileSave"));
+        dialog.findChild<QLineEdit *>(QStringLiteral("remoteProfileName"))->setText(QStringLiteral("Files"));
+        dialog.findChild<QLineEdit *>(QStringLiteral("remoteProfileHost"))->setText(QStringLiteral("files.example.org"));
+        protocol->setCurrentIndex(protocol->findData(static_cast<int>(Protocol::Ftps)));
+        QVERIFY(status->text().contains(QStringLiteral("FTP over TLS")));
+        QVERIFY(!open->isEnabled());
+        QVERIFY(save->isEnabled());
+
+        protocol->setCurrentIndex(protocol->findData(static_cast<int>(Protocol::Ftp)));
+        QVERIFY(status->text().contains(QStringLiteral("plain text")));
+        QVERIFY(open->isEnabled());
+        QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("remoteProfileSsh"))->isEnabled());
+    }
+
 private:
     KConfigGroup group() const
     {

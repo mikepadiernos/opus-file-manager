@@ -397,7 +397,7 @@ private Q_SLOTS:
         QVERIFY(remote);
         Q_EMIT remote->menu()->aboutToShow();
         const QList<QAction *> entries = remote->menu()->actions();
-        QCOMPARE(entries.size(), 4);
+        QCOMPARE(entries.size(), 5);
         QCOMPARE(entries.at(0)->text(), QStringLiteral("Build && deploy"));
         QCOMPARE(entries.at(0)->toolTip(), QStringLiteral("sftp://deploy@build.example.invalid:2222"));
         QVERIFY(entries.at(0)->menu());
@@ -405,7 +405,9 @@ private Q_SLOTS:
         QVERIFY(entries.at(1)->menu());
         QCOMPARE(entries.at(1)->menu()->actions().size(), 2);
         QVERIFY(entries.at(2)->isSeparator());
-        QCOMPARE(entries.at(3), window.actionCollection()->action(QStringLiteral("manage_remote_connections")));
+        QCOMPARE(entries.at(3), window.actionCollection()->action(QStringLiteral("network_locations")));
+        QVERIFY(entries.at(3)->isEnabled());
+        QCOMPARE(entries.at(4), window.actionCollection()->action(QStringLiteral("manage_remote_connections")));
 
         window.openSshTerminal(profiles.first());
         QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("ssh command was not found")));

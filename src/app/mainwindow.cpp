@@ -3610,15 +3610,26 @@ void MainWindow::setupActions()
     connect(m_mountPointsMenu, &QMenu::aboutToShow, this, &MainWindow::populateMountPoints);
 
     auto *remoteConnections = new KActionMenu(SymbolicIcon::fromTheme(QStringLiteral("folder-network")), i18nc("@action", "Remote Connections"), this);
-    remoteConnections->setToolTip(i18nc("@info:tooltip", "Open a saved SSH, SFTP or WebDAV connection"));
+    remoteConnections->setToolTip(i18nc("@info:tooltip", "Open a saved remote connection or the local network"));
     remoteConnections->setPopupMode(QToolButton::InstantPopup);
     m_remoteConnectionsMenu = remoteConnections->menu();
     actions->addAction(QStringLiteral("remote_connections"), remoteConnections);
     connect(m_remoteConnectionsMenu, &QMenu::aboutToShow, this, &MainWindow::populateRemoteConnections);
     QAction *manageRemote = actions->addAction(QStringLiteral("manage_remote_connections"), this, &MainWindow::showRemoteConnections);
     manageRemote->setText(i18nc("@action", "Manage Remote Connections…"));
-    manageRemote->setToolTip(i18nc("@info:tooltip", "Add, edit or remove saved SSH, SFTP and WebDAV connections"));
+    manageRemote->setToolTip(i18nc("@info:tooltip", "Add, edit or remove saved SSH, WebDAV, SMB and FTP connections"));
     manageRemote->setIcon(SymbolicIcon::fromTheme(QStringLiteral("network-server")));
+    QAction *network = actions->addAction(QStringLiteral("network_locations"), this, [this] {
+        const QUrl url = RemoteProfiles::networkUrl();
+        if (url.isEmpty()) {
+            showStatusMessage(i18nc("@info:status", "No KIO worker lists the local network. Install kio-extras."));
+            return;
+        }
+        activePane()->setUrl(url);
+    });
+    network->setText(i18nc("@action", "Network"));
+    network->setToolTip(i18nc("@info:tooltip", "Browse shares and services discovered on the local network"));
+    network->setIcon(SymbolicIcon::fromTheme(QStringLiteral("network-workgroup")));
 
     QAction *editUrl = actions->addAction(QStringLiteral("edit_location"), this, [this] {
         activePane()->editUrl();
@@ -5692,6 +5703,9 @@ void MainWindow::populateRemoteConnections()
         problem->setEnabled(false);
     }
     m_remoteConnectionsMenu->addSeparator();
+    QAction *network = actionCollection()->action(QStringLiteral("network_locations"));
+    network->setEnabled(!RemoteProfiles::networkUrl().isEmpty());
+    m_remoteConnectionsMenu->addAction(network);
     m_remoteConnectionsMenu->addAction(actionCollection()->action(QStringLiteral("manage_remote_connections")));
 }
 
