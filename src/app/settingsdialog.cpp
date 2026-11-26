@@ -282,7 +282,9 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                                KStandardGuiItem::cancel())
             == KMessageBox::PrimaryAction;
     };
-    addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}}, i18nc("@title:group", "General"), QStringLiteral("configure"));
+    addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}, {createSystemTrayPage(), i18nc("@title:tab", "System Tray")}},
+                  i18nc("@title:group", "General"),
+                  QStringLiteral("configure"));
     addTabbedPage({{createLanguagePage(), i18nc("@title:tab", "Language and Layout")}, {createDateLanguagePage(), i18nc("@title:tab", "Dates")}},
                   i18nc("@title:group", "Translation"),
                   QStringLiteral("preferences-desktop-locale"));
@@ -361,7 +363,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                      {createWorkspaceIndicatorsPage(), i18nc("@title:tab", "Indicators")},
                                      {createWorkspaceLocationBarsPage(), i18nc("@title:tab", "Location Bars")},
                                      {createWorkspaceBehaviorsPage(), i18nc("@title:tab", "Behaviors")},
-                                     {createWorkspacePortabilityPage(), i18nc("@title:tab", "Portability")}},
+                                     {createWorkspacePortabilityPage(), i18nc("@title:tab", "Portability")},
+                                     {createWorkspaceActivitiesPage(), i18nc("@title:tab", "Activities")}},
                                     i18nc("@title:group", "Workspaces"),
                                     QStringLiteral("view-grid"),
                                     &m_workspaceTabs);
@@ -491,6 +494,57 @@ QWidget *SettingsDialog::createSettingsDialogPage()
                  comboBox(QStringLiteral("SidebarTitlePosition"),
                           {i18nc("@item:inlistbox", "Beside the sidebar icons"), i18nc("@item:inlistbox", "Below the sidebar icons")}));
     form->addRow(i18nc("@label:spinbox", "Sidebar icon size:"), pixelSpinBox(QStringLiteral("SidebarIconSize"), 16, 64));
+    return page;
+}
+
+QWidget *SettingsDialog::createSystemTrayPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("systemTrayPage"));
+    auto *layout = new QVBoxLayout(page);
+    auto *show = checkBox(QStringLiteral("ShowTrayIcon"), i18nc("@option:check", "Show an icon in the system tray"));
+    auto *minimize = checkBox(QStringLiteral("MinimizeToTray"), i18nc("@option:check", "Hide the window in the system tray when it is minimized"));
+    auto *close = checkBox(QStringLiteral("CloseToTray"), i18nc("@option:check", "Hide the window in the system tray when it is closed"));
+    layout->addWidget(show);
+    layout->addWidget(minimize);
+    layout->addWidget(close);
+    auto *note = new QLabel(i18nc("@info",
+                                  "The window hides only while a system tray can show the icon that brings it back. File › Quit and the "
+                                  "tray icon's Quit still quit. Change the global shortcut that shows or hides the window in Configure Keyboard "
+                                  "Shortcuts or Plasma's Shortcuts settings."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    layout->addStretch();
+    const auto update = [show, minimize, close] {
+        minimize->setEnabled(show->isChecked());
+        close->setEnabled(show->isChecked());
+    };
+    connect(show, &QCheckBox::toggled, page, update);
+    update();
+    return page;
+}
+
+QWidget *SettingsDialog::createWorkspaceActivitiesPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("workspaceActivitiesPage"));
+    auto *layout = new QVBoxLayout(page);
+    auto *enabled = checkBox(QStringLiteral("ActivityAssociations"), i18nc("@option:check", "Associate workspaces and default folders with Plasma Activities"));
+    auto *offer = checkBox(QStringLiteral("OfferActivityAssociation"),
+                           i18nc("@option:check", "Offer to apply an Activity's association when the current Activity changes"));
+    layout->addWidget(enabled);
+    layout->addWidget(offer);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Choose each Activity's workspace, behaviors and default folders in View › Activity Associations. "
+                                  "Associations are only offered, never applied without asking, and Plasma Opus never creates, removes "
+                                  "or switches Activities."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    layout->addStretch();
+    connect(enabled, &QCheckBox::toggled, offer, &QWidget::setEnabled);
+    offer->setEnabled(enabled->isChecked());
     return page;
 }
 

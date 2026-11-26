@@ -135,6 +135,7 @@ private:
     void applySidebarStyle(int size, bool below);
 
     QWidget *createSettingsDialogPage();
+    QWidget *createSystemTrayPage();
     QWidget *createLanguagePage();
     QWidget *createDateLanguagePage();
     QWidget *createToolbarEntriesPage();
@@ -247,6 +248,7 @@ private:
     QWidget *createWorkspaceLocationBarsPage();
     QWidget *createWorkspaceBehaviorsPage();
     QWidget *createWorkspacePortabilityPage();
+    QWidget *createWorkspaceActivitiesPage();
     void createSettingsBackup();
     void restoreSettingsBackup();
     void exportWorkspaceProfiles();
