@@ -184,6 +184,7 @@ target_link_libraries(opusfm_app
         KF6::KIOGui
         KF6::KIOWidgets
         KF6::ItemViews
+        KF6::NewStuffWidgets
         KF6::Parts
         KF6::Solid
         KF6::StatusNotifierItem

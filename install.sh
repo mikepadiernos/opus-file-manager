@@ -83,7 +83,7 @@ fi
 # Dependencies
 # ---------------------------------------------------------------------------
 
-KF_MODULES=(archive bookmarks config configwidgets coreaddons crash dbusaddons filemetadata globalaccel guiaddons i18n iconthemes itemviews kio parts solid statusnotifieritem syntaxhighlighting texteditor widgetsaddons windowsystem xmlgui)
+KF_MODULES=(archive bookmarks config configwidgets coreaddons crash dbusaddons filemetadata globalaccel guiaddons i18n iconthemes itemviews kio newstuff parts solid statusnotifieritem syntaxhighlighting texteditor widgetsaddons windowsystem xmlgui)
 
 distro_id() {
     [ -r /etc/os-release ] || { echo unknown; return; }
