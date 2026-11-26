@@ -4,6 +4,7 @@
 
 #include <KLocalizedString>
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QProcess>
@@ -133,14 +134,24 @@ RcloneMounts::RcloneMounts(QObject *parent)
     : QObject(parent)
     , m_check(Rclone::isMountPoint)
 {
+    // The main window lives until the process exits, so its children aren't destroyed at quit.
+    if (QCoreApplication *application = QCoreApplication::instance()) {
+        connect(application, &QCoreApplication::aboutToQuit, this, &RcloneMounts::stopAllNow);
+    }
 }
 
 RcloneMounts::~RcloneMounts()
+{
+    stopAllNow();
+}
+
+void RcloneMounts::stopAllNow()
 {
     if (m_lister) {
         m_lister->disconnect(this);
         m_lister->kill();
         m_lister->waitForFinished(1000);
+        delete std::exchange(m_lister, nullptr);
     }
     const QStringList remotes = m_mounts.keys();
     for (const QString &remote : remotes) {
@@ -151,8 +162,11 @@ RcloneMounts::~RcloneMounts()
             mount.process->kill();
             mount.process->waitForFinished(1000);
         }
+        delete mount.poll;
+        delete mount.process;
         QDir().rmdir(mount.path);
     }
+    m_mounts.clear();
 }
 
 void RcloneMounts::setMountCheck(MountCheck check)

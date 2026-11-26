@@ -198,6 +198,25 @@ private Q_SLOTS:
         QVERIFY(!QFileInfo::exists(Rclone::mountPoint(QStringLiteral("gdrive"))));
     }
 
+    void stopsMountsAtQuit()
+    {
+        writeFakeRclone();
+        RcloneMounts mounts;
+        mounts.setMountCheck([this](const QString &) {
+            return QFile::exists(m_arguments);
+        });
+        QSignalSpy mounted(&mounts, &RcloneMounts::mounted);
+        QSignalSpy unmounted(&mounts, &RcloneMounts::unmounted);
+        mounts.mount(QStringLiteral("gdrive"));
+        QVERIFY(mounted.wait(5000));
+        mounts.stopAllNow();
+        QVERIFY(mounts.mountedRemotes().isEmpty());
+        QVERIFY(!mounts.isMounted(QStringLiteral("gdrive")));
+        QVERIFY(!QFileInfo::exists(Rclone::mountPoint(QStringLiteral("gdrive"))));
+        QTest::qWait(100);
+        QCOMPARE(unmounted.size(), 0);
+    }
+
 private:
     void writeFakeRclone()
     {

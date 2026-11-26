@@ -51,7 +51,7 @@ bool isMountPoint(const QString &path);
 
 /**
  * Runs and stops `rclone mount` processes started by Plasma Opus. Mounts
- * stop when the object is destroyed.
+ * stop when the application quits or the object is destroyed.
  */
 class RcloneMounts : public QObject
 {
@@ -76,6 +76,8 @@ public:
     void unmount(const QString &remote);
     /// Stops every mount Plasma Opus started.
     void unmountAll();
+    /// Stops every mount and waits for rclone to exit, without emitting signals.
+    void stopAllNow();
 
     bool isMounted(const QString &remote) const;
     bool isStarting(const QString &remote) const;
