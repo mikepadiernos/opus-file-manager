@@ -1332,7 +1332,7 @@ for some features are recorded in [pending tasks](TODO.md).
         offer access to Plasma's language settings when supported. Do not change
         shared desktop settings without explicit action or require a particular
         translation.
-  - [ ] Plasma notifications and jobs: integrate Plasma Opus-owned long-running
+  - [x] Plasma notifications and jobs: integrate Plasma Opus-owned long-running
         operations with KDE's notification settings and offer relevant actions
         to return to the operation or inspect its result. Reuse KIO's existing
         progress reporting rather than creating duplicate notifications or
