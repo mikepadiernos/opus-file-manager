@@ -326,6 +326,51 @@ private Q_SLOTS:
         QCOMPARE(lines, expected);
     }
 
+    void editStartsASuitableTool()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        const QString output = m_bin.filePath(QStringLiteral("arguments"));
+        const QString photo = folder.filePath(QStringLiteral("--photo.png"));
+        const QString notes = folder.filePath(QStringLiteral("notes.txt"));
+        const QString clip = folder.filePath(QStringLiteral("clip.mp4"));
+        for (const QString &name : {photo, notes, clip}) {
+            QFile file(name);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(folder.path())});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 3);
+        QAction *edit = window.actionCollection()->action(QStringLiteral("edit_file"));
+        QVERIFY(edit);
+        QCOMPARE(edit->shortcut(), QKeySequence(Qt::Key_F4));
+        QVERIFY(!edit->isEnabled());
+        view->selectUrls({QUrl::fromLocalFile(clip)});
+        QVERIFY(!edit->isEnabled());
+        view->selectUrls({QUrl::fromLocalFile(photo), QUrl::fromLocalFile(notes)});
+        QVERIFY(!edit->isEnabled());
+
+        view->selectUrls({QUrl::fromLocalFile(notes)});
+        QTRY_VERIFY(edit->isEnabled());
+        QCOMPARE(edit->toolTip(), QStringLiteral("Edit the selected file with the built-in editor"));
+        view->selectUrls({QUrl::fromLocalFile(photo)});
+        QTRY_COMPARE(edit->toolTip(), QStringLiteral("No image editor is installed. Install KolourPaint, Krita or GIMP."));
+
+        QVERIFY(writeExecutable(m_bin.filePath(QStringLiteral("kolourpaint")), "#!/bin/sh\nprintf '%s\\n' \"$0\" \"$@\" > '" + output.toLocal8Bit() + "'\n"));
+        view->selectUrls({QUrl::fromLocalFile(notes)});
+        view->selectUrls({QUrl::fromLocalFile(photo)});
+        QTRY_COMPARE(edit->toolTip(), QStringLiteral("Edit the selected file with KolourPaint"));
+        edit->trigger();
+        QFile file(output);
+        QTRY_VERIFY(file.exists() && file.size() > 0);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        const QStringList lines = QString::fromLocal8Bit(file.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        QCOMPARE(lines.size(), 2);
+        QVERIFY(lines.at(0).endsWith(QStringLiteral("kolourpaint")));
+        QCOMPARE(lines.at(1), photo);
+    }
+
 private:
     QTemporaryDir m_bin;
     QByteArray m_path;

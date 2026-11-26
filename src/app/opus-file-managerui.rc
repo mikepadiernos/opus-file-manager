@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="62" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="63" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -31,6 +31,7 @@
       <Action name="custom_command"/>
       <Action name="transfer_queue"/>
       <Action name="open_editor"/>
+      <Action name="edit_file"/>
       <Action name="edit_with"/>
       <Action name="open_in_office"/>
       <Action name="kdeconnect_send"/>

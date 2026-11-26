@@ -2905,6 +2905,10 @@ void MainWindow::setupActions()
     QAction *editor = actions->addAction(QStringLiteral("open_editor"), this, &MainWindow::openEditor);
     editor->setText(i18nc("@action", "Open Editor"));
     editor->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-pim-notes")));
+    QAction *editFile = actions->addAction(QStringLiteral("edit_file"), this, &MainWindow::editFile);
+    editFile->setText(i18nc("@action", "Edit"));
+    editFile->setIcon(SymbolicIcon::fromTheme(QStringLiteral("document-edit")));
+    actions->setDefaultShortcut(editFile, Qt::Key_F4);
     auto *editWith = new KActionMenu(SymbolicIcon::fromTheme(QStringLiteral("document-edit")), i18nc("@action", "Edit With"), this);
     editWith->setToolTip(i18nc("@info:tooltip", "Open the selected files in a chosen text editor"));
     editWith->setPopupMode(QToolButton::InstantPopup);
@@ -4079,6 +4083,18 @@ void MainWindow::updateActions()
     actions->action(QStringLiteral("open_in_office"))->setEnabled(hasSelection && std::all_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
                                                                       return !item.isDir() && OfficeApps::isOfficeDocument(item.mimetype());
                                                                   }));
+    QAction *editFile = actions->action(QStringLiteral("edit_file"));
+    const bool editable = selected.size() == 1 && !selected.first().isDir() && EditTools::category(selected.first().mimetype()) != EditTools::Category::None;
+    editFile->setEnabled(editable);
+    if (editable) {
+        QString error;
+        const std::optional<EditTools::Choice> choice = EditTools::choose(selected.first().mostLocalUrl(), selected.first().mimetype(), &error);
+        editFile->setToolTip(
+            choice ? i18nc("@info:tooltip %1 is an application or the built-in editor", "Edit the selected file with %1", EditTools::name(choice->tool))
+                   : error);
+    } else {
+        editFile->setToolTip(i18nc("@info:tooltip", "Edit the selected text file, office document, image or audio file with a suitable tool"));
+    }
     const bool commandEnabled = activePane()->url().isLocalFile() && std::all_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
                                     return item.url().isLocalFile();
                                 });
@@ -4834,6 +4850,37 @@ void MainWindow::openEditor()
     }
 }
 
+void MainWindow::editFile()
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    if (items.size() != 1 || items.first().isDir()) {
+        showStatusMessage(i18nc("@info:status", "Select one file to edit."));
+        return;
+    }
+    const KFileItem &item = items.first();
+    const QUrl url = item.mostLocalUrl();
+    const QString mimeType = item.mimetype();
+    QString error;
+    const std::optional<EditTools::Choice> choice = EditTools::choose(url, mimeType, &error);
+    if (!choice) {
+        showStatusMessage(error);
+        return;
+    }
+    if (choice->tool == EditTools::Tool::BuiltInEditor) {
+        openEditor();
+        return;
+    }
+    const QString name = EditTools::name(choice->tool);
+    auto *job = new KIO::CommandLauncherJob(choice->executable, EditTools::arguments(url), this);
+    job->setDesktopName(EditTools::desktopName(choice->tool, mimeType));
+    connect(job, &KJob::result, this, [this, name](KJob *finished) {
+        if (finished->error()) {
+            showStatusMessage(i18nc("@info:status %1 is an application, %2 the error", "Could not start %1: %2", name, finished->errorString()));
+        }
+    });
+    job->start();
+}
+
 void MainWindow::editWithEditor(EditorProviders::Editor editor)
 {
     const QString executable = EditorProviders::findExecutable(editor);
@@ -5047,6 +5094,9 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
             return item.isDir();
         });
         if (filesOnly) {
+            if (items.size() == 1 && EditTools::category(items.first().mimetype()) != EditTools::Category::None) {
+                menu.addAction(actions->action(QStringLiteral("edit_file")));
+            }
             menu.addAction(actions->action(QStringLiteral("edit_with")));
         }
         const bool officeOnly = std::all_of(items.cbegin(), items.cend(), [](const KFileItem &item) {

@@ -6,6 +6,7 @@
 #include "ark.h"
 #include "editorpanel.h"
 #include "editorproviders.h"
+#include "edittools.h"
 #include "metadataeditdialog.h"
 #include "officeapps.h"
 #include "previewpanel.h"
@@ -345,6 +346,7 @@ private:
     void updateInformationPanel();
     void openGallery();
     void openEditor();
+    void editFile();
     void editWithEditor(EditorProviders::Editor editor);
     void openInOfficeApp(OfficeApps::App app);
     void updateTerminalPanelVisibility();
