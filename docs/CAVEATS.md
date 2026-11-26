@@ -1605,6 +1605,13 @@ The M27 desktop integrations have these limits
   of the existing window; missing items are skipped and reported, and flat
   view opens the folder without a selection.
   ([#279](https://github.com/mikepadiernos/plasma-opus/issues/279))
+- **🌐 Language preferences:** Plasma Opus reads Plasma's language list
+  only at start. Changes in Plasma's Region & Language settings reach running
+  applications through `LANGUAGE` only after logging in again, and Plasma Opus
+  falls back to `plasma-localerc` only when `LANGUAGE` is unset. Listed
+  languages without a Plasma Opus catalogue are skipped; when none has one,
+  the original English text is shown.
+  ([#437](https://github.com/mikepadiernos/plasma-opus/issues/437))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -1612,6 +1619,10 @@ The M27 desktop integrations have these limits
     requests back, run `./install.sh --uninstall` or delete
     `~/.local/share/dbus-1/services/org.kde.opusfilemanager.FileManager1.service`
     as well as changing the default in System Settings.
+  - **Language preferences:** After changing Plasma's languages, log out and
+    back in, or select the language under **Settings › Translation ›
+    Language and Layout** and restart Plasma Opus. The status line on that page
+    shows which language is in effect.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -1619,6 +1630,8 @@ The M27 desktop integrations have these limits
     Plasma Opus runs.
   - An M28 **File manager** settings row that installs or removes the
     activation file explicitly.
+  - Watch `plasma-localerc` and offer a restart when Plasma's language list
+    changes.
 
 ## Embedded terminal
 
