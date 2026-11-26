@@ -11,6 +11,7 @@
 #include <KPluginMetaData>
 #include <kde_terminal_interface.h>
 
+#include <QActionGroup>
 #include <QDir>
 #include <QEvent>
 #include <QFileInfo>
@@ -86,6 +87,35 @@ TerminalPanel::TerminalPanel(QWidget *parent)
     auto *closeAction = m_panelMenu->addAction(i18nc("@action", "Hide Terminal Panel"));
     closeAction->setObjectName(QStringLiteral("terminalPanelHideAction"));
     connect(closeAction, &QAction::triggered, this, &TerminalPanel::closeRequested);
+    m_panelMenu->addSeparator();
+    QMenu *components = m_panelMenu->addMenu(i18nc("@title:menu", "Terminal Component"));
+    components->setObjectName(QStringLiteral("terminalComponentMenu"));
+    components->setToolTipsVisible(true);
+    auto *componentGroup = new QActionGroup(components);
+    for (const TerminalProviders::Provider provider : TerminalProviders::embeddedProviders()) {
+        QAction *component = components->addAction(TerminalProviders::name(provider));
+        component->setObjectName(QStringLiteral("terminalComponent_") + TerminalProviders::id(provider));
+        component->setCheckable(true);
+        component->setData(static_cast<int>(provider));
+        componentGroup->addAction(component);
+        connect(component, &QAction::triggered, this, [this, provider] {
+            setEmbeddedProvider(provider);
+        });
+    }
+    connect(components, &QMenu::aboutToShow, this, [components] {
+        const TerminalProviders::Provider current = TerminalPanel::embeddedProvider();
+        const QList<QAction *> entries = components->actions();
+        for (QAction *component : entries) {
+            const auto provider = static_cast<TerminalProviders::Provider>(component->data().toInt());
+            const QString reason = TerminalProviders::partUnavailableReason(provider);
+            component->setChecked(provider == current);
+            component->setEnabled(reason.isEmpty() || provider == current);
+            component->setToolTip(reason.isEmpty() ? i18nc("@info:tooltip %1 is a terminal application",
+                                                           "Start new terminal sessions with %1. Open sessions are unchanged.",
+                                                           TerminalProviders::name(provider))
+                                                   : reason);
+        }
+    });
     const auto showPanelMenu = [this](QWidget *widget, const QPoint &pos) {
         m_panelMenu->popup(widget->mapToGlobal(pos));
     };
@@ -131,6 +161,21 @@ void TerminalPanel::setTitleVisible(bool visible)
 bool TerminalPanel::hasSessions() const
 {
     return m_tabs->count() > 0;
+}
+
+TerminalProviders::Provider TerminalPanel::embeddedProvider()
+{
+    return Settings::embeddedTerminal() == Settings::EnumEmbeddedTerminal::Kwi ? TerminalProviders::Provider::Kwi : TerminalProviders::Provider::Konsole;
+}
+
+void TerminalPanel::setEmbeddedProvider(TerminalProviders::Provider provider)
+{
+    Settings::setEmbeddedTerminal(provider == TerminalProviders::Provider::Kwi ? Settings::EnumEmbeddedTerminal::Kwi : Settings::EnumEmbeddedTerminal::Konsole);
+    Settings::self()->save();
+    const QString reason = TerminalProviders::partUnavailableReason(provider);
+    setStatus(reason.isEmpty()
+                  ? i18nc("@info %1 is a terminal application", "New terminal sessions use %1. Open sessions are unchanged.", TerminalProviders::name(provider))
+                  : reason);
 }
 
 void TerminalPanel::setStatus(const QString &text, bool informational)
@@ -204,7 +249,7 @@ void TerminalPanel::updateBlur()
             bool enabled = false;
             if (!QMetaObject::invokeMethod(part.data(), "isBlurEnabled", Qt::DirectConnection, Q_RETURN_ARG(bool, enabled))) {
                 if (!m_warnedBlurInterface) {
-                    qWarning("KonsolePart does not expose its profile blur setting");
+                    qWarning("The terminal component does not expose its profile blur setting");
                     m_warnedBlurInterface = true;
                 }
             } else if (enabled) {
@@ -274,20 +319,22 @@ void TerminalPanel::follow(const QUrl &folder)
             return;
         }
     }
-    const KPluginMetaData metadata = KPluginMetaData::findPluginById(QStringLiteral("kf6/parts"), QStringLiteral("konsolepart"));
+    const TerminalProviders::Provider provider = embeddedProvider();
+    const QString providerName = TerminalProviders::name(provider);
+    const KPluginMetaData metadata = KPluginMetaData::findPluginById(QStringLiteral("kf6/parts"), TerminalProviders::partPluginId(provider));
     if (!metadata.isValid()) {
-        setStatus(i18nc("@info", "The Konsole terminal component is not installed."));
+        setStatus(TerminalProviders::partUnavailableReason(provider));
         return;
     }
     const auto result = KParts::PartLoader::instantiatePart<KParts::ReadOnlyPart>(metadata, this, this);
     if (!result) {
-        setStatus(i18nc("@info", "Could not load the Konsole terminal component: %1", result.errorString));
+        setStatus(i18nc("@info %1 is a terminal application, %2 the reason", "Could not load the %1 terminal component: %2", providerName, result.errorString));
         return;
     }
     auto *terminal = qobject_cast<TerminalInterface *>(result.plugin);
     if (!terminal || !result.plugin->widget()) {
         delete result.plugin;
-        setStatus(i18nc("@info", "The Konsole component does not provide a terminal."));
+        setStatus(i18nc("@info %1 is a terminal application", "The %1 component does not provide a terminal.", providerName));
         return;
     }
     auto *part = result.plugin;
@@ -295,7 +342,7 @@ void TerminalPanel::follow(const QUrl &folder)
     const QList<QAction *> panelActions{m_panelMenu->menuAction()};
     if (!QMetaObject::invokeMethod(part, "setContextMenuAdditionalActions", Qt::DirectConnection, Q_ARG(QList<QAction *>, panelActions))
         && !m_warnedContextMenuInterface) {
-        qWarning("KonsolePart does not expose its context menu extension; use the terminal panel menu instead");
+        qWarning("The terminal component does not expose its context menu extension; use the terminal panel menu instead");
         m_warnedContextMenuInterface = true;
     }
     part->widget()->installEventFilter(this);
@@ -311,7 +358,7 @@ void TerminalPanel::follow(const QUrl &folder)
         setStatus(i18nc("@info", "Terminal session ended. Select another tab or hide and show the terminal to start another."));
     });
     const int index = m_tabs->addTab(part->widget(), info.fileName().isEmpty() ? path : info.fileName());
-    m_tabs->setTabToolTip(index, i18nc("@info:tooltip", "Session started in %1", path));
+    m_tabs->setTabToolTip(index, i18nc("@info:tooltip %1 is a terminal application, %2 a folder", "%1 session started in %2", providerName, path));
     m_tabs->setCurrentIndex(index);
     setStatus(Settings::terminalFollowActiveFolder()
                   ? i18nc("@info", "Terminal sessions remain open until their tabs are closed.")

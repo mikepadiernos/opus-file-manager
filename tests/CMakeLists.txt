@@ -267,6 +267,17 @@ ecm_add_test(terminalpaneltest.cpp
     GUI
 )
 
+ecm_add_test(terminallaunchertest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::DBus Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+find_program(DBUS_RUN_SESSION_EXECUTABLE dbus-run-session)
+if(DBUS_RUN_SESSION_EXECUTABLE)
+    add_test(NAME opusfm-terminallauncher-dbus COMMAND ${DBUS_RUN_SESSION_EXECUTABLE} $<TARGET_FILE:terminallaunchertest> opensYakuakeSessionsOnTheBus)
+    set_tests_properties(opusfm-terminallauncher-dbus PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+endif()
+
 ecm_add_test(remotepreviewtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test Qt6::Network
     NAME_PREFIX "opusfm-"

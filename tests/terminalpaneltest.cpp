@@ -72,6 +72,53 @@ private Q_SLOTS:
         QVERIFY(status.contains(QStringLiteral("not installed")));
     }
 
+    void componentChoiceAppliesToNewSessions()
+    {
+        const auto reset = qScopeGuard([] {
+            Settings::setEmbeddedTerminal(Settings::EnumEmbeddedTerminal::Konsole);
+        });
+        if (TerminalProviders::isPartInstalled(TerminalProviders::Provider::Kwi)) {
+            QSKIP("The Kwi terminal component is installed in this environment");
+        }
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        TerminalPanel panel;
+        auto *status = panel.findChild<QLabel *>(QStringLiteral("terminalPanelStatus"));
+        auto *components = panel.findChild<QMenu *>(QStringLiteral("terminalComponentMenu"));
+        auto *konsole = panel.findChild<QAction *>(QStringLiteral("terminalComponent_konsole"));
+        auto *kwi = panel.findChild<QAction *>(QStringLiteral("terminalComponent_kwi"));
+        QVERIFY(status && components && konsole && kwi);
+        QCOMPARE(TerminalPanel::embeddedProvider(), TerminalProviders::Provider::Konsole);
+
+        Q_EMIT components->aboutToShow();
+        QVERIFY(!kwi->isEnabled());
+        QVERIFY(kwi->toolTip().contains(QStringLiteral("not installed")));
+        QCOMPARE(konsole->isChecked(), true);
+
+        panel.setEmbeddedProvider(TerminalProviders::Provider::Kwi);
+        QCOMPARE(Settings::embeddedTerminal(), Settings::EnumEmbeddedTerminal::Kwi);
+        QVERIFY(status->text().contains(QStringLiteral("Kwi")));
+        Q_EMIT components->aboutToShow();
+        QVERIFY(kwi->isChecked() && kwi->isEnabled());
+
+        panel.start(QUrl::fromLocalFile(folder.path()));
+        QVERIFY(!panel.hasSessions());
+        QVERIFY(panel.findChildren<KParts::ReadOnlyPart *>().isEmpty());
+        QVERIFY(status->text().contains(QStringLiteral("Kwi")));
+        QVERIFY(status->text().contains(QStringLiteral("not installed")));
+
+        konsole->trigger();
+        QCOMPARE(Settings::embeddedTerminal(), Settings::EnumEmbeddedTerminal::Konsole);
+        QVERIFY(status->text().contains(QStringLiteral("New terminal sessions use Konsole")));
+        panel.start(QUrl::fromLocalFile(folder.path()));
+        if (!TerminalProviders::isPartInstalled(TerminalProviders::Provider::Konsole)) {
+            QSKIP("KonsolePart is not available in this environment");
+        }
+        QVERIFY(panel.hasSessions());
+        auto *tabs = panel.findChild<QTabWidget *>(QStringLiteral("terminalSessions"));
+        QVERIFY(tabs->tabToolTip(0).startsWith(QStringLiteral("Konsole session started in ")));
+    }
+
     void headerHasHorizontalPadding()
     {
         TerminalPanel panel;

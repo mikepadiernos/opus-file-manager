@@ -156,6 +156,8 @@ add_library(opusfm_app STATIC
     tagmanagerwidget.h
     tagpanel.cpp
     tagpanel.h
+    terminallauncher.cpp
+    terminallauncher.h
     terminalpanel.cpp
     terminalpanel.h
     toolbarcustomizer.cpp

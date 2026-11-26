@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "terminalproviders.h"
+
 #include <QPointer>
 #include <QRegion>
 #include <QSet>
@@ -28,6 +30,10 @@ public:
     void follow(const QUrl &folder);
     void setTitleVisible(bool visible);
     bool hasSessions() const;
+    /// The configured provider whose terminal component new sessions load.
+    static TerminalProviders::Provider embeddedProvider();
+    /// Stores the provider for new sessions; open sessions keep their component.
+    void setEmbeddedProvider(TerminalProviders::Provider provider);
 
 Q_SIGNALS:
     void blurRegionChanged(const QRegion &region);

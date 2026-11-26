@@ -78,6 +78,7 @@
 #include "taggingsettings.h"
 #include "taggroupmanagerwidget.h"
 #include "tagmanagerwidget.h"
+#include "terminallauncher.h"
 #include "terminalpanel.h"
 #include "toolbarcustomizer.h"
 #include "transferqueue.h"
@@ -2865,6 +2866,35 @@ void MainWindow::setupActions()
     terminal->setText(i18nc("@action", "Open Terminal Here"));
     terminal->setIcon(QIcon::fromTheme(QStringLiteral("utilities-terminal")));
     actions->setDefaultShortcut(terminal, Qt::SHIFT | Qt::Key_F4);
+    auto *terminalWith = new KActionMenu(QIcon::fromTheme(QStringLiteral("utilities-terminal")), i18nc("@action", "Open Terminal With"), this);
+    terminalWith->setToolTip(i18nc("@info:tooltip", "Open the active folder in a chosen terminal application"));
+    terminalWith->setPopupMode(QToolButton::InstantPopup);
+    actions->addAction(QStringLiteral("open_terminal_with"), terminalWith);
+    QMenu *terminalWithMenu = terminalWith->menu();
+    terminalWithMenu->setToolTipsVisible(true);
+    for (const TerminalProviders::Provider provider : TerminalProviders::separateProviders()) {
+        QAction *entry = terminalWithMenu->addAction(QIcon::fromTheme(TerminalProviders::iconName(provider)), TerminalProviders::name(provider));
+        entry->setObjectName(QStringLiteral("openTerminalWith_") + TerminalProviders::id(provider));
+        entry->setData(static_cast<int>(provider));
+        connect(entry, &QAction::triggered, this, [this, provider] {
+            TerminalLauncher::open(provider, activePane()->url(), this, [window = QPointer<MainWindow>(this)](const QString &message) {
+                if (window) {
+                    window->showStatusMessage(message);
+                }
+            });
+        });
+    }
+    connect(terminalWithMenu, &QMenu::aboutToShow, this, [terminalWithMenu] {
+        const QList<QAction *> entries = terminalWithMenu->actions();
+        for (QAction *entry : entries) {
+            const auto provider = static_cast<TerminalProviders::Provider>(entry->data().toInt());
+            const QString reason = TerminalProviders::unavailableReason(provider);
+            entry->setEnabled(reason.isEmpty());
+            entry->setToolTip(reason.isEmpty()
+                                  ? i18nc("@info:tooltip %1 is a terminal application", "Open the active folder in %1", TerminalProviders::name(provider))
+                                  : reason);
+        }
+    });
     QAction *customCommand = actions->addAction(QStringLiteral("custom_command"), this, &MainWindow::showCustomCommand);
     customCommand->setText(i18nc("@action", "Scripts and Custom Commands…"));
     customCommand->setIcon(QIcon::fromTheme(QStringLiteral("system-run")));
@@ -3972,6 +4002,7 @@ void MainWindow::updateActions()
     actions->action(stdName(KStandardAction::Cut))->setEnabled(hasSelection && props.supportsMoving());
     actions->action(stdName(KStandardAction::Copy))->setEnabled(hasSelection);
     actions->action(QStringLiteral("open_terminal"))->setEnabled(activePane()->url().isLocalFile());
+    actions->action(QStringLiteral("open_terminal_with"))->setEnabled(activePane()->url().isLocalFile());
     const bool commandEnabled = activePane()->url().isLocalFile() && std::all_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
                                     return item.url().isLocalFile();
                                 });
@@ -4804,6 +4835,7 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
         }
         if (visible("terminal") && Settings::showOpenTerminal()) {
             menu.addAction(actions->action(QStringLiteral("open_terminal")));
+            menu.addAction(actions->action(QStringLiteral("open_terminal_with")));
         }
         menu.addAction(actions->action(QStringLiteral("calculate_occupied_space")));
         menu.addAction(actions->action(QStringLiteral("content_chart")));
@@ -4909,6 +4941,7 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     menu.addSeparator();
     if (singleFolder && items.first().isLocalFile() && visible("terminal") && Settings::showOpenTerminal()) {
         menu.addAction(actions->action(QStringLiteral("open_terminal")));
+        menu.addAction(actions->action(QStringLiteral("open_terminal_with")));
     }
     if (singleFolder) {
         menu.addAction(actions->action(QStringLiteral("content_chart")));
