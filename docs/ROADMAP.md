@@ -1251,7 +1251,7 @@ process or a promise of Yazi configuration or plugin compatibility.
 Settings for M25 Yazi mode, stored in KConfig and coordinated with workspace
 layouts.
 
-- [ ] **Activation:** choose each pane's default mode and whether to restore its
+- [x] **Activation:** choose each pane's default mode and whether to restore its
       previous choice. Respect explicitly restored M15 layouts when available
       and keep the mode off by default.
 - [ ] **Columns:** choose visible folder-context and preview columns and their
