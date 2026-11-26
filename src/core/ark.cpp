@@ -158,4 +158,14 @@ QStringList extractArguments(const QString &archive, const QString &destination)
 {
     return {QStringLiteral("--batch"), QStringLiteral("--destination"), destination, QStringLiteral("--"), archive};
 }
+
+QStringList compressArguments(const QStringList &sources)
+{
+    return QStringList{QStringLiteral("--changetofirstpath"), QStringLiteral("--add"), QStringLiteral("--dialog"), QStringLiteral("--")} + sources;
+}
+
+QStringList addToArguments(const QString &archive, const QStringList &sources)
+{
+    return QStringList{QStringLiteral("--changetofirstpath"), QStringLiteral("--add-to"), archive, QStringLiteral("--")} + sources;
+}
 }

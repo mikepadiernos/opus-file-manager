@@ -79,4 +79,19 @@ QStringList openArguments(const QString &archive);
  *        existing is overwritten
  */
 QStringList extractArguments(const QString &archive, const QString &destination);
+
+/**
+ * The arguments that open Ark's Compress dialog for new archives, which
+ * offers every format, password, file name encryption and volume option the
+ * installed backends support. Entries are named relative to the first
+ * source's folder.
+ */
+QStringList compressArguments(const QStringList &sources);
+
+/**
+ * The arguments that add @p sources to an existing @p archive in place.
+ * Entries are named relative to the first source's folder, so an entry with
+ * the same name is replaced.
+ */
+QStringList addToArguments(const QString &archive, const QStringList &sources);
 }

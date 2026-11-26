@@ -128,6 +128,21 @@ private Q_SLOTS:
         QCOMPARE(Ark::openArguments(archive), (QStringList{QStringLiteral("--"), archive}));
         QCOMPARE(Ark::extractArguments(archive, QStringLiteral("/tmp/out dir")),
                  (QStringList{QStringLiteral("--batch"), QStringLiteral("--destination"), QStringLiteral("/tmp/out dir"), QStringLiteral("--"), archive}));
+        const QStringList sources{QStringLiteral("/tmp/-a b"), QStringLiteral("/tmp/c")};
+        QCOMPARE(Ark::compressArguments(sources),
+                 (QStringList{QStringLiteral("--changetofirstpath"),
+                              QStringLiteral("--add"),
+                              QStringLiteral("--dialog"),
+                              QStringLiteral("--"),
+                              QStringLiteral("/tmp/-a b"),
+                              QStringLiteral("/tmp/c")}));
+        QCOMPARE(Ark::addToArguments(archive, sources),
+                 (QStringList{QStringLiteral("--changetofirstpath"),
+                              QStringLiteral("--add-to"),
+                              archive,
+                              QStringLiteral("--"),
+                              QStringLiteral("/tmp/-a b"),
+                              QStringLiteral("/tmp/c")}));
     }
 };
 
