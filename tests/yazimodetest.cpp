@@ -94,6 +94,56 @@ private Q_SLOTS:
         QTest::newRow("remote") << QUrl(QStringLiteral("sftp://host/dir/sub")) << QUrl(QStringLiteral("sftp://host/dir/"));
         QTest::newRow("remote root") << QUrl(QStringLiteral("sftp://host/")) << QUrl();
         QTest::newRow("empty") << QUrl() << QUrl();
+        QTest::newRow("archive root") << QUrl(QStringLiteral("zip:/home/me/photos.zip/")) << QUrl::fromLocalFile(QStringLiteral("/home/me/"));
+        QTest::newRow("compressed tar root") << QUrl(QStringLiteral("tar:/home/me/src.tar.gz")) << QUrl::fromLocalFile(QStringLiteral("/home/me/"));
+        QTest::newRow("inside an archive") << QUrl(QStringLiteral("zip:/home/me/photos.zip/2024/")) << QUrl(QStringLiteral("zip:/home/me/photos.zip/"));
+        QTest::newRow("trash item") << QUrl(QStringLiteral("trash:/0-old/sub")) << QUrl(QStringLiteral("trash:/0-old/"));
+        QTest::newRow("trash") << QUrl(QStringLiteral("trash:/")) << QUrl();
+        QTest::newRow("desktop") << QUrl(QStringLiteral("desktop:/")) << QUrl();
+    }
+
+    void parentItem()
+    {
+        const QUrl archive(QStringLiteral("zip:/home/me/photos.zip/"));
+        QCOMPARE(YaziMode::parentItem(archive), QUrl::fromLocalFile(QStringLiteral("/home/me/photos.zip")));
+        const QUrl inside(QStringLiteral("zip:/home/me/photos.zip/2024/"));
+        QCOMPARE(YaziMode::parentItem(inside), inside);
+        const QUrl local = QUrl::fromLocalFile(QStringLiteral("/home/me/photos.zip"));
+        QCOMPARE(YaziMode::parentItem(local), local);
+    }
+
+    void support_data()
+    {
+        QTest::addColumn<QUrl>("url");
+        QTest::addColumn<int>("level");
+        constexpr int full = int(YaziMode::SupportLevel::Full);
+        constexpr int limited = int(YaziMode::SupportLevel::Limited);
+        constexpr int unsupported = int(YaziMode::SupportLevel::Unsupported);
+        QTest::newRow("local") << QUrl::fromLocalFile(QStringLiteral("/home/me")) << full;
+        QTest::newRow("local root") << QUrl::fromLocalFile(QStringLiteral("/")) << full;
+        QTest::newRow("sftp") << QUrl(QStringLiteral("sftp://host/home/me/")) << limited;
+        QTest::newRow("smb") << QUrl(QStringLiteral("smb://server/share/")) << limited;
+        QTest::newRow("trash") << QUrl(QStringLiteral("trash:/")) << limited;
+        QTest::newRow("desktop") << QUrl(QStringLiteral("desktop:/")) << limited;
+        QTest::newRow("zip") << QUrl(QStringLiteral("zip:/home/me/a.zip/")) << limited;
+        QTest::newRow("tar") << QUrl(QStringLiteral("tar:/home/me/a.tar.gz/dir/")) << limited;
+        QTest::newRow("remote") << QUrl(QStringLiteral("remote:/")) << unsupported;
+        QTest::newRow("recently used") << QUrl(QStringLiteral("recentlyused:/")) << unsupported;
+        QTest::newRow("recent documents") << QUrl(QStringLiteral("recentdocuments:/")) << unsupported;
+        QTest::newRow("tags") << QUrl(QStringLiteral("tags:/holiday")) << unsupported;
+        QTest::newRow("baloo search") << QUrl(QStringLiteral("baloosearch:/documents")) << unsupported;
+        QTest::newRow("file name search") << QUrl(QStringLiteral("filenamesearch:?search=a&url=file:///home/me")) << unsupported;
+        QTest::newRow("applications") << QUrl(QStringLiteral("applications:/")) << unsupported;
+        QTest::newRow("empty") << QUrl() << unsupported;
+    }
+
+    void support()
+    {
+        QFETCH(QUrl, url);
+        QFETCH(int, level);
+        const YaziMode::Support support = YaziMode::support(url);
+        QCOMPARE(int(support.level), level);
+        QCOMPARE(support.reason.isEmpty(), level == int(YaziMode::SupportLevel::Full));
     }
 
     void parentFolder()

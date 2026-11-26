@@ -27,11 +27,13 @@
 #include <KSharedConfig>
 
 #include <QAbstractItemModel>
+#include <QAccessible>
 #include <QApplication>
 #include <QClipboard>
 #include <QComboBox>
 #include <QDialog>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QLabel>
@@ -218,6 +220,31 @@ QString describe(const QList<int> &actual, const QList<int> &expected)
         expectedText.append(QString::number(size));
     }
     return QStringLiteral("actual %1, expected %2").arg(actualText.join(QLatin1Char(' ')), expectedText.join(QLatin1Char(' ')));
+}
+
+// What assistive technology was asked to announce while recordAnnouncements() was installed.
+QStringList s_announcements;
+
+void recordAnnouncements(QAccessibleEvent *event)
+{
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
+    if (event->type() == QAccessible::Announcement) {
+        s_announcements.append(static_cast<QAccessibleAnnouncementEvent *>(event)->message());
+    }
+#else
+    if (event->type() == QAccessible::Alert) {
+        if (QAccessibleInterface *interface = event->accessibleInterface()) {
+            s_announcements.append(interface->text(QAccessible::Name));
+        }
+    }
+#endif
+}
+
+bool announced(const QString &text)
+{
+    return std::any_of(s_announcements.cbegin(), s_announcements.cend(), [&text](const QString &announcement) {
+        return announcement.contains(text);
+    });
 }
 }
 
@@ -2576,6 +2603,386 @@ private Q_SLOTS:
         QVERIFY(search->search(QStringLiteral("file")));
         QTRY_COMPARE(finished.count(), 3);
         QVERIFY(columns->searchIndicator()->isHidden());
+    }
+
+    void largeFoldersStayResponsive()
+    {
+        constexpr int Entries = 10000;
+        constexpr int Presses = 200;
+        constexpr int Timeout = 120000;
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("big/sub")));
+        for (int i = 0; i < Entries; ++i) {
+            QFile entry(root.filePath(QStringLiteral("big/f%1").arg(i, 5, 10, QLatin1Char('0'))));
+            QVERIFY(entry.open(QIODevice::WriteOnly));
+        }
+        const QUrl big = QUrl::fromLocalFile(root.filePath(QStringLiteral("big")));
+        const QUrl sub = QUrl::fromLocalFile(root.filePath(QStringLiteral("big/sub")));
+        Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
+        MainWindow window;
+        window.resize(1400, 600);
+        window.openUrls({big, m_b});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        window.activateWindow();
+        QVERIFY(QTest::qWaitForWindowActive(&window));
+        Pane *pane = window.activePane();
+        FolderView *view = pane->view();
+        QTRY_COMPARE_WITH_TIMEOUT(view->itemCount(), Entries + 1, Timeout);
+        QTRY_VERIFY_WITH_TIMEOUT(!view->isLoading(), Timeout);
+        view->setViewMode(FolderView::ViewMode::Details);
+        pane->setYaziMode(true);
+        YaziColumns *columns = pane->yaziColumns();
+        QListView *parent = columns->parentColumn();
+        QAbstractItemView *items = view->currentView();
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+        const QModelIndex first = items->model()->index(0, 0);
+        QCOMPARE(first.data().toString(), QStringLiteral("sub"));
+        items->selectionModel()->setCurrentIndex(first, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+
+        // A held j moves through the listing, selecting only the focused item.
+        QElapsedTimer timer;
+        timer.start();
+        for (int i = 0; i < Presses; ++i) {
+            QTest::keyClick(items, Qt::Key_J);
+        }
+        QCOMPARE(items->currentIndex().row(), Presses);
+        QCOMPARE(items->selectionModel()->selectedRows().size(), 1);
+        QVERIFY(columns->selectionIndicator()->isHidden());
+        QVERIFY2(timer.elapsed() < Timeout / 2, qPrintable(QStringLiteral("%1 ms").arg(timer.elapsed())));
+        YaziPreview *preview = columns->preview();
+        QVERIFY(preview);
+        QTRY_VERIFY(!preview->isUpdatePending());
+        QCOMPARE(preview->item().name(), items->currentIndex().data().toString());
+
+        // The parent column lists the large folder in the background, and going back up reuses it.
+        items->selectionModel()->setCurrentIndex(first, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+        QTest::keyClick(items, Qt::Key_L);
+        QTRY_COMPARE(stripped(pane->url()), sub);
+        QTRY_COMPARE_WITH_TIMEOUT(parent->model()->rowCount(), Entries + 1, Timeout);
+        QTRY_COMPARE(parent->currentIndex().data().toString(), QStringLiteral("sub"));
+        QVERIFY(columns->parentNote()->isHidden());
+        items = view->currentView();
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+        QTest::keyClick(items, Qt::Key_H);
+        QTRY_COMPARE(stripped(pane->url()), big);
+        QTRY_COMPARE_WITH_TIMEOUT(view->itemCount(), Entries + 1, Timeout);
+        QTRY_COMPARE(view->currentView()->currentIndex().data().toString(), QStringLiteral("sub"));
+
+        // Marking every item and moving on keeps the count without recounting at each key.
+        items = view->currentView();
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+        QTest::keyClick(items, Qt::Key_V, Qt::ShiftModifier);
+        QTRY_VERIFY(columns->selectionIndicator()->isVisible());
+        QVERIFY(columns->isMarking());
+        QSignalSpy selectionChanges(items->selectionModel(), &QItemSelectionModel::selectionChanged);
+        timer.restart();
+        for (int i = 0; i < Presses; ++i) {
+            QTest::keyClick(items, Qt::Key_J);
+        }
+        QVERIFY2(timer.elapsed() < Timeout / 2, qPrintable(QStringLiteral("%1 ms").arg(timer.elapsed())));
+        QCOMPARE(items->currentIndex().row(), Presses);
+        QCOMPARE(selectionChanges.count(), 0);
+        QCOMPARE(items->selectionModel()->selectedRows().size(), Entries + 1);
+        QVERIFY(columns->selectionIndicator()->accessibleName().endsWith(QStringLiteral("items selected")));
+        QVERIFY(pane->yaziMode());
+    }
+
+    void unsupportedLocationsKeepOrdinaryBrowsing()
+    {
+        Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
+        MainWindow window;
+        showWithFocusOnItems(window, m_a, true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        YaziColumns *columns = pane->yaziColumns();
+        QLabel *location = columns->locationIndicator();
+        QCOMPARE(columns->support().level, YaziMode::SupportLevel::Full);
+        QVERIFY(columns->parentColumn()->isVisible());
+        QVERIFY(columns->previewSlot()->isVisible());
+        QVERIFY(location->isHidden());
+
+        // A location without a meaningful parent folder keeps only the current column.
+        pane->setUrl(QUrl(QStringLiteral("remote:/")));
+        QTRY_COMPARE(pane->url().scheme(), QStringLiteral("remote"));
+        QVERIFY(columns->isCollapsed());
+        QVERIFY(pane->yaziMode());
+        QVERIFY(columns->isVisible());
+        QVERIFY(pane->view()->isVisible());
+        QVERIFY(!columns->parentColumn()->isVisible());
+        QVERIFY(!columns->previewSlot()->isVisible());
+        QVERIFY(columns->parentUrl().isEmpty());
+        QVERIFY(location->isVisible());
+        QVERIFY(location->text().startsWith(QStringLiteral("Yazi mode isn't available here: ")));
+        QCOMPARE(location->text(), columns->unavailableText());
+        QCOMPARE(location->accessibleName(), location->text());
+
+        // The commands that need the other columns say why they can't run.
+        QSignalSpy messages(pane, &Pane::statusMessage);
+        pane->runYaziCommand(YaziMode::Command::FocusParent);
+        QCOMPARE(messages.count(), 1);
+        QCOMPARE(messages.last().first().toString(), columns->unavailableText());
+        pane->runYaziCommand(YaziMode::Command::Parent);
+        QCOMPARE(messages.count(), 2);
+        QCOMPARE(messages.last().first().toString(), columns->unavailableText());
+        QVERIFY(columns->messageIndicator()->isVisible());
+        QCOMPARE(pane->url().scheme(), QStringLiteral("remote"));
+
+        // Returning to a local folder brings the columns back.
+        pane->setUrl(m_a);
+        QTRY_COMPARE(stripped(pane->url()), m_a);
+        QVERIFY(!columns->isCollapsed());
+        QVERIFY(location->isHidden());
+        QVERIFY(columns->parentColumn()->isVisible());
+        QVERIFY(columns->previewSlot()->isVisible());
+        QTRY_COMPARE(stripped(columns->parentUrl()), QUrl::fromLocalFile(m_root.path()));
+        QTRY_COMPARE(columns->parentColumn()->currentIndex().data().toString(), QStringLiteral("a"));
+
+        // A remote folder is limited: its parent column loads in the background and a failure shows in the column.
+        columns->setParentListingTimeout(2000);
+        pane->setUrl(QUrl(QStringLiteral("ftp://example.invalid/folder/")));
+        QTRY_COMPARE(columns->support().level, YaziMode::SupportLevel::Limited);
+        QVERIFY(!columns->isCollapsed());
+        QVERIFY(location->isVisible());
+        QVERIFY(location->text().startsWith(QStringLiteral("Limited here: ")));
+        QVERIFY(columns->parentColumn()->isVisible());
+        QVERIFY(columns->parentNote()->isVisible());
+        QTRY_VERIFY_WITH_TIMEOUT(columns->parentNote()->text() != QStringLiteral("Loading…"), 20000);
+        QVERIFY(columns->parentNote()->isVisible());
+        QVERIFY(columns->parentNote()->text().startsWith(QStringLiteral("Could not list the parent folder"))
+                || columns->parentNote()->text() == QStringLiteral("The parent folder is taking too long to respond."));
+        QCOMPARE(columns->parentColumn()->accessibleDescription(), columns->parentNote()->text());
+
+        pane->setUrl(m_a);
+        QTRY_COMPARE(stripped(pane->url()), m_a);
+        QVERIFY(location->isHidden());
+        QTRY_VERIFY(columns->parentNote()->isHidden());
+        QVERIFY(pane->yaziMode());
+    }
+
+    void unavailableCommandsSayWhy()
+    {
+        Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
+        MainWindow window;
+        showWithFocusOnItems(window, m_b, true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(false);
+        Pane *pane = window.activePane();
+        YaziColumns *columns = pane->yaziColumns();
+        QSignalSpy messages(pane, &Pane::statusMessage);
+        const auto focusItems = [pane] {
+            QAbstractItemView *items = pane->view()->currentView();
+            items->setFocus(Qt::OtherFocusReason);
+            return QTest::qWaitFor([items] {
+                return items->hasFocus();
+            });
+        };
+        const auto pressReports = [&](Qt::Key key, Qt::KeyboardModifiers modifiers) {
+            const qsizetype before = messages.count();
+            pressOnFocus(key, modifiers);
+            if (!QTest::qWaitFor([&] {
+                    return messages.count() > before;
+                })) {
+                return QString();
+            }
+            const QString message = messages.last().first().toString();
+            const QLabel *shown = columns->messageIndicator();
+            return shown->isVisible() && shown->text() == message ? message : QStringLiteral("not shown: %1").arg(message);
+        };
+        QVERIFY(focusItems());
+        QTRY_COMPARE(pane->view()->itemCount(), 0);
+
+        // An empty folder has nothing to move through, select or act on.
+        QCOMPARE(pressReports(Qt::Key_J, {}), QStringLiteral("This column has no items to move through."));
+        QCOMPARE(pressReports(Qt::Key_Space, {}), QStringLiteral("There is no item here to select."));
+        QCOMPARE(pressReports(Qt::Key_R, {}), QStringLiteral("There is no item here to act on."));
+        QCOMPARE(pressReports(Qt::Key_L, {}), QStringLiteral("There is no focused item to open."));
+
+        // A new tab has no history, and the only tab stays.
+        QCOMPARE(pressReports(Qt::Key_H, Qt::ShiftModifier), QStringLiteral("There is no earlier folder in this tab's history."));
+        QCOMPARE(pressReports(Qt::Key_L, Qt::ShiftModifier), QStringLiteral("There is no later folder in this tab's history."));
+
+        // p says the clipboard is empty.
+        QApplication::clipboard()->clear();
+        QCOMPARE(pressReports(Qt::Key_P, {}), QStringLiteral("The clipboard has nothing to paste. Copy or cut items first."));
+
+        // c needs a second pane.
+        pane->setUrl(m_a);
+        QTRY_COMPARE(stripped(pane->url()), m_a);
+        QTRY_VERIFY(!pane->view()->isLoading());
+        QVERIFY(focusItems());
+        QTRY_VERIFY(rowNamed(pane->view()->currentView(), QStringLiteral("file.txt")).isValid());
+        focusRow(pane->view()->currentView(), QStringLiteral("file.txt"));
+        QCOMPARE(pressReports(Qt::Key_C, {}), QStringLiteral("Copy to Other Pane needs a second pane. Turn on the dual-pane layout first."));
+        QVERIFY(QFileInfo::exists(m_root.filePath(QStringLiteral("a/file.txt"))));
+
+        // A locked tab stays.
+        pane->openInNewTab(m_sub, true);
+        QTRY_COMPARE(stripped(pane->url()), m_sub);
+        pane->tabs()->setLocked(pane->tabs()->currentIndex(), true);
+        QVERIFY(focusItems());
+        pressOnFocus(Qt::Key_G);
+        QCOMPARE(pressReports(Qt::Key_W, {}), QStringLiteral("This tab is locked. Unlock it to close it."));
+        pane->tabs()->setLocked(pane->tabs()->currentIndex(), false);
+
+        // A root has no parent.
+        pane->setUrl(QUrl::fromLocalFile(QDir::rootPath()));
+        QTRY_COMPARE(pane->url().path(), QDir::rootPath());
+        QVERIFY(focusItems());
+        QCOMPARE(pressReports(Qt::Key_H, {}), QStringLiteral("This folder has no parent folder to open."));
+        QVERIFY(pane->yaziMode());
+    }
+
+    void statusRowIsAccessibleAndAnnouncesChanges()
+    {
+        Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
+        MainWindow window;
+        showWithFocusOnItems(window, m_many, true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        YaziColumns *columns = pane->yaziColumns();
+        QAbstractItemView *items = pane->view()->currentView();
+
+        // Every part of the status row and the columns describes itself.
+        const QList<QWidget *> described{columns->modeIndicator(),
+                                         columns->selectionIndicator(),
+                                         columns->filterIndicator(),
+                                         columns->filterClearButton(),
+                                         columns->searchIndicator(),
+                                         columns->searchCancelButton(),
+                                         columns->sortIndicator(),
+                                         columns->transferIndicator(),
+                                         columns->locationIndicator(),
+                                         columns->messageIndicator(),
+                                         columns->parentColumn(),
+                                         columns->previewSlot(),
+                                         columns->modeIndicator()->parentWidget()};
+        for (const QWidget *widget : described) {
+            QVERIFY2(!widget->accessibleDescription().isEmpty(), qPrintable(widget->objectName()));
+        }
+        QCOMPARE(columns->modeIndicator()->parentWidget()->accessibleName(), QStringLiteral("Yazi mode status"));
+        for (const QWidget *widget : {static_cast<QWidget *>(columns->modeIndicator()),
+                                      static_cast<QWidget *>(columns->sortIndicator()),
+                                      static_cast<QWidget *>(columns->filterClearButton()),
+                                      static_cast<QWidget *>(columns->searchCancelButton()),
+                                      static_cast<QWidget *>(columns->parentColumn()),
+                                      columns->previewSlot()}) {
+            QVERIFY2(!widget->accessibleName().isEmpty(), qPrintable(widget->objectName()));
+        }
+        QVERIFY(columns->sortIndicator()->accessibleName().startsWith(QStringLiteral("Sorted by")));
+
+        // The parts shown on demand take their names when shown.
+        PaneSession filtered = pane->saveState();
+        filtered.filterText = QStringLiteral("file00");
+        pane->replaceState(filtered);
+        QTRY_VERIFY(columns->filterIndicator()->isVisible());
+        QVERIFY(columns->filterIndicator()->accessibleName().contains(QStringLiteral("file00")));
+        columns->setSearchStatus(QStringLiteral("Searching…"), true);
+        QVERIFY(columns->searchIndicator()->accessibleName().contains(QStringLiteral("Searching")));
+        columns->clearSearchStatus();
+
+        s_announcements.clear();
+        const bool wasActive = QAccessible::isActive();
+        const QAccessible::UpdateHandler previous = QAccessible::installUpdateHandler(recordAnnouncements);
+        QAccessible::setActive(true);
+        const auto restore = qScopeGuard([previous, wasActive] {
+            QAccessible::installUpdateHandler(previous);
+            QAccessible::setActive(wasActive);
+            s_announcements.clear();
+        });
+
+        // Turning the mode off and on is announced.
+        pane->setYaziMode(false);
+        QVERIFY(announced(QStringLiteral("Yazi mode off")));
+        pane->setYaziMode(true);
+        QVERIFY(announced(QStringLiteral("Yazi mode on")));
+        items = pane->view()->currentView();
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+
+        // A pending key sequence is announced once.
+        s_announcements.clear();
+        pressOnFocus(Qt::Key_G);
+        QVERIFY(announced(QStringLiteral("waiting for the keys after g")));
+        QCOMPARE(columns->modeIndicator()->accessibleName(), QStringLiteral("Yazi mode with Vim-style keys, waiting for the keys after g"));
+        pressOnFocus(Qt::Key_Escape);
+        QCOMPARE(columns->modeIndicator()->accessibleName(), QStringLiteral("Yazi mode with Vim-style keys"));
+
+        // A command that can't run is announced, but once while it is shown.
+        s_announcements.clear();
+        pressOnFocus(Qt::Key_H, Qt::ShiftModifier);
+        QCOMPARE(s_announcements, QStringList{QStringLiteral("There is no earlier folder in this tab's history.")});
+        QCOMPARE(columns->messageIndicator()->accessibleName(), s_announcements.first());
+        pressOnFocus(Qt::Key_H, Qt::ShiftModifier);
+        QCOMPARE(s_announcements.size(), 1);
+
+        // So are an unsupported location and the return to a supported one.
+        s_announcements.clear();
+        pane->setUrl(QUrl(QStringLiteral("remote:/")));
+        QTRY_VERIFY(columns->isCollapsed());
+        QVERIFY(announced(QStringLiteral("Yazi mode isn't available here: ")));
+        s_announcements.clear();
+        pane->setUrl(m_a);
+        QTRY_VERIFY(!columns->isCollapsed());
+        QVERIFY(announced(QStringLiteral("Yazi mode is available again")));
+    }
+
+    void columnsAreReachableByKeyboardWithVisibleFocus()
+    {
+        MainWindow window;
+        showWithFocusOnItems(window, m_sub, true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        YaziColumns *columns = pane->yaziColumns();
+        QAbstractItemView *items = pane->view()->currentView();
+        QTRY_VERIFY(columns->preview());
+        QTRY_COMPARE(columns->parentColumn()->currentIndex().data().toString(), QStringLiteral("sub"));
+
+        // The columns take the focus in order, left to right, with the window's Yazi Columns actions.
+        const auto trigger = [&window](const char *name) {
+            QAction *action = window.actionCollection()->action(QLatin1String(name));
+            QVERIFY(action);
+            QVERIFY(action->isEnabled());
+            action->trigger();
+        };
+        trigger("yazi_focus_parent_column");
+        QTRY_VERIFY(columns->parentColumn()->hasFocus());
+        QCOMPARE(columns->focusedColumn(), YaziColumns::Column::Parent);
+        trigger("yazi_focus_preview");
+        QTRY_COMPARE(columns->focusedColumn(), YaziColumns::Column::Preview);
+        trigger("yazi_focus_current_column");
+        QTRY_VERIFY(items->hasFocus());
+
+        // Tab moves from the parent column to the current column, as the columns are laid out.
+        QWidget *next = columns->parentColumn()->nextInFocusChain();
+        while (next != items && next != columns->parentColumn() && !(next->isVisible() && (next->focusPolicy() & Qt::TabFocus))) {
+            next = next->nextInFocusChain();
+        }
+        QCOMPARE(next, static_cast<QWidget *>(items));
+
+        // No style sheet hides the focus, and the columns use the palette rather than fixed colours.
+        for (const QWidget *widget : {static_cast<QWidget *>(columns), static_cast<QWidget *>(columns->parentColumn()), columns->previewSlot()}) {
+            QVERIFY2(!widget->styleSheet().contains(QStringLiteral("outline")), qPrintable(widget->objectName()));
+            QVERIFY2(!widget->styleSheet().contains(QStringLiteral("color")), qPrintable(widget->objectName()));
+        }
+        const QList<QLabel *> labels = columns->findChildren<QLabel *>();
+        for (const QLabel *label : labels) {
+            QVERIFY2(label->styleSheet().isEmpty(), qPrintable(label->objectName()));
+        }
+        QVERIFY(items->focusPolicy() & Qt::TabFocus);
+        QVERIFY(columns->parentColumn()->focusPolicy() & Qt::TabFocus);
     }
 
 private:

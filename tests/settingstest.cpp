@@ -3746,14 +3746,17 @@ private Q_SLOTS:
         MainWindow window;
         window.openUrls({m_a});
         FolderView *view = window.activePane()->view();
-        const QList<KFilePreviewGenerator *> generators = view->findChildren<KFilePreviewGenerator *>();
-        QCOMPARE(generators.size(), 4);
+        const auto generator = [view] {
+            const QList<KFilePreviewGenerator *> generators = view->findChildren<KFilePreviewGenerator *>();
+            return generators.size() == 1 ? generators.first() : nullptr;
+        };
+        QVERIFY(generator());
 
+        // Only the shown view has a generator, as a hidden one would lay out its view for every batch of listed items.
         const auto verifyOnlyCurrentGenerates = [&] {
-            for (const KFilePreviewGenerator *generator : generators) {
-                const bool current = generator->parent() == view->currentView();
-                QCOMPARE(generator->isPreviewShown(), current);
-            }
+            QVERIFY(generator());
+            QCOMPARE(generator()->parent(), view->currentView());
+            QVERIFY(generator()->isPreviewShown());
         };
         const QList<FolderView::ViewMode> modes{FolderView::ViewMode::Icons,
                                                 FolderView::ViewMode::Compact,
@@ -3765,12 +3768,21 @@ private Q_SLOTS:
             verifyOnlyCurrentGenerates();
         }
 
+        // The plugins follow the generator to the next view.
+        const QStringList plugins{QStringLiteral("imagethumbnail")};
+        view->setPreviewPlugins(plugins);
+        view->setViewMode(FolderView::ViewMode::Compact);
+        QCOMPARE(view->previewPlugins(), plugins);
+        QCOMPARE(generator()->enabledPlugins(), plugins);
+
         view->setPreviewsEnabled(false);
         QVERIFY(!view->previewsShown());
-        for (const KFilePreviewGenerator *generator : generators) {
-            QVERIFY(!generator->isPreviewShown());
-        }
+        QVERIFY(generator());
+        QVERIFY(!generator()->isPreviewShown());
         view->setViewMode(FolderView::ViewMode::Icons);
+        QVERIFY(generator());
+        QCOMPARE(generator()->parent(), view->currentView());
+        QVERIFY(!generator()->isPreviewShown());
         view->setPreviewsEnabled(true);
         verifyOnlyCurrentGenerates();
     }
