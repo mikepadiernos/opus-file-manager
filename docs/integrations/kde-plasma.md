@@ -414,6 +414,20 @@ behaves like the rest of the desktop and follows the user's choices.
   folder when `network:/` isn't installed. See
   [Network shares and FTP](../CAVEATS.md#desktop-integration).
   ([#651](https://github.com/mikepadiernos/plasma-opus/issues/651))
+- **rclone cloud storage:** **Go › Cloud Storage** lists the remotes
+  configured in [rclone](https://rclone.org/), such as Dropbox, OneDrive,
+  Box, MEGA and pCloud, with their types. Choosing one mounts it with
+  `rclone mount` in a private folder under the user's runtime directory and
+  opens it in the active pane; applications can open and save its files in
+  place, as rclone caches writes. Mounted remotes are checked, and the
+  menu's **Unmount** section stops a mount after moving either pane out of
+  it. Plasma Opus stops the mounts it started when it quits.
+  Plasma Opus only reads remote names and types: it never reads, stores or
+  changes rclone's configuration or credentials, and rclone reports an
+  error instead of asking for a configuration password. Missing rclone,
+  listing and mount errors are reported. See
+  [rclone cloud storage](../CAVEATS.md#desktop-integration).
+  ([#652](https://github.com/mikepadiernos/plasma-opus/issues/652))
 
 ## Planned features
 
