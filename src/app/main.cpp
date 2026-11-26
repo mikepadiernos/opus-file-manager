@@ -9,6 +9,7 @@
 #include "mainwindow.h"
 #include "operationjob.h"
 #include "opusfm_version.h"
+#include "portalsetup.h"
 #include "settings.h"
 #include "settingsbackup.h"
 #include "startuppresentation.h"
@@ -31,6 +32,7 @@
 #include <QMessageBox>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <QTextStream>
 #include <QTimer>
 #include <QUrl>
 
@@ -73,10 +75,60 @@ void applyLayoutDirection(bool reverseRequested, int direction)
     }
     QApplication::setLayoutDirection(InterfaceLanguage::layoutDirection(KLocalizedString::languages(), direction));
 }
+
+/// Sets up or restores the system file chooser for --install-portal and --uninstall-portal.
+int runPortalSetup(bool install)
+{
+    QTextStream out(stdout);
+    QTextStream err(stderr);
+    const auto paths = PortalSetup::Paths::fromEnvironment(QCoreApplication::applicationDirPath() + QStringLiteral("/opus-file-manager-portal"));
+    KConfigGroup backup = KSharedConfig::openStateConfig()->group(QStringLiteral("FileChooserPortal"));
+    if (install && !PortalSetup::portalServiceAvailable()) {
+        err << i18nc("@info:shell",
+                     "xdg-desktop-portal is not available on the session bus, so applications cannot use the Plasma Opus file chooser. "
+                     "Nothing was changed.")
+            << Qt::endl;
+        return 1;
+    }
+    if (!install && PortalSetup::state(paths) == PortalSetup::State::NotInstalled && !backup.exists()) {
+        out << i18nc("@info:shell", "The Plasma Opus file chooser is not set up. Nothing was changed.") << Qt::endl;
+        return 0;
+    }
+    const QString error = install ? PortalSetup::install(paths, backup) : PortalSetup::uninstall(paths, backup);
+    if (!error.isEmpty()) {
+        err << error << Qt::endl;
+        return 1;
+    }
+    out << i18nc("@info:shell", "Restarting xdg-desktop-portal. File dialogs that are open in other applications may close.") << Qt::endl;
+    const QString restartError = PortalSetup::restartPortal();
+    if (!restartError.isEmpty()) {
+        err << restartError << Qt::endl << i18nc("@info:shell", "Log out and back in to apply the change.") << Qt::endl;
+        return 1;
+    }
+    if (install) {
+        out << i18nc("@info:shell",
+                     "Plasma Opus now serves the system file chooser for applications that use the XDG portal. Run "
+                     "opus-file-manager --uninstall-portal to restore the previous chooser.")
+            << Qt::endl;
+    } else {
+        out << i18nc("@info:shell", "The previous system file chooser was restored.") << Qt::endl;
+    }
+    return 0;
+}
 }
 
 int main(int argc, char **argv)
 {
+    // Portal setup runs without a window, so it also works without a display.
+    for (int i = 1; i < argc; ++i) {
+        const bool install = qstrcmp(argv[i], "--install-portal") == 0;
+        if (install || qstrcmp(argv[i], "--uninstall-portal") == 0) {
+            QCoreApplication app(argc, argv);
+            QCoreApplication::setApplicationName(AppIdentity::componentName());
+            KLocalizedString::setApplicationDomain(QByteArrayLiteral("opus-file-manager"));
+            return runPortalSetup(install);
+        }
+    }
     bool reverseRequested = false;
     for (int i = 1; i < argc; ++i) {
         reverseRequested |= qstrcmp(argv[i], "-reverse") == 0;
@@ -112,7 +164,11 @@ int main(int argc, char **argv)
     const QCommandLineOption fileManagerServiceOption(QStringLiteral("file-manager-service"),
                                                       i18n("Start without a window to answer an org.freedesktop.FileManager1 request"));
     const QCommandLineOption workspaceOption(QStringLiteral("workspace"), i18n("Switch to the saved workspace with this id"), QStringLiteral("id"));
-    parser.addOptions({resetAppearanceOption, noWorkspaceAppearanceOption, fileManagerServiceOption, workspaceOption});
+    const QCommandLineOption installPortalOption(QStringLiteral("install-portal"),
+                                                 i18n("Use the Plasma Opus file chooser for applications that use the XDG portal, then exit"));
+    const QCommandLineOption uninstallPortalOption(QStringLiteral("uninstall-portal"), i18n("Restore the previous XDG portal file chooser, then exit"));
+    parser.addOptions(
+        {resetAppearanceOption, noWorkspaceAppearanceOption, fileManagerServiceOption, workspaceOption, installPortalOption, uninstallPortalOption});
     parser.process(app);
     aboutData.processCommandLine(&parser);
 
