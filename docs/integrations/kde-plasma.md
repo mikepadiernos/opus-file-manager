@@ -133,6 +133,18 @@ behaves like the rest of the desktop and follows the user's choices.
   KDE Connect's own notifications show each transfer's progress and result.
   Plasma Opus never pairs devices or changes KDE Connect settings.
   ([#389](https://github.com/mikepadiernos/plasma-opus/issues/389))
+- **KRunner:** an installed build adds a **Plasma Opus** plugin to KRunner
+  and Plasma Search that offers saved workspaces and Favorites whose name
+  matches the query. Choosing a workspace starts Plasma Opus, or uses the
+  running window, and switches to it after asking as any workspace switch
+  does; choosing a Favorite opens it in a new tab. History, searches and
+  recent folders are never offered, and a match carries only an opaque id,
+  so no location or credentials pass through KRunner. Workspaces or
+  Favorites removed since the match was shown are not opened. Turn either
+  kind off under **Settings › General › Plasma Search**, or the whole plugin
+  off in **System Settings › Search › Plasma Search**. The
+  `opus-file-manager-krunner` helper is started by D-Bus when KRunner first
+  asks. ([#390](https://github.com/mikepadiernos/plasma-opus/issues/390))
 
 ## Planned features
 
@@ -144,9 +156,6 @@ them.
 - **System file chooser:** Let applications request a chooser through the XDG
   portal. Preserve user defaults and sandbox permissions.
   ([#286](https://github.com/mikepadiernos/plasma-opus/issues/286))
-- **KRunner:** Expose only explicitly selected saved workspaces and locations,
-  respecting privacy and unavailable targets.
-  ([#390](https://github.com/mikepadiernos/plasma-opus/issues/390))
 - **Service-menu discovery:** Reuse KDE's service-menu provider for explicit
   install, update and removal actions; explain that installed services may
   execute commands and be shared with other applications.
