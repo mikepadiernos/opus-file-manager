@@ -38,3 +38,6 @@ suse="$(check opensuse-tumbleweed suse 'sudo zypper install' 'install Konsole')"
 printf 'ID=unknown\n' > "$tmpdir/os-release"
 output="$(HOME="$tmpdir" bash "$tmpdir/install.sh" --deps)"
 [[ "$output" == *'libarchive'* && "$output" == *'MultimediaWidgets, Network, Xml'* ]]
+
+help="$(HOME="$tmpdir" bash "$tmpdir/install.sh" --help)"
+[[ "$help" == *'--file-chooser'* && "$help" == *'./install.sh --file-chooser'* ]]

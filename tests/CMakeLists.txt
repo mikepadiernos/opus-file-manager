@@ -307,6 +307,24 @@ if(DBUS_RUN_SESSION_EXECUTABLE)
     set_tests_properties(opusfm-filemanagerservice-dbus PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 endif()
 
+ecm_add_test(filechoosertest.cpp
+    LINK_LIBRARIES opusfm_core Qt6::DBus Qt6::Test
+    NAME_PREFIX "opusfm-"
+)
+ecm_add_test(portalsetuptest.cpp
+    LINK_LIBRARIES opusfm_core Qt6::Test
+    NAME_PREFIX "opusfm-"
+)
+ecm_add_test(chooserdialogtest.cpp
+    LINK_LIBRARIES opusfm_portal Qt6::DBus Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+if(DBUS_RUN_SESSION_EXECUTABLE)
+    add_test(NAME opusfm-chooserdialog-dbus COMMAND ${DBUS_RUN_SESSION_EXECUTABLE} $<TARGET_FILE:chooserdialogtest> answersRequestsOnTheBus)
+    set_tests_properties(opusfm-chooserdialog-dbus PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+endif()
+
 ecm_add_test(settingsbackuptest.cpp
     LINK_LIBRARIES opusfm_core Qt6::Test
     NAME_PREFIX "opusfm-"
