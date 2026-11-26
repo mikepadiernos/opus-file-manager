@@ -1352,7 +1352,7 @@ for some features are recorded in [pending tasks](TODO.md).
         Handle an unavailable Activities service, missing folders and removed
         Activities without losing workspace data, and avoid duplicating KDE's
         KIO resource history.
-  - [ ] KDE Connect sharing: offer an explicit action to send selected files to
+  - [x] KDE Connect sharing: offer an explicit action to send selected files to
         an available paired device through supported KDE Connect interfaces.
         Show the selected device and transfer outcome; do not pair devices, send
         files or change shared KDE Connect settings automatically. Handle
