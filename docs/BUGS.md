@@ -15,9 +15,10 @@ tracking rules.
 > [Edge cases](EDGE.md) are possible scenarios, not confirmed bugs.
 
 > [!NOTE]
-> 16 of 17 tracked bugs are merged into `main`. One test reliability report,
-> [#696][issue-696], is open in Backlog. Issue states and project statuses
-> were last checked against GitHub on 2026-11-25.
+> 16 of 18 tracked bugs are merged into `main`. Two reports are open in
+> Backlog: slow opening of the app and Preferences ([#752][issue-752]) and a
+> test reliability report ([#696][issue-696]). Issue states and project
+> statuses were last checked against GitHub on 2026-11-26.
 
 ## Contents
 
@@ -32,6 +33,7 @@ Newest first. Each bug links to its report below.
 
 | Issue             | Bug                                                                                                                    | Complete?   | Project status      |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------- | ------------------- |
+| [#752][issue-752] | [Opening the app and Preferences takes a long time](#slow-startup-and-preferences)                                     | ![No][no]   | ![Backlog][backlog] |
 | [#696][issue-696] | [Checksum test times out waiting for the folder listing under load](#checksum-test-listing-timeout)                    | ![No][no]   | ![Backlog][backlog] |
 | [#694][issue-694] | [`mainwindowtest` intermittently crashes after restoring a pane filter](#intermittent-mainwindowtest-crash)            | ![Yes][yes] | ![Merged][merged]   |
 | [#682][issue-682] | [Icons view shows image thumbnails at Details size](#icons-view-thumbnail-size)                                        | ![Yes][yes] | ![Merged][merged]   |
@@ -68,6 +70,28 @@ Statuses use the project board's names, in workflow order.
 Every report uses the same fields in the same order. "Not recorded" means the
 field is not captured in this log; see the linked issue for any further
 detail.
+
+### Slow startup and Preferences
+
+- **Issue:** [#752][issue-752] ![Backlog][backlog]
+- **Severity:** Moderate (performance)
+- **Summary:** Plasma Opus takes a long time to open, and so does its
+  Preferences dialog.
+- **Evidence:** Not recorded. Timings, hardware, session type, build type and
+  the restored session or workspace are not yet known.
+- **Steps to reproduce:** Launch Plasma Opus, then open **Settings › Configure
+  Plasma Opus…** once the window is shown.
+- **Expected behaviour:** The main window becomes usable quickly, and
+  Preferences opens without a noticeable wait.
+- **Actual behaviour:** Both take a long time to appear. Reading the code
+  suggests one cause, not yet profiled: the Preferences dialog builds all of
+  its pages, about 80 tabs, every time it opens, because it is deleted when
+  closed. Startup costs have not been measured.
+- **Resolution:** Not resolved. Next steps: measure cold and warm startup and
+  the time to open Preferences in a Release build on Plasma, build settings
+  pages when first shown and defer startup work the first window does not
+  need. The planned M32.05 items [#477][issue-477], [#478][issue-478] and
+  [#479][issue-479] cover this work.
 
 ### Checksum test listing timeout
 
@@ -400,6 +424,9 @@ Newest first, using the same fields as open reports.
 [issue-446]: https://github.com/mikepadiernos/plasma-opus/issues/446
 [issue-457]: https://github.com/mikepadiernos/plasma-opus/issues/457
 [issue-476]: https://github.com/mikepadiernos/plasma-opus/issues/476
+[issue-477]: https://github.com/mikepadiernos/plasma-opus/issues/477
+[issue-478]: https://github.com/mikepadiernos/plasma-opus/issues/478
+[issue-479]: https://github.com/mikepadiernos/plasma-opus/issues/479
 [issue-532]: https://github.com/mikepadiernos/plasma-opus/issues/532
 [issue-533]: https://github.com/mikepadiernos/plasma-opus/issues/533
 [issue-549]: https://github.com/mikepadiernos/plasma-opus/issues/549
@@ -411,6 +438,7 @@ Newest first, using the same fields as open reports.
 [issue-682]: https://github.com/mikepadiernos/plasma-opus/issues/682
 [issue-694]: https://github.com/mikepadiernos/plasma-opus/issues/694
 [issue-696]: https://github.com/mikepadiernos/plasma-opus/issues/696
+[issue-752]: https://github.com/mikepadiernos/plasma-opus/issues/752
 [pr-451]: https://github.com/mikepadiernos/plasma-opus/pull/451
 [pr-452]: https://github.com/mikepadiernos/plasma-opus/pull/452
 [pr-454]: https://github.com/mikepadiernos/plasma-opus/pull/454
