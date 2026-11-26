@@ -1857,6 +1857,95 @@ private Q_SLOTS:
         }
     }
 
+    void yaziModeIsDiscoverableWithoutShortcuts()
+    {
+        QTemporaryDir backupDir;
+        QVERIFY(backupDir.isValid());
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup customization = config->group(QStringLiteral("ToolbarCustomization"));
+        KConfigGroup paneCustomization = config->group(QStringLiteral("PaneToolbars"));
+        const auto backup = KSharedConfig::openConfig(backupDir.filePath(QStringLiteral("settings")));
+        KConfigGroup savedGroup = backup->group(QStringLiteral("ToolbarCustomization"));
+        KConfigGroup savedPaneGroup = backup->group(QStringLiteral("PaneToolbars"));
+        customization.copyTo(&savedGroup);
+        paneCustomization.copyTo(&savedPaneGroup);
+        const auto cleanup = qScopeGuard([&] {
+            customization.deleteGroup();
+            savedGroup.copyTo(&customization);
+            paneCustomization.deleteGroup();
+            savedPaneGroup.copyTo(&paneCustomization);
+            config->sync();
+        });
+        customization.deleteGroup();
+        paneCustomization.deleteGroup();
+
+        MainWindow window;
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+
+        // Yazi mode changes no existing bindings: none of its actions has a shortcut by default.
+        QStringList yaziActions;
+        for (QAction *action : window.actionCollection()->actions()) {
+            const QString name = action->objectName();
+            if (!name.startsWith(QLatin1String("toggle_yazi")) && !name.startsWith(QLatin1String("yazi_"))) {
+                continue;
+            }
+            yaziActions.append(name);
+            QVERIFY2(window.actionCollection()->defaultShortcuts(action).isEmpty(), qPrintable(name));
+            QVERIFY2(action->shortcuts().isEmpty(), qPrintable(name));
+        }
+        for (const char *name : {"toggle_yazi_mode",
+                                 "toggle_yazi_preview",
+                                 "toggle_yazi_preview_information",
+                                 "toggle_yazi_parent_column",
+                                 "toggle_yazi_vim_keys",
+                                 "yazi_focus_parent_column",
+                                 "yazi_focus_current_column",
+                                 "yazi_focus_preview",
+                                 "yazi_toggle_selection",
+                                 "yazi_visual_selection"}) {
+            QVERIFY2(yaziActions.contains(QLatin1String(name)), name);
+        }
+
+        // The toggle is offered by the toolbar customizer, but is on no toolbar by default.
+        QAction *mode = window.actionCollection()->action(QStringLiteral("toggle_yazi_mode"));
+        QVERIFY(mode);
+        QVERIFY(!window.toolBar()->actions().contains(mode));
+        for (Pane *pane : {window.activePane(), window.inactivePane()}) {
+            auto *paneAction = pane->toolBar()->findChild<QAction *>(QStringLiteral("paneYaziMode"));
+            QVERIFY(paneAction);
+            QVERIFY(pane->toolBar()->actions().contains(paneAction));
+            QVERIFY(!paneAction->isVisible());
+        }
+        QAction *customize = window.actionCollection()->action(QStringLiteral("customize_main_toolbar"));
+        QVERIFY(customize);
+        customize->trigger();
+        auto *actionList = window.findChild<QListWidget *>(QStringLiteral("toolbarActionList"));
+        QVERIFY(actionList);
+        bool listed = false;
+        for (int row = 0; row < actionList->count(); ++row) {
+            listed = listed || actionList->item(row)->data(Qt::UserRole + 1).toString() == QLatin1String("toggle_yazi_mode");
+        }
+        QVERIFY(listed);
+        customize->trigger();
+
+        // The status bar has a toggle for the active pane.
+        auto *status = window.statusBar()->findChild<QToolButton *>(QStringLiteral("yaziModeStatusButton"));
+        QVERIFY(status);
+        QCOMPARE(status->defaultAction(), mode);
+        QCOMPARE(status->accessibleName(), QStringLiteral("Yazi mode"));
+        QVERIFY(!status->accessibleDescription().isEmpty());
+        QVERIFY(status->isVisible());
+        QVERIFY(!status->isChecked());
+        status->click();
+        QVERIFY(window.activePane()->yaziMode());
+        QVERIFY(!window.inactivePane()->yaziMode());
+        QVERIFY(status->isChecked());
+        status->click();
+        QVERIFY(!window.activePane()->yaziMode());
+        QVERIFY(!status->isChecked());
+    }
+
     void mainToolbarCanBeEditedByDragAndDrop()
     {
         QTemporaryDir backupDir;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "session.h"
+#include "yazimode.h"
 
 #include <KConfig>
 #include <KConfigGroup>
@@ -30,6 +31,8 @@ private Q_SLOTS:
         session.left.currentTab = 1;
         session.left.filterText = QStringLiteral("*.cpp");
         session.left.filterScope = 2;
+        session.left.yaziMode = true;
+        session.left.yaziPreview = 0;
         session.right.tabs = {QUrl(QStringLiteral("trash:/")), QUrl(QStringLiteral("sftp://host/dir"))};
         session.right.currentTab = 0;
         session.activePane = 1;
@@ -115,6 +118,126 @@ private Q_SLOTS:
         cards.right.viewMode = 9;
         QCOMPARE(cards.sanitized(home).left.viewMode, 3);
         QCOMPARE(cards.sanitized(home).right.viewMode, PaneSession::MaximumViewMode);
+    }
+
+    void yaziModeIsOffUnlessSavedAndSurvivesSanitizing()
+    {
+        QTemporaryDir dir;
+        KConfig config(dir.filePath(QStringLiteral("staterc")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Session"));
+        QVERIFY(!Session::load(group).left.yaziMode);
+        QVERIFY(!Session::load(group).right.yaziMode);
+
+        group.group(QStringLiteral("RightPane")).writeEntry("YaziMode", true);
+        const WindowSession loaded = Session::load(group);
+        QVERIFY(!loaded.left.yaziMode);
+        QVERIFY(loaded.right.yaziMode);
+
+        const WindowSession clean = loaded.sanitized(QUrl::fromLocalFile(QStringLiteral("/home/me")));
+        QVERIFY(!clean.left.yaziMode);
+        QVERIFY(clean.right.yaziMode);
+    }
+
+    void yaziPreviewIsUnsetUnlessSavedAndSurvivesSanitizing()
+    {
+        QTemporaryDir dir;
+        KConfig config(dir.filePath(QStringLiteral("staterc")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Session"));
+        QCOMPARE(Session::load(group).left.yaziPreview, -1);
+        QCOMPARE(Session::load(group).right.yaziPreview, -1);
+
+        group.group(QStringLiteral("RightPane")).writeEntry("YaziPreview", false);
+        WindowSession loaded = Session::load(group);
+        QCOMPARE(loaded.left.yaziPreview, -1);
+        QCOMPARE(loaded.right.yaziPreview, 0);
+
+        loaded.left.yaziPreview = 7;
+        const WindowSession clean = loaded.sanitized(QUrl::fromLocalFile(QStringLiteral("/home/me")));
+        QCOMPARE(clean.left.yaziPreview, 1);
+        QCOMPARE(clean.right.yaziPreview, 0);
+
+        // Saving an unset choice leaves no entry for older versions to trip on.
+        WindowSession unset = loaded;
+        unset.left.yaziPreview = -1;
+        Session::save(unset, group);
+        QVERIFY(!group.group(QStringLiteral("LeftPane")).hasKey("YaziPreview"));
+        QCOMPARE(Session::load(group).left.yaziPreview, -1);
+    }
+
+    void yaziPreviewContentIsUnsetUnlessSavedAndSurvivesSanitizing()
+    {
+        QTemporaryDir dir;
+        KConfig config(dir.filePath(QStringLiteral("staterc")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Session"));
+        QCOMPARE(Session::load(group).left.yaziPreviewContent, -1);
+        QCOMPARE(Session::load(group).right.yaziPreviewContent, -1);
+
+        group.group(QStringLiteral("RightPane")).writeEntry("YaziPreviewContent", QStringLiteral("Information"));
+        WindowSession loaded = Session::load(group);
+        QCOMPARE(loaded.left.yaziPreviewContent, -1);
+        QCOMPARE(loaded.right.yaziPreviewContent, 1);
+
+        loaded.left.yaziPreviewContent = 7;
+        const WindowSession clean = loaded.sanitized(QUrl::fromLocalFile(QStringLiteral("/home/me")));
+        QCOMPARE(clean.left.yaziPreviewContent, 1);
+        QCOMPARE(clean.right.yaziPreviewContent, 1);
+
+        WindowSession chosen = loaded;
+        chosen.left.yaziPreviewContent = 0;
+        chosen.right.yaziPreviewContent = -1;
+        Session::save(chosen, group);
+        QCOMPARE(group.group(QStringLiteral("LeftPane")).readEntry("YaziPreviewContent", QString()), QStringLiteral("Preview"));
+        QVERIFY(!group.group(QStringLiteral("RightPane")).hasKey("YaziPreviewContent"));
+        QCOMPARE(Session::load(group).left.yaziPreviewContent, 0);
+        QCOMPARE(Session::load(group).right.yaziPreviewContent, -1);
+    }
+
+    void yaziParentColumnAndRatiosAreUnsetUnlessSavedAndSurviveSanitizing()
+    {
+        QTemporaryDir dir;
+        KConfig config(dir.filePath(QStringLiteral("staterc")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Session"));
+        WindowSession loaded = Session::load(group);
+        QCOMPARE(loaded.left.yaziParentColumn, -1);
+        QVERIFY(loaded.left.yaziColumnRatios.isEmpty());
+
+        WindowSession chosen;
+        chosen.left.tabs = {QUrl::fromLocalFile(QStringLiteral("/home/me"))};
+        chosen.right.tabs = {QUrl::fromLocalFile(QStringLiteral("/tmp"))};
+        chosen.left.yaziMode = true;
+        chosen.left.yaziPreview = 1;
+        chosen.left.yaziPreviewContent = 1;
+        chosen.left.yaziParentColumn = 0;
+        chosen.left.yaziColumnRatios = {180, 420, 300};
+        Session::save(chosen, group);
+        QCOMPARE(group.group(QStringLiteral("LeftPane")).readEntry("YaziParentColumn", QString()), QStringLiteral("false"));
+        QCOMPARE(group.group(QStringLiteral("LeftPane")).readEntry("YaziColumnRatios", QString()), QStringLiteral("180,420,300"));
+        QVERIFY(!group.group(QStringLiteral("RightPane")).hasKey("YaziParentColumn"));
+        QVERIFY(!group.group(QStringLiteral("RightPane")).hasKey("YaziColumnRatios"));
+        loaded = Session::load(group);
+        QVERIFY(loaded.left.yaziMode);
+        QCOMPARE(loaded.left.yaziPreview, 1);
+        QCOMPARE(loaded.left.yaziPreviewContent, 1);
+        QCOMPARE(loaded.left.yaziParentColumn, 0);
+        QCOMPARE(loaded.left.yaziColumnRatios, chosen.left.yaziColumnRatios);
+        QCOMPARE(loaded.right.yaziParentColumn, -1);
+        QVERIFY(loaded.right.yaziColumnRatios.isEmpty());
+
+        group.group(QStringLiteral("RightPane")).writeEntry("YaziColumnRatios", QStringLiteral("1,0,2"));
+        QVERIFY(Session::load(group).right.yaziColumnRatios.isEmpty());
+
+        loaded.left.yaziParentColumn = 5;
+        loaded.right.yaziParentColumn = -9;
+        loaded.right.yaziColumnRatios = {1, 2};
+        WindowSession clean = loaded.sanitized(QUrl::fromLocalFile(QStringLiteral("/home/me")));
+        QCOMPARE(clean.left.yaziParentColumn, 1);
+        QCOMPARE(clean.left.yaziColumnRatios, (QList<int>{180, 420, 300}));
+        QCOMPARE(clean.right.yaziParentColumn, -1);
+        QVERIFY(clean.right.yaziColumnRatios.isEmpty());
+        loaded.left.yaziColumnRatios = {0, 4 * YaziMode::MaximumRatio, 1};
+        QVERIFY(loaded.sanitized(QUrl::fromLocalFile(QStringLiteral("/home/me"))).left.yaziColumnRatios.isEmpty());
+        loaded.left.yaziColumnRatios = {1, 4 * YaziMode::MaximumRatio, 1};
+        QCOMPARE(loaded.sanitized(QUrl::fromLocalFile(QStringLiteral("/home/me"))).left.yaziColumnRatios, (QList<int>{1, YaziMode::MaximumRatio, 1}));
     }
 
     void tabStateRoundTripsAndSurvivesSanitizing()

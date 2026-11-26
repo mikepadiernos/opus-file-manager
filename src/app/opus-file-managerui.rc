@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="43" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="49" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -54,6 +54,8 @@
       <Action name="edit_select_all"/>
       <Action name="select_menu"/>
       <Action name="selection_mode"/>
+      <Action name="yazi_toggle_selection"/>
+      <Action name="yazi_visual_selection"/>
       <Separator/>
       <Action name="show_filter_bar"/>
     </Menu>
@@ -85,6 +87,11 @@
       <Action name="toggle_view_mode"/>
       <Action name="compact_view"/>
       <Action name="card_view"/>
+      <Action name="toggle_yazi_mode"/>
+      <Action name="toggle_yazi_preview"/>
+      <Action name="toggle_yazi_preview_information"/>
+      <Action name="toggle_yazi_parent_column"/>
+      <Action name="toggle_yazi_vim_keys"/>
       <Action name="folder_format_source"/>
       <Action name="open_folder_format_source"/>
       <Action name="clear_folder_format"/>
@@ -122,6 +129,12 @@
       <Action name="edit_location"/>
       <Action name="add_to_favorites"/>
       <Action name="switch_pane"/>
+      <Menu name="yazi_columns">
+        <text context="@title:menu">Yazi Columns</text>
+        <Action name="yazi_focus_parent_column"/>
+        <Action name="yazi_focus_current_column"/>
+        <Action name="yazi_focus_preview"/>
+      </Menu>
       <Separator/>
       <Action name="new_tab"/>
       <Action name="close_tab"/>

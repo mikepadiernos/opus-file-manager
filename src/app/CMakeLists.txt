@@ -53,6 +53,8 @@ add_library(opusfm_app STATIC
     foldertree.h
     foldercomparisondialog.cpp
     foldercomparisondialog.h
+    folderpreview.cpp
+    folderpreview.h
     foldersyncdialog.cpp
     foldersyncdialog.h
     gallerywindow.cpp
@@ -137,6 +139,12 @@ add_library(opusfm_app STATIC
     workspaceappearanceeditor.h
     workspacelocations.cpp
     workspacelocations.h
+    yazicolumns.cpp
+    yazicolumns.h
+    yazikeys.cpp
+    yazikeys.h
+    yazipreview.cpp
+    yazipreview.h
     opusfm.qrc
     branding.qrc
 )

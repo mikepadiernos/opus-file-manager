@@ -154,6 +154,8 @@ public:
      * scope is shown.
      */
     void activateFirstItem();
+    /// Activates the current item, as Return or a double-click would.
+    void activateCurrentItem();
 
     bool isFlat() const;
     /**
@@ -197,7 +199,10 @@ Q_SIGNALS:
     void hiddenFilesChanged(bool enabled);
     void sortingChanged();
     void itemActivated(const KFileItem &item);
+    /// The selection or the focused item changed.
     void selectionChanged();
+    /// The selected items changed, or the focused item moved while nothing is selected.
+    void selectedItemsChanged();
     void itemHovered(const KFileItem &item);
     void itemHoverCleared();
     void itemCountChanged();
@@ -277,10 +282,8 @@ private:
     bool m_defaultSelectionMarkers = false;
     bool m_defaultSelectionMode = false;
     bool m_markerPress = false;
-    KFilePreviewGenerator *m_detailsPreviews = nullptr;
-    KFilePreviewGenerator *m_iconPreviews = nullptr;
-    KFilePreviewGenerator *m_compactPreviews = nullptr;
-    KFilePreviewGenerator *m_cardPreviews = nullptr;
+    /// Generates previews for the shown view only; see updatePreviews().
+    KFilePreviewGenerator *m_previews = nullptr;
     KFileItemDelegate *m_iconDelegate = nullptr;
     ViewMode m_viewMode = ViewMode::Details;
     int m_detailsIconSize = 0;

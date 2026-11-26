@@ -746,6 +746,7 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
         m_status->setText(m_scope->currentIndex() != Indexed
                               ? i18np("Searching: %1 entry scanned.", "Searching: %1 entries scanned.", count)
                               : i18np("Searching: %1 indexed match retrieved.", "Searching: %1 indexed matches retrieved.", count));
+        Q_EMIT progressChanged(m_status->text());
     });
     connect(&m_watcher, &QFutureWatcher<LiveSearch::Result>::finished, this, [this] {
         const LiveSearch::Result result = m_watcher.result();
@@ -866,6 +867,28 @@ bool SearchWidget::search(const QString &text)
 QString SearchWidget::status() const
 {
     return m_status->text();
+}
+
+bool SearchWidget::prepareFolderSearch(LiveSearch::Field field)
+{
+    if (m_watcher.isRunning()) {
+        return false;
+    }
+    m_workspaceOnly->setChecked(false);
+    m_scope->setCurrentIndex(CurrentFolder);
+    m_field->setCurrentIndex(fieldIndex(field));
+    refreshWorkspaceScope();
+    return true;
+}
+
+LiveSearch::Field SearchWidget::field() const
+{
+    return fieldAt(m_field->currentIndex());
+}
+
+bool SearchWidget::searchesCurrentFolder() const
+{
+    return m_scope->currentIndex() == CurrentFolder && !(m_workspaceScope && m_workspaceScope().active && m_workspaceOnly->isChecked());
 }
 
 bool SearchWidget::hasResults() const
@@ -1156,12 +1179,30 @@ bool SearchWidget::start()
     if (m_watcher.isRunning()) {
         return false;
     }
+    if (!startSearch()) {
+        Q_EMIT startRejected(m_status->text());
+        return false;
+    }
+    Q_EMIT started();
+    return true;
+}
+
+QString SearchWidget::locationLimitation() const
+{
+    if (searchesCurrentFolder() && !m_folder.isLocalFile()) {
+        return i18nc("@info", "Live search currently supports local folders only.");
+    }
+    return {};
+}
+
+bool SearchWidget::startSearch()
+{
     const WorkspaceScope workspace = m_workspaceScope ? m_workspaceScope() : WorkspaceScope{};
     refreshWorkspaceScope();
     const bool searchFolders = m_scope->currentIndex() == SearchFolders;
     const bool workspaceOnly = !searchFolders && workspace.active && m_workspaceOnly->isChecked();
-    if (!workspaceOnly && m_scope->currentIndex() == CurrentFolder && !m_folder.isLocalFile()) {
-        m_status->setText(i18nc("@info", "Live search currently supports local folders only."));
+    if (const QString limitation = locationLimitation(); !limitation.isEmpty()) {
+        m_status->setText(limitation);
         return false;
     }
     if (m_query->text().trimmed().isEmpty()) {

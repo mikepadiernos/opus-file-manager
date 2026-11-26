@@ -12,13 +12,15 @@ namespace WorkspaceRestore
  * Which parts of a saved workspace layout are restored when switching. Each
  * part applies only when the workspace's behavior selection includes it:
  * window parts need the layout behavior, and pane and tab parts need pane and
- * tab restoration.
+ * tab restoration. Each pane's Yazi mode follows the selection's own Yazi
+ * mode behavior; see BehaviorSelection::appliesYaziMode().
  */
 struct Options {
     /// Single or dual panes, stacking, splitter sizes, second-pane placement
     /// and detached-pane geometry.
     bool paneArrangement = true;
-    /// Each pane's view mode.
+    /// Each pane's view mode. Workspaces saved before the Yazi mode behavior
+    /// existed also restore each pane's Yazi mode with it.
     bool views = true;
     /// Main and pane toolbar entries.
     bool toolbars = true;

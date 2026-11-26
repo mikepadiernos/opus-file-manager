@@ -1753,17 +1753,21 @@ private Q_SLOTS:
             auto *layout = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultLayout"));
             auto *panes = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultPaneTabRestoration"));
             auto *appearance = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultAppearance"));
-            QVERIFY(mode && location && search && layout && panes && appearance);
+            auto *yazi = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultYaziMode"));
+            QVERIFY(mode && location && search && layout && panes && appearance && yazi);
             QCOMPARE(mode->currentIndex(), int(Settings::EnumWorkspaceDefaultBehaviorMode::All));
-            QVERIFY(location->isChecked() && search->isChecked() && layout->isChecked() && panes->isChecked() && appearance->isChecked());
+            QVERIFY(location->isChecked() && search->isChecked() && layout->isChecked() && panes->isChecked() && appearance->isChecked() && yazi->isChecked());
             QVERIFY(!search->isEnabledTo(&dialog));
             QVERIFY(!appearance->isEnabledTo(&dialog));
+            QVERIFY(!yazi->isEnabledTo(&dialog));
             mode->setCurrentIndex(Settings::EnumWorkspaceDefaultBehaviorMode::Selected);
             QVERIFY(search->isEnabledTo(&dialog));
             QVERIFY(appearance->isEnabledTo(&dialog));
+            QVERIFY(yazi->isEnabledTo(&dialog));
             search->setChecked(false);
             layout->setChecked(false);
             appearance->setChecked(false);
+            yazi->setChecked(false);
             dialog.button(QDialogButtonBox::Ok)->click();
         }
         const auto restore = qScopeGuard([] {
@@ -1776,6 +1780,9 @@ private Q_SLOTS:
         QVERIFY(!Settings::workspaceDefaultLayout());
         QVERIFY(Settings::workspaceDefaultPaneTabRestoration());
         QVERIFY(!Settings::workspaceDefaultAppearance());
+        QVERIFY(!Settings::workspaceDefaultYaziMode());
+        // New workspaces take the default.
+        QVERIFY(!WorkspaceRestore::defaultBehaviorSelection().yaziMode.value_or(true));
     }
 
     void workspaceIndicatorOptionsPersist()

@@ -14,9 +14,12 @@
 #include "tabcolors.h"
 #include "tabmodel.h"
 #include "windoweffects.h"
+#include "yazicolumns.h"
+#include "yazikeys.h"
 
 #include <KConfigGroup>
 #include <KDirModel>
+#include <KFileItem>
 #include <KFilePlacesModel>
 #include <KIO/Global>
 #include <KLocalizedString>
@@ -34,6 +37,7 @@
 #include <QGraphicsOpacityEffect>
 #include <QHBoxLayout>
 #include <QInputDialog>
+#include <QItemSelectionModel>
 #include <QLabel>
 #include <QListWidget>
 #include <QMenu>
@@ -47,6 +51,25 @@
 #include <QToolBar>
 #include <QToolButton>
 #include <QVBoxLayout>
+
+static YaziMode::PreviewContent settingsPreviewContent()
+{
+    return Settings::yaziPreviewContent() == Settings::EnumYaziPreviewContent::Information ? YaziMode::PreviewContent::Information
+                                                                                           : YaziMode::PreviewContent::Preview;
+}
+
+static YaziMode::Ratios settingsColumnRatios()
+{
+    return YaziMode::ratiosFromList(Settings::yaziColumnRatios()).value_or(YaziMode::Ratios());
+}
+
+static QIcon yaziModeIcon()
+{
+    return SymbolicIcon::wrap(QIcon::fromTheme(QStringLiteral("view-file-columns"), QIcon::fromTheme(QStringLiteral("view-split-left-right"))));
+}
+
+/// Marks a pane toolbar action that stays hidden until the user shows it, even in toolbars customized before it existed.
+constexpr auto OptionalToolbarAction = "paneToolbarOptional";
 
 Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const QString &toolbarConfigId)
     : QWidget(parent)
@@ -125,6 +148,12 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
             m_view->setViewMode(mode);
         });
     }
+    viewMenu->addSeparator();
+    m_yaziMenuAction = viewMenu->addAction(yaziModeIcon(), i18nc("@action:inmenu", "Yazi Mode"));
+    m_yaziMenuAction->setObjectName(QStringLiteral("paneViewModeYaziMode"));
+    m_yaziMenuAction->setToolTip(i18nc("@info:tooltip", "Show this pane's folder in columns with its parent folder"));
+    m_yaziMenuAction->setCheckable(true);
+    connect(m_yaziMenuAction, &QAction::triggered, this, &Pane::setYaziMode);
     auto *viewButton = new QToolButton(m_toolBar);
     viewButton->setObjectName(QStringLiteral("paneViewModeButton"));
     viewButton->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-list-details")));
@@ -210,10 +239,17 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     search->setObjectName(QStringLiteral("paneSearch"));
     search->setToolTip(i18nc("@action", "Search This Pane"));
     connect(search, &QAction::triggered, this, &Pane::searchRequested);
+    m_yaziToolbarAction = m_toolBar->addAction(yaziModeIcon(), i18nc("@action", "Yazi Mode"));
+    m_yaziToolbarAction->setObjectName(QStringLiteral("paneYaziMode"));
+    m_yaziToolbarAction->setToolTip(i18nc("@info:tooltip", "Show this pane's folder in columns with its parent folder"));
+    m_yaziToolbarAction->setCheckable(true);
+    m_yaziToolbarAction->setProperty(OptionalToolbarAction, true);
+    connect(m_yaziToolbarAction, &QAction::triggered, this, &Pane::setYaziMode);
 
     m_toolBar->insertAction(m_back, viewButtonAction);
     filter->setVisible(false);
     search->setVisible(false);
+    m_yaziToolbarAction->setVisible(false);
 
     QAction *configure = m_toolBar->addAction(SymbolicIcon::fromTheme(QStringLiteral("configure")), i18nc("@action", "Customize Toolbar"));
     configure->setObjectName(QStringLiteral("paneCustomizeToolbar"));
@@ -279,6 +315,24 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     m_layout->addWidget(m_tabStrip);
     m_layout->addWidget(m_navigationBar);
     m_layout->addWidget(m_view, 1);
+    m_yaziColumns = new YaziColumns(this);
+    m_yaziColumns->hide();
+    m_yaziPreview = Settings::yaziPreviewVisible();
+    m_yaziPreviewContent = settingsPreviewContent();
+    m_yaziColumns->setPreviewContent(m_yaziPreviewContent);
+    m_yaziParentColumn = Settings::yaziParentColumnVisible();
+    m_yaziColumns->setParentColumnEnabled(m_yaziParentColumn);
+    m_yaziColumns->setRatios(settingsColumnRatios());
+    m_yaziRatiosSave = new QTimer(this);
+    m_yaziRatiosSave->setSingleShot(true);
+    m_yaziRatiosSave->setInterval(YaziRatiosSaveDelay);
+    connect(m_yaziRatiosSave, &QTimer::timeout, this, [this] {
+        saveYaziColumnRatiosSetting();
+        Q_EMIT workspaceLayoutChanged();
+    });
+    connect(m_yaziColumns, &YaziColumns::ratiosChanged, this, &Pane::rememberYaziColumnRatios);
+    m_yaziColumns->setShowHiddenFiles(m_view->showHiddenFiles());
+    reloadYaziKeySettings();
     m_statusBarWidget = new QWidget(this);
     m_statusBarWidget->setObjectName(QStringLiteral("paneStatusBar"));
     m_statusBarWidget->hide();
@@ -399,9 +453,27 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
         m_tabs->replaceCurrentUrl(url);
         m_navigator->setLocationUrl(url);
     });
+    connect(m_view, &FolderView::urlChanged, this, [this](const QUrl &url) {
+        if (m_yaziMode) {
+            m_yaziColumns->setUrl(url);
+        }
+    });
+    connect(m_view, &FolderView::redirected, this, [this](const QUrl &url) {
+        if (m_yaziMode) {
+            m_yaziColumns->setUrl(url);
+        }
+    });
+    connect(m_view, &FolderView::hiddenFilesChanged, m_yaziColumns, &YaziColumns::setShowHiddenFiles);
+    connect(m_yaziColumns, &YaziColumns::folderRequested, this, &Pane::setUrl);
+    connect(m_yaziColumns, &YaziColumns::itemRequested, this, &Pane::showFolderItem);
+    connect(m_yaziColumns, &YaziColumns::activated, this, &Pane::activated);
+    connect(m_yaziColumns->keys(), &YaziKeys::commandTriggered, this, &Pane::runYaziCommand);
     connect(m_view, &FolderView::activated, this, &Pane::activated);
     connect(m_view, &FolderView::typeAheadRequested, m_filterBar, &FilterBar::open);
     connect(m_filterBar, &FilterBar::filterChanged, m_view, &FolderView::setNameFilter);
+    connect(m_filterBar, &FilterBar::filterChanged, m_yaziColumns, &YaziColumns::setFilter);
+    m_yaziColumns->setFilter(m_filterBar->filter());
+    connect(m_yaziColumns, &YaziColumns::filterClearRequested, m_filterBar, &FilterBar::close);
     connect(m_filterBar, &FilterBar::activateFirstRequested, m_view, &FolderView::activateFirstItem);
     connect(m_filterBar, &FilterBar::closed, this, [this] {
         m_view->currentView()->setFocus();
@@ -442,7 +514,17 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     setLocationPresentation(LocationPresentation::FullBreadcrumbs);
 }
 
-Pane::~Pane() = default;
+Pane::~Pane()
+{
+    if (m_yaziRatiosSave->isActive()) {
+        saveYaziColumnRatiosSetting();
+    }
+    // Yazi mode reparents the view, which changes the order the pane's
+    // children are destroyed in; its listers can still emit then.
+    m_view->disconnect(this);
+    m_yaziColumns->disconnect(this);
+    m_yaziColumns->keys()->disconnect(this);
+}
 
 void Pane::saveHistoryViewState()
 {
@@ -532,6 +614,7 @@ QAction *Pane::toolbarActionForSharedAction(const QString &name) const
         {QStringLiteral("show_hidden_files"), QStringLiteral("paneHiddenFiles")},
         {QStringLiteral("show_filter_bar"), QStringLiteral("paneFilter")},
         {QStringLiteral("search_folder"), QStringLiteral("paneSearch")},
+        {QStringLiteral("toggle_yazi_mode"), QStringLiteral("paneYaziMode")},
     };
     return toolbarAction(sharedActions.value(name));
 }
@@ -548,6 +631,7 @@ QString Pane::sharedActionName(QAction *action) const
         {QStringLiteral("paneHiddenFiles"), QStringLiteral("show_hidden_files")},
         {QStringLiteral("paneFilter"), QStringLiteral("show_filter_bar")},
         {QStringLiteral("paneSearch"), QStringLiteral("search_folder")},
+        {QStringLiteral("paneYaziMode"), QStringLiteral("toggle_yazi_mode")},
     };
     return action ? sharedActions.value(action->objectName()) : QString();
 }
@@ -610,7 +694,10 @@ void Pane::setActive(bool active)
     m_dimEffect->setEnabled(m_inactiveDimming && !active);
     m_navigator->setActive(active);
     updateBackgroundTint();
-    if (active) {
+    // Keep the focus in the parent or preview column when that activated the pane.
+    QWidget *focus = QApplication::focusWidget();
+    const bool focusInOtherColumn = focus && m_yaziColumns->isAncestorOf(focus) && focus != m_view && !m_view->isAncestorOf(focus);
+    if (active && !focusInOtherColumn) {
         m_view->currentView()->setFocus();
     }
 }
@@ -650,6 +737,9 @@ void Pane::updateBackgroundTint()
     // Only these roles are resolved, so the view keeps following the
     // application palette for every other role.
     m_view->setPalette(ColorSchemes::withOverrides(QPalette(), overrides));
+    if (m_yaziColumns) {
+        m_yaziColumns->parentColumn()->setPalette(m_view->palette());
+    }
 }
 
 void Pane::changeEvent(QEvent *event)
@@ -971,19 +1061,465 @@ void Pane::goUp()
 {
     const QUrl parent = KIO::upUrl(url());
     if (parent.isValid() && parent != url()) {
-        const QUrl child = url();
-        m_tabs->setCurrentUrl(parent);
         // Highlight the folder we just left, once it is listed.
-        connect(
-            m_view,
-            &FolderView::loadingChanged,
+        showFolderItem(parent, url());
+    }
+}
+
+void Pane::showFolderItem(const QUrl &folder, const QUrl &item)
+{
+    m_tabs->setCurrentUrl(folder);
+    connect(
+        m_view,
+        &FolderView::loadingChanged,
+        this,
+        [this, item](bool loading) {
+            if (!loading) {
+                m_view->selectUrls({item});
+            }
+        },
+        Qt::SingleShotConnection);
+}
+
+void Pane::setYaziMode(bool enabled)
+{
+    if (enabled == m_yaziMode) {
+        return;
+    }
+    QWidget *focus = QApplication::focusWidget();
+    const bool hadFocus = focus && (m_view->isAncestorOf(focus) || m_yaziColumns->isAncestorOf(focus));
+    m_yaziMode = enabled;
+    if (enabled) {
+        delete m_layout->replaceWidget(m_view, m_yaziColumns);
+        m_yaziColumns->setCurrentView(m_view);
+        m_yaziColumns->setUrl(m_view->url());
+        m_yaziColumns->setPreviewEnabled(m_yaziPreview);
+        m_yaziColumns->show();
+    } else {
+        m_yaziColumns->setPreviewEnabled(false);
+        m_yaziColumns->takeCurrentView();
+        delete m_layout->replaceWidget(m_yaziColumns, m_view);
+        m_yaziColumns->hide();
+        m_yaziColumns->setUrl(QUrl());
+        m_view->show();
+    }
+    if (hadFocus) {
+        m_view->currentView()->setFocus();
+    }
+    m_yaziMenuAction->setChecked(enabled);
+    m_yaziToolbarAction->setChecked(enabled);
+    YaziColumns::announce(m_view->currentView(), enabled ? i18nc("@info:accessibility", "Yazi mode on") : i18nc("@info:accessibility", "Yazi mode off"));
+    Q_EMIT yaziModeChanged(enabled);
+    Q_EMIT workspaceLayoutChanged();
+}
+
+bool Pane::yaziMode() const
+{
+    return m_yaziMode;
+}
+
+void Pane::setYaziPreview(bool visible)
+{
+    const int choice = visible ? 1 : 0;
+    const bool chosen = choice != m_yaziPreviewChoice;
+    m_yaziPreviewChoice = choice;
+    applyYaziPreview(visible);
+    if (chosen) {
+        Q_EMIT workspaceLayoutChanged();
+    }
+}
+
+void Pane::reloadYaziPreviewSetting()
+{
+    if (m_yaziPreviewChoice < 0) {
+        applyYaziPreview(Settings::yaziPreviewVisible());
+    }
+    if (m_yaziPreviewContentChoice < 0) {
+        applyYaziPreviewContent(settingsPreviewContent());
+    }
+    if (m_yaziParentColumnChoice < 0) {
+        applyYaziParentColumn(Settings::yaziParentColumnVisible());
+    }
+    if (m_yaziRatiosChoice.isEmpty() && !m_yaziRatiosSave->isActive()) {
+        m_yaziColumns->setRatios(settingsColumnRatios());
+    }
+}
+
+void Pane::restoreYaziPreview(int choice)
+{
+    m_yaziPreviewChoice = qBound(-1, choice, 1);
+    applyYaziPreview(m_yaziPreviewChoice < 0 ? Settings::yaziPreviewVisible() : m_yaziPreviewChoice != 0);
+}
+
+void Pane::applyYaziPreview(bool visible)
+{
+    if (visible == m_yaziPreview) {
+        return;
+    }
+    m_yaziPreview = visible;
+    if (m_yaziMode) {
+        m_yaziColumns->setPreviewEnabled(visible);
+    }
+    Q_EMIT yaziPreviewChanged(visible);
+}
+
+bool Pane::yaziPreview() const
+{
+    return m_yaziPreview;
+}
+
+void Pane::setYaziPreviewContent(YaziMode::PreviewContent content)
+{
+    const int choice = static_cast<int>(content);
+    const bool chosen = choice != m_yaziPreviewContentChoice;
+    m_yaziPreviewContentChoice = choice;
+    applyYaziPreviewContent(content);
+    if (chosen) {
+        Q_EMIT workspaceLayoutChanged();
+    }
+}
+
+YaziMode::PreviewContent Pane::yaziPreviewContent() const
+{
+    return m_yaziPreviewContent;
+}
+
+void Pane::restoreYaziPreviewContent(int choice)
+{
+    m_yaziPreviewContentChoice = qBound(-1, choice, 1);
+    applyYaziPreviewContent(m_yaziPreviewContentChoice < 0 ? settingsPreviewContent() : static_cast<YaziMode::PreviewContent>(m_yaziPreviewContentChoice));
+}
+
+void Pane::applyYaziPreviewContent(YaziMode::PreviewContent content)
+{
+    if (content == m_yaziPreviewContent) {
+        return;
+    }
+    m_yaziPreviewContent = content;
+    m_yaziColumns->setPreviewContent(content);
+    Q_EMIT yaziPreviewContentChanged(content);
+}
+
+void Pane::setYaziParentColumn(bool visible)
+{
+    const int choice = visible ? 1 : 0;
+    const bool chosen = choice != m_yaziParentColumnChoice;
+    m_yaziParentColumnChoice = choice;
+    applyYaziParentColumn(visible);
+    if (chosen) {
+        Q_EMIT workspaceLayoutChanged();
+    }
+}
+
+bool Pane::yaziParentColumn() const
+{
+    return m_yaziParentColumn;
+}
+
+void Pane::restoreYaziParentColumn(int choice)
+{
+    m_yaziParentColumnChoice = qBound(-1, choice, 1);
+    applyYaziParentColumn(m_yaziParentColumnChoice < 0 ? Settings::yaziParentColumnVisible() : m_yaziParentColumnChoice != 0);
+}
+
+void Pane::applyYaziParentColumn(bool visible)
+{
+    if (visible == m_yaziParentColumn) {
+        return;
+    }
+    m_yaziParentColumn = visible;
+    m_yaziColumns->setParentColumnEnabled(visible);
+    Q_EMIT yaziParentColumnChanged(visible);
+}
+
+void Pane::setYaziColumnRatios(const YaziMode::Ratios &ratios)
+{
+    const QList<int> choice = YaziMode::ratiosToList(YaziMode::clampedRatios(ratios));
+    const bool chosen = choice != m_yaziRatiosChoice;
+    m_yaziRatiosChoice = choice;
+    m_yaziColumns->setRatios(ratios);
+    if (chosen) {
+        Q_EMIT workspaceLayoutChanged();
+    }
+}
+
+YaziMode::Ratios Pane::yaziColumnRatios() const
+{
+    return m_yaziColumns->ratios();
+}
+
+void Pane::restoreYaziColumnRatios(const QList<int> &ratios)
+{
+    if (m_yaziRatiosSave->isActive()) {
+        m_yaziRatiosSave->stop();
+        saveYaziColumnRatiosSetting();
+    }
+    const std::optional<YaziMode::Ratios> restored = YaziMode::ratiosFromList(ratios);
+    m_yaziRatiosChoice = restored ? YaziMode::ratiosToList(*restored) : QList<int>();
+    m_yaziColumns->setRatios(restored.value_or(settingsColumnRatios()));
+}
+
+void Pane::rememberYaziColumnRatios(const YaziMode::Ratios &ratios)
+{
+    m_yaziRatiosChoice = YaziMode::ratiosToList(ratios);
+    m_yaziRatiosSave->start();
+}
+
+void Pane::saveYaziColumnRatiosSetting()
+{
+    if (m_yaziRatiosChoice.isEmpty() || Settings::yaziColumnRatios() == m_yaziRatiosChoice) {
+        return;
+    }
+    Settings::setYaziColumnRatios(m_yaziRatiosChoice);
+    Settings::self()->save();
+}
+
+YaziColumns *Pane::yaziColumns() const
+{
+    return m_yaziColumns;
+}
+
+void Pane::reloadYaziKeySettings()
+{
+    m_yaziColumns->keys()->setPreset(Settings::yaziKeyPreset() == Settings::EnumYaziKeyPreset::Vim ? YaziMode::Preset::Vim : YaziMode::Preset::Standard);
+}
+
+void Pane::reportYaziMessage(const QString &message)
+{
+    if (message.isEmpty()) {
+        return;
+    }
+    Q_EMIT statusMessage(message);
+    if (m_yaziMode) {
+        m_yaziColumns->showMessage(message);
+    }
+}
+
+void Pane::runYaziCommand(YaziMode::Command command, int count)
+{
+    if (!m_yaziMode) {
+        return;
+    }
+    using YaziMode::Command;
+    // In a location the mode doesn't support, only the current column is shown; say why instead.
+    const auto columnUnavailable = [this](const QString &fallback) {
+        reportYaziMessage(m_yaziColumns->isCollapsed() ? m_yaziColumns->unavailableText() : fallback);
+    };
+    const auto focus = [this, columnUnavailable](YaziColumns::Column column, const QString &unavailable) {
+        if (!m_yaziColumns->focusColumn(column)) {
+            columnUnavailable(unavailable);
+        }
+    };
+    const QString nothingFocused = i18nc("@info:status", "There is no item here to act on.");
+    switch (command) {
+    case Command::MoveUp:
+    case Command::MoveDown:
+    case Command::MoveFirst:
+    case Command::MoveLast:
+    case Command::PageUp:
+    case Command::PageDown:
+    case Command::HalfPageUp:
+    case Command::HalfPageDown:
+        if (!m_yaziColumns->moveFocus(command, count)) {
+            reportYaziMessage(i18nc("@info:status", "This column has no items to move through."));
+        }
+        break;
+    case Command::Parent: {
+        const QUrl current = url();
+        const QUrl parent = YaziMode::parentFolder(current);
+        if (m_yaziColumns->isCollapsed()) {
+            columnUnavailable(QString());
+        } else if (parent.isEmpty()) {
+            reportYaziMessage(i18nc("@info:status", "This folder has no parent folder to open."));
+        } else {
+            // Highlight the folder just left, once it is listed.
+            showFolderItem(parent, YaziMode::parentItem(current));
+        }
+        break;
+    }
+    case Command::Open:
+        if (m_yaziColumns->focusedItem().isNull()) {
+            reportYaziMessage(i18nc("@info:status", "There is no focused item to open."));
+        } else if (m_yaziColumns->focusedColumn() == YaziColumns::Column::Parent) {
+            m_yaziColumns->openParentItem();
+        } else {
+            m_view->activateCurrentItem();
+        }
+        break;
+    case Command::Back:
+        if (m_tabs->canGoBack()) {
+            goBack();
+        } else {
+            reportYaziMessage(i18nc("@info:status", "There is no earlier folder in this tab's history."));
+        }
+        break;
+    case Command::Forward:
+        if (m_tabs->canGoForward()) {
+            goForward();
+        } else {
+            reportYaziMessage(i18nc("@info:status", "There is no later folder in this tab's history."));
+        }
+        break;
+    case Command::Home:
+        setUrl(Settings::homeUrl());
+        break;
+    case Command::FocusParent:
+        focus(YaziColumns::Column::Parent, i18nc("@info:status", "The parent column isn't shown in this pane."));
+        break;
+    case Command::FocusCurrent:
+        focus(YaziColumns::Column::Current, QString());
+        break;
+    case Command::FocusPreview:
+        focus(YaziColumns::Column::Preview, i18nc("@info:status", "The preview column isn't shown in this pane."));
+        break;
+    case Command::TogglePreview:
+        QMetaObject::invokeMethod(
             this,
-            [this, child](bool loading) {
-                if (!loading) {
-                    m_view->selectUrls({child});
+            [this, columnUnavailable] {
+                if (m_yaziMode) {
+                    setYaziPreview(!m_yaziPreview);
+                    if (m_yaziPreview && m_yaziColumns->isCollapsed()) {
+                        columnUnavailable(QString());
+                    }
                 }
             },
-            Qt::SingleShotConnection);
+            Qt::QueuedConnection);
+        break;
+    case Command::TogglePreviewContent:
+        setYaziPreviewContent(m_yaziPreviewContent == YaziMode::PreviewContent::Information ? YaziMode::PreviewContent::Preview
+                                                                                            : YaziMode::PreviewContent::Information);
+        if (!m_yaziColumns->previewEnabled() || m_yaziColumns->previewSlot()->isHidden()) {
+            columnUnavailable(i18nc("@info:status", "The preview column isn't shown in this pane."));
+        }
+        break;
+    case Command::Leave:
+        QMetaObject::invokeMethod(
+            this,
+            [this] {
+                setYaziMode(false);
+            },
+            Qt::QueuedConnection);
+        break;
+    case Command::ToggleSelection:
+    case Command::ToggleSelectionDown:
+    case Command::VisualSelection:
+    case Command::SelectAll:
+        if (m_yaziColumns->focusedColumn() == YaziColumns::Column::Parent) {
+            reportYaziMessage(i18nc("@info:status", "Select items in the current column; the parent column only opens folders."));
+        } else if (command == Command::VisualSelection) {
+            if (!m_yaziColumns->toggleVisualSelection()) {
+                reportYaziMessage(i18nc("@info:status", "There is no item here to select."));
+            }
+        } else if (command == Command::SelectAll) {
+            if (!m_yaziColumns->selectAll()) {
+                reportYaziMessage(i18nc("@info:status", "There is no item here to select."));
+            }
+        } else if (!m_yaziColumns->toggleSelection(command == Command::ToggleSelectionDown, count)) {
+            reportYaziMessage(i18nc("@info:status", "There is no item here to select."));
+        }
+        break;
+    case Command::Copy:
+    case Command::Cut:
+    case Command::Paste:
+    case Command::Rename:
+    case Command::Trash:
+    case Command::Create:
+    case Command::OpenWith:
+    case Command::CopyToOtherPane:
+    case Command::MoveToOtherPane:
+    case Command::Undo:
+    case Command::ToggleHidden:
+        if (YaziMode::commandUsesSelection(command)) {
+            // The parent column's focused item is not the selection; acting on the current column's items from there would surprise.
+            if (m_yaziColumns->focusedColumn() == YaziColumns::Column::Parent) {
+                reportYaziMessage(i18nc("@info:status", "Focus the current column to act on its items."));
+                break;
+            }
+            // Like Yazi, act on the focused item when nothing is selected.
+            if (m_view->selectedItems().isEmpty()) {
+                QAbstractItemView *items = m_view->currentView();
+                const QModelIndex current = items->currentIndex();
+                if (!current.isValid()) {
+                    reportYaziMessage(nothingFocused);
+                    break;
+                }
+                items->selectionModel()->select(current, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+            }
+        }
+        QMetaObject::invokeMethod(
+            this,
+            [this, command] {
+                if (m_yaziMode) {
+                    Q_EMIT yaziFileCommandRequested(command);
+                }
+            },
+            Qt::QueuedConnection);
+        break;
+    case Command::Filter:
+        showFilterBar();
+        break;
+    case Command::ClearFilter:
+        if (m_filterBar->filter().isEmpty()) {
+            reportYaziMessage(i18nc("@info:status", "This pane has no filter to clear."));
+        } else {
+            m_filterBar->close();
+        }
+        break;
+    case Command::SearchNames:
+    case Command::SearchContents:
+        // Showing the search panel moves the focus out of the columns.
+        QMetaObject::invokeMethod(
+            this,
+            [this, contents = command == Command::SearchContents] {
+                if (m_yaziMode) {
+                    Q_EMIT yaziSearchRequested(contents);
+                }
+            },
+            Qt::QueuedConnection);
+        break;
+    case Command::SortByName:
+        m_view->setSorting(KDirModel::Name, m_view->sortOrder());
+        break;
+    case Command::SortBySize:
+        m_view->setSorting(KDirModel::Size, m_view->sortOrder());
+        break;
+    case Command::SortByModified:
+        m_view->setSorting(KDirModel::ModifiedTime, m_view->sortOrder());
+        break;
+    case Command::SortByType:
+        m_view->setSorting(KDirModel::Type, m_view->sortOrder());
+        break;
+    case Command::ReverseSort:
+        m_view->setSorting(m_view->sortColumn(), m_view->sortOrder() == Qt::AscendingOrder ? Qt::DescendingOrder : Qt::AscendingOrder);
+        break;
+    case Command::NewTab: {
+        const KFileItem item = m_yaziColumns->focusedItem();
+        openInNewTab(!item.isNull() && item.isDir() ? item.url() : m_view->url(), true);
+        break;
+    }
+    case Command::PreviousTab:
+    case Command::NextTab:
+        if (m_tabs->count() < 2) {
+            reportYaziMessage(i18nc("@info:status", "This pane has only one tab."));
+        } else if (command == Command::NextTab) {
+            m_tabs->activateNext();
+        } else {
+            m_tabs->activatePrevious();
+        }
+        break;
+    case Command::CloseTab: {
+        const int index = m_tabs->currentIndex();
+        if (m_tabs->count() < 2) {
+            reportYaziMessage(i18nc("@info:status", "The pane's only tab can't be closed."));
+        } else if (m_tabs->isPinned(index)) {
+            reportYaziMessage(i18nc("@info:status", "This tab is pinned. Unpin it to close it."));
+        } else if (m_tabs->isLocked(index)) {
+            reportYaziMessage(i18nc("@info:status", "This tab is locked. Unlock it to close it."));
+        } else {
+            closeCurrentTab();
+        }
+        break;
+    }
     }
 }
 
@@ -1089,9 +1625,11 @@ void Pane::restoreToolbarConfiguration()
     QAction *configure = m_toolBar->actions().last();
     for (QAction *action : m_toolBar->actions()) {
         if (action->objectName() != QLatin1String("paneCustomizeToolbar")) {
-            actions.insert(action->objectName(), action);
-            action->setVisible(!hidden.contains(action->objectName())
-                               && (!hasVisibility || visible.contains(action->objectName()) || !order.contains(action->objectName())));
+            const QString name = action->objectName();
+            actions.insert(name, action);
+            const bool listed = order.contains(name);
+            action->setVisible(!hidden.contains(name) && (!hasVisibility || visible.contains(name) || !listed)
+                               && (listed || !action->property(OptionalToolbarAction).toBool()));
         }
     }
     for (int i = order.size() - 1; i >= 0; --i) {
@@ -1230,6 +1768,11 @@ PaneSession Pane::saveState() const
     state.filterScope = static_cast<int>(filter.scope());
     state.locationPresentation = int(m_locationPresentation);
     state.viewMode = int(m_view->viewMode());
+    state.yaziMode = m_yaziMode;
+    state.yaziPreview = m_yaziPreviewChoice;
+    state.yaziPreviewContent = m_yaziPreviewContentChoice;
+    state.yaziParentColumn = m_yaziParentColumnChoice;
+    state.yaziColumnRatios = m_yaziRatiosChoice;
     return state;
 }
 
@@ -1253,6 +1796,11 @@ void Pane::restoreState(const PaneSession &state)
     setLocationPresentation(state.locationPresentation < 0 ? m_defaultLocationPresentation
                                                            : static_cast<LocationPresentation>(qBound(0, state.locationPresentation, 2)));
     m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, PaneSession::MaximumViewMode)));
+    restoreYaziPreview(state.yaziPreview);
+    restoreYaziPreviewContent(state.yaziPreviewContent);
+    restoreYaziParentColumn(state.yaziParentColumn);
+    restoreYaziColumnRatios(state.yaziColumnRatios);
+    setYaziMode(state.yaziMode);
 }
 
 void Pane::replaceState(const PaneSession &state)
@@ -1277,6 +1825,11 @@ void Pane::replaceState(const PaneSession &state)
     setLocationPresentation(state.locationPresentation < 0 ? m_defaultLocationPresentation
                                                            : static_cast<LocationPresentation>(qBound(0, state.locationPresentation, 2)));
     m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, PaneSession::MaximumViewMode)));
+    restoreYaziPreview(state.yaziPreview);
+    restoreYaziPreviewContent(state.yaziPreviewContent);
+    restoreYaziParentColumn(state.yaziParentColumn);
+    restoreYaziColumnRatios(state.yaziColumnRatios);
+    setYaziMode(state.yaziMode);
 }
 
 void Pane::rebuildTabs(const PaneSession &state)

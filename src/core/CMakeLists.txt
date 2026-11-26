@@ -156,6 +156,8 @@ add_library(opusfm_core STATIC
     workspacerestore.h
     workspacestartup.cpp
     workspacestartup.h
+    yazimode.cpp
+    yazimode.h
 )
 
 kconfig_add_kcfg_files(opusfm_core GENERATE_MOC settings.kcfgc)

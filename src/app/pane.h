@@ -4,6 +4,7 @@
 
 #include "navigationhistory.h"
 #include "session.h"
+#include "yazimode.h"
 
 #include <QColor>
 #include <QPair>
@@ -17,6 +18,7 @@ class KFilePlacesModel;
 class KUrlNavigator;
 class TabColors;
 class TabModel;
+class YaziColumns;
 class QTabBar;
 class QGraphicsOpacityEffect;
 class QBoxLayout;
@@ -27,6 +29,7 @@ class QAction;
 class QVBoxLayout;
 class QResizeEvent;
 class QStackedWidget;
+class QTimer;
 
 /**
  * One side of the dual-pane layout: a tab strip, a path row with
@@ -161,6 +164,71 @@ public:
      */
     void setFollowSymlinks(bool follow);
 
+    /**
+     * Shows the folder view in Yazi mode's columns, with the parent folder
+     * before it, or back on its own. The tabs, location, selection, filter,
+     * sorting and view mode are kept either way.
+     * @param enabled true to enter Yazi mode
+     */
+    void setYaziMode(bool enabled);
+    bool yaziMode() const;
+    /**
+     * Shows or hides the preview column of the focused item while the pane is
+     * in Yazi mode, and records the choice for the session. The choice is kept
+     * when the mode is off. Until a choice is made or restored, the pane
+     * follows the YaziPreviewVisible setting.
+     * @param visible true to show the preview column
+     */
+    void setYaziPreview(bool visible);
+    bool yaziPreview() const;
+    /// Applies changed YaziPreviewVisible and YaziPreviewContent settings unless the pane has its own choices.
+    void reloadYaziPreviewSetting();
+    /**
+     * Shows the focused item's preview or its file information in the preview
+     * column of Yazi mode, and records the choice for the session. Until a
+     * choice is made or restored, the pane follows the YaziPreviewContent
+     * setting.
+     */
+    void setYaziPreviewContent(YaziMode::PreviewContent content);
+    YaziMode::PreviewContent yaziPreviewContent() const;
+    /**
+     * Shows or hides the parent folder column of Yazi mode, and records the
+     * choice for the session. Until a choice is made or restored, the pane
+     * follows the YaziParentColumnVisible setting.
+     * @param visible true to show the parent column
+     */
+    void setYaziParentColumn(bool visible);
+    bool yaziParentColumn() const;
+    /**
+     * Sets the relative widths of Yazi mode's columns and records them for
+     * the session. Until they are set, dragged or restored, the pane follows
+     * the YaziColumnRatios setting.
+     */
+    void setYaziColumnRatios(const YaziMode::Ratios &ratios);
+    YaziMode::Ratios yaziColumnRatios() const;
+    /// How long after the columns are last resized the ratios become the YaziColumnRatios setting.
+    static constexpr int YaziRatiosSaveDelay = 500;
+    /// Applies the YaziKeyPreset setting to the keys of Yazi mode.
+    void reloadYaziKeySettings();
+    /// The columns that host the folder view in Yazi mode; they exist even when the mode is off.
+    YaziColumns *yaziColumns() const;
+    /**
+     * Runs a Yazi mode command in this pane, as its keys or actions do.
+     * Does nothing while the pane is not in Yazi mode. Showing or hiding the
+     * preview, leaving the mode, file commands and search requests happen
+     * once control returns to the event loop, since they can delete or move
+     * away from the focused widget.
+     * @param command the command to run
+     * @param count how many times to repeat a command that takes a count
+     */
+    void runYaziCommand(YaziMode::Command command, int count = 1);
+    /**
+     * Reports that a Yazi mode command can't run: shows @p message in the
+     * window's status bar and the columns' status row, and announces it to
+     * assistive technology.
+     */
+    void reportYaziMessage(const QString &message);
+
 public Q_SLOTS:
     void setUrl(const QUrl &url);
     void revealUrl(const QUrl &url);
@@ -182,6 +250,21 @@ Q_SIGNALS:
     void workspaceLayoutChanged();
     void statusMessage(const QString &message);
     void searchRequested();
+    void yaziModeChanged(bool enabled);
+    void yaziPreviewChanged(bool visible);
+    void yaziPreviewContentChanged(YaziMode::PreviewContent content);
+    void yaziParentColumnChanged(bool visible);
+    /**
+     * A Yazi mode file command, such as Trash, should run through the
+     * window's action. For a command that uses the selection, the focused
+     * item has been selected if nothing was.
+     */
+    void yaziFileCommandRequested(YaziMode::Command command);
+    /**
+     * A Yazi mode key asked to search the pane's folder in the search panel.
+     * @param contents true to search file contents, false to search file names
+     */
+    void yaziSearchRequested(bool contents);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -190,11 +273,27 @@ protected:
 
 private:
     void updateBackgroundTint();
+    /// Applies a saved preview choice (1, 0 or -1 for the setting) without marking the workspace changed.
+    void restoreYaziPreview(int choice);
+    void applyYaziPreview(bool visible);
+    /// Applies a saved preview content choice, a YaziMode::PreviewContent value or -1 for the setting, without marking the workspace changed.
+    void restoreYaziPreviewContent(int choice);
+    void applyYaziPreviewContent(YaziMode::PreviewContent content);
+    /// Applies a saved parent column choice (1, 0 or -1 for the setting) without marking the workspace changed.
+    void restoreYaziParentColumn(int choice);
+    void applyYaziParentColumn(bool visible);
+    /// Applies saved column ratios, or the setting when @p ratios is empty or invalid, without marking the workspace changed.
+    void restoreYaziColumnRatios(const QList<int> &ratios);
+    /// Records ratios the user dragged the columns to, and saves them as the setting once dragging pauses.
+    void rememberYaziColumnRatios(const YaziMode::Ratios &ratios);
+    void saveYaziColumnRatiosSetting();
     /// Closes the pane's tabs and opens those of @p state with their pins, locks and names.
     void rebuildTabs(const PaneSession &state);
     void saveHistoryViewState();
     void restoreHistoryViewState();
     void finishReveal();
+    /// Opens @p folder and selects @p item once it is listed.
+    void showFolderItem(const QUrl &folder, const QUrl &item);
     void syncTabBar();
     void updateBreadcrumbs(const QUrl &url);
     void updateTabStripVisibility();
@@ -228,6 +327,22 @@ private:
     QToolButton *m_locationModeButton = nullptr;
     TabColors *m_colors = nullptr;
     FolderView *m_view = nullptr;
+    YaziColumns *m_yaziColumns = nullptr;
+    bool m_yaziMode = false;
+    bool m_yaziPreview = true;
+    /// The saved preview choice: 1 shown, 0 hidden, -1 none, following the setting.
+    int m_yaziPreviewChoice = -1;
+    YaziMode::PreviewContent m_yaziPreviewContent = YaziMode::PreviewContent::Preview;
+    /// The saved preview content choice: a YaziMode::PreviewContent value, or -1 to follow the setting.
+    int m_yaziPreviewContentChoice = -1;
+    bool m_yaziParentColumn = true;
+    /// The saved parent column choice: 1 shown, 0 hidden, -1 none, following the setting.
+    int m_yaziParentColumnChoice = -1;
+    /// The pane's own column ratios, or empty to follow the setting.
+    QList<int> m_yaziRatiosChoice;
+    QTimer *m_yaziRatiosSave = nullptr;
+    QAction *m_yaziMenuAction = nullptr;
+    QAction *m_yaziToolbarAction = nullptr;
     FilterBar *m_filterBar = nullptr;
     QVBoxLayout *m_layout = nullptr;
     QHBoxLayout *m_outerLayout = nullptr;

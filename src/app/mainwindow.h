@@ -7,6 +7,7 @@
 #include "previewpanel.h"
 #include "tagpanel.h"
 #include "workspacecatalog.h"
+#include "yazimode.h"
 
 #include <KConfigWatcher>
 #include <KFileItem>
@@ -224,6 +225,14 @@ private:
     void saveSession();
 
     void showContextMenu(Pane *pane, const QPoint &globalPos, const KFileItemList &items);
+    /**
+     * Runs a Yazi mode file command of @p pane through the window's own
+     * action, so its confirmations, conflict dialogs, transfer queue and undo
+     * apply. Never runs an action that deletes permanently.
+     */
+    void runYaziFileCommand(Pane *pane, YaziMode::Command command);
+    /// Where a menu that a Yazi mode key opens should appear: below @p pane's focused item.
+    QPoint yaziMenuPosition(Pane *pane) const;
     void addTransferMenu(QMenu *menu, const KFileItemList &items, bool move);
     void activateItem(const KFileItem &item);
     void activatePaneItem(Pane *pane, const KFileItem &item);
@@ -237,6 +246,15 @@ private:
     void showContentChart();
     void showSearch();
     void showSearchForPane(Pane *pane);
+    /**
+     * Shows the search panel for a search of @p pane's folder, as Yazi mode's
+     * search keys do, and reports the search's progress and outcome in the
+     * pane's Yazi status row.
+     * @param contents true to search file contents, false to search file names
+     */
+    void showYaziSearch(Pane *pane, bool contents);
+    /// Shows @p status in the Yazi status row of the pane that started the current search from Yazi mode.
+    void reportYaziSearch(const QString &status, bool running);
     /// Searches the active pane's folder from a toolbar search field.
     void searchFromToolbar(const QString &text);
     /// Shows the search panel for a toolbar search when Preferences ask for it, or reports the outcome in the status bar.
@@ -423,6 +441,13 @@ private:
     QHash<Pane *, QLabel *> m_paneItemsLabels;
     QHash<Pane *, QLabel *> m_paneFreeSpaceLabels;
     KToggleAction *m_dualLayoutAction = nullptr;
+    KToggleAction *m_yaziModeAction = nullptr;
+    KToggleAction *m_yaziPreviewAction = nullptr;
+    KToggleAction *m_yaziPreviewInformationAction = nullptr;
+    KToggleAction *m_yaziParentColumnAction = nullptr;
+    QToolButton *m_yaziModeStatusButton = nullptr;
+    KToggleAction *m_yaziVimKeysAction = nullptr;
+    QList<QAction *> m_yaziColumnActions;
     KToggleAction *m_stackedLayoutAction = nullptr;
     KToggleAction *m_hiddenFilesAction = nullptr;
     KToggleAction *m_previewsAction = nullptr;
@@ -438,6 +463,8 @@ private:
     bool m_restoringSearchPanel = false;
     /// Whether a search started from the toolbar field reports its outcome in the status bar while the panel is hidden.
     bool m_reportToolbarSearch = false;
+    /// The pane whose Yazi search keys opened the search panel; its Yazi status row follows the search.
+    QPointer<Pane> m_yaziSearchPane;
     QAction *m_viewModeAction = nullptr;
     QAction *m_selectionModeAction = nullptr;
     QAction *m_selectionMarkersAction = nullptr;

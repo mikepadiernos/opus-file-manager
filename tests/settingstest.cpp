@@ -327,7 +327,17 @@ private Q_SLOTS:
         MainWindow window;
         SettingsDialog dialog(placesOf(window), &window);
         const auto items = Settings::self()->items();
+        // M26 adds the Yazi key preset chooser, which the View menu sets until
+        // then, and the Yazi preview content, parent column and column ratio
+        // defaults, which the View menu and dragging the columns set until then.
+        const QStringList withoutWidget{QStringLiteral("YaziKeyPreset"),
+                                        QStringLiteral("YaziPreviewContent"),
+                                        QStringLiteral("YaziParentColumnVisible"),
+                                        QStringLiteral("YaziColumnRatios")};
         for (const KConfigSkeletonItem *item : items) {
+            if (withoutWidget.contains(item->name())) {
+                continue;
+            }
             QVERIFY2(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + item->name()), qPrintable(item->name()));
         }
     }
@@ -3740,14 +3750,17 @@ private Q_SLOTS:
         MainWindow window;
         window.openUrls({m_a});
         FolderView *view = window.activePane()->view();
-        const QList<KFilePreviewGenerator *> generators = view->findChildren<KFilePreviewGenerator *>();
-        QCOMPARE(generators.size(), 4);
+        const auto generator = [view] {
+            const QList<KFilePreviewGenerator *> generators = view->findChildren<KFilePreviewGenerator *>();
+            return generators.size() == 1 ? generators.first() : nullptr;
+        };
+        QVERIFY(generator());
 
+        // Only the shown view has a generator, as a hidden one would lay out its view for every batch of listed items.
         const auto verifyOnlyCurrentGenerates = [&] {
-            for (const KFilePreviewGenerator *generator : generators) {
-                const bool current = generator->parent() == view->currentView();
-                QCOMPARE(generator->isPreviewShown(), current);
-            }
+            QVERIFY(generator());
+            QCOMPARE(generator()->parent(), view->currentView());
+            QVERIFY(generator()->isPreviewShown());
         };
         const QList<FolderView::ViewMode> modes{FolderView::ViewMode::Icons,
                                                 FolderView::ViewMode::Compact,
@@ -3759,12 +3772,21 @@ private Q_SLOTS:
             verifyOnlyCurrentGenerates();
         }
 
+        // The plugins follow the generator to the next view.
+        const QStringList plugins{QStringLiteral("imagethumbnail")};
+        view->setPreviewPlugins(plugins);
+        view->setViewMode(FolderView::ViewMode::Compact);
+        QCOMPARE(view->previewPlugins(), plugins);
+        QCOMPARE(generator()->enabledPlugins(), plugins);
+
         view->setPreviewsEnabled(false);
         QVERIFY(!view->previewsShown());
-        for (const KFilePreviewGenerator *generator : generators) {
-            QVERIFY(!generator->isPreviewShown());
-        }
+        QVERIFY(generator());
+        QVERIFY(!generator()->isPreviewShown());
         view->setViewMode(FolderView::ViewMode::Icons);
+        QVERIFY(generator());
+        QCOMPARE(generator()->parent(), view->currentView());
+        QVERIFY(!generator()->isPreviewShown());
         view->setPreviewsEnabled(true);
         verifyOnlyCurrentGenerates();
     }
@@ -3967,6 +3989,8 @@ private Q_SLOTS:
         bar->setSizeGripEnabled(false);
         for (const Qt::LayoutDirection direction : {Qt::LeftToRight, Qt::RightToLeft}) {
             bar->setLayoutDirection(direction);
+            // Moves permanent widgets, such as the Yazi mode button, to the new side before the message is placed beside them.
+            QCoreApplication::sendPostedEvents(bar, QEvent::LayoutRequest);
             bar->showMessage(QStringLiteral(" "));
             const QImage empty = bar->grab().toImage();
             const QString message(500, QLatin1Char('M'));

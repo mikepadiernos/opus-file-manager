@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "workspacecatalog.h"
+#include "yazimode.h"
 
 #include <KConfig>
 #include <KLocalizedString>
@@ -131,12 +132,16 @@ QUrl sanitizedWorkspaceUrl(const QUrl &url)
 
 QJsonObject writeBehaviorSelection(const WorkspaceCatalog::BehaviorSelection &selection)
 {
-    return {{QStringLiteral("mode"), int(selection.mode)},
-            {QStringLiteral("locationPresentation"), selection.locationPresentation},
-            {QStringLiteral("searchScope"), selection.searchScope},
-            {QStringLiteral("layout"), selection.layout},
-            {QStringLiteral("paneTabRestoration"), selection.paneTabRestoration},
-            {QStringLiteral("appearance"), selection.appearance}};
+    QJsonObject object{{QStringLiteral("mode"), int(selection.mode)},
+                       {QStringLiteral("locationPresentation"), selection.locationPresentation},
+                       {QStringLiteral("searchScope"), selection.searchScope},
+                       {QStringLiteral("layout"), selection.layout},
+                       {QStringLiteral("paneTabRestoration"), selection.paneTabRestoration},
+                       {QStringLiteral("appearance"), selection.appearance}};
+    if (selection.yaziMode) {
+        object.insert(QStringLiteral("yaziMode"), *selection.yaziMode);
+    }
+    return object;
 }
 
 bool readBehaviorSelection(const QJsonValue &value, WorkspaceCatalog::BehaviorSelection &selection)
@@ -152,10 +157,12 @@ bool readBehaviorSelection(const QJsonValue &value, WorkspaceCatalog::BehaviorSe
     const QJsonValue paneTabRestoration = object.value(QStringLiteral("paneTabRestoration"));
     // Catalogs before version 8 have no appearance choice; attached appearance applies by default.
     const QJsonValue appearance = object.value(QStringLiteral("appearance"));
+    // Workspaces saved before the Yazi mode choice restore it with the views.
+    const QJsonValue yaziMode = object.value(QStringLiteral("yaziMode"));
     const double modeNumber = mode.toDouble(-1);
     if (!mode.isDouble() || modeNumber < 0 || modeNumber > int(WorkspaceCatalog::BehaviorMode::None) || int(modeNumber) != modeNumber
         || !locationPresentation.isBool() || !searchScope.isBool() || !layout.isBool() || !paneTabRestoration.isBool()
-        || !(appearance.isBool() || appearance.isUndefined())) {
+        || !(appearance.isBool() || appearance.isUndefined()) || !(yaziMode.isBool() || yaziMode.isUndefined())) {
         return false;
     }
     selection.mode = static_cast<WorkspaceCatalog::BehaviorMode>(int(modeNumber));
@@ -164,6 +171,7 @@ bool readBehaviorSelection(const QJsonValue &value, WorkspaceCatalog::BehaviorSe
     selection.layout = layout.toBool();
     selection.paneTabRestoration = paneTabRestoration.toBool();
     selection.appearance = appearance.toBool(true);
+    selection.yaziMode = yaziMode.isBool() ? std::optional<bool>(yaziMode.toBool()) : std::nullopt;
     return true;
 }
 
@@ -284,15 +292,21 @@ QJsonObject writePaneSession(const PaneSession &pane)
     for (int index : pane.lockedTabs) {
         lockedTabs.append(index);
     }
-    return {{QStringLiteral("tabs"), tabs},
-            {QStringLiteral("currentTab"), pane.currentTab},
-            {QStringLiteral("pinnedCount"), pane.pinnedCount},
-            {QStringLiteral("lockedTabs"), lockedTabs},
-            {QStringLiteral("names"), QJsonArray::fromStringList(pane.names)},
-            {QStringLiteral("filterText"), pane.filterText},
-            {QStringLiteral("filterScope"), pane.filterScope},
-            {QStringLiteral("locationPresentation"), pane.locationPresentation},
-            {QStringLiteral("viewMode"), pane.viewMode}};
+    QJsonObject object{{QStringLiteral("tabs"), tabs},
+                       {QStringLiteral("currentTab"), pane.currentTab},
+                       {QStringLiteral("pinnedCount"), pane.pinnedCount},
+                       {QStringLiteral("lockedTabs"), lockedTabs},
+                       {QStringLiteral("names"), QJsonArray::fromStringList(pane.names)},
+                       {QStringLiteral("filterText"), pane.filterText},
+                       {QStringLiteral("filterScope"), pane.filterScope},
+                       {QStringLiteral("locationPresentation"), pane.locationPresentation},
+                       {QStringLiteral("viewMode"), pane.viewMode}};
+    YaziMode::writeWorkspace(object, pane.yaziMode);
+    YaziMode::writeWorkspacePreview(object, pane.yaziPreview);
+    YaziMode::writeWorkspacePreviewContent(object, pane.yaziPreviewContent);
+    YaziMode::writeWorkspaceParentColumn(object, pane.yaziParentColumn);
+    YaziMode::writeWorkspaceRatios(object, pane.yaziColumnRatios);
+    return object;
 }
 
 bool readPaneSession(const QJsonValue &value, PaneSession &pane, bool *credentialsScrubbed = nullptr)
@@ -355,6 +369,11 @@ bool readPaneSession(const QJsonValue &value, PaneSession &pane, bool *credentia
         || mode > PaneSession::MaximumViewMode || int(mode) != mode) {
         return false;
     }
+    if (!YaziMode::readWorkspace(object, pane.yaziMode) || !YaziMode::readWorkspacePreview(object, pane.yaziPreview)
+        || !YaziMode::readWorkspacePreviewContent(object, pane.yaziPreviewContent) || !YaziMode::readWorkspaceParentColumn(object, pane.yaziParentColumn)
+        || !YaziMode::readWorkspaceRatios(object, pane.yaziColumnRatios)) {
+        return false;
+    }
     pane.currentTab = currentTab.toInt();
     pane.pinnedCount = pinnedCount.toInt();
     pane.filterText = filterText.toString();
@@ -372,6 +391,9 @@ bool validPaneSession(const PaneSession &pane)
         return false;
     }
     if (pane.locationPresentation < -1 || pane.locationPresentation > 2) {
+        return false;
+    }
+    if (pane.yaziParentColumn < -1 || pane.yaziParentColumn > 1 || (!pane.yaziColumnRatios.isEmpty() && !YaziMode::ratiosFromList(pane.yaziColumnRatios))) {
         return false;
     }
     for (const QUrl &url : pane.tabs) {
@@ -655,6 +677,9 @@ bool WorkspaceCatalog::load(const KConfigGroup &group, Catalog &catalog, QString
             if (versionNumber >= 6 && !readBehaviorSelection(object.value(QStringLiteral("behaviorSelection")), workspace.behaviorSelection)) {
                 valid = false;
                 break;
+            }
+            if (versionNumber < 6) {
+                workspace.behaviorSelection.yaziMode = std::nullopt;
             }
             if (versionNumber >= 8 && !readAppearance(object.value(QStringLiteral("appearance")), workspace.appearance)) {
                 valid = false;

@@ -1211,34 +1211,37 @@ Offer an optional native Qt/KDE browsing mode inspired by
 Reuse Plasma Opus's file models and KDE services; this is not an embedded Yazi
 process or a promise of Yazi configuration or plugin compatibility.
 
-- [ ] Allow the mode to be entered or left per pane, keeping it off by default.
+- [x] Allow the mode to be entered or left per pane, keeping it off by default.
       Preserve both panes and their tabs, locations, selections and normal view
       settings when switching; let M15 workspaces restore the mode when
       available.
-- [ ] Show parent and current folders with an optional preview in the active
+- [x] Show parent and current folders with an optional preview in the active
       pane. Adapt or hide columns in narrow windows without replacing the other
       pane; keep navigation and preview accessible.
-- [ ] Provide keyboard-first navigation with optional Vim-style movement and
+- [x] Provide keyboard-first navigation with optional Vim-style movement and
       multi-key actions. Reuse KDE shortcut facilities; show the active mode and
       do not intercept typing in editors, search fields or the terminal.
-- [ ] Support focused-item and multi-item selection, copy, move, rename, trash
+- [x] Support focused-item and multi-item selection, copy, move, rename, trash
       and other existing file actions through Plasma Opus and KIO. Retain
       conflict handling, destructive-action confirmations and undo; never add a
       shortcut that silently overwrites or permanently deletes files.
-- [ ] Reuse filtering, filename and content search, sorting, tabs and history.
+- [x] Reuse filtering, filename and content search, sorting, tabs and history.
       Show active filters and search progress, allow cancellation and report
       backend or remote-location limitations.
-- [ ] Reuse Plasma Opus previews and file information for the focused item, with
+- [x] Reuse Plasma Opus previews and file information for the focused item, with
       cancellable work and existing size and remote-download limits. Report
       progress and errors through existing jobs and the transfer queue rather
       than duplicating operations.
-- [ ] Keep large and remote listings responsive and accessible to keyboard and
+- [x] Keep large and remote listings responsive and accessible to keyboard and
       assistive-technology users. Report unavailable operations and preserve
       ordinary browsing when a location is unsupported by the mode.
-- [ ] Store mode, column and preview choices in KConfig and available workspace
+- [x] Store mode, column and preview choices in KConfig and available workspace
       layouts. Include Yazi mode in workspace snapshots and feature selection.
       Provide a discoverable toggle without changing existing bindings by
       default.
+
+**Caveats:** [Yazi mode](CAVEATS.md#yazi-mode), tracked in
+[#723](https://github.com/mikepadiernos/plasma-opus/issues/723).
 
 ### M26: Yazi mode settings
 

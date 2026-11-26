@@ -135,6 +135,14 @@ void InformationPanel::setTitleVisible(bool visible)
     m_panelOptions->setVisible(!visible);
 }
 
+void InformationPanel::setEmptyFieldsHidden(bool hidden)
+{
+    if (hidden != m_emptyFieldsHidden) {
+        m_emptyFieldsHidden = hidden;
+        refresh();
+    }
+}
+
 void InformationPanel::setFields(const QStringList &fields)
 {
     const auto definitions = fieldDefinitions();
@@ -166,7 +174,9 @@ void InformationPanel::refresh()
 {
     for (const QString &field : m_fields) {
         const QString text = valueFor(m_item, field);
-        m_values.value(field)->setText(text.isEmpty() ? i18nc("@info:file metadata", "Unavailable") : text);
+        QLabel *label = m_values.value(field);
+        label->setText(text.isEmpty() ? i18nc("@info:file metadata", "Unavailable") : text);
+        m_layout->setRowVisible(label, !m_emptyFieldsHidden || !text.isEmpty());
     }
     refreshTags();
 }

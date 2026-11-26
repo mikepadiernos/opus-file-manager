@@ -70,6 +70,7 @@
 #include "workspaceappearance.h"
 #include "workspacedialog.h"
 #include "workspacelocations.h"
+#include "yazicolumns.h"
 
 #include <KActionCollection>
 #include <KConfig>
@@ -109,6 +110,7 @@
 #include <KXMLGUIFactory>
 #include <Solid/Device>
 
+#include <QAbstractItemView>
 #include <QApplication>
 #include <QClipboard>
 #include <QCloseEvent>
@@ -1429,6 +1431,43 @@ void MainWindow::connectPane(Pane *pane)
     connect(pane, &Pane::searchRequested, this, [this, pane] {
         showSearchForPane(pane);
     });
+    connect(pane, &Pane::yaziModeChanged, this, [this, pane] {
+        if (pane == activePane()) {
+            updateActions();
+        }
+    });
+    connect(pane, &Pane::yaziPreviewChanged, this, [this, pane] {
+        if (pane == activePane()) {
+            updateActions();
+        }
+    });
+    connect(pane, &Pane::yaziPreviewContentChanged, this, [this, pane] {
+        if (pane == activePane()) {
+            updateActions();
+        }
+    });
+    connect(pane, &Pane::yaziParentColumnChanged, this, [this, pane] {
+        if (pane == activePane()) {
+            updateActions();
+        }
+    });
+    pane->yaziColumns()->setTransferQueue(FileOperations::transferQueue());
+    connect(pane->yaziColumns(), &YaziColumns::transferQueueRequested, this, &MainWindow::showTransferQueue);
+    connect(pane, &Pane::yaziFileCommandRequested, this, [this, pane](YaziMode::Command command) {
+        runYaziFileCommand(pane, command);
+    });
+    connect(pane, &Pane::yaziSearchRequested, this, [this, pane](bool contents) {
+        showYaziSearch(pane, contents);
+    });
+    connect(pane->yaziColumns(), &YaziColumns::searchCancelRequested, this, [this, pane] {
+        SearchWidget *search = m_searchPanel->searchWidget();
+        if (m_yaziSearchPane != pane || !search->isRunning()) {
+            pane->yaziColumns()->clearSearchStatus();
+            return;
+        }
+        search->cancel();
+        reportYaziSearch(search->status(), true);
+    });
     connect(pane, &Pane::urlChanged, this, [this, pane](const QUrl &url) {
         syncLinkedPane(pane, url);
         recordFolderVisit(pane, url);
@@ -1472,7 +1511,7 @@ void MainWindow::connectPane(Pane *pane)
         setActivePane(pane);
         showContextMenu(pane, pos, items);
     });
-    connect(pane->view(), &FolderView::selectionChanged, this, [this, pane] {
+    connect(pane->view(), &FolderView::selectedItemsChanged, this, [this, pane] {
         updateStatusBar();
         if (pane == m_active) {
             updatePreviewPanel();
@@ -2442,6 +2481,10 @@ void MainWindow::setupActions()
         return m_searchPanel->searchWidget()->history();
     });
     connect(toolbarSearch, &SearchToolbarAction::savedSearchRequested, this, [this](const QString &name) {
+        if (!m_searchPanel->searchWidget()->isRunning() && m_yaziSearchPane) {
+            m_yaziSearchPane->yaziColumns()->clearSearchStatus();
+            m_yaziSearchPane = nullptr;
+        }
         if (Settings::toolbarSearchOpensPanel()) {
             m_searchPanelAction->setChecked(true);
         }
@@ -2472,10 +2515,20 @@ void MainWindow::setupActions()
         activePane()->view()->currentView()->setFocus(Qt::OtherFocusReason);
     });
     connect(m_searchPanel->searchWidget(), &SearchWidget::finished, this, [this](const QString &status) {
+        reportYaziSearch(status, false);
         if (std::exchange(m_reportToolbarSearch, false) && !m_searchPanelAction->isChecked()) {
             showStatusMessage(
                 i18nc("@info:status %1 is the search outcome", "%1 Press Down in the search field or show the search panel to see the results.", status));
         }
+    });
+    connect(m_searchPanel->searchWidget(), &SearchWidget::started, this, [this] {
+        reportYaziSearch(QString(), true);
+    });
+    connect(m_searchPanel->searchWidget(), &SearchWidget::progressChanged, this, [this](const QString &status) {
+        reportYaziSearch(status, true);
+    });
+    connect(m_searchPanel->searchWidget(), &SearchWidget::startRejected, this, [this](const QString &message) {
+        reportYaziSearch(message, false);
     });
 
     m_linkedPanesAction = new KToggleAction(i18nc("@action", "Link Pane Navigation"), this);
@@ -2524,6 +2577,86 @@ void MainWindow::setupActions()
     });
     cardView->setText(i18nc("@action", "Card View"));
     cardView->setIcon(QIcon::fromTheme(QStringLiteral("view-grid"), QIcon::fromTheme(QStringLiteral("view-list-icons"))));
+
+    m_yaziModeAction =
+        new KToggleAction(SymbolicIcon::wrap(QIcon::fromTheme(QStringLiteral("view-file-columns"), QIcon::fromTheme(QStringLiteral("view-split-left-right")))),
+                          i18nc("@action", "Yazi Mode"),
+                          this);
+    m_yaziModeAction->setToolTip(i18nc("@info:tooltip", "Show the active pane's folder in columns with its parent folder"));
+    actions->addAction(QStringLiteral("toggle_yazi_mode"), m_yaziModeAction);
+    connect(m_yaziModeAction, &KToggleAction::triggered, this, [this](bool enabled) {
+        activePane()->setYaziMode(enabled);
+    });
+    m_yaziPreviewAction = new KToggleAction(SymbolicIcon::fromTheme(QStringLiteral("document-preview")), i18nc("@action", "Yazi Preview"), this);
+    m_yaziPreviewAction->setToolTip(i18nc("@info:tooltip", "Show a preview of the focused item in the active pane's Yazi mode"));
+    actions->addAction(QStringLiteral("toggle_yazi_preview"), m_yaziPreviewAction);
+    connect(m_yaziPreviewAction, &KToggleAction::triggered, this, [this](bool visible) {
+        activePane()->setYaziPreview(visible);
+    });
+    m_yaziPreviewInformationAction =
+        new KToggleAction(SymbolicIcon::fromTheme(QStringLiteral("documentinfo")), i18nc("@action", "File Information in Yazi Preview"), this);
+    m_yaziPreviewInformationAction->setToolTip(
+        i18nc("@info:tooltip", "Show the focused item's file information instead of its preview in the active pane's Yazi mode"));
+    actions->addAction(QStringLiteral("toggle_yazi_preview_information"), m_yaziPreviewInformationAction);
+    connect(m_yaziPreviewInformationAction, &KToggleAction::triggered, this, [this](bool information) {
+        activePane()->setYaziPreviewContent(information ? YaziMode::PreviewContent::Information : YaziMode::PreviewContent::Preview);
+    });
+    m_yaziParentColumnAction = new KToggleAction(SymbolicIcon::fromTheme(QStringLiteral("go-parent-folder")), i18nc("@action", "Yazi Parent Column"), this);
+    m_yaziParentColumnAction->setToolTip(i18nc("@info:tooltip", "Show the parent folder before the current folder in the active pane's Yazi mode"));
+    actions->addAction(QStringLiteral("toggle_yazi_parent_column"), m_yaziParentColumnAction);
+    connect(m_yaziParentColumnAction, &KToggleAction::triggered, this, [this](bool visible) {
+        activePane()->setYaziParentColumn(visible);
+    });
+    m_yaziModeStatusButton = new QToolButton(this);
+    m_yaziModeStatusButton->setObjectName(QStringLiteral("yaziModeStatusButton"));
+    m_yaziModeStatusButton->setAutoRaise(true);
+    m_yaziModeStatusButton->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    m_yaziModeStatusButton->setDefaultAction(m_yaziModeAction);
+    m_yaziModeStatusButton->setAccessibleName(i18nc("@action:button accessible name", "Yazi mode"));
+    m_yaziModeStatusButton->setAccessibleDescription(i18nc("@info accessible description", "Turns Yazi mode on or off in the active pane"));
+    statusBar()->addPermanentWidget(m_yaziModeStatusButton);
+    m_yaziVimKeysAction = new KToggleAction(i18nc("@action", "Vim-Style Keys in Yazi Mode"), this);
+    m_yaziVimKeysAction->setToolTip(
+        i18nc("@info:tooltip", "Navigate Yazi mode's columns with Vim-style keys such as h, j, k, l and gg as well as the standard keys"));
+    m_yaziVimKeysAction->setChecked(Settings::yaziKeyPreset() == Settings::EnumYaziKeyPreset::Vim);
+    actions->addAction(QStringLiteral("toggle_yazi_vim_keys"), m_yaziVimKeysAction);
+    connect(m_yaziVimKeysAction, &KToggleAction::triggered, this, [this](bool vim) {
+        Settings::setYaziKeyPreset(vim ? Settings::EnumYaziKeyPreset::Vim : Settings::EnumYaziKeyPreset::Standard);
+        Settings::self()->save();
+        for (Pane *pane : {m_left, m_right}) {
+            pane->reloadYaziKeySettings();
+        }
+    });
+    const auto addYaziColumnAction = [this, actions](const QString &name, const QString &text, const QString &toolTip, YaziMode::Command command) {
+        QAction *action = actions->addAction(name, this, [this, command] {
+            activePane()->runYaziCommand(command);
+        });
+        action->setText(text);
+        action->setToolTip(toolTip);
+        m_yaziColumnActions.append(action);
+    };
+    addYaziColumnAction(QStringLiteral("yazi_focus_parent_column"),
+                        i18nc("@action", "Focus Parent Column"),
+                        i18nc("@info:tooltip", "Move the keyboard focus to the parent folder's column in the active pane's Yazi mode"),
+                        YaziMode::Command::FocusParent);
+    addYaziColumnAction(QStringLiteral("yazi_focus_current_column"),
+                        i18nc("@action", "Focus Current Column"),
+                        i18nc("@info:tooltip", "Move the keyboard focus to the current folder's column in the active pane's Yazi mode"),
+                        YaziMode::Command::FocusCurrent);
+    addYaziColumnAction(QStringLiteral("yazi_focus_preview"),
+                        i18nc("@action", "Focus Preview Column"),
+                        i18nc("@info:tooltip", "Move the keyboard focus to the preview column in the active pane's Yazi mode"),
+                        YaziMode::Command::FocusPreview);
+    addYaziColumnAction(QStringLiteral("yazi_toggle_selection"),
+                        i18nc("@action", "Toggle Selection of Focused Item"),
+                        i18nc("@info:tooltip",
+                              "Select or deselect the focused item in the active pane's Yazi mode; the selection stays as the focus moves until it is cleared"),
+                        YaziMode::Command::ToggleSelection);
+    addYaziColumnAction(
+        QStringLiteral("yazi_visual_selection"),
+        i18nc("@action", "Range Selection"),
+        i18nc("@info:tooltip", "Start or end selecting every item between the focused item and where the range started, in the active pane's Yazi mode"),
+        YaziMode::Command::VisualSelection);
 
     QAction *formatSource = actions->addAction(QStringLiteral("folder_format_source"));
     formatSource->setEnabled(false);
@@ -3179,6 +3312,16 @@ void MainWindow::updateActions()
         ->setEnabled(tabs->count() > 1 && !tabs->isPinned(tabs->currentIndex()) && !tabs->isLocked(tabs->currentIndex()));
 
     m_selectionModeAction->setChecked(view->selectionMode());
+    m_yaziModeAction->setChecked(activePane()->yaziMode());
+    m_yaziPreviewAction->setChecked(activePane()->yaziPreview());
+    m_yaziPreviewAction->setEnabled(activePane()->yaziMode());
+    m_yaziPreviewInformationAction->setChecked(activePane()->yaziPreviewContent() == YaziMode::PreviewContent::Information);
+    m_yaziPreviewInformationAction->setEnabled(activePane()->yaziMode());
+    m_yaziParentColumnAction->setChecked(activePane()->yaziParentColumn());
+    m_yaziParentColumnAction->setEnabled(activePane()->yaziMode());
+    for (QAction *action : std::as_const(m_yaziColumnActions)) {
+        action->setEnabled(activePane()->yaziMode());
+    }
     m_selectionMarkersAction->setChecked(view->selectionMarkersVisible());
     actions->action(QStringLiteral("folder_format_source"))->setText(view->formatRuleDescription());
     actions->action(QStringLiteral("open_folder_format_source"))
@@ -4280,9 +4423,38 @@ void MainWindow::showSearchForPane(Pane *pane)
     SearchWidget *search = m_searchPanel->searchWidget();
     if (!search->setFolder(pane->url())) {
         showStatusMessage(i18nc("@info:status", "A search is running. Cancel it to search another folder."));
+    } else if (m_yaziSearchPane) {
+        // A search started from here isn't one the Yazi keys asked for.
+        m_yaziSearchPane->yaziColumns()->clearSearchStatus();
+        m_yaziSearchPane = nullptr;
     }
     m_searchPanelAction->setChecked(true);
     search->focusQuery();
+}
+
+void MainWindow::showYaziSearch(Pane *pane, bool contents)
+{
+    SearchWidget *search = m_searchPanel->searchWidget();
+    const bool running = search->isRunning();
+    showSearchForPane(pane);
+    if (running) {
+        if (m_yaziSearchPane != pane) {
+            pane->yaziColumns()->setSearchStatus(i18nc("@info:status", "A search is running. Cancel it to search another folder."), false);
+        }
+        return;
+    }
+    m_yaziSearchPane = pane;
+    search->prepareFolderSearch(contents ? LiveSearch::Field::Contents : LiveSearch::Field::FileName);
+    if (const QString limitation = search->locationLimitation(); !limitation.isEmpty()) {
+        pane->yaziColumns()->setSearchStatus(limitation, false);
+    }
+}
+
+void MainWindow::reportYaziSearch(const QString &status, bool running)
+{
+    if (m_yaziSearchPane) {
+        m_yaziSearchPane->yaziColumns()->setSearchStatus(status, running);
+    }
 }
 
 void MainWindow::searchFromToolbar(const QString &text)
@@ -4293,6 +4465,10 @@ void MainWindow::searchFromToolbar(const QString &text)
     }
     QWidget *field = QApplication::focusWidget();
     SearchWidget *search = m_searchPanel->searchWidget();
+    if (!search->isRunning() && m_yaziSearchPane) {
+        m_yaziSearchPane->yaziColumns()->clearSearchStatus();
+        m_yaziSearchPane = nullptr;
+    }
     // A running search keeps its folder; search() then reports that it is busy.
     search->setFolder(activePane()->url());
     if (Settings::toolbarSearchOpensPanel()) {
@@ -4870,6 +5046,130 @@ void MainWindow::showNewMenu()
     m_newFileMenu->menu()->popup(QCursor::pos());
 }
 
+void MainWindow::runYaziFileCommand(Pane *pane, YaziMode::Command command)
+{
+    if (!pane || !pane->yaziMode()) {
+        return;
+    }
+    using YaziMode::Command;
+    const QString name = YaziMode::commandAction(command);
+    if (YaziMode::permanentDeletionActions().contains(name)) {
+        pane->reportYaziMessage(i18nc("@info:status", "Yazi mode never deletes files permanently; move them to the trash instead."));
+        return;
+    }
+    setActivePane(pane);
+    updateActions();
+    QAction *action = name.isEmpty() ? nullptr : actionCollection()->action(name);
+    const KFileItemList selected = pane->view()->selectedItems();
+    const KFileItem root = pane->view()->rootItem();
+    const bool readOnly = root.isNull() || !root.isWritable();
+    const auto unavailable = [pane, command, &selected](const QString &text) {
+        QString title = KLocalizedString::removeAcceleratorMarker(text);
+        title.remove(QStringLiteral("…"));
+        title.remove(QStringLiteral("..."));
+        const KFileItemListProperties props(selected);
+        if (selected.isEmpty() && !title.isEmpty()) {
+            pane->reportYaziMessage(i18nc("@info:status %1 is an action such as Move to Trash", "%1 needs a selected or focused item.", title));
+        } else if (command == Command::Trash && props.supportsDeleting() && !props.isLocal()) {
+            pane->reportYaziMessage(i18nc("@info:status", "Only local items can be moved to the trash."));
+        } else if ((command == Command::Trash && !props.supportsDeleting())
+                   || ((command == Command::Rename || command == Command::Cut || command == Command::MoveToOtherPane) && !props.supportsMoving())) {
+            pane->reportYaziMessage(
+                i18nc("@info:status %1 is an action such as Move to Trash", "%1 is not available: the items are read-only or in a virtual location.", title));
+        } else {
+            pane->reportYaziMessage(i18nc("@info:status %1 is an action such as Move to Trash", "%1 is not available here.", title));
+        }
+    };
+    const QString folderReadOnly = i18nc("@info:status", "This folder is read-only or virtual, so nothing can be added to it.");
+    switch (command) {
+    case Command::Paste: {
+        // Ctrl+V pastes into a single selected folder; as in Yazi, p pastes
+        // into the current folder, since the focused item is selected as the
+        // focus moves. KIO's paste asks about conflicts and records undo.
+        bool clipboardHasItems = false;
+        FileOperations::pasteActionText(root, &clipboardHasItems);
+        if (!clipboardHasItems) {
+            pane->reportYaziMessage(i18nc("@info:status", "The clipboard has nothing to paste. Copy or cut items first."));
+        } else if (readOnly && !pane->view()->isFlat()) {
+            pane->reportYaziMessage(folderReadOnly);
+        } else if (!m_pasteAction->isEnabled() || !FileOperations::paste(pane->url(), this)) {
+            pane->reportYaziMessage(i18nc("@info:status %1 is an action such as Move to Trash", "%1 is not available here.", i18nc("@action", "Paste")));
+        }
+        return;
+    }
+    case Command::Create:
+        if (action && action->isEnabled() && readOnly) {
+            pane->reportYaziMessage(folderReadOnly);
+            return;
+        }
+        if (!action || !action->isEnabled()) {
+            pane->reportYaziMessage(i18nc("@info:status %1 is an action such as Move to Trash", "%1 is not available here.", i18nc("@action", "Create New")));
+            return;
+        }
+        m_newFileMenu->setWorkingDirectory(pane->url());
+        m_newFileMenu->checkUpToDate();
+        m_newFileMenu->menu()->popup(yaziMenuPosition(pane));
+        return;
+    case Command::OpenWith: {
+        auto *menu = new QMenu(this);
+        menu->setObjectName(QStringLiteral("yaziOpenWithMenu"));
+        menu->setAttribute(Qt::WA_DeleteOnClose);
+        if (!selected.isEmpty()) {
+            m_fileItemActions->setItemListProperties(KFileItemListProperties(selected));
+            m_fileItemActions->insertOpenWithActionsTo(nullptr, menu, QStringList());
+        }
+        if (menu->isEmpty()) {
+            delete menu;
+            unavailable(i18nc("@action", "Open With"));
+            return;
+        }
+        menu->popup(yaziMenuPosition(pane));
+        return;
+    }
+    case Command::CopyToOtherPane:
+    case Command::MoveToOtherPane: {
+        const QString title = KLocalizedString::removeAcceleratorMarker(action ? action->text() : QString());
+        if (!isDualLayout() && !m_secondPaneInTab && !m_rightWindow) {
+            pane->reportYaziMessage(
+                i18nc("@info:status %1 is an action such as Copy to Other Pane", "%1 needs a second pane. Turn on the dual-pane layout first.", title));
+            return;
+        }
+        const Pane *other = pane == m_left ? m_right : m_left;
+        if (other->url().adjusted(QUrl::StripTrailingSlash) == pane->url().adjusted(QUrl::StripTrailingSlash)) {
+            pane->reportYaziMessage(
+                i18nc("@info:status %1 is an action such as Copy to Other Pane", "%1 is not available: the other pane shows the same folder.", title));
+            return;
+        }
+        break;
+    }
+    case Command::Undo:
+        if (!action || !action->isEnabled()) {
+            pane->reportYaziMessage(i18nc("@info:status", "There is nothing to undo."));
+            return;
+        }
+        break;
+    default:
+        break;
+    }
+    if (!action) {
+        pane->reportYaziMessage(i18nc("@info:status", "This command is not available here."));
+        return;
+    }
+    if (!action->isEnabled()) {
+        unavailable(action->text());
+        return;
+    }
+    action->trigger();
+}
+
+QPoint MainWindow::yaziMenuPosition(Pane *pane) const
+{
+    QAbstractItemView *items = pane->view()->currentView();
+    const QRect rect = items->visualRect(items->currentIndex());
+    const bool shown = rect.isValid() && items->viewport()->rect().intersects(rect);
+    return items->viewport()->mapToGlobal(shown ? rect.bottomLeft() : QPoint(0, 0));
+}
+
 void MainWindow::toggleLayout(bool dual)
 {
     const bool previewWasVisible = !m_previewPanel->isHidden();
@@ -5438,12 +5738,15 @@ void MainWindow::applySettings()
     m_automaticLocalSizeDefault = Settings::automaticLocalFolderSizes();
     m_automaticRemoteSizeDefault = Settings::automaticRemoteFolderSizes();
     applyPaneBackgrounds();
+    m_yaziVimKeysAction->setChecked(Settings::yaziKeyPreset() == Settings::EnumYaziKeyPreset::Vim);
     for (Pane *pane : {m_left, m_right}) {
         pane->setInactiveDimming(Settings::dimInactivePane(), Settings::inactivePaneOpacity());
         pane->reloadTabSettings();
         pane->reloadFilterSettings();
         pane->setNavigationBarVisible(Settings::showNavigationBar());
         pane->setNewTabsAfterCurrent(Settings::newTabsAfterCurrent());
+        pane->reloadYaziPreviewSetting();
+        pane->reloadYaziKeySettings();
         pane->setFollowSymlinks(Settings::followSymlinks());
 
         FolderView *view = pane->view();

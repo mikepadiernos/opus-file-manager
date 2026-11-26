@@ -32,6 +32,21 @@ struct PaneSession {
     /// FolderView::ViewMode: details, icons, compact or cards.
     int viewMode = 0;
     static constexpr int MaximumViewMode = 3;
+    /// Whether the pane shows its folder view in Yazi mode's columns.
+    bool yaziMode = false;
+    /// Whether Yazi mode shows the preview column: 1 shown, 0 hidden, -1 not
+    /// saved; use the YaziPreviewVisible default.
+    int yaziPreview = -1;
+    /// What Yazi mode's preview column shows, a YaziMode::PreviewContent
+    /// value, or -1 when not saved; use the YaziPreviewContent default.
+    int yaziPreviewContent = -1;
+    /// Whether Yazi mode shows the parent column: 1 shown, 0 hidden, -1 not
+    /// saved; use the YaziParentColumnVisible default.
+    int yaziParentColumn = -1;
+    /// The relative widths of Yazi mode's parent, current and preview columns
+    /// as three positive values, or empty when not saved; use the
+    /// YaziColumnRatios default.
+    QList<int> yaziColumnRatios;
 
     bool operator==(const PaneSession &other) const = default;
 };

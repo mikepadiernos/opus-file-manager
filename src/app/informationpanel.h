@@ -19,6 +19,8 @@ public:
     void setFields(const QStringList &fields);
     void setItem(const KFileItem &item);
     void setTitleVisible(bool visible);
+    /// Whether fields without a value for the item are hidden instead of showing "Unavailable".
+    void setEmptyFieldsHidden(bool hidden);
 
 Q_SIGNALS:
     void placementRequested(Qt::DockWidgetArea area);
@@ -41,4 +43,5 @@ private:
     KFileItem m_item;
     QStringList m_fields;
     QHash<QString, QLabel *> m_values;
+    bool m_emptyFieldsHidden = false;
 };

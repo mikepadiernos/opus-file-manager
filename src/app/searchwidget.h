@@ -53,6 +53,21 @@ public:
     bool search(const QString &text);
     /// Returns the text of the panel's status line.
     QString status() const;
+    /**
+     * Sets the criteria to search @p field in the current folder with the live
+     * scope, as Yazi mode's search keys do. The query, path filter and
+     * results are kept.
+     * @returns false, changing nothing, while a search runs
+     */
+    bool prepareFolderSearch(LiveSearch::Field field);
+    LiveSearch::Field field() const;
+    /// Returns whether the scope is the current folder, searched live.
+    bool searchesCurrentFolder() const;
+    /**
+     * Returns why the chosen scope can't search the current folder, such as a
+     * remote folder for live search, or an empty string when it can.
+     */
+    QString locationLimitation() const;
     /// Returns whether the visible result list has items.
     bool hasResults() const;
     /// Cancels a running search; does nothing otherwise.
@@ -75,6 +90,12 @@ Q_SIGNALS:
     void dismissRequested();
     /// A search ended; @p status summarizes its outcome.
     void finished(const QString &status);
+    /// A search started.
+    void started();
+    /// A running search's progress changed; @p status is the panel's progress text.
+    void progressChanged(const QString &status);
+    /// A search couldn't start; @p message, also shown in the panel, tells why.
+    void startRejected(const QString &message);
     void revealRequested(const QUrl &url);
     /// Requests opening an existing result: a folder in a pane, a file in its application.
     void openRequested(const QUrl &url);
@@ -85,6 +106,7 @@ protected:
 
 private:
     bool start();
+    bool startSearch();
     QString applyDefaultsNow();
     bool loadSavedSearch(const QString &name);
     void openSelected();
