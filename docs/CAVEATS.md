@@ -1941,9 +1941,7 @@ The M27 desktop integrations have these limits
   decides whether the font is installed for the user or system-wide.
   ([#650](https://github.com/mikepadiernos/plasma-opus/issues/650))
 
-- **🔐 Remote connections:** profiles cover SFTP and WebDAV; SMB and FTP
-  follow in [#651](https://github.com/mikepadiernos/plasma-opus/issues/651).
-  A profile's private key is passed only to SSH terminals: KIO's SFTP worker
+- **🔐 Remote connections:** A profile's private key is passed only to SSH terminals: KIO's SFTP worker
   uses the SSH agent and its own key lookup, so browsing may still ask for a
   password. SSH terminals need `ssh` in `PATH` and the Konsole component, and
   start in the remote home folder rather than the profile's folder.
@@ -1951,6 +1949,16 @@ The M27 desktop integrations have these limits
   opens them. Removing a connection doesn't ask for confirmation and leaves
   any password saved in KWallet. Profiles don't appear in Places.
   ([#282](https://github.com/mikepadiernos/plasma-opus/issues/282))
+
+- **🌍 Network shares and FTP:** KDE ships no FTPS worker, so FTPS profiles
+  open only when a third-party worker is installed. Plain FTP profiles can't
+  require encryption, and KIO's FTP worker doesn't upgrade them to TLS.
+  **Go › Network** shows what KIO's `network:/` worker or Dolphin's `remote:/`
+  folder discovers, which depends on Avahi and, for Windows shares, WS-Discovery
+  being installed and allowed through the firewall. Plasma Opus doesn't add
+  discovered services to saved connections or Places. SMB sign-in, including
+  domains and Kerberos, follows KIO's SMB worker.
+  ([#651](https://github.com/mikepadiernos/plasma-opus/issues/651))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -2077,6 +2085,11 @@ The M27 desktop integrations have these limits
     and terminals sign in without a password. Prefer WebDAV over HTTPS, and
     remove saved passwords you no longer need in KWalletManager. After an
     SSH terminal connects, `cd` to the folder you need.
+  - **Network shares and FTP:** Prefer SFTP or WebDAV over HTTPS to plain
+    FTP. For FTPS, install a third-party KIO worker or use `lftp` in the
+    terminal. If **Network** stays empty, install `kio-extras` with Avahi and
+    `kdsoap-ws-discovery-client`, and allow mDNS and WS-Discovery through
+    the firewall, or save a connection to the host directly.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2148,6 +2161,8 @@ The M27 desktop integrations have these limits
   - Show saved connections in Places, test a connection before saving it,
     start SSH terminals in the profile's folder, confirm removals and offer
     to forget the saved password, and import hosts from `~/.ssh/config`.
+  - Save a discovered share as a connection from **Network**, and hide FTPS
+    when no worker handles it.
 
 ## Embedded terminal
 
