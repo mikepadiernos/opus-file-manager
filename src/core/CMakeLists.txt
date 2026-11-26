@@ -137,6 +137,8 @@ add_library(opusfm_core STATIC
     portalsetup.h
     previewcontent.cpp
     previewcontent.h
+    remoteprofiles.cpp
+    remoteprofiles.h
     runnermatches.cpp
     runnermatches.h
     savedpathfilters.cpp
