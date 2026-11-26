@@ -4,6 +4,8 @@
 
 #include <KConfig>
 #include <KConfigGroup>
+#include <KCoreConfigSkeleton>
+#include <KSharedConfig>
 
 #include <QJsonArray>
 #include <QJsonObject>
@@ -1086,6 +1088,35 @@ private Q_SLOTS:
         QCOMPARE(YaziMode::normalizedKey(Qt::ShiftModifier | Qt::Key_Tab), Qt::ShiftModifier | Qt::Key_Tab);
         QCOMPARE(YaziMode::keyText(Qt::Key_BracketRight), QStringLiteral("]"));
         QCOMPARE(YaziMode::sequenceText({Qt::Key_Comma, Qt::Key_N}), QStringLiteral(",n"));
+    }
+
+    void defaultSettingsCoverOnlyTheYaziGroup()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        KCoreConfigSkeleton settings(KSharedConfig::openConfig(dir.filePath(QStringLiteral("settingsrc")), KConfig::SimpleConfig));
+        bool preview = false;
+        QList<int> ratios;
+        bool workspaceYazi = false;
+        bool places = false;
+        settings.setCurrentGroup(QStringLiteral("YaziMode"));
+        settings.addItemBool(QStringLiteral("YaziPreviewVisible"), preview, true);
+        settings.addItemIntList(QStringLiteral("YaziColumnRatios"), ratios, {1, 3, 2});
+        settings.setCurrentGroup(QStringLiteral("Workspaces"));
+        settings.addItemBool(QStringLiteral("WorkspaceDefaultYaziMode"), workspaceYazi, true);
+        settings.setCurrentGroup(QStringLiteral("General"));
+        settings.addItemBool(QStringLiteral("ShowPlaces"), places, true);
+        settings.load();
+        preview = false;
+        ratios = {2, 5, 3};
+
+        const QVariantMap defaults = YaziMode::defaultSettings(&settings);
+        QCOMPARE(defaults.keys(), QStringList({QStringLiteral("YaziColumnRatios"), QStringLiteral("YaziPreviewVisible")}));
+        QCOMPARE(defaults.value(QStringLiteral("YaziPreviewVisible")), QVariant(true));
+        QCOMPARE(defaults.value(QStringLiteral("YaziColumnRatios")).value<QList<int>>(), QList<int>({1, 3, 2}));
+        // Reading the defaults doesn't change the current values.
+        QVERIFY(!preview);
+        QCOMPARE(ratios, QList<int>({2, 5, 3}));
     }
 
 private:

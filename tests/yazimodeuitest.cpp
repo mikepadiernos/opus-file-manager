@@ -23,6 +23,7 @@
 #include "yazipreview.h"
 
 #include <KActionCollection>
+#include <KConfigDialog>
 
 #include <KConfigGroup>
 #include <KDirModel>
@@ -51,6 +52,7 @@
 #include <QMimeData>
 #include <QMouseEvent>
 #include <QPlainTextEdit>
+#include <QPointer>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QScopeGuard>
@@ -870,6 +872,125 @@ private Q_SLOTS:
         second.openUrls({m_a, m_b});
         QCOMPARE(YaziMode::ratiosToList(second.activePane()->yaziColumnRatios()), dragged);
         QVERIFY(second.activePane()->saveState().yaziColumnRatios.isEmpty());
+    }
+
+    void paneDropsItsChoicesToFollowTheSettings()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::setYaziColumnRatios({1, 3, 2});
+            Settings::self()->save();
+        });
+        Settings::setYaziColumnRatios({1, 3, 2});
+        MainWindow window;
+        window.resize(1400, 600);
+        window.openUrls({m_sub, m_b});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        Pane *pane = window.activePane();
+        pane->setYaziMode(true);
+        pane->setYaziPreview(false);
+        pane->setYaziPreviewContent(YaziMode::PreviewContent::Information);
+        pane->setYaziParentColumn(false);
+        // Widths dragged but not yet saved as the setting.
+        Q_EMIT pane->yaziColumns()->ratiosChanged(YaziMode::Ratios({2, 5, 3}));
+        QCOMPARE(pane->saveState().yaziColumnRatios, QList<int>({2, 5, 3}));
+
+        QSignalSpy layoutChanged(pane, &Pane::workspaceLayoutChanged);
+        pane->followYaziSettings();
+        QCOMPARE(layoutChanged.count(), 1);
+        const PaneSession state = pane->saveState();
+        QCOMPARE(state.yaziPreview, -1);
+        QCOMPARE(state.yaziPreviewContent, -1);
+        QCOMPARE(state.yaziParentColumn, -1);
+        QVERIFY(state.yaziColumnRatios.isEmpty());
+        QVERIFY(pane->yaziMode());
+        QVERIFY(pane->yaziPreview());
+        QCOMPARE(pane->yaziPreviewContent(), YaziMode::PreviewContent::Preview);
+        QVERIFY(pane->yaziParentColumn());
+        QCOMPARE(pane->yaziColumnRatios(), YaziMode::Ratios());
+        YaziColumns *columns = pane->yaziColumns();
+        QTRY_VERIFY(columns->parentColumn()->isVisible() && columns->previewSlot()->isVisible());
+        // The dragged widths aren't saved as the setting afterwards.
+        QTest::qWait(Pane::YaziRatiosSaveDelay * 2);
+        QCOMPARE(Settings::yaziColumnRatios(), QList<int>({1, 3, 2}));
+
+        // Without choices of its own, nothing changes, and a pane out of Yazi mode stays out of it.
+        pane->followYaziSettings();
+        QCOMPARE(layoutChanged.count(), 1);
+        Pane *other = window.inactivePane();
+        other->followYaziSettings();
+        QVERIFY(!other->yaziMode());
+    }
+
+    void restoringYaziDefaultsDropsThePanesChoices()
+    {
+        const auto restore = qScopeGuard([] {
+            const KConfigSkeletonItem::List items = Settings::self()->items();
+            for (KConfigSkeletonItem *item : items) {
+                if (item->group() == QLatin1String(YaziMode::SettingsGroup)) {
+                    item->setDefault();
+                }
+            }
+            Settings::self()->save();
+        });
+        Settings::setYaziPreviewVisible(false);
+        Settings::setYaziPreviewContent(Settings::EnumYaziPreviewContent::Information);
+        Settings::setYaziColumnRatios({4, 4, 2});
+        Settings::self()->save();
+        MainWindow window;
+        window.resize(1400, 600);
+        window.openUrls({m_sub, m_b});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        Pane *first = window.activePane();
+        Pane *second = window.inactivePane();
+        first->setYaziMode(true);
+        first->setYaziPreview(false);
+        first->setYaziParentColumn(false);
+        first->setYaziColumnRatios({2, 5, 3});
+        second->setYaziPreviewContent(YaziMode::PreviewContent::Information);
+        // Another window's panes follow the defaults too.
+        MainWindow other;
+        other.openUrls({m_a, m_b});
+        Pane *otherPane = other.activePane();
+        otherPane->setYaziMode(true);
+        otherPane->setYaziPreview(true);
+
+        window.actionCollection()->action(QStringLiteral("options_configure"))->trigger();
+        QPointer<SettingsDialog> dialog = qobject_cast<SettingsDialog *>(KConfigDialog::exists(QLatin1String(SettingsDialog::Name)));
+        QVERIFY(dialog);
+        dialog->setYaziResetConfirmation([](const QString &) {
+            return true;
+        });
+        dialog->findChild<QPushButton *>(QStringLiteral("resetYaziMode"))->click();
+        // Nothing changes until the defaults are applied.
+        QTest::qWait(50);
+        QCOMPARE(first->saveState().yaziPreview, 0);
+        QVERIFY(!Settings::yaziPreviewVisible());
+        dialog->button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::yaziPreviewVisible());
+
+        QTRY_COMPARE(first->saveState().yaziPreview, -1);
+        for (Pane *pane : {first, second, otherPane}) {
+            const PaneSession state = pane->saveState();
+            QCOMPARE(state.yaziPreview, -1);
+            QCOMPARE(state.yaziPreviewContent, -1);
+            QCOMPARE(state.yaziParentColumn, -1);
+            QVERIFY(state.yaziColumnRatios.isEmpty());
+            QVERIFY(pane->yaziPreview());
+            QCOMPARE(pane->yaziPreviewContent(), YaziMode::PreviewContent::Preview);
+            QVERIFY(pane->yaziParentColumn());
+            QCOMPARE(pane->yaziColumnRatios(), YaziMode::Ratios());
+        }
+        // Each pane stays in or out of Yazi mode.
+        QVERIFY(first->yaziMode());
+        QVERIFY(!second->yaziMode());
+        QVERIFY(otherPane->yaziMode());
+        YaziColumns *columns = first->yaziColumns();
+        QTRY_VERIFY(columns->parentColumn()->isVisible() && columns->previewSlot()->isVisible());
+
+        dialog->button(QDialogButtonBox::Cancel)->click();
+        QTRY_VERIFY(!dialog);
     }
 
     void columnSettingsApplyToOpenPanes()

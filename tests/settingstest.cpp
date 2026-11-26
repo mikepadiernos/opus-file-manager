@@ -26,6 +26,7 @@
 #include "themeprofiles.h"
 #include "treelines.h"
 #include "windoweffects.h"
+#include "yazimode.h"
 
 #include <KActionCollection>
 #include <KColorButton>
@@ -330,6 +331,38 @@ private Q_SLOTS:
         for (const KConfigSkeletonItem *item : items) {
             QVERIFY2(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + item->name()), qPrintable(item->name()));
         }
+    }
+
+    void yaziDefaultsAreTheYaziModeGroup()
+    {
+        const QVariantMap defaults = YaziMode::defaultSettings(Settings::self());
+        QCOMPARE(defaults.keys(),
+                 QStringList({QStringLiteral("YaziColumnRatios"),
+                              QStringLiteral("YaziKeyPreset"),
+                              QStringLiteral("YaziLeftPaneDefault"),
+                              QStringLiteral("YaziLeftPaneRestore"),
+                              QStringLiteral("YaziParentColumnVisible"),
+                              QStringLiteral("YaziPreviewContent"),
+                              QStringLiteral("YaziPreviewVisible"),
+                              QStringLiteral("YaziRightPaneDefault"),
+                              QStringLiteral("YaziRightPaneRestore"),
+                              QStringLiteral("YaziWorkspaceRestoreColumns"),
+                              QStringLiteral("YaziWorkspaceRestoreMode")}));
+        QCOMPARE(defaults.value(QStringLiteral("YaziColumnRatios")).value<QList<int>>(), QList<int>({1, 3, 2}));
+        QCOMPARE(defaults.value(QStringLiteral("YaziKeyPreset")).toInt(), int(Settings::EnumYaziKeyPreset::Standard));
+        QCOMPARE(defaults.value(QStringLiteral("YaziPreviewContent")).toInt(), int(Settings::EnumYaziPreviewContent::Preview));
+        QCOMPARE(defaults.value(QStringLiteral("YaziLeftPaneDefault")), QVariant(false));
+        QCOMPARE(defaults.value(QStringLiteral("YaziRightPaneDefault")), QVariant(false));
+        for (const char *entry : {"YaziPreviewVisible",
+                                  "YaziParentColumnVisible",
+                                  "YaziLeftPaneRestore",
+                                  "YaziRightPaneRestore",
+                                  "YaziWorkspaceRestoreMode",
+                                  "YaziWorkspaceRestoreColumns"}) {
+            QVERIFY2(defaults.value(QLatin1String(entry)).toBool(), entry);
+        }
+        QVERIFY(Settings::self()->findItem(QStringLiteral("WorkspaceDefaultYaziMode")));
+        QVERIFY(!defaults.contains(QStringLiteral("WorkspaceDefaultYaziMode")));
     }
 
     void dialogApplyWritesSettings()
