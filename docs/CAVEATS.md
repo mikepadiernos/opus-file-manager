@@ -1612,6 +1612,16 @@ The M27 desktop integrations have these limits
   languages without a Plasma Opus catalogue are skipped; when none has one,
   the original English text is shown.
   ([#437](https://github.com/mikepadiernos/plasma-opus/issues/437))
+- **🔔 Notifications and jobs:** only the checksum, folder synchronization,
+  duplicate finder, file split, batch rename, batch image conversion and
+  tag-library refresh dialogs report to Plasma's job progress. Automatic
+  library refreshes, previews, gallery loads, searches and archive tools do
+  not. Plasma's job entry cannot bring the dialog back to the front; it offers
+  only its own actions, such as opening the destination folder. Outside a
+  Plasma session, with no job-view service running, nothing is reported and
+  the dialogs remain the only progress display. There is no Plasma Opus
+  setting to turn the reporting off yet.
+  ([#388](https://github.com/mikepadiernos/plasma-opus/issues/388))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -1623,6 +1633,11 @@ The M27 desktop integrations have these limits
     back in, or select the language under **Settings › Translation ›
     Language and Layout** and restart Plasma Opus. The status line on that page
     shows which language is in effect.
+  - **Notifications and jobs:** Keep the Plasma Opus dialog open, or switch
+    to it from the task manager, to read error details or change options.
+    To hide the progress, turn off application progress in notifications
+    under **System Settings › Notifications**; this affects every
+    application.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -1632,6 +1647,9 @@ The M27 desktop integrations have these limits
     activation file explicitly.
   - Watch `plasma-localerc` and offer a restart when Plasma's language list
     changes.
+  - An M28 setting to choose which operations report to Plasma, and to
+    report automatic library refreshes.
+  - A job action that raises the dialog that started the operation.
 
 ## Embedded terminal
 
