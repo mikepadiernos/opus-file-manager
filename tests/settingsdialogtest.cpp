@@ -20,6 +20,7 @@
 #include "savedpathfilters.h"
 #include "searchhistory.h"
 #include "searchstoredialog.h"
+#include "servicemenus.h"
 #include "settings.h"
 #include "settingsbackup.h"
 #include "settingswidgets.h"
@@ -37,6 +38,8 @@
 #include <KConfigGroup>
 #include <KEditListWidget>
 #include <KFilePlacesModel>
+#include <KNSCore/Entry>
+#include <KNSWidgets/Button>
 #include <KPageWidget>
 #include <KPageWidgetModel>
 #include <KPluginMetaData>
@@ -132,6 +135,96 @@ private Q_SLOTS:
         QVERIFY(portability);
         QVERIFY(portability->findChild<QPushButton *>(QStringLiteral("exportWorkspaceProfiles")));
         QVERIFY(portability->findChild<QPushButton *>(QStringLiteral("importWorkspaceProfiles")));
+    }
+
+    void refreshesServiceMenusAfterDownloads()
+    {
+        const QString folder = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/kio/servicemenus");
+        QVERIFY(QDir().mkpath(folder));
+        const auto write = [&folder](const QString &name, const QByteArray &key, const QByteArray &text) {
+            QFile file(folder + QLatin1Char('/') + name);
+            if (!file.open(QIODevice::WriteOnly)) {
+                return false;
+            }
+            file.write("[Desktop Entry]\nType=Service\nMimeType=all/allfiles;\nActions=" + key + ";\n\n[Desktop Action " + key + "]\nName=" + text
+                       + "\nExec=true %F\n");
+            return true;
+        };
+        const auto cleanup = qScopeGuard([&folder] {
+            for (const QString &name :
+                 {QStringLiteral("opusfm-first.desktop"), QStringLiteral("opusfm-gone.desktop"), QStringLiteral("opusfm-second.desktop")}) {
+                QFile::remove(folder + QLatin1Char('/') + name);
+            }
+            KConfig config(QStringLiteral("kservicemenurc"), KConfig::NoGlobals);
+            config.deleteGroup(QStringLiteral("Show"));
+            config.sync();
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        QVERIFY(write(QStringLiteral("opusfm-first.desktop"), "opusfmFirst", "First Download"));
+        QVERIFY(write(QStringLiteral("opusfm-gone.desktop"), "opusfmGone", "Gone Download"));
+
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, nullptr);
+        auto *download = dialog.findChild<KNSWidgets::Button *>(QStringLiteral("serviceMenuDownload"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("serviceMenuStatus"));
+        auto *list = dialog.findChild<HiddenItemsList *>(QStringLiteral("kcfg_HiddenServiceActions"));
+        QVERIFY(download && status && list);
+        QCOMPARE(download->isEnabled(), !ServiceMenus::downloadConfigPath().isEmpty());
+        QCOMPARE(status->isHidden(), download->isEnabled());
+        auto *first = dialog.findChild<QCheckBox *>(QStringLiteral("serviceMenu_opusfmFirst"));
+        QVERIFY(first && first->isChecked());
+        QVERIFY(dialog.findChild<QCheckBox *>(QStringLiteral("serviceMenu_opusfmGone")));
+        const auto row = [list](const QString &id) -> QListWidgetItem * {
+            for (int index = 0; index < list->count(); ++index) {
+                if (list->item(index)->data(Qt::UserRole).toString() == id) {
+                    return list->item(index);
+                }
+            }
+            return nullptr;
+        };
+        QVERIFY(row(QStringLiteral("opusfmFirst")));
+
+        // Unsaved changes to service menus that stay installed survive a refresh.
+        first->setChecked(false);
+        row(QStringLiteral("opusfmFirst"))->setCheckState(Qt::Unchecked);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        QVERIFY(QFile::remove(folder + QStringLiteral("/opusfm-gone.desktop")));
+        QVERIFY(write(QStringLiteral("opusfm-second.desktop"), "opusfmSecond", "Second Download"));
+        Q_EMIT download->dialogFinished({});
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+        QVERIFY(!dialog.findChild<QCheckBox *>(QStringLiteral("serviceMenu_opusfmGone")));
+        QVERIFY(!row(QStringLiteral("opusfmGone")));
+        auto *second = dialog.findChild<QCheckBox *>(QStringLiteral("serviceMenu_opusfmSecond"));
+        QVERIFY(second && second->isChecked());
+        QVERIFY(row(QStringLiteral("opusfmSecond")));
+        QCOMPARE(row(QStringLiteral("opusfmSecond"))->checkState(), Qt::Checked);
+        QCOMPARE(dialog.findChild<QCheckBox *>(QStringLiteral("serviceMenu_opusfmFirst")), first);
+        QVERIFY(!first->isChecked());
+        QCOMPARE(row(QStringLiteral("opusfmFirst"))->checkState(), Qt::Unchecked);
+        QVERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+
+        // The status line summarizes what the download window changed.
+        KNSCore::Entry installed;
+        installed.setName(QStringLiteral("Installed Menu"));
+        installed.setStatus(KNSCore::Entry::Installed);
+        KNSCore::Entry removed;
+        removed.setName(QStringLiteral("Removed Menu"));
+        removed.setStatus(KNSCore::Entry::Deleted);
+        KNSCore::Entry failed;
+        failed.setName(QStringLiteral("Failed Menu"));
+        failed.setStatus(KNSCore::Entry::Downloadable);
+        Q_EMIT download->dialogFinished({installed, removed, failed});
+        QVERIFY(!status->isHidden());
+        QVERIFY(status->text().contains(QStringLiteral("Installed or updated 1 service menu.")));
+        QVERIFY(status->text().contains(QStringLiteral("Removed 1 service menu.")));
+        QVERIFY(status->text().contains(QStringLiteral("Failed Menu")));
+        QVERIFY(!status->text().contains(QStringLiteral("Installed Menu")));
+
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(Settings::hiddenServiceActions().contains(QStringLiteral("opusfmFirst")));
+        QVERIFY(!KConfig(QStringLiteral("kservicemenurc"), KConfig::NoGlobals).group(QStringLiteral("Show")).readEntry("opusfmFirst", true));
     }
 
     void taggingPrivacySettings()

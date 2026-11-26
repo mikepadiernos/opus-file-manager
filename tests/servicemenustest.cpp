@@ -49,6 +49,24 @@ private Q_SLOTS:
             return QString::localeAwareCompare(a.text, b.text) < 0;
         }));
     }
+
+    void findsDolphinsDownloadConfig()
+    {
+        const QString folder = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/knsrcfiles");
+        const QString path = folder + QStringLiteral("/servicemenu.knsrc");
+        QFile::remove(path);
+        const QString system = ServiceMenus::downloadConfigPath();
+        // A system-wide Dolphin may provide one; otherwise there is none.
+        QVERIFY(system.isEmpty() || system.endsWith(QStringLiteral("/knsrcfiles/servicemenu.knsrc")));
+
+        QVERIFY(QDir().mkpath(folder));
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("[KNewStuff3]\nCategories=Dolphin Service Menus\n");
+        file.close();
+        QCOMPARE(ServiceMenus::downloadConfigPath(), path);
+        QVERIFY(QFile::remove(path));
+    }
 };
 
 QTEST_GUILESS_MAIN(ServiceMenusTest)
