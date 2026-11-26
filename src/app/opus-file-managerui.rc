@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="53" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="54" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -13,6 +13,7 @@
       <Action name="extract_to_other_pane"/>
       <Action name="extract_protected_archive"/>
       <Action name="test_archive_integrity"/>
+      <Action name="open_in_ark"/>
       <Action name="rename"/>
       <Action name="batch_rename"/>
       <Action name="edit_metadata"/>

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "activityassociations.h"
+#include "ark.h"
 #include "editorpanel.h"
 #include "metadataeditdialog.h"
 #include "previewpanel.h"
@@ -157,6 +158,8 @@ public:
     /// Shows the drop-down window, or hides it when it is shown and active.
     void toggleDropDown();
     DropDownWindow *dropDownWindow() const;
+    /// Replaces the detected Ark backends, for tests.
+    void setArkBackends(const Ark::Backends &backends);
 
     /**
      * Applies the current Settings to the panes, actions and status bar.
@@ -425,6 +428,16 @@ private:
      * @param target the folder to create; it must not exist
      */
     void extractArchive(const QUrl &archive, const QUrl &target);
+    /// Opens the selected archive in Ark, which can add, rename and remove entries.
+    void openInArk();
+    /// What the installed Ark backends support, read once.
+    const Ark::Backends &arkBackends();
+    /// Whether @p item is a local archive that Ark reads but KIO cannot browse, such as RAR.
+    bool isArkOnlyArchive(const KFileItem &item);
+    /// Starts Ark with @p arguments, reporting a missing Ark or a failed start.
+    void launchArk(const QStringList &arguments);
+
+    std::optional<Ark::Backends> m_arkBackends;
 
     KFilePlacesModel *m_placesModel = nullptr;
     DesktopTray *m_desktopTray = nullptr;

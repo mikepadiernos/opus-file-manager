@@ -98,6 +98,7 @@
 #include <KGlobalAccel>
 #include <KGuiItem>
 #include <KHamburgerMenu>
+#include <KIO/CommandLauncherJob>
 #include <KIO/CopyJob>
 #include <KIO/DirectorySizeJob>
 #include <KIO/DropJob>
@@ -2107,7 +2108,12 @@ void MainWindow::extractToOtherPane()
     const KFileItemList selected = activePane()->view()->selectedItems();
     for (const KFileItem &item : selected) {
         const QUrl archive = Archives::browseUrl(item.mostLocalUrl(), item.mimetype());
-        if (!archive.isValid()) {
+        const bool arkOnly = !archive.isValid() && isArkOnlyArchive(item);
+        if (!archive.isValid() && !arkOnly) {
+            continue;
+        }
+        if (arkOnly && !destination.isLocalFile()) {
+            showStatusMessage(i18nc("@info:status archive extraction", "Ark can only extract %1 into a local folder.", item.name()));
             continue;
         }
         QString name = Archives::baseName(item.name());
@@ -2116,7 +2122,19 @@ void MainWindow::extractToOtherPane()
         }
         QUrl target = destination;
         target.setPath(QDir(destination.path()).filePath(name));
-        extractArchive(archive, target);
+        if (!arkOnly) {
+            extractArchive(archive, target);
+            continue;
+        }
+        if (!Ark::isInstalled()) {
+            launchArk({});
+            return;
+        }
+        if (!QDir().mkdir(target.toLocalFile())) {
+            showStatusMessage(i18nc("@info:status archive extraction", "Could not create the folder %1.", target.toLocalFile()));
+            continue;
+        }
+        launchArk(Ark::extractArguments(item.localPath(), target.toLocalFile()));
     }
 }
 
@@ -2196,6 +2214,58 @@ void MainWindow::extractArchive(const QUrl &archive, const QUrl &target)
             KJobWidgets::setWindow(copy, this);
         });
     });
+}
+
+void MainWindow::openInArk()
+{
+    const KFileItemList selected = activePane()->view()->selectedItems();
+    if (selected.size() != 1 || selected.first().localPath().isEmpty()) {
+        showStatusMessage(i18nc("@info:status", "Select one local archive to open in Ark."));
+        return;
+    }
+    const KFileItem &item = selected.first();
+    if (Ark::isInstalled() && !arkBackends().isEmpty() && !arkBackends().canRead(item.mimetype())) {
+        showStatusMessage(i18nc("@info:status", "None of Ark's installed backends can open %1.", item.name()));
+        return;
+    }
+    launchArk(Ark::openArguments(item.localPath()));
+}
+
+const Ark::Backends &MainWindow::arkBackends()
+{
+    if (!m_arkBackends) {
+        m_arkBackends = Ark::Backends::installed();
+    }
+    return *m_arkBackends;
+}
+
+void MainWindow::setArkBackends(const Ark::Backends &backends)
+{
+    m_arkBackends = backends;
+}
+
+bool MainWindow::isArkOnlyArchive(const KFileItem &item)
+{
+    return !item.isDir() && !item.localPath().isEmpty() && !Archives::browseUrl(item.mostLocalUrl(), item.mimetype()).isValid()
+        && arkBackends().canRead(item.mimetype());
+}
+
+void MainWindow::launchArk(const QStringList &arguments)
+{
+    if (!Ark::isInstalled()) {
+        KMessageBox::error(this,
+                           i18nc("@info", "Ark, KDE's archiving tool, is not installed or is not in PATH. Install it from Discover or your distribution."),
+                           i18nc("@title:window", "Ark Not Found"));
+        return;
+    }
+    auto *job = new KIO::CommandLauncherJob(QStringLiteral("ark"), arguments, this);
+    job->setDesktopName(QStringLiteral("org.kde.ark"));
+    connect(job, &KJob::result, this, [this](KJob *finished) {
+        if (finished->error()) {
+            showStatusMessage(i18nc("@info:status", "Could not start Ark: %1", finished->errorString()));
+        }
+    });
+    job->start();
 }
 
 void MainWindow::addToFavorites()
@@ -3105,6 +3175,11 @@ void MainWindow::setupActions()
     testArchive->setText(i18nc("@action", "Test Archive Integrity…"));
     testArchive->setIcon(QIcon::fromTheme(QStringLiteral("dialog-ok-apply")));
 
+    QAction *openInArk = actions->addAction(QStringLiteral("open_in_ark"), this, &MainWindow::openInArk);
+    openInArk->setText(i18nc("@action", "Open in Ark"));
+    openInArk->setToolTip(i18nc("@info:tooltip", "Open the archive in Ark to add, rename or remove its entries"));
+    openInArk->setIcon(QIcon::fromTheme(QStringLiteral("ark")));
+
     m_flatAction = new KToggleAction(QIcon::fromTheme(QStringLiteral("view-list-text")), i18nc("@action", "Show Flat (No Folders)"), this);
     actions->addAction(QStringLiteral("show_flat"), m_flatAction);
     actions->setDefaultShortcut(m_flatAction, Qt::CTRL | Qt::SHIFT | Qt::Key_F);
@@ -3512,6 +3587,10 @@ void MainWindow::updateActions()
     actions->action(QStringLiteral("extract_protected_archive"))->setEnabled(std::any_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
         return !item.localPath().isEmpty() && !item.isDir() && Archives::browseUrl(item.mostLocalUrl(), item.mimetype()).isValid();
     }));
+    actions->action(QStringLiteral("open_in_ark"))
+        ->setEnabled(selected.size() == 1 && !selected.first().isDir() && !selected.first().localPath().isEmpty()
+                     && (Archives::browseUrl(selected.first().mostLocalUrl(), selected.first().mimetype()).isValid()
+                         || arkBackends().canRead(selected.first().mimetype())));
 
     bool pasteEnabled = false;
     const QString pasteText = FileOperations::pasteActionText(root, &pasteEnabled);
@@ -4467,13 +4546,16 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
         QAction *pin = metadata->addAction(i18nc("@action:inmenu", "Toggle Pin"));
         connect(pin, &QAction::triggered, this, &MainWindow::toggleSelectionPin);
     }
-    const bool anyArchive = std::any_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
-        return !item.isDir() && Archives::browseUrl(item.mostLocalUrl(), item.mimetype()).isValid();
+    const bool anyArchive = std::any_of(items.cbegin(), items.cend(), [this](const KFileItem &item) {
+        return !item.isDir() && (Archives::browseUrl(item.mostLocalUrl(), item.mimetype()).isValid() || isArkOnlyArchive(item));
     });
     if (anyArchive) {
         menu.addAction(actions->action(QStringLiteral("extract_to_other_pane")));
         menu.addAction(actions->action(QStringLiteral("extract_protected_archive")));
         menu.addAction(actions->action(QStringLiteral("test_archive_integrity")));
+        if (items.size() == 1) {
+            menu.addAction(actions->action(QStringLiteral("open_in_ark")));
+        }
     }
     if (allLocal) {
         menu.addAction(actions->action(QStringLiteral("compress")));
