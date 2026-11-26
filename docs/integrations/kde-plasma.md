@@ -382,6 +382,16 @@ behaves like the rest of the desktop and follows the user's choices.
   Files that can be viewed but not edited, such as videos and PDF documents,
   leave it disabled. See [Edit action](../CAVEATS.md#desktop-integration).
   ([#675](https://github.com/mikepadiernos/plasma-opus/issues/675))
+- **Ebooks, comics, help files and fonts:** The preview panel shows EPUB,
+  MOBI, FictionBook, comic book archives such as CBZ and CBR, DjVu and CHM
+  help files through [Okular](https://okular.kde.org/)'s viewer component
+  when it is installed, and names what to install when it isn't. Remote
+  files download first, within the 128 MiB remote preview limit. Fonts show
+  their family and style with editable sample text at several sizes; the
+  sample text is remembered. **Install Font…** opens Plasma's font
+  installer, `kfontinst`, for TrueType, OpenType, Type 1 and bitmap fonts.
+  See [Ebook and font previews](../CAVEATS.md#desktop-integration).
+  ([#650](https://github.com/mikepadiernos/plasma-opus/issues/650))
 
 ## Planned features
 
