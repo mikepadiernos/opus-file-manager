@@ -213,6 +213,16 @@ behaves like the rest of the desktop and follows the user's choices.
   active, and it can switch to an assigned workspace when shown. Without the
   script it shows and hides as a regular window and says so once.
   ([#708](https://github.com/mikepadiernos/plasma-opus/issues/708))
+- **Ark:** when [Ark](https://apps.kde.org/ark/) is installed, **File › Open
+  in Ark** opens a local archive in Ark's window to add, rename or remove
+  entries. **Extract to Other Pane** hands local formats that no KIO archive
+  worker browses, such as RAR, to Ark in batch mode, extracting into a new,
+  uniquely named folder so nothing is overwritten. Plasma Opus reads which
+  formats Ark can open and create from Ark's installed backend plugins and the
+  programs they need, such as `unrar` or `7z`, and reports a missing Ark.
+  Ark's own **Extract** and **Compress** service menus appear in the context
+  menu as usual. See [Ark integration](../CAVEATS.md#ark-integration).
+  ([#280](https://github.com/mikepadiernos/plasma-opus/issues/280))
 
 ## Planned features
 
