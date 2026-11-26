@@ -344,6 +344,18 @@ behaves like the rest of the desktop and follows the user's choices.
   the search. See [Embedded terminal](../CAVEATS.md#embedded-terminal).
   ([#364](https://github.com/mikepadiernos/plasma-opus/issues/364))
 
+- **Editor integrations:** **Tools › Edit With**, also in the context menu
+  of selected files, opens them in [KWrite](https://apps.kde.org/kwrite/) or
+  [Kate](https://apps.kde.org/kate/) as separate applications, or in Neovim,
+  Rune, micro or nano in a new embedded terminal tab. Editors that aren't
+  installed are disabled with a tooltip saying so. Files are passed as
+  absolute paths, without a shell; terminal editors start in the first
+  file's folder and their tab closes when they exit. KWrite and Kate also
+  open remote files, while terminal editors report them, as they do folders.
+  **Open Editor** still opens the built-in editor. See
+  [Editor integrations](../CAVEATS.md#desktop-integration).
+  ([#319](https://github.com/mikepadiernos/plasma-opus/issues/319))
+
 ## Planned features
 
 Grouped by the [M27](../ROADMAP.md#m27-integrations) subsection that tracks

@@ -147,6 +147,7 @@ Main menus
 │   ├── Open Terminal With
 │   ├── Search Command History with Atuin
 │   ├── Open Editor
+│   ├── Edit With
 │   └── Custom Commands
 ├── Settings
 │   ├── Configure Plasma Opus
@@ -167,6 +168,7 @@ organization, not a promise that every action is available in every context.
 File listing: selected items
 ├── Open
 ├── Open With
+├── Edit With
 ├── Open Folder in New Tab
 ├── Open Folder in Other Pane
 ├── Cut
