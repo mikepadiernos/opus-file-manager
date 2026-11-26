@@ -2,6 +2,7 @@
 
 #include "foldersyncdialog.h"
 
+#include "remotemounts.h"
 #include "settings.h"
 
 #include <KLocalizedString>
@@ -20,6 +21,7 @@
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QSpinBox>
+#include <QStandardItemModel>
 #include <QTreeWidget>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
@@ -92,9 +94,16 @@ QString actionText(FolderSync::Action action, const FolderSync::Row &row)
 }
 
 FolderSyncDialog::FolderSyncDialog(const QString &left, const QString &right, QWidget *parent, KSharedConfig::Ptr config)
+    : FolderSyncDialog(QUrl::fromLocalFile(left), QUrl::fromLocalFile(right), parent, config)
+{
+}
+
+FolderSyncDialog::FolderSyncDialog(const QUrl &left, const QUrl &right, QWidget *parent, KSharedConfig::Ptr config)
     : QDialog(parent)
-    , m_left(left)
-    , m_right(right)
+    , m_left(left.isLocalFile() ? left.toLocalFile() : QString())
+    , m_right(right.isLocalFile() ? right.toLocalFile() : QString())
+    , m_leftUrl(left)
+    , m_rightUrl(right)
     , m_config(config ? config : KSharedConfig::openConfig())
     , m_options(new QWidget(this))
     , m_include(new QPlainTextEdit(m_options))
@@ -103,6 +112,7 @@ FolderSyncDialog::FolderSyncDialog(const QString &left, const QString &right, QW
     , m_contents(new QCheckBox(i18nc("@option:check", "Compare file contents"), m_options))
     , m_links(new QCheckBox(i18nc("@option:check", "Compare symbolic link targets"), m_options))
     , m_saved(new QComboBox(m_options))
+    , m_backend(new QComboBox(m_options))
     , m_copyPolicy(new QComboBox(m_options))
     , m_speedLimit(new QSpinBox(m_options))
     , m_status(new QLabel(this))
@@ -118,7 +128,8 @@ FolderSyncDialog::FolderSyncDialog(const QString &left, const QString &right, QW
     setWindowTitle(i18nc("@title:window", "Compare and Synchronize Folders"));
     resize(900, 600);
     auto *layout = new QVBoxLayout(this);
-    auto *paths = new QLabel(i18nc("@info", "First: %1\nSecond: %2", left, right), this);
+    auto *paths =
+        new QLabel(i18nc("@info", "First: %1\nSecond: %2", left.toDisplayString(QUrl::PreferLocalFile), right.toDisplayString(QUrl::PreferLocalFile)), this);
     paths->setTextFormat(Qt::PlainText);
     paths->setWordWrap(true);
     layout->addWidget(paths);
@@ -141,6 +152,13 @@ FolderSyncDialog::FolderSyncDialog(const QString &left, const QString &right, QW
     form->addRow(m_recursive);
     form->addRow(m_contents);
     form->addRow(m_links);
+    m_backend->setObjectName(QStringLiteral("folderSyncBackend"));
+    m_backend->addItem(i18nc("@item:inlistbox synchronization backend", "Plasma Opus (built-in)"), QStringLiteral("builtin"));
+    m_backend->addItem(i18nc("@item:inlistbox synchronization backend", "rsync"), QStringLiteral("rsync"));
+    m_backend->setToolTip(i18nc("@info:tooltip",
+                                "rsync also synchronizes with folders on SSH hosts. It copies and deletes in one direction at a time, "
+                                "and deletes only files that are missing from the other folder."));
+    form->addRow(i18nc("@label:listbox", "Synchronize with:"), m_backend);
     m_copyPolicy->setObjectName(QStringLiteral("folderSyncCopyPolicy"));
     m_copyPolicy->addItem(i18nc("@item:inlistbox", "Copy all eligible files"), int(FolderSync::CopyPolicy::All));
     m_copyPolicy->addItem(i18nc("@item:inlistbox", "Skip existing files"), int(FolderSync::CopyPolicy::SkipExisting));
@@ -225,6 +243,34 @@ FolderSyncDialog::FolderSyncDialog(const QString &left, const QString &right, QW
         save->setEnabled(false);
     } else {
         m_status->setText(i18nc("@info", "Choose filters and compare the folders."));
+    }
+    QString leftError;
+    QString rightError;
+    m_leftEndpoint = RsyncSync::endpoint(left, &leftError);
+    m_rightEndpoint = RsyncSync::endpoint(right, &rightError);
+    m_endpointError = leftError.isEmpty() ? rightError : leftError;
+    auto *backends = qobject_cast<QStandardItemModel *>(m_backend->model());
+    const bool haveRsync = !RsyncSync::program().isEmpty();
+    if (!haveRsync) {
+        backends->item(1)->setEnabled(false);
+        backends->item(1)->setToolTip(i18nc("@info:tooltip", "Install rsync from your distribution to synchronize with it."));
+    }
+    if (!isLocal()) {
+        backends->item(0)->setEnabled(false);
+        backends->item(0)->setToolTip(i18nc("@info:tooltip", "Plasma Opus synchronizes local folders only."));
+        m_backend->setCurrentIndex(1);
+        QString unavailable = m_endpointError;
+        if (unavailable.isEmpty() && !haveRsync) {
+            unavailable = i18nc("@info", "Comparing SSH locations requires rsync. Install it from your distribution.");
+        }
+        if (unavailable.isEmpty()) {
+            unavailable = RsyncSync::endpointsError(*m_leftEndpoint, *m_rightEndpoint);
+        }
+        if (!unavailable.isEmpty()) {
+            m_canCompare = false;
+            m_compare->setEnabled(false);
+            m_status->setText(unavailable);
+        }
     }
     connect(m_saved, &QComboBox::currentIndexChanged, this, [load, remove](int index) {
         load->setEnabled(index >= 0);
@@ -363,7 +409,11 @@ FolderSyncDialog::FolderSyncDialog(const QString &left, const QString &right, QW
         m_results->currentItem()->setText(2, actionText(m_actions.at(row), m_comparison->rows.at(row)));
     });
     connect(m_cancel, &QPushButton::clicked, this, [this] {
-        if (m_canceled) {
+        if (m_rsync) {
+            m_rsync->cancel();
+            m_cancel->setEnabled(false);
+            m_status->setText(i18nc("@info", "Canceling operation…"));
+        } else if (m_canceled) {
             m_canceled->store(true);
             m_cancel->setEnabled(false);
             m_status->setText(i18nc("@info", "Canceling operation…"));
@@ -379,14 +429,7 @@ FolderSyncDialog::FolderSyncDialog(const QString &left, const QString &right, QW
             m_status->setText(result.error);
             return;
         }
-        m_comparison = result;
-        m_actions = QList<FolderSync::Action>(result.rows.size(), FolderSync::Action::Skip);
-        for (const auto &row : result.rows) {
-            new QTreeWidgetItem(m_results, {row.relativePath, differenceText(row.difference), actionText(FolderSync::Action::Skip, row)});
-        }
-        m_planControls->setEnabled(!result.rows.isEmpty());
-        m_sync->setEnabled(!result.rows.isEmpty());
-        m_status->setText(i18np("Compared one item.", "Compared %1 items.", result.rows.size()));
+        showComparison(result);
     });
     connect(&m_syncWatcher, &QFutureWatcher<FolderSync::ApplyResult>::finished, this, [this] {
         const auto result = m_syncWatcher.result();
@@ -423,6 +466,13 @@ FolderSyncDialog::FolderSyncDialog(const QString &left, const QString &right, QW
 
 FolderSyncDialog::~FolderSyncDialog()
 {
+    if (m_rsync) {
+        m_rsync->disconnect(this);
+        delete m_rsync;
+        if (m_syncJob) {
+            m_syncJob->cancel();
+        }
+    }
     if (m_canceled) {
         m_canceled->store(true);
     }
@@ -432,7 +482,10 @@ FolderSyncDialog::~FolderSyncDialog()
 
 void FolderSyncDialog::reject()
 {
-    if (m_watcher.isRunning() || m_syncWatcher.isRunning()) {
+    if (m_watcher.isRunning() || m_syncWatcher.isRunning() || m_rsync) {
+        if (m_rsync) {
+            m_rsync->cancel();
+        }
         if (m_canceled) {
             m_canceled->store(true);
         }
@@ -480,12 +533,26 @@ void FolderSyncDialog::invalidate()
 void FolderSyncDialog::compare()
 {
     const auto value = options();
-    const QString error = FolderSync::optionsError(value);
+    QString error = FolderSync::optionsError(value);
+    if (error.isEmpty() && !isLocal()) {
+        if (!m_leftEndpoint || !m_rightEndpoint) {
+            error = m_endpointError;
+        } else {
+            error = RsyncSync::endpointsError(*m_leftEndpoint, *m_rightEndpoint);
+        }
+        if (error.isEmpty()) {
+            RsyncSync::filterRules(value, &error);
+        }
+    }
     if (!error.isEmpty()) {
         m_status->setText(error);
         return;
     }
     invalidate();
+    if (!isLocal()) {
+        compareWithRsync(value);
+        return;
+    }
     m_options->setEnabled(false);
     m_compare->setEnabled(false);
     m_cancel->setEnabled(true);
@@ -499,6 +566,44 @@ void FolderSyncDialog::compare()
             return canceled->load();
         });
     }));
+}
+
+void FolderSyncDialog::compareWithRsync(const FolderSync::Options &options)
+{
+    setRsyncRunning(true);
+    m_status->setText(i18nc("@info", "Comparing folders with rsync…"));
+    const QString askPass = RemoteMounts::findAskPass();
+    const RsyncSync::Endpoint left = *m_leftEndpoint;
+    const RsyncSync::Endpoint right = *m_rightEndpoint;
+    auto *process =
+        new RsyncSync::Process(RsyncSync::program(),
+                               {RsyncSync::listStep(left, right, options, askPass.isEmpty()), RsyncSync::listStep(right, left, options, askPass.isEmpty())},
+                               RsyncSync::environment(askPass),
+                               this);
+    m_rsync = process;
+    connect(process, &RsyncSync::Process::finished, this, [this, process, left, right, options] {
+        process->deleteLater();
+        m_rsync.clear();
+        setRsyncRunning(false);
+        if (!process->succeeded()) {
+            m_status->setText(process->wasCanceled() ? i18nc("@info", "Comparison canceled.") : process->errorText());
+            return;
+        }
+        showComparison(RsyncSync::comparison(left, right, process->lines(0), process->lines(1), options));
+    });
+    process->start();
+}
+
+void FolderSyncDialog::showComparison(const FolderSync::Comparison &comparison)
+{
+    m_comparison = comparison;
+    m_actions = QList<FolderSync::Action>(comparison.rows.size(), FolderSync::Action::Skip);
+    for (const auto &row : comparison.rows) {
+        new QTreeWidgetItem(m_results, {row.relativePath, differenceText(row.difference), actionText(FolderSync::Action::Skip, row)});
+    }
+    m_planControls->setEnabled(!comparison.rows.isEmpty());
+    m_sync->setEnabled(!comparison.rows.isEmpty());
+    m_status->setText(i18np("Compared one item.", "Compared %1 items.", comparison.rows.size()));
 }
 
 void FolderSyncDialog::updateSelectedAction()
@@ -557,7 +662,18 @@ void FolderSyncDialog::synchronize()
     if (!m_comparison) {
         return;
     }
-    const QString error = FolderSync::planError(*m_comparison, m_actions, true, true);
+    QString error = isLocal() ? FolderSync::planError(*m_comparison, m_actions, true, true) : QString();
+    RsyncSync::Transfer transfer;
+    if (error.isEmpty() && usesRsync()) {
+        if (!m_leftEndpoint || !m_rightEndpoint) {
+            error = m_endpointError;
+        } else {
+            error = RsyncSync::endpointsError(*m_leftEndpoint, *m_rightEndpoint);
+        }
+        if (error.isEmpty()) {
+            error = RsyncSync::planError(*m_comparison, m_actions, &transfer);
+        }
+    }
     if (!error.isEmpty()) {
         m_status->setText(error);
         return;
@@ -584,6 +700,10 @@ void FolderSyncDialog::synchronize()
             ++deletions;
         }
         details.append(i18nc("@info", "%1: %2", actionText(action, row), row.relativePath));
+    }
+    if (usesRsync()) {
+        checkWithRsync(transfer, details);
+        return;
     }
     const QString counts = i18np("One operation", "%1 operations", details.size()) + QStringLiteral("\n") + i18np("One overwrite", "%1 overwrites", overwrites)
         + QStringLiteral("\n") + i18np("One deletion", "%1 deletions", deletions);
@@ -639,4 +759,148 @@ void FolderSyncDialog::synchronize()
 FolderSync::CopyPolicy FolderSyncDialog::copyPolicy() const
 {
     return static_cast<FolderSync::CopyPolicy>(m_copyPolicy->currentData().toInt());
+}
+
+void FolderSyncDialog::checkWithRsync(const RsyncSync::Transfer &transfer, const QStringList &details)
+{
+    setRsyncRunning(true);
+    m_report->hide();
+    m_status->setText(i18nc("@info", "Checking the plan with rsync…"));
+    const QString askPass = RemoteMounts::findAskPass();
+    auto *process = new RsyncSync::Process(
+        RsyncSync::program(),
+        RsyncSync::transferSteps(*m_leftEndpoint, *m_rightEndpoint, transfer, copyPolicy(), quint64(m_speedLimit->value()), true, askPass.isEmpty()),
+        RsyncSync::environment(askPass),
+        this);
+    m_rsync = process;
+    connect(process, &RsyncSync::Process::finished, this, [this, process, transfer, details] {
+        process->deleteLater();
+        m_rsync.clear();
+        setRsyncRunning(false);
+        if (!process->succeeded()) {
+            m_status->setText(process->wasCanceled() ? i18nc("@info", "Synchronization canceled.") : process->errorText());
+            return;
+        }
+        const QStringList lines = process->allLines();
+        const RsyncSync::Summary summary = RsyncSync::summarize(transfer, lines);
+        QStringList counts{i18np("One new file", "%1 new files", summary.created),
+                           i18np("One new folder", "%1 new folders", summary.folders),
+                           i18np("One overwrite", "%1 overwrites", summary.overwritten),
+                           i18np("One deletion", "%1 deletions", summary.deleted)};
+        if (!summary.missing.isEmpty()) {
+            counts.append(i18np("rsync would leave one planned item unchanged", "rsync would leave %1 planned items unchanged", summary.missing.size()));
+        }
+        QStringList detailed = details;
+        detailed << QString() << i18nc("@info", "Changes reported by rsync:") << lines;
+        if (!summary.missing.isEmpty()) {
+            detailed << QString() << i18nc("@info", "Planned items rsync would leave unchanged:") << summary.missing;
+        }
+        QMessageBox confirm(QMessageBox::Warning,
+                            i18nc("@title:window", "Confirm Synchronization"),
+                            i18nc("@info",
+                                  "Run the following plan with rsync?\n%1\n\n"
+                                  "Deletions are permanent and these operations cannot be undone. "
+                                  "Do not change either folder while synchronization runs. Review the planned actions in the details.",
+                                  counts.join(QLatin1Char('\n'))),
+                            QMessageBox::Yes | QMessageBox::No,
+                            this);
+        confirm.setTextFormat(Qt::PlainText);
+        confirm.setDefaultButton(QMessageBox::No);
+        confirm.setDetailedText(detailed.join(QLatin1Char('\n')));
+        if (confirm.exec() != QMessageBox::Yes) {
+            m_status->setText(i18nc("@info", "Review the planned actions before synchronizing."));
+            return;
+        }
+        synchronizeWithRsync(transfer);
+    });
+    process->start();
+}
+
+void FolderSyncDialog::synchronizeWithRsync(const RsyncSync::Transfer &transfer)
+{
+    if (!m_comparison) {
+        return;
+    }
+    setRsyncRunning(true);
+    m_status->setText(i18nc("@info", "Synchronizing folders with rsync…"));
+    const QString askPass = RemoteMounts::findAskPass();
+    auto *process = new RsyncSync::Process(
+        RsyncSync::program(),
+        RsyncSync::transferSteps(*m_leftEndpoint, *m_rightEndpoint, transfer, copyPolicy(), quint64(m_speedLimit->value()), false, askPass.isEmpty()),
+        RsyncSync::environment(askPass),
+        this);
+    m_rsync = process;
+    const bool toRight = transfer.direction == RsyncSync::Direction::ToRight;
+    m_syncJob = OperationJob::track(new OperationJob(i18nc("@title job", "Synchronizing folders")));
+    m_syncJob->setSource(toRight ? m_leftUrl : m_rightUrl);
+    m_syncJob->setDestination(toRight ? m_rightUrl : m_leftUrl);
+    m_syncJob->setCancelHandler([button = QPointer<QPushButton>(m_cancel)] {
+        if (button && button->isEnabled()) {
+            button->click();
+        }
+    });
+    connect(process, &RsyncSync::Process::progressChanged, this, [this](int percent) {
+        if (m_syncJob) {
+            m_syncJob->setProgress(qulonglong(percent), 100);
+        }
+    });
+    connect(process, &RsyncSync::Process::finished, this, [this, process, transfer] {
+        process->deleteLater();
+        m_rsync.clear();
+        const QStringList lines = process->allLines();
+        const RsyncSync::Summary summary = RsyncSync::summarize(transfer, lines);
+        const QString error = process->succeeded() ? QString() : process->errorText();
+        if (m_syncJob) {
+            if (process->wasCanceled()) {
+                m_syncJob->cancel();
+            } else {
+                m_syncJob->finish(error.isEmpty() ? QString() : i18nc("@info", "Synchronization with rsync stopped. Details are shown in Plasma Opus."));
+            }
+        }
+        m_comparison.reset();
+        m_actions.clear();
+        updateSelectedAction();
+        setRsyncRunning(false);
+        const int changed = summary.created + summary.folders + summary.overwritten + summary.deleted;
+        const QString completed = i18np("rsync changed one item.", "rsync changed %1 items.", changed);
+        m_status->setText((error.isEmpty() ? completed : completed + QLatin1Char(' ') + error.section(QLatin1Char('\n'), 0, 0)) + QLatin1Char(' ')
+                          + i18nc("@info", "Compare again before synchronizing."));
+        QStringList report;
+        if (!error.isEmpty()) {
+            report.append(error);
+        }
+        report.append(completed);
+        report.append(i18np("One new file", "%1 new files", summary.created));
+        report.append(i18np("One new folder", "%1 new folders", summary.folders));
+        report.append(i18np("One overwrite", "%1 overwrites", summary.overwritten));
+        report.append(i18np("One deletion", "%1 deletions", summary.deleted));
+        for (const QString &path : summary.missing) {
+            report.append(i18nc("@info", "Unchanged by rsync: %1", path));
+        }
+        report.append(lines);
+        m_report->setPlainText(report.join(QLatin1Char('\n')));
+        m_report->show();
+    });
+    process->start();
+}
+
+void FolderSyncDialog::setRsyncRunning(bool running)
+{
+    m_options->setEnabled(!running);
+    m_results->setEnabled(!running);
+    const bool planned = !running && m_comparison && !m_comparison->rows.isEmpty();
+    m_planControls->setEnabled(planned);
+    m_sync->setEnabled(planned);
+    m_compare->setEnabled(!running && m_canCompare);
+    m_cancel->setEnabled(running);
+}
+
+bool FolderSyncDialog::isLocal() const
+{
+    return !m_left.isEmpty() && !m_right.isEmpty();
+}
+
+bool FolderSyncDialog::usesRsync() const
+{
+    return m_backend->currentData().toString() == QLatin1String("rsync");
 }

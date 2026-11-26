@@ -211,6 +211,14 @@ constexpr auto SelectionFiltersGroup = "SelectionFilters";
 constexpr auto WindowLayoutGroup = "WindowLayout";
 constexpr auto SplitterSizesGroup = "SplitterSizes";
 
+/// Whether folder comparison and synchronization can use @p url: a local
+/// folder, or a folder on an SSH host through the rsync backend.
+bool synchronizableFolder(const QUrl &url)
+{
+    const QString scheme = url.scheme().toLower();
+    return url.isLocalFile() || scheme == QLatin1String("sftp") || scheme == QLatin1String("fish");
+}
+
 static_assert(int(WorkspaceCatalog::PreviewPlacement::Pane) == int(PreviewPanel::Placement::Pane));
 static_assert(int(WorkspaceCatalog::PreviewPlacement::Below) == int(PreviewPanel::Placement::Below));
 static_assert(int(WorkspaceCatalog::PreviewPlacement::Right) == int(PreviewPanel::Placement::Right));
@@ -4170,7 +4178,7 @@ void MainWindow::updateActions()
         ->setEnabled(isDualLayout() && !inactivePane()->isHidden() && activePane()->url().isValid() && !activePane()->url().isEmpty()
                      && inactivePane()->url().isValid() && !inactivePane()->url().isEmpty());
     actions->action(QStringLiteral("compare_folders_filtered"))
-        ->setEnabled(isDualLayout() && !inactivePane()->isHidden() && activePane()->url().isLocalFile() && inactivePane()->url().isLocalFile());
+        ->setEnabled(isDualLayout() && !inactivePane()->isHidden() && synchronizableFolder(activePane()->url()) && synchronizableFolder(inactivePane()->url()));
     const bool localFiles = hasSelection && std::all_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
                                 return item.url().isLocalFile() && item.isFile() && !item.isLink();
                             });
@@ -6165,11 +6173,11 @@ void MainWindow::compareFoldersFiltered()
 {
     const QUrl first = activePane()->url();
     const QUrl second = inactivePane()->url();
-    if (!isDualLayout() || inactivePane()->isHidden() || !first.isLocalFile() || !second.isLocalFile()) {
-        showStatusMessage(i18nc("@info", "Choose two visible local folders to compare."));
+    if (!isDualLayout() || inactivePane()->isHidden() || !synchronizableFolder(first) || !synchronizableFolder(second)) {
+        showStatusMessage(i18nc("@info", "Choose two visible local or SSH folders to compare."));
         return;
     }
-    auto *dialog = new FolderSyncDialog(first.toLocalFile(), second.toLocalFile(), this);
+    auto *dialog = new FolderSyncDialog(first, second, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
 }

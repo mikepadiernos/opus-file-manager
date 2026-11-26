@@ -18,6 +18,7 @@
 #include <QPushButton>
 #include <QScopeGuard>
 #include <QSpinBox>
+#include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -326,6 +327,138 @@ private Q_SLOTS:
         QVERIFY(dialog.findChild<QPlainTextEdit *>(QStringLiteral("folderSyncReport"))->toPlainText().contains(QStringLiteral("changed")));
         QVERIFY(destination.open(QIODevice::ReadOnly));
         QCOMPARE(destination.readAll(), QByteArray("unexpected"));
+    }
+
+    void offersRsyncBackend()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        FolderSyncDialog dialog(root.path(), root.path());
+        auto *backend = dialog.findChild<QComboBox *>(QStringLiteral("folderSyncBackend"));
+        QVERIFY(backend);
+        QCOMPARE(backend->count(), 2);
+        QCOMPARE(backend->currentData().toString(), QStringLiteral("builtin"));
+        auto *model = qobject_cast<QStandardItemModel *>(backend->model());
+        QVERIFY(model->item(0)->isEnabled());
+        QCOMPARE(model->item(1)->isEnabled(), !RsyncSync::program().isEmpty());
+    }
+
+    void gatesRemoteLocations()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QUrl local = QUrl::fromLocalFile(root.path());
+        {
+            FolderSyncDialog dialog(QUrl(QStringLiteral("sftp://me@host/srv")), local);
+            auto *backend = dialog.findChild<QComboBox *>(QStringLiteral("folderSyncBackend"));
+            auto *model = qobject_cast<QStandardItemModel *>(backend->model());
+            QVERIFY(!model->item(0)->isEnabled());
+            QCOMPARE(backend->currentData().toString(), QStringLiteral("rsync"));
+            QCOMPARE(dialog.findChild<QPushButton *>(QStringLiteral("folderSyncCompare"))->isEnabled(), !RsyncSync::program().isEmpty());
+        }
+        for (const auto &[left, right] : {std::pair{QUrl(QStringLiteral("sftp://-oProxyCommand=x/srv")), local},
+                                          std::pair{QUrl(QStringLiteral("sftp://host/a")), QUrl(QStringLiteral("fish://host/b"))}}) {
+            FolderSyncDialog dialog(left, right);
+            QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("folderSyncCompare"))->isEnabled());
+            QVERIFY(!dialog.findChild<QLabel *>(QStringLiteral("folderSyncStatus"))->text().isEmpty());
+        }
+    }
+
+    void synchronizesWithRsync()
+    {
+        if (RsyncSync::program().isEmpty()) {
+            QSKIP("rsync is not installed");
+        }
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("left/sub")));
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("right")));
+        auto write = [](const QString &path, const QByteArray &contents) {
+            QFile file(path);
+            return file.open(QIODevice::WriteOnly) && file.write(contents) == contents.size();
+        };
+        QVERIFY(write(root.filePath(QStringLiteral("left/a")), "newer"));
+        QVERIFY(write(root.filePath(QStringLiteral("right/a")), "old"));
+        QVERIFY(write(root.filePath(QStringLiteral("left/sub/item")), "nested"));
+        QVERIFY(write(root.filePath(QStringLiteral("right/remove")), "remove"));
+        FolderSyncDialog dialog(root.filePath(QStringLiteral("left")), root.filePath(QStringLiteral("right")));
+        auto *backend = dialog.findChild<QComboBox *>(QStringLiteral("folderSyncBackend"));
+        auto *compare = dialog.findChild<QPushButton *>(QStringLiteral("folderSyncCompare"));
+        auto *apply = dialog.findChild<QPushButton *>(QStringLiteral("folderSyncApply"));
+        auto *rows = dialog.findChild<QTreeWidget *>(QStringLiteral("folderSyncResults"));
+        auto *action = dialog.findChild<QComboBox *>(QStringLiteral("folderSyncAction"));
+        auto *report = dialog.findChild<QPlainTextEdit *>(QStringLiteral("folderSyncReport"));
+        backend->setCurrentIndex(backend->findData(QStringLiteral("rsync")));
+        compare->click();
+        QTRY_VERIFY(compare->isEnabled());
+        QCOMPARE(rows->topLevelItemCount(), 4);
+        const auto select = [&](const QString &path, FolderSync::Action value) {
+            for (int i = 0; i < rows->topLevelItemCount(); ++i) {
+                if (rows->topLevelItem(i)->text(0) == path) {
+                    rows->setCurrentItem(rows->topLevelItem(i));
+                    const int index = action->findData(int(value));
+                    action->setCurrentIndex(index);
+                    return index >= 0;
+                }
+            }
+            return false;
+        };
+
+        // rsync works in one direction per run.
+        QVERIFY(select(QStringLiteral("a"), FolderSync::Action::CopyToRight));
+        QVERIFY(select(QStringLiteral("remove"), FolderSync::Action::CopyToLeft));
+        apply->click();
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("folderSyncStatus"))->text().contains(QStringLiteral("one direction")));
+
+        dialog.findChild<QPushButton *>(QStringLiteral("folderSyncPlanToRight"))->click();
+        QVERIFY(select(QStringLiteral("remove"), FolderSync::Action::DeleteRight));
+        answerWhenShown(QMessageBox::No, [](QMessageBox *box) {
+            QVERIFY(box->text().contains(QStringLiteral("with rsync")));
+            QVERIFY(box->text().contains(QStringLiteral("One new file")));
+            QVERIFY(box->text().contains(QStringLiteral("One new folder")));
+            QVERIFY(box->text().contains(QStringLiteral("One overwrite")));
+            QVERIFY(box->text().contains(QStringLiteral("One deletion")));
+            QVERIFY(box->detailedText().contains(QStringLiteral("*deleting   remove")));
+        });
+        apply->click();
+        QTRY_VERIFY(apply->isEnabled());
+        QTRY_VERIFY(!QApplication::activeModalWidget());
+        QVERIFY(QFile::exists(root.filePath(QStringLiteral("right/remove"))));
+        QVERIFY(!QFile::exists(root.filePath(QStringLiteral("right/sub/item"))));
+
+        answerWhenShown(QMessageBox::Yes);
+        apply->click();
+        QTRY_VERIFY(!report->isHidden());
+        QVERIFY(compare->isEnabled());
+        QVERIFY(!apply->isEnabled());
+        QFile updated(root.filePath(QStringLiteral("right/a")));
+        QVERIFY(updated.open(QIODevice::ReadOnly));
+        QCOMPARE(updated.readAll(), QByteArray("newer"));
+        QVERIFY(!QFile::exists(root.filePath(QStringLiteral("right/remove"))));
+        QFile nested(root.filePath(QStringLiteral("right/sub/item")));
+        QVERIFY(nested.open(QIODevice::ReadOnly));
+        QCOMPARE(nested.readAll(), QByteArray("nested"));
+        QVERIFY2(report->toPlainText().contains(QStringLiteral("rsync changed 4 items.")), qPrintable(report->toPlainText()));
+    }
+
+private:
+    static void answerWhenShown(QMessageBox::StandardButton button, const std::function<void(QMessageBox *)> &check = {})
+    {
+        auto *timer = new QTimer;
+        timer->setInterval(20);
+        QObject::connect(timer, &QTimer::timeout, [timer, button, check] {
+            auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+            if (!box) {
+                return;
+            }
+            timer->stop();
+            timer->deleteLater();
+            if (check) {
+                check(box);
+            }
+            box->button(button)->click();
+        });
+        timer->start();
     }
 };
 
