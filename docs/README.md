@@ -118,5 +118,6 @@ adapts the reference to KDE; use the roadmap for implementation status.
 | [Project instructions](../CLAUDE.md)           | Development conventions, project workflow, branches and issue handling          |
 | [Release notes template](releases/TEMPLATE.md) | Starting point for GitHub release notes                                         |
 | [Rust prototype](rust-prototype.md)            | M21 query-parser pilot, M23 tagging evaluation and criteria for later Rust work |
+| [Qt Widgets and Qt Quick](qt-quick.md)         | Toolkit decision, Qt Quick embedding rules and criteria for candidates          |
 | [Translations](../po/README.md)                | Extracting messages and updating language catalogues                            |
 | [Screenshots](screenshots/README.md)           | Capture conditions and file names to keep when updating screenshots             |
