@@ -1240,6 +1240,9 @@ process or a promise of Yazi configuration or plugin compatibility.
       Provide a discoverable toggle without changing existing bindings by
       default.
 
+**Caveats:** [Yazi mode](CAVEATS.md#yazi-mode), tracked in
+[#723](https://github.com/mikepadiernos/plasma-opus/issues/723).
+
 ### M26: Yazi mode settings
 
 **Project:**
