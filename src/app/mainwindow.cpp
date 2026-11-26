@@ -1506,7 +1506,7 @@ void MainWindow::connectPane(Pane *pane)
         setActivePane(pane);
         showContextMenu(pane, pos, items);
     });
-    connect(pane->view(), &FolderView::selectionChanged, this, [this, pane] {
+    connect(pane->view(), &FolderView::selectedItemsChanged, this, [this, pane] {
         updateStatusBar();
         if (pane == m_active) {
             updatePreviewPanel();
@@ -5033,29 +5033,56 @@ void MainWindow::runYaziFileCommand(Pane *pane, YaziMode::Command command)
     using YaziMode::Command;
     const QString name = YaziMode::commandAction(command);
     if (YaziMode::permanentDeletionActions().contains(name)) {
+        pane->reportYaziMessage(i18nc("@info:status", "Yazi mode never deletes files permanently; move them to the trash instead."));
         return;
     }
     setActivePane(pane);
     updateActions();
     QAction *action = name.isEmpty() ? nullptr : actionCollection()->action(name);
-    const auto unavailable = [this](const QString &text) {
+    const KFileItemList selected = pane->view()->selectedItems();
+    const KFileItem root = pane->view()->rootItem();
+    const bool readOnly = root.isNull() || !root.isWritable();
+    const auto unavailable = [pane, command, &selected](const QString &text) {
         QString title = KLocalizedString::removeAcceleratorMarker(text);
         title.remove(QStringLiteral("…"));
         title.remove(QStringLiteral("..."));
-        showStatusMessage(i18nc("@info:status %1 is an action such as Move to Trash", "%1 is not available here.", title));
+        const KFileItemListProperties props(selected);
+        if (selected.isEmpty() && !title.isEmpty()) {
+            pane->reportYaziMessage(i18nc("@info:status %1 is an action such as Move to Trash", "%1 needs a selected or focused item.", title));
+        } else if (command == Command::Trash && props.supportsDeleting() && !props.isLocal()) {
+            pane->reportYaziMessage(i18nc("@info:status", "Only local items can be moved to the trash."));
+        } else if ((command == Command::Trash && !props.supportsDeleting())
+                   || ((command == Command::Rename || command == Command::Cut || command == Command::MoveToOtherPane) && !props.supportsMoving())) {
+            pane->reportYaziMessage(
+                i18nc("@info:status %1 is an action such as Move to Trash", "%1 is not available: the items are read-only or in a virtual location.", title));
+        } else {
+            pane->reportYaziMessage(i18nc("@info:status %1 is an action such as Move to Trash", "%1 is not available here.", title));
+        }
     };
+    const QString folderReadOnly = i18nc("@info:status", "This folder is read-only or virtual, so nothing can be added to it.");
     switch (command) {
-    case Command::Paste:
+    case Command::Paste: {
         // Ctrl+V pastes into a single selected folder; as in Yazi, p pastes
         // into the current folder, since the focused item is selected as the
         // focus moves. KIO's paste asks about conflicts and records undo.
-        if (!m_pasteAction->isEnabled() || !FileOperations::paste(pane->url(), this)) {
-            unavailable(i18nc("@action", "Paste"));
+        bool clipboardHasItems = false;
+        FileOperations::pasteActionText(root, &clipboardHasItems);
+        if (!clipboardHasItems) {
+            pane->reportYaziMessage(i18nc("@info:status", "The clipboard has nothing to paste. Copy or cut items first."));
+        } else if (readOnly && !pane->view()->isFlat()) {
+            pane->reportYaziMessage(folderReadOnly);
+        } else if (!m_pasteAction->isEnabled() || !FileOperations::paste(pane->url(), this)) {
+            pane->reportYaziMessage(i18nc("@info:status %1 is an action such as Move to Trash", "%1 is not available here.", i18nc("@action", "Paste")));
         }
         return;
+    }
     case Command::Create:
+        if (action && action->isEnabled() && readOnly) {
+            pane->reportYaziMessage(folderReadOnly);
+            return;
+        }
         if (!action || !action->isEnabled()) {
-            unavailable(i18nc("@action", "Create New"));
+            pane->reportYaziMessage(i18nc("@info:status %1 is an action such as Move to Trash", "%1 is not available here.", i18nc("@action", "Create New")));
             return;
         }
         m_newFileMenu->setWorkingDirectory(pane->url());
@@ -5063,12 +5090,11 @@ void MainWindow::runYaziFileCommand(Pane *pane, YaziMode::Command command)
         m_newFileMenu->menu()->popup(yaziMenuPosition(pane));
         return;
     case Command::OpenWith: {
-        const KFileItemList items = pane->view()->selectedItems();
         auto *menu = new QMenu(this);
         menu->setObjectName(QStringLiteral("yaziOpenWithMenu"));
         menu->setAttribute(Qt::WA_DeleteOnClose);
-        if (!items.isEmpty()) {
-            m_fileItemActions->setItemListProperties(KFileItemListProperties(items));
+        if (!selected.isEmpty()) {
+            m_fileItemActions->setItemListProperties(KFileItemListProperties(selected));
             m_fileItemActions->insertOpenWithActionsTo(nullptr, menu, QStringList());
         }
         if (menu->isEmpty()) {
@@ -5079,10 +5105,33 @@ void MainWindow::runYaziFileCommand(Pane *pane, YaziMode::Command command)
         menu->popup(yaziMenuPosition(pane));
         return;
     }
+    case Command::CopyToOtherPane:
+    case Command::MoveToOtherPane: {
+        const QString title = KLocalizedString::removeAcceleratorMarker(action ? action->text() : QString());
+        if (!isDualLayout() && !m_secondPaneInTab && !m_rightWindow) {
+            pane->reportYaziMessage(
+                i18nc("@info:status %1 is an action such as Copy to Other Pane", "%1 needs a second pane. Turn on the dual-pane layout first.", title));
+            return;
+        }
+        const Pane *other = pane == m_left ? m_right : m_left;
+        if (other->url().adjusted(QUrl::StripTrailingSlash) == pane->url().adjusted(QUrl::StripTrailingSlash)) {
+            pane->reportYaziMessage(
+                i18nc("@info:status %1 is an action such as Copy to Other Pane", "%1 is not available: the other pane shows the same folder.", title));
+            return;
+        }
+        break;
+    }
+    case Command::Undo:
+        if (!action || !action->isEnabled()) {
+            pane->reportYaziMessage(i18nc("@info:status", "There is nothing to undo."));
+            return;
+        }
+        break;
     default:
         break;
     }
     if (!action) {
+        pane->reportYaziMessage(i18nc("@info:status", "This command is not available here."));
         return;
     }
     if (!action->isEnabled()) {

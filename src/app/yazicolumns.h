@@ -11,6 +11,7 @@
 #include <QUrl>
 #include <QWidget>
 
+#include <limits>
 #include <optional>
 
 class FolderView;
@@ -99,6 +100,33 @@ public:
     QLabel *modeIndicator() const;
     /// The label after the mode indicator that counts the selected items while several are selected or marked.
     QLabel *selectionIndicator() const;
+    /// How well the mode works in the current location; see YaziMode::support().
+    YaziMode::Support support() const;
+    /// Whether the location is Unsupported, so only the current column is shown.
+    bool isCollapsed() const;
+    /// The status row's explanation of why the mode is limited or unavailable here; hidden in Full locations.
+    QLabel *locationIndicator() const;
+    /// The text that explains that the mode isn't available in the current location, or empty when it is.
+    QString unavailableText() const;
+    /**
+     * Shows @p message in the status row for MessageTimeout milliseconds and
+     * announces it to assistive technology, as for a command that can't run.
+     */
+    void showMessage(const QString &message);
+    QLabel *messageIndicator() const;
+    /// How long showMessage() shows a message, in milliseconds.
+    static constexpr int MessageTimeout = 5000;
+    /// The note shown over the parent column while it loads slowly or when it can't be listed; hidden otherwise.
+    QLabel *parentNote() const;
+    /// How long the parent column waits for a folder to list before giving up, in milliseconds.
+    static constexpr int ParentListingTimeout = 10000;
+    /// Sets how long the parent column waits for a listing; for tests.
+    void setParentListingTimeout(int milliseconds);
+    /**
+     * Asks assistive technology to announce @p message for @p source, using
+     * an announcement event where Qt has one.
+     */
+    static void announce(QObject *source, const QString &message);
     /**
      * Shows @p filter's text in the status row while it isn't empty, with a
      * button that asks to clear it; see filterClearRequested().
@@ -151,8 +179,9 @@ public:
      * otherwise of the current column, as the view's own keys would.
      * @param command one of the YaziMode::Command movement commands
      * @param count how many times to move; jumps to the first or last item ignore it
+     * @returns false when the column has no items to move through
      */
-    void moveFocus(YaziMode::Command command, int count = 1);
+    bool moveFocus(YaziMode::Command command, int count = 1);
     enum class Column {
         Parent,
         Current,
@@ -177,17 +206,19 @@ public:
      * marked yet, the focused item becomes the only selected item.
      * @param moveDown whether to move the focus down after each toggle
      * @param count how many items to toggle when moving down
+     * @returns false when the current column has no focused item
      */
-    void toggleSelection(bool moveDown, int count = 1);
+    bool toggleSelection(bool moveDown, int count = 1);
     /**
      * Starts range (visual) selection at the current column's focused item,
      * or ends it and keeps the selected items. While it is on, moving the
      * focus selects every item between where it started and the focused
      * item, in addition to the items marked before.
+     * @returns false when there is no focused item to start from
      */
-    void toggleVisualSelection();
-    /// Selects every item of the current column and starts marking.
-    void selectAll();
+    bool toggleVisualSelection();
+    /// Selects every item of the current column and starts marking; returns false when it has no items.
+    bool selectAll();
     /// Whether moving the focus keeps the selection, after a selection command.
     bool isMarking() const;
     /// Whether range selection is on.
@@ -220,6 +251,13 @@ private:
     void resetLister();
     void highlightCurrent();
     void request(const QModelIndex &index);
+    /// Applies how well the mode works at the current URL: collapses or restores the columns and explains why.
+    void applySupport(const YaziMode::Support &support);
+    /// Shows @p text over the parent column, or hides the note when it is empty.
+    void setParentNote(const QString &text);
+    void parentListingFinished();
+    void parentListingFailed(const QString &error);
+    void parentListingTimedOut();
     /// Shows, hides and sizes the columns for the splitter's width.
     void applyColumnWidths();
     void rememberRatios();
@@ -232,6 +270,8 @@ private:
     /// Follows a selection change that the selection commands didn't make.
     void selectionChanged();
     void updateSelectionIndicator();
+    /// How many rows the current column has selected, counting no further than @p limit.
+    int selectedRowCount(int limit = std::numeric_limits<int>::max()) const;
     /// Ends marking and range selection, keeping the selection.
     void resetSelectionState();
     /// Selects the items marked before range selection and the range to the focused item.
@@ -260,6 +300,15 @@ private:
     QHBoxLayout *m_statusLayout = nullptr;
     QLabel *m_indicator = nullptr;
     QLabel *m_selectionLabel = nullptr;
+    /// Coalesces selection count updates from selection changes that the selection commands didn't make.
+    QTimer *m_selectionUpdate = nullptr;
+    QLabel *m_locationLabel = nullptr;
+    QLabel *m_messageLabel = nullptr;
+    QTimer *m_messageTimeout = nullptr;
+    QLabel *m_parentNote = nullptr;
+    QTimer *m_parentTimeout = nullptr;
+    YaziMode::Support m_support;
+    QString m_announcedPending;
     QLabel *m_filterLabel = nullptr;
     QToolButton *m_filterClear = nullptr;
     QLabel *m_searchLabel = nullptr;

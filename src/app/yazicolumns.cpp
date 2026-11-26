@@ -14,8 +14,10 @@
 #include <KDirModel>
 #include <KDirSortFilterProxyModel>
 #include <KFileItem>
+#include <KIO/Job>
 #include <KLocalizedString>
 
+#include <QAccessible>
 #include <QApplication>
 #include <QEvent>
 #include <QHBoxLayout>
@@ -39,6 +41,11 @@ constexpr int CurrentColumn = 1;
 QUrl stripped(const QUrl &url)
 {
     return url.adjusted(QUrl::StripTrailingSlash);
+}
+
+QString parentColumnDescription()
+{
+    return i18nc("@info:accessibility", "The items next to the current folder; choose one to open it");
 }
 
 /// About half the rows @p view shows at once.
@@ -72,7 +79,7 @@ YaziColumns::YaziColumns(QWidget *parent)
     m_parentColumn = new QListView(this);
     m_parentColumn->setObjectName(QStringLiteral("yaziParentColumn"));
     m_parentColumn->setAccessibleName(i18nc("@info:accessibility", "Parent folder"));
-    m_parentColumn->setAccessibleDescription(i18nc("@info:accessibility", "The items next to the current folder; choose one to open it"));
+    m_parentColumn->setAccessibleDescription(parentColumnDescription());
     m_parentColumn->setMinimumWidth(YaziMode::MinimumParentWidth);
     m_parentColumn->setModel(m_proxy);
     m_parentColumn->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -85,6 +92,19 @@ YaziColumns::YaziColumns(QWidget *parent)
     m_parentColumn->viewport()->installEventFilter(this);
     connect(m_parentColumn, &QAbstractItemView::clicked, this, &YaziColumns::request);
     connect(m_parentColumn, &QAbstractItemView::activated, this, &YaziColumns::request);
+
+    m_parentNote = new QLabel(m_parentColumn->viewport());
+    m_parentNote->setObjectName(QStringLiteral("yaziParentNote"));
+    m_parentNote->setTextFormat(Qt::PlainText);
+    m_parentNote->setWordWrap(true);
+    m_parentNote->setAlignment(Qt::AlignCenter);
+    m_parentNote->setForegroundRole(QPalette::PlaceholderText);
+    m_parentNote->setContentsMargins(6, 6, 6, 6);
+    m_parentNote->hide();
+    m_parentTimeout = new QTimer(this);
+    m_parentTimeout->setSingleShot(true);
+    m_parentTimeout->setInterval(ParentListingTimeout);
+    connect(m_parentTimeout, &QTimer::timeout, this, &YaziColumns::parentListingTimedOut);
 
     m_previewSlot = new QWidget(this);
     m_previewSlot->setObjectName(QStringLiteral("yaziPreviewSlot"));
@@ -124,18 +144,48 @@ YaziColumns::YaziColumns(QWidget *parent)
     m_selectionLabel = new QLabel(this);
     m_selectionLabel->setObjectName(QStringLiteral("yaziSelectionIndicator"));
     m_selectionLabel->setToolTip(i18nc("@info:tooltip", "File actions in Yazi mode act on the selected items"));
+    m_selectionLabel->setAccessibleDescription(i18nc("@info:accessibility", "How many items the file actions act on"));
     m_selectionLabel->hide();
+    m_selectionUpdate = new QTimer(this);
+    m_selectionUpdate->setSingleShot(true);
+    m_selectionUpdate->setInterval(30);
+    connect(m_selectionUpdate, &QTimer::timeout, this, &YaziColumns::updateSelectionIndicator);
+
+    m_locationLabel = new QLabel(this);
+    m_locationLabel->setObjectName(QStringLiteral("yaziLocationIndicator"));
+    m_locationLabel->setTextFormat(Qt::PlainText);
+    m_locationLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    m_locationLabel->setMinimumWidth(fontMetrics().averageCharWidth() * 12);
+    m_locationLabel->setAccessibleDescription(i18nc("@info:accessibility", "How well Yazi mode works in this location"));
+    m_locationLabel->hide();
+
+    m_messageLabel = new QLabel(this);
+    m_messageLabel->setObjectName(QStringLiteral("yaziMessageIndicator"));
+    m_messageLabel->setTextFormat(Qt::PlainText);
+    m_messageLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
+    m_messageLabel->setMinimumWidth(fontMetrics().averageCharWidth() * 12);
+    m_messageLabel->setAccessibleDescription(i18nc("@info:accessibility", "Why the last Yazi mode command couldn't run"));
+    m_messageLabel->hide();
+    m_messageTimeout = new QTimer(this);
+    m_messageTimeout->setSingleShot(true);
+    m_messageTimeout->setInterval(MessageTimeout);
+    connect(m_messageTimeout, &QTimer::timeout, this, [this] {
+        m_messageLabel->hide();
+        m_messageLabel->clear();
+    });
 
     m_filterLabel = new QLabel(this);
     m_filterLabel->setObjectName(QStringLiteral("yaziFilterIndicator"));
     m_filterLabel->setTextFormat(Qt::PlainText);
     m_filterLabel->setToolTip(i18nc("@info:tooltip", "The current column only shows the items that match this filter"));
+    m_filterLabel->setAccessibleDescription(m_filterLabel->toolTip());
     m_filterLabel->hide();
     m_filterClear = new QToolButton(this);
     m_filterClear->setObjectName(QStringLiteral("yaziFilterClear"));
     m_filterClear->setIcon(SymbolicIcon::fromTheme(QStringLiteral("edit-clear")));
     m_filterClear->setToolTip(i18nc("@info:tooltip", "Clear the filter"));
     m_filterClear->setAccessibleName(i18nc("@action:button", "Clear Filter"));
+    m_filterClear->setAccessibleDescription(i18nc("@info:accessibility", "Shows every item of the current folder again"));
     m_filterClear->setAutoRaise(true);
     m_filterClear->setFocusPolicy(Qt::NoFocus);
     m_filterClear->hide();
@@ -147,6 +197,7 @@ YaziColumns::YaziColumns(QWidget *parent)
     // A long outcome is clipped rather than widening the pane; the tooltip shows all of it.
     m_searchLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Preferred);
     m_searchLabel->setMinimumWidth(fontMetrics().averageCharWidth() * 12);
+    m_searchLabel->setAccessibleDescription(i18nc("@info:accessibility", "The progress or outcome of the search started from Yazi mode"));
 
     m_searchLabel->hide();
     m_searchCancel = new QToolButton(this);
@@ -154,6 +205,7 @@ YaziColumns::YaziColumns(QWidget *parent)
     m_searchCancel->setIcon(SymbolicIcon::fromTheme(QStringLiteral("process-stop")));
     m_searchCancel->setToolTip(i18nc("@info:tooltip", "Cancel the search (Escape)"));
     m_searchCancel->setAccessibleName(i18nc("@action:button", "Cancel Search"));
+    m_searchCancel->setAccessibleDescription(i18nc("@info:accessibility", "Stops the running search; Escape in the columns does the same"));
     m_searchCancel->setAutoRaise(true);
     m_searchCancel->setFocusPolicy(Qt::NoFocus);
     m_searchCancel->hide();
@@ -165,6 +217,7 @@ YaziColumns::YaziColumns(QWidget *parent)
 
     m_sortLabel = new QLabel(this);
     m_sortLabel->setObjectName(QStringLiteral("yaziSortIndicator"));
+    m_sortLabel->setAccessibleDescription(i18nc("@info:accessibility", "How the current column is sorted"));
     m_sortLabel->hide();
 
     m_transferIndicator = new QToolButton(this);
@@ -173,6 +226,7 @@ YaziColumns::YaziColumns(QWidget *parent)
     m_transferIndicator->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     m_transferIndicator->setAutoRaise(true);
     m_transferIndicator->setFocusPolicy(Qt::NoFocus);
+    m_transferIndicator->setAccessibleDescription(i18nc("@info:accessibility", "The running and waiting transfers; press to show the transfer queue"));
     m_transferIndicator->hide();
     connect(m_transferIndicator, &QToolButton::clicked, this, &YaziColumns::transferQueueRequested);
     m_transferFailureTimeout = new QTimer(this);
@@ -182,15 +236,20 @@ YaziColumns::YaziColumns(QWidget *parent)
 
     m_statusRow = new QWidget(this);
     m_statusRow->setObjectName(QStringLiteral("yaziStatusRow"));
+    m_statusRow->setAccessibleName(i18nc("@info:accessibility", "Yazi mode status"));
+    m_statusRow->setAccessibleDescription(
+        i18nc("@info:accessibility", "The mode, the selection, the filter, searches, transfers and the sorting of the current column"));
     m_statusLayout = new QHBoxLayout(m_statusRow);
     m_statusLayout->setContentsMargins(2, 2, 2, 2);
     m_statusLayout->setSpacing(6);
     m_statusLayout->addWidget(m_indicator);
+    m_statusLayout->addWidget(m_locationLabel, 1);
     m_statusLayout->addWidget(m_selectionLabel);
     m_statusLayout->addWidget(m_filterLabel);
     m_statusLayout->addWidget(m_filterClear);
     m_statusLayout->addWidget(m_searchLabel, 1);
     m_statusLayout->addWidget(m_searchCancel);
+    m_statusLayout->addWidget(m_messageLabel, 1);
     m_statusLayout->addStretch(1);
     m_statusLayout->addWidget(m_transferIndicator);
     m_statusLayout->addWidget(m_sortLabel);
@@ -236,6 +295,10 @@ void YaziColumns::resetLister()
     m_model->setDirLister(m_lister);
     m_proxy->setSourceModel(m_model);
     connect(m_lister, &KDirLister::completed, this, &YaziColumns::highlightCurrent);
+    connect(m_lister, &KDirLister::completed, this, &YaziColumns::parentListingFinished);
+    connect(m_lister, &KDirLister::jobError, this, [this](KIO::Job *job) {
+        parentListingFailed(job->errorString());
+    });
 }
 
 void YaziColumns::setCurrentView(FolderView *view)
@@ -312,19 +375,169 @@ void YaziColumns::setUrl(const QUrl &url)
     }
     m_url = url;
     m_pendingRequest.clear();
-    const QUrl parent = YaziMode::parentFolder(url);
+    applySupport(url.isEmpty() ? YaziMode::Support() : YaziMode::support(url));
+    const QUrl parent = isCollapsed() ? QUrl() : YaziMode::parentFolder(url);
     if (!parent.isEmpty() && stripped(parent) == stripped(m_parentUrl)) {
         highlightCurrent();
         return;
     }
     m_parentUrl = parent;
+    m_parentTimeout->stop();
+    setParentNote(QString());
     if (parent.isEmpty()) {
         if (!m_lister->url().isEmpty()) {
             resetLister();
         }
         return;
     }
+    // KIO lists in the background and shares the listings of folders already
+    // open, such as the one the current column just left, so going up or down
+    // reuses them instead of listing again.
     m_lister->openUrl(parent);
+    if (!m_lister->isFinished() && !parent.isLocalFile()) {
+        setParentNote(i18nc("@info:status in the parent column", "Loading…"));
+        m_parentTimeout->start();
+    }
+}
+
+void YaziColumns::parentListingFinished()
+{
+    m_parentTimeout->stop();
+    if (m_parentNote->text() == i18nc("@info:status in the parent column", "Loading…")) {
+        setParentNote(QString());
+    }
+}
+
+void YaziColumns::parentListingFailed(const QString &error)
+{
+    m_parentTimeout->stop();
+    setParentNote(error.isEmpty() ? i18nc("@info:status in the parent column", "Could not list the parent folder.")
+                                  : i18nc("@info:status in the parent column, %1 is the error", "Could not list the parent folder: %1", error));
+}
+
+void YaziColumns::parentListingTimedOut()
+{
+    if (m_lister->isFinished()) {
+        return;
+    }
+    // Stop waiting rather than leave the column loading; opening the folder again retries.
+    m_lister->stop();
+    setParentNote(i18nc("@info:status in the parent column", "The parent folder is taking too long to respond."));
+}
+
+void YaziColumns::setParentListingTimeout(int milliseconds)
+{
+    m_parentTimeout->setInterval(milliseconds);
+}
+
+void YaziColumns::setParentNote(const QString &text)
+{
+    if (text.isEmpty()) {
+        m_parentNote->hide();
+        m_parentNote->clear();
+        m_parentColumn->setAccessibleDescription(parentColumnDescription());
+        return;
+    }
+    m_parentNote->setText(text);
+    m_parentNote->setAccessibleName(text);
+    m_parentNote->setGeometry(m_parentColumn->viewport()->rect());
+    m_parentNote->show();
+    m_parentColumn->setAccessibleDescription(text);
+}
+
+QLabel *YaziColumns::parentNote() const
+{
+    return m_parentNote;
+}
+
+void YaziColumns::applySupport(const YaziMode::Support &support)
+{
+    if (support == m_support) {
+        return;
+    }
+    const bool wasCollapsed = isCollapsed();
+    m_support = support;
+    switch (support.level) {
+    case YaziMode::SupportLevel::Full:
+        m_locationLabel->hide();
+        m_locationLabel->clear();
+        break;
+    case YaziMode::SupportLevel::Limited:
+        m_locationLabel->setText(i18nc("@info:status %1 is why Yazi mode is limited in this location", "Limited here: %1", support.reason));
+        break;
+    case YaziMode::SupportLevel::Unsupported:
+        m_locationLabel->setText(unavailableText());
+        break;
+    }
+    if (support.level != YaziMode::SupportLevel::Full) {
+        m_locationLabel->setToolTip(m_locationLabel->text());
+        m_locationLabel->setAccessibleName(m_locationLabel->text());
+        m_locationLabel->show();
+    }
+    if (wasCollapsed != isCollapsed()) {
+        applyColumnWidths();
+        if (m_view) {
+            announce(m_view->currentView(),
+                     isCollapsed() ? unavailableText() : i18nc("@info:accessibility", "Yazi mode is available again; the columns are shown"));
+        }
+    }
+}
+
+YaziMode::Support YaziColumns::support() const
+{
+    return m_support;
+}
+
+bool YaziColumns::isCollapsed() const
+{
+    return m_support.level == YaziMode::SupportLevel::Unsupported;
+}
+
+QLabel *YaziColumns::locationIndicator() const
+{
+    return m_locationLabel;
+}
+
+QString YaziColumns::unavailableText() const
+{
+    return isCollapsed() ? i18nc("@info:status %1 is why", "Yazi mode isn't available here: %1", m_support.reason) : QString();
+}
+
+void YaziColumns::showMessage(const QString &message)
+{
+    if (message.isEmpty()) {
+        return;
+    }
+    // A held key repeats the message; announce it once while it is shown.
+    const bool repeated = m_messageLabel->isVisible() && m_messageLabel->text() == message;
+    m_messageLabel->setText(message);
+    m_messageLabel->setToolTip(message);
+    m_messageLabel->setAccessibleName(message);
+    m_messageLabel->show();
+    m_messageTimeout->start();
+    if (!repeated) {
+        announce(m_messageLabel, message);
+    }
+}
+
+QLabel *YaziColumns::messageIndicator() const
+{
+    return m_messageLabel;
+}
+
+void YaziColumns::announce(QObject *source, const QString &message)
+{
+    if (!source || message.isEmpty()) {
+        return;
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
+    QAccessibleAnnouncementEvent event(source, message);
+    QAccessible::updateAccessibility(&event);
+#else
+    // Without announcement events, an alert makes screen readers read the source, whose name carries the message.
+    QAccessibleEvent event(source, QAccessible::Alert);
+    QAccessible::updateAccessibility(&event);
+#endif
 }
 
 QUrl YaziColumns::url() const
@@ -433,14 +646,17 @@ void YaziColumns::setRatios(const YaziMode::Ratios &ratios)
 
 void YaziColumns::applyColumnWidths()
 {
-    const bool preview = m_previewWidget != nullptr;
+    const bool preview = m_previewWidget != nullptr && !isCollapsed();
     if (!m_splitter->isVisible()) {
         // Without a width yet, show what is wanted; showing the splitter sizes it.
-        m_parentColumn->setVisible(true);
+        m_parentColumn->setVisible(!isCollapsed());
         m_previewSlot->setVisible(preview);
         return;
     }
-    const YaziMode::ColumnWidths widths = YaziMode::columnWidths(m_splitter->contentsRect().width(), preview, m_ratios, m_splitter->handleWidth());
+    YaziMode::ColumnWidths widths = YaziMode::columnWidths(m_splitter->contentsRect().width(), preview, m_ratios, m_splitter->handleWidth());
+    if (isCollapsed()) {
+        widths = {0, m_splitter->contentsRect().width(), 0};
+    }
     const bool parentShown = widths.parent > 0;
     const bool previewShown = widths.preview > 0;
     QWidget *focus = QApplication::focusWidget();
@@ -734,6 +950,7 @@ void YaziColumns::setSearchStatus(const QString &status, bool running)
     m_searchRunning = running;
     m_searchLabel->setText(status.isEmpty() ? i18nc("@info:status", "Searching…") : status);
     m_searchLabel->setToolTip(m_searchLabel->text());
+    m_searchLabel->setAccessibleName(i18nc("@info:accessibility %1 is the search's progress or outcome", "Search: %1", m_searchLabel->text()));
     m_searchLabel->show();
     m_searchCancel->setVisible(running);
     if (running) {
@@ -785,6 +1002,12 @@ void YaziColumns::updateIndicator()
     }
     m_indicator->setText(text);
     m_indicator->setAccessibleName(name);
+    if (pending != m_announcedPending) {
+        m_announcedPending = pending;
+        if (!pending.isEmpty()) {
+            announce(m_indicator, name);
+        }
+    }
 }
 
 bool YaziColumns::isEditing(const QAbstractItemView *view)
@@ -827,10 +1050,12 @@ std::optional<YaziColumns::Column> YaziColumns::focusedColumn() const
 
 KFileItem YaziColumns::focusedItem() const
 {
+    // KDirModel answers an invalid index with the folder itself, which isn't an item of the column.
     if (focusedColumn() == Column::Parent) {
-        return m_model->itemForIndex(m_proxy->mapToSource(m_parentColumn->currentIndex()));
+        const QModelIndex current = m_parentColumn->currentIndex();
+        return current.isValid() ? m_model->itemForIndex(m_proxy->mapToSource(current)) : KFileItem();
     }
-    return m_view ? m_view->currentItem() : KFileItem();
+    return m_view && m_view->currentView()->currentIndex().isValid() ? m_view->currentItem() : KFileItem();
 }
 
 QAbstractItemView *YaziColumns::movementTarget() const
@@ -841,11 +1066,11 @@ QAbstractItemView *YaziColumns::movementTarget() const
     return m_view ? m_view->currentView() : nullptr;
 }
 
-void YaziColumns::moveFocus(YaziMode::Command command, int count)
+bool YaziColumns::moveFocus(YaziMode::Command command, int count)
 {
     QAbstractItemView *view = movementTarget();
-    if (!view) {
-        return;
+    if (!view || !view->model() || view->model()->rowCount(view->rootIndex()) == 0) {
+        return false;
     }
     using YaziMode::Command;
     Qt::Key key = Qt::Key_unknown;
@@ -880,19 +1105,20 @@ void YaziColumns::moveFocus(YaziMode::Command command, int count)
         steps *= halfPageRows(view);
         break;
     default:
-        return;
+        return true;
     }
     // The view's own keys move the focus and selection as they always do,
-    // in every view mode and through expanded folders. While marking, the
-    // selection is put back after each step, so it stays as marked.
+    // in every view mode and through expanded folders. While marking, Ctrl
+    // moves only the current item, so the marked selection isn't rebuilt (and
+    // re-announced to every listener) on each step of a large selection.
     QItemSelectionModel *selection = view->selectionModel();
     const bool keepMarks = m_marking && m_view && view == m_view->currentView() && selection;
     const QScopedValueRollback changing(m_changingSelection, m_changingSelection || keepMarks);
     const QItemSelection marked = keepMarks ? selection->selection() : QItemSelection();
     for (int step = 0; step < steps; ++step) {
         const QPersistentModelIndex before = view->currentIndex();
-        m_keys->sendKey(view, key);
-        if (keepMarks) {
+        m_keys->sendKey(view, key, keepMarks ? Qt::ControlModifier : Qt::NoModifier);
+        if (keepMarks && selection->selection() != marked) {
             selection->select(marked, QItemSelectionModel::ClearAndSelect);
         }
         if (before == view->currentIndex()) {
@@ -905,6 +1131,7 @@ void YaziColumns::moveFocus(YaziMode::Command command, int count)
     if (keepMarks) {
         updateSelectionIndicator();
     }
+    return true;
 }
 
 bool YaziColumns::focusColumn(Column column)
@@ -935,17 +1162,17 @@ void YaziColumns::openParentItem()
     if (item.isNull()) {
         return;
     }
-    if (stripped(item.url()) == stripped(m_url)) {
+    if (stripped(item.url()) == stripped(YaziMode::parentItem(m_url))) {
         focusColumn(Column::Current);
         return;
     }
     request(index);
 }
 
-void YaziColumns::toggleSelection(bool moveDown, int count)
+bool YaziColumns::toggleSelection(bool moveDown, int count)
 {
-    if (!m_view) {
-        return;
+    if (!m_view || !m_view->currentView()->currentIndex().isValid()) {
+        return false;
     }
     QAbstractItemView *items = m_view->currentView();
     QItemSelectionModel *selection = items->selectionModel();
@@ -974,24 +1201,25 @@ void YaziColumns::toggleSelection(bool moveDown, int count)
         }
     }
     updateSelectionIndicator();
+    return true;
 }
 
-void YaziColumns::toggleVisualSelection()
+bool YaziColumns::toggleVisualSelection()
 {
     if (!m_view) {
-        return;
+        return false;
     }
     if (m_visual) {
         m_visual = false;
         m_visualAnchor = QPersistentModelIndex();
         m_visualBase.clear();
         updateSelectionIndicator();
-        return;
+        return true;
     }
     QAbstractItemView *items = m_view->currentView();
     const QModelIndex current = items->currentIndex();
     if (!current.isValid()) {
-        return;
+        return false;
     }
     m_visualBase = m_marking ? items->selectionModel()->selection() : QItemSelection();
     m_visualAnchor = current.siblingAtColumn(0);
@@ -999,12 +1227,13 @@ void YaziColumns::toggleVisualSelection()
     m_marking = true;
     applyVisualRange();
     updateSelectionIndicator();
+    return true;
 }
 
-void YaziColumns::selectAll()
+bool YaziColumns::selectAll()
 {
-    if (!m_view) {
-        return;
+    if (!m_view || m_view->itemCount() == 0) {
+        return false;
     }
     {
         const QScopedValueRollback changing(m_changingSelection, true);
@@ -1015,6 +1244,7 @@ void YaziColumns::selectAll()
         m_marking = m_view->currentView()->selectionModel()->hasSelection();
     }
     updateSelectionIndicator();
+    return true;
 }
 
 bool YaziColumns::isMarking() const
@@ -1041,7 +1271,15 @@ void YaziColumns::selectionChanged()
     if (m_marking && selectionIsFocusOnly()) {
         m_marking = false;
     }
-    updateSelectionIndicator();
+    // Moving the focus changes the selection on every key; while at most one
+    // item is selected, hide the count at once, and otherwise count once the
+    // keys pause.
+    if (!m_marking && selectedRowCount(2) < 2) {
+        m_selectionUpdate->stop();
+        m_selectionLabel->hide();
+    } else if (!m_selectionUpdate->isActive()) {
+        m_selectionUpdate->start();
+    }
 }
 
 void YaziColumns::resetSelectionState()
@@ -1059,8 +1297,36 @@ bool YaziColumns::selectionIsFocusOnly() const
         return true;
     }
     const QAbstractItemView *items = m_view->currentView();
-    const QModelIndexList rows = items->selectionModel()->selectedRows();
-    return rows.isEmpty() || (rows.size() == 1 && rows.first() == items->currentIndex().siblingAtColumn(0));
+    const QItemSelection selection = items->selectionModel()->selection();
+    if (selection.isEmpty()) {
+        return true;
+    }
+    // Rows are selected whole, so a single selected row is a single range one row high.
+    if (selection.size() != 1 || selection.first().height() != 1) {
+        return false;
+    }
+    const QModelIndex current = items->currentIndex();
+    const QItemSelectionRange &range = selection.first();
+    return current.isValid() && range.parent() == current.parent() && range.top() == current.row();
+}
+
+int YaziColumns::selectedRowCount(int limit) const
+{
+    if (!m_view) {
+        return 0;
+    }
+    // Summing the ranges' heights avoids building an index for every selected row, which takes long in large folders.
+    qint64 count = 0;
+    const QItemSelection selection = m_view->currentView()->selectionModel()->selection();
+    for (const QItemSelectionRange &range : selection) {
+        if (range.left() == 0) {
+            count += range.height();
+            if (count >= limit) {
+                return limit;
+            }
+        }
+    }
+    return int(count);
 }
 
 void YaziColumns::applyVisualRange()
@@ -1113,11 +1379,12 @@ QItemSelection YaziColumns::rowsBetween(const QModelIndex &from, const QModelInd
 
 void YaziColumns::updateSelectionIndicator()
 {
+    m_selectionUpdate->stop();
     if (!m_view) {
         m_selectionLabel->hide();
         return;
     }
-    const int count = int(m_view->currentView()->selectionModel()->selectedRows().size());
+    const int count = selectedRowCount();
     if (!m_visual && !m_marking && count < 2) {
         m_selectionLabel->hide();
         return;
@@ -1139,6 +1406,8 @@ bool YaziColumns::eventFilter(QObject *watched, QEvent *event)
         Q_EMIT activated();
     } else if (watched == m_parentColumn && event->type() == QEvent::Show) {
         highlightCurrent();
+    } else if (watched == m_parentColumn->viewport() && event->type() == QEvent::Resize) {
+        m_parentNote->setGeometry(m_parentColumn->viewport()->rect());
     } else if (watched == m_splitter && (event->type() == QEvent::Show || (event->type() == QEvent::Resize && m_splitter->isVisible()))) {
         applyColumnWidths();
     } else if (watched == m_view && event->type() == QEvent::FontChange) {
@@ -1154,7 +1423,7 @@ void YaziColumns::highlightCurrent()
     if (m_url.isEmpty()) {
         return;
     }
-    const QModelIndex index = m_proxy->mapFromSource(m_model->indexForUrl(stripped(m_url)));
+    const QModelIndex index = m_proxy->mapFromSource(m_model->indexForUrl(stripped(YaziMode::parentItem(m_url))));
     if (!index.isValid()) {
         return;
     }
@@ -1171,7 +1440,7 @@ void YaziColumns::request(const QModelIndex &index)
         return;
     }
     const QUrl target = item.url();
-    if (stripped(target) == stripped(m_url) || stripped(target) == stripped(m_pendingRequest)) {
+    if (stripped(target) == stripped(YaziMode::parentItem(m_url)) || stripped(target) == stripped(m_pendingRequest)) {
         return;
     }
     const QUrl folder = m_parentUrl;

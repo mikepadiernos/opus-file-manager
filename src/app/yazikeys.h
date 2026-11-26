@@ -58,7 +58,7 @@ public:
     void cancel();
 
     /// Sends @p key to @p target as the widget's own key, bypassing the preset.
-    void sendKey(QWidget *target, Qt::Key key);
+    void sendKey(QWidget *target, Qt::Key key, Qt::KeyboardModifiers modifiers = Qt::NoModifier);
 
     /// Whether @p widget takes typed text, such as a line edit, a text editor, a spin box or a combo box.
     static bool isTypingWidget(const QWidget *widget);

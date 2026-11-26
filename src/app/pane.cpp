@@ -1064,6 +1064,7 @@ void Pane::setYaziMode(bool enabled)
     if (hadFocus) {
         m_view->currentView()->setFocus();
     }
+    YaziColumns::announce(m_view->currentView(), enabled ? i18nc("@info:accessibility", "Yazi mode on") : i18nc("@info:accessibility", "Yazi mode off"));
     Q_EMIT yaziModeChanged(enabled);
     Q_EMIT workspaceLayoutChanged();
 }
@@ -1159,17 +1160,33 @@ void Pane::reloadYaziKeySettings()
     m_yaziColumns->keys()->setPreset(Settings::yaziKeyPreset() == Settings::EnumYaziKeyPreset::Vim ? YaziMode::Preset::Vim : YaziMode::Preset::Standard);
 }
 
+void Pane::reportYaziMessage(const QString &message)
+{
+    if (message.isEmpty()) {
+        return;
+    }
+    Q_EMIT statusMessage(message);
+    if (m_yaziMode) {
+        m_yaziColumns->showMessage(message);
+    }
+}
+
 void Pane::runYaziCommand(YaziMode::Command command, int count)
 {
     if (!m_yaziMode) {
         return;
     }
     using YaziMode::Command;
-    const auto focus = [this](YaziColumns::Column column, const QString &unavailable) {
+    // In a location the mode doesn't support, only the current column is shown; say why instead.
+    const auto columnUnavailable = [this](const QString &fallback) {
+        reportYaziMessage(m_yaziColumns->isCollapsed() ? m_yaziColumns->unavailableText() : fallback);
+    };
+    const auto focus = [this, columnUnavailable](YaziColumns::Column column, const QString &unavailable) {
         if (!m_yaziColumns->focusColumn(column)) {
-            Q_EMIT statusMessage(unavailable);
+            columnUnavailable(unavailable);
         }
     };
+    const QString nothingFocused = i18nc("@info:status", "There is no item here to act on.");
     switch (command) {
     case Command::MoveUp:
     case Command::MoveDown:
@@ -1179,23 +1196,45 @@ void Pane::runYaziCommand(YaziMode::Command command, int count)
     case Command::PageDown:
     case Command::HalfPageUp:
     case Command::HalfPageDown:
-        m_yaziColumns->moveFocus(command, count);
+        if (!m_yaziColumns->moveFocus(command, count)) {
+            reportYaziMessage(i18nc("@info:status", "This column has no items to move through."));
+        }
         break;
-    case Command::Parent:
-        goUp();
+    case Command::Parent: {
+        const QUrl current = url();
+        const QUrl parent = YaziMode::parentFolder(current);
+        if (m_yaziColumns->isCollapsed()) {
+            columnUnavailable(QString());
+        } else if (parent.isEmpty()) {
+            reportYaziMessage(i18nc("@info:status", "This folder has no parent folder to open."));
+        } else {
+            // Highlight the folder just left, once it is listed.
+            showFolderItem(parent, YaziMode::parentItem(current));
+        }
         break;
+    }
     case Command::Open:
-        if (m_yaziColumns->focusedColumn() == YaziColumns::Column::Parent) {
+        if (m_yaziColumns->focusedItem().isNull()) {
+            reportYaziMessage(i18nc("@info:status", "There is no focused item to open."));
+        } else if (m_yaziColumns->focusedColumn() == YaziColumns::Column::Parent) {
             m_yaziColumns->openParentItem();
         } else {
             m_view->activateCurrentItem();
         }
         break;
     case Command::Back:
-        goBack();
+        if (m_tabs->canGoBack()) {
+            goBack();
+        } else {
+            reportYaziMessage(i18nc("@info:status", "There is no earlier folder in this tab's history."));
+        }
         break;
     case Command::Forward:
-        goForward();
+        if (m_tabs->canGoForward()) {
+            goForward();
+        } else {
+            reportYaziMessage(i18nc("@info:status", "There is no later folder in this tab's history."));
+        }
         break;
     case Command::Home:
         setUrl(Settings::homeUrl());
@@ -1212,9 +1251,12 @@ void Pane::runYaziCommand(YaziMode::Command command, int count)
     case Command::TogglePreview:
         QMetaObject::invokeMethod(
             this,
-            [this] {
+            [this, columnUnavailable] {
                 if (m_yaziMode) {
                     setYaziPreview(!m_yaziPreview);
+                    if (m_yaziPreview && m_yaziColumns->isCollapsed()) {
+                        columnUnavailable(QString());
+                    }
                 }
             },
             Qt::QueuedConnection);
@@ -1223,7 +1265,7 @@ void Pane::runYaziCommand(YaziMode::Command command, int count)
         setYaziPreviewContent(m_yaziPreviewContent == YaziMode::PreviewContent::Information ? YaziMode::PreviewContent::Preview
                                                                                             : YaziMode::PreviewContent::Information);
         if (!m_yaziColumns->previewEnabled() || m_yaziColumns->previewSlot()->isHidden()) {
-            Q_EMIT statusMessage(i18nc("@info:status", "The preview column isn't shown in this pane."));
+            columnUnavailable(i18nc("@info:status", "The preview column isn't shown in this pane."));
         }
         break;
     case Command::Leave:
@@ -1239,13 +1281,17 @@ void Pane::runYaziCommand(YaziMode::Command command, int count)
     case Command::VisualSelection:
     case Command::SelectAll:
         if (m_yaziColumns->focusedColumn() == YaziColumns::Column::Parent) {
-            Q_EMIT statusMessage(i18nc("@info:status", "Select items in the current column; the parent column only opens folders."));
+            reportYaziMessage(i18nc("@info:status", "Select items in the current column; the parent column only opens folders."));
         } else if (command == Command::VisualSelection) {
-            m_yaziColumns->toggleVisualSelection();
+            if (!m_yaziColumns->toggleVisualSelection()) {
+                reportYaziMessage(i18nc("@info:status", "There is no item here to select."));
+            }
         } else if (command == Command::SelectAll) {
-            m_yaziColumns->selectAll();
-        } else {
-            m_yaziColumns->toggleSelection(command == Command::ToggleSelectionDown, count);
+            if (!m_yaziColumns->selectAll()) {
+                reportYaziMessage(i18nc("@info:status", "There is no item here to select."));
+            }
+        } else if (!m_yaziColumns->toggleSelection(command == Command::ToggleSelectionDown, count)) {
+            reportYaziMessage(i18nc("@info:status", "There is no item here to select."));
         }
         break;
     case Command::Copy:
@@ -1262,16 +1308,18 @@ void Pane::runYaziCommand(YaziMode::Command command, int count)
         if (YaziMode::commandUsesSelection(command)) {
             // The parent column's focused item is not the selection; acting on the current column's items from there would surprise.
             if (m_yaziColumns->focusedColumn() == YaziColumns::Column::Parent) {
-                Q_EMIT statusMessage(i18nc("@info:status", "Focus the current column to act on its items."));
+                reportYaziMessage(i18nc("@info:status", "Focus the current column to act on its items."));
                 break;
             }
             // Like Yazi, act on the focused item when nothing is selected.
             if (m_view->selectedItems().isEmpty()) {
                 QAbstractItemView *items = m_view->currentView();
                 const QModelIndex current = items->currentIndex();
-                if (current.isValid()) {
-                    items->selectionModel()->select(current, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
+                if (!current.isValid()) {
+                    reportYaziMessage(nothingFocused);
+                    break;
                 }
+                items->selectionModel()->select(current, QItemSelectionModel::ClearAndSelect | QItemSelectionModel::Rows);
             }
         }
         QMetaObject::invokeMethod(
@@ -1288,7 +1336,7 @@ void Pane::runYaziCommand(YaziMode::Command command, int count)
         break;
     case Command::ClearFilter:
         if (m_filterBar->filter().isEmpty()) {
-            Q_EMIT statusMessage(i18nc("@info:status", "This pane has no filter to clear."));
+            reportYaziMessage(i18nc("@info:status", "This pane has no filter to clear."));
         } else {
             m_filterBar->close();
         }
@@ -1328,7 +1376,7 @@ void Pane::runYaziCommand(YaziMode::Command command, int count)
     case Command::PreviousTab:
     case Command::NextTab:
         if (m_tabs->count() < 2) {
-            Q_EMIT statusMessage(i18nc("@info:status", "This pane has only one tab."));
+            reportYaziMessage(i18nc("@info:status", "This pane has only one tab."));
         } else if (command == Command::NextTab) {
             m_tabs->activateNext();
         } else {
@@ -1338,11 +1386,11 @@ void Pane::runYaziCommand(YaziMode::Command command, int count)
     case Command::CloseTab: {
         const int index = m_tabs->currentIndex();
         if (m_tabs->count() < 2) {
-            Q_EMIT statusMessage(i18nc("@info:status", "The pane's only tab can't be closed."));
+            reportYaziMessage(i18nc("@info:status", "The pane's only tab can't be closed."));
         } else if (m_tabs->isPinned(index)) {
-            Q_EMIT statusMessage(i18nc("@info:status", "This tab is pinned. Unpin it to close it."));
+            reportYaziMessage(i18nc("@info:status", "This tab is pinned. Unpin it to close it."));
         } else if (m_tabs->isLocked(index)) {
-            Q_EMIT statusMessage(i18nc("@info:status", "This tab is locked. Unlock it to close it."));
+            reportYaziMessage(i18nc("@info:status", "This tab is locked. Unlock it to close it."));
         } else {
             closeCurrentTab();
         }

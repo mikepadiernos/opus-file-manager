@@ -204,6 +204,12 @@ public:
      * @param count how many times to repeat a command that takes a count
      */
     void runYaziCommand(YaziMode::Command command, int count = 1);
+    /**
+     * Reports that a Yazi mode command can't run: shows @p message in the
+     * window's status bar and the columns' status row, and announces it to
+     * assistive technology.
+     */
+    void reportYaziMessage(const QString &message);
 
 public Q_SLOTS:
     void setUrl(const QUrl &url);

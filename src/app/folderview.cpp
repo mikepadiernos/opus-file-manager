@@ -74,6 +74,7 @@
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <optional>
 #include <utility>
 
 namespace
@@ -883,10 +884,6 @@ FolderView::FolderView(QWidget *parent)
         });
     }
 
-    m_detailsPreviews = new KFilePreviewGenerator(m_details);
-    m_iconPreviews = new KFilePreviewGenerator(m_icons);
-    m_compactPreviews = new KFilePreviewGenerator(m_compact);
-    m_cardPreviews = new KFilePreviewGenerator(m_cards);
     setPreviewsEnabled(true);
 
     m_stack->addWidget(m_details);
@@ -935,7 +932,7 @@ FolderView::FolderView(QWidget *parent)
         cut->setEnabled(!items.isEmpty() && properties.supportsMoving());
         trash->setEnabled(!items.isEmpty() && properties.supportsDeleting() && properties.isLocal());
     };
-    connect(this, &FolderView::selectionChanged, this, updateSelectionButtons);
+    connect(this, &FolderView::selectedItemsChanged, this, updateSelectionButtons);
     updateSelectionButtons();
     m_selectionBar->hide();
     layout->addWidget(m_selectionBar);
@@ -1006,7 +1003,13 @@ FolderView::FolderView(QWidget *parent)
     connect(m_lister, &KDirLister::clear, this, &FolderView::itemCountChanged);
 
     connect(m_details->selectionModel(), &QItemSelectionModel::selectionChanged, this, &FolderView::selectionChanged);
+    connect(m_details->selectionModel(), &QItemSelectionModel::selectionChanged, this, &FolderView::selectedItemsChanged);
     connect(m_details->selectionModel(), &QItemSelectionModel::currentChanged, this, &FolderView::selectionChanged);
+    connect(m_details->selectionModel(), &QItemSelectionModel::currentChanged, this, [this] {
+        if (!m_details->selectionModel()->hasSelection()) {
+            Q_EMIT selectedItemsChanged();
+        }
+    });
     connect(m_model, &KDirModel::expand, this, [this](const QModelIndex &index) {
         if (m_historyExpanding && m_model->itemForIndex(index).isDir()) {
             m_details->expand(m_proxy->mapFromSource(index));
@@ -1271,15 +1274,12 @@ bool FolderView::previewsShown() const
 
 void FolderView::setPreviewPlugins(const QStringList &plugins)
 {
-    m_detailsPreviews->setEnabledPlugins(plugins);
-    m_iconPreviews->setEnabledPlugins(plugins);
-    m_compactPreviews->setEnabledPlugins(plugins);
-    m_cardPreviews->setEnabledPlugins(plugins);
+    m_previews->setEnabledPlugins(plugins);
 }
 
 QStringList FolderView::previewPlugins() const
 {
-    return m_detailsPreviews->enabledPlugins();
+    return m_previews->enabledPlugins();
 }
 
 void FolderView::setIconSizes(int details, int icons)
@@ -1364,25 +1364,30 @@ bool FolderView::showToolTips() const
 
 void FolderView::updatePreviews()
 {
-    // The views share one model, so every enabled generator writes its own
-    // preview size into the same decoration role. Only the visible view may
-    // generate previews, or a smaller view's thumbnails replace its own.
+    // The views share one model, so a generator writes its preview size into
+    // the decoration role every view shows, and it lays out its view for each
+    // batch of listed items, which in a large folder costs more than the
+    // listing. Only the shown view keeps a generator.
     const bool shown = previewsShown();
-    const QList<std::pair<KFilePreviewGenerator *, ViewMode>> generators{
-        {m_detailsPreviews, ViewMode::Details},
-        {m_iconPreviews, ViewMode::Icons},
-        {m_compactPreviews, ViewMode::Compact},
-        {m_cardPreviews, ViewMode::Cards},
-    };
-    for (const auto &[generator, mode] : generators) {
-        if (mode != m_viewMode) {
-            generator->setPreviewShown(false);
-        }
+    QAbstractItemView *view = currentView();
+    if (m_previews && m_previews->parent() == view) {
+        m_previews->setPreviewShown(shown);
+        return;
     }
-    for (const auto &[generator, mode] : generators) {
-        if (mode == m_viewMode) {
-            generator->setPreviewShown(shown);
-        }
+    std::optional<QStringList> plugins;
+    if (m_previews) {
+        plugins = m_previews->enabledPlugins();
+        m_previews->setPreviewShown(false);
+        delete m_previews;
+    }
+    m_previews = new KFilePreviewGenerator(view);
+    if (plugins) {
+        m_previews->setEnabledPlugins(*plugins);
+    }
+    if (shown) {
+        m_previews->updateIcons();
+    } else {
+        m_previews->setPreviewShown(false);
     }
 }
 

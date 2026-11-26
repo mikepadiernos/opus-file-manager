@@ -95,10 +95,10 @@ void YaziKeys::cancel()
     Q_EMIT stateChanged();
 }
 
-void YaziKeys::sendKey(QWidget *target, Qt::Key key)
+void YaziKeys::sendKey(QWidget *target, Qt::Key key, Qt::KeyboardModifiers modifiers)
 {
     const QScopedValueRollback sending(m_sending, true);
-    QKeyEvent press(QEvent::KeyPress, key, Qt::NoModifier);
+    QKeyEvent press(QEvent::KeyPress, key, modifiers);
     QCoreApplication::sendEvent(target, &press);
 }
 
