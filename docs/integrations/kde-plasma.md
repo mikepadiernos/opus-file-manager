@@ -243,6 +243,28 @@ behaves like the rest of the desktop and follows the user's choices.
   dialog explains when the plugin is not installed. See
   [Disk images](../CAVEATS.md#desktop-integration).
   ([#648](https://github.com/mikepadiernos/plasma-opus/issues/648))
+- **Application packages:** **File › Application Package…**, also in the
+  context menu, identifies a selected AppImage, Flatpak bundle, `.flatpakref`
+  or `.flatpakrepo` file, snap file, or a folder inside an installed Flatpak
+  application or snap. It shows the package's name, ID, branch, source and
+  installed state, and the output of `flatpak info`, including sandbox
+  permissions, or `snap info` and `snap connections`. It offers the actions
+  that apply:
+  - run an AppImage, after asking to mark it executable, or an installed
+    application;
+  - install, update or uninstall with `flatpak` or `snap`, for your account
+    or, for Flatpak, all users;
+  - add a `.flatpakrepo` remote;
+  - open the package in Discover;
+  - update an AppImage with AppImageUpdate;
+  - add an AppImage to the application menu, or remove it, with its own
+    name and icon, named as libappimage names menu entries.
+
+  Changes are confirmed first and never change sandbox permissions or snap
+  confinement. Missing tools disable their actions with an explanation, and
+  failures show the tool's output. See
+  [Application packages](../CAVEATS.md#desktop-integration).
+  ([#281](https://github.com/mikepadiernos/plasma-opus/issues/281))
 
 ## Planned features
 
