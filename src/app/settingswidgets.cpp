@@ -12,6 +12,7 @@
 #include "stylesheets.h"
 #include "taglibrary.h"
 #include "workspacestartup.h"
+#include "yazimode.h"
 
 #include <KColorButton>
 #include <KFontRequester>
@@ -56,6 +57,8 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <tuple>
+#include <utility>
 
 namespace
 {
@@ -1836,6 +1839,94 @@ void PreviewPluginList::setPlugins(const QStringList &plugins)
         const bool enabled = plugins.contains(item(row)->data(Qt::UserRole).toString());
         item(row)->setCheckState(enabled ? Qt::Checked : Qt::Unchecked);
     }
+}
+
+YaziColumnRatiosEditor::YaziColumnRatiosEditor(QWidget *parent)
+    : QWidget(parent)
+    , m_parent(new QSpinBox(this))
+    , m_current(new QSpinBox(this))
+    , m_preview(new QSpinBox(this))
+    , m_shares(new QLabel(this))
+{
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    auto *form = new QFormLayout;
+    const QList<std::tuple<QSpinBox *, QString, QString>> spins{
+        {m_parent, QStringLiteral("yaziParentRatio"), i18nc("@label:spinbox Yazi mode column width", "Parent column:")},
+        {m_current, QStringLiteral("yaziCurrentRatio"), i18nc("@label:spinbox Yazi mode column width", "Current column:")},
+        {m_preview, QStringLiteral("yaziPreviewRatio"), i18nc("@label:spinbox Yazi mode column width", "Preview column:")},
+    };
+    for (const auto &[spin, name, label] : spins) {
+        spin->setObjectName(name);
+        spin->setRange(1, YaziMode::MaximumRatio);
+        spin->setToolTip(i18nc("@info:tooltip", "The column's width relative to the other columns"));
+        form->addRow(label, spin);
+        connect(spin, &QSpinBox::valueChanged, this, &YaziColumnRatiosEditor::edited);
+    }
+    layout->addLayout(form);
+    m_shares->setObjectName(QStringLiteral("yaziColumnShares"));
+    m_shares->setWordWrap(true);
+    layout->addWidget(m_shares);
+    auto *restore = new QPushButton(QIcon::fromTheme(QStringLiteral("edit-undo")), i18nc("@action:button", "Restore Default Widths"), this);
+    restore->setObjectName(QStringLiteral("yaziRestoreColumnWidths"));
+    connect(restore, &QPushButton::clicked, this, &YaziColumnRatiosEditor::restoreDefaultWidths);
+    auto *buttons = new QHBoxLayout;
+    buttons->addWidget(restore);
+    buttons->addStretch();
+    layout->addLayout(buttons);
+    setRatios(YaziMode::ratiosToList(YaziMode::Ratios()));
+}
+
+QList<int> YaziColumnRatiosEditor::ratios() const
+{
+    return m_edited ? QList<int>{m_parent->value(), m_current->value(), m_preview->value()} : m_stored;
+}
+
+void YaziColumnRatiosEditor::setRatios(const QList<int> &ratios)
+{
+    m_stored = ratios;
+    m_edited = false;
+    const YaziMode::Ratios shown = YaziMode::ratiosFromList(ratios).value_or(YaziMode::Ratios());
+    for (const auto &[spin, value] : {std::pair{m_parent, shown.parent}, std::pair{m_current, shown.current}, std::pair{m_preview, shown.preview}}) {
+        const QSignalBlocker blocker(spin);
+        spin->setValue(value);
+    }
+    updateShares();
+    Q_EMIT ratiosChanged();
+}
+
+void YaziColumnRatiosEditor::restoreDefaultWidths()
+{
+    const YaziMode::Ratios defaults;
+    for (const auto &[spin, value] : {std::pair{m_parent, defaults.parent}, std::pair{m_current, defaults.current}, std::pair{m_preview, defaults.preview}}) {
+        const QSignalBlocker blocker(spin);
+        spin->setValue(value);
+    }
+    edited();
+}
+
+void YaziColumnRatiosEditor::edited()
+{
+    m_edited = true;
+    updateShares();
+    Q_EMIT ratiosChanged();
+}
+
+void YaziColumnRatiosEditor::updateShares()
+{
+    const auto percent = [](int value, qint64 total) {
+        return int((qint64(value) * 200 + total) / (2 * total));
+    };
+    const qint64 all = qint64(m_parent->value()) + m_current->value() + m_preview->value();
+    const qint64 withoutParent = qint64(m_current->value()) + m_preview->value();
+    m_shares->setText(i18nc("@info",
+                            "With all three columns shown, the parent column takes about %1% of the width, the current column %2% and the "
+                            "preview column %3%. Without the parent column, the current and preview columns take about %4% and %5%.",
+                            percent(m_parent->value(), all),
+                            percent(m_current->value(), all),
+                            percent(m_preview->value(), all),
+                            percent(m_current->value(), withoutParent),
+                            percent(m_preview->value(), withoutParent)));
 }
 
 PreviewSizeSpinBox::PreviewSizeSpinBox(QWidget *parent)

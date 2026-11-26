@@ -28,6 +28,7 @@
 #include "themeprofiles.h"
 #include "windoweffects.h"
 #include "workspacecatalog.h"
+#include "yazimode.h"
 
 #include <KActionCollection>
 #include <KColorButton>
@@ -229,7 +230,9 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createFolderFormatsPage(), i18nc("@title:tab", "Folder Formats")}},
                   i18nc("@title:group", "View"),
                   QStringLiteral("view-list-icons"));
-    addTabbedPage({{createYaziActivationPage(), i18nc("@title:tab", "Activation")}}, i18nc("@title:group", "Yazi Mode"), QStringLiteral("view-file-columns"));
+    addTabbedPage({{createYaziActivationPage(), i18nc("@title:tab", "Activation")}, {createYaziColumnsPage(), i18nc("@title:tab", "Columns")}},
+                  i18nc("@title:group", "Yazi Mode"),
+                  QStringLiteral("view-file-columns"));
     addTabbedPage({{createContextMenuActionsPage(), i18nc("@title:tab", "Actions")}, {createServiceMenusPage(), i18nc("@title:tab", "Service Menus")}},
                   i18nc("@title:group", "Context Menu"),
                   QStringLiteral("application-menu"));
@@ -2499,6 +2502,65 @@ QWidget *SettingsDialog::createYaziActivationPage()
     return page;
 }
 
+QWidget *SettingsDialog::createYaziColumnsPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("yaziColumnsPage"));
+    auto *layout = new QVBoxLayout(page);
+    const auto notice = [page](const QString &name, const QString &text) {
+        auto *label = new QLabel(text, page);
+        label->setObjectName(name);
+        label->setWordWrap(true);
+        return label;
+    };
+
+    auto *shown = new QGroupBox(i18nc("@title:group", "Shown Columns"), page);
+    auto *shownLayout = new QVBoxLayout(shown);
+    shownLayout->addWidget(checkBox(QStringLiteral("YaziParentColumnVisible"), i18nc("@option:check", "Show the parent column")));
+    shownLayout->addWidget(checkBox(QStringLiteral("YaziPreviewVisible"), i18nc("@option:check", "Show the preview column")));
+    shownLayout->addWidget(notice(QStringLiteral("yaziShownColumnsNotice"),
+                                  i18nc("@info",
+                                        "The current folder's column is always shown. A pane whose parent or preview column was shown or hidden "
+                                        "with View › Yazi Parent Column or View › Yazi Preview keeps its own choice.")));
+    layout->addWidget(shown);
+
+    auto *widths = new QGroupBox(i18nc("@title:group", "Column Widths"), page);
+    auto *widthsLayout = new QVBoxLayout(widths);
+    m_yaziColumnRatios = bound(new YaziColumnRatiosEditor, QStringLiteral("YaziColumnRatios"), "ratios");
+    widthsLayout->addWidget(m_yaziColumnRatios);
+    widthsLayout->addWidget(notice(QStringLiteral("yaziColumnWidthsNotice"),
+                                   i18nc("@info",
+                                         "Only the proportions of the widths matter. Dragging the edge between two columns in a pane gives that "
+                                         "pane its own widths, in pixels, and half a second later makes them the widths shown here. Other open "
+                                         "panes use these widths when they are applied, and new windows start with them.")));
+    layout->addWidget(widths);
+
+    auto *narrow = new QGroupBox(i18nc("@title:group", "Narrow Panes"), page);
+    auto *narrowLayout = new QVBoxLayout(narrow);
+    narrowLayout->addWidget(notice(QStringLiteral("yaziNarrowPanesNotice"),
+                                   i18nc("@info",
+                                         "The columns adapt to each pane's own width, so the other file pane is never resized or hidden. In "
+                                         "a pane narrower than about %1 pixels, the preview column is hidden first; below about %2 pixels, "
+                                         "the parent column is hidden too, so the current column stays at least %3 pixels wide. Hidden "
+                                         "columns return when the pane is widened.",
+                                         YaziMode::ThreeColumnWidth,
+                                         YaziMode::TwoColumnWidth,
+                                         YaziMode::MinimumCurrentWidth)));
+    layout->addWidget(narrow);
+    layout->addStretch();
+
+    // Dragging a column's edge saves new widths while the dialog may be open; show them unless the widths were changed here.
+    m_savedYaziColumnRatios = Settings::yaziColumnRatios();
+    connect(Settings::self(), &Settings::configChanged, m_yaziColumnRatios, [this] {
+        const QList<int> saved = Settings::yaziColumnRatios();
+        if (m_yaziColumnRatios->ratios() == m_savedYaziColumnRatios) {
+            m_yaziColumnRatios->setRatios(saved);
+        }
+        m_savedYaziColumnRatios = saved;
+    });
+    return page;
+}
+
 QWidget *SettingsDialog::createPreviewsPage()
 {
     auto *page = new QWidget;
@@ -2509,9 +2571,6 @@ QWidget *SettingsDialog::createPreviewsPage()
     form->addRow(QString(), checkBox(QStringLiteral("ShowPreviews"), i18nc("@option:check", "Show previews in new windows")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowRemotePreviews"), i18nc("@option:check", "Show previews in remote folders")));
     form->addRow(QString(), checkBox(QStringLiteral("PreviewMediaAutoplay"), i18nc("@option:check", "Automatically play audio and video previews")));
-    form->addRow(
-        QString(),
-        checkBox(QStringLiteral("YaziPreviewVisible"), i18nc("@option:check", "Show the preview column in Yazi mode unless a pane was set otherwise")));
     form->addRow(QString(), checkBox(QStringLiteral("PreviewFormatted"), i18nc("@option:check", "Show formatted HTML and Markdown by default")));
     form->addRow(QString(), checkBox(QStringLiteral("PreviewLineNumbers"), i18nc("@option:check", "Show line numbers in text previews")));
     form->addRow(QString(), checkBox(QStringLiteral("PreviewSyntaxHighlighting"), i18nc("@option:check", "Highlight syntax in text previews")));

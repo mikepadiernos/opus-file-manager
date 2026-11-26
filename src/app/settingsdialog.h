@@ -24,6 +24,7 @@ class QTreeWidget;
 class RuleListEditor;
 class StartupWorkspaceCombo;
 class TagFieldManagerWidget;
+class YaziColumnRatiosEditor;
 
 namespace LibraryConfirmations
 {
@@ -159,6 +160,7 @@ private:
     QWidget *createFiltersPage();
     QWidget *createFolderFormatsPage();
     QWidget *createYaziActivationPage();
+    QWidget *createYaziColumnsPage();
     QWidget *createIconsPage();
     QWidget *createContextMenuActionsPage();
     QWidget *createServiceMenusPage();
@@ -225,6 +227,9 @@ private:
     TagFieldManagerWidget *m_fieldManager = nullptr;
     FieldTemplateEditor *m_fieldTemplates = nullptr;
     EmbeddedMetadataMappingTable *m_metadataMappings = nullptr;
+    YaziColumnRatiosEditor *m_yaziColumnRatios = nullptr;
+    /// The YaziColumnRatios setting when it was last saved, to tell whether the dialog changed it.
+    QList<int> m_savedYaziColumnRatios;
     /// A checkbox for a setting kept outside Settings, in config that KIO
     /// shares with Dolphin.
     struct SharedToggle {
