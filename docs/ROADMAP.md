@@ -1427,7 +1427,7 @@ for some features are recorded in [pending tasks](TODO.md).
         such as on other compositors, without affecting file management.
         Plasma-session verification is a
         [pending handoff](TODO.md#kwin-script-on-plasma-707-708).
-  - [ ] Drop-down window, like Yakuake: optionally slide a Plasma Opus window
+  - [x] Drop-down window, like Yakuake: optionally slide a Plasma Opus window
         in from a chosen screen edge and hide it again, toggled by a KDE global
         shortcut or by a screen edge or touch-screen edge registered by the
         KWin script. Keep it above other windows and out of the taskbar and
