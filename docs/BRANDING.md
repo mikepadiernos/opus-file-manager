@@ -1,11 +1,22 @@
-# 🎨 Plasma Opus branding
+# Plasma Opus branding
 
-**[Application](../README.md)** · **[Documentation](README.md)** ·
-**[Roadmap](ROADMAP.md#m19-branding)**
+[![Docs index](https://img.shields.io/badge/docs-index-3daee9?style=flat-square)](README.md)
+[![Milestones M19–M20](https://img.shields.io/badge/milestones-M19%E2%80%93M20-8957e5?style=flat-square)](ROADMAP.md#m19-branding)
+![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)
+[![Caveats](https://img.shields.io/badge/caveats-branding-bf8700?style=flat-square)](CAVEATS.md#branding)
+[![Release notes template](https://img.shields.io/badge/release-template-6e7781?style=flat-square)](releases/TEMPLATE.md)
 
 Plasma Opus has its own name, logo and application icon. File, device, place and
 action icons always come from the active desktop icon theme; only the
 application's own identity is drawn here.
+
+## Contents
+
+- [Identity](#identity)
+- [Mark](#mark)
+- [Assets](#assets)
+- [Presentation](#presentation)
+- [Licence](#licence)
 
 ## Identity
 
@@ -20,7 +31,8 @@ application's own identity is drawn here.
 
 The name and summary are defined once in `src/core/appidentity.cpp` and are
 translated through the application catalogue, which also translates the
-desktop entry and AppStream metadata.
+desktop entry and AppStream metadata; see the
+[translation guide](../po/README.md).
 
 ## Mark
 
@@ -32,16 +44,18 @@ elsewhere. The spiral is always white.
 
 ## Assets
 
-| Asset                      | File                                                            | Use                                   |
-| -------------------------- | --------------------------------------------------------------- | ------------------------------------- |
-| Application icon           | `src/app/org.kde.opusfilemanager.svg`                           | Scalable, 48 px and larger            |
-| Small application icons    | `src/app/icons/{16x16,22x22,32x32}/org.kde.opusfilemanager.svg` | Pixel-aligned artwork for small sizes |
-| Symbolic icon              | `src/app/icons/symbolic/org.kde.opusfilemanager-symbolic.svg`   | Monochrome, follows the text colour   |
-| Logo for light backgrounds | `src/app/branding/plasma-opus-logo.svg`                         | Documentation and release materials   |
-| Logo for dark backgrounds  | `src/app/branding/plasma-opus-logo-dark.svg`                    | Documentation and release materials   |
+| Asset                      | File                                                            | Use                                                       |
+| -------------------------- | --------------------------------------------------------------- | --------------------------------------------------------- |
+| Application icon           | `src/app/org.kde.opusfilemanager.svg`                           | Scalable, 48 px and larger; built-in fallback icon        |
+| Small application icons    | `src/app/icons/{16x16,22x22,32x32}/org.kde.opusfilemanager.svg` | Pixel-aligned artwork for small sizes                     |
+| Symbolic icon              | `src/app/icons/symbolic/org.kde.opusfilemanager-symbolic.svg`   | Monochrome, follows the text colour                       |
+| Logo for light backgrounds | `src/app/branding/plasma-opus-logo.svg`                         | Documentation, release materials and startup presentation |
+| Logo for dark backgrounds  | `src/app/branding/plasma-opus-logo-dark.svg`                    | Documentation and release materials                       |
 
 The icons install to the `hicolor` theme so that any icon theme can override
-them. The small sizes simplify the spiral to rings that stay legible on the
+them. The scalable icon is also compiled into the application
+(`src/app/applicationicon.qrc`), which uses it when the icon theme provides
+none. The small sizes simplify the spiral to rings that stay legible on the
 pixel grid; the symbolic icon cuts the ring out of a monochrome folder and uses
 `ColorScheme-Text`, so it follows light and dark palettes.
 
@@ -65,12 +79,16 @@ with `prefers-color-scheme`:
 </picture>
 ```
 
+The startup presentation embeds the light-background logo
+(`src/app/branding.qrc`) and replaces its `ColorScheme-Text` and
+`ColorScheme-Accent` colours at runtime to suit the card.
+
 Keep clear space of at least the folder tab's height around the logo, and do not
 recolour, stretch or re-typeset the wordmark.
 
 ## Presentation
 
-- **About:** Help ▸ About Plasma Opus shows the application icon, name,
+- **About:** **Help › About Plasma Opus** shows the application icon, name,
   version and summary from the shared identity.
 - **Startup presentation:** an optional card with the logo, version and
   summary appears over the window for two seconds at startup. It is off by
@@ -82,24 +100,29 @@ recolour, stretch or re-typeset the wordmark.
   light card or light text on a dark card; the folder and "Opus" follow the
   accent colour.
 
-  Turn it on and choose the logo in **Preferences ▸ Branding ▸ Presentation**,
+  Turn it on and choose the logo in **Preferences › Branding › Presentation**,
   which previews the card for the current colour scheme. These options are
-  stored in the `[Branding]` group of `~/.config/opus-file-managerrc`,
-  separately from theme settings, and don't change the application name, icon
-  or About dialog.
+  stored in the `[Branding]` group of `~/.config/opus-file-managerrc`
+  (`StartupPresentation` and `LogoVariant`), separately from theme settings,
+  and don't change the application name, icon or About dialog.
 
 - **Release materials:** release notes start from the
   [release notes template](releases/TEMPLATE.md), which uses the logo variant
   for the reader's colour scheme, the shared name and summary, and the
   section order used by previous releases.
 
+> [!NOTE]
+> The presentation's high-contrast, screen-reader, duration and icon-theme
+> limits are listed under [Branding caveats](CAVEATS.md#branding).
+
 ## Licence
 
 All Plasma Opus branding assets are original work, licensed under
 GPL-3.0-or-later like the rest of the project, and carry SPDX headers.
 
-The wordmark was set in [Noto Sans](https://fonts.google.com/noto/specimen/Noto+Sans)
-(Light and Bold) and converted to outlines, so the logos render identically
-without the font installed. Noto Sans is licensed under the SIL Open Font
-License 1.1, which permits using the font to create artwork such as logos; the
-outlined shapes contain no font software.
+The wordmark was set in
+[Noto Sans](https://fonts.google.com/noto/specimen/Noto+Sans) (Light and Bold)
+and converted to outlines, so the logos render identically without the font
+installed. Noto Sans is licensed under the SIL Open Font License 1.1, which
+permits using the font to create artwork such as logos; the outlined shapes
+contain no font software.
