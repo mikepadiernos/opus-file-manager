@@ -160,6 +160,13 @@ public:
     DropDownWindow *dropDownWindow() const;
     /// Replaces the detected Ark backends, for tests.
     void setArkBackends(const Ark::Backends &backends);
+    /**
+     * Adds the selected local items to @p archivePath with Ark, after a
+     * confirmation, since Ark edits the archive in place. Refuses formats the
+     * installed backends cannot write and an archive inside the selection.
+     * @returns whether Ark was asked to add the items
+     */
+    bool addSelectionToArchive(const QString &archivePath);
 
     /**
      * Applies the current Settings to the panes, actions and status bar.
@@ -430,6 +437,8 @@ private:
     void extractArchive(const QUrl &archive, const QUrl &target);
     /// Opens the selected archive in Ark, which can add, rename and remove entries.
     void openInArk();
+    /// Asks for an archive Ark can write and adds the selection to it.
+    void addToArchive();
     /// What the installed Ark backends support, read once.
     const Ark::Backends &arkBackends();
     /// Whether @p item is a local archive that Ark reads but KIO cannot browse, such as RAR.

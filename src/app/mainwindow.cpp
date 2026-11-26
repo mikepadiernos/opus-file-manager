@@ -1882,8 +1882,14 @@ void MainWindow::compress()
                           inactivePane()->url().isLocalFile(),
                           this,
                           static_cast<ArchiveWriter::Format>(Settings::defaultArchiveFormat()),
-                          Settings::archiveOtherPaneByDefault());
-    if (dialog.exec() != QDialog::Accepted) {
+                          Settings::archiveOtherPaneByDefault(),
+                          Ark::isInstalled());
+    const int result = dialog.exec();
+    if (result == CompressDialog::UseArk) {
+        launchArk(Ark::compressArguments(sources));
+        return;
+    }
+    if (result != QDialog::Accepted) {
         return;
     }
 
@@ -1892,23 +1898,47 @@ void MainWindow::compress()
         showStatusMessage(i18nc("@info:status", "Archives can only be created in local folders."));
         return;
     }
+    const QDir directory(folder.toLocalFile());
+    const qint64 volumeSize = dialog.volumeSize();
+    // A split archive must not collide with existing volumes either.
+    const auto taken = [&directory, volumeSize](const QString &name) {
+        return QFileInfo::exists(directory.filePath(name)) || (volumeSize > 0 && QFileInfo::exists(directory.filePath(ArchiveWriter::firstVolumeName(name))));
+    };
     QString fileName = dialog.archiveName() + u'.' + ArchiveWriter::suffix(dialog.format());
-    if (QFileInfo::exists(QDir(folder.toLocalFile()).filePath(fileName))) {
+    while (taken(fileName)) {
         fileName = KFileUtils::suggestName(folder, fileName);
     }
-    const QString archivePath = QDir(folder.toLocalFile()).filePath(fileName);
+    const QString archivePath = directory.filePath(fileName);
 
-    auto *watcher = new QFutureWatcher<QString>(this);
-    connect(watcher, &QFutureWatcher<QString>::finished, this, [this, watcher, fileName] {
-        const QString error = watcher->result();
-        showStatusMessage(error.isEmpty() ? i18nc("@info:status", "Created %1", fileName) : i18nc("@info:status", "Could not create %1: %2", fileName, error));
+    auto *watcher = new QFutureWatcher<ArchiveWriter::Volumes>(this);
+    connect(watcher, &QFutureWatcher<ArchiveWriter::Volumes>::finished, this, [this, watcher, fileName] {
+        const ArchiveWriter::Volumes written = watcher->result();
+        if (!written.error.isEmpty()) {
+            showStatusMessage(i18nc("@info:status", "Could not create %1: %2", fileName, written.error));
+        } else if (written.files.size() > 1) {
+            showStatusMessage(i18ncp("@info:status",
+                                     "Created %2 in %1 volume, starting with %3",
+                                     "Created %2 in %1 volumes, starting with %3",
+                                     written.files.size(),
+                                     fileName,
+                                     QFileInfo(written.files.first()).fileName()));
+        } else {
+            showStatusMessage(i18nc("@info:status", "Created %1", QFileInfo(written.files.value(0)).fileName()));
+        }
         watcher->deleteLater();
     });
     const QString password = dialog.password();
     const ArchiveWriter::Format format = dialog.format();
-    watcher->setFuture(QtConcurrent::run([archivePath, format, sources, password] {
-        return password.isEmpty() ? ArchiveWriter::write(archivePath, format, sources)
-                                  : ArchiveWriter::writeEncryptedZip(archivePath, format, sources, password);
+    watcher->setFuture(QtConcurrent::run([archivePath, format, sources, password, volumeSize]() -> ArchiveWriter::Volumes {
+        const QString error =
+            password.isEmpty() ? ArchiveWriter::write(archivePath, format, sources) : ArchiveWriter::writeEncryptedZip(archivePath, format, sources, password);
+        if (!error.isEmpty()) {
+            return {{}, error};
+        }
+        if (volumeSize > 0 && QFileInfo(archivePath).size() > volumeSize) {
+            return ArchiveWriter::splitIntoVolumes(archivePath, volumeSize);
+        }
+        return {{archivePath}, {}};
     }));
 }
 
@@ -2229,6 +2259,95 @@ void MainWindow::openInArk()
         return;
     }
     launchArk(Ark::openArguments(item.localPath()));
+    const Ark::FormatSupport support = arkBackends().support(item.mimetype());
+    if (Ark::isInstalled() && support.read && !support.write) {
+        showStatusMessage(i18nc("@info:status",
+                                "Ark can only extract %1 with the installed tools; install the format's full tools to add, rename or remove entries.",
+                                item.name()));
+    }
+}
+
+void MainWindow::addToArchive()
+{
+    const KFileItemList selected = activePane()->view()->selectedItems();
+    if (selected.isEmpty() || std::any_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
+            return item.localPath().isEmpty();
+        })) {
+        showStatusMessage(i18nc("@info:status", "Select local files or folders to add to an archive."));
+        return;
+    }
+    if (!Ark::isInstalled()) {
+        launchArk({});
+        return;
+    }
+    const QStringList writable = arkBackends().writableMimeTypes();
+    if (writable.isEmpty()) {
+        showStatusMessage(i18nc("@info:status", "None of Ark's installed backends can add files to archives."));
+        return;
+    }
+    QFileDialog dialog(this, i18nc("@title:window", "Add to Archive"));
+    if (activePane()->url().isLocalFile()) {
+        dialog.setDirectory(activePane()->url().toLocalFile());
+    }
+    dialog.setFileMode(QFileDialog::ExistingFile);
+    dialog.setMimeTypeFilters(writable);
+    if (dialog.exec() != QDialog::Accepted || dialog.selectedFiles().isEmpty()) {
+        return;
+    }
+    addSelectionToArchive(dialog.selectedFiles().constFirst());
+}
+
+bool MainWindow::addSelectionToArchive(const QString &archivePath)
+{
+    const KFileItemList selected = activePane()->view()->selectedItems();
+    QStringList sources;
+    for (const KFileItem &item : selected) {
+        if (!item.localPath().isEmpty()) {
+            sources.append(item.localPath());
+        }
+    }
+    if (sources.isEmpty() || sources.size() != selected.size()) {
+        showStatusMessage(i18nc("@info:status", "Select local files or folders to add to an archive."));
+        return false;
+    }
+    const QFileInfo archive(archivePath);
+    if (!archive.isFile()) {
+        showStatusMessage(i18nc("@info:status", "%1 is not an archive file.", archivePath));
+        return false;
+    }
+    const QString canonicalArchive = archive.canonicalFilePath();
+    for (const QString &source : sources) {
+        const QString canonicalSource = QFileInfo(source).canonicalFilePath();
+        if (canonicalSource == canonicalArchive || canonicalArchive.startsWith(canonicalSource + u'/')) {
+            showStatusMessage(i18nc("@info:status", "%1 cannot be added to itself.", archive.fileName()));
+            return false;
+        }
+    }
+    if (!Ark::isInstalled()) {
+        launchArk({});
+        return false;
+    }
+    const QMimeType mimeType = QMimeDatabase().mimeTypeForFile(archivePath);
+    const Ark::FormatSupport support = arkBackends().support(mimeType.name());
+    if (!support.write) {
+        showStatusMessage(support.read ? i18nc("@info:status", "Ark can only extract %1 archives with the installed tools.", mimeType.comment())
+                                       : i18nc("@info:status", "None of Ark's installed backends can add files to %1.", archive.fileName()));
+        return false;
+    }
+    const auto answer =
+        KMessageBox::warningContinueCancel(this,
+                                           i18ncp("@info",
+                                                  "Add %1 item to %2? Ark changes the archive in place, and an entry with the same name is replaced.",
+                                                  "Add %1 items to %2? Ark changes the archive in place, and entries with the same names are replaced.",
+                                                  sources.size(),
+                                                  archive.fileName()),
+                                           i18nc("@title:window", "Add to Archive"),
+                                           KGuiItem(i18nc("@action:button", "Add"), QStringLiteral("archive-insert")));
+    if (answer != KMessageBox::Continue) {
+        return false;
+    }
+    launchArk(Ark::addToArguments(archivePath, sources));
+    return true;
 }
 
 const Ark::Backends &MainWindow::arkBackends()
@@ -3162,6 +3281,11 @@ void MainWindow::setupActions()
     QAction *compressAction = actions->addAction(QStringLiteral("compress"), this, &MainWindow::compress);
     compressAction->setText(i18nc("@action", "Compress…"));
     compressAction->setIcon(QIcon::fromTheme(QStringLiteral("archive-insert")));
+
+    QAction *addToArchiveAction = actions->addAction(QStringLiteral("add_to_archive"), this, &MainWindow::addToArchive);
+    addToArchiveAction->setText(i18nc("@action", "Add to Archive…"));
+    addToArchiveAction->setToolTip(i18nc("@info:tooltip", "Add the selection to an existing archive with Ark"));
+    addToArchiveAction->setIcon(QIcon::fromTheme(QStringLiteral("archive-insert")));
 
     QAction *extract = actions->addAction(QStringLiteral("extract_to_other_pane"), this, &MainWindow::extractToOtherPane);
     extract->setText(i18nc("@action", "Extract to Other Pane"));
@@ -4559,6 +4683,9 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     }
     if (allLocal) {
         menu.addAction(actions->action(QStringLiteral("compress")));
+        if (Ark::isInstalled()) {
+            menu.addAction(actions->action(QStringLiteral("add_to_archive")));
+        }
     }
     menu.addAction(actions->action(QStringLiteral("calculate_occupied_space")));
     if (visible("copy_path") && Settings::showCopyPath()) {

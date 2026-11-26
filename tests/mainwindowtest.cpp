@@ -411,6 +411,110 @@ private Q_SLOTS:
         QVERIFY(!QFile::exists(outputPath));
     }
 
+    void arkAddsSelectionOnlyToWritableArchives()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QDir root(directory.path());
+        QVERIFY(root.mkpath(QStringLiteral("bin")) && root.mkpath(QStringLiteral("left/folder")));
+        QFile executable(root.filePath(QStringLiteral("bin/ark")));
+        QVERIFY(executable.open(QIODevice::WriteOnly));
+        QVERIFY(executable.write("#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$ARK_TEST_OUTPUT\"\n") > 0);
+        executable.close();
+        QVERIFY(executable.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+        const auto writeFile = [](const QString &path, const QByteArray &data) {
+            QFile file(path);
+            return file.open(QIODevice::WriteOnly) && file.write(data) == data.size();
+        };
+        const QString note = root.filePath(QStringLiteral("left/note.txt"));
+        const QString zip = root.filePath(QStringLiteral("left/photos.zip"));
+        const QString innerZip = root.filePath(QStringLiteral("left/folder/inner.zip"));
+        const QString rar = root.filePath(QStringLiteral("left/music.rar"));
+        const QByteArray emptyZip = QByteArray("PK\x05\x06", 4) + QByteArray(18, '\0');
+        QVERIFY(writeFile(note, "hello"));
+        QVERIFY(writeFile(zip, emptyZip));
+        QVERIFY(writeFile(innerZip, emptyZip));
+        QVERIFY(writeFile(rar, QByteArray("Rar!\x1a\x07\x01\x00", 8) + QByteArray(64, '\0')));
+
+        const QByteArray oldPath = qgetenv("PATH");
+        const QByteArray oldOutput = qgetenv("ARK_TEST_OUTPUT");
+        const auto restore = qScopeGuard([&] {
+            qputenv("PATH", oldPath);
+            qputenv("ARK_TEST_OUTPUT", oldOutput);
+        });
+        const QString outputPath = root.filePath(QStringLiteral("arguments"));
+        qputenv("PATH", root.filePath(QStringLiteral("bin")).toLocal8Bit());
+        qputenv("ARK_TEST_OUTPUT", outputPath.toLocal8Bit());
+        const auto readArguments = [&outputPath] {
+            QFile output(outputPath);
+            return output.open(QIODevice::ReadOnly) ? QString::fromLocal8Bit(output.readAll()).split(u'\n', Qt::SkipEmptyParts) : QStringList();
+        };
+        // Answers the confirmation once it is shown, by adding or cancelling.
+        bool confirmed = false;
+        std::function<void(bool, int)> answer = [&confirmed, &answer](bool add, int attempts) {
+            QTimer::singleShot(10, [&confirmed, &answer, add, attempts] {
+                auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+                if (!dialog || !dialog->isVisible()) {
+                    if (attempts > 0) {
+                        answer(add, attempts - 1);
+                    }
+                    return;
+                }
+                confirmed = dialog->windowTitle().contains(QStringLiteral("Add to Archive"));
+                const QList<QPushButton *> buttons = dialog->findChildren<QPushButton *>();
+                for (QPushButton *button : buttons) {
+                    if (add && button->text().remove(u'&') == QStringLiteral("Add")) {
+                        button->click();
+                        return;
+                    }
+                }
+                dialog->reject();
+            });
+        };
+
+        MainWindow window;
+        const QJsonObject rarPlugin = QJsonDocument::fromJson(R"({"KPlugin": {"Id": "kerfuffle_clirar", "MimeTypes": ["application/vnd.rar"]},
+            "X-KDE-Kerfuffle-ReadOnlyExecutables": ["unrar"], "X-KDE-Kerfuffle-ReadWrite": true, "X-KDE-Kerfuffle-ReadWriteExecutables": ["rar"]})")
+                                          .object();
+        const QJsonObject zipPlugin =
+            QJsonDocument::fromJson(R"({"KPlugin": {"Id": "kerfuffle_libzip", "MimeTypes": ["application/zip"]}, "X-KDE-Kerfuffle-ReadWrite": true})").object();
+        window.setArkBackends(Ark::Backends::fromPlugins({rarPlugin, zipPlugin}, [](const QString &program) {
+            return program == QLatin1String("unrar");
+        }));
+        window.openUrls({QUrl::fromLocalFile(root.filePath(QStringLiteral("left")))});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 4);
+        QVERIFY(window.actionCollection()->action(QStringLiteral("add_to_archive")));
+        view->selectUrls({QUrl::fromLocalFile(note)});
+        QTRY_COMPARE(view->selectedItems().size(), 1);
+
+        QVERIFY(!window.addSelectionToArchive(rar));
+        QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("only extract")));
+        QVERIFY(!window.addSelectionToArchive(root.filePath(QStringLiteral("left/missing.zip"))));
+
+        answer(false, 200);
+        QVERIFY(!window.addSelectionToArchive(zip));
+        QVERIFY(confirmed);
+        QVERIFY(!QFile::exists(outputPath));
+
+        confirmed = false;
+        answer(true, 200);
+        QVERIFY(window.addSelectionToArchive(zip));
+        QVERIFY(confirmed);
+        QTRY_COMPARE(readArguments(), (QStringList{QStringLiteral("--changetofirstpath"), QStringLiteral("--add-to"), zip, QStringLiteral("--"), note}));
+
+        QFile::remove(outputPath);
+        view->selectUrls({QUrl::fromLocalFile(zip)});
+        QTRY_COMPARE(view->selectedItems().size(), 1);
+        QVERIFY(!window.addSelectionToArchive(zip));
+        QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("itself")));
+        view->selectUrls({QUrl::fromLocalFile(root.filePath(QStringLiteral("left/folder")))});
+        QTRY_COMPARE(view->selectedItems().size(), 1);
+        QVERIFY(!window.addSelectionToArchive(innerZip));
+        QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("itself")));
+        QVERIFY(!QFile::exists(outputPath));
+    }
+
     void opensFilteredFolderComparison()
     {
         QTemporaryDir root;

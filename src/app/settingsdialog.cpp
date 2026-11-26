@@ -3369,7 +3369,8 @@ QWidget *SettingsDialog::createArchivesPage()
                            i18nc("@item:inlistbox", "Uncompressed ZIP"),
                            i18nc("@item:inlistbox", "tar.gz"),
                            i18nc("@item:inlistbox", "tar.xz"),
-                           i18nc("@item:inlistbox", "tar.zst")}));
+                           i18nc("@item:inlistbox", "tar.zst"),
+                           i18nc("@item:inlistbox", "7z")}));
     form->addRow({}, checkBox(QStringLiteral("ArchiveOtherPaneByDefault"), i18nc("@option:check", "Create archives in the other pane by default")));
     return page;
 }
