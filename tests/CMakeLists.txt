@@ -127,6 +127,7 @@ ecm_add_tests(
     metadataeditortest.cpp
     metadataimporttest.cpp
     navigationhistorytest.cpp
+    officeappstest.cpp
     operationjobtest.cpp
     previewcontenttest.cpp
     runnermatchestest.cpp
