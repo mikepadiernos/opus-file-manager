@@ -355,6 +355,20 @@ behaves like the rest of the desktop and follows the user's choices.
   **Open Editor** still opens the built-in editor. See
   [Editor integrations](../CAVEATS.md#desktop-integration).
   ([#319](https://github.com/mikepadiernos/plasma-opus/issues/319))
+- **Office documents:** The preview panel shows OpenDocument and Microsoft
+  Office documents, spreadsheets and presentations read-only through an
+  installed viewer component for the format, such as Calligra's.
+  **Tools › Open in Office Application**, also in the context menu when every
+  selected file is an office document, opens them in
+  [LibreOffice](https://www.libreoffice.org/),
+  [Calligra](https://calligra.org/) or
+  [ONLYOFFICE](https://www.onlyoffice.com/desktop.aspx). Applications that
+  aren't installed are disabled with a tooltip saying so. LibreOffice and
+  ONLYOFFICE open a mixed selection together; Calligra opens each kind in
+  Calligra Words, Sheets or Stage. Only Calligra opens remote files. The
+  application handles editing, saving and format conversion. See
+  [Office documents](../CAVEATS.md#desktop-integration).
+  ([#674](https://github.com/mikepadiernos/plasma-opus/issues/674))
 
 ## Planned features
 

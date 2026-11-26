@@ -148,6 +148,7 @@ Main menus
 │   ├── Search Command History with Atuin
 │   ├── Open Editor
 │   ├── Edit With
+│   ├── Open in Office Application
 │   └── Custom Commands
 ├── Settings
 │   ├── Configure Plasma Opus
@@ -169,6 +170,7 @@ File listing: selected items
 ├── Open
 ├── Open With
 ├── Edit With
+├── Open in Office Application
 ├── Open Folder in New Tab
 ├── Open Folder in Other Pane
 ├── Cut
