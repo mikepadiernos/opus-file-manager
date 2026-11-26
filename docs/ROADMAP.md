@@ -1581,7 +1581,7 @@ for some features are recorded in [pending tasks](TODO.md).
         them. Report missing FUSE support or tools, mounts that need an fstab
         entry or administrator authorization, stale or busy mounts and failed
         unmounts; unmount only what Plasma Opus mounted. (RaiDrive)
-  - [ ] Temporary LAN sharing: serve selected files or a folder over HTTP or
+  - [x] Temporary LAN sharing: serve selected files or a folder over HTTP or
         WebDAV to devices on the local network, with optional TLS, a QR code,
         a random access token, read-only access by default and an optional
         upload folder with conflict handling. Bind only to chosen interfaces,
