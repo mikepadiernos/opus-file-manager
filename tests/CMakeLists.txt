@@ -117,6 +117,7 @@ ecm_add_tests(
     densitytest.cpp
     draftstoretest.cpp
     duplicatefindertest.cpp
+    editorproviderstest.cpp
     executablestest.cpp
     filemanagerrequesttest.cpp
     imageeditingtest.cpp

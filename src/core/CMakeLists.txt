@@ -105,6 +105,8 @@ add_library(opusfm_core STATIC
     draftstore.h
     duplicatefinder.cpp
     duplicatefinder.h
+    editorproviders.cpp
+    editorproviders.h
     effectiveappearance.cpp
     effectiveappearance.h
     executables.cpp
