@@ -136,6 +136,7 @@ ecm_add_tests(
     themeprofilestest.cpp
     treemaptest.cpp
     transferqueuetest.cpp
+    traypolicytest.cpp
     viewsettingstest.cpp
     workspaceappearancetest.cpp
     workspacecatalogtest.cpp
@@ -265,6 +266,15 @@ ecm_add_test(mainwindowtest.cpp
     NAME_PREFIX "opusfm-"
     GUI
 )
+
+ecm_add_test(desktoptraytest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+# The test sends window-manager close requests through QWindowSystemInterface.
+find_package(Qt6 ${QT_MIN_VERSION} QUIET COMPONENTS GuiPrivate)
+target_link_libraries(desktoptraytest Qt6::GuiPrivate)
 
 ecm_add_test(filemanagerservicetest.cpp
     LINK_LIBRARIES opusfm_app Qt6::DBus Qt6::Test
