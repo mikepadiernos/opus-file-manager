@@ -16,13 +16,14 @@ state and the steps to resume.
 
 ## Contents
 
-Board statuses were last confirmed on 2026-11-25.
+Board statuses were last confirmed on 2026-11-26.
 
 | Handoff                                                             | Milestone                                                                      | Issues         | Board status                                                                                                                                        |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [mpv integration](#mpv-integration-563)                             | [M27](ROADMAP.md#m27-integrations)                                             | [#563]         | ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square)                                                                           |
 | [Markdown editor and backlinks](#markdown-editor-and-backlinks-564) | [M27](ROADMAP.md#m27-integrations)                                             | [#564]         | ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square)                                                                           |
 | [Workspace vault editing](#workspace-vault-editing-565)             | [M27](ROADMAP.md#m27-integrations), [M28](ROADMAP.md#m28-integration-settings) | [#565], [#566] | ![Defined](https://img.shields.io/badge/Defined-6e7781?style=flat-square) ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square) |
+| [System file chooser on Plasma](#system-file-chooser-on-plasma-286) | [M27](ROADMAP.md#m27-integrations)                                             | [#286]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                             |
 
 ## mpv integration (#563)
 
@@ -95,8 +96,37 @@ Board statuses were last confirmed on 2026-11-25.
 5. For [#566], also verify workspace-scoped settings persistence and recovery
    when vault roots or editor features are unavailable.
 
+## System file chooser on Plasma (#286)
+
+- **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#286]
+  (Review).
+- **Blocker:** The development container has no Plasma session, no
+  xdg-desktop-portal frontend and no KWin, so the portal routing, window
+  parenting and the restart of xdg-desktop-portal cannot be tried there.
+- **Confirmed state:** The chooser, its D-Bus backend and the
+  `--install-portal` and `--uninstall-portal` setup are implemented and pass
+  their tests in the container, including a request answered over a private
+  session bus. This verification does not block the feature; it is recorded
+  as a caveat under [Desktop integration](CAVEATS.md#desktop-integration).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with xdg-desktop-portal 1.21.0 or later, install
+   with `./install.sh --file-chooser`.
+2. Open and save files from a Flatpak application, a GTK application with
+   `GTK_USE_PORTAL=1` and a browser set to use the portal file chooser.
+   Check filters, choices,
+   multiple selection, folder selection, overwrite confirmation and that the
+   dialog stays over the requesting window on Wayland and X11.
+3. Run `./install.sh --uninstall` and confirm the previous chooser returns
+   and `~/.config/xdg-desktop-portal/kde-portals.conf` matches its backup.
+4. On an older xdg-desktop-portal, confirm KDE's chooser is used as the
+   fallback. Record any differences in [CAVEATS](CAVEATS.md), then remove
+   this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
+[#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
 [#563]: https://github.com/mikepadiernos/plasma-opus/issues/563
 [#564]: https://github.com/mikepadiernos/plasma-opus/issues/564
 [#565]: https://github.com/mikepadiernos/plasma-opus/issues/565

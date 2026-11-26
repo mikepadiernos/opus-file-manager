@@ -1395,7 +1395,8 @@ for some features are recorded in [pending tasks](TODO.md).
         Snap apps and portal-enabled GTK, Electron and browser apps; native Qt
         and KDE applications keep Plasma's in-process dialog. Do not change
         platform themes or environment variables, and report a missing portal
-        service or setup failures.
+        service or setup failures. Plasma-session verification is a
+        [pending handoff](TODO.md#system-file-chooser-on-plasma-286).
   - [ ] Mount manager, like Krusader's
         [MountMan](https://docs.kde.org/trunk_kf6/en/krusader/krusader/mount-man.html):
         list mounted and fstab-defined file systems with their device, type,
