@@ -87,6 +87,12 @@ public:
      * default folders in new tabs of the first and second pane.
      */
     void applyActivityPlan(const ActivityAssociations::Plan &plan);
+    /**
+     * Switches to the saved workspace with @p id, asking first as any
+     * workspace switch does, or reports in the status bar that it no longer
+     * exists. KRunner and `--workspace` open workspaces this way.
+     */
+    void openWorkspace(const QString &id);
 
     /**
      * Splits the panes top/bottom instead of side by side. When stacked,

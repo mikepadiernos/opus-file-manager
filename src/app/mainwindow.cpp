@@ -932,6 +932,19 @@ void MainWindow::applyActivityPlan(const ActivityAssociations::Plan &plan)
     }
 }
 
+void MainWindow::openWorkspace(const QString &id)
+{
+    reloadWorkspaceCatalog();
+    const auto workspace = std::find_if(m_workspaceCatalog.workspaces.cbegin(), m_workspaceCatalog.workspaces.cend(), [&id](const auto &entry) {
+        return entry.id == id;
+    });
+    if (workspace == m_workspaceCatalog.workspaces.cend()) {
+        statusBar()->showMessage(i18nc("@info:status", "The requested workspace no longer exists."), 5000);
+        return;
+    }
+    selectWorkspace(int(std::distance(m_workspaceCatalog.workspaces.cbegin(), workspace)));
+}
+
 void MainWindow::restoreActiveWorkspaceLayout()
 {
     const auto it = std::find_if(m_workspaceCatalog.workspaces.cbegin(), m_workspaceCatalog.workspaces.cend(), [this](const auto &workspace) {

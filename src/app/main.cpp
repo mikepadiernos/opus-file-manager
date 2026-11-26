@@ -111,7 +111,8 @@ int main(int argc, char **argv)
                                                          i18n("Ignore appearance options attached to workspaces in this session"));
     const QCommandLineOption fileManagerServiceOption(QStringLiteral("file-manager-service"),
                                                       i18n("Start without a window to answer an org.freedesktop.FileManager1 request"));
-    parser.addOptions({resetAppearanceOption, noWorkspaceAppearanceOption, fileManagerServiceOption});
+    const QCommandLineOption workspaceOption(QStringLiteral("workspace"), i18n("Switch to the saved workspace with this id"), QStringLiteral("id"));
+    parser.addOptions({resetAppearanceOption, noWorkspaceAppearanceOption, fileManagerServiceOption, workspaceOption});
     parser.process(app);
     aboutData.processCommandLine(&parser);
 
@@ -207,6 +208,11 @@ int main(int argc, char **argv)
         window->show();
         StartupPresentation::presentIfEnabled(window);
         showStartupMessage();
+        if (parser.isSet(workspaceOption)) {
+            QTimer::singleShot(0, window, [window, id = parser.value(workspaceOption)] {
+                window->openWorkspace(id);
+            });
+        }
     }
 
     QObject::connect(&service, &KDBusService::activateRequested, window, [window](const QStringList &arguments, const QString &workingDirectory) {
@@ -214,7 +220,8 @@ int main(int argc, char **argv)
         instanceParser.addPositionalArgument(QStringLiteral("path"), QString());
         const QCommandLineOption resetAppearance(QStringLiteral("reset-appearance"));
         const QCommandLineOption fileManagerService(QStringLiteral("file-manager-service"));
-        instanceParser.addOptions({resetAppearance, QCommandLineOption(QStringLiteral("no-workspace-appearance")), fileManagerService});
+        const QCommandLineOption workspace(QStringLiteral("workspace"), QString(), QStringLiteral("id"));
+        instanceParser.addOptions({resetAppearance, QCommandLineOption(QStringLiteral("no-workspace-appearance")), fileManagerService, workspace});
         instanceParser.parse(arguments);
         if (instanceParser.isSet(fileManagerService)) {
             // Another process was activated for a request this instance
@@ -231,6 +238,9 @@ int main(int argc, char **argv)
         if (window->windowHandle()) {
             KWindowSystem::updateStartupId(window->windowHandle());
             KWindowSystem::activateWindow(window->windowHandle());
+        }
+        if (instanceParser.isSet(workspace)) {
+            window->openWorkspace(instanceParser.value(workspace));
         }
     });
 
