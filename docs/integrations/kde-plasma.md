@@ -123,6 +123,16 @@ behaves like the rest of the desktop and follows the user's choices.
   of applied. Plasma Opus only reads Activities: it never creates, removes or
   switches them, and leaves recent-file history to KDE.
   ([#387](https://github.com/mikepadiernos/plasma-opus/issues/387))
+- **KDE Connect:** **File › Send to Device…** sends the selected local files
+  to a paired device through KDE Connect's share plugin. The dialog lists the
+  files it will send and the items it cannot, such as folders, remote
+  locations and missing items, and each paired device with why it cannot
+  receive files when it is offline or has file sharing turned off. Nothing is
+  sent until **Send** is pressed, and the last device used is chosen again.
+  When KDE Connect is not running or no device is paired, the dialog says so.
+  KDE Connect's own notifications show each transfer's progress and result.
+  Plasma Opus never pairs devices or changes KDE Connect settings.
+  ([#389](https://github.com/mikepadiernos/plasma-opus/issues/389))
 
 ## Planned features
 
@@ -134,10 +144,6 @@ them.
 - **System file chooser:** Let applications request a chooser through the XDG
   portal. Preserve user defaults and sandbox permissions.
   ([#286](https://github.com/mikepadiernos/plasma-opus/issues/286))
-- **KDE Connect:** Share explicitly selected files with a paired device,
-  reporting offline devices and transfer failures. Do not pair devices or send
-  automatically.
-  ([#389](https://github.com/mikepadiernos/plasma-opus/issues/389))
 - **KRunner:** Expose only explicitly selected saved workspaces and locations,
   respecting privacy and unavailable targets.
   ([#390](https://github.com/mikepadiernos/plasma-opus/issues/390))
