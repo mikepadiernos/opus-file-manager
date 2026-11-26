@@ -428,6 +428,11 @@ Settings
   features, layout and theme, with optional Activity associations and
   per-Activity choices once M27 and M28 provide them; keep KDE-owned accounts,
   credentials and desktop settings under KDE's control.
+- Until M28, the M27 integrations have interim tabs: **General › System
+  Tray** holds the tray icon and hiding choices, and **Workspaces ›
+  Activities** turns Activity associations and their offers on. Both move to
+  Integrations › KDE Plasma with M28; the associations themselves are edited
+  under **View › Activity Associations** until then.
 - Integrations › KDE Plasma groups desktop-specific controls; provider choices
   shared with non-KDE applications remain separate. Password-gated folders are
   placed under Workspaces › Management but are an M28 feature; the gate applies

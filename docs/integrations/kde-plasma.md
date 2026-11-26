@@ -103,13 +103,26 @@ behaves like the rest of the desktop and follows the user's choices.
   uses the default. The window hides to the tray only while a tray can show
   the icon. While hidden, the icon moves out of the hidden section until the
   window is shown again. Minimizing or closing to the tray is off by default;
-  until the M28 settings add the choice, set `MinimizeToTray=true` or
-  `CloseToTray=true` in the `[Tray]` group of `~/.config/opus-file-managerrc`.
-  Closing to the tray applies only to the window's close button; **File ›
+  turn either on, or remove the icon, under **Settings › General › System
+  Tray**. Closing to the tray applies only to the window's close button; **File ›
   Quit** and the tray menu's **Quit** still quit.
   ([#285](https://github.com/mikepadiernos/plasma-opus/issues/285); shortcut
   settings in [M28](../ROADMAP.md#m28-integration-settings) and
   [M31](../ROADMAP.md#m31-keyboard-shortcut-settings))
+- **Plasma Activities:** each Activity can name a workspace and a default
+  folder for each pane under **View › Activity Associations**, once
+  associations are turned on under **Settings › Workspaces › Activities**.
+  An association uses the workspace's own behaviours, or all, selected or
+  none of them, independently of other Activities. When the current Activity
+  changes, a message above the panes offers to switch to its workspace and
+  open its folders in new tabs; nothing is applied until **Apply** is
+  chosen, and the switch asks first as any workspace switch does.
+  **View › Apply Activity Association** applies it at any other time.
+  Associations are kept when their Activity is removed, their workspace is
+  deleted or a folder is missing, and the missing parts are reported instead
+  of applied. Plasma Opus only reads Activities: it never creates, removes or
+  switches them, and leaves recent-file history to KDE.
+  ([#387](https://github.com/mikepadiernos/plasma-opus/issues/387))
 
 ## Planned features
 
@@ -121,11 +134,6 @@ them.
 - **System file chooser:** Let applications request a chooser through the XDG
   portal. Preserve user defaults and sandbox permissions.
   ([#286](https://github.com/mikepadiernos/plasma-opus/issues/286))
-- **Activities and workspaces:** Offer optional workspace associations and
-  per-Activity choices without changing Activities or replacing unsaved state
-  automatically. Handle missing services and folders.
-  ([#387](https://github.com/mikepadiernos/plasma-opus/issues/387))
-
 - **KDE Connect:** Share explicitly selected files with a paired device,
   reporting offline devices and transfer failures. Do not pair devices or send
   automatically.
