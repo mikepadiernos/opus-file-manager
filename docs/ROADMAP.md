@@ -1221,7 +1221,7 @@ process or a promise of Yazi configuration or plugin compatibility.
 - [x] Provide keyboard-first navigation with optional Vim-style movement and
       multi-key actions. Reuse KDE shortcut facilities; show the active mode and
       do not intercept typing in editors, search fields or the terminal.
-- [ ] Support focused-item and multi-item selection, copy, move, rename, trash
+- [x] Support focused-item and multi-item selection, copy, move, rename, trash
       and other existing file actions through Plasma Opus and KIO. Retain
       conflict handling, destructive-action confirmations and undo; never add a
       shortcut that silently overwrites or permanently deletes files.
