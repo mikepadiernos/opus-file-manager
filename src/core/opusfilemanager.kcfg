@@ -604,6 +604,16 @@
       <default>false</default>
     </entry>
   </group>
+  <group name="Activities">
+    <entry name="ActivityAssociations" type="Bool">
+      <label>Associate workspaces and default folders with Plasma Activities</label>
+      <default>false</default>
+    </entry>
+    <entry name="OfferActivityAssociation" type="Bool">
+      <label>Offer to apply an Activity's association when the current Activity changes</label>
+      <default>true</default>
+    </entry>
+  </group>
   <group name="Editor">
     <entry name="EditorOpening" type="Enum">
       <choices><choice name="Panel"/><choice name="Embedded"/><choice name="Maximized"/><choice name="Window"/></choices>
