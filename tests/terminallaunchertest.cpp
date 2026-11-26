@@ -7,6 +7,7 @@
 
 #include <KActionCollection>
 #include <KActionMenu>
+#include <KSharedConfig>
 
 #include <QApplication>
 #include <QDBusConnection>
@@ -18,6 +19,7 @@
 #include <QMenu>
 #include <QScopeGuard>
 #include <QStandardPaths>
+#include <QStatusBar>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QUrl>
@@ -369,6 +371,59 @@ private Q_SLOTS:
         QCOMPARE(lines.size(), 2);
         QVERIFY(lines.at(0).endsWith(QStringLiteral("kolourpaint")));
         QCOMPARE(lines.at(1), photo);
+    }
+
+    void remoteConnectionsListSavedProfilesAndOpenSsh()
+    {
+        RemoteProfiles::Profile server;
+        server.name = QStringLiteral("Build & deploy");
+        server.host = QStringLiteral("build.example.invalid");
+        server.port = 2222;
+        server.user = QStringLiteral("deploy");
+        RemoteProfiles::Profile cloud;
+        cloud.name = QStringLiteral("Cloud");
+        cloud.protocol = RemoteProfiles::Protocol::WebDavs;
+        cloud.host = QStringLiteral("cloud.example.invalid");
+        QList<RemoteProfiles::Profile> profiles{server, cloud};
+        KConfigGroup group = KSharedConfig::openConfig()->group(QStringLiteral("RemoteProfiles"));
+        const auto removeProfiles = qScopeGuard([&group] {
+            group.deleteGroup();
+            group.sync();
+        });
+        QVERIFY(RemoteProfiles::save(group, profiles));
+
+        MainWindow window;
+        auto *remote = qobject_cast<KActionMenu *>(window.actionCollection()->action(QStringLiteral("remote_connections")));
+        QVERIFY(remote);
+        Q_EMIT remote->menu()->aboutToShow();
+        const QList<QAction *> entries = remote->menu()->actions();
+        QCOMPARE(entries.size(), 4);
+        QCOMPARE(entries.at(0)->text(), QStringLiteral("Build && deploy"));
+        QCOMPARE(entries.at(0)->toolTip(), QStringLiteral("sftp://deploy@build.example.invalid:2222"));
+        QVERIFY(entries.at(0)->menu());
+        QCOMPARE(entries.at(0)->menu()->actions().size(), 3);
+        QVERIFY(entries.at(1)->menu());
+        QCOMPARE(entries.at(1)->menu()->actions().size(), 2);
+        QVERIFY(entries.at(2)->isSeparator());
+        QCOMPARE(entries.at(3), window.actionCollection()->action(QStringLiteral("manage_remote_connections")));
+
+        window.openSshTerminal(profiles.first());
+        QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("ssh command was not found")));
+
+        const QString output = m_bin.filePath(QStringLiteral("arguments"));
+        QVERIFY(writeExecutable(m_bin.filePath(QStringLiteral("ssh")), "#!/bin/sh\nprintf '%s\\n' \"$@\" > '" + output.toLocal8Bit() + "'\n"));
+        entries.at(0)->menu()->actions().at(2)->trigger();
+        QVERIFY(window.actionCollection()->action(QStringLiteral("show_embedded_terminal"))->isChecked());
+        QFile file(output);
+        QTRY_VERIFY_WITH_TIMEOUT(file.exists() && file.size() > 0, 10000);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromLocal8Bit(file.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts),
+                 (QStringList{QStringLiteral("-p"),
+                              QStringLiteral("2222"),
+                              QStringLiteral("-l"),
+                              QStringLiteral("deploy"),
+                              QStringLiteral("--"),
+                              QStringLiteral("build.example.invalid")}));
     }
 
 private:

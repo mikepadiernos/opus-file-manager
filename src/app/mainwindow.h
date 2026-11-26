@@ -10,6 +10,7 @@
 #include "metadataeditdialog.h"
 #include "officeapps.h"
 #include "previewpanel.h"
+#include "remoteprofiles.h"
 #include "tagpanel.h"
 #include "workspacecatalog.h"
 #include "yazimode.h"
@@ -154,6 +155,14 @@ public:
     void showMountManager();
     /// Fills the Mount Points menu with each file system and its state.
     void populateMountPoints();
+    /// Fills the Remote Connections menu with each saved connection.
+    void populateRemoteConnections();
+    /// Shows the dialog that manages saved remote connections.
+    void showRemoteConnections();
+    /// Opens @p profile in the active pane, or in the other pane when @p otherPane is set.
+    void openRemoteProfile(const RemoteProfiles::Profile &profile, bool otherPane);
+    /// Opens an SSH session for @p profile in the terminal panel.
+    void openSshTerminal(const RemoteProfiles::Profile &profile);
 
     /// The optional Plasma Opus KWin script and its D-Bus interface.
     KWinIntegration *kwinIntegration() const;
@@ -622,6 +631,7 @@ private:
     bool m_automaticRemoteSizeDefault = false;
     QMenu *m_popularFoldersMenu = nullptr;
     QMenu *m_mountPointsMenu = nullptr;
+    QMenu *m_remoteConnectionsMenu = nullptr;
     QHash<QString, int> m_popularFolderVisits;
     QHash<QString, QAction *> m_customCommandActions;
     QHash<Pane *, QUrl> m_lastFolderByPane;

@@ -62,6 +62,7 @@
 #include "pane.h"
 #include "pathfiltereditor.h"
 #include "previewpanel.h"
+#include "remoteprofilesdialog.h"
 #include "searchdefaults.h"
 #include "searchpanel.h"
 #include "searchquery.h"
@@ -3608,6 +3609,17 @@ void MainWindow::setupActions()
     actions->addAction(QStringLiteral("mount_points"), mountPoints);
     connect(m_mountPointsMenu, &QMenu::aboutToShow, this, &MainWindow::populateMountPoints);
 
+    auto *remoteConnections = new KActionMenu(SymbolicIcon::fromTheme(QStringLiteral("folder-network")), i18nc("@action", "Remote Connections"), this);
+    remoteConnections->setToolTip(i18nc("@info:tooltip", "Open a saved SSH, SFTP or WebDAV connection"));
+    remoteConnections->setPopupMode(QToolButton::InstantPopup);
+    m_remoteConnectionsMenu = remoteConnections->menu();
+    actions->addAction(QStringLiteral("remote_connections"), remoteConnections);
+    connect(m_remoteConnectionsMenu, &QMenu::aboutToShow, this, &MainWindow::populateRemoteConnections);
+    QAction *manageRemote = actions->addAction(QStringLiteral("manage_remote_connections"), this, &MainWindow::showRemoteConnections);
+    manageRemote->setText(i18nc("@action", "Manage Remote Connections…"));
+    manageRemote->setToolTip(i18nc("@info:tooltip", "Add, edit or remove saved SSH, SFTP and WebDAV connections"));
+    manageRemote->setIcon(SymbolicIcon::fromTheme(QStringLiteral("network-server")));
+
     QAction *editUrl = actions->addAction(QStringLiteral("edit_location"), this, [this] {
         activePane()->editUrl();
     });
@@ -5638,6 +5650,95 @@ void MainWindow::populateMountPoints()
     m_mountPointsMenu->setToolTipsVisible(true);
     m_mountPointsMenu->addSeparator();
     m_mountPointsMenu->addAction(actionCollection()->action(QStringLiteral("mount_manager")));
+}
+
+void MainWindow::populateRemoteConnections()
+{
+    m_remoteConnectionsMenu->clear();
+    m_remoteConnectionsMenu->setToolTipsVisible(true);
+    QString error;
+    const QList<RemoteProfiles::Profile> profiles = RemoteProfiles::load(KSharedConfig::openConfig()->group(QStringLiteral("RemoteProfiles")), &error);
+    const bool otherPane = isDualLayout() && !inactivePane()->isHidden();
+    for (const RemoteProfiles::Profile &profile : profiles) {
+        QString name = profile.name;
+        name.replace(QLatin1Char('&'), QStringLiteral("&&"));
+        QMenu *submenu = m_remoteConnectionsMenu->addMenu(QIcon::fromTheme(QStringLiteral("folder-network")), name);
+        submenu->setToolTipsVisible(true);
+        submenu->menuAction()->setToolTip(RemoteProfiles::url(profile).toDisplayString());
+        submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("document-open-folder")), i18nc("@action:inmenu", "Open"), this, [this, profile] {
+            openRemoteProfile(profile, false);
+        });
+        QAction *other = submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("view-split-left-right")),
+                                            i18nc("@action:inmenu", "Open in Other Pane"),
+                                            this,
+                                            [this, profile] {
+                                                openRemoteProfile(profile, true);
+                                            });
+        other->setEnabled(otherPane);
+        if (RemoteProfiles::supportsSsh(profile.protocol)) {
+            submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("utilities-terminal")),
+                               i18nc("@action:inmenu", "Open SSH Terminal"),
+                               this,
+                               [this, profile] {
+                                   openSshTerminal(profile);
+                               });
+        }
+    }
+    if (profiles.isEmpty()) {
+        m_remoteConnectionsMenu->addAction(i18nc("@action:inmenu", "No saved connections"))->setEnabled(false);
+    }
+    if (!error.isEmpty()) {
+        QAction *problem = m_remoteConnectionsMenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("dialog-warning")), error);
+        problem->setEnabled(false);
+    }
+    m_remoteConnectionsMenu->addSeparator();
+    m_remoteConnectionsMenu->addAction(actionCollection()->action(QStringLiteral("manage_remote_connections")));
+}
+
+void MainWindow::showRemoteConnections()
+{
+    auto *dialog = new RemoteProfilesDialog(KSharedConfig::openConfig()->group(QStringLiteral("RemoteProfiles")), this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setOtherPaneAvailable(isDualLayout() && !inactivePane()->isHidden());
+    connect(dialog, &RemoteProfilesDialog::openRequested, this, [this, dialog](const QUrl &, bool otherPane) {
+        openRemoteProfile(dialog->formProfile(), otherPane);
+    });
+    connect(dialog, &RemoteProfilesDialog::sshRequested, this, &MainWindow::openSshTerminal);
+    dialog->show();
+}
+
+void MainWindow::openRemoteProfile(const RemoteProfiles::Profile &profile, bool otherPane)
+{
+    const QString unavailable = RemoteProfiles::unavailableReason(profile.protocol);
+    if (!unavailable.isEmpty()) {
+        showStatusMessage(unavailable);
+        return;
+    }
+    const QUrl url = RemoteProfiles::url(profile);
+    if (otherPane && isDualLayout() && !inactivePane()->isHidden()) {
+        inactivePane()->setUrl(url);
+        return;
+    }
+    activePane()->setUrl(url);
+}
+
+void MainWindow::openSshTerminal(const RemoteProfiles::Profile &profile)
+{
+    if (!RemoteProfiles::supportsSsh(profile.protocol) || !RemoteProfiles::validationError(profile).isEmpty()) {
+        return;
+    }
+    const QString ssh = QStandardPaths::findExecutable(QStringLiteral("ssh"));
+    if (ssh.isEmpty()) {
+        showStatusMessage(i18nc("@info:status", "The ssh command was not found. Install OpenSSH to open SSH terminals."));
+        return;
+    }
+    // Showing the panel through its action would also start a shell session.
+    if (!m_terminalPanelAction->isChecked()) {
+        const QSignalBlocker blocker(m_terminalPanelAction);
+        m_terminalPanelAction->setChecked(true);
+        updateTerminalPanelVisibility();
+    }
+    m_terminalPanel->openProgram(ssh, RemoteProfiles::sshArguments(profile), QDir::homePath(), profile.name.trimmed());
 }
 
 void MainWindow::verifyChecksumFile()
