@@ -1254,7 +1254,7 @@ layouts.
 - [x] **Activation:** choose each pane's default mode and whether to restore its
       previous choice. Respect explicitly restored M15 layouts when available
       and keep the mode off by default.
-- [ ] **Columns:** choose visible folder-context and preview columns and their
+- [x] **Columns:** choose visible folder-context and preview columns and their
       sizes; adapt to narrow windows without hiding the other file pane.
 - [ ] **Keyboard:** choose a standard or Yazi-inspired shortcut preset and
       review conflicts before applying it. Keep typing and accessibility
