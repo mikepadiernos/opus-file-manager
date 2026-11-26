@@ -1371,7 +1371,7 @@ for some features are recorded in [pending tasks](TODO.md).
         shared with other KDE applications; require explicit user action and
         report failures. Reuse the existing Plasma Opus-specific and
         Dolphin-shared visibility controls.
-  - [ ] Optional system file chooser that replaces application Open and Save
+  - [x] Optional system file chooser that replaces application Open and Save
         dialogs, as in [Strata](https://github.com/lgse/strata), by serving the
         XDG portal file chooser. Implement
         `org.freedesktop.impl.portal.FileChooser` (`OpenFile`, `SaveFile` and
@@ -1407,7 +1407,9 @@ for some features are recorded in [pending tasks](TODO.md).
         that shows each mount point's current state, and include network and
         FUSE mounts such as remote drives. Leave partitioning, formatting and
         fstab editing to KDE Partition Manager. Report busy devices, denied
-        authorization and failed operations. (Krusader)
+        authorization and failed operations. (Krusader) Plasma-session
+        verification is a
+        [pending handoff](TODO.md#mount-manager-on-plasma-703).
   - [ ] Optional KWin script for window management that Wayland applications
         cannot perform themselves: install, enable, update and remove a Plasma
         Opus KWin script package only through explicit action, using KPackage
