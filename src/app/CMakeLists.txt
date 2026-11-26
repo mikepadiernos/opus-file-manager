@@ -57,6 +57,13 @@ add_library(opusfm_app STATIC
     kdeconnectclient.h
     kdeconnectsharedialog.cpp
     kdeconnectsharedialog.h
+    dropdownwindow.cpp
+    dropdownwindow.h
+    kwinintegration.cpp
+    kwinintegration.h
+    kwinintegrationdialog.cpp
+    kwinintegrationdialog.h
+    kwinscript.qrc
     mountbackend.cpp
     mountbackend.h
     mountmanagerdialog.cpp
@@ -183,6 +190,7 @@ target_link_libraries(opusfm_app
         KF6::CoreAddons
         KF6::GlobalAccel
         KF6::I18n
+        KF6::Package
         KF6::KIOCore
         KF6::KIOFileWidgets
         KF6::KIOGui
