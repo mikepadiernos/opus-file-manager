@@ -63,6 +63,8 @@ add_library(opusfm_core STATIC
     interfacelanguage.h
     kdeconnectshare.cpp
     kdeconnectshare.h
+    kwinscript.cpp
+    kwinscript.h
     mounttable.cpp
     mounttable.h
     librarymoves.cpp
