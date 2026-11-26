@@ -1513,7 +1513,7 @@ for some features are recorded in [pending tasks](TODO.md).
         unavailable providers, unsupported formats and locations, and launch or
         save failures. Preserve unsaved changes and existing file content; never
         silently convert or overwrite a document.
-  - [ ] For any viewable file, offer an edit action when a suitable tool is
+  - [x] For any viewable file, offer an edit action when a suitable tool is
         available. Use supported embedded providers or launch a separate editor;
         distinguish viewing from editing capabilities and report unavailable
         tools, unsupported locations and launch failures. Preserve unsaved
