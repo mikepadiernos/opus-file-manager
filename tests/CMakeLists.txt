@@ -132,6 +132,7 @@ ecm_add_tests(
     officeappstest.cpp
     operationjobtest.cpp
     previewcontenttest.cpp
+    rclonetest.cpp
     remoteprofilestest.cpp
     runnermatchestest.cpp
     servicemenustest.cpp
