@@ -296,6 +296,7 @@ QJsonObject writePaneSession(const PaneSession &pane)
                        {QStringLiteral("viewMode"), pane.viewMode}};
     YaziMode::writeWorkspace(object, pane.yaziMode);
     YaziMode::writeWorkspacePreview(object, pane.yaziPreview);
+    YaziMode::writeWorkspacePreviewContent(object, pane.yaziPreviewContent);
     return object;
 }
 
@@ -359,7 +360,8 @@ bool readPaneSession(const QJsonValue &value, PaneSession &pane, bool *credentia
         || mode > PaneSession::MaximumViewMode || int(mode) != mode) {
         return false;
     }
-    if (!YaziMode::readWorkspace(object, pane.yaziMode) || !YaziMode::readWorkspacePreview(object, pane.yaziPreview)) {
+    if (!YaziMode::readWorkspace(object, pane.yaziMode) || !YaziMode::readWorkspacePreview(object, pane.yaziPreview)
+        || !YaziMode::readWorkspacePreviewContent(object, pane.yaziPreviewContent)) {
         return false;
     }
     pane.currentTab = currentTab.toInt();

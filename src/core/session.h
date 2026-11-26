@@ -37,6 +37,9 @@ struct PaneSession {
     /// Whether Yazi mode shows the preview column: 1 shown, 0 hidden, -1 not
     /// saved; use the YaziPreviewVisible default.
     int yaziPreview = -1;
+    /// What Yazi mode's preview column shows, a YaziMode::PreviewContent
+    /// value, or -1 when not saved; use the YaziPreviewContent default.
+    int yaziPreviewContent = -1;
 
     bool operator==(const PaneSession &other) const = default;
 };

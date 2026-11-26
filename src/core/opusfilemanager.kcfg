@@ -1344,5 +1344,13 @@
       </choices>
       <default>Standard</default>
     </entry>
+    <entry name="YaziPreviewContent" type="Enum">
+      <label>What the preview column of panes in Yazi mode shows unless the pane's session says otherwise: the preview of the focused item, or its file information</label>
+      <choices>
+        <choice name="Preview"/>
+        <choice name="Information"/>
+      </choices>
+      <default>Preview</default>
+    </entry>
   </group>
 </kcfg>

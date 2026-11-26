@@ -17,6 +17,20 @@ constexpr auto SessionKey = "YaziMode";
 constexpr auto WorkspaceKey = "yaziMode";
 constexpr auto SessionPreviewKey = "YaziPreview";
 constexpr auto WorkspacePreviewKey = "yaziPreview";
+constexpr auto SessionPreviewContentKey = "YaziPreviewContent";
+constexpr auto WorkspacePreviewContentKey = "yaziPreviewContent";
+
+/// The PreviewContent value @p name stands for, compared case-insensitively, or -1.
+int previewContentFromName(const QString &name)
+{
+    if (name.compare(QLatin1String("preview"), Qt::CaseInsensitive) == 0) {
+        return int(YaziMode::PreviewContent::Preview);
+    }
+    if (name.compare(QLatin1String("information"), Qt::CaseInsensitive) == 0) {
+        return int(YaziMode::PreviewContent::Information);
+    }
+    return -1;
+}
 
 bool isModifierKey(int key)
 {
@@ -106,6 +120,43 @@ bool YaziMode::readWorkspacePreview(const QJsonObject &object, int &preview)
         return false;
     }
     preview = value.toBool() ? 1 : 0;
+    return true;
+}
+
+int YaziMode::readSessionPreviewContent(const KConfigGroup &group)
+{
+    return previewContentFromName(group.readEntry(SessionPreviewContentKey, QString()));
+}
+
+void YaziMode::writeSessionPreviewContent(KConfigGroup &group, int content)
+{
+    if (content < 0) {
+        group.deleteEntry(SessionPreviewContentKey);
+    } else {
+        group.writeEntry(SessionPreviewContentKey, content == int(PreviewContent::Information) ? QStringLiteral("Information") : QStringLiteral("Preview"));
+    }
+}
+
+void YaziMode::writeWorkspacePreviewContent(QJsonObject &object, int content)
+{
+    if (content >= 0) {
+        object.insert(QLatin1String(WorkspacePreviewContentKey),
+                      content == int(PreviewContent::Information) ? QStringLiteral("information") : QStringLiteral("preview"));
+    }
+}
+
+bool YaziMode::readWorkspacePreviewContent(const QJsonObject &object, int &content)
+{
+    const auto value = object.value(QLatin1String(WorkspacePreviewContentKey));
+    if (value.isUndefined()) {
+        content = -1;
+        return true;
+    }
+    const int parsed = value.isString() ? previewContentFromName(value.toString()) : -1;
+    if (parsed < 0) {
+        return false;
+    }
+    content = parsed;
     return true;
 }
 
@@ -238,6 +289,8 @@ QString YaziMode::commandId(Command command)
         return QStringLiteral("focus-preview");
     case Command::TogglePreview:
         return QStringLiteral("toggle-preview");
+    case Command::TogglePreviewContent:
+        return QStringLiteral("toggle-preview-content");
     case Command::Leave:
         return QStringLiteral("leave");
     case Command::ToggleSelection:
@@ -435,6 +488,7 @@ YaziMode::Keymap YaziMode::presetKeymap(Preset preset)
             bind({Qt::Key_G, Qt::Key_C}, Command::FocusCurrent),
             bind({Qt::Key_G, Qt::Key_V}, Command::FocusPreview),
             bind({Qt::Key_Z, Qt::Key_P}, Command::TogglePreview),
+            bind({Qt::Key_I}, Command::TogglePreviewContent),
             bind({Qt::Key_Q}, Command::Leave),
             bind({Qt::Key_Space}, Command::ToggleSelectionDown),
             bind({Qt::Key_V}, Command::VisualSelection),

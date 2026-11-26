@@ -46,6 +46,31 @@ void writeWorkspacePreview(QJsonObject &object, int preview);
  */
 bool readWorkspacePreview(const QJsonObject &object, int &preview);
 
+/// What the preview column shows for the focused item. The values match the YaziPreviewContent setting.
+enum class PreviewContent {
+    /// The item's preview, or a folder's contents.
+    Preview = 0,
+    /// The item's file information, such as its size, type, dates and permissions.
+    Information = 1,
+};
+
+/**
+ * Reads what a pane's preview column shows from a session group.
+ * @returns a PreviewContent value, or -1 when nothing or an unknown value was
+ *          saved, as in sessions saved before the choice existed
+ */
+int readSessionPreviewContent(const KConfigGroup &group);
+/// Writes what a pane's preview column shows; -1 removes the entry.
+void writeSessionPreviewContent(KConfigGroup &group, int content);
+/// Writes what a pane's preview column shows as "preview" or "information"; -1 writes nothing.
+void writeWorkspacePreviewContent(QJsonObject &object, int content);
+/**
+ * Reads what a pane's preview column shows into @p content: a PreviewContent
+ * value, or -1 when absent, as in workspaces saved before the choice existed.
+ * @returns false when the value is present but is not "preview" or "information"
+ */
+bool readWorkspacePreviewContent(const QJsonObject &object, int &content);
+
 /// The folder the parent column lists for @p current, or an empty URL when
 /// @p current is invalid or has no parent, such as at a root.
 QUrl parentFolder(const QUrl &current);
@@ -119,6 +144,8 @@ enum class Command {
     FocusCurrent,
     FocusPreview,
     TogglePreview,
+    /// Switches the preview column between the preview and the file information.
+    TogglePreviewContent,
     Leave,
     /// Selects or deselects the focused item, keeping the selection while moving.
     ToggleSelection,

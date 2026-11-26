@@ -94,6 +94,7 @@ PaneSession mergePane(const PaneSession &saved, const PaneSession &current, cons
         result.viewMode = saved.viewMode;
         result.yaziMode = saved.yaziMode;
         result.yaziPreview = saved.yaziPreview;
+        result.yaziPreviewContent = saved.yaziPreviewContent;
     }
     return result;
 }
