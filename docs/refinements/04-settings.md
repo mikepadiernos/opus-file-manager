@@ -1,31 +1,70 @@
-# ⚙️ M32.04 Settings
+# M32.04 Settings
 
-**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m32-refinements)** ·
-**[Performance](05-performance.md)**
+[![Docs index](https://img.shields.io/badge/docs-index-3daee9?style=flat-square)](../README.md)
+[![Refinements index](https://img.shields.io/badge/refinements-index-3daee9?style=flat-square)](README.md)
+[![Roadmap: M32 refinements](https://img.shields.io/badge/roadmap-M32%20refinements-8957e5?style=flat-square)](../ROADMAP.md#m32-refinements)
+
+![M32.04 Settings](https://img.shields.io/badge/M32.04-Settings-8957e5?style=flat-square)
+![Proposal](https://img.shields.io/badge/Proposal-6e7781?style=flat-square)
 
 **Goal:** make preferences searchable, understandable and safe to change,
 without promising rollback of changes owned by other components.
 
+> [!NOTE]
+> This plan is a proposal for review. The [roadmap](../ROADMAP.md#m32-refinements)
+> defines the scope of M32.04; nothing here is implemented yet.
+
 ## Contents
 
-- [Proposed settings layout](#proposed-settings-layout)
-- [Proposed order](#proposed-order)
-- [Review decisions](#review-decisions)
+- [Problem](#problem)
+- [Proposal](#proposal)
+  - [Proposed settings layout](#proposed-settings-layout)
+  - [Mapping and behaviour](#mapping-and-behaviour)
+  - [Further consolidation](#further-consolidation)
+- [Execution order](#execution-order)
+- [Open questions](#open-questions)
 
-## Proposed settings layout
+## Problem
+
+The Preferences dialog has a sidebar of 16 groups, each with one or more tabs:
+**General**, **Translation**, **Backup**, **Interface**, **Themes**,
+**Branding**, **View**, **Yazi Mode**, **Context Menu**, **Archives**,
+**Files**, **Tagging**, **Workspaces**, **Gallery**, **Editor** and **Tools**.
+Several groups hold many tabs (**Tools** has 15, **Themes** 12 and
+**Workspaces** 10), and related settings are spread across groups: the embedded
+terminal and search defaults sit under **Tools**, and previews appear under both
+**Interface** and **Yazi Mode**. There is no settings search or list of
+favourite pages.
+
+M32.04 asks to:
+
+- make persistence and recovery reliable, and report save failures and
+  conflicting external changes;
+- clarify Apply, OK, Cancel, dismissal with pending changes, page and all-page
+  defaults, and the boundaries of reset, backup and restore;
+- validate inputs inline, explain scope and precedence, and add contextual help;
+- search settings, filter long lists and mark favourite pages;
+- support keyboard, screen-reader, small-window, high-DPI, long-translation and
+  right-to-left use;
+- make grouping, labels and terminology consistent, establish conventions for
+  future pages and add focused tests.
+
+## Proposal
+
+### Proposed settings layout
 
 > [!NOTE]
 > This tree is a design proposal, not the current dialog. The current
-> dialog has sidebar groups with tabs.
+> dialog has sidebar groups with tabs; see
+> [Mapping and behaviour](#mapping-and-behaviour).
 
-Inspired by the supplied KDE System Settings example, add a second navigation
-column while retaining Plasma Opus's existing visual style, theme icons and
-sidebar customization. This changes navigation, not the application's colors,
-theme or styling.
+Inspired by KDE System Settings, add a second navigation column while retaining
+Plasma Opus's existing visual style, theme icons and sidebar customization. This
+changes navigation, not the application's colours, theme or styling.
 
 1. **Sidebar:** select a category, such as File or Panels. Provide a
-   preference-search entry point here; General > Favorites remains the place to
-   manage favorite settings pages.
+   preference-search entry point here; a proposed **General › Favorites** page
+   manages favourite settings pages.
 2. **Subcolumn:** select a page within the category, such as Views or Operations
    under File, or Terminal under Panels.
 3. **Content:** display the selected page's controls, using scoped tabs where
@@ -53,10 +92,13 @@ general or frequently used controls, followed by related specialized features
 and import/export or advanced integrations.
 
 - `[proposed]` identifies M32 navigation or controls not yet established.
-- `[future]` reserves a place for roadmap work; the marker also applies to its
-  descendants. It does not claim the feature exists or make it a prerequisite
-  for M32. Settings from M16, M18 and M20 have since merged into the current
-  dialog; their markers record where this proposal would place them.
+- `[merged: M##]` marks settings from a merged milestone that already exist in
+  the current dialog, possibly under different group and tab names; the tree
+  records where this proposal would place them. The marker also applies to
+  descendants.
+- `[future: M##]` reserves a place for planned roadmap work; the marker also
+  applies to descendants. It does not claim the feature exists or make it a
+  prerequisite for M32.
 
 ```text
 Settings
@@ -73,7 +115,7 @@ Settings
 │   │   │   └── Numerals
 │   │   └── Dates (tab)
 │   │       └── Calendar and date/time formats
-│   ├── Branding (subpage) [future: M20]
+│   ├── Branding (subpage) [merged: M20]
 │   │   ├── Startup Branding (tab)
 │   │   │   └── Enable or disable the optional startup branding
 │   │   └── Branding Variants (tab)
@@ -83,7 +125,7 @@ Settings
 │       │   ├── App-owned configuration and layout backup
 │       │   ├── Preview
 │       │   └── Restore
-│       └── Portability (tab) [future: M16]
+│       └── Portability (tab) [merged: M16]
 │           ├── Workspace import
 │           ├── Workspace export
 │           └── Conflict review
@@ -94,25 +136,25 @@ Settings
 │   │   ├── Context Menu Actions (tab)
 │   │   └── Automation (tab)
 │   ├── Folders and Tabs (subpage)
-│   │   ├── Behavior (tab)
+│   │   ├── Behaviour (tab)
 │   │   └── Appearance (tab)
 │   ├── Status and Location Bars (subpage)
 │   ├── Motion (subpage) [proposed]
 │   │   └── Desktop motion preferences and app-level animation disable
-│   └── Themes (subpage) [future: M18]
+│   └── Themes (subpage) [merged: M18]
 │       ├── Appearance (tab)
-│       ├── Colors (tab)
+│       ├── Colours (tab)
 │       ├── Stylesheet (tab)
 │       └── Theme Profiles (tab)
 ├── Panels (category)
 │   ├── General (subpage) [proposed]
 │   │   ├── Panel appearance
 │   │   ├── Title visibility
-│   │   └── Layout behavior
+│   │   └── Layout behaviour
 │   ├── Explorer (subpage)
 │   │   ├── Combined Places and Folders
 │   │   ├── Visible sections
-│   │   └── Focus behavior
+│   │   └── Focus behaviour
 │   ├── Linked Panes (subpage)
 │   │   └── Startup linking and local roots
 │   ├── Preview (subpage)
@@ -123,7 +165,7 @@ Settings
 │   ├── Metadata (subpage)
 │   │   ├── Information panel fields
 │   │   ├── Field ordering
-│   │   └── Hover behavior
+│   │   └── Hover behaviour
 │   ├── Text Editor (subpage)
 │   │   ├── General (tab)
 │   │   │   ├── Opening and placement
@@ -134,7 +176,7 @@ Settings
 │   │   └── KTextEditor (tab)
 │   ├── Terminal (subpage)
 │   │   └── Placement and following the active pane's local folder
-│   └── Search (subpage) [future: M22]
+│   └── Search (subpage) [merged: M22]
 │       └── Panel placement and restoring its visibility
 ├── File (category)
 │   ├── Views (subpage)
@@ -142,6 +184,7 @@ Settings
 │   │   ├── Details (tab)
 │   │   ├── Icons (tab)
 │   │   ├── Compact (tab)
+│   │   ├── Cards (tab)
 │   │   ├── Listing Selection and Filters (tab)
 │   │   ├── Folder Formats (tab)
 │   │   └── Listing Previews (tab)
@@ -157,18 +200,18 @@ Settings
 ├── Modes (category)
 │   ├── Default (subpage) [proposed]
 │   │   ├── Normal dual-pane browsing
-│   │   ├── Default view and listing settings (link to File > Views)
-│   │   └── Startup folders and session (link to Appearance > Folders and Tabs)
+│   │   ├── Default view and listing settings (link to File › Views)
+│   │   └── Startup folders and session (link to Appearance › Folders and Tabs)
 │   ├── Gallery (subpage)
 │   │   ├── Opening (tab)
 │   │   ├── Information and Display (tab)
 │   │   ├── Slideshow (tab)
 │   │   └── Image Conversion (tab)
-│   └── Yazi (subpage) [future: M26]
+│   └── Yazi (subpage) [merged: M26]
 │       ├── Activation (tab)
 │       ├── Columns and Preview (tab)
 │       ├── Keyboard (tab)
-│       └── Workspace Behavior (tab)
+│       └── Workspace Behaviour (tab)
 ├── Tools (category)
 │   ├── Analysis (subpage)
 │   │   ├── Duplicate Finder (tab)
@@ -191,7 +234,7 @@ Settings
 │   │   │   ├── Subtrees
 │   │   │   └── Recursion depth
 │   │   └── Saved Searches and Collections (tab)
-│   ├── Advanced Search (subpage) [future: M22]
+│   ├── Advanced Search (subpage) [merged: M22]
 │   │   ├── Toolbar (tab)
 │   │   └── Results (tab)
 │   └── Results (subpage) [proposed]
@@ -199,27 +242,27 @@ Settings
 │       ├── Matching setting
 │       └── Direct navigation
 ├── Workspaces (category)
-│   ├── Management (subpage) [future: M16 or M28]
-│   │   ├── Workspaces (tab) [future: M16]
+│   ├── Management (subpage) [merged: M16; future: M28]
+│   │   ├── Workspaces (tab) [merged: M16]
 │   │   │   ├── Locations
 │   │   │   └── Exclusive location assignments
 │   │   ├── Vault (tab) [future: M28]
 │   │   │   ├── Assigned local vault root
 │   │   │   └── Editor, preview and note navigation
-│   │   ├── Startup (tab) [future: M16]
+│   │   ├── Startup (tab) [merged: M16]
 │   │   │   └── Startup workspace or last-used workspace
-│   │   ├── Recovery (tab) [future: M16]
+│   │   ├── Recovery (tab) [merged: M16]
 │   │   │   └── Unavailable locations and providers
-│   │   ├── Features (tab) [future: M16]
+│   │   ├── Features (tab) [merged: M16]
 │   │   │   ├── Workspace features
-│   │   │   ├── Theme application [future: M18]
+│   │   │   ├── Theme application [merged: M18]
 │   │   │   └── Activity overrides [future: M28]
 │   │   └── Password-gated Folders (tab) [future: M28]
 │   │       └── Folder access managed inside Plasma Opus
-│   ├── Layouts (subpage) [future: M16]
+│   ├── Layouts (subpage) [merged: M16]
 │   │   ├── Layouts (tab)
 │   │   │   ├── Restored components
-│   │   │   ├── Workspace theme [future: M18]
+│   │   │   ├── Workspace theme [merged: M18]
 │   │   │   ├── Pane location bars
 │   │   │   └── Overwrite confirmation
 │   │   ├── Indicators (tab)
@@ -229,10 +272,10 @@ Settings
 │   │   └── Snapshots (tab)
 │   │       ├── Restored pane state
 │   │       ├── Restored tab state
-│   │       └── Restored Yazi mode state [future: M26]
-│   └── Search (subpage) [future: M16]
+│   │       └── Restored Yazi mode state [merged: M26]
+│   └── Search (subpage) [merged: M16]
 │       └── Workspace or all-location default scope
-├── Tagging (category) [future: M24]
+├── Tagging (category) [merged: M24]
 │   ├── Libraries (subpage)
 │   │   ├── Locations (tab)
 │   │   │   ├── Roots
@@ -250,7 +293,7 @@ Settings
 │   │   │   ├── Names and aliases
 │   │   │   └── Relationships
 │   │   ├── Display (tab)
-│   │   │   ├── Colors
+│   │   │   ├── Colours
 │   │   │   └── Display options
 │   │   └── Search (tab)
 │   │       ├── Search scope
@@ -274,14 +317,14 @@ Settings
 │   ├── Vim-style Navigation (subpage)
 │   │   ├── Mode
 │   │   ├── File-list navigation
-│   │   └── Text-input behavior
+│   │   └── Text-input behaviour
 │   ├── Hints (subpage)
 │   │   ├── Sliding or floating key-sequence panel
 │   │   ├── Delay
 │   │   └── On-demand reference
 │   ├── Global Shortcuts (subpage)
 │   │   ├── Optional KDE-managed global bindings
-│   │   └── Integration shortcut (link to Integrations > KDE Plasma)
+│   │   └── Integration shortcut (link to Integrations › KDE Plasma)
 │   └── Import and Export (subpage)
 │       └── Bindings and conflict preview
 └── Integrations (category)
@@ -289,7 +332,7 @@ Settings
     │   ├── Service Menus (tab)
     │   │   └── Installed service actions and plugins
     │   ├── System Tray (tab) [future: M28]
-    │   │   └── Minimize and close behavior
+    │   │   └── Minimize and close behaviour
     │   ├── Activities (tab) [future: M28]
     │   │   └── Workspace associations and Activity-specific choices
     │   ├── Notifications (tab) [future: M28]
@@ -328,58 +371,69 @@ Settings
         └── Audit log
 ```
 
-### Mapping and behavior
+### Mapping and behaviour
 
-- Current **Translation** tabs move to General and **Backup** moves to General
-  > Data; workspace portability has a separate tab there and reuses the backup
-  > controls. Current **Interface** tabs are split between Appearance, Panels
-  > and the File category's Views and Operations destinations. Current **View**
-  > tabs move into File > Views.
-- Current **Context Menu Actions** and **Automation** settings move to
-  Appearance > Menus; **Service Menus** moves to Integrations > KDE Plasma.
+- The current **General › Settings Dialog** tab (page titles and sidebar icon
+  size) moves to General › Sidebar. **Translation** tabs move to General ›
+  Language and Dates, and **Backup** moves to General › Data; workspace
+  portability has a separate tab there and reuses the backup controls.
+- Current **Interface** tabs are split between Appearance, Panels and the File
+  category's Views and Operations destinations. Current **View** tabs move into
+  File › Views.
+- **Context Menu › Actions** and **Tools › Automation** move to Appearance ›
+  Menus; **Context Menu › Service Menus** moves to Integrations › KDE Plasma.
   Existing service-menu settings remain available without M28. **Archives** and
-  **Files** tabs move to File > Operations. Gallery settings move to tabs under
-  Modes > Gallery. The Editor and KTextEditor tabs move to Panels > Text Editor,
-  and the embedded terminal moves from Tools to Panels. Search becomes its own
-  category below Tools. Linked Panes moves to Panels; remaining tools are
-  grouped by scope under Tools, except Automation, Applications and Transfer
-  Queue, which move as shown above.
-- Favorites move into General. Language and Dates share a subpage, as do Folders
-  and Tabs behavior and appearance. Modes groups normal browsing, Gallery and
-  future Yazi settings; Default links to the authoritative view and startup
+  **Files** tabs move to File › Operations. **Gallery** tabs move to Modes ›
+  Gallery. The **Editor** and **KTextEditor** tabs move to Panels › Text
+  Editor, and **Tools › Embedded Terminal** moves to Panels › Terminal.
+  **Tools › Search** becomes its own Search category below Tools. **Tools ›
+  Linked Panes** moves to Panels; remaining tools are grouped by scope under
+  Tools, except Automation, Applications and Transfer Queue, which move as
+  shown above.
+- **Themes**, **Branding**, **Yazi Mode**, **Tagging** and **Workspaces** are
+  merged groups whose current tabs differ from the tree. For example, **Yazi
+  Mode** has Activation, Columns, Keyboard, Preview and Workspace Layouts tabs,
+  and **Themes** has 12 tabs, including **Motion and Accessibility**,
+  **Stylesheet** and **Profiles**. Map each current tab into the proposed
+  destinations before adopting the tree. The proposed Appearance › Motion
+  subpage partly duplicates **Themes › Motion and Accessibility**, which
+  already offers Animations: Follow Plasma, Reduced or Off.
+- Favourites are a proposed General subpage. Language and Dates share a subpage,
+  as do Folders and Tabs behaviour and appearance. Modes groups normal browsing,
+  Gallery and Yazi settings; Default links to the authoritative view and startup
   settings rather than introducing competing values.
 - The Metadata page refers to the Information panel, not the Metadata Editor
   tool or file metadata settings. Explorer covers the combined Places/Folders
   panel and any separate panel choices where supported. General panel controls
-  include title visibility. Existing embedded-title behavior is described in the
-  [resolved bug report](../BUGS.md#hide-embedded-panel-titles); its placement in
-  this tree is proposed.
+  include title visibility. Existing embedded-title behaviour is described in
+  the [resolved bug report](../BUGS.md#hide-embedded-panel-titles); its
+  placement in this tree is proposed.
 - Keep each setting owned in one place. Listing preview settings belong under
-  File > Views; panel-specific preview settings belong under Panels > Preview.
+  File › Views; panel-specific preview settings belong under Panels › Preview.
   Shared preview providers and limits should have one authoritative control with
   links from related pages, not independent values. Similarly, keep editor-wide
-  settings under Panels > Text Editor and search defaults under Search >
-  Defaults; link to the latter from Panels > Search. Make clear which editor
+  settings under Panels › Text Editor and search defaults under Search ›
+  Defaults; link to the latter from Panels › Search. Make clear which editor
   settings also affect standalone windows. Separate embedded areas must not
   replace either file pane; an embedded pane placed in the middle column must
   preserve the file-pane state it temporarily occupies. Coordinate pane
   placement controls with the [interface design](../philosophy/designs.md).
 - Listing filters and saved selection filters serve different purposes and stay
   distinct. Advanced Search links to the shared search defaults instead of
-  creating a second copy. The integration shortcut remains available with M28;
-  M31 links to it when available rather than adding a conflicting binding.
-- Future workspace, tagging, integration and shortcut pages reuse shared
-  settings where applicable. Link to the authoritative controls instead of
-  creating conflicting values. Workspace profiles can select features, layout
-  and theme, with optional Activity associations and per-Activity choices; keep
-  KDE-owned accounts, credentials and desktop settings under KDE's control.
-- Integrations > KDE Plasma groups desktop-specific controls; provider choices
+  creating a second copy. The integration shortcut arrives with M28; M31 links
+  to it rather than adding a conflicting binding.
+- Future integration and shortcut pages, and existing workspace and tagging
+  pages, reuse shared settings where applicable. Link to the authoritative
+  controls instead of creating conflicting values. Workspace profiles can select
+  features, layout and theme, with optional Activity associations and
+  per-Activity choices once M27 and M28 provide them; keep KDE-owned accounts,
+  credentials and desktop settings under KDE's control.
+- Integrations › KDE Plasma groups desktop-specific controls; provider choices
   shared with non-KDE applications remain separate. Password-gated folders are
-  under Workspaces > Management, but are an M28 feature and do not depend on M16
-  workspace implementation; the gate applies only inside Plasma Opus, not as
-  filesystem security.
-- Search and favorites navigate to the same underlying pages, not duplicate
-  settings. The sidebar search entry point and Search > Results use the same
+  placed under Workspaces › Management but are an M28 feature; the gate applies
+  only inside Plasma Opus, not as filesystem security.
+- Search and favourites navigate to the same underlying pages, not duplicate
+  settings. The sidebar search entry point and Search › Results use the same
   preference-search results, separately from file search. A result opens its
   category, page and tab and focuses the control; list filters preserve hidden
   entries and unsaved edits.
@@ -393,26 +447,18 @@ Settings
   and immediately applied actions where relevant; do not imply that Cancel
   reverses changes owned by another component.
 - Preserve existing saved values, customizations and direct-entry actions when
-  reorganizing pages. Keep stable page identities for favorites and links;
+  reorganizing pages. Keep stable page identities for favourites and links;
   clarify how old links are mapped and report unavailable pages.
 
-### Layout review questions
-
-- How should the subcolumn collapse or be reached in small windows?
-- Are Confirmations, Applications and Transfer Queue easier to find under File >
-  Operations, or should they remain closer to their current locations?
-- Are the proposed tool scopes intuitive and are individual tools easy to find?
-- Which future categories should be visible only once their features ship?
-
-### Further consolidation suggestions
+### Further consolidation
 
 These are options for review, not changes to the tree above:
 
-- **Applications and integrations:** link File > Operations > Applications with
+- **Applications and integrations:** link File › Operations › Applications with
   future Integrations controls; keep desktop-wide associations distinct from
   Plasma Opus-specific preferences.
 
-## Proposed order
+## Execution order
 
 1. Inventory existing pages, labels, dependencies, shared KDE settings, restart
    requirements and immediately applied actions. Agree on consistent grouping
@@ -423,7 +469,7 @@ These are options for review, not changes to the tree above:
    ([#221](https://github.com/mikepadiernos/plasma-opus/issues/221),
    [#400](https://github.com/mikepadiernos/plasma-opus/issues/400))
 2. Add settings search by name and description, direct navigation to a matching
-   control, favorite pages and clearable keyboard-accessible filters for
+   control, favourite pages and clearable keyboard-accessible filters for
    suitable long lists. Preserve hidden entries and unsaved edits.
    ([#220](https://github.com/mikepadiernos/plasma-opus/issues/220),
    [#544](https://github.com/mikepadiernos/plasma-opus/issues/544),
@@ -459,8 +505,21 @@ These are options for review, not changes to the tree above:
    [#226](https://github.com/mikepadiernos/plasma-opus/issues/226),
    [#401](https://github.com/mikepadiernos/plasma-opus/issues/401))
 
-## Review decisions
+## Open questions
 
-- Which pages and lists need favorites, direct links or filtering first?
+- Which pages and lists need favourites, direct links or filtering first?
 - What does each reset affect, and which changes cannot be undone?
 - How should external changes be reported when local edits are pending?
+- How should the subcolumn collapse or be reached in small windows?
+- Are Confirmations, Applications and Transfer Queue easier to find under File ›
+  Operations, or should they remain closer to their current locations?
+- Are the proposed tool scopes intuitive and are individual tools easy to find?
+- Which future categories should be visible only once their features ship?
+- Should the merged Themes, Yazi Mode, Tagging and Workspaces groups keep their
+  current tabs inside the new structure rather than the regrouped tabs above?
+
+---
+
+[Refinements index](README.md) · ← Previous:
+[M32.03 Interaction](03-interaction.md) · Next:
+[M32.05 Performance and startup](05-performance.md) →
