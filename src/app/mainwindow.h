@@ -149,6 +149,8 @@ public:
     void setKdeConnectClient(KdeConnectClient *client);
     /// Shows the dialog that sends the selected files to a KDE Connect device.
     void sendToDevice();
+    /// Shares the selected local items, or the current folder, on the local network.
+    void shareOnNetwork();
 
     /// The file systems the mount manager and the Mount Points menu list, created when first needed.
     MountBackend *mountBackend();

@@ -63,6 +63,8 @@ add_library(opusfm_app STATIC
     indexstatusdialog.h
     kdeconnectsharedialog.cpp
     kdeconnectsharedialog.h
+    lansharedialog.cpp
+    lansharedialog.h
     dropdownwindow.cpp
     dropdownwindow.h
     diskimagebackend.cpp
@@ -224,6 +226,11 @@ target_link_libraries(opusfm_app
         KF6::WindowSystem
         KF6::XmlGui
 )
+
+if(KF6Prison_FOUND)
+    target_compile_definitions(opusfm_app PRIVATE OPUSFM_HAVE_PRISON)
+    target_link_libraries(opusfm_app PRIVATE KF6::Prison)
+endif()
 
 add_executable(opus-file-manager main.cpp applicationicon.qrc)
 

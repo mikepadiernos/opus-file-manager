@@ -52,6 +52,7 @@
 #include "kwinintegration.h"
 #include "kwinintegrationdialog.h"
 #include "labelcolor.h"
+#include "lansharedialog.h"
 #include "libraryautorefresh.h"
 #include "libraryregistry.h"
 #include "linkednavigation.h"
@@ -2980,6 +2981,11 @@ void MainWindow::setupActions()
     sendToDevice->setText(i18nc("@action", "Send to Device…"));
     sendToDevice->setToolTip(i18nc("@info:tooltip", "Send the selected files to a paired device with KDE Connect"));
     sendToDevice->setIcon(SymbolicIcon::fromTheme(QStringLiteral("smartphone")));
+    QAction *shareOnNetwork = actions->addAction(QStringLiteral("share_on_network"), this, &MainWindow::shareOnNetwork);
+    shareOnNetwork->setText(i18nc("@action", "Share on Local Network…"));
+    shareOnNetwork->setToolTip(
+        i18nc("@info:tooltip", "Share the selected items, or the current folder, with browsers on the local network for a limited time"));
+    shareOnNetwork->setIcon(SymbolicIcon::fromTheme(QStringLiteral("network-server")));
     QAction *mountManager = actions->addAction(QStringLiteral("mount_manager"), this, &MainWindow::showMountManager);
     mountManager->setText(i18nc("@action", "Mount Manager…"));
     mountManager->setToolTip(i18nc("@info:tooltip", "List file systems and mount, unmount or eject them"));
@@ -4150,6 +4156,13 @@ void MainWindow::updateActions()
                             });
     actions->action(QStringLiteral("create_checksum"))->setEnabled(localFiles);
     actions->action(QStringLiteral("kdeconnect_send"))->setEnabled(hasSelection);
+    actions->action(QStringLiteral("share_on_network"))
+        ->setEnabled(hasSelection ? std::all_of(selected.cbegin(),
+                                                selected.cend(),
+                                                [](const KFileItem &item) {
+                                                    return !item.localPath().isEmpty();
+                                                })
+                                  : activePane()->url().isLocalFile());
     actions->action(QStringLiteral("verify_checksum"))->setEnabled(localFiles && selected.size() == 1);
     actions->action(QStringLiteral("edit_metadata"))->setEnabled(localFiles && selected.size() == 1);
     actions->action(QStringLiteral("split_file"))->setEnabled(localFiles && selected.size() == 1);
@@ -5583,6 +5596,29 @@ void MainWindow::sendToDevice()
         return;
     }
     auto *dialog = new KdeConnectShareDialog(kdeConnectClient(), urlsOf(items), this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
+void MainWindow::shareOnNetwork()
+{
+    QStringList paths;
+    const KFileItemList items = activePane()->view()->selectedItems();
+    for (const KFileItem &item : items) {
+        if (!item.localPath().isEmpty()) {
+            paths.append(item.localPath());
+        }
+    }
+    if (items.isEmpty() && activePane()->url().isLocalFile()) {
+        paths.append(activePane()->url().toLocalFile());
+    }
+    if (paths.isEmpty()) {
+        KMessageBox::error(this,
+                           i18nc("@info", "Only local files and folders can be shared on the network."),
+                           i18nc("@title:window", "Share on Local Network"));
+        return;
+    }
+    auto *dialog = new LanShareDialog(paths, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
 }
