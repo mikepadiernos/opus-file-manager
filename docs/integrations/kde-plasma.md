@@ -93,6 +93,23 @@ behaves like the rest of the desktop and follows the user's choices.
   Plasma Opus dialog. File copies, moves and deletions keep using KIO's own
   reporting.
   ([#388](https://github.com/mikepadiernos/plasma-opus/issues/388))
+- **System tray and global shortcut:** while Plasma Opus runs, its icon sits
+  in the system tray's hidden section. Clicking it shows or hides the window;
+  its menu also opens the home folder or the transfer queue, and quits.
+  The **Show or Hide Plasma Opus** global shortcut, Meta+Alt+O by default,
+  brings the window to the front, or hides it when it is already in front.
+  Change or remove it under **Settings › Configure Keyboard Shortcuts** or in
+  System Settings; KDE leaves it unassigned when another application already
+  uses the default. The window hides to the tray only while a tray can show
+  the icon. While hidden, the icon moves out of the hidden section until the
+  window is shown again. Minimizing or closing to the tray is off by default;
+  until the M28 settings add the choice, set `MinimizeToTray=true` or
+  `CloseToTray=true` in the `[Tray]` group of `~/.config/opus-file-managerrc`.
+  Closing to the tray applies only to the window's close button; **File ›
+  Quit** and the tray menu's **Quit** still quit.
+  ([#285](https://github.com/mikepadiernos/plasma-opus/issues/285); shortcut
+  settings in [M28](../ROADMAP.md#m28-integration-settings) and
+  [M31](../ROADMAP.md#m31-keyboard-shortcut-settings))
 
 ## Planned features
 
@@ -116,11 +133,6 @@ them.
 - **KRunner:** Expose only explicitly selected saved workspaces and locations,
   respecting privacy and unavailable targets.
   ([#390](https://github.com/mikepadiernos/plasma-opus/issues/390))
-- **Tray and shortcuts:** Offer optional tray behaviour and KDE-managed
-  shortcuts with conflict reporting; do not replace existing bindings.
-  ([#285](https://github.com/mikepadiernos/plasma-opus/issues/285); shortcuts
-  also [#230](https://github.com/mikepadiernos/plasma-opus/issues/230) in
-  [M31](../ROADMAP.md#m31-keyboard-shortcut-settings))
 - **Service-menu discovery:** Reuse KDE's service-menu provider for explicit
   install, update and removal actions; explain that installed services may
   execute commands and be shared with other applications.
