@@ -1914,6 +1914,20 @@ The M27 desktop integrations have these limits
   track whether a document is open or has unsaved changes.
   ([#674](https://github.com/mikepadiernos/plasma-opus/issues/674))
 
+- **✏️ Edit action:** **Edit** chooses a tool by file type rather than by
+  the file associations in System Settings, and always takes the first
+  installed tool in a fixed order, so it can't be pointed at a preferred
+  editor. It covers text, office documents, SVG drawings, raster images and
+  audio; videos, PDF documents, archives and other types can be previewed
+  but not edited. Separate tools are found through `PATH`, so Flatpak and
+  AppImage installations show as not installed, and only the built-in
+  editor, KolourPaint and Calligra open remote files. It edits one file at a
+  time. The chosen tool handles saving: some image and audio editors save to
+  their own format or export, and an image editor may not support every
+  format the preview shows. Plasma Opus doesn't track whether a separate
+  tool has unsaved changes.
+  ([#675](https://github.com/mikepadiernos/plasma-opus/issues/675))
+
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
     it is running and restart Plasma Opus so it claims the service. To hand
@@ -2025,6 +2039,11 @@ The M27 desktop integrations have these limits
     previews. To open remote documents in LibreOffice or
     ONLYOFFICE, copy them to a local folder first, or use Calligra. Open RTF
     and CSV files with **Open With**.
+  - **Edit action:** Install a listed tool from your distribution, use
+    **Edit With** or **Open in Office Application** to pick a specific
+    editor, or **Open With** for other applications. Copy remote files to a
+    local folder before editing them in a local-only tool, and check the
+    format when saving from an image or audio editor.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2088,6 +2107,8 @@ The M27 desktop integrations have these limits
     editors.
   - Find Flatpak office applications, remember the chosen application and
     offer RTF and CSV files to it.
+  - An M28 setting to choose the tool for each file type, and use the file
+    associations' editors where available.
 
 ## Embedded terminal
 
