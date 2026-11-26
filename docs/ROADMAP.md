@@ -1363,7 +1363,7 @@ for some features are recorded in [pending tasks](TODO.md).
         credentials or unselected history, and handle missing or stale targets
         without creating files or running commands. Use Plasma's supported
         runner interfaces and do not replace its existing file search.
-  - [ ] Download service menus from the existing Context Menu settings page, as
+  - [x] Download service menus from the existing Context Menu settings page, as
         in Dolphin, using KDE's KNewStuff service-menu provider. Support
         browsing, installation, updates and removal through the provider, and
         refresh the installed-action list without discarding pending settings
