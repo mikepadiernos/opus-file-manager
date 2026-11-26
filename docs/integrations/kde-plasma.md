@@ -404,6 +404,16 @@ behaves like the rest of the desktop and follows the user's choices.
   sign-in errors appear in the pane. Unencrypted WebDAV shows a warning. See
   [Remote connections](../CAVEATS.md#desktop-integration).
   ([#282](https://github.com/mikepadiernos/plasma-opus/issues/282))
+- **Network shares and FTP:** Remote connections also cover Windows shares
+  (SMB), FTP and FTP over TLS (FTPS) through KIO. An SMB user can include a
+  domain as `DOMAIN;user`. Plain FTP shows a warning that it sends passwords
+  and files unencrypted, and the dialog names the package to install when no
+  KIO worker handles a protocol. **Go › Network**, also in the Remote
+  Connections menu, opens KIO's `network:/` location to browse shares and
+  services discovered on the local network, or Dolphin's `remote:/` Network
+  folder when `network:/` isn't installed. See
+  [Network shares and FTP](../CAVEATS.md#desktop-integration).
+  ([#651](https://github.com/mikepadiernos/plasma-opus/issues/651))
 
 ## Planned features
 
@@ -416,8 +426,6 @@ them.
   credentials and KIO providers. Do not duplicate account management or store
   tokens in URLs or KConfig.
   ([#370](https://github.com/mikepadiernos/plasma-opus/issues/370))
-- **Network locations:** Reuse KIO's SMB, FTP and `network:/` workers rather
-  than custom discovery code.
 - **Remote drives:** Mount remote locations as local folders through KIO FUSE
   or installed FUSE backends such as sshfs and davfs2. Keep credentials in
   KDE's facilities, ask before changing backend configuration, and unmount only

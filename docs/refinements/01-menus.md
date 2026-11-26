@@ -125,6 +125,7 @@ Main menus
 │   ├── Popular Folders
 │   ├── Mount Points
 │   ├── Remote Connections
+│   ├── Network
 │   ├── Edit Location
 │   ├── Add to Favorites
 │   ├── Switch Pane
