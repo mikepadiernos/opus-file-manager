@@ -4,10 +4,12 @@
 
 #include "foldersync.h"
 #include "foldersyncprofiles.h"
+#include "operationjob.h"
 
 #include <KSharedConfig>
 #include <QDialog>
 #include <QFutureWatcher>
+#include <QPointer>
 
 #include <atomic>
 #include <memory>
@@ -64,6 +66,7 @@ private:
     QPushButton *m_sync;
     QFutureWatcher<FolderSync::Comparison> m_watcher;
     QFutureWatcher<FolderSync::ApplyResult> m_syncWatcher;
+    QPointer<OperationJob> m_syncJob;
     std::shared_ptr<std::atomic_bool> m_canceled;
     std::optional<FolderSync::Comparison> m_comparison;
     QList<FolderSync::Action> m_actions;

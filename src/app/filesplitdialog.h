@@ -3,9 +3,11 @@
 #pragma once
 
 #include "filesplitter.h"
+#include "operationjob.h"
 
 #include <QDialog>
 #include <QFutureWatcher>
+#include <QPointer>
 
 #include <atomic>
 #include <memory>
@@ -34,6 +36,7 @@ private:
     void start();
     Mode m_mode;
     QFutureWatcher<FileSplitter::Result> m_watcher;
+    QPointer<OperationJob> m_job;
     std::shared_ptr<std::atomic_bool> m_canceled;
     QWidget *m_options;
     QListWidget *m_inputs;

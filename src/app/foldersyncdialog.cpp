@@ -390,6 +390,15 @@ FolderSyncDialog::FolderSyncDialog(const QString &left, const QString &right, QW
     });
     connect(&m_syncWatcher, &QFutureWatcher<FolderSync::ApplyResult>::finished, this, [this] {
         const auto result = m_syncWatcher.result();
+        if (m_syncJob) {
+            if (m_canceled && m_canceled->load()) {
+                m_syncJob->cancel();
+            } else if (!result.error.isEmpty()) {
+                m_syncJob->finish(i18np("Synchronization stopped after one operation. Details are shown in Plasma Opus.",
+                                        "Synchronization stopped after %1 operations. Details are shown in Plasma Opus.",
+                                        result.completed.size()));
+            }
+        }
         m_canceled.reset();
         m_options->setEnabled(true);
         m_results->setEnabled(true);
@@ -617,6 +626,14 @@ void FolderSyncDialog::synchronize()
             },
             speedLimit);
     }));
+    m_syncJob = OperationJob::track(new OperationJob(i18nc("@title job", "Synchronizing folders")), &m_syncWatcher);
+    m_syncJob->setSource(QUrl::fromLocalFile(m_left));
+    m_syncJob->setDestination(QUrl::fromLocalFile(m_right));
+    m_syncJob->setCancelHandler([button = QPointer<QPushButton>(m_cancel)] {
+        if (button && button->isEnabled()) {
+            button->click();
+        }
+    });
 }
 
 FolderSync::CopyPolicy FolderSyncDialog::copyPolicy() const

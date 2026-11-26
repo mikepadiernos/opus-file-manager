@@ -21,6 +21,7 @@
 #include <QPushButton>
 #include <QSpinBox>
 #include <QTreeWidget>
+#include <QUrl>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
 
@@ -365,6 +366,15 @@ BatchRenameDialog::BatchRenameDialog(const QStringList &paths, QWidget *parent, 
     });
     connect(&m_applyWatcher, &QFutureWatcher<BatchRename::Result>::finished, this, [this] {
         const auto result = m_applyWatcher.result();
+        if (m_applyJob) {
+            if (m_canceled && m_canceled->load() && result.error.isEmpty()) {
+                m_applyJob->cancel();
+            } else if (!result.error.isEmpty()) {
+                m_applyJob->finish(i18np("Renaming stopped after one item. Details are shown in Plasma Opus.",
+                                         "Renaming stopped after %1 items. Details are shown in Plasma Opus.",
+                                         result.renamed.size()));
+            }
+        }
         m_cancel->setEnabled(false);
         m_apply->setEnabled(false);
         QList<LibraryMoves::Move> moves;
@@ -506,4 +516,13 @@ void BatchRenameDialog::apply()
             return canceled->load();
         });
     }));
+    m_applyJob = OperationJob::track(new OperationJob(i18nc("@title job", "Renaming items")), &m_applyWatcher);
+    if (!plan.rows.isEmpty()) {
+        m_applyJob->setSource(QUrl::fromLocalFile(QFileInfo(plan.rows.first().source).absolutePath()));
+    }
+    m_applyJob->setCancelHandler([button = QPointer<QPushButton>(m_cancel)] {
+        if (button && button->isEnabled()) {
+            button->click();
+        }
+    });
 }

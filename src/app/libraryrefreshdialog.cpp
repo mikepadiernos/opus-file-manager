@@ -13,6 +13,7 @@
 #include <QLabel>
 #include <QProgressBar>
 #include <QPushButton>
+#include <QUrl>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
 
@@ -55,6 +56,9 @@ LibraryRefreshDialog::LibraryRefreshDialog(const QString &root, QWidget *parent)
         const int count = m_scanned->load();
         if (m_importWatcher.isRunning()) {
             m_progress->setValue(count);
+            if (m_job) {
+                m_job->setProgress(qulonglong(count), qulonglong(m_importFiles));
+            }
             m_status->setText(i18ncp("@info",
                                      "Reading the embedded metadata of one new item: %2 read…",
                                      "Reading the embedded metadata of %1 new items: %2 read…",
@@ -74,6 +78,9 @@ LibraryRefreshDialog::~LibraryRefreshDialog()
     m_canceled->store(true);
     m_watcher.waitForFinished();
     m_importWatcher.waitForFinished();
+    if (m_job) {
+        m_job->cancel();
+    }
     if (m_manual) {
         LibraryAutoRefresh::instance()->endManualRefresh(m_root, false);
     }
@@ -116,6 +123,16 @@ void LibraryRefreshDialog::start()
                 scanned->store(count);
             });
     }));
+    if (m_job) {
+        m_job->cancel();
+    }
+    m_job = OperationJob::track(new OperationJob(i18nc("@title job", "Refreshing tag library")));
+    m_job->setSource(QUrl::fromLocalFile(m_root));
+    m_job->setCancelHandler([dialog = QPointer<LibraryRefreshDialog>(this)] {
+        if (dialog) {
+            dialog->cancel();
+        }
+    });
 }
 
 void LibraryRefreshDialog::cancel()
@@ -245,5 +262,12 @@ void LibraryRefreshDialog::showFinished()
     m_buttons->button(QDialogButtonBox::Close)->show();
     m_review->setVisible(m_missingEntries > 0);
     m_buttons->button(QDialogButtonBox::Close)->setFocus();
+    if (m_job) {
+        if (m_canceled->load()) {
+            m_job->cancel();
+        } else {
+            m_job->finish();
+        }
+    }
     Q_EMIT refreshFinished();
 }

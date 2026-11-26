@@ -3,6 +3,7 @@
 #include "batchconversiondialog.h"
 
 #include "imageconversion.h"
+#include "operationjob.h"
 #include "settings.h"
 
 #include <KLocalizedString>
@@ -21,6 +22,7 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
+#include <QPointer>
 #include <QProgressBar>
 #include <QPushButton>
 #include <QSpinBox>
@@ -159,10 +161,17 @@ void BatchConversionDialog::run(QWidget *parent, const QList<QUrl> &sources)
     watcher.setFuture(QtConcurrent::run([entries, outputFormat, bounds, outputQuality] {
         return ImageConversion::convert(entries, outputFormat, bounds, outputQuality);
     }));
+    QPointer<OperationJob> job = OperationJob::track(new OperationJob(i18nc("@title job", "Converting images")));
+    job->setDestination(QUrl::fromLocalFile(directory->text()));
     if (!watcher.isFinished()) {
         progress.exec();
     }
     const QList<ImageConversion::Failure> failures = watcher.result();
+    if (job) {
+        job->finish(failures.isEmpty()
+                        ? QString()
+                        : i18nc("@info", "%1 of %2 images could not be converted. Details are shown in Plasma Opus.", failures.size(), entries.size()));
+    }
     if (failures.isEmpty()) {
         KMessageBox::information(parent, i18np("Converted one image.", "Converted %1 images.", entries.size()));
     } else {

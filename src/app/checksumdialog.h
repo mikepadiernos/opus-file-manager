@@ -3,9 +3,11 @@
 #pragma once
 
 #include "checksums.h"
+#include "operationjob.h"
 
 #include <QDialog>
 #include <QFutureWatcher>
+#include <QPointer>
 
 class QLabel;
 class QProgressBar;
@@ -30,4 +32,5 @@ private:
     QProgressBar *m_progress;
     QPushButton *m_cancel;
     QTreeWidget *m_results;
+    QPointer<OperationJob> m_job;
 };

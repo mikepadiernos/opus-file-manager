@@ -17,6 +17,7 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPushButton>
+#include <QUrl>
 #include <QVBoxLayout>
 #include <QtConcurrentRun>
 
@@ -131,6 +132,13 @@ FileSplitDialog::FileSplitDialog(Mode mode, const QStringList &paths, QWidget *p
     });
     connect(&m_watcher, &QFutureWatcher<FileSplitter::Result>::finished, this, [this] {
         const FileSplitter::Result result = m_watcher.result();
+        if (m_job) {
+            if (m_canceled && m_canceled->load()) {
+                m_job->cancel();
+            } else if (!result.error.isEmpty()) {
+                m_job->finish(i18nc("@info", "The operation did not finish. Details are shown in Plasma Opus."));
+            }
+        }
         m_outputs->addItems(result.outputs);
         m_status->setText(result.error.isEmpty() ? i18nc("@info", "Operation finished.")
                                                  : i18nc("@info", "%1 Created files are listed below and may be incomplete.", result.error));
@@ -189,4 +197,13 @@ void FileSplitDialog::start()
         };
         return mode == Mode::Split ? FileSplitter::split(inputs.first(), destination, size, check) : FileSplitter::combine(inputs, destination, check);
     }));
+    m_job =
+        OperationJob::track(new OperationJob(mode == Mode::Split ? i18nc("@title job", "Splitting file") : i18nc("@title job", "Combining files")), &m_watcher);
+    m_job->setSource(QUrl::fromLocalFile(inputs.first()));
+    m_job->setDestination(QUrl::fromLocalFile(destination));
+    m_job->setCancelHandler([button = QPointer<QPushButton>(m_cancel)] {
+        if (button && button->isEnabled()) {
+            button->click();
+        }
+    });
 }

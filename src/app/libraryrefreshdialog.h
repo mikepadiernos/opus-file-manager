@@ -4,9 +4,11 @@
 
 #include "libraryscan.h"
 #include "metadataimport.h"
+#include "operationjob.h"
 
 #include <QDialog>
 #include <QFutureWatcher>
+#include <QPointer>
 #include <QTimer>
 
 #include <atomic>
@@ -68,6 +70,7 @@ private:
     QPushButton *m_review;
     QFutureWatcher<LibraryScan::Result> m_watcher;
     QFutureWatcher<QList<EmbeddedMetadata::Reading>> m_importWatcher;
+    QPointer<OperationJob> m_job;
     QTimer m_progressTimer;
     std::shared_ptr<std::atomic_bool> m_canceled;
     std::shared_ptr<std::atomic_int> m_scanned;
