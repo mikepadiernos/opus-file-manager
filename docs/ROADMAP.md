@@ -1259,7 +1259,7 @@ layouts.
 - [x] **Keyboard:** choose a standard or Yazi-inspired shortcut preset and
       review conflicts before applying it. Keep typing and accessibility
       controls usable; reuse KDE shortcut configuration.
-- [ ] **Preview:** choose whether to show the focused item's preview or file
+- [x] **Preview:** choose whether to show the focused item's preview or file
       information. Reuse existing providers, size limits and remote-download
       policy rather than introducing conflicting settings.
 - [ ] **Workspace layouts:** when M15 is available, choose whether layouts
