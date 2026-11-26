@@ -14,6 +14,7 @@
 #include "libraryscan.h"
 #include "localizeddates.h"
 #include "metadataimportdialog.h"
+#include "operationjob.h"
 #include "settings.h"
 #include "tagassignment.h"
 #include "tageditdialog.h"
@@ -29,6 +30,7 @@
 #include <KActionCollection>
 #include <KColorButton>
 #include <KIO/CopyJob>
+#include <KJobTrackerInterface>
 #include <KMessageWidget>
 #include <KPluginMetaData>
 #include <KSharedConfig>
@@ -56,6 +58,32 @@
 #include <QTest>
 #include <QTreeWidget>
 #include <QUrl>
+
+/// Records the jobs a dialog reports to Plasma and how they ended.
+class RecordingTracker : public KJobTrackerInterface
+{
+public:
+    QStringList titles;
+    QList<int> errors;
+    int registered = 0;
+
+    void registerJob(KJob *job) override
+    {
+        ++registered;
+        KJobTrackerInterface::registerJob(job);
+    }
+    void unregisterJob(KJob *job) override
+    {
+        errors.append(job->error());
+        KJobTrackerInterface::unregisterJob(job);
+    }
+
+protected:
+    void description(KJob *, const QString &title, const std::pair<QString, QString> &, const std::pair<QString, QString> &) override
+    {
+        titles.append(title);
+    }
+};
 
 class TaggingUiTest : public QObject
 {
@@ -171,6 +199,32 @@ private Q_SLOTS:
         const TagLibrary::Library library = TagLibrary::Library::load(dir.path());
         QVERIFY(library.entry(QStringLiteral("notes.txt")));
         QVERIFY(library.entry(QStringLiteral("notes.txt"))->missing);
+    }
+
+    void refreshReportsPlasmaJob()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        write(dir.filePath(QStringLiteral("notes.txt")));
+        QCOMPARE(LibraryRegistry::create(dir.path()), QString());
+
+        RecordingTracker tracker;
+        OperationJob::setDefaultTracker(&tracker);
+        const auto resetTracker = qScopeGuard([] {
+            OperationJob::setDefaultTracker(nullptr);
+        });
+
+        TagLibrary::ScanChanges changes;
+        QString message;
+        refresh(dir.path(), &changes, &message);
+        QCOMPARE(tracker.registered, 1);
+        QVERIFY(tracker.titles.contains(QStringLiteral("Refreshing tag library")));
+        QTRY_COMPARE(tracker.errors, QList<int>{KJob::NoError});
+
+        refresh(dir.path(), &changes, &message, true);
+        QCOMPARE(tracker.registered, 2);
+        QTRY_COMPARE(tracker.errors.size(), 2);
+        QCOMPARE(tracker.errors.last(), int(KJob::KilledJobError));
     }
 
     void canceledRefreshMarksNothingMissing()
