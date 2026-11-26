@@ -18,13 +18,14 @@ state and the steps to resume.
 
 Board statuses were last confirmed on 2026-11-26.
 
-| Handoff                                                             | Milestone                                                                      | Issues         | Board status                                                                                                                                        |
-| ------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [mpv integration](#mpv-integration-563)                             | [M27](ROADMAP.md#m27-integrations)                                             | [#563]         | ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square)                                                                           |
-| [Markdown editor and backlinks](#markdown-editor-and-backlinks-564) | [M27](ROADMAP.md#m27-integrations)                                             | [#564]         | ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square)                                                                           |
-| [Workspace vault editing](#workspace-vault-editing-565)             | [M27](ROADMAP.md#m27-integrations), [M28](ROADMAP.md#m28-integration-settings) | [#565], [#566] | ![Defined](https://img.shields.io/badge/Defined-6e7781?style=flat-square) ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square) |
-| [System file chooser on Plasma](#system-file-chooser-on-plasma-286) | [M27](ROADMAP.md#m27-integrations)                                             | [#286]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
-| [Mount manager on Plasma](#mount-manager-on-plasma-703)             | [M27](ROADMAP.md#m27-integrations)                                             | [#703]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                             |
+| Handoff                                                             | Milestone                                                                      | Issues         | Board status                                                                                                                                          |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [mpv integration](#mpv-integration-563)                             | [M27](ROADMAP.md#m27-integrations)                                             | [#563]         | ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square)                                                                             |
+| [Markdown editor and backlinks](#markdown-editor-and-backlinks-564) | [M27](ROADMAP.md#m27-integrations)                                             | [#564]         | ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square)                                                                             |
+| [Workspace vault editing](#workspace-vault-editing-565)             | [M27](ROADMAP.md#m27-integrations), [M28](ROADMAP.md#m28-integration-settings) | [#565], [#566] | ![Defined](https://img.shields.io/badge/Defined-6e7781?style=flat-square) ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square)   |
+| [System file chooser on Plasma](#system-file-chooser-on-plasma-286) | [M27](ROADMAP.md#m27-integrations)                                             | [#286]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Mount manager on Plasma](#mount-manager-on-plasma-703)             | [M27](ROADMAP.md#m27-integrations)                                             | [#703]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [KWin script on Plasma](#kwin-script-on-plasma-707-708)             | [M27](ROADMAP.md#m27-integrations)                                             | [#707], [#708] | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square) ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square) |
 
 ## mpv integration (#563)
 
@@ -128,7 +129,7 @@ Board statuses were last confirmed on 2026-11-26.
 ## Mount manager on Plasma (#703)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#703]
-  (Review).
+  (Completed).
 - **Blocker:** The development container has no Plasma session, no UDisks2
   daemon, no polkit agent and no removable or optical drives, so Solid's
   mount, unmount and eject requests and their authorization prompts cannot
@@ -150,6 +151,36 @@ Board statuses were last confirmed on 2026-11-26.
    Record any differences in [CAVEATS](CAVEATS.md), then remove this entry
    and its roadmap link.
 
+## KWin script on Plasma (#707, #708)
+
+- **Milestone and issues:** [M27](ROADMAP.md#m27-integrations), [#707]
+  (Completed) and [#708] (Review).
+- **Blocker:** The development container has no KWin, no KPackage script
+  structure registered with a compositor and no KGlobalAccel daemon, so the
+  script cannot be installed, loaded or driven by real windows there.
+- **Confirmed state:** The script package, the **Configure KWin Integration**
+  dialog, the workspace placements and the drop-down window are implemented and
+  pass their tests in the container, against a fake backend and a simulated
+  KWin JavaScript API. This verification does not block the features; it is
+  recorded as a caveat under
+  [Desktop integration](CAVEATS.md#desktop-integration).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session, open **Settings › Configure KWin Integration…**,
+   install and enable the script, and confirm the dialog reports it as
+   running. Check `journalctl --user -b | grep -i opus` for script errors.
+2. Save and restore window placements across two workspaces on Wayland and
+   X11: screen, virtual desktop, size, tile and keep-above state.
+3. Detach a preview, an editor and a pane and confirm they are placed beside
+   the main window. Assign workspaces to virtual desktops and confirm the
+   assigned workspace is applied when each desktop becomes current.
+4. Enable the drop-down window, assign a global shortcut, and slide it in and
+   out from each screen edge at several widths and heights, on multiple
+   screens and with the window focused and unfocused.
+5. Remove the script and confirm it is unloaded. Record any differences in
+   [CAVEATS](CAVEATS.md), then remove this entry and its roadmap links.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -158,3 +189,5 @@ Board statuses were last confirmed on 2026-11-26.
 [#565]: https://github.com/mikepadiernos/plasma-opus/issues/565
 [#566]: https://github.com/mikepadiernos/plasma-opus/issues/566
 [#703]: https://github.com/mikepadiernos/plasma-opus/issues/703
+[#707]: https://github.com/mikepadiernos/plasma-opus/issues/707
+[#708]: https://github.com/mikepadiernos/plasma-opus/issues/708
