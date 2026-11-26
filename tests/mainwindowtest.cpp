@@ -52,6 +52,7 @@
 #include <KFileItemDelegate>
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
+#include <KLocalizedString>
 #include <KPageWidgetItem>
 #include <KSelectAction>
 #include <KSharedConfig>
@@ -449,6 +450,64 @@ private Q_SLOTS:
         Settings::setWorkspaceSelectorPlacement(Settings::EnumWorkspaceSelectorPlacement::ViewMenuAndStatusBar);
         window.applySettings();
         QVERIFY(selector->isVisible() && statusButton->isVisible());
+    }
+
+    void opensWorkspaceById()
+    {
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup group = config->group(QStringLiteral("Workspaces"));
+        const bool hadCatalog = group.hasKey("Catalog");
+        const QByteArray previousCatalog = group.readEntry("Catalog", QByteArray());
+        group.deleteEntry("Catalog");
+        QVERIFY(group.sync());
+        const auto restore = qScopeGuard([config, hadCatalog, previousCatalog] {
+            config->reparseConfiguration();
+            KConfigGroup saved = config->group(QStringLiteral("Workspaces"));
+            if (hadCatalog) {
+                saved.writeEntry("Catalog", previousCatalog);
+            } else {
+                saved.deleteEntry("Catalog");
+            }
+            saved.sync();
+        });
+
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        QTRY_VERIFY(window.isVisible());
+        window.actionCollection()->action(QStringLiteral("manage_workspaces"))->trigger();
+        auto *dialog = window.findChild<WorkspaceDialog *>(QStringLiteral("workspaceDialog"));
+        QVERIFY(dialog);
+        dialog->findChild<QLineEdit *>(QStringLiteral("workspaceName"))->setText(QStringLiteral("Runner"));
+        dialog->findChild<QLineEdit *>(QStringLiteral("workspaceShortLabel"))->setText(QStringLiteral("R"));
+        dialog->findChild<QPushButton *>(QStringLiteral("workspaceCreate"))->click();
+        dialog->close();
+        delete dialog;
+        config->reparseConfiguration();
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY2(WorkspaceCatalog::load(config->group(QStringLiteral("Workspaces")), catalog, error), qPrintable(error));
+        QCOMPARE(catalog.workspaces.size(), 1);
+
+        window.openWorkspace(QStringLiteral("missing"));
+        QCOMPARE(window.statusBar()->currentMessage(), i18nc("@info:status", "The requested workspace no longer exists."));
+
+        bool asked = false;
+        QTimer::singleShot(0, &window, [&asked] {
+            if (auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+                asked = true;
+                box->button(QMessageBox::Yes)->click();
+            }
+        });
+        window.openWorkspace(catalog.workspaces.first().id);
+        QVERIFY(asked);
+        if (auto *opened = window.findChild<WorkspaceDialog *>(QStringLiteral("workspaceDialog"))) {
+            opened->close();
+            delete opened;
+        }
+        QAction *selector = window.actionCollection()->action(QStringLiteral("workspace_selector"));
+        QVERIFY(selector);
+        QTRY_VERIFY(selector->text().contains(QStringLiteral("Runner")));
     }
 
     void switchesAndRestoresWorkspaceLocationVisibility()

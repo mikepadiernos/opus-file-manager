@@ -120,6 +120,7 @@ ecm_add_tests(
     navigationhistorytest.cpp
     operationjobtest.cpp
     previewcontenttest.cpp
+    runnermatchestest.cpp
     servicemenustest.cpp
     sessiontest.cpp
     savedpathfilterstest.cpp
@@ -279,6 +280,11 @@ ecm_add_test(kdeconnectsharedialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
     GUI
+)
+
+ecm_add_test(opusrunnertest.cpp
+    LINK_LIBRARIES opusfm_runner Qt6::Test
+    NAME_PREFIX "opusfm-"
 )
 
 ecm_add_test(desktoptraytest.cpp
