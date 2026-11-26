@@ -17,8 +17,8 @@ planned for [M27](../ROADMAP.md#m27-integrations) and
 > [!NOTE]
 > **Implemented:** the KDE foundations under
 > [Existing foundations](#existing-foundations), from merged milestones
-> M01–M26, and default file-manager registration, the file-manager service,
-> Plasma language preferences and Plasma job reporting from M27.01.
+> M01–M26, and the M27.01 integrations listed there, from default
+> file-manager registration to the mount manager.
 > **Planned:** everything under [Planned features](#planned-features) and
 > [KWin scripts](#kwin-scripts). The [roadmap](../ROADMAP.md) is authoritative
 > for status.
@@ -177,6 +177,20 @@ behaves like the rest of the desktop and follows the user's choices.
   `opus-file-manager-portal` helper is started by D-Bus and exits after two
   idle minutes.
   ([#286](https://github.com/mikepadiernos/plasma-opus/issues/286))
+- **Mount manager:** **File › Mount Manager…** lists mounted and
+  fstab-defined file systems with their name, state, device, type, mount
+  point, size, free space and a usage bar, optionally only removable devices.
+  Pseudo, snap, container and other system file systems are hidden; network
+  and FUSE mounts, such as remote drives, are included. Activating an entry
+  opens it in the active pane, mounting it first when needed. Mount, unmount
+  and eject go through Solid and UDisks2, with Plasma's authorization prompts,
+  and fall back to `mount`, `umount` and `fusermount` for fstab entries marked
+  `user` or `users` and for FUSE mounts. Busy devices, denied authorization,
+  cancelled prompts and failures are reported. **Go › Mount Points**, also on
+  the toolbar, lists each file system with a check mark when mounted and opens
+  or mounts it. Partitioning, formatting and fstab editing are left to KDE
+  Partition Manager, which the dialog opens when installed.
+  ([#703](https://github.com/mikepadiernos/plasma-opus/issues/703))
 
 ## Planned features
 
@@ -185,10 +199,6 @@ them.
 
 ### M27.01 KDE Plasma and desktop services
 
-- **Mount manager:** List, mount, unmount and eject file systems through Solid
-  and UDisks2. Ask before changing fstab and unmount only what Plasma Opus
-  mounted.
-  ([#703](https://github.com/mikepadiernos/plasma-opus/issues/703))
 - **KWin scripts:** Optionally install a Plasma Opus KWin script for window
   placement that Wayland applications cannot perform themselves, and offer a
   drop-down window. See [KWin scripts](#kwin-scripts).
