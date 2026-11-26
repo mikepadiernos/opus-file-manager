@@ -239,6 +239,12 @@ public:
 public Q_SLOTS:
     void setUrl(const QUrl &url);
     void revealUrl(const QUrl &url);
+    /**
+     * Shows a folder in the current tab and selects the given local items in
+     * it, which must all be in that folder. Missing items are skipped and
+     * reported; nothing is selected if none remain.
+     */
+    void revealUrls(const QUrl &folder, const QList<QUrl> &items);
     void openInNewTab(const QUrl &url, bool activate = false);
     void newTab();
     void closeCurrentTab();
@@ -298,6 +304,7 @@ private:
     void rebuildTabs(const PaneSession &state);
     void saveHistoryViewState();
     void restoreHistoryViewState();
+    void startReveal(const QUrl &folder, const QList<QUrl> &items);
     void finishReveal();
     /// Opens @p folder and selects @p item once it is listed.
     void showFolderItem(const QUrl &folder, const QUrl &item);
@@ -372,7 +379,7 @@ private:
     int m_lastTabCount = -1;
     NavigationHistory::ViewState m_pendingViewState;
     QUrl m_revealFolder;
-    QUrl m_revealItem;
+    QList<QUrl> m_revealItems;
     int m_revealTab = -1;
     quint64 m_viewStateGeneration = 0;
     bool m_historyExpansionStarted = false;

@@ -354,7 +354,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     connect(m_tabs, &TabModel::currentIndexChanged, this, [this](int index) {
         if (m_revealTab >= 0 && index != m_revealTab) {
             m_revealFolder.clear();
-            m_revealItem.clear();
+            m_revealItems.clear();
             m_revealTab = -1;
         }
     });
@@ -374,7 +374,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     connect(m_tabs, &TabModel::currentUrlChanged, this, [this](const QUrl &url) {
         if (!m_revealFolder.isEmpty() && url != m_revealFolder) {
             m_revealFolder.clear();
-            m_revealItem.clear();
+            m_revealItems.clear();
             m_revealTab = -1;
         }
         if (m_view->url().isValid() && m_view->url() != url && !Settings::retainFilterOnNavigation()) {
@@ -494,7 +494,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     connect(m_view, &FolderView::listingFailed, this, &Pane::statusMessage);
     connect(m_view, &FolderView::listingFailed, this, [this] {
         m_revealFolder.clear();
-        m_revealItem.clear();
+        m_revealItems.clear();
         m_revealTab = -1;
     });
     connect(m_view, &FolderView::listingReady, this, &Pane::restoreHistoryViewState);
@@ -983,7 +983,7 @@ void Pane::setUrl(const QUrl &url)
 void Pane::revealUrl(const QUrl &url)
 {
     m_revealFolder.clear();
-    m_revealItem.clear();
+    m_revealItems.clear();
     m_revealTab = -1;
     const QFileInfo item(url.toLocalFile());
     if (!url.isLocalFile() || !item.exists() || item.fileName().isEmpty()) {
@@ -994,16 +994,59 @@ void Pane::revealUrl(const QUrl &url)
         Q_EMIT statusMessage(i18nc("@info:status", "Turn off flat view to reveal a search result."));
         return;
     }
-    QUrl folder = QUrl::fromLocalFile(item.absolutePath());
-    if (m_followSymlinks) {
+    startReveal(QUrl::fromLocalFile(item.absolutePath()), {url});
+}
+
+void Pane::revealUrls(const QUrl &folder, const QList<QUrl> &items)
+{
+    m_revealFolder.clear();
+    m_revealItems.clear();
+    m_revealTab = -1;
+    QList<QUrl> present;
+    QStringList missing;
+    for (const QUrl &item : items) {
+        if (item.isLocalFile() && !QFileInfo::exists(item.toLocalFile())) {
+            missing.append(item.toDisplayString(QUrl::PreferLocalFile));
+        } else {
+            present.append(item);
+        }
+    }
+    if (!missing.isEmpty()) {
+        Q_EMIT statusMessage(i18ncp("@info:status",
+                                    "Could not find %1 requested item: %2",
+                                    "Could not find %1 requested items: %2",
+                                    missing.size(),
+                                    missing.join(QStringLiteral(", "))));
+    }
+    if (m_view->isFlat() && !present.isEmpty()) {
+        Q_EMIT statusMessage(i18nc("@info:status", "Turn off flat view to select the requested items."));
+        present.clear();
+    }
+    startReveal(folder, present);
+}
+
+void Pane::startReveal(const QUrl &requestedFolder, const QList<QUrl> &items)
+{
+    QUrl folder = requestedFolder;
+    if (m_followSymlinks && folder.isLocalFile()) {
         folder = Symlinks::resolve(folder);
     }
-    m_revealFolder = folder;
-    m_revealItem = QUrl::fromLocalFile(QDir(folder.toLocalFile()).filePath(item.fileName()));
-    setUrl(folder);
-    if (!m_revealItem.isEmpty()) {
-        m_revealTab = m_tabs->currentIndex();
+    QList<QUrl> revealItems;
+    for (const QUrl &item : items) {
+        // Select each item as it is listed in the possibly resolved folder.
+        if (item.isLocalFile() && folder.isLocalFile()) {
+            revealItems.append(QUrl::fromLocalFile(QDir(folder.toLocalFile()).filePath(QFileInfo(item.toLocalFile()).fileName())));
+        } else {
+            revealItems.append(item);
+        }
     }
+    setUrl(folder);
+    if (revealItems.isEmpty()) {
+        return;
+    }
+    m_revealFolder = folder;
+    m_revealItems = revealItems;
+    m_revealTab = m_tabs->currentIndex();
     ++m_viewStateGeneration;
     m_pendingViewState = {};
     m_historyExpansionPending = false;
@@ -1015,16 +1058,23 @@ void Pane::revealUrl(const QUrl &url)
 
 void Pane::finishReveal()
 {
-    if (m_revealItem.isEmpty() || m_view->url() != m_revealFolder) {
+    if (m_revealItems.isEmpty() || m_view->url() != m_revealFolder) {
         return;
     }
-    const QUrl item = m_revealItem;
+    const QList<QUrl> items = m_revealItems;
     m_revealFolder.clear();
-    m_revealItem.clear();
+    m_revealItems.clear();
     m_revealTab = -1;
-    m_view->selectUrls({item});
+    m_view->selectUrls(items);
     if (m_view->selectedItems().isEmpty()) {
-        Q_EMIT statusMessage(i18nc("@info:status", "Could not reveal %1. It may have been removed, hidden or filtered.", item.toDisplayString()));
+        if (items.size() == 1) {
+            Q_EMIT statusMessage(i18nc("@info:status", "Could not reveal %1. It may have been removed, hidden or filtered.", items.first().toDisplayString()));
+        } else {
+            Q_EMIT statusMessage(i18ncp("@info:status",
+                                        "Could not reveal %1 item. It may have been removed, hidden or filtered.",
+                                        "Could not reveal %1 items. They may have been removed, hidden or filtered.",
+                                        items.size()));
+        }
     } else {
         m_view->currentView()->setFocus();
     }

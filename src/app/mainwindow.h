@@ -62,6 +62,15 @@ public:
     /// session (or the home folder) when the list is empty.
     void openUrls(const QList<QUrl> &urls);
 
+    /// Opens each folder in a new tab of the active pane, restoring the
+    /// session first if needed, as the FileManager1 service requests.
+    void showFolders(const QList<QUrl> &folders);
+    /// Opens the folder of each item in a new tab of the active pane, one tab
+    /// per folder, and selects the requested items in it.
+    void showItems(const QList<QUrl> &items);
+    /// Shows the KDE properties dialog for the items.
+    void showItemProperties(const QList<QUrl> &items);
+
     Pane *activePane() const;
     Pane *inactivePane() const;
 

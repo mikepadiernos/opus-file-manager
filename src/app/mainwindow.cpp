@@ -25,6 +25,7 @@
 #include "executables.h"
 #include "favoritesmodel.h"
 #include "filediffdialog.h"
+#include "filemanagerrequest.h"
 #include "fileoperations.h"
 #include "filesplitdialog.h"
 #include "foldercolors.h"
@@ -98,6 +99,7 @@
 #include <KLocalizedString>
 #include <KMessageBox>
 #include <KNewFileMenu>
+#include <KPropertiesDialog>
 #include <KProtocolInfo>
 #include <KSelectAction>
 #include <KSharedConfig>
@@ -3089,6 +3091,50 @@ void MainWindow::openUrls(const QList<QUrl> &urls)
     }
     if (startup && Settings::linkPanesAtStartup()) {
         m_linkedPanesAction->setChecked(true);
+    }
+}
+
+void MainWindow::showFolders(const QList<QUrl> &folders)
+{
+    openUrls({});
+    for (const QUrl &folder : folders) {
+        activePane()->openInNewTab(folder, true);
+    }
+}
+
+void MainWindow::showItems(const QList<QUrl> &items)
+{
+    openUrls({});
+    Pane *pane = activePane();
+    const QList<FileManagerRequest::Reveal> reveals = FileManagerRequest::groupByFolder(items);
+    for (const FileManagerRequest::Reveal &reveal : reveals) {
+        pane->openInNewTab(reveal.folder, true);
+        if (!reveal.items.isEmpty()) {
+            pane->revealUrls(reveal.folder, reveal.items);
+        }
+    }
+}
+
+void MainWindow::showItemProperties(const QList<QUrl> &items)
+{
+    QList<QUrl> present;
+    QStringList missing;
+    for (const QUrl &item : items) {
+        if (item.isLocalFile() && !QFileInfo::exists(item.toLocalFile())) {
+            missing.append(item.toDisplayString(QUrl::PreferLocalFile));
+        } else {
+            present.append(item);
+        }
+    }
+    if (!missing.isEmpty()) {
+        statusBar()->showMessage(i18ncp("@info:status",
+                                        "Could not find %1 requested item: %2",
+                                        "Could not find %1 requested items: %2",
+                                        missing.size(),
+                                        missing.join(QStringLiteral(", "))));
+    }
+    if (!present.isEmpty()) {
+        KPropertiesDialog::showDialog(present, this, false);
     }
 }
 

@@ -41,6 +41,8 @@ add_library(opusfm_app STATIC
     embeddedmetadatasettings.h
     filediffdialog.cpp
     filediffdialog.h
+    filemanagerservice.cpp
+    filemanagerservice.h
     filesplitdialog.cpp
     filesplitdialog.h
     fileoperations.cpp
@@ -155,6 +157,7 @@ target_link_libraries(opusfm_app
     PUBLIC
         opusfm_core
         Qt6::Concurrent
+        Qt6::DBus
         Qt6::Widgets
         Qt6::Xml
         Qt6::Multimedia

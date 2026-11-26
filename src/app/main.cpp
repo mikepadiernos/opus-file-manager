@@ -2,6 +2,8 @@
 
 #include "appearancedefaults.h"
 #include "appidentity.h"
+#include "filemanagerrequest.h"
+#include "filemanagerservice.h"
 #include "interfacelanguage.h"
 #include "localizednumbers.h"
 #include "mainwindow.h"
@@ -27,6 +29,7 @@
 #include <QMessageBox>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <QTimer>
 #include <QUrl>
 
 namespace
@@ -98,7 +101,9 @@ int main(int argc, char **argv)
                                                    i18n("Reset the appearance options to follow Plasma, keeping folder colour rules"));
     const QCommandLineOption noWorkspaceAppearanceOption(QStringLiteral("no-workspace-appearance"),
                                                          i18n("Ignore appearance options attached to workspaces in this session"));
-    parser.addOptions({resetAppearanceOption, noWorkspaceAppearanceOption});
+    const QCommandLineOption fileManagerServiceOption(QStringLiteral("file-manager-service"),
+                                                      i18n("Start without a window to answer an org.freedesktop.FileManager1 request"));
+    parser.addOptions({resetAppearanceOption, noWorkspaceAppearanceOption, fileManagerServiceOption});
     parser.process(app);
     aboutData.processCommandLine(&parser);
 
@@ -164,21 +169,44 @@ int main(int argc, char **argv)
     }
 
     auto *window = new MainWindow;
-    window->openUrls(urlsFromArguments(parser.positionalArguments(), QDir::currentPath()));
-    window->show();
-    StartupPresentation::presentIfEnabled(window);
-    if (!workspaceWarning.isEmpty()) {
-        window->statusBar()->showMessage(workspaceWarning);
-    } else if (!appearanceMessage.isEmpty()) {
-        window->statusBar()->showMessage(appearanceMessage);
+    // When D-Bus activation starts Plasma Opus for a FileManager1 request,
+    // the request decides what to open, so the window waits for it.
+    const bool serviceMode = parser.isSet(fileManagerServiceOption);
+    auto *fileManager = new FileManagerService(window);
+    fileManager->registerOnBus(serviceMode || FileManagerRequest::shouldClaim(FileManagerService::defaultFolderHandler()));
+    const auto showStartupMessage = [window, workspaceWarning, appearanceMessage] {
+        if (!workspaceWarning.isEmpty()) {
+            window->statusBar()->showMessage(workspaceWarning);
+        } else if (!appearanceMessage.isEmpty()) {
+            window->statusBar()->showMessage(appearanceMessage);
+        }
+    };
+    if (serviceMode) {
+        QObject::connect(fileManager, &FileManagerService::requestHandled, window, showStartupMessage, Qt::SingleShotConnection);
+        QTimer::singleShot(std::chrono::seconds(30), window, [window] {
+            if (!window->isVisible()) {
+                QApplication::quit();
+            }
+        });
+    } else {
+        window->openUrls(urlsFromArguments(parser.positionalArguments(), QDir::currentPath()));
+        window->show();
+        StartupPresentation::presentIfEnabled(window);
+        showStartupMessage();
     }
 
     QObject::connect(&service, &KDBusService::activateRequested, window, [window](const QStringList &arguments, const QString &workingDirectory) {
         QCommandLineParser instanceParser;
         instanceParser.addPositionalArgument(QStringLiteral("path"), QString());
         const QCommandLineOption resetAppearance(QStringLiteral("reset-appearance"));
-        instanceParser.addOptions({resetAppearance, QCommandLineOption(QStringLiteral("no-workspace-appearance"))});
+        const QCommandLineOption fileManagerService(QStringLiteral("file-manager-service"));
+        instanceParser.addOptions({resetAppearance, QCommandLineOption(QStringLiteral("no-workspace-appearance")), fileManagerService});
         instanceParser.parse(arguments);
+        if (instanceParser.isSet(fileManagerService)) {
+            // Another process was activated for a request this instance
+            // does not serve; the request itself arrives separately.
+            return;
+        }
         if (instanceParser.isSet(resetAppearance)) {
             window->resetAppearance();
         }
