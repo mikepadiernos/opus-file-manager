@@ -57,6 +57,10 @@ add_library(opusfm_app STATIC
     kdeconnectclient.h
     kdeconnectsharedialog.cpp
     kdeconnectsharedialog.h
+    mountbackend.cpp
+    mountbackend.h
+    mountmanagerdialog.cpp
+    mountmanagerdialog.h
     filterbar.cpp
     filterbar.h
     folderview.cpp
