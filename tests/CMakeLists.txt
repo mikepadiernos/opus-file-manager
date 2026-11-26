@@ -102,6 +102,7 @@ ecm_add_tests(
     flatviewtest.cpp
     ignorelisttest.cpp
     indexedsearchtest.cpp
+    indexstatustest.cpp
     kdeconnectsharetest.cpp
     kwinscripttest.cpp
     mounttabletest.cpp

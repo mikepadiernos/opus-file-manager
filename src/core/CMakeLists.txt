@@ -65,6 +65,8 @@ add_library(opusfm_core STATIC
     localizednumbers.h
     indexedsearch.cpp
     indexedsearch.h
+    indexstatus.cpp
+    indexstatus.h
     interfacelanguage.cpp
     interfacelanguage.h
     kdeconnectshare.cpp
