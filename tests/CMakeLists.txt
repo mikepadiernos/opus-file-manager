@@ -83,6 +83,7 @@ ecm_add_tests(
     activityassociationstest.cpp
     appearancedefaultstest.cpp
     appfontstest.cpp
+    apppackagestest.cpp
     archivestest.cpp
     arktest.cpp
     batchrenametest.cpp

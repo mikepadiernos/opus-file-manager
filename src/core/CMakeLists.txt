@@ -7,6 +7,8 @@ add_library(opusfm_core STATIC
     appfonts.h
     appidentity.cpp
     appidentity.h
+    apppackages.cpp
+    apppackages.h
     archives.cpp
     archives.h
     ark.cpp
