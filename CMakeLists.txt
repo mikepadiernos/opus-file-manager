@@ -24,6 +24,7 @@ ecm_setup_version(${PROJECT_VERSION} VARIABLE_PREFIX OPUSFM VERSION_HEADER ${CMA
 find_package(Qt6 ${QT_MIN_VERSION} REQUIRED COMPONENTS Concurrent Core Gui Widgets DBus Test Multimedia MultimediaWidgets Network Xml)
 find_package(LibArchive REQUIRED)
 find_package(KF6Baloo ${KF_MIN_VERSION} QUIET)
+find_package(PlasmaActivities 6.0 REQUIRED)
 
 include(KDEGitCommitHooks)
 find_package(KF6 ${KF_MIN_VERSION} REQUIRED COMPONENTS

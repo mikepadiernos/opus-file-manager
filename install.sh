@@ -83,7 +83,7 @@ fi
 # Dependencies
 # ---------------------------------------------------------------------------
 
-KF_MODULES=(archive bookmarks config configwidgets coreaddons crash dbusaddons filemetadata guiaddons i18n iconthemes itemviews kio parts solid syntaxhighlighting texteditor widgetsaddons windowsystem xmlgui)
+KF_MODULES=(archive bookmarks config configwidgets coreaddons crash dbusaddons filemetadata globalaccel guiaddons i18n iconthemes itemviews kio parts solid statusnotifieritem syntaxhighlighting texteditor widgetsaddons windowsystem xmlgui)
 
 distro_id() {
     [ -r /etc/os-release ] || { echo unknown; return; }
@@ -110,6 +110,7 @@ print_deps() {
             pkgs=("${pkgs[@]/kkio/kio}")
             pkgs=("${pkgs[@]/ksolid/solid}")
             pkgs=("${pkgs[@]/ksyntaxhighlighting/syntax-highlighting}")
+            pkgs+=(plasma-activities)
             echo "  sudo pacman -S --needed ${pkgs[*]}" ;;
         fedora)
             pkgs=(gcc-c++ cmake ninja-build extra-cmake-modules gettext qt6-qtbase-devel qt6-qtbase-private-devel qt6-qtmultimedia-devel libarchive-devel)
@@ -117,10 +118,12 @@ print_deps() {
             pkgs=("${pkgs[@]/kf6-kkio-devel/kf6-kio-devel}")
             pkgs=("${pkgs[@]/kf6-ksolid-devel/kf6-solid-devel}")
             pkgs=("${pkgs[@]/kf6-ksyntaxhighlighting-devel/kf6-syntax-highlighting-devel}")
+            pkgs+=(plasma-activities-devel)
             echo "  sudo dnf install ${pkgs[*]}" ;;
         debian)
             pkgs=(build-essential cmake ninja-build extra-cmake-modules gettext qt6-base-dev qt6-base-private-dev qt6-multimedia-dev libarchive-dev)
             for m in "${KF_MODULES[@]}"; do pkgs+=("libkf6$m-dev"); done
+            pkgs+=(libplasmaactivities-dev)
             echo "  sudo apt install ${pkgs[*]}" ;;
         suse)
             pkgs=(gcc-c++ cmake ninja extra-cmake-modules gettext-tools qt6-base-devel qt6-multimedia-devel libarchive-devel)
@@ -128,12 +131,13 @@ print_deps() {
             pkgs=("${pkgs[@]/kf6-kkio-devel/kf6-kio-devel}")
             pkgs=("${pkgs[@]/kf6-ksolid-devel/kf6-solid-devel}")
             pkgs=("${pkgs[@]/kf6-ksyntaxhighlighting-devel/kf6-syntax-highlighting-devel}")
+            pkgs+=(plasma6-activities-devel)
             echo "  sudo zypper install ${pkgs[*]}" ;;
         *)
             echo "  Unrecognised distro ($ids). Install a C++20 compiler, CMake >= 3.25, Ninja,"
             echo "  gettext, libarchive, Extra CMake Modules, Qt 6 (Core, Gui, Widgets, DBus,"
             echo "  Test, Concurrent, Multimedia, MultimediaWidgets, Network, Xml), and KDE"
-            echo "  Frameworks development modules: ${KF_MODULES[*]}" ;;
+            echo "  Frameworks development modules: ${KF_MODULES[*]}, and Plasma Activities" ;;
     esac
 
     echo

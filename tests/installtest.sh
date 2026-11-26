@@ -20,16 +20,20 @@ arch="$(check cachyos arch 'sudo pacman -S --needed' 'perl-image-exiftool')"
 [[ " $arch " == *' solid '* && " $arch " == *' syntax-highlighting '* ]]
 [[ " $arch " != *' ksolid '* && " $arch " != *' ksyntaxhighlighting '* ]]
 [[ " $arch " == *' gettext '* ]]
+[[ " $arch " == *' kglobalaccel '* && " $arch " == *' kstatusnotifieritem '* && " $arch " == *' plasma-activities '* ]]
 
 fedora="$(check fedora '' 'sudo dnf install' 'kf6-baloo-devel')"
 [[ " $fedora " == *' kf6-solid-devel '* && " $fedora " == *' kf6-syntax-highlighting-devel '* ]]
+[[ " $fedora " == *' kf6-kglobalaccel-devel '* && " $fedora " == *' plasma-activities-devel '* ]]
 [[ " $fedora " != *' kf6-ksolid-devel '* && " $fedora " != *' kf6-ksyntaxhighlighting-devel '* ]]
 
 debian="$(check debian '' 'sudo apt install' 'libkf6baloo-dev')"
 [[ " $debian " == *' libkf6solid-dev '* && " $debian " == *' libkf6syntaxhighlighting-dev '* ]]
+[[ " $debian " == *' libkf6statusnotifieritem-dev '* && " $debian " == *' libplasmaactivities-dev '* ]]
 
 suse="$(check opensuse-tumbleweed suse 'sudo zypper install' 'install Konsole')"
 [[ " $suse " == *' kf6-solid-devel '* && " $suse " == *' kf6-syntax-highlighting-devel '* ]]
+[[ " $suse " == *' plasma6-activities-devel '* ]]
 
 printf 'ID=unknown\n' > "$tmpdir/os-release"
 output="$(HOME="$tmpdir" bash "$tmpdir/install.sh" --deps)"
