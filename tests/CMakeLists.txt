@@ -86,6 +86,7 @@ ecm_add_tests(
     apppackagestest.cpp
     archivestest.cpp
     arktest.cpp
+    atuintest.cpp
     batchrenametest.cpp
     batchrenamepresetstest.cpp
     checksumstest.cpp

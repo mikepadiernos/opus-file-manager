@@ -13,6 +13,8 @@ add_library(opusfm_core STATIC
     archives.h
     ark.cpp
     ark.h
+    atuin.cpp
+    atuin.h
     archivewriter.cpp
     archivewriter.h
     batchrename.cpp
