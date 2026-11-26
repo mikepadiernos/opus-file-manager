@@ -163,6 +163,34 @@ private Q_SLOTS:
         QCOMPARE(Session::load(group).left.yaziPreview, -1);
     }
 
+    void yaziPreviewContentIsUnsetUnlessSavedAndSurvivesSanitizing()
+    {
+        QTemporaryDir dir;
+        KConfig config(dir.filePath(QStringLiteral("staterc")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Session"));
+        QCOMPARE(Session::load(group).left.yaziPreviewContent, -1);
+        QCOMPARE(Session::load(group).right.yaziPreviewContent, -1);
+
+        group.group(QStringLiteral("RightPane")).writeEntry("YaziPreviewContent", QStringLiteral("Information"));
+        WindowSession loaded = Session::load(group);
+        QCOMPARE(loaded.left.yaziPreviewContent, -1);
+        QCOMPARE(loaded.right.yaziPreviewContent, 1);
+
+        loaded.left.yaziPreviewContent = 7;
+        const WindowSession clean = loaded.sanitized(QUrl::fromLocalFile(QStringLiteral("/home/me")));
+        QCOMPARE(clean.left.yaziPreviewContent, 1);
+        QCOMPARE(clean.right.yaziPreviewContent, 1);
+
+        WindowSession chosen = loaded;
+        chosen.left.yaziPreviewContent = 0;
+        chosen.right.yaziPreviewContent = -1;
+        Session::save(chosen, group);
+        QCOMPARE(group.group(QStringLiteral("LeftPane")).readEntry("YaziPreviewContent", QString()), QStringLiteral("Preview"));
+        QVERIFY(!group.group(QStringLiteral("RightPane")).hasKey("YaziPreviewContent"));
+        QCOMPARE(Session::load(group).left.yaziPreviewContent, 0);
+        QCOMPARE(Session::load(group).right.yaziPreviewContent, -1);
+    }
+
     void tabStateRoundTripsAndSurvivesSanitizing()
     {
         QTemporaryDir dir;

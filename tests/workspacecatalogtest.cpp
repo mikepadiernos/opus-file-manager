@@ -301,6 +301,7 @@ private Q_SLOTS:
         session.right.tabs = {QUrl::fromLocalFile(QStringLiteral("/tmp/right"))};
         session.left.yaziPreview = -1;
         session.right.yaziPreview = 0;
+        session.left.yaziPreviewContent = 1;
         layout.session = session;
         QVERIFY(setLayout(catalog, catalog.workspaces.first().id, layout, error));
         QVERIFY(save(group, catalog, error));
@@ -311,6 +312,21 @@ private Q_SLOTS:
         QVERIFY2(load(group, loaded, error), qPrintable(error));
         QCOMPARE(loaded.workspaces.first().layout->session->left.yaziPreview, -1);
         QCOMPARE(loaded.workspaces.first().layout->session->right.yaziPreview, 0);
+        QCOMPARE(stored.count("\"yaziPreviewContent\":\"information\""), 1);
+        QCOMPARE(loaded.workspaces.first().layout->session->left.yaziPreviewContent, 1);
+        QCOMPARE(loaded.workspaces.first().layout->session->right.yaziPreviewContent, -1);
+
+        QByteArray preview = stored;
+        preview.replace("\"yaziPreviewContent\":\"information\"", "\"yaziPreviewContent\":\"preview\"");
+        group.writeEntry("Catalog", preview);
+        QVERIFY2(load(group, loaded, error), qPrintable(error));
+        QCOMPARE(loaded.workspaces.first().layout->session->left.yaziPreviewContent, 0);
+
+        QByteArray unknown = stored;
+        unknown.replace("\"yaziPreviewContent\":\"information\"", "\"yaziPreviewContent\":1");
+        group.writeEntry("Catalog", unknown);
+        Catalog rejectedContent;
+        QVERIFY(!load(group, rejectedContent, error));
 
         QByteArray shown = stored;
         shown.replace(",\"yaziPreview\":false", ",\"yaziPreview\":true");

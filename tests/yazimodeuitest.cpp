@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
+#include "fileoperations.h"
 #include "filterbar.h"
+#include "folderpreview.h"
 #include "folderview.h"
+#include "informationpanel.h"
 #include "mainwindow.h"
 #include "pane.h"
 #include "previewpanel.h"
@@ -10,6 +13,8 @@
 #include "session.h"
 #include "settings.h"
 #include "tabmodel.h"
+#include "transferqueue.h"
+#include "transferqueuedialog.h"
 #include "workspacedialog.h"
 #include "yazicolumns.h"
 #include "yazikeys.h"
@@ -32,9 +37,12 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QListView>
+#include <QListWidget>
 #include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QPlainTextEdit>
+#include <QProgressBar>
 #include <QPushButton>
 #include <QScopeGuard>
 #include <QScrollBar>
@@ -140,6 +148,37 @@ bool writeFile(const QString &path, const QByteArray &data)
     QFile file(path);
     return file.open(QIODevice::WriteOnly | QIODevice::Truncate) && file.write(data) == data.size();
 }
+
+QStringList listNames(const QListWidget *list)
+{
+    QStringList names;
+    for (int row = 0; row < list->count(); ++row) {
+        names.append(list->item(row)->text());
+    }
+    return names;
+}
+
+class FakeTransfer : public KJob
+{
+public:
+    void start() override
+    {
+    }
+
+    void finish(int error = 0)
+    {
+        if (error) {
+            setError(error);
+            setErrorText(QStringLiteral("disk full"));
+        }
+        emitResult();
+    }
+
+    void progress(unsigned long percent)
+    {
+        setPercent(percent);
+    }
+};
 
 // Makes the item named @p name current without changing the selection.
 void focusRow(QAbstractItemView *view, const QString &name)
@@ -494,12 +533,13 @@ private Q_SLOTS:
         QTest::qWait(YaziPreview::UpdateDelay * 2);
         QCOMPARE(changed.count(), 1);
 
-        // A folder gets a summary.
+        // A folder lists its contents; this one has none.
         QCOMPARE(title->text(), QStringLiteral("sub"));
-        auto *message = preview->findChild<QLabel *>(QStringLiteral("previewMessage"));
-        QVERIFY(message);
-        QVERIFY(message->isVisible());
-        QVERIFY(!message->text().isEmpty());
+        auto *folder = preview->findChild<FolderPreview *>(QStringLiteral("previewFolder"));
+        QVERIFY(folder);
+        QVERIFY(folder->isVisible());
+        QTRY_COMPARE(folder->note()->text(), QStringLiteral("This folder is empty."));
+        QCOMPARE(folder->list()->count(), 0);
 
         // Selecting another item moves the focus and the preview with it.
         view->selectUrls({m_file});
@@ -620,6 +660,388 @@ private Q_SLOTS:
         QVERIFY(pane->yaziPreview());
         QVERIFY(pane->yaziColumns()->preview());
         QCOMPARE(pane->saveState(), state);
+    }
+
+    void folderPreviewListsTheFocusedFolder()
+    {
+        MainWindow window;
+        showWithFocusOnItems(window, QUrl::fromLocalFile(m_root.path()), true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        FolderView *view = pane->view();
+        QVERIFY(!view->showHiddenFiles());
+        QAbstractItemView *items = view->currentView();
+        YaziPreview *preview = pane->yaziColumns()->preview();
+        QVERIFY(preview);
+        QTRY_VERIFY(rowNamed(items, QStringLiteral("a")).isValid());
+        focusRow(items, QStringLiteral("a"));
+        preview->updateNow();
+        QCOMPARE(preview->item().url(), m_a);
+        auto *folder = preview->findChild<FolderPreview *>(QStringLiteral("previewFolder"));
+        QVERIFY(folder);
+        QVERIFY(folder->isVisible());
+        QCOMPARE(stripped(folder->url()), m_a);
+        QCOMPARE(folder->list()->focusPolicy(), Qt::NoFocus);
+        QCOMPARE(folder->list()->selectionMode(), QAbstractItemView::NoSelection);
+
+        // Folders come first, and hidden files follow the pane.
+        QTRY_VERIFY(!folder->isListing());
+        QTRY_COMPARE(listNames(folder->list()), (QStringList{QStringLiteral("other"), QStringLiteral("sub"), QStringLiteral("file.txt")}));
+        QVERIFY(folder->note()->isHidden());
+        QVERIFY(!preview->panel()->isBusy());
+        QVERIFY(preview->busyIndicator()->isHidden());
+        view->setShowHiddenFiles(true);
+        QTRY_COMPARE(folder->list()->count(), 4);
+        QVERIFY(listNames(folder->list()).contains(QStringLiteral(".hidden")));
+        view->setShowHiddenFiles(false);
+        QTRY_COMPARE(folder->list()->count(), 3);
+        QVERIFY(!listNames(folder->list()).contains(QStringLiteral(".hidden")));
+
+        // A file replaces the listing with its preview.
+        pane->setUrl(m_a);
+        QTRY_VERIFY(!view->isLoading());
+        QTRY_VERIFY(rowNamed(items, QStringLiteral("file.txt")).isValid());
+        focusRow(items, QStringLiteral("file.txt"));
+        preview->updateNow();
+        QVERIFY(folder->isHidden());
+        QVERIFY(folder->url().isEmpty());
+        QCOMPARE(folder->list()->count(), 0);
+    }
+
+    void folderPreviewLimitsLongListings()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("huge")));
+        constexpr int Extra = 7;
+        for (int i = 0; i < FolderPreview::EntryLimit + Extra; ++i) {
+            QVERIFY(writeFile(root.filePath(QStringLiteral("huge/f%1").arg(i, 4, 10, QLatin1Char('0'))), QByteArray()));
+        }
+        MainWindow window;
+        showWithFocusOnItems(window, QUrl::fromLocalFile(root.path()), true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        QAbstractItemView *items = pane->view()->currentView();
+        YaziPreview *preview = pane->yaziColumns()->preview();
+        QVERIFY(preview);
+        QTRY_VERIFY(rowNamed(items, QStringLiteral("huge")).isValid());
+        focusRow(items, QStringLiteral("huge"));
+        preview->updateNow();
+        auto *folder = preview->findChild<FolderPreview *>(QStringLiteral("previewFolder"));
+        QVERIFY(folder);
+        QTRY_VERIFY(!folder->isListing());
+        QTRY_COMPARE(folder->entryCount(), FolderPreview::EntryLimit + Extra);
+        QTRY_COMPARE(folder->list()->count(), FolderPreview::EntryLimit);
+        QCOMPARE(folder->list()->item(0)->text(), QStringLiteral("f0000"));
+        QCOMPARE(folder->list()->item(FolderPreview::EntryLimit - 1)->text(), QStringLiteral("f0499"));
+        QVERIFY(folder->note()->isVisible());
+        QCOMPARE(folder->note()->text(), QStringLiteral("and 7 more…"));
+    }
+
+    void previewCancelsWorkWhenTheFocusMoves()
+    {
+        MainWindow window;
+        showWithFocusOnItems(window, QUrl::fromLocalFile(m_root.path()), true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        QAbstractItemView *items = pane->view()->currentView();
+        YaziPreview *preview = pane->yaziColumns()->preview();
+        QVERIFY(preview);
+        PreviewPanel *panel = preview->panel();
+        for (const char *name : {"a", "b", "folders", "many"}) {
+            QTRY_VERIFY(rowNamed(items, QLatin1String(name)).isValid());
+        }
+        focusRow(items, QStringLiteral("b"));
+        preview->updateNow();
+        QTRY_VERIFY(!panel->isBusy());
+        auto *folder = preview->findChild<FolderPreview *>(QStringLiteral("previewFolder"));
+        QVERIFY(folder);
+
+        // Passing over items within the delay starts no work for them.
+        QSignalSpy changed(preview, &YaziPreview::itemChanged);
+        QSignalSpy busy(panel, &PreviewPanel::busyChanged);
+        bool indicatorShown = false;
+        connect(panel, &PreviewPanel::busyChanged, &window, [&](bool isBusy) {
+            if (isBusy) {
+                indicatorShown = preview->busyIndicator()->isVisible();
+            }
+        });
+        for (const char *name : {"a", "folders", "many"}) {
+            focusRow(items, QLatin1String(name));
+        }
+        QVERIFY(preview->isUpdatePending());
+        QVERIFY(busy.isEmpty());
+        QTRY_COMPARE(changed.count(), 1);
+        QCOMPARE(stripped(preview->item().url()), m_many);
+        QCOMPARE(stripped(folder->url()), m_many);
+        QTRY_COMPARE(folder->list()->count(), ManyFiles);
+        QTRY_VERIFY(!panel->isBusy());
+        QVERIFY(preview->busyIndicator()->isHidden());
+        QCOMPARE(busy.count(), 2);
+        QCOMPARE(busy.at(0).at(0).toBool(), true);
+        QCOMPARE(busy.at(1).at(0).toBool(), false);
+        QVERIFY(indicatorShown);
+
+        // Moving on while a folder is listed stops the listing and drops its entries.
+        focusRow(items, QStringLiteral("folders"));
+        preview->updateNow();
+        QCOMPARE(stripped(folder->url()), QUrl::fromLocalFile(m_root.filePath(QStringLiteral("folders"))));
+        QVERIFY(folder->isListing());
+        QVERIFY(panel->isBusy());
+        focusRow(items, QStringLiteral("a"));
+        preview->updateNow();
+        QCOMPARE(stripped(folder->url()), m_a);
+        QTRY_VERIFY(!folder->isListing());
+        QTest::qWait(200);
+        QCOMPARE(listNames(folder->list()), (QStringList{QStringLiteral("other"), QStringLiteral("sub"), QStringLiteral("file.txt")}));
+        QVERIFY(!panel->isBusy());
+    }
+
+    void informationToggleSwitchesThePreviewColumn()
+    {
+        Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
+        const int previous = Settings::yaziPreviewContent();
+        const auto restore = qScopeGuard([previous] {
+            Settings::setYaziPreviewContent(static_cast<Settings::EnumYaziPreviewContent::type>(previous));
+        });
+        MainWindow window;
+        showWithFocusOnItems(window, m_a, true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        QAction *action = window.actionCollection()->action(QStringLiteral("toggle_yazi_preview_information"));
+        QVERIFY(action);
+        QVERIFY(action->isCheckable());
+        QVERIFY(action->shortcuts().isEmpty());
+        auto *viewMenu = window.findChild<QMenu *>(QStringLiteral("view"));
+        QVERIFY(viewMenu);
+        QVERIFY(viewMenu->actions().contains(action));
+        QVERIFY(action->isEnabled());
+        QVERIFY(!action->isChecked());
+
+        Pane *pane = window.activePane();
+        YaziColumns *columns = pane->yaziColumns();
+        YaziPreview *preview = columns->preview();
+        QVERIFY(preview);
+        QAbstractItemView *items = pane->view()->currentView();
+        QTRY_VERIFY(rowNamed(items, QStringLiteral("file.txt")).isValid());
+        focusRow(items, QStringLiteral("file.txt"));
+        preview->updateNow();
+        QCOMPARE(pane->yaziPreviewContent(), YaziMode::PreviewContent::Preview);
+        auto *information = preview->findChild<QWidget *>(QStringLiteral("yaziInformation"));
+        QVERIFY(information);
+        QVERIFY(!information->isVisible());
+        QVERIFY(preview->panel()->isVisible());
+
+        QSignalSpy changed(pane, &Pane::yaziPreviewContentChanged);
+        QSignalSpy layoutChanged(pane, &Pane::workspaceLayoutChanged);
+        action->trigger();
+        QCOMPARE(changed.count(), 1);
+        QVERIFY(layoutChanged.count() >= 1);
+        QCOMPARE(pane->yaziPreviewContent(), YaziMode::PreviewContent::Information);
+        QCOMPARE(columns->previewContent(), YaziMode::PreviewContent::Information);
+        QCOMPARE(preview->content(), YaziMode::PreviewContent::Information);
+        QVERIFY(action->isChecked());
+        QVERIFY(information->isVisible());
+        QVERIFY(!preview->panel()->isVisible());
+        QVERIFY(preview->busyIndicator()->isHidden());
+        QCOMPARE(preview->item().url(), m_file);
+        auto *title = preview->findChild<QLabel *>(QStringLiteral("yaziInformationTitle"));
+        QVERIFY(title);
+        QCOMPARE(title->text(), QStringLiteral("file.txt"));
+        QStringList values;
+        const auto labels = preview->information()->findChildren<QLabel *>();
+        for (const QLabel *label : labels) {
+            if (label->isVisible()) {
+                values.append(label->text());
+            }
+        }
+        QVERIFY2(std::any_of(values.cbegin(),
+                             values.cend(),
+                             [](const QString &value) {
+                                 return value.contains(QLatin1String("rw"));
+                             }),
+                 qPrintable(values.join(QLatin1Char('|'))));
+        QVERIFY(!values.contains(QStringLiteral("Unavailable")));
+        QCOMPARE(pane->saveState().yaziPreviewContent, 1);
+        QCOMPARE(window.inactivePane()->saveState().yaziPreviewContent, -1);
+        QCOMPARE(window.inactivePane()->yaziPreviewContent(), YaziMode::PreviewContent::Preview);
+
+        // The Vim key i switches back.
+        QVERIFY(items->hasFocus());
+        pressOnFocus(Qt::Key_I);
+        QCOMPARE(pane->yaziPreviewContent(), YaziMode::PreviewContent::Preview);
+        QVERIFY(!action->isChecked());
+        QVERIFY(preview->panel()->isVisible());
+        QVERIFY(!information->isVisible());
+        QCOMPARE(pane->saveState().yaziPreviewContent, 0);
+
+        // The choice is restored; without one, panes follow the setting.
+        PaneSession state = pane->saveState();
+        state.yaziPreviewContent = 1;
+        pane->replaceState(state);
+        QCOMPARE(pane->yaziPreviewContent(), YaziMode::PreviewContent::Information);
+        QVERIFY(action->isChecked());
+        QCOMPARE(pane->saveState(), state);
+        Settings::setYaziPreviewContent(Settings::EnumYaziPreviewContent::Information);
+        window.applySettings();
+        QCOMPARE(window.inactivePane()->yaziPreviewContent(), YaziMode::PreviewContent::Information);
+        state.yaziPreviewContent = -1;
+        pane->replaceState(state);
+        QCOMPARE(pane->yaziPreviewContent(), YaziMode::PreviewContent::Information);
+        Settings::setYaziPreviewContent(Settings::EnumYaziPreviewContent::Preview);
+        window.applySettings();
+        QCOMPARE(pane->yaziPreviewContent(), YaziMode::PreviewContent::Preview);
+        QCOMPARE(window.inactivePane()->yaziPreviewContent(), YaziMode::PreviewContent::Preview);
+        QCOMPARE(pane->saveState().yaziPreviewContent, -1);
+    }
+
+    void previewKeepsTheSizeLimits()
+    {
+        const int previous = Settings::textPreviewLimitKiB();
+        const auto restore = qScopeGuard([previous] {
+            Settings::setTextPreviewLimitKiB(previous);
+        });
+        Settings::setTextPreviewLimitKiB(1);
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QByteArray text;
+        for (int line = 0; line < 100; ++line) {
+            text.append(QByteArray(24, 'x') + '\n');
+        }
+        QVERIFY(writeFile(root.filePath(QStringLiteral("long.txt")), text));
+        QFile image(root.filePath(QStringLiteral("huge.png")));
+        QVERIFY(image.open(QIODevice::WriteOnly));
+        QVERIFY(image.resize(8 * 1024 * 1024 + 1));
+        image.close();
+        MainWindow window;
+        showWithFocusOnItems(window, QUrl::fromLocalFile(root.path()), true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        QAbstractItemView *items = pane->view()->currentView();
+        YaziPreview *preview = pane->yaziColumns()->preview();
+        QVERIFY(preview);
+        auto *footer = preview->findChild<QLabel *>(QStringLiteral("previewFooter"));
+        auto *message = preview->findChild<QLabel *>(QStringLiteral("previewMessage"));
+        auto *textView = preview->findChild<QPlainTextEdit *>(QStringLiteral("previewText"));
+        QVERIFY(footer && message && textView);
+        QTRY_VERIFY(rowNamed(items, QStringLiteral("long.txt")).isValid());
+        QTRY_VERIFY(rowNamed(items, QStringLiteral("huge.png")).isValid());
+
+        // Work in progress shows the loading message and the busy indicator.
+        QStringList loadingMessages;
+        connect(preview->panel(), &PreviewPanel::busyChanged, &window, [&](bool busy) {
+            if (busy && preview->busyIndicator()->isVisible()) {
+                loadingMessages.append(message->text());
+            }
+        });
+        focusRow(items, QStringLiteral("long.txt"));
+        preview->updateNow();
+        QTRY_VERIFY(footer->text().contains(QStringLiteral("Preview truncated.")));
+        QVERIFY(textView->toPlainText().size() <= 1024);
+        QTRY_VERIFY(!preview->panel()->isBusy());
+        QCOMPARE(loadingMessages, QStringList{QStringLiteral("Loading preview…")});
+
+        focusRow(items, QStringLiteral("huge.png"));
+        preview->updateNow();
+        QTRY_COMPARE(message->text(), QStringLiteral("This image is too large to preview."));
+        QVERIFY(message->isVisible());
+        QTRY_VERIFY(!preview->panel()->isBusy());
+        QVERIFY(preview->busyIndicator()->isHidden());
+    }
+
+    void transferIndicatorFollowsTheQueue()
+    {
+        TransferQueue queue;
+        YaziColumns columns;
+        QToolButton *indicator = columns.transferIndicator();
+        QVERIFY(indicator->isHidden());
+        QVERIFY(indicator->parentWidget() == columns.modeIndicator()->parentWidget());
+        columns.setTransferQueue(&queue);
+        QCOMPARE(columns.transferQueue(), &queue);
+        QVERIFY(indicator->isHidden());
+
+        FakeTransfer *first = nullptr;
+        FakeTransfer *second = nullptr;
+        queue.enqueue(QStringLiteral("Copying one"), [&] {
+            first = new FakeTransfer;
+            return first;
+        });
+        queue.enqueue(QStringLiteral("Copying two"), [&] {
+            second = new FakeTransfer;
+            return second;
+        });
+        QTRY_VERIFY(first);
+        QVERIFY(!indicator->isHidden());
+        QCOMPARE(indicator->text(), QStringLiteral("1 transfer running · 0% · 1 waiting"));
+        first->progress(42);
+        QCOMPARE(indicator->text(), QStringLiteral("1 transfer running · 42% · 1 waiting"));
+        QVERIFY(indicator->toolTip().contains(QStringLiteral("Copying one: 42%")));
+        QVERIFY(indicator->toolTip().contains(QStringLiteral("Copying two: waiting")));
+        QSignalSpy requested(&columns, &YaziColumns::transferQueueRequested);
+        indicator->click();
+        QCOMPARE(requested.count(), 1);
+
+        first->finish();
+        QTRY_VERIFY(second);
+        QTRY_COMPARE(indicator->text(), QStringLiteral("1 transfer running · 0%"));
+        second->finish(KJob::UserDefinedError);
+        QTRY_COMPARE(indicator->text(), QStringLiteral("Transfer failed"));
+        QVERIFY(indicator->toolTip().contains(QStringLiteral("Copying two")));
+        QVERIFY(!indicator->isHidden());
+
+        // Columns that start following the queue later don't report old failures.
+        YaziColumns later;
+        later.setTransferQueue(&queue);
+        QVERIFY(later.transferIndicator()->isHidden());
+        queue.clearFinished();
+        columns.setTransferQueue(nullptr);
+        QVERIFY(indicator->isHidden());
+    }
+
+    void transferIndicatorShowsTheWindowQueue()
+    {
+        MainWindow window;
+        showWithFocusOnItems(window, m_a, true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        TransferQueue *queue = FileOperations::transferQueue();
+        YaziColumns *columns = window.activePane()->yaziColumns();
+        QCOMPARE(columns->transferQueue(), queue);
+        QCOMPARE(window.inactivePane()->yaziColumns()->transferQueue(), queue);
+        QToolButton *indicator = columns->transferIndicator();
+        QVERIFY(indicator->isHidden());
+
+        FakeTransfer *copy = nullptr;
+        queue->enqueue(QStringLiteral("Copying file.txt"), [&] {
+            copy = new FakeTransfer;
+            return copy;
+        });
+        QTRY_VERIFY(copy);
+        QTRY_VERIFY(indicator->isVisible());
+        copy->progress(50);
+        QCOMPARE(indicator->text(), QStringLiteral("1 transfer running · 50%"));
+        QCOMPARE(window.inactivePane()->yaziColumns()->transferIndicator()->text(), indicator->text());
+
+        QVERIFY(!window.findChild<TransferQueueDialog *>());
+        QTest::mouseClick(indicator, Qt::LeftButton);
+        QTRY_VERIFY(window.findChild<TransferQueueDialog *>());
+        auto *dialog = window.findChild<TransferQueueDialog *>();
+        QTRY_VERIFY(dialog->isVisible());
+        dialog->close();
+
+        copy->finish();
+        QTRY_VERIFY(indicator->isHidden());
+        queue->clearFinished();
     }
 
     void narrowColumnsHideThePreviewThenTheParent()

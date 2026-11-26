@@ -39,6 +39,7 @@ Layout savedLayout()
     session.right = pane(QStringLiteral("/saved-right"), QStringLiteral("*.md"), 2, 2);
     session.left.yaziMode = true;
     session.left.yaziPreview = 0;
+    session.left.yaziPreviewContent = 1;
     session.activePane = 1;
     return Layout{QByteArray("saved"), {1, 2}, {3, 4}, true, false, presentation, session};
 }
@@ -54,6 +55,7 @@ Layout currentLayout()
     session.right = pane(QStringLiteral("/current-right"), QString(), 0, 0);
     session.right.yaziMode = true;
     session.right.yaziPreview = 1;
+    session.right.yaziPreviewContent = 0;
     return Layout{QByteArray("current"), {8, 9}, {10, 11}, false, true, presentation, session};
 }
 }
@@ -121,6 +123,8 @@ private Q_SLOTS:
         QVERIFY(result.session->right.yaziMode);
         QCOMPARE(result.session->left.yaziPreview, -1);
         QCOMPARE(result.session->right.yaziPreview, 1);
+        QCOMPARE(result.session->left.yaziPreviewContent, -1);
+        QCOMPARE(result.session->right.yaziPreviewContent, 0);
         QCOMPARE(result.session->left.tabs, savedLayout().session->left.tabs);
         QCOMPARE(result.session->left.filterText, QStringLiteral("*.txt"));
         QCOMPARE(result.session->activePane, 1);

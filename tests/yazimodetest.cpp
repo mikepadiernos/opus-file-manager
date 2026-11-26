@@ -154,6 +154,76 @@ private Q_SLOTS:
         QCOMPARE(preview, 1);
     }
 
+    void sessionPreviewContentEntryRoundTrips()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        KConfig config(dir.filePath(QStringLiteral("staterc")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Pane"));
+        QCOMPARE(YaziMode::readSessionPreviewContent(group), -1);
+        YaziMode::writeSessionPreviewContent(group, int(YaziMode::PreviewContent::Information));
+        QCOMPARE(group.readEntry("YaziPreviewContent", QString()), QStringLiteral("Information"));
+        QCOMPARE(YaziMode::readSessionPreviewContent(group), int(YaziMode::PreviewContent::Information));
+        YaziMode::writeSessionPreviewContent(group, int(YaziMode::PreviewContent::Preview));
+        QCOMPARE(group.readEntry("YaziPreviewContent", QString()), QStringLiteral("Preview"));
+        QCOMPARE(YaziMode::readSessionPreviewContent(group), int(YaziMode::PreviewContent::Preview));
+        group.writeEntry("YaziPreviewContent", QStringLiteral("information"));
+        QCOMPARE(YaziMode::readSessionPreviewContent(group), int(YaziMode::PreviewContent::Information));
+        group.writeEntry("YaziPreviewContent", QStringLiteral("Thumbnails"));
+        QCOMPARE(YaziMode::readSessionPreviewContent(group), -1);
+        YaziMode::writeSessionPreviewContent(group, -1);
+        QVERIFY(!group.hasKey("YaziPreviewContent"));
+        QCOMPARE(YaziMode::readSessionPreviewContent(group), -1);
+    }
+
+    void workspacePreviewContentEntryRoundTrips()
+    {
+        QJsonObject object;
+        YaziMode::writeWorkspacePreviewContent(object, -1);
+        QVERIFY(object.isEmpty());
+        int content = 1;
+        QVERIFY(YaziMode::readWorkspacePreviewContent(object, content));
+        QCOMPARE(content, -1);
+
+        YaziMode::writeWorkspacePreviewContent(object, int(YaziMode::PreviewContent::Information));
+        QCOMPARE(object.value(QStringLiteral("yaziPreviewContent")), QJsonValue(QStringLiteral("information")));
+        QVERIFY(YaziMode::readWorkspacePreviewContent(object, content));
+        QCOMPARE(content, int(YaziMode::PreviewContent::Information));
+        YaziMode::writeWorkspacePreviewContent(object, int(YaziMode::PreviewContent::Preview));
+        QCOMPARE(object.value(QStringLiteral("yaziPreviewContent")), QJsonValue(QStringLiteral("preview")));
+        QVERIFY(YaziMode::readWorkspacePreviewContent(object, content));
+        QCOMPARE(content, int(YaziMode::PreviewContent::Preview));
+    }
+
+    void invalidWorkspacePreviewContentEntryIsRejected_data()
+    {
+        QTest::addColumn<QJsonValue>("value");
+        QTest::newRow("number") << QJsonValue(1);
+        QTest::newRow("bool") << QJsonValue(true);
+        QTest::newRow("unknown") << QJsonValue(QStringLiteral("thumbnails"));
+        QTest::newRow("null") << QJsonValue(QJsonValue::Null);
+        QTest::newRow("object") << QJsonValue(QJsonObject());
+    }
+
+    void invalidWorkspacePreviewContentEntryIsRejected()
+    {
+        QFETCH(QJsonValue, value);
+        const QJsonObject object{{QStringLiteral("yaziPreviewContent"), value}};
+        int content = 1;
+        QVERIFY(!YaziMode::readWorkspacePreviewContent(object, content));
+        QCOMPARE(content, 1);
+    }
+
+    void vimKeyTogglesThePreviewContent()
+    {
+        YaziMode::KeyMatcher matcher(YaziMode::presetKeymap(YaziMode::Preset::Vim));
+        QCOMPARE(matcher.feed(Qt::Key_I), YaziMode::KeyMatcher::Result::Matched);
+        QCOMPARE(matcher.command(), YaziMode::Command::TogglePreviewContent);
+        QVERIFY(YaziMode::commandId(YaziMode::Command::TogglePreviewContent) != YaziMode::commandId(YaziMode::Command::TogglePreview));
+        YaziMode::KeyMatcher standard(YaziMode::presetKeymap(YaziMode::Preset::Standard));
+        QVERIFY(standard.feed(Qt::Key_I) != YaziMode::KeyMatcher::Result::Matched);
+    }
+
     void columnWidths_data()
     {
         QTest::addColumn<int>("available");
