@@ -5,6 +5,8 @@
 #include "mainwindow.h"
 #include "pane.h"
 #include "previewpanel.h"
+#include "searchpanel.h"
+#include "searchwidget.h"
 #include "session.h"
 #include "settings.h"
 #include "tabmodel.h"
@@ -42,6 +44,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QTimer>
+#include <QToolButton>
 
 #include <algorithm>
 
@@ -1785,6 +1788,372 @@ private Q_SLOTS:
         QTest::qWait(200);
         QCOMPARE(contents(copy), QByteArray("old"));
         QCOMPARE(contents(source), QByteArray("new"));
+    }
+
+    void vimSlashFiltersAndTheBadgeFollowsTheFilter()
+    {
+        Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
+        MainWindow window;
+        showWithFocusOnItems(window, m_many, true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        QAbstractItemView *items = pane->view()->currentView();
+        YaziColumns *columns = pane->yaziColumns();
+        auto *filterBar = pane->findChild<FilterBar *>();
+        QVERIFY(filterBar);
+        auto *text = filterBar->findChild<QLineEdit *>();
+        QVERIFY(text);
+        QTRY_COMPARE(items->model()->rowCount(), ManyFiles);
+        QVERIFY(columns->filterIndicator()->isHidden());
+        QVERIFY(columns->filterClearButton()->isHidden());
+
+        // / focuses the filter, where the keys type rather than run commands.
+        pressOnFocus(Qt::Key_Slash);
+        QTRY_VERIFY(filterBar->isVisible());
+        QCOMPARE(QApplication::focusWidget(), text);
+        for (Qt::Key key : {Qt::Key_L, Qt::Key_E, Qt::Key_1, Qt::Key_9, Qt::Key_9}) {
+            pressOnFocus(key);
+        }
+        QCOMPARE(text->text(), QStringLiteral("le199"));
+        QCOMPARE(pane->url(), m_many);
+        QVERIFY(!columns->keys()->isPending());
+        QTRY_COMPARE(items->model()->rowCount(), 1);
+        QCOMPARE(items->model()->index(0, 0).data().toString(), QStringLiteral("file199.txt"));
+        QVERIFY(columns->filterIndicator()->isVisible());
+        QCOMPARE(columns->filterIndicator()->text(), QStringLiteral("Filter: le199"));
+        QVERIFY(columns->filterClearButton()->isVisible());
+
+        // Escape clears the filter, as before, and returns to the current column.
+        pressOnFocus(Qt::Key_Escape);
+        QTRY_VERIFY(items->hasFocus());
+        QVERIFY(filterBar->isHidden());
+        QTRY_COMPARE(items->model()->rowCount(), ManyFiles);
+        QVERIFY(columns->filterIndicator()->isHidden());
+
+        // The badge follows a filter set elsewhere; its button and \ clear it.
+        filterBar->setFilter(NameFilter(QStringLiteral("*.txt")));
+        QVERIFY(columns->filterIndicator()->isVisible());
+        QCOMPARE(columns->filterIndicator()->text(), QStringLiteral("Filter: *.txt"));
+        columns->filterClearButton()->click();
+        QVERIFY(filterBar->filter().isEmpty());
+        QVERIFY(columns->filterIndicator()->isHidden());
+        QVERIFY(columns->filterClearButton()->isHidden());
+
+        filterBar->setFilter(NameFilter(QStringLiteral("file0")));
+        QVERIFY(columns->filterIndicator()->isVisible());
+        QTRY_COMPARE(items->model()->rowCount(), 100);
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+        pressOnFocus(Qt::Key_Backslash);
+        QVERIFY(filterBar->filter().isEmpty());
+        QVERIFY(columns->filterIndicator()->isHidden());
+        QTRY_COMPARE(items->model()->rowCount(), ManyFiles);
+        QTRY_VERIFY(items->hasFocus());
+
+        // Without a filter, \ says there is nothing to clear.
+        QSignalSpy messages(pane, &Pane::statusMessage);
+        pressOnFocus(Qt::Key_Backslash);
+        QCOMPARE(messages.count(), 1);
+    }
+
+    void vimCommaKeysSortTheCurrentColumn()
+    {
+        Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
+        MainWindow window;
+        showWithFocusOnItems(window, m_many, true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        FolderView *view = pane->view();
+        QAbstractItemView *items = view->currentView();
+        YaziColumns *columns = pane->yaziColumns();
+        const int previousColumn = view->sortColumn();
+        const Qt::SortOrder previousOrder = view->sortOrder();
+        const auto restore = qScopeGuard([view, previousColumn, previousOrder] {
+            view->setSorting(previousColumn, previousOrder);
+        });
+        view->setSorting(KDirModel::Name, Qt::AscendingOrder);
+        QLabel *sort = columns->sortIndicator();
+        QTRY_VERIFY(sort->isVisible());
+        QCOMPARE(sort->accessibleName(), QStringLiteral("Sorted by Name, ascending"));
+        const auto first = [items] {
+            return items->model()->index(0, 0).data().toString();
+        };
+        QTRY_COMPARE(first(), QStringLiteral("file000.txt"));
+        const auto press = [](Qt::Key key) {
+            pressOnFocus(Qt::Key_Comma);
+            pressOnFocus(key);
+        };
+
+        // ,r reverses the order and keeps the column.
+        pressOnFocus(Qt::Key_Comma);
+        QVERIFY(columns->keys()->isPending());
+        pressOnFocus(Qt::Key_R);
+        QCOMPARE(view->sortColumn(), int(KDirModel::Name));
+        QCOMPARE(view->sortOrder(), Qt::DescendingOrder);
+        QTRY_COMPARE(first(), QStringLiteral("file199.txt"));
+        QCOMPARE(sort->accessibleName(), QStringLiteral("Sorted by Name, descending"));
+
+        // The column keys keep the order.
+        press(Qt::Key_S);
+        QCOMPARE(view->sortColumn(), int(KDirModel::Size));
+        QCOMPARE(view->sortOrder(), Qt::DescendingOrder);
+        QCOMPARE(sort->accessibleName(), QStringLiteral("Sorted by Size, descending"));
+        press(Qt::Key_R);
+        QCOMPARE(view->sortOrder(), Qt::AscendingOrder);
+        QTRY_COMPARE(first(), QStringLiteral("file000.txt"));
+        QCOMPARE(sort->accessibleName(), QStringLiteral("Sorted by Size, ascending"));
+        press(Qt::Key_M);
+        QCOMPARE(view->sortColumn(), int(KDirModel::ModifiedTime));
+        QCOMPARE(sort->accessibleName(), QStringLiteral("Sorted by Modified, ascending"));
+        press(Qt::Key_E);
+        QCOMPARE(view->sortColumn(), int(KDirModel::Type));
+        QCOMPARE(sort->accessibleName(), QStringLiteral("Sorted by Type, ascending"));
+        press(Qt::Key_N);
+        QCOMPARE(view->sortColumn(), int(KDirModel::Name));
+        QCOMPARE(view->sortOrder(), Qt::AscendingOrder);
+        QCOMPARE(sort->accessibleName(), QStringLiteral("Sorted by Name, ascending"));
+        QVERIFY(items->hasFocus());
+
+        // The label follows sorting changed outside the keys.
+        view->setSorting(KDirModel::Size, Qt::DescendingOrder);
+        QCOMPARE(sort->accessibleName(), QStringLiteral("Sorted by Size, descending"));
+    }
+
+    void vimTabKeysKeepTheModeAndTheColumnsFollow()
+    {
+        Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
+        MainWindow window;
+        showWithFocusOnItems(window, m_a, true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        TabModel *tabs = pane->tabs();
+        YaziColumns *columns = pane->yaziColumns();
+        QListView *parent = columns->parentColumn();
+        const QUrl root = QUrl::fromLocalFile(m_root.path());
+        const auto focusItems = [pane] {
+            QAbstractItemView *items = pane->view()->currentView();
+            if (!items->hasFocus()) {
+                items->setFocus(Qt::OtherFocusReason);
+            }
+            return QTest::qWaitFor([items] {
+                return items->hasFocus();
+            });
+        };
+        QTRY_COMPARE(stripped(pane->url()), m_a);
+        while (tabs->count() > 1) {
+            QVERIFY(tabs->closeTab(tabs->currentIndex() == 0 ? 1 : 0));
+        }
+        QCOMPARE(tabs->count(), 1);
+        QVERIFY(focusItems());
+        QTRY_VERIFY(rowNamed(pane->view()->currentView(), QStringLiteral("sub")).isValid());
+        focusRow(pane->view()->currentView(), QStringLiteral("sub"));
+        QTRY_COMPARE(stripped(columns->parentUrl()), root);
+
+        // t opens the focused folder in a new tab, still in the mode.
+        pressOnFocus(Qt::Key_T);
+        QTRY_COMPARE(tabs->count(), 2);
+        QCOMPARE(tabs->currentIndex(), 1);
+        QTRY_COMPARE(stripped(pane->url()), m_sub);
+        QVERIFY(pane->yaziMode());
+        QTRY_COMPARE(stripped(columns->parentUrl()), m_a);
+        QTRY_COMPARE(parent->currentIndex().data().toString(), QStringLiteral("sub"));
+        QTRY_VERIFY(pane->view()->currentView()->hasFocus());
+
+        // [ and ], and gT and gt, go to the previous and next tabs.
+        pressOnFocus(Qt::Key_BracketLeft);
+        QTRY_COMPARE(tabs->currentIndex(), 0);
+        QTRY_COMPARE(stripped(pane->url()), m_a);
+        QVERIFY(pane->yaziMode());
+        QTRY_COMPARE(stripped(columns->parentUrl()), root);
+        QTRY_COMPARE(parent->currentIndex().data().toString(), QStringLiteral("a"));
+        QVERIFY(focusItems());
+        pressOnFocus(Qt::Key_BracketRight);
+        QTRY_COMPARE(tabs->currentIndex(), 1);
+        QTRY_COMPARE(stripped(columns->parentUrl()), m_a);
+        QVERIFY(focusItems());
+        pressOnFocus(Qt::Key_G);
+        pressOnFocus(Qt::Key_T, Qt::ShiftModifier);
+        QTRY_COMPARE(tabs->currentIndex(), 0);
+        QTRY_COMPARE(stripped(columns->parentUrl()), root);
+        QVERIFY(focusItems());
+        pressOnFocus(Qt::Key_G);
+        pressOnFocus(Qt::Key_T);
+        QTRY_COMPARE(tabs->currentIndex(), 1);
+        QTRY_COMPARE(stripped(pane->url()), m_sub);
+        QVERIFY(pane->yaziMode());
+        QVERIFY(columns->isVisible());
+
+        // gw keeps a locked tab and closes an unlocked one.
+        QSignalSpy messages(pane, &Pane::statusMessage);
+        tabs->setLocked(1, true);
+        QVERIFY(focusItems());
+        pressOnFocus(Qt::Key_G);
+        pressOnFocus(Qt::Key_W);
+        QCOMPARE(messages.count(), 1);
+        QCOMPARE(tabs->count(), 2);
+        tabs->setLocked(1, false);
+        pressOnFocus(Qt::Key_G);
+        pressOnFocus(Qt::Key_W);
+        QTRY_COMPARE(tabs->count(), 1);
+        QTRY_COMPARE(stripped(pane->url()), m_a);
+        QVERIFY(pane->yaziMode());
+        QTRY_COMPARE(stripped(columns->parentUrl()), root);
+
+        // The only tab stays, and there is no other tab to go to.
+        QVERIFY(focusItems());
+        pressOnFocus(Qt::Key_G);
+        pressOnFocus(Qt::Key_W);
+        QCOMPARE(messages.count(), 2);
+        pressOnFocus(Qt::Key_BracketRight);
+        QCOMPARE(messages.count(), 3);
+        QCOMPARE(tabs->count(), 1);
+    }
+
+    void historyKeepsTheColumnsInStep()
+    {
+        Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
+        MainWindow window;
+        showWithFocusOnItems(window, m_a, true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        QAbstractItemView *items = pane->view()->currentView();
+        YaziColumns *columns = pane->yaziColumns();
+        QListView *parent = columns->parentColumn();
+        YaziPreview *preview = columns->preview();
+        QVERIFY(preview);
+        const QUrl root = QUrl::fromLocalFile(m_root.path());
+        const auto inStepWith = [&](const QUrl &url, const QUrl &parentUrl, const QString &parentItem) {
+            return QTest::qWaitFor([&] {
+                       return stripped(pane->url()) == url && stripped(columns->url()) == url && stripped(columns->parentUrl()) == parentUrl
+                           && parent->currentIndex().data().toString() == parentItem;
+                   })
+                && QTest::qWaitFor([&] {
+                       const QModelIndex current = items->currentIndex();
+                       const KFileItem item = preview->item();
+                       return !preview->isUpdatePending() && (current.isValid() ? !item.isNull() && item.name() == current.data().toString() : item.isNull());
+                   });
+        };
+
+        // Going back restores the selection, which the preview then shows.
+        pane->view()->selectUrls({m_sub});
+        QTRY_COMPARE(preview->item().url(), m_sub);
+        pane->setUrl(m_sub);
+        QVERIFY(inStepWith(m_sub, m_a, QStringLiteral("sub")));
+        items->setFocus(Qt::OtherFocusReason);
+        QTRY_VERIFY(items->hasFocus());
+
+        // H and L go back and forward, with the parent column and preview following.
+        pressOnFocus(Qt::Key_H, Qt::ShiftModifier);
+        QVERIFY(inStepWith(m_a, root, QStringLiteral("a")));
+        QTRY_COMPARE(preview->item().url(), m_sub);
+        pressOnFocus(Qt::Key_L, Qt::ShiftModifier);
+        QVERIFY(inStepWith(m_sub, m_a, QStringLiteral("sub")));
+        QVERIFY(preview->item().isNull());
+
+        // The pane's own history buttons do the same.
+        pane->goBack();
+        QVERIFY(inStepWith(m_a, root, QStringLiteral("a")));
+        QTRY_COMPARE(preview->item().url(), m_sub);
+        pane->goForward();
+        QVERIFY(inStepWith(m_sub, m_a, QStringLiteral("sub")));
+        QVERIFY(pane->yaziMode());
+    }
+
+    void vimSearchKeysOpenTheFolderSearchAndReportIt()
+    {
+        Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
+        MainWindow window;
+        showWithFocusOnItems(window, m_a, true);
+        if (QTest::currentTestFailed()) {
+            return;
+        }
+        Pane *pane = window.activePane();
+        QAbstractItemView *items = pane->view()->currentView();
+        YaziColumns *columns = pane->yaziColumns();
+        auto *panel = window.findChild<SearchPanel *>();
+        QVERIFY(panel);
+        SearchWidget *search = panel->searchWidget();
+        QSignalSpy requested(pane, &Pane::yaziSearchRequested);
+        const auto focusItems = [items] {
+            items->setFocus(Qt::OtherFocusReason);
+            return QTest::qWaitFor([items] {
+                return items->hasFocus();
+            });
+        };
+
+        // s opens the panel for a file name search of the pane's folder.
+        pressOnFocus(Qt::Key_S);
+        QTRY_COMPARE(requested.count(), 1);
+        QCOMPARE(requested.at(0).at(0).toBool(), false);
+        QTRY_VERIFY(panel->isVisible());
+        QCOMPARE(stripped(search->folder()), m_a);
+        QVERIFY(search->searchesCurrentFolder());
+        QCOMPARE(search->field(), LiveSearch::Field::FileName);
+        QTRY_VERIFY(search->isAncestorOf(QApplication::focusWidget()));
+        QVERIFY(columns->searchIndicator()->isHidden());
+
+        // S searches the contents instead.
+        QVERIFY(focusItems());
+        pressOnFocus(Qt::Key_S, Qt::ShiftModifier);
+        QTRY_COMPARE(requested.count(), 2);
+        QCOMPARE(requested.at(1).at(0).toBool(), true);
+        QTRY_COMPARE(search->field(), LiveSearch::Field::Contents);
+        QVERIFY(search->searchesCurrentFolder());
+
+        // The outcome of the search shows in the status row.
+        QSignalSpy finished(search, &SearchWidget::finished);
+        QVERIFY(search->search(QStringLiteral("file")));
+        QTRY_COMPARE(finished.count(), 1);
+        QVERIFY(columns->searchIndicator()->isVisible());
+        QCOMPARE(columns->searchIndicator()->text(), search->status());
+        QVERIFY(!columns->isSearchRunning());
+        QVERIFY(columns->searchCancelButton()->isHidden());
+
+        // While it runs, Escape in the columns cancels it.
+        QVERIFY(search->prepareFolderSearch(LiveSearch::Field::FileName));
+        QVERIFY(search->setFolder(QUrl::fromLocalFile(QDir::rootPath())));
+        QVERIFY(search->search(QStringLiteral("a-name-that-should-not-exist-anywhere")));
+        QVERIFY(search->isRunning());
+        QVERIFY(columns->isSearchRunning());
+        QVERIFY(columns->searchIndicator()->isVisible());
+        QVERIFY(columns->searchIndicator()->text().startsWith(QStringLiteral("Searching")));
+        QVERIFY(columns->searchCancelButton()->isVisible());
+        QVERIFY(focusItems());
+        QSignalSpy cancelRequested(columns, &YaziColumns::searchCancelRequested);
+        pressOnFocus(Qt::Key_Escape);
+        QCOMPARE(cancelRequested.count(), 1);
+        QTRY_COMPARE(finished.count(), 2);
+        QVERIFY(!columns->isSearchRunning());
+        QCOMPARE(columns->searchIndicator()->text(), search->status());
+        QVERIFY(search->status().contains(QStringLiteral("canceled")));
+        QVERIFY(columns->searchCancelButton()->isHidden());
+        QVERIFY(items->hasFocus());
+
+        // Without a running search, Escape is left to the columns.
+        pressOnFocus(Qt::Key_Escape);
+        QCOMPARE(cancelRequested.count(), 1);
+
+        // A location the search can't handle is reported in the row.
+        QVERIFY(search->setFolder(QUrl(QStringLiteral("sftp://example.invalid/path"))));
+        QVERIFY(!search->search(QStringLiteral("x")));
+        QTRY_VERIFY(columns->searchIndicator()->text().contains(QStringLiteral("local folders only")));
+        QVERIFY(!columns->isSearchRunning());
+
+        // A search opened another way isn't reported.
+        QVERIFY(search->setFolder(m_a));
+        window.actionCollection()->action(QStringLiteral("search_folder"))->trigger();
+        QTRY_VERIFY(columns->searchIndicator()->isHidden());
+        QVERIFY(search->search(QStringLiteral("file")));
+        QTRY_COMPARE(finished.count(), 3);
+        QVERIFY(columns->searchIndicator()->isHidden());
     }
 
 private:

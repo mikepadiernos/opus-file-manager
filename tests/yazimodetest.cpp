@@ -363,7 +363,7 @@ private Q_SLOTS:
         QVERIFY(!matcher.isPending());
         QCOMPARE(matcher.feed(Qt::Key_G), Result::Pending);
         QCOMPARE(matcher.test(Qt::Key_G), Result::Matched);
-        QCOMPARE(matcher.test(Qt::Key_W), Result::NoMatch);
+        QCOMPARE(matcher.test(Qt::Key_B), Result::NoMatch);
         QVERIFY(matcher.isPending());
         QCOMPARE(matcher.pendingKeys(), YaziMode::KeySequence{Qt::Key_G});
         matcher.reset();
@@ -574,6 +574,96 @@ private Q_SLOTS:
         QCOMPARE(YaziMode::sequenceText({Qt::ControlModifier | Qt::Key_D}, 2),
                  QStringLiteral("2 ") + QKeySequence(Qt::ControlModifier | Qt::Key_D).toString(QKeySequence::NativeText));
         QCOMPARE(YaziMode::normalizedKey(Qt::KeypadModifier | Qt::Key_Up), QKeyCombination(Qt::Key_Up));
+    }
+
+    void vimKeysFilterSearchSortAndChangeTabs()
+    {
+        const YaziMode::Keymap keymap = YaziMode::presetKeymap(YaziMode::Preset::Vim);
+        QCOMPARE(YaziMode::conflicts(keymap), QList<YaziMode::Conflict>());
+        YaziMode::KeyMatcher matcher(keymap);
+        const auto run = [&matcher](const YaziMode::KeySequence &keys) {
+            for (qsizetype i = 0; i + 1 < keys.size(); ++i) {
+                if (matcher.feed(keys.at(i)) != Result::Pending) {
+                    return -1;
+                }
+            }
+            return matcher.feed(keys.last()) == Result::Matched ? int(matcher.command()) : -1;
+        };
+        using Command = YaziMode::Command;
+        QCOMPARE(run({Qt::Key_Slash}), int(Command::Filter));
+        QCOMPARE(run({Qt::Key_Backslash}), int(Command::ClearFilter));
+        QCOMPARE(run({Qt::Key_S}), int(Command::SearchNames));
+        QCOMPARE(run({Qt::ShiftModifier | Qt::Key_S}), int(Command::SearchContents));
+        QCOMPARE(run({Qt::Key_Comma, Qt::Key_N}), int(Command::SortByName));
+        QCOMPARE(run({Qt::Key_Comma, Qt::Key_S}), int(Command::SortBySize));
+        QCOMPARE(run({Qt::Key_Comma, Qt::Key_M}), int(Command::SortByModified));
+        QCOMPARE(run({Qt::Key_Comma, Qt::Key_E}), int(Command::SortByType));
+        QCOMPARE(run({Qt::Key_Comma, Qt::Key_R}), int(Command::ReverseSort));
+        QCOMPARE(run({Qt::Key_T}), int(Command::NewTab));
+        QCOMPARE(run({Qt::Key_BracketLeft}), int(Command::PreviousTab));
+        QCOMPARE(run({Qt::Key_BracketRight}), int(Command::NextTab));
+        QCOMPARE(run({Qt::Key_G, Qt::ShiftModifier | Qt::Key_T}), int(Command::PreviousTab));
+        QCOMPARE(run({Qt::Key_G, Qt::Key_T}), int(Command::NextTab));
+        QCOMPARE(run({Qt::Key_G, Qt::Key_W}), int(Command::CloseTab));
+        // The older g sequences still work beside the tab ones.
+        QCOMPARE(run({Qt::Key_G, Qt::Key_G}), int(Command::MoveFirst));
+        // Layouts that type / or [ with Shift still reach the commands.
+        QCOMPARE(run({Qt::ShiftModifier | Qt::Key_Slash}), int(Command::Filter));
+        QCOMPARE(run({Qt::ShiftModifier | Qt::Key_BracketRight}), int(Command::NextTab));
+        // A comma waits for the sort key; another key breaks it and runs on its own.
+        QCOMPARE(matcher.feed(Qt::Key_Comma), Result::Pending);
+        QCOMPARE(matcher.pendingText(), QStringLiteral(","));
+        QCOMPARE(matcher.feed(Qt::Key_J), Result::Matched);
+        QCOMPARE(matcher.command(), Command::MoveDown);
+        // Counts don't repeat these commands.
+        for (Command command : {Command::Filter,
+                                Command::ClearFilter,
+                                Command::SearchNames,
+                                Command::SearchContents,
+                                Command::SortByName,
+                                Command::ReverseSort,
+                                Command::NewTab,
+                                Command::PreviousTab,
+                                Command::NextTab,
+                                Command::CloseTab}) {
+            QVERIFY2(!YaziMode::commandTakesCount(command), qPrintable(YaziMode::commandId(command)));
+            QVERIFY2(!YaziMode::isFileCommand(command), qPrintable(YaziMode::commandId(command)));
+            QVERIFY2(YaziMode::commandAction(command).isEmpty(), qPrintable(YaziMode::commandId(command)));
+        }
+        QCOMPARE(YaziMode::commandId(Command::SortByModified), QStringLiteral("sort-by-modified"));
+        QCOMPARE(YaziMode::commandId(Command::CloseTab), QStringLiteral("close-tab"));
+    }
+
+    void standardKeysLeaveFilterSearchAndTabKeysAlone()
+    {
+        const YaziMode::KeyMatcher matcher(YaziMode::presetKeymap(YaziMode::Preset::Standard));
+        for (QKeyCombination key : {QKeyCombination(Qt::Key_Slash),
+                                    QKeyCombination(Qt::Key_Backslash),
+                                    QKeyCombination(Qt::Key_S),
+                                    QKeyCombination(Qt::Key_Comma),
+                                    QKeyCombination(Qt::Key_T),
+                                    QKeyCombination(Qt::Key_BracketLeft),
+                                    QKeyCombination(Qt::Key_BracketRight),
+                                    Qt::ControlModifier | Qt::Key_I,
+                                    Qt::ControlModifier | Qt::Key_F,
+                                    Qt::ControlModifier | Qt::Key_T,
+                                    Qt::ControlModifier | Qt::Key_W}) {
+            QCOMPARE(matcher.test(key), Result::NoMatch);
+        }
+    }
+
+    void shiftIsIgnoredOnlyForPunctuation()
+    {
+        QCOMPARE(YaziMode::normalizedKey(Qt::ShiftModifier | Qt::Key_Slash), QKeyCombination(Qt::Key_Slash));
+        QCOMPARE(YaziMode::normalizedKey(Qt::ShiftModifier | Qt::Key_Comma), QKeyCombination(Qt::Key_Comma));
+        QCOMPARE(YaziMode::normalizedKey(Qt::ShiftModifier | Qt::Key_BraceLeft), QKeyCombination(Qt::Key_BraceLeft));
+        QCOMPARE(YaziMode::normalizedKey(Qt::ShiftModifier | Qt::ControlModifier | Qt::Key_Backslash), Qt::ControlModifier | Qt::Key_Backslash);
+        QCOMPARE(YaziMode::normalizedKey(Qt::ShiftModifier | Qt::Key_S), Qt::ShiftModifier | Qt::Key_S);
+        QCOMPARE(YaziMode::normalizedKey(Qt::ShiftModifier | Qt::Key_Space), Qt::ShiftModifier | Qt::Key_Space);
+        QCOMPARE(YaziMode::normalizedKey(Qt::ShiftModifier | Qt::Key_5), Qt::ShiftModifier | Qt::Key_5);
+        QCOMPARE(YaziMode::normalizedKey(Qt::ShiftModifier | Qt::Key_Tab), Qt::ShiftModifier | Qt::Key_Tab);
+        QCOMPARE(YaziMode::keyText(Qt::Key_BracketRight), QStringLiteral("]"));
+        QCOMPARE(YaziMode::sequenceText({Qt::Key_Comma, Qt::Key_N}), QStringLiteral(",n"));
     }
 
 private:

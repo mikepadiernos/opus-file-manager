@@ -1286,6 +1286,47 @@ private Q_SLOTS:
         QVERIFY(search.setFolder(QUrl::fromLocalFile(root.path())));
     }
 
+    void preparesFolderSearchesAndReportsTheirProgress()
+    {
+        SearchWidget remote(QUrl(QStringLiteral("sftp://example.invalid/path")));
+        auto *scope = remote.findChild<QComboBox *>(QStringLiteral("searchScope"));
+        QVERIFY(scope);
+        scope->setCurrentIndex(1);
+        QVERIFY(!remote.searchesCurrentFolder());
+        QVERIFY(remote.locationLimitation().isEmpty());
+
+        // The Yazi search keys pick the live current-folder scope and the field.
+        QVERIFY(remote.prepareFolderSearch(LiveSearch::Field::Contents));
+        QVERIFY(remote.searchesCurrentFolder());
+        QCOMPARE(remote.field(), LiveSearch::Field::Contents);
+        QVERIFY(remote.locationLimitation().contains(QStringLiteral("local folders only")));
+        QVERIFY(remote.prepareFolderSearch(LiveSearch::Field::FileName));
+        QCOMPARE(remote.field(), LiveSearch::Field::FileName);
+
+        // A search the location can't run is rejected with the panel's message.
+        QSignalSpy rejected(&remote, &SearchWidget::startRejected);
+        QSignalSpy remoteStarted(&remote, &SearchWidget::started);
+        QVERIFY(!remote.search(QStringLiteral("x")));
+        QCOMPARE(rejected.count(), 1);
+        QCOMPARE(rejected.at(0).at(0).toString(), remote.status());
+        QVERIFY(remote.status().contains(QStringLiteral("local folders only")));
+        QCOMPARE(remoteStarted.count(), 0);
+
+        // A local search starts, can't be re-prepared while it runs and reports its end.
+        SearchWidget local(QUrl::fromLocalFile(QDir::rootPath()));
+        QVERIFY(local.prepareFolderSearch(LiveSearch::Field::FileName));
+        QVERIFY(local.locationLimitation().isEmpty());
+        QSignalSpy started(&local, &SearchWidget::started);
+        QSignalSpy finished(&local, &SearchWidget::finished);
+        QVERIFY(local.search(QStringLiteral("a-name-that-should-not-exist-anywhere")));
+        QCOMPARE(started.count(), 1);
+        QVERIFY(!local.prepareFolderSearch(LiveSearch::Field::Contents));
+        QCOMPARE(local.field(), LiveSearch::Field::FileName);
+        local.cancel();
+        QTRY_COMPARE(finished.count(), 1);
+        QVERIFY(!local.isRunning());
+    }
+
     void revealsResultInActivePaneAndReportsMissingItems()
     {
         QTemporaryDir root;
