@@ -480,6 +480,22 @@ behaves like the rest of the desktop and follows the user's choices.
   and KIO, and KIO reports denied access and expired sign-ins in the pane.
   See [KDE Online Accounts](../CAVEATS.md#desktop-integration).
   ([#370](https://github.com/mikepadiernos/plasma-opus/issues/370))
+- **rsync backend:** **File › Compare and Synchronize Folders…** offers
+  **Synchronize with › rsync** when [rsync](https://rsync.samba.org/) is
+  installed, and also opens when one pane shows a folder on an SSH host
+  through `sftp:/` or `fish:/`; rsync then compares the folders too, with the
+  same filters, profiles and comparison options. Plans start with every item
+  skipped. Before anything changes, Plasma Opus checks that rsync can carry
+  out the plan exactly: one direction per run, deleting only files missing
+  from the source, with every parent folder planned. An rsync dry run then
+  itemizes the new files, folders, overwrites and deletions for
+  confirmation, and planned items rsync would skip are named. The run copies
+  and deletes only the listed items, honours the copy policy and speed limit,
+  and reports progress and cancellation to Plasma's job view; the report
+  lists what rsync changed and any errors. SSH keeps OpenSSH's host-key
+  checks, and KDE's ksshaskpass asks for passwords; passwords never reach the
+  command line. See [rsync backend](../CAVEATS.md#desktop-integration).
+  ([#363](https://github.com/mikepadiernos/plasma-opus/issues/363))
 
 ## Planned features
 
