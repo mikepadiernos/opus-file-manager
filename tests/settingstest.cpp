@@ -26,6 +26,7 @@
 #include "themeprofiles.h"
 #include "treelines.h"
 #include "windoweffects.h"
+#include "yazimode.h"
 
 #include <KActionCollection>
 #include <KColorButton>
@@ -327,19 +328,41 @@ private Q_SLOTS:
         MainWindow window;
         SettingsDialog dialog(placesOf(window), &window);
         const auto items = Settings::self()->items();
-        // M26 adds the Yazi key preset chooser, which the View menu sets until
-        // then, and the Yazi preview content, parent column and column ratio
-        // defaults, which the View menu and dragging the columns set until then.
-        const QStringList withoutWidget{QStringLiteral("YaziKeyPreset"),
-                                        QStringLiteral("YaziPreviewContent"),
-                                        QStringLiteral("YaziParentColumnVisible"),
-                                        QStringLiteral("YaziColumnRatios")};
         for (const KConfigSkeletonItem *item : items) {
-            if (withoutWidget.contains(item->name())) {
-                continue;
-            }
             QVERIFY2(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + item->name()), qPrintable(item->name()));
         }
+    }
+
+    void yaziDefaultsAreTheYaziModeGroup()
+    {
+        const QVariantMap defaults = YaziMode::defaultSettings(Settings::self());
+        QCOMPARE(defaults.keys(),
+                 QStringList({QStringLiteral("YaziColumnRatios"),
+                              QStringLiteral("YaziKeyPreset"),
+                              QStringLiteral("YaziLeftPaneDefault"),
+                              QStringLiteral("YaziLeftPaneRestore"),
+                              QStringLiteral("YaziParentColumnVisible"),
+                              QStringLiteral("YaziPreviewContent"),
+                              QStringLiteral("YaziPreviewVisible"),
+                              QStringLiteral("YaziRightPaneDefault"),
+                              QStringLiteral("YaziRightPaneRestore"),
+                              QStringLiteral("YaziWorkspaceRestoreColumns"),
+                              QStringLiteral("YaziWorkspaceRestoreMode")}));
+        QCOMPARE(defaults.value(QStringLiteral("YaziColumnRatios")).value<QList<int>>(), QList<int>({1, 3, 2}));
+        QCOMPARE(defaults.value(QStringLiteral("YaziKeyPreset")).toInt(), int(Settings::EnumYaziKeyPreset::Standard));
+        QCOMPARE(defaults.value(QStringLiteral("YaziPreviewContent")).toInt(), int(Settings::EnumYaziPreviewContent::Preview));
+        QCOMPARE(defaults.value(QStringLiteral("YaziLeftPaneDefault")), QVariant(false));
+        QCOMPARE(defaults.value(QStringLiteral("YaziRightPaneDefault")), QVariant(false));
+        for (const char *entry : {"YaziPreviewVisible",
+                                  "YaziParentColumnVisible",
+                                  "YaziLeftPaneRestore",
+                                  "YaziRightPaneRestore",
+                                  "YaziWorkspaceRestoreMode",
+                                  "YaziWorkspaceRestoreColumns"}) {
+            QVERIFY2(defaults.value(QLatin1String(entry)).toBool(), entry);
+        }
+        QVERIFY(Settings::self()->findItem(QStringLiteral("WorkspaceDefaultYaziMode")));
+        QVERIFY(!defaults.contains(QStringLiteral("WorkspaceDefaultYaziMode")));
     }
 
     void dialogApplyWritesSettings()
@@ -1299,6 +1322,7 @@ private Q_SLOTS:
                               QStringLiteral("Themes"),
                               QStringLiteral("Branding"),
                               QStringLiteral("View"),
+                              QStringLiteral("Yazi Mode"),
                               QStringLiteral("Context Menu"),
                               QStringLiteral("Archives"),
                               QStringLiteral("Files"),
@@ -1383,6 +1407,19 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("ShowFilePins")), QStringLiteral("Metadata"));
         QCOMPARE(tabOf(QStringLiteral("ShowSizeColumn")), QStringLiteral("Details"));
         QCOMPARE(tabOf(QStringLiteral("DragFromAnywhere")), QStringLiteral("Details"));
+        for (const QString &entry : {QStringLiteral("YaziLeftPaneDefault"),
+                                     QStringLiteral("YaziRightPaneDefault"),
+                                     QStringLiteral("YaziLeftPaneRestore"),
+                                     QStringLiteral("YaziRightPaneRestore")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("Activation"));
+        }
+        for (const QString &entry : {QStringLiteral("YaziParentColumnVisible"), QStringLiteral("YaziPreviewVisible"), QStringLiteral("YaziColumnRatios")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("Columns"));
+        }
+        for (const QString &entry : {QStringLiteral("YaziWorkspaceRestoreMode"), QStringLiteral("YaziWorkspaceRestoreColumns")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("Workspace Layouts"));
+        }
+        QCOMPARE(tabOf(QStringLiteral("WorkspaceDefaultYaziMode")), QStringLiteral("Behaviors"));
         QCOMPARE(tabOf(QStringLiteral("ShowOpenInNewTab")), QStringLiteral("Actions"));
         QCOMPARE(tabOf(QStringLiteral("ShowCopyMoveToMenus")), QStringLiteral("Actions"));
         QCOMPARE(tabOf(QStringLiteral("DetailsDensity")), QStringLiteral("Details"));

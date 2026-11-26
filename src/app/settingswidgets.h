@@ -16,6 +16,7 @@
 #include <functional>
 #include <optional>
 
+class QLabel;
 class QLineEdit;
 
 class InterfaceLanguageCombo : public QComboBox
@@ -572,6 +573,40 @@ public:
 
 Q_SIGNALS:
     void pluginsChanged();
+};
+
+/**
+ * Edits the relative widths of the parent, current and preview columns of
+ * Yazi mode, within YaziMode::clampedRatios() limits. Bound to the
+ * YaziColumnRatios setting. A stored value that YaziMode::ratiosFromList()
+ * rejects shows the defaults, but is returned unchanged until edited.
+ */
+class YaziColumnRatiosEditor : public QWidget
+{
+    Q_OBJECT
+    Q_PROPERTY(QList<int> ratios READ ratios WRITE setRatios NOTIFY ratiosChanged USER true)
+
+public:
+    explicit YaziColumnRatiosEditor(QWidget *parent = nullptr);
+    /// The parent, current and preview widths.
+    QList<int> ratios() const;
+    void setRatios(const QList<int> &ratios);
+    /// Shows the default widths, 1, 3 and 2.
+    void restoreDefaultWidths();
+
+Q_SIGNALS:
+    void ratiosChanged();
+
+private:
+    void edited();
+    void updateShares();
+
+    QSpinBox *m_parent;
+    QSpinBox *m_current;
+    QSpinBox *m_preview;
+    QLabel *m_shares;
+    QList<int> m_stored;
+    bool m_edited = false;
 };
 
 /**

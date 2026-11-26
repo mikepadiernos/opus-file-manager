@@ -12,8 +12,8 @@ namespace WorkspaceRestore
  * Which parts of a saved workspace layout are restored when switching. Each
  * part applies only when the workspace's behavior selection includes it:
  * window parts need the layout behavior, and pane and tab parts need pane and
- * tab restoration. Each pane's Yazi mode follows the selection's own Yazi
- * mode behavior; see BehaviorSelection::appliesYaziMode().
+ * tab restoration. Each pane's Yazi mode and columns follow the selection's
+ * own Yazi mode behavior; see yaziParts().
  */
 struct Options {
     /// Single or dual panes, stacking, splitter sizes, second-pane placement
@@ -32,8 +32,38 @@ struct Options {
     bool activeTabs = true;
     /// Each pane's name filter.
     bool filters = true;
+    /// Each pane's Yazi mode, on or off.
+    bool yaziMode = true;
+    /// Each pane's Yazi columns: preview visibility and content, parent
+    /// column and column ratios.
+    bool yaziColumns = true;
     bool operator==(const Options &other) const = default;
 };
+
+/// The parts of each pane's Yazi state that switching restores.
+struct YaziParts {
+    /// Whether the pane's Yazi mode is on.
+    bool mode = false;
+    /// The pane's preview visibility and content, parent column and column ratios.
+    bool columns = false;
+    bool any() const
+    {
+        return mode || columns;
+    }
+    bool operator==(const YaziParts &other) const = default;
+};
+
+/**
+ * Decides which parts of each pane's Yazi state switching to a workspace
+ * restores. Nothing is restored unless the workspace's Yazi mode behavior
+ * applies; then the Yazi options choose the parts. Parts that are not
+ * restored keep the pane's current state. The workspace's saved layout and
+ * behavior selection are never changed.
+ * @param selection the workspace's behavior selection
+ * @param options the restore options
+ * @returns the parts to restore
+ */
+YaziParts yaziParts(const WorkspaceCatalog::BehaviorSelection &selection, const Options &options);
 
 /**
  * Reads the restore options from the Settings singleton.

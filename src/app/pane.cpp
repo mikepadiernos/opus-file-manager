@@ -1145,6 +1145,20 @@ void Pane::reloadYaziPreviewSetting()
     }
 }
 
+void Pane::followYaziSettings()
+{
+    const bool chosen = m_yaziPreviewChoice >= 0 || m_yaziPreviewContentChoice >= 0 || m_yaziParentColumnChoice >= 0 || !m_yaziRatiosChoice.isEmpty();
+    m_yaziRatiosSave->stop();
+    m_yaziPreviewChoice = -1;
+    m_yaziPreviewContentChoice = -1;
+    m_yaziParentColumnChoice = -1;
+    m_yaziRatiosChoice.clear();
+    reloadYaziPreviewSetting();
+    if (chosen) {
+        Q_EMIT workspaceLayoutChanged();
+    }
+}
+
 void Pane::restoreYaziPreview(int choice)
 {
     m_yaziPreviewChoice = qBound(-1, choice, 1);

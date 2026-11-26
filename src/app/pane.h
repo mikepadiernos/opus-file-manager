@@ -181,8 +181,15 @@ public:
      */
     void setYaziPreview(bool visible);
     bool yaziPreview() const;
-    /// Applies changed YaziPreviewVisible and YaziPreviewContent settings unless the pane has its own choices.
+    /// Applies changed YaziPreviewVisible, YaziPreviewContent, YaziParentColumnVisible and YaziColumnRatios settings unless the pane has its own choices.
     void reloadYaziPreviewSetting();
+    /**
+     * Drops the pane's own preview, preview content, parent column and column
+     * width choices, including widths dragged but not yet saved as the
+     * setting, so that the pane follows the settings again. Its Yazi mode is
+     * kept.
+     */
+    void followYaziSettings();
     /**
      * Shows the focused item's preview or its file information in the preview
      * column of Yazi mode, and records the choice for the session. Until a

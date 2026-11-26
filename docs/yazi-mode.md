@@ -97,12 +97,11 @@ To show or hide it:
 - Choose **View › Yazi Preview** (action `toggle_yazi_preview`). It applies to
   the active pane, is checked when that pane shows the preview, and is enabled
   only while the active pane is in Yazi mode. It has no default shortcut.
-- **Preferences › Interface › Previews › Show the preview column in Yazi mode
-  unless a pane was set otherwise** sets the default. It is the
-  `YaziPreviewVisible` entry in the `[YaziMode]` group of the configuration,
-  and is on by default. Panes whose preview was never toggled follow it,
-  including when it changes; a pane toggled with **View › Yazi Preview** keeps
-  its own choice.
+- **Preferences › Yazi Mode › Columns › Show the preview column** sets the
+  default. It is the `YaziPreviewVisible` entry in the `[YaziMode]` group of
+  the configuration, and is on by default. Panes whose preview was never
+  toggled follow it, including when it changes; a pane toggled with **View ›
+  Yazi Preview** keeps its own choice. See [Columns](#columns).
 
 ### Folder contents
 
@@ -152,7 +151,8 @@ To switch the column between the preview and file information:
 The `YaziPreviewContent` entry in the `[YaziMode]` group of the
 configuration, `Preview` or `Information`, sets what panes show until they
 are switched; it is `Preview` by default. Panes that were never switched
-follow it, including when it changes. M26 adds it to **Preferences**.
+follow it, including when it changes. **Preferences › Yazi Mode › Preview**
+sets it; see [Preview](#preview).
 
 ### Limits
 
@@ -186,7 +186,8 @@ The column widths can still be adjusted by dragging the splitter handles. The
 resulting proportions are kept as the pane is resized and reused when hidden
 columns return. They are saved for the pane, and, half a second after
 dragging stops, as the default for other panes; see
-[Persistence](#persistence).
+[Persistence](#persistence). **Preferences › Yazi Mode › Columns** shows and
+edits the default widths; see [Columns](#columns).
 
 ### Parent column
 
@@ -199,10 +200,10 @@ To show or hide the parent column:
 - Without it, the current and preview columns share the pane in their own
   ratio, 3 : 2 by default, and the preview needs only room for itself and the
   current column before it is hidden.
-- The `YaziParentColumnVisible` entry in the `[YaziMode]` group of the
-  configuration sets the default; it is on by default. Panes whose parent
-  column was never toggled follow it, including when it changes. M26 adds it
-  to **Preferences**.
+- **Preferences › Yazi Mode › Columns › Show the parent column** sets the
+  default. It is the `YaziParentColumnVisible` entry in the `[YaziMode]`
+  group of the configuration, and is on by default. Panes whose parent column
+  was never toggled follow it, including when it changes.
 - A pane too narrow for the parent column still hides it, whatever the
   choice.
 
@@ -345,10 +346,10 @@ presets:
   counts such as `5j` to the standard keys.
 
 Choose **View › Vim-Style Keys in Yazi Mode** (action `toggle_yazi_vim_keys`,
-no default shortcut) to switch between them. The choice applies to both panes
-and is saved as the `YaziKeyPreset` entry (`Standard` or `Vim`) in the
-`[YaziMode]` group of the configuration. A preset chooser in Preferences comes
-with M26.
+no default shortcut) or **Preferences › Yazi Mode › Keyboard** to switch
+between them; see [Keyboard settings](#keyboard-1). The choice applies to
+both panes and is saved as the `YaziKeyPreset` entry (`Standard` or `Vim`) in
+the `[YaziMode]` group of the configuration.
 
 ### Standard keys
 
@@ -499,9 +500,10 @@ toggle are enabled only while the active pane is in Yazi mode. A test checks
 that every `toggle_yazi_*` and `yazi_*` action has no default shortcut. The file keys use the window's existing actions, which already
 have their own shortcuts, and the filtering, search, sorting and tab keys use
 the pane's filter bar, the search panel, the pane's sort menu and the pane's
-tabs, which have their own menus and shortcuts too. The standard and Vim-style keys can't be changed
-yet; M26 adds a preset chooser and a review of conflicts with other
-shortcuts.
+tabs, which have their own menus and shortcuts too. The keys of each preset
+are fixed and can't be changed one by one; **Preferences › Yazi Mode ›
+Keyboard** chooses the preset and lists the window shortcuts it would take
+over.
 
 ## Selection and file actions
 
@@ -706,25 +708,35 @@ own.
 The `[YaziMode]` group of the configuration holds the defaults for panes
 without a choice of their own:
 
-| Entry                     | Default    | Changed by                                                                     |
-| ------------------------- | ---------- | ------------------------------------------------------------------------------ |
-| `YaziPreviewVisible`      | `true`     | **Preferences › Interface › Previews › Show the preview column in Yazi mode…** |
-| `YaziPreviewContent`      | `Preview`  | Configuration file only; M26 adds it to **Preferences**                        |
-| `YaziParentColumnVisible` | `true`     | Configuration file only; M26 adds it to **Preferences**                        |
-| `YaziColumnRatios`        | `1,3,2`    | Dragging a column's edge, half a second after dragging stops                   |
-| `YaziKeyPreset`           | `Standard` | **View › Vim-Style Keys in Yazi Mode**                                         |
+| Entry                         | Default    | Changed by                                                                                    |
+| ----------------------------- | ---------- | --------------------------------------------------------------------------------------------- |
+| `YaziPreviewVisible`          | `true`     | **Preferences › Yazi Mode › Columns**                                                         |
+| `YaziPreviewContent`          | `Preview`  | **Preferences › Yazi Mode › Preview**                                                         |
+| `YaziParentColumnVisible`     | `true`     | **Preferences › Yazi Mode › Columns**                                                         |
+| `YaziColumnRatios`            | `1,3,2`    | **Preferences › Yazi Mode › Columns**; dragging a column's edge, half a second after it stops |
+| `YaziKeyPreset`               | `Standard` | **Preferences › Yazi Mode › Keyboard**; **View › Vim-Style Keys in Yazi Mode**                |
+| `YaziLeftPaneDefault`         | `false`    | **Preferences › Yazi Mode › Activation**                                                      |
+| `YaziRightPaneDefault`        | `false`    | **Preferences › Yazi Mode › Activation**                                                      |
+| `YaziLeftPaneRestore`         | `true`     | **Preferences › Yazi Mode › Activation**                                                      |
+| `YaziRightPaneRestore`        | `true`     | **Preferences › Yazi Mode › Activation**                                                      |
+| `YaziWorkspaceRestoreMode`    | `true`     | **Preferences › Yazi Mode › Workspace Layouts**                                               |
+| `YaziWorkspaceRestoreColumns` | `true`     | **Preferences › Yazi Mode › Workspace Layouts**                                               |
 
 Panes that follow a default change with it when the configuration is applied,
-such as after closing **Preferences**. Column ratios are the parent, current
-and preview widths: three positive whole numbers, scaled down to at most
-100,000 while keeping their proportions. Any other `YaziColumnRatios` value
-falls back to `1,3,2`. Dragging stores the columns' widths in pixels, so a
-dragged default looks like `240,700,460`. Dragging in one pane doesn't resize
-other open panes that follow the default; they use it the next time the
-configuration is applied, and new windows start with it.
+such as after closing **Preferences**. The activation entries, which end in
+`PaneDefault` and `PaneRestore`, are the exception: they are read only when a
+window opens. The workspace entries, which begin with `YaziWorkspaceRestore`,
+aren't pane defaults: they are read each time a workspace layout is applied;
+see [Workspace layouts](#workspace-layouts). Column ratios are the parent,
+current and preview widths: three positive whole numbers, scaled down to at
+most 100,000 while keeping their proportions. Any other `YaziColumnRatios`
+value falls back to `1,3,2`. Dragging stores the columns' widths in pixels,
+so a dragged default looks like `240,700,460`. Dragging in one pane doesn't
+resize other open panes that follow the default; they use it the next time
+the configuration is applied, and new windows start with it.
 
-The mode itself has no default: panes always start with it off unless a
-session or workspace restores it.
+Whether each pane starts in the mode is chosen when the window opens; see
+[Activation](#activation). It is off by default.
 
 ### Window sessions
 
@@ -746,8 +758,10 @@ entry, such as an unknown preview content or ratios that aren't three
 positive numbers, is ignored and the default used.
 
 When **On startup** opens the home folder or fixed folders instead of
-restoring the last session, both panes start with the mode off and follow
-the defaults. M26 adds a choice for this.
+restoring the last session, both panes follow the defaults and start with
+their default mode, which is off unless changed in
+[Activation](#activation). A pane whose mode isn't restored from the session
+also starts with its default mode, but keeps the rest of its saved Yazi state.
 
 ### Workspaces
 
@@ -777,10 +791,12 @@ is the workspace's **Yazi mode** behavior:
   applies **Selected** behaviors. **All** always applies it and **None**
   never does. It is saved as the `yaziMode` boolean in the workspace's
   `behaviorSelection`.
-- When applied, each pane gets the saved mode, preview visibility and
-  content, parent column and column ratios, independently of the other
-  behaviors and of **Preferences › Workspaces › Layouts › Each pane's view
-  mode**.
+- When applied, each pane gets the saved mode, and the saved preview
+  visibility and content, parent column and column ratios, as chosen in
+  **Preferences › Yazi Mode › Workspace Layouts**; by default both. A part
+  that isn't restored keeps the pane's current state. This is independent of
+  the other behaviors and of **Preferences › Workspaces › Layouts › Each
+  pane's view mode**; see [Workspace layouts](#workspace-layouts).
 - When not applied, each pane keeps its current Yazi state, even when its
   tabs, view mode and the rest of the layout are restored.
 - New workspaces include it.
@@ -790,10 +806,14 @@ is the workspace's **Yazi mode** behavior:
 - Workspaces saved before the behavior existed have no `yaziMode` value in
   `behaviorSelection`. They keep restoring Yazi state as they did, with each
   pane's view mode: when the workspace's **Window and panel layout** behavior
-  applies and **Each pane's view mode** is checked. Their **Yazi mode** check
-  box shows the **Window and panel layout** choice, and saving the
-  workspace's behaviors with it unchanged keeps them that way; changing it
-  stores the choice.
+  applies and **Each pane's view mode** is checked, then as **Workspace
+  Layouts** chooses. Their **Yazi mode** check box shows the **Window and
+  panel layout** choice, and saving the workspace's behaviors with it
+  unchanged keeps them that way; changing it stores the choice.
+
+What a switch restores never changes the workspace: its saved layout, with
+each pane's Yazi state, and its behaviors stay as they were, whatever the
+**Workspace Layouts** options say.
 
 Turning the mode on or off, toggling the preview or parent column, switching
 the preview content, setting a pane's ratios and, once dragging stops,
@@ -808,8 +828,334 @@ Configure Keyboard Shortcuts** and added to the main toolbar.
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | Yazi mode                  | **View › Yazi Mode**; the **Yazi mode** status bar button; the pane's **View Mode** menu; the pane toolbar's optional **Yazi Mode** button |
 | Preview column             | **View › Yazi Preview**                                                                                                                    |
-| Preview or information     | **View › File Information in Yazi Preview**; `i` with the Vim-style keys                                                                   |
+| Preview or information     | **View › File Information in Yazi Preview**; `i` with the Vim-style keys; the default in **Preferences › Yazi Mode › Preview**             |
 | Parent column              | **View › Yazi Parent Column**                                                                                                              |
-| Column ratios              | Dragging the splitter handles between the columns                                                                                          |
+| Column ratios              | Dragging the splitter handles between the columns; the default in **Preferences › Yazi Mode › Columns**                                    |
 | Workspace Yazi behavior    | **View › Workspaces… › Workspace Behaviors › Yazi mode**                                                                                   |
-| Default for new workspaces | **Preferences › Workspaces › Behaviors › Selected Behaviors › Yazi mode**                                                                  |
+| Default for new workspaces | **Preferences › Workspaces › Behaviors › Selected Behaviors › Yazi mode**; summarized in **Preferences › Yazi Mode › Workspace Layouts**   |
+| What workspaces restore    | **Preferences › Yazi Mode › Workspace Layouts**                                                                                            |
+| Mode when a window opens   | **Preferences › Yazi Mode › Activation**                                                                                                   |
+| Default columns and widths | **Preferences › Yazi Mode › Columns**                                                                                                      |
+| Key preset                 | **View › Vim-Style Keys in Yazi Mode**; **Preferences › Yazi Mode › Keyboard**                                                             |
+
+## Settings
+
+**Preferences › Yazi Mode** collects Yazi mode's settings. They are stored in
+the `[YaziMode]` group of the configuration.
+
+### Activation
+
+The **Activation** tab chooses whether each pane starts in Yazi mode when a
+window opens. The **First Pane** and **Second Pane** groups each have:
+
+| Choice                                     | Entry                                          | Default |
+| ------------------------------------------ | ---------------------------------------------- | ------- |
+| **Use Yazi mode by default**               | `YaziLeftPaneDefault` / `YaziRightPaneDefault` | Off     |
+| **Restore the mode from the last session** | `YaziLeftPaneRestore` / `YaziRightPaneRestore` | On      |
+
+When a window opens, each pane's mode is chosen independently:
+
+- If the pane restores its mode and **Preferences › Interface › Folders and
+  Tabs › On startup** restores the last session, the pane starts in Yazi mode
+  exactly when it was in Yazi mode when the session was saved. Sessions saved
+  before Yazi mode existed count as off.
+- Otherwise the pane starts with its default mode: when the pane doesn't
+  restore its mode, when **On startup** opens the home folder or fixed
+  folders, or when the session has nothing saved for the pane.
+
+The same choice applies when the desktop's session management restores a
+window. Only the mode is chosen this way: the pane's tabs, locations and view
+mode, and its preview, information, parent column and column ratio choices,
+still come from the session or the startup folders as before.
+
+With the defaults, panes restore their mode from the last session and start
+with it off otherwise, as before these settings existed; a fresh
+configuration never starts in Yazi mode.
+
+The settings apply only when a window opens. Changing them doesn't change
+open panes; use **View › Yazi Mode** for those. Switching to a workspace, or
+restoring its layout, still applies the workspace's saved mode when its
+**Yazi mode** behavior applies and [Workspace layouts](#workspace-layouts)
+restores the mode, whatever these settings say; see
+[Workspaces](#workspaces). Workspace layouts aren't restored when a window
+opens, so these settings and workspace layouts never compete for the same
+pane.
+
+### Columns
+
+The **Columns** tab chooses which columns a pane shows in Yazi mode and how
+wide they are. The current folder's column is always shown.
+
+| Choice                                      | Entry                     | Default   |
+| ------------------------------------------- | ------------------------- | --------- |
+| **Shown Columns › Show the parent column**  | `YaziParentColumnVisible` | On        |
+| **Shown Columns › Show the preview column** | `YaziPreviewVisible`      | On        |
+| **Column Widths**                           | `YaziColumnRatios`        | 1 : 3 : 2 |
+
+**Show the preview column** was under **Preferences › Interface › Previews**
+before this tab existed; the entry is unchanged.
+
+**Column Widths** has a **Parent column**, **Current column** and **Preview
+column** spin box:
+
+- Only the proportions matter: 1, 3 and 2 give the same columns as 10, 30
+  and 20. Each value is from 1 to 100,000.
+- A summary below the spin boxes shows each column's approximate share of the
+  pane, both with all three columns and without the parent column.
+- **Restore Default Widths** sets the spin boxes back to 1, 3 and 2. The
+  dialog's **Defaults** button resets the whole tab, including the shown
+  columns.
+- Dragging the edge between two columns stores the pane's widths in pixels,
+  and half a second after dragging stops, makes them the default; the tab
+  then shows those pixel values as they are, such as 180, 540 and 360. When
+  this happens while the dialog is open, the tab shows the new widths unless
+  they were already edited in the dialog.
+- A stored value that isn't three positive numbers is shown as the defaults,
+  and is used as the defaults by the panes. It is only replaced when the
+  widths are edited and applied.
+
+When the settings are applied, open panes follow them:
+
+- A pane shows or hides its parent or preview column as chosen, unless that
+  column was toggled for the pane with **View › Yazi Parent Column** or
+  **View › Yazi Preview**, or the pane's choice came from its session or a
+  workspace.
+- A pane takes the new widths unless it has its own: after its columns were
+  dragged, or when its widths came from its session or a workspace.
+- New windows start with the settings, except for what a pane restores from
+  its session; see [Persistence](#persistence).
+
+**Narrow Panes** describes how the columns adapt, which isn't configurable.
+The columns fit each pane's own width, so the other file pane is never
+resized or hidden. A pane narrower than about 480 pixels hides the preview
+column first; below about 320 pixels it hides the parent column too, so the
+current column stays at least 220 pixels wide. Hidden columns come back when
+the pane widens; see [Narrow panes](#narrow-panes).
+
+### Keyboard
+
+The **Keyboard** tab chooses the keys that browse panes in Yazi mode and
+shows what they would take over before they are applied.
+
+| Choice                                                                      | Entry           | Default  |
+| --------------------------------------------------------------------------- | --------------- | -------- |
+| **Key Preset › Standard keys**                                              | `YaziKeyPreset` | Standard |
+| **Key Preset › Yazi-style keys (Vim-style movement and multi-key actions)** | `YaziKeyPreset` |          |
+
+**Standard keys** is the `Standard` preset and **Yazi-style keys** the `Vim`
+preset; see [Keyboard](#keyboard) for their keys. The choice applies to both
+panes. **View › Vim-Style Keys in Yazi Mode** switches between the same two
+presets: it is checked exactly when the Yazi-style keys are applied, and
+switching it while the dialog is open shows the new preset in the tab unless
+another preset was already chosen there. The keys of a preset are fixed;
+there is no editor for single Yazi mode keys.
+
+**Preset Keys** lists the chosen preset's keys, one row per command, such as
+**Down, j** for **Move down** or **dd** for **Move the items to the Trash**.
+For the Yazi-style keys, a note explains that a number typed first repeats a
+command, as in `5j`, and that digits 1 to 9 then begin a count instead of
+jumping to an item.
+
+**Conflicts** lists, as the preset is chosen, what the preset would break
+while a Yazi mode column has the keyboard focus:
+
+- Bindings of the preset that can't both work, or can't be typed. The
+  built-in presets have none; tests check that.
+- Window shortcuts that the preset shadows. The columns claim every key that
+  begins one of the preset's bindings or, with the Yazi-style keys, a count
+  (digits 1 to 9, on the main keyboard or the keypad), before the window's
+  shortcuts see it. A window shortcut whose first key is such a key therefore
+  doesn't run there; for example, with the default shortcuts the Yazi-style
+  keys take Space from **Open Gallery**, Ctrl+D from **Add to Favorites** and
+  Ctrl+A from **Select All**. Shift is ignored for punctuation, as for the
+  preset's own keys. A key that only continues a sequence, such as the second
+  `g` of `gg`, and Escape are claimed only while a sequence is pending, so
+  they don't shadow shortcuts. The list covers the shortcuts of the window's
+  actions, including those of the pane toolbars, as configured when the
+  dialog opened or the shortcuts were last saved.
+
+Each entry names the shortcut, the action and what runs instead, such as
+"Space runs “Select or deselect the focused item, then move down” instead of
+“Open Gallery”". A shadowed shortcut still runs from its menu or toolbar
+button, and from the keyboard when the focus is elsewhere, such as in a pane
+outside Yazi mode. The standard keys shadow none of the default shortcuts.
+
+**Configure Keyboard Shortcuts…** opens the window's standard KDE shortcut
+editor, the same as **Settings › Configure Keyboard Shortcuts**, so a
+conflicting action can be given another shortcut. Preferences stays open and
+the conflict list updates when the shortcuts are saved. The button is
+unavailable when the dialog has no window, such as in tests.
+
+When a preset with conflicts is applied with **Apply** or **OK**, a
+confirmation lists the conflicts first:
+
+- **Apply Preset** applies it.
+- **Keep Current Keys** chooses the applied preset again in the tab and keeps
+  Preferences open. Other changed settings are still applied.
+
+The confirmation is asked once per choice, so **OK** doesn't ask twice, and
+not at all for a preset without conflicts or when the preset doesn't change.
+**View › Vim-Style Keys in Yazi Mode** switches presets without asking.
+
+A note at the bottom of the tab describes what stays usable from the
+keyboard:
+
+- Typing is never intercepted: the preset applies only while a Yazi mode
+  column has the keyboard focus, and not in line edits, search and filter
+  fields, the location bar, editors, spin boxes, drop-down lists, the
+  terminal or an inline rename editor; see
+  [When the keys apply](#when-the-keys-apply).
+- Neither preset uses Tab or Shift+Tab, so they keep switching panes and
+  moving the keyboard focus; see
+  [Accessibility and keyboard](#accessibility-and-keyboard).
+- Escape cancels a pending key sequence or count; otherwise it does what it
+  does elsewhere, such as clearing the selection, cancelling a search started
+  from the columns or returning from the preview to the current column.
+
+### Preview
+
+The **Preview** tab chooses what the preview column shows, and points to the
+existing settings that shape the preview instead of repeating them.
+
+| Choice                                                          | Entry                | Default |
+| --------------------------------------------------------------- | -------------------- | ------- |
+| **Preview Column › Show › The focused item's preview**          | `YaziPreviewContent` | Preview |
+| **Preview Column › Show › The focused item's file information** | `YaziPreviewContent` |         |
+
+**The focused item's preview** is the `Preview` value and **The focused
+item's file information** the `Information` value; see
+[Preview column](#preview-column) and [File information](#file-information).
+Whether the column is shown at all is **Show the preview column** on the
+[Columns](#columns) tab.
+
+When the settings are applied, open panes follow the choice, unless the pane
+was switched with **View › File Information in Yazi Preview** or `i` with the
+Yazi-style keys, or its choice came from its session or a workspace. Those
+switches change only the pane, never this default, and **View › File
+Information in Yazi Preview** stays checked exactly when the active pane
+shows file information.
+
+Yazi mode has no preview settings of its own. The **Preview Settings** group
+names the ones the preview column uses, and **Go to Interface › Previews**
+opens that tab:
+
+- **Preferences › Interface › Previews**: **Automatically play audio and
+  video previews**, **Show formatted HTML and Markdown by default**, **Show
+  line numbers in text previews**, **Highlight syntax in text previews** and
+  **Maximum text in preview panel**. The text limit also stops the download
+  of a remote text file. A changed presentation setting applies from the next
+  item previewed.
+- **Preferences › Gallery › Display › Preview and gallery image background**
+  for images.
+- **Preferences › Tagging › Embedded Metadata › Properties to Read** for the
+  properties read from images, audio and video.
+
+**Skip files larger than**, **Show previews for** and **Show previews in
+remote folders**, on the same **Previews** tab, set KIO's thumbnails. They
+apply to the thumbnails of the current column, which is the pane's folder
+view, but not to the preview column, which doesn't use thumbnails. The
+preview column's other limits are fixed; see [Limits](#limits) and
+[Folder contents](#folder-contents): local and remote images up to 8 MiB,
+other remote files up to 128 MiB, and a folder's first 500 entries.
+
+The **File Information** group notes that file information shows a fixed
+set of fields, not those chosen in **Preferences › Interface › Information
+Panel**. In a tag library, it adds the library's fields, and the item's tags
+when **Preferences › Tagging › Tags › Information Panel › Show the tags of
+the selected item** is checked; **List tags inherited from parent tags**
+applies there too.
+
+### Workspace layouts
+
+The **Workspace Layouts** tab chooses how much of each pane's Yazi state a
+workspace layout restores, and shows the Yazi mode behavior that new
+workspaces start with.
+
+| Choice                                                                                                                      | Entry                         | Default |
+| --------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ------- |
+| **Restore When Switching Workspaces › Each pane's Yazi mode**                                                               | `YaziWorkspaceRestoreMode`    | On      |
+| **Restore When Switching Workspaces › Each pane's Yazi columns: preview column, preview content, parent column and widths** | `YaziWorkspaceRestoreColumns` | On      |
+
+The options apply when switching to a workspace whose **Yazi mode** behavior
+applies, or restoring its saved layout; see [Workspaces](#workspaces):
+
+- **Each pane's Yazi mode** restores whether each pane is in Yazi mode.
+- **Each pane's Yazi columns** restores each pane's preview column, preview
+  content, parent column and column widths.
+- A part that isn't restored keeps the pane's current state. The two are
+  independent: with only the columns, a pane outside Yazi mode stays outside
+  it but takes the saved columns, which it shows when the mode is turned on.
+- With both cleared, switching keeps every pane's Yazi state. A workspace
+  whose only applied behavior is Yazi mode then changes nothing in the
+  window, but still becomes the active workspace.
+- Nothing else changes with them. Each pane's view mode, tabs and locations
+  follow the workspace's other behaviors and the **Preferences ›
+  Workspaces** options, and a workspace without the **Yazi mode** behavior
+  is unaffected.
+- Workspaces saved before the **Yazi mode** behavior existed follow the
+  options too, when they restore Yazi state with the view mode.
+
+The options only choose what is restored; they never change a workspace.
+Saving or updating a layout still records each pane's Yazi mode and columns,
+and each workspace's saved layout and behaviors stay as they were, so
+checking an option again restores the saved state at the next switch. When a
+pane keeps its own state, the window can differ from the saved layout, and
+the active workspace is then marked as modified with `*`, as with other parts
+that aren't restored.
+
+The options are read each time a layout is applied; changing them doesn't
+change open panes. With the defaults, workspaces restore the saved Yazi state
+as before these settings existed.
+
+The **New Workspaces** group summarizes the behavior that new workspaces
+start with, following **Preferences › Workspaces › Behaviors › New
+workspaces apply** and its **Selected Behaviors › Yazi mode** check box as
+they are edited in the dialog: whether new workspaces restore Yazi mode as
+the options above choose, or keep each pane's Yazi state. **Go to Workspaces
+› Behaviors** opens that tab. The check box (`WorkspaceDefaultYaziMode`)
+stays there, with the other behaviors that new workspaces start with,
+because it is used only when they apply **Selected** behaviors and a setting
+appears only once in the dialog. Existing workspaces keep their own choice,
+changed in **View › Workspaces… › Workspace Behaviors › Yazi mode**.
+
+### Reset
+
+**Restore Yazi Mode Defaults** sits below the tabs, so it is shown whichever
+tab is selected. It sets every option on the Yazi Mode tabs back to its
+default: every entry of the `[YaziMode]` group, read from the configuration
+schema, so entries added later are covered too. **Column Widths** shows 1, 3
+and 2, and the **Keyboard** tab shows the standard keys and their conflicts,
+which are none.
+
+A confirmation says what is reset and what is kept first:
+
+- **Restore Defaults** shows the defaults in the tabs. Nothing is saved yet:
+  **Apply** or **OK** saves them, and **Cancel** in Preferences discards them
+  and keeps the stored settings.
+- **Cancel** changes nothing.
+
+The reset never changes:
+
+- Saved workspaces, their layouts with each pane's Yazi state, and their
+  behaviors, including each workspace's **Yazi mode** behavior.
+- The Yazi mode behavior of new workspaces, **Preferences › Workspaces ›
+  Behaviors › Selected Behaviors › Yazi mode** (`WorkspaceDefaultYaziMode`).
+  It belongs to the Workspaces page, so the reset leaves it as it is; a note
+  below the button says so.
+- Keyboard shortcuts set in **Settings › Configure Keyboard Shortcuts**. Only
+  the key preset returns to the standard keys.
+- Any other setting, including unsaved edits on other pages.
+
+When the restored defaults are applied, the panes open in every window also
+drop their own preview column, preview content, parent column and column
+width choices, including widths dragged in the last half second, and follow
+the defaults again. Otherwise a pane whose columns had been toggled or
+dragged, or restored from its session, would keep looking as before the
+reset. Each pane stays in or out of Yazi mode: whether it is on is the pane's
+state, not a default, and [Activation](#activation) applies only when a
+window opens. Dropping a pane's choices can make the window differ from the
+active workspace's saved layout, which is then marked as modified with `*`;
+the saved layout itself is unchanged until it is saved or updated.
+
+The dialog's own **Defaults** button still resets every page of Preferences,
+including the Yazi Mode tabs, but leaves the panes' own choices as they are.

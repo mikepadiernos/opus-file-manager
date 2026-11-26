@@ -4,6 +4,8 @@
 
 #include <KConfig>
 #include <KConfigGroup>
+#include <KCoreConfigSkeleton>
+#include <KSharedConfig>
 
 #include <QJsonArray>
 #include <QJsonObject>
@@ -66,6 +68,40 @@ private Q_SLOTS:
         bool enabled = true;
         QVERIFY(YaziMode::readWorkspace(QJsonObject(), enabled));
         QVERIFY(!enabled);
+    }
+
+    void startupMode_data()
+    {
+        QTest::addColumn<bool>("defaultMode");
+        QTest::addColumn<bool>("restore");
+        QTest::addColumn<int>("saved");
+        QTest::addColumn<bool>("expected");
+        // saved: -1 when no session is restored for the pane, otherwise the saved mode.
+        QTest::newRow("restores a saved on") << false << true << 1 << true;
+        QTest::newRow("restores a saved off over an on default") << true << true << 0 << false;
+        QTest::newRow("default off without a session") << false << true << -1 << false;
+        QTest::newRow("default on without a session") << true << true << -1 << true;
+        QTest::newRow("not restoring ignores a saved on") << false << false << 1 << false;
+        QTest::newRow("not restoring uses an on default") << true << false << 0 << true;
+        QTest::newRow("not restoring without a session") << true << false << -1 << true;
+    }
+
+    void startupMode()
+    {
+        QFETCH(bool, defaultMode);
+        QFETCH(bool, restore);
+        QFETCH(int, saved);
+        QFETCH(bool, expected);
+        const std::optional<bool> session = saved < 0 ? std::nullopt : std::optional<bool>(saved == 1);
+        QCOMPARE(YaziMode::startupMode({defaultMode, restore}, session), expected);
+    }
+
+    void activationDefaultsKeepTheModeOff()
+    {
+        const YaziMode::Activation activation;
+        QVERIFY(!activation.defaultMode);
+        QVERIFY(activation.restore);
+        QVERIFY(!YaziMode::startupMode(activation, std::nullopt));
     }
 
     void invalidWorkspaceEntryIsRejected_data()
@@ -762,6 +798,87 @@ private Q_SLOTS:
         QVERIFY(!YaziMode::commandTakesCount(YaziMode::Command::Paste));
     }
 
+    void commandsHaveDistinctTexts()
+    {
+        QStringList texts;
+        for (int i = int(YaziMode::Command::MoveUp); i <= int(YaziMode::LastCommand); ++i) {
+            const auto command = YaziMode::Command(i);
+            const QString text = YaziMode::commandText(command);
+            QVERIFY2(!text.isEmpty(), qPrintable(YaziMode::commandId(command)));
+            QVERIFY2(!texts.contains(text), qPrintable(text));
+            texts.append(text);
+        }
+        QCOMPARE(YaziMode::commandText(YaziMode::Command::MoveDown), QStringLiteral("Move down"));
+        QCOMPARE(YaziMode::commandText(YaziMode::Command::Trash), QStringLiteral("Move the items to the Trash"));
+    }
+
+    void shadowedShortcutsBeginABindingOrACount()
+    {
+        const QList<YaziMode::ActionShortcuts> actions = {
+            {QStringLiteral("open_gallery"), QStringLiteral("Open Gallery"), {QKeySequence(Qt::Key_Space)}},
+            {QStringLiteral("add_to_favorites"), QStringLiteral("Add to Favorites"), {QKeySequence(Qt::ControlModifier | Qt::Key_D)}},
+            {QStringLiteral("reload"), QStringLiteral("Reload"), {QKeySequence(), QKeySequence(Qt::ControlModifier | Qt::Key_R)}},
+            {QStringLiteral("go_up"), QStringLiteral("Up"), {QKeySequence(Qt::Key_Backspace), QKeySequence(Qt::AltModifier | Qt::Key_Up)}},
+            {QStringLiteral("select"), QStringLiteral("Select"), {QKeySequence(Qt::ControlModifier | Qt::Key_Space)}},
+            {QStringLiteral("digits"),
+             QStringLiteral("Digits"),
+             {QKeySequence(Qt::Key_1), QKeySequence(Qt::KeypadModifier | Qt::Key_2), QKeySequence(Qt::Key_0)}},
+            {QStringLiteral("chord"), QStringLiteral("Chord"), {QKeySequence(Qt::Key_G, Qt::Key_X)}},
+            {QStringLiteral("plain"), QStringLiteral("Plain"), {QKeySequence(Qt::Key_Escape), QKeySequence(Qt::Key_W)}},
+            {QStringLiteral("last"), QStringLiteral("Last"), {QKeySequence(Qt::ShiftModifier | Qt::Key_G)}},
+            {QStringLiteral("hidden"), QStringLiteral("Hidden"), {QKeySequence(Qt::ShiftModifier | Qt::Key_Period)}},
+        };
+        // The indexes of the bindings that @p keys of @p keymap begin with.
+        const auto bindingsStartingWith = [](const YaziMode::Keymap &keymap, QKeyCombination key) {
+            QList<int> found;
+            for (int i = 0; i < keymap.bindings.size(); ++i) {
+                if (keymap.bindings.at(i).keys.first() == key) {
+                    found.append(i);
+                }
+            }
+            return found;
+        };
+
+        const YaziMode::Keymap standard = YaziMode::presetKeymap(YaziMode::Preset::Standard);
+        const QList<int> controlSpace = bindingsStartingWith(standard, Qt::ControlModifier | Qt::Key_Space);
+        QCOMPARE(controlSpace.size(), 1);
+        QCOMPARE(YaziMode::shadowedShortcuts(standard, actions),
+                 (QList<YaziMode::ShadowedShortcut>{
+                     {QStringLiteral("select"), QStringLiteral("Select"), QKeySequence(Qt::ControlModifier | Qt::Key_Space), controlSpace}}));
+
+        const YaziMode::Keymap vim = YaziMode::presetKeymap(YaziMode::Preset::Vim);
+        const QList<int> g = bindingsStartingWith(vim, QKeyCombination(Qt::Key_G));
+        // gg, gh, gp, gc, gv, gT, gt and gw.
+        QCOMPARE(g.size(), 8);
+        const QList<YaziMode::ShadowedShortcut> expected = {
+            {QStringLiteral("open_gallery"), QStringLiteral("Open Gallery"), QKeySequence(Qt::Key_Space), bindingsStartingWith(vim, Qt::Key_Space)},
+            {QStringLiteral("add_to_favorites"),
+             QStringLiteral("Add to Favorites"),
+             QKeySequence(Qt::ControlModifier | Qt::Key_D),
+             bindingsStartingWith(vim, Qt::ControlModifier | Qt::Key_D)},
+            {QStringLiteral("select"), QStringLiteral("Select"), QKeySequence(Qt::ControlModifier | Qt::Key_Space), controlSpace},
+            // Digits from 1 begin a count, whether typed on the keypad or not; 0 only continues one.
+            {QStringLiteral("digits"), QStringLiteral("Digits"), QKeySequence(Qt::Key_1), {}},
+            {QStringLiteral("digits"), QStringLiteral("Digits"), QKeySequence(Qt::KeypadModifier | Qt::Key_2), {}},
+            // Only the first key of a shortcut matters: g begins sequences, so g, x never fires.
+            {QStringLiteral("chord"), QStringLiteral("Chord"), QKeySequence(Qt::Key_G, Qt::Key_X), g},
+            {QStringLiteral("last"),
+             QStringLiteral("Last"),
+             QKeySequence(Qt::ShiftModifier | Qt::Key_G),
+             bindingsStartingWith(vim, Qt::ShiftModifier | Qt::Key_G)},
+            // Shift doesn't change punctuation.
+            {QStringLiteral("hidden"), QStringLiteral("Hidden"), QKeySequence(Qt::ShiftModifier | Qt::Key_Period), bindingsStartingWith(vim, Qt::Key_Period)},
+        };
+        const QList<YaziMode::ShadowedShortcut> shadowed = YaziMode::shadowedShortcuts(vim, actions);
+        QCOMPARE(shadowed, expected);
+        for (const YaziMode::ShadowedShortcut &shortcut : shadowed) {
+            if (shortcut.name != QLatin1String("digits")) {
+                QVERIFY2(!shortcut.bindings.isEmpty(), qPrintable(shortcut.shortcut.toString()));
+            }
+        }
+        QVERIFY(YaziMode::shadowedShortcuts(vim, {}).isEmpty());
+    }
+
     void fileCommandsRunWindowActions()
     {
         for (int i = int(YaziMode::Command::MoveUp); i <= int(YaziMode::LastCommand); ++i) {
@@ -971,6 +1088,35 @@ private Q_SLOTS:
         QCOMPARE(YaziMode::normalizedKey(Qt::ShiftModifier | Qt::Key_Tab), Qt::ShiftModifier | Qt::Key_Tab);
         QCOMPARE(YaziMode::keyText(Qt::Key_BracketRight), QStringLiteral("]"));
         QCOMPARE(YaziMode::sequenceText({Qt::Key_Comma, Qt::Key_N}), QStringLiteral(",n"));
+    }
+
+    void defaultSettingsCoverOnlyTheYaziGroup()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        KCoreConfigSkeleton settings(KSharedConfig::openConfig(dir.filePath(QStringLiteral("settingsrc")), KConfig::SimpleConfig));
+        bool preview = false;
+        QList<int> ratios;
+        bool workspaceYazi = false;
+        bool places = false;
+        settings.setCurrentGroup(QStringLiteral("YaziMode"));
+        settings.addItemBool(QStringLiteral("YaziPreviewVisible"), preview, true);
+        settings.addItemIntList(QStringLiteral("YaziColumnRatios"), ratios, {1, 3, 2});
+        settings.setCurrentGroup(QStringLiteral("Workspaces"));
+        settings.addItemBool(QStringLiteral("WorkspaceDefaultYaziMode"), workspaceYazi, true);
+        settings.setCurrentGroup(QStringLiteral("General"));
+        settings.addItemBool(QStringLiteral("ShowPlaces"), places, true);
+        settings.load();
+        preview = false;
+        ratios = {2, 5, 3};
+
+        const QVariantMap defaults = YaziMode::defaultSettings(&settings);
+        QCOMPARE(defaults.keys(), QStringList({QStringLiteral("YaziColumnRatios"), QStringLiteral("YaziPreviewVisible")}));
+        QCOMPARE(defaults.value(QStringLiteral("YaziPreviewVisible")), QVariant(true));
+        QCOMPARE(defaults.value(QStringLiteral("YaziColumnRatios")).value<QList<int>>(), QList<int>({1, 3, 2}));
+        // Reading the defaults doesn't change the current values.
+        QVERIFY(!preview);
+        QCOMPARE(ratios, QList<int>({2, 5, 3}));
     }
 
 private:

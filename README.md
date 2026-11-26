@@ -38,7 +38,8 @@
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0).
 > Since that release, `main` has gained workspaces (M15–M16), themes (M17–M18),
 > branding (M19–M20), advanced search with its settings (M21–M22), native
-> tagging with its settings (M23–M24) and Yazi mode (M25); see the
+> tagging with its settings (M23–M24) and Yazi mode with its settings
+> (M25–M26); see the
 > [roadmap](docs/ROADMAP.md#at-a-glance) for status.
 
 ## Features
@@ -66,7 +67,8 @@ preview. Both behaviours can be changed in Preferences.
   a Tagging page in Preferences. Files are never moved or renamed.
 - 🧱 **Yazi mode:** an optional, per-pane [column layout](docs/yazi-mode.md)
   inspired by the Yazi terminal file manager, with parent, current and preview
-  columns and keyboard-first navigation, including optional Vim-style keys.
+  columns and keyboard-first navigation, including optional Vim-style keys,
+  and a Yazi Mode page in Preferences.
 - 🖼️ **Preview and edit:** preview documents and media, use the image gallery,
   edit text with drafts and edit supported media metadata. Preview, text and
   metadata panels can be placed beside or below the panes.

@@ -9,6 +9,7 @@
 #include "embeddedmetadata.h"
 #include "embeddedmetadatasettings.h"
 #include "filecolorrules.h"
+#include "folderpreview.h"
 #include "ignorelist.h"
 #include "libraryarchive.h"
 #include "libraryconfirmations.h"
@@ -28,6 +29,7 @@
 #include "viewsettings.h"
 #include "workspacecatalog.h"
 #include "workspacerestore.h"
+#include "yazimode.h"
 
 #include <KActionCollection>
 #include <KColorButton>
@@ -36,10 +38,13 @@
 #include <KEditListWidget>
 #include <KFilePlacesModel>
 #include <KPageWidget>
+#include <KPageWidgetModel>
 #include <KPluginMetaData>
 #include <KSharedConfig>
+#include <KShortcutsDialog>
 #include <KToolBar>
 #include <KUrlRequester>
+#include <KXMLGUIFactory>
 
 #include <QAbstractItemView>
 #include <QAction>
@@ -51,6 +56,7 @@
 #include <QDockWidget>
 #include <QFile>
 #include <QFileDialog>
+#include <QGroupBox>
 #include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
@@ -67,6 +73,8 @@
 #include <QTest>
 #include <QTimer>
 #include <QTreeWidget>
+
+#include <array>
 
 class SettingsDialogTest : public QObject
 {
@@ -99,7 +107,8 @@ private Q_SLOTS:
                                      QStringLiteral("WorkspaceSettings"),
                                      QStringLiteral("ContextMenu"),
                                      QStringLiteral("Tagging"),
-                                     QStringLiteral("Branding")}) {
+                                     QStringLiteral("Branding"),
+                                     QStringLiteral("YaziMode")}) {
             KSharedConfig::openConfig()->deleteGroup(group);
         }
         KSharedConfig::openConfig(QStringLiteral("kiorc"), KConfig::NoGlobals)->deleteGroup(QStringLiteral("Confirmations"));
@@ -1785,6 +1794,894 @@ private Q_SLOTS:
         QVERIFY(!WorkspaceRestore::defaultBehaviorSelection().yaziMode.value_or(true));
     }
 
+    void yaziActivationSettings()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+
+            // The Yazi Mode page follows the View page, with Activation as its first tab.
+            auto *pages = dialog.findChild<KPageWidget *>();
+            QVERIFY(pages);
+            QStringList titles;
+            for (int row = 0; row < pages->model()->rowCount(); ++row) {
+                titles.append(pages->model()->index(row, 0).data(Qt::DisplayRole).toString());
+            }
+            QVERIFY(titles.contains(QStringLiteral("Yazi Mode")));
+            QCOMPARE(titles.indexOf(QStringLiteral("Yazi Mode")), titles.indexOf(QStringLiteral("View")) + 1);
+            auto *page = dialog.findChild<QWidget *>(QStringLiteral("yaziActivationPage"));
+            QVERIFY(page);
+            auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+            QVERIFY(tabs);
+            QCOMPARE(tabs->indexOf(page), 0);
+            QCOMPARE(tabs->tabText(0), QStringLiteral("Activation"));
+
+            auto *leftDefault = page->findChild<QCheckBox *>(QStringLiteral("kcfg_YaziLeftPaneDefault"));
+            auto *rightDefault = page->findChild<QCheckBox *>(QStringLiteral("kcfg_YaziRightPaneDefault"));
+            auto *leftRestore = page->findChild<QCheckBox *>(QStringLiteral("kcfg_YaziLeftPaneRestore"));
+            auto *rightRestore = page->findChild<QCheckBox *>(QStringLiteral("kcfg_YaziRightPaneRestore"));
+            auto *notice = page->findChild<QLabel *>(QStringLiteral("yaziActivationNotice"));
+            QVERIFY(leftDefault && rightDefault && leftRestore && rightRestore && notice);
+            QVERIFY(notice->wordWrap());
+            QVERIFY(notice->text().contains(QStringLiteral("workspace")));
+            for (QCheckBox *check : {leftDefault, leftRestore}) {
+                auto *group = qobject_cast<QGroupBox *>(check->parentWidget());
+                QVERIFY(group);
+                QCOMPARE(group->title(), QStringLiteral("First Pane"));
+            }
+            for (QCheckBox *check : {rightDefault, rightRestore}) {
+                auto *group = qobject_cast<QGroupBox *>(check->parentWidget());
+                QVERIFY(group);
+                QCOMPARE(group->title(), QStringLiteral("Second Pane"));
+            }
+
+            // The mode is off by default, and the last session's mode is restored.
+            QVERIFY(!leftDefault->isChecked());
+            QVERIFY(!rightDefault->isChecked());
+            QVERIFY(leftRestore->isChecked());
+            QVERIFY(rightRestore->isChecked());
+
+            leftDefault->setChecked(true);
+            rightRestore->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        QVERIFY(Settings::yaziLeftPaneDefault());
+        QVERIFY(!Settings::yaziRightPaneDefault());
+        QVERIFY(Settings::yaziLeftPaneRestore());
+        QVERIFY(!Settings::yaziRightPaneRestore());
+
+        SettingsDialog reopened(&places, nullptr);
+        QVERIFY(reopened.findChild<QCheckBox *>(QStringLiteral("kcfg_YaziLeftPaneDefault"))->isChecked());
+        QVERIFY(!reopened.findChild<QCheckBox *>(QStringLiteral("kcfg_YaziRightPaneRestore"))->isChecked());
+    }
+
+    void yaziColumnsSettings()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        Settings::self()->setDefaults();
+        Settings::self()->save();
+        KFilePlacesModel places;
+        const auto spinsOf = [](QWidget *editor) {
+            return std::array<QSpinBox *, 3>{editor->findChild<QSpinBox *>(QStringLiteral("yaziParentRatio")),
+                                             editor->findChild<QSpinBox *>(QStringLiteral("yaziCurrentRatio")),
+                                             editor->findChild<QSpinBox *>(QStringLiteral("yaziPreviewRatio"))};
+        };
+        const auto valuesOf = [&spinsOf](QWidget *editor) {
+            const auto spins = spinsOf(editor);
+            return QList<int>{spins[0]->value(), spins[1]->value(), spins[2]->value()};
+        };
+        // Whether the dialog would leave YaziColumnRatios as it is, compared as KConfigDialogManager does.
+        const auto unchanged = [](YaziColumnRatiosEditor *editor) {
+            return Settings::self()->findItem(QStringLiteral("YaziColumnRatios"))->isEqual(editor->property("ratios"));
+        };
+        {
+            SettingsDialog dialog(&places, nullptr);
+
+            // Columns is the Yazi Mode page's second tab.
+            auto *page = dialog.findChild<QWidget *>(QStringLiteral("yaziColumnsPage"));
+            QVERIFY(page);
+            auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+            QVERIFY(tabs);
+            QCOMPARE(tabs->indexOf(page), 1);
+            QCOMPARE(tabs->tabText(1), QStringLiteral("Columns"));
+            QCOMPARE(tabs->tabText(0), QStringLiteral("Activation"));
+
+            // The preview checkbox moved here from Interface › Previews; each setting has one widget.
+            for (const QString &entry : {QStringLiteral("YaziParentColumnVisible"), QStringLiteral("YaziPreviewVisible"), QStringLiteral("YaziColumnRatios")}) {
+                QCOMPARE(dialog.findChildren<QWidget *>(QStringLiteral("kcfg_") + entry).size(), 1);
+                QVERIFY2(page->findChild<QWidget *>(QStringLiteral("kcfg_") + entry), qPrintable(entry));
+            }
+            auto *parent = page->findChild<QCheckBox *>(QStringLiteral("kcfg_YaziParentColumnVisible"));
+            auto *preview = page->findChild<QCheckBox *>(QStringLiteral("kcfg_YaziPreviewVisible"));
+            auto *editor = page->findChild<YaziColumnRatiosEditor *>(QStringLiteral("kcfg_YaziColumnRatios"));
+            QVERIFY(parent && preview && editor);
+            QVERIFY(parent->isChecked());
+            QVERIFY(preview->isChecked());
+            for (QSpinBox *spin : spinsOf(editor)) {
+                QVERIFY(spin);
+                QCOMPARE(spin->minimum(), 1);
+                QCOMPARE(spin->maximum(), YaziMode::MaximumRatio);
+            }
+            QCOMPARE(valuesOf(editor), QList<int>({1, 3, 2}));
+            auto *shares = editor->findChild<QLabel *>(QStringLiteral("yaziColumnShares"));
+            QVERIFY(shares);
+            for (const char *share : {"17%", "50%", "33%", "60%", "40%"}) {
+                QVERIFY2(shares->text().contains(QLatin1String(share)), qPrintable(shares->text()));
+            }
+            for (const char *name : {"yaziShownColumnsNotice", "yaziColumnWidthsNotice", "yaziNarrowPanesNotice"}) {
+                auto *notice = page->findChild<QLabel *>(QLatin1String(name));
+                QVERIFY2(notice && notice->wordWrap(), name);
+            }
+            const QString narrow = page->findChild<QLabel *>(QStringLiteral("yaziNarrowPanesNotice"))->text();
+            QVERIFY(narrow.contains(QString::number(YaziMode::ThreeColumnWidth)));
+            QVERIFY(narrow.contains(QString::number(YaziMode::TwoColumnWidth)));
+            QVERIFY(narrow.contains(QStringLiteral("other file pane")));
+
+            // Editing the widths changes the setting when applied.
+            QVERIFY(unchanged(editor));
+            const auto spins = spinsOf(editor);
+            spins[0]->setValue(2);
+            spins[1]->setValue(5);
+            spins[2]->setValue(3);
+            QCOMPARE(editor->ratios(), QList<int>({2, 5, 3}));
+            QVERIFY(shares->text().contains(QStringLiteral("20%")));
+            QVERIFY(!unchanged(editor));
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            parent->setChecked(false);
+            preview->setChecked(false);
+            dialog.button(QDialogButtonBox::Apply)->click();
+            QCOMPARE(Settings::yaziColumnRatios(), QList<int>({2, 5, 3}));
+            QVERIFY(!Settings::yaziParentColumnVisible());
+            QVERIFY(!Settings::yaziPreviewVisible());
+
+            // Restore Default Widths shows 1 : 3 : 2 without saving it.
+            editor->findChild<QPushButton *>(QStringLiteral("yaziRestoreColumnWidths"))->click();
+            QCOMPARE(valuesOf(editor), QList<int>({1, 3, 2}));
+            QCOMPARE(Settings::yaziColumnRatios(), QList<int>({2, 5, 3}));
+            QVERIFY(!unchanged(editor));
+            spins[0]->setValue(2);
+            spins[1]->setValue(5);
+            spins[2]->setValue(3);
+            QVERIFY(unchanged(editor));
+
+            // Widths saved by dragging a column's edge while the dialog is open are shown, unless edited here.
+            Settings::setYaziColumnRatios({240, 700, 460});
+            Settings::self()->save();
+            QCOMPARE(valuesOf(editor), QList<int>({240, 700, 460}));
+            QVERIFY(unchanged(editor));
+            spins[0]->setValue(300);
+            Settings::setYaziColumnRatios({250, 700, 450});
+            Settings::self()->save();
+            QCOMPARE(valuesOf(editor), QList<int>({300, 700, 460}));
+
+            // Defaults restores every column setting.
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::RestoreDefaults)->isEnabled());
+            dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+            QVERIFY(parent->isChecked());
+            QVERIFY(preview->isChecked());
+            QCOMPARE(valuesOf(editor), QList<int>({1, 3, 2}));
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QCOMPARE(Settings::yaziColumnRatios(), QList<int>({1, 3, 2}));
+        QVERIFY(Settings::yaziParentColumnVisible());
+        QVERIFY(Settings::yaziPreviewVisible());
+
+        // The dialog shows the saved widths, such as dragged pixel widths, and an invalid value as the defaults without changing it.
+        Settings::setYaziColumnRatios({240, 700, 460});
+        Settings::self()->save();
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *editor = dialog.findChild<YaziColumnRatiosEditor *>(QStringLiteral("kcfg_YaziColumnRatios"));
+            QCOMPARE(valuesOf(editor), QList<int>({240, 700, 460}));
+            QVERIFY(unchanged(editor));
+        }
+        Settings::setYaziColumnRatios({1, 0, 2});
+        Settings::self()->save();
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *editor = dialog.findChild<YaziColumnRatiosEditor *>(QStringLiteral("kcfg_YaziColumnRatios"));
+            QCOMPARE(valuesOf(editor), QList<int>({1, 3, 2}));
+            QCOMPARE(editor->ratios(), QList<int>({1, 0, 2}));
+            QVERIFY(unchanged(editor));
+            spinsOf(editor)[2]->setValue(4);
+            QCOMPARE(editor->ratios(), QList<int>({1, 3, 4}));
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QCOMPARE(Settings::yaziColumnRatios(), QList<int>({1, 3, 4}));
+    }
+
+    void yaziKeyboardSettings()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        Settings::self()->setDefaults();
+        Settings::self()->save();
+        KFilePlacesModel places;
+        // The commands that the tree lists, by identifier, with their keys.
+        const auto rowsOf = [](QTreeWidget *tree) {
+            QMap<QString, QString> rows;
+            for (int i = 0; i < tree->topLevelItemCount(); ++i) {
+                rows.insert(tree->topLevelItem(i)->data(0, Qt::UserRole).toString(), tree->topLevelItem(i)->text(0));
+            }
+            return rows;
+        };
+        {
+            SettingsDialog dialog(&places, nullptr);
+            int asked = 0;
+            dialog.setYaziKeyConfirmation([&asked](const QString &, const QStringList &) {
+                ++asked;
+                return false;
+            });
+
+            // Keyboard is the Yazi Mode page's third tab.
+            auto *page = dialog.findChild<QWidget *>(QStringLiteral("yaziKeyboardPage"));
+            QVERIFY(page);
+            auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+            QVERIFY(tabs);
+            QCOMPARE(tabs->indexOf(page), 2);
+            QCOMPARE(tabs->tabText(2), QStringLiteral("Keyboard"));
+            QCOMPARE(tabs->tabText(1), QStringLiteral("Columns"));
+
+            QCOMPARE(dialog.findChildren<QWidget *>(QStringLiteral("kcfg_YaziKeyPreset")).size(), 1);
+            auto *preset = page->findChild<QComboBox *>(QStringLiteral("kcfg_YaziKeyPreset"));
+            auto *bindings = page->findChild<QTreeWidget *>(QStringLiteral("yaziKeyBindings"));
+            auto *counts = page->findChild<QLabel *>(QStringLiteral("yaziKeyCountsNotice"));
+            auto *summary = page->findChild<QLabel *>(QStringLiteral("yaziKeyConflictSummary"));
+            auto *conflicts = page->findChild<QListWidget *>(QStringLiteral("yaziKeyConflicts"));
+            auto *configure = page->findChild<QPushButton *>(QStringLiteral("yaziConfigureShortcuts"));
+            QVERIFY(preset && bindings && counts && summary && conflicts && configure);
+            QCOMPARE(preset->count(), 2);
+            QCOMPARE(preset->itemText(Settings::EnumYaziKeyPreset::Standard), QStringLiteral("Standard keys"));
+            QCOMPARE(preset->itemText(Settings::EnumYaziKeyPreset::Vim), QStringLiteral("Yazi-style keys (Vim-style movement and multi-key actions)"));
+            QCOMPARE(preset->currentIndex(), int(Settings::EnumYaziKeyPreset::Standard));
+            for (const char *name : {"yaziKeyPresetNotice", "yaziKeyConflictsNotice", "yaziKeyboardAccessibilityNotice"}) {
+                auto *notice = page->findChild<QLabel *>(QLatin1String(name));
+                QVERIFY2(notice && notice->wordWrap(), name);
+            }
+            const QString accessibility = page->findChild<QLabel *>(QStringLiteral("yaziKeyboardAccessibilityNotice"))->text();
+            for (const char *part : {"terminal", "Tab", "Escape", "search and filter fields"}) {
+                QVERIFY2(accessibility.contains(QLatin1String(part)), part);
+            }
+            // Without a window there are no window shortcuts to configure or shadow.
+            QVERIFY(!configure->isEnabled());
+
+            // The standard keys, one row per command.
+            QMap<QString, QString> rows = rowsOf(bindings);
+            QCOMPARE(bindings->columnCount(), 2);
+            QCOMPARE(rows.size(), bindings->topLevelItemCount());
+            QCOMPARE(rows.value(QStringLiteral("move-down")), QKeySequence(Qt::Key_Down).toString(QKeySequence::NativeText));
+            QVERIFY(!rows.contains(QStringLiteral("trash")));
+            QCOMPARE(bindings->findItems(QStringLiteral("Move down"), Qt::MatchExactly, 1).size(), 1);
+            QVERIFY(counts->isHidden());
+            QVERIFY(summary->text().startsWith(QStringLiteral("No conflicts")));
+            QCOMPARE(conflicts->count(), 0);
+            QVERIFY(conflicts->isHidden());
+
+            // The Vim-style keys add letters, sequences and counts.
+            choosePreset(preset, Settings::EnumYaziKeyPreset::Vim);
+            rows = rowsOf(bindings);
+            QCOMPARE(rows.value(QStringLiteral("move-down")), QKeySequence(Qt::Key_Down).toString(QKeySequence::NativeText) + QStringLiteral(", j"));
+            QCOMPARE(rows.value(QStringLiteral("trash")), QStringLiteral("dd"));
+            QCOMPARE(rows.value(QStringLiteral("move-first")), QKeySequence(Qt::Key_Home).toString(QKeySequence::NativeText) + QStringLiteral(", gg"));
+            QVERIFY(!counts->isHidden());
+            QVERIFY(summary->text().startsWith(QStringLiteral("No conflicts")));
+
+            // Without conflicts the preset applies without asking.
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+            QCOMPARE(asked, 0);
+            QCOMPARE(Settings::yaziKeyPreset(), int(Settings::EnumYaziKeyPreset::Vim));
+
+            // The View menu's preset, saved while the dialog is open, is shown unless changed here.
+            Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Standard);
+            Settings::self()->save();
+            QCOMPARE(preset->currentIndex(), int(Settings::EnumYaziKeyPreset::Standard));
+            QVERIFY(counts->isHidden());
+            choosePreset(preset, Settings::EnumYaziKeyPreset::Vim);
+            Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Standard);
+            Settings::self()->save();
+            QCOMPARE(preset->currentIndex(), int(Settings::EnumYaziKeyPreset::Vim));
+
+            // Defaults chooses the standard keys.
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::RestoreDefaults)->isEnabled());
+            dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+            QCOMPARE(preset->currentIndex(), int(Settings::EnumYaziKeyPreset::Standard));
+        }
+    }
+
+    void yaziKeyPresetConflictsAskBeforeApplying()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        Settings::self()->setDefaults();
+        Settings::self()->save();
+        MainWindow window;
+        window.show();
+        QAction *vimKeys = window.actionCollection()->action(QStringLiteral("toggle_yazi_vim_keys"));
+        QAction *gallery = window.actionCollection()->action(QStringLiteral("open_gallery"));
+        QVERIFY(vimKeys && gallery);
+        QVERIFY(!vimKeys->isChecked());
+        QCOMPARE(gallery->shortcut(), QKeySequence(Qt::Key_Space));
+        window.actionCollection()->action(QStringLiteral("options_configure"))->trigger();
+        QPointer<SettingsDialog> dialog = window.findChild<SettingsDialog *>();
+        QVERIFY(dialog);
+        int asked = 0;
+        bool answer = false;
+        QString question;
+        QStringList listed;
+        dialog->setYaziKeyConfirmation([&](const QString &text, const QStringList &conflicts) {
+            ++asked;
+            question = text;
+            listed = conflicts;
+            return answer;
+        });
+        auto *preset = dialog->findChild<QComboBox *>(QStringLiteral("kcfg_YaziKeyPreset"));
+        auto *summary = dialog->findChild<QLabel *>(QStringLiteral("yaziKeyConflictSummary"));
+        auto *conflicts = dialog->findChild<QListWidget *>(QStringLiteral("yaziKeyConflicts"));
+        auto *configure = dialog->findChild<QPushButton *>(QStringLiteral("yaziConfigureShortcuts"));
+        QVERIFY(preset && summary && conflicts && configure);
+        QVERIFY(configure->isEnabled());
+        const auto shown = [conflicts] {
+            QStringList texts;
+            for (int i = 0; i < conflicts->count(); ++i) {
+                texts.append(conflicts->item(i)->text());
+            }
+            return texts;
+        };
+        const auto mentions = [](const QStringList &texts, const QString &part) {
+            return std::any_of(texts.cbegin(), texts.cend(), [&part](const QString &text) {
+                return text.contains(part);
+            });
+        };
+
+        // The standard keys shadow none of the window's default shortcuts.
+        QCOMPARE(conflicts->count(), 0);
+        QVERIFY(summary->text().startsWith(QStringLiteral("No conflicts")));
+
+        // The Vim-style keys take Space from Open Gallery and Ctrl+D from Add to Favorites.
+        choosePreset(preset, Settings::EnumYaziKeyPreset::Vim);
+        QStringList vimConflicts = shown();
+        QVERIFY(!vimConflicts.isEmpty());
+        QVERIFY2(mentions(vimConflicts, QStringLiteral("“Open Gallery”")), qPrintable(vimConflicts.join(QLatin1Char('\n'))));
+        QVERIFY2(mentions(vimConflicts, QStringLiteral("“Add to Favorites”")), qPrintable(vimConflicts.join(QLatin1Char('\n'))));
+        QVERIFY(mentions(vimConflicts, QKeySequence(Qt::Key_Space).toString(QKeySequence::NativeText)));
+        QVERIFY(!conflicts->isHidden());
+        QVERIFY(summary->text().contains(QString::number(vimConflicts.size())));
+
+        // A shortcut changed in Configure Keyboard Shortcuts no longer conflicts once saved.
+        gallery->setShortcut(QKeySequence(Qt::Key_F12));
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QVERIFY(!mentions(shown(), QStringLiteral("“Open Gallery”")));
+        QCOMPARE(shown().size(), vimConflicts.size() - 1);
+        gallery->setShortcut(QKeySequence(Qt::Key_Space));
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(shown(), vimConflicts);
+
+        // Declining keeps the standard keys and Preferences open.
+        QTRY_VERIFY(dialog->button(QDialogButtonBox::Apply)->isEnabled());
+        dialog->button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(asked, 1);
+        QCOMPARE(listed, vimConflicts);
+        QVERIFY(question.contains(QStringLiteral("Yazi-style keys")));
+        QCOMPARE(Settings::yaziKeyPreset(), int(Settings::EnumYaziKeyPreset::Standard));
+        QCOMPARE(preset->currentIndex(), int(Settings::EnumYaziKeyPreset::Standard));
+        QCOMPARE(conflicts->count(), 0);
+        QVERIFY(!vimKeys->isChecked());
+        QVERIFY(!dialog->button(QDialogButtonBox::Apply)->isEnabled());
+
+        choosePreset(preset, Settings::EnumYaziKeyPreset::Vim);
+        QVERIFY(dialog->button(QDialogButtonBox::Apply)->isEnabled());
+        dialog->button(QDialogButtonBox::Ok)->click();
+        QCOMPARE(asked, 2);
+        QCOMPARE(Settings::yaziKeyPreset(), int(Settings::EnumYaziKeyPreset::Standard));
+        QVERIFY(dialog && dialog->isVisible());
+
+        // Accepting on OK asks once, applies the preset and updates the View menu.
+        answer = true;
+        choosePreset(preset, Settings::EnumYaziKeyPreset::Vim);
+        dialog->button(QDialogButtonBox::Ok)->click();
+        QCOMPARE(asked, 3);
+        QCOMPARE(Settings::yaziKeyPreset(), int(Settings::EnumYaziKeyPreset::Vim));
+        QVERIFY(vimKeys->isChecked());
+        QTRY_VERIFY(!dialog);
+
+        // The View menu switches the preset shown in a reopened dialog, which doesn't ask again.
+        window.actionCollection()->action(QStringLiteral("options_configure"))->trigger();
+        dialog = window.findChild<SettingsDialog *>();
+        QVERIFY(dialog);
+        dialog->setYaziKeyConfirmation([&asked](const QString &, const QStringList &) {
+            ++asked;
+            return true;
+        });
+        preset = dialog->findChild<QComboBox *>(QStringLiteral("kcfg_YaziKeyPreset"));
+        QCOMPARE(preset->currentIndex(), int(Settings::EnumYaziKeyPreset::Vim));
+        QVERIFY(!dialog->button(QDialogButtonBox::Apply)->isEnabled());
+        vimKeys->trigger();
+        QCOMPARE(Settings::yaziKeyPreset(), int(Settings::EnumYaziKeyPreset::Standard));
+        QCOMPARE(preset->currentIndex(), int(Settings::EnumYaziKeyPreset::Standard));
+        QVERIFY(!dialog->button(QDialogButtonBox::Apply)->isEnabled());
+        vimKeys->trigger();
+        QCOMPARE(preset->currentIndex(), int(Settings::EnumYaziKeyPreset::Vim));
+        QVERIFY(!dialog->button(QDialogButtonBox::Apply)->isEnabled());
+        dialog->button(QDialogButtonBox::Ok)->click();
+        QCOMPARE(asked, 3);
+        QTRY_VERIFY(!dialog);
+    }
+
+    void yaziKeyboardOpensTheShortcutsEditor()
+    {
+        MainWindow window;
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+        auto *configure = dialog.findChild<QPushButton *>(QStringLiteral("yaziConfigureShortcuts"));
+        QVERIFY(configure && configure->isEnabled());
+
+        window.show();
+        dialog.show();
+        bool editorOpened = false;
+        QTimer closeEditor(&window);
+        closeEditor.setInterval(10);
+        connect(&closeEditor, &QTimer::timeout, &window, [&] {
+            if (auto *editor = window.findChild<KShortcutsDialog *>()) {
+                editorOpened = true;
+                closeEditor.stop();
+                editor->reject();
+            }
+        });
+        closeEditor.start();
+        QTest::mouseClick(configure, Qt::LeftButton);
+        QTRY_VERIFY(editorOpened);
+        // Preferences stays open to show the updated conflicts.
+        QVERIFY(dialog.isVisible());
+    }
+
+    void yaziPreviewSettings()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        Settings::self()->setDefaults();
+        Settings::self()->save();
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+
+            // Preview is the Yazi Mode page's fourth tab.
+            auto *page = dialog.findChild<QWidget *>(QStringLiteral("yaziPreviewPage"));
+            QVERIFY(page);
+            auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+            QVERIFY(tabs);
+            QCOMPARE(tabs->indexOf(page), 3);
+            QCOMPARE(tabs->tabText(3), QStringLiteral("Preview"));
+            QCOMPARE(tabs->tabText(2), QStringLiteral("Keyboard"));
+
+            QCOMPARE(dialog.findChildren<QWidget *>(QStringLiteral("kcfg_YaziPreviewContent")).size(), 1);
+            auto *content = page->findChild<QComboBox *>(QStringLiteral("kcfg_YaziPreviewContent"));
+            QVERIFY(content);
+            QCOMPARE(content->count(), 2);
+            QCOMPARE(content->itemText(Settings::EnumYaziPreviewContent::Preview), QStringLiteral("The focused item's preview"));
+            QCOMPARE(content->itemText(Settings::EnumYaziPreviewContent::Information), QStringLiteral("The focused item's file information"));
+            QCOMPARE(content->currentIndex(), int(Settings::EnumYaziPreviewContent::Preview));
+
+            // The notices point to the existing settings instead of repeating them.
+            for (const char *name : {"yaziPreviewContentNotice", "yaziPreviewSettingsNotice", "yaziInformationNotice"}) {
+                auto *notice = page->findChild<QLabel *>(QLatin1String(name));
+                QVERIFY2(notice && notice->wordWrap(), name);
+            }
+            const QString contentNotice = page->findChild<QLabel *>(QStringLiteral("yaziPreviewContentNotice"))->text();
+            for (const char *part : {"View › File Information in Yazi Preview", "Columns tab"}) {
+                QVERIFY2(contentNotice.contains(QString::fromUtf8(part)), part);
+            }
+            const QString settingsNotice = page->findChild<QLabel *>(QStringLiteral("yaziPreviewSettingsNotice"))->text();
+            for (const char *part : {"Interface › Previews",
+                                     "Maximum text in preview panel",
+                                     "Gallery › Display",
+                                     "Tagging › Embedded Metadata",
+                                     "Skip files larger than",
+                                     "Show previews for",
+                                     "Show previews in remote folders"}) {
+                QVERIFY2(settingsNotice.contains(QString::fromUtf8(part)), part);
+            }
+            QVERIFY(settingsNotice.contains(QString::number(FolderPreview::EntryLimit)));
+            const QString informationNotice = page->findChild<QLabel *>(QStringLiteral("yaziInformationNotice"))->text();
+            for (const char *part : {"Interface › Information Panel", "Tagging › Tags › Show the tags of the selected item"}) {
+                QVERIFY2(informationNotice.contains(QString::fromUtf8(part)), part);
+            }
+            // No size limit, preview provider or remote download setting is repeated here.
+            QCOMPARE(page->findChildren<QSpinBox *>().size(), 0);
+            QCOMPARE(page->findChildren<QCheckBox *>().size(), 0);
+
+            // The button shows the preview settings it names.
+            auto *showPreviews = page->findChild<QPushButton *>(QStringLiteral("yaziShowPreviewSettings"));
+            QVERIFY(showPreviews);
+            showPreviews->click();
+            QVERIFY(dialog.currentPage());
+            QCOMPARE(dialog.currentPage()->name(), QStringLiteral("Interface"));
+            auto *previewsPage = dialog.findChild<QWidget *>(QStringLiteral("previewsPage"));
+            QVERIFY(previewsPage && previewsPage->findChild<QWidget *>(QStringLiteral("kcfg_TextPreviewLimitKiB")));
+            auto *interfaceTabs = qobject_cast<QTabWidget *>(previewsPage->parentWidget()->parentWidget());
+            QVERIFY(interfaceTabs);
+            QCOMPARE(interfaceTabs->currentWidget(), previewsPage);
+            QCOMPARE(interfaceTabs->tabText(interfaceTabs->currentIndex()), QStringLiteral("Previews"));
+
+            // Choosing file information marks the dialog modified and saves it.
+            QSignalSpy modified(&dialog, &KConfigDialog::widgetModified);
+            choosePreset(content, Settings::EnumYaziPreviewContent::Information);
+            QVERIFY(!modified.isEmpty());
+            QVERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+            QCOMPARE(Settings::yaziPreviewContent(), int(Settings::EnumYaziPreviewContent::Information));
+
+            // Defaults chooses the preview.
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::RestoreDefaults)->isEnabled());
+            dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+            QCOMPARE(content->currentIndex(), int(Settings::EnumYaziPreviewContent::Preview));
+            choosePreset(content, Settings::EnumYaziPreviewContent::Information);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QCOMPARE(Settings::yaziPreviewContent(), int(Settings::EnumYaziPreviewContent::Information));
+
+        // The saved choice is shown when the dialog opens again.
+        SettingsDialog reopened(&places, nullptr);
+        QCOMPARE(reopened.findChild<QComboBox *>(QStringLiteral("kcfg_YaziPreviewContent"))->currentIndex(),
+                 int(Settings::EnumYaziPreviewContent::Information));
+    }
+
+    void yaziWorkspaceLayoutsSettings()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        Settings::self()->setDefaults();
+        Settings::self()->save();
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+
+            // Workspace Layouts is the Yazi Mode page's fifth tab, after Preview.
+            auto *page = dialog.findChild<QWidget *>(QStringLiteral("yaziWorkspaceLayoutsPage"));
+            QVERIFY(page);
+            auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+            QVERIFY(tabs);
+            QCOMPARE(tabs->indexOf(page), 4);
+            QCOMPARE(tabs->tabText(4), QStringLiteral("Workspace Layouts"));
+            QCOMPARE(tabs->tabText(3), QStringLiteral("Preview"));
+
+            QCheckBox *checks[2] = {};
+            int index = 0;
+            for (const char *name : {"kcfg_YaziWorkspaceRestoreMode", "kcfg_YaziWorkspaceRestoreColumns"}) {
+                QCOMPARE(dialog.findChildren<QWidget *>(QLatin1String(name)).size(), 1);
+                checks[index] = page->findChild<QCheckBox *>(QLatin1String(name));
+                QVERIFY2(checks[index] && checks[index]->isChecked(), name);
+                ++index;
+            }
+            QCheckBox *mode = checks[0];
+            QCheckBox *columns = checks[1];
+            QCOMPARE(mode->text(), QStringLiteral("Each pane's Yazi mode"));
+            QVERIFY(columns->text().contains(QStringLiteral("preview content")));
+
+            // The default Yazi mode behavior for new workspaces stays with the other behaviors.
+            QCOMPARE(dialog.findChildren<QWidget *>(QStringLiteral("kcfg_WorkspaceDefaultYaziMode")).size(), 1);
+            QVERIFY(!page->findChild<QWidget *>(QStringLiteral("kcfg_WorkspaceDefaultYaziMode")));
+            auto *behaviorsPage = dialog.findChild<QWidget *>(QStringLiteral("workspaceBehaviorsPage"));
+            QVERIFY(behaviorsPage);
+            auto *defaultYazi = behaviorsPage->findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultYaziMode"));
+            auto *defaultMode = behaviorsPage->findChild<QComboBox *>(QStringLiteral("kcfg_WorkspaceDefaultBehaviorMode"));
+            QVERIFY(defaultYazi && defaultMode);
+            QVERIFY(defaultYazi->toolTip().contains(QStringLiteral("Workspace Layouts")));
+
+            for (const char *name : {"yaziWorkspaceRestoreNotice", "yaziWorkspaceDefault", "yaziWorkspaceBehaviorNotice"}) {
+                auto *notice = page->findChild<QLabel *>(QLatin1String(name));
+                QVERIFY2(notice && notice->wordWrap() && !notice->text().isEmpty(), name);
+            }
+            const QString restoreNotice = page->findChild<QLabel *>(QStringLiteral("yaziWorkspaceRestoreNotice"))->text();
+            for (const char *part : {"view mode, tabs or locations", "saved layout or behaviors"}) {
+                QVERIFY2(restoreNotice.contains(QString::fromUtf8(part)), part);
+            }
+            QVERIFY(page->findChild<QLabel *>(QStringLiteral("yaziWorkspaceBehaviorNotice"))->text().contains(QStringLiteral("Workspaces › Behaviors")));
+
+            // The summary follows the default behaviors as they are edited.
+            auto *summary = page->findChild<QLabel *>(QStringLiteral("yaziWorkspaceDefault"));
+            QVERIFY(summary->text().contains(QStringLiteral("all behaviors")));
+            defaultMode->setCurrentIndex(Settings::EnumWorkspaceDefaultBehaviorMode::Selected);
+            QVERIFY(summary->text().contains(QStringLiteral("including Yazi mode")));
+            defaultYazi->setChecked(false);
+            QVERIFY(summary->text().contains(QStringLiteral("without Yazi mode")));
+            defaultMode->setCurrentIndex(Settings::EnumWorkspaceDefaultBehaviorMode::None);
+            QVERIFY(summary->text().contains(QStringLiteral("no behaviors")));
+            defaultMode->setCurrentIndex(Settings::EnumWorkspaceDefaultBehaviorMode::All);
+            defaultYazi->setChecked(true);
+            QVERIFY(summary->text().contains(QStringLiteral("all behaviors")));
+
+            // The views option says where Yazi mode is restored instead.
+            auto *views = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceRestoreViews"));
+            QVERIFY(views && views->toolTip().contains(QStringLiteral("Workspace Layouts")));
+
+            // The button shows the behaviors it names.
+            auto *showBehaviors = page->findChild<QPushButton *>(QStringLiteral("yaziShowWorkspaceBehaviors"));
+            QVERIFY(showBehaviors);
+            showBehaviors->click();
+            QVERIFY(dialog.currentPage());
+            QCOMPARE(dialog.currentPage()->name(), QStringLiteral("Workspaces"));
+            auto *workspaceTabs = qobject_cast<QTabWidget *>(behaviorsPage->parentWidget()->parentWidget());
+            QVERIFY(workspaceTabs);
+            QCOMPARE(workspaceTabs->currentWidget(), behaviorsPage);
+            QCOMPARE(workspaceTabs->tabText(workspaceTabs->currentIndex()), QStringLiteral("Behaviors"));
+
+            // Clearing the options saves them.
+            mode->setChecked(false);
+            columns->setChecked(false);
+            QVERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+            QVERIFY(!Settings::yaziWorkspaceRestoreMode());
+            QVERIFY(!Settings::yaziWorkspaceRestoreColumns());
+
+            // Defaults restores both.
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::RestoreDefaults)->isEnabled());
+            dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+            QVERIFY(mode->isChecked());
+            QVERIFY(columns->isChecked());
+            columns->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QVERIFY(Settings::yaziWorkspaceRestoreMode());
+        QVERIFY(!Settings::yaziWorkspaceRestoreColumns());
+
+        // The saved choices are shown when the dialog opens again.
+        SettingsDialog reopened(&places, nullptr);
+        QVERIFY(reopened.findChild<QCheckBox *>(QStringLiteral("kcfg_YaziWorkspaceRestoreMode"))->isChecked());
+        QVERIFY(!reopened.findChild<QCheckBox *>(QStringLiteral("kcfg_YaziWorkspaceRestoreColumns"))->isChecked());
+    }
+
+    void yaziResetRestoresOnlyYaziDefaults()
+    {
+        const auto restore = qScopeGuard([] {
+            KSharedConfig::openConfig()->deleteGroup(QStringLiteral("Workspaces"));
+            KSharedConfig::openConfig()->sync();
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        // Every entry of the YaziMode group, with a value other than its default.
+        const auto changeYaziSettings = [] {
+            Settings::setYaziPreviewVisible(false);
+            Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);
+            Settings::setYaziPreviewContent(Settings::EnumYaziPreviewContent::Information);
+            Settings::setYaziParentColumnVisible(false);
+            Settings::setYaziColumnRatios({2, 5, 3});
+            Settings::setYaziLeftPaneDefault(true);
+            Settings::setYaziRightPaneDefault(true);
+            Settings::setYaziLeftPaneRestore(false);
+            Settings::setYaziRightPaneRestore(false);
+            Settings::setYaziWorkspaceRestoreMode(false);
+            Settings::setYaziWorkspaceRestoreColumns(false);
+            Settings::self()->save();
+        };
+        const auto yaziItems = [] {
+            KConfigSkeletonItem::List found;
+            const KConfigSkeletonItem::List items = Settings::self()->items();
+            for (KConfigSkeletonItem *item : items) {
+                if (item->group() == QLatin1String("YaziMode")) {
+                    found.append(item);
+                }
+            }
+            return found;
+        };
+        const auto yaziDefaults = [&yaziItems] {
+            const KConfigSkeletonItem::List items = yaziItems();
+            return std::all_of(items.cbegin(), items.cend(), [](const KConfigSkeletonItem *item) {
+                return item->isEqual(item->getDefault());
+            });
+        };
+        const auto noYaziDefaults = [&yaziItems] {
+            const KConfigSkeletonItem::List items = yaziItems();
+            return std::none_of(items.cbegin(), items.cend(), [](const KConfigSkeletonItem *item) {
+                return item->isEqual(item->getDefault());
+            });
+        };
+        QCOMPARE(yaziItems().size(), YaziMode::defaultSettings(Settings::self()).size());
+        QVERIFY(yaziItems().size() >= 11);
+        changeYaziSettings();
+        QVERIFY(noYaziDefaults());
+
+        // Unrelated settings, including the Yazi mode behavior of new workspaces, and a saved workspace.
+        Settings::setWorkspaceDefaultYaziMode(false);
+        Settings::setShowPlaces(!Settings::self()->findItem(QStringLiteral("ShowPlaces"))->getDefault().toBool());
+        Settings::self()->save();
+        const bool showPlaces = Settings::showPlaces();
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY2(WorkspaceCatalog::create(catalog, QStringLiteral("Research"), QStringLiteral("RS"), error), qPrintable(error));
+        WorkspaceCatalog::Workspace &workspace = catalog.workspaces.first();
+        workspace.behaviorSelection.mode = WorkspaceCatalog::BehaviorMode::Selected;
+        workspace.behaviorSelection.yaziMode = false;
+        WorkspaceCatalog::Layout layout;
+        layout.paneSizes = {300, 500};
+        WindowSession session;
+        session.left.tabs = {QUrl::fromLocalFile(QDir::homePath())};
+        session.left.yaziMode = true;
+        session.left.yaziPreview = 0;
+        session.left.yaziPreviewContent = int(YaziMode::PreviewContent::Information);
+        session.left.yaziParentColumn = 0;
+        session.left.yaziColumnRatios = {2, 5, 3};
+        session.right.tabs = {QUrl::fromLocalFile(QDir::homePath())};
+        layout.session = session;
+        QVERIFY2(WorkspaceCatalog::setLayout(catalog, workspace.id, layout, error), qPrintable(error));
+        QVERIFY2(WorkspaceCatalog::save(KSharedConfig::openConfig()->group(QStringLiteral("Workspaces")), catalog, error), qPrintable(error));
+        KSharedConfig::openConfig()->sync();
+        const QMap<QString, QString> savedWorkspaces = KSharedConfig::openConfig()->group(QStringLiteral("Workspaces")).entryMap();
+        const auto workspacesUnchanged = [&catalog, &savedWorkspaces] {
+            KSharedConfig::openConfig()->reparseConfiguration();
+            WorkspaceCatalog::Catalog loaded;
+            QString loadError;
+            return KSharedConfig::openConfig()->group(QStringLiteral("Workspaces")).entryMap() == savedWorkspaces
+                && WorkspaceCatalog::load(KSharedConfig::openConfig()->group(QStringLiteral("Workspaces")), loaded, loadError) && loaded == catalog;
+        };
+
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+            QSignalSpy restored(&dialog, &SettingsDialog::yaziDefaultsRestored);
+            int keyQuestions = 0;
+            dialog.setYaziKeyConfirmation([&keyQuestions](const QString &, const QStringList &) {
+                ++keyQuestions;
+                return true;
+            });
+            QStringList questions;
+            bool accept = false;
+            dialog.setYaziResetConfirmation([&questions, &accept](const QString &question) {
+                questions.append(question);
+                return accept;
+            });
+            dialog.setConfirmation([](const QString &) {
+                return false;
+            });
+
+            // The button is below the Yazi Mode tabs, not on one of them, so it shows whichever tab is selected.
+            auto *reset = dialog.findChild<QPushButton *>(QStringLiteral("resetYaziMode"));
+            QVERIFY(reset);
+            QCOMPARE(reset->text(), QStringLiteral("Restore Yazi Mode Defaults"));
+            auto *activation = dialog.findChild<QWidget *>(QStringLiteral("yaziActivationPage"));
+            auto *tabs = qobject_cast<QTabWidget *>(activation->parentWidget()->parentWidget());
+            QVERIFY(tabs);
+            QCOMPARE(tabs->count(), 5);
+            QVERIFY(!tabs->isAncestorOf(reset));
+            QVERIFY(tabs->parentWidget()->isAncestorOf(reset));
+            auto *notice = dialog.findChild<QLabel *>(QStringLiteral("yaziResetNotice"));
+            QVERIFY(notice && notice->wordWrap());
+            QVERIFY(notice->text().contains(QStringLiteral("Workspaces › Behaviors")));
+            auto *pages = dialog.findChild<KPageWidget *>();
+            auto *model = qobject_cast<KPageWidgetModel *>(pages->model());
+            QVERIFY(model);
+            for (int row = 0; row < model->rowCount(); ++row) {
+                if (model->index(row, 0).data(Qt::DisplayRole).toString() == QStringLiteral("Yazi Mode")) {
+                    dialog.setCurrentPage(model->item(model->index(row, 0)));
+                }
+            }
+            dialog.show();
+            QVERIFY(QTest::qWaitForWindowExposed(&dialog));
+            for (int tab = 0; tab < tabs->count(); ++tab) {
+                tabs->setCurrentIndex(tab);
+                QVERIFY2(reset->isVisible(), qPrintable(tabs->tabText(tab)));
+            }
+
+            auto *preview = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_YaziPreviewVisible"));
+            auto *keyPreset = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_YaziKeyPreset"));
+            auto *content = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_YaziPreviewContent"));
+            auto *ratios = dialog.findChild<YaziColumnRatiosEditor *>(QStringLiteral("kcfg_YaziColumnRatios"));
+            auto *leftDefault = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_YaziLeftPaneDefault"));
+            auto *restoreMode = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_YaziWorkspaceRestoreMode"));
+            auto *defaultYazi = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultYaziMode"));
+            auto *showPlacesCheck = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowPlaces"));
+            auto *keyCounts = dialog.findChild<QLabel *>(QStringLiteral("yaziKeyCountsNotice"));
+            QVERIFY(preview && keyPreset && content && ratios && leftDefault && restoreMode && defaultYazi && showPlacesCheck && keyCounts);
+            QVERIFY(!preview->isChecked());
+            QCOMPARE(keyPreset->currentIndex(), int(Settings::EnumYaziKeyPreset::Vim));
+            QVERIFY(!keyCounts->isHidden());
+            QVERIFY(!defaultYazi->isChecked());
+            QCOMPARE(showPlacesCheck->isChecked(), showPlaces);
+            // An unsaved edit of an unrelated setting.
+            auto *archive = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ArchiveOtherPaneByDefault"));
+            QVERIFY(archive);
+            const bool archiveEdited = !archive->isChecked();
+            archive->setChecked(archiveEdited);
+
+            // Declining the confirmation changes nothing; the question says what is kept.
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            reset->click();
+            QCOMPARE(questions.size(), 1);
+            for (const char *part : {"Saved workspaces", "Workspaces › Behaviors", "keyboard shortcuts", "stay in or out of Yazi mode"}) {
+                QVERIFY2(questions.first().contains(QString::fromUtf8(part)), part);
+            }
+            QVERIFY(!preview->isChecked());
+            QCOMPARE(keyPreset->currentIndex(), int(Settings::EnumYaziKeyPreset::Vim));
+            QCOMPARE(ratios->ratios(), QList<int>({2, 5, 3}));
+            QCOMPARE(archive->isChecked(), archiveEdited);
+            QVERIFY(noYaziDefaults());
+
+            // Accepting it shows every Yazi default, including the custom widgets, without saving them.
+            accept = true;
+            reset->click();
+            QCOMPARE(questions.size(), 2);
+            QVERIFY(preview->isChecked());
+            QCOMPARE(keyPreset->currentIndex(), int(Settings::EnumYaziKeyPreset::Standard));
+            QVERIFY(keyCounts->isHidden());
+            QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("yaziKeyConflictSummary"))->text().contains(QStringLiteral("No conflicts")));
+            QCOMPARE(content->currentIndex(), int(Settings::EnumYaziPreviewContent::Preview));
+            QCOMPARE(ratios->ratios(), QList<int>({1, 3, 2}));
+            QVERIFY(!leftDefault->isChecked());
+            QVERIFY(restoreMode->isChecked());
+            QVERIFY(!defaultYazi->isChecked());
+            QCOMPARE(showPlacesCheck->isChecked(), showPlaces);
+            QCOMPARE(archive->isChecked(), archiveEdited);
+            QVERIFY(noYaziDefaults());
+            QCOMPARE(restored.count(), 0);
+
+            QVERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+            QCOMPARE(keyQuestions, 0);
+            QCOMPARE(restored.count(), 1);
+            QVERIFY(yaziDefaults());
+            QVERIFY(!Settings::workspaceDefaultYaziMode());
+            QCOMPARE(Settings::showPlaces(), showPlaces);
+            QCOMPARE(Settings::archiveOtherPaneByDefault(), archiveEdited);
+            QVERIFY(workspacesUnchanged());
+
+            // Applying again doesn't drop the panes' choices again.
+            preview->setChecked(false);
+            dialog.button(QDialogButtonBox::Apply)->click();
+            QCOMPARE(restored.count(), 1);
+            preview->setChecked(true);
+            dialog.button(QDialogButtonBox::Apply)->click();
+
+            // A reset of settings that are already the defaults still lets Apply drop the panes' choices.
+            QTRY_VERIFY(!dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            reset->click();
+            QVERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Ok)->click();
+            QCOMPARE(restored.count(), 2);
+            QVERIFY(yaziDefaults());
+        }
+
+        // Cancel in the dialog after a reset keeps the stored settings.
+        changeYaziSettings();
+        {
+            SettingsDialog dialog(&places, nullptr);
+            QSignalSpy restored(&dialog, &SettingsDialog::yaziDefaultsRestored);
+            dialog.setYaziResetConfirmation([](const QString &) {
+                return true;
+            });
+            auto *preview = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_YaziPreviewVisible"));
+            auto *ratios = dialog.findChild<YaziColumnRatiosEditor *>(QStringLiteral("kcfg_YaziColumnRatios"));
+            dialog.findChild<QPushButton *>(QStringLiteral("resetYaziMode"))->click();
+            QVERIFY(preview->isChecked());
+            QCOMPARE(ratios->ratios(), QList<int>({1, 3, 2}));
+            dialog.button(QDialogButtonBox::Cancel)->click();
+            QVERIFY(noYaziDefaults());
+            QCOMPARE(restored.count(), 0);
+            // Cancel shows the stored settings again and forgets the reset.
+            QVERIFY(!preview->isChecked());
+            QCOMPARE(ratios->ratios(), QList<int>({2, 5, 3}));
+            dialog.button(QDialogButtonBox::Ok)->click();
+            QCOMPARE(restored.count(), 0);
+        }
+        QVERIFY(noYaziDefaults());
+        QVERIFY(!Settings::workspaceDefaultYaziMode());
+        QCOMPARE(Settings::showPlaces(), showPlaces);
+        QVERIFY(workspacesUnchanged());
+    }
+
     void workspaceIndicatorOptionsPersist()
     {
         KFilePlacesModel places;
@@ -2501,6 +3398,14 @@ private Q_SLOTS:
         config->deleteGroup(QStringLiteral("Confirmations"));
         config->deleteGroup(QStringLiteral("PreviewSettings"));
         config->sync();
+    }
+
+private:
+    /// Chooses @p index in @p preset as the user does, which KConfigDialogManager notices.
+    static void choosePreset(QComboBox *preset, int index)
+    {
+        preset->setCurrentIndex(index);
+        Q_EMIT preset->activated(index);
     }
 };
 

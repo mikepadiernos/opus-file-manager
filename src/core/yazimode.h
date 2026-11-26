@@ -3,13 +3,16 @@
 #pragma once
 
 #include <QKeyCombination>
+#include <QKeySequence>
 #include <QList>
 #include <QStringList>
 #include <QUrl>
+#include <QVariantMap>
 
 #include <optional>
 
 class KConfigGroup;
+class KCoreConfigSkeleton;
 class QJsonObject;
 
 /**
@@ -22,6 +25,39 @@ namespace YaziMode
 /// Reads a pane's mode from a session group; absent means off.
 bool readSession(const KConfigGroup &group);
 void writeSession(KConfigGroup &group, bool enabled);
+
+/// How a pane chooses its mode when a window starts. The values match the
+/// YaziLeftPaneDefault and YaziLeftPaneRestore settings and their second-pane
+/// counterparts.
+struct Activation {
+    /// The mode the pane starts with when it has no previous choice to restore.
+    bool defaultMode = false;
+    /// Whether the pane restores the mode it had when its session was saved.
+    bool restore = true;
+    bool operator==(const Activation &other) const = default;
+};
+
+/**
+ * The mode a pane starts with when a window opens. Explicitly switching to or
+ * restoring a workspace layout doesn't use this; the layout's behaviors decide.
+ * @param activation the pane's default mode and whether it restores its
+ *        previous choice
+ * @param saved the mode saved in the pane's restored session, or nullopt
+ *        when no session is restored for the pane, such as on the first start
+ *        or when the window opens the home folder or fixed folders
+ * @returns @p saved when restoring and there is one, otherwise the default
+ */
+bool startupMode(const Activation &activation, std::optional<bool> saved);
+
+/// The settings group that holds Yazi mode's settings.
+inline constexpr auto SettingsGroup = "YaziMode";
+
+/**
+ * The default of every entry in @p settings' SettingsGroup, by entry name:
+ * what Restore Yazi Mode Defaults resets. Entries of other groups, such as
+ * the Yazi mode behavior of new workspaces, aren't included.
+ */
+QVariantMap defaultSettings(const KCoreConfigSkeleton *settings);
 
 /**
  * Reads whether a pane shows its preview column from a session group.
@@ -285,6 +321,8 @@ constexpr Command LastCommand = Command::CloseTab;
 
 /// A stable identifier for @p command, such as "move-down", for settings and documentation.
 QString commandId(Command command);
+/// A short description of @p command for the user, such as "Move down".
+QString commandText(Command command);
 /// Whether a count typed first, as in 5j, repeats @p command.
 bool commandTakesCount(Command command);
 /// Whether @p command changes the selection of the current column.
@@ -354,6 +392,37 @@ struct Conflict {
 
 /// The conflicts in @p keymap, in binding order; empty when every binding can be typed.
 QList<Conflict> conflicts(const Keymap &keymap);
+
+/// A window action and its shortcuts, for shadowedShortcuts().
+struct ActionShortcuts {
+    /// The action's name, such as "open_gallery".
+    QString name;
+    /// The action's text, without accelerator markers.
+    QString text;
+    QList<QKeySequence> shortcuts;
+};
+
+/// A window shortcut that a keymap takes over while a Yazi mode column has the keyboard focus.
+struct ShadowedShortcut {
+    QString name;
+    QString text;
+    QKeySequence shortcut;
+    /// The bindings whose first key is the shortcut's first key, in binding order; empty when that key starts a count.
+    QList<int> bindings;
+
+    bool operator==(const ShadowedShortcut &other) const = default;
+};
+
+/**
+ * The shortcuts of @p actions that @p keymap shadows, in action and shortcut
+ * order. While no sequence is pending, Yazi mode accepts the shortcut
+ * override of every key that begins a binding or a count, as
+ * KeyMatcher::test() tells, so a shortcut whose first key is such a key
+ * doesn't fire while a Yazi mode column has the keyboard focus. Keys that
+ * only continue a sequence, and Escape, which cancels one, are taken only
+ * while a sequence is pending, after a key that is listed here.
+ */
+QList<ShadowedShortcut> shadowedShortcuts(const Keymap &keymap, const QList<ActionShortcuts> &actions);
 
 /**
  * @p key without the modifiers that don't change what the key means here:

@@ -122,8 +122,9 @@ WorkspaceDialog::WorkspaceDialog(KConfigGroup group,
     m_yaziBehavior->setAccessibleDescription(
         i18nc("@info:accessibility", "Whether switching restores each pane's Yazi mode, with its preview, parent column and column widths"));
     m_yaziBehavior->setToolTip(i18nc("@info:tooltip",
-                                     "Restore each pane's Yazi mode, with its preview, parent column and column widths. When unchecked, "
-                                     "switching keeps each pane's current Yazi mode."));
+                                     "Restore each pane's Yazi mode, with its preview, parent column and column widths, as chosen in "
+                                     "Preferences › Yazi Mode › Workspace Layouts. When unchecked, switching keeps each pane's current "
+                                     "Yazi mode and columns."));
     auto *saveBehaviors = new QPushButton(i18nc("@action:button", "Save Workspace Behaviors"), behaviorGroup);
     saveBehaviors->setObjectName(QStringLiteral("workspaceSaveBehaviors"));
     connect(saveBehaviors, &QPushButton::clicked, this, &WorkspaceDialog::saveBehaviorSelection);
@@ -616,8 +617,9 @@ void WorkspaceDialog::activateWorkspace(bool confirmed)
         return;
     }
     const WorkspaceCatalog::BehaviorSelection selection = it->behaviorSelection;
-    // Yazi mode lives in the pane snapshot; without one there is nothing of it to restore.
-    const bool restoreYazi = selection.appliesYaziMode(WorkspaceRestore::fromSettings().views) && it->layout && it->layout->session;
+    const WorkspaceRestore::Options options = WorkspaceRestore::fromSettings();
+    // Yazi state lives in the pane snapshot; without one there is nothing of it to restore.
+    const bool restoreYazi = WorkspaceRestore::yaziParts(selection, options).any() && it->layout && it->layout->session;
     const bool restoreAnything = selection.applies(selection.layout) || selection.applies(selection.paneTabRestoration)
         || selection.applies(selection.locationPresentation) || restoreYazi;
     if (restoreAnything && !it->layout) {
@@ -644,7 +646,7 @@ void WorkspaceDialog::activateWorkspace(bool confirmed)
             return;
         }
         WorkspaceCatalog::Layout layout;
-        if (!WorkspaceRestore::merge(*current->layout, previous, selection, WorkspaceRestore::fromSettings(), layout, error)) {
+        if (!WorkspaceRestore::merge(*current->layout, previous, selection, options, layout, error)) {
             m_status->setText(error);
             return;
         }

@@ -25,7 +25,8 @@ recommendation and external tools are separate applications.
   [folder metadata and listings](#folder-metadata-and-listings),
   [planned password-gated folders](#planned-password-gated-folders),
   [previews and gallery](#previews-and-gallery), [editor](#editor),
-  [file-list minimap](#file-list-minimap), [Yazi mode](#yazi-mode)
+  [file-list minimap](#file-list-minimap), [Yazi mode](#yazi-mode),
+  [Yazi mode settings](#yazi-mode-settings)
 - **🔎 Search and operations:** [Search](#search),
   [batch rename](#batch-rename), [metadata editing](#metadata-editing),
   [transfer queue](#transfer-queue),
@@ -479,7 +480,8 @@ The M25 [Yazi mode](yazi-mode.md) has these limits
   dragged; other panes pick up a new default only when settings are applied
   again. Existing workspaces tie Yazi state to the views option until their
   Yazi checkbox is changed. When startup opens the home folder or fixed
-  folders, panes start with the mode off.
+  folders, panes start with their default mode from **Preferences › Yazi
+  Mode › Activation**, which is off unless changed.
 - **Performance:** the first listing of very large folders (10,000+ items)
   is slow with or without Yazi mode.
 
@@ -499,8 +501,9 @@ The M25 [Yazi mode](yazi-mode.md) has these limits
   - **Selection:** press Escape to clear marks before ordinary selection.
   - **Search:** check the Search panel's scope after using `s` or `S`.
   - **Persistence:** drag the columns once in each pane to fix its ratios,
-    and turn on a workspace's **Yazi mode** option to restore Yazi state
-    independently of views.
+    or use **Restore Yazi Mode Defaults** in Preferences to make every pane
+    follow the defaults again. Turn on a workspace's **Yazi mode** option to
+    restore Yazi state independently of views.
   - **Performance:** filter or split very large folders.
   - Comment:
     [#723.7180859654](https://github.com/mikepadiernos/plasma-opus/issues/723#issuecomment-7180859654)
@@ -508,7 +511,70 @@ The M25 [Yazi mode](yazi-mode.md) has these limits
   - A remote preview download policy shared with the preview panel.
   - Track paste and trash jobs in the Yazi transfer indicator.
   - Faster first listings of very large folders.
-  - Apply new default column ratios to open panes.
+
+## Yazi mode settings
+
+The M26 [Yazi mode settings](yazi-mode.md#settings) under **Preferences ›
+Yazi Mode** have these limits
+([#725](https://github.com/mikepadiernos/plasma-opus/issues/725)):
+
+- **Activation:** each pane's default mode and restore option apply only
+  when a window opens; open panes keep their current mode. The restore option
+  matters only when **On startup** restores the last session. Sessions saved
+  before M25 restore the mode as off. "First pane" is the left pane, or the
+  top pane when the panes are stacked.
+- **Columns:** panes with their own widths, from dragging, their session or
+  a workspace, keep them when the default widths change, so Apply can seem to
+  do nothing. After a drag, the Columns tab shows the widths in pixels, such
+  as 180, 540 and 360. The narrow-pane limits are fixed: the preview column
+  hides below about 480 pixels and the parent column below about 320.
+- **Keyboard:** preset keys can't be edited one by one. The conflict review
+  checks the window that opened Preferences, leaves out shortcuts that only
+  work while their own widget has focus and sees shortcut edits only after
+  they are saved. **View › Vim-Style Keys in Yazi Mode** switches presets
+  without reviewing conflicts.
+- **Preview:** there is no Yazi-specific size, provider or remote-download
+  setting. Remote preview downloads stop at fixed caps (8 MiB for images,
+  128 MiB for other files) and ignore **Show previews in remote folders**;
+  **Skip files larger than** and **Show previews for** only affect
+  thumbnails. The file-information fields are fixed. Changed presentation
+  settings, such as line numbers, apply from the next previewed item.
+- **Workspace layouts:** a pane that keeps its own Yazi state differs from
+  the saved layout, so the workspace shows the modified marker (`*`) after
+  switching. Restoring only the columns also changes panes that aren't in
+  Yazi mode; the columns appear when the mode is turned on. The default for
+  new workspaces stays under **Workspaces › Behaviors**.
+- **Reset:** **Restore Yazi Mode Defaults** makes open panes drop their own
+  column and preview choices on Apply, even if values are edited again before
+  Apply, and can mark the active workspace as modified. It never turns a
+  pane's Yazi mode on or off. The dialog's own **Defaults** button resets
+  every page but keeps the panes' own choices.
+
+- **Recommendation:**
+  - **Activation:** turn a pane's mode on or off with **View › Yazi Mode**
+    after changing its default; the setting takes over at the next start.
+  - **Columns:** use **Restore Yazi Mode Defaults** when open panes should
+    follow new default widths. Use **Restore Default Widths** on the Columns
+    tab to return to 1 : 3 : 2 after a drag.
+  - **Keyboard:** change presets from the Keyboard tab rather than the View
+    menu so conflicts are reviewed, and save edits in **Configure Keyboard
+    Shortcuts…** before reviewing again.
+  - **Preview:** switch the preview column to file information on slow
+    connections, and use **Maximum text in preview panel** under **Interface
+    › Previews** to limit remote text downloads.
+  - **Workspace layouts:** save the workspace layout again when the modified
+    marker should clear, or turn both Yazi options back on to restore the
+    saved state.
+  - **Reset:** use the Yazi Mode button instead of **Defaults** when only
+    Yazi settings should change.
+  - Comment:
+    [#725.7182507952](https://github.com/mikepadiernos/plasma-opus/issues/725#issuecomment-7182507952)
+- **Proposed improvements:**
+  - Editable Yazi key bindings, built on KDE shortcut configuration.
+  - Conflict review for the View menu's key preset toggle.
+  - A remote preview download policy shared with the preview panel.
+  - Settings for the narrow-pane limits.
+  - Apply activation defaults to open panes on request.
 
 ## Native title and header padding
 

@@ -1251,23 +1251,26 @@ process or a promise of Yazi configuration or plugin compatibility.
 Settings for M25 Yazi mode, stored in KConfig and coordinated with workspace
 layouts.
 
-- [ ] **Activation:** choose each pane's default mode and whether to restore its
+- [x] **Activation:** choose each pane's default mode and whether to restore its
       previous choice. Respect explicitly restored M15 layouts when available
       and keep the mode off by default.
-- [ ] **Columns:** choose visible folder-context and preview columns and their
+- [x] **Columns:** choose visible folder-context and preview columns and their
       sizes; adapt to narrow windows without hiding the other file pane.
-- [ ] **Keyboard:** choose a standard or Yazi-inspired shortcut preset and
+- [x] **Keyboard:** choose a standard or Yazi-inspired shortcut preset and
       review conflicts before applying it. Keep typing and accessibility
       controls usable; reuse KDE shortcut configuration.
-- [ ] **Preview:** choose whether to show the focused item's preview or file
+- [x] **Preview:** choose whether to show the focused item's preview or file
       information. Reuse existing providers, size limits and remote-download
       policy rather than introducing conflicting settings.
-- [ ] **Workspace layouts:** when M15 is available, choose whether layouts
+- [x] **Workspace layouts:** when M15 is available, choose whether layouts
       restore Yazi mode and its column settings, including the Yazi-specific
       workspace feature choice, without overwriting an explicitly selected
       workspace layout or changing other pane views.
-- [ ] **Reset:** restore Yazi mode defaults without erasing saved workspace
+- [x] **Reset:** restore Yazi mode defaults without erasing saved workspace
       layouts or unrelated settings.
+
+**Caveats:** [Yazi mode settings](CAVEATS.md#yazi-mode-settings), tracked in
+[#725](https://github.com/mikepadiernos/plasma-opus/issues/725).
 
 ### M27: Integrations
 

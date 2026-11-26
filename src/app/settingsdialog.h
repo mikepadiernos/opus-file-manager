@@ -24,6 +24,7 @@ class QTreeWidget;
 class RuleListEditor;
 class StartupWorkspaceCombo;
 class TagFieldManagerWidget;
+class YaziColumnRatiosEditor;
 
 namespace LibraryConfirmations
 {
@@ -62,6 +63,23 @@ public:
     void setLibraryConfirmation(std::function<bool(const LibraryConfirmations::Confirmation &)> confirm);
     /// Replaces the folder chooser of Add Library, for tests; it returns an empty path when canceled.
     void setLibraryFolderChooser(std::function<QString()> choose);
+    /**
+     * Replaces the question asked before applying a Yazi mode key preset
+     * that shadows window shortcuts or has conflicts of its own, for tests.
+     * @p confirm receives the question and the conflicts and returns whether
+     * to apply the preset.
+     */
+    void setYaziKeyConfirmation(std::function<bool(const QString &, const QStringList &)> confirm);
+    /**
+     * Sets every Yazi Mode setting in the dialog, that is every entry of the
+     * YaziMode settings group, to its default, and has Apply or OK also make
+     * open panes drop their own Yazi column choices. Nothing is saved until
+     * the settings are applied; saved workspaces, the Yazi mode behavior of
+     * new workspaces and other settings are left alone.
+     */
+    void resetYaziModeToDefaults();
+    /// Replaces the yes or no question asked before Restore Yazi Mode Defaults, for tests.
+    void setYaziResetConfirmation(std::function<bool(const QString &)> confirm);
     /// The theme profile options shown in the dialog, which may not be applied yet.
     QVariantMap appearanceValues() const;
     /// Shows Themes options in the dialog without applying them.
@@ -79,8 +97,15 @@ Q_SIGNALS:
     void libraryChanged(const QString &root);
     /// A tag library was added in the Libraries tab and needs its first refresh.
     void libraryAdded(const QString &root);
+    /**
+     * Yazi mode defaults restored with Restore Yazi Mode Defaults are being
+     * applied, so open panes should drop their own Yazi column choices. The
+     * settings are saved right after this signal.
+     */
+    void yaziDefaultsRestored();
 
 protected:
+    void accept() override;
     void updateSettings() override;
     void updateWidgets() override;
     void updateWidgetsDefault() override;
@@ -94,9 +119,13 @@ private:
      * @param title the page title
      * @param iconName the page's theme icon, without the "-symbolic" suffix
      * @param tabsOut receives the page's tab widget when provided
+     * @param footer a widget shown below the tabs, whichever tab is selected, or nullptr
      */
-    KPageWidgetItem *
-    addTabbedPage(const QList<std::pair<QWidget *, QString>> &tabs, const QString &title, const QString &iconName, QTabWidget **tabsOut = nullptr);
+    KPageWidgetItem *addTabbedPage(const QList<std::pair<QWidget *, QString>> &tabs,
+                                   const QString &title,
+                                   const QString &iconName,
+                                   QTabWidget **tabsOut = nullptr,
+                                   QWidget *footer = nullptr);
 
     /**
      * Applies the saved sidebar settings: titles beside small icons or below
@@ -158,6 +187,30 @@ private:
     QWidget *createSelectionPage();
     QWidget *createFiltersPage();
     QWidget *createFolderFormatsPage();
+    QWidget *createYaziActivationPage();
+    QWidget *createYaziColumnsPage();
+    QWidget *createYaziKeyboardPage();
+    /// Lists the keys and conflicts of the key preset chosen in the Keyboard tab.
+    void updateYaziKeyPreview();
+    /// The conflicts of key preset @p preset, as shown to the user: its own, then the window shortcuts it shadows.
+    QStringList yaziKeyConflicts(int preset) const;
+    /**
+     * Asks before applying a key preset with conflicts; when that is
+     * declined, chooses the applied preset again.
+     * @returns whether the chosen preset may be applied
+     */
+    bool confirmYaziKeyPreset();
+    QWidget *createYaziPreviewPage();
+    QWidget *createYaziWorkspaceLayoutsPage();
+    /// Describes, on the Workspace Layouts tab, whether new workspaces include the Yazi mode behavior as chosen under Workspaces › Behaviors.
+    void updateYaziWorkspaceDefault();
+    /// The Restore Yazi Mode Defaults button and its note, shown below the Yazi Mode tabs.
+    QWidget *createYaziResetRow();
+    /**
+     * Shows @p values, by entry name, in the entries' widgets without saving
+     * them. Entries without a widget are skipped.
+     */
+    void setEditorValues(const QVariantMap &values);
     QWidget *createIconsPage();
     QWidget *createContextMenuActionsPage();
     QWidget *createServiceMenusPage();
@@ -208,6 +261,9 @@ private:
     QList<std::pair<KPageWidgetItem *, QString>> m_pageIcons;
     KPageWidgetItem *m_toolbarPage = nullptr;
     QTabWidget *m_toolbarTabs = nullptr;
+    KPageWidgetItem *m_workspacePage = nullptr;
+    QTabWidget *m_workspaceTabs = nullptr;
+    QLabel *m_yaziWorkspaceDefault = nullptr;
     QListWidget *m_workspaceSummary = nullptr;
     StartupWorkspaceCombo *m_startupWorkspace = nullptr;
     ColorSchemeCombo *m_colorScheme = nullptr;
@@ -224,6 +280,22 @@ private:
     TagFieldManagerWidget *m_fieldManager = nullptr;
     FieldTemplateEditor *m_fieldTemplates = nullptr;
     EmbeddedMetadataMappingTable *m_metadataMappings = nullptr;
+    YaziColumnRatiosEditor *m_yaziColumnRatios = nullptr;
+    /// The YaziColumnRatios setting when it was last saved, to tell whether the dialog changed it.
+    QList<int> m_savedYaziColumnRatios;
+    QComboBox *m_yaziKeyPreset = nullptr;
+    QTreeWidget *m_yaziKeyBindings = nullptr;
+    QLabel *m_yaziKeyCounts = nullptr;
+    QLabel *m_yaziKeyConflictSummary = nullptr;
+    QListWidget *m_yaziKeyConflicts = nullptr;
+    /// The YaziKeyPreset setting when it was last saved, to tell whether the dialog changed it.
+    int m_savedYaziKeyPreset = 0;
+    /// The preset whose conflicts were accepted, so that OK asks only once; -1 when none.
+    int m_confirmedYaziKeyPreset = -1;
+    std::function<bool(const QString &, const QStringList &)> m_confirmYaziKeys;
+    std::function<bool(const QString &)> m_confirmYaziReset;
+    /// Whether Yazi mode defaults were restored since the settings were last applied or reloaded.
+    bool m_yaziResetPending = false;
     /// A checkbox for a setting kept outside Settings, in config that KIO
     /// shares with Dolphin.
     struct SharedToggle {
