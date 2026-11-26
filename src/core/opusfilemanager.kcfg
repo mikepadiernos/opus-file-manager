@@ -746,7 +746,7 @@
   </group>
   <group name="Archives">
     <entry name="DefaultArchiveFormat" key="DefaultFormat" type="Int">
-      <default>0</default><min>0</min><max>4</max>
+      <default>0</default><min>0</min><max>5</max>
     </entry>
     <entry name="ArchiveOtherPaneByDefault" type="Bool"><default>false</default></entry>
   </group>

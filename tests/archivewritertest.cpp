@@ -3,6 +3,7 @@
 #include "archivewriter.h"
 #include "archives.h"
 
+#include <K7Zip>
 #include <KArchiveDirectory>
 #include <KArchiveFile>
 #include <KTar>
@@ -38,6 +39,8 @@ private:
         std::unique_ptr<KArchive> archive;
         if (format == Format::Zip || format == Format::ZipStored) {
             archive = std::make_unique<KZip>(archivePath);
+        } else if (format == Format::SevenZip) {
+            archive = std::make_unique<K7Zip>(archivePath);
         } else {
             archive = std::make_unique<KTar>(archivePath);
         }
@@ -60,12 +63,78 @@ private Q_SLOTS:
 
     void suffixes()
     {
-        QCOMPARE(ArchiveWriter::formats().size(), 5);
+        QCOMPARE(ArchiveWriter::formats().size(), 6);
         QCOMPARE(ArchiveWriter::suffix(Format::Zip), QStringLiteral("zip"));
         QCOMPARE(ArchiveWriter::suffix(Format::ZipStored), QStringLiteral("zip"));
         QCOMPARE(ArchiveWriter::suffix(Format::TarGz), QStringLiteral("tar.gz"));
         QCOMPARE(ArchiveWriter::suffix(Format::TarXz), QStringLiteral("tar.xz"));
         QCOMPARE(ArchiveWriter::suffix(Format::TarZstd), QStringLiteral("tar.zst"));
+        QCOMPARE(ArchiveWriter::suffix(Format::SevenZip), QStringLiteral("7z"));
+        QCOMPARE(ArchiveWriter::firstVolumeName(QStringLiteral("photos.7z")), QStringLiteral("photos.7z.001"));
+    }
+
+    void sevenZipRejectsDestinationInsideSource()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkpath(QStringLiteral("source")));
+        const QString inside = root.filePath(QStringLiteral("source/out.7z"));
+        QVERIFY(!ArchiveWriter::write(inside, Format::SevenZip, {root.filePath(QStringLiteral("source"))}).isEmpty());
+        QVERIFY(!QFile::exists(inside));
+    }
+
+    void splitsIntoVolumesThatJoinBack()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QFile big(root.filePath(QStringLiteral("big.bin")));
+        QVERIFY(big.open(QIODevice::WriteOnly));
+        QByteArray data;
+        for (int i = 0; i < 5000; ++i) {
+            data.append(QByteArray::number(i * 7919));
+        }
+        big.write(data);
+        big.close();
+        const QString archivePath = root.filePath(QStringLiteral("big.zip"));
+        QCOMPARE(ArchiveWriter::write(archivePath, Format::ZipStored, {big.fileName()}), QString());
+        QFile whole(archivePath);
+        QVERIFY(whole.open(QIODevice::ReadOnly));
+        const QByteArray bytes = whole.readAll();
+        whole.close();
+
+        const ArchiveWriter::Volumes volumes = ArchiveWriter::splitIntoVolumes(archivePath, 4096);
+        QCOMPARE(volumes.error, QString());
+        QVERIFY(volumes.files.size() > 1);
+        QCOMPARE(volumes.files.first(), root.filePath(ArchiveWriter::firstVolumeName(QStringLiteral("big.zip"))));
+        QVERIFY(!QFile::exists(archivePath));
+        QByteArray joined;
+        for (const QString &volume : volumes.files) {
+            QFile part(volume);
+            QVERIFY(part.open(QIODevice::ReadOnly));
+            QVERIFY(part.size() <= 4096);
+            joined += part.readAll();
+        }
+        QCOMPARE(joined, bytes);
+    }
+
+    void failedSplitKeepsArchiveAndExistingVolumes()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QString archivePath = root.filePath(QStringLiteral("note.7z"));
+        QCOMPARE(ArchiveWriter::write(archivePath, Format::SevenZip, {path(QStringLiteral("note.txt"))}), QString());
+        QFile existing(root.filePath(QStringLiteral("note.7z.002")));
+        QVERIFY(existing.open(QIODevice::WriteOnly));
+        existing.write("keep");
+        existing.close();
+
+        const ArchiveWriter::Volumes volumes = ArchiveWriter::splitIntoVolumes(archivePath, 16);
+        QVERIFY(!volumes.error.isEmpty());
+        QVERIFY(volumes.files.isEmpty());
+        QVERIFY(QFile::exists(archivePath));
+        QVERIFY(!QFile::exists(root.filePath(QStringLiteral("note.7z.001"))));
+        QVERIFY(existing.open(QIODevice::ReadOnly));
+        QCOMPARE(existing.readAll(), QByteArrayLiteral("keep"));
     }
 
     void writesEveryFormat_data()
