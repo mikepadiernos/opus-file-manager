@@ -631,7 +631,21 @@ have these limits
 - **Index status:** Coverage notices reflect configuration, not proof of
   indexing; exclusions and pending indexing can affect results. Baloo's query
   API does not report index-read failures, and a running query cannot be
-  interrupted until it returns.
+  interrupted until it returns. **Indexing Status** reproduces Baloo's
+  folder, hidden-item, pattern and file-type rules from KDE File Search
+  settings; the indexer may still skip files it can't read, very large
+  files or files it failed to extract. **Check Index Coverage** looks up only
+  the folder's first 200 files, not subfolders, and a file in the index may
+  still have stale contents. Missing extractors are detected only for
+  document, text, image, audio, video and ebook types among those files.
+  The indexer's state is read over D-Bus when the status is opened or the
+  Baloo scope is chosen, then updated when the indexer reports a change; its
+  remaining-time estimate is Baloo's own. Suspend, resume and checking for
+  unindexed files ask the shared indexer, which may ignore them, for example
+  on battery power. This has been verified in a headless container with a
+  simulated indexer only, not yet against a running Baloo on a Plasma
+  session.
+  ([#441](https://github.com/mikepadiernos/plasma-opus/issues/441))
 - **Selection and exclusions:** Path-selection filters apply only to local
   top-level listings or the visible flat list, not expanded child rows. Excluded
   folders are entered one per line, so paths containing newlines cannot be
@@ -724,7 +738,10 @@ have these limits
   Sticky Keys is on in Plasma's accessibility settings, and Plasma Opus can't
   detect input methods or remappings that intercept <kbd>Shift</kbd>.
 
-- **Recommendation:** Check Baloo's indexing configuration and status; use live
+- **Recommendation:** Check Baloo's indexing configuration and status in
+  **File › Indexing Status…**, and use **Check Index Coverage** to confirm
+  that a folder's files are indexed, or `balooctl6 status` for details Baloo
+  doesn't expose to applications; use live
   search for a current local folder, search smaller folders, inspect errors and
   repeat searches after files change. Use flat view when selecting nested local
   items by path, and verify the resulting selection. Use GNU `find` for other
@@ -765,7 +782,7 @@ have these limits
   ([#230](https://github.com/mikepadiernos/plasma-opus/issues/230)), which
   could include focusing the search field and panel.
   [M27 Baloo integration](ROADMAP.md#m27-integrations) plans
-  better status, metadata queries, result ranking and an explicit live fallback,
+  metadata queries, result ranking and an explicit live fallback,
   not guaranteed index completeness. [M15 workspaces](ROADMAP.md#m15-workspaces)
   plan search scoping, not a security boundary.
   - Comment: [#362.7023269364][comment-362]
