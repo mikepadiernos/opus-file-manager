@@ -1647,6 +1647,16 @@ The M27 desktop integrations have these limits
   Without the Activities service, nothing is offered and removed Activities
   cannot be told apart from existing ones.
   ([#387](https://github.com/mikepadiernos/plasma-opus/issues/387))
+- **📱 KDE Connect sharing:** **File › Send to Device…** sends only local
+  regular files; folders, remote KIO locations and special files are listed
+  as unsupported and skipped. A successful reply from KDE Connect means it
+  accepted the files, not that they arrived: the transfer's progress, result
+  and any failure appear only in KDE Connect's notifications, not in Plasma
+  Opus. Device states are read when the dialog opens or KDE Connect reports a
+  change, with short blocking D-Bus calls. The action is not in the file
+  context menu, where KDE Connect's own **Send to** service menu may already
+  appear.
+  ([#389](https://github.com/mikepadiernos/plasma-opus/issues/389))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -1677,6 +1687,12 @@ The M27 desktop integrations have these limits
     after choosing **Not Now**, use **View › Apply Activity Association**.
     Close default-folder tabs you no longer need, and clear associations of
     removed Activities once they are not coming back.
+  - **KDE Connect sharing:** To send a folder, compress it first with
+    **Compress…** and send the archive; copy remote files to a local folder
+    before sending. Watch KDE Connect's notification to confirm delivery. If a
+    paired device shows as offline, open KDE Connect on both devices and press
+    **Refresh**; if it shows file sharing as turned off, enable the **Share
+    and receive** plugin for it in KDE Connect's settings.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -1696,6 +1712,9 @@ The M27 desktop integrations have these limits
     as an option.
   - Keep association behaviours with the session, and an M28
     **Plasma Activities** page that manages associations in the settings.
+  - Offer to compress a selected folder and send the archive, and report
+    KDE Connect's transfer result in the dialog when its share plugin exposes
+    one.
 
 ## Embedded terminal
 
