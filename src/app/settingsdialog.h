@@ -136,6 +136,7 @@ private:
 
     QWidget *createSettingsDialogPage();
     QWidget *createSystemTrayPage();
+    QWidget *createPlasmaSearchPage();
     QWidget *createLanguagePage();
     QWidget *createDateLanguagePage();
     QWidget *createToolbarEntriesPage();

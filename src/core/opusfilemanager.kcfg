@@ -614,6 +614,16 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="KRunner">
+    <entry name="RunnerWorkspaces" type="Bool">
+      <label>Offer saved workspaces in KRunner and Plasma Search</label>
+      <default>true</default>
+    </entry>
+    <entry name="RunnerFavorites" type="Bool">
+      <label>Offer Favorites in KRunner and Plasma Search</label>
+      <default>true</default>
+    </entry>
+  </group>
   <group name="Editor">
     <entry name="EditorOpening" type="Enum">
       <choices><choice name="Panel"/><choice name="Embedded"/><choice name="Maximized"/><choice name="Window"/></choices>

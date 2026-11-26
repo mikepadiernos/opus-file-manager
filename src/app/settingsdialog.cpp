@@ -282,7 +282,9 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                                KStandardGuiItem::cancel())
             == KMessageBox::PrimaryAction;
     };
-    addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}, {createSystemTrayPage(), i18nc("@title:tab", "System Tray")}},
+    addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")},
+                   {createSystemTrayPage(), i18nc("@title:tab", "System Tray")},
+                   {createPlasmaSearchPage(), i18nc("@title:tab", "Plasma Search")}},
                   i18nc("@title:group", "General"),
                   QStringLiteral("configure"));
     addTabbedPage({{createLanguagePage(), i18nc("@title:tab", "Language and Layout")}, {createDateLanguagePage(), i18nc("@title:tab", "Dates")}},
@@ -522,6 +524,24 @@ QWidget *SettingsDialog::createSystemTrayPage()
     };
     connect(show, &QCheckBox::toggled, page, update);
     update();
+    return page;
+}
+
+QWidget *SettingsDialog::createPlasmaSearchPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("plasmaSearchPage"));
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(checkBox(QStringLiteral("RunnerWorkspaces"), i18nc("@option:check", "Offer saved workspaces in KRunner and Plasma Search")));
+    layout->addWidget(checkBox(QStringLiteral("RunnerFavorites"), i18nc("@option:check", "Offer Favorites in KRunner and Plasma Search")));
+    auto *note = new QLabel(i18nc("@info",
+                                  "Only saved workspaces and Favorites are offered, never history, searches or recent folders. Choosing a "
+                                  "workspace asks before switching, as any workspace switch does. Turn the Plasma Opus search plugin off "
+                                  "entirely in System Settings › Search › Plasma Search."),
+                            page);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    layout->addStretch();
     return page;
 }
 
