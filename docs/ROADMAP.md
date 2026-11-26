@@ -1325,7 +1325,7 @@ for some features are recorded in [pending tasks](TODO.md).
 
   - [x] Default file manager registration
   - [x] Provide the `org.freedesktop.FileManager1` D-Bus service
-  - [ ] Integrate with KDE Plasma's language preferences using M13 translation
+  - [x] Integrate with KDE Plasma's language preferences using M13 translation
         catalogues, M14 language and regional-format preferences, and supported
         KDE and Qt facilities. Follow Plasma when no app override is selected,
         fall back to source text if a Plasma Opus catalogue is unavailable, and
