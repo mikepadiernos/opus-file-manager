@@ -3,6 +3,7 @@
 #pragma once
 
 #include <QKeyCombination>
+#include <QKeySequence>
 #include <QList>
 #include <QStringList>
 #include <QUrl>
@@ -308,6 +309,8 @@ constexpr Command LastCommand = Command::CloseTab;
 
 /// A stable identifier for @p command, such as "move-down", for settings and documentation.
 QString commandId(Command command);
+/// A short description of @p command for the user, such as "Move down".
+QString commandText(Command command);
 /// Whether a count typed first, as in 5j, repeats @p command.
 bool commandTakesCount(Command command);
 /// Whether @p command changes the selection of the current column.
@@ -377,6 +380,37 @@ struct Conflict {
 
 /// The conflicts in @p keymap, in binding order; empty when every binding can be typed.
 QList<Conflict> conflicts(const Keymap &keymap);
+
+/// A window action and its shortcuts, for shadowedShortcuts().
+struct ActionShortcuts {
+    /// The action's name, such as "open_gallery".
+    QString name;
+    /// The action's text, without accelerator markers.
+    QString text;
+    QList<QKeySequence> shortcuts;
+};
+
+/// A window shortcut that a keymap takes over while a Yazi mode column has the keyboard focus.
+struct ShadowedShortcut {
+    QString name;
+    QString text;
+    QKeySequence shortcut;
+    /// The bindings whose first key is the shortcut's first key, in binding order; empty when that key starts a count.
+    QList<int> bindings;
+
+    bool operator==(const ShadowedShortcut &other) const = default;
+};
+
+/**
+ * The shortcuts of @p actions that @p keymap shadows, in action and shortcut
+ * order. While no sequence is pending, Yazi mode accepts the shortcut
+ * override of every key that begins a binding or a count, as
+ * KeyMatcher::test() tells, so a shortcut whose first key is such a key
+ * doesn't fire while a Yazi mode column has the keyboard focus. Keys that
+ * only continue a sequence, and Escape, which cancels one, are taken only
+ * while a sequence is pending, after a key that is listed here.
+ */
+QList<ShadowedShortcut> shadowedShortcuts(const Keymap &keymap, const QList<ActionShortcuts> &actions);
 
 /**
  * @p key without the modifiers that don't change what the key means here:

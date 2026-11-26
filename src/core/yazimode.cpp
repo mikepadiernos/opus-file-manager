@@ -602,6 +602,107 @@ QString YaziMode::commandId(Command command)
     return {};
 }
 
+QString YaziMode::commandText(Command command)
+{
+    switch (command) {
+    case Command::MoveUp:
+        return i18nc("@item Yazi mode command", "Move up");
+    case Command::MoveDown:
+        return i18nc("@item Yazi mode command", "Move down");
+    case Command::MoveFirst:
+        return i18nc("@item Yazi mode command", "Move to the first item");
+    case Command::MoveLast:
+        return i18nc("@item Yazi mode command", "Move to the last item");
+    case Command::PageUp:
+        return i18nc("@item Yazi mode command", "Move a page up");
+    case Command::PageDown:
+        return i18nc("@item Yazi mode command", "Move a page down");
+    case Command::HalfPageUp:
+        return i18nc("@item Yazi mode command", "Move half a page up");
+    case Command::HalfPageDown:
+        return i18nc("@item Yazi mode command", "Move half a page down");
+    case Command::Parent:
+        return i18nc("@item Yazi mode command", "Open the parent folder");
+    case Command::Open:
+        return i18nc("@item Yazi mode command", "Open the focused folder or file");
+    case Command::Back:
+        return i18nc("@item Yazi mode command", "Go back");
+    case Command::Forward:
+        return i18nc("@item Yazi mode command", "Go forward");
+    case Command::Home:
+        return i18nc("@item Yazi mode command", "Open the home folder");
+    case Command::FocusParent:
+        return i18nc("@item Yazi mode command", "Focus the parent column");
+    case Command::FocusCurrent:
+        return i18nc("@item Yazi mode command", "Focus the current column");
+    case Command::FocusPreview:
+        return i18nc("@item Yazi mode command", "Focus the preview column");
+    case Command::TogglePreview:
+        return i18nc("@item Yazi mode command", "Show or hide the preview column");
+    case Command::TogglePreviewContent:
+        return i18nc("@item Yazi mode command", "Switch the preview column to file information, or back");
+    case Command::Leave:
+        return i18nc("@item Yazi mode command", "Leave Yazi mode");
+    case Command::ToggleSelection:
+        return i18nc("@item Yazi mode command", "Select or deselect the focused item");
+    case Command::ToggleSelectionDown:
+        return i18nc("@item Yazi mode command", "Select or deselect the focused item, then move down");
+    case Command::VisualSelection:
+        return i18nc("@item Yazi mode command", "Start or end range selection");
+    case Command::SelectAll:
+        return i18nc("@item Yazi mode command", "Select all");
+    case Command::Copy:
+        return i18nc("@item Yazi mode command", "Copy the items to the clipboard");
+    case Command::Cut:
+        return i18nc("@item Yazi mode command", "Cut the items to the clipboard");
+    case Command::Paste:
+        return i18nc("@item Yazi mode command", "Paste into the current folder");
+    case Command::Rename:
+        return i18nc("@item Yazi mode command", "Rename the items");
+    case Command::Trash:
+        return i18nc("@item Yazi mode command", "Move the items to the Trash");
+    case Command::Create:
+        return i18nc("@item Yazi mode command", "Create a new folder or file");
+    case Command::OpenWith:
+        return i18nc("@item Yazi mode command", "Open the items with another application");
+    case Command::CopyToOtherPane:
+        return i18nc("@item Yazi mode command", "Copy the items to the other pane");
+    case Command::MoveToOtherPane:
+        return i18nc("@item Yazi mode command", "Move the items to the other pane");
+    case Command::Undo:
+        return i18nc("@item Yazi mode command", "Undo the last file operation");
+    case Command::ToggleHidden:
+        return i18nc("@item Yazi mode command", "Show or hide hidden files");
+    case Command::Filter:
+        return i18nc("@item Yazi mode command", "Open the pane's filter bar");
+    case Command::ClearFilter:
+        return i18nc("@item Yazi mode command", "Clear the pane's filter");
+    case Command::SearchNames:
+        return i18nc("@item Yazi mode command", "Search file names in the current folder");
+    case Command::SearchContents:
+        return i18nc("@item Yazi mode command", "Search file contents in the current folder");
+    case Command::SortByName:
+        return i18nc("@item Yazi mode command", "Sort by name");
+    case Command::SortBySize:
+        return i18nc("@item Yazi mode command", "Sort by size");
+    case Command::SortByModified:
+        return i18nc("@item Yazi mode command", "Sort by modification date");
+    case Command::SortByType:
+        return i18nc("@item Yazi mode command", "Sort by type");
+    case Command::ReverseSort:
+        return i18nc("@item Yazi mode command", "Reverse the sort order");
+    case Command::NewTab:
+        return i18nc("@item Yazi mode command", "Open the focused folder in a new tab");
+    case Command::PreviousTab:
+        return i18nc("@item Yazi mode command", "Go to the previous tab");
+    case Command::NextTab:
+        return i18nc("@item Yazi mode command", "Go to the next tab");
+    case Command::CloseTab:
+        return i18nc("@item Yazi mode command", "Close the current tab");
+    }
+    return {};
+}
+
 bool YaziMode::commandTakesCount(Command command)
 {
     switch (command) {
@@ -793,6 +894,32 @@ QList<YaziMode::Conflict> YaziMode::conflicts(const Keymap &keymap)
             if (!other.isEmpty() && (startsWith(keys, other) || startsWith(other, keys))) {
                 found.append({i, j});
             }
+        }
+    }
+    return found;
+}
+
+QList<YaziMode::ShadowedShortcut> YaziMode::shadowedShortcuts(const Keymap &keymap, const QList<ActionShortcuts> &actions)
+{
+    const KeyMatcher matcher(keymap);
+    QList<ShadowedShortcut> found;
+    for (const ActionShortcuts &action : actions) {
+        for (const QKeySequence &shortcut : action.shortcuts) {
+            if (shortcut.isEmpty()) {
+                continue;
+            }
+            const QKeyCombination key = normalizedKey(shortcut[0]);
+            if (matcher.test(key) == KeyMatcher::Result::NoMatch) {
+                continue;
+            }
+            QList<int> bindings;
+            for (int i = 0; i < keymap.bindings.size(); ++i) {
+                const KeySequence &keys = keymap.bindings.at(i).keys;
+                if (!keys.isEmpty() && keys.first() == key) {
+                    bindings.append(i);
+                }
+            }
+            found.append({action.name, action.text, shortcut, bindings});
         }
     }
     return found;
