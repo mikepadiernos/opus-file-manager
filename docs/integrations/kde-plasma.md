@@ -266,6 +266,24 @@ behaves like the rest of the desktop and follows the user's choices.
   [Application packages](../CAVEATS.md#desktop-integration).
   ([#281](https://github.com/mikepadiernos/plasma-opus/issues/281))
 
+- **Baloo status:** **File › Indexing Status…**, also offered by the search
+  panel's **Indexing Status…** button in the **Indexed locations (Baloo)**
+  scope, shows the file indexer's state and progress, whether indexing is on
+  and covers contents and metadata, the indexed and excluded folders and the
+  exclusion patterns from KDE File Search settings. It explains whether the
+  current folder is in the configured scope, and why not: an excluded folder,
+  a pattern, a hidden item or a folder outside the indexed ones. **Check Index
+  Coverage** looks up the folder's first 200 files in the index, confirming
+  how many it contains, and names the file types that no installed
+  KFileMetaData extractor handles. The search panel warns in the Baloo scope
+  when indexing is off, suspended, busy, not running or limited to basic
+  details, or when the current folder is excluded. **Suspend Indexing**,
+  **Resume Indexing**, **Check for Unindexed Files…**, after a confirmation,
+  and **Open KDE File Search Settings** use KDE's shared controls only when
+  chosen; Plasma Opus never turns indexing on or changes its settings. See
+  [Index status](../CAVEATS.md#search).
+  ([#441](https://github.com/mikepadiernos/plasma-opus/issues/441))
+
 ## Planned features
 
 Grouped by the [M27](../ROADMAP.md#m27-integrations) subsection that tracks
@@ -273,11 +291,10 @@ them.
 
 ### M27.03 Search and indexing
 
-- **Baloo and metadata:** Show indexing status and supported metadata search,
-  with explicit live-search fallback and honest coverage limits. Never enable
-  indexing or change shared KDE settings silently.
-  ([#441](https://github.com/mikepadiernos/plasma-opus/issues/441),
-  [#442](https://github.com/mikepadiernos/plasma-opus/issues/442))
+- **Baloo metadata:** Search supported metadata, with optional fuzzy ranking
+  and an explicit live-search fallback. Never broaden scope or substitute
+  another search silently.
+  ([#442](https://github.com/mikepadiernos/plasma-opus/issues/442))
 
 ### M27.06 Accounts, remote access and synchronization
 
