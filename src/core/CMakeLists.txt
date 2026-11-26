@@ -141,6 +141,8 @@ add_library(opusfm_core STATIC
     searchlocations.h
     searchquery.cpp
     searchquery.h
+    searchranking.cpp
+    searchranking.h
     safetextdocument.h
     session.cpp
     settingsbackup.cpp

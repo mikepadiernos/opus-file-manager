@@ -148,6 +148,13 @@ bool EmbeddedMetadata::isDate(const QString &key)
     return isDateProperty(KFileMetaData::PropertyInfo::fromName(key).property());
 }
 
+bool EmbeddedMetadata::isText(const QString &key)
+{
+    const KFileMetaData::PropertyInfo info = KFileMetaData::PropertyInfo::fromName(key);
+    return info.property() != Property::Empty && !isDateProperty(info.property())
+        && (info.valueType() == QMetaType::QString || info.valueType() == QMetaType::QStringList);
+}
+
 EmbeddedMetadata::Reading EmbeddedMetadata::read(const QString &path, const QStringList &enabled)
 {
     Reading result;

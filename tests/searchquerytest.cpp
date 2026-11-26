@@ -124,6 +124,10 @@ private Q_SLOTS:
         QVERIFY(!Query::parse(QStringLiteral("report")).usesContent());
         QVERIFY(Query::parse(QStringLiteral("a OR NOT tagged:no")).usesTags());
         QVERIFY(Query::parse(QStringLiteral("tag:x")).requiredTerms().isEmpty());
+        const QList<SearchQuery::Term> meta = Query::parse(QStringLiteral("meta:Canon -meta:Nikon (meta:a OR b)")).requiredTerms();
+        QCOMPARE(meta.size(), 1);
+        QCOMPARE(meta.first().field, SearchQuery::Field::Metadata);
+        QCOMPARE(meta.first().text, QStringLiteral("Canon"));
         QVERIFY(!Query::parse(QStringLiteral("\"tag:x\"")).usesTags());
     }
 

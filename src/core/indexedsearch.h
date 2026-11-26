@@ -3,9 +3,17 @@
 #pragma once
 
 #include "livesearch.h"
+#include "searchquery.h"
 
 namespace IndexedSearch
 {
+/**
+ * The Baloo search string that selects candidates for @p term: a file-name
+ * term, a content term, or a metadata term matched in any of the text
+ * properties among @p metadataKeys and in other indexed text. Candidates are
+ * then checked against the whole query.
+ */
+QString balooSearchString(const SearchQuery::Term &term, const QStringList &metadataKeys);
 /**
  * Searches the index, optionally limiting matches and depth to workspaceRoots.
  * @param tagLibraries, tagOptions, metadataKeys as for LiveSearch::find()

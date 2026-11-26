@@ -12,11 +12,34 @@
 #include <QDir>
 #include <QFileInfo>
 #include <QHash>
+#include <QRegularExpression>
 #include <QSet>
 #include <QStandardPaths>
 
 #include <algorithm>
 #include <optional>
+
+QString IndexedSearch::balooSearchString(const SearchQuery::Term &term, const QStringList &metadataKeys)
+{
+    QString text = term.text;
+    text.remove(QLatin1Char('"'));
+    const QString quoted = QLatin1Char('"') + text + QLatin1Char('"');
+    switch (term.field) {
+    case SearchQuery::Field::Content:
+        return QStringLiteral("content:") + quoted;
+    case SearchQuery::Field::Metadata: {
+        QStringList alternatives{quoted};
+        for (const QString &key : metadataKeys) {
+            if (EmbeddedMetadata::isText(key)) {
+                alternatives.append(key + QLatin1Char(':') + quoted);
+            }
+        }
+        return QLatin1Char('(') + alternatives.join(QStringLiteral(" OR ")) + QLatin1Char(')');
+    }
+    default:
+        return QStringLiteral("filename:") + quoted;
+    }
+}
 
 #ifdef OPUSFM_HAVE_BALOO
 #include <Baloo/IndexerConfig>
@@ -71,9 +94,10 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
         return result;
     }
     std::optional<SearchQuery::Query> query;
-    // The Baloo term that selects candidates and whether it searches content.
-    QString seed = text;
-    bool seedIsContent = field == LiveSearch::Field::Contents;
+    // The term whose Baloo matches are the candidates checked against the query.
+    SearchQuery::Term seed;
+    seed.text = text;
+    seed.field = field == LiveSearch::Field::Contents ? SearchQuery::Field::Content : SearchQuery::Field::Name;
     if (field == LiveSearch::Field::Query) {
         query = SearchQuery::Query::parse(text);
         if (!query->isValid()) {
@@ -83,17 +107,37 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
         const QList<SearchQuery::Term> required = query->requiredTerms();
         if (required.isEmpty()) {
             result.errors.append(i18nc("@info",
-                                       "Indexed queries need a name or content term that every result must match, such as report or content:invoice. "
-                                       "Search the current folder or selected locations for other queries."));
+                                       "Indexed queries need a name, content or meta term that every result must match, such as report, content:invoice "
+                                       "or meta:Canon. Search the current folder or selected locations for other queries."));
             return result;
         }
-        const auto content = std::find_if(required.cbegin(), required.cend(), [](const SearchQuery::Term &term) {
-            return term.field == SearchQuery::Field::Content;
-        });
-        const SearchQuery::Term &term = content != required.cend() ? *content : required.first();
-        seed = term.text;
-        seedIsContent = term.field == SearchQuery::Field::Content;
+        // Content terms select fewest candidates, then names; metadata terms are the broadest.
+        for (const SearchQuery::Field preferred : {SearchQuery::Field::Content, SearchQuery::Field::Name, SearchQuery::Field::Metadata}) {
+            const auto found = std::find_if(required.cbegin(), required.cend(), [preferred](const SearchQuery::Term &term) {
+                return term.field == preferred;
+            });
+            if (found != required.cend()) {
+                seed = *found;
+                break;
+            }
+        }
+        if (seed.field == SearchQuery::Field::Metadata) {
+            static const QRegularExpression numeric(QStringLiteral("^[0-9.:/ -]+$"));
+            if (numeric.match(seed.text).hasMatch()) {
+                result.errors.append(i18nc("@info",
+                                           "Indexed search can't find numbers or dates in metadata. Add a name or content term, "
+                                           "or search the current folder or selected locations."));
+                return result;
+            }
+            if (!std::any_of(metadataKeys.cbegin(), metadataKeys.cend(), EmbeddedMetadata::isText)) {
+                result.errors.append(i18nc("@info",
+                                           "No text metadata properties are enabled for search. Enable them in the search settings, "
+                                           "or add a name or content term."));
+                return result;
+            }
+        }
     }
+    const bool seedIsContent = seed.field == SearchQuery::Field::Content;
     const QString filterError = filter.error();
     if (!filterError.isEmpty()) {
         result.errors.append(filterError);
@@ -121,6 +165,12 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
         result.errors.append(i18nc("@info", "Baloo content indexing is disabled. Enable it in System Settings or use current-folder search."));
         return result;
     }
+    if (seed.field == SearchQuery::Field::Metadata && config.onlyBasicIndexing()) {
+        result.errors.append(i18nc("@info",
+                                   "Baloo indexes file names only, so it can't find metadata. Enable content indexing in System Settings, "
+                                   "add a name term or use current-folder search."));
+        return result;
+    }
     if (workspaceRoots) {
         result.notices.append(i18nc("@info", "Workspace locations may only be partly indexed. Baloo configuration does not guarantee that files are indexed."));
     } else if (!folderConfigured(currentFolder, config)) {
@@ -141,9 +191,9 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
     }
 
     const int limit = filter.isActive() || workspaceRoots || query ? 200001 : 5001;
-    const auto balooQuery = [limit](const QString &term, bool content) {
+    const auto balooQuery = [limit](const QString &searchString) {
         Baloo::Query baloo;
-        baloo.setSearchString((content ? QStringLiteral("content:\"") : QStringLiteral("filename:\"")) + term + QLatin1Char('"'));
+        baloo.setSearchString(searchString);
         baloo.setSortingOption(Baloo::Query::SortNone);
         baloo.setLimit(limit);
         return baloo;
@@ -152,11 +202,14 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
     QHash<QString, QSet<QString>> contentMatches;
     if (query) {
         for (const QString &term : query->contentTerms()) {
-            if (seedIsContent && term.compare(seed, Qt::CaseInsensitive) == 0) {
+            if (seedIsContent && term.compare(seed.text, Qt::CaseInsensitive) == 0) {
                 continue;
             }
             QSet<QString> &paths = contentMatches[term.toCaseFolded()];
-            auto iterator = balooQuery(term, true).exec();
+            SearchQuery::Term contentTerm;
+            contentTerm.field = SearchQuery::Field::Content;
+            contentTerm.text = term;
+            auto iterator = balooQuery(balooSearchString(contentTerm, metadataKeys)).exec();
             while (iterator.next()) {
                 if (cancel && cancel()) {
                     result.canceled = true;
@@ -171,7 +224,7 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
     if (query && query->usesTags()) {
         tags.emplace(tagLibraries ? *tagLibraries : LibraryRegistry::roots(), tagOptions);
     }
-    auto iterator = balooQuery(seed, seedIsContent).exec();
+    auto iterator = balooQuery(balooSearchString(seed, metadataKeys)).exec();
     while (iterator.next()) {
         if (cancel && cancel()) {
             result.canceled = true;
@@ -202,7 +255,7 @@ LiveSearch::Result IndexedSearch::find(const QString &currentFolder,
                 && query->matches(
                     entry,
                     [&](const QString &needle) {
-                        if (seedIsContent && needle.compare(seed, Qt::CaseInsensitive) == 0) {
+                        if (seedIsContent && needle.compare(seed.text, Qt::CaseInsensitive) == 0) {
                             return true;
                         }
                         return contentMatches.value(needle.toCaseFolded()).contains(path);

@@ -103,7 +103,7 @@ public:
     bool usesMetadata() const;
     /// The distinct values of content terms, in query order.
     QStringList contentTerms() const;
-    /// Positive literal name and content terms that every match must satisfy.
+    /// Positive literal name, content and metadata terms that every match must satisfy.
     QList<Term> requiredTerms() const;
     /**
      * Evaluates the query; @p content, @p tags and @p metadata are called

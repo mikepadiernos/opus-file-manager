@@ -52,6 +52,8 @@ QStringList enabledKeys(const QStringList &disabled);
 QString displayName(const QString &key);
 /// Whether property @p key holds a date and time.
 bool isDate(const QString &key);
+/// Whether property @p key holds text rather than a number or date.
+bool isText(const QString &key);
 
 /**
  * Reads the supported properties of the regular file at @p path; symbolic links are not followed.

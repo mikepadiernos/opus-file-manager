@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "indexedsearch.h"
+#include "embeddedmetadata.h"
 
 #ifdef OPUSFM_HAVE_BALOO
 #include <Baloo/IndexerConfig>
@@ -9,6 +10,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QFile>
+#include <QImage>
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QStandardPaths>
@@ -37,13 +39,51 @@ private Q_SLOTS:
                 }).canceled);
         const auto broad = IndexedSearch::find({}, QStringLiteral("size>1M OR type:pdf"), LiveSearch::Field::Query);
         QCOMPARE(broad.errors.size(), 1);
-        QVERIFY(broad.errors.first().contains(QStringLiteral("name or content term")));
+        QVERIFY(broad.errors.first().contains(QStringLiteral("name, content or meta term")));
         QVERIFY(!IndexedSearch::find({}, QStringLiteral("report AND"), LiveSearch::Field::Query).errors.isEmpty());
         const auto quoted = IndexedSearch::find({}, QStringLiteral("\"two words\" type:pdf"), LiveSearch::Field::Query, [] {
             return true;
         });
         QVERIFY(quoted.errors.isEmpty());
         QVERIFY(quoted.canceled);
+    }
+
+    void buildsBalooSearchStrings()
+    {
+        SearchQuery::Term term;
+        term.text = QStringLiteral("rep\"ort");
+        QCOMPARE(IndexedSearch::balooSearchString(term, {}), QStringLiteral("filename:\"report\""));
+        term.field = SearchQuery::Field::Content;
+        QCOMPARE(IndexedSearch::balooSearchString(term, {}), QStringLiteral("content:\"report\""));
+        term.field = SearchQuery::Field::Metadata;
+        term.text = QStringLiteral("Canon");
+        QCOMPARE(IndexedSearch::balooSearchString(term, {}), QStringLiteral("(\"Canon\")"));
+        QVERIFY(EmbeddedMetadata::isText(QStringLiteral("manufacturer")));
+        QVERIFY(!EmbeddedMetadata::isText(QStringLiteral("width")));
+        QVERIFY(!EmbeddedMetadata::isText(QStringLiteral("photoDateTimeOriginal")));
+        QVERIFY(!EmbeddedMetadata::isText(QStringLiteral("no-such-property")));
+        QCOMPARE(IndexedSearch::balooSearchString(term, {QStringLiteral("manufacturer"), QStringLiteral("width"), QStringLiteral("title")}),
+                 QStringLiteral("(\"Canon\" OR manufacturer:\"Canon\" OR title:\"Canon\")"));
+    }
+
+    void rejectsUnsearchableMetadataSeeds()
+    {
+        const auto canceled = [] {
+            return true;
+        };
+        const auto numeric = IndexedSearch::find({}, QStringLiteral("meta:2024:05"), LiveSearch::Field::Query, canceled);
+        QCOMPARE(numeric.errors.size(), 1);
+        QVERIFY(numeric.errors.first().contains(QStringLiteral("numbers or dates")));
+        const auto noKeys = IndexedSearch::find({}, QStringLiteral("meta:Canon"), LiveSearch::Field::Query, canceled, {}, {}, nullptr, nullptr, {}, {});
+        QCOMPARE(noKeys.errors.size(), 1);
+        QVERIFY(noKeys.errors.first().contains(QStringLiteral("No text metadata")));
+        // Name terms are preferred, so numeric metadata can still narrow a name search.
+        const auto named = IndexedSearch::find({}, QStringLiteral("report meta:2024"), LiveSearch::Field::Query, canceled);
+        QVERIFY(named.errors.isEmpty());
+        QVERIFY(named.canceled);
+        const auto meta = IndexedSearch::find({}, QStringLiteral("meta:Canon type:jpg"), LiveSearch::Field::Query, canceled);
+        QVERIFY(meta.errors.isEmpty());
+        QVERIFY(meta.canceled);
     }
 
     void isolatedBaloo()
@@ -111,6 +151,11 @@ private Q_SLOTS:
         const QByteArray text("This is an ordinary UTF-8 text file.\nuniquekestrel is a searchable word.\n");
         QCOMPARE(contents.write(text), text.size());
         contents.close();
+        QImage image(4, 4, QImage::Format_RGB32);
+        image.fill(Qt::white);
+        image.setText(QStringLiteral("Title"), QStringLiteral("zephyrquill sketch"));
+        const QString picture = folder + QStringLiteral("/picture.png");
+        QVERIFY(image.save(picture, "PNG"));
         {
             Baloo::IndexerConfig config;
             config.setIncludeFolders({folder});
@@ -173,6 +218,16 @@ private Q_SLOTS:
         QVERIFY2(either.paths.contains(contents.fileName()), qPrintable(either.paths.join(QLatin1Char(',')) + either.errors.join(QLatin1Char(','))));
         QVERIFY(either.paths.contains(nested.fileName()));
         QVERIFY(!either.paths.contains(named.fileName()));
+        LiveSearch::Result metadata;
+        QTRY_VERIFY_WITH_TIMEOUT((metadata = IndexedSearch::find(folder, QStringLiteral("meta:zephyrquill"), LiveSearch::Field::Query)).paths.contains(picture),
+                                 8000);
+        QVERIFY2(metadata.errors.isEmpty(), qPrintable(metadata.errors.join(QLatin1Char(','))));
+        QCOMPARE(metadata.paths, QStringList{picture});
+        QVERIFY(IndexedSearch::find(folder, QStringLiteral("meta:zephyrquill type:txt"), LiveSearch::Field::Query).paths.isEmpty());
+        // Without the title among the enabled properties, the candidate is rejected.
+        QVERIFY(IndexedSearch::
+                    find(folder, QStringLiteral("meta:zephyrquill"), LiveSearch::Field::Query, {}, {}, {}, nullptr, nullptr, {}, {QStringLiteral("artist")})
+                        .paths.isEmpty());
         const auto elsewhere = IndexedSearch::find(root + QStringLiteral("/missing"), QStringLiteral("opalneedle"), LiveSearch::Field::FileName);
         QVERIFY(!elsewhere.notices.isEmpty());
         QVERIFY(elsewhere.notices.first().contains(QStringLiteral("not configured")));
@@ -199,6 +254,9 @@ private Q_SLOTS:
         const auto noContentQuery = IndexedSearch::find(folder, QStringLiteral("opalneedle content:x"), LiveSearch::Field::Query);
         QVERIFY(!noContentQuery.errors.isEmpty());
         QVERIFY(noContentQuery.errors.first().contains(QStringLiteral("disabled")));
+        const auto noMetadata = IndexedSearch::find(folder, QStringLiteral("meta:Canon"), LiveSearch::Field::Query);
+        QVERIFY(!noMetadata.errors.isEmpty());
+        QVERIFY(noMetadata.errors.first().contains(QStringLiteral("file names only")));
         qputenv("BALOO_DB_PATH", (root + QStringLiteral("/missing-db")).toLocal8Bit());
         const auto noIndex = IndexedSearch::find(folder, QStringLiteral("opalneedle"), LiveSearch::Field::FileName);
         QVERIFY(!noIndex.errors.isEmpty());

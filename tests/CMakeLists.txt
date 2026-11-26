@@ -135,6 +135,7 @@ ecm_add_tests(
     searchhistorytest.cpp
     searchlocationstest.cpp
     searchquerytest.cpp
+    searchrankingtest.cpp
     tabcolorstest.cpp
     startuptest.cpp
     stylesheetstest.cpp
