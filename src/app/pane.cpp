@@ -58,6 +58,19 @@ static YaziMode::PreviewContent settingsPreviewContent()
                                                                                            : YaziMode::PreviewContent::Preview;
 }
 
+static YaziMode::Ratios settingsColumnRatios()
+{
+    return YaziMode::ratiosFromList(Settings::yaziColumnRatios()).value_or(YaziMode::Ratios());
+}
+
+static QIcon yaziModeIcon()
+{
+    return SymbolicIcon::wrap(QIcon::fromTheme(QStringLiteral("view-file-columns"), QIcon::fromTheme(QStringLiteral("view-split-left-right"))));
+}
+
+/// Marks a pane toolbar action that stays hidden until the user shows it, even in toolbars customized before it existed.
+constexpr auto OptionalToolbarAction = "paneToolbarOptional";
+
 Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const QString &toolbarConfigId)
     : QWidget(parent)
     , m_tabs(new TabModel(this))
@@ -135,6 +148,12 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
             m_view->setViewMode(mode);
         });
     }
+    viewMenu->addSeparator();
+    m_yaziMenuAction = viewMenu->addAction(yaziModeIcon(), i18nc("@action:inmenu", "Yazi Mode"));
+    m_yaziMenuAction->setObjectName(QStringLiteral("paneViewModeYaziMode"));
+    m_yaziMenuAction->setToolTip(i18nc("@info:tooltip", "Show this pane's folder in columns with its parent folder"));
+    m_yaziMenuAction->setCheckable(true);
+    connect(m_yaziMenuAction, &QAction::triggered, this, &Pane::setYaziMode);
     auto *viewButton = new QToolButton(m_toolBar);
     viewButton->setObjectName(QStringLiteral("paneViewModeButton"));
     viewButton->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-list-details")));
@@ -220,10 +239,17 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     search->setObjectName(QStringLiteral("paneSearch"));
     search->setToolTip(i18nc("@action", "Search This Pane"));
     connect(search, &QAction::triggered, this, &Pane::searchRequested);
+    m_yaziToolbarAction = m_toolBar->addAction(yaziModeIcon(), i18nc("@action", "Yazi Mode"));
+    m_yaziToolbarAction->setObjectName(QStringLiteral("paneYaziMode"));
+    m_yaziToolbarAction->setToolTip(i18nc("@info:tooltip", "Show this pane's folder in columns with its parent folder"));
+    m_yaziToolbarAction->setCheckable(true);
+    m_yaziToolbarAction->setProperty(OptionalToolbarAction, true);
+    connect(m_yaziToolbarAction, &QAction::triggered, this, &Pane::setYaziMode);
 
     m_toolBar->insertAction(m_back, viewButtonAction);
     filter->setVisible(false);
     search->setVisible(false);
+    m_yaziToolbarAction->setVisible(false);
 
     QAction *configure = m_toolBar->addAction(SymbolicIcon::fromTheme(QStringLiteral("configure")), i18nc("@action", "Customize Toolbar"));
     configure->setObjectName(QStringLiteral("paneCustomizeToolbar"));
@@ -294,6 +320,17 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     m_yaziPreview = Settings::yaziPreviewVisible();
     m_yaziPreviewContent = settingsPreviewContent();
     m_yaziColumns->setPreviewContent(m_yaziPreviewContent);
+    m_yaziParentColumn = Settings::yaziParentColumnVisible();
+    m_yaziColumns->setParentColumnEnabled(m_yaziParentColumn);
+    m_yaziColumns->setRatios(settingsColumnRatios());
+    m_yaziRatiosSave = new QTimer(this);
+    m_yaziRatiosSave->setSingleShot(true);
+    m_yaziRatiosSave->setInterval(YaziRatiosSaveDelay);
+    connect(m_yaziRatiosSave, &QTimer::timeout, this, [this] {
+        saveYaziColumnRatiosSetting();
+        Q_EMIT workspaceLayoutChanged();
+    });
+    connect(m_yaziColumns, &YaziColumns::ratiosChanged, this, &Pane::rememberYaziColumnRatios);
     m_yaziColumns->setShowHiddenFiles(m_view->showHiddenFiles());
     reloadYaziKeySettings();
     m_statusBarWidget = new QWidget(this);
@@ -479,6 +516,9 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
 
 Pane::~Pane()
 {
+    if (m_yaziRatiosSave->isActive()) {
+        saveYaziColumnRatiosSetting();
+    }
     // Yazi mode reparents the view, which changes the order the pane's
     // children are destroyed in; its listers can still emit then.
     m_view->disconnect(this);
@@ -574,6 +614,7 @@ QAction *Pane::toolbarActionForSharedAction(const QString &name) const
         {QStringLiteral("show_hidden_files"), QStringLiteral("paneHiddenFiles")},
         {QStringLiteral("show_filter_bar"), QStringLiteral("paneFilter")},
         {QStringLiteral("search_folder"), QStringLiteral("paneSearch")},
+        {QStringLiteral("toggle_yazi_mode"), QStringLiteral("paneYaziMode")},
     };
     return toolbarAction(sharedActions.value(name));
 }
@@ -590,6 +631,7 @@ QString Pane::sharedActionName(QAction *action) const
         {QStringLiteral("paneHiddenFiles"), QStringLiteral("show_hidden_files")},
         {QStringLiteral("paneFilter"), QStringLiteral("show_filter_bar")},
         {QStringLiteral("paneSearch"), QStringLiteral("search_folder")},
+        {QStringLiteral("paneYaziMode"), QStringLiteral("toggle_yazi_mode")},
     };
     return action ? sharedActions.value(action->objectName()) : QString();
 }
@@ -1064,6 +1106,8 @@ void Pane::setYaziMode(bool enabled)
     if (hadFocus) {
         m_view->currentView()->setFocus();
     }
+    m_yaziMenuAction->setChecked(enabled);
+    m_yaziToolbarAction->setChecked(enabled);
     YaziColumns::announce(m_view->currentView(), enabled ? i18nc("@info:accessibility", "Yazi mode on") : i18nc("@info:accessibility", "Yazi mode off"));
     Q_EMIT yaziModeChanged(enabled);
     Q_EMIT workspaceLayoutChanged();
@@ -1092,6 +1136,12 @@ void Pane::reloadYaziPreviewSetting()
     }
     if (m_yaziPreviewContentChoice < 0) {
         applyYaziPreviewContent(settingsPreviewContent());
+    }
+    if (m_yaziParentColumnChoice < 0) {
+        applyYaziParentColumn(Settings::yaziParentColumnVisible());
+    }
+    if (m_yaziRatiosChoice.isEmpty() && !m_yaziRatiosSave->isActive()) {
+        m_yaziColumns->setRatios(settingsColumnRatios());
     }
 }
 
@@ -1148,6 +1198,80 @@ void Pane::applyYaziPreviewContent(YaziMode::PreviewContent content)
     m_yaziPreviewContent = content;
     m_yaziColumns->setPreviewContent(content);
     Q_EMIT yaziPreviewContentChanged(content);
+}
+
+void Pane::setYaziParentColumn(bool visible)
+{
+    const int choice = visible ? 1 : 0;
+    const bool chosen = choice != m_yaziParentColumnChoice;
+    m_yaziParentColumnChoice = choice;
+    applyYaziParentColumn(visible);
+    if (chosen) {
+        Q_EMIT workspaceLayoutChanged();
+    }
+}
+
+bool Pane::yaziParentColumn() const
+{
+    return m_yaziParentColumn;
+}
+
+void Pane::restoreYaziParentColumn(int choice)
+{
+    m_yaziParentColumnChoice = qBound(-1, choice, 1);
+    applyYaziParentColumn(m_yaziParentColumnChoice < 0 ? Settings::yaziParentColumnVisible() : m_yaziParentColumnChoice != 0);
+}
+
+void Pane::applyYaziParentColumn(bool visible)
+{
+    if (visible == m_yaziParentColumn) {
+        return;
+    }
+    m_yaziParentColumn = visible;
+    m_yaziColumns->setParentColumnEnabled(visible);
+    Q_EMIT yaziParentColumnChanged(visible);
+}
+
+void Pane::setYaziColumnRatios(const YaziMode::Ratios &ratios)
+{
+    const QList<int> choice = YaziMode::ratiosToList(YaziMode::clampedRatios(ratios));
+    const bool chosen = choice != m_yaziRatiosChoice;
+    m_yaziRatiosChoice = choice;
+    m_yaziColumns->setRatios(ratios);
+    if (chosen) {
+        Q_EMIT workspaceLayoutChanged();
+    }
+}
+
+YaziMode::Ratios Pane::yaziColumnRatios() const
+{
+    return m_yaziColumns->ratios();
+}
+
+void Pane::restoreYaziColumnRatios(const QList<int> &ratios)
+{
+    if (m_yaziRatiosSave->isActive()) {
+        m_yaziRatiosSave->stop();
+        saveYaziColumnRatiosSetting();
+    }
+    const std::optional<YaziMode::Ratios> restored = YaziMode::ratiosFromList(ratios);
+    m_yaziRatiosChoice = restored ? YaziMode::ratiosToList(*restored) : QList<int>();
+    m_yaziColumns->setRatios(restored.value_or(settingsColumnRatios()));
+}
+
+void Pane::rememberYaziColumnRatios(const YaziMode::Ratios &ratios)
+{
+    m_yaziRatiosChoice = YaziMode::ratiosToList(ratios);
+    m_yaziRatiosSave->start();
+}
+
+void Pane::saveYaziColumnRatiosSetting()
+{
+    if (m_yaziRatiosChoice.isEmpty() || Settings::yaziColumnRatios() == m_yaziRatiosChoice) {
+        return;
+    }
+    Settings::setYaziColumnRatios(m_yaziRatiosChoice);
+    Settings::self()->save();
 }
 
 YaziColumns *Pane::yaziColumns() const
@@ -1501,9 +1625,11 @@ void Pane::restoreToolbarConfiguration()
     QAction *configure = m_toolBar->actions().last();
     for (QAction *action : m_toolBar->actions()) {
         if (action->objectName() != QLatin1String("paneCustomizeToolbar")) {
-            actions.insert(action->objectName(), action);
-            action->setVisible(!hidden.contains(action->objectName())
-                               && (!hasVisibility || visible.contains(action->objectName()) || !order.contains(action->objectName())));
+            const QString name = action->objectName();
+            actions.insert(name, action);
+            const bool listed = order.contains(name);
+            action->setVisible(!hidden.contains(name) && (!hasVisibility || visible.contains(name) || !listed)
+                               && (listed || !action->property(OptionalToolbarAction).toBool()));
         }
     }
     for (int i = order.size() - 1; i >= 0; --i) {
@@ -1645,6 +1771,8 @@ PaneSession Pane::saveState() const
     state.yaziMode = m_yaziMode;
     state.yaziPreview = m_yaziPreviewChoice;
     state.yaziPreviewContent = m_yaziPreviewContentChoice;
+    state.yaziParentColumn = m_yaziParentColumnChoice;
+    state.yaziColumnRatios = m_yaziRatiosChoice;
     return state;
 }
 
@@ -1670,6 +1798,8 @@ void Pane::restoreState(const PaneSession &state)
     m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, PaneSession::MaximumViewMode)));
     restoreYaziPreview(state.yaziPreview);
     restoreYaziPreviewContent(state.yaziPreviewContent);
+    restoreYaziParentColumn(state.yaziParentColumn);
+    restoreYaziColumnRatios(state.yaziColumnRatios);
     setYaziMode(state.yaziMode);
 }
 
@@ -1697,6 +1827,8 @@ void Pane::replaceState(const PaneSession &state)
     m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, PaneSession::MaximumViewMode)));
     restoreYaziPreview(state.yaziPreview);
     restoreYaziPreviewContent(state.yaziPreviewContent);
+    restoreYaziParentColumn(state.yaziParentColumn);
+    restoreYaziColumnRatios(state.yaziColumnRatios);
     setYaziMode(state.yaziMode);
 }
 

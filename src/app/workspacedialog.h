@@ -115,5 +115,8 @@ private:
     QCheckBox *m_layoutBehavior = nullptr;
     QCheckBox *m_paneTabRestoration = nullptr;
     QCheckBox *m_appearanceBehavior = nullptr;
+    QCheckBox *m_yaziBehavior = nullptr;
+    /// Whether m_yaziBehavior was checked when the selected workspace was shown, for workspaces saved before the choice existed.
+    bool m_yaziBehaviorShown = true;
     WorkspaceAppearanceEditor *m_appearance = nullptr;
 };

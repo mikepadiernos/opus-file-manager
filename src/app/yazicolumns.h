@@ -94,7 +94,11 @@ public:
     YaziMode::PreviewContent previewContent() const;
     /// The relative widths of the columns; dragging a handle updates them.
     YaziMode::Ratios ratios() const;
+    /// Sets the relative widths of the columns, clamped by YaziMode::clampedRatios(), without emitting ratiosChanged().
     void setRatios(const YaziMode::Ratios &ratios);
+    /// Shows or hides the parent column. A narrow pane hides the column even when it is enabled.
+    void setParentColumnEnabled(bool enabled);
+    bool parentColumnEnabled() const;
     QSplitter *splitter() const;
     /// The label that tells the user the pane is in Yazi mode, with the key preset and any pending keys.
     QLabel *modeIndicator() const;
@@ -229,6 +233,8 @@ Q_SIGNALS:
     void folderRequested(const QUrl &url);
     /// A file in the parent column was chosen; the pane should open @p folder and select @p item.
     void itemRequested(const QUrl &folder, const QUrl &item);
+    /// Dragging a handle between the columns changed their relative widths.
+    void ratiosChanged(const YaziMode::Ratios &ratios);
     /// The parent column or the preview column received focus or a click; the pane should become active.
     void activated();
     /// The filter indicator's clear button was clicked; the pane should clear its filter.
@@ -335,5 +341,6 @@ private:
     QPersistentModelIndex m_visualAnchor;
     QItemSelection m_visualBase;
     YaziMode::Ratios m_ratios;
+    bool m_parentEnabled = true;
     QList<SavedAccessibility> m_savedAccessibility;
 };

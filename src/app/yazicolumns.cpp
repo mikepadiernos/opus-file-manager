@@ -640,8 +640,22 @@ YaziMode::Ratios YaziColumns::ratios() const
 
 void YaziColumns::setRatios(const YaziMode::Ratios &ratios)
 {
-    m_ratios = ratios;
+    m_ratios = YaziMode::clampedRatios(ratios);
     applyColumnWidths();
+}
+
+void YaziColumns::setParentColumnEnabled(bool enabled)
+{
+    if (enabled == m_parentEnabled) {
+        return;
+    }
+    m_parentEnabled = enabled;
+    applyColumnWidths();
+}
+
+bool YaziColumns::parentColumnEnabled() const
+{
+    return m_parentEnabled;
 }
 
 void YaziColumns::applyColumnWidths()
@@ -649,11 +663,11 @@ void YaziColumns::applyColumnWidths()
     const bool preview = m_previewWidget != nullptr && !isCollapsed();
     if (!m_splitter->isVisible()) {
         // Without a width yet, show what is wanted; showing the splitter sizes it.
-        m_parentColumn->setVisible(!isCollapsed());
+        m_parentColumn->setVisible(m_parentEnabled && !isCollapsed());
         m_previewSlot->setVisible(preview);
         return;
     }
-    YaziMode::ColumnWidths widths = YaziMode::columnWidths(m_splitter->contentsRect().width(), preview, m_ratios, m_splitter->handleWidth());
+    YaziMode::ColumnWidths widths = YaziMode::columnWidths(m_splitter->contentsRect().width(), preview, m_ratios, m_splitter->handleWidth(), m_parentEnabled);
     if (isCollapsed()) {
         widths = {0, m_splitter->contentsRect().width(), 0};
     }
@@ -682,21 +696,31 @@ void YaziColumns::applyColumnWidths()
 
 void YaziColumns::rememberRatios()
 {
-    if (!m_view || m_parentColumn->isHidden()) {
+    const bool parentShown = !m_parentColumn->isHidden();
+    const bool previewShown = !m_previewSlot->isHidden();
+    if (!m_view || (!parentShown && !previewShown)) {
         return;
     }
-    const int parent = m_parentColumn->width();
+    const YaziMode::Ratios before = YaziMode::clampedRatios(m_ratios);
     const int current = m_view->width();
-    if (!m_previewSlot->isHidden()) {
-        m_ratios = {parent, current, m_previewSlot->width()};
+    if (parentShown && previewShown) {
+        m_ratios = {m_parentColumn->width(), current, m_previewSlot->width()};
+    } else if (parentShown) {
+        // Keep the hidden column's share in proportion to the others.
+        const int parent = m_parentColumn->width();
+        const int preview = int(qMax<qint64>(1, qint64(before.preview) * (parent + current) / (qint64(before.parent) + before.current)));
+        m_ratios = {parent, current, preview};
     } else {
-        // Keep the hidden preview column's share in proportion to the others.
-        const qint64 before = qint64(qMax(1, m_ratios.parent)) + qMax(1, m_ratios.current);
-        const int preview = int(qMax<qint64>(1, qint64(qMax(1, m_ratios.preview)) * (parent + current) / before));
+        const int preview = m_previewSlot->width();
+        const int parent = int(qMax<qint64>(1, qint64(before.parent) * (current + preview) / (qint64(before.current) + before.preview)));
         m_ratios = {parent, current, preview};
     }
+    m_ratios = YaziMode::clampedRatios(m_ratios);
     // Enforces the minimum width of the current column, which the splitter doesn't know.
     applyColumnWidths();
+    if (m_ratios != before) {
+        Q_EMIT ratiosChanged(m_ratios);
+    }
 }
 
 void YaziColumns::updateTabOrder()

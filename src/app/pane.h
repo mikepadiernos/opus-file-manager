@@ -29,6 +29,7 @@ class QAction;
 class QVBoxLayout;
 class QResizeEvent;
 class QStackedWidget;
+class QTimer;
 
 /**
  * One side of the dual-pane layout: a tab strip, a path row with
@@ -190,6 +191,23 @@ public:
      */
     void setYaziPreviewContent(YaziMode::PreviewContent content);
     YaziMode::PreviewContent yaziPreviewContent() const;
+    /**
+     * Shows or hides the parent folder column of Yazi mode, and records the
+     * choice for the session. Until a choice is made or restored, the pane
+     * follows the YaziParentColumnVisible setting.
+     * @param visible true to show the parent column
+     */
+    void setYaziParentColumn(bool visible);
+    bool yaziParentColumn() const;
+    /**
+     * Sets the relative widths of Yazi mode's columns and records them for
+     * the session. Until they are set, dragged or restored, the pane follows
+     * the YaziColumnRatios setting.
+     */
+    void setYaziColumnRatios(const YaziMode::Ratios &ratios);
+    YaziMode::Ratios yaziColumnRatios() const;
+    /// How long after the columns are last resized the ratios become the YaziColumnRatios setting.
+    static constexpr int YaziRatiosSaveDelay = 500;
     /// Applies the YaziKeyPreset setting to the keys of Yazi mode.
     void reloadYaziKeySettings();
     /// The columns that host the folder view in Yazi mode; they exist even when the mode is off.
@@ -235,6 +253,7 @@ Q_SIGNALS:
     void yaziModeChanged(bool enabled);
     void yaziPreviewChanged(bool visible);
     void yaziPreviewContentChanged(YaziMode::PreviewContent content);
+    void yaziParentColumnChanged(bool visible);
     /**
      * A Yazi mode file command, such as Trash, should run through the
      * window's action. For a command that uses the selection, the focused
@@ -260,6 +279,14 @@ private:
     /// Applies a saved preview content choice, a YaziMode::PreviewContent value or -1 for the setting, without marking the workspace changed.
     void restoreYaziPreviewContent(int choice);
     void applyYaziPreviewContent(YaziMode::PreviewContent content);
+    /// Applies a saved parent column choice (1, 0 or -1 for the setting) without marking the workspace changed.
+    void restoreYaziParentColumn(int choice);
+    void applyYaziParentColumn(bool visible);
+    /// Applies saved column ratios, or the setting when @p ratios is empty or invalid, without marking the workspace changed.
+    void restoreYaziColumnRatios(const QList<int> &ratios);
+    /// Records ratios the user dragged the columns to, and saves them as the setting once dragging pauses.
+    void rememberYaziColumnRatios(const YaziMode::Ratios &ratios);
+    void saveYaziColumnRatiosSetting();
     /// Closes the pane's tabs and opens those of @p state with their pins, locks and names.
     void rebuildTabs(const PaneSession &state);
     void saveHistoryViewState();
@@ -308,6 +335,14 @@ private:
     YaziMode::PreviewContent m_yaziPreviewContent = YaziMode::PreviewContent::Preview;
     /// The saved preview content choice: a YaziMode::PreviewContent value, or -1 to follow the setting.
     int m_yaziPreviewContentChoice = -1;
+    bool m_yaziParentColumn = true;
+    /// The saved parent column choice: 1 shown, 0 hidden, -1 none, following the setting.
+    int m_yaziParentColumnChoice = -1;
+    /// The pane's own column ratios, or empty to follow the setting.
+    QList<int> m_yaziRatiosChoice;
+    QTimer *m_yaziRatiosSave = nullptr;
+    QAction *m_yaziMenuAction = nullptr;
+    QAction *m_yaziToolbarAction = nullptr;
     FilterBar *m_filterBar = nullptr;
     QVBoxLayout *m_layout = nullptr;
     QHBoxLayout *m_outerLayout = nullptr;

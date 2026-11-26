@@ -117,6 +117,13 @@ WorkspaceDialog::WorkspaceDialog(KConfigGroup group,
     m_layoutBehavior = addBehavior(QStringLiteral("workspaceLayoutBehavior"), i18nc("@option:check", "Window and panel layout"));
     m_paneTabRestoration = addBehavior(QStringLiteral("workspacePaneTabRestoration"), i18nc("@option:check", "Pane and tab restoration"));
     m_appearanceBehavior = addBehavior(QStringLiteral("workspaceAppearanceBehavior"), i18nc("@option:check", "Theme profile and appearance"));
+    m_yaziBehavior = addBehavior(QStringLiteral("workspaceYaziModeBehavior"), i18nc("@option:check", "Yazi mode"));
+    m_yaziBehavior->setAccessibleName(i18nc("@option:check", "Yazi mode"));
+    m_yaziBehavior->setAccessibleDescription(
+        i18nc("@info:accessibility", "Whether switching restores each pane's Yazi mode, with its preview, parent column and column widths"));
+    m_yaziBehavior->setToolTip(i18nc("@info:tooltip",
+                                     "Restore each pane's Yazi mode, with its preview, parent column and column widths. When unchecked, "
+                                     "switching keeps each pane's current Yazi mode."));
     auto *saveBehaviors = new QPushButton(i18nc("@action:button", "Save Workspace Behaviors"), behaviorGroup);
     saveBehaviors->setObjectName(QStringLiteral("workspaceSaveBehaviors"));
     connect(saveBehaviors, &QPushButton::clicked, this, &WorkspaceDialog::saveBehaviorSelection);
@@ -404,12 +411,15 @@ void WorkspaceDialog::refreshBehaviorSelection()
     const QSignalBlocker layoutBlocker(m_layoutBehavior);
     const QSignalBlocker panesBlocker(m_paneTabRestoration);
     const QSignalBlocker appearanceBlocker(m_appearanceBehavior);
+    const QSignalBlocker yaziBlocker(m_yaziBehavior);
     m_behaviorMode->setCurrentIndex(m_behaviorMode->findData(int(selection.mode)));
     m_locationPresentation->setChecked(selection.locationPresentation);
     m_searchScope->setChecked(selection.searchScope);
     m_layoutBehavior->setChecked(selection.layout);
     m_paneTabRestoration->setChecked(selection.paneTabRestoration);
     m_appearanceBehavior->setChecked(selection.appearance);
+    m_yaziBehaviorShown = selection.yaziMode.value_or(selection.layout);
+    m_yaziBehavior->setChecked(m_yaziBehaviorShown);
     m_appearance->setEnabled(workspace != m_catalog.workspaces.cend());
     m_appearance->setAppearance(workspace == m_catalog.workspaces.cend() ? WorkspaceCatalog::Appearance{} : workspace->appearance);
 }
@@ -425,12 +435,17 @@ void WorkspaceDialog::saveBehaviorSelection()
         m_status->setText(i18nc("@info", "Select a workspace first."));
         return;
     }
+    // A workspace saved before the Yazi mode choice keeps restoring it with the views until the choice changes.
+    const std::optional<bool> yaziMode = !workspace->behaviorSelection.yaziMode && m_yaziBehavior->isChecked() == m_yaziBehaviorShown
+        ? std::nullopt
+        : std::optional<bool>(m_yaziBehavior->isChecked());
     workspace->behaviorSelection = {static_cast<WorkspaceCatalog::BehaviorMode>(m_behaviorMode->currentData().toInt()),
                                     m_locationPresentation->isChecked(),
                                     m_searchScope->isChecked(),
                                     m_layoutBehavior->isChecked(),
                                     m_paneTabRestoration->isChecked(),
-                                    m_appearanceBehavior->isChecked()};
+                                    m_appearanceBehavior->isChecked(),
+                                    yaziMode};
     if (commit(updated)) {
         reload(id);
         m_status->setText(i18nc("@info", "Workspace behaviors saved."));
@@ -601,8 +616,10 @@ void WorkspaceDialog::activateWorkspace(bool confirmed)
         return;
     }
     const WorkspaceCatalog::BehaviorSelection selection = it->behaviorSelection;
-    const bool restoreAnything =
-        selection.applies(selection.layout) || selection.applies(selection.paneTabRestoration) || selection.applies(selection.locationPresentation);
+    // Yazi mode lives in the pane snapshot; without one there is nothing of it to restore.
+    const bool restoreYazi = selection.appliesYaziMode(WorkspaceRestore::fromSettings().views) && it->layout && it->layout->session;
+    const bool restoreAnything = selection.applies(selection.layout) || selection.applies(selection.paneTabRestoration)
+        || selection.applies(selection.locationPresentation) || restoreYazi;
     if (restoreAnything && !it->layout) {
         m_status->setText(i18nc("@info", "The selected workspace has no saved layout for its enabled behaviors."));
         return;

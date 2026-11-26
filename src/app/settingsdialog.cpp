@@ -636,7 +636,11 @@ QWidget *SettingsDialog::createWorkspaceLayoutsPage()
     auto *restoreLayout = new QVBoxLayout(restore);
     restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestorePaneArrangement"),
                                       i18nc("@option:check", "Pane arrangement: single or dual panes, stacking, sizes and second-pane placement")));
-    restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestoreViews"), i18nc("@option:check", "Each pane's view mode, Yazi mode and Yazi preview")));
+    auto *views = checkBox(QStringLiteral("WorkspaceRestoreViews"), i18nc("@option:check", "Each pane's view mode"));
+    views->setToolTip(i18nc("@info:tooltip",
+                            "Each pane's Yazi mode has its own workspace behavior. Workspaces saved before that behavior existed restore Yazi "
+                            "mode with the view mode."));
+    restoreLayout->addWidget(views);
     restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestoreToolbars"), i18nc("@option:check", "Main and pane toolbar entries")));
     restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestorePanels"),
                                       i18nc("@option:check", "Panels: dock and toolbar positions, and the preview, editor and terminal panels")));
@@ -763,6 +767,7 @@ QWidget *SettingsDialog::createWorkspaceBehaviorsPage()
     selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultLayout"), i18nc("@option:check", "Window and panel layout")));
     selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultPaneTabRestoration"), i18nc("@option:check", "Pane and tab restoration")));
     selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultAppearance"), i18nc("@option:check", "Theme profile and appearance")));
+    selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultYaziMode"), i18nc("@option:check", "Yazi mode")));
     layout->addWidget(selected);
     const auto updateSelected = [mode, selected] {
         selected->setEnabled(mode->currentIndex() == Settings::EnumWorkspaceDefaultBehaviorMode::Selected);

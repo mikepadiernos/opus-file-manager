@@ -1446,6 +1446,11 @@ void MainWindow::connectPane(Pane *pane)
             updateActions();
         }
     });
+    connect(pane, &Pane::yaziParentColumnChanged, this, [this, pane] {
+        if (pane == activePane()) {
+            updateActions();
+        }
+    });
     pane->yaziColumns()->setTransferQueue(FileOperations::transferQueue());
     connect(pane->yaziColumns(), &YaziColumns::transferQueueRequested, this, &MainWindow::showTransferQueue);
     connect(pane, &Pane::yaziFileCommandRequested, this, [this, pane](YaziMode::Command command) {
@@ -2596,6 +2601,20 @@ void MainWindow::setupActions()
     connect(m_yaziPreviewInformationAction, &KToggleAction::triggered, this, [this](bool information) {
         activePane()->setYaziPreviewContent(information ? YaziMode::PreviewContent::Information : YaziMode::PreviewContent::Preview);
     });
+    m_yaziParentColumnAction = new KToggleAction(SymbolicIcon::fromTheme(QStringLiteral("go-parent-folder")), i18nc("@action", "Yazi Parent Column"), this);
+    m_yaziParentColumnAction->setToolTip(i18nc("@info:tooltip", "Show the parent folder before the current folder in the active pane's Yazi mode"));
+    actions->addAction(QStringLiteral("toggle_yazi_parent_column"), m_yaziParentColumnAction);
+    connect(m_yaziParentColumnAction, &KToggleAction::triggered, this, [this](bool visible) {
+        activePane()->setYaziParentColumn(visible);
+    });
+    m_yaziModeStatusButton = new QToolButton(this);
+    m_yaziModeStatusButton->setObjectName(QStringLiteral("yaziModeStatusButton"));
+    m_yaziModeStatusButton->setAutoRaise(true);
+    m_yaziModeStatusButton->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    m_yaziModeStatusButton->setDefaultAction(m_yaziModeAction);
+    m_yaziModeStatusButton->setAccessibleName(i18nc("@action:button accessible name", "Yazi mode"));
+    m_yaziModeStatusButton->setAccessibleDescription(i18nc("@info accessible description", "Turns Yazi mode on or off in the active pane"));
+    statusBar()->addPermanentWidget(m_yaziModeStatusButton);
     m_yaziVimKeysAction = new KToggleAction(i18nc("@action", "Vim-Style Keys in Yazi Mode"), this);
     m_yaziVimKeysAction->setToolTip(
         i18nc("@info:tooltip", "Navigate Yazi mode's columns with Vim-style keys such as h, j, k, l and gg as well as the standard keys"));
@@ -3298,6 +3317,8 @@ void MainWindow::updateActions()
     m_yaziPreviewAction->setEnabled(activePane()->yaziMode());
     m_yaziPreviewInformationAction->setChecked(activePane()->yaziPreviewContent() == YaziMode::PreviewContent::Information);
     m_yaziPreviewInformationAction->setEnabled(activePane()->yaziMode());
+    m_yaziParentColumnAction->setChecked(activePane()->yaziParentColumn());
+    m_yaziParentColumnAction->setEnabled(activePane()->yaziMode());
     for (QAction *action : std::as_const(m_yaziColumnActions)) {
         action->setEnabled(activePane()->yaziMode());
     }
