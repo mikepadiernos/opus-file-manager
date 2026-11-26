@@ -1410,7 +1410,7 @@ for some features are recorded in [pending tasks](TODO.md).
         authorization and failed operations. (Krusader) Plasma-session
         verification is a
         [pending handoff](TODO.md#mount-manager-on-plasma-703).
-  - [ ] Optional KWin script for window management that Wayland applications
+  - [x] Optional KWin script for window management that Wayland applications
         cannot perform themselves: install, enable, update and remove a Plasma
         Opus KWin script package only through explicit action, using KPackage
         and KWin's scripting D-Bus interface. When applying an M15 workspace or
@@ -1425,6 +1425,8 @@ for some features are recorded in [pending tasks](TODO.md).
         open KWin's settings instead of editing window rules, other scripts or
         global KWin settings. Report when KWin or scripting is unavailable,
         such as on other compositors, without affecting file management.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#kwin-script-on-plasma-707-708).
   - [ ] Drop-down window, like Yakuake: optionally slide a Plasma Opus window
         in from a chosen screen edge and hide it again, toggled by a KDE global
         shortcut or by a screen edge or touch-screen edge registered by the
@@ -1433,6 +1435,8 @@ for some features are recorded in [pending tasks](TODO.md).
         loses focus, but not while a dialog or confirmation needs attention.
         Restore its own layout or an assigned workspace, and fall back to a
         regular window when KWin or the script is unavailable. (Yakuake)
+        Plasma-session verification is a
+        [pending handoff](TODO.md#kwin-script-on-plasma-707-708).
 
 - **M27.02: Archives and application packages**
 
