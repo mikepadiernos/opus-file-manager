@@ -1972,6 +1972,24 @@ The M27 desktop integrations have these limits
   appear in Places, and the list refreshes each time the menu opens.
   ([#652](https://github.com/mikepadiernos/plasma-opus/issues/652))
 
+- **💽 Remote drives:** KIO FUSE can't mount read-only or in a chosen folder,
+  and can't unmount a single connection: **Unmount** only removes it from
+  Plasma Opus and Places, and its folder stays available until KIO FUSE
+  stops. sshfs needs `ksshaskpass` to ask for passwords and new host keys;
+  without it, only the SSH agent and keys sign in, and unknown hosts are
+  refused. davfs2 and CIFS mount only through a user-mountable fstab entry
+  that an administrator adds, usually with the user in the `davfs2` group
+  and credentials in the backend's own secrets file, and read-only comes
+  from that entry. S3-compatible storage and KDE Online Accounts locations
+  aren't offered; S3 works through **Cloud Storage** with an rclone remote.
+  Mounting at login means mounting when Plasma Opus starts, so it needs
+  Plasma Opus in autostart, and mounting when a workspace is activated isn't
+  offered. Changed mount options apply after unmounting. All mounts end
+  when Plasma Opus quits, and a connection mounted outside Plasma Opus opens
+  but can't be unmounted from it. Media streams only where the backend reads
+  ranges, which sshfs, CIFS and KIO FUSE's SFTP and SMB workers do.
+  ([#702](https://github.com/mikepadiernos/plasma-opus/issues/702))
+
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
     it is running and restart Plasma Opus so it claims the service. To hand
@@ -2108,6 +2126,14 @@ The M27 desktop integrations have these limits
     behind, run `fusermount3 -u` on its folder under
     `$XDG_RUNTIME_DIR/opus-file-manager/rclone`. For mounts that outlive
     Plasma Opus or start at login, use rclone's own systemd service.
+  - **Remote drives:** Keep the default KIO FUSE for occasional access; it
+    reuses passwords saved in KWallet. Choose sshfs and install `ksshaskpass`
+    for SSH servers that need read-only or a fixed folder. For WebDAV or
+    Windows shares with a fixed folder, ask an administrator to add the line
+    **Mount Options…** shows to `/etc/fstab`. Close files before unmounting.
+    If a folder is reported as stale, run `fusermount3 -u` on it. For mounts
+    that outlive Plasma Opus, use a systemd mount unit or fstab entry with
+    `auto`.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2184,6 +2210,9 @@ The M27 desktop integrations have these limits
   - Serve remotes over WebDAV on the loopback interface when FUSE is
     missing, keep mounts running in the tray, show mounts in Places, and
     choose rclone's cache mode and limits in the M28 settings.
+  - Mount KDE Online Accounts and S3 locations, mount when a workspace is
+    activated, keep chosen mounts after quitting, remount with changed
+    options, and pass KWallet passwords to davfs2 and CIFS with consent.
 
 ## Embedded terminal
 
