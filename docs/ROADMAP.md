@@ -1269,6 +1269,9 @@ layouts.
 - [x] **Reset:** restore Yazi mode defaults without erasing saved workspace
       layouts or unrelated settings.
 
+**Caveats:** [Yazi mode settings](CAVEATS.md#yazi-mode-settings), tracked in
+[#725](https://github.com/mikepadiernos/plasma-opus/issues/725).
+
 ### M27: Integrations
 
 **Project:**
