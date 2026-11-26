@@ -158,6 +158,7 @@ private:
     QWidget *createSelectionPage();
     QWidget *createFiltersPage();
     QWidget *createFolderFormatsPage();
+    QWidget *createYaziActivationPage();
     QWidget *createIconsPage();
     QWidget *createContextMenuActionsPage();
     QWidget *createServiceMenusPage();

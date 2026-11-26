@@ -229,6 +229,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createFolderFormatsPage(), i18nc("@title:tab", "Folder Formats")}},
                   i18nc("@title:group", "View"),
                   QStringLiteral("view-list-icons"));
+    addTabbedPage({{createYaziActivationPage(), i18nc("@title:tab", "Activation")}}, i18nc("@title:group", "Yazi Mode"), QStringLiteral("view-file-columns"));
     addTabbedPage({{createContextMenuActionsPage(), i18nc("@title:tab", "Actions")}, {createServiceMenusPage(), i18nc("@title:tab", "Service Menus")}},
                   i18nc("@title:group", "Context Menu"),
                   QStringLiteral("application-menu"));
@@ -2468,6 +2469,33 @@ QWidget *SettingsDialog::createFolderFormatsPage()
     auto *description = new QLabel(i18nc("@info", "Manage the current folder's format and inheritance in the View menu."), page);
     description->setWordWrap(true);
     form->addRow(description);
+    return page;
+}
+
+QWidget *SettingsDialog::createYaziActivationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("yaziActivationPage"));
+    auto *layout = new QVBoxLayout(page);
+    const auto addPane = [page, layout](const QString &title, const QString &side) {
+        auto *group = new QGroupBox(title, page);
+        auto *groupLayout = new QVBoxLayout(group);
+        groupLayout->addWidget(checkBox(QStringLiteral("Yazi%1PaneDefault").arg(side), i18nc("@option:check", "Use Yazi mode by default")));
+        groupLayout->addWidget(checkBox(QStringLiteral("Yazi%1PaneRestore").arg(side), i18nc("@option:check", "Restore the mode from the last session")));
+        layout->addWidget(group);
+    };
+    addPane(i18nc("@title:group", "First Pane"), QStringLiteral("Left"));
+    addPane(i18nc("@title:group", "Second Pane"), QStringLiteral("Right"));
+    auto *notice = new QLabel(i18nc("@info",
+                                    "When a window opens, a pane that restores its mode starts in Yazi mode if it was in Yazi mode when the last "
+                                    "session was saved. Otherwise, or when Interface › Folders and Tabs › On startup doesn't restore the last "
+                                    "session, the pane starts with its default. Switching to a workspace or restoring its layout still applies "
+                                    "the workspace's Yazi mode behavior. Open panes keep their mode; use View › Yazi Mode to change it."),
+                              page);
+    notice->setObjectName(QStringLiteral("yaziActivationNotice"));
+    notice->setWordWrap(true);
+    layout->addWidget(notice);
+    layout->addStretch();
     return page;
 }
 

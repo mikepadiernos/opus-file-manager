@@ -3189,7 +3189,10 @@ bool MainWindow::queryClose()
 
 void MainWindow::readProperties(const KConfigGroup &group)
 {
-    const WindowSession session = Session::load(group, int(EffectiveAppearance::defaultViewMode())).sanitized(QUrl::fromLocalFile(QDir::homePath()));
+    WindowSession session = Session::load(group, int(EffectiveAppearance::defaultViewMode())).sanitized(QUrl::fromLocalFile(QDir::homePath()));
+    const StartupOptions options = Startup::fromSettings();
+    session.left.yaziMode = YaziMode::startupMode(options.leftYazi, session.left.yaziMode);
+    session.right.yaziMode = YaziMode::startupMode(options.rightYazi, session.right.yaziMode);
     m_sessionRestored = true;
     m_left->restoreState(session.left);
     m_right->restoreState(session.right);
