@@ -1,11 +1,21 @@
-# 📐 Interface design
+# Interface design
 
-**[Documentation](../README.md)** ·
-**[Refinements](../refinements/02-layouts.md)** · **[Roadmap](../ROADMAP.md)**
+[![Docs index](https://img.shields.io/badge/docs-index-3daee9?style=flat-square)](../README.md)
+[![Previous: Inspirations](https://img.shields.io/badge/previous-Inspirations-3daee9?style=flat-square)](inspirations.md)
+[![Refinements: layouts](https://img.shields.io/badge/refinements-layouts-6e7781?style=flat-square)](../refinements/02-layouts.md)
+[![Roadmap: M32 refinements](https://img.shields.io/badge/roadmap-M32%20refinements-8957e5?style=flat-square)](../ROADMAP.md#m32-refinements)
+
+The target structure of the Plasma Opus window, its panes, toolbars and
+workspaces, and how it relates to what exists today.
+
+**Philosophy series:** [1. Scope](scope.md) →
+[2. Inspirations](inspirations.md) → **3. Interface design**
 
 > [!NOTE]
-> This document describes the target design. Placement and customization
-> options are not all implemented; see the linked milestones for their status.
+> This document mostly describes the **target** design. Sections mark what is
+> **current** (merged into `main`) and what is **target** (planned, mainly in
+> [M31](../ROADMAP.md#m31-keyboard-shortcut-settings) and
+> [M32](../ROADMAP.md#m32-refinements)). See the linked milestones for status.
 
 ## Contents
 
@@ -18,9 +28,9 @@
 
 ## Interface structure
 
-The target interface has five regions: a header, three columns and a footer. The
-middle column holds the file-management workspace; the side columns provide
-space for supporting panels.
+**Target.** The interface has five regions: a header, three columns and a
+footer. The middle column holds the file-management workspace; the side columns
+provide space for supporting panels.
 
 ```text
 ┌────────────────────────────────────────────────────────────┐
@@ -36,26 +46,33 @@ space for supporting panels.
 ```
 
 This is a structural illustration, not a fixed arrangement of panels. Implement
-the structure as part of the [layout refinements](../refinements/02-layouts.md),
-while keeping layouts and panel placement configurable.
+the structure as part of the [layout refinements](../refinements/02-layouts.md)
+([M32.02](../ROADMAP.md#m32-refinements),
+[#583](https://github.com/mikepadiernos/plasma-opus/issues/583)), while keeping
+layouts and panel placement configurable.
 
-Sliding panes and floating panes are additional parts of the interface. They are
-not assigned to any of the five fixed regions: sliding panes can be revealed or
-hidden, while floating panes can be positioned independently.
+**Current.** The menu bar and main toolbar sit above the two file panes.
+Sidebar panels dock on the left or right, and embedded tools open below or to
+the right of the panes, as listed under [Panes](#panes).
+
+Sliding panes and floating panes are additional parts of the target interface.
+They are not assigned to any of the five fixed regions: sliding panes can be
+revealed or hidden, while floating panes can be positioned independently.
 
 Each area of the application should be accessible or activated with a
 configurable keyboard binding, including the header, columns, footer and their
 panes, as well as sliding and floating panes. Bindings should respect the active
 context and avoid intercepting text entry or terminal input; see the
-[shortcut settings milestone](../ROADMAP.md#m31-keyboard-shortcut-settings).
+[shortcut settings milestone](../ROADMAP.md#m31-keyboard-shortcut-settings) and
+[#463](https://github.com/mikepadiernos/plasma-opus/issues/463).
 
 ## Panes
 
-- **File panes** are the two primary browsing workspaces in the middle column.
-  Each contains folder tabs and a file view; they can be arranged side by side
-  or stacked. View modes, including the tree view, are part of a pane rather
-  than extra panes.
-- **Sidebar panes** are supporting panels positioned only in the left or right
+- **File panes** (current) are the two primary browsing workspaces in the
+  middle column. Each contains folder tabs and a file view; they can be
+  arranged side by side or stacked. View modes, including the tree view, are
+  part of a pane rather than extra panes.
+- **Sidebar panes** (current) are supporting panels docked in the left or right
   column:
   - **Explorer:** the combined navigation panel, containing Favorites, KDE
     Places groups and the folder Tree.
@@ -64,33 +81,33 @@ context and avoid intercepting text entry or terminal input; see the
   - **Information:** details for the selected or hovered item.
 
   Explorer is an alternative to the separate Places and Folders panels; its
-  sections are not additional standalone panels.
+  sections are not additional standalone panels. **View › Panels** switches
+  between **Combined Panel** and **Separate Places and Folders**.
 
-- **Embedded panes** are panels or panes that provide tools or content within
-  the application. The target design allows them in the left column, right
-  column, middle column or footer:
-  - **Preview:** previews files and media.
-  - **Text editor:** edits text and drafts.
-  - **Metadata editor:** edits supported media metadata.
-  - **Terminal:** hosts Konsole sessions.
-  - **Office documents:** planned viewing and editing integration for documents,
-    spreadsheets and presentations; embedded editing depends on an available
-    provider. See [integrations](../ROADMAP.md#m27-integrations).
-  - **Advanced search:** searches and displays results in a planned embedded
-    pane; the current search interface is a dialog. See the
-    [advanced search plan](../ROADMAP.md#m21-advanced-search).
-  - **Tagging:** a planned embedded pane for managing and assigning tags; see
-    the [tagging plan](../ROADMAP.md#m23-native-tagging).
+- **Embedded panes** provide tools or content within the application. The
+  target design allows them in the left column, right column, middle column or
+  footer. Current placement options vary by tool:
 
-  Current placement options vary by tool; Preview and the editors also offer
-  other modes.
+  | Pane             | Purpose                                                   | Current placement                                                                          | Milestone                                    | Status                                                                    |
+  | ---------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------- | ------------------------------------------------------------------------- |
+  | Preview          | Previews files and media                                  | In a pane, below the panes or right of the panes                                           | [M05](../ROADMAP.md#m05-preview-and-gallery) | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   |
+  | Text editor      | Edits text and drafts                                     | Side panel, a separate embedded area below or to the right, a maximized or separate window | [M07](../ROADMAP.md#m07-editor)              | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   |
+  | Metadata editor  | Edits supported media metadata                            | Separate window, below or right                                                            | [M09](../ROADMAP.md#m09-tools)               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   |
+  | Terminal         | Hosts Konsole sessions                                    | Automatic (right for stacked panes), below both panes or right of both panes               | [M09](../ROADMAP.md#m09-tools)               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   |
+  | Search           | Searches and displays results                             | With the embedded terminal, below the panes or right of the panes                          | [M21](../ROADMAP.md#m21-advanced-search)     | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   |
+  | Tag panel        | Assigns tags and filters by them                          | On the right or below the panes                                                            | [M23](../ROADMAP.md#m23-native-tagging)      | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   |
+  | Office documents | Views and edits documents, spreadsheets and presentations | Not available; embedded editing depends on an available provider                           | [M27](../ROADMAP.md#m27-integrations)        | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square) |
 
-- **Sliding panes** can be revealed or hidden independently of the fixed
-  regions. The planned which-key-inspired shortcut hints and toolbar action
-  reference can be shown as sliding panes.
-- **Floating panes** can be positioned independently of the fixed regions. The
-  shortcut hints and toolbar action reference can also be shown as floating
-  panes.
+  The search panel is toggled with **Show Search Panel**, and the tag panel
+  with **Tags › Tag Panel**; tags themselves are managed in
+  **Tags › Manage Tags…**. See the [tagging guide](../tagging.md).
+
+- **Sliding panes** (target) can be revealed or hidden independently of the
+  fixed regions. The planned which-key-inspired shortcut hints and toolbar
+  action reference can be shown as sliding panes.
+- **Floating panes** (target) can be positioned independently of the fixed
+  regions. The shortcut hints and toolbar action reference can also be shown as
+  floating panes.
 
 For any file that can be viewed, offer editing when a suitable editing tool is
 available. Use a supported embedded provider or open a separate application;
@@ -101,10 +118,16 @@ See the [shortcut settings](../ROADMAP.md#m31-keyboard-shortcut-settings) and
 
 ## Toolbars and customization
 
-Toolbars can be placed in any of the five regions. Each column can have toolbars
-at its top or bottom, separate from the file panes. File-pane toolbars are also
-customizable: their items can be rearranged by dragging, including widgets such
-as search and the address bar.
+**Current** ([M11](../ROADMAP.md#m11-ui-customizations)). The main toolbar
+and each pane's own toolbar are editable: entries can be dragged on, off and
+around them directly, including the pane toolbar's location bar and search, and
+between the main toolbar, pane toolbars and hamburger menu. Separators, spacers
+and custom buttons for scripts, commands and presets can be added.
+
+**Target** ([M32.02](../ROADMAP.md#m32-refinements)). Toolbars can be placed in
+any of the five regions. Each column can have toolbars at its top or bottom,
+separate from the file panes. File-pane toolbars keep their drag-and-drop
+customization, including widgets such as search and the address bar.
 
 Items and widgets from any toolbar can be mixed and matched in any other
 toolbar, including custom toolbars. Pane-specific actions and widgets retain
@@ -122,6 +145,23 @@ application use remains available.
 A workspace is a named profile for a workflow. The target profile can include
 features, layout, theme and other preferences, and optionally be associated with
 a KDE Plasma Activity with settings selected per Activity.
+
+| Part                                        | Milestone                                                                            | Status                                                                    |
+| ------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
+| Workspace management, layouts and snapshots | [M15](../ROADMAP.md#m15-workspaces), [M16](../ROADMAP.md#m16-workspace-settings)     | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   |
+| Theme profiles and appearance overrides     | [M17](../ROADMAP.md#m17-themes), [M18](../ROADMAP.md#m18-theme-settings)             | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   |
+| Activity associations                       | [M27](../ROADMAP.md#m27-integrations), [M28](../ROADMAP.md#m28-integration-settings) | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square) |
+| Local note vault                            | [#565](https://github.com/mikepadiernos/plasma-opus/issues/565)                      | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square) |
+
+Plasma Opus provides workspace management through **View › Workspaces…**, with
+location assignments, saved layouts, explicit pane and tab snapshots, linked
+task profiles, appearance overrides and workspace settings. Tag groups belong to
+the separate native tagging system. See the
+[workspace](../ROADMAP.md#m15-workspaces),
+[workspace settings](../ROADMAP.md#m16-workspace-settings),
+[native tagging](../ROADMAP.md#m23-native-tagging) and
+[Activity integration](../ROADMAP.md#m27-integrations) milestones, and the
+[layout caveat](../CAVEATS.md#workspace-layouts).
 
 A workspace can attach a theme profile and selected appearance options, such as
 Card view, folder colour rules, blur, corner radius and divider visibility.
@@ -143,20 +183,10 @@ remains a normal folder: workspace management does not move or delete its notes
 or modify Obsidian configuration. See the
 [vault handoff](../TODO.md#workspace-vault-editing-565).
 
-Plasma Opus provides workspace management through **View → Workspaces**, with
-location assignments, saved layouts, explicit pane and tab snapshots, linked
-task profiles, appearance overrides and workspace settings. Activity
-associations are planned. Tag groups belong to the separate native tagging
-system. See the
-[workspace](../ROADMAP.md#m15-workspaces),
-[workspace settings](../ROADMAP.md#m16-workspace-settings),
-[native tagging](../ROADMAP.md#m23-native-tagging) and
-[Activity integration](../ROADMAP.md#m27-integrations) milestones, and the
-[layout caveat](../CAVEATS.md#workspace-layouts).
-
 ## Translation ideas
 
-Ideas for language, localization and regional formats belong here. See the
+Ideas for language, localization and regional formats belong here; they are
+proposals, not implemented features. See the
 [translation milestones](../ROADMAP.md#m13-translations) for current scope.
 
 - **Language-aware toolbar labels:** Following
@@ -197,3 +227,8 @@ Ideas below are proposals, not claims of implemented functionality.
   columns for collections, inspired by
   [Directory Opus collections](https://docs.dopus.com/doku.php?id=basic_concepts:virtual_file_system:file_collections).
   Make clear that removing a reference does not delete the original file.
+
+---
+
+← Previous: [Inspirations](inspirations.md) · Related:
+[M32 refinement plans](../refinements/README.md)
