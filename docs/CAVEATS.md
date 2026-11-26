@@ -1773,6 +1773,27 @@ The M27 desktop integrations have these limits
   a headless container with a simulated plugin only, not yet on a Plasma
   session.
   ([#648](https://github.com/mikepadiernos/plasma-opus/issues/648))
+- **📦 Application packages:** packages are recognized by MIME type and by
+  the standard installation folders, `~/.local/share/flatpak`,
+  `/var/lib/flatpak` and `/snap`; custom Flatpak installations are not.
+  A Flatpak bundle's application ID is not read, so its installed state and
+  details are unknown until it is installed and opened from its folder.
+  Sandbox permissions are shown only after installing, since Flatpak
+  reports them only for installed applications; installing grants what the
+  application requests. Local snap files are installed with `--dangerous`,
+  without a Store signature check or automatic updates, and snaps that need
+  classic confinement fail to install. Tools run without a terminal, so
+  Flatpak and snapd may ask for authorization through polkit, but any other
+  prompt fails the change, and progress is not shown beyond a busy
+  indicator. **Add to Application Menu** runs a type 2 AppImage's runtime
+  to extract its desktop file and icon; type 1 AppImages, and others whose
+  files cannot be read, get their file name and a generic icon. Menu entries
+  point to the AppImage's current path and break when it is moved or
+  deleted. AppImage updates need AppImageUpdate's `appimageupdatetool`.
+  This has been verified in a headless container with simulated package
+  tools only, not yet with real `flatpak`, `snap` or Discover on a Plasma
+  session.
+  ([#281](https://github.com/mikepadiernos/plasma-opus/issues/281))
 - **🪟 KWin script:** the script has been tested only against a simulated
   KWin in the headless container, not yet on a Plasma session
   ([pending task](TODO.md#kwin-script-on-plasma-707-708)). Its use of KWin's
@@ -1868,6 +1889,15 @@ The M27 desktop integrations have these limits
     Places once mounted. Wait for the window to respond after choosing
     **Mount Disk Image**. If an image stays attached without a mount point,
     choose **Unmount Disk Image**, or **Mount Disk Image** again to retry.
+  - **Application packages:** Install the `flatpak` or `snap` packages, and
+    Discover for **Open in Discover**. Install a Flatpak bundle, then open
+    its folder under `~/.local/share/flatpak/app` to review its permissions,
+    and adjust them with Plasma's Flatpak permission settings in System
+    Settings or with Flatseal. Prefer installing snaps from the Store
+    in Discover so they are verified and updated; for a snap that needs
+    classic confinement, run `snap install --classic` in a terminal. Remove
+    an AppImage from the application menu before moving or deleting it, and
+    add it again from its new location.
   - **KWin script:** Install it from **Settings › Configure KWin
     Integration…** in a Plasma session, then move or resize the window once
     with each workspace current so its placement is kept. If the status says
@@ -1920,6 +1950,9 @@ The M27 desktop integrations have these limits
   - Mount disk images through UDisks2 directly, without blocking the window
     and with its actual error messages, and show images outside the home
     folder in Places once mounted.
+  - Read a Flatpak bundle's ID and permissions before installing, show tool
+    progress, update or remove AppImage menu entries when the file moves,
+    and recognize custom Flatpak installations.
   - Verify the script on X11 and Wayland with each supported Plasma release,
     keep maximized and full-screen state, and record a placement when a
     workspace is saved as well as when the window moves.
