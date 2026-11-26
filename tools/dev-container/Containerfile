@@ -11,10 +11,12 @@
 ARG BASE_IMAGE=plasma-impresario-dev
 FROM ${BASE_IMAGE}
 
-# run.sh compares this label with the current base image to decide when to
-# rebuild.
+# run.sh compares these labels with the current base image and this file's
+# checksum to decide when to rebuild.
 ARG BASE_IMAGE_ID=unknown
+ARG CONTAINERFILE_SUM=unknown
 LABEL io.github.mikepadiernos.plasma-opus.base-image-id=${BASE_IMAGE_ID}
+LABEL io.github.mikepadiernos.plasma-opus.containerfile-sum=${CONTAINERFILE_SUM}
 
 RUN dnf -y install --setopt=install_weak_deps=False \
         gettext \
@@ -31,17 +33,23 @@ RUN dnf -y install --setopt=install_weak_deps=False \
         kf6-kcrash-devel \
         kf6-kdbusaddons-devel \
         kf6-kfilemetadata-devel \
+        kf6-kglobalaccel-devel \
         kf6-kguiaddons-devel \
         kf6-ki18n-devel \
         kf6-kiconthemes-devel \
         kf6-kio-devel \
         kf6-kitemviews-devel \
+        kf6-knewstuff-devel \
+        kf6-kpackage-devel \
         kf6-kparts-devel \
+        kf6-krunner-devel \
+        kf6-kstatusnotifieritem-devel \
         kf6-ktexteditor-devel \
         kf6-kwidgetsaddons-devel \
         kf6-kwindowsystem-devel \
         kf6-kxmlgui-devel \
         kf6-solid-devel \
+        plasma-activities-devel \
         kf6-syntax-highlighting-devel \
         kf6-baloo-devel \
         kf6-baloo-file \
