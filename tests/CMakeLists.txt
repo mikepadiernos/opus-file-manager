@@ -80,6 +80,7 @@ target_compile_definitions(informationtranslationtest PRIVATE
 )
 
 ecm_add_tests(
+    activityassociationstest.cpp
     appearancedefaultstest.cpp
     appfontstest.cpp
     archivestest.cpp
@@ -262,6 +263,12 @@ ecm_add_test(remotepreviewtest.cpp
 )
 
 ecm_add_test(mainwindowtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
+ecm_add_test(activitycontrollertest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
     GUI
