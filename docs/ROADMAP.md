@@ -1228,7 +1228,7 @@ process or a promise of Yazi configuration or plugin compatibility.
 - [x] Reuse filtering, filename and content search, sorting, tabs and history.
       Show active filters and search progress, allow cancellation and report
       backend or remote-location limitations.
-- [ ] Reuse Plasma Opus previews and file information for the focused item, with
+- [x] Reuse Plasma Opus previews and file information for the focused item, with
       cancellable work and existing size and remote-download limits. Report
       progress and errors through existing jobs and the transfer queue rather
       than duplicating operations.
