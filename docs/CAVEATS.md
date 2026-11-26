@@ -337,7 +337,7 @@ tracked in its own issue:
   - **Alternative:** Use Kate or KWrite for long-line text.
     - Comment:
       [#264.7029668772](https://github.com/mikepadiernos/plasma-opus/issues/264#issuecomment-7029668772)
-  - **Planned:** [M27 editor integrations](ROADMAP.md#m27-integrations) would
+  - **Planned:** [M27 editor integrations](ROADMAP.md#m27-integrations)
     launch separate editors; they do not increase Plasma Opus preview limits.
     - Comment: [#264.7021749088][comment-264]
 
@@ -1886,6 +1886,20 @@ The M27 desktop integrations have these limits
   second request opens. The choice isn't remembered between uses.
   ([#289](https://github.com/mikepadiernos/plasma-opus/issues/289))
 
+- **📝 Editor integrations:** **Edit With** only lists KWrite, Kate, Neovim,
+  Rune, micro and nano, and finds them through `PATH`, so an editor
+  installed only as a Flatpak shows as not installed. Rune is looked up as
+  `rune` and hasn't been tested. Neovim, Rune, micro and nano open in a new
+  embedded terminal tab rather than a separate terminal window until the M28
+  editor settings choose a session type, so they need the Konsole or Kwi
+  component, and they only open local files; KWrite and Kate also open
+  remote files through KIO. Folders can't be opened. The editor's tab starts
+  in the first file's folder, but a terminal profile with its own start
+  folder takes precedence, and the tab closes when the editor exits. The
+  editors start with their own configuration, and the choice isn't
+  remembered between uses.
+  ([#319](https://github.com/mikepadiernos/plasma-opus/issues/319))
+
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
     it is running and restart Plasma Opus so it claims the service. To hand
@@ -1987,6 +2001,11 @@ The M27 desktop integrations have these limits
     F12 by default, if its window is hidden, and check the folder before
     running commands. To keep the `cd` out of shell history, set
     `HISTCONTROL=ignorespace` in Bash, or `setopt HIST_IGNORE_SPACE` in Zsh.
+  - **Editor integrations:** Install the editor from your distribution so
+    its command is in `PATH`, and install the Konsole component for terminal
+    editors. To edit remote files in a terminal editor, copy them to a local
+    folder first, or use KWrite or Kate. Save your work before closing the
+    editor's terminal tab.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2045,6 +2064,9 @@ The M27 desktop integrations have these limits
     Terminal Here**, find Flatpak terminals, show Yakuake's window through a
     dedicated D-Bus call when it offers one, and open a selected folder
     rather than the pane's folder from its context menu.
+  - The M28 editor settings to choose a default editor, open terminal
+    editors in a separate terminal, find Flatpak editors and add other
+    editors.
 
 ## Embedded terminal
 
