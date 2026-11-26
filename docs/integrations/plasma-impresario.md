@@ -109,8 +109,9 @@ action.
 
 - Let Plasma Impresario own attachment selection, saving and confirmation.
   After an explicit save, it may ask the file manager to reveal the saved
-  location through `org.freedesktop.FileManager1`, which Plasma Opus plans to
-  provide ([#279](https://github.com/mikepadiernos/plasma-opus/issues/279)).
+  location through `org.freedesktop.FileManager1`, which Plasma Opus provides
+  while it is the default folder handler
+  ([#279](https://github.com/mikepadiernos/plasma-opus/issues/279)).
 - Preserve the selected destination, file identity and conflict handling; show
   errors for unavailable or removed files. Do not access message stores,
   download attachments automatically or infer that a saved file is safe.

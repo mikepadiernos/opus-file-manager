@@ -66,6 +66,15 @@ behaves like the rest of the desktop and follows the user's choices.
   `inode/directory` handler through `xdg-mime`; uninstalling restores Dolphin
   when Plasma Opus is still the handler.
   ([M27.01](../ROADMAP.md#m27-integrations))
+- **File-manager service:** while Plasma Opus is the default folder handler,
+  it answers `org.freedesktop.FileManager1` requests, such as **Show in
+  folder** in browsers and mail clients. `ShowFolders` opens each folder in a
+  new tab, `ShowItems` opens one tab per parent folder with the items
+  selected, and `ShowItemProperties` opens KDE's properties dialog. It never
+  replaces another owner of the service. `install.sh --default` also installs
+  a per-user D-Bus activation file, so a request starts Plasma Opus when no
+  file manager is running; uninstalling removes it.
+  ([#279](https://github.com/mikepadiernos/plasma-opus/issues/279))
 
 ## Planned features
 
@@ -74,11 +83,9 @@ them.
 
 ### M27.01 KDE Plasma and desktop services
 
-- **File-manager service and portal:** Let other applications reveal files or
-  request a chooser through supported desktop interfaces. Preserve user defaults
-  and sandbox permissions; the chooser contract still needs definition.
-  ([#279](https://github.com/mikepadiernos/plasma-opus/issues/279),
-  [#286](https://github.com/mikepadiernos/plasma-opus/issues/286))
+- **System file chooser:** Let applications request a chooser through the XDG
+  portal. Preserve user defaults and sandbox permissions.
+  ([#286](https://github.com/mikepadiernos/plasma-opus/issues/286))
 - **Language preferences:** Follow KDE Plasma's language preferences using the
   M13 catalogues and M14 language and regional-format preferences when no app
   override is selected, falling back to source text when a catalogue is

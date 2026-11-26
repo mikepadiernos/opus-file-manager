@@ -193,7 +193,8 @@ Plasma Opus is already running, the arguments open in the existing window.
 Run `./install.sh` to build a release and install it for the current user
 under `~/.local`; use `./install.sh --help` for other options, such as
 `--system` and `--prefix`. `./install.sh --default` also makes Plasma Opus the
-default folder handler.
+default folder handler and lets it answer **Show in folder** requests from other
+applications through `org.freedesktop.FileManager1`.
 
 The installer uses `build-plasma` with tests disabled; set `OPUSFM_BUILD_DIR`
 to choose another build tree. `./install.sh --uninstall` removes the files

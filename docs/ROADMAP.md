@@ -1700,6 +1700,7 @@ for some features are recorded in [pending tasks](TODO.md).
         application's workspace, account or mail data.
 
 **Caveats:**
+[Desktop integration](CAVEATS.md#desktop-integration), tracked in [#728];
 [Password-gated folders](CAVEATS.md#planned-password-gated-folders) (planned),
 tracked in [#406].
 
@@ -2387,3 +2388,4 @@ dock and column-header spacing follows the
 [#716]: https://github.com/mikepadiernos/plasma-opus/issues/716
 [#723]: https://github.com/mikepadiernos/plasma-opus/issues/723
 [#725]: https://github.com/mikepadiernos/plasma-opus/issues/725
+[#728]: https://github.com/mikepadiernos/plasma-opus/issues/728
