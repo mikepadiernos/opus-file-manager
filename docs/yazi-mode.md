@@ -1117,3 +1117,45 @@ stays there, with the other behaviors that new workspaces start with,
 because it is used only when they apply **Selected** behaviors and a setting
 appears only once in the dialog. Existing workspaces keep their own choice,
 changed in **View › Workspaces… › Workspace Behaviors › Yazi mode**.
+
+### Reset
+
+**Restore Yazi Mode Defaults** sits below the tabs, so it is shown whichever
+tab is selected. It sets every option on the Yazi Mode tabs back to its
+default: every entry of the `[YaziMode]` group, read from the configuration
+schema, so entries added later are covered too. **Column Widths** shows 1, 3
+and 2, and the **Keyboard** tab shows the standard keys and their conflicts,
+which are none.
+
+A confirmation says what is reset and what is kept first:
+
+- **Restore Defaults** shows the defaults in the tabs. Nothing is saved yet:
+  **Apply** or **OK** saves them, and **Cancel** in Preferences discards them
+  and keeps the stored settings.
+- **Cancel** changes nothing.
+
+The reset never changes:
+
+- Saved workspaces, their layouts with each pane's Yazi state, and their
+  behaviors, including each workspace's **Yazi mode** behavior.
+- The Yazi mode behavior of new workspaces, **Preferences › Workspaces ›
+  Behaviors › Selected Behaviors › Yazi mode** (`WorkspaceDefaultYaziMode`).
+  It belongs to the Workspaces page, so the reset leaves it as it is; a note
+  below the button says so.
+- Keyboard shortcuts set in **Settings › Configure Keyboard Shortcuts**. Only
+  the key preset returns to the standard keys.
+- Any other setting, including unsaved edits on other pages.
+
+When the restored defaults are applied, the panes open in every window also
+drop their own preview column, preview content, parent column and column
+width choices, including widths dragged in the last half second, and follow
+the defaults again. Otherwise a pane whose columns had been toggled or
+dragged, or restored from its session, would keep looking as before the
+reset. Each pane stays in or out of Yazi mode: whether it is on is the pane's
+state, not a default, and [Activation](#activation) applies only when a
+window opens. Dropping a pane's choices can make the window differ from the
+active workspace's saved layout, which is then marked as modified with `*`;
+the saved layout itself is unchanged until it is saved or updated.
+
+The dialog's own **Defaults** button still resets every page of Preferences,
+including the Yazi Mode tabs, but leaves the panes' own choices as they are.
