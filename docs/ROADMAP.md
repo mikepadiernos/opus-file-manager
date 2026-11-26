@@ -1488,7 +1488,7 @@ for some features are recorded in [pending tasks](TODO.md).
         and pane-preserving layout. Yakuake is a separate drop-down application,
         not an embeddable terminal; report unavailable providers and unsupported
         locations.
-  - [ ] Optional [Atuin](https://docs.atuin.sh/) integration for terminal
+  - [x] Optional [Atuin](https://docs.atuin.sh/) integration for terminal
         command history: let users open interactive Atuin search in a supported
         terminal, without automatically executing a selected command. Respect
         the user's existing shell configuration; do not install or initialize
