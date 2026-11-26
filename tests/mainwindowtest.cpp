@@ -22,6 +22,8 @@
 #include "foldertree.h"
 #include "folderview.h"
 #include "gallerywindow.h"
+#include "indexbackend.h"
+#include "indexstatusdialog.h"
 #include "informationpanel.h"
 #include "interfacelanguage.h"
 #include "libraryregistry.h"
@@ -670,6 +672,57 @@ private Q_SLOTS:
         QCOMPARE(dialog->package().name, QStringLiteral("Kate"));
         auto *install = dialog->findChild<QPushButton *>(QStringLiteral("packageInstall"));
         QVERIFY(install && !install->isEnabled());
+        dialog->close();
+    }
+
+    void opensIndexStatus()
+    {
+        struct Unavailable : IndexBackend {
+            IndexStatus::Config config() const override
+            {
+                return {};
+            }
+            IndexStatus::Service service() const override
+            {
+                return {};
+            }
+            bool isIndexed(const QString &) const override
+            {
+                return false;
+            }
+            bool hasExtractor(const QString &) const override
+            {
+                return false;
+            }
+            bool suspend(QString *) override
+            {
+                return false;
+            }
+            bool resume(QString *) override
+            {
+                return false;
+            }
+            bool checkUnindexedFiles(QString *) override
+            {
+                return false;
+            }
+            bool openSettings(QString *) override
+            {
+                return false;
+            }
+        };
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        Unavailable backend;
+        MainWindow window;
+        window.setIndexBackend(&backend);
+        window.openUrls({QUrl::fromLocalFile(directory.path())});
+        QAction *action = window.actionCollection()->action(QStringLiteral("index_status"));
+        QVERIFY(action && action->isEnabled());
+        action->trigger();
+        auto *dialog = window.findChild<IndexStatusDialog *>(QStringLiteral("indexStatusDialog"));
+        QVERIFY(dialog);
+        QVERIFY(dialog->findChild<QLabel *>(QStringLiteral("indexWarnings"))->text().contains(QStringLiteral("without Baloo")));
         dialog->close();
     }
 

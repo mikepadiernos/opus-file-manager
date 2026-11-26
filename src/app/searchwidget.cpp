@@ -2,7 +2,9 @@
 
 #include "searchwidget.h"
 
+#include "indexbackend.h"
 #include "indexedsearch.h"
+#include "indexstatusdialog.h"
 #include "libraryregistry.h"
 #include "pathfiltereditor.h"
 #include "searchcollection.h"
@@ -229,6 +231,23 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_workspaceOnly->setToolTip(i18nc("@info:tooltip", "Clear this to search the current folder or all indexed locations outside the workspace."));
     form->addRow(QString(), m_workspaceOnly);
     refreshWorkspaceScope();
+    m_indexNotice = new QLabel(this);
+    m_indexNotice->setObjectName(QStringLiteral("searchIndexNotice"));
+    m_indexNotice->setTextFormat(Qt::PlainText);
+    m_indexNotice->setWordWrap(true);
+    m_indexStatus = new QPushButton(QIcon::fromTheme(QStringLiteral("baloo")), i18nc("@action:button", "Indexing Status…"), this);
+    m_indexStatus->setObjectName(QStringLiteral("searchIndexStatus"));
+    m_indexStatus->setToolTip(i18nc("@info:tooltip", "Show the file indexer's state, indexed folders and coverage, and KDE's indexing controls"));
+    auto *indexRow = new QHBoxLayout;
+    indexRow->addWidget(m_indexNotice, 1);
+    indexRow->addWidget(m_indexStatus, 0, Qt::AlignTop);
+    form->addRow(QString(), indexRow);
+    connect(m_indexStatus, &QPushButton::clicked, this, [this] {
+        auto *dialog = new IndexStatusDialog(m_folder.isLocalFile() ? m_folder.toLocalFile() : QString(), m_indexBackend, this);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->show();
+    });
+    setIndexBackend(new SystemIndexBackend(this));
     layout->addLayout(form);
     layout->addWidget(m_filterEditor);
     auto *savedRow = new QHBoxLayout;
@@ -725,10 +744,12 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
     connect(m_scope, &QComboBox::currentIndexChanged, this, [this](int index) {
         m_field->setItemText(1, index == Indexed ? i18nc("@item:inlistbox", "Indexed file contents") : i18nc("@item:inlistbox", "File contents (UTF-8 text)"));
         m_status->setText(scopeStatus(index, m_workspaceScope && m_workspaceScope().active && m_workspaceOnly->isChecked()));
+        refreshIndexNotice(true);
     });
     connect(m_workspaceOnly, &QCheckBox::toggled, this, [this] {
         refreshWorkspaceScope();
         m_status->setText(scopeStatus(m_scope->currentIndex(), m_workspaceScope && m_workspaceScope().active && m_workspaceOnly->isChecked()));
+        refreshIndexNotice(false);
     });
     connect(m_query, &QLineEdit::returnPressed, this, &SearchWidget::start);
     // Show how an advanced query is grouped, or why it can't be run, as it is edited.
@@ -808,7 +829,46 @@ bool SearchWidget::setFolder(const QUrl &folder)
     }
     m_folder = folder;
     m_folderLabel->setText(folder.toDisplayString());
+    refreshIndexNotice(false);
     return true;
+}
+
+void SearchWidget::setIndexBackend(IndexBackend *backend)
+{
+    if (m_indexBackend) {
+        disconnect(m_indexBackend, nullptr, this, nullptr);
+        if (m_indexBackend->parent() == this && m_indexBackend != backend) {
+            m_indexBackend->deleteLater();
+        }
+    }
+    m_indexBackend = backend;
+    if (m_indexBackend) {
+        connect(m_indexBackend, &IndexBackend::serviceChanged, this, [this] {
+            refreshIndexNotice(true);
+        });
+    }
+    refreshIndexNotice(true);
+}
+
+void SearchWidget::refreshIndexNotice(bool reload)
+{
+    const bool indexed = m_scope->currentIndex() == Indexed;
+    m_indexStatus->setVisible(indexed);
+    if (!indexed || !m_indexBackend) {
+        m_indexNotice->clear();
+        m_indexNotice->hide();
+        return;
+    }
+    if (reload) {
+        m_indexConfig = m_indexBackend->config();
+        m_indexService = m_indexBackend->service();
+    }
+    // Indexed search covers all indexed folders, so only report on the current folder outside a workspace.
+    const bool workspaceOnly = m_workspaceScope && m_workspaceScope().active && m_workspaceOnly->isChecked();
+    const QString folder = !workspaceOnly && m_folder.isLocalFile() ? m_folder.toLocalFile() : QString();
+    const QStringList warnings = IndexStatus::warnings(m_indexConfig, m_indexService, folder);
+    m_indexNotice->setText(warnings.join(QLatin1Char(' ')));
+    m_indexNotice->setVisible(!warnings.isEmpty());
 }
 
 QUrl SearchWidget::folder() const

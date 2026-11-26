@@ -10,6 +10,7 @@
 #include "doubleshift.h"
 #include "embeddedmetadatasettings.h"
 #include "folderpreview.h"
+#include "indexbackend.h"
 #include "interfacelanguage.h"
 #include "libraryarchive.h"
 #include "libraryconfirmations.h"
@@ -1460,18 +1461,9 @@ QWidget *SettingsDialog::createSearchPage()
     layout->addWidget(status);
     layout->addStretch();
     connect(open, &QPushButton::clicked, page, [status] {
-        const auto plugin = KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings"), QStringLiteral("kcm_baloofile"));
-        const auto widgetPlugin = KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings_qwidgets"), QStringLiteral("kcm_baloofile"));
-        if (!plugin.isValid() && !widgetPlugin.isValid()) {
-            status->setText(i18nc("@info", "KDE File Search settings are not installed."));
-            return;
-        }
-        const QString launcher = QStandardPaths::findExecutable(QStringLiteral("kcmshell6"));
-        if (launcher.isEmpty() || !QProcess::startDetached(launcher, {QStringLiteral("kcm_baloofile")})) {
-            status->setText(i18nc("@info", "Could not launch KDE File Search settings."));
-            return;
-        }
-        status->setText(i18nc("@info", "Requested KDE File Search settings. Changes affect the shared Baloo index."));
+        QString error;
+        status->setText(
+            SystemIndexBackend::launchSettings(&error) ? i18nc("@info", "Requested KDE File Search settings. Changes affect the shared Baloo index.") : error);
     });
     return page;
 }

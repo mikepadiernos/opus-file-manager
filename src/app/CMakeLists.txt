@@ -57,6 +57,10 @@ add_library(opusfm_app STATIC
     fileoperations.h
     kdeconnectclient.cpp
     kdeconnectclient.h
+    indexbackend.cpp
+    indexbackend.h
+    indexstatusdialog.cpp
+    indexstatusdialog.h
     kdeconnectsharedialog.cpp
     kdeconnectsharedialog.h
     dropdownwindow.cpp

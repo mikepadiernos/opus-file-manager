@@ -43,6 +43,8 @@
 #include "foldertree.h"
 #include "folderview.h"
 #include "gallerywindow.h"
+#include "indexbackend.h"
+#include "indexstatusdialog.h"
 #include "informationpanel.h"
 #include "kdeconnectclient.h"
 #include "kdeconnectsharedialog.h"
@@ -1538,6 +1540,8 @@ void MainWindow::setupPanes()
         },
         m_workspaceSplitter);
     m_searchPanel->hide();
+    m_indexBackend = new SystemIndexBackend(this);
+    m_searchPanel->searchWidget()->setIndexBackend(m_indexBackend);
     connect(m_searchPanel->searchWidget(), &SearchWidget::revealRequested, this, [this](const QUrl &url) {
         activePane()->revealUrl(url);
     });
@@ -2401,6 +2405,20 @@ void MainWindow::showApplicationPackage()
     dialog->show();
 }
 
+void MainWindow::setIndexBackend(IndexBackend *backend)
+{
+    m_indexBackend = backend;
+    m_searchPanel->searchWidget()->setIndexBackend(backend);
+}
+
+void MainWindow::showIndexStatus()
+{
+    const QUrl url = activePane()->url();
+    auto *dialog = new IndexStatusDialog(url.isLocalFile() ? url.toLocalFile() : QString(), m_indexBackend, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
 KFileItem MainWindow::selectedDiskImage() const
 {
     const KFileItemList selected = activePane()->view()->selectedItems();
@@ -2673,6 +2691,10 @@ void MainWindow::setupActions()
     search->setText(i18nc("@action", "Search Current Folder…"));
     search->setIcon(QIcon::fromTheme(QStringLiteral("edit-find")));
     actions->setDefaultShortcut(search, Qt::CTRL | Qt::ALT | Qt::Key_F);
+    QAction *indexStatus = actions->addAction(QStringLiteral("index_status"), this, &MainWindow::showIndexStatus);
+    indexStatus->setText(i18nc("@action", "Indexing Status…"));
+    indexStatus->setToolTip(i18nc("@info:tooltip", "Show the file indexer's state, indexed folders and coverage of the current folder"));
+    indexStatus->setIcon(QIcon::fromTheme(QStringLiteral("baloo")));
     QAction *duplicateFinder = actions->addAction(QStringLiteral("find_duplicates"), this, &MainWindow::showDuplicateFinder);
     duplicateFinder->setText(i18nc("@action", "Find Duplicate Files…"));
     QAction *compareFolders = actions->addAction(QStringLiteral("compare_pane_folders"), this, &MainWindow::comparePaneFolders);

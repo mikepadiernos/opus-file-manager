@@ -4,6 +4,8 @@
 
 #include "favoritesmodel.h"
 #include "folderview.h"
+#include "indexbackend.h"
+#include "indexstatusdialog.h"
 #include "libraryregistry.h"
 #include "mainwindow.h"
 #include "pane.h"
@@ -56,6 +58,53 @@
 #include <QTreeWidget>
 #include <QWidgetAction>
 
+namespace
+{
+class FakeIndexBackend : public IndexBackend
+{
+public:
+    using IndexBackend::IndexBackend;
+
+    IndexStatus::Config config() const override
+    {
+        ++reads;
+        return settings;
+    }
+    IndexStatus::Service service() const override
+    {
+        return indexer;
+    }
+    bool isIndexed(const QString &) const override
+    {
+        return false;
+    }
+    bool hasExtractor(const QString &) const override
+    {
+        return true;
+    }
+    bool suspend(QString *) override
+    {
+        return false;
+    }
+    bool resume(QString *) override
+    {
+        return false;
+    }
+    bool checkUnindexedFiles(QString *) override
+    {
+        return false;
+    }
+    bool openSettings(QString *) override
+    {
+        return false;
+    }
+
+    IndexStatus::Config settings;
+    IndexStatus::Service indexer;
+    mutable int reads = 0;
+};
+}
+
 class SearchWidgetTest : public QObject
 {
     Q_OBJECT
@@ -64,6 +113,54 @@ private Q_SLOTS:
     void initTestCase()
     {
         QStandardPaths::setTestModeEnabled(true);
+    }
+
+    void showsIndexWarningsInBalooScope()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchrc")), KConfig::SimpleConfig);
+        FakeIndexBackend backend;
+        backend.settings.available = true;
+        backend.settings.enabled = true;
+        backend.settings.includeFolders = {root.path()};
+        backend.indexer.running = true;
+        backend.indexer.state = int(IndexStatus::State::Idle);
+        SearchWidget widget(QUrl::fromLocalFile(root.path()), nullptr, config);
+        widget.setIndexBackend(&backend);
+        widget.show();
+        auto *scope = widget.findChild<QComboBox *>(QStringLiteral("searchScope"));
+        auto *notice = widget.findChild<QLabel *>(QStringLiteral("searchIndexNotice"));
+        auto *status = widget.findChild<QPushButton *>(QStringLiteral("searchIndexStatus"));
+        QVERIFY(scope && notice && status);
+        QCOMPARE(scope->currentIndex(), 0);
+        QVERIFY(!notice->isVisible() && !status->isVisible());
+        // The live scope doesn't read the index.
+        QCOMPARE(backend.reads, 0);
+
+        scope->setCurrentIndex(1);
+        QVERIFY(status->isVisible());
+        QVERIFY(!notice->isVisible());
+        QCOMPARE(backend.reads, 1);
+
+        backend.indexer.state = int(IndexStatus::State::Suspended);
+        Q_EMIT backend.serviceChanged();
+        QVERIFY(notice->isVisible());
+        QVERIFY(notice->text().contains(QStringLiteral("suspended")));
+
+        // Changing folders reuses the state read last.
+        QVERIFY(widget.setFolder(QUrl::fromLocalFile(QStringLiteral("/srv"))));
+        QCOMPARE(backend.reads, 2);
+        QVERIFY(notice->text().contains(QStringLiteral("outside the indexed folders")));
+
+        status->click();
+        auto *dialog = widget.findChild<IndexStatusDialog *>();
+        QVERIFY(dialog);
+        QVERIFY(dialog->findChild<QLabel *>(QStringLiteral("indexFolderCoverage"))->text().contains(QStringLiteral("outside")));
+        dialog->close();
+
+        scope->setCurrentIndex(0);
+        QVERIFY(!notice->isVisible() && !status->isVisible());
     }
 
     void usesSavedSearchDefaults()

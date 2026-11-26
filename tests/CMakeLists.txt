@@ -288,6 +288,12 @@ ecm_add_test(applicationpackagedialogtest.cpp
     GUI
 )
 
+ecm_add_test(indexstatusdialogtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
 ecm_add_test(kdeconnectsharedialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"

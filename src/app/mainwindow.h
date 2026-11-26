@@ -28,6 +28,7 @@ class DropDownWindow;
 class KWinBackend;
 class DiskImageBackend;
 class PackageTools;
+class IndexBackend;
 class KWinIntegration;
 class CombinedPanel;
 class DesktopTray;
@@ -168,6 +169,10 @@ public:
     void setPackageTools(PackageTools *tools);
     /// Opens the Application Package dialog for the selected AppImage, Flatpak or snap package.
     void showApplicationPackage();
+    /// Replaces the file indexer the Indexing Status dialog and the search panel report on, for tests.
+    void setIndexBackend(IndexBackend *backend);
+    /// Opens the Indexing Status dialog for the active pane's folder.
+    void showIndexStatus();
     /**
      * Adds the selected local items to @p archivePath with Ark, after a
      * confirmation, since Ark edits the archive in place. Refuses formats the
@@ -466,6 +471,7 @@ private:
     std::optional<Ark::Backends> m_arkBackends;
     std::unique_ptr<DiskImageBackend> m_diskImages;
     PackageTools *m_packageTools = nullptr;
+    IndexBackend *m_indexBackend = nullptr;
 
     KFilePlacesModel *m_placesModel = nullptr;
     DesktopTray *m_desktopTray = nullptr;
