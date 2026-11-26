@@ -1,23 +1,40 @@
 # Rust query-parser prototype
 
+[![Docs index](https://img.shields.io/badge/docs-index-3daee9?style=flat-square)](README.md)
+[![Roadmap: M21 advanced search](https://img.shields.io/badge/roadmap-M21%20advanced%20search-8957e5?style=flat-square)](ROADMAP.md#m21-advanced-search)
+[![Native tagging](https://img.shields.io/badge/guide-native%20tagging-3daee9?style=flat-square)](tagging.md)
+[![Issue #242](https://img.shields.io/badge/issue-%23242-6e7781?style=flat-square&logo=github)](https://github.com/mikepadiernos/plasma-opus/issues/242)
+
+![Milestone M21](https://img.shields.io/badge/milestone-M21-8957e5?style=flat-square)
+![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)
+
 M21 evaluated Rust for self-contained core logic by reimplementing the
 advanced search query parser ([#242]) behind a narrow C ABI. This document
-records what was built, what the boundary tests found and the recommendation
-for later milestones. The C++ parser in `src/core/searchquery.cpp` remains the
-only parser the application uses.
+records what was built, what the boundary tests found, and the criteria
+later milestones use to decide on Rust.
+
+> [!NOTE]
+> The prototype is off by default and only built for tests. The C++ parser in
+> `src/core/searchquery.cpp` remains the only parser the application uses.
+
+## Contents
+
+- [What was built](#what-was-built)
+- [Equivalence](#equivalence)
+- [Boundary findings](#boundary-findings)
+- [Costs](#costs)
+- [Recommendation](#recommendation)
+- [M23 tagging evaluation](#m23-tagging-evaluation)
 
 ## What was built
 
-- `rust/searchquery/`: the `opus_searchquery` crate, with no dependencies.
-  `src/parser.rs` mirrors the C++ tokenizer, parser, term validation and
-  normalized output; `src/lib.rs` exposes the C ABI.
-- `rust/searchquery/include/opus_searchquery.h`: the C declarations and a
-  header-only C++ wrapper, `OpusSearchQuery::check()`, that takes a `QString`
-  or UTF-8 bytes and returns the status and a `QString`.
-- `OPUSFM_RUST_PROTOTYPE`: a CMake option, off by default. When on, CMake
-  imports the crate with [Corrosion] and adds two tests:
-  - `opusfm-rustsearchquerytest` compares the C++ and Rust parsers.
-  - `opusfm-rust-searchquery-cargo` runs the crate's own `cargo test`.
+| Path or option                                | What it is                                                                                                                                                                    |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rust/searchquery/`                           | The `opus_searchquery` crate, with no dependencies. `src/parser.rs` mirrors the C++ tokenizer, parser, term validation and normalized output; `src/lib.rs` exposes the C ABI. |
+| `rust/searchquery/include/opus_searchquery.h` | The C declarations and a header-only C++ wrapper, `OpusSearchQuery::check()`, that takes a `QString` or UTF-8 bytes and returns the status and a `QString`.                   |
+| `OPUSFM_RUST_PROTOTYPE`                       | A CMake option, off by default. When on, CMake imports the crate as a static library with [Corrosion] 0.5 or later and adds two tests.                                        |
+| `opusfm-rustsearchquerytest`                  | `tests/rustsearchquerytest.cpp`, which compares the C++ and Rust parsers.                                                                                                     |
+| `opusfm-rust-searchquery-cargo`               | Runs the crate's own `cargo test --offline`.                                                                                                                                  |
 
 The ABI is two functions:
 
@@ -26,10 +43,13 @@ int32_t opus_query_check(const uint8_t *text, size_t len, uint8_t **out, size_t 
 void opus_query_free(uint8_t *ptr, size_t len);
 ```
 
-`opus_query_check()` returns `OPUS_QUERY_VALID` with the normalized query, or
-`OPUS_QUERY_INVALID` with an English error message. It returns
-`OPUS_QUERY_BAD_ENCODING`, `OPUS_QUERY_BAD_ARGUMENT` or
-`OPUS_QUERY_INTERNAL_ERROR` without output.
+| Status from `opus_query_check()` | Output                           |
+| -------------------------------- | -------------------------------- |
+| `OPUS_QUERY_VALID`               | The normalized query             |
+| `OPUS_QUERY_INVALID`             | An English error message         |
+| `OPUS_QUERY_BAD_ENCODING`        | None; the input isn't UTF-8      |
+| `OPUS_QUERY_BAD_ARGUMENT`        | None; a required pointer is null |
+| `OPUS_QUERY_INTERNAL_ERROR`      | None; the parser panicked        |
 
 To build and test it in the dev container:
 
@@ -91,8 +111,8 @@ All of them match. Two differences are known and asserted in
 
 ## Costs
 
-Measured in the dev container (Fedora 44, aarch64, rustc 1.100, Corrosion
-0.5.2):
+Measured in the dev container for M21 (Fedora 44, aarch64, rustc 1.100,
+Corrosion 0.5.2):
 
 | Item           | Cost                                                                                                                                    |
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
@@ -102,6 +122,9 @@ Measured in the dev container (Fedora 44, aarch64, rustc 1.100, Corrosion
 | Linked size    | the debug comparison test is 1.3 MB stripped, against 0.2 MB for `searchquerytest`; about 0.6 MB is Rust code                           |
 | Source         | 650 lines of Rust for the parser and 150 for the ABI, against 670 lines of C++ for the parser and evaluator                             |
 | Tooling        | `cargo fmt` and `cargo clippy -D warnings` alongside clang-format; a second test runner under ctest                                     |
+
+The source sizes are from M21. Both parsers have since gained the tag and
+`meta:` terms, which is the dual maintenance described next.
 
 The larger maintenance cost is keeping two implementations equivalent:
 every change to the query syntax or its messages must be made twice and kept
