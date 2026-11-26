@@ -88,6 +88,22 @@ void verifySavedYazi(const WindowSession &session)
         QCOMPARE(result.yaziColumnRatios, expected.yaziColumnRatios);
     }
 }
+
+/// A layout with each pane's Yazi state cleared, to compare everything else.
+Layout withoutYazi(Layout layout)
+{
+    if (layout.session) {
+        for (PaneSession *pane : {&layout.session->left, &layout.session->right}) {
+            const PaneSession cleared;
+            pane->yaziMode = cleared.yaziMode;
+            pane->yaziPreview = cleared.yaziPreview;
+            pane->yaziPreviewContent = cleared.yaziPreviewContent;
+            pane->yaziParentColumn = cleared.yaziParentColumn;
+            pane->yaziColumnRatios = cleared.yaziColumnRatios;
+        }
+    }
+    return layout;
+}
 }
 
 class WorkspaceRestoreTest : public QObject
@@ -206,6 +222,138 @@ private Q_SLOTS:
         selection.mode = BehaviorMode::None;
         selection.yaziMode = true;
         QVERIFY(!selection.appliesYaziMode(true));
+    }
+
+    void yaziOptionsChooseTheRestoredParts()
+    {
+        using WorkspaceRestore::YaziParts;
+        WorkspaceRestore::Options options;
+        BehaviorSelection selection;
+        QCOMPARE(WorkspaceRestore::yaziParts(selection, options), YaziParts({true, true}));
+        options.yaziMode = false;
+        QCOMPARE(WorkspaceRestore::yaziParts(selection, options), YaziParts({false, true}));
+        options.yaziColumns = false;
+        QCOMPARE(WorkspaceRestore::yaziParts(selection, options), YaziParts({false, false}));
+        QVERIFY(!WorkspaceRestore::yaziParts(selection, options).any());
+        options = {};
+        options.yaziColumns = false;
+        QCOMPARE(WorkspaceRestore::yaziParts(selection, options), YaziParts({true, false}));
+        QVERIFY(WorkspaceRestore::yaziParts(selection, options).any());
+
+        // The options never restore Yazi state that the workspace's behaviors leave out.
+        options = {};
+        selection.mode = BehaviorMode::Selected;
+        selection.yaziMode = false;
+        QCOMPARE(WorkspaceRestore::yaziParts(selection, options), YaziParts());
+        selection.mode = BehaviorMode::None;
+        selection.yaziMode = true;
+        QCOMPARE(WorkspaceRestore::yaziParts(selection, options), YaziParts());
+        // Workspaces saved before the Yazi mode behavior follow the layout and views, then the options.
+        selection = {};
+        selection.yaziMode = std::nullopt;
+        QCOMPARE(WorkspaceRestore::yaziParts(selection, options), YaziParts({true, true}));
+        options.yaziMode = false;
+        QCOMPARE(WorkspaceRestore::yaziParts(selection, options), YaziParts({false, true}));
+        options.views = false;
+        QCOMPARE(WorkspaceRestore::yaziParts(selection, options), YaziParts());
+    }
+
+    void yaziOptionsKeepEachPanesCurrentYaziState()
+    {
+        Layout full;
+        QString error;
+        QVERIFY2(WorkspaceRestore::merge(savedLayout(), currentLayout(), {}, {}, full, error), qPrintable(error));
+        // A partial pane restore matches the session's arrangement to the restored layout's, as stored layouts do.
+        full.session->dual = full.dual;
+        full.session->stacked = full.stacked;
+        const Layout saved = savedLayout();
+        const Layout current = currentLayout();
+
+        // Without the mode, each pane keeps its own mode and takes the saved columns.
+        WorkspaceRestore::Options options;
+        options.yaziMode = false;
+        Layout result;
+        QVERIFY2(WorkspaceRestore::merge(saved, current, {}, options, result, error), qPrintable(error));
+        QCOMPARE(result.session->left.yaziMode, current.session->left.yaziMode);
+        QCOMPARE(result.session->right.yaziMode, current.session->right.yaziMode);
+        QCOMPARE(result.session->left.yaziPreview, 0);
+        QCOMPARE(result.session->left.yaziPreviewContent, 1);
+        QCOMPARE(result.session->left.yaziParentColumn, 0);
+        QCOMPARE(result.session->left.yaziColumnRatios, QList<int>({2, 5, 3}));
+        QCOMPARE(result.session->right.yaziPreview, -1);
+        QVERIFY(result.session->right.yaziColumnRatios.isEmpty());
+        // The views, tabs, locations and everything else are restored as without the option.
+        QCOMPARE(withoutYazi(result), withoutYazi(full));
+        QCOMPARE(result.session->left.viewMode, 1);
+        QCOMPARE(result.session->left.tabs, saved.session->left.tabs);
+
+        // Without the columns, each pane takes the saved mode and keeps its own columns.
+        options = {};
+        options.yaziColumns = false;
+        QVERIFY2(WorkspaceRestore::merge(saved, current, {}, options, result, error), qPrintable(error));
+        QVERIFY(result.session->left.yaziMode);
+        QVERIFY(!result.session->right.yaziMode);
+        QCOMPARE(result.session->left.yaziPreview, -1);
+        QCOMPARE(result.session->left.yaziPreviewContent, -1);
+        QCOMPARE(result.session->left.yaziParentColumn, -1);
+        QVERIFY(result.session->left.yaziColumnRatios.isEmpty());
+        QCOMPARE(result.session->right.yaziPreview, 1);
+        QCOMPARE(result.session->right.yaziColumnRatios, QList<int>({1, 1, 1}));
+        QCOMPARE(withoutYazi(result), withoutYazi(full));
+
+        // Without either, nothing of Yazi mode changes, whether or not the views are restored.
+        options.yaziMode = false;
+        for (const bool views : {false, true}) {
+            options.views = views;
+            QVERIFY2(WorkspaceRestore::merge(saved, current, {}, options, result, error), qPrintable(error));
+            verifyCurrentYazi(*result.session);
+            QCOMPARE(result.session->left.viewMode, views ? 1 : 0);
+            QCOMPARE(result.session->left.tabs, saved.session->left.tabs);
+        }
+        QCOMPARE(withoutYazi(result), withoutYazi(full));
+
+        // A workspace that restores only Yazi mode then restores nothing.
+        BehaviorSelection yaziOnly{BehaviorMode::Selected, false, false, false, false, false, true};
+        QVERIFY2(WorkspaceRestore::merge(saved, current, yaziOnly, options, result, error), qPrintable(error));
+        QCOMPARE(result, current);
+        options.yaziMode = true;
+        QVERIFY2(WorkspaceRestore::merge(saved, current, yaziOnly, options, result, error), qPrintable(error));
+        QVERIFY(result.session->left.yaziMode);
+        QCOMPARE(result.session->left.tabs, current.session->left.tabs);
+        QCOMPARE(result.session->left.yaziColumnRatios, current.session->left.yaziColumnRatios);
+        QCOMPARE(result.windowState, current.windowState);
+
+        // A workspace without the Yazi mode behavior is unaffected by the options.
+        BehaviorSelection withoutYaziBehavior{BehaviorMode::Selected, true, true, true, true, true, false};
+        Layout before;
+        QVERIFY2(WorkspaceRestore::merge(saved, current, withoutYaziBehavior, {}, before, error), qPrintable(error));
+        options = {};
+        options.yaziMode = false;
+        options.yaziColumns = false;
+        QVERIFY2(WorkspaceRestore::merge(saved, current, withoutYaziBehavior, options, result, error), qPrintable(error));
+        QCOMPARE(result, before);
+        verifyCurrentYazi(*result.session);
+
+        // A layout without a pane snapshot restores as before, with nothing of Yazi mode to keep.
+        const Layout noSnapshot{QByteArray("saved"), {1, 2}, {3, 4}, true, false, std::nullopt, std::nullopt};
+        QVERIFY2(WorkspaceRestore::merge(noSnapshot, current, {}, options, result, error), qPrintable(error));
+        QCOMPARE(result, noSnapshot);
+    }
+
+    void readsYaziOptionsFromSettings()
+    {
+        Settings::self()->setDefaults();
+        QCOMPARE(WorkspaceRestore::fromSettings(), WorkspaceRestore::Options());
+        Settings::setYaziWorkspaceRestoreMode(false);
+        QVERIFY(!WorkspaceRestore::fromSettings().yaziMode);
+        QVERIFY(WorkspaceRestore::fromSettings().yaziColumns);
+        Settings::setYaziWorkspaceRestoreColumns(false);
+        QVERIFY(!WorkspaceRestore::fromSettings().yaziColumns);
+        // They are Yazi mode settings, separate from the workspace defaults.
+        QCOMPARE(Settings::self()->findItem(QStringLiteral("YaziWorkspaceRestoreMode"))->group(), QStringLiteral("YaziMode"));
+        QCOMPARE(Settings::self()->findItem(QStringLiteral("YaziWorkspaceRestoreColumns"))->group(), QStringLiteral("YaziMode"));
+        QCOMPARE(WorkspaceRestore::defaultBehaviorSelection(), BehaviorSelection{});
+        Settings::self()->setDefaults();
     }
 
     void keepsCurrentTabsActiveTabsAndFilters()

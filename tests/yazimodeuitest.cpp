@@ -2068,6 +2068,116 @@ private Q_SLOTS:
         QTRY_VERIFY(!selector->text().endsWith(QStringLiteral(" *")));
     }
 
+    void workspaceLayoutSettingsChooseWhatIsRestored()
+    {
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup group = config->group(QStringLiteral("Workspaces"));
+        const bool hadCatalog = group.hasKey("Catalog");
+        const QByteArray previousCatalog = group.readEntry("Catalog", QByteArray());
+        group.deleteEntry("Catalog");
+        QVERIFY(group.sync());
+        const auto restore = qScopeGuard([config, hadCatalog, previousCatalog] {
+            Settings::setYaziWorkspaceRestoreMode(true);
+            Settings::setYaziWorkspaceRestoreColumns(true);
+            config->reparseConfiguration();
+            KConfigGroup saved = config->group(QStringLiteral("Workspaces"));
+            if (hadCatalog) {
+                saved.writeEntry("Catalog", previousCatalog);
+            } else {
+                saved.deleteEntry("Catalog");
+            }
+            saved.sync();
+        });
+        Settings::setYaziWorkspaceRestoreMode(false);
+        Settings::setYaziWorkspaceRestoreColumns(false);
+
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        Pane *pane = window.activePane();
+        pane->setYaziMode(true);
+        pane->setYaziPreview(false);
+        pane->setYaziParentColumn(false);
+        pane->setYaziColumnRatios({2, 5, 3});
+
+        window.actionCollection()->action(QStringLiteral("manage_workspaces"))->trigger();
+        auto *dialog = window.findChild<WorkspaceDialog *>(QStringLiteral("workspaceDialog"));
+        QVERIFY(dialog);
+        dialog->findChild<QLineEdit *>(QStringLiteral("workspaceName"))->setText(QStringLiteral("Columns"));
+        dialog->findChild<QLineEdit *>(QStringLiteral("workspaceShortLabel"))->setText(QStringLiteral("C"));
+        dialog->findChild<QPushButton *>(QStringLiteral("workspaceCreate"))->click();
+        answerMessageBox(QMessageBox::Yes);
+        dialog->findChild<QPushButton *>(QStringLiteral("workspaceActivate"))->click();
+        dialog->close();
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+
+        QAction *selector = window.actionCollection()->action(QStringLiteral("workspace_selector"));
+        QAction *restoreLayout = window.actionCollection()->action(QStringLiteral("restore_workspace_layout"));
+        QVERIFY(selector && restoreLayout);
+        QTRY_VERIFY(restoreLayout->isEnabled());
+        QTRY_VERIFY(selector->text().contains(QStringLiteral("Columns")));
+
+        // The saved layout records the pane's Yazi state even though it won't be restored.
+        const auto storedLayout = [config] {
+            WorkspaceCatalog::Catalog catalog;
+            QString error;
+            if (!WorkspaceCatalog::load(config->group(QStringLiteral("Workspaces")), catalog, error) || catalog.workspaces.size() != 1) {
+                return std::optional<WorkspaceCatalog::Layout>();
+            }
+            return catalog.workspaces.first().layout;
+        };
+        const std::optional<WorkspaceCatalog::Layout> saved = storedLayout();
+        QVERIFY(saved && saved->session);
+        const PaneSession &savedPane = saved->session->left.yaziMode ? saved->session->left : saved->session->right;
+        QVERIFY(savedPane.yaziMode);
+        QCOMPARE(savedPane.yaziPreview, 0);
+        QCOMPARE(savedPane.yaziParentColumn, 0);
+        QCOMPARE(savedPane.yaziColumnRatios, QList<int>({2, 5, 3}));
+
+        window.actionCollection()->action(QStringLiteral("toggle_yazi_mode"))->trigger();
+        QVERIFY(!pane->yaziMode());
+        pane->setYaziPreview(true);
+        pane->setYaziParentColumn(true);
+        pane->setYaziColumnRatios({1, 1, 1});
+        const QList<int> changedRatios = pane->saveState().yaziColumnRatios;
+        QTRY_VERIFY(selector->text().endsWith(QStringLiteral(" *")));
+
+        // Without either setting, the pane keeps its Yazi mode and columns.
+        answerMessageBox(QMessageBox::Yes);
+        restoreLayout->trigger();
+        QVERIFY(!pane->yaziMode());
+        QVERIFY(pane->yaziPreview());
+        QVERIFY(pane->yaziParentColumn());
+        QCOMPARE(pane->saveState().yaziColumnRatios, changedRatios);
+        QVERIFY(!window.actionCollection()->action(QStringLiteral("toggle_yazi_mode"))->isChecked());
+        // The window still differs from the saved layout, which is left as saved.
+        QTRY_VERIFY(selector->text().endsWith(QStringLiteral(" *")));
+        QCOMPARE(storedLayout(), saved);
+
+        // With the columns, they are restored while the pane keeps its mode.
+        Settings::setYaziWorkspaceRestoreColumns(true);
+        answerMessageBox(QMessageBox::Yes);
+        restoreLayout->trigger();
+        QTRY_VERIFY(!pane->yaziPreview());
+        QVERIFY(!pane->yaziParentColumn());
+        QCOMPARE(pane->yaziColumnRatios(), YaziMode::Ratios({2, 5, 3}));
+        QVERIFY(!pane->yaziMode());
+        QCOMPARE(storedLayout(), saved);
+
+        // With the mode too, the pane returns to Yazi mode and matches the saved layout.
+        Settings::setYaziWorkspaceRestoreMode(true);
+        answerMessageBox(QMessageBox::Yes);
+        restoreLayout->trigger();
+        QTRY_VERIFY(pane->yaziMode());
+        QVERIFY(!pane->yaziColumns()->previewEnabled());
+        QVERIFY(!pane->yaziColumns()->parentColumnEnabled());
+        QCOMPARE(pane->yaziColumnRatios(), YaziMode::Ratios({2, 5, 3}));
+        QVERIFY(window.actionCollection()->action(QStringLiteral("toggle_yazi_mode"))->isChecked());
+        QTRY_VERIFY(!selector->text().endsWith(QStringLiteral(" *")));
+        QCOMPARE(storedLayout(), saved);
+    }
+
     void vimKeysMoveTheCurrentItem()
     {
         Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Vim);

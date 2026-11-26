@@ -1383,6 +1383,10 @@ private Q_SLOTS:
         for (const QString &entry : {QStringLiteral("YaziParentColumnVisible"), QStringLiteral("YaziPreviewVisible"), QStringLiteral("YaziColumnRatios")}) {
             QCOMPARE(tabOf(entry), QStringLiteral("Columns"));
         }
+        for (const QString &entry : {QStringLiteral("YaziWorkspaceRestoreMode"), QStringLiteral("YaziWorkspaceRestoreColumns")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("Workspace Layouts"));
+        }
+        QCOMPARE(tabOf(QStringLiteral("WorkspaceDefaultYaziMode")), QStringLiteral("Behaviors"));
         QCOMPARE(tabOf(QStringLiteral("ShowOpenInNewTab")), QStringLiteral("Actions"));
         QCOMPARE(tabOf(QStringLiteral("ShowCopyMoveToMenus")), QStringLiteral("Actions"));
         QCOMPARE(tabOf(QStringLiteral("DetailsDensity")), QStringLiteral("Details"));

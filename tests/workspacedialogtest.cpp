@@ -746,6 +746,152 @@ private Q_SLOTS:
         }
     }
 
+    void yaziRestoreOptionsKeepCurrentYaziStateWithoutChangingTheWorkspace()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        const auto group = config.group(QStringLiteral("Workspaces"));
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        const QString workspaceId = catalog.workspaces.first().id;
+        WindowSession savedSession;
+        savedSession.left.tabs = {QUrl::fromLocalFile(QStringLiteral("/saved"))};
+        savedSession.left.viewMode = 2;
+        savedSession.left.yaziMode = true;
+        savedSession.left.yaziPreview = 0;
+        savedSession.left.yaziPreviewContent = 1;
+        savedSession.left.yaziParentColumn = 0;
+        savedSession.left.yaziColumnRatios = {2, 5, 3};
+        savedSession.right.tabs = {QUrl::fromLocalFile(QStringLiteral("/saved-right"))};
+        // A stored session's arrangement is the layout's.
+        savedSession.dual = true;
+        savedSession.stacked = false;
+        const WorkspaceCatalog::Layout saved{QByteArray("saved"), {1, 2}, {3, 4}, true, false, std::nullopt, savedSession};
+        QVERIFY(WorkspaceCatalog::setLayout(catalog, workspaceId, saved, error));
+        QVERIFY(WorkspaceCatalog::save(group, catalog, error));
+
+        WindowSession currentSession;
+        currentSession.left.tabs = {QUrl::fromLocalFile(QStringLiteral("/current"))};
+        currentSession.left.yaziColumnRatios = {1, 1, 1};
+        currentSession.right.tabs = {QUrl::fromLocalFile(QStringLiteral("/current-right"))};
+        currentSession.right.yaziMode = true;
+        currentSession.right.yaziPreview = 1;
+        currentSession.dual = false;
+        currentSession.stacked = true;
+        const WorkspaceCatalog::Layout current{QByteArray("current"), {8, 9}, {10, 11}, false, true, std::nullopt, currentSession};
+
+        const auto load = [&group] {
+            WorkspaceCatalog::Catalog loaded;
+            QString loadError;
+            [&] {
+                QVERIFY2(WorkspaceCatalog::load(group, loaded, loadError), qPrintable(loadError));
+                QCOMPARE(loaded.workspaces.size(), 1);
+            }();
+            return loaded;
+        };
+        // Activates the workspace with the given Yazi options and returns the applied layout, if any.
+        const auto activate = [&](bool restoreMode, bool restoreColumns) {
+            Settings::setYaziWorkspaceRestoreMode(restoreMode);
+            Settings::setYaziWorkspaceRestoreColumns(restoreColumns);
+            Settings::setConfirmWorkspaceSwitch(Settings::EnumConfirmWorkspaceSwitch::Never);
+            std::optional<WorkspaceCatalog::Layout> applied;
+            WorkspaceDialog dialog(
+                group,
+                [&current](WorkspaceCatalog::Layout &layout, QString &) {
+                    layout = current;
+                    return true;
+                },
+                [&applied](const WorkspaceCatalog::Layout &layout, QString &) {
+                    applied = layout;
+                    return true;
+                },
+                QString());
+            dialog.findChild<QListWidget *>(QStringLiteral("workspaceList"))->setCurrentRow(0);
+            dialog.findChild<QPushButton *>(QStringLiteral("workspaceActivate"))->click();
+            return applied;
+        };
+        const auto verifyStoredWorkspace = [&](const WorkspaceCatalog::BehaviorSelection &selection) {
+            const WorkspaceCatalog::Catalog stored = load();
+            QCOMPARE(stored.workspaces.first().layout, std::optional<WorkspaceCatalog::Layout>(saved));
+            QCOMPARE(stored.workspaces.first().behaviorSelection, selection);
+            QCOMPARE(stored.activeId, workspaceId);
+        };
+        const WorkspaceCatalog::BehaviorSelection allBehaviors = load().workspaces.first().behaviorSelection;
+
+        // Without the mode, each pane keeps its mode and takes the saved columns, views and tabs.
+        auto applied = activate(false, true);
+        QVERIFY(applied && applied->session);
+        QCOMPARE(applied->session->left.tabs, savedSession.left.tabs);
+        QCOMPARE(applied->session->left.viewMode, 2);
+        QVERIFY(!applied->session->left.yaziMode);
+        QVERIFY(applied->session->right.yaziMode);
+        QCOMPARE(applied->session->left.yaziPreview, 0);
+        QCOMPARE(applied->session->left.yaziPreviewContent, 1);
+        QCOMPARE(applied->session->left.yaziParentColumn, 0);
+        QCOMPARE(applied->session->left.yaziColumnRatios, QList<int>({2, 5, 3}));
+        QCOMPARE(applied->session->right.yaziPreview, -1);
+        QCOMPARE(applied->windowState, saved.windowState);
+        verifyStoredWorkspace(allBehaviors);
+
+        // Without either, all of each pane's Yazi state is kept and everything else restored.
+        applied = activate(false, false);
+        QVERIFY(applied && applied->session);
+        QCOMPARE(applied->session->left.tabs, savedSession.left.tabs);
+        QCOMPARE(applied->session->right.tabs, savedSession.right.tabs);
+        QCOMPARE(applied->session->left.viewMode, 2);
+        for (const auto &[result, expected] :
+             {qMakePair(applied->session->left, currentSession.left), qMakePair(applied->session->right, currentSession.right)}) {
+            QCOMPARE(result.yaziMode, expected.yaziMode);
+            QCOMPARE(result.yaziPreview, expected.yaziPreview);
+            QCOMPARE(result.yaziPreviewContent, expected.yaziPreviewContent);
+            QCOMPARE(result.yaziParentColumn, expected.yaziParentColumn);
+            QCOMPARE(result.yaziColumnRatios, expected.yaziColumnRatios);
+        }
+        verifyStoredWorkspace(allBehaviors);
+
+        // A workspace that restores only Yazi mode then has nothing to restore, but still becomes active.
+        WorkspaceCatalog::Catalog stored = load();
+        const WorkspaceCatalog::BehaviorSelection yaziOnly{WorkspaceCatalog::BehaviorMode::Selected, false, false, false, false, false, true};
+        stored.workspaces.first().behaviorSelection = yaziOnly;
+        stored.activeId.clear();
+        QVERIFY(WorkspaceCatalog::save(group, stored, error));
+        applied = activate(false, false);
+        QVERIFY(!applied);
+        verifyStoredWorkspace(yaziOnly);
+        applied = activate(true, false);
+        QVERIFY(applied && applied->session);
+        QVERIFY(applied->session->left.yaziMode);
+        QCOMPARE(applied->session->left.yaziColumnRatios, currentSession.left.yaziColumnRatios);
+        QCOMPARE(applied->session->left.tabs, currentSession.left.tabs);
+        verifyStoredWorkspace(yaziOnly);
+
+        // Saving a layout records each pane's Yazi state whatever the options say.
+        Settings::setYaziWorkspaceRestoreMode(false);
+        Settings::setYaziWorkspaceRestoreColumns(false);
+        Settings::setConfirmWorkspaceLayoutOverwrite(false);
+        {
+            WorkspaceDialog dialog(
+                group,
+                [&current](WorkspaceCatalog::Layout &layout, QString &) {
+                    layout = current;
+                    return true;
+                },
+                [](const WorkspaceCatalog::Layout &, QString &) {
+                    return true;
+                },
+                workspaceId);
+            dialog.findChild<QListWidget *>(QStringLiteral("workspaceList"))->setCurrentRow(0);
+            dialog.findChild<QPushButton *>(QStringLiteral("workspaceSaveLayout"))->click();
+        }
+        stored = load();
+        QCOMPARE(stored.workspaces.first().layout, std::optional<WorkspaceCatalog::Layout>(current));
+        QVERIFY(stored.workspaces.first().layout->session->right.yaziMode);
+        QCOMPARE(stored.workspaces.first().layout->session->right.yaziPreview, 1);
+        QCOMPARE(stored.workspaces.first().behaviorSelection, yaziOnly);
+    }
+
     void layoutOverwriteConfirmationCanBeSkipped()
     {
         QTemporaryDir directory;

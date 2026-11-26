@@ -2338,6 +2338,113 @@ private Q_SLOTS:
                  int(Settings::EnumYaziPreviewContent::Information));
     }
 
+    void yaziWorkspaceLayoutsSettings()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        Settings::self()->setDefaults();
+        Settings::self()->save();
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+
+            // Workspace Layouts is the Yazi Mode page's fifth tab, after Preview.
+            auto *page = dialog.findChild<QWidget *>(QStringLiteral("yaziWorkspaceLayoutsPage"));
+            QVERIFY(page);
+            auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+            QVERIFY(tabs);
+            QCOMPARE(tabs->indexOf(page), 4);
+            QCOMPARE(tabs->tabText(4), QStringLiteral("Workspace Layouts"));
+            QCOMPARE(tabs->tabText(3), QStringLiteral("Preview"));
+
+            QCheckBox *checks[2] = {};
+            int index = 0;
+            for (const char *name : {"kcfg_YaziWorkspaceRestoreMode", "kcfg_YaziWorkspaceRestoreColumns"}) {
+                QCOMPARE(dialog.findChildren<QWidget *>(QLatin1String(name)).size(), 1);
+                checks[index] = page->findChild<QCheckBox *>(QLatin1String(name));
+                QVERIFY2(checks[index] && checks[index]->isChecked(), name);
+                ++index;
+            }
+            QCheckBox *mode = checks[0];
+            QCheckBox *columns = checks[1];
+            QCOMPARE(mode->text(), QStringLiteral("Each pane's Yazi mode"));
+            QVERIFY(columns->text().contains(QStringLiteral("preview content")));
+
+            // The default Yazi mode behavior for new workspaces stays with the other behaviors.
+            QCOMPARE(dialog.findChildren<QWidget *>(QStringLiteral("kcfg_WorkspaceDefaultYaziMode")).size(), 1);
+            QVERIFY(!page->findChild<QWidget *>(QStringLiteral("kcfg_WorkspaceDefaultYaziMode")));
+            auto *behaviorsPage = dialog.findChild<QWidget *>(QStringLiteral("workspaceBehaviorsPage"));
+            QVERIFY(behaviorsPage);
+            auto *defaultYazi = behaviorsPage->findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultYaziMode"));
+            auto *defaultMode = behaviorsPage->findChild<QComboBox *>(QStringLiteral("kcfg_WorkspaceDefaultBehaviorMode"));
+            QVERIFY(defaultYazi && defaultMode);
+            QVERIFY(defaultYazi->toolTip().contains(QStringLiteral("Workspace Layouts")));
+
+            for (const char *name : {"yaziWorkspaceRestoreNotice", "yaziWorkspaceDefault", "yaziWorkspaceBehaviorNotice"}) {
+                auto *notice = page->findChild<QLabel *>(QLatin1String(name));
+                QVERIFY2(notice && notice->wordWrap() && !notice->text().isEmpty(), name);
+            }
+            const QString restoreNotice = page->findChild<QLabel *>(QStringLiteral("yaziWorkspaceRestoreNotice"))->text();
+            for (const char *part : {"view mode, tabs or locations", "saved layout or behaviors"}) {
+                QVERIFY2(restoreNotice.contains(QString::fromUtf8(part)), part);
+            }
+            QVERIFY(page->findChild<QLabel *>(QStringLiteral("yaziWorkspaceBehaviorNotice"))->text().contains(QStringLiteral("Workspaces › Behaviors")));
+
+            // The summary follows the default behaviors as they are edited.
+            auto *summary = page->findChild<QLabel *>(QStringLiteral("yaziWorkspaceDefault"));
+            QVERIFY(summary->text().contains(QStringLiteral("all behaviors")));
+            defaultMode->setCurrentIndex(Settings::EnumWorkspaceDefaultBehaviorMode::Selected);
+            QVERIFY(summary->text().contains(QStringLiteral("including Yazi mode")));
+            defaultYazi->setChecked(false);
+            QVERIFY(summary->text().contains(QStringLiteral("without Yazi mode")));
+            defaultMode->setCurrentIndex(Settings::EnumWorkspaceDefaultBehaviorMode::None);
+            QVERIFY(summary->text().contains(QStringLiteral("no behaviors")));
+            defaultMode->setCurrentIndex(Settings::EnumWorkspaceDefaultBehaviorMode::All);
+            defaultYazi->setChecked(true);
+            QVERIFY(summary->text().contains(QStringLiteral("all behaviors")));
+
+            // The views option says where Yazi mode is restored instead.
+            auto *views = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceRestoreViews"));
+            QVERIFY(views && views->toolTip().contains(QStringLiteral("Workspace Layouts")));
+
+            // The button shows the behaviors it names.
+            auto *showBehaviors = page->findChild<QPushButton *>(QStringLiteral("yaziShowWorkspaceBehaviors"));
+            QVERIFY(showBehaviors);
+            showBehaviors->click();
+            QVERIFY(dialog.currentPage());
+            QCOMPARE(dialog.currentPage()->name(), QStringLiteral("Workspaces"));
+            auto *workspaceTabs = qobject_cast<QTabWidget *>(behaviorsPage->parentWidget()->parentWidget());
+            QVERIFY(workspaceTabs);
+            QCOMPARE(workspaceTabs->currentWidget(), behaviorsPage);
+            QCOMPARE(workspaceTabs->tabText(workspaceTabs->currentIndex()), QStringLiteral("Behaviors"));
+
+            // Clearing the options saves them.
+            mode->setChecked(false);
+            columns->setChecked(false);
+            QVERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+            QVERIFY(!Settings::yaziWorkspaceRestoreMode());
+            QVERIFY(!Settings::yaziWorkspaceRestoreColumns());
+
+            // Defaults restores both.
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::RestoreDefaults)->isEnabled());
+            dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+            QVERIFY(mode->isChecked());
+            QVERIFY(columns->isChecked());
+            columns->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QVERIFY(Settings::yaziWorkspaceRestoreMode());
+        QVERIFY(!Settings::yaziWorkspaceRestoreColumns());
+
+        // The saved choices are shown when the dialog opens again.
+        SettingsDialog reopened(&places, nullptr);
+        QVERIFY(reopened.findChild<QCheckBox *>(QStringLiteral("kcfg_YaziWorkspaceRestoreMode"))->isChecked());
+        QVERIFY(!reopened.findChild<QCheckBox *>(QStringLiteral("kcfg_YaziWorkspaceRestoreColumns"))->isChecked());
+    }
+
     void workspaceIndicatorOptionsPersist()
     {
         KFilePlacesModel places;
