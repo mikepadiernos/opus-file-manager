@@ -25,8 +25,10 @@ plugins.
 The M25 features so far provide the toggle, the parent and preview columns,
 narrow-pane adaptation, persistence, keyboard-first navigation with optional
 Vim-style keys, selection and file actions through Plasma Opus's own actions,
-and filtering, search, sorting, tabs and history through the pane's and
-window's existing tools; see the [roadmap](ROADMAP.md#m25-yazi-mode).
+filtering, search, sorting, tabs and history through the pane's and window's
+existing tools, and folder contents, file information and transfer progress
+from the existing previews, information fields and transfer queue; see the
+[roadmap](ROADMAP.md#m25-yazi-mode).
 
 ## Entering and leaving
 
@@ -68,15 +70,17 @@ current index, which moves with the keyboard even when the selection doesn't.
   KIO previews, with the same size limits. Its own controls (close,
   placement, previous, next, gallery and open) are hidden, since the current
   column already provides navigation.
-- A focused folder shows a summary: its name, type and modification date. Its
-  contents are not listed.
+- A focused folder shows its contents; see [Folder contents](#folder-contents).
 - Updates wait 120 ms after the focus stops moving, so holding an arrow key
   doesn't start a preview for every item passed. A newer focus change cancels
   the pending update; the preview panel then discards results for the
-  previous item and stops its remote downloads.
+  previous item, stops its remote downloads and stops listing a folder.
+- While a preview or a folder listing loads, the column says "Loading
+  preview…" and a slim busy indicator runs along its top. The indicator keeps
+  its room when idle, so the preview doesn't jump.
 - With nothing focused, it shows "Nothing to preview.".
 - While the column is hidden, it doesn't update. Hiding it clears the preview
-  and stops any playing media.
+  and stops any playing media and listing.
 
 To show or hide it:
 
@@ -89,6 +93,72 @@ To show or hide it:
   and is on by default. Panes whose preview was never toggled follow it,
   including when it changes; a pane toggled with **View › Yazi Preview** keeps
   its own choice.
+
+### Folder contents
+
+Like Yazi, a focused folder previews what it contains: a read-only list of
+its entries, with their icons and names, folders first and sorted by name, as
+in the parent column.
+
+- Hidden entries follow the pane's **Show Hidden Files** setting and change
+  with it.
+- The title is the folder's name, and the footer shows its type, the target
+  of a symbolic link and its modification date.
+- The list is loaded in the background with KIO, as the folder view lists
+  folders, so a large or slow folder doesn't block the window. Moving the
+  focus elsewhere stops the listing.
+- Only the first 500 entries are listed; a note below says how many more
+  there are, such as "and 7 more…". An empty folder says "This folder is
+  empty.".
+- If the folder can't be listed, such as when access is denied or a remote
+  host doesn't answer, the note gives KIO's error. A listing that takes more
+  than ten seconds is stopped; the entries found so far stay listed, with a
+  note that the folder is slow to respond.
+- The list can't take the keyboard focus and has no selection, context menu
+  or dragging; open the folder to work with its contents.
+
+### File information
+
+Instead of the preview, the column can show the focused item's file
+information: its name, then its type, size, modification date, permissions,
+owner and group, and the target of a symbolic link. The fields come from the
+**Information** panel and are formatted the same way; fields the item doesn't
+have, such as a folder's size, are left out. In libraries, the item's
+library tags and fields are shown too when the Information panel shows them.
+
+File information is read from the folder listing, so it needs no download or
+other work, and the busy indicator doesn't run.
+
+To switch the column between the preview and file information:
+
+- choose **View › File Information in Yazi Preview** (action
+  `toggle_yazi_preview_information`). It applies to the active pane, is
+  checked when that pane shows file information, and is enabled only while
+  the active pane is in Yazi mode. It has no default shortcut;
+- or press `i` with the Vim-style keys. When the preview column is hidden,
+  the choice still changes, and a status message says the column isn't
+  shown.
+
+The `YaziPreviewContent` entry in the `[YaziMode]` group of the
+configuration, `Preview` or `Information`, sets what panes show until they
+are switched; it is `Preview` by default. Panes that were never switched
+follow it, including when it changes. M26 adds it to **Preferences**.
+
+### Limits
+
+The preview column applies the preview panel's limits unchanged:
+
+- Text is read up to **Preferences › Interface › Previews › Maximum text in
+  preview panel** (1 MiB by default); a longer file shows its beginning, and
+  the footer says "Preview truncated.".
+- Local images over 8 MiB, or with too many pixels, show "This image is too
+  large to preview.".
+- Remote files are downloaded to a temporary file for their preview, as in
+  the preview panel: text only up to the text limit, images up to 8 MiB and
+  other files up to 128 MiB. Larger downloads stop with "This remote file is
+  too large to preview.". **Show previews in remote folders** affects the
+  folder view's thumbnails, not the preview panel, so it doesn't change this.
+- Moving the focus stops the download, and the temporary file is removed.
 
 ## Narrow panes
 
@@ -167,43 +237,44 @@ columns, as do type-ahead filtering and the tab shortcuts. Space alone stays
 
 All the standard keys, plus:
 
-| Keys             | Command                                             |
-| ---------------- | --------------------------------------------------- |
-| `j`, `k`         | Move the focus down or up                           |
-| `gg`, `G`        | Move the focus to the first or last item            |
-| Ctrl+D, Ctrl+U   | Move the focus half a page down or up               |
-| `h`              | Open the parent folder                              |
-| `l`              | Open the focused folder or file                     |
-| `H`, `L`         | Go back or forward in the tab's history             |
-| `gh`             | Open the home folder (**Go › Home**'s folder)       |
-| `gp`, `gc`, `gv` | Focus the parent, current or preview column         |
-| `zp`             | Show or hide the preview column                     |
-| `q`              | Leave Yazi mode                                     |
-| Space            | Select or deselect the focused item, then move down |
-| `v`              | Start or end range selection                        |
-| `V`, Ctrl+A      | Select all                                          |
-| Escape           | Clear the selection                                 |
-| `yy`             | Copy the items to the clipboard                     |
-| `x`              | Cut the items to the clipboard                      |
-| `p`              | Paste into the current folder                       |
-| `r`              | Rename the items                                    |
-| `dd`             | Move the items to the Trash                         |
-| `a`              | Create a new folder or file                         |
-| `o`              | Open the items with another application             |
-| `c`, `m`         | Copy or move the items to the other pane            |
-| `u`              | Undo the last file operation                        |
-| `.`              | Show or hide hidden files                           |
-| `/`              | Open the pane's filter bar                          |
-| `\`              | Clear the pane's filter                             |
-| `s`              | Search file names in the current folder             |
-| `S`              | Search file contents in the current folder          |
-| `,n`, `,s`       | Sort by name or size                                |
-| `,m`, `,e`       | Sort by modification date or type                   |
-| `,r`             | Reverse the sort order                              |
-| `t`              | Open the focused folder in a new tab                |
-| `[`, `gT`        | Go to the previous tab                              |
-| `]`, `gt`        | Go to the next tab                                  |
-| `gw`             | Close the current tab                               |
+| Keys             | Command                                                |
+| ---------------- | ------------------------------------------------------ |
+| `j`, `k`         | Move the focus down or up                              |
+| `gg`, `G`        | Move the focus to the first or last item               |
+| Ctrl+D, Ctrl+U   | Move the focus half a page down or up                  |
+| `h`              | Open the parent folder                                 |
+| `l`              | Open the focused folder or file                        |
+| `H`, `L`         | Go back or forward in the tab's history                |
+| `gh`             | Open the home folder (**Go › Home**'s folder)          |
+| `gp`, `gc`, `gv` | Focus the parent, current or preview column            |
+| `zp`             | Show or hide the preview column                        |
+| `i`              | Switch the preview column to file information, or back |
+| `q`              | Leave Yazi mode                                        |
+| Space            | Select or deselect the focused item, then move down    |
+| `v`              | Start or end range selection                           |
+| `V`, Ctrl+A      | Select all                                             |
+| Escape           | Clear the selection                                    |
+| `yy`             | Copy the items to the clipboard                        |
+| `x`              | Cut the items to the clipboard                         |
+| `p`              | Paste into the current folder                          |
+| `r`              | Rename the items                                       |
+| `dd`             | Move the items to the Trash                            |
+| `a`              | Create a new folder or file                            |
+| `o`              | Open the items with another application                |
+| `c`, `m`         | Copy or move the items to the other pane               |
+| `u`              | Undo the last file operation                           |
+| `.`              | Show or hide hidden files                              |
+| `/`              | Open the pane's filter bar                             |
+| `\`              | Clear the pane's filter                                |
+| `s`              | Search file names in the current folder                |
+| `S`              | Search file contents in the current folder             |
+| `,n`, `,s`       | Sort by name or size                                   |
+| `,m`, `,e`       | Sort by modification date or type                      |
+| `,r`             | Reverse the sort order                                 |
+| `t`              | Open the focused folder in a new tab                   |
+| `[`, `gT`        | Go to the previous tab                                 |
+| `]`, `gt`        | Go to the next tab                                     |
+| `gw`             | Close the current tab                                  |
 
 `G`, `H`, `L`, `S`, `T` and `V` are Shift with the letter. Punctuation keys
 match whatever Shift the keyboard layout needs to type them. A number typed first repeats
@@ -273,16 +344,17 @@ The multi-key sequences and counts are Yazi mode's own and are not listed in
 own are also actions, with no default shortcuts, so they can be bound there or
 added to a toolbar:
 
-| Action                      | Menu                                         |
-| --------------------------- | -------------------------------------------- |
-| `toggle_yazi_mode`          | **View › Yazi Mode**                         |
-| `toggle_yazi_preview`       | **View › Yazi Preview**                      |
-| `toggle_yazi_vim_keys`      | **View › Vim-Style Keys in Yazi Mode**       |
-| `yazi_focus_parent_column`  | **Go › Yazi Columns › Focus Parent Column**  |
-| `yazi_focus_current_column` | **Go › Yazi Columns › Focus Current Column** |
-| `yazi_focus_preview`        | **Go › Yazi Columns › Focus Preview Column** |
-| `yazi_toggle_selection`     | **Edit › Toggle Selection of Focused Item**  |
-| `yazi_visual_selection`     | **Edit › Range Selection**                   |
+| Action                            | Menu                                         |
+| --------------------------------- | -------------------------------------------- |
+| `toggle_yazi_mode`                | **View › Yazi Mode**                         |
+| `toggle_yazi_preview`             | **View › Yazi Preview**                      |
+| `toggle_yazi_preview_information` | **View › File Information in Yazi Preview**  |
+| `toggle_yazi_vim_keys`            | **View › Vim-Style Keys in Yazi Mode**       |
+| `yazi_focus_parent_column`        | **Go › Yazi Columns › Focus Parent Column**  |
+| `yazi_focus_current_column`       | **Go › Yazi Columns › Focus Current Column** |
+| `yazi_focus_preview`              | **Go › Yazi Columns › Focus Preview Column** |
+| `yazi_toggle_selection`           | **Edit › Toggle Selection of Focused Item**  |
+| `yazi_visual_selection`           | **Edit › Range Selection**                   |
 
 The column and selection actions are enabled only while the active pane is in
 Yazi mode. The file keys use the window's existing actions, which already
@@ -344,6 +416,30 @@ enabled, confirmed, queued and undone exactly as that action is:
 When the action isn't available, such as pasting an empty clipboard or
 moving to the Trash outside a local folder, a status message says so and
 nothing happens.
+
+### Progress
+
+Yazi mode doesn't run file operations of its own, so their progress and
+errors are reported where they always are: KIO's job progress and
+notifications, conflict and error dialogs, and **File › Transfer Queue…**.
+
+The status row also follows the transfer queue, which runs copies and moves
+to the other pane (`c`, `m`, F5 and F6) and other queued transfers, from any
+pane:
+
+- While transfers run, wait or are paused, the row shows a compact summary
+  before the sort, such as **1 transfer running · 42%**, **1 transfer running
+  · 42% · 2 waiting** or **1 transfer paused**. The percentage is the
+  average of the running transfers.
+- Its tooltip lists each transfer and its progress.
+- Clicking it opens the transfer queue, as **File › Transfer Queue…** does.
+- When a transfer fails, the row says **Transfer failed** for eight seconds,
+  with the reason in the tooltip. The error itself is reported as before.
+  Failures from before the pane started following the queue aren't repeated.
+- With nothing queued, it is hidden.
+
+Pasting with `p` and moving to the Trash with `dd` run as KIO jobs directly,
+as their menu items do, so they show KIO's progress but not the summary.
 
 ### Safety
 
@@ -482,6 +578,15 @@ the pane's view mode.
   older sessions and layouts follow **Show the preview column in Yazi mode**.
   Toggling the preview marks the active workspace's layout as modified. A
   `yaziPreview` value that isn't a boolean makes the catalogue invalid.
+- **Preview content.** A pane switched between the preview and file
+  information saves its choice as the `YaziPreviewContent` entry, `Preview`
+  or `Information`, in its session group, and as the `yaziPreviewContent`
+  string, `"preview"` or `"information"`, in a workspace layout, restored with
+  the same **Layouts** option. Both are left out when the pane follows the
+  `YaziPreviewContent` setting, so older sessions and layouts follow it.
+  Switching marks the active workspace's layout as modified. An unknown
+  session value is ignored; a `yaziPreviewContent` value that isn't one of
+  the two strings makes the catalogue invalid.
 
 Choosing whether a workspace includes Yazi mode comes with a later M25
 feature.
