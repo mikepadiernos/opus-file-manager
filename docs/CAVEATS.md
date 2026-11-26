@@ -1873,6 +1873,18 @@ The M27 desktop integrations have these limits
   **Search For** entries, where a distribution still adds them, appear beside
   them. A removed entry isn't added again.
   ([#649](https://github.com/mikepadiernos/plasma-opus/issues/649))
+- **💻 Terminal providers:** **Open Terminal With** only lists the
+  default terminal, Konsole, Yakuake and Kwi, and finds them through `PATH`,
+  so a terminal installed only as a Flatpak shows as not installed. It opens
+  the active pane's folder, also from a selected folder's context menu.
+  Yakuake has no option to start in a folder, so Plasma Opus adds a session
+  and types `cd` into it; a shell that is slow to start or a profile that
+  runs another program can miss or misread it, and the command can appear in
+  shell history unless leading spaces are ignored. Plasma Opus can't tell
+  whether Yakuake's window is shown, so it doesn't open or close it, and
+  waits 15 seconds for a Yakuake it started. A running Kwi decides how a
+  second request opens. The choice isn't remembered between uses.
+  ([#289](https://github.com/mikepadiernos/plasma-opus/issues/289))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -1968,6 +1980,13 @@ The M27 desktop integrations have these limits
     Hide a category you don't use with Places' **Hide** action instead of
     removing it, so it can be shown again. For other sizes or formats, search
     with `size>` or `type:` in the search panel.
+  - **Terminal providers:** Install the terminal from your distribution so
+    its command is in `PATH`, or keep using **Open Terminal Here**, which
+    follows the terminal chosen under **System Settings › Default
+    Applications**. After opening a Yakuake session, press Yakuake's shortcut,
+    F12 by default, if its window is hidden, and check the folder before
+    running commands. To keep the `cd` out of shell history, set
+    `HISTCONTROL=ignorespace` in Bash, or `setopt HIST_IGNORE_SPACE` in Zsh.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2022,11 +2041,22 @@ The M27 desktop integrations have these limits
     the large-file threshold and restore removed entries; retranslate titles
     when the language changes; hide the entries from file dialogs; and
     confirm live results by content as Baloo does.
+  - The M28 terminal **Provider** settings to choose the provider for **Open
+    Terminal Here**, find Flatpak terminals, show Yakuake's window through a
+    dedicated D-Bus call when it offers one, and open a selected folder
+    rather than the pane's folder from its context menu.
 
 ## Embedded terminal
 
-The embedded terminal requires the Konsole KPart and has these limits
+The embedded terminal requires the Konsole or Kwi terminal component and has
+these limits
 ([#321](https://github.com/mikepadiernos/plasma-opus/issues/321)):
+
+- **Terminal component:** **Terminal Component** in the panel's menu applies
+  to new sessions; open sessions keep the component they started with. When
+  the chosen component isn't installed, the panel says so instead of loading
+  the other. Kwi's component doesn't report its blur setting, so the panel
+  isn't blurred behind it.
 
 - **Working directory:** By default, new sessions start in the active local
   folder, or in the home folder with a visible notice for remote locations,
@@ -2040,7 +2070,9 @@ The embedded terminal requires the Konsole KPart and has these limits
   affect running programs.
 
 - **Recommendation:** Install the Konsole terminal component for embedded
-  sessions; on Arch Linux it is supplied by the `konsole` package. For remote
+  sessions; on Arch Linux it is supplied by the `konsole` package. To use Kwi
+  instead, install it and choose **Kwi** under the panel menu's **Terminal
+  Component**, then open a new session. For remote
   locations, connect using a suitable terminal tool or use a separate terminal
   configured for that service. Check the terminal working directory before
   running commands, close unneeded session tabs, and finish or safely stop
@@ -2050,9 +2082,9 @@ The embedded terminal requires the Konsole KPart and has these limits
   sessions.
   - Comment:
     [#321.7029674455](https://github.com/mikepadiernos/plasma-opus/issues/321#issuecomment-7029674455)
-- **Planned:** [M27](ROADMAP.md#m27-integrations) proposes additional terminal
-  providers and separate SSH sessions for SSH profiles; it does not promise
-  embedded remote working directories or persistent sessions after exit.
+- **Planned:** [M27](ROADMAP.md#m27-integrations) proposes separate SSH
+  sessions for SSH profiles; it does not promise embedded remote working
+  directories or persistent sessions after exit.
   - Comment: [#321.7022392302][comment-321]
 
 ## Settings backups
