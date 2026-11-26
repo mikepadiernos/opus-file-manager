@@ -1225,7 +1225,7 @@ process or a promise of Yazi configuration or plugin compatibility.
       and other existing file actions through Plasma Opus and KIO. Retain
       conflict handling, destructive-action confirmations and undo; never add a
       shortcut that silently overwrites or permanently deletes files.
-- [ ] Reuse filtering, filename and content search, sorting, tabs and history.
+- [x] Reuse filtering, filename and content search, sorting, tabs and history.
       Show active filters and search progress, allow cancellation and report
       backend or remote-location limitations.
 - [ ] Reuse Plasma Opus previews and file information for the focused item, with
