@@ -32,6 +32,7 @@ Options:
   --system           install under /usr/local via sudo
   --prefix DIR       install under DIR instead
   --default          register Plasma Opus as the default handler for folders
+                     and "Show in folder" (FileManager1) requests
   --debug            build with CMAKE_BUILD_TYPE=Debug (default: Release)
   --jobs N           parallel build jobs (default: all cores)
 
@@ -189,7 +190,25 @@ refresh_desktop_db() {
     command -v kbuildsycoca6 >/dev/null && kbuildsycoca6 --noincremental >/dev/null 2>&1 || true
 }
 
+# A per-user D-Bus activation file, found before system ones, so requests such
+# as "Show in folder" start Plasma Opus when no file manager is running.
+FM1_SERVICE="${XDG_DATA_HOME:-$HOME/.local/share}/dbus-1/services/org.kde.opusfilemanager.FileManager1.service"
+
+install_file_manager_service() {
+    mkdir -p "$(dirname "$FM1_SERVICE")"
+    printf '[D-BUS Service]\nName=org.freedesktop.FileManager1\nExec=%s/bin/opus-file-manager --file-manager-service\n' "$prefix" > "$FM1_SERVICE"
+    echo "file manager service: $FM1_SERVICE"
+}
+
+remove_file_manager_service() {
+    if [ -f "$FM1_SERVICE" ] && grep -q 'opus-file-manager --file-manager-service' "$FM1_SERVICE"; then
+        rm -f -- "$FM1_SERVICE"
+        echo "file manager service: removed $FM1_SERVICE"
+    fi
+}
+
 set_default_handler() {
+    install_file_manager_service
     command -v xdg-mime >/dev/null || { echo "xdg-mime not found; skipping default handler" >&2; return; }
     for mime in "${MIME_TYPES[@]}"; do
         xdg-mime default "$DESKTOP_ID" "$mime"
@@ -197,6 +216,7 @@ set_default_handler() {
 }
 
 restore_default_handler() {
+    remove_file_manager_service
     command -v xdg-mime >/dev/null || return 0
     for mime in "${MIME_TYPES[@]}"; do
         if [ "$(xdg-mime query default "$mime" 2>/dev/null)" = "$DESKTOP_ID" ]; then
