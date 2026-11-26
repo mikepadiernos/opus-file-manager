@@ -147,6 +147,8 @@ add_library(opusfm_core STATIC
     remotemounts.h
     remoteprofiles.cpp
     remoteprofiles.h
+    rsyncsync.cpp
+    rsyncsync.h
     runnermatches.cpp
     runnermatches.h
     savedpathfilters.cpp

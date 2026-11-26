@@ -137,6 +137,7 @@ ecm_add_tests(
     rclonetest.cpp
     remotemountstest.cpp
     remoteprofilestest.cpp
+    rsyncsynctest.cpp
     runnermatchestest.cpp
     servicemenustest.cpp
     sessiontest.cpp
