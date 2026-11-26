@@ -2428,6 +2428,10 @@ document feature limitations in [caveats and limitations](CAVEATS.md). Native
 dock and column-header spacing follows the
 [active widget style](CAVEATS.md#native-title-and-header-padding) ([#560]).
 
+Each feature item ends with a link to its board issue, such as [#44]. When
+adding an item, create its issue first, then add the link and its definition at
+the end of this file.
+
 [#36]: https://github.com/mikepadiernos/plasma-opus/issues/36
 [#38]: https://github.com/mikepadiernos/plasma-opus/issues/38
 [#39]: https://github.com/mikepadiernos/plasma-opus/issues/39
