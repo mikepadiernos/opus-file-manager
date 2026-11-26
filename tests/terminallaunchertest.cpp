@@ -12,6 +12,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QLabel>
 #include <QMenu>
 #include <QScopeGuard>
 #include <QStandardPaths>
@@ -199,6 +200,14 @@ private Q_SLOTS:
         QCOMPARE(entries.at(2)->toolTip(), QStringLiteral("Yakuake is not installed or is not in PATH."));
         QVERIFY(!entries.at(3)->isEnabled());
         QCOMPARE(entries.at(3)->toolTip(), QStringLiteral("Kwi is not installed or is not in PATH."));
+
+        auto *history = window.actionCollection()->action(QStringLiteral("search_terminal_history"));
+        QVERIFY(history);
+        history->trigger();
+        QVERIFY(window.actionCollection()->action(QStringLiteral("show_embedded_terminal"))->isChecked());
+        auto *status = window.findChild<QLabel *>(QStringLiteral("terminalPanelStatus"));
+        QVERIFY(status);
+        QVERIFY(status->text().contains(QStringLiteral("Atuin is not installed")));
     }
 
 private:

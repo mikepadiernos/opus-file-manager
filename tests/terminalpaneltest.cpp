@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "terminalpanel.h"
+#include "atuin.h"
 #include "mainwindow.h"
 #include "pane.h"
 #include "settings.h"
@@ -16,6 +17,7 @@
 #include <QContextMenuEvent>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QImage>
 #include <QItemSelectionModel>
 #include <QLabel>
@@ -117,6 +119,72 @@ private Q_SLOTS:
         QVERIFY(panel.hasSessions());
         auto *tabs = panel.findChild<QTabWidget *>(QStringLiteral("terminalSessions"));
         QVERIFY(tabs->tabToolTip(0).startsWith(QStringLiteral("Konsole session started in ")));
+    }
+
+    void historySearchRunsOnlyInIdleSessions()
+    {
+        const QString home = QDir::homePath();
+        const QString atuin = home + QStringLiteral("/.atuin/bin/atuin");
+        const QString marker = home + QStringLiteral("/atuin-arguments");
+        const auto cleanup = qScopeGuard([&home, &marker] {
+            QDir(home + QStringLiteral("/.atuin")).removeRecursively();
+            QFile::remove(Atuin::databasePath());
+            QFile::remove(marker);
+        });
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        TerminalPanel panel;
+        panel.resize(600, 300);
+        panel.show();
+        auto *status = panel.findChild<QLabel *>(QStringLiteral("terminalPanelStatus"));
+        auto *action = panel.findChild<QAction *>(QStringLiteral("terminalPanelAtuinAction"));
+        QVERIFY(status && action);
+
+        action->trigger();
+        QVERIFY(status->text().contains(QStringLiteral("Atuin is not installed")));
+        QVERIFY(QDir().mkpath(QFileInfo(atuin).absolutePath()));
+        QFile script(atuin);
+        QVERIFY(script.open(QIODevice::WriteOnly));
+        script.write("#!/bin/sh\nprintf '%s\\n' \"$@\" > '" + marker.toLocal8Bit() + "'\n");
+        script.close();
+        QVERIFY(script.setPermissions(script.permissions() | QFileDevice::ExeOwner));
+        action->trigger();
+        QVERIFY(status->text().contains(QStringLiteral("atuin init")));
+        QVERIFY(!QFile::exists(Atuin::databasePath()));
+        QVERIFY(QDir().mkpath(QFileInfo(Atuin::databasePath()).absolutePath()));
+        QFile database(Atuin::databasePath());
+        QVERIFY(database.open(QIODevice::WriteOnly));
+        database.close();
+        action->trigger();
+        QVERIFY(status->text().contains(QStringLiteral("Open a terminal session")));
+
+        panel.start(QUrl::fromLocalFile(folder.path()));
+        auto *part = panel.findChild<KParts::ReadOnlyPart *>();
+        if (!part) {
+            QSKIP("KonsolePart is not available in this environment");
+        }
+        auto *terminal = qobject_cast<TerminalInterface *>(part);
+        QVERIFY(terminal);
+        panel.searchHistory();
+        QTRY_VERIFY2(QFile::exists(marker), qPrintable(status->text()));
+        QFile arguments(marker);
+        QTRY_VERIFY(arguments.size() > 0);
+        QVERIFY(arguments.open(QIODevice::ReadOnly));
+        QCOMPARE(arguments.readAll(), QByteArray("search\n--interactive\n"));
+        QVERIFY(status->text().contains(QStringLiteral("without running it")));
+
+        const auto busy = [terminal] {
+            const int foreground = terminal->foregroundProcessId();
+            return foreground > 0 && foreground != terminal->terminalProcessId();
+        };
+        QTRY_VERIFY(!busy());
+        terminal->sendInput(QStringLiteral("sleep 30\n"));
+        QTRY_VERIFY(busy());
+        QVERIFY(QFile::remove(marker));
+        panel.searchHistory();
+        QVERIFY(status->text().contains(QStringLiteral("running sleep")));
+        QTest::qWait(300);
+        QVERIFY(!QFile::exists(marker));
     }
 
     void headerHasHorizontalPadding()

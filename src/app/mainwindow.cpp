@@ -3113,6 +3113,15 @@ void MainWindow::setupActions()
         toggleLayout(m_dualLayoutAction->isChecked());
         restoreSplitterSizes(false, true, true);
     });
+    QAction *terminalHistory = actions->addAction(QStringLiteral("search_terminal_history"), this, [this] {
+        if (!m_terminalPanelAction->isChecked()) {
+            m_terminalPanelAction->setChecked(true);
+        }
+        m_terminalPanel->searchHistory();
+    });
+    terminalHistory->setText(i18nc("@action", "Search Command History with Atuin"));
+    terminalHistory->setToolTip(i18nc("@info:tooltip", "Open Atuin's command history search in the embedded terminal without running the chosen command"));
+    terminalHistory->setIcon(QIcon::fromTheme(QStringLiteral("view-history")));
 
     m_searchPanelAction = new KToggleAction(i18nc("@action", "Show Search Panel"), this);
     m_searchPanelAction->setIcon(QIcon::fromTheme(QStringLiteral("edit-find")));

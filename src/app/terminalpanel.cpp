@@ -2,6 +2,7 @@
 
 #include "terminalpanel.h"
 
+#include "atuin.h"
 #include "settings.h"
 #include "symbolicicon.h"
 
@@ -88,6 +89,10 @@ TerminalPanel::TerminalPanel(QWidget *parent)
     closeAction->setObjectName(QStringLiteral("terminalPanelHideAction"));
     connect(closeAction, &QAction::triggered, this, &TerminalPanel::closeRequested);
     m_panelMenu->addSeparator();
+    auto *historyAction =
+        m_panelMenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("view-history")), i18nc("@action", "Search Command History with Atuin"));
+    historyAction->setObjectName(QStringLiteral("terminalPanelAtuinAction"));
+    connect(historyAction, &QAction::triggered, this, &TerminalPanel::searchHistory);
     QMenu *components = m_panelMenu->addMenu(i18nc("@title:menu", "Terminal Component"));
     components->setObjectName(QStringLiteral("terminalComponentMenu"));
     components->setToolTipsVisible(true);
@@ -191,6 +196,62 @@ void TerminalPanel::dismissStatus()
         m_dismissedInformationalMessages.insert(m_status->text());
     }
     m_statusRow->hide();
+}
+
+void TerminalPanel::searchHistory()
+{
+    const QString reason = Atuin::unavailableReason();
+    if (!reason.isEmpty()) {
+        setStatus(reason);
+        return;
+    }
+    QPointer<KParts::ReadOnlyPart> current;
+    for (const auto &part : std::as_const(m_parts)) {
+        if (part && part->widget() == m_tabs->currentWidget()) {
+            current = part;
+            break;
+        }
+    }
+    if (!current) {
+        setStatus(i18nc("@info", "Open a terminal session to search command history with Atuin."));
+        return;
+    }
+    sendHistorySearch(current, 0);
+}
+
+void TerminalPanel::sendHistorySearch(const QPointer<KParts::ReadOnlyPart> &part, int attempt)
+{
+    auto *terminal = part ? qobject_cast<TerminalInterface *>(part.data()) : nullptr;
+    if (!terminal) {
+        return;
+    }
+    const int shell = terminal->terminalProcessId();
+    if (shell <= 0) {
+        // A session that has just opened may not have started its shell yet.
+        if (attempt < 30) {
+            QTimer::singleShot(100, this, [this, part, attempt] {
+                sendHistorySearch(part, attempt + 1);
+            });
+        } else {
+            setStatus(i18nc("@info", "The terminal session has not started its shell, so Atuin's search was not opened."));
+        }
+        return;
+    }
+    // KonsolePart reports no foreground process while the shell itself is in the foreground.
+    const int foreground = terminal->foregroundProcessId();
+    if (foreground > 0 && foreground != shell) {
+        const QString program = terminal->foregroundProcessName();
+        setStatus(program.isEmpty()
+                      ? i18nc("@info", "The terminal session is running a program. Finish it or open another session, then search command history again.")
+                      : i18nc("@info %1 is a program name",
+                              "The terminal session is running %1. Finish it or open another session, then search command history again.",
+                              program));
+        return;
+    }
+    terminal->sendInput(Atuin::searchInput(Atuin::executable()));
+    m_tabs->setCurrentWidget(part->widget());
+    part->widget()->setFocus();
+    setStatus(i18nc("@info", "Atuin's search shows the chosen command in the terminal without running it."), true);
 }
 
 void TerminalPanel::watchGeometry()

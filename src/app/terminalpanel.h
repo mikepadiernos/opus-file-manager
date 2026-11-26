@@ -34,6 +34,11 @@ public:
     static TerminalProviders::Provider embeddedProvider();
     /// Stores the provider for new sessions; open sessions keep their component.
     void setEmbeddedProvider(TerminalProviders::Provider provider);
+    /**
+     * Opens Atuin's interactive history search in the current session when
+     * its shell is idle, or reports why it can't.
+     */
+    void searchHistory();
 
 Q_SIGNALS:
     void blurRegionChanged(const QRegion &region);
@@ -48,6 +53,7 @@ private:
     void updateBlur();
     void setStatus(const QString &text, bool informational = false);
     void dismissStatus();
+    void sendHistorySearch(const QPointer<KParts::ReadOnlyPart> &part, int attempt);
 
     QVBoxLayout *m_layout;
     QLabel *m_status;
