@@ -1960,6 +1960,18 @@ The M27 desktop integrations have these limits
   domains and Kerberos, follows KIO's SMB worker.
   ([#651](https://github.com/mikepadiernos/plasma-opus/issues/651))
 
+- **☁️ rclone cloud storage:** remotes open only by mounting, which needs FUSE
+  and `fusermount3`; serving a remote over WebDAV isn't offered. Mounts last
+  only while Plasma Opus runs, including hidden in the tray, so applications
+  editing files on a mount lose access when it quits, and a busy mount may
+  stay behind after rclone stops. A mount left by an earlier session opens
+  but can't be unmounted from the menu. Remotes with an encrypted rclone
+  configuration fail unless `RCLONE_CONFIG_PASS` is set in the environment
+  Plasma Opus starts with. Mounting waits up to 20 seconds, and rclone's
+  cache settings, other than caching writes, are its defaults. Mounts don't
+  appear in Places, and the list refreshes each time the menu opens.
+  ([#652](https://github.com/mikepadiernos/plasma-opus/issues/652))
+
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
     it is running and restart Plasma Opus so it claims the service. To hand
@@ -2090,6 +2102,12 @@ The M27 desktop integrations have these limits
     terminal. If **Network** stays empty, install `kio-extras` with Avahi and
     `kdsoap-ws-discovery-client`, and allow mDNS and WS-Discovery through
     the firewall, or save a connection to the host directly.
+  - **rclone cloud storage:** Install rclone and FUSE 3 from your
+    distribution and add remotes with `rclone config`. Close files on a
+    mount before unmounting it or quitting Plasma Opus. If a mount stays
+    behind, run `fusermount3 -u` on its folder under
+    `$XDG_RUNTIME_DIR/opus-file-manager/rclone`. For mounts that outlive
+    Plasma Opus or start at login, use rclone's own systemd service.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2163,6 +2181,9 @@ The M27 desktop integrations have these limits
     to forget the saved password, and import hosts from `~/.ssh/config`.
   - Save a discovered share as a connection from **Network**, and hide FTPS
     when no worker handles it.
+  - Serve remotes over WebDAV on the loopback interface when FUSE is
+    missing, keep mounts running in the tray, show mounts in Places, and
+    choose rclone's cache mode and limits in the M28 settings.
 
 ## Embedded terminal
 
