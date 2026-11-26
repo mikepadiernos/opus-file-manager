@@ -1622,6 +1622,17 @@ The M27 desktop integrations have these limits
   the dialogs remain the only progress display. There is no Plasma Opus
   setting to turn the reporting off yet.
   ([#388](https://github.com/mikepadiernos/plasma-opus/issues/388))
+- **📌 System tray and global shortcut:** the tray icon is on by default and
+  has no settings page until M28; minimizing and closing to the tray are
+  off and can only be enabled in the configuration file. On Wayland, KWin
+  does not tell applications when they are minimized, so minimizing to the
+  tray works only on X11. KWin's focus-stealing prevention may keep a window
+  shown from the tray or the global shortcut behind the active window and
+  highlight it in the task manager instead. When another application already
+  uses Meta+Alt+O, the shortcut stays unassigned without a notice. A window
+  hidden in the tray keeps its tabs and running operations, but there is no
+  option to start hidden in the tray.
+  ([#285](https://github.com/mikepadiernos/plasma-opus/issues/285))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -1638,6 +1649,13 @@ The M27 desktop integrations have these limits
     To hide the progress, turn off application progress in notifications
     under **System Settings › Notifications**; this affects every
     application.
+  - **System tray and global shortcut:** To hide the window instead of
+    closing it, set `CloseToTray=true` in the `[Tray]` group of
+    `~/.config/opus-file-managerrc`; on Wayland, prefer this to
+    `MinimizeToTray=true`. Set `ShowTrayIcon=false` there to remove the icon.
+    If the shortcut does nothing, assign one to **Show or Hide Plasma Opus**
+    under **Settings › Configure Keyboard Shortcuts**, and keep the icon
+    always visible through the tray's **Configure System Tray…** entries.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -1650,6 +1668,9 @@ The M27 desktop integrations have these limits
   - An M28 setting to choose which operations report to Plasma, and to
     report automatic library refreshes.
   - A job action that raises the dialog that started the operation.
+  - M28 **System tray** settings for the icon, minimizing and closing to the
+    tray, and starting hidden, with a notice when the global shortcut could
+    not be assigned.
 
 ## Embedded terminal
 
