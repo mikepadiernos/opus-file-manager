@@ -25,7 +25,11 @@ describes how Plasma Opus could also work with Nextcloud apps. Only
 - Each Nextcloud app owns its data. Plasma Opus does not create, change or
   delete app-owned data, such as albums, events, cards or app configuration
   files, without an explicit, confirmed user action.
-- Leave synchronization to the Nextcloud desktop client; see M29.
+- Leave synchronization of the desktop client's folders to the Nextcloud
+  desktop client; see M29. Optional
+  [two-way cloud sync](../ROADMAP.md#m27-integrations) pairs can target
+  other Nextcloud folders but never overlap the client's.
+  ([#718](https://github.com/mikepadiernos/plasma-opus/issues/718))
 
 ## Nextcloud app interfaces
 

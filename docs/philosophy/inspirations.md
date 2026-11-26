@@ -19,6 +19,7 @@ dictates the application's interface or implementation.
 - [Krusader — two-pane tools](#krusader--two-pane-tools)
 - [MiXplorer — mobile power tools](#mixplorer--mobile-power-tools)
 - [RaiDrive — cloud storage as drives](#raidrive--cloud-storage-as-drives)
+- [Syncative, SDrive and DucksDrive — cloud sync and activity](#syncative-sdrive-and-ducksdrive--cloud-sync-and-activity)
 - [Strata — system file chooser](#strata--system-file-chooser)
 - [Orcinus — power-user workflows for Dolphin](#orcinus--power-user-workflows-for-dolphin)
 - [TagSpaces — focused workspaces](#tagspaces--focused-workspaces)
@@ -87,6 +88,21 @@ and file locks. It informs the planned
 remote locations as local folders through KDE's KIO FUSE or installed backends
 such as sshfs, davfs2 and s3fs-fuse, as alternatives to rclone. Accounts and
 credentials stay with KDE's facilities rather than a separate provider list.
+
+## Syncative, SDrive and DucksDrive — cloud sync and activity
+
+[Syncative](https://github.com/Santuzius/syncative) keeps any number of local
+folders in two-way sync with Google Drive, Proton Drive or Nextcloud. It offers
+one-way cloud and local backup modes, exclusion filters, and per-file conflict
+choices that never overwrite a file changed on both sides.
+[SDrive](https://github.com/TitanniOpen/SDrive) and
+[DucksDrive](https://patopatetico2-lab.github.io/ducksdrive/) map cloud and
+remote storage as local drives and show what they are doing: connection state,
+quota, pending uploads and transfer speed, with bandwidth and cache limits and a
+safe disconnection that waits for uploads to finish. They inform the planned
+[two-way cloud sync and cloud activity panel](../ROADMAP.md#m27-integrations),
+which reuse KIO, KDE accounts, M09 sync filters and the existing transfer queue,
+and stay clear of folders owned by the Nextcloud desktop client.
 
 ## Strata — system file chooser
 

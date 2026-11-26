@@ -1555,6 +1555,39 @@ layouts.
         partial results; a preview is a snapshot, not a guarantee against
         subsequent filesystem changes. Use safe argument handling and SSH
         host-key verification.
+  - [ ] Two-way cloud sync, like
+        [Syncative](https://github.com/Santuzius/syncative): pair any local
+        folder, not only a single sync root, with a folder on a Nextcloud,
+        WebDAV, SFTP, SMB, S3-compatible or KDE Online Accounts location or an
+        rclone remote, and keep both sides up to date. Offer Sync, Cloud backup
+        (upload only) and Local backup (download only) modes per pair, with
+        deletions copied to a backup only when enabled. Reuse M09 sync filters
+        and profiles for exclusions, and ask how to handle a pair nested in
+        another. Keep a per-pair state snapshot to tell renames and deletions
+        from new files. Never overwrite a file changed on both sides: let the
+        user keep the local, remote or both copies, per file or for all.
+        Preview the first sync and large deletions before applying them. Sync
+        in the background while Plasma Opus or its tray icon runs, optionally
+        from login, with pause and resume per pair or account and an option to
+        pause on metered connections. Use KIO, or rclone bisync for rclone
+        remotes, and keep credentials in KDE's facilities. Refuse pairs that
+        overlap folders managed by the Nextcloud desktop client or another
+        sync engine. Report quota, offline remotes, permission errors and
+        partial runs. (Syncative)
+  - [ ] Cloud activity panel, like
+        [SDrive](https://github.com/TitanniOpen/SDrive) and
+        [DucksDrive](https://patopatetico2-lab.github.io/ducksdrive/): for
+        remote drives and sync pairs, show connection state, quota where the
+        provider reports it, pending uploads, current transfers with speed,
+        remaining time and a speed graph, and recent errors, through the
+        existing transfer queue and an optional tray panel. Offer pause and
+        resume, a bandwidth limit, the number of parallel transfers, and a size
+        limit for the local cache of mounted remotes that keeps recently opened
+        files available offline. Before unmounting, exiting or logging out,
+        wait for pending uploads with progress and an option to cancel, and
+        report uploads that need recovery after a crash. Export connection and
+        sync-pair definitions without credentials, and ask the user to sign in
+        again after importing them. (SDrive, DucksDrive)
 
 - **M27.07: Access control and automation**
 
@@ -1727,6 +1760,13 @@ Settings for M27 integrations, stored in KConfig.
         FUSE and installed alternatives, the mount folder, read-only by
         default, and whether to mount at login or workspace activation and
         unmount on exit
+  - [ ] **Sync pairs:** manage two-way sync pairs and their mode, filters,
+        deletion handling and default conflict choice; choose whether to sync
+        from login or on metered connections, and how often to check remotes
+        that do not report changes
+  - [ ] **Transfers and cache:** set the bandwidth limit, parallel transfers,
+        cache size and offline retention for mounted remotes, and whether to
+        show the tray activity panel
 
 - **LAN sharing**
 
@@ -2195,6 +2235,11 @@ interfaces. The additions above draw on these sources:
 - [RaiDrive](https://www.raidrive.com/), which mounts cloud, S3-compatible and
   NAS storage as local drives, informing remote drives built on KIO FUSE and
   FUSE backends as alternatives to rclone.
+- [Syncative](https://github.com/Santuzius/syncative),
+  [SDrive](https://github.com/TitanniOpen/SDrive) and
+  [DucksDrive](https://patopatetico2-lab.github.io/ducksdrive/), informing
+  two-way cloud sync with backup modes and conflict choices, and the cloud
+  activity panel for transfers, quota, pending uploads and cache limits.
 - [MiXplorer](https://mixplorer.com/) and its
   [MiX Silver listing](https://play.google.com/store/apps/details?id=com.mixplorer.silver),
   an Android file manager whose encrypted containers, file encryption, LAN
