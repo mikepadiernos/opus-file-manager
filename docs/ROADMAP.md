@@ -1497,7 +1497,7 @@ for some features are recorded in [pending tasks](TODO.md).
 
 - **M27.05: Editors, documents and media**
 
-  - [ ] Editor integrations: offer KWrite and Kate as separate GUI editors, and
+  - [x] Editor integrations: offer KWrite and Kate as separate GUI editors, and
         Neovim, Rune, micro and nano in a supported embedded or separate
         terminal, as alternatives to the built-in editor. KWrite and Kate use
         KTextEditor themselves; they are separate applications, not replacement
