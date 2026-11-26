@@ -25,6 +25,8 @@ add_library(opusfm_core STATIC
     colorschemes.h
     customcommands.cpp
     customcommands.h
+    diskimages.cpp
+    diskimages.h
     filechooser.cpp
     filechooser.h
     filecolorrules.cpp

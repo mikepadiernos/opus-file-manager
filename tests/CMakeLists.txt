@@ -89,6 +89,7 @@ ecm_add_tests(
     batchrenamepresetstest.cpp
     checksumstest.cpp
     customcommandstest.cpp
+    diskimagestest.cpp
     favoritesmodeltest.cpp
     filesplittertest.cpp
     foldermetadatatest.cpp
