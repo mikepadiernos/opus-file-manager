@@ -9,6 +9,9 @@ them and take precedence where they conflict.
 
 ## Project documentation
 
+- `docs/development.md`: contributor guide to building, testing and the
+  project workflow. Keep it consistent with these instructions, and keep
+  development workflow details there rather than in the root README.
 - `docs/ROADMAP.md`: authoritative milestone and architecture plan.
 - `docs/TODO.md`: blocked tasks and actionable handoffs.
 - `docs/BUGS.md`: reported bugs and completion status.
