@@ -2,9 +2,12 @@
 
 #include "indexedsearch.h"
 #include "embeddedmetadata.h"
+#include "filetypeplaces.h"
 
 #ifdef OPUSFM_HAVE_BALOO
 #include <Baloo/IndexerConfig>
+#include <Baloo/Query>
+#include <Baloo/ResultIterator>
 #endif
 
 #include <QCoreApplication>
@@ -16,6 +19,8 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+
+#include <utility>
 
 class IndexedSearchTest : public QObject
 {
@@ -156,6 +161,18 @@ private Q_SLOTS:
         image.setText(QStringLiteral("Title"), QStringLiteral("zephyrquill sketch"));
         const QString picture = folder + QStringLiteral("/picture.png");
         QVERIFY(image.save(picture, "PNG"));
+        const QString ebook = folder + QStringLiteral("/novel.epub");
+        const QString package = folder + QStringLiteral("/tool.deb");
+        // The indexer detects types by content, so give each file its format's signature.
+        const QList<std::pair<QString, QByteArray>> signatures{
+            {ebook, QByteArray("PK\x03\x04", 4) + QByteArray(26, '\0') + QByteArray("mimetypeapplication/epub+zip")},
+            {package, QByteArray("!<arch>\ndebian-binary   ")},
+        };
+        for (const auto &[path, data] : signatures) {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+            QCOMPARE(file.write(data), data.size());
+        }
         {
             Baloo::IndexerConfig config;
             config.setIncludeFolders({folder});
@@ -228,6 +245,22 @@ private Q_SLOTS:
         QVERIFY(IndexedSearch::
                     find(folder, QStringLiteral("meta:zephyrquill"), LiveSearch::Field::Query, {}, {}, {}, nullptr, nullptr, {}, {QStringLiteral("artist")})
                         .paths.isEmpty());
+        // The file-type places' Baloo searches find their categories.
+        const auto placeResults = [](FileTypePlaces::Category category) {
+            Baloo::Query query = Baloo::Query::fromSearchUrl(FileTypePlaces::balooUrl(category));
+            Baloo::ResultIterator it = query.exec();
+            QStringList paths;
+            while (it.next()) {
+                paths.append(it.filePath());
+            }
+            return paths;
+        };
+        QTRY_VERIFY_WITH_TIMEOUT(placeResults(FileTypePlaces::Category::Ebooks).contains(ebook), 8000);
+        QVERIFY(!placeResults(FileTypePlaces::Category::Ebooks).contains(package));
+        QTRY_VERIFY_WITH_TIMEOUT(placeResults(FileTypePlaces::Category::Packages).contains(package), 8000);
+        QVERIFY(!placeResults(FileTypePlaces::Category::Packages).contains(ebook));
+        QTRY_VERIFY_WITH_TIMEOUT(placeResults(FileTypePlaces::Category::Images).contains(picture), 8000);
+        QVERIFY(!placeResults(FileTypePlaces::Category::Images).contains(named.fileName()));
         const auto elsewhere = IndexedSearch::find(root + QStringLiteral("/missing"), QStringLiteral("opalneedle"), LiveSearch::Field::FileName);
         QVERIFY(!elsewhere.notices.isEmpty());
         QVERIFY(elsewhere.notices.first().contains(QStringLiteral("not configured")));

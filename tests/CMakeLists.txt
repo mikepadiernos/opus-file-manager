@@ -93,6 +93,7 @@ ecm_add_tests(
     diskimagestest.cpp
     favoritesmodeltest.cpp
     filesplittertest.cpp
+    filetypeplacestest.cpp
     foldermetadatatest.cpp
     foldercolorstest.cpp
     foldercolorrulestest.cpp

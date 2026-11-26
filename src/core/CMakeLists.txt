@@ -37,6 +37,8 @@ add_library(opusfm_core STATIC
     filemanagerrequest.h
     filesplitter.cpp
     filesplitter.h
+    filetypeplaces.cpp
+    filetypeplaces.h
     favoritesmodel.cpp
     favoritesmodel.h
     flatview.cpp
