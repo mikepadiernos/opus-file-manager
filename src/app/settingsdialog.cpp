@@ -42,6 +42,7 @@
 #include <KPluginMetaData>
 #include <KSharedConfig>
 #include <KStandardAction>
+#include <KStandardGuiItem>
 #include <KTextEditor/Editor>
 #include <KToolBar>
 #include <KUrlRequester>
@@ -238,6 +239,14 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                                       KGuiItem(i18nc("@action:button", "Keep Current Keys"), QStringLiteral("dialog-cancel")))
             == KMessageBox::Continue;
     };
+    m_confirmYaziReset = [this](const QString &question) {
+        return KMessageBox::questionTwoActions(this,
+                                               question,
+                                               i18nc("@title:window", "Restore Yazi Mode Defaults"),
+                                               KGuiItem(i18nc("@action:button", "Restore Defaults"), QStringLiteral("edit-reset")),
+                                               KStandardGuiItem::cancel())
+            == KMessageBox::PrimaryAction;
+    };
     addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}}, i18nc("@title:group", "General"), QStringLiteral("configure"));
     addTabbedPage({{createLanguagePage(), i18nc("@title:tab", "Language and Layout")}, {createDateLanguagePage(), i18nc("@title:tab", "Dates")}},
                   i18nc("@title:group", "Translation"),
@@ -288,7 +297,9 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createYaziPreviewPage(), i18nc("@title:tab", "Preview")},
                    {createYaziWorkspaceLayoutsPage(), i18nc("@title:tab", "Workspace Layouts")}},
                   i18nc("@title:group", "Yazi Mode"),
-                  QStringLiteral("view-file-columns"));
+                  QStringLiteral("view-file-columns"),
+                  nullptr,
+                  createYaziResetRow());
     addTabbedPage({{createContextMenuActionsPage(), i18nc("@title:tab", "Actions")}, {createServiceMenusPage(), i18nc("@title:tab", "Service Menus")}},
                   i18nc("@title:group", "Context Menu"),
                   QStringLiteral("application-menu"));
@@ -386,8 +397,11 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     validateNumerals();
 }
 
-KPageWidgetItem *
-SettingsDialog::addTabbedPage(const QList<std::pair<QWidget *, QString>> &tabs, const QString &title, const QString &iconName, QTabWidget **tabsOut)
+KPageWidgetItem *SettingsDialog::addTabbedPage(const QList<std::pair<QWidget *, QString>> &tabs,
+                                               const QString &title,
+                                               const QString &iconName,
+                                               QTabWidget **tabsOut,
+                                               QWidget *footer)
 {
     auto *tabWidget = new QTabWidget;
     if (tabsOut) {
@@ -396,7 +410,15 @@ SettingsDialog::addTabbedPage(const QList<std::pair<QWidget *, QString>> &tabs, 
     for (const auto &[tab, tabTitle] : tabs) {
         tabWidget->addTab(tab, tabTitle);
     }
-    auto *page = addPage(tabWidget, title);
+    QWidget *pageWidget = tabWidget;
+    if (footer) {
+        pageWidget = new QWidget;
+        auto *layout = new QVBoxLayout(pageWidget);
+        layout->setContentsMargins({});
+        layout->addWidget(tabWidget, 1);
+        layout->addWidget(footer);
+    }
+    auto *page = addPage(pageWidget, title);
     m_pageIcons.append({page, iconName});
     return page;
 }
@@ -2356,6 +2378,11 @@ QVariantMap SettingsDialog::appearanceValues() const
 
 void SettingsDialog::setAppearanceValues(const QVariantMap &values)
 {
+    setEditorValues(values);
+}
+
+void SettingsDialog::setEditorValues(const QVariantMap &values)
+{
     for (auto it = values.constBegin(); it != values.constEnd(); ++it) {
         auto *editor = findChild<QWidget *>(QStringLiteral("kcfg_") + it.key());
         if (!editor) {
@@ -3011,6 +3038,46 @@ void SettingsDialog::updateYaziWorkspaceDefault()
         break;
     }
     m_yaziWorkspaceDefault->setText(text);
+}
+
+QWidget *SettingsDialog::createYaziResetRow()
+{
+    auto *row = new QWidget;
+    auto *layout = new QHBoxLayout(row);
+    layout->setContentsMargins({});
+    auto *reset = new QPushButton(QIcon::fromTheme(QStringLiteral("edit-reset")), i18nc("@action:button", "Restore Yazi Mode Defaults"), row);
+    reset->setObjectName(QStringLiteral("resetYaziMode"));
+    reset->setToolTip(i18nc("@info:tooltip", "Sets every option on the Yazi Mode tabs to its default. Apply or OK saves the change; Cancel discards it."));
+    connect(reset, &QPushButton::clicked, this, [this] {
+        if (m_confirmYaziReset(i18nc("@info",
+                                     "Restore the defaults of every option on the Yazi Mode tabs? When applied, open panes also drop the "
+                                     "columns, preview content and widths chosen for them and follow the defaults, but stay in or out of "
+                                     "Yazi mode. Saved workspaces with their layouts and behaviors, the Yazi mode behavior of new "
+                                     "workspaces under Workspaces › Behaviors, keyboard shortcuts and other settings are kept. Until they "
+                                     "are applied, Cancel in Preferences discards the defaults."))) {
+            resetYaziModeToDefaults();
+        }
+    });
+    layout->addWidget(reset, 0, Qt::AlignTop);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Saved workspaces, the Yazi mode behavior of new workspaces under Workspaces › Behaviors, "
+                                  "keyboard shortcuts and other settings are kept."),
+                            row);
+    note->setObjectName(QStringLiteral("yaziResetNotice"));
+    note->setWordWrap(true);
+    layout->addWidget(note, 1);
+    return row;
+}
+
+void SettingsDialog::resetYaziModeToDefaults()
+{
+    m_yaziResetPending = true;
+    setEditorValues(YaziMode::defaultSettings(Settings::self()));
+}
+
+void SettingsDialog::setYaziResetConfirmation(std::function<bool(const QString &)> confirm)
+{
+    m_confirmYaziReset = std::move(confirm);
 }
 
 void SettingsDialog::accept()
@@ -3943,6 +4010,10 @@ SettingsDialog::addSharedToggle(const QString &name, const QString &text, std::f
 void SettingsDialog::updateSettings()
 {
     confirmYaziKeyPreset();
+    if (m_yaziResetPending) {
+        m_yaziResetPending = false;
+        Q_EMIT yaziDefaultsRestored();
+    }
     if (m_selectionFilters->rules() != m_savedSelectionFilters) {
         KConfigGroup group = selectionFilters();
         const QStringList edited = m_selectionFilters->rules();
@@ -3992,6 +4063,7 @@ void SettingsDialog::updateWidgets()
     // Window shortcuts may have changed since the dialog was shown.
     m_savedYaziKeyPreset = Settings::yaziKeyPreset();
     updateYaziKeyPreview();
+    m_yaziResetPending = false;
 }
 
 void SettingsDialog::updateWidgetsDefault()
@@ -4010,7 +4082,7 @@ void SettingsDialog::updateWidgetsDefault()
 
 bool SettingsDialog::hasChanged()
 {
-    return m_selectionFilters->rules() != m_savedSelectionFilters
+    return m_yaziResetPending || m_selectionFilters->rules() != m_savedSelectionFilters
         || std::any_of(m_sharedToggles.cbegin(), m_sharedToggles.cend(), [](const SharedToggle &toggle) {
                return toggle.check->isChecked() != toggle.read();
            });

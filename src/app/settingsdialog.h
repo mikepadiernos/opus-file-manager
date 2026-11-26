@@ -70,6 +70,16 @@ public:
      * to apply the preset.
      */
     void setYaziKeyConfirmation(std::function<bool(const QString &, const QStringList &)> confirm);
+    /**
+     * Sets every Yazi Mode setting in the dialog, that is every entry of the
+     * YaziMode settings group, to its default, and has Apply or OK also make
+     * open panes drop their own Yazi column choices. Nothing is saved until
+     * the settings are applied; saved workspaces, the Yazi mode behavior of
+     * new workspaces and other settings are left alone.
+     */
+    void resetYaziModeToDefaults();
+    /// Replaces the yes or no question asked before Restore Yazi Mode Defaults, for tests.
+    void setYaziResetConfirmation(std::function<bool(const QString &)> confirm);
     /// The theme profile options shown in the dialog, which may not be applied yet.
     QVariantMap appearanceValues() const;
     /// Shows Themes options in the dialog without applying them.
@@ -87,6 +97,12 @@ Q_SIGNALS:
     void libraryChanged(const QString &root);
     /// A tag library was added in the Libraries tab and needs its first refresh.
     void libraryAdded(const QString &root);
+    /**
+     * Yazi mode defaults restored with Restore Yazi Mode Defaults are being
+     * applied, so open panes should drop their own Yazi column choices. The
+     * settings are saved right after this signal.
+     */
+    void yaziDefaultsRestored();
 
 protected:
     void accept() override;
@@ -103,9 +119,13 @@ private:
      * @param title the page title
      * @param iconName the page's theme icon, without the "-symbolic" suffix
      * @param tabsOut receives the page's tab widget when provided
+     * @param footer a widget shown below the tabs, whichever tab is selected, or nullptr
      */
-    KPageWidgetItem *
-    addTabbedPage(const QList<std::pair<QWidget *, QString>> &tabs, const QString &title, const QString &iconName, QTabWidget **tabsOut = nullptr);
+    KPageWidgetItem *addTabbedPage(const QList<std::pair<QWidget *, QString>> &tabs,
+                                   const QString &title,
+                                   const QString &iconName,
+                                   QTabWidget **tabsOut = nullptr,
+                                   QWidget *footer = nullptr);
 
     /**
      * Applies the saved sidebar settings: titles beside small icons or below
@@ -184,6 +204,13 @@ private:
     QWidget *createYaziWorkspaceLayoutsPage();
     /// Describes, on the Workspace Layouts tab, whether new workspaces include the Yazi mode behavior as chosen under Workspaces › Behaviors.
     void updateYaziWorkspaceDefault();
+    /// The Restore Yazi Mode Defaults button and its note, shown below the Yazi Mode tabs.
+    QWidget *createYaziResetRow();
+    /**
+     * Shows @p values, by entry name, in the entries' widgets without saving
+     * them. Entries without a widget are skipped.
+     */
+    void setEditorValues(const QVariantMap &values);
     QWidget *createIconsPage();
     QWidget *createContextMenuActionsPage();
     QWidget *createServiceMenusPage();
@@ -266,6 +293,9 @@ private:
     /// The preset whose conflicts were accepted, so that OK asks only once; -1 when none.
     int m_confirmedYaziKeyPreset = -1;
     std::function<bool(const QString &, const QStringList &)> m_confirmYaziKeys;
+    std::function<bool(const QString &)> m_confirmYaziReset;
+    /// Whether Yazi mode defaults were restored since the settings were last applied or reloaded.
+    bool m_yaziResetPending = false;
     /// A checkbox for a setting kept outside Settings, in config that KIO
     /// shares with Dolphin.
     struct SharedToggle {

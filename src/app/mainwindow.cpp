@@ -5961,6 +5961,19 @@ void MainWindow::showSettings()
     connect(dialog, &SettingsDialog::libraryAdded, this, [](const QString &root) {
         LibraryAutoRefresh::instance()->enqueue(root, true);
     });
+    // The restored defaults are saved after the signal, so the panes of every window follow them once control returns.
+    connect(dialog, &SettingsDialog::yaziDefaultsRestored, this, [] {
+        const QList<KMainWindow *> windows = KMainWindow::memberList();
+        for (KMainWindow *member : windows) {
+            if (auto *window = qobject_cast<MainWindow *>(member)) {
+                QTimer::singleShot(0, window, [window] {
+                    for (Pane *pane : {window->m_left, window->m_right}) {
+                        pane->followYaziSettings();
+                    }
+                });
+            }
+        }
+    });
     dialog->show();
 }
 
