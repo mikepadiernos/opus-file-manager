@@ -169,6 +169,7 @@ add_library(opusfm_core STATIC
     taglibrary.cpp
     taglibrary.h
     tagsearch.cpp
+    terminalproviders.cpp
     tagsearch.h
     themeprofiles.cpp
     themeprofiles.h

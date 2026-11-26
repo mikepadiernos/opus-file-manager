@@ -419,6 +419,14 @@
       </choices>
       <default>Automatic</default>
     </entry>
+    <entry name="EmbeddedTerminal" type="Enum">
+      <label>Terminal component that new embedded terminal sessions load</label>
+      <choices>
+        <choice name="Konsole"/>
+        <choice name="Kwi"/>
+      </choices>
+      <default>Konsole</default>
+    </entry>
   </group>
   <group name="Search">
     <entry name="DefaultSearchScope" type="Enum">

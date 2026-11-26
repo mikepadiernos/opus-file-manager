@@ -144,6 +144,7 @@ ecm_add_tests(
     symboliciconstest.cpp
     tabmodeltest.cpp
     taglibrarytest.cpp
+    terminalproviderstest.cpp
     themeprofilestest.cpp
     treemaptest.cpp
     transferqueuetest.cpp
