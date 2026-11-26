@@ -1859,6 +1859,20 @@ The M27 desktop integrations have these limits
   touch-screen edges are shared with KWin's own edge actions, and only one
   can claim an edge.
   ([#708](https://github.com/mikepadiernos/plasma-opus/issues/708))
+- **🗂️ File-type categories:** Baloo classifies indexed files by their
+  detected content, while the live fallback matches MIME types guessed from
+  names and file extensions, so the two can list different files, such as a
+  renamed file or an ebook saved without its extension. **Ebooks** lists
+  only EPUB, Mobipocket, FictionBook, comic book archives and DjVu, and
+  **Application Packages** only Flatpak, AppImage, Debian, RPM and Snap
+  packages. **Large Files** is fixed at 100 MiB and is always a live search,
+  since Baloo doesn't index file sizes. The entries are saved in Plasma's
+  shared `user-places.xbel`, marked for Plasma Opus only, with their titles
+  in the language in use when they were added. They also show in the KDE
+  file dialogs Plasma Opus opens, where they can't be opened. KDE's older
+  **Search For** entries, where a distribution still adds them, appear beside
+  them. A removed entry isn't added again.
+  ([#649](https://github.com/mikepadiernos/plasma-opus/issues/649))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -1947,6 +1961,13 @@ The M27 desktop integrations have these limits
     popups** under **System Settings › Window Management › Desktop Effects**
     for the animation. If an edge does nothing, free it under **System
     Settings › Mouse & Touchpad › Screen Edges** or **Touch Screen**.
+  - **File-type categories:** Open a category from the main window's Places,
+    not from a file dialog. If indexed results look incomplete, open
+    **File › Indexing Status…** to check the indexer and the folder's
+    coverage, or choose **Search a Folder Live…** to read the files directly.
+    Hide a category you don't use with Places' **Hide** action instead of
+    removing it, so it can be shown again. For other sizes or formats, search
+    with `size>` or `type:` in the search panel.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -1997,6 +2018,10 @@ The M27 desktop integrations have these limits
   - Roll the drop-down window up instead of closing it, offer a default
     shortcut when it is free, and let a detached window drop down instead
     of the main window.
+  - The M28 **Categories** settings to choose which categories appear, set
+    the large-file threshold and restore removed entries; retranslate titles
+    when the language changes; hide the entries from file dialogs; and
+    confirm live results by content as Baloo does.
 
 ## Embedded terminal
 
