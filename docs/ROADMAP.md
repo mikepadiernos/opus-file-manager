@@ -1546,7 +1546,7 @@ for some features are recorded in [pending tasks](TODO.md).
 
 - **M27.06: Accounts, remote access and synchronization**
 
-  - [ ] Integrate advanced SSH, SFTP and WebDAV support: manage named profiles
+  - [x] Integrate advanced SSH, SFTP and WebDAV support: manage named profiles
         and browse remote locations in either pane using KDE's KIO workers. Use
         the existing transfer queue where available and offer a separate SSH
         terminal for SSH profiles. Support passwords and SSH key/agent
