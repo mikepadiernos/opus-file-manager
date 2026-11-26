@@ -23,6 +23,8 @@ add_library(opusfm_core STATIC
     customcommands.h
     filecolorrules.cpp
     filecolorrules.h
+    filemanagerrequest.cpp
+    filemanagerrequest.h
     filesplitter.cpp
     filesplitter.h
     favoritesmodel.cpp
