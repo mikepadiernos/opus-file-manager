@@ -9,6 +9,8 @@ add_library(opusfm_core STATIC
     appidentity.h
     archives.cpp
     archives.h
+    ark.cpp
+    ark.h
     archivewriter.cpp
     archivewriter.h
     batchrename.cpp
