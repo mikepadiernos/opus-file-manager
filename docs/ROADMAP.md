@@ -1468,7 +1468,7 @@ for some features are recorded in [pending tasks](TODO.md).
         KFileMetaData extractors and identify missing extractors when
         detectable. Do not change shared settings, enable indexing or start a
         reindex without explicit action.
-  - [ ] Extend Baloo search with supported metadata criteria and optional fuzzy
+  - [x] Extend Baloo search with supported metadata criteria and optional fuzzy
         ranking. Explain that ranking cannot recover matches missing from the
         index or results truncated by existing limits. Offer an explicit
         live-search fallback for supported local folders, retaining its limits,
