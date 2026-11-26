@@ -1474,7 +1474,7 @@ for some features are recorded in [pending tasks](TODO.md).
         live-search fallback for supported local folders, retaining its limits,
         progress, cancellation and error reporting; never silently broaden scope
         or substitute another search.
-  - [ ] Show file-type categories in Places, such as documents, images, audio,
+  - [x] Show file-type categories in Places, such as documents, images, audio,
         video, archives, ebooks, application packages and large files, as Baloo
         searches alongside KDE's existing **Search For** entries. Explain when
         indexing is off or incomplete and offer a live search of a chosen
