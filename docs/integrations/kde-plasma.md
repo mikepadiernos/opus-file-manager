@@ -233,17 +233,21 @@ behaves like the rest of the desktop and follows the user's choices.
   backends can only extract, such as RAR without `rar`. See
   [Split archives](../CAVEATS.md#archives).
   ([#647](https://github.com/mikepadiernos/plasma-opus/issues/647))
+- **Disk images:** **File › Mount Disk Image** and **Unmount Disk Image**
+  mount and unmount the selected ISO or raw disk image through the Mount ISO
+  action from Dolphin's plugins, which asks UDisks2 to attach a loop device
+  and mount it, rather than custom mount code. The context menu offers
+  whichever applies, in place of the plugin's own entries. Mounted images
+  appear in Places through Solid. The status bar reports the mount point, or
+  what is left attached or mounted when authorization is refused, and a
+  dialog explains when the plugin is not installed. See
+  [Disk images](../CAVEATS.md#desktop-integration).
+  ([#648](https://github.com/mikepadiernos/plasma-opus/issues/648))
 
 ## Planned features
 
 Grouped by the [M27](../ROADMAP.md#m27-integrations) subsection that tracks
 them.
-
-### M27.02 Archives and application packages
-
-- **Disk images:** Mount and unmount ISO and other disk images through the
-  Mount ISO action from Dolphin's plugins when installed, and show mounted
-  images in Places through Solid, rather than custom mount code.
 
 ### M27.03 Search and indexing
 
