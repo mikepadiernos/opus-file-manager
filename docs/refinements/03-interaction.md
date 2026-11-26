@@ -40,6 +40,9 @@ M32.03 asks to:
   bidirectional filenames clearly;
 - improve contextual help and discovery, including keyboard-accessible custom
   toolbar items;
+- smooth small workflows such as selection after deleting, moving dropped
+  items into a new folder, tab detaching and partial folder sizes, and add an
+  operations panel, archive extraction checks and an evaluation of redo;
 - add subtle, optional animations and focused interaction tests.
 
 ## Proposal
@@ -102,16 +105,36 @@ relying on colour, animation or a pointing device alone.
    Off**; build on it rather than adding a separate switch, honour desktop motion
    settings and keep state clear without animation.
    ([#469](https://github.com/mikepadiernos/plasma-opus/issues/469))
-9. Add focused interaction regressions for menu actions, layouts, navigation,
-   responsiveness, errors and preserved customizations. Coordinate broader
-   walkthroughs and accessibility coverage with [testing](06-testing.md).
-   ([#468](https://github.com/mikepadiernos/plasma-opus/issues/468))
+9. Add small workflow refinements adapted from
+   [Luciole](../philosophy/inspirations.md#luciole--interaction-details):
+   select the next item after deleting, sort hidden items last, move dropped
+   items into a new folder, open Properties with Alt, drag a tab into a new
+   window and mark partial folder sizes. Add an operations panel built on KIO
+   jobs, a free-space check before extraction and single compressed files.
+   Prototype redo before committing to it, because KIO's undo manager has
+   none.
+   ([#738](https://github.com/mikepadiernos/plasma-opus/issues/738),
+   [#739](https://github.com/mikepadiernos/plasma-opus/issues/739),
+   [#740](https://github.com/mikepadiernos/plasma-opus/issues/740),
+   [#741](https://github.com/mikepadiernos/plasma-opus/issues/741),
+   [#742](https://github.com/mikepadiernos/plasma-opus/issues/742),
+   [#743](https://github.com/mikepadiernos/plasma-opus/issues/743),
+   [#744](https://github.com/mikepadiernos/plasma-opus/issues/744),
+   [#745](https://github.com/mikepadiernos/plasma-opus/issues/745),
+   [#746](https://github.com/mikepadiernos/plasma-opus/issues/746),
+   [#747](https://github.com/mikepadiernos/plasma-opus/issues/747))
+10. Add focused interaction regressions for menu actions, layouts, navigation,
+    responsiveness, errors and preserved customizations. Coordinate broader
+    walkthroughs and accessibility coverage with [testing](06-testing.md).
+    ([#468](https://github.com/mikepadiernos/plasma-opus/issues/468))
 
 ## Open questions
 
 - Which pane, filter and partial-result indicators should be persistent?
 - Where should context help live, and what should happen when it is missing?
 - Which transitions are useful enough to animate?
+- Can a custom redo layer stay reliable alongside KIO's undo history and
+  remote locations?
 
 ---
 

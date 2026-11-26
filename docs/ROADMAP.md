@@ -1801,6 +1801,10 @@ Settings for M27 integrations, stored in KConfig.
   - [ ] **System file chooser:** show whether Plasma Opus serves the XDG portal
         file chooser, with explicit actions to complete setup or restore the
         previous chooser; report failures [#292]
+  - [ ] **System file chooser start folder:** when an application suggests no
+        folder, start in the home folder or in the folder of the last accepted
+        choice. Remember the last folder per application where the portal
+        identifies it, in session state rather than settings. (Luciole) [#750]
 
 - **Plasma notifications**
 
@@ -2205,6 +2209,53 @@ subsection details.
         reduced-motion preferences where available, provide an app-level way to
         disable motion, and keep interactions responsive and states clear
         without it. Test both animated and motion-disabled behaviour. [#469]
+  - [ ] After deleting, trashing or moving selected items out of a listing,
+        select the next remaining item, or the previous one when none follows,
+        so keyboard work can continue. Apply this only to the pane where the
+        operation started; leave the selection alone when items disappear
+        because of external changes. (Luciole) [#738]
+  - [ ] Add a sort option that lists shown hidden files and folders after
+        visible ones in every view; folders first applies within each group.
+        Remember it with the other sort settings, including folder formats.
+        (Luciole) [#739]
+  - [ ] Add **Move into New Folder…** to the drop menu: ask for a folder name
+        in the drop target, create the folder and move the dropped items into
+        it. Extend KIO's drop menu rather than replacing it, never overwrite
+        an existing folder, and record both steps in KIO's undo history.
+        (Luciole) [#740]
+  - [ ] Open an item's Properties by holding <kbd>Alt</kbd> with the usual
+        open gesture: double-click, or a single click in single-click mode.
+        Keep Alt-modified drag and drop and selection unchanged. (Luciole)
+        [#741]
+  - [ ] Drag a tab out of the tab bar to open it in a new window, keeping its
+        location, history, view settings, name and pin, and close the original
+        tab. Leave the last tab of a pane in place and keep the existing
+        reopen-closed-tab history accurate. (Luciole) [#742]
+  - [ ] Mark recursive folder sizes that are incomplete, for example because
+        some subfolders could not be read, with ≥ in the Size column and a
+        tooltip explaining why, so a partial total is not mistaken for the
+        final size. (Luciole) [#743]
+  - [ ] Add an operations panel that lists running and recently finished file
+        operations with Cancel, Details, Copy Report and Retry Failed for
+        items that failed or were skipped. Build on KIO jobs and the existing
+        transfer queue, keep Plasma's job notifications, keep the history for
+        the current session only and let users clear finished entries.
+        (Luciole) [#744]
+  - [ ] Before extracting an archive, estimate the space needed in the
+        destination and any temporary folder, and warn when it may not fit,
+        with a choice to continue. Explain that the check is an estimate and
+        still report write errors, including for formats that do not record
+        sizes. (Luciole) [#745]
+  - [ ] Browse and extract single compressed files that are not tar archives,
+        such as `dump.sql.gz`, `.bz2`, `.xz` and `.zst`, as one file named
+        without the suffix. Reuse KArchive's compression devices, show the
+        size as unknown until extracted and never overwrite an existing file.
+        (Luciole) [#746]
+  - [ ] Evaluate redo for undone file operations. KIO's undo manager has no
+        redo, so a custom layer would repeat an undone operation only after
+        checking that the affected items have not changed since, and refuse
+        otherwise. Ship it only if a prototype proves reliable with KIO's undo
+        history and remote locations. (Luciole) [#747]
   - [ ] Add focused interaction tests for menu actions, default and restored
         layouts, keyboard and accessible navigation, responsive controls and
         error states; preserve existing user customizations in regression cases.
@@ -2262,6 +2313,14 @@ subsection details.
   - [ ] Keep settings pages responsive when loading large lists, profiles or
         provider data. Explain missing dependencies and permission failures
         without blocking the dialog or silently replacing saved choices. [#399]
+  - [ ] Classify FUSE mounts without a local disk device, such as sshfs,
+        rclone and gocryptfs, as remote for **Show remote previews** and
+        automatic remote folder sizes, while FUSE file systems on a local
+        disk, such as NTFS-3G, stay local. Explain the classification next to
+        those settings. (Luciole) [#748]
+  - [ ] Show the size of the thumbnail cache and offer to clear it after
+        confirmation. Explain that the cache is shared with Dolphin and other
+        applications and is rebuilt as folders are viewed. (Luciole) [#749]
   - [ ] Establish reusable search, accessibility, validation and help
         conventions for existing and future pages, including shortcuts, search,
         tagging, integrations, themes and branding. Review pages as implemented
@@ -2397,6 +2456,10 @@ interfaces. The additions above draw on these sources:
   an Android file manager whose encrypted containers, file encryption, LAN
   servers, cloud providers, archive editing, file-type categories and menu
   customization are adapted to KDE facilities.
+- [Luciole](https://github.com/noctalia-dev/luciole), a Wayland file manager
+  whose small workflow details, archive checks, operations panel and
+  thumbnail policy inform M32 interaction and settings refinements and the
+  file chooser's start folder.
 - [Plasma Impresario](https://github.com/mikepadiernos/plasma-impresario), the
   companion KDE mail client, and its
   [Plasma Opus integration notes](https://github.com/mikepadiernos/plasma-impresario/blob/main/docs/integrations/plasma-opus.md).
@@ -2966,3 +3029,16 @@ the end of this file.
 [#730]: https://github.com/mikepadiernos/plasma-opus/issues/730
 [#733]: https://github.com/mikepadiernos/plasma-opus/issues/733
 [#734]: https://github.com/mikepadiernos/plasma-opus/issues/734
+[#738]: https://github.com/mikepadiernos/plasma-opus/issues/738
+[#739]: https://github.com/mikepadiernos/plasma-opus/issues/739
+[#740]: https://github.com/mikepadiernos/plasma-opus/issues/740
+[#741]: https://github.com/mikepadiernos/plasma-opus/issues/741
+[#742]: https://github.com/mikepadiernos/plasma-opus/issues/742
+[#743]: https://github.com/mikepadiernos/plasma-opus/issues/743
+[#744]: https://github.com/mikepadiernos/plasma-opus/issues/744
+[#745]: https://github.com/mikepadiernos/plasma-opus/issues/745
+[#746]: https://github.com/mikepadiernos/plasma-opus/issues/746
+[#747]: https://github.com/mikepadiernos/plasma-opus/issues/747
+[#748]: https://github.com/mikepadiernos/plasma-opus/issues/748
+[#749]: https://github.com/mikepadiernos/plasma-opus/issues/749
+[#750]: https://github.com/mikepadiernos/plasma-opus/issues/750
