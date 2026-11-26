@@ -292,9 +292,9 @@ void WorkspaceDialog::revertAppearancePreview()
     m_appearance->setPreviewing(false);
 }
 
-void WorkspaceDialog::activateSelectedWorkspace(bool confirmed)
+void WorkspaceDialog::activateSelectedWorkspace(bool confirmed, const std::optional<WorkspaceCatalog::BehaviorSelection> &behaviors)
 {
-    activateWorkspace(confirmed);
+    activateWorkspace(confirmed, behaviors);
 }
 
 void WorkspaceDialog::assignSelectedLocation()
@@ -606,7 +606,7 @@ bool WorkspaceDialog::confirmUnavailable(const WorkspaceCatalog::Layout &layout)
     return true;
 }
 
-void WorkspaceDialog::activateWorkspace(bool confirmed)
+void WorkspaceDialog::activateWorkspace(bool confirmed, const std::optional<WorkspaceCatalog::BehaviorSelection> &behaviors)
 {
     const QString id = selectedId();
     const auto it = std::find_if(m_catalog.workspaces.cbegin(), m_catalog.workspaces.cend(), [&id](const auto &workspace) {
@@ -616,7 +616,7 @@ void WorkspaceDialog::activateWorkspace(bool confirmed)
         m_status->setText(i18nc("@info", "Select a workspace with a saved layout."));
         return;
     }
-    const WorkspaceCatalog::BehaviorSelection selection = it->behaviorSelection;
+    const WorkspaceCatalog::BehaviorSelection selection = behaviors.value_or(it->behaviorSelection);
     const WorkspaceRestore::Options options = WorkspaceRestore::fromSettings();
     // Yazi state lives in the pane snapshot; without one there is nothing of it to restore.
     const bool restoreYazi = WorkspaceRestore::yaziParts(selection, options).any() && it->layout && it->layout->session;

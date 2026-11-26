@@ -1,4 +1,8 @@
 add_library(opusfm_app STATIC
+    activityassociationsdialog.cpp
+    activityassociationsdialog.h
+    activitycontroller.cpp
+    activitycontroller.h
     appearancestyle.cpp
     appearancestyle.h
     batchconversiondialog.cpp
@@ -158,6 +162,7 @@ target_include_directories(opusfm_app PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE
 target_link_libraries(opusfm_app
     PUBLIC
         opusfm_core
+        Plasma::Activities
         Qt6::Concurrent
         Qt6::DBus
         Qt6::Widgets

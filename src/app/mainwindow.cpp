@@ -3,6 +3,8 @@
 #include "mainwindow.h"
 #include "metadataeditdialog.h"
 
+#include "activityassociationsdialog.h"
+#include "activitycontroller.h"
 #include "appearancedefaults.h"
 #include "appearancestyle.h"
 #include "appfonts.h"
@@ -99,6 +101,7 @@
 #include <KJobWidgets>
 #include <KLocalizedString>
 #include <KMessageBox>
+#include <KMessageWidget>
 #include <KNewFileMenu>
 #include <KPropertiesDialog>
 #include <KProtocolInfo>
@@ -487,6 +490,31 @@ MainWindow::MainWindow(QWidget *parent)
         openUrls({url});
     });
     connect(m_desktopTray, &DesktopTray::transfersRequested, this, &MainWindow::showTransferQueue);
+    m_activityController = new ActivityController(
+        this,
+        [this] {
+            return m_workspaceCatalog;
+        },
+        [this] {
+            return m_currentWorkspaceId;
+        });
+    connect(m_activityController, &ActivityController::applyRequested, this, &MainWindow::applyActivityPlan);
+    connect(m_activityController, &ActivityController::statusMessage, this, [this](const QString &text) {
+        statusBar()->showMessage(text, 5000);
+    });
+    {
+        // The Activity offer sits above the panes, outside their layout.
+        auto *central = new QWidget(this);
+        central->setObjectName(QStringLiteral("centralArea"));
+        auto *centralLayout = new QVBoxLayout(central);
+        centralLayout->setContentsMargins(QMargins());
+        centralLayout->setSpacing(0);
+        QWidget *panes = takeCentralWidget();
+        centralLayout->addWidget(m_activityController->messageWidget());
+        centralLayout->addWidget(panes, 1);
+        setCentralWidget(central);
+    }
+    m_activityController->setSource(new PlasmaActivitySource);
     applyWorkspaceSelectorPlacement();
     m_combinedPanel->setWorkspaceLocations(m_workspaceLocations);
     connect(m_workspaceLocations, &WorkspaceLocations::changed, this, [this] {
@@ -822,6 +850,10 @@ void MainWindow::showWorkspaces()
         previewWorkspaceAppearance(appearance);
     });
     connect(dialog, &WorkspaceDialog::currentWorkspaceChanged, this, [this](const QString &id) {
+        if (!m_applyingActivity) {
+            m_activityBehaviors.reset();
+            m_activityBehaviorsWorkspaceId.clear();
+        }
         m_currentWorkspaceId = id;
         refreshWorkspaceLocations();
     });
@@ -830,7 +862,7 @@ void MainWindow::showWorkspaces()
     dialog->show();
 }
 
-void MainWindow::selectWorkspace(int index, bool confirmed)
+void MainWindow::selectWorkspace(int index, bool confirmed, const std::optional<WorkspaceCatalog::BehaviorSelection> &behaviors)
 {
     if (index < 0 || index >= m_workspaceCatalog.workspaces.size()) {
         return;
@@ -842,8 +874,60 @@ void MainWindow::selectWorkspace(int index, bool confirmed)
         return;
     }
     dialog->selectWorkspace(id);
-    dialog->activateSelectedWorkspace(confirmed);
+    dialog->activateSelectedWorkspace(confirmed, behaviors);
     refreshWorkspaceSelector();
+}
+
+WorkspaceCatalog::BehaviorSelection MainWindow::workspaceBehaviors(const WorkspaceCatalog::Workspace &workspace) const
+{
+    return m_activityBehaviors && m_activityBehaviorsWorkspaceId == workspace.id ? *m_activityBehaviors : workspace.behaviorSelection;
+}
+
+ActivityController *MainWindow::activityController() const
+{
+    return m_activityController;
+}
+
+void MainWindow::showActivityAssociations()
+{
+    reloadWorkspaceCatalog();
+    auto *dialog = new ActivityAssociationsDialog(m_activityController, m_workspaceCatalog, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setModal(true);
+    dialog->show();
+}
+
+void MainWindow::applyActivityPlan(const ActivityAssociations::Plan &plan)
+{
+    if (!plan.workspaceId.isEmpty()) {
+        reloadWorkspaceCatalog();
+        const auto workspace = std::find_if(m_workspaceCatalog.workspaces.cbegin(), m_workspaceCatalog.workspaces.cend(), [&plan](const auto &entry) {
+            return entry.id == plan.workspaceId;
+        });
+        if (workspace == m_workspaceCatalog.workspaces.cend()) {
+            statusBar()->showMessage(i18nc("@info:status", "The associated workspace no longer exists."), 5000);
+        } else {
+            const auto previousBehaviors = m_activityBehaviors;
+            const QString previousWorkspaceId = m_activityBehaviorsWorkspaceId;
+            m_activityBehaviors = plan.behaviors;
+            m_activityBehaviorsWorkspaceId = plan.workspaceId;
+            m_applyingActivity = true;
+            selectWorkspace(int(std::distance(m_workspaceCatalog.workspaces.cbegin(), workspace)), false, plan.behaviors);
+            m_applyingActivity = false;
+            if (m_currentWorkspaceId != plan.workspaceId) {
+                // The switch was cancelled or failed; keep what applied before.
+                m_activityBehaviors = previousBehaviors;
+                m_activityBehaviorsWorkspaceId = previousWorkspaceId;
+            }
+            applyWorkspaceAppearance();
+        }
+    }
+    if (plan.primaryFolder.isValid()) {
+        m_left->openInNewTab(plan.primaryFolder, true);
+    }
+    if (plan.secondaryFolder.isValid()) {
+        m_right->openInNewTab(plan.secondaryFolder, true);
+    }
 }
 
 void MainWindow::restoreActiveWorkspaceLayout()
@@ -957,10 +1041,15 @@ void MainWindow::updateWorkspaceAppearanceLayer()
     const WorkspaceCatalog::Workspace *current = workspace != m_workspaceCatalog.workspaces.cend() ? &*workspace : nullptr;
     m_appearanceWorkspaceId = m_currentWorkspaceId;
     m_workspaceAppearance = current ? current->appearance : WorkspaceCatalog::Appearance{};
-    m_workspaceAppearanceApplies = current && current->behaviorSelection.applies(current->behaviorSelection.appearance);
+    std::optional<WorkspaceCatalog::Workspace> effective;
+    if (current) {
+        effective = *current;
+        effective->behaviorSelection = workspaceBehaviors(*current);
+    }
+    m_workspaceAppearanceApplies = effective && effective->behaviorSelection.applies(effective->behaviorSelection.appearance);
     const QList<ThemeProfiles::Profile> profiles =
         ThemeProfiles::load(Settings::self(), KSharedConfig::openConfig()->group(QLatin1String(ThemeProfiles::Group)));
-    const WorkspaceAppearance::Resolved resolved = WorkspaceAppearance::resolve(Settings::self(), current, profiles);
+    const WorkspaceAppearance::Resolved resolved = WorkspaceAppearance::resolve(Settings::self(), effective ? &*effective : nullptr, profiles);
     EffectiveAppearance::setLayer(resolved.values);
     if (resolved.problems != m_workspaceAppearanceProblems) {
         m_workspaceAppearanceProblems = resolved.problems;
@@ -981,7 +1070,7 @@ void MainWindow::applyWorkspaceAppearance()
     const bool found = workspace != m_workspaceCatalog.workspaces.cend();
     const bool switched = m_appearanceWorkspaceId != m_currentWorkspaceId;
     if (!switched && (found ? workspace->appearance : WorkspaceCatalog::Appearance{}) == m_workspaceAppearance
-        && (found && workspace->behaviorSelection.applies(workspace->behaviorSelection.appearance)) == m_workspaceAppearanceApplies) {
+        && (found && workspaceBehaviors(*workspace).applies(workspaceBehaviors(*workspace).appearance)) == m_workspaceAppearanceApplies) {
         return;
     }
     updateWorkspaceAppearanceLayer();
@@ -1382,7 +1471,8 @@ void MainWindow::setupPanes()
             const auto workspace = std::find_if(m_workspaceCatalog.workspaces.cbegin(), m_workspaceCatalog.workspaces.cend(), [this](const auto &entry) {
                 return entry.id == m_currentWorkspaceId;
             });
-            scope.active = workspace != m_workspaceCatalog.workspaces.cend() && workspace->behaviorSelection.applies(workspace->behaviorSelection.searchScope);
+            scope.active =
+                workspace != m_workspaceCatalog.workspaces.cend() && workspaceBehaviors(*workspace).applies(workspaceBehaviors(*workspace).searchScope);
             if (scope.active) {
                 for (const auto &location : m_workspaceLocations->locations()) {
                     if (m_workspaceCatalog.locationAssignments.value(location.id) == m_currentWorkspaceId) {
@@ -2154,6 +2244,13 @@ void MainWindow::setupActions()
     QAction *workspaces = actions->addAction(QStringLiteral("manage_workspaces"), this, &MainWindow::showWorkspaces);
     workspaces->setText(i18nc("@action", "Workspaces…"));
     workspaces->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-grid")));
+    QAction *activityAssociations = actions->addAction(QStringLiteral("activity_associations"), this, &MainWindow::showActivityAssociations);
+    activityAssociations->setText(i18nc("@action", "Activity Associations…"));
+    activityAssociations->setIcon(SymbolicIcon::fromTheme(QStringLiteral("activities")));
+    QAction *applyActivity = actions->addAction(QStringLiteral("apply_activity_association"), this, [this] {
+        m_activityController->applyCurrent();
+    });
+    applyActivity->setText(i18nc("@action", "Apply Activity Association"));
 
     // File
     m_newFileMenu = new KNewFileMenu(this);
@@ -5757,6 +5854,7 @@ void MainWindow::applySettings()
     applyWorkspaceSelectorPlacement();
     scheduleWorkspaceSelectorRefresh();
     m_desktopTray->applySettings();
+    m_activityController->applySettings();
     const bool toolbarsLocked = Settings::lockToolbars();
     QAction *customizeToolbar = actionCollection()->action(QStringLiteral("customize_main_toolbar"));
     customizeToolbar->setEnabled(!toolbarsLocked);

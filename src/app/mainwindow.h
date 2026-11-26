@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "activityassociations.h"
 #include "editorpanel.h"
 #include "metadataeditdialog.h"
 #include "previewpanel.h"
@@ -19,6 +20,7 @@
 #include <QUrl>
 #include <memory>
 
+class ActivityController;
 class CombinedPanel;
 class DesktopTray;
 class FavoritesModel;
@@ -74,6 +76,16 @@ public:
 
     Pane *activePane() const;
     Pane *inactivePane() const;
+
+    ActivityController *activityController() const;
+    /// Shows the dialog that associates Plasma Activities with workspaces and default folders.
+    void showActivityAssociations();
+    /**
+     * Applies an Activity association the user chose to apply: switches to its
+     * workspace, asking first as a workspace switch does, and opens its
+     * default folders in new tabs of the first and second pane.
+     */
+    void applyActivityPlan(const ActivityAssociations::Plan &plan);
 
     /**
      * Splits the panes top/bottom instead of side by side. When stacked,
@@ -140,7 +152,9 @@ protected:
 private:
     /// Opens the workspace selector and management dialog.
     void showWorkspaces();
-    void selectWorkspace(int index, bool confirmed = false);
+    void selectWorkspace(int index, bool confirmed = false, const std::optional<WorkspaceCatalog::BehaviorSelection> &behaviors = std::nullopt);
+    /// The behaviours that apply to @p workspace: an applied Activity association's, or its own.
+    WorkspaceCatalog::BehaviorSelection workspaceBehaviors(const WorkspaceCatalog::Workspace &workspace) const;
     /// Asks, if enabled, and returns to the active workspace's saved layout.
     void restoreActiveWorkspaceLayout();
     /// Applies the configured colour scheme and reports when it cannot be used.
@@ -377,6 +391,11 @@ private:
 
     KFilePlacesModel *m_placesModel = nullptr;
     DesktopTray *m_desktopTray = nullptr;
+    ActivityController *m_activityController = nullptr;
+    /// Behaviours an applied Activity association chose for its workspace, until another workspace is chosen.
+    std::optional<WorkspaceCatalog::BehaviorSelection> m_activityBehaviors;
+    QString m_activityBehaviorsWorkspaceId;
+    bool m_applyingActivity = false;
     std::unique_ptr<KConfig> m_workspaceConfig;
     QString m_currentWorkspaceId;
     WorkspaceCatalog::Catalog m_workspaceCatalog;
