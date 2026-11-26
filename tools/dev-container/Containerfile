@@ -42,6 +42,9 @@ RUN dnf -y install --setopt=install_weak_deps=False \
         kf6-knewstuff-devel \
         kf6-kpackage-devel \
         kf6-prison-devel \
+        libaccounts-qt6-devel \
+        kaccounts-providers \
+        kio-gdrive \
         kf6-kparts-devel \
         kf6-krunner-devel \
         kf6-kstatusnotifieritem-devel \

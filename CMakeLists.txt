@@ -26,6 +26,8 @@ find_package(LibArchive REQUIRED)
 find_package(KF6Baloo ${KF_MIN_VERSION} QUIET)
 find_package(KF6Prison ${KF_MIN_VERSION} QUIET)
 set_package_properties(KF6Prison PROPERTIES TYPE OPTIONAL PURPOSE "QR codes for links to files shared on the local network")
+find_package(AccountsQt6 QUIET)
+set_package_properties(AccountsQt6 PROPERTIES TYPE OPTIONAL PURPOSE "Browsing the files of accounts configured in KDE Online Accounts")
 find_package(PlasmaActivities 6.0 REQUIRED)
 
 include(KDEGitCommitHooks)
