@@ -1262,11 +1262,11 @@ layouts.
 - [x] **Preview:** choose whether to show the focused item's preview or file
       information. Reuse existing providers, size limits and remote-download
       policy rather than introducing conflicting settings.
-- [ ] **Workspace layouts:** when M15 is available, choose whether layouts
+- [x] **Workspace layouts:** when M15 is available, choose whether layouts
       restore Yazi mode and its column settings, including the Yazi-specific
       workspace feature choice, without overwriting an explicitly selected
       workspace layout or changing other pane views.
-- [ ] **Reset:** restore Yazi mode defaults without erasing saved workspace
+- [x] **Reset:** restore Yazi mode defaults without erasing saved workspace
       layouts or unrelated settings.
 
 ### M27: Integrations
