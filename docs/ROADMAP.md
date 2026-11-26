@@ -1538,7 +1538,7 @@ for some features are recorded in [pending tasks](TODO.md).
         autoplay and remote preview behaviour; report unavailable backends,
         playback errors and unsupported locations. See the
         [pending handoff](TODO.md#mpv-integration-563).
-  - [ ] Preview ebooks, comics and help files, such as EPUB, MOBI, FictionBook,
+  - [x] Preview ebooks, comics and help files, such as EPUB, MOBI, FictionBook,
         CBZ, DjVu and CHM, with Okular's KPart when installed, within the M05
         preview limits. Preview fonts with editable sample text through
         Plasma's font viewer part where available, and offer installation
