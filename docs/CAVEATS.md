@@ -1712,6 +1712,36 @@ The M27 desktop integrations have these limits
   authorization prompts have been verified in a headless container only, not
   yet on a Plasma session.
   ([#703](https://github.com/mikepadiernos/plasma-opus/issues/703))
+- **🪟 KWin script:** the script has been tested only against a simulated
+  KWin in the headless container, not yet on a Plasma session
+  ([pending task](TODO.md#kwin-script-on-plasma-707-708)). Its use of KWin's
+  tiling API, assigning a tile or `frameGeometry`, and its X11 and Wayland
+  behaviour are unverified, and KWin's scripting API can change between
+  Plasma releases. Requests reach the script through its **Plasma Opus:
+  Process Window Requests** shortcut, which appears, unassigned, in KWin's
+  shortcut list. Only the main window's placement is kept, one per workspace,
+  without its maximized or full-screen state; a placement is kept only once
+  the window has been moved, resized or retiled with that workspace current.
+  Tiled companions are only Plasma Opus's own detached windows, such as the
+  gallery and the popped-out second pane; terminals, editors and other
+  applications it opens are separate processes and are not placed.
+  Windows are matched by desktop file name and process id, so a sandbox that
+  hides the real process id, such as Flatpak, prevents matching. Virtual
+  desktops can be assigned only after the script has reported them. The
+  options are in **Settings › Configure KWin Integration…** until the
+  [M28 KWin scripts settings](ROADMAP.md#m28-integration-settings).
+  ([#707](https://github.com/mikepadiernos/plasma-opus/issues/707))
+- **⬇️ Drop-down window:** it is off by default, and its global shortcut
+  is unassigned until one is chosen. Only the main window drops down, and
+  while it is on, its placement is not kept for workspaces. Without the
+  script it opens as a regular window, wherever KWin places it, and stays in
+  the taskbar. Hiding on focus loss waits 200 ms and does not hide while a
+  dialog, menu or another Plasma Opus window is active; closing the window
+  still quits or hides it to the tray as usual instead of rolling it up. The
+  slide animation needs KWin's **Sliding popups** effect. The screen and
+  touch-screen edges are shared with KWin's own edge actions, and only one
+  can claim an edge.
+  ([#708](https://github.com/mikepadiernos/plasma-opus/issues/708))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -1772,6 +1802,20 @@ The M27 desktop integrations have these limits
     mount an fstab entry without root, add `user` or `users` to its options
     in KDE Partition Manager, or let UDisks2 manage the device instead. Open
     an automount point's folder once to mount it.
+  - **KWin script:** Install it from **Settings › Configure KWin
+    Integration…** in a Plasma session, then move or resize the window once
+    with each workspace current so its placement is kept. If the status says
+    the script has not contacted Plasma Opus, press **Refresh**, or disable
+    and enable it under **KWin Scripts Settings…**. Run Plasma Opus outside
+    Flatpak for window management. Leave the processing shortcut unassigned.
+    Use KWin's **Window Rules…** for placements the script does not restore,
+    such as maximized state.
+  - **Drop-down window:** Turn it on and choose a global shortcut under
+    **Settings › Configure KWin Integration…**, and install the KWin script
+    so it keeps above other windows and out of the taskbar. Enable **Sliding
+    popups** under **System Settings › Window Management › Desktop Effects**
+    for the animation. If an edge does nothing, free it under **System
+    Settings › Mouse & Touchpad › Screen Edges** or **Touch Screen**.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -1807,6 +1851,15 @@ The M27 desktop integrations have these limits
   - Watch mount changes instead of polling, refresh sizes periodically,
     power off USB drives after unmounting, and the M28 **Mount manager**
     display settings, including an option to show system file systems.
+  - Verify the script on X11 and Wayland with each supported Plasma release,
+    keep maximized and full-screen state, and record a placement when a
+    workspace is saved as well as when the window moves.
+  - Ask KWin to place other applications started from Plasma Opus, such as
+    terminals and editors, through XDG activation tokens, and the M28 **KWin
+    scripts** settings page.
+  - Roll the drop-down window up instead of closing it, offer a default
+    shortcut when it is free, and let a detached window drop down instead
+    of the main window.
 
 ## Embedded terminal
 
