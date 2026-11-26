@@ -109,6 +109,8 @@ add_library(opusfm_core STATIC
     navigationhistory.h
     previewcontent.cpp
     previewcontent.h
+    runnermatches.cpp
+    runnermatches.h
     savedpathfilters.cpp
     savedpathfilters.h
     savedsearches.cpp
