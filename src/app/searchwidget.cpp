@@ -11,6 +11,7 @@
 #include "searchhistory.h"
 #include "searchlocations.h"
 #include "searchquery.h"
+#include "searchranking.h"
 #include "taggingsettings.h"
 
 #include <KLocalizedString>
@@ -230,6 +231,18 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
     m_workspaceOnly->setText(i18nc("@option:check", "Limit to saved locations assigned to the active workspace"));
     m_workspaceOnly->setToolTip(i18nc("@info:tooltip", "Clear this to search the current folder or all indexed locations outside the workspace."));
     form->addRow(QString(), m_workspaceOnly);
+    m_rank = new QCheckBox(i18nc("@option:check", "Rank results by similarity"), this);
+    m_rank->setObjectName(QStringLiteral("searchRank"));
+    m_rank->setToolTip(i18nc("@info:tooltip",
+                             "List the names closest to the search terms first: exact names, then prefixes, word starts, other matches and "
+                             "near spellings. Ranking only reorders the results found."));
+    m_rank->setChecked(m_config->group(QStringLiteral("Search")).readEntry("RankResults", false));
+    connect(m_rank, &QCheckBox::toggled, this, [this](bool checked) {
+        KConfigGroup group = m_config->group(QStringLiteral("Search"));
+        group.writeEntry("RankResults", checked);
+        group.sync();
+    });
+    form->addRow(QString(), m_rank);
     refreshWorkspaceScope();
     m_indexNotice = new QLabel(this);
     m_indexNotice->setObjectName(QStringLiteral("searchIndexNotice"));
@@ -278,6 +291,15 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
         m_status->setText(defaultsNotice);
     }
     resultsLayout->addWidget(m_status);
+    m_liveFallback = new QPushButton(QIcon::fromTheme(QStringLiteral("edit-find")), QString(), this);
+    m_liveFallback->setObjectName(QStringLiteral("searchLiveFallback"));
+    m_liveFallback->setToolTip(i18nc("@info:tooltip", "Run this search again by reading files directly, to find matches the index lacks"));
+    m_liveFallback->hide();
+    connect(m_liveFallback, &QPushButton::clicked, this, [this] {
+        m_scope->setCurrentIndex(CurrentFolder);
+        start();
+    });
+    resultsLayout->addWidget(m_liveFallback, 0, Qt::AlignLeft);
     QString savedError;
     m_savedSearches = SavedSearches::load(m_config->group(QStringLiteral("SavedSearches")), &savedError);
     updateSavedSearches();
@@ -744,6 +766,7 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
     connect(m_scope, &QComboBox::currentIndexChanged, this, [this](int index) {
         m_field->setItemText(1, index == Indexed ? i18nc("@item:inlistbox", "Indexed file contents") : i18nc("@item:inlistbox", "File contents (UTF-8 text)"));
         m_status->setText(scopeStatus(index, m_workspaceScope && m_workspaceScope().active && m_workspaceOnly->isChecked()));
+        m_liveFallback->hide();
         refreshIndexNotice(true);
     });
     connect(m_workspaceOnly, &QCheckBox::toggled, this, [this] {
@@ -782,7 +805,9 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
         if (m_defaultsPending) {
             applyDefaults();
         }
-        for (const QString &path : result.paths) {
+        const bool ranked = m_rank->isChecked() && result.paths.size() > 1;
+        const QStringList paths = ranked ? SearchRanking::rank(result.paths, SearchRanking::terms(m_lastText, m_lastField)) : result.paths;
+        for (const QString &path : paths) {
             setItemPath(new QTreeWidgetItem(m_results), path);
         }
         for (const QString &error : result.errors) {
@@ -801,6 +826,17 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
         }
         for (const QString &notice : result.notices) {
             status += QLatin1Char(' ') + notice;
+        }
+        if (ranked) {
+            status += QLatin1Char(' ')
+                + (m_lastIndexed        ? i18nc("@info", "Results are ranked by name similarity; ranking can't add matches missing from the index.")
+                       : result.limited ? i18nc("@info", "Results are ranked by name similarity; ranking can't add matches beyond the search limit.")
+                                        : i18nc("@info", "Results are ranked by name similarity."));
+        }
+        if (m_lastIndexed && !result.canceled && (m_lastWorkspaceOnly || m_folder.isLocalFile())) {
+            m_liveFallback->setText(m_lastWorkspaceOnly ? i18nc("@action:button", "Search Workspace Locations Live")
+                                                        : i18nc("@action:button", "Search Current Folder Live"));
+            m_liveFallback->show();
         }
         m_status->setText(status);
         Q_EMIT finished(status);
@@ -1291,6 +1327,11 @@ bool SearchWidget::startSearch()
     m_results->clear();
     m_errors->clear();
     m_errors->hide();
+    m_liveFallback->hide();
+    m_lastText = m_query->text();
+    m_lastField = fieldAt(m_field->currentIndex());
+    m_lastIndexed = m_scope->currentIndex() == Indexed;
+    m_lastWorkspaceOnly = workspaceOnly;
     recordHistory(m_query->text());
     m_search->setEnabled(false);
     m_query->setEnabled(false);

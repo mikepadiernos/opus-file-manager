@@ -161,4 +161,11 @@ private:
     IndexStatus::Service m_indexService;
     QLabel *m_indexNotice = nullptr;
     QPushButton *m_indexStatus = nullptr;
+    QCheckBox *m_rank = nullptr;
+    /// Repeats the last indexed search live in the current folder or workspace locations.
+    QPushButton *m_liveFallback = nullptr;
+    QString m_lastText;
+    LiveSearch::Field m_lastField = LiveSearch::Field::FileName;
+    bool m_lastIndexed = false;
+    bool m_lastWorkspaceOnly = false;
 };

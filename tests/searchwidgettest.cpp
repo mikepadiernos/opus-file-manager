@@ -914,6 +914,96 @@ private Q_SLOTS:
         QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("searchStatus"))->text().contains(QStringLiteral("local current folder")));
     }
 
+    void ranksResultsBySimilarity()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QStringList names{QStringLiteral("misreported.txt"),
+                                QStringLiteral("annual-report.txt"),
+                                QStringLiteral("report.txt"),
+                                QStringLiteral("reports.txt")};
+        for (const QString &name : names) {
+            QFile file(root.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchrc")), KConfig::SimpleConfig);
+        QStringList ranked;
+        QStringList unranked;
+        QString rankedStatus;
+        QString unrankedStatus;
+        for (const bool rank : {true, false}) {
+            SearchWidget widget(QUrl::fromLocalFile(root.path()), nullptr, config);
+            auto *check = widget.findChild<QCheckBox *>(QStringLiteral("searchRank"));
+            auto *query = widget.findChild<QLineEdit *>(QStringLiteral("searchQuery"));
+            auto *start = widget.findChild<QPushButton *>(QStringLiteral("searchStart"));
+            auto *results = widget.findChild<QTreeWidget *>(QStringLiteral("searchResults"));
+            auto *status = widget.findChild<QLabel *>(QStringLiteral("searchStatus"));
+            QVERIFY(check && query && start && results && status);
+            // The choice persists between panels.
+            QCOMPARE(check->isChecked(), !rank);
+            check->setChecked(rank);
+            query->setText(QStringLiteral("report"));
+            start->click();
+            QTRY_VERIFY_WITH_TIMEOUT(start->isEnabled(), 5000);
+            QStringList &paths = rank ? ranked : unranked;
+            for (int i = 0; i < results->topLevelItemCount(); ++i) {
+                paths.append(QFileInfo(results->topLevelItem(i)->data(0, Qt::UserRole).toString()).fileName());
+            }
+            (rank ? rankedStatus : unrankedStatus) = status->text();
+            QCOMPARE(config->group(QStringLiteral("Search")).readEntry("RankResults", !rank), rank);
+        }
+        QCOMPARE(
+            ranked,
+            (QStringList{QStringLiteral("report.txt"), QStringLiteral("reports.txt"), QStringLiteral("annual-report.txt"), QStringLiteral("misreported.txt")}));
+        QVERIFY(rankedStatus.contains(QStringLiteral("ranked by name similarity")));
+        // Clearing it keeps the order in which results were found.
+        QCOMPARE(unranked.size(), 4);
+        QVERIFY(!unrankedStatus.contains(QStringLiteral("ranked")));
+    }
+
+    void offersLiveFallbackAfterIndexedSearch()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QFile file(root.filePath(QStringLiteral("fallbackneedle.txt")));
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchrc")), KConfig::SimpleConfig);
+        SearchWidget widget(QUrl::fromLocalFile(root.path()), nullptr, config);
+        widget.show();
+        auto *scope = widget.findChild<QComboBox *>(QStringLiteral("searchScope"));
+        auto *query = widget.findChild<QLineEdit *>(QStringLiteral("searchQuery"));
+        auto *start = widget.findChild<QPushButton *>(QStringLiteral("searchStart"));
+        auto *results = widget.findChild<QTreeWidget *>(QStringLiteral("searchResults"));
+        auto *fallback = widget.findChild<QPushButton *>(QStringLiteral("searchLiveFallback"));
+        QVERIFY(scope && query && start && results && fallback);
+        QVERIFY(!fallback->isVisible());
+        query->setText(QStringLiteral("fallbackneedle"));
+        start->click();
+        QTRY_VERIFY(start->isEnabled());
+        QVERIFY(!fallback->isVisible());
+
+        scope->setCurrentIndex(1);
+        start->click();
+        QTRY_VERIFY_WITH_TIMEOUT(start->isEnabled(), 10000);
+        QVERIFY(fallback->isVisible());
+        QCOMPARE(fallback->text(), QStringLiteral("Search Current Folder Live"));
+        scope->setCurrentIndex(2);
+        QVERIFY(!fallback->isVisible());
+        scope->setCurrentIndex(1);
+        start->click();
+        QTRY_VERIFY_WITH_TIMEOUT(start->isEnabled(), 10000);
+        QVERIFY(fallback->isVisible());
+
+        fallback->click();
+        QCOMPARE(scope->currentIndex(), 0);
+        QVERIFY(!fallback->isVisible());
+        QTRY_VERIFY(start->isEnabled());
+        QCOMPARE(results->topLevelItemCount(), 1);
+        QCOMPARE(results->topLevelItem(0)->data(0, Qt::UserRole).toString(), file.fileName());
+        QVERIFY(!fallback->isVisible());
+    }
+
     void mainWindowOpensSearchPanel()
     {
         QTemporaryDir root;
