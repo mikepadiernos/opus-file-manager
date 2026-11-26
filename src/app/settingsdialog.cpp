@@ -40,9 +40,11 @@
 #include <KPageWidget>
 #include <KPluginMetaData>
 #include <KSharedConfig>
+#include <KStandardAction>
 #include <KTextEditor/Editor>
 #include <KToolBar>
 #include <KUrlRequester>
+#include <KXMLGUIFactory>
 #include <KXmlGuiWindow>
 
 #include <QAbstractItemView>
@@ -154,6 +156,46 @@ KUrlRequester *folderRequester(const QString &entry)
     return requester;
 }
 
+/**
+ * The shortcuts of @p window's actions and of its panes' toolbar actions,
+ * which a Yazi mode key preset can shadow. Actions whose shortcuts work only
+ * while their own widget has the focus are left out.
+ */
+QList<YaziMode::ActionShortcuts> windowShortcuts(QWidget *window)
+{
+    auto *mainWindow = qobject_cast<KXmlGuiWindow *>(window);
+    if (!mainWindow) {
+        return {};
+    }
+    QList<QAction *> actions = mainWindow->actionCollection()->actions();
+    const QList<Pane *> panes = mainWindow->findChildren<Pane *>();
+    for (Pane *pane : panes) {
+        const QList<QAction *> toolbarActions = pane->toolBar()->actions();
+        for (QAction *action : toolbarActions) {
+            if (!actions.contains(action)) {
+                actions.append(action);
+            }
+        }
+    }
+    QList<YaziMode::ActionShortcuts> found;
+    for (const QAction *action : std::as_const(actions)) {
+        if (action->shortcuts().isEmpty() || action->shortcutContext() == Qt::WidgetShortcut) {
+            continue;
+        }
+        QString text = KLocalizedString::removeAcceleratorMarker(action->text());
+        if (text.isEmpty()) {
+            text = action->objectName();
+        }
+        found.append({action->objectName(), text, action->shortcuts()});
+    }
+    return found;
+}
+
+YaziMode::Preset yaziPreset(int setting)
+{
+    return setting == Settings::EnumYaziKeyPreset::Vim ? YaziMode::Preset::Vim : YaziMode::Preset::Standard;
+}
+
 /// A label that redraws its preview when its palette or style changes.
 class PreviewLabel : public QLabel
 {
@@ -185,6 +227,15 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     };
     m_chooseLibraryFolder = [this] {
         return QFileDialog::getExistingDirectory(this, i18nc("@title:window", "Choose a Library Folder"), QDir::homePath());
+    };
+    m_confirmYaziKeys = [this](const QString &question, const QStringList &conflicts) {
+        return KMessageBox::warningContinueCancelList(this,
+                                                      question,
+                                                      conflicts,
+                                                      i18nc("@title:window", "Apply Key Preset"),
+                                                      KGuiItem(i18nc("@action:button", "Apply Preset"), QStringLiteral("dialog-ok-apply")),
+                                                      KGuiItem(i18nc("@action:button", "Keep Current Keys"), QStringLiteral("dialog-cancel")))
+            == KMessageBox::Continue;
     };
     addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}}, i18nc("@title:group", "General"), QStringLiteral("configure"));
     addTabbedPage({{createLanguagePage(), i18nc("@title:tab", "Language and Layout")}, {createDateLanguagePage(), i18nc("@title:tab", "Dates")}},
@@ -230,7 +281,9 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createFolderFormatsPage(), i18nc("@title:tab", "Folder Formats")}},
                   i18nc("@title:group", "View"),
                   QStringLiteral("view-list-icons"));
-    addTabbedPage({{createYaziActivationPage(), i18nc("@title:tab", "Activation")}, {createYaziColumnsPage(), i18nc("@title:tab", "Columns")}},
+    addTabbedPage({{createYaziActivationPage(), i18nc("@title:tab", "Activation")},
+                   {createYaziColumnsPage(), i18nc("@title:tab", "Columns")},
+                   {createYaziKeyboardPage(), i18nc("@title:tab", "Keyboard")}},
                   i18nc("@title:group", "Yazi Mode"),
                   QStringLiteral("view-file-columns"));
     addTabbedPage({{createContextMenuActionsPage(), i18nc("@title:tab", "Actions")}, {createServiceMenusPage(), i18nc("@title:tab", "Service Menus")}},
@@ -2260,6 +2313,11 @@ void SettingsDialog::setLibraryFolderChooser(std::function<QString()> choose)
     m_chooseLibraryFolder = std::move(choose);
 }
 
+void SettingsDialog::setYaziKeyConfirmation(std::function<bool(const QString &, const QStringList &)> confirm)
+{
+    m_confirmYaziKeys = std::move(confirm);
+}
+
 QVariantMap SettingsDialog::appearanceValues() const
 {
     QVariantMap values;
@@ -2559,6 +2617,248 @@ QWidget *SettingsDialog::createYaziColumnsPage()
         m_savedYaziColumnRatios = saved;
     });
     return page;
+}
+
+QWidget *SettingsDialog::createYaziKeyboardPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("yaziKeyboardPage"));
+    auto *layout = new QVBoxLayout(page);
+    const auto notice = [page](const QString &name, const QString &text) {
+        auto *label = new QLabel(text, page);
+        label->setObjectName(name);
+        label->setWordWrap(true);
+        return label;
+    };
+
+    auto *preset = new QGroupBox(i18nc("@title:group", "Key Preset"), page);
+    auto *presetLayout = new QVBoxLayout(preset);
+    m_yaziKeyPreset = comboBox(QStringLiteral("YaziKeyPreset"),
+                               {i18nc("@item:inlistbox Yazi mode key preset", "Standard keys"),
+                                i18nc("@item:inlistbox Yazi mode key preset", "Yazi-style keys (Vim-style movement and multi-key actions)")});
+    m_yaziKeyPreset->setAccessibleName(i18nc("@label:listbox accessible name", "Key preset"));
+    presetLayout->addWidget(m_yaziKeyPreset);
+    presetLayout->addWidget(notice(QStringLiteral("yaziKeyPresetNotice"),
+                                   i18nc("@info",
+                                         "The preset applies to both panes whenever they are in Yazi mode. View › Vim-Style Keys in "
+                                         "Yazi Mode switches between the presets too. The keys of a preset are fixed and can't be "
+                                         "changed one by one.")));
+    layout->addWidget(preset);
+
+    auto *keys = new QGroupBox(i18nc("@title:group", "Preset Keys"), page);
+    auto *keysLayout = new QVBoxLayout(keys);
+    m_yaziKeyBindings = new QTreeWidget(keys);
+    m_yaziKeyBindings->setObjectName(QStringLiteral("yaziKeyBindings"));
+    m_yaziKeyBindings->setAccessibleName(i18nc("@label accessible name", "Keys of the chosen preset"));
+    m_yaziKeyBindings->setHeaderLabels({i18nc("@title:column", "Keys"), i18nc("@title:column", "Command")});
+    m_yaziKeyBindings->setRootIsDecorated(false);
+    m_yaziKeyBindings->setUniformRowHeights(true);
+    m_yaziKeyBindings->setMinimumHeight(m_yaziKeyBindings->fontMetrics().height() * 12);
+    keysLayout->addWidget(m_yaziKeyBindings);
+    m_yaziKeyCounts = notice(QStringLiteral("yaziKeyCountsNotice"),
+                             i18nc("@info",
+                                   "Type a number before a command to repeat it, as in 5j. Digits from 1 to 9 begin a count, so "
+                                   "they don't jump to an item whose name starts with them."));
+    keysLayout->addWidget(m_yaziKeyCounts);
+    layout->addWidget(keys);
+
+    auto *conflicts = new QGroupBox(i18nc("@title:group", "Conflicts"), page);
+    auto *conflictsLayout = new QVBoxLayout(conflicts);
+    m_yaziKeyConflictSummary = notice(QStringLiteral("yaziKeyConflictSummary"), {});
+    conflictsLayout->addWidget(m_yaziKeyConflictSummary);
+    m_yaziKeyConflicts = new QListWidget(conflicts);
+    m_yaziKeyConflicts->setObjectName(QStringLiteral("yaziKeyConflicts"));
+    m_yaziKeyConflicts->setAccessibleName(i18nc("@label accessible name", "Conflicts of the chosen preset"));
+    m_yaziKeyConflicts->setWordWrap(true);
+    conflictsLayout->addWidget(m_yaziKeyConflicts);
+    conflictsLayout->addWidget(notice(QStringLiteral("yaziKeyConflictsNotice"),
+                                      i18nc("@info",
+                                            "A window shortcut listed here doesn't run while a Yazi mode column has the keyboard "
+                                            "focus, because the preset uses its first key. It still runs from the menus and "
+                                            "toolbars, and from the keyboard when the focus is elsewhere, such as in a pane that "
+                                            "isn't in Yazi mode. To use it in Yazi mode too, give the action another shortcut.")));
+    auto *configureShortcuts = new QPushButton(i18nc("@action:button", "Configure Keyboard Shortcuts…"), conflicts);
+    configureShortcuts->setObjectName(QStringLiteral("yaziConfigureShortcuts"));
+    auto *mainWindow = qobject_cast<KXmlGuiWindow *>(parentWidget());
+    const QPointer<QAction> shortcutsAction =
+        mainWindow ? mainWindow->actionCollection()->action(KStandardAction::name(KStandardAction::KeyBindings)) : nullptr;
+    configureShortcuts->setEnabled(!shortcutsAction.isNull());
+    // Preferences stays open, so the conflicts update once the shortcuts are saved.
+    connect(configureShortcuts, &QPushButton::clicked, this, [shortcutsAction] {
+        if (shortcutsAction) {
+            shortcutsAction->trigger();
+        }
+    });
+    if (mainWindow && mainWindow->guiFactory()) {
+        connect(mainWindow->guiFactory(), &KXMLGUIFactory::shortcutsSaved, this, &SettingsDialog::updateYaziKeyPreview);
+    }
+    auto *buttonRow = new QHBoxLayout;
+    buttonRow->addWidget(configureShortcuts);
+    buttonRow->addStretch();
+    conflictsLayout->addLayout(buttonRow);
+    layout->addWidget(conflicts);
+
+    layout->addWidget(notice(QStringLiteral("yaziKeyboardAccessibilityNotice"),
+                             i18nc("@info",
+                                   "Keys are never taken from typing: the preset applies only while a Yazi mode column has the "
+                                   "keyboard focus, and not in line edits, search and filter fields, the location bar, editors, "
+                                   "spin boxes, drop-down lists, the terminal or while renaming an item in place. Neither preset "
+                                   "uses Tab or Shift+Tab, so they keep switching panes and moving the keyboard focus. Escape "
+                                   "cancels keys typed toward a longer key sequence; otherwise it does what it does elsewhere, "
+                                   "such as clearing the selection or cancelling a search started from the columns.")));
+    layout->addStretch();
+
+    connect(m_yaziKeyPreset, &QComboBox::currentIndexChanged, this, [this] {
+        m_confirmedYaziKeyPreset = -1;
+        updateYaziKeyPreview();
+    });
+    // View › Vim-Style Keys in Yazi Mode saves the preset while the dialog may be open; show it unless the preset was changed here.
+    m_savedYaziKeyPreset = Settings::yaziKeyPreset();
+    connect(Settings::self(), &Settings::configChanged, m_yaziKeyPreset, [this] {
+        const int saved = Settings::yaziKeyPreset();
+        if (m_yaziKeyPreset->currentIndex() == m_savedYaziKeyPreset && saved != m_savedYaziKeyPreset) {
+            m_yaziKeyPreset->setCurrentIndex(saved);
+            // KConfigDialogManager only notices the user choosing a preset.
+            updateButtons();
+        }
+        m_savedYaziKeyPreset = saved;
+    });
+    updateYaziKeyPreview();
+    return page;
+}
+
+void SettingsDialog::updateYaziKeyPreview()
+{
+    const int preset = std::max(0, m_yaziKeyPreset->currentIndex());
+    const YaziMode::Keymap keymap = YaziMode::presetKeymap(yaziPreset(preset));
+
+    // One row per command, listing its keys, in the order of the preset.
+    QList<std::pair<YaziMode::Command, QStringList>> rows;
+    for (const YaziMode::Binding &binding : keymap.bindings) {
+        auto row = std::find_if(rows.begin(), rows.end(), [&binding](const auto &candidate) {
+            return candidate.first == binding.command;
+        });
+        if (row == rows.end()) {
+            rows.append({binding.command, {}});
+            row = rows.end() - 1;
+        }
+        row->second.append(YaziMode::sequenceText(binding.keys));
+    }
+    m_yaziKeyBindings->clear();
+    for (const auto &[command, keys] : std::as_const(rows)) {
+        auto *item = new QTreeWidgetItem(m_yaziKeyBindings, {keys.join(i18nc("@item separator of keys", ", ")), YaziMode::commandText(command)});
+        item->setData(0, Qt::UserRole, YaziMode::commandId(command));
+    }
+    m_yaziKeyBindings->resizeColumnToContents(0);
+    m_yaziKeyCounts->setVisible(keymap.counts);
+
+    const QStringList conflicts = yaziKeyConflicts(preset);
+    m_yaziKeyConflicts->clear();
+    m_yaziKeyConflicts->addItems(conflicts);
+    m_yaziKeyConflicts->setVisible(!conflicts.isEmpty());
+    m_yaziKeyConflictSummary->setText(conflicts.isEmpty() ? i18nc("@info", "No conflicts: every key of the preset works, and so do the window's shortcuts.")
+                                                          : i18ncp("@info",
+                                                                   "This preset has 1 conflict while a Yazi mode column has the keyboard focus:",
+                                                                   "This preset has %1 conflicts while a Yazi mode column has the keyboard focus:",
+                                                                   conflicts.size()));
+}
+
+QStringList SettingsDialog::yaziKeyConflicts(int preset) const
+{
+    const YaziMode::Keymap keymap = YaziMode::presetKeymap(yaziPreset(preset));
+    const auto keysText = [&keymap](int binding) {
+        return YaziMode::sequenceText(keymap.bindings.at(binding).keys);
+    };
+    const auto commandText = [&keymap](int binding) {
+        return YaziMode::commandText(keymap.bindings.at(binding).command);
+    };
+    QStringList found;
+    const QList<YaziMode::Conflict> conflicts = YaziMode::conflicts(keymap);
+    for (const YaziMode::Conflict &conflict : conflicts) {
+        if (conflict.second < 0) {
+            found.append(
+                i18nc("@item %1 keys, %2 Yazi mode command", "%1 can't be typed, so “%2” doesn't run", keysText(conflict.first), commandText(conflict.first)));
+        } else {
+            found.append(i18nc("@item %1 and %3 keys, %2 and %4 Yazi mode commands",
+                               "%1 for “%2” and %3 for “%4” begin the same way, so one of them doesn't run",
+                               keysText(conflict.first),
+                               commandText(conflict.first),
+                               keysText(conflict.second),
+                               commandText(conflict.second)));
+        }
+    }
+    const QList<YaziMode::ShadowedShortcut> shadowed = YaziMode::shadowedShortcuts(keymap, windowShortcuts(parentWidget()));
+    for (const YaziMode::ShadowedShortcut &shortcut : shadowed) {
+        const QString shortcutText = shortcut.shortcut.toString(QKeySequence::NativeText);
+        const QString key = YaziMode::keyText(YaziMode::normalizedKey(shortcut.shortcut[0]));
+        const auto single = std::find_if(shortcut.bindings.cbegin(), shortcut.bindings.cend(), [&keymap](int binding) {
+            return keymap.bindings.at(binding).keys.size() == 1;
+        });
+        if (single != shortcut.bindings.cend() && shortcut.shortcut.count() == 1) {
+            found.append(i18nc("@item %1 shortcut, %2 window action, %3 Yazi mode command",
+                               "%1 runs “%3” instead of “%2”",
+                               shortcutText,
+                               shortcut.text,
+                               commandText(*single)));
+        } else if (single != shortcut.bindings.cend()) {
+            found.append(i18nc("@item %1 shortcut, %2 window action, %3 its first key, %4 Yazi mode command",
+                               "%1 doesn't run “%2”: %3 runs “%4”",
+                               shortcutText,
+                               shortcut.text,
+                               key,
+                               commandText(*single)));
+        } else if (!shortcut.bindings.isEmpty()) {
+            QStringList examples;
+            for (int binding : std::as_const(shortcut.bindings)) {
+                if (examples.size() < 3) {
+                    examples.append(keysText(binding));
+                }
+            }
+            found.append(i18nc("@item %1 shortcut, %2 window action, %3 its first key, %4 key sequences such as gg, gh",
+                               "%1 doesn't run “%2”: %3 begins key sequences such as %4",
+                               shortcutText,
+                               shortcut.text,
+                               key,
+                               examples.join(i18nc("@item separator of keys", ", "))));
+        } else {
+            found.append(i18nc("@item %1 shortcut, %2 window action, %3 its first key, a digit",
+                               "%1 doesn't run “%2”: %3 begins a count, which repeats the next command",
+                               shortcutText,
+                               shortcut.text,
+                               key));
+        }
+    }
+    return found;
+}
+
+bool SettingsDialog::confirmYaziKeyPreset()
+{
+    const int chosen = m_yaziKeyPreset->currentIndex();
+    if (chosen == Settings::yaziKeyPreset() || chosen == m_confirmedYaziKeyPreset) {
+        return true;
+    }
+    const QStringList conflicts = yaziKeyConflicts(chosen);
+    if (conflicts.isEmpty()
+        || m_confirmYaziKeys(i18nc("@info %1 key preset",
+                                   "While a Yazi mode column has the keyboard focus, “%1” has these conflicts. To keep a window "
+                                   "shortcut working there, give its action another shortcut in Configure Keyboard Shortcuts. "
+                                   "Apply the preset anyway?",
+                                   m_yaziKeyPreset->currentText()),
+                             conflicts)) {
+        m_confirmedYaziKeyPreset = chosen;
+        return true;
+    }
+    m_yaziKeyPreset->setCurrentIndex(Settings::yaziKeyPreset());
+    updateButtons();
+    return false;
+}
+
+void SettingsDialog::accept()
+{
+    // Declining keeps Preferences open, showing the preset that stays applied.
+    if (confirmYaziKeyPreset()) {
+        KConfigDialog::accept();
+    }
 }
 
 QWidget *SettingsDialog::createPreviewsPage()
@@ -3481,6 +3781,7 @@ SettingsDialog::addSharedToggle(const QString &name, const QString &text, std::f
 
 void SettingsDialog::updateSettings()
 {
+    confirmYaziKeyPreset();
     if (m_selectionFilters->rules() != m_savedSelectionFilters) {
         KConfigGroup group = selectionFilters();
         const QStringList edited = m_selectionFilters->rules();
@@ -3527,6 +3828,9 @@ void SettingsDialog::updateWidgets()
     }
     // Libraries may have been added or removed from the Tags menu since the dialog was shown.
     reloadLibraries();
+    // Window shortcuts may have changed since the dialog was shown.
+    m_savedYaziKeyPreset = Settings::yaziKeyPreset();
+    updateYaziKeyPreview();
 }
 
 void SettingsDialog::updateWidgetsDefault()

@@ -63,6 +63,13 @@ public:
     void setLibraryConfirmation(std::function<bool(const LibraryConfirmations::Confirmation &)> confirm);
     /// Replaces the folder chooser of Add Library, for tests; it returns an empty path when canceled.
     void setLibraryFolderChooser(std::function<QString()> choose);
+    /**
+     * Replaces the question asked before applying a Yazi mode key preset
+     * that shadows window shortcuts or has conflicts of its own, for tests.
+     * @p confirm receives the question and the conflicts and returns whether
+     * to apply the preset.
+     */
+    void setYaziKeyConfirmation(std::function<bool(const QString &, const QStringList &)> confirm);
     /// The theme profile options shown in the dialog, which may not be applied yet.
     QVariantMap appearanceValues() const;
     /// Shows Themes options in the dialog without applying them.
@@ -82,6 +89,7 @@ Q_SIGNALS:
     void libraryAdded(const QString &root);
 
 protected:
+    void accept() override;
     void updateSettings() override;
     void updateWidgets() override;
     void updateWidgetsDefault() override;
@@ -161,6 +169,17 @@ private:
     QWidget *createFolderFormatsPage();
     QWidget *createYaziActivationPage();
     QWidget *createYaziColumnsPage();
+    QWidget *createYaziKeyboardPage();
+    /// Lists the keys and conflicts of the key preset chosen in the Keyboard tab.
+    void updateYaziKeyPreview();
+    /// The conflicts of key preset @p preset, as shown to the user: its own, then the window shortcuts it shadows.
+    QStringList yaziKeyConflicts(int preset) const;
+    /**
+     * Asks before applying a key preset with conflicts; when that is
+     * declined, chooses the applied preset again.
+     * @returns whether the chosen preset may be applied
+     */
+    bool confirmYaziKeyPreset();
     QWidget *createIconsPage();
     QWidget *createContextMenuActionsPage();
     QWidget *createServiceMenusPage();
@@ -230,6 +249,16 @@ private:
     YaziColumnRatiosEditor *m_yaziColumnRatios = nullptr;
     /// The YaziColumnRatios setting when it was last saved, to tell whether the dialog changed it.
     QList<int> m_savedYaziColumnRatios;
+    QComboBox *m_yaziKeyPreset = nullptr;
+    QTreeWidget *m_yaziKeyBindings = nullptr;
+    QLabel *m_yaziKeyCounts = nullptr;
+    QLabel *m_yaziKeyConflictSummary = nullptr;
+    QListWidget *m_yaziKeyConflicts = nullptr;
+    /// The YaziKeyPreset setting when it was last saved, to tell whether the dialog changed it.
+    int m_savedYaziKeyPreset = 0;
+    /// The preset whose conflicts were accepted, so that OK asks only once; -1 when none.
+    int m_confirmedYaziKeyPreset = -1;
+    std::function<bool(const QString &, const QStringList &)> m_confirmYaziKeys;
     /// A checkbox for a setting kept outside Settings, in config that KIO
     /// shares with Dolphin.
     struct SharedToggle {
