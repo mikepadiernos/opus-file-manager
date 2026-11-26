@@ -145,6 +145,7 @@ Main menus
 │   ├── Transfer Queue
 │   ├── Open Terminal
 │   ├── Open Terminal With
+│   ├── Search Command History with Atuin
 │   ├── Open Editor
 │   └── Custom Commands
 ├── Settings
@@ -273,6 +274,7 @@ Main or pane toolbar
 Terminal panel header or session tab
 ├── Dismiss Message
 ├── Hide Terminal Panel
+├── Search Command History with Atuin
 └── Terminal Component
 ```
 

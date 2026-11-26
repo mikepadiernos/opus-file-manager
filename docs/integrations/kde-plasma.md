@@ -333,6 +333,17 @@ behaves like the rest of the desktop and follows the user's choices.
   [Embedded terminal](../CAVEATS.md#embedded-terminal).
   ([#289](https://github.com/mikepadiernos/plasma-opus/issues/289))
 
+- **Atuin command history:** **Tools › Search Command History with Atuin**,
+  also in the terminal panel's menu, shows the embedded terminal and types
+  [Atuin](https://docs.atuin.sh/)'s interactive search into the current
+  session. Atuin shows the chosen command in the terminal instead of running
+  it. Plasma Opus first checks that Atuin is installed, in `PATH` or the
+  folders its installers use, and that its history exists, but never reads
+  the history, changes shell configuration, or installs, initializes or syncs
+  Atuin. A session running another program is reported instead of receiving
+  the search. See [Embedded terminal](../CAVEATS.md#embedded-terminal).
+  ([#364](https://github.com/mikepadiernos/plasma-opus/issues/364))
+
 ## Planned features
 
 Grouped by the [M27](../ROADMAP.md#m27-integrations) subsection that tracks
