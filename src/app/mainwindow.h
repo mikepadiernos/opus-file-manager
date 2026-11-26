@@ -26,6 +26,7 @@ class KdeConnectClient;
 class MountBackend;
 class DropDownWindow;
 class KWinBackend;
+class DiskImageBackend;
 class KWinIntegration;
 class CombinedPanel;
 class DesktopTray;
@@ -160,6 +161,8 @@ public:
     DropDownWindow *dropDownWindow() const;
     /// Replaces the detected Ark backends, for tests.
     void setArkBackends(const Ark::Backends &backends);
+    /// Replaces the disk image backend, for tests.
+    void setDiskImageBackend(std::unique_ptr<DiskImageBackend> backend);
     /**
      * Adds the selected local items to @p archivePath with Ark, after a
      * confirmation, since Ark edits the archive in place. Refuses formats the
@@ -445,8 +448,16 @@ private:
     bool isArkOnlyArchive(const KFileItem &item);
     /// Starts Ark with @p arguments, reporting a missing Ark or a failed start.
     void launchArk(const QStringList &arguments);
+    /// The selected item when it is exactly one local disk image, otherwise a null item.
+    KFileItem selectedDiskImage() const;
+    /**
+     * Mounts or unmounts the selected disk image through Dolphin's Mount ISO
+     * plugin, then reports the result Solid shows.
+     */
+    void setDiskImageMounted(bool mount);
 
     std::optional<Ark::Backends> m_arkBackends;
+    std::unique_ptr<DiskImageBackend> m_diskImages;
 
     KFilePlacesModel *m_placesModel = nullptr;
     DesktopTray *m_desktopTray = nullptr;

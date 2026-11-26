@@ -7,6 +7,7 @@
 #include "contentchartdialog.h"
 #include "customcommanddialog.h"
 #include "customcommands.h"
+#include "diskimagebackend.h"
 #include "duplicatefinderdialog.h"
 #include "effectiveappearance.h"
 #include "favoritesmodel.h"
@@ -513,6 +514,116 @@ private Q_SLOTS:
         QVERIFY(!window.addSelectionToArchive(innerZip));
         QVERIFY(window.statusBar()->currentMessage().contains(QStringLiteral("itself")));
         QVERIFY(!QFile::exists(outputPath));
+    }
+
+    void mountsDiskImagesAndReportsFailures()
+    {
+        struct FakeDiskImages : DiskImageBackend {
+            bool installed = true;
+            bool offersAction = true;
+            // The states each plugin action moves through, in order.
+            QList<Status> results;
+            Status current;
+            int runs = 0;
+            bool pluginInstalled() const override
+            {
+                return installed;
+            }
+            bool runPluginAction(const QString &, QWidget *) override
+            {
+                if (!offersAction) {
+                    return false;
+                }
+                ++runs;
+                if (!results.isEmpty()) {
+                    current = results.takeFirst();
+                }
+                return true;
+            }
+            Status status(const QString &) const override
+            {
+                return current;
+            }
+        };
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString image = directory.filePath(QStringLiteral("install.iso"));
+        const QString note = directory.filePath(QStringLiteral("note.txt"));
+        for (const QString &path : {image, note}) {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly) && file.write("x") == 1);
+        }
+        auto owned = std::make_unique<FakeDiskImages>();
+        FakeDiskImages *fake = owned.get();
+        MainWindow window;
+        window.setDiskImageBackend(std::move(owned));
+        window.openUrls({QUrl::fromLocalFile(directory.path())});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+        QAction *mount = window.actionCollection()->action(QStringLiteral("mount_disk_image"));
+        QAction *unmount = window.actionCollection()->action(QStringLiteral("unmount_disk_image"));
+        QVERIFY(mount && unmount);
+        view->selectUrls({QUrl::fromLocalFile(note)});
+        QTRY_COMPARE(view->selectedItems().size(), 1);
+        QVERIFY(!mount->isEnabled());
+        view->selectUrls({QUrl::fromLocalFile(image)});
+        QTRY_VERIFY(mount->isEnabled() && unmount->isEnabled());
+        const auto message = [&window] {
+            return window.statusBar()->currentMessage();
+        };
+
+        fake->results = {{DiskImageBackend::State::Mounted, QStringLiteral("/run/media/user/INSTALL")}};
+        mount->trigger();
+        QCOMPARE(fake->runs, 1);
+        QVERIFY2(message().contains(QStringLiteral("/run/media/user/INSTALL")), qPrintable(message()));
+        mount->trigger();
+        QCOMPARE(fake->runs, 1);
+        QVERIFY(message().contains(QStringLiteral("already mounted")));
+
+        fake->results = {{DiskImageBackend::State::Mounted, QStringLiteral("/run/media/user/INSTALL")}};
+        unmount->trigger();
+        QVERIFY(message().contains(QStringLiteral("still mounted")));
+        fake->results = {{}};
+        unmount->trigger();
+        QVERIFY(message().startsWith(QStringLiteral("Unmounted")));
+        unmount->trigger();
+        QVERIFY(message().contains(QStringLiteral("not mounted")));
+
+        fake->runs = 0;
+        fake->results = {{}};
+        mount->trigger();
+        QVERIFY(message().contains(QStringLiteral("Authorization may have been denied")));
+        fake->results = {{DiskImageBackend::State::Attached, {}}};
+        mount->trigger();
+        QVERIFY(message().contains(QStringLiteral("attached but not mounted")));
+        // Mounting an attached image detaches it first, then mounts it again.
+        fake->runs = 0;
+        fake->results = {{}, {DiskImageBackend::State::Mounted, QStringLiteral("/mnt/image")}};
+        mount->trigger();
+        QCOMPARE(fake->runs, 2);
+        QVERIFY(message().contains(QStringLiteral("/mnt/image")));
+
+        fake->current = {};
+        fake->offersAction = false;
+        mount->trigger();
+        QVERIFY(message().contains(QStringLiteral("offered no action")));
+
+        fake->installed = false;
+        bool reported = false;
+        std::function<void(int)> closeReport = [&reported, &closeReport](int attempts) {
+            QTimer::singleShot(10, [&reported, &closeReport, attempts] {
+                auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+                if (dialog && dialog->isVisible()) {
+                    reported = dialog->windowTitle().contains(QStringLiteral("Mount ISO Plugin Not Found"));
+                    dialog->reject();
+                } else if (attempts > 0) {
+                    closeReport(attempts - 1);
+                }
+            });
+        };
+        closeReport(200);
+        mount->trigger();
+        QVERIFY(reported);
     }
 
     void opensFilteredFolderComparison()

@@ -21,6 +21,8 @@
 #include "customstylesheet.h"
 #include "density.h"
 #include "desktoptray.h"
+#include "diskimagebackend.h"
+#include "diskimages.h"
 #include "doubleshift.h"
 #include "dropdownwindow.h"
 #include "duplicatefinderdialog.h"
@@ -501,6 +503,7 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(m_desktopTray, &DesktopTray::transfersRequested, this, &MainWindow::showTransferQueue);
     m_kwin = new KWinIntegration(std::make_unique<SystemKWinBackend>(), KSharedConfig::openConfig(), KSharedConfig::openStateConfig(), this);
+    m_diskImages = std::make_unique<SystemDiskImageBackend>();
     m_kwin->registerOnBus();
     m_kwin->setWorkspaceProvider([this] {
         return m_currentWorkspaceId;
@@ -2363,6 +2366,81 @@ void MainWindow::setArkBackends(const Ark::Backends &backends)
     m_arkBackends = backends;
 }
 
+void MainWindow::setDiskImageBackend(std::unique_ptr<DiskImageBackend> backend)
+{
+    m_diskImages = std::move(backend);
+}
+
+KFileItem MainWindow::selectedDiskImage() const
+{
+    const KFileItemList selected = activePane()->view()->selectedItems();
+    if (selected.size() != 1 || selected.first().isDir() || selected.first().localPath().isEmpty() || !DiskImages::isDiskImage(selected.first().mimetype())) {
+        return {};
+    }
+    return selected.first();
+}
+
+void MainWindow::setDiskImageMounted(bool mount)
+{
+    const KFileItem image = selectedDiskImage();
+    if (image.isNull()) {
+        showStatusMessage(i18nc("@info:status", "Select one local ISO or disk image."));
+        return;
+    }
+    if (!m_diskImages->pluginInstalled()) {
+        KMessageBox::error(this,
+                           i18nc("@info",
+                                 "Mounting disk images needs the Mount ISO plugin from Dolphin's plugins. Install the dolphin-plugins package "
+                                 "from Discover or your distribution."),
+                           i18nc("@title:window", "Mount ISO Plugin Not Found"));
+        return;
+    }
+    const QString file = image.localPath();
+    const DiskImageBackend::State before = m_diskImages->status(file).state;
+    if (mount && before == DiskImageBackend::State::Mounted) {
+        showStatusMessage(i18nc("@info:status", "%1 is already mounted at %2.", image.name(), m_diskImages->status(file).mountPoint));
+        return;
+    }
+    if (!mount && before == DiskImageBackend::State::Detached) {
+        showStatusMessage(i18nc("@info:status", "%1 is not mounted.", image.name()));
+        return;
+    }
+    // Unmount detaches an image left attached by a refused mount, so a mount
+    // that only got as far as the loop device is retried from scratch.
+    if (mount && before == DiskImageBackend::State::Attached && !m_diskImages->runPluginAction(file, this)) {
+        showStatusMessage(i18nc("@info:status", "The Mount ISO plugin offered no action for %1.", image.name()));
+        return;
+    }
+    if (!m_diskImages->runPluginAction(file, this)) {
+        showStatusMessage(
+            i18nc("@info:status", "The Mount ISO plugin offered no action for %1. The session bus may not support passing files to UDisks2.", image.name()));
+        return;
+    }
+    const DiskImageBackend::Status after = m_diskImages->status(file);
+    if (mount) {
+        switch (after.state) {
+        case DiskImageBackend::State::Mounted:
+            showStatusMessage(i18nc("@info:status", "Mounted %1 at %2.", image.name(), after.mountPoint));
+            break;
+        case DiskImageBackend::State::Attached:
+            showStatusMessage(i18nc("@info:status",
+                                    "%1 was attached but not mounted. Authorization may have been denied, or it has no file system Plasma can mount.",
+                                    image.name()));
+            break;
+        case DiskImageBackend::State::Detached:
+            showStatusMessage(
+                i18nc("@info:status", "%1 was not mounted. Authorization may have been denied or cancelled, or UDisks2 is unavailable.", image.name()));
+            break;
+        }
+    } else if (after.state == DiskImageBackend::State::Detached) {
+        showStatusMessage(i18nc("@info:status", "Unmounted %1.", image.name()));
+    } else if (after.state == DiskImageBackend::State::Attached) {
+        showStatusMessage(i18nc("@info:status", "Unmounted %1, but it is still attached as a loop device. Try Unmount again.", image.name()));
+    } else {
+        showStatusMessage(i18nc("@info:status", "%1 is still mounted. A program may be using it, or authorization was denied.", image.name()));
+    }
+}
+
 bool MainWindow::isArkOnlyArchive(const KFileItem &item)
 {
     return !item.isDir() && !item.localPath().isEmpty() && !Archives::browseUrl(item.mostLocalUrl(), item.mimetype()).isValid()
@@ -3304,6 +3382,19 @@ void MainWindow::setupActions()
     openInArk->setToolTip(i18nc("@info:tooltip", "Open the archive in Ark to add, rename or remove its entries"));
     openInArk->setIcon(QIcon::fromTheme(QStringLiteral("ark")));
 
+    QAction *mountImage = actions->addAction(QStringLiteral("mount_disk_image"), this, [this] {
+        setDiskImageMounted(true);
+    });
+    mountImage->setText(i18nc("@action", "Mount Disk Image"));
+    mountImage->setToolTip(i18nc("@info:tooltip", "Mount the selected ISO or disk image with Dolphin's Mount ISO plugin"));
+    mountImage->setIcon(QIcon::fromTheme(QStringLiteral("media-mount")));
+
+    QAction *unmountImage = actions->addAction(QStringLiteral("unmount_disk_image"), this, [this] {
+        setDiskImageMounted(false);
+    });
+    unmountImage->setText(i18nc("@action", "Unmount Disk Image"));
+    unmountImage->setIcon(QIcon::fromTheme(QStringLiteral("media-eject")));
+
     m_flatAction = new KToggleAction(QIcon::fromTheme(QStringLiteral("view-list-text")), i18nc("@action", "Show Flat (No Folders)"), this);
     actions->addAction(QStringLiteral("show_flat"), m_flatAction);
     actions->setDefaultShortcut(m_flatAction, Qt::CTRL | Qt::SHIFT | Qt::Key_F);
@@ -3715,6 +3806,9 @@ void MainWindow::updateActions()
         ->setEnabled(selected.size() == 1 && !selected.first().isDir() && !selected.first().localPath().isEmpty()
                      && (Archives::browseUrl(selected.first().mostLocalUrl(), selected.first().mimetype()).isValid()
                          || arkBackends().canRead(selected.first().mimetype())));
+    const bool diskImage = !selectedDiskImage().isNull();
+    actions->action(QStringLiteral("mount_disk_image"))->setEnabled(diskImage);
+    actions->action(QStringLiteral("unmount_disk_image"))->setEnabled(diskImage);
 
     bool pasteEnabled = false;
     const QString pasteText = FileOperations::pasteActionText(root, &pasteEnabled);
@@ -4681,6 +4775,10 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
             menu.addAction(actions->action(QStringLiteral("open_in_ark")));
         }
     }
+    if (items.size() == 1 && !selectedDiskImage().isNull()) {
+        const bool attached = m_diskImages->pluginInstalled() && m_diskImages->status(items.first().localPath()).state != DiskImageBackend::State::Detached;
+        menu.addAction(actions->action(attached ? QStringLiteral("unmount_disk_image") : QStringLiteral("mount_disk_image")));
+    }
     if (allLocal) {
         menu.addAction(actions->action(QStringLiteral("compress")));
         if (Ark::isInstalled()) {
@@ -4692,7 +4790,8 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
         menu.addAction(actions->action(QStringLiteral("copy_path")));
     }
 
-    m_fileItemActions->addActionsTo(&menu, KFileItemActions::MenuActionSource::All, {}, Settings::hiddenServiceActions());
+    // Mount Disk Image replaces the Mount ISO plugin's own entries, which report no errors.
+    m_fileItemActions->addActionsTo(&menu, KFileItemActions::MenuActionSource::All, {}, Settings::hiddenServiceActions() + QStringList{DiskImages::pluginId()});
 
     menu.addSeparator();
     if (visible("properties")) {

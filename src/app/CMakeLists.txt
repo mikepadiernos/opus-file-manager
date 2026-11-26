@@ -59,6 +59,8 @@ add_library(opusfm_app STATIC
     kdeconnectsharedialog.h
     dropdownwindow.cpp
     dropdownwindow.h
+    diskimagebackend.cpp
+    diskimagebackend.h
     kwinintegration.cpp
     kwinintegration.h
     kwinintegrationdialog.cpp
