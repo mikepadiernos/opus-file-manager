@@ -52,7 +52,8 @@ are in [reported bugs](BUGS.md), and untested scenarios in
   [native title and header padding](#native-title-and-header-padding)
 - **🌐 Languages:** [Jalali dates](#jalali-dates),
   [translation format overrides](#translation-format-overrides)
-- **🛠️ Setup and tools:** [Embedded terminal](#embedded-terminal),
+- **🛠️ Setup and tools:** [Desktop integration](#desktop-integration),
+  [embedded terminal](#embedded-terminal),
   [settings backups](#settings-backups),
   [build and installation](#build-installation-and-references),
   [installing optional tools](#installing-optional-alternatives)
@@ -1588,6 +1589,36 @@ The regional locale and custom digit shapes do not control every display
   Plasma Opus.
   - Comment:
     [#440.7045227580](https://github.com/mikepadiernos/plasma-opus/issues/440#issuecomment-7045227580)
+
+## Desktop integration
+
+The M27 desktop integrations have these limits
+([#728](https://github.com/mikepadiernos/plasma-opus/issues/728)):
+
+- **🔗 FileManager1 service:** Plasma Opus claims
+  `org.freedesktop.FileManager1` only when it starts while it is the default
+  folder handler, and never replaces another owner, such as a running Dolphin.
+  Changing the default handler while it runs takes effect at the next start.
+  The per-user activation file from `install.sh --default` stays when another
+  default is chosen in System Settings, so requests made while no file
+  manager runs still start Plasma Opus. Requests open tabs in the active pane
+  of the existing window; missing items are skipped and reported, and flat
+  view opens the folder without a selection.
+  ([#279](https://github.com/mikepadiernos/plasma-opus/issues/279))
+
+- **Recommendation:**
+  - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
+    it is running and restart Plasma Opus so it claims the service. To hand
+    requests back, run `./install.sh --uninstall` or delete
+    `~/.local/share/dbus-1/services/org.kde.opusfilemanager.FileManager1.service`
+    as well as changing the default in System Settings.
+  - Comment:
+    [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
+- **Proposed improvements:**
+  - Claim or release the service when the default handler changes while
+    Plasma Opus runs.
+  - An M28 **File manager** settings row that installs or removes the
+    activation file explicitly.
 
 ## Embedded terminal
 
