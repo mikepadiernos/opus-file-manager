@@ -150,6 +150,8 @@ add_library(opusfm_core STATIC
     treemap.h
     transferqueue.cpp
     transferqueue.h
+    traypolicy.cpp
+    traypolicy.h
     viewsettings.cpp
     viewsettings.h
     workspacecatalog.cpp

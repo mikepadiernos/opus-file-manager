@@ -590,6 +590,20 @@
       <default>Ask</default>
     </entry>
   </group>
+  <group name="Tray">
+    <entry name="ShowTrayIcon" type="Bool">
+      <label>Show a system tray icon while Plasma Opus runs</label>
+      <default>true</default>
+    </entry>
+    <entry name="MinimizeToTray" type="Bool">
+      <label>Hide the window in the system tray when it is minimized</label>
+      <default>false</default>
+    </entry>
+    <entry name="CloseToTray" type="Bool">
+      <label>Hide the window in the system tray when it is closed</label>
+      <default>false</default>
+    </entry>
+  </group>
   <group name="Editor">
     <entry name="EditorOpening" type="Enum">
       <choices><choice name="Panel"/><choice name="Embedded"/><choice name="Maximized"/><choice name="Window"/></choices>
