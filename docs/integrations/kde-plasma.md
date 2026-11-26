@@ -317,6 +317,22 @@ behaves like the rest of the desktop and follows the user's choices.
   [File-type categories](../CAVEATS.md#desktop-integration).
   ([#649](https://github.com/mikepadiernos/plasma-opus/issues/649))
 
+- **Terminal providers:** **Tools › Open Terminal With** and the folder
+  context menus open the active local folder in KDE's **Default Terminal**,
+  [Konsole](https://apps.kde.org/konsole/),
+  [Yakuake](https://apps.kde.org/yakuake/) or Kwi. Konsole and Kwi start
+  with `--workdir`; Yakuake receives a new session over D-Bus, starting
+  Yakuake first when it isn't running, and the status bar notes that its
+  window may need its shortcut. Providers that aren't installed are disabled
+  with a tooltip saying so, and remote or missing folders are reported
+  without starting anything. **Open Terminal Here** still uses KDE's default
+  terminal. The embedded terminal panel's menu gains **Terminal Component**,
+  which chooses the Konsole or Kwi component for new sessions; open sessions
+  keep theirs, and a missing component is reported instead of replaced. See
+  [Terminal providers](../CAVEATS.md#desktop-integration) and
+  [Embedded terminal](../CAVEATS.md#embedded-terminal).
+  ([#289](https://github.com/mikepadiernos/plasma-opus/issues/289))
+
 ## Planned features
 
 Grouped by the [M27](../ROADMAP.md#m27-integrations) subsection that tracks

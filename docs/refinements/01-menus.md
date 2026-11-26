@@ -144,6 +144,7 @@ Main menus
 │   ├── Export Listing
 │   ├── Transfer Queue
 │   ├── Open Terminal
+│   ├── Open Terminal With
 │   ├── Open Editor
 │   └── Custom Commands
 ├── Settings
@@ -178,6 +179,7 @@ File listing: selected items
 ├── Move to Trash
 ├── Delete Permanently
 ├── Open Terminal Here
+├── Open Terminal With
 ├── Content Chart
 ├── Add to Favorites
 ├── Folder Look
@@ -197,6 +199,7 @@ File listing: empty space
 ├── New Tab
 ├── Reload
 ├── Open Terminal Here
+├── Open Terminal With
 ├── Calculate Occupied Space
 ├── Content Chart
 ├── Folder Look
@@ -269,7 +272,8 @@ Main or pane toolbar
 ```text
 Terminal panel header or session tab
 ├── Dismiss Message
-└── Hide Terminal Panel
+├── Hide Terminal Panel
+└── Terminal Component
 ```
 
 ##### Terminal content
