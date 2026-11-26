@@ -100,6 +100,7 @@ ecm_add_tests(
     ignorelisttest.cpp
     indexedsearchtest.cpp
     kdeconnectsharetest.cpp
+    kwinscripttest.cpp
     mounttabletest.cpp
     libraryscantest.cpp
     libraryarchivetest.cpp
@@ -287,6 +288,21 @@ ecm_add_test(mountmanagerdialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
     GUI
+)
+
+ecm_add_test(kwinintegrationtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
+ecm_add_test(kwinscriptjstest.cpp
+    LINK_LIBRARIES opusfm_core Qt6::Test Qt6::Qml
+    NAME_PREFIX "opusfm-"
+)
+target_compile_definitions(kwinscriptjstest PRIVATE
+    OPUSFM_KWIN_SCRIPT="${PROJECT_SOURCE_DIR}/src/kwin/opusfilemanager/contents/code/main.js"
+    OPUSFM_KWIN_METADATA="${PROJECT_SOURCE_DIR}/src/kwin/opusfilemanager/metadata.json"
 )
 
 ecm_add_test(opusrunnertest.cpp
