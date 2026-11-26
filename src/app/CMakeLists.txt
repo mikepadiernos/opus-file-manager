@@ -53,6 +53,10 @@ add_library(opusfm_app STATIC
     filesplitdialog.h
     fileoperations.cpp
     fileoperations.h
+    kdeconnectclient.cpp
+    kdeconnectclient.h
+    kdeconnectsharedialog.cpp
+    kdeconnectsharedialog.h
     filterbar.cpp
     filterbar.h
     folderview.cpp

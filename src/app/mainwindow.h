@@ -21,6 +21,7 @@
 #include <memory>
 
 class ActivityController;
+class KdeConnectClient;
 class CombinedPanel;
 class DesktopTray;
 class FavoritesModel;
@@ -120,6 +121,13 @@ public:
     /// The system tray icon and the global shortcut that shows or hides the
     /// window.
     DesktopTray *desktopTray() const;
+
+    /// The KDE Connect daemon the Send to Device action uses, created when first needed.
+    KdeConnectClient *kdeConnectClient();
+    /// Replaces the KDE Connect client and takes ownership of it.
+    void setKdeConnectClient(KdeConnectClient *client);
+    /// Shows the dialog that sends the selected files to a KDE Connect device.
+    void sendToDevice();
 
     /**
      * Applies the current Settings to the panes, actions and status bar.
@@ -392,6 +400,7 @@ private:
     KFilePlacesModel *m_placesModel = nullptr;
     DesktopTray *m_desktopTray = nullptr;
     ActivityController *m_activityController = nullptr;
+    KdeConnectClient *m_kdeConnect = nullptr;
     /// Behaviours an applied Activity association chose for its workspace, until another workspace is chosen.
     std::optional<WorkspaceCatalog::BehaviorSelection> m_activityBehaviors;
     QString m_activityBehaviorsWorkspaceId;

@@ -39,6 +39,8 @@
 #include "folderview.h"
 #include "gallerywindow.h"
 #include "informationpanel.h"
+#include "kdeconnectclient.h"
+#include "kdeconnectsharedialog.h"
 #include "labelcolor.h"
 #include "libraryautorefresh.h"
 #include "libraryregistry.h"
@@ -2350,6 +2352,10 @@ void MainWindow::setupActions()
     QAction *editor = actions->addAction(QStringLiteral("open_editor"), this, &MainWindow::openEditor);
     editor->setText(i18nc("@action", "Open Editor"));
     editor->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-pim-notes")));
+    QAction *sendToDevice = actions->addAction(QStringLiteral("kdeconnect_send"), this, &MainWindow::sendToDevice);
+    sendToDevice->setText(i18nc("@action", "Send to Device…"));
+    sendToDevice->setToolTip(i18nc("@info:tooltip", "Send the selected files to a paired device with KDE Connect"));
+    sendToDevice->setIcon(SymbolicIcon::fromTheme(QStringLiteral("smartphone")));
     QAction *compare = actions->addAction(QStringLiteral("compare_files"), this, &MainWindow::compareFiles);
     compare->setText(i18nc("@action", "Compare Files"));
     compare->setIcon(QIcon::fromTheme(QStringLiteral("document-edit")));
@@ -3422,6 +3428,7 @@ void MainWindow::updateActions()
                                 return item.url().isLocalFile() && item.isFile() && !item.isLink();
                             });
     actions->action(QStringLiteral("create_checksum"))->setEnabled(localFiles);
+    actions->action(QStringLiteral("kdeconnect_send"))->setEnabled(hasSelection);
     actions->action(QStringLiteral("verify_checksum"))->setEnabled(localFiles && selected.size() == 1);
     actions->action(QStringLiteral("edit_metadata"))->setEnabled(localFiles && selected.size() == 1);
     actions->action(QStringLiteral("split_file"))->setEnabled(localFiles && selected.size() == 1);
@@ -4678,6 +4685,36 @@ void MainWindow::createChecksumFile()
         return;
     }
     auto *dialog = new ChecksumDialog(ChecksumDialog::Mode::Create, paths, chooser.selectedFiles().first(), this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
+KdeConnectClient *MainWindow::kdeConnectClient()
+{
+    if (!m_kdeConnect) {
+        m_kdeConnect = new DBusKdeConnectClient(this);
+    }
+    return m_kdeConnect;
+}
+
+void MainWindow::setKdeConnectClient(KdeConnectClient *client)
+{
+    if (m_kdeConnect != client) {
+        delete m_kdeConnect;
+        m_kdeConnect = client;
+        if (client) {
+            client->setParent(this);
+        }
+    }
+}
+
+void MainWindow::sendToDevice()
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    if (items.isEmpty()) {
+        return;
+    }
+    auto *dialog = new KdeConnectShareDialog(kdeConnectClient(), urlsOf(items), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
 }
