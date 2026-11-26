@@ -1232,10 +1232,10 @@ process or a promise of Yazi configuration or plugin compatibility.
       cancellable work and existing size and remote-download limits. Report
       progress and errors through existing jobs and the transfer queue rather
       than duplicating operations.
-- [ ] Keep large and remote listings responsive and accessible to keyboard and
+- [x] Keep large and remote listings responsive and accessible to keyboard and
       assistive-technology users. Report unavailable operations and preserve
       ordinary browsing when a location is unsupported by the mode.
-- [ ] Store mode, column and preview choices in KConfig and available workspace
+- [x] Store mode, column and preview choices in KConfig and available workspace
       layouts. Include Yazi mode in workspace snapshots and feature selection.
       Provide a discoverable toggle without changing existing bindings by
       default.
