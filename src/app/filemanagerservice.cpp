@@ -86,6 +86,8 @@ void FileManagerService::reportRejected(const QStringList &rejected) const
 
 void FileManagerService::activate(const QString &startUpId)
 {
+    // Also restores a window that is minimized or hidden in the tray.
+    m_window->setWindowState(m_window->windowState() & ~Qt::WindowMinimized);
     m_window->show();
     if (QWindow *handle = m_window->windowHandle()) {
         if (!startUpId.isEmpty()) {

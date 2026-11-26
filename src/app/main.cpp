@@ -34,6 +34,8 @@
 #include <QTimer>
 #include <QUrl>
 
+#include <memory>
+
 namespace
 {
 QList<QUrl> urlsFromArguments(const QStringList &arguments, const QString &workingDirectory)
@@ -189,8 +191,14 @@ int main(int argc, char **argv)
     };
     if (serviceMode) {
         QObject::connect(fileManager, &FileManagerService::requestHandled, window, showStartupMessage, Qt::SingleShotConnection);
-        QTimer::singleShot(std::chrono::seconds(30), window, [window] {
-            if (!window->isVisible()) {
+        // Quit only when no request arrived; a handled request's window may
+        // since have been hidden to the tray.
+        auto requestHandled = std::make_shared<bool>(false);
+        QObject::connect(fileManager, &FileManagerService::requestHandled, window, [requestHandled] {
+            *requestHandled = true;
+        });
+        QTimer::singleShot(std::chrono::seconds(30), window, [window, requestHandled] {
+            if (!*requestHandled && !window->isVisible()) {
                 QApplication::quit();
             }
         });
@@ -217,6 +225,8 @@ int main(int argc, char **argv)
             window->resetAppearance();
         }
         window->openUrls(urlsFromArguments(instanceParser.positionalArguments(), workingDirectory));
+        // Also restores a window that is minimized or hidden in the tray.
+        window->setWindowState(window->windowState() & ~Qt::WindowMinimized);
         window->show();
         if (window->windowHandle()) {
             KWindowSystem::updateStartupId(window->windowHandle());
