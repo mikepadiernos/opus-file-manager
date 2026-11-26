@@ -1447,7 +1447,7 @@ for some features are recorded in [pending tasks](TODO.md).
         non-overwriting behaviour, confirm changes to existing archives and
         report formats that installed Ark backends can only extract, such as
         RAR. (MiXplorer)
-  - [ ] Mount and unmount ISO and other disk images through the Mount ISO
+  - [x] Mount and unmount ISO and other disk images through the Mount ISO
         action from Dolphin's plugins when installed, and show mounted images
         in Places through Solid. Report a missing plugin or denied
         authorization. (MiXplorer)
