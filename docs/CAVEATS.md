@@ -1622,9 +1622,9 @@ The M27 desktop integrations have these limits
   the dialogs remain the only progress display. There is no Plasma Opus
   setting to turn the reporting off yet.
   ([#388](https://github.com/mikepadiernos/plasma-opus/issues/388))
-- **📌 System tray and global shortcut:** the tray icon is on by default and
-  has no settings page until M28; minimizing and closing to the tray are
-  off and can only be enabled in the configuration file. On Wayland, KWin
+- **📌 System tray and global shortcut:** the tray icon is on by default;
+  minimizing and closing to the tray are off until turned on under
+  **Settings › General › System Tray**. On Wayland, KWin
   does not tell applications when they are minimized, so minimizing to the
   tray works only on X11. KWin's focus-stealing prevention may keep a window
   shown from the tray or the global shortcut behind the active window and
@@ -1633,6 +1633,20 @@ The M27 desktop integrations have these limits
   hidden in the tray keeps its tabs and running operations, but there is no
   option to start hidden in the tray.
   ([#285](https://github.com/mikepadiernos/plasma-opus/issues/285))
+- **🧭 Plasma Activities:** associations are off by default and are only
+  offered, in a message above the panes, when the current Activity changes;
+  the Activity that is current when Plasma Opus starts is not offered. An
+  association whose workspace is already active offers only its default
+  folders, and its own behaviours apply only when its workspace is switched
+  to. Behaviours chosen by an association last until another workspace is
+  chosen, and they are not saved with the session. Default folders always
+  open in new tabs, so tabs accumulate with each switch. Only local folders
+  are checked before they are offered; a missing remote folder fails when
+  its tab opens. Associations are kept for removed Activities and missing
+  workspaces until they are cleared under **View › Activity Associations**.
+  Without the Activities service, nothing is offered and removed Activities
+  cannot be told apart from existing ones.
+  ([#387](https://github.com/mikepadiernos/plasma-opus/issues/387))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -1650,12 +1664,19 @@ The M27 desktop integrations have these limits
     under **System Settings › Notifications**; this affects every
     application.
   - **System tray and global shortcut:** To hide the window instead of
-    closing it, set `CloseToTray=true` in the `[Tray]` group of
-    `~/.config/opus-file-managerrc`; on Wayland, prefer this to
-    `MinimizeToTray=true`. Set `ShowTrayIcon=false` there to remove the icon.
-    If the shortcut does nothing, assign one to **Show or Hide Plasma Opus**
+    closing it, check **Hide the window in the system tray when it is
+    closed** under **Settings › General › System Tray**; on Wayland, prefer
+    this to hiding when minimized. Clear **Show an icon in the system tray**
+    there to remove the icon. If the shortcut does nothing, assign one to **Show or Hide Plasma Opus**
     under **Settings › Configure Keyboard Shortcuts**, and keep the icon
     always visible through the tray's **Configure System Tray…** entries.
+  - **Plasma Activities:** Turn associations on under **Settings ›
+    Workspaces › Activities**, then choose each Activity's workspace,
+    behaviours and folders under **View › Activity Associations**. To apply
+    the current Activity's association at any time, including at start or
+    after choosing **Not Now**, use **View › Apply Activity Association**.
+    Close default-folder tabs you no longer need, and clear associations of
+    removed Activities once they are not coming back.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -1668,9 +1689,13 @@ The M27 desktop integrations have these limits
   - An M28 setting to choose which operations report to Plasma, and to
     report automatic library refreshes.
   - A job action that raises the dialog that started the operation.
-  - M28 **System tray** settings for the icon, minimizing and closing to the
-    tray, and starting hidden, with a notice when the global shortcut could
-    not be assigned.
+  - An M28 **System tray** setting for starting hidden, with a notice when
+    the global shortcut could not be assigned.
+  - Reuse an open tab showing an Activity's default folder instead of
+    opening another, and offer the current Activity's association at start
+    as an option.
+  - Keep association behaviours with the session, and an M28
+    **Plasma Activities** page that manages associations in the settings.
 
 ## Embedded terminal
 
