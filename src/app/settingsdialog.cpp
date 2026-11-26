@@ -40,6 +40,8 @@
 #include <KLocalizedString>
 #include <KMessageBox>
 #include <KMessageWidget>
+#include <KNSCore/Entry>
+#include <KNSWidgets/Button>
 #include <KPageWidget>
 #include <KPluginMetaData>
 #include <KSharedConfig>
@@ -4067,41 +4069,145 @@ QWidget *SettingsDialog::createServiceMenusPage()
 {
     auto *list = new QWidget;
     auto *column = new QVBoxLayout(list);
-    const QList<ServiceMenuEntry> entries = ServiceMenus::installed();
-    auto *localActions = new HiddenItemsList;
-    for (const ServiceMenuEntry &entry : entries) {
-        localActions->addItem(entry.key, entry.submenu.isEmpty() ? entry.text : i18nc("@item:inlistbox", "%1: %2", entry.submenu, entry.text));
+    auto *note = new QLabel(i18nc("@info",
+                                  "Downloaded service menus can run commands on the selected files. They are shared with Dolphin and other KDE "
+                                  "applications, which may show them too. Only install service menus from authors you trust."));
+    note->setWordWrap(true);
+    column->addWidget(note);
+    auto *downloadRow = new QHBoxLayout;
+    auto *download = new KNSWidgets::Button(i18nc("@action:button", "Download New Services…"), QLatin1String(ServiceMenus::DownloadConfig), list);
+    download->setObjectName(QStringLiteral("serviceMenuDownload"));
+    downloadRow->addWidget(download);
+    downloadRow->addStretch();
+    column->addLayout(downloadRow);
+    m_serviceMenuStatus = new QLabel;
+    m_serviceMenuStatus->setObjectName(QStringLiteral("serviceMenuStatus"));
+    m_serviceMenuStatus->setWordWrap(true);
+    column->addWidget(m_serviceMenuStatus);
+    if (ServiceMenus::downloadConfigPath().isEmpty()) {
+        download->setEnabled(false);
+        m_serviceMenuStatus->setText(i18nc("@info",
+                                           "Downloading needs Dolphin's service menu provider, which is not installed. Install Dolphin to "
+                                           "browse, install, update and remove service menus here."));
+    } else {
+        m_serviceMenuStatus->hide();
     }
+    connect(download, &KNSWidgets::Button::dialogFinished, this, [this](const QList<KNSCore::Entry> &changed) {
+        reportServiceMenuChanges(changed);
+        refreshServiceMenus();
+        updateButtons();
+    });
+
+    m_serviceMenuList = new HiddenItemsList;
     auto *form = new QFormLayout;
-    form->addRow(i18nc("@label", "Show in Plasma Opus:"), bound(localActions, QStringLiteral("HiddenServiceActions"), "hiddenItems"));
+    form->addRow(i18nc("@label", "Show in Plasma Opus:"), bound(m_serviceMenuList, QStringLiteral("HiddenServiceActions"), "hiddenItems"));
     column->addLayout(form);
-    for (const ServiceMenuEntry &entry : entries) {
-        const QString key = entry.key;
-        const bool shownByDefault = entry.shownByDefault;
-        const QString text = entry.submenu.isEmpty() ? entry.text : i18nc("@option:check submenu: action", "%1: %2", entry.submenu, entry.text);
-        QCheckBox *check = addSharedToggle(
-            QStringLiteral("serviceMenu_") + key,
-            text,
-            [key, shownByDefault] {
-                return KConfig(QLatin1String(ServiceMenus::ConfigFile), KConfig::NoGlobals)
-                    .group(QLatin1String(ServiceMenus::ShowGroup))
-                    .readEntry(key, shownByDefault);
-            },
-            [key](bool shown) {
-                KConfig config(QLatin1String(ServiceMenus::ConfigFile), KConfig::NoGlobals);
-                config.group(QLatin1String(ServiceMenus::ShowGroup)).writeEntry(key, shown);
-                config.sync();
-            },
-            shownByDefault);
-        check->setIcon(QIcon::fromTheme(entry.iconName));
-        column->addWidget(check);
-    }
+    m_serviceMenuToggles = new QVBoxLayout;
+    column->addLayout(m_serviceMenuToggles);
     column->addStretch();
+    refreshServiceMenus();
 
     auto *scroll = new QScrollArea;
     scroll->setWidgetResizable(true);
     scroll->setWidget(list);
     return scroll;
+}
+
+void SettingsDialog::refreshServiceMenus()
+{
+    const QList<ServiceMenuEntry> entries = ServiceMenus::installed();
+    QList<std::pair<QString, QString>> items;
+    for (const ServiceMenuEntry &entry : entries) {
+        items.append({entry.key, entry.submenu.isEmpty() ? entry.text : i18nc("@item:inlistbox", "%1: %2", entry.submenu, entry.text)});
+    }
+    m_serviceMenuList->setItems(items);
+
+    // Keep the checkboxes of service menus that are still installed, so
+    // their unsaved changes survive, and drop those of removed ones.
+    const QString prefix = QStringLiteral("serviceMenu_");
+    QHash<QString, QCheckBox *> existing;
+    for (auto it = m_sharedToggles.begin(); it != m_sharedToggles.end();) {
+        const QString name = it->check->objectName();
+        if (!name.startsWith(prefix)) {
+            ++it;
+            continue;
+        }
+        m_serviceMenuToggles->removeWidget(it->check);
+        const QString key = name.mid(prefix.size());
+        if (std::any_of(entries.cbegin(), entries.cend(), [&key](const ServiceMenuEntry &entry) {
+                return entry.key == key;
+            })) {
+            existing.insert(key, it->check);
+            ++it;
+        } else {
+            it->check->deleteLater();
+            it = m_sharedToggles.erase(it);
+        }
+    }
+    for (const ServiceMenuEntry &entry : entries) {
+        const QString key = entry.key;
+        QCheckBox *check = existing.value(key);
+        if (!check) {
+            const bool shownByDefault = entry.shownByDefault;
+            const QString text = entry.submenu.isEmpty() ? entry.text : i18nc("@option:check submenu: action", "%1: %2", entry.submenu, entry.text);
+            const auto read = [key, shownByDefault] {
+                return KConfig(QLatin1String(ServiceMenus::ConfigFile), KConfig::NoGlobals)
+                    .group(QLatin1String(ServiceMenus::ShowGroup))
+                    .readEntry(key, shownByDefault);
+            };
+            check = addSharedToggle(
+                prefix + key,
+                text,
+                read,
+                [key](bool shown) {
+                    KConfig config(QLatin1String(ServiceMenus::ConfigFile), KConfig::NoGlobals);
+                    config.group(QLatin1String(ServiceMenus::ShowGroup)).writeEntry(key, shown);
+                    config.sync();
+                },
+                shownByDefault);
+            check->setIcon(QIcon::fromTheme(entry.iconName));
+            const QSignalBlocker blocker(check);
+            check->setChecked(read());
+        }
+        m_serviceMenuToggles->addWidget(check);
+    }
+}
+
+void SettingsDialog::reportServiceMenuChanges(const QList<KNSCore::Entry> &changed)
+{
+    int installed = 0;
+    int removed = 0;
+    QStringList failed;
+    for (const KNSCore::Entry &entry : changed) {
+        switch (entry.status()) {
+        case KNSCore::Entry::Installed:
+            ++installed;
+            break;
+        case KNSCore::Entry::Deleted:
+            ++removed;
+            break;
+        // A failed installation or update leaves the entry as it was offered.
+        case KNSCore::Entry::Downloadable:
+        case KNSCore::Entry::Invalid:
+            failed.append(entry.name());
+            break;
+        default:
+            break;
+        }
+    }
+    QStringList parts;
+    if (installed > 0) {
+        parts.append(i18ncp("@info", "Installed or updated %1 service menu.", "Installed or updated %1 service menus.", installed));
+    }
+    if (removed > 0) {
+        parts.append(i18ncp("@info", "Removed %1 service menu.", "Removed %1 service menus.", removed));
+    }
+    if (!failed.isEmpty()) {
+        parts.append(
+            i18nc("@info", "These could not be installed: %1. The download window shows the reason.", failed.join(i18nc("@info list separator", ", "))));
+    }
+    m_serviceMenuStatus->setText(parts.join(QLatin1Char(' ')));
+    m_serviceMenuStatus->setVisible(!parts.isEmpty());
 }
 
 QWidget *SettingsDialog::createConfirmationsPage()

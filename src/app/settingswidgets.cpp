@@ -1784,6 +1784,19 @@ void HiddenItemsList::addItem(const QString &id, const QString &label)
     entry->setCheckState(Qt::Checked);
 }
 
+void HiddenItemsList::setItems(const QList<std::pair<QString, QString>> &items)
+{
+    const QStringList hidden = hiddenItems();
+    {
+        const QSignalBlocker blocker(this);
+        clear();
+        for (const auto &[id, label] : items) {
+            addItem(id, label);
+        }
+    }
+    setHiddenItems(hidden);
+}
+
 QStringList HiddenItemsList::hiddenItems() const
 {
     QStringList hidden = m_missingItems;

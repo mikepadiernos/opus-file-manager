@@ -541,6 +541,12 @@ class HiddenItemsList : public QListWidget
 public:
     explicit HiddenItemsList(QWidget *parent = nullptr);
     void addItem(const QString &id, const QString &label);
+    /**
+     * Replaces the listed items with @p items, given as id and label pairs,
+     * keeping the shown or hidden state of every id, including unsaved
+     * changes and ids that are no longer listed.
+     */
+    void setItems(const QList<std::pair<QString, QString>> &items);
     QStringList hiddenItems() const;
     void setHiddenItems(const QStringList &hidden);
 
