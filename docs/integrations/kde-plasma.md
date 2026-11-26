@@ -18,10 +18,9 @@ planned for [M27](../ROADMAP.md#m27-integrations) and
 > **Implemented:** the KDE foundations under
 > [Existing foundations](#existing-foundations), from merged milestones
 > M01–M26, and the M27.01 integrations listed there, from default
-> file-manager registration to the mount manager.
-> **Planned:** everything under [Planned features](#planned-features) and
-> [KWin scripts](#kwin-scripts). The [roadmap](../ROADMAP.md) is authoritative
-> for status.
+> file-manager registration to the KWin script and drop-down window.
+> **Planned:** everything under [Planned features](#planned-features). The
+> [roadmap](../ROADMAP.md) is authoritative for status.
 
 ## Contents
 
@@ -191,19 +190,34 @@ behaves like the rest of the desktop and follows the user's choices.
   or mounts it. Partitioning, formatting and fstab editing are left to KDE
   Partition Manager, which the dialog opens when installed.
   ([#703](https://github.com/mikepadiernos/plasma-opus/issues/703))
+- **KWin script:** **Settings › Configure KWin Integration…** installs,
+  updates, enables, disables or removes an optional Plasma Opus KWin script,
+  only when asked, and shows whether KWin, its scripting interface and the
+  script are available and which version is running. With the script running,
+  applying a workspace or Activity association that restores the layout also
+  restores the window's screen, virtual desktops, size, tile and keep-above
+  state as last seen with that workspace; detached Plasma Opus windows can be
+  placed beside the main window; and a workspace can be assigned to each
+  virtual desktop and applied when that desktop becomes current. See
+  [KWin scripts](#kwin-scripts).
+  ([#707](https://github.com/mikepadiernos/plasma-opus/issues/707))
+- **Drop-down window:** turned on in the same dialog, the main window slides in
+  from a chosen screen edge, like [Yakuake](https://apps.kde.org/yakuake/),
+  with a width and height as percentages of the screen, on the active or a
+  chosen screen. **View › Show or Hide Drop-Down Window** toggles it; its
+  global shortcut is unassigned until one is chosen in the dialog or in
+  System Settings, and the script can also register a screen edge or a
+  touch-screen edge. While shown, it stays above other windows and out of the
+  taskbar, pager and task switcher. It can hide when another application is
+  activated, but not while a dialog, menu or another Plasma Opus window is
+  active, and it can switch to an assigned workspace when shown. Without the
+  script it shows and hides as a regular window and says so once.
+  ([#708](https://github.com/mikepadiernos/plasma-opus/issues/708))
 
 ## Planned features
 
 Grouped by the [M27](../ROADMAP.md#m27-integrations) subsection that tracks
 them.
-
-### M27.01 KDE Plasma and desktop services
-
-- **KWin scripts:** Optionally install a Plasma Opus KWin script for window
-  placement that Wayland applications cannot perform themselves, and offer a
-  drop-down window. See [KWin scripts](#kwin-scripts).
-  ([#707](https://github.com/mikepadiernos/plasma-opus/issues/707),
-  [#708](https://github.com/mikepadiernos/plasma-opus/issues/708))
 
 ### M27.02 Archives and application packages
 
@@ -261,33 +275,47 @@ them.
 
 [KWin scripts](https://develop.kde.org/docs/plasma/kwin/) are JavaScript or QML
 packages that run inside KWin. On Wayland, applications cannot choose their own
-screen, position, virtual desktop or tile, so an optional Plasma Opus script can
-do this for Plasma Opus windows. Plasma Opus would install it per user as a
-`KWin/Script` KPackage, enable it through KWin's configuration and talk to it
-over D-Bus.
+screen, position, virtual desktop or tile, so the optional Plasma Opus script
+does this for Plasma Opus windows. Plasma Opus bundles it, installs it per user
+as a `KWin/Script` KPackage under `~/.local/share/kwin/scripts/opusfilemanager`,
+enables it through its own entry in `kwinrc`'s `[Plugins]` group and asks KWin
+to load it over the `org.kde.KWin` `/Scripting` interface.
 
-### Planned script features
+### How it works
 
-- **Workspace windows:** restore each window's screen, virtual desktop, size,
-  tile and keep-above state when applying a workspace or Activity association.
-  ([#707](https://github.com/mikepadiernos/plasma-opus/issues/707))
-- **Tiled companions:** place terminals, editors and detached previews opened
-  from Plasma Opus beside the file manager using KWin's tiles.
-  ([#707](https://github.com/mikepadiernos/plasma-opus/issues/707))
-- **Virtual desktops:** optionally apply the workspace assigned to the virtual
-  desktop that becomes current.
-  ([#707](https://github.com/mikepadiernos/plasma-opus/issues/707))
-- **Drop-down window:** slide a Plasma Opus window in from a screen edge, like
-  [Yakuake](https://apps.kde.org/yakuake/), toggled by a global shortcut or a
-  screen or touch-screen edge.
-  ([#708](https://github.com/mikepadiernos/plasma-opus/issues/708))
+- **Communication:** KWin scripts cannot export D-Bus methods, so the script
+  calls Plasma Opus's versioned `org.kde.opusfilemanager.KWin1` interface at
+  `/KWin`. Plasma Opus asks it to call by invoking the script's **Plasma Opus:
+  Process Window Requests** shortcut through KGlobalAccel. The reply carries
+  the interface version, the Plasma Opus process id, the options and any
+  pending commands; a script that receives another interface version stays
+  passive.
+- **Versions:** the dialog compares the installed package's version with the
+  bundled one and offers **Update**, and reports when KWin still runs an older
+  version. Installing or updating reloads the script.
+- **Workspace windows:** the script reports the main window's screen, virtual
+  desktops, geometry, tile and keep-above state after it is moved, resized,
+  retiled or sent to another screen or desktop. Plasma Opus keeps the last
+  report for the current workspace in its state configuration and sends it
+  back when that workspace is applied. A tile is restored when a tile with the
+  same geometry still exists; otherwise the geometry is.
+- **Tiled companions:** Plasma Opus's own detached windows, such as the gallery
+  and the popped-out second pane, open in the half of the screen the main
+  window does not occupy, in a matching KWin tile when there is one.
+- **Virtual desktops:** the script reports the virtual desktops, which the
+  dialog lists for workspace assignment, and the desktop that becomes current.
+- **Drop-down window:** the script styles and places the main window whenever
+  it is mapped while the drop-down window is on, restores its previous
+  geometry and flags when it is turned off, and registers the chosen screen
+  and touch-screen edges.
 
 ### Script boundaries
 
 - Install or enable nothing without explicit action. Removing the integration
-  removes only the Plasma Opus script.
-- Act only on Plasma Opus windows, identified by its desktop file name; never
-  move, resize or close other applications' windows.
+  removes only the Plasma Opus script and its `kwinrc` entry.
+- Act only on windows of the running Plasma Opus process, identified by its
+  desktop file name and process id; never move, resize or close other
+  applications' windows.
 - Use KWindowSystem, XDG activation and KWin's window rules where they suffice.
   Link to KWin's Window Rules and KWin Scripts settings instead of editing
   `kwinrulesrc`, other scripts or global KWin settings.
