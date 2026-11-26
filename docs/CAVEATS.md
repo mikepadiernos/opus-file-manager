@@ -2007,6 +2007,18 @@ The M27 desktop integrations have these limits
   list isn't refreshed when the network changes, and sharing ends when the
   dialog closes.
   ([#653](https://github.com/mikepadiernos/plasma-opus/issues/653))
+- **👤 KDE Online Accounts:** Only Google Drive, through kio-gdrive, and
+  Nextcloud and ownCloud storage, through WebDAV, open as folders; other
+  services, such as contacts and YouTube, and providers without a KDE file
+  service aren't listed as folders. Plasma Opus doesn't pass account
+  credentials to KIO, so WebDAV storage asks for the password the first
+  time unless Plasma's Online Accounts integration has already given it to
+  KDE's password server. Expired sign-ins and denied access appear as KIO
+  errors in the pane, not in the menu. Accounts aren't shown in Places or
+  offered as remote drives, and the menu reads accounts only when it opens.
+  The menu needs Plasma Opus built with libaccounts-qt6, and **Manage Online
+  Accounts…** needs System Settings with its Online Accounts page.
+  ([#370](https://github.com/mikepadiernos/plasma-opus/issues/370))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -2161,6 +2173,12 @@ The M27 desktop integrations have these limits
     `sudo ufw allow PORT/tcp`, removing the ufw rule afterwards. For paired
     phones, KDE Connect is simpler; for lasting shares, use Samba sharing in
     the folder's **Properties** dialog.
+  - **KDE Online Accounts:** Install `kio-gdrive` for Google Drive and
+    `kaccounts-providers` for Nextcloud and ownCloud, then add accounts in
+    **System Settings › Online Accounts**. When KIO reports an expired
+    sign-in, sign in again on that page. For WebDAV storage, let KWallet
+    remember the password when KIO asks. For providers without a KDE file
+    service, use **Go › Cloud Storage** with rclone.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2244,6 +2262,9 @@ The M27 desktop integrations have these limits
     shares over DNS-SD, add an optional password and revocable links,
     keep connections alive, create folders over WebDAV, refresh addresses
     when the network changes, and the M28 **LAN sharing** defaults.
+  - Show online account folders in Places, mount them as remote drives,
+    refresh the menu when accounts change, hand Nextcloud app passwords to
+    KIO with consent, and the M28 **Online Accounts** settings tab.
 
 ## Embedded terminal
 
