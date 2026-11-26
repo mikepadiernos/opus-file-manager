@@ -145,6 +145,17 @@ behaves like the rest of the desktop and follows the user's choices.
   off in **System Settings › Search › Plasma Search**. The
   `opus-file-manager-krunner` helper is started by D-Bus when KRunner first
   asks. ([#390](https://github.com/mikepadiernos/plasma-opus/issues/390))
+- **Service-menu downloads:** **Download New Services…** under **Settings ›
+  Context Menu › Service Menus** opens KDE's download window for service
+  menus, using the provider Dolphin installs, to browse, install, update and
+  remove them. Nothing is installed until it is chosen there. The tab warns
+  that downloaded service menus can run commands and are shared with Dolphin
+  and other KDE applications. When the window closes, the tab summarizes what
+  was installed, removed or failed, and lists the installed actions again
+  while keeping unsaved changes to the Plasma Opus and Dolphin-shared
+  visibility settings. Without Dolphin, the button is disabled and the tab
+  explains why.
+  ([#369](https://github.com/mikepadiernos/plasma-opus/issues/369))
 
 ## Planned features
 
@@ -156,10 +167,6 @@ them.
 - **System file chooser:** Let applications request a chooser through the XDG
   portal. Preserve user defaults and sandbox permissions.
   ([#286](https://github.com/mikepadiernos/plasma-opus/issues/286))
-- **Service-menu discovery:** Reuse KDE's service-menu provider for explicit
-  install, update and removal actions; explain that installed services may
-  execute commands and be shared with other applications.
-  ([#369](https://github.com/mikepadiernos/plasma-opus/issues/369))
 - **Mount manager:** List, mount, unmount and eject file systems through Solid
   and UDisks2. Ask before changing fstab and unmount only what Plasma Opus
   mounted.
