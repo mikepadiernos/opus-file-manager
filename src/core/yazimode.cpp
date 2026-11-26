@@ -3,6 +3,7 @@
 #include "yazimode.h"
 
 #include <KConfigGroup>
+#include <KCoreConfigSkeleton>
 #include <KIO/Global>
 #include <KLocalizedString>
 #include <KProtocolInfo>
@@ -150,6 +151,18 @@ void YaziMode::writeSession(KConfigGroup &group, bool enabled)
 bool YaziMode::startupMode(const Activation &activation, std::optional<bool> saved)
 {
     return activation.restore && saved ? *saved : activation.defaultMode;
+}
+
+QVariantMap YaziMode::defaultSettings(const KCoreConfigSkeleton *settings)
+{
+    QVariantMap defaults;
+    const KConfigSkeletonItem::List items = settings->items();
+    for (const KConfigSkeletonItem *item : items) {
+        if (item->group() == QLatin1String(SettingsGroup)) {
+            defaults.insert(item->name(), item->getDefault());
+        }
+    }
+    return defaults;
 }
 
 int YaziMode::readSessionPreview(const KConfigGroup &group)

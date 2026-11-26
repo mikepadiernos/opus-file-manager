@@ -7,10 +7,12 @@
 #include <QList>
 #include <QStringList>
 #include <QUrl>
+#include <QVariantMap>
 
 #include <optional>
 
 class KConfigGroup;
+class KCoreConfigSkeleton;
 class QJsonObject;
 
 /**
@@ -46,6 +48,16 @@ struct Activation {
  * @returns @p saved when restoring and there is one, otherwise the default
  */
 bool startupMode(const Activation &activation, std::optional<bool> saved);
+
+/// The settings group that holds Yazi mode's settings.
+inline constexpr auto SettingsGroup = "YaziMode";
+
+/**
+ * The default of every entry in @p settings' SettingsGroup, by entry name:
+ * what Restore Yazi Mode Defaults resets. Entries of other groups, such as
+ * the Yazi mode behavior of new workspaces, aren't included.
+ */
+QVariantMap defaultSettings(const KCoreConfigSkeleton *settings);
 
 /**
  * Reads whether a pane shows its preview column from a session group.
