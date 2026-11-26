@@ -1557,7 +1557,7 @@ for some features are recorded in [pending tasks](TODO.md).
         workers, and show services discovered on the local network through
         KIO's `network:/` location. Warn that plain FTP sends credentials
         unencrypted, and use KDE credential facilities. (MiXplorer)
-  - [ ] Optional [rclone](https://rclone.org/) integration for cloud providers
+  - [x] Optional [rclone](https://rclone.org/) integration for cloud providers
         without KDE support, such as Dropbox, OneDrive, Box, MEGA and pCloud.
         List the user's configured remotes through rclone and open one in
         either pane by serving it over WebDAV on the loopback interface or by
