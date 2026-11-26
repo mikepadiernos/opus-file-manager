@@ -283,6 +283,12 @@ if(DBUS_RUN_SESSION_EXECUTABLE)
     set_tests_properties(opusfm-terminallauncher-dbus PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
 endif()
 
+ecm_add_test(fontpreviewtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
 ecm_add_test(remotepreviewtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test Qt6::Network
     NAME_PREFIX "opusfm-"

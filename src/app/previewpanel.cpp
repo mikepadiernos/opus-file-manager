@@ -5,12 +5,13 @@
 
 #include "folderpreview.h"
 
+#include "documentformats.h"
+#include "fontpreview.h"
 #include "imagebackground.h"
 #include "imagedetails.h"
 #include "localizeddates.h"
 #include "localizednumbers.h"
 #include "mediaview.h"
-#include "officeapps.h"
 #include "settings.h"
 #include "symbolicicon.h"
 
@@ -79,9 +80,7 @@ protected:
 
 bool isDocumentMime(const QString &mimeType)
 {
-    return mimeType == QLatin1String("application/pdf") || OfficeApps::isOfficeDocument(mimeType)
-        || mimeType.startsWith(QLatin1String("application/vnd.openxmlformats-officedocument."))
-        || mimeType.startsWith(QLatin1String("application/vnd.oasis.opendocument."));
+    return DocumentFormats::usesDocumentViewer(mimeType);
 }
 
 bool isTextMime(const QString &mimeType)
@@ -576,6 +575,10 @@ void PreviewPanel::setItems(const KFileItemList &items, const QList<QUrl> &image
         showDocument(m_url, mimeType);
         return;
     }
+    if (DocumentFormats::kind(mimeType) == DocumentFormats::Kind::Font) {
+        showFont(m_url, m_url, mimeType);
+        return;
+    }
     if (m_url.isLocalFile() && (mimeType.startsWith(QLatin1String("audio/")) || mimeType.startsWith(QLatin1String("video/")))) {
         showMedia(m_url, mimeType.startsWith(QLatin1String("video/")));
         return;
@@ -733,6 +736,9 @@ void PreviewPanel::finishRemotePreview()
     if (isDocumentMime(m_remoteMimeType)) {
         m_renderFile = std::exchange(m_remoteFile, {});
         showDocument(localUrl, m_remoteMimeType);
+    } else if (DocumentFormats::kind(m_remoteMimeType) == DocumentFormats::Kind::Font) {
+        m_renderFile = std::exchange(m_remoteFile, {});
+        showFont(localUrl, m_url, m_remoteMimeType);
     } else if (m_remoteMimeType.startsWith(QLatin1String("audio/")) || m_remoteMimeType.startsWith(QLatin1String("video/"))) {
         m_renderFile = std::exchange(m_remoteFile, {});
         showMedia(localUrl, m_remoteMimeType.startsWith(QLatin1String("video/")));
@@ -797,9 +803,13 @@ void PreviewPanel::showDocument(const QUrl &url, const QString &mimeType)
         showMessage(i18nc("@info", "Could not open this document."));
         return;
     }
+    if (KParts::PartLoader::partsForMimeType(mimeType).isEmpty()) {
+        showMessage(DocumentFormats::missingViewerMessage(DocumentFormats::kind(mimeType)));
+        return;
+    }
     const auto result = KParts::PartLoader::instantiatePartForMimeType<KParts::ReadOnlyPart>(mimeType, m_content, this);
     if (!result) {
-        showMessage(result.errorString.isEmpty() ? i18nc("@info", "No document viewer is installed for this file type.")
+        showMessage(result.errorString.isEmpty() ? DocumentFormats::missingViewerMessage(DocumentFormats::kind(mimeType))
                                                  : i18nc("@info", "Could not load a document viewer: %1", result.errorString));
         return;
     }
@@ -834,6 +844,25 @@ void PreviewPanel::clearDocument()
         disconnect(document, nullptr, this, nullptr);
         delete document;
     }
+    if (m_font) {
+        m_font->clear();
+    }
+}
+
+void PreviewPanel::showFont(const QUrl &url, const QUrl &source, const QString &mimeType)
+{
+    if (!m_font) {
+        m_font = new FontPreview(m_content);
+        m_font->setObjectName(QStringLiteral("previewFont"));
+        m_content->addWidget(m_font);
+    }
+    const QString error = m_font->open(url.toLocalFile(), source, mimeType);
+    if (!error.isEmpty()) {
+        showMessage(error);
+        return;
+    }
+    m_content->setCurrentWidget(m_font);
+    setBusy(false);
 }
 
 void PreviewPanel::showMessage(const QString &message)

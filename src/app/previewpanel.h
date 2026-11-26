@@ -13,6 +13,7 @@ namespace KIO
 class TransferJob;
 }
 class FolderPreview;
+class FontPreview;
 class QLabel;
 class QActionGroup;
 class QHBoxLayout;
@@ -93,6 +94,7 @@ private:
     void clearRemotePreview();
     void showDocument(const QUrl &url, const QString &mimeType);
     void clearDocument();
+    void showFont(const QUrl &url, const QUrl &source, const QString &mimeType);
     void showMedia(const QUrl &url, bool video);
     void clearMedia();
     void updateImage();
@@ -118,6 +120,7 @@ private:
     QTextBrowser *m_renderedText = nullptr;
     QStackedWidget *m_content = nullptr;
     KParts::ReadOnlyPart *m_document = nullptr;
+    FontPreview *m_font = nullptr;
     MediaView *m_media = nullptr;
     QImage m_image;
     QUrl m_url;
