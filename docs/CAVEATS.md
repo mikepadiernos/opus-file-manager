@@ -1928,6 +1928,19 @@ The M27 desktop integrations have these limits
   tool has unsaved changes.
   ([#675](https://github.com/mikepadiernos/plasma-opus/issues/675))
 
+- **📚 Ebook and font previews:** Ebooks, comics, DjVu documents and help
+  files need Okular's viewer component, and the preview only offers what the
+  component shows in a narrow panel, without its toolbars or reading
+  position. Okular's support for each format depends on its installed
+  backends. Fonts are previewed with Qt rather than Plasma's font viewer
+  component, without a character map or detailed font information. A font
+  whose family name matches an installed font may show the installed one,
+  font collections show only their first face, and fonts over 64 MiB aren't
+  previewed. Web fonts can be previewed but not installed, and
+  **Install Font…** needs Plasma's `kfontinst` in `PATH`; the installer
+  decides whether the font is installed for the user or system-wide.
+  ([#650](https://github.com/mikepadiernos/plasma-opus/issues/650))
+
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
     it is running and restart Plasma Opus so it claims the service. To hand
@@ -2044,6 +2057,10 @@ The M27 desktop integrations have these limits
     editor, or **Open With** for other applications. Copy remote files to a
     local folder before editing them in a local-only tool, and check the
     format when saving from an image or audio editor.
+  - **Ebook and font previews:** Install Okular for ebook, comic, DjVu and
+    help-file previews, and open long documents in Okular to read them. To
+    compare a font with an installed one of the same name, or inspect its
+    characters, open it in Plasma's font viewer, KFontView.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2109,6 +2126,9 @@ The M27 desktop integrations have these limits
     offer RTF and CSV files to it.
   - An M28 setting to choose the tool for each file type, and use the file
     associations' editors where available.
+  - Use Plasma's font viewer component when available, preview every face
+    of a font collection, and remember the reading position in ebook
+    previews.
 
 ## Embedded terminal
 
