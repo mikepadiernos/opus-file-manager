@@ -1553,7 +1553,7 @@ for some features are recorded in [pending tasks](TODO.md).
         authentication where available, use KDE credential facilities and
         respect SSH host-key and WebDAV TLS certificate verification. Report
         connection, authentication and unsupported-operation errors explicitly.
-  - [ ] Extend remote profiles to SMB and FTP or FTPS through KDE's KIO
+  - [x] Extend remote profiles to SMB and FTP or FTPS through KDE's KIO
         workers, and show services discovered on the local network through
         KIO's `network:/` location. Warn that plain FTP sends credentials
         unencrypted, and use KDE credential facilities. (MiXplorer)
