@@ -47,6 +47,8 @@ integration behaviour on Plasma.
 
 - Put non-widget logic in `src/core/` and cover it with QtTest in `tests/`.
   Put widgets in `src/app/`.
+- Build the user interface with Qt Widgets. Embed Qt Quick only for optional,
+  self-contained components that meet the criteria in `docs/qt-quick.md`.
 - Prefer KDE Frameworks facilities to custom implementations, including KIO
   jobs, KXmlGui actions, `KFileItemActions` and `KFilePlacesView`.
 - Localize user-visible strings with `i18n()` or `i18nc()`.

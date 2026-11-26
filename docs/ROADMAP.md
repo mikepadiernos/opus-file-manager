@@ -87,6 +87,12 @@ detection and rename or sync planning; this evaluation does not block M09 or
 change KIO's role. See the [pilot evaluation](rust-prototype.md) for its
 findings and the criteria for later Rust components.
 
+Qt Widgets is the user interface toolkit. Qt Quick may be embedded only for a
+self-contained, optional component that Widgets cannot reasonably provide, such
+as embedded mpv playback in M27, hosted in a `QQuickWidget` with a Widgets
+fallback. See [Qt Widgets and Qt Quick](qt-quick.md) for the decision, the
+embedding rules and the criteria for new candidates.
+
 ## Plasma-native decisions
 
 Where the upstream file manager implements its own infrastructure, Plasma Opus
