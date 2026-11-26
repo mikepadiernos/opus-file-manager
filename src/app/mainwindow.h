@@ -20,6 +20,7 @@
 #include <memory>
 
 class CombinedPanel;
+class DesktopTray;
 class FavoritesModel;
 class WorkspaceLocations;
 class QFileSystemWatcher;
@@ -103,6 +104,10 @@ public:
     TabColors *tabColors() const;
 
     bool isDualLayout() const;
+
+    /// The system tray icon and the global shortcut that shows or hides the
+    /// window.
+    DesktopTray *desktopTray() const;
 
     /**
      * Applies the current Settings to the panes, actions and status bar.
@@ -371,6 +376,7 @@ private:
     void extractArchive(const QUrl &archive, const QUrl &target);
 
     KFilePlacesModel *m_placesModel = nullptr;
+    DesktopTray *m_desktopTray = nullptr;
     std::unique_ptr<KConfig> m_workspaceConfig;
     QString m_currentWorkspaceId;
     WorkspaceCatalog::Catalog m_workspaceCatalog;

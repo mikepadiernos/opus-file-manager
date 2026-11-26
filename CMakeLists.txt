@@ -36,6 +36,7 @@ find_package(KF6 ${KF_MIN_VERSION} REQUIRED COMPONENTS
     Crash
     DBusAddons
     FileMetaData
+    GlobalAccel
     GuiAddons
     I18n
     IconThemes
@@ -44,6 +45,7 @@ find_package(KF6 ${KF_MIN_VERSION} REQUIRED COMPONENTS
     KIO
     Parts
     Solid
+    StatusNotifierItem
     SyntaxHighlighting
     TextEditor
     WidgetsAddons

@@ -18,6 +18,7 @@
 #include "customcommanddialog.h"
 #include "customstylesheet.h"
 #include "density.h"
+#include "desktoptray.h"
 #include "doubleshift.h"
 #include "duplicatefinderdialog.h"
 #include "editorpanel.h"
@@ -481,6 +482,11 @@ MainWindow::MainWindow(QWidget *parent)
     setupPanels();
     setupStatusBar();
     setupActions();
+    m_desktopTray = new DesktopTray(this, actionCollection());
+    connect(m_desktopTray, &DesktopTray::openRequested, this, [this](const QUrl &url) {
+        openUrls({url});
+    });
+    connect(m_desktopTray, &DesktopTray::transfersRequested, this, &MainWindow::showTransferQueue);
     applyWorkspaceSelectorPlacement();
     m_combinedPanel->setWorkspaceLocations(m_workspaceLocations);
     connect(m_workspaceLocations, &WorkspaceLocations::changed, this, [this] {
@@ -5707,6 +5713,11 @@ bool MainWindow::isDualLayout() const
     return m_dualLayoutAction->isChecked();
 }
 
+DesktopTray *MainWindow::desktopTray() const
+{
+    return m_desktopTray;
+}
+
 void MainWindow::refreshFolderColors()
 {
     FolderColors::clearCache();
@@ -5745,6 +5756,7 @@ void MainWindow::applySettings()
     applyLocationPresentationDefaults();
     applyWorkspaceSelectorPlacement();
     scheduleWorkspaceSelectorRefresh();
+    m_desktopTray->applySettings();
     const bool toolbarsLocked = Settings::lockToolbars();
     QAction *customizeToolbar = actionCollection()->action(QStringLiteral("customize_main_toolbar"));
     customizeToolbar->setEnabled(!toolbarsLocked);

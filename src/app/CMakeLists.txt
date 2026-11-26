@@ -25,6 +25,8 @@ add_library(opusfm_app STATIC
     customstylesheet.h
     densitydelegate.cpp
     densitydelegate.h
+    desktoptray.cpp
+    desktoptray.h
     detailsview.cpp
     detailsview.h
     duplicatefinderdialog.cpp
@@ -166,6 +168,7 @@ target_link_libraries(opusfm_app
         KF6::ConfigWidgets
         KF6::Bookmarks
         KF6::CoreAddons
+        KF6::GlobalAccel
         KF6::I18n
         KF6::KIOCore
         KF6::KIOFileWidgets
@@ -174,6 +177,7 @@ target_link_libraries(opusfm_app
         KF6::ItemViews
         KF6::Parts
         KF6::Solid
+        KF6::StatusNotifierItem
         KF6::SyntaxHighlighting
         KF6::TextEditor
         KF6::WidgetsAddons
