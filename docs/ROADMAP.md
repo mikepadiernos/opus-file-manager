@@ -1441,7 +1441,7 @@ for some features are recorded in [pending tasks](TODO.md).
 - **M27.02: Archives and application packages**
 
   - [x] Integrate deeply with ARK
-  - [ ] Extend archive creation through Ark: create 7z, password-protected and
+  - [x] Extend archive creation through Ark: create 7z, password-protected and
         split archives, encrypting file names where the format supports it,
         and add, rename or remove entries in existing archives. Keep M03's
         non-overwriting behaviour, confirm changes to existing archives and
