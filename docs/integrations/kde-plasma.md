@@ -428,6 +428,25 @@ behaves like the rest of the desktop and follows the user's choices.
   listing and mount errors are reported. See
   [rclone cloud storage](../CAVEATS.md#desktop-integration).
   ([#652](https://github.com/mikepadiernos/plasma-opus/issues/652))
+- **Remote drives:** each saved connection in **Go › Remote Connections**
+  offers **Mount as Folder**, which mounts it as a local folder that
+  applications without KIO support can open and save in, opens it in the
+  active pane and adds it to Places until it is unmounted. **Mount Options…**
+  chooses how: KDE's KIO FUSE by default for every protocol, sshfs for SSH,
+  davfs2 for WebDAV or the kernel CIFS client for Windows shares. sshfs,
+  davfs2 and CIFS mounts can be read-only and use an empty folder under the
+  user's runtime directory or a chosen empty folder; any connection can mount
+  when Plasma Opus starts. A mounted connection offers **Open Mounted
+  Folder** and **Unmount**, and Plasma Opus unmounts what it mounted when it
+  quits. Credentials stay with KDE and the backends: KIO FUSE asks KDE's
+  password server, sshfs uses the SSH agent, keys or KDE's `ksshaskpass`
+  prompt, and davfs2 and CIFS mount only through a user-mountable fstab entry,
+  for which the dialog shows an example line. Plasma Opus never edits fstab
+  or backend configuration. Missing tools, missing or unsuitable fstab
+  entries, folders that aren't empty, stale mounts, busy folders and failed
+  unmounts are reported. See
+  [Remote drives](../CAVEATS.md#desktop-integration).
+  ([#702](https://github.com/mikepadiernos/plasma-opus/issues/702))
 
 ## Planned features
 
@@ -440,11 +459,6 @@ them.
   credentials and KIO providers. Do not duplicate account management or store
   tokens in URLs or KConfig.
   ([#370](https://github.com/mikepadiernos/plasma-opus/issues/370))
-- **Remote drives:** Mount remote locations as local folders through KIO FUSE
-  or installed FUSE backends such as sshfs and davfs2. Keep credentials in
-  KDE's facilities, ask before changing backend configuration, and unmount only
-  what Plasma Opus mounted.
-  ([#702](https://github.com/mikepadiernos/plasma-opus/issues/702))
 - **Cloud sync and activity:** Keep chosen local folders in two-way sync with
   KIO, KDE Online Accounts or rclone locations, with backup modes and conflict
   choices that never overwrite changes silently, and show transfers, quota,
