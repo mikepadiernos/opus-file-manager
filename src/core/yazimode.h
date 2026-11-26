@@ -7,6 +7,8 @@
 #include <QStringList>
 #include <QUrl>
 
+#include <optional>
+
 class KConfigGroup;
 class QJsonObject;
 
@@ -72,6 +74,23 @@ void writeWorkspacePreviewContent(QJsonObject &object, int content);
 bool readWorkspacePreviewContent(const QJsonObject &object, int &content);
 
 /**
+ * Reads whether a pane shows its parent column from a session group.
+ * @returns 1 when shown, 0 when hidden and -1 when nothing was saved, as in
+ *          sessions saved before the choice existed
+ */
+int readSessionParentColumn(const KConfigGroup &group);
+/// Writes whether a pane shows its parent column; -1 removes the entry.
+void writeSessionParentColumn(KConfigGroup &group, int parent);
+/// Writes whether a pane shows its parent column as a boolean; -1 writes nothing.
+void writeWorkspaceParentColumn(QJsonObject &object, int parent);
+/**
+ * Reads whether a pane shows its parent column into @p parent: 1 shown, 0
+ * hidden, or -1 when absent, as in workspaces saved before the choice existed.
+ * @returns false when the value is present but is not a boolean
+ */
+bool readWorkspaceParentColumn(const QJsonObject &object, int &parent);
+
+/**
  * The folder the parent column lists for @p current, or an empty URL when
  * @p current is invalid or has no parent, such as at a root. At the root of
  * an archive, such as zip:/home/me/a.zip/, it is the local folder that
@@ -131,6 +150,37 @@ struct Ratios {
     bool operator==(const Ratios &other) const = default;
 };
 
+/// The largest ratio that clampedRatios() keeps. Dragging stores the columns' widths in pixels, which stay well below it.
+constexpr int MaximumRatio = 100000;
+
+/// @p ratios with every value at least 1 and at most MaximumRatio; larger values scale all three down, keeping their proportions.
+Ratios clampedRatios(const Ratios &ratios);
+/// @p ratios as the parent, current and preview values, as the YaziColumnRatios setting stores them.
+QList<int> ratiosToList(const Ratios &ratios);
+/**
+ * The ratios that @p list holds, clamped by clampedRatios().
+ * @returns nothing unless @p list has exactly three positive values
+ */
+std::optional<Ratios> ratiosFromList(const QList<int> &list);
+
+/**
+ * Reads a pane's column ratios from a session group.
+ * @returns three positive values, or an empty list when nothing or something
+ *          invalid was saved; the pane then uses the YaziColumnRatios default
+ */
+QList<int> readSessionRatios(const KConfigGroup &group);
+/// Writes a pane's column ratios; an empty list removes the entry.
+void writeSessionRatios(KConfigGroup &group, const QList<int> &ratios);
+/// Writes a pane's column ratios as an array of three numbers; an empty list writes nothing.
+void writeWorkspaceRatios(QJsonObject &object, const QList<int> &ratios);
+/**
+ * Reads a pane's column ratios into @p ratios, or an empty list when absent,
+ * as in workspaces saved before the ratios were stored.
+ * @returns false when the value is present but is not an array of three
+ *          positive integers
+ */
+bool readWorkspaceRatios(const QJsonObject &object, QList<int> &ratios);
+
 /// Column widths in pixels; 0 means the column is hidden.
 struct ColumnWidths {
     int parent = 0;
@@ -150,9 +200,11 @@ struct ColumnWidths {
  * @param preview whether the preview column is wanted at all
  * @param ratios the relative widths of the columns
  * @param handleWidth the width of each handle between two shown columns
+ * @param parent whether the parent column is wanted at all; without it, the
+ *        preview column needs only room for itself and the current column
  * @returns the widths; together with the handles they add up to @p available
  */
-ColumnWidths columnWidths(int available, bool preview, const Ratios &ratios = {}, int handleWidth = 0);
+ColumnWidths columnWidths(int available, bool preview, const Ratios &ratios = {}, int handleWidth = 0, bool parent = true);
 
 /**
  * What a key or key sequence does in Yazi mode. To add a command, add it

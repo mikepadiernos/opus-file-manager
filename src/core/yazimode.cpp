@@ -8,12 +8,15 @@
 #include <KProtocolInfo>
 #include <KProtocolManager>
 
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QKeySequence>
 #include <QMimeDatabase>
 #include <QVarLengthArray>
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 
 namespace
 {
@@ -23,6 +26,10 @@ constexpr auto SessionPreviewKey = "YaziPreview";
 constexpr auto WorkspacePreviewKey = "yaziPreview";
 constexpr auto SessionPreviewContentKey = "YaziPreviewContent";
 constexpr auto WorkspacePreviewContentKey = "yaziPreviewContent";
+constexpr auto SessionParentColumnKey = "YaziParentColumn";
+constexpr auto WorkspaceParentColumnKey = "yaziParentColumn";
+constexpr auto SessionRatiosKey = "YaziColumnRatios";
+constexpr auto WorkspaceRatiosKey = "yaziColumnRatios";
 
 /// The PreviewContent value @p name stands for, compared case-insensitively, or -1.
 int previewContentFromName(const QString &name)
@@ -220,6 +227,125 @@ void YaziMode::writeWorkspace(QJsonObject &object, bool enabled)
     object.insert(QLatin1String(WorkspaceKey), enabled);
 }
 
+int YaziMode::readSessionParentColumn(const KConfigGroup &group)
+{
+    if (!group.hasKey(SessionParentColumnKey)) {
+        return -1;
+    }
+    return group.readEntry(SessionParentColumnKey, true) ? 1 : 0;
+}
+
+void YaziMode::writeSessionParentColumn(KConfigGroup &group, int parent)
+{
+    if (parent < 0) {
+        group.deleteEntry(SessionParentColumnKey);
+    } else {
+        group.writeEntry(SessionParentColumnKey, parent != 0);
+    }
+}
+
+void YaziMode::writeWorkspaceParentColumn(QJsonObject &object, int parent)
+{
+    if (parent >= 0) {
+        object.insert(QLatin1String(WorkspaceParentColumnKey), parent != 0);
+    }
+}
+
+bool YaziMode::readWorkspaceParentColumn(const QJsonObject &object, int &parent)
+{
+    const auto value = object.value(QLatin1String(WorkspaceParentColumnKey));
+    if (value.isUndefined()) {
+        parent = -1;
+        return true;
+    }
+    if (!value.isBool()) {
+        return false;
+    }
+    parent = value.toBool() ? 1 : 0;
+    return true;
+}
+
+YaziMode::Ratios YaziMode::clampedRatios(const Ratios &ratios)
+{
+    Ratios result{qMax(1, ratios.parent), qMax(1, ratios.current), qMax(1, ratios.preview)};
+    const int largest = std::max({result.parent, result.current, result.preview});
+    if (largest > MaximumRatio) {
+        const auto scaled = [largest](int value) {
+            return int(qMax<qint64>(1, qint64(value) * MaximumRatio / largest));
+        };
+        result = {scaled(result.parent), scaled(result.current), scaled(result.preview)};
+    }
+    return result;
+}
+
+QList<int> YaziMode::ratiosToList(const Ratios &ratios)
+{
+    return {ratios.parent, ratios.current, ratios.preview};
+}
+
+std::optional<YaziMode::Ratios> YaziMode::ratiosFromList(const QList<int> &list)
+{
+    if (list.size() != 3 || std::any_of(list.cbegin(), list.cend(), [](int value) {
+            return value < 1;
+        })) {
+        return std::nullopt;
+    }
+    return clampedRatios({list.at(0), list.at(1), list.at(2)});
+}
+
+QList<int> YaziMode::readSessionRatios(const KConfigGroup &group)
+{
+    const std::optional<Ratios> ratios = ratiosFromList(group.readEntry(SessionRatiosKey, QList<int>()));
+    return ratios ? ratiosToList(*ratios) : QList<int>();
+}
+
+void YaziMode::writeSessionRatios(KConfigGroup &group, const QList<int> &ratios)
+{
+    if (ratios.isEmpty()) {
+        group.deleteEntry(SessionRatiosKey);
+    } else {
+        group.writeEntry(SessionRatiosKey, ratios);
+    }
+}
+
+void YaziMode::writeWorkspaceRatios(QJsonObject &object, const QList<int> &ratios)
+{
+    if (ratios.isEmpty()) {
+        return;
+    }
+    QJsonArray array;
+    for (int ratio : ratios) {
+        array.append(ratio);
+    }
+    object.insert(QLatin1String(WorkspaceRatiosKey), array);
+}
+
+bool YaziMode::readWorkspaceRatios(const QJsonObject &object, QList<int> &ratios)
+{
+    const auto value = object.value(QLatin1String(WorkspaceRatiosKey));
+    if (value.isUndefined()) {
+        ratios.clear();
+        return true;
+    }
+    if (!value.isArray()) {
+        return false;
+    }
+    QList<int> list;
+    for (const QJsonValue &entry : value.toArray()) {
+        const double number = entry.toDouble(-1);
+        if (!entry.isDouble() || number != std::floor(number) || number < 1 || number > std::numeric_limits<int>::max()) {
+            return false;
+        }
+        list.append(int(number));
+    }
+    const std::optional<Ratios> parsed = ratiosFromList(list);
+    if (!parsed) {
+        return false;
+    }
+    ratios = ratiosToList(*parsed);
+    return true;
+}
+
 bool YaziMode::readWorkspace(const QJsonObject &object, bool &enabled)
 {
     const auto value = object.value(QLatin1String(WorkspaceKey));
@@ -306,16 +432,16 @@ YaziMode::Support YaziMode::support(const QUrl &url)
             i18nc("@info:status why Yazi mode is limited", "the parent column lists in the background, and previews download each file first.")};
 }
 
-YaziMode::ColumnWidths YaziMode::columnWidths(int available, bool preview, const Ratios &ratios, int handleWidth)
+YaziMode::ColumnWidths YaziMode::columnWidths(int available, bool preview, const Ratios &ratios, int handleWidth, bool parent)
 {
     ColumnWidths widths;
     if (available <= 0) {
         return widths;
     }
     const int handle = qMax(0, handleWidth);
-    const bool showPreview = preview && available >= ThreeColumnWidth + 2 * handle;
-    const bool showParent = showPreview || available >= TwoColumnWidth + handle;
-    if (!showParent) {
+    const bool showPreview = preview && available >= (parent ? ThreeColumnWidth + 2 * handle : MinimumCurrentWidth + MinimumPreviewWidth + handle);
+    const bool showParent = parent && (showPreview || available >= TwoColumnWidth + handle);
+    if (!showParent && !showPreview) {
         widths.current = available;
         return widths;
     }
@@ -325,8 +451,11 @@ YaziMode::ColumnWidths YaziMode::columnWidths(int available, bool preview, const
         qint64 weight;
         int minimum;
     };
-    QVarLengthArray<Column, 3> pending{{&widths.parent, qMax(1, ratios.parent), MinimumParentWidth},
-                                       {&widths.current, qMax(1, ratios.current), MinimumCurrentWidth}};
+    QVarLengthArray<Column, 3> pending;
+    if (showParent) {
+        pending.append({&widths.parent, qMax(1, ratios.parent), MinimumParentWidth});
+    }
+    pending.append({&widths.current, qMax(1, ratios.current), MinimumCurrentWidth});
     if (showPreview) {
         pending.append({&widths.preview, qMax(1, ratios.preview), MinimumPreviewWidth});
     }

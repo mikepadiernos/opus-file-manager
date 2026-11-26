@@ -55,9 +55,21 @@ struct BehaviorSelection {
     bool layout = true;
     bool paneTabRestoration = true;
     bool appearance = true;
+    /**
+     * Whether switching restores each pane's Yazi mode, with its preview,
+     * parent column and column ratios, independently of the views. Empty in
+     * workspaces saved before the choice existed; they restore Yazi mode
+     * with each pane's view mode, as part of the window and panel layout.
+     */
+    std::optional<bool> yaziMode = true;
     bool applies(bool selected) const
     {
         return mode == BehaviorMode::All || (mode == BehaviorMode::Selected && selected);
+    }
+    /// Whether switching restores Yazi mode; @p views is whether the restore options include each pane's view mode.
+    bool appliesYaziMode(bool views) const
+    {
+        return yaziMode ? applies(*yaziMode) : applies(layout) && views;
     }
     bool operator==(const BehaviorSelection &other) const = default;
 };

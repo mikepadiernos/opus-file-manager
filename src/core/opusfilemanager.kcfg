@@ -857,7 +857,7 @@
       <default>true</default>
     </entry>
     <entry name="WorkspaceRestoreViews" type="Bool">
-      <label>Restore each pane's view mode and Yazi mode when switching workspaces</label>
+      <label>Restore each pane's view mode when switching workspaces</label>
       <default>true</default>
     </entry>
     <entry name="WorkspaceRestoreToolbars" type="Bool">
@@ -959,6 +959,10 @@
     </entry>
     <entry name="WorkspaceDefaultAppearance" type="Bool">
       <label>Whether new workspaces with selected behaviors apply their attached theme profile and appearance options</label>
+      <default>true</default>
+    </entry>
+    <entry name="WorkspaceDefaultYaziMode" type="Bool">
+      <label>Whether new workspaces with selected behaviors restore each pane's Yazi mode, with its preview, parent column and column widths</label>
       <default>true</default>
     </entry>
   </group>
@@ -1351,6 +1355,14 @@
         <choice name="Information"/>
       </choices>
       <default>Preview</default>
+    </entry>
+    <entry name="YaziParentColumnVisible" type="Bool">
+      <label>Whether panes in Yazi mode show the parent column unless the pane's session says otherwise</label>
+      <default>true</default>
+    </entry>
+    <entry name="YaziColumnRatios" type="IntList">
+      <label>The relative widths of the parent, current and preview columns of panes in Yazi mode unless the pane's session says otherwise; dragging a column's edge updates them</label>
+      <default>1,3,2</default>
     </entry>
   </group>
 </kcfg>

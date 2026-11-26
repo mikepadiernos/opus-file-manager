@@ -56,6 +56,8 @@ void savePane(const PaneSession &pane, KConfigGroup group)
     YaziMode::writeSession(group, pane.yaziMode);
     YaziMode::writeSessionPreview(group, pane.yaziPreview);
     YaziMode::writeSessionPreviewContent(group, pane.yaziPreviewContent);
+    YaziMode::writeSessionParentColumn(group, pane.yaziParentColumn);
+    YaziMode::writeSessionRatios(group, pane.yaziColumnRatios);
 }
 
 PaneSession loadPane(const KConfigGroup &group, int defaultViewMode)
@@ -73,6 +75,8 @@ PaneSession loadPane(const KConfigGroup &group, int defaultViewMode)
     pane.yaziMode = YaziMode::readSession(group);
     pane.yaziPreview = YaziMode::readSessionPreview(group);
     pane.yaziPreviewContent = YaziMode::readSessionPreviewContent(group);
+    pane.yaziParentColumn = YaziMode::readSessionParentColumn(group);
+    pane.yaziColumnRatios = YaziMode::readSessionRatios(group);
     return pane;
 }
 
@@ -105,6 +109,10 @@ PaneSession sanitizePane(const PaneSession &pane, const QUrl &fallback)
     result.yaziMode = pane.yaziMode;
     result.yaziPreview = qBound(-1, pane.yaziPreview, 1);
     result.yaziPreviewContent = qBound(-1, pane.yaziPreviewContent, int(YaziMode::PreviewContent::Information));
+    result.yaziParentColumn = qBound(-1, pane.yaziParentColumn, 1);
+    if (const std::optional<YaziMode::Ratios> ratios = YaziMode::ratiosFromList(pane.yaziColumnRatios)) {
+        result.yaziColumnRatios = YaziMode::ratiosToList(*ratios);
+    }
     return result;
 }
 }

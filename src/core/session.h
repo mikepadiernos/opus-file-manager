@@ -40,6 +40,13 @@ struct PaneSession {
     /// What Yazi mode's preview column shows, a YaziMode::PreviewContent
     /// value, or -1 when not saved; use the YaziPreviewContent default.
     int yaziPreviewContent = -1;
+    /// Whether Yazi mode shows the parent column: 1 shown, 0 hidden, -1 not
+    /// saved; use the YaziParentColumnVisible default.
+    int yaziParentColumn = -1;
+    /// The relative widths of Yazi mode's parent, current and preview columns
+    /// as three positive values, or empty when not saved; use the
+    /// YaziColumnRatios default.
+    QList<int> yaziColumnRatios;
 
     bool operator==(const PaneSession &other) const = default;
 };
