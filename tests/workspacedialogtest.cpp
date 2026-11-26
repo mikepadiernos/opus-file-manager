@@ -110,6 +110,7 @@ private Q_SLOTS:
         Settings::setWorkspaceDefaultBehaviorMode(Settings::EnumWorkspaceDefaultBehaviorMode::Selected);
         Settings::setWorkspaceDefaultSearchScope(false);
         Settings::setWorkspaceDefaultPaneTabRestoration(false);
+        Settings::setWorkspaceDefaultYaziMode(false);
         WorkspaceDialog dialog(
             group,
             [](WorkspaceCatalog::Layout &captured, QString &) {
@@ -127,7 +128,8 @@ private Q_SLOTS:
         auto *duplicate = dialog.findChild<QPushButton *>(QStringLiteral("workspaceDuplicate"));
         auto *behaviorMode = dialog.findChild<QComboBox *>(QStringLiteral("workspaceBehaviorMode"));
         auto *searchScope = dialog.findChild<QCheckBox *>(QStringLiteral("workspaceSearchScope"));
-        QVERIFY(name && label && list && create && duplicate && behaviorMode && searchScope);
+        auto *yaziMode = dialog.findChild<QCheckBox *>(QStringLiteral("workspaceYaziModeBehavior"));
+        QVERIFY(name && label && list && create && duplicate && behaviorMode && searchScope && yaziMode);
         name->setText(QStringLiteral("Work"));
         label->setText(QStringLiteral("W"));
         create->click();
@@ -135,6 +137,7 @@ private Q_SLOTS:
         list->setCurrentRow(0);
         QCOMPARE(behaviorMode->currentData().toInt(), int(WorkspaceCatalog::BehaviorMode::Selected));
         QVERIFY(!searchScope->isChecked());
+        QVERIFY(!yaziMode->isChecked());
 
         // Duplicates keep the source's behaviors even when the defaults change.
         Settings::setWorkspaceDefaultBehaviorMode(Settings::EnumWorkspaceDefaultBehaviorMode::None);
@@ -149,7 +152,8 @@ private Q_SLOTS:
         QString error;
         QVERIFY2(WorkspaceCatalog::load(group, catalog, error), qPrintable(error));
         QCOMPARE(catalog.workspaces.size(), 3);
-        const WorkspaceCatalog::BehaviorSelection selected{WorkspaceCatalog::BehaviorMode::Selected, true, false, true, false};
+        WorkspaceCatalog::BehaviorSelection selected{WorkspaceCatalog::BehaviorMode::Selected, true, false, true, false};
+        selected.yaziMode = false;
         QCOMPARE(catalog.workspaces.at(0).behaviorSelection, selected);
         QCOMPARE(catalog.workspaces.at(1).behaviorSelection, selected);
         QCOMPARE(catalog.workspaces.at(2).behaviorSelection.mode, WorkspaceCatalog::BehaviorMode::None);
@@ -599,6 +603,147 @@ private Q_SLOTS:
         QVERIFY(applied.presentation->previewVisible);
         QCOMPARE(applied.session->left.tabs, savedSession.left.tabs);
         QCOMPARE(applied.session->left.viewMode, 0);
+    }
+
+    void yaziModeBehaviorIsSavedAndKeepsLegacyWorkspaces()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        const auto group = config.group(QStringLiteral("Workspaces"));
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Current"), QStringLiteral("C"), error));
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Legacy"), QStringLiteral("L"), error));
+        catalog.workspaces[1].behaviorSelection.yaziMode = std::nullopt;
+        QVERIFY(WorkspaceCatalog::save(group, catalog, error));
+        const QString currentId = catalog.workspaces.at(0).id;
+        const QString legacyId = catalog.workspaces.at(1).id;
+
+        WorkspaceDialog dialog(
+            group,
+            [](WorkspaceCatalog::Layout &, QString &) {
+                return true;
+            },
+            [](const WorkspaceCatalog::Layout &, QString &) {
+                return true;
+            },
+            QString());
+        auto *list = dialog.findChild<QListWidget *>(QStringLiteral("workspaceList"));
+        auto *yaziMode = dialog.findChild<QCheckBox *>(QStringLiteral("workspaceYaziModeBehavior"));
+        auto *saveBehaviors = dialog.findChild<QPushButton *>(QStringLiteral("workspaceSaveBehaviors"));
+        QVERIFY(list && yaziMode && saveBehaviors);
+        QCOMPARE(yaziMode->accessibleName(), QStringLiteral("Yazi mode"));
+        QVERIFY(!yaziMode->accessibleDescription().isEmpty());
+        QVERIFY(!yaziMode->toolTip().isEmpty());
+        const auto selectWorkspace = [list](const QString &name) {
+            for (int row = 0; row < list->count(); ++row) {
+                if (list->item(row)->text().contains(name)) {
+                    list->setCurrentRow(row);
+                    return true;
+                }
+            }
+            return false;
+        };
+        const auto stored = [&group](const QString &id) {
+            WorkspaceCatalog::Catalog loaded;
+            QString loadError;
+            [&] {
+                QVERIFY2(WorkspaceCatalog::load(group, loaded, loadError), qPrintable(loadError));
+            }();
+            const auto it = std::find_if(loaded.workspaces.cbegin(), loaded.workspaces.cend(), [&id](const auto &workspace) {
+                return workspace.id == id;
+            });
+            return it == loaded.workspaces.cend() ? std::optional<bool>() : it->behaviorSelection.yaziMode;
+        };
+
+        QVERIFY(selectWorkspace(QStringLiteral("Current")));
+        QVERIFY(yaziMode->isChecked());
+        yaziMode->setChecked(false);
+        saveBehaviors->click();
+        QCOMPARE(stored(currentId), std::optional<bool>(false));
+        QVERIFY(selectWorkspace(QStringLiteral("Current")));
+        QVERIFY(!yaziMode->isChecked());
+
+        // Saving other behaviors keeps a legacy workspace restoring Yazi mode with the views.
+        QVERIFY(selectWorkspace(QStringLiteral("Legacy")));
+        QVERIFY(yaziMode->isChecked());
+        saveBehaviors->click();
+        QCOMPARE(stored(legacyId), std::optional<bool>());
+        QVERIFY(selectWorkspace(QStringLiteral("Legacy")));
+        yaziMode->setChecked(false);
+        saveBehaviors->click();
+        QCOMPARE(stored(legacyId), std::optional<bool>(false));
+    }
+
+    void yaziModeBehaviorRestoresOrKeepsEachPanesYaziMode()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        const auto group = config.group(QStringLiteral("Workspaces"));
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        WindowSession savedSession;
+        savedSession.left.tabs = {QUrl::fromLocalFile(QStringLiteral("/saved"))};
+        savedSession.left.viewMode = 2;
+        savedSession.left.yaziMode = true;
+        savedSession.left.yaziPreview = 0;
+        savedSession.left.yaziPreviewContent = 1;
+        savedSession.left.yaziParentColumn = 0;
+        savedSession.left.yaziColumnRatios = {2, 5, 3};
+        savedSession.right.tabs = {QUrl::fromLocalFile(QStringLiteral("/saved-right"))};
+        const WorkspaceCatalog::Layout saved{QByteArray("saved"), {1, 2}, {3, 4}, true, false, std::nullopt, savedSession};
+        QVERIFY(WorkspaceCatalog::setLayout(catalog, catalog.workspaces.first().id, saved, error));
+        QVERIFY(WorkspaceCatalog::save(group, catalog, error));
+
+        WindowSession currentSession;
+        currentSession.left.tabs = {QUrl::fromLocalFile(QStringLiteral("/current"))};
+        currentSession.left.yaziColumnRatios = {1, 1, 1};
+        currentSession.right.tabs = {QUrl::fromLocalFile(QStringLiteral("/current-right"))};
+        currentSession.right.yaziMode = true;
+        const WorkspaceCatalog::Layout current{QByteArray("current"), {8, 9}, {10, 11}, false, true, std::nullopt, currentSession};
+
+        for (const bool restoreYazi : {true, false}) {
+            WorkspaceCatalog::Catalog stored;
+            QVERIFY(WorkspaceCatalog::load(group, stored, error));
+            stored.workspaces.first().behaviorSelection.mode = WorkspaceCatalog::BehaviorMode::Selected;
+            stored.workspaces.first().behaviorSelection.yaziMode = restoreYazi;
+            QVERIFY(WorkspaceCatalog::save(group, stored, error));
+            // The Yazi mode behavior applies even when the view restore option is off.
+            Settings::setWorkspaceRestoreViews(false);
+            WorkspaceCatalog::Layout applied;
+            WorkspaceDialog dialog(
+                group,
+                [&current](WorkspaceCatalog::Layout &layout, QString &) {
+                    layout = current;
+                    return true;
+                },
+                [&applied](const WorkspaceCatalog::Layout &layout, QString &) {
+                    applied = layout;
+                    return true;
+                },
+                QString());
+            dialog.findChild<QListWidget *>(QStringLiteral("workspaceList"))->setCurrentRow(0);
+            QTimer::singleShot(0, [] {
+                qobject_cast<QMessageBox *>(QApplication::activeModalWidget())->button(QMessageBox::Yes)->click();
+            });
+            dialog.findChild<QPushButton *>(QStringLiteral("workspaceActivate"))->click();
+            Settings::self()->setDefaults();
+
+            QVERIFY(applied.session);
+            QCOMPARE(applied.session->left.tabs, savedSession.left.tabs);
+            QCOMPARE(applied.session->left.viewMode, 0);
+            const PaneSession &expectedLeft = restoreYazi ? savedSession.left : currentSession.left;
+            const PaneSession &expectedRight = restoreYazi ? savedSession.right : currentSession.right;
+            QCOMPARE(applied.session->left.yaziMode, expectedLeft.yaziMode);
+            QCOMPARE(applied.session->left.yaziPreview, expectedLeft.yaziPreview);
+            QCOMPARE(applied.session->left.yaziPreviewContent, expectedLeft.yaziPreviewContent);
+            QCOMPARE(applied.session->left.yaziParentColumn, expectedLeft.yaziParentColumn);
+            QCOMPARE(applied.session->left.yaziColumnRatios, expectedLeft.yaziColumnRatios);
+            QCOMPARE(applied.session->right.yaziMode, expectedRight.yaziMode);
+        }
     }
 
     void layoutOverwriteConfirmationCanBeSkipped()

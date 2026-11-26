@@ -258,6 +258,8 @@ private Q_SLOTS:
         Catalog catalog;
         QString error;
         QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        // Leaves the panes as the only objects with a yaziMode entry.
+        catalog.workspaces.first().behaviorSelection.yaziMode = std::nullopt;
         Layout layout;
         WindowSession session;
         session.left.tabs = {QUrl::fromLocalFile(QStringLiteral("/tmp/left"))};
@@ -284,6 +286,112 @@ private Q_SLOTS:
         group.writeEntry("Catalog", invalid);
         Catalog rejected;
         QVERIFY(!load(group, rejected, error));
+    }
+
+    void persistsYaziModeBehaviorAsAnOptionalBoolean()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Workspaces"));
+        Catalog catalog;
+        QString error;
+        QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(create(catalog, QStringLiteral("Home"), QStringLiteral("H"), error));
+        QVERIFY(create(catalog, QStringLiteral("Old"), QStringLiteral("O"), error));
+        QCOMPARE(catalog.workspaces.first().behaviorSelection.yaziMode, std::optional<bool>(true));
+        catalog.workspaces[1].behaviorSelection.yaziMode = false;
+        catalog.workspaces[2].behaviorSelection.yaziMode = std::nullopt;
+        QVERIFY2(save(group, catalog, error), qPrintable(error));
+
+        const QByteArray stored = group.readEntry("Catalog", QByteArray());
+        const QJsonArray workspaces = QJsonDocument::fromJson(stored).object().value(QStringLiteral("workspaces")).toArray();
+        QCOMPARE(workspaces.size(), 3);
+        const auto selection = [&workspaces](int index) {
+            return workspaces.at(index).toObject().value(QStringLiteral("behaviorSelection")).toObject();
+        };
+        QCOMPARE(selection(0).value(QStringLiteral("yaziMode")), QJsonValue(true));
+        QCOMPARE(selection(1).value(QStringLiteral("yaziMode")), QJsonValue(false));
+        QVERIFY(!selection(2).contains(QStringLiteral("yaziMode")));
+
+        Catalog loaded;
+        QVERIFY2(load(group, loaded, error), qPrintable(error));
+        QCOMPARE(loaded.workspaces.at(0).behaviorSelection.yaziMode, std::optional<bool>(true));
+        QCOMPARE(loaded.workspaces.at(1).behaviorSelection.yaziMode, std::optional<bool>(false));
+        QCOMPARE(loaded.workspaces.at(2).behaviorSelection.yaziMode, std::optional<bool>());
+        QCOMPARE(loaded.workspaces, catalog.workspaces);
+
+        QJsonObject root = QJsonDocument::fromJson(stored).object();
+        QJsonArray invalidWorkspaces = workspaces;
+        QJsonObject workspace = invalidWorkspaces.at(1).toObject();
+        QJsonObject invalidSelection = selection(1);
+        invalidSelection.insert(QStringLiteral("yaziMode"), 0);
+        workspace.insert(QStringLiteral("behaviorSelection"), invalidSelection);
+        invalidWorkspaces.replace(1, workspace);
+        root.insert(QStringLiteral("workspaces"), invalidWorkspaces);
+        group.writeEntry("Catalog", QJsonDocument(root).toJson(QJsonDocument::Compact));
+        Catalog rejected;
+        QVERIFY(!load(group, rejected, error));
+    }
+
+    void persistsYaziParentColumnAndColumnRatios()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Workspaces"));
+        Catalog catalog;
+        QString error;
+        QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        Layout layout;
+        WindowSession session;
+        session.left.tabs = {QUrl::fromLocalFile(QStringLiteral("/tmp/left"))};
+        session.right.tabs = {QUrl::fromLocalFile(QStringLiteral("/tmp/right"))};
+        session.left.yaziParentColumn = 0;
+        session.left.yaziColumnRatios = {2, 5, 3};
+        layout.session = session;
+        QVERIFY(setLayout(catalog, catalog.workspaces.first().id, layout, error));
+        QVERIFY(save(group, catalog, error));
+        const QByteArray stored = group.readEntry("Catalog", QByteArray());
+        QCOMPARE(stored.count("\"yaziParentColumn\""), 1);
+        QCOMPARE(stored.count("\"yaziParentColumn\":false"), 1);
+        QCOMPARE(stored.count("\"yaziColumnRatios\""), 1);
+        QCOMPARE(stored.count("\"yaziColumnRatios\":[2,5,3]"), 1);
+        Catalog loaded;
+        QVERIFY2(load(group, loaded, error), qPrintable(error));
+        QCOMPARE(loaded.workspaces.first().layout->session->left.yaziParentColumn, 0);
+        QCOMPARE(loaded.workspaces.first().layout->session->left.yaziColumnRatios, QList<int>({2, 5, 3}));
+        QCOMPARE(loaded.workspaces.first().layout->session->right.yaziParentColumn, -1);
+        QVERIFY(loaded.workspaces.first().layout->session->right.yaziColumnRatios.isEmpty());
+
+        QByteArray legacy = stored;
+        legacy.replace(",\"yaziColumnRatios\":[2,5,3]", "");
+        legacy.replace(",\"yaziParentColumn\":false", "");
+        QCOMPARE(legacy.count("yaziColumnRatios") + legacy.count("yaziParentColumn"), 0);
+        group.writeEntry("Catalog", legacy);
+        QVERIFY2(load(group, loaded, error), qPrintable(error));
+        QCOMPARE(loaded.workspaces.first().layout->session->left.yaziParentColumn, -1);
+        QVERIFY(loaded.workspaces.first().layout->session->left.yaziColumnRatios.isEmpty());
+
+        for (const QByteArray &ratios :
+             {QByteArray("[2,5]"), QByteArray("[2,0,3]"), QByteArray("[2,-5,3]"), QByteArray("[2,5.5,3]"), QByteArray("\"2,5,3\"")}) {
+            QByteArray invalid = stored;
+            invalid.replace("[2,5,3]", ratios);
+            group.writeEntry("Catalog", invalid);
+            Catalog rejected;
+            QVERIFY2(!load(group, rejected, error), ratios.constData());
+        }
+        QByteArray invalidParent = stored;
+        invalidParent.replace("\"yaziParentColumn\":false", "\"yaziParentColumn\":0");
+        group.writeEntry("Catalog", invalidParent);
+        Catalog rejected;
+        QVERIFY(!load(group, rejected, error));
+
+        layout.session->left.yaziColumnRatios = {2, 0, 3};
+        QVERIFY(!setLayout(catalog, catalog.workspaces.first().id, layout, error));
+        layout.session->left.yaziColumnRatios = {};
+        layout.session->left.yaziParentColumn = 2;
+        QVERIFY(!setLayout(catalog, catalog.workspaces.first().id, layout, error));
     }
 
     void readsYaziPreviewOnlyAsAnOptionalBoolean()
@@ -584,6 +692,7 @@ private Q_SLOTS:
         QVERIFY2(load(group, catalog, error), qPrintable(error));
         QCOMPARE(catalog.workspaces.size(), 1);
         QVERIFY(catalog.locationAssignments.isEmpty());
+        QCOMPARE(catalog.workspaces.first().behaviorSelection.yaziMode, std::optional<bool>());
     }
 
     void rejectsStaleAndMalformedAssignments()

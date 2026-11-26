@@ -43,6 +43,7 @@
 #include <QMenu>
 #include <QMessageBox>
 #include <QMimeData>
+#include <QMouseEvent>
 #include <QPlainTextEdit>
 #include <QProgressBar>
 #include <QPushButton>
@@ -687,6 +688,214 @@ private Q_SLOTS:
         QVERIFY(pane->yaziPreview());
         QVERIFY(pane->yaziColumns()->preview());
         QCOMPARE(pane->saveState(), state);
+    }
+
+    void parentColumnToggleTracksTheActivePane()
+    {
+        MainWindow window;
+        window.resize(1400, 600);
+        window.openUrls({m_sub, m_b});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        QAction *action = window.actionCollection()->action(QStringLiteral("toggle_yazi_parent_column"));
+        QVERIFY(action);
+        QVERIFY(action->isCheckable());
+        QVERIFY(action->shortcuts().isEmpty());
+        auto *viewMenu = window.findChild<QMenu *>(QStringLiteral("view"));
+        QVERIFY(viewMenu);
+        QVERIFY(viewMenu->actions().contains(action));
+
+        Pane *first = window.activePane();
+        Pane *second = window.inactivePane();
+        YaziColumns *columns = first->yaziColumns();
+        QVERIFY(first->yaziParentColumn());
+        QVERIFY(action->isChecked());
+        QVERIFY(!action->isEnabled());
+
+        first->setYaziMode(true);
+        QVERIFY(action->isEnabled());
+        QTRY_VERIFY(columns->parentColumn()->isVisible());
+        QSignalSpy changed(first, &Pane::yaziParentColumnChanged);
+        QSignalSpy layoutChanged(first, &Pane::workspaceLayoutChanged);
+        action->trigger();
+        QCOMPARE(changed.count(), 1);
+        QCOMPARE(changed.first().first().toBool(), false);
+        QVERIFY(layoutChanged.count() >= 1);
+        QVERIFY(!first->yaziParentColumn());
+        QVERIFY(!action->isChecked());
+        QVERIFY(!columns->parentColumnEnabled());
+        QTRY_VERIFY(columns->parentColumn()->isHidden());
+        QVERIFY(columns->currentView()->isVisible());
+        QCOMPARE(first->saveState().yaziParentColumn, 0);
+        QVERIFY(second->yaziParentColumn());
+        QCOMPARE(second->saveState().yaziParentColumn, -1);
+
+        Q_EMIT second->activated();
+        QVERIFY(!action->isEnabled());
+        QVERIFY(action->isChecked());
+        Q_EMIT first->activated();
+        QVERIFY(action->isEnabled());
+        QVERIFY(!action->isChecked());
+
+        // The choice is kept while the mode is off.
+        first->setYaziMode(false);
+        first->setYaziMode(true);
+        QVERIFY(columns->parentColumn()->isHidden());
+        action->trigger();
+        QVERIFY(first->yaziParentColumn());
+        QTRY_VERIFY(columns->parentColumn()->isVisible());
+        QCOMPARE(first->saveState().yaziParentColumn, 1);
+    }
+
+    void parentColumnDefaultFollowsTheSetting()
+    {
+        const bool previous = Settings::yaziParentColumnVisible();
+        const auto restore = qScopeGuard([previous] {
+            Settings::setYaziParentColumnVisible(previous);
+        });
+        Settings::setYaziParentColumnVisible(false);
+        MainWindow window;
+        window.openUrls({m_sub, m_b});
+        Pane *pane = window.activePane();
+        QVERIFY(!pane->yaziParentColumn());
+        pane->setYaziMode(true);
+        QVERIFY(!pane->yaziColumns()->parentColumnEnabled());
+        QAction *action = window.actionCollection()->action(QStringLiteral("toggle_yazi_parent_column"));
+        QVERIFY(!action->isChecked());
+        QCOMPARE(pane->saveState().yaziParentColumn, -1);
+
+        Settings::setYaziParentColumnVisible(true);
+        window.applySettings();
+        QVERIFY(pane->yaziParentColumn());
+        QVERIFY(pane->yaziColumns()->parentColumnEnabled());
+        QVERIFY(action->isChecked());
+
+        pane->setYaziParentColumn(true);
+        QCOMPARE(pane->saveState().yaziParentColumn, 1);
+        Settings::setYaziParentColumnVisible(false);
+        window.applySettings();
+        QVERIFY(pane->yaziParentColumn());
+        QVERIFY(!window.inactivePane()->yaziParentColumn());
+
+        PaneSession state = pane->saveState();
+        state.yaziParentColumn = -1;
+        pane->replaceState(state);
+        QVERIFY(!pane->yaziParentColumn());
+        QCOMPARE(pane->saveState(), state);
+        state.yaziParentColumn = 0;
+        Settings::setYaziParentColumnVisible(true);
+        pane->replaceState(state);
+        QVERIFY(!pane->yaziParentColumn());
+        QCOMPARE(pane->saveState(), state);
+    }
+
+    void columnRatiosAreKeptPerPaneAndSavedAsTheDefault()
+    {
+        const QList<int> previous = Settings::yaziColumnRatios();
+        const auto restore = qScopeGuard([previous] {
+            Settings::setYaziColumnRatios(previous);
+            Settings::self()->save();
+        });
+        Settings::setYaziColumnRatios({1, 3, 2});
+        MainWindow window;
+        window.resize(1400, 600);
+        window.openUrls({m_sub, m_b});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        Pane *pane = window.activePane();
+        Pane *other = window.inactivePane();
+        QCOMPARE(pane->yaziColumnRatios(), YaziMode::Ratios());
+        QVERIFY(pane->saveState().yaziColumnRatios.isEmpty());
+
+        // A pane's own ratios are saved with it, but are not a new default.
+        QSignalSpy layoutChanged(pane, &Pane::workspaceLayoutChanged);
+        pane->setYaziColumnRatios({2, 5, 3});
+        QVERIFY(layoutChanged.count() >= 1);
+        QCOMPARE(pane->yaziColumnRatios(), YaziMode::Ratios({2, 5, 3}));
+        QCOMPARE(pane->saveState().yaziColumnRatios, QList<int>({2, 5, 3}));
+        QVERIFY(other->saveState().yaziColumnRatios.isEmpty());
+        QTest::qWait(Pane::YaziRatiosSaveDelay * 2);
+        QCOMPARE(Settings::yaziColumnRatios(), QList<int>({1, 3, 2}));
+
+        // Dragging a handle keeps the ratios for the pane and, once dragging pauses, as the default.
+        pane->setYaziMode(true);
+        YaziColumns *columns = pane->yaziColumns();
+        QSplitter *splitter = columns->splitter();
+        QTRY_VERIFY(columns->parentColumn()->isVisible() && columns->previewSlot()->isVisible());
+        QSplitterHandle *handle = splitter->handle(splitter->indexOf(pane->view()));
+        QVERIFY(handle && handle->isVisible());
+        const int parentWidth = columns->parentColumn()->width();
+        const QPoint start = handle->rect().center();
+        const QPoint end = start + QPoint(80, 0);
+        const QPoint globalStart = handle->mapToGlobal(start);
+        const QPoint globalEnd = handle->mapToGlobal(end);
+        QMouseEvent press(QEvent::MouseButtonPress, start, globalStart, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(handle, &press);
+        QMouseEvent move(QEvent::MouseMove, end, globalEnd, Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(handle, &move);
+        QMouseEvent release(QEvent::MouseButtonRelease, end, globalEnd, Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+        QApplication::sendEvent(handle, &release);
+        QTRY_VERIFY(columns->parentColumn()->width() > parentWidth);
+        const QList<int> dragged = YaziMode::ratiosToList(pane->yaziColumnRatios());
+        QVERIFY(dragged != QList<int>({2, 5, 3}));
+        QCOMPARE(pane->saveState().yaziColumnRatios, dragged);
+        QCOMPARE(Settings::yaziColumnRatios(), QList<int>({1, 3, 2}));
+        QTRY_COMPARE(Settings::yaziColumnRatios(), dragged);
+        QVERIFY(other->saveState().yaziColumnRatios.isEmpty());
+
+        // Restored states without ratios use the default.
+        PaneSession state = pane->saveState();
+        state.yaziColumnRatios.clear();
+        pane->replaceState(state);
+        QCOMPARE(YaziMode::ratiosToList(pane->yaziColumnRatios()), dragged);
+        QCOMPARE(pane->saveState(), state);
+        state.yaziColumnRatios = {4, 4, 2};
+        pane->replaceState(state);
+        QCOMPARE(pane->yaziColumnRatios(), YaziMode::Ratios({4, 4, 2}));
+        QCOMPARE(pane->saveState(), state);
+
+        // A new pane starts with the default.
+        MainWindow second;
+        second.openUrls({m_a, m_b});
+        QCOMPARE(YaziMode::ratiosToList(second.activePane()->yaziColumnRatios()), dragged);
+        QVERIFY(second.activePane()->saveState().yaziColumnRatios.isEmpty());
+    }
+
+    void paneMenusAndToolbarToggleTheMode()
+    {
+        MainWindow window;
+        window.openUrls({m_a, m_b});
+        Pane *pane = window.activePane();
+        auto *viewButton = pane->findChild<QToolButton *>(QStringLiteral("paneViewModeButton"));
+        QVERIFY(viewButton && viewButton->menu());
+        auto *menuAction = pane->findChild<QAction *>(QStringLiteral("paneViewModeYaziMode"));
+        QVERIFY(menuAction);
+        QVERIFY(viewButton->menu()->actions().contains(menuAction));
+        QVERIFY(menuAction->isCheckable());
+        QVERIFY(menuAction->shortcuts().isEmpty());
+        auto *toolbarAction = pane->findChild<QAction *>(QStringLiteral("paneYaziMode"));
+        QVERIFY(toolbarAction);
+        QVERIFY(toolbarAction->isCheckable());
+        QVERIFY(toolbarAction->shortcuts().isEmpty());
+        // Available in the pane toolbar's customizer, but not shown by default.
+        QVERIFY(!toolbarAction->isVisible());
+        QVERIFY(!menuAction->isChecked());
+        QVERIFY(!toolbarAction->isChecked());
+
+        menuAction->trigger();
+        QVERIFY(pane->yaziMode());
+        QVERIFY(menuAction->isChecked());
+        QVERIFY(toolbarAction->isChecked());
+        QVERIFY(!window.inactivePane()->yaziMode());
+        QVERIFY(window.actionCollection()->action(QStringLiteral("toggle_yazi_mode"))->isChecked());
+
+        toolbarAction->trigger();
+        QVERIFY(!pane->yaziMode());
+        QVERIFY(!menuAction->isChecked());
+        QVERIFY(!toolbarAction->isChecked());
+        pane->setYaziMode(true);
+        QVERIFY(menuAction->isChecked());
+        QVERIFY(toolbarAction->isChecked());
     }
 
     void folderPreviewListsTheFocusedFolder()
@@ -1428,6 +1637,106 @@ private Q_SLOTS:
         QVERIFY(restored.actionCollection()->action(QStringLiteral("toggle_yazi_mode"))->isChecked());
     }
 
+    void sessionRestoresEveryYaziChoice()
+    {
+        {
+            MainWindow window;
+            window.resize(1400, 600);
+            window.openUrls({m_sub, m_b});
+            Pane *pane = window.inactivePane();
+            pane->setYaziMode(true);
+            pane->setYaziPreviewContent(YaziMode::PreviewContent::Information);
+            pane->setYaziParentColumn(false);
+            pane->setYaziColumnRatios({2, 5, 3});
+            window.show();
+            QVERIFY(QTest::qWaitForWindowExposed(&window));
+            QVERIFY(window.close());
+        }
+        const WindowSession saved = Session::load(KSharedConfig::openStateConfig()->group(QStringLiteral("Session")));
+        QVERIFY(saved.right.yaziMode);
+        QCOMPARE(saved.right.yaziPreview, -1);
+        QCOMPARE(saved.right.yaziPreviewContent, int(YaziMode::PreviewContent::Information));
+        QCOMPARE(saved.right.yaziParentColumn, 0);
+        QCOMPARE(saved.right.yaziColumnRatios, QList<int>({2, 5, 3}));
+        QVERIFY(!saved.left.yaziMode);
+        QCOMPARE(saved.left.yaziPreviewContent, -1);
+        QCOMPARE(saved.left.yaziParentColumn, -1);
+        QVERIFY(saved.left.yaziColumnRatios.isEmpty());
+
+        MainWindow restored;
+        restored.resize(1400, 600);
+        restored.openUrls({});
+        Pane *pane = restored.inactivePane();
+        QVERIFY(pane->yaziMode());
+        QCOMPARE(pane->yaziPreviewContent(), YaziMode::PreviewContent::Information);
+        QCOMPARE(pane->yaziColumns()->previewContent(), YaziMode::PreviewContent::Information);
+        QVERIFY(!pane->yaziParentColumn());
+        QVERIFY(!pane->yaziColumns()->parentColumnEnabled());
+        QCOMPARE(pane->yaziColumnRatios(), YaziMode::Ratios({2, 5, 3}));
+        QCOMPARE(pane->yaziColumns()->ratios(), YaziMode::Ratios({2, 5, 3}));
+        const PaneSession state = pane->saveState();
+        QCOMPARE(state.yaziMode, saved.right.yaziMode);
+        QCOMPARE(state.yaziPreview, saved.right.yaziPreview);
+        QCOMPARE(state.yaziPreviewContent, saved.right.yaziPreviewContent);
+        QCOMPARE(state.yaziParentColumn, saved.right.yaziParentColumn);
+        QCOMPARE(state.yaziColumnRatios, saved.right.yaziColumnRatios);
+        const PaneSession other = restored.activePane()->saveState();
+        QVERIFY(!other.yaziMode);
+        QCOMPARE(other.yaziPreviewContent, -1);
+        QCOMPARE(other.yaziParentColumn, -1);
+        QVERIFY(other.yaziColumnRatios.isEmpty());
+    }
+
+    void startingInFoldersLeavesTheModeOff_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::newRow("home folder") << int(Settings::EnumStartupMode::HomeFolder);
+        QTest::newRow("fixed folders") << int(Settings::EnumStartupMode::FixedFolders);
+    }
+
+    void startingInFoldersLeavesTheModeOff()
+    {
+        QFETCH(int, mode);
+        {
+            MainWindow window;
+            window.openUrls({m_sub, m_b});
+            for (Pane *pane : {window.activePane(), window.inactivePane()}) {
+                pane->setYaziMode(true);
+                pane->setYaziPreviewContent(YaziMode::PreviewContent::Information);
+                pane->setYaziParentColumn(false);
+                pane->setYaziColumnRatios({2, 5, 3});
+            }
+            window.show();
+            QVERIFY(QTest::qWaitForWindowExposed(&window));
+            QVERIFY(window.close());
+        }
+        QVERIFY(Session::load(KSharedConfig::openStateConfig()->group(QStringLiteral("Session"))).left.yaziMode);
+
+        const QUrl left = Settings::leftStartUrl();
+        const QUrl right = Settings::rightStartUrl();
+        const auto restore = qScopeGuard([left, right] {
+            Settings::setStartupMode(Settings::EnumStartupMode::RestoreSession);
+            Settings::setLeftStartUrl(left);
+            Settings::setRightStartUrl(right);
+        });
+        Settings::setStartupMode(static_cast<Settings::EnumStartupMode::type>(mode));
+        Settings::setLeftStartUrl(m_a);
+        Settings::setRightStartUrl(m_b);
+        MainWindow started;
+        started.openUrls({});
+        for (Pane *pane : {started.activePane(), started.inactivePane()}) {
+            QVERIFY(!pane->yaziMode());
+            QVERIFY(pane->yaziColumns()->isHidden());
+            const PaneSession state = pane->saveState();
+            QVERIFY(!state.yaziMode);
+            QCOMPARE(state.yaziPreview, -1);
+            QCOMPARE(state.yaziPreviewContent, -1);
+            QCOMPARE(state.yaziParentColumn, -1);
+            QVERIFY(state.yaziColumnRatios.isEmpty());
+        }
+        QVERIFY(!started.actionCollection()->action(QStringLiteral("toggle_yazi_mode"))->isChecked());
+    }
+
     void replacingStateAppliesTheMode()
     {
         MainWindow window;
@@ -1475,7 +1784,8 @@ private Q_SLOTS:
             }
             saved.sync();
         });
-        Settings::setWorkspaceRestoreViews(true);
+        // Yazi mode is a workspace behavior of its own, restored even without the views.
+        Settings::setWorkspaceRestoreViews(false);
 
         MainWindow window;
         window.openUrls({m_a, m_b});
@@ -1484,6 +1794,8 @@ private Q_SLOTS:
         Pane *pane = window.activePane();
         pane->setYaziMode(true);
         pane->setYaziPreview(false);
+        pane->setYaziParentColumn(false);
+        pane->setYaziColumnRatios({2, 5, 3});
 
         window.actionCollection()->action(QStringLiteral("manage_workspaces"))->trigger();
         auto *dialog = window.findChild<WorkspaceDialog *>(QStringLiteral("workspaceDialog"));
@@ -1507,6 +1819,8 @@ private Q_SLOTS:
         window.actionCollection()->action(QStringLiteral("toggle_yazi_mode"))->trigger();
         QVERIFY(!pane->yaziMode());
         pane->setYaziPreview(true);
+        pane->setYaziParentColumn(true);
+        pane->setYaziColumnRatios({1, 1, 1});
         QTRY_VERIFY(selector->text().endsWith(QStringLiteral(" *")));
 
         answerMessageBox(QMessageBox::Yes);
@@ -1514,6 +1828,9 @@ private Q_SLOTS:
         QTRY_VERIFY(pane->yaziMode());
         QVERIFY(!pane->yaziPreview());
         QVERIFY(!pane->yaziColumns()->previewEnabled());
+        QVERIFY(!pane->yaziParentColumn());
+        QVERIFY(!pane->yaziColumns()->parentColumnEnabled());
+        QCOMPARE(pane->yaziColumnRatios(), YaziMode::Ratios({2, 5, 3}));
         QVERIFY(!window.inactivePane()->yaziMode());
         QVERIFY(window.actionCollection()->action(QStringLiteral("toggle_yazi_mode"))->isChecked());
         QTRY_VERIFY(!selector->text().endsWith(QStringLiteral(" *")));

@@ -5,11 +5,14 @@
 #include <KConfig>
 #include <KConfigGroup>
 
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QKeySequence>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
+
+#include <limits>
 
 Q_DECLARE_METATYPE(YaziMode::Preset)
 
@@ -340,6 +343,190 @@ private Q_SLOTS:
             }
             QVERIFY(hadPreview);
         }
+    }
+
+    void columnWidthsWithoutTheParentColumn()
+    {
+        const int handle = 6;
+        bool hadPreview = false;
+        for (int available = 1; available <= 2000; ++available) {
+            const YaziMode::ColumnWidths widths = YaziMode::columnWidths(available, true, {1, 3, 2}, handle, false);
+            QCOMPARE(widths.parent, 0);
+            const int shown = 1 + (widths.preview > 0);
+            QCOMPARE(widths.current + widths.preview + handle * (shown - 1), available);
+            QVERIFY(widths.preview == 0 || widths.preview >= YaziMode::MinimumPreviewWidth);
+            if (widths.preview > 0) {
+                QVERIFY2(widths.current >= YaziMode::MinimumCurrentWidth, qPrintable(QString::number(available)));
+            }
+            QVERIFY(!hadPreview || widths.preview > 0);
+            hadPreview = widths.preview > 0;
+        }
+        QVERIFY(hadPreview);
+        // The preview column shows in a narrower pane than with the parent column.
+        const int narrow = YaziMode::MinimumCurrentWidth + YaziMode::MinimumPreviewWidth + handle;
+        QVERIFY(YaziMode::columnWidths(narrow, true, {}, handle, false).preview > 0);
+        QCOMPARE(YaziMode::columnWidths(narrow, true, {}, handle).preview, 0);
+        QCOMPARE(YaziMode::columnWidths(narrow - 1, true, {}, handle, false).preview, 0);
+        // Without the preview either, the current column takes the whole width.
+        const YaziMode::ColumnWidths alone = YaziMode::columnWidths(1000, false, {}, handle, false);
+        QCOMPARE((QList<int>{alone.parent, alone.current, alone.preview}), (QList<int>{0, 1000, 0}));
+        // The current and preview columns keep their share of the ratios.
+        const YaziMode::ColumnWidths wide = YaziMode::columnWidths(1000 + handle, true, {1, 3, 2}, handle, false);
+        QCOMPARE((QList<int>{wide.parent, wide.current, wide.preview}), (QList<int>{0, 600, 400}));
+    }
+
+    void ratiosFromList_data()
+    {
+        QTest::addColumn<QList<int>>("list");
+        QTest::addColumn<QList<int>>("expected");
+        QTest::newRow("default") << QList<int>{1, 3, 2} << QList<int>{1, 3, 2};
+        QTest::newRow("pixels") << QList<int>{180, 420, 300} << QList<int>{180, 420, 300};
+        QTest::newRow("empty") << QList<int>{} << QList<int>{};
+        QTest::newRow("two") << QList<int>{1, 3} << QList<int>{};
+        QTest::newRow("four") << QList<int>{1, 3, 2, 1} << QList<int>{};
+        QTest::newRow("zero") << QList<int>{0, 3, 2} << QList<int>{};
+        QTest::newRow("negative") << QList<int>{1, -3, 2} << QList<int>{};
+        QTest::newRow("maximum") << QList<int>{1, YaziMode::MaximumRatio, 2} << QList<int>{1, YaziMode::MaximumRatio, 2};
+        QTest::newRow("too large") << QList<int>{2 * YaziMode::MaximumRatio, 4 * YaziMode::MaximumRatio, 1}
+                                   << QList<int>{YaziMode::MaximumRatio / 2, YaziMode::MaximumRatio, 1};
+        QTest::newRow("int max") << QList<int>{std::numeric_limits<int>::max(), 1, 1} << QList<int>{YaziMode::MaximumRatio, 1, 1};
+    }
+
+    void ratiosFromList()
+    {
+        QFETCH(QList<int>, list);
+        QFETCH(QList<int>, expected);
+        const std::optional<YaziMode::Ratios> ratios = YaziMode::ratiosFromList(list);
+        QCOMPARE(ratios.has_value(), !expected.isEmpty());
+        if (ratios) {
+            QCOMPARE(YaziMode::ratiosToList(*ratios), expected);
+        }
+    }
+
+    void clampedRatiosKeepEveryColumnPositive()
+    {
+        QCOMPARE(YaziMode::clampedRatios({0, -4, 2}), (YaziMode::Ratios{1, 1, 2}));
+        QCOMPARE(YaziMode::clampedRatios({1, 3, 2}), (YaziMode::Ratios{1, 3, 2}));
+        const YaziMode::Ratios large = YaziMode::clampedRatios({4 * YaziMode::MaximumRatio, 2 * YaziMode::MaximumRatio, 1});
+        QCOMPARE(large.parent, YaziMode::MaximumRatio);
+        QCOMPARE(large.current, YaziMode::MaximumRatio / 2);
+        QCOMPARE(large.preview, 1);
+        QCOMPARE(YaziMode::ratiosToList(YaziMode::Ratios()), (QList<int>{1, 3, 2}));
+    }
+
+    void sessionRatiosEntryRoundTrips()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        KConfig config(dir.filePath(QStringLiteral("staterc")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Pane"));
+        QVERIFY(YaziMode::readSessionRatios(group).isEmpty());
+        YaziMode::writeSessionRatios(group, {180, 420, 300});
+        QCOMPARE(group.readEntry("YaziColumnRatios", QString()), QStringLiteral("180,420,300"));
+        QCOMPARE(YaziMode::readSessionRatios(group), (QList<int>{180, 420, 300}));
+        for (const QString &invalid : {QStringLiteral("1,3"), QStringLiteral("1,0,2"), QStringLiteral("1,-3,2"), QStringLiteral("wide")}) {
+            group.writeEntry("YaziColumnRatios", invalid);
+            QVERIFY2(YaziMode::readSessionRatios(group).isEmpty(), qPrintable(invalid));
+        }
+        group.writeEntry("YaziColumnRatios", QStringLiteral("1,%1,1").arg(2 * YaziMode::MaximumRatio));
+        QCOMPARE(YaziMode::readSessionRatios(group), (QList<int>{1, YaziMode::MaximumRatio, 1}));
+        YaziMode::writeSessionRatios(group, {});
+        QVERIFY(!group.hasKey("YaziColumnRatios"));
+        QVERIFY(YaziMode::readSessionRatios(group).isEmpty());
+    }
+
+    void workspaceRatiosEntryRoundTrips()
+    {
+        QJsonObject object;
+        YaziMode::writeWorkspaceRatios(object, {});
+        QVERIFY(object.isEmpty());
+        QList<int> ratios{1, 1, 1};
+        QVERIFY(YaziMode::readWorkspaceRatios(object, ratios));
+        QVERIFY(ratios.isEmpty());
+
+        YaziMode::writeWorkspaceRatios(object, {2, 5, 3});
+        QCOMPARE(object.value(QStringLiteral("yaziColumnRatios")), QJsonValue(QJsonArray{2, 5, 3}));
+        QVERIFY(YaziMode::readWorkspaceRatios(object, ratios));
+        QCOMPARE(ratios, (QList<int>{2, 5, 3}));
+
+        object.insert(QStringLiteral("yaziColumnRatios"), QJsonArray{1, 2.0 * YaziMode::MaximumRatio, 1});
+        QVERIFY(YaziMode::readWorkspaceRatios(object, ratios));
+        QCOMPARE(ratios, (QList<int>{1, YaziMode::MaximumRatio, 1}));
+    }
+
+    void invalidWorkspaceRatiosEntryIsRejected_data()
+    {
+        QTest::addColumn<QJsonValue>("value");
+        QTest::newRow("number") << QJsonValue(1);
+        QTest::newRow("string") << QJsonValue(QStringLiteral("1,3,2"));
+        QTest::newRow("null") << QJsonValue(QJsonValue::Null);
+        QTest::newRow("empty") << QJsonValue(QJsonArray());
+        QTest::newRow("two") << QJsonValue(QJsonArray{1, 3});
+        QTest::newRow("four") << QJsonValue(QJsonArray{1, 3, 2, 1});
+        QTest::newRow("zero") << QJsonValue(QJsonArray{1, 0, 2});
+        QTest::newRow("negative") << QJsonValue(QJsonArray{1, -3, 2});
+        QTest::newRow("fraction") << QJsonValue(QJsonArray{1, 2.5, 2});
+        QTest::newRow("beyond int") << QJsonValue(QJsonArray{1, 1e12, 2});
+        QTest::newRow("text entry") << QJsonValue(QJsonArray{1, QStringLiteral("3"), 2});
+        QTest::newRow("bool entry") << QJsonValue(QJsonArray{1, true, 2});
+    }
+
+    void invalidWorkspaceRatiosEntryIsRejected()
+    {
+        QFETCH(QJsonValue, value);
+        const QJsonObject object{{QStringLiteral("yaziColumnRatios"), value}};
+        QList<int> ratios{1, 1, 1};
+        QVERIFY(!YaziMode::readWorkspaceRatios(object, ratios));
+        QCOMPARE(ratios, (QList<int>{1, 1, 1}));
+    }
+
+    void sessionParentColumnEntryRoundTrips()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        KConfig config(dir.filePath(QStringLiteral("staterc")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Pane"));
+        QCOMPARE(YaziMode::readSessionParentColumn(group), -1);
+        YaziMode::writeSessionParentColumn(group, 0);
+        QCOMPARE(group.readEntry("YaziParentColumn", QString()), QStringLiteral("false"));
+        QCOMPARE(YaziMode::readSessionParentColumn(group), 0);
+        YaziMode::writeSessionParentColumn(group, 1);
+        QCOMPARE(YaziMode::readSessionParentColumn(group), 1);
+        YaziMode::writeSessionParentColumn(group, -1);
+        QVERIFY(!group.hasKey("YaziParentColumn"));
+        QCOMPARE(YaziMode::readSessionParentColumn(group), -1);
+    }
+
+    void workspaceParentColumnEntryRoundTrips()
+    {
+        QJsonObject object;
+        YaziMode::writeWorkspaceParentColumn(object, -1);
+        QVERIFY(object.isEmpty());
+        int parent = 1;
+        QVERIFY(YaziMode::readWorkspaceParentColumn(object, parent));
+        QCOMPARE(parent, -1);
+        YaziMode::writeWorkspaceParentColumn(object, 0);
+        QCOMPARE(object.value(QStringLiteral("yaziParentColumn")), QJsonValue(false));
+        QVERIFY(YaziMode::readWorkspaceParentColumn(object, parent));
+        QCOMPARE(parent, 0);
+        YaziMode::writeWorkspaceParentColumn(object, 1);
+        QCOMPARE(object.value(QStringLiteral("yaziParentColumn")), QJsonValue(true));
+        QVERIFY(YaziMode::readWorkspaceParentColumn(object, parent));
+        QCOMPARE(parent, 1);
+    }
+
+    void invalidWorkspaceParentColumnEntryIsRejected_data()
+    {
+        invalidWorkspaceEntryIsRejected_data();
+    }
+
+    void invalidWorkspaceParentColumnEntryIsRejected()
+    {
+        QFETCH(QJsonValue, value);
+        const QJsonObject object{{QStringLiteral("yaziParentColumn"), value}};
+        int parent = 1;
+        QVERIFY(!YaziMode::readWorkspaceParentColumn(object, parent));
+        QCOMPARE(parent, 1);
     }
 
     void matcherMatchesSingleKeys()

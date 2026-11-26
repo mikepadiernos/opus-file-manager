@@ -328,8 +328,12 @@ private Q_SLOTS:
         SettingsDialog dialog(placesOf(window), &window);
         const auto items = Settings::self()->items();
         // M26 adds the Yazi key preset chooser, which the View menu sets until
-        // then, and the Yazi preview content default.
-        const QStringList withoutWidget{QStringLiteral("YaziKeyPreset"), QStringLiteral("YaziPreviewContent")};
+        // then, and the Yazi preview content, parent column and column ratio
+        // defaults, which the View menu and dragging the columns set until then.
+        const QStringList withoutWidget{QStringLiteral("YaziKeyPreset"),
+                                        QStringLiteral("YaziPreviewContent"),
+                                        QStringLiteral("YaziParentColumnVisible"),
+                                        QStringLiteral("YaziColumnRatios")};
         for (const KConfigSkeletonItem *item : items) {
             if (withoutWidget.contains(item->name())) {
                 continue;
@@ -3985,6 +3989,8 @@ private Q_SLOTS:
         bar->setSizeGripEnabled(false);
         for (const Qt::LayoutDirection direction : {Qt::LeftToRight, Qt::RightToLeft}) {
             bar->setLayoutDirection(direction);
+            // Moves permanent widgets, such as the Yazi mode button, to the new side before the message is placed beside them.
+            QCoreApplication::sendPostedEvents(bar, QEvent::LayoutRequest);
             bar->showMessage(QStringLiteral(" "));
             const QImage empty = bar->grab().toImage();
             const QString message(500, QLatin1Char('M'));
