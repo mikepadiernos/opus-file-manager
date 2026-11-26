@@ -1564,7 +1564,7 @@ for some features are recorded in [pending tasks](TODO.md).
         mounting it on request. Never read, store or change rclone credentials
         or configuration; report missing tools, failed mounts and unsupported
         operations, and stop processes that Plasma Opus started. (MiXplorer)
-  - [ ] Mount remote storage as local folders, like
+  - [x] Mount remote storage as local folders, like
         [RaiDrive](https://www.raidrive.com/) drives, so applications without
         KIO support can open, edit and save files in place. Mount saved SSH,
         SFTP, WebDAV, FTP or FTPS and SMB profiles, Nextcloud, S3-compatible
