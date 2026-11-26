@@ -156,6 +156,27 @@ behaves like the rest of the desktop and follows the user's choices.
   visibility settings. Without Dolphin, the button is disabled and the tab
   explains why.
   ([#369](https://github.com/mikepadiernos/plasma-opus/issues/369))
+- **System file chooser:** as an explicit opt-in, Plasma Opus answers the
+  Open and Save dialogs that applications request through the XDG file
+  chooser portal, such as Flatpak and Snap applications and portal-enabled
+  GTK, Electron and browser applications; native Qt and KDE applications keep
+  Plasma's own dialog. `opus-file-manager --install-portal`, or
+  `./install.sh --file-chooser`, installs a per-user portal description and
+  D-Bus activation file, puts Plasma Opus first for the file chooser in
+  `~/.config/xdg-desktop-portal/kde-portals.conf` with the previous chooser
+  next as the fallback, backs up that file and restarts xdg-desktop-portal.
+  `opus-file-manager --uninstall-portal`, or `./install.sh --uninstall`,
+  restores the backup, or removes only the Plasma Opus entry when the file
+  has changed since. Setup changes nothing when xdg-desktop-portal is not
+  running. The chooser shows Places, a breadcrumb, the folder in the Plasma
+  Opus list, a name filter and the application's file-type filters and
+  choices. It supports opening one or several files or a folder, saving with
+  the selected filter's extension after confirming an overwrite, and saving
+  several files into a folder. It returns local files only, is placed over
+  the requesting window and remembers its size. The
+  `opus-file-manager-portal` helper is started by D-Bus and exits after two
+  idle minutes.
+  ([#286](https://github.com/mikepadiernos/plasma-opus/issues/286))
 
 ## Planned features
 
@@ -164,9 +185,6 @@ them.
 
 ### M27.01 KDE Plasma and desktop services
 
-- **System file chooser:** Let applications request a chooser through the XDG
-  portal. Preserve user defaults and sandbox permissions.
-  ([#286](https://github.com/mikepadiernos/plasma-opus/issues/286))
 - **Mount manager:** List, mount, unmount and eject file systems through Solid
   and UDisks2. Ask before changing fstab and unmount only what Plasma Opus
   mounted.

@@ -197,9 +197,15 @@ default folder handler and lets it answer **Show in folder** requests from other
 applications through `org.freedesktop.FileManager1`. Installing also adds the
 Plasma Opus KRunner plugin and its `opus-file-manager-krunner` helper, which
 offer saved workspaces and Favorites in KRunner and Plasma Search.
+`./install.sh --file-chooser` also lets Plasma Opus answer the Open and Save
+dialogs that Flatpak, Snap and other portal-enabled applications request
+through the XDG file chooser portal, keeping KDE's chooser as the fallback;
+run `opus-file-manager --install-portal` or `--uninstall-portal` to switch it
+on or off for an existing install.
 
 The installer uses `build-plasma` with tests disabled; set `OPUSFM_BUILD_DIR`
-to choose another build tree. `./install.sh --uninstall` removes the files
+to choose another build tree. `./install.sh --uninstall` restores the previous
+file chooser, then removes the files
 installed from that build tree, so uninstall using the same build tree. If
 Plasma Opus is the folder handler, it hands folders back to Dolphin when Dolphin
 is installed.
