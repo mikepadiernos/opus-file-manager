@@ -9,6 +9,7 @@
 #include "density.h"
 #include "doubleshift.h"
 #include "embeddedmetadatasettings.h"
+#include "folderpreview.h"
 #include "libraryarchive.h"
 #include "libraryconfirmations.h"
 #include "libraryregistry.h"
@@ -283,7 +284,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                   QStringLiteral("view-list-icons"));
     addTabbedPage({{createYaziActivationPage(), i18nc("@title:tab", "Activation")},
                    {createYaziColumnsPage(), i18nc("@title:tab", "Columns")},
-                   {createYaziKeyboardPage(), i18nc("@title:tab", "Keyboard")}},
+                   {createYaziKeyboardPage(), i18nc("@title:tab", "Keyboard")},
+                   {createYaziPreviewPage(), i18nc("@title:tab", "Preview")}},
                   i18nc("@title:group", "Yazi Mode"),
                   QStringLiteral("view-file-columns"));
     addTabbedPage({{createContextMenuActionsPage(), i18nc("@title:tab", "Actions")}, {createServiceMenusPage(), i18nc("@title:tab", "Service Menus")}},
@@ -2853,6 +2855,72 @@ bool SettingsDialog::confirmYaziKeyPreset()
     return false;
 }
 
+QWidget *SettingsDialog::createYaziPreviewPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("yaziPreviewPage"));
+    auto *layout = new QVBoxLayout(page);
+    const auto notice = [page](const QString &name, const QString &text) {
+        auto *label = new QLabel(text, page);
+        label->setObjectName(name);
+        label->setWordWrap(true);
+        return label;
+    };
+
+    auto *content = new QGroupBox(i18nc("@title:group", "Preview Column"), page);
+    auto *contentLayout = new QVBoxLayout(content);
+    auto *contentForm = new QFormLayout;
+    QComboBox *contentChoice = comboBox(QStringLiteral("YaziPreviewContent"),
+                                        {i18nc("@item:inlistbox Yazi preview column content", "The focused item's preview"),
+                                         i18nc("@item:inlistbox Yazi preview column content", "The focused item's file information")});
+    contentForm->addRow(i18nc("@label:listbox", "Show:"), contentChoice);
+    contentLayout->addLayout(contentForm);
+    contentLayout->addWidget(notice(QStringLiteral("yaziPreviewContentNotice"),
+                                    i18nc("@info",
+                                          "A pane switched with View › File Information in Yazi Preview, or with i with the "
+                                          "Yazi-style keys, keeps its own choice; other open panes follow this one when it is "
+                                          "applied. Whether the preview column is shown is set on the Columns tab.")));
+    layout->addWidget(content);
+
+    auto *previews = new QGroupBox(i18nc("@title:group", "Preview Settings"), page);
+    auto *previewsLayout = new QVBoxLayout(previews);
+    previewsLayout->addWidget(notice(QStringLiteral("yaziPreviewSettingsNotice"),
+                                     i18nc("@info",
+                                           "The preview column shows the preview panel's previews with its settings: Interface › "
+                                           "Previews sets audio and video autoplay, formatted HTML and Markdown, line numbers, syntax "
+                                           "highlighting and Maximum text in preview panel, which also limits remote text "
+                                           "downloads. Gallery › Display sets the image background, and Tagging › Embedded "
+                                           "Metadata the properties read from images and media. Skip files larger than, Show "
+                                           "previews for and Show previews in remote folders apply to thumbnails in the folder "
+                                           "view, not to the preview column. Other remote files are downloaded up to fixed size "
+                                           "limits, and a folder's preview lists at most %1 entries.",
+                                           FolderPreview::EntryLimit)));
+    auto *showPreviews = new QPushButton(i18nc("@action:button", "Go to Interface › Previews"), previews);
+    showPreviews->setObjectName(QStringLiteral("yaziShowPreviewSettings"));
+    connect(showPreviews, &QPushButton::clicked, this, [this] {
+        setCurrentPage(m_toolbarPage);
+        m_toolbarTabs->setCurrentWidget(findChild<QWidget *>(QStringLiteral("previewsPage")));
+    });
+    auto *buttonRow = new QHBoxLayout;
+    buttonRow->addWidget(showPreviews);
+    buttonRow->addStretch();
+    previewsLayout->addLayout(buttonRow);
+    layout->addWidget(previews);
+
+    auto *information = new QGroupBox(i18nc("@title:group", "File Information"), page);
+    auto *informationLayout = new QVBoxLayout(information);
+    informationLayout->addWidget(notice(QStringLiteral("yaziInformationNotice"),
+                                        i18nc("@info",
+                                              "File information shows the item's type, size, modification date, permissions, "
+                                              "owner and group, and the target of a link, rather than the fields chosen in "
+                                              "Interface › Information Panel. In a tag library, it adds the library's fields, "
+                                              "and the item's tags when Tagging › Tags › Show the tags of the selected item is "
+                                              "checked.")));
+    layout->addWidget(information);
+    layout->addStretch();
+    return page;
+}
+
 void SettingsDialog::accept()
 {
     // Declining keeps Preferences open, showing the preset that stays applied.
@@ -2864,6 +2932,7 @@ void SettingsDialog::accept()
 QWidget *SettingsDialog::createPreviewsPage()
 {
     auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("previewsPage"));
     auto *form = new QFormLayout(page);
     form->addRow(i18nc("@label:listbox", "Preview panel placement:"),
                  comboBox(QStringLiteral("PreviewPlacement"),

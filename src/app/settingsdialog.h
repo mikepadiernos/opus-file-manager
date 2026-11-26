@@ -180,6 +180,7 @@ private:
      * @returns whether the chosen preset may be applied
      */
     bool confirmYaziKeyPreset();
+    QWidget *createYaziPreviewPage();
     QWidget *createIconsPage();
     QWidget *createContextMenuActionsPage();
     QWidget *createServiceMenusPage();
