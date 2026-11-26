@@ -1511,6 +1511,20 @@ for some features are recorded in [pending tasks](TODO.md).
         distinguish viewing from editing capabilities and report unavailable
         tools, unsupported locations and launch failures. Preserve unsaved
         changes and avoid silent conversion or overwrite.
+  - [ ] Edit text in the preview panel: when the preview panel shows a text
+        file, offer an explicit Edit action that switches the preview in place
+        to the built-in KTextEditor editor for that file, without opening the
+        separate editor panel or changing the M08 opening choice. Load the
+        whole file rather than the truncated preview, reuse M07 drafts,
+        Markdown preview and KTextEditor settings, and return to the read-only
+        preview after saving or closing. While changes are unsaved, keep the
+        file open when the selection or active pane changes, and ask whether
+        to save, discard or keep editing before switching files, closing the
+        panel or quitting. Offer to move the session to the editor panel
+        without losing changes. Keep previews read-only until editing is
+        requested, never save the truncated preview text, and report
+        read-only files, remote locations, size limits, binary content or
+        unsupported encodings, and save failures.
   - [ ] Extend the built-in editor with CommonMark and Obsidian-like wiki links
         and backlinks within a user-selected local vault. Preserve source and
         drafts, respect vault boundaries, and report ambiguous, missing or
@@ -1767,6 +1781,9 @@ Settings for M27 integrations, stored in KConfig.
         Preserve drafts and notes and report unavailable roots or features and
         incomplete indexing. See the
         [pending handoff](TODO.md#workspace-vault-editing-565).
+  - [ ] **Preview editing:** choose whether text previews offer editing,
+        whether double-clicking the preview starts editing, and whether to
+        return to the preview after saving
 
 - **Office documents**
 
