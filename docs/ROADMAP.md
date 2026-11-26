@@ -1504,7 +1504,7 @@ for some features are recorded in [pending tasks](TODO.md).
         editor components. Preserve the built-in editor and its draft handling,
         pass file paths safely without shell interpolation, and report missing
         providers, launch failures and unsupported locations.
-  - [ ] Office documents: integrate viewing and editing for documents,
+  - [x] Office documents: integrate viewing and editing for documents,
         spreadsheets and presentations, including OpenDocument and Microsoft
         Office formats. Reuse installed KParts for supported previews and offer
         an explicit action to open files in an available office application,
