@@ -1941,6 +1941,17 @@ The M27 desktop integrations have these limits
   decides whether the font is installed for the user or system-wide.
   ([#650](https://github.com/mikepadiernos/plasma-opus/issues/650))
 
+- **🔐 Remote connections:** profiles cover SFTP and WebDAV; SMB and FTP
+  follow in [#651](https://github.com/mikepadiernos/plasma-opus/issues/651).
+  A profile's private key is passed only to SSH terminals: KIO's SFTP worker
+  uses the SSH agent and its own key lookup, so browsing may still ask for a
+  password. SSH terminals need `ssh` in `PATH` and the Konsole component, and
+  start in the remote home folder rather than the profile's folder.
+  Connections aren't tested when saved, and errors appear only once a pane
+  opens them. Removing a connection doesn't ask for confirmation and leaves
+  any password saved in KWallet. Profiles don't appear in Places.
+  ([#282](https://github.com/mikepadiernos/plasma-opus/issues/282))
+
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
     it is running and restart Plasma Opus so it claims the service. To hand
@@ -2061,6 +2072,11 @@ The M27 desktop integrations have these limits
     help-file previews, and open long documents in Okular to read them. To
     compare a font with an installed one of the same name, or inspect its
     characters, open it in Plasma's font viewer, KFontView.
+  - **Remote connections:** Install `kio-extras` for SFTP and OpenSSH for
+    SSH terminals. Load keys into the SSH agent, with `ssh-add`, so browsing
+    and terminals sign in without a password. Prefer WebDAV over HTTPS, and
+    remove saved passwords you no longer need in KWalletManager. After an
+    SSH terminal connects, `cd` to the folder you need.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2129,6 +2145,9 @@ The M27 desktop integrations have these limits
   - Use Plasma's font viewer component when available, preview every face
     of a font collection, and remember the reading position in ebook
     previews.
+  - Show saved connections in Places, test a connection before saving it,
+    start SSH terminals in the profile's folder, confirm removals and offer
+    to forget the saved password, and import hosts from `~/.ssh/config`.
 
 ## Embedded terminal
 
