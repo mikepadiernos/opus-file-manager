@@ -82,7 +82,7 @@ int main(int argc, char **argv)
     KLocalizedString::setApplicationDomain(QByteArrayLiteral("opus-file-manager"));
     const QString configuredLanguage = KSharedConfig::openConfig()->group(QStringLiteral("Translation")).readEntry("InterfaceLanguage", QString());
     const QString configuredLocale = KSharedConfig::openConfig()->group(QStringLiteral("Translation")).readEntry("RegionalLocale", QString());
-    const bool languageAvailable = configuredLanguage.isEmpty() || InterfaceLanguage::apply(configuredLanguage);
+    const bool languageAvailable = InterfaceLanguage::apply(configuredLanguage);
     applyRegionalLocale(configuredLocale, false);
     if (!reverseRequested) {
         QApplication::setLayoutDirection(InterfaceLanguage::layoutDirection(KLocalizedString::languages()));

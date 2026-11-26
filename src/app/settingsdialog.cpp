@@ -10,6 +10,7 @@
 #include "doubleshift.h"
 #include "embeddedmetadatasettings.h"
 #include "folderpreview.h"
+#include "interfacelanguage.h"
 #include "libraryarchive.h"
 #include "libraryconfirmations.h"
 #include "libraryregistry.h"
@@ -35,6 +36,7 @@
 #include <KColorButton>
 #include <KConfigGroup>
 #include <KEditListWidget>
+#include <KLanguageName>
 #include <KLocalizedString>
 #include <KMessageBox>
 #include <KMessageWidget>
@@ -214,6 +216,39 @@ protected:
         }
     }
 };
+
+QString languageName(const QString &code)
+{
+    const QString name = KLanguageName::nameForCode(code);
+    return name.isEmpty() ? code : name;
+}
+
+/// Describes which language Plasma Opus shows for an interface language
+/// override, or for Plasma's languages when the override is empty.
+QString interfaceLanguageStatus(const QString &override)
+{
+    QSet<QString> available = KLocalizedString::availableDomainTranslations(QByteArrayLiteral("opus-file-manager"));
+    if (!override.isEmpty()) {
+        if (InterfaceLanguage::effectiveLanguage({override}, available).isEmpty()) {
+            return i18nc("@info", "No Plasma Opus translation is installed for %1, so the original English text is shown.", languageName(override));
+        }
+        return i18nc("@info", "Plasma Opus uses %1, regardless of Plasma's language settings.", languageName(override));
+    }
+    QStringList followed = InterfaceLanguage::followedLanguages(qEnvironmentVariable("LANGUAGE"), InterfaceLanguage::plasmaLanguages());
+    if (followed.isEmpty()) {
+        followed.append(QLocale::system().name());
+    }
+    QStringList names;
+    for (const QString &code : std::as_const(followed)) {
+        names.append(languageName(code));
+    }
+    const QString list = QLocale().createSeparatedList(names);
+    const QString effective = InterfaceLanguage::effectiveLanguage(followed, available);
+    if (effective.isEmpty()) {
+        return i18nc("@info", "Following Plasma's languages: %1. None has a Plasma Opus translation, so the original English text is shown.", list);
+    }
+    return i18nc("@info", "Following Plasma's languages: %1. Plasma Opus is shown in %2.", list, languageName(effective));
+}
 }
 
 SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
@@ -464,7 +499,18 @@ QWidget *SettingsDialog::createLanguagePage()
     auto *page = new QWidget;
     auto *layout = new QVBoxLayout(page);
     auto *form = new QFormLayout;
-    form->addRow(i18nc("@label:listbox", "Interface language:"), bound(new InterfaceLanguageCombo, QStringLiteral("InterfaceLanguage"), "language"));
+    auto *languageCombo = bound(new InterfaceLanguageCombo, QStringLiteral("InterfaceLanguage"), "language");
+    form->addRow(i18nc("@label:listbox", "Interface language:"), languageCombo);
+    auto *languageStatus = new QLabel(page);
+    languageStatus->setObjectName(QStringLiteral("interfaceLanguageStatus"));
+    languageStatus->setWordWrap(true);
+    languageStatus->setTextFormat(Qt::PlainText);
+    form->addRow(QString(), languageStatus);
+    const auto updateLanguageStatus = [languageCombo, languageStatus] {
+        languageStatus->setText(interfaceLanguageStatus(languageCombo->language()));
+    };
+    connect(languageCombo, &InterfaceLanguageCombo::languageChanged, page, updateLanguageStatus);
+    updateLanguageStatus();
     form->addRow(i18nc("@label:listbox", "Regional formats:"), bound(new RegionalLocaleCombo, QStringLiteral("RegionalLocale"), "localeName"));
     form->addRow(i18nc("@label:listbox", "Layout direction:"),
                  comboBox(QStringLiteral("TranslationDirection"),
@@ -492,6 +538,29 @@ QWidget *SettingsDialog::createLanguagePage()
                               page);
     notice->setWordWrap(true);
     layout->addWidget(notice);
+    auto *plasmaSettings = new QPushButton(i18nc("@action:button", "Open Plasma Language Settings"), page);
+    plasmaSettings->setObjectName(QStringLiteral("openPlasmaLanguageSettings"));
+    plasmaSettings->setToolTip(i18nc("@info:tooltip", "Plasma's Region & Language settings apply to all applications"));
+    layout->addWidget(plasmaSettings, 0, Qt::AlignLeading);
+    auto *plasmaStatus = new QLabel(page);
+    plasmaStatus->setObjectName(QStringLiteral("plasmaLanguageSettingsStatus"));
+    plasmaStatus->setWordWrap(true);
+    plasmaStatus->setTextFormat(Qt::PlainText);
+    layout->addWidget(plasmaStatus);
+    connect(plasmaSettings, &QPushButton::clicked, page, [plasmaStatus] {
+        const auto plugin = KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings"), QStringLiteral("kcm_regionandlang"));
+        if (!plugin.isValid()) {
+            plasmaStatus->setText(i18nc("@info", "Plasma's Region & Language settings are not installed."));
+            return;
+        }
+        const QString launcher = QStandardPaths::findExecutable(QStringLiteral("kcmshell6"));
+        if (launcher.isEmpty() || !QProcess::startDetached(launcher, {QStringLiteral("kcm_regionandlang")})) {
+            plasmaStatus->setText(i18nc("@info", "Could not launch Plasma's Region & Language settings."));
+            return;
+        }
+        plasmaStatus->setText(
+            i18nc("@info", "Requested Plasma's Region & Language settings. Changes there affect all applications and apply after you log in again."));
+    });
     layout->addStretch();
     return page;
 }
