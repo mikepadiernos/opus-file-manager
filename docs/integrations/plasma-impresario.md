@@ -1,40 +1,66 @@
-# ✉️ Plasma Impresario integration
+# Plasma Impresario integration
 
-**[Documentation](../README.md)** ·
-**[Roadmap](../ROADMAP.md#m27-integrations)** ·
-**[KDE Plasma integration](kde-plasma.md)** ·
-**[Nextcloud integration](nextcloud.md)**
+[![Docs index](https://img.shields.io/badge/docs-index-3daee9?style=flat-square)](../README.md)
+[![Roadmap: M27 integrations](https://img.shields.io/badge/roadmap-M27%20integrations-8957e5?style=flat-square)](../ROADMAP.md#m27-integrations)
+[![Roadmap: M29 Nextcloud integration](https://img.shields.io/badge/roadmap-M29%20Nextcloud%20integration-8957e5?style=flat-square)](../ROADMAP.md#m29-nextcloud-integration)
+[![Plasma Impresario repository](https://img.shields.io/badge/Plasma%20Impresario-repository-1D99F3?style=flat-square&logo=github)](https://github.com/mikepadiernos/plasma-impresario)
 
-## Status and boundaries
+![Milestone M27.09](https://img.shields.io/badge/milestone-M27.09-8957e5?style=flat-square)
+![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)
 
-These are proposed workflows, not implemented Plasma Opus features or
-commitments by [Plasma Impresario](https://github.com/mikepadiernos/plasma-impresario),
-the KDE IMAP mail client formerly named Plasma Mail. Its
+How Plasma Opus plans to hand files to and from
+[Plasma Impresario](https://github.com/mikepadiernos/plasma-impresario), the KDE
+IMAP mail client formerly named Plasma Mail, and other mail clients.
+
+**Integration plans:** [KDE Plasma](kde-plasma.md) · [Nextcloud](nextcloud.md)
+· **Plasma Impresario**
+
+> [!NOTE]
+> **Implemented:** no mail-specific feature yet; Plasma Opus drags already
+> provide file URLs. **Planned:** the workflows under
+> [Planned features](#planned-features), mostly in M27.09 Plasma Impresario
+> and mail. They are not commitments by Plasma Impresario. Everything under
+> [Considered features](#considered-features), including theme sharing, is
+> outside the roadmap.
+
+## Contents
+
+- [Goals](#goals)
+- [Boundaries](#boundaries)
+- [Planned features](#planned-features)
+- [Current Plasma Impresario interfaces](#current-plasma-impresario-interfaces)
+- [Considered features](#considered-features)
+- [Acceptance](#acceptance)
+
+## Goals
+
+Let users move between selecting files and writing mail without copying paths
+by hand. Plasma Impresario's
 [roadmap](https://github.com/mikepadiernos/plasma-impresario/blob/main/docs/ROADMAP.md)
-and [Plasma Opus integration notes](https://github.com/mikepadiernos/plasma-impresario/blob/main/docs/integrations/plasma-opus.md)
+and
+[Plasma Opus integration notes](https://github.com/mikepadiernos/plasma-impresario/blob/main/docs/integrations/plasma-opus.md)
 do not yet define a file-handoff API. Prefer standard desktop interfaces so
 each workflow also works with other mail clients; use an application-specific
 interface only after both projects define and implement it.
+
+## Boundaries
 
 Plasma Impresario owns messages, accounts, drafts, recipients and sending.
 Plasma Opus owns file selection and file operations. Neither application should
 read the other's private data or change its settings without explicit user
 action.
 
-## Current Plasma Impresario interfaces
+## Planned features
 
-Reviewed against Plasma Impresario `main` at `2c27f2e7`:
-
-| Interface         | Current behaviour                                                                                                                                                               |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Desktop entry     | `io.github.mikepadiernos.plasma_impresario.desktop` registers only `x-scheme-handler/mailto`, with a **New Message** action.                                                    |
-| Command line      | `plasma-impresario [mailto:URL]`; `-c` opens the composer and `-p NAME` selects a profile.                                                                                      |
-| D-Bus             | The inherited `net.flaska.trojita` service at `/Trojita` exposes `showMainWindow`, `showAddressbookWindow` and `composeMail(url)`. Treat it as internal, not a stable contract. |
-| `mailto:` parsing | Reads recipients, subject, body, `In-Reply-To` and `References`; **ignores `attach`**.                                                                                          |
-| Composer drops    | Accepts `text/uri-list` drops of **local** files as attachments; ignores remote URLs.                                                                                           |
-| Attachment drags  | Provide only a private `application/x-trojita-imap-part` reference, not file content or a URL.                                                                                  |
-
-## Proposed workflows
+| Workflow                                                                        | Milestone                                                                                               |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| [Compose with selected files](#compose-with-selected-files)                     | M27.09 Send by Email ([M27](../ROADMAP.md#m27-integrations))                                            |
+| [Drag and drop into a draft](#drag-and-drop-into-a-draft)                       | M27.09 Mail attachments                                                                                 |
+| [Save received attachments into a pane](#save-received-attachments-into-a-pane) | M27.09 Mail attachments                                                                                 |
+| [Reveal saved attachments](#reveal-saved-attachments)                           | M27.01 `org.freedesktop.FileManager1` ([#279](https://github.com/mikepadiernos/plasma-opus/issues/279)) |
+| [Preview and open mail files](#preview-and-open-mail-files)                     | M27.09 Mail file preview                                                                                |
+| [Share links in a draft](#share-links-in-a-draft)                               | [M29](../ROADMAP.md#m29-nextcloud-integration) shares                                                   |
+| [Workspaces and Plasma Activities](#workspaces-and-plasma-activities)           | M27.09 Shared context with Plasma Impresario                                                            |
 
 ### Compose with selected files
 
@@ -117,27 +143,18 @@ Reviewed against Plasma Impresario `main` at `2c27f2e7`:
   or write the other application's workspace or account configuration, and
   keep unassociated workspaces and accounts unaffected.
 
-### Share theme settings
+## Current Plasma Impresario interfaces
 
-- Carry theme settings over in both directions. Plasma Opus already saves,
-  imports and exports versioned [theme profiles](../ROADMAP.md#m17-themes) as
-  JSON documents (`"format": "plasma-opus-theme"`, version 1). It could import
-  a profile exported by Plasma Impresario, once or by following later changes,
-  and export its own for Plasma Impresario to import. Plasma Impresario tracks
-  its side in
-  [plasma-impresario#268](https://github.com/mikepadiernos/plasma-impresario/issues/268).
-- Agree on a versioned shared format covering the appearance choice (follow the
-  system, a light or dark preset or an installed KDE colour scheme), named
-  palette roles and an optional Qt Style Sheet. Map roles that only one
-  application uses to the nearest shared role or leave them at their defaults.
-- Keep applying a shared theme opt-in, previewable and reversible, and offer
-  the choice in [theme settings](../ROADMAP.md#m18-theme-settings). Validate
-  imported profiles, ignore unknown roles, keep text, selection and focus
-  indicators readable, never execute code from theme files and block external
-  resources in stylesheets. Fall back to the active Plasma colour scheme when a
-  profile is missing, invalid or unsupported.
-- Exchange profiles through export and import files or a documented shared
-  location; neither application writes the other's configuration.
+Reviewed against Plasma Impresario `main` at `2c27f2e7`:
+
+| Interface         | Current behaviour                                                                                                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Desktop entry     | `io.github.mikepadiernos.plasma_impresario.desktop` registers only `x-scheme-handler/mailto`, with a **New Message** action.                                                    |
+| Command line      | `plasma-impresario [mailto:URL]`; `-c` opens the composer and `-p NAME` selects a profile.                                                                                      |
+| D-Bus             | The inherited `net.flaska.trojita` service at `/Trojita` exposes `showMainWindow`, `showAddressbookWindow` and `composeMail(url)`. Treat it as internal, not a stable contract. |
+| `mailto:` parsing | Reads recipients, subject, body, `In-Reply-To` and `References`; **ignores `attach`**.                                                                                          |
+| Composer drops    | Accepts `text/uri-list` drops of **local** files as attachments; ignores remote URLs.                                                                                           |
+| Attachment drags  | Provide only a private `application/x-trojita-imap-part` reference, not file content or a URL.                                                                                  |
 
 ## Considered features
 
@@ -150,7 +167,8 @@ inspired by TagSpaces'
 [Kanban](https://docs.tagspaces.org/perspectives/kanban) perspectives. Notes and
 journal capture correspond to Plasma Impresario's planned
 [mail-to-notes workflow](https://github.com/mikepadiernos/plasma-impresario/blob/main/docs/integrations/plasma-opus.md#notes-and-journal).
-Add a feature to the roadmap, with its issue, before implementing it.
+Theme sharing builds on the existing M17 theme profiles. Add a feature to the
+roadmap, with its issue, before implementing it.
 
 Each view presents existing files and metadata without moving them into a
 private store, and makes missing metadata or unavailable providers clear. The
@@ -222,7 +240,38 @@ views could also work with Nextcloud Calendar, Maps, Deck and Notes.
 - **Boundaries:** Plasma Opus never reads Plasma Impresario's mail store, and
   copying message content into a note is always an explicit user choice.
 
-## Acceptance and dependencies
+### Share theme settings
+
+- Carry theme settings over in both directions. Plasma Opus already saves,
+  imports and exports versioned [theme profiles](../ROADMAP.md#m17-themes) as
+  JSON documents (`"format": "plasma-opus-theme"`, version 1). It could import
+  a profile exported by Plasma Impresario, once or by following later changes,
+  and export its own for Plasma Impresario to import. Plasma Impresario tracks
+  its side in
+  [plasma-impresario#268](https://github.com/mikepadiernos/plasma-impresario/issues/268).
+- Agree on a versioned shared format covering the appearance choice (follow the
+  system, a light or dark preset or an installed KDE colour scheme), named
+  palette roles and an optional Qt Style Sheet. Map roles that only one
+  application uses to the nearest shared role or leave them at their defaults.
+- Keep applying a shared theme opt-in, previewable and reversible, and offer
+  the choice in [theme settings](../ROADMAP.md#m18-theme-settings). Validate
+  imported profiles, ignore unknown roles, keep text, selection and focus
+  indicators readable, never execute code from theme files and block external
+  resources in stylesheets. Fall back to the active Plasma colour scheme when a
+  profile is missing, invalid or unsupported.
+- Exchange profiles through export and import files or a documented shared
+  location; neither application writes the other's configuration.
+
+### Rejected approaches
+
+- Hard-coding Plasma Impresario instead of respecting the user's configured
+  mail client.
+- Falling back to Plasma Impresario's internal D-Bus interface when `mailto:`
+  attachments are ignored.
+- A private API for shared context instead of Plasma Activities.
+- Reading either application's private data, mail store or configuration.
+
+## Acceptance
 
 Verify local and remote selections, multiple files, missing clients, sandbox
 portal access, cancellation, inaccessible paths and temporary-file lifetime.
@@ -230,9 +279,11 @@ Test with isolated files and synthetic messages; never send a real message as
 part of an automated test. Standard desktop handoffs should continue to work
 with other mail clients.
 
-For theme sharing, verify import, export, following changes, invalid and
-missing profiles, and use without Plasma Impresario installed, using isolated
-configuration.
+If theme sharing is added to the roadmap, verify import, export, following
+changes, invalid and missing profiles, and use without Plasma Impresario
+installed, using isolated configuration.
+
+### Plasma Impresario dependencies
 
 Plasma Impresario changes that would complete these workflows, for its own
 roadmap:

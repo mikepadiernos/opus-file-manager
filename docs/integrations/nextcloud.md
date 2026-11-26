@@ -1,17 +1,44 @@
-# ☁️ Nextcloud integration
+# Nextcloud integration
 
-**[Documentation](../README.md)** ·
-**[Roadmap](../ROADMAP.md#m29-nextcloud-integration)** ·
-**[KDE Plasma integration](kde-plasma.md)** ·
-**[Plasma Impresario integration](plasma-impresario.md)**
+[![Docs index](https://img.shields.io/badge/docs-index-3daee9?style=flat-square)](../README.md)
+[![Roadmap: M29 Nextcloud integration](https://img.shields.io/badge/roadmap-M29%20Nextcloud%20integration-8957e5?style=flat-square)](../ROADMAP.md#m29-nextcloud-integration)
+[![Roadmap: M30 Nextcloud settings](https://img.shields.io/badge/roadmap-M30%20Nextcloud%20settings-8957e5?style=flat-square)](../ROADMAP.md#m30-nextcloud-settings)
 
-## Status and boundaries
+![Milestones M29–M30](https://img.shields.io/badge/milestones-M29%E2%80%93M30-8957e5?style=flat-square)
+![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)
 
-[M29](../ROADMAP.md#m29-nextcloud-integration) plans Nextcloud accounts,
-browsing, previews, asset metadata, shares and sync-folder access. This document
-describes how Plasma Opus could also work with Nextcloud apps. Only
-[Photos](#photos) is on the roadmap; the remaining sections are
-[considered features](#considered-features).
+How Plasma Opus plans to work with Nextcloud files and apps, the server
+interfaces it would use, and ideas considered beyond the roadmap.
+
+**Integration plans:** [KDE Plasma](kde-plasma.md) · **Nextcloud** ·
+[Plasma Impresario](plasma-impresario.md)
+
+> [!NOTE]
+> **Implemented:** nothing Nextcloud-specific yet. **Planned:**
+> [M29](../ROADMAP.md#m29-nextcloud-integration) and its settings in
+> [M30](../ROADMAP.md#m30-nextcloud-settings), summarized under
+> [Planned features](#planned-features); of the app workflows, only
+> [Photos](#photos) is on the roadmap. Everything under
+> [Considered features](#considered-features) is outside the roadmap.
+
+## Contents
+
+- [Goals](#goals)
+- [Boundaries](#boundaries)
+- [Planned features](#planned-features)
+- [Nextcloud app interfaces](#nextcloud-app-interfaces)
+- [Photos](#photos)
+- [Considered features](#considered-features)
+- [Acceptance](#acceptance)
+
+## Goals
+
+Provide optional native Nextcloud navigation, file management and digital asset
+management, reusing M27 KDE Online Accounts and KIO WebDAV rather than replacing
+the Nextcloud desktop client or its synchronization engine. Beyond files, this
+document describes how Plasma Opus could also work with Nextcloud apps.
+
+## Boundaries
 
 - Reuse M27 KDE Online Accounts, KDE credential facilities and KIO WebDAV. Do
   not store passwords or tokens in Plasma Opus configuration, URLs or logs.
@@ -31,6 +58,20 @@ describes how Plasma Opus could also work with Nextcloud apps. Only
   other Nextcloud folders but never overlap the client's.
   ([#718](https://github.com/mikepadiernos/plasma-opus/issues/718))
 
+## Planned features
+
+| Feature         | Plan                                                                                                                                                             | Milestone                                      |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Accounts        | Connect through KDE Online Accounts or an explicit Nextcloud login; use KDE credential facilities, verify TLS and report expired access and server capabilities. | [M29](../ROADMAP.md#m29-nextcloud-integration) |
+| Browsing        | Browse Nextcloud files in either pane with supported KIO operations, confirmations, cancellation and error reporting; respect server permissions.                | [M29](../ROADMAP.md#m29-nextcloud-integration) |
+| Previews        | Preview supported remote assets and inspect server metadata within existing preview limits and remote-download policy.                                           | [M29](../ROADMAP.md#m29-nextcloud-integration) |
+| Asset search    | Search and organize assets by server metadata, tags and favorites, keeping server tags distinct from native local tags.                                          | [M29](../ROADMAP.md#m29-nextcloud-integration) |
+| Photos          | Albums, shared albums and places as virtual folders; see [Photos](#photos).                                                                                      | [M29](../ROADMAP.md#m29-nextcloud-integration) |
+| Shares          | View and manage shares with explicit authorization; send a reviewed share link through the M27 **Send by Email** action.                                         | [M29](../ROADMAP.md#m29-nextcloud-integration) |
+| Sync folders    | Open configured local sync folders and the desktop client, showing remote, local, offline and unknown state; never start a second sync engine.                   | [M29](../ROADMAP.md#m29-nextcloud-integration) |
+| Settings        | Account references, browsing and preview choices, asset metadata and search, sharing and desktop-client integration, stored in KConfig without credentials.      | [M30](../ROADMAP.md#m30-nextcloud-settings)    |
+| Photos settings | Show or hide albums, shared albums and places, choose their default grouping and whether to confirm album changes.                                               | [M30](../ROADMAP.md#m30-nextcloud-settings)    |
+
 ## Nextcloud app interfaces
 
 | App                | Interface                                                                                                                                                                                        |
@@ -44,14 +85,16 @@ describes how Plasma Opus could also work with Nextcloud apps. Only
 | Text               | Rich workspaces show a folder's `Readme.md` above the Files listing.                                                                                                                             |
 | Versions and trash | WebDAV at `remote.php/dav/versions/<user>/` and `remote.php/dav/trashbin/<user>/`.                                                                                                               |
 
-Photos, Calendar, Maps, Deck and Notes were reviewed against their source or
-documentation in November 2026; the Text, Versions and trash entries are based
-on Nextcloud's documentation and still need verification. App interfaces
-change between releases; verify them before implementation.
+> [!CAUTION]
+> Photos, Calendar, Maps, Deck and Notes were reviewed against their source or
+> documentation in November 2026; the Text, Versions and trash entries are based
+> on Nextcloud's documentation and still need verification. App interfaces
+> change between releases; verify them before implementation.
 
 ## Photos
 
-Planned in [M29](../ROADMAP.md#m29-nextcloud-integration):
+Planned in [M29](../ROADMAP.md#m29-nextcloud-integration), with settings in
+[M30](../ROADMAP.md#m30-nextcloud-settings):
 
 - Browse albums, shared albums and places as virtual folders in either pane.
   Albums reference files without copying them, so label these folders clearly
@@ -137,6 +180,15 @@ before implementing it.
   the current file, and restore one with confirmation.
 - **Trash bin:** Browse the Nextcloud trash bin and restore or permanently
   delete items with confirmation, kept separate from the local trash.
+
+### Rejected approaches
+
+- Replacing the Nextcloud desktop client or starting a second sync engine for
+  its folders.
+- Implementing a CalDAV client instead of handing events to KDE's calendar
+  application.
+- App-specific APIs where ordinary file access can express the workflow.
+- Geocoding addresses or uploading locations from Plasma Opus.
 
 ## Acceptance
 
