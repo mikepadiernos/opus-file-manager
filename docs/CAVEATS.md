@@ -1989,6 +1989,24 @@ The M27 desktop integrations have these limits
   but can't be unmounted from it. Media streams only where the backend reads
   ranges, which sshfs, CIFS and KIO FUSE's SFTP and SMB workers do.
   ([#702](https://github.com/mikepadiernos/plasma-opus/issues/702))
+- **📡 Temporary LAN sharing:** Anyone who sees a link can use it until
+  sharing stops: there is no password, and a single link can't be revoked.
+  Without HTTPS, others on the network can read links and files in transit.
+  The HTTPS certificate is self-signed and made for each share, so browsers
+  warn that it isn't trusted; HTTPS needs `openssl`, and QR codes need KDE's
+  Prison library when Plasma Opus is built. Firewalls such as firewalld and
+  ufw may block the port, which Plasma Opus doesn't open. WebDAV covers
+  browsing, downloading and uploading files only: folders can't be created,
+  renamed or deleted, nothing is locked, and uploads must declare their size,
+  so clients that need locking, such as Windows' WebDAV redirector, may
+  connect read-only or not at all. Uploads go only to the upload folder and
+  its existing subfolders, and a leading dot is removed from their names.
+  Special files aren't served. Each response closes its connection, so
+  folders with many small files load more slowly, and at most 32 connections
+  are served at once. Shares aren't announced on the network, the address
+  list isn't refreshed when the network changes, and sharing ends when the
+  dialog closes.
+  ([#653](https://github.com/mikepadiernos/plasma-opus/issues/653))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -2134,6 +2152,15 @@ The M27 desktop integrations have these limits
     If a folder is reported as stale, run `fusermount3 -u` on it. For mounts
     that outlive Plasma Opus, use a systemd mount unit or fstab entry with
     `auto`.
+  - **Temporary LAN sharing:** Keep HTTPS on and, before accepting the
+    certificate, check that the fingerprint the browser shows matches the
+    dialog's. Share only on trusted networks, with the shortest practical
+    time limit, and pass the link through the QR code or a private channel.
+    If clients can't connect, choose a fixed port and allow it, for example
+    with `sudo firewall-cmd --add-port=PORT/tcp` until the next restart or
+    `sudo ufw allow PORT/tcp`, removing the ufw rule afterwards. For paired
+    phones, KDE Connect is simpler; for lasting shares, use Samba sharing in
+    the folder's **Properties** dialog.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2213,6 +2240,10 @@ The M27 desktop integrations have these limits
   - Mount KDE Online Accounts and S3 locations, mount when a workspace is
     activated, keep chosen mounts after quitting, remount with changed
     options, and pass KWallet passwords to davfs2 and CIFS with consent.
+  - Keep sharing from the system tray after the dialog closes, announce
+    shares over DNS-SD, add an optional password and revocable links,
+    keep connections alive, create folders over WebDAV, refresh addresses
+    when the network changes, and the M28 **LAN sharing** defaults.
 
 ## Embedded terminal
 
