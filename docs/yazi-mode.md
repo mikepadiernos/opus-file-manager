@@ -24,8 +24,9 @@ plugins.
 
 The M25 features so far provide the toggle, the parent and preview columns,
 narrow-pane adaptation, persistence, keyboard-first navigation with optional
-Vim-style keys, and selection and file actions through Plasma Opus's own
-actions; see the [roadmap](ROADMAP.md#m25-yazi-mode).
+Vim-style keys, selection and file actions through Plasma Opus's own actions,
+and filtering, search, sorting, tabs and history through the pane's and
+window's existing tools; see the [roadmap](ROADMAP.md#m25-yazi-mode).
 
 ## Entering and leaving
 
@@ -155,10 +156,12 @@ with M26.
 
 In right-to-left layouts, Left and Right swap, as they do in the folder view.
 
-The standard keys add no letters for file actions. The window's own
-shortcuts, such as Ctrl+C, Ctrl+X, Ctrl+V, F2, Delete, F5, F6, Ctrl+Z and
-Ctrl+A, are not bound by the preset and keep working in the columns. Space
-alone stays **Open Gallery**.
+The standard keys add no letters for file actions, filtering, search, sorting
+or tabs. The window's own shortcuts, such as Ctrl+C, Ctrl+X, Ctrl+V, F2,
+Delete, F5, F6, Ctrl+Z, Ctrl+A, Ctrl+F (**Filter…**) and Ctrl+Alt+F (**Search
+Current Folder…**), are not bound by the preset and keep working in the
+columns, as do type-ahead filtering and the tab shortcuts. Space alone stays
+**Open Gallery**.
 
 ### Vim-style keys
 
@@ -190,8 +193,20 @@ All the standard keys, plus:
 | `c`, `m`         | Copy or move the items to the other pane            |
 | `u`              | Undo the last file operation                        |
 | `.`              | Show or hide hidden files                           |
+| `/`              | Open the pane's filter bar                          |
+| `\`              | Clear the pane's filter                             |
+| `s`              | Search file names in the current folder             |
+| `S`              | Search file contents in the current folder          |
+| `,n`, `,s`       | Sort by name or size                                |
+| `,m`, `,e`       | Sort by modification date or type                   |
+| `,r`             | Reverse the sort order                              |
+| `t`              | Open the focused folder in a new tab                |
+| `[`, `gT`        | Go to the previous tab                              |
+| `]`, `gt`        | Go to the next tab                                  |
+| `gw`             | Close the current tab                               |
 
-`G`, `H`, `L` and `V` are Shift with the letter. A number typed first repeats
+`G`, `H`, `L`, `S`, `T` and `V` are Shift with the letter. Punctuation keys
+match whatever Shift the keyboard layout needs to type them. A number typed first repeats
 the movement commands and Space: `5j` moves five items down, `2` Ctrl+D a
 whole page and `3` Space selects or deselects three items. Other commands
 ignore the number. Counts stop at 999. Ctrl+Space, from the standard keys,
@@ -243,8 +258,9 @@ always do.
   with a matching accessible name.
 - A pending sequence or count is cancelled after about one second without a
   key, when the focus moves, or with Escape. Escape cancels only; it doesn't
-  leave the mode and is otherwise left to the columns, so Escape in the
-  preview still returns to the current column.
+  leave the mode. Otherwise it cancels a search started with `s` or `S`
+  while one runs, and is left to the columns, so Escape in the preview still
+  returns to the current column.
 - A key that doesn't continue the sequence cancels it and then counts on its
   own, so `g` followed by `j` moves down.
 - Modifier keys pressed on their own, such as Shift before `G`, don't break a
@@ -270,7 +286,9 @@ added to a toolbar:
 
 The column and selection actions are enabled only while the active pane is in
 Yazi mode. The file keys use the window's existing actions, which already
-have their own shortcuts. The standard and Vim-style keys can't be changed
+have their own shortcuts, and the filtering, search, sorting and tab keys use
+the pane's filter bar, the search panel, the pane's sort menu and the pane's
+tabs, which have their own menus and shortcuts too. The standard and Vim-style keys can't be changed
 yet; M26 adds a preset chooser and a review of conflicts with other
 shortcuts.
 
@@ -294,7 +312,8 @@ the window's shortcuts.
   `v` again ends it and keeps the range marked. Space, select all, a click or
   another change to the selection also ends it.
 - Escape clears the selection, as it does in the folder view. It does so only
-  when no key sequence or count is pending; otherwise it cancels that first.
+  when no key sequence or count is pending and no search started with `s` or
+  `S` is running; otherwise it cancels that first.
 - While items are marked, or more than one is selected, the status row below
   the columns shows how many, such as **3 selected**, or **Visual · 3
   selected** during range selection.
@@ -342,6 +361,86 @@ nothing happens.
 - **Undo is available.** Copies, moves, renames, new folders and trashing are
   recorded for **Edit › Undo**, from `u`, Ctrl+Z or the menu. Undoing a copy
   deletes the copies, so KIO asks first.
+
+## Filtering, search, sorting, tabs and history
+
+Yazi mode reuses the pane's filter bar, the search panel, the pane's sorting,
+tabs and history. They behave as they do outside the mode; the status row
+below the columns shows their state. With the standard keys, use their usual
+shortcuts and menus; the Vim-style keys below add letters for them.
+
+### Filtering
+
+- `/` opens the pane's filter bar with the keyboard focus in it, as
+  **Filter…** (Ctrl+F) does. Typing there filters the current column. No key
+  is intercepted in the filter bar, so letters, digits and punctuation are
+  typed, not run as commands.
+- In the filter bar, Escape clears the filter and returns the focus to the
+  current column, and Return opens the first matching item, as before.
+- While a filter is set, the status row shows it, such as **Filter: \*.jpg**,
+  with a button to clear it. Long filters are shortened there; the accessible
+  name has the whole text. The badge follows the filter however it was set:
+  `/`, type-ahead, the pane's **Filter** button or **Filter…**.
+- `\` clears the filter without opening the filter bar. With no filter, a
+  status message says there is nothing to clear.
+
+### Search
+
+- `s` opens the search panel to search **file names**, and `S` to search
+  **file contents**, in the pane's folder. They set the panel's scope to the
+  current folder, searched live, uncheck **Workspace locations only**, choose
+  the field and focus the query. The query, path filter and other criteria
+  are kept. Type the query and press Return, or use **Search**, to start it.
+- While a search started this way runs, the status row shows **Searching…**,
+  then the panel's progress, such as "Searching: 120 entries scanned.", with
+  a button to cancel it. Escape in the columns cancels it too, as does the
+  panel's **Cancel**.
+- When it ends, the row shows the panel's outcome, such as "Search finished:
+  3 matches." or "Search canceled; results may be incomplete.", for ten
+  seconds. Results appear in the search panel as usual.
+- When the search can't run, the row shows the panel's own message. Live
+  search works on local folders only, so for a remote folder `s` and `S`
+  report that right away; the panel shows the same message when a search is
+  started. Errors a search meets, such as an invalid indexed query, are part
+  of the outcome shown in the row, with details in the panel.
+- If a search opened elsewhere is running, `s` and `S` open the panel without
+  changing it, and the row says a search is running.
+- The row tracks only searches opened with `s` or `S` from that pane. Opening
+  the panel another way, such as **Search Current Folder…** or the toolbar's
+  search field, stops showing search status in the row.
+
+### Sorting
+
+- `,n`, `,s`, `,m` and `,e` sort by name, size, modification date and type,
+  keeping the current order. `,r` reverses the order and keeps the column.
+- They use the same sorting as the pane's sort menu and the column headers,
+  so the sort is kept and saved exactly as it is from there.
+- The status row shows the sort at its end, such as **Name ↑** for
+  ascending or **Size ↓** for descending, with an accessible name such as
+  "Sorted by Name, ascending". It follows sorting changed in any way.
+- The parent column keeps its own order: by name, folders first.
+
+### Tabs
+
+- `t` opens the focused folder in a new tab and switches to it. When the
+  focused item isn't a folder, or nothing is focused, it opens the current
+  folder.
+- `[` and `gT` go to the previous tab, and `]` and `gt` to the next one,
+  wrapping around. With one tab, a status message says so.
+- `gw` closes the current tab, as **Close Tab** does. The only tab, a pinned
+  tab and a locked tab are not closed; a status message says why.
+- Yazi mode belongs to the pane, not the tab, so it stays on as tabs open,
+  close and switch. The parent column, the current column and the preview
+  follow the tab shown.
+
+### History
+
+- `H` and `L` go back and forward in the current tab's history, like the
+  pane's **Back** and **Forward**.
+- However history is navigated, the parent column lists the new folder's
+  parent with the folder highlighted, and the preview shows the focused
+  item. Going back restores the selection the folder had, as outside the
+  mode, so the preview shows the restored item.
 
 ## What is preserved
 
