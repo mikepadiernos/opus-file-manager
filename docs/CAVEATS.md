@@ -2057,6 +2057,18 @@ these limits
   the chosen component isn't installed, the panel says so instead of loading
   the other. Kwi's component doesn't report its blur setting, so the panel
   isn't blurred behind it.
+- **Atuin history search:** The search is typed into the current session's
+  shell, so it needs the shell to be idle and to accept `atuin search
+--interactive`; a session running another program is refused, but a
+  prompt with half-typed text gets the search appended to it. The chosen
+  command is printed, not placed at the prompt, unless the shell's own Atuin
+  key binding is used. Plasma Opus only checks that the history database
+  file exists, honouring `ATUIN_DB_PATH`, `ATUIN_DATA_DIR`,
+  `ATUIN_CONFIG_DIR` and a top-level `db_path` in `config.toml`; Atuin can
+  still fail to open it. The typed line can appear in shell history unless
+  leading spaces are ignored. Kwi's component may not report a running
+  program, so a busy Kwi session can receive the search.
+  ([#364](https://github.com/mikepadiernos/plasma-opus/issues/364))
 
 - **Working directory:** By default, new sessions start in the active local
   folder, or in the home folder with a visible notice for remote locations,
@@ -2076,7 +2088,10 @@ these limits
   locations, connect using a suitable terminal tool or use a separate terminal
   configured for that service. Check the terminal working directory before
   running commands, close unneeded session tabs, and finish or safely stop
-  programs before closing a tab or the window.
+  programs before closing a tab or the window. Before searching history with
+  Atuin, clear the prompt and finish running programs; to edit a chosen
+  command at the prompt instead, use the key binding from `atuin init`, such
+  as Ctrl+R, in the shell.
   - Comment: [#321.7022392302][comment-321]
 - **Alternative:** Use a terminal multiplexer for independently retained
   sessions.
