@@ -345,10 +345,10 @@ presets:
   counts such as `5j` to the standard keys.
 
 Choose **View › Vim-Style Keys in Yazi Mode** (action `toggle_yazi_vim_keys`,
-no default shortcut) to switch between them. The choice applies to both panes
-and is saved as the `YaziKeyPreset` entry (`Standard` or `Vim`) in the
-`[YaziMode]` group of the configuration. A preset chooser in Preferences comes
-with M26.
+no default shortcut) or **Preferences › Yazi Mode › Keyboard** to switch
+between them; see [Keyboard settings](#keyboard-1). The choice applies to
+both panes and is saved as the `YaziKeyPreset` entry (`Standard` or `Vim`) in
+the `[YaziMode]` group of the configuration.
 
 ### Standard keys
 
@@ -499,9 +499,10 @@ toggle are enabled only while the active pane is in Yazi mode. A test checks
 that every `toggle_yazi_*` and `yazi_*` action has no default shortcut. The file keys use the window's existing actions, which already
 have their own shortcuts, and the filtering, search, sorting and tab keys use
 the pane's filter bar, the search panel, the pane's sort menu and the pane's
-tabs, which have their own menus and shortcuts too. The standard and Vim-style keys can't be changed
-yet; M26 adds a preset chooser and a review of conflicts with other
-shortcuts.
+tabs, which have their own menus and shortcuts too. The keys of each preset
+are fixed and can't be changed one by one; **Preferences › Yazi Mode ›
+Keyboard** chooses the preset and lists the window shortcuts it would take
+over.
 
 ## Selection and file actions
 
@@ -712,7 +713,7 @@ without a choice of their own:
 | `YaziPreviewContent`      | `Preview`  | Configuration file only; M26 adds it to **Preferences**                                       |
 | `YaziParentColumnVisible` | `true`     | **Preferences › Yazi Mode › Columns**                                                         |
 | `YaziColumnRatios`        | `1,3,2`    | **Preferences › Yazi Mode › Columns**; dragging a column's edge, half a second after it stops |
-| `YaziKeyPreset`           | `Standard` | **View › Vim-Style Keys in Yazi Mode**                                                        |
+| `YaziKeyPreset`           | `Standard` | **Preferences › Yazi Mode › Keyboard**; **View › Vim-Style Keys in Yazi Mode**                |
 | `YaziLeftPaneDefault`     | `false`    | **Preferences › Yazi Mode › Activation**                                                      |
 | `YaziRightPaneDefault`    | `false`    | **Preferences › Yazi Mode › Activation**                                                      |
 | `YaziLeftPaneRestore`     | `true`     | **Preferences › Yazi Mode › Activation**                                                      |
@@ -823,6 +824,7 @@ Configure Keyboard Shortcuts** and added to the main toolbar.
 | Default for new workspaces | **Preferences › Workspaces › Behaviors › Selected Behaviors › Yazi mode**                                                                  |
 | Mode when a window opens   | **Preferences › Yazi Mode › Activation**                                                                                                   |
 | Default columns and widths | **Preferences › Yazi Mode › Columns**                                                                                                      |
+| Key preset                 | **View › Vim-Style Keys in Yazi Mode**; **Preferences › Yazi Mode › Keyboard**                                                             |
 
 ## Settings
 
@@ -916,3 +918,83 @@ resized or hidden. A pane narrower than about 480 pixels hides the preview
 column first; below about 320 pixels it hides the parent column too, so the
 current column stays at least 220 pixels wide. Hidden columns come back when
 the pane widens; see [Narrow panes](#narrow-panes).
+
+### Keyboard
+
+The **Keyboard** tab chooses the keys that browse panes in Yazi mode and
+shows what they would take over before they are applied.
+
+| Choice                                                                      | Entry           | Default  |
+| --------------------------------------------------------------------------- | --------------- | -------- |
+| **Key Preset › Standard keys**                                              | `YaziKeyPreset` | Standard |
+| **Key Preset › Yazi-style keys (Vim-style movement and multi-key actions)** | `YaziKeyPreset` |          |
+
+**Standard keys** is the `Standard` preset and **Yazi-style keys** the `Vim`
+preset; see [Keyboard](#keyboard) for their keys. The choice applies to both
+panes. **View › Vim-Style Keys in Yazi Mode** switches between the same two
+presets: it is checked exactly when the Yazi-style keys are applied, and
+switching it while the dialog is open shows the new preset in the tab unless
+another preset was already chosen there. The keys of a preset are fixed;
+there is no editor for single Yazi mode keys.
+
+**Preset Keys** lists the chosen preset's keys, one row per command, such as
+**Down, j** for **Move down** or **dd** for **Move the items to the Trash**.
+For the Yazi-style keys, a note explains that a number typed first repeats a
+command, as in `5j`, and that digits 1 to 9 then begin a count instead of
+jumping to an item.
+
+**Conflicts** lists, as the preset is chosen, what the preset would break
+while a Yazi mode column has the keyboard focus:
+
+- Bindings of the preset that can't both work, or can't be typed. The
+  built-in presets have none; tests check that.
+- Window shortcuts that the preset shadows. The columns claim every key that
+  begins one of the preset's bindings or, with the Yazi-style keys, a count
+  (digits 1 to 9, on the main keyboard or the keypad), before the window's
+  shortcuts see it. A window shortcut whose first key is such a key therefore
+  doesn't run there; for example, with the default shortcuts the Yazi-style
+  keys take Space from **Open Gallery**, Ctrl+D from **Add to Favorites** and
+  Ctrl+A from **Select All**. Shift is ignored for punctuation, as for the
+  preset's own keys. A key that only continues a sequence, such as the second
+  `g` of `gg`, and Escape are claimed only while a sequence is pending, so
+  they don't shadow shortcuts. The list covers the shortcuts of the window's
+  actions, including those of the pane toolbars, as configured when the
+  dialog opened or the shortcuts were last saved.
+
+Each entry names the shortcut, the action and what runs instead, such as
+"Space runs “Select or deselect the focused item, then move down” instead of
+“Open Gallery”". A shadowed shortcut still runs from its menu or toolbar
+button, and from the keyboard when the focus is elsewhere, such as in a pane
+outside Yazi mode. The standard keys shadow none of the default shortcuts.
+
+**Configure Keyboard Shortcuts…** opens the window's standard KDE shortcut
+editor, the same as **Settings › Configure Keyboard Shortcuts**, so a
+conflicting action can be given another shortcut. Preferences stays open and
+the conflict list updates when the shortcuts are saved. The button is
+unavailable when the dialog has no window, such as in tests.
+
+When a preset with conflicts is applied with **Apply** or **OK**, a
+confirmation lists the conflicts first:
+
+- **Apply Preset** applies it.
+- **Keep Current Keys** chooses the applied preset again in the tab and keeps
+  Preferences open. Other changed settings are still applied.
+
+The confirmation is asked once per choice, so **OK** doesn't ask twice, and
+not at all for a preset without conflicts or when the preset doesn't change.
+**View › Vim-Style Keys in Yazi Mode** switches presets without asking.
+
+A note at the bottom of the tab describes what stays usable from the
+keyboard:
+
+- Typing is never intercepted: the preset applies only while a Yazi mode
+  column has the keyboard focus, and not in line edits, search and filter
+  fields, the location bar, editors, spin boxes, drop-down lists, the
+  terminal or an inline rename editor; see
+  [When the keys apply](#when-the-keys-apply).
+- Neither preset uses Tab or Shift+Tab, so they keep switching panes and
+  moving the keyboard focus; see
+  [Accessibility and keyboard](#accessibility-and-keyboard).
+- Escape cancels a pending key sequence or count; otherwise it does what it
+  does elsewhere, such as clearing the selection, cancelling a search started
+  from the columns or returning from the preview to the current column.
