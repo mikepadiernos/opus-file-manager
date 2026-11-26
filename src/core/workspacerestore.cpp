@@ -19,7 +19,15 @@ WorkspaceRestore::Options WorkspaceRestore::fromSettings()
     options.tabs = Settings::workspaceRestoreTabs();
     options.activeTabs = Settings::workspaceRestoreActiveTabs();
     options.filters = Settings::workspaceRestoreFilters();
+    options.yaziMode = Settings::yaziWorkspaceRestoreMode();
+    options.yaziColumns = Settings::yaziWorkspaceRestoreColumns();
     return options;
+}
+
+WorkspaceRestore::YaziParts WorkspaceRestore::yaziParts(const WorkspaceCatalog::BehaviorSelection &selection, const Options &options)
+{
+    const bool behavior = selection.appliesYaziMode(options.views);
+    return {behavior && options.yaziMode, behavior && options.yaziColumns};
 }
 
 WorkspaceCatalog::BehaviorSelection WorkspaceRestore::defaultBehaviorSelection()
@@ -66,7 +74,8 @@ struct PaneParts {
     bool filters;
     bool locationPresentation;
     bool views;
-    bool yazi;
+    bool yaziMode;
+    bool yaziColumns;
 };
 
 PaneSession mergePane(const PaneSession &saved, const PaneSession &current, const PaneParts &parts)
@@ -95,8 +104,10 @@ PaneSession mergePane(const PaneSession &saved, const PaneSession &current, cons
     if (parts.views) {
         result.viewMode = saved.viewMode;
     }
-    if (parts.yazi) {
+    if (parts.yaziMode) {
         result.yaziMode = saved.yaziMode;
+    }
+    if (parts.yaziColumns) {
         result.yaziPreview = saved.yaziPreview;
         result.yaziPreviewContent = saved.yaziPreviewContent;
         result.yaziParentColumn = saved.yaziParentColumn;
@@ -118,12 +129,14 @@ bool WorkspaceRestore::merge(const Layout &saved,
     const bool arrangement = layout && options.paneArrangement;
     const bool panels = layout && options.panels;
     const bool toolbars = layout && options.toolbars;
+    const YaziParts yazi = yaziParts(selection, options);
     const PaneParts parts{panes && options.tabs,
                           panes && options.activeTabs,
                           panes && options.filters,
                           selection.applies(selection.locationPresentation),
                           layout && options.views,
-                          selection.appliesYaziMode(options.views)};
+                          yazi.mode,
+                          yazi.columns};
 
     result = saved;
     if (!arrangement) {
@@ -145,9 +158,10 @@ bool WorkspaceRestore::merge(const Layout &saved,
         mergePresentation(*result.presentation, *current.presentation, arrangement, panels, toolbars);
     }
 
-    // A layout without a pane snapshot has no Yazi mode to restore.
-    const bool anySaved = parts.tabs || parts.activeTabs || parts.filters || parts.locationPresentation || parts.views || (parts.yazi && saved.session);
-    const bool allSaved = parts.tabs && parts.activeTabs && parts.filters && parts.locationPresentation && parts.views && parts.yazi;
+    // A layout without a pane snapshot has no Yazi state to restore, so the Yazi options can't require one.
+    const bool anySaved = parts.tabs || parts.activeTabs || parts.filters || parts.locationPresentation || parts.views || (yazi.any() && saved.session);
+    const bool allYazi = (yazi.mode && yazi.columns) || (selection.appliesYaziMode(options.views) && !saved.session);
+    const bool allSaved = parts.tabs && parts.activeTabs && parts.filters && parts.locationPresentation && parts.views && allYazi;
     if (!anySaved) {
         result.session = current.session;
     } else if (!allSaved) {

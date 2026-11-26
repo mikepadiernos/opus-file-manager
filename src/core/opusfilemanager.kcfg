@@ -1380,5 +1380,13 @@
       <label>Whether the second pane restores its Yazi mode from the last session when the window restores it</label>
       <default>true</default>
     </entry>
+    <entry name="YaziWorkspaceRestoreMode" type="Bool">
+      <label>Whether switching to a workspace whose behaviors include Yazi mode restores each pane's saved Yazi mode instead of keeping its current one</label>
+      <default>true</default>
+    </entry>
+    <entry name="YaziWorkspaceRestoreColumns" type="Bool">
+      <label>Whether switching to a workspace whose behaviors include Yazi mode restores each pane's saved Yazi preview column, preview content, parent column and column ratios instead of keeping its current ones</label>
+      <default>true</default>
+    </entry>
   </group>
 </kcfg>
