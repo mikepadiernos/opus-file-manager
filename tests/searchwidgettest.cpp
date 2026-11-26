@@ -303,7 +303,8 @@ private Q_SLOTS:
         QCOMPARE(search.findChild<QLineEdit *>(QStringLiteral("searchQuery"))->text(), QStringLiteral("needle"));
         QTRY_VERIFY(!search.isRunning());
         auto *results = search.findChild<QTreeWidget *>(QStringLiteral("searchResults"));
-        QCOMPARE(results->topLevelItemCount(), 1);
+        // The results arrive in a queued slot after the worker finishes.
+        QTRY_COMPARE(results->topLevelItemCount(), 1);
         QCOMPARE(results->topLevelItem(0)->text(0), file.fileName());
     }
 
