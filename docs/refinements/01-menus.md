@@ -123,6 +123,8 @@ Main menus
 │   ├── Home
 │   ├── Jump Back
 │   ├── Popular Folders
+│   ├── Mount Points
+│   ├── Remote Connections
 │   ├── Edit Location
 │   ├── Add to Favorites
 │   ├── Switch Pane

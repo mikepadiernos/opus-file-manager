@@ -392,6 +392,18 @@ behaves like the rest of the desktop and follows the user's choices.
   installer, `kfontinst`, for TrueType, OpenType, Type 1 and bitmap fonts.
   See [Ebook and font previews](../CAVEATS.md#desktop-integration).
   ([#650](https://github.com/mikepadiernos/plasma-opus/issues/650))
+- **Remote connections:** **Go › Remote Connections** lists saved SSH
+  (SFTP), WebDAV and WebDAV over HTTPS connections. Each one opens in the
+  active pane or the other pane through KDE's KIO workers, and SSH
+  connections can also open an SSH session in the embedded terminal.
+  **Manage Remote Connections…** adds, edits and removes them, with a name,
+  host, port, user, starting folder and sign-in method: a password that KIO
+  asks for when needed, or an SSH key or agent. Passwords are never saved
+  with the connection; KIO keeps them in KWallet when you choose to. KIO and
+  `ssh` verify SSH host keys and TLS certificates, and connection and
+  sign-in errors appear in the pane. Unencrypted WebDAV shows a warning. See
+  [Remote connections](../CAVEATS.md#desktop-integration).
+  ([#282](https://github.com/mikepadiernos/plasma-opus/issues/282))
 
 ## Planned features
 
