@@ -646,6 +646,22 @@ have these limits
   simulated indexer only, not yet against a running Baloo on a Plasma
   session.
   ([#441](https://github.com/mikepadiernos/plasma-opus/issues/441))
+- **Indexed metadata and ranking:** A `meta:` term selects Baloo candidates
+  only when the query has no name or content term. Baloo then matches whole
+  indexed words in any indexed text and in the enabled text properties, not
+  substrings, so `meta:Can` may not find Canon; every candidate is confirmed by
+  reading its metadata, which is slower on large result sets. Numbers, dates
+  and properties Baloo does not index, or files whose extractor is missing,
+  can't be found this way, and Baloo limited to file names finds no metadata;
+  add a name term or search live instead. Ranking compares file names only,
+  not paths, contents or metadata, and only reorders the results found: it
+  can't add files missing from the index or beyond the 5,000-result limit,
+  and the order is by score, not relevance as Baloo computes it. **Search
+  Current Folder Live** appears only after an indexed search that was not
+  cancelled, for a local current folder or workspace locations, and switches
+  the scope to the live search before running it, so later searches stay
+  live until the scope is changed back.
+  ([#442](https://github.com/mikepadiernos/plasma-opus/issues/442))
 - **Selection and exclusions:** Path-selection filters apply only to local
   top-level listings or the visible flat list, not expanded child rows. Excluded
   folders are entered one per line, so paths containing newlines cannot be
@@ -713,11 +729,11 @@ have these limits
   from the name and, if needed, the contents, which can slow live searches and
   miss misnamed files. Content criteria use live search's text limits;
   unreadable, binary and oversized files never contain a term, so NOT content
-  criteria match them. Indexed queries need a name or content term that every
-  result must match, which selects Baloo candidates; other content terms use
-  Baloo's word matching rather than substrings, and name, path, type, size and
-  date criteria are checked against the files found. The normalized query
-  shown while typing uses English field names.
+  criteria match them. Indexed queries need a name, content or meta term that
+  every result must match, which selects Baloo candidates; other content terms
+  use Baloo's word matching rather than substrings, and name, path, type,
+  size, date and metadata criteria are checked against the files found. The
+  normalized query shown while typing uses English field names.
 - **Search folders and exclusions:** The search folders and excluded folders
   set on Preferences' Search page apply only to Plasma Opus. They do not
   change what Baloo indexes, and an excluded folder is still searched by other
@@ -742,8 +758,12 @@ have these limits
   **File › Indexing Status…**, and use **Check Index Coverage** to confirm
   that a folder's files are indexed, or `balooctl6 status` for details Baloo
   doesn't expose to applications; use live
-  search for a current local folder, search smaller folders, inspect errors and
-  repeat searches after files change. Use flat view when selecting nested local
+  search for a current local folder, or **Search Current Folder Live** after
+  an indexed search, search smaller folders, inspect errors and
+  repeat searches after files change. Use whole words in indexed `meta:`
+  terms, and add a name term or search live for numbers, dates or partial
+  words. Turn ranking off to keep the order in which results were found. Use
+  flat view when selecting nested local
   items by path, and verify the resulting selection. Use GNU `find` for other
   local filename searches or ripgrep (`rg`) for content searches when Plasma
   Opus limits are unsuitable; check each tool's hidden-file, ignore, encoding
@@ -761,8 +781,8 @@ have these limits
   active pane; click the panel or use <kbd>Tab</kbd> when keyboard focus needs
   to move elsewhere. Check the normalized query shown while typing to confirm
   grouping, use parentheses where AND and OR are mixed, and search the current
-  folder or search folders when an advanced query has no required name or
-  content term. After renaming or deleting a shared path filter, choose the
+  folder or search folders when an advanced query has no required name,
+  content or meta term. After renaming or deleting a shared path filter, choose the
   default path filter again on Preferences' Search page. With several windows
   open, hide the search panel in the last window you use if it should stay
   closed at the next startup. Turn off Remember recent search queries before
@@ -781,9 +801,7 @@ have these limits
   plans configurable shortcuts
   ([#230](https://github.com/mikepadiernos/plasma-opus/issues/230)), which
   could include focusing the search field and panel.
-  [M27 Baloo integration](ROADMAP.md#m27-integrations) plans
-  metadata queries, result ranking and an explicit live fallback,
-  not guaranteed index completeness. [M15 workspaces](ROADMAP.md#m15-workspaces)
+  [M15 workspaces](ROADMAP.md#m15-workspaces)
   plan search scoping, not a security boundary.
   - Comment: [#362.7023269364][comment-362]
 
