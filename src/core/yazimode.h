@@ -71,9 +71,45 @@ void writeWorkspacePreviewContent(QJsonObject &object, int content);
  */
 bool readWorkspacePreviewContent(const QJsonObject &object, int &content);
 
-/// The folder the parent column lists for @p current, or an empty URL when
-/// @p current is invalid or has no parent, such as at a root.
+/**
+ * The folder the parent column lists for @p current, or an empty URL when
+ * @p current is invalid or has no parent, such as at a root. At the root of
+ * an archive, such as zip:/home/me/a.zip/, it is the local folder that
+ * holds the archive.
+ */
 QUrl parentFolder(const QUrl &current);
+/**
+ * The URL that stands for @p current in the listing of parentFolder(): the
+ * archive file at the root of an archive, otherwise @p current itself.
+ */
+QUrl parentItem(const QUrl &current);
+
+/// How well Yazi mode's columns work in a location.
+enum class SupportLevel {
+    /// Local folders: every column works.
+    Full,
+    /// Folders that list, but whose parent column or preview is limited, such as remote folders, archives and the trash.
+    Limited,
+    /// Locations without a meaningful parent folder, such as search results or recent files; the pane browses them as usual.
+    Unsupported,
+};
+
+struct Support {
+    SupportLevel level = SupportLevel::Full;
+    /// Why the location is limited or unsupported, as a sentence for the user; empty for Full.
+    QString reason;
+
+    bool operator==(const Support &other) const = default;
+};
+
+/**
+ * How well Yazi mode works in @p url. Local folders are Full. Folders that
+ * KIO lists, such as sftp:, smb:, trash:, desktop: and archives, are
+ * Limited. Locations whose items come from many folders or aren't files,
+ * such as search results, recent files, tags and remote:, are Unsupported,
+ * as is an empty or invalid URL.
+ */
+Support support(const QUrl &url);
 
 /// The narrowest current column that columnWidths() allows while it shows another column.
 constexpr int MinimumCurrentWidth = 220;

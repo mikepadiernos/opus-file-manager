@@ -4,9 +4,13 @@
 
 #include <KConfigGroup>
 #include <KIO/Global>
+#include <KLocalizedString>
+#include <KProtocolInfo>
+#include <KProtocolManager>
 
 #include <QJsonObject>
 #include <QKeySequence>
+#include <QMimeDatabase>
 #include <QVarLengthArray>
 
 #include <algorithm>
@@ -72,6 +76,57 @@ bool startsWith(const YaziMode::KeySequence &longer, const YaziMode::KeySequence
 YaziMode::Binding bind(std::initializer_list<QKeyCombination> keys, YaziMode::Command command)
 {
     return {YaziMode::KeySequence(keys), command};
+}
+
+bool isArchiveScheme(const QString &scheme)
+{
+    static const QStringList schemes{QStringLiteral("zip"),
+                                     QStringLiteral("tar"),
+                                     QStringLiteral("ar"),
+                                     QStringLiteral("sevenz"),
+                                     QStringLiteral("krarc"),
+                                     QStringLiteral("iso"),
+                                     QStringLiteral("rar")};
+    return schemes.contains(scheme) || !KProtocolInfo::archiveMimetypes(scheme).isEmpty();
+}
+
+/// Whether @p name is an archive file's name, judged by its extension alone.
+bool isArchiveName(const QString &name)
+{
+    const QMimeType mime = QMimeDatabase().mimeTypeForFile(name, QMimeDatabase::MatchExtension);
+    if (!mime.isValid() || mime.isDefault()) {
+        return false;
+    }
+    if (!KProtocolManager::protocolForArchiveMimetype(mime.name()).isEmpty()) {
+        return true;
+    }
+    static const QStringList archives{QStringLiteral("application/zip"),
+                                      QStringLiteral("application/x-tar"),
+                                      QStringLiteral("application/x-compressed-tar"),
+                                      QStringLiteral("application/x-bzip-compressed-tar"),
+                                      QStringLiteral("application/x-bzip2-compressed-tar"),
+                                      QStringLiteral("application/x-xz-compressed-tar"),
+                                      QStringLiteral("application/x-zstd-compressed-tar"),
+                                      QStringLiteral("application/x-lzma-compressed-tar"),
+                                      QStringLiteral("application/x-tarz"),
+                                      QStringLiteral("application/x-archive"),
+                                      QStringLiteral("application/x-7z-compressed"),
+                                      QStringLiteral("application/x-cd-image"),
+                                      QStringLiteral("application/vnd.rar")};
+    return std::any_of(archives.cbegin(), archives.cend(), [&mime](const QString &archive) {
+        return mime.inherits(archive);
+    });
+}
+
+/// The local path of the archive file at the root of the archive folder @p url, or empty when @p url is inside it or isn't an archive folder.
+QString archiveRootFile(const QUrl &url)
+{
+    if (url.isLocalFile() || !isArchiveScheme(url.scheme())) {
+        return {};
+    }
+    const QString path = url.adjusted(QUrl::StripTrailingSlash).path();
+    const QString name = path.section(QLatin1Char('/'), -1);
+    return path.size() > 1 && isArchiveName(name) ? path : QString();
 }
 }
 
@@ -184,11 +239,71 @@ QUrl YaziMode::parentFolder(const QUrl &current)
     if (!current.isValid() || current.isEmpty()) {
         return {};
     }
+    // KIO's archive workers can't list the folder around the archive; the local folder that holds it can.
+    if (const QString archive = archiveRootFile(current); !archive.isEmpty()) {
+        return QUrl::fromLocalFile(archive).adjusted(QUrl::RemoveFilename);
+    }
     const QUrl parent = KIO::upUrl(current);
     if (!parent.isValid() || parent.isEmpty() || parent.adjusted(QUrl::StripTrailingSlash) == current.adjusted(QUrl::StripTrailingSlash)) {
         return {};
     }
     return parent;
+}
+
+QUrl YaziMode::parentItem(const QUrl &current)
+{
+    if (const QString archive = archiveRootFile(current); !archive.isEmpty()) {
+        return QUrl::fromLocalFile(archive);
+    }
+    return current;
+}
+
+YaziMode::Support YaziMode::support(const QUrl &url)
+{
+    if (!url.isValid() || url.isEmpty()) {
+        return {SupportLevel::Unsupported, i18nc("@info:status why Yazi mode isn't available", "there is no folder to show.")};
+    }
+    if (url.isLocalFile()) {
+        return {};
+    }
+    const QString scheme = url.scheme().toLower();
+    const auto is = [&scheme](std::initializer_list<const char *> schemes) {
+        return std::any_of(schemes.begin(), schemes.end(), [&scheme](const char *each) {
+            return scheme == QLatin1String(each);
+        });
+    };
+    if (is({"baloosearch", "filenamesearch", "search"})) {
+        return {SupportLevel::Unsupported,
+                i18nc("@info:status why Yazi mode isn't available", "search results come from many folders, so there is no parent folder to show.")};
+    }
+    if (is({"recentlyused", "recentdocuments", "timeline", "activities"})) {
+        return {SupportLevel::Unsupported,
+                i18nc("@info:status why Yazi mode isn't available", "recent items come from many folders, so there is no parent folder to show.")};
+    }
+    if (is({"tags"})) {
+        return {SupportLevel::Unsupported,
+                i18nc("@info:status why Yazi mode isn't available", "tagged items come from many folders, so there is no parent folder to show.")};
+    }
+    if (is({"remote"})) {
+        return {SupportLevel::Unsupported,
+                i18nc("@info:status why Yazi mode isn't available", "this lists shortcuts to network places; open one to browse it in columns.")};
+    }
+    if (is({"applications", "programs", "settings"})) {
+        return {SupportLevel::Unsupported, i18nc("@info:status why Yazi mode isn't available", "this location lists applications rather than files.")};
+    }
+    if (is({"trash"})) {
+        return {
+            SupportLevel::Limited,
+            i18nc("@info:status why Yazi mode is limited", "items in the trash can only be restored or deleted, and the parent column stays in the trash.")};
+    }
+    if (isArchiveScheme(scheme)) {
+        return {SupportLevel::Limited, i18nc("@info:status why Yazi mode is limited", "archives are read-only here, and previews extract each file first.")};
+    }
+    if (is({"desktop"})) {
+        return {SupportLevel::Limited, i18nc("@info:status why Yazi mode is limited", "the parent column stops at the desktop folder.")};
+    }
+    return {SupportLevel::Limited,
+            i18nc("@info:status why Yazi mode is limited", "the parent column lists in the background, and previews download each file first.")};
 }
 
 YaziMode::ColumnWidths YaziMode::columnWidths(int available, bool preview, const Ratios &ratios, int handleWidth)
