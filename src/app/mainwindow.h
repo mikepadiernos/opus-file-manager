@@ -174,6 +174,19 @@ public:
     /// Opens the Indexing Status dialog for the active pane's folder.
     void showIndexStatus();
     /**
+     * Opens a file-type place from Places, such as Ebooks under Search For.
+     * Shows the category's Baloo search in @p pane when the index can answer
+     * it, confirming first when the index may be incomplete. Otherwise
+     * explains why and offers a live search of a chosen folder.
+     */
+    void openFileTypePlace(Pane *pane, const QUrl &url, bool newTab);
+    /**
+     * Searches @p folder live for the files of the file-type place @p url in
+     * the search panel.
+     * @returns whether the search started
+     */
+    bool searchFileTypeLive(const QUrl &url, const QUrl &folder);
+    /**
      * Adds the selected local items to @p archivePath with Ark, after a
      * confirmation, since Ark edits the archive in place. Refuses formats the
      * installed backends cannot write and an archive inside the selection.
@@ -279,6 +292,8 @@ private:
     /// Keeps the search panel beside the terminal when their orientations match, otherwise in the outer search splitter.
     void updateSearchPlacement();
     void setupPlaces();
+    /// Adds the file-type places to Places once, so that removed entries stay removed.
+    void addFileTypePlaces();
     void setupPanels();
     void setupStatusBar();
     void applyPanelSettings();

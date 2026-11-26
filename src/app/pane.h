@@ -278,6 +278,13 @@ Q_SIGNALS:
      * @param contents true to search file contents, false to search file names
      */
     void yaziSearchRequested(bool contents);
+    /**
+     * A file-type place from Places, such as Documents under Search For, was
+     * opened in the pane. The pane stays where it was; the window decides how
+     * to search.
+     * @param newTab true when the place was opened in a new tab
+     */
+    void fileTypePlaceRequested(const QUrl &url, bool newTab);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;

@@ -5,6 +5,7 @@
 #include "appearancestyle.h"
 #include "colorschemes.h"
 
+#include "filetypeplaces.h"
 #include "filterbar.h"
 #include "foldercolors.h"
 #include "folderview.h"
@@ -977,6 +978,14 @@ void Pane::resetToolbarConfiguration()
 
 void Pane::setUrl(const QUrl &url)
 {
+    if (FileTypePlaces::isPlaceUrl(url)) {
+        // A file-type place isn't a location; the window opens its search instead.
+        if (m_tabs->currentUrl().isValid()) {
+            m_navigator->setLocationUrl(m_tabs->currentUrl());
+        }
+        Q_EMIT fileTypePlaceRequested(url, false);
+        return;
+    }
     m_tabs->setCurrentUrl(m_followSymlinks ? Symlinks::resolve(url) : url);
 }
 
@@ -1082,6 +1091,10 @@ void Pane::finishReveal()
 
 void Pane::openInNewTab(const QUrl &url, bool activate)
 {
+    if (FileTypePlaces::isPlaceUrl(url)) {
+        Q_EMIT fileTypePlaceRequested(url, true);
+        return;
+    }
     const int index = m_newTabsAfterCurrent ? m_tabs->currentIndex() + 1 : m_tabs->count();
     m_tabs->insertTab(index, m_followSymlinks ? Symlinks::resolve(url) : url, activate);
 }

@@ -16,6 +16,7 @@
 #include "filediffdialog.h"
 #include "fileoperations.h"
 #include "filesplitdialog.h"
+#include "filetypeplaces.h"
 #include "filterbar.h"
 #include "foldercomparisondialog.h"
 #include "foldersyncdialog.h"
@@ -59,6 +60,7 @@
 #include <KFilePlacesView>
 #include <KLocalizedString>
 #include <KPageWidgetItem>
+#include <KProtocolInfo>
 #include <KSelectAction>
 #include <KSharedConfig>
 #include <KTextEditor/Document>
@@ -147,6 +149,63 @@ void answerMessageBox(const QString &objectName, const std::function<void(QMessa
         }
     });
 }
+
+// Accepts the folder dialog named objectName in folder when it opens.
+void acceptFolderDialog(const QString &objectName, const QString &folder, int attempts = 200)
+{
+    QTimer::singleShot(10, [objectName, folder, attempts] {
+        auto *dialog = qobject_cast<QFileDialog *>(QApplication::activeModalWidget());
+        if (dialog && dialog->isVisible() && dialog->objectName() == objectName) {
+            dialog->setDirectory(folder);
+            QMetaObject::invokeMethod(dialog, "accept");
+        } else if (attempts > 0) {
+            acceptFolderDialog(objectName, folder, attempts - 1);
+        }
+    });
+}
+
+// Reports a fixed index configuration and indexer state.
+class FakeIndexBackend : public IndexBackend
+{
+public:
+    IndexStatus::Config fakeConfig;
+    IndexStatus::Service fakeService;
+    int settingsOpened = 0;
+
+    IndexStatus::Config config() const override
+    {
+        return fakeConfig;
+    }
+    IndexStatus::Service service() const override
+    {
+        return fakeService;
+    }
+    bool isIndexed(const QString &) const override
+    {
+        return false;
+    }
+    bool hasExtractor(const QString &) const override
+    {
+        return false;
+    }
+    bool suspend(QString *) override
+    {
+        return false;
+    }
+    bool resume(QString *) override
+    {
+        return false;
+    }
+    bool checkUnindexedFiles(QString *) override
+    {
+        return false;
+    }
+    bool openSettings(QString *) override
+    {
+        ++settingsOpened;
+        return true;
+    }
+};
 
 // Emits a pane signal while MainWindow's children are being destroyed, after
 // its members are gone, as KCoreDirListerCache can when the places model's
@@ -724,6 +783,140 @@ private Q_SLOTS:
         QVERIFY(dialog);
         QVERIFY(dialog->findChild<QLabel *>(QStringLiteral("indexWarnings"))->text().contains(QStringLiteral("without Baloo")));
         dialog->close();
+    }
+
+    void addsFileTypePlacesOnce()
+    {
+        // Every visible file-type place, so that a duplicate entry is counted.
+        const auto placeRows = [](KFilePlacesModel *model) {
+            QList<QPair<QUrl, QModelIndex>> rows;
+            for (int row = 0; row < model->rowCount(); ++row) {
+                const QModelIndex index = model->index(row, 0);
+                if (FileTypePlaces::isPlaceUrl(model->url(index))) {
+                    rows.append({model->url(index), index});
+                }
+            }
+            return rows;
+        };
+        const auto rowFor = [](const QList<QPair<QUrl, QModelIndex>> &rows, FileTypePlaces::Category category) {
+            for (const auto &[url, index] : rows) {
+                if (url == FileTypePlaces::placeUrl(category)) {
+                    return index;
+                }
+            }
+            return QModelIndex();
+        };
+        KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("FileTypePlaces"));
+        state.writeEntry("Added", false);
+        {
+            MainWindow window;
+            auto *model = qobject_cast<KFilePlacesModel *>(window.findChild<KFilePlacesView *>()->model());
+            QVERIFY(model);
+            const auto rows = placeRows(model);
+            QCOMPARE(rows.size(), FileTypePlaces::categories().size());
+            for (const FileTypePlaces::Category category : FileTypePlaces::categories()) {
+                const QModelIndex index = rowFor(rows, category);
+                QVERIFY(index.isValid());
+                QCOMPARE(model->text(index), FileTypePlaces::title(category));
+                QCOMPARE(model->groupType(index), KFilePlacesModel::SearchForType);
+            }
+            model->removePlace(rowFor(rows, FileTypePlaces::Category::Ebooks));
+        }
+        QVERIFY(state.readEntry("Added", false));
+        {
+            // A removed entry stays removed.
+            MainWindow window;
+            auto *model = qobject_cast<KFilePlacesModel *>(window.findChild<KFilePlacesView *>()->model());
+            const auto rows = placeRows(model);
+            QCOMPARE(rows.size(), FileTypePlaces::categories().size() - 1);
+            QVERIFY(!rowFor(rows, FileTypePlaces::Category::Ebooks).isValid());
+        }
+        state.writeEntry("Added", false);
+        {
+            // Adding again restores only the missing entry.
+            MainWindow window;
+            auto *model = qobject_cast<KFilePlacesModel *>(window.findChild<KFilePlacesView *>()->model());
+            QCOMPARE(placeRows(model).size(), FileTypePlaces::categories().size());
+        }
+    }
+
+    void opensFileTypePlaceAsLiveSearchWhenIndexingIsOff()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        QVERIFY(QDir(root.path()).mkdir(QStringLiteral("books")));
+        for (const QString &name : {QStringLiteral("books/novel.epub"), QStringLiteral("books/report.pdf")}) {
+            QFile file(root.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        FakeIndexBackend backend;
+        backend.fakeConfig.available = true;
+        MainWindow window;
+        window.setIndexBackend(&backend);
+        const QUrl rootUrl = QUrl::fromLocalFile(root.path());
+        window.openUrls({rootUrl});
+        Pane *pane = window.activePane();
+
+        bool offeredSettings = false;
+        answerMessageBox(QStringLiteral("fileTypePlaceBox"), [&](QMessageBox *box) {
+            offeredSettings = box->findChild<QPushButton *>(QStringLiteral("fileTypeSettings"));
+            QVERIFY(!box->findChild<QPushButton *>(QStringLiteral("fileTypeIndexed")));
+            box->findChild<QPushButton *>(QStringLiteral("fileTypeLive"))->click();
+        });
+        acceptFolderDialog(QStringLiteral("fileTypeFolderDialog"), root.filePath(QStringLiteral("books")));
+        pane->setUrl(FileTypePlaces::placeUrl(FileTypePlaces::Category::Ebooks));
+        QVERIFY(offeredSettings);
+        QCOMPARE(pane->url(), rootUrl);
+
+        auto *search = window.findChild<SearchWidget *>();
+        QVERIFY(search);
+        QCOMPARE(search->folder(), QUrl::fromLocalFile(root.filePath(QStringLiteral("books"))));
+        QTRY_VERIFY(!search->isRunning());
+        auto *results = search->findChild<QTreeWidget *>(QStringLiteral("searchResults"));
+        QTRY_COMPARE(results->findItems(QStringLiteral("novel.epub"), Qt::MatchContains | Qt::MatchRecursive).size(), 1);
+        QVERIFY(results->findItems(QStringLiteral("report.pdf"), Qt::MatchContains | Qt::MatchRecursive).isEmpty());
+
+        const int tabCount = pane->tabs()->count();
+        answerMessageBox(QStringLiteral("fileTypePlaceBox"), [](QMessageBox *box) {
+            box->findChild<QPushButton *>(QStringLiteral("fileTypeSettings"))->click();
+        });
+        pane->openInNewTab(FileTypePlaces::placeUrl(FileTypePlaces::Category::Images));
+        QCOMPARE(backend.settingsOpened, 1);
+        QCOMPARE(pane->tabs()->count(), tabCount);
+    }
+
+    void opensFileTypePlaceFromIndex()
+    {
+        if (!KProtocolInfo::isKnownProtocol(QStringLiteral("baloosearch")) || FileTypePlaces::balooUrl(FileTypePlaces::Category::Images).isEmpty()) {
+            QSKIP("Needs Baloo and its baloosearch KIO worker");
+        }
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        FakeIndexBackend backend;
+        backend.fakeConfig.available = true;
+        backend.fakeConfig.enabled = true;
+        backend.fakeService.running = true;
+        backend.fakeService.state = static_cast<int>(IndexStatus::State::Idle);
+        MainWindow window;
+        window.setIndexBackend(&backend);
+        window.openUrls({QUrl::fromLocalFile(root.path())});
+        Pane *pane = window.activePane();
+        const QUrl images = FileTypePlaces::balooUrl(FileTypePlaces::Category::Images);
+        pane->setUrl(FileTypePlaces::placeUrl(FileTypePlaces::Category::Images));
+        QCOMPARE(pane->url(), images);
+
+        // A stopped indexer asks first, then shows the indexed results in a new tab.
+        backend.fakeService.running = false;
+        const int tabCount = pane->tabs()->count();
+        bool warned = false;
+        answerMessageBox(QStringLiteral("fileTypePlaceBox"), [&](QMessageBox *box) {
+            warned = box->informativeText().contains(QStringLiteral("not running"));
+            box->findChild<QPushButton *>(QStringLiteral("fileTypeIndexed"))->click();
+        });
+        pane->openInNewTab(FileTypePlaces::placeUrl(FileTypePlaces::Category::Audio));
+        QVERIFY(warned);
+        QCOMPARE(pane->tabs()->count(), tabCount + 1);
+        QCOMPARE(pane->url(), FileTypePlaces::balooUrl(FileTypePlaces::Category::Audio));
     }
 
     void opensFilteredFolderComparison()

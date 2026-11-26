@@ -36,6 +36,7 @@
 #include "filemanagerrequest.h"
 #include "fileoperations.h"
 #include "filesplitdialog.h"
+#include "filetypeplaces.h"
 #include "foldercolors.h"
 #include "foldercomparisondialog.h"
 #include "foldermetadata.h"
@@ -102,6 +103,7 @@
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
 #include <KFileUtils>
+#include <KFormat>
 #include <KGlobalAccel>
 #include <KGuiItem>
 #include <KHamburgerMenu>
@@ -161,9 +163,11 @@
 #include <QMimeDatabase>
 #include <QPainter>
 #include <QPointer>
+#include <QPushButton>
 #include <QScopeGuard>
 #include <QScopedValueRollback>
 #include <QScrollArea>
+#include <QSet>
 #include <QSignalBlocker>
 #include <QSizeGrip>
 #include <QSplitter>
@@ -1587,6 +1591,12 @@ void MainWindow::connectPane(Pane *pane)
     connect(pane, &Pane::searchRequested, this, [this, pane] {
         showSearchForPane(pane);
     });
+    connect(pane, &Pane::fileTypePlaceRequested, this, [this, pane](const QUrl &url, bool newTab) {
+        if (pane != activePane()) {
+            setActivePane(pane);
+        }
+        openFileTypePlace(pane, url, newTab);
+    });
     connect(pane, &Pane::yaziModeChanged, this, [this, pane] {
         if (pane == activePane()) {
             updateActions();
@@ -1729,6 +1739,7 @@ void MainWindow::connectPane(Pane *pane)
 
 void MainWindow::setupPlaces()
 {
+    addFileTypePlaces();
     m_placesView = new KFilePlacesView(this);
     m_placesView->setModel(m_placesModel);
     m_placesView->setDropOnPlaceEnabled(true);
@@ -1751,6 +1762,11 @@ void MainWindow::setupPlaces()
         activePane()->openInNewTab(url);
     });
     connect(m_placesView, &KFilePlacesView::urlsDropped, this, [this](const QUrl &dest, QDropEvent *event, QWidget *) {
+        if (FileTypePlaces::isPlaceUrl(dest)) {
+            event->ignore();
+            showStatusMessage(i18nc("@info:status", "Files can't be dropped on a file-type search."));
+            return;
+        }
         FileOperations::drop(event, dest, this);
     });
 }
@@ -1800,6 +1816,11 @@ void MainWindow::setupPanels()
         "CollapsedSections",
         QStringList{QStringLiteral("places:PlacesType"), QStringLiteral("places:DevicesType"), QStringLiteral("places:RemovableDevicesType")}));
     connect(m_combinedPanel, &CombinedPanel::urlsDropped, this, [this](const QUrl &destination, QDropEvent *event) {
+        if (FileTypePlaces::isPlaceUrl(destination)) {
+            event->ignore();
+            showStatusMessage(i18nc("@info:status", "Files can't be dropped on a file-type search."));
+            return;
+        }
         FileOperations::drop(event, destination, this);
     });
     m_combinedDock = addPanelDock(QStringLiteral("combinedDock"), i18nc("@title:window", "Explorer"), m_combinedPanel);
@@ -2417,6 +2438,136 @@ void MainWindow::showIndexStatus()
     auto *dialog = new IndexStatusDialog(url.isLocalFile() ? url.toLocalFile() : QString(), m_indexBackend, this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
+}
+
+void MainWindow::addFileTypePlaces()
+{
+    KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("FileTypePlaces"));
+    if (state.readEntry("Added", false)) {
+        return;
+    }
+    // OnlyInApp keeps the entries out of other applications' Places, which can't open them.
+    const QString appName = QCoreApplication::applicationName();
+    // The model lists only the entries this application can see, so another
+    // application's OnlyInApp entries for the same URLs don't count.
+    QSet<QUrl> existing;
+    for (int row = 0; row < m_placesModel->rowCount(); ++row) {
+        existing.insert(m_placesModel->url(m_placesModel->index(row, 0)));
+    }
+    for (const FileTypePlaces::Category category : FileTypePlaces::categories()) {
+        const QUrl url = FileTypePlaces::placeUrl(category);
+        if (!existing.contains(url)) {
+            m_placesModel->addPlace(FileTypePlaces::title(category), url, FileTypePlaces::iconName(category), appName);
+        }
+    }
+    state.writeEntry("Added", true);
+    state.sync();
+}
+
+void MainWindow::openFileTypePlace(Pane *pane, const QUrl &url, bool newTab)
+{
+    FileTypePlaces::Category category = FileTypePlaces::Category::Documents;
+    if (!FileTypePlaces::fromPlaceUrl(url, &category)) {
+        return;
+    }
+    const QString title = FileTypePlaces::title(category);
+    const auto chooseFolder = [this, url, title] {
+        QFileDialog dialog(this, i18nc("@title:window %1 is a file-type category, such as Ebooks", "Search a Folder for %1", title));
+        dialog.setObjectName(QStringLiteral("fileTypeFolderDialog"));
+        dialog.setFileMode(QFileDialog::Directory);
+        dialog.setOption(QFileDialog::ShowDirsOnly);
+        const QUrl current = activePane()->url();
+        dialog.setDirectory(current.isLocalFile() ? current.toLocalFile() : QDir::homePath());
+        if (dialog.exec() != QDialog::Accepted || dialog.selectedFiles().isEmpty()) {
+            return;
+        }
+        searchFileTypeLive(url, QUrl::fromLocalFile(dialog.selectedFiles().constFirst()));
+    };
+    if (!FileTypePlaces::usesIndex(category)) {
+        showStatusMessage(i18nc("@info:status %1 is a file-type category, %2 a size such as 100 MiB",
+                                "File sizes aren't indexed, so %1 searches a chosen folder live for files over %2.",
+                                title,
+                                KFormat().formatByteSize(double(FileTypePlaces::largeFileSize()), 0)));
+        chooseFolder();
+        return;
+    }
+
+    const IndexStatus::Config config = m_indexBackend->config();
+    const QUrl balooUrl = FileTypePlaces::balooUrl(category);
+    QString reason;
+    if (!config.available || balooUrl.isEmpty()) {
+        reason = i18nc("@info %1 is a file-type category", "“%1” is an indexed search, but this build can't use KDE's file index.", title);
+    } else if (!config.enabled) {
+        reason = i18nc("@info %1 is a file-type category", "“%1” is an indexed search, but file indexing is turned off in KDE File Search settings.", title);
+    } else if (!KProtocolInfo::isKnownProtocol(QStringLiteral("baloosearch"))) {
+        reason =
+            i18nc("@info %1 is a file-type category", "“%1” is an indexed search, but KDE's indexed search location, baloosearch:/, isn't installed.", title);
+    }
+    const QStringList warnings = reason.isEmpty() ? IndexStatus::warnings(config, m_indexBackend->service()) : QStringList();
+    const auto showIndexed = [pane, balooUrl, newTab] {
+        if (newTab) {
+            pane->openInNewTab(balooUrl, true);
+        } else {
+            pane->setUrl(balooUrl);
+        }
+    };
+    if (reason.isEmpty() && warnings.isEmpty()) {
+        showIndexed();
+        return;
+    }
+
+    QMessageBox box(this);
+    box.setObjectName(QStringLiteral("fileTypePlaceBox"));
+    box.setWindowTitle(title);
+    box.setIcon(QMessageBox::Information);
+    QPushButton *indexed = nullptr;
+    QPushButton *settings = nullptr;
+    if (reason.isEmpty()) {
+        box.setText(i18nc("@info %1 is a file-type category", "The indexed results for “%1” may be incomplete.", title));
+        box.setInformativeText(warnings.join(QLatin1Char('\n')) + QStringLiteral("\n\n")
+                               + i18nc("@info", "Show the indexed results anyway, or search a chosen folder live instead."));
+        indexed = box.addButton(i18nc("@action:button", "Show Indexed Results"), QMessageBox::AcceptRole);
+        indexed->setObjectName(QStringLiteral("fileTypeIndexed"));
+    } else {
+        box.setText(reason);
+        box.setInformativeText(i18nc("@info", "You can search a chosen folder live instead. A live search reads the folder's files, so it can take longer."));
+        if (config.available && !config.enabled) {
+            settings = box.addButton(i18nc("@action:button", "Open KDE File Search Settings"), QMessageBox::ActionRole);
+            settings->setObjectName(QStringLiteral("fileTypeSettings"));
+        }
+    }
+    QPushButton *live = box.addButton(i18nc("@action:button", "Search a Folder Live…"), QMessageBox::ActionRole);
+    live->setObjectName(QStringLiteral("fileTypeLive"));
+    box.addButton(QMessageBox::Cancel);
+    box.setDefaultButton(indexed ? indexed : live);
+    box.exec();
+    if (box.clickedButton() == indexed && indexed) {
+        showIndexed();
+    } else if (box.clickedButton() == live) {
+        chooseFolder();
+    } else if (box.clickedButton() == settings && settings) {
+        QString error;
+        if (!m_indexBackend->openSettings(&error)) {
+            showStatusMessage(error.isEmpty() ? i18nc("@info:status", "Could not open KDE File Search settings.") : error);
+        }
+    }
+}
+
+bool MainWindow::searchFileTypeLive(const QUrl &url, const QUrl &folder)
+{
+    FileTypePlaces::Category category = FileTypePlaces::Category::Documents;
+    if (!FileTypePlaces::fromPlaceUrl(url, &category)) {
+        return false;
+    }
+    SearchWidget *search = m_searchPanel->searchWidget();
+    if (search->isRunning()) {
+        showStatusMessage(i18nc("@info:status", "A search is running. Cancel it to search another folder."));
+        return false;
+    }
+    search->setFolder(folder);
+    search->prepareFolderSearch(LiveSearch::Field::Query);
+    m_searchPanelAction->setChecked(true);
+    return search->search(FileTypePlaces::liveQuery(category));
 }
 
 KFileItem MainWindow::selectedDiskImage() const
