@@ -97,12 +97,11 @@ To show or hide it:
 - Choose **View › Yazi Preview** (action `toggle_yazi_preview`). It applies to
   the active pane, is checked when that pane shows the preview, and is enabled
   only while the active pane is in Yazi mode. It has no default shortcut.
-- **Preferences › Interface › Previews › Show the preview column in Yazi mode
-  unless a pane was set otherwise** sets the default. It is the
-  `YaziPreviewVisible` entry in the `[YaziMode]` group of the configuration,
-  and is on by default. Panes whose preview was never toggled follow it,
-  including when it changes; a pane toggled with **View › Yazi Preview** keeps
-  its own choice.
+- **Preferences › Yazi Mode › Columns › Show the preview column** sets the
+  default. It is the `YaziPreviewVisible` entry in the `[YaziMode]` group of
+  the configuration, and is on by default. Panes whose preview was never
+  toggled follow it, including when it changes; a pane toggled with **View ›
+  Yazi Preview** keeps its own choice. See [Columns](#columns).
 
 ### Folder contents
 
@@ -186,7 +185,8 @@ The column widths can still be adjusted by dragging the splitter handles. The
 resulting proportions are kept as the pane is resized and reused when hidden
 columns return. They are saved for the pane, and, half a second after
 dragging stops, as the default for other panes; see
-[Persistence](#persistence).
+[Persistence](#persistence). **Preferences › Yazi Mode › Columns** shows and
+edits the default widths; see [Columns](#columns).
 
 ### Parent column
 
@@ -199,10 +199,10 @@ To show or hide the parent column:
 - Without it, the current and preview columns share the pane in their own
   ratio, 3 : 2 by default, and the preview needs only room for itself and the
   current column before it is hidden.
-- The `YaziParentColumnVisible` entry in the `[YaziMode]` group of the
-  configuration sets the default; it is on by default. Panes whose parent
-  column was never toggled follow it, including when it changes. M26 adds it
-  to **Preferences**.
+- **Preferences › Yazi Mode › Columns › Show the parent column** sets the
+  default. It is the `YaziParentColumnVisible` entry in the `[YaziMode]`
+  group of the configuration, and is on by default. Panes whose parent column
+  was never toggled follow it, including when it changes.
 - A pane too narrow for the parent column still hides it, whatever the
   choice.
 
@@ -706,17 +706,17 @@ own.
 The `[YaziMode]` group of the configuration holds the defaults for panes
 without a choice of their own:
 
-| Entry                     | Default    | Changed by                                                                     |
-| ------------------------- | ---------- | ------------------------------------------------------------------------------ |
-| `YaziPreviewVisible`      | `true`     | **Preferences › Interface › Previews › Show the preview column in Yazi mode…** |
-| `YaziPreviewContent`      | `Preview`  | Configuration file only; M26 adds it to **Preferences**                        |
-| `YaziParentColumnVisible` | `true`     | Configuration file only; M26 adds it to **Preferences**                        |
-| `YaziColumnRatios`        | `1,3,2`    | Dragging a column's edge, half a second after dragging stops                   |
-| `YaziKeyPreset`           | `Standard` | **View › Vim-Style Keys in Yazi Mode**                                         |
-| `YaziLeftPaneDefault`     | `false`    | **Preferences › Yazi Mode › Activation**                                       |
-| `YaziRightPaneDefault`    | `false`    | **Preferences › Yazi Mode › Activation**                                       |
-| `YaziLeftPaneRestore`     | `true`     | **Preferences › Yazi Mode › Activation**                                       |
-| `YaziRightPaneRestore`    | `true`     | **Preferences › Yazi Mode › Activation**                                       |
+| Entry                     | Default    | Changed by                                                                                    |
+| ------------------------- | ---------- | --------------------------------------------------------------------------------------------- |
+| `YaziPreviewVisible`      | `true`     | **Preferences › Yazi Mode › Columns**                                                         |
+| `YaziPreviewContent`      | `Preview`  | Configuration file only; M26 adds it to **Preferences**                                       |
+| `YaziParentColumnVisible` | `true`     | **Preferences › Yazi Mode › Columns**                                                         |
+| `YaziColumnRatios`        | `1,3,2`    | **Preferences › Yazi Mode › Columns**; dragging a column's edge, half a second after it stops |
+| `YaziKeyPreset`           | `Standard` | **View › Vim-Style Keys in Yazi Mode**                                                        |
+| `YaziLeftPaneDefault`     | `false`    | **Preferences › Yazi Mode › Activation**                                                      |
+| `YaziRightPaneDefault`    | `false`    | **Preferences › Yazi Mode › Activation**                                                      |
+| `YaziLeftPaneRestore`     | `true`     | **Preferences › Yazi Mode › Activation**                                                      |
+| `YaziRightPaneRestore`    | `true`     | **Preferences › Yazi Mode › Activation**                                                      |
 
 Panes that follow a default change with it when the configuration is applied,
 such as after closing **Preferences**. The activation entries, which end in
@@ -818,10 +818,11 @@ Configure Keyboard Shortcuts** and added to the main toolbar.
 | Preview column             | **View › Yazi Preview**                                                                                                                    |
 | Preview or information     | **View › File Information in Yazi Preview**; `i` with the Vim-style keys                                                                   |
 | Parent column              | **View › Yazi Parent Column**                                                                                                              |
-| Column ratios              | Dragging the splitter handles between the columns                                                                                          |
+| Column ratios              | Dragging the splitter handles between the columns; the default in **Preferences › Yazi Mode › Columns**                                    |
 | Workspace Yazi behavior    | **View › Workspaces… › Workspace Behaviors › Yazi mode**                                                                                   |
 | Default for new workspaces | **Preferences › Workspaces › Behaviors › Selected Behaviors › Yazi mode**                                                                  |
 | Mode when a window opens   | **Preferences › Yazi Mode › Activation**                                                                                                   |
+| Default columns and widths | **Preferences › Yazi Mode › Columns**                                                                                                      |
 
 ## Settings
 
@@ -864,3 +865,54 @@ restoring its layout, still applies the workspace's saved mode when its
 [Workspaces](#workspaces). Workspace layouts aren't restored when a window
 opens, so these settings and workspace layouts never compete for the same
 pane.
+
+### Columns
+
+The **Columns** tab chooses which columns a pane shows in Yazi mode and how
+wide they are. The current folder's column is always shown.
+
+| Choice                                      | Entry                     | Default   |
+| ------------------------------------------- | ------------------------- | --------- |
+| **Shown Columns › Show the parent column**  | `YaziParentColumnVisible` | On        |
+| **Shown Columns › Show the preview column** | `YaziPreviewVisible`      | On        |
+| **Column Widths**                           | `YaziColumnRatios`        | 1 : 3 : 2 |
+
+**Show the preview column** was under **Preferences › Interface › Previews**
+before this tab existed; the entry is unchanged.
+
+**Column Widths** has a **Parent column**, **Current column** and **Preview
+column** spin box:
+
+- Only the proportions matter: 1, 3 and 2 give the same columns as 10, 30
+  and 20. Each value is from 1 to 100,000.
+- A summary below the spin boxes shows each column's approximate share of the
+  pane, both with all three columns and without the parent column.
+- **Restore Default Widths** sets the spin boxes back to 1, 3 and 2. The
+  dialog's **Defaults** button resets the whole tab, including the shown
+  columns.
+- Dragging the edge between two columns stores the pane's widths in pixels,
+  and half a second after dragging stops, makes them the default; the tab
+  then shows those pixel values as they are, such as 180, 540 and 360. When
+  this happens while the dialog is open, the tab shows the new widths unless
+  they were already edited in the dialog.
+- A stored value that isn't three positive numbers is shown as the defaults,
+  and is used as the defaults by the panes. It is only replaced when the
+  widths are edited and applied.
+
+When the settings are applied, open panes follow them:
+
+- A pane shows or hides its parent or preview column as chosen, unless that
+  column was toggled for the pane with **View › Yazi Parent Column** or
+  **View › Yazi Preview**, or the pane's choice came from its session or a
+  workspace.
+- A pane takes the new widths unless it has its own: after its columns were
+  dragged, or when its widths came from its session or a workspace.
+- New windows start with the settings, except for what a pane restores from
+  its session; see [Persistence](#persistence).
+
+**Narrow Panes** describes how the columns adapt, which isn't configurable.
+The columns fit each pane's own width, so the other file pane is never
+resized or hidden. A pane narrower than about 480 pixels hides the preview
+column first; below about 320 pixels it hides the parent column too, so the
+current column stays at least 220 pixels wide. Hidden columns come back when
+the pane widens; see [Narrow panes](#narrow-panes).
