@@ -84,6 +84,7 @@ ecm_add_tests(
     appearancedefaultstest.cpp
     appfontstest.cpp
     archivestest.cpp
+    arktest.cpp
     batchrenametest.cpp
     batchrenamepresetstest.cpp
     checksumstest.cpp

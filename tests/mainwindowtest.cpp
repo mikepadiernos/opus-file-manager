@@ -82,6 +82,8 @@
 #include <QIcon>
 #include <QImage>
 #include <QInputDialog>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QLabel>
 #include <QListView>
 #include <QListWidget>
@@ -324,6 +326,89 @@ private Q_SLOTS:
         QVERIFY(!FileOperations::openWithMpv({QUrl(QStringLiteral("sftp://example.invalid/video.mp4"))}).isEmpty());
         qputenv("PATH", QByteArray());
         QVERIFY(!FileOperations::openWithMpv({QUrl::fromLocalFile(file)}).isEmpty());
+    }
+
+    void arkOpensAndExtractsArchivesKioCannotBrowse()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QDir root(directory.path());
+        QVERIFY(root.mkpath(QStringLiteral("bin")) && root.mkpath(QStringLiteral("left")) && root.mkpath(QStringLiteral("right/music")));
+        QFile executable(root.filePath(QStringLiteral("bin/ark")));
+        QVERIFY(executable.open(QIODevice::WriteOnly));
+        QVERIFY(executable.write("#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$ARK_TEST_OUTPUT\"\n") > 0);
+        executable.close();
+        QVERIFY(executable.setPermissions(QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+        const QString archive = root.filePath(QStringLiteral("left/music.rar"));
+        QFile rar(archive);
+        QVERIFY(rar.open(QIODevice::WriteOnly));
+        QVERIFY(rar.write(QByteArray("Rar!\x1a\x07\x01\x00", 8) + QByteArray(64, '\0')) > 0);
+        rar.close();
+
+        const QByteArray oldPath = qgetenv("PATH");
+        const QByteArray oldOutput = qgetenv("ARK_TEST_OUTPUT");
+        const auto restore = qScopeGuard([&] {
+            qputenv("PATH", oldPath);
+            qputenv("ARK_TEST_OUTPUT", oldOutput);
+        });
+        const QString outputPath = root.filePath(QStringLiteral("arguments"));
+        qputenv("PATH", root.filePath(QStringLiteral("bin")).toLocal8Bit());
+        qputenv("ARK_TEST_OUTPUT", outputPath.toLocal8Bit());
+        const auto readArguments = [&outputPath] {
+            QFile output(outputPath);
+            return output.open(QIODevice::ReadOnly) ? QString::fromLocal8Bit(output.readAll()).split(u'\n', Qt::SkipEmptyParts) : QStringList();
+        };
+
+        MainWindow window;
+        const QJsonObject rarPlugin = QJsonDocument::fromJson(R"({"KPlugin": {"Id": "kerfuffle_clirar", "MimeTypes": ["application/vnd.rar"]},
+            "X-KDE-Kerfuffle-ReadOnlyExecutables": ["unrar"], "X-KDE-Kerfuffle-ReadWrite": true, "X-KDE-Kerfuffle-ReadWriteExecutables": ["rar"]})")
+                                          .object();
+        window.setArkBackends(Ark::Backends::fromPlugins({rarPlugin}, [](const QString &program) {
+            return program == QLatin1String("unrar");
+        }));
+        window.openUrls({QUrl::fromLocalFile(root.filePath(QStringLiteral("left"))), QUrl::fromLocalFile(root.filePath(QStringLiteral("right")))});
+        window.show();
+        window.actionCollection()->action(QStringLiteral("dual_layout"))->setChecked(true);
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        QAction *open = window.actionCollection()->action(QStringLiteral("open_in_ark"));
+        QVERIFY(open && !open->isEnabled());
+        view->selectUrls({QUrl::fromLocalFile(archive)});
+        QTRY_VERIFY(open->isEnabled());
+
+        open->trigger();
+        QTRY_COMPARE(readArguments(), (QStringList{QStringLiteral("--"), archive}));
+
+        QFile::remove(outputPath);
+        window.actionCollection()->action(QStringLiteral("extract_to_other_pane"))->trigger();
+        QTRY_VERIFY(!readArguments().isEmpty());
+        const QStringList arguments = readArguments();
+        QCOMPARE(arguments.size(), 5);
+        QCOMPARE(arguments.mid(0, 2), (QStringList{QStringLiteral("--batch"), QStringLiteral("--destination")}));
+        QCOMPARE(arguments.mid(3), (QStringList{QStringLiteral("--"), archive}));
+        const QString destination = arguments.at(2);
+        QVERIFY2(destination != root.filePath(QStringLiteral("right/music")), qPrintable(destination));
+        QVERIFY(destination.startsWith(root.filePath(QStringLiteral("right/music"))));
+        QVERIFY(QFileInfo(destination).isDir());
+
+        qputenv("PATH", QByteArray());
+        QFile::remove(outputPath);
+        bool reported = false;
+        std::function<void(int)> closeReport = [&reported, &closeReport](int attempts) {
+            QTimer::singleShot(10, [&reported, &closeReport, attempts] {
+                auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+                if (dialog && dialog->isVisible()) {
+                    reported = dialog->windowTitle().contains(QStringLiteral("Ark Not Found"));
+                    dialog->reject();
+                } else if (attempts > 0) {
+                    closeReport(attempts - 1);
+                }
+            });
+        };
+        closeReport(200);
+        open->trigger();
+        QVERIFY(reported);
+        QVERIFY(!QFile::exists(outputPath));
     }
 
     void opensFilteredFolderComparison()
