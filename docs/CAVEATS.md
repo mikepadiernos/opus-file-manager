@@ -1657,6 +1657,18 @@ The M27 desktop integrations have these limits
   context menu, where KDE Connect's own **Send to** service menu may already
   appear.
   ([#389](https://github.com/mikepadiernos/plasma-opus/issues/389))
+- **🔎 KRunner:** the plugin works only from an installed build: KRunner
+  finds it through the installed plugin file and starts the helper through
+  D-Bus activation, so a build run from its tree offers nothing. Only saved
+  workspaces and Favorites are offered, matched by name; locations inside a
+  workspace, history and other places are not. Remote Favorites are offered
+  without checking that they can be reached, and fail when their tab opens.
+  Choosing a workspace always asks before switching. The plugin is enabled
+  by default once installed. The helper keeps running after KRunner first
+  starts it, reads the settings again whenever a search session ends, and
+  is not stopped when Plasma Opus quits. KRunner may need restarting before
+  a newly installed plugin appears.
+  ([#390](https://github.com/mikepadiernos/plasma-opus/issues/390))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -1693,6 +1705,11 @@ The M27 desktop integrations have these limits
     paired device shows as offline, open KDE Connect on both devices and press
     **Refresh**; if it shows file sharing as turned off, enable the **Share
     and receive** plugin for it in KDE Connect's settings.
+  - **KRunner:** Install with `./install.sh`, then run `kquitapp6 krunner`
+    or log out and back in if **Plasma Opus** is missing from **System
+    Settings › Search › Plasma Search**. Turn off what should not be offered
+    under **Settings › General › Plasma Search**, or the plugin itself in
+    System Settings. Add a folder to Favorites to make it searchable.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -1715,6 +1732,9 @@ The M27 desktop integrations have these limits
   - Offer to compress a selected folder and send the archive, and report
     KDE Connect's transfer result in the dialog when its share plugin exposes
     one.
+  - Let KRunner match saved locations assigned to a workspace, check remote
+    Favorites before offering them, and stop the helper after a period
+    without searches.
 
 ## Embedded terminal
 
