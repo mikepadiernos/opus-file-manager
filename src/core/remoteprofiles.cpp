@@ -58,7 +58,7 @@ bool validId(const QString &id)
 
 QList<RemoteProfiles::Protocol> RemoteProfiles::protocols()
 {
-    return {Protocol::Sftp, Protocol::WebDavs, Protocol::WebDav};
+    return {Protocol::Sftp, Protocol::WebDavs, Protocol::WebDav, Protocol::Smb, Protocol::Ftps, Protocol::Ftp};
 }
 
 QString RemoteProfiles::scheme(Protocol protocol)
@@ -70,6 +70,12 @@ QString RemoteProfiles::scheme(Protocol protocol)
         return QStringLiteral("webdav");
     case Protocol::WebDavs:
         return QStringLiteral("webdavs");
+    case Protocol::Smb:
+        return QStringLiteral("smb");
+    case Protocol::Ftp:
+        return QStringLiteral("ftp");
+    case Protocol::Ftps:
+        return QStringLiteral("ftps");
     }
     return {};
 }
@@ -83,6 +89,12 @@ QString RemoteProfiles::name(Protocol protocol)
         return i18nc("@item:inlistbox remote protocol", "WebDAV (unencrypted)");
     case Protocol::WebDavs:
         return i18nc("@item:inlistbox remote protocol", "WebDAV over HTTPS");
+    case Protocol::Smb:
+        return i18nc("@item:inlistbox remote protocol", "Windows shares (SMB)");
+    case Protocol::Ftp:
+        return i18nc("@item:inlistbox remote protocol", "FTP (unencrypted)");
+    case Protocol::Ftps:
+        return i18nc("@item:inlistbox remote protocol", "FTP over TLS (FTPS)");
     }
     return {};
 }
@@ -96,6 +108,11 @@ int RemoteProfiles::defaultPort(Protocol protocol)
         return 80;
     case Protocol::WebDavs:
         return 443;
+    case Protocol::Smb:
+        return 445;
+    case Protocol::Ftp:
+    case Protocol::Ftps:
+        return 21;
     }
     return 0;
 }
@@ -140,6 +157,9 @@ QString RemoteProfiles::securityWarning(const Profile &profile)
     if (profile.protocol == Protocol::WebDav) {
         return i18nc("@info", "Unencrypted WebDAV sends your password and files in plain text. Use WebDAV over HTTPS unless the network is trusted.");
     }
+    if (profile.protocol == Protocol::Ftp) {
+        return i18nc("@info", "Plain FTP sends your password and files in plain text. Use SFTP or FTP over TLS unless the network is trusted.");
+    }
     return {};
 }
 
@@ -155,8 +175,8 @@ QUrl RemoteProfiles::url(const Profile &profile)
         url.setUserName(profile.user);
     }
     url.setPath(profile.path.isEmpty() ? QStringLiteral("/") : QDir::cleanPath(profile.path));
-    if (profile.protocol == Protocol::Sftp && profile.path.isEmpty()) {
-        // KIO's SFTP worker opens the user's home folder when the path is empty.
+    if ((profile.protocol == Protocol::Sftp || profile.protocol == Protocol::Ftp || profile.protocol == Protocol::Ftps) && profile.path.isEmpty()) {
+        // KIO's SFTP and FTP workers open the user's login folder when the path is empty.
         url.setPath({});
     }
     return url;
@@ -188,10 +208,30 @@ QString RemoteProfiles::unavailableReason(Protocol protocol, const ProtocolCheck
     if (check(scheme(protocol))) {
         return {};
     }
-    if (protocol == Protocol::Sftp) {
+    switch (protocol) {
+    case Protocol::Sftp:
         return i18nc("@info", "No KIO worker handles SFTP. Install kio-extras to open SSH connections.");
+    case Protocol::Smb:
+        return i18nc("@info", "No KIO worker handles Windows shares. Install kio-extras with SMB support.");
+    case Protocol::Ftps:
+        return i18nc("@info",
+                     "No KIO worker handles FTP over TLS. KDE doesn't include one; install a third-party FTPS worker, or use SFTP or WebDAV over HTTPS.");
+    case Protocol::WebDav:
+    case Protocol::WebDavs:
+    case Protocol::Ftp:
+        break;
     }
     return i18nc("@info %1 is a protocol name", "No KIO worker handles %1. Install the KIO package from your distribution.", name(protocol));
+}
+
+QUrl RemoteProfiles::networkUrl(const ProtocolCheck &check)
+{
+    for (const QString &scheme : {QStringLiteral("network"), QStringLiteral("remote")}) {
+        if (check(scheme)) {
+            return QUrl(scheme + QStringLiteral(":/"));
+        }
+    }
+    return {};
 }
 
 QList<RemoteProfiles::Profile> RemoteProfiles::load(const KConfigGroup &group, QString *error)

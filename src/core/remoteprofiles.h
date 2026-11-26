@@ -12,7 +12,7 @@
 #include <functional>
 
 /**
- * Saved connections to SSH, SFTP and WebDAV servers. Profiles only hold the
+ * Saved connections to SSH, SFTP, WebDAV, SMB and FTP servers. Profiles only hold the
  * address and how to sign in: passwords are never stored here, because KIO
  * asks for them and KPasswdServer keeps them in KWallet when the user agrees.
  */
@@ -22,6 +22,9 @@ enum class Protocol {
     Sftp,
     WebDav,
     WebDavs,
+    Smb,
+    Ftp,
+    Ftps,
 };
 
 enum class Authentication {
@@ -48,7 +51,7 @@ struct Profile {
 
 /// All protocols, in menu order.
 QList<Protocol> protocols();
-/// The KIO scheme: sftp, webdav or webdavs.
+/// The KIO scheme, such as sftp, webdavs or smb.
 QString scheme(Protocol protocol);
 /// The translated protocol name shown in menus.
 QString name(Protocol protocol);
@@ -72,6 +75,11 @@ using ProtocolCheck = std::function<bool(const QString &scheme)>;
 bool isKnownProtocol(const QString &scheme);
 /// Why @p protocol can't be opened, naming the package to install, or an empty string.
 QString unavailableReason(Protocol protocol, const ProtocolCheck &check = isKnownProtocol);
+/**
+ * The location listing services discovered on the local network: network:/
+ * when its worker is installed, otherwise remote:/, or an empty URL.
+ */
+QUrl networkUrl(const ProtocolCheck &check = isKnownProtocol);
 
 /**
  * Reads the saved profiles in their saved order, skipping invalid entries.

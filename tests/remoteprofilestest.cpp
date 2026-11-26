@@ -59,6 +59,49 @@ private Q_SLOTS:
         QCOMPARE(RemoteProfiles::url(profile), QUrl(QStringLiteral("webdavs://[::1]/dav/files")));
     }
 
+    void buildsSmbAndFtpUrls()
+    {
+        Profile profile;
+        profile.name = QStringLiteral("NAS");
+        profile.protocol = Protocol::Smb;
+        profile.host = QStringLiteral("nas.local");
+        profile.user = QStringLiteral("WORKGROUP;me");
+        profile.path = QStringLiteral("/photos");
+        QVERIFY(RemoteProfiles::validationError(profile).isEmpty());
+        QCOMPARE(RemoteProfiles::url(profile).scheme(), QStringLiteral("smb"));
+        QCOMPARE(RemoteProfiles::url(profile).userName(), QStringLiteral("WORKGROUP;me"));
+        QCOMPARE(RemoteProfiles::url(profile).path(), QStringLiteral("/photos"));
+        profile.path.clear();
+        QCOMPARE(RemoteProfiles::url(profile).path(), QStringLiteral("/"));
+
+        profile.protocol = Protocol::Ftp;
+        profile.user = QStringLiteral("anonymous");
+        QCOMPARE(RemoteProfiles::url(profile), QUrl(QStringLiteral("ftp://anonymous@nas.local")));
+        QVERIFY(!RemoteProfiles::securityWarning(profile).isEmpty());
+        QVERIFY(!RemoteProfiles::supportsSsh(Protocol::Ftp));
+        profile.protocol = Protocol::Ftps;
+        QCOMPARE(RemoteProfiles::url(profile).scheme(), QStringLiteral("ftps"));
+        QVERIFY(RemoteProfiles::securityWarning(profile).isEmpty());
+        QCOMPARE(RemoteProfiles::defaultPort(Protocol::Smb), 445);
+        QCOMPARE(RemoteProfiles::defaultPort(Protocol::Ftps), 21);
+        QCOMPARE(RemoteProfiles::protocols().size(), 6);
+    }
+
+    void findsTheNetworkLocation()
+    {
+        QCOMPARE(RemoteProfiles::networkUrl([](const QString &) {
+                     return true;
+                 }),
+                 QUrl(QStringLiteral("network:/")));
+        QCOMPARE(RemoteProfiles::networkUrl([](const QString &scheme) {
+                     return scheme == QLatin1String("remote");
+                 }),
+                 QUrl(QStringLiteral("remote:/")));
+        QVERIFY(RemoteProfiles::networkUrl([](const QString &) {
+                    return false;
+                }).isEmpty());
+    }
+
     void buildsSshArguments()
     {
         const Profile profile = sftpProfile();
@@ -99,6 +142,7 @@ private Q_SLOTS:
         QTest::newRow("user option") << "user" << "-x" << false;
         QTest::newRow("user colon") << "user" << "a:b" << false;
         QTest::newRow("user empty") << "user" << "" << true;
+        QTest::newRow("user domain") << "user" << "DOMAIN;me" << true;
         QTest::newRow("path relative") << "path" << "srv" << false;
         QTest::newRow("path empty") << "path" << "" << true;
         QTest::newRow("identity relative") << "identity" << "id_rsa" << false;
@@ -160,7 +204,10 @@ private Q_SLOTS:
         };
         QVERIFY(RemoteProfiles::unavailableReason(Protocol::Sftp, missing).contains(QLatin1String("kio-extras")));
         QVERIFY(!RemoteProfiles::unavailableReason(Protocol::WebDavs, missing).isEmpty());
-        QCOMPARE(asked, (QStringList{QStringLiteral("sftp"), QStringLiteral("webdavs")}));
+        QVERIFY(RemoteProfiles::unavailableReason(Protocol::Smb, missing).contains(QLatin1String("kio-extras")));
+        QVERIFY(RemoteProfiles::unavailableReason(Protocol::Ftps, missing).contains(QLatin1String("FTPS")));
+        QVERIFY(!RemoteProfiles::unavailableReason(Protocol::Ftp, missing).isEmpty());
+        QCOMPARE(asked, (QStringList{QStringLiteral("sftp"), QStringLiteral("webdavs"), QStringLiteral("smb"), QStringLiteral("ftps"), QStringLiteral("ftp")}));
         QVERIFY(RemoteProfiles::unavailableReason(Protocol::WebDav, [](const QString &) {
                     return true;
                 }).isEmpty());
