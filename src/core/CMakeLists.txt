@@ -103,6 +103,8 @@ add_library(opusfm_core STATIC
     doubleshift.h
     draftstore.cpp
     draftstore.h
+    documentformats.cpp
+    documentformats.h
     duplicatefinder.cpp
     duplicatefinder.h
     editorproviders.cpp

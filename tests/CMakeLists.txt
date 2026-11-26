@@ -116,6 +116,7 @@ ecm_add_tests(
     namefiltertest.cpp
     densitytest.cpp
     draftstoretest.cpp
+    documentformatstest.cpp
     duplicatefindertest.cpp
     editorproviderstest.cpp
     edittoolstest.cpp
