@@ -713,9 +713,15 @@ without a choice of their own:
 | `YaziParentColumnVisible` | `true`     | Configuration file only; M26 adds it to **Preferences**                        |
 | `YaziColumnRatios`        | `1,3,2`    | Dragging a column's edge, half a second after dragging stops                   |
 | `YaziKeyPreset`           | `Standard` | **View › Vim-Style Keys in Yazi Mode**                                         |
+| `YaziLeftPaneDefault`     | `false`    | **Preferences › Yazi Mode › Activation**                                       |
+| `YaziRightPaneDefault`    | `false`    | **Preferences › Yazi Mode › Activation**                                       |
+| `YaziLeftPaneRestore`     | `true`     | **Preferences › Yazi Mode › Activation**                                       |
+| `YaziRightPaneRestore`    | `true`     | **Preferences › Yazi Mode › Activation**                                       |
 
 Panes that follow a default change with it when the configuration is applied,
-such as after closing **Preferences**. Column ratios are the parent, current
+such as after closing **Preferences**. The activation entries, which end in
+`PaneDefault` and `PaneRestore`, are the exception: they are read only when a
+window opens. Column ratios are the parent, current
 and preview widths: three positive whole numbers, scaled down to at most
 100,000 while keeping their proportions. Any other `YaziColumnRatios` value
 falls back to `1,3,2`. Dragging stores the columns' widths in pixels, so a
@@ -723,8 +729,8 @@ dragged default looks like `240,700,460`. Dragging in one pane doesn't resize
 other open panes that follow the default; they use it the next time the
 configuration is applied, and new windows start with it.
 
-The mode itself has no default: panes always start with it off unless a
-session or workspace restores it.
+Whether each pane starts in the mode is chosen when the window opens; see
+[Activation](#activation). It is off by default.
 
 ### Window sessions
 
@@ -746,8 +752,10 @@ entry, such as an unknown preview content or ratios that aren't three
 positive numbers, is ignored and the default used.
 
 When **On startup** opens the home folder or fixed folders instead of
-restoring the last session, both panes start with the mode off and follow
-the defaults. M26 adds a choice for this.
+restoring the last session, both panes follow the defaults and start with
+their default mode, which is off unless changed in
+[Activation](#activation). A pane whose mode isn't restored from the session
+also starts with its default mode, but keeps the rest of its saved Yazi state.
 
 ### Workspaces
 
@@ -813,3 +821,46 @@ Configure Keyboard Shortcuts** and added to the main toolbar.
 | Column ratios              | Dragging the splitter handles between the columns                                                                                          |
 | Workspace Yazi behavior    | **View › Workspaces… › Workspace Behaviors › Yazi mode**                                                                                   |
 | Default for new workspaces | **Preferences › Workspaces › Behaviors › Selected Behaviors › Yazi mode**                                                                  |
+| Mode when a window opens   | **Preferences › Yazi Mode › Activation**                                                                                                   |
+
+## Settings
+
+**Preferences › Yazi Mode** collects Yazi mode's settings. They are stored in
+the `[YaziMode]` group of the configuration.
+
+### Activation
+
+The **Activation** tab chooses whether each pane starts in Yazi mode when a
+window opens. The **First Pane** and **Second Pane** groups each have:
+
+| Choice                                     | Entry                                          | Default |
+| ------------------------------------------ | ---------------------------------------------- | ------- |
+| **Use Yazi mode by default**               | `YaziLeftPaneDefault` / `YaziRightPaneDefault` | Off     |
+| **Restore the mode from the last session** | `YaziLeftPaneRestore` / `YaziRightPaneRestore` | On      |
+
+When a window opens, each pane's mode is chosen independently:
+
+- If the pane restores its mode and **Preferences › Interface › Folders and
+  Tabs › On startup** restores the last session, the pane starts in Yazi mode
+  exactly when it was in Yazi mode when the session was saved. Sessions saved
+  before Yazi mode existed count as off.
+- Otherwise the pane starts with its default mode: when the pane doesn't
+  restore its mode, when **On startup** opens the home folder or fixed
+  folders, or when the session has nothing saved for the pane.
+
+The same choice applies when the desktop's session management restores a
+window. Only the mode is chosen this way: the pane's tabs, locations and view
+mode, and its preview, information, parent column and column ratio choices,
+still come from the session or the startup folders as before.
+
+With the defaults, panes restore their mode from the last session and start
+with it off otherwise, as before these settings existed; a fresh
+configuration never starts in Yazi mode.
+
+The settings apply only when a window opens. Changing them doesn't change
+open panes; use **View › Yazi Mode** for those. Switching to a workspace, or
+restoring its layout, still applies the workspace's saved mode when its
+**Yazi mode** behavior applies, whatever these settings say; see
+[Workspaces](#workspaces). Workspace layouts aren't restored when a window
+opens, so these settings and workspace layouts never compete for the same
+pane.
