@@ -5,6 +5,8 @@ add_library(opusfm_app STATIC
     activitycontroller.h
     appearancestyle.cpp
     appearancestyle.h
+    applicationpackagedialog.cpp
+    applicationpackagedialog.h
     batchconversiondialog.cpp
     batchconversiondialog.h
     batchrenamedialog.cpp
@@ -108,6 +110,8 @@ add_library(opusfm_app STATIC
     metadataeditdialog.h
     mediaview.cpp
     mediaview.h
+    packagetools.cpp
+    packagetools.h
     pane.cpp
     pane.h
     pathfiltereditor.cpp

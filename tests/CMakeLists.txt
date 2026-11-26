@@ -281,6 +281,12 @@ ecm_add_test(activitycontrollertest.cpp
     GUI
 )
 
+ecm_add_test(applicationpackagedialogtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
 ecm_add_test(kdeconnectsharedialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"

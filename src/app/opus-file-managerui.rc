@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="56" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="57" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -17,6 +17,7 @@
       <Action name="open_in_ark"/>
       <Action name="mount_disk_image"/>
       <Action name="unmount_disk_image"/>
+      <Action name="application_package"/>
       <Action name="rename"/>
       <Action name="batch_rename"/>
       <Action name="edit_metadata"/>

@@ -27,6 +27,7 @@ class MountBackend;
 class DropDownWindow;
 class KWinBackend;
 class DiskImageBackend;
+class PackageTools;
 class KWinIntegration;
 class CombinedPanel;
 class DesktopTray;
@@ -163,6 +164,10 @@ public:
     void setArkBackends(const Ark::Backends &backends);
     /// Replaces the disk image backend, for tests.
     void setDiskImageBackend(std::unique_ptr<DiskImageBackend> backend);
+    /// Replaces the package tools the Application Package dialog uses, for tests.
+    void setPackageTools(PackageTools *tools);
+    /// Opens the Application Package dialog for the selected AppImage, Flatpak or snap package.
+    void showApplicationPackage();
     /**
      * Adds the selected local items to @p archivePath with Ark, after a
      * confirmation, since Ark edits the archive in place. Refuses formats the
@@ -455,9 +460,12 @@ private:
      * plugin, then reports the result Solid shows.
      */
     void setDiskImageMounted(bool mount);
+    /// The selected item when it is exactly one local AppImage, Flatpak or snap package, otherwise a null item.
+    KFileItem selectedPackage() const;
 
     std::optional<Ark::Backends> m_arkBackends;
     std::unique_ptr<DiskImageBackend> m_diskImages;
+    PackageTools *m_packageTools = nullptr;
 
     KFilePlacesModel *m_placesModel = nullptr;
     DesktopTray *m_desktopTray = nullptr;

@@ -9,6 +9,8 @@
 #include "appearancestyle.h"
 #include "appfonts.h"
 #include "appidentity.h"
+#include "applicationpackagedialog.h"
+#include "apppackages.h"
 #include "archives.h"
 #include "archivewriter.h"
 #include "batchrenamedialog.h"
@@ -53,6 +55,7 @@
 #include "localizeddates.h"
 #include "mountbackend.h"
 #include "mountmanagerdialog.h"
+#include "packagetools.h"
 #include "pane.h"
 #include "pathfiltereditor.h"
 #include "previewpanel.h"
@@ -504,6 +507,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_desktopTray, &DesktopTray::transfersRequested, this, &MainWindow::showTransferQueue);
     m_kwin = new KWinIntegration(std::make_unique<SystemKWinBackend>(), KSharedConfig::openConfig(), KSharedConfig::openStateConfig(), this);
     m_diskImages = std::make_unique<SystemDiskImageBackend>();
+    m_packageTools = new SystemPackageTools(this);
     m_kwin->registerOnBus();
     m_kwin->setWorkspaceProvider([this] {
         return m_currentWorkspaceId;
@@ -2371,6 +2375,32 @@ void MainWindow::setDiskImageBackend(std::unique_ptr<DiskImageBackend> backend)
     m_diskImages = std::move(backend);
 }
 
+void MainWindow::setPackageTools(PackageTools *tools)
+{
+    m_packageTools = tools;
+}
+
+KFileItem MainWindow::selectedPackage() const
+{
+    const KFileItemList selected = activePane()->view()->selectedItems();
+    if (selected.size() != 1 || selected.first().localPath().isEmpty() || !AppPackages::isPackage(selected.first().localPath(), selected.first().mimetype())) {
+        return {};
+    }
+    return selected.first();
+}
+
+void MainWindow::showApplicationPackage()
+{
+    const KFileItem item = selectedPackage();
+    if (item.isNull()) {
+        showStatusMessage(i18nc("@info:status", "Select one local AppImage, Flatpak or snap package."));
+        return;
+    }
+    auto *dialog = new ApplicationPackageDialog(item.localPath(), item.mimetype(), m_packageTools, AppPackages::Locations::system(), this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
 KFileItem MainWindow::selectedDiskImage() const
 {
     const KFileItemList selected = activePane()->view()->selectedItems();
@@ -3395,6 +3425,11 @@ void MainWindow::setupActions()
     unmountImage->setText(i18nc("@action", "Unmount Disk Image"));
     unmountImage->setIcon(QIcon::fromTheme(QStringLiteral("media-eject")));
 
+    QAction *applicationPackage = actions->addAction(QStringLiteral("application_package"), this, &MainWindow::showApplicationPackage);
+    applicationPackage->setText(i18nc("@action", "Application Package…"));
+    applicationPackage->setToolTip(i18nc("@info:tooltip", "Show the selected AppImage, Flatpak or snap package and run, install, update or remove it"));
+    applicationPackage->setIcon(QIcon::fromTheme(QStringLiteral("package-x-generic")));
+
     m_flatAction = new KToggleAction(QIcon::fromTheme(QStringLiteral("view-list-text")), i18nc("@action", "Show Flat (No Folders)"), this);
     actions->addAction(QStringLiteral("show_flat"), m_flatAction);
     actions->setDefaultShortcut(m_flatAction, Qt::CTRL | Qt::SHIFT | Qt::Key_F);
@@ -3809,6 +3844,7 @@ void MainWindow::updateActions()
     const bool diskImage = !selectedDiskImage().isNull();
     actions->action(QStringLiteral("mount_disk_image"))->setEnabled(diskImage);
     actions->action(QStringLiteral("unmount_disk_image"))->setEnabled(diskImage);
+    actions->action(QStringLiteral("application_package"))->setEnabled(!selectedPackage().isNull());
 
     bool pasteEnabled = false;
     const QString pasteText = FileOperations::pasteActionText(root, &pasteEnabled);
@@ -4778,6 +4814,9 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     if (items.size() == 1 && !selectedDiskImage().isNull()) {
         const bool attached = m_diskImages->pluginInstalled() && m_diskImages->status(items.first().localPath()).state != DiskImageBackend::State::Detached;
         menu.addAction(actions->action(attached ? QStringLiteral("unmount_disk_image") : QStringLiteral("mount_disk_image")));
+    }
+    if (items.size() == 1 && !selectedPackage().isNull()) {
+        menu.addAction(actions->action(QStringLiteral("application_package")));
     }
     if (allLocal) {
         menu.addAction(actions->action(QStringLiteral("compress")));

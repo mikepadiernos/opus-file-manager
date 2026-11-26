@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "mainwindow.h"
+#include "applicationpackagedialog.h"
 #include "batchrenamedialog.h"
 #include "checksumdialog.h"
 #include "combinedpanel.h"
@@ -27,6 +28,7 @@
 #include "localizeddates.h"
 #include "metadataeditdialog.h"
 #include "metadataimportdialog.h"
+#include "packagetools.h"
 #include "pane.h"
 #include "previewpanel.h"
 #include "savedpathfilters.h"
@@ -624,6 +626,51 @@ private Q_SLOTS:
         closeReport(200);
         mount->trigger();
         QVERIFY(reported);
+    }
+
+    void opensApplicationPackages()
+    {
+        struct NoTools : PackageTools {
+            bool hasProgram(const QString &) const override
+            {
+                return false;
+            }
+            void run(const AppPackages::Command &, const QString &, QObject *, std::function<void(const Result &)>) override
+            {
+            }
+            void launch(const AppPackages::Command &, QObject *, std::function<void(const QString &)>) override
+            {
+            }
+        };
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString ref = directory.filePath(QStringLiteral("kate.flatpakref"));
+        const QString note = directory.filePath(QStringLiteral("note.txt"));
+        for (const auto &[path, contents] : {std::pair{ref, QByteArray("[Flatpak Ref]\nName=org.kde.kate\nTitle=Kate\n")}, std::pair{note, QByteArray("x")}}) {
+            QFile file(path);
+            QVERIFY(file.open(QIODevice::WriteOnly) && file.write(contents) == contents.size());
+        }
+        NoTools tools;
+        MainWindow window;
+        window.setPackageTools(&tools);
+        window.openUrls({QUrl::fromLocalFile(directory.path())});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 2);
+        QAction *action = window.actionCollection()->action(QStringLiteral("application_package"));
+        QVERIFY(action);
+        view->selectUrls({QUrl::fromLocalFile(note)});
+        QTRY_COMPARE(view->selectedItems().size(), 1);
+        QVERIFY(!action->isEnabled());
+        view->selectUrls({QUrl::fromLocalFile(ref)});
+        QTRY_VERIFY(action->isEnabled());
+        action->trigger();
+        auto *dialog = window.findChild<ApplicationPackageDialog *>();
+        QVERIFY(dialog);
+        QCOMPARE(dialog->package().kind, AppPackages::Kind::FlatpakRef);
+        QCOMPARE(dialog->package().name, QStringLiteral("Kate"));
+        auto *install = dialog->findChild<QPushButton *>(QStringLiteral("packageInstall"));
+        QVERIFY(install && !install->isEnabled());
+        dialog->close();
     }
 
     void opensFilteredFolderComparison()
