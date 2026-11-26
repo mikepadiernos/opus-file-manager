@@ -1679,6 +1679,24 @@ The M27 desktop integrations have these limits
   window, or by another application while the settings are open, appear only
   after the window is used again or the settings are reopened.
   ([#369](https://github.com/mikepadiernos/plasma-opus/issues/369))
+- **🗂️ System file chooser:** setup is per user and only through
+  `--install-portal` or `./install.sh --file-chooser`; the planned
+  [M28 settings row](ROADMAP.md#m28-integration-settings) does not exist yet.
+  It writes only `kde-portals.conf`, so it applies in Plasma sessions and not
+  in other desktops. xdg-desktop-portal reads per-user portal descriptions
+  only from version 1.21.0; older versions ignore Plasma Opus and fall back
+  to the next chooser in the preference, normally KDE's. Applications that
+  open their own dialog without the portal keep it, including most native
+  Qt and KDE applications. The chooser has no tabs,
+  previews, side panels or indexed search, only a name filter over the
+  current folder, which also lists matching files when choosing a folder.
+  Only local files are accepted; remote locations can be browsed but not
+  returned. A modal request keeps the dialog over its window, but the
+  application's own window is not blocked. Setup and uninstalling restart
+  xdg-desktop-portal, which closes file dialogs open in other applications.
+  This has been verified in a headless container only, not yet on a Plasma
+  session ([pending task](TODO.md#system-file-chooser-on-plasma-286)).
+  ([#286](https://github.com/mikepadiernos/plasma-opus/issues/286))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -1726,6 +1744,13 @@ The M27 desktop integrations have these limits
     hide any unwanted action under **Settings › Context Menu › Service
     Menus** instead of removing it if Dolphin should keep it. Reopen the
     settings to see service menus installed by other means.
+  - **System file chooser:** Run `opus-file-manager --install-portal` from
+    an installed build in a Plasma session with xdg-desktop-portal 1.21.0 or
+    later, after closing open file dialogs. If applications still show KDE's
+    chooser, check `xdg-desktop-portal --version` and log out and back in.
+    Copy remote files to a local folder before choosing them. To go back,
+    run `opus-file-manager --uninstall-portal`, or `./install.sh
+--uninstall`, which restores the previous `kde-portals.conf`.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -1754,6 +1779,10 @@ The M27 desktop integrations have these limits
   - Ship a Plasma Opus provider and installer so downloads work without
     Dolphin, and watch the service-menu folders to refresh the list while
     the settings are open.
+  - The M28 **System file chooser** settings row, a version check that
+    warns before setup on xdg-desktop-portal older than 1.21.0, previews and
+    indexed search in the chooser, and returning remote files through a
+    local copy.
 
 ## Embedded terminal
 
