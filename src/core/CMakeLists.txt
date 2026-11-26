@@ -23,6 +23,8 @@ add_library(opusfm_core STATIC
     colorschemes.h
     customcommands.cpp
     customcommands.h
+    filechooser.cpp
+    filechooser.h
     filecolorrules.cpp
     filecolorrules.h
     filemanagerrequest.cpp
@@ -107,6 +109,8 @@ add_library(opusfm_core STATIC
     pathfilter.cpp
     pathfilter.h
     navigationhistory.h
+    portalsetup.cpp
+    portalsetup.h
     previewcontent.cpp
     previewcontent.h
     runnermatches.cpp
@@ -184,6 +188,7 @@ endif()
 target_link_libraries(opusfm_core
     PUBLIC
         Qt6::Core
+        Qt6::DBus
         Qt6::Gui
         KF6::Archive
         KF6::ConfigCore
