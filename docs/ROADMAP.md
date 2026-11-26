@@ -1357,7 +1357,7 @@ for some features are recorded in [pending tasks](TODO.md).
         Show the selected device and transfer outcome; do not pair devices, send
         files or change shared KDE Connect settings automatically. Handle
         missing services, offline devices and unsupported locations visibly.
-  - [ ] KRunner integration: provide an optional runner for explicitly saved
+  - [x] KRunner integration: provide an optional runner for explicitly saved
         Plasma Opus workspaces and locations, with actions to open the chosen
         item in Plasma Opus. Respect workspace privacy, avoid exposing
         credentials or unselected history, and handle missing or stale targets
