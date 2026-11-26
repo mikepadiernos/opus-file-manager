@@ -223,6 +223,16 @@ behaves like the rest of the desktop and follows the user's choices.
   Ark's own **Extract** and **Compress** service menus appear in the context
   menu as usual. See [Ark integration](../CAVEATS.md#ark-integration).
   ([#280](https://github.com/mikepadiernos/plasma-opus/issues/280))
+- **Archive creation through Ark:** the built-in **Compress** dialog also
+  writes 7z archives without a password and can split any archive into
+  numbered volumes, such as `photos.7z.001`. **More Options in Ark…** opens
+  Ark's Compress dialog instead, for encrypted 7z with encrypted file names,
+  compression levels and multi-volume archives where Ark's backends support
+  them. **File › Add to Archive…** adds the selection to an existing archive
+  Ark can write, after a confirmation, and refuses formats the installed
+  backends can only extract, such as RAR without `rar`. See
+  [Split archives](../CAVEATS.md#archives).
+  ([#647](https://github.com/mikepadiernos/plasma-opus/issues/647))
 
 ## Planned features
 
