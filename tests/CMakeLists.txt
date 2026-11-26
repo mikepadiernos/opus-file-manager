@@ -108,6 +108,7 @@ ecm_add_tests(
     draftstoretest.cpp
     duplicatefindertest.cpp
     executablestest.cpp
+    filemanagerrequesttest.cpp
     imageeditingtest.cpp
     imageconversiontest.cpp
     imagedetailstest.cpp
@@ -263,6 +264,17 @@ ecm_add_test(mainwindowtest.cpp
     NAME_PREFIX "opusfm-"
     GUI
 )
+
+ecm_add_test(filemanagerservicetest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::DBus Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+find_program(DBUS_RUN_SESSION_EXECUTABLE dbus-run-session)
+if(DBUS_RUN_SESSION_EXECUTABLE)
+    add_test(NAME opusfm-filemanagerservice-dbus COMMAND ${DBUS_RUN_SESSION_EXECUTABLE} $<TARGET_FILE:filemanagerservicetest> exportsTheInterfaceOnTheBus)
+    set_tests_properties(opusfm-filemanagerservice-dbus PROPERTIES ENVIRONMENT QT_QPA_PLATFORM=offscreen)
+endif()
 
 ecm_add_test(settingsbackuptest.cpp
     LINK_LIBRARIES opusfm_core Qt6::Test
