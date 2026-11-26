@@ -285,7 +285,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     addTabbedPage({{createYaziActivationPage(), i18nc("@title:tab", "Activation")},
                    {createYaziColumnsPage(), i18nc("@title:tab", "Columns")},
                    {createYaziKeyboardPage(), i18nc("@title:tab", "Keyboard")},
-                   {createYaziPreviewPage(), i18nc("@title:tab", "Preview")}},
+                   {createYaziPreviewPage(), i18nc("@title:tab", "Preview")},
+                   {createYaziWorkspaceLayoutsPage(), i18nc("@title:tab", "Workspace Layouts")}},
                   i18nc("@title:group", "Yazi Mode"),
                   QStringLiteral("view-file-columns"));
     addTabbedPage({{createContextMenuActionsPage(), i18nc("@title:tab", "Actions")}, {createServiceMenusPage(), i18nc("@title:tab", "Service Menus")}},
@@ -305,19 +306,27 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createTaggingEmbeddedMetadataPage(), i18nc("@title:tab", "Embedded Metadata")}},
                   i18nc("@title:group", "Tagging"),
                   QStringLiteral("tag"));
-    addTabbedPage({{createWorkspaceManagementPage(), i18nc("@title:tab", "Management")},
-                   {createWorkspaceStartupPage(), i18nc("@title:tab", "Startup")},
-                   {createWorkspaceSearchPage(), i18nc("@title:tab", "Search")},
-                   {createWorkspaceLayoutsPage(), i18nc("@title:tab", "Layouts")},
-                   {createWorkspaceSnapshotsPage(), i18nc("@title:tab", "Snapshots")},
-                   {createWorkspaceRecoveryPage(), i18nc("@title:tab", "Recovery")},
-                   {createWorkspaceIndicatorsPage(), i18nc("@title:tab", "Indicators")},
-                   {createWorkspaceLocationBarsPage(), i18nc("@title:tab", "Location Bars")},
-                   {createWorkspaceBehaviorsPage(), i18nc("@title:tab", "Behaviors")},
-                   {createWorkspacePortabilityPage(), i18nc("@title:tab", "Portability")}},
-                  i18nc("@title:group", "Workspaces"),
-                  QStringLiteral("view-grid"));
+    m_workspacePage = addTabbedPage({{createWorkspaceManagementPage(), i18nc("@title:tab", "Management")},
+                                     {createWorkspaceStartupPage(), i18nc("@title:tab", "Startup")},
+                                     {createWorkspaceSearchPage(), i18nc("@title:tab", "Search")},
+                                     {createWorkspaceLayoutsPage(), i18nc("@title:tab", "Layouts")},
+                                     {createWorkspaceSnapshotsPage(), i18nc("@title:tab", "Snapshots")},
+                                     {createWorkspaceRecoveryPage(), i18nc("@title:tab", "Recovery")},
+                                     {createWorkspaceIndicatorsPage(), i18nc("@title:tab", "Indicators")},
+                                     {createWorkspaceLocationBarsPage(), i18nc("@title:tab", "Location Bars")},
+                                     {createWorkspaceBehaviorsPage(), i18nc("@title:tab", "Behaviors")},
+                                     {createWorkspacePortabilityPage(), i18nc("@title:tab", "Portability")}},
+                                    i18nc("@title:group", "Workspaces"),
+                                    QStringLiteral("view-grid"),
+                                    &m_workspaceTabs);
     reloadWorkspaces();
+    // The Yazi Mode page describes the default chosen under Workspaces › Behaviors, as it is edited.
+    connect(findChild<QComboBox *>(QStringLiteral("kcfg_WorkspaceDefaultBehaviorMode")),
+            &QComboBox::currentIndexChanged,
+            this,
+            &SettingsDialog::updateYaziWorkspaceDefault);
+    connect(findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultYaziMode")), &QCheckBox::toggled, this, &SettingsDialog::updateYaziWorkspaceDefault);
+    updateYaziWorkspaceDefault();
     addTabbedPage({{createOpeningPage(), i18nc("@title:tab", "Opening")},
                    {createGalleryInformationPage(), i18nc("@title:tab", "Information")},
                    {createGalleryDisplayPage(), i18nc("@title:tab", "Display")},
@@ -697,8 +706,9 @@ QWidget *SettingsDialog::createWorkspaceLayoutsPage()
                                       i18nc("@option:check", "Pane arrangement: single or dual panes, stacking, sizes and second-pane placement")));
     auto *views = checkBox(QStringLiteral("WorkspaceRestoreViews"), i18nc("@option:check", "Each pane's view mode"));
     views->setToolTip(i18nc("@info:tooltip",
-                            "Each pane's Yazi mode has its own workspace behavior. Workspaces saved before that behavior existed restore Yazi "
-                            "mode with the view mode."));
+                            "Doesn't include Yazi mode: each pane's Yazi mode and columns have their own workspace behavior, and Yazi Mode › "
+                            "Workspace Layouts chooses which of them it restores. Workspaces saved before that behavior existed restore them "
+                            "with the view mode, as Yazi Mode › Workspace Layouts allows."));
     restoreLayout->addWidget(views);
     restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestoreToolbars"), i18nc("@option:check", "Main and pane toolbar entries")));
     restoreLayout->addWidget(checkBox(QStringLiteral("WorkspaceRestorePanels"),
@@ -811,6 +821,7 @@ QWidget *SettingsDialog::createWorkspaceLocationBarsPage()
 QWidget *SettingsDialog::createWorkspaceBehaviorsPage()
 {
     auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("workspaceBehaviorsPage"));
     auto *layout = new QVBoxLayout(page);
     auto *form = new QFormLayout;
     auto *mode = comboBox(QStringLiteral("WorkspaceDefaultBehaviorMode"),
@@ -826,7 +837,11 @@ QWidget *SettingsDialog::createWorkspaceBehaviorsPage()
     selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultLayout"), i18nc("@option:check", "Window and panel layout")));
     selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultPaneTabRestoration"), i18nc("@option:check", "Pane and tab restoration")));
     selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultAppearance"), i18nc("@option:check", "Theme profile and appearance")));
-    selectedLayout->addWidget(checkBox(QStringLiteral("WorkspaceDefaultYaziMode"), i18nc("@option:check", "Yazi mode")));
+    auto *yazi = checkBox(QStringLiteral("WorkspaceDefaultYaziMode"), i18nc("@option:check", "Yazi mode"));
+    yazi->setToolTip(i18nc("@info:tooltip",
+                           "Restore each pane's Yazi mode and columns when switching. Yazi Mode › Workspace Layouts chooses which of "
+                           "them are restored."));
+    selectedLayout->addWidget(yazi);
     layout->addWidget(selected);
     const auto updateSelected = [mode, selected] {
         selected->setEnabled(mode->currentIndex() == Settings::EnumWorkspaceDefaultBehaviorMode::Selected);
@@ -837,7 +852,8 @@ QWidget *SettingsDialog::createWorkspaceBehaviorsPage()
                                     "New workspaces start with these behaviors. Duplicated workspaces keep the behaviors of the workspace they "
                                     "copy, and existing workspaces keep their own; change them in the workspace manager. Behaviors that are not "
                                     "applied leave the current state unchanged when switching, and the options under Search, Layouts, Snapshots "
-                                    "and Location Bars still decide what each applied behavior restores."),
+                                    "and Location Bars, and under Yazi Mode › Workspace Layouts, still decide what each applied behavior "
+                                    "restores."),
                               page);
     notice->setWordWrap(true);
     layout->addWidget(notice);
@@ -2553,7 +2569,8 @@ QWidget *SettingsDialog::createYaziActivationPage()
                                     "When a window opens, a pane that restores its mode starts in Yazi mode if it was in Yazi mode when the last "
                                     "session was saved. Otherwise, or when Interface › Folders and Tabs › On startup doesn't restore the last "
                                     "session, the pane starts with its default. Switching to a workspace or restoring its layout still applies "
-                                    "the workspace's Yazi mode behavior. Open panes keep their mode; use View › Yazi Mode to change it."),
+                                    "the workspace's Yazi mode behavior, as chosen on the Workspace Layouts tab. Open panes keep their mode; use "
+                                    "View › Yazi Mode to change it."),
                               page);
     notice->setObjectName(QStringLiteral("yaziActivationNotice"));
     notice->setWordWrap(true);
@@ -2919,6 +2936,81 @@ QWidget *SettingsDialog::createYaziPreviewPage()
     layout->addWidget(information);
     layout->addStretch();
     return page;
+}
+
+QWidget *SettingsDialog::createYaziWorkspaceLayoutsPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("yaziWorkspaceLayoutsPage"));
+    auto *layout = new QVBoxLayout(page);
+    const auto notice = [page](const QString &name, const QString &text) {
+        auto *label = new QLabel(text, page);
+        label->setObjectName(name);
+        label->setWordWrap(true);
+        return label;
+    };
+
+    auto *restore = new QGroupBox(i18nc("@title:group", "Restore When Switching Workspaces"), page);
+    auto *restoreLayout = new QVBoxLayout(restore);
+    restoreLayout->addWidget(checkBox(QStringLiteral("YaziWorkspaceRestoreMode"), i18nc("@option:check", "Each pane's Yazi mode")));
+    restoreLayout->addWidget(checkBox(QStringLiteral("YaziWorkspaceRestoreColumns"),
+                                      i18nc("@option:check", "Each pane's Yazi columns: preview column, preview content, parent column and widths")));
+    restoreLayout->addWidget(notice(QStringLiteral("yaziWorkspaceRestoreNotice"),
+                                    i18nc("@info",
+                                          "These options apply when switching to a workspace whose behaviors include Yazi mode, or "
+                                          "restoring its saved layout. A part that isn't restored keeps the pane's current state. They "
+                                          "never change the pane's view mode, tabs or locations, which follow the Workspaces options, "
+                                          "and never change a workspace's saved layout or behaviors: saving a layout still records each "
+                                          "pane's Yazi mode and columns.")));
+    layout->addWidget(restore);
+
+    auto *defaults = new QGroupBox(i18nc("@title:group", "New Workspaces"), page);
+    auto *defaultsLayout = new QVBoxLayout(defaults);
+    m_yaziWorkspaceDefault = notice(QStringLiteral("yaziWorkspaceDefault"), {});
+    defaultsLayout->addWidget(m_yaziWorkspaceDefault);
+    defaultsLayout->addWidget(notice(QStringLiteral("yaziWorkspaceBehaviorNotice"),
+                                     i18nc("@info",
+                                           "Whether new workspaces include the Yazi mode behavior is chosen with the other behaviors "
+                                           "they start with, under Workspaces › Behaviors. Existing workspaces keep their own "
+                                           "choice; change it in View › Workspaces…, under Workspace Behaviors.")));
+    auto *showBehaviors = new QPushButton(i18nc("@action:button", "Go to Workspaces › Behaviors"), defaults);
+    showBehaviors->setObjectName(QStringLiteral("yaziShowWorkspaceBehaviors"));
+    connect(showBehaviors, &QPushButton::clicked, this, [this] {
+        setCurrentPage(m_workspacePage);
+        m_workspaceTabs->setCurrentWidget(findChild<QWidget *>(QStringLiteral("workspaceBehaviorsPage")));
+    });
+    auto *buttonRow = new QHBoxLayout;
+    buttonRow->addWidget(showBehaviors);
+    buttonRow->addStretch();
+    defaultsLayout->addLayout(buttonRow);
+    layout->addWidget(defaults);
+    layout->addStretch();
+    return page;
+}
+
+void SettingsDialog::updateYaziWorkspaceDefault()
+{
+    const auto *mode = findChild<QComboBox *>(QStringLiteral("kcfg_WorkspaceDefaultBehaviorMode"));
+    const auto *yazi = findChild<QCheckBox *>(QStringLiteral("kcfg_WorkspaceDefaultYaziMode"));
+    if (!m_yaziWorkspaceDefault || !mode || !yazi) {
+        return;
+    }
+    QString text;
+    switch (mode->currentIndex()) {
+    case Settings::EnumWorkspaceDefaultBehaviorMode::All:
+        text = i18nc("@info", "New workspaces apply all behaviors, so they restore Yazi mode as chosen above.");
+        break;
+    case Settings::EnumWorkspaceDefaultBehaviorMode::Selected:
+        text = yazi->isChecked() ? i18nc("@info", "New workspaces apply selected behaviors, including Yazi mode, so they restore it as chosen above.")
+                                 : i18nc("@info",
+                                         "New workspaces apply selected behaviors without Yazi mode, so switching to them keeps "
+                                         "each pane's Yazi mode and columns.");
+        break;
+    default:
+        text = i18nc("@info", "New workspaces apply no behaviors, so switching to them keeps each pane's Yazi mode and columns.");
+        break;
+    }
+    m_yaziWorkspaceDefault->setText(text);
 }
 
 void SettingsDialog::accept()

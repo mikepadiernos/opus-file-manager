@@ -181,6 +181,9 @@ private:
      */
     bool confirmYaziKeyPreset();
     QWidget *createYaziPreviewPage();
+    QWidget *createYaziWorkspaceLayoutsPage();
+    /// Describes, on the Workspace Layouts tab, whether new workspaces include the Yazi mode behavior as chosen under Workspaces › Behaviors.
+    void updateYaziWorkspaceDefault();
     QWidget *createIconsPage();
     QWidget *createContextMenuActionsPage();
     QWidget *createServiceMenusPage();
@@ -231,6 +234,9 @@ private:
     QList<std::pair<KPageWidgetItem *, QString>> m_pageIcons;
     KPageWidgetItem *m_toolbarPage = nullptr;
     QTabWidget *m_toolbarTabs = nullptr;
+    KPageWidgetItem *m_workspacePage = nullptr;
+    QTabWidget *m_workspaceTabs = nullptr;
+    QLabel *m_yaziWorkspaceDefault = nullptr;
     QListWidget *m_workspaceSummary = nullptr;
     StartupWorkspaceCombo *m_startupWorkspace = nullptr;
     ColorSchemeCombo *m_colorScheme = nullptr;
