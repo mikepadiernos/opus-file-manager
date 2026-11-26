@@ -1589,7 +1589,7 @@ for some features are recorded in [pending tasks](TODO.md).
         and never open firewall ports. Warn that transfers without TLS can be
         observed on the network, and point to KDE Connect and Samba sharing
         for paired devices and persistent shares. (MiXplorer)
-  - [ ] Integrate with KDE Online Accounts: discover available accounts and
+  - [x] Integrate with KDE Online Accounts: discover available accounts and
         their supported file services, let users explicitly connect or open them
         in either pane through the appropriate KDE provider or KIO worker, and
         provide access to KDE's account-management interface. Reuse account
