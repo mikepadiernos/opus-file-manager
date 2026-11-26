@@ -1460,7 +1460,7 @@ for some features are recorded in [pending tasks](TODO.md).
 
 - **M27.03: Search and indexing**
 
-  - [ ] Enhance Baloo integration using M09 indexed search and M21's search
+  - [x] Enhance Baloo integration using M09 indexed search and M21's search
         interface. Show service status, configured folders and exclusions, and
         available coverage or indexing progress. Distinguish configured scope
         from confirmed coverage and warn about missing or stale results. Offer
