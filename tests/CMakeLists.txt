@@ -133,6 +133,7 @@ ecm_add_tests(
     operationjobtest.cpp
     previewcontenttest.cpp
     rclonetest.cpp
+    remotemountstest.cpp
     remoteprofilestest.cpp
     runnermatchestest.cpp
     servicemenustest.cpp

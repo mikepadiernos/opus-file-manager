@@ -139,6 +139,8 @@ add_library(opusfm_core STATIC
     previewcontent.h
     rclone.cpp
     rclone.h
+    remotemounts.cpp
+    remotemounts.h
     remoteprofiles.cpp
     remoteprofiles.h
     runnermatches.cpp
