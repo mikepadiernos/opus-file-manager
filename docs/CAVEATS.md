@@ -1900,6 +1900,20 @@ The M27 desktop integrations have these limits
   remembered between uses.
   ([#319](https://github.com/mikepadiernos/plasma-opus/issues/319))
 
+- **📄 Office documents:** Plasma Opus doesn't embed an office editor. The
+  preview panel shows office documents read-only, and only when a document
+  viewer component for the format, such as Calligra's, is installed; otherwise
+  it shows the file's details. **Open in Office Application** lists only
+  LibreOffice, Calligra and ONLYOFFICE, and finds them through `PATH`, so an
+  application installed only as a Flatpak or AppImage shows as not
+  installed. It covers OpenDocument and Microsoft Office documents,
+  spreadsheets and presentations; RTF, CSV and OpenDocument drawings aren't
+  included. LibreOffice and ONLYOFFICE only open local files, and Calligra
+  needs a separate Words, Sheets or Stage program for each kind. The
+  application handles saving and format conversion, and Plasma Opus doesn't
+  track whether a document is open or has unsaved changes.
+  ([#674](https://github.com/mikepadiernos/plasma-opus/issues/674))
+
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
     it is running and restart Plasma Opus so it claims the service. To hand
@@ -2006,6 +2020,11 @@ The M27 desktop integrations have these limits
     editors. To edit remote files in a terminal editor, copy them to a local
     folder first, or use KWrite or Kate. Save your work before closing the
     editor's terminal tab.
+  - **Office documents:** Install LibreOffice, Calligra or ONLYOFFICE from
+    your distribution so its command is in `PATH`, and install Calligra for
+    previews. To open remote documents in LibreOffice or
+    ONLYOFFICE, copy them to a local folder first, or use Calligra. Open RTF
+    and CSV files with **Open With**.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2067,6 +2086,8 @@ The M27 desktop integrations have these limits
   - The M28 editor settings to choose a default editor, open terminal
     editors in a separate terminal, find Flatpak editors and add other
     editors.
+  - Find Flatpak office applications, remember the chosen application and
+    offer RTF and CSV files to it.
 
 ## Embedded terminal
 
