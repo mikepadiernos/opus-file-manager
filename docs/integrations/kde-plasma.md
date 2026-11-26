@@ -284,17 +284,26 @@ behaves like the rest of the desktop and follows the user's choices.
   [Index status](../CAVEATS.md#search).
   ([#441](https://github.com/mikepadiernos/plasma-opus/issues/441))
 
+- **Baloo metadata and ranking:** Indexed queries accept `meta:` terms, such
+  as `meta:Canon type:jpg`. Baloo finds candidates whose indexed text or
+  enabled text properties, such as camera maker, title or artist, contain the
+  term; Plasma Opus then reads each candidate's metadata to confirm the whole
+  query. Name and content terms are preferred as the starting term when a
+  query has them. A query with only number or date metadata, no enabled text
+  properties or Baloo limited to file names is refused with a suggestion.
+  **Rank results by similarity** in the search panel lists exact names first,
+  then prefixes, word starts, other matches, near spellings and scattered
+  letters; the status explains that ranking only reorders the matches found.
+  After an indexed search, **Search Current Folder Live** or **Search
+  Workspace Locations Live** repeats it as a live search, with the usual
+  limits, progress, cancellation and errors; the scope never changes on its
+  own. See [Indexed metadata and ranking](../CAVEATS.md#search).
+  ([#442](https://github.com/mikepadiernos/plasma-opus/issues/442))
+
 ## Planned features
 
 Grouped by the [M27](../ROADMAP.md#m27-integrations) subsection that tracks
 them.
-
-### M27.03 Search and indexing
-
-- **Baloo metadata:** Search supported metadata, with optional fuzzy ranking
-  and an explicit live-search fallback. Never broaden scope or substitute
-  another search silently.
-  ([#442](https://github.com/mikepadiernos/plasma-opus/issues/442))
 
 ### M27.06 Accounts, remote access and synchronization
 
