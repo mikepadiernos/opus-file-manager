@@ -22,6 +22,7 @@
 
 class ActivityController;
 class KdeConnectClient;
+class MountBackend;
 class CombinedPanel;
 class DesktopTray;
 class FavoritesModel;
@@ -134,6 +135,15 @@ public:
     void setKdeConnectClient(KdeConnectClient *client);
     /// Shows the dialog that sends the selected files to a KDE Connect device.
     void sendToDevice();
+
+    /// The file systems the mount manager and the Mount Points menu list, created when first needed.
+    MountBackend *mountBackend();
+    /// Replaces the mount backend and takes ownership of it.
+    void setMountBackend(MountBackend *backend);
+    /// Shows the mount manager.
+    void showMountManager();
+    /// Fills the Mount Points menu with each file system and its state.
+    void populateMountPoints();
 
     /**
      * Applies the current Settings to the panes, actions and status bar.
@@ -407,6 +417,9 @@ private:
     DesktopTray *m_desktopTray = nullptr;
     ActivityController *m_activityController = nullptr;
     KdeConnectClient *m_kdeConnect = nullptr;
+    MountBackend *m_mountBackend = nullptr;
+    /// The file system the Mount Points menu mounts and then opens.
+    QString m_openAfterMount;
     /// Behaviours an applied Activity association chose for its workspace, until another workspace is chosen.
     std::optional<WorkspaceCatalog::BehaviorSelection> m_activityBehaviors;
     QString m_activityBehaviorsWorkspaceId;
@@ -524,6 +537,7 @@ private:
     bool m_automaticLocalSizeDefault = false;
     bool m_automaticRemoteSizeDefault = false;
     QMenu *m_popularFoldersMenu = nullptr;
+    QMenu *m_mountPointsMenu = nullptr;
     QHash<QString, int> m_popularFolderVisits;
     QHash<QString, QAction *> m_customCommandActions;
     QHash<Pane *, QUrl> m_lastFolderByPane;

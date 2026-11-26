@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="51" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="52" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -25,6 +25,7 @@
       <Action name="transfer_queue"/>
       <Action name="open_editor"/>
       <Action name="kdeconnect_send"/>
+      <Action name="mount_manager"/>
       <Action name="compare_files"/>
       <Action name="export_listing"/>
       <Action name="export_listing_csv"/>
@@ -128,6 +129,7 @@
       <Action name="go_home"/>
       <Action name="jump_back"/>
       <Action name="popular_folders"/>
+      <Action name="mount_points"/>
       <Separator/>
       <Action name="edit_location"/>
       <Action name="add_to_favorites"/>
@@ -182,6 +184,7 @@
     <Action name="compact_view"/>
     <Action name="open_editor"/>
     <Action name="show_preview_panel"/>
+    <Action name="mount_points"/>
     <Spacer/>
     <Action name="search_folder"/>
     <Action name="show_filter_bar"/>

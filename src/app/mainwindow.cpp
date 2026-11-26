@@ -46,6 +46,8 @@
 #include "libraryregistry.h"
 #include "linkednavigation.h"
 #include "localizeddates.h"
+#include "mountbackend.h"
+#include "mountmanagerdialog.h"
 #include "pane.h"
 #include "pathfiltereditor.h"
 #include "previewpanel.h"
@@ -79,6 +81,7 @@
 #include "yazicolumns.h"
 
 #include <KActionCollection>
+#include <KActionMenu>
 #include <KConfig>
 #include <KConfigGroup>
 #include <KDirModel>
@@ -2369,6 +2372,10 @@ void MainWindow::setupActions()
     sendToDevice->setText(i18nc("@action", "Send to Device…"));
     sendToDevice->setToolTip(i18nc("@info:tooltip", "Send the selected files to a paired device with KDE Connect"));
     sendToDevice->setIcon(SymbolicIcon::fromTheme(QStringLiteral("smartphone")));
+    QAction *mountManager = actions->addAction(QStringLiteral("mount_manager"), this, &MainWindow::showMountManager);
+    mountManager->setText(i18nc("@action", "Mount Manager…"));
+    mountManager->setToolTip(i18nc("@info:tooltip", "List file systems and mount, unmount or eject them"));
+    mountManager->setIcon(SymbolicIcon::fromTheme(QStringLiteral("drive-harddisk")));
     QAction *compare = actions->addAction(QStringLiteral("compare_files"), this, &MainWindow::compareFiles);
     compare->setText(i18nc("@action", "Compare Files"));
     compare->setIcon(QIcon::fromTheme(QStringLiteral("document-edit")));
@@ -2982,6 +2989,13 @@ void MainWindow::setupActions()
     m_popularFoldersMenu = new QMenu(i18nc("@menu", "Popular Folders"), this);
     actions->addAction(QStringLiteral("popular_folders"), m_popularFoldersMenu->menuAction());
     connect(m_popularFoldersMenu, &QMenu::aboutToShow, this, &MainWindow::populatePopularFolders);
+
+    auto *mountPoints = new KActionMenu(SymbolicIcon::fromTheme(QStringLiteral("drive-harddisk")), i18nc("@action", "Mount Points"), this);
+    mountPoints->setToolTip(i18nc("@info:tooltip", "Open, mount or manage file systems"));
+    mountPoints->setPopupMode(QToolButton::InstantPopup);
+    m_mountPointsMenu = mountPoints->menu();
+    actions->addAction(QStringLiteral("mount_points"), mountPoints);
+    connect(m_mountPointsMenu, &QMenu::aboutToShow, this, &MainWindow::populateMountPoints);
 
     QAction *editUrl = actions->addAction(QStringLiteral("edit_location"), this, [this] {
         activePane()->editUrl();
@@ -4730,6 +4744,95 @@ void MainWindow::sendToDevice()
     auto *dialog = new KdeConnectShareDialog(kdeConnectClient(), urlsOf(items), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
+}
+
+MountBackend *MainWindow::mountBackend()
+{
+    if (!m_mountBackend) {
+        setMountBackend(new SystemMountBackend(this));
+    }
+    return m_mountBackend;
+}
+
+void MainWindow::setMountBackend(MountBackend *backend)
+{
+    if (m_mountBackend == backend) {
+        return;
+    }
+    delete m_mountBackend;
+    m_mountBackend = backend;
+    if (!backend) {
+        return;
+    }
+    backend->setParent(this);
+    connect(backend, &MountBackend::finished, this, [this](const QString &id, MountOperation operation, const QString &error, const QString &mountPoint) {
+        if (id != m_openAfterMount || operation != MountOperation::Mount) {
+            return;
+        }
+        m_openAfterMount.clear();
+        if (!error.isEmpty()) {
+            KMessageBox::error(this, error, i18nc("@title:window", "Mount Points"));
+        } else if (!mountPoint.isEmpty()) {
+            activePane()->setUrl(QUrl::fromLocalFile(mountPoint));
+        }
+    });
+}
+
+void MainWindow::showMountManager()
+{
+    if (auto *existing = findChild<MountManagerDialog *>()) {
+        existing->raise();
+        existing->activateWindow();
+        return;
+    }
+    auto *dialog = new MountManagerDialog(mountBackend(), this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &MountManagerDialog::openRequested, this, [this](const QUrl &url) {
+        activePane()->setUrl(url);
+    });
+    dialog->show();
+}
+
+void MainWindow::populateMountPoints()
+{
+    m_mountPointsMenu->clear();
+    MountBackend *backend = mountBackend();
+    backend->refresh();
+    const QList<MountDevice> devices = backend->devices();
+    for (const MountDevice &device : devices) {
+        QString name = device.name;
+        name.replace(QLatin1Char('&'), QStringLiteral("&&"));
+        QString mountPoint = device.mountPoint;
+        mountPoint.replace(QLatin1Char('&'), QStringLiteral("&&"));
+        const QString text = mountPoint.isEmpty() || name == QFileInfo(device.mountPoint).fileName()
+            ? (mountPoint.isEmpty() ? name : mountPoint)
+            : i18nc("@action:inmenu %1 is a file system name, %2 its mount point", "%1 (%2)", name, mountPoint);
+        QAction *action = m_mountPointsMenu->addAction(QIcon::fromTheme(device.iconName), text);
+        action->setCheckable(true);
+        action->setChecked(device.mounted);
+        action->setData(device.id);
+        const bool running = backend->isRunning(device.id);
+        action->setEnabled(!running && (device.mounted || device.canMount));
+        action->setToolTip(device.mounted ? i18nc("@info:tooltip", "Mounted; open it in the active pane")
+                                          : i18nc("@info:tooltip", "Not mounted; mount it and open it in the active pane"));
+        const QString id = device.id;
+        const bool mounted = device.mounted;
+        const QString path = device.mountPoint;
+        connect(action, &QAction::triggered, this, [this, id, mounted, path] {
+            if (mounted) {
+                activePane()->setUrl(QUrl::fromLocalFile(path));
+                return;
+            }
+            m_openAfterMount = id;
+            mountBackend()->start(id, MountOperation::Mount);
+        });
+    }
+    if (devices.isEmpty()) {
+        m_mountPointsMenu->addAction(i18nc("@action:inmenu", "No file systems found"))->setEnabled(false);
+    }
+    m_mountPointsMenu->setToolTipsVisible(true);
+    m_mountPointsMenu->addSeparator();
+    m_mountPointsMenu->addAction(actionCollection()->action(QStringLiteral("mount_manager")));
 }
 
 void MainWindow::verifyChecksumFile()
