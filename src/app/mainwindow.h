@@ -164,6 +164,8 @@ public:
     void populateRemoteConnections();
     /// Shows the dialog that manages saved remote connections.
     void showRemoteConnections();
+    /// Fills the Online Accounts menu with the folders of each KDE Online Account.
+    void populateOnlineAccounts();
     /// Opens @p profile in the active pane, or in the other pane when @p otherPane is set.
     void openRemoteProfile(const RemoteProfiles::Profile &profile, bool otherPane);
     /// Opens an SSH session for @p profile in the terminal panel.
@@ -538,6 +540,7 @@ private:
     QString m_openAfterMount;
     RcloneMounts *m_rcloneMounts = nullptr;
     QMenu *m_cloudStorageMenu = nullptr;
+    QMenu *m_onlineAccountsMenu = nullptr;
     QList<Rclone::Remote> m_rcloneRemotes;
     QString m_rcloneError;
     bool m_rcloneListed = false;

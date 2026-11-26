@@ -59,6 +59,7 @@
 #include "localizeddates.h"
 #include "mountbackend.h"
 #include "mountmanagerdialog.h"
+#include "onlineaccountsmenu.h"
 #include "packagetools.h"
 #include "pane.h"
 #include "pathfiltereditor.h"
@@ -3638,6 +3639,25 @@ void MainWindow::setupActions()
         rcloneMounts()->listRemotes();
     });
 
+    auto *onlineAccounts = new KActionMenu(SymbolicIcon::fromTheme(QStringLiteral("internet-services")), i18nc("@action", "Online Accounts"), this);
+    onlineAccounts->setToolTip(i18nc("@info:tooltip", "Open the files of an account configured in KDE Online Accounts"));
+    onlineAccounts->setPopupMode(QToolButton::InstantPopup);
+    m_onlineAccountsMenu = onlineAccounts->menu();
+    actions->addAction(QStringLiteral("online_accounts"), onlineAccounts);
+    connect(m_onlineAccountsMenu, &QMenu::aboutToShow, this, &MainWindow::populateOnlineAccounts);
+    QAction *manageAccounts = actions->addAction(QStringLiteral("manage_online_accounts"), this, [this] {
+        const QStringList command = OnlineAccounts::managerCommand();
+        if (command.isEmpty()) {
+            showStatusMessage(i18nc("@info:status", "System Settings was not found. Install it to manage online accounts."));
+            return;
+        }
+        auto *job = new KIO::CommandLauncherJob(command.first(), command.mid(1), this);
+        job->start();
+    });
+    manageAccounts->setText(i18nc("@action", "Manage Online Accounts…"));
+    manageAccounts->setToolTip(i18nc("@info:tooltip", "Add, remove or sign in to online accounts in System Settings"));
+    manageAccounts->setIcon(SymbolicIcon::fromTheme(QStringLiteral("configure")));
+
     QAction *network = actions->addAction(QStringLiteral("network_locations"), this, [this] {
         const QUrl url = RemoteProfiles::networkUrl();
         if (url.isEmpty()) {
@@ -5781,6 +5801,29 @@ void MainWindow::populateRemoteConnections()
     network->setEnabled(!RemoteProfiles::networkUrl().isEmpty());
     m_remoteConnectionsMenu->addAction(network);
     m_remoteConnectionsMenu->addAction(actionCollection()->action(QStringLiteral("manage_remote_connections")));
+}
+
+void MainWindow::populateOnlineAccounts()
+{
+    QString error;
+    const QList<OnlineAccounts::Account> accounts = OnlineAccounts::readAccounts(&error);
+    OnlineAccountsMenu::populate(
+        m_onlineAccountsMenu,
+        accounts,
+        error,
+        [](const QString &protocol) {
+            return KProtocolInfo::isKnownProtocol(protocol);
+        },
+        isDualLayout() && !inactivePane()->isHidden(),
+        actionCollection()->action(QStringLiteral("manage_online_accounts")),
+        this,
+        [this](const QUrl &url, bool otherPane) {
+            if (otherPane && isDualLayout() && !inactivePane()->isHidden()) {
+                inactivePane()->setUrl(url);
+                return;
+            }
+            activePane()->setUrl(url);
+        });
 }
 
 void MainWindow::showRemoteConnections()

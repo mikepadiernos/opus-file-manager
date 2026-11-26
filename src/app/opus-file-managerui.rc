@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="67" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="68" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -145,6 +145,7 @@
       <Action name="mount_points"/>
       <Action name="remote_connections"/>
       <Action name="cloud_storage"/>
+      <Action name="online_accounts"/>
       <Action name="network_locations"/>
       <Separator/>
       <Action name="edit_location"/>

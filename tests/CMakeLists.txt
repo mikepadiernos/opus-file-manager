@@ -341,6 +341,12 @@ ecm_add_test(lansharedialogtest.cpp
     GUI
 )
 
+ecm_add_test(onlineaccountsmenutest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
 ecm_add_test(mountmanagerdialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"

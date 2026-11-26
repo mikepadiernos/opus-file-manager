@@ -118,6 +118,8 @@ add_library(opusfm_app STATIC
     metadataeditdialog.h
     mediaview.cpp
     mediaview.h
+    onlineaccountsmenu.cpp
+    onlineaccountsmenu.h
     packagetools.cpp
     packagetools.h
     pane.cpp
