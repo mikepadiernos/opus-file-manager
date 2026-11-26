@@ -7,6 +7,7 @@
 #include "interfacelanguage.h"
 #include "localizednumbers.h"
 #include "mainwindow.h"
+#include "operationjob.h"
 #include "opusfm_version.h"
 #include "settings.h"
 #include "settingsbackup.h"
@@ -20,6 +21,7 @@
 #include <KDBusService>
 #include <KLocalizedString>
 #include <KSharedConfig>
+#include <KUiServerV2JobTracker>
 #include <KWindowSystem>
 
 #include <QApplication>
@@ -79,6 +81,10 @@ int main(int argc, char **argv)
     }
     QApplication app(argc, argv);
     app.installEventFilter(new SymbolicActionIcons(&app));
+    // Plasma Opus-owned operations report to Plasma's job view directly. KIO's
+    // dynamic tracker would fall back to a separate progress window outside
+    // Plasma, duplicating the progress the dialogs already show.
+    OperationJob::setDefaultTracker(new KUiServerV2JobTracker(&app));
     KLocalizedString::setApplicationDomain(QByteArrayLiteral("opus-file-manager"));
     const QString configuredLanguage = KSharedConfig::openConfig()->group(QStringLiteral("Translation")).readEntry("InterfaceLanguage", QString());
     const QString configuredLocale = KSharedConfig::openConfig()->group(QStringLiteral("Translation")).readEntry("RegionalLocale", QString());

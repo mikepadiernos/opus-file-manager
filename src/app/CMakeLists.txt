@@ -189,6 +189,7 @@ target_link_libraries(opus-file-manager
         Qt6::DBus
         KF6::Crash
         KF6::DBusAddons
+        KF6::JobWidgets
         KF6::WindowSystem
 )
 
