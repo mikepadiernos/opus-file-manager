@@ -4,6 +4,7 @@
 #
 #   ./install.sh                 build + install for the current user (~/.local)
 #   ./install.sh --default       ... and make Plasma Opus the default folder handler
+#   ./install.sh --file-chooser  ... and serve the system file chooser (XDG portal)
 #   ./install.sh --system        build + install under /usr/local (uses sudo)
 #   ./install.sh --deps          print build and optional feature dependencies
 #   ./install.sh --uninstall     remove the install and restore Dolphin
@@ -20,11 +21,12 @@ mode=install
 scope=user
 prefix=""
 make_default=0
+file_chooser=0
 build_type=Release
 jobs=""
 
 usage() {
-    sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
     cat <<EOF
 
 Options:
@@ -33,6 +35,8 @@ Options:
   --prefix DIR       install under DIR instead
   --default          register Plasma Opus as the default handler for folders
                      and "Show in folder" (FileManager1) requests
+  --file-chooser     serve the system file chooser for applications that use
+                     the XDG portal (per user; undone by --uninstall)
   --debug            build with CMAKE_BUILD_TYPE=Debug (default: Release)
   --jobs N           parallel build jobs (default: all cores)
 
@@ -52,6 +56,7 @@ while [ $# -gt 0 ]; do
         --system) scope=system ;;
         --prefix) shift; prefix="${1:-}"; [ -n "$prefix" ] || die "--prefix needs a directory"; scope=custom ;;
         --default) make_default=1 ;;
+        --file-chooser) file_chooser=1 ;;
         --debug) build_type=Debug ;;
         --jobs) shift; jobs="${1:-}"; [ -n "$jobs" ] || die "--jobs needs a number" ;;
         --deps) mode=deps ;;
@@ -245,6 +250,10 @@ case "$mode" in
 
     uninstall)
         [ -f "$BUILD_DIR/build.ninja" ] || die "no build tree in $BUILD_DIR; nothing to uninstall"
+        # Restore the previous portal chooser while the binary still exists.
+        if [ -x "$prefix/bin/opus-file-manager" ]; then
+            "$prefix/bin/opus-file-manager" --uninstall-portal || echo "file chooser: could not restore the previous portal chooser" >&2
+        fi
         say "Removing installed files"
         "${sudo_cmd[@]}" cmake --build "$BUILD_DIR" --target uninstall
         restore_default_handler
@@ -273,6 +282,11 @@ refresh_desktop_db "$prefix/share/applications"
 if [ "$make_default" = 1 ]; then
     say "Registering Plasma Opus as the default folder handler"
     set_default_handler
+fi
+
+if [ "$file_chooser" = 1 ]; then
+    say "Serving the system file chooser"
+    "$prefix/bin/opus-file-manager" --install-portal || echo "file chooser: setup failed; applications keep their current chooser" >&2
 fi
 
 echo
