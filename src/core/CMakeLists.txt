@@ -98,6 +98,8 @@ add_library(opusfm_core STATIC
     navigationhistory.cpp
     namefilter.cpp
     namefilter.h
+    operationjob.cpp
+    operationjob.h
     pathfilter.cpp
     pathfilter.h
     navigationhistory.h
