@@ -75,6 +75,8 @@ add_library(opusfm_core STATIC
     interfacelanguage.h
     kdeconnectshare.cpp
     kdeconnectshare.h
+    lanshare.cpp
+    lanshare.h
     kwinscript.cpp
     kwinscript.h
     mounttable.cpp
@@ -223,6 +225,7 @@ target_link_libraries(opusfm_core
         Qt6::Core
         Qt6::DBus
         Qt6::Gui
+        Qt6::Network
         KF6::Archive
         KF6::ConfigCore
         KF6::CoreAddons

@@ -106,6 +106,7 @@ ecm_add_tests(
     indexedsearchtest.cpp
     indexstatustest.cpp
     kdeconnectsharetest.cpp
+    lansharetest.cpp
     kwinscripttest.cpp
     mounttabletest.cpp
     libraryscantest.cpp
