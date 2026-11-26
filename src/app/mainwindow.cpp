@@ -2936,6 +2936,38 @@ void MainWindow::setupActions()
             }
         }
     });
+    auto *openInOffice = new KActionMenu(SymbolicIcon::fromTheme(QStringLiteral("x-office-document")), i18nc("@action", "Open in Office Application"), this);
+    openInOffice->setToolTip(i18nc("@info:tooltip", "Open the selected documents, spreadsheets or presentations in a chosen office application"));
+    openInOffice->setPopupMode(QToolButton::InstantPopup);
+    actions->addAction(QStringLiteral("open_in_office"), openInOffice);
+    QMenu *openInOfficeMenu = openInOffice->menu();
+    openInOfficeMenu->setToolTipsVisible(true);
+    for (const OfficeApps::App app : OfficeApps::apps()) {
+        QAction *entry = openInOfficeMenu->addAction(QIcon::fromTheme(OfficeApps::iconName(app)), OfficeApps::name(app));
+        entry->setObjectName(QStringLiteral("openInOffice_") + OfficeApps::id(app));
+        entry->setData(static_cast<int>(app));
+        connect(entry, &QAction::triggered, this, [this, app] {
+            openInOfficeApp(app);
+        });
+    }
+    connect(openInOfficeMenu, &QMenu::aboutToShow, this, [this, openInOfficeMenu] {
+        QList<OfficeApps::Kind> kinds;
+        const KFileItemList items = activePane()->view()->selectedItems();
+        for (const KFileItem &item : items) {
+            const OfficeApps::Kind kind = OfficeApps::kind(item.mimetype());
+            if (!kinds.contains(kind)) {
+                kinds.append(kind);
+            }
+        }
+        const QList<QAction *> entries = openInOfficeMenu->actions();
+        for (QAction *entry : entries) {
+            const auto app = static_cast<OfficeApps::App>(entry->data().toInt());
+            const QString reason = OfficeApps::unavailableReason(app, kinds);
+            entry->setEnabled(reason.isEmpty());
+            entry->setToolTip(reason.isEmpty() ? i18nc("@info:tooltip %1 is an office application", "Open the selected documents in %1", OfficeApps::name(app))
+                                               : reason);
+        }
+    });
     QAction *sendToDevice = actions->addAction(QStringLiteral("kdeconnect_send"), this, &MainWindow::sendToDevice);
     sendToDevice->setText(i18nc("@action", "Send to Device…"));
     sendToDevice->setToolTip(i18nc("@info:tooltip", "Send the selected files to a paired device with KDE Connect"));
@@ -4044,6 +4076,9 @@ void MainWindow::updateActions()
     actions->action(QStringLiteral("edit_with"))->setEnabled(hasSelection && std::none_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
                                                                  return item.isDir();
                                                              }));
+    actions->action(QStringLiteral("open_in_office"))->setEnabled(hasSelection && std::all_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
+                                                                      return !item.isDir() && OfficeApps::isOfficeDocument(item.mimetype());
+                                                                  }));
     const bool commandEnabled = activePane()->url().isLocalFile() && std::all_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
                                     return item.url().isLocalFile();
                                 });
@@ -4839,6 +4874,36 @@ void MainWindow::editWithEditor(EditorProviders::Editor editor)
     job->start();
 }
 
+void MainWindow::openInOfficeApp(OfficeApps::App app)
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    QList<QUrl> urls;
+    QStringList mimeTypes;
+    urls.reserve(items.size());
+    mimeTypes.reserve(items.size());
+    for (const KFileItem &item : items) {
+        urls.append(item.mostLocalUrl());
+        mimeTypes.append(item.mimetype());
+    }
+    QString error;
+    const QList<OfficeApps::Launch> launches = OfficeApps::launches(app, urls, mimeTypes, &error);
+    if (!error.isEmpty()) {
+        showStatusMessage(error);
+        return;
+    }
+    const QString name = OfficeApps::name(app);
+    for (const OfficeApps::Launch &launch : launches) {
+        auto *job = new KIO::CommandLauncherJob(launch.executable, launch.arguments, this);
+        job->setDesktopName(OfficeApps::desktopName(app, launch.kind));
+        connect(job, &KJob::result, this, [this, name](KJob *finished) {
+            if (finished->error()) {
+                showStatusMessage(i18nc("@info:status %1 is an office application, %2 the error", "Could not start %1: %2", name, finished->errorString()));
+            }
+        });
+        job->start();
+    }
+}
+
 void MainWindow::updateTerminalPanelVisibility()
 {
     m_terminalPanel->setVisible(m_terminalPanelAction->isChecked());
@@ -4983,6 +5048,12 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
         });
         if (filesOnly) {
             menu.addAction(actions->action(QStringLiteral("edit_with")));
+        }
+        const bool officeOnly = std::all_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
+            return !item.isDir() && OfficeApps::isOfficeDocument(item.mimetype());
+        });
+        if (officeOnly) {
+            menu.addAction(actions->action(QStringLiteral("open_in_office")));
         }
     }
 

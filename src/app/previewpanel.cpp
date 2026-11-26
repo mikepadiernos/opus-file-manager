@@ -10,6 +10,7 @@
 #include "localizeddates.h"
 #include "localizednumbers.h"
 #include "mediaview.h"
+#include "officeapps.h"
 #include "settings.h"
 #include "symbolicicon.h"
 
@@ -78,8 +79,7 @@ protected:
 
 bool isDocumentMime(const QString &mimeType)
 {
-    return mimeType == QLatin1String("application/pdf") || mimeType == QLatin1String("application/msword")
-        || mimeType == QLatin1String("application/vnd.ms-excel") || mimeType == QLatin1String("application/vnd.ms-powerpoint")
+    return mimeType == QLatin1String("application/pdf") || OfficeApps::isOfficeDocument(mimeType)
         || mimeType.startsWith(QLatin1String("application/vnd.openxmlformats-officedocument."))
         || mimeType.startsWith(QLatin1String("application/vnd.oasis.opendocument."));
 }

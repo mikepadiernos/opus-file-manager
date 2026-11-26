@@ -272,6 +272,60 @@ private Q_SLOTS:
         QCOMPARE(lines, expected);
     }
 
+    void openInOfficeStartsTheChosenApplication()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        const QString output = m_bin.filePath(QStringLiteral("arguments"));
+        QVERIFY(writeExecutable(m_bin.filePath(QStringLiteral("libreoffice")), "#!/bin/sh\nprintf '%s\\n' \"$0\" \"$@\" > '" + output.toLocal8Bit() + "'\n"));
+        const QString letter = folder.filePath(QStringLiteral("--convert-to letter.odt"));
+        const QString sheet = folder.filePath(QStringLiteral("sheet.xlsx"));
+        const QString notes = folder.filePath(QStringLiteral("notes.txt"));
+        for (const QString &name : {letter, sheet, notes}) {
+            QFile file(name);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(folder.path())});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 3);
+        auto *openInOffice = qobject_cast<KActionMenu *>(window.actionCollection()->action(QStringLiteral("open_in_office")));
+        QVERIFY(openInOffice);
+        QVERIFY(!openInOffice->isEnabled());
+        view->selectUrls({QUrl::fromLocalFile(letter), QUrl::fromLocalFile(notes)});
+        QVERIFY(!openInOffice->isEnabled());
+
+        view->selectUrls({QUrl::fromLocalFile(letter), QUrl::fromLocalFile(sheet)});
+        QTRY_VERIFY(openInOffice->isEnabled());
+        QMenu *menu = openInOffice->menu();
+        Q_EMIT menu->aboutToShow();
+        QStringList names;
+        for (const QAction *entry : menu->actions()) {
+            names.append(entry->objectName());
+        }
+        QCOMPARE(names,
+                 (QStringList{QStringLiteral("openInOffice_libreoffice"), QStringLiteral("openInOffice_calligra"), QStringLiteral("openInOffice_onlyoffice")}));
+        const QList<QAction *> entries = menu->actions();
+        QVERIFY(entries.at(0)->isEnabled());
+        QCOMPARE(entries.at(0)->toolTip(), QStringLiteral("Open the selected documents in LibreOffice"));
+        QVERIFY(!entries.at(1)->isEnabled());
+        QVERIFY(entries.at(1)->toolTip().contains(QStringLiteral("calligrawords")));
+        QVERIFY(!entries.at(2)->isEnabled());
+
+        entries.at(0)->trigger();
+        QFile file(output);
+        QTRY_VERIFY(file.exists() && file.size() > 0);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QStringList lines = QString::fromLocal8Bit(file.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        QCOMPARE(lines.size(), 3);
+        QVERIFY(lines.at(0).endsWith(QStringLiteral("libreoffice")));
+        lines.removeFirst();
+        lines.sort();
+        QStringList expected{letter, sheet};
+        expected.sort();
+        QCOMPARE(lines, expected);
+    }
+
 private:
     QTemporaryDir m_bin;
     QByteArray m_path;

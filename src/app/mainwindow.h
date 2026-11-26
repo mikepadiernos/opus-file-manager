@@ -7,6 +7,7 @@
 #include "editorpanel.h"
 #include "editorproviders.h"
 #include "metadataeditdialog.h"
+#include "officeapps.h"
 #include "previewpanel.h"
 #include "tagpanel.h"
 #include "workspacecatalog.h"
@@ -345,6 +346,7 @@ private:
     void openGallery();
     void openEditor();
     void editWithEditor(EditorProviders::Editor editor);
+    void openInOfficeApp(OfficeApps::App app);
     void updateTerminalPanelVisibility();
     void compareFiles();
     void createSymlink();
