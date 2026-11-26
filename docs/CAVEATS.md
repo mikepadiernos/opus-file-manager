@@ -1697,6 +1697,21 @@ The M27 desktop integrations have these limits
   This has been verified in a headless container only, not yet on a Plasma
   session ([pending task](TODO.md#system-file-chooser-on-plasma-286)).
   ([#286](https://github.com/mikepadiernos/plasma-opus/issues/286))
+- **💽 Mount manager:** the dialog checks for mounts made by other programs
+  every three seconds while it is open, and sizes and free space are read
+  only when it opens, on **Refresh** and after a mount. Eject works only for
+  optical drives; USB drives can be unmounted but not powered off. File
+  systems that Solid does not manage can be mounted only when their fstab
+  entry allows users, with `user`, `users`, `owner` or `group`, and unmounted
+  only when it allows users or they are FUSE mounts; `/` can never be
+  unmounted. autofs and systemd automount points show as not mounted until
+  they are first accessed. Pseudo, snap, container and portal file systems
+  are hidden, with no option to show them. **Show only removable devices** is
+  off by default until the planned
+  [M28 setting](ROADMAP.md#m28-integration-settings). Plasma's and UDisks2's
+  authorization prompts have been verified in a headless container only, not
+  yet on a Plasma session.
+  ([#703](https://github.com/mikepadiernos/plasma-opus/issues/703))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -1717,8 +1732,8 @@ The M27 desktop integrations have these limits
     closing it, check **Hide the window in the system tray when it is
     closed** under **Settings › General › System Tray**; on Wayland, prefer
     this to hiding when minimized. Clear **Show an icon in the system tray**
-    there to remove the icon. If the shortcut does nothing, assign one to **Show or Hide Plasma Opus**
-    under **Settings › Configure Keyboard Shortcuts**, and keep the icon
+    there to remove the icon. If the shortcut does nothing, assign one to
+    **Show or Hide Plasma Opus** under **Settings › Configure Keyboard Shortcuts**, and keep the icon
     always visible through the tray's **Configure System Tray…** entries.
   - **Plasma Activities:** Turn associations on under **Settings ›
     Workspaces › Activities**, then choose each Activity's workspace,
@@ -1749,8 +1764,14 @@ The M27 desktop integrations have these limits
     later, after closing open file dialogs. If applications still show KDE's
     chooser, check `xdg-desktop-portal --version` and log out and back in.
     Copy remote files to a local folder before choosing them. To go back,
-    run `opus-file-manager --uninstall-portal`, or `./install.sh
---uninstall`, which restores the previous `kde-portals.conf`.
+    run `opus-file-manager --uninstall-portal`, or
+    `./install.sh --uninstall`, which restores the previous
+    `kde-portals.conf`.
+  - **Mount manager:** Press **Refresh** for current sizes. To power off a
+    USB drive, use Plasma's **Disks & Devices** applet. To let Plasma Opus
+    mount an fstab entry without root, add `user` or `users` to its options
+    in KDE Partition Manager, or let UDisks2 manage the device instead. Open
+    an automount point's folder once to mount it.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -1783,6 +1804,9 @@ The M27 desktop integrations have these limits
     warns before setup on xdg-desktop-portal older than 1.21.0, previews and
     indexed search in the chooser, and returning remote files through a
     local copy.
+  - Watch mount changes instead of polling, refresh sizes periodically,
+    power off USB drives after unmounting, and the M28 **Mount manager**
+    display settings, including an option to show system file systems.
 
 ## Embedded terminal
 
