@@ -99,6 +99,7 @@ ecm_add_tests(
     flatviewtest.cpp
     ignorelisttest.cpp
     indexedsearchtest.cpp
+    kdeconnectsharetest.cpp
     libraryscantest.cpp
     libraryarchivetest.cpp
     linkednavigationtest.cpp
@@ -269,6 +270,12 @@ ecm_add_test(mainwindowtest.cpp
 )
 
 ecm_add_test(activitycontrollertest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
+ecm_add_test(kdeconnectsharedialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
     GUI
