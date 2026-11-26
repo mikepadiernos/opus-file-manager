@@ -447,6 +447,23 @@ behaves like the rest of the desktop and follows the user's choices.
   unmounts are reported. See
   [Remote drives](../CAVEATS.md#desktop-integration).
   ([#702](https://github.com/mikepadiernos/plasma-opus/issues/702))
+- **Temporary LAN sharing:** **File › Share on Local Network…** shares the
+  selected local items, or the current folder when nothing is selected, with
+  browsers and WebDAV clients on the local network until the dialog closes,
+  Plasma Opus quits or a time limit, 30 minutes by default, runs out. Each
+  link contains a random token, and shared items are read-only. The dialog
+  offers the computer's network addresses, checking only private ones, a
+  port, HTTPS with a certificate made for the share, and an optional upload
+  folder, Downloads by default, where uploads never replace existing files.
+  While sharing, it shows each address's link with **Copy Link** and a QR
+  code, the certificate's fingerprint, the time left and each client's
+  requests and transfers. Browsers get a folder listing, with an upload form
+  in the upload folder; WebDAV clients can browse, download and upload. Hidden
+  files and symbolic links leading outside the shared items aren't served.
+  Plasma Opus never opens firewall ports, warns when the connection isn't
+  encrypted and points to KDE Connect and Samba sharing. See
+  [Temporary LAN sharing](../CAVEATS.md#desktop-integration).
+  ([#653](https://github.com/mikepadiernos/plasma-opus/issues/653))
 
 ## Planned features
 
