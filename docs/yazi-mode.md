@@ -179,6 +179,94 @@ columns return, but they are not saved between sessions.
 If a column holding the keyboard focus is hidden, the focus moves to the
 current column.
 
+## Large, remote and unsupported locations
+
+### Large folders
+
+The columns are built so that the work done for each key doesn't grow with
+the size of the folder:
+
+- The parent column is listed in the background with KIO, never with a
+  synchronous folder read, so a large parent doesn't block the window. KIO's
+  listing cache serves the folder again when going up or down between the
+  same folders.
+- The preview waits until the focus has rested for 120 ms, so a held `j`
+  doesn't start a preview for every item it passes. A folder's preview lists
+  at most 500 entries.
+- The selection count is computed from the selection's ranges, not by
+  visiting each selected item, and is updated at most once every 30 ms while
+  keys repeat. While at most one item is selected, it is hidden at once.
+- While items are marked, moving the focus changes only the focused item and
+  leaves the selection untouched. The status bar, the panels and the actions,
+  which look at every selected item, are updated only when the selection
+  itself changes, or when the focus moves while nothing is selected.
+- The folder view keeps a single thumbnail generator, for the view mode shown,
+  instead of one per view mode, so hidden views don't lay out every listed
+  item.
+
+The first listing of a very large folder still takes a while in the folder
+view itself, with or without Yazi mode; moving through it once it is listed
+doesn't.
+
+### Where the mode works
+
+Each location is classified as supported, limited or unsupported
+(`YaziMode::support()`), with a reason that the status row shows:
+
+| Location                                                                    | Support     | Why                                                                     |
+| --------------------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------- |
+| Local folders                                                               | Full        |                                                                         |
+| Remote folders, such as `sftp:`, `smb:`, `ftp:` and other KIO folders       | Limited     | The parent column lists in the background; previews download each file. |
+| Archives, such as `zip:` and `tar:`                                         | Limited     | Archives are read-only; previews extract each file first.               |
+| `trash:/`                                                                   | Limited     | Items can only be restored or deleted; the parent column stays inside.  |
+| `desktop:/`                                                                 | Limited     | The parent column stops at the desktop folder.                          |
+| Search results, such as `baloosearch:` and `filenamesearch:`                | Unsupported | The results come from many folders, so there is no parent folder.       |
+| `recentlyused:`, `recentdocuments:`, `timeline:`, `activities:` and `tags:` | Unsupported | The items come from many folders, so there is no parent folder.         |
+| `remote:/`                                                                  | Unsupported | It lists shortcuts to network places; opening one browses it.           |
+| `applications:`, `programs:` and `settings:`                                | Unsupported | It lists applications rather than files.                                |
+
+- In a limited location, the columns work as usual, and the status row adds a
+  short note, such as "Limited here: archives are read-only here, and
+  previews extract each file first.".
+- In an unsupported location, ordinary browsing is kept: the parent and
+  preview columns are hidden, the current column takes the whole pane, and
+  the status row says "Yazi mode isn't available here:" with the reason. The
+  mode stays on and the keys still work in the current column, and the
+  columns come back as soon as the pane returns to a supported location.
+
+### Slow and failing parent folders
+
+While a remote parent folder is listed, the parent column says "Loading…".
+If the listing fails, it says "Could not list the parent folder:" with KIO's
+error; if it takes more than ten seconds, it says "The parent folder is taking
+too long to respond." and stops the listing, keeping the entries found so
+far; opening the folder again retries. None of these block the window or the
+current column. The note is shown only for non-local parent folders.
+
+### Unavailable commands
+
+A key command that can't run says why in the status row for five seconds,
+instead of doing nothing. For example:
+
+- moving in an empty column, opening the parent of a root folder or opening
+  with nothing focused;
+- going back or forward past the ends of the tab's history;
+- selecting, renaming or acting on items with nothing focused, or selecting
+  in the parent column;
+- pasting with an empty clipboard, or pasting or creating items in a
+  read-only or virtual folder;
+- moving to the trash, renaming, cutting or moving items that are read-only
+  or in a virtual location, or moving remote items to the trash;
+- deleting permanently, which Yazi mode never does;
+- copying or moving to the other pane without a second pane, or when both
+  panes show the same folder;
+- undoing with nothing to undo, clearing a filter that isn't set, switching
+  tabs with only one tab and closing the only, a pinned or a locked tab;
+- focusing a hidden parent or preview column.
+
+A message repeated by a held key is shown once, not re-announced for each
+repeat.
+
 ## Accessibility and keyboard
 
 Each column has an accessible name and description: **Parent folder**,
@@ -196,6 +284,25 @@ original names are restored when the mode is turned off.
 - Focusing the parent column or the preview makes its pane the active pane.
 - When columns are hidden in a narrow pane, the current column keeps all of
   its keyboard navigation.
+- Every column can be reached from the keyboard in both presets with **Go ›
+  Yazi Columns › Focus Parent Column**, **Focus Current Column** and **Focus
+  Preview Column**.
+- The columns keep the style's focus frame; no style sheet hides it.
+- The columns and the status row use only palette roles, such as Highlight
+  for the mode indicator and placeholder text for the parent column's notes,
+  so they follow the colour scheme, including high-contrast schemes.
+
+The status row (**Yazi mode status**) and each of its parts have an
+accessible name and description: the mode indicator, the location note, the
+message, the selection count, the filter and its clear button, the search
+progress and its cancel button, the transfer item and the sorting. Their
+names follow the text shown.
+
+Screen readers are told about changes that matter: the mode turning on or
+off, pending key sequences, a location where the mode isn't available (and
+its return), and commands that can't run. With Qt 6.8 or later, these are
+sent as announcements; with older Qt, as alerts from the widget showing the
+text.
 
 ## Keyboard
 
