@@ -22,6 +22,7 @@
 #include "density.h"
 #include "desktoptray.h"
 #include "doubleshift.h"
+#include "dropdownwindow.h"
 #include "duplicatefinderdialog.h"
 #include "editorpanel.h"
 #include "effectiveappearance.h"
@@ -41,6 +42,8 @@
 #include "informationpanel.h"
 #include "kdeconnectclient.h"
 #include "kdeconnectsharedialog.h"
+#include "kwinintegration.h"
+#include "kwinintegrationdialog.h"
 #include "labelcolor.h"
 #include "libraryautorefresh.h"
 #include "libraryregistry.h"
@@ -92,6 +95,7 @@
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
 #include <KFileUtils>
+#include <KGlobalAccel>
 #include <KGuiItem>
 #include <KHamburgerMenu>
 #include <KIO/CopyJob>
@@ -495,6 +499,24 @@ MainWindow::MainWindow(QWidget *parent)
         openUrls({url});
     });
     connect(m_desktopTray, &DesktopTray::transfersRequested, this, &MainWindow::showTransferQueue);
+    m_kwin = new KWinIntegration(std::make_unique<SystemKWinBackend>(), KSharedConfig::openConfig(), KSharedConfig::openStateConfig(), this);
+    m_kwin->registerOnBus();
+    m_kwin->setWorkspaceProvider([this] {
+        return m_currentWorkspaceId;
+    });
+    const auto openOtherWorkspace = [this](const QString &id) {
+        if (id != m_currentWorkspaceId) {
+            openWorkspace(id);
+        }
+    };
+    connect(m_kwin, &KWinIntegration::desktopWorkspaceRequested, this, openOtherWorkspace);
+    connect(m_kwin, &KWinIntegration::edgeActivated, this, &MainWindow::toggleDropDown);
+    m_dropDown = new DropDownWindow(this, m_kwin);
+    connect(m_dropDown, &DropDownWindow::notice, this, [this](const QString &text) {
+        statusBar()->showMessage(text, 5000);
+    });
+    connect(m_dropDown, &DropDownWindow::workspaceRequested, this, openOtherWorkspace);
+    m_kwin->requestSync();
     m_activityController = new ActivityController(
         this,
         [this] {
@@ -861,6 +883,12 @@ void MainWindow::showWorkspaces()
         }
         m_currentWorkspaceId = id;
         refreshWorkspaceLocations();
+        const auto workspace = std::find_if(m_workspaceCatalog.workspaces.cbegin(), m_workspaceCatalog.workspaces.cend(), [&id](const auto &entry) {
+            return entry.id == id;
+        });
+        if (workspace != m_workspaceCatalog.workspaces.cend() && workspaceBehaviors(*workspace).applies(workspaceBehaviors(*workspace).layout)) {
+            m_kwin->restoreWorkspace(id);
+        }
     });
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->setModal(true);
@@ -2269,6 +2297,15 @@ void MainWindow::setupActions()
         m_activityController->applyCurrent();
     });
     applyActivity->setText(i18nc("@action", "Apply Activity Association"));
+    QAction *kwinIntegration = actions->addAction(QStringLiteral("kwin_integration"), this, &MainWindow::showKWinIntegration);
+    kwinIntegration->setText(i18nc("@action", "Configure KWin Integration…"));
+    kwinIntegration->setToolTip(i18nc("@info:tooltip", "Install the optional KWin script and choose how it manages Plasma Opus windows"));
+    kwinIntegration->setIcon(SymbolicIcon::fromTheme(QStringLiteral("kwin")));
+    QAction *toggleDropDown = actions->addAction(QStringLiteral("toggle_drop_down"), this, &MainWindow::toggleDropDown);
+    toggleDropDown->setText(i18nc("@action", "Show or Hide Drop-Down Window"));
+    toggleDropDown->setIcon(SymbolicIcon::fromTheme(QStringLiteral("go-down")));
+    // Unassigned by default; the user chooses one in Configure KWin Integration.
+    KGlobalAccel::setGlobalShortcut(toggleDropDown, QList<QKeySequence>{});
 
     // File
     m_newFileMenu = new KNewFileMenu(this);
@@ -5966,6 +6003,43 @@ bool MainWindow::isDualLayout() const
 DesktopTray *MainWindow::desktopTray() const
 {
     return m_desktopTray;
+}
+
+KWinIntegration *MainWindow::kwinIntegration() const
+{
+    return m_kwin;
+}
+
+void MainWindow::setKWinBackend(std::unique_ptr<KWinBackend> backend)
+{
+    m_kwin->setBackend(std::move(backend));
+}
+
+void MainWindow::showKWinIntegration()
+{
+    if (auto *existing = findChild<KWinIntegrationDialog *>()) {
+        existing->raise();
+        existing->activateWindow();
+        return;
+    }
+    reloadWorkspaceCatalog();
+    QList<QPair<QString, QString>> workspaces;
+    for (const WorkspaceCatalog::Workspace &workspace : std::as_const(m_workspaceCatalog.workspaces)) {
+        workspaces.append({workspace.id, workspace.name});
+    }
+    auto *dialog = new KWinIntegrationDialog(m_kwin, workspaces, actionCollection()->action(QStringLiteral("toggle_drop_down")), this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
+void MainWindow::toggleDropDown()
+{
+    m_dropDown->toggle();
+}
+
+DropDownWindow *MainWindow::dropDownWindow() const
+{
+    return m_dropDown;
 }
 
 void MainWindow::refreshFolderColors()

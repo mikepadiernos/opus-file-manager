@@ -23,6 +23,9 @@
 class ActivityController;
 class KdeConnectClient;
 class MountBackend;
+class DropDownWindow;
+class KWinBackend;
+class KWinIntegration;
 class CombinedPanel;
 class DesktopTray;
 class FavoritesModel;
@@ -144,6 +147,16 @@ public:
     void showMountManager();
     /// Fills the Mount Points menu with each file system and its state.
     void populateMountPoints();
+
+    /// The optional Plasma Opus KWin script and its D-Bus interface.
+    KWinIntegration *kwinIntegration() const;
+    /// Replaces the KWin backend, for tests.
+    void setKWinBackend(std::unique_ptr<KWinBackend> backend);
+    /// Shows Settings › Configure KWin Integration.
+    void showKWinIntegration();
+    /// Shows the drop-down window, or hides it when it is shown and active.
+    void toggleDropDown();
+    DropDownWindow *dropDownWindow() const;
 
     /**
      * Applies the current Settings to the panes, actions and status bar.
@@ -418,6 +431,8 @@ private:
     ActivityController *m_activityController = nullptr;
     KdeConnectClient *m_kdeConnect = nullptr;
     MountBackend *m_mountBackend = nullptr;
+    KWinIntegration *m_kwin = nullptr;
+    DropDownWindow *m_dropDown = nullptr;
     /// The file system the Mount Points menu mounts and then opens.
     QString m_openAfterMount;
     /// Behaviours an applied Activity association chose for its workspace, until another workspace is chosen.

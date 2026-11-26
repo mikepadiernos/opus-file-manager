@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="52" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="53" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -68,6 +68,7 @@
       <Action name="manage_workspaces"/>
       <Action name="activity_associations"/>
       <Action name="apply_activity_association"/>
+      <Action name="toggle_drop_down"/>
       <Separator/>
       <Action name="dual_layout"/>
       <Action name="stacked_layout"/>
@@ -166,6 +167,7 @@
     <Menu name="settings">
       <text>&amp;Settings</text>
       <Action name="options_configure"/>
+      <Action name="kwin_integration"/>
       <Action name="customize_main_toolbar"/>
     </Menu>
   </MenuBar>
