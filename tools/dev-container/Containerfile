@@ -41,6 +41,7 @@ RUN dnf -y install --setopt=install_weak_deps=False \
         kf6-kitemviews-devel \
         kf6-knewstuff-devel \
         kf6-kpackage-devel \
+        kf6-prison-devel \
         kf6-kparts-devel \
         kf6-krunner-devel \
         kf6-kstatusnotifieritem-devel \
@@ -62,6 +63,7 @@ RUN dnf -y install --setopt=install_weak_deps=False \
         ffmpeg-free \
         poppler-utils \
         7zip \
+        openssl \
         dbus-daemon \
         diffutils \
         rust \

@@ -24,6 +24,8 @@ ecm_setup_version(${PROJECT_VERSION} VARIABLE_PREFIX OPUSFM VERSION_HEADER ${CMA
 find_package(Qt6 ${QT_MIN_VERSION} REQUIRED COMPONENTS Concurrent Core Gui Widgets DBus Test Multimedia MultimediaWidgets Network Qml Xml)
 find_package(LibArchive REQUIRED)
 find_package(KF6Baloo ${KF_MIN_VERSION} QUIET)
+find_package(KF6Prison ${KF_MIN_VERSION} QUIET)
+set_package_properties(KF6Prison PROPERTIES TYPE OPTIONAL PURPOSE "QR codes for links to files shared on the local network")
 find_package(PlasmaActivities 6.0 REQUIRED)
 
 include(KDEGitCommitHooks)
