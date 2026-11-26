@@ -1,26 +1,60 @@
-# 🧭 M32.01 Menus
+# M32.01 Menus
 
-**[Refinements](README.md)** · **[Roadmap](../ROADMAP.md#m32-refinements)** ·
-**[Layouts](02-layouts.md)**
+[![Docs index](https://img.shields.io/badge/docs-index-3daee9?style=flat-square)](../README.md)
+[![Refinements index](https://img.shields.io/badge/refinements-index-3daee9?style=flat-square)](README.md)
+[![Roadmap: M32 refinements](https://img.shields.io/badge/roadmap-M32%20refinements-8957e5?style=flat-square)](../ROADMAP.md#m32-refinements)
+
+![M32.01 Menus](https://img.shields.io/badge/M32.01-Menus-8957e5?style=flat-square)
+![Proposal](https://img.shields.io/badge/Proposal-6e7781?style=flat-square)
 
 **Goal:** make actions easy to find and accurately scoped without replacing
 KDE integration or user-customized menus and toolbars.
 
+> [!NOTE]
+> This plan is a proposal for review. The [roadmap](../ROADMAP.md#m32-refinements)
+> defines the scope of M32.01; nothing here is implemented yet.
+
 ## Contents
 
-- [Proposed menu layout](#proposed-menu-layout)
-- [Proposed order](#proposed-order)
-- [Review decisions](#review-decisions)
+- [Problem](#problem)
+- [Proposal](#proposal)
+  - [Proposed menu layout](#proposed-menu-layout)
+  - [Behaviour and boundaries](#behaviour-and-boundaries)
+- [Execution order](#execution-order)
+- [Open questions](#open-questions)
 
-## Proposed menu layout
+## Problem
+
+The menu bar has **File**, **Edit**, **View**, **Go**, **Tags** and
+**Settings** menus, defined in `src/app/opus-file-managerui.rc`. **File** holds
+34 actions that mix file operations, tools and exports, and **View** holds 52,
+including workspaces, layout, Yazi mode and panel toggles. M32.01 reviews this
+organization as a whole.
+
+M32.01 asks to:
+
+- review main, pane and context menus for logical groups, consistent action
+  names and discoverable shortcuts;
+- keep menu and toolbar action state synchronized with the active pane,
+  selection and location;
+- make toolbar and pane actions consistent and discoverable, with overflow in
+  narrow windows;
+- let users reorder, hide and restore Plasma Opus actions in context menus.
+
+## Proposal
+
+### Proposed menu layout
 
 > [!NOTE]
-> This editable design is not the current menu order. Branches labeled _group_
-> organize actions visually and do not necessarily require nested submenus.
-> Names and order can change; offer only actions supported by the current
-> location, selection and provider. Future features are not required.
+> This editable design is not the current menu order. Branches labelled
+> _group_ organize actions visually and do not necessarily require nested
+> submenus. Names and order can change; offer only actions supported by the
+> current location, selection and provider. Future features are not required.
+> The tree predates the **Tags** menu, the workspace and Yazi mode actions in
+> **View**, and the search and tag panel toggles; see
+> [Open questions](#open-questions).
 
-### Main menus
+#### Main menus
 
 ```text
 Main menus
@@ -120,12 +154,12 @@ Main menus
     └── KDE-provided help and About actions
 ```
 
-### Context menus by area
+#### Context menus by area
 
 Each tree is scoped to the surface where the menu opens. Entries are proposed
 organization, not a promise that every action is available in every context.
 
-#### File listing: selected items
+##### File listing: selected items
 
 ```text
 File listing: selected items
@@ -154,7 +188,7 @@ File listing: selected items
 └── KDE service and plugin actions
 ```
 
-#### File listing: empty space
+##### File listing: empty space
 
 ```text
 File listing: empty space
@@ -170,7 +204,7 @@ File listing: empty space
 └── Properties
 ```
 
-#### Listing column header
+##### Listing column header
 
 ```text
 Listing column header
@@ -181,7 +215,7 @@ Listing column header
 └── Group By
 ```
 
-#### Pane tab
+##### Pane tab
 
 ```text
 Pane tab
@@ -197,7 +231,7 @@ Pane tab
 └── Close Tabs to the Right
 ```
 
-#### Explorer: folder tree
+##### Explorer: folder tree
 
 ```text
 Explorer: folder tree
@@ -207,7 +241,7 @@ Explorer: folder tree
 └── Properties
 ```
 
-#### Explorer: favorite
+##### Explorer: favorite
 
 ```text
 Explorer: favorite
@@ -216,21 +250,21 @@ Explorer: favorite
 └── Remove from Favorites
 ```
 
-#### Places and devices
+##### Places and devices
 
 ```text
 Places and devices
 └── KDE Places actions appropriate to the item
 ```
 
-#### Main or pane toolbar
+##### Main or pane toolbar
 
 ```text
 Main or pane toolbar
 └── Customization and item appearance actions
 ```
 
-#### Terminal panel header or session tab
+##### Terminal panel header or session tab
 
 ```text
 Terminal panel header or session tab
@@ -238,21 +272,21 @@ Terminal panel header or session tab
 └── Hide Terminal Panel
 ```
 
-#### Terminal content
+##### Terminal content
 
 ```text
 Terminal content
 └── Terminal provider's context menu
 ```
 
-#### Text editor content
+##### Text editor content
 
 ```text
 Text editor content
 └── KTextEditor-provided editing actions
 ```
 
-### Behavior and boundaries
+### Behaviour and boundaries
 
 - See the [layouts plan](02-layouts.md#proposed-toolbar-layouts) for toolbar
   order, customization and overflow.
@@ -269,7 +303,7 @@ Text editor content
   Customization, hiding a panel and destructive actions must remain
   distinguishable and accessible.
 
-## Proposed order
+## Execution order
 
 1. Inventory main, pane and context menus, toolbar actions and shortcuts;
    record duplicate labels, confusing groups and actions supplied by KDE.
@@ -286,13 +320,23 @@ Text editor content
    navigation and tab changes. Keep an open context menu tied to the
    selection for which it was invoked.
    ([#482](https://github.com/mikepadiernos/plasma-opus/issues/482))
-5. Exercise mouse and keyboard menu use, empty and mixed selections, remote
+5. Let users reorder, hide and restore Plasma Opus actions in context menus,
+   extending the M02 action choices, with a reset to defaults. Keep KDE
+   service-menu order and Dolphin-shared visibility separate. (MiXplorer)
+6. Exercise mouse and keyboard menu use, empty and mixed selections, remote
    locations, pane changes while a menu is open and restored customizations.
    Add focused regression tests alongside the changes.
 
-## Review decisions
+## Open questions
 
 - Which current actions are hard to find or named inconsistently?
 - Which menu changes should be defaults for new users only, rather than
   modifications to saved layouts?
 - Which KDE-provided menus must remain untouched?
+- Where should the **Tags** menu, workspace and Yazi mode actions, and the
+  search and tag panel toggles go? The proposed tree was drafted before they
+  merged.
+
+---
+
+[Refinements index](README.md) · Next: [M32.02 Layouts](02-layouts.md) →

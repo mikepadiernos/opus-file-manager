@@ -1,64 +1,144 @@
-# ⚙️ Max File Manager backend inventory
+# Max File Manager backend inventory
 
-**[Documentation](../README.md)** · **[UI inventory](ui.md)** ·
-**[Roadmap](../ROADMAP.md)**
+[![Docs index](https://img.shields.io/badge/docs-index-3daee9?style=flat-square)](../README.md)
+[![UI inventory](https://img.shields.io/badge/parity-UI-3daee9?style=flat-square)](ui.md)
+[![Roadmap](https://img.shields.io/badge/roadmap-M01%E2%80%93M32-8957e5?style=flat-square)](../ROADMAP.md)
+[![Upstream](https://img.shields.io/badge/upstream-Max%20File%20Manager-6e7781?style=flat-square&logo=github)](https://github.com/majidasgari/max-file-manager)
 
+An inventory of the main process, preload bridge and shared code of a reviewed
+Max File Manager checkout, with suggested KDE/Qt replacements for each module.
 Source: `max-file-manager/src/main`, `src/preload` and `src/shared` (Electron).
 
-> [!NOTE]
-> This reviewed upstream snapshot is not current Plasma Opus behaviour or
-> necessarily the latest upstream version. KDE/Qt replacement notes are design
-> suggestions, not implementation status; see the [roadmap](../ROADMAP.md).
-
-**Context.** The app is Electron 45 with a React renderer. It is a dual-pane
-file manager targeting KDE and Windows (this checkout also has macOS code
-paths). The renderer has no `fs` access: everything goes through the
-`window.api` preload bridge. Paths from the renderer are checked with
-`path.isAbsolute`. Local files reach the renderer over two privileged schemes:
-
-- `mfm://<abs path>` streams any local file and adds CORS `*` so canvases are
-  not tainted.
-- `thumb://<abs path>?s=<side>&v=<mtime-size>` returns cached thumbnails. A
-  versioned URL gets `immutable, max-age=1y`; an unversioned one gets
-  `no-cache`.
-
-UI strings and error messages in main are mostly Persian. The app version is
-1.0.8. The only runtime dependency is `dbus-next`; fflate is also used.
+> [!IMPORTANT]
+> This page describes upstream Max File Manager, not Plasma Opus. This reviewed
+> upstream snapshot is not current Plasma Opus behaviour or necessarily the
+> latest upstream version. KDE/Qt replacement notes are design suggestions, not
+> implementation status; see the [roadmap](../ROADMAP.md) for Plasma Opus
+> feature status.
 
 ## Contents
 
-- [Global storage map (userData = `~/.config/max-file-manager/`)](#global-storage-map-userdata--configmax-file-manager)
+- [Overview](#overview)
+- [Global storage map](#global-storage-map)
 - [Modules](#modules)
 - [Preload IPC surface (`window.api`)](#preload-ipc-surface-windowapi)
 - [Bugs and quirks to note (do not replicate unknowingly)](#bugs-and-quirks-to-note-do-not-replicate-unknowingly)
 - [Main files](#main-files)
 
-## Global storage map (userData = `~/.config/max-file-manager/`)
+## Overview
 
-| File | Content |
-| --- | --- |
-| `search.db` (SQLite, WAL) | Index tables `files(path PK,name,ext,dir,size,mtime,root)`, `dirs(path PK,mtime,root)`, FTS5 `fts(name)` (tokenizer `unicode61 remove_diacritics 2`), `meta(k,v)` (key `lastIndex`). **App settings live in table `app(k,v)`** as JSON strings: `state`, `window`, `draftIndex`, `draft:<abs path>`. |
-| `app['state']` | `{panes:[{tabs,tabIds,ti,pinCount,names,locks}], active, sort, marks:[abs paths], markNames, prefs:{…}, chrome:{customTitlebar,rounded}}`. Main itself reads `prefs.titlebar` ('system'/'app'), `prefs.rounded`, `prefs.singleInstance`, `prefs.portalPicker`, and writes `prefs.pickerLastDir`. |
-| `app['window']` | `{x,y,width,height,maximized}` (the normal, un-maximized bounds) |
-| Prefs keys (defined in renderer `prefs.ts`, stored verbatim) | prefsVersion, lang, theme, colorTheme, fontFamily, view, foldersFirst, showHidden, showSymlink, sideWidth, dualSplit, columns, colWidths, gridMeta, sizeFormat, dateFormat, showSeconds, gridNameLines, tileSize, fileIcons, titlebar, titlebarButtons, titlebarSide, rounded, layout, sidebar, sidebarOpen, sidebarWidth, sidebarTone, sidebarCollapsed, sidebarDrives, sidebarTreeOpen, shortcuts, toolbar, toolbarMode, newTabPos, middleClickClosesTab, hideSingleTab, tabIcons, tabColors, zipLevel, imageFormat, imageQuality, slideshowSec, galleryLoop, previewMaxKB, layouts, filters, fileTypes, searchRoots, searchExclude, doubleShiftSearch, paneTree, treePane, treeWidth, treeAutoFocus, galleryInfo, groupBy, ignoreFiles, scripts, transferSkipExisting, transferNewerOnly, speedLimitKB, doubleClick, confirmDelete, trashByDefault, portalPicker, pickerLastDir, singleInstance, minimizeToTray, closeToTray, startup, hotkey, hotkeyEnabled, startFolder, defaultApps, customCommands, iconDirs, iconTheme |
-| Legacy `state.json`, `window.json` | Imported once into SQLite by `migrateLegacyStore` and left on disk as a backup |
-| `mcp.json` (mode 600) | `{mode:'off'\|'read'\|'write', port (default 47321, valid range 1025–65534), token (48 hex chars)}` |
-| `mcp.log` (mode 600) | JSONL audit: `{ts, tool, ok, args-summary\|reason}` |
-| `thumbs/<sha1(path\|mtime\|size\|side)>.png` | Thumbnail cache |
-| `clipboard-owner` | PID of the clipboard helper process |
-| `drag-debug.log` | Written only when `MFM_DRAG_DEBUG=1` |
-| `appicons/` | macOS only |
-| Per folder: `<dir>/.mfm.json` | Folder metadata (see meta.ts) |
+The app is Electron 45 with a React renderer. It is a dual-pane file manager
+targeting KDE and Windows (this checkout also has macOS code paths).
 
-Settings export file format:
+- **Renderer isolation**: the renderer has no `fs` access; everything goes
+  through the `window.api` preload bridge. Paths from the renderer are checked
+  with `path.isAbsolute`.
+- **Privileged schemes**: local files reach the renderer over two schemes:
+  - `mfm://<abs path>` streams any local file and adds CORS `*` so canvases are
+    not tainted.
+  - `thumb://<abs path>?s=<side>&v=<mtime-size>` returns cached thumbnails. A
+    versioned URL gets `immutable, max-age=1y`; an unversioned one gets
+    `no-cache`.
+- **Strings**: UI strings and error messages in main are mostly Persian.
+- **Version and dependencies**: the app version is 1.0.8. The only runtime
+  dependency is `dbus-next`; fflate is also used.
+
+## Global storage map
+
+userData is `~/.config/max-file-manager/`; the files below live there unless
+noted otherwise.
+
+| File                                         | Content                                                                                                                                                                                                                                                                                              |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `search.db` (SQLite, WAL)                    | Index tables `files(path PK,name,ext,dir,size,mtime,root)`, `dirs(path PK,mtime,root)`, FTS5 `fts(name)` (tokenizer `unicode61 remove_diacritics 2`), `meta(k,v)` (key `lastIndex`). **App settings live in table `app(k,v)`** as JSON strings: `state`, `window`, `draftIndex`, `draft:<abs path>`. |
+| `app['state']`                               | `{panes:[{tabs,tabIds,ti,pinCount,names,locks}], active, sort, marks:[abs paths], markNames, prefs:{…}, chrome:{customTitlebar,rounded}}`. Main itself reads `prefs.titlebar` ('system'/'app'), `prefs.rounded`, `prefs.singleInstance`, `prefs.portalPicker`, and writes `prefs.pickerLastDir`.     |
+| `app['window']`                              | `{x,y,width,height,maximized}` (the normal, un-maximized bounds)                                                                                                                                                                                                                                     |
+| Prefs keys                                   | Defined in renderer `prefs.ts`, stored verbatim; see [Prefs keys](#prefs-keys)                                                                                                                                                                                                                       |
+| Legacy `state.json`, `window.json`           | Imported once into SQLite by `migrateLegacyStore` and left on disk as a backup                                                                                                                                                                                                                       |
+| `mcp.json` (mode 600)                        | `{mode:'off'\|'read'\|'write', port (default 47321, valid range 1025–65534), token (48 hex chars)}`                                                                                                                                                                                                  |
+| `mcp.log` (mode 600)                         | JSONL audit: `{ts, tool, ok, args-summary\|reason}`                                                                                                                                                                                                                                                  |
+| `thumbs/<sha1(path\|mtime\|size\|side)>.png` | Thumbnail cache                                                                                                                                                                                                                                                                                      |
+| `clipboard-owner`                            | PID of the clipboard helper process                                                                                                                                                                                                                                                                  |
+| `drag-debug.log`                             | Written only when `MFM_DRAG_DEBUG=1`                                                                                                                                                                                                                                                                 |
+| `appicons/`                                  | macOS only                                                                                                                                                                                                                                                                                           |
+| Per folder: `<dir>/.mfm.json`                | Folder metadata (see [`meta.ts`](#metats))                                                                                                                                                                                                                                                           |
+
+### Prefs keys
+
+<details>
+<summary>All prefs keys (from renderer <code>prefs.ts</code>)</summary>
+
+Defined in renderer `prefs.ts` and stored verbatim.
+
+`prefsVersion`, `lang`, `theme`, `colorTheme`, `fontFamily`, `view`,
+`foldersFirst`, `showHidden`, `showSymlink`, `sideWidth`, `dualSplit`,
+`columns`, `colWidths`, `gridMeta`, `sizeFormat`, `dateFormat`, `showSeconds`,
+`gridNameLines`, `tileSize`, `fileIcons`, `titlebar`, `titlebarButtons`,
+`titlebarSide`, `rounded`, `layout`, `sidebar`, `sidebarOpen`, `sidebarWidth`,
+`sidebarTone`, `sidebarCollapsed`, `sidebarDrives`, `sidebarTreeOpen`,
+`shortcuts`, `toolbar`, `toolbarMode`, `newTabPos`, `middleClickClosesTab`,
+`hideSingleTab`, `tabIcons`, `tabColors`, `zipLevel`, `imageFormat`,
+`imageQuality`, `slideshowSec`, `galleryLoop`, `previewMaxKB`, `layouts`,
+`filters`, `fileTypes`, `searchRoots`, `searchExclude`, `doubleShiftSearch`,
+`paneTree`, `treePane`, `treeWidth`, `treeAutoFocus`, `galleryInfo`, `groupBy`,
+`ignoreFiles`, `scripts`, `transferSkipExisting`, `transferNewerOnly`,
+`speedLimitKB`, `doubleClick`, `confirmDelete`, `trashByDefault`,
+`portalPicker`, `pickerLastDir`, `singleInstance`, `minimizeToTray`,
+`closeToTray`, `startup`, `hotkey`, `hotkeyEnabled`, `startFolder`,
+`defaultApps`, `customCommands`, `iconDirs`, `iconTheme`
+
+</details>
+
+### Settings export format
+
 `{app:'max-file-manager', format:1, exportedAt, prefs}`. Import also accepts a
 bare prefs object.
 
----
-
 ## Modules
 
-### index.ts (main process: windows, IPC, protocols)
+Each module lists its capabilities, what its tests pin down (where it has
+tests) and a suggested KDE/Qt replacement.
+
+| Module                                                              | Area                                                     | Tests                        |
+| ------------------------------------------------------------------- | -------------------------------------------------------- | ---------------------------- |
+| [`index.ts`](#indexts)                                              | Main process: windows, IPC, protocols                    | None                         |
+| [`jobs.ts`](#jobsts)                                                | Transfer engine, undo, rename/mkdir/new file             | `jobs.test.ts`               |
+| [`ops.ts`](#opsts)                                                  | Delete, free names, symlinks                             | `ops.test.ts`                |
+| [`dirs.ts`](#dirsts)                                                | Sidebar tree children                                    | `dirs.test.ts`               |
+| [`search.ts`](#searchts)                                            | Live walk/search, duplicates                             | `search.test.ts`             |
+| [`searchdb.ts`](#searchdbts)                                        | Indexed search plus the settings KV                      | `searchdb.test.ts`           |
+| [`store.ts`](#storets)                                              | Settings store in `search.db`                            | None                         |
+| [`drafts.ts`](#draftsts)                                            | Editor crash safety                                      | `drafts.test.ts`             |
+| [`archives.ts`](#archivests)                                        | Zip/tar browse, extract, create                          | `archives.test.ts`           |
+| [`meta.ts`](#metats)                                                | Per-folder `.mfm.json`                                   | `meta.test.ts`               |
+| [`folderlook.ts`](#folderlookts)                                    | Folder icons from other file managers                    | `folderlook.test.ts`         |
+| [`icons.ts`](#iconsts)                                              | Icon themes and icon lookup                              | Covered in `meta.test.ts`    |
+| [`appicons.ts`](#appiconsts)                                        | macOS app icons                                          | None                         |
+| [`apps.ts`](#appsts)                                                | Open with, default apps, launching, default file manager | `apps.test.ts`               |
+| [`filemanager1-bridge.py`](#filemanager1-bridgepy)                  | `org.freedesktop.FileManager1` bridge                    | None                         |
+| [`desktop.ts`](#desktopts)                                          | Terminal, reveal, drag-out, custom commands              | None                         |
+| [`fileclip.ts` and `wayland-clip/`](#fileclipts-and-wayland-clip)   | File lists on the system clipboard                       | None                         |
+| [`portal.ts` and friends](#portalts-and-friends)                    | XDG file-chooser backend                                 | `portal-core.test.ts`        |
+| [`preview.ts`](#previewts)                                          | File previews                                            | `preview.test.ts`            |
+| [`thumbs.ts`](#thumbsts)                                            | Thumbnail cache                                          | None                         |
+| [`hash.ts`](#hashts)                                                | Streamed digests                                         | Covered in `preview.test.ts` |
+| [`breakdown.ts`](#breakdownts)                                      | Folder content charts                                    | `breakdown.test.ts`          |
+| [`sync.ts`](#syncts)                                                | Folder sync and file diff                                | `sync.test.ts`               |
+| [`editor.ts`](#editorts)                                            | Text files and HTML to PDF                               | None                         |
+| [`export.ts` and `shared/export.ts`](#exportts-and-sharedexportts)  | Listing export                                           | `shared/export.test.ts`      |
+| [`convert.ts` and `shared/bmp.ts`](#convertts-and-sharedbmpts)      | Batch image conversion                                   | `shared/bmp.test.ts`         |
+| [`image.ts`](#imagets)                                              | Gallery editor saves                                     | `image.test.ts`              |
+| [`metadata.ts`](#metadatats)                                        | ID3 and EXIF                                             | `metadata.test.ts`           |
+| [`drives.ts`](#drivests)                                            | Removable media                                          | `drives.test.ts`             |
+| [`launch-path.ts`](#launch-pathts)                                  | Launch path from argv                                    | `launch-path.test.ts`        |
+| [`window-bounds.ts`](#window-boundsts)                              | Saved window bounds                                      | `window-bounds.test.ts`      |
+| [`updates.ts` and `updates-core.ts`](#updatests-and-updates-corets) | Update check                                             | `updates.test.ts`            |
+| [`mcp.ts`](#mcpts)                                                  | Agent API, off by default                                | None                         |
+| [`types.ts`](#typests)                                              | Shared types                                             | None                         |
+
+### `index.ts`
+
+Main process: windows, IPC and protocols.
 
 #### Capabilities
 
@@ -101,14 +181,14 @@ bare prefs object.
   focuses the window. It fails on Wayland and the failure is reported.
 - **Windows**:
   - Saved bounds are written with a 400 ms debounce and re-fitted to the current
-    displays at startup (`window-bounds.ts`).
+    displays at startup ([`window-bounds.ts`](#window-boundsts)).
   - Frameless/transparent mode controlled by `chrome`.
   - Min size 780×480, default 1320×860.
   - Standalone gallery and editor windows (`?gallery=1&path=` /
     `?editor=1&path=`) are tracked and closed on quit.
-- **Tray**: optional minimize-to-tray and close-to-tray with a Show/Quit menu.
-  Only active when single-instance is on. If no tray host exists, both are
-  turned off so the window can never be hidden with no way back.
+- **Tray**: optional minimize-to-tray and close-to-tray with a **Show**/**Quit**
+  menu. Only active when single-instance is on. If no tray host exists, both
+  are turned off so the window can never be hidden with no way back.
 - **Single instance**: the lock is taken before `ready`; a second instance calls
   `process.exit(0)`.
   - A second launch restores and focuses the window and sends `app:open-path`
@@ -140,7 +220,9 @@ bare prefs object.
   KDBusService(Unique).
 - Window size: KWindowConfig. Settings: KConfig/KSharedConfig.
 
-### jobs.ts (transfer engine, undo, rename/mkdir/new file); tests: jobs.test.ts
+### `jobs.ts`
+
+Transfer engine, undo, rename, mkdir and new file. Tests: `jobs.test.ts`.
 
 #### Capabilities
 
@@ -214,7 +296,9 @@ bare prefs object.
   in. Use the `CopyJob` auto-skip flags (`setAutoSkip`), or a custom ask-user
   interface that answers per item.
 
-### ops.ts (delete, free names, symlinks); tests: ops.test.ts
+### `ops.ts`
+
+Delete, free names and symlinks. Tests: `ops.test.ts`.
 
 #### Capabilities
 
@@ -237,10 +321,14 @@ bare prefs object.
 - File and folder links work and are never overwritten.
 - A missing target or a relative path is refused.
 
-**KDE/Qt replacement**: KIO::trash / KIO::del / KIO::DeleteOrTrashJob;
-KIO::symlink / KIO::link; KFileUtils::suggestName.
+#### KDE/Qt replacement
 
-### dirs.ts (sidebar tree children); tests: dirs.test.ts
+KIO::trash / KIO::del / KIO::DeleteOrTrashJob; KIO::symlink / KIO::link;
+KFileUtils::suggestName.
+
+### `dirs.ts`
+
+Sidebar tree children. Tests: `dirs.test.ts`.
 
 #### Capabilities
 
@@ -257,10 +345,13 @@ KIO::symlink / KIO::link; KFileUtils::suggestName.
 - Hidden dot-entries follow `showHidden`.
 - A missing folder returns `[]`.
 
-**KDE/Qt replacement**: KDirModel + KDirSortFilterProxyModel with
-`setDirOnlyMode`.
+#### KDE/Qt replacement
 
-### search.ts (live walk/search, duplicates); tests: search.test.ts
+KDirModel + KDirSortFilterProxyModel with `setDirOnlyMode`.
+
+### `search.ts`
+
+Live walk and search, duplicates. Tests: `search.test.ts`.
 
 #### Capabilities
 
@@ -291,10 +382,14 @@ KIO::symlink / KIO::link; KFileUtils::suggestName.
 - Hitting `limit` sets `capped`.
 - Duplicate grouping puts three identical files in group 1.
 
-**KDE/Qt replacement**: KIO `filenamesearch:/` (kio-extras; supports content
-search) or a custom QDirIterator worker; QCryptographicHash for duplicates.
+#### KDE/Qt replacement
 
-### searchdb.ts (indexed search plus the settings KV); tests: searchdb.test.ts
+KIO `filenamesearch:/` (kio-extras; supports content search) or a custom
+QDirIterator worker; QCryptographicHash for duplicates.
+
+### `searchdb.ts`
+
+Indexed search plus the settings KV. Tests: `searchdb.test.ts`.
 
 #### Capabilities
 
@@ -324,18 +419,29 @@ search) or a custom QDirIterator worker; QCryptographicHash for duplicates.
   "MIM FOR ME" and "me mim for" all find `mim.for.me.4.3.1.md`).
 - Clearing the index keeps the settings in `app`.
 
-**KDE/Qt replacement**: Baloo (`Baloo::Query`, `baloosearch:/`) for system-wide
-search. For parity with the user-chosen roots and exclusions, keep a private
-SQLite FTS5 index via QtSql. Settings themselves move to KConfig.
+#### KDE/Qt replacement
 
-### store.ts
+Baloo (`Baloo::Query`, `baloosearch:/`) for system-wide search. For parity with
+the user-chosen roots and exclusions, keep a private SQLite FTS5 index via
+QtSql. Settings themselves move to KConfig.
 
-**Capabilities**: `readStore` / `writeStore` are JSON values in `search.db.app`.
-`migrateLegacyStore` imports `state.json` and `window.json` once. **KDE/Qt
-replacement**: KSharedConfig (`max-file-managerrc`) plus a KConfig state file
+### `store.ts`
+
+Settings store in `search.db`.
+
+#### Capabilities
+
+`readStore` / `writeStore` are JSON values in `search.db.app`.
+`migrateLegacyStore` imports `state.json` and `window.json` once.
+
+#### KDE/Qt replacement
+
+KSharedConfig (`max-file-managerrc`) plus a KConfig state file
 (`KSharedConfig::openStateConfig`).
 
-### drafts.ts (editor crash safety); tests: drafts.test.ts
+### `drafts.ts`
+
+Editor crash safety. Tests: `drafts.test.ts`.
 
 #### Capabilities
 
@@ -351,11 +457,15 @@ replacement**: KSharedConfig (`max-file-managerrc`) plus a KConfig state file
 - Prune keeps the newest N and expires old ones.
 - Junk JSON returns null.
 
-**KDE/Qt replacement**: a QSettings/KConfig group or files under
-`QStandardPaths::AppDataLocation`. KTextEditor has its own swap files
-(`KTextEditor::Document` swap) if a Kate part is used.
+#### KDE/Qt replacement
 
-### archives.ts (zip/tar browse, extract, create); tests: archives.test.ts
+A QSettings/KConfig group or files under `QStandardPaths::AppDataLocation`.
+KTextEditor has its own swap files (`KTextEditor::Document` swap) if a Kate part
+is used.
+
+### `archives.ts`
+
+Zip/tar browse, extract and create. Tests: `archives.test.ts`.
 
 #### Capabilities
 
@@ -390,13 +500,19 @@ replacement**: KSharedConfig (`max-file-managerrc`) plus a KConfig state file
 - createZip never overwrites (`a (2).zip`) and returns the empty-source error.
 - Extraction never overwrites (`a (2).txt`).
 
-**KDE/Qt replacement**: KArchive (KZip, KTar, K7Zip, KCompressionDevice for
-gz/bz2/xz/zstd), or the KIO `zip:/` and `tar:/` protocols for browsing
-(kio-extras). Ark's `.desktop` service menus can also be used.
+#### KDE/Qt replacement
 
-### meta.ts (per-folder `.mfm.json`, which travels with the folder); tests: meta.test.ts
+KArchive (KZip, KTar, K7Zip, KCompressionDevice for gz/bz2/xz/zstd), or the KIO
+`zip:/` and `tar:/` protocols for browsing (kio-extras). Ark's `.desktop`
+service menus can also be used.
 
-**Schema** (`.mfm.json`, at most 4096 bytes on read):
+### `meta.ts`
+
+Per-folder `.mfm.json`, which travels with the folder. Tests: `meta.test.ts`.
+
+#### Schema
+
+`.mfm.json`, at most 4096 bytes on read:
 
 | Key            | Content / validation                                                                                                                                 |
 | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -443,21 +559,31 @@ gz/bz2/xz/zstd), or the KIO `zip:/` and `tar:/` protocols for browsing
 - Dolphin hides entries through a `.hidden` file in the parent directory.
 - KFileItem/KDirModel already honour `.directory` icons.
 
-### folderlook.ts; tests: folderlook.test.ts
+### `folderlook.ts`
 
-**Capabilities**: read-only import of other file managers' folder icons.
+Folder icons from other file managers. Tests: `folderlook.test.ts`.
+
+#### Capabilities
+
+Read-only import of other file managers' folder icons:
 
 - KDE `.directory` `Icon=` (last one wins), resolved through the icon theme.
 - Windows `desktop.ini` `IconResource` / `IconFile`: index and quotes stripped;
   absolute or relative to the folder.
 
-**Tests pin down**: parsing of `.directory` Icon values, and desktop.ini
-IconResource with an index, quoting, and IconFile.
+#### Tests pin down
 
-**KDE/Qt replacement**: KDesktopFile::readIcon; KFileItem::iconName handles this
-natively.
+- Parsing of `.directory` Icon values.
+- desktop.ini IconResource with an index, quoting, and IconFile.
 
-### icons.ts
+#### KDE/Qt replacement
+
+KDesktopFile::readIcon; KFileItem::iconName handles this natively.
+
+### `icons.ts`
+
+Icon themes and icon lookup. `iconsIn` and `themeDirs` are tested in
+`meta.test.ts`.
 
 #### Capabilities
 
@@ -477,15 +603,27 @@ natively.
 - `iconSetPaths`: picks one icon per file kind (dir, image, video, audio,
   archive, code, text, doc, pdf, sheet, slides, file).
 
-**KDE/Qt replacement**: KIconLoader / QIcon::fromTheme / KIconTheme; KIconDialog
-for the picker.
+#### KDE/Qt replacement
 
-### appicons.ts
+KIconLoader / QIcon::fromTheme / KIconTheme; KIconDialog for the picker.
+
+### `appicons.ts`
+
+macOS app icons.
+
+#### Capabilities
 
 macOS only: converts `.app` bundle `.icns` icons with `plutil` and `sips` and
-caches PNGs. **Drop.**
+caches PNGs.
 
-### apps.ts (Open with, default apps, launching, default file manager); tests: apps.test.ts
+#### KDE/Qt replacement
+
+**Drop.**
+
+### `apps.ts`
+
+Open with, default apps, launching and the default file manager. Tests:
+`apps.test.ts`.
 
 #### Capabilities (Linux)
 
@@ -547,7 +685,9 @@ caches PNGs. **Drop.**
   `inode/directory` association through KApplicationTrader / mimeapps.list. Do
   not mask Dolphin.
 
-### filemanager1-bridge.py
+### `filemanager1-bridge.py`
+
+`org.freedesktop.FileManager1` bridge.
 
 #### Capabilities
 
@@ -560,13 +700,16 @@ caches PNGs. **Drop.**
 - ShowItems therefore passes the file path itself; the renderer handles
   revealing it. ShowItemProperties does not open a properties dialog.
 
-**KDE/Qt replacement**: implement FileManager1 in-process with
-QDBusAbstractAdaptor, as Dolphin's `DBusInterface` does. Register through
-KDBusService and an `org.freedesktop.FileManager1.service` activation file.
-Implement ShowItems as open-parent-and-select, and ShowItemProperties as
-KPropertiesDialog.
+#### KDE/Qt replacement
 
-### desktop.ts
+Implement FileManager1 in-process with QDBusAbstractAdaptor, as Dolphin's
+`DBusInterface` does. Register through KDBusService and an
+`org.freedesktop.FileManager1.service` activation file. Implement ShowItems as
+open-parent-and-select, and ShowItemProperties as KPropertiesDialog.
+
+### `desktop.ts`
+
+Terminal, reveal, drag-out and custom commands.
 
 #### Capabilities
 
@@ -580,14 +723,20 @@ KPropertiesDialog.
   there is no placeholder, the path is appended. cwd is the file's folder;
   detached, fire-and-forget.
 
-**KDE/Qt replacement**: KTerminalLauncherJob; KIO::highlightInFileManager (here
-that is the app itself); QDrag with `QMimeData::setUrls` / KUrlMimeData;
+#### KDE/Qt replacement
+
+KTerminalLauncherJob; KIO::highlightInFileManager (here that is the app
+itself); QDrag with `QMimeData::setUrls` / KUrlMimeData;
 KIO::CommandLauncherJob or QProcess::startDetached.
 
-### fileclip.ts + wayland-clip/ (C helper)
+### `fileclip.ts` and `wayland-clip/`
 
-**Capabilities**: puts a file list on the system clipboard (copy or cut) even
-when the app window is unfocused.
+File lists on the system clipboard; `wayland-clip/` is a C helper.
+
+#### Capabilities
+
+Puts a file list on the system clipboard (copy or cut) even when the app window
+is unfocused.
 
 - **On Wayland**:
   - Spawns the `wayland-clip` binary, built by `npm run build` with gcc and
@@ -610,15 +759,16 @@ when the app window is unfocused.
   - If no helper is available, the paths go to the clipboard as plain text.
   - `releaseFiles` clears the selection before the renderer writes an image.
 
-**KDE/Qt replacement**: QClipboard + QMimeData::setUrls +
-`KIO::setClipboardDataCut` / `KUrlMimeData`. A native, focused Qt window can
-write the clipboard directly, so the helper is unnecessary. Klipper keeps the
-data after the app exits.
+#### KDE/Qt replacement
 
-### portal.ts and friends (XDG file-chooser backend)
+QClipboard + QMimeData::setUrls + `KIO::setClipboardDataCut` / `KUrlMimeData`.
+A native, focused Qt window can write the clipboard directly, so the helper is
+unnecessary. Klipper keeps the data after the app exits.
 
-Files: portal.ts, portal-core.ts, portal-install.ts, shared/portal-filters.ts;
-tests: portal-core.test.ts.
+### `portal.ts` and friends
+
+XDG file-chooser backend. Files: `portal.ts`, `portal-core.ts`,
+`portal-install.ts`, `shared/portal-filters.ts`. Tests: `portal-core.test.ts`.
 
 #### Capabilities
 
@@ -671,12 +821,15 @@ tests: portal-core.test.ts.
   is created if missing; disabling an empty file yields an empty file.
 - dbusExecQuote handles spaces and `'`; `fileUri` escapes spaces.
 
-**KDE/Qt replacement**: a QDBusAbstractAdaptor implementing
-`impl.portal.FileChooser` around the app's own picker dialog
-(xdg-desktop-portal-kde's FileChooser is the reference). Matching:
-QMimeDatabase + `QRegularExpression::wildcardToRegularExpression`.
+#### KDE/Qt replacement
 
-### preview.ts (+ hash tests); tests: preview.test.ts
+A QDBusAbstractAdaptor implementing `impl.portal.FileChooser` around the app's
+own picker dialog (xdg-desktop-portal-kde's FileChooser is the reference).
+Matching: QMimeDatabase + `QRegularExpression::wildcardToRegularExpression`.
+
+### `preview.ts`
+
+File previews. Tests: `preview.test.ts`, which also covers hashing.
 
 #### Capabilities
 
@@ -716,7 +869,9 @@ QMimeDatabase + `QRegularExpression::wildcardToRegularExpression`.
   viewer.
 - QMediaPlayer for audio and video.
 
-### thumbs.ts
+### `thumbs.ts`
+
+Thumbnail cache.
 
 #### Capabilities
 
@@ -728,17 +883,28 @@ QMimeDatabase + `QRegularExpression::wildcardToRegularExpression`.
 - Prune runs every 50 writes: at most 4000 files and 300 MB, oldest first.
 - `clearThumbs` returns `{removed}`.
 
-**KDE/Qt replacement**: KIO::PreviewJob, which uses the freedesktop shared cache
-in `~/.cache/thumbnails` and the KIO thumbnailer plugins (video, PDF, office,
+#### KDE/Qt replacement
+
+KIO::PreviewJob, which uses the freedesktop shared cache in
+`~/.cache/thumbnails` and the KIO thumbnailer plugins (video, PDF, office,
 fonts, …). Clearing becomes a matter of `~/.cache/thumbnails` or is dropped.
 
-### hash.ts
+### `hash.ts`
 
-**Capabilities**: streamed digest of any Node/OpenSSL algorithm (default
-sha256), returning `[{path, hash|null}]`. **KDE/Qt replacement**:
+Streamed digests. Hashing is tested in `preview.test.ts`.
+
+#### Capabilities
+
+Streamed digest of any Node/OpenSSL algorithm (default sha256), returning
+`[{path, hash|null}]`.
+
+#### KDE/Qt replacement
+
 QCryptographicHash (md5, sha1, sha2, sha3, blake2 in Qt 6).
 
-### breakdown.ts (folder content charts); tests: breakdown.test.ts
+### `breakdown.ts`
+
+Folder content charts. Tests: `breakdown.test.ts`.
 
 #### Capabilities
 
@@ -762,10 +928,14 @@ QCryptographicHash (md5, sha1, sha2, sha3, blake2 in Qt 6).
 - An empty folder gives zeros.
 - Exceeding maxEntries sets `capped` and scanned ≤ cap.
 
-**KDE/Qt replacement**: custom QDirIterator / KIO::listRecursive worker
-(Filelight-like). KIO::DirectorySizeJob covers only the totals.
+#### KDE/Qt replacement
 
-### sync.ts (folder sync and file diff); tests: sync.test.ts
+Custom QDirIterator / KIO::listRecursive worker (Filelight-like).
+KIO::DirectorySizeJob covers only the totals.
+
+### `sync.ts`
+
+Folder sync and file diff. Tests: `sync.test.ts`.
 
 #### Capabilities
 
@@ -800,11 +970,14 @@ QCryptographicHash (md5, sha1, sha2, sha3, blake2 in Qt 6).
 - Coarse fallback at 900×900 lines.
 - An equal-time `sizeDiff` is offered in both directions.
 
-**KDE/Qt replacement**: custom logic (Krusader's Synchronizer is the model);
-KIO::copy / KIO::trash to apply. For diffs, libkomparediff2 / Kompare KPart or a
-custom Myers diff.
+#### KDE/Qt replacement
 
-### editor.ts
+Custom logic (Krusader's Synchronizer is the model); KIO::copy / KIO::trash to
+apply. For diffs, libkomparediff2 / Kompare KPart or a custom Myers diff.
+
+### `editor.ts`
+
+Text files and HTML to PDF.
 
 #### Capabilities
 
@@ -816,10 +989,14 @@ custom Myers diff.
   which is fragile), A4 page, 18/16 mm margins, RTL document, LTR code blocks,
   highlight.js colors for light and dark themes.
 
-**KDE/Qt replacement**: QSaveFile; KTextEditor::Document / KSyntaxHighlighting;
-QTextDocument + QPdfWriter (or QWebEngine `printToPdf`) for PDF.
+#### KDE/Qt replacement
 
-### export.ts + shared/export.ts (listing export); tests: shared/export.test.ts
+QSaveFile; KTextEditor::Document / KSyntaxHighlighting; QTextDocument +
+QPdfWriter (or QWebEngine `printToPdf`) for PDF.
+
+### `export.ts` and `shared/export.ts`
+
+Listing export. Tests: `shared/export.test.ts`.
 
 #### Capabilities
 
@@ -832,12 +1009,19 @@ QTextDocument + QPdfWriter (or QWebEngine `printToPdf`) for PDF.
 - The output file is `freeName(dir/<sanitized name>.csv|.pdf)`.
 - `rowsOf` merges the listing with the folder metadata.
 
-**Tests pin down**: BOM, quoting and doubled quotes; HTML escaping, stars,
-`2.0 KB`; the metadata join.
+#### Tests pin down
 
-**KDE/Qt replacement**: QFile/QTextStream; QTextDocument → QPdfWriter.
+- BOM, quoting and doubled quotes.
+- HTML escaping, stars, `2.0 KB`.
+- The metadata join.
 
-### convert.ts + shared/bmp.ts (batch image conversion); tests: shared/bmp.test.ts
+#### KDE/Qt replacement
+
+QFile/QTextStream; QTextDocument → QPdfWriter.
+
+### `convert.ts` and `shared/bmp.ts`
+
+Batch image conversion. Tests: `shared/bmp.test.ts`.
 
 #### Capabilities
 
@@ -848,13 +1032,21 @@ QTextDocument + QPdfWriter (or QWebEngine `printToPdf`) for PDF.
 - The BMP encoder writes 24-bit bottom-up rows with 4-byte padding, composites
   alpha over white, and treats a size of 0 as 1×1.
 
-**Tests pin down**: BMP header fields, row order and BGR padding, alpha
-compositing, the zero-size case.
+#### Tests pin down
 
-**KDE/Qt replacement**: QImage / QImageWriter (with kimageformats, WebP, AVIF,
-HEIF and more work). This removes the WebP limitation.
+- BMP header fields.
+- Row order and BGR padding.
+- Alpha compositing.
+- The zero-size case.
 
-### image.ts (gallery editor saves); tests: image.test.ts
+#### KDE/Qt replacement
+
+QImage / QImageWriter (with kimageformats, WebP, AVIF, HEIF and more work). This
+removes the WebP limitation.
+
+### `image.ts`
+
+Gallery editor saves. Tests: `image.test.ts`.
 
 #### Capabilities
 
@@ -873,10 +1065,13 @@ HEIF and more work). This removes the WebP limitation.
 - A jpeg data URL produces `.jpg`.
 - Bad data and relative paths are refused.
 
-**KDE/Qt replacement**: QImage + QSaveFile. Rotate, flip, crop and resize are
-QImage transforms.
+#### KDE/Qt replacement
 
-### metadata.ts (ID3 and EXIF); tests: metadata.test.ts
+QImage + QSaveFile. Rotate, flip, crop and resize are QImage transforms.
+
+### `metadata.ts`
+
+ID3 and EXIF. Tests: `metadata.test.ts`.
 
 #### Capabilities
 
@@ -892,14 +1087,19 @@ QImage transforms.
   TRCK; ≤200 characters each). The old tag, including its footer, is dropped and
   the audio bytes are copied untouched. Atomic tmp → rename.
 
-**Tests pin down**: replacing a tag keeps the audio bytes and round-trips
-Persian values; a tag is created when none existed.
+#### Tests pin down
 
-**KDE/Qt replacement**: KFileMetaData (ExtractorCollection for reading;
-WriterCollection with the TagLib writer for writing), or TagLib and libexiv2
-directly.
+- Replacing a tag keeps the audio bytes and round-trips Persian values.
+- A tag is created when none existed.
 
-### drives.ts (removable media); tests: drives.test.ts
+#### KDE/Qt replacement
+
+KFileMetaData (ExtractorCollection for reading; WriterCollection with the TagLib
+writer for writing), or TagLib and libexiv2 directly.
+
+### `drives.ts`
+
+Removable media. Tests: `drives.test.ts`.
 
 #### Capabilities
 
@@ -924,40 +1124,63 @@ directly.
   flags and fs types.
 - An unpartitioned USB stick is listed as the whole disk.
 
-**KDE/Qt replacement**: Solid (StorageVolume / StorageAccess
-`setup()`/`teardown()`, `Solid::OpticalDrive::eject`) with KFilePlacesModel;
-`Solid::DeviceNotifier` gives hotplug notifications, which the current code
-lacks.
+#### KDE/Qt replacement
 
-### launch-path.ts; tests: launch-path.test.ts
+Solid (StorageVolume / StorageAccess `setup()`/`teardown()`,
+`Solid::OpticalDrive::eject`) with KFilePlacesModel; `Solid::DeviceNotifier`
+gives hotplug notifications, which the current code lacks.
 
-**Capabilities**: picks the first absolute or `file://` argument from argv,
-skipping flags and skipping the app directory once (the dev launcher passes
+### `launch-path.ts`
+
+Launch path from argv. Tests: `launch-path.test.ts`.
+
+#### Capabilities
+
+Picks the first absolute or `file://` argument from argv, skipping flags and
+skipping the app directory once (the dev launcher passes
 `electron <appDir> %U`).
 
-**Tests pin down**: the app dir alone gives null; a packaged launch takes the
-first argument; `file://` URIs are percent-decoded; flags are ignored; the app's
-own folder can still be opened explicitly when given twice.
+#### Tests pin down
 
-**KDE/Qt replacement**: QCommandLineParser + `QUrl::fromUserInput`; KDBusService
+- The app dir alone gives null.
+- A packaged launch takes the first argument.
+- `file://` URIs are percent-decoded.
+- Flags are ignored.
+- The app's own folder can still be opened explicitly when given twice.
+
+#### KDE/Qt replacement
+
+QCommandLineParser + `QUrl::fromUserInput`; KDBusService
 `activateRequested(args, cwd)`.
 
-### window-bounds.ts; tests: window-bounds.test.ts
+### `window-bounds.ts`
 
-**Capabilities**: `fitWindow` restores a saved rectangle if at least 120×80 px
-of it is on some display's work area; it is clamped inside that area. Otherwise
-the saved size is centred on the primary display. With no saved rectangle, the
-default size is centred.
+Saved window bounds. Tests: `window-bounds.test.ts`.
 
-**Tests pin down**: no saved bounds gives centred 1320×860; exact restore on the
-primary or second display; an unplugged display recentres; a rectangle half off
-the edge is pulled back; an oversized rectangle is clamped; a sliver counts as
-gone.
+#### Capabilities
 
-**KDE/Qt replacement**: KWindowConfig::saveWindowSize / restoreWindowSize.
-Position is mostly ignored on Wayland.
+`fitWindow` restores a saved rectangle if at least 120×80 px of it is on some
+display's work area; it is clamped inside that area. Otherwise the saved size is
+centred on the primary display. With no saved rectangle, the default size is
+centred.
 
-### updates.ts + updates-core.ts; tests: updates.test.ts
+#### Tests pin down
+
+- No saved bounds gives centred 1320×860.
+- Exact restore on the primary or second display.
+- An unplugged display recentres.
+- A rectangle half off the edge is pulled back.
+- An oversized rectangle is clamped.
+- A sliver counts as gone.
+
+#### KDE/Qt replacement
+
+KWindowConfig::saveWindowSize / restoreWindowSize. Position is mostly ignored on
+Wayland.
+
+### `updates.ts` and `updates-core.ts`
+
+Update check. Tests: `updates.test.ts`.
 
 #### Capabilities
 
@@ -969,12 +1192,22 @@ Position is mostly ignored on Wayland.
 - `openRelease` only opens URLs under
   `https://github.com/majidasgari/max-file-manager/`.
 
-**Tests pin down**: 1.2.10 > 1.2.9; the `v` prefix; equal versions; `-beta` is
-not newer; missing segments count as 0; drafts and prereleases are skipped.
+#### Tests pin down
 
-**KDE/Qt replacement**: QNetworkAccessManager, or drop it for distro packaging.
+- 1.2.10 > 1.2.9.
+- The `v` prefix.
+- Equal versions.
+- `-beta` is not newer.
+- Missing segments count as 0.
+- Drafts and prereleases are skipped.
 
-### mcp.ts (agent API, off by default)
+#### KDE/Qt replacement
+
+QNetworkAccessManager, or drop it for distro packaging.
+
+### `mcp.ts`
+
+Agent API, off by default.
 
 #### Capabilities
 
@@ -992,7 +1225,10 @@ not newer; missing segments count as 0; drafts and prereleases are skipped.
 
 #### Tools (about 91)
 
-- Read:
+<details>
+<summary>Read, write and UI-forwarded tools</summary>
+
+- **Read**:
   - roots, drives_list, list, dirs, walk, properties, statfs, size, breakdown,
     hash, dupes
   - search, search_stats, search_status, search_sizes
@@ -1001,8 +1237,8 @@ not newer; missing segments count as 0; drafts and prereleases are skipped.
   - jobs_list, undo_depth, state, mcp_status
   - apps, app_default, desktop_default_manager, portal_status, update_check,
     image_get
-- Write: write_text, mkdir, create_file, rename, rename_many, copy, move, trash,
-  delete (needs `confirm:true`), symlink, chmod, extract, create_zip,
+- **Write**: write_text, mkdir, create_file, rename, rename_many, copy, move,
+  trash, delete (needs `confirm:true`), symlink, chmod, extract, create_zip,
   tags_write, export_listing, pdf, image_save, image_save_as, image_convert,
   clipboard_image, thumbs_clear, label_set, file_color_set, rating_set,
   note_set, meta_set, sort_set, pin_set, job_start, job_pause, job_resume,
@@ -1011,22 +1247,23 @@ not newer; missing segments count as 0; drafts and prereleases are skipped.
   settings_export, settings_import, open, reveal, terminal, apps_launch,
   app_set_default, set_default_manager, update_open, hotkey, drive_mount,
   drive_unmount.
-- Forwarded to the UI (`mcp:ui`): command, goto, select, filter, tab (new,
+- **Forwarded to the UI** (`mcp:ui`): command, goto, select, filter, tab (new,
   close, next, prev, reopen, select, rename, lock, color), bookmark (list is
-  answered in main), open_editor, open_gallery, open_preview, properties_dialog,
-  note. `window` (minimize, maximize, close, show, fullscreen, chrome) is
-  handled in main.
+  answered in main), open_editor, open_gallery, open_preview,
+  properties_dialog, note. `window` (minimize, maximize, close, show,
+  fullscreen, chrome) is handled in main.
 
-**KDE/Qt replacement**: QHttpServer (Qt 6.4+) or QTcpServer bound to
-QHostAddress::LocalHost.
+</details>
 
-### types.ts
+#### KDE/Qt replacement
+
+QHttpServer (Qt 6.4+) or QTcpServer bound to QHostAddress::LocalHost.
+
+### `types.ts`
 
 Shared types: `Entry` fields: name, path, dir, size, mtime, ext, and optional
 group, color, icon, mode, uid, gid, nlink, w, h, hidden, link. `DirRef`,
 `Listing`, and `Result {done, errors[]}`.
-
----
 
 ## Preload IPC surface (`window.api`)
 
@@ -1054,9 +1291,9 @@ All calls are `invoke` unless marked otherwise.
 - `fs:remove({paths, permanent})`: trash or permanent delete.
 - `fs:mkdir(dir, name)`, `fs:createFile(dir, name, content)` (undoable).
 - `fs:symlink(target, link)`, `fs:renameMany(pairs)` (undoable).
-- `fs:archive(p)`: list an archive;
-  `fs:archiveCreate({dir, name, sources, level})`;
-  `fs:extract({archive, names, dest})`.
+- `fs:archive(p)`: list an archive.
+- `fs:archiveCreate({dir, name, sources, level})`.
+- `fs:extract({archive, names, dest})`.
 
 ### Jobs and undo
 
@@ -1064,31 +1301,42 @@ All calls are `invoke` unless marked otherwise.
   `job:cancel(id)`, `job:list`, `job:clear`.
 - `undo:run`, `undo:depth`.
 
-### Folder metadata (.mfm.json)
+### Folder metadata (`.mfm.json`)
 
 - `meta:get(dir)`, `meta:set({dir, meta})`, `meta:setFormat`, `meta:setRating`,
   `meta:setNote`, `meta:setLabel`, `meta:setEntryColor`, `meta:togglePin`,
   `meta:labels`.
 - `meta:writeTags({path, fields})`: writes ID3 tags.
 
-**Icons**: `icons:themes(extra)`, `icons:in(themeDir)`, `icons:set`,
-`icons:folderLook(p)`.
+### Icons
 
-**Images**: `image:save({src, dataUrl, mode})`,
-`image:saveAs({src, dataUrl, dest})`, `image:batchConvert({files, opts})`,
-`thumbs:clear`.
+- `icons:themes(extra)`, `icons:in(themeDir)`, `icons:set`,
+  `icons:folderLook(p)`.
 
-**Export and PDF**: `export:listing({dir, name, rows, format, theme})`,
-`pdf:html({html, out, theme})`.
+### Images
 
-**Sync**: `sync:compare({left, right, deep?, compareBy?, ignore?})`,
-`sync:apply({left, right, rows, mode, deleteExtra})`.
+- `image:save({src, dataUrl, mode})`, `image:saveAs({src, dataUrl, dest})`.
+- `image:batchConvert({files, opts})`.
+- `thumbs:clear`.
 
-**Editor drafts**: `drafts:get(p)`, `drafts:set({path, text})`,
-`drafts:clear(p)`.
+### Export and PDF
 
-**Search index**: `search:index(cfg)`, `search:query({query, limit})`,
-`search:stats`, `search:status`, `search:sizes(dirs)`, `search:clear`.
+- `export:listing({dir, name, rows, format, theme})`.
+- `pdf:html({html, out, theme})`.
+
+### Sync
+
+- `sync:compare({left, right, deep?, compareBy?, ignore?})`.
+- `sync:apply({left, right, rows, mode, deleteExtra})`.
+
+### Editor drafts
+
+- `drafts:get(p)`, `drafts:set({path, text})`, `drafts:clear(p)`.
+
+### Search index
+
+- `search:index(cfg)`, `search:query({query, limit})`, `search:stats`,
+  `search:status`, `search:sizes(dirs)`, `search:clear`.
 
 ### Apps and desktop
 
@@ -1101,12 +1349,15 @@ All calls are `invoke` unless marked otherwise.
 - `app:dragOut(files)` (**send**, not invoke).
 - `hotkey:register(accel)`.
 
-**Clipboard**: `clipboard:copyFiles({paths, cut})` → `'files'|'text'`,
-`clipboard:releaseFiles`, `clipboard:writeText(text)`,
-`clipboard:saveImage({dir, name, data})`.
+### Clipboard
 
-**Drives**: `drives:list`, `drives:mount(device)`,
-`drives:unmount(deviceOrMount)`.
+- `clipboard:copyFiles({paths, cut})` → `'files'|'text'`.
+- `clipboard:releaseFiles`, `clipboard:writeText(text)`.
+- `clipboard:saveImage({dir, name, data})`.
+
+### Drives
+
+- `drives:list`, `drives:mount(device)`, `drives:unmount(deviceOrMount)`.
 
 ### App, window and state
 
@@ -1119,31 +1370,41 @@ All calls are `invoke` unless marked otherwise.
   `state:patchPrefs(patch)`, `state:marks({path, on}?)`.
 - `settings:export({prefs})` and `settings:import`: native save/open dialogs.
 
-**Updates**: `update:check(force)`, `update:open(url)`.
+### Updates
 
-**MCP**: `mcp:status`, `mcp:configure({mode, port})` (restarts the server),
-`mcp:token` (generates a new token and restarts).
+- `update:check(force)`, `update:open(url)`.
 
-**Portal**: `portal:request` (the request for this window),
-`portal:respond(result|null)`, `portal:rememberDir(dir)`, `portal:status`,
-`portal:configure(enabled)` (install or uninstall plus start or stop).
+### MCP
 
-**Non-IPC**: `pathForFile(File)` uses `webUtils.getPathForFile` to turn a
-dropped file into a path.
+- `mcp:status`.
+- `mcp:configure({mode, port})` (restarts the server).
+- `mcp:token` (generates a new token and restarts).
 
-**Events (main → renderer)**: `fs:changed(dir)`, `job:update(job)`,
-`search:progress(status)`, `mcp:ui({tool, args, …})` (buffered in preload until
-the renderer subscribes), `app:open-path(p)`, `window:maximized(bool)`,
-`state:prefs-patch(patch)`, `state:marks(marks[])`.
+### Portal
 
----
+- `portal:request` (the request for this window).
+- `portal:respond(result|null)`, `portal:rememberDir(dir)`, `portal:status`.
+- `portal:configure(enabled)` (install or uninstall plus start or stop).
+
+### Non-IPC
+
+- `pathForFile(File)` uses `webUtils.getPathForFile` to turn a dropped file
+  into a path.
+
+### Events (main → renderer)
+
+- `fs:changed(dir)`, `job:update(job)`, `search:progress(status)`.
+- `mcp:ui({tool, args, …})` (buffered in preload until the renderer
+  subscribes).
+- `app:open-path(p)`, `window:maximized(bool)`.
+- `state:prefs-patch(patch)`, `state:marks(marks[])`.
 
 ## Bugs and quirks to note (do not replicate unknowingly)
 
 1. **`window:setChrome` is broken.** The handler re-runs
    `protocol.handle('thumb')` and `ipcMain.handle('thumbs:clear')` inside
    itself; both throw on a second registration, so the window rebuild that
-   follows them is never reached. It looks like a bad merge (index.ts
+   follows them is never reached. It looks like a bad merge (`index.ts`
    ~1667–1692).
 2. **`renameMany` can overwrite.** It uses plain `rename`, which silently
    replaces an existing target on Linux, although the MCP tool claims "never
@@ -1167,16 +1428,17 @@ the renderer subscribes), `app:open-path(p)`, `window:maximized(bool)`,
 
 ## Main files
 
-- `/home/mikepadiernos/Library/Projects/personal/max-file-manager/src/main/index.ts`
-- `/home/mikepadiernos/Library/Projects/personal/max-file-manager/src/preload/index.ts`
-- `/home/mikepadiernos/Library/Projects/personal/max-file-manager/src/main/jobs.ts`
-- `/home/mikepadiernos/Library/Projects/personal/max-file-manager/src/main/mcp.ts`
-- `/home/mikepadiernos/Library/Projects/personal/max-file-manager/src/main/portal*.ts`
-- `/home/mikepadiernos/Library/Projects/personal/max-file-manager/src/main/fileclip.ts`
-  and `src/main/wayland-clip/wayland-clip.c`
-- `/home/mikepadiernos/Library/Projects/personal/max-file-manager/src/main/filemanager1-bridge.py`
-- `/home/mikepadiernos/Library/Projects/personal/max-file-manager/src/renderer/src/prefs.ts`
-  (the full Prefs schema and defaults, outside this scope)
-- `/home/mikepadiernos/Library/Projects/personal/max-file-manager/scripts/install-integration.sh`
-- `/home/mikepadiernos/Library/Projects/personal/max-file-manager/docs/`
-  (FEATURES.md, PREFERENCES.md, MCP.md, INTEGRATION.md, GAPS.md)
+Paths are relative to the reviewed checkout at
+`/home/mikepadiernos/Library/Projects/personal/max-file-manager/`.
+
+- `src/main/index.ts`
+- `src/preload/index.ts`
+- `src/main/jobs.ts`
+- `src/main/mcp.ts`
+- `src/main/portal*.ts`
+- `src/main/fileclip.ts` and `src/main/wayland-clip/wayland-clip.c`
+- `src/main/filemanager1-bridge.py`
+- `src/renderer/src/prefs.ts` (the full Prefs schema and defaults, outside this
+  scope)
+- `scripts/install-integration.sh`
+- `docs/` (FEATURES.md, PREFERENCES.md, MCP.md, INTEGRATION.md, GAPS.md)

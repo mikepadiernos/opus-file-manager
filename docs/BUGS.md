@@ -1,11 +1,13 @@
-# 🐞 Reported bugs
+# Reported bugs
 
-**[Documentation](README.md)** ·
-**[Project board](https://github.com/users/mikepadiernos/projects/3)** ·
-**[Edge cases](EDGE.md)** · **[Caveats](CAVEATS.md)**
+[![Docs index](https://img.shields.io/badge/docs-index-3daee9?style=flat-square)](README.md)
+[![Project board](https://img.shields.io/badge/project-board-6e7781?style=flat-square&logo=github)](https://github.com/users/mikepadiernos/projects/3)
+[![Edge cases](https://img.shields.io/badge/edge-cases-6e7781?style=flat-square)](EDGE.md)
+[![Caveats](https://img.shields.io/badge/caveats-limitations-bf8700?style=flat-square)](CAVEATS.md)
 
-This log records user-visible bugs and reliability issues. Consult the
-[issue workflow](../CLAUDE.md#issues-and-caveats) for tracking rules.
+This log records user-visible bugs and reliability issues with their project
+status. Consult the [issue workflow](../CLAUDE.md#issues-and-caveats) for
+tracking rules.
 
 > [!IMPORTANT]
 > A bug is complete only when its project status is **Completed** or
@@ -14,8 +16,8 @@ This log records user-visible bugs and reliability issues. Consult the
 
 > [!NOTE]
 > 16 of 17 tracked bugs are merged into `main`. One test reliability report,
-> [#696](https://github.com/mikepadiernos/plasma-opus/issues/696), is open in
-> Backlog.
+> [#696][issue-696], is open in Backlog. Issue states and project statuses
+> were last checked against GitHub on 2026-11-25.
 
 ## Contents
 
@@ -26,308 +28,390 @@ This log records user-visible bugs and reliability issues. Consult the
 
 ## Current tracked issues
 
-| Issue                                                           | Bug                                                                   | Complete? | Project status |
-| --------------------------------------------------------------- | --------------------------------------------------------------------- | --------- | -------------- |
-| [#37](https://github.com/mikepadiernos/plasma-opus/issues/37)   | Combined panel header and accordion titles are misaligned             | ✅ Yes    | 🟣 Merged      |
-| [#378](https://github.com/mikepadiernos/plasma-opus/issues/378) | Embedded Konsole terminal does not honor profile background blur      | ✅ Yes    | 🟣 Merged      |
-| [#383](https://github.com/mikepadiernos/plasma-opus/issues/383) | Editor settings should use the notepad symbolic icon                  | ✅ Yes    | 🟣 Merged      |
-| [#444](https://github.com/mikepadiernos/plasma-opus/issues/444) | KDE toolbar editor separators and spacers do not match the toolbar    | ✅ Yes    | 🟣 Merged      |
-| [#446](https://github.com/mikepadiernos/plasma-opus/issues/446) | Metadata editing fails with an unusable ExifTool installation         | ✅ Yes    | 🟣 Merged      |
-| [#457](https://github.com/mikepadiernos/plasma-opus/issues/457) | Embedded terminal panel controls and background blur                  | ✅ Yes    | 🟣 Merged      |
-| [#476](https://github.com/mikepadiernos/plasma-opus/issues/476) | Toolbar context menus and symbolic icons                              | ✅ Yes    | 🟣 Merged      |
-| [#532](https://github.com/mikepadiernos/plasma-opus/issues/532) | Consistent panel placement beside or below the panes                  | ✅ Yes    | 🟣 Merged      |
-| [#533](https://github.com/mikepadiernos/plasma-opus/issues/533) | Embedded panel titles cannot be hidden like Explorer                  | ✅ Yes    | 🟣 Merged      |
-| [#549](https://github.com/mikepadiernos/plasma-opus/issues/549) | Combined panel section spacing and title accents                      | ✅ Yes    | 🟣 Merged      |
-| [#555](https://github.com/mikepadiernos/plasma-opus/issues/555) | Application icon accent color and size                                | ✅ Yes    | 🟣 Merged      |
-| [#558](https://github.com/mikepadiernos/plasma-opus/issues/558) | Headers, titles and status bar need horizontal padding                | ✅ Yes    | 🟣 Merged      |
-| [#605](https://github.com/mikepadiernos/plasma-opus/issues/605) | Panes without a saved view mode open in Details                       | ✅ Yes    | 🟣 Merged      |
-| [#606](https://github.com/mikepadiernos/plasma-opus/issues/606) | Visual Markdown editing loses formatting with a fixed-pitch font      | ✅ Yes    | 🟣 Merged      |
-| [#682](https://github.com/mikepadiernos/plasma-opus/issues/682) | Icons view shows image thumbnails at Details size                     | ✅ Yes    | 🟣 Merged      |
-| [#694](https://github.com/mikepadiernos/plasma-opus/issues/694) | `mainwindowtest` intermittently crashes after restoring a pane filter | ✅ Yes    | 🟣 Merged      |
-| [#696](https://github.com/mikepadiernos/plasma-opus/issues/696) | Checksum test times out waiting for the folder listing under load     | ❌ No     | ⚪ Backlog     |
+Newest first. Each bug links to its report below.
+
+| Issue             | Bug                                                                                                                    | Complete?   | Project status      |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------- | ------------------- |
+| [#696][issue-696] | [Checksum test times out waiting for the folder listing under load](#checksum-test-listing-timeout)                    | ![No][no]   | ![Backlog][backlog] |
+| [#694][issue-694] | [`mainwindowtest` intermittently crashes after restoring a pane filter](#intermittent-mainwindowtest-crash)            | ![Yes][yes] | ![Merged][merged]   |
+| [#682][issue-682] | [Icons view shows image thumbnails at Details size](#icons-view-thumbnail-size)                                        | ![Yes][yes] | ![Merged][merged]   |
+| [#606][issue-606] | [Visual Markdown editing loses formatting with a fixed-pitch font](#visual-markdown-formatting-with-fixed-pitch-fonts) | ![Yes][yes] | ![Merged][merged]   |
+| [#605][issue-605] | [Panes without a saved view mode open in Details](#default-view-for-restored-panes)                                    | ![Yes][yes] | ![Merged][merged]   |
+| [#558][issue-558] | [Headers, titles and status bar need horizontal padding](#header-title-and-status-bar-padding)                         | ![Yes][yes] | ![Merged][merged]   |
+| [#555][issue-555] | [Application icon accent colour and size](#application-icon-accent-color-and-size)                                     | ![Yes][yes] | ![Merged][merged]   |
+| [#549][issue-549] | [Combined panel section spacing and title accents](#combined-panel-section-spacing)                                    | ![Yes][yes] | ![Merged][merged]   |
+| [#533][issue-533] | [Embedded panel titles cannot be hidden like Explorer](#hide-embedded-panel-titles)                                    | ![Yes][yes] | ![Merged][merged]   |
+| [#532][issue-532] | [Consistent panel placement beside or below the panes](#consistent-panel-placement)                                    | ![Yes][yes] | ![Merged][merged]   |
+| [#476][issue-476] | [Toolbar context menus and symbolic icons](#toolbar-context-menus-and-symbolic-icons)                                  | ![Yes][yes] | ![Merged][merged]   |
+| [#457][issue-457] | [Embedded terminal panel controls and background blur](#embedded-terminal-panel-controls-and-background-blur)          | ![Yes][yes] | ![Merged][merged]   |
+| [#446][issue-446] | [Metadata editing fails with an unusable ExifTool installation](#metadata-editing-with-unusable-exiftool)              | ![Yes][yes] | ![Merged][merged]   |
+| [#444][issue-444] | [KDE toolbar editor separators and spacers do not match the toolbar](#kde-toolbar-editor-separators-and-spacers)       | ![Yes][yes] | ![Merged][merged]   |
+| [#383][issue-383] | [Editor settings should use the notepad symbolic icon](#editor-settings-icon)                                          | ![Yes][yes] | ![Merged][merged]   |
+| [#378][issue-378] | [Embedded Konsole terminal does not honour profile background blur](#embedded-terminal-profile-blur)                   | ![Yes][yes] | ![Merged][merged]   |
+| [#37][issue-37]   | [Combined panel header and accordion titles are misaligned](#combined-panel-header-and-accordion-alignment)            | ![Yes][yes] | ![Merged][merged]   |
 
 ## Status legend
 
-| Status             | Meaning                                                  |
-| ------------------ | -------------------------------------------------------- |
-| 🟣 **Merged**      | Merged into `main`                                       |
-| 🟢 **Completed**   | Closed as completed, but not necessarily merged          |
-| 🔵 **Review**      | Implementation is ready for review                       |
-| 🟡 **Development** | Work is in progress                                      |
-| ⚪ **Backlog**     | Recorded on the project board; work has not started      |
-| 🔴 **Untriaged**   | Logged here but not yet created or assigned on the board |
+Statuses use the project board's names, in workflow order.
+
+| Status                      | Meaning                                                  |
+| --------------------------- | -------------------------------------------------------- |
+| ![Merged][merged]           | Merged into `main`                                       |
+| ![Completed][completed]     | Closed as completed, but not necessarily merged          |
+| ![Review][review]           | Implementation is ready for review                       |
+| ![Development][development] | Work is in progress                                      |
+| ![Backlog][backlog]         | Recorded on the project board; work has not started      |
+| ![Untriaged][untriaged]     | Logged here but not yet created or assigned on the board |
 
 ## Open reports
 
+Every report uses the same fields in the same order. "Not recorded" means the
+field is not captured in this log; see the linked issue for any further
+detail.
+
 ### Checksum test listing timeout
 
-- Severity: low (test reliability)
-- Status: Backlog; [#696](https://github.com/mikepadiernos/plasma-opus/issues/696)
-- Summary: `createsAndVerifiesChecksumFiles()` timed out at
-  `tests/mainwindowtest.cpp:3745` while waiting for the folder view to show
-  the new checksum file.
-- Steps to reproduce: Run `mainwindowtest` repeatedly in the dev container
+- **Issue:** [#696][issue-696] ![Backlog][backlog]
+- **Severity:** Low (test reliability)
+- **Summary:** `createsAndVerifiesChecksumFiles()` in
+  `tests/mainwindowtest.cpp` (line 3745 when reported) timed out while waiting
+  for the folder view to show the new checksum file.
+- **Evidence:** Not recorded.
+- **Steps to reproduce:** Run `mainwindowtest` repeatedly in the dev container
   while other processes load the CPU. It failed in 1 of 8 loaded runs and in
   none of 18 runs without load.
-- Expected behaviour: The view lists `source.txt` and the new manifest, and
-  the test verifies the manifest.
-- Actual behaviour: The view held 0 items, not 1, when the 5 s wait expired.
-  This suggests the folder was still being relisted after the change rather
-  than missing the new file; whether users can briefly see an empty folder is
-  not yet known.
-- Next steps: Confirm whether the change triggers a full relisting, wait for
-  the listing to complete in the test, and consider keeping existing items
-  visible while a folder refreshes.
+- **Expected behaviour:** The view lists `source.txt` and the new manifest,
+  and the test verifies the manifest.
+- **Actual behaviour:** The view held 0 items, not 1, when the 5 s wait
+  expired. This suggests the folder was still being relisted after the change
+  rather than missing the new file; whether users can briefly see an empty
+  folder is not yet known.
+- **Resolution:** Not resolved. Next steps: confirm whether the change
+  triggers a full relisting, wait for the listing to complete in the test, and
+  consider keeping existing items visible while a folder refreshes.
 
 ## Completed reports
 
+Newest first, using the same fields as open reports.
+
 ### Intermittent mainwindowtest crash
 
-- Severity: moderate (test reliability)
-- Status: Merged; [#694](https://github.com/mikepadiernos/plasma-opus/issues/694)
-- Summary: `mainwindowtest` intermittently crashed with SIGSEGV when a main
+- **Issue:** [#694][issue-694] ![Merged][merged]
+- **Severity:** Moderate (test reliability)
+- **Summary:** `mainwindowtest` intermittently crashed with SIGSEGV when a main
   window was destroyed, first seen in `filterPersistsWithThePaneSession()`.
-- Steps to reproduce: Run `mainwindowtest` repeatedly in the dev container. It
-  crashed in about 3 of 8 runs, on feature branches and on unchanged `main`.
-- Expected behaviour: Closing a window never crashes, and the test passes.
-- Actual behaviour: The process crashed during window teardown. A `gdb`
-  backtrace showed that destroying the places model stopped its shared
-  directory lister job, which made a pane's lister report items. The pane's
-  item-count signal then updated the status bar through a window member that
-  had already been destroyed, because Qt destroys child widgets after the
-  window's own members.
-- Resolution: The main window disconnects its panes and other children from
-  itself before its members are destroyed. A regression test emits pane
+- **Evidence:** A `gdb` backtrace showed that destroying the places model
+  stopped its shared directory lister job, which made a pane's lister report
+  items. The pane's item-count signal then updated the status bar through a
+  window member that had already been destroyed, because Qt destroys child
+  widgets after the window's own members.
+- **Steps to reproduce:** Run `mainwindowtest` repeatedly in the dev
+  container. It crashed in about 3 of 8 runs, on feature branches and on
+  unchanged `main`.
+- **Expected behaviour:** Closing a window never crashes, and the test passes.
+- **Actual behaviour:** The process crashed during window teardown.
+- **Resolution:** The main window disconnects its panes and other children
+  from itself before its members are destroyed. A regression test emits pane
   signals during child teardown.
 
 ### Icons view thumbnail size
 
-- Severity: moderate
-- Status: Merged; [#682](https://github.com/mikepadiernos/plasma-opus/issues/682)
-- Summary: With previews enabled, image thumbnails in Icons view render at
+- **Issue:** [#682][issue-682] ![Merged][merged]
+- **Severity:** Moderate
+- **Summary:** With previews enabled, image thumbnails in Icons view render at
   Details-view size, about 16 px, inside full-size icon cells.
-- Steps to reproduce: Enable **View → Show Previews**, switch a pane to Icons
+- **Evidence:** Not recorded.
+- **Steps to reproduce:** Enable **View › Previews**, switch a pane to Icons
   view and open a folder that contains images.
-- Expected behaviour: Thumbnails fill the icon cell at the Icons view's size.
-- Actual behaviour: Thumbnails appear at Details-view size. The views share one
-  model, and every view's preview generator was enabled, so the smaller Details
-  and Compact previews overwrote the Icons previews.
-- Resolution: Only the current view's preview generator is enabled, and
+- **Expected behaviour:** Thumbnails fill the icon cell at the Icons view's
+  size.
+- **Actual behaviour:** Thumbnails appear at Details-view size. The views
+  share one model, and every view's preview generator was enabled, so the
+  smaller Details and Compact previews overwrote the Icons previews.
+- **Resolution:** Only the current view's preview generator is enabled, and
   switching views refreshes the previews at the new view's size.
-
-### Default view for restored panes
-
-- Severity: moderate
-- Status: Merged; [#605](https://github.com/mikepadiernos/plasma-opus/issues/605)
-- Summary: Restored session panes without a saved view mode open in Details
-  instead of the configured default view mode.
-- Steps to reproduce: Set a default view mode other than Details, then restore
-  a session whose panes have no `ViewMode` entry.
-- Expected behaviour: Such panes use the configured default view mode.
-- Actual behaviour: They open in Details because session loading fell back to
-  view mode 0. This regressed when M15 made the default view configurable.
-- Resolution: Session loading accepts the configured default view mode, which
-  the main window passes when restoring sessions and window properties.
 
 ### Visual Markdown formatting with fixed-pitch fonts
 
-- Severity: high (data loss)
-- Status: Merged; [#606](https://github.com/mikepadiernos/plasma-opus/issues/606)
-- Summary: Saving a document edited in the visual Markdown editor writes all
-  text as inline code and drops its formatting when the editor font is
+- **Issue:** [#606][issue-606] ![Merged][merged]
+- **Severity:** High (data loss)
+- **Summary:** Saving a document edited in the visual Markdown editor writes
+  all text as inline code and drops its formatting when the editor font is
   fixed-pitch, which is the default.
-- Steps to reproduce: With a fixed-pitch editor font, open a Markdown file,
-  switch to visual editing, make a change and save.
-- Expected behaviour: Headings, emphasis, lists and other formatting are
+- **Evidence:** Not recorded.
+- **Steps to reproduce:** With a fixed-pitch editor font, open a Markdown
+  file, switch to visual editing, make a change and save.
+- **Expected behaviour:** Headings, emphasis, lists and other formatting are
   preserved.
-- Actual behaviour: With Qt 6.11, Markdown export treats fixed-pitch text as
-  code.
-- Resolution: The visual editor uses the system general font at the configured
-  editor font size; the source editor keeps the fixed-pitch font.
+- **Actual behaviour:** With Qt 6.11, Markdown export treats fixed-pitch text
+  as code.
+- **Resolution:** The visual editor uses the system general font at the
+  configured editor font size; the source editor keeps the fixed-pitch font.
+
+### Default view for restored panes
+
+- **Issue:** [#605][issue-605] ![Merged][merged]
+- **Severity:** Moderate
+- **Summary:** Restored session panes without a saved view mode open in
+  Details instead of the configured default view mode.
+- **Evidence:** Not recorded.
+- **Steps to reproduce:** Set a default view mode other than Details, then
+  restore a session whose panes have no `ViewMode` entry.
+- **Expected behaviour:** Such panes use the configured default view mode.
+- **Actual behaviour:** They open in Details because session loading fell
+  back to view mode 0. This regressed when M15 made the default view
+  configurable.
+- **Resolution:** Session loading accepts the configured default view mode,
+  which the main window passes when restoring sessions and window properties.
 
 ### Header, title and status-bar padding
 
-- Severity: not assessed
-- Status: Merged; [#558](https://github.com/mikepadiernos/plasma-opus/issues/558)
-- Summary: Headers, titles and the status bar need more horizontal padding.
-- Resolution: Application-owned headers, titles and status-bar content have
-  at least eight logical pixels of horizontal padding. Native dock titles and
-  column headers retain their active style; see the
+- **Issue:** [#558][issue-558] ![Merged][merged]
+- **Severity:** Not assessed
+- **Summary:** Headers, titles and the status bar need more horizontal
+  padding.
+- **Evidence:** Not recorded.
+- **Steps to reproduce:** Not recorded.
+- **Expected behaviour:** Not recorded.
+- **Actual behaviour:** Not recorded.
+- **Resolution:** Application-owned headers, titles and status-bar content
+  have at least eight logical pixels of horizontal padding. Native dock titles
+  and column headers retain their active style; see the
   [padding caveat](CAVEATS.md#native-title-and-header-padding)
-  ([#560](https://github.com/mikepadiernos/plasma-opus/issues/560)).
+  ([#560][issue-560]).
 
 ### Application icon accent color and size
 
-- Severity: not assessed
-- Status: Merged; [#555](https://github.com/mikepadiernos/plasma-opus/issues/555)
-- Summary: The application icon does not follow the Plasma accent color and
-  appears smaller than Dolphin's icon.
-- Expected behaviour: The folder follows the active accent color, has a
+- **Issue:** [#555][issue-555] ![Merged][merged]
+- **Severity:** Not assessed
+- **Summary:** The application icon does not follow the Plasma accent colour
+  and appears smaller than Dolphin's icon.
+- **Evidence:** Not recorded.
+- **Steps to reproduce:** Not recorded.
+- **Expected behaviour:** The folder follows the active accent colour, has a
   comparable visual footprint, and displays a slightly smaller white
   golden-ratio motif.
-- Resolution: Use KDE's accent color scheme for the folder, enlarge the
-  icon's visual footprint, and reduce the white motif. Non-color-scheme icon
-  renderers use the SVG's default blue.
+- **Actual behaviour:** Not recorded.
+- **Resolution:** The folder uses KDE's accent colour scheme, the icon's
+  visual footprint is enlarged and the white motif is reduced. Icon renderers
+  that do not apply colour schemes use the SVG's default blue.
 
 ### Combined panel section spacing
 
-- Severity: not assessed
-- Status: Merged; [#549](https://github.com/mikepadiernos/plasma-opus/issues/549)
-- Summary: Large vertical gaps appear between combined-panel sections when
+- **Issue:** [#549][issue-549] ![Merged][merged]
+- **Severity:** Not assessed
+- **Summary:** Large vertical gaps appear between combined-panel sections when
   some are expanded and others are collapsed. Section titles also display
   ampersands before letters.
-- Evidence: The reporter's screenshot shows expanded Favorites and Remote
-  sections with substantial empty space between neighboring section headers.
-- Steps to reproduce: Open the combined Explorer panel, expand some sections
-  and collapse others, then observe the spacing between sections.
-- Expected behaviour: Collapsed sections occupy only their header height;
+- **Evidence:** The reporter's screenshot shows expanded Favorites and Remote
+  sections with substantial empty space between neighbouring section headers.
+- **Steps to reproduce:** Open the combined Explorer panel, expand some
+  sections and collapse others, then observe the spacing between sections.
+- **Expected behaviour:** Collapsed sections occupy only their header height;
   section headers follow the preceding content without excessive gaps.
   Expanded content remains usable, with appropriate scrolling and resizing,
-  while section order, visibility, expanded state and navigation are preserved.
-  In section titles, hide the ampersand before a letter and underline that
-  letter in the active accent color while retaining the normal text color;
-  preserve accessible titles and keyboard behaviour.
-- Resolution: Section containers size to their content rather than absorbing
-  spare vertical space. Mnemonic markers are hidden and their letters are
-  underlined in the active accent color, while accessible names and keyboard
-  shortcuts are preserved.
+  while section order, visibility, expanded state and navigation are
+  preserved. In section titles, hide the ampersand before a letter and
+  underline that letter in the active accent colour while retaining the normal
+  text colour; preserve accessible titles and keyboard behaviour.
+- **Actual behaviour:** Not recorded.
+- **Resolution:** Section containers size to their content rather than
+  absorbing spare vertical space. Mnemonic markers are hidden and their
+  letters are underlined in the active accent colour, while accessible names
+  and keyboard shortcuts are preserved.
 
 ### Hide embedded panel titles
 
-- Severity: not assessed
-- Status: Merged; [#533](https://github.com/mikepadiernos/plasma-opus/issues/533)
-- Summary: Embedded panel titles should be hideable without losing controls,
-  document status, metadata changes or terminal sessions.
-- Resolution: Panel Appearance offers a separate, persistent embedded-title
-  preference for the terminal, preview, text editor, metadata editor and
-  information panel. Controls remain available, document identity and unsaved
-  status move out of the title area, and the information panel supplies a
-  placement and hide menu when its dock title is hidden. Existing navigation
-  title preferences and separate-window decorations remain unchanged.
+- **Issue:** [#533][issue-533] ![Merged][merged]
+- **Severity:** Not assessed
+- **Summary:** Embedded panel titles should be hideable without losing
+  controls, document status, metadata changes or terminal sessions.
+- **Evidence:** Not recorded.
+- **Steps to reproduce:** Not recorded.
+- **Expected behaviour:** Not recorded.
+- **Actual behaviour:** Not recorded.
+- **Resolution:** **Preferences › Interface › Panel Appearance** offers a
+  separate, persistent embedded-title preference for the terminal, preview,
+  text editor, metadata editor and information panel. Controls remain
+  available, document identity and unsaved status move out of the title area,
+  and the information panel supplies a placement and hide menu when its dock
+  title is hidden. Existing navigation title preferences and separate-window
+  decorations remain unchanged.
 
 ### Consistent panel placement
 
-- Severity: not assessed
-- Status: Merged; [#532](https://github.com/mikepadiernos/plasma-opus/issues/532)
-- Summary: Preview, text editor and metadata editor need placement below or
-  right of the panes without losing their existing modes or content.
-- Resolution: Preview and metadata editing offer below/right placement alongside
-  their existing pane and separate-window modes. Editor placement and dock
-  sizes are remembered. Moving metadata editing retains pending fields and
-  preview/apply safeguards; active operations prevent closing. Existing
-  navigation and information docks already allow right-side placement.
+- **Issue:** [#532][issue-532] ![Merged][merged]
+- **Severity:** Not assessed
+- **Summary:** Preview, text editor and metadata editor need placement below
+  or right of the panes without losing their existing modes or content.
+- **Evidence:** Not recorded.
+- **Steps to reproduce:** Not recorded.
+- **Expected behaviour:** Not recorded.
+- **Actual behaviour:** Not recorded.
+- **Resolution:** Preview and metadata editing offer below/right placement
+  alongside their existing pane and separate-window modes. Editor placement
+  and dock sizes are remembered. Moving metadata editing retains pending
+  fields and preview/apply safeguards; active operations prevent closing.
+  Existing navigation and information docks already allow right-side
+  placement.
 
 ### Toolbar context menus and symbolic icons
 
-- Severity: not assessed
-- Status: Merged; [#476](https://github.com/mikepadiernos/plasma-opus/issues/476)
-- Summary: The view mode button should use a symbolic icon consistent with
-  other small toolbar controls. The reporter also observes a full-colour
-  Open Editor icon and requests the symbolic icon used on the Editor settings
-  page. The main and pane toolbars also need context menus with appropriate
-  entries and access to toolbar editing settings.
-- Expected behaviour: Prefer the active theme's symbolic icon at small sizes,
-  with the existing regular-icon fallback for larger sizes or themes without
-  a symbolic variant. Use the settings page's notepad icon for Open Editor
-  and other applicable editor actions. Provide context menus for the main
-  toolbar and each pane toolbar with relevant entries, including an option to
-  open Preferences → Interface → Toolbars. Preserve existing action-specific
-  context menus, view-mode, editor and toolbar customization behaviour.
-- Investigation: The customizer overwrote the pane view and sort buttons'
-  symbolic icons from their empty widget-action icons. The separate
-  `toggle_view_mode` action requested regular icons directly. `open_editor`
-  requested `accessories-text-editor`, whereas the Editor settings page uses
-  `view-pim-notes`. Other editor actions were reviewed for the same mismatch.
-- Resolution: Preserve widget-action icons, use theme-aware view and editor
-  icons, and provide toolbar-specific context menus with settings access and
-  the existing KDE toolbar options.
+- **Issue:** [#476][issue-476] ![Merged][merged]
+- **Severity:** Not assessed
+- **Summary:** The view mode button should use a symbolic icon consistent with
+  other small toolbar controls. The reporter also observes a full-colour Open
+  Editor icon and requests the symbolic icon used on the Editor settings page.
+  The main and pane toolbars also need context menus with appropriate entries
+  and access to toolbar editing settings.
+- **Evidence:** Not recorded.
+- **Steps to reproduce:** Not recorded.
+- **Expected behaviour:** Prefer the active theme's symbolic icon at small
+  sizes, with the existing regular-icon fallback for larger sizes or themes
+  without a symbolic variant. Use the settings page's notepad icon for Open
+  Editor and other applicable editor actions. Provide context menus for the
+  main toolbar and each pane toolbar with relevant entries, including an
+  option to open **Preferences › Interface › Toolbars**. Preserve existing
+  action-specific context menus, view-mode, editor and toolbar customization
+  behaviour.
+- **Actual behaviour:** Investigation found that the customizer overwrote the
+  pane view and sort buttons' symbolic icons from their empty widget-action
+  icons. The separate `toggle_view_mode` action requested regular icons
+  directly. `open_editor` requested `accessories-text-editor`, whereas the
+  Editor settings page uses `view-pim-notes`. Other editor actions were
+  reviewed for the same mismatch.
+- **Resolution:** Preserve widget-action icons, use theme-aware view and
+  editor icons, and provide toolbar-specific context menus with settings
+  access and the existing KDE toolbar options.
 
 ### Embedded terminal panel controls and background blur
 
-- Severity: not assessed
-- Status: Merged; [#457](https://github.com/mikepadiernos/plasma-opus/issues/457)
-- Summary: The embedded terminal lacks an accessible panel context menu and
-  dismissal controls, while profile blur reportedly disappears after opening.
-- Evidence: The reporter's screenshot shows the terminal and persistent
+- **Issue:** [#457][issue-457] ![Merged][merged]
+- **Severity:** Not assessed
+- **Summary:** The embedded terminal lacks an accessible panel context menu
+  and dismissal controls, while profile blur reportedly disappears after
+  opening.
+- **Evidence:** The reporter's screenshot shows the terminal and persistent
   "Terminal sessions remain open until their tabs are closed." message. The
   reporter observed the background initially blurred, then transparent without
   blur.
-- Expected behaviour: Provide panel controls independently of Konsole's
-  terminal context menu, allow the informational message to be dismissed,
-  and let users hide the panel without ending sessions. Honor the active
+- **Steps to reproduce:** Not recorded.
+- **Expected behaviour:** Provide panel controls independently of Konsole's
+  terminal context menu, allow the informational message to be dismissed, and
+  let users hide the panel without ending sessions. Honour the active
   profile's blur setting consistently when supported.
-- Actual behaviour: Right-clicking offers the terminal's menu, the message
+- **Actual behaviour:** Right-clicking offers the terminal's menu, the message
   cannot be dismissed, and the reporter could not find an in-panel way to
   close the panel without ending a session. Blur reportedly does not persist.
-- Resolution: [#459](https://github.com/mikepadiernos/plasma-opus/pull/459)
-  adds panel controls to hide the panel without ending sessions and dismiss
-  messages. When the Konsole profile enables blur, Plasma Opus reapplies a
-  window-wide blur request during repaint so the active style cannot replace it
-  with an incomplete region. The previous blur report was
-  [#378](https://github.com/mikepadiernos/plasma-opus/issues/378).
-
-### KDE toolbar editor separators and spacers
-
-- Severity: medium
-- Status: Merged; [#444](https://github.com/mikepadiernos/plasma-opus/issues/444)
-- Summary: Separators and expanding spacers in KDE's toolbar editor did not
-  match the live or restored toolbar.
-- Evidence: The reporter's screenshots identify the KDE toolbar editor and the
-  resulting toolbar. KDE replaced the toolbar on Apply, leaving Plasma Opus with
-  the old toolbar and saved layout.
-- Resolution: [#454](https://github.com/mikepadiernos/plasma-opus/pull/454)
-  synchronizes the editor with the current layout and saves the rebuilt toolbar.
-  [#452](https://github.com/mikepadiernos/plasma-opus/pull/452) also
-  preserves the default spacer when saving. Previously overridden layouts must
-  be configured and applied again.
+- **Resolution:** [#459][pr-459] adds panel controls to hide the panel without
+  ending sessions and dismiss messages. When the Konsole profile enables blur,
+  Plasma Opus reapplies a window-wide blur request during repaint so the
+  active style cannot replace it with an incomplete region. The previous blur
+  report was [#378][issue-378].
 
 ### Metadata editing with unusable ExifTool
 
-- Severity: not assessed
-- Status: Merged; [#446](https://github.com/mikepadiernos/plasma-opus/issues/446)
-- Summary: Metadata editing failed when ExifTool could not load its Perl module.
-- Evidence: The audit environment selected a system ExifTool with an
+- **Issue:** [#446][issue-446] ![Merged][merged]
+- **Severity:** Not assessed
+- **Summary:** Metadata editing failed when ExifTool could not load its Perl
+  module.
+- **Evidence:** The audit environment selected a system ExifTool with an
   incompatible Homebrew Perl. The reporter installed ExifTool 13.64 via mise;
   the shell resolves it successfully and the metadata editor and dialog suites
   pass in an isolated environment using that installation.
-- Resolution: [#451](https://github.com/mikepadiernos/plasma-opus/pull/451)
-  improved diagnostics to identify the executable and report silent failures.
-  Desktop-launched Plasma Opus must also have the working executable on its
-  PATH.
+- **Steps to reproduce:** Not recorded.
+- **Expected behaviour:** Not recorded.
+- **Actual behaviour:** Not recorded.
+- **Resolution:** [#451][pr-451] improved diagnostics to identify the
+  executable and report silent failures. Desktop-launched Plasma Opus must
+  also have the working executable on its `PATH`.
 
-### Combined panel header and accordion alignment
+### KDE toolbar editor separators and spacers
 
-- Severity: not recorded
-- Status: Merged; [#37](https://github.com/mikepadiernos/plasma-opus/issues/37)
-- Summary: The combined panel used the wrong header and centred accordion
-  titles, with the caret on the left.
-- Evidence: The issue includes the original screenshot and reproduction steps.
-- Expected behaviour: Show the explorer panel header, left-align section
-  titles, place carets on the right, and make the relevant sections expandable.
-- Actual behaviour: The header said Places, titles were centred and section
-  expansion did not match the requested layout.
-- Resolution: Marked Merged on the project board.
-
-### Embedded terminal profile blur
-
-- Severity: not recorded
-- Status: Merged; [#378](https://github.com/mikepadiernos/plasma-opus/issues/378)
-- Summary: The embedded terminal did not honor the active Konsole profile's
-  background blur.
-- Evidence: The issue describes comparing embedded and standalone Konsole
-  sessions using a translucent profile with blur enabled.
-- Expected behaviour: Honor profile blur when the compositor supports it,
-  without forcing blur when disabled.
-- Actual behaviour: The embedded background was not blurred.
-- Resolution: Marked Merged on the project board.
+- **Issue:** [#444][issue-444] ![Merged][merged]
+- **Severity:** Moderate
+- **Summary:** Separators and expanding spacers in KDE's toolbar editor did
+  not match the live or restored toolbar.
+- **Evidence:** The reporter's screenshots identify the KDE toolbar editor and
+  the resulting toolbar. KDE replaced the toolbar on Apply, leaving Plasma Opus
+  with the old toolbar and saved layout.
+- **Steps to reproduce:** Not recorded.
+- **Expected behaviour:** Not recorded.
+- **Actual behaviour:** Not recorded.
+- **Resolution:** [#454][pr-454] synchronizes the editor with the current
+  layout and saves the rebuilt toolbar. [#452][pr-452] also preserves the
+  default spacer when saving. Previously overridden layouts must be configured
+  and applied again.
 
 ### Editor settings icon
 
-- Severity: not recorded
-- Status: Merged; [#383](https://github.com/mikepadiernos/plasma-opus/issues/383)
-- Summary: The Editor settings page did not use the requested notepad-style
-  symbolic icon.
-- Evidence: The issue identifies the Editor page in the settings sidebar.
-- Expected behaviour: Use a notepad symbolic icon from the active icon theme.
-- Actual behaviour: The page requested `accessories-text-editor` instead.
-- Resolution: Marked Merged on the project board.
+- **Issue:** [#383][issue-383] ![Merged][merged]
+- **Severity:** Not recorded
+- **Summary:** The Editor settings page did not use the requested
+  notepad-style symbolic icon.
+- **Evidence:** The issue identifies the Editor page in the settings sidebar.
+- **Steps to reproduce:** Not recorded.
+- **Expected behaviour:** Use a notepad symbolic icon from the active icon
+  theme.
+- **Actual behaviour:** The page requested `accessories-text-editor` instead.
+- **Resolution:** Marked Merged on the project board.
+
+### Embedded terminal profile blur
+
+- **Issue:** [#378][issue-378] ![Merged][merged]
+- **Severity:** Not recorded
+- **Summary:** The embedded terminal did not honour the active Konsole
+  profile's background blur.
+- **Evidence:** The issue describes comparing embedded and standalone Konsole
+  sessions using a translucent profile with blur enabled.
+- **Steps to reproduce:** Not recorded.
+- **Expected behaviour:** Honour profile blur when the compositor supports it,
+  without forcing blur when disabled.
+- **Actual behaviour:** The embedded background was not blurred.
+- **Resolution:** Marked Merged on the project board.
+
+### Combined panel header and accordion alignment
+
+- **Issue:** [#37][issue-37] ![Merged][merged]
+- **Severity:** Not recorded
+- **Summary:** The combined panel used the wrong header and centred accordion
+  titles, with the caret on the left.
+- **Evidence:** The issue includes the original screenshot.
+- **Steps to reproduce:** Recorded in the issue.
+- **Expected behaviour:** Show the explorer panel header, left-align section
+  titles, place carets on the right, and make the relevant sections
+  expandable.
+- **Actual behaviour:** The header said Places, titles were centred and
+  section expansion did not match the requested layout.
+- **Resolution:** Marked Merged on the project board.
+
+[merged]: https://img.shields.io/badge/Merged-8957e5?style=flat-square
+[completed]: https://img.shields.io/badge/Completed-2ea44f?style=flat-square
+[review]: https://img.shields.io/badge/Review-bf8700?style=flat-square
+[development]: https://img.shields.io/badge/Development-1f6feb?style=flat-square
+[backlog]: https://img.shields.io/badge/Backlog-6e7781?style=flat-square
+[untriaged]: https://img.shields.io/badge/Untriaged-cf222e?style=flat-square
+[yes]: https://img.shields.io/badge/Yes-2ea44f?style=flat-square
+[no]: https://img.shields.io/badge/No-cf222e?style=flat-square
+[issue-37]: https://github.com/mikepadiernos/plasma-opus/issues/37
+[issue-378]: https://github.com/mikepadiernos/plasma-opus/issues/378
+[issue-383]: https://github.com/mikepadiernos/plasma-opus/issues/383
+[issue-444]: https://github.com/mikepadiernos/plasma-opus/issues/444
+[issue-446]: https://github.com/mikepadiernos/plasma-opus/issues/446
+[issue-457]: https://github.com/mikepadiernos/plasma-opus/issues/457
+[issue-476]: https://github.com/mikepadiernos/plasma-opus/issues/476
+[issue-532]: https://github.com/mikepadiernos/plasma-opus/issues/532
+[issue-533]: https://github.com/mikepadiernos/plasma-opus/issues/533
+[issue-549]: https://github.com/mikepadiernos/plasma-opus/issues/549
+[issue-555]: https://github.com/mikepadiernos/plasma-opus/issues/555
+[issue-558]: https://github.com/mikepadiernos/plasma-opus/issues/558
+[issue-560]: https://github.com/mikepadiernos/plasma-opus/issues/560
+[issue-605]: https://github.com/mikepadiernos/plasma-opus/issues/605
+[issue-606]: https://github.com/mikepadiernos/plasma-opus/issues/606
+[issue-682]: https://github.com/mikepadiernos/plasma-opus/issues/682
+[issue-694]: https://github.com/mikepadiernos/plasma-opus/issues/694
+[issue-696]: https://github.com/mikepadiernos/plasma-opus/issues/696
+[pr-451]: https://github.com/mikepadiernos/plasma-opus/pull/451
+[pr-452]: https://github.com/mikepadiernos/plasma-opus/pull/452
+[pr-454]: https://github.com/mikepadiernos/plasma-opus/pull/454
+[pr-459]: https://github.com/mikepadiernos/plasma-opus/pull/459

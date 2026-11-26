@@ -1,18 +1,25 @@
-# 💡 Inspirations
+# Inspirations
 
-**[Documentation](../README.md)** · **[Scope](scope.md)** ·
-**[Roadmap](../ROADMAP.md)**
+[![Docs index](https://img.shields.io/badge/docs-index-3daee9?style=flat-square)](../README.md)
+[![Previous: Scope](https://img.shields.io/badge/previous-Scope-3daee9?style=flat-square)](scope.md)
+[![Next: Interface design](https://img.shields.io/badge/next-Interface%20design-3daee9?style=flat-square)](designs.md)
+[![Roadmap](https://img.shields.io/badge/roadmap-M01%E2%80%93M32-8957e5?style=flat-square)](../ROADMAP.md)
 
-Plasma Opus combines dual-pane and power-user ideas from several file managers
-with KDE's native desktop integration. Each reference contributes ideas; none
-dictates the application's interface or implementation.
+The file managers and tools whose ideas shape Plasma Opus, and the milestones
+they inform. Each reference contributes ideas; none dictates the application's
+interface or implementation.
+
+**Philosophy series:** [1. Scope](scope.md) → **2. Inspirations** →
+[3. Interface design](designs.md)
 
 > [!NOTE]
-> The [roadmap](../ROADMAP.md) is the source of truth for feature
-> status. Ideas described here are not necessarily implemented.
+> The [roadmap](../ROADMAP.md) is the source of truth for feature status.
+> Ideas described here are not necessarily implemented; the status column
+> below shows the state of the related roadmap work.
 
 ## Contents
 
+- [At a glance](#at-a-glance)
 - [Max File Manager — origin and behaviour reference](#max-file-manager--origin-and-behaviour-reference)
 - [Dolphin — KDE desktop model](#dolphin--kde-desktop-model)
 - [Directory Opus — power-user benchmark](#directory-opus--power-user-benchmark)
@@ -26,6 +33,24 @@ dictates the application's interface or implementation.
 - [TagStudio — native tagging](#tagstudio--native-tagging)
 - [Yazi — keyboard-first browsing](#yazi--keyboard-first-browsing)
 - [which-key.nvim — shortcut discovery](#which-keynvim--shortcut-discovery)
+
+## At a glance
+
+| Source                                                                                        | Contributes                                                   | Milestones                                        | Related work                                                                                                                                                          |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Max File Manager](#max-file-manager--origin-and-behaviour-reference)                         | Origin and primary behaviour reference                        | [Parity notes](../README.md#behaviour-references) | ![Reference](https://img.shields.io/badge/Reference-6e7781?style=flat-square)                                                                                         |
+| [Dolphin](#dolphin--kde-desktop-model)                                                        | KDE desktop model and shared components                       | M01 onwards                                       | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
+| [Directory Opus](#directory-opus--power-user-benchmark)                                       | Power-user depth, layout, shortcuts and help                  | M03, M09, M11; M31, M32                           | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                     |
+| [Krusader](#krusader--two-pane-tools)                                                         | Two-pane tools, transfer queue, folder sync and mount manager | M03, M09; M27                                     | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                     |
+| [MiXplorer](#mixplorer--mobile-power-tools)                                                   | Encryption, LAN servers, cloud, archives, menu customization  | M27, M32                                          | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
+| [RaiDrive](#raidrive--cloud-storage-as-drives)                                                | Remote storage mounted as local folders                       | M27                                               | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
+| [Syncative, SDrive and DucksDrive](#syncative-sdrive-and-ducksdrive--cloud-sync-and-activity) | Two-way cloud sync and cloud activity                         | M27                                               | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
+| [Strata](#strata--system-file-chooser)                                                        | Opt-in system file chooser                                    | M27                                               | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
+| [Orcinus](#orcinus--power-user-workflows-for-dolphin)                                         | Per-pane styles, expandable folders, filters, linked panes    | M03, M09                                          | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Source unverified](https://img.shields.io/badge/source-unverified-bf8700?style=flat-square) |
+| [TagSpaces](#tagspaces--focused-workspaces)                                                   | Workspaces that scope locations and search                    | M15                                               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
+| [TagStudio](#tagstudio--native-tagging)                                                       | Native tag libraries                                          | M23                                               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
+| [Yazi](#yazi--keyboard-first-browsing)                                                        | Keyboard-first browsing mode                                  | M25                                               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
+| [which-key.nvim](#which-keynvim--shortcut-discovery)                                          | Shortcut hint pane                                            | M31                                               | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
 
 ## Max File Manager — origin and behaviour reference
 
@@ -50,7 +75,7 @@ Directory Opus sets the benchmark for power-user depth: dual panes, tabs,
 viewers, flat browsing, automation and metadata. Its workflows inform
 [folder formats and navigation history](../ROADMAP.md#m03-listing-depth),
 [collections and duplicate selection](../ROADMAP.md#m09-tools),
-[layout customization](../ROADMAP.md#m11-ui-customizations) and
+[layout customization](../ROADMAP.md#m11-ui-customizations) and the planned
 [shortcut settings](../ROADMAP.md#m31-keyboard-shortcut-settings). Its
 [manual](https://docs.dopus.com/doku.php?id=introduction) also informs planned
 [interface refinements](../ROADMAP.md#m32-refinements), such as contextual help,
@@ -61,8 +86,9 @@ KDE rather than treated as a feature-by-feature parity target.
 
 Krusader shows how a two-panel file manager can support deeper file operations.
 Its influence includes group selection, occupied space, popular folders and
-archive testing, comparison, checksums, split and combine, and an embedded
-terminal alongside both panes. Copy and move transfers can be queued; folder
+archive testing ([M03](../ROADMAP.md#m03-listing-depth)), and comparison,
+checksums, split and combine, and an embedded terminal alongside both panes
+([M09](../ROADMAP.md#m09-tools)). Copy and move transfers can be queued; folder
 synchronization previews filtered, per-item actions before applying them. Its
 [MountMan](https://docs.kde.org/trunk_kf6/en/krusader/krusader/mount-man.html)
 informs a planned [mount manager](../ROADMAP.md#m27-integrations) that lists,
@@ -72,9 +98,11 @@ mounts and unmounts file systems through Solid.
 
 [MiXplorer](https://mixplorer.com/) packs desktop-class tools into an Android
 file manager. Its encrypted containers, file encryption, LAN servers, cloud
-providers, archive editing, file-type categories and menu customization inform
-planned [integrations](../ROADMAP.md#m27-integrations). Plasma Opus adapts them
-to KDE facilities, such as Plasma Vault, KIO workers, Ark and KDE's credential
+providers, archive editing and file-type categories inform planned
+[integrations](../ROADMAP.md#m27-integrations); its menu customization informs
+the planned context-menu reordering in
+[M32.01 Menus](../ROADMAP.md#m32-refinements). Plasma Opus adapts them to KDE
+facilities, such as Plasma Vault, KIO workers, Ark and KDE's credential
 storage, rather than reimplementing them, and does not copy MiXplorer's mobile
 interface.
 
@@ -84,7 +112,7 @@ interface.
 storage over WebDAV, SFTP and FTP as local drives, so any application can open
 and save files in place. It also offers read-only connections, streamed playback
 and file locks. It informs the planned
-[remote drives](../ROADMAP.md#m27-integrations): Plasma Opus mounts saved
+[remote drives](../ROADMAP.md#m27-integrations): Plasma Opus would mount saved
 remote locations as local folders through KDE's KIO FUSE or installed backends
 such as sshfs, davfs2 and s3fs-fuse, as alternatives to rclone. Accounts and
 credentials stay with KDE's facilities rather than a separate provider list.
@@ -118,8 +146,11 @@ same ways.
 
 Earlier project notes attribute several Dolphin-oriented power-user ideas to
 Orcinus: grouped settings, per-pane display styles, expandable folders,
-persistent filters, linked panes, cushion treemaps and profiles. An
-authoritative upstream source has not been verified for these entries.
+persistent filters, linked panes, cushion treemaps and profiles. The roadmap
+credits Orcinus for the per-pane display styles, expandable folders, persistent
+filters and file-name highlighting in [M03](../ROADMAP.md#m03-listing-depth)
+and for linked panes and the cushion treemap in [M09](../ROADMAP.md#m09-tools).
+An authoritative upstream source has not been verified for these entries.
 
 ## TagSpaces — focused workspaces
 
@@ -127,24 +158,25 @@ authoritative upstream source has not been verified for these entries.
 by context and scope global searches to the active workspace. Plasma Opus
 [workspaces](../ROADMAP.md#m15-workspaces) also save pane, toolbar and panel
 layouts for different workflows. Workspaces organize the interface and
-search scope; native tag groups remain independent in the
-[tagging plan](../ROADMAP.md#m23-native-tagging). Workspaces are not a security
-boundary.
+search scope; native tag groups remain independent in
+[native tagging](../ROADMAP.md#m23-native-tagging). Workspaces are not a
+security boundary.
 
 ## TagStudio — native tagging
 
-[TagStudio](https://github.com/TagStudioDev/TagStudio) informs the planned
+[TagStudio](https://github.com/TagStudioDev/TagStudio) informs the
 [native tagging system](../ROADMAP.md#m23-native-tagging): opt-in libraries,
 tags with aliases and parent relationships, custom fields and combined searches.
-Plasma Opus will integrate these workflows without requiring TagStudio or moving
-files.
+Plasma Opus integrates these workflows without requiring TagStudio or moving
+files; see the [tagging guide](../tagging.md).
 
 ## Yazi — keyboard-first browsing
 
-[Yazi](https://yazi-rs.github.io/) inspires a planned
-[native browsing mode](../ROADMAP.md#m25-yazi-mode) with keyboard-first
-navigation, folder context and previews. Plasma Opus will reuse its KDE file
-operations rather than embedding Yazi or assuming plugin compatibility.
+[Yazi](https://yazi-rs.github.io/) inspires the native
+[Yazi mode](../ROADMAP.md#m25-yazi-mode) with keyboard-first navigation, folder
+context and previews. Plasma Opus reuses its own KDE file operations rather
+than embedding Yazi or assuming plugin compatibility; see the
+[Yazi mode guide](../yazi-mode.md).
 
 ## which-key.nvim — shortcut discovery
 
@@ -153,3 +185,8 @@ native sliding or floating hint pane in
 [shortcut settings](../ROADMAP.md#m31-keyboard-shortcut-settings). It will show
 available continuations and action descriptions for pending key sequences in the
 applicable context.
+
+---
+
+← Previous: [Scope and objective](scope.md) · Next:
+[Interface design](designs.md) →

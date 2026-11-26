@@ -1,23 +1,27 @@
 # ⚠️ Caveats and limitations
 
-**[Documentation](README.md)** · **[Roadmap](ROADMAP.md)** ·
-**[Reported bugs](BUGS.md)** · **[Edge cases](EDGE.md)** ·
-**[Project board](https://github.com/users/mikepadiernos/projects/3)**
+[![Docs index](https://img.shields.io/badge/docs-index-3daee9?style=flat-square)](README.md)
+[![Roadmap](https://img.shields.io/badge/roadmap-M01%E2%80%93M32-8957e5?style=flat-square)](ROADMAP.md)
+[![Reported bugs](https://img.shields.io/badge/reported-bugs-cf222e?style=flat-square)](BUGS.md)
+[![Project board](https://img.shields.io/badge/project-board-6e7781?style=flat-square&logo=github)](https://github.com/users/mikepadiernos/projects/3)
 
 Use this guide to find limitations, precautions and practical recommendations
 for current features and, where marked, planned features. Tracked caveats link
 to their issues and recommendation comments; alternatives supplement the primary
-recommendation and external tools are separate applications.
+recommendation and external tools are separate applications. Confirmed defects
+are in [reported bugs](BUGS.md), and untested scenarios in
+[edge cases](EDGE.md).
 
 > [!NOTE]
 > Proposed improvements are not implemented features. The
 > [roadmap](ROADMAP.md) defines scope and status.
 
 > [!TIP]
-> Each caveat describes the current behaviour first, then a
-> **Recommendation** for what to do today. Alternatives and external tools
-> follow where useful; **Planned** and proposed improvements are not yet
-> implemented.
+> Each caveat opens with a short description and its tracking issue, lists
+> the current limitations, then gives a **Recommendation** for what to do
+> today with a link to the matching issue comment. Alternatives and external
+> tools follow where useful; **Planned** and **Proposed improvements** are not
+> yet implemented.
 
 ## Find a caveat
 
@@ -29,12 +33,10 @@ recommendation and external tools are separate applications.
   [Yazi mode settings](#yazi-mode-settings)
 - **🔎 Search and operations:** [Search](#search),
   [batch rename](#batch-rename), [metadata editing](#metadata-editing),
-  [transfer queue](#transfer-queue),
-  [custom commands](#custom-commands), [symbolic links](#symbolic-links),
-  [listing export](#listing-export), [checksums](#checksum-files),
-  [split and combine](#split-and-combine-files),
-  [native tagging](#native-tagging),
-  [tagging settings](#tagging-settings)
+  [transfer queue](#transfer-queue), [custom commands](#custom-commands),
+  [symbolic links](#symbolic-links), [listing export](#listing-export),
+  [checksums](#checksum-files), [split and combine](#split-and-combine-files),
+  [native tagging](#native-tagging), [tagging settings](#tagging-settings)
 - **🔀 Comparison and analysis:**
   [Filtered folder comparison](#filtered-folder-comparison),
   [folder synchronization](#folder-synchronization),
@@ -55,579 +57,10 @@ recommendation and external tools are separate applications.
   [build and installation](#build-installation-and-references),
   [installing optional tools](#installing-optional-alternatives)
 
-## Workspace layouts
-
-Workspace layouts, merged in M15, save pane and tab locations,
-active tabs, view and location-bar modes, toolbar action lists, splitter sizes,
-terminal orientation, detached-pane geometry, and supported panel placement and
-visibility. They do not persist editor drafts or terminal sessions; running jobs
-remain alive when switching in the current process but are not reconstructed
-from a saved layout. The selected workspace is marked current on startup, while
-its saved layout remains unapplied until the user switches to it. A visible
-terminal requires an existing session; metadata and toolbar editors must be
-closed before saving or switching. Incompatible linked panes must be unlinked
-first. Older snapshots may require replacement before they can be applied.
-([#700](https://github.com/mikepadiernos/plasma-opus/issues/700))
-
-- **Recommendation:** Save editor drafts separately and start a terminal session
-  before switching to a layout that shows it. Finish metadata and toolbar edits,
-  and unlink panes when prompted. Replace older snapshots with **Save Current
-  Layout**. Explicitly switch to apply a saved layout after startup.
-  - Comment:
-    [#700.7163113449](https://github.com/mikepadiernos/plasma-opus/issues/700#issuecomment-7163113449)
-
-## Workspace settings
-
-The M16 settings have these limits
-([#609](https://github.com/mikepadiernos/plasma-opus/issues/609)):
-
-- **Panels:** the Layouts panels option restores the saved window state as one
-  unit, including main toolbar positions and dock placement. The toolbars
-  option only controls toolbar entries.
-- **Remote locations:** recovery checks only that a remote location's KIO
-  protocol is installed. It never contacts the server, so a known but
-  unreachable remote location is not listed and fails when its tab loads.
-- **Unsaved state:** the unsaved marker and the **When unsaved** switch
-  confirmation compare the whole captured layout. This includes parts that
-  the workspace's behaviors or the restore options would not restore.
-- **Import conflicts:** you choose which profiles to import one by one, but
-  the replace or keep choice applies to all selected conflicts.
-- **Default behaviors:** these apply only to workspaces created in the
-  workspace manager. Duplicated and imported workspaces keep their own.
-
-- **Recommendation:**
-  - **Panels:** to keep the current docks and toolbar positions while
-    restoring toolbar entries, clear the panels option.
-  - **Remote locations:** connect to them before switching, then reload any
-    remote tab that was unreachable.
-  - **Unsaved state:** use **Save Current Layout** after deliberate changes,
-    or set the switch confirmation to **Never** or **Always** if it asks too
-    often.
-  - **Import conflicts:** import conflicting profiles in separate passes when
-    some should replace existing workspaces and others should be kept.
-  - **Behaviors:** review the behaviors of duplicated and imported workspaces
-    in the workspace manager.
-  - Comment:
-    [#609.7144292691](https://github.com/mikepadiernos/plasma-opus/issues/609#issuecomment-7144292691)
-- **Proposed improvements:**
-  - Split window state so that toolbar positions follow the toolbars option.
-  - Optionally probe remote locations with a bounded, cancellable KIO stat.
-  - Compare only the restorable parts of a layout when marking unsaved state.
-  - Choose to replace or keep each conflicting profile separately.
-
-## Themes
-
-The M17 theme options have these limits
-([#680](https://github.com/mikepadiernos/plasma-opus/issues/680)):
-
-- **Blur and translucency:** background blur uses KWin's blur effect through
-  `KWindowEffects`. Without KWin compositing it is reported as unavailable and
-  the background stays opaque. Blur and translucency have been tested only
-  headlessly, without a Plasma session.
-- **Stylesheets:** a custom Qt stylesheet is limited to 64 KiB and 2,000 rules.
-  `@import`, `qproperty-` declarations and `url()` references other than Qt
-  resources (`:/` or `qrc:/`) are refused, so local and remote images cannot
-  be used. Qt's parser is lenient, so some unsupported selectors or properties
-  are ignored without an error. The stylesheet is applied to each main window
-  and the dialogs it owns.
-- **Theme profiles:** invalid saved profiles are skipped when loading, with a
-  count but without naming them. Profiles leave out folder colour rules and the
-  high-contrast safeguard. Unavailable colour schemes and fonts in a profile
-  fall back to Plasma's until they are installed.
-- **Settings dialog and workspaces:** the settings dialog always edits the
-  global appearance. While the active workspace overrides an option, the dialog
-  shows the global value without a notice, and its changes appear only where
-  the workspace does not override them.
-- **Other windows:** changes to a theme profile attached to a workspace reach
-  other open windows only when they next apply settings or switch workspaces.
-- **View mode:** a workspace's view mode override sets the panes' view mode
-  when switching to the workspace, not at startup, where restored panes keep
-  their saved view modes.
-- **Folder colour rules:** a workspace keeps its own copy of folder colour
-  rules, taken from the global rules rather than edited per workspace.
-- **App-wide:** the active workspace is shared by all windows, so its
-  appearance applies to every window.
-
-- **Recommendation:**
-  - **Blur and translucency:** enable compositing and KWin's blur effect in
-    System Settings. If blur is unavailable, lower opacity only as far as text
-    stays readable, or keep backgrounds opaque.
-  - **Stylesheets:** keep stylesheets small and appearance-only, using colours,
-    borders and Qt resource images. Check the preview before applying, and
-    export the stylesheet before large edits so that you can revert.
-  - **Theme profiles:** export profiles you rely on as backups and re-import
-    them if the profile count drops. Keep folder colour rules in the global
-    settings or attach them to a workspace.
-  - **Settings dialog and workspaces:** change overridden options in
-    **Workspaces… → Workspace Appearance**, or clear the override there first.
-    Start with `--no-workspace-appearance` to see only the global appearance.
-  - **Other windows:** after editing an attached profile, apply settings or
-    switch workspaces in the other windows.
-  - **View mode:** switch to the workspace again, or choose the view mode for
-    each pane.
-  - **Folder colour rules:** edit the global rules, then choose **Copy of the
-    global rules** in the workspace's appearance and save it.
-  - **App-wide:** use separate workspaces for different appearances; M27 can
-    apply separate choices per Activity.
-  - Comment:
-    [#680.7148716042](https://github.com/mikepadiernos/plasma-opus/issues/680#issuecomment-7148716042)
-- **Proposed improvements:**
-  - Mark options that the active workspace overrides in the settings dialog.
-  - Notify other windows when theme profiles or workspace appearance change.
-  - Name skipped theme profiles and offer to export or remove them.
-  - Edit folder colour rules per workspace.
-
-## Theme settings
-
-The M18 theme settings have these limits
-([#687](https://github.com/mikepadiernos/plasma-opus/issues/687)):
-
-- **Corner radius:** a corner radius other than **Follow widget style** rounds
-  item highlights, cards, text fields, tabs and tooltips. Buttons, combo boxes
-  and panel frames keep the widget style's corners.
-- **Plasma accent:** colours that follow the Plasma accent are updated live
-  only when Plasma announces a change to `kdeglobals`. An accent change written
-  without a change notification appears after the next settings change or
-  restart.
-- **Workspace preview:**
-  - Previewing a workspace's appearance doesn't switch the view mode of open
-    panes.
-  - Applying settings while a preview is shown replaces the preview.
-  - The preview is shown in the window that opened the workspace manager,
-    although the workspace appearance layer is shared by all windows.
-- **All options:** when a workspace saves all appearance options, options that
-  have no row in the workspace appearance editor take the workspace's saved
-  values, or the current global values when they are first saved. They can't
-  be edited individually there.
-- **Stylesheet:** a workspace's own options never include the custom
-  stylesheet. Only a theme profile attached to the workspace can supply one.
-- **Blur and translucency:** these are reported per workspace only when the
-  workspace saves those options; otherwise the global values apply.
-- **Plasma session:** the theme settings have been tested only headlessly,
-  without a Plasma session.
-
-- **Recommendation:**
-  - **Corner radius:** choose the radius closest to the widget style's own
-    corners so that rounded and unrounded controls look consistent.
-  - **Plasma accent:** if the accent changes without updating the window,
-    apply settings again or restart Plasma Opus.
-  - **Workspace preview:** preview before applying other settings, then choose
-    **Revert** or save. To check view modes, switch to the workspace after
-    saving it.
-  - **All options:** set those options in the settings dialog first, then save
-    the workspace with **All options**, or use **Selected options** to save only
-    the options you edit.
-  - **Stylesheet:** save a theme profile with the stylesheet and attach it to
-    the workspaces that need it.
-  - Comment:
-    [#687.7149624993](https://github.com/mikepadiernos/plasma-opus/issues/687#issuecomment-7149624993)
-- **Proposed improvements:**
-  - Round buttons, combo boxes and panel frames with the chosen radius.
-  - Preview in every window and keep the preview after applying settings.
-  - Show every saved option in the workspace appearance editor.
-  - Allow a per-workspace stylesheet.
-
-## Branding
-
-The M19 branding and its M20 settings have these limits
-([#689](https://github.com/mikepadiernos/plasma-opus/issues/689)):
-
-- **High contrast:** the startup presentation uses the colour scheme's window
-  and text colours with a solid border, but the folder and the word "Opus"
-  keep the accent colour, which can contrast less with the card than the text
-  does. The version and description are always drawn in the text colour.
-- **Screen readers:** the presentation has an accessible name (name and
-  version) and description, but it is not announced when it appears, so it
-  doesn't interrupt reading.
-- **Duration:** the presentation stays for two seconds; the duration can't be
-  changed.
-- **Icon themes and other desktops:** the small and symbolic icons install to
-  `hicolor`, so an icon theme that ships its own `org.kde.opusfilemanager` icon
-  takes precedence. The folder follows the Plasma accent and the symbolic icon
-  follows the text colour only where KDE's icon loader applies the colour
-  scheme; elsewhere they use their built-in Breeze colours.
-- **Release notes:** the v0.1.0 and v0.2.0 release notes predate the
-  [release notes template](releases/TEMPLATE.md) and were not rewritten.
-- **Plasma session:** the presentation, its settings preview and the icons
-  have been tested only headlessly, without a Plasma session.
-
-- **Recommendation:**
-  - **High contrast:** read the version and description, which use the text
-    colour. If the accent contrasts poorly with the card, choose a stronger
-    accent in Plasma's System Settings, or leave the startup presentation off
-    (the default) in **Preferences ▸ Branding ▸ Presentation**.
-  - **Screen readers:** use **Help ▸ About Plasma Opus** for the name, version
-    and description.
-  - **Duration:** press any key, click or scroll to dismiss the presentation
-    early. Input still reaches the window. If it distracts, turn it off in
-    **Preferences ▸ Branding ▸ Presentation**.
-  - **Icon themes and other desktops:** to see the Plasma Opus icon under a
-    theme that overrides it, remove the theme's `org.kde.opusfilemanager` icon
-    or choose another icon theme. Outside Plasma, expect the Breeze blue folder.
-  - **Release notes:** start new releases from the template.
-  - **Plasma session:** check the presentation's appearance on Plasma,
-    including fractional scaling and Wayland, before relying on it in
-    screenshots or release materials.
-  - Comment:
-    [#689.7150293713](https://github.com/mikepadiernos/plasma-opus/issues/689#issuecomment-7150293713)
-- **Proposed improvements:**
-  - Draw the folder and "Opus" in the text colour under high contrast.
-  - Offer an option to announce the presentation to screen readers.
-  - Make the duration configurable.
-
-## Native tagging
-
-The M23 [native tagging](tagging.md) libraries have these limits
-([#714](https://github.com/mikepadiernos/plasma-opus/issues/714)):
-
-- **Libraries and indexing:** libraries are local folders only. Symbolic links
-  aren't indexed or followed, and names that aren't valid in the system
-  encoding are skipped. A library is a single JSON document that is read and
-  rewritten whole on each edit, so very large libraries make edits and
-  searches slower. Saves detect changes from other windows and retry, but
-  there is no file lock, so two processes saving at the same moment can still
-  lose one edit.
-- **Moves and renames:** only moves and renames started in Plasma Opus are
-  followed. Moves by other programs, copies and KIO undo aren't, and the next
-  refresh marks the old paths missing. A folder moved into a library is
-  indexed at its top level only until the next refresh. Tags aren't copied
-  between libraries. When the rename dialog reports an error, the renames it
-  completed aren't applied to the library. Moving or renaming a library's root
-  folder leaves its registration pointing at the old path.
-- **Showing tags:** library tags appear in the tag panel and the Information
-  panel only. Views have no Tags column or emblem; the cards view's tags field
-  shows Baloo file tags, not library tags. The gallery window can't assign
-  tags. The tag panel doesn't notice changes made by other windows or
-  programs until the selection or folder changes.
-- **Tag panel:** creating a tag from the search field and assigning it are
-  separate saves, so if the assignment fails the new tag is kept unassigned.
-- **Tag groups:** groups are reordered with Move Up and Move Down only, not by
-  drag and drop. Groups are library data, independent of workspaces and
-  locations, as recommended in
-  [#252](https://github.com/mikepadiernos/plasma-opus/issues/252).
-- **Fields:** library fields can't be searched with query criteria. A field's
-  type can't change while any item has a value for it.
-- **Searching:** tag criteria match only items inside registered libraries;
-  `tagged:no` matches items outside them only when
-  [tagging settings](#tagging-settings) allow it. A search uses a snapshot of
-  each library taken when it starts. Indexed search still needs a name or
-  content term. Select by Query can't use `content:`, and its `meta:` criteria
-  read every listed file on the interface thread, so large folders can make
-  the window unresponsive until it finishes.
-- **Embedded metadata:** reading uses KDE's extractors, so the available
-  properties depend on the installed extractor plugins. `meta:` criteria read
-  each candidate file and are slow without cheaper criteria. Writing embedded
-  metadata is limited to single JPEG, TIFF and MP3 files through
-  [metadata editing](#metadata-editing). The import dialog's field list isn't
-  refreshed if fields are changed elsewhere while it's open.
-- **Export and restore:** restoring replaces the whole library document; it
-  doesn't merge. Items are matched by path only. An export reflects the
-  library as loaded, including repairs made when it was read. Backups made
-  before the backup limit was added aren't pruned. Exports have no size limit.
-
-- **Recommendation:**
-  - **Libraries and indexing:** keep libraries on local folders, and rename
-    files with unusual encodings before indexing them. Split very large
-    collections into several libraries, and avoid editing the same library
-    from several windows or programs at once.
-  - **Moves and renames:** move and rename tagged items in Plasma Opus. After
-    moving items with other programs, undoing a move or moving a folder into a
-    library, use **Tags › Refresh Library** and **Review Missing Entries…** to
-    relink. To move a library's root folder, remove the library, move the
-    folder, then create the library again from the new location; its document
-    is adopted with its tags.
-  - **Showing tags:** select items to see their tags in the tag panel or the
-    Information panel. Change the selection to refresh the tag panel after
-    editing in another window.
-  - **Tag panel:** if creating and assigning a tag reports an error, check the
-    new tag again to assign it.
-  - **Fields:** to find items by a field, import or copy the value as a tag. To
-    change a field's type, create a new field and copy the values to it.
-  - **Searching:** turn on **Include items outside libraries in tagged:no
-    searches** in **Preferences › Tagging › Search**, or use `NOT tagged:yes`,
-    to include items outside libraries, and repeat a search after editing
-    tags. Use Search rather than Select by
-    Query for content, and combine `meta:` with name or type criteria, as in
-    `type:image/* meta:canon`.
-  - **Embedded metadata:** install KDE's metadata extractors, and ExifTool for
-    writing images. Use a dedicated tag editor for other formats or several
-    files. Reopen the import dialog after changing fields.
-  - **Export and restore:** export before restoring and review the preview.
-    Set **Keep at most … backups per library** in **Preferences › Tagging ›
-    Privacy**, and remove older backups without the library's hash in their
-    name from the backup folder by hand.
-  - Comment:
-    [#714.7171889508](https://github.com/mikepadiernos/plasma-opus/issues/714#issuecomment-7171889508)
-
-- **Proposed improvements:**
-  - Show library tags in a Tags column or emblem, and allow tagging in the
-    gallery.
-  - Refresh the tag panel when the library document changes.
-  - Index the contents of folders moved into a library, and follow renames of
-    the library root.
-  - Search library fields with query criteria.
-  - Merge restores.
-
-## Tagging settings
-
-The M24 [tagging settings](tagging.md#settings) have these limits
-([#716](https://github.com/mikepadiernos/plasma-opus/issues/716)):
-
-- **Private storage:** a private library document is keyed by the library
-  folder's path. Moving or renaming the folder leaves the document behind,
-  and the library must be created again and restored.
-- **Backup folder:** the setting accepts a URL, but only local folders are
-  used. A remote location silently falls back to the default
-  `library-backups` folder.
-- **Preferences:** the Libraries and Fields tabs read every library document
-  on the interface thread, so many or very large libraries make Preferences
-  slower to open. **Add Library…** uses the storage choice and new-library
-  fields as currently shown, even before Apply. The Fields tab's library
-  picker doesn't show whether a library is read-only or unreadable.
-- **Applying settings:** Apply updates the window Preferences was opened
-  from. Other windows move their tag panel when they are opened again, and
-  show colour and Information panel changes when those panels next refresh.
-  Automatic refresh reports its results in the active window only.
-- **Library scope:** exclusions, hidden items, depth and item limits apply to
-  refreshes only; entries already indexed keep their tags and fields.
-- **Search:** with the whole-library scope, path filters and the depth limit
-  count from the library folder, and the notice that the search widened
-  appears only when it finishes. Searches already running keep the settings
-  they started with. When `tagged:no` matches items outside libraries, a
-  search outside any library matches everything it lists.
-- **Fields:** new libraries get their own field identifiers, so fields with
-  the same name are distinct between libraries. Invalid stored field
-  templates are dropped silently.
-- **Embedded metadata:** disabled properties are hidden in the preview panel
-  and gallery but still extracted there. Mappings are stored by field name
-  and apply only in libraries with a field of that name and a compatible
-  type. When Preferences and the import dialog are both open, whichever saves
-  mappings last wins. Importing on refresh has no preview, covers only items
-  that refresh added and reads every new file, so the first refresh of a
-  large library is slow.
-
-- **Recommendation:**
-  - **Private storage:** to move a privately stored library's folder, remove
-    the library, move the folder, create the library again at the new path
-    and use **Tags › Restore Library Metadata…** with an export or the old
-    private document. Alternatively, switch the library to **Keep Metadata in
-    Library Folder** before moving it.
-  - **Backup folder:** choose a local folder for backups.
-  - **Preferences:** keep the number of registered libraries modest, and split
-    very large collections. Apply the Privacy and Fields tabs before adding
-    libraries if you want the choices saved.
-  - **Applying settings:** reopen other windows, or change their selection,
-    after changing tagging settings. Keep the window you care about active
-    while an automatic refresh runs, or refresh manually with **Tags ›
-    Refresh Library**.
-  - **Library scope:** remove tags and field values from items before
-    excluding them if you no longer want that metadata.
-  - **Search:** with the whole-library scope, write path filters relative to
-    the library folder. Start a new search after changing search settings.
-    Leave `tagged:no` outside libraries off unless you search limited
-    folders, or combine it with name or type criteria.
-  - **Fields:** set up fields for new libraries before creating them, and use
-    the same names across libraries so saved mappings apply.
-  - **Embedded metadata:** disable unwanted properties to keep search fast.
-    Create the mapped fields in each library, with a date type for date
-    properties. Close the import dialog before changing mappings in
-    Preferences. Leave importing on refresh off for the first refresh of a
-    large library and run **Import Embedded Metadata…** with a preview
-    instead.
-  - Comment:
-    [#716.7175386572](https://github.com/mikepadiernos/plasma-opus/issues/716#issuecomment-7175386572)
-- **Proposed improvements:**
-  - Key private documents by a stable library identifier and follow folder
-    moves.
-  - Read library state in Preferences in the background.
-  - Apply tagging settings to every open window.
-  - Offer to remove entries that new exclusions or limits leave out.
-  - Share field identifiers between libraries, or map by identifier.
-
-## Yazi mode
-
-The M25 [Yazi mode](yazi-mode.md) has these limits
-([#723](https://github.com/mikepadiernos/plasma-opus/issues/723)):
-
-- **Scope:** Yazi mode is a native Qt/KDE browsing mode inspired by Yazi. It
-  doesn't run Yazi or read its configuration, keymaps, themes or plugins.
-- **Locations:** search results, recent items, tags, `remote:/` and
-  application lists aren't supported; the pane falls back to the normal view
-  there. Remote folders, archives, `trash:/` and `desktop:/` are limited: the
-  parent column and preview may load slowly, and listings stop after 10
-  seconds. Archives are recognised by file extension.
-- **Preview:** a folder preview lists at most 500 entries. Remote files are
-  downloaded for preview up to the existing size caps; there is no setting
-  that stops remote preview downloads. Oversized text is truncated rather
-  than refused. Hiding the preview stops media playback, and media may render
-  poorly in a narrow column.
-- **Keys:** with Vim-style keys, bound letters and digits no longer start
-  type-ahead in the columns, `Space` no longer opens the gallery, and Ctrl+D
-  (Add to Favorites) is overridden there. Ctrl+C doesn't cancel a search
-  because it is Copy. With Standard keys, Left and Right mean Parent and Open
-  in icon and card views. Caps Lock changes letter bindings.
-- **File actions:** `c` and `m` copy or move straight to the other pane like
-  F5 and F6, so they follow the transfer setting **Existing destination**;
-  with **Overwrite automatically** they overwrite without asking. `u`
-  undoing a copy deletes the copies after KIO asks. Window shortcuts such as
-  Delete don't fall back to the focused item when nothing is selected. Paste
-  and trash don't appear in the Yazi transfer indicator.
-- **Selection:** marked items stay selected while moving, unlike the normal
-  view. In grid views, range selection follows item order.
-- **Search:** the status row only tracks searches started with `s` or `S`
-  from that pane, and those keys change the Search panel's scope settings.
-- **Persistence:** a pane follows the default column ratios until they are
-  dragged; other panes pick up a new default only when settings are applied
-  again. Existing workspaces tie Yazi state to the views option until their
-  Yazi checkbox is changed. When startup opens the home folder or fixed
-  folders, panes start with their default mode from **Preferences › Yazi
-  Mode › Activation**, which is off unless changed.
-- **Performance:** the first listing of very large folders (10,000+ items)
-  is slow with or without Yazi mode.
-
-- **Recommendation:**
-  - **Scope:** use Yazi itself, for example in the embedded terminal, when
-    you need its plugins or configuration.
-  - **Locations:** browse unsupported locations in the normal view; the mode
-    resumes at the next supported folder. Hide the preview with **View › Yazi
-    Preview** in slow remote folders.
-  - **Preview:** switch the column to file information (`i` with Vim-style
-    keys) on slow connections, and open large files with **Open With**.
-  - **Keys:** keep the Standard preset if you rely on type-ahead, the gallery
-    on `Space` or Ctrl+D. Cancel searches with Escape or **Cancel**.
-  - **File actions:** keep **Existing destination** at **Ask** (the default)
-    before using `c` and `m`. Select items explicitly before using window
-    shortcuts.
-  - **Selection:** press Escape to clear marks before ordinary selection.
-  - **Search:** check the Search panel's scope after using `s` or `S`.
-  - **Persistence:** drag the columns once in each pane to fix its ratios,
-    or use **Restore Yazi Mode Defaults** in Preferences to make every pane
-    follow the defaults again. Turn on a workspace's **Yazi mode** option to
-    restore Yazi state independently of views.
-  - **Performance:** filter or split very large folders.
-  - Comment:
-    [#723.7180859654](https://github.com/mikepadiernos/plasma-opus/issues/723#issuecomment-7180859654)
-- **Proposed improvements:**
-  - A remote preview download policy shared with the preview panel.
-  - Track paste and trash jobs in the Yazi transfer indicator.
-  - Faster first listings of very large folders.
-
-## Yazi mode settings
-
-The M26 [Yazi mode settings](yazi-mode.md#settings) under **Preferences ›
-Yazi Mode** have these limits
-([#725](https://github.com/mikepadiernos/plasma-opus/issues/725)):
-
-- **Activation:** each pane's default mode and restore option apply only
-  when a window opens; open panes keep their current mode. The restore option
-  matters only when **On startup** restores the last session. Sessions saved
-  before M25 restore the mode as off. "First pane" is the left pane, or the
-  top pane when the panes are stacked.
-- **Columns:** panes with their own widths, from dragging, their session or
-  a workspace, keep them when the default widths change, so Apply can seem to
-  do nothing. After a drag, the Columns tab shows the widths in pixels, such
-  as 180, 540 and 360. The narrow-pane limits are fixed: the preview column
-  hides below about 480 pixels and the parent column below about 320.
-- **Keyboard:** preset keys can't be edited one by one. The conflict review
-  checks the window that opened Preferences, leaves out shortcuts that only
-  work while their own widget has focus and sees shortcut edits only after
-  they are saved. **View › Vim-Style Keys in Yazi Mode** switches presets
-  without reviewing conflicts.
-- **Preview:** there is no Yazi-specific size, provider or remote-download
-  setting. Remote preview downloads stop at fixed caps (8 MiB for images,
-  128 MiB for other files) and ignore **Show previews in remote folders**;
-  **Skip files larger than** and **Show previews for** only affect
-  thumbnails. The file-information fields are fixed. Changed presentation
-  settings, such as line numbers, apply from the next previewed item.
-- **Workspace layouts:** a pane that keeps its own Yazi state differs from
-  the saved layout, so the workspace shows the modified marker (`*`) after
-  switching. Restoring only the columns also changes panes that aren't in
-  Yazi mode; the columns appear when the mode is turned on. The default for
-  new workspaces stays under **Workspaces › Behaviors**.
-- **Reset:** **Restore Yazi Mode Defaults** makes open panes drop their own
-  column and preview choices on Apply, even if values are edited again before
-  Apply, and can mark the active workspace as modified. It never turns a
-  pane's Yazi mode on or off. The dialog's own **Defaults** button resets
-  every page but keeps the panes' own choices.
-
-- **Recommendation:**
-  - **Activation:** turn a pane's mode on or off with **View › Yazi Mode**
-    after changing its default; the setting takes over at the next start.
-  - **Columns:** use **Restore Yazi Mode Defaults** when open panes should
-    follow new default widths. Use **Restore Default Widths** on the Columns
-    tab to return to 1 : 3 : 2 after a drag.
-  - **Keyboard:** change presets from the Keyboard tab rather than the View
-    menu so conflicts are reviewed, and save edits in **Configure Keyboard
-    Shortcuts…** before reviewing again.
-  - **Preview:** switch the preview column to file information on slow
-    connections, and use **Maximum text in preview panel** under **Interface
-    › Previews** to limit remote text downloads.
-  - **Workspace layouts:** save the workspace layout again when the modified
-    marker should clear, or turn both Yazi options back on to restore the
-    saved state.
-  - **Reset:** use the Yazi Mode button instead of **Defaults** when only
-    Yazi settings should change.
-  - Comment:
-    [#725.7182507952](https://github.com/mikepadiernos/plasma-opus/issues/725#issuecomment-7182507952)
-- **Proposed improvements:**
-  - Editable Yazi key bindings, built on KDE shortcut configuration.
-  - Conflict review for the View menu's key preset toggle.
-  - A remote preview download policy shared with the preview panel.
-  - Settings for the narrow-pane limits.
-  - Apply activation defaults to open panes on request.
-
-## Native title and header padding
-
-Native Qt/KDE dock titles and column headers follow the active widget style;
-their horizontal padding can be less than eight logical pixels. For example,
-Breeze's column-label rectangle starts six pixels from the section edge.
-([#560](https://github.com/mikepadiernos/plasma-opus/issues/560))
-
-- **Recommendation:** Keep native rendering and choose a widget style whose
-  spacing is comfortable for your needs. Check the active style after changing
-  desktop appearance; Plasma Opus does not guarantee an eight-pixel minimum for
-  these controls.
-  - Comment:
-    [#560.7071231166](https://github.com/mikepadiernos/plasma-opus/issues/560#issuecomment-7071231166)
-
-## Jalali dates
-
-With a Persian regional locale or an explicit Jalali calendar override, Plasma
-Opus's date displays use the Jalali calendar. With the automatic calendar, the
-ISO 8601 listing format remains Gregorian; an explicit calendar override takes
-precedence. KDE controls dates in its own dialogs and tooltips, and the
-additional file information shown under icons in icon and compact views uses
-KDE's `KFileItemDelegate`; these dates may remain Gregorian.
-([#436](https://github.com/mikepadiernos/plasma-opus/issues/436))
-
-- **Recommendation:** Use Details view or the Plasma Opus Information panel for
-  Jalali dates. Select Jalali explicitly, or use a Persian regional locale with
-  the automatic calendar and a Locale listing format. Verify the calendar before
-  interpreting KDE-provided dates.
-  - Comment:
-    [#436.7041290164](https://github.com/mikepadiernos/plasma-opus/issues/436#issuecomment-7041290164)
-
-## Translation format overrides
-
-The regional locale and custom digit shapes do not control every display. Plasma
-Opus applies digit shapes to its file dates, listing sizes, preview line numbers
-and selected gallery and chart fields. Other text and numbers, editable Qt
-controls, KDE-provided details and dialogs, and separately embedded applications
-can use their own locale or desktop settings. With a C/POSIX message locale, an
-explicitly selected non-English interface language also requires an installed
-non-C UTF-8 message locale; Plasma Opus warns and follows the system language if
-none can be used.
-([#440](https://github.com/mikepadiernos/plasma-opus/issues/440))
-
-- **Recommendation:** Use Details view or the Information panel for overridden
-  file dates and verify other displays against the desktop locale. Configure
-  desktop regional settings for consistency elsewhere. If the selected language
-  is unavailable under C/POSIX, install a non-C UTF-8 system locale and restart
-  Plasma Opus.
-  - Comment:
-    [#440.7045227580](https://github.com/mikepadiernos/plasma-opus/issues/440#issuecomment-7045227580)
-
 ## Archives
+
+Archive creation, extraction and integrity testing have these limits, each
+tracked in its own issue:
 
 - **Local files:** Archive creation and integrity testing require local files.
   When compressing a mixed selection, Plasma Opus skips items without local
@@ -687,14 +120,17 @@ none can be used.
 
 ### Possible Ark integration
 
-Plasma Opus does not currently integrate with Ark. An optional handoff could
-improve encrypted 7z compatibility through Ark's dedicated `7z` backend, but
-would require Ark and `7z` at runtime as well as error, destination and
-overwrite handling. Ark's
-[7z plugin](https://github.com/KDE/ark/blob/master/plugins/cli7zplugin/cliplugin.cpp)
-defines a `-p$Password` command-line switch. Verify the installed version and
-operation before assuming passwords are not exposed in process arguments.
-([#313][issue-313])
+Plasma Opus does not currently integrate with Ark
+([#313][issue-313]):
+
+- **Possible benefit:** An optional handoff could improve encrypted 7z
+  compatibility through Ark's dedicated `7z` backend.
+- **Requirements:** It would require Ark and `7z` at runtime as well as error,
+  destination and overwrite handling.
+- **Password exposure:** Ark's
+  [7z plugin](https://github.com/KDE/ark/blob/master/plugins/cli7zplugin/cliplugin.cpp)
+  defines a `-p$Password` command-line switch. Verify the installed version and
+  operation before assuming passwords are not exposed in process arguments.
 
 - **Recommendation:** Investigate an optional Ark handoff with explicit
   dependency checks and safe error, destination, overwrite and password
@@ -710,6 +146,9 @@ operation before assuming passwords are not exposed in process arguments.
   - Comment: [#313.7021757012][comment-313]
 
 ## Folder metadata and listings
+
+Folder metadata, flat view and folder sizes have these limits, each tracked in
+its own issue:
 
 - **Metadata compatibility:** Plasma Opus supports a subset of Max File
   Manager's local `.mfm.json` metadata. Writing sanitizes the file and may
@@ -779,14 +218,17 @@ operation before assuming passwords are not exposed in process arguments.
 ## Planned password-gated folders
 
 The [proposed Plasma Opus password gate](ROADMAP.md#m27-integrations) is not
-implemented. It would be a Plasma Opus-only prompt, not encryption or filesystem
-access control. Other file managers and processes with the same user permissions
-could access the underlying folder without the password. Standard filesystem
-permissions and ACLs distinguish users and groups, not applications running with
-the same credentials.
-([#406](https://github.com/mikepadiernos/plasma-opus/issues/406);
-feature
-[#402](https://github.com/mikepadiernos/plasma-opus/issues/402))
+implemented ([#406](https://github.com/mikepadiernos/plasma-opus/issues/406);
+feature [#402](https://github.com/mikepadiernos/plasma-opus/issues/402)). As
+proposed, it has these limits:
+
+- **Not security:** It would be a Plasma Opus-only prompt, not encryption or
+  filesystem access control.
+- **Bypass:** Other file managers and processes with the same user permissions
+  could access the underlying folder without the password.
+- **Filesystem permissions:** Standard filesystem permissions and ACLs
+  distinguish users and groups, not applications running with the same
+  credentials.
 
 - **Recommendation:** For confidential files, use a separate encrypted vault
   such as [KDE Plasma Vault](https://github.com/KDE/plasma-vault). Applications
@@ -817,6 +259,9 @@ feature
       [#406.7040079777](https://github.com/mikepadiernos/plasma-opus/issues/406#issuecomment-7040079777)
 
 ## Previews and gallery
+
+Previews, the gallery and batch image conversion have these limits, each
+tracked in its own issue:
 
 - **Preview dependencies:** Document previews require a suitable installed
   KPart, media playback requires a Qt Multimedia backend, and available metadata
@@ -913,6 +358,9 @@ feature
 
 ## Editor
 
+The text editor's drafts and Markdown handling have these limits, each tracked
+in its own issue:
+
 - **Draft storage:** Drafts are limited to 8 MiB of UTF-8 text and are stored in
   the application's private data directory, not in the original file. If draft
   storage fails, save the document before switching files or closing.
@@ -962,10 +410,166 @@ feature
     change the built-in visual editor's Markdown limitations.
     - Comment: [#309.7021755164][comment-309]
 
+## File-list minimap
+
+The file-list minimap has these limits
+([#434](https://github.com/mikepadiernos/plasma-opus/issues/434)):
+
+- **Sampling:** The minimap samples at most 512 top-level listing rows rather
+  than showing every item or expanded child row.
+- **Scrolling:** It tracks only the vertical scrollbar, so it cannot navigate
+  horizontally scrolling columns in compact view.
+
+- **Recommendation:** Use the ordinary scrollbar or keyboard navigation for
+  compact view and expanded folders, and treat the minimap as a sampled overview
+  rather than a complete list.
+  - Comment:
+    [#434.7040730100](https://github.com/mikepadiernos/plasma-opus/issues/434#issuecomment-7040730100)
+
+## Yazi mode
+
+The M25 [Yazi mode](yazi-mode.md) has these limits
+([#723](https://github.com/mikepadiernos/plasma-opus/issues/723)):
+
+- **Scope:** Yazi mode is a native Qt/KDE browsing mode inspired by Yazi. It
+  doesn't run Yazi or read its configuration, keymaps, themes or plugins.
+- **Locations:** Search results, recent items, tags, `remote:/` and
+  application lists aren't supported; the pane falls back to the normal view
+  there. Remote folders, archives, `trash:/` and `desktop:/` are limited: the
+  parent column and preview may load slowly, and listings stop after 10
+  seconds. Archives are recognised by file extension.
+- **Preview:** A folder preview lists at most 500 entries. Remote files are
+  downloaded for preview up to the existing size caps; there is no setting
+  that stops remote preview downloads. Oversized text is truncated rather
+  than refused. Hiding the preview stops media playback, and media may render
+  poorly in a narrow column.
+- **Keys:** With Vim-style keys, bound letters and digits no longer start
+  type-ahead in the columns, <kbd>Space</kbd> no longer opens the gallery, and
+  <kbd>Ctrl</kbd>+<kbd>D</kbd> (Add to Favorites) is overridden there.
+  <kbd>Ctrl</kbd>+<kbd>C</kbd> doesn't cancel a search because it is Copy.
+  With Standard keys, <kbd>Left</kbd> and <kbd>Right</kbd> mean Parent and
+  Open in icon and card views. <kbd>Caps Lock</kbd> changes letter bindings.
+- **File actions:** <kbd>c</kbd> and <kbd>m</kbd> copy or move straight to
+  the other pane like <kbd>F5</kbd> and <kbd>F6</kbd>, so they follow the
+  transfer setting **Existing destination**; with **Overwrite automatically**
+  they overwrite without asking. <kbd>u</kbd> undoing a copy deletes the
+  copies after KIO asks. Window shortcuts such as <kbd>Delete</kbd> don't fall
+  back to the focused item when nothing is selected. Paste
+  and trash don't appear in the Yazi transfer indicator.
+- **Selection:** Marked items stay selected while moving, unlike the normal
+  view. In grid views, range selection follows item order.
+- **Search:** The status row only tracks searches started with <kbd>s</kbd>
+  or <kbd>S</kbd> from that pane, and those keys change the Search panel's
+  scope settings.
+- **Persistence:** A pane follows the default column ratios until they are
+  dragged; other panes pick up a new default only when settings are applied
+  again. Existing workspaces tie Yazi state to the views option until their
+  Yazi checkbox is changed. When startup opens the home folder or fixed
+  folders, panes start with their default mode from **Preferences › Yazi
+  Mode › Activation**, which is off unless changed.
+- **Performance:** The first listing of very large folders (10,000+ items)
+  is slow with or without Yazi mode.
+
+- **Recommendation:**
+  - **Scope:** Use Yazi itself, for example in the embedded terminal, when
+    you need its plugins or configuration.
+  - **Locations:** Browse unsupported locations in the normal view; the mode
+    resumes at the next supported folder. Hide the preview with **View › Yazi
+    Preview** in slow remote folders.
+  - **Preview:** Switch the column to file information (<kbd>i</kbd> with
+    Vim-style keys) on slow connections, and open large files with **Open
+    With**.
+  - **Keys:** Keep the Standard preset if you rely on type-ahead, the gallery
+    on <kbd>Space</kbd> or <kbd>Ctrl</kbd>+<kbd>D</kbd>. Cancel searches with
+    <kbd>Escape</kbd> or **Cancel**.
+  - **File actions:** Keep **Existing destination** at **Ask** (the default)
+    before using <kbd>c</kbd> and <kbd>m</kbd>. Select items explicitly before
+    using window shortcuts.
+  - **Selection:** Press <kbd>Escape</kbd> to clear marks before ordinary
+    selection.
+  - **Search:** Check the Search panel's scope after using <kbd>s</kbd> or
+    <kbd>S</kbd>.
+  - **Persistence:** Drag the columns once in each pane to fix its ratios,
+    or use **Restore Yazi Mode Defaults** in Preferences to make every pane
+    follow the defaults again. Turn on a workspace's **Yazi mode** option to
+    restore Yazi state independently of views.
+  - **Performance:** Filter or split very large folders.
+  - Comment:
+    [#723.7180859654](https://github.com/mikepadiernos/plasma-opus/issues/723#issuecomment-7180859654)
+- **Proposed improvements:**
+  - A remote preview download policy shared with the preview panel.
+  - Track paste and trash jobs in the Yazi transfer indicator.
+  - Faster first listings of very large folders.
+
+## Yazi mode settings
+
+The M26 [Yazi mode settings](yazi-mode.md#settings) under **Preferences ›
+Yazi Mode** have these limits
+([#725](https://github.com/mikepadiernos/plasma-opus/issues/725)):
+
+- **Activation:** Each pane's default mode and restore option apply only
+  when a window opens; open panes keep their current mode. The restore option
+  matters only when **On startup** restores the last session. Sessions saved
+  before M25 restore the mode as off. "First pane" is the left pane, or the
+  top pane when the panes are stacked.
+- **Columns:** Panes with their own widths, from dragging, their session or
+  a workspace, keep them when the default widths change, so Apply can seem to
+  do nothing. After a drag, the Columns tab shows the widths in pixels, such
+  as 180, 540 and 360. The narrow-pane limits are fixed: the preview column
+  hides below about 480 pixels and the parent column below about 320.
+- **Keyboard:** Preset keys can't be edited one by one. The conflict review
+  checks the window that opened Preferences, leaves out shortcuts that only
+  work while their own widget has focus and sees shortcut edits only after
+  they are saved. **View › Vim-Style Keys in Yazi Mode** switches presets
+  without reviewing conflicts.
+- **Preview:** There is no Yazi-specific size, provider or remote-download
+  setting. Remote preview downloads stop at fixed caps (8 MiB for images,
+  128 MiB for other files) and ignore **Show previews in remote folders**;
+  **Skip files larger than** and **Show previews for** only affect
+  thumbnails. The file-information fields are fixed. Changed presentation
+  settings, such as line numbers, apply from the next previewed item.
+- **Workspace layouts:** A pane that keeps its own Yazi state differs from
+  the saved layout, so the workspace shows the modified marker (`*`) after
+  switching. Restoring only the columns also changes panes that aren't in
+  Yazi mode; the columns appear when the mode is turned on. The default for
+  new workspaces stays under **Workspaces › Behaviors**.
+- **Reset:** **Restore Yazi Mode Defaults** makes open panes drop their own
+  column and preview choices on Apply, even if values are edited again before
+  Apply, and can mark the active workspace as modified. It never turns a
+  pane's Yazi mode on or off. The dialog's own **Defaults** button resets
+  every page but keeps the panes' own choices.
+
+- **Recommendation:**
+  - **Activation:** Turn a pane's mode on or off with **View › Yazi Mode**
+    after changing its default; the setting takes over at the next start.
+  - **Columns:** Use **Restore Yazi Mode Defaults** when open panes should
+    follow new default widths. Use **Restore Default Widths** on the Columns
+    tab to return to 1 : 3 : 2 after a drag.
+  - **Keyboard:** Change presets from the Keyboard tab rather than the View
+    menu so conflicts are reviewed, and save edits in **Configure Keyboard
+    Shortcuts…** before reviewing again.
+  - **Preview:** Switch the preview column to file information on slow
+    connections, and use **Maximum text in preview panel** under **Interface
+    › Previews** to limit remote text downloads.
+  - **Workspace layouts:** Save the workspace layout again when the modified
+    marker should clear, or turn both Yazi options back on to restore the
+    saved state.
+  - **Reset:** Use the Yazi Mode button instead of **Defaults** when only
+    Yazi settings should change.
+  - Comment:
+    [#725.7182507952](https://github.com/mikepadiernos/plasma-opus/issues/725#issuecomment-7182507952)
+- **Proposed improvements:**
+  - Editable Yazi key bindings, built on KDE shortcut configuration.
+  - Conflict review for the View menu's key preset toggle.
+  - A remote preview download policy shared with the preview panel.
+  - Settings for the narrow-pane limits.
+  - Apply activation defaults to open panes on request.
+
 ## Search
 
-Tracked in
-[#362](https://github.com/mikepadiernos/plasma-opus/issues/362).
+Live search, indexed search, the search panel and the toolbar search field
+have these limits
+([#362](https://github.com/mikepadiernos/plasma-opus/issues/362)):
 
 - **Live search:** Scans local folders only and skips symbolic links. Content
   search covers UTF-8 files up to 2 MiB without NUL bytes. Search stops after
@@ -993,7 +597,7 @@ Tracked in
 - **Search panel:** The panel searches the folder it was opened for and does
   not follow later navigation; search again from a pane to change it. While a
   search runs, the folder can't change until the search finishes or is
-  canceled. By default the panel follows the embedded terminal's placement,
+  cancelled. By default the panel follows the embedded terminal's placement,
   below or beside the panes. Preferences' Search page can instead place it
   below or right of the panes; when that direction differs from the
   terminal's, the panel spans the panes and terminal together and its size is
@@ -1007,36 +611,37 @@ Tracked in
   it before the Search button, or with Customize Main Toolbar. Both change the
   same main toolbar entries, so restoring default toolbars removes it, and
   the Preferences option is applied even when toolbars are locked. Pressing
-  Enter searches the active pane's current folder with the text typed, but
-  uses the other criteria, such as scope and filters, currently set in the
-  search panel. While a search runs, Enter does not start another search. The
-  field's Saved Searches menu runs a saved search with all its saved criteria,
-  including its folder, and replaces the panel's criteria. Searching from the
-  field shows the search panel unless Preferences turn this off; the status
-  bar then reports how the search ended for five seconds, or why it could not
-  start, but errors and skipped files are listed only in the panel. Empty
-  text still shows the panel. The field can be placed on the main toolbar
-  only, not on pane toolbars. It suggests recent queries while typing, and
-  Alt+Down lists them.
+  <kbd>Enter</kbd> searches the active pane's current folder with the text
+  typed, but uses the other criteria, such as scope and filters, currently set
+  in the search panel. While a search runs, <kbd>Enter</kbd> does not start
+  another search. The field's Saved Searches menu runs a saved search with all
+  its saved criteria, including its folder, and replaces the panel's criteria.
+  Searching from the field shows the search panel unless Preferences turn this
+  off; the status bar then reports how the search ended for five seconds, or
+  why it could not start, but errors and skipped files are listed only in the
+  panel. Empty text still shows the panel. The field can be placed on the main
+  toolbar only, not on pane toolbars. It suggests recent queries while typing,
+  and <kbd>Alt</kbd>+<kbd>Down</kbd> lists them.
 - **Result presentation and history:** Results and collection references are
   listed by full path or by name with their folder; the choice next to the
   result tabs applies to the current panel and Preferences' Search page sets
-  its default. Copying, opening and revealing always use the full
-  path. Recent queries, up to 50, are shared by every window and kept as plain
-  text in Plasma Opus's state file, not in a protected store. A query is
-  remembered when its search starts, including searches started from the
-  toolbar field or a saved search. Turning off Remember recent search queries
-  forgets stored queries the next time a window applies Preferences, and
-  Clear Search History forgets them at once; neither removes queries already
-  shown in an open completion list or saved searches.
-- **Search keyboard navigation:** Down in the toolbar field or the panel's
-  query moves to the visible result list, or from the toolbar field to the
-  query when there are no results. With the panel hidden, Down in the field
-  shows it only when it holds results. Escape cancels a running search; otherwise
-  it returns focus to the active pane and leaves the panel open. Tab moves
-  through the panel in layout order, but between the toolbar, panel and panes
-  it follows the window's widget order. There are no dedicated shortcuts for
-  focusing the toolbar field or the panel.
+  its default. Copying, opening and revealing always use the full path. Recent
+  queries, up to 50, are shared by every window and kept as plain text in
+  Plasma Opus's state file, not in a protected store. A query is remembered
+  when its search starts, including searches started from the toolbar field or
+  a saved search. Turning off Remember recent search queries forgets stored
+  queries the next time a window applies Preferences, and Clear Search History
+  forgets them at once; neither removes queries already shown in an open
+  completion list or saved searches.
+- **Search keyboard navigation:** <kbd>Down</kbd> in the toolbar field or the
+  panel's query moves to the visible result list, or from the toolbar field to
+  the query when there are no results. With the panel hidden, <kbd>Down</kbd>
+  in the field shows it only when it holds results. <kbd>Escape</kbd> cancels
+  a running search; otherwise it returns focus to the active pane and leaves
+  the panel open. <kbd>Tab</kbd> moves through the panel in layout order, but
+  between the toolbar, panel and panes it follows the window's widget order.
+  There are no dedicated shortcuts for focusing the toolbar field or the
+  panel.
 - **Advanced queries:** AND, OR and NOT are operators only in upper case;
   quote a value that contains a colon, starts with `-` or is one of those
   words. Words without a field match file names, and unquoted name and path
@@ -1045,13 +650,13 @@ Tracked in
   bytes, and `size:10M` matches exactly 10 MiB. Dates use local time. An
   extension such as `type:pdf` compares names only; a MIME type is detected
   from the name and, if needed, the contents, which can slow live searches and
-  miss misnamed files. Content criteria use live search's text
-  limits; unreadable, binary and oversized files never contain a term, so
-  NOT content criteria match them. Indexed queries need a name or content
-  term that every result must match, which selects Baloo candidates; other
-  content terms use Baloo's word matching rather than substrings, and
-  name, path, type, size and date criteria are checked against the files
-  found. The normalized query shown while typing uses English field names.
+  miss misnamed files. Content criteria use live search's text limits;
+  unreadable, binary and oversized files never contain a term, so NOT content
+  criteria match them. Indexed queries need a name or content term that every
+  result must match, which selects Baloo candidates; other content terms use
+  Baloo's word matching rather than substrings, and name, path, type, size and
+  date criteria are checked against the files found. The normalized query
+  shown while typing uses English field names.
 - **Search folders and exclusions:** The search folders and excluded folders
   set on Preferences' Search page apply only to Plasma Opus. They do not
   change what Baloo indexes, and an excluded folder is still searched by other
@@ -1066,11 +671,11 @@ Tracked in
   filter leaves it unavailable, so searches start without a path filter and
   report it until another filter is chosen. Settings from before M22 are
   migrated when Plasma Opus starts; the earlier Boolean keys are removed.
-- **Double Shift:** Pressing Shift twice opens search only while a Plasma Opus
-  main window has keyboard focus; it is not a global shortcut and can't be
-  assigned in Configure Keyboard Shortcuts. It is turned off while Sticky Keys
-  is on in Plasma's accessibility settings, and Plasma Opus can't detect input
-  methods or remappings that intercept Shift.
+- **Double Shift:** Pressing <kbd>Shift</kbd> twice opens search only while a
+  Plasma Opus main window has keyboard focus; it is not a global shortcut and
+  can't be assigned in Configure Keyboard Shortcuts. It is turned off while
+  Sticky Keys is on in Plasma's accessibility settings, and Plasma Opus can't
+  detect input methods or remappings that intercept <kbd>Shift</kbd>.
 
 - **Recommendation:** Check Baloo's indexing configuration and status; use live
   search for a current local folder, search smaller folders, inspect errors and
@@ -1078,28 +683,29 @@ Tracked in
   items by path, and verify the resulting selection. Use GNU `find` for other
   local filename searches or ripgrep (`rg`) for content searches when Plasma
   Opus limits are unsuitable; check each tool's hidden-file, ignore, encoding
-  and symbolic-link behavior. If a revealed result is hidden or filtered, adjust
-  the pane's visibility settings. Re-run saved searches and check collection
-  references after files change. Use KDE File Search settings to change what
-  Baloo indexes for every application. When pressing Shift twice is
-  unavailable, use the Search shortcut (Ctrl+Alt+F by default), which can be
+  and symbolic-link behaviour. If a revealed result is hidden or filtered,
+  adjust the pane's visibility settings. Re-run saved searches and check
+  collection references after files change. Use KDE File Search settings to
+  change what Baloo indexes for every application. When pressing
+  <kbd>Shift</kbd> twice is unavailable, use the Search shortcut
+  (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>F</kbd> by default), which can be
   changed in Configure Keyboard Shortcuts. To search another folder from the
   search panel, use Search from that pane's toolbar or the Search shortcut
   while the pane is active, or type in the toolbar search field. Check the
-  panel's criteria before searching from the toolbar field. Press Down to
-  reach the results and Escape to return to the active pane; click the panel
-  or use Tab when keyboard focus needs to move elsewhere. Check the normalized
-  query shown while typing to confirm grouping, use parentheses where AND and
-  OR are mixed, and search the current folder or search folders when an
-  advanced query has no required name or content term. After renaming or
-  deleting a shared path filter, choose the default path filter again on
-  Preferences' Search page. With several windows open, hide the search panel in
-  the last window you use if it should stay closed at the next startup. Turn
-  off Remember recent search queries before searching for sensitive text, or
-  use Clear Search History afterwards. Choose Names and folders when long
-  paths make results hard to scan. When toolbar searches leave the panel
-  hidden, press Down in the field after a search to check its errors and
-  results.
+  panel's criteria before searching from the toolbar field. Press
+  <kbd>Down</kbd> to reach the results and <kbd>Escape</kbd> to return to the
+  active pane; click the panel or use <kbd>Tab</kbd> when keyboard focus needs
+  to move elsewhere. Check the normalized query shown while typing to confirm
+  grouping, use parentheses where AND and OR are mixed, and search the current
+  folder or search folders when an advanced query has no required name or
+  content term. After renaming or deleting a shared path filter, choose the
+  default path filter again on Preferences' Search page. With several windows
+  open, hide the search panel in the last window you use if it should stay
+  closed at the next startup. Turn off Remember recent search queries before
+  searching for sensitive text, or use Clear Search History afterwards. Choose
+  Names and folders when long paths make results hard to scan. When toolbar
+  searches leave the panel hidden, press <kbd>Down</kbd> in the field after a
+  search to check its errors and results.
   - Comment: [#362.7023269364][comment-362]
 - **Alternative:** Use a separately maintained locate database for filenames.
   - Comment:
@@ -1119,8 +725,8 @@ Tracked in
 
 ## Batch rename
 
-Tracked in
-[#372](https://github.com/mikepadiernos/plasma-opus/issues/372).
+Batch rename has these limits
+([#372](https://github.com/mikepadiernos/plasma-opus/issues/372)):
 
 - **Inputs and destinations:** Only local items are supported. The destination
   filesystem must support Linux atomic no-replace renames. Preview rejects
@@ -1130,11 +736,11 @@ Tracked in
   and embedded fields; missing metadata and invalid names prevent application.
   Regular expressions are case-sensitive and apply to base names only,
   preserving extensions. Expensive expressions can delay a preview and cannot be
-  canceled.
+  cancelled.
 - **Changes and recovery:** The preview is a snapshot. Source identity is
   checked before each rename, but changes can race those checks. Errors or
   cancellation stop the batch and can leave partial results. Renames are not
-  registered with KIO undo. Per-folder Plasma Opus labels, colors, ratings,
+  registered with KIO undo. Per-folder Plasma Opus labels, colours, ratings,
   notes and pins remain keyed by old names.
 
 - **Recommendation:** Review the preview and back up important items first. Use
@@ -1154,72 +760,10 @@ Tracked in
   are not migrated.
   - Comment: [#372.7024683530][comment-372]
 
-## Filtered folder comparison
-
-Tracked in
-[#376](https://github.com/mikepadiernos/plasma-opus/issues/376).
-
-- **Scope:** Comparison requires two separate local folders. Patterns match
-  relative paths case-sensitively; excluded folders are not traversed. Links can
-  be skipped or compared by target, but are never followed. When links are
-  skipped, the matching subtree on the other side is also skipped.
-- **Results:** Comparison examines at most 100,000 entries per folder, and
-  filenames must round-trip through Qt's local filename encoding. Without
-  content comparison, matching size and modification time do not prove equal
-  contents. Results are snapshots that concurrent changes can invalidate, and
-  can produce a large list.
-
-- **Recommendation:** Use separate local folders and choose relative-path
-  patterns carefully; enable content comparison when matching bytes matter.
-  Compare smaller trees if the entry limit is reached, and rerun after changes.
-  Use an external tool for remote locations or unsupported filenames.
-  - Comment: [#376.7026216329][comment-376]
-- **Alternative:** Use a separate graphical directory comparison.
-  - Comment:
-    [#376.7029677475](https://github.com/mikepadiernos/plasma-opus/issues/376#issuecomment-7029677475)
-- **Planned:** The [M27 rsync backend](ROADMAP.md#m27-integrations) is for
-  folder synchronization; it does not promise remote support in this standalone
-  comparison.
-  - Comment: [#376.7026216329][comment-376]
-
-## Folder synchronization
-
-Tracked in
-[#377](https://github.com/mikepadiernos/plasma-opus/issues/377).
-
-- **Supported operations:** Synchronization is local-only. It copies, overwrites
-  and permanently deletes regular files and creates missing folders. Links,
-  directory deletion and type replacement are unsupported. Profiles save filters
-  and comparison options, not item actions.
-- **Metadata and filesystem:** Copies preserve basic permissions and timestamps,
-  but not necessarily ownership, ACLs, extended attributes, sparse layout or
-  other metadata. Linux `renameat2` with `RENAME_NOREPLACE` support is required.
-- **Recovery and races:** Operations are not registered with KIO undo or
-  transactional. Errors or cancellation can leave partial results, and the
-  current operation may already have changed files. Private `.opus-sync-*`
-  staging folders or backups may remain after errors or crashes. Snapshot and
-  identity checks reduce but cannot eliminate races with other processes
-  changing or moving items.
-
-- **Recommendation:** Back up important data first, stop other writers and avoid
-  moving the folders during synchronization. Review every planned overwrite and
-  permanent deletion, inspect the completed-operation report and any reported
-  `.opus-sync-*` folders after errors, and compare again before retrying. Use
-  another tool for remote locations, links, directory deletion, type replacement
-  or metadata that must be preserved.
-  - Comment: [#377.7026633904][comment-377]
-- **Alternative:** Use rsync separately with a reviewed dry run.
-  - Comment:
-    [#377.7029677824](https://github.com/mikepadiernos/plasma-opus/issues/377#issuecomment-7029677824)
-- **Planned:** [M27](ROADMAP.md#m27-integrations) proposes an optional rsync
-  backend for local and SSH locations, with a reviewed dry run. It is not
-  available yet and would still require confirmation and recovery precautions.
-  - Comment: [#377.7026633904][comment-377]
-
 ## Metadata editing
 
-Tracked in
-[#374](https://github.com/mikepadiernos/plasma-opus/issues/374).
+Embedded metadata editing has these limits
+([#374](https://github.com/mikepadiernos/plasma-opus/issues/374)):
 
 - **Formats and dependencies:** Edit one local JPEG or TIFF (description, artist
   and copyright) or MP3 (title, artist and album) at a time. ExifTool is
@@ -1250,8 +794,8 @@ Tracked in
 
 ## Transfer queue
 
-Tracked in
-[#375](https://github.com/mikepadiernos/plasma-opus/issues/375).
+The transfer queue has these limits
+([#375](https://github.com/mikepadiernos/plasma-opus/issues/375)):
 
 - **Coverage:** The queue handles pane, context-menu and gallery copy and move
   actions. Clipboard paste and drag-and-drop use KIO directly; they do not
@@ -1262,7 +806,7 @@ Tracked in
 - **Controls and lifetime:** Progress, speed and controls depend on the KIO job
   and worker. Cancellation may leave partial results. The queue exists only in
   memory: waiting jobs are discarded on application exit and active jobs may be
-  canceled. Plasma Opus warns before closing a window while transfers are
+  cancelled. Plasma Opus warns before closing a window while transfers are
   pending. External KIO progress interfaces may control a job independently of
   the queue display. KIO records undo when a queued copy or move begins, not
   while waiting.
@@ -1287,8 +831,8 @@ Tracked in
 
 ## Custom commands
 
-Tracked in
-[#373](https://github.com/mikepadiernos/plasma-opus/issues/373).
+Custom commands have these limits
+([#373](https://github.com/mikepadiernos/plasma-opus/issues/373)):
 
 - **Inputs:** Commands require a local working folder and local selections.
   Placeholders occupy whole arguments; a single empty literal argument and line
@@ -1312,27 +856,13 @@ Tracked in
   - Comment:
     [#373.7029676403](https://github.com/mikepadiernos/plasma-opus/issues/373#issuecomment-7029676403)
 
-## File comparison
-
-File comparison requires the `diff` executable and two local regular files.
-Unified output is decoded as UTF-8, and comparison stops if output exceeds 4
-MiB. Binary differences are reported without a visual binary diff.
-([#311][issue-311])
-
-- **Recommendation:** Copy remote files locally and use another comparison tool
-  for non-UTF-8 text, large output or a visual binary diff. Difftastic can
-  compare supported text files; `cmp` can check whether binary files differ, but
-  does not provide a visual diff.
-  - Comment: [#311.7021755780][comment-311]
-- **Alternative:** Use a separate graphical comparison tool.
-  - Comment:
-    [#311.7029671783](https://github.com/mikepadiernos/plasma-opus/issues/311#issuecomment-7029671783)
-
 ## Symbolic links
 
-Symbolic-link creation supports existing local files and folders only. The new
-link is created beside its target; another destination cannot be chosen.
-([#312][issue-312])
+Symbolic-link creation has these limits ([#312][issue-312]):
+
+- **Targets:** Only existing local files and folders are supported.
+- **Destination:** The new link is created beside its target; another
+  destination cannot be chosen.
 
 - **Recommendation:** Use a suitable external tool when a different link
   destination or remote symbolic-link support is needed. For local paths, GNU
@@ -1345,12 +875,17 @@ link is created beside its target; another destination cannot be chosen.
 
 ## Listing export
 
-Listing export uses the current filtered rows and displayed values, even in icon
-or compact view. By default it uses the visible details columns; export-specific
-columns can be selected in Preferences, but are limited to the supported listing
-fields. Output is local only, and wide PDF tables may wrap or clip. CSV prefixes
-cells that could be interpreted as spreadsheet formulas with an apostrophe.
-([#314](https://github.com/mikepadiernos/plasma-opus/issues/314))
+Listing export has these limits
+([#314](https://github.com/mikepadiernos/plasma-opus/issues/314)):
+
+- **Rows and values:** Export uses the current filtered rows and displayed
+  values, even in icon or compact view.
+- **Columns:** By default it uses the visible details columns; export-specific
+  columns can be selected in Preferences, but are limited to the supported
+  listing fields.
+- **Output:** Output is local only, and wide PDF tables may wrap or clip.
+- **CSV formulas:** CSV prefixes cells that could be interpreted as
+  spreadsheet formulas with an apostrophe.
 
 - **Recommendation:** Check the filter and selected export columns before
   exporting, and reduce columns for wide PDF tables. Keep CSV formula protection
@@ -1363,33 +898,17 @@ cells that could be interpreted as spreadsheet formulas with an apostrophe.
   - Comment:
     [#314.7029672795](https://github.com/mikepadiernos/plasma-opus/issues/314#issuecomment-7029672795)
 
-## Folder content chart
-
-The chart shows measured logical sizes by immediate entry, not kind or extension
-breakdowns or a largest-file drilldown. It includes hidden entries, skips
-top-level symbolic links and entries without a known size, and relies on KIO
-workers for recursive traversal. Scans can be canceled but have no entry or time
-limit and can be costly; results are snapshots.
-([#315](https://github.com/mikepadiernos/plasma-opus/issues/315))
-
-- **Recommendation:** Scan smaller folders when possible, cancel expensive scans
-  and rescan when current results are needed. Use another tool for extension
-  breakdowns, largest-file analysis or linked-directory sizes. `ncdu` can
-  explore local directory usage; GNU `du -L` can follow directory symlinks,
-  subject to cycles and repeated targets.
-  - Comment: [#315.7021758275][comment-315]
-- **Alternative:** Inspect local disk usage with QDirStat.
-  - Comment:
-    [#315.7029673162](https://github.com/mikepadiernos/plasma-opus/issues/315#issuecomment-7029673162)
-
 ## Checksum files
 
-Checksum files use UTF-8 GNU-style SHA-256 manifests and local regular files in
-the same folder. Other algorithms, remote files, symbolic links, path entries
-and non-UTF-8 names are unsupported. Manifests are limited to 10,000 entries.
-Files can change during hashing; cancellation near completion can race with
-publication of the checksum file.
-([#316](https://github.com/mikepadiernos/plasma-opus/issues/316))
+Checksum files have these limits
+([#316](https://github.com/mikepadiernos/plasma-opus/issues/316)):
+
+- **Format and inputs:** Checksum files use UTF-8 GNU-style SHA-256 manifests
+  and local regular files in the same folder. Other algorithms, remote files,
+  symbolic links, path entries and non-UTF-8 names are unsupported.
+- **Size:** Manifests are limited to 10,000 entries.
+- **Races:** Files can change during hashing; cancellation near completion can
+  race with publication of the checksum file.
 
 - **Recommendation:** Use local regular files in the same folder and keep
   manifests within 10,000 entries. Avoid changing files while hashing, and check
@@ -1401,32 +920,18 @@ publication of the checksum file.
   - Comment:
     [#316.7029673498](https://github.com/mikepadiernos/plasma-opus/issues/316#issuecomment-7029673498)
 
-## Pane folder comparison
-
-Comparison covers immediate entries only. Files are compared by size and
-modification time, not contents; subfolders are not compared. Results are
-snapshots, and hidden or filtered entries may not be selectable. Large or remote
-listings may be costly.
-([#317](https://github.com/mikepadiernos/plasma-opus/issues/317))
-
-- **Recommendation:** Use file comparison for individual files or filtered
-  folder comparison for local recursive comparisons, enabling content comparison
-  when needed. For other cases, use a trusted recursive tool; GNU `diff -r`
-  compares local directory trees. Show hidden files and clear pane filters
-  before selecting differences; compare again after changes.
-  - Comment: [#317.7021904155][comment-317]
-- **Alternative:** Inspect a folder-sync comparison without applying changes.
-  - Comment:
-    [#317.7029673828](https://github.com/mikepadiernos/plasma-opus/issues/317#issuecomment-7029673828)
-
 ## Split and combine files
 
-Split and combine supports local regular files. Parts are raw numbered files;
-combining uses the displayed order and cannot detect missing, altered or
-incorrectly ordered parts. Inputs can change during processing. Failures or
-cancellation can leave incomplete output, and many small parts can be expensive.
-Existing outputs are never overwritten and new files are owner-only.
-([#318](https://github.com/mikepadiernos/plasma-opus/issues/318))
+Split and combine supports local regular files and has these limits
+([#318](https://github.com/mikepadiernos/plasma-opus/issues/318)):
+
+- **Parts:** Parts are raw numbered files; combining uses the displayed order
+  and cannot detect missing, altered or incorrectly ordered parts.
+- **Interruptions:** Inputs can change during processing. Failures or
+  cancellation can leave incomplete output, and many small parts can be
+  expensive.
+- **Output:** Existing outputs are never overwritten and new files are
+  owner-only.
 
 - **Recommendation:** Check the complete part list and order before combining,
   keep originals and verify the reconstructed file with a checksum. Avoid
@@ -1441,17 +946,664 @@ Existing outputs are never overwritten and new files are owner-only.
   - Comment:
     [#318.7029674177](https://github.com/mikepadiernos/plasma-opus/issues/318#issuecomment-7029674177)
 
+## Native tagging
+
+The M23 [native tagging](tagging.md) libraries have these limits
+([#714](https://github.com/mikepadiernos/plasma-opus/issues/714)):
+
+- **Libraries and indexing:** Libraries are local folders only. Symbolic links
+  aren't indexed or followed, and names that aren't valid in the system
+  encoding are skipped. A library is a single JSON document that is read and
+  rewritten whole on each edit, so very large libraries make edits and
+  searches slower. Saves detect changes from other windows and retry, but
+  there is no file lock, so two processes saving at the same moment can still
+  lose one edit.
+- **Moves and renames:** Only moves and renames started in Plasma Opus are
+  followed. Moves by other programs, copies and KIO undo aren't, and the next
+  refresh marks the old paths missing. A folder moved into a library is
+  indexed at its top level only until the next refresh. Tags aren't copied
+  between libraries. When the rename dialog reports an error, the renames it
+  completed aren't applied to the library. Moving or renaming a library's root
+  folder leaves its registration pointing at the old path.
+- **Showing tags:** Library tags appear in the tag panel and the Information
+  panel only. Views have no Tags column or emblem; the cards view's tags field
+  shows Baloo file tags, not library tags. The gallery window can't assign
+  tags. The tag panel doesn't notice changes made by other windows or
+  programs until the selection or folder changes.
+- **Tag panel:** Creating a tag from the search field and assigning it are
+  separate saves, so if the assignment fails the new tag is kept unassigned.
+- **Tag groups:** Groups are reordered with Move Up and Move Down only, not by
+  drag and drop. Groups are library data, independent of workspaces and
+  locations, as recommended in
+  [#252](https://github.com/mikepadiernos/plasma-opus/issues/252).
+- **Fields:** Library fields can't be searched with query criteria. A field's
+  type can't change while any item has a value for it.
+- **Searching:** Tag criteria match only items inside registered libraries;
+  `tagged:no` matches items outside them only when
+  [tagging settings](#tagging-settings) allow it. A search uses a snapshot of
+  each library taken when it starts. Indexed search still needs a name or
+  content term. Select by Query can't use `content:`, and its `meta:` criteria
+  read every listed file on the interface thread, so large folders can make
+  the window unresponsive until it finishes.
+- **Embedded metadata:** Reading uses KDE's extractors, so the available
+  properties depend on the installed extractor plugins. `meta:` criteria read
+  each candidate file and are slow without cheaper criteria. Writing embedded
+  metadata is limited to single JPEG, TIFF and MP3 files through
+  [metadata editing](#metadata-editing). The import dialog's field list isn't
+  refreshed if fields are changed elsewhere while it's open.
+- **Export and restore:** Restoring replaces the whole library document; it
+  doesn't merge. Items are matched by path only. An export reflects the
+  library as loaded, including repairs made when it was read. Backups made
+  before the backup limit was added aren't pruned. Exports have no size limit.
+
+- **Recommendation:**
+  - **Libraries and indexing:** Keep libraries on local folders, and rename
+    files with unusual encodings before indexing them. Split very large
+    collections into several libraries, and avoid editing the same library
+    from several windows or programs at once.
+  - **Moves and renames:** Move and rename tagged items in Plasma Opus. After
+    moving items with other programs, undoing a move or moving a folder into a
+    library, use **Tags › Refresh Library** and **Review Missing Entries…** to
+    relink. To move a library's root folder, remove the library, move the
+    folder, then create the library again from the new location; its document
+    is adopted with its tags.
+  - **Showing tags:** Select items to see their tags in the tag panel or the
+    Information panel. Change the selection to refresh the tag panel after
+    editing in another window.
+  - **Tag panel:** If creating and assigning a tag reports an error, check the
+    new tag again to assign it.
+  - **Fields:** To find items by a field, import or copy the value as a tag. To
+    change a field's type, create a new field and copy the values to it.
+  - **Searching:** Turn on **Include items outside libraries in tagged:no
+    searches** in **Preferences › Tagging › Search**, or use `NOT tagged:yes`,
+    to include items outside libraries, and repeat a search after editing
+    tags. Use Search rather than Select by Query for content, and combine
+    `meta:` with name or type criteria, as in `type:image/* meta:canon`.
+  - **Embedded metadata:** Install KDE's metadata extractors, and ExifTool for
+    writing images. Use a dedicated tag editor for other formats or several
+    files. Reopen the import dialog after changing fields.
+  - **Export and restore:** Export before restoring and review the preview.
+    Set **Keep at most … backups per library** in **Preferences › Tagging ›
+    Privacy**, and remove older backups without the library's hash in their
+    name from the backup folder by hand.
+  - Comment:
+    [#714.7171889508](https://github.com/mikepadiernos/plasma-opus/issues/714#issuecomment-7171889508)
+- **Proposed improvements:**
+  - Show library tags in a Tags column or emblem, and allow tagging in the
+    gallery.
+  - Refresh the tag panel when the library document changes.
+  - Index the contents of folders moved into a library, and follow renames of
+    the library root.
+  - Search library fields with query criteria.
+  - Merge restores.
+
+## Tagging settings
+
+The M24 [tagging settings](tagging.md#settings) have these limits
+([#716](https://github.com/mikepadiernos/plasma-opus/issues/716)):
+
+- **Private storage:** A private library document is keyed by the library
+  folder's path. Moving or renaming the folder leaves the document behind,
+  and the library must be created again and restored.
+- **Backup folder:** The setting accepts a URL, but only local folders are
+  used. A remote location silently falls back to the default
+  `library-backups` folder.
+- **Preferences:** The Libraries and Fields tabs read every library document
+  on the interface thread, so many or very large libraries make Preferences
+  slower to open. **Add Library…** uses the storage choice and new-library
+  fields as currently shown, even before Apply. The Fields tab's library
+  picker doesn't show whether a library is read-only or unreadable.
+- **Applying settings:** Apply updates the window Preferences was opened
+  from. Other windows move their tag panel when they are opened again, and
+  show colour and Information panel changes when those panels next refresh.
+  Automatic refresh reports its results in the active window only.
+- **Library scope:** Exclusions, hidden items, depth and item limits apply to
+  refreshes only; entries already indexed keep their tags and fields.
+- **Search:** With the whole-library scope, path filters and the depth limit
+  count from the library folder, and the notice that the search widened
+  appears only when it finishes. Searches already running keep the settings
+  they started with. When `tagged:no` matches items outside libraries, a
+  search outside any library matches everything it lists.
+- **Fields:** New libraries get their own field identifiers, so fields with
+  the same name are distinct between libraries. Invalid stored field
+  templates are dropped silently.
+- **Embedded metadata:** Disabled properties are hidden in the preview panel
+  and gallery but still extracted there. Mappings are stored by field name
+  and apply only in libraries with a field of that name and a compatible
+  type. When Preferences and the import dialog are both open, whichever saves
+  mappings last wins. Importing on refresh has no preview, covers only items
+  that refresh added and reads every new file, so the first refresh of a
+  large library is slow.
+
+- **Recommendation:**
+  - **Private storage:** To move a privately stored library's folder, remove
+    the library, move the folder, create the library again at the new path
+    and use **Tags › Restore Library Metadata…** with an export or the old
+    private document. Alternatively, switch the library to **Keep Metadata in
+    Library Folder** before moving it.
+  - **Backup folder:** Choose a local folder for backups.
+  - **Preferences:** Keep the number of registered libraries modest, and split
+    very large collections. Apply the Privacy and Fields tabs before adding
+    libraries if you want the choices saved.
+  - **Applying settings:** Reopen other windows, or change their selection,
+    after changing tagging settings. Keep the window you care about active
+    while an automatic refresh runs, or refresh manually with **Tags ›
+    Refresh Library**.
+  - **Library scope:** Remove tags and field values from items before
+    excluding them if you no longer want that metadata.
+  - **Search:** With the whole-library scope, write path filters relative to
+    the library folder. Start a new search after changing search settings.
+    Leave `tagged:no` outside libraries off unless you search limited
+    folders, or combine it with name or type criteria.
+  - **Fields:** Set up fields for new libraries before creating them, and use
+    the same names across libraries so saved mappings apply.
+  - **Embedded metadata:** Disable unwanted properties to keep search fast.
+    Create the mapped fields in each library, with a date type for date
+    properties. Close the import dialog before changing mappings in
+    Preferences. Leave importing on refresh off for the first refresh of a
+    large library and run **Import Embedded Metadata…** with a preview
+    instead.
+  - Comment:
+    [#716.7175386572](https://github.com/mikepadiernos/plasma-opus/issues/716#issuecomment-7175386572)
+- **Proposed improvements:**
+  - Key private documents by a stable library identifier and follow folder
+    moves.
+  - Read library state in Preferences in the background.
+  - Apply tagging settings to every open window.
+  - Offer to remove entries that new exclusions or limits leave out.
+  - Share field identifiers between libraries, or map by identifier.
+
+## Filtered folder comparison
+
+Filtered folder comparison has these limits
+([#376](https://github.com/mikepadiernos/plasma-opus/issues/376)):
+
+- **Scope:** Comparison requires two separate local folders. Patterns match
+  relative paths case-sensitively; excluded folders are not traversed. Links can
+  be skipped or compared by target, but are never followed. When links are
+  skipped, the matching subtree on the other side is also skipped.
+- **Results:** Comparison examines at most 100,000 entries per folder, and
+  filenames must round-trip through Qt's local filename encoding. Without
+  content comparison, matching size and modification time do not prove equal
+  contents. Results are snapshots that concurrent changes can invalidate, and
+  can produce a large list.
+
+- **Recommendation:** Use separate local folders and choose relative-path
+  patterns carefully; enable content comparison when matching bytes matter.
+  Compare smaller trees if the entry limit is reached, and rerun after changes.
+  Use an external tool for remote locations or unsupported filenames.
+  - Comment: [#376.7026216329][comment-376]
+- **Alternative:** Use a separate graphical directory comparison.
+  - Comment:
+    [#376.7029677475](https://github.com/mikepadiernos/plasma-opus/issues/376#issuecomment-7029677475)
+- **Planned:** The [M27 rsync backend](ROADMAP.md#m27-integrations) is for
+  folder synchronization; it does not promise remote support in this standalone
+  comparison.
+  - Comment: [#376.7026216329][comment-376]
+
+## Folder synchronization
+
+Folder synchronization has these limits
+([#377](https://github.com/mikepadiernos/plasma-opus/issues/377)):
+
+- **Supported operations:** Synchronization is local-only. It copies, overwrites
+  and permanently deletes regular files and creates missing folders. Links,
+  directory deletion and type replacement are unsupported. Profiles save filters
+  and comparison options, not item actions.
+- **Metadata and filesystem:** Copies preserve basic permissions and timestamps,
+  but not necessarily ownership, ACLs, extended attributes, sparse layout or
+  other metadata. Linux `renameat2` with `RENAME_NOREPLACE` support is required.
+- **Recovery and races:** Operations are not registered with KIO undo or
+  transactional. Errors or cancellation can leave partial results, and the
+  current operation may already have changed files. Private `.opus-sync-*`
+  staging folders or backups may remain after errors or crashes. Snapshot and
+  identity checks reduce but cannot eliminate races with other processes
+  changing or moving items.
+
+- **Recommendation:** Back up important data first, stop other writers and avoid
+  moving the folders during synchronization. Review every planned overwrite and
+  permanent deletion, inspect the completed-operation report and any reported
+  `.opus-sync-*` folders after errors, and compare again before retrying. Use
+  another tool for remote locations, links, directory deletion, type replacement
+  or metadata that must be preserved.
+  - Comment: [#377.7026633904][comment-377]
+- **Alternative:** Use rsync separately with a reviewed dry run.
+  - Comment:
+    [#377.7029677824](https://github.com/mikepadiernos/plasma-opus/issues/377#issuecomment-7029677824)
+- **Planned:** [M27](ROADMAP.md#m27-integrations) proposes an optional rsync
+  backend for local and SSH locations, with a reviewed dry run. It is not
+  available yet and would still require confirmation and recovery precautions.
+  - Comment: [#377.7026633904][comment-377]
+
+## File comparison
+
+File comparison has these limits ([#311][issue-311]):
+
+- **Requirements:** Comparison requires the `diff` executable and two local
+  regular files.
+- **Output:** Unified output is decoded as UTF-8, and comparison stops if
+  output exceeds 4 MiB.
+- **Binary files:** Binary differences are reported without a visual binary
+  diff.
+
+- **Recommendation:** Copy remote files locally and use another comparison tool
+  for non-UTF-8 text, large output or a visual binary diff. Difftastic can
+  compare supported text files; `cmp` can check whether binary files differ, but
+  does not provide a visual diff.
+  - Comment: [#311.7021755780][comment-311]
+- **Alternative:** Use a separate graphical comparison tool.
+  - Comment:
+    [#311.7029671783](https://github.com/mikepadiernos/plasma-opus/issues/311#issuecomment-7029671783)
+
+## Folder content chart
+
+The folder content chart has these limits
+([#315](https://github.com/mikepadiernos/plasma-opus/issues/315)):
+
+- **Breakdown:** The chart shows measured logical sizes by immediate entry,
+  not kind or extension breakdowns or a largest-file drilldown.
+- **Entries:** It includes hidden entries, skips top-level symbolic links and
+  entries without a known size, and relies on KIO workers for recursive
+  traversal.
+- **Scans:** Scans can be cancelled but have no entry or time limit and can be
+  costly; results are snapshots.
+
+- **Recommendation:** Scan smaller folders when possible, cancel expensive scans
+  and rescan when current results are needed. Use another tool for extension
+  breakdowns, largest-file analysis or linked-directory sizes. `ncdu` can
+  explore local directory usage; GNU `du -L` can follow directory symlinks,
+  subject to cycles and repeated targets.
+  - Comment: [#315.7021758275][comment-315]
+- **Alternative:** Inspect local disk usage with QDirStat.
+  - Comment:
+    [#315.7029673162](https://github.com/mikepadiernos/plasma-opus/issues/315#issuecomment-7029673162)
+
+## Pane folder comparison
+
+Pane folder comparison has these limits
+([#317](https://github.com/mikepadiernos/plasma-opus/issues/317)):
+
+- **Scope:** Comparison covers immediate entries only. Files are compared by
+  size and modification time, not contents; subfolders are not compared.
+- **Results:** Results are snapshots, and hidden or filtered entries may not
+  be selectable.
+- **Cost:** Large or remote listings may be costly.
+
+- **Recommendation:** Use file comparison for individual files or filtered
+  folder comparison for local recursive comparisons, enabling content comparison
+  when needed. For other cases, use a trusted recursive tool; GNU `diff -r`
+  compares local directory trees. Show hidden files and clear pane filters
+  before selecting differences; compare again after changes.
+  - Comment: [#317.7021904155][comment-317]
+- **Alternative:** Inspect a folder-sync comparison without applying changes.
+  - Comment:
+    [#317.7029673828](https://github.com/mikepadiernos/plasma-opus/issues/317#issuecomment-7029673828)
+
+## Cushion treemap
+
+The treemap uses the folder content chart measurements: tiles represent
+measured immediate entries and their relative logical sizes. It has these
+limits ([#335](https://github.com/mikepadiernos/plasma-opus/issues/335)):
+
+- **Nesting:** Nested folders are aggregated rather than shown simultaneously;
+  activate a folder in the list to rescan it.
+- **Visibility:** Empty, unmeasured and skipped entries have no visible tile,
+  and very small shares may be difficult to see.
+- **Measurements:** Measurements are snapshots and the
+  [folder content chart](#folder-content-chart) scan limits also apply.
+
+- **Recommendation:** Activate folders in the list to inspect their contents,
+  and use the size table for empty, skipped or very small entries. Scan smaller
+  folders and rescan when current results are needed. QDirStat is an external
+  option for simultaneously visualizing nested disk usage.
+  - Comment: [#335.7022647720][comment-335]
+- **Alternative:** Use Filelight for a separate nested radial view.
+  - Comment:
+    [#335.7029675089](https://github.com/mikepadiernos/plasma-opus/issues/335#issuecomment-7029675089)
+
+## Duplicate finder
+
+The duplicate finder recursively scans local folders for known regular files,
+groups equal sizes and SHA-256 hashes, and allows checked file URLs to be
+copied for manual review. Candidates can be selected by modification time or
+folder and moved to Trash after confirmation. It has these limits
+([#336](https://github.com/mikepadiernos/plasma-opus/issues/336)):
+
+- **Changes:** It rechecks affected groups before asking, but files can change
+  afterward.
+- **Entry types:** Symbolic links are skipped; hard links may appear as
+  separate paths, and unknown entry types are skipped.
+- **Scans and hashes:** Errors are shown, but scans are unbounded and matching
+  hashes are not a guarantee of byte identity.
+
+- **Recommendation:** Review groups and errors, verify current file contents and
+  paths independently, and keep at least one confirmed copy and backups before
+  moving files to Trash. Scan smaller local folders if a scan is expensive.
+  `jdupes` is an external option for comparing local files; its default listing
+  is non-destructive, but deletion and other modifying options require care.
+  - Comment: [#336.7022793474][comment-336]
+- **Alternative:** Compare candidate files byte-for-byte before deletion.
+  - Comment:
+    [#336.7029675367](https://github.com/mikepadiernos/plasma-opus/issues/336#issuecomment-7029675367)
+
+## Workspace layouts
+
+Workspace layouts, merged in M15, save pane and tab locations, active tabs,
+view and location-bar modes, toolbar action lists, splitter sizes, terminal
+orientation, detached-pane geometry, and supported panel placement and
+visibility. They have these limits
+([#700](https://github.com/mikepadiernos/plasma-opus/issues/700)):
+
+- **Drafts, sessions and jobs:** Layouts do not persist editor drafts or
+  terminal sessions. Running jobs remain alive when switching in the current
+  process but are not reconstructed from a saved layout.
+- **Startup:** The selected workspace is marked current on startup, while its
+  saved layout remains unapplied until the user switches to it.
+- **Prerequisites:** A visible terminal requires an existing session; metadata
+  and toolbar editors must be closed before saving or switching. Incompatible
+  linked panes must be unlinked first.
+- **Older snapshots:** Older snapshots may require replacement before they can
+  be applied.
+
+- **Recommendation:** Save editor drafts separately and start a terminal session
+  before switching to a layout that shows it. Finish metadata and toolbar edits,
+  and unlink panes when prompted. Replace older snapshots with **Save Current
+  Layout**. Explicitly switch to apply a saved layout after startup.
+  - Comment:
+    [#700.7163113449](https://github.com/mikepadiernos/plasma-opus/issues/700#issuecomment-7163113449)
+
+## Workspace settings
+
+The M16 settings have these limits
+([#609](https://github.com/mikepadiernos/plasma-opus/issues/609)):
+
+- **Panels:** The Layouts panels option restores the saved window state as one
+  unit, including main toolbar positions and dock placement. The toolbars
+  option only controls toolbar entries.
+- **Remote locations:** Recovery checks only that a remote location's KIO
+  protocol is installed. It never contacts the server, so a known but
+  unreachable remote location is not listed and fails when its tab loads.
+- **Unsaved state:** The unsaved marker and the **When unsaved** switch
+  confirmation compare the whole captured layout. This includes parts that
+  the workspace's behaviors or the restore options would not restore.
+- **Import conflicts:** You choose which profiles to import one by one, but
+  the replace or keep choice applies to all selected conflicts.
+- **Default behaviors:** These apply only to workspaces created in the
+  workspace manager. Duplicated and imported workspaces keep their own.
+
+- **Recommendation:**
+  - **Panels:** To keep the current docks and toolbar positions while
+    restoring toolbar entries, clear the panels option.
+  - **Remote locations:** Connect to them before switching, then reload any
+    remote tab that was unreachable.
+  - **Unsaved state:** Use **Save Current Layout** after deliberate changes,
+    or set the switch confirmation to **Never** or **Always** if it asks too
+    often.
+  - **Import conflicts:** Import conflicting profiles in separate passes when
+    some should replace existing workspaces and others should be kept.
+  - **Behaviors:** Review the behaviors of duplicated and imported workspaces
+    in the workspace manager.
+  - Comment:
+    [#609.7144292691](https://github.com/mikepadiernos/plasma-opus/issues/609#issuecomment-7144292691)
+- **Proposed improvements:**
+  - Split window state so that toolbar positions follow the toolbars option.
+  - Optionally probe remote locations with a bounded, cancellable KIO stat.
+  - Compare only the restorable parts of a layout when marking unsaved state.
+  - Choose to replace or keep each conflicting profile separately.
+
+## Linked pane navigation
+
+Linked navigation supports existing local folder trees rooted at the two
+starting folders and has these limits
+([#322](https://github.com/mikepadiernos/plasma-opus/issues/322)):
+
+- **Unlinking:** Panes unlink when navigation leaves either tree, a matching
+  folder is missing, a symbolic link resolves outside its tree, or a pane is
+  hidden. Tab and history changes also participate and may unlink.
+- **Races:** Filesystem changes can invalidate folders between checks and
+  navigation.
+
+- **Recommendation:** Start from corresponding local folders with matching
+  subfolder names. Check both panes after navigating, especially when
+  directories may change; relink at a new pair of roots when needed. Navigate
+  remote folders independently.
+  - Comment: [#322.7022490696][comment-322]
+- **Alternative:** Navigate the two locations independently.
+  - Comment:
+    [#322.7029674758](https://github.com/mikepadiernos/plasma-opus/issues/322#issuecomment-7029674758)
+
+## Themes
+
+The M17 theme options have these limits
+([#680](https://github.com/mikepadiernos/plasma-opus/issues/680)):
+
+- **Blur and translucency:** Background blur uses KWin's blur effect through
+  `KWindowEffects`. Without KWin compositing it is reported as unavailable and
+  the background stays opaque. Blur and translucency have been tested only
+  headlessly, without a Plasma session.
+- **Stylesheets:** A custom Qt stylesheet is limited to 64 KiB and 2,000 rules.
+  `@import`, `qproperty-` declarations and `url()` references other than Qt
+  resources (`:/` or `qrc:/`) are refused, so local and remote images cannot
+  be used. Qt's parser is lenient, so some unsupported selectors or properties
+  are ignored without an error. The stylesheet is applied to each main window
+  and the dialogs it owns.
+- **Theme profiles:** Invalid saved profiles are skipped when loading, with a
+  count but without naming them. Profiles leave out folder colour rules and the
+  high-contrast safeguard. Unavailable colour schemes and fonts in a profile
+  fall back to Plasma's until they are installed.
+- **Settings dialog and workspaces:** The settings dialog always edits the
+  global appearance. While the active workspace overrides an option, the dialog
+  shows the global value without a notice, and its changes appear only where
+  the workspace does not override them.
+- **Other windows:** Changes to a theme profile attached to a workspace reach
+  other open windows only when they next apply settings or switch workspaces.
+- **View mode:** A workspace's view mode override sets the panes' view mode
+  when switching to the workspace, not at startup, where restored panes keep
+  their saved view modes.
+- **Folder colour rules:** A workspace keeps its own copy of folder colour
+  rules, taken from the global rules rather than edited per workspace.
+- **App-wide:** The active workspace is shared by all windows, so its
+  appearance applies to every window.
+
+- **Recommendation:**
+  - **Blur and translucency:** Enable compositing and KWin's blur effect in
+    System Settings. If blur is unavailable, lower opacity only as far as text
+    stays readable, or keep backgrounds opaque.
+  - **Stylesheets:** Keep stylesheets small and appearance-only, using colours,
+    borders and Qt resource images. Check the preview before applying, and
+    export the stylesheet before large edits so that you can revert.
+  - **Theme profiles:** Export profiles you rely on as backups and re-import
+    them if the profile count drops. Keep folder colour rules in the global
+    settings or attach them to a workspace.
+  - **Settings dialog and workspaces:** Change overridden options in
+    **Workspaces… › Workspace Appearance**, or clear the override there first.
+    Start with `--no-workspace-appearance` to see only the global appearance.
+  - **Other windows:** After editing an attached profile, apply settings or
+    switch workspaces in the other windows.
+  - **View mode:** Switch to the workspace again, or choose the view mode for
+    each pane.
+  - **Folder colour rules:** Edit the global rules, then choose **Copy of the
+    global rules** in the workspace's appearance and save it.
+  - **App-wide:** Use separate workspaces for different appearances; M27 can
+    apply separate choices per Activity.
+  - Comment:
+    [#680.7148716042](https://github.com/mikepadiernos/plasma-opus/issues/680#issuecomment-7148716042)
+- **Proposed improvements:**
+  - Mark options that the active workspace overrides in the settings dialog.
+  - Notify other windows when theme profiles or workspace appearance change.
+  - Name skipped theme profiles and offer to export or remove them.
+  - Edit folder colour rules per workspace.
+
+## Theme settings
+
+The M18 theme settings have these limits
+([#687](https://github.com/mikepadiernos/plasma-opus/issues/687)):
+
+- **Corner radius:** A corner radius other than **Follow widget style** rounds
+  item highlights, cards, text fields, tabs and tooltips. Buttons, combo boxes
+  and panel frames keep the widget style's corners.
+- **Plasma accent:** Colours that follow the Plasma accent are updated live
+  only when Plasma announces a change to `kdeglobals`. An accent change written
+  without a change notification appears after the next settings change or
+  restart.
+- **Workspace preview:**
+  - Previewing a workspace's appearance doesn't switch the view mode of open
+    panes.
+  - Applying settings while a preview is shown replaces the preview.
+  - The preview is shown in the window that opened the workspace manager,
+    although the workspace appearance layer is shared by all windows.
+- **All options:** When a workspace saves all appearance options, options that
+  have no row in the workspace appearance editor take the workspace's saved
+  values, or the current global values when they are first saved. They can't
+  be edited individually there.
+- **Stylesheet:** A workspace's own options never include the custom
+  stylesheet. Only a theme profile attached to the workspace can supply one.
+- **Blur and translucency:** These are reported per workspace only when the
+  workspace saves those options; otherwise the global values apply.
+- **Plasma session:** The theme settings have been tested only headlessly,
+  without a Plasma session.
+
+- **Recommendation:**
+  - **Corner radius:** Choose the radius closest to the widget style's own
+    corners so that rounded and unrounded controls look consistent.
+  - **Plasma accent:** If the accent changes without updating the window,
+    apply settings again or restart Plasma Opus.
+  - **Workspace preview:** Preview before applying other settings, then choose
+    **Revert** or save. To check view modes, switch to the workspace after
+    saving it.
+  - **All options:** Set those options in the settings dialog first, then save
+    the workspace with **All options**, or use **Selected options** to save only
+    the options you edit.
+  - **Stylesheet:** Save a theme profile with the stylesheet and attach it to
+    the workspaces that need it.
+  - Comment:
+    [#687.7149624993](https://github.com/mikepadiernos/plasma-opus/issues/687#issuecomment-7149624993)
+- **Proposed improvements:**
+  - Round buttons, combo boxes and panel frames with the chosen radius.
+  - Preview in every window and keep the preview after applying settings.
+  - Show every saved option in the workspace appearance editor.
+  - Allow a per-workspace stylesheet.
+
+## Branding
+
+The M19 branding and its M20 settings have these limits
+([#689](https://github.com/mikepadiernos/plasma-opus/issues/689)):
+
+- **High contrast:** The startup presentation uses the colour scheme's window
+  and text colours with a solid border, but the folder and the word "Opus"
+  keep the accent colour, which can contrast less with the card than the text
+  does. The version and description are always drawn in the text colour.
+- **Screen readers:** The presentation has an accessible name (name and
+  version) and description, but it is not announced when it appears, so it
+  doesn't interrupt reading.
+- **Duration:** The presentation stays for two seconds; the duration can't be
+  changed.
+- **Icon themes and other desktops:** The small and symbolic icons install to
+  `hicolor`, so an icon theme that ships its own `org.kde.opusfilemanager` icon
+  takes precedence. The folder follows the Plasma accent and the symbolic icon
+  follows the text colour only where KDE's icon loader applies the colour
+  scheme; elsewhere they use their built-in Breeze colours.
+- **Release notes:** The v0.1.0 and v0.2.0 release notes predate the
+  [release notes template](releases/TEMPLATE.md) and were not rewritten.
+- **Plasma session:** The presentation, its settings preview and the icons
+  have been tested only headlessly, without a Plasma session.
+
+- **Recommendation:**
+  - **High contrast:** Read the version and description, which use the text
+    colour. If the accent contrasts poorly with the card, choose a stronger
+    accent in Plasma's System Settings, or leave the startup presentation off
+    (the default) in **Preferences › Branding › Presentation**.
+  - **Screen readers:** Use **Help › About Plasma Opus** for the name, version
+    and description.
+  - **Duration:** Press any key, click or scroll to dismiss the presentation
+    early. Input still reaches the window. If it distracts, turn it off in
+    **Preferences › Branding › Presentation**.
+  - **Icon themes and other desktops:** To see the Plasma Opus icon under a
+    theme that overrides it, remove the theme's `org.kde.opusfilemanager` icon
+    or choose another icon theme. Outside Plasma, expect the Breeze blue folder.
+  - **Release notes:** Start new releases from the template.
+  - **Plasma session:** Check the presentation's appearance on Plasma,
+    including fractional scaling and Wayland, before relying on it in
+    screenshots or release materials.
+  - Comment:
+    [#689.7150293713](https://github.com/mikepadiernos/plasma-opus/issues/689#issuecomment-7150293713)
+- **Proposed improvements:**
+  - Draw the folder and "Opus" in the text colour under high contrast.
+  - Offer an option to announce the presentation to screen readers.
+  - Make the duration configurable.
+
+## Native title and header padding
+
+Native Qt/KDE dock titles and column headers follow the active widget style
+([#560](https://github.com/mikepadiernos/plasma-opus/issues/560)):
+
+- **Padding:** Their horizontal padding can be less than eight logical
+  pixels. For example, Breeze's column-label rectangle starts six pixels from
+  the section edge.
+
+- **Recommendation:** Keep native rendering and choose a widget style whose
+  spacing is comfortable for your needs. Check the active style after changing
+  desktop appearance; Plasma Opus does not guarantee an eight-pixel minimum for
+  these controls.
+  - Comment:
+    [#560.7071231166](https://github.com/mikepadiernos/plasma-opus/issues/560#issuecomment-7071231166)
+
+## Jalali dates
+
+With a Persian regional locale or an explicit Jalali calendar override, Plasma
+Opus's date displays use the Jalali calendar. This has these limits
+([#436](https://github.com/mikepadiernos/plasma-opus/issues/436)):
+
+- **Listing format:** With the automatic calendar, the ISO 8601 listing format
+  remains Gregorian; an explicit calendar override takes precedence.
+- **KDE-provided dates:** KDE controls dates in its own dialogs and tooltips,
+  and the additional file information shown under icons in icon and compact
+  views uses KDE's `KFileItemDelegate`; these dates may remain Gregorian.
+
+- **Recommendation:** Use Details view or the Plasma Opus Information panel for
+  Jalali dates. Select Jalali explicitly, or use a Persian regional locale with
+  the automatic calendar and a Locale listing format. Verify the calendar before
+  interpreting KDE-provided dates.
+  - Comment:
+    [#436.7041290164](https://github.com/mikepadiernos/plasma-opus/issues/436#issuecomment-7041290164)
+
+## Translation format overrides
+
+The regional locale and custom digit shapes do not control every display
+([#440](https://github.com/mikepadiernos/plasma-opus/issues/440)):
+
+- **Digit shapes:** Plasma Opus applies digit shapes to its file dates,
+  listing sizes, preview line numbers and selected gallery and chart fields.
+- **Other displays:** Other text and numbers, editable Qt controls,
+  KDE-provided details and dialogs, and separately embedded applications can
+  use their own locale or desktop settings.
+- **C/POSIX message locale:** An explicitly selected non-English interface
+  language also requires an installed non-C UTF-8 message locale; Plasma Opus
+  warns and follows the system language if none can be used.
+
+- **Recommendation:** Use Details view or the Information panel for overridden
+  file dates and verify other displays against the desktop locale. Configure
+  desktop regional settings for consistency elsewhere. If the selected language
+  is unavailable under C/POSIX, install a non-C UTF-8 system locale and restart
+  Plasma Opus.
+  - Comment:
+    [#440.7045227580](https://github.com/mikepadiernos/plasma-opus/issues/440#issuecomment-7045227580)
+
 ## Embedded terminal
 
-The embedded terminal requires the Konsole KPart. By default, new sessions start
-in the active local folder, or in the home folder with a visible notice for
-remote locations, and pane navigation does not change their directory. Optional
-folder following instead switches between retained sessions or creates new ones;
-it does not change a running shell's directory. Remote or missing folders are
-reported without switching sessions. Sessions accumulate until their tabs are
-closed. Hiding the panel keeps them running; closing the window ends them and
-can affect running programs.
-([#321](https://github.com/mikepadiernos/plasma-opus/issues/321))
+The embedded terminal requires the Konsole KPart and has these limits
+([#321](https://github.com/mikepadiernos/plasma-opus/issues/321)):
+
+- **Working directory:** By default, new sessions start in the active local
+  folder, or in the home folder with a visible notice for remote locations,
+  and pane navigation does not change their directory.
+- **Folder following:** Optional folder following instead switches between
+  retained sessions or creates new ones; it does not change a running shell's
+  directory. Remote or missing folders are reported without switching
+  sessions.
+- **Session lifetime:** Sessions accumulate until their tabs are closed.
+  Hiding the panel keeps them running; closing the window ends them and can
+  affect running programs.
 
 - **Recommendation:** Install the Konsole terminal component for embedded
   sessions; on Arch Linux it is supplied by the `konsole` package. For remote
@@ -1469,88 +1621,19 @@ can affect running programs.
   embedded remote working directories or persistent sessions after exit.
   - Comment: [#321.7022392302][comment-321]
 
-## Linked pane navigation
-
-Linked navigation supports existing local folder trees rooted at the two
-starting folders. It unlinks when navigation leaves either tree, a matching
-folder is missing, a symbolic link resolves outside its tree, or a pane is
-hidden. Tab and history changes also participate and may unlink. Filesystem
-changes can invalidate folders between checks and navigation.
-([#322](https://github.com/mikepadiernos/plasma-opus/issues/322))
-
-- **Recommendation:** Start from corresponding local folders with matching
-  subfolder names. Check both panes after navigating, especially when
-  directories may change; relink at a new pair of roots when needed. Navigate
-  remote folders independently.
-  - Comment: [#322.7022490696][comment-322]
-- **Alternative:** Navigate the two locations independently.
-  - Comment:
-    [#322.7029674758](https://github.com/mikepadiernos/plasma-opus/issues/322#issuecomment-7029674758)
-
-## Cushion treemap
-
-The treemap uses the folder content chart measurements: tiles represent measured
-immediate entries and their relative logical sizes. Nested folders are
-aggregated rather than shown simultaneously; activate a folder in the list to
-rescan it. Empty, unmeasured and skipped entries have no visible tile, and very
-small shares may be difficult to see. Measurements are snapshots and the
-[folder content chart](#folder-content-chart) scan limits also apply.
-([#335](https://github.com/mikepadiernos/plasma-opus/issues/335))
-
-- **Recommendation:** Activate folders in the list to inspect their contents,
-  and use the size table for empty, skipped or very small entries. Scan smaller
-  folders and rescan when current results are needed. QDirStat is an external
-  option for simultaneously visualizing nested disk usage.
-  - Comment: [#335.7022647720][comment-335]
-- **Alternative:** Use Filelight for a separate nested radial view.
-  - Comment:
-    [#335.7029675089](https://github.com/mikepadiernos/plasma-opus/issues/335#issuecomment-7029675089)
-
-## Duplicate finder
-
-The duplicate finder recursively scans local folders for known regular files,
-groups equal sizes and SHA-256 hashes, and allows checked file URLs to be copied
-for manual review. Candidates can be selected by modification time or folder and
-moved to Trash after confirmation. It rechecks affected groups before asking,
-but files can change afterward. Symbolic links are skipped; hard links may
-appear as separate paths, and unknown entry types are skipped. Errors are shown,
-but scans are unbounded and matching hashes are not a guarantee of byte
-identity.
-([#336](https://github.com/mikepadiernos/plasma-opus/issues/336))
-
-- **Recommendation:** Review groups and errors, verify current file contents and
-  paths independently, and keep at least one confirmed copy and backups before
-  moving files to Trash. Scan smaller local folders if a scan is expensive.
-  `jdupes` is an external option for comparing local files; its default listing
-  is non-destructive, but deletion and other modifying options require care.
-  - Comment: [#336.7022793474][comment-336]
-- **Alternative:** Compare candidate files byte-for-byte before deletion.
-  - Comment:
-    [#336.7029675367](https://github.com/mikepadiernos/plasma-opus/issues/336#issuecomment-7029675367)
-
-## File-list minimap
-
-The minimap samples at most 512 top-level listing rows rather than showing every
-item or expanded child row. It tracks only the vertical scrollbar, so it cannot
-navigate horizontally scrolling columns in compact view.
-([#434](https://github.com/mikepadiernos/plasma-opus/issues/434))
-
-- **Recommendation:** Use the ordinary scrollbar or keyboard navigation for
-  compact view and expanded folders, and treat the minimap as a sampled overview
-  rather than a complete list.
-  - Comment:
-    [#434.7040730100](https://github.com/mikepadiernos/plasma-opus/issues/434#issuecomment-7040730100)
-
 ## Settings backups
 
-Backups are unencrypted archives. Credential filtering recognizes certain key
-names and value patterns, but cannot guarantee that all sensitive data is
-removed; saved searches and other settings may still contain private text or
-paths. A matching value can instead exclude an entire settings entry. Current
-session tabs and expanded folder locations, saved custom commands and shared KDE
-settings are excluded; restoring preserves the corresponding current state
-rather than recovering it from the backup.
-([#433](https://github.com/mikepadiernos/plasma-opus/issues/433))
+Settings backups have these limits
+([#433](https://github.com/mikepadiernos/plasma-opus/issues/433)):
+
+- **Encryption:** Backups are unencrypted archives.
+- **Credential filtering:** Filtering recognizes certain key names and value
+  patterns, but cannot guarantee that all sensitive data is removed; saved
+  searches and other settings may still contain private text or paths. A
+  matching value can instead exclude an entire settings entry.
+- **Excluded data:** Current session tabs and expanded folder locations, saved
+  custom commands and shared KDE settings are excluded; restoring preserves
+  the corresponding current state rather than recovering it from the backup.
 
 - **Recommendation:** Review backup contents privately before sharing or
   restoring, protect the archive with restrictive access and encryption, and

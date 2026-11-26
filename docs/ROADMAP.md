@@ -1,39 +1,44 @@
-# 🗺️ Plasma Opus roadmap
+# Plasma Opus roadmap
 
-**[Documentation](README.md)** · **[Scope](philosophy/scope.md)** ·
-**[Inspirations](philosophy/inspirations.md)** ·
-**[Project board](https://github.com/users/mikepadiernos/projects/3)**
+[![Docs index](https://img.shields.io/badge/docs-index-3daee9?style=flat-square)](README.md)
+[![Scope](https://img.shields.io/badge/philosophy-scope-8957e5?style=flat-square)](philosophy/scope.md)
+[![Inspirations](https://img.shields.io/badge/philosophy-inspirations-8957e5?style=flat-square)](philosophy/inspirations.md)
+[![Project board](https://img.shields.io/badge/project-board-6e7781?style=flat-square&logo=github)](https://github.com/users/mikepadiernos/projects/3)
 
-Plasma Opus is a dual-pane KDE Plasma file manager built with C++20, Qt 6
-Widgets and KDE Frameworks 6. The
-[upstream inventories](README.md#behaviour-references) record the Max File
-Manager behaviour that informs its parity goals.
+This is the authoritative milestone and architecture plan for Plasma Opus, a
+dual-pane KDE Plasma file manager built with C++20, Qt 6 Widgets and KDE
+Frameworks 6. It lists every planned feature in its intended order and records
+which are complete. The [upstream inventories](README.md#behaviour-references)
+record the Max File Manager behaviour that informs its parity goals.
 
 > [!NOTE]
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
-> released after M14. M15 Workspaces, M16 Workspace settings, M17 Themes,
-> M18 Theme settings, M19 Branding, M20 Branding settings, M21 Advanced
-> search and M22 Advanced search settings are merged into `main`. See
-> [pending tasks](TODO.md) for blocked work and branch-specific handoffs.
+> released after M14. M15–M26 have since been merged into `main`; M27–M32 are
+> planned. See [pending tasks](TODO.md) for blocked work and branch-specific
+> handoffs.
 
 ## At a glance
 
-Status follows each milestone's parent issue on the
-[project board](https://github.com/users/mikepadiernos/projects/3).
+Status reflects the milestones' parent issues on the
+[project board](https://github.com/users/mikepadiernos/projects/3): Merged
+groups have every feature checked and merged into `main`, and Planned groups are
+not yet complete. M27 already has one checked feature (default file manager
+registration) and partial work recorded in [pending tasks](TODO.md).
 
-|     | Milestones | Focus                                        | Status         |
-| --- | ---------- | -------------------------------------------- | -------------- |
-| 🧱  | M01–M04    | Core dual pane and listing depth             | ✅ Merged      |
-| 🖼️  | M05–M08    | Preview, gallery and editor                  | ✅ Merged      |
-| 🧰  | M09–M14    | Tools, interface customization, translations | ✅ Merged      |
-| 🗂️  | M15–M16    | Workspaces and their settings                | ✅ Merged      |
-| 🎨  | M17–M18    | Themes and their settings                    | ✅ Merged      |
-| 🏷️  | M19–M20    | Branding and its settings                    | ✅ Merged      |
-| 🔎  | M21–M22    | Advanced search and its settings             | ✅ Merged      |
-| 🔖  | M23–M26    | Native tagging and Yazi mode                 | 🚧 In progress |
-| 🔌  | M27–M31    | Integrations, Nextcloud and shortcuts        | 📋 Planned     |
-| ✨  | M32        | Refinements                                  | 📋 Planned     |
+| Milestones | Focus                                        | Status                                                                    | Jump to                         |
+| ---------- | -------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------- |
+| M01–M04    | Core dual pane and listing depth             | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M01](#m01-core-dual-pane)      |
+| M05–M08    | Preview, gallery and editor                  | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M05](#m05-preview-and-gallery) |
+| M09–M14    | Tools, interface customization, translations | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M09](#m09-tools)               |
+| M15–M16    | Workspaces and their settings                | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M15](#m15-workspaces)          |
+| M17–M18    | Themes and their settings                    | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M17](#m17-themes)              |
+| M19–M20    | Branding and its settings                    | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M19](#m19-branding)            |
+| M21–M22    | Advanced search and its settings             | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M21](#m21-advanced-search)     |
+| M23–M24    | Native tagging and its settings              | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M23](#m23-native-tagging)      |
+| M25–M26    | Yazi mode and its settings                   | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)   | [M25](#m25-yazi-mode)           |
+| M27–M31    | Integrations, Nextcloud and shortcuts        | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square) | [M27](#m27-integrations)        |
+| M32        | Refinements                                  | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square) | [M32](#m32-refinements)         |
 
 ## Contents
 
@@ -41,46 +46,51 @@ Status follows each milestone's parent issue on the
 - [Architecture](#architecture) ·
   [Plasma-native decisions](#plasma-native-decisions)
 - [Milestones](#milestones)
-- [M01-M04: Core and listings](#m01-core-dual-pane)
-  - [M01](#m01-core-dual-pane) · [M02](#m02-core-dual-pane-settings) ·
-    [M03](#m03-listing-depth) · [M04](#m04-listing-depth-settings)
-- [M05-M08: Preview and editor](#m05-preview-and-gallery)
-  - [M05](#m05-preview-and-gallery) · [M06](#m06-preview-and-gallery-settings) ·
-    [M07](#m07-editor) · [M08](#m08-editor-settings)
-- [M09-M14: Tools, interface and translations](#m09-tools)
-  - [M09](#m09-tools) · [M10](#m10-tools-settings) ·
-    [M11](#m11-ui-customizations) · [M12](#m12-ui-customization-settings) ·
-    [M13](#m13-translations) · [M14](#m14-translation-settings)
-- [M15-M20: Workspaces, themes and branding](#m15-workspaces)
-  - [M15](#m15-workspaces) · [M16](#m16-workspace-settings) · [M17](#m17-themes)
-    · [M18](#m18-theme-settings) · [M19](#m19-branding) ·
-    [M20](#m20-branding-settings)
-- [M21-M26: Search, tagging and Yazi](#m21-advanced-search)
-  - [M21](#m21-advanced-search) · [M22](#m22-advanced-search-settings) ·
-    [M23](#m23-native-tagging) · [M24](#m24-tagging-settings) ·
-    [M25](#m25-yazi-mode) · [M26](#m26-yazi-mode-settings)
-- [M27-M32: Integrations and refinements](#m27-integrations)
-  - [M27](#m27-integrations) · [M28](#m28-integration-settings) ·
-    [M29](#m29-nextcloud-integration) · [M30](#m30-nextcloud-settings) ·
-    [M31](#m31-keyboard-shortcut-settings) · [M32](#m32-refinements)
+  - Core dual pane and listing depth: [M01](#m01-core-dual-pane) ·
+    [M02](#m02-core-dual-pane-settings) · [M03](#m03-listing-depth) ·
+    [M04](#m04-listing-depth-settings)
+  - Preview, gallery and editor: [M05](#m05-preview-and-gallery) ·
+    [M06](#m06-preview-and-gallery-settings) · [M07](#m07-editor) ·
+    [M08](#m08-editor-settings)
+  - Tools, interface customization and translations: [M09](#m09-tools) ·
+    [M10](#m10-tools-settings) · [M11](#m11-ui-customizations) ·
+    [M12](#m12-ui-customization-settings) · [M13](#m13-translations) ·
+    [M14](#m14-translation-settings)
+  - Workspaces: [M15](#m15-workspaces) · [M16](#m16-workspace-settings)
+  - Themes: [M17](#m17-themes) · [M18](#m18-theme-settings)
+  - Branding: [M19](#m19-branding) · [M20](#m20-branding-settings)
+  - Advanced search: [M21](#m21-advanced-search) ·
+    [M22](#m22-advanced-search-settings)
+  - Native tagging: [M23](#m23-native-tagging) ·
+    [M24](#m24-tagging-settings)
+  - Yazi mode: [M25](#m25-yazi-mode) · [M26](#m26-yazi-mode-settings)
+  - Integrations, Nextcloud and shortcuts: [M27](#m27-integrations) ·
+    [M28](#m28-integration-settings) · [M29](#m29-nextcloud-integration) ·
+    [M30](#m30-nextcloud-settings) · [M31](#m31-keyboard-shortcut-settings)
+  - Refinements: [M32](#m32-refinements)
 - [Feature references](#feature-references) · [Tracking](#tracking)
 
 ## Architecture
 
-- `src/core/` is the `opusfm_core` static library for logic without widgets.
-- `src/app/` holds the widgets and the `opus-file-manager` executable.
-- `tests/` holds QtTest suites run through `ctest`; GUI tests use
-  `QT_QPA_PLATFORM=offscreen`.
+| Path                | Contents                                                                                                   |
+| ------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `src/core/`         | The `opusfm_core` static library: logic without widgets                                                    |
+| `src/app/`          | Widgets, built as the `opusfm_app` static library, and the `opus-file-manager` executable                  |
+| `tests/`            | QtTest suites run through `ctest`; GUI tests use `QT_QPA_PLATFORM=offscreen`                               |
+| `rust/searchquery/` | The M21 Rust query-parser pilot, built only with the `OPUSFM_RUST_PROTOTYPE` CMake option (off by default) |
 
 Rust is a candidate for self-contained core logic, including measured
-performance hotspots, not a wholesale rewrite of C++ features. Keep widgets,
-settings and file operations in Qt/KDE, including KIO for local and remote
-operations. The M21 Rust pilot can inform later work, including consideration of
-M09 duplicate detection and rename or sync planning; this evaluation does not
-block M09 or change KIO's role. See the [pilot evaluation](rust-prototype.md)
-for its findings and the criteria for later Rust components.
+performance hotspots, not a wholesale rewrite of C++ features. Widgets, settings
+and file operations stay in Qt/KDE, including KIO for local and remote
+operations. The M21 Rust pilot can inform later work, such as M09 duplicate
+detection and rename or sync planning; this evaluation does not block M09 or
+change KIO's role. See the [pilot evaluation](rust-prototype.md) for its
+findings and the criteria for later Rust components.
 
 ## Plasma-native decisions
+
+Where the upstream file manager implements its own infrastructure, Plasma Opus
+uses the matching Plasma or KDE Frameworks facility instead:
 
 | Upstream approach                            | Plasma Opus approach                                                                                         |
 | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -101,16 +111,24 @@ for limitations on writes and unsupported behaviour.
 
 ## Milestones
 
-Checked boxes mark features whose issues are Completed or Merged. Unchecked
-features may be incomplete, not started or implemented but still in Review.
-Where applicable, feature milestones are followed by their settings in KConfig.
-The order below is the intended work sequence. Within M15–M32, remaining
-features are ordered by priority, effort and dependencies within their groups.
+Each milestone links to its parent issue on the project board, summarizes its
+scope and lists its features, followed by links to any known caveats. Where
+applicable, a feature milestone is followed by a settings milestone whose
+options are stored in KConfig. Milestones appear in the intended work order;
+within M15–M32, features are ordered by priority, effort and dependencies within
+their groups.
+
+A checked box marks a feature whose issue is Completed or Merged. An unchecked
+box marks a feature that is not started, in progress, or implemented but still
+in Review.
 
 ### M01: Core dual pane
 
 **Project:**
 [M01 milestone](https://github.com/mikepadiernos/plasma-opus/issues/12)
+
+The foundation: a KXmlGui main window with two file panes built on KIO, the
+Places panel, KDE file actions and session restore.
 
 - [x] KXmlGui main window with hamburger menu, editable toolbar and shortcuts
 - [x] Theme icons for app actions and pane controls, preferring symbolic
@@ -119,7 +137,7 @@ features are ordered by priority, effort and dependencies within their groups.
 - [x] Details and icon views over `KDirModel`, with previews
 - [x] Places panel (`KFilePlacesView`: devices, mount, eject)
 - [x] Open, Open With and service menus (`KFileItemActions`)
-- [x] Copy and move to the other pane (F5/F6)
+- [x] Copy and move to the other pane (<kbd>F5</kbd>/<kbd>F6</kbd>)
 - [x] Cut, copy, paste and copy path via the clipboard
 - [x] Drag and drop between panes and onto Places
 - [x] Move to trash, delete, rename, new folder and new file templates
@@ -182,6 +200,10 @@ with Dolphin.
 **Project:**
 [M03 milestone](https://github.com/mikepadiernos/plasma-opus/issues/14)
 
+Deepen each listing with extra columns, filtering, per-folder formats and
+metadata, archive handling, richer tabs and folder sizes, drawing on Dolphin,
+Krusader and Orcinus.
+
 - [x] Combined Places/Folders panel: combines Places and folder navigation in
       one panel by default instead of showing separate Places and Folders
       panels. Favorites replace bookmarks.
@@ -192,7 +214,7 @@ with Dolphin.
 - [x] Folder look dialog (icon and colour)
 - [x] Ignore list
 - [x] Tree pane
-- [x] Show Flat (Ctrl+Shift+F): list every file below the current folder in one
+- [x] Show Flat (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd>): list every file below the current folder in one
       list without folders. Navigation, tabs and history remain rooted at that
       folder; sorting, filtering, previews and file operations continue to work.
       In details view, Type becomes Relative Path. The mode is remembered per
@@ -291,19 +313,21 @@ Settings for M03 listing depth, stored in KConfig.
         divide it equally among tabs as new tabs are created
   - [x] **Colours:** show or hide folder-based tab colours without removing them
 
-**Caveats:**
-[Folder metadata and listings](CAVEATS.md#folder-metadata-and-listings), tracked
-in [#257], [#258], [#262] and [#263].
+**Caveats:** [Folder metadata and listings](CAVEATS.md#folder-metadata-and-listings),
+tracked in [#257], [#258], [#262] and [#263].
 
 ### M05: Preview and gallery
 
 **Project:**
 [M05 milestone](https://github.com/mikepadiernos/plasma-opus/issues/16)
 
+Preview files in a panel that follows the selection, browse images and videos
+in a local gallery, and edit or convert images without leaving Plasma Opus.
+
 - [x] Preview panel: images (up to 8 MiB and 40 megapixels) and UTF-8 text
       (first 1 MiB by default), PDF and office documents with an installed
       KPart, and audio/video with an installed Qt Multimedia backend, following
-      the active selection (F3)
+      the active selection (<kbd>F3</kbd>)
 - [x] Remote previews: files on KIO locations are downloaded to a temporary file
       first, within the same image and text limits and up to 128 MiB for other
       files
@@ -311,7 +335,7 @@ in [#257], [#258], [#262] and [#263].
       Markdown with a source toggle (external resources and links are disabled)
 - [x] Local gallery with zoom, a looping slideshow, thumbnails, image
       information, EXIF metadata, dominant colours and a luminance histogram
-      (Space); follows the pane's sort order or the selected images
+      (<kbd>Space</kbd>); follows the pane's sort order or the selected images
 - [x] Animated images and video playback in the gallery
 - [x] Rotate, flip, crop, resize and adjust colours (brightness, contrast,
       saturation, greyscale); save a PNG/JPEG/WebP copy or replace the original
@@ -376,10 +400,13 @@ are unchanged, and the preview panel's Open button opens the application.
 **Project:**
 [M07 milestone](https://github.com/mikepadiernos/plasma-opus/issues/18)
 
+Edit text files in an embedded KTextEditor-based editor, with drafts, Markdown
+preview and PDF export.
+
 - [x] KTextEditor-based editor: use it as a panel alongside Information or
       Preview, or as a separate embedded area below or to the right of both
       panes, like the embedded terminal. Neither embedded placement replaces a
-      pane. Also support maximised and standalone editor windows.
+      pane. Also support maximized and standalone editor windows.
 - [x] Drafts
 - [x] Markdown preview and PDF export
 
@@ -394,7 +421,7 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 
 - **Editor**
 
-  - [x] **Opening:** where files open (panel, separate embedded area, maximised
+  - [x] **Opening:** where files open (panel, separate embedded area, maximized
         or own window)
   - [x] **Embedded placement:** below or to the right of both panes when using a
         separate embedded area
@@ -416,6 +443,10 @@ Settings for M07 editor, stored in KConfig and KTextEditor configuration.
 
 **Project:**
 [M09 milestone](https://github.com/mikepadiernos/plasma-opus/issues/20)
+
+Add file-management tools: search, duplicate finding, folder comparison and
+synchronization, batch renaming, metadata editing, scripts and custom commands,
+a transfer queue and an embedded terminal.
 
 - [x] Live search and indexed search: choose filename or content search and
       current-folder or indexed scope; indicate when locations are not indexed,
@@ -587,6 +618,10 @@ Settings for M09 tools, stored in KConfig.
 **Project:**
 [M11 milestone](https://github.com/mikepadiernos/plasma-opus/issues/22)
 
+Let users rearrange the interface: toolbars, panes, panels, tab bars, status
+bars, splitter sizes and the Information panel, with backup and restore of
+app-owned settings and layouts.
+
 - [x] Edit the main toolbar beyond the `KEditToolBar` dialog: drag entries on,
       off and around it directly, add separators and spacers, and choose icons,
       text or both per entry
@@ -707,6 +742,9 @@ Settings for M11 UI customizations, stored in KConfig.
 **Project:**
 [M13 milestone](https://github.com/mikepadiernos/plasma-opus/issues/26)
 
+Make Plasma Opus translatable, mirror it for right-to-left languages and support
+Jalali calendar dates.
+
 - [x] Translation catalogues through `ki18n`, fed by the `i18n()` and `i18nc()`
       calls already used throughout the code; provide extraction and
       installation without requiring a translation into any particular language
@@ -756,8 +794,6 @@ features, layouts, a theme and other preferences; see the
 [interface design](philosophy/designs.md#workspaces). Tag-group organization
 belongs to the native tagging system.
 
-Remaining features are ordered by priority, effort and dependencies.
-
 - [x] Create, switch, rename, duplicate and delete named workspaces using a
       discoverable selector. Give each a full name and short label; duplication
       copies the layout without reassigning locations.
@@ -803,7 +839,8 @@ Remaining features are ordered by priority, effort and dependencies.
       workflow, with preview and collision handling. Exclude credentials and
       never execute commands or modify managed files during import.
 
-**Caveat:** [Workspace layouts](CAVEATS.md#workspace-layouts).
+**Caveats:** [Workspace layouts](CAVEATS.md#workspace-layouts), tracked in
+[#700].
 
 ### M16: Workspace settings
 
@@ -1058,6 +1095,10 @@ M18.08.
 **Project:**
 [M19 milestone](https://github.com/mikepadiernos/plasma-opus/issues/337)
 
+Give Plasma Opus a consistent identity: its name, description, logo and
+application icon. File, device and action icons still come from the active icon
+theme.
+
 - [x] Use a consistent, translatable application name and description in the
       desktop entry, app metadata, About dialog and documentation.
 - [x] Create original, appropriately licensed Plasma Opus logo and application
@@ -1092,9 +1133,9 @@ Extend the M09 search tools and reuse their search scopes, filters and saved
 searches rather than introducing a separate search system. M27 extends the Baloo
 integration without blocking this milestone.
 
-- [x] **Indexing:** configure search folders and exclusions, and use existing
-      KDE facilities for the search shortcut. Use double Shift where supported,
-      report when it is unavailable.
+- [x] Indexing: configure search folders and exclusions, and use existing KDE
+      facilities for the search shortcut. Use double <kbd>Shift</kbd> where
+      supported and report when it is unavailable.
 - [x] Provide an embedded search pane using existing supported placements.
       Placing it alongside file panes must not replace either pane.
 - [x] Show M09 search results in the embedded panel, reusing progress,
@@ -1112,6 +1153,8 @@ integration without blocking this milestone.
 - [x] Combine filename, path, file type, size, date and content criteria using
       AND, OR and NOT; validate queries and explain unsupported criteria
 
+**Caveats:** [Search](CAVEATS.md#search), tracked in [#362].
+
 ### M22: Advanced search settings
 
 **Project:**
@@ -1128,8 +1171,7 @@ Settings for M21 advanced search, stored in KConfig.
 - [x] **Toolbar:** show or hide the search widget using M12 toolbar controls and
       choose whether submitting a query opens the panel
 
-**Caveats:** [Search](CAVEATS.md#search), tracked in
-[#362](https://github.com/mikepadiernos/plasma-opus/issues/362).
+**Caveats:** [Search](CAVEATS.md#search), tracked in [#362].
 
 ### M23: Native tagging
 
@@ -1163,8 +1205,7 @@ rather than requiring TagStudio or changing the user's folder structure.
       search and selection workflows
 - [x] Organize tag groups independently of locations and workspaces. Until the
       native tag-group provider is available, keep all groups visible; recommend
-      stable identities and no hidden or implicit assignment in
-      [#252](https://github.com/mikepadiernos/plasma-opus/issues/252).
+      stable identities and no hidden or implicit assignment in [#252].
 - [x] Add editable text and date fields to library entries alongside existing
       labels, ratings and notes, without silently replacing or converting them
 - [x] Read supported EXIF image metadata and ID3 audio tags for display and
@@ -1176,8 +1217,7 @@ rather than requiring TagStudio or changing the user's folder structure.
       confirmation; never modify or delete original files during either
       operation
 
-**Caveats:** [Native tagging](CAVEATS.md#native-tagging), tracked in
-[#714](https://github.com/mikepadiernos/plasma-opus/issues/714).
+**Caveats:** [Native tagging](CAVEATS.md#native-tagging), tracked in [#714].
 
 ### M24: Tagging settings
 
@@ -1199,7 +1239,7 @@ Settings for M23 tagging, stored in KConfig.
       library metadata, and control refresh and conflict handling
 
 **Caveats:** [Tagging settings](CAVEATS.md#tagging-settings), tracked in
-[#716](https://github.com/mikepadiernos/plasma-opus/issues/716).
+[#716].
 
 ### M25: Yazi mode
 
@@ -1240,8 +1280,7 @@ process or a promise of Yazi configuration or plugin compatibility.
       Provide a discoverable toggle without changing existing bindings by
       default.
 
-**Caveats:** [Yazi mode](CAVEATS.md#yazi-mode), tracked in
-[#723](https://github.com/mikepadiernos/plasma-opus/issues/723).
+**Caveats:** [Yazi mode](CAVEATS.md#yazi-mode), tracked in [#723].
 
 ### M26: Yazi mode settings
 
@@ -1270,12 +1309,17 @@ layouts.
       layouts or unrelated settings.
 
 **Caveats:** [Yazi mode settings](CAVEATS.md#yazi-mode-settings), tracked in
-[#725](https://github.com/mikepadiernos/plasma-opus/issues/725).
+[#725].
 
 ### M27: Integrations
 
 **Project:**
 [M27 milestone](https://github.com/mikepadiernos/plasma-opus/issues/34)
+
+Integrate Plasma Opus with KDE Plasma and desktop services, archives and
+application packages, search and indexing, terminals, editors and media, remote
+storage, access control, development tooling and mail. Partial work and handoffs
+for some features are recorded in [pending tasks](TODO.md).
 
 - **M27.01: KDE Plasma and desktop services**
 
@@ -1473,7 +1517,7 @@ layouts.
         inaccessible targets and incomplete scans. See the
         [pending handoff](TODO.md#markdown-editor-and-backlinks-564).
   - [ ] Let an assigned local location serve as an optional Obsidian-inspired
-        vault for the built-in text editor. Reuse #564 for source and visual
+        vault for the built-in text editor. Reuse [#564] for source and visual
         Markdown editing, live preview, note navigation, wiki links, backlinks,
         tags and a note relationship view. Preserve drafts and unsaved edits
         during navigation and workspace switches; index only the chosen vault
@@ -1484,7 +1528,7 @@ layouts.
   - [ ] Offer optional mpv integration for embedded audio and video playback in
         the preview panel and gallery alongside Qt Multimedia, and an explicit
         action to open selected media in the separate mpv application. Preserve
-        autoplay and remote preview behavior; report unavailable backends,
+        autoplay and remote preview behaviour; report unavailable backends,
         playback errors and unsupported locations. See the
         [pending handoff](TODO.md#mpv-integration-563).
   - [ ] Preview ebooks, comics and help files, such as EPUB, MOBI, FictionBook,
@@ -1552,7 +1596,7 @@ layouts.
         support local folders and SSH locations, reuse sync profiles and
         exclusions, and show an itemized dry run before confirmation. Disable
         deletion by default and explicitly confirm overwrites and deletions.
-        Validate that the backend can honor the selected plan, including
+        Validate that the backend can honour the selected plan, including
         per-item directions; report unsupported options instead of silently
         changing the plan. Show progress, cancellation, errors and possible
         partial results; a preview is a snapshot, not a guarantee against
@@ -1655,9 +1699,9 @@ layouts.
         changes with its own associations; do not read or change the other
         application's workspace, account or mail data.
 
-**Planned caveat:**
-[Password-gated folders](CAVEATS.md#planned-password-gated-folders), tracked in
-[#406].
+**Caveats:**
+[Password-gated folders](CAVEATS.md#planned-password-gated-folders) (planned),
+tracked in [#406].
 
 ### M28: Integration settings
 
@@ -1716,7 +1760,7 @@ Settings for M27 integrations, stored in KConfig.
         Neovim, Rune, micro or nano integration, plus the session type for
         terminal editors
   - [ ] **Markdown:** choose a local vault and the Markdown editing and preview
-        behavior, retaining source and draft safeguards.
+        behaviour, retaining source and draft safeguards.
   - [ ] **Workspace vault:** enable vault editing for a workspace and choose an
         assigned local location. Configure available editing, preview,
         navigation, wiki-link, backlink, tag and relationship-view options.
@@ -1741,7 +1785,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **System tray**
 
-  - [ ] **Behaviour:** choose whether to minimise and close to the tray
+  - [ ] **Behaviour:** choose whether to minimize and close to the tray
 
 - **Shortcuts**
 
@@ -1886,7 +1930,7 @@ considered Calendar, Maps, Deck and Notes workflows.
 **Project:**
 [M30 milestone](https://github.com/mikepadiernos/plasma-opus/issues/587)
 
-Settings for M29 Nextcloud integration, stored in KConfig without credentials:
+Settings for M29 Nextcloud integration, stored in KConfig without credentials.
 
 - [ ] Configure account references, supported browsing and preview choices,
       asset metadata and search options, sharing controls and desktop-client
@@ -1900,6 +1944,10 @@ Settings for M29 Nextcloud integration, stored in KConfig without credentials:
 
 **Project:**
 [M31 milestone](https://github.com/mikepadiernos/plasma-opus/issues/29)
+
+Configure keyboard shortcuts, key chords, optional Vim-style navigation and a
+shortcut hint pane across Plasma Opus, using KDE shortcut facilities where
+supported.
 
 - [ ] Configure simultaneous key combinations and sequential key chords with
       conflict detection, clear feedback and reset to defaults; use KDE shortcut
@@ -1972,7 +2020,7 @@ subsection details.
         or scale changes while preserving saved geometry for when the display
         returns. Do not override placement decisions owned by the window
         manager.
-  - [ ] Review splitter and panel behavior when changing orientation,
+  - [ ] Review splitter and panel behaviour when changing orientation,
         maximizing, hiding panels or swapping panes. Preserve each applicable
         saved layout and make it easy to recover a pane or panel that has become
         too small to use.
@@ -1983,8 +2031,7 @@ subsection details.
         with file panes in the middle column, sidebar panes in either side
         column and embedded panes in either side column, the middle column or
         footer. Preserve existing placements and saved layouts, and integrate
-        the advanced-search panel and tag manager when available; see
-        [#583](https://github.com/mikepadiernos/plasma-opus/issues/583).
+        the advanced-search panel and tag manager when available; see [#583].
         Review first-run pane, tab, panel, toolbar and window-layout defaults;
         apply revised defaults only to new configurations or an explicitly
         confirmed reset, never over saved layouts or sessions.
@@ -1999,7 +2046,7 @@ subsection details.
         unchanged; explain which edits have already been saved.
   - [ ] Make built-in toolbar actions easy to find and add to existing
         customized toolbars, including actions introduced by updates. Offer a
-        searchable, labeled reference as a sliding or floating pane without
+        searchable, labelled reference as a sliding or floating pane without
         requiring a reset or automatically changing saved layouts.
   - [ ] Harmonize spacing, alignment, icons, labels and visual hierarchy across
         windows, panels, menus and dialogs. Follow the active KDE theme and icon
@@ -2017,7 +2064,7 @@ subsection details.
         destination and consequences where applicable; retain KDE confirmation
         policies and use a safe default without introducing redundant prompts.
   - [ ] Clarify which pane supplies selected items and which location receives
-        an operation before it runs, using accessible labels rather than color
+        an operation before it runs, using accessible labels rather than colour
         alone. Allow changing the active pane without losing its selection and
         do not change KIO's operation or conflict semantics.
   - [ ] Make partial completion, skipped items and failures in batch operations
@@ -2059,7 +2106,7 @@ subsection details.
         dialogs where they improve orientation. Respect desktop animation and
         reduced-motion preferences where available, provide an app-level way to
         disable motion, and keep interactions responsive and states clear
-        without it. Test both animated and motion-disabled behavior.
+        without it. Test both animated and motion-disabled behaviour.
   - [ ] Add focused interaction tests for menu actions, default and restored
         layouts, keyboard and accessible navigation, responsive controls and
         error states; preserve existing user customizations in regression cases.
@@ -2134,7 +2181,7 @@ subsection details.
         set measurable improvement targets against the baseline.
   - [ ] Reduce GUI-thread startup work by deferring nonessential initialization
         and loading where appropriate. Preserve restored sessions, pane
-        readiness, error reporting and user-selected startup behavior.
+        readiness, error reporting and user-selected startup behaviour.
   - [ ] Speed up opening settings and switching pages through measured
         improvements such as lazy page creation and background loading where
         safe. Preserve search, validation, Apply/Cancel, immediate effects and
@@ -2149,7 +2196,7 @@ subsection details.
         costs without rewriting widgets or replacing KIO.
   - [ ] Add reproducible performance checks and functional regression tests for
         startup, settings and any Rust-backed paths. Compare before and after
-        under the same conditions, cover error and cancellation behavior, and
+        under the same conditions, cover error and cancellation behaviour, and
         avoid hardware-dependent pass/fail thresholds in ordinary tests.
 
 - **M32.06: Extensive functional and security testing**
@@ -2283,10 +2330,10 @@ Follow the [project instructions](../CLAUDE.md) for issue tracking, completion,
 branching and merging. Record blocked work in [pending tasks](TODO.md) and
 document feature limitations in [caveats and limitations](CAVEATS.md). Native
 dock and column-header spacing follows the
-[active widget style](CAVEATS.md#native-title-and-header-padding)
-([#560](https://github.com/mikepadiernos/plasma-opus/issues/560)).
+[active widget style](CAVEATS.md#native-title-and-header-padding) ([#560]).
 
 [#36]: https://github.com/mikepadiernos/plasma-opus/issues/36
+[#252]: https://github.com/mikepadiernos/plasma-opus/issues/252
 [#255]: https://github.com/mikepadiernos/plasma-opus/issues/255
 [#256]: https://github.com/mikepadiernos/plasma-opus/issues/256
 [#257]: https://github.com/mikepadiernos/plasma-opus/issues/257
@@ -2327,7 +2374,16 @@ dock and column-header spacing follows the
 [#433]: https://github.com/mikepadiernos/plasma-opus/issues/433
 [#434]: https://github.com/mikepadiernos/plasma-opus/issues/434
 [#436]: https://github.com/mikepadiernos/plasma-opus/issues/436
+[#440]: https://github.com/mikepadiernos/plasma-opus/issues/440
+[#560]: https://github.com/mikepadiernos/plasma-opus/issues/560
+[#564]: https://github.com/mikepadiernos/plasma-opus/issues/564
+[#583]: https://github.com/mikepadiernos/plasma-opus/issues/583
 [#609]: https://github.com/mikepadiernos/plasma-opus/issues/609
 [#680]: https://github.com/mikepadiernos/plasma-opus/issues/680
 [#687]: https://github.com/mikepadiernos/plasma-opus/issues/687
 [#689]: https://github.com/mikepadiernos/plasma-opus/issues/689
+[#700]: https://github.com/mikepadiernos/plasma-opus/issues/700
+[#714]: https://github.com/mikepadiernos/plasma-opus/issues/714
+[#716]: https://github.com/mikepadiernos/plasma-opus/issues/716
+[#723]: https://github.com/mikepadiernos/plasma-opus/issues/723
+[#725]: https://github.com/mikepadiernos/plasma-opus/issues/725

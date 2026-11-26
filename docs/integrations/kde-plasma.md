@@ -1,20 +1,53 @@
-# 🖥️ KDE Plasma integration
+# KDE Plasma integration
 
-**[Documentation](../README.md)** · **[Roadmap](../ROADMAP.md)** ·
-**[Plasma Impresario integration](plasma-impresario.md)** ·
-**[Nextcloud integration](nextcloud.md)**
+[![Docs index](https://img.shields.io/badge/docs-index-3daee9?style=flat-square)](../README.md)
+[![Roadmap: M27 integrations](https://img.shields.io/badge/roadmap-M27%20integrations-8957e5?style=flat-square)](../ROADMAP.md#m27-integrations)
+[![Roadmap: M28 integration settings](https://img.shields.io/badge/roadmap-M28%20integration%20settings-8957e5?style=flat-square)](../ROADMAP.md#m28-integration-settings)
 
-## Status and principles
+![Milestones M27–M28](https://img.shields.io/badge/milestones-M27%E2%80%93M28-8957e5?style=flat-square)
+![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)
 
-Plasma Opus is KDE-native. The roadmap is authoritative for implementation
-status: the foundations listed below are completed milestones, while the
-additional integrations are planned or proposed, not already available.
+How Plasma Opus builds on KDE Plasma today and which desktop integrations are
+planned for [M27](../ROADMAP.md#m27-integrations) and
+[M28](../ROADMAP.md#m28-integration-settings).
 
-Use KDE Frameworks and the user's active Plasma configuration instead of
-reimplementing shared services. Keep KDE-owned accounts, credentials,
-permissions, notifications and desktop preferences under their owner's control.
-Optional services must fail visibly when unavailable and must not prevent
-ordinary local file management.
+**Integration plans:** **KDE Plasma** · [Nextcloud](nextcloud.md) ·
+[Plasma Impresario](plasma-impresario.md)
+
+> [!NOTE]
+> **Implemented:** the KDE foundations under
+> [Existing foundations](#existing-foundations), from merged milestones
+> M01–M26, and default file-manager registration from M27.01.
+> **Planned:** everything under [Planned features](#planned-features) and
+> [KWin scripts](#kwin-scripts). The [roadmap](../ROADMAP.md) is authoritative
+> for status.
+
+## Contents
+
+- [Goals](#goals)
+- [Boundaries](#boundaries)
+- [Existing foundations](#existing-foundations)
+- [Planned features](#planned-features)
+- [KWin scripts](#kwin-scripts)
+- [Considered features](#considered-features)
+- [Acceptance](#acceptance)
+
+## Goals
+
+Plasma Opus is KDE-native. Use KDE Frameworks and the user's active Plasma
+configuration instead of reimplementing shared services, so that Plasma Opus
+behaves like the rest of the desktop and follows the user's choices.
+
+## Boundaries
+
+- Keep KDE-owned accounts, credentials, permissions, notifications and desktop
+  preferences under their owner's control.
+- Optional services must fail visibly when unavailable and must not prevent
+  ordinary local file management.
+- Settings for the general desktop integrations belong in
+  [M28](../ROADMAP.md#m28-integration-settings); Nextcloud settings belong in
+  [M30](../ROADMAP.md#m30-nextcloud-settings). Link to shared KDE controls
+  rather than creating conflicting settings.
 
 ## Existing foundations
 
@@ -29,19 +62,27 @@ ordinary local file management.
   Optional app-local themes from [M17](../ROADMAP.md#m17-themes), configured
   through [M18](../ROADMAP.md#m18-theme-settings), follow Plasma's appearance
   by default and never change the desktop's global settings.
+- **Default file manager:** `install.sh --default` registers Plasma Opus as the
+  `inode/directory` handler through `xdg-mime`; uninstalling restores Dolphin
+  when Plasma Opus is still the handler.
+  ([M27.01](../ROADMAP.md#m27-integrations))
 
-## Planned integrations
+## Planned features
+
+Grouped by the [M27](../ROADMAP.md#m27-integrations) subsection that tracks
+them.
+
+### M27.01 KDE Plasma and desktop services
 
 - **File-manager service and portal:** Let other applications reveal files or
   request a chooser through supported desktop interfaces. Preserve user defaults
   and sandbox permissions; the chooser contract still needs definition.
   ([#279](https://github.com/mikepadiernos/plasma-opus/issues/279),
   [#286](https://github.com/mikepadiernos/plasma-opus/issues/286))
-- **Baloo and metadata:** Show indexing status and supported metadata search,
-  with explicit live-search fallback and honest coverage limits. Never enable
-  indexing or change shared KDE settings silently.
-  ([#441](https://github.com/mikepadiernos/plasma-opus/issues/441),
-  [#442](https://github.com/mikepadiernos/plasma-opus/issues/442))
+- **Language preferences:** Follow KDE Plasma's language preferences using the
+  M13 catalogues and M14 language and regional-format preferences when no app
+  override is selected, falling back to source text when a catalogue is
+  unavailable. Do not change shared desktop settings without explicit action.
 - **Activities and workspaces:** Offer optional workspace associations and
   per-Activity choices without changing Activities or replacing unsaved state
   automatically. Handle missing services and folders.
@@ -50,10 +91,6 @@ ordinary local file management.
   failures through KDE, reusing KIO reporting rather than duplicating
   notifications. Avoid exposing sensitive paths unnecessarily.
   ([#388](https://github.com/mikepadiernos/plasma-opus/issues/388))
-- **KDE Online Accounts:** Discover supported file services and reuse KDE
-  credentials and KIO providers. Do not duplicate account management or store
-  tokens in URLs or KConfig.
-  ([#370](https://github.com/mikepadiernos/plasma-opus/issues/370))
 - **KDE Connect:** Share explicitly selected files with a paired device,
   reporting offline devices and transfer failures. Do not pair devices or send
   automatically.
@@ -61,32 +98,52 @@ ordinary local file management.
 - **KRunner:** Expose only explicitly selected saved workspaces and locations,
   respecting privacy and unavailable targets.
   ([#390](https://github.com/mikepadiernos/plasma-opus/issues/390))
-- **Tray and shortcuts:** Offer optional tray behavior and KDE-managed shortcuts
-  with conflict reporting; do not replace existing bindings.
-  ([#285](https://github.com/mikepadiernos/plasma-opus/issues/285),
-  [#230](https://github.com/mikepadiernos/plasma-opus/issues/230))
+- **Tray and shortcuts:** Offer optional tray behaviour and KDE-managed
+  shortcuts with conflict reporting; do not replace existing bindings.
+  ([#285](https://github.com/mikepadiernos/plasma-opus/issues/285); shortcuts
+  also [#230](https://github.com/mikepadiernos/plasma-opus/issues/230) in
+  [M31](../ROADMAP.md#m31-keyboard-shortcut-settings))
 - **Service-menu discovery:** Reuse KDE's service-menu provider for explicit
   install, update and removal actions; explain that installed services may
   execute commands and be shared with other applications.
   ([#369](https://github.com/mikepadiernos/plasma-opus/issues/369))
-- **Privileged locations:** Explore supported KIO `admin:/` operations with
-  explicit authorization and clear failure reporting, not a persistent elevated
-  application session.
-  ([#288](https://github.com/mikepadiernos/plasma-opus/issues/288))
-- **Plasma Vault and encryption:** Open, close and reveal Plasma Vault
-  containers through its D-Bus interface and reuse GnuPG and Kleopatra for file
-  encryption. Leave passwords and vault configuration to those tools.
-  ([M27](../ROADMAP.md#m27-integrations))
-- **Disk images and network locations:** Reuse Dolphin's Mount ISO action,
-  Solid, and KIO's SMB, FTP and `network:/` workers rather than custom mount or
-  discovery code. ([M27](../ROADMAP.md#m27-integrations))
-- **Mounts and remote drives:** List, mount, unmount and eject file systems
-  through Solid and UDisks2, and mount remote locations as local folders through
-  KIO FUSE or installed FUSE backends such as sshfs and davfs2. Keep credentials
-  in KDE's facilities, ask before changing fstab or backend configuration, and
-  unmount only what Plasma Opus mounted.
-  ([#702](https://github.com/mikepadiernos/plasma-opus/issues/702),
-  [#703](https://github.com/mikepadiernos/plasma-opus/issues/703))
+- **Mount manager:** List, mount, unmount and eject file systems through Solid
+  and UDisks2. Ask before changing fstab and unmount only what Plasma Opus
+  mounted.
+  ([#703](https://github.com/mikepadiernos/plasma-opus/issues/703))
+- **KWin scripts:** Optionally install a Plasma Opus KWin script for window
+  placement that Wayland applications cannot perform themselves, and offer a
+  drop-down window. See [KWin scripts](#kwin-scripts).
+  ([#707](https://github.com/mikepadiernos/plasma-opus/issues/707),
+  [#708](https://github.com/mikepadiernos/plasma-opus/issues/708))
+
+### M27.02 Archives and application packages
+
+- **Disk images:** Mount and unmount ISO and other disk images through the
+  Mount ISO action from Dolphin's plugins when installed, and show mounted
+  images in Places through Solid, rather than custom mount code.
+
+### M27.03 Search and indexing
+
+- **Baloo and metadata:** Show indexing status and supported metadata search,
+  with explicit live-search fallback and honest coverage limits. Never enable
+  indexing or change shared KDE settings silently.
+  ([#441](https://github.com/mikepadiernos/plasma-opus/issues/441),
+  [#442](https://github.com/mikepadiernos/plasma-opus/issues/442))
+
+### M27.06 Accounts, remote access and synchronization
+
+- **KDE Online Accounts:** Discover supported file services and reuse KDE
+  credentials and KIO providers. Do not duplicate account management or store
+  tokens in URLs or KConfig.
+  ([#370](https://github.com/mikepadiernos/plasma-opus/issues/370))
+- **Network locations:** Reuse KIO's SMB, FTP and `network:/` workers rather
+  than custom discovery code.
+- **Remote drives:** Mount remote locations as local folders through KIO FUSE
+  or installed FUSE backends such as sshfs and davfs2. Keep credentials in
+  KDE's facilities, ask before changing backend configuration, and unmount only
+  what Plasma Opus mounted.
+  ([#702](https://github.com/mikepadiernos/plasma-opus/issues/702))
 - **Cloud sync and activity:** Keep chosen local folders in two-way sync with
   KIO, KDE Online Accounts or rclone locations, with backup modes and conflict
   choices that never overwrite changes silently, and show transfers, quota,
@@ -94,20 +151,23 @@ ordinary local file management.
   stay clear of folders owned by the Nextcloud desktop client.
   ([#718](https://github.com/mikepadiernos/plasma-opus/issues/718),
   [#719](https://github.com/mikepadiernos/plasma-opus/issues/719))
-- **KWin scripts:** Optionally install a Plasma Opus KWin script for window
-  placement that Wayland applications cannot perform themselves, and offer a
-  drop-down window. See [KWin scripts](#kwin-scripts).
-  ([#707](https://github.com/mikepadiernos/plasma-opus/issues/707),
-  [#708](https://github.com/mikepadiernos/plasma-opus/issues/708))
+
+### M27.07 Access control and automation
+
+- **Privileged locations:** Explore supported KIO `admin:/` operations with
+  explicit authorization and clear failure reporting, not a persistent elevated
+  application session.
+  ([#288](https://github.com/mikepadiernos/plasma-opus/issues/288))
+- **Plasma Vault and encryption:** Open, close and reveal Plasma Vault
+  containers through its D-Bus interface and reuse GnuPG and Kleopatra for file
+  encryption. Leave passwords and vault configuration to those tools.
+
+### M29 Nextcloud
+
 - **Nextcloud:** Reuse KDE accounts, credentials and KIO for optional native
   browsing and asset workflows; leave sync ownership with the desktop client.
-  ([M29](../ROADMAP.md#m29-nextcloud-integration),
-  [Nextcloud integration](nextcloud.md))
-
-Settings for the general desktop integrations belong in
-[M28](../ROADMAP.md#m28-integration-settings); Nextcloud settings belong in
-[M30](../ROADMAP.md#m30-nextcloud-settings). Link to shared KDE controls rather
-than creating conflicting settings.
+  See [M29](../ROADMAP.md#m29-nextcloud-integration) and the
+  [Nextcloud integration plan](nextcloud.md).
 
 ## KWin scripts
 
@@ -118,7 +178,7 @@ do this for Plasma Opus windows. Plasma Opus would install it per user as a
 `KWin/Script` KPackage, enable it through KWin's configuration and talk to it
 over D-Bus.
 
-### Planned
+### Planned script features
 
 - **Workspace windows:** restore each window's screen, virtual desktop, size,
   tile and keep-above state when applying a workspace or Activity association.
@@ -134,22 +194,7 @@ over D-Bus.
   screen or touch-screen edge.
   ([#708](https://github.com/mikepadiernos/plasma-opus/issues/708))
 
-### Proposed, not yet on the roadmap
-
-- **Dual-window mode:** open the second pane as its own window, tiled beside the
-  first or on another screen, keeping source and destination behaviour.
-- **Picture-in-picture previews:** keep a detached video or image preview above
-  other windows and on all virtual desktops.
-- **Workspace window appearance:** apply window opacity or hide the title bar as
-  part of a theme attached to a workspace, alongside M17 blur.
-- **Raise existing windows:** bring forward the Plasma Opus window already
-  showing a requested folder instead of opening a duplicate, where XDG
-  activation alone is not enough.
-- **Transfer focus:** keep the file manager in view while a long copy or move
-  runs, and briefly highlight its window when the operation needs attention,
-  without stealing focus.
-
-### Boundaries
+### Script boundaries
 
 - Install or enable nothing without explicit action. Removing the integration
   removes only the Plasma Opus script.
@@ -165,7 +210,36 @@ over D-Bus.
   the compositor or scripting is disabled, report the integration as
   unavailable and keep ordinary window behaviour.
 
-## Validation
+## Considered features
+
+These KWin script ideas are **not on the [roadmap](../ROADMAP.md)**. Add a
+feature to the roadmap, with its issue, before implementing it.
+
+- **Dual-window mode:** open the second pane as its own window, tiled beside the
+  first or on another screen, keeping source and destination behaviour.
+- **Picture-in-picture previews:** keep a detached video or image preview above
+  other windows and on all virtual desktops.
+- **Workspace window appearance:** apply window opacity or hide the title bar as
+  part of a theme attached to a workspace, alongside M17 blur.
+- **Raise existing windows:** bring forward the Plasma Opus window already
+  showing a requested folder instead of opening a duplicate, where XDG
+  activation alone is not enough.
+- **Transfer focus:** keep the file manager in view while a long copy or move
+  runs, and briefly highlight its window when the operation needs attention,
+  without stealing focus.
+
+### Rejected approaches
+
+- Reimplementing shared KDE services, such as accounts, credentials or
+  notifications, instead of reusing KDE Frameworks.
+- Custom mount or network-discovery code instead of Dolphin's Mount ISO action,
+  Solid and KIO workers.
+- A persistent elevated application session instead of KIO's `admin:/` worker.
+- Storing tokens in URLs or KConfig, or duplicating KDE account management.
+- Editing `kwinrulesrc`, other scripts or global KWin settings instead of
+  linking to KWin's own settings.
+
+## Acceptance
 
 Exercise supported Plasma and Qt/KDE versions, KWin script compatibility,
 unavailable services, remote locations, sandbox and portal access, permission
