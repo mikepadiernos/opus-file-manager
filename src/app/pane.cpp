@@ -52,6 +52,12 @@
 #include <QToolButton>
 #include <QVBoxLayout>
 
+static YaziMode::PreviewContent settingsPreviewContent()
+{
+    return Settings::yaziPreviewContent() == Settings::EnumYaziPreviewContent::Information ? YaziMode::PreviewContent::Information
+                                                                                           : YaziMode::PreviewContent::Preview;
+}
+
 Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const QString &toolbarConfigId)
     : QWidget(parent)
     , m_tabs(new TabModel(this))
@@ -286,6 +292,8 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     m_yaziColumns = new YaziColumns(this);
     m_yaziColumns->hide();
     m_yaziPreview = Settings::yaziPreviewVisible();
+    m_yaziPreviewContent = settingsPreviewContent();
+    m_yaziColumns->setPreviewContent(m_yaziPreviewContent);
     m_yaziColumns->setShowHiddenFiles(m_view->showHiddenFiles());
     reloadYaziKeySettings();
     m_statusBarWidget = new QWidget(this);
@@ -1081,6 +1089,9 @@ void Pane::reloadYaziPreviewSetting()
     if (m_yaziPreviewChoice < 0) {
         applyYaziPreview(Settings::yaziPreviewVisible());
     }
+    if (m_yaziPreviewContentChoice < 0) {
+        applyYaziPreviewContent(settingsPreviewContent());
+    }
 }
 
 void Pane::restoreYaziPreview(int choice)
@@ -1104,6 +1115,38 @@ void Pane::applyYaziPreview(bool visible)
 bool Pane::yaziPreview() const
 {
     return m_yaziPreview;
+}
+
+void Pane::setYaziPreviewContent(YaziMode::PreviewContent content)
+{
+    const int choice = static_cast<int>(content);
+    const bool chosen = choice != m_yaziPreviewContentChoice;
+    m_yaziPreviewContentChoice = choice;
+    applyYaziPreviewContent(content);
+    if (chosen) {
+        Q_EMIT workspaceLayoutChanged();
+    }
+}
+
+YaziMode::PreviewContent Pane::yaziPreviewContent() const
+{
+    return m_yaziPreviewContent;
+}
+
+void Pane::restoreYaziPreviewContent(int choice)
+{
+    m_yaziPreviewContentChoice = qBound(-1, choice, 1);
+    applyYaziPreviewContent(m_yaziPreviewContentChoice < 0 ? settingsPreviewContent() : static_cast<YaziMode::PreviewContent>(m_yaziPreviewContentChoice));
+}
+
+void Pane::applyYaziPreviewContent(YaziMode::PreviewContent content)
+{
+    if (content == m_yaziPreviewContent) {
+        return;
+    }
+    m_yaziPreviewContent = content;
+    m_yaziColumns->setPreviewContent(content);
+    Q_EMIT yaziPreviewContentChanged(content);
 }
 
 YaziColumns *Pane::yaziColumns() const
@@ -1175,6 +1218,13 @@ void Pane::runYaziCommand(YaziMode::Command command, int count)
                 }
             },
             Qt::QueuedConnection);
+        break;
+    case Command::TogglePreviewContent:
+        setYaziPreviewContent(m_yaziPreviewContent == YaziMode::PreviewContent::Information ? YaziMode::PreviewContent::Preview
+                                                                                            : YaziMode::PreviewContent::Information);
+        if (!m_yaziColumns->previewEnabled() || m_yaziColumns->previewSlot()->isHidden()) {
+            Q_EMIT statusMessage(i18nc("@info:status", "The preview column isn't shown in this pane."));
+        }
         break;
     case Command::Leave:
         QMetaObject::invokeMethod(
@@ -1546,6 +1596,7 @@ PaneSession Pane::saveState() const
     state.viewMode = int(m_view->viewMode());
     state.yaziMode = m_yaziMode;
     state.yaziPreview = m_yaziPreviewChoice;
+    state.yaziPreviewContent = m_yaziPreviewContentChoice;
     return state;
 }
 
@@ -1570,6 +1621,7 @@ void Pane::restoreState(const PaneSession &state)
                                                            : static_cast<LocationPresentation>(qBound(0, state.locationPresentation, 2)));
     m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, PaneSession::MaximumViewMode)));
     restoreYaziPreview(state.yaziPreview);
+    restoreYaziPreviewContent(state.yaziPreviewContent);
     setYaziMode(state.yaziMode);
 }
 
@@ -1596,6 +1648,7 @@ void Pane::replaceState(const PaneSession &state)
                                                            : static_cast<LocationPresentation>(qBound(0, state.locationPresentation, 2)));
     m_view->setViewMode(static_cast<FolderView::ViewMode>(qBound(0, state.viewMode, PaneSession::MaximumViewMode)));
     restoreYaziPreview(state.yaziPreview);
+    restoreYaziPreviewContent(state.yaziPreviewContent);
     setYaziMode(state.yaziMode);
 }
 

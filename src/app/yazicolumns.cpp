@@ -5,6 +5,7 @@
 #include "folderview.h"
 #include "namefilter.h"
 #include "symbolicicon.h"
+#include "transferqueue.h"
 #include "yazikeys.h"
 #include "yazimode.h"
 #include "yazipreview.h"
@@ -166,6 +167,19 @@ YaziColumns::YaziColumns(QWidget *parent)
     m_sortLabel->setObjectName(QStringLiteral("yaziSortIndicator"));
     m_sortLabel->hide();
 
+    m_transferIndicator = new QToolButton(this);
+    m_transferIndicator->setObjectName(QStringLiteral("yaziTransferIndicator"));
+    m_transferIndicator->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-list-details")));
+    m_transferIndicator->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+    m_transferIndicator->setAutoRaise(true);
+    m_transferIndicator->setFocusPolicy(Qt::NoFocus);
+    m_transferIndicator->hide();
+    connect(m_transferIndicator, &QToolButton::clicked, this, &YaziColumns::transferQueueRequested);
+    m_transferFailureTimeout = new QTimer(this);
+    m_transferFailureTimeout->setSingleShot(true);
+    m_transferFailureTimeout->setInterval(TransferFailureTimeout);
+    connect(m_transferFailureTimeout, &QTimer::timeout, this, &YaziColumns::updateTransferIndicator);
+
     m_statusRow = new QWidget(this);
     m_statusRow->setObjectName(QStringLiteral("yaziStatusRow"));
     m_statusLayout = new QHBoxLayout(m_statusRow);
@@ -178,6 +192,7 @@ YaziColumns::YaziColumns(QWidget *parent)
     m_statusLayout->addWidget(m_searchLabel, 1);
     m_statusLayout->addWidget(m_searchCancel);
     m_statusLayout->addStretch(1);
+    m_statusLayout->addWidget(m_transferIndicator);
     m_statusLayout->addWidget(m_sortLabel);
 
     m_keys = new YaziKeys(this);
@@ -330,6 +345,9 @@ void YaziColumns::setShowHiddenFiles(bool show)
     m_showHiddenFiles = show;
     m_lister->setShowHiddenFiles(show);
     m_lister->emitChanges();
+    if (YaziPreview *builtIn = preview()) {
+        builtIn->setShowHiddenFiles(show);
+    }
 }
 
 QListView *YaziColumns::parentColumn() const
@@ -358,6 +376,8 @@ void YaziColumns::setPreviewWidget(QWidget *widget)
         m_previewWidget->show();
     }
     if (YaziPreview *builtIn = preview()) {
+        builtIn->setShowHiddenFiles(m_showHiddenFiles);
+        builtIn->setContent(m_previewContent);
         builtIn->setView(m_view);
     }
     updateTabOrder();
@@ -385,6 +405,19 @@ bool YaziColumns::previewEnabled() const
 YaziPreview *YaziColumns::preview() const
 {
     return qobject_cast<YaziPreview *>(m_previewWidget.data());
+}
+
+void YaziColumns::setPreviewContent(YaziMode::PreviewContent content)
+{
+    m_previewContent = content;
+    if (YaziPreview *builtIn = preview()) {
+        builtIn->setContent(content);
+    }
+}
+
+YaziMode::PreviewContent YaziColumns::previewContent() const
+{
+    return m_previewContent;
 }
 
 YaziMode::Ratios YaziColumns::ratios() const
@@ -505,8 +538,120 @@ QLabel *YaziColumns::selectionIndicator() const
 
 void YaziColumns::addStatusWidget(QWidget *widget, int stretch)
 {
-    // Before the stretch that keeps the sort indicator at the end of the row.
-    m_statusLayout->insertWidget(m_statusLayout->indexOf(m_sortLabel) - 1, widget, stretch);
+    // Before the stretch that keeps the transfer and sort indicators at the end of the row.
+    m_statusLayout->insertWidget(m_statusLayout->indexOf(m_transferIndicator) - 1, widget, stretch);
+}
+
+void YaziColumns::setTransferQueue(TransferQueue *queue)
+{
+    if (queue == m_transferQueue) {
+        return;
+    }
+    if (m_transferQueue) {
+        m_transferQueue->disconnect(this);
+    }
+    m_transferQueue = queue;
+    m_reportedFailures.clear();
+    m_transferFailure.clear();
+    m_transferFailureTimeout->stop();
+    if (m_transferQueue) {
+        // Failures from before the queue was followed were reported elsewhere.
+        const auto entries = m_transferQueue->entries();
+        for (const QueuedTransfer *entry : entries) {
+            if (entry->state() == QueuedTransfer::State::Failed) {
+                m_reportedFailures.append(entry);
+            }
+        }
+        connect(m_transferQueue, &TransferQueue::changed, this, &YaziColumns::updateTransferIndicator);
+    }
+    updateTransferIndicator();
+}
+
+TransferQueue *YaziColumns::transferQueue() const
+{
+    return m_transferQueue;
+}
+
+QToolButton *YaziColumns::transferIndicator() const
+{
+    return m_transferIndicator;
+}
+
+void YaziColumns::updateTransferIndicator()
+{
+    const QList<QueuedTransfer *> entries = m_transferQueue ? m_transferQueue->entries() : QList<QueuedTransfer *>();
+    int running = 0;
+    int paused = 0;
+    int waiting = 0;
+    qint64 percent = 0;
+    QStringList details;
+    QList<const QObject *> failures;
+    for (const QueuedTransfer *entry : entries) {
+        switch (entry->state()) {
+        case QueuedTransfer::State::Running:
+            ++running;
+            percent += qint64(entry->percent());
+            details.append(i18nc("@info:tooltip %1 is a transfer, %2 its progress in percent", "%1: %2%", entry->description(), entry->percent()));
+            break;
+        case QueuedTransfer::State::Paused:
+            ++paused;
+            details.append(i18nc("@info:tooltip %1 is a transfer", "%1: paused", entry->description()));
+            break;
+        case QueuedTransfer::State::Waiting:
+            ++waiting;
+            details.append(i18nc("@info:tooltip %1 is a transfer", "%1: waiting", entry->description()));
+            break;
+        case QueuedTransfer::State::Failed:
+            failures.append(entry);
+            if (!m_reportedFailures.contains(entry)) {
+                m_transferFailure = entry->failure().isEmpty()
+                    ? i18nc("@info:tooltip %1 is a transfer", "%1: failed", entry->description())
+                    : i18nc("@info:tooltip %1 is a transfer, %2 why it failed", "%1: %2", entry->description(), entry->failure());
+                m_transferFailureTimeout->start();
+            }
+            break;
+        case QueuedTransfer::State::Completed:
+        case QueuedTransfer::State::Canceled:
+            break;
+        }
+    }
+    m_reportedFailures = failures;
+    const bool failed = m_transferFailureTimeout->isActive();
+
+    QStringList parts;
+    if (running > 0) {
+        parts.append(i18ncp("@info:status %2 is the average progress in percent",
+                            "%1 transfer running · %2%",
+                            "%1 transfers running · %2%",
+                            running,
+                            percent / running));
+    }
+    if (paused > 0) {
+        parts.append(parts.isEmpty() ? i18ncp("@info:status", "%1 transfer paused", "%1 transfers paused", paused)
+                                     : i18ncp("@info:status after the running transfers", "%1 paused", "%1 paused", paused));
+    }
+    if (waiting > 0) {
+        parts.append(parts.isEmpty() ? i18ncp("@info:status", "%1 transfer waiting", "%1 transfers waiting", waiting)
+                                     : i18ncp("@info:status after the running transfers", "%1 waiting", "%1 waiting", waiting));
+    }
+    if (failed) {
+        parts.append(i18nc("@info:status", "Transfer failed"));
+        details.append(m_transferFailure);
+    } else {
+        m_transferFailure.clear();
+    }
+    if (parts.isEmpty()) {
+        m_transferIndicator->hide();
+        return;
+    }
+    const QString text = parts.join(QStringLiteral(" · "));
+    m_transferIndicator->setText(text);
+    m_transferIndicator->setIcon(
+        SymbolicIcon::fromTheme(failed && running + paused + waiting == 0 ? QStringLiteral("dialog-error") : QStringLiteral("view-list-details")));
+    m_transferIndicator->setAccessibleName(text);
+    details.append(i18nc("@info:tooltip", "Click to show the transfer queue."));
+    m_transferIndicator->setToolTip(details.join(QLatin1Char('\n')));
+    m_transferIndicator->show();
 }
 
 void YaziColumns::setFilter(const NameFilter &filter)

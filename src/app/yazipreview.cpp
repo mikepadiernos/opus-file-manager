@@ -3,19 +3,27 @@
 #include "yazipreview.h"
 
 #include "folderview.h"
+#include "informationpanel.h"
 #include "previewpanel.h"
 
 #include <KLocalizedString>
 
 #include <QAbstractItemView>
+#include <QFormLayout>
 #include <QKeyEvent>
+#include <QLabel>
 #include <QPainter>
+#include <QProgressBar>
+#include <QScrollArea>
+#include <QStackedWidget>
 #include <QStyleOptionFocusRect>
 #include <QTimer>
 #include <QVBoxLayout>
 
 YaziPreview::YaziPreview(QWidget *parent)
     : QFrame(parent)
+    , m_busy(new QProgressBar(this))
+    , m_pages(new QStackedWidget(this))
     , m_panel(new PreviewPanel(this))
     , m_timer(new QTimer(this))
 {
@@ -28,12 +36,68 @@ YaziPreview::YaziPreview(QWidget *parent)
     m_timer->setInterval(UpdateDelay);
     connect(m_timer, &QTimer::timeout, this, &YaziPreview::updateNow);
 
+    m_busy->setObjectName(QStringLiteral("yaziPreviewBusy"));
+    m_busy->setRange(0, 0);
+    m_busy->setTextVisible(false);
+    m_busy->setMaximumHeight(qMax(4, fontMetrics().height() / 4));
+    m_busy->setAccessibleName(i18nc("@info:accessibility", "Loading preview…"));
+    m_busy->setToolTip(i18nc("@info:tooltip", "Loading preview…"));
+    // Keep the room so the preview doesn't jump when loading starts or ends.
+    QSizePolicy busyPolicy = m_busy->sizePolicy();
+    busyPolicy.setRetainSizeWhenHidden(true);
+    m_busy->setSizePolicy(busyPolicy);
+    m_busy->hide();
+    connect(m_panel, &PreviewPanel::busyChanged, this, &YaziPreview::updateBusyIndicator);
+
+    auto *scroll = new QScrollArea(this);
+    scroll->setObjectName(QStringLiteral("yaziInformation"));
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setFocusPolicy(Qt::NoFocus);
+    scroll->setAccessibleName(i18nc("@info:accessibility", "File information"));
+    auto *contents = new QWidget(scroll);
+    auto *contentsLayout = new QVBoxLayout(contents);
+    m_informationTitle = new QLabel(contents);
+    m_informationTitle->setObjectName(QStringLiteral("yaziInformationTitle"));
+    m_informationTitle->setTextFormat(Qt::PlainText);
+    m_informationTitle->setWordWrap(true);
+    QFont titleFont = m_informationTitle->font();
+    titleFont.setBold(true);
+    m_informationTitle->setFont(titleFont);
+    m_information = new InformationPanel(contents);
+    m_information->setFields(informationFields());
+    m_information->setEmptyFieldsHidden(true);
+    if (auto *form = qobject_cast<QFormLayout *>(m_information->layout())) {
+        form->setRowWrapPolicy(QFormLayout::WrapLongRows);
+        form->setContentsMargins(0, 0, 0, 0);
+    }
+    contentsLayout->addWidget(m_informationTitle);
+    contentsLayout->addWidget(m_information);
+    contentsLayout->addStretch(1);
+    scroll->setWidget(contents);
+    m_informationPage = scroll;
+
+    m_pages->addWidget(m_panel);
+    m_pages->addWidget(m_informationPage);
+
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(2, 2, 2, 2);
-    layout->addWidget(m_panel);
+    layout->setSpacing(0);
+    layout->addWidget(m_busy);
+    layout->addWidget(m_pages, 1);
 }
 
 YaziPreview::~YaziPreview() = default;
+
+QStringList YaziPreview::informationFields()
+{
+    return {QStringLiteral("friendlyMimeType"),
+            QStringLiteral("size"),
+            QStringLiteral("modificationTime"),
+            QStringLiteral("permissions"),
+            QStringLiteral("ownerAndGroup"),
+            QStringLiteral("linkDest")};
+}
 
 void YaziPreview::setView(FolderView *view)
 {
@@ -70,9 +134,40 @@ PreviewPanel *YaziPreview::panel() const
     return m_panel;
 }
 
+InformationPanel *YaziPreview::information() const
+{
+    return m_information;
+}
+
+void YaziPreview::setContent(YaziMode::PreviewContent content)
+{
+    if (content == m_content) {
+        return;
+    }
+    m_content = content;
+    m_pages->setCurrentWidget(content == YaziMode::PreviewContent::Information ? m_informationPage : m_panel);
+    reset();
+    updateNow();
+}
+
+YaziMode::PreviewContent YaziPreview::content() const
+{
+    return m_content;
+}
+
+void YaziPreview::setShowHiddenFiles(bool show)
+{
+    m_panel->setShowHiddenFiles(show);
+}
+
 bool YaziPreview::isUpdatePending() const
 {
     return m_timer->isActive();
+}
+
+QProgressBar *YaziPreview::busyIndicator() const
+{
+    return m_busy;
 }
 
 void YaziPreview::scheduleUpdate()
@@ -86,7 +181,14 @@ void YaziPreview::reset()
     m_item = {};
     m_shown = false;
     m_panel->clear();
+    m_information->setItem({});
+    m_informationTitle->clear();
     setAccessibleDescription(i18nc("@info:accessibility", "Nothing to preview"));
+}
+
+void YaziPreview::updateBusyIndicator()
+{
+    m_busy->setVisible(m_content == YaziMode::PreviewContent::Preview && m_panel->isBusy());
 }
 
 KFileItem YaziPreview::focusedItem() const
@@ -109,7 +211,12 @@ void YaziPreview::updateNow()
     }
     m_item = item;
     m_shown = true;
-    if (item.isNull()) {
+    if (m_content == YaziMode::PreviewContent::Information) {
+        m_information->setItem(item);
+        m_informationTitle->setText(item.isNull() ? i18nc("@info", "Nothing to show.") : item.text());
+        setAccessibleDescription(item.isNull() ? i18nc("@info:accessibility", "Nothing to preview")
+                                               : i18nc("@info:accessibility", "Information about %1", item.text()));
+    } else if (item.isNull()) {
         m_panel->clear();
         setAccessibleDescription(i18nc("@info:accessibility", "Nothing to preview"));
     } else {

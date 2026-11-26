@@ -1441,6 +1441,13 @@ void MainWindow::connectPane(Pane *pane)
             updateActions();
         }
     });
+    connect(pane, &Pane::yaziPreviewContentChanged, this, [this, pane] {
+        if (pane == activePane()) {
+            updateActions();
+        }
+    });
+    pane->yaziColumns()->setTransferQueue(FileOperations::transferQueue());
+    connect(pane->yaziColumns(), &YaziColumns::transferQueueRequested, this, &MainWindow::showTransferQueue);
     connect(pane, &Pane::yaziFileCommandRequested, this, [this, pane](YaziMode::Command command) {
         runYaziFileCommand(pane, command);
     });
@@ -2581,6 +2588,14 @@ void MainWindow::setupActions()
     connect(m_yaziPreviewAction, &KToggleAction::triggered, this, [this](bool visible) {
         activePane()->setYaziPreview(visible);
     });
+    m_yaziPreviewInformationAction =
+        new KToggleAction(SymbolicIcon::fromTheme(QStringLiteral("documentinfo")), i18nc("@action", "File Information in Yazi Preview"), this);
+    m_yaziPreviewInformationAction->setToolTip(
+        i18nc("@info:tooltip", "Show the focused item's file information instead of its preview in the active pane's Yazi mode"));
+    actions->addAction(QStringLiteral("toggle_yazi_preview_information"), m_yaziPreviewInformationAction);
+    connect(m_yaziPreviewInformationAction, &KToggleAction::triggered, this, [this](bool information) {
+        activePane()->setYaziPreviewContent(information ? YaziMode::PreviewContent::Information : YaziMode::PreviewContent::Preview);
+    });
     m_yaziVimKeysAction = new KToggleAction(i18nc("@action", "Vim-Style Keys in Yazi Mode"), this);
     m_yaziVimKeysAction->setToolTip(
         i18nc("@info:tooltip", "Navigate Yazi mode's columns with Vim-style keys such as h, j, k, l and gg as well as the standard keys"));
@@ -3281,6 +3296,8 @@ void MainWindow::updateActions()
     m_yaziModeAction->setChecked(activePane()->yaziMode());
     m_yaziPreviewAction->setChecked(activePane()->yaziPreview());
     m_yaziPreviewAction->setEnabled(activePane()->yaziMode());
+    m_yaziPreviewInformationAction->setChecked(activePane()->yaziPreviewContent() == YaziMode::PreviewContent::Information);
+    m_yaziPreviewInformationAction->setEnabled(activePane()->yaziMode());
     for (QAction *action : std::as_const(m_yaziColumnActions)) {
         action->setEnabled(activePane()->yaziMode());
     }

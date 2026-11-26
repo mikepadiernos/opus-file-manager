@@ -180,8 +180,16 @@ public:
      */
     void setYaziPreview(bool visible);
     bool yaziPreview() const;
-    /// Applies a changed YaziPreviewVisible setting unless the pane has its own choice.
+    /// Applies changed YaziPreviewVisible and YaziPreviewContent settings unless the pane has its own choices.
     void reloadYaziPreviewSetting();
+    /**
+     * Shows the focused item's preview or its file information in the preview
+     * column of Yazi mode, and records the choice for the session. Until a
+     * choice is made or restored, the pane follows the YaziPreviewContent
+     * setting.
+     */
+    void setYaziPreviewContent(YaziMode::PreviewContent content);
+    YaziMode::PreviewContent yaziPreviewContent() const;
     /// Applies the YaziKeyPreset setting to the keys of Yazi mode.
     void reloadYaziKeySettings();
     /// The columns that host the folder view in Yazi mode; they exist even when the mode is off.
@@ -220,6 +228,7 @@ Q_SIGNALS:
     void searchRequested();
     void yaziModeChanged(bool enabled);
     void yaziPreviewChanged(bool visible);
+    void yaziPreviewContentChanged(YaziMode::PreviewContent content);
     /**
      * A Yazi mode file command, such as Trash, should run through the
      * window's action. For a command that uses the selection, the focused
@@ -242,6 +251,9 @@ private:
     /// Applies a saved preview choice (1, 0 or -1 for the setting) without marking the workspace changed.
     void restoreYaziPreview(int choice);
     void applyYaziPreview(bool visible);
+    /// Applies a saved preview content choice, a YaziMode::PreviewContent value or -1 for the setting, without marking the workspace changed.
+    void restoreYaziPreviewContent(int choice);
+    void applyYaziPreviewContent(YaziMode::PreviewContent content);
     /// Closes the pane's tabs and opens those of @p state with their pins, locks and names.
     void rebuildTabs(const PaneSession &state);
     void saveHistoryViewState();
@@ -287,6 +299,9 @@ private:
     bool m_yaziPreview = true;
     /// The saved preview choice: 1 shown, 0 hidden, -1 none, following the setting.
     int m_yaziPreviewChoice = -1;
+    YaziMode::PreviewContent m_yaziPreviewContent = YaziMode::PreviewContent::Preview;
+    /// The saved preview content choice: a YaziMode::PreviewContent value, or -1 to follow the setting.
+    int m_yaziPreviewContentChoice = -1;
     FilterBar *m_filterBar = nullptr;
     QVBoxLayout *m_layout = nullptr;
     QHBoxLayout *m_outerLayout = nullptr;

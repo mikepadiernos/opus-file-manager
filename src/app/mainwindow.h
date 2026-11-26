@@ -443,6 +443,7 @@ private:
     KToggleAction *m_dualLayoutAction = nullptr;
     KToggleAction *m_yaziModeAction = nullptr;
     KToggleAction *m_yaziPreviewAction = nullptr;
+    KToggleAction *m_yaziPreviewInformationAction = nullptr;
     KToggleAction *m_yaziVimKeysAction = nullptr;
     QList<QAction *> m_yaziColumnActions;
     KToggleAction *m_stackedLayoutAction = nullptr;

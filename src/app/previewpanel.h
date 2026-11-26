@@ -12,6 +12,7 @@ namespace KIO
 {
 class TransferJob;
 }
+class FolderPreview;
 class QLabel;
 class QActionGroup;
 class QHBoxLayout;
@@ -51,12 +52,23 @@ public:
     void setCompact(bool compact);
     bool isCompact() const;
     /**
-     * Shows a summary of the folder @p item, its name, type and modification
-     * time, instead of a preview. Pending previews are cancelled.
+     * Shows the folder @p item: its contents, folders first, in a read-only
+     * list of at most FolderPreview::EntryLimit entries, listed
+     * asynchronously, with its type and modification time below. Pending
+     * previews and listings are cancelled.
      */
     void showFolder(const KFileItem &item);
+    /// Whether showFolder() lists hidden files.
+    void setShowHiddenFiles(bool show);
+    /**
+     * Whether a preview or folder listing is loading, while the panel shows
+     * "Loading preview…". Clearing the panel or showing another item stops
+     * the work.
+     */
+    bool isBusy() const;
 
 Q_SIGNALS:
+    void busyChanged(bool busy);
     void closeRequested();
     void galleryRequested();
     void openRequested();
@@ -69,6 +81,7 @@ protected:
 
 private:
     void showMessage(const QString &message);
+    void setBusy(bool busy);
     void showContent(const PreviewContent &content, const QString &mimeType);
     void updateTextMode();
     void scheduleMetadata(const QUrl &url, const QString &mimeType, const QSharedPointer<QTemporaryFile> &file = {});
@@ -132,4 +145,7 @@ private:
     QList<QUrl> m_images;
     quint64 m_generation = 0;
     bool m_loading = false;
+    FolderPreview *m_folder = nullptr;
+    bool m_showHiddenFiles = false;
+    bool m_busy = false;
 };

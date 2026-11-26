@@ -3,6 +3,8 @@
 #include "previewpanel.h"
 #include "safetextdocument.h"
 
+#include "folderpreview.h"
+
 #include "imagebackground.h"
 #include "imagedetails.h"
 #include "localizeddates.h"
@@ -441,13 +443,50 @@ void PreviewPanel::showFolder(const KFileItem &item)
     }
     m_title->setText(item.text());
     m_title->show();
-    m_baseFooter = LocalizedDates::fileTime(item);
-    m_footer->setText(m_baseFooter);
-    QStringList lines{item.mimeComment().isEmpty() ? i18nc("@info", "Folder") : item.mimeComment()};
+    QStringList footer{item.mimeComment().isEmpty() ? i18nc("@info", "Folder") : item.mimeComment()};
     if (item.isLink()) {
-        lines.append(i18nc("@info", "Link to %1", item.linkDest()));
+        footer.append(i18nc("@info", "Link to %1", item.linkDest()));
     }
-    showMessage(lines.join(QLatin1Char('\n')));
+    if (const QString modified = LocalizedDates::fileTime(item); !modified.isEmpty()) {
+        footer.append(modified);
+    }
+    m_baseFooter = footer.join(QStringLiteral(" · "));
+    m_footer->setText(m_baseFooter);
+    if (!m_folder) {
+        m_folder = new FolderPreview(m_content);
+        m_content->addWidget(m_folder);
+        connect(m_folder, &FolderPreview::listingChanged, this, [this](bool listing) {
+            if (m_content->currentWidget() == m_folder) {
+                setBusy(listing);
+            }
+        });
+    }
+    m_folder->setShowHiddenFiles(m_showHiddenFiles);
+    m_content->setCurrentWidget(m_folder);
+    m_folder->setFolder(item);
+    setBusy(m_folder->isListing());
+}
+
+void PreviewPanel::setShowHiddenFiles(bool show)
+{
+    m_showHiddenFiles = show;
+    if (m_folder) {
+        m_folder->setShowHiddenFiles(show);
+    }
+}
+
+bool PreviewPanel::isBusy() const
+{
+    return m_busy;
+}
+
+void PreviewPanel::setBusy(bool busy)
+{
+    if (busy == m_busy) {
+        return;
+    }
+    m_busy = busy;
+    Q_EMIT busyChanged(busy);
 }
 
 PreviewPanel::~PreviewPanel()
@@ -517,11 +556,15 @@ void PreviewPanel::setItems(const KFileItemList &items, const QList<QUrl> &image
     clearDocument();
     clearMedia();
     clearRemotePreview();
+    if (m_folder) {
+        m_folder->clear();
+    }
     const QString modified = LocalizedDates::fileTime(item);
     const QString size = LocalizedNumbers::shape(KIO::convertSize(item.size()));
     m_baseFooter = modified.isEmpty() ? size : i18nc("@info", "%1 · %2", size, modified);
     m_footer->setText(m_baseFooter);
     showMessage(i18nc("@info", "Loading preview…"));
+    setBusy(true);
 
     if (!m_url.isLocalFile()) {
         startRemotePreview(m_url);
@@ -590,6 +633,9 @@ void PreviewPanel::clear()
     clearDocument();
     clearMedia();
     clearRemotePreview();
+    if (m_folder) {
+        m_folder->clear();
+    }
     m_title->setText(i18nc("@title", "Preview"));
     m_title->setVisible(m_titleVisible);
     m_footer->clear();
@@ -732,6 +778,7 @@ void PreviewPanel::showMedia(const QUrl &url, bool video)
     }
     m_autoplay->show();
     m_content->setCurrentWidget(m_media);
+    setBusy(false);
     m_media->open(url, video, Settings::previewMediaAutoplay());
 }
 
@@ -774,6 +821,7 @@ void PreviewPanel::showDocument(const QUrl &url, const QString &mimeType)
         }
     });
     m_content->setCurrentWidget(documentWidget);
+    setBusy(false);
     if (!m_document->openUrl(url) && m_content->currentWidget() == documentWidget) {
         showMessage(i18nc("@info", "Could not open this document."));
     }
@@ -796,10 +844,12 @@ void PreviewPanel::showMessage(const QString &message)
     m_renderedText->clear();
     m_message->setText(message);
     m_content->setCurrentWidget(m_message);
+    setBusy(false);
 }
 
 void PreviewPanel::showContent(const PreviewContent &content, const QString &mimeType)
 {
+    setBusy(false);
     switch (content.kind) {
     case PreviewContent::Kind::Text:
         m_textContent = content.text;

@@ -28,6 +28,7 @@ class QSplitter;
 class QTimer;
 class QToolButton;
 class QVBoxLayout;
+class TransferQueue;
 class YaziKeys;
 class YaziPreview;
 
@@ -87,6 +88,9 @@ public:
     bool previewEnabled() const;
     /// The built-in preview of the focused item, or nullptr when the column has none or another widget.
     YaziPreview *preview() const;
+    /// What the built-in preview shows: the focused item's preview or its file information.
+    void setPreviewContent(YaziMode::PreviewContent content);
+    YaziMode::PreviewContent previewContent() const;
     /// The relative widths of the columns; dragging a handle updates them.
     YaziMode::Ratios ratios() const;
     void setRatios(const YaziMode::Ratios &ratios);
@@ -122,6 +126,19 @@ public:
     static constexpr int SearchStatusTimeout = 10000;
     /// Adds @p widget to the row below the columns, after the mode, selection, filter and search indicators.
     void addStatusWidget(QWidget *widget, int stretch = 0);
+
+    /**
+     * Reflects @p queue's transfers in the status row: how many run and their
+     * progress, how many wait, and for TransferFailureTimeout milliseconds
+     * that a transfer failed. Clicking the indicator asks to open the queue;
+     * see transferQueueRequested(). The indicator is hidden while the queue
+     * is idle; nullptr stops following a queue.
+     */
+    void setTransferQueue(TransferQueue *queue);
+    TransferQueue *transferQueue() const;
+    QToolButton *transferIndicator() const;
+    /// How long a failed transfer stays reported in the status row, in milliseconds.
+    static constexpr int TransferFailureTimeout = 8000;
 
     /**
      * The keys of the mode. They apply while the columns have a current view
@@ -187,6 +204,8 @@ Q_SIGNALS:
     void filterClearRequested();
     /// The search cancel button was clicked, or Escape pressed in the columns while a search runs.
     void searchCancelRequested();
+    /// The transfer indicator was clicked; the window should show the transfer queue.
+    void transferQueueRequested();
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -209,6 +228,7 @@ private:
     void restoreCurrentColumnLabels();
     void updateIndicator();
     void updateSortIndicator();
+    void updateTransferIndicator();
     /// Follows a selection change that the selection commands didn't make.
     void selectionChanged();
     void updateSelectionIndicator();
@@ -246,6 +266,13 @@ private:
     QToolButton *m_searchCancel = nullptr;
     QTimer *m_searchStatusTimeout = nullptr;
     QLabel *m_sortLabel = nullptr;
+    QToolButton *m_transferIndicator = nullptr;
+    QTimer *m_transferFailureTimeout = nullptr;
+    QPointer<TransferQueue> m_transferQueue;
+    /// The queue's failed transfers already reported, or failed before the queue was followed.
+    QList<const QObject *> m_reportedFailures;
+    QString m_transferFailure;
+    YaziMode::PreviewContent m_previewContent = YaziMode::PreviewContent::Preview;
     bool m_searchRunning = false;
     YaziKeys *m_keys = nullptr;
     QUrl m_url;
