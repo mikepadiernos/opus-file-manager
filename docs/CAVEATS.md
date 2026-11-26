@@ -112,38 +112,51 @@ tracked in its own issue:
     enter passwords at its prompt rather than putting them in command arguments.
     - Comment: [#36.7021740511][comment-36]
     - Comment: [#255.7021741358][comment-255]
-  - **Alternative:** Try standalone Ark with its 7z backend.
+  - **Alternative:** Try standalone Ark with its 7z backend, or **File › Open
+    in Ark**.
     - Comment:
       [#36.7029665511](https://github.com/mikepadiernos/plasma-opus/issues/36#issuecomment-7029665511)
-  - **Planned:** [M27 Ark integration](ROADMAP.md#m27-integrations) does not
-    guarantee encrypted 7z support or safe password handling.
+  - **Planned:** [M27 Ark archive creation](ROADMAP.md#m27-integrations) does
+    not guarantee encrypted 7z support or safe password handling.
     - Comment: [#36.7021740511][comment-36]
 
-### Possible Ark integration
+### Ark integration
 
-Plasma Opus does not currently integrate with Ark
-([#313][issue-313]):
+Plasma Opus hands archives to Ark, KDE's archiving tool, when it is installed
+([#313][issue-313], [#280](https://github.com/mikepadiernos/plasma-opus/issues/280)):
 
-- **Possible benefit:** An optional handoff could improve encrypted 7z
-  compatibility through Ark's dedicated `7z` backend.
-- **Requirements:** It would require Ark and `7z` at runtime as well as error,
-  destination and overwrite handling.
+- **Current behaviour:** **File › Open in Ark** opens one local archive in
+  Ark's own window, where entries can be added, renamed or removed and
+  encrypted archives opened with Ark's password prompt. **Extract to Other
+  Pane** uses Ark only for local formats that no KIO archive worker can
+  browse, such as RAR. It creates a new, uniquely named folder in the other
+  pane's local folder and runs Ark in batch mode there, so nothing existing is
+  overwritten. Plasma Opus reads which formats Ark can open from Ark's
+  installed backend plugins and the programs they need.
+- **Limits:** Ark reports its own progress, password prompts and errors;
+  Plasma Opus reports only a missing Ark or a failed start. If Ark fails or is
+  cancelled, the new folder stays, possibly empty. Remote archives and remote
+  destinations are not handed to Ark. Formats KIO can browse, including 7z
+  and ZIP, still use the built-in extraction, and **Extract
+  Password-Protected Archive** still uses KArchive.
 - **Password exposure:** Ark's
   [7z plugin](https://github.com/KDE/ark/blob/master/plugins/cli7zplugin/cliplugin.cpp)
-  defines a `-p$Password` command-line switch. Verify the installed version and
-  operation before assuming passwords are not exposed in process arguments.
+  defines a `-p$Password` command-line switch. Plasma Opus never passes a
+  password to Ark, but a password typed into Ark's prompt may appear in the
+  `7z` process arguments, which other local users can read on some systems.
 
-- **Recommendation:** Investigate an optional Ark handoff with explicit
-  dependency checks and safe error, destination, overwrite and password
-  handling. Until then, open archives with 7-Zip or another trusted external
-  tool when needed.
+- **Recommendation:** For encrypted 7z archives that the built-in extraction
+  cannot open, use **Open in Ark** with its 7z backend installed. On shared
+  systems, avoid typing sensitive passwords into Ark, or use 7-Zip at its own
+  prompt instead. Remove an empty folder left by a cancelled Ark extraction.
   - Comment: [#313.7021757012][comment-313]
 - **Alternative proposal:** Consider a user-controlled external archiver
   handoff.
   - Comment:
     [#313.7029672463](https://github.com/mikepadiernos/plasma-opus/issues/313#issuecomment-7029672463)
-- **Planned:** [M27](ROADMAP.md#m27-integrations) includes Ark integration; its
-  precise backend and safeguards still need to be established.
+- **Planned:** [M27 Ark archive creation](ROADMAP.md#m27-integrations) extends
+  archive creation and editing through Ark; it does not change how Ark
+  passes passwords to `7z`.
   - Comment: [#313.7021757012][comment-313]
 
 ## Folder metadata and listings
