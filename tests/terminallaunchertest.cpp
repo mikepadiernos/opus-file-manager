@@ -4,6 +4,7 @@
 #include "folderview.h"
 #include "mainwindow.h"
 #include "pane.h"
+#include "rclone.h"
 
 #include <KActionCollection>
 #include <KActionMenu>
@@ -18,6 +19,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QScopeGuard>
+#include <QSignalSpy>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QTemporaryDir>
@@ -426,6 +428,54 @@ private Q_SLOTS:
                               QStringLiteral("deploy"),
                               QStringLiteral("--"),
                               QStringLiteral("build.example.invalid")}));
+    }
+
+    void cloudStorageMountsRcloneRemotes()
+    {
+        QTemporaryDir runtime;
+        QVERIFY(runtime.isValid());
+        const QByteArray previousRuntime = qgetenv("XDG_RUNTIME_DIR");
+        qputenv("XDG_RUNTIME_DIR", runtime.path().toLocal8Bit());
+        const auto restoreRuntime = qScopeGuard([&previousRuntime] {
+            qputenv("XDG_RUNTIME_DIR", previousRuntime);
+        });
+        const QString output = m_bin.filePath(QStringLiteral("arguments"));
+        QVERIFY(writeExecutable(m_bin.filePath(QStringLiteral("rclone")),
+                                "#!/bin/sh\n"
+                                "if [ \"$1\" = listremotes ]; then printf 'work docs:   drive\\n'; exit 0; fi\n"
+                                "printf '%s\\n' \"$@\" > '"
+                                    + output.toLocal8Bit() + "'\nexec /bin/sleep 30\n"));
+
+        MainWindow window;
+        window.rcloneMounts()->setMountCheck([output](const QString &) {
+            return QFile::exists(output);
+        });
+        auto *cloud = qobject_cast<KActionMenu *>(window.actionCollection()->action(QStringLiteral("cloud_storage")));
+        QVERIFY(cloud);
+        QSignalSpy listed(window.rcloneMounts(), &RcloneMounts::remotesListed);
+        Q_EMIT cloud->menu()->aboutToShow();
+        QCOMPARE(cloud->menu()->actions().first()->text(), QStringLiteral("Loading…"));
+        QVERIFY(listed.wait(5000));
+        window.populateCloudStorage();
+        QList<QAction *> entries = cloud->menu()->actions();
+        QCOMPARE(entries.size(), 1);
+        QCOMPARE(entries.first()->text(), QStringLiteral("work docs (drive)"));
+        QVERIFY(!entries.first()->isChecked());
+
+        entries.first()->trigger();
+        const QString path = Rclone::mountPoint(QStringLiteral("work docs"));
+        QTRY_COMPARE(window.activePane()->url(), QUrl::fromLocalFile(path));
+        window.populateCloudStorage();
+        entries = cloud->menu()->actions();
+        QVERIFY(entries.first()->isChecked());
+        QCOMPARE(entries.size(), 3);
+        QVERIFY(entries.at(1)->isSeparator());
+
+        QSignalSpy unmounted(window.rcloneMounts(), &RcloneMounts::unmounted);
+        entries.at(2)->trigger();
+        QCOMPARE(window.activePane()->url(), QUrl::fromLocalFile(QDir::homePath()));
+        QVERIFY(unmounted.wait(5000));
+        QVERIFY(window.rcloneMounts()->mountedRemotes().isEmpty());
     }
 
 private:

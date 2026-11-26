@@ -3619,6 +3619,16 @@ void MainWindow::setupActions()
     manageRemote->setText(i18nc("@action", "Manage Remote Connections…"));
     manageRemote->setToolTip(i18nc("@info:tooltip", "Add, edit or remove saved SSH, WebDAV, SMB and FTP connections"));
     manageRemote->setIcon(SymbolicIcon::fromTheme(QStringLiteral("network-server")));
+    auto *cloudStorage = new KActionMenu(SymbolicIcon::fromTheme(QStringLiteral("folder-cloud")), i18nc("@action", "Cloud Storage"), this);
+    cloudStorage->setToolTip(i18nc("@info:tooltip", "Mount and open a cloud remote configured in rclone"));
+    cloudStorage->setPopupMode(QToolButton::InstantPopup);
+    m_cloudStorageMenu = cloudStorage->menu();
+    actions->addAction(QStringLiteral("cloud_storage"), cloudStorage);
+    connect(m_cloudStorageMenu, &QMenu::aboutToShow, this, [this] {
+        populateCloudStorage();
+        rcloneMounts()->listRemotes();
+    });
+
     QAction *network = actions->addAction(QStringLiteral("network_locations"), this, [this] {
         const QUrl url = RemoteProfiles::networkUrl();
         if (url.isEmpty()) {
@@ -5753,6 +5763,110 @@ void MainWindow::openSshTerminal(const RemoteProfiles::Profile &profile)
         updateTerminalPanelVisibility();
     }
     m_terminalPanel->openProgram(ssh, RemoteProfiles::sshArguments(profile), QDir::homePath(), profile.name.trimmed());
+}
+
+RcloneMounts *MainWindow::rcloneMounts()
+{
+    if (m_rcloneMounts) {
+        return m_rcloneMounts;
+    }
+    m_rcloneMounts = new RcloneMounts(this);
+    connect(m_rcloneMounts, &RcloneMounts::remotesListed, this, [this](const QList<Rclone::Remote> &remotes, const QString &error) {
+        m_rcloneRemotes = remotes;
+        m_rcloneError = error;
+        m_rcloneListed = true;
+        if (m_cloudStorageMenu->isVisible()) {
+            populateCloudStorage();
+        }
+    });
+    connect(m_rcloneMounts, &RcloneMounts::mounted, this, [this](const QString &remote, const QString &path) {
+        if (remote != m_openAfterRcloneMount) {
+            return;
+        }
+        m_openAfterRcloneMount.clear();
+        activePane()->setUrl(QUrl::fromLocalFile(path));
+    });
+    connect(m_rcloneMounts, &RcloneMounts::failed, this, [this](const QString &remote, const QString &error) {
+        if (remote != m_openAfterRcloneMount) {
+            showStatusMessage(i18nc("@info:status %1 is an rclone remote, %2 the error", "Could not mount %1: %2", remote, error));
+            return;
+        }
+        m_openAfterRcloneMount.clear();
+        KMessageBox::error(this,
+                           i18nc("@info %1 is an rclone remote, %2 the error", "Could not mount %1:\n%2", remote, error),
+                           i18nc("@title:window", "Cloud Storage"));
+    });
+    connect(m_rcloneMounts, &RcloneMounts::unmounted, this, [this](const QString &remote) {
+        showStatusMessage(i18nc("@info:status %1 is an rclone remote", "Unmounted %1", remote));
+    });
+    return m_rcloneMounts;
+}
+
+void MainWindow::populateCloudStorage()
+{
+    m_cloudStorageMenu->clear();
+    m_cloudStorageMenu->setToolTipsVisible(true);
+    RcloneMounts *mounts = rcloneMounts();
+    if (!m_rcloneListed) {
+        m_cloudStorageMenu->addAction(i18nc("@action:inmenu", "Loading…"))->setEnabled(false);
+    } else if (!m_rcloneError.isEmpty()) {
+        QAction *problem = m_cloudStorageMenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("dialog-warning")), m_rcloneError);
+        problem->setEnabled(false);
+    } else if (m_rcloneRemotes.isEmpty()) {
+        QAction *empty = m_cloudStorageMenu->addAction(i18nc("@action:inmenu", "No rclone remotes configured"));
+        empty->setToolTip(i18nc("@info:tooltip", "Run rclone config in a terminal to add a remote"));
+        empty->setEnabled(false);
+    }
+    for (const Rclone::Remote &remote : std::as_const(m_rcloneRemotes)) {
+        QString name = remote.name;
+        name.replace(QLatin1Char('&'), QStringLiteral("&&"));
+        QString type = remote.type;
+        type.replace(QLatin1Char('&'), QStringLiteral("&&"));
+        QAction *action =
+            m_cloudStorageMenu->addAction(QIcon::fromTheme(QStringLiteral("folder-cloud")),
+                                          type.isEmpty() ? name : i18nc("@action:inmenu %1 is an rclone remote, %2 its type", "%1 (%2)", name, type));
+        action->setCheckable(true);
+        action->setChecked(mounts->isMounted(remote.name));
+        action->setEnabled(!mounts->isStarting(remote.name));
+        action->setToolTip(mounts->isStarting(remote.name)      ? i18nc("@info:tooltip", "Mounting…")
+                               : mounts->isMounted(remote.name) ? i18nc("@info:tooltip", "Mounted; open it in the active pane")
+                                                                : i18nc("@info:tooltip", "Mount it and open it in the active pane"));
+        const QString id = remote.name;
+        connect(action, &QAction::triggered, this, [this, id] {
+            openRcloneRemote(id);
+        });
+    }
+    const QStringList mounted = mounts->mountedRemotes();
+    if (!mounted.isEmpty()) {
+        m_cloudStorageMenu->addSection(i18nc("@title:menu", "Unmount"));
+        for (const QString &remote : mounted) {
+            QString name = remote;
+            name.replace(QLatin1Char('&'), QStringLiteral("&&"));
+            QAction *action = m_cloudStorageMenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("media-eject")), name);
+            action->setToolTip(i18nc("@info:tooltip", "Stop the mount Plasma Opus started"));
+            connect(action, &QAction::triggered, this, [this, remote] {
+                unmountRcloneRemote(remote);
+            });
+        }
+    }
+}
+
+void MainWindow::openRcloneRemote(const QString &remote)
+{
+    m_openAfterRcloneMount = remote;
+    rcloneMounts()->mount(remote);
+}
+
+void MainWindow::unmountRcloneRemote(const QString &remote)
+{
+    const QString path = Rclone::mountPoint(remote);
+    for (Pane *pane : {activePane(), inactivePane()}) {
+        const QUrl url = pane->url();
+        if (url.isLocalFile() && (url.toLocalFile() == path || url.toLocalFile().startsWith(path + QLatin1Char('/')))) {
+            pane->setUrl(QUrl::fromLocalFile(QDir::homePath()));
+        }
+    }
+    rcloneMounts()->unmount(remote);
 }
 
 void MainWindow::verifyChecksumFile()

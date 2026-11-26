@@ -10,6 +10,7 @@
 #include "metadataeditdialog.h"
 #include "officeapps.h"
 #include "previewpanel.h"
+#include "rclone.h"
 #include "remoteprofiles.h"
 #include "tagpanel.h"
 #include "workspacecatalog.h"
@@ -28,6 +29,7 @@
 class ActivityController;
 class KdeConnectClient;
 class MountBackend;
+class RcloneMounts;
 class DropDownWindow;
 class KWinBackend;
 class DiskImageBackend;
@@ -163,6 +165,14 @@ public:
     void openRemoteProfile(const RemoteProfiles::Profile &profile, bool otherPane);
     /// Opens an SSH session for @p profile in the terminal panel.
     void openSshTerminal(const RemoteProfiles::Profile &profile);
+    /// The rclone mounts this window started, created on first use.
+    RcloneMounts *rcloneMounts();
+    /// Fills the Cloud Storage menu from the last list of rclone remotes.
+    void populateCloudStorage();
+    /// Mounts an rclone remote if needed and opens it in the active pane.
+    void openRcloneRemote(const QString &remote);
+    /// Leaves the remote's folder in either pane and stops its mount.
+    void unmountRcloneRemote(const QString &remote);
 
     /// The optional Plasma Opus KWin script and its D-Bus interface.
     KWinIntegration *kwinIntegration() const;
@@ -513,6 +523,12 @@ private:
     DropDownWindow *m_dropDown = nullptr;
     /// The file system the Mount Points menu mounts and then opens.
     QString m_openAfterMount;
+    RcloneMounts *m_rcloneMounts = nullptr;
+    QMenu *m_cloudStorageMenu = nullptr;
+    QList<Rclone::Remote> m_rcloneRemotes;
+    QString m_rcloneError;
+    bool m_rcloneListed = false;
+    QString m_openAfterRcloneMount;
     /// Behaviours an applied Activity association chose for its workspace, until another workspace is chosen.
     std::optional<WorkspaceCatalog::BehaviorSelection> m_activityBehaviors;
     QString m_activityBehaviorsWorkspaceId;
