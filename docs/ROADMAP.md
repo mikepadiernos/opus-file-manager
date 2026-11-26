@@ -1472,6 +1472,24 @@ for some features are recorded in [pending tasks](TODO.md).
         searches alongside KDE's existing **Search For** entries. Explain when
         indexing is off or incomplete and offer a live search of a chosen
         folder instead. (MiXplorer)
+  - [ ] Run indexed searches inside Baloo where possible: translate the M21
+        query, scope and filters into one Baloo query using its AND, OR and
+        property terms and its folder, file-type and date filters, rather than
+        fetching one name or content term from the whole index and filtering
+        up to 200,000 matches in Plasma Opus. Filter in Plasma Opus only for
+        criteria Baloo cannot express, such as depth, exclusions, path
+        selection and Plasma Opus tags, and check results against the full
+        query. Return the same matches as the current search, apart from those
+        previously lost to its limits; report when limits still apply, and use
+        newer Baloo search scopes only when the installed version supports
+        them.
+  - [ ] Share saved searches with KDE: offer to add a saved search that Baloo
+        can represent to KDE's shared places as a search location, so Dolphin
+        and file dialogs can reuse it. Explain which criteria, such as depth,
+        exclusions or Plasma Opus tags, cannot be carried over, and add the
+        entry only after the user confirms. Keep Plasma Opus saved searches as
+        the source of truth, and do not update or remove shared entries
+        without explicit action.
 
 - **M27.04: Terminals and command history**
 
