@@ -1669,6 +1669,16 @@ The M27 desktop integrations have these limits
   is not stopped when Plasma Opus quits. KRunner may need restarting before
   a newly installed plugin appears.
   ([#390](https://github.com/mikepadiernos/plasma-opus/issues/390))
+- **⬇️ Service-menu downloads:** downloading reuses Dolphin's
+  `servicemenu.knsrc` provider and its `servicemenuinstaller`, so it needs
+  Dolphin installed, and what it installs, updates or removes is shared with
+  Dolphin's own download window. Plasma Opus does not review downloaded
+  service menus; they come from the KDE Store and can run any command.
+  Installation errors are shown in the download window, and the tab names
+  only the entries that failed. Service menus installed outside the download
+  window, or by another application while the settings are open, appear only
+  after the window is used again or the settings are reopened.
+  ([#369](https://github.com/mikepadiernos/plasma-opus/issues/369))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -1710,6 +1720,12 @@ The M27 desktop integrations have these limits
     Settings › Search › Plasma Search**. Turn off what should not be offered
     under **Settings › General › Plasma Search**, or the plugin itself in
     System Settings. Add a folder to Favorites to make it searchable.
+  - **Service-menu downloads:** Install Dolphin to enable **Download New
+    Services…**; Plasma Opus does not need to be the default file manager.
+    Read a service menu's description and comments before installing it, and
+    hide any unwanted action under **Settings › Context Menu › Service
+    Menus** instead of removing it if Dolphin should keep it. Reopen the
+    settings to see service menus installed by other means.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -1735,6 +1751,9 @@ The M27 desktop integrations have these limits
   - Let KRunner match saved locations assigned to a workspace, check remote
     Favorites before offering them, and stop the helper after a period
     without searches.
+  - Ship a Plasma Opus provider and installer so downloads work without
+    Dolphin, and watch the service-menu folders to refresh the list while
+    the settings are open.
 
 ## Embedded terminal
 
