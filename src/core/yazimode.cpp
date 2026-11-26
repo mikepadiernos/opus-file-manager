@@ -270,6 +270,32 @@ QString YaziMode::commandId(Command command)
         return QStringLiteral("undo");
     case Command::ToggleHidden:
         return QStringLiteral("toggle-hidden");
+    case Command::Filter:
+        return QStringLiteral("filter");
+    case Command::ClearFilter:
+        return QStringLiteral("clear-filter");
+    case Command::SearchNames:
+        return QStringLiteral("search-names");
+    case Command::SearchContents:
+        return QStringLiteral("search-contents");
+    case Command::SortByName:
+        return QStringLiteral("sort-by-name");
+    case Command::SortBySize:
+        return QStringLiteral("sort-by-size");
+    case Command::SortByModified:
+        return QStringLiteral("sort-by-modified");
+    case Command::SortByType:
+        return QStringLiteral("sort-by-type");
+    case Command::ReverseSort:
+        return QStringLiteral("reverse-sort");
+    case Command::NewTab:
+        return QStringLiteral("new-tab");
+    case Command::PreviousTab:
+        return QStringLiteral("previous-tab");
+    case Command::NextTab:
+        return QStringLiteral("next-tab");
+    case Command::CloseTab:
+        return QStringLiteral("close-tab");
     }
     return {};
 }
@@ -426,6 +452,21 @@ YaziMode::Keymap YaziMode::presetKeymap(Preset preset)
             bind({Qt::Key_M}, Command::MoveToOtherPane),
             bind({Qt::Key_U}, Command::Undo),
             bind({Qt::Key_Period}, Command::ToggleHidden),
+            bind({Qt::Key_Slash}, Command::Filter),
+            bind({Qt::Key_Backslash}, Command::ClearFilter),
+            bind({Qt::Key_S}, Command::SearchNames),
+            bind({Qt::ShiftModifier | Qt::Key_S}, Command::SearchContents),
+            bind({Qt::Key_Comma, Qt::Key_N}, Command::SortByName),
+            bind({Qt::Key_Comma, Qt::Key_S}, Command::SortBySize),
+            bind({Qt::Key_Comma, Qt::Key_M}, Command::SortByModified),
+            bind({Qt::Key_Comma, Qt::Key_E}, Command::SortByType),
+            bind({Qt::Key_Comma, Qt::Key_R}, Command::ReverseSort),
+            bind({Qt::Key_T}, Command::NewTab),
+            bind({Qt::Key_BracketLeft}, Command::PreviousTab),
+            bind({Qt::Key_BracketRight}, Command::NextTab),
+            bind({Qt::Key_G, Qt::ShiftModifier | Qt::Key_T}, Command::PreviousTab),
+            bind({Qt::Key_G, Qt::Key_T}, Command::NextTab),
+            bind({Qt::Key_G, Qt::Key_W}, Command::CloseTab),
         };
     }
     return keymap;
@@ -456,7 +497,14 @@ QList<YaziMode::Conflict> YaziMode::conflicts(const Keymap &keymap)
 
 QKeyCombination YaziMode::normalizedKey(QKeyCombination key)
 {
-    return QKeyCombination(key.keyboardModifiers() & ~(Qt::KeypadModifier | Qt::GroupSwitchModifier), key.key());
+    Qt::KeyboardModifiers modifiers = key.keyboardModifiers() & ~(Qt::KeypadModifier | Qt::GroupSwitchModifier);
+    const int code = int(key.key());
+    const bool punctuation = (code >= Qt::Key_Exclam && code <= Qt::Key_Slash) || (code >= Qt::Key_Colon && code <= Qt::Key_At)
+        || (code >= Qt::Key_BracketLeft && code <= Qt::Key_QuoteLeft) || (code >= Qt::Key_BraceLeft && code <= Qt::Key_AsciiTilde);
+    if (punctuation) {
+        modifiers &= ~Qt::ShiftModifier;
+    }
+    return QKeyCombination(modifiers, key.key());
 }
 
 QString YaziMode::keyText(QKeyCombination key)

@@ -143,10 +143,30 @@ enum class Command {
     MoveToOtherPane,
     Undo,
     ToggleHidden,
+    /// Opens the pane's filter bar and focuses it.
+    Filter,
+    /// Clears the pane's filter and closes the filter bar.
+    ClearFilter,
+    /// Opens the search panel for a file name search in the current folder.
+    SearchNames,
+    /// Opens the search panel for a file contents search in the current folder.
+    SearchContents,
+    SortByName,
+    SortBySize,
+    SortByModified,
+    SortByType,
+    /// Reverses the sort order, keeping the sort column.
+    ReverseSort,
+    /// Opens a tab at the focused folder, or at the current folder when the focused item isn't a folder.
+    NewTab,
+    PreviousTab,
+    NextTab,
+    /// Closes the current tab unless it is the only, a pinned or a locked tab.
+    CloseTab,
 };
 
 /// The last command, for iterating over every command.
-constexpr Command LastCommand = Command::ToggleHidden;
+constexpr Command LastCommand = Command::CloseTab;
 
 /// A stable identifier for @p command, such as "move-down", for settings and documentation.
 QString commandId(Command command);
@@ -195,7 +215,7 @@ enum class Preset {
     /// Arrow keys, Home, End, Page Up and Page Down; Left opens the parent folder and Right or Return the focused item.
     Standard,
     /// The standard keys, plus Vim-style letters, multi-key sequences such as gg and counts such as 5j.
-    /// It also binds Yazi's selection keys and file actions, but never permanent deletion.
+    /// It also binds Yazi's selection keys, file actions, filter, search, sorting and tab keys, but never permanent deletion.
     Vim,
 };
 
@@ -220,7 +240,11 @@ struct Conflict {
 /// The conflicts in @p keymap, in binding order; empty when every binding can be typed.
 QList<Conflict> conflicts(const Keymap &keymap);
 
-/// @p key without the keypad and group-switch modifiers, which don't change what the key means here.
+/**
+ * @p key without the modifiers that don't change what the key means here:
+ * keypad and group switch, and Shift for punctuation such as / or [, which
+ * some keyboard layouts can only type with Shift.
+ */
 QKeyCombination normalizedKey(QKeyCombination key);
 /// How to show @p key to the user: "g" and "G" for letters, as typed, otherwise "Ctrl+D" or "PgDown".
 QString keyText(QKeyCombination key);
