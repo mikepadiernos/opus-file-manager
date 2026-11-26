@@ -1,0 +1,19 @@
+{
+    "KPackageStructure": "KWin/Script",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "Mike Padiernos"
+            }
+        ],
+        "Description": "Window placement, tiled companions, virtual desktops and the drop-down window for Plasma Opus",
+        "Icon": "org.kde.opusfilemanager",
+        "Id": "opusfilemanager",
+        "License": "GPL-3.0-or-later",
+        "Name": "Plasma Opus Window Management",
+        "Version": "1",
+        "Website": "https://github.com/mikepadiernos/plasma-opus"
+    },
+    "X-Plasma-API": "javascript",
+    "X-Plasma-MainScript": "code/main.js"
+}
