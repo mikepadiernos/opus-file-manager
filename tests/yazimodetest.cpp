@@ -796,6 +796,87 @@ private Q_SLOTS:
         QVERIFY(!YaziMode::commandTakesCount(YaziMode::Command::Paste));
     }
 
+    void commandsHaveDistinctTexts()
+    {
+        QStringList texts;
+        for (int i = int(YaziMode::Command::MoveUp); i <= int(YaziMode::LastCommand); ++i) {
+            const auto command = YaziMode::Command(i);
+            const QString text = YaziMode::commandText(command);
+            QVERIFY2(!text.isEmpty(), qPrintable(YaziMode::commandId(command)));
+            QVERIFY2(!texts.contains(text), qPrintable(text));
+            texts.append(text);
+        }
+        QCOMPARE(YaziMode::commandText(YaziMode::Command::MoveDown), QStringLiteral("Move down"));
+        QCOMPARE(YaziMode::commandText(YaziMode::Command::Trash), QStringLiteral("Move the items to the Trash"));
+    }
+
+    void shadowedShortcutsBeginABindingOrACount()
+    {
+        const QList<YaziMode::ActionShortcuts> actions = {
+            {QStringLiteral("open_gallery"), QStringLiteral("Open Gallery"), {QKeySequence(Qt::Key_Space)}},
+            {QStringLiteral("add_to_favorites"), QStringLiteral("Add to Favorites"), {QKeySequence(Qt::ControlModifier | Qt::Key_D)}},
+            {QStringLiteral("reload"), QStringLiteral("Reload"), {QKeySequence(), QKeySequence(Qt::ControlModifier | Qt::Key_R)}},
+            {QStringLiteral("go_up"), QStringLiteral("Up"), {QKeySequence(Qt::Key_Backspace), QKeySequence(Qt::AltModifier | Qt::Key_Up)}},
+            {QStringLiteral("select"), QStringLiteral("Select"), {QKeySequence(Qt::ControlModifier | Qt::Key_Space)}},
+            {QStringLiteral("digits"),
+             QStringLiteral("Digits"),
+             {QKeySequence(Qt::Key_1), QKeySequence(Qt::KeypadModifier | Qt::Key_2), QKeySequence(Qt::Key_0)}},
+            {QStringLiteral("chord"), QStringLiteral("Chord"), {QKeySequence(Qt::Key_G, Qt::Key_X)}},
+            {QStringLiteral("plain"), QStringLiteral("Plain"), {QKeySequence(Qt::Key_Escape), QKeySequence(Qt::Key_W)}},
+            {QStringLiteral("last"), QStringLiteral("Last"), {QKeySequence(Qt::ShiftModifier | Qt::Key_G)}},
+            {QStringLiteral("hidden"), QStringLiteral("Hidden"), {QKeySequence(Qt::ShiftModifier | Qt::Key_Period)}},
+        };
+        // The indexes of the bindings that @p keys of @p keymap begin with.
+        const auto bindingsStartingWith = [](const YaziMode::Keymap &keymap, QKeyCombination key) {
+            QList<int> found;
+            for (int i = 0; i < keymap.bindings.size(); ++i) {
+                if (keymap.bindings.at(i).keys.first() == key) {
+                    found.append(i);
+                }
+            }
+            return found;
+        };
+
+        const YaziMode::Keymap standard = YaziMode::presetKeymap(YaziMode::Preset::Standard);
+        const QList<int> controlSpace = bindingsStartingWith(standard, Qt::ControlModifier | Qt::Key_Space);
+        QCOMPARE(controlSpace.size(), 1);
+        QCOMPARE(YaziMode::shadowedShortcuts(standard, actions),
+                 (QList<YaziMode::ShadowedShortcut>{
+                     {QStringLiteral("select"), QStringLiteral("Select"), QKeySequence(Qt::ControlModifier | Qt::Key_Space), controlSpace}}));
+
+        const YaziMode::Keymap vim = YaziMode::presetKeymap(YaziMode::Preset::Vim);
+        const QList<int> g = bindingsStartingWith(vim, QKeyCombination(Qt::Key_G));
+        // gg, gh, gp, gc, gv, gT, gt and gw.
+        QCOMPARE(g.size(), 8);
+        const QList<YaziMode::ShadowedShortcut> expected = {
+            {QStringLiteral("open_gallery"), QStringLiteral("Open Gallery"), QKeySequence(Qt::Key_Space), bindingsStartingWith(vim, Qt::Key_Space)},
+            {QStringLiteral("add_to_favorites"),
+             QStringLiteral("Add to Favorites"),
+             QKeySequence(Qt::ControlModifier | Qt::Key_D),
+             bindingsStartingWith(vim, Qt::ControlModifier | Qt::Key_D)},
+            {QStringLiteral("select"), QStringLiteral("Select"), QKeySequence(Qt::ControlModifier | Qt::Key_Space), controlSpace},
+            // Digits from 1 begin a count, whether typed on the keypad or not; 0 only continues one.
+            {QStringLiteral("digits"), QStringLiteral("Digits"), QKeySequence(Qt::Key_1), {}},
+            {QStringLiteral("digits"), QStringLiteral("Digits"), QKeySequence(Qt::KeypadModifier | Qt::Key_2), {}},
+            // Only the first key of a shortcut matters: g begins sequences, so g, x never fires.
+            {QStringLiteral("chord"), QStringLiteral("Chord"), QKeySequence(Qt::Key_G, Qt::Key_X), g},
+            {QStringLiteral("last"),
+             QStringLiteral("Last"),
+             QKeySequence(Qt::ShiftModifier | Qt::Key_G),
+             bindingsStartingWith(vim, Qt::ShiftModifier | Qt::Key_G)},
+            // Shift doesn't change punctuation.
+            {QStringLiteral("hidden"), QStringLiteral("Hidden"), QKeySequence(Qt::ShiftModifier | Qt::Key_Period), bindingsStartingWith(vim, Qt::Key_Period)},
+        };
+        const QList<YaziMode::ShadowedShortcut> shadowed = YaziMode::shadowedShortcuts(vim, actions);
+        QCOMPARE(shadowed, expected);
+        for (const YaziMode::ShadowedShortcut &shortcut : shadowed) {
+            if (shortcut.name != QLatin1String("digits")) {
+                QVERIFY2(!shortcut.bindings.isEmpty(), qPrintable(shortcut.shortcut.toString()));
+            }
+        }
+        QVERIFY(YaziMode::shadowedShortcuts(vim, {}).isEmpty());
+    }
+
     void fileCommandsRunWindowActions()
     {
         for (int i = int(YaziMode::Command::MoveUp); i <= int(YaziMode::LastCommand); ++i) {

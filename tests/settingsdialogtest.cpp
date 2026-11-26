@@ -39,8 +39,10 @@
 #include <KPageWidget>
 #include <KPluginMetaData>
 #include <KSharedConfig>
+#include <KShortcutsDialog>
 #include <KToolBar>
 #include <KUrlRequester>
+#include <KXMLGUIFactory>
 
 #include <QAbstractItemView>
 #include <QAction>
@@ -1993,6 +1995,254 @@ private Q_SLOTS:
         QCOMPARE(Settings::yaziColumnRatios(), QList<int>({1, 3, 4}));
     }
 
+    void yaziKeyboardSettings()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        Settings::self()->setDefaults();
+        Settings::self()->save();
+        KFilePlacesModel places;
+        // The commands that the tree lists, by identifier, with their keys.
+        const auto rowsOf = [](QTreeWidget *tree) {
+            QMap<QString, QString> rows;
+            for (int i = 0; i < tree->topLevelItemCount(); ++i) {
+                rows.insert(tree->topLevelItem(i)->data(0, Qt::UserRole).toString(), tree->topLevelItem(i)->text(0));
+            }
+            return rows;
+        };
+        {
+            SettingsDialog dialog(&places, nullptr);
+            int asked = 0;
+            dialog.setYaziKeyConfirmation([&asked](const QString &, const QStringList &) {
+                ++asked;
+                return false;
+            });
+
+            // Keyboard is the Yazi Mode page's third tab.
+            auto *page = dialog.findChild<QWidget *>(QStringLiteral("yaziKeyboardPage"));
+            QVERIFY(page);
+            auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+            QVERIFY(tabs);
+            QCOMPARE(tabs->indexOf(page), 2);
+            QCOMPARE(tabs->tabText(2), QStringLiteral("Keyboard"));
+            QCOMPARE(tabs->tabText(1), QStringLiteral("Columns"));
+
+            QCOMPARE(dialog.findChildren<QWidget *>(QStringLiteral("kcfg_YaziKeyPreset")).size(), 1);
+            auto *preset = page->findChild<QComboBox *>(QStringLiteral("kcfg_YaziKeyPreset"));
+            auto *bindings = page->findChild<QTreeWidget *>(QStringLiteral("yaziKeyBindings"));
+            auto *counts = page->findChild<QLabel *>(QStringLiteral("yaziKeyCountsNotice"));
+            auto *summary = page->findChild<QLabel *>(QStringLiteral("yaziKeyConflictSummary"));
+            auto *conflicts = page->findChild<QListWidget *>(QStringLiteral("yaziKeyConflicts"));
+            auto *configure = page->findChild<QPushButton *>(QStringLiteral("yaziConfigureShortcuts"));
+            QVERIFY(preset && bindings && counts && summary && conflicts && configure);
+            QCOMPARE(preset->count(), 2);
+            QCOMPARE(preset->itemText(Settings::EnumYaziKeyPreset::Standard), QStringLiteral("Standard keys"));
+            QCOMPARE(preset->itemText(Settings::EnumYaziKeyPreset::Vim), QStringLiteral("Yazi-style keys (Vim-style movement and multi-key actions)"));
+            QCOMPARE(preset->currentIndex(), int(Settings::EnumYaziKeyPreset::Standard));
+            for (const char *name : {"yaziKeyPresetNotice", "yaziKeyConflictsNotice", "yaziKeyboardAccessibilityNotice"}) {
+                auto *notice = page->findChild<QLabel *>(QLatin1String(name));
+                QVERIFY2(notice && notice->wordWrap(), name);
+            }
+            const QString accessibility = page->findChild<QLabel *>(QStringLiteral("yaziKeyboardAccessibilityNotice"))->text();
+            for (const char *part : {"terminal", "Tab", "Escape", "search and filter fields"}) {
+                QVERIFY2(accessibility.contains(QLatin1String(part)), part);
+            }
+            // Without a window there are no window shortcuts to configure or shadow.
+            QVERIFY(!configure->isEnabled());
+
+            // The standard keys, one row per command.
+            QMap<QString, QString> rows = rowsOf(bindings);
+            QCOMPARE(bindings->columnCount(), 2);
+            QCOMPARE(rows.size(), bindings->topLevelItemCount());
+            QCOMPARE(rows.value(QStringLiteral("move-down")), QKeySequence(Qt::Key_Down).toString(QKeySequence::NativeText));
+            QVERIFY(!rows.contains(QStringLiteral("trash")));
+            QCOMPARE(bindings->findItems(QStringLiteral("Move down"), Qt::MatchExactly, 1).size(), 1);
+            QVERIFY(counts->isHidden());
+            QVERIFY(summary->text().startsWith(QStringLiteral("No conflicts")));
+            QCOMPARE(conflicts->count(), 0);
+            QVERIFY(conflicts->isHidden());
+
+            // The Vim-style keys add letters, sequences and counts.
+            choosePreset(preset, Settings::EnumYaziKeyPreset::Vim);
+            rows = rowsOf(bindings);
+            QCOMPARE(rows.value(QStringLiteral("move-down")), QKeySequence(Qt::Key_Down).toString(QKeySequence::NativeText) + QStringLiteral(", j"));
+            QCOMPARE(rows.value(QStringLiteral("trash")), QStringLiteral("dd"));
+            QCOMPARE(rows.value(QStringLiteral("move-first")), QKeySequence(Qt::Key_Home).toString(QKeySequence::NativeText) + QStringLiteral(", gg"));
+            QVERIFY(!counts->isHidden());
+            QVERIFY(summary->text().startsWith(QStringLiteral("No conflicts")));
+
+            // Without conflicts the preset applies without asking.
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+            QCOMPARE(asked, 0);
+            QCOMPARE(Settings::yaziKeyPreset(), int(Settings::EnumYaziKeyPreset::Vim));
+
+            // The View menu's preset, saved while the dialog is open, is shown unless changed here.
+            Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Standard);
+            Settings::self()->save();
+            QCOMPARE(preset->currentIndex(), int(Settings::EnumYaziKeyPreset::Standard));
+            QVERIFY(counts->isHidden());
+            choosePreset(preset, Settings::EnumYaziKeyPreset::Vim);
+            Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Standard);
+            Settings::self()->save();
+            QCOMPARE(preset->currentIndex(), int(Settings::EnumYaziKeyPreset::Vim));
+
+            // Defaults chooses the standard keys.
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::RestoreDefaults)->isEnabled());
+            dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+            QCOMPARE(preset->currentIndex(), int(Settings::EnumYaziKeyPreset::Standard));
+        }
+    }
+
+    void yaziKeyPresetConflictsAskBeforeApplying()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        Settings::self()->setDefaults();
+        Settings::self()->save();
+        MainWindow window;
+        window.show();
+        QAction *vimKeys = window.actionCollection()->action(QStringLiteral("toggle_yazi_vim_keys"));
+        QAction *gallery = window.actionCollection()->action(QStringLiteral("open_gallery"));
+        QVERIFY(vimKeys && gallery);
+        QVERIFY(!vimKeys->isChecked());
+        QCOMPARE(gallery->shortcut(), QKeySequence(Qt::Key_Space));
+        window.actionCollection()->action(QStringLiteral("options_configure"))->trigger();
+        QPointer<SettingsDialog> dialog = window.findChild<SettingsDialog *>();
+        QVERIFY(dialog);
+        int asked = 0;
+        bool answer = false;
+        QString question;
+        QStringList listed;
+        dialog->setYaziKeyConfirmation([&](const QString &text, const QStringList &conflicts) {
+            ++asked;
+            question = text;
+            listed = conflicts;
+            return answer;
+        });
+        auto *preset = dialog->findChild<QComboBox *>(QStringLiteral("kcfg_YaziKeyPreset"));
+        auto *summary = dialog->findChild<QLabel *>(QStringLiteral("yaziKeyConflictSummary"));
+        auto *conflicts = dialog->findChild<QListWidget *>(QStringLiteral("yaziKeyConflicts"));
+        auto *configure = dialog->findChild<QPushButton *>(QStringLiteral("yaziConfigureShortcuts"));
+        QVERIFY(preset && summary && conflicts && configure);
+        QVERIFY(configure->isEnabled());
+        const auto shown = [conflicts] {
+            QStringList texts;
+            for (int i = 0; i < conflicts->count(); ++i) {
+                texts.append(conflicts->item(i)->text());
+            }
+            return texts;
+        };
+        const auto mentions = [](const QStringList &texts, const QString &part) {
+            return std::any_of(texts.cbegin(), texts.cend(), [&part](const QString &text) {
+                return text.contains(part);
+            });
+        };
+
+        // The standard keys shadow none of the window's default shortcuts.
+        QCOMPARE(conflicts->count(), 0);
+        QVERIFY(summary->text().startsWith(QStringLiteral("No conflicts")));
+
+        // The Vim-style keys take Space from Open Gallery and Ctrl+D from Add to Favorites.
+        choosePreset(preset, Settings::EnumYaziKeyPreset::Vim);
+        QStringList vimConflicts = shown();
+        QVERIFY(!vimConflicts.isEmpty());
+        QVERIFY2(mentions(vimConflicts, QStringLiteral("“Open Gallery”")), qPrintable(vimConflicts.join(QLatin1Char('\n'))));
+        QVERIFY2(mentions(vimConflicts, QStringLiteral("“Add to Favorites”")), qPrintable(vimConflicts.join(QLatin1Char('\n'))));
+        QVERIFY(mentions(vimConflicts, QKeySequence(Qt::Key_Space).toString(QKeySequence::NativeText)));
+        QVERIFY(!conflicts->isHidden());
+        QVERIFY(summary->text().contains(QString::number(vimConflicts.size())));
+
+        // A shortcut changed in Configure Keyboard Shortcuts no longer conflicts once saved.
+        gallery->setShortcut(QKeySequence(Qt::Key_F12));
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QVERIFY(!mentions(shown(), QStringLiteral("“Open Gallery”")));
+        QCOMPARE(shown().size(), vimConflicts.size() - 1);
+        gallery->setShortcut(QKeySequence(Qt::Key_Space));
+        Q_EMIT window.guiFactory()->shortcutsSaved();
+        QCOMPARE(shown(), vimConflicts);
+
+        // Declining keeps the standard keys and Preferences open.
+        QTRY_VERIFY(dialog->button(QDialogButtonBox::Apply)->isEnabled());
+        dialog->button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(asked, 1);
+        QCOMPARE(listed, vimConflicts);
+        QVERIFY(question.contains(QStringLiteral("Yazi-style keys")));
+        QCOMPARE(Settings::yaziKeyPreset(), int(Settings::EnumYaziKeyPreset::Standard));
+        QCOMPARE(preset->currentIndex(), int(Settings::EnumYaziKeyPreset::Standard));
+        QCOMPARE(conflicts->count(), 0);
+        QVERIFY(!vimKeys->isChecked());
+        QVERIFY(!dialog->button(QDialogButtonBox::Apply)->isEnabled());
+
+        choosePreset(preset, Settings::EnumYaziKeyPreset::Vim);
+        QVERIFY(dialog->button(QDialogButtonBox::Apply)->isEnabled());
+        dialog->button(QDialogButtonBox::Ok)->click();
+        QCOMPARE(asked, 2);
+        QCOMPARE(Settings::yaziKeyPreset(), int(Settings::EnumYaziKeyPreset::Standard));
+        QVERIFY(dialog && dialog->isVisible());
+
+        // Accepting on OK asks once, applies the preset and updates the View menu.
+        answer = true;
+        choosePreset(preset, Settings::EnumYaziKeyPreset::Vim);
+        dialog->button(QDialogButtonBox::Ok)->click();
+        QCOMPARE(asked, 3);
+        QCOMPARE(Settings::yaziKeyPreset(), int(Settings::EnumYaziKeyPreset::Vim));
+        QVERIFY(vimKeys->isChecked());
+        QTRY_VERIFY(!dialog);
+
+        // The View menu switches the preset shown in a reopened dialog, which doesn't ask again.
+        window.actionCollection()->action(QStringLiteral("options_configure"))->trigger();
+        dialog = window.findChild<SettingsDialog *>();
+        QVERIFY(dialog);
+        dialog->setYaziKeyConfirmation([&asked](const QString &, const QStringList &) {
+            ++asked;
+            return true;
+        });
+        preset = dialog->findChild<QComboBox *>(QStringLiteral("kcfg_YaziKeyPreset"));
+        QCOMPARE(preset->currentIndex(), int(Settings::EnumYaziKeyPreset::Vim));
+        QVERIFY(!dialog->button(QDialogButtonBox::Apply)->isEnabled());
+        vimKeys->trigger();
+        QCOMPARE(Settings::yaziKeyPreset(), int(Settings::EnumYaziKeyPreset::Standard));
+        QCOMPARE(preset->currentIndex(), int(Settings::EnumYaziKeyPreset::Standard));
+        QVERIFY(!dialog->button(QDialogButtonBox::Apply)->isEnabled());
+        vimKeys->trigger();
+        QCOMPARE(preset->currentIndex(), int(Settings::EnumYaziKeyPreset::Vim));
+        QVERIFY(!dialog->button(QDialogButtonBox::Apply)->isEnabled());
+        dialog->button(QDialogButtonBox::Ok)->click();
+        QCOMPARE(asked, 3);
+        QTRY_VERIFY(!dialog);
+    }
+
+    void yaziKeyboardOpensTheShortcutsEditor()
+    {
+        MainWindow window;
+        SettingsDialog dialog(window.findChild<KFilePlacesModel *>(), &window);
+        auto *configure = dialog.findChild<QPushButton *>(QStringLiteral("yaziConfigureShortcuts"));
+        QVERIFY(configure && configure->isEnabled());
+
+        window.show();
+        dialog.show();
+        bool editorOpened = false;
+        QTimer closeEditor(&window);
+        closeEditor.setInterval(10);
+        connect(&closeEditor, &QTimer::timeout, &window, [&] {
+            if (auto *editor = window.findChild<KShortcutsDialog *>()) {
+                editorOpened = true;
+                closeEditor.stop();
+                editor->reject();
+            }
+        });
+        closeEditor.start();
+        QTest::mouseClick(configure, Qt::LeftButton);
+        QTRY_VERIFY(editorOpened);
+        // Preferences stays open to show the updated conflicts.
+        QVERIFY(dialog.isVisible());
+    }
+
     void workspaceIndicatorOptionsPersist()
     {
         KFilePlacesModel places;
@@ -2709,6 +2959,14 @@ private Q_SLOTS:
         config->deleteGroup(QStringLiteral("Confirmations"));
         config->deleteGroup(QStringLiteral("PreviewSettings"));
         config->sync();
+    }
+
+private:
+    /// Chooses @p index in @p preset as the user does, which KConfigDialogManager notices.
+    static void choosePreset(QComboBox *preset, int index)
+    {
+        preset->setCurrentIndex(index);
+        Q_EMIT preset->activated(index);
     }
 };
 
