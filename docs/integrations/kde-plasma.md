@@ -17,8 +17,8 @@ planned for [M27](../ROADMAP.md#m27-integrations) and
 > [!NOTE]
 > **Implemented:** the KDE foundations under
 > [Existing foundations](#existing-foundations), from merged milestones
-> M01–M26, and default file-manager registration, the file-manager service and
-> Plasma language preferences from M27.01.
+> M01–M26, and default file-manager registration, the file-manager service,
+> Plasma language preferences and Plasma job reporting from M27.01.
 > **Planned:** everything under [Planned features](#planned-features) and
 > [KWin scripts](#kwin-scripts). The [roadmap](../ROADMAP.md) is authoritative
 > for status.
@@ -84,6 +84,15 @@ behaves like the rest of the desktop and follows the user's choices.
   no Plasma Opus catalogue matches, and opens Plasma's Region & Language
   settings on request. Plasma Opus never changes Plasma's settings itself.
   ([#437](https://github.com/mikepadiernos/plasma-opus/issues/437))
+- **Notifications and jobs:** long-running Plasma Opus operations that KIO
+  does not already report appear in Plasma's job progress, with a title,
+  progress, cancellation and a failure notification: checksum creation and
+  verification, folder synchronization, duplicate finding, file splitting,
+  batch renaming, batch image conversion and tag-library refreshes. The job
+  shows file and folder names, never full paths; error details stay in the
+  Plasma Opus dialog. File copies, moves and deletions keep using KIO's own
+  reporting.
+  ([#388](https://github.com/mikepadiernos/plasma-opus/issues/388))
 
 ## Planned features
 
@@ -99,10 +108,7 @@ them.
   per-Activity choices without changing Activities or replacing unsaved state
   automatically. Handle missing services and folders.
   ([#387](https://github.com/mikepadiernos/plasma-opus/issues/387))
-- **Notifications and jobs:** Surface Plasma Opus-owned operation progress and
-  failures through KDE, reusing KIO reporting rather than duplicating
-  notifications. Avoid exposing sensitive paths unnecessarily.
-  ([#388](https://github.com/mikepadiernos/plasma-opus/issues/388))
+
 - **KDE Connect:** Share explicitly selected files with a paired device,
   reporting offline devices and transfer failures. Do not pair devices or send
   automatically.
