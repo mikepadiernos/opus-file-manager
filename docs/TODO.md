@@ -23,7 +23,8 @@ Board statuses were last confirmed on 2026-11-26.
 | [mpv integration](#mpv-integration-563)                             | [M27](ROADMAP.md#m27-integrations)                                             | [#563]         | ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square)                                                                           |
 | [Markdown editor and backlinks](#markdown-editor-and-backlinks-564) | [M27](ROADMAP.md#m27-integrations)                                             | [#564]         | ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square)                                                                           |
 | [Workspace vault editing](#workspace-vault-editing-565)             | [M27](ROADMAP.md#m27-integrations), [M28](ROADMAP.md#m28-integration-settings) | [#565], [#566] | ![Defined](https://img.shields.io/badge/Defined-6e7781?style=flat-square) ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square) |
-| [System file chooser on Plasma](#system-file-chooser-on-plasma-286) | [M27](ROADMAP.md#m27-integrations)                                             | [#286]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                             |
+| [System file chooser on Plasma](#system-file-chooser-on-plasma-286) | [M27](ROADMAP.md#m27-integrations)                                             | [#286]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
+| [Mount manager on Plasma](#mount-manager-on-plasma-703)             | [M27](ROADMAP.md#m27-integrations)                                             | [#703]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                             |
 
 ## mpv integration (#563)
 
@@ -99,7 +100,7 @@ Board statuses were last confirmed on 2026-11-26.
 ## System file chooser on Plasma (#286)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#286]
-  (Review).
+  (Completed).
 - **Blocker:** The development container has no Plasma session, no
   xdg-desktop-portal frontend and no KWin, so the portal routing, window
   parenting and the restart of xdg-desktop-portal cannot be tried there.
@@ -124,6 +125,31 @@ Board statuses were last confirmed on 2026-11-26.
    fallback. Record any differences in [CAVEATS](CAVEATS.md), then remove
    this entry and its roadmap link.
 
+## Mount manager on Plasma (#703)
+
+- **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#703]
+  (Review).
+- **Blocker:** The development container has no Plasma session, no UDisks2
+  daemon, no polkit agent and no removable or optical drives, so Solid's
+  mount, unmount and eject requests and their authorization prompts cannot
+  be tried there.
+- **Confirmed state:** The mount-table parsing, the **Mount Manager** dialog
+  and the **Mount Points** menu are implemented and pass their tests in the
+  container against a fake backend. This verification does not block the
+  feature; it is recorded as a caveat under
+  [Desktop integration](CAVEATS.md#desktop-integration).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session, open **File › Mount Manager…** with a USB drive, an
+   optical disc, a network or FUSE mount and an fstab entry marked `user`.
+2. Mount, unmount and eject each one, cancel and deny an authorization
+   prompt, and unmount a drive with a file open in another application.
+   Check that each result is reported and that the list updates.
+3. Check **Go › Mount Points** on the toolbar opens or mounts each entry.
+   Record any differences in [CAVEATS](CAVEATS.md), then remove this entry
+   and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -131,3 +157,4 @@ Board statuses were last confirmed on 2026-11-26.
 [#564]: https://github.com/mikepadiernos/plasma-opus/issues/564
 [#565]: https://github.com/mikepadiernos/plasma-opus/issues/565
 [#566]: https://github.com/mikepadiernos/plasma-opus/issues/566
+[#703]: https://github.com/mikepadiernos/plasma-opus/issues/703
