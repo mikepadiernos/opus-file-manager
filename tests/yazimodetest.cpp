@@ -68,6 +68,40 @@ private Q_SLOTS:
         QVERIFY(!enabled);
     }
 
+    void startupMode_data()
+    {
+        QTest::addColumn<bool>("defaultMode");
+        QTest::addColumn<bool>("restore");
+        QTest::addColumn<int>("saved");
+        QTest::addColumn<bool>("expected");
+        // saved: -1 when no session is restored for the pane, otherwise the saved mode.
+        QTest::newRow("restores a saved on") << false << true << 1 << true;
+        QTest::newRow("restores a saved off over an on default") << true << true << 0 << false;
+        QTest::newRow("default off without a session") << false << true << -1 << false;
+        QTest::newRow("default on without a session") << true << true << -1 << true;
+        QTest::newRow("not restoring ignores a saved on") << false << false << 1 << false;
+        QTest::newRow("not restoring uses an on default") << true << false << 0 << true;
+        QTest::newRow("not restoring without a session") << true << false << -1 << true;
+    }
+
+    void startupMode()
+    {
+        QFETCH(bool, defaultMode);
+        QFETCH(bool, restore);
+        QFETCH(int, saved);
+        QFETCH(bool, expected);
+        const std::optional<bool> session = saved < 0 ? std::nullopt : std::optional<bool>(saved == 1);
+        QCOMPARE(YaziMode::startupMode({defaultMode, restore}, session), expected);
+    }
+
+    void activationDefaultsKeepTheModeOff()
+    {
+        const YaziMode::Activation activation;
+        QVERIFY(!activation.defaultMode);
+        QVERIFY(activation.restore);
+        QVERIFY(!YaziMode::startupMode(activation, std::nullopt));
+    }
+
     void invalidWorkspaceEntryIsRejected_data()
     {
         QTest::addColumn<QJsonValue>("value");

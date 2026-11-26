@@ -51,6 +51,7 @@
 #include <QDockWidget>
 #include <QFile>
 #include <QFileDialog>
+#include <QGroupBox>
 #include <QInputDialog>
 #include <QLabel>
 #include <QLineEdit>
@@ -99,7 +100,8 @@ private Q_SLOTS:
                                      QStringLiteral("WorkspaceSettings"),
                                      QStringLiteral("ContextMenu"),
                                      QStringLiteral("Tagging"),
-                                     QStringLiteral("Branding")}) {
+                                     QStringLiteral("Branding"),
+                                     QStringLiteral("YaziMode")}) {
             KSharedConfig::openConfig()->deleteGroup(group);
         }
         KSharedConfig::openConfig(QStringLiteral("kiorc"), KConfig::NoGlobals)->deleteGroup(QStringLiteral("Confirmations"));
@@ -1783,6 +1785,71 @@ private Q_SLOTS:
         QVERIFY(!Settings::workspaceDefaultYaziMode());
         // New workspaces take the default.
         QVERIFY(!WorkspaceRestore::defaultBehaviorSelection().yaziMode.value_or(true));
+    }
+
+    void yaziActivationSettings()
+    {
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+
+            // The Yazi Mode page follows the View page, with Activation as its first tab.
+            auto *pages = dialog.findChild<KPageWidget *>();
+            QVERIFY(pages);
+            QStringList titles;
+            for (int row = 0; row < pages->model()->rowCount(); ++row) {
+                titles.append(pages->model()->index(row, 0).data(Qt::DisplayRole).toString());
+            }
+            QVERIFY(titles.contains(QStringLiteral("Yazi Mode")));
+            QCOMPARE(titles.indexOf(QStringLiteral("Yazi Mode")), titles.indexOf(QStringLiteral("View")) + 1);
+            auto *page = dialog.findChild<QWidget *>(QStringLiteral("yaziActivationPage"));
+            QVERIFY(page);
+            auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+            QVERIFY(tabs);
+            QCOMPARE(tabs->indexOf(page), 0);
+            QCOMPARE(tabs->tabText(0), QStringLiteral("Activation"));
+
+            auto *leftDefault = page->findChild<QCheckBox *>(QStringLiteral("kcfg_YaziLeftPaneDefault"));
+            auto *rightDefault = page->findChild<QCheckBox *>(QStringLiteral("kcfg_YaziRightPaneDefault"));
+            auto *leftRestore = page->findChild<QCheckBox *>(QStringLiteral("kcfg_YaziLeftPaneRestore"));
+            auto *rightRestore = page->findChild<QCheckBox *>(QStringLiteral("kcfg_YaziRightPaneRestore"));
+            auto *notice = page->findChild<QLabel *>(QStringLiteral("yaziActivationNotice"));
+            QVERIFY(leftDefault && rightDefault && leftRestore && rightRestore && notice);
+            QVERIFY(notice->wordWrap());
+            QVERIFY(notice->text().contains(QStringLiteral("workspace")));
+            for (QCheckBox *check : {leftDefault, leftRestore}) {
+                auto *group = qobject_cast<QGroupBox *>(check->parentWidget());
+                QVERIFY(group);
+                QCOMPARE(group->title(), QStringLiteral("First Pane"));
+            }
+            for (QCheckBox *check : {rightDefault, rightRestore}) {
+                auto *group = qobject_cast<QGroupBox *>(check->parentWidget());
+                QVERIFY(group);
+                QCOMPARE(group->title(), QStringLiteral("Second Pane"));
+            }
+
+            // The mode is off by default, and the last session's mode is restored.
+            QVERIFY(!leftDefault->isChecked());
+            QVERIFY(!rightDefault->isChecked());
+            QVERIFY(leftRestore->isChecked());
+            QVERIFY(rightRestore->isChecked());
+
+            leftDefault->setChecked(true);
+            rightRestore->setChecked(false);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        QVERIFY(Settings::yaziLeftPaneDefault());
+        QVERIFY(!Settings::yaziRightPaneDefault());
+        QVERIFY(Settings::yaziLeftPaneRestore());
+        QVERIFY(!Settings::yaziRightPaneRestore());
+
+        SettingsDialog reopened(&places, nullptr);
+        QVERIFY(reopened.findChild<QCheckBox *>(QStringLiteral("kcfg_YaziLeftPaneDefault"))->isChecked());
+        QVERIFY(!reopened.findChild<QCheckBox *>(QStringLiteral("kcfg_YaziRightPaneRestore"))->isChecked());
     }
 
     void workspaceIndicatorOptionsPersist()

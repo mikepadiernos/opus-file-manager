@@ -2,6 +2,8 @@
 
 #include "startup.h"
 
+#include <QScopeGuard>
+#include <QStandardPaths>
 #include <QTest>
 
 using Mode = Settings::EnumStartupMode;
@@ -34,6 +36,11 @@ private:
     }
 
 private Q_SLOTS:
+    void initTestCase()
+    {
+        QStandardPaths::setTestModeEnabled(true);
+    }
+
     void restoreSessionKeepsSavedTabs()
     {
         const WindowSession session = Startup::resolve(saved(), options(Mode::RestoreSession));
@@ -93,6 +100,80 @@ private Q_SLOTS:
         WindowSession dual = saved();
         dual.dual = true;
         QVERIFY(!Startup::resolve(dual, options(Mode::HomeFolder, Dual::Never)).dual);
+    }
+
+    void restoredSessionKeepsEachPaneYaziMode()
+    {
+        WindowSession session = saved();
+        session.right.yaziMode = true;
+        session.right.yaziPreview = 0;
+        const WindowSession resolved = Startup::resolve(session, options(Mode::RestoreSession));
+        QVERIFY(!resolved.left.yaziMode);
+        QVERIFY(resolved.right.yaziMode);
+        QCOMPARE(resolved.right.yaziPreview, 0);
+
+        // A restored choice wins over the default.
+        StartupOptions defaults = options(Mode::RestoreSession);
+        defaults.leftYazi.defaultMode = true;
+        QVERIFY(!Startup::resolve(session, defaults).left.yaziMode);
+    }
+
+    void notRestoringUsesEachPaneDefault()
+    {
+        WindowSession session = saved();
+        session.left.yaziMode = true;
+        session.right.yaziMode = true;
+        session.right.yaziParentColumn = 0;
+        StartupOptions start = options(Mode::RestoreSession);
+        start.leftYazi = {true, false};
+        start.rightYazi = {false, false};
+        const WindowSession resolved = Startup::resolve(session, start);
+        QVERIFY(resolved.left.yaziMode);
+        QVERIFY(!resolved.right.yaziMode);
+        // Only the mode changes; tabs and the other Yazi choices are restored.
+        QCOMPARE(resolved.left.tabs, saved().left.tabs);
+        QCOMPARE(resolved.left.currentTab, 1);
+        QCOMPARE(resolved.right.yaziParentColumn, 0);
+    }
+
+    void panesWithoutASessionUseTheirDefault_data()
+    {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<bool>("empty");
+        QTest::newRow("first start") << int(Mode::RestoreSession) << true;
+        QTest::newRow("home folder") << int(Mode::HomeFolder) << false;
+        QTest::newRow("fixed folders") << int(Mode::FixedFolders) << false;
+    }
+
+    void panesWithoutASessionUseTheirDefault()
+    {
+        QFETCH(int, mode);
+        QFETCH(bool, empty);
+        WindowSession session = empty ? WindowSession() : saved();
+        session.left.yaziMode = !empty;
+        session.right.yaziMode = !empty;
+        StartupOptions start = options(static_cast<Mode::type>(mode));
+        QVERIFY(!Startup::resolve(session, start).left.yaziMode);
+        QVERIFY(!Startup::resolve(session, start).right.yaziMode);
+        start.rightYazi.defaultMode = true;
+        QVERIFY(!Startup::resolve(session, start).left.yaziMode);
+        QVERIFY(Startup::resolve(session, start).right.yaziMode);
+    }
+
+    void optionsFollowTheSettings()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+        });
+        Settings::self()->setDefaults();
+        StartupOptions start = Startup::fromSettings();
+        QCOMPARE(start.leftYazi, YaziMode::Activation({false, true}));
+        QCOMPARE(start.rightYazi, YaziMode::Activation({false, true}));
+        Settings::setYaziLeftPaneRestore(false);
+        Settings::setYaziRightPaneDefault(true);
+        start = Startup::fromSettings();
+        QCOMPARE(start.leftYazi, YaziMode::Activation({false, false}));
+        QCOMPARE(start.rightYazi, YaziMode::Activation({true, true}));
     }
 };
 

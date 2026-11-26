@@ -1299,6 +1299,7 @@ private Q_SLOTS:
                               QStringLiteral("Themes"),
                               QStringLiteral("Branding"),
                               QStringLiteral("View"),
+                              QStringLiteral("Yazi Mode"),
                               QStringLiteral("Context Menu"),
                               QStringLiteral("Archives"),
                               QStringLiteral("Files"),
@@ -1383,6 +1384,12 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("ShowFilePins")), QStringLiteral("Metadata"));
         QCOMPARE(tabOf(QStringLiteral("ShowSizeColumn")), QStringLiteral("Details"));
         QCOMPARE(tabOf(QStringLiteral("DragFromAnywhere")), QStringLiteral("Details"));
+        for (const QString &entry : {QStringLiteral("YaziLeftPaneDefault"),
+                                     QStringLiteral("YaziRightPaneDefault"),
+                                     QStringLiteral("YaziLeftPaneRestore"),
+                                     QStringLiteral("YaziRightPaneRestore")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("Activation"));
+        }
         QCOMPARE(tabOf(QStringLiteral("ShowOpenInNewTab")), QStringLiteral("Actions"));
         QCOMPARE(tabOf(QStringLiteral("ShowCopyMoveToMenus")), QStringLiteral("Actions"));
         QCOMPARE(tabOf(QStringLiteral("DetailsDensity")), QStringLiteral("Details"));

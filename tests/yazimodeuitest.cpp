@@ -287,6 +287,10 @@ private Q_SLOTS:
         Settings::setYaziKeyPreset(Settings::EnumYaziKeyPreset::Standard);
         Settings::setConfirmClosingMultipleTabs(false);
         Settings::setStartupMode(Settings::EnumStartupMode::RestoreSession);
+        Settings::setYaziLeftPaneDefault(false);
+        Settings::setYaziRightPaneDefault(false);
+        Settings::setYaziLeftPaneRestore(true);
+        Settings::setYaziRightPaneRestore(true);
         KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Session"));
         KSharedConfig::openStateConfig()->sync();
     }
@@ -1735,6 +1739,85 @@ private Q_SLOTS:
             QVERIFY(state.yaziColumnRatios.isEmpty());
         }
         QVERIFY(!started.actionCollection()->action(QStringLiteral("toggle_yazi_mode"))->isChecked());
+    }
+
+    void activationSettingsChooseTheStartupMode()
+    {
+        {
+            MainWindow window;
+            window.openUrls({m_sub, m_b});
+            QCOMPARE(stripped(window.activePane()->url()), m_sub);
+            window.inactivePane()->setYaziMode(true);
+            window.inactivePane()->setYaziParentColumn(false);
+            window.show();
+            QVERIFY(QTest::qWaitForWindowExposed(&window));
+            QVERIFY(window.close());
+        }
+        const auto restore = qScopeGuard([] {
+            Settings::setYaziLeftPaneDefault(false);
+            Settings::setYaziRightPaneDefault(false);
+            Settings::setYaziLeftPaneRestore(true);
+            Settings::setYaziRightPaneRestore(true);
+        });
+
+        // Without restoring, each pane starts with its default and keeps the rest of its session.
+        Settings::setYaziLeftPaneDefault(true);
+        Settings::setYaziLeftPaneRestore(false);
+        Settings::setYaziRightPaneRestore(false);
+        {
+            MainWindow started;
+            started.openUrls({});
+            Pane *first = started.activePane();
+            Pane *second = started.inactivePane();
+            QCOMPARE(stripped(first->url()), m_sub);
+            QCOMPARE(stripped(second->url()), m_b);
+            QVERIFY(first->yaziMode());
+            QCOMPARE(first->yaziColumns()->currentView(), first->view());
+            QCOMPARE(stripped(first->yaziColumns()->url()), m_sub);
+            QVERIFY(!second->yaziMode());
+            QVERIFY(second->yaziColumns()->isHidden());
+            QVERIFY(!second->yaziParentColumn());
+            QVERIFY(started.actionCollection()->action(QStringLiteral("toggle_yazi_mode"))->isChecked());
+
+            // Replacing the pane's state, as an explicitly restored workspace layout does, still sets the mode.
+            PaneSession state = first->saveState();
+            state.yaziMode = false;
+            first->replaceState(state);
+            QVERIFY(!first->yaziMode());
+        }
+
+        // Restoring the previous choice wins over the default.
+        Settings::setYaziLeftPaneRestore(true);
+        Settings::setYaziRightPaneRestore(true);
+        MainWindow restored;
+        restored.openUrls({});
+        QCOMPARE(stripped(restored.activePane()->url()), m_sub);
+        QVERIFY(!restored.activePane()->yaziMode());
+        QVERIFY(restored.inactivePane()->yaziMode());
+    }
+
+    void defaultModeAppliesWhenStartingInFolders()
+    {
+        const QUrl left = Settings::leftStartUrl();
+        const QUrl right = Settings::rightStartUrl();
+        const auto restore = qScopeGuard([left, right] {
+            Settings::setStartupMode(Settings::EnumStartupMode::RestoreSession);
+            Settings::setLeftStartUrl(left);
+            Settings::setRightStartUrl(right);
+            Settings::setYaziRightPaneDefault(false);
+        });
+        Settings::setStartupMode(Settings::EnumStartupMode::FixedFolders);
+        Settings::setLeftStartUrl(m_a);
+        Settings::setRightStartUrl(m_b);
+        Settings::setYaziRightPaneDefault(true);
+        MainWindow started;
+        started.openUrls({});
+        Pane *first = started.activePane();
+        Pane *second = started.inactivePane();
+        QCOMPARE(stripped(second->url()), m_b);
+        QVERIFY(!first->yaziMode());
+        QVERIFY(second->yaziMode());
+        QCOMPARE(stripped(second->yaziColumns()->url()), m_b);
     }
 
     void replacingStateAppliesTheMode()
