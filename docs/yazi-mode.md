@@ -151,7 +151,8 @@ To switch the column between the preview and file information:
 The `YaziPreviewContent` entry in the `[YaziMode]` group of the
 configuration, `Preview` or `Information`, sets what panes show until they
 are switched; it is `Preview` by default. Panes that were never switched
-follow it, including when it changes. M26 adds it to **Preferences**.
+follow it, including when it changes. **Preferences › Yazi Mode › Preview**
+sets it; see [Preview](#preview).
 
 ### Limits
 
@@ -710,7 +711,7 @@ without a choice of their own:
 | Entry                     | Default    | Changed by                                                                                    |
 | ------------------------- | ---------- | --------------------------------------------------------------------------------------------- |
 | `YaziPreviewVisible`      | `true`     | **Preferences › Yazi Mode › Columns**                                                         |
-| `YaziPreviewContent`      | `Preview`  | Configuration file only; M26 adds it to **Preferences**                                       |
+| `YaziPreviewContent`      | `Preview`  | **Preferences › Yazi Mode › Preview**                                                         |
 | `YaziParentColumnVisible` | `true`     | **Preferences › Yazi Mode › Columns**                                                         |
 | `YaziColumnRatios`        | `1,3,2`    | **Preferences › Yazi Mode › Columns**; dragging a column's edge, half a second after it stops |
 | `YaziKeyPreset`           | `Standard` | **Preferences › Yazi Mode › Keyboard**; **View › Vim-Style Keys in Yazi Mode**                |
@@ -817,7 +818,7 @@ Configure Keyboard Shortcuts** and added to the main toolbar.
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | Yazi mode                  | **View › Yazi Mode**; the **Yazi mode** status bar button; the pane's **View Mode** menu; the pane toolbar's optional **Yazi Mode** button |
 | Preview column             | **View › Yazi Preview**                                                                                                                    |
-| Preview or information     | **View › File Information in Yazi Preview**; `i` with the Vim-style keys                                                                   |
+| Preview or information     | **View › File Information in Yazi Preview**; `i` with the Vim-style keys; the default in **Preferences › Yazi Mode › Preview**             |
 | Parent column              | **View › Yazi Parent Column**                                                                                                              |
 | Column ratios              | Dragging the splitter handles between the columns; the default in **Preferences › Yazi Mode › Columns**                                    |
 | Workspace Yazi behavior    | **View › Workspaces… › Workspace Behaviors › Yazi mode**                                                                                   |
@@ -998,3 +999,56 @@ keyboard:
 - Escape cancels a pending key sequence or count; otherwise it does what it
   does elsewhere, such as clearing the selection, cancelling a search started
   from the columns or returning from the preview to the current column.
+
+### Preview
+
+The **Preview** tab chooses what the preview column shows, and points to the
+existing settings that shape the preview instead of repeating them.
+
+| Choice                                                          | Entry                | Default |
+| --------------------------------------------------------------- | -------------------- | ------- |
+| **Preview Column › Show › The focused item's preview**          | `YaziPreviewContent` | Preview |
+| **Preview Column › Show › The focused item's file information** | `YaziPreviewContent` |         |
+
+**The focused item's preview** is the `Preview` value and **The focused
+item's file information** the `Information` value; see
+[Preview column](#preview-column) and [File information](#file-information).
+Whether the column is shown at all is **Show the preview column** on the
+[Columns](#columns) tab.
+
+When the settings are applied, open panes follow the choice, unless the pane
+was switched with **View › File Information in Yazi Preview** or `i` with the
+Yazi-style keys, or its choice came from its session or a workspace. Those
+switches change only the pane, never this default, and **View › File
+Information in Yazi Preview** stays checked exactly when the active pane
+shows file information.
+
+Yazi mode has no preview settings of its own. The **Preview Settings** group
+names the ones the preview column uses, and **Go to Interface › Previews**
+opens that tab:
+
+- **Preferences › Interface › Previews**: **Automatically play audio and
+  video previews**, **Show formatted HTML and Markdown by default**, **Show
+  line numbers in text previews**, **Highlight syntax in text previews** and
+  **Maximum text in preview panel**. The text limit also stops the download
+  of a remote text file. A changed presentation setting applies from the next
+  item previewed.
+- **Preferences › Gallery › Display › Preview and gallery image background**
+  for images.
+- **Preferences › Tagging › Embedded Metadata › Properties to Read** for the
+  properties read from images, audio and video.
+
+**Skip files larger than**, **Show previews for** and **Show previews in
+remote folders**, on the same **Previews** tab, set KIO's thumbnails. They
+apply to the thumbnails of the current column, which is the pane's folder
+view, but not to the preview column, which doesn't use thumbnails. The
+preview column's other limits are fixed; see [Limits](#limits) and
+[Folder contents](#folder-contents): local and remote images up to 8 MiB,
+other remote files up to 128 MiB, and a folder's first 500 entries.
+
+The **File Information** group notes that file information shows a fixed
+set of fields, not those chosen in **Preferences › Interface › Information
+Panel**. In a tag library, it adds the library's fields, and the item's tags
+when **Preferences › Tagging › Tags › Information Panel › Show the tags of
+the selected item** is checked; **List tags inherited from parent tags**
+applies there too.
