@@ -17,7 +17,8 @@ planned for [M27](../ROADMAP.md#m27-integrations) and
 > [!NOTE]
 > **Implemented:** the KDE foundations under
 > [Existing foundations](#existing-foundations), from merged milestones
-> M01–M26, and default file-manager registration from M27.01.
+> M01–M26, and default file-manager registration, the file-manager service and
+> Plasma language preferences from M27.01.
 > **Planned:** everything under [Planned features](#planned-features) and
 > [KWin scripts](#kwin-scripts). The [roadmap](../ROADMAP.md) is authoritative
 > for status.
@@ -75,6 +76,14 @@ behaves like the rest of the desktop and follows the user's choices.
   a per-user D-Bus activation file, so a request starts Plasma Opus when no
   file manager is running; uninstalling removes it.
   ([#279](https://github.com/mikepadiernos/plasma-opus/issues/279))
+- **Language preferences:** with no interface language selected in
+  **Settings › Translation › Language and Layout**, Plasma Opus follows
+  Plasma's language list: the session's `LANGUAGE` variable, or the list saved
+  in `plasma-localerc` when Plasma Opus starts without it. The page shows
+  which language is in effect, falls back to the original English text when
+  no Plasma Opus catalogue matches, and opens Plasma's Region & Language
+  settings on request. Plasma Opus never changes Plasma's settings itself.
+  ([#437](https://github.com/mikepadiernos/plasma-opus/issues/437))
 
 ## Planned features
 
@@ -86,10 +95,6 @@ them.
 - **System file chooser:** Let applications request a chooser through the XDG
   portal. Preserve user defaults and sandbox permissions.
   ([#286](https://github.com/mikepadiernos/plasma-opus/issues/286))
-- **Language preferences:** Follow KDE Plasma's language preferences using the
-  M13 catalogues and M14 language and regional-format preferences when no app
-  override is selected, falling back to source text when a catalogue is
-  unavailable. Do not change shared desktop settings without explicit action.
 - **Activities and workspaces:** Offer optional workspace associations and
   per-Activity choices without changing Activities or replacing unsaved state
   automatically. Handle missing services and folders.
