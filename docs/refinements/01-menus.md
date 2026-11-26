@@ -147,6 +147,7 @@ Main menus
 │   ├── Open Terminal With
 │   ├── Search Command History with Atuin
 │   ├── Open Editor
+│   ├── Edit
 │   ├── Edit With
 │   ├── Open in Office Application
 │   └── Custom Commands
@@ -169,6 +170,7 @@ organization, not a promise that every action is available in every context.
 File listing: selected items
 ├── Open
 ├── Open With
+├── Edit
 ├── Edit With
 ├── Open in Office Application
 ├── Open Folder in New Tab

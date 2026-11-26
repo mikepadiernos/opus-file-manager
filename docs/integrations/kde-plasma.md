@@ -369,6 +369,19 @@ behaves like the rest of the desktop and follows the user's choices.
   application handles editing, saving and format conversion. See
   [Office documents](../CAVEATS.md#desktop-integration).
   ([#674](https://github.com/mikepadiernos/plasma-opus/issues/674))
+- **Edit action:** **Tools › Edit**, <kbd>F4</kbd>, also in the context
+  menu of a single editable file, opens the selected file in a suitable tool:
+  text files in the built-in editor; office documents in LibreOffice,
+  Calligra or ONLYOFFICE; SVG drawings in [Inkscape](https://inkscape.org/),
+  or as source in the built-in editor; images in
+  [KolourPaint](https://apps.kde.org/kolourpaint/),
+  [Krita](https://krita.org/) or [GIMP](https://www.gimp.org/); and audio in
+  [Audacity](https://www.audacityteam.org/) or
+  [Tenacity](https://tenacityaudio.org/). It uses the first installed tool
+  in that order, and its tooltip names the tool or the tools to install.
+  Files that can be viewed but not edited, such as videos and PDF documents,
+  leave it disabled. See [Edit action](../CAVEATS.md#desktop-integration).
+  ([#675](https://github.com/mikepadiernos/plasma-opus/issues/675))
 
 ## Planned features
 
