@@ -300,6 +300,23 @@ behaves like the rest of the desktop and follows the user's choices.
   own. See [Indexed metadata and ranking](../CAVEATS.md#search).
   ([#442](https://github.com/mikepadiernos/plasma-opus/issues/442))
 
+- **File-type categories in Places:** Places lists **Documents**, **Images**,
+  **Audio**, **Videos**, **Archives**, **Ebooks**, **Application Packages**
+  and **Large Files** under **Search For**, beside any entries KDE already
+  shows there. Plasma Opus adds them once, only for itself, so a removed or
+  hidden entry stays that way. Opening a category shows Baloo's results for
+  it through `baloosearch:/`, in the pane or a new tab. When indexing is off
+  or unavailable, the category explains why and offers **Search a Folder
+  Live…**, and **Open KDE File Search Settings** when indexing is merely
+  turned off. When the indexer is not running, suspended, busy or limited to
+  basic details, it asks first and offers **Show Indexed Results** or the
+  live search. The live search runs in the search panel for the chosen folder
+  by MIME type or file extension, with the panel's usual limits, progress and
+  cancellation. **Large Files**, over 100 MiB, always searches a chosen
+  folder live, since Baloo doesn't index file sizes. See
+  [File-type categories](../CAVEATS.md#desktop-integration).
+  ([#649](https://github.com/mikepadiernos/plasma-opus/issues/649))
+
 ## Planned features
 
 Grouped by the [M27](../ROADMAP.md#m27-integrations) subsection that tracks
