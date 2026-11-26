@@ -10,6 +10,7 @@
 #include <QLocale>
 #include <QProcess>
 #include <QProcessEnvironment>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -128,6 +129,113 @@ private Q_SLOTS:
         QCOMPARE(InterfaceLanguage::layoutDirection(KLocalizedString::languages()), Qt::LeftToRight);
         InterfaceLanguage::apply(QString());
         QCOMPARE(KLocalizedString::languages(), systemLanguages);
+    }
+
+    void languageListsFollowPlasma()
+    {
+        QCOMPARE(InterfaceLanguage::parseLanguageList(QStringLiteral(" de_DE: :fr:de_DE:")), (QStringList{QStringLiteral("de_DE"), QStringLiteral("fr")}));
+        QVERIFY(InterfaceLanguage::parseLanguageList(QString()).isEmpty());
+        const QStringList plasma{QStringLiteral("fr"), QStringLiteral("de")};
+        QCOMPARE(InterfaceLanguage::followedLanguages(QStringLiteral("es:it"), plasma), (QStringList{QStringLiteral("es"), QStringLiteral("it")}));
+        QCOMPARE(InterfaceLanguage::followedLanguages(QString(), plasma), plasma);
+        QCOMPARE(InterfaceLanguage::followedLanguages(QStringLiteral(":"), plasma), plasma);
+    }
+
+    void effectiveLanguageFallsBack_data()
+    {
+        QTest::addColumn<QStringList>("requested");
+        QTest::addColumn<QString>("effective");
+        QTest::newRow("exact") << QStringList{QStringLiteral("fa")} << QStringLiteral("fa");
+        QTest::newRow("territory") << QStringList{QStringLiteral("fa_IR")} << QStringLiteral("fa");
+        QTest::newRow("modifier") << QStringList{QStringLiteral("fa_IR@latin")} << QStringLiteral("fa");
+        QTest::newRow("next language") << QStringList{QStringLiteral("xx"), QStringLiteral("fa")} << QStringLiteral("fa");
+        QTest::newRow("English source") << QStringList{QStringLiteral("xx"), QStringLiteral("en_GB"), QStringLiteral("fa")} << QStringLiteral("en_GB");
+        QTest::newRow("none") << QStringList{QStringLiteral("xx"), QStringLiteral("yy_ZZ")} << QString();
+        QTest::newRow("empty") << QStringList{} << QString();
+    }
+
+    void effectiveLanguageFallsBack()
+    {
+        QFETCH(QStringList, requested);
+        QFETCH(QString, effective);
+        QCOMPARE(InterfaceLanguage::effectiveLanguage(requested, {QStringLiteral("fa"), QStringLiteral("de_CH")}), effective);
+    }
+
+    void followsPlasmaLanguagesWithoutEnvironment()
+    {
+        QStandardPaths::setTestModeEnabled(true);
+        const QString configDirectory = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
+        QVERIFY(QDir().mkpath(configDirectory));
+        const QString path = QDir(configDirectory).filePath(QStringLiteral("plasma-localerc"));
+        QFile::remove(path);
+        QFile config(path);
+        QVERIFY(config.open(QIODevice::WriteOnly));
+        QVERIFY(config.write("[Translations]\nLANGUAGE=fa:en_US\n") > 0);
+        config.close();
+        const QByteArray oldLanguage = qgetenv("LANGUAGE");
+        const bool languageSet = qEnvironmentVariableIsSet("LANGUAGE");
+        const auto restore = qScopeGuard([&] {
+            QFile::remove(path);
+            if (languageSet) {
+                qputenv("LANGUAGE", oldLanguage);
+            } else {
+                qunsetenv("LANGUAGE");
+            }
+            InterfaceLanguage::apply(QString());
+        });
+        QCOMPARE(InterfaceLanguage::plasmaLanguages(), (QStringList{QStringLiteral("fa"), QStringLiteral("en_US")}));
+
+        KLocalizedString::setApplicationDomain(QByteArrayLiteral("opus-file-manager"));
+        KLocalizedString::addDomainLocaleDir(QByteArrayLiteral("opus-file-manager"), QStringLiteral(OPUSFM_TEST_LOCALE_DIR));
+        qputenv("LANGUAGE", "en_US");
+        QVERIFY(InterfaceLanguage::apply(QString()));
+        QCOMPARE(KLocalizedString::languages().value(0), QStringLiteral("en_US"));
+        qunsetenv("LANGUAGE");
+        QVERIFY(InterfaceLanguage::apply(QString()));
+        QCOMPARE(KLocalizedString::languages().value(0), QStringLiteral("fa"));
+        // An explicit override still wins over Plasma's languages.
+        QVERIFY(InterfaceLanguage::apply(QStringLiteral("en_US")));
+        QCOMPARE(KLocalizedString::languages(), QStringList{QStringLiteral("en_US")});
+    }
+
+    void startupFollowsPlasmaLanguages()
+    {
+        const QByteArray original(std::setlocale(LC_MESSAGES, nullptr));
+        const bool messageLocaleAvailable =
+            std::setlocale(LC_MESSAGES, "fa_IR.UTF-8") || std::setlocale(LC_MESSAGES, "en_US.UTF-8") || std::setlocale(LC_MESSAGES, "en_GB.UTF-8");
+        std::setlocale(LC_MESSAGES, original.constData());
+        if (!messageLocaleAvailable) {
+            QSKIP("No non-C message locale available for gettext");
+        }
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QDir root(directory.path());
+        QVERIFY(root.mkpath(QStringLiteral("config")));
+        QVERIFY(root.mkpath(QStringLiteral("data/locale/fa/LC_MESSAGES")));
+        QFile config(root.filePath(QStringLiteral("config/plasma-localerc")));
+        QVERIFY(config.open(QIODevice::WriteOnly));
+        QVERIFY(config.write("[Translations]\nLANGUAGE=fa:en_US\n") > 0);
+        config.close();
+        QVERIFY(QFile::copy(QStringLiteral(OPUSFM_PRODUCTION_LOCALE_DIR "/fa/LC_MESSAGES/opus-file-manager.mo"),
+                            root.filePath(QStringLiteral("data/locale/fa/LC_MESSAGES/opus-file-manager.mo"))));
+        QProcess process;
+        auto environment = QProcessEnvironment::systemEnvironment();
+        environment.insert(QStringLiteral("HOME"), directory.path());
+        environment.insert(QStringLiteral("XDG_CONFIG_HOME"), root.filePath(QStringLiteral("config")));
+        environment.insert(QStringLiteral("XDG_DATA_HOME"), root.filePath(QStringLiteral("data")));
+        environment.insert(QStringLiteral("XDG_DATA_DIRS"), root.filePath(QStringLiteral("data")));
+        environment.insert(QStringLiteral("XDG_CACHE_HOME"), root.filePath(QStringLiteral("cache")));
+        environment.insert(QStringLiteral("LC_ALL"), QStringLiteral("C.UTF-8"));
+        environment.remove(QStringLiteral("LANGUAGE"));
+        environment.insert(QStringLiteral("QT_QPA_PLATFORM"), QStringLiteral("offscreen"));
+        process.setProcessEnvironment(environment);
+        process.start(QStringLiteral(OPUSFM_EXECUTABLE), {QStringLiteral("--help")});
+        QVERIFY(process.waitForFinished(30000));
+        QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+        QCOMPARE(process.exitCode(), 0);
+        const QByteArray output = process.readAllStandardOutput();
+        const QByteArray diagnostics = output + process.readAllStandardError();
+        QVERIFY2(output.contains(QString::fromUtf8("مدیر پروندهٔ دو قسمتی").toUtf8()), diagnostics.constData());
     }
 
     void startupUsesSavedInterfaceLanguage()

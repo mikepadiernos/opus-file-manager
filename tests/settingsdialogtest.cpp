@@ -3186,6 +3186,55 @@ private Q_SLOTS:
         QTRY_COMPARE(readArgument(), QByteArray("kcm_baloofile"));
     }
 
+    void languagePageDescribesPlasmaLanguages()
+    {
+        const QByteArray oldLanguage = qgetenv("LANGUAGE");
+        const bool languageSet = qEnvironmentVariableIsSet("LANGUAGE");
+        const QByteArray oldPath = qgetenv("PATH");
+        const bool pathSet = qEnvironmentVariableIsSet("PATH");
+        const auto restore = qScopeGuard([&] {
+            if (languageSet) {
+                qputenv("LANGUAGE", oldLanguage);
+            } else {
+                qunsetenv("LANGUAGE");
+            }
+            if (pathSet) {
+                qputenv("PATH", oldPath);
+            } else {
+                qunsetenv("PATH");
+            }
+        });
+        KFilePlacesModel places;
+        qputenv("LANGUAGE", "xx_YY");
+        {
+            SettingsDialog dialog(&places, nullptr);
+            auto *status = dialog.findChild<QLabel *>(QStringLiteral("interfaceLanguageStatus"));
+            QVERIFY(status);
+            QVERIFY2(status->text().contains(QStringLiteral("original English text")), qPrintable(status->text()));
+        }
+        qputenv("LANGUAGE", "xx_YY:en_GB");
+        SettingsDialog dialog(&places, nullptr);
+        auto *combo = dialog.findChild<InterfaceLanguageCombo *>(QStringLiteral("kcfg_InterfaceLanguage"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("interfaceLanguageStatus"));
+        QVERIFY(combo && status);
+        QVERIFY2(status->text().startsWith(QStringLiteral("Following Plasma's languages:")), qPrintable(status->text()));
+        QVERIFY2(status->text().contains(QStringLiteral("is shown in")), qPrintable(status->text()));
+        combo->setLanguage(QStringLiteral("en_US"));
+        QVERIFY2(status->text().contains(QStringLiteral("regardless of Plasma's language settings")), qPrintable(status->text()));
+        combo->setLanguage(QString());
+        QVERIFY(status->text().startsWith(QStringLiteral("Following Plasma's languages:")));
+
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        qputenv("PATH", QFile::encodeName(root.path()));
+        auto *open = dialog.findChild<QPushButton *>(QStringLiteral("openPlasmaLanguageSettings"));
+        auto *openStatus = dialog.findChild<QLabel *>(QStringLiteral("plasmaLanguageSettingsStatus"));
+        QVERIFY(open && openStatus);
+        open->click();
+        QVERIFY2(openStatus->text().contains(QStringLiteral("not installed")) || openStatus->text().contains(QStringLiteral("Could not launch")),
+                 qPrintable(openStatus->text()));
+    }
+
     void savesViewAndFileRules()
     {
         KFilePlacesModel places;
