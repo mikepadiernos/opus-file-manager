@@ -29,6 +29,7 @@
   <a href="#safety-and-limitations"><img alt="Safety" src="https://img.shields.io/badge/Safety-bf8700?style=flat-square"></a>
   <a href="docs/ROADMAP.md"><img alt="Roadmap" src="https://img.shields.io/badge/Roadmap-8957e5?style=flat-square"></a>
   <a href="docs/README.md"><img alt="Docs" src="https://img.shields.io/badge/Docs-3daee9?style=flat-square"></a>
+  <a href="docs/development.md"><img alt="Develop" src="https://img.shields.io/badge/Develop-2ea44f?style=flat-square"></a>
 </p>
 
 ![Plasma Opus with stacked panes and an image preview](preview.png)
@@ -149,37 +150,15 @@ decorations, blur and the Plasma theme are absent. See the
 
 ### Requirements
 
-A C++20 compiler, CMake 3.25+, Ninja, Qt 6.8+ with Jalali calendar support,
-Extra CMake Modules, libarchive and KDE Frameworks 6.20+. See `CMakeLists.txt`
-for the required components; Baloo development files optionally enable indexed
-search. Run `./install.sh --deps` to print the build and optional feature
-packages; it does not install them.
-
-### Build and test
-
-```bash
-cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON
-cmake --build build
-QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
-./build/bin/opus-file-manager
-```
+Plasma Opus runs on Linux with KDE Plasma. Building it needs a C++20 compiler,
+CMake 3.25+, Ninja, Qt 6.8+ and KDE Frameworks 6.20+. Run `./install.sh --deps`
+to print the build and optional feature packages; it does not install them.
 
 > [!TIP]
-> If `build` was created before the project folder was renamed, use a fresh
-> build directory for the manual build commands above.
-
-### Dev container
-
-Without the Linux dependencies, for example on macOS, use the headless Docker
-dev container. It extends the `plasma-impresario-dev` image, which is built
-automatically from a sibling `plasma-impresario` checkout, or from
-`IMPRESARIO_DIR`, when it is missing. The container has no Plasma session, so
-verify visual, KWin and Plasma integration behaviour on Plasma.
-
-```bash
-tools/dev-container/run.sh sh -c 'cmake -S . -B build-container -G Ninja -DCMAKE_BUILD_TYPE=Debug && cmake --build build-container'
-tools/dev-container/run.sh ctest --test-dir build-container --output-on-failure -j4
-```
+> To build for development, run the tests, use the headless dev container on
+> other hosts such as macOS, or contribute, see the
+> [development guide](docs/development.md). It also describes the project
+> workflow from issue to merge.
 
 ### Arguments
 
@@ -283,3 +262,4 @@ for possible scenarios that are not confirmed bugs.
 | Tracking | [Caveats](docs/CAVEATS.md)                                         | Limitations, dependencies and workarounds                  |
 | Tracking | [Reported bugs](docs/BUGS.md)                                      | Bug reports and their status                               |
 | Tracking | [Edge cases](docs/EDGE.md)                                         | Possible scenarios worth testing                           |
+| Develop  | [Development guide](docs/development.md)                           | Building, testing, dev container and project workflow      |
