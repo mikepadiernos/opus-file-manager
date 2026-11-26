@@ -464,6 +464,22 @@ behaves like the rest of the desktop and follows the user's choices.
   encrypted and points to KDE Connect and Samba sharing. See
   [Temporary LAN sharing](../CAVEATS.md#desktop-integration).
   ([#653](https://github.com/mikepadiernos/plasma-opus/issues/653))
+- **KDE Online Accounts:** **Go › Online Accounts** lists the accounts set up
+  in System Settings' Online Accounts page, each with the folders it gives
+  access to: Google Drive through
+  [kio-gdrive](https://apps.kde.org/kio_gdrive/), and Nextcloud and
+  ownCloud storage through KIO's WebDAV worker. Each folder opens in the
+  active pane or the other pane. Accounts without file storage are listed but
+  disabled, as are turned-off accounts and services, accounts without a
+  server address and folders whose KIO worker isn't installed; the tooltip
+  explains why and names what to install. **Manage Online Accounts…** opens
+  the System Settings page to add, remove or sign in to accounts. The menu
+  rereads the accounts each time it opens, so removed accounts disappear.
+  Plasma Opus only reads account names, services and server addresses; it
+  never reads or stores tokens or passwords, which stay with KDE's providers
+  and KIO, and KIO reports denied access and expired sign-ins in the pane.
+  See [KDE Online Accounts](../CAVEATS.md#desktop-integration).
+  ([#370](https://github.com/mikepadiernos/plasma-opus/issues/370))
 
 ## Planned features
 
@@ -472,10 +488,6 @@ them.
 
 ### M27.06 Accounts, remote access and synchronization
 
-- **KDE Online Accounts:** Discover supported file services and reuse KDE
-  credentials and KIO providers. Do not duplicate account management or store
-  tokens in URLs or KConfig.
-  ([#370](https://github.com/mikepadiernos/plasma-opus/issues/370))
 - **Cloud sync and activity:** Keep chosen local folders in two-way sync with
   KIO, KDE Online Accounts or rclone locations, with backup modes and conflict
   choices that never overwrite changes silently, and show transfers, quota,
