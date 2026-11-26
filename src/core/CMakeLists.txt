@@ -59,6 +59,8 @@ add_library(opusfm_core STATIC
     indexedsearch.h
     interfacelanguage.cpp
     interfacelanguage.h
+    kdeconnectshare.cpp
+    kdeconnectshare.h
     librarymoves.cpp
     librarymoves.h
     libraryarchive.cpp
