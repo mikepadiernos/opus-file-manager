@@ -1339,7 +1339,7 @@ for some features are recorded in [pending tasks](TODO.md).
         controls. Respect notification settings and privacy; report failures and
         partial results without exposing sensitive paths unnecessarily.
   - [x] Provide system-tray integration and a global shortcut
-  - [ ] Plasma Activities: optionally associate M15 workspaces with Activities
+  - [x] Plasma Activities: optionally associate M15 workspaces with Activities
         and configure default folders for each Activity and workspace
         association. For each association, use all, selected or none of the
         applicable workspace behaviours, including theme and layout, and
