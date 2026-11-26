@@ -1451,7 +1451,7 @@ for some features are recorded in [pending tasks](TODO.md).
         action from Dolphin's plugins when installed, and show mounted images
         in Places through Solid. Report a missing plugin or denied
         authorization. (MiXplorer)
-  - [ ] Integrate deeply with AppImage, Flatpak and Snap: identify packages and
+  - [x] Integrate deeply with AppImage, Flatpak and Snap: identify packages and
         show available application details and actions. Support AppImage
         launching and optional desktop integration, and use the respective
         package tools for supported Flatpak and Snap installation, updates and
