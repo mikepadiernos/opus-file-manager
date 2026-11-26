@@ -327,13 +327,7 @@ private Q_SLOTS:
         MainWindow window;
         SettingsDialog dialog(placesOf(window), &window);
         const auto items = Settings::self()->items();
-        // M26 adds a widget for the Yazi preview content default, which the
-        // View menu sets until then.
-        const QStringList withoutWidget{QStringLiteral("YaziPreviewContent")};
         for (const KConfigSkeletonItem *item : items) {
-            if (withoutWidget.contains(item->name())) {
-                continue;
-            }
             QVERIFY2(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + item->name()), qPrintable(item->name()));
         }
     }

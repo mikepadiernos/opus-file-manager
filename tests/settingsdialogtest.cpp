@@ -9,6 +9,7 @@
 #include "embeddedmetadata.h"
 #include "embeddedmetadatasettings.h"
 #include "filecolorrules.h"
+#include "folderpreview.h"
 #include "ignorelist.h"
 #include "libraryarchive.h"
 #include "libraryconfirmations.h"
@@ -37,6 +38,7 @@
 #include <KEditListWidget>
 #include <KFilePlacesModel>
 #include <KPageWidget>
+#include <KPageWidgetModel>
 #include <KPluginMetaData>
 #include <KSharedConfig>
 #include <KShortcutsDialog>
@@ -2241,6 +2243,99 @@ private Q_SLOTS:
         QTRY_VERIFY(editorOpened);
         // Preferences stays open to show the updated conflicts.
         QVERIFY(dialog.isVisible());
+    }
+
+    void yaziPreviewSettings()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        Settings::self()->setDefaults();
+        Settings::self()->save();
+        KFilePlacesModel places;
+        {
+            SettingsDialog dialog(&places, nullptr);
+
+            // Preview is the Yazi Mode page's fourth tab.
+            auto *page = dialog.findChild<QWidget *>(QStringLiteral("yaziPreviewPage"));
+            QVERIFY(page);
+            auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+            QVERIFY(tabs);
+            QCOMPARE(tabs->indexOf(page), 3);
+            QCOMPARE(tabs->tabText(3), QStringLiteral("Preview"));
+            QCOMPARE(tabs->tabText(2), QStringLiteral("Keyboard"));
+
+            QCOMPARE(dialog.findChildren<QWidget *>(QStringLiteral("kcfg_YaziPreviewContent")).size(), 1);
+            auto *content = page->findChild<QComboBox *>(QStringLiteral("kcfg_YaziPreviewContent"));
+            QVERIFY(content);
+            QCOMPARE(content->count(), 2);
+            QCOMPARE(content->itemText(Settings::EnumYaziPreviewContent::Preview), QStringLiteral("The focused item's preview"));
+            QCOMPARE(content->itemText(Settings::EnumYaziPreviewContent::Information), QStringLiteral("The focused item's file information"));
+            QCOMPARE(content->currentIndex(), int(Settings::EnumYaziPreviewContent::Preview));
+
+            // The notices point to the existing settings instead of repeating them.
+            for (const char *name : {"yaziPreviewContentNotice", "yaziPreviewSettingsNotice", "yaziInformationNotice"}) {
+                auto *notice = page->findChild<QLabel *>(QLatin1String(name));
+                QVERIFY2(notice && notice->wordWrap(), name);
+            }
+            const QString contentNotice = page->findChild<QLabel *>(QStringLiteral("yaziPreviewContentNotice"))->text();
+            for (const char *part : {"View › File Information in Yazi Preview", "Columns tab"}) {
+                QVERIFY2(contentNotice.contains(QString::fromUtf8(part)), part);
+            }
+            const QString settingsNotice = page->findChild<QLabel *>(QStringLiteral("yaziPreviewSettingsNotice"))->text();
+            for (const char *part : {"Interface › Previews",
+                                     "Maximum text in preview panel",
+                                     "Gallery › Display",
+                                     "Tagging › Embedded Metadata",
+                                     "Skip files larger than",
+                                     "Show previews for",
+                                     "Show previews in remote folders"}) {
+                QVERIFY2(settingsNotice.contains(QString::fromUtf8(part)), part);
+            }
+            QVERIFY(settingsNotice.contains(QString::number(FolderPreview::EntryLimit)));
+            const QString informationNotice = page->findChild<QLabel *>(QStringLiteral("yaziInformationNotice"))->text();
+            for (const char *part : {"Interface › Information Panel", "Tagging › Tags › Show the tags of the selected item"}) {
+                QVERIFY2(informationNotice.contains(QString::fromUtf8(part)), part);
+            }
+            // No size limit, preview provider or remote download setting is repeated here.
+            QCOMPARE(page->findChildren<QSpinBox *>().size(), 0);
+            QCOMPARE(page->findChildren<QCheckBox *>().size(), 0);
+
+            // The button shows the preview settings it names.
+            auto *showPreviews = page->findChild<QPushButton *>(QStringLiteral("yaziShowPreviewSettings"));
+            QVERIFY(showPreviews);
+            showPreviews->click();
+            QVERIFY(dialog.currentPage());
+            QCOMPARE(dialog.currentPage()->name(), QStringLiteral("Interface"));
+            auto *previewsPage = dialog.findChild<QWidget *>(QStringLiteral("previewsPage"));
+            QVERIFY(previewsPage && previewsPage->findChild<QWidget *>(QStringLiteral("kcfg_TextPreviewLimitKiB")));
+            auto *interfaceTabs = qobject_cast<QTabWidget *>(previewsPage->parentWidget()->parentWidget());
+            QVERIFY(interfaceTabs);
+            QCOMPARE(interfaceTabs->currentWidget(), previewsPage);
+            QCOMPARE(interfaceTabs->tabText(interfaceTabs->currentIndex()), QStringLiteral("Previews"));
+
+            // Choosing file information marks the dialog modified and saves it.
+            QSignalSpy modified(&dialog, &KConfigDialog::widgetModified);
+            choosePreset(content, Settings::EnumYaziPreviewContent::Information);
+            QVERIFY(!modified.isEmpty());
+            QVERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+            QCOMPARE(Settings::yaziPreviewContent(), int(Settings::EnumYaziPreviewContent::Information));
+
+            // Defaults chooses the preview.
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::RestoreDefaults)->isEnabled());
+            dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+            QCOMPARE(content->currentIndex(), int(Settings::EnumYaziPreviewContent::Preview));
+            choosePreset(content, Settings::EnumYaziPreviewContent::Information);
+            dialog.button(QDialogButtonBox::Ok)->click();
+        }
+        QCOMPARE(Settings::yaziPreviewContent(), int(Settings::EnumYaziPreviewContent::Information));
+
+        // The saved choice is shown when the dialog opens again.
+        SettingsDialog reopened(&places, nullptr);
+        QCOMPARE(reopened.findChild<QComboBox *>(QStringLiteral("kcfg_YaziPreviewContent"))->currentIndex(),
+                 int(Settings::EnumYaziPreviewContent::Information));
     }
 
     void workspaceIndicatorOptionsPersist()

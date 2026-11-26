@@ -23,6 +23,7 @@
 #include "yazipreview.h"
 
 #include <KActionCollection>
+
 #include <KConfigGroup>
 #include <KDirModel>
 #include <KFilePlacesModel>
@@ -936,6 +937,81 @@ private Q_SLOTS:
         QVERIFY(second->isVisible());
         QVERIFY(second->yaziColumns()->previewSlot()->isVisible());
         QCOMPARE(second->saveState().yaziColumnRatios, QList<int>({2, 5, 3}));
+    }
+
+    void previewContentSettingAppliesToOpenPanes()
+    {
+        using Content = YaziMode::PreviewContent;
+        const auto reset = [] {
+            Settings::setYaziPreviewContent(Settings::EnumYaziPreviewContent::Preview);
+            Settings::setYaziPreviewVisible(true);
+            Settings::self()->save();
+        };
+        const auto restore = qScopeGuard(reset);
+        reset();
+        MainWindow window;
+        window.resize(1400, 600);
+        window.openUrls({m_sub, m_b});
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        Pane *first = window.activePane();
+        Pane *second = window.inactivePane();
+        first->setYaziMode(true);
+        second->setYaziMode(true);
+        // Switching the second pane, even to what it shows, gives it a choice of its own.
+        second->setYaziPreviewContent(Content::Preview);
+        QCOMPARE(second->saveState().yaziPreviewContent, int(Content::Preview));
+        QAction *action = window.actionCollection()->action(QStringLiteral("toggle_yazi_preview_information"));
+        QVERIFY(action);
+        QVERIFY(!action->isChecked());
+
+        KFilePlacesModel places;
+        SettingsDialog dialog(&places, &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *content = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_YaziPreviewContent"));
+        QVERIFY(content);
+        const auto apply = [&dialog, content](int choice) {
+            // KConfigDialogManager follows a combo box through activated(), which a user's choice emits.
+            content->setCurrentIndex(choice);
+            Q_EMIT content->activated(choice);
+            QVERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+        };
+
+        // A pane without a choice of its own follows the applied default, and the View menu shows it.
+        apply(Settings::EnumYaziPreviewContent::Information);
+        QCOMPARE(Settings::yaziPreviewContent(), int(Settings::EnumYaziPreviewContent::Information));
+        QCOMPARE(first->yaziPreviewContent(), Content::Information);
+        QCOMPARE(first->yaziColumns()->previewContent(), Content::Information);
+        QTRY_VERIFY(first->yaziColumns()->preview() && first->yaziColumns()->preview()->content() == Content::Information);
+        QCOMPARE(first->saveState().yaziPreviewContent, -1);
+        QVERIFY(action->isChecked());
+        QCOMPARE(second->yaziPreviewContent(), Content::Preview);
+        QCOMPARE(second->yaziColumns()->previewContent(), Content::Preview);
+        QCOMPARE(second->saveState().yaziPreviewContent, int(Content::Preview));
+        Q_EMIT second->activated();
+        QVERIFY(!action->isChecked());
+        Q_EMIT first->activated();
+        QVERIFY(action->isChecked());
+
+        // Switching with the View menu changes the pane's choice, not the default, and outlasts the default.
+        action->trigger();
+        action->trigger();
+        QCOMPARE(first->saveState().yaziPreviewContent, int(Content::Information));
+        QCOMPARE(Settings::yaziPreviewContent(), int(Settings::EnumYaziPreviewContent::Information));
+        apply(Settings::EnumYaziPreviewContent::Preview);
+        QCOMPARE(Settings::yaziPreviewContent(), int(Settings::EnumYaziPreviewContent::Preview));
+        QCOMPARE(first->yaziPreviewContent(), Content::Information);
+        QCOMPARE(first->yaziColumns()->previewContent(), Content::Information);
+        QVERIFY(action->isChecked());
+        QCOMPARE(second->yaziPreviewContent(), Content::Preview);
+
+        // A pane that follows the default again takes it.
+        PaneSession state = first->saveState();
+        state.yaziPreviewContent = -1;
+        first->replaceState(state);
+        QCOMPARE(first->yaziPreviewContent(), Content::Preview);
+        QVERIFY(!action->isChecked());
     }
 
     void paneMenusAndToolbarToggleTheMode()
