@@ -1758,6 +1758,21 @@ The M27 desktop integrations have these limits
   authorization prompts have been verified in a headless container only, not
   yet on a Plasma session.
   ([#703](https://github.com/mikepadiernos/plasma-opus/issues/703))
+- **💽 Disk images:** mounting needs the Mount ISO plugin from Dolphin's
+  plugins, usually packaged as `dolphin-plugins`; without it the actions
+  explain what is missing and do nothing. The plugin blocks the window while
+  UDisks2 attaches and mounts the image, for up to about 20 seconds, and
+  reports no errors, so the reason shown after a failure is inferred from
+  what Solid reports afterwards and may be inaccurate. Mounting and
+  unmounting may ask for authorization through polkit. A refused mount can
+  leave the image attached as a loop device without a mount point; choosing
+  **Mount Disk Image** again detaches it and retries. Solid hides loop
+  devices whose image is outside the home folder, so those images do not
+  appear in Places even when mounted. Only images Dolphin's plugin
+  recognizes are offered, and only one at a time. This has been verified in
+  a headless container with a simulated plugin only, not yet on a Plasma
+  session.
+  ([#648](https://github.com/mikepadiernos/plasma-opus/issues/648))
 - **🪟 KWin script:** the script has been tested only against a simulated
   KWin in the headless container, not yet on a Plasma session
   ([pending task](TODO.md#kwin-script-on-plasma-707-708)). Its use of KWin's
@@ -1848,6 +1863,11 @@ The M27 desktop integrations have these limits
     mount an fstab entry without root, add `user` or `users` to its options
     in KDE Partition Manager, or let UDisks2 manage the device instead. Open
     an automount point's folder once to mount it.
+  - **Disk images:** Install `dolphin-plugins` from Discover or your
+    distribution, and keep images inside the home folder so they appear in
+    Places once mounted. Wait for the window to respond after choosing
+    **Mount Disk Image**. If an image stays attached without a mount point,
+    choose **Unmount Disk Image**, or **Mount Disk Image** again to retry.
   - **KWin script:** Install it from **Settings › Configure KWin
     Integration…** in a Plasma session, then move or resize the window once
     with each workspace current so its placement is kept. If the status says
@@ -1897,6 +1917,9 @@ The M27 desktop integrations have these limits
   - Watch mount changes instead of polling, refresh sizes periodically,
     power off USB drives after unmounting, and the M28 **Mount manager**
     display settings, including an option to show system file systems.
+  - Mount disk images through UDisks2 directly, without blocking the window
+    and with its actual error messages, and show images outside the home
+    folder in Places once mounted.
   - Verify the script on X11 and Wayland with each supported Plasma release,
     keep maximized and full-screen state, and record a placement when a
     workspace is saved as well as when the window moves.
