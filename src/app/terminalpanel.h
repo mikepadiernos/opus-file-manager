@@ -7,6 +7,7 @@
 #include <QPointer>
 #include <QRegion>
 #include <QSet>
+#include <QStringList>
 #include <QWidget>
 
 namespace KParts
@@ -39,6 +40,12 @@ public:
      * its shell is idle, or reports why it can't.
      */
     void searchHistory();
+    /**
+     * Runs @p program with @p arguments, without a shell, in a new session tab
+     * started in the local @p folder. The tab closes when the program exits.
+     * @return false, after reporting why, when the session can't be opened
+     */
+    bool openProgram(const QString &program, const QStringList &arguments, const QString &folder, const QString &title);
 
 Q_SIGNALS:
     void blurRegionChanged(const QRegion &region);
@@ -54,6 +61,8 @@ private:
     void setStatus(const QString &text, bool informational = false);
     void dismissStatus();
     void sendHistorySearch(const QPointer<KParts::ReadOnlyPart> &part, int attempt);
+    /// Loads the configured terminal component into a new current tab, or reports why it can't.
+    KParts::ReadOnlyPart *createSession(const QString &title, const QString &toolTip);
 
     QVBoxLayout *m_layout;
     QLabel *m_status;

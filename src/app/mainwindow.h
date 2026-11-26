@@ -5,6 +5,7 @@
 #include "activityassociations.h"
 #include "ark.h"
 #include "editorpanel.h"
+#include "editorproviders.h"
 #include "metadataeditdialog.h"
 #include "previewpanel.h"
 #include "tagpanel.h"
@@ -343,6 +344,8 @@ private:
     void updateInformationPanel();
     void openGallery();
     void openEditor();
+    void editWithEditor(EditorProviders::Editor editor);
+    void updateTerminalPanelVisibility();
     void compareFiles();
     void createSymlink();
     void exportListing(bool pdf);

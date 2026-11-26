@@ -2,11 +2,13 @@
 
 #include "terminalpanel.h"
 #include "atuin.h"
+#include "folderview.h"
 #include "mainwindow.h"
 #include "pane.h"
 #include "settings.h"
 
 #include <KActionCollection>
+#include <KActionMenu>
 #include <KConfigDialog>
 #include <KConfigGroup>
 #include <KParts/ReadOnlyPart>
@@ -185,6 +187,66 @@ private Q_SLOTS:
         QVERIFY(status->text().contains(QStringLiteral("running sleep")));
         QTest::qWait(300);
         QVERIFY(!QFile::exists(marker));
+    }
+
+    void terminalEditorsRunInTheirOwnSession()
+    {
+        QTemporaryDir bin;
+        QTemporaryDir folder;
+        QVERIFY(bin.isValid() && folder.isValid());
+        const QString marker = bin.filePath(QStringLiteral("arguments"));
+        QFile script(bin.filePath(QStringLiteral("nano")));
+        QVERIFY(script.open(QIODevice::WriteOnly));
+        script.write("#!/bin/sh\nprintf '%s\\n' \"$0\" \"$@\" \"$PWD\" > '" + marker.toLocal8Bit() + "'\n");
+        script.close();
+        QVERIFY(script.setPermissions(script.permissions() | QFileDevice::ExeOwner));
+        const QByteArray path = qgetenv("PATH");
+        const auto restore = qScopeGuard([&path] {
+            qputenv("PATH", path);
+        });
+        qputenv("PATH", QByteArray(bin.path().toLocal8Bit() + ':' + path));
+        const QString file = folder.filePath(QStringLiteral("-n notes.txt"));
+        QFile note(file);
+        QVERIFY(note.open(QIODevice::WriteOnly));
+        note.close();
+
+        TerminalPanel panel;
+        auto *status = panel.findChild<QLabel *>(QStringLiteral("terminalPanelStatus"));
+        QVERIFY(!panel.openProgram(script.fileName(), {file}, folder.filePath(QStringLiteral("missing")), QStringLiteral("nano")));
+        QVERIFY(status->text().contains(QStringLiteral("not an existing local folder")));
+        if (!TerminalProviders::isPartInstalled(TerminalProviders::Provider::Konsole)) {
+            QSKIP("KonsolePart is not available in this environment");
+        }
+
+        MainWindow window;
+        const QString processDirectory = QDir::currentPath();
+        window.openUrls({QUrl::fromLocalFile(folder.path())});
+        window.show();
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        view->selectUrls({QUrl::fromLocalFile(file)});
+        auto *editWith = qobject_cast<KActionMenu *>(window.actionCollection()->action(QStringLiteral("edit_with")));
+        QVERIFY(editWith && editWith->isEnabled());
+        QAction *nano = editWith->menu()->findChild<QAction *>(QStringLiteral("editWith_nano"));
+        QVERIFY(nano);
+        nano->trigger();
+        QVERIFY(window.actionCollection()->action(QStringLiteral("show_embedded_terminal"))->isChecked());
+        auto *tabs = window.findChild<QTabWidget *>(QStringLiteral("terminalSessions"));
+        QVERIFY(tabs);
+        // The editor opens without a shell session beside it.
+        QCOMPARE(tabs->count(), 1);
+        QCOMPARE(tabs->tabText(0).remove(QLatin1Char('&')), QStringLiteral("nano"));
+        QFile arguments(marker);
+        QTRY_VERIFY(arguments.exists() && arguments.size() > 0);
+        QVERIFY(arguments.open(QIODevice::ReadOnly));
+        const QStringList lines = QString::fromLocal8Bit(arguments.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        QCOMPARE(lines.size(), 3);
+        QCOMPARE(lines.at(0), script.fileName());
+        QCOMPARE(lines.at(1), file);
+        QCOMPARE(QFileInfo(lines.at(2)).canonicalFilePath(), QFileInfo(folder.path()).canonicalFilePath());
+        QCOMPARE(QDir::currentPath(), processDirectory);
+        // The tab closes when the editor exits.
+        QTRY_COMPARE(tabs->count(), 0);
     }
 
     void headerHasHorizontalPadding()

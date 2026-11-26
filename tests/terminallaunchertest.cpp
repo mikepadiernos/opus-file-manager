@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "terminallauncher.h"
+#include "folderview.h"
 #include "mainwindow.h"
+#include "pane.h"
 
 #include <KActionCollection>
 #include <KActionMenu>
@@ -208,6 +210,66 @@ private Q_SLOTS:
         auto *status = window.findChild<QLabel *>(QStringLiteral("terminalPanelStatus"));
         QVERIFY(status);
         QVERIFY(status->text().contains(QStringLiteral("Atuin is not installed")));
+    }
+
+    void editWithStartsGraphicalEditors()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        const QString output = m_bin.filePath(QStringLiteral("arguments"));
+        QVERIFY(writeExecutable(m_bin.filePath(QStringLiteral("kwrite")), "#!/bin/sh\nprintf '%s\\n' \"$0\" \"$@\" > '" + output.toLocal8Bit() + "'\n"));
+        const QString first = folder.filePath(QStringLiteral("--help"));
+        const QString second = folder.filePath(QStringLiteral("it's here.txt"));
+        for (const QString &name : {first, second}) {
+            QFile file(name);
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        QVERIFY(QDir(folder.path()).mkdir(QStringLiteral("sub")));
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(folder.path())});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 3);
+        auto *editWith = qobject_cast<KActionMenu *>(window.actionCollection()->action(QStringLiteral("edit_with")));
+        QVERIFY(editWith);
+        QVERIFY(!editWith->isEnabled());
+        view->selectUrls({QUrl::fromLocalFile(folder.filePath(QStringLiteral("sub")))});
+        QVERIFY(!editWith->isEnabled());
+
+        QMenu *menu = editWith->menu();
+        Q_EMIT menu->aboutToShow();
+        QStringList names;
+        for (const QAction *entry : menu->actions()) {
+            names.append(entry->objectName());
+        }
+        QCOMPARE(names,
+                 (QStringList{QStringLiteral("editWith_kwrite"),
+                              QStringLiteral("editWith_kate"),
+                              QStringLiteral("editWith_nvim"),
+                              QStringLiteral("editWith_rune"),
+                              QStringLiteral("editWith_micro"),
+                              QStringLiteral("editWith_nano")}));
+        const QList<QAction *> entries = menu->actions();
+        QVERIFY(entries.at(0)->isEnabled());
+        QCOMPARE(entries.at(0)->toolTip(), QStringLiteral("Open the selected files in KWrite"));
+        for (int i = 1; i < entries.size(); ++i) {
+            QVERIFY(!entries.at(i)->isEnabled());
+            QVERIFY(entries.at(i)->toolTip().contains(QStringLiteral("is not installed")));
+        }
+
+        view->selectUrls({QUrl::fromLocalFile(first), QUrl::fromLocalFile(second)});
+        QTRY_VERIFY(editWith->isEnabled());
+        entries.at(0)->trigger();
+        QFile file(output);
+        QTRY_VERIFY(file.exists() && file.size() > 0);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QStringList lines = QString::fromLocal8Bit(file.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        QCOMPARE(lines.size(), 3);
+        QVERIFY(lines.at(0).endsWith(QStringLiteral("kwrite")));
+        lines.removeFirst();
+        lines.sort();
+        QStringList expected{first, second};
+        expected.sort();
+        QCOMPARE(lines, expected);
     }
 
 private:

@@ -20,6 +20,7 @@
 #include <QLabel>
 #include <QMenu>
 #include <QMessageBox>
+#include <QScopeGuard>
 #include <QTabBar>
 #include <QTabWidget>
 #include <QTimer>
@@ -381,22 +382,68 @@ void TerminalPanel::follow(const QUrl &folder)
         }
     }
     const TerminalProviders::Provider provider = embeddedProvider();
+    KParts::ReadOnlyPart *part =
+        createSession(info.fileName().isEmpty() ? path : info.fileName(),
+                      i18nc("@info:tooltip %1 is a terminal application, %2 a folder", "%1 session started in %2", TerminalProviders::name(provider), path));
+    if (!part) {
+        return;
+    }
+    setStatus(Settings::terminalFollowActiveFolder()
+                  ? i18nc("@info", "Terminal sessions remain open until their tabs are closed.")
+                  : i18nc("@info", "The terminal starts in the active folder. Pane navigation does not change its directory."),
+              true);
+    qobject_cast<TerminalInterface *>(part)->showShellInDir(path);
+}
+
+bool TerminalPanel::openProgram(const QString &program, const QStringList &arguments, const QString &folder, const QString &title)
+{
+    const QFileInfo info(folder);
+    if (!info.isAbsolute() || !info.isDir()) {
+        setStatus(i18nc("@info %1 is a program", "%1 was not started because its folder is not an existing local folder.", title));
+        return false;
+    }
+    const QString path = QDir::cleanPath(info.absoluteFilePath());
+    // TerminalInterface has no working directory for programs, so the session
+    // inherits it from this process while the component creates and starts it.
+    const QString previous = QDir::currentPath();
+    QDir::setCurrent(path);
+    const auto restore = qScopeGuard([&previous] {
+        QDir::setCurrent(previous);
+    });
+    KParts::ReadOnlyPart *part = createSession(title,
+                                               i18nc("@info:tooltip %1 is a program, %2 a terminal application, %3 a folder",
+                                                     "%1 running in %2, started in %3",
+                                                     title,
+                                                     TerminalProviders::name(embeddedProvider()),
+                                                     path));
+    if (!part) {
+        return false;
+    }
+    setStatus(i18nc("@info %1 is a program", "The tab closes when %1 exits.", title), true);
+    qobject_cast<TerminalInterface *>(part)->startProgram(program, QStringList{program} + arguments);
+    part->widget()->setFocus();
+    return true;
+}
+
+KParts::ReadOnlyPart *TerminalPanel::createSession(const QString &title, const QString &toolTip)
+{
+    const TerminalProviders::Provider provider = embeddedProvider();
     const QString providerName = TerminalProviders::name(provider);
     const KPluginMetaData metadata = KPluginMetaData::findPluginById(QStringLiteral("kf6/parts"), TerminalProviders::partPluginId(provider));
     if (!metadata.isValid()) {
         setStatus(TerminalProviders::partUnavailableReason(provider));
-        return;
+        return nullptr;
     }
     const auto result = KParts::PartLoader::instantiatePart<KParts::ReadOnlyPart>(metadata, this, this);
     if (!result) {
         setStatus(i18nc("@info %1 is a terminal application, %2 the reason", "Could not load the %1 terminal component: %2", providerName, result.errorString));
-        return;
+        return nullptr;
     }
     auto *terminal = qobject_cast<TerminalInterface *>(result.plugin);
     if (!terminal || !result.plugin->widget()) {
         delete result.plugin;
         setStatus(i18nc("@info %1 is a terminal application", "The %1 component does not provide a terminal.", providerName));
-        return;
+        return nullptr;
     }
     auto *part = result.plugin;
     m_parts.append(part);
@@ -418,12 +465,8 @@ void TerminalPanel::follow(const QUrl &folder)
         m_parts.removeAll(QPointer<KParts::ReadOnlyPart>());
         setStatus(i18nc("@info", "Terminal session ended. Select another tab or hide and show the terminal to start another."));
     });
-    const int index = m_tabs->addTab(part->widget(), info.fileName().isEmpty() ? path : info.fileName());
-    m_tabs->setTabToolTip(index, i18nc("@info:tooltip %1 is a terminal application, %2 a folder", "%1 session started in %2", providerName, path));
+    const int index = m_tabs->addTab(part->widget(), title);
+    m_tabs->setTabToolTip(index, toolTip);
     m_tabs->setCurrentIndex(index);
-    setStatus(Settings::terminalFollowActiveFolder()
-                  ? i18nc("@info", "Terminal sessions remain open until their tabs are closed.")
-                  : i18nc("@info", "The terminal starts in the active folder. Pane navigation does not change its directory."),
-              true);
-    terminal->showShellInDir(path);
+    return part;
 }

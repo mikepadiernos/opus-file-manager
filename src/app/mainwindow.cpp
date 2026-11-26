@@ -2905,6 +2905,37 @@ void MainWindow::setupActions()
     QAction *editor = actions->addAction(QStringLiteral("open_editor"), this, &MainWindow::openEditor);
     editor->setText(i18nc("@action", "Open Editor"));
     editor->setIcon(SymbolicIcon::fromTheme(QStringLiteral("view-pim-notes")));
+    auto *editWith = new KActionMenu(SymbolicIcon::fromTheme(QStringLiteral("document-edit")), i18nc("@action", "Edit With"), this);
+    editWith->setToolTip(i18nc("@info:tooltip", "Open the selected files in a chosen text editor"));
+    editWith->setPopupMode(QToolButton::InstantPopup);
+    actions->addAction(QStringLiteral("edit_with"), editWith);
+    QMenu *editWithMenu = editWith->menu();
+    editWithMenu->setToolTipsVisible(true);
+    for (const EditorProviders::Editor editorProvider : EditorProviders::editors()) {
+        QAction *entry = editWithMenu->addAction(QIcon::fromTheme(EditorProviders::iconName(editorProvider)), EditorProviders::name(editorProvider));
+        entry->setObjectName(QStringLiteral("editWith_") + EditorProviders::id(editorProvider));
+        entry->setData(static_cast<int>(editorProvider));
+        connect(entry, &QAction::triggered, this, [this, editorProvider] {
+            editWithEditor(editorProvider);
+        });
+    }
+    connect(editWithMenu, &QMenu::aboutToShow, this, [editWithMenu] {
+        const QList<QAction *> entries = editWithMenu->actions();
+        for (QAction *entry : entries) {
+            const auto editorProvider = static_cast<EditorProviders::Editor>(entry->data().toInt());
+            const QString reason = EditorProviders::unavailableReason(editorProvider);
+            entry->setEnabled(reason.isEmpty());
+            if (!reason.isEmpty()) {
+                entry->setToolTip(reason);
+            } else if (EditorProviders::runsInTerminal(editorProvider)) {
+                entry->setToolTip(i18nc("@info:tooltip %1 is a text editor",
+                                        "Open the selected files with %1 in the embedded terminal",
+                                        EditorProviders::name(editorProvider)));
+            } else {
+                entry->setToolTip(i18nc("@info:tooltip %1 is a text editor", "Open the selected files in %1", EditorProviders::name(editorProvider)));
+            }
+        }
+    });
     QAction *sendToDevice = actions->addAction(QStringLiteral("kdeconnect_send"), this, &MainWindow::sendToDevice);
     sendToDevice->setText(i18nc("@action", "Send to Device…"));
     sendToDevice->setToolTip(i18nc("@info:tooltip", "Send the selected files to a paired device with KDE Connect"));
@@ -3109,9 +3140,7 @@ void MainWindow::setupActions()
         if (shown) {
             m_terminalPanel->start(activePane()->url());
         }
-        m_terminalPanel->setVisible(shown);
-        toggleLayout(m_dualLayoutAction->isChecked());
-        restoreSplitterSizes(false, true, true);
+        updateTerminalPanelVisibility();
     });
     QAction *terminalHistory = actions->addAction(QStringLiteral("search_terminal_history"), this, [this] {
         if (!m_terminalPanelAction->isChecked()) {
@@ -4012,6 +4041,9 @@ void MainWindow::updateActions()
     actions->action(stdName(KStandardAction::Copy))->setEnabled(hasSelection);
     actions->action(QStringLiteral("open_terminal"))->setEnabled(activePane()->url().isLocalFile());
     actions->action(QStringLiteral("open_terminal_with"))->setEnabled(activePane()->url().isLocalFile());
+    actions->action(QStringLiteral("edit_with"))->setEnabled(hasSelection && std::none_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
+                                                                 return item.isDir();
+                                                             }));
     const bool commandEnabled = activePane()->url().isLocalFile() && std::all_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
                                     return item.url().isLocalFile();
                                 });
@@ -4767,6 +4799,53 @@ void MainWindow::openEditor()
     }
 }
 
+void MainWindow::editWithEditor(EditorProviders::Editor editor)
+{
+    const QString executable = EditorProviders::findExecutable(editor);
+    if (executable.isEmpty()) {
+        showStatusMessage(EditorProviders::unavailableReason(editor));
+        return;
+    }
+    const KFileItemList items = activePane()->view()->selectedItems();
+    QList<QUrl> urls;
+    urls.reserve(items.size());
+    for (const KFileItem &item : items) {
+        urls.append(item.mostLocalUrl());
+    }
+    QString error;
+    const QStringList arguments = EditorProviders::arguments(editor, urls, &error);
+    if (!error.isEmpty()) {
+        showStatusMessage(error);
+        return;
+    }
+    const QString name = EditorProviders::name(editor);
+    if (EditorProviders::runsInTerminal(editor)) {
+        // Showing the panel through its action would also start a shell session.
+        if (!m_terminalPanelAction->isChecked()) {
+            const QSignalBlocker blocker(m_terminalPanelAction);
+            m_terminalPanelAction->setChecked(true);
+            updateTerminalPanelVisibility();
+        }
+        m_terminalPanel->openProgram(executable, arguments, EditorProviders::workingDirectory(urls), name);
+        return;
+    }
+    auto *job = new KIO::CommandLauncherJob(executable, arguments, this);
+    job->setDesktopName(EditorProviders::desktopName(editor));
+    connect(job, &KJob::result, this, [this, name](KJob *finished) {
+        if (finished->error()) {
+            showStatusMessage(i18nc("@info:status %1 is a text editor, %2 the error", "Could not start %1: %2", name, finished->errorString()));
+        }
+    });
+    job->start();
+}
+
+void MainWindow::updateTerminalPanelVisibility()
+{
+    m_terminalPanel->setVisible(m_terminalPanelAction->isChecked());
+    toggleLayout(m_dualLayoutAction->isChecked());
+    restoreSplitterSizes(false, true, true);
+}
+
 void MainWindow::openGallery()
 {
     FolderView *view = activePane()->view();
@@ -4898,6 +4977,12 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
                     KMessageBox::error(this, error, i18nc("@title:window", "Could Not Open with mpv"));
                 }
             });
+        }
+        const bool filesOnly = std::none_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
+            return item.isDir();
+        });
+        if (filesOnly) {
+            menu.addAction(actions->action(QStringLiteral("edit_with")));
         }
     }
 
