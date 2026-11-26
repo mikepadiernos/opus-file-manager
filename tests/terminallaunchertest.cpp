@@ -5,9 +5,11 @@
 #include "mainwindow.h"
 #include "pane.h"
 #include "rclone.h"
+#include "remotemounts.h"
 
 #include <KActionCollection>
 #include <KActionMenu>
+#include <KFilePlacesModel>
 #include <KSharedConfig>
 
 #include <QApplication>
@@ -403,9 +405,12 @@ private Q_SLOTS:
         QCOMPARE(entries.at(0)->text(), QStringLiteral("Build && deploy"));
         QCOMPARE(entries.at(0)->toolTip(), QStringLiteral("sftp://deploy@build.example.invalid:2222"));
         QVERIFY(entries.at(0)->menu());
-        QCOMPARE(entries.at(0)->menu()->actions().size(), 3);
+        QCOMPARE(entries.at(0)->menu()->actions().size(), 6);
+        QVERIFY(entries.at(0)->menu()->actions().at(3)->isSeparator());
+        QCOMPARE(entries.at(0)->menu()->actions().at(4)->text(), QStringLiteral("Mount as Folder"));
+        QCOMPARE(entries.at(0)->menu()->actions().at(5)->text(), QStringLiteral("Mount Options…"));
         QVERIFY(entries.at(1)->menu());
-        QCOMPARE(entries.at(1)->menu()->actions().size(), 2);
+        QCOMPARE(entries.at(1)->menu()->actions().size(), 5);
         QVERIFY(entries.at(2)->isSeparator());
         QCOMPARE(entries.at(3), window.actionCollection()->action(QStringLiteral("network_locations")));
         QVERIFY(entries.at(3)->isEnabled());
@@ -476,6 +481,60 @@ private Q_SLOTS:
         QCOMPARE(window.activePane()->url(), QUrl::fromLocalFile(QDir::homePath()));
         QVERIFY(unmounted.wait(5000));
         QVERIFY(window.rcloneMounts()->mountedRemotes().isEmpty());
+    }
+
+    void remoteConnectionsMountAsFolders()
+    {
+        RemoteProfiles::Profile server;
+        server.name = QStringLiteral("Media server");
+        server.host = QStringLiteral("media.example.invalid");
+        QList<RemoteProfiles::Profile> profiles{server};
+        KConfigGroup group = KSharedConfig::openConfig()->group(QStringLiteral("RemoteProfiles"));
+        const auto removeProfiles = qScopeGuard([&group] {
+            group.deleteGroup();
+            group.sync();
+            KSharedConfig::openConfig()->deleteGroup(QStringLiteral("RemoteMounts"));
+        });
+        QVERIFY(RemoteProfiles::save(group, profiles));
+        QTemporaryDir fuse;
+        QVERIFY(fuse.isValid());
+
+        MainWindow window;
+        QUrl requested;
+        window.remoteMounts()->setKioFuseMount([&requested, &fuse](const QUrl &url, QObject *, const RemoteMountManager::KioFuseReply &reply) {
+            requested = url;
+            reply(fuse.path(), {});
+        });
+        auto *remote = qobject_cast<KActionMenu *>(window.actionCollection()->action(QStringLiteral("remote_connections")));
+        QVERIFY(remote);
+        Q_EMIT remote->menu()->aboutToShow();
+        QMenu *submenu = remote->menu()->actions().first()->menu();
+        QVERIFY(submenu);
+        QAction *mount = submenu->actions().at(4);
+        QCOMPARE(mount->text(), QStringLiteral("Mount as Folder"));
+        mount->trigger();
+        QCOMPARE(requested, RemoteProfiles::url(profiles.first()));
+        QCOMPARE(window.activePane()->url(), QUrl::fromLocalFile(fuse.path()));
+        const auto hasPlace = [&fuse] {
+            KFilePlacesModel places;
+            for (int row = 0; row < places.rowCount(); ++row) {
+                if (places.url(places.index(row, 0)) == QUrl::fromLocalFile(fuse.path())) {
+                    return true;
+                }
+            }
+            return false;
+        };
+        QVERIFY(hasPlace());
+
+        Q_EMIT remote->menu()->aboutToShow();
+        submenu = remote->menu()->actions().first()->menu();
+        QCOMPARE(submenu->actions().at(4)->text(), QStringLiteral("Open Mounted Folder"));
+        QAction *unmount = submenu->actions().at(5);
+        QCOMPARE(unmount->text(), QStringLiteral("Unmount"));
+        unmount->trigger();
+        QCOMPARE(window.activePane()->url(), QUrl::fromLocalFile(QDir::homePath()));
+        QVERIFY(window.remoteMounts()->mountedIds().isEmpty());
+        QVERIFY(!hasPlace());
     }
 
 private:

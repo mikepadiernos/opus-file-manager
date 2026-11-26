@@ -124,6 +124,8 @@ add_library(opusfm_app STATIC
     pathfiltereditor.h
     pathfilterpresetsdialog.cpp
     pathfilterpresetsdialog.h
+    remotemountdialog.cpp
+    remotemountdialog.h
     remoteprofilesdialog.cpp
     remoteprofilesdialog.h
     previewpanel.cpp

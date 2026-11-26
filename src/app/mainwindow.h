@@ -30,6 +30,7 @@ class ActivityController;
 class KdeConnectClient;
 class MountBackend;
 class RcloneMounts;
+class RemoteMountManager;
 class DropDownWindow;
 class KWinBackend;
 class DiskImageBackend;
@@ -173,6 +174,16 @@ public:
     void openRcloneRemote(const QString &remote);
     /// Leaves the remote's folder in either pane and stops its mount.
     void unmountRcloneRemote(const QString &remote);
+    /// The remote connections this window mounted as folders, created on first use.
+    RemoteMountManager *remoteMounts();
+    /// Mounts @p profile with its saved mount options, opening it in the active pane when @p open is set.
+    void mountRemoteProfile(const RemoteProfiles::Profile &profile, bool open);
+    /// Leaves the mounted folder in either pane and unmounts it.
+    void unmountRemoteProfile(const QString &id);
+    /// Shows how @p profile is mounted as a folder.
+    void showRemoteMountOptions(const RemoteProfiles::Profile &profile);
+    /// Removes Places entries left by earlier mounts and mounts the connections set to mount at startup.
+    void mountRemoteProfilesAtStartup();
 
     /// The optional Plasma Opus KWin script and its D-Bus interface.
     KWinIntegration *kwinIntegration() const;
@@ -529,6 +540,12 @@ private:
     QString m_rcloneError;
     bool m_rcloneListed = false;
     QString m_openAfterRcloneMount;
+    RemoteMountManager *m_remoteMounts = nullptr;
+    /// The connection to open once mounted.
+    QString m_openAfterRemoteMount;
+    /// The names and folders of mounted connections, by profile identifier.
+    QHash<QString, QString> m_remoteMountNames;
+    QHash<QString, QString> m_remoteMountPaths;
     /// Behaviours an applied Activity association chose for its workspace, until another workspace is chosen.
     std::optional<WorkspaceCatalog::BehaviorSelection> m_activityBehaviors;
     QString m_activityBehaviorsWorkspaceId;

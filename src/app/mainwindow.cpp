@@ -62,6 +62,8 @@
 #include "pane.h"
 #include "pathfiltereditor.h"
 #include "previewpanel.h"
+#include "remotemountdialog.h"
+#include "remotemounts.h"
 #include "remoteprofilesdialog.h"
 #include "searchdefaults.h"
 #include "searchpanel.h"
@@ -657,6 +659,7 @@ MainWindow::MainWindow(QWidget *parent)
     });
     applySettings();
     updateActions();
+    QTimer::singleShot(0, this, &MainWindow::mountRemoteProfilesAtStartup);
     if (Settings::restoreSearchPanel() && KSharedConfig::openStateConfig()->group(QStringLiteral("SearchPanel")).readEntry("Visible", false)) {
         // Deferred so the panel searches the folder opened after construction.
         QTimer::singleShot(0, this, [this] {
@@ -5704,6 +5707,31 @@ void MainWindow::populateRemoteConnections()
                                    openSshTerminal(profile);
                                });
         }
+        submenu->addSeparator();
+        RemoteMountManager *mounts = remoteMounts();
+        if (mounts->isMounted(profile.id)) {
+            submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("folder-open")), i18nc("@action:inmenu", "Open Mounted Folder"), this, [this, profile] {
+                mountRemoteProfile(profile, true);
+            });
+            const QString id = profile.id;
+            submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("media-eject")), i18nc("@action:inmenu", "Unmount"), this, [this, id] {
+                unmountRemoteProfile(id);
+            });
+        } else {
+            QAction *mount = submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("drive-harddisk")),
+                                                i18nc("@action:inmenu", "Mount as Folder"),
+                                                this,
+                                                [this, profile] {
+                                                    mountRemoteProfile(profile, true);
+                                                });
+            mount->setEnabled(!mounts->isStarting(profile.id));
+            mount->setToolTip(mounts->isStarting(profile.id)
+                                  ? i18nc("@info:tooltip", "Mounting…")
+                                  : i18nc("@info:tooltip", "Mount it as a local folder that applications without KIO support can use, and open it"));
+        }
+        submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("configure")), i18nc("@action:inmenu", "Mount Options…"), this, [this, profile] {
+            showRemoteMountOptions(profile);
+        });
     }
     if (profiles.isEmpty()) {
         m_remoteConnectionsMenu->addAction(i18nc("@action:inmenu", "No saved connections"))->setEnabled(false);
@@ -5728,6 +5756,15 @@ void MainWindow::showRemoteConnections()
         openRemoteProfile(dialog->formProfile(), otherPane);
     });
     connect(dialog, &RemoteProfilesDialog::sshRequested, this, &MainWindow::openSshTerminal);
+    connect(dialog, &QDialog::finished, this, [] {
+        // Forget the mount options of removed connections.
+        QStringList ids;
+        const QList<RemoteProfiles::Profile> profiles = RemoteProfiles::load(KSharedConfig::openConfig()->group(QStringLiteral("RemoteProfiles")));
+        for (const RemoteProfiles::Profile &profile : profiles) {
+            ids.append(profile.id);
+        }
+        RemoteMounts::pruneOptions(KSharedConfig::openConfig()->group(QStringLiteral("RemoteMounts")), ids);
+    });
     dialog->show();
 }
 
@@ -5867,6 +5904,140 @@ void MainWindow::unmountRcloneRemote(const QString &remote)
         }
     }
     rcloneMounts()->unmount(remote);
+}
+
+namespace
+{
+const QString remoteMountPlacesKey = QStringLiteral("Places");
+
+KConfigGroup remoteMountState()
+{
+    return KSharedConfig::openStateConfig()->group(QStringLiteral("RemoteMounts"));
+}
+
+/// Removes the Places entry this application added for @p url, leaving entries the user added.
+void removeRemoteMountPlace(KFilePlacesModel *model, const QUrl &url)
+{
+    for (int row = model->rowCount() - 1; row >= 0; --row) {
+        const QModelIndex index = model->index(row, 0);
+        if (model->url(index).matches(url, QUrl::StripTrailingSlash)
+            && model->bookmarkForIndex(index).metaDataItem(QStringLiteral("OnlyInApp")) == QCoreApplication::applicationName()) {
+            model->removePlace(index);
+        }
+    }
+    KConfigGroup state = remoteMountState();
+    QStringList places = state.readEntry(remoteMountPlacesKey, QStringList());
+    places.removeAll(url.toString());
+    state.writeEntry(remoteMountPlacesKey, places);
+    state.sync();
+}
+}
+
+RemoteMountManager *MainWindow::remoteMounts()
+{
+    if (m_remoteMounts) {
+        return m_remoteMounts;
+    }
+    m_remoteMounts = new RemoteMountManager(this);
+    connect(m_remoteMounts, &RemoteMountManager::mounted, this, [this](const QString &id, const QString &path) {
+        const QString name = m_remoteMountNames.value(id);
+        const QUrl url = QUrl::fromLocalFile(path);
+        if (m_remoteMountPaths.value(id) != path) {
+            m_remoteMountPaths.insert(id, path);
+            // OnlyInApp keeps the entry out of other applications, which would keep showing it after the mount stops.
+            m_placesModel->addPlace(name, url, QStringLiteral("folder-remote"), QCoreApplication::applicationName());
+            KConfigGroup state = remoteMountState();
+            QStringList places = state.readEntry(remoteMountPlacesKey, QStringList());
+            if (!places.contains(url.toString())) {
+                places.append(url.toString());
+            }
+            state.writeEntry(remoteMountPlacesKey, places);
+            state.sync();
+        }
+        if (id != m_openAfterRemoteMount) {
+            showStatusMessage(i18nc("@info:status %1 is a saved connection, %2 a folder", "Mounted %1 on %2", name, path));
+            return;
+        }
+        m_openAfterRemoteMount.clear();
+        activePane()->setUrl(url);
+    });
+    connect(m_remoteMounts, &RemoteMountManager::failed, this, [this](const QString &id, const QString &error) {
+        const QString name = m_remoteMountNames.value(id);
+        if (id != m_openAfterRemoteMount) {
+            showStatusMessage(i18nc("@info:status %1 is a saved connection, %2 the error", "Could not mount %1: %2", name, error));
+            return;
+        }
+        m_openAfterRemoteMount.clear();
+        KMessageBox::error(this,
+                           i18nc("@info %1 is a saved connection, %2 the error", "Could not mount %1:\n%2", name, error),
+                           i18nc("@title:window", "Mount Remote Connection"));
+    });
+    connect(m_remoteMounts, &RemoteMountManager::unmounted, this, [this](const QString &id) {
+        const QString path = m_remoteMountPaths.take(id);
+        if (!path.isEmpty()) {
+            removeRemoteMountPlace(m_placesModel, QUrl::fromLocalFile(path));
+        }
+        showStatusMessage(i18nc("@info:status %1 is a saved connection", "Unmounted %1", m_remoteMountNames.value(id)));
+    });
+    if (QCoreApplication *application = QCoreApplication::instance()) {
+        // Mounts stop at quit without signals, so their Places entries are removed here.
+        connect(application, &QCoreApplication::aboutToQuit, this, [this] {
+            for (const QString &path : std::as_const(m_remoteMountPaths)) {
+                removeRemoteMountPlace(m_placesModel, QUrl::fromLocalFile(path));
+            }
+            m_remoteMountPaths.clear();
+        });
+    }
+    return m_remoteMounts;
+}
+
+void MainWindow::mountRemoteProfile(const RemoteProfiles::Profile &profile, bool open)
+{
+    m_remoteMountNames.insert(profile.id, profile.name.trimmed());
+    if (open) {
+        m_openAfterRemoteMount = profile.id;
+    }
+    remoteMounts()->mount(profile, RemoteMounts::loadOptions(KSharedConfig::openConfig()->group(QStringLiteral("RemoteMounts")), profile));
+}
+
+void MainWindow::unmountRemoteProfile(const QString &id)
+{
+    const QString path = remoteMounts()->path(id);
+    if (!path.isEmpty()) {
+        for (Pane *pane : {activePane(), inactivePane()}) {
+            const QUrl url = pane->url();
+            if (url.isLocalFile() && (url.toLocalFile() == path || url.toLocalFile().startsWith(path + QLatin1Char('/')))) {
+                pane->setUrl(QUrl::fromLocalFile(QDir::homePath()));
+            }
+        }
+    }
+    remoteMounts()->unmount(id);
+}
+
+void MainWindow::showRemoteMountOptions(const RemoteProfiles::Profile &profile)
+{
+    auto *dialog = new RemoteMountDialog(profile, KSharedConfig::openConfig()->group(QStringLiteral("RemoteMounts")), this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &RemoteMountDialog::mountRequested, this, [this, profile] {
+        mountRemoteProfile(profile, true);
+    });
+    dialog->show();
+}
+
+void MainWindow::mountRemoteProfilesAtStartup()
+{
+    // Mounts end when Plasma Opus quits, so recorded entries are left from a session that didn't quit cleanly.
+    const QStringList places = remoteMountState().readEntry(remoteMountPlacesKey, QStringList());
+    for (const QString &place : places) {
+        removeRemoteMountPlace(m_placesModel, QUrl(place));
+    }
+    const KConfigGroup options = KSharedConfig::openConfig()->group(QStringLiteral("RemoteMounts"));
+    const QList<RemoteProfiles::Profile> profiles = RemoteProfiles::load(KSharedConfig::openConfig()->group(QStringLiteral("RemoteProfiles")));
+    for (const RemoteProfiles::Profile &profile : profiles) {
+        if (RemoteMounts::loadOptions(options, profile).atStartup) {
+            mountRemoteProfile(profile, false);
+        }
+    }
 }
 
 void MainWindow::verifyChecksumFile()
