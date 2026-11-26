@@ -1200,7 +1200,9 @@ The M24 [tagging settings](tagging.md#settings) have these limits
 Filtered folder comparison has these limits
 ([#376](https://github.com/mikepadiernos/plasma-opus/issues/376)):
 
-- **Scope:** Comparison requires two separate local folders. Patterns match
+- **Scope:** The built-in comparison requires two separate local folders; with
+  a folder on an SSH host, the [rsync backend](#desktop-integration) compares
+  instead. Patterns match
   relative paths case-sensitively; excluded folders are not traversed. Links can
   be skipped or compared by target, but are never followed. When links are
   skipped, the matching subtree on the other side is also skipped.
@@ -1213,22 +1215,21 @@ Filtered folder comparison has these limits
 - **Recommendation:** Use separate local folders and choose relative-path
   patterns carefully; enable content comparison when matching bytes matter.
   Compare smaller trees if the entry limit is reached, and rerun after changes.
-  Use an external tool for remote locations or unsupported filenames.
+  Choose rsync for folders on SSH hosts, and use an external tool for other
+  remote locations or unsupported filenames.
   - Comment: [#376.7026216329][comment-376]
 - **Alternative:** Use a separate graphical directory comparison.
   - Comment:
     [#376.7029677475](https://github.com/mikepadiernos/plasma-opus/issues/376#issuecomment-7029677475)
-- **Planned:** The [M27 rsync backend](ROADMAP.md#m27-integrations) is for
-  folder synchronization; it does not promise remote support in this standalone
-  comparison.
-  - Comment: [#376.7026216329][comment-376]
 
 ## Folder synchronization
 
 Folder synchronization has these limits
 ([#377](https://github.com/mikepadiernos/plasma-opus/issues/377)):
 
-- **Supported operations:** Synchronization is local-only. It copies, overwrites
+- **Supported operations:** The built-in backend is local-only; the optional
+  [rsync backend](#desktop-integration) also reaches folders on SSH hosts, with
+  its own limits. Synchronization copies, overwrites
   and permanently deletes regular files and creates missing folders. Links,
   directory deletion and type replacement are unsupported. Profiles save filters
   and comparison options, not item actions.
@@ -1245,17 +1246,14 @@ Folder synchronization has these limits
 - **Recommendation:** Back up important data first, stop other writers and avoid
   moving the folders during synchronization. Review every planned overwrite and
   permanent deletion, inspect the completed-operation report and any reported
-  `.opus-sync-*` folders after errors, and compare again before retrying. Use
-  another tool for remote locations, links, directory deletion, type replacement
-  or metadata that must be preserved.
+  `.opus-sync-*` folders after errors, and compare again before retrying.
+  Choose rsync for folders on SSH hosts, and use another tool for links,
+  directory deletion, type replacement or metadata that must be preserved.
   - Comment: [#377.7026633904][comment-377]
-- **Alternative:** Use rsync separately with a reviewed dry run.
+- **Alternative:** Run rsync yourself with a reviewed dry run for options
+  Plasma Opus doesn't offer.
   - Comment:
     [#377.7029677824](https://github.com/mikepadiernos/plasma-opus/issues/377#issuecomment-7029677824)
-- **Planned:** [M27](ROADMAP.md#m27-integrations) proposes an optional rsync
-  backend for local and SSH locations, with a reviewed dry run. It is not
-  available yet and would still require confirmation and recovery precautions.
-  - Comment: [#377.7026633904][comment-377]
 
 ## File comparison
 
@@ -2019,6 +2017,21 @@ The M27 desktop integrations have these limits
   The menu needs Plasma Opus built with libaccounts-qt6, and **Manage Online
   Accounts…** needs System Settings with its Online Accounts page.
   ([#370](https://github.com/mikepadiernos/plasma-opus/issues/370))
+- **🔁 rsync backend:** Each run copies or deletes in one direction, so plans
+  that work both ways are refused, and it deletes only regular files missing
+  from the source; folders, links and type changes aren't synchronized. It
+  works between a local folder and a folder on an SSH host that has rsync
+  installed, not between two hosts or with other KIO locations. Every
+  comparison, dry run and transfer opens new SSH connections, so passwords
+  may be asked for several times, and without ksshaskpass a host that needs
+  a password or an unknown host key fails. Remote comparisons use rsync's
+  listings: times have one-second precision, symbolic links appear only when
+  link targets are compared, and filter patterns with `?`, `\` or a leading
+  or trailing `/` are refused. Copies keep modification times but not
+  permissions, ownership, ACLs or extended attributes. The dry run is a
+  snapshot, runs aren't added to KIO's undo history, and canceling or an
+  error leaves the files already transferred changed.
+  ([#363](https://github.com/mikepadiernos/plasma-opus/issues/363))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -2179,6 +2192,12 @@ The M27 desktop integrations have these limits
     sign-in, sign in again on that page. For WebDAV storage, let KWallet
     remember the password when KIO asks. For providers without a KDE file
     service, use **Go › Cloud Storage** with rclone.
+  - **rsync backend:** Install rsync on both computers. Use SSH keys with an
+    agent, or install `ksshaskpass`, and connect to the host once in a
+    terminal to accept its host key. Plan one direction per run, read rsync's
+    changes in the confirmation's details, and compare again after each run;
+    for changes in both directions, run two plans. Back up data whose
+    permissions or ownership matter.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2265,6 +2284,9 @@ The M27 desktop integrations have these limits
   - Show online account folders in Places, mount them as remote drives,
     refresh the menu when accounts change, hand Nextcloud app passwords to
     KIO with consent, and the M28 **Online Accounts** settings tab.
+  - Share one SSH connection between rsync runs, offer to keep permissions
+    and links, delete folders missing from the source, and the M28
+    **rsync** settings page.
 
 ## Embedded terminal
 
