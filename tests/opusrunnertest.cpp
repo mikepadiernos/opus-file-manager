@@ -9,6 +9,7 @@
 #include <KSharedConfig>
 
 #include <QDBusMetaType>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
@@ -81,6 +82,34 @@ private Q_SLOTS:
         QVERIFY(runner.Match(m_folderName).isEmpty());
         Settings::setRunnerFavorites(true);
         Settings::self()->save();
+    }
+
+    void leavesOutWhatIsTurnedOffOrHidden()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        OpusRunner runner;
+        Settings::setRunnerEnabled(false);
+        Settings::self()->save();
+        runner.Teardown();
+        QVERIFY(runner.Match(QStringLiteral("photo")).isEmpty());
+        QVERIFY(runner.Match(m_folderName).isEmpty());
+
+        Settings::setRunnerEnabled(true);
+        Settings::setRunnerHiddenWorkspaces({m_workspaceId});
+        Settings::self()->save();
+        runner.Teardown();
+        QVERIFY(runner.Match(QStringLiteral("photo")).isEmpty());
+        QCOMPARE(runner.Match(m_folderName).size(), 1);
+
+        Settings::setRunnerHiddenWorkspaces({});
+        Settings::setRunnerHiddenFavorites({RunnerMatches::locationId(QUrl::fromLocalFile(m_dir.path()))});
+        Settings::self()->save();
+        runner.Teardown();
+        QCOMPARE(runner.Match(QStringLiteral("photo")).size(), 1);
+        QVERIFY(runner.Match(m_folderName).isEmpty());
     }
 
     void runsOnlyTargetsThatStillExist()
