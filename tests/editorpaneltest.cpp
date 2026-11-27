@@ -360,6 +360,40 @@ private Q_SLOTS:
         QCOMPARE(editor.document()->text(), QStringLiteral("modified"));
     }
 
+    void closingUnsavedOrDiscardedDocumentsSucceeds()
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        QFile source(directory.filePath(QStringLiteral("source.txt")));
+        QVERIFY(source.open(QIODevice::WriteOnly));
+        source.write("original");
+        source.close();
+        EditorPanel editor(nullptr, directory.filePath(QStringLiteral("drafts")));
+        editor.show();
+        QVERIFY(editor.queryClose());
+        QVERIFY(editor.openUrl(QUrl::fromLocalFile(source.fileName())));
+        QVERIFY(editor.queryClose());
+        QVERIFY(editor.document()->setText(QStringLiteral("discarded")));
+        QTimer discardPrompt;
+        discardPrompt.setInterval(10);
+        connect(&discardPrompt, &QTimer::timeout, [] {
+            if (auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget())) {
+                if (auto *box = dialog->findChild<QDialogButtonBox *>()) {
+                    box->button(QDialogButtonBox::No)->click();
+                }
+            }
+        });
+        discardPrompt.start();
+        QVERIFY(editor.closeDocument());
+        discardPrompt.stop();
+        QVERIFY(editor.document()->url().isEmpty());
+        QVERIFY(!editor.document()->isModified());
+        QVERIFY(source.open(QIODevice::ReadOnly));
+        QCOMPARE(source.readAll(), QByteArray("original"));
+        QString error;
+        QVERIFY(DraftStore(directory.filePath(QStringLiteral("drafts"))).drafts(QUrl::fromLocalFile(source.fileName()), &error).isEmpty());
+    }
+
     void savedDraftIsRemoved()
     {
         QTemporaryDir directory;

@@ -139,7 +139,16 @@ private Q_SLOTS:
 
         panel.setItems({KFileItem(url(QStringLiteral("text.txt")))});
         QTRY_COMPARE(text->toPlainText(), QStringLiteral("remote text"));
+        auto *edit = panel.findChild<QToolButton *>(QStringLiteral("previewEdit"));
+        auto *editNotice = panel.findChild<QLabel *>(QStringLiteral("previewEditNoticeText"));
+        QVERIFY(edit && editNotice);
+        QVERIFY(edit->isVisible());
+        edit->click();
+        QVERIFY(!panel.isEditing());
+        QVERIFY(editNotice->isVisible());
+        QVERIFY(editNotice->text().contains(QStringLiteral("Remote")));
         panel.setItems({KFileItem(url(QStringLiteral("large.txt")))});
+        QVERIFY(!editNotice->isVisible());
         QTRY_COMPARE(text->toPlainText().size(), 1024 * 1024);
         QVERIFY(!footer->text().isEmpty());
         panel.setItems({KFileItem(url(QStringLiteral("image.png")))});
