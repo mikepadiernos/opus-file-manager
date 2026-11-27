@@ -1893,7 +1893,7 @@ Settings for M27 integrations, stored in KConfig.
         Preserve drafts and notes and report unavailable roots or features and
         incomplete indexing. See the
         [pending handoff](TODO.md#workspace-vault-editing-565). [#566]
-  - [ ] **Preview editing:** choose whether text previews offer editing,
+  - [x] **Preview editing:** choose whether text previews offer editing,
         whether double-clicking the preview starts editing, and whether to
         return to the preview after saving [#730]
 
