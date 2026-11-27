@@ -1843,7 +1843,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **Mount manager**
 
-  - [ ] **Display:** show only removable devices by default, hide pseudo, snap
+  - [x] **Display:** show only removable devices by default, hide pseudo, snap
         and other system file systems, and show the quick-mount menu on the
         toolbar [#705]
 
