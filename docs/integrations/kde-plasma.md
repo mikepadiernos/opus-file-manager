@@ -118,10 +118,14 @@ behaves like the rest of the desktop and follows the user's choices.
   uses the default. The window hides to the tray only while a tray can show
   the icon. While hidden, the icon moves out of the hidden section until the
   window is shown again. Minimizing or closing to the tray is off by default;
-  turn either on, or remove the icon, under **Settings › General › System
-  Tray**. Closing to the tray applies only to the window's close button; **File ›
-  Quit** and the tray menu's **Quit** still quit.
-  ([#285](https://github.com/mikepadiernos/plasma-opus/issues/285); shortcut
+  turn either on, or remove the icon, under **Preferences › KDE Plasma ›
+  System Tray**. Closing to the tray applies only to the window's close
+  button; **File › Quit** and the tray menu's **Quit** still quit. **Start
+  with the window hidden in the system tray** there starts Plasma Opus with
+  only its tray icon when it opens no folders or workspace and a tray can
+  already show the icon; otherwise the window is shown as usual.
+  ([#285](https://github.com/mikepadiernos/plasma-opus/issues/285),
+  [#290](https://github.com/mikepadiernos/plasma-opus/issues/290); shortcut
   settings in [M28](../ROADMAP.md#m28-integration-settings) and
   [M31](../ROADMAP.md#m31-keyboard-shortcut-settings))
 - **Plasma Activities:** each Activity can name a workspace and a default
