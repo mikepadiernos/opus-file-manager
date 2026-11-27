@@ -82,6 +82,8 @@ public:
     bool importFrom(const QString &path);
 
     void refresh();
+    /// Shows the limits saved in the configuration, such as after Preferences changed them.
+    void reloadLimits();
 
 Q_SIGNALS:
     void limitsChanged(const CloudActivity::Limits &limits);
@@ -111,6 +113,7 @@ private:
     QSpinBox *m_bandwidth;
     QSpinBox *m_parallel;
     QSpinBox *m_cache;
+    QSpinBox *m_cacheAge;
     QLabel *m_message;
     QTimer *m_timer;
 };

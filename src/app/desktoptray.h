@@ -101,6 +101,7 @@ private:
     QAction *m_toggleAction;
     QPointer<KStatusNotifierItem> m_item;
     QPointer<QAction> m_showHideAction;
+    QPointer<QAction> m_cloudActivityAction;
     std::function<bool()> m_hostProbe;
     std::function<bool()> m_quitCheck;
     bool m_hiddenToTray = false;

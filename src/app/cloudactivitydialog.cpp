@@ -34,7 +34,7 @@
 
 namespace
 {
-const QString limitsGroup = QStringLiteral("CloudActivity");
+const QString limitsGroup = CloudActivity::limitsGroupName();
 const QString profilesGroup = QStringLiteral("RemoteProfiles");
 
 QString speedText(quint64 bytesPerSecond)
@@ -166,6 +166,7 @@ CloudActivityDialog::CloudActivityDialog(const Sources &sources, QWidget *parent
     , m_bandwidth(new QSpinBox(this))
     , m_parallel(new QSpinBox(this))
     , m_cache(new QSpinBox(this))
+    , m_cacheAge(new QSpinBox(this))
     , m_message(new QLabel(this))
     , m_timer(new QTimer(this))
 {
@@ -228,7 +229,7 @@ CloudActivityDialog::CloudActivityDialog(const Sources &sources, QWidget *parent
     m_bandwidth->setSuffix(i18nc("@item:valuesuffix kibibytes per second", " KiB/s"));
     limitsLayout->addRow(i18nc("@label:spinbox", "Bandwidth:"), m_bandwidth);
     m_parallel->setObjectName(QStringLiteral("cloudActivityParallel"));
-    m_parallel->setRange(1, 64);
+    m_parallel->setRange(1, 32);
     limitsLayout->addRow(i18nc("@label:spinbox", "Parallel transfers:"), m_parallel);
     m_cache->setObjectName(QStringLiteral("cloudActivityCache"));
     m_cache->setRange(0, 1024 * 1024);
@@ -237,15 +238,20 @@ CloudActivityDialog::CloudActivityDialog(const Sources &sources, QWidget *parent
     m_cache->setSuffix(i18nc("@item:valuesuffix mebibytes", " MiB"));
     m_cache->setToolTip(i18nc("@info:tooltip", "Keeps recently opened files of mounted remotes, so they open again without downloading."));
     limitsLayout->addRow(i18nc("@label:spinbox", "Offline cache:"), m_cache);
-    auto *limitsNote = new QLabel(i18nc("@info", "Limits apply to rclone sync pairs at their next run and to remotes when they are next mounted."), limitsBox);
+    m_cacheAge->setObjectName(QStringLiteral("cloudActivityCacheAge"));
+    m_cacheAge->setRange(1, 8760);
+    m_cacheAge->setSuffix(i18nc("@item:valuesuffix", " hours"));
+    m_cacheAge->setToolTip(i18nc("@info:tooltip", "Files not opened for this long leave the offline cache, even when it has room."));
+    limitsLayout->addRow(i18nc("@label:spinbox", "Keep cached files for:"), m_cacheAge);
+    auto *limitsNote = new QLabel(i18nc("@info",
+                                        "Limits apply to rclone sync pairs at their next run and to remotes when they are next mounted. "
+                                        "They are also in Preferences › Remote and Cloud › Transfers and Cache."),
+                                  limitsBox);
     limitsNote->setWordWrap(true);
     limitsLayout->addRow(limitsNote);
     layout->addWidget(limitsBox);
-    const CloudActivity::Limits limits = CloudActivity::loadLimits(m_config->group(limitsGroup));
-    m_bandwidth->setValue(limits.bandwidthKiB);
-    m_parallel->setValue(limits.parallelTransfers);
-    m_cache->setValue(limits.cacheMiB);
-    for (QSpinBox *box : {m_bandwidth, m_parallel, m_cache}) {
+    reloadLimits();
+    for (QSpinBox *box : {m_bandwidth, m_parallel, m_cache, m_cacheAge}) {
         connect(box, &QSpinBox::valueChanged, this, &CloudActivityDialog::saveLimits);
     }
 
@@ -469,12 +475,29 @@ void CloudActivityDialog::refreshErrors()
     }
 }
 
+void CloudActivityDialog::reloadLimits()
+{
+    const CloudActivity::Limits limits = CloudActivity::loadLimits(m_config->group(limitsGroup));
+    const QSignalBlocker bandwidth(m_bandwidth);
+    const QSignalBlocker parallel(m_parallel);
+    const QSignalBlocker cache(m_cache);
+    const QSignalBlocker cacheAge(m_cacheAge);
+    m_bandwidth->setValue(limits.bandwidthKiB);
+    m_parallel->setValue(limits.parallelTransfers);
+    m_cache->setValue(limits.cacheMiB);
+    m_cacheAge->setValue(limits.cacheMaxAgeHours);
+    m_cacheAge->setEnabled(limits.cacheMiB > 0);
+}
+
 void CloudActivityDialog::saveLimits()
 {
     CloudActivity::Limits limits;
     limits.bandwidthKiB = m_bandwidth->value();
     limits.parallelTransfers = m_parallel->value();
     limits.cacheMiB = m_cache->value();
+    limits.cacheMaxAgeHours = m_cacheAge->value();
+    // Only full caching keeps files that aren't being written.
+    m_cacheAge->setEnabled(limits.cacheMiB > 0);
     KConfigGroup group = m_config->group(limitsGroup);
     CloudActivity::saveLimits(group, limits);
     group.sync();

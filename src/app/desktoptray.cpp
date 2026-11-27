@@ -86,6 +86,7 @@ void DesktopTray::applySettings()
             bringToFront(m_window);
         }
     }
+    updateMenu();
     applyGlobalShortcut();
 }
 
@@ -343,6 +344,7 @@ void DesktopTray::createItem()
     });
     QAction *cloudActivity = menu->addAction(SymbolicIcon::fromTheme(QStringLiteral("network-transmit-receive")), i18nc("@action:inmenu", "Cloud Activity…"));
     cloudActivity->setObjectName(QStringLiteral("trayCloudActivity"));
+    m_cloudActivityAction = cloudActivity;
     connect(cloudActivity, &QAction::triggered, this, [this] {
         if (m_window) {
             bringToFront(m_window);
@@ -387,6 +389,9 @@ void DesktopTray::updateStatus()
 
 void DesktopTray::updateMenu()
 {
+    if (m_cloudActivityAction) {
+        m_cloudActivityAction->setVisible(Settings::cloudActivityInTray());
+    }
     if (!m_showHideAction || !m_window) {
         return;
     }

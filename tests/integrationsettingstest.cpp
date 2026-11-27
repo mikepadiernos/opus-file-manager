@@ -6,6 +6,8 @@
 #include "appidentity.h"
 #include "apppackages.h"
 #include "atuin.h"
+#include "cloudactivity.h"
+#include "cloudactivitydialog.h"
 #include "cloudsync.h"
 #include "cloudsyncdialog.h"
 #include "cloudsyncrunner.h"
@@ -3378,6 +3380,114 @@ private Q_SLOTS:
         }
         FolderSyncDialog ssh(QUrl(QStringLiteral("sftp://me@host/srv")), QUrl::fromLocalFile(left), &window);
         QVERIFY(!ssh.findChild<QPushButton *>(QStringLiteral("folderSyncCompare"))->isEnabled());
+    }
+
+    void transfersTabSetsRcloneLimitsAndTheTrayPanel()
+    {
+        const auto config = KSharedConfig::openConfig();
+        const auto restore = qScopeGuard([config] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            config->reparseConfiguration();
+        });
+
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("transfersIntegrationPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->indexOf(page), 4);
+        QCOMPARE(tabs->tabText(3), QStringLiteral("Sync"));
+        QCOMPARE(tabs->tabText(4), QStringLiteral("Transfers and Cache"));
+
+        auto *bandwidth = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_CloudBandwidthLimitKiB"));
+        auto *parallel = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_CloudParallelTransfers"));
+        auto *cacheSize = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_CloudCacheSizeMiB"));
+        auto *cacheAge = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_CloudCacheMaxAgeHours"));
+        auto *inTray = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_CloudActivityInTray"));
+        auto *transfersStatus = dialog.findChild<QLabel *>(QStringLiteral("cloudTransfersStatus"));
+        auto *cacheStatus = dialog.findChild<QLabel *>(QStringLiteral("cloudCacheStatus"));
+        auto *panelStatus = dialog.findChild<QLabel *>(QStringLiteral("cloudActivityPanelStatus"));
+        auto *note = dialog.findChild<QLabel *>(QStringLiteral("cloudLimitsBackendsNote"));
+        QVERIFY(bandwidth && parallel && cacheSize && cacheAge && inTray && transfersStatus && cacheStatus && panelStatus && note);
+        for (QWidget *widget : std::initializer_list<QWidget *>{bandwidth, parallel, cacheSize, cacheAge, inTray, note}) {
+            QVERIFY(page->isAncestorOf(widget));
+        }
+
+        // The defaults match the Cloud Activity window's, and the backends that ignore them are named.
+        QCOMPARE(bandwidth->value(), 0);
+        QCOMPARE(parallel->value(), 4);
+        QCOMPARE(cacheSize->value(), 0);
+        QCOMPARE(cacheAge->value(), 1);
+        QVERIFY(!cacheAge->isEnabled());
+        QVERIFY(inTray->isChecked());
+        for (const QString &backend : {QStringLiteral("KIO FUSE"), QStringLiteral("sshfs"), QStringLiteral("davfs2"), QStringLiteral("CIFS")}) {
+            QVERIFY2(note->text().contains(backend), qPrintable(backend));
+        }
+        QVERIFY(note->text().contains(QStringLiteral("no bandwidth, transfer or cache options")));
+        QVERIFY2(cacheStatus->text().contains(QDir::toNativeSeparators(CloudActivity::rcloneCacheDir())), qPrintable(cacheStatus->text()));
+        QVERIFY2(transfersStatus->text().contains(QStringLiteral("next mounted")), qPrintable(transfersStatus->text()));
+        if (Rclone::findExecutable().isEmpty()) {
+            QVERIFY2(transfersStatus->text().contains(QStringLiteral("not installed")), qPrintable(transfersStatus->text()));
+        }
+
+        // Applying sets the options of later rclone mounts and sync runs.
+        bandwidth->setValue(512);
+        parallel->setValue(8);
+        cacheSize->setValue(2048);
+        QVERIFY(cacheAge->isEnabled());
+        cacheAge->setValue(72);
+        QVERIFY2(cacheStatus->text().contains(QStringLiteral("available offline")), qPrintable(cacheStatus->text()));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::cloudBandwidthLimitKiB(), 512);
+        config->reparseConfiguration();
+        CloudActivity::Limits expected;
+        expected.bandwidthKiB = 512;
+        expected.parallelTransfers = 8;
+        expected.cacheMiB = 2048;
+        expected.cacheMaxAgeHours = 72;
+        QCOMPARE(CloudActivity::loadLimits(config->group(CloudActivity::limitsGroupName())), expected);
+        auto *scheduler = window.findChild<CloudSync::Scheduler *>();
+        QVERIFY(scheduler);
+        QCOMPARE(scheduler->rcloneOptions(), CloudActivity::rcloneTransferOptions(expected));
+        QVERIFY(scheduler->rcloneOptions().contains(QStringLiteral("512K")));
+        RcloneMounts *mounts = window.rcloneMounts();
+        QCOMPARE(mounts->mountOptions(), CloudActivity::rcloneMountOptions(expected, CloudActivity::rcloneCacheDir()));
+        QVERIFY(mounts->mountOptions().contains(QStringLiteral("72h")));
+
+        // The Cloud Activity window shows the applied limits and its changes reach Preferences.
+        window.showCloudActivity();
+        auto *activity = window.findChild<CloudActivityDialog *>();
+        QVERIFY(activity);
+        QCOMPARE(activity->findChild<QSpinBox *>(QStringLiteral("cloudActivityBandwidth"))->value(), 512);
+        QCOMPARE(activity->findChild<QSpinBox *>(QStringLiteral("cloudActivityCacheAge"))->value(), 72);
+        bandwidth->setValue(1024);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(activity->findChild<QSpinBox *>(QStringLiteral("cloudActivityBandwidth"))->value(), 1024);
+        activity->findChild<QSpinBox *>(QStringLiteral("cloudActivityParallel"))->setValue(3);
+        QCOMPARE(Settings::cloudParallelTransfers(), 3);
+        QCOMPARE(Settings::cloudBandwidthLimitKiB(), 1024);
+        QVERIFY(scheduler->rcloneOptions().contains(QStringLiteral("3")));
+        activity->close();
+
+        // The tray menu offers Cloud Activity… only while the setting is checked.
+        DesktopTray *tray = window.desktopTray();
+        inTray->setChecked(false);
+        QVERIFY2(panelStatus->text().contains(QStringLiteral("only in the File menu")), qPrintable(panelStatus->text()));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::cloudActivityInTray());
+        if (QMenu *menu = tray->contextMenu()) {
+            QVERIFY(!menu->findChild<QAction *>(QStringLiteral("trayCloudActivity"))->isVisible());
+        }
+        auto *trayIcon = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowTrayIcon"));
+        QVERIFY(trayIcon);
+        trayIcon->setChecked(false);
+        QVERIFY2(panelStatus->text().contains(QStringLiteral("turned off")), qPrintable(panelStatus->text()));
     }
 };
 

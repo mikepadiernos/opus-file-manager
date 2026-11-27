@@ -419,9 +419,16 @@ private:
     QWidget *createRemoteDrivesIntegrationPage();
     /**
      * The Remote and Cloud › Sync tab: the cloud sync pairs, managed as in
-     * File › Cloud Sync…, and when they synchronize in the background.
+     * File › Cloud Sync…, and when they synchronize in the background, and
+     * the rsync backend of File › Compare and Synchronize Folders….
      */
     QWidget *createSyncIntegrationPage();
+    /**
+     * The Remote and Cloud › Transfers and Cache tab: the limits of rclone
+     * mounts and rclone sync pairs, also set in File › Cloud Activity…, and
+     * whether the tray menu offers Cloud Activity….
+     */
+    QWidget *createTransfersIntegrationPage();
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.

@@ -580,7 +580,7 @@ MainWindow::MainWindow(QWidget *parent)
     m_cloudActivity = new CloudActivity::Monitor(this);
     m_cloudActivity->setTransferQueue(FileOperations::transferQueue());
     m_cloudActivity->setScheduler(m_cloudSync);
-    applyCloudLimits(CloudActivity::loadLimits(KSharedConfig::openConfig()->group(QStringLiteral("CloudActivity"))));
+    applyCloudLimits(CloudActivity::loadLimits(KSharedConfig::openConfig()->group(CloudActivity::limitsGroupName())));
     connect(m_desktopTray, &DesktopTray::cloudActivityRequested, this, &MainWindow::showCloudActivity);
     m_desktopTray->setQuitCheck([this] {
         return waitForCloudUploads(i18nc("@info", "Plasma Opus is still uploading files. Quitting now stops the uploads."), {}, true);
@@ -6464,7 +6464,7 @@ RcloneMounts *MainWindow::rcloneMounts()
     }
     m_rcloneMounts = new RcloneMounts(this);
     m_rcloneMounts->setMountOptions(
-        CloudActivity::rcloneMountOptions(CloudActivity::loadLimits(KSharedConfig::openConfig()->group(QStringLiteral("CloudActivity"))),
+        CloudActivity::rcloneMountOptions(CloudActivity::loadLimits(KSharedConfig::openConfig()->group(CloudActivity::limitsGroupName())),
                                           CloudActivity::rcloneCacheDir()));
     if (m_cloudActivityDialog) {
         m_cloudActivityDialog->setRcloneMounts(m_rcloneMounts);
@@ -8139,6 +8139,15 @@ void MainWindow::showCloudActivity()
         m_cloudActivityDialog = new CloudActivityDialog(sources, this);
         m_cloudActivityDialog->setAttribute(Qt::WA_DeleteOnClose);
         connect(m_cloudActivityDialog, &CloudActivityDialog::limitsChanged, this, &MainWindow::applyCloudLimits);
+        // Preferences › Remote and Cloud › Transfers and Cache shows the same keys.
+        connect(m_cloudActivityDialog, &CloudActivityDialog::limitsChanged, this, [] {
+            for (const QString &name : {QStringLiteral("CloudBandwidthLimitKiB"),
+                                        QStringLiteral("CloudParallelTransfers"),
+                                        QStringLiteral("CloudCacheSizeMiB"),
+                                        QStringLiteral("CloudCacheMaxAgeHours")}) {
+                Settings::self()->findItem(name)->readConfig(Settings::self()->config());
+            }
+        });
     }
     DesktopTray::bringToFront(m_cloudActivityDialog);
 }
@@ -8268,6 +8277,11 @@ void MainWindow::applySettings()
     // Both autostart entries start the same tray instance; later launches are ignored.
     if (!CloudSync::setStartAtLogin(Settings::cloudSyncAtLogin(), QCoreApplication::applicationFilePath(), AppIdentity::desktopFileName(), &autostartError)) {
         showStatusMessage(autostartError);
+    }
+    // Mounts and servers already running keep their options until they are mounted again.
+    applyCloudLimits(CloudActivity::loadLimits(KSharedConfig::openConfig()->group(CloudActivity::limitsGroupName())));
+    if (m_cloudActivityDialog) {
+        m_cloudActivityDialog->reloadLimits();
     }
     QAction *terminalHistory = actionCollection()->action(QStringLiteral("search_terminal_history"));
     terminalHistory->setVisible(Settings::atuinHistory());

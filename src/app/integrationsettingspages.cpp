@@ -7,6 +7,7 @@
 #include "appidentity.h"
 #include "apppackages.h"
 #include "atuin.h"
+#include "cloudactivity.h"
 #include "cloudsync.h"
 #include "cloudsyncdialog.h"
 #include "cloudsyncrunner.h"
@@ -3102,5 +3103,149 @@ QWidget *SettingsDialog::createSyncIntegrationPage()
         openSettingsModule(QStringLiteral("kcm_autostart"), i18nc("@info", "Plasma's Autostart settings are not installed."), message);
     });
     refreshBackground();
+    return page;
+}
+
+QWidget *SettingsDialog::createTransfersIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("transfersIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *transfersGroup = new StatusGroup(i18nc("@title:group", "rclone Transfers"));
+    transfersGroup->setObjectName(QStringLiteral("cloudTransfersGroup"));
+    auto *transfersLayout = new QVBoxLayout(transfersGroup);
+    auto *transfersForm = new QFormLayout;
+    auto *bandwidth = new QSpinBox;
+    bandwidth->setObjectName(QStringLiteral("kcfg_CloudBandwidthLimitKiB"));
+    bandwidth->setRange(0, 1024 * 1024);
+    bandwidth->setSingleStep(128);
+    bandwidth->setSpecialValueText(i18nc("@item:inrange", "No limit"));
+    bandwidth->setSuffix(i18nc("@item:valuesuffix kibibytes per second", " KiB/s"));
+    bandwidth->setToolTip(i18nc("@info:tooltip", "Limits uploads and downloads of each rclone mount and of each rclone sync run"));
+    transfersForm->addRow(i18nc("@label:spinbox", "Bandwidth limit:"), bandwidth);
+    auto *parallel = new QSpinBox;
+    parallel->setObjectName(QStringLiteral("kcfg_CloudParallelTransfers"));
+    parallel->setRange(1, 32);
+    parallel->setToolTip(i18nc("@info:tooltip", "The number of files rclone uploads or downloads at once"));
+    transfersForm->addRow(i18nc("@label:spinbox", "Parallel transfers:"), parallel);
+    transfersLayout->addLayout(transfersForm);
+    auto *transfersStatus = statusLabel(QStringLiteral("cloudTransfersStatus"));
+    transfersLayout->addWidget(transfersStatus);
+    layout->addWidget(transfersGroup);
+
+    auto *cacheGroup = new StatusGroup(i18nc("@title:group", "rclone Cache"));
+    cacheGroup->setObjectName(QStringLiteral("cloudCacheGroup"));
+    auto *cacheLayout = new QVBoxLayout(cacheGroup);
+    auto *cacheForm = new QFormLayout;
+    auto *cacheSize = new QSpinBox;
+    cacheSize->setObjectName(QStringLiteral("kcfg_CloudCacheSizeMiB"));
+    cacheSize->setRange(0, 1024 * 1024);
+    cacheSize->setSingleStep(256);
+    cacheSize->setSpecialValueText(i18nc("@item:inrange", "Files being written only"));
+    cacheSize->setSuffix(i18nc("@item:valuesuffix mebibytes", " MiB"));
+    cacheSize->setToolTip(i18nc("@info:tooltip", "Keeps recently opened files of mounted remotes, so they open again without downloading"));
+    cacheForm->addRow(i18nc("@label:spinbox", "Offline cache size:"), cacheSize);
+    auto *cacheAge = new QSpinBox;
+    cacheAge->setObjectName(QStringLiteral("kcfg_CloudCacheMaxAgeHours"));
+    cacheAge->setRange(1, 8760);
+    cacheAge->setSuffix(i18nc("@item:valuesuffix", " hours"));
+    cacheAge->setToolTip(i18nc("@info:tooltip", "Files not opened for this long leave the offline cache, even when it has room"));
+    cacheForm->addRow(i18nc("@label:spinbox", "Keep cached files for:"), cacheAge);
+    cacheLayout->addLayout(cacheForm);
+    auto *cacheStatus = statusLabel(QStringLiteral("cloudCacheStatus"));
+    cacheLayout->addWidget(cacheStatus);
+    layout->addWidget(cacheGroup);
+
+    auto *backendsNote = new QLabel(i18nc("@info",
+                                          "These settings apply only to rclone remotes, which Go › Cloud Storage mounts or serves, and to rclone "
+                                          "sync pairs. KIO FUSE has no bandwidth, transfer or cache options, so remote drives it mounts ignore them, "
+                                          "as do sshfs and CIFS mounts; davfs2 keeps its own cache settings in davfs2.conf. Cloud sync pairs with "
+                                          "network folders and copies in the transfer queue go through KIO, which has no such limits."));
+    backendsNote->setObjectName(QStringLiteral("cloudLimitsBackendsNote"));
+    backendsNote->setWordWrap(true);
+    layout->addWidget(backendsNote);
+
+    auto *panelGroup = new StatusGroup(i18nc("@title:group", "Activity Panel"));
+    panelGroup->setObjectName(QStringLiteral("cloudActivityPanelGroup"));
+    auto *panelLayout = new QVBoxLayout(panelGroup);
+    auto *inTray = checkBox(QStringLiteral("CloudActivityInTray"), i18nc("@option:check", "Offer Cloud Activity… in the system tray menu"));
+    inTray->setToolTip(i18nc("@info:tooltip", "Cloud Activity… shows connections, transfers, speeds, pending uploads and recent errors"));
+    panelLayout->addWidget(inTray);
+    auto *panelStatus = statusLabel(QStringLiteral("cloudActivityPanelStatus"));
+    panelLayout->addWidget(panelStatus);
+    layout->addWidget(panelGroup);
+    layout->addStretch();
+
+    // Created once rclone remotes are first used.
+    const auto mounts = [this]() -> RcloneMounts * {
+        return parentWidget() ? parentWidget()->findChild<RcloneMounts *>() : nullptr;
+    };
+    const auto refreshTransfers = [this, transfersStatus, mounts] {
+        QStringList lines;
+        const auto *rcloneEnabled = findChild<QCheckBox *>(QStringLiteral("kcfg_RcloneEnabled"));
+        if (Rclone::findExecutable().isEmpty()) {
+            lines.append(i18nc("@info", "rclone is not installed, so these settings have no effect until it is."));
+        } else if (rcloneEnabled && !rcloneEnabled->isChecked()) {
+            lines.append(i18nc("@info", "Go › Cloud Storage is turned off on the rclone tab; these settings still apply to rclone sync pairs."));
+        }
+        const RcloneMounts *rclone = mounts();
+        const qsizetype running = rclone ? rclone->mountedRemotes().size() + rclone->servedRemotes().size() : 0;
+        if (running > 0) {
+            lines.append(i18ncp("@info",
+                                "One remote is mounted or served now; unmount it and open it again for changes to apply.",
+                                "%1 remotes are mounted or served now; unmount them and open them again for changes to apply.",
+                                running));
+        }
+        lines.append(i18nc("@info", "Remotes use changes when they are next mounted or served, and rclone sync pairs at their next run."));
+        transfersStatus->setText(lines.join(QLatin1Char('\n')));
+    };
+    const auto refreshCache = [cacheSize, cacheAge, cacheStatus] {
+        // Only full caching keeps files that aren't being written.
+        cacheAge->setEnabled(cacheSize->value() > 0);
+        QStringList lines;
+        lines.append(cacheSize->value() > 0
+                         ? i18nc("@info", "Opened files stay available offline until the cache is full or they expire.")
+                         : i18nc("@info", "Files you open are downloaded each time; only files being written are cached until they upload."));
+        const QString cacheDir = CloudActivity::rcloneCacheDir();
+        if (const QStringList pending = CloudActivity::remotesWithPendingUploads(cacheDir); !pending.isEmpty()) {
+            lines.append(i18ncp("@info %2 is a list of rclone remotes",
+                                "Files written to %2 are waiting to upload.",
+                                "Files written to %1 remotes are waiting to upload: %2.",
+                                pending.size(),
+                                QLocale().createSeparatedList(pending)));
+        }
+        lines.append(i18nc("@info %1 is a folder", "The cache is kept in %1.", QDir::toNativeSeparators(cacheDir)));
+        cacheStatus->setText(lines.join(QLatin1Char('\n')));
+    };
+    const auto refreshPanel = [this, inTray, panelStatus] {
+        const auto *trayIcon = findChild<QCheckBox *>(QStringLiteral("kcfg_ShowTrayIcon"));
+        if (trayIcon && !trayIcon->isChecked()) {
+            panelStatus->setText(i18nc("@info",
+                                       "The system tray icon is turned off in KDE Plasma › System Tray, so the tray menu appears only while "
+                                       "pairs synchronize in the background. File › Cloud Activity… is always available."));
+        } else if (inTray->isChecked()) {
+            panelStatus->setText(i18nc("@info", "The tray menu offers Cloud Activity…, as does File › Cloud Activity…."));
+        } else {
+            panelStatus->setText(i18nc("@info", "Cloud Activity… is offered only in the File menu."));
+        }
+    };
+    transfersGroup->refresh = refreshTransfers;
+    cacheGroup->refresh = refreshCache;
+    panelGroup->refresh = refreshPanel;
+    connect(cacheSize, &QSpinBox::valueChanged, page, refreshCache);
+    connect(inTray, &QCheckBox::toggled, page, refreshPanel);
+    // Defaults and Reset change the widgets without user input, and other tabs change the tray icon and rclone.
+    connect(this, &KConfigDialog::widgetModified, page, [refreshTransfers, refreshCache, refreshPanel] {
+        refreshTransfers();
+        refreshCache();
+        refreshPanel();
+    });
+    connect(this, &KConfigDialog::settingsChanged, page, [page, refreshTransfers] {
+        QTimer::singleShot(0, page, refreshTransfers);
+    });
+    refreshTransfers();
+    refreshCache();
+    refreshPanel();
     return page;
 }

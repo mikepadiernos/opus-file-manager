@@ -167,13 +167,30 @@ private Q_SLOTS:
         QCOMPARE(bandwidth->value(), 0);
         QCOMPARE(dialog.findChild<QSpinBox *>(QStringLiteral("cloudActivityParallel"))->value(), 4);
         bandwidth->setValue(512);
+        auto *cacheAge = dialog.findChild<QSpinBox *>(QStringLiteral("cloudActivityCacheAge"));
+        QCOMPARE(cacheAge->value(), 1);
+        QVERIFY(!cacheAge->isEnabled());
         dialog.findChild<QSpinBox *>(QStringLiteral("cloudActivityCache"))->setValue(2048);
-        QCOMPARE(changed.size(), 2);
+        QVERIFY(cacheAge->isEnabled());
+        cacheAge->setValue(24);
+        QCOMPARE(changed.size(), 3);
         const auto limits = changed.last().first().value<CloudActivity::Limits>();
         QCOMPARE(limits.bandwidthKiB, 512);
         QCOMPARE(limits.cacheMiB, 2048);
+        QCOMPARE(limits.cacheMaxAgeHours, 24);
         const CloudActivity::Limits saved = CloudActivity::loadLimits(fixture.config->group(QStringLiteral("CloudActivity")));
         QCOMPARE(saved, limits);
+
+        // Limits changed elsewhere, such as in Preferences, are shown without saving them again.
+        CloudActivity::Limits elsewhere;
+        elsewhere.parallelTransfers = 2;
+        CloudActivity::saveLimits(fixture.config->group(QStringLiteral("CloudActivity")), elsewhere);
+        dialog.reloadLimits();
+        QCOMPARE(changed.size(), 3);
+        QCOMPARE(bandwidth->value(), 0);
+        QCOMPARE(dialog.findChild<QSpinBox *>(QStringLiteral("cloudActivityParallel"))->value(), 2);
+        QCOMPARE(cacheAge->value(), 1);
+        QVERIFY(!cacheAge->isEnabled());
     }
 
     void pausesTransfersAndBackgroundRuns()

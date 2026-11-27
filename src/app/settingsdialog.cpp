@@ -411,7 +411,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     addTabbedPage({{createRemoteConnectionsIntegrationPage(), i18nc("@title:tab", "Connections")},
                    {createRcloneIntegrationPage(), i18nc("@title:tab", "rclone")},
                    {createRemoteDrivesIntegrationPage(), i18nc("@title:tab", "Remote Drives")},
-                   {createSyncIntegrationPage(), i18nc("@title:tab", "Sync")}},
+                   {createSyncIntegrationPage(), i18nc("@title:tab", "Sync")},
+                   {createTransfersIntegrationPage(), i18nc("@title:tab", "Transfers and Cache")}},
                   i18nc("@title:group", "Remote and Cloud"),
                   QStringLiteral("folder-cloud"));
     // The Activities, KRunner and KWin tabs offer the workspaces too.

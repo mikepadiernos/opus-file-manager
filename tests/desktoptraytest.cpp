@@ -272,6 +272,22 @@ private Q_SLOTS:
         QCOMPARE(cloudActivity.count(), 1);
     }
 
+    void trayMenuHidesCloudActivityWhenAsked()
+    {
+        Fixture fixture;
+        makeWindow(fixture, true);
+        QAction *cloudActivity = fixture.tray->contextMenu()->findChild<QAction *>(QStringLiteral("trayCloudActivity"));
+        QVERIFY(cloudActivity->isVisible());
+        Settings::setCloudActivityInTray(false);
+        fixture.tray->applySettings();
+        QVERIFY(!cloudActivity->isVisible());
+        QVERIFY(fixture.tray->contextMenu()->findChild<QAction *>(QStringLiteral("trayCloudSync"))->isVisible());
+        Settings::setCloudActivityInTray(true);
+        // The menu also follows the setting each time it opens.
+        Q_EMIT fixture.tray->contextMenu()->aboutToShow();
+        QVERIFY(cloudActivity->isVisible());
+    }
+
     void trayQuitCanBeCanceled()
     {
         Fixture fixture;
