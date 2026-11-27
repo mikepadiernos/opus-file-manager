@@ -403,8 +403,12 @@ behaves like the rest of the desktop and follows the user's choices.
   basic details, it asks first and offers **Show Indexed Results** or the
   live search. The live search runs in the search panel for the chosen folder
   by MIME type or file extension, with the panel's usual limits, progress and
-  cancellation. **Large Files**, over 100 MiB, always searches a chosen
-  folder live, since Baloo doesn't index file sizes. See
+  cancellation. **Large Files**, over 100 MiB by default, always searches a
+  chosen folder live, since Baloo doesn't index file sizes. Choose which
+  categories Places lists, and the size above which a file is large, under
+  **Preferences › KDE Plasma › Baloo**; removing an entry from Places clears
+  its category there
+  ([#660](https://github.com/mikepadiernos/plasma-opus/issues/660)). See
   [File-type categories](../CAVEATS.md#desktop-integration).
   ([#649](https://github.com/mikepadiernos/plasma-opus/issues/649))
 
