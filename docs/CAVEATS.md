@@ -2118,8 +2118,11 @@ The M27 desktop integrations have these limits
   link targets are compared, and filter patterns with `?`, `\` or a leading
   or trailing `/` are refused. Copies keep modification times but not
   permissions, ownership, ACLs or extended attributes. The dry run is a
-  snapshot, runs aren't added to KIO's undo history, and canceling or an
-  error leaves the files already transferred changed.
+  snapshot, runs aren't added to KIO's undo history, and canceling or an error
+  leaves the files already transferred changed. Whether rsync may delete files,
+  its copy policy and the profile it loads are set under **Preferences › Remote
+  and Cloud › Sync**, as described under [rsync
+  settings](#integration-settings).
   ([#363](https://github.com/mikepadiernos/plasma-opus/issues/363))
 - **🔄 Cloud sync:** Pairs synchronize only while Plasma Opus runs; **Synchronize
   in the background after login**, or the matching setting under **Preferences ›
@@ -2546,7 +2549,8 @@ The M27 desktop integrations have these limits
     terminal to accept its host key. Plan one direction per run, read rsync's
     changes in the confirmation's details, and compare again after each run;
     for changes in both directions, run two plans. Back up data whose
-    permissions or ownership matter.
+    permissions or ownership matter, and allow deletions under **Preferences ›
+    Remote and Cloud › Sync** only for folders you have backed up.
   - **Cloud sync:** Add pairs under **File › Cloud Sync…** or **Preferences ›
     Remote and Cloud › Sync**, and check **Synchronize in the background after
     login** so they run on their intervals. Read the first run's review and any
@@ -2718,8 +2722,7 @@ The M27 desktop integrations have these limits
     refresh the menu when accounts change, and hand Nextcloud app passwords
     to KIO with consent.
   - Share one SSH connection between rsync runs, offer to keep permissions
-    and links, delete folders missing from the source, and the M28
-    **rsync** settings page.
+    and links, and delete folders missing from the source.
   - Detect folder renames, compare checksums where the remote offers them,
     watch local folders instead of waiting for the interval, send desktop
     notifications, and show transfers and quota per pair.
@@ -3332,6 +3335,26 @@ The M28 integration settings have these limits
   with a test-mode autostart folder and a fake check ([Plasma
   check](TODO.md#cloud-sync-settings-on-plasma-720)).
   ([#720](https://github.com/mikepadiernos/plasma-opus/issues/720))
+- **🪞 rsync settings:** The **rsync Backend** group under **Preferences › Remote
+  and Cloud › Sync** sets how **File › Compare and Synchronize Folders…**
+  starts; a dialog already open keeps its backend, filters and copy policy,
+  although its runs follow the current deletion setting. The comparison profile
+  is loaded only when the dialog starts with rsync, for a folder on an SSH host
+  or with **Synchronize local folders with rsync by default**; switching to
+  rsync later keeps the dialog's filters and applies only the copy policy, and
+  switching back applies the built-in default from **Tools › Folder Sync**. A
+  deleted profile isn't loaded: the dialog reports it and the tab lists it as
+  **Unavailable profile**. While deletions aren't allowed, rsync offers no
+  **Delete** actions, planned deletions become **Skip** when switching to rsync,
+  and plans with deletions are refused; once allowed, rsync's deletions are
+  permanent and skip the trash. Turning rsync off also stops comparisons with
+  folders on SSH hosts, which only rsync reaches. The dry run and confirmation
+  can't be turned off, the copy speed limit under **Tools › Folder Sync** is
+  shared with the built-in backend, and cloud sync pairs never use rsync. The
+  container has rsync but no SSH host or ksshaskpass, so the settings are tested
+  with local folders and an unreachable SSH address ([Plasma
+  check](TODO.md#rsync-settings-on-plasma-366)).
+  ([#366](https://github.com/mikepadiernos/plasma-opus/issues/366))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3550,6 +3573,12 @@ The M28 integration settings have these limits
     at login to synchronize pairs in the background** to run pairs without
     opening a window, and keep pausing on metered connections checked on mobile
     data.
+  - **rsync settings:** Keep deletions turned off and **Only replace older
+    files** chosen unless one folder should mirror the other, and allow
+    deletions only for folders you have backed up. Save a profile with the
+    filters you use for SSH hosts in **File › Compare and Synchronize Folders…**
+    and choose it as the comparison profile, and turn on rsync for local folders
+    only when you want rsync's itemized dry run for them too.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3656,6 +3685,9 @@ The M28 integration settings have these limits
     rclone version before offering a conflict choice for rclone pairs; and leave
     the cloud sync login entry alone once it is removed in Plasma's Autostart
     settings.
+  - Load the chosen profile whenever the dialog switches to rsync, follow
+    changes made in Preferences while the dialog is open, move rsync's deletions
+    to the trash through a backup folder, and give rsync its own speed limit.
 
 ## Embedded terminal
 
