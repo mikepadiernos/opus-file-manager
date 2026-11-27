@@ -3240,6 +3240,17 @@ The M28 integration settings have these limits
   saving passwords and opening the manager are unverified there ([Plasma
   check](TODO.md#remote-connection-settings-on-plasma-297)).
   ([#297](https://github.com/mikepadiernos/plasma-opus/issues/297))
+- **📶 Network discovery settings:** **Show the shares and services discovered on
+  the local network** under **Preferences › Remote and Cloud › Connections**
+  shows or hides **Go › Network** in the Go menu and in **Go › Remote
+  Connections**, together with its shortcut, after **Apply** or **OK**. It
+  doesn't change what KIO discovers, and a `network:/` or `remote:/` location
+  typed in the location bar, bookmarked or restored in a tab still opens. The
+  Network place in the Remote section of the Places panel belongs to KDE's
+  places shared with Dolphin, so the setting leaves it alone: hide it from its
+  context menu, or hide the whole Remote section under **Preferences › Interface
+  › Panels**. The group reports when no KIO worker lists the local network.
+  ([#662](https://github.com/mikepadiernos/plasma-opus/issues/662))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3427,6 +3438,11 @@ The M28 integration settings have these limits
     choose **SSH key or agent** when your keys are loaded with `ssh-add`. Review
     saved passwords with **Open KDE Wallet Manager…** and remove those of
     connections you no longer use.
+  - **Network discovery settings:** Keep **Show the shares and services
+    discovered on the local network** checked on home and office networks with
+    shares to browse, and clear it on untrusted networks or when you connect
+    only through saved connections. If you clear it, also hide the Network place
+    from its context menu in the Places panel.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3517,6 +3533,9 @@ The M28 integration settings have these limits
   - Follow changes made in the **Manage Remote Connections** window while the
     **Connections** tab is open, set a default port and private key for new SSH
     connections, and forget a removed connection's saved password with consent.
+  - Hide the Network place in Plasma Opus's Places panel without hiding it in
+    Dolphin, and offer the hosts discovered on the local network when adding a
+    connection.
 
 ## Embedded terminal
 
