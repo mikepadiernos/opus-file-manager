@@ -1740,7 +1740,7 @@ for some features are recorded in [pending tasks](TODO.md).
         and KDE credential facilities where appropriate. Report unavailable
         protection and failures rather than silently bypassing the gate; provide
         explicit password change and removal workflows. [#402]
-  - [ ] Plasma Vault integration: list encrypted vaults (CryFS, gocryptfs or
+  - [x] Plasma Vault integration: list encrypted vaults (CryFS, gocryptfs or
         EncFS) with their lock state, and open, close or create them through
         Plasma Vault's `org.kde.plasmavault` D-Bus interface, revealing an
         opened vault in a pane. Leave passwords and vault configuration to
