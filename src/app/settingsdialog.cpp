@@ -1445,7 +1445,7 @@ QWidget *SettingsDialog::createSearchPage()
     manageSearches->setObjectName(QStringLiteral("manageSavedSearches"));
     layout->addWidget(manageSearches);
     connect(manageSearches, &QPushButton::clicked, this, [this] {
-        SearchStoreDialog dialog(this);
+        SearchStoreDialog dialog(this, {}, m_places);
         dialog.exec();
     });
     auto *description =
