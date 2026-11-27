@@ -3917,6 +3917,21 @@ The M29 Nextcloud integration has these limits
   server and recorded Nextcloud 26 and 29 responses
   ([real-server check](TODO.md#nextcloud-previews-on-a-real-server-589)).
   ([#589](https://github.com/mikepadiernos/plasma-opus/issues/589))
+- **🔖 Nextcloud search and tags:** **Search and Organize…** searches only
+  file names, kinds and favourites, not photo metadata, EXIF values or
+  content, and lists at most 500 results, newest first, without sorting them
+  another way. Nextcloud doesn't report whether it supports WebDAV search, so
+  it is assumed from Nextcloud 15 and a missing search shows as an error.
+  Favourites and tag listings have no server-side limit, so the server sends
+  every match before the list is cut to 500. The context menu offers both
+  favourite actions until the item's metadata has been read, and the panes
+  don't mark favourites or show server tags. **Create Tag…** creates the tag
+  on the server as soon as it is confirmed, so it remains when the dialog is
+  cancelled. Changes made in the web interface appear after the next search
+  or after a minute in the information panel. Checked only against a fake
+  server and recorded Nextcloud responses
+  ([real-server check](TODO.md#nextcloud-asset-search-on-a-real-server-590)).
+  ([#590](https://github.com/mikepadiernos/plasma-opus/issues/590))
 
 - **Recommendation:**
   - **Nextcloud accounts:** Sign in under **Go › Nextcloud › Manage
@@ -3940,6 +3955,13 @@ The M29 Nextcloud integration has these limits
     Information Panel** to check a file's owner, sharing, tags and photo
     metadata on the server; open the file in Nextcloud's web interface when a
     property you need isn't listed.
+  - **Nextcloud search and tags:** Use **Search and Organize…** to find files
+    by name across the account and to list favourites or tagged files, then
+    **Show in Pane** to work with them. Narrow a search that reports only the
+    first 500 results. Check the tag list before choosing **Create Tag…**,
+    since every user sees a new tag, and remove unwanted tags in Nextcloud's
+    web interface. Use Plasma Opus tags for private labels and Nextcloud tags
+    only for labels to share with other users of the server.
   - Comment:
     [#767.7225982354](https://github.com/mikepadiernos/plasma-opus/issues/767#issuecomment-7225982354)
 - **Proposed improvements:**
@@ -3954,6 +3976,10 @@ The M29 Nextcloud integration has these limits
     file ID from the folder listing to save a request, say why a server
     preview was unavailable, and refresh the metadata when the server's ETag
     changes.
+  - Search photo metadata and tags on the server, page through results
+    beyond 500, sort them by any column, confirm search support with a
+    trial request, mark favourites and server tags in the panes, and offer
+    to delete a tag created in a cancelled dialog.
 
 ## Embedded terminal
 
