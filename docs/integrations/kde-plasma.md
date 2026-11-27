@@ -363,7 +363,12 @@ behaves like the rest of the desktop and follows the user's choices.
   After an indexed search, **Search Current Folder Live** or **Search
   Workspace Locations Live** repeats it as a live search, with the usual
   limits, progress, cancellation and errors; the scope never changes on its
-  own. See [Indexed metadata and ranking](../CAVEATS.md#search).
+  own. Choose whether the search panel offers ranking and the live search
+  under **Preferences › KDE Plasma › Baloo**, which also shows the indexer's
+  state and opens KDE File Search settings; the search defaults stay under
+  **Preferences › Tools › Search**
+  ([#443](https://github.com/mikepadiernos/plasma-opus/issues/443)). See
+  [Indexed metadata and ranking](../CAVEATS.md#search).
   ([#442](https://github.com/mikepadiernos/plasma-opus/issues/442))
 
 - **Baloo queries:** Indexed searches pass required content terms and
