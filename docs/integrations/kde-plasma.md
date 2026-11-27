@@ -852,13 +852,17 @@ behaves like the rest of the desktop and follows the user's choices.
   protected folder starts locked in each session: Plasma Opus shows it with a
   lock icon and an **Unlock…** bar, and does not list, preview, search,
   copy, move, trash or open a terminal in it or anything inside it until it
-  is unlocked. **Lock All Protected Folders** locks them again, and the same
-  submenu changes or removes a password. Plasma Opus stores a salted
-  PBKDF2-SHA256 verifier, never the password. The gate applies only inside
-  Plasma Opus and is not encryption; other applications open the folder
-  freely. See
+  is unlocked. **Lock Protected Folders** locks them again, and the same
+  submenu changes or removes a password. **Preferences › Security ›
+  Password-Gated Folders** lists the protected folders and whether each is
+  locked, and protects, unlocks, locks, changes or removes them; its changes
+  take effect at once in every window, even if Preferences is cancelled.
+  Plasma Opus stores a salted PBKDF2-SHA256 verifier, never the password. The
+  gate applies only inside Plasma Opus and is not encryption; other
+  applications open the folder freely. See
   [Password-gated folders](../CAVEATS.md#password-gated-folders).
-  ([#402](https://github.com/mikepadiernos/plasma-opus/issues/402))
+  ([#402](https://github.com/mikepadiernos/plasma-opus/issues/402),
+  [#403](https://github.com/mikepadiernos/plasma-opus/issues/403))
 - **Plasma Vault:** **Go › Plasma Vaults** lists Plasma Vault's encrypted
   CryFS, gocryptfs and EncFS vaults with their state, read from its
   `org.kde.plasmavault` kded6 module. **Open Vault…** asks Plasma Vault to
