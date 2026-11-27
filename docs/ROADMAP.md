@@ -1865,7 +1865,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **Baloo**
 
-  - [ ] **Search:** choose whether to offer fuzzy ranking and live-search
+  - [x] **Search:** choose whether to offer fuzzy ranking and live-search
         fallback; reuse M10 and M22 settings and open KDE's shared indexing
         controls rather than duplicating or silently changing them.
         Plasma-session verification is a
