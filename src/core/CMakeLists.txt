@@ -150,6 +150,10 @@ add_library(opusfm_core STATIC
     imageediting.cpp
     imageediting.h
     navigationhistory.cpp
+    nextcloudaccount.cpp
+    nextcloudaccount.h
+    nextcloudclient.cpp
+    nextcloudclient.h
     namefilter.cpp
     notevault.cpp
     notevault.h
