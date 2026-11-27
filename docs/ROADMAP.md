@@ -1992,7 +1992,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **rsync**
 
-  - [ ] **Backend:** enable the optional backend and choose safe sync defaults;
+  - [x] **Backend:** enable the optional backend and choose safe sync defaults;
         reuse M10 profiles and preserve preview and confirmation requirements.
         Plasma-session verification is a
         [pending handoff](TODO.md#rsync-settings-on-plasma-366). [#366]
