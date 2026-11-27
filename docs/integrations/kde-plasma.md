@@ -176,11 +176,16 @@ behaves like the rest of the desktop and follows the user's choices.
   does; choosing a Favorite opens it in a new tab. History, searches and
   recent folders are never offered, and a match carries only an opaque id,
   so no location or credentials pass through KRunner. Workspaces or
-  Favorites removed since the match was shown are not opened. Turn either
-  kind off under **Settings › General › Plasma Search**, or the whole plugin
-  off in **System Settings › Search › Plasma Search**. The
-  `opus-file-manager-krunner` helper is started by D-Bus when KRunner first
-  asks. ([#390](https://github.com/mikepadiernos/plasma-opus/issues/390))
+  Favorites removed since the match was shown are not opened. Turn the
+  results off, or choose which saved workspaces and Favorites are offered,
+  under **Preferences › KDE Plasma › KRunner**; workspaces and Favorites
+  added later are offered until they are cleared there, and KRunner uses a
+  change from its next search session. Turn the whole plugin off in
+  **System Settings › Search › Plasma Search**, which **Configure Plasma
+  Search…** there opens. The `opus-file-manager-krunner` helper is started
+  by D-Bus when KRunner first asks.
+  ([#390](https://github.com/mikepadiernos/plasma-opus/issues/390),
+  [#394](https://github.com/mikepadiernos/plasma-opus/issues/394))
 - **Service-menu downloads:** **Download New Services…** under **Settings ›
   Context Menu › Service Menus** opens KDE's download window for service
   menus, using the provider Dolphin installs, to browse, install, update and
