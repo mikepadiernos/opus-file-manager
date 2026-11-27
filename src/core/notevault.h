@@ -32,6 +32,8 @@ struct Note {
     /// The file name without its Markdown extension, which links name.
     QString name;
     QList<WikiLinks::Link> links;
+    /// The note's tags, as WikiLinks::tags() returns them.
+    QStringList tags;
 };
 
 struct Index {
@@ -42,6 +44,8 @@ struct Index {
     QHash<QString, QList<qsizetype>> byName;
     /// Indexes into notes by case-folded relative path without its extension.
     QHash<QString, qsizetype> byRelativePath;
+    /// Indexes into notes by case-folded tag, in note order.
+    QHash<QString, QList<qsizetype>> byTag;
     /// Notes that are too large, unreadable or not valid UTF-8.
     QStringList skipped;
     /// Set when the scan stopped at its file limit or was canceled.
@@ -94,6 +98,12 @@ struct Backlink {
 
 /// The links in other notes that resolve to the note at @p notePath, in note order.
 QList<Backlink> backlinks(const Index &index, const QString &notePath);
+
+/**
+ * The paths of the notes tagged @p tag or a tag nested below it, such as
+ * `area/topic` for `area`, sorted. Tags match case-insensitively.
+ */
+QStringList tagged(const Index &index, const QString &tag);
 
 /// Whether @p path is @p root or inside it; both must be clean absolute paths.
 bool isInside(const QString &root, const QString &path);

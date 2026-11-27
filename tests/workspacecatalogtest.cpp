@@ -679,6 +679,65 @@ private Q_SLOTS:
         QCOMPARE(restored, loaded);
     }
 
+    void vaultsUseOwnAssignedLocations()
+    {
+        QTemporaryDir directory;
+        KConfig config(directory.filePath(QStringLiteral("settings")), KConfig::SimpleConfig);
+        KConfigGroup group = config.group(QStringLiteral("Workspaces"));
+        Catalog catalog;
+        QString error;
+        QVERIFY(create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        QVERIFY(create(catalog, QStringLiteral("Home"), QStringLiteral("H"), error));
+        const QString workId = catalog.workspaces.at(0).id;
+        const QString homeId = catalog.workspaces.at(1).id;
+        const QString notes = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        const QString other = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        QVERIFY(assignLocation(catalog, notes, workId, error));
+        QVERIFY(assignLocation(catalog, other, homeId, error));
+
+        const Catalog original = catalog;
+        QVERIFY(!setVault(catalog, workId, other, error));
+        QVERIFY(!error.isEmpty());
+        QVERIFY(!setVault(catalog, workId, QUuid::createUuid().toString(QUuid::WithoutBraces), error));
+        QVERIFY(!setVault(catalog, QStringLiteral("missing"), notes, error));
+        QCOMPARE(catalog, original);
+
+        QVERIFY2(setVault(catalog, workId, notes, error), qPrintable(error));
+        QCOMPARE(catalog.workspaces.at(0).vaultLocationId, notes);
+        QVERIFY(save(group, catalog, error));
+        const QJsonObject stored = QJsonDocument::fromJson(group.readEntry("Catalog", QByteArray())).object();
+        QCOMPARE(stored.value(QStringLiteral("version")).toInt(), 8);
+        const QJsonArray entries = stored.value(QStringLiteral("workspaces")).toArray();
+        QCOMPARE(entries.at(0).toObject().value(QStringLiteral("vaultLocationId")).toString(), notes);
+        QVERIFY(!entries.at(1).toObject().contains(QStringLiteral("vaultLocationId")));
+        Catalog loaded;
+        QVERIFY2(load(group, loaded, error), qPrintable(error));
+        QCOMPARE(loaded, catalog);
+
+        QVERIFY2(duplicate(loaded, workId, QStringLiteral("Copy"), QStringLiteral("C"), error), qPrintable(error));
+        QVERIFY(loaded.workspaces.last().vaultLocationId.isEmpty());
+        QCOMPARE(loaded.workspaces.first().vaultLocationId, notes);
+
+        QVERIFY(unassignLocation(loaded, notes, error));
+        QVERIFY(loaded.workspaces.first().vaultLocationId.isEmpty());
+        QVERIFY(assignLocation(loaded, notes, workId, error));
+        QVERIFY(setVault(loaded, workId, notes, error));
+        QVERIFY(setVault(loaded, workId, QString(), error));
+        QVERIFY(loaded.workspaces.first().vaultLocationId.isEmpty());
+
+        for (const QJsonValue &invalid : {QJsonValue(other), QJsonValue(1), QJsonValue(QStringLiteral("not-a-uuid"))}) {
+            QJsonObject root = stored;
+            QJsonArray workspaces = entries;
+            QJsonObject entry = workspaces.at(0).toObject();
+            entry.insert(QStringLiteral("vaultLocationId"), invalid);
+            workspaces.replace(0, entry);
+            root.insert(QStringLiteral("workspaces"), workspaces);
+            group.writeEntry("Catalog", QJsonDocument(root).toJson(QJsonDocument::Compact));
+            Catalog rejected;
+            QVERIFY(!load(group, rejected, error));
+        }
+    }
+
     void loadsVersionThreeCatalogWithoutAssignments()
     {
         QTemporaryDir directory;

@@ -55,10 +55,10 @@ private Q_SLOTS:
 
         write(path(QStringLiteral("Home.md")), "# Home\nSee [[Plan]], [[Projects/Plan|the project plan]] and [[Ideas#Later]].\n![[diagram.png]]\n");
         write(path(QStringLiteral("Ideas.markdown")), "Back to [[home]].\n```\n[[Plan]]\n```\n");
-        write(path(QStringLiteral("Plan.md")), "Top-level plan. [[Home]]\n");
+        write(path(QStringLiteral("Plan.md")), "Top-level plan. [[Home]] #Project\n");
         write(path(QStringLiteral("Projects/Plan.md")), "Project plan. [[../Home]] [[./Notes]] [[Plan]]\n");
-        write(path(QStringLiteral("Projects/Notes.mkd")), "Notes. [[Plan]]\n");
-        write(path(QStringLiteral("Archive/Plan.md")), "Old plan.\n");
+        write(path(QStringLiteral("Projects/Notes.mkd")), "Notes. [[Plan]] #projects\n");
+        write(path(QStringLiteral("Archive/Plan.md")), "---\ntags: [project/old]\n---\nOld plan.\n");
         write(path(QStringLiteral("Journal/Today.md")), "[[Plan]] [[Missing note]] [[../../Elsewhere/Secret]]\n");
         write(path(QStringLiteral("diagram.png")), "png");
         write(path(QStringLiteral("readme.txt")), "[[Home]]\n");
@@ -183,6 +183,19 @@ private Q_SLOTS:
         QCOMPARE(fromHome->link.line, 1);
 
         QVERIFY(backlinks(index, path(QStringLiteral("Archive/Plan.md"))).isEmpty());
+    }
+
+    void listsTaggedNotes()
+    {
+        const Index index = scan(m_root);
+        const qsizetype plan = index.indexOf(path(QStringLiteral("Plan.md")));
+        QVERIFY(plan >= 0);
+        QCOMPARE(index.notes.at(plan).tags, QStringList{QStringLiteral("Project")});
+        QCOMPARE(tagged(index, QStringLiteral("project")), (QStringList{path(QStringLiteral("Archive/Plan.md")), path(QStringLiteral("Plan.md"))}));
+        QCOMPARE(tagged(index, QStringLiteral("Project/Old")), QStringList{path(QStringLiteral("Archive/Plan.md"))});
+        QCOMPARE(tagged(index, QStringLiteral("projects")), QStringList{path(QStringLiteral("Projects/Notes.mkd"))});
+        QVERIFY(tagged(index, QStringLiteral("proj")).isEmpty());
+        QVERIFY(tagged(index, QString()).isEmpty());
     }
 };
 

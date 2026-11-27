@@ -2,6 +2,8 @@
 
 #include "wikilinks.h"
 
+#include <QSet>
+
 #include <algorithm>
 
 namespace WikiLinks
@@ -80,7 +82,52 @@ Link linkFrom(QStringView inner, bool embed)
     return link;
 }
 
-void scanLine(const QString &text, qsizetype start, qsizetype end, int lineNumber, bool *inComment, QList<Link> *links)
+bool isTagCharacter(QChar c)
+{
+    return c.isLetterOrNumber() || c.isMark() || c == QLatin1Char('_') || c == QLatin1Char('-') || c == QLatin1Char('/');
+}
+
+/// @p text without a leading `#` and trailing `/` when it's a valid tag, or empty.
+QString tagFrom(QStringView text)
+{
+    if (text.startsWith(QLatin1Char('#'))) {
+        text = text.mid(1);
+    }
+    while (text.endsWith(QLatin1Char('/'))) {
+        text.chop(1);
+    }
+    bool hasNonDigit = false;
+    for (const QChar c : text) {
+        if (!isTagCharacter(c)) {
+            return {};
+        }
+        hasNonDigit = hasNonDigit || !c.isDigit();
+    }
+    return hasNonDigit ? text.toString() : QString();
+}
+
+/// Adds the tags listed by a front matter value such as `[a, "b"]` or `a, b`.
+void addFrontMatterTags(QStringView value, QStringList *tags)
+{
+    value = value.trimmed();
+    if (value.startsWith(QLatin1Char('[')) && value.endsWith(QLatin1Char(']'))) {
+        value = value.mid(1, value.size() - 2);
+    }
+    for (QStringView part : value.split(QLatin1Char(','))) {
+        for (QStringView word : part.split(QLatin1Char(' '), Qt::SkipEmptyParts)) {
+            word = word.trimmed();
+            if (word.size() >= 2 && (word.front() == QLatin1Char('"') || word.front() == QLatin1Char('\'')) && word.back() == word.front()) {
+                word = word.mid(1, word.size() - 2);
+            }
+            const QString tag = tagFrom(word);
+            if (!tag.isEmpty()) {
+                tags->append(tag);
+            }
+        }
+    }
+}
+
+void scanLine(const QString &text, qsizetype start, qsizetype end, int lineNumber, bool *inComment, QList<Link> *links, QStringList *tags)
 {
     qsizetype i = start;
     while (i < end) {
@@ -129,6 +176,18 @@ void scanLine(const QString &text, qsizetype start, qsizetype end, int lineNumbe
             i = closing >= 0 ? closing : i + run;
             continue;
         }
+        if (tags && c == QLatin1Char('#') && (i == start || text.at(i - 1).isSpace())) {
+            qsizetype j = i + 1;
+            while (j < end && isTagCharacter(text.at(j))) {
+                ++j;
+            }
+            const QString tag = tagFrom(QStringView(text).mid(i + 1, j - i - 1));
+            if (!tag.isEmpty()) {
+                tags->append(tag);
+            }
+            i = j;
+            continue;
+        }
         const bool embed = c == QLatin1Char('!') && QStringView(text).mid(i + 1, 2) == QLatin1String("[[");
         if (embed || (c == QLatin1Char('[') && i + 1 < end && text.at(i + 1) == QLatin1Char('['))) {
             const qsizetype open = embed ? i + 3 : i + 2;
@@ -141,7 +200,9 @@ void scanLine(const QString &text, qsizetype start, qsizetype end, int lineNumbe
                     link.length = close + 2 - i;
                     link.line = lineNumber;
                     link.context = QStringView(text).mid(start, end - start).trimmed().left(ContextLimit).toString();
-                    links->append(link);
+                    if (links) {
+                        links->append(link);
+                    }
                     i = close + 2;
                     continue;
                 }
@@ -180,9 +241,12 @@ QString Link::displayText() const
     return target.isEmpty() ? heading : target + QStringLiteral(" › ") + heading;
 }
 
-QList<Link> parse(const QString &markdown)
+namespace
 {
-    QList<Link> links;
+void walk(const QString &markdown, QList<Link> *links, QStringList *tags)
+{
+    bool inFrontMatter = false;
+    bool inFrontMatterTags = false;
     bool inComment = false;
     bool inFence = false;
     QChar fenceMarker;
@@ -204,7 +268,29 @@ QList<Link> parse(const QString &markdown)
         const bool blank = line.trimmed().isEmpty();
         QChar marker;
         qsizetype count = 0;
-        if (inFence) {
+        if (lineNumber == 0 && line == QLatin1String("---")) {
+            inFrontMatter = true;
+        } else if (inFrontMatter) {
+            // Links in front matter values still count; inline tags don't.
+            if (line == QLatin1String("---") || line == QLatin1String("...")) {
+                inFrontMatter = false;
+            } else if (inFrontMatterTags && (line.startsWith(QLatin1Char(' ')) || line.startsWith(QLatin1Char('-')))) {
+                const QStringView item = line.trimmed();
+                if (tags && item.startsWith(QLatin1Char('-'))) {
+                    addFrontMatterTags(item.mid(1), tags);
+                }
+            } else {
+                const qsizetype colon = line.indexOf(QLatin1Char(':'));
+                const QStringView key = colon > 0 ? line.first(colon).trimmed() : QStringView();
+                inFrontMatterTags = key.compare(QLatin1String("tags"), Qt::CaseInsensitive) == 0 || key.compare(QLatin1String("tag"), Qt::CaseInsensitive) == 0;
+                if (inFrontMatterTags && tags) {
+                    addFrontMatterTags(line.mid(colon + 1), tags);
+                }
+            }
+            if (inFrontMatter) {
+                scanLine(markdown, start, contentEnd, lineNumber, &inComment, links, nullptr);
+            }
+        } else if (inFence) {
             if (fenceOf(line, &marker, &count) && marker == fenceMarker && count >= fenceCount && line.trimmed().size() == count) {
                 inFence = false;
             }
@@ -219,13 +305,35 @@ QList<Link> parse(const QString &markdown)
             if (!blank) {
                 inIndentedCode = false;
             }
-            scanLine(markdown, start, contentEnd, lineNumber, &inComment, &links);
+            scanLine(markdown, start, contentEnd, lineNumber, &inComment, links, tags);
         }
         previousBlank = blank;
         ++lineNumber;
         start = end + 1;
     }
+}
+}
+
+QList<Link> parse(const QString &markdown)
+{
+    QList<Link> links;
+    walk(markdown, &links, nullptr);
     return links;
+}
+
+QStringList tags(const QString &markdown)
+{
+    QStringList found;
+    walk(markdown, nullptr, &found);
+    QStringList unique;
+    QSet<QString> seen;
+    for (const QString &tag : std::as_const(found)) {
+        if (!seen.contains(tag.toCaseFolded())) {
+            seen.insert(tag.toCaseFolded());
+            unique.append(tag);
+        }
+    }
+    return unique;
 }
 
 QString toMarkdownLinks(const QString &markdown, const std::function<QUrl(const Link &)> &urlFor)

@@ -136,6 +136,8 @@ struct Workspace {
     QStringList folderSyncProfileIds;
     BehaviorSelection behaviorSelection;
     Appearance appearance;
+    /** An assigned location used as the editor's Markdown vault, or empty. */
+    QString vaultLocationId;
     bool operator==(const Workspace &other) const = default;
 };
 
@@ -188,4 +190,13 @@ bool assignLocation(Catalog &catalog, const QString &locationId, const QString &
  * @returns whether the assignment was removed
  */
 bool unassignLocation(Catalog &catalog, const QString &locationId, QString &error);
+/**
+ * Uses one of a workspace's assigned locations as its editor vault.
+ * @param catalog the workspace catalog to update
+ * @param workspaceId the workspace UUID
+ * @param locationId a location assigned to that workspace, or empty to clear the vault
+ * @param error describes a missing workspace or a location it does not own
+ * @returns whether the vault was set
+ */
+bool setVault(Catalog &catalog, const QString &workspaceId, const QString &locationId, QString &error);
 }

@@ -142,7 +142,11 @@ Index scan(const QString &root, int fileLimit, const Cancel &cancel)
             note.relativePath = rootDir.relativeFilePath(canonical);
             note.name = QFileInfo(canonical).completeBaseName();
             note.links = WikiLinks::parse(text);
+            note.tags = WikiLinks::tags(text);
             const qsizetype position = index.notes.size();
+            for (const QString &tag : std::as_const(note.tags)) {
+                index.byTag[folded(tag)].append(position);
+            }
             index.byName[folded(note.name)].append(position);
             index.byRelativePath.insert(folded(withoutNoteExtension(note.relativePath)), position);
             index.notes.append(std::move(note));
@@ -222,6 +226,28 @@ Resolution resolve(const Index &index, const QString &fromPath, const QString &t
         }
     }
     return {};
+}
+
+QStringList tagged(const Index &index, const QString &tag)
+{
+    const QString key = folded(tag);
+    if (key.isEmpty()) {
+        return {};
+    }
+    const QString nested = key + QLatin1Char('/');
+    QList<qsizetype> positions;
+    for (auto it = index.byTag.cbegin(); it != index.byTag.cend(); ++it) {
+        if (it.key() == key || it.key().startsWith(nested)) {
+            positions.append(it.value());
+        }
+    }
+    QStringList paths;
+    for (const qsizetype position : std::as_const(positions)) {
+        paths.append(index.notes.at(position).path);
+    }
+    paths.sort();
+    paths.removeDuplicates();
+    return paths;
 }
 
 QList<Backlink> backlinks(const Index &index, const QString &notePath)

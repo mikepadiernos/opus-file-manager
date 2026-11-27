@@ -4,6 +4,7 @@
 
 #include <QList>
 #include <QString>
+#include <QStringList>
 #include <QUrl>
 
 #include <functional>
@@ -13,6 +14,9 @@
  * `[[Note#Heading]]` and embeds such as `![[Image.png]]`. Links inside code
  * blocks, code spans and HTML comments, and escaped brackets, are ignored.
  * The source text is never changed; previews rewrite a copy.
+ *
+ * Tags are written inline as `#tag` or `#area/topic` after a space or at the
+ * start of a line, or listed under `tags` in a YAML front matter block.
  */
 namespace WikiLinks
 {
@@ -37,6 +41,13 @@ struct Link {
 };
 
 QList<Link> parse(const QString &markdown);
+
+/**
+ * The tags in @p markdown, without `#`, in order of first appearance and
+ * without case-insensitive duplicates. Inline tags in code, comments and
+ * front matter, and tags of only digits, such as `#123`, are ignored.
+ */
+QStringList tags(const QString &markdown);
 
 /**
  * Returns @p markdown with each wiki link replaced by a Markdown link to the

@@ -123,6 +123,38 @@ private Q_SLOTS:
                                  }),
                  QStringLiteral("No links."));
     }
+
+    void collectsInlineTagsOutsideCode()
+    {
+        const QString text = QStringLiteral(
+            "# Heading\n"
+            "#project/alpha and #Draft, see [[Note#Section]] or [x](#anchor).\n"
+            "Issue #123, a#b, `#code`, <!-- #hidden --> and \\#escaped.\n"
+            "```\n#fenced\n```\n"
+            "\n"
+            "    #indented\n"
+            "\n"
+            "Ends with #draft and #idea/ #über.");
+        QCOMPARE(tags(text), (QStringList{QStringLiteral("project/alpha"), QStringLiteral("Draft"), QStringLiteral("idea"), QStringLiteral("über")}));
+    }
+
+    void readsTagsFromFrontMatter()
+    {
+        const QString text = QStringLiteral(
+            "---\n"
+            "title: \"#not-a-tag\"\n"
+            "tags: [alpha, \"beta\", '#gamma']\n"
+            "related: [[Other]]\n"
+            "---\n"
+            "Body #delta\n");
+        QCOMPARE(tags(text), (QStringList{QStringLiteral("alpha"), QStringLiteral("beta"), QStringLiteral("gamma"), QStringLiteral("delta")}));
+        QCOMPARE(targetsOf(parse(text)), QStringList{QStringLiteral("Other")});
+
+        const QString list = QStringLiteral("---\ntags:\n  - one\n  - two/three\naliases:\n  - notatag\n...\n#four\n");
+        QCOMPARE(tags(list), (QStringList{QStringLiteral("one"), QStringLiteral("two/three"), QStringLiteral("four")}));
+
+        QCOMPARE(tags(QStringLiteral("Text\n---\ntags: late\n---\n")), QStringList());
+    }
 };
 
 QTEST_GUILESS_MAIN(WikiLinksTest)
