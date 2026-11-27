@@ -1923,7 +1923,8 @@ The M27 desktop integrations have these limits
   still quits or hides it to the tray as usual instead of rolling it up. The
   slide animation needs KWin's **Sliding popups** effect. The screen and
   touch-screen edges are shared with KWin's own edge actions, and only one
-  can claim an edge.
+  can claim an edge. It is turned on and configured under **Preferences › KDE
+  Plasma › KWin**.
   ([#708](https://github.com/mikepadiernos/plasma-opus/issues/708))
 - **🗂️ File-type categories:** Baloo classifies indexed files by their
   detected content, while the live fallback matches MIME types guessed from
@@ -2418,7 +2419,7 @@ The M27 desktop integrations have these limits
     processing shortcut unassigned. Use **Configure Window Rules…** there for
     placements the script does not restore, such as maximized state.
   - **Drop-down window:** Turn it on and choose a global shortcut under
-    **Settings › Configure KWin Integration…**, and install the KWin script
+    **Preferences › KDE Plasma › KWin**, and install the KWin script there
     so it keeps above other windows and out of the taskbar. Enable **Sliding
     popups** under **System Settings › Window Management › Desktop Effects**
     for the animation. If an edge does nothing, free it under **System
@@ -2909,6 +2910,23 @@ The M28 integration settings have these limits
   verified there against a simulated KWin only, and opening KWin's settings is
   unverified ([Plasma check](TODO.md#kwin-script-settings-on-plasma-709)).
   ([#709](https://github.com/mikepadiernos/plasma-opus/issues/709))
+- **🪂 Drop-down window settings:** the **Drop-Down Window** group under
+  **Preferences › KDE Plasma › KWin** replaces the **Configure KWin
+  Integration** dialog, and **Settings › Configure KWin Integration…** now opens
+  this tab. Its options are sent to the KWin script after **Apply** or **OK**;
+  the screen edge, size and screen apply the next time the window is shown, and
+  they and the screen and touch-screen triggers work only while the script is
+  running. The **Screen** list shows the screens connected while Preferences is
+  open; a chosen screen that is disconnected stays chosen as not connected, and
+  the window opens on the active screen until it returns. The global shortcut
+  is assigned in KDE's global shortcut service, not saved with the other
+  settings, and can be changed only when Preferences is opened from a Plasma
+  Opus window. The tab says when the service is not running or when KDE left
+  the shortcut unassigned because another application uses the key, and
+  **Restore Defaults** clears it. The container has no KWin or global shortcut
+  service, so the settings are verified there against a simulated KWin and
+  shortcut only ([Plasma check](TODO.md#drop-down-settings-on-plasma-710)).
+  ([#710](https://github.com/mikepadiernos/plasma-opus/issues/710))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -2984,6 +3002,12 @@ The M28 integration settings have these limits
     choose **Disable** to pause the script while keeping it installed. Use
     **Configure Window Rules…** for rules that should also apply to other
     applications.
+  - **Drop-down window settings:** Check **Slide the window in from a screen
+    edge and hide it again** under **Preferences › KDE Plasma › KWin**, choose
+    a global shortcut that the tab reports as working, and keep **Screen** at
+    **Active screen** if you move between monitors. Check **Hide when another
+    application is activated** to use it like Yakuake, and clear **Slide in and
+    out** to have the window appear and disappear at once.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3023,6 +3047,9 @@ The M28 integration settings have these limits
   - Follow changes made in KWin's script settings without **Refresh**, list
     virtual desktops before the script has run, and forget the assignments of
     desktops that were removed.
+  - Choose the drop-down window's screen by its position as well as its
+    output name, preview its size on the screen, and name the application that
+    already uses a shortcut key when KDE leaves it unassigned.
 
 ## Embedded terminal
 
