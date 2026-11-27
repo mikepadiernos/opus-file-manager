@@ -2089,7 +2089,7 @@ considered Calendar, Maps, Deck and Notes workflows.
       is a
       [pending handoff](TODO.md#nextcloud-asset-search-on-a-real-server-590).
       [#590]
-- [ ] Browse Nextcloud Photos albums, shared albums and places as virtual
+- [x] Browse Nextcloud Photos albums, shared albums and places as virtual
       folders, sorting and grouping by server capture date and location
       without downloading files. Add photos to albums or remove them with
       confirmation; removing a photo from an album never deletes the file.
