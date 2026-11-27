@@ -26,7 +26,7 @@ Board statuses were last confirmed on 2026-11-26.
 | [System file chooser on Plasma](#system-file-chooser-on-plasma-286) | [M27](ROADMAP.md#m27-integrations)                                             | [#286]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [Mount manager on Plasma](#mount-manager-on-plasma-703)             | [M27](ROADMAP.md#m27-integrations)                                             | [#703]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [KWin script on Plasma](#kwin-script-on-plasma-707-708)             | [M27](ROADMAP.md#m27-integrations)                                             | [#707], [#708] | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
-| [Administrator mode on Plasma](#administrator-mode-on-plasma-288)   | [M27](ROADMAP.md#m27-integrations)                                             | [#288]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                             |
+| [Administrator mode on Plasma](#administrator-mode-on-plasma-288)   | [M27](ROADMAP.md#m27-integrations)                                             | [#288]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 
 ## mpv integration (#563)
 
@@ -188,7 +188,7 @@ Board statuses were last confirmed on 2026-11-26.
 ## Administrator mode on Plasma (#288)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#288]
-  (Review).
+  (Completed).
 - **Blocker:** The development container has no `kio-admin` worker, no
   Polkit agent and no Plasma session, so the authorization prompt and
   operations performed as root cannot be tried there.
