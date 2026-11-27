@@ -52,6 +52,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [rclone settings on Plasma](#rclone-settings-on-plasma-663)                       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#663]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 | [Remote drive settings on Plasma](#remote-drive-settings-on-plasma-704)           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#704]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 | [Cloud sync settings on Plasma](#cloud-sync-settings-on-plasma-720)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#720]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
+| [rsync settings on Plasma](#rsync-settings-on-plasma-366)                         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#366]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 
 ## mpv integration (#563)
 
@@ -1126,6 +1127,39 @@ Board statuses were last confirmed on 2026-11-27.
    differences in [CAVEATS](CAVEATS.md#integration-settings), then remove this
    entry.
 
+## rsync settings on Plasma (#366)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#366]
+  (Development).
+- **Blocker:** The development container has rsync but no SSH host, KIO
+  `sftp:/` worker connection or ksshaskpass, so the settings are tested with
+  local folders and an unreachable SSH address only.
+- **Confirmed state:** `SettingsDialog::createSyncIntegrationPage()` in
+  `src/app/integrationsettingspages.cpp` adds the **rsync Backend** group,
+  which stores the `Rsync` group's `RsyncEnabled`, `RsyncForLocalFolders`,
+  `RsyncProfile`, `RsyncCopyPolicy` and `RsyncAllowDeletions`.
+  `FolderSyncDialog` in `src/app/foldersyncdialog.cpp` reads them when it
+  opens, hides **Delete** actions for rsync while deletions aren't allowed,
+  and refuses such plans through `RsyncSync::deletionsError()`.
+  `rsyncsynctest`, `foldersyncprofilestest`, `foldersyncdialogtest` and
+  `integrationsettingstest` pass in the container. See
+  [rsync settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma, with rsync and ksshaskpass installed and an SSH host that has
+   rsync, save a profile with filters in **File › Compare and Synchronize
+   Folders…** and choose it under **Preferences › Remote and Cloud › Sync ›
+   rsync Backend**.
+2. Show the host in one pane through `sftp:/`, open the dialog, and check
+   that it starts with rsync, loads the profile and uses **Only replace older
+   files**. Compare, and check that no **Delete** action is offered.
+3. Allow deletions, compare again, plan a deletion and check that the dry
+   run lists it and the run removes the file on the host.
+4. Turn rsync off and check that the dialog reports that SSH folders can't be
+   compared. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -1135,6 +1169,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#292]: https://github.com/mikepadiernos/plasma-opus/issues/292
 [#293]: https://github.com/mikepadiernos/plasma-opus/issues/293
 [#297]: https://github.com/mikepadiernos/plasma-opus/issues/297
+[#366]: https://github.com/mikepadiernos/plasma-opus/issues/366
 [#371]: https://github.com/mikepadiernos/plasma-opus/issues/371
 [#391]: https://github.com/mikepadiernos/plasma-opus/issues/391
 [#392]: https://github.com/mikepadiernos/plasma-opus/issues/392
