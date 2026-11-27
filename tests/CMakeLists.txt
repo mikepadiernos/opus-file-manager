@@ -81,6 +81,7 @@ target_compile_definitions(informationtranslationtest PRIVATE
 
 ecm_add_tests(
     activityassociationstest.cpp
+    activityusagetest.cpp
     adminmodetest.cpp
     appearancedefaultstest.cpp
     appfontstest.cpp

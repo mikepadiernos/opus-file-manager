@@ -1,6 +1,8 @@
 add_library(opusfm_core STATIC
     activityassociations.cpp
     activityassociations.h
+    activityusage.cpp
+    activityusage.h
     adminmode.cpp
     adminmode.h
     appearancedefaults.cpp
