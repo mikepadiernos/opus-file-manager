@@ -9,9 +9,9 @@ remains its user interface toolkit, where Qt Quick may be embedded, and the
 rules for doing so.
 
 > [!NOTE]
-> No Qt Quick code ships today. Embedded mpv playback ([#563]) is the first
-> candidate, and it is blocked as described in the
-> [pending handoff](TODO.md#mpv-integration-563).
+> No Qt Quick code ships today. Embedded mpv playback ([#563]), the first
+> candidate, draws through libmpv's OpenGL render API in a `QOpenGLWidget`,
+> so it does not need Qt Quick.
 
 ## Contents
 
@@ -54,6 +54,7 @@ implemented with Widgets and KDE Frameworks:
 | M17 card view               | Card view mode in `src/app/folderview.cpp`                                      |
 | Startup presentation motion | `QPropertyAnimation` in `src/app/startuppresentation.cpp`                       |
 | Audio and video playback    | Qt Multimedia's `QMediaPlayer` and `QVideoWidget` in `src/app/mediaview.cpp`    |
+| Embedded mpv playback       | libmpv's OpenGL render API in a `QOpenGLWidget` in `src/app/mpvvideowidget.cpp` |
 | M32.03 interface animations | Planned with Qt's animation framework, following Plasma's animation speed (M17) |
 
 Window blur comes from KWin, not from the toolkit, so Qt Quick would not
@@ -61,13 +62,14 @@ improve it.
 
 ## Candidates
 
-| Component                              | Why Qt Quick                                                                                   | Status                                                  |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| Embedded mpv playback ([#563], M27.05) | KDE's MpvQt renders libmpv only through a Qt Quick item; there is no supported widget renderer | Blocked; see the [handoff](TODO.md#mpv-integration-563) |
+| Component                              | Why Qt Quick                                            | Status                                                                             |
+| -------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Embedded mpv playback ([#563], M27.05) | KDE's MpvQt renders libmpv only through a Qt Quick item | Not adopted: libmpv's OpenGL render API draws into a `QOpenGLWidget` without MpvQt |
 
-The M28 **Backend** setting chooses between Qt Multimedia and the optional mpv
-backend, so Qt Multimedia remains the fallback when mpv or Qt Quick is
-unavailable.
+The **Audio and video playback** setting on the **Previews** page, and the
+backend button beside the playback controls, choose between Qt Multimedia and
+mpv. Qt Multimedia remains the fallback when a build lacks libmpv or OpenGL is
+unavailable for video.
 
 [KWin scripts](integrations/kde-plasma.md#kwin-scripts) can use QML, but they
 are separate packages that KWin runs. They are not part of the application's

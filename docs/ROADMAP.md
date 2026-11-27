@@ -88,10 +88,11 @@ change KIO's role. See the [pilot evaluation](rust-prototype.md) for its
 findings and the criteria for later Rust components.
 
 Qt Widgets is the user interface toolkit. Qt Quick may be embedded only for a
-self-contained, optional component that Widgets cannot reasonably provide, such
-as embedded mpv playback in M27, hosted in a `QQuickWidget` with a Widgets
-fallback. See [Qt Widgets and Qt Quick](qt-quick.md) for the decision, the
-embedding rules and the criteria for new candidates.
+self-contained, optional component that Widgets cannot reasonably provide,
+hosted in a `QQuickWidget` with a Widgets fallback. Embedded mpv playback in
+M27 draws into a `QOpenGLWidget` instead, so no Qt Quick code ships. See
+[Qt Widgets and Qt Quick](qt-quick.md) for the decision, the embedding rules
+and the criteria for new candidates.
 
 ## Plasma-native decisions
 
