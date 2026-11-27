@@ -842,6 +842,24 @@
     <entry name="EditorPdfMarginTop" type="Int"><default>10</default><min>0</min><max>50</max></entry>
     <entry name="EditorPdfMarginRight" type="Int"><default>10</default><min>0</min><max>50</max></entry>
     <entry name="EditorPdfMarginBottom" type="Int"><default>10</default><min>0</min><max>50</max></entry>
+    <entry name="TextEditorProvider" type="Enum">
+      <label>Editor that Edit opens text files in</label>
+      <choices>
+        <choice name="BuiltIn"/>
+        <choice name="KWrite"/>
+        <choice name="Kate"/>
+        <choice name="Neovim"/>
+        <choice name="Rune"/>
+        <choice name="Micro"/>
+        <choice name="Nano"/>
+      </choices>
+      <default>BuiltIn</default>
+    </entry>
+    <entry name="TerminalEditorSession" type="Enum">
+      <label>Where terminal editors, such as Neovim, run</label>
+      <choices><choice name="Embedded"/><choice name="Separate"/></choices>
+      <default>Embedded</default>
+    </entry>
   </group>
   <group name="Gallery">
     <entry name="ImageBackground" type="Enum">

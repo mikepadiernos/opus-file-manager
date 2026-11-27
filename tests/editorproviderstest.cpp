@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "editorproviders.h"
+#include "settings.h"
 
 #include <QDir>
 #include <QFile>
@@ -41,6 +42,31 @@ private Q_SLOTS:
         QCOMPARE(EditorProviders::desktopName(Editor::Kate), QStringLiteral("org.kde.kate"));
         QVERIFY(!EditorProviders::runsInTerminal(Editor::Kate));
         QVERIFY(EditorProviders::runsInTerminal(Editor::Nano));
+    }
+
+    void readsTheEditorSettings()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+        });
+        Settings::self()->setDefaults();
+        QCOMPARE(EditorProviders::preferredEditor(), std::nullopt);
+        QVERIFY(!EditorProviders::usesSeparateTerminal());
+        // The setting's choices are the built-in editor, then editors().
+        const QList<Editor> editors = EditorProviders::editors();
+        for (int index = 0; index < editors.size(); ++index) {
+            Settings::setTextEditorProvider(static_cast<Settings::EnumTextEditorProvider::type>(index + 1));
+            QCOMPARE(EditorProviders::preferredEditor(), std::optional<Editor>(editors.at(index)));
+        }
+        Settings::setTerminalEditorSession(Settings::EnumTerminalEditorSession::Separate);
+        QVERIFY(EditorProviders::usesSeparateTerminal());
+    }
+
+    void quotesTerminalCommands()
+    {
+        QCOMPARE(EditorProviders::terminalCommand(QStringLiteral("/usr/bin/nvim"), {QStringLiteral("/tmp/a b.txt"), QStringLiteral("/tmp/it's.md")}),
+                 QStringLiteral("/usr/bin/nvim '/tmp/a b.txt' '/tmp/it'\\''s.md'"));
+        QCOMPARE(EditorProviders::terminalCommand(QStringLiteral("nano"), {QStringLiteral("/tmp/$HOME;rm")}), QStringLiteral("nano '/tmp/$HOME;rm'"));
     }
 
     void reportsMissingEditors()

@@ -7,6 +7,8 @@
 #include <QStringList>
 #include <QUrl>
 
+#include <optional>
+
 /**
  * Editors that open files as alternatives to the built-in editor: KWrite and
  * Kate as separate applications, and terminal editors in a terminal session.
@@ -51,4 +53,11 @@ QString unavailableReason(Editor editor);
 QStringList arguments(Editor editor, const QList<QUrl> &urls, QString *error);
 /// The local folder a terminal editor starts in: the first file's folder.
 QString workingDirectory(const QList<QUrl> &urls);
+
+/// The editor that Edit opens text files in, from the TextEditorProvider setting; empty for the built-in editor.
+std::optional<Editor> preferredEditor();
+/// Whether terminal editors run in a separate terminal window rather than the embedded terminal, from the TerminalEditorSession setting.
+bool usesSeparateTerminal();
+/// The shell command that a separate terminal runs: @p executable with @p arguments, quoted for the shell.
+QString terminalCommand(const QString &executable, const QStringList &arguments);
 }
