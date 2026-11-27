@@ -1,10 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "fontpreview.h"
+#include "documentformats.h"
 #include "previewpanel.h"
+#include "settings.h"
 
+#include <KConfigGroup>
 #include <KFileItem>
 #include <KParts/PartLoader>
+#include <KSharedConfig>
 
 #include <QDirIterator>
 #include <QFile>
@@ -43,6 +47,12 @@ private Q_SLOTS:
         qputenv("PATH", m_path);
     }
 
+    void init()
+    {
+        Settings::self()->setDefaults();
+        Settings::self()->save();
+    }
+
     void showsEditableSamples()
     {
         const QString font = systemFont();
@@ -66,6 +76,16 @@ private Q_SLOTS:
         QCOMPARE(large->font().pointSize(), 40);
         sample->setText(QStringLiteral("Plasma Opus 123"));
         QCOMPARE(large->text(), QStringLiteral("Plasma Opus 123"));
+        // The text typed in the preview is the setting.
+        QCOMPARE(Settings::fontSampleText(), QStringLiteral("Plasma Opus 123"));
+        QCOMPARE(Settings::self()->config()->group(QStringLiteral("Previews")).readEntry("FontSampleText", QString()), QStringLiteral("Plasma Opus 123"));
+
+        // Text set under Preferences is shown in an open preview.
+        Settings::setFontSampleText(QStringLiteral("Sphinx of black quartz"));
+        Settings::self()->save();
+        QCOMPARE(sample->text(), QStringLiteral("Sphinx of black quartz"));
+        QCOMPARE(large->text(), QStringLiteral("Sphinx of black quartz"));
+        sample->setText(QStringLiteral("Plasma Opus 123"));
 
         auto *install = preview.findChild<QToolButton *>(QStringLiteral("fontPreviewInstall"));
         QVERIFY(install);
@@ -81,6 +101,28 @@ private Q_SLOTS:
         FontPreview another;
         QCOMPARE(another.sampleText(), QStringLiteral("Plasma Opus 123"));
         sample->clear();
+        QVERIFY(Settings::fontSampleText().isEmpty());
+        QCOMPARE(another.sampleText(), DocumentFormats::defaultSampleText());
+    }
+
+    void movesTheRememberedSampleTextToTheSetting()
+    {
+        KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("FontPreview"));
+        state.writeEntry("SampleText", QStringLiteral("Remembered text"));
+        state.sync();
+        FontPreview preview;
+        QCOMPARE(Settings::fontSampleText(), QStringLiteral("Remembered text"));
+        QCOMPARE(preview.sampleText(), QStringLiteral("Remembered text"));
+        QVERIFY(!state.hasKey("SampleText"));
+
+        // Text already set wins over a remembered one, which is dropped.
+        state.writeEntry("SampleText", QStringLiteral("Older text"));
+        state.sync();
+        Settings::setFontSampleText(QStringLiteral("Chosen text"));
+        Settings::self()->save();
+        FontPreview another;
+        QCOMPARE(another.sampleText(), QStringLiteral("Chosen text"));
+        QVERIFY(!state.hasKey("SampleText"));
     }
 
     void reportsDamagedFonts()
@@ -122,6 +164,40 @@ private Q_SLOTS:
         QVERIFY(message);
         QTRY_COMPARE(content->currentWidget(), message);
         QVERIFY2(message->text().contains(QStringLiteral("Install Okular")), qPrintable(message->text()));
+    }
+
+    void previewPanelFollowsThePreviewSettings()
+    {
+        PreviewPanel panel;
+        auto *content = panel.findChild<QStackedWidget *>();
+        QVERIFY(content);
+        auto *message = panel.findChild<QLabel *>(QStringLiteral("previewMessage"));
+        QVERIFY(message);
+
+        const QString book = m_folder.filePath(QStringLiteral("off.epub"));
+        QFile file(book);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("PK");
+        file.close();
+        Settings::setEbookPreviews(false);
+        panel.setItems({KFileItem(QUrl::fromLocalFile(book))});
+        QTRY_VERIFY2(message->text().contains(QStringLiteral("Ebook and DjVu previews are off")), qPrintable(message->text()));
+        QCOMPARE(content->currentWidget(), message);
+        QVERIFY(!panel.isBusy());
+
+        const QString font = systemFont();
+        if (font.isEmpty()) {
+            return;
+        }
+        const QString copy = m_folder.filePath(QStringLiteral("off") + font.mid(font.lastIndexOf(QLatin1Char('.'))));
+        QVERIFY(QFile::copy(font, copy));
+        Settings::setFontPreviews(false);
+        panel.setItems({KFileItem(QUrl::fromLocalFile(copy))});
+        QTRY_VERIFY2(message->text().contains(QStringLiteral("Font previews are off")), qPrintable(message->text()));
+        // Turning previews on again loads the same file.
+        Settings::setFontPreviews(true);
+        panel.setItems({KFileItem(QUrl::fromLocalFile(copy))});
+        QTRY_COMPARE(content->currentWidget()->objectName(), QStringLiteral("previewFont"));
     }
 
 private:

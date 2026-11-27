@@ -373,6 +373,12 @@ private:
     QGroupBox *createOfficeEditorGroup();
     /// The Previews group of the Office tab: whether the preview panel shows office documents, and the viewer parts it uses.
     QGroupBox *createOfficePreviewGroup();
+    /// The Applications › Ebooks and Fonts tab.
+    QWidget *createEbookFontIntegrationPage();
+    /// The Document Previews group of the Ebooks and Fonts tab: which ebook, comic and help file formats the preview panel shows.
+    QGroupBox *createEbookPreviewGroup();
+    /// The Fonts group of the Ebooks and Fonts tab: whether the preview panel shows fonts, and their sample text.
+    QGroupBox *createFontPreviewGroup();
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.

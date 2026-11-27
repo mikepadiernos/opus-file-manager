@@ -2,6 +2,7 @@
 
 #include "fontpreview.h"
 #include "documentformats.h"
+#include "settings.h"
 #include "symbolicicon.h"
 
 #include <KConfigGroup>
@@ -16,6 +17,7 @@
 #include <QLineEdit>
 #include <QRawFont>
 #include <QScrollArea>
+#include <QSignalBlocker>
 #include <QToolButton>
 #include <QVBoxLayout>
 
@@ -23,9 +25,20 @@ namespace
 {
 const int SampleSizes[] = {10, 14, 20, 28, 40};
 
-KConfigGroup stateGroup()
+/// Moves the sample text that earlier versions remembered as session state into the FontSampleText setting.
+void migrateSampleText()
 {
-    return KSharedConfig::openStateConfig()->group(QStringLiteral("FontPreview"));
+    KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("FontPreview"));
+    if (!state.hasKey("SampleText")) {
+        return;
+    }
+    const QString text = state.readEntry("SampleText", QString());
+    if (!text.isEmpty() && Settings::fontSampleText().isEmpty()) {
+        Settings::setFontSampleText(text);
+        Settings::self()->save();
+    }
+    state.deleteEntry("SampleText");
+    state.sync();
 }
 }
 
@@ -59,11 +72,21 @@ FontPreview::FontPreview(QWidget *parent)
     m_sample->setClearButtonEnabled(true);
     m_sample->setAccessibleName(i18nc("@label:textbox", "Sample text"));
     m_sample->setToolTip(i18nc("@info:tooltip", "Type the text to preview in this font"));
-    m_sample->setText(stateGroup().readEntry("SampleText", QString()));
+    migrateSampleText();
+    m_sample->setText(Settings::fontSampleText());
+    // Text typed here is the FontSampleText setting, so it is kept for the next font and shown under Preferences.
     connect(m_sample, &QLineEdit::textChanged, this, [this](const QString &text) {
-        KConfigGroup group = stateGroup();
-        group.writeEntry("SampleText", text);
-        group.sync();
+        Settings::setFontSampleText(text);
+        Settings::self()->save();
+        updateSamples();
+    });
+    // Follows the sample text set under Preferences › Applications › Ebooks and Fonts or in another preview.
+    connect(Settings::self(), &Settings::configChanged, this, [this] {
+        if (m_sample->text() == Settings::fontSampleText()) {
+            return;
+        }
+        const QSignalBlocker blocker(m_sample);
+        m_sample->setText(Settings::fontSampleText());
         updateSamples();
     });
     layout->addWidget(m_sample);
@@ -158,7 +181,7 @@ QString FontPreview::styleName() const
 
 QString FontPreview::sampleText() const
 {
-    return m_sample->text().isEmpty() ? DocumentFormats::defaultSampleText() : m_sample->text();
+    return DocumentFormats::sampleText();
 }
 
 void FontPreview::updateSamples()

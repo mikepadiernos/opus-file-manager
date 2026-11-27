@@ -7,12 +7,14 @@
 #include "atuin.h"
 #include "defaultfilemanager.h"
 #include "desktoptray.h"
+#include "documentformats.h"
 #include "editorpanel.h"
 #include "editorproviders.h"
 #include "favoritesmodel.h"
 #include "filechooser.h"
 #include "filetypeplaces.h"
 #include "folderview.h"
+#include "fontpreview.h"
 #include "kwinintegration.h"
 #include "mainwindow.h"
 #include "mountbackend.h"
@@ -55,6 +57,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
+#include <QLineEdit>
 #include <QListWidget>
 #include <QMenu>
 #include <QPushButton>
@@ -2246,6 +2249,75 @@ private Q_SLOTS:
         auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("officePreviewMessage"));
         QCOMPARE(message->messageType(), KMessageWidget::Error);
         QVERIFY(message->text().contains(QStringLiteral("File Associations settings are not installed")));
+    }
+
+    void ebookFontTabSetsPreviewsAndSampleText()
+    {
+        QTemporaryDir bin;
+        QVERIFY(bin.isValid());
+        const QByteArray path = qgetenv("PATH");
+        const auto restore = qScopeGuard([&path] {
+            qputenv("PATH", path);
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        // Without kfontinst in PATH.
+        qputenv("PATH", bin.path().toLocal8Bit());
+
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *documents = dialog.findChild<QGroupBox *>(QStringLiteral("ebookPreviewGroup"));
+        auto *fonts = dialog.findChild<QGroupBox *>(QStringLiteral("fontPreviewGroup"));
+        QVERIFY(documents && fonts);
+        QCOMPARE(tabTitleOf(documents), QStringLiteral("Ebooks and Fonts"));
+        QVERIFY(dialog.findChild<QWidget *>(QStringLiteral("ebookFontIntegrationPage"))->isAncestorOf(fonts));
+        const auto apply = [&dialog] {
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+        };
+
+        auto *status = documents->findChild<QLabel *>(QStringLiteral("ebookPreviewStatus"));
+        auto *comics = documents->findChild<QCheckBox *>(QStringLiteral("kcfg_ComicPreviews"));
+        QVERIFY(status && comics && comics->isChecked());
+        QVERIFY(documents->findChild<QCheckBox *>(QStringLiteral("kcfg_EbookPreviews")));
+        QVERIFY(documents->findChild<QCheckBox *>(QStringLiteral("kcfg_HelpFilePreviews")));
+        for (const QString &kind :
+             {QStringLiteral("Ebooks: "), QStringLiteral("DjVu documents: "), QStringLiteral("Comic books: "), QStringLiteral("Help files: ")}) {
+            QVERIFY2(status->text().contains(kind), qPrintable(status->text()));
+        }
+        comics->setChecked(false);
+        QVERIFY2(status->text().contains(QStringLiteral("Comic books: previews are off.")), qPrintable(status->text()));
+        apply();
+        QVERIFY(!Settings::comicPreviews());
+        QVERIFY(Settings::ebookPreviews());
+        QVERIFY(!DocumentFormats::previewEnabled(DocumentFormats::Kind::Comic));
+
+        auto *enabled = fonts->findChild<QCheckBox *>(QStringLiteral("kcfg_FontPreviews"));
+        auto *sample = fonts->findChild<QLineEdit *>(QStringLiteral("kcfg_FontSampleText"));
+        auto *fontStatus = fonts->findChild<QLabel *>(QStringLiteral("fontPreviewStatus"));
+        QVERIFY(enabled && sample && fontStatus);
+        QVERIFY(sample->text().isEmpty());
+        QCOMPARE(sample->placeholderText(), DocumentFormats::defaultSampleText());
+        QVERIFY2(fontStatus->text().contains(QStringLiteral("kfontinst")), qPrintable(fontStatus->text()));
+        sample->setText(QStringLiteral("Sphinx of black quartz"));
+        apply();
+        QCOMPARE(Settings::fontSampleText(), QStringLiteral("Sphinx of black quartz"));
+        FontPreview preview;
+        QCOMPARE(preview.sampleText(), QStringLiteral("Sphinx of black quartz"));
+        auto *previewSample = preview.findChild<QLineEdit *>(QStringLiteral("fontPreviewSample"));
+        QCOMPARE(previewSample->text(), QStringLiteral("Sphinx of black quartz"));
+
+        // Text edited in a preview while the dialog is open is shown there.
+        previewSample->setText(QStringLiteral("Pack my box"));
+        QCOMPARE(sample->text(), QStringLiteral("Pack my box"));
+        QVERIFY(!dialog.button(QDialogButtonBox::Apply)->isEnabled());
+
+        enabled->setChecked(false);
+        QVERIFY(!sample->isEnabled());
+        QVERIFY(fontStatus->text().startsWith(QStringLiteral("Font previews are off")));
+        apply();
+        QVERIFY(!Settings::fontPreviews());
+        QCOMPARE(Settings::fontSampleText(), QStringLiteral("Pack my box"));
     }
 };
 

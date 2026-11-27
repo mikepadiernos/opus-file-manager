@@ -402,7 +402,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                  &m_plasmaTabs);
     addTabbedPage({{createTerminalIntegrationPage(), i18nc("@title:tab", "Terminal")},
                    {createEditorIntegrationPage(), i18nc("@title:tab", "Editor")},
-                   {createOfficeIntegrationPage(), i18nc("@title:tab", "Office")}},
+                   {createOfficeIntegrationPage(), i18nc("@title:tab", "Office")},
+                   {createEbookFontIntegrationPage(), i18nc("@title:tab", "Ebooks and Fonts")}},
                   i18nc("@title:group", "Applications"),
                   QStringLiteral("applications-other"));
     // The Activities, KRunner and KWin tabs offer the workspaces too.

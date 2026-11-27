@@ -8,6 +8,7 @@
 #include "atuin.h"
 #include "defaultfilemanager.h"
 #include "desktoptray.h"
+#include "documentformats.h"
 #include "editorproviders.h"
 #include "favoritesmodel.h"
 #include "filechooser.h"
@@ -57,6 +58,7 @@
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QLocale>
 #include <QPointer>
 #include <QPushButton>
@@ -1983,6 +1985,138 @@ QGroupBox *SettingsDialog::createOfficePreviewGroup()
     refresh();
     connect(associations, &QPushButton::clicked, message, [message] {
         openSettingsModule(QStringLiteral("kcm_filetypes"), i18nc("@info", "KDE's File Associations settings are not installed."), message);
+    });
+    return group;
+}
+
+QWidget *SettingsDialog::createEbookFontIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("ebookFontIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(createEbookPreviewGroup());
+    layout->addWidget(createFontPreviewGroup());
+    layout->addStretch();
+    return page;
+}
+
+QGroupBox *SettingsDialog::createEbookPreviewGroup()
+{
+    auto *group = new StatusGroup(i18nc("@title:group", "Document Previews"));
+    group->setObjectName(QStringLiteral("ebookPreviewGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *ebooks = checkBox(QStringLiteral("EbookPreviews"), i18nc("@option:check", "Preview ebooks and DjVu documents"));
+    ebooks->setToolTip(i18nc("@info:tooltip", "EPUB, MOBI, FictionBook and DjVu files"));
+    layout->addWidget(ebooks);
+    auto *comics = checkBox(QStringLiteral("ComicPreviews"), i18nc("@option:check", "Preview comic books"));
+    comics->setToolTip(i18nc("@info:tooltip", "CBZ, CBR, CB7 and CBT comic book archives"));
+    layout->addWidget(comics);
+    auto *help = checkBox(QStringLiteral("HelpFilePreviews"), i18nc("@option:check", "Preview help files"));
+    help->setToolTip(i18nc("@info:tooltip", "Compiled HTML help (CHM) files"));
+    layout->addWidget(help);
+    auto *status = statusLabel(QStringLiteral("ebookPreviewStatus"));
+    layout->addWidget(status);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Previews use the installed document viewer part, such as Okular's, that File Associations ranks first for "
+                                  "the file's type. When previews of a format are off, the preview panel shows a message instead, and doesn't "
+                                  "download such files from remote folders."));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    auto *associations = actionButton(QStringLiteral("openEbookFileAssociationsSettings"), i18nc("@action:button", "File Associations…"));
+    associations->setIcon(QIcon::fromTheme(QStringLiteral("preferences-desktop-filetype-association")));
+    associations->setToolTip(i18nc("@info:tooltip", "Open KDE's File Associations settings, which rank the viewers for each file type"));
+    layout->addLayout(buttonRow({associations}));
+    auto *message = messageWidget(QStringLiteral("ebookPreviewMessage"));
+    layout->addWidget(message);
+
+    struct Format {
+        QString name;
+        QCheckBox *enabled;
+        QStringList mimeTypes;
+    };
+    // Representative types of each kind; the viewer part for the first is usually the one for the rest.
+    const QList<Format> formats{
+        {i18nc("@item document kind", "Ebooks"),
+         ebooks,
+         {QStringLiteral("application/epub+zip"), QStringLiteral("application/x-mobipocket-ebook"), QStringLiteral("application/x-fictionbook+xml")}},
+        {i18nc("@item document kind", "DjVu documents"), ebooks, {QStringLiteral("image/vnd.djvu")}},
+        {i18nc("@item document kind", "Comic books"),
+         comics,
+         {QStringLiteral("application/vnd.comicbook+zip"), QStringLiteral("application/vnd.comicbook-rar")}},
+        {i18nc("@item document kind", "Help files"), help, {QStringLiteral("application/vnd.ms-htmlhelp")}},
+    };
+    // Reports the viewer part that previews each kind, or that its previews are off.
+    const auto refresh = [formats, status] {
+        QStringList lines;
+        for (const Format &format : formats) {
+            if (!format.enabled->isChecked()) {
+                lines.append(i18nc("@info %1 is a document kind", "%1: previews are off.", format.name));
+                continue;
+            }
+            QStringList viewers;
+            for (const QString &mimeType : format.mimeTypes) {
+                const QList<KPluginMetaData> parts = KParts::PartLoader::partsForMimeType(mimeType);
+                if (!parts.isEmpty() && !viewers.contains(parts.first().name())) {
+                    viewers.append(parts.first().name());
+                }
+            }
+            lines.append(viewers.isEmpty()
+                             ? i18nc("@info %1 is a document kind", "%1: no viewer is installed; install Okular to preview them.", format.name)
+                             : i18nc("@info %1 is a document kind, %2 lists viewers", "%1: %2.", format.name, viewers.join(QStringLiteral(", "))));
+        }
+        status->setText(lines.join(QLatin1Char('\n')));
+    };
+    group->refresh = refresh;
+    for (QCheckBox *check : {ebooks, comics, help}) {
+        connect(check, &QCheckBox::toggled, group, refresh);
+    }
+    refresh();
+    connect(associations, &QPushButton::clicked, message, [message] {
+        openSettingsModule(QStringLiteral("kcm_filetypes"), i18nc("@info", "KDE's File Associations settings are not installed."), message);
+    });
+    return group;
+}
+
+QGroupBox *SettingsDialog::createFontPreviewGroup()
+{
+    auto *group = new StatusGroup(i18nc("@title:group", "Fonts"));
+    group->setObjectName(QStringLiteral("fontPreviewGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *enabled = checkBox(QStringLiteral("FontPreviews"), i18nc("@option:check", "Preview fonts in the preview panel"));
+    enabled->setToolTip(i18nc("@info:tooltip", "TrueType, OpenType, Type 1, bitmap and web font files"));
+    layout->addWidget(enabled);
+    auto *form = new QFormLayout;
+    auto *sample = bound(new QLineEdit, QStringLiteral("FontSampleText"), "text");
+    sample->setPlaceholderText(DocumentFormats::defaultSampleText());
+    sample->setClearButtonEnabled(true);
+    sample->setToolTip(i18nc("@info:tooltip", "The text that font previews show; leave it empty for the default. Editing it in a preview changes it here."));
+    form->addRow(i18nc("@label:textbox", "Sample text:"), sample);
+    layout->addLayout(form);
+    auto *status = statusLabel(QStringLiteral("fontPreviewStatus"));
+    layout->addWidget(status);
+
+    const auto refresh = [enabled, sample, status] {
+        sample->setEnabled(enabled->isChecked());
+        if (!enabled->isChecked()) {
+            status->setText(i18nc("@info", "Font previews are off, so the preview panel shows a message for font files instead."));
+            return;
+        }
+        const QString reason = DocumentFormats::fontInstallerUnavailableReason();
+        status->setText(reason.isEmpty() ? i18nc("@info", "Install Font… in font previews installs fonts with Plasma's font installer.")
+                                         : reason + QLatin1Char(' ') + i18nc("@info", "Font previews can't install fonts until it is installed."));
+    };
+    group->refresh = refresh;
+    connect(enabled, &QCheckBox::toggled, group, refresh);
+    refresh();
+
+    // Editing the text in a font preview saves it while the dialog may be open; show it unless it was changed here.
+    auto saved = std::make_shared<QString>(Settings::fontSampleText());
+    connect(Settings::self(), &Settings::configChanged, sample, [sample, saved] {
+        const QString text = Settings::fontSampleText();
+        if (sample->text() == *saved) {
+            sample->setText(text);
+        }
+        *saved = text;
     });
     return group;
 }
