@@ -64,8 +64,13 @@ behaves like the rest of the desktop and follows the user's choices.
   by default and never change the desktop's global settings.
 - **Default file manager:** `install.sh --default` registers Plasma Opus as the
   `inode/directory` handler through `xdg-mime`; uninstalling restores Dolphin
-  when Plasma Opus is still the handler.
-  ([M27.01](../ROADMAP.md#m27-integrations))
+  when Plasma Opus is still the handler. **Preferences › KDE Plasma › File
+  Manager** shows the current default file manager; **Set Plasma Opus as
+  Default** makes Plasma Opus the user's default for folders, as System
+  Settings › Default Applications does, and reports failures, including a
+  desktop-specific list such as `kde-mimeapps.list` that overrides it.
+  ([M27.01](../ROADMAP.md#m27-integrations),
+  [#293](https://github.com/mikepadiernos/plasma-opus/issues/293))
 - **File-manager service:** while Plasma Opus is the default folder handler,
   it answers `org.freedesktop.FileManager1` requests, such as **Show in
   folder** in browsers and mail clients. `ShowFolders` opens each folder in a
@@ -73,8 +78,13 @@ behaves like the rest of the desktop and follows the user's choices.
   selected, and `ShowItemProperties` opens KDE's properties dialog. It never
   replaces another owner of the service. `install.sh --default` also installs
   a per-user D-Bus activation file, so a request starts Plasma Opus when no
-  file manager is running; uninstalling removes it.
-  ([#279](https://github.com/mikepadiernos/plasma-opus/issues/279))
+  file manager is running; uninstalling removes it. Install, update or remove
+  the activation file under **Preferences › KDE Plasma › File Manager**,
+  which leaves a file that another application wrote unchanged. Setting
+  Plasma Opus as the default there also claims the service at once when no
+  other application owns it.
+  ([#279](https://github.com/mikepadiernos/plasma-opus/issues/279),
+  [#293](https://github.com/mikepadiernos/plasma-opus/issues/293))
 - **Language preferences:** with no interface language selected in
   **Settings › Translation › Language and Layout**, Plasma Opus follows
   Plasma's language list: the session's `LANGUAGE` variable, or the list saved
