@@ -1745,7 +1745,9 @@ for some features are recorded in [pending tasks](TODO.md).
         Plasma Vault's `org.kde.plasmavault` D-Bus interface, revealing an
         opened vault in a pane. Leave passwords and vault configuration to
         Plasma Vault, warn before closing a vault with files in use and report
-        an unavailable service. (MiXplorer) [#654]
+        an unavailable service. Plasma-session verification is a
+        [pending handoff](TODO.md#plasma-vault-on-plasma-654). (MiXplorer)
+        [#654]
   - [ ] File encryption: offer encrypt, decrypt, sign and verify actions for
         selected files through GnuPG, reusing Kleopatra's file actions when
         installed, and write new files without replacing the originals.

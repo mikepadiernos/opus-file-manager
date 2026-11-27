@@ -27,6 +27,7 @@ Board statuses were last confirmed on 2026-11-26.
 | [Mount manager on Plasma](#mount-manager-on-plasma-703)             | [M27](ROADMAP.md#m27-integrations)                                             | [#703]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [KWin script on Plasma](#kwin-script-on-plasma-707-708)             | [M27](ROADMAP.md#m27-integrations)                                             | [#707], [#708] | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [Administrator mode on Plasma](#administrator-mode-on-plasma-288)   | [M27](ROADMAP.md#m27-integrations)                                             | [#288]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
+| [Plasma Vault on Plasma](#plasma-vault-on-plasma-654)               | [M27](ROADMAP.md#m27-integrations)                                             | [#654]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                             |
 
 ## mpv integration (#563)
 
@@ -215,6 +216,35 @@ Board statuses were last confirmed on 2026-11-26.
    Record any differences in [CAVEATS](CAVEATS.md), then remove this entry
    and its roadmap link.
 
+## Plasma Vault on Plasma (#654)
+
+- **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#654]
+  (Review).
+- **Blocker:** The development container has no Plasma Vault, no kded6
+  module for it and no CryFS, gocryptfs or EncFS, so vaults cannot be
+  created, opened or closed there.
+- **Confirmed state:** **Go › Plasma Vaults**, the D-Bus client, the
+  check for processes using a vault and showing an opened vault are
+  implemented and pass their tests in the container, against a fake
+  `org.kde.plasmavault` service on a private session bus. This verification
+  does not block the feature; it is recorded as a caveat under
+  [Desktop integration](CAVEATS.md#desktop-integration).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with Plasma Vault and gocryptfs or CryFS
+   installed, open **Go › Plasma Vaults** and choose **Create Vault…**;
+   finish Plasma Vault's wizard and check the vault appears in the menu.
+2. Choose **Open Vault…**, enter the password and check the vault opens in
+   the active pane. Cancel the prompt once and enter a wrong password once,
+   checking each result.
+3. Open a file from the vault in another application or `cd` into it in a
+   terminal, choose **Close Vault** and check the warning lists the program.
+   Close anyway and check Plasma Vault's refusal appears in the status bar.
+4. Stop kded6 with `kquitapp6 kded6` and check the menu reports Plasma Vault
+   as unavailable. Record any differences in [CAVEATS](CAVEATS.md), then
+   remove this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -223,6 +253,7 @@ Board statuses were last confirmed on 2026-11-26.
 [#564]: https://github.com/mikepadiernos/plasma-opus/issues/564
 [#565]: https://github.com/mikepadiernos/plasma-opus/issues/565
 [#566]: https://github.com/mikepadiernos/plasma-opus/issues/566
+[#654]: https://github.com/mikepadiernos/plasma-opus/issues/654
 [#703]: https://github.com/mikepadiernos/plasma-opus/issues/703
 [#707]: https://github.com/mikepadiernos/plasma-opus/issues/707
 [#708]: https://github.com/mikepadiernos/plasma-opus/issues/708
