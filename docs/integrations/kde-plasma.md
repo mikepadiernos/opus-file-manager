@@ -664,16 +664,28 @@ behaves like the rest of the desktop and follows the user's choices.
   davfs2 and CIFS mounts can be read-only and use an empty folder under the
   user's runtime directory or a chosen empty folder; any connection can mount
   when Plasma Opus starts. A mounted connection offers **Open Mounted
-  Folder** and **Unmount**, and Plasma Opus unmounts what it mounted when it
-  quits. Credentials stay with KDE and the backends: KIO FUSE asks KDE's
-  password server, sshfs uses the SSH agent, keys or KDE's `ksshaskpass`
-  prompt, and davfs2 and CIFS mount only through a user-mountable fstab entry,
-  for which the dialog shows an example line. Plasma Opus never edits fstab
-  or backend configuration. Missing tools, missing or unsuitable fstab
-  entries, folders that aren't empty, stale mounts, busy folders and failed
-  unmounts are reported. See
-  [Remote drives](../CAVEATS.md#desktop-integration).
-  ([#702](https://github.com/mikepadiernos/plasma-opus/issues/702))
+  Folder** and **Unmount**, and by default Plasma Opus unmounts the sshfs,
+  davfs2 and CIFS mounts it started when it quits. Credentials stay with KDE and
+  the backends: KIO FUSE asks KDE's password server, sshfs uses the SSH agent,
+  keys or KDE's `ksshaskpass` prompt, and davfs2 and CIFS mount only through a
+  user-mountable fstab entry, for which the dialog shows an example line. Plasma
+  Opus never edits fstab or backend configuration. Missing tools, missing or
+  unsuitable fstab entries, folders that aren't empty, stale mounts, busy
+  folders and failed unmounts are reported. Under **Preferences › Remote and
+  Cloud › Remote Drives**, choose the backend each protocol mounts with, from
+  KIO FUSE and the installed alternatives, the folder that holds sshfs, davfs2
+  and CIFS mounts, and whether they mount read-only, for connections without
+  **Mount Options…** of their own. The same tab starts Plasma Opus in the system
+  tray at login, through an autostart entry, to mount the connections chosen to
+  mount at startup; mounts the connections holding the Favorites and Places
+  assigned to a workspace when it is activated; and chooses whether sshfs,
+  davfs2 and CIFS mounts stay after Plasma Opus quits. sshfs then runs on its
+  own, and the next session takes the mounts it finds in place over, so that
+  they can be opened and unmounted from the menu. See [Remote
+  drives](../CAVEATS.md#desktop-integration) and [Remote drive
+  settings](../CAVEATS.md#integration-settings).
+  ([#702](https://github.com/mikepadiernos/plasma-opus/issues/702),
+  [#704](https://github.com/mikepadiernos/plasma-opus/issues/704))
 - **Temporary LAN sharing:** **File › Share on Local Network…** shares the
   selected local items, or the current folder when nothing is selected, with
   browsers and WebDAV clients on the local network until the dialog closes,
