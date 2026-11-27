@@ -7311,7 +7311,16 @@ void MainWindow::showProperties()
 
 void MainWindow::openTerminal()
 {
-    FileOperations::openTerminal(activePane()->url(), this);
+    const TerminalProviders::Provider provider = TerminalProviders::separateProvider();
+    if (provider == TerminalProviders::Provider::SystemDefault) {
+        FileOperations::openTerminal(activePane()->url(), this);
+        return;
+    }
+    TerminalLauncher::open(provider, activePane()->url(), this, [window = QPointer<MainWindow>(this)](const QString &message) {
+        if (window) {
+            window->showStatusMessage(message);
+        }
+    });
 }
 
 void MainWindow::newFolder()

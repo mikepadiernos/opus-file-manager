@@ -349,6 +349,10 @@ private:
     QGroupBox *createBalooSearchGroup();
     /// The KDE Plasma › Baloo categories group: which file-type categories Places lists, and the large-file size.
     QGroupBox *createFileTypeCategoriesGroup();
+    /// The Applications › Terminal tab.
+    QWidget *createTerminalIntegrationPage();
+    /// The Provider group of the Terminal tab: the terminals for Open Terminal Here and the embedded terminal.
+    QGroupBox *createTerminalProviderGroup();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.
     ActivityController *activityController() const;
     void createSettingsBackup();

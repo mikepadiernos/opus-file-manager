@@ -398,6 +398,9 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                  i18nc("@title:group", "KDE Plasma"),
                                  QStringLiteral("plasma"),
                                  &m_plasmaTabs);
+    addTabbedPage({{createTerminalIntegrationPage(), i18nc("@title:tab", "Terminal")}},
+                  i18nc("@title:group", "Applications"),
+                  QStringLiteral("applications-other"));
     // The Activities, KRunner and KWin tabs offer the workspaces too.
     reloadWorkspaces();
     applySidebarStyle();
@@ -1288,14 +1291,13 @@ QWidget *SettingsDialog::createOpeningPage()
 QWidget *SettingsDialog::createTerminalPage()
 {
     auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("terminalSettingsPage"));
     auto *form = new QFormLayout(page);
     form->addRow(i18nc("@label:listbox", "Terminal placement:"),
                  comboBox(QStringLiteral("TerminalPlacement"),
                           {i18nc("@item:inlistbox", "Automatic (right for stacked panes)"),
                            i18nc("@item:inlistbox", "Below both panes"),
                            i18nc("@item:inlistbox", "Right of both panes")}));
-    form->addRow(i18nc("@label:listbox", "Terminal component:"),
-                 comboBox(QStringLiteral("EmbeddedTerminal"), {i18nc("@item:inlistbox", "Konsole"), i18nc("@item:inlistbox", "Kwi")}));
     form->addRow(checkBox(QStringLiteral("TerminalFollowActiveFolder"), i18nc("@option:check", "Follow the active pane's local folder")));
     auto *notice = new QLabel(i18nc("@info",
                                     "Following switches to a terminal session in each folder, creating one when needed. "

@@ -19,6 +19,7 @@
 #include "settings.h"
 #include "settingsdialog.h"
 #include "settingswidgets.h"
+#include "terminalproviders.h"
 
 #include <KActionCollection>
 #include <KActionMenu>
@@ -53,6 +54,7 @@
 #include <QScopeGuard>
 #include <QSpinBox>
 #include <QStandardPaths>
+#include <QStatusBar>
 #include <QTabWidget>
 #include <QTemporaryDir>
 #include <QTest>
@@ -1641,6 +1643,91 @@ private Q_SLOTS:
         dialog.button(QDialogButtonBox::Apply)->click();
         QTRY_COMPARE(listed().size(), FileTypePlaces::categories().size());
         QVERIFY(Settings::fileTypeCategoriesHidden().isEmpty());
+    }
+
+    void terminalTabChoosesTheSeparateTerminal()
+    {
+        QTemporaryDir bin;
+        QTemporaryDir folder;
+        QVERIFY(bin.isValid() && folder.isValid());
+        const QByteArray path = qgetenv("PATH");
+        const auto restore = qScopeGuard([&path] {
+            qputenv("PATH", path);
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        // Only a fake Konsole, which records how it was started, is installed.
+        qputenv("PATH", bin.path().toLocal8Bit());
+        const QString output = bin.filePath(QStringLiteral("arguments"));
+        QFile konsole(bin.filePath(QStringLiteral("konsole")));
+        QVERIFY(konsole.open(QIODevice::WriteOnly));
+        konsole.write("#!/bin/sh\nprintf '%s\\n' \"$@\" > '" + output.toLocal8Bit() + "'\n");
+        konsole.close();
+        QVERIFY(konsole.setPermissions(konsole.permissions() | QFileDevice::ExeOwner));
+
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(folder.path())});
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *group = dialog.findChild<QGroupBox *>(QStringLiteral("terminalProviderGroup"));
+        QVERIFY(group);
+        QCOMPARE(tabTitleOf(group), QStringLiteral("Terminal"));
+        QVERIFY(dialog.findChild<QWidget *>(QStringLiteral("terminalIntegrationPage"))->isAncestorOf(group));
+        auto *separate = group->findChild<QComboBox *>(QStringLiteral("kcfg_SeparateTerminal"));
+        auto *embedded = group->findChild<QComboBox *>(QStringLiteral("kcfg_EmbeddedTerminal"));
+        auto *status = group->findChild<QLabel *>(QStringLiteral("terminalProviderStatus"));
+        QVERIFY(separate && embedded && status);
+        QCOMPARE(separate->count(), TerminalProviders::separateProviders().size());
+        QCOMPARE(embedded->count(), TerminalProviders::embeddedProviders().size());
+        QCOMPARE(separate->itemText(0), QStringLiteral("Default Terminal"));
+        QCOMPARE(separate->itemText(1), QStringLiteral("Konsole"));
+        QCOMPARE(separate->itemText(2), QStringLiteral("Yakuake (not installed)"));
+        QCOMPARE(separate->itemText(3), QStringLiteral("Kwi (not installed)"));
+        QCOMPARE(separate->itemData(3, Qt::ToolTipRole).toString(), QStringLiteral("Kwi is not installed or is not in PATH."));
+        QVERIFY(!separate->itemData(1, Qt::ToolTipRole).isValid());
+        for (int index = 0; index < embedded->count(); ++index) {
+            const TerminalProviders::Provider provider = TerminalProviders::embeddedProviders().at(index);
+            QCOMPARE(embedded->itemText(index).endsWith(QStringLiteral("(not installed)")), !TerminalProviders::isPartInstalled(provider));
+        }
+        QCOMPARE(separate->currentIndex(), 0);
+        if (TerminalProviders::isPartInstalled(TerminalProviders::Provider::Konsole)) {
+            QCOMPARE(status->text(), QStringLiteral("Open Terminal Here opens Default Terminal, and new terminal panel sessions load the Konsole component."));
+        } else {
+            QVERIFY(status->text().contains(QStringLiteral("The Konsole terminal component is not installed.")));
+        }
+
+        const auto choose = [&dialog, separate](int index) {
+            separate->setCurrentIndex(index);
+            // The dialog tracks user selection in plain combo boxes.
+            Q_EMIT separate->activated(index);
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+        };
+        choose(3);
+        QVERIFY(status->text().contains(QStringLiteral("Kwi is not installed or is not in PATH. Open Terminal Here reports this")));
+        QCOMPARE(Settings::separateTerminal(), int(Settings::EnumSeparateTerminal::Kwi));
+        QCOMPARE(TerminalProviders::separateProvider(), TerminalProviders::Provider::Kwi);
+        QAction *openTerminal = window.actionCollection()->action(QStringLiteral("open_terminal"));
+        QVERIFY(openTerminal->isEnabled());
+        openTerminal->trigger();
+        QCOMPARE(window.statusBar()->currentMessage(), QStringLiteral("Kwi is not installed or is not in PATH."));
+        QVERIFY(!QFile::exists(output));
+
+        choose(1);
+        QCOMPARE(TerminalProviders::separateProvider(), TerminalProviders::Provider::Konsole);
+        openTerminal->trigger();
+        QFile arguments(output);
+        QTRY_VERIFY(arguments.exists() && arguments.size() > 0);
+        QVERIFY(arguments.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromLocal8Bit(arguments.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts),
+                 (QStringList{QStringLiteral("--workdir"), QDir::cleanPath(folder.path())}));
+
+        // The panel's placement and folder following stay under Tools › Embedded Terminal.
+        dialog.show();
+        dialog.findChild<QPushButton *>(QStringLiteral("showEmbeddedTerminalSettings"))->click();
+        auto *placement = dialog.findChild<QWidget *>(QStringLiteral("terminalSettingsPage"));
+        QTRY_VERIFY(placement->isVisible());
+        QCOMPARE(tabTitleOf(placement->findChild<QWidget *>(QStringLiteral("kcfg_TerminalPlacement"))), QStringLiteral("Embedded Terminal"));
     }
 };
 

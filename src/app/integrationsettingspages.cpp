@@ -21,6 +21,7 @@
 #include "settings.h"
 #include "settingswidgets.h"
 #include "symbolicicon.h"
+#include "terminalproviders.h"
 #include "traypolicy.h"
 
 #include <KActionCollection>
@@ -40,6 +41,7 @@
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QComboBox>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QGridLayout>
@@ -1457,5 +1459,98 @@ QGroupBox *SettingsDialog::createFileTypeCategoriesGroup()
         connect(m_places, &QAbstractItemModel::rowsRemoved, categories, follow);
         connect(m_places, &QAbstractItemModel::modelReset, categories, follow);
     }
+    return group;
+}
+
+QWidget *SettingsDialog::createTerminalIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("terminalIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(createTerminalProviderGroup());
+    layout->addStretch();
+    return page;
+}
+
+QGroupBox *SettingsDialog::createTerminalProviderGroup()
+{
+    using TerminalProviders::Provider;
+    auto *group = new StatusGroup(i18nc("@title:group", "Provider"));
+    group->setObjectName(QStringLiteral("terminalProviderGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *form = new QFormLayout;
+    // The choices of both settings follow the provider lists.
+    QStringList separateNames;
+    for (const Provider provider : TerminalProviders::separateProviders()) {
+        separateNames.append(TerminalProviders::name(provider));
+    }
+    auto *separate = comboBox(QStringLiteral("SeparateTerminal"), separateNames);
+    separate->setToolTip(i18nc("@info:tooltip", "The terminal application that Open Terminal Here opens the active folder in"));
+    form->addRow(i18nc("@label:listbox", "Separate terminal:"), separate);
+    QStringList embeddedNames;
+    for (const Provider provider : TerminalProviders::embeddedProviders()) {
+        embeddedNames.append(TerminalProviders::name(provider));
+    }
+    auto *embedded = comboBox(QStringLiteral("EmbeddedTerminal"), embeddedNames);
+    embedded->setToolTip(i18nc("@info:tooltip", "The terminal component that new sessions in the terminal panel load"));
+    form->addRow(i18nc("@label:listbox", "Embedded terminal:"), embedded);
+    layout->addLayout(form);
+    auto *status = statusLabel(QStringLiteral("terminalProviderStatus"));
+    layout->addWidget(status);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Open Terminal Here, on the toolbar and in the folder context menus, uses the separate terminal; "
+                                  "Tools › Open Terminal With still offers every terminal. Sessions already open in the terminal "
+                                  "panel keep their component. The panel's placement and folder following are under Tools › "
+                                  "Embedded Terminal."));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    auto *placement = actionButton(QStringLiteral("showEmbeddedTerminalSettings"), i18nc("@action:button", "Embedded Terminal Settings…"));
+    placement->setIcon(QIcon::fromTheme(QStringLiteral("utilities-terminal")));
+    placement->setToolTip(i18nc("@info:tooltip", "Show Tools › Embedded Terminal, with the panel's placement and folder following"));
+    layout->addLayout(buttonRow({placement}));
+
+    // Marks the terminals that are not installed, and reports a chosen one.
+    const auto refresh = [separate, embedded, status] {
+        const auto mark = [](QComboBox *combo, const QList<Provider> &providers, const std::function<QString(Provider)> &reasonOf) {
+            for (int index = 0; index < providers.size() && index < combo->count(); ++index) {
+                const Provider provider = providers.at(index);
+                const QString reason = reasonOf(provider);
+                combo->setItemText(index,
+                                   reason.isEmpty()
+                                       ? TerminalProviders::name(provider)
+                                       : i18nc("@item:inlistbox %1 is a terminal application", "%1 (not installed)", TerminalProviders::name(provider)));
+                combo->setItemIcon(index, QIcon::fromTheme(TerminalProviders::iconName(provider)));
+                combo->setItemData(index, reason.isEmpty() ? QVariant() : QVariant(reason), Qt::ToolTipRole);
+            }
+        };
+        const QList<Provider> separateProviders = TerminalProviders::separateProviders();
+        const QList<Provider> embeddedProviders = TerminalProviders::embeddedProviders();
+        mark(separate, separateProviders, &TerminalProviders::unavailableReason);
+        mark(embedded, embeddedProviders, &TerminalProviders::partUnavailableReason);
+        const Provider separateChoice = separateProviders.value(separate->currentIndex(), Provider::SystemDefault);
+        const Provider embeddedChoice = embeddedProviders.value(embedded->currentIndex(), Provider::Konsole);
+        QStringList lines;
+        if (const QString reason = TerminalProviders::unavailableReason(separateChoice); !reason.isEmpty()) {
+            lines.append(reason + QLatin1Char(' ') + i18nc("@info", "Open Terminal Here reports this instead of opening a terminal."));
+        }
+        if (const QString reason = TerminalProviders::partUnavailableReason(embeddedChoice); !reason.isEmpty()) {
+            lines.append(reason + QLatin1Char(' ') + i18nc("@info", "The terminal panel says so instead of loading another component."));
+        }
+        if (lines.isEmpty()) {
+            lines.append(i18nc("@info %1 and %2 are terminal applications",
+                               "Open Terminal Here opens %1, and new terminal panel sessions load the %2 component.",
+                               TerminalProviders::name(separateChoice),
+                               TerminalProviders::name(embeddedChoice)));
+        }
+        status->setText(lines.join(QLatin1Char('\n')));
+    };
+    group->refresh = refresh;
+    connect(separate, &QComboBox::currentIndexChanged, group, refresh);
+    connect(embedded, &QComboBox::currentIndexChanged, group, refresh);
+    refresh();
+    connect(placement, &QPushButton::clicked, group, [this] {
+        setCurrentPage(m_toolsPage);
+        m_toolsTabs->setCurrentWidget(findChild<QWidget *>(QStringLiteral("terminalSettingsPage")));
+    });
     return group;
 }
