@@ -176,12 +176,6 @@ Change deletion(bool remote, const QString &path, const State &state)
     return change;
 }
 
-bool writesRemote(Operation operation)
-{
-    return operation == Operation::Upload || operation == Operation::CreateRemoteFolder || operation == Operation::RenameRemote
-        || operation == Operation::DeleteRemote;
-}
-
 bool isDeletion(Operation operation)
 {
     return operation == Operation::DeleteRemote || operation == Operation::DeleteLocal;

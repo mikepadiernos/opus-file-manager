@@ -233,6 +233,11 @@ void Runner::setRcloneProgram(const QString &program)
     m_rcloneProgram = program;
 }
 
+void Runner::setRcloneOptions(const QStringList &options)
+{
+    m_rcloneOptions = options;
+}
+
 void Runner::setConflictName(const QString &name)
 {
     m_conflictName = name;
@@ -782,11 +787,12 @@ void Runner::startRclone()
 void Runner::runRclone(bool dryRun)
 {
     QString error;
-    const QStringList arguments = rcloneArguments(m_pair, m_rcloneInitialize, dryRun, &error);
+    QStringList arguments = rcloneArguments(m_pair, m_rcloneInitialize, dryRun, &error);
     if (arguments.isEmpty()) {
         finish(Report::Outcome::Failed, error);
         return;
     }
+    arguments << m_rcloneOptions;
     m_rcloneDryRun = dryRun;
     m_output.clear();
     delete m_process;
@@ -952,6 +958,48 @@ bool Scheduler::isPaused(const Pair &pair) const
     return pair.paused || pausedAccounts().contains(accountKey(pair));
 }
 
+bool Scheduler::isBackgroundPaused() const
+{
+    return m_config->group(QStringLiteral("CloudSync")).readEntry("BackgroundPaused", false);
+}
+
+void Scheduler::setBackgroundPaused(bool paused)
+{
+    if (paused == isBackgroundPaused()) {
+        return;
+    }
+    KConfigGroup group = m_config->group(QStringLiteral("CloudSync"));
+    group.writeEntry("BackgroundPaused", paused);
+    group.sync();
+    if (!paused) {
+        QTimer::singleShot(0, this, &Scheduler::checkDue);
+        return;
+    }
+    // Runs the user asked for keep going; background runs stop, keeping the
+    // changes they have made.
+    QStringList dropped;
+    m_queue.erase(std::remove_if(m_queue.begin(),
+                                 m_queue.end(),
+                                 [&dropped](const Request &request) {
+                                     if (request.background) {
+                                         dropped.append(request.id);
+                                     }
+                                     return request.background;
+                                 }),
+                  m_queue.end());
+    if (m_runner && m_current.background) {
+        m_runner->cancel();
+    }
+    for (const QString &id : std::as_const(dropped)) {
+        Q_EMIT statusChanged(id);
+    }
+}
+
+void Scheduler::setRcloneOptions(const QStringList &options)
+{
+    m_rcloneOptions = options;
+}
+
 bool Scheduler::pausesOnMeteredConnections() const
 {
     return m_config->group(QStringLiteral("CloudSync")).readEntry("PauseOnMeteredConnections", true);
@@ -1006,6 +1054,11 @@ QString Scheduler::progress(const QString &id) const
 bool Scheduler::needsReview(const QString &id) const
 {
     return m_reports.value(id).outcome == Report::Outcome::NeedsReview;
+}
+
+int Scheduler::activeRuns() const
+{
+    return int(m_queue.size()) + (m_runner ? 1 : 0);
 }
 
 void Scheduler::syncNow(const QString &id)
@@ -1077,7 +1130,7 @@ void Scheduler::checkDue()
     }
     // Checking the connection loads a network information backend, so only
     // check when a pair is due.
-    if (due.isEmpty() || (pausesOnMeteredConnections() && isMetered())) {
+    if (due.isEmpty() || isBackgroundPaused() || (pausesOnMeteredConnections() && isMetered())) {
         return;
     }
     for (const QString &id : std::as_const(due)) {
@@ -1118,6 +1171,7 @@ void Scheduler::runNext()
     runner->setResolutions(m_current.resolutions);
     runner->setConfirmedPreview(m_current.preview);
     runner->setConfirmedConflicts(m_current.conflicts);
+    runner->setRcloneOptions(m_rcloneOptions);
     if (m_runnerSetup) {
         m_runnerSetup(runner);
     }

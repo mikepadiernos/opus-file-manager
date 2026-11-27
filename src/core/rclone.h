@@ -39,8 +39,11 @@ bool isValidName(const QString &name);
 QString mountRoot();
 /// The empty folder @p remote is mounted on.
 QString mountPoint(const QString &remote);
-/// The arguments that mount @p remote on @p mountPoint in the foreground.
-QStringList mountArguments(const QString &remote, const QString &mountPoint);
+/**
+ * The arguments that mount @p remote on @p mountPoint in the foreground.
+ * @param options cache and transfer options; empty caches only files being written
+ */
+QStringList mountArguments(const QString &remote, const QString &mountPoint, const QStringList &options = {});
 /// The environment for rclone, which fails instead of prompting for a configuration password.
 QProcessEnvironment environment();
 /// The last message rclone wrote to standard error, without its timestamp.
@@ -67,6 +70,8 @@ public:
     void setMountCheck(MountCheck check);
     /// Sets how long to wait for a mount to appear, in milliseconds.
     void setTimeout(int milliseconds);
+    /// Sets the cache and transfer options of later mounts.
+    void setMountOptions(const QStringList &options);
 
     /// Mounts @p remote, emitting mounted() or failed(). Mounting a mounted remote emits mounted() again.
     void mount(const QString &remote);
@@ -108,5 +113,6 @@ private:
     QHash<QString, Mount> m_mounts;
     QProcess *m_lister = nullptr;
     MountCheck m_check;
+    QStringList m_options;
     int m_timeout = 20000;
 };

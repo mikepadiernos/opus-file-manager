@@ -98,6 +98,8 @@ public:
     /// Deletes local items instead of moving them to the trash, for tests.
     void setUseTrash(bool useTrash);
     void setRcloneProgram(const QString &program);
+    /// Options added to every rclone command, such as bandwidth limits.
+    void setRcloneOptions(const QStringList &options);
     void setConflictName(const QString &name);
 
     void start(Run run);
@@ -137,6 +139,7 @@ private:
     QList<Conflict> m_confirmedConflicts;
     bool m_useTrash = true;
     QString m_rcloneProgram;
+    QStringList m_rcloneOptions;
     QString m_conflictName;
     Report m_report;
     Snapshot m_base;
@@ -186,6 +189,11 @@ public:
     bool isPaused(const Pair &pair) const;
     bool pausesOnMeteredConnections() const;
     void setPausesOnMeteredConnections(bool pause);
+    /// Whether background runs of every pair are paused.
+    bool isBackgroundPaused() const;
+    void setBackgroundPaused(bool paused);
+    /// Options added to the rclone commands of later runs.
+    void setRcloneOptions(const QStringList &options);
     /// Replaces how metered connections are detected, for tests.
     void setMeteredCheck(std::function<bool()> check);
     /// Adjusts each runner before it starts, for tests.
@@ -198,6 +206,8 @@ public:
     QString progress(const QString &id) const;
     /// Whether a pair waits for the user to review its preview.
     bool needsReview(const QString &id) const;
+    /// The number of runs running or queued.
+    int activeRuns() const;
 
     /// Queues an automatic run, even if the pair is paused.
     void syncNow(const QString &id);
@@ -245,5 +255,6 @@ private:
     QTimer *m_timer;
     std::function<bool()> m_meteredCheck;
     std::function<void(Runner *)> m_runnerSetup;
+    QStringList m_rcloneOptions;
 };
 }

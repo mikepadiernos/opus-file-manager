@@ -83,10 +83,17 @@ QString Rclone::mountPoint(const QString &remote)
     return QDir(mountRoot()).filePath(remote);
 }
 
-QStringList Rclone::mountArguments(const QString &remote, const QString &mountPoint)
+QStringList Rclone::mountArguments(const QString &remote, const QString &mountPoint, const QStringList &options)
 {
-    // Caching writes lets applications save files in place, as on a local disk.
-    return {QStringLiteral("mount"), QStringLiteral("--vfs-cache-mode"), QStringLiteral("writes"), QStringLiteral("--"), remote + QLatin1Char(':'), mountPoint};
+    QStringList arguments{QStringLiteral("mount")};
+    if (options.isEmpty()) {
+        // Caching writes lets applications save files in place, as on a local disk.
+        arguments << QStringLiteral("--vfs-cache-mode") << QStringLiteral("writes");
+    } else {
+        arguments << options;
+    }
+    arguments << QStringLiteral("--") << remote + QLatin1Char(':') << mountPoint;
+    return arguments;
 }
 
 QProcessEnvironment Rclone::environment()
@@ -177,6 +184,11 @@ void RcloneMounts::setMountCheck(MountCheck check)
 void RcloneMounts::setTimeout(int milliseconds)
 {
     m_timeout = milliseconds;
+}
+
+void RcloneMounts::setMountOptions(const QStringList &options)
+{
+    m_options = options;
 }
 
 void RcloneMounts::listRemotes()
@@ -286,7 +298,7 @@ void RcloneMounts::mount(const QString &remote)
         }
     });
     m_mounts.insert(remote, mount);
-    mount.process->start(executable, Rclone::mountArguments(remote, path));
+    mount.process->start(executable, Rclone::mountArguments(remote, path, m_options));
     if (m_mounts.contains(remote)) {
         mount.poll->start();
     }

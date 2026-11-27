@@ -25,6 +25,8 @@ add_library(opusfm_core STATIC
     branding.h
     checksums.cpp
     checksums.h
+    cloudactivity.cpp
+    cloudactivity.h
     cloudsync.cpp
     cloudsync.h
     cloudsyncrunner.cpp

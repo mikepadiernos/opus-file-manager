@@ -65,6 +65,9 @@ public:
     /// Zero starts all waiting transfers without a concurrency limit.
     void setConcurrency(int concurrency);
     int concurrency() const;
+    /// Suspends running transfers and holds waiting ones until resumed.
+    void setPaused(bool paused);
+    bool isPaused() const;
     void clearFinished();
 
 Q_SIGNALS:
@@ -78,4 +81,5 @@ private:
     QList<QueuedTransfer *> m_entries;
     int m_concurrency = 1;
     bool m_scheduled = false;
+    bool m_paused = false;
 };
