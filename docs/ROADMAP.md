@@ -2097,7 +2097,7 @@ considered Calendar, Maps, Deck and Notes workflows.
       Real-server verification is a
       [pending handoff](TODO.md#nextcloud-photos-on-a-real-server-671).
       [#671]
-- [ ] View and manage supported Nextcloud shares with explicit authorization and
+- [x] View and manage supported Nextcloud shares with explicit authorization and
       confirmation before broadening access or revoking a share. Offer to send
       a reviewed share link through the M27 Send by Email action.
       Real-server verification is a
