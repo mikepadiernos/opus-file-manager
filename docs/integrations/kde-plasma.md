@@ -619,14 +619,17 @@ behaves like the rest of the desktop and follows the user's choices.
   [#297](https://github.com/mikepadiernos/plasma-opus/issues/297))
 - **Network shares and FTP:** Remote connections also cover Windows shares
   (SMB), FTP and FTP over TLS (FTPS) through KIO. An SMB user can include a
-  domain as `DOMAIN;user`. Plain FTP shows a warning that it sends passwords
-  and files unencrypted, and the dialog names the package to install when no
-  KIO worker handles a protocol. **Go › Network**, also in the Remote
-  Connections menu, opens KIO's `network:/` location to browse shares and
-  services discovered on the local network, or Dolphin's `remote:/` Network
-  folder when `network:/` isn't installed. See
-  [Network shares and FTP](../CAVEATS.md#desktop-integration).
-  ([#651](https://github.com/mikepadiernos/plasma-opus/issues/651))
+  domain as `DOMAIN;user`. Plain FTP shows a warning that it sends passwords and
+  files unencrypted, and the dialog names the package to install when no KIO
+  worker handles a protocol. **Go › Network**, also in the Remote Connections
+  menu, opens KIO's `network:/` location to browse shares and services
+  discovered on the local network, or Dolphin's `remote:/` Network folder when
+  `network:/` isn't installed. Show or hide it under **Preferences › Remote and
+  Cloud › Connections**. See [Network shares and
+  FTP](../CAVEATS.md#desktop-integration) and [Network discovery
+  settings](../CAVEATS.md#integration-settings).
+  ([#651](https://github.com/mikepadiernos/plasma-opus/issues/651),
+  [#662](https://github.com/mikepadiernos/plasma-opus/issues/662))
 - **rclone cloud storage:** **Go › Cloud Storage** lists the remotes
   configured in [rclone](https://rclone.org/), such as Dropbox, OneDrive,
   Box, MEGA and pCloud, with their types. Choosing one mounts it with
