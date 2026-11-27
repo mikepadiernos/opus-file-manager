@@ -1582,7 +1582,7 @@ for some features are recorded in [pending tasks](TODO.md).
         distinguish viewing from editing capabilities and report unavailable
         tools, unsupported locations and launch failures. Preserve unsaved
         changes and avoid silent conversion or overwrite. [#675]
-  - [ ] Edit text in the preview panel: when the preview panel shows a text
+  - [x] Edit text in the preview panel: when the preview panel shows a text
         file, offer an explicit Edit action that switches the preview in place
         to the built-in KTextEditor editor for that file, without opening the
         separate editor panel or changing the M08 opening choice. Load the
