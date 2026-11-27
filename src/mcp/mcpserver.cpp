@@ -212,6 +212,16 @@ McpServer::McpServer(Options options)
             m_folders.append(canonical);
         }
     }
+    for (const QString &folder : std::as_const(m_options.protectedFolders)) {
+        if (!QDir::isAbsolutePath(folder)) {
+            continue;
+        }
+        const QString canonical = QFileInfo(folder).canonicalFilePath();
+        const QString path = canonical.isEmpty() ? QDir::cleanPath(folder) : canonical;
+        if (!m_protected.contains(path)) {
+            m_protected.append(path);
+        }
+    }
 }
 
 QStringList McpServer::folders() const
@@ -528,6 +538,10 @@ McpServer::Checked McpServer::check(const QJsonValue &value, Check mode, bool al
         checked.error = QStringLiteral("%1 is outside the folders this server may use: %2.").arg(path, m_folders.join(QStringLiteral(", ")));
         return checked;
     }
+    if (isProtected(location)) {
+        checked.error = QStringLiteral("%1 is in a password-protected folder, which this server can't use.").arg(path);
+        return checked;
+    }
     if (mode == Check::Follow && info.isSymLink()) {
         const QString target = info.canonicalFilePath();
         if (target.isEmpty()) {
@@ -536,6 +550,10 @@ McpServer::Checked McpServer::check(const QJsonValue &value, Check mode, bool al
         }
         if (!inside(target)) {
             checked.error = QStringLiteral("%1 links to a location outside the folders this server may use.").arg(path);
+            return checked;
+        }
+        if (isProtected(target)) {
+            checked.error = QStringLiteral("%1 links to a password-protected folder, which this server can't use.").arg(path);
             return checked;
         }
     }
@@ -557,6 +575,20 @@ bool McpServer::inside(const QString &path) const
 bool McpServer::isRoot(const QString &path) const
 {
     return m_folders.contains(path);
+}
+
+bool McpServer::isProtected(const QString &path) const
+{
+    return std::any_of(m_protected.cbegin(), m_protected.cend(), [&path](const QString &folder) {
+        return within(folder, path);
+    });
+}
+
+bool McpServer::containsProtected(const QString &folder) const
+{
+    return std::any_of(m_protected.cbegin(), m_protected.cend(), [&folder](const QString &gate) {
+        return gate != folder && within(folder, gate);
+    });
 }
 
 void McpServer::audit(const QString &tool, const QJsonObject &arguments, const Result &result) const
@@ -731,7 +763,7 @@ McpServer::Result McpServer::searchFiles(const QJsonObject &arguments) const
             break;
         }
         const QFileInfo info = iterator.nextFileInfo();
-        if (expression.match(info.fileName()).hasMatch()) {
+        if (expression.match(info.fileName()).hasMatch() && !isProtected(info.path())) {
             results.append(QJsonObject{{QStringLiteral("path"), info.filePath()}, {QStringLiteral("type"), typeOf(info)}});
         }
     }
@@ -819,6 +851,9 @@ McpServer::Result McpServer::copy(const QJsonObject &arguments) const
     if (info.isDir() && !info.isSymLink() && within(source.path, destination.path)) {
         return {.error = QStringLiteral("A folder can't be copied into itself.")};
     }
+    if (containsProtected(source.path)) {
+        return {.error = QStringLiteral("%1 contains a password-protected folder, so it can't be copied.").arg(source.path)};
+    }
     QString error;
     if (!copyEntry(source.path, destination.path, &error)) {
         if (QFileInfo::exists(destination.path)) {
@@ -843,6 +878,9 @@ McpServer::Result McpServer::move(const QJsonObject &arguments) const
     if (info.isDir() && !info.isSymLink() && within(source.path, destination.path)) {
         return {.error = QStringLiteral("A folder can't be moved into itself.")};
     }
+    if (containsProtected(source.path)) {
+        return {.error = QStringLiteral("%1 contains a password-protected folder, so it can't be moved.").arg(source.path)};
+    }
     if (!QDir().rename(source.path, destination.path)) {
         return {.error = QStringLiteral("Could not move %1 to %2. Moving between file systems isn't supported: copy the item, then move the "
                                         "original to the trash.")
@@ -856,6 +894,9 @@ McpServer::Result McpServer::moveToTrash(const QJsonObject &arguments) const
     const Checked checked = check(arguments.value(QStringLiteral("path")), Check::Entry, false);
     if (!checked.error.isEmpty()) {
         return {.error = checked.error};
+    }
+    if (containsProtected(checked.path)) {
+        return {.error = QStringLiteral("%1 contains a password-protected folder, so it can't be moved to the trash.").arg(checked.path)};
     }
     QString trashed;
     if (!QFile::moveToTrash(checked.path, &trashed)) {

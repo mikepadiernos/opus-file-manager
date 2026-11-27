@@ -6,6 +6,7 @@
 // stdout.
 
 #include "appidentity.h"
+#include "foldergates.h"
 #include "mcpserver.h"
 #include "opusfm_version.h"
 #include "settings.h"
@@ -70,6 +71,7 @@ int main(int argc, char **argv)
         options.auditLogPath = QStandardPaths::writableLocation(QStandardPaths::StateLocation) + QStringLiteral("/mcp-audit.log");
     }
     options.version = QStringLiteral(OPUSFM_VERSION_STRING);
+    options.protectedFolders = FolderGates::instance()->folders();
     if (!fileManagerExecutable().isEmpty()) {
         options.openFolder = [](const QString &folder) {
             const QString program = fileManagerExecutable();

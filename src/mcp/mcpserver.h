@@ -35,6 +35,8 @@ public:
         /// Opens a local folder in Plasma Opus; returns an error message or an empty string. Unset hides the tool.
         std::function<QString(const QString &folder)> openFolder;
         QString version;
+        /// Password-protected folders; tools treat them as locked and refuse them and their contents.
+        QStringList protectedFolders = {};
     };
 
     explicit McpServer(Options options);
@@ -89,6 +91,10 @@ private:
     Checked check(const QJsonValue &value, Check check, bool allowFolderRoot = true) const;
     bool inside(const QString &path) const;
     bool isRoot(const QString &path) const;
+    /// Whether the path is a protected folder or inside one.
+    bool isProtected(const QString &path) const;
+    /// Whether a protected folder lies strictly inside the folder.
+    bool containsProtected(const QString &folder) const;
     void audit(const QString &tool, const QJsonObject &arguments, const Result &result) const;
 
     Result listFolder(const QJsonObject &arguments) const;
@@ -104,4 +110,5 @@ private:
 
     Options m_options;
     QStringList m_folders;
+    QStringList m_protected;
 };
