@@ -59,6 +59,8 @@ add_library(opusfm_app STATIC
     filesplitdialog.h
     fileoperations.cpp
     fileoperations.h
+    plasmavaultmenu.cpp
+    plasmavaultmenu.h
     kdeconnectclient.cpp
     kdeconnectclient.h
     indexbackend.cpp

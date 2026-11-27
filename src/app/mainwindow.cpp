@@ -70,6 +70,7 @@
 #include "packagetools.h"
 #include "pane.h"
 #include "pathfiltereditor.h"
+#include "plasmavaultmenu.h"
 #include "previewpanel.h"
 #include "remotemountdialog.h"
 #include "remotemounts.h"
@@ -3799,6 +3800,12 @@ void MainWindow::setupActions()
     manageAccounts->setToolTip(i18nc("@info:tooltip", "Add, remove or sign in to online accounts in System Settings"));
     manageAccounts->setIcon(SymbolicIcon::fromTheme(QStringLiteral("configure")));
 
+    auto *plasmaVaults = new KActionMenu(SymbolicIcon::fromTheme(QStringLiteral("folder-encrypted")), i18nc("@action", "Plasma Vaults"), this);
+    plasmaVaults->setToolTip(i18nc("@info:tooltip", "Open, close or create an encrypted vault with Plasma Vault"));
+    plasmaVaults->setPopupMode(QToolButton::InstantPopup);
+    actions->addAction(QStringLiteral("plasma_vaults"), plasmaVaults);
+    setVaultClient(new DBusVaultClient(this));
+
     QAction *network = actions->addAction(QStringLiteral("network_locations"), this, [this] {
         const QUrl url = RemoteProfiles::networkUrl();
         if (url.isEmpty()) {
@@ -5856,6 +5863,43 @@ void MainWindow::createChecksumFile()
     auto *dialog = new ChecksumDialog(ChecksumDialog::Mode::Create, paths, chooser.selectedFiles().first(), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
+}
+
+PlasmaVaultMenu *MainWindow::plasmaVaultMenu() const
+{
+    return m_plasmaVaultMenu;
+}
+
+void MainWindow::setVaultClient(VaultClient *client)
+{
+    delete m_plasmaVaultMenu;
+    m_plasmaVaultMenu = nullptr;
+    if (!client) {
+        return;
+    }
+    client->setParent(this);
+    auto *menu = qobject_cast<KActionMenu *>(actionCollection()->action(QStringLiteral("plasma_vaults")));
+    Q_ASSERT(menu);
+    m_plasmaVaultMenu = new PlasmaVaultMenu(menu->menu(), client, this);
+    // The menu doesn't own the client, so a replaced client goes with it.
+    connect(m_plasmaVaultMenu, &QObject::destroyed, client, &QObject::deleteLater);
+    m_plasmaVaultMenu->setConfirmClose([this](const PlasmaVaults::Vault &vault, const QStringList &users) {
+        return KMessageBox::warningContinueCancelList(this,
+                                                      xi18nc("@info",
+                                                             "These programs are using files in the vault <resource>%1</resource>. Close them first, "
+                                                             "or Plasma Vault may refuse to close it.",
+                                                             vault.displayName()),
+                                                      users,
+                                                      i18nc("@title:window", "Close Vault"),
+                                                      KGuiItem(i18nc("@action:button", "Close Vault"), QStringLiteral("object-locked")))
+            == KMessageBox::Continue;
+    });
+    connect(m_plasmaVaultMenu, &PlasmaVaultMenu::showRequested, this, [this](const QUrl &url) {
+        activePane()->setUrl(url);
+    });
+    connect(m_plasmaVaultMenu, &PlasmaVaultMenu::statusMessage, this, [this](const QString &message) {
+        showStatusMessage(message);
+    });
 }
 
 KdeConnectClient *MainWindow::kdeConnectClient()

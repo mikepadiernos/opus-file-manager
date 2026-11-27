@@ -39,6 +39,8 @@ namespace CloudSync
 class Scheduler;
 }
 class KdeConnectClient;
+class PlasmaVaultMenu;
+class VaultClient;
 class MountBackend;
 class RcloneMounts;
 class RemoteMountManager;
@@ -175,6 +177,10 @@ public:
     KdeConnectClient *kdeConnectClient();
     /// Replaces the KDE Connect client and takes ownership of it.
     void setKdeConnectClient(KdeConnectClient *client);
+    /// The Go › Plasma Vaults menu's controller.
+    PlasmaVaultMenu *plasmaVaultMenu() const;
+    /// Replaces the Plasma Vault client and takes ownership of it.
+    void setVaultClient(VaultClient *client);
     /// Shows the dialog that sends the selected files to a KDE Connect device.
     void sendToDevice();
     /// Shares the selected local items, or the current folder, on the local network.
@@ -586,6 +592,7 @@ private:
     RcloneMounts *m_rcloneMounts = nullptr;
     QMenu *m_cloudStorageMenu = nullptr;
     QMenu *m_onlineAccountsMenu = nullptr;
+    PlasmaVaultMenu *m_plasmaVaultMenu = nullptr;
     QList<Rclone::Remote> m_rcloneRemotes;
     QString m_rcloneError;
     bool m_rcloneListed = false;
