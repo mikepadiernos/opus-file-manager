@@ -1977,7 +1977,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **Plasma Activities**
 
-  - [ ] **Workspaces:** enable Activity associations; manage workspace mappings,
+  - [x] **Workspaces:** enable Activity associations; manage workspace mappings,
         Activity-specific default folders, feature selections and
         workspace-switch prompts without changing KDE's Activity settings. For
         each association, inherit workspace defaults or select all, individual
