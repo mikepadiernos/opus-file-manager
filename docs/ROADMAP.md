@@ -1876,7 +1876,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **Terminal**
 
-  - [ ] **Provider:** select Konsole, Yakuake or Kwi for separate sessions and
+  - [x] **Provider:** select Konsole, Yakuake or Kwi for separate sessions and
         Konsole or Kwi for embedded sessions, independently of M10 placement
         [#295]
 
