@@ -17,6 +17,11 @@ bool TrayPolicy::hideOnMinimize(const State &state, bool minimizeToTray)
     return minimizeToTray && canHide(state);
 }
 
+bool TrayPolicy::startHidden(const State &state, bool startHiddenInTray, bool explicitRequest)
+{
+    return startHiddenInTray && !explicitRequest && canHide(state);
+}
+
 TrayPolicy::Toggle TrayPolicy::toggle(const State &state, bool visible, bool minimized, bool active)
 {
     if (!visible || minimized || !active) {

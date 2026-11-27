@@ -616,6 +616,10 @@
       <label>Hide the window in the system tray when it is closed</label>
       <default>false</default>
     </entry>
+    <entry name="StartHiddenInTray" type="Bool">
+      <label>Start with the window hidden in the system tray</label>
+      <default>false</default>
+    </entry>
   </group>
   <group name="Notifications">
     <entry name="NotifyChecksums" type="Bool">

@@ -22,6 +22,10 @@ bool hideOnClose(const State &state, bool closeToTray, bool spontaneous);
 /// Whether minimizing the window hides it instead.
 bool hideOnMinimize(const State &state, bool minimizeToTray);
 
+/// Whether Plasma Opus starts with the window hidden in the tray. A start
+/// that asks for particular folders or a workspace shows the window.
+bool startHidden(const State &state, bool startHiddenInTray, bool explicitRequest);
+
 enum class Toggle {
     Show,
     Hide,
