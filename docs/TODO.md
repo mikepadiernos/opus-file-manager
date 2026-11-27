@@ -50,6 +50,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Mail client settings on Plasma](#mail-client-settings-on-plasma-666)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#666]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 | [Remote connection settings on Plasma](#remote-connection-settings-on-plasma-297) | [M28](ROADMAP.md#m28-integration-settings)                                     | [#297]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 | [rclone settings on Plasma](#rclone-settings-on-plasma-663)                       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#663]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
+| [Remote drive settings on Plasma](#remote-drive-settings-on-plasma-704)           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#704]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 
 ## mpv integration (#563)
 
@@ -1027,6 +1028,58 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and its
    roadmap link.
 
+## Remote drive settings on Plasma (#704)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#704]
+  (Development).
+- **Blocker:** The development container has no sshfs, FUSE, `fusermount3`,
+  KIO FUSE, davfs2, CIFS client or Plasma session, so mounting with the chosen
+  backends, keeping sshfs mounts after quitting, taking them over at startup,
+  mounting on workspace activation and starting at login are tested only with
+  fake tools, a fake KIO FUSE service and a test-mode autostart folder.
+- **Confirmed state:** `SettingsDialog::createRemoteDrivesIntegrationPage()` in
+  `src/app/integrationsettingspages.cpp` stores the `RemoteDrives` group's
+  `RemoteDriveSftpBackend`, `RemoteDriveWebDavBackend`, `RemoteDriveSmbBackend`,
+  `RemoteDriveMountFolder`, `RemoteDriveReadOnly`, `RemoteDriveMountAtLogin`,
+  `RemoteDriveMountOnWorkspace` and `RemoteDriveUnmountOnExit`.
+  `RemoteMounts::defaultsFromSettings()` in `src/core/remotemounts.cpp` gives
+  the options of connections without saved ones. With unmounting on exit off,
+  `RemoteMountManager` starts sshfs without `-f`, leaves mounts at quit and
+  takes over mounts it finds in place, unmounting them with `fusermount -u`.
+  `MainWindow::applySettings()` writes or removes
+  `autostart/<desktop file>-remote-drives.desktop`, which starts
+  `--background-mount`, and `MainWindow::mountRemoteProfilesForWorkspace()`
+  mounts the connections covering a workspace's assigned locations.
+  `remotemountstest`, `remotemountdialogtest` and `integrationsettingstest`
+  pass in the container. See
+  [Remote drive settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma, with sshfs, FUSE 3 and an SSH server reached with a key, choose
+   **sshfs** for SFTP and a mount folder such as `~/Remote` under **Preferences
+   › Remote and Cloud › Remote Drives**, apply, and mount a saved SFTP
+   connection with **Mount as Folder**. Check that it mounts in that folder,
+   read-only when **Mount read-only** is checked, and that a connection with
+   saved **Mount Options…** keeps them.
+2. Clear **Unmount sshfs, davfs2 and CIFS mounts when Plasma Opus quits**,
+   apply, mount the connection, quit Plasma Opus and check with `findmnt` that
+   the mount stays and that `sshfs` runs on its own. Start Plasma Opus again,
+   check that the mount is in Places and **Go › Remote Connections** offers
+   **Unmount**, and that **Unmount** removes it. With the setting checked
+   again, check that a kept mount ends at quit.
+3. Check **Start Plasma Opus in the system tray at login**, choose **Mount
+   when Plasma Opus starts** for a connection, apply, and check that **Open
+   Autostart Settings…** lists the entry. Log out and in, and check that Plasma
+   Opus starts in the tray without a window and mounts the connection. Clear
+   the setting and check that the entry is removed.
+4. Assign a Favorite on a saved connection to a workspace, check **Mount the
+   connections holding a workspace's locations when it is activated**, and
+   switch to the workspace from **Go › Workspaces**, an Activity and KRunner.
+   Check that the connection mounts each time, with KIO FUSE and with sshfs.
+   Record any differences in [CAVEATS](CAVEATS.md#integration-settings), then
+   remove this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -1057,6 +1110,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#666]: https://github.com/mikepadiernos/plasma-opus/issues/666
 [#676]: https://github.com/mikepadiernos/plasma-opus/issues/676
 [#703]: https://github.com/mikepadiernos/plasma-opus/issues/703
+[#704]: https://github.com/mikepadiernos/plasma-opus/issues/704
 [#707]: https://github.com/mikepadiernos/plasma-opus/issues/707
 [#708]: https://github.com/mikepadiernos/plasma-opus/issues/708
 [#709]: https://github.com/mikepadiernos/plasma-opus/issues/709
