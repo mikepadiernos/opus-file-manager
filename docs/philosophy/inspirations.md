@@ -28,6 +28,7 @@ interface or implementation.
 - [RaiDrive — cloud storage as drives](#raidrive--cloud-storage-as-drives)
 - [Syncative, SDrive and DucksDrive — cloud sync and activity](#syncative-sdrive-and-ducksdrive--cloud-sync-and-activity)
 - [Strata — system file chooser](#strata--system-file-chooser)
+- [Luciole — interaction details](#luciole--interaction-details)
 - [Orcinus — power-user workflows for Dolphin](#orcinus--power-user-workflows-for-dolphin)
 - [TagSpaces — focused workspaces](#tagspaces--focused-workspaces)
 - [TagStudio — native tagging](#tagstudio--native-tagging)
@@ -36,21 +37,22 @@ interface or implementation.
 
 ## At a glance
 
-| Source                                                                                        | Contributes                                                   | Milestones                                        | Related work                                                                                                                                                          |
-| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Max File Manager](#max-file-manager--origin-and-behaviour-reference)                         | Origin and primary behaviour reference                        | [Parity notes](../README.md#behaviour-references) | ![Reference](https://img.shields.io/badge/Reference-6e7781?style=flat-square)                                                                                         |
-| [Dolphin](#dolphin--kde-desktop-model)                                                        | KDE desktop model and shared components                       | M01 onwards                                       | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
-| [Directory Opus](#directory-opus--power-user-benchmark)                                       | Power-user depth, layout, shortcuts and help                  | M03, M09, M11; M31, M32                           | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                     |
-| [Krusader](#krusader--two-pane-tools)                                                         | Two-pane tools, transfer queue, folder sync and mount manager | M03, M09; M27                                     | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                     |
-| [MiXplorer](#mixplorer--mobile-power-tools)                                                   | Encryption, LAN servers, cloud, archives, menu customization  | M27, M32                                          | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
-| [RaiDrive](#raidrive--cloud-storage-as-drives)                                                | Remote storage mounted as local folders                       | M27                                               | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
-| [Syncative, SDrive and DucksDrive](#syncative-sdrive-and-ducksdrive--cloud-sync-and-activity) | Two-way cloud sync and cloud activity                         | M27                                               | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
-| [Strata](#strata--system-file-chooser)                                                        | Opt-in system file chooser                                    | M27                                               | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
-| [Orcinus](#orcinus--power-user-workflows-for-dolphin)                                         | Per-pane styles, expandable folders, filters, linked panes    | M03, M09                                          | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Source unverified](https://img.shields.io/badge/source-unverified-bf8700?style=flat-square) |
-| [TagSpaces](#tagspaces--focused-workspaces)                                                   | Workspaces that scope locations and search                    | M15                                               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
-| [TagStudio](#tagstudio--native-tagging)                                                       | Native tag libraries                                          | M23                                               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
-| [Yazi](#yazi--keyboard-first-browsing)                                                        | Keyboard-first browsing mode                                  | M25                                               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
-| [which-key.nvim](#which-keynvim--shortcut-discovery)                                          | Shortcut hint pane                                            | M31                                               | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
+| Source                                                                                        | Contributes                                                    | Milestones                                        | Related work                                                                                                                                                          |
+| --------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Max File Manager](#max-file-manager--origin-and-behaviour-reference)                         | Origin and primary behaviour reference                         | [Parity notes](../README.md#behaviour-references) | ![Reference](https://img.shields.io/badge/Reference-6e7781?style=flat-square)                                                                                         |
+| [Dolphin](#dolphin--kde-desktop-model)                                                        | KDE desktop model and shared components                        | M01 onwards                                       | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
+| [Directory Opus](#directory-opus--power-user-benchmark)                                       | Power-user depth, layout, shortcuts and help                   | M03, M09, M11; M31, M32                           | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                     |
+| [Krusader](#krusader--two-pane-tools)                                                         | Two-pane tools, transfer queue, folder sync and mount manager  | M03, M09; M27                                     | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                     |
+| [MiXplorer](#mixplorer--mobile-power-tools)                                                   | Encryption, LAN servers, cloud, archives, menu customization   | M27, M32                                          | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
+| [RaiDrive](#raidrive--cloud-storage-as-drives)                                                | Remote storage mounted as local folders                        | M27                                               | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
+| [Syncative, SDrive and DucksDrive](#syncative-sdrive-and-ducksdrive--cloud-sync-and-activity) | Two-way cloud sync and cloud activity                          | M27                                               | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
+| [Strata](#strata--system-file-chooser)                                                        | Opt-in system file chooser                                     | M27                                               | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
+| [Luciole](#luciole--interaction-details)                                                      | Interaction details, archive checks, operations and thumbnails | M28, M32                                          | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
+| [Orcinus](#orcinus--power-user-workflows-for-dolphin)                                         | Per-pane styles, expandable folders, filters, linked panes     | M03, M09                                          | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Source unverified](https://img.shields.io/badge/source-unverified-bf8700?style=flat-square) |
+| [TagSpaces](#tagspaces--focused-workspaces)                                                   | Workspaces that scope locations and search                     | M15                                               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
+| [TagStudio](#tagstudio--native-tagging)                                                       | Native tag libraries                                           | M23                                               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
+| [Yazi](#yazi--keyboard-first-browsing)                                                        | Keyboard-first browsing mode                                   | M25                                               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
+| [which-key.nvim](#which-keynvim--shortcut-discovery)                                          | Shortcut hint pane                                             | M31                                               | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
 
 ## Max File Manager — origin and behaviour reference
 
@@ -141,6 +143,22 @@ setup informs the optional
 users opt in through settings, the installer or a command-line option, KDE's
 chooser remains the fallback, and the previous chooser can be restored the
 same ways.
+
+## Luciole — interaction details
+
+[Luciole](https://github.com/noctalia-dev/luciole) is a Wayland file manager
+that draws its own interface instead of using Qt or KDE, so Plasma Opus adapts
+its ideas rather than its code. Its attention to small workflow details
+informs planned
+[interaction refinements](../ROADMAP.md#m32-refinements): selecting the next
+item after deleting, sorting hidden items last, moving dropped items into a
+new folder, dragging a tab into a new window, marking partial folder sizes
+and an operations panel with retry and reports. Its archive checks inform
+free-space estimates before extraction and browsing single compressed files,
+and its thumbnail policy informs treating network FUSE mounts as remote and
+clearing the thumbnail cache. Its file picker's remembered start folder
+informs the [system file chooser](../ROADMAP.md#m28-integration-settings)
+settings.
 
 ## Orcinus — power-user workflows for Dolphin
 

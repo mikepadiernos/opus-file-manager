@@ -9,7 +9,7 @@ with what each one shows and how they were captured.
 
 > [!NOTE]
 > These screenshots were captured headless in the
-> [dev container](../../README.md#dev-container), so they show no KWin
+> [dev container](../development.md#dev-container), so they show no KWin
 > decorations, blur or Plasma theme. They use the Plasma Opus Dark colour scheme
 > with Breeze widgets and icons, and synthetic demo files. The Card view and
 > settings pages were recaptured after the M18 and M20 merges.

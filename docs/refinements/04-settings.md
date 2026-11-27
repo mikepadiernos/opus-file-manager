@@ -46,6 +46,8 @@ M32.04 asks to:
 - search settings, filter long lists and mark favourite pages;
 - support keyboard, screen-reader, small-window, high-DPI, long-translation and
   right-to-left use;
+- classify network FUSE mounts consistently for previews and folder sizes, and
+  show and clear the thumbnail cache;
 - make grouping, labels and terminology consistent, establish conventions for
   future pages and add focused tests.
 
@@ -503,7 +505,14 @@ These are options for review, not changes to the tree above:
    [performance](05-performance.md).
    ([#397](https://github.com/mikepadiernos/plasma-opus/issues/397),
    [#399](https://github.com/mikepadiernos/plasma-opus/issues/399))
-7. Check keyboard access, focus, accessible errors, small windows, high DPI,
+7. Make previews on mounted locations predictable: classify FUSE mounts
+   without a local disk, such as sshfs and rclone, as remote for remote
+   previews and automatic folder sizes, and show and clear the shared
+   thumbnail cache after confirmation, as in
+   [Luciole](../philosophy/inspirations.md#luciole--interaction-details).
+   ([#748](https://github.com/mikepadiernos/plasma-opus/issues/748),
+   [#749](https://github.com/mikepadiernos/plasma-opus/issues/749))
+8. Check keyboard access, focus, accessible errors, small windows, high DPI,
    long translations and right-to-left layouts. Add focused tests for search,
    validation, cancellation, defaults, persistence and shared effects.
    ([#225](https://github.com/mikepadiernos/plasma-opus/issues/225),

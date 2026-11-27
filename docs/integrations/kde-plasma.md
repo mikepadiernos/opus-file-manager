@@ -521,6 +521,14 @@ behaves like the rest of the desktop and follows the user's choices.
 Grouped by the [M27](../ROADMAP.md#m27-integrations) subsection that tracks
 them.
 
+### M27.03 Search and indexing
+
+- **Baloo queries and shared searches:** Run indexed searches inside Baloo
+  instead of filtering broad results in Plasma Opus, and offer to share saved
+  searches with Dolphin and file dialogs as KDE search places.
+  ([#733](https://github.com/mikepadiernos/plasma-opus/issues/733),
+  [#734](https://github.com/mikepadiernos/plasma-opus/issues/734))
+
 ### M27.06 Accounts, remote access and synchronization
 
 - **Cloud activity:** Show transfers, quota, pending uploads and cache limits
@@ -627,6 +635,10 @@ feature to the roadmap, with its issue, before implementing it.
 - Storing tokens in URLs or KConfig, or duplicating KDE account management.
 - Editing `kwinrulesrc`, other scripts or global KWin settings instead of
   linking to KWin's own settings.
+- A GraphQL or other server layer in front of Baloo. Plasma Opus is a local
+  client and already calls Baloo's library directly; a query server would add
+  serialization and latency without new capabilities. Use D-Bus for local
+  automation.
 
 ## Acceptance
 

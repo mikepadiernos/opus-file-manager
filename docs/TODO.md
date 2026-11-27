@@ -45,7 +45,10 @@ Board statuses were last confirmed on 2026-11-26.
 1. Continue on `feature/M27-integrations` when M27 starts.
 2. Before selecting an implementation, verify a safe libmpv rendering and
    lifecycle approach for Wayland and X11, including failure handling and
-   builds without the optional library.
+   builds without the optional library. If it uses MpvQt, follow the
+   [Qt Quick embedding rules](qt-quick.md#embedding-rules): host it in a
+   `QQuickWidget`, keep Qt Multimedia as the fallback, and contain the numeric
+   locale change.
 3. Implement backend selection, audio and video controls, preview and gallery
    behaviour, and cleanup.
 4. Test autoplay, seeking, errors, remote temporary-file lifetime, and repeated

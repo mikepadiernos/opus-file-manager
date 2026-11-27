@@ -9,6 +9,9 @@ them and take precedence where they conflict.
 
 ## Project documentation
 
+- `docs/development.md`: contributor guide to building, testing and the
+  project workflow. Keep it consistent with these instructions, and keep
+  development workflow details there rather than in the root README.
 - `docs/ROADMAP.md`: authoritative milestone and architecture plan.
 - `docs/TODO.md`: blocked tasks and actionable handoffs.
 - `docs/BUGS.md`: reported bugs and completion status.
@@ -47,6 +50,8 @@ integration behaviour on Plasma.
 
 - Put non-widget logic in `src/core/` and cover it with QtTest in `tests/`.
   Put widgets in `src/app/`.
+- Build the user interface with Qt Widgets. Embed Qt Quick only for optional,
+  self-contained components that meet the criteria in `docs/qt-quick.md`.
 - Prefer KDE Frameworks facilities to custom implementations, including KIO
   jobs, KXmlGui actions, `KFileItemActions` and `KFilePlacesView`.
 - Localize user-visible strings with `i18n()` or `i18nc()`.
