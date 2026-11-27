@@ -1882,7 +1882,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **Editor**
 
-  - [ ] **Provider:** select the built-in editor or an available KWrite, Kate,
+  - [x] **Provider:** select the built-in editor or an available KWrite, Kate,
         Neovim, Rune, micro or nano integration, plus the session type for
         terminal editors [#320]
   - [ ] **Markdown:** choose a local vault and the Markdown editing and preview
