@@ -2099,7 +2099,10 @@ considered Calendar, Maps, Deck and Notes workflows.
       [#671]
 - [ ] View and manage supported Nextcloud shares with explicit authorization and
       confirmation before broadening access or revoking a share. Offer to send
-      a reviewed share link through the M27 Send by Email action. [#591]
+      a reviewed share link through the M27 Send by Email action.
+      Real-server verification is a
+      [pending handoff](TODO.md#nextcloud-shares-on-a-real-server-591).
+      [#591]
 - [ ] Open configured local sync folders and the existing desktop client,
       showing available status and distinguishing remote, local, offline and
       unknown state. Never start a second sync engine or change the client's
