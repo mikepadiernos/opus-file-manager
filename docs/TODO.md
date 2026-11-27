@@ -114,7 +114,7 @@ Board statuses were last confirmed on 2026-11-27.
 
 - **Milestone and issues:** [M27](ROADMAP.md#m27-integrations), [#565]
   (Completed); its settings belong to
-  [M28](ROADMAP.md#m28-integration-settings), [#566] (Backlog).
+  [M28](ROADMAP.md#m28-integration-settings), [#566] (Development).
 - **Resolved blocker:** The built-in Markdown and backlinks feature, [#564],
   is Completed, and workspace profiles and location assignments ([#200] and
   [#201]) are merged.
@@ -130,6 +130,16 @@ Board statuses were last confirmed on 2026-11-27.
   validation, duplication, unassignment and removal, inline and front matter
   tags, nested tags, and switching between the workspace and own vaults. See
   [Workspace vaults and tags](CAVEATS.md#desktop-integration).
+- **M28 state:** `feature/M28-integration-settings` adds the **Workspace
+  Vault** group under **Preferences › Applications › Editor**
+  (`src/app/workspacevaultsettings.cpp`). It stores each workspace's vault
+  switch and own Markdown options in the workspace catalog, which is now
+  version 9, reports a vault location that can't be found in the group and
+  the editor, and counts the vault's notes. `workspacecatalogtest`,
+  `editorpaneltest`, `workspacedialogtest`, `mainwindowtest` and
+  `integrationsettingstest` cover persistence, turning the vault off, its own
+  options and a removed location. See
+  [Workspace vault settings](CAVEATS.md#integration-settings).
 
 **Steps to resume:**
 
@@ -141,9 +151,11 @@ Board statuses were last confirmed on 2026-11-27.
 3. Rename the vault folder while the workspace is active and confirm the
    editor reports the unreadable vault, then unassign the location and
    confirm the editor's own vault returns.
-4. For [#566], provide the workspace vault options in M28 and verify
-   workspace-scoped settings persistence and recovery when vault roots or
-   editor features are unavailable.
+4. For [#566], on Plasma, put a workspace's vault on a removable drive,
+   eject it while the workspace is active, and confirm the editor and
+   **Preferences › Applications › Editor › Workspace Vault** report it, keep
+   open notes and drafts, and read the vault again after the drive is
+   mounted and **Vault › Rescan Vault** is chosen.
 
 ## System file chooser on Plasma (#286)
 
