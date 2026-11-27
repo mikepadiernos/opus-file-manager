@@ -1535,7 +1535,7 @@ for some features are recorded in [pending tasks](TODO.md).
         previously lost to its limits; report when limits still apply, and use
         newer Baloo search scopes only when the installed version supports
         them. [#733]
-  - [ ] Share saved searches with KDE: offer to add a saved search that Baloo
+  - [x] Share saved searches with KDE: offer to add a saved search that Baloo
         can represent to KDE's shared places as a search location, so Dolphin
         and file dialogs can reuse it. Explain which criteria, such as depth,
         exclusions or Plasma Opus tags, cannot be carried over, and add the
