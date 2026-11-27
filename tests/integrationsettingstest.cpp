@@ -410,6 +410,29 @@ private Q_SLOTS:
         QCOMPARE(message->messageType(), KMessageWidget::Error);
         QVERIFY(message->text().contains(QStringLiteral("Notifications settings are not installed")));
     }
+
+    void systemTrayTabIsOnTheKdePlasmaPage()
+    {
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("systemTrayPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QCOMPARE(tabs->indexOf(page), 2);
+        QCOMPARE(tabs->tabText(2), QStringLiteral("System Tray"));
+        QCOMPARE(tabs->tabText(1), QStringLiteral("Notifications"));
+        QCOMPARE(tabs->widget(0)->objectName(), QStringLiteral("fileManagerIntegrationPage"));
+
+        auto *show = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_ShowTrayIcon"));
+        auto *startHidden = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_StartHiddenInTray"));
+        QVERIFY(!startHidden->isChecked());
+        QVERIFY(startHidden->isEnabled());
+        show->setChecked(false);
+        QVERIFY(!startHidden->isEnabled());
+        QVERIFY(!dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_CloseToTray"))->isEnabled());
+        // The offscreen platform is not Wayland.
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("trayWaylandNote"))->isHidden());
+    }
 };
 
 QTEST_MAIN(IntegrationSettingsTest)

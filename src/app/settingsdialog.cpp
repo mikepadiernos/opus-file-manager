@@ -52,6 +52,7 @@
 #include <KTextEditor/Editor>
 #include <KToolBar>
 #include <KUrlRequester>
+#include <KWindowSystem>
 #include <KXMLGUIFactory>
 #include <KXmlGuiWindow>
 
@@ -260,9 +261,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                                KStandardGuiItem::cancel())
             == KMessageBox::PrimaryAction;
     };
-    addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")},
-                   {createSystemTrayPage(), i18nc("@title:tab", "System Tray")},
-                   {createPlasmaSearchPage(), i18nc("@title:tab", "Plasma Search")}},
+    addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}, {createPlasmaSearchPage(), i18nc("@title:tab", "Plasma Search")}},
                   i18nc("@title:group", "General"),
                   QStringLiteral("configure"));
     addTabbedPage({{createLanguagePage(), i18nc("@title:tab", "Language and Layout")}, {createDateLanguagePage(), i18nc("@title:tab", "Dates")}},
@@ -384,7 +383,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                   i18nc("@title:group", "Tools"),
                   QStringLiteral("utilities-terminal"));
     addTabbedPage({{createFileManagerIntegrationPage(), i18nc("@title:tab", "File Manager")},
-                   {createNotificationsIntegrationPage(), i18nc("@title:tab", "Notifications")}},
+                   {createNotificationsIntegrationPage(), i18nc("@title:tab", "Notifications")},
+                   {createSystemTrayPage(), i18nc("@title:tab", "System Tray")}},
                   i18nc("@title:group", "KDE Plasma"),
                   QStringLiteral("plasma"));
     applySidebarStyle();
@@ -489,20 +489,33 @@ QWidget *SettingsDialog::createSystemTrayPage()
     auto *show = checkBox(QStringLiteral("ShowTrayIcon"), i18nc("@option:check", "Show an icon in the system tray"));
     auto *minimize = checkBox(QStringLiteral("MinimizeToTray"), i18nc("@option:check", "Hide the window in the system tray when it is minimized"));
     auto *close = checkBox(QStringLiteral("CloseToTray"), i18nc("@option:check", "Hide the window in the system tray when it is closed"));
+    auto *startHidden = checkBox(QStringLiteral("StartHiddenInTray"), i18nc("@option:check", "Start with the window hidden in the system tray"));
+    startHidden->setToolTip(i18nc("@info:tooltip", "Applies when Plasma Opus starts without folders or a workspace to open"));
     layout->addWidget(show);
     layout->addWidget(minimize);
     layout->addWidget(close);
+    layout->addWidget(startHidden);
     auto *note = new QLabel(i18nc("@info",
-                                  "The window hides only while a system tray can show the icon that brings it back. File › Quit and the "
-                                  "tray icon's Quit still quit. Change the global shortcut that shows or hides the window in Configure Keyboard "
-                                  "Shortcuts or Plasma's Shortcuts settings."),
+                                  "The window hides only while a system tray can show the icon that brings it back; otherwise it stays "
+                                  "open. Starting Plasma Opus again, or with folders or a workspace to open, shows the window. File › "
+                                  "Quit and the tray icon's Quit still quit. Change the global shortcut that shows or hides the window in "
+                                  "Configure Keyboard Shortcuts or Plasma's Shortcuts settings."),
                             page);
     note->setWordWrap(true);
     layout->addWidget(note);
+    auto *waylandNote = new QLabel(i18nc("@info",
+                                         "On Wayland, KWin does not tell applications when they are minimized, so the window hides in the "
+                                         "tray only when it is closed, not when it is minimized."),
+                                   page);
+    waylandNote->setObjectName(QStringLiteral("trayWaylandNote"));
+    waylandNote->setWordWrap(true);
+    waylandNote->setVisible(KWindowSystem::isPlatformWayland());
+    layout->addWidget(waylandNote);
     layout->addStretch();
-    const auto update = [show, minimize, close] {
+    const auto update = [show, minimize, close, startHidden] {
         minimize->setEnabled(show->isChecked());
         close->setEnabled(show->isChecked());
+        startHidden->setEnabled(show->isChecked());
     };
     connect(show, &QCheckBox::toggled, page, update);
     update();

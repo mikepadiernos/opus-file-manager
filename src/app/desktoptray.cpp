@@ -151,6 +151,11 @@ bool DesktopTray::hideToTray()
     return true;
 }
 
+bool DesktopTray::startHidden(bool explicitRequest)
+{
+    return TrayPolicy::startHidden(state(), Settings::startHiddenInTray(), explicitRequest) && hideToTray();
+}
+
 void DesktopTray::startInBackground()
 {
     m_forced = true;

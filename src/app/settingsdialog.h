@@ -149,6 +149,7 @@ private:
     void applySidebarStyle(int size, bool below);
 
     QWidget *createSettingsDialogPage();
+    /// The KDE Plasma › System Tray tab.
     QWidget *createSystemTrayPage();
     QWidget *createPlasmaSearchPage();
     QWidget *createLanguagePage();

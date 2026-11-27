@@ -52,6 +52,11 @@ public:
     /// Hides the window to the tray when a tray host can restore it.
     bool hideToTray();
 
+    /// At start, hides the window to the tray when the settings ask for it,
+    /// a tray host can restore it and @p explicitRequest is false, such as
+    /// when no folder or workspace was asked for. Returns whether it did.
+    bool startHidden(bool explicitRequest);
+
     /// Starts with the window hidden and the tray icon shown, whatever the
     /// settings, so background synchronization keeps running after login.
     void startInBackground();

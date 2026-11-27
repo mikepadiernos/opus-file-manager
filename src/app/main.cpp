@@ -272,9 +272,13 @@ int main(int argc, char **argv)
         // tray icon or another launch shows it.
         window->desktopTray()->startInBackground();
     } else {
-        window->openUrls(urlsFromArguments(parser.positionalArguments(), QDir::currentPath()));
-        window->show();
-        StartupPresentation::presentIfEnabled(window);
+        const QStringList paths = parser.positionalArguments();
+        window->openUrls(urlsFromArguments(paths, QDir::currentPath()));
+        // Folders or a workspace asked for on the command line show the window.
+        if (!window->desktopTray()->startHidden(!paths.isEmpty() || parser.isSet(workspaceOption))) {
+            window->show();
+            StartupPresentation::presentIfEnabled(window);
+        }
         showStartupMessage();
         if (parser.isSet(workspaceOption)) {
             QTimer::singleShot(0, window, [window, id = parser.value(workspaceOption)] {

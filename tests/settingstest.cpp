@@ -1337,7 +1337,8 @@ private Q_SLOTS:
             return tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + entry));
         };
         QCOMPARE(tabOf(QStringLiteral("SidebarTitlePosition")), QStringLiteral("Settings Dialog"));
-        for (const QString &entry : {QStringLiteral("ShowTrayIcon"), QStringLiteral("MinimizeToTray"), QStringLiteral("CloseToTray")}) {
+        for (const QString &entry :
+             {QStringLiteral("ShowTrayIcon"), QStringLiteral("MinimizeToTray"), QStringLiteral("CloseToTray"), QStringLiteral("StartHiddenInTray")}) {
             QCOMPARE(tabOf(entry), QStringLiteral("System Tray"));
         }
         QCOMPARE(tabOf(QStringLiteral("ActivityAssociations")), QStringLiteral("Activities"));

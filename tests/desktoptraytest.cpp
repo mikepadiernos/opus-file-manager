@@ -34,8 +34,8 @@ class DesktopTrayTest : public QObject
         }
     };
 
-    /// A shown window that deletes itself when it really closes.
-    static void makeWindow(Fixture &fixture, bool hostAvailable)
+    /// A window that deletes itself when it really closes, shown unless @p show is false.
+    static void makeWindow(Fixture &fixture, bool hostAvailable, bool show = true)
     {
         fixture.window = new QWidget;
         fixture.window->setAttribute(Qt::WA_DeleteOnClose);
@@ -46,7 +46,9 @@ class DesktopTrayTest : public QObject
         });
         fixture.tray->applySettings();
         fixture.window->resize(300, 200);
-        fixture.window->show();
+        if (show) {
+            fixture.window->show();
+        }
     }
 
     static void requestCloseFromWindowManager(QWidget *window)
@@ -299,6 +301,51 @@ private Q_SLOTS:
         fixture.tray->setAttention({});
         QCOMPARE(item->status(), KStatusNotifierItem::Passive);
         QVERIFY(item->toolTipSubTitle().isEmpty());
+    }
+
+    void startsHiddenWhenTheSettingAsks()
+    {
+        Settings::setStartHiddenInTray(true);
+        Fixture fixture;
+        makeWindow(fixture, true, false);
+        // Folders or a workspace to open show the window.
+        QVERIFY(!fixture.tray->startHidden(true));
+        QVERIFY(QApplication::quitOnLastWindowClosed());
+
+        QVERIFY(fixture.tray->startHidden(false));
+        QVERIFY(!fixture.window->isVisible());
+        QVERIFY(!QApplication::quitOnLastWindowClosed());
+        auto *item = fixture.tray->findChild<KStatusNotifierItem *>();
+        QVERIFY(item);
+        QCOMPARE(item->status(), KStatusNotifierItem::Active);
+
+        fixture.tray->toggleWindow();
+        QVERIFY(fixture.window->isVisible());
+        QVERIFY(QApplication::quitOnLastWindowClosed());
+        QCOMPARE(item->status(), KStatusNotifierItem::Passive);
+    }
+
+    void startsShownWithoutTheSettingOrATray_data()
+    {
+        QTest::addColumn<bool>("setting");
+        QTest::addColumn<bool>("host");
+        QTest::addColumn<bool>("icon");
+        QTest::newRow("setting off") << false << true << true;
+        QTest::newRow("no tray host") << true << false << true;
+        QTest::newRow("no tray icon") << true << true << false;
+    }
+
+    void startsShownWithoutTheSettingOrATray()
+    {
+        QFETCH(bool, setting);
+        QFETCH(bool, host);
+        QFETCH(bool, icon);
+        Settings::setStartHiddenInTray(setting);
+        Settings::setShowTrayIcon(icon);
+        Fixture fixture;
+        makeWindow(fixture, host, false);
+        QVERIFY(!fixture.tray->startHidden(false));
+        QVERIFY(QApplication::quitOnLastWindowClosed());
     }
 };
 
