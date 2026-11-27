@@ -71,6 +71,7 @@
 #include "nextcloudaccountsdialog.h"
 #include "nextcloudassetsdialog.h"
 #include "nextcloudmenu.h"
+#include "nextcloudphotosdialog.h"
 #include "nextcloudtagsdialog.h"
 #include "onlineaccountsmenu.h"
 #include "packagetools.h"
@@ -6465,7 +6466,10 @@ void MainWindow::populateNextcloud()
         },
         [this](const NextcloudAccounts::Account &account) {
             showNextcloudAssets(account);
-        });
+        },
+        NextcloudMenu::AccountHandlers{[this](const NextcloudAccounts::Account &account) {
+            showNextcloudPhotos(account);
+        }});
 }
 
 void MainWindow::showNextcloudAccounts()
@@ -6745,6 +6749,55 @@ void MainWindow::showNextcloudAssets(const NextcloudAccounts::Account &account)
     dialog->show();
 }
 
+void MainWindow::showNextcloudPhotos(const NextcloudAccounts::Account &account)
+{
+    const QString unavailable = RemoteProfiles::unavailableReason(RemoteProfiles::Protocol::WebDavs);
+    if (!unavailable.isEmpty()) {
+        showStatusMessage(unavailable);
+        return;
+    }
+    if (!m_nextcloudStore) {
+        m_nextcloudStore = std::make_unique<Nextcloud::PasswordServerStore>(winId());
+    }
+    if (!m_nextcloudAccounts.contains(account)) {
+        m_nextcloudAccounts = nextcloudAccounts();
+        m_nextcloudAccountsLoaded = true;
+    }
+    auto *dialog = new NextcloudPhotosDialog(account, m_nextcloudStore.get(), this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &NextcloudPhotosDialog::showRequested, this, [this](const QUrl &url) {
+        activePane()->revealUrls(url.adjusted(QUrl::RemoveFilename), {url});
+    });
+    dialog->show();
+}
+
+void MainWindow::addToNextcloudAlbum(const QList<QUrl> &urls)
+{
+    const std::optional<NextcloudAccounts::Account> account = urls.isEmpty() ? std::nullopt : nextcloudAccountFor(urls.first());
+    if (!account) {
+        return;
+    }
+    if (!m_nextcloudStore) {
+        m_nextcloudStore = std::make_unique<Nextcloud::PasswordServerStore>(winId());
+    }
+    auto *dialog = new NextcloudAddToAlbumDialog(*account, urls, m_nextcloudStore.get(), this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dialog, &NextcloudAddToAlbumDialog::finished, this, &MainWindow::reportAddedToAlbum);
+    dialog->show();
+}
+
+void MainWindow::reportAddedToAlbum(const QString &album, int added, const QStringList &errors)
+{
+    if (errors.isEmpty()) {
+        showStatusMessage(i18ncp("@info:status %2 is an album name", "Added %1 file to the album “%2”.", "Added %1 files to the album “%2”.", added, album));
+        return;
+    }
+    showStatusMessage(i18nc("@info:status %1 is an album name, %2 a list of problems",
+                            "Some files couldn't be added to the album “%1”: %2",
+                            album,
+                            errors.join(QLatin1Char(' '))));
+}
+
 void MainWindow::showNextcloudTags(const QList<QUrl> &urls)
 {
     const std::optional<NextcloudAccounts::Account> account = urls.isEmpty() ? std::nullopt : nextcloudAccountFor(urls.first());
@@ -6820,6 +6873,13 @@ void MainWindow::addNextcloudItemMenu(QMenu *menu, const KFileItemList &items)
     handlers.organize = [this, account = *account] {
         showNextcloudAssets(account);
     };
+    if (std::none_of(items.cbegin(), items.cend(), [](const KFileItem &item) {
+            return item.isDir();
+        })) {
+        handlers.addToAlbum = [this, urls] {
+            addToNextcloudAlbum(urls);
+        };
+    }
     NextcloudMenu::addItemMenu(menu, known ? favorite : std::nullopt, this, handlers);
 }
 

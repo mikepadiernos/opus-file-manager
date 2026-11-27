@@ -31,6 +31,14 @@ struct ItemHandlers {
     std::function<void()> editTags;
     /// Opens the account's Search and Organize dialog.
     std::function<void()> organize;
+    /// Adds the items to a Nextcloud Photos album; offered only when set.
+    std::function<void()> addToAlbum;
+};
+
+/// What else each account's submenu offers; an entry is shown only when its handler is set.
+struct AccountHandlers {
+    /// Opens the account's Nextcloud Photos albums, shared albums and places.
+    OrganizeHandler photos;
 };
 
 /// Replaces the contents of @p menu with a submenu per account in
@@ -39,7 +47,7 @@ struct ItemHandlers {
 /// @p error is shown as a disabled entry. The menu ends with @p manage when
 /// it is not null. Open actions call @p open with @p context as their
 /// receiver. When @p organize is set, each account also offers Search and
-/// Organize.
+/// Organize, followed by the entries of @p more.
 void populate(QMenu *menu,
               const QList<NextcloudAccounts::Account> &accounts,
               const QString &error,
@@ -48,7 +56,8 @@ void populate(QMenu *menu,
               QAction *manage,
               QObject *context,
               const OpenHandler &open,
-              const OrganizeHandler &organize = {});
+              const OrganizeHandler &organize = {},
+              const AccountHandlers &more = {});
 
 /**
  * Adds a Nextcloud submenu to the context menu of items on a Nextcloud

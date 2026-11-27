@@ -27,7 +27,8 @@ void populate(QMenu *menu,
               QAction *manage,
               QObject *context,
               const OpenHandler &open,
-              const OrganizeHandler &organize)
+              const OrganizeHandler &organize,
+              const AccountHandlers &more)
 {
     menu->clear();
     menu->setToolTipsVisible(true);
@@ -67,6 +68,19 @@ void populate(QMenu *menu,
                                                  });
             search->setObjectName(QStringLiteral("nextcloudOrganize"));
             search->setToolTip(i18nc("@info:tooltip", "Search the server and list your favourites and files with a Nextcloud tag"));
+        }
+        if (more.photos) {
+            if (!organize) {
+                submenu->addSeparator();
+            }
+            QAction *photos = submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("folder-pictures")),
+                                                 i18nc("@action:inmenu", "Photos…"),
+                                                 context,
+                                                 [handler = more.photos, account] {
+                                                     handler(account);
+                                                 });
+            photos->setObjectName(QStringLiteral("nextcloudPhotos"));
+            photos->setToolTip(i18nc("@info:tooltip", "Browse the albums, shared albums and places of Nextcloud Photos"));
         }
     }
     if (accounts.isEmpty()) {
@@ -115,6 +129,14 @@ QMenu *addItemMenu(QMenu *menu, std::optional<bool> favorite, QObject *context, 
                                            context,
                                            handlers.organize);
     organize->setObjectName(QStringLiteral("nextcloudItemOrganize"));
+    if (handlers.addToAlbum) {
+        QAction *album = submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("folder-pictures")),
+                                            i18nc("@action:inmenu", "Add to Nextcloud Album…"),
+                                            context,
+                                            handlers.addToAlbum);
+        album->setObjectName(QStringLiteral("nextcloudAddToAlbum"));
+        album->setToolTip(i18nc("@info:tooltip", "List the files in a Nextcloud Photos album; the files stay where they are"));
+    }
     return submenu;
 }
 }

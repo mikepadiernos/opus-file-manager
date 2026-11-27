@@ -222,6 +222,12 @@ public:
     void openNextcloudAccount(const NextcloudAccounts::Account &account, bool otherPane);
     /// Shows the dialog that searches the files of @p account and lists its favourites and tagged files.
     void showNextcloudAssets(const NextcloudAccounts::Account &account);
+    /// Shows the albums, shared albums and places of Nextcloud Photos of @p account.
+    void showNextcloudPhotos(const NextcloudAccounts::Account &account);
+    /// Asks for a Nextcloud Photos album to add the Nextcloud files @p urls to.
+    void addToNextcloudAlbum(const QList<QUrl> &urls);
+    /// Reports in the status bar how many files were added to @p album.
+    void reportAddedToAlbum(const QString &album, int added, const QStringList &errors);
     /// Shows the dialog that edits the collaborative tags of the Nextcloud items @p urls on their server.
     void showNextcloudTags(const QList<QUrl> &urls);
     /// Marks the Nextcloud items @p urls as favourites on their server, or no longer.
