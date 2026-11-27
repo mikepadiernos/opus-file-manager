@@ -29,6 +29,7 @@ Board statuses were last confirmed on 2026-11-26.
 | [Administrator mode on Plasma](#administrator-mode-on-plasma-288)   | [M27](ROADMAP.md#m27-integrations)                                             | [#288]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [Plasma Vault on Plasma](#plasma-vault-on-plasma-654)               | [M27](ROADMAP.md#m27-integrations)                                             | [#654]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [File encryption on Plasma](#file-encryption-on-plasma-655)         | [M27](ROADMAP.md#m27-integrations)                                             | [#655]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
+| [Send by Email on Plasma](#send-by-email-on-plasma-656)             | [M27](ROADMAP.md#m27-integrations)                                             | [#656]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                             |
 
 ## mpv integration (#563)
 
@@ -280,6 +281,38 @@ Board statuses were last confirmed on 2026-11-26.
    `$XDG_RUNTIME_DIR`. Record any differences in [CAVEATS](CAVEATS.md),
    then remove this entry and its roadmap link.
 
+## Send by Email on Plasma (#656)
+
+- **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#656]
+  (Review).
+- **Blocker:** The development container has no mail client, no Plasma
+  Impresario and no XDG Email portal, so real composers and the sandboxed
+  path cannot be tried there.
+- **Confirmed state:** **File › Send by Email…** and its dialog are
+  implemented and pass their tests in the container. A fake `mailto:`
+  handler records the `mailto:` URL it receives, remote files are copied
+  from a `tar:` archive through KIO, and a fake handler with Plasma
+  Impresario's desktop ID checks the warning. The portal call is covered
+  only by a unit test of its options. This verification does not block the
+  feature; it is recorded as a caveat under
+  [Desktop integration](CAVEATS.md#desktop-integration).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session, set KMail as the email client under **System
+   Settings › Default Applications**. Select two local files and a folder,
+   choose **File › Send by Email…**, and check the folder is listed as
+   skipped and KMail's composer opens with both files attached. Close the
+   composer without sending.
+2. Repeat with Thunderbird as the email client, then with a file on an
+   SFTP or SMB location: allow the local copy and check it is attached and
+   its folder under `/tmp` is removed after quitting Plasma Opus.
+3. Set Plasma Impresario as the email client and check the warning before
+   and after its composer opens without the files.
+4. Run the Flatpak build, if available, and check the XDG Email portal
+   opens the composer with the files attached. Record any differences in
+   [CAVEATS](CAVEATS.md), then remove this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -290,6 +323,7 @@ Board statuses were last confirmed on 2026-11-26.
 [#566]: https://github.com/mikepadiernos/plasma-opus/issues/566
 [#654]: https://github.com/mikepadiernos/plasma-opus/issues/654
 [#655]: https://github.com/mikepadiernos/plasma-opus/issues/655
+[#656]: https://github.com/mikepadiernos/plasma-opus/issues/656
 [#703]: https://github.com/mikepadiernos/plasma-opus/issues/703
 [#707]: https://github.com/mikepadiernos/plasma-opus/issues/707
 [#708]: https://github.com/mikepadiernos/plasma-opus/issues/708

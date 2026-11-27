@@ -1777,7 +1777,8 @@ for some features are recorded in [pending tasks](TODO.md).
         missing clients and clients that cannot accept attachments; Plasma
         Impresario currently ignores `mailto:` attachments. See the
         [companion workflows](integrations/plasma-impresario.md#compose-with-selected-files).
-        [#656]
+        Plasma-session verification is a
+        [pending handoff](TODO.md#send-by-email-on-plasma-656). [#656]
   - [ ] Mail attachments: verify dragging local files into Plasma Impresario's
         composer and offer private local copies for remote items. Recognize
         its private attachment drag format and explain that the attachment
