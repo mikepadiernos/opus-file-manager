@@ -1798,4 +1798,30 @@
       <default>Home</default>
     </entry>
   </group>
+  <group name="RemoteConnections">
+    <entry name="RemoteDefaultProtocol" type="Enum">
+      <label>The protocol that new saved remote connections start with</label>
+      <choices>
+        <choice name="Sftp" value="sftp"/>
+        <choice name="WebDavs" value="webdavs"/>
+        <choice name="WebDav" value="webdav"/>
+        <choice name="Smb" value="smb"/>
+        <choice name="Ftps" value="ftps"/>
+        <choice name="Ftp" value="ftp"/>
+      </choices>
+      <default>Sftp</default>
+    </entry>
+    <entry name="RemoteDefaultUser" type="String">
+      <label>The user name that new saved remote connections start with; empty for none</label>
+      <default></default>
+    </entry>
+    <entry name="RemoteDefaultAuthentication" type="Enum">
+      <label>How new saved SSH connections sign in: a password KIO asks for when needed, or an SSH key or agent</label>
+      <choices>
+        <choice name="Password" value="password"/>
+        <choice name="KeyOrAgent" value="key"/>
+      </choices>
+      <default>Password</default>
+    </entry>
+  </group>
 </kcfg>

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "remoteprofiles.h"
+#include "settings.h"
 
+#include <KCoreConfigSkeleton>
 #include <KSharedConfig>
 #include <QFile>
 #include <QStandardPaths>
@@ -183,6 +185,39 @@ private Q_SLOTS:
         QVERIFY(!RemoteProfiles::validationError(profile).isEmpty());
         profile.authentication = Authentication::Password;
         QVERIFY(RemoteProfiles::validationError(profile).isEmpty());
+    }
+
+    void startsNewProfilesWithDefaults()
+    {
+        Profile profile = RemoteProfiles::newProfile(Protocol::Sftp, QStringLiteral(" deploy "), Authentication::KeyOrAgent);
+        QCOMPARE(profile.protocol, Protocol::Sftp);
+        QCOMPARE(profile.user, QStringLiteral("deploy"));
+        QCOMPARE(profile.authentication, Authentication::KeyOrAgent);
+        QVERIFY(profile.id.isEmpty() && profile.name.isEmpty() && profile.host.isEmpty() && profile.port == 0);
+
+        // Key sign-in applies only to SSH, and an invalid user name is left out.
+        profile = RemoteProfiles::newProfile(Protocol::Smb, QStringLiteral("-oProxyCommand=x"), Authentication::KeyOrAgent);
+        QCOMPARE(profile.protocol, Protocol::Smb);
+        QVERIFY(profile.user.isEmpty());
+        QCOMPARE(profile.authentication, Authentication::Password);
+        QVERIFY(!RemoteProfiles::userError(QStringLiteral("a b")).isEmpty());
+        QVERIFY(!RemoteProfiles::userError(QStringLiteral("me@host")).isEmpty());
+        QVERIFY(RemoteProfiles::userError(QStringLiteral("WORKGROUP;me")).isEmpty());
+        QVERIFY(RemoteProfiles::userError(QString()).isEmpty());
+    }
+
+    void defaultProtocolChoicesFollowTheProtocols()
+    {
+        // Preferences stores the default protocol by its index in RemoteProfiles::protocols().
+        auto *item = dynamic_cast<KCoreConfigSkeleton::ItemEnum *>(Settings::self()->findItem(QStringLiteral("RemoteDefaultProtocol")));
+        QVERIFY(item);
+        const QList<Protocol> protocols = RemoteProfiles::protocols();
+        QCOMPARE(item->choices().size(), protocols.size());
+        for (int i = 0; i < protocols.size(); ++i) {
+            QCOMPARE(item->choices().at(i).value, RemoteProfiles::scheme(protocols.at(i)));
+        }
+        QCOMPARE(int(Settings::EnumRemoteDefaultProtocol::Sftp), int(protocols.indexOf(Protocol::Sftp)));
+        QCOMPARE(int(Settings::EnumRemoteDefaultProtocol::Ftp), int(protocols.indexOf(Protocol::Ftp)));
     }
 
     void warnsAboutUnencryptedWebDav()

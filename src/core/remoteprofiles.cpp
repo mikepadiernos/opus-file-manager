@@ -122,6 +122,27 @@ bool RemoteProfiles::supportsSsh(Protocol protocol)
     return protocol == Protocol::Sftp;
 }
 
+QString RemoteProfiles::userError(const QString &user)
+{
+    if (hasSpace(user) || hasControlCharacter(user) || user.startsWith(QLatin1Char('-')) || user.contains(QLatin1Char('@')) || user.contains(QLatin1Char(':'))
+        || user.contains(QLatin1Char('/'))) {
+        return i18nc("@info", "Enter a user name without spaces, @, : or /, not starting with a hyphen.");
+    }
+    return {};
+}
+
+RemoteProfiles::Profile RemoteProfiles::newProfile(Protocol protocol, const QString &user, Authentication authentication)
+{
+    Profile profile;
+    profile.protocol = protocol;
+    const QString trimmed = user.trimmed();
+    if (userError(trimmed).isEmpty()) {
+        profile.user = trimmed;
+    }
+    profile.authentication = supportsSsh(protocol) ? authentication : Authentication::Password;
+    return profile;
+}
+
 QString RemoteProfiles::validationError(const Profile &profile)
 {
     if (profile.name.trimmed().isEmpty() || hasControlCharacter(profile.name)) {
@@ -135,9 +156,8 @@ QString RemoteProfiles::validationError(const Profile &profile)
     if (profile.port < 0 || profile.port > 65535) {
         return i18nc("@info", "Enter a port from 1 to 65535, or leave it at the default.");
     }
-    if (hasSpace(profile.user) || hasControlCharacter(profile.user) || profile.user.startsWith(QLatin1Char('-')) || profile.user.contains(QLatin1Char('@'))
-        || profile.user.contains(QLatin1Char(':')) || profile.user.contains(QLatin1Char('/'))) {
-        return i18nc("@info", "Enter a user name without spaces, @, : or /, not starting with a hyphen.");
+    if (const QString error = userError(profile.user); !error.isEmpty()) {
+        return error;
     }
     if ((!profile.path.isEmpty() && !profile.path.startsWith(QLatin1Char('/'))) || hasControlCharacter(profile.path)) {
         return i18nc("@info", "Enter the remote folder as an absolute path starting with /, or leave it empty.");
