@@ -408,6 +408,12 @@ private:
     void updateInformationPanel();
     void openGallery();
     void openEditor();
+    /**
+     * Shows the editor panel where the user's opening preference places it,
+     * first opening @p url when it isn't empty. Returns false if the file
+     * couldn't be opened or the user kept the editor's unsaved changes.
+     */
+    bool showEditor(const QUrl &url);
     void editFile();
     void editWithEditor(EditorProviders::Editor editor);
     void openInOfficeApp(OfficeApps::App app);

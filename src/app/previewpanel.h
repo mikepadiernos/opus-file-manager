@@ -12,6 +12,7 @@ namespace KIO
 {
 class TransferJob;
 }
+class EditorPanel;
 class FolderPreview;
 class FontPreview;
 class QLabel;
@@ -67,6 +68,23 @@ public:
      * the work.
      */
     bool isBusy() const;
+    /**
+     * Whether a text preview is switched to the editor. Unsaved changes keep
+     * the file open when the selection changes; the new selection is shown
+     * after the user saves, closes the editor or chooses Preview Selection.
+     */
+    bool isEditing() const;
+    /**
+     * Lets the user save or discard unsaved changes in the editor, then
+     * returns to the preview. Returns false if the user keeps editing. Call
+     * it before hiding the panel or quitting.
+     */
+    bool queryClose();
+    /**
+     * Leaves the editor without asking, discarding unsaved changes and their
+     * draft, after the editor panel has taken over the session.
+     */
+    void endEditing();
 
 Q_SIGNALS:
     void busyChanged(bool busy);
@@ -75,6 +93,12 @@ Q_SIGNALS:
     void openRequested();
     void imageRequested(const QUrl &url);
     void placementRequested(Placement placement);
+    /**
+     * Asks the host to continue editing @p url in the editor panel, with
+     * @p text when @p modified. The host calls endEditing() to take over the
+     * session.
+     */
+    void editorRequested(const QUrl &url, const QString &text, bool modified);
 
 protected:
     bool eventFilter(QObject *watched, QEvent *event) override;
@@ -98,6 +122,10 @@ private:
     void showMedia(const QUrl &url, bool video);
     void clearMedia();
     void updateImage();
+    void startEditing();
+    void stopEditing();
+    void updateEditControls();
+    void showEditNotice(const QString &message, bool pendingSelection = false);
 
     QLabel *m_title = nullptr;
     QLabel *m_message = nullptr;
@@ -115,6 +143,18 @@ private:
     QToolButton *m_open = nullptr;
     QToolButton *m_renderMode = nullptr;
     QToolButton *m_autoplay = nullptr;
+    QToolButton *m_edit = nullptr;
+    QToolButton *m_editMove = nullptr;
+    QToolButton *m_editClose = nullptr;
+    QWidget *m_editNotice = nullptr;
+    QLabel *m_editNoticeText = nullptr;
+    QToolButton *m_editShowSelection = nullptr;
+    EditorPanel *m_editor = nullptr;
+    bool m_editing = false;
+    KFileItem m_item;
+    bool m_hasPendingItems = false;
+    KFileItemList m_pendingItems;
+    QList<QUrl> m_pendingImages;
     QActionGroup *m_placementActions = nullptr;
     PreviewTextEdit *m_text = nullptr;
     QTextBrowser *m_renderedText = nullptr;

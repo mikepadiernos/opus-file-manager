@@ -137,6 +137,7 @@
 #include <KSelectAction>
 #include <KSharedConfig>
 #include <KStandardAction>
+#include <KTextEditor/Document>
 #include <KToggleAction>
 #include <KToolBar>
 #include <KWindowEffects>
@@ -3561,6 +3562,12 @@ void MainWindow::setupActions()
     actions->addAction(QStringLiteral("show_preview_panel"), m_previewPanelAction);
     actions->setDefaultShortcut(m_previewPanelAction, Qt::Key_F3);
     connect(m_previewPanelAction, &KToggleAction::toggled, this, [this](bool shown) {
+        if (!shown && !m_previewPanel->queryClose()) {
+            // Keep the panel and its unsaved changes; re-checking restores a
+            // dock that its close button already hid.
+            m_previewPanelAction->setChecked(true);
+            return;
+        }
         toggleLayout(m_dualLayoutAction->isChecked());
         if (shown) {
             restorePanelDockSize(m_previewDock, QStringLiteral("PreviewDock"));
@@ -3589,6 +3596,31 @@ void MainWindow::setupActions()
         const KFileItemList items = activePane()->view()->selectedItems();
         if (items.size() == 1) {
             FileOperations::open(items.first(), this);
+        }
+    });
+    connect(m_previewPanel, &PreviewPanel::editorRequested, this, [this](const QUrl &url, const QString &text, bool modified) {
+        if (m_editor && m_editor->document()->url() == url && m_editor->document()->isModified()) {
+            KMessageBox::error(this, i18nc("@info", "The editor panel already has unsaved changes to this file. Save or close them first."));
+            return;
+        }
+        // Free the editor panel first, so the user can still keep editing in
+        // the preview, then close the preview's copy before the editor panel
+        // opens the file, so their swap files don't collide.
+        if (m_editor && m_editor->document()->url() != url && !m_editor->closeDocument()) {
+            return;
+        }
+        m_previewPanel->endEditing();
+        if (!showEditor(url)) {
+            showEditor({});
+            if (modified) {
+                m_editor->document()->setText(text);
+                KMessageBox::error(this,
+                                   i18nc("@info", "Could not open %1 in the editor panel. Your changes are in an untitled document.", url.toDisplayString()));
+            }
+            return;
+        }
+        if (modified) {
+            m_editor->document()->setText(text);
         }
     });
     QAction *informationAction = actions->addAction(QStringLiteral("show_information_panel"));
@@ -4090,6 +4122,9 @@ bool MainWindow::queryClose()
         return false;
     }
     if (m_editor && !m_editor->queryClose()) {
+        return false;
+    }
+    if (!m_previewPanel->queryClose()) {
         return false;
     }
     for (MetadataEditDialog *dialog : findChildren<MetadataEditDialog *>()) {
@@ -4933,15 +4968,20 @@ void MainWindow::setEditorPlacement(EditorPanel::Placement placement)
 
 void MainWindow::openEditor()
 {
+    const KFileItemList items = activePane()->view()->selectedItems();
+    showEditor(items.size() == 1 && !items.first().isDir() ? items.first().url() : QUrl());
+}
+
+bool MainWindow::showEditor(const QUrl &url)
+{
     if (!m_editor) {
         setupEditor();
     }
     const bool alreadyOpen = (m_editorPlacement == EditorPanel::Placement::Panel && !m_editor->isHidden())
         || ((m_editorPlacement == EditorPanel::Placement::Below || m_editorPlacement == EditorPanel::Placement::Right) && !m_editorDock->isHidden())
         || ((m_editorPlacement == EditorPanel::Placement::Maximized || m_editorPlacement == EditorPanel::Placement::Window) && !m_editorWindow->isHidden());
-    const KFileItemList items = activePane()->view()->selectedItems();
-    if (items.size() == 1 && !items.first().isDir() && !m_editor->openUrl(items.first().url())) {
-        return;
+    if (!url.isEmpty() && !m_editor->openUrl(url)) {
+        return false;
     }
     if (alreadyOpen) {
         if (m_editorPlacement == EditorPanel::Placement::Maximized || m_editorPlacement == EditorPanel::Placement::Window) {
@@ -4955,7 +4995,7 @@ void MainWindow::openEditor()
             m_editorWindow->raise();
             m_editorWindow->activateWindow();
         }
-        return;
+        return true;
     }
     switch (Settings::editorOpening()) {
     case Settings::EnumEditorOpening::Embedded:
@@ -4972,6 +5012,7 @@ void MainWindow::openEditor()
         setEditorPlacement(EditorPanel::Placement::Panel);
         break;
     }
+    return true;
 }
 
 void MainWindow::editFile()

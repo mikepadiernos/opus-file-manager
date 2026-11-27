@@ -62,6 +62,8 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
     m_title->setObjectName(QStringLiteral("editorTitle"));
     m_title->setTextFormat(Qt::PlainText);
     auto *open = new QPushButton(i18nc("@action", "Open…"), this);
+    open->setObjectName(QStringLiteral("editorOpen"));
+    m_openButton = open;
     auto *save = new QPushButton(i18nc("@action", "Save"), this);
     save->setShortcut(QKeySequence::Save);
     auto *saveAs = new QPushButton(i18nc("@action", "Save As…"), this);
@@ -103,6 +105,8 @@ EditorPanel::EditorPanel(QWidget *parent, const QString &draftDirectory)
     addPlacement(i18nc("@action", "Separate Window"), QStringLiteral("editorPlaceWindow"), Placement::Window);
     auto *hide = new QPushButton(i18nc("@action", "Hide"), this);
     hide->setObjectName(QStringLiteral("editorHide"));
+    m_placementButton = placement;
+    m_hideButton = hide;
     m_header = new QHBoxLayout;
     m_header->addWidget(m_title, 1);
     m_header->addWidget(open);
@@ -475,6 +479,43 @@ bool EditorPanel::queryClose()
     // waitSaveComplete() reports the last save, so only consult it when the
     // user chose to save; discarding leaves the document modified.
     return !modified || m_document->isModified() || m_document->waitSaveComplete();
+}
+
+bool EditorPanel::closeDocument()
+{
+    if (!queryClose()) {
+        return false;
+    }
+    discardDocument();
+    return true;
+}
+
+void EditorPanel::discardDocument()
+{
+    m_draftTimer->stop();
+    if (m_document->isModified()) {
+        setDraftError(m_drafts.remove(m_draftId));
+        // Without this, closeUrl() would ask to save the changes again.
+        m_document->setModified(false);
+    }
+    m_visualPending = false;
+    m_visualEditing = false;
+    ++m_openRevision;
+    m_document->closeUrl();
+    m_drafts.release(m_draftId);
+    m_draftId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    m_recovery->hide();
+    setVisualMode(false);
+    updateTitle();
+}
+
+void EditorPanel::setEmbedded(bool embedded)
+{
+    m_openButton->setVisible(!embedded);
+    m_placementButton->setVisible(!embedded);
+    m_hideButton->setVisible(!embedded);
+    setPanelTitleVisible(!embedded);
+    setSizePolicy(embedded ? QSizePolicy::Ignored : QSizePolicy::Preferred, sizePolicy().verticalPolicy());
 }
 
 KTextEditor::Document *EditorPanel::document() const
