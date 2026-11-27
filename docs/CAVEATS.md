@@ -1911,8 +1911,8 @@ The M27 desktop integrations have these limits
   Windows are matched by desktop file name and process id, so a sandbox that
   hides the real process id, such as Flatpak, prevents matching. Virtual
   desktops can be assigned only after the script has reported them. The
-  options are in **Settings › Configure KWin Integration…** until the
-  [M28 KWin scripts settings](ROADMAP.md#m28-integration-settings).
+  script is installed and its window management chosen under **Preferences ›
+  KDE Plasma › KWin**.
   ([#707](https://github.com/mikepadiernos/plasma-opus/issues/707))
 - **⬇️ Drop-down window:** it is off by default, and its global shortcut
   is unassigned until one is chosen. Only the main window drops down, and
@@ -2410,14 +2410,13 @@ The M27 desktop integrations have these limits
     classic confinement, run `snap install --classic` in a terminal. Remove
     an AppImage from the application menu before moving or deleting it, and
     add it again from its new location.
-  - **KWin script:** Install it from **Settings › Configure KWin
-    Integration…** in a Plasma session, then move or resize the window once
-    with each workspace current so its placement is kept. If the status says
-    the script has not contacted Plasma Opus, press **Refresh**, or disable
-    and enable it under **KWin Scripts Settings…**. Run Plasma Opus outside
-    Flatpak for window management. Leave the processing shortcut unassigned.
-    Use KWin's **Window Rules…** for placements the script does not restore,
-    such as maximized state.
+  - **KWin script:** Install it from **Preferences › KDE Plasma › KWin** in a
+    Plasma session, then move or resize the window once with each workspace
+    current so its placement is kept. If the status says the script has not
+    contacted Plasma Opus, press **Refresh**, or **Disable** and **Enable** it
+    there. Run Plasma Opus outside Flatpak for window management. Leave the
+    processing shortcut unassigned. Use **Configure Window Rules…** there for
+    placements the script does not restore, such as maximized state.
   - **Drop-down window:** Turn it on and choose a global shortcut under
     **Settings › Configure KWin Integration…**, and install the KWin script
     so it keeps above other windows and out of the taskbar. Enable **Sliding
@@ -2643,8 +2642,7 @@ The M27 desktop integrations have these limits
     keep maximized and full-screen state, and record a placement when a
     workspace is saved as well as when the window moves.
   - Ask KWin to place other applications started from Plasma Opus, such as
-    terminals and editors, through XDG activation tokens, and the M28 **KWin
-    scripts** settings page.
+    terminals and editors, through XDG activation tokens.
   - Roll the drop-down window up instead of closing it, offer a default
     shortcut when it is free, and let a detached window drop down instead
     of the main window.
@@ -2885,6 +2883,32 @@ The M28 integration settings have these limits
   container has no removable devices, so the filter is verified there with test
   devices only.
   ([#705](https://github.com/mikepadiernos/plasma-opus/issues/705))
+- **🧩 KWin script management:** the **KWin Script** group under **Preferences ›
+  KDE Plasma › KWin** installs nothing until **Install and Enable** is chosen,
+  and then installs the script for the current user only. Without KWin or its
+  scripting interface, as outside Plasma, the tab says so and cannot install the
+  script. **Update** appears only when the installed script is older than the
+  one included with Plasma Opus. **Disable** keeps the script installed, and
+  **Remove…** asks first and removes only the Plasma Opus script and its entry
+  in KWin's settings. A failed action is reported in the tab with its error. The
+  status follows the script once it contacts Plasma Opus, but changes made
+  elsewhere, such as in KWin's script settings, show only after **Refresh**. The
+  tab manages the script only when Preferences is opened from a Plasma Opus
+  window. The options in the **Window Management** group take effect only while
+  the script is running, from its next request after **Apply** or **OK**; while
+  it is disabled or removed, they are kept but do nothing. Virtual desktops are
+  listed only after the running script has reported them, and workspaces can be
+  assigned to them only while **Apply the workspace assigned to the virtual
+  desktop that becomes current** is checked. A desktop that KWin no longer lists
+  keeps its assignment, and a deleted workspace is shown as missing. **Restore
+  Defaults** resets the options but keeps the assignments, which are cleared by
+  choosing **None**. **Configure KWin Scripts…** and **Configure Window Rules…**
+  open KWin's settings through `kcmshell6` or System Settings, and the tab says
+  so when they are not installed; Plasma Opus never changes KWin's window rules.
+  The container has no KWin or System Settings, so the script actions are
+  verified there against a simulated KWin only, and opening KWin's settings is
+  unverified ([Plasma check](TODO.md#kwin-script-settings-on-plasma-709)).
+  ([#709](https://github.com/mikepadiernos/plasma-opus/issues/709))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -2952,6 +2976,14 @@ The M28 integration settings have these limits
     file systems** only to check what is mounted where, and clear **Show the
     Mount Points menu on the main toolbar** if you reach devices from the
     Places panel instead.
+  - **KWin script management:** Choose **Install and Enable** under
+    **Preferences › KDE Plasma › KWin** in a Plasma session, and **Update** when
+    it appears after upgrading Plasma Opus. Clear the behaviours you do not want
+    under **Window Management**, for example **Place detached previews, editors
+    and panes beside the main window** if you arrange windows yourself, and
+    choose **Disable** to pause the script while keeping it installed. Use
+    **Configure Window Rules…** for rules that should also apply to other
+    applications.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -2988,6 +3020,9 @@ The M28 integration settings have these limits
     recognize system file systems that Plasma Opus does not know yet from
     their mount flags, and list network mounts with removable devices as an
     option.
+  - Follow changes made in KWin's script settings without **Refresh**, list
+    virtual desktops before the script has run, and forget the assignments of
+    desktops that were removed.
 
 ## Embedded terminal
 
