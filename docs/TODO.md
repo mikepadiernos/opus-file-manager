@@ -42,6 +42,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Activity associations on Plasma](#activity-associations-on-plasma-391)     | [M28](ROADMAP.md#m28-integration-settings)                                     | [#391]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [KDE Connect settings on Plasma](#kde-connect-settings-on-plasma-393)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#393]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [KRunner settings on Plasma](#krunner-settings-on-plasma-394)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#394]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
+| [Online account settings on Plasma](#online-account-settings-on-plasma-371) | [M28](ROADMAP.md#m28-integration-settings)                                     | [#371]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 
 ## mpv integration (#563)
 
@@ -731,6 +732,41 @@ Board statuses were last confirmed on 2026-11-27.
    Record any differences in [CAVEATS](CAVEATS.md#integration-settings),
    then remove this entry and its roadmap link.
 
+## Online account settings on Plasma (#371)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#371]
+  (Development).
+- **Blocker:** The development container has no Plasma session and no KDE
+  account providers, so accounts cannot be added through System Settings and
+  **Manage Online Accounts…** cannot open its Online Accounts page there.
+- **Confirmed state:** `SettingsDialog::createOnlineAccountsIntegrationPage()`
+  in `src/app/integrationsettingspages.cpp` stores the opt-in and the cleared
+  account ids, and opens the `kcm_kaccounts` module through `kcmshell6` or
+  System Settings. `OnlineAccounts::shownAccounts()` in `src/core/` leaves
+  out cleared accounts and those without file storage for **Go › Online
+  Accounts** and the cloud sync accounts menu. Listing, clearing and hiding
+  accounts pass `onlineaccountstest`, `onlineaccountsmenutest` and
+  `integrationsettingstest` in the container, with accounts written to a
+  temporary libaccounts database. See
+  [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with Plasma Opus installed by `./install.sh` and
+   `kio-gdrive` and `kaccounts-providers` installed, add a Google or
+   Nextcloud account and an account without file storage in **System
+   Settings › Online Accounts**.
+2. Check that **Go › Online Accounts** is hidden, then check **Show the
+   folders of KDE Online Accounts in Plasma Opus** under **Preferences › KDE
+   Plasma › Online Accounts**, and check that the tab lists only the account
+   with file storage, names the other one, and that the menu offers it after
+   **Apply**.
+3. Clear the account, apply, and check that the menu and the cloud sync
+   accounts menu leave it out while System Settings still lists it. Choose
+   **Manage Online Accounts…** and check that the Online Accounts page opens.
+   Record any differences in [CAVEATS](CAVEATS.md#integration-settings),
+   then remove this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -739,6 +775,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#291]: https://github.com/mikepadiernos/plasma-opus/issues/291
 [#292]: https://github.com/mikepadiernos/plasma-opus/issues/292
 [#293]: https://github.com/mikepadiernos/plasma-opus/issues/293
+[#371]: https://github.com/mikepadiernos/plasma-opus/issues/371
 [#391]: https://github.com/mikepadiernos/plasma-opus/issues/391
 [#392]: https://github.com/mikepadiernos/plasma-opus/issues/392
 [#393]: https://github.com/mikepadiernos/plasma-opus/issues/393

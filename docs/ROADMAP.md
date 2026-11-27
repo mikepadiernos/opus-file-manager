@@ -1952,7 +1952,9 @@ Settings for M27 integrations, stored in KConfig.
 
   - [ ] **Access:** opt in and choose which supported accounts to show in Plasma
         Opus; manage accounts in KDE without deleting shared accounts when
-        removing them from Plasma Opus [#371]
+        removing them from Plasma Opus. Plasma-session verification is a
+        [pending handoff](TODO.md#online-account-settings-on-plasma-371).
+        [#371]
 
 - **Application packages**
 
