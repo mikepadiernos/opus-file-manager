@@ -3951,6 +3951,24 @@ The M29 Nextcloud integration has these limits
   server; checked only against a fake server
   ([real-server check](TODO.md#nextcloud-photos-on-a-real-server-671)).
   ([#671](https://github.com/mikepadiernos/plasma-opus/issues/671))
+- **🤝 Nextcloud shares:** **Shares…** creates and changes only public links
+  and shares with users and groups; email, federated, team and Talk shares
+  are listed and can be revoked, but are managed in the web interface. User
+  and group IDs must be typed exactly, as names aren't suggested, and labels,
+  notes, hidden downloads and custom link tokens aren't offered. The editor
+  enforces the server's link password, link expiry and upload rules, but not
+  its expiry rules for user and group shares, which the server reports when
+  it refuses a share. KIO doesn't pass on the server's response to a change or
+  a revocation, so the list is read again afterwards to show the server's
+  state. Each view is read with one request, without paging, and shares with
+  you can't be declined or left here. **Send Link by Email…** only opens a
+  message with the link, and only while **Offer Send by Email for selected
+  files** is on; the password must be sent another way. Permission
+  combinations, such as file drops and editable file links, and the server's
+  error messages are unverified against a real server; checked only against
+  a fake server
+  ([real-server check](TODO.md#nextcloud-shares-on-a-real-server-591)).
+  ([#591](https://github.com/mikepadiernos/plasma-opus/issues/591))
 
 - **Recommendation:**
   - **Nextcloud accounts:** Sign in under **Go › Nextcloud › Manage
@@ -3989,6 +4007,14 @@ The M29 Nextcloud integration has these limits
     confirmation says will see them. Rename or delete albums and change their
     collaborators in the Photos app of the web interface, and wait for photos
     listed without a capture date to be indexed there.
+  - **Nextcloud shares:** Share an item with **Nextcloud › Nextcloud
+    Shares…** in its context menu, and read the confirmation's summary of who
+    gets which access and until when before agreeing. Prefer links with a
+    password and an expiry, send the password another way than the link, and
+    use **Send Link by Email…** to review a link before writing to someone.
+    Review **Shared by me** now and then and revoke links no longer needed.
+    Manage email, federated and Talk shares, labels and notes in the web
+    interface.
   - Comment:
     [#767.7225982354](https://github.com/mikepadiernos/plasma-opus/issues/767#issuecomment-7225982354)
 - **Proposed improvements:**
@@ -4011,6 +4037,10 @@ The M29 Nextcloud integration has these limits
     confirmation, page through large albums, fall back to file dates for
     photos without a capture date, and send album photos through **Send by
     Email** with a location warning.
+  - Suggest users and groups from the server's sharee search, manage labels,
+    notes, hidden downloads and email shares, enforce the server's expiry
+    rules for user and group shares, read the server's response to a change
+    directly, and accept or leave shares with you.
 
 ## Embedded terminal
 
