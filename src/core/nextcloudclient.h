@@ -6,6 +6,7 @@
 #include "nextcloudassets.h"
 #include "nextcloudorganize.h"
 #include "nextcloudphotos.h"
+#include "nextcloudshares.h"
 
 #include <KIO/AuthInfo>
 
@@ -267,6 +268,20 @@ public:
     void removeFromAlbum(const NextcloudAccounts::Account &account, const Nextcloud::Photo &photo);
     /// Creates an album named @p name.
     void createAlbum(const NextcloudAccounts::Account &account, const QString &name);
+    /**
+     * Lists the shares of the item at @p path in the user's files, those
+     * others made with the user, or those the user made, depending on
+     * @p scope. Returns the ID that sharesListed() reports.
+     */
+    int listShares(const NextcloudAccounts::Account &account, Nextcloud::ShareScope scope, const QString &path = QString());
+    /// Reads what the server's sharing app allows.
+    void fetchShareCapabilities(const NextcloudAccounts::Account &account);
+    /// Creates @p share. Its password is sent once and never kept. Ask the user before calling this.
+    void createShare(const NextcloudAccounts::Account &account, const Nextcloud::NewShare &share);
+    /// Changes @p share. Ask the user before calling this when Nextcloud::broadensAccess() is true.
+    void updateShare(const NextcloudAccounts::Account &account, const Nextcloud::Share &share, const Nextcloud::ShareUpdate &update);
+    /// Revokes @p share. Ask the user before calling this.
+    void deleteShare(const NextcloudAccounts::Account &account, const Nextcloud::Share &share);
 
 Q_SIGNALS:
     void checked(const QString &accountId, const Nextcloud::Status &status);
@@ -292,6 +307,13 @@ Q_SIGNALS:
     void photoAdded(const QUrl &file, const QString &albumPath, const QString &error);
     void photoRemoved(const QString &entryPath, const QString &error);
     void albumCreated(const QString &accountId, const QString &name, const QString &error);
+    void sharesListed(int request, const Nextcloud::ShareListing &listing);
+    void shareCapabilitiesFetched(const QString &accountId, const Nextcloud::ShareCapabilities &capabilities, const QString &error);
+    /// A share of the item at @p path was created; @p share has no ID when @p error says why it couldn't be.
+    void shareCreated(const QString &path, const Nextcloud::Share &share, const QString &error);
+    /// The share @p id was changed; @p share is the server's new state, or the old one on error.
+    void shareUpdated(const QString &id, const Nextcloud::Share &share, const QString &error);
+    void shareDeleted(const QString &id, const QString &error);
 
 private:
     struct Check;
