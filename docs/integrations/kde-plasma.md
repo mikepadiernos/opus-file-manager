@@ -131,25 +131,29 @@ behaves like the rest of the desktop and follows the user's choices.
   [#290](https://github.com/mikepadiernos/plasma-opus/issues/290),
   [#291](https://github.com/mikepadiernos/plasma-opus/issues/291); more
   shortcut settings in [M31](../ROADMAP.md#m31-keyboard-shortcut-settings))
-- **Plasma Activities:** each Activity can name a workspace and a default
-  folder for each pane under **View › Activity Associations**, once
-  associations are turned on under **Settings › Workspaces › Activities**.
-  An association uses the workspace's own behaviours, or all, selected or
-  none of them, independently of other Activities. When the current Activity
-  changes, a message above the panes offers to switch to its workspace and
-  open its folders in new tabs; nothing is applied until **Apply** is
-  chosen, and the switch asks first as any workspace switch does.
-  **View › Apply Activity Association** applies it at any other time.
-  Associations are kept when their Activity is removed, their workspace is
-  deleted or a folder is missing, and the missing parts are reported instead
-  of applied. Plasma Opus only reads Activities: it never creates, removes or
-  switches them, and leaves recent-file history to KDE. It reports visited
-  folders and opened files to the current Activity, as Dolphin does, so they
-  appear in Plasma's recent files and locations; turn this off under
-  **Settings › Workspaces › Activities**. Temporary files, open encrypted
-  vaults, searches, the trash and administrator locations are never
+- **Plasma Activities:** each Activity can name a workspace and a default folder
+  for each pane under **Preferences › KDE Plasma › Activities**, once
+  **Associate workspaces and default folders with Plasma Activities** is checked
+  there; **View › Activity Associations** opens the tab. An association uses the
+  workspace's own behaviours, or all, selected or none of them, independently of
+  other Activities. Changes are saved with the other settings, and **Restore
+  Defaults** turns associations off without clearing them. **Configure Plasma
+  Activities…** there opens Plasma's Activities settings to create, rename or
+  remove Activities. When the current Activity changes, a message above the
+  panes offers to switch to its workspace and open its folders in new tabs;
+  nothing is applied until **Apply** is chosen, and the switch asks first as any
+  workspace switch does. **View › Apply Activity Association** applies it at any
+  other time. Associations are kept when their Activity is removed, their
+  workspace is deleted or a folder is missing, and the missing parts are
+  reported instead of applied. Plasma Opus only reads Activities: it never
+  creates, removes or switches them, and leaves recent-file history to KDE. It
+  reports visited folders and opened files to the current Activity, as Dolphin
+  does, so they appear in Plasma's recent files and locations; turn this off
+  under **Preferences › KDE Plasma › Activities**. Temporary files, open
+  encrypted vaults, searches, the trash and administrator locations are never
   reported, nor are passwords in remote addresses.
   ([#387](https://github.com/mikepadiernos/plasma-opus/issues/387),
+  [#391](https://github.com/mikepadiernos/plasma-opus/issues/391),
   [#659](https://github.com/mikepadiernos/plasma-opus/issues/659))
 - **KDE Connect:** **File › Send to Device…** sends the selected local files
   to a paired device through KDE Connect's share plugin. The dialog lists the
