@@ -38,6 +38,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Chooser start folder on Plasma](#chooser-start-folder-on-plasma-750)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#750]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [Operation notifications on Plasma](#operation-notifications-on-plasma-392) | [M28](ROADMAP.md#m28-integration-settings)                                     | [#392]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [Start hidden in tray on Plasma](#start-hidden-in-tray-on-plasma-290)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#290]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
+| [Global shortcut on Plasma](#global-shortcut-on-plasma-291)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#291]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 
 ## mpv integration (#563)
 
@@ -597,11 +598,49 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
    its roadmap link.
 
+## Global shortcut on Plasma (#291)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#291]
+  (Development).
+- **Blocker:** The development container has no KDE global shortcut
+  service (kglobalaccel), so registering, removing and changing the
+  shortcut cannot be seen there.
+- **Confirmed state:** `DesktopTray::applySettings()` in
+  `src/app/desktoptray.cpp` registers **Show or Hide Plasma Opus** with
+  KGlobalAccel only while **Show or hide Plasma Opus with a global
+  shortcut** is checked under **Preferences › KDE Plasma › Shortcuts**, and
+  removes it otherwise, keeping its key in the `[Tray]` group of
+  `opus-file-managerstaterc`. The tab's key goes to KGlobalAccel with
+  `KGlobalAccel::setShortcut()`. `desktoptraytest`, `traypolicytest` and
+  `integrationsettingstest` pass in the container, where KGlobalAccel
+  assigns no key. See [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with Plasma Opus installed by `./install.sh`, open
+   **Preferences › KDE Plasma › Shortcuts** and check that the tab shows
+   Meta+Alt+O, or says that no key is assigned when another application
+   uses it, and that pressing the key shows and hides the window.
+2. Choose another key and apply; check that it works, that Meta+Alt+O no
+   longer does, and that **System Settings › Keyboard › Shortcuts** shows
+   the new key. Choose a key another application uses and check that the
+   tab asks before taking it over. Choose the current key again after
+   clearing it and check whether the tab asks to take it from Plasma Opus.
+3. Clear **Show or hide Plasma Opus with a global shortcut** and apply;
+   check that the key does nothing and that Plasma's Shortcuts settings no
+   longer list it. Check it again, apply, and check that the previous key
+   works. Change the key in Plasma's Shortcuts settings while Preferences is
+   open, and check that the tab's status follows. Choose **Configure Plasma
+   Shortcuts…** and check that System Settings opens. Record any
+   differences in [CAVEATS](CAVEATS.md#integration-settings), then remove
+   this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
 [#288]: https://github.com/mikepadiernos/plasma-opus/issues/288
 [#290]: https://github.com/mikepadiernos/plasma-opus/issues/290
+[#291]: https://github.com/mikepadiernos/plasma-opus/issues/291
 [#292]: https://github.com/mikepadiernos/plasma-opus/issues/292
 [#293]: https://github.com/mikepadiernos/plasma-opus/issues/293
 [#392]: https://github.com/mikepadiernos/plasma-opus/issues/392
