@@ -1955,7 +1955,7 @@ Settings for M27 integrations, stored in KConfig.
         default, and whether to mount at login or workspace activation and
         unmount on exit. Plasma-session verification is a
         [pending handoff](TODO.md#remote-drive-settings-on-plasma-704). [#704]
-  - [ ] **Sync pairs:** manage two-way sync pairs and their mode, filters,
+  - [x] **Sync pairs:** manage two-way sync pairs and their mode, filters,
         deletion handling and default conflict choice; choose whether to sync
         from login or on metered connections, and how often to check remotes
         that do not report changes. Plasma-session verification is a
