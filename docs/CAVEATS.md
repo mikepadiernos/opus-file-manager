@@ -2494,8 +2494,10 @@ The M27 desktop integrations have these limits
   - **Remote connections:** Install `kio-extras` for SFTP and OpenSSH for
     SSH terminals. Load keys into the SSH agent, with `ssh-add`, so browsing
     and terminals sign in without a password. Prefer WebDAV over HTTPS, and
-    remove saved passwords you no longer need in KWalletManager. After an
-    SSH terminal connects, `cd` to the folder you need.
+    remove saved passwords you no longer need in KDE Wallet Manager, which
+    **Open KDE Wallet Manager…** under **Preferences › Remote and Cloud ›
+    Connections** opens. After an SSH terminal connects, `cd` to the folder you
+    need.
   - **Network shares and FTP:** Prefer SFTP or WebDAV over HTTPS to plain
     FTP. For FTPS, install a third-party KIO worker or use `lftp` in the
     terminal. If **Network** stays empty, install `kio-extras` with Avahi and
@@ -3218,6 +3220,26 @@ The M28 integration settings have these limits
   cut at the same text limit, and remote messages always show as raw text. The
   setting doesn't change folder thumbnails or how mail files open.
   ([#668](https://github.com/mikepadiernos/plasma-opus/issues/668))
+- **🔑 Remote connection settings:** The **Saved Connections** group under
+  **Preferences › Remote and Cloud › Connections** is the editor of **Go ›
+  Remote Connections › Manage Remote Connections…**, so **Save** and **Remove**
+  take effect immediately, even if Preferences is cancelled, and removing a
+  connection also forgets its mount options. Each keeps connections saved in the
+  other meanwhile but lists them only when it is shown again, and editing the
+  same connection in both keeps the last save. **Defaults for New Connections**
+  sets the protocol, user and SSH sign-in method that new connections start
+  with: in the tab as soon as they are edited, and in the **Manage Remote
+  Connections** window after **Apply** or **OK**. Saved connections keep their
+  own settings. The SSH sign-in method applies only when SFTP is chosen, and a
+  user name that a connection can't use is reported and left out. There are no
+  defaults for the host, port, folder or private key. Passwords are never stored
+  in Plasma Opus's configuration or in URLs; KIO asks for them when needed and
+  keeps them in KDE Wallet when you choose to. **Open KDE Wallet Manager…**
+  opens KDE Wallet Manager to review or remove them, or reports that it isn't
+  installed. The container has no KDE Wallet Manager or KDE password server, so
+  saving passwords and opening the manager are unverified there ([Plasma
+  check](TODO.md#remote-connection-settings-on-plasma-297)).
+  ([#297](https://github.com/mikepadiernos/plasma-opus/issues/297))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3398,6 +3420,13 @@ The M28 integration settings have these limits
     need a message's raw headers, such as to check where it came from. Raise
     **Maximum text in preview panel** under **Preferences › Interface ›
     Previews** to read long messages.
+  - **Remote connection settings:** Manage saved connections under **Preferences
+    › Remote and Cloud › Connections** or in **Manage Remote Connections…**, and
+    edit each connection in only one of them at a time. Set **Defaults for New
+    Connections** to the protocol and user name you use on most servers, and
+    choose **SSH key or agent** when your keys are loaded with `ssh-add`. Review
+    saved passwords with **Open KDE Wallet Manager…** and remove those of
+    connections you no longer use.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3485,6 +3514,9 @@ The M28 integration settings have these limits
     for them, and remember the consent for trusted locations.
   - Show a message's raw source beside its parsed view without changing the
     setting, and a separate size limit for mail previews.
+  - Follow changes made in the **Manage Remote Connections** window while the
+    **Connections** tab is open, set a default port and private key for new SSH
+    connections, and forget a removed connection's saved password with consent.
 
 ## Embedded terminal
 
