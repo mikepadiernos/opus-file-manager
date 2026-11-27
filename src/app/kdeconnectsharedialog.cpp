@@ -4,10 +4,8 @@
 #include "kdeconnectclient.h"
 #include "symbolicicon.h"
 
-#include <KConfigGroup>
 #include <KLocalizedString>
 #include <KMessageWidget>
-#include <KSharedConfig>
 
 #include <QComboBox>
 #include <QDialogButtonBox>
@@ -22,11 +20,6 @@
 
 namespace
 {
-KConfigGroup stateGroup()
-{
-    return KSharedConfig::openStateConfig()->group(QStringLiteral("KdeConnectShare"));
-}
-
 QString displayName(const QUrl &url)
 {
     return url.isLocalFile() ? url.toLocalFile() : url.toDisplayString(QUrl::PreferLocalFile);
@@ -114,7 +107,7 @@ QString KdeConnectShareDialog::selectedDeviceId() const
 
 void KdeConnectShareDialog::refresh()
 {
-    const QString previous = m_device->count() ? selectedDeviceId() : stateGroup().readEntry("LastDevice", QString());
+    const QString previous = m_device->count() ? selectedDeviceId() : KdeConnectShare::rememberedDevice();
     m_devices = m_client && m_client->isAvailable() ? m_client->devices() : QList<KdeConnectShare::Device>();
     std::stable_sort(m_devices.begin(), m_devices.end(), [](const KdeConnectShare::Device &a, const KdeConnectShare::Device &b) {
         return QString::localeAwareCompare(a.name, b.name) < 0;
@@ -132,14 +125,7 @@ void KdeConnectShareDialog::refresh()
         }
     }
     const QList<KdeConnectShare::Device> eligible = KdeConnectShare::eligible(m_devices);
-    int index = m_device->findData(previous);
-    const bool previousEligible = std::any_of(eligible.cbegin(), eligible.cend(), [&previous](const KdeConnectShare::Device &device) {
-        return device.id == previous;
-    });
-    if (!previousEligible && !eligible.isEmpty()) {
-        index = m_device->findData(eligible.first().id);
-    }
-    m_device->setCurrentIndex(index >= 0 ? index : (m_device->count() ? 0 : -1));
+    m_device->setCurrentIndex(m_device->findData(KdeConnectShare::preferredDevice(m_devices, previous)));
 
     if (!m_client || !m_client->isAvailable()) {
         m_message->setMessageType(KMessageWidget::Error);
@@ -200,9 +186,7 @@ void KdeConnectShareDialog::send()
         return;
     }
     m_sentTo = id;
-    KConfigGroup state = stateGroup();
-    state.writeEntry("LastDevice", id);
-    state.sync();
+    KdeConnectShare::rememberDevice(id);
     m_message->setMessageType(KMessageWidget::Positive);
     m_message->setText(i18ncp("@info %2 is a device name",
                               "KDE Connect is sending one file to %2. Its notifications show the transfer's progress and result.",

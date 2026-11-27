@@ -106,7 +106,9 @@ void report(KMessageWidget *message, KMessageWidget::MessageType type, const QSt
 /// @p args are passed to the module, as with kcmshell6 --args.
 void openSettingsModule(const QString &module, const QString &missing, KMessageWidget *message, const QString &args = {})
 {
-    if (!KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings"), module).isValid()) {
+    // QWidgets modules, such as KDE Connect's, are installed apart from the QML ones.
+    if (!KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings"), module).isValid()
+        && !KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings_qwidgets"), module).isValid()) {
         report(message, KMessageWidget::Error, missing);
         return;
     }
@@ -657,6 +659,52 @@ QWidget *SettingsDialog::createActivitiesIntegrationPage()
     connect(m_activityAssociations, &ActivityAssociationsEditor::changed, this, &SettingsDialog::updateButtons);
     connect(configure, &QPushButton::clicked, page, [message] {
         openSettingsModule(QStringLiteral("kcm_activities"), i18nc("@info", "Plasma's Activities settings are not installed."), message);
+    });
+    return page;
+}
+
+QWidget *SettingsDialog::createKdeConnectIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("kdeConnectIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *sharing = new QGroupBox(i18nc("@title:group", "Sharing"));
+    sharing->setObjectName(QStringLiteral("kdeConnectSharingGroup"));
+    auto *sharingLayout = new QVBoxLayout(sharing);
+    auto *enabled = checkBox(QStringLiteral("KdeConnectSharing"), i18nc("@option:check", "Offer File › Send to Device… to send files with KDE Connect"));
+    auto *remember = checkBox(QStringLiteral("KdeConnectRememberDevice"), i18nc("@option:check", "Choose the device the files were last sent to again"));
+    sharingLayout->addWidget(enabled);
+    sharingLayout->addWidget(remember);
+    auto *sharingNote = new QLabel(i18nc("@info",
+                                         "Send to Device sends the selected local files to a paired device through KDE Connect, only when Send "
+                                         "is pressed. When the device is not remembered, the first device that can receive files is chosen, "
+                                         "and the device used last is forgotten once the change is applied."));
+    sharingNote->setWordWrap(true);
+    sharingLayout->addWidget(sharingNote);
+    layout->addWidget(sharing);
+
+    auto *devices = new QGroupBox(i18nc("@title:group", "Devices"));
+    devices->setObjectName(QStringLiteral("kdeConnectDevicesGroup"));
+    auto *devicesLayout = new QVBoxLayout(devices);
+    auto *devicesNote = new QLabel(i18nc("@info",
+                                         "Plasma Opus never pairs devices or changes KDE Connect's settings. Pair devices, and turn file "
+                                         "sharing on or off for each of them, in KDE Connect's settings."));
+    devicesNote->setWordWrap(true);
+    auto *configure = actionButton(QStringLiteral("openKdeConnectSettings"), i18nc("@action:button", "Configure KDE Connect…"));
+    configure->setIcon(QIcon::fromTheme(QStringLiteral("kdeconnect")));
+    configure->setToolTip(i18nc("@info:tooltip", "Open KDE Connect's settings in System Settings to pair devices and choose what they can do"));
+    auto *message = messageWidget(QStringLiteral("kdeConnectSettingsMessage"));
+    devicesLayout->addWidget(devicesNote);
+    devicesLayout->addLayout(buttonRow({configure}));
+    devicesLayout->addWidget(message);
+    layout->addWidget(devices);
+    layout->addStretch();
+
+    connect(enabled, &QCheckBox::toggled, remember, &QWidget::setEnabled);
+    remember->setEnabled(enabled->isChecked());
+    connect(configure, &QPushButton::clicked, page, [message] {
+        openSettingsModule(QStringLiteral("kcm_kdeconnect"), i18nc("@info", "KDE Connect's settings are not installed."), message);
     });
     return page;
 }

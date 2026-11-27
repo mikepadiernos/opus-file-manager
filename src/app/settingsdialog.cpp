@@ -388,7 +388,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                   {createNotificationsIntegrationPage(), i18nc("@title:tab", "Notifications")},
                                   {createSystemTrayPage(), i18nc("@title:tab", "System Tray")},
                                   {createShortcutsIntegrationPage(), i18nc("@title:tab", "Shortcuts")},
-                                  {createActivitiesIntegrationPage(), i18nc("@title:tab", "Activities")}},
+                                  {createActivitiesIntegrationPage(), i18nc("@title:tab", "Activities")},
+                                  {createKdeConnectIntegrationPage(), i18nc("@title:tab", "KDE Connect")}},
                                  i18nc("@title:group", "KDE Plasma"),
                                  QStringLiteral("plasma"),
                                  &m_plasmaTabs);

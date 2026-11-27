@@ -13,6 +13,7 @@
 #include "settings.h"
 #include "settingsdialog.h"
 
+#include <KActionCollection>
 #include <KConfig>
 #include <KConfigGroup>
 #include <KFilePlacesModel>
@@ -25,6 +26,7 @@
 #include <KSycoca>
 #include <KUrlRequester>
 
+#include <QAction>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QCoreApplication>
@@ -178,6 +180,7 @@ private Q_SLOTS:
         KSharedConfig::openStateConfig()->deleteGroup(PortalSetup::backupGroupName());
         KSharedConfig::openStateConfig()->deleteGroup(FileChooser::stateGroupName());
         KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Tray"));
+        KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("KdeConnectShare"));
         KSharedConfig::openStateConfig()->sync();
         qputenv("XDG_CURRENT_DESKTOP", "KDE");
         Settings::self()->setDefaults();
@@ -624,6 +627,67 @@ private Q_SLOTS:
         auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("activitiesMessage"));
         QCOMPARE(message->messageType(), KMessageWidget::Error);
         QVERIFY(message->text().contains(QStringLiteral("Activities settings are not installed")));
+    }
+
+    void kdeConnectTabTurnsSharingAndTheRememberedDeviceOff()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("kdeConnectIntegrationPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QCOMPARE(tabs->indexOf(page), 5);
+        QCOMPARE(tabs->tabText(5), QStringLiteral("KDE Connect"));
+
+        KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("KdeConnectShare"));
+        state.writeEntry("LastDevice", QStringLiteral("phone"));
+        QAction *send = window.actionCollection()->action(QStringLiteral("kdeconnect_send"));
+        auto *enabled = page->findChild<QCheckBox *>(QStringLiteral("kcfg_KdeConnectSharing"));
+        auto *remember = page->findChild<QCheckBox *>(QStringLiteral("kcfg_KdeConnectRememberDevice"));
+        auto *apply = dialog.button(QDialogButtonBox::Apply);
+        QVERIFY(enabled->isChecked());
+        QVERIFY(remember->isChecked());
+        QVERIFY(send->isVisible());
+
+        enabled->setChecked(false);
+        QVERIFY(!remember->isEnabled());
+        apply->click();
+        QVERIFY(!Settings::kdeConnectSharing());
+        QVERIFY(!send->isVisible());
+        QVERIFY(!send->isEnabled());
+        // Only turning remembering off forgets the device.
+        QCOMPARE(state.readEntry("LastDevice"), QStringLiteral("phone"));
+
+        enabled->setChecked(true);
+        remember->setChecked(false);
+        apply->click();
+        QVERIFY(send->isVisible());
+        QVERIFY(!Settings::kdeConnectRememberDevice());
+        QVERIFY(!state.hasKey("LastDevice"));
+
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QVERIFY(enabled->isChecked());
+        QVERIFY(remember->isChecked());
+    }
+
+    void reportsMissingKdeConnectSettings()
+    {
+        for (const QString &kind : {QStringLiteral("systemsettings"), QStringLiteral("systemsettings_qwidgets")}) {
+            if (KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/") + kind, QStringLiteral("kcm_kdeconnect")).isValid()) {
+                QSKIP("KDE Connect's settings are installed on this system.");
+            }
+        }
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        dialog.findChild<QPushButton *>(QStringLiteral("openKdeConnectSettings"))->click();
+        auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("kdeConnectSettingsMessage"));
+        QCOMPARE(message->messageType(), KMessageWidget::Error);
+        QVERIFY(message->text().contains(QStringLiteral("KDE Connect's settings are not installed")));
     }
 };
 

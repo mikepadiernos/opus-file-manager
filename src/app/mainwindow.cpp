@@ -56,6 +56,7 @@
 #include "indexstatusdialog.h"
 #include "informationpanel.h"
 #include "kdeconnectclient.h"
+#include "kdeconnectshare.h"
 #include "kdeconnectsharedialog.h"
 #include "kwinintegration.h"
 #include "kwinintegrationdialog.h"
@@ -4421,7 +4422,7 @@ void MainWindow::updateActions()
                                 return item.url().isLocalFile() && item.isFile() && !item.isLink();
                             });
     actions->action(QStringLiteral("create_checksum"))->setEnabled(localFiles);
-    actions->action(QStringLiteral("kdeconnect_send"))->setEnabled(hasSelection);
+    actions->action(QStringLiteral("kdeconnect_send"))->setEnabled(hasSelection && Settings::kdeConnectSharing());
     actions->action(QStringLiteral("send_by_email"))->setEnabled(std::any_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
         return !item.isDir();
     }));
@@ -6039,7 +6040,7 @@ void MainWindow::sendByEmail()
 void MainWindow::sendToDevice()
 {
     const KFileItemList items = activePane()->view()->selectedItems();
-    if (items.isEmpty()) {
+    if (items.isEmpty() || !Settings::kdeConnectSharing()) {
         return;
     }
     auto *dialog = new KdeConnectShareDialog(kdeConnectClient(), urlsOf(items), this);
@@ -8026,6 +8027,10 @@ void MainWindow::applySettings()
     scheduleWorkspaceSelectorRefresh();
     m_desktopTray->applySettings();
     m_activityController->applySettings();
+    actionCollection()->action(QStringLiteral("kdeconnect_send"))->setVisible(Settings::kdeConnectSharing());
+    if (!Settings::kdeConnectRememberDevice()) {
+        KdeConnectShare::forgetDevice();
+    }
     const bool toolbarsLocked = Settings::lockToolbars();
     QAction *customizeToolbar = actionCollection()->action(QStringLiteral("customize_main_toolbar"));
     customizeToolbar->setEnabled(!toolbarsLocked);

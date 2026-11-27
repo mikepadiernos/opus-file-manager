@@ -297,6 +297,8 @@ private:
      * and offered, each Activity's association, and Activity usage reports.
      */
     QWidget *createActivitiesIntegrationPage();
+    /// The KDE Plasma › KDE Connect tab: whether File › Send to Device… is offered and remembers the device used last.
+    QWidget *createKdeConnectIntegrationPage();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.
     ActivityController *activityController() const;
     void createSettingsBackup();
