@@ -14,9 +14,9 @@ interfaces it would use, and ideas considered beyond the roadmap.
 [Plasma Impresario](plasma-impresario.md)
 
 > [!NOTE]
-> **Implemented:** Nextcloud accounts and browsing from M29, described under
-> [Implemented features](#implemented-features). **Planned:** the rest of
-> [M29](../ROADMAP.md#m29-nextcloud-integration) and its settings in
+> **Implemented:** Nextcloud accounts, browsing and previews from M29,
+> described under [Implemented features](#implemented-features). **Planned:**
+> the rest of [M29](../ROADMAP.md#m29-nextcloud-integration) and its settings in
 > [M30](../ROADMAP.md#m30-nextcloud-settings), summarized under
 > [Planned features](#planned-features); of the app workflows, only
 > [Photos](#photos) is on the roadmap. Everything under
@@ -126,17 +126,42 @@ document describes how Plasma Opus could also work with Nextcloud apps.
   See [Nextcloud integration](../CAVEATS.md#nextcloud-integration).
   ([#365](https://github.com/mikepadiernos/plasma-opus/issues/365))
 
+- **Previews:** with **View › Preview Panel** shown, a file in a Nextcloud
+  account shows the server's preview image, sized to the panel, instead of
+  downloading the file. The footer says **Preview from the server**, and
+  **Download Full Preview** downloads the file within the usual preview
+  limits, for example to play a video or read every page. Folders, text
+  files, files the server can't preview and previews over 8 MiB are
+  downloaded as before, and formats whose previews are turned off aren't
+  requested.
+  - **Server metadata:** **View › Information Panel** adds a **Nextcloud
+    server** section for an item in a Nextcloud account: its file ID, owner,
+    size, modification time, ETag, favourite, server tags, share types, mount
+    type, whether the server has a preview, and photo metadata such as the
+    camera, EXIF values, location and capture date, where the server provides
+    them. Server tags are labelled apart from Plasma Opus tags. The section
+    lists properties the server withholds and shows errors in place of the
+    values. Metadata is read only while the panel is shown, and read again
+    after a minute or when the item changes.
+  - **Server interfaces:** a `PROPFIND` of depth 0 on the item for its `d:`,
+    `oc:` and `nc:` properties, including `nc:has-preview` and
+    `nc:metadata-photos-*`, and
+    `index.php/core/preview?fileId=<id>&x=<size>&y=<size>&a=1` for previews,
+    from 64 to 2,048 pixels.
+
+  See [Nextcloud integration](../CAVEATS.md#nextcloud-integration).
+  ([#589](https://github.com/mikepadiernos/plasma-opus/issues/589))
+
 ## Planned features
 
-| Feature         | Plan                                                                                                                                                             | Milestone                                      |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| Previews        | Preview supported remote assets and inspect server metadata within existing preview limits and remote-download policy.                                           | [M29](../ROADMAP.md#m29-nextcloud-integration) |
-| Asset search    | Search and organize assets by server metadata, tags and favorites, keeping server tags distinct from native local tags.                                          | [M29](../ROADMAP.md#m29-nextcloud-integration) |
-| Photos          | Albums, shared albums and places as virtual folders; see [Photos](#photos).                                                                                      | [M29](../ROADMAP.md#m29-nextcloud-integration) |
-| Shares          | View and manage shares with explicit authorization; send a reviewed share link through the M27 **Send by Email** action.                                         | [M29](../ROADMAP.md#m29-nextcloud-integration) |
-| Sync folders    | Open configured local sync folders and the desktop client, showing remote, local, offline and unknown state; never start a second sync engine.                   | [M29](../ROADMAP.md#m29-nextcloud-integration) |
-| Settings        | Account references, browsing and preview choices, asset metadata and search, sharing and desktop-client integration, stored in KConfig without credentials.      | [M30](../ROADMAP.md#m30-nextcloud-settings)    |
-| Photos settings | Show or hide albums, shared albums and places, choose their default grouping and whether to confirm album changes.                                               | [M30](../ROADMAP.md#m30-nextcloud-settings)    |
+| Feature         | Plan                                                                                                                                                        | Milestone                                      |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Asset search    | Search and organize assets by server metadata, tags and favorites, keeping server tags distinct from native local tags.                                     | [M29](../ROADMAP.md#m29-nextcloud-integration) |
+| Photos          | Albums, shared albums and places as virtual folders; see [Photos](#photos).                                                                                 | [M29](../ROADMAP.md#m29-nextcloud-integration) |
+| Shares          | View and manage shares with explicit authorization; send a reviewed share link through the M27 **Send by Email** action.                                    | [M29](../ROADMAP.md#m29-nextcloud-integration) |
+| Sync folders    | Open configured local sync folders and the desktop client, showing remote, local, offline and unknown state; never start a second sync engine.              | [M29](../ROADMAP.md#m29-nextcloud-integration) |
+| Settings        | Account references, browsing and preview choices, asset metadata and search, sharing and desktop-client integration, stored in KConfig without credentials. | [M30](../ROADMAP.md#m30-nextcloud-settings)    |
+| Photos settings | Show or hide albums, shared albums and places, choose their default grouping and whether to confirm album changes.                                          | [M30](../ROADMAP.md#m30-nextcloud-settings)    |
 
 ## Nextcloud app interfaces
 
