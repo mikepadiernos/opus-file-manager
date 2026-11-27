@@ -163,8 +163,12 @@ behaves like the rest of the desktop and follows the user's choices.
   sent until **Send** is pressed, and the last device used is chosen again.
   When KDE Connect is not running or no device is paired, the dialog says so.
   KDE Connect's own notifications show each transfer's progress and result.
-  Plasma Opus never pairs devices or changes KDE Connect settings.
-  ([#389](https://github.com/mikepadiernos/plasma-opus/issues/389))
+  Plasma Opus never pairs devices or changes KDE Connect settings. Turn the
+  action off, or stop choosing the last device used again, under
+  **Preferences › KDE Plasma › KDE Connect**, where **Configure KDE
+  Connect…** opens KDE Connect's own settings.
+  ([#389](https://github.com/mikepadiernos/plasma-opus/issues/389),
+  [#393](https://github.com/mikepadiernos/plasma-opus/issues/393))
 - **KRunner:** an installed build adds a **Plasma Opus** plugin to KRunner
   and Plasma Search that offers saved workspaces and Favorites whose name
   matches the query. Choosing a workspace starts Plasma Opus, or uses the
