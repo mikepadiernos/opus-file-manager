@@ -14,8 +14,8 @@ interfaces it would use, and ideas considered beyond the roadmap.
 [Plasma Impresario](plasma-impresario.md)
 
 > [!NOTE]
-> **Implemented:** Nextcloud accounts, browsing, previews, asset search and
-> Photos albums from M29, described under
+> **Implemented:** Nextcloud accounts, browsing, previews, asset search,
+> Photos albums and shares from M29, described under
 > [Implemented features](#implemented-features).
 > **Planned:** the rest of [M29](../ROADMAP.md#m29-nextcloud-integration) and
 > its settings in [M30](../ROADMAP.md#m30-nextcloud-settings), summarized under
@@ -226,11 +226,53 @@ document describes how Plasma Opus could also work with Nextcloud apps.
   See [Nextcloud integration](../CAVEATS.md#nextcloud-integration).
   ([#671](https://github.com/mikepadiernos/plasma-opus/issues/671))
 
+- **Shares:** **Go › Nextcloud › *account* › Shares…** lists the shares you
+  made, under **Shared by me**, or those others made with you, under **Shared
+  with me**; the window remembers which. For a single file or folder in a
+  Nextcloud account, the context menu's **Nextcloud › Nextcloud Shares…**
+  starts with that item's shares, including reshares by others. Each share
+  shows the item, who it is with, its access, expiry and whether a password
+  protects it; **Show in Pane** opens a folder or reveals a file.
+  - **Create:** **Create Public Link…** and **Share with User or Group…** ask
+    for the access, an expiry and, for links, a password, then ask for
+    confirmation with who will get which access and for how long. The editor
+    enforces the server's required link password and expiry, its maximum
+    expiry and whether links may accept uploads; a folder link with only
+    **Upload** is a file drop. User and group IDs must be typed; names aren't
+    suggested.
+  - **Change and revoke:** **Change…** edits the access, expiry and link
+    password. It asks for confirmation only when the change gives more
+    access: more permissions, a later or no expiry, or no password. Narrowing
+    a share is applied at once. **Revoke…** always asks first. Shares with
+    you are read-only, and the server's `can_edit` and `can_delete` disable
+    the buttons for the shares it won't let you change. Other kinds of share,
+    such as email, federated or Talk shares, are listed and can be revoked,
+    but are changed in the web interface.
+  - **Passwords:** a share password is sent to the server once and never
+    stored, shown or written to the message; the list only says whether a
+    share has one. Password hashes in the server's responses are discarded.
+  - **Send by Email:** **Copy Link** copies a public link. When **Offer Send
+    by Email for selected files** is on, **Send Link by Email…** first shows
+    the link, its access and expiry for review, and that a password must be
+    sent separately, then opens a new message with the link in your mail
+    client, or through the desktop portal in a sandbox, for you to complete.
+  - **Availability:** the window reports when the server doesn't offer
+    sharing or has it turned off, and disables creating shares, or public
+    links alone when the server turns them off.
+  - **Server interfaces:** OCS at
+    `ocs/v2.php/apps/files_sharing/api/v1/shares` with `OCS-APIRequest: true`
+    and `format=json`: `GET` with `path` and `reshares=true` or
+    `shared_with_me=true`, form-encoded `POST` to create, `PUT` of
+    `shares/<id>` to change and `DELETE` of `shares/<id>` to revoke; and the
+    `files_sharing` part of `ocs/v2.php/cloud/capabilities`.
+
+  See [Nextcloud integration](../CAVEATS.md#nextcloud-integration).
+  ([#591](https://github.com/mikepadiernos/plasma-opus/issues/591))
+
 ## Planned features
 
 | Feature         | Plan                                                                                                                                                        | Milestone                                      |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| Shares          | View and manage shares with explicit authorization; send a reviewed share link through the M27 **Send by Email** action.                                    | [M29](../ROADMAP.md#m29-nextcloud-integration) |
 | Sync folders    | Open configured local sync folders and the desktop client, showing remote, local, offline and unknown state; never start a second sync engine.              | [M29](../ROADMAP.md#m29-nextcloud-integration) |
 | Settings        | Account references, browsing and preview choices, asset metadata and search, sharing and desktop-client integration, stored in KConfig without credentials. | [M30](../ROADMAP.md#m30-nextcloud-settings)    |
 | Photos settings | Show or hide albums, shared albums and places, choose their default grouping and whether to confirm album changes.                                          | [M30](../ROADMAP.md#m30-nextcloud-settings)    |
