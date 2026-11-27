@@ -36,6 +36,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Default file manager on Plasma](#default-file-manager-on-plasma-293)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#293]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [File chooser settings on Plasma](#file-chooser-settings-on-plasma-292)     | [M28](ROADMAP.md#m28-integration-settings)                                     | [#292]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [Chooser start folder on Plasma](#chooser-start-folder-on-plasma-750)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#750]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
+| [Operation notifications on Plasma](#operation-notifications-on-plasma-392) | [M28](ROADMAP.md#m28-integration-settings)                                     | [#392]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 
 ## mpv integration (#563)
 
@@ -530,12 +531,45 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
    its roadmap link.
 
+## Operation notifications on Plasma (#392)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#392]
+  (Development).
+- **Blocker:** The development container has no Plasma session, job-view
+  service or System Settings, so Plasma's job reports and its Notifications
+  settings cannot be seen there.
+- **Confirmed state:** `OperationJob::reports()` in
+  `src/core/operationjob.cpp` reads the settings under **Preferences › KDE
+  Plasma › Notifications**, and `OperationJob::track()` leaves operations
+  whose setting is cleared unreported. **Configure Plasma Notifications…**
+  runs `kcmshell6 kcm_notifications --args
+  --desktop-entry=org.kde.opusfilemanager`, or `systemsettings` with the
+  same arguments. `operationjobtest` and `integrationsettingstest` pass in
+  the container. See [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with Plasma Opus installed by `./install.sh`,
+   verify a checksum file and synchronize two folders, and check that both
+   appear in Plasma's job progress.
+2. Clear **Creating and verifying checksum files** under **Preferences › KDE
+   Plasma › Notifications** and apply. Verify the checksum file again and
+   check that Plasma shows nothing while the dialog shows the progress and
+   result, and that folder synchronization still reports.
+3. Choose **Configure Plasma Notifications…** and check that it opens on the
+   Plasma Opus entry, with `kcmshell6` and, with it removed from `PATH`,
+   with `systemsettings`. Check that the options there change how Plasma
+   shows Plasma Opus's reports. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
+   its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
 [#288]: https://github.com/mikepadiernos/plasma-opus/issues/288
 [#292]: https://github.com/mikepadiernos/plasma-opus/issues/292
 [#293]: https://github.com/mikepadiernos/plasma-opus/issues/293
+[#392]: https://github.com/mikepadiernos/plasma-opus/issues/392
 [#563]: https://github.com/mikepadiernos/plasma-opus/issues/563
 [#564]: https://github.com/mikepadiernos/plasma-opus/issues/564
 [#565]: https://github.com/mikepadiernos/plasma-opus/issues/565

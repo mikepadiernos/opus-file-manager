@@ -1836,7 +1836,9 @@ Settings for M27 integrations, stored in KConfig.
 - **Plasma notifications**
 
   - [ ] **Operations:** choose which Plasma Opus-owned operation events produce
-        notifications; use KDE's notification settings for shared controls
+        notifications; use KDE's notification settings for shared controls.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#operation-notifications-on-plasma-392).
         [#392]
 
 - **Mount manager**
