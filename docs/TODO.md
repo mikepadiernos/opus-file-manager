@@ -54,6 +54,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Cloud sync settings on Plasma](#cloud-sync-settings-on-plasma-720)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#720]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 | [rsync settings on Plasma](#rsync-settings-on-plasma-366)                           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#366]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 | [Transfer and cache settings on Plasma](#transfer-and-cache-settings-on-plasma-721) | [M28](ROADMAP.md#m28-integration-settings)                                     | [#721]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
+| [LAN sharing settings on Plasma](#lan-sharing-settings-on-plasma-664)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#664]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 
 ## mpv integration (#563)
 
@@ -1198,6 +1199,43 @@ Board statuses were last confirmed on 2026-11-27.
    Preferences shows them when it opens again. Record any differences in
    [CAVEATS](CAVEATS.md#integration-settings), then remove this entry.
 
+## LAN sharing settings on Plasma (#664)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#664]
+  (Development).
+- **Blocker:** The development container has only loopback and its own network
+  interface, with no Wi-Fi, VPN, firewall or phone client, so interfaces are
+  tested with loopback and fake interfaces only.
+- **Confirmed state:** `SettingsDialog::createLanSharingIntegrationPage()` in
+  `src/app/integrationsettingspages.cpp` adds the **LAN Sharing** tab, which
+  stores the `LanShare` group's `Protocol`, `Https`, `ExcludedInterfaces`,
+  `Port`, `TimeoutMinutes`, `AllowUploads` and `UploadFolder`.
+  `LanShare::defaultsFromSettings()`, `interfaceAddresses()`,
+  `networkInterfaces()` and `chosenByDefault()` in `src/core/lanshare.cpp`
+  read them, and `LanShareServer::Options::protocol` refuses `PROPFIND` for
+  **Browsers only** and folder pages for **File managers only (WebDAV)**.
+  `LanShareDialog` starts from the defaults and adds **Serve to:**.
+  `lansharetest`, `lansharedialogtest` and `integrationsettingstest` pass in
+  the container. See [LAN sharing settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma, with a VPN or virtual-machine interface up, clear it under
+   **Preferences › Remote and Cloud › LAN Sharing** and check that **File ›
+   Share on Local Network…** starts with only the other private addresses
+   checked.
+2. Set a fixed port, open it with `sudo firewall-cmd --add-port=PORT/tcp` or
+   `sudo ufw allow PORT/tcp`, and connect from a phone over HTTPS, comparing
+   the certificate's fingerprint with the window's.
+3. Choose **Browsers only** and check that Dolphin can't open the share's
+   `webdavs://` link; choose **File managers only (WebDAV)** and check that a
+   browser gets the explanation for folders but still downloads a file link.
+4. Allow uploads by default into a chosen folder, upload from the phone and
+   check that the file arrives in that folder.
+5. Set a short time limit and check that the share stops after it. Record any
+   differences in [CAVEATS](CAVEATS.md#integration-settings), then remove this
+   entry.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -1226,6 +1264,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#658]: https://github.com/mikepadiernos/plasma-opus/issues/658
 [#659]: https://github.com/mikepadiernos/plasma-opus/issues/659
 [#663]: https://github.com/mikepadiernos/plasma-opus/issues/663
+[#664]: https://github.com/mikepadiernos/plasma-opus/issues/664
 [#666]: https://github.com/mikepadiernos/plasma-opus/issues/666
 [#676]: https://github.com/mikepadiernos/plasma-opus/issues/676
 [#703]: https://github.com/mikepadiernos/plasma-opus/issues/703
