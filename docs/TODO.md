@@ -28,7 +28,7 @@ Board statuses were last confirmed on 2026-11-26.
 | [KWin script on Plasma](#kwin-script-on-plasma-707-708)             | [M27](ROADMAP.md#m27-integrations)                                             | [#707], [#708] | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [Administrator mode on Plasma](#administrator-mode-on-plasma-288)   | [M27](ROADMAP.md#m27-integrations)                                             | [#288]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [Plasma Vault on Plasma](#plasma-vault-on-plasma-654)               | [M27](ROADMAP.md#m27-integrations)                                             | [#654]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
-| [File encryption on Plasma](#file-encryption-on-plasma-655)         | [M27](ROADMAP.md#m27-integrations)                                             | [#655]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                             |
+| [File encryption on Plasma](#file-encryption-on-plasma-655)         | [M27](ROADMAP.md#m27-integrations)                                             | [#655]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 
 ## mpv integration (#563)
 
@@ -249,7 +249,7 @@ Board statuses were last confirmed on 2026-11-26.
 ## File encryption on Plasma (#655)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#655]
-  (Review).
+  (Completed).
 - **Blocker:** The development container has no `aescrypt` tool, no
   Kleopatra and no pinentry program, so AES Crypt files, Kleopatra's dialogs
   and GnuPG's password prompt cannot be tried there.
