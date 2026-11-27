@@ -17,6 +17,8 @@
 #include "fontpreview.h"
 #include "kwinintegration.h"
 #include "mainwindow.h"
+#include "mediabackend.h"
+#include "mediaview.h"
 #include "mountbackend.h"
 #include "officeapps.h"
 #include "onlineaccounts.h"
@@ -2250,6 +2252,65 @@ private Q_SLOTS:
         auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("officePreviewMessage"));
         QCOMPARE(message->messageType(), KMessageWidget::Error);
         QVERIFY(message->text().contains(QStringLiteral("File Associations settings are not installed")));
+    }
+
+    void mediaTabChoosesThePlaybackBackend()
+    {
+        QTemporaryDir bin;
+        QTemporaryDir folder;
+        QVERIFY(bin.isValid() && folder.isValid());
+        const QByteArray path = qgetenv("PATH");
+        const auto restore = qScopeGuard([&path] {
+            qputenv("PATH", path);
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        // Without the mpv application in PATH.
+        qputenv("PATH", bin.path().toLocal8Bit());
+        const QString audio = folder.filePath(QStringLiteral("empty.wav"));
+        QFile file(audio);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.close();
+
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *group = dialog.findChild<QGroupBox *>(QStringLiteral("mediaBackendGroup"));
+        QVERIFY(group);
+        QCOMPARE(tabTitleOf(group), QStringLiteral("Media"));
+        QVERIFY(dialog.findChild<QWidget *>(QStringLiteral("mediaIntegrationPage"))->isAncestorOf(group));
+        // The combo moved here from Interface › Previews.
+        QCOMPARE(dialog.findChildren<QComboBox *>(QStringLiteral("kcfg_MediaBackend")).size(), 1);
+        QVERIFY(!dialog.findChild<QWidget *>(QStringLiteral("previewsPage"))->findChild<QComboBox *>(QStringLiteral("kcfg_MediaBackend")));
+        auto *backend = group->findChild<QComboBox *>(QStringLiteral("kcfg_MediaBackend"));
+        auto *status = group->findChild<QLabel *>(QStringLiteral("mediaBackendStatus"));
+        auto *application = group->findChild<QLabel *>(QStringLiteral("mpvApplicationStatus"));
+        QVERIFY(backend && status && application);
+        QCOMPARE(backend->currentIndex(), int(Settings::EnumMediaBackend::QtMultimedia));
+        QVERIFY2(application->text().startsWith(QStringLiteral("The mpv application is not installed")), qPrintable(application->text()));
+        if (!MediaBackend::mpvBuilt()) {
+            QCOMPARE(backend->itemText(1), QStringLiteral("mpv (not built in)"));
+            QVERIFY(status->text().endsWith(QStringLiteral("so mpv can't be chosen.")));
+            return;
+        }
+        QCOMPARE(backend->itemText(1), QStringLiteral("mpv"));
+        QCOMPARE(status->text(), QStringLiteral("Qt Multimedia plays audio and video."));
+
+        MediaView view;
+        view.open(QUrl::fromLocalFile(audio), false, false);
+        QVERIFY(view.player());
+        backend->setCurrentIndex(Settings::EnumMediaBackend::Mpv);
+        QVERIFY2(status->text().startsWith(QStringLiteral("mpv plays audio")), qPrintable(status->text()));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::mediaBackend(), Settings::EnumMediaBackend::Mpv);
+        // An open preview reopens its file with the chosen backend.
+        QVERIFY(view.mpvPlayer());
+        QCOMPARE(view.findChild<QToolButton *>(QStringLiteral("mediaBackend"))->text(), QStringLiteral("mpv"));
+
+        // The backend button in a preview changes the setting shown here.
+        view.findChild<QAction *>(QStringLiteral("mediaBackendQtMultimedia"))->trigger();
+        QCOMPARE(backend->currentIndex(), int(Settings::EnumMediaBackend::QtMultimedia));
+        QTRY_VERIFY(!dialog.button(QDialogButtonBox::Apply)->isEnabled());
     }
 
     void ebookFontTabSetsPreviewsAndSampleText()

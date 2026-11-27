@@ -373,6 +373,10 @@ private:
     QGroupBox *createOfficeEditorGroup();
     /// The Previews group of the Office tab: whether the preview panel shows office documents, and the viewer parts it uses.
     QGroupBox *createOfficePreviewGroup();
+    /// The Applications › Media tab.
+    QWidget *createMediaIntegrationPage();
+    /// The Playback group of the Media tab: the backend that plays audio and video in the preview panel and gallery.
+    QGroupBox *createMediaBackendGroup();
     /// The Applications › Ebooks and Fonts tab.
     QWidget *createEbookFontIntegrationPage();
     /// The Document Previews group of the Ebooks and Fonts tab: which ebook, comic and help file formats the preview panel shows.

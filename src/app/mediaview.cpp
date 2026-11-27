@@ -81,12 +81,18 @@ MediaView::MediaView(QWidget *parent)
         menu->setToolTipsVisible(true);
     }
     m_backend->setMenu(menu);
-    const auto choose = [this](Settings::EnumMediaBackend::type backend) {
+    const auto choose = [](Settings::EnumMediaBackend::type backend) {
         if (Settings::mediaBackend() == backend) {
             return;
         }
         Settings::setMediaBackend(backend);
         Settings::self()->save();
+    };
+    // A backend chosen here, in another view or under Preferences › Applications › Media reopens the file with it.
+    connect(Settings::self(), &Settings::configChanged, this, [this] {
+        if (m_showsMpv == (requestedBackend() == MediaBackend::Kind::Mpv)) {
+            return;
+        }
         updateBackendButton();
         if (m_url.isValid()) {
             bool playing = m_player && m_player->playbackState() == QMediaPlayer::PlayingState;
@@ -95,7 +101,7 @@ MediaView::MediaView(QWidget *parent)
 #endif
             open(QUrl(m_url), m_isVideo, playing);
         }
-    };
+    });
     connect(qt, &QAction::triggered, this, [choose] {
         choose(Settings::EnumMediaBackend::QtMultimedia);
     });
@@ -298,6 +304,7 @@ void MediaView::showNotice(const QString &notice)
 void MediaView::updateBackendButton()
 {
     const bool mpv = requestedBackend() == MediaBackend::Kind::Mpv;
+    m_showsMpv = mpv;
     m_backend->setText(mpv ? i18nc("@action:button playback backend", "mpv") : i18nc("@action:button playback backend", "Qt Multimedia"));
     m_backend->setToolTip(i18nc("@info:tooltip", "Choose whether Qt Multimedia or mpv plays audio and video"));
     const QList<QAction *> actions = m_backend->menu()->actions();

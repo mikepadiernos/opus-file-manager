@@ -18,6 +18,7 @@
 #include "indexstatus.h"
 #include "kwinintegration.h"
 #include "kwinscript.h"
+#include "mediabackend.h"
 #include "officeapps.h"
 #include "onlineaccounts.h"
 #include "portalsetup.h"
@@ -30,6 +31,10 @@
 #include "vaultsettings.h"
 #include "workspacelocations.h"
 #include "workspacevaultsettings.h"
+
+#ifdef OPUSFM_HAVE_MPV
+#include "mpvvideowidget.h"
+#endif
 
 #include <KActionCollection>
 #include <KConfigGroup>
@@ -63,6 +68,7 @@
 #include <QPointer>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -1985,6 +1991,74 @@ QGroupBox *SettingsDialog::createOfficePreviewGroup()
     refresh();
     connect(associations, &QPushButton::clicked, message, [message] {
         openSettingsModule(QStringLiteral("kcm_filetypes"), i18nc("@info", "KDE's File Associations settings are not installed."), message);
+    });
+    return group;
+}
+
+QWidget *SettingsDialog::createMediaIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("mediaIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(createMediaBackendGroup());
+    layout->addStretch();
+    return page;
+}
+
+QGroupBox *SettingsDialog::createMediaBackendGroup()
+{
+    auto *group = new StatusGroup(i18nc("@title:group", "Playback"));
+    group->setObjectName(QStringLiteral("mediaBackendGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *form = new QFormLayout;
+    auto *backend = comboBox(QStringLiteral("MediaBackend"),
+                             {i18nc("@item:inlistbox playback backend", "Qt Multimedia"), i18nc("@item:inlistbox playback backend", "mpv")});
+    if (!MediaBackend::mpvBuilt()) {
+        backend->setItemText(Settings::EnumMediaBackend::Mpv, i18nc("@item:inlistbox playback backend", "mpv (not built in)"));
+        if (auto *model = qobject_cast<QStandardItemModel *>(backend->model())) {
+            model->item(Settings::EnumMediaBackend::Mpv)->setEnabled(false);
+            model->item(Settings::EnumMediaBackend::Mpv)->setToolTip(i18nc("@info:tooltip", "This build of Plasma Opus has no mpv support"));
+        }
+    }
+    backend->setToolTip(i18nc("@info:tooltip", "The backend that plays audio and video in the preview panel and gallery"));
+    form->addRow(i18nc("@label:listbox", "Audio and video playback:"), backend);
+    layout->addLayout(form);
+    auto *status = statusLabel(QStringLiteral("mediaBackendStatus"));
+    layout->addWidget(status);
+    auto *application = statusLabel(QStringLiteral("mpvApplicationStatus"));
+    layout->addWidget(application);
+    auto *note = new QLabel(i18nc("@info",
+                                  "The backend button beside the playback controls changes this setting too. Open with mpv in the context "
+                                  "menu opens local audio and video in the mpv application, with its own controls and configuration."));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+
+    const auto refresh = [backend, status, application] {
+        MediaBackend::Capabilities capabilities;
+        capabilities.mpvBuilt = MediaBackend::mpvBuilt();
+        const auto chosen = backend->currentIndex() == Settings::EnumMediaBackend::Mpv ? MediaBackend::Kind::Mpv : MediaBackend::Kind::QtMultimedia;
+#ifdef OPUSFM_HAVE_MPV
+        // Creating a test context is only worth it when mpv would draw video.
+        capabilities.openGl = chosen == MediaBackend::Kind::Mpv && MpvVideoWidget::openGlAvailable();
+#endif
+        status->setText(MediaBackend::status(chosen, capabilities));
+        application->setText(QStandardPaths::findExecutable(QStringLiteral("mpv")).isEmpty()
+                                 ? i18nc("@info", "The mpv application is not installed or is not in PATH, so Open with mpv reports this.")
+                                 : i18nc("@info", "Open with mpv opens audio and video in the mpv application."));
+    };
+    group->refresh = refresh;
+    connect(backend, &QComboBox::currentIndexChanged, group, refresh);
+    refresh();
+
+    // The backend button saves a new choice while the dialog may be open; show it unless it was changed here.
+    auto saved = std::make_shared<int>(Settings::mediaBackend());
+    connect(Settings::self(), &Settings::configChanged, backend, [this, backend, saved] {
+        const int chosen = Settings::mediaBackend();
+        if (backend->currentIndex() == *saved && chosen != *saved) {
+            backend->setCurrentIndex(chosen);
+            updateButtons();
+        }
+        *saved = chosen;
     });
     return group;
 }
