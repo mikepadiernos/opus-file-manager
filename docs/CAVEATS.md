@@ -3932,6 +3932,25 @@ The M29 Nextcloud integration has these limits
   server and recorded Nextcloud responses
   ([real-server check](TODO.md#nextcloud-asset-search-on-a-real-server-590)).
   ([#590](https://github.com/mikepadiernos/plasma-opus/issues/590))
+- **📸 Nextcloud Photos:** **Photos…** browses albums, shared albums and
+  places in its own window, not in a pane, so pane actions, Plasma Opus tags
+  and the gallery don't apply there; **Show in Pane** reveals one photo's
+  file at a time, and only for photos in your own files. Each collection is
+  read with one `PROPFIND` of depth 1, without paging, so a large album takes
+  a while to list. Capture dates come from
+  `nc:metadata-photos-original_date_time` or the EXIF `DateTimeOriginal`, and
+  places from `nc:metadata-photos-place`; the server sets them only after
+  indexing a photo, so other photos are listed last as unknown, without
+  falling back to file dates. Places are read from `places/`, or from
+  `locations/` when that is missing. Albums can be created but not renamed or
+  deleted. Adding sends a `COPY` per file and counts a photo already in the
+  album as added; removing sends a `DELETE` per photo, only for an entry
+  directly in an album. Shared albums that don't report `oc:permissions` offer
+  adding and removing, and the server's refusal is shown. Property names,
+  entry names and shared-album permissions are unverified against a real
+  server; checked only against a fake server
+  ([real-server check](TODO.md#nextcloud-photos-on-a-real-server-671)).
+  ([#671](https://github.com/mikepadiernos/plasma-opus/issues/671))
 
 - **Recommendation:**
   - **Nextcloud accounts:** Sign in under **Go › Nextcloud › Manage
@@ -3962,6 +3981,14 @@ The M29 Nextcloud integration has these limits
     since every user sees a new tag, and remove unwanted tags in Nextcloud's
     web interface. Use Plasma Opus tags for private labels and Nextcloud tags
     only for labels to share with other users of the server.
+  - **Nextcloud Photos:** Use **Go › Nextcloud › *account* › Photos…** to
+    review albums and places by capture date and place, then **Show in
+    Pane** to work with a photo's file. Use **Remove from Album…**, which
+    never deletes the file, to tidy an album, and delete a file only from its
+    folder in a pane. Before adding files to a shared album, read who the
+    confirmation says will see them. Rename or delete albums and change their
+    collaborators in the Photos app of the web interface, and wait for photos
+    listed without a capture date to be indexed there.
   - Comment:
     [#767.7225982354](https://github.com/mikepadiernos/plasma-opus/issues/767#issuecomment-7225982354)
 - **Proposed improvements:**
@@ -3980,6 +4007,10 @@ The M29 Nextcloud integration has these limits
     beyond 500, sort them by any column, confirm search support with a
     trial request, mark favourites and server tags in the panes, and offer
     to delete a tag created in a cancelled dialog.
+  - Browse albums in a pane as virtual folders, rename and delete albums with
+    confirmation, page through large albums, fall back to file dates for
+    photos without a capture date, and send album photos through **Send by
+    Email** with a location warning.
 
 ## Embedded terminal
 
