@@ -210,6 +210,78 @@ private Q_SLOTS:
         QVERIFY(!backup().exists());
     }
 
+    void changesAndRestartsThePortal()
+    {
+        KConfigGroup group = backup();
+        int restarts = 0;
+        const auto restart = [&restarts] {
+            ++restarts;
+            return QString();
+        };
+
+        auto outcome = PortalSetup::change(PortalSetup::Change::Install, paths(), group, false, restart);
+        QVERIFY(!outcome.changed);
+        QVERIFY(outcome.error.contains(QStringLiteral("xdg-desktop-portal")));
+        QCOMPARE(restarts, 0);
+        QCOMPARE(PortalSetup::state(paths()), PortalSetup::State::NotInstalled);
+        QVERIFY(!backup().exists());
+
+        outcome = PortalSetup::change(PortalSetup::Change::Uninstall, paths(), group, false, restart);
+        QVERIFY(!outcome.changed);
+        QVERIFY(outcome.error.isEmpty());
+        QCOMPARE(restarts, 0);
+
+        outcome = PortalSetup::change(PortalSetup::Change::Install, paths(), group, true, restart);
+        QVERIFY(outcome.changed);
+        QVERIFY(outcome.error.isEmpty());
+        QVERIFY(outcome.restartError.isEmpty());
+        QCOMPARE(restarts, 1);
+        QCOMPARE(PortalSetup::state(paths()), PortalSetup::State::Installed);
+
+        // Restoring does not need the portal, and reports a failed restart after the change.
+        outcome = PortalSetup::change(PortalSetup::Change::Uninstall, paths(), group, false, [] {
+            return QStringLiteral("no systemctl");
+        });
+        QVERIFY(outcome.changed);
+        QVERIFY(outcome.error.isEmpty());
+        QCOMPARE(outcome.restartError, QStringLiteral("no systemctl"));
+        QCOMPARE(PortalSetup::state(paths()), PortalSetup::State::NotInstalled);
+        QVERIFY(!backup().exists());
+    }
+
+    void reportsAFailedChangeWithoutRestarting()
+    {
+        QVERIFY(QFile::remove(paths().helperExecutable));
+        KConfigGroup group = backup();
+        bool restarted = false;
+        const auto outcome = PortalSetup::change(PortalSetup::Change::Install, paths(), group, true, [&restarted] {
+            restarted = true;
+            return QString();
+        });
+        QVERIFY(!outcome.changed);
+        QVERIFY(outcome.error.contains(paths().helperExecutable));
+        QVERIFY(!restarted);
+    }
+
+    void restoresAPartialSetup()
+    {
+        write(paths().portalFile(), PortalSetup::portalFileContent());
+        QCOMPARE(PortalSetup::state(paths()), PortalSetup::State::Partial);
+        KConfigGroup group = backup();
+        const auto outcome = PortalSetup::change(PortalSetup::Change::Uninstall, paths(), group, true, {});
+        QVERIFY(outcome.changed);
+        QCOMPARE(PortalSetup::state(paths()), PortalSetup::State::NotInstalled);
+    }
+
+    void readsTheKdeConfigOnlyOnPlasma()
+    {
+        QVERIFY(PortalSetup::readsKdeConfig(QStringLiteral("KDE")));
+        QVERIFY(PortalSetup::readsKdeConfig(QStringLiteral("ubuntu:kde")));
+        QVERIFY(!PortalSetup::readsKdeConfig(QStringLiteral("GNOME")));
+        QVERIFY(!PortalSetup::readsKdeConfig(QString()));
+        QCOMPARE(PortalSetup::backupGroupName(), QStringLiteral("FileChooserPortal"));
+    }
+
     void followsTheEnvironment()
     {
         qputenv("XDG_CONFIG_DIRS", "/one:relative:/two");

@@ -5,6 +5,8 @@
 #include <QString>
 #include <QStringList>
 
+#include <functional>
+
 class KConfigGroup;
 
 /**
@@ -100,6 +102,39 @@ QString install(const Paths &paths, KConfigGroup &backup);
  * @returns an error message, or an empty string on success
  */
 QString uninstall(const Paths &paths, KConfigGroup &backup);
+
+/// The state group, in the state configuration, that keeps the previous portal configuration.
+QString backupGroupName();
+
+/**
+ * Whether xdg-desktop-portal reads kde-portals.conf in a session with the
+ * desktops @p currentDesktops, as in XDG_CURRENT_DESKTOP.
+ */
+bool readsKdeConfig(const QString &currentDesktops);
+
+enum class Change {
+    Install,
+    Uninstall,
+};
+
+struct Outcome {
+    /// Whether the change was made; false when it failed or there was nothing to restore.
+    bool changed = false;
+    /// Why the change failed, or an empty string.
+    QString error;
+    /// Why restarting xdg-desktop-portal after the change failed, or an empty string.
+    QString restartError;
+};
+
+/**
+ * Sets up or restores the system file chooser, then restarts
+ * xdg-desktop-portal so that it applies the change. Setup changes nothing
+ * when xdg-desktop-portal is unavailable, and restoring changes nothing when
+ * nothing is set up.
+ * @param portalAvailable whether xdg-desktop-portal is available, see portalServiceAvailable()
+ * @param restart restarts xdg-desktop-portal and returns an error message, see restartPortal()
+ */
+Outcome change(Change change, const Paths &paths, KConfigGroup &backup, bool portalAvailable, const std::function<QString()> &restart);
 
 /// Whether xdg-desktop-portal is running or can be started on the session bus.
 bool portalServiceAvailable();

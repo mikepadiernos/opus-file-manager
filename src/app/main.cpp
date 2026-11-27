@@ -83,27 +83,27 @@ int runPortalSetup(bool install)
     QTextStream out(stdout);
     QTextStream err(stderr);
     const auto paths = PortalSetup::Paths::fromEnvironment(QCoreApplication::applicationDirPath() + QStringLiteral("/opus-file-manager-portal"));
-    KConfigGroup backup = KSharedConfig::openStateConfig()->group(QStringLiteral("FileChooserPortal"));
-    if (install && !PortalSetup::portalServiceAvailable()) {
-        err << i18nc("@info:shell",
-                     "xdg-desktop-portal is not available on the session bus, so applications cannot use the Plasma Opus file chooser. "
-                     "Nothing was changed.")
-            << Qt::endl;
+    KConfigGroup backup = KSharedConfig::openStateConfig()->group(PortalSetup::backupGroupName());
+    const auto outcome =
+        PortalSetup::change(install ? PortalSetup::Change::Install : PortalSetup::Change::Uninstall,
+                            paths,
+                            backup,
+                            !install || PortalSetup::portalServiceAvailable(),
+                            [&out] {
+                                out << i18nc("@info:shell", "Restarting xdg-desktop-portal. File dialogs that are open in other applications may close.")
+                                    << Qt::endl;
+                                return PortalSetup::restartPortal();
+                            });
+    if (!outcome.error.isEmpty()) {
+        err << outcome.error << Qt::endl;
         return 1;
     }
-    if (!install && PortalSetup::state(paths) == PortalSetup::State::NotInstalled && !backup.exists()) {
+    if (!outcome.changed) {
         out << i18nc("@info:shell", "The Plasma Opus file chooser is not set up. Nothing was changed.") << Qt::endl;
         return 0;
     }
-    const QString error = install ? PortalSetup::install(paths, backup) : PortalSetup::uninstall(paths, backup);
-    if (!error.isEmpty()) {
-        err << error << Qt::endl;
-        return 1;
-    }
-    out << i18nc("@info:shell", "Restarting xdg-desktop-portal. File dialogs that are open in other applications may close.") << Qt::endl;
-    const QString restartError = PortalSetup::restartPortal();
-    if (!restartError.isEmpty()) {
-        err << restartError << Qt::endl << i18nc("@info:shell", "Log out and back in to apply the change.") << Qt::endl;
+    if (!outcome.restartError.isEmpty()) {
+        err << outcome.restartError << Qt::endl << i18nc("@info:shell", "Log out and back in to apply the change.") << Qt::endl;
         return 1;
     }
     if (install) {
