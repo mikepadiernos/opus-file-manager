@@ -115,7 +115,8 @@ preview. Both behaviours can be changed in Preferences.
   applications, Markdown vaults with wiki links and tags, and optional embedded
   mpv playback.
 - **Remote and secure access:** named SSH, SFTP, WebDAV, SMB and FTP
-  connections, rclone and KDE Online Accounts, temporary LAN sharing,
+  connections, rclone and KDE Online Accounts, Nextcloud accounts with
+  Login Flow sign-in, temporary LAN sharing,
   administrator mode, Plasma Vault, file encryption and password-gated
   folders.
 
