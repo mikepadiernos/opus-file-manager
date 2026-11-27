@@ -2009,7 +2009,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **KRunner**
 
-  - [ ] **Discovery:** enable the optional runner and choose which saved
+  - [x] **Discovery:** enable the optional runner and choose which saved
         workspaces and locations it can expose. Plasma-session verification
         is a [pending handoff](TODO.md#krunner-settings-on-plasma-394).
         [#394]
