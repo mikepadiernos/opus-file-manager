@@ -152,6 +152,8 @@ add_library(opusfm_core STATIC
     navigationhistory.cpp
     nextcloudaccount.cpp
     nextcloudaccount.h
+    nextcloudassets.cpp
+    nextcloudassets.h
     nextcloudclient.cpp
     nextcloudclient.h
     namefilter.cpp

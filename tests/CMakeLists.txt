@@ -141,6 +141,7 @@ ecm_add_tests(
     metadataimporttest.cpp
     navigationhistorytest.cpp
     nextcloudaccounttest.cpp
+    nextcloudassetstest.cpp
     nextcloudclienttest.cpp
     notevaulttest.cpp
     officeappstest.cpp
@@ -480,6 +481,12 @@ ecm_add_test(remotemountdialogtest.cpp
 )
 
 ecm_add_test(nextcloudaccountsdialogtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
+ecm_add_test(nextcloudpreviewtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
     GUI
