@@ -2279,9 +2279,10 @@ The M27 desktop integrations have these limits
   Activities service, so both await
   [verification on Plasma](TODO.md#shared-activity-context-on-plasma-659).
   ([#659](https://github.com/mikepadiernos/plasma-opus/issues/659))
-- **📓 Markdown vault links:** The editor's **Vault** menu chooses one local
-  folder whose notes `[[wiki links]]` resolve against; editors opened later
-  use the same folder. Links name a note anywhere in the
+- **📓 Markdown vault links:** The editor's **Vault** menu, or **Vault
+  folder** under **Preferences › Applications › Editor**, chooses one local
+  folder whose notes `[[wiki links]]` resolve against; every editor uses the
+  same folder. Links name a note anywhere in the
   vault, a vault-relative path such as `Projects/Plan`, or a path relative
   to the note that starts with `./` or `../`; names are matched without
   regard to case. When several notes share a name, the one in the linking
@@ -3013,6 +3014,25 @@ The M28 integration settings have these limits
   after the editor exits. Plasma Opus doesn't track whether an editor in a
   separate window has unsaved changes.
   ([#320](https://github.com/mikepadiernos/plasma-opus/issues/320))
+- **📔 Markdown settings:** The **Markdown** group under **Preferences ›
+  Applications › Editor** applies to the built-in editor, including the
+  editors that previews open, after **Apply** or **OK**. **Vault folder** is
+  the folder that the editor's **Vault** menu chooses, so a folder chosen
+  there while Preferences is open is replaced by the one the dialog shows if
+  other changes are applied afterwards. One vault folder applies to every
+  window, it must be local, and an unavailable folder, such as one on a
+  disconnected drive, is reported in the tab and in the editor, and read again
+  when settings are applied or the vault is rescanned. **Preview dialect** is
+  the dialect each editor starts with; the editor's own dialect list changes
+  it only for that editor, until the setting changes. **Show the preview when
+  a Markdown file opens** applies to files opened afterwards. With **Follow
+  wiki links** off, the preview shows wiki links as written and the **Links**
+  list doesn't open them, but backlinks still count them. The vault panel
+  keeps its title and status when all its lists are off. The default
+  Markdown mode stays under **Preferences › Editor › Editor**; visual editing
+  still asks first, keeps a draft of the source and changes the file only on
+  save. The 10,000-note limit is fixed.
+  ([#577](https://github.com/mikepadiernos/plasma-opus/issues/577))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3128,6 +3148,13 @@ The M28 integration settings have these limits
     tab doesn't mark as not installed, and use **Edit With** for a one-off
     choice. Choose **Separate terminal** for terminal editors if you prefer a
     full-sized window or the Konsole component isn't installed.
+  - **Markdown settings:** Choose the vault folder under **Preferences ›
+    Applications › Editor** or with the editor's **Vault** menu, not both
+    while Preferences is open. Keep **Follow wiki links** on to move between
+    notes, and turn off the vault panel lists you don't use to save room.
+    Keep **Source** as the default Markdown mode under **Preferences › Editor
+    › Editor** for notes with HTML or other formatting that visual editing
+    can't keep.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3185,6 +3212,9 @@ The M28 integration settings have these limits
   - Fall back to the built-in editor when the chosen editor is removed,
     choose an editor for each kind of text, such as Markdown, and close a
     separate terminal when its editor exits.
+  - Follow a vault folder chosen in the editor while Preferences is open,
+    keep a dialect chosen in the editor as the setting, and list recent vaults
+    to switch between.
 
 ## Embedded terminal
 
