@@ -2208,13 +2208,29 @@ The M27 desktop integrations have these limits
   Opus reports that the composer opened, not what it attached. A client
   that is registered but fails to start is not reported. Plasma Impresario
   currently ignores attachments from other applications, so Plasma Opus
-  warns before and after opening it and doesn't offer local copies. Inside
+  warns before and after opening it and asks you to drag the files from the
+  dialog's list into its composer instead. Inside
   a Flatpak or Snap sandbox, the XDG Email portal attaches the files
   instead, and Plasma Opus reports only that the portal accepted the
   request. The container used for development has no mail client or
   portal, so both await
   [verification on Plasma](TODO.md#send-by-email-on-plasma-656).
   ([#656](https://github.com/mikepadiernos/plasma-opus/issues/656))
+- **📎 Mail attachments:** Local files in the **Send by Email** list can be
+  dragged into any composer. A remote file can be dragged only after its
+  private local copy is downloaded; ticking the consent box starts the
+  download, and unticking it stops the download or removes the copies.
+  Copies that are attached or dragged out are kept until Plasma Opus quits,
+  because Plasma Opus can't tell when the mail client has finished reading
+  them; others are removed when the dialog closes. Dropping a Plasma
+  Impresario attachment on a pane is refused with a status-bar explanation,
+  because the drag carries only a private reference to the message on the
+  mail server, not the file; Plasma Opus never contacts the mail server. A
+  drop that carries the file content and a suggested filename is saved
+  through KIO, which asks for the file name. The container used for
+  development has no Plasma Impresario, so real drags await
+  [verification on Plasma](TODO.md#mail-attachments-on-plasma-657).
+  ([#657](https://github.com/mikepadiernos/plasma-opus/issues/657))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -2426,10 +2442,12 @@ The M27 desktop integrations have these limits
     or `.asc`.
   - **Send by Email:** Choose a client that accepts attachments, such as
     KMail or Thunderbird, under **System Settings › Default Applications ›
-    Email client**. With Plasma Impresario, drag the files from Plasma Opus
-    into its composer instead. Send a message that uses local copies of
-    remote files before quitting Plasma Opus, or copy the files into a local
-    folder first.
+    Email client**. With Plasma Impresario, drag the files from the **Send
+    by Email** list into its composer instead. Send a message that uses
+    local copies of remote files before quitting Plasma Opus, or copy the
+    files into a local folder first.
+  - **Mail attachments:** To keep an attachment you received, save it from
+    Plasma Impresario, then drag the saved file into Plasma Opus.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
