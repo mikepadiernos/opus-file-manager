@@ -6,6 +6,7 @@
 
 #include <QDBusUnixFileDescriptor>
 #include <QList>
+#include <QMimeData>
 #include <QString>
 #include <QUrl>
 #include <QVariantMap>
@@ -75,4 +76,24 @@ QVariantMap portalOptions(const QList<QDBusUnixFileDescriptor> &attachments);
 
 /// @p url for display, without any password it contains.
 QString displayName(const QUrl &url);
+
+/// What a drop offers a folder.
+enum class DropKind {
+    /// Nothing Plasma Opus accepts.
+    None,
+    /// File or folder URLs.
+    Urls,
+    /// File content with a suggested filename, which KIO saves as a new file.
+    Content,
+    /// Only a mail client's private reference to a message or attachment on
+    /// its server, such as Plasma Impresario's, which is not the file itself.
+    PrivateMailReference,
+};
+
+/// Classifies the drag data in @p mime.
+DropKind classifyDrop(const QMimeData *mime);
+
+/// Copies @p from into @p to without private mail references, so KIO does not
+/// offer to save a reference as a file.
+void copyWithoutPrivateMailReferences(const QMimeData *from, QMimeData *to);
 }

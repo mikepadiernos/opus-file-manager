@@ -110,6 +110,52 @@ private Q_SLOTS:
         QCOMPARE(descriptors.size(), 1);
         QVERIFY(descriptors.first().isValid());
     }
+
+    void classifiesDrops()
+    {
+        QCOMPARE(classifyDrop(nullptr), DropKind::None);
+        QMimeData empty;
+        QCOMPARE(classifyDrop(&empty), DropKind::None);
+
+        QMimeData urls;
+        urls.setUrls({QUrl::fromLocalFile(QStringLiteral("/tmp/a.txt"))});
+        urls.setData(QStringLiteral("application/x-trojita-imap-part"), "ref");
+        QCOMPARE(classifyDrop(&urls), DropKind::Urls);
+
+        for (const QString &format : {QStringLiteral("application/x-trojita-imap-part"),
+                                      QStringLiteral("application/x-trojita-attachments-list"),
+                                      QStringLiteral("application/x-trojita-message-list")}) {
+            QMimeData reference;
+            reference.setData(format, "ref");
+            QCOMPARE(classifyDrop(&reference), DropKind::PrivateMailReference);
+            // A suggested name alone is not file content.
+            reference.setData(QStringLiteral("application/x-kde-suggestedfilename"), "a.txt");
+            QCOMPARE(classifyDrop(&reference), DropKind::PrivateMailReference);
+            reference.setData(QStringLiteral("application/x-qt-image"), "");
+            QCOMPARE(classifyDrop(&reference), DropKind::PrivateMailReference);
+            reference.setData(QStringLiteral("text/plain"), "content");
+            QCOMPARE(classifyDrop(&reference), DropKind::Content);
+        }
+
+        QMimeData text;
+        text.setText(QStringLiteral("just text"));
+        QCOMPARE(classifyDrop(&text), DropKind::None);
+        text.setData(QStringLiteral("application/x-kde-suggestedfilename"), "note.txt");
+        QCOMPARE(classifyDrop(&text), DropKind::Content);
+    }
+
+    void stripsPrivateMailReferences()
+    {
+        QMimeData from;
+        from.setData(QStringLiteral("application/x-trojita-imap-part"), "ref");
+        from.setData(QStringLiteral("application/x-kde-suggestedfilename"), "a.txt");
+        from.setData(QStringLiteral("text/plain"), "content");
+        QMimeData to;
+        copyWithoutPrivateMailReferences(&from, &to);
+        QVERIFY(!to.hasFormat(QStringLiteral("application/x-trojita-imap-part")));
+        QCOMPARE(to.data(QStringLiteral("application/x-kde-suggestedfilename")), QByteArray("a.txt"));
+        QCOMPARE(to.data(QStringLiteral("text/plain")), QByteArray("content"));
+    }
 };
 
 QTEST_GUILESS_MAIN(MailHandoffTest)

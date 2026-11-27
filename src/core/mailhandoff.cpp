@@ -9,6 +9,8 @@
 #include <QFileInfo>
 #include <QSet>
 
+#include <algorithm>
+
 namespace MailHandoff
 {
 Selection classify(const KFileItemList &items)
@@ -95,5 +97,46 @@ QVariantMap portalOptions(const QList<QDBusUnixFileDescriptor> &attachments)
 QString displayName(const QUrl &url)
 {
     return url.isLocalFile() ? url.toLocalFile() : url.toDisplayString(QUrl::RemovePassword | QUrl::PreferLocalFile);
+}
+
+namespace
+{
+/// Plasma Impresario, like Trojitá before it, drags only these references.
+bool isPrivateMailFormat(const QString &format)
+{
+    return format == QLatin1String("application/x-trojita-imap-part") || format == QLatin1String("application/x-trojita-attachments-list")
+        || format == QLatin1String("application/x-trojita-message-list");
+}
+
+const QLatin1String SuggestedFileName("application/x-kde-suggestedfilename");
+}
+
+DropKind classifyDrop(const QMimeData *mime)
+{
+    if (!mime) {
+        return DropKind::None;
+    }
+    if (mime->hasUrls()) {
+        return DropKind::Urls;
+    }
+    const QStringList formats = mime->formats();
+    const bool hasPrivate = std::any_of(formats.cbegin(), formats.cend(), isPrivateMailFormat);
+    const bool hasContent = formats.contains(SuggestedFileName) && std::any_of(formats.cbegin(), formats.cend(), [](const QString &format) {
+                                return format != SuggestedFileName && !isPrivateMailFormat(format) && !format.startsWith(QLatin1String("application/x-qt-"));
+                            });
+    if (hasContent) {
+        return DropKind::Content;
+    }
+    return hasPrivate ? DropKind::PrivateMailReference : DropKind::None;
+}
+
+void copyWithoutPrivateMailReferences(const QMimeData *from, QMimeData *to)
+{
+    const QStringList formats = from->formats();
+    for (const QString &format : formats) {
+        if (!isPrivateMailFormat(format)) {
+            to->setData(format, from->data(format));
+        }
+    }
 }
 }
