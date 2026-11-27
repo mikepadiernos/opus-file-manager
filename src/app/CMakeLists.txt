@@ -152,6 +152,8 @@ add_library(opusfm_app STATIC
     searchtoolbaraction.h
     searchwidget.cpp
     searchwidget.h
+    sendbyemaildialog.cpp
+    sendbyemaildialog.h
     settingsdialog.cpp
     settingsdialog.h
     settingswidgets.cpp

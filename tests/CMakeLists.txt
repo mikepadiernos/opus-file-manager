@@ -404,6 +404,12 @@ ecm_add_test(kdeconnectsharedialogtest.cpp
     GUI
 )
 
+ecm_add_test(sendbyemaildialogtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
 ecm_add_test(lansharedialogtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"

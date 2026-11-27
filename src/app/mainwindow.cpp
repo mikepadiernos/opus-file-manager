@@ -80,6 +80,7 @@
 #include "searchpanel.h"
 #include "searchquery.h"
 #include "searchtoolbaraction.h"
+#include "sendbyemaildialog.h"
 #include "session.h"
 #include "settings.h"
 #include "settingsdialog.h"
@@ -3127,6 +3128,10 @@ void MainWindow::setupActions()
     sendToDevice->setText(i18nc("@action", "Send to Device…"));
     sendToDevice->setToolTip(i18nc("@info:tooltip", "Send the selected files to a paired device with KDE Connect"));
     sendToDevice->setIcon(SymbolicIcon::fromTheme(QStringLiteral("smartphone")));
+    QAction *sendByEmail = actions->addAction(QStringLiteral("send_by_email"), this, &MainWindow::sendByEmail);
+    sendByEmail->setText(i18nc("@action", "Send by Email…"));
+    sendByEmail->setToolTip(i18nc("@info:tooltip", "Open a new message in your mail client with the selected files attached"));
+    sendByEmail->setIcon(SymbolicIcon::fromTheme(QStringLiteral("mail-send")));
     QAction *shareOnNetwork = actions->addAction(QStringLiteral("share_on_network"), this, &MainWindow::shareOnNetwork);
     shareOnNetwork->setText(i18nc("@action", "Share on Local Network…"));
     shareOnNetwork->setToolTip(
@@ -4400,6 +4405,9 @@ void MainWindow::updateActions()
                             });
     actions->action(QStringLiteral("create_checksum"))->setEnabled(localFiles);
     actions->action(QStringLiteral("kdeconnect_send"))->setEnabled(hasSelection);
+    actions->action(QStringLiteral("send_by_email"))->setEnabled(std::any_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
+        return !item.isDir();
+    }));
     actions->action(QStringLiteral("share_on_network"))
         ->setEnabled(hasSelection ? std::all_of(selected.cbegin(),
                                                 selected.cend(),
@@ -4550,6 +4558,7 @@ void MainWindow::updateFolderGateActions()
         QStringLiteral("create_checksum"),
         QStringLiteral("verify_checksum"),
         QStringLiteral("kdeconnect_send"),
+        QStringLiteral("send_by_email"),
         QStringLiteral("share_on_network"),
         QStringLiteral("split_file"),
         QStringLiteral("combine_files"),
@@ -5576,6 +5585,9 @@ void MainWindow::showContextMenu(Pane *pane, const QPoint &globalPos, const KFil
     if (actions->action(QStringLiteral("encryption"))->isEnabled()) {
         menu.addAction(actions->action(QStringLiteral("encryption")));
     }
+    if (actions->action(QStringLiteral("send_by_email"))->isEnabled()) {
+        menu.addAction(actions->action(QStringLiteral("send_by_email")));
+    }
     if (singleFolder) {
         menu.addAction(actions->action(QStringLiteral("content_chart")));
         menu.addAction(actions->action(QStringLiteral("add_to_favorites")));
@@ -5993,6 +6005,17 @@ void MainWindow::setKdeConnectClient(KdeConnectClient *client)
             client->setParent(this);
         }
     }
+}
+
+void MainWindow::sendByEmail()
+{
+    const KFileItemList items = activePane()->view()->selectedItems();
+    if (items.isEmpty()) {
+        return;
+    }
+    auto *dialog = new SendByEmailDialog(items, this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
 }
 
 void MainWindow::sendToDevice()

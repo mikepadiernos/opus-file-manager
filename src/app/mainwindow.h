@@ -184,6 +184,8 @@ public:
     void setVaultClient(VaultClient *client);
     /// Shows the dialog that sends the selected files to a KDE Connect device.
     void sendToDevice();
+    /// Shows the dialog that opens a new message with the selected files attached.
+    void sendByEmail();
     /// Shares the selected local items, or the current folder, on the local network.
     void shareOnNetwork();
     /**

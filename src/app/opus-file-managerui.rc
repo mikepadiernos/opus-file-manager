@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gui SYSTEM "kpartgui.dtd">
-<gui name="opus-file-manager" version="74" translationDomain="opus-file-manager">
+<gui name="opus-file-manager" version="75" translationDomain="opus-file-manager">
   <MenuBar>
     <Menu name="file">
       <text>&amp;File</text>
@@ -35,6 +35,7 @@
       <Action name="edit_with"/>
       <Action name="open_in_office"/>
       <Action name="kdeconnect_send"/>
+      <Action name="send_by_email"/>
       <Action name="share_on_network"/>
       <Action name="mount_manager"/>
       <Action name="act_as_admin"/>
