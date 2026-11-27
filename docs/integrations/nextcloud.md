@@ -6,10 +6,10 @@
 
 ![Milestones M29–M30](https://img.shields.io/badge/milestones-M29%E2%80%93M30-8957e5?style=flat-square)
 ![M29 Merged](https://img.shields.io/badge/M29-Merged-8957e5?style=flat-square)
-![M30 Planned](https://img.shields.io/badge/M30-Planned-6e7781?style=flat-square)
+![M30 Development](https://img.shields.io/badge/M30-Development-1f6feb?style=flat-square)
 
 How Plasma Opus works with Nextcloud files and apps, the server interfaces it
-uses, its planned settings and ideas considered beyond the roadmap.
+uses, its settings and ideas considered beyond the roadmap.
 
 **Integration plans:** [KDE Plasma](kde-plasma.md) · **Nextcloud** ·
 [Plasma Impresario](plasma-impresario.md)
@@ -18,11 +18,13 @@ uses, its planned settings and ideas considered beyond the roadmap.
 > **Implemented:** all of
 > [M29](../ROADMAP.md#m29-nextcloud-integration): Nextcloud accounts, browsing,
 > previews, asset search, Photos albums, shares and the desktop client's
-> folders, described under [Implemented features](#implemented-features).
-> **Planned:** only the settings in
-> [M30](../ROADMAP.md#m30-nextcloud-settings), summarized under
-> [Planned features](#planned-features). Everything under
-> [Considered features](#considered-features) is outside the roadmap.
+> folders; and the Nextcloud settings of
+> [M30](../ROADMAP.md#m30-nextcloud-settings) under **Preferences › Remote and
+> Cloud › Nextcloud**, described under
+> [Implemented features](#implemented-features). **Planned:** only the Photos
+> settings in M30, summarized under [Planned features](#planned-features).
+> Everything under [Considered features](#considered-features) is outside the
+> roadmap.
 
 ## Contents
 
@@ -121,8 +123,9 @@ document describes how Plasma Opus could also work with Nextcloud apps.
     doesn't allow adding files or folders, and **Copy to Other Pane** and
     **Move to Other Pane** when the other pane shows such a folder. The tooltip
     of a disabled action gives the reason, and the status bar reports a folder
-    that doesn't allow adding items. When the permissions can't be read,
-    nothing is disabled and the server's own errors apply.
+    that doesn't allow adding items. When the permissions can't be read, or
+    their setting is cleared, nothing is disabled and the server's own errors
+    apply.
   - **Server interfaces:** KIO WebDAV on `remote.php/dav/files/<user>/`, and a
     `PROPFIND` of depth 1 for `oc:permissions`.
 
@@ -136,7 +139,8 @@ document describes how Plasma Opus could also work with Nextcloud apps.
   limits, for example to play a video or read every page. Folders, text
   files, files the server can't preview and previews over 8 MiB are
   downloaded as before, and formats whose previews are turned off aren't
-  requested.
+  requested. When the server's previews are turned off in Preferences, files
+  are downloaded to preview them, as in other remote folders.
   - **Server metadata:** **View › Information Panel** adds a **Nextcloud
     server** section for an item in a Nextcloud account: its file ID, owner,
     size, modification time, ETag, favourite, server tags, share types, mount
@@ -145,7 +149,8 @@ document describes how Plasma Opus could also work with Nextcloud apps.
     them. Server tags are labelled apart from Plasma Opus tags. The section
     lists properties the server withholds and shows errors in place of the
     values. Metadata is read only while the panel is shown, and read again
-    after a minute or when the item changes.
+    when the item changes or after a minute, or the time set in Preferences.
+    When the server's metadata is turned off, the section isn't shown.
   - **Server interfaces:** a `PROPFIND` of depth 0 on the item for its `d:`,
     `oc:` and `nc:` properties, including `nc:has-preview` and
     `nc:metadata-photos-*`, and
@@ -155,17 +160,20 @@ document describes how Plasma Opus could also work with Nextcloud apps.
   See [Nextcloud integration](../CAVEATS.md#nextcloud-integration).
   ([#589](https://github.com/mikepadiernos/plasma-opus/issues/589))
 
-- **Search and organize:** **Go › Nextcloud › *account* › Search and
+- **Search and organize:** **Go › Nextcloud › _account_ › Search and
   Organize…** searches the account's files on the server by name, kind and
   favourites, lists your favourites, or lists the files with a server tag.
   Results show the folder, modification time, favourite and server tags, newest
-  first, up to 500 at a time. **Show in Pane**, or a double-click, opens a
-  folder or reveals a file. The context menu of items in one Nextcloud account
-  adds a **Nextcloud** submenu with the same dialog.
+  first, up to 500 at a time, or the number set in Preferences. **Show in
+  Pane**, or a double-click, opens a folder or reveals a file. The context menu
+  of items in one Nextcloud account adds a **Nextcloud** submenu with the same
+  dialog.
   - **Favourites:** **Add to Nextcloud Favourites** and **Remove from Nextcloud
     Favourites** in the context menu, or the favourite button in the dialog,
     change the server's favourites, which Nextcloud's web interface and apps
-    show. They are separate from the **Places** panel.
+    show. They are separate from the **Places** panel. When favourites and
+    tags are turned off in Preferences, the context menu leaves them and
+    **Nextcloud Tags…** out; the dialog still offers them.
   - **Tags:** **Nextcloud Tags…** assigns or removes the server's
     collaborative tags. A tag on only some of the items is partly checked, and
     a tag you can't assign is disabled. **Create Tag…** asks for confirmation
@@ -178,8 +186,8 @@ document describes how Plasma Opus could also work with Nextcloud apps.
   - **Availability:** search needs WebDAV search, from Nextcloud 15, and tags
     need the Collaborative tags app; the dialog disables a feature the server
     lacks and says why. The status line says when only the first 500 results
-    are listed, when the server withheld results or properties, and which
-    items couldn't be changed.
+    are listed, or the number set in Preferences, when the server withheld
+    results or properties, and which items couldn't be changed.
   - **Server interfaces:** `SEARCH` with `d:basicsearch` on `remote.php/dav/`
     scoped to `/files/<user>`, `REPORT` with `oc:filter-files` for favourites
     and tags, `PROPPATCH` of `oc:favorite`, `PROPFIND` of
@@ -191,7 +199,7 @@ document describes how Plasma Opus could also work with Nextcloud apps.
   See [Nextcloud integration](../CAVEATS.md#nextcloud-integration).
   ([#590](https://github.com/mikepadiernos/plasma-opus/issues/590))
 
-- **Photos:** **Go › Nextcloud › *account* › Photos…** opens a window that
+- **Photos:** **Go › Nextcloud › _account_ › Photos…** opens a window that
   lists the account's Nextcloud Photos **Albums**, **Shared albums** or
   **Places**, chosen under **Show**, as virtual folders; see
   [Photos](#photos). A collection's tooltip gives its photo count, location,
@@ -229,7 +237,7 @@ document describes how Plasma Opus could also work with Nextcloud apps.
   See [Nextcloud integration](../CAVEATS.md#nextcloud-integration).
   ([#671](https://github.com/mikepadiernos/plasma-opus/issues/671))
 
-- **Shares:** **Go › Nextcloud › *account* › Shares…** lists the shares you
+- **Shares:** **Go › Nextcloud › _account_ › Shares…** lists the shares you
   made, under **Shared by me**, or those others made with you, under **Shared
   with me**; the window remembers which. For a single file or folder in a
   Nextcloud account, the context menu's **Nextcloud › Nextcloud Shares…**
@@ -238,7 +246,9 @@ document describes how Plasma Opus could also work with Nextcloud apps.
   protects it; **Show in Pane** opens a folder or reveals a file.
   - **Create:** **Create Public Link…** and **Share with User or Group…** ask
     for the access, an expiry and, for links, a password, then ask for
-    confirmation with who will get which access and for how long. The editor
+    confirmation with who will get which access and for how long. New links
+    start with the server's default expiry, or the number of days set in
+    Preferences, but never later than an expiry the server enforces. The editor
     enforces the server's required link password and expiry, its maximum
     expiry and whether links may accept uploads; a folder link with only
     **Upload** is a file drop. User and group IDs must be typed; names aren't
@@ -261,7 +271,9 @@ document describes how Plasma Opus could also work with Nextcloud apps.
     client, or through the desktop portal in a sandbox, for you to complete.
   - **Availability:** the window reports when the server doesn't offer
     sharing or has it turned off, and disables creating shares, or public
-    links alone when the server turns them off.
+    links alone when the server turns them off. When shares are turned off in
+    Preferences, **Shares…** and **Nextcloud Shares…** aren't offered, and
+    existing shares stay as they are.
   - **Server interfaces:** OCS at
     `ocs/v2.php/apps/files_sharing/api/v1/shares` with `OCS-APIRequest: true`
     and `format=json`: `GET` with `path` and `reshares=true` or
@@ -275,8 +287,8 @@ document describes how Plasma Opus could also work with Nextcloud apps.
 - **Desktop client:** when the Nextcloud desktop client is installed or
   configured, **Go › Nextcloud › Desktop Client** offers **Open Desktop
   Client**, then a submenu for each folder the client synchronizes, titled
-  with where its files are and its status, such as *Documents (Local, Up to
-  date)*. Each folder offers **Open**, **Open in Other Pane** and, when the
+  with where its files are and its status, such as _Documents (Local, Up to
+  date)_. Each folder offers **Open**, **Open in Other Pane** and, when the
   same user and server are added as a Plasma Opus account, **Open on Server**
   for the server's copy. Its tooltip names the folder on the server, the
   account and what its state means.
@@ -288,7 +300,9 @@ document describes how Plasma Opus could also work with Nextcloud apps.
     date**, **Synchronizing**, **Needs attention** or **Error**, as the client
     reports it; while the client is asked, the menu shows **Checking
     synchronization status…**, and **Desktop client not running** when it
-    can't be reached.
+    can't be reached. When asking for the status is turned off in Preferences,
+    the client isn't asked, the folders show no status and their tooltips say
+    why; turning the menu off hides **Desktop Client** altogether.
   - **Boundaries:** Plasma Opus reads the client's configuration without
     writing or locking it, never starts a second sync engine and never
     changes the client's folders or settings; pause, resume and add folders
@@ -305,12 +319,40 @@ document describes how Plasma Opus could also work with Nextcloud apps.
   See [Nextcloud integration](../CAVEATS.md#nextcloud-integration).
   ([#592](https://github.com/mikepadiernos/plasma-opus/issues/592))
 
+- **Settings:** **Preferences › Remote and Cloud › Nextcloud** collects the
+  Nextcloud choices; every default keeps the behaviour described above.
+  - **Accounts:** says how many accounts are saved and whether KDE Online
+    Accounts are read. **Manage Nextcloud Accounts…** opens the same dialog as
+    **Go › Nextcloud**, and **Go to KDE Plasma › Online Accounts** opens the
+    tab that lists those accounts too. The settings keep account references
+    in the `NextcloudAccounts` group, as before, and never credentials.
+  - **Browsing and Previews:** whether the preview panel shows the server's
+    previews and whether the actions a folder's permissions don't allow are
+    disabled. The group also says whether folder views show thumbnails of
+    Nextcloud files, which **Show previews in remote folders** under
+    **Interface › Previews** decides, with a button to go there.
+  - **Metadata and Search:** whether the information panel shows the
+    server's metadata, and after how many seconds it is read again, from 10
+    to 3,600; whether the context menu offers favourites and **Nextcloud
+    Tags…**; and how many results **Search and Organize…** lists, from 50 to
+    5,000.
+  - **Sharing:** whether **Shares…** and **Nextcloud Shares…** are offered,
+    and how many days new public links last, from **Never**, which keeps the
+    server's default, to 3,650. The group says whether links can be sent by
+    email, as **Applications › Mail** decides.
+  - **Desktop Client:** whether **Go › Nextcloud** offers the desktop client's
+    folders and whether the client is asked for their status. The group says
+    whether the client is installed and how many folders it synchronizes.
+  - **Storage:** the `Nextcloud` group of the Plasma Opus settings.
+
+  See [Nextcloud settings](../CAVEATS.md#nextcloud-settings).
+  ([#368](https://github.com/mikepadiernos/plasma-opus/issues/368))
+
 ## Planned features
 
-| Feature         | Plan                                                                                                                                                        | Milestone                                   |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| Settings        | Account references, browsing and preview choices, asset metadata and search, sharing and desktop-client integration, stored in KConfig without credentials. | [M30](../ROADMAP.md#m30-nextcloud-settings) |
-| Photos settings | Show or hide albums, shared albums and places, choose their default grouping and whether to confirm album changes.                                          | [M30](../ROADMAP.md#m30-nextcloud-settings) |
+| Feature         | Plan                                                                                                               | Milestone                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| Photos settings | Show or hide albums, shared albums and places, choose their default grouping and whether to confirm album changes. | [M30](../ROADMAP.md#m30-nextcloud-settings) |
 
 ## Nextcloud app interfaces
 
