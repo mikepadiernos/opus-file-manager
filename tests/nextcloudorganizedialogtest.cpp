@@ -336,6 +336,18 @@ private Q_SLOTS:
         both->findChild<QAction *>(QStringLiteral("nextcloudAddFavorite"))->trigger();
         QVERIFY(both->findChild<QAction *>(QStringLiteral("nextcloudRemoveFavorite")));
         QCOMPARE(favorites, (QList<bool>{false, true}));
+
+        // Without favourite and tag handlers, as Preferences can set, only Search and Organize is offered.
+        NextcloudMenu::ItemHandlers organizeOnly;
+        organizeOnly.organize = handlers.organize;
+        QMenu plain;
+        QMenu *reduced = NextcloudMenu::addItemMenu(&plain, std::nullopt, this, organizeOnly);
+        QVERIFY(!reduced->findChild<QAction *>(QStringLiteral("nextcloudAddFavorite")));
+        QVERIFY(!reduced->findChild<QAction *>(QStringLiteral("nextcloudRemoveFavorite")));
+        QVERIFY(!reduced->findChild<QAction *>(QStringLiteral("nextcloudEditTags")));
+        QVERIFY(!reduced->actions().constFirst()->isSeparator());
+        reduced->findChild<QAction *>(QStringLiteral("nextcloudItemOrganize"))->trigger();
+        QCOMPARE(organizeCalls, 2);
     }
 
     void searchReportsTruncatedResults()
@@ -371,6 +383,14 @@ private Q_SLOTS:
         const KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("NextcloudAssetsDialog"));
         QCOMPARE(state.readEntry("Mode", -1), int(NextcloudAssetsDialog::Mode::Search));
         QCOMPARE(state.readEntry("Type", -1), int(Nextcloud::AssetType::Images));
+
+        // Preferences › Remote and Cloud › Nextcloud sets a smaller limit for later searches.
+        QCOMPARE(dialog.resultLimit(), NextcloudAssetsDialog::ResultLimit);
+        dialog.setResultLimit(100);
+        child<QPushButton>(dialog, "nextcloudAssetsRun")->click();
+        QTRY_VERIFY_WITH_TIMEOUT(status->text().contains(QStringLiteral("Only the first 100 results are listed")), 20000);
+        QCOMPARE(results->topLevelItemCount(), 100);
+        QVERIFY(requests("SEARCH").last().body.contains("<d:nresults>101</d:nresults>"));
 
         // A server that refuses the query says so.
         child<QLineEdit>(dialog, "nextcloudAssetsText")->setText(QStringLiteral("unsupported"));
