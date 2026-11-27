@@ -2211,11 +2211,12 @@ private Q_SLOTS:
         view->selectUrls({QUrl::fromLocalFile(report)});
         QTRY_COMPARE(edit->toolTip(), QStringLiteral("Edit the selected file with Calligra"));
         edit->trigger();
-        QTRY_COMPARE(QFile::exists(output), true);
-        QFile recorded(output);
-        QVERIFY(recorded.open(QIODevice::ReadOnly));
-        QCOMPARE(QString::fromLocal8Bit(recorded.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts),
-                 (QStringList{bin.filePath(QStringLiteral("calligrawords")), report}));
+        // The script creates the file before writing to it.
+        const auto recorded = [&output] {
+            QFile file(output);
+            return file.open(QIODevice::ReadOnly) ? QString::fromLocal8Bit(file.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts) : QStringList();
+        };
+        QTRY_COMPARE(recorded(), (QStringList{bin.filePath(QStringLiteral("calligrawords")), report}));
 
         // Turning previews off reloads the preview with a message.
         auto *previews = dialog.findChild<QGroupBox *>(QStringLiteral("officePreviewGroup"));
