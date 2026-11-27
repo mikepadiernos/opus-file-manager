@@ -101,6 +101,7 @@ ecm_add_tests(
     filetypeplacestest.cpp
     foldermetadatatest.cpp
     foldercolorstest.cpp
+    foldergatestest.cpp
     foldercolorrulestest.cpp
     foldercomparisontest.cpp
     foldersynctest.cpp
