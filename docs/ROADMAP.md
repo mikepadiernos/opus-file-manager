@@ -1602,7 +1602,7 @@ for some features are recorded in [pending tasks](TODO.md).
         drafts, respect vault boundaries, and report ambiguous, missing or
         inaccessible targets and incomplete scans. See the
         [pending handoff](TODO.md#markdown-editor-and-backlinks-564). [#564]
-  - [ ] Let an assigned local location serve as an optional Obsidian-inspired
+  - [x] Let an assigned local location serve as an optional Obsidian-inspired
         vault for the built-in text editor. Reuse [#564] for source and visual
         Markdown editing, live preview, note navigation, wiki links, backlinks,
         tags and a note relationship view. Preserve drafts and unsaved edits
