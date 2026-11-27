@@ -2330,7 +2330,7 @@ The M27 desktop integrations have these limits
   [Integration settings](#integration-settings).
   ([#565](https://github.com/mikepadiernos/plasma-opus/issues/565))
 - **🎞️ Embedded mpv playback:** **Audio and video playback** under **Preferences
-  › Interface › Previews**, or the backend button beside the playback controls,
+  › Applications › Media**, or the backend button beside the playback controls,
   chooses Qt Multimedia, the default, or mpv for the preview panel and gallery.
   mpv needs a build with libmpv and Qt OpenGL Widgets; otherwise the choice is
   disabled and Qt Multimedia plays with a notice. Video through mpv also needs
@@ -2600,7 +2600,7 @@ The M27 desktop integrations have these limits
   - **Embedded mpv playback:** Use **Open with mpv** from the context menu
     for volume, tracks, subtitles and mpv's own configuration. If video stays
     black or the notice reports OpenGL, choose **Qt Multimedia** with the
-    backend button.
+    backend button or under **Preferences › Applications › Media**.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2631,9 +2631,8 @@ The M27 desktop integrations have these limits
   - Refresh links and tags while typing, rename a tag across the vault,
     search notes by tag, a graph view, and a vault per window.
   - Volume, track and subtitle controls and mpv's keyboard shortcuts in the
-    embedded player, an option to read the user's mpv configuration, playing
-    remote files without a full download, and the M28 **Media › Backend**
-    setting ([#578](https://github.com/mikepadiernos/plasma-opus/issues/578)).
+    embedded player, an option to read the user's mpv configuration, and
+    playing remote files without a full download.
   - Report files opened through **Open With** and from previews, exclude
     chosen folders from reporting, and an option under **Preferences › KDE
     Plasma › Activities** to report only while associations are on.
@@ -3122,6 +3121,21 @@ The M28 integration settings have these limits
   viewer components or `kfontinst`, so the listed viewers are verified there
   only by their absence; they are found as in the **Office** tab.
   ([#661](https://github.com/mikepadiernos/plasma-opus/issues/661))
+- **📺 Media settings:** **Audio and video playback** moved from
+  **Preferences › Interface › Previews** to **Preferences › Applications ›
+  Media**, and is still the setting that the backend button beside the
+  playback controls changes. A choice applies after **Apply** or **OK**, or
+  at once from the button, and open previews and the gallery reopen their
+  file with the new backend, from the start, playing on if they were
+  playing. A choice made with the button while Preferences is open is shown
+  there unless the setting was changed there as well, in which case
+  **Apply** keeps the Preferences choice. The tab says what plays audio and
+  video: without mpv support in the build, **mpv** is marked as not built in
+  and can't be chosen; with mpv chosen but no OpenGL, it says Qt Multimedia
+  plays video, checking OpenGL once per session. It also reports whether the
+  mpv application that **Open with mpv** starts is in `PATH`. The tab has no
+  volume or other mpv options.
+  ([#578](https://github.com/mikepadiernos/plasma-opus/issues/578))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3271,6 +3285,11 @@ The M28 integration settings have these limits
     off previews of formats you only read in Okular or that sit on slow or
     metered network folders. Set a sample text in your language, or with the
     characters you need to compare, there or in any font preview.
+  - **Media settings:** Keep **Qt Multimedia** under **Preferences ›
+    Applications › Media** unless the tab says mpv plays audio and video, and
+    choose **mpv** for formats Qt Multimedia can't play. Install the mpv
+    application for **Open with mpv** when you need volume, tracks or
+    subtitles.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3342,6 +3361,9 @@ The M28 integration settings have these limits
   - Choose the viewer component for each kind of document in the **Ebooks
     and Fonts** tab, turn DjVu previews on or off apart from ebooks, and
     offer sample texts for other writing systems.
+  - Keep the playback position when the backend changes, test drawing video
+    with mpv from the **Media** tab, and add mpv's options there once the
+    embedded player has volume, track and subtitle controls.
 
 ## Embedded terminal
 
