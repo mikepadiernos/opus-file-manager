@@ -125,6 +125,7 @@
 #include <KGlobalAccel>
 #include <KGuiItem>
 #include <KHamburgerMenu>
+#include <KIO/AuthInfo>
 #include <KIO/CommandLauncherJob>
 #include <KIO/CopyJob>
 #include <KIO/DirectorySizeJob>
@@ -140,6 +141,7 @@
 #include <KMessageBox>
 #include <KMessageWidget>
 #include <KNewFileMenu>
+#include <KPasswdServerClient>
 #include <KPropertiesDialog>
 #include <KProtocolInfo>
 #include <KSelectAction>
@@ -3922,7 +3924,7 @@ void MainWindow::setupActions()
     manageRemote->setToolTip(i18nc("@info:tooltip", "Add, edit or remove saved SSH, WebDAV, SMB and FTP connections"));
     manageRemote->setIcon(SymbolicIcon::fromTheme(QStringLiteral("network-server")));
     auto *cloudStorage = new KActionMenu(SymbolicIcon::fromTheme(QStringLiteral("folder-cloud")), i18nc("@action", "Cloud Storage"), this);
-    cloudStorage->setToolTip(i18nc("@info:tooltip", "Mount and open a cloud remote configured in rclone"));
+    cloudStorage->setToolTip(i18nc("@info:tooltip", "Open a cloud remote configured in rclone"));
     cloudStorage->setPopupMode(QToolButton::InstantPopup);
     m_cloudStorageMenu = cloudStorage->menu();
     actions->addAction(QStringLiteral("cloud_storage"), cloudStorage);
@@ -6480,15 +6482,46 @@ RcloneMounts *MainWindow::rcloneMounts()
         m_openAfterRcloneMount.clear();
         activePane()->setUrl(QUrl::fromLocalFile(path));
     });
+    // Served remotes require a password that KDE's password server keeps, in
+    // KDE Wallet when it's enabled, so KIO signs in without asking and without
+    // the password appearing in the location or on rclone's command line.
+    m_rcloneMounts->setPasswordProvider([this](const QString &, const QUrl &url, const std::function<void(const QString &)> &done) {
+        KIO::AuthInfo info;
+        info.url = url;
+        info.username = Rclone::serveUser();
+        info.realmValue = Rclone::serveRealm();
+        KPasswdServerClient client;
+        if (client.checkAuthInfo(&info, qlonglong(winId()), 0) && info.username == Rclone::serveUser() && !info.password.isEmpty()) {
+            done(info.password);
+            return;
+        }
+        info.url = url;
+        info.username = Rclone::serveUser();
+        info.realmValue = Rclone::serveRealm();
+        info.password = Rclone::randomPassword();
+        info.keepPassword = true;
+        client.addAuthInfo(info, qlonglong(winId()));
+        done(info.password);
+    });
+    connect(m_rcloneMounts, &RcloneMounts::served, this, [this](const QString &remote, const QUrl &url) {
+        if (remote != m_openAfterRcloneMount) {
+            return;
+        }
+        m_openAfterRcloneMount.clear();
+        activePane()->setUrl(url);
+    });
+    connect(m_rcloneMounts, &RcloneMounts::serveStopped, this, [this](const QString &remote) {
+        showStatusMessage(i18nc("@info:status %1 is an rclone remote", "Stopped serving %1", remote));
+    });
     connect(m_rcloneMounts, &RcloneMounts::failed, this, [this](const QString &remote, const QString &error) {
         m_cloudActivity->addEvent(remote, error);
         if (remote != m_openAfterRcloneMount) {
-            showStatusMessage(i18nc("@info:status %1 is an rclone remote, %2 the error", "Could not mount %1: %2", remote, error));
+            showStatusMessage(i18nc("@info:status %1 is an rclone remote, %2 the error", "Could not open %1: %2", remote, error));
             return;
         }
         m_openAfterRcloneMount.clear();
         KMessageBox::error(this,
-                           i18nc("@info %1 is an rclone remote, %2 the error", "Could not mount %1:\n%2", remote, error),
+                           i18nc("@info %1 is an rclone remote, %2 the error", "Could not open %1:\n%2", remote, error),
                            i18nc("@title:window", "Cloud Storage"));
     });
     connect(m_rcloneMounts, &RcloneMounts::unmounted, this, [this](const QString &remote) {
@@ -6512,7 +6545,14 @@ void MainWindow::populateCloudStorage()
         empty->setToolTip(i18nc("@info:tooltip", "Run rclone config in a terminal to add a remote"));
         empty->setEnabled(false);
     }
+    const QStringList hidden = Settings::rcloneHiddenRemotes();
+    const bool serve = Settings::rcloneOpenMode() == Settings::EnumRcloneOpenMode::WebDav;
+    int shown = 0;
     for (const Rclone::Remote &remote : std::as_const(m_rcloneRemotes)) {
+        if (hidden.contains(remote.name)) {
+            continue;
+        }
+        ++shown;
         QString name = remote.name;
         name.replace(QLatin1Char('&'), QStringLiteral("&&"));
         QString type = remote.type;
@@ -6521,15 +6561,24 @@ void MainWindow::populateCloudStorage()
             m_cloudStorageMenu->addAction(QIcon::fromTheme(QStringLiteral("folder-cloud")),
                                           type.isEmpty() ? name : i18nc("@action:inmenu %1 is an rclone remote, %2 its type", "%1 (%2)", name, type));
         action->setCheckable(true);
-        action->setChecked(mounts->isMounted(remote.name));
+        const bool mounted = mounts->isMounted(remote.name);
+        const bool served = mounts->isServed(remote.name);
+        action->setChecked(mounted || served);
         action->setEnabled(!mounts->isStarting(remote.name));
-        action->setToolTip(mounts->isStarting(remote.name)      ? i18nc("@info:tooltip", "Mounting…")
-                               : mounts->isMounted(remote.name) ? i18nc("@info:tooltip", "Mounted; open it in the active pane")
-                                                                : i18nc("@info:tooltip", "Mount it and open it in the active pane"));
+        action->setToolTip(mounts->isStarting(remote.name) ? i18nc("@info:tooltip", "Opening…")
+                               : mounted                   ? i18nc("@info:tooltip", "Mounted; open it in the active pane")
+                               : served                    ? i18nc("@info:tooltip", "Served over WebDAV on this computer; open it in the active pane")
+                               : serve                     ? i18nc("@info:tooltip", "Serve it over WebDAV on this computer and open it in the active pane")
+                                                           : i18nc("@info:tooltip", "Mount it and open it in the active pane"));
         const QString id = remote.name;
         connect(action, &QAction::triggered, this, [this, id] {
             openRcloneRemote(id);
         });
+    }
+    if (shown == 0 && !m_rcloneRemotes.isEmpty()) {
+        QAction *none = m_cloudStorageMenu->addAction(i18nc("@action:inmenu", "All rclone remotes are hidden"));
+        none->setToolTip(i18nc("@info:tooltip", "Choose the remotes to show in Preferences › Remote and Cloud › rclone"));
+        none->setEnabled(false);
     }
     const QStringList mounted = mounts->mountedRemotes();
     if (!mounted.isEmpty()) {
@@ -6544,25 +6593,48 @@ void MainWindow::populateCloudStorage()
             });
         }
     }
+    const QStringList served = mounts->servedRemotes();
+    if (!served.isEmpty()) {
+        m_cloudStorageMenu->addSection(i18nc("@title:menu", "Stop Serving"));
+        for (const QString &remote : served) {
+            QString name = remote;
+            name.replace(QLatin1Char('&'), QStringLiteral("&&"));
+            QAction *action = m_cloudStorageMenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("process-stop")), name);
+            action->setToolTip(i18nc("@info:tooltip", "Stop the WebDAV server Plasma Opus started"));
+            connect(action, &QAction::triggered, this, [this, remote] {
+                unmountRcloneRemote(remote);
+            });
+        }
+    }
 }
 
 void MainWindow::openRcloneRemote(const QString &remote)
 {
     m_openAfterRcloneMount = remote;
-    rcloneMounts()->mount(remote);
+    if (Settings::rcloneOpenMode() == Settings::EnumRcloneOpenMode::WebDav) {
+        rcloneMounts()->serve(remote);
+    } else {
+        rcloneMounts()->mount(remote);
+    }
 }
 
 void MainWindow::unmountRcloneRemote(const QString &remote)
 {
-    if (!waitForCloudUploads(i18nc("@info %1 is an rclone remote", "Files written to %1 are still uploading. Unmounting now stops the uploads.", remote),
+    const bool served = rcloneMounts()->isServed(remote);
+    if (!waitForCloudUploads(served
+                                 ? i18nc("@info %1 is an rclone remote", "Files written to %1 are still uploading. Stopping now stops the uploads.", remote)
+                                 : i18nc("@info %1 is an rclone remote", "Files written to %1 are still uploading. Unmounting now stops the uploads.", remote),
                              {remote},
                              false)) {
         return;
     }
+    const QUrl servedUrl = rcloneMounts()->servedUrl(remote);
     const QString path = Rclone::mountPoint(remote);
     for (Pane *pane : {activePane(), inactivePane()}) {
         const QUrl url = pane->url();
-        if (url.isLocalFile() && (url.toLocalFile() == path || url.toLocalFile().startsWith(path + QLatin1Char('/')))) {
+        const bool inside = servedUrl.isEmpty() ? url.isLocalFile() && (url.toLocalFile() == path || url.toLocalFile().startsWith(path + QLatin1Char('/')))
+                                                : url.scheme() == servedUrl.scheme() && url.host() == servedUrl.host() && url.port() == servedUrl.port();
+        if (inside) {
             pane->setUrl(QUrl::fromLocalFile(QDir::homePath()));
         }
     }
@@ -8042,8 +8114,11 @@ bool MainWindow::waitForCloudUploads(const QString &text, const QStringList &rem
         if (!self) {
             return status;
         }
-        // rclone uploads only while a remote is mounted.
-        const QStringList checked = !remotes.isEmpty() ? remotes : (self->m_rcloneMounts ? self->m_rcloneMounts->mountedRemotes() : QStringList());
+        // rclone uploads only while a remote is mounted or served.
+        QStringList checked = remotes;
+        if (checked.isEmpty() && self->m_rcloneMounts) {
+            checked = self->m_rcloneMounts->mountedRemotes() + self->m_rcloneMounts->servedRemotes();
+        }
         for (const QString &remote : checked) {
             const CloudActivity::PendingUploads pending = CloudActivity::pendingUploads(cacheDir, remote);
             status.uploads.files += pending.files;
@@ -8131,6 +8206,7 @@ void MainWindow::applySettings()
     actionCollection()->action(QStringLiteral("online_accounts"))->setVisible(Settings::onlineAccountsEnabled());
     // Hiding it also turns off its shortcut.
     actionCollection()->action(QStringLiteral("network_locations"))->setVisible(Settings::remoteShowNetwork());
+    actionCollection()->action(QStringLiteral("cloud_storage"))->setVisible(Settings::rcloneEnabled());
     QAction *terminalHistory = actionCollection()->action(QStringLiteral("search_terminal_history"));
     terminalHistory->setVisible(Settings::atuinHistory());
     terminalHistory->setEnabled(Settings::atuinHistory());

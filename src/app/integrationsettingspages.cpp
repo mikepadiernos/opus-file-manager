@@ -25,6 +25,7 @@
 #include "officeapps.h"
 #include "onlineaccounts.h"
 #include "portalsetup.h"
+#include "rclone.h"
 #include "remotemounts.h"
 #include "remoteprofiles.h"
 #include "remoteprofileseditor.h"
@@ -2599,4 +2600,123 @@ QGroupBox *SettingsDialog::createRemoteDiscoveryGroup()
     connect(shown, &QCheckBox::toggled, group, refresh);
     refresh();
     return group;
+}
+
+QWidget *SettingsDialog::createRcloneIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("rcloneIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *remotesGroup = new StatusGroup(i18nc("@title:group", "Cloud Storage"));
+    remotesGroup->setObjectName(QStringLiteral("rcloneRemotesGroup"));
+    auto *remotesLayout = new QVBoxLayout(remotesGroup);
+    auto *enabled = checkBox(QStringLiteral("RcloneEnabled"), i18nc("@option:check", "Offer the remotes configured in rclone in Go › Cloud Storage"));
+    remotesLayout->addWidget(enabled);
+    auto *listLabel = new QLabel(i18nc("@label", "Show these remotes:"));
+    remotesLayout->addWidget(listLabel);
+    auto *remotes = bound(new HiddenItemsList, QStringLiteral("RcloneHiddenRemotes"), "hiddenItems");
+    remotesLayout->addWidget(remotes, 1);
+    auto *status = statusLabel(QStringLiteral("rcloneStatus"));
+    remotesLayout->addWidget(status);
+    auto *refresh = actionButton(QStringLiteral("refreshRcloneRemotes"), i18nc("@action:button", "Refresh List"));
+    refresh->setIcon(QIcon::fromTheme(QStringLiteral("view-refresh")));
+    refresh->setToolTip(i18nc("@info:tooltip", "Read the remotes from rclone again"));
+    remotesLayout->addLayout(buttonRow({refresh}));
+    auto *note = new QLabel(i18nc("@info",
+                                  "Plasma Opus lists only the names and types of rclone's remotes, and never reads, stores or changes their "
+                                  "credentials. Add, sign in to or remove remotes by running rclone config in a terminal. Clearing a remote "
+                                  "only leaves it out of Go › Cloud Storage; cloud sync still offers it. Remotes added later are shown until "
+                                  "they are cleared here."));
+    note->setWordWrap(true);
+    remotesLayout->addWidget(note);
+    layout->addWidget(remotesGroup, 1);
+
+    auto *openingGroup = new StatusGroup(i18nc("@title:group", "Opening Remotes"));
+    openingGroup->setObjectName(QStringLiteral("rcloneOpeningGroup"));
+    auto *openingLayout = new QVBoxLayout(openingGroup);
+    auto *form = new QFormLayout;
+    auto *mode = comboBox(QStringLiteral("RcloneOpenMode"),
+                          {i18nc("@item:inlistbox", "Mount it as a local folder"), i18nc("@item:inlistbox", "Serve it over WebDAV on this computer only")});
+    mode->setToolTip(i18nc("@info:tooltip", "How Go › Cloud Storage opens a remote that isn't open yet"));
+    form->addRow(i18nc("@label:listbox", "Open a remote:"), mode);
+    openingLayout->addLayout(form);
+    auto *modeStatus = statusLabel(QStringLiteral("rcloneOpenModeStatus"));
+    openingLayout->addWidget(modeStatus);
+    auto *modeNote = new QLabel(i18nc("@info",
+                                      "A remote that is already open stays mounted or served until you choose it under Unmount or Stop "
+                                      "Serving in Go › Cloud Storage, or quit Plasma Opus."));
+    modeNote->setWordWrap(true);
+    openingLayout->addWidget(modeNote);
+    layout->addWidget(openingGroup);
+
+    // rclone runs only while the integration is enabled, as in the main window.
+    auto *lister = new RcloneMounts(page);
+    const auto reload = [enabled, status, lister] {
+        if (!enabled->isChecked()) {
+            status->setText(i18nc("@info", "Go › Cloud Storage is hidden, together with its shortcut."));
+            return;
+        }
+        status->setText(i18nc("@info", "Reading the remotes from rclone…"));
+        lister->listRemotes();
+    };
+    connect(lister, &RcloneMounts::remotesListed, page, [enabled, remotes, status](const QList<Rclone::Remote> &listed, const QString &error) {
+        if (!enabled->isChecked()) {
+            return;
+        }
+        if (!error.isEmpty()) {
+            status->setText(error);
+            return;
+        }
+        QList<std::pair<QString, QString>> items;
+        for (const Rclone::Remote &remote : listed) {
+            items.append(
+                {remote.name, remote.type.isEmpty() ? remote.name : i18nc("@item %1 is an rclone remote, %2 its type", "%1 (%2)", remote.name, remote.type)});
+        }
+        remotes->setItems(items);
+        for (int row = 0; row < remotes->count(); ++row) {
+            remotes->item(row)->setIcon(QIcon::fromTheme(QStringLiteral("folder-cloud")));
+        }
+        status->setText(listed.isEmpty() ? i18nc("@info", "rclone has no remotes. Run rclone config in a terminal to add one.")
+                                         : i18ncp("@info", "rclone has one remote.", "rclone has %1 remotes.", listed.size()));
+    });
+    const auto update = [enabled, remotes, listLabel, refresh, mode] {
+        listLabel->setEnabled(enabled->isChecked());
+        remotes->setEnabled(enabled->isChecked());
+        refresh->setEnabled(enabled->isChecked());
+        mode->setEnabled(enabled->isChecked());
+    };
+    const auto updateMode = [mode, modeStatus] {
+        if (mode->currentIndex() == int(Settings::EnumRcloneOpenMode::WebDav)) {
+            modeStatus->setText(KProtocolInfo::isKnownProtocol(QStringLiteral("webdav"))
+                                    ? i18nc("@info",
+                                            "rclone serves the remote on 127.0.0.1, which only this computer can reach, and Plasma Opus opens "
+                                            "it through KIO. Its password is created once and kept by KDE's password server, in KDE "
+                                            "Wallet when it is enabled. Applications that don't use KIO can't open the remote's files.")
+                                    : i18nc("@info", "KIO can't open WebDAV locations, so served remotes can't be opened. Install KIO's HTTP worker."));
+            return;
+        }
+        const bool fuse =
+            !QStandardPaths::findExecutable(QStringLiteral("fusermount3")).isEmpty() || !QStandardPaths::findExecutable(QStringLiteral("fusermount")).isEmpty();
+        modeStatus->setText(fuse ? i18nc("@info %1 is a folder",
+                                         "rclone mounts the remote in %1, where every application can open its files.",
+                                         QDir::toNativeSeparators(Rclone::mountRoot()))
+                                 : i18nc("@info", "Mounting needs FUSE, which is not installed. Install the fuse3 package, or serve remotes over WebDAV."));
+    };
+    remotesGroup->refresh = reload;
+    openingGroup->refresh = updateMode;
+    connect(enabled, &QCheckBox::toggled, page, [update, reload] {
+        update();
+        reload();
+    });
+    connect(mode, &QComboBox::currentIndexChanged, page, updateMode);
+    // Defaults and Reset change the widgets without user input.
+    connect(this, &KConfigDialog::widgetModified, page, [update, updateMode] {
+        update();
+        updateMode();
+    });
+    update();
+    updateMode();
+    connect(refresh, &QPushButton::clicked, page, reload);
+    return page;
 }

@@ -217,9 +217,9 @@ public:
     RcloneMounts *rcloneMounts();
     /// Fills the Cloud Storage menu from the last list of rclone remotes.
     void populateCloudStorage();
-    /// Mounts an rclone remote if needed and opens it in the active pane.
+    /// Mounts or serves an rclone remote, as Preferences choose, if needed and opens it in the active pane.
     void openRcloneRemote(const QString &remote);
-    /// Leaves the remote's folder in either pane and stops its mount.
+    /// Leaves the remote's folder or location in either pane and stops its mount or server.
     void unmountRcloneRemote(const QString &remote);
     /// The remote connections this window mounted as folders, created on first use.
     RemoteMountManager *remoteMounts();

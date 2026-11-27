@@ -1828,4 +1828,22 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="CloudStorage">
+    <entry name="RcloneEnabled" type="Bool">
+      <label>Offer Go › Cloud Storage, which opens the remotes configured in rclone</label>
+      <default>true</default>
+    </entry>
+    <entry name="RcloneHiddenRemotes" type="StringList">
+      <label>The rclone remotes that Go › Cloud Storage leaves out</label>
+      <default></default>
+    </entry>
+    <entry name="RcloneOpenMode" type="Enum">
+      <label>How Go › Cloud Storage opens a remote: by mounting it as a local folder, or by serving it over WebDAV on the loopback interface</label>
+      <choices>
+        <choice name="Mount" value="mount"/>
+        <choice name="WebDav" value="webdav"/>
+      </choices>
+      <default>Mount</default>
+    </entry>
+  </group>
 </kcfg>

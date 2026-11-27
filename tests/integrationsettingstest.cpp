@@ -27,6 +27,7 @@
 #include "operationjob.h"
 #include "pane.h"
 #include "portalsetup.h"
+#include "rclone.h"
 #include "remotemounts.h"
 #include "remoteprofiles.h"
 #include "remoteprofilesdialog.h"
@@ -73,6 +74,7 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScopeGuard>
+#include <QSignalSpy>
 #include <QSpinBox>
 #include <QStackedWidget>
 #include <QStandardPaths>
@@ -2856,6 +2858,142 @@ private Q_SLOTS:
         QVERIFY(network->isVisible());
         Q_EMIT remote->menu()->aboutToShow();
         QVERIFY(remote->menu()->actions().contains(network));
+    }
+
+    void rcloneTabChoosesRemotesAndHowToOpenThem()
+    {
+        QTemporaryDir bin;
+        QVERIFY(bin.isValid());
+        const QByteArray path = qgetenv("PATH");
+        const auto restore = qScopeGuard([&path] {
+            qputenv("PATH", path);
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        // A fake rclone lists two remotes and records how it was started.
+        const QString output = bin.filePath(QStringLiteral("arguments"));
+        QFile rclone(bin.filePath(QStringLiteral("rclone")));
+        QVERIFY(rclone.open(QIODevice::WriteOnly));
+        rclone.write(
+            "#!/bin/sh\n"
+            "if [ \"$1\" = listremotes ]; then printf 'gdrive:   drive\\nwork docs:   box\\n'; exit 0; fi\n"
+            "printf '%s' \"$RCLONE_PASS\" > '"
+            + output.toLocal8Bit() + ".pass'\nprintf '%s\\n' \"$@\" > '" + output.toLocal8Bit() + "'\nexec /bin/sleep 30\n");
+        rclone.close();
+        rclone.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+        qputenv("PATH", bin.path().toLocal8Bit());
+
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *enabled = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_RcloneEnabled"));
+        auto *remotes = dialog.findChild<HiddenItemsList *>(QStringLiteral("kcfg_RcloneHiddenRemotes"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("rcloneStatus"));
+        auto *refresh = dialog.findChild<QPushButton *>(QStringLiteral("refreshRcloneRemotes"));
+        auto *mode = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_RcloneOpenMode"));
+        auto *modeStatus = dialog.findChild<QLabel *>(QStringLiteral("rcloneOpenModeStatus"));
+        QVERIFY(enabled && remotes && status && refresh && mode && modeStatus);
+        QCOMPARE(tabTitleOf(enabled), QStringLiteral("rclone"));
+        QVERIFY(enabled->isChecked());
+        QCOMPARE(mode->currentIndex(), int(Settings::EnumRcloneOpenMode::Mount));
+        QVERIFY2(modeStatus->text().contains(QStringLiteral("mount")) || modeStatus->text().contains(QStringLiteral("FUSE")), qPrintable(modeStatus->text()));
+
+        refresh->click();
+        QTRY_COMPARE(remotes->count(), 2);
+        QCOMPARE(remotes->item(0)->text(), QStringLiteral("gdrive (drive)"));
+        QCOMPARE(remotes->item(1)->text(), QStringLiteral("work docs (box)"));
+        QVERIFY2(status->text().contains(QStringLiteral("2 remotes")), qPrintable(status->text()));
+
+        // A cleared remote is left out of Go › Cloud Storage.
+        auto *cloud = qobject_cast<KActionMenu *>(window.actionCollection()->action(QStringLiteral("cloud_storage")));
+        QVERIFY(cloud && cloud->isVisible());
+        QSignalSpy listed(window.rcloneMounts(), &RcloneMounts::remotesListed);
+        const auto remoteEntries = [&] {
+            listed.clear();
+            Q_EMIT cloud->menu()->aboutToShow();
+            if (!listed.wait(5000)) {
+                return QList<QAction *>();
+            }
+            window.populateCloudStorage();
+            return cloud->menu()->actions();
+        };
+        QCOMPARE(remoteEntries().size(), 2);
+        remotes->item(0)->setCheckState(Qt::Unchecked);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::rcloneHiddenRemotes(), QStringList{QStringLiteral("gdrive")});
+        QList<QAction *> entries = remoteEntries();
+        QCOMPARE(entries.size(), 1);
+        QCOMPARE(entries.first()->text(), QStringLiteral("work docs (box)"));
+        remotes->item(1)->setCheckState(Qt::Unchecked);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        entries = remoteEntries();
+        QCOMPARE(entries.size(), 1);
+        QVERIFY(!entries.first()->isEnabled());
+        QVERIFY(entries.first()->text().contains(QStringLiteral("hidden")));
+        remotes->item(1)->setCheckState(Qt::Checked);
+        dialog.button(QDialogButtonBox::Apply)->click();
+
+        // Serving over WebDAV opens the remote through KIO, with the password kept out of the location.
+        mode->setCurrentIndex(int(Settings::EnumRcloneOpenMode::WebDav));
+        // The dialog tracks user selection in plain combo boxes.
+        Q_EMIT mode->activated(mode->currentIndex());
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        QVERIFY2(modeStatus->text().contains(QStringLiteral("127.0.0.1")) || modeStatus->text().contains(QStringLiteral("HTTP worker")),
+                 qPrintable(modeStatus->text()));
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::rcloneOpenMode(), Settings::EnumRcloneOpenMode::WebDav);
+        window.rcloneMounts()->setServeCheck([output](quint16) {
+            return QFile::exists(output);
+        });
+        window.rcloneMounts()->setPasswordProvider([](const QString &, const QUrl &, const std::function<void(const QString &)> &done) {
+            done(QStringLiteral("secret"));
+        });
+        entries = remoteEntries();
+        QCOMPARE(entries.size(), 1);
+        QVERIFY(entries.first()->toolTip().contains(QStringLiteral("WebDAV")));
+        QSignalSpy served(window.rcloneMounts(), &RcloneMounts::served);
+        entries.first()->trigger();
+        QVERIFY(served.wait(5000));
+        const QUrl url = served.first().at(1).toUrl();
+        QCOMPARE(window.activePane()->url(), url);
+        QCOMPARE(url.scheme(), QStringLiteral("webdav"));
+        QCOMPARE(url.host(), QStringLiteral("127.0.0.1"));
+        QCOMPARE(url.userName(), QStringLiteral("rclone"));
+        QVERIFY(url.password().isEmpty());
+        QFile arguments(output);
+        QVERIFY(arguments.open(QIODevice::ReadOnly));
+        const QStringList started = QString::fromLocal8Bit(arguments.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        QCOMPARE(started.mid(0, 2), (QStringList{QStringLiteral("serve"), QStringLiteral("webdav")}));
+        QVERIFY(started.contains(QStringLiteral("127.0.0.1:%1").arg(url.port())));
+        QVERIFY(started.contains(QStringLiteral("work docs:")));
+        QVERIFY(!started.contains(QStringLiteral("secret")));
+        QFile pass(output + QStringLiteral(".pass"));
+        QVERIFY(pass.open(QIODevice::ReadOnly));
+        QCOMPARE(pass.readAll(), QByteArray("secret"));
+        QVERIFY(window.rcloneMounts()->mountedRemotes().isEmpty());
+
+        // Stop Serving leaves the location.
+        entries = remoteEntries();
+        QVERIFY(entries.first()->isChecked());
+        QCOMPARE(entries.size(), 3);
+        QVERIFY(entries.at(1)->isSeparator());
+        QCOMPARE(entries.at(1)->text(), QStringLiteral("Stop Serving"));
+        QSignalSpy stopped(window.rcloneMounts(), &RcloneMounts::serveStopped);
+        entries.at(2)->trigger();
+        QCOMPARE(window.activePane()->url(), QUrl::fromLocalFile(QDir::homePath()));
+        QVERIFY(stopped.wait(5000));
+        QVERIFY(window.rcloneMounts()->servedRemotes().isEmpty());
+
+        // Turning the integration off hides Go › Cloud Storage without running rclone.
+        enabled->setChecked(false);
+        QVERIFY(!remotes->isEnabled() && !mode->isEnabled());
+        QVERIFY2(status->text().contains(QStringLiteral("hidden")), qPrintable(status->text()));
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::rcloneEnabled());
+        QVERIFY(!cloud->isVisible());
+        enabled->setChecked(true);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(cloud->isVisible());
     }
 };
 

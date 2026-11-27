@@ -406,6 +406,11 @@ private:
     QGroupBox *createRemoteDefaultsGroup(RemoteProfilesEditor *editor);
     /// The Local Network group of the Connections tab, which shows or hides Go › Network.
     QGroupBox *createRemoteDiscoveryGroup();
+    /**
+     * The Remote and Cloud › rclone tab: whether Go › Cloud Storage offers
+     * rclone's remotes, which of them, and whether it mounts or serves them.
+     */
+    QWidget *createRcloneIntegrationPage();
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.

@@ -327,7 +327,8 @@ void CloudActivityDialog::refreshConnections()
     };
 
     const QStringList mounted = m_rclone ? m_rclone->mountedRemotes() : QStringList();
-    QStringList remotes = mounted;
+    const QStringList served = m_rclone ? m_rclone->servedRemotes() : QStringList();
+    QStringList remotes = mounted + served;
     const QStringList pending = CloudActivity::remotesWithPendingUploads(m_cacheDir);
     for (const QString &remote : pending) {
         if (!remotes.contains(remote)) {
@@ -336,10 +337,13 @@ void CloudActivityDialog::refreshConnections()
     }
     for (const QString &remote : std::as_const(remotes)) {
         const bool isMounted = mounted.contains(remote);
+        const bool isServed = served.contains(remote);
         add(QStringLiteral("rclone:") + remote,
             {remote,
-             i18nc("@item connection type", "rclone mount"),
-             isMounted ? i18nc("@info:status", "Mounted") : i18nc("@info:status", "Not mounted"),
+             isServed ? i18nc("@item connection type", "rclone WebDAV") : i18nc("@item connection type", "rclone mount"),
+             isMounted      ? i18nc("@info:status", "Mounted")
+                 : isServed ? i18nc("@info:status", "Served")
+                            : i18nc("@info:status", "Not mounted"),
              isMounted ? spaceText(CloudActivity::mountSpace(Rclone::mountPoint(remote))) : QString(),
              pendingText(CloudActivity::pendingUploads(m_cacheDir, remote))});
     }
