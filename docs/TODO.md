@@ -33,6 +33,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Mail attachments on Plasma](#mail-attachments-on-plasma-657)               | [M27](ROADMAP.md#m27-integrations)                                             | [#657]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
 | [Mail file preview on Plasma](#mail-file-preview-on-plasma-658)             | [M27](ROADMAP.md#m27-integrations)                                             | [#658]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
 | [Shared Activity context on Plasma](#shared-activity-context-on-plasma-659) | [M27](ROADMAP.md#m27-integrations)                                             | [#659]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
+| [Default file manager on Plasma](#default-file-manager-on-plasma-293)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#293]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 
 ## mpv integration (#563)
 
@@ -426,10 +427,47 @@ Board statuses were last confirmed on 2026-11-27.
    Record any differences in [CAVEATS](CAVEATS.md), then remove this entry
    and its roadmap link.
 
+## Default file manager on Plasma (#293)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#293]
+  (Development).
+- **Blocker:** The development container has no Plasma session, no System
+  Settings, no running file manager and no dbus-broker, so the default that
+  Plasma and other applications see, claiming `org.freedesktop.FileManager1`
+  while Dolphin runs and reloading activation files cannot be tried there.
+- **Confirmed state:** `src/core/defaultfilemanager.cpp` reads and sets the
+  default application for folders, finds an overriding desktop-specific
+  list, and installs, updates and removes the activation file;
+  **Preferences › KDE Plasma › File Manager** offers them.
+  `defaultfilemanagertest`, `integrationsettingstest` and
+  `filemanagerservicetest`, which claims the service on a private session
+  bus, pass in the container. See
+  [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with Plasma Opus installed by `./install.sh` and
+   Dolphin as the default, open **Preferences › KDE Plasma › File Manager**
+   and check that the status names Dolphin.
+2. Choose **Set Plasma Opus as Default**. Check that System Settings ›
+   Default Applications shows Plasma Opus and that a browser's **Show in
+   folder** opens Plasma Opus. With Dolphin running, check the warning; quit
+   Dolphin, restart Plasma Opus and check that **Show in folder** reaches it.
+3. Choose **Install Activation File**, quit Plasma Opus and every file
+   manager, and check that **Show in folder** starts Plasma Opus, under
+   dbus-daemon and, where available, dbus-broker. Choose **Remove Activation
+   File** and check that it no longer does.
+4. Add `inode/directory=org.kde.dolphin.desktop;` to
+   `~/.config/kde-mimeapps.list` and check that **Set Plasma Opus as
+   Default** reports it. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and its
+   roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
 [#288]: https://github.com/mikepadiernos/plasma-opus/issues/288
+[#293]: https://github.com/mikepadiernos/plasma-opus/issues/293
 [#563]: https://github.com/mikepadiernos/plasma-opus/issues/563
 [#564]: https://github.com/mikepadiernos/plasma-opus/issues/564
 [#565]: https://github.com/mikepadiernos/plasma-opus/issues/565
