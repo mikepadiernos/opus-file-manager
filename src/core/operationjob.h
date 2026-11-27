@@ -24,11 +24,27 @@ class OperationJob : public KJob
     Q_OBJECT
 
 public:
-    explicit OperationJob(const QString &title, QObject *parent = nullptr);
+    /// The operations that can report to Plasma, each with its own setting
+    /// under KDE Plasma › Notifications.
+    enum class Kind {
+        Checksums,
+        FolderSync,
+        DuplicateFinder,
+        FileSplit,
+        BatchRename,
+        ImageConversion,
+        LibraryRefresh,
+    };
+
+    OperationJob(Kind kind, const QString &title, QObject *parent = nullptr);
+
+    /// Whether the settings let operations of this kind report to Plasma.
+    static bool reports(Kind kind);
 
     /// Registers the job with the tracker, or the default tracker, starts it
     /// and, when a watcher is given, follows it. Without any tracker, such as
-    /// in tests, the job still runs but nothing reports it.
+    /// in tests, or when the settings turn off reporting for the job's kind,
+    /// the job still runs but nothing reports it.
     static OperationJob *track(OperationJob *job, QFutureWatcherBase *watcher = nullptr, KJobTrackerInterface *tracker = nullptr);
     /// The tracker used by track(); the application sets Plasma's job tracker.
     static void setDefaultTracker(KJobTrackerInterface *tracker);
@@ -42,6 +58,7 @@ public:
 
     void start() override;
 
+    Kind kind() const;
     QString title() const;
     void setSource(const QUrl &url);
     void setDestination(const QUrl &url);
@@ -69,6 +86,7 @@ protected:
 private:
     void updateDescription();
 
+    Kind m_kind;
     QString m_title;
     QUrl m_source;
     QUrl m_destination;

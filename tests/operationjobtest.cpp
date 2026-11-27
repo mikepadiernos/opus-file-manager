@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "operationjob.h"
+#include "settings.h"
 
 #include <KJobTrackerInterface>
 
@@ -8,6 +9,7 @@
 #include <QPointer>
 #include <QPromise>
 #include <QSignalSpy>
+#include <QStandardPaths>
 #include <QTest>
 
 #include <memory>
@@ -64,6 +66,16 @@ class OperationJobTest : public QObject
     Q_OBJECT
 
 private Q_SLOTS:
+    void initTestCase()
+    {
+        QStandardPaths::setTestModeEnabled(true);
+    }
+
+    void init()
+    {
+        Settings::self()->setDefaults();
+    }
+
     void displayNameHidesPaths_data()
     {
         QTest::addColumn<QUrl>("url");
@@ -85,7 +97,7 @@ private Q_SLOTS:
     void reportsDescriptionProgressAndSuccess()
     {
         RecordingTracker tracker;
-        auto jobOwner = std::make_unique<OperationJob>(QStringLiteral("Synchronizing folders"));
+        auto jobOwner = std::make_unique<OperationJob>(OperationJob::Kind::FolderSync, QStringLiteral("Synchronizing folders"));
         auto *job = jobOwner.get();
         job->setAutoDelete(false);
         QSignalSpy result(job, &KJob::result);
@@ -120,7 +132,7 @@ private Q_SLOTS:
     void ownerFailureWinsOverWatcherFinish()
     {
         RecordingTracker tracker;
-        auto jobOwner = std::make_unique<OperationJob>(QStringLiteral("Verifying checksum file"));
+        auto jobOwner = std::make_unique<OperationJob>(OperationJob::Kind::Checksums, QStringLiteral("Verifying checksum file"));
         auto *job = jobOwner.get();
         job->setAutoDelete(false);
         QSignalSpy result(job, &KJob::result);
@@ -146,7 +158,7 @@ private Q_SLOTS:
     void cancelFromPlasmaCallsHandlerOnce()
     {
         RecordingTracker tracker;
-        auto jobOwner = std::make_unique<OperationJob>(QStringLiteral("Finding duplicate files"));
+        auto jobOwner = std::make_unique<OperationJob>(OperationJob::Kind::DuplicateFinder, QStringLiteral("Finding duplicate files"));
         auto *job = jobOwner.get();
         job->setAutoDelete(false);
         QSignalSpy result(job, &KJob::result);
@@ -168,7 +180,7 @@ private Q_SLOTS:
 
     void ownerCancelSkipsHandler()
     {
-        auto jobOwner = std::make_unique<OperationJob>(QStringLiteral("Splitting file"));
+        auto jobOwner = std::make_unique<OperationJob>(OperationJob::Kind::FileSplit, QStringLiteral("Splitting file"));
         auto *job = jobOwner.get();
         job->setAutoDelete(false);
         QSignalSpy result(job, &KJob::result);
@@ -185,7 +197,7 @@ private Q_SLOTS:
 
     void canceledOrDestroyedWatcherCancelsJob()
     {
-        auto canceledJobOwner = std::make_unique<OperationJob>(QStringLiteral("Renaming items"));
+        auto canceledJobOwner = std::make_unique<OperationJob>(OperationJob::Kind::BatchRename, QStringLiteral("Renaming items"));
         auto *canceledJob = canceledJobOwner.get();
         canceledJob->setAutoDelete(false);
         QSignalSpy canceledResult(canceledJob, &KJob::result);
@@ -199,7 +211,7 @@ private Q_SLOTS:
         QTRY_COMPARE(canceledResult.count(), 1);
         QCOMPARE(canceledJob->error(), int(KJob::KilledJobError));
 
-        auto orphanedJobOwner = std::make_unique<OperationJob>(QStringLiteral("Combining files"));
+        auto orphanedJobOwner = std::make_unique<OperationJob>(OperationJob::Kind::FileSplit, QStringLiteral("Combining files"));
         auto *orphanedJob = orphanedJobOwner.get();
         orphanedJob->setAutoDelete(false);
         QSignalSpy orphanedResult(orphanedJob, &KJob::result);
@@ -218,7 +230,7 @@ private Q_SLOTS:
     {
         RecordingTracker tracker;
         OperationJob::setDefaultTracker(&tracker);
-        auto *job = OperationJob::track(new OperationJob(QStringLiteral("Refreshing tag library")));
+        auto *job = OperationJob::track(new OperationJob(OperationJob::Kind::LibraryRefresh, QStringLiteral("Refreshing tag library")));
         job->setAutoDelete(false);
         const std::unique_ptr<OperationJob> owner(job);
         QCOMPARE(tracker.registered, 1);
@@ -226,6 +238,46 @@ private Q_SLOTS:
         QCOMPARE(tracker.finishedCount, 1);
         OperationJob::setDefaultTracker(nullptr);
         QCOMPARE(OperationJob::defaultTracker(), nullptr);
+    }
+
+    void reportingFollowsTheSettings()
+    {
+        QVERIFY(OperationJob::reports(OperationJob::Kind::Checksums));
+        Settings::setNotifyChecksums(false);
+        QVERIFY(!OperationJob::reports(OperationJob::Kind::Checksums));
+        QVERIFY(OperationJob::reports(OperationJob::Kind::FolderSync));
+
+        // An unreported job still runs and finishes for its owner.
+        RecordingTracker tracker;
+        auto jobOwner = std::make_unique<OperationJob>(OperationJob::Kind::Checksums, QStringLiteral("Creating checksum file"));
+        auto *job = jobOwner.get();
+        job->setAutoDelete(false);
+        QSignalSpy result(job, &KJob::result);
+        OperationJob::track(job, nullptr, &tracker);
+        job->setProgress(1, 2);
+        job->finish();
+        QCOMPARE(tracker.registered, 0);
+        QCOMPARE(tracker.finishedCount, 0);
+        QCOMPARE(result.count(), 1);
+        QCOMPARE(job->error(), 0);
+
+        const auto settings = {&Settings::setNotifyFolderSync,
+                               &Settings::setNotifyDuplicateFinder,
+                               &Settings::setNotifyFileSplit,
+                               &Settings::setNotifyBatchRename,
+                               &Settings::setNotifyImageConversion,
+                               &Settings::setNotifyLibraryRefresh};
+        for (const auto set : settings) {
+            set(false);
+        }
+        for (const auto kind : {OperationJob::Kind::FolderSync,
+                                OperationJob::Kind::DuplicateFinder,
+                                OperationJob::Kind::FileSplit,
+                                OperationJob::Kind::BatchRename,
+                                OperationJob::Kind::ImageConversion,
+                                OperationJob::Kind::LibraryRefresh}) {
+            QVERIFY(!OperationJob::reports(kind));
+        }
     }
 };
 

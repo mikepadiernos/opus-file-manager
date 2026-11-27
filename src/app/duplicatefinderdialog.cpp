@@ -347,7 +347,7 @@ void DuplicateFinderDialog::startScan()
     if (m_job) {
         m_job->cancel();
     }
-    m_job = OperationJob::track(new OperationJob(i18nc("@title job", "Finding duplicate files")));
+    m_job = OperationJob::track(new OperationJob(OperationJob::Kind::DuplicateFinder, i18nc("@title job", "Finding duplicate files")));
     m_job->setSource(m_folder);
     m_job->setCancelHandler([button = QPointer<QPushButton>(m_cancel)] {
         if (button && button->isEnabled()) {

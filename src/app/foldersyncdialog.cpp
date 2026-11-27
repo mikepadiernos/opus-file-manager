@@ -746,7 +746,7 @@ void FolderSyncDialog::synchronize()
             },
             speedLimit);
     }));
-    m_syncJob = OperationJob::track(new OperationJob(i18nc("@title job", "Synchronizing folders")), &m_syncWatcher);
+    m_syncJob = OperationJob::track(new OperationJob(OperationJob::Kind::FolderSync, i18nc("@title job", "Synchronizing folders")), &m_syncWatcher);
     m_syncJob->setSource(QUrl::fromLocalFile(m_left));
     m_syncJob->setDestination(QUrl::fromLocalFile(m_right));
     m_syncJob->setCancelHandler([button = QPointer<QPushButton>(m_cancel)] {
@@ -831,7 +831,7 @@ void FolderSyncDialog::synchronizeWithRsync(const RsyncSync::Transfer &transfer)
         this);
     m_rsync = process;
     const bool toRight = transfer.direction == RsyncSync::Direction::ToRight;
-    m_syncJob = OperationJob::track(new OperationJob(i18nc("@title job", "Synchronizing folders")));
+    m_syncJob = OperationJob::track(new OperationJob(OperationJob::Kind::FolderSync, i18nc("@title job", "Synchronizing folders")));
     m_syncJob->setSource(toRight ? m_leftUrl : m_rightUrl);
     m_syncJob->setDestination(toRight ? m_rightUrl : m_leftUrl);
     m_syncJob->setCancelHandler([button = QPointer<QPushButton>(m_cancel)] {

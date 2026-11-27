@@ -617,6 +617,36 @@
       <default>false</default>
     </entry>
   </group>
+  <group name="Notifications">
+    <entry name="NotifyChecksums" type="Bool">
+      <label>Report checksum file creation and verification to Plasma</label>
+      <default>true</default>
+    </entry>
+    <entry name="NotifyFolderSync" type="Bool">
+      <label>Report folder synchronization to Plasma</label>
+      <default>true</default>
+    </entry>
+    <entry name="NotifyDuplicateFinder" type="Bool">
+      <label>Report duplicate file searches to Plasma</label>
+      <default>true</default>
+    </entry>
+    <entry name="NotifyFileSplit" type="Bool">
+      <label>Report file splitting and combining to Plasma</label>
+      <default>true</default>
+    </entry>
+    <entry name="NotifyBatchRename" type="Bool">
+      <label>Report batch renaming to Plasma</label>
+      <default>true</default>
+    </entry>
+    <entry name="NotifyImageConversion" type="Bool">
+      <label>Report image conversion to Plasma</label>
+      <default>true</default>
+    </entry>
+    <entry name="NotifyLibraryRefresh" type="Bool">
+      <label>Report tag library refreshes to Plasma</label>
+      <default>true</default>
+    </entry>
+  </group>
   <group name="Activities">
     <entry name="ActivityAssociations" type="Bool">
       <label>Associate workspaces and default folders with Plasma Activities</label>

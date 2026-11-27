@@ -197,8 +197,9 @@ void FileSplitDialog::start()
         };
         return mode == Mode::Split ? FileSplitter::split(inputs.first(), destination, size, check) : FileSplitter::combine(inputs, destination, check);
     }));
-    m_job =
-        OperationJob::track(new OperationJob(mode == Mode::Split ? i18nc("@title job", "Splitting file") : i18nc("@title job", "Combining files")), &m_watcher);
+    m_job = OperationJob::track(
+        new OperationJob(OperationJob::Kind::FileSplit, mode == Mode::Split ? i18nc("@title job", "Splitting file") : i18nc("@title job", "Combining files")),
+        &m_watcher);
     m_job->setSource(QUrl::fromLocalFile(inputs.first()));
     m_job->setDestination(QUrl::fromLocalFile(destination));
     m_job->setCancelHandler([button = QPointer<QPushButton>(m_cancel)] {

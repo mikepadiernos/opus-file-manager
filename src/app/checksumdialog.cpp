@@ -99,7 +99,8 @@ ChecksumDialog::ChecksumDialog(Mode mode, const QStringList &paths, const QStrin
         promise.addResult(mode == Mode::Create ? Checksums::create(paths, manifest, cancel, progress) : Checksums::verify(manifest, cancel, progress));
     }));
     m_job = OperationJob::track(
-        new OperationJob(mode == Mode::Create ? i18nc("@title job", "Creating checksum file") : i18nc("@title job", "Verifying checksum file")),
+        new OperationJob(OperationJob::Kind::Checksums,
+                         mode == Mode::Create ? i18nc("@title job", "Creating checksum file") : i18nc("@title job", "Verifying checksum file")),
         &m_watcher);
     if (mode == Mode::Create) {
         m_job->setDestination(QUrl::fromLocalFile(manifest));

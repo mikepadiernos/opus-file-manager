@@ -161,7 +161,7 @@ void BatchConversionDialog::run(QWidget *parent, const QList<QUrl> &sources)
     watcher.setFuture(QtConcurrent::run([entries, outputFormat, bounds, outputQuality] {
         return ImageConversion::convert(entries, outputFormat, bounds, outputQuality);
     }));
-    QPointer<OperationJob> job = OperationJob::track(new OperationJob(i18nc("@title job", "Converting images")));
+    QPointer<OperationJob> job = OperationJob::track(new OperationJob(OperationJob::Kind::ImageConversion, i18nc("@title job", "Converting images")));
     job->setDestination(QUrl::fromLocalFile(directory->text()));
     if (!watcher.isFinished()) {
         progress.exec();
