@@ -29,6 +29,7 @@ interface or implementation.
 - [Syncative, SDrive and DucksDrive — cloud sync and activity](#syncative-sdrive-and-ducksdrive--cloud-sync-and-activity)
 - [Strata — system file chooser](#strata--system-file-chooser)
 - [Luciole — interaction details](#luciole--interaction-details)
+- [Lektra — document viewer and keyboard control](#lektra--document-viewer-and-keyboard-control)
 - [Orcinus — power-user workflows for Dolphin](#orcinus--power-user-workflows-for-dolphin)
 - [TagSpaces — focused workspaces](#tagspaces--focused-workspaces)
 - [TagStudio — native tagging](#tagstudio--native-tagging)
@@ -48,6 +49,7 @@ interface or implementation.
 | [Syncative, SDrive and DucksDrive](#syncative-sdrive-and-ducksdrive--cloud-sync-and-activity) | Two-way cloud sync and cloud activity                          | M27                                               | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
 | [Strata](#strata--system-file-chooser)                                                        | Opt-in system file chooser                                     | M27                                               | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
 | [Luciole](#luciole--interaction-details)                                                      | Interaction details, archive checks, operations and thumbnails | M28, M32                                          | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
+| [Lektra](#lektra--document-viewer-and-keyboard-control)                                       | Command palette, keyboard hints and document comparison        | M31, M32                                          | ![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)                                                                                             |
 | [Orcinus](#orcinus--power-user-workflows-for-dolphin)                                         | Per-pane styles, expandable folders, filters, linked panes     | M03, M09                                          | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Source unverified](https://img.shields.io/badge/source-unverified-bf8700?style=flat-square) |
 | [TagSpaces](#tagspaces--focused-workspaces)                                                   | Workspaces that scope locations and search                     | M15                                               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
 | [TagStudio](#tagstudio--native-tagging)                                                       | Native tag libraries                                           | M23                                               | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                                               |
@@ -159,6 +161,23 @@ and its thumbnail policy informs treating network FUSE mounts as remote and
 clearing the thumbnail cache. Its file picker's remembered start folder
 informs the [system file chooser](../ROADMAP.md#m28-integration-settings)
 settings.
+
+## Lektra — document viewer and keyboard control
+
+[Lektra](https://github.com/dheerajshenoy/lektra) is a fast, keyboard-driven
+document and image viewer built with Qt 6 and MuPDF. Plasma Opus already
+previews PDFs, ebooks, comics and DjVu through Okular's viewer component, so
+Lektra informs workflows rather than replacing that preview. Its command
+palette and link hints inform a
+[command palette and keyboard hints](../ROADMAP.md#m31-keyboard-shortcut-settings)
+built on KDE's `KCommandBar`, and its synchronized views and page-aware command
+line inform side-by-side image comparison in the gallery and opening documents
+at the previewed page in an external viewer, as
+[interaction refinements](../ROADMAP.md#m32-refinements).
+
+Lektra and MuPDF are licensed under the AGPL, while Plasma Opus is GPL-3.0.
+Plasma Opus therefore adapts Lektra's ideas, not its code, and launches it only
+as a separate, optional application.
 
 ## Orcinus — power-user workflows for Dolphin
 

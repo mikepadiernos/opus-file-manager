@@ -2065,9 +2065,9 @@ Settings for M29 Nextcloud integration, stored in KConfig without credentials.
 **Project:**
 [M31 milestone](https://github.com/mikepadiernos/plasma-opus/issues/29)
 
-Configure keyboard shortcuts, key chords, optional Vim-style navigation and a
-shortcut hint pane across Plasma Opus, using KDE shortcut facilities where
-supported.
+Configure keyboard shortcuts, key chords, optional Vim-style navigation, a
+shortcut hint pane, a command palette and keyboard hints across Plasma Opus,
+using KDE shortcut facilities where supported.
 
 - [ ] Configure simultaneous key combinations and sequential key chords with
       conflict detection, clear feedback and reset to defaults; use KDE shortcut
@@ -2100,6 +2100,16 @@ supported.
 - [ ] Configure the hint panel's enablement and display delay, and offer an
       on-demand shortcut reference. Cancel or time out incomplete sequences
       without unexpectedly running a conflicting action. [#235]
+- [ ] Offer a command palette through KDE's `KCommandBar`, as in Dolphin and
+      Kate: search menu, toolbar and custom command actions by name and run
+      them, showing each action's shortcut and recently used actions first.
+      Skip disabled actions, apply pane actions to the active pane and leave
+      shortcuts unchanged. (Lektra) [#761]
+- [ ] Offer keyboard hints: on a shortcut, label the visible items, breadcrumb
+      segments, places and tabs of the active pane with short key sequences,
+      and open or select a target when its keys are typed. Cancel with Escape,
+      give labels accessible names and do not intercept typing in text fields
+      or the embedded terminal. (Lektra) [#762]
 - [ ] Import and export shortcut bindings with conflict preview; do not execute
       commands from imported files [#237]
 
@@ -2278,6 +2288,17 @@ subsection details.
         checking that the affected items have not changed since, and refuse
         otherwise. Ship it only if a prototype proves reliable with KIO's undo
         history and remote locations. (Luciole) [#747]
+  - [ ] Compare two selected images side by side in the gallery with linked
+        zoom, pan and rotation, and step through either side independently.
+        Keep the comparison local like the gallery, never modify the images
+        and show a single image when only one is selected. (Lektra) [#763]
+  - [ ] Open the document shown in the preview panel in an external viewer at
+        the previewed page, and open two selected documents side by side, with
+        viewers that support these on the command line, such as Okular and
+        Lektra. Pass paths as arguments without a shell, use the page only
+        where the preview provider reports it, and report a missing viewer,
+        unsupported location or launch failure. Launch Lektra only as a
+        separate application, because it is AGPL-licensed. (Lektra) [#764]
   - [ ] Add focused interaction tests for menu actions, default and restored
         layouts, keyboard and accessible navigation, responsive controls and
         error states; preserve existing user customizations in regression cases.
@@ -2482,6 +2503,11 @@ interfaces. The additions above draw on these sources:
   whose small workflow details, archive checks, operations panel and
   thumbnail policy inform M32 interaction and settings refinements and the
   file chooser's start folder.
+- [Lektra](https://github.com/dheerajshenoy/lektra), a keyboard-driven
+  document and image viewer whose command palette, link hints, synchronized
+  views and page-aware command line inform M31 keyboard work and M32
+  comparison and viewer handoff. Plasma Opus launches it only as a separate
+  application, because it is AGPL-licensed.
 - [Plasma Impresario](https://github.com/mikepadiernos/plasma-impresario), the
   companion KDE mail client, and its
   [Plasma Opus integration notes](https://github.com/mikepadiernos/plasma-impresario/blob/main/docs/integrations/plasma-opus.md).
@@ -3065,3 +3091,7 @@ the end of this file.
 [#748]: https://github.com/mikepadiernos/plasma-opus/issues/748
 [#749]: https://github.com/mikepadiernos/plasma-opus/issues/749
 [#750]: https://github.com/mikepadiernos/plasma-opus/issues/750
+[#761]: https://github.com/mikepadiernos/plasma-opus/issues/761
+[#762]: https://github.com/mikepadiernos/plasma-opus/issues/762
+[#763]: https://github.com/mikepadiernos/plasma-opus/issues/763
+[#764]: https://github.com/mikepadiernos/plasma-opus/issues/764
