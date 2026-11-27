@@ -353,6 +353,9 @@ tracked in its own issue:
   previews use UTF-8 and default to the first 1 MiB; lines longer than 16,384
   characters are shown without syntax highlighting. Remote previews download to
   a temporary file and use the same limits, or 128 MiB for other file types.
+  Since M29, the preview panel first asks a Nextcloud account's server for its
+  preview image, up to 8 MiB, and downloads the file only when there is none
+  or on request ([Nextcloud integration](#nextcloud-integration)).
   ([#259][issue-259], [#264][issue-264])
 
   - **Recommendation:** Open files in a suitable external application when
@@ -3895,6 +3898,25 @@ The M29 Nextcloud integration has these limits
   only against a fake server
   ([real-server check](TODO.md#nextcloud-browsing-on-a-real-server-365)).
   ([#365](https://github.com/mikepadiernos/plasma-opus/issues/365))
+- **🌄 Nextcloud previews:** Only the preview panel asks the server for
+  previews. Thumbnails in the panes, the gallery and Yazi mode's preview still
+  use KIO's thumbnailers or download the file, as for other remote folders.
+  Each item's first preview waits for a `PROPFIND` that reads its file ID
+  before the preview request. A server preview is a still image of at most
+  2,048 pixels, so animations, later pages, video and audio need **Download
+  Full Preview**, which applies the usual download limits. When the server
+  has no preview, its preview is over 8 MiB or the request fails, the panel
+  downloads the file as before, without saying why. The information panel
+  reads metadata for each item it shows, including hovered items when it
+  follows the pointer, and reads it again after a minute, so favourites and
+  tags changed elsewhere can take that long to appear. Which
+  `nc:metadata-*` properties exist depends on the server version and its
+  apps; values are shown as the server sends them, without units, up to 60
+  lines. Server tags appear only in the **Nextcloud server** section and are
+  never written to Plasma Opus tag libraries. Checked only against a fake
+  server and recorded Nextcloud 26 and 29 responses
+  ([real-server check](TODO.md#nextcloud-previews-on-a-real-server-589)).
+  ([#589](https://github.com/mikepadiernos/plasma-opus/issues/589))
 
 - **Recommendation:**
   - **Nextcloud accounts:** Sign in under **Go › Nextcloud › Manage
@@ -3912,6 +3934,12 @@ The M29 Nextcloud integration has these limits
     choose **Check** under **Manage Nextcloud Accounts…** and sign in again
     so the permissions can be read. Prefer the menu actions to drag and drop
     in shared folders, and read KIO's error report when some items fail.
+  - **Nextcloud previews:** Keep the preview panel open to browse photos and
+    documents without downloading them, and choose **Download Full Preview**
+    only for the file you need to play or read in full. Show **View ›
+    Information Panel** to check a file's owner, sharing, tags and photo
+    metadata on the server; open the file in Nextcloud's web interface when a
+    property you need isn't listed.
   - Comment:
     [#767.7225982354](https://github.com/mikepadiernos/plasma-opus/issues/767#issuecomment-7225982354)
 - **Proposed improvements:**
@@ -3922,6 +3950,10 @@ The M29 Nextcloud integration has these limits
   - Check drag and drop against the same permissions, read them for flat
     views and expanded subfolders, and show Nextcloud's own reason for a
     refusal from the server's error response.
+  - Use server previews for the panes' thumbnails and the gallery, read the
+    file ID from the folder listing to save a request, say why a server
+    preview was unavailable, and refresh the metadata when the server's ETag
+    changes.
 
 ## Embedded terminal
 
