@@ -789,8 +789,15 @@ behaves like the rest of the desktop and follows the user's choices.
   sync runs. Unmounting a remote or quitting Plasma Opus waits for pending
   uploads, with **Continue Without Waiting** and **Cancel**. Connections can
   be exported and imported without passwords; imported pairs start paused.
-  See [Cloud activity](../CAVEATS.md#desktop-integration).
-  ([#719](https://github.com/mikepadiernos/plasma-opus/issues/719))
+  The same limits, and how long files not in use stay in the offline cache, are
+  under **Preferences › Remote and Cloud › Transfers and Cache**, which also
+  chooses whether the tray menu offers **Cloud Activity…**. They apply only to
+  rclone; remote drives mounted with KIO FUSE, sshfs, davfs2 or CIFS, and cloud
+  sync pairs with network folders, ignore them, as the tab says. See [Cloud
+  activity](../CAVEATS.md#desktop-integration) and [Transfer and cache
+  settings](../CAVEATS.md#integration-settings).
+  ([#719](https://github.com/mikepadiernos/plasma-opus/issues/719),
+  [#721](https://github.com/mikepadiernos/plasma-opus/issues/721))
 - **Administrator mode:** **File › Act as Administrator** reopens the active
   pane's local folder through KIO's `admin:` worker from the `kio-admin`
   package, as in Dolphin, after a warning that can be turned off. KDE's
