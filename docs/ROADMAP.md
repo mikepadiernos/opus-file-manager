@@ -1899,7 +1899,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **Office documents**
 
-  - [ ] **Provider:** choose an available office application for editing and use
+  - [x] **Provider:** choose an available office application for editing and use
         installed preview providers where supported; report unavailable choices.
         Plasma-session verification is a
         [pending handoff](TODO.md#office-settings-on-plasma-676).
