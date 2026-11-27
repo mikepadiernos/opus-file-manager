@@ -402,6 +402,17 @@ behaves like the rest of the desktop and follows the user's choices.
   Files that can be viewed but not edited, such as videos and PDF documents,
   leave it disabled. See [Edit action](../CAVEATS.md#desktop-integration).
   ([#675](https://github.com/mikepadiernos/plasma-opus/issues/675))
+- **Editing in the preview:** When the preview panel shows a text file,
+  **Edit** switches it in place to the built-in KTextEditor editor with the
+  whole file, not the truncated preview, using the editor's drafts, Markdown
+  preview and settings. Saving or **Close Editor** returns to the read-only
+  preview. While changes are unsaved, the file stays open when the selection
+  or folder changes, and **Preview Selection…**, hiding the panel or quitting
+  asks to save, discard or keep editing. **Move to Editor** continues the
+  session in the editor panel with its unsaved changes. Read-only, remote,
+  binary and very large files are reported rather than opened. See
+  [Editing in the preview](../CAVEATS.md#editor).
+  ([#729](https://github.com/mikepadiernos/plasma-opus/issues/729))
 - **Ebooks, comics, help files and fonts:** The preview panel shows EPUB,
   MOBI, FictionBook, comic book archives such as CBZ and CBR, DjVu and CHM
   help files through [Okular](https://okular.kde.org/)'s viewer component
