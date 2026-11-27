@@ -1680,7 +1680,7 @@ for some features are recorded in [pending tasks](TODO.md).
         account offers file access. Respect provider permissions, authentication
         and TLS verification, and never store tokens or passwords in URLs, logs
         or Plasma Opus configuration. [#370]
-  - [ ] Optional [rsync](https://rsync.samba.org/) backend for M09 folder sync:
+  - [x] Optional [rsync](https://rsync.samba.org/) backend for M09 folder sync:
         support local folders and SSH locations, reuse sync profiles and
         exclusions, and show an itemized dry run before confirmation. Disable
         deletion by default and explicitly confirm overwrites and deletions.
