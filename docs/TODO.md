@@ -29,7 +29,8 @@ Board statuses were last confirmed on 2026-11-26.
 | [Administrator mode on Plasma](#administrator-mode-on-plasma-288)   | [M27](ROADMAP.md#m27-integrations)                                             | [#288]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [Plasma Vault on Plasma](#plasma-vault-on-plasma-654)               | [M27](ROADMAP.md#m27-integrations)                                             | [#654]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [File encryption on Plasma](#file-encryption-on-plasma-655)         | [M27](ROADMAP.md#m27-integrations)                                             | [#655]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
-| [Send by Email on Plasma](#send-by-email-on-plasma-656)             | [M27](ROADMAP.md#m27-integrations)                                             | [#656]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                             |
+| [Send by Email on Plasma](#send-by-email-on-plasma-656)             | [M27](ROADMAP.md#m27-integrations)                                             | [#656]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
+| [Mail attachments on Plasma](#mail-attachments-on-plasma-657)       | [M27](ROADMAP.md#m27-integrations)                                             | [#657]         | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square)                                                                             |
 
 ## mpv integration (#563)
 
@@ -284,7 +285,7 @@ Board statuses were last confirmed on 2026-11-26.
 ## Send by Email on Plasma (#656)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#656]
-  (Review).
+  (Completed).
 - **Blocker:** The development container has no mail client, no Plasma
   Impresario and no XDG Email portal, so real composers and the sandboxed
   path cannot be tried there.
@@ -313,6 +314,37 @@ Board statuses were last confirmed on 2026-11-26.
    opens the composer with the files attached. Record any differences in
    [CAVEATS](CAVEATS.md), then remove this entry and its roadmap link.
 
+## Mail attachments on Plasma (#657)
+
+- **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#657]
+  (Review).
+- **Blocker:** The development container has no Plasma Impresario, no IMAP
+  account and no drag-and-drop between applications, so real drags into its
+  composer and out of its attachment list cannot be tried there.
+- **Confirmed state:** Dragging local files and prepared copies from the
+  **Send by Email** list, refusing a Plasma Impresario attachment reference
+  and saving dropped content are implemented and pass their tests in the
+  container, with simulated drag data. This verification does not block the
+  feature; it is recorded as a caveat under
+  [Desktop integration](CAVEATS.md#desktop-integration).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with Plasma Impresario as the email client, select
+   a local file and a file on an SFTP or SMB location and choose **File ›
+   Send by Email…**.
+2. Tick the consent box, wait for the copy, then drag both items from the
+   list into Plasma Impresario's composer and check both are attached.
+   Close the dialog and check the copy is still attached when the message
+   is sent to yourself.
+3. Drag an attachment from a received message onto a Plasma Opus pane and
+   check the drop is refused with the status-bar explanation and no file is
+   created.
+4. Drag a selection of text with a suggested filename, for example from
+   KMail's attachment list, onto a pane and check KIO asks for the file name
+   and saves the content. Record any differences in [CAVEATS](CAVEATS.md),
+   then remove this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -324,6 +356,7 @@ Board statuses were last confirmed on 2026-11-26.
 [#654]: https://github.com/mikepadiernos/plasma-opus/issues/654
 [#655]: https://github.com/mikepadiernos/plasma-opus/issues/655
 [#656]: https://github.com/mikepadiernos/plasma-opus/issues/656
+[#657]: https://github.com/mikepadiernos/plasma-opus/issues/657
 [#703]: https://github.com/mikepadiernos/plasma-opus/issues/703
 [#707]: https://github.com/mikepadiernos/plasma-opus/issues/707
 [#708]: https://github.com/mikepadiernos/plasma-opus/issues/708
