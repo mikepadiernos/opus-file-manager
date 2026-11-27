@@ -1709,7 +1709,7 @@ for some features are recorded in [pending tasks](TODO.md).
         overlap folders managed by the Nextcloud desktop client or another
         sync engine. Report quota, offline remotes, permission errors and
         partial runs. (Syncative) [#718]
-  - [ ] Cloud activity panel, like
+  - [x] Cloud activity panel, like
         [SDrive](https://github.com/TitanniOpen/SDrive) and
         [DucksDrive](https://patopatetico2-lab.github.io/ducksdrive/): for
         remote drives and sync pairs, show connection state, quota where the
