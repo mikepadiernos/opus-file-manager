@@ -53,6 +53,7 @@ are in [reported bugs](BUGS.md), and untested scenarios in
 - **🌐 Languages:** [Jalali dates](#jalali-dates),
   [translation format overrides](#translation-format-overrides)
 - **🛠️ Setup and tools:** [Desktop integration](#desktop-integration),
+  [integration settings](#integration-settings),
   [embedded terminal](#embedded-terminal),
   [settings backups](#settings-backups),
   [build and installation](#build-installation-and-references),
@@ -1740,13 +1741,15 @@ The M27 desktop integrations have these limits
 
 - **🔗 FileManager1 service:** Plasma Opus claims
   `org.freedesktop.FileManager1` only when it starts while it is the default
-  folder handler, and never replaces another owner, such as a running Dolphin.
-  Changing the default handler while it runs takes effect at the next start.
-  The per-user activation file from `install.sh --default` stays when another
-  default is chosen in System Settings, so requests made while no file
-  manager runs still start Plasma Opus. Requests open tabs in the active pane
-  of the existing window; missing items are skipped and reported, and flat
-  view opens the folder without a selection.
+  folder handler, or when it becomes the default under **Preferences › KDE
+  Plasma › File Manager**, and never replaces another owner, such as a
+  running Dolphin. Changing the default handler in System Settings while it
+  runs takes effect at the next start. The per-user activation file stays
+  when another default is chosen in System Settings, so requests made while
+  no file manager runs still start Plasma Opus until the file is removed
+  under **Preferences › KDE Plasma › File Manager**. Requests open tabs in
+  the active pane of the existing window; missing items are skipped and
+  reported, and flat view opens the folder without a selection.
   ([#279](https://github.com/mikepadiernos/plasma-opus/issues/279))
 - **🌐 Language preferences:** Plasma Opus reads Plasma's language list
   only at start. Changes in Plasma's Region & Language settings reach running
@@ -2327,11 +2330,13 @@ The M27 desktop integrations have these limits
   ([#563](https://github.com/mikepadiernos/plasma-opus/issues/563))
 
 - **Recommendation:**
-  - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
-    it is running and restart Plasma Opus so it claims the service. To hand
-    requests back, run `./install.sh --uninstall` or delete
-    `~/.local/share/dbus-1/services/org.kde.opusfilemanager.FileManager1.service`
-    as well as changing the default in System Settings.
+  - **FileManager1 service:** Choose **Set Plasma Opus as Default** and
+    **Install Activation File** under **Preferences › KDE Plasma › File
+    Manager**, or run `./install.sh --default`. If Dolphin is running, quit
+    it and restart Plasma Opus so it claims the service. To hand requests
+    back, choose **Remove Activation File** there, or run
+    `./install.sh --uninstall`, as well as changing the default in System
+    Settings.
   - **Language preferences:** After changing Plasma's languages, log out and
     back in, or select the language under **Settings › Translation ›
     Language and Layout** and restart Plasma Opus. The status line on that page
@@ -2569,10 +2574,8 @@ The M27 desktop integrations have these limits
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
-  - Claim or release the service when the default handler changes while
-    Plasma Opus runs.
-  - An M28 **File manager** settings row that installs or removes the
-    activation file explicitly.
+  - Claim or release the service when the default handler changes in
+    System Settings while Plasma Opus runs.
   - Watch `plasma-localerc` and offer a restart when Plasma's language list
     changes.
   - An M28 setting to choose which operations report to Plasma, and to
@@ -2698,6 +2701,42 @@ The M27 desktop integrations have these limits
     an optional Streamable HTTP transport on the loopback interface; reading
     other text encodings and images; moving between file systems through KIO
     jobs that can be undone; and a size limit for the audit log.
+
+## Integration settings
+
+The M28 integration settings have these limits
+([#759](https://github.com/mikepadiernos/plasma-opus/issues/759)):
+
+- **🥇 Default file manager:** **Set Plasma Opus as Default** under
+  **Preferences › KDE Plasma › File Manager** needs an installed Plasma Opus
+  desktop entry, so it is unavailable when running from a build tree. It
+  writes the user's `mimeapps.list`, as System Settings does. A
+  desktop-specific list, such as `kde-mimeapps.list`, that names another
+  default takes precedence; it is reported, not changed. There is no action
+  to hand the default back. Plasma Opus claims `org.freedesktop.FileManager1`
+  at once only when no other application, such as a running Dolphin, owns
+  it; otherwise it takes over when it next starts after that application
+  quits. The activation file can be installed only while Plasma Opus is the
+  default, and a file that another application wrote is left alone. After a
+  change, Plasma Opus asks the session bus to reload its activation files,
+  which dbus-broker needs. The development container has no Plasma session,
+  so the tab is verified only by tests there
+  ([Plasma check](TODO.md#default-file-manager-on-plasma-293)).
+  ([#293](https://github.com/mikepadiernos/plasma-opus/issues/293))
+
+- **Recommendation:**
+  - **Default file manager:** Install Plasma Opus with `./install.sh`, then
+    choose **Set Plasma Opus as Default** and **Install Activation File**
+    under **Preferences › KDE Plasma › File Manager**. If a running Dolphin
+    keeps answering **Show in folder**, quit it and restart Plasma Opus. To
+    hand folders back, choose another file manager with **Open Default
+    Applications Settings**, then choose **Remove Activation File**.
+  - Comment:
+    [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
+- **Proposed improvements:**
+  - Remember the file manager that Plasma Opus replaced and offer to restore
+    it, offer to remove a conflicting `kde-mimeapps.list` entry, and release
+    the service when another default is chosen while Plasma Opus runs.
 
 ## Embedded terminal
 
