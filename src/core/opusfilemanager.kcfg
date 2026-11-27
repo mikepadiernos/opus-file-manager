@@ -860,6 +860,34 @@
       <choices><choice name="Embedded"/><choice name="Separate"/></choices>
       <default>Embedded</default>
     </entry>
+    <entry name="EditorVaultFolder" type="Url">
+      <label>The local folder of Markdown notes that wiki links, backlinks and tags use; empty for no vault</label>
+    </entry>
+    <entry name="EditorMarkdownDialect" type="Enum">
+      <label>The Markdown dialect that the built-in editor's preview renders</label>
+      <choices><choice name="GitHub"/><choice name="CommonMark"/></choices>
+      <default>GitHub</default>
+    </entry>
+    <entry name="EditorMarkdownPreviewOnOpen" type="Bool">
+      <label>Whether the built-in editor shows the Markdown preview when it opens a Markdown file</label>
+      <default>false</default>
+    </entry>
+    <entry name="EditorWikiLinks" type="Bool">
+      <label>Whether wiki links in vault notes open the notes they name</label>
+      <default>true</default>
+    </entry>
+    <entry name="EditorVaultBacklinks" type="Bool">
+      <label>Whether the vault panel lists the notes that link to the open note</label>
+      <default>true</default>
+    </entry>
+    <entry name="EditorVaultLinks" type="Bool">
+      <label>Whether the vault panel lists the open note's links</label>
+      <default>true</default>
+    </entry>
+    <entry name="EditorVaultTags" type="Bool">
+      <label>Whether the vault panel lists the open note's tags and the notes that share them</label>
+      <default>true</default>
+    </entry>
   </group>
   <group name="Gallery">
     <entry name="ImageBackground" type="Enum">

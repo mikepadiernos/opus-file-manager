@@ -171,6 +171,7 @@ ecm_add_tests(
     treemaptest.cpp
     transferqueuetest.cpp
     traypolicytest.cpp
+    vaultsettingstest.cpp
     viewsettingstest.cpp
     wikilinkstest.cpp
     workspaceappearancetest.cpp

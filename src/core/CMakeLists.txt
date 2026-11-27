@@ -229,6 +229,8 @@ add_library(opusfm_core STATIC
     transferqueue.h
     traypolicy.cpp
     traypolicy.h
+    vaultsettings.cpp
+    vaultsettings.h
     viewsettings.cpp
     viewsettings.h
     wikilinks.cpp
