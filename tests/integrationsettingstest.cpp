@@ -6,10 +6,12 @@
 #include "appidentity.h"
 #include "defaultfilemanager.h"
 #include "desktoptray.h"
+#include "favoritesmodel.h"
 #include "filechooser.h"
 #include "mainwindow.h"
 #include "operationjob.h"
 #include "portalsetup.h"
+#include "runnermatches.h"
 #include "settings.h"
 #include "settingsdialog.h"
 
@@ -688,6 +690,103 @@ private Q_SLOTS:
         auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("kdeConnectSettingsMessage"));
         QCOMPARE(message->messageType(), KMessageWidget::Error);
         QVERIFY(message->text().contains(QStringLiteral("KDE Connect's settings are not installed")));
+    }
+
+    void krunnerTabChoosesWhatIsOffered()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            KSharedConfig::openConfig()->deleteGroup(QStringLiteral("Workspaces"));
+            KSharedConfig::openConfig()->deleteGroup(QStringLiteral("Favorites"));
+            KSharedConfig::openConfig()->sync();
+        });
+        const KSharedConfig::Ptr config = KSharedConfig::openConfig();
+        config->deleteGroup(QStringLiteral("Workspaces"));
+        config->deleteGroup(QStringLiteral("Favorites"));
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY2(WorkspaceCatalog::create(catalog, QStringLiteral("Photos"), QStringLiteral("PH"), error), qPrintable(error));
+        QVERIFY2(WorkspaceCatalog::create(catalog, QStringLiteral("Clients"), QStringLiteral("CL"), error), qPrintable(error));
+        QVERIFY2(WorkspaceCatalog::save(config->group(QStringLiteral("Workspaces")), catalog, error), qPrintable(error));
+        const QUrl home = QUrl::fromLocalFile(QDir::homePath());
+        const QUrl temp = QUrl::fromLocalFile(QDir::tempPath());
+        {
+            FavoritesModel favorites(config->group(QStringLiteral("Favorites")));
+            QVERIFY(favorites.add(home));
+        }
+        config->sync();
+
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("plasmaSearchPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QCOMPARE(tabs->indexOf(page), 6);
+        QCOMPARE(tabs->tabText(6), QStringLiteral("KRunner"));
+
+        auto *enabled = page->findChild<QCheckBox *>(QStringLiteral("kcfg_RunnerEnabled"));
+        auto *offerWorkspaces = page->findChild<QCheckBox *>(QStringLiteral("kcfg_RunnerWorkspaces"));
+        auto *offerFavorites = page->findChild<QCheckBox *>(QStringLiteral("kcfg_RunnerFavorites"));
+        auto *workspaces = page->findChild<QListWidget *>(QStringLiteral("kcfg_RunnerHiddenWorkspaces"));
+        auto *favorites = page->findChild<QListWidget *>(QStringLiteral("kcfg_RunnerHiddenFavorites"));
+        auto *apply = dialog.button(QDialogButtonBox::Apply);
+        QVERIFY(enabled->isChecked());
+        QCOMPARE(workspaces->count(), catalog.workspaces.size());
+        QCOMPARE(workspaces->item(0)->data(Qt::UserRole).toString(), catalog.workspaces.at(0).id);
+        QCOMPARE(favorites->count(), 1);
+        QCOMPARE(favorites->item(0)->data(Qt::UserRole).toString(), RunnerMatches::locationId(home));
+
+        // Favorites added while the dialog is open are listed and offered.
+        QVERIFY(window.favorites()->add(temp));
+        QCOMPARE(favorites->count(), 2);
+        QCOMPARE(favorites->item(1)->checkState(), Qt::Checked);
+
+        workspaces->item(0)->setCheckState(Qt::Unchecked);
+        favorites->item(1)->setCheckState(Qt::Unchecked);
+        QVERIFY(apply->isEnabled());
+        apply->click();
+        QCOMPARE(Settings::runnerHiddenWorkspaces(), QStringList{catalog.workspaces.at(0).id});
+        QCOMPARE(Settings::runnerHiddenFavorites(), QStringList{RunnerMatches::locationId(temp)});
+
+        // A Favorite that is removed stays hidden if it comes back.
+        QVERIFY(window.favorites()->remove(temp));
+        QCOMPARE(favorites->count(), 1);
+        QVERIFY(!apply->isEnabled());
+        QVERIFY(window.favorites()->add(temp));
+        QCOMPARE(favorites->item(1)->checkState(), Qt::Unchecked);
+
+        offerWorkspaces->setChecked(false);
+        QVERIFY(!workspaces->isEnabled());
+        QVERIFY(favorites->isEnabled());
+        enabled->setChecked(false);
+        QVERIFY(!offerWorkspaces->isEnabled());
+        QVERIFY(!offerFavorites->isEnabled());
+        QVERIFY(!favorites->isEnabled());
+        apply->click();
+        QVERIFY(!Settings::runnerEnabled());
+
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QVERIFY(enabled->isChecked());
+        QVERIFY(offerWorkspaces->isChecked());
+        QVERIFY(workspaces->isEnabled());
+        QCOMPARE(workspaces->item(0)->checkState(), Qt::Checked);
+        QCOMPARE(favorites->item(1)->checkState(), Qt::Checked);
+    }
+
+    void reportsMissingPlasmaSearchSettings()
+    {
+        for (const QString &kind : {QStringLiteral("systemsettings"), QStringLiteral("systemsettings_qwidgets")}) {
+            if (KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/") + kind, QStringLiteral("kcm_plasmasearch")).isValid()) {
+                QSKIP("Plasma's search settings are installed on this system.");
+            }
+        }
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        dialog.findChild<QPushButton *>(QStringLiteral("openPlasmaSearchSettings"))->click();
+        auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("plasmaSearchMessage"));
+        QCOMPARE(message->messageType(), KMessageWidget::Error);
+        QVERIFY(message->text().contains(QStringLiteral("search settings are not installed")));
     }
 };
 

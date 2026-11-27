@@ -7,9 +7,11 @@
 #include "appidentity.h"
 #include "defaultfilemanager.h"
 #include "desktoptray.h"
+#include "favoritesmodel.h"
 #include "filechooser.h"
 #include "filemanagerservice.h"
 #include "portalsetup.h"
+#include "runnermatches.h"
 #include "settingswidgets.h"
 #include "traypolicy.h"
 
@@ -28,6 +30,7 @@
 #include <QCheckBox>
 #include <QFileInfo>
 #include <QFormLayout>
+#include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -180,6 +183,7 @@ KConfigGroup portalBackup()
 }
 }
 
+using SettingsWidgets::bound;
 using SettingsWidgets::checkBox;
 using SettingsWidgets::comboBox;
 
@@ -707,4 +711,103 @@ QWidget *SettingsDialog::createKdeConnectIntegrationPage()
         openSettingsModule(QStringLiteral("kcm_kdeconnect"), i18nc("@info", "KDE Connect's settings are not installed."), message);
     });
     return page;
+}
+
+QWidget *SettingsDialog::createKRunnerIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("plasmaSearchPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *discovery = new QGroupBox(i18nc("@title:group", "Discovery"));
+    discovery->setObjectName(QStringLiteral("runnerDiscoveryGroup"));
+    auto *discoveryLayout = new QVBoxLayout(discovery);
+    auto *enabled = checkBox(QStringLiteral("RunnerEnabled"), i18nc("@option:check", "Offer saved workspaces and Favorites in KRunner and Plasma Search"));
+    discoveryLayout->addWidget(enabled);
+    auto *workspaces = checkBox(QStringLiteral("RunnerWorkspaces"), i18nc("@option:check", "Offer these saved workspaces:"));
+    auto *favorites = checkBox(QStringLiteral("RunnerFavorites"), i18nc("@option:check", "Offer these Favorites:"));
+    m_runnerWorkspaces = bound(new HiddenItemsList, QStringLiteral("RunnerHiddenWorkspaces"), "hiddenItems");
+    m_runnerFavorites = bound(new HiddenItemsList, QStringLiteral("RunnerHiddenFavorites"), "hiddenItems");
+    auto *lists = new QGridLayout;
+    lists->addWidget(workspaces, 0, 0);
+    lists->addWidget(favorites, 0, 1);
+    lists->addWidget(m_runnerWorkspaces, 1, 0);
+    lists->addWidget(m_runnerFavorites, 1, 1);
+    discoveryLayout->addLayout(lists, 1);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Only the checked workspaces and Favorites are offered, never history, searches or recent folders. "
+                                  "Workspaces and Favorites added later are offered until they are cleared here. Choosing a workspace asks "
+                                  "before switching, as any workspace switch does. KRunner uses a change from its next search on."));
+    note->setWordWrap(true);
+    discoveryLayout->addWidget(note);
+    layout->addWidget(discovery, 1);
+
+    auto *search = new QGroupBox(i18nc("@title:group", "Plasma Search"));
+    search->setObjectName(QStringLiteral("runnerPlasmaSearchGroup"));
+    auto *searchLayout = new QVBoxLayout(search);
+    auto *searchNote = new QLabel(i18nc("@info",
+                                        "KRunner keeps the Plasma Opus search plugin loaded while it offers nothing. Turn the plugin off "
+                                        "entirely in Plasma's search settings; Plasma Opus never changes them."));
+    searchNote->setWordWrap(true);
+    auto *configure = actionButton(QStringLiteral("openPlasmaSearchSettings"), i18nc("@action:button", "Configure Plasma Search…"));
+    configure->setIcon(QIcon::fromTheme(QStringLiteral("krunner")));
+    configure->setToolTip(i18nc("@info:tooltip", "Open Plasma's search settings in System Settings to turn search plugins on or off"));
+    auto *message = messageWidget(QStringLiteral("plasmaSearchMessage"));
+    searchLayout->addWidget(searchNote);
+    searchLayout->addLayout(buttonRow({configure}));
+    searchLayout->addWidget(message);
+    layout->addWidget(search);
+
+    const auto update = [this, enabled, workspaces, favorites] {
+        workspaces->setEnabled(enabled->isChecked());
+        favorites->setEnabled(enabled->isChecked());
+        m_runnerWorkspaces->setEnabled(enabled->isChecked() && workspaces->isChecked());
+        m_runnerFavorites->setEnabled(enabled->isChecked() && favorites->isChecked());
+    };
+    for (QCheckBox *box : {enabled, workspaces, favorites}) {
+        connect(box, &QCheckBox::toggled, page, update);
+    }
+    update();
+    connect(configure, &QPushButton::clicked, page, [message] {
+        openSettingsModule(QStringLiteral("kcm_plasmasearch"), i18nc("@info", "Plasma's search settings are not installed."), message);
+    });
+
+    // Follow the main window's Favorites while the dialog is open.
+    if (const auto *model = parentWidget() ? parentWidget()->findChild<FavoritesModel *>() : nullptr) {
+        connect(model, &QAbstractItemModel::rowsInserted, this, &SettingsDialog::reloadRunnerFavorites);
+        connect(model, &QAbstractItemModel::rowsRemoved, this, &SettingsDialog::reloadRunnerFavorites);
+        connect(model, &QAbstractItemModel::rowsMoved, this, &SettingsDialog::reloadRunnerFavorites);
+        connect(model, &QAbstractItemModel::dataChanged, this, &SettingsDialog::reloadRunnerFavorites);
+        connect(model, &QAbstractItemModel::modelReset, this, &SettingsDialog::reloadRunnerFavorites);
+    }
+    reloadRunnerFavorites();
+    return page;
+}
+
+void SettingsDialog::reloadRunnerFavorites()
+{
+    if (!m_runnerFavorites) {
+        return;
+    }
+    const auto list = [this](const FavoritesModel &model) {
+        QList<std::pair<QString, QString>> items;
+        QStringList locations;
+        for (int row = 0; row < model.rowCount(); ++row) {
+            const QModelIndex index = model.index(row);
+            const QUrl url = index.data(FavoritesModel::UrlRole).toUrl();
+            items.append({RunnerMatches::locationId(url), index.data(Qt::DisplayRole).toString()});
+            locations.append(url.toDisplayString(QUrl::PreferLocalFile | QUrl::RemoveUserInfo));
+        }
+        m_runnerFavorites->setItems(items);
+        for (int row = 0; row < m_runnerFavorites->count(); ++row) {
+            m_runnerFavorites->item(row)->setToolTip(locations.at(row));
+        }
+    };
+    if (const auto *model = parentWidget() ? parentWidget()->findChild<FavoritesModel *>() : nullptr) {
+        list(*model);
+        return;
+    }
+    const auto shared = KSharedConfig::openConfig();
+    KConfig config(shared->name(), shared->openFlags(), shared->locationType());
+    list(FavoritesModel(config.group(QStringLiteral("Favorites"))));
 }

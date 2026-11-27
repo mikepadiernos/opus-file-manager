@@ -1353,8 +1353,13 @@ private Q_SLOTS:
                                      QStringLiteral("NotifyLibraryRefresh")}) {
             QCOMPARE(tabOf(entry), QStringLiteral("Notifications"));
         }
-        QCOMPARE(tabOf(QStringLiteral("RunnerWorkspaces")), QStringLiteral("Plasma Search"));
-        QCOMPARE(tabOf(QStringLiteral("RunnerFavorites")), QStringLiteral("Plasma Search"));
+        for (const QString &entry : {QStringLiteral("RunnerEnabled"),
+                                     QStringLiteral("RunnerWorkspaces"),
+                                     QStringLiteral("RunnerFavorites"),
+                                     QStringLiteral("RunnerHiddenWorkspaces"),
+                                     QStringLiteral("RunnerHiddenFavorites")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("KRunner"));
+        }
         QCOMPARE(tabOf(QStringLiteral("OfferActivityAssociation")), QStringLiteral("Activities"));
         QCOMPARE(tabOf(QStringLiteral("ReportActivityUsage")), QStringLiteral("Activities"));
         QCOMPARE(tabOf(QStringLiteral("NewLibraryStorage")), QStringLiteral("Privacy"));

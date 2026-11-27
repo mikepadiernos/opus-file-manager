@@ -264,9 +264,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                                KStandardGuiItem::cancel())
             == KMessageBox::PrimaryAction;
     };
-    addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}, {createPlasmaSearchPage(), i18nc("@title:tab", "Plasma Search")}},
-                  i18nc("@title:group", "General"),
-                  QStringLiteral("configure"));
+    addTabbedPage({{createSettingsDialogPage(), i18nc("@title:tab", "Settings Dialog")}}, i18nc("@title:group", "General"), QStringLiteral("configure"));
     addTabbedPage({{createLanguagePage(), i18nc("@title:tab", "Language and Layout")}, {createDateLanguagePage(), i18nc("@title:tab", "Dates")}},
                   i18nc("@title:group", "Translation"),
                   QStringLiteral("preferences-desktop-locale"));
@@ -389,11 +387,12 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                   {createSystemTrayPage(), i18nc("@title:tab", "System Tray")},
                                   {createShortcutsIntegrationPage(), i18nc("@title:tab", "Shortcuts")},
                                   {createActivitiesIntegrationPage(), i18nc("@title:tab", "Activities")},
-                                  {createKdeConnectIntegrationPage(), i18nc("@title:tab", "KDE Connect")}},
+                                  {createKdeConnectIntegrationPage(), i18nc("@title:tab", "KDE Connect")},
+                                  {createKRunnerIntegrationPage(), i18nc("@title:tab", "KRunner")}},
                                  i18nc("@title:group", "KDE Plasma"),
                                  QStringLiteral("plasma"),
                                  &m_plasmaTabs);
-    // The Activities tab offers the workspaces too.
+    // The Activities and KRunner tabs offer the workspaces too.
     reloadWorkspaces();
     applySidebarStyle();
     connect(this, &KConfigDialog::settingsChanged, this, [this] {
@@ -533,24 +532,6 @@ QWidget *SettingsDialog::createSystemTrayPage()
     };
     connect(show, &QCheckBox::toggled, page, update);
     update();
-    return page;
-}
-
-QWidget *SettingsDialog::createPlasmaSearchPage()
-{
-    auto *page = new QWidget;
-    page->setObjectName(QStringLiteral("plasmaSearchPage"));
-    auto *layout = new QVBoxLayout(page);
-    layout->addWidget(checkBox(QStringLiteral("RunnerWorkspaces"), i18nc("@option:check", "Offer saved workspaces in KRunner and Plasma Search")));
-    layout->addWidget(checkBox(QStringLiteral("RunnerFavorites"), i18nc("@option:check", "Offer Favorites in KRunner and Plasma Search")));
-    auto *note = new QLabel(i18nc("@info",
-                                  "Only saved workspaces and Favorites are offered, never history, searches or recent folders. Choosing a "
-                                  "workspace asks before switching, as any workspace switch does. Turn the Plasma Opus search plugin off "
-                                  "entirely in System Settings › Search › Plasma Search."),
-                            page);
-    note->setWordWrap(true);
-    layout->addWidget(note);
-    layout->addStretch();
     return page;
 }
 
@@ -1051,6 +1032,9 @@ void SettingsDialog::reloadWorkspaces()
     m_startupWorkspace->setWorkspaces(names);
     if (m_activityAssociations) {
         m_activityAssociations->setCatalog(catalog);
+    }
+    if (m_runnerWorkspaces) {
+        m_runnerWorkspaces->setItems(names);
     }
 }
 

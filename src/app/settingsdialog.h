@@ -159,7 +159,6 @@ private:
     QWidget *createSettingsDialogPage();
     /// The KDE Plasma › System Tray tab.
     QWidget *createSystemTrayPage();
-    QWidget *createPlasmaSearchPage();
     QWidget *createLanguagePage();
     QWidget *createDateLanguagePage();
     QWidget *createToolbarEntriesPage();
@@ -299,6 +298,13 @@ private:
     QWidget *createActivitiesIntegrationPage();
     /// The KDE Plasma › KDE Connect tab: whether File › Send to Device… is offered and remembers the device used last.
     QWidget *createKdeConnectIntegrationPage();
+    /**
+     * The KDE Plasma › KRunner tab: whether the KRunner plugin offers
+     * anything, and which saved workspaces and Favorites it offers.
+     */
+    QWidget *createKRunnerIntegrationPage();
+    /// Lists the Favorites again in the KRunner tab after they change.
+    void reloadRunnerFavorites();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.
     ActivityController *activityController() const;
     void createSettingsBackup();
@@ -320,6 +326,8 @@ private:
     KPageWidgetItem *m_plasmaPage = nullptr;
     QTabWidget *m_plasmaTabs = nullptr;
     ActivityAssociationsEditor *m_activityAssociations = nullptr;
+    HiddenItemsList *m_runnerWorkspaces = nullptr;
+    HiddenItemsList *m_runnerFavorites = nullptr;
     /// The Activity associations when they were last loaded or saved, to tell whether the dialog changed them.
     QList<ActivityAssociations::Association> m_savedActivityAssociations;
     QLabel *m_yaziWorkspaceDefault = nullptr;
