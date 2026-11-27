@@ -14,7 +14,8 @@ interfaces it would use, and ideas considered beyond the roadmap.
 [Plasma Impresario](plasma-impresario.md)
 
 > [!NOTE]
-> **Implemented:** nothing Nextcloud-specific yet. **Planned:**
+> **Implemented:** Nextcloud accounts from M29, described under
+> [Implemented features](#implemented-features). **Planned:** the rest of
 > [M29](../ROADMAP.md#m29-nextcloud-integration) and its settings in
 > [M30](../ROADMAP.md#m30-nextcloud-settings), summarized under
 > [Planned features](#planned-features); of the app workflows, only
@@ -25,6 +26,7 @@ interfaces it would use, and ideas considered beyond the roadmap.
 
 - [Goals](#goals)
 - [Boundaries](#boundaries)
+- [Implemented features](#implemented-features)
 - [Planned features](#planned-features)
 - [Nextcloud app interfaces](#nextcloud-app-interfaces)
 - [Photos](#photos)
@@ -58,11 +60,54 @@ document describes how Plasma Opus could also work with Nextcloud apps.
   other Nextcloud folders but never overlap the client's.
   ([#718](https://github.com/mikepadiernos/plasma-opus/issues/718))
 
+## Implemented features
+
+- **Accounts:** **Go › Nextcloud** lists each Nextcloud account, with **Open**
+  and **Open in Other Pane** for its files, and ends with **Manage Nextcloud
+  Accounts…**. Without accounts, the menu only says so and offers the dialog;
+  nothing else in the window changes. The dialog lists the accounts and adds
+  one with [Login Flow
+  v2](https://docs.nextcloud.com/server/latest/developer_manual/client_apis/LoginFlow/index.html):
+  enter the server address and choose **Sign In…**, then sign in and grant
+  access in the web browser that opens, or cancel while Plasma Opus waits.
+  - **Credentials:** the app password that Login Flow creates goes to KDE's
+    password server, `kpasswdserver`, which keeps it in KDE Wallet when the
+    wallet is enabled. The `NextcloudAccounts` group of the Plasma Opus
+    settings saves only the server address, user and login name. Signing in
+    to an existing account again replaces its app password.
+  - **Online Accounts:** Nextcloud and ownCloud accounts from
+    [KDE Online Accounts](kde-plasma.md#existing-foundations) are listed too,
+    after opting in under **Preferences › KDE Plasma › Online Accounts**.
+    They are managed in System Settings and can't be removed here; an account
+    added in both places is listed once.
+  - **Check:** **Check** reports the server's product name and version, the
+    signed-in user, and whether sharing, collaborative tags, Photos and file
+    search are available. It also reports expired or revoked access,
+    maintenance mode, unreachable servers and certificate problems.
+  - **Remove:** **Remove…** asks for confirmation and offers to revoke the app
+    password on the server as well; otherwise the dialog explains how to
+    revoke it later in Nextcloud.
+  - **Security:** Plasma Opus refuses unencrypted `http` addresses, except for
+    servers on the same computer, and addresses that contain a user name or
+    password. The dialog's requests verify the server's certificate and fail
+    with an error rather than offering to accept an invalid one; panes use
+    KIO's usual certificate prompt. Login Flow is accepted
+    only when the server's polling address is encrypted and on the same
+    server.
+  - **Server interfaces:** `ocs/v2.php/cloud/capabilities` and
+    `ocs/v2.php/cloud/user` with `OCS-APIRequest: true` and `format=json`,
+    `index.php/login/v2`, `ocs/v2.php/core/apppassword` to revoke, and a
+    `PROPFIND` on `remote.php/dav/photos/<user>/` to detect Photos. Files
+    open at `webdavs://<login>@<server>/remote.php/dav/files/<user>/` through
+    KIO.
+
+  See [Nextcloud integration](../CAVEATS.md#nextcloud-integration).
+  ([#588](https://github.com/mikepadiernos/plasma-opus/issues/588))
+
 ## Planned features
 
 | Feature         | Plan                                                                                                                                                             | Milestone                                      |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| Accounts        | Connect through KDE Online Accounts or an explicit Nextcloud login; use KDE credential facilities, verify TLS and report expired access and server capabilities. | [M29](../ROADMAP.md#m29-nextcloud-integration) |
 | Browsing        | Browse Nextcloud files in either pane with supported KIO operations, confirmations, cancellation and error reporting; respect server permissions.                | [M29](../ROADMAP.md#m29-nextcloud-integration) |
 | Previews        | Preview supported remote assets and inspect server metadata within existing preview limits and remote-download policy.                                           | [M29](../ROADMAP.md#m29-nextcloud-integration) |
 | Asset search    | Search and organize assets by server metadata, tags and favorites, keeping server tags distinct from native local tags.                                          | [M29](../ROADMAP.md#m29-nextcloud-integration) |
