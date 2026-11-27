@@ -117,9 +117,10 @@ preview. Both behaviours can be changed in Preferences.
 - **Remote and secure access:** named SSH, SFTP, WebDAV, SMB and FTP
   connections, rclone and KDE Online Accounts, Nextcloud accounts with
   Login Flow sign-in, browsing that respects server permissions, server
-  previews and metadata, and search, favourites and collaborative tags on the
-  server, temporary LAN sharing, administrator mode, Plasma Vault, file
-  encryption and password-gated folders.
+  previews and metadata, search, favourites and collaborative tags on the
+  server, and Nextcloud Photos albums and places sorted by capture date,
+  temporary LAN sharing, administrator mode, Plasma Vault, file encryption
+  and password-gated folders.
 
 ### Personalize
 
