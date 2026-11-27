@@ -1798,7 +1798,9 @@ for some features are recorded in [pending tasks](TODO.md).
         private API, as the only shared context with its planned
         account-to-workspace associations. Each application follows Activity
         changes with its own associations; do not read or change the other
-        application's workspace, account or mail data. [#659]
+        application's workspace, account or mail data.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#shared-activity-context-on-plasma-659). [#659]
 
 **Caveats:**
 [Desktop integration](CAVEATS.md#desktop-integration), tracked in [#728];
