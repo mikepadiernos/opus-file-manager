@@ -11,8 +11,7 @@ of the philosophy series builds on this scope.
 [3. Interface design](designs.md)
 
 > [!NOTE]
-> Milestones M01–M27 are merged into `main`. M28 is in development, and
-> M29–M32 are planned.
+> Milestones M01–M28 are merged into `main`; M29–M32 are planned.
 > The [roadmap](../ROADMAP.md) is the source of truth for feature status.
 
 ## Contents
