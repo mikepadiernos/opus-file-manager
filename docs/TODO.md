@@ -47,6 +47,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Drop-down settings on Plasma](#drop-down-settings-on-plasma-710)           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#710]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
 | [Baloo search settings on Plasma](#baloo-search-settings-on-plasma-443)     | [M28](ROADMAP.md#m28-integration-settings)                                     | [#443]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
 | [Office settings on Plasma](#office-settings-on-plasma-676)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#676]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Mail client settings on Plasma](#mail-client-settings-on-plasma-666)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#666]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 
 ## mpv integration (#563)
 
@@ -924,6 +925,38 @@ Board statuses were last confirmed on 2026-11-27.
    differences in [CAVEATS](CAVEATS.md#integration-settings), then remove
    this entry and its roadmap link.
 
+## Mail client settings on Plasma (#666)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#666]
+  (Development).
+- **Blocker:** The development container has no mail client or System
+  Settings, so the **Mail** tab's client report can only be checked with a
+  fake `mailto:` handler, and **Configure Default Applications…** cannot open
+  Plasma's Default Applications settings.
+- **Confirmed state:** `SettingsDialog::createMailClientGroup()` in
+  `src/app/integrationsettingspages.cpp` names the client from
+  `MailHandoff::preferredClient()`, opens the `kcm_componentchooser` module
+  through `kcmshell6` or System Settings, and stores `SendByEmail` in the
+  `Mail` group. `MainWindow::applySettings()` hides **Send by Email…** and
+  `updateActions()` disables it, which also leaves it out of the context
+  menus. `integrationsettingstest` passes in the container with fake clients.
+  See [Mail client settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma with KMail or Thunderbird installed, open **Preferences ›
+   Applications › Mail** and check that the **Client** group names the
+   client chosen under **System Settings › Default Applications › Email
+   client**. Choose Plasma Impresario there, show the tab again, and check
+   that it says Plasma Impresario can't receive attached files.
+2. Choose **Configure Default Applications…** and check that Plasma's Default
+   Applications settings open.
+3. Clear **Offer Send by Email for selected files**, apply, and check that
+   **File › Send by Email…** and the file context menu no longer offer it.
+   Check it again, apply, and check that both offer it. Record any
+   differences in [CAVEATS](CAVEATS.md#integration-settings), then remove
+   this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -949,6 +982,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#657]: https://github.com/mikepadiernos/plasma-opus/issues/657
 [#658]: https://github.com/mikepadiernos/plasma-opus/issues/658
 [#659]: https://github.com/mikepadiernos/plasma-opus/issues/659
+[#666]: https://github.com/mikepadiernos/plasma-opus/issues/666
 [#676]: https://github.com/mikepadiernos/plasma-opus/issues/676
 [#703]: https://github.com/mikepadiernos/plasma-opus/issues/703
 [#707]: https://github.com/mikepadiernos/plasma-opus/issues/707

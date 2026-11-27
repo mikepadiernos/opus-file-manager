@@ -2004,7 +2004,9 @@ Settings for M27 integrations, stored in KConfig.
 
   - [ ] **Client:** show the current default mail client and open Plasma's
         Default Applications settings to change it; enable or disable the
-        Send by Email action [#666]
+        Send by Email action. Plasma-session verification is a
+        [pending handoff](TODO.md#mail-client-settings-on-plasma-666).
+        [#666]
   - [ ] **Remote files:** choose whether Send by Email asks before preparing
         local copies of remote files, without allowing silent downloads [#667]
   - [ ] **Mail file preview:** enable or disable `.eml` previews, within the
