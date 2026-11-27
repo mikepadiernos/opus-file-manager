@@ -1937,7 +1937,10 @@ Settings for M27 integrations, stored in KConfig.
 
   - [ ] **Profiles:** manage SSH, SFTP, SMB, FTP or FTPS and WebDAV hosts,
         ports, usernames and connection defaults; use KDE credential facilities
-        instead of storing credentials in KConfig or URLs [#297]
+        instead of storing credentials in KConfig or URLs. Plasma-session
+        verification is a
+        [pending handoff](TODO.md#remote-connection-settings-on-plasma-297).
+        [#297]
   - [ ] **Discovery:** show or hide services discovered on the local network
         [#662]
 
