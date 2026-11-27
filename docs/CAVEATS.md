@@ -2264,6 +2264,9 @@ The M27 desktop integrations have these limits
   Encrypted parts are not decrypted and signatures are not verified; the
   panel says so instead. Messages over 64 MiB, and messages on remote
   locations, are not parsed; a remote `.eml` still shows as raw text.
+  Clearing **Preview mail files (.eml) in the preview panel** under
+  **Preferences › Applications › Mail** shows local messages as raw text
+  too ([Mail preview settings](#integration-settings)).
   **Extract All** and **Extract Selected** save the attachments into the
   folder that holds the message, through KIO's conflict handling, and
   report an error instead if the message changed after it was previewed.
@@ -2629,8 +2632,8 @@ The M27 desktop integrations have these limits
   - Offer to compress a selected folder and attach the archive, and ask the
     XDG Email portal for its response to report cancelled requests.
   - Extract mail attachments into a chosen folder, preview remote `.eml`
-    files through a size-limited download, show inline images only on
-    request, and the M28 **Mail file preview** setting.
+    files through a size-limited download, and show inline images only on
+    request.
   - Jump to a link's heading, show embedded notes and images in the
     preview, create a missing note from its link, refresh backlinks while
     typing and watch the vault for changes, and an M28 setting for the
@@ -3204,6 +3207,17 @@ The M28 integration settings have these limits
   windows opened after **Apply** or **OK**, and the group is disabled while
   **Offer Send by Email for selected files** is cleared.
   ([#667](https://github.com/mikepadiernos/plasma-opus/issues/667))
+- **📬 Mail preview settings:** **Preview mail files (.eml) in the preview
+  panel**, in the **Mail File Preview** group under **Preferences › Applications
+  › Mail**, turns the message view of local `.eml` files on or off in the
+  preview panel and in Yazi mode; both reload after **Apply** or **OK**. When
+  it is off, mail files show as raw text, like other text files, including their
+  headers and encoded attachments, cut at **Maximum text in preview panel**
+  under **Preferences › Interface › Previews**. The limits themselves aren't
+  settings: messages over 64 MiB aren't parsed, the text of a parsed message is
+  cut at the same text limit, and remote messages always show as raw text. The
+  setting doesn't change folder thumbnails or how mail files open.
+  ([#668](https://github.com/mikepadiernos/plasma-opus/issues/668))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3379,6 +3393,11 @@ The M28 integration settings have these limits
     copies** to attach remote files when you need them, and choose **Send only
     local files and skip remote files** if Send by Email should never download
     anything; then copy the remote files you need into a local folder first.
+  - **Mail preview settings:** Keep **Preview mail files (.eml) in the preview
+    panel** checked to read messages without opening them, and clear it when you
+    need a message's raw headers, such as to check where it came from. Raise
+    **Maximum text in preview panel** under **Preferences › Interface ›
+    Previews** to read long messages.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3464,6 +3483,8 @@ The M28 integration settings have these limits
     open, and list there which installed mail clients accept attachments.
   - Show the size of remote files before downloading copies, set a size limit
     for them, and remember the consent for trusted locations.
+  - Show a message's raw source beside its parsed view without changing the
+    setting, and a separate size limit for mail previews.
 
 ## Embedded terminal
 
