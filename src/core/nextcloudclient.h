@@ -140,6 +140,13 @@ std::optional<FolderPermissions> parseFolderPermissions(const QByteArray &xml, c
 QString permissionsRequest();
 /// Why the server forbids @p operation for an item or folder with @p permissions, or an empty string.
 QString deniedReason(Operation operation, Permissions permissions);
+/**
+ * Why the server forbids @p operation on the items named @p names in the
+ * folder that @p permissions describe, or an empty string when it allows it
+ * or doesn't say. Create and CreateFolder check the folder itself; the other
+ * operations check each named item.
+ */
+QString deniedReason(Operation operation, const FolderPermissions &permissions, const QStringList &names);
 
 /// Whether a failed request means the saved sign-in no longer works.
 bool isAccessExpired(int kioError, int httpStatus);

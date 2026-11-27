@@ -311,6 +311,24 @@ QString Nextcloud::deniedReason(Operation operation, Permissions permissions)
     return {};
 }
 
+QString Nextcloud::deniedReason(Operation operation, const FolderPermissions &permissions, const QStringList &names)
+{
+    if (operation == Operation::Create || operation == Operation::CreateFolder) {
+        return permissions.folder ? deniedReason(operation, *permissions.folder) : QString();
+    }
+    for (const QString &name : names) {
+        const auto item = permissions.items.constFind(name);
+        if (item == permissions.items.cend()) {
+            continue;
+        }
+        const QString reason = deniedReason(operation, *item);
+        if (!reason.isEmpty()) {
+            return names.size() > 1 ? i18nc("@info:tooltip %1 is a file name, %2 the reason", "%1: %2", name, reason) : reason;
+        }
+    }
+    return {};
+}
+
 bool Nextcloud::isAccessExpired(int kioError, int httpStatus)
 {
     if (httpStatus != 0) {

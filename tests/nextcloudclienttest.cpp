@@ -292,6 +292,31 @@ private Q_SLOTS:
         QVERIFY(!Nextcloud::deniedReason(Nextcloud::Operation::Delete, Permission::Readable).isEmpty());
     }
 
+    void selectionPermissionsAreChecked()
+    {
+        using Permission = Nextcloud::Permission;
+        Nextcloud::FolderPermissions permissions;
+        permissions.folder = Permission::Readable | Permission::CreateFile;
+        permissions.items.insert(QStringLiteral("Locked.txt"), Permission::Readable);
+        permissions.items.insert(QStringLiteral("Open.txt"), Permission::Readable | Permission::Rename | Permission::Move | Permission::Delete);
+        const QString locked = QStringLiteral("Locked.txt");
+        const QString open = QStringLiteral("Open.txt");
+
+        QVERIFY(Nextcloud::deniedReason(Nextcloud::Operation::Rename, permissions, {open}).isEmpty());
+        const QString reason = Nextcloud::deniedReason(Nextcloud::Operation::Rename, permissions, {locked});
+        QVERIFY(!reason.isEmpty());
+        QVERIFY(!reason.contains(locked));
+        QVERIFY(Nextcloud::deniedReason(Nextcloud::Operation::Delete, permissions, {open, locked}).startsWith(locked));
+        QVERIFY(Nextcloud::deniedReason(Nextcloud::Operation::Move, permissions, {open, QStringLiteral("Unlisted.txt")}).isEmpty());
+        QVERIFY(Nextcloud::deniedReason(Nextcloud::Operation::Delete, permissions, {}).isEmpty());
+
+        // Creating depends on the folder alone, whatever is selected.
+        QVERIFY(Nextcloud::deniedReason(Nextcloud::Operation::Create, permissions, {locked}).isEmpty());
+        QVERIFY(!Nextcloud::deniedReason(Nextcloud::Operation::CreateFolder, permissions, {}).isEmpty());
+        permissions.folder.reset();
+        QVERIFY(Nextcloud::deniedReason(Nextcloud::Operation::CreateFolder, permissions, {}).isEmpty());
+    }
+
     void errorsAreMapped()
     {
         QVERIFY(Nextcloud::isAccessExpired(KIO::ERR_ACCESS_DENIED, 0));
