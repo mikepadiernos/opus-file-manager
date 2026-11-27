@@ -16,10 +16,13 @@ IMAP mail client formerly named Plasma Mail, and other mail clients.
 · **Plasma Impresario**
 
 > [!NOTE]
-> **Implemented:** no mail-specific feature yet; Plasma Opus drags already
-> provide file URLs. **Planned:** the workflows under
-> [Planned features](#planned-features), mostly in M27.09 Plasma Impresario
-> and mail. They are not commitments by Plasma Impresario. Everything under
+> **Implemented:** **File › Send by Email…**
+> ([#656](https://github.com/mikepadiernos/plasma-opus/issues/656)), under
+> [Compose with selected files](#compose-with-selected-files); Plasma
+> Impresario's composer still opens without the files. Plasma Opus drags
+> already provide file URLs. **Planned:** the other workflows under
+> [Planned features](#planned-features), in M27.09 Plasma Impresario and
+> mail. They are not commitments by Plasma Impresario. Everything under
 > [Considered features](#considered-features), including theme sharing, is
 > outside the roadmap.
 
@@ -63,6 +66,11 @@ action.
 | [Workspaces and Plasma Activities](#workspaces-and-plasma-activities)           | M27.09 Shared context with Plasma Impresario                                                            |
 
 ### Compose with selected files
+
+> [!TIP]
+> **Implemented** as **File › Send by Email…**, also in the context menu.
+> Its limits are recorded under
+> [Desktop integration](../CAVEATS.md#desktop-integration).
 
 - Offer an explicit **Send by Email** action for selected files. Use KIO's
   `KEMailClientLauncherJob`, which starts the user's preferred `mailto:`
