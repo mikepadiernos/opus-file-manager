@@ -198,6 +198,21 @@ ecm_add_test(foldergateuitest.cpp
     GUI
 )
 
+ecm_add_test(plasmavaultstest.cpp
+    LINK_LIBRARIES opusfm_core Qt6::DBus Qt6::Test
+    NAME_PREFIX "opusfm-"
+)
+find_program(DBUS_RUN_SESSION_EXECUTABLE dbus-run-session)
+if(DBUS_RUN_SESSION_EXECUTABLE)
+    add_test(NAME opusfm-plasmavaults-dbus COMMAND ${DBUS_RUN_SESSION_EXECUTABLE} $<TARGET_FILE:plasmavaultstest> talksToPlasmaVault)
+endif()
+
+ecm_add_test(plasmavaultmenutest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
 ecm_add_test(galleryeditingtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
