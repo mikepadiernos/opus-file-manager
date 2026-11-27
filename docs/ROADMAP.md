@@ -1941,7 +1941,7 @@ Settings for M27 integrations, stored in KConfig.
         verification is a
         [pending handoff](TODO.md#remote-connection-settings-on-plasma-297).
         [#297]
-  - [ ] **Discovery:** show or hide services discovered on the local network
+  - [x] **Discovery:** show or hide services discovered on the local network
         [#662]
 
 - **Cloud storage**
