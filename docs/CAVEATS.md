@@ -2159,7 +2159,10 @@ The M27 desktop integrations have these limits
   for uploads, but logging out waits only when the session lets applications
   ask; otherwise uploads stop and resume at the next mount. Space is shown
   only for mounted remotes whose provider reports it. Exported definitions
-  contain no passwords, and imported sync pairs start paused.
+  contain no passwords, and imported sync pairs start paused. The limits,
+  and how long cached files are kept, are also under **Preferences › Remote
+  and Cloud › Transfers and Cache**, as described under [Transfer and cache
+  settings](#integration-settings).
   ([#719](https://github.com/mikepadiernos/plasma-opus/issues/719))
 - **🛡️ Administrator mode:** **Act as Administrator** needs the separate
   `kio-admin` package and is reported as missing without it. Items in the
@@ -2564,12 +2567,13 @@ The M27 desktop integrations have these limits
   - **Cloud activity:** Open **File › Cloud Activity…**, or **Cloud
     Activity…** in the tray menu, to follow transfers and errors. Set a
     bandwidth limit when uploads slow other traffic and an offline cache large
-    enough for the files you reopen, then unmount and mount remotes again for
-    the limits to apply. Let the upload wait finish before unmounting or
-    logging out; if you continue without waiting, mount the remote again later
-    to finish uploading. Before importing definitions on another computer,
-    configure the same rclone remotes there, then sign in to each connection
-    and resume the imported pairs under **File › Cloud Sync…**.
+    enough for the files you reopen, in the window or under **Preferences ›
+    Remote and Cloud › Transfers and Cache**, then unmount and mount remotes
+    again for the limits to apply. Let the upload wait finish before unmounting
+    or logging out; if you continue without waiting, mount the remote again
+    later to finish uploading. Before importing definitions on another computer,
+    configure the same rclone remotes there, then sign in to each connection and
+    resume the imported pairs under **File › Cloud Sync…**.
   - **Administrator mode:** Install `kio-admin` from Discover or your
     distribution. Act as an administrator only for the change you need,
     copy a file to a backup name in the same folder before editing it, then
@@ -2728,8 +2732,7 @@ The M27 desktop integrations have these limits
     notifications, and show transfers and quota per pair.
   - Show the speed of rclone mounts and sync runs through rclone's remote
     control, limit the bandwidth of KIO pairs, delay logout while uploads are
-    pending, mark folders to keep available offline, and the M28 **Cloud
-    activity** settings.
+    pending, and mark folders to keep available offline.
   - Mark administrator tabs in the tab bar, offer **Open as Administrator**
     for a selected folder in a new tab, and allow trash, checksums and other
     local-file actions through the `admin:` worker where KIO supports them.
@@ -3355,6 +3358,28 @@ The M28 integration settings have these limits
   with local folders and an unreachable SSH address ([Plasma
   check](TODO.md#rsync-settings-on-plasma-366)).
   ([#366](https://github.com/mikepadiernos/plasma-opus/issues/366))
+- **🚚 Transfer and cache settings:** The limits under **Preferences › Remote and
+  Cloud › Transfers and Cache** are the ones in **File › Cloud Activity…**:
+  applying Preferences updates the window, and a change in the window updates
+  the settings, but Preferences, while open, keeps showing the values it opened
+  with and writes them back when another change is applied. The limits apply
+  only to rclone: to remotes that **Go › Cloud Storage** mounts or serves, when
+  they are next mounted or served, and to rclone sync pairs at their next run;
+  remotes already mounted keep their options until unmounted. KIO FUSE has no
+  bandwidth, transfer or cache options, sshfs and CIFS mounts ignore the limits,
+  davfs2 keeps its own cache settings in `davfs2.conf`, and cloud sync pairs
+  with network folders and the transfer queue go through KIO without limits. The
+  cache size applies to each mounted remote separately, so several mounts can
+  use a multiple of it, and rclone can exceed it briefly while files are open.
+  How long cached files are kept applies only with a cache size: files not
+  opened for that long leave the cache at rclone's next check, even when it has
+  room, while files waiting to upload stay. Hiding **Cloud Activity…** removes
+  it only from the tray menu, which appears only while the tray icon is shown or
+  pairs synchronize in the background; **File › Cloud Activity…** stays. The
+  container has no rclone, FUSE or Plasma tray, so the limits are tested as the
+  generated rclone options and the tray menu with a fake tray host ([Plasma
+  check](TODO.md#transfer-and-cache-settings-on-plasma-721)).
+  ([#721](https://github.com/mikepadiernos/plasma-opus/issues/721))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3579,6 +3604,14 @@ The M28 integration settings have these limits
     filters you use for SSH hosts in **File › Compare and Synchronize Folders…**
     and choose it as the comparison profile, and turn on rsync for local folders
     only when you want rsync's itemized dry run for them too.
+  - **Transfer and cache settings:** Set a bandwidth limit below your upload
+    speed when mounted remotes slow other traffic, and keep four or fewer
+    parallel transfers for providers that limit requests. Size the offline cache
+    for the files you reopen, divided among the remotes you mount at once, and
+    keep cached files for 24 hours or more to work offline through a day. Change
+    the limits with Preferences closed when using **File › Cloud Activity…**,
+    then unmount and mount remotes again. For davfs2 mounts, set the cache in
+    `davfs2.conf`.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3688,6 +3721,10 @@ The M28 integration settings have these limits
   - Load the chosen profile whenever the dialog switches to rsync, follow
     changes made in Preferences while the dialog is open, move rsync's deletions
     to the trash through a backup folder, and give rsync its own speed limit.
+  - Apply new limits to running mounts through rclone's remote control instead
+    of waiting for the next mount, follow changes made in **File › Cloud
+    Activity…** while Preferences is open, show how much of the cache each
+    remote uses, and limit the bandwidth of KIO FUSE mounts and KIO pairs.
 
 ## Embedded terminal
 
