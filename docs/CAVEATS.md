@@ -2231,6 +2231,25 @@ The M27 desktop integrations have these limits
   development has no Plasma Impresario, so real drags await
   [verification on Plasma](TODO.md#mail-attachments-on-plasma-657).
   ([#657](https://github.com/mikepadiernos/plasma-opus/issues/657))
+- **📨 Mail file preview:** The preview panel shows a local `.eml` file's
+  From, To, Cc, Date and Subject headers, its plain-text body and its
+  attachments. An HTML-only message is reduced to plain text; images, links
+  and other remote content are never loaded, and scripts never run.
+  Encrypted parts are not decrypted and signatures are not verified; the
+  panel says so instead. Messages over 64 MiB, and messages on remote
+  locations, are not parsed; a remote `.eml` still shows as raw text.
+  **Extract All** and **Extract Selected** save the attachments into the
+  folder that holds the message, through KIO's conflict handling, and
+  report an error instead if the message changed after it was previewed.
+  **Open** hands a read-only private copy to the attachment's registered
+  application, chosen from the copy's content rather than the type the
+  message declares, and never runs programs. Those copies are kept until
+  the window closes. Opening the message itself uses the normal **Open**
+  action on the file; Plasma Impresario doesn't open mail files, and Plasma
+  Opus never imports messages into it. The container used for development
+  has no registered applications or mail client, so opening awaits
+  [verification on Plasma](TODO.md#mail-file-preview-on-plasma-658).
+  ([#658](https://github.com/mikepadiernos/plasma-opus/issues/658))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -2448,6 +2467,10 @@ The M27 desktop integrations have these limits
     files into a local folder first.
   - **Mail attachments:** To keep an attachment you received, save it from
     Plasma Impresario, then drag the saved file into Plasma Opus.
+  - **Mail file preview:** Read encrypted, signed or formatted messages in
+    your mail client. Copy a remote `.eml` file into a local folder to
+    preview it, and use **Extract Selected** rather than **Open** to keep an
+    attachment, because opened copies are removed when the window closes.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2474,6 +2497,9 @@ The M27 desktop integrations have these limits
     M28 **Mail** settings to choose the client and when to prepare local
     copies ([#666](https://github.com/mikepadiernos/plasma-opus/issues/666),
     [#667](https://github.com/mikepadiernos/plasma-opus/issues/667)).
+  - Extract mail attachments into a chosen folder, preview remote `.eml`
+    files through a size-limited download, show inline images only on
+    request, and the M28 **Mail file preview** setting.
   - Reuse an open tab showing an Activity's default folder instead of
     opening another, and offer the current Activity's association at start
     as an option.
