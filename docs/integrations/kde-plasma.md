@@ -607,6 +607,16 @@ behaves like the rest of the desktop and follows the user's choices.
   freely. See
   [Password-gated folders](../CAVEATS.md#password-gated-folders).
   ([#402](https://github.com/mikepadiernos/plasma-opus/issues/402))
+- **Plasma Vault:** **Go › Plasma Vaults** lists Plasma Vault's encrypted
+  CryFS, gocryptfs and EncFS vaults with their state, read from its
+  `org.kde.plasmavault` kded6 module. **Open Vault…** asks Plasma Vault to
+  open a vault with its own password prompt, then shows it in the active
+  pane; **Show Vault Contents**, **Close Vault**, **Configure Vault…** and
+  **Create Vault…** use the same service. Before closing, Plasma Opus lists
+  the programs using files in the vault and asks first. Plasma Opus stores no
+  vault passwords or settings, and reports a missing Plasma Vault in the
+  menu. See [Plasma Vault](../CAVEATS.md#desktop-integration).
+  ([#654](https://github.com/mikepadiernos/plasma-opus/issues/654))
 
 ## Planned features
 
@@ -615,9 +625,8 @@ them.
 
 ### M27.07 Access control and automation
 
-- **Plasma Vault and encryption:** Open, close and reveal Plasma Vault
-  containers through its D-Bus interface and reuse GnuPG and Kleopatra for file
-  encryption. Leave passwords and vault configuration to those tools.
+- **File encryption:** Reuse GnuPG and Kleopatra to encrypt, decrypt, sign
+  and verify files. Leave keys and passwords to those tools.
 
 ### M29 Nextcloud
 
