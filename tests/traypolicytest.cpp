@@ -46,6 +46,18 @@ private Q_SLOTS:
         QVERIFY(!TrayPolicy::startHidden({.trayIconEnabled = false, .trayHostAvailable = true}, true, false));
     }
 
+    void shortcutStatusFollowsTheSettingServiceAndKey()
+    {
+        using TrayPolicy::ShortcutStatus;
+        QCOMPARE(TrayPolicy::shortcutStatus(true, true, true), ShortcutStatus::Assigned);
+        // KDE leaves the shortcut without a key when the default is taken.
+        QCOMPARE(TrayPolicy::shortcutStatus(true, true, false), ShortcutStatus::Unassigned);
+        QCOMPARE(TrayPolicy::shortcutStatus(true, false, true), ShortcutStatus::Unavailable);
+        QCOMPARE(TrayPolicy::shortcutStatus(true, false, false), ShortcutStatus::Unavailable);
+        QCOMPARE(TrayPolicy::shortcutStatus(false, true, true), ShortcutStatus::Off);
+        QCOMPARE(TrayPolicy::shortcutStatus(false, false, false), ShortcutStatus::Off);
+    }
+
     void toggleShowsHidesOrMinimizes()
     {
         const TrayPolicy::State tray{.trayIconEnabled = true, .trayHostAvailable = true};

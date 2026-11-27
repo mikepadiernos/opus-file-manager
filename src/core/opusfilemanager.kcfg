@@ -620,6 +620,10 @@
       <label>Start with the window hidden in the system tray</label>
       <default>false</default>
     </entry>
+    <entry name="GlobalShortcut" type="Bool">
+      <label>Register the global shortcut that shows or hides Plasma Opus</label>
+      <default>true</default>
+    </entry>
   </group>
   <group name="Notifications">
     <entry name="NotifyChecksums" type="Bool">
