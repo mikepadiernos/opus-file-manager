@@ -63,6 +63,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Nextcloud asset search on a real server](#nextcloud-asset-search-on-a-real-server-590) | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#590]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Nextcloud Photos on a real server](#nextcloud-photos-on-a-real-server-671)             | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#671]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Nextcloud shares on a real server](#nextcloud-shares-on-a-real-server-591)             | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#591]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| [Nextcloud desktop client on Plasma](#nextcloud-desktop-client-on-plasma-592)           | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#592]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -1572,6 +1573,51 @@ Board statuses were last confirmed on 2026-11-27.
    Record any differences in [CAVEATS](CAVEATS.md#nextcloud-integration),
    then remove this entry and its roadmap link.
 
+## Nextcloud desktop client on Plasma (#592)
+
+- **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#592]
+  (Development).
+- **Blocker:** The development container has no Nextcloud desktop client,
+  Nextcloud server or Plasma session, so the desktop client's folders are
+  tested only with recorded configuration files and a fake local socket. The
+  configuration written by current client releases, the replies of a running
+  client, its socket and configuration paths in Flatpak and Snap builds, and
+  launching the client from its desktop entry are unverified.
+- **Confirmed state:** `NextcloudDesktop::readConfiguration` in
+  `src/core/nextclouddesktop.cpp` reads `nextcloud.cfg` read-only with
+  `QSettings`, and `NextcloudDesktop::StatusQuery` asks the client's socket for
+  each folder's status with `RETRIEVE_FILE_STATUS` and a timeout.
+  `CloudSync` reuses the same parser to recognize the client's folders.
+  `NextcloudMenu::populateDesktopClient` and
+  `MainWindow::populateNextcloudDesktop` provide **Go › Nextcloud › Desktop
+  Client**, and `MainWindow::openNextcloudDesktopClient` starts the client
+  from its desktop entry. `nextclouddesktoptest`, `nextclouddesktopmenutest`
+  and `cloudsynctest` pass in the container. See
+  [Nextcloud integration](CAVEATS.md#nextcloud-integration).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, a disposable
+   Nextcloud server and the distribution's Nextcloud desktop client, sign the
+   client in and add one folder with full copies and one with virtual files.
+   Note where it keeps `nextcloud.cfg`.
+2. Open **Go › Nextcloud › Desktop Client** and check that the folders show
+   **Local** and **Remote** with **Up to date**, then **Synchronizing** while
+   a large file uploads, and **Needs attention** or **Error** for a file the
+   server rejects. Check **Open**, **Open in Other Pane** and, after adding
+   the same account under **Manage Nextcloud Accounts…**, **Open on Server**.
+3. Pause a folder in the client and check **Offline**. Quit the client and
+   check **Desktop client not running**, then start it again with **Open
+   Desktop Client**. Remove a folder's local directory and check
+   **Unknown**.
+4. Repeat with the Flatpak client and with the Plasma Opus Flatpak build, and
+   record where each keeps its configuration and socket.
+5. Quit the client, open the menu several times and check that
+   `nextcloud.cfg` keeps its modification time and that no
+   `nextcloud.cfg.lock` is left behind. Record any differences in
+   [CAVEATS](CAVEATS.md#nextcloud-integration), then remove this entry and
+   its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -1598,6 +1644,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#589]: https://github.com/mikepadiernos/plasma-opus/issues/589
 [#590]: https://github.com/mikepadiernos/plasma-opus/issues/590
 [#591]: https://github.com/mikepadiernos/plasma-opus/issues/591
+[#592]: https://github.com/mikepadiernos/plasma-opus/issues/592
 [#654]: https://github.com/mikepadiernos/plasma-opus/issues/654
 [#655]: https://github.com/mikepadiernos/plasma-opus/issues/655
 [#656]: https://github.com/mikepadiernos/plasma-opus/issues/656
