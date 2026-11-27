@@ -2042,8 +2042,9 @@ The M27 desktop integrations have these limits
   domains and Kerberos, follows KIO's SMB worker.
   ([#651](https://github.com/mikepadiernos/plasma-opus/issues/651))
 
-- **☁️ rclone cloud storage:** remotes open only by mounting, which needs FUSE
-  and `fusermount3`; serving a remote over WebDAV isn't offered. Mounts last
+- **☁️ rclone cloud storage:** Mounting a remote needs FUSE and `fusermount3`;
+  without them, serve remotes over WebDAV instead, as described under [rclone
+  settings](#integration-settings). Mounts last
   only while Plasma Opus runs, including hidden in the tray, so applications
   editing files on a mount lose access when it quits, and a busy mount may
   stay behind after rclone stops. A mount left by an earlier session opens
@@ -2504,7 +2505,9 @@ The M27 desktop integrations have these limits
     `kdsoap-ws-discovery-client`, and allow mDNS and WS-Discovery through
     the firewall, or save a connection to the host directly.
   - **rclone cloud storage:** Install rclone and FUSE 3 from your
-    distribution and add remotes with `rclone config`. Close files on a
+    distribution and add remotes with `rclone config`; without FUSE, choose
+    **Serve it over WebDAV on this computer only** under **Preferences ›
+    Remote and Cloud › rclone**. Close files on a
     mount before unmounting it or quitting Plasma Opus. If a mount stays
     behind, run `fusermount3 -u` on its folder under
     `$XDG_RUNTIME_DIR/opus-file-manager/rclone`. For mounts that outlive
@@ -2699,9 +2702,8 @@ The M27 desktop integrations have these limits
     to forget the saved password, and import hosts from `~/.ssh/config`.
   - Save a discovered share as a connection from **Network**, and hide FTPS
     when no worker handles it.
-  - Serve remotes over WebDAV on the loopback interface when FUSE is
-    missing, keep mounts running in the tray, show mounts in Places, and
-    choose rclone's cache mode in the M28 settings.
+  - Keep mounts running in the tray, show mounts in Places, and choose
+    rclone's cache mode in the M28 settings.
   - Mount KDE Online Accounts and S3 locations, mount when a workspace is
     activated, keep chosen mounts after quitting, remount with changed
     options, and pass KWallet passwords to davfs2 and CIFS with consent.
@@ -3251,6 +3253,28 @@ The M28 integration settings have these limits
   context menu, or hide the whole Remote section under **Preferences › Interface
   › Panels**. The group reports when no KIO worker lists the local network.
   ([#662](https://github.com/mikepadiernos/plasma-opus/issues/662))
+- **🪣 rclone settings:** Under **Preferences › Remote and Cloud › rclone**,
+  clearing **Offer the remotes configured in rclone in Go › Cloud Storage**
+  hides the menu and its shortcut after **Apply** or **OK**, but remotes already
+  mounted or served stay open until Plasma Opus quits, as the menu that stops
+  them is hidden. Clearing a remote only leaves it out of the menu's list: cloud
+  sync still offers it, and a cleared remote that is open still appears under
+  **Unmount** or **Stop Serving**. The tab reads the remotes from rclone when it
+  is shown or on **Refresh List**, and remotes added later are shown until they
+  are cleared. **Open a remote** applies to remotes opened afterwards; an open
+  remote keeps its mode until it is stopped. A served remote listens only on
+  127.0.0.1, so other computers can't reach it, but other users of this computer
+  can try its password. Only applications that use KIO open its files in place;
+  others get a temporary copy, so mount remotes for them. Each remote has a port
+  derived from its name; when that port is busy, another is used, and KDE's
+  password server keeps a separate password for it, so KDE Wallet can hold
+  several Plasma Opus entries for 127.0.0.1. The password is in rclone's
+  environment, which other processes of the same user can read, and without KDE
+  Wallet it lasts only until the password server stops. The container has no
+  rclone or KDE password server, so serving a real remote and the password
+  hand-off are tested only with a fake rclone ([Plasma
+  check](TODO.md#rclone-settings-on-plasma-663)).
+  ([#663](https://github.com/mikepadiernos/plasma-opus/issues/663))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3443,6 +3467,12 @@ The M28 integration settings have these limits
     shares to browse, and clear it on untrusted networks or when you connect
     only through saved connections. If you clear it, also hide the Network place
     from its context menu in the Places panel.
+  - **rclone settings:** Mount remotes when FUSE is installed and you open their
+    files in applications that don't use KIO; serve them over WebDAV when FUSE
+    is missing or mounting is blocked, such as in a sandbox. Clear the remotes
+    you don't open from Plasma Opus, such as those used only by cloud sync, and
+    stop open remotes before turning the integration off. When KDE Wallet asks
+    to open as a remote is served, allow it so that the password is kept.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3536,6 +3566,9 @@ The M28 integration settings have these limits
   - Hide the Network place in Plasma Opus's Places panel without hiding it in
     Dolphin, and offer the hosts discovered on the local network when adding a
     connection.
+  - Stop open remotes when the integration is turned off, follow remotes added
+    with `rclone config` while the **rclone** tab is open, choose how each
+    remote opens, and offer **Stop Serving** in the Cloud Activity window.
 
 ## Embedded terminal
 
