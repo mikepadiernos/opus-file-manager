@@ -10,6 +10,8 @@
 #include "favoritesmodel.h"
 #include "filechooser.h"
 #include "filemanagerservice.h"
+#include "indexbackend.h"
+#include "indexstatus.h"
 #include "kwinintegration.h"
 #include "kwinscript.h"
 #include "onlineaccounts.h"
@@ -1331,5 +1333,70 @@ QGroupBox *SettingsDialog::createDropDownGroup()
     });
     m_refreshDropDownShortcut();
     connect(m_dropDownShortcut, &KKeySequenceWidget::keySequenceChanged, this, &SettingsDialog::updateButtons);
+    return group;
+}
+
+QWidget *SettingsDialog::createBalooIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("balooIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(createBalooSearchGroup());
+    layout->addStretch();
+    return page;
+}
+
+QGroupBox *SettingsDialog::createBalooSearchGroup()
+{
+    auto *group = new StatusGroup(i18nc("@title:group", "Search"));
+    group->setObjectName(QStringLiteral("balooSearchGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *ranking = checkBox(QStringLiteral("SearchOfferRanking"), i18nc("@option:check", "Offer ranking results by name similarity in the search panel"));
+    ranking->setToolTip(i18nc("@info:tooltip",
+                              "Shows Rank results by similarity in the search panel. Ranking only reorders the results found; "
+                              "it never adds matches missing from the index."));
+    auto *fallback = checkBox(QStringLiteral("SearchOfferLiveFallback"),
+                              i18nc("@option:check", "Offer to search live after an indexed search, for matches the index lacks"));
+    fallback->setToolTip(i18nc("@info:tooltip", "Shows Search Current Folder Live or Search Workspace Locations Live when an indexed search finishes"));
+    layout->addWidget(ranking);
+    layout->addWidget(fallback);
+    auto *status = statusLabel(QStringLiteral("balooIndexStatus"));
+    layout->addWidget(status);
+    auto *note = new QLabel(i18nc("@info",
+                                  "KDE File Search chooses the folders, files and contents indexed for all applications; Plasma Opus "
+                                  "never changes it. The default search scope, search folders and exclusions of Plasma Opus are "
+                                  "under Tools › Search."));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    auto *configure = actionButton(QStringLiteral("openBalooSettings"), i18nc("@action:button", "Configure File Search…"));
+    configure->setIcon(QIcon::fromTheme(QStringLiteral("baloo"), QIcon::fromTheme(QStringLiteral("system-search"))));
+    configure->setToolTip(i18nc("@info:tooltip", "Open KDE's File Search settings in System Settings to choose what is indexed"));
+    auto *defaults = actionButton(QStringLiteral("showSearchSettings"), i18nc("@action:button", "Search Defaults…"));
+    defaults->setIcon(QIcon::fromTheme(QStringLiteral("edit-find")));
+    defaults->setToolTip(i18nc("@info:tooltip", "Show Tools › Search, with the default scope, search folders and exclusions"));
+    auto *message = messageWidget(QStringLiteral("balooMessage"));
+    layout->addLayout(buttonRow({configure, defaults}));
+    layout->addWidget(message);
+
+    group->refresh = [status] {
+        const IndexStatus::Config config = IndexStatus::Config::read();
+        if (!config.available) {
+            status->setText(i18nc("@info", "Indexed search is unavailable because Plasma Opus was built without Baloo, so these options have no effect."));
+            return;
+        }
+        if (!config.enabled) {
+            status->setText(i18nc("@info", "File indexing is turned off in KDE File Search settings, so indexed searches find nothing."));
+            return;
+        }
+        const SystemIndexBackend backend;
+        status->setText(i18nc("@info %1 is the indexer's state", "File indexing is on. Indexer: %1.", IndexStatus::serviceText(config, backend.service())));
+    };
+    connect(configure, &QPushButton::clicked, group, [message] {
+        openSettingsModule(QStringLiteral("kcm_baloofile"), i18nc("@info", "KDE File Search settings are not installed."), message);
+    });
+    connect(defaults, &QPushButton::clicked, group, [this] {
+        setCurrentPage(m_toolsPage);
+        m_toolsTabs->setCurrentWidget(findChild<QWidget *>(QStringLiteral("searchSettingsPage")));
+    });
     return group;
 }

@@ -340,6 +340,13 @@ private:
     QGroupBox *createDropDownGroup();
     /// The main window's KWin integration, which manages the KWin script, if the dialog has one.
     KWinIntegration *kwinIntegration() const;
+    /**
+     * The KDE Plasma › Baloo tab: which indexed search extras the search
+     * panel offers, with the state of KDE's shared index, and KDE's File
+     * Search settings on request.
+     */
+    QWidget *createBalooIntegrationPage();
+    QGroupBox *createBalooSearchGroup();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.
     ActivityController *activityController() const;
     void createSettingsBackup();
@@ -358,6 +365,8 @@ private:
     QTabWidget *m_toolbarTabs = nullptr;
     KPageWidgetItem *m_workspacePage = nullptr;
     QTabWidget *m_workspaceTabs = nullptr;
+    KPageWidgetItem *m_toolsPage = nullptr;
+    QTabWidget *m_toolsTabs = nullptr;
     KPageWidgetItem *m_plasmaPage = nullptr;
     QTabWidget *m_plasmaTabs = nullptr;
     ActivityAssociationsEditor *m_activityAssociations = nullptr;

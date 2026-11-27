@@ -1005,6 +1005,70 @@ private Q_SLOTS:
         QVERIFY(!fallback->isVisible());
     }
 
+    void honoursTheOfferedSearchExtras()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        for (const QString &name : {QStringLiteral("misreported.txt"), QStringLiteral("report.txt")}) {
+            QFile file(root.filePath(name));
+            QVERIFY(file.open(QIODevice::WriteOnly));
+        }
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchrc")), KConfig::SimpleConfig);
+        KConfigGroup search = config->group(QStringLiteral("Search"));
+        QVERIFY(SearchDefaults::read(search).offerRanking);
+        QVERIFY(SearchDefaults::read(search).offerLiveFallback);
+        search.writeEntry("RankResults", true);
+        search.writeEntry("SearchOfferRanking", false);
+        search.writeEntry("SearchOfferLiveFallback", false);
+        QVERIFY(!SearchDefaults::read(search).offerRanking);
+        QVERIFY(!SearchDefaults::read(search).offerLiveFallback);
+
+        SearchWidget widget(QUrl::fromLocalFile(root.path()), nullptr, config);
+        widget.show();
+        auto *rank = widget.findChild<QCheckBox *>(QStringLiteral("searchRank"));
+        auto *scope = widget.findChild<QComboBox *>(QStringLiteral("searchScope"));
+        auto *query = widget.findChild<QLineEdit *>(QStringLiteral("searchQuery"));
+        auto *start = widget.findChild<QPushButton *>(QStringLiteral("searchStart"));
+        auto *results = widget.findChild<QTreeWidget *>(QStringLiteral("searchResults"));
+        auto *status = widget.findChild<QLabel *>(QStringLiteral("searchStatus"));
+        auto *fallback = widget.findChild<QPushButton *>(QStringLiteral("searchLiveFallback"));
+        QVERIFY(rank && scope && query && start && results && status && fallback);
+        // The panel's own choice is kept, but not used while ranking isn't offered.
+        QVERIFY(rank->isHidden());
+        QVERIFY(rank->isChecked());
+        query->setText(QStringLiteral("report"));
+        start->click();
+        QTRY_VERIFY_WITH_TIMEOUT(start->isEnabled(), 5000);
+        QCOMPARE(results->topLevelItemCount(), 2);
+        QVERIFY(!status->text().contains(QStringLiteral("ranked")));
+        scope->setCurrentIndex(1);
+        start->click();
+        QTRY_VERIFY_WITH_TIMEOUT(start->isEnabled(), 10000);
+        QVERIFY(!fallback->isVisible());
+
+        search.writeEntry("SearchOfferRanking", true);
+        search.writeEntry("SearchOfferLiveFallback", true);
+        widget.applyDefaults();
+        QVERIFY(!rank->isHidden());
+        start->click();
+        QTRY_VERIFY_WITH_TIMEOUT(start->isEnabled(), 10000);
+        QVERIFY(fallback->isVisible());
+        scope->setCurrentIndex(0);
+        start->click();
+        QTRY_VERIFY_WITH_TIMEOUT(start->isEnabled(), 5000);
+        QVERIFY(status->text().contains(QStringLiteral("ranked by name similarity")));
+        QCOMPARE(QFileInfo(results->topLevelItem(0)->data(0, Qt::UserRole).toString()).fileName(), QStringLiteral("report.txt"));
+
+        // Turning the fallback off hides an offer already shown.
+        scope->setCurrentIndex(1);
+        start->click();
+        QTRY_VERIFY_WITH_TIMEOUT(start->isEnabled(), 10000);
+        QVERIFY(fallback->isVisible());
+        search.writeEntry("SearchOfferLiveFallback", false);
+        widget.applyDefaults();
+        QVERIFY(!fallback->isVisible());
+    }
+
     void mainWindowOpensSearchPanel()
     {
         QTemporaryDir root;

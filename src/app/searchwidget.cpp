@@ -243,6 +243,7 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
         group.writeEntry("RankResults", checked);
         group.sync();
     });
+    m_rank->setHidden(!m_appliedDefaults.offerRanking);
     form->addRow(QString(), m_rank);
     refreshWorkspaceScope();
     m_indexNotice = new QLabel(this);
@@ -813,7 +814,7 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
         if (m_defaultsPending) {
             applyDefaults();
         }
-        const bool ranked = m_rank->isChecked() && result.paths.size() > 1;
+        const bool ranked = m_appliedDefaults.offerRanking && m_rank->isChecked() && result.paths.size() > 1;
         QStringList paths = ranked ? SearchRanking::rank(result.paths, SearchRanking::terms(m_lastText, m_lastField)) : result.paths;
         // Items inside locked password-gated folders are dropped, including through symbolic links the exclusions miss.
         paths.removeIf([](const QString &path) {
@@ -845,7 +846,7 @@ SearchWidget::SearchWidget(const QUrl &folder, QWidget *parent, KSharedConfig::P
                        : result.limited ? i18nc("@info", "Results are ranked by name similarity; ranking can't add matches beyond the search limit.")
                                         : i18nc("@info", "Results are ranked by name similarity."));
         }
-        if (m_lastIndexed && !result.canceled && (m_lastWorkspaceOnly || m_folder.isLocalFile())) {
+        if (m_appliedDefaults.offerLiveFallback && m_lastIndexed && !result.canceled && (m_lastWorkspaceOnly || m_folder.isLocalFile())) {
             m_liveFallback->setText(m_lastWorkspaceOnly ? i18nc("@action:button", "Search Workspace Locations Live")
                                                         : i18nc("@action:button", "Search Current Folder Live"));
             m_liveFallback->show();
@@ -1049,6 +1050,13 @@ QString SearchWidget::applyDefaultsNow()
     }
     m_appliedDefaults = defaults;
     m_appliedFilter = filter;
+    // The constructor applies the defaults before it creates these.
+    if (m_rank) {
+        m_rank->setHidden(!defaults.offerRanking);
+    }
+    if (m_liveFallback && !defaults.offerLiveFallback) {
+        m_liveFallback->hide();
+    }
     return notice;
 }
 

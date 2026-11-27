@@ -366,23 +366,24 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
     addTabbedPage({{createEditorPage(), i18nc("@title:tab", "Editor")}, {createTextEditorPage(), i18nc("@title:tab", "KTextEditor")}},
                   i18nc("@title:group", "Editor"),
                   QStringLiteral("view-pim-notes"));
-    addTabbedPage({{createTerminalPage(), i18nc("@title:tab", "Embedded Terminal")},
-                   {createSearchPage(), i18nc("@title:tab", "Search")},
-                   {createDuplicateFinderPage(), i18nc("@title:tab", "Duplicate Finder")},
-                   {createContentChartPage(), i18nc("@title:tab", "Content Chart")},
-                   {createLinkedPanesPage(), i18nc("@title:tab", "Linked Panes")},
-                   {createFileDiffPage(), i18nc("@title:tab", "File Diff")},
-                   {createPaneComparisonPage(), i18nc("@title:tab", "Pane Comparison")},
-                   {createFolderSyncPage(), i18nc("@title:tab", "Folder Sync")},
-                   {createBatchRenamePage(), i18nc("@title:tab", "Batch Rename")},
-                   {createListingExportPage(), i18nc("@title:tab", "Listing Export")},
-                   {createAutomationPage(), i18nc("@title:tab", "Automation")},
-                   {createAssociationsPage(), i18nc("@title:tab", "Applications")},
-                   {createTransferQueuePage(), i18nc("@title:tab", "Transfer Queue")},
-                   {createFileToolDefaultsPage(), i18nc("@title:tab", "File Tools")},
-                   {createMetadataEditorPage(), i18nc("@title:tab", "Metadata Editor")}},
-                  i18nc("@title:group", "Tools"),
-                  QStringLiteral("utilities-terminal"));
+    m_toolsPage = addTabbedPage({{createTerminalPage(), i18nc("@title:tab", "Embedded Terminal")},
+                                 {createSearchPage(), i18nc("@title:tab", "Search")},
+                                 {createDuplicateFinderPage(), i18nc("@title:tab", "Duplicate Finder")},
+                                 {createContentChartPage(), i18nc("@title:tab", "Content Chart")},
+                                 {createLinkedPanesPage(), i18nc("@title:tab", "Linked Panes")},
+                                 {createFileDiffPage(), i18nc("@title:tab", "File Diff")},
+                                 {createPaneComparisonPage(), i18nc("@title:tab", "Pane Comparison")},
+                                 {createFolderSyncPage(), i18nc("@title:tab", "Folder Sync")},
+                                 {createBatchRenamePage(), i18nc("@title:tab", "Batch Rename")},
+                                 {createListingExportPage(), i18nc("@title:tab", "Listing Export")},
+                                 {createAutomationPage(), i18nc("@title:tab", "Automation")},
+                                 {createAssociationsPage(), i18nc("@title:tab", "Applications")},
+                                 {createTransferQueuePage(), i18nc("@title:tab", "Transfer Queue")},
+                                 {createFileToolDefaultsPage(), i18nc("@title:tab", "File Tools")},
+                                 {createMetadataEditorPage(), i18nc("@title:tab", "Metadata Editor")}},
+                                i18nc("@title:group", "Tools"),
+                                QStringLiteral("utilities-terminal"),
+                                &m_toolsTabs);
     m_plasmaPage = addTabbedPage({{createFileManagerIntegrationPage(), i18nc("@title:tab", "File Manager")},
                                   {createNotificationsIntegrationPage(), i18nc("@title:tab", "Notifications")},
                                   {createSystemTrayPage(), i18nc("@title:tab", "System Tray")},
@@ -392,7 +393,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                   {createKRunnerIntegrationPage(), i18nc("@title:tab", "KRunner")},
                                   {createOnlineAccountsIntegrationPage(), i18nc("@title:tab", "Online Accounts")},
                                   {createMountManagerIntegrationPage(), i18nc("@title:tab", "Mount Manager")},
-                                  {createKWinIntegrationPage(), i18nc("@title:tab", "KWin")}},
+                                  {createKWinIntegrationPage(), i18nc("@title:tab", "KWin")},
+                                  {createBalooIntegrationPage(), i18nc("@title:tab", "Baloo")}},
                                  i18nc("@title:group", "KDE Plasma"),
                                  QStringLiteral("plasma"),
                                  &m_plasmaTabs);
@@ -1307,6 +1309,7 @@ QWidget *SettingsDialog::createTerminalPage()
 QWidget *SettingsDialog::createSearchPage()
 {
     auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("searchSettingsPage"));
     auto *layout = new QVBoxLayout(page);
     auto *defaultsLabel = new QLabel(i18nc("@info",
                                            "The toolbar search field and the search panel start with these criteria. Criteria changed in an "

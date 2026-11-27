@@ -1485,6 +1485,73 @@ private Q_SLOTS:
         QCOMPARE(message->messageType(), KMessageWidget::Error);
         QVERIFY(message->text().contains(QStringLiteral("window rules settings are not installed")));
     }
+
+    void balooTabChoosesTheOfferedSearchExtras()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("balooIntegrationPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QCOMPARE(tabs->indexOf(page), tabs->count() - 1);
+        QCOMPARE(tabs->tabText(tabs->indexOf(page)), QStringLiteral("Baloo"));
+        QCOMPARE(tabs->tabText(tabs->indexOf(page) - 1), QStringLiteral("KWin"));
+
+        auto *group = page->findChild<QGroupBox *>(QStringLiteral("balooSearchGroup"));
+        auto *ranking = page->findChild<QCheckBox *>(QStringLiteral("kcfg_SearchOfferRanking"));
+        auto *fallback = page->findChild<QCheckBox *>(QStringLiteral("kcfg_SearchOfferLiveFallback"));
+        auto *status = page->findChild<QLabel *>(QStringLiteral("balooIndexStatus"));
+        auto *rank = window.findChild<QCheckBox *>(QStringLiteral("searchRank"));
+        QVERIFY(group && ranking && fallback && status && rank);
+        QVERIFY(ranking->isChecked());
+        QVERIFY(fallback->isChecked());
+        QVERIFY(!rank->isHidden());
+
+        dialog.showKWinPage();
+        tabs->setCurrentWidget(page);
+        dialog.show();
+        QTRY_VERIFY(group->isVisible());
+        QVERIFY(!status->text().isEmpty());
+
+        ranking->setChecked(false);
+        fallback->setChecked(false);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::searchOfferRanking());
+        QVERIFY(!Settings::searchOfferLiveFallback());
+        QVERIFY(rank->isHidden());
+
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QVERIFY(ranking->isChecked());
+        QVERIFY(fallback->isChecked());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!rank->isHidden());
+
+        // The search defaults stay under Tools › Search rather than being duplicated here.
+        dialog.findChild<QPushButton *>(QStringLiteral("showSearchSettings"))->click();
+        auto *search = dialog.findChild<QWidget *>(QStringLiteral("searchSettingsPage"));
+        QVERIFY(search->isVisible());
+        QCOMPARE(tabTitleOf(search->findChild<QWidget *>(QStringLiteral("kcfg_DefaultSearchScope"))), QStringLiteral("Search"));
+    }
+
+    void reportsMissingFileSearchSettings()
+    {
+        for (const QString &kind : {QStringLiteral("systemsettings"), QStringLiteral("systemsettings_qwidgets")}) {
+            if (KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/") + kind, QStringLiteral("kcm_baloofile")).isValid()) {
+                QSKIP("KDE File Search settings are installed on this system.");
+            }
+        }
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        dialog.findChild<QPushButton *>(QStringLiteral("openBalooSettings"))->click();
+        auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("balooMessage"));
+        QCOMPARE(message->messageType(), KMessageWidget::Error);
+        QVERIFY(message->text().contains(QStringLiteral("File Search settings are not installed")));
+    }
 };
 
 QTEST_MAIN(IntegrationSettingsTest)
