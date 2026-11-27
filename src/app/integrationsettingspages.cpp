@@ -17,6 +17,7 @@
 #include "indexstatus.h"
 #include "kwinintegration.h"
 #include "kwinscript.h"
+#include "officeapps.h"
 #include "onlineaccounts.h"
 #include "portalsetup.h"
 #include "runnermatches.h"
@@ -37,6 +38,7 @@
 #include <KLocalizedString>
 #include <KMessageBox>
 #include <KMessageWidget>
+#include <KParts/PartLoader>
 #include <KPluginMetaData>
 #include <KProtocolInfo>
 #include <KService>
@@ -63,6 +65,7 @@
 #include <QTimer>
 #include <QVBoxLayout>
 
+#include <algorithm>
 #include <chrono>
 #include <functional>
 #include <memory>
@@ -1832,4 +1835,154 @@ void SettingsDialog::showBuiltInEditorSettings()
 {
     setCurrentPage(m_editorPage);
     m_editorTabs->setCurrentWidget(findChild<QWidget *>(QStringLiteral("editorSettingsPage")));
+}
+
+QWidget *SettingsDialog::createOfficeIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("officeIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(createOfficeEditorGroup());
+    layout->addWidget(createOfficePreviewGroup());
+    layout->addStretch();
+    return page;
+}
+
+QGroupBox *SettingsDialog::createOfficeEditorGroup()
+{
+    using OfficeApps::App;
+    using OfficeApps::Kind;
+    auto *group = new StatusGroup(i18nc("@title:group", "Editing"));
+    group->setObjectName(QStringLiteral("officeEditorGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *form = new QFormLayout;
+    // The choices follow Automatic, then OfficeApps::apps().
+    const QList<App> apps = OfficeApps::apps();
+    QStringList names{i18nc("@item:inlistbox office application", "First installed")};
+    for (const App app : apps) {
+        names.append(OfficeApps::name(app));
+    }
+    auto *provider = comboBox(QStringLiteral("OfficeEditor"), names);
+    provider->setToolTip(i18nc("@info:tooltip", "The office application that Edit opens documents, spreadsheets and presentations in"));
+    form->addRow(i18nc("@label:listbox", "Office application:"), provider);
+    layout->addLayout(form);
+    auto *status = statusLabel(QStringLiteral("officeEditorStatus"));
+    layout->addWidget(status);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Edit, with F4 or from the context menus, opens office documents in this application, which saves them and "
+                                  "converts their format itself. Open in Office Application still offers every application."));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+
+    const QList<Kind> kinds{Kind::Document, Kind::Spreadsheet, Kind::Presentation};
+    // Whether any of the application's commands is installed; Calligra has one per kind.
+    const auto installed = [kinds](App app) {
+        return std::any_of(kinds.cbegin(), kinds.cend(), [app](Kind kind) {
+            return !OfficeApps::findExecutable(app, kind).isEmpty();
+        });
+    };
+    // Marks the applications that are not installed, and reports the chosen one.
+    const auto refresh = [apps, kinds, installed, provider, status] {
+        provider->setItemIcon(0, QIcon::fromTheme(QStringLiteral("applications-office")));
+        QStringList available;
+        for (int index = 0; index < apps.size() && index + 1 < provider->count(); ++index) {
+            const App app = apps.at(index);
+            const QString reason = OfficeApps::unavailableReason(app, kinds);
+            const bool present = installed(app);
+            if (present) {
+                available.append(OfficeApps::name(app));
+            }
+            provider->setItemText(index + 1,
+                                  present ? OfficeApps::name(app)
+                                          : i18nc("@item:inlistbox %1 is an office application", "%1 (not installed)", OfficeApps::name(app)));
+            provider->setItemIcon(index + 1, QIcon::fromTheme(OfficeApps::iconName(app)));
+            provider->setItemData(index + 1, reason.isEmpty() ? QVariant() : QVariant(reason), Qt::ToolTipRole);
+        }
+        if (provider->currentIndex() <= 0) {
+            status->setText(available.isEmpty() ? i18nc("@info", "No office application is installed, so Edit reports this for office documents.")
+                                                : i18nc("@info %1 lists office applications",
+                                                        "Edit opens office documents in the first installed application in this list: %1.",
+                                                        available.join(QStringLiteral(", "))));
+            return;
+        }
+        const App chosen = apps.value(provider->currentIndex() - 1);
+        const QString reason = OfficeApps::unavailableReason(chosen, kinds);
+        if (!installed(chosen)) {
+            status->setText(reason + QLatin1Char(' ') + i18nc("@info", "Edit reports this instead of opening another application."));
+            return;
+        }
+        status->setText(reason.isEmpty() ? i18nc("@info %1 is an office application", "Edit opens office documents in %1.", OfficeApps::name(chosen))
+                                         : i18nc("@info %1 is an office application, %2 why it can't open some documents",
+                                                 "Edit opens office documents in %1 where it can. %2",
+                                                 OfficeApps::name(chosen),
+                                                 reason));
+    };
+    group->refresh = refresh;
+    connect(provider, &QComboBox::currentIndexChanged, group, refresh);
+    refresh();
+    return group;
+}
+
+QGroupBox *SettingsDialog::createOfficePreviewGroup()
+{
+    auto *group = new StatusGroup(i18nc("@title:group", "Previews"));
+    group->setObjectName(QStringLiteral("officePreviewGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *enabled = checkBox(QStringLiteral("OfficePreviews"), i18nc("@option:check", "Preview office documents in the preview panel"));
+    enabled->setToolTip(i18nc("@info:tooltip", "When this is off, the preview panel suggests Open in Office Application instead of loading a viewer"));
+    layout->addWidget(enabled);
+    auto *status = statusLabel(QStringLiteral("officePreviewStatus"));
+    layout->addWidget(status);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Previews use the installed document viewer part, such as Calligra's, that File Associations ranks first for "
+                                  "the document's type. LibreOffice and ONLYOFFICE don't provide one."));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    auto *associations = actionButton(QStringLiteral("openFileAssociationsSettings"), i18nc("@action:button", "File Associations…"));
+    associations->setIcon(QIcon::fromTheme(QStringLiteral("preferences-desktop-filetype-association")));
+    associations->setToolTip(i18nc("@info:tooltip", "Open KDE's File Associations settings, which rank the viewers for each file type"));
+    layout->addLayout(buttonRow({associations}));
+    auto *message = messageWidget(QStringLiteral("officePreviewMessage"));
+    layout->addWidget(message);
+
+    // Representative OpenDocument and Microsoft Office types for each kind.
+    const QList<std::pair<QString, QStringList>> kinds{
+        {i18nc("@item office document kind", "Text documents"),
+         {QStringLiteral("application/vnd.oasis.opendocument.text"),
+          QStringLiteral("application/vnd.openxmlformats-officedocument.wordprocessingml.document")}},
+        {i18nc("@item office document kind", "Spreadsheets"),
+         {QStringLiteral("application/vnd.oasis.opendocument.spreadsheet"),
+          QStringLiteral("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")}},
+        {i18nc("@item office document kind", "Presentations"),
+         {QStringLiteral("application/vnd.oasis.opendocument.presentation"),
+          QStringLiteral("application/vnd.openxmlformats-officedocument.presentationml.presentation")}},
+    };
+    // Reports the viewer part that previews each kind.
+    const auto refresh = [kinds, enabled, status] {
+        if (!enabled->isChecked()) {
+            status->setText(i18nc("@info", "Office document previews are off, so the preview panel suggests Open in Office Application instead."));
+            return;
+        }
+        QStringList lines;
+        for (const auto &[kind, mimeTypes] : kinds) {
+            QStringList viewers;
+            for (const QString &mimeType : mimeTypes) {
+                const QList<KPluginMetaData> parts = KParts::PartLoader::partsForMimeType(mimeType);
+                if (!parts.isEmpty() && !viewers.contains(parts.first().name())) {
+                    viewers.append(parts.first().name());
+                }
+            }
+            lines.append(viewers.isEmpty()
+                             ? i18nc("@info %1 is an office document kind", "%1: no viewer is installed.", kind)
+                             : i18nc("@info %1 is an office document kind, %2 lists viewers", "%1: %2.", kind, viewers.join(QStringLiteral(", "))));
+        }
+        status->setText(lines.join(QLatin1Char('\n')));
+    };
+    group->refresh = refresh;
+    connect(enabled, &QCheckBox::toggled, group, refresh);
+    refresh();
+    connect(associations, &QPushButton::clicked, message, [message] {
+        openSettingsModule(QStringLiteral("kcm_filetypes"), i18nc("@info", "KDE's File Associations settings are not installed."), message);
+    });
+    return group;
 }

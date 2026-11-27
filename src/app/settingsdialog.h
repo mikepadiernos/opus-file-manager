@@ -367,6 +367,12 @@ private:
     QGroupBox *createEditorWorkspaceVaultGroup();
     /// The Preview Editing group of the Editor tab: whether and how text previews offer editing.
     QGroupBox *createEditorPreviewGroup();
+    /// The Applications › Office tab.
+    QWidget *createOfficeIntegrationPage();
+    /// The Editing group of the Office tab: the office application that Edit opens documents in.
+    QGroupBox *createOfficeEditorGroup();
+    /// The Previews group of the Office tab: whether the preview panel shows office documents, and the viewer parts it uses.
+    QGroupBox *createOfficePreviewGroup();
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.

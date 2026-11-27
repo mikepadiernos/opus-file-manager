@@ -16,6 +16,7 @@
 #include "kwinintegration.h"
 #include "mainwindow.h"
 #include "mountbackend.h"
+#include "officeapps.h"
 #include "onlineaccounts.h"
 #include "operationjob.h"
 #include "pane.h"
@@ -2122,6 +2123,129 @@ private Q_SLOTS:
 
         offer->setChecked(true);
         QVERIFY(doubleClick->isEnabled() && returnAfterSave->isEnabled());
+    }
+
+    void officeTabChoosesTheOfficeApplication()
+    {
+        QTemporaryDir bin;
+        QTemporaryDir folder;
+        QVERIFY(bin.isValid() && folder.isValid());
+        const QByteArray path = qgetenv("PATH");
+        const auto restore = qScopeGuard([&path] {
+            qputenv("PATH", path);
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        // A fake LibreOffice records how it was started; Calligra has only its word processor, and ONLYOFFICE is missing.
+        qputenv("PATH", bin.path().toLocal8Bit());
+        const QString output = bin.filePath(QStringLiteral("arguments"));
+        const auto install = [&bin, &output](const QString &name) {
+            QFile script(bin.filePath(name));
+            QVERIFY(script.open(QIODevice::WriteOnly));
+            script.write("#!/bin/sh\nprintf '%s\\n' \"$0\" \"$@\" > '" + output.toLocal8Bit() + "'\n");
+            script.close();
+            QVERIFY(script.setPermissions(script.permissions() | QFileDevice::ExeOwner));
+        };
+        install(QStringLiteral("libreoffice"));
+        install(QStringLiteral("calligrawords"));
+        const QString report = folder.filePath(QStringLiteral("report.odt"));
+        QFile document(report);
+        QVERIFY(document.open(QIODevice::WriteOnly));
+        document.write("PK");
+        document.close();
+
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(folder.path())});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        window.actionCollection()->action(QStringLiteral("show_preview_panel"))->trigger();
+        view->selectUrls({QUrl::fromLocalFile(report)});
+        QAction *edit = window.actionCollection()->action(QStringLiteral("edit_file"));
+        QTRY_VERIFY(edit->isEnabled());
+        QCOMPARE(edit->toolTip(), QStringLiteral("Edit the selected file with LibreOffice"));
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *group = dialog.findChild<QGroupBox *>(QStringLiteral("officeEditorGroup"));
+        QVERIFY(group);
+        QCOMPARE(tabTitleOf(group), QStringLiteral("Office"));
+        QVERIFY(dialog.findChild<QWidget *>(QStringLiteral("officeIntegrationPage"))->isAncestorOf(group));
+        auto *provider = group->findChild<QComboBox *>(QStringLiteral("kcfg_OfficeEditor"));
+        auto *status = group->findChild<QLabel *>(QStringLiteral("officeEditorStatus"));
+        QVERIFY(provider && status);
+        QCOMPARE(provider->count(), OfficeApps::apps().size() + 1);
+        QCOMPARE(provider->itemText(1), QStringLiteral("LibreOffice"));
+        QCOMPARE(provider->itemText(2), QStringLiteral("Calligra"));
+        QCOMPARE(provider->itemData(2, Qt::ToolTipRole).toString(), QStringLiteral("Calligra is not installed, or its calligrasheets command is not in PATH."));
+        QCOMPARE(provider->itemText(3), QStringLiteral("ONLYOFFICE (not installed)"));
+        QCOMPARE(status->text(), QStringLiteral("Edit opens office documents in the first installed application in this list: LibreOffice, Calligra."));
+
+        const auto choose = [&dialog](QComboBox *combo, int index) {
+            combo->setCurrentIndex(index);
+            Q_EMIT combo->activated(index);
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+        };
+        // A missing application is reported rather than replaced.
+        choose(provider, 3);
+        QCOMPARE(OfficeApps::preferredApp(), std::optional(OfficeApps::App::OnlyOffice));
+        QVERIFY2(status->text().endsWith(QStringLiteral("Edit reports this instead of opening another application.")), qPrintable(status->text()));
+        const QString missing = QStringLiteral(
+            "ONLYOFFICE, chosen under Preferences › Applications › Office, is not installed, or its onlyoffice-desktopeditors command is not in PATH.");
+        view->selectUrls({});
+        view->selectUrls({QUrl::fromLocalFile(report)});
+        QTRY_COMPARE(edit->toolTip(), missing);
+        edit->trigger();
+        QCOMPARE(window.statusBar()->currentMessage(), missing);
+        QVERIFY(!QFile::exists(output));
+
+        // A partly installed application opens the kinds it has.
+        choose(provider, 2);
+        QVERIFY2(
+            status->text().startsWith(QStringLiteral("Edit opens office documents in Calligra where it can. Calligra is not installed, or its calligrasheets")),
+            qPrintable(status->text()));
+        view->selectUrls({});
+        view->selectUrls({QUrl::fromLocalFile(report)});
+        QTRY_COMPARE(edit->toolTip(), QStringLiteral("Edit the selected file with Calligra"));
+        edit->trigger();
+        QTRY_COMPARE(QFile::exists(output), true);
+        QFile recorded(output);
+        QVERIFY(recorded.open(QIODevice::ReadOnly));
+        QCOMPARE(QString::fromLocal8Bit(recorded.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts),
+                 (QStringList{bin.filePath(QStringLiteral("calligrawords")), report}));
+
+        // Turning previews off reloads the preview with a message.
+        auto *previews = dialog.findChild<QGroupBox *>(QStringLiteral("officePreviewGroup"));
+        QVERIFY(previews);
+        QCOMPARE(tabTitleOf(previews), QStringLiteral("Office"));
+        auto *enabled = previews->findChild<QCheckBox *>(QStringLiteral("kcfg_OfficePreviews"));
+        auto *previewStatus = previews->findChild<QLabel *>(QStringLiteral("officePreviewStatus"));
+        QVERIFY(enabled && enabled->isChecked() && previewStatus);
+        QVERIFY2(previewStatus->text().contains(QStringLiteral("Spreadsheets: ")), qPrintable(previewStatus->text()));
+        auto *panel = window.findChild<QWidget *>(QStringLiteral("previewPanel"));
+        auto *message = panel->findChild<QLabel *>(QStringLiteral("previewMessage"));
+        QVERIFY(message);
+        enabled->setChecked(false);
+        QVERIFY(previewStatus->text().startsWith(QStringLiteral("Office document previews are off")));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::officePreviews());
+        QTRY_VERIFY2(message->text().startsWith(QStringLiteral("Office document previews are off.")), qPrintable(message->text()));
+    }
+
+    void reportsMissingFileAssociationsSettings()
+    {
+        for (const QString &kind : {QStringLiteral("systemsettings"), QStringLiteral("systemsettings_qwidgets")}) {
+            if (KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/") + kind, QStringLiteral("kcm_filetypes")).isValid()) {
+                QSKIP("KDE's File Associations settings are installed on this system.");
+            }
+        }
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        dialog.findChild<QPushButton *>(QStringLiteral("openFileAssociationsSettings"))->click();
+        auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("officePreviewMessage"));
+        QCOMPARE(message->messageType(), KMessageWidget::Error);
+        QVERIFY(message->text().contains(QStringLiteral("File Associations settings are not installed")));
     }
 };
 

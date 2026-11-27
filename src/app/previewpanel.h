@@ -168,6 +168,8 @@ private:
     QImage m_image;
     QUrl m_url;
     qint64 m_textLimit = 0;
+    /// The document formats previewed when the preview was loaded, one bit per DocumentFormats::Kind.
+    quint32 m_formatPreviews = 0;
     QUrl m_pendingUrl;
     QString m_pendingMimeType;
     QSharedPointer<QTemporaryFile> m_pendingFile;

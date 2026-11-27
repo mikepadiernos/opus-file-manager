@@ -96,6 +96,19 @@ bool isDocumentMime(const QString &mimeType)
     return DocumentFormats::usesDocumentViewer(mimeType);
 }
 
+/// The document formats that are previewed, one bit per kind, so that changing them loads the preview again.
+quint32 formatPreviews()
+{
+    using DocumentFormats::Kind;
+    quint32 enabled = 0;
+    for (const Kind kind : {Kind::Pdf, Kind::Office, Kind::Ebook, Kind::Comic, Kind::DjVu, Kind::HelpFile, Kind::Font}) {
+        if (DocumentFormats::previewEnabled(kind)) {
+            enabled |= 1U << static_cast<int>(kind);
+        }
+    }
+    return enabled;
+}
+
 bool isMailMime(const QString &mimeType)
 {
     return QMimeDatabase().mimeTypeForName(mimeType).inherits(QStringLiteral("message/rfc822"));
@@ -768,11 +781,13 @@ void PreviewPanel::setItems(const KFileItemList &items, const QList<QUrl> &image
     m_title->setText(imageIndex >= 0 ? i18nc("@title", "%1 (%2 of %3)", item.text(), imageIndex + 1, m_images.size()) : item.text());
     m_title->show();
     const qint64 textLimit = qint64(Settings::textPreviewLimitKiB()) * 1024;
-    if (item.url() == m_url && textLimit == m_textLimit) {
+    const quint32 previews = formatPreviews();
+    if (item.url() == m_url && textLimit == m_textLimit && previews == m_formatPreviews) {
         return;
     }
     m_url = item.url();
     m_textLimit = textLimit;
+    m_formatPreviews = previews;
     ++m_generation;
     m_editNotice->hide();
     m_pendingUrl = {};
@@ -802,6 +817,11 @@ void PreviewPanel::setItems(const KFileItemList &items, const QList<QUrl> &image
     setBusy(true);
 
     if (!m_url.isLocalFile()) {
+        // A format whose previews are off isn't downloaded.
+        if (const DocumentFormats::Kind format = DocumentFormats::kind(item.mimetype()); !DocumentFormats::previewEnabled(format)) {
+            showMessage(DocumentFormats::previewDisabledMessage(format));
+            return;
+        }
         startRemotePreview(m_url);
         return;
     }
@@ -1057,6 +1077,10 @@ void PreviewPanel::showDocument(const QUrl &url, const QString &mimeType)
         showMessage(i18nc("@info", "Could not open this document."));
         return;
     }
+    if (const DocumentFormats::Kind format = DocumentFormats::kind(mimeType); !DocumentFormats::previewEnabled(format)) {
+        showMessage(DocumentFormats::previewDisabledMessage(format));
+        return;
+    }
     if (KParts::PartLoader::partsForMimeType(mimeType).isEmpty()) {
         showMessage(DocumentFormats::missingViewerMessage(DocumentFormats::kind(mimeType)));
         return;
@@ -1108,6 +1132,10 @@ void PreviewPanel::clearDocument()
 
 void PreviewPanel::showFont(const QUrl &url, const QUrl &source, const QString &mimeType)
 {
+    if (!DocumentFormats::previewEnabled(DocumentFormats::Kind::Font)) {
+        showMessage(DocumentFormats::previewDisabledMessage(DocumentFormats::Kind::Font));
+        return;
+    }
     if (!m_font) {
         m_font = new FontPreview(m_content);
         m_font->setObjectName(QStringLiteral("previewFont"));
