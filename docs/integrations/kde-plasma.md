@@ -740,8 +740,16 @@ behaves like the rest of the desktop and follows the user's choices.
   and reports progress and cancellation to Plasma's job view; the report
   lists what rsync changed and any errors. SSH keeps OpenSSH's host-key
   checks, and KDE's ksshaskpass asks for passwords; passwords never reach the
-  command line. See [rsync backend](../CAVEATS.md#desktop-integration).
-  ([#363](https://github.com/mikepadiernos/plasma-opus/issues/363))
+  command line. Under **Preferences › Remote and Cloud › Sync**, the **rsync
+  Backend** group turns rsync on or off, chooses whether local folders start
+  with rsync, and sets the comparison profile and copy policy used when the
+  dialog starts with rsync. It starts with safe defaults: rsync replaces only
+  older files and doesn't delete files until deletions are allowed there, and
+  the dry run and confirmation stay required either way. See [rsync
+  backend](../CAVEATS.md#desktop-integration) and [rsync
+  settings](../CAVEATS.md#integration-settings).
+  ([#363](https://github.com/mikepadiernos/plasma-opus/issues/363),
+  [#366](https://github.com/mikepadiernos/plasma-opus/issues/366))
 - **Cloud sync:** **File › Cloud Sync…** keeps chosen local folders in
   two-way sync with KIO locations, such as Nextcloud, WebDAV, SFTP, SMB or S3
   folders and KDE Online Accounts storage, or with rclone remotes. Each pair
