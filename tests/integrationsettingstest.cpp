@@ -27,6 +27,9 @@
 #include "operationjob.h"
 #include "pane.h"
 #include "portalsetup.h"
+#include "remotemounts.h"
+#include "remoteprofiles.h"
+#include "remoteprofilesdialog.h"
 #include "runnermatches.h"
 #include "sendbyemaildialog.h"
 #include "settings.h"
@@ -43,6 +46,8 @@
 #include <KFilePlacesView>
 #include <KKeySequenceWidget>
 #include <KMessageWidget>
+#include <KPageWidget>
+#include <KPageWidgetModel>
 #include <KPluginMetaData>
 #include <KService>
 #include <KSharedConfig>
@@ -304,6 +309,9 @@ private Q_SLOTS:
         // Each main window then adds the file-type places the settings show.
         KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("FileTypePlaces"));
         KSharedConfig::openStateConfig()->sync();
+        KSharedConfig::openConfig()->deleteGroup(QStringLiteral("RemoteProfiles"));
+        KSharedConfig::openConfig()->deleteGroup(QStringLiteral("RemoteMounts"));
+        KSharedConfig::openConfig()->sync();
         qputenv("XDG_CURRENT_DESKTOP", "KDE");
         Settings::self()->setDefaults();
     }
@@ -2651,6 +2659,159 @@ private Q_SLOTS:
         auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("mailClientMessage"));
         QCOMPARE(message->messageType(), KMessageWidget::Error);
         QVERIFY(message->text().contains(QStringLiteral("Default Applications settings are not installed")));
+    }
+
+    void connectionsTabSavesRemoteConnectionsImmediately()
+    {
+        KConfigGroup profilesGroup = KSharedConfig::openConfig()->group(QStringLiteral("RemoteProfiles"));
+        KConfigGroup mountsGroup = KSharedConfig::openConfig()->group(QStringLiteral("RemoteMounts"));
+        RemoteMounts::saveOptions(mountsGroup, QStringLiteral("stale"), RemoteMounts::Options());
+        QVERIFY(mountsGroup.hasGroup(QStringLiteral("stale")));
+
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("remoteConnectionsIntegrationPage"));
+        QVERIFY(page);
+        auto *group = page->findChild<QGroupBox *>(QStringLiteral("remoteConnectionsProfilesGroup"));
+        QVERIFY(group);
+        QCOMPARE(tabTitleOf(group), QStringLiteral("Connections"));
+        auto *model = qobject_cast<KPageWidgetModel *>(dialog.findChild<KPageWidget *>()->model());
+        KPageWidgetItem *item = nullptr;
+        for (int row = 0; row < model->rowCount(); ++row) {
+            KPageWidgetItem *candidate = model->item(model->index(row, 0));
+            if (candidate->widget()->isAncestorOf(page)) {
+                item = candidate;
+            }
+        }
+        QVERIFY(item);
+        QCOMPARE(item->name(), QStringLiteral("Remote and Cloud"));
+        QVERIFY2(item->icon().name().startsWith(QStringLiteral("folder-cloud")), qPrintable(item->icon().name()));
+
+        // A connection saved elsewhere shows when the tab is shown again.
+        RemoteProfiles::Profile build;
+        build.name = QStringLiteral("Build");
+        build.host = QStringLiteral("build.example.org");
+        QList<RemoteProfiles::Profile> external{build};
+        QVERIFY(RemoteProfiles::save(profilesGroup, external));
+        auto *list = page->findChild<QListWidget *>(QStringLiteral("remoteProfileList"));
+        QCOMPARE(list->count(), 0);
+        dialog.setCurrentPage(item);
+        dialog.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&dialog));
+        QTRY_COMPARE(list->count(), 1);
+        QCOMPARE(list->item(0)->text(), QStringLiteral("Build"));
+        // A connection saved in another window while the tab is open is kept.
+        RemoteProfiles::Profile mirror = build;
+        mirror.name = QStringLiteral("Mirror");
+        external.append(mirror);
+        QVERIFY(RemoteProfiles::save(profilesGroup, external));
+
+        // Save takes effect without Apply, in the Remote Connections menu too.
+        page->findChild<QPushButton *>(QStringLiteral("remoteProfileAdd"))->click();
+        auto *protocol = page->findChild<QComboBox *>(QStringLiteral("remoteProfileProtocol"));
+        protocol->setCurrentIndex(protocol->findData(static_cast<int>(RemoteProfiles::Protocol::Smb)));
+        page->findChild<QLineEdit *>(QStringLiteral("remoteProfileName"))->setText(QStringLiteral("NAS"));
+        page->findChild<QLineEdit *>(QStringLiteral("remoteProfileHost"))->setText(QStringLiteral("nas.local"));
+        page->findChild<QPushButton *>(QStringLiteral("remoteProfileSave"))->click();
+        QList<RemoteProfiles::Profile> saved = RemoteProfiles::load(profilesGroup);
+        QCOMPARE(saved.size(), 3);
+        QCOMPARE(saved.at(1).name, QStringLiteral("Mirror"));
+        QCOMPARE(saved.at(2).name, QStringLiteral("NAS"));
+        QCOMPARE(saved.at(2).protocol, RemoteProfiles::Protocol::Smb);
+        QCOMPARE(list->count(), 3);
+        // Saving forgets the mount options of connections that no longer exist.
+        QVERIFY(!mountsGroup.hasGroup(QStringLiteral("stale")));
+
+        auto *remote = qobject_cast<KActionMenu *>(window.actionCollection()->action(QStringLiteral("remote_connections")));
+        Q_EMIT remote->menu()->aboutToShow();
+        QStringList names;
+        for (QAction *entry : remote->menu()->actions()) {
+            names.append(entry->text());
+        }
+        QVERIFY2(names.contains(QStringLiteral("NAS")), qPrintable(names.join(QLatin1Char(','))));
+
+        // Remove takes effect immediately too.
+        QCOMPARE(list->currentItem()->text(), QStringLiteral("NAS"));
+        page->findChild<QPushButton *>(QStringLiteral("remoteProfileRemove"))->click();
+        saved = RemoteProfiles::load(profilesGroup);
+        QCOMPARE(saved.size(), 2);
+        QCOMPARE(saved.at(0).name, QStringLiteral("Build"));
+        QCOMPARE(saved.at(1).name, QStringLiteral("Mirror"));
+        QCOMPARE(list->currentItem()->text(), QStringLiteral("Mirror"));
+    }
+
+    void reportsMissingWalletManager()
+    {
+        for (const QString &name : {QStringLiteral("org.kde.kwalletmanager"), QStringLiteral("org.kde.kwalletmanager5")}) {
+            if (KService::serviceByDesktopName(name)) {
+                QSKIP("KDE Wallet Manager is installed on this system.");
+            }
+        }
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *wallet = dialog.findChild<QPushButton *>(QStringLiteral("openWalletManager"));
+        QVERIFY(wallet);
+        QCOMPARE(tabTitleOf(wallet), QStringLiteral("Connections"));
+        wallet->click();
+        auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("remoteConnectionsMessage"));
+        QCOMPARE(message->messageType(), KMessageWidget::Error);
+        QVERIFY(message->text().contains(QStringLiteral("kwalletmanager")));
+    }
+
+    void connectionDefaultsStartNewRemoteConnections()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("remoteConnectionsIntegrationPage"));
+        QVERIFY(page);
+        auto *protocol = page->findChild<QComboBox *>(QStringLiteral("kcfg_RemoteDefaultProtocol"));
+        auto *user = page->findChild<QLineEdit *>(QStringLiteral("kcfg_RemoteDefaultUser"));
+        auto *authentication = page->findChild<QComboBox *>(QStringLiteral("kcfg_RemoteDefaultAuthentication"));
+        auto *status = page->findChild<QLabel *>(QStringLiteral("remoteConnectionsDefaultsStatus"));
+        QVERIFY(protocol && user && authentication && status);
+        QCOMPARE(tabTitleOf(protocol), QStringLiteral("Connections"));
+        QCOMPARE(protocol->count(), RemoteProfiles::protocols().size());
+        QCOMPARE(protocol->currentIndex(), int(Settings::EnumRemoteDefaultProtocol::Sftp));
+        auto *formProtocol = page->findChild<QComboBox *>(QStringLiteral("remoteProfileProtocol"));
+        auto *formUser = page->findChild<QLineEdit *>(QStringLiteral("remoteProfileUser"));
+        auto *formAuthentication = page->findChild<QComboBox *>(QStringLiteral("remoteProfileAuthentication"));
+
+        // The new connection on the tab follows the defaults as they are edited.
+        authentication->setCurrentIndex(Settings::EnumRemoteDefaultAuthentication::KeyOrAgent);
+        user->setText(QStringLiteral("ada"));
+        QCOMPARE(formUser->text(), QStringLiteral("ada"));
+        QCOMPARE(formAuthentication->currentData().toInt(), static_cast<int>(RemoteProfiles::Authentication::KeyOrAgent));
+        protocol->setCurrentIndex(Settings::EnumRemoteDefaultProtocol::Smb);
+        QVERIFY(!authentication->isEnabled());
+        QCOMPARE(formProtocol->currentData().toInt(), static_cast<int>(RemoteProfiles::Protocol::Smb));
+        QCOMPARE(formAuthentication->currentData().toInt(), static_cast<int>(RemoteProfiles::Authentication::Password));
+        user->setText(QStringLiteral("a b"));
+        QVERIFY(!status->isHidden());
+        QVERIFY2(status->text().contains(QStringLiteral("without a user name")), qPrintable(status->text()));
+        QVERIFY(formUser->text().isEmpty());
+        user->setText(QStringLiteral("ada"));
+        QVERIFY(status->isHidden());
+        QCOMPARE(formUser->text(), QStringLiteral("ada"));
+
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::remoteDefaultProtocol(), int(Settings::EnumRemoteDefaultProtocol::Smb));
+        QCOMPARE(Settings::remoteDefaultUser(), QStringLiteral("ada"));
+
+        // Manage Remote Connections… starts new connections with the applied defaults.
+        window.actionCollection()->action(QStringLiteral("manage_remote_connections"))->trigger();
+        auto *manager = window.findChild<RemoteProfilesDialog *>();
+        QVERIFY(manager);
+        const RemoteProfiles::Profile profile = manager->formProfile();
+        QCOMPARE(profile.protocol, RemoteProfiles::Protocol::Smb);
+        QCOMPARE(profile.user, QStringLiteral("ada"));
+        QCOMPARE(profile.authentication, RemoteProfiles::Authentication::Password);
+        manager->close();
     }
 };
 

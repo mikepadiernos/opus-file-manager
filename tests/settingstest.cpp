@@ -1333,7 +1333,8 @@ private Q_SLOTS:
                               QStringLiteral("Editor"),
                               QStringLiteral("Tools"),
                               QStringLiteral("KDE Plasma"),
-                              QStringLiteral("Applications")}));
+                              QStringLiteral("Applications"),
+                              QStringLiteral("Remote and Cloud")}));
 
         const auto tabOf = [&dialog](const QString &entry) {
             return tabTitleOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + entry));

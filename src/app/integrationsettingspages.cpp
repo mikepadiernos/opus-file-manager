@@ -25,6 +25,9 @@
 #include "officeapps.h"
 #include "onlineaccounts.h"
 #include "portalsetup.h"
+#include "remotemounts.h"
+#include "remoteprofiles.h"
+#include "remoteprofileseditor.h"
 #include "runnermatches.h"
 #include "settings.h"
 #include "settingswidgets.h"
@@ -42,7 +45,9 @@
 #include <KActionCollection>
 #include <KConfigGroup>
 #include <KGlobalAccel>
+#include <KIO/ApplicationLauncherJob>
 #include <KIO/CommandLauncherJob>
+#include <KIO/JobUiDelegateFactory>
 #include <KKeySequenceWidget>
 #include <KLocalizedString>
 #include <KMessageBox>
@@ -2441,5 +2446,121 @@ QGroupBox *SettingsDialog::createMailPreviewGroup()
     group->refresh = refresh;
     connect(enabled, &QCheckBox::toggled, group, refresh);
     refresh();
+    return group;
+}
+
+QWidget *SettingsDialog::createRemoteConnectionsIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("remoteConnectionsIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+    auto *editor = new RemoteProfilesEditor(KSharedConfig::openConfig()->group(QStringLiteral("RemoteProfiles")));
+    layout->addWidget(createRemoteProfilesGroup(editor), 1);
+    layout->addWidget(createRemoteDefaultsGroup(editor));
+    return page;
+}
+
+QGroupBox *SettingsDialog::createRemoteProfilesGroup(RemoteProfilesEditor *editor)
+{
+    auto *group = new StatusGroup(i18nc("@title:group", "Saved Connections"));
+    group->setObjectName(QStringLiteral("remoteConnectionsProfilesGroup"));
+    auto *layout = new QVBoxLayout(group);
+    layout->addWidget(editor, 1);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Save and Remove take effect immediately, in Go › Remote Connections and its Manage Remote Connections window. "
+                                  "Passwords are never saved with a connection: KIO asks for them when needed and keeps them in KDE Wallet "
+                                  "when you choose to."));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    auto *wallet = actionButton(QStringLiteral("openWalletManager"), i18nc("@action:button", "Open KDE Wallet Manager…"));
+    wallet->setIcon(QIcon::fromTheme(QStringLiteral("kwalletmanager")));
+    wallet->setToolTip(i18nc("@info:tooltip", "Review or remove the passwords KIO keeps in KDE Wallet"));
+    layout->addLayout(buttonRow({wallet}));
+    auto *message = messageWidget(QStringLiteral("remoteConnectionsMessage"));
+    layout->addWidget(message);
+
+    // Another window may have changed the saved connections while the page was hidden.
+    group->refresh = [editor] {
+        editor->refresh();
+    };
+    connect(editor, &RemoteProfilesEditor::profilesSaved, group, [] {
+        // Forget the mount options of removed connections, as the Manage Remote Connections window does.
+        QStringList ids;
+        const QList<RemoteProfiles::Profile> profiles = RemoteProfiles::load(KSharedConfig::openConfig()->group(QStringLiteral("RemoteProfiles")));
+        for (const RemoteProfiles::Profile &profile : profiles) {
+            ids.append(profile.id);
+        }
+        RemoteMounts::pruneOptions(KSharedConfig::openConfig()->group(QStringLiteral("RemoteMounts")), ids);
+    });
+    connect(wallet, &QPushButton::clicked, group, [this, message] {
+        KService::Ptr service;
+        for (const QString &name : {QStringLiteral("org.kde.kwalletmanager"), QStringLiteral("org.kde.kwalletmanager5")}) {
+            if (!service) {
+                service = KService::serviceByDesktopName(name);
+            }
+        }
+        if (!service) {
+            report(message, KMessageWidget::Error, i18nc("@info", "KDE Wallet Manager is not installed. Install the kwalletmanager package."));
+            return;
+        }
+        auto *job = new KIO::ApplicationLauncherJob(service);
+        job->setUiDelegate(KIO::createDefaultJobUiDelegate(KJobUiDelegate::AutoHandlingEnabled, this));
+        job->start();
+    });
+    return group;
+}
+
+QGroupBox *SettingsDialog::createRemoteDefaultsGroup(RemoteProfilesEditor *editor)
+{
+    auto *group = new QGroupBox(i18nc("@title:group", "Defaults for New Connections"));
+    group->setObjectName(QStringLiteral("remoteConnectionsDefaultsGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *form = new QFormLayout;
+    QStringList names;
+    const QList<RemoteProfiles::Protocol> protocols = RemoteProfiles::protocols();
+    for (RemoteProfiles::Protocol protocol : protocols) {
+        names.append(RemoteProfiles::name(protocol));
+    }
+    // The choices of RemoteDefaultProtocol follow RemoteProfiles::protocols().
+    auto *protocol = comboBox(QStringLiteral("RemoteDefaultProtocol"), names);
+    form->addRow(i18nc("@label:listbox", "Protocol:"), protocol);
+    auto *user = new QLineEdit;
+    user->setObjectName(QStringLiteral("kcfg_RemoteDefaultUser"));
+    user->setPlaceholderText(i18nc("@info:placeholder", "None"));
+    user->setToolTip(i18nc("@info:tooltip", "The user name that new connections start with, such as your account on your servers"));
+    form->addRow(i18nc("@label:textbox", "User:"), user);
+    auto *authentication =
+        comboBox(QStringLiteral("RemoteDefaultAuthentication"),
+                 {i18nc("@item:inlistbox sign-in method", "Password, asked when needed"), i18nc("@item:inlistbox sign-in method", "SSH key or agent")});
+    authentication->setToolTip(i18nc("@info:tooltip", "How new SSH connections sign in. Other protocols always ask for a password when needed."));
+    form->addRow(i18nc("@label:listbox", "SSH sign-in:"), authentication);
+    layout->addLayout(form);
+    auto *status = statusLabel(QStringLiteral("remoteConnectionsDefaultsStatus"));
+    status->hide();
+    layout->addWidget(status);
+    auto *note = new QLabel(i18nc("@info",
+                                  "New connections start with these, here and in Go › Remote Connections › Manage Remote Connections…. "
+                                  "Saved connections keep their own settings."));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+
+    const auto update = [protocols, protocol, user, authentication, status, editor] {
+        const RemoteProfiles::Protocol chosen = protocols.value(protocol->currentIndex(), RemoteProfiles::Protocol::Sftp);
+        authentication->setEnabled(RemoteProfiles::supportsSsh(chosen));
+        const QString error = RemoteProfiles::userError(user->text().trimmed());
+        status->setText(error.isEmpty() ? QString() : i18nc("@info %1 explains a problem", "%1 New connections start without a user name.", error));
+        status->setVisible(!error.isEmpty());
+        editor->setNewProfileDefaults(RemoteProfiles::newProfile(chosen,
+                                                                 user->text(),
+                                                                 authentication->currentIndex() == Settings::EnumRemoteDefaultAuthentication::KeyOrAgent
+                                                                     ? RemoteProfiles::Authentication::KeyOrAgent
+                                                                     : RemoteProfiles::Authentication::Password));
+    };
+    connect(protocol, &QComboBox::currentIndexChanged, group, update);
+    connect(user, &QLineEdit::textChanged, group, update);
+    connect(authentication, &QComboBox::currentIndexChanged, group, update);
+    // Defaults and Reset may update the widgets without their signals.
+    connect(this, &KConfigDialog::widgetModified, group, update);
+    editor->setNewProfileDefaults(RemoteProfilesEditor::defaultsFromSettings());
     return group;
 }

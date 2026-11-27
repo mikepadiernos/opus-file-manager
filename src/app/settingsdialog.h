@@ -34,6 +34,7 @@ class QPushButton;
 class QTabWidget;
 class QTreeWidget;
 class QVBoxLayout;
+class RemoteProfilesEditor;
 class RuleListEditor;
 class StartupWorkspaceCombo;
 class TagFieldManagerWidget;
@@ -397,6 +398,12 @@ private:
     QGroupBox *createMailRemoteFilesGroup();
     /// The Mail File Preview group of the Mail tab: whether the preview panel shows mail files as messages.
     QGroupBox *createMailPreviewGroup();
+    /// The Remote and Cloud › Connections tab.
+    QWidget *createRemoteConnectionsIntegrationPage();
+    /// The Saved Connections group of the Connections tab: @p editor, which saves changes immediately.
+    QGroupBox *createRemoteProfilesGroup(RemoteProfilesEditor *editor);
+    /// The Defaults for New Connections group of the Connections tab, which @p editor's new connections start with.
+    QGroupBox *createRemoteDefaultsGroup(RemoteProfilesEditor *editor);
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.

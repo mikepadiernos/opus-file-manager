@@ -145,6 +145,8 @@ add_library(opusfm_app STATIC
     remotemountdialog.h
     remoteprofilesdialog.cpp
     remoteprofilesdialog.h
+    remoteprofileseditor.cpp
+    remoteprofileseditor.h
     previewpanel.cpp
     previewpanel.h
     searchpanel.cpp

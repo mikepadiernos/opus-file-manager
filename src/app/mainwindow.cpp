@@ -77,6 +77,7 @@
 #include "remotemountdialog.h"
 #include "remotemounts.h"
 #include "remoteprofilesdialog.h"
+#include "remoteprofileseditor.h"
 #include "searchdefaults.h"
 #include "searchpanel.h"
 #include "searchquery.h"
@@ -6398,6 +6399,7 @@ void MainWindow::showRemoteConnections()
 {
     auto *dialog = new RemoteProfilesDialog(KSharedConfig::openConfig()->group(QStringLiteral("RemoteProfiles")), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->setNewProfileDefaults(RemoteProfilesEditor::defaultsFromSettings());
     dialog->setOtherPaneAvailable(isDualLayout() && !inactivePane()->isHidden());
     connect(dialog, &RemoteProfilesDialog::openRequested, this, [this, dialog](const QUrl &, bool otherPane) {
         openRemoteProfile(dialog->formProfile(), otherPane);

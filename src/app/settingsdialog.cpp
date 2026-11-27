@@ -408,6 +408,9 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createMailIntegrationPage(), i18nc("@title:tab", "Mail")}},
                   i18nc("@title:group", "Applications"),
                   QStringLiteral("applications-other"));
+    addTabbedPage({{createRemoteConnectionsIntegrationPage(), i18nc("@title:tab", "Connections")}},
+                  i18nc("@title:group", "Remote and Cloud"),
+                  QStringLiteral("folder-cloud"));
     // The Activities, KRunner and KWin tabs offer the workspaces too.
     reloadWorkspaces();
     applySidebarStyle();
