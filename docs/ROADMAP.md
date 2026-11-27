@@ -1611,7 +1611,7 @@ for some features are recorded in [pending tasks](TODO.md).
         existing folders without moving notes, executing plugins or changing
         Obsidian configuration. Deleting a workspace must not delete its vault.
         See the [pending handoff](TODO.md#workspace-vault-editing-565). [#565]
-  - [ ] Offer optional mpv integration for embedded audio and video playback in
+  - [x] Offer optional mpv integration for embedded audio and video playback in
         the preview panel and gallery alongside Qt Multimedia, and an explicit
         action to open selected media in the separate mpv application. Preserve
         autoplay and remote preview behaviour; report unavailable backends,
