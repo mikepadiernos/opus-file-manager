@@ -2053,7 +2053,9 @@ Settings for M27 integrations, stored in KConfig.
         Plasma-session verification is a
         [pending handoff](TODO.md#plasma-vault-settings-on-plasma-669). [#669]
   - [ ] **Files:** enable GnuPG and AES Crypt actions and choose how output
-        files are named [#670]
+        files are named. Plasma-session verification is a
+        [pending handoff](TODO.md#file-encryption-settings-on-plasma-670).
+        [#670]
 
 ### M29: Nextcloud integration
 

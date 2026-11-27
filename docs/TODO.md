@@ -56,6 +56,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Transfer and cache settings on Plasma](#transfer-and-cache-settings-on-plasma-721) | [M28](ROADMAP.md#m28-integration-settings)                                     | [#721]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 | [LAN sharing settings on Plasma](#lan-sharing-settings-on-plasma-664)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#664]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 | [Plasma Vault settings on Plasma](#plasma-vault-settings-on-plasma-669)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#669]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
+| [File encryption settings on Plasma](#file-encryption-settings-on-plasma-670)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#670]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 
 ## mpv integration (#563)
 
@@ -1272,6 +1273,44 @@ Board statuses were last confirmed on 2026-11-27.
    Record any differences in [CAVEATS](CAVEATS.md#integration-settings), then
    remove this entry and its roadmap link.
 
+## File encryption settings on Plasma (#670)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#670]
+  (Development).
+- **Blocker:** The development container has no Kleopatra, no `aescrypt`
+  and no pinentry program, so the settings are tested with GnuPG keys
+  without passwords and fake `aescrypt` and `kleopatra` scripts only.
+- **Confirmed state:** `SettingsDialog::createFileEncryptionGroup()` in
+  `src/app/integrationsettingspages.cpp` adds the **Files** group of the
+  **Encryption** tab, which stores the `Encryption` group's `GnuPGActions`,
+  `AesCryptActions`, `EncryptionArmor`, `EncryptedSuffix` and
+  `DecryptedNames`. `MainWindow::applyEncryptionSettings()` shows or hides
+  the actions and **File › Encryption**, `FileEncryptionDialog` reads the
+  text format and names, and `FileEncryption::outputName()` in
+  `src/core/fileencryption.cpp` names the files. `fileencryptiontest`,
+  `fileencryptiondialogtest` and `integrationsettingstest` pass in the
+  container. See [File encryption settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma, with GnuPG, `pinentry-qt`, Kleopatra and `aescrypt`
+   installed, assign shortcuts to **Encrypt…** and **Encrypt with AES
+   Crypt…** and add **Encryption** to the main toolbar.
+2. Clear **Offer AES Crypt's encrypt and decrypt actions in File ›
+   Encryption**, choose **Apply** and check that only the AES Crypt entries
+   leave **File › Encryption** and the context menu, and that their shortcut
+   does nothing.
+3. Clear **Offer GnuPG's encrypt, decrypt, sign and verify actions, and
+   Kleopatra's, in File › Encryption** as well and check that the menu, the
+   toolbar button and the shortcuts are gone; select both again and check
+   that Kleopatra's entries return.
+4. Choose `.pgp`, **Marked as decrypted** and the text format, encrypt a
+   file for your key, then decrypt it and an `.aes` file, and check the
+   names, that GnuPG's password prompt appears and that Kleopatra opens the
+   `.pgp` file. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
+   its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -1303,6 +1342,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#664]: https://github.com/mikepadiernos/plasma-opus/issues/664
 [#666]: https://github.com/mikepadiernos/plasma-opus/issues/666
 [#669]: https://github.com/mikepadiernos/plasma-opus/issues/669
+[#670]: https://github.com/mikepadiernos/plasma-opus/issues/670
 [#676]: https://github.com/mikepadiernos/plasma-opus/issues/676
 [#703]: https://github.com/mikepadiernos/plasma-opus/issues/703
 [#704]: https://github.com/mikepadiernos/plasma-opus/issues/704
