@@ -1849,7 +1849,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **KWin scripts**
 
-  - [ ] **Window management:** show whether the Plasma Opus KWin script is
+  - [x] **Window management:** show whether the Plasma Opus KWin script is
         installed and enabled, with explicit actions to install, update,
         disable or remove it; choose which behaviours it applies, such as
         workspace window restoration, tiling opened windows and following
