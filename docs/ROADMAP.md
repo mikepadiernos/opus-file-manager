@@ -1524,7 +1524,7 @@ for some features are recorded in [pending tasks](TODO.md).
         searches alongside KDE's existing **Search For** entries. Explain when
         indexing is off or incomplete and offer a live search of a chosen
         folder instead. (MiXplorer) [#649]
-  - [ ] Run indexed searches inside Baloo where possible: translate the M21
+  - [x] Run indexed searches inside Baloo where possible: translate the M21
         query, scope and filters into one Baloo query using its AND, OR and
         property terms and its folder, file-type and date filters, rather than
         fetching one name or content term from the whole index and filtering
