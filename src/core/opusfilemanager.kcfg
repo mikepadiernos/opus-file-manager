@@ -669,6 +669,16 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="KdeConnect">
+    <entry name="KdeConnectSharing" type="Bool">
+      <label>Offer File › Send to Device… to send files with KDE Connect</label>
+      <default>true</default>
+    </entry>
+    <entry name="KdeConnectRememberDevice" type="Bool">
+      <label>Choose the device the files were last sent to again</label>
+      <default>true</default>
+    </entry>
+  </group>
   <group name="KRunner">
     <entry name="RunnerWorkspaces" type="Bool">
       <label>Offer saved workspaces in KRunner and Plasma Search</label>
