@@ -871,9 +871,9 @@ behaves like the rest of the desktop and follows the user's choices.
   **Create Vault…** use the same service. Before closing, Plasma Opus lists
   the programs using files in the vault and asks first. Plasma Opus stores no
   vault passwords or vault configuration, and reports a missing Plasma Vault
-  in the menu. **Preferences › Security › Encryption** lists the vaults with their
-  state, hides the menu and its shortcut, leaves chosen vaults and their
-  messages out of it, and can leave out whether each vault is open or
+  in the menu. **Preferences › Security › Encryption** lists the vaults with
+  their state, hides the menu and its shortcut, leaves chosen vaults and
+  their messages out of it, and can leave out whether each vault is open or
   closed. See [Plasma Vault](../CAVEATS.md#desktop-integration) and
   [Plasma Vault settings](../CAVEATS.md#integration-settings).
   ([#654](https://github.com/mikepadiernos/plasma-opus/issues/654),
@@ -887,9 +887,17 @@ behaves like the rest of the desktop and follows the user's choices.
   tool, which reads the password from a private file rather than the command
   line. Results are new files beside the originals, and the information
   panel names encrypted, signed and signature files. Keys and key passwords
-  stay with GnuPG and Kleopatra. See
-  [File encryption](../CAVEATS.md#desktop-integration).
-  ([#655](https://github.com/mikepadiernos/plasma-opus/issues/655))
+  stay with GnuPG and Kleopatra. **Preferences › Security › Encryption**
+  offers or hides the GnuPG and Kleopatra actions and the AES Crypt actions,
+  together with their shortcuts, and hides **File › Encryption** when both
+  are off. It also chooses whether encrypting and signing start with text
+  (`.asc`) output, whether binary encrypted files end in `.gpg` or `.pgp`,
+  and whether decrypted copies take back their name before encryption or
+  are marked, as in `report (decrypted).pdf`. See
+  [File encryption](../CAVEATS.md#desktop-integration) and
+  [File encryption settings](../CAVEATS.md#integration-settings).
+  ([#655](https://github.com/mikepadiernos/plasma-opus/issues/655),
+  [#670](https://github.com/mikepadiernos/plasma-opus/issues/670))
 
 ## Planned features
 
