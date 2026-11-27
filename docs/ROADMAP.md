@@ -2068,7 +2068,10 @@ considered Calendar, Maps, Deck and Notes workflows.
 
 - [ ] Connect supported accounts through KDE Online Accounts or an explicit
       Nextcloud login. Use KDE credential facilities, verify TLS and report
-      expired access, unavailable providers and server capabilities. [#588]
+      expired access, unavailable providers and server capabilities.
+      Real-server verification is a
+      [pending handoff](TODO.md#nextcloud-accounts-on-a-real-server-588).
+      [#588]
 - [ ] Browse Nextcloud files in either pane and reuse supported KIO operations,
       confirmations, cancellation and error reporting. Respect server
       permissions and report unsupported operations and partial failures. [#365]

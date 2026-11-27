@@ -57,6 +57,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [LAN sharing settings on Plasma](#lan-sharing-settings-on-plasma-664)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#664]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
 | [Plasma Vault settings on Plasma](#plasma-vault-settings-on-plasma-669)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#669]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
 | [File encryption settings on Plasma](#file-encryption-settings-on-plasma-670)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#670]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Nextcloud accounts on a real server](#nextcloud-accounts-on-a-real-server-588)     | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#588]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -1311,6 +1312,53 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
    its roadmap link.
 
+## Nextcloud accounts on a real server (#588)
+
+- **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#588]
+  (Development).
+- **Blocker:** The development container has no Nextcloud server, web
+  browser, KDE Wallet, Plasma session or KDE account providers, so Login
+  Flow, the stored app password and accounts from KDE Online Accounts are
+  tested only against a local fake server and an in-memory password store.
+- **Confirmed state:** `NextcloudAccounts` in
+  `src/core/nextcloudaccount.cpp` saves account references in the
+  `NextcloudAccounts` group without credentials and merges those from KDE
+  Online Accounts. `NextcloudClient` in `src/core/nextcloudclient.cpp` runs
+  Login Flow v2, reads the capabilities, user and Photos folder, revokes app
+  passwords, and keeps them through `kpasswdserver` with
+  `Nextcloud::PasswordServerStore`. `NextcloudAccountsDialog` and
+  `NextcloudMenu` in `src/app/` provide **Go › Nextcloud** and **Manage
+  Nextcloud Accounts…**. `nextcloudaccounttest`, `nextcloudclienttest` and
+  `nextcloudaccountsdialogtest` pass in the container. See
+  [Nextcloud integration](CAVEATS.md#nextcloud-integration).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, KDE Wallet
+   enabled and a disposable Nextcloud server with a synthetic account,
+   check that **Go › Nextcloud** shows only **No Nextcloud accounts** and
+   **Manage Nextcloud Accounts…**.
+2. Enter the server address and choose **Sign In…**; check that the
+   browser opens Nextcloud's sign-in page, and that after granting access
+   the account is listed and **Check** reports the version, the user and the
+   available apps. Check that `~/.config/opus-file-managerrc` holds no
+   password and that KDE Wallet Manager shows the app password.
+3. Open the account from **Go › Nextcloud** and check that the files list
+   without a password prompt. If KIO asks for a password, note the realm in
+   the server's `WWW-Authenticate` header and the realm stored for the
+   account; the two must match.
+4. Revoke the app password in Nextcloud under **Settings › Security**,
+   choose **Check** and check that it reports expired access. Try a server
+   with a self-signed certificate and check that the dialog reports the
+   certificate problem.
+5. Add a Nextcloud account in **System Settings › Online Accounts**, opt in
+   under **Preferences › KDE Plasma › Online Accounts**, and check that it is
+   listed but can't be removed. Choose **Remove…** › **Revoke and Remove**
+   for the signed-in account and check that the server and KDE Wallet no
+   longer have the app password. Record any differences in
+   [CAVEATS](CAVEATS.md#nextcloud-integration), then remove this entry and
+   its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -1332,6 +1380,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#565]: https://github.com/mikepadiernos/plasma-opus/issues/565
 [#566]: https://github.com/mikepadiernos/plasma-opus/issues/566
 [#578]: https://github.com/mikepadiernos/plasma-opus/issues/578
+[#588]: https://github.com/mikepadiernos/plasma-opus/issues/588
 [#654]: https://github.com/mikepadiernos/plasma-opus/issues/654
 [#655]: https://github.com/mikepadiernos/plasma-opus/issues/655
 [#656]: https://github.com/mikepadiernos/plasma-opus/issues/656
