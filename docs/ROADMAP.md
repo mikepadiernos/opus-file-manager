@@ -2078,7 +2078,7 @@ considered Calendar, Maps, Deck and Notes workflows.
       Real-server verification is a
       [pending handoff](TODO.md#nextcloud-browsing-on-a-real-server-365).
       [#365]
-- [ ] Preview supported remote digital assets and inspect available server
+- [x] Preview supported remote digital assets and inspect available server
       metadata, respecting existing preview limits and remote-download policy.
       Real-server verification is a
       [pending handoff](TODO.md#nextcloud-previews-on-a-real-server-589).
