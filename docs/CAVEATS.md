@@ -703,11 +703,12 @@ have these limits
   add a name term or search live instead. Ranking compares file names only,
   not paths, contents or metadata, and only reorders the results found: it
   can't add files missing from the index or beyond the 5,000-result limit,
-  and the order is by score, not relevance as Baloo computes it. **Search
-  Current Folder Live** appears only after an indexed search that was not
-  cancelled, for a local current folder or workspace locations, and switches
-  the scope to the live search before running it, so later searches stay
-  live until the scope is changed back.
+  and the order is by score, not relevance as Baloo computes it. Ranking and
+  the live search are offered only while they are checked under **Preferences
+  › KDE Plasma › Baloo**. **Search Current Folder Live** appears only after an
+  indexed search that was not cancelled, for a local current folder or
+  workspace locations, and switches the scope to the live search before
+  running it, so later searches stay live until the scope is changed back.
   ([#442](https://github.com/mikepadiernos/plasma-opus/issues/442))
 - **Shared searches:** A saved search shared with KDE Places is a Baloo
   search, so Dolphin and file dialogs list only indexed files, match whole
@@ -2927,6 +2928,26 @@ The M28 integration settings have these limits
   service, so the settings are verified there against a simulated KWin and
   shortcut only ([Plasma check](TODO.md#drop-down-settings-on-plasma-710)).
   ([#710](https://github.com/mikepadiernos/plasma-opus/issues/710))
+- **🔦 Baloo search settings:** **Offer ranking results by name similarity in
+  the search panel** and **Offer to search live after an indexed search, for
+  matches the index lacks** under **Preferences › KDE Plasma › Baloo** are on
+  by default and take effect after **Apply** or **OK**; a search still running
+  uses them when it finishes. Clearing the first hides **Rank results by
+  similarity** in the search panel and lists results in the order found, but
+  keeps the panel's own choice for when ranking is offered again. Clearing the
+  second stops **Search Current Folder Live** and **Search Workspace Locations
+  Live** from appearing, and hides one already shown; the live scope itself
+  stays available. The tab reads whether file indexing is on and the
+  indexer's state each time it is shown, but doesn't follow later changes
+  while it stays open. **Configure File Search…** opens KDE's File Search
+  settings through `kcmshell6` or System Settings, and the tab says so when
+  they are not installed; Plasma Opus never changes what Baloo indexes. The
+  default scope, search folders and exclusions stay under **Preferences ›
+  Tools › Search**, which **Search Defaults…** shows. The container has no
+  running indexer or System Settings, so the indexer state and opening File
+  Search settings are unverified there
+  ([Plasma check](TODO.md#baloo-search-settings-on-plasma-443)).
+  ([#443](https://github.com/mikepadiernos/plasma-opus/issues/443))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3008,6 +3029,14 @@ The M28 integration settings have these limits
     **Active screen** if you move between monitors. Check **Hide when another
     application is activated** to use it like Yakuake, and clear **Slide in and
     out** to have the window appear and disappear at once.
+  - **Baloo search settings:** Keep both options checked under **Preferences
+    › KDE Plasma › Baloo** while the tab reports that file indexing is on, and
+    use **Search Current Folder Live** when an indexed search misses recent or
+    excluded files. Clear **Offer to search live after an indexed search** if
+    you only search indexed locations, and clear the ranking option to keep a
+    simpler search panel. Use **Configure File Search…** to change what Baloo
+    indexes, and **Search Defaults…** for the scope, search folders and
+    exclusions of Plasma Opus.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3050,6 +3079,9 @@ The M28 integration settings have these limits
   - Choose the drop-down window's screen by its position as well as its
     output name, preview its size on the screen, and name the application that
     already uses a shortcut key when KDE leaves it unassigned.
+  - Follow the indexer's state while the **Baloo** tab is open, show which
+    folders KDE File Search indexes there, and offer ranking by path or
+    modification time as well as by name.
 
 ## Embedded terminal
 
