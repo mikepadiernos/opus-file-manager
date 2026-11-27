@@ -19,6 +19,7 @@
 #include "labelcolor.h"
 #include "localizeddates.h"
 #include "localizednumbers.h"
+#include "mailhandoff.h"
 #include "searchquery.h"
 #include "settings.h"
 #include "symbolicicon.h"
@@ -2503,7 +2504,8 @@ bool FolderView::handleDrop(QAbstractItemView *view, QEvent *event)
         return true;
     }
     const QMimeData *mime = dropEvent->mimeData();
-    if (!mime || !mime->hasUrls()) {
+    const MailHandoff::DropKind kind = MailHandoff::classifyDrop(mime);
+    if (kind == MailHandoff::DropKind::None) {
         return false;
     }
 
@@ -2512,14 +2514,32 @@ bool FolderView::handleDrop(QAbstractItemView *view, QEvent *event)
 
     if (event->type() != QEvent::Drop) {
         // KIO::DropJob decides between copy, move and link; accept everything.
+        // A private mail reference is accepted too, so the drop can explain it.
         dropEvent->setDropAction(Qt::CopyAction);
         dropEvent->accept();
+        return true;
+    }
+
+    if (kind == MailHandoff::DropKind::PrivateMailReference) {
+        dropEvent->ignore();
+        Q_EMIT dropRefused(i18nc("@info:status",
+                                 "The mail client dragged a reference to a message or attachment on its mail server, not a file. Save the attachment "
+                                 "from the mail client, then drop the saved file here."));
         return true;
     }
 
     QUrl destination = onFolder ? target.mostLocalUrl() : url();
     if (!destination.isValid()) {
         return false;
+    }
+    if (kind == MailHandoff::DropKind::Content) {
+        // KIO saves the content as a new file after asking for its name.
+        QMimeData content;
+        MailHandoff::copyWithoutPrivateMailReferences(mime, &content);
+        const QDropEvent stripped(dropEvent->position(), dropEvent->possibleActions(), &content, dropEvent->buttons(), dropEvent->modifiers());
+        FileOperations::drop(&stripped, destination, window());
+        dropEvent->acceptProposedAction();
+        return true;
     }
     if (!onFolder) {
         // Dropping items onto their own folder is a no-op, not a copy.

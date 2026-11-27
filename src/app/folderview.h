@@ -201,6 +201,8 @@ Q_SIGNALS:
     void listingReady();
     void historyExpansionFinished();
     void listingFailed(const QString &message);
+    /// Emitted when a drop is refused, with an explanation for the status bar.
+    void dropRefused(const QString &message);
     void previewsEnabledChanged(bool enabled);
     void hiddenFilesChanged(bool enabled);
     void sortingChanged();

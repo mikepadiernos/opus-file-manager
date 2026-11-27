@@ -534,6 +534,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     });
     connect(m_view, &FolderView::goUpRequested, this, &Pane::goUp);
     connect(m_view, &FolderView::listingFailed, this, &Pane::statusMessage);
+    connect(m_view, &FolderView::dropRefused, this, &Pane::statusMessage);
     connect(m_view, &FolderView::listingFailed, this, [this] {
         m_revealFolder.clear();
         m_revealItems.clear();

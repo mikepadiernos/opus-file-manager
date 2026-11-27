@@ -2165,6 +2165,31 @@ private Q_SLOTS:
         QTRY_VERIFY(!QFile::exists(m_root.filePath(QStringLiteral("move-me.txt"))));
     }
 
+    void refusesPrivateMailReferenceDrops()
+    {
+        QVERIFY(QDir(m_root.path()).mkpath(QStringLiteral("mail-drop")));
+        FolderView view;
+        view.setUrl(url(QStringLiteral("mail-drop")));
+        view.resize(400, 300);
+        view.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&view));
+        QWidget *viewport = view.currentView()->viewport();
+        QSignalSpy refused(&view, &FolderView::dropRefused);
+
+        QMimeData mime;
+        mime.setData(QStringLiteral("application/x-trojita-imap-part"), "imap://user@example.org/INBOX;UID=1/;SECTION=2");
+        const QPoint position(5, 200);
+        QDragEnterEvent enter(position, Qt::CopyAction, &mime, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(viewport, &enter);
+        QVERIFY(enter.isAccepted());
+        QDropEvent dropEvent(position, Qt::CopyAction, &mime, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(viewport, &dropEvent);
+        QCOMPARE(refused.count(), 1);
+        QVERIFY(refused.first().first().toString().contains(QStringLiteral("Save the attachment")));
+        QTest::qWait(200);
+        QVERIFY(QDir(m_root.filePath(QStringLiteral("mail-drop"))).isEmpty());
+    }
+
     void panelDropsHonorTheDefaultAction()
     {
         QTemporaryDir root;
