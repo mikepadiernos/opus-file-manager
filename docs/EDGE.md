@@ -178,7 +178,9 @@ tests and caveats.
     distinguished from no matches.
 - **Index availability and staleness** · [#513][issue-513]
   - **Exercise:** Use an isolated Baloo fixture with disabled, incomplete or
-    stale indexing and missing or unreadable index data.
+    stale indexing and missing or unreadable index data. Search indexed types
+    and dates for files changed or renamed since indexing, and mix indexed and
+    unindexed workspace locations.
   - **Verify:** Notices and cancellation.
   - **Note:** Do not assume indexed results are complete, and check that a
     different search scope is not silently substituted.

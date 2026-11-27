@@ -625,9 +625,17 @@ have these limits
 - **Indexed search:** Requires Baloo at build and runtime and searches its
   configured locations. It matches indexed terms rather than literal substrings,
   does not accept double quotes, and may omit files or return stale results.
-  With path filters, it examines at most 200,000 Baloo matches and returns at
-  most 5,000 filtered matches. A depth limit restricts results to the current
-  local folder.
+  Baloo applies required content terms and alternatives, folder, image, audio
+  and video types and modification dates itself; NOT, name, path, size,
+  extension, tag and metadata criteria are still checked against the files it
+  returns. Types and dates use the MIME type and modification time Baloo
+  recorded, so files changed since indexing or with misleading names may be
+  missed. Plasma Opus examines at most 200,000 Baloo matches, says so when it
+  stops there, and returns at most 5,000 matches. A depth limit or workspace
+  search asks Baloo about each location; a location with no indexed matches,
+  such as an unindexed folder, makes the search ask the whole index instead,
+  which is slower.
+  ([#733](https://github.com/mikepadiernos/plasma-opus/issues/733))
 - **Index status:** Coverage notices reflect configuration, not proof of
   indexing; exclusions and pending indexing can affect results. Baloo's query
   API does not report index-read failures, and a running query cannot be
@@ -729,11 +737,13 @@ have these limits
   from the name and, if needed, the contents, which can slow live searches and
   miss misnamed files. Content criteria use live search's text limits;
   unreadable, binary and oversized files never contain a term, so NOT content
-  criteria match them. Indexed queries need a name, content or meta term that
-  every result must match, which selects Baloo candidates; other content terms
-  use Baloo's word matching rather than substrings, and name, path, type,
-  size, date and metadata criteria are checked against the files found. The
-  normalized query shown while typing uses English field names.
+  criteria match them. Indexed queries need a name, content or meta term, or
+  a group of content alternatives, that every result must match, which
+  selects Baloo candidates. Content terms use Baloo's word matching rather
+  than substrings. Baloo also applies required folder, image, audio and video
+  types and modification dates; other criteria, and any criterion under NOT
+  or in an OR group with other fields, are checked against the files found.
+  The normalized query shown while typing uses English field names.
 - **Search folders and exclusions:** The search folders and excluded folders
   set on Preferences' Search page apply only to Plasma Opus. They do not
   change what Baloo indexes, and an excluded folder is still searched by other
@@ -782,7 +792,9 @@ have these limits
   to move elsewhere. Check the normalized query shown while typing to confirm
   grouping, use parentheses where AND and OR are mixed, and search the current
   folder or search folders when an advanced query has no required name,
-  content or meta term. After renaming or deleting a shared path filter, choose the
+  content or meta term. Search live when recently changed or misnamed files
+  must match an indexed type or date, and add a name or content term when an
+  indexed search reaches the 200,000-match limit. After renaming or deleting a shared path filter, choose the
   default path filter again on Preferences' Search page. With several windows
   open, hide the search panel in the last window you use if it should stay
   closed at the next startup. Turn off Remember recent search queries before
