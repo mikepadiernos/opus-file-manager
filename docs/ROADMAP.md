@@ -1794,7 +1794,7 @@ for some features are recorded in [pending tasks](TODO.md).
         opening through the registered application; never import messages.
         Plasma-session verification is a
         [pending handoff](TODO.md#mail-file-preview-on-plasma-658). [#658]
-  - [ ] Shared context with Plasma Impresario: use Plasma Activities, not a
+  - [x] Shared context with Plasma Impresario: use Plasma Activities, not a
         private API, as the only shared context with its planned
         account-to-workspace associations. Each application follows Activity
         changes with its own associations; do not read or change the other
