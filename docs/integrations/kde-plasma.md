@@ -579,7 +579,8 @@ behaves like the rest of the desktop and follows the user's choices.
   text files, copy, move and rename items and move them to the trash; nothing
   is deleted permanently, and an existing file is replaced only when the
   client asks to overwrite it. Every path, and the target of every symbolic
-  link followed, must stay inside the allowed folders. Each call is recorded,
+  link followed, must stay inside the allowed folders, and password-protected
+  folders are refused as if locked. Each call is recorded,
   without file contents, in `~/.local/state/opus-file-manager/mcp-audit.log`.
   To use it, add the command to the client's MCP servers:
 
@@ -594,6 +595,18 @@ behaves like the rest of the desktop and follows the user's choices.
   The `--read-only` option keeps one client to reading. See
   [MCP server](../CAVEATS.md#desktop-integration).
   ([#287](https://github.com/mikepadiernos/plasma-opus/issues/287))
+- **Password-gated folders:** **File › Password Protection › Protect with
+  Password…** asks for a password before Plasma Opus shows a local folder. A
+  protected folder starts locked in each session: Plasma Opus shows it with a
+  lock icon and an **Unlock…** bar, and does not list, preview, search,
+  copy, move, trash or open a terminal in it or anything inside it until it
+  is unlocked. **Lock All Protected Folders** locks them again, and the same
+  submenu changes or removes a password. Plasma Opus stores a salted
+  PBKDF2-SHA256 verifier, never the password. The gate applies only inside
+  Plasma Opus and is not encryption; other applications open the folder
+  freely. See
+  [Password-gated folders](../CAVEATS.md#password-gated-folders).
+  ([#402](https://github.com/mikepadiernos/plasma-opus/issues/402))
 
 ## Planned features
 
