@@ -2121,7 +2121,9 @@ Settings for M29 Nextcloud integration, stored in KConfig without credentials.
       asset metadata and search options, sharing controls and desktop-client
       integration. Reuse KDE Online Accounts, existing WebDAV profiles, remote
       preview policy and KDE credential facilities; explain unavailable server
-      features and retain safe defaults. [#368]
+      features and retain safe defaults. Real-server and Plasma verification
+      is a [pending handoff](TODO.md#nextcloud-settings-on-plasma-368).
+      [#368]
 - [ ] Show or hide Photos albums, shared albums and places, choose their
       default grouping and whether to confirm album changes [#672]
 
