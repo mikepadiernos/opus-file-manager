@@ -1891,4 +1891,20 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="CloudSync">
+    <entry name="CloudSyncAtLogin" key="StartAtLogin" type="Bool">
+      <label>Whether Plasma Opus starts in the system tray at login to synchronize the cloud sync pairs in the background</label>
+      <default>false</default>
+    </entry>
+    <entry name="CloudSyncPauseOnMetered" key="PauseOnMeteredConnections" type="Bool">
+      <label>Whether background cloud sync runs wait while the network connection is metered</label>
+      <default>true</default>
+    </entry>
+    <entry name="CloudSyncCheckInterval" key="CheckIntervalMinutes" type="Int">
+      <label>How often, in minutes, cloud sync pairs that use the default interval are checked, for remotes that do not report changes</label>
+      <default>15</default>
+      <min>1</min>
+      <max>1440</max>
+    </entry>
+  </group>
 </kcfg>

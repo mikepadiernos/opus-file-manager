@@ -13,6 +13,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 
 class KJob;
 class QTimer;
@@ -161,6 +162,10 @@ private:
     QStringList m_rcloneFilters;
 };
 
+/// Whether the network connection is metered, or nothing when no network
+/// information backend reports it.
+std::optional<bool> isConnectionMetered();
+
 /// Keeps the pairs, runs them on request and on their intervals, one at a
 /// time, and remembers each pair's last report. Background runs skip paused
 /// pairs, paused accounts and, optionally, metered connections.
@@ -189,6 +194,11 @@ public:
     bool isPaused(const Pair &pair) const;
     bool pausesOnMeteredConnections() const;
     void setPausesOnMeteredConnections(bool pause);
+    /// How often pairs that use the default interval are checked, in minutes.
+    int defaultIntervalMinutes() const;
+    /// How often @p pair is synchronized in the background, in minutes, or 0
+    /// when it is synchronized only on request.
+    int intervalMinutes(const Pair &pair) const;
     /// Whether background runs of every pair are paused.
     bool isBackgroundPaused() const;
     void setBackgroundPaused(bool paused);

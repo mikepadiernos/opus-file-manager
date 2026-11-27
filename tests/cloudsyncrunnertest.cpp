@@ -204,6 +204,31 @@ private Q_SLOTS:
         QCOMPARE(summary(sync()), QStringLiteral("Up to date"));
     }
 
+    void pairConflictChoiceResolvesAutomaticRuns()
+    {
+        m_pair.conflictChoice = Resolution::KeepRemote;
+        QVERIFY(writeFile(local(QStringLiteral("doc.txt")), "base", 10));
+        QVERIFY(writeFile(local(QStringLiteral("other.txt")), "base", 10));
+        QCOMPARE(initialSync().outcome, Report::Outcome::Succeeded);
+        QVERIFY(writeFile(local(QStringLiteral("doc.txt")), "local edit", 40));
+        QVERIFY(writeFile(remote(QStringLiteral("doc.txt")), "remote edit!", 50));
+        QVERIFY(writeFile(local(QStringLiteral("other.txt")), "local other", 40));
+        QVERIFY(writeFile(remote(QStringLiteral("other.txt")), "remote other!", 50));
+
+        // A preview still shows the conflicts for review.
+        Report report = sync(Runner::Run::Preview);
+        QCOMPARE(report.conflicts.size(), 2);
+        QCOMPARE(readFile(local(QStringLiteral("doc.txt"))), QByteArray("local edit"));
+
+        // An automatic run applies the pair's choice where the user hasn't chosen.
+        report = sync(Runner::Run::Automatic, {{QStringLiteral("other.txt"), Resolution::KeepLocal}});
+        QCOMPARE(report.outcome, Report::Outcome::Succeeded);
+        QVERIFY(report.conflicts.isEmpty());
+        QCOMPARE(readFile(local(QStringLiteral("doc.txt"))), QByteArray("remote edit!"));
+        QCOMPARE(readFile(remote(QStringLiteral("other.txt"))), QByteArray("local other"));
+        QCOMPARE(summary(sync()), QStringLiteral("Up to date"));
+    }
+
     void confirmedResolutions()
     {
         QVERIFY(writeFile(local(QStringLiteral("doc.txt")), "base", 10));
@@ -429,6 +454,36 @@ private Q_SLOTS:
         QVERIFY(scheduler.setPairs({}));
         QVERIFY(!QFile::exists(snapshotPath(m_pair.id)));
         QVERIFY(Scheduler(config).pairs().isEmpty());
+    }
+
+    void schedulerDefaultInterval()
+    {
+        KSharedConfig::Ptr config = KSharedConfig::openConfig(m_dir->filePath(QStringLiteral("intervalrc")), KConfig::SimpleConfig);
+        Scheduler scheduler(config);
+        scheduler.setMeteredCheck([] {
+            return false;
+        });
+        QCOMPARE(scheduler.defaultIntervalMinutes(), DefaultCheckIntervalMinutes);
+        m_pair.intervalMinutes = 0;
+        QCOMPARE(scheduler.intervalMinutes(m_pair), 0);
+        m_pair.useDefaultInterval = true;
+        QCOMPARE(scheduler.intervalMinutes(m_pair), DefaultCheckIntervalMinutes);
+
+        // Preferences › Remote and Cloud › Sync chooses the default interval.
+        config->group(QStringLiteral("CloudSync")).writeEntry("CheckIntervalMinutes", 5);
+        QCOMPARE(scheduler.intervalMinutes(m_pair), 5);
+        config->group(QStringLiteral("CloudSync")).writeEntry("CheckIntervalMinutes", 0);
+        QCOMPARE(scheduler.defaultIntervalMinutes(), 1);
+
+        // A pair that uses the default interval is synchronized in the background.
+        QVERIFY(writeFile(local(QStringLiteral("a.txt")), "one", 10));
+        QVERIFY(scheduler.setPairs({m_pair}));
+        QSignalSpy attention(&scheduler, &Scheduler::attentionNeeded);
+        scheduler.checkDue();
+        QVERIFY(scheduler.state(m_pair.id) != Scheduler::State::Idle);
+        QTRY_COMPARE_WITH_TIMEOUT(attention.size(), 1, 60000);
+        QTRY_COMPARE(scheduler.state(m_pair.id), Scheduler::State::Idle);
+        QVERIFY(scheduler.setPairs({}));
     }
 };
 

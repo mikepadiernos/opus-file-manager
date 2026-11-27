@@ -38,6 +38,19 @@ enum class Mode {
     LocalBackup,
 };
 
+enum class Resolution {
+    Skip,
+    KeepLocal,
+    KeepRemote,
+    /// Keeps the local file and saves the remote one beside it under a
+    /// conflict name. The next run uploads the conflict copy.
+    KeepBoth,
+};
+
+/// How often pairs that use the default interval are checked, in minutes,
+/// unless the CloudSync group's CheckIntervalMinutes entry says otherwise.
+inline constexpr int DefaultCheckIntervalMinutes = 15;
+
 struct Pair {
     QString id;
     QString localPath;
@@ -52,6 +65,12 @@ struct Pair {
     FolderSync::Options options;
     /// How often to synchronize in the background, or 0 to synchronize only on request.
     int intervalMinutes = 0;
+    /// Whether the pair is checked as often as the default interval instead
+    /// of intervalMinutes.
+    bool useDefaultInterval = false;
+    /// How automatic runs resolve conflicts that can keep one or both
+    /// versions. Skip leaves them for the user to review.
+    Resolution conflictChoice = Resolution::Skip;
     bool paused = false;
 
     bool usesRclone() const
@@ -71,6 +90,8 @@ QString accountKey(const Pair &pair);
 /// The account as shown to the user, such as "user@cloud.example".
 QString accountDisplayName(const Pair &pair);
 QString modeName(Mode mode);
+/// The conflict resolution as shown when choosing a pair's default.
+QString resolutionName(Resolution resolution);
 
 /// Reads the pairs stored in @p group, skipping invalid ones.
 QList<Pair> load(const KConfigGroup &group);
@@ -216,15 +237,6 @@ struct Conflict {
     bool operator==(const Conflict &other) const = default;
 };
 
-enum class Resolution {
-    Skip,
-    KeepLocal,
-    KeepRemote,
-    /// Keeps the local file and saves the remote one beside it under a
-    /// conflict name. The next run uploads the conflict copy.
-    KeepBoth,
-};
-
 struct Plan {
     /// The changes in the order they are applied: folder creation, renames,
     /// file transfers, file deletions and folder deletions.
@@ -264,6 +276,10 @@ Plan plan(const Listing &local,
           bool mirrorDeletions,
           const QHash<QString, Resolution> &resolutions = {},
           const QString &conflictName = {});
+
+/// Resolves each conflict in @p conflicts that can keep one or both versions
+/// with @p choice, or none when @p choice is Skip.
+QHash<QString, Resolution> defaultResolutions(const QList<Conflict> &conflicts, Resolution choice);
 
 /// Whether a plan deletes enough to need confirmation: at least 50 files,
 /// or at least 5 and half of what the snapshot holds.
@@ -312,6 +328,8 @@ QStringList rcloneFilterRules(const FolderSync::Options &options, QString *error
 /// The rclone arguments for a run of @p pair. Sync pairs use bisync, with
 /// --resync when @p initialize is set; backups use copy, or sync when
 /// deletions are mirrored, and never replace newer files at the destination.
+/// A two-way pair whose conflict choice keeps one version makes it bisync's
+/// winner; bisync keeps the other as a renamed copy.
 QStringList rcloneArguments(const Pair &pair, bool initialize, bool dryRun, QString *error = nullptr);
 /// The changes a dry run reported, from rclone's log output.
 QList<PreviewItem> parseRcloneDryRun(const QByteArray &output);
@@ -326,4 +344,8 @@ QByteArray autostartEntry(const QString &program, const QString &iconName);
 QString execArgument(const QString &argument);
 bool startsAtLogin();
 bool setStartAtLogin(bool enabled, const QString &program, const QString &iconName, QString *error = nullptr);
+/// Records in @p group, the CloudSync settings group, that pairs synchronize
+/// from login when an autostart entry made before the setting existed is in
+/// place, so applying the settings keeps it. Returns whether it wrote.
+bool migrateStartAtLogin(KConfigGroup group);
 }

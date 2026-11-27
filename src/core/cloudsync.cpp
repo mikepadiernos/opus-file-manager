@@ -80,6 +80,32 @@ std::optional<Mode> modeFromKey(const QString &key)
     return std::nullopt;
 }
 
+QString resolutionKey(Resolution resolution)
+{
+    switch (resolution) {
+    case Resolution::KeepLocal:
+        return QStringLiteral("keep-local");
+    case Resolution::KeepRemote:
+        return QStringLiteral("keep-remote");
+    case Resolution::KeepBoth:
+        return QStringLiteral("keep-both");
+    case Resolution::Skip:
+        break;
+    }
+    return QStringLiteral("ask");
+}
+
+Resolution resolutionFromKey(const QString &key)
+{
+    for (const Resolution resolution : {Resolution::KeepLocal, Resolution::KeepRemote, Resolution::KeepBoth}) {
+        if (resolutionKey(resolution) == key) {
+            return resolution;
+        }
+    }
+    // Unknown choices leave conflicts for review, the safe choice.
+    return Resolution::Skip;
+}
+
 QUrl storedUrl(const QUrl &url)
 {
     return url.adjusted(QUrl::RemovePassword | QUrl::StripTrailingSlash | QUrl::NormalizePathSegments);
@@ -509,6 +535,21 @@ QString CloudSync::modeName(Mode mode)
     return i18nc("@item cloud sync mode", "Two-way sync");
 }
 
+QString CloudSync::resolutionName(Resolution resolution)
+{
+    switch (resolution) {
+    case Resolution::KeepLocal:
+        return i18nc("@item:inlistbox conflict resolution", "Keep Local Version");
+    case Resolution::KeepRemote:
+        return i18nc("@item:inlistbox conflict resolution", "Keep Remote Version");
+    case Resolution::KeepBoth:
+        return i18nc("@item:inlistbox conflict resolution", "Keep Both");
+    case Resolution::Skip:
+        break;
+    }
+    return i18nc("@item:inlistbox conflict resolution", "Ask When Reviewing");
+}
+
 QList<Pair> CloudSync::load(const KConfigGroup &group)
 {
     QList<Pair> pairs;
@@ -527,6 +568,8 @@ QList<Pair> CloudSync::load(const KConfigGroup &group)
         pair.options.excludePatterns = entry.readEntry("Exclude", QStringList());
         pair.options.recursive = entry.readEntry("Recursive", true);
         pair.intervalMinutes = entry.readEntry("IntervalMinutes", 0);
+        pair.useDefaultInterval = entry.readEntry("DefaultInterval", false);
+        pair.conflictChoice = resolutionFromKey(entry.readEntry("ConflictChoice", QString()));
         pair.paused = entry.readEntry("Paused", false);
         if (!mode || QUuid::fromString(id).isNull() || ids.contains(id) || !pairError(pair, {}).isEmpty()) {
             continue;
@@ -566,6 +609,8 @@ bool CloudSync::save(KConfigGroup group, const QList<Pair> &pairs, QString *erro
         entry.writeEntry("Exclude", pair.options.excludePatterns);
         entry.writeEntry("Recursive", pair.options.recursive);
         entry.writeEntry("IntervalMinutes", pair.intervalMinutes);
+        entry.writeEntry("DefaultInterval", pair.useDefaultInterval);
+        entry.writeEntry("ConflictChoice", resolutionKey(pair.conflictChoice));
         entry.writeEntry("Paused", pair.paused);
     }
     if (!group.sync()) {
@@ -1027,6 +1072,20 @@ Plan CloudSync::plan(const Listing &local,
     return result;
 }
 
+QHash<QString, Resolution> CloudSync::defaultResolutions(const QList<Conflict> &conflicts, Resolution choice)
+{
+    QHash<QString, Resolution> resolutions;
+    if (choice == Resolution::Skip) {
+        return resolutions;
+    }
+    for (const Conflict &conflict : conflicts) {
+        if (conflict.isResolvable()) {
+            resolutions.insert(conflict.path, choice);
+        }
+    }
+    return resolutions;
+}
+
 bool CloudSync::isLargeDeletion(const Plan &plan, const Snapshot &base)
 {
     const int deletions = plan.deletions();
@@ -1207,6 +1266,12 @@ QStringList CloudSync::rcloneArguments(const Pair &pair, bool initialize, bool d
         if (initialize) {
             arguments << QStringLiteral("--resync");
         }
+        // Without a winner, bisync keeps both versions under conflict names.
+        if (pair.conflictChoice == Resolution::KeepLocal) {
+            arguments << QStringLiteral("--conflict-resolve") << QStringLiteral("path1");
+        } else if (pair.conflictChoice == Resolution::KeepRemote) {
+            arguments << QStringLiteral("--conflict-resolve") << QStringLiteral("path2");
+        }
         break;
     case Mode::CloudBackup:
         arguments << (pair.mirrorDeletions ? QStringLiteral("sync") : QStringLiteral("copy")) << local << pair.rcloneRemote << QStringLiteral("--update");
@@ -1305,12 +1370,25 @@ bool CloudSync::setStartAtLogin(bool enabled, const QString &program, const QStr
         return true;
     }
     QSaveFile file(path);
-    if (!QDir().mkpath(QFileInfo(path).absolutePath()) || !file.open(QIODevice::WriteOnly) || file.write(autostartEntry(program, iconName)) < 0
-        || !file.commit()) {
+    const QByteArray entry = autostartEntry(program, iconName);
+    QFile current(path);
+    if (current.open(QIODevice::ReadOnly) && current.readAll() == entry) {
+        return true;
+    }
+    if (!QDir().mkpath(QFileInfo(path).absolutePath()) || !file.open(QIODevice::WriteOnly) || file.write(entry) < 0 || !file.commit()) {
         if (error) {
             *error = i18nc("@info", "%1 could not be written.", path);
         }
         return false;
     }
     return true;
+}
+
+bool CloudSync::migrateStartAtLogin(KConfigGroup group)
+{
+    if (group.hasKey("StartAtLogin") || !startsAtLogin()) {
+        return false;
+    }
+    group.writeEntry("StartAtLogin", true);
+    return group.sync();
 }
