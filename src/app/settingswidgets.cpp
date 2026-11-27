@@ -6,6 +6,7 @@
 #include "colorschemes.h"
 #include "customstylesheet.h"
 #include "filecolorrules.h"
+#include "foldersyncprofiles.h"
 #include "ignorelist.h"
 #include "savedpathfilters.h"
 #include "settings.h"
@@ -440,6 +441,56 @@ void SavedPathFilterCombo::setFilterName(const QString &name)
 void SavedPathFilterCombo::reload()
 {
     setFilterName(filterName());
+}
+
+FolderSyncProfileCombo::FolderSyncProfileCombo(QWidget *parent)
+    : QComboBox(parent)
+{
+    // KConfigDialogManager would otherwise watch QComboBox::activated, which
+    // misses programmatic changes.
+    setProperty("kcfg_propertyNotify", QByteArray(SIGNAL(profileIdChanged())));
+    setProfileId(QString());
+    connect(this, &QComboBox::currentIndexChanged, this, &FolderSyncProfileCombo::profileIdChanged);
+}
+
+QString FolderSyncProfileCombo::profileId() const
+{
+    return currentData().toString();
+}
+
+void FolderSyncProfileCombo::setProfileId(const QString &id)
+{
+    const QString previous = profileId();
+    {
+        const QSignalBlocker blocker(this);
+        clear();
+        addItem(i18nc("@item:inlistbox no comparison profile", "None"), QString());
+        const QList<FolderSyncProfiles::Profile> profiles = FolderSyncProfiles::load(KSharedConfig::openConfig()->group(QStringLiteral("FolderSyncProfiles")));
+        for (const FolderSyncProfiles::Profile &profile : profiles) {
+            addItem(profile.name, profile.id);
+        }
+        const std::optional<FolderSyncProfiles::Profile> chosen = FolderSyncProfiles::find(profiles, id);
+        int index = chosen ? findData(chosen->id) : findData(id);
+        m_unavailable = index < 0;
+        if (m_unavailable) {
+            addItem(i18nc("@item:inlistbox comparison profile that was deleted", "Unavailable profile"), id);
+            index = count() - 1;
+        }
+        setCurrentIndex(index);
+    }
+    if (previous != profileId()) {
+        Q_EMIT profileIdChanged();
+    }
+}
+
+void FolderSyncProfileCombo::reload()
+{
+    setProfileId(profileId());
+}
+
+bool FolderSyncProfileCombo::isUnavailable() const
+{
+    return m_unavailable && currentIndex() == count() - 1;
 }
 
 ColorSchemeCombo::ColorSchemeCombo(QWidget *parent)

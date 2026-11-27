@@ -32,6 +32,7 @@
 #include "remotemounts.h"
 #include "remoteprofiles.h"
 #include "remoteprofileseditor.h"
+#include "rsyncsync.h"
 #include "runnermatches.h"
 #include "settings.h"
 #include "settingswidgets.h"
@@ -2975,6 +2976,77 @@ QWidget *SettingsDialog::createSyncIntegrationPage()
     auto *message = messageWidget(QStringLiteral("syncSettingsMessage"));
     backgroundLayout->addWidget(message);
     layout->addWidget(backgroundGroup);
+
+    auto *rsyncGroup = new StatusGroup(i18nc("@title:group", "rsync Backend"));
+    rsyncGroup->setObjectName(QStringLiteral("rsyncBackendGroup"));
+    auto *rsyncLayout = new QVBoxLayout(rsyncGroup);
+    auto *rsyncEnabled = checkBox(QStringLiteral("RsyncEnabled"), i18nc("@option:check", "Offer rsync for folder synchronization and SSH folders"));
+    rsyncEnabled->setToolTip(i18nc("@info:tooltip",
+                                   "Offers rsync under Synchronize with in File › Compare and Synchronize Folders…. Folders on SSH hosts "
+                                   "can be compared only with rsync."));
+    rsyncLayout->addWidget(rsyncEnabled);
+    auto *rsyncSettings = new QWidget;
+    rsyncSettings->setObjectName(QStringLiteral("rsyncBackendSettings"));
+    auto *rsyncSettingsLayout = new QVBoxLayout(rsyncSettings);
+    rsyncSettingsLayout->setContentsMargins(0, 0, 0, 0);
+    auto *forLocal = checkBox(QStringLiteral("RsyncForLocalFolders"), i18nc("@option:check", "Synchronize local folders with rsync by default"));
+    forLocal->setToolTip(i18nc("@info:tooltip", "Otherwise local folders start with Plasma Opus's built-in synchronization"));
+    rsyncSettingsLayout->addWidget(forLocal);
+    auto *rsyncForm = new QFormLayout;
+    auto *profile = new FolderSyncProfileCombo;
+    profile->setObjectName(QStringLiteral("kcfg_RsyncProfile"));
+    profile->setToolTip(i18nc("@info:tooltip", "Loads this profile's filters and comparison choices when the dialog starts with rsync"));
+    rsyncForm->addRow(i18nc("@label:listbox", "Comparison profile:"), profile);
+    rsyncForm->addRow(i18nc("@label:listbox", "Copy policy:"),
+                      comboBox(QStringLiteral("RsyncCopyPolicy"),
+                               {i18nc("@item:inlistbox", "Copy all eligible files"),
+                                i18nc("@item:inlistbox", "Skip existing files"),
+                                i18nc("@item:inlistbox", "Only replace older files")}));
+    rsyncSettingsLayout->addLayout(rsyncForm);
+    auto *deletions =
+        checkBox(QStringLiteral("RsyncAllowDeletions"), i18nc("@option:check", "Allow rsync to delete files that are missing from the other folder"));
+    deletions->setToolTip(i18nc("@info:tooltip", "When cleared, the dialog doesn't offer deletions with rsync and refuses plans that include them"));
+    rsyncSettingsLayout->addWidget(deletions);
+    rsyncLayout->addWidget(rsyncSettings);
+    auto *rsyncStatus = statusLabel(QStringLiteral("rsyncBackendStatus"));
+    rsyncLayout->addWidget(rsyncStatus);
+    auto *rsyncNote = new QLabel(i18nc("@info",
+                                       "rsync always checks the plan with a dry run and asks for confirmation before it changes files. Save "
+                                       "comparison profiles in File › Compare and Synchronize Folders…; the copy speed limit in Tools › "
+                                       "Folder Sync also applies to rsync. Cloud sync pairs don't use rsync."));
+    rsyncNote->setObjectName(QStringLiteral("rsyncBackendNote"));
+    rsyncNote->setWordWrap(true);
+    rsyncLayout->addWidget(rsyncNote);
+    layout->addWidget(rsyncGroup);
+
+    const auto refreshRsync = [rsyncEnabled, rsyncSettings, profile, deletions, rsyncStatus] {
+        rsyncSettings->setEnabled(rsyncEnabled->isChecked());
+        QStringList lines;
+        if (!rsyncEnabled->isChecked()) {
+            lines.append(i18nc("@info", "Folders on SSH hosts can't be compared while rsync is turned off."));
+        } else if (RsyncSync::program().isEmpty()) {
+            lines.append(i18nc("@info", "rsync is not installed. Install it from your distribution to use it."));
+        } else {
+            lines.append(i18nc("@info", "rsync is installed."));
+        }
+        if (rsyncEnabled->isChecked() && profile->isUnavailable()) {
+            lines.append(i18nc("@info", "The chosen comparison profile no longer exists, so the dialog starts without one."));
+        }
+        if (rsyncEnabled->isChecked() && deletions->isChecked()) {
+            lines.append(i18nc("@info", "Deletions with rsync are permanent; they don't go to the trash."));
+        }
+        rsyncStatus->setText(lines.join(QLatin1Char('\n')));
+    };
+    // Profiles may have been saved or deleted while the page was hidden.
+    rsyncGroup->refresh = [profile, refreshRsync] {
+        profile->reload();
+        refreshRsync();
+    };
+    connect(rsyncEnabled, &QCheckBox::toggled, page, refreshRsync);
+    connect(deletions, &QCheckBox::toggled, page, refreshRsync);
+    connect(profile, &FolderSyncProfileCombo::profileIdChanged, page, refreshRsync);
+    connect(this, &KConfigDialog::widgetModified, page, refreshRsync);
+    refreshRsync();
 
     QPointer<CloudSync::Scheduler> pairs(scheduler);
     const auto refreshBackground = [atLogin, metered, interval, backgroundStatus, pairs] {

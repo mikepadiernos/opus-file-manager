@@ -251,7 +251,11 @@ FolderSyncDialog::FolderSyncDialog(const QUrl &left, const QUrl &right, QWidget 
     m_endpointError = leftError.isEmpty() ? rightError : leftError;
     auto *backends = qobject_cast<QStandardItemModel *>(m_backend->model());
     const bool haveRsync = !RsyncSync::program().isEmpty();
-    if (!haveRsync) {
+    const bool rsyncEnabled = Settings::rsyncEnabled();
+    if (!rsyncEnabled) {
+        backends->item(1)->setEnabled(false);
+        backends->item(1)->setToolTip(i18nc("@info:tooltip", "rsync is turned off in Preferences › Remote and Cloud › Sync."));
+    } else if (!haveRsync) {
         backends->item(1)->setEnabled(false);
         backends->item(1)->setToolTip(i18nc("@info:tooltip", "Install rsync from your distribution to synchronize with it."));
     }
@@ -260,6 +264,9 @@ FolderSyncDialog::FolderSyncDialog(const QUrl &left, const QUrl &right, QWidget 
         backends->item(0)->setToolTip(i18nc("@info:tooltip", "Plasma Opus synchronizes local folders only."));
         m_backend->setCurrentIndex(1);
         QString unavailable = m_endpointError;
+        if (unavailable.isEmpty() && !rsyncEnabled) {
+            unavailable = i18nc("@info", "Comparing SSH locations requires rsync, which is turned off in Preferences › Remote and Cloud › Sync.");
+        }
         if (unavailable.isEmpty() && !haveRsync) {
             unavailable = i18nc("@info", "Comparing SSH locations requires rsync. Install it from your distribution.");
         }
@@ -271,7 +278,45 @@ FolderSyncDialog::FolderSyncDialog(const QUrl &left, const QUrl &right, QWidget 
             m_compare->setEnabled(false);
             m_status->setText(unavailable);
         }
+    } else if (rsyncEnabled && haveRsync && Settings::rsyncForLocalFolders()) {
+        m_backend->setCurrentIndex(1);
     }
+    if (usesRsync()) {
+        m_copyPolicy->setCurrentIndex(int(Settings::rsyncCopyPolicy()));
+        if (rsyncEnabled && m_canCompare && error.isEmpty() && !Settings::rsyncProfile().isEmpty()) {
+            if (const auto profile = FolderSyncProfiles::find(m_profiles, Settings::rsyncProfile())) {
+                setOptions(profile->options);
+                const auto chosen = std::find_if(m_profiles.cbegin(), m_profiles.cend(), [&profile](const FolderSyncProfiles::Profile &candidate) {
+                    return candidate.id == profile->id;
+                });
+                m_saved->setCurrentIndex(int(std::distance(m_profiles.cbegin(), chosen)));
+                m_status->setText(i18nc("@info", "Loaded the rsync profile “%1”. Compare the folders.", profile->name));
+            } else {
+                m_status->setText(i18nc("@info",
+                                        "The rsync profile chosen in Preferences › Remote and Cloud › Sync no longer exists. "
+                                        "Choose filters and compare the folders."));
+            }
+        }
+    }
+    connect(m_backend, &QComboBox::currentIndexChanged, this, [this] {
+        // Each backend starts from its own default copy policy.
+        m_copyPolicy->setCurrentIndex(int(usesRsync() ? Settings::rsyncCopyPolicy() : Settings::folderSyncCopyPolicy()));
+        if (m_comparison && usesRsync() && !Settings::rsyncAllowDeletions()) {
+            bool skipped = false;
+            for (qsizetype i = 0; i < m_actions.size(); ++i) {
+                if (m_actions.at(i) == FolderSync::Action::DeleteLeft || m_actions.at(i) == FolderSync::Action::DeleteRight) {
+                    m_actions[i] = FolderSync::Action::Skip;
+                    m_results->topLevelItem(int(i))->setText(2, actionText(m_actions.at(i), m_comparison->rows.at(i)));
+                    skipped = true;
+                }
+            }
+            if (skipped) {
+                m_status->setText(
+                    i18nc("@info", "Deleting files with rsync is turned off in Preferences › Remote and Cloud › Sync, so the planned deletions are skipped."));
+            }
+        }
+        updateSelectedAction();
+    });
     connect(m_saved, &QComboBox::currentIndexChanged, this, [load, remove](int index) {
         load->setEnabled(index >= 0);
         remove->setEnabled(index >= 0);
@@ -624,16 +669,17 @@ void FolderSyncDialog::updateSelectedAction()
         m_action->addItem(actionText(action, row), int(action));
     };
     add(FolderSync::Action::Skip);
+    const bool deletionsOffered = !usesRsync() || Settings::rsyncAllowDeletions();
     if (FolderSync::copyAllowed(row.right, row.left, copyPolicy())) {
         add(FolderSync::Action::CopyToLeft);
     }
     if (FolderSync::copyAllowed(row.left, row.right, copyPolicy())) {
         add(FolderSync::Action::CopyToRight);
     }
-    if (row.left.kind == FolderSync::Kind::File) {
+    if (row.left.kind == FolderSync::Kind::File && deletionsOffered) {
         add(FolderSync::Action::DeleteLeft);
     }
-    if (row.right.kind == FolderSync::Kind::File) {
+    if (row.right.kind == FolderSync::Kind::File && deletionsOffered) {
         add(FolderSync::Action::DeleteRight);
     }
     m_action->setCurrentIndex(m_action->findData(int(m_actions.at(index))));
@@ -672,6 +718,9 @@ void FolderSyncDialog::synchronize()
         }
         if (error.isEmpty()) {
             error = RsyncSync::planError(*m_comparison, m_actions, &transfer);
+        }
+        if (error.isEmpty()) {
+            error = RsyncSync::deletionsError(transfer, Settings::rsyncAllowDeletions());
         }
     }
     if (!error.isEmpty()) {

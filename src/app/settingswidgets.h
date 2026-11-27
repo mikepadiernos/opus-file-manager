@@ -199,6 +199,32 @@ Q_SIGNALS:
 };
 
 /**
+ * Chooses a saved folder comparison profile by its identifier, or none. A
+ * chosen profile that no longer exists stays selected as unavailable, so its
+ * reference is kept until the user changes it.
+ */
+class FolderSyncProfileCombo : public QComboBox
+{
+    Q_OBJECT
+    Q_PROPERTY(QString profileId READ profileId WRITE setProfileId NOTIFY profileIdChanged USER true)
+
+public:
+    explicit FolderSyncProfileCombo(QWidget *parent = nullptr);
+    QString profileId() const;
+    void setProfileId(const QString &id);
+    /// Rereads the saved profiles, keeping the current choice.
+    void reload();
+    /// Whether the chosen profile is missing from the saved profiles.
+    bool isUnavailable() const;
+
+Q_SIGNALS:
+    void profileIdChanged();
+
+private:
+    bool m_unavailable = false;
+};
+
+/**
  * Chooses the app-local colour scheme: follow Plasma, a bundled preset or an
  * installed KDE colour scheme. A chosen scheme that is no longer installed
  * stays selected as unavailable, so its reference is kept until changed.

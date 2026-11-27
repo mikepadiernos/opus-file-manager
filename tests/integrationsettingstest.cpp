@@ -17,6 +17,7 @@
 #include "favoritesmodel.h"
 #include "filechooser.h"
 #include "filetypeplaces.h"
+#include "foldersyncdialog.h"
 #include "folderview.h"
 #include "fontpreview.h"
 #include "kwinintegration.h"
@@ -35,6 +36,7 @@
 #include "remotemounts.h"
 #include "remoteprofiles.h"
 #include "remoteprofilesdialog.h"
+#include "rsyncsync.h"
 #include "runnermatches.h"
 #include "sendbyemaildialog.h"
 #include "settings.h"
@@ -81,6 +83,7 @@
 #include <QSignalSpy>
 #include <QSpinBox>
 #include <QStackedWidget>
+#include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QStatusBar>
 #include <QTabWidget>
@@ -3274,6 +3277,107 @@ private Q_SLOTS:
         dialog.reject();
         QVERIFY(CloudSync::load(config->group(QStringLiteral("CloudSyncPairs"))).isEmpty());
         QVERIFY(QDir(local).exists());
+    }
+
+    void syncTabConfiguresTheRsyncBackend()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        const QString left = folder.filePath(QStringLiteral("left"));
+        const QString right = folder.filePath(QStringLiteral("right"));
+        QVERIFY(QDir().mkpath(left));
+        QVERIFY(QDir().mkpath(right));
+        const auto config = KSharedConfig::openConfig();
+        const QString id = QStringLiteral("0f8fad5b-d9cb-469f-a165-70867728950e");
+        FolderSync::Options options;
+        options.excludePatterns = {QStringLiteral("*.tmp")};
+        QString error;
+        QVERIFY2(FolderSyncProfiles::save(config->group(QStringLiteral("FolderSyncProfiles")), {{QStringLiteral("Backups"), options, id}}, &error),
+                 qPrintable(error));
+        const auto restore = qScopeGuard([config] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            config->reparseConfiguration();
+            config->group(QStringLiteral("FolderSyncProfiles")).deleteGroup();
+            config->sync();
+        });
+
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *group = dialog.findChild<QGroupBox *>(QStringLiteral("rsyncBackendGroup"));
+        auto *enabled = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_RsyncEnabled"));
+        auto *forLocal = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_RsyncForLocalFolders"));
+        auto *profile = dialog.findChild<FolderSyncProfileCombo *>(QStringLiteral("kcfg_RsyncProfile"));
+        auto *policy = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_RsyncCopyPolicy"));
+        auto *deletions = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_RsyncAllowDeletions"));
+        auto *settings = dialog.findChild<QWidget *>(QStringLiteral("rsyncBackendSettings"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("rsyncBackendStatus"));
+        QVERIFY(group && enabled && forLocal && profile && policy && deletions && settings && status);
+        QCOMPARE(tabTitleOf(group), QStringLiteral("Sync"));
+        QVERIFY(group->isAncestorOf(deletions));
+        QVERIFY(!dialog.findChild<QGroupBox *>(QStringLiteral("cloudSyncBackgroundGroup"))->isAncestorOf(enabled));
+
+        // Safe defaults: the built-in backend for local folders, no profile, only replacing older files and no deletions.
+        QVERIFY(enabled->isChecked());
+        QVERIFY(!forLocal->isChecked());
+        QVERIFY(profile->profileId().isEmpty());
+        QCOMPARE(profile->count(), 2);
+        QCOMPARE(profile->itemText(1), QStringLiteral("Backups"));
+        QCOMPARE(policy->currentIndex(), int(Settings::EnumRsyncCopyPolicy::NewerOnly));
+        QVERIFY(!deletions->isChecked());
+        QVERIFY(settings->isEnabled());
+        const bool haveRsync = !RsyncSync::program().isEmpty();
+        QVERIFY2(status->text().contains(haveRsync ? QStringLiteral("rsync is installed") : QStringLiteral("not installed")), qPrintable(status->text()));
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("rsyncBackendNote"))->text().contains(QStringLiteral("dry run")));
+        const auto apply = [&dialog] {
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+        };
+
+        // The chosen defaults start the folder synchronization dialog.
+        forLocal->setChecked(true);
+        profile->setCurrentIndex(profile->findData(id));
+        policy->setCurrentIndex(int(Settings::EnumRsyncCopyPolicy::SkipExisting));
+        deletions->setChecked(true);
+        QVERIFY2(status->text().contains(QStringLiteral("permanent")), qPrintable(status->text()));
+        apply();
+        QVERIFY(Settings::rsyncForLocalFolders());
+        QCOMPARE(Settings::rsyncProfile(), id);
+        QCOMPARE(Settings::rsyncCopyPolicy(), int(Settings::EnumRsyncCopyPolicy::SkipExisting));
+        QVERIFY(Settings::rsyncAllowDeletions());
+        config->reparseConfiguration();
+        QCOMPARE(config->group(QStringLiteral("Rsync")).readEntry("RsyncProfile"), id);
+        if (haveRsync) {
+            FolderSyncDialog sync(left, right, &window);
+            QCOMPARE(sync.findChild<QComboBox *>(QStringLiteral("folderSyncBackend"))->currentData().toString(), QStringLiteral("rsync"));
+            QCOMPARE(sync.findChild<QComboBox *>(QStringLiteral("folderSyncCopyPolicy"))->currentIndex(), int(FolderSync::CopyPolicy::SkipExisting));
+            QCOMPARE(sync.findChild<QPlainTextEdit *>(QStringLiteral("folderSyncExclude"))->toPlainText(), QStringLiteral("*.tmp"));
+        }
+
+        // A deleted profile stays chosen as unavailable.
+        config->group(QStringLiteral("FolderSyncProfiles")).deleteGroup();
+        config->sync();
+        profile->reload();
+        QVERIFY(profile->isUnavailable());
+        QCOMPARE(profile->profileId(), id);
+        deletions->setChecked(false);
+        QVERIFY2(status->text().contains(QStringLiteral("no longer exists")), qPrintable(status->text()));
+
+        // Turning rsync off removes it from the dialog, which then can't compare SSH folders.
+        enabled->setChecked(false);
+        QVERIFY(!settings->isEnabled());
+        QVERIFY2(status->text().contains(QStringLiteral("turned off")), qPrintable(status->text()));
+        apply();
+        QVERIFY(!Settings::rsyncEnabled());
+        {
+            FolderSyncDialog sync(left, right, &window);
+            auto *backend = sync.findChild<QComboBox *>(QStringLiteral("folderSyncBackend"));
+            QCOMPARE(backend->currentData().toString(), QStringLiteral("builtin"));
+            QVERIFY(!qobject_cast<QStandardItemModel *>(backend->model())->item(1)->isEnabled());
+        }
+        FolderSyncDialog ssh(QUrl(QStringLiteral("sftp://me@host/srv")), QUrl::fromLocalFile(left), &window);
+        QVERIFY(!ssh.findChild<QPushButton *>(QStringLiteral("folderSyncCompare"))->isEnabled());
     }
 };
 
