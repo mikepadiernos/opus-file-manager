@@ -1933,13 +1933,14 @@ The M27 desktop integrations have these limits
   renamed file or an ebook saved without its extension. **Ebooks** lists
   only EPUB, Mobipocket, FictionBook, comic book archives and DjVu, and
   **Application Packages** only Flatpak, AppImage, Debian, RPM and Snap
-  packages. **Large Files** is fixed at 100 MiB and is always a live search,
-  since Baloo doesn't index file sizes. The entries are saved in Plasma's
+  packages. **Large Files** is always a live search, since Baloo doesn't
+  index file sizes. The entries are saved in Plasma's
   shared `user-places.xbel`, marked for Plasma Opus only, with their titles
   in the language in use when they were added. They also show in the KDE
   file dialogs Plasma Opus opens, where they can't be opened. KDE's older
   **Search For** entries, where a distribution still adds them, appear beside
-  them. A removed entry isn't added again.
+  them. A removed entry isn't added again until its category is checked
+  under **Preferences › KDE Plasma › Baloo**.
   ([#649](https://github.com/mikepadiernos/plasma-opus/issues/649))
 - **💻 Terminal providers:** **Open Terminal With** only lists the
   default terminal, Konsole, Yakuake and Kwi, and finds them through `PATH`,
@@ -2429,9 +2430,10 @@ The M27 desktop integrations have these limits
     not from a file dialog. If indexed results look incomplete, open
     **File › Indexing Status…** to check the indexer and the folder's
     coverage, or choose **Search a Folder Live…** to read the files directly.
-    Hide a category you don't use with Places' **Hide** action instead of
-    removing it, so it can be shown again. For other sizes or formats, search
-    with `size>` or `type:` in the search panel.
+    Clear a category you don't use under **Preferences › KDE Plasma ›
+    Baloo**, and check it there to restore it. For other sizes or formats,
+    set **Large files are over** there, or search with `size>` or `type:` in
+    the search panel.
   - **Terminal providers:** Install the terminal from your distribution so
     its command is in `PATH`, or keep using **Open Terminal Here**, which
     follows the terminal chosen under **System Settings › Default
@@ -2648,10 +2650,9 @@ The M27 desktop integrations have these limits
   - Roll the drop-down window up instead of closing it, offer a default
     shortcut when it is free, and let a detached window drop down instead
     of the main window.
-  - The M28 **Categories** settings to choose which categories appear, set
-    the large-file threshold and restore removed entries; retranslate titles
-    when the language changes; hide the entries from file dialogs; and
-    confirm live results by content as Baloo does.
+  - Retranslate the file-type category titles when the language changes,
+    hide the entries from file dialogs, and confirm live results by content
+    as Baloo does.
   - The M28 terminal **Provider** settings to choose the provider for **Open
     Terminal Here**, find Flatpak terminals, show Yakuake's window through a
     dedicated D-Bus call when it offers one, and open a selected folder
@@ -2948,6 +2949,18 @@ The M28 integration settings have these limits
   Search settings are unverified there
   ([Plasma check](TODO.md#baloo-search-settings-on-plasma-443)).
   ([#443](https://github.com/mikepadiernos/plasma-opus/issues/443))
+- **🗃️ File-type category settings:** The categories checked under
+  **Preferences › KDE Plasma › Baloo** are added to Places, and the cleared
+  ones removed, after **Apply** or **OK**. A category checked again gets a
+  new entry at the end of **Search For**, so its earlier position and any
+  title or icon edited in Places are lost. Removing an entry from Places
+  clears its category, also in an open Preferences window, but Places'
+  **Hide** action keeps it checked. The entries live in Plasma's shared
+  `user-places.xbel`, so deleting or replacing that file clears every
+  category. **Large files are over** takes whole MiB from 1 MiB to 1 TiB and
+  applies to the next **Large Files** search; the other categories have no
+  criteria to set, and their file types are fixed.
+  ([#660](https://github.com/mikepadiernos/plasma-opus/issues/660))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3037,6 +3050,12 @@ The M28 integration settings have these limits
     simpler search panel. Use **Configure File Search…** to change what Baloo
     indexes, and **Search Defaults…** for the scope, search folders and
     exclusions of Plasma Opus.
+  - **File-type category settings:** Clear the categories you don't use
+    under **Preferences › KDE Plasma › Baloo** rather than hiding them in
+    Places, and check one again to restore its entry. Raise **Large files are
+    over** to list only the biggest files, such as disk images and videos,
+    when freeing space, and search with `size>` in the search panel for a
+    one-off size.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3082,6 +3101,9 @@ The M28 integration settings have these limits
   - Follow the indexer's state while the **Baloo** tab is open, show which
     folders KDE File Search indexes there, and offer ranking by path or
     modification time as well as by name.
+  - Restore a category at its earlier position in Places, treat Places'
+    **Hide** action like clearing the category, and offer criteria for the
+    other categories, such as extra file extensions or a modification date.
 
 ## Embedded terminal
 
