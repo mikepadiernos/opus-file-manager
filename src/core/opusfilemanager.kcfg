@@ -959,6 +959,12 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="Mail">
+    <entry name="SendByEmail" type="Bool">
+      <label>Whether Send by Email is offered for selected files</label>
+      <default>true</default>
+    </entry>
+  </group>
   <group name="Gallery">
     <entry name="ImageBackground" type="Enum">
       <label>Background for transparent images in preview and gallery</label>
