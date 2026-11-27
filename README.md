@@ -118,9 +118,10 @@ preview. Both behaviours can be changed in Preferences.
   connections, rclone and KDE Online Accounts, Nextcloud accounts with
   Login Flow sign-in, browsing that respects server permissions, server
   previews and metadata, search, favourites and collaborative tags on the
-  server, and Nextcloud Photos albums and places sorted by capture date,
-  temporary LAN sharing, administrator mode, Plasma Vault, file encryption
-  and password-gated folders.
+  server, Nextcloud Photos albums and places sorted by capture date, and
+  Nextcloud links and shares managed with confirmation, temporary LAN
+  sharing, administrator mode, Plasma Vault, file encryption and
+  password-gated folders.
 
 ### Personalize
 
