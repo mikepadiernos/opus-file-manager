@@ -608,9 +608,15 @@ behaves like the rest of the desktop and follows the user's choices.
   asks for when needed, or an SSH key or agent. Passwords are never saved
   with the connection; KIO keeps them in KWallet when you choose to. KIO and
   `ssh` verify SSH host keys and TLS certificates, and connection and
-  sign-in errors appear in the pane. Unencrypted WebDAV shows a warning. See
-  [Remote connections](../CAVEATS.md#desktop-integration).
-  ([#282](https://github.com/mikepadiernos/plasma-opus/issues/282))
+  sign-in errors appear in the pane. Unencrypted WebDAV shows a warning. Manage
+  saved connections under **Preferences › Remote and Cloud › Connections** too,
+  where changes take effect immediately, choose the protocol, user and SSH
+  sign-in method that new connections start with, and open KDE Wallet Manager to
+  review saved passwords. See [Remote
+  connections](../CAVEATS.md#desktop-integration) and [Remote connection
+  settings](../CAVEATS.md#integration-settings).
+  ([#282](https://github.com/mikepadiernos/plasma-opus/issues/282),
+  [#297](https://github.com/mikepadiernos/plasma-opus/issues/297))
 - **Network shares and FTP:** Remote connections also cover Windows shares
   (SMB), FTP and FTP over TLS (FTPS) through KIO. An SMB user can include a
   domain as `DOMAIN;user`. Plain FTP shows a warning that it sends passwords

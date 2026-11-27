@@ -259,14 +259,14 @@ Preferences also include
 [advanced search settings](docs/ROADMAP.md#m22-advanced-search-settings),
 [tagging settings](docs/tagging.md#settings),
 [Yazi mode settings](docs/yazi-mode.md#settings) and, in development,
-[integration settings](docs/integrations/kde-plasma.md) on the **KDE Plasma**
-and **Applications** pages
+[integration settings](docs/integrations/kde-plasma.md) on the **KDE Plasma**,
+**Applications** and **Remote and Cloud** pages
 ([M28](docs/ROADMAP.md#m28-integration-settings)).
 
 > [!IMPORTANT]
-> Path-filter, saved-search, collection, rename-preset and automation management
-> changes take effect immediately, even if Preferences is cancelled. KDE File
-> Associations changes shared desktop settings.
+> Path-filter, saved-search, collection, rename-preset, automation and remote
+> connection management changes take effect immediately, even if Preferences
+> is cancelled. KDE File Associations changes shared desktop settings.
 
 ## Safety and limitations
 
