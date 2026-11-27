@@ -1804,6 +1804,20 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="PlasmaVault">
+    <entry name="PlasmaVaultMenu" type="Bool">
+      <label>Offer Go › Plasma Vaults, which lists Plasma Vault's encrypted vaults</label>
+      <default>true</default>
+    </entry>
+    <entry name="PlasmaVaultHidden" type="StringList">
+      <label>The encrypted data folders of the vaults that Go › Plasma Vaults leaves out</label>
+      <default></default>
+    </entry>
+    <entry name="PlasmaVaultShowState" type="Bool">
+      <label>Whether Go › Plasma Vaults shows whether each vault is open or closed</label>
+      <default>true</default>
+    </entry>
+  </group>
   <group name="FileChooser">
     <entry name="FileChooserStartFolder" type="Enum">
       <label>Folder the system file chooser starts in when the application suggests none</label>
