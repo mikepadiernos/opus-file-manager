@@ -180,6 +180,11 @@ if(AccountsQt6_FOUND)
     target_link_libraries(onlineaccountstest ${ACCOUNTSQT_LIBRARIES} Qt6::Xml)
 endif()
 
+ecm_add_test(mcpservertest.cpp
+    LINK_LIBRARIES opusfm_mcp Qt6::Test
+    NAME_PREFIX "opusfm-"
+)
+
 ecm_add_test(yazimodeuitest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
