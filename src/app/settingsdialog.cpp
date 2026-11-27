@@ -468,6 +468,12 @@ void SettingsDialog::showActivitiesPage()
     m_plasmaTabs->setCurrentWidget(findChild<QWidget *>(QStringLiteral("workspaceActivitiesPage")));
 }
 
+void SettingsDialog::showKWinPage()
+{
+    setCurrentPage(m_plasmaPage);
+    m_plasmaTabs->setCurrentWidget(findChild<QWidget *>(QStringLiteral("kwinIntegrationPage")));
+}
+
 void SettingsDialog::applySidebarStyle()
 {
     applySidebarStyle(Settings::sidebarIconSize(), Settings::sidebarTitlePosition() == Settings::EnumSidebarTitlePosition::Below);
@@ -1042,6 +1048,9 @@ void SettingsDialog::reloadWorkspaces()
     }
     if (m_desktopWorkspaces) {
         m_desktopWorkspaces->setWorkspaces(names);
+    }
+    if (m_dropDownWorkspace) {
+        m_dropDownWorkspace->setWorkspaces(names);
     }
 }
 
@@ -4299,6 +4308,13 @@ void SettingsDialog::updateSettings()
         // at the same time gets the chosen key.
         tray->setGlobalShortcut(m_globalShortcutKey->keySequence());
     }
+    if (m_writeDropDownShortcut && m_dropDownShortcut->keySequence() != m_savedDropDownShortcut) {
+        m_writeDropDownShortcut(m_dropDownShortcut->keySequence());
+        // Show the key KDE accepted, which is none when it is already taken.
+        m_savedDropDownShortcut = m_readDropDownShortcut();
+        m_dropDownShortcut->setKeySequence(m_savedDropDownShortcut);
+        m_refreshDropDownShortcut();
+    }
     // Once the main window has registered or removed the global shortcut,
     // show the key KDE accepted, which is none when it is already taken.
     QMetaObject::invokeMethod(
@@ -4322,6 +4338,11 @@ void SettingsDialog::updateWidgets()
     }
     if (const DesktopTray *tray = desktopTray()) {
         m_globalShortcutKey->setKeySequence(tray->globalShortcut());
+    }
+    if (m_readDropDownShortcut) {
+        m_savedDropDownShortcut = m_readDropDownShortcut();
+        m_dropDownShortcut->setKeySequence(m_savedDropDownShortcut);
+        m_refreshDropDownShortcut();
     }
     // Activity associations are user data like workspaces, so Restore Defaults leaves them alone.
     {
@@ -4349,6 +4370,10 @@ void SettingsDialog::updateWidgetsDefault()
     if (desktopTray()) {
         m_globalShortcutKey->setKeySequence(DesktopTray::defaultGlobalShortcut());
     }
+    if (m_writeDropDownShortcut) {
+        // The drop-down window has no shortcut until the user chooses one.
+        m_dropDownShortcut->clearKeySequence();
+    }
     QMetaObject::invokeMethod(
         this,
         [this] {
@@ -4363,6 +4388,7 @@ bool SettingsDialog::hasChanged()
     return m_yaziResetPending || m_selectionFilters->rules() != m_savedSelectionFilters
         || (tray && m_globalShortcutKey->keySequence() != tray->globalShortcut()) || m_activityAssociations->associations() != m_savedActivityAssociations
         || m_desktopWorkspaces->assignments() != m_savedDesktopWorkspaces
+        || (m_writeDropDownShortcut && m_dropDownShortcut->keySequence() != m_savedDropDownShortcut)
         || std::any_of(m_sharedToggles.cbegin(), m_sharedToggles.cend(), [](const SharedToggle &toggle) {
                return toggle.check->isChecked() != toggle.read();
            });
@@ -4371,6 +4397,7 @@ bool SettingsDialog::hasChanged()
 bool SettingsDialog::isDefault()
 {
     return m_selectionFilters->rules().isEmpty() && (!desktopTray() || m_globalShortcutKey->keySequence() == DesktopTray::defaultGlobalShortcut())
+        && (!m_writeDropDownShortcut || m_dropDownShortcut->keySequence().isEmpty())
         && std::all_of(m_sharedToggles.cbegin(), m_sharedToggles.cend(), [](const SharedToggle &toggle) {
                return toggle.check->isChecked() == toggle.defaultValue;
            });

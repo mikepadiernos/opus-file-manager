@@ -36,8 +36,6 @@ public:
     virtual void invokeProcessShortcut() = 0;
     virtual void installPackage(const QString &sourceDirectory, bool update, const Callback &done) = 0;
     virtual void removePackage(const Callback &done) = 0;
-    /// Opens a KWin settings module, such as kwinscripts or kcm_kwinrules.
-    virtual void openSettings(const QString &module) = 0;
 };
 
 class SystemKWinBackend : public KWinBackend
@@ -54,7 +52,6 @@ public:
     void invokeProcessShortcut() override;
     void installPackage(const QString &sourceDirectory, bool update, const Callback &done) override;
     void removePackage(const Callback &done) override;
-    void openSettings(const QString &module) override;
 };
 
 /**

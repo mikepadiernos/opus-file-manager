@@ -236,7 +236,7 @@ public:
     KWinIntegration *kwinIntegration() const;
     /// Replaces the KWin backend, for tests.
     void setKWinBackend(std::unique_ptr<KWinBackend> backend);
-    /// Shows Settings › Configure KWin Integration.
+    /// Shows Preferences › KDE Plasma › KWin.
     void showKWinIntegration();
     /// Shows the drop-down window, or hides it when it is shown and active.
     void toggleDropDown();

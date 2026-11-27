@@ -81,8 +81,6 @@ add_library(opusfm_app STATIC
     diskimagebackend.h
     kwinintegration.cpp
     kwinintegration.h
-    kwinintegrationdialog.cpp
-    kwinintegrationdialog.h
     kwinscript.qrc
     mountbackend.cpp
     mountbackend.h

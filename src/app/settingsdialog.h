@@ -6,6 +6,7 @@
 
 #include <KConfigDialog>
 #include <KFilePlacesModel>
+#include <QKeySequence>
 #include <QMap>
 
 #include <functional>
@@ -36,6 +37,7 @@ class QVBoxLayout;
 class RuleListEditor;
 class StartupWorkspaceCombo;
 class TagFieldManagerWidget;
+class WorkspaceCombo;
 class YaziColumnRatiosEditor;
 
 namespace LibraryConfirmations
@@ -70,6 +72,8 @@ public:
     void showToolbarPage();
     /// Shows the KDE Plasma › Activities tab, where Activity associations are edited.
     void showActivitiesPage();
+    /// Shows the KDE Plasma › KWin tab, where the KWin script and the drop-down window are configured.
+    void showKWinPage();
     /**
      * Sets the appearance options in the dialog to Plasma's defaults, except
      * AppearanceDefaults::keptEntries(). Nothing is saved until they are
@@ -107,6 +111,11 @@ public:
     void setPortalSetupHooks(std::function<bool()> available, std::function<QString()> restart, std::function<bool(const QString &)> confirm);
     /// Replaces the yes or no question asked before removing the KWin script, for tests.
     void setKWinRemovalConfirmation(std::function<bool()> confirm);
+    /**
+     * Replaces how KDE Plasma › KWin reads and assigns the drop-down window's
+     * global shortcut, for tests, and loads the shortcut again.
+     */
+    void setDropDownShortcutHooks(std::function<QKeySequence()> read, std::function<void(const QKeySequence &)> write);
     /// The theme profile options shown in the dialog, which may not be applied yet.
     QVariantMap appearanceValues() const;
     /// Shows Themes options in the dialog without applying them.
@@ -327,6 +336,8 @@ private:
      * applies.
      */
     QWidget *createKWinIntegrationPage();
+    /// The Drop-Down Window group of the KWin tab: how the main window slides in from a screen edge.
+    QGroupBox *createDropDownGroup();
     /// The main window's KWin integration, which manages the KWin script, if the dialog has one.
     KWinIntegration *kwinIntegration() const;
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.
@@ -356,6 +367,15 @@ private:
     /// The virtual desktop workspaces when they were last loaded or saved, to tell whether the dialog changed them.
     QMap<QString, QString> m_savedDesktopWorkspaces;
     std::function<bool()> m_confirmKWinRemoval;
+    WorkspaceCombo *m_dropDownWorkspace = nullptr;
+    KKeySequenceWidget *m_dropDownShortcut = nullptr;
+    /// The drop-down window's global shortcut when it was last loaded or assigned, to tell whether the dialog changed it.
+    QKeySequence m_savedDropDownShortcut;
+    /// Read and assign the drop-down window's global shortcut; empty without a main window.
+    std::function<QKeySequence()> m_readDropDownShortcut;
+    std::function<void(const QKeySequence &)> m_writeDropDownShortcut;
+    /// Enables the drop-down shortcut and shows whether it can work.
+    std::function<void()> m_refreshDropDownShortcut;
     /// The Activity associations when they were last loaded or saved, to tell whether the dialog changed them.
     QList<ActivityAssociations::Association> m_savedActivityAssociations;
     QLabel *m_yaziWorkspaceDefault = nullptr;

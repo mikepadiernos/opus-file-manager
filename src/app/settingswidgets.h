@@ -125,6 +125,25 @@ private:
 };
 
 /**
+ * Chooses a screen by its output name, or the active screen. The screens are
+ * those currently connected; a chosen screen that is not connected is kept.
+ */
+class ScreenCombo : public QComboBox
+{
+    Q_OBJECT
+    Q_PROPERTY(QString screen READ screen WRITE setScreen NOTIFY screenChanged USER true)
+
+public:
+    explicit ScreenCombo(QWidget *parent = nullptr);
+    /// The chosen screen's output name, or an empty string for the active screen.
+    QString screen() const;
+    void setScreen(const QString &screen);
+
+Q_SIGNALS:
+    void screenChanged();
+};
+
+/**
  * Assigns a saved workspace, or none, to each listed virtual desktop. The
  * assignments of desktops that are not listed are kept.
  */

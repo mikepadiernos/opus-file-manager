@@ -59,7 +59,7 @@
 #include "kdeconnectshare.h"
 #include "kdeconnectsharedialog.h"
 #include "kwinintegration.h"
-#include "kwinintegrationdialog.h"
+
 #include "labelcolor.h"
 #include "lansharedialog.h"
 #include "libraryautorefresh.h"
@@ -2862,12 +2862,12 @@ void MainWindow::setupActions()
     applyActivity->setText(i18nc("@action", "Apply Activity Association"));
     QAction *kwinIntegration = actions->addAction(QStringLiteral("kwin_integration"), this, &MainWindow::showKWinIntegration);
     kwinIntegration->setText(i18nc("@action", "Configure KWin Integration…"));
-    kwinIntegration->setToolTip(i18nc("@info:tooltip", "Install the optional KWin script and choose how it manages Plasma Opus windows"));
+    kwinIntegration->setToolTip(i18nc("@info:tooltip", "Open Preferences › KDE Plasma › KWin to manage the KWin script and the drop-down window"));
     kwinIntegration->setIcon(SymbolicIcon::fromTheme(QStringLiteral("kwin")));
     QAction *toggleDropDown = actions->addAction(QStringLiteral("toggle_drop_down"), this, &MainWindow::toggleDropDown);
     toggleDropDown->setText(i18nc("@action", "Show or Hide Drop-Down Window"));
     toggleDropDown->setIcon(SymbolicIcon::fromTheme(QStringLiteral("go-down")));
-    // Unassigned by default; the user chooses one in Configure KWin Integration.
+    // Unassigned by default; the user chooses one under Preferences › KDE Plasma › KWin.
     KGlobalAccel::setGlobalShortcut(toggleDropDown, QList<QKeySequence>{});
 
     // File
@@ -7973,19 +7973,10 @@ void MainWindow::setKWinBackend(std::unique_ptr<KWinBackend> backend)
 
 void MainWindow::showKWinIntegration()
 {
-    if (auto *existing = findChild<KWinIntegrationDialog *>()) {
-        existing->raise();
-        existing->activateWindow();
-        return;
+    showSettings();
+    if (auto *dialog = qobject_cast<SettingsDialog *>(KConfigDialog::exists(QLatin1String(SettingsDialog::Name)))) {
+        dialog->showKWinPage();
     }
-    reloadWorkspaceCatalog();
-    QList<QPair<QString, QString>> workspaces;
-    for (const WorkspaceCatalog::Workspace &workspace : std::as_const(m_workspaceCatalog.workspaces)) {
-        workspaces.append({workspace.id, workspace.name});
-    }
-    auto *dialog = new KWinIntegrationDialog(m_kwin, workspaces, actionCollection()->action(QStringLiteral("toggle_drop_down")), this);
-    dialog->setAttribute(Qt::WA_DeleteOnClose);
-    dialog->show();
 }
 
 void MainWindow::toggleDropDown()
@@ -8047,7 +8038,7 @@ void MainWindow::applySettings()
     if (!Settings::kdeConnectRememberDevice()) {
         KdeConnectShare::forgetDevice();
     }
-    // The KWin script reads the window management options at its next sync.
+    // The KWin script reads the window management and drop-down options at its next sync.
     m_kwin->requestSync();
     const bool toolbarsLocked = Settings::lockToolbars();
     QAction *customizeToolbar = actionCollection()->action(QStringLiteral("customize_main_toolbar"));

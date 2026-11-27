@@ -45,6 +45,7 @@
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QRegularExpression>
+#include <QScreen>
 #include <QSet>
 #include <QSignalBlocker>
 #include <QStandardPaths>
@@ -282,6 +283,51 @@ void WorkspaceCombo::setWorkspaces(const QList<std::pair<QString, QString>> &wor
 {
     m_workspaces = workspaces;
     setWorkspace(workspace());
+}
+
+ScreenCombo::ScreenCombo(QWidget *parent)
+    : QComboBox(parent)
+{
+    setProperty("kcfg_propertyNotify", QByteArray(SIGNAL(screenChanged())));
+    setScreen(QString());
+    connect(this, &QComboBox::currentIndexChanged, this, &ScreenCombo::screenChanged);
+    // List screens connected or disconnected while the dialog is open.
+    connect(qApp, &QGuiApplication::screenAdded, this, [this] {
+        setScreen(screen());
+    });
+    connect(qApp, &QGuiApplication::screenRemoved, this, [this] {
+        setScreen(screen());
+    });
+}
+
+QString ScreenCombo::screen() const
+{
+    return currentData().toString();
+}
+
+void ScreenCombo::setScreen(const QString &screen)
+{
+    const QString previous = this->screen();
+    {
+        const QSignalBlocker blocker(this);
+        clear();
+        addItem(i18nc("@item:inlistbox the screen with the pointer or the active window", "Active screen"), QString());
+        const QList<QScreen *> screens = QGuiApplication::screens();
+        for (const QScreen *connected : screens) {
+            if (!connected->name().isEmpty()) {
+                addItem(connected->name(), connected->name());
+            }
+        }
+        int index = findData(screen);
+        if (index < 0) {
+            addItem(i18nc("@item:inlistbox %1 is a screen's output name", "%1 (not connected)", screen), screen);
+            index = count() - 1;
+        }
+        setCurrentIndex(index);
+    }
+    if (previous != this->screen()) {
+        Q_EMIT screenChanged();
+    }
 }
 
 DesktopWorkspacesEditor::DesktopWorkspacesEditor(QWidget *parent)

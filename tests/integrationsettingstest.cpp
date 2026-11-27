@@ -42,6 +42,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QGroupBox>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
@@ -49,6 +50,7 @@
 #include <QMenu>
 #include <QPushButton>
 #include <QScopeGuard>
+#include <QSpinBox>
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QTemporaryDir>
@@ -149,9 +151,6 @@ public:
     void removePackage(const Callback &done) override
     {
         m->pendingRemove = done;
-    }
-    void openSettings(const QString &) override
-    {
     }
 
 private:
@@ -1296,6 +1295,174 @@ private Q_SLOTS:
             QVERIFY2(!detached.findChild<QPushButton *>(name)->isEnabled(), qPrintable(name));
         }
         QVERIFY(!detached.findChild<QLabel *>(QStringLiteral("desktopWorkspacesEmpty"))->isHidden());
+    }
+
+    void kwinTabChoosesTheDropDownWindow()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            KSharedConfig::openConfig()->deleteGroup(QStringLiteral("Workspaces"));
+            KSharedConfig::openConfig()->sync();
+        });
+        const KSharedConfig::Ptr config = KSharedConfig::openConfig();
+        config->deleteGroup(QStringLiteral("Workspaces"));
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY2(WorkspaceCatalog::create(catalog, QStringLiteral("Photos"), QStringLiteral("PH"), error), qPrintable(error));
+        QVERIFY2(WorkspaceCatalog::save(config->group(QStringLiteral("Workspaces")), catalog, error), qPrintable(error));
+        config->sync();
+        const QString photos = catalog.workspaces.at(0).id;
+
+        auto fake = std::make_shared<FakeKWin>();
+        fake->installed = KWinIntegration::bundledVersion();
+        fake->loaded = true;
+        fake->enabled = true;
+        MainWindow window;
+        window.setKWinBackend(std::make_unique<FakeKWinBackend>(fake));
+        KWinIntegration *kwin = window.kwinIntegration();
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        // The container has no KDE global shortcut service.
+        QKeySequence assigned;
+        int writes = 0;
+        dialog.setDropDownShortcutHooks(
+            [&] {
+                return assigned;
+            },
+            [&](const QKeySequence &key) {
+                ++writes;
+                assigned = key;
+            });
+
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("kwinIntegrationPage"));
+        auto *group = dialog.findChild<QGroupBox *>(QStringLiteral("dropDownGroup"));
+        QVERIFY(page && group);
+        QVERIFY(page->isAncestorOf(group));
+        auto *enabled = group->findChild<QCheckBox *>(QStringLiteral("kcfg_DropDownEnabled"));
+        auto *edge = group->findChild<QComboBox *>(QStringLiteral("kcfg_DropDownEdge"));
+        auto *width = group->findChild<QSpinBox *>(QStringLiteral("kcfg_DropDownWidth"));
+        auto *height = group->findChild<QSpinBox *>(QStringLiteral("kcfg_DropDownHeight"));
+        auto *screen = group->findChild<ScreenCombo *>(QStringLiteral("kcfg_DropDownScreen"));
+        auto *slide = group->findChild<QCheckBox *>(QStringLiteral("kcfg_DropDownSlide"));
+        auto *hide = group->findChild<QCheckBox *>(QStringLiteral("kcfg_DropDownHideOnFocusLoss"));
+        auto *screenEdge = group->findChild<QCheckBox *>(QStringLiteral("kcfg_DropDownScreenEdge"));
+        auto *touchEdge = group->findChild<QCheckBox *>(QStringLiteral("kcfg_DropDownTouchEdge"));
+        auto *workspace = group->findChild<WorkspaceCombo *>(QStringLiteral("kcfg_DropDownWorkspace"));
+        auto *shortcut = group->findChild<KKeySequenceWidget *>(QStringLiteral("dropDownShortcut"));
+        auto *apply = dialog.button(QDialogButtonBox::Apply);
+        QVERIFY(enabled && edge && width && height && screen && slide && hide && screenEdge && touchEdge && workspace && shortcut);
+        const QList<QWidget *> controls{edge, width, height, screen, slide, hide, screenEdge, touchEdge, workspace, shortcut};
+
+        // The defaults are those of the drop-down window, and only the switch is enabled until it is on.
+        QVERIFY(!enabled->isChecked());
+        QCOMPARE(edge->currentIndex(), int(Settings::EnumDropDownEdge::Top));
+        QCOMPARE(edge->count(), 4);
+        QCOMPARE(width->value(), 100);
+        QCOMPARE(height->value(), 50);
+        QCOMPARE(width->minimum(), 10);
+        QCOMPARE(screen->screen(), QString());
+        QCOMPARE(screen->currentText(), QStringLiteral("Active screen"));
+        QVERIFY(slide->isChecked());
+        QVERIFY(!hide->isChecked());
+        QCOMPARE(workspace->workspace(), QString());
+        QCOMPARE(workspace->currentText(), QStringLiteral("Keep its own layout"));
+        QVERIFY(workspace->findData(photos) > 0);
+        QVERIFY(shortcut->keySequence().isEmpty());
+        for (QWidget *control : controls) {
+            QVERIFY2(!control->isEnabled(), qPrintable(control->objectName()));
+        }
+        enabled->setChecked(true);
+        for (QWidget *control : controls) {
+            QVERIFY2(control->isEnabled(), qPrintable(control->objectName()));
+        }
+
+        edge->setCurrentIndex(int(Settings::EnumDropDownEdge::Bottom));
+        width->setValue(80);
+        height->setValue(30);
+        // A screen that is not connected stays chosen.
+        screen->setScreen(QStringLiteral("HDMI-A-9"));
+        QCOMPARE(screen->currentText(), QStringLiteral("HDMI-A-9 (not connected)"));
+        slide->setChecked(false);
+        hide->setChecked(true);
+        screenEdge->setChecked(true);
+        touchEdge->setChecked(true);
+        workspace->setWorkspace(photos);
+        const QKeySequence key(QStringLiteral("Meta+F12"));
+        shortcut->setKeySequence(key);
+        QVERIFY(apply->isEnabled());
+        QTest::qWait(10);
+        const int syncs = fake->processRequests;
+        apply->click();
+        QVERIFY(!apply->isEnabled());
+        QCOMPARE(writes, 1);
+        QCOMPARE(assigned, key);
+        const KWinScript::DropDown dropDown = kwin->dropDown();
+        QVERIFY(dropDown.enabled);
+        QCOMPARE(dropDown.edge, KWinScript::Edge::Bottom);
+        QCOMPARE(dropDown.width, 80);
+        QCOMPARE(dropDown.height, 30);
+        QCOMPARE(dropDown.screen, QStringLiteral("HDMI-A-9"));
+        QVERIFY(!dropDown.slide);
+        QVERIFY(dropDown.hideOnFocusLoss);
+        QVERIFY(dropDown.screenEdge);
+        QVERIFY(dropDown.touchEdge);
+        QCOMPARE(dropDown.workspaceId, photos);
+        // The script reads them at its next sync.
+        QTRY_COMPARE(fake->processRequests, syncs + 1);
+        const QJsonObject sent = QJsonDocument::fromJson(kwin->Sync(QStringLiteral("1")).toUtf8()).object().value(QStringLiteral("dropDown")).toObject();
+        QVERIFY(sent.value(QStringLiteral("enabled")).toBool());
+        QCOMPARE(sent.value(QStringLiteral("edge")).toString(), QStringLiteral("bottom"));
+        QCOMPARE(sent.value(QStringLiteral("height")).toInt(), 30);
+        QCOMPARE(sent.value(QStringLiteral("screen")).toString(), QStringLiteral("HDMI-A-9"));
+
+        // A key KDE does not assign shows as none.
+        dialog.setDropDownShortcutHooks(
+            [] {
+                return QKeySequence();
+            },
+            [&](const QKeySequence &) {
+                ++writes;
+            });
+        shortcut->setKeySequence(QKeySequence(QStringLiteral("Meta+F11")));
+        QVERIFY(apply->isEnabled());
+        apply->click();
+        QCOMPARE(writes, 2);
+        QVERIFY(shortcut->keySequence().isEmpty());
+        QVERIFY(!apply->isEnabled());
+
+        // Restore Defaults turns it off and clears the shortcut.
+        dialog.setDropDownShortcutHooks(
+            [&] {
+                return assigned;
+            },
+            [&](const QKeySequence &key) {
+                ++writes;
+                assigned = key;
+            });
+        QCOMPARE(shortcut->keySequence(), key);
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QVERIFY(!enabled->isChecked());
+        QCOMPARE(edge->currentIndex(), int(Settings::EnumDropDownEdge::Top));
+        QCOMPARE(height->value(), 50);
+        QCOMPARE(screen->screen(), QString());
+        QCOMPARE(workspace->workspace(), QString());
+        QVERIFY(shortcut->keySequence().isEmpty());
+        QVERIFY(!shortcut->isEnabled());
+        apply->click();
+        QCOMPARE(writes, 3);
+        QVERIFY(assigned.isEmpty());
+        QCOMPARE(kwin->dropDown(), KWinScript::DropDown());
+
+        // Without a main window there is no action to assign the shortcut to.
+        KFilePlacesModel model;
+        SettingsDialog detached(&model, nullptr);
+        detached.findChild<QCheckBox *>(QStringLiteral("kcfg_DropDownEnabled"))->setChecked(true);
+        QVERIFY(detached.findChild<QComboBox *>(QStringLiteral("kcfg_DropDownEdge"))->isEnabled());
+        QVERIFY(!detached.findChild<KKeySequenceWidget *>(QStringLiteral("dropDownShortcut"))->isEnabled());
+        QVERIFY(detached.findChild<QLabel *>(QStringLiteral("dropDownShortcutStatus"))
+                    ->text()
+                    .contains(QStringLiteral("Open Preferences from a Plasma Opus window")));
     }
 
     void reportsMissingKWinSettings()

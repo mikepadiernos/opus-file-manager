@@ -4,7 +4,6 @@
 
 #include <KConfig>
 #include <KConfigGroup>
-#include <KIO/CommandLauncherJob>
 #include <KLocalizedString>
 #include <KPackage/PackageJob>
 #include <QCoreApplication>
@@ -17,7 +16,6 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QPointer>
-#include <QStandardPaths>
 #include <QTemporaryDir>
 
 static void initKWinScriptResources()
@@ -134,13 +132,6 @@ void SystemKWinBackend::removePackage(const Callback &done)
     QObject::connect(job, &KJob::result, job, [done](KJob *job) {
         done(jobError(job));
     });
-}
-
-void SystemKWinBackend::openSettings(const QString &module)
-{
-    const QString kcmshell = QStandardPaths::findExecutable(QStringLiteral("kcmshell6"));
-    auto *job = kcmshell.isEmpty() ? new KIO::CommandLauncherJob(QStringLiteral("systemsettings"), {module}) : new KIO::CommandLauncherJob(kcmshell, {module});
-    job->start();
 }
 
 KWinIntegration::KWinIntegration(std::unique_ptr<KWinBackend> backend, KSharedConfigPtr config, KSharedConfigPtr stateConfig, QObject *parent)

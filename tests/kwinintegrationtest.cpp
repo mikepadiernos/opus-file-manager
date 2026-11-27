@@ -2,17 +2,16 @@
 
 #include "kwinintegration.h"
 #include "dropdownwindow.h"
-#include "kwinintegrationdialog.h"
 #include "mainwindow.h"
+#include "settingsdialog.h"
 
 #include <KActionCollection>
+#include <KConfigDialog>
 #include <KConfigGroup>
 #include <KSharedConfig>
 
 #include <QAction>
 #include <QApplication>
-#include <QCheckBox>
-#include <QComboBox>
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
@@ -20,9 +19,9 @@
 #include <QJsonObject>
 #include <QPushButton>
 #include <QSignalSpy>
-#include <QSpinBox>
 #include <QStandardPaths>
 #include <QStatusBar>
+#include <QTabWidget>
 #include <QTest>
 
 namespace
@@ -41,7 +40,6 @@ struct FakeKWin {
     bool sourceComplete = false;
     KWinBackend::Callback pendingInstall;
     KWinBackend::Callback pendingRemove;
-    QStringList openedSettings;
 };
 
 class FakeKWinBackend : public KWinBackend
@@ -104,10 +102,6 @@ public:
     void removePackage(const Callback &done) override
     {
         m->pendingRemove = done;
-    }
-    void openSettings(const QString &module) override
-    {
-        m->openedSettings.append(module);
     }
 
 private:
@@ -290,56 +284,6 @@ private Q_SLOTS:
         QCOMPARE(kwin.status(), KWinScript::Status::NotInstalled);
     }
 
-    void dialogAppliesOptionsAndDropDown()
-    {
-        KWinIntegration kwin(std::make_unique<FakeKWinBackend>(m_fake), m_config, m_state);
-        kwin.DesktopsChanged(QStringLiteral(R"([{"id":"d1","name":"Work"},{"id":"d2","name":"Play"}])"));
-        KWinIntegrationDialog dialog(&kwin, {{QStringLiteral("w1"), QStringLiteral("Code")}, {QStringLiteral("w2"), QStringLiteral("Media")}}, nullptr);
-
-        auto *install = dialog.findChild<QPushButton *>(QStringLiteral("kwinInstall"));
-        QVERIFY(!install->isHidden());
-        QVERIFY(install->isEnabled());
-        QVERIFY(!dialog.findChild<QCheckBox *>(QStringLiteral("kwinEnabled"))->isEnabled());
-        QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("kwinRemove"))->isEnabled());
-
-        auto *follow = dialog.findChild<QCheckBox *>(QStringLiteral("kwinFollowDesktops"));
-        auto *desktop = dialog.findChild<QComboBox *>(QStringLiteral("desktopWorkspace_d2"));
-        QVERIFY(desktop);
-        QVERIFY(!desktop->isEnabled());
-        follow->setChecked(true);
-        desktop = dialog.findChild<QComboBox *>(QStringLiteral("desktopWorkspace_d2"));
-        QVERIFY(desktop->isEnabled());
-        desktop->setCurrentIndex(desktop->findData(QStringLiteral("w2")));
-        dialog.findChild<QCheckBox *>(QStringLiteral("kwinTileCompanions"))->setChecked(true);
-
-        auto *edge = dialog.findChild<QComboBox *>(QStringLiteral("dropDownEdge"));
-        QVERIFY(!edge->isEnabled());
-        dialog.findChild<QCheckBox *>(QStringLiteral("dropDownEnabled"))->setChecked(true);
-        QVERIFY(edge->isEnabled());
-        edge->setCurrentIndex(edge->findData(int(KWinScript::Edge::Bottom)));
-        dialog.findChild<QSpinBox *>(QStringLiteral("dropDownHeight"))->setValue(30);
-        auto *workspace = dialog.findChild<QComboBox *>(QStringLiteral("dropDownWorkspace"));
-        workspace->setCurrentIndex(workspace->findData(QStringLiteral("w1")));
-        dialog.apply();
-
-        const KWinScript::Options options = kwin.options();
-        QVERIFY(options.restoreWindows);
-        QVERIFY(options.tileCompanions);
-        QVERIFY(options.followDesktops);
-        const QMap<QString, QString> assignments{{QStringLiteral("d2"), QStringLiteral("w2")}};
-        QCOMPARE(kwin.desktopWorkspaces(), assignments);
-        const KWinScript::DropDown dropDown = kwin.dropDown();
-        QVERIFY(dropDown.enabled);
-        QCOMPARE(dropDown.edge, KWinScript::Edge::Bottom);
-        QCOMPARE(dropDown.height, 30);
-        QCOMPARE(dropDown.workspaceId, QStringLiteral("w1"));
-
-        m_fake->installed = 1;
-        kwin.refresh();
-        QVERIFY(install->isHidden());
-        QVERIFY(dialog.findChild<QCheckBox *>(QStringLiteral("kwinEnabled"))->isEnabled());
-    }
-
     void dropDownWindowTogglesTheWindow()
     {
         KWinIntegration kwin(std::make_unique<FakeKWinBackend>(m_fake), m_config, m_state);
@@ -406,12 +350,19 @@ private Q_SLOTS:
         QCOMPARE(window.kwinIntegration()->status(), KWinScript::Status::NotInstalled);
         QVERIFY(window.actionCollection()->action(QStringLiteral("toggle_drop_down")));
 
+        // Configure KWin Integration… opens Preferences at KDE Plasma › KWin.
         window.actionCollection()->action(QStringLiteral("kwin_integration"))->trigger();
-        auto *dialog = window.findChild<KWinIntegrationDialog *>();
+        auto *dialog = qobject_cast<SettingsDialog *>(KConfigDialog::exists(QLatin1String(SettingsDialog::Name)));
         QVERIFY(dialog);
+        auto *page = dialog->findChild<QWidget *>(QStringLiteral("kwinIntegrationPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->currentWidget(), page);
+        QVERIFY(page->isVisible());
         window.showKWinIntegration();
-        QCOMPARE(window.findChildren<KWinIntegrationDialog *>().size(), 1);
-        dialog->findChild<QPushButton *>(QStringLiteral("kwinInstall"))->click();
+        QCOMPARE(KConfigDialog::exists(QLatin1String(SettingsDialog::Name)), dialog);
+        page->findChild<QPushButton *>(QStringLiteral("kwinInstall"))->click();
         QVERIFY(m_fake->sourceComplete);
         dialog->close();
 

@@ -44,6 +44,7 @@
 #include <QLocale>
 #include <QPointer>
 #include <QPushButton>
+#include <QSpinBox>
 #include <QStandardPaths>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -1094,6 +1095,7 @@ QWidget *SettingsDialog::createKWinIntegrationPage()
     windowsLayout->addLayout(buttonRow({rules}));
     windowsLayout->addWidget(rulesMessage);
     layout->addWidget(windows);
+    layout->addWidget(createDropDownGroup());
     layout->addStretch();
 
     const QPointer<KWinIntegration> kwin(kwinIntegration());
@@ -1201,4 +1203,133 @@ QWidget *SettingsDialog::createKWinIntegrationPage()
         openSettingsModule(QStringLiteral("kcm_kwinrules"), i18nc("@info", "KWin's window rules settings are not installed."), rulesMessage);
     });
     return page;
+}
+
+void SettingsDialog::setDropDownShortcutHooks(std::function<QKeySequence()> read, std::function<void(const QKeySequence &)> write)
+{
+    m_readDropDownShortcut = std::move(read);
+    m_writeDropDownShortcut = std::move(write);
+    m_savedDropDownShortcut = m_readDropDownShortcut ? m_readDropDownShortcut() : QKeySequence();
+    m_dropDownShortcut->setKeySequence(m_savedDropDownShortcut);
+    m_refreshDropDownShortcut();
+}
+
+QGroupBox *SettingsDialog::createDropDownGroup()
+{
+    auto *group = new StatusGroup(i18nc("@title:group", "Drop-Down Window"));
+    group->setObjectName(QStringLiteral("dropDownGroup"));
+    auto *groupLayout = new QVBoxLayout(group);
+    auto *enabled = checkBox(QStringLiteral("DropDownEnabled"), i18nc("@option:check", "Slide the window in from a screen edge and hide it again"));
+    enabled->setToolTip(i18nc("@info:tooltip", "View › Show or Hide Drop-Down Window, its shortcut and its triggers show or hide the main window"));
+    groupLayout->addWidget(enabled);
+    auto *form = new QFormLayout;
+    form->addRow(i18nc("@label:listbox", "Screen edge:"),
+                 comboBox(QStringLiteral("DropDownEdge"),
+                          {i18nc("@item:inlistbox screen edge", "Top"),
+                           i18nc("@item:inlistbox screen edge", "Bottom"),
+                           i18nc("@item:inlistbox screen edge", "Left"),
+                           i18nc("@item:inlistbox screen edge", "Right")}));
+    const auto percentage = [](const QString &entry, const QString &toolTip) {
+        auto *spin = new QSpinBox;
+        spin->setObjectName(QStringLiteral("kcfg_") + entry);
+        spin->setRange(10, 100);
+        spin->setSuffix(i18nc("@item:valuesuffix percentage", "%"));
+        spin->setToolTip(toolTip);
+        return spin;
+    };
+    form->addRow(i18nc("@label:spinbox", "Width:"), percentage(QStringLiteral("DropDownWidth"), i18nc("@info:tooltip", "A percentage of the screen's width")));
+    form->addRow(i18nc("@label:spinbox", "Height:"),
+                 percentage(QStringLiteral("DropDownHeight"), i18nc("@info:tooltip", "A percentage of the screen's height")));
+    auto *screen = new ScreenCombo;
+    screen->setObjectName(QStringLiteral("kcfg_DropDownScreen"));
+    form->addRow(i18nc("@label:listbox", "Screen:"), screen);
+    form->addRow(i18nc("@label", "Animation:"), checkBox(QStringLiteral("DropDownSlide"), i18nc("@option:check", "Slide in and out")));
+    form->addRow(QString(), checkBox(QStringLiteral("DropDownHideOnFocusLoss"), i18nc("@option:check", "Hide when another application is activated")));
+    m_dropDownShortcut = new KKeySequenceWidget;
+    m_dropDownShortcut->setObjectName(QStringLiteral("dropDownShortcut"));
+    m_dropDownShortcut->setCheckForConflictsAgainst(KKeySequenceWidget::GlobalShortcuts | KKeySequenceWidget::StandardShortcuts);
+    form->addRow(i18nc("@label", "Global shortcut:"), m_dropDownShortcut);
+    form->addRow(i18nc("@label", "Triggers:"),
+                 checkBox(QStringLiteral("DropDownScreenEdge"), i18nc("@option:check", "Show or hide when the pointer pushes against the screen edge")));
+    form->addRow(QString(), checkBox(QStringLiteral("DropDownTouchEdge"), i18nc("@option:check", "Show or hide when swiping in from the screen edge")));
+    m_dropDownWorkspace =
+        bound(new WorkspaceCombo(i18nc("@item:inlistbox no workspace", "Keep its own layout")), QStringLiteral("DropDownWorkspace"), "workspace");
+    m_dropDownWorkspace->setToolTip(i18nc("@info:tooltip", "The workspace applied each time the drop-down window is shown"));
+    form->addRow(i18nc("@label:listbox", "Workspace:"), m_dropDownWorkspace);
+    groupLayout->addLayout(form);
+    auto *status = statusLabel(QStringLiteral("dropDownShortcutStatus"));
+    groupLayout->addWidget(status);
+    auto *note = new QLabel(i18nc("@info",
+                                  "The screen edge, size, screen, animation and triggers need the KWin script; without it, the drop-down "
+                                  "window opens as a regular window."));
+    note->setWordWrap(true);
+    groupLayout->addWidget(note);
+
+    if (!m_readDropDownShortcut) {
+        auto *window = qobject_cast<KXmlGuiWindow *>(parentWidget());
+        const QPointer<QAction> action = window ? window->actionCollection()->action(QStringLiteral("toggle_drop_down")) : nullptr;
+        if (action) {
+            m_readDropDownShortcut = [action] {
+                return action ? KGlobalAccel::self()->shortcut(action).value(0) : QKeySequence();
+            };
+            m_writeDropDownShortcut = [action](const QKeySequence &sequence) {
+                if (action) {
+                    KGlobalAccel::self()->setShortcut(action,
+                                                      sequence.isEmpty() ? QList<QKeySequence>() : QList<QKeySequence>{sequence},
+                                                      KGlobalAccel::NoAutoloading);
+                }
+            };
+            // Plasma's Shortcuts settings can change the key while the dialog is open.
+            connect(KGlobalAccel::self(), &KGlobalAccel::globalShortcutChanged, group, [this, action](QAction *changed) {
+                if (!action || changed != action) {
+                    return;
+                }
+                const QKeySequence key = m_readDropDownShortcut();
+                if (m_dropDownShortcut->keySequence() == m_savedDropDownShortcut) {
+                    m_dropDownShortcut->setKeySequence(key);
+                }
+                m_savedDropDownShortcut = key;
+                m_refreshDropDownShortcut();
+                updateButtons();
+            });
+        }
+    }
+    m_savedDropDownShortcut = m_readDropDownShortcut ? m_readDropDownShortcut() : QKeySequence();
+    m_dropDownShortcut->setKeySequence(m_savedDropDownShortcut);
+
+    const QList<QWidget *> controls = [group, enabled] {
+        QList<QWidget *> widgets;
+        for (QWidget *widget : group->findChildren<QWidget *>()) {
+            if (widget != enabled && (widget->objectName().startsWith(QLatin1String("kcfg_")) || qobject_cast<KKeySequenceWidget *>(widget))) {
+                widgets.append(widget);
+            }
+        }
+        return widgets;
+    }();
+    m_refreshDropDownShortcut = [this, enabled, controls, status] {
+        for (QWidget *widget : controls) {
+            widget->setEnabled(enabled->isChecked());
+        }
+        m_dropDownShortcut->setEnabled(enabled->isChecked() && m_writeDropDownShortcut);
+        if (!m_writeDropDownShortcut) {
+            status->setText(i18nc("@info", "Open Preferences from a Plasma Opus window to change the drop-down window's global shortcut."));
+        } else if (!DesktopTray::globalShortcutServiceAvailable()) {
+            status->setText(i18nc("@info", "KDE's global shortcut service is not running, so the shortcut does not work in this session."));
+        } else if (m_savedDropDownShortcut.isEmpty()) {
+            status->setText(i18nc("@info",
+                                  "No global shortcut is assigned; KDE leaves a key unassigned when another application already uses "
+                                  "it. View › Show or Hide Drop-Down Window also shows the window."));
+        } else {
+            status->setText(i18nc("@info %1 is a key combination",
+                                  "Press %1 anywhere in Plasma to show or hide the drop-down window.",
+                                  m_savedDropDownShortcut.toString(QKeySequence::NativeText)));
+        }
+    };
+    group->refresh = m_refreshDropDownShortcut;
+    connect(enabled, &QCheckBox::toggled, group, [this] {
+        m_refreshDropDownShortcut();
+    });
+    m_refreshDropDownShortcut();
+    connect(m_dropDownShortcut, &KKeySequenceWidget::keySequenceChanged, this, &SettingsDialog::updateButtons);
+    return group;
 }
