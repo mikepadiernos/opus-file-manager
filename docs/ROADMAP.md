@@ -1981,7 +1981,8 @@ Settings for M27 integrations, stored in KConfig.
         Activity-specific default folders, feature selections and
         workspace-switch prompts without changing KDE's Activity settings. For
         each association, inherit workspace defaults or select all, individual
-        or no behaviours. [#391]
+        or no behaviours. Plasma-session verification is a
+        [pending handoff](TODO.md#activity-associations-on-plasma-391). [#391]
 
 - **Mail**
 

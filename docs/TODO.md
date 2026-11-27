@@ -39,6 +39,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Operation notifications on Plasma](#operation-notifications-on-plasma-392) | [M28](ROADMAP.md#m28-integration-settings)                                     | [#392]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [Start hidden in tray on Plasma](#start-hidden-in-tray-on-plasma-290)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#290]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [Global shortcut on Plasma](#global-shortcut-on-plasma-291)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#291]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
+| [Activity associations on Plasma](#activity-associations-on-plasma-391)     | [M28](ROADMAP.md#m28-integration-settings)                                     | [#391]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 
 ## mpv integration (#563)
 
@@ -635,6 +636,40 @@ Board statuses were last confirmed on 2026-11-27.
    differences in [CAVEATS](CAVEATS.md#integration-settings), then remove
    this entry and its roadmap link.
 
+## Activity associations on Plasma (#391)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#391]
+  (Development).
+- **Blocker:** The development container has no Plasma Activities service
+  and no System Settings, so the Activity list and opening Plasma's
+  Activities settings cannot be seen there.
+- **Confirmed state:** `SettingsDialog::createActivitiesIntegrationPage()`
+  in `src/app/integrationsettingspages.cpp` embeds
+  `ActivityAssociationsEditor` under **Preferences › KDE Plasma ›
+  Activities**, reading Activities through the main window's
+  `ActivityController`, and saves the associations with the other settings.
+  **Configure Plasma Activities…** opens the `kcm_activities` module through
+  `kcmshell6` or System Settings. `integrationsettingstest` and
+  `activitycontrollertest` pass in the container with a replaced Activity
+  source. See [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with at least two Activities, open **View ›
+   Activity Associations** and check that **Preferences › KDE Plasma ›
+   Activities** opens with every Activity listed and the current one
+   selected.
+2. Check **Associate workspaces and default folders with Plasma
+   Activities**, choose a workspace, **Selected** behaviours and folders for
+   another Activity, and apply. Switch to that Activity and check that the
+   offer above the panes applies the chosen workspace, behaviours and
+   folders.
+3. Create, rename and remove an Activity with Preferences open, and check
+   that the list follows. Choose **Configure Plasma Activities…** and check
+   that Plasma's Activities settings open. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
+   its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -643,6 +678,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#291]: https://github.com/mikepadiernos/plasma-opus/issues/291
 [#292]: https://github.com/mikepadiernos/plasma-opus/issues/292
 [#293]: https://github.com/mikepadiernos/plasma-opus/issues/293
+[#391]: https://github.com/mikepadiernos/plasma-opus/issues/391
 [#392]: https://github.com/mikepadiernos/plasma-opus/issues/392
 [#563]: https://github.com/mikepadiernos/plasma-opus/issues/563
 [#564]: https://github.com/mikepadiernos/plasma-opus/issues/564
