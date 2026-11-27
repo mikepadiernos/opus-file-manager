@@ -4,6 +4,7 @@
 #include "settings.h"
 
 #include <KActionCollection>
+#include <KStatusNotifierItem>
 
 #include <QAction>
 #include <QApplication>
@@ -83,7 +84,7 @@ private Q_SLOTS:
         QVERIFY(fixture.tray->trayIconShown());
         QMenu *menu = fixture.tray->contextMenu();
         QVERIFY(menu);
-        for (const char *name : {"trayShowHide", "trayOpenHome", "trayTransfers"}) {
+        for (const char *name : {"trayShowHide", "trayOpenHome", "trayTransfers", "trayCloudSync"}) {
             QVERIFY2(menu->findChild<QAction *>(QLatin1String(name)), name);
         }
 
@@ -207,6 +208,67 @@ private Q_SLOTS:
         QCOMPARE(showHide->text(), QStringLiteral("Show Plasma Opus"));
         showHide->trigger();
         QVERIFY(fixture.window->isVisible());
+    }
+
+    void trayMenuOpensCloudSync()
+    {
+        Fixture fixture;
+        makeWindow(fixture, true);
+        QSignalSpy cloudSync(fixture.tray, &DesktopTray::cloudSyncRequested);
+        fixture.tray->contextMenu()->findChild<QAction *>(QStringLiteral("trayCloudSync"))->trigger();
+        QCOMPARE(cloudSync.count(), 1);
+    }
+
+    void backgroundStartKeepsTheTrayIconWithoutAWindow()
+    {
+        Settings::setShowTrayIcon(false);
+        Settings::setCloseToTray(false);
+        Fixture fixture;
+        fixture.window = new QWidget;
+        fixture.window->setAttribute(Qt::WA_DeleteOnClose);
+        auto *actions = new KActionCollection(fixture.window.data());
+        fixture.tray = new DesktopTray(fixture.window, actions);
+        fixture.tray->setHostProbe([] {
+            return true;
+        });
+        fixture.tray->applySettings();
+        QVERIFY(!fixture.tray->trayIconShown());
+
+        fixture.tray->startInBackground();
+        QVERIFY(fixture.tray->trayIconShown());
+        QVERIFY(!fixture.window->isVisible());
+        QVERIFY(!QApplication::quitOnLastWindowClosed());
+        auto *item = fixture.tray->findChild<KStatusNotifierItem *>();
+        QVERIFY(item);
+        QCOMPARE(item->status(), KStatusNotifierItem::Active);
+        // The settings no longer remove the icon background sync relies on.
+        fixture.tray->applySettings();
+        QVERIFY(fixture.tray->trayIconShown());
+
+        fixture.tray->toggleWindow();
+        QVERIFY(fixture.window->isVisible());
+        QVERIFY(QApplication::quitOnLastWindowClosed());
+        // Closing hides to the tray, so synchronization keeps running.
+        QVERIFY(QTest::qWaitForWindowExposed(fixture.window));
+        requestCloseFromWindowManager(fixture.window);
+        QCoreApplication::sendPostedEvents(nullptr, QEvent::DeferredDelete);
+        QVERIFY(fixture.window);
+        QVERIFY(!fixture.window->isVisible());
+    }
+
+    void attentionShowsInTheTray()
+    {
+        Fixture fixture;
+        makeWindow(fixture, true);
+        auto *item = fixture.tray->findChild<KStatusNotifierItem *>();
+        QVERIFY(item);
+        QCOMPARE(item->status(), KStatusNotifierItem::Passive);
+        fixture.tray->setAttention(QStringLiteral("Waiting for review"));
+        QCOMPARE(item->status(), KStatusNotifierItem::NeedsAttention);
+        QCOMPARE(item->toolTipSubTitle(), QStringLiteral("Waiting for review"));
+        fixture.tray->setAttention({});
+        QCOMPARE(item->status(), KStatusNotifierItem::Passive);
+        QVERIFY(item->toolTipSubTitle().isEmpty());
     }
 };
 
