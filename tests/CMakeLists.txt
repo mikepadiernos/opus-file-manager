@@ -379,6 +379,12 @@ ecm_add_test(mailpreviewtest.cpp
     GUI
 )
 
+ecm_add_test(mediaviewtest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
 if(OPUSFM_HAVE_MPV)
     ecm_add_test(mpvplayertest.cpp
         LINK_LIBRARIES opusfm_core Qt6::Test

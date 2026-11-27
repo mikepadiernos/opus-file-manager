@@ -16,6 +16,7 @@
 #include "libraryconfirmations.h"
 #include "libraryregistry.h"
 #include "localizednumbers.h"
+#include "mediabackend.h"
 #include "pane.h"
 #include "pathfilterpresetsdialog.h"
 #include "searchhistory.h"
@@ -79,6 +80,7 @@
 #include <QScrollArea>
 #include <QSignalBlocker>
 #include <QSpinBox>
+#include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QTimer>
@@ -3248,6 +3250,18 @@ QWidget *SettingsDialog::createPreviewsPage()
     form->addRow(QString(), checkBox(QStringLiteral("ShowPreviews"), i18nc("@option:check", "Show previews in new windows")));
     form->addRow(QString(), checkBox(QStringLiteral("ShowRemotePreviews"), i18nc("@option:check", "Show previews in remote folders")));
     form->addRow(QString(), checkBox(QStringLiteral("PreviewMediaAutoplay"), i18nc("@option:check", "Automatically play audio and video previews")));
+    auto *mediaBackend = comboBox(QStringLiteral("MediaBackend"),
+                                  {i18nc("@item:inlistbox playback backend", "Qt Multimedia"), i18nc("@item:inlistbox playback backend", "mpv")});
+    if (!MediaBackend::mpvBuilt()) {
+        if (auto *model = qobject_cast<QStandardItemModel *>(mediaBackend->model())) {
+            model->item(Settings::EnumMediaBackend::Mpv)->setEnabled(false);
+            model->item(Settings::EnumMediaBackend::Mpv)->setToolTip(i18nc("@info:tooltip", "This build of Plasma Opus has no mpv support"));
+        }
+    }
+    mediaBackend->setToolTip(
+        i18nc("@info:tooltip",
+              "Plays audio and video in the preview panel and gallery. When OpenGL is unavailable, Qt Multimedia plays video instead of mpv."));
+    form->addRow(i18nc("@label:listbox", "Audio and video playback:"), mediaBackend);
     form->addRow(QString(), checkBox(QStringLiteral("PreviewFormatted"), i18nc("@option:check", "Show formatted HTML and Markdown by default")));
     form->addRow(QString(), checkBox(QStringLiteral("PreviewLineNumbers"), i18nc("@option:check", "Show line numbers in text previews")));
     form->addRow(QString(), checkBox(QStringLiteral("PreviewSyntaxHighlighting"), i18nc("@option:check", "Highlight syntax in text previews")));
