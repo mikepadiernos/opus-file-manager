@@ -1977,7 +1977,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **Archives**
 
-  - [ ] **Creation:** default 7z or ZIP format, split size and whether to prompt
+  - [x] **Creation:** default 7z or ZIP format, split size and whether to prompt
         for encryption, extending M04 archive defaults [#665]
 
 - **rsync**
