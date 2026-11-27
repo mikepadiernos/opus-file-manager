@@ -88,7 +88,21 @@ struct Package {
 };
 
 /**
- * Whether @p path is a package, without reading the file, for enabling actions.
+ * Whether Preferences › Applications › Packages turns on actions for
+ * @p kind's family: AppImages, Flatpak or Snap.
+ */
+bool enabled(Kind kind);
+
+/**
+ * Whether adding @p package to the application menu reads the AppImage's own
+ * desktop file and icon, which runs its runtime. Otherwise the menu entry
+ * uses the file name and a generic icon.
+ */
+bool readsEmbeddedDetails(const Package &package);
+
+/**
+ * Whether @p path is a package whose actions are turned on, without reading
+ * the file, for enabling actions.
  * @param mimeType the item's MIME type; folders are recognized by their location
  */
 bool isPackage(const QString &path, const QString &mimeType, const Locations &locations = Locations::system());
@@ -99,7 +113,11 @@ Package identify(const QString &path, const QString &mimeType, const Locations &
 /// A localized name for @p kind, such as "Flatpak bundle".
 QString kindName(Kind kind);
 
-/// The actions @p package offers, whether or not the tools they need are installed.
+/**
+ * The actions @p package offers, whether or not the tools they need are
+ * installed: none when its family is turned off, and no Integrate when
+ * application menu integration is, though an existing entry can be removed.
+ */
 QList<Action> actions(const Package &package);
 
 /// Whether @p action installs, updates or removes something, and so needs confirmation.

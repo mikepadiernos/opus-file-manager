@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "apppackages.h"
+#include "settings.h"
 
 #include <KConfig>
 #include <KConfigGroup>
@@ -50,6 +51,7 @@ private Q_SLOTS:
 
     void init()
     {
+        Settings::self()->setDefaults();
         for (const QString &entry : QDir(m_dir.path()).entryList(QDir::AllEntries | QDir::NoDotAndDotDot)) {
             QFileInfo(m_dir.filePath(entry)).isDir() ? QDir(m_dir.filePath(entry)).removeRecursively() : QFile::remove(m_dir.filePath(entry));
         }
@@ -297,6 +299,60 @@ private Q_SLOTS:
         QVERIFY(integrationFiles(appImage, m_locations).isEmpty());
         QCOMPARE(integrationFiles(other, m_locations).size(), 1);
         QVERIFY(!identify(appImage, AppImageType, m_locations).integrated);
+    }
+
+    void followsThePackageSettings()
+    {
+        const QString appImage = path(QStringLiteral("App.AppImage"));
+        writeFile(appImage,
+                  QByteArray("\x7f"
+                             "ELF\x02\x01\x01\x00"
+                             "AI\x02",
+                             11));
+        QDir().mkpath(m_locations.userFlatpak + QStringLiteral("/app/org.kde.kate"));
+        QDir().mkpath(m_locations.snaps + QStringLiteral("/hello"));
+        const QString folder = QStringLiteral("inode/directory");
+        const QString kate = m_locations.userFlatpak + QStringLiteral("/app/org.kde.kate");
+        const QString hello = m_locations.snaps + QStringLiteral("/hello");
+
+        Package package = identify(appImage, AppImageType, m_locations);
+        QVERIFY(readsEmbeddedDetails(package));
+        Settings::setAppImageReadDetails(false);
+        QVERIFY(!readsEmbeddedDetails(package));
+
+        // Without menu integration an AppImage can still leave the menu.
+        Settings::setAppImageMenuIntegration(false);
+        QCOMPARE(actions(package), (QList<Action>{Action::Run, Action::Update}));
+        QCOMPARE(writeIntegration(appImage, QString(), QString(), m_locations), QString());
+        package = identify(appImage, AppImageType, m_locations);
+        QCOMPARE(actions(package), (QList<Action>{Action::Run, Action::RemoveIntegration, Action::Update}));
+
+        Settings::setAppImageActions(false);
+        QVERIFY(!enabled(Kind::AppImage));
+        QVERIFY(!isPackage(appImage, AppImageType, m_locations));
+        QVERIFY(actions(package).isEmpty());
+        // The package is still described.
+        QCOMPARE(identify(appImage, AppImageType, m_locations).kind, Kind::AppImage);
+        QVERIFY(isPackage(path(QStringLiteral("a.flatpakref")), FlatpakRefType, m_locations));
+        QVERIFY(isPackage(kate, folder, m_locations));
+
+        Settings::setFlatpakActions(false);
+        for (const QString &type : {QStringLiteral("application/vnd.flatpak"), FlatpakRefType, QStringLiteral("application/vnd.flatpak.repo")}) {
+            QVERIFY2(!isPackage(path(QStringLiteral("a")), type, m_locations), qPrintable(type));
+        }
+        QVERIFY(!isPackage(kate, folder, m_locations));
+        QVERIFY(actions(identify(kate, folder, m_locations)).isEmpty());
+        QVERIFY(isPackage(hello, folder, m_locations));
+        QVERIFY(isPackage(path(QStringLiteral("a.snap")), QStringLiteral("application/vnd.snap"), m_locations));
+
+        Settings::setSnapActions(false);
+        QVERIFY(!isPackage(hello, folder, m_locations));
+        QVERIFY(!isPackage(path(QStringLiteral("a.snap")), QStringLiteral("application/vnd.snap"), m_locations));
+        QVERIFY(actions(identify(hello, folder, m_locations)).isEmpty());
+
+        Settings::setFlatpakActions(true);
+        QVERIFY(isPackage(kate, folder, m_locations));
+        QVERIFY(!actions(identify(kate, folder, m_locations)).isEmpty());
     }
 
     void namesKinds()

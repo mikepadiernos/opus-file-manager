@@ -937,6 +937,28 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="ApplicationPackages">
+    <entry name="AppImageActions" type="Bool">
+      <label>Whether Application Package offers to run, update and add AppImages to the application menu</label>
+      <default>true</default>
+    </entry>
+    <entry name="FlatpakActions" type="Bool">
+      <label>Whether Application Package offers actions for Flatpak bundles, references, repositories and installed applications</label>
+      <default>true</default>
+    </entry>
+    <entry name="SnapActions" type="Bool">
+      <label>Whether Application Package offers actions for snap files and installed snaps</label>
+      <default>true</default>
+    </entry>
+    <entry name="AppImageMenuIntegration" type="Bool">
+      <label>Whether Application Package offers to add AppImages to the application menu</label>
+      <default>true</default>
+    </entry>
+    <entry name="AppImageReadDetails" type="Bool">
+      <label>Whether adding an AppImage to the application menu runs its runtime to read its own name, icon and categories</label>
+      <default>true</default>
+    </entry>
+  </group>
   <group name="Gallery">
     <entry name="ImageBackground" type="Enum">
       <label>Background for transparent images in preview and gallery</label>
