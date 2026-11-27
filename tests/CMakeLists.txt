@@ -81,6 +81,7 @@ target_compile_definitions(informationtranslationtest PRIVATE
 
 ecm_add_tests(
     activityassociationstest.cpp
+    adminmodetest.cpp
     appearancedefaultstest.cpp
     appfontstest.cpp
     apppackagestest.cpp
@@ -252,6 +253,12 @@ ecm_add_test(transferqueuedialogtest.cpp
 )
 
 ecm_add_test(editorpaneltest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
+ecm_add_test(adminmodeuitest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
     GUI
