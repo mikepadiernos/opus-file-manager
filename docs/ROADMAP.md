@@ -2085,7 +2085,10 @@ considered Calendar, Maps, Deck and Notes workflows.
       [#589]
 - [ ] Search and organize assets using supported server metadata, tags and
       favorites. Keep server tags distinct from native local tags; identify
-      unavailable features and incomplete results. [#590]
+      unavailable features and incomplete results. Real-server verification
+      is a
+      [pending handoff](TODO.md#nextcloud-asset-search-on-a-real-server-590).
+      [#590]
 - [ ] Browse Nextcloud Photos albums, shared albums and places as virtual
       folders, sorting and grouping by server capture date and location
       without downloading files. Add photos to albums or remove them with
