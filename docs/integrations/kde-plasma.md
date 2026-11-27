@@ -558,6 +558,18 @@ behaves like the rest of the desktop and follows the user's choices.
   be exported and imported without passwords; imported pairs start paused.
   See [Cloud activity](../CAVEATS.md#desktop-integration).
   ([#719](https://github.com/mikepadiernos/plasma-opus/issues/719))
+- **Administrator mode:** **File › Act as Administrator** reopens the active
+  pane's local folder through KIO's `admin:` worker from the `kio-admin`
+  package, as in Dolphin, after a warning that can be turned off. KDE's
+  authorization prompt asks for an administrator password, and the worker
+  performs each operation as root. A warning bar above the folder offers
+  **Stop Acting as Administrator**; turning the action off or opening a
+  location outside the `admin:` view also ends it. Other tabs and the other
+  pane are unaffected, and sessions and workspaces save the tab as the
+  ordinary folder, so administrator access is never restored. A missing
+  `kio-admin` package and remote locations are reported. See
+  [Administrator mode](../CAVEATS.md#desktop-integration).
+  ([#288](https://github.com/mikepadiernos/plasma-opus/issues/288))
 
 ## Planned features
 
@@ -566,10 +578,6 @@ them.
 
 ### M27.07 Access control and automation
 
-- **Privileged locations:** Explore supported KIO `admin:/` operations with
-  explicit authorization and clear failure reporting, not a persistent elevated
-  application session.
-  ([#288](https://github.com/mikepadiernos/plasma-opus/issues/288))
 - **Plasma Vault and encryption:** Open, close and reveal Plasma Vault
   containers through its D-Bus interface and reuse GnuPG and Kleopatra for file
   encryption. Leave passwords and vault configuration to those tools.
