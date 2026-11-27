@@ -1968,7 +1968,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **LAN sharing**
 
-  - [ ] **Defaults:** protocol, TLS, network interfaces, port, timeout and
+  - [x] **Defaults:** protocol, TLS, network interfaces, port, timeout and
         whether uploads are allowed. Plasma-session verification is a
         [pending handoff](TODO.md#lan-sharing-settings-on-plasma-664). [#664]
 
