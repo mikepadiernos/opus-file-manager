@@ -527,7 +527,8 @@ MainWindow::MainWindow(QWidget *parent)
     if (searchDefaultsMigrated) {
         searchDefaults.sync();
     }
-    if (ViewSettings::migrateColumns(legacyView, views) || searchDefaultsMigrated) {
+    const bool cloudSyncMigrated = CloudSync::migrateStartAtLogin(KSharedConfig::openConfig()->group(QStringLiteral("CloudSync")));
+    if (ViewSettings::migrateColumns(legacyView, views) || searchDefaultsMigrated || cloudSyncMigrated) {
         Settings::self()->load();
     }
     setComponentName(AppIdentity::componentName(), AppIdentity::displayName());
@@ -8262,6 +8263,10 @@ void MainWindow::applySettings()
                                        QCoreApplication::applicationFilePath(),
                                        AppIdentity::desktopFileName(),
                                        &autostartError)) {
+        showStatusMessage(autostartError);
+    }
+    // Both autostart entries start the same tray instance; later launches are ignored.
+    if (!CloudSync::setStartAtLogin(Settings::cloudSyncAtLogin(), QCoreApplication::applicationFilePath(), AppIdentity::desktopFileName(), &autostartError)) {
         showStatusMessage(autostartError);
     }
     QAction *terminalHistory = actionCollection()->action(QStringLiteral("search_terminal_history"));

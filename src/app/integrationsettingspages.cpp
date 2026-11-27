@@ -8,6 +8,8 @@
 #include "apppackages.h"
 #include "atuin.h"
 #include "cloudsync.h"
+#include "cloudsyncdialog.h"
+#include "cloudsyncrunner.h"
 #include "defaultfilemanager.h"
 #include "desktoptray.h"
 #include "documentformats.h"
@@ -2913,5 +2915,120 @@ QWidget *SettingsDialog::createRemoteDrivesIntegrationPage()
     refreshBackends();
     refreshFolder();
     refreshAutomatic();
+    return page;
+}
+
+QWidget *SettingsDialog::createSyncIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("syncIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+    CloudSync::Scheduler *scheduler = parentWidget() ? parentWidget()->findChild<CloudSync::Scheduler *>() : nullptr;
+
+    auto *pairsGroup = new StatusGroup(i18nc("@title:group", "Cloud Sync Pairs"));
+    pairsGroup->setObjectName(QStringLiteral("cloudSyncPairsGroup"));
+    auto *pairsLayout = new QVBoxLayout(pairsGroup);
+    if (scheduler) {
+        RcloneMounts *rclone = parentWidget()->findChild<RcloneMounts *>();
+        if (!rclone) {
+            // Lists the remotes offered by Add… and Edit… without mounting anything.
+            rclone = new RcloneMounts(page);
+        }
+        pairsLayout->addWidget(new CloudSyncPairsWidget(scheduler, KSharedConfig::openConfig(), rclone), 1);
+    } else {
+        auto *unavailable = new QLabel(i18nc("@info", "Cloud sync pairs can be managed only from a Plasma Opus window."));
+        unavailable->setWordWrap(true);
+        pairsLayout->addWidget(unavailable);
+    }
+    auto *pairsNote = new QLabel(i18nc("@info",
+                                       "Each pair has its own mode, filters, deletion handling and conflict choice; choose Edit… to change them. "
+                                       "Changes to pairs take effect immediately, even if Preferences is cancelled, as in File › Cloud Sync…. "
+                                       "Passwords are never saved with a pair."));
+    pairsNote->setWordWrap(true);
+    pairsLayout->addWidget(pairsNote);
+    layout->addWidget(pairsGroup, 1);
+
+    auto *backgroundGroup = new StatusGroup(i18nc("@title:group", "Background Synchronization"));
+    backgroundGroup->setObjectName(QStringLiteral("cloudSyncBackgroundGroup"));
+    auto *backgroundLayout = new QVBoxLayout(backgroundGroup);
+    auto *atLogin = checkBox(QStringLiteral("CloudSyncAtLogin"),
+                             i18nc("@option:check", "Start Plasma Opus in the system tray at login to synchronize pairs in the background"));
+    atLogin->setToolTip(i18nc("@info:tooltip", "Adds Plasma Opus to Plasma's Autostart settings, without a window"));
+    backgroundLayout->addWidget(atLogin);
+    auto *metered = checkBox(QStringLiteral("CloudSyncPauseOnMetered"), i18nc("@option:check", "Pause background synchronization on metered connections"));
+    metered->setToolTip(i18nc("@info:tooltip", "Sync Now and Review… still run on metered connections"));
+    backgroundLayout->addWidget(metered);
+    auto *intervalForm = new QFormLayout;
+    auto *interval = new QSpinBox;
+    interval->setObjectName(QStringLiteral("kcfg_CloudSyncCheckInterval"));
+    interval->setRange(1, 24 * 60);
+    interval->setSuffix(i18nc("@item:valuesuffix", " minutes"));
+    interval->setToolTip(i18nc("@info:tooltip", "Pairs that use the default interval are checked this often. A pair can have its own interval in Edit…"));
+    intervalForm->addRow(i18nc("@label:spinbox", "Check remotes every:"), interval);
+    backgroundLayout->addLayout(intervalForm);
+    auto *backgroundStatus = statusLabel(QStringLiteral("cloudSyncBackgroundStatus"));
+    backgroundLayout->addWidget(backgroundStatus);
+    auto *autostart = actionButton(QStringLiteral("openCloudSyncAutostartSettings"), i18nc("@action:button", "Open Autostart Settings…"));
+    autostart->setIcon(QIcon::fromTheme(QStringLiteral("preferences-system-login")));
+    autostart->setToolTip(i18nc("@info:tooltip", "Review the applications Plasma starts at login"));
+    backgroundLayout->addLayout(buttonRow({autostart}));
+    auto *message = messageWidget(QStringLiteral("syncSettingsMessage"));
+    backgroundLayout->addWidget(message);
+    layout->addWidget(backgroundGroup);
+
+    QPointer<CloudSync::Scheduler> pairs(scheduler);
+    const auto refreshBackground = [atLogin, metered, interval, backgroundStatus, pairs] {
+        QStringList lines;
+        if (atLogin->isChecked()) {
+            lines.append(CloudSync::startsAtLogin() ? i18nc("@info", "Plasma Opus starts at login, in the system tray.")
+                                                    : i18nc("@info", "Plasma Opus will start at login once you apply this."));
+        } else if (RemoteMounts::mountsAtLogin()) {
+            lines.append(i18nc("@info", "Plasma Opus already starts at login to mount remote drives, so pairs are synchronized then too."));
+        } else {
+            lines.append(i18nc("@info", "Pairs are synchronized in the background only while Plasma Opus is running."));
+        }
+        if (metered->isChecked()) {
+            const std::optional<bool> meteredNow = CloudSync::isConnectionMetered();
+            if (!meteredNow) {
+                lines.append(i18nc("@info", "This system doesn't report whether the connection is metered, so background runs aren't paused."));
+            } else if (*meteredNow) {
+                lines.append(i18nc("@info", "The connection is metered now, so background runs wait."));
+            }
+        }
+        if (pairs) {
+            const QList<CloudSync::Pair> list = pairs->pairs();
+            const qsizetype usingDefault = std::count_if(list.cbegin(), list.cend(), [](const CloudSync::Pair &pair) {
+                return pair.useDefaultInterval;
+            });
+            const QString every = i18ncp("@info", "every minute", "every %1 minutes", interval->value());
+            if (list.isEmpty()) {
+                lines.append(
+                    i18nc("@info %1 is an interval such as every 15 minutes", "New pairs are checked %1 unless you choose their own interval.", every));
+            } else if (usingDefault == 0) {
+                lines.append(i18nc("@info", "No pair uses the default interval. Choose Edit… to change a pair's interval."));
+            } else {
+                lines.append(
+                    i18ncp("@info %2 is an interval such as every 15 minutes", "One pair is checked %2.", "%1 pairs are checked %2.", usingDefault, every));
+            }
+        }
+        lines.append(i18nc("@info", "Network folders, online accounts and rclone remotes don't report changes, so each pair is checked on its interval."));
+        backgroundStatus->setText(lines.join(QLatin1Char('\n')));
+    };
+    backgroundGroup->refresh = refreshBackground;
+    connect(atLogin, &QCheckBox::toggled, page, refreshBackground);
+    connect(metered, &QCheckBox::toggled, page, refreshBackground);
+    connect(interval, &QSpinBox::valueChanged, page, refreshBackground);
+    if (scheduler) {
+        connect(scheduler, &CloudSync::Scheduler::statusChanged, page, refreshBackground);
+    }
+    // Applying writes the autostart entry that the status reports, after this dialog's own handlers.
+    connect(this, &KConfigDialog::settingsChanged, page, [page, refreshBackground] {
+        QTimer::singleShot(0, page, refreshBackground);
+    });
+    connect(this, &KConfigDialog::widgetModified, page, refreshBackground);
+    connect(autostart, &QPushButton::clicked, page, [message] {
+        openSettingsModule(QStringLiteral("kcm_autostart"), i18nc("@info", "Plasma's Autostart settings are not installed."), message);
+    });
+    refreshBackground();
     return page;
 }

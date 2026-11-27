@@ -100,6 +100,8 @@ CloudSyncPairDialog::CloudSyncPairDialog(const Pair &pair, const QList<Pair> &ot
     , m_exclude(new QPlainTextEdit(this))
     , m_recursive(new QCheckBox(i18nc("@option:check", "Synchronize subfolders"), this))
     , m_interval(new QSpinBox(this))
+    , m_defaultInterval(new QCheckBox(this))
+    , m_conflictChoice(new QComboBox(this))
     , m_paused(new QCheckBox(i18nc("@option:check", "Pause background synchronization"), this))
     , m_error(new QLabel(this))
     , m_ok(nullptr)
@@ -210,6 +212,29 @@ CloudSyncPairDialog::CloudSyncPairDialog(const Pair &pair, const QList<Pair> &ot
     m_interval->setSpecialValueText(i18nc("@item:valuesuffix synchronization interval", "Only on request"));
     m_interval->setSuffix(i18nc("@item:valuesuffix synchronization interval", " minutes"));
     m_interval->setValue(pair.intervalMinutes);
+    m_defaultInterval->setObjectName(QStringLiteral("cloudSyncDefaultInterval"));
+    const int defaultInterval = std::max(1, m_config->group(QStringLiteral("CloudSync")).readEntry("CheckIntervalMinutes", int(DefaultCheckIntervalMinutes)));
+    m_defaultInterval->setText(
+        i18ncp("@option:check", "Use the default interval (every minute)", "Use the default interval (every %1 minutes)", defaultInterval));
+    m_defaultInterval->setToolTip(i18nc("@info:tooltip", "Change the default interval in Preferences › Remote and Cloud › Sync"));
+    m_defaultInterval->setChecked(pair.useDefaultInterval);
+    m_conflictChoice->setObjectName(QStringLiteral("cloudSyncConflictChoice"));
+    for (const Resolution resolution : {Resolution::Skip, Resolution::KeepBoth, Resolution::KeepLocal, Resolution::KeepRemote}) {
+        m_conflictChoice->addItem(resolutionName(resolution), int(resolution));
+    }
+    m_conflictChoice->setItemData(0, i18nc("@info:tooltip", "Leave conflicts for review. rclone keeps both versions under conflict names."), Qt::ToolTipRole);
+    m_conflictChoice->setItemData(1, i18nc("@info:tooltip", "Keep the local version and save the remote one beside it under a conflict name"), Qt::ToolTipRole);
+    m_conflictChoice->setItemData(
+        2,
+        i18nc("@info:tooltip", "Replace the remote version with the local one. rclone keeps the remote version under a conflict name."),
+        Qt::ToolTipRole);
+    m_conflictChoice->setItemData(
+        3,
+        i18nc("@info:tooltip", "Replace the local version with the remote one. rclone keeps the local version under a conflict name."),
+        Qt::ToolTipRole);
+    m_conflictChoice->setToolTip(
+        i18nc("@info:tooltip", "How background and Sync Now runs resolve items changed on both sides. Reviews start from this choice."));
+    m_conflictChoice->setCurrentIndex(std::max(0, m_conflictChoice->findData(int(pair.conflictChoice))));
     m_paused->setObjectName(QStringLiteral("cloudSyncPaused"));
     m_paused->setChecked(pair.paused);
 
@@ -229,6 +254,8 @@ CloudSyncPairDialog::CloudSyncPairDialog(const Pair &pair, const QList<Pair> &ot
     form->addRow(i18nc("@label:textbox", "Exclude:"), m_exclude);
     form->addRow(QString(), m_recursive);
     form->addRow(i18nc("@label:spinbox", "Synchronize every:"), m_interval);
+    form->addRow(QString(), m_defaultInterval);
+    form->addRow(i18nc("@label:listbox", "Conflicts:"), m_conflictChoice);
     form->addRow(QString(), m_paused);
 
     auto *note = new QLabel(i18nc("@info",
@@ -257,6 +284,11 @@ CloudSyncPairDialog::CloudSyncPairDialog(const Pair &pair, const QList<Pair> &ot
     connect(m_exclude, &QPlainTextEdit::textChanged, this, &CloudSyncPairDialog::validate);
     connect(m_recursive, &QCheckBox::toggled, this, &CloudSyncPairDialog::validate);
     connect(m_interval, &QSpinBox::valueChanged, this, &CloudSyncPairDialog::validate);
+    connect(m_defaultInterval, &QCheckBox::toggled, this, [this](bool checked) {
+        m_interval->setEnabled(!checked);
+        validate();
+    });
+    m_interval->setEnabled(!m_defaultInterval->isChecked());
 
     updateKind();
     updateMode();
@@ -284,6 +316,8 @@ Pair CloudSyncPairDialog::pair() const
     pair.options.excludePatterns = patterns(m_exclude);
     pair.options.recursive = m_recursive->isChecked();
     pair.intervalMinutes = m_interval->value();
+    pair.useDefaultInterval = m_defaultInterval->isChecked();
+    pair.conflictChoice = Resolution(m_conflictChoice->currentData().toInt());
     pair.paused = m_paused->isChecked();
     return pair;
 }
@@ -519,6 +553,8 @@ CloudSyncReviewDialog::CloudSyncReviewDialog(const Pair &pair, const Report &rep
         }
         auto *combo = new QComboBox(m_conflicts);
         addResolutions(combo);
+        // Starts from the pair's default choice, which automatic runs apply.
+        combo->setCurrentIndex(std::max(0, combo->findData(int(pair.conflictChoice))));
         m_conflicts->setItemWidget(item, 3, combo);
         m_choices.append({conflict.path, combo});
     }
@@ -540,6 +576,7 @@ CloudSyncReviewDialog::CloudSyncReviewDialog(const Pair &pair, const Report &rep
             auto *all = new QComboBox(this);
             all->setObjectName(QStringLiteral("cloudSyncResolveAll"));
             addResolutions(all);
+            all->setCurrentIndex(std::max(0, all->findData(int(pair.conflictChoice))));
             auto *apply = new QPushButton(i18nc("@action:button", "Apply to All"), this);
             apply->setObjectName(QStringLiteral("cloudSyncApplyAll"));
             connect(apply, &QPushButton::clicked, this, [this, all] {
@@ -577,8 +614,8 @@ QHash<QString, Resolution> CloudSyncReviewDialog::resolutions() const
     return result;
 }
 
-CloudSyncDialog::CloudSyncDialog(Scheduler *scheduler, KSharedConfig::Ptr config, RcloneMounts *rclone, QWidget *parent)
-    : QDialog(parent)
+CloudSyncPairsWidget::CloudSyncPairsWidget(Scheduler *scheduler, KSharedConfig::Ptr config, RcloneMounts *rclone, QWidget *parent)
+    : QWidget(parent)
     , m_scheduler(scheduler)
     , m_config(config ? config : KSharedConfig::openConfig())
     , m_rclone(rclone)
@@ -591,11 +628,8 @@ CloudSyncDialog::CloudSyncDialog(Scheduler *scheduler, KSharedConfig::Ptr config
     , m_cancel(new QPushButton(SymbolicIcon::fromTheme(QStringLiteral("process-stop")), i18nc("@action:button", "Stop"), this))
     , m_pause(new QPushButton(this))
     , m_pauseAccount(new QPushButton(this))
-    , m_startAtLogin(new QCheckBox(i18nc("@option:check", "Synchronize in the background after login"), this))
-    , m_metered(new QCheckBox(i18nc("@option:check", "Pause background synchronization on metered connections"), this))
     , m_message(new QLabel(this))
 {
-    setWindowTitle(i18nc("@title:window", "Cloud Sync"));
     m_pairs->setObjectName(QStringLiteral("cloudSyncPairs"));
     m_pairs->setHeaderLabels(
         {i18nc("@title:column", "Local Folder"), i18nc("@title:column", "Remote"), i18nc("@title:column", "Mode"), i18nc("@title:column", "Status")});
@@ -613,8 +647,6 @@ CloudSyncDialog::CloudSyncDialog(Scheduler *scheduler, KSharedConfig::Ptr config
     m_cancel->setObjectName(QStringLiteral("cloudSyncCancel"));
     m_pause->setObjectName(QStringLiteral("cloudSyncPause"));
     m_pauseAccount->setObjectName(QStringLiteral("cloudSyncPauseAccount"));
-    m_startAtLogin->setObjectName(QStringLiteral("cloudSyncStartAtLogin"));
-    m_metered->setObjectName(QStringLiteral("cloudSyncMetered"));
     m_message->setObjectName(QStringLiteral("cloudSyncMessage"));
     m_message->setWordWrap(true);
     m_message->setTextFormat(Qt::PlainText);
@@ -634,39 +666,15 @@ CloudSyncDialog::CloudSyncDialog(Scheduler *scheduler, KSharedConfig::Ptr config
     top->addWidget(m_pairs, 1);
     top->addLayout(side);
 
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
-    connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
-
     auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins({});
     layout->addLayout(top, 1);
     layout->addWidget(m_message);
-    layout->addWidget(m_startAtLogin);
-    layout->addWidget(m_metered);
-    layout->addWidget(buttons);
 
-    m_startAtLogin->setChecked(startsAtLogin());
-    m_startAtLogin->setToolTip(i18nc("@info:tooltip", "Start Plasma Opus in the system tray after login, so pairs synchronize on their intervals"));
-    connect(m_startAtLogin, &QCheckBox::toggled, this, [this](bool checked) {
-        QString error;
-        if (!setStartAtLogin(checked, QCoreApplication::applicationFilePath(), AppIdentity::desktopFileName(), &error)) {
-            const QSignalBlocker blocker(m_startAtLogin);
-            m_startAtLogin->setChecked(!checked);
-            showMessage(error);
-        }
-    });
-    if (m_scheduler) {
-        m_metered->setChecked(m_scheduler->pausesOnMeteredConnections());
-    }
-    connect(m_metered, &QCheckBox::toggled, this, [this](bool checked) {
-        if (m_scheduler) {
-            m_scheduler->setPausesOnMeteredConnections(checked);
-        }
-    });
-
-    connect(m_add, &QPushButton::clicked, this, &CloudSyncDialog::addPair);
-    connect(m_edit, &QPushButton::clicked, this, qOverload<>(&CloudSyncDialog::editPair));
-    connect(m_pairs, &QTreeWidget::itemActivated, this, qOverload<>(&CloudSyncDialog::editPair));
-    connect(m_remove, &QPushButton::clicked, this, &CloudSyncDialog::removePair);
+    connect(m_add, &QPushButton::clicked, this, &CloudSyncPairsWidget::addPair);
+    connect(m_edit, &QPushButton::clicked, this, qOverload<>(&CloudSyncPairsWidget::editPair));
+    connect(m_pairs, &QTreeWidget::itemActivated, this, qOverload<>(&CloudSyncPairsWidget::editPair));
+    connect(m_remove, &QPushButton::clicked, this, &CloudSyncPairsWidget::removePair);
     connect(m_syncNow, &QPushButton::clicked, this, [this] {
         const QString id = currentId();
         if (m_scheduler && !id.isEmpty()) {
@@ -707,7 +715,7 @@ CloudSyncDialog::CloudSyncDialog(Scheduler *scheduler, KSharedConfig::Ptr config
         const QString account = accountKey(*pair);
         m_scheduler->setAccountPaused(account, !m_scheduler->pausedAccounts().contains(account));
     });
-    connect(m_pairs, &QTreeWidget::currentItemChanged, this, &CloudSyncDialog::updateButtons);
+    connect(m_pairs, &QTreeWidget::currentItemChanged, this, &CloudSyncPairsWidget::updateButtons);
 
     if (m_scheduler) {
         connect(m_scheduler, &Scheduler::statusChanged, this, [this](const QString &id) {
@@ -728,10 +736,9 @@ CloudSyncDialog::CloudSyncDialog(Scheduler *scheduler, KSharedConfig::Ptr config
         });
     }
     refresh();
-    resize(QSize(820, 420));
 }
 
-void CloudSyncDialog::review(const QString &id)
+void CloudSyncPairsWidget::review(const QString &id)
 {
     if (!m_scheduler || id.isEmpty() || !m_scheduler->pair(id)) {
         return;
@@ -747,7 +754,7 @@ void CloudSyncDialog::review(const QString &id)
     m_scheduler->preview(id);
 }
 
-void CloudSyncDialog::refresh()
+void CloudSyncPairsWidget::refresh()
 {
     const QString selected = currentId();
     m_pairs->clear();
@@ -771,7 +778,7 @@ void CloudSyncDialog::refresh()
     updateButtons();
 }
 
-void CloudSyncDialog::updateRow(const QString &id)
+void CloudSyncPairsWidget::updateRow(const QString &id)
 {
     QTreeWidgetItem *item = itemFor(id);
     const auto pair = m_scheduler ? m_scheduler->pair(id) : std::nullopt;
@@ -839,7 +846,7 @@ void CloudSyncDialog::updateRow(const QString &id)
     }
 }
 
-void CloudSyncDialog::updateButtons()
+void CloudSyncPairsWidget::updateButtons()
 {
     const QString id = currentId();
     const auto pair = m_scheduler && !id.isEmpty() ? m_scheduler->pair(id) : std::nullopt;
@@ -862,13 +869,13 @@ void CloudSyncDialog::updateButtons()
     m_pauseAccount->setToolTip(selected ? i18nc("@info:tooltip %1 is an account", "Pause or resume every pair of %1", accountDisplayName(*pair)) : QString());
 }
 
-QString CloudSyncDialog::currentId() const
+QString CloudSyncPairsWidget::currentId() const
 {
     const QTreeWidgetItem *item = m_pairs->currentItem();
     return item ? item->data(LocalColumn, Qt::UserRole).toString() : QString();
 }
 
-QTreeWidgetItem *CloudSyncDialog::itemFor(const QString &id) const
+QTreeWidgetItem *CloudSyncPairsWidget::itemFor(const QString &id) const
 {
     for (int i = 0; i < m_pairs->topLevelItemCount(); ++i) {
         QTreeWidgetItem *item = m_pairs->topLevelItem(i);
@@ -879,14 +886,15 @@ QTreeWidgetItem *CloudSyncDialog::itemFor(const QString &id) const
     return nullptr;
 }
 
-void CloudSyncDialog::addPair()
+void CloudSyncPairsWidget::addPair()
 {
     Pair pair;
-    pair.intervalMinutes = 15;
+    pair.intervalMinutes = DefaultCheckIntervalMinutes;
+    pair.useDefaultInterval = true;
     editPair(pair, true);
 }
 
-void CloudSyncDialog::editPair()
+void CloudSyncPairsWidget::editPair()
 {
     const auto pair = m_scheduler ? m_scheduler->pair(currentId()) : std::nullopt;
     if (pair) {
@@ -894,7 +902,7 @@ void CloudSyncDialog::editPair()
     }
 }
 
-void CloudSyncDialog::editPair(const Pair &pair, bool isNew)
+void CloudSyncPairsWidget::editPair(const Pair &pair, bool isNew)
 {
     if (!m_scheduler) {
         return;
@@ -939,7 +947,7 @@ void CloudSyncDialog::editPair(const Pair &pair, bool isNew)
     dialog->open();
 }
 
-void CloudSyncDialog::removePair()
+void CloudSyncPairsWidget::removePair()
 {
     const QString id = currentId();
     if (!m_scheduler || id.isEmpty()) {
@@ -959,7 +967,7 @@ void CloudSyncDialog::removePair()
     refresh();
 }
 
-void CloudSyncDialog::showReview(const QString &id, const Report &report)
+void CloudSyncPairsWidget::showReview(const QString &id, const Report &report)
 {
     const auto pair = m_scheduler ? m_scheduler->pair(id) : std::nullopt;
     if (!pair) {
@@ -979,8 +987,66 @@ void CloudSyncDialog::showReview(const QString &id, const Report &report)
     dialog->open();
 }
 
-void CloudSyncDialog::showMessage(const QString &message)
+void CloudSyncPairsWidget::showMessage(const QString &message)
 {
     m_message->setText(message);
     m_message->setVisible(!message.isEmpty());
+}
+
+CloudSyncDialog::CloudSyncDialog(Scheduler *scheduler, KSharedConfig::Ptr config, RcloneMounts *rclone, QWidget *parent)
+    : QDialog(parent)
+    , m_scheduler(scheduler)
+    , m_list(new CloudSyncPairsWidget(scheduler, config, rclone, this))
+    , m_startAtLogin(new QCheckBox(i18nc("@option:check", "Synchronize in the background after login"), this))
+    , m_metered(new QCheckBox(i18nc("@option:check", "Pause background synchronization on metered connections"), this))
+{
+    setWindowTitle(i18nc("@title:window", "Cloud Sync"));
+    m_startAtLogin->setObjectName(QStringLiteral("cloudSyncStartAtLogin"));
+    m_metered->setObjectName(QStringLiteral("cloudSyncMetered"));
+
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
+    connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+
+    auto *layout = new QVBoxLayout(this);
+    layout->addWidget(m_list, 1);
+    layout->addWidget(m_startAtLogin);
+    layout->addWidget(m_metered);
+    layout->addWidget(buttons);
+
+    m_startAtLogin->setToolTip(i18nc("@info:tooltip", "Start Plasma Opus in the system tray after login, so pairs synchronize on their intervals"));
+    // These are also in Preferences › Remote and Cloud › Sync, so they update the settings too.
+    connect(m_startAtLogin, &QCheckBox::toggled, this, [this](bool checked) {
+        QString error;
+        if (!setStartAtLogin(checked, QCoreApplication::applicationFilePath(), AppIdentity::desktopFileName(), &error)) {
+            const QSignalBlocker blocker(m_startAtLogin);
+            m_startAtLogin->setChecked(!checked);
+            m_list->showMessage(error);
+            return;
+        }
+        Settings::setCloudSyncAtLogin(checked);
+        Settings::self()->save();
+    });
+    connect(m_metered, &QCheckBox::toggled, this, [this](bool checked) {
+        if (m_scheduler) {
+            m_scheduler->setPausesOnMeteredConnections(checked);
+        }
+        Settings::setCloudSyncPauseOnMetered(checked);
+        Settings::self()->save();
+    });
+    connect(Settings::self(), &Settings::configChanged, this, &CloudSyncDialog::updateBackground);
+    updateBackground();
+    resize(QSize(820, 420));
+}
+
+void CloudSyncDialog::review(const QString &id)
+{
+    m_list->review(id);
+}
+
+void CloudSyncDialog::updateBackground()
+{
+    const QSignalBlocker loginBlocker(m_startAtLogin);
+    const QSignalBlocker meteredBlocker(m_metered);
+    m_startAtLogin->setChecked(startsAtLogin());
+    m_metered->setChecked(m_scheduler ? m_scheduler->pausesOnMeteredConnections() : Settings::cloudSyncPauseOnMetered());
 }

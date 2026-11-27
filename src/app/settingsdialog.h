@@ -417,6 +417,11 @@ private:
      * and unmounted automatically.
      */
     QWidget *createRemoteDrivesIntegrationPage();
+    /**
+     * The Remote and Cloud › Sync tab: the cloud sync pairs, managed as in
+     * File › Cloud Sync…, and when they synchronize in the background.
+     */
+    QWidget *createSyncIntegrationPage();
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.

@@ -6,6 +6,9 @@
 #include "appidentity.h"
 #include "apppackages.h"
 #include "atuin.h"
+#include "cloudsync.h"
+#include "cloudsyncdialog.h"
+#include "cloudsyncrunner.h"
 #include "defaultfilemanager.h"
 #include "desktoptray.h"
 #include "documentformats.h"
@@ -84,6 +87,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QToolButton>
+#include <QTreeWidget>
 
 #include <sys/stat.h>
 
@@ -314,6 +318,8 @@ private Q_SLOTS:
         KSharedConfig::openStateConfig()->sync();
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("RemoteProfiles"));
         KSharedConfig::openConfig()->deleteGroup(QStringLiteral("RemoteMounts"));
+        KSharedConfig::openConfig()->deleteGroup(QStringLiteral("CloudSync"));
+        KSharedConfig::openConfig()->deleteGroup(QStringLiteral("CloudSyncPairs"));
         KSharedConfig::openConfig()->sync();
         qputenv("XDG_CURRENT_DESKTOP", "KDE");
         Settings::self()->setDefaults();
@@ -3155,6 +3161,119 @@ private Q_SLOTS:
         apply();
         window.mountRemoteProfilesForWorkspace(workspace);
         QVERIFY(requested.isEmpty());
+    }
+
+    void syncTabManagesPairsAndBackgroundSynchronization()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        const QString local = folder.filePath(QStringLiteral("local"));
+        const QString remote = folder.filePath(QStringLiteral("remote"));
+        QVERIFY(QDir().mkpath(local));
+        QVERIFY(QDir().mkpath(remote));
+        const auto config = KSharedConfig::openConfig();
+        const QStringList groups{QStringLiteral("CloudSync"), QStringLiteral("CloudSyncPairs")};
+        for (const QString &name : groups) {
+            config->group(name).deleteGroup();
+        }
+        QVERIFY(config->sync());
+        QVERIFY(CloudSync::setStartAtLogin(false, {}, {}));
+        Settings::self()->load();
+        const auto restore = qScopeGuard([config, groups] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            CloudSync::setStartAtLogin(false, {}, {});
+            config->reparseConfiguration();
+            for (const QString &name : groups) {
+                config->group(name).deleteGroup();
+            }
+            config->sync();
+        });
+
+        MainWindow window;
+        CloudSync::Scheduler *scheduler = window.cloudSync();
+        QVERIFY(scheduler);
+        QVERIFY(scheduler->pairs().isEmpty());
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("syncIntegrationPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->tabText(tabs->indexOf(page)), QStringLiteral("Sync"));
+        QCOMPARE(tabs->tabText(0), QStringLiteral("Connections"));
+        QCOMPARE(tabs->tabText(1), QStringLiteral("rclone"));
+        QCOMPARE(tabs->tabText(2), QStringLiteral("Remote Drives"));
+        QCOMPARE(tabs->indexOf(page), 3);
+
+        auto *atLogin = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_CloudSyncAtLogin"));
+        auto *metered = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_CloudSyncPauseOnMetered"));
+        auto *interval = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_CloudSyncCheckInterval"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("cloudSyncBackgroundStatus"));
+        auto *pairs = page->findChild<QTreeWidget *>(QStringLiteral("cloudSyncPairs"));
+        QVERIFY(atLogin && metered && interval && status && pairs);
+        QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("openCloudSyncAutostartSettings")));
+        QCOMPARE(tabTitleOf(interval), QStringLiteral("Sync"));
+        QVERIFY(!atLogin->isChecked());
+        QVERIFY(metered->isChecked());
+        QCOMPARE(interval->value(), CloudSync::DefaultCheckIntervalMinutes);
+        QVERIFY2(status->text().contains(QStringLiteral("only while Plasma Opus is running")), qPrintable(status->text()));
+        QVERIFY2(status->text().contains(QStringLiteral("New pairs are checked every 15 minutes")), qPrintable(status->text()));
+        const auto apply = [&dialog] {
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+        };
+
+        // The pair editor of File › Cloud Sync… adds a pair at once, using the default interval.
+        page->findChild<QPushButton *>(QStringLiteral("cloudSyncAdd"))->click();
+        CloudSyncPairDialog *editor = nullptr;
+        QTRY_VERIFY((editor = dialog.findChild<CloudSyncPairDialog *>()) && editor->isVisible());
+        editor->setEngineLocations({folder.filePath(QStringLiteral("engine-config")), folder.filePath(QStringLiteral("engine-state"))});
+        editor->findChild<KUrlRequester *>(QStringLiteral("cloudSyncLocal"))->setText(local);
+        editor->findChild<QLineEdit *>(QStringLiteral("cloudSyncRemote"))->setText(QUrl::fromLocalFile(remote).toString());
+        auto *conflictChoice = editor->findChild<QComboBox *>(QStringLiteral("cloudSyncConflictChoice"));
+        conflictChoice->setCurrentIndex(conflictChoice->findData(int(CloudSync::Resolution::KeepBoth)));
+        editor->accept();
+        QCOMPARE(scheduler->pairs().size(), 1);
+        QCOMPARE(pairs->topLevelItemCount(), 1);
+        const CloudSync::Pair pair = scheduler->pairs().constFirst();
+        QVERIFY(pair.useDefaultInterval);
+        QVERIFY(pair.conflictChoice == CloudSync::Resolution::KeepBoth);
+        QCOMPARE(CloudSync::load(config->group(QStringLiteral("CloudSyncPairs"))).size(), 1);
+        QTRY_VERIFY2(status->text().contains(QStringLiteral("One pair is checked every 15 minutes")), qPrintable(status->text()));
+
+        // The default interval, metered connections and login apply to the background runs.
+        interval->setValue(5);
+        QVERIFY2(status->text().contains(QStringLiteral("One pair is checked every 5 minutes")), qPrintable(status->text()));
+        metered->setChecked(false);
+        atLogin->setChecked(true);
+        QVERIFY2(status->text().contains(QStringLiteral("once you apply")), qPrintable(status->text()));
+        apply();
+        QCOMPARE(Settings::cloudSyncCheckInterval(), 5);
+        QCOMPARE(scheduler->defaultIntervalMinutes(), 5);
+        QCOMPARE(scheduler->intervalMinutes(pair), 5);
+        QVERIFY(!scheduler->pausesOnMeteredConnections());
+        QVERIFY(CloudSync::startsAtLogin());
+        QFile entry(CloudSync::autostartPath());
+        QVERIFY(entry.open(QIODevice::ReadOnly));
+        QVERIFY(entry.readAll().contains(" --background-sync\n"));
+        entry.close();
+        QTRY_VERIFY2(status->text().contains(QStringLiteral("starts at login")), qPrintable(status->text()));
+
+        // Turning them back on and off reverses them.
+        metered->setChecked(true);
+        atLogin->setChecked(false);
+        apply();
+        QVERIFY(scheduler->pausesOnMeteredConnections());
+        QVERIFY(!CloudSync::startsAtLogin());
+
+        // Removing the pair takes effect at once, even if Preferences is cancelled.
+        pairs->setCurrentItem(pairs->topLevelItem(0));
+        page->findChild<QPushButton *>(QStringLiteral("cloudSyncRemove"))->click();
+        QVERIFY(scheduler->pairs().isEmpty());
+        dialog.reject();
+        QVERIFY(CloudSync::load(config->group(QStringLiteral("CloudSyncPairs"))).isEmpty());
+        QVERIFY(QDir(local).exists());
     }
 };
 
