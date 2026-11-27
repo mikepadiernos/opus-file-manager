@@ -567,11 +567,18 @@ behaves like the rest of the desktop and follows the user's choices.
   help files through [Okular](https://okular.kde.org/)'s viewer component
   when it is installed, and names what to install when it isn't. Remote
   files download first, within the 128 MiB remote preview limit. Fonts show
-  their family and style with editable sample text at several sizes; the
-  sample text is remembered. **Install Font…** opens Plasma's font
-  installer, `kfontinst`, for TrueType, OpenType, Type 1 and bitmap fonts.
-  See [Ebook and font previews](../CAVEATS.md#desktop-integration).
-  ([#650](https://github.com/mikepadiernos/plasma-opus/issues/650))
+  their family and style with editable sample text at several sizes.
+  **Install Font…** opens Plasma's font installer, `kfontinst`, for
+  TrueType, OpenType, Type 1 and bitmap fonts. Turn previews of ebooks and
+  DjVu documents, comics, help files and fonts on or off, and set the
+  sample text that every font preview shows, under **Preferences ›
+  Applications › Ebooks and Fonts**, which lists the viewer component for
+  each kind and reports when `kfontinst` is missing; editing the text in a
+  preview changes the same setting. See
+  [Ebook and font previews](../CAVEATS.md#desktop-integration) and
+  [Ebook and font settings](../CAVEATS.md#integration-settings).
+  ([#650](https://github.com/mikepadiernos/plasma-opus/issues/650),
+  [#661](https://github.com/mikepadiernos/plasma-opus/issues/661))
 - **Remote connections:** **Go › Remote Connections** lists saved SSH
   (SFTP), WebDAV and WebDAV over HTTPS connections. Each one opens in the
   active pane or the other pane through KDE's KIO workers, and SSH
