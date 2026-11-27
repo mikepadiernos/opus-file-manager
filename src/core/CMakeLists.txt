@@ -147,6 +147,8 @@ add_library(opusfm_core STATIC
     pathfilter.cpp
     pathfilter.h
     navigationhistory.h
+    plasmavaults.cpp
+    plasmavaults.h
     portalsetup.cpp
     portalsetup.h
     previewcontent.cpp
