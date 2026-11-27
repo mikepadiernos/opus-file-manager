@@ -1982,14 +1982,19 @@ The M27 desktop integrations have these limits
   included. LibreOffice and ONLYOFFICE only open local files, and Calligra
   needs a separate Words, Sheets or Stage program for each kind. The
   application handles saving and format conversion, and Plasma Opus doesn't
-  track whether a document is open or has unsaved changes.
+  track whether a document is open or has unsaved changes. The application
+  that **Edit** uses and whether office documents are previewed are chosen
+  under **Preferences › Applications › Office**
+  ([#676](https://github.com/mikepadiernos/plasma-opus/issues/676)).
   ([#674](https://github.com/mikepadiernos/plasma-opus/issues/674))
 
 - **✏️ Edit action:** **Edit** chooses a tool by file type rather than by
   the file associations in System Settings. Text files open in the editor
   chosen under **Preferences › Applications › Editor**, the built-in editor
-  unless changed; other types take the first installed tool in a fixed
-  order, so their editor can't be chosen. It covers text, office documents,
+  unless changed, and office documents in the application chosen under
+  **Preferences › Applications › Office**, the first installed one unless
+  changed; other types take the first installed tool in a fixed order, so
+  their editor can't be chosen. It covers text, office documents,
   SVG drawings, raster images and audio; videos, PDF documents, archives and
   other types can be previewed but not edited. Separate tools are found
   through `PATH`, so Flatpak and AppImage installations show as not
@@ -2458,13 +2463,15 @@ The M27 desktop integrations have these limits
     them to a local folder first, or use KWrite or Kate. Save your work
     before closing the editor's terminal tab.
   - **Office documents:** Install LibreOffice, Calligra or ONLYOFFICE from
-    your distribution so its command is in `PATH`, and install Calligra for
+    your distribution so its command is in `PATH`, choose it for **Edit**
+    under **Preferences › Applications › Office**, and install Calligra for
     previews. To open remote documents in LibreOffice or
     ONLYOFFICE, copy them to a local folder first, or use Calligra. Open RTF
     and CSV files with **Open With**.
   - **Edit action:** Install a listed tool from your distribution, choose
-    the editor for text files under **Preferences › Applications › Editor**,
-    use **Edit With** or **Open in Office Application** to pick a specific
+    the editor for text files under **Preferences › Applications › Editor**
+    and the office application under **Preferences › Applications ›
+    Office**, use **Edit With** or **Open in Office Application** to pick a specific
     editor, or **Open With** for other applications. Copy remote files to a
     local folder before editing them in a local-only tool, and check the
     format when saving from an image or audio editor.
@@ -2669,9 +2676,9 @@ The M27 desktop integrations have these limits
     call when it offers one, and open a selected folder rather than the
     pane's folder from its context menu.
   - Find Flatpak editors and add other editors.
-  - Find Flatpak office applications, remember the chosen application and
-    offer RTF and CSV files to it.
-  - An M28 setting to choose the tool for each file type, and use the file
+  - Find Flatpak office applications and offer RTF and CSV files to the
+    chosen one.
+  - A setting to choose the image, SVG and audio editors, and use the file
     associations' editors where available.
   - Use Plasma's font viewer component when available, preview every face
     of a font collection, and remember the reading position in ebook
@@ -3075,6 +3082,27 @@ The M28 integration settings have these limits
   **Return to the preview after saving** off, a saved file stays open for
   editing until **Close Editor** or until another file is selected.
   ([#730](https://github.com/mikepadiernos/plasma-opus/issues/730))
+- **🏢 Office settings:** **Office application** under **Preferences ›
+  Applications › Office** chooses what **Edit** opens office documents in
+  after **Apply** or **OK**; **First installed** keeps the order LibreOffice,
+  Calligra, ONLYOFFICE, and **Open in Office Application** still offers
+  every application. The tab marks the applications that aren't installed,
+  checking `PATH` each time it is shown, so one installed only as a Flatpak
+  shows as not installed. Calligra counts as installed when any of its
+  Words, Sheets or Stage programs is, and the tab names the missing ones. A
+  chosen application that is later removed, or that can't open a remote
+  document, is reported by **Edit** rather than replaced. **Preview office
+  documents in the preview panel** applies to the selection after **Apply**
+  or **OK**; when it is off, office documents, including remote ones, which
+  are then not downloaded, show a message instead of a viewer. The tab lists
+  the viewer component that previews text documents, spreadsheets and
+  presentations, checking one OpenDocument and one Microsoft Office type of
+  each, but can't choose it: the preview uses the one that **File
+  Associations** ranks first, which **File Associations…** opens. The
+  container has no viewer components or System Settings, so the listed
+  viewers and opening File Associations are verified there only by their
+  absence.
+  ([#676](https://github.com/mikepadiernos/plasma-opus/issues/676))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3212,6 +3240,13 @@ The M28 integration settings have these limits
     while editing, and choose **Close Editor** when you're done. Turn editing
     off if you only read files in the preview; **Edit** still opens the
     editor chosen above.
+  - **Office settings:** Choose the office application you use most under
+    **Preferences › Applications › Office**, from those the tab doesn't mark
+    as not installed, and use **Open in Office Application** for a one-off
+    choice. Choose Calligra if you edit remote documents. Install Calligra
+    for previews, raise its viewer under **File Associations…** if another
+    one is listed first, and turn previews off on slow or metered network
+    folders.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3277,6 +3312,9 @@ The M28 integration settings have these limits
     graph of how notes link.
   - Start editing at the double-clicked line, offer editing in the Yazi-mode
     preview, and open the editor chosen for **Edit** from the preview.
+  - Choose the office application for each kind of document, find Flatpak
+    office applications, and choose the preview's viewer component in the
+    **Office** tab rather than in File Associations.
 
 ## Embedded terminal
 
