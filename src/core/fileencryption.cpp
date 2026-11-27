@@ -10,6 +10,7 @@
 #include <QFileInfo>
 #include <QLocale>
 #include <QMetaObject>
+#include <QMimeDatabase>
 #include <QProcess>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -40,6 +41,24 @@ bool isOpenPgpSuffix(const QString &suffix)
 QString withoutSuffix(const QString &fileName)
 {
     return fileName.left(fileName.lastIndexOf(QLatin1Char('.')));
+}
+
+// Marks a decrypted copy before its extension, such as `tar.gz`, so it still opens with the same application.
+QString markedName(const QString &fileName)
+{
+    QString extension = QMimeDatabase().suffixForFileName(fileName);
+    if (extension.isEmpty() || !fileName.endsWith(QLatin1Char('.') + extension, Qt::CaseInsensitive)) {
+        const qsizetype dot = fileName.lastIndexOf(QLatin1Char('.'));
+        extension = dot <= 0 ? QString() : fileName.mid(dot + 1);
+    }
+    qsizetype stem = extension.isEmpty() ? fileName.size() : fileName.size() - extension.size() - 1;
+    if (stem <= 0) {
+        stem = fileName.size();
+    }
+    return i18nc("@item decrypted copy of a file, %1 is its name without the extension, %2 the extension with its dot, or nothing",
+                 "%1 (decrypted)%2",
+                 fileName.left(stem),
+                 fileName.mid(stem));
 }
 
 // The kind of the first OpenPGP packet in @p data, from its tag.
@@ -283,18 +302,21 @@ bool isValid(const Key &key)
     return !key.unusable && (key.validity == QLatin1Char('f') || key.validity == QLatin1Char('u'));
 }
 
-QString outputName(Operation operation, const QString &fileName, bool armor)
+QString outputName(Operation operation, const QString &fileName, const Options &options)
 {
     const QString suffix = suffixOf(fileName);
-    const auto stripped = [&fileName](bool strip) {
+    const auto stripped = [&fileName, &options](bool strip) {
         const QString base = strip ? withoutSuffix(fileName) : QString();
+        if (options.markDecrypted) {
+            return markedName(base.isEmpty() ? fileName : base);
+        }
         return base.isEmpty() ? fileName + QStringLiteral(".out") : base;
     };
     switch (operation) {
     case Operation::Encrypt:
-        return fileName + (armor ? QStringLiteral(".asc") : QStringLiteral(".gpg"));
+        return fileName + (options.armor ? QStringLiteral(".asc") : options.pgpSuffix ? QStringLiteral(".pgp") : QStringLiteral(".gpg"));
     case Operation::Sign:
-        return fileName + (armor ? QStringLiteral(".asc") : QStringLiteral(".sig"));
+        return fileName + (options.armor ? QStringLiteral(".asc") : QStringLiteral(".sig"));
     case Operation::Decrypt:
         return stripped(suffix == QLatin1String("gpg") || suffix == QLatin1String("pgp") || suffix == QLatin1String("asc"));
     case Operation::AesEncrypt:
@@ -685,7 +707,7 @@ void FileEncryptionRunner::next()
         arguments = gpgArguments(m_operation, m_options, signature, data);
     } else {
         const QFileInfo info(path);
-        m_output = uniquePath(info.dir().filePath(outputName(m_operation, info.fileName(), m_options.armor)));
+        m_output = uniquePath(info.dir().filePath(outputName(m_operation, info.fileName(), m_options)));
         arguments =
             aes ? aesCryptArguments(m_operation == Operation::AesEncrypt, m_keyFile, path, m_output) : gpgArguments(m_operation, m_options, path, m_output);
     }

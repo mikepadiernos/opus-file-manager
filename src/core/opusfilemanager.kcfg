@@ -1818,6 +1818,36 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="Encryption">
+    <entry name="GnuPGActions" type="Bool">
+      <label>Offer the GnuPG and Kleopatra actions in File › Encryption</label>
+      <default>true</default>
+    </entry>
+    <entry name="AesCryptActions" type="Bool">
+      <label>Offer the AES Crypt actions in File › Encryption</label>
+      <default>true</default>
+    </entry>
+    <entry name="EncryptionArmor" type="Bool">
+      <label>Whether encrypting and signing with GnuPG start with text (.asc) output chosen</label>
+      <default>false</default>
+    </entry>
+    <entry name="EncryptedSuffix" type="Enum">
+      <label>Suffix added to files encrypted with GnuPG in binary form</label>
+      <choices>
+        <choice name="Gpg"/>
+        <choice name="Pgp"/>
+      </choices>
+      <default>Gpg</default>
+    </entry>
+    <entry name="DecryptedNames" type="Enum">
+      <label>How decrypted copies are named</label>
+      <choices>
+        <choice name="Original"/>
+        <choice name="Marked"/>
+      </choices>
+      <default>Original</default>
+    </entry>
+  </group>
   <group name="FileChooser">
     <entry name="FileChooserStartFolder" type="Enum">
       <label>Folder the system file chooser starts in when the application suggests none</label>
