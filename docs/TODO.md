@@ -49,6 +49,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Office settings on Plasma](#office-settings-on-plasma-676)                       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#676]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
 | [Mail client settings on Plasma](#mail-client-settings-on-plasma-666)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#666]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 | [Remote connection settings on Plasma](#remote-connection-settings-on-plasma-297) | [M28](ROADMAP.md#m28-integration-settings)                                     | [#297]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
+| [rclone settings on Plasma](#rclone-settings-on-plasma-663)                       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#663]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
 
 ## mpv integration (#563)
 
@@ -992,6 +993,40 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and its
    roadmap link.
 
+## rclone settings on Plasma (#663)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#663]
+  (Development).
+- **Blocker:** The development container has no rclone, KDE password server
+  (`kpasswdserver6`) or KDE Wallet, so serving a real remote over WebDAV, and
+  KIO signing in with the password that the password server keeps, are tested
+  only with a fake rclone and a fake password provider.
+- **Confirmed state:** `SettingsDialog::createRcloneIntegrationPage()` in
+  `src/app/integrationsettingspages.cpp` stores `RcloneEnabled`,
+  `RcloneHiddenRemotes` and `RcloneOpenMode` in the `CloudStorage` group.
+  `RcloneMounts::serve()` in `src/core/rclone.cpp` runs `rclone serve webdav`
+  on 127.0.0.1 with the password in `RCLONE_PASS`, and `MainWindow` looks the
+  password up with `KPasswdServerClient::checkAuthInfo()`, or creates one and
+  keeps it with `addAuthInfo()`. `rclonetest` and `integrationsettingstest`
+  pass in the container. See [rclone settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On Plasma, with rclone and a configured remote, choose **Serve it over
+   WebDAV on this computer only** under **Preferences › Remote and Cloud ›
+   rclone**, apply, and open the remote from **Go › Cloud Storage**. Check
+   that it opens at `webdav://rclone@127.0.0.1:…/` without asking for a
+   password, that KDE Wallet holds the entry, and that the location bar and
+   `ps` show no password.
+2. Open a file from the served remote in a KIO application, such as Kate, save
+   it, and check that the change reaches the remote. Choose the remote under
+   **Stop Serving** and check that the panes leave it and rclone stops.
+3. Quit and restart Plasma Opus, serve the remote again, and check that the
+   kept password is reused. Clear a remote and the integration, and check the
+   menu. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and its
+   roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -1018,6 +1053,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#657]: https://github.com/mikepadiernos/plasma-opus/issues/657
 [#658]: https://github.com/mikepadiernos/plasma-opus/issues/658
 [#659]: https://github.com/mikepadiernos/plasma-opus/issues/659
+[#663]: https://github.com/mikepadiernos/plasma-opus/issues/663
 [#666]: https://github.com/mikepadiernos/plasma-opus/issues/666
 [#676]: https://github.com/mikepadiernos/plasma-opus/issues/676
 [#703]: https://github.com/mikepadiernos/plasma-opus/issues/703

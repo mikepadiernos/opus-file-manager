@@ -1947,7 +1947,9 @@ Settings for M27 integrations, stored in KConfig.
 - **Cloud storage**
 
   - [ ] **rclone:** enable the integration, choose which remotes to show and
-        whether to serve them over WebDAV or mount them [#663]
+        whether to serve them over WebDAV or mount them. Plasma-session
+        verification is a
+        [pending handoff](TODO.md#rclone-settings-on-plasma-663). [#663]
   - [ ] **Remote drives:** choose the mount backend for each protocol from KIO
         FUSE and installed alternatives, the mount folder, read-only by
         default, and whether to mount at login or workspace activation and
