@@ -43,6 +43,8 @@ add_library(opusfm_core STATIC
     filechooser.h
     filecolorrules.cpp
     filecolorrules.h
+    fileencryption.cpp
+    fileencryption.h
     filemanagerrequest.cpp
     filemanagerrequest.h
     filesplitter.cpp
