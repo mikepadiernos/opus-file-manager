@@ -16,6 +16,7 @@
 #include "settingswidgets.h"
 #include "traypolicy.h"
 
+#include <KActionCollection>
 #include <KConfigGroup>
 #include <KGlobalAccel>
 #include <KIO/CommandLauncherJob>
@@ -27,6 +28,8 @@
 #include <KProtocolInfo>
 #include <KService>
 #include <KSharedConfig>
+#include <KToolBar>
+#include <KXmlGuiWindow>
 
 #include <QApplication>
 #include <QCheckBox>
@@ -37,6 +40,7 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLocale>
+#include <QPointer>
 #include <QPushButton>
 #include <QStandardPaths>
 #include <QTimer>
@@ -927,5 +931,78 @@ QWidget *SettingsDialog::createOnlineAccountsIntegrationPage()
     connect(configure, &QPushButton::clicked, page, [message] {
         openSettingsModule(QStringLiteral("kcm_kaccounts"), i18nc("@info", "KDE's Online Accounts settings are not installed."), message);
     });
+    return page;
+}
+
+QWidget *SettingsDialog::createMountManagerIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("mountManagerIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *display = new QGroupBox(i18nc("@title:group", "Display"));
+    display->setObjectName(QStringLiteral("mountManagerDisplayGroup"));
+    auto *displayLayout = new QVBoxLayout(display);
+    auto *removable = checkBox(QStringLiteral("MountRemovableOnly"), i18nc("@option:check", "Show only removable devices"));
+    removable->setToolTip(i18nc("@info:tooltip",
+                                "Lists only removable devices in Go › Mount Points, and checks Show only removable devices "
+                                "each time the Mount Manager opens"));
+    auto *system = checkBox(QStringLiteral("MountHideSystem"), i18nc("@option:check", "Hide pseudo, snap and other system file systems"));
+    system->setToolTip(i18nc("@info:tooltip",
+                             "Leaves out kernel and memory file systems, automounts, snaps, containers and the document portal. "
+                             "When shown, they are listed but never mounted or unmounted from Plasma Opus."));
+    displayLayout->addWidget(removable);
+    displayLayout->addWidget(system);
+
+    auto *mainWindow = qobject_cast<KXmlGuiWindow *>(parentWidget());
+    const QPointer<KXmlGuiWindow> window(mainWindow);
+    const QPointer<QAction> menuAction = mainWindow ? mainWindow->actionCollection()->action(QStringLiteral("mount_points")) : nullptr;
+    QCheckBox *toolbar = addSharedToggle(
+        QStringLiteral("mountPointsToolbarButton"),
+        i18nc("@option:check", "Show the Mount Points menu on the main toolbar"),
+        [window, menuAction]() -> bool {
+            return window && menuAction && window->toolBar()->actions().contains(menuAction.data());
+        },
+        [window, menuAction](bool shown) {
+            if (!window || !menuAction) {
+                return;
+            }
+            QToolBar *bar = window->toolBar();
+            const QList<QAction *> entries = bar->actions();
+            if (entries.contains(menuAction.data()) == shown) {
+                return;
+            }
+            if (!shown) {
+                bar->removeAction(menuAction);
+                return;
+            }
+            // Place the menu where it is by default, after the Preview button, or before Search or the hamburger menu.
+            QAction *before = nullptr;
+            bool found = false;
+            if (QAction *preview = window->actionCollection()->action(QStringLiteral("show_preview_panel")); preview && entries.contains(preview)) {
+                const qsizetype next = entries.indexOf(preview) + 1;
+                before = next < entries.size() ? entries.at(next) : nullptr;
+                found = true;
+            }
+            for (const QString &name : {QStringLiteral("search_folder"), QStringLiteral("hamburger_menu")}) {
+                QAction *candidate = window->actionCollection()->action(name);
+                if (!found && candidate && entries.contains(candidate)) {
+                    before = candidate;
+                    found = true;
+                }
+            }
+            bar->insertAction(before, menuAction);
+        },
+        true);
+    toolbar->setEnabled(!menuAction.isNull());
+    toolbar->setToolTip(i18nc("@info:tooltip", "Adds or removes the Mount Points entry, like the main toolbar editor on the Toolbars page"));
+    displayLayout->addWidget(toolbar);
+    auto *note = new QLabel(i18nc("@info",
+                                  "File › Mount Manager… can still show every device while it is open. "
+                                  "The root folder and system file systems are never unmounted from Plasma Opus."));
+    note->setWordWrap(true);
+    displayLayout->addWidget(note);
+    layout->addWidget(display);
+    layout->addStretch();
     return page;
 }

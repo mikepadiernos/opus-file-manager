@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "mountbackend.h"
+#include "settings.h"
 
 #include <KIO/FileSystemFreeSpaceJob>
 #include <KLocalizedString>
@@ -139,11 +140,13 @@ bool SystemMountBackend::isRunning(const QString &id) const
 
 void SystemMountBackend::refresh()
 {
-    const QList<MountTable::Entry> entries = MountTable::merge(MountTable::parseMountInfo(readAll(QStringLiteral("/proc/self/mountinfo"))),
-                                                               MountTable::parseFstab(readAll(QStringLiteral("/etc/fstab"))),
-                                                               [](const QString &spec) {
-                                                                   return MountTable::resolveDeviceSpec(spec);
-                                                               });
+    const QList<MountTable::Entry> entries = MountTable::merge(
+        MountTable::parseMountInfo(readAll(QStringLiteral("/proc/self/mountinfo"))),
+        MountTable::parseFstab(readAll(QStringLiteral("/etc/fstab"))),
+        [](const QString &spec) {
+            return MountTable::resolveDeviceSpec(spec);
+        },
+        !Settings::mountHideSystem());
     QList<MountDevice> devices;
     QHash<QString, qsizetype> byMountPoint;
     QHash<QString, qsizetype> byDevice;
@@ -156,8 +159,10 @@ void SystemMountBackend::refresh()
         device.kind = entry.kind;
         device.mounted = entry.mounted;
         device.inFstab = entry.inFstab;
-        device.canMount = !entry.mounted && entry.userMountable;
-        device.canUnmount = entry.mounted && entry.mountPoint != QLatin1String("/") && (entry.userMountable || entry.type.startsWith(QLatin1String("fuse")));
+        device.system = entry.system;
+        device.canMount = !entry.system && !entry.mounted && entry.userMountable;
+        device.canUnmount =
+            !entry.system && entry.mounted && entry.mountPoint != QLatin1String("/") && (entry.userMountable || entry.type.startsWith(QLatin1String("fuse")));
         byMountPoint.insert(entry.mountPoint, devices.size());
         if (entry.device.startsWith(QLatin1Char('/'))) {
             byDevice.insert(entry.device, devices.size());
@@ -214,8 +219,8 @@ void SystemMountBackend::refresh()
                 break;
             }
         }
-        device.canMount = !device.mounted;
-        device.canUnmount = device.mounted && device.mountPoint != QLatin1String("/");
+        device.canMount = !device.system && !device.mounted;
+        device.canUnmount = !device.system && device.mounted && device.mountPoint != QLatin1String("/");
     }
 
     for (MountDevice &device : devices) {

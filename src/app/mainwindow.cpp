@@ -6170,7 +6170,13 @@ void MainWindow::populateMountPoints()
     MountBackend *backend = mountBackend();
     backend->refresh();
     const QList<MountDevice> devices = backend->devices();
+    const bool removableOnly = Settings::mountRemovableOnly();
+    bool listed = false;
     for (const MountDevice &device : devices) {
+        if (removableOnly && !device.removable) {
+            continue;
+        }
+        listed = true;
         QString name = device.name;
         name.replace(QLatin1Char('&'), QStringLiteral("&&"));
         QString mountPoint = device.mountPoint;
@@ -6200,6 +6206,10 @@ void MainWindow::populateMountPoints()
     }
     if (devices.isEmpty()) {
         m_mountPointsMenu->addAction(i18nc("@action:inmenu", "No file systems found"))->setEnabled(false);
+    } else if (!listed) {
+        QAction *none = m_mountPointsMenu->addAction(i18nc("@action:inmenu", "No removable devices"));
+        none->setEnabled(false);
+        none->setToolTip(i18nc("@info:tooltip", "Choose whether other file systems are listed under Preferences › KDE Plasma › Mount Manager"));
     }
     m_mountPointsMenu->setToolTipsVisible(true);
     m_mountPointsMenu->addSeparator();
@@ -8030,6 +8040,10 @@ void MainWindow::applySettings()
     m_activityController->applySettings();
     actionCollection()->action(QStringLiteral("kdeconnect_send"))->setVisible(Settings::kdeConnectSharing());
     actionCollection()->action(QStringLiteral("online_accounts"))->setVisible(Settings::onlineAccountsEnabled());
+    if (m_mountBackend) {
+        // Lists system file systems, or leaves them out, as now chosen.
+        m_mountBackend->refresh();
+    }
     if (!Settings::kdeConnectRememberDevice()) {
         KdeConnectShare::forgetDevice();
     }

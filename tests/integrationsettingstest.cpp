@@ -9,6 +9,7 @@
 #include "favoritesmodel.h"
 #include "filechooser.h"
 #include "mainwindow.h"
+#include "mountbackend.h"
 #include "onlineaccounts.h"
 #include "operationjob.h"
 #include "portalsetup.h"
@@ -30,6 +31,7 @@
 #include <KSycoca>
 #include <KUrlRequester>
 
+#include <KToolBar>
 #include <QAction>
 #include <QCheckBox>
 #include <QComboBox>
@@ -927,6 +929,101 @@ private Q_SLOTS:
         auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("onlineAccountsMessage"));
         QCOMPARE(message->messageType(), KMessageWidget::Error);
         QVERIFY(message->text().contains(QStringLiteral("Online Accounts settings are not installed")));
+    }
+
+    void mountManagerTabChoosesTheListedFileSystems()
+    {
+        const auto config = KSharedConfig::openConfig();
+        KConfigGroup customization = config->group(QStringLiteral("ToolbarCustomization"));
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto backup = KSharedConfig::openConfig(root.filePath(QStringLiteral("toolbar-backup")));
+        KConfigGroup savedCustomization = backup->group(QStringLiteral("ToolbarCustomization"));
+        customization.copyTo(&savedCustomization);
+        customization.deleteGroup();
+        const auto restore = qScopeGuard([&] {
+            customization.deleteGroup();
+            savedCustomization.copyTo(&customization);
+            config->sync();
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        window.show();
+        QVERIFY(QTest::qWaitForWindowExposed(&window));
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("mountManagerIntegrationPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QCOMPARE(tabs->indexOf(page), 8);
+        QCOMPARE(tabs->tabText(8), QStringLiteral("Mount Manager"));
+
+        auto *removable = page->findChild<QCheckBox *>(QStringLiteral("kcfg_MountRemovableOnly"));
+        auto *hideSystem = page->findChild<QCheckBox *>(QStringLiteral("kcfg_MountHideSystem"));
+        auto *toolbar = page->findChild<QCheckBox *>(QStringLiteral("mountPointsToolbarButton"));
+        auto *apply = dialog.button(QDialogButtonBox::Apply);
+        QVERIFY(removable && hideSystem && toolbar);
+        QVERIFY(removable->isChecked());
+        QVERIFY(hideSystem->isChecked());
+        QVERIFY(toolbar->isEnabled());
+        QVERIFY(toolbar->isChecked());
+
+        // System file systems are listed, but never offered for mounting or unmounting.
+        const auto systemDevices = [&window] {
+            QList<MountDevice> devices;
+            for (const MountDevice &device : window.mountBackend()->devices()) {
+                if (device.system) {
+                    devices.append(device);
+                }
+            }
+            return devices;
+        };
+        window.mountBackend()->refresh();
+        QVERIFY(systemDevices().isEmpty());
+        removable->setChecked(false);
+        hideSystem->setChecked(false);
+        apply->click();
+        QVERIFY(!Settings::mountRemovableOnly());
+        QVERIFY(!Settings::mountHideSystem());
+        const QList<MountDevice> shown = systemDevices();
+        QVERIFY(std::any_of(shown.cbegin(), shown.cend(), [](const MountDevice &device) {
+            return device.mountPoint == QLatin1String("/proc");
+        }));
+        QVERIFY(std::none_of(shown.cbegin(), shown.cend(), [](const MountDevice &device) {
+            return device.canMount || device.canUnmount;
+        }));
+        hideSystem->setChecked(true);
+        apply->click();
+        QVERIFY(systemDevices().isEmpty());
+
+        // The Mount Points menu leaves the main toolbar and comes back in its place.
+        QAction *menu = window.actionCollection()->action(QStringLiteral("mount_points"));
+        QAction *preview = window.actionCollection()->action(QStringLiteral("show_preview_panel"));
+        QList<QAction *> entries = window.toolBar()->actions();
+        QVERIFY(entries.contains(menu));
+        const qsizetype position = entries.indexOf(menu);
+        toolbar->setChecked(false);
+        apply->click();
+        QVERIFY(!window.toolBar()->actions().contains(menu));
+        QTRY_VERIFY(customization.hasKey("Actions"));
+        QVERIFY(!customization.readEntry("Actions", QStringList()).contains(QStringLiteral("action:mount_points")));
+        toolbar->setChecked(true);
+        apply->click();
+        entries = window.toolBar()->actions();
+        QCOMPARE(entries.indexOf(menu), position);
+        QCOMPARE(entries.indexOf(preview) + 1, position);
+        QTRY_VERIFY(customization.readEntry("Actions", QStringList()).contains(QStringLiteral("action:mount_points")));
+
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QVERIFY(removable->isChecked());
+        QVERIFY(hideSystem->isChecked());
+        QVERIFY(toolbar->isChecked());
+
+        // Without a main window the toolbar option can't apply.
+        KFilePlacesModel model;
+        SettingsDialog detached(&model, nullptr);
+        QVERIFY(!detached.findChild<QCheckBox *>(QStringLiteral("mountPointsToolbarButton"))->isEnabled());
     }
 };
 

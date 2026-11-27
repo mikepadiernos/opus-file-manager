@@ -31,6 +31,9 @@ struct MountDevice {
     bool mounted = false;
     bool inFstab = false;
     bool removable = false;
+    /// Whether it is a pseudo, snap or other system file system, which can be
+    /// listed but is never mounted or unmounted from Plasma Opus.
+    bool system = false;
     bool canMount = false;
     bool canUnmount = false;
     bool canEject = false;

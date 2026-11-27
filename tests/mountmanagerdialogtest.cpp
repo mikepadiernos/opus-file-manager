@@ -4,9 +4,9 @@
 #include "mainwindow.h"
 #include "mountbackend.h"
 #include "pane.h"
+#include "settings.h"
 
 #include <KActionCollection>
-#include <KConfigGroup>
 #include <KMessageWidget>
 #include <KSharedConfig>
 
@@ -158,7 +158,9 @@ private Q_SLOTS:
 
     void init()
     {
-        KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("MountManager"));
+        Settings::self()->setDefaults();
+        // Most tests list every device; the removable-only default is tested on its own.
+        Settings::setMountRemovableOnly(false);
         QVERIFY(m_dir.isValid());
     }
 
@@ -196,13 +198,47 @@ private Q_SLOTS:
         {
             MountManagerDialog dialog(&backend);
             auto *tree = dialog.findChild<QTreeWidget *>(QStringLiteral("mountManagerList"));
-            dialog.findChild<QCheckBox *>(QStringLiteral("mountManagerRemovableOnly"))->setChecked(true);
+            auto *removableOnly = dialog.findChild<QCheckBox *>(QStringLiteral("mountManagerRemovableOnly"));
+            QVERIFY(!removableOnly->isChecked());
+            QCOMPARE(tree->topLevelItemCount(), 3);
+            removableOnly->setChecked(true);
             QCOMPARE(tree->topLevelItemCount(), 1);
             QVERIFY(rowOf(tree, stick({}).id));
         }
-        MountManagerDialog reopened(&backend);
-        QVERIFY(reopened.findChild<QCheckBox *>(QStringLiteral("mountManagerRemovableOnly"))->isChecked());
-        QCOMPARE(reopened.findChild<QTreeWidget *>(QStringLiteral("mountManagerList"))->topLevelItemCount(), 1);
+        // Each time it opens, it starts as chosen in the preferences, not as last left.
+        {
+            MountManagerDialog reopened(&backend);
+            QVERIFY(!reopened.findChild<QCheckBox *>(QStringLiteral("mountManagerRemovableOnly"))->isChecked());
+            QCOMPARE(reopened.findChild<QTreeWidget *>(QStringLiteral("mountManagerList"))->topLevelItemCount(), 3);
+        }
+        Settings::setMountRemovableOnly(true);
+        MountManagerDialog removable(&backend);
+        auto *removableOnly = removable.findChild<QCheckBox *>(QStringLiteral("mountManagerRemovableOnly"));
+        QVERIFY(removableOnly->isChecked());
+        auto *tree = removable.findChild<QTreeWidget *>(QStringLiteral("mountManagerList"));
+        QCOMPARE(tree->topLevelItemCount(), 1);
+        removableOnly->setChecked(false);
+        QCOMPARE(tree->topLevelItemCount(), 3);
+        QVERIFY(Settings::mountRemovableOnly());
+    }
+
+    void describesSystemFileSystems()
+    {
+        MountDevice tmp;
+        tmp.id = QStringLiteral("/tmp");
+        tmp.name = QStringLiteral("tmp");
+        tmp.mountPoint = tmp.id;
+        tmp.type = QStringLiteral("tmpfs");
+        tmp.mounted = true;
+        tmp.system = true;
+        FakeMountBackend backend;
+        backend.list = {rootDevice(), tmp};
+        MountManagerDialog dialog(&backend);
+        auto *tree = dialog.findChild<QTreeWidget *>(QStringLiteral("mountManagerList"));
+        QVERIFY(!rowOf(tree, QStringLiteral("/"))->toolTip(MountManagerDialog::NameColumn).contains(QStringLiteral("System")));
+        QVERIFY(rowOf(tree, QStringLiteral("/tmp"))->toolTip(MountManagerDialog::NameColumn).contains(QStringLiteral("System file system")));
+        dialog.selectDevice(QStringLiteral("/tmp"));
+        QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("mountManagerUnmount"))->isEnabled());
     }
 
     void enablesOnlyPossibleOperations()
@@ -333,6 +369,18 @@ private Q_SLOTS:
         QCOMPARE(backend->started.size(), 1);
         backend->complete(stick({}).id, MountOperation::Mount, {}, m_dir.path());
         QCOMPARE(window.activePane()->url(), QUrl::fromLocalFile(m_dir.path()));
+
+        // Only removable devices, when so chosen.
+        Settings::setMountRemovableOnly(true);
+        window.populateMountPoints();
+        QCOMPARE(menu->actions().size(), 3);
+        QCOMPARE(menu->actions().first()->data().toString(), stick({}).id);
+        backend->list = {rootDevice()};
+        window.populateMountPoints();
+        QCOMPARE(menu->actions().size(), 3);
+        QVERIFY(!menu->actions().first()->isEnabled());
+        QVERIFY(menu->actions().first()->toolTip().contains(QStringLiteral("Mount Manager")));
+        Settings::setMountRemovableOnly(false);
 
         window.showMountManager();
         auto *dialog = window.findChild<MountManagerDialog *>();

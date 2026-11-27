@@ -310,6 +310,11 @@ private:
      * Online Accounts at all, and which of the accounts with file storage.
      */
     QWidget *createOnlineAccountsIntegrationPage();
+    /**
+     * The KDE Plasma › Mount Manager tab: which file systems the Mount Manager
+     * and Go › Mount Points list, and whether Mount Points is on the toolbar.
+     */
+    QWidget *createMountManagerIntegrationPage();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.
     ActivityController *activityController() const;
     void createSettingsBackup();
