@@ -1341,6 +1341,7 @@ private Q_SLOTS:
              {QStringLiteral("ShowTrayIcon"), QStringLiteral("MinimizeToTray"), QStringLiteral("CloseToTray"), QStringLiteral("StartHiddenInTray")}) {
             QCOMPARE(tabOf(entry), QStringLiteral("System Tray"));
         }
+        QCOMPARE(tabOf(QStringLiteral("GlobalShortcut")), QStringLiteral("Shortcuts"));
         QCOMPARE(tabOf(QStringLiteral("ActivityAssociations")), QStringLiteral("Activities"));
         QCOMPARE(tabOf(QStringLiteral("FileChooserStartFolder")), QStringLiteral("File Manager"));
         for (const QString &entry : {QStringLiteral("NotifyChecksums"),

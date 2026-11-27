@@ -7,14 +7,17 @@
 #include "symbolicicon.h"
 
 #include <KActionCollection>
+#include <KConfigGroup>
 #include <KGlobalAccel>
 #include <KLocalizedString>
+#include <KSharedConfig>
 #include <KStatusNotifierItem>
 #include <KWindowSystem>
 
 #include <QAction>
 #include <QApplication>
 #include <QDBusConnection>
+#include <QDBusConnectionInterface>
 #include <QDBusMessage>
 #include <QDBusReply>
 #include <QDBusVariant>
@@ -42,6 +45,15 @@ bool trayHostRegistered()
     const QDBusReply<QDBusVariant> reply = bus.call(message, QDBus::Block, 1000);
     return reply.isValid() && reply.value().variant().toBool();
 }
+
+/// Where the global shortcut's key is kept while the shortcut is turned off,
+/// because KDE forgets the keys of shortcuts that are removed.
+KConfigGroup trayState()
+{
+    return KSharedConfig::openStateConfig()->group(QStringLiteral("Tray"));
+}
+
+constexpr auto DisabledGlobalShortcutKey = "DisabledGlobalShortcut";
 }
 
 DesktopTray::DesktopTray(QWidget *window, KActionCollection *actions)
@@ -53,9 +65,7 @@ DesktopTray::DesktopTray(QWidget *window, KActionCollection *actions)
     m_toggleAction->setText(i18nc("@action", "Show or Hide Plasma Opus"));
     m_toggleAction->setIcon(AppIdentity::applicationIcon());
     connect(m_toggleAction, &QAction::triggered, this, &DesktopTray::toggleWindow);
-    // KDE keeps a shortcut the user has chosen in System Settings, and leaves
-    // the action without one when the default is already taken.
-    KGlobalAccel::setGlobalShortcut(m_toggleAction, QKeySequence(Qt::META | Qt::ALT | Qt::Key_O));
+    applyGlobalShortcut();
     window->installEventFilter(this);
 }
 
@@ -76,6 +86,74 @@ void DesktopTray::applySettings()
             bringToFront(m_window);
         }
     }
+    applyGlobalShortcut();
+}
+
+void DesktopTray::applyGlobalShortcut()
+{
+    const bool registered = globalShortcutRegistered();
+    if (Settings::globalShortcut() && !registered) {
+        // KDE keeps a shortcut the user has chosen in System Settings, and
+        // leaves the action without one when the default is already taken.
+        KGlobalAccel::setGlobalShortcut(m_toggleAction, defaultGlobalShortcut());
+        KConfigGroup state = trayState();
+        if (state.hasKey(DisabledGlobalShortcutKey)) {
+            const QKeySequence kept = QKeySequence::fromString(state.readEntry(DisabledGlobalShortcutKey, QString()), QKeySequence::PortableText);
+            KGlobalAccel::self()->setShortcut(m_toggleAction, kept.isEmpty() ? QList<QKeySequence>() : QList<QKeySequence>{kept}, KGlobalAccel::NoAutoloading);
+            state.deleteEntry(DisabledGlobalShortcutKey);
+            state.sync();
+        }
+    } else if (!Settings::globalShortcut() && registered) {
+        KConfigGroup state = trayState();
+        state.writeEntry(DisabledGlobalShortcutKey, KGlobalAccel::self()->shortcut(m_toggleAction).value(0).toString(QKeySequence::PortableText));
+        state.sync();
+        KGlobalAccel::self()->removeAllShortcuts(m_toggleAction);
+    }
+}
+
+QKeySequence DesktopTray::defaultGlobalShortcut()
+{
+    return QKeySequence(Qt::META | Qt::ALT | Qt::Key_O);
+}
+
+bool DesktopTray::globalShortcutServiceAvailable()
+{
+    const QDBusConnection bus = QDBusConnection::sessionBus();
+    if (!bus.isConnected() || !bus.interface()) {
+        return false;
+    }
+    const QString service = QStringLiteral("org.kde.kglobalaccel");
+    return bus.interface()->isServiceRegistered(service) || bus.interface()->activatableServiceNames().value().contains(service);
+}
+
+bool DesktopTray::globalShortcutRegistered() const
+{
+    return KGlobalAccel::self()->hasShortcut(m_toggleAction);
+}
+
+QKeySequence DesktopTray::globalShortcut() const
+{
+    if (globalShortcutRegistered()) {
+        return KGlobalAccel::self()->shortcut(m_toggleAction).value(0);
+    }
+    const KConfigGroup state = trayState();
+    if (!state.hasKey(DisabledGlobalShortcutKey)) {
+        return defaultGlobalShortcut();
+    }
+    return QKeySequence::fromString(state.readEntry(DisabledGlobalShortcutKey, QString()), QKeySequence::PortableText);
+}
+
+void DesktopTray::setGlobalShortcut(const QKeySequence &sequence)
+{
+    if (globalShortcutRegistered()) {
+        KGlobalAccel::self()->setShortcut(m_toggleAction,
+                                          sequence.isEmpty() ? QList<QKeySequence>() : QList<QKeySequence>{sequence},
+                                          KGlobalAccel::NoAutoloading);
+        return;
+    }
+    KConfigGroup state = trayState();
+    state.writeEntry(DisabledGlobalShortcutKey, sequence.toString(QKeySequence::PortableText));
+    state.sync();
 }
 
 void DesktopTray::setHostProbe(std::function<bool()> probe)

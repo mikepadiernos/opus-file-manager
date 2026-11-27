@@ -2,6 +2,7 @@
 
 #include "appidentity.h"
 #include "defaultfilemanager.h"
+#include "desktoptray.h"
 #include "filechooser.h"
 #include "mainwindow.h"
 #include "operationjob.h"
@@ -13,6 +14,7 @@
 #include <KConfigGroup>
 #include <KFilePlacesModel>
 #include <KFilePlacesView>
+#include <KKeySequenceWidget>
 #include <KMessageWidget>
 #include <KPluginMetaData>
 #include <KService>
@@ -147,6 +149,7 @@ private Q_SLOTS:
         QFile::remove(paths.configFile());
         KSharedConfig::openStateConfig()->deleteGroup(PortalSetup::backupGroupName());
         KSharedConfig::openStateConfig()->deleteGroup(FileChooser::stateGroupName());
+        KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Tray"));
         KSharedConfig::openStateConfig()->sync();
         qputenv("XDG_CURRENT_DESKTOP", "KDE");
         Settings::self()->setDefaults();
@@ -432,6 +435,74 @@ private Q_SLOTS:
         QVERIFY(!dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_CloseToTray"))->isEnabled());
         // The offscreen platform is not Wayland.
         QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("trayWaylandNote"))->isHidden());
+    }
+
+    void shortcutsTabTurnsTheGlobalShortcutOffAndOn()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        // As when the window opens Preferences.
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("shortcutsIntegrationPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QCOMPARE(tabs->indexOf(page), 3);
+        QCOMPARE(tabs->tabText(3), QStringLiteral("Shortcuts"));
+
+        DesktopTray *tray = window.desktopTray();
+        auto *enabled = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_GlobalShortcut"));
+        auto *key = dialog.findChild<KKeySequenceWidget *>(QStringLiteral("globalShortcutKey"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("globalShortcutStatus"));
+        auto *apply = dialog.button(QDialogButtonBox::Apply);
+        QVERIFY(enabled->isChecked());
+        QVERIFY(key->isEnabled());
+        QVERIFY(tray->globalShortcutRegistered());
+        QCOMPARE(key->keySequence(), tray->globalShortcut());
+        if (!DesktopTray::globalShortcutServiceAvailable()) {
+            QVERIFY(status->text().contains(QStringLiteral("not running")));
+        }
+
+        enabled->setChecked(false);
+        QVERIFY(!key->isEnabled());
+        apply->click();
+        QVERIFY(!Settings::globalShortcut());
+        QVERIFY(!tray->globalShortcutRegistered());
+        QTRY_VERIFY(status->text().contains(QStringLiteral("is off")));
+
+        // A key chosen with the shortcut turned on again is the one it gets.
+        const QKeySequence chosen(Qt::CTRL | Qt::ALT | Qt::Key_F12);
+        enabled->setChecked(true);
+        key->setKeySequence(chosen);
+        apply->click();
+        QVERIFY(tray->globalShortcutRegistered());
+        QTRY_VERIFY(!status->text().contains(QStringLiteral("is off")));
+        if (DesktopTray::globalShortcutServiceAvailable()) {
+            QCOMPARE(tray->globalShortcut(), chosen);
+        } else {
+            // Without KDE's service, no key is assigned, and the widget shows that.
+            QTRY_COMPARE(key->keySequence(), QKeySequence());
+        }
+
+        key->setKeySequence(QKeySequence());
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QCOMPARE(key->keySequence(), DesktopTray::defaultGlobalShortcut());
+    }
+
+    void reportsMissingShortcutSettings()
+    {
+        if (KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/systemsettings"), QStringLiteral("kcm_keys")).isValid()) {
+            QSKIP("Plasma's Shortcuts settings are installed on this system.");
+        }
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        dialog.findChild<QPushButton *>(QStringLiteral("openShortcutSettings"))->click();
+        auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("shortcutsMessage"));
+        QCOMPARE(message->messageType(), KMessageWidget::Error);
+        QVERIFY(message->text().contains(QStringLiteral("Shortcuts settings are not installed")));
     }
 };
 

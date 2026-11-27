@@ -7,6 +7,7 @@
 #include "colorschemes.h"
 #include "customcommanddialog.h"
 #include "density.h"
+#include "desktoptray.h"
 #include "doubleshift.h"
 #include "embeddedmetadatasettings.h"
 #include "folderpreview.h"
@@ -38,6 +39,7 @@
 #include <KColorButton>
 #include <KConfigGroup>
 #include <KEditListWidget>
+#include <KKeySequenceWidget>
 #include <KLanguageName>
 #include <KLocalizedString>
 #include <KMessageBox>
@@ -384,7 +386,8 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                   QStringLiteral("utilities-terminal"));
     addTabbedPage({{createFileManagerIntegrationPage(), i18nc("@title:tab", "File Manager")},
                    {createNotificationsIntegrationPage(), i18nc("@title:tab", "Notifications")},
-                   {createSystemTrayPage(), i18nc("@title:tab", "System Tray")}},
+                   {createSystemTrayPage(), i18nc("@title:tab", "System Tray")},
+                   {createShortcutsIntegrationPage(), i18nc("@title:tab", "Shortcuts")}},
                   i18nc("@title:group", "KDE Plasma"),
                   QStringLiteral("plasma"));
     applySidebarStyle();
@@ -498,8 +501,8 @@ QWidget *SettingsDialog::createSystemTrayPage()
     auto *note = new QLabel(i18nc("@info",
                                   "The window hides only while a system tray can show the icon that brings it back; otherwise it stays "
                                   "open. Starting Plasma Opus again, or with folders or a workspace to open, shows the window. File › "
-                                  "Quit and the tray icon's Quit still quit. Change the global shortcut that shows or hides the window in "
-                                  "Configure Keyboard Shortcuts or Plasma's Shortcuts settings."),
+                                  "Quit and the tray icon's Quit still quit. Turn on or change the global shortcut that shows or hides the "
+                                  "window in the Shortcuts tab."),
                             page);
     note->setWordWrap(true);
     layout->addWidget(note);
@@ -4306,6 +4309,22 @@ void SettingsDialog::updateSettings()
     for (const SharedToggle &toggle : std::as_const(m_sharedToggles)) {
         toggle.write(toggle.check->isChecked());
     }
+    if (DesktopTray *tray = desktopTray(); tray && m_globalShortcutKey->keySequence() != tray->globalShortcut()) {
+        // Before the main window applies the settings, so a shortcut turned on
+        // at the same time gets the chosen key.
+        tray->setGlobalShortcut(m_globalShortcutKey->keySequence());
+    }
+    // Once the main window has registered or removed the global shortcut,
+    // show the key KDE accepted, which is none when it is already taken.
+    QMetaObject::invokeMethod(
+        this,
+        [this] {
+            if (const DesktopTray *tray = desktopTray()) {
+                m_globalShortcutKey->setKeySequence(tray->globalShortcut());
+            }
+            m_refreshGlobalShortcut();
+        },
+        Qt::QueuedConnection);
 }
 
 void SettingsDialog::updateWidgets()
@@ -4315,6 +4334,9 @@ void SettingsDialog::updateWidgets()
     m_savedSelectionFilters = m_selectionFilters->rules();
     for (const SharedToggle &toggle : std::as_const(m_sharedToggles)) {
         toggle.check->setChecked(toggle.read());
+    }
+    if (const DesktopTray *tray = desktopTray()) {
+        m_globalShortcutKey->setKeySequence(tray->globalShortcut());
     }
     // Libraries may have been added or removed from the Tags menu since the dialog was shown.
     reloadLibraries();
@@ -4330,6 +4352,9 @@ void SettingsDialog::updateWidgetsDefault()
     for (const SharedToggle &toggle : std::as_const(m_sharedToggles)) {
         toggle.check->setChecked(toggle.defaultValue);
     }
+    if (desktopTray()) {
+        m_globalShortcutKey->setKeySequence(DesktopTray::defaultGlobalShortcut());
+    }
     QMetaObject::invokeMethod(
         this,
         [this] {
@@ -4340,7 +4365,9 @@ void SettingsDialog::updateWidgetsDefault()
 
 bool SettingsDialog::hasChanged()
 {
+    const DesktopTray *tray = desktopTray();
     return m_yaziResetPending || m_selectionFilters->rules() != m_savedSelectionFilters
+        || (tray && m_globalShortcutKey->keySequence() != tray->globalShortcut())
         || std::any_of(m_sharedToggles.cbegin(), m_sharedToggles.cend(), [](const SharedToggle &toggle) {
                return toggle.check->isChecked() != toggle.read();
            });
@@ -4348,7 +4375,8 @@ bool SettingsDialog::hasChanged()
 
 bool SettingsDialog::isDefault()
 {
-    return m_selectionFilters->rules().isEmpty() && std::all_of(m_sharedToggles.cbegin(), m_sharedToggles.cend(), [](const SharedToggle &toggle) {
+    return m_selectionFilters->rules().isEmpty() && (!desktopTray() || m_globalShortcutKey->keySequence() == DesktopTray::defaultGlobalShortcut())
+        && std::all_of(m_sharedToggles.cbegin(), m_sharedToggles.cend(), [](const SharedToggle &toggle) {
                return toggle.check->isChecked() == toggle.defaultValue;
            });
 }

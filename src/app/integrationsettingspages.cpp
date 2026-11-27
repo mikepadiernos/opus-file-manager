@@ -4,13 +4,17 @@
 
 #include "appidentity.h"
 #include "defaultfilemanager.h"
+#include "desktoptray.h"
 #include "filechooser.h"
 #include "filemanagerservice.h"
 #include "portalsetup.h"
 #include "settingswidgets.h"
+#include "traypolicy.h"
 
 #include <KConfigGroup>
+#include <KGlobalAccel>
 #include <KIO/CommandLauncherJob>
+#include <KKeySequenceWidget>
 #include <KLocalizedString>
 #include <KMessageBox>
 #include <KMessageWidget>
@@ -497,6 +501,94 @@ QWidget *SettingsDialog::createNotificationsIntegrationPage()
                            i18nc("@info", "Plasma's Notifications settings are not installed."),
                            message,
                            QStringLiteral("--desktop-entry=") + AppIdentity::desktopFileName());
+    });
+    return page;
+}
+
+DesktopTray *SettingsDialog::desktopTray() const
+{
+    return parentWidget() ? parentWidget()->findChild<DesktopTray *>() : nullptr;
+}
+
+QWidget *SettingsDialog::createShortcutsIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("shortcutsIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *group = new StatusGroup(i18nc("@title:group", "Global Shortcut"));
+    group->setObjectName(QStringLiteral("globalShortcutGroup"));
+    auto *groupLayout = new QVBoxLayout(group);
+    auto *enabled = checkBox(QStringLiteral("GlobalShortcut"), i18nc("@option:check", "Show or hide Plasma Opus with a global shortcut"));
+    enabled->setToolTip(i18nc("@info:tooltip", "The shortcut brings the window to the front, or hides it when it is already in front"));
+    groupLayout->addWidget(enabled);
+    auto *form = new QFormLayout;
+    m_globalShortcutKey = new KKeySequenceWidget;
+    m_globalShortcutKey->setObjectName(QStringLiteral("globalShortcutKey"));
+    m_globalShortcutKey->setCheckForConflictsAgainst(KKeySequenceWidget::GlobalShortcuts | KKeySequenceWidget::StandardShortcuts);
+    form->addRow(i18nc("@label", "Key combination:"), m_globalShortcutKey);
+    groupLayout->addLayout(form);
+    auto *status = statusLabel(QStringLiteral("globalShortcutStatus"));
+    groupLayout->addWidget(status);
+    auto *note = new QLabel(i18nc("@info",
+                                  "The shortcut works anywhere in Plasma, also while the window is hidden in the system tray. While it is "
+                                  "on, Plasma's Shortcuts settings list it under Plasma Opus and can change it too; turning it off "
+                                  "removes it there until it is turned on again."));
+    note->setWordWrap(true);
+    groupLayout->addWidget(note);
+    auto *configure = actionButton(QStringLiteral("openShortcutSettings"), i18nc("@action:button", "Configure Plasma Shortcuts…"));
+    configure->setIcon(QIcon::fromTheme(QStringLiteral("preferences-desktop-keyboard-shortcut")));
+    configure->setToolTip(i18nc("@info:tooltip", "Open Plasma's Shortcuts settings in System Settings"));
+    auto *message = messageWidget(QStringLiteral("shortcutsMessage"));
+    groupLayout->addLayout(buttonRow({configure}));
+    groupLayout->addWidget(message);
+    layout->addWidget(group);
+    layout->addStretch();
+
+    const auto updateKey = [this, enabled] {
+        m_globalShortcutKey->setEnabled(enabled->isChecked() && desktopTray());
+    };
+    connect(enabled, &QCheckBox::toggled, page, updateKey);
+    updateKey();
+    connect(m_globalShortcutKey, &KKeySequenceWidget::keySequenceChanged, this, &SettingsDialog::updateButtons);
+
+    m_refreshGlobalShortcut = [this, status] {
+        const DesktopTray *tray = desktopTray();
+        if (!tray) {
+            status->setText(i18nc("@info", "Open Preferences from a Plasma Opus window to change the global shortcut."));
+            return;
+        }
+        const QKeySequence key = tray->globalShortcut();
+        switch (TrayPolicy::shortcutStatus(tray->globalShortcutRegistered(), DesktopTray::globalShortcutServiceAvailable(), !key.isEmpty())) {
+        case TrayPolicy::ShortcutStatus::Off:
+            status->setText(i18nc("@info", "The global shortcut is off."));
+            break;
+        case TrayPolicy::ShortcutStatus::Unavailable:
+            status->setText(i18nc("@info", "KDE's global shortcut service is not running, so the shortcut does not work in this session."));
+            break;
+        case TrayPolicy::ShortcutStatus::Unassigned:
+            status->setText(i18nc("@info",
+                                  "No key combination is assigned, so the shortcut does nothing. KDE leaves a key unassigned when "
+                                  "another application already uses it; choose another one."));
+            break;
+        case TrayPolicy::ShortcutStatus::Assigned:
+            status->setText(i18nc("@info %1 is a key combination",
+                                  "Press %1 to show Plasma Opus, or to hide it when it is in front.",
+                                  key.toString(QKeySequence::NativeText)));
+            break;
+        }
+    };
+    group->refresh = m_refreshGlobalShortcut;
+    m_refreshGlobalShortcut();
+    // Plasma's Shortcuts settings can change the key while the dialog is open.
+    connect(KGlobalAccel::self(), &KGlobalAccel::globalShortcutChanged, page, [this](QAction *action) {
+        if (const DesktopTray *tray = desktopTray(); tray && action == tray->toggleAction()) {
+            m_refreshGlobalShortcut();
+        }
+    });
+
+    connect(configure, &QPushButton::clicked, page, [message] {
+        openSettingsModule(QStringLiteral("kcm_keys"), i18nc("@info", "Plasma's Shortcuts settings are not installed."), message);
     });
     return page;
 }

@@ -9,10 +9,12 @@
 
 class AccentColorChooser;
 class ColorSchemeCombo;
+class DesktopTray;
 class EmbeddedMetadataKeyList;
 class EmbeddedMetadataMappingTable;
 class FieldTemplateEditor;
 class HiddenItemsList;
+class KKeySequenceWidget;
 class KPageWidgetItem;
 class PreviewSizeSpinBox;
 class QCheckBox;
@@ -281,6 +283,10 @@ private:
     QGroupBox *createFileChooserGroup();
     /// The KDE Plasma › Notifications tab: which operations report to Plasma.
     QWidget *createNotificationsIntegrationPage();
+    /// The KDE Plasma › Shortcuts tab: the global shortcut that shows or hides Plasma Opus.
+    QWidget *createShortcutsIntegrationPage();
+    /// The main window's tray, which owns the global shortcut, if the dialog has one.
+    DesktopTray *desktopTray() const;
     void createSettingsBackup();
     void restoreSettingsBackup();
     void exportWorkspaceProfiles();
@@ -331,6 +337,9 @@ private:
     std::function<bool()> m_portalAvailable;
     std::function<QString()> m_restartPortal;
     std::function<bool(const QString &)> m_confirmPortalRestart;
+    KKeySequenceWidget *m_globalShortcutKey = nullptr;
+    /// Shows whether the applied global shortcut works.
+    std::function<void()> m_refreshGlobalShortcut;
     /// Whether Yazi mode defaults were restored since the settings were last applied or reloaded.
     bool m_yaziResetPending = false;
     /// A checkbox for a setting kept outside Settings, in config that KIO

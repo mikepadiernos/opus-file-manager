@@ -4,6 +4,9 @@
 #include "settings.h"
 
 #include <KActionCollection>
+#include <KConfigGroup>
+#include <KGlobalAccel>
+#include <KSharedConfig>
 #include <KStatusNotifierItem>
 
 #include <QAction>
@@ -66,6 +69,8 @@ private Q_SLOTS:
     {
         Settings::self()->setDefaults();
         QApplication::setQuitOnLastWindowClosed(true);
+        KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Tray"));
+        KSharedConfig::openStateConfig()->sync();
     }
 
     void registersTheGlobalShortcutAction()
@@ -77,6 +82,49 @@ private Q_SLOTS:
         QVERIFY(toggle);
         QCOMPARE(toggle, fixture.tray->toggleAction());
         QCOMPARE(toggle->text(), QStringLiteral("Show or Hide Plasma Opus"));
+        QVERIFY(fixture.tray->globalShortcutRegistered());
+        QVERIFY(KGlobalAccel::self()->hasShortcut(toggle));
+        QCOMPARE(KGlobalAccel::self()->defaultShortcut(toggle), QList<QKeySequence>{DesktopTray::defaultGlobalShortcut()});
+    }
+
+    void globalShortcutFollowsTheSetting()
+    {
+        Settings::setGlobalShortcut(false);
+        Fixture fixture;
+        makeWindow(fixture, true);
+        QAction *toggle = fixture.tray->toggleAction();
+        // The action stays for Configure Keyboard Shortcuts, but KDE does not know it.
+        QVERIFY(toggle);
+        QVERIFY(!fixture.tray->globalShortcutRegistered());
+        QVERIFY(!KGlobalAccel::self()->hasShortcut(toggle));
+        QCOMPARE(fixture.tray->globalShortcut(), DesktopTray::defaultGlobalShortcut());
+
+        Settings::setGlobalShortcut(true);
+        fixture.tray->applySettings();
+        QVERIFY(fixture.tray->globalShortcutRegistered());
+
+        // Turning it off keeps the key KDE had assigned for turning it on again.
+        const QKeySequence assigned = fixture.tray->globalShortcut();
+        Settings::setGlobalShortcut(false);
+        fixture.tray->applySettings();
+        QVERIFY(!KGlobalAccel::self()->hasShortcut(toggle));
+        QCOMPARE(fixture.tray->globalShortcut(), assigned);
+        const KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("Tray"));
+        QVERIFY(state.hasKey("DisabledGlobalShortcut"));
+
+        // A key chosen while it is off is kept until it is turned on.
+        const QKeySequence chosen(Qt::CTRL | Qt::ALT | Qt::Key_F12);
+        fixture.tray->setGlobalShortcut(chosen);
+        QVERIFY(!fixture.tray->globalShortcutRegistered());
+        QCOMPARE(fixture.tray->globalShortcut(), chosen);
+
+        Settings::setGlobalShortcut(true);
+        fixture.tray->applySettings();
+        QVERIFY(fixture.tray->globalShortcutRegistered());
+        QVERIFY(!state.hasKey("DisabledGlobalShortcut"));
+        if (DesktopTray::globalShortcutServiceAvailable()) {
+            QCOMPARE(fixture.tray->globalShortcut(), chosen);
+        }
     }
 
     void trayIconFollowsTheSetting()
