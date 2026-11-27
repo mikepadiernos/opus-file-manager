@@ -2053,6 +2053,22 @@ The M27 desktop integrations have these limits
   tray and the status bar. Pausing on metered connections relies on Qt's
   network information, usually from NetworkManager.
   ([#718](https://github.com/mikepadiernos/plasma-opus/issues/718))
+- **📊 Cloud activity:** Speeds and remaining times are shown only for
+  transfers in the transfer queue; rclone mounts and sync runs show their
+  status, not their speed, and **Pause All** doesn't stop mounts from
+  uploading or sync runs you start yourself. The bandwidth, parallel-transfer
+  and cache limits apply only to rclone, not to pairs that synchronize network
+  folders through KIO, and take effect at a pair's next run and a remote's
+  next mount. Files waiting to upload are found in rclone's cache metadata in
+  Plasma Opus's cache folder, so mounts started outside Plasma Opus aren't
+  counted, and a change to rclone's metadata format would hide them. The
+  offline cache keeps files already opened, but listing a folder or opening an
+  uncached file still needs the remote. Unmounting, closing and quitting wait
+  for uploads, but logging out waits only when the session lets applications
+  ask; otherwise uploads stop and resume at the next mount. Space is shown
+  only for mounted remotes whose provider reports it. Exported definitions
+  contain no passwords, and imported sync pairs start paused.
+  ([#719](https://github.com/mikepadiernos/plasma-opus/issues/719))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -2229,6 +2245,15 @@ The M27 desktop integrations have these limits
     of a file-and-folder conflict, and move whole folders with the remote's
     own tools to avoid copying them again. Check the tray icon or the dialog
     for pairs that need attention.
+  - **Cloud activity:** Open **File › Cloud Activity…**, or **Cloud
+    Activity…** in the tray menu, to follow transfers and errors. Set a
+    bandwidth limit when uploads slow other traffic and an offline cache large
+    enough for the files you reopen, then unmount and mount remotes again for
+    the limits to apply. Let the upload wait finish before unmounting or
+    logging out; if you continue without waiting, mount the remote again later
+    to finish uploading. Before importing definitions on another computer,
+    configure the same rclone remotes there, then sign in to each connection
+    and resume the imported pairs under **File › Cloud Sync…**.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2304,7 +2329,7 @@ The M27 desktop integrations have these limits
     when no worker handles it.
   - Serve remotes over WebDAV on the loopback interface when FUSE is
     missing, keep mounts running in the tray, show mounts in Places, and
-    choose rclone's cache mode and limits in the M28 settings.
+    choose rclone's cache mode in the M28 settings.
   - Mount KDE Online Accounts and S3 locations, mount when a workspace is
     activated, keep chosen mounts after quitting, remount with changed
     options, and pass KWallet passwords to davfs2 and CIFS with consent.
@@ -2322,6 +2347,10 @@ The M27 desktop integrations have these limits
     watch local folders instead of waiting for the interval, send desktop
     notifications, show transfers and quota per pair, and the M28 **Cloud
     sync** settings page.
+  - Show the speed of rclone mounts and sync runs through rclone's remote
+    control, limit the bandwidth of KIO pairs, delay logout while uploads are
+    pending, mark folders to keep available offline, and the M28 **Cloud
+    activity** settings.
 
 ## Embedded terminal
 
