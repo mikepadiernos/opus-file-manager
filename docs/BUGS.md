@@ -15,10 +15,12 @@ tracking rules.
 > [Edge cases](EDGE.md) are possible scenarios, not confirmed bugs.
 
 > [!NOTE]
-> 16 of 18 tracked bugs are merged into `main`. Two reports are open in
-> Backlog: slow opening of the app and Preferences ([#752][issue-752]) and a
-> test reliability report ([#696][issue-696]). Issue states and project
-> statuses were last checked against GitHub on 2026-11-26.
+> 16 of 19 tracked bugs are merged into `main`. Three reports are open in
+> Backlog: abbreviated breadcrumbs spreading out their segments
+> ([#756][issue-756]), slow opening of the app and Preferences
+> ([#752][issue-752]) and a test reliability report ([#696][issue-696]).
+> Issue states and project statuses were last checked against GitHub on
+> 2026-11-26.
 
 ## Contents
 
@@ -33,6 +35,7 @@ Newest first. Each bug links to its report below.
 
 | Issue             | Bug                                                                                                                    | Complete?   | Project status      |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------- | ------------------- |
+| [#756][issue-756] | [Abbreviated breadcrumbs spread their segments across the location bar](#abbreviated-breadcrumb-spacing)               | ![No][no]   | ![Backlog][backlog] |
 | [#752][issue-752] | [Opening the app and Preferences takes a long time](#slow-startup-and-preferences)                                     | ![No][no]   | ![Backlog][backlog] |
 | [#696][issue-696] | [Checksum test times out waiting for the folder listing under load](#checksum-test-listing-timeout)                    | ![No][no]   | ![Backlog][backlog] |
 | [#694][issue-694] | [`mainwindowtest` intermittently crashes after restoring a pane filter](#intermittent-mainwindowtest-crash)            | ![Yes][yes] | ![Merged][merged]   |
@@ -70,6 +73,25 @@ Statuses use the project board's names, in workflow order.
 Every report uses the same fields in the same order. "Not recorded" means the
 field is not captured in this log; see the linked issue for any further
 detail.
+
+### Abbreviated breadcrumb spacing
+
+- **Issue:** [#756][issue-756] ![Backlog][backlog]
+- **Severity:** Low (layout)
+- **Summary:** With **Abbreviated Breadcrumbs** selected, the location bar
+  spreads its path segments and separators evenly across its full width.
+- **Evidence:** Not recorded.
+- **Steps to reproduce:** Choose **Abbreviated Breadcrumbs** from a pane's
+  location mode menu, then open a folder a few levels deep.
+- **Expected behaviour:** The segments and separators stay together at the
+  start of the bar, like full breadcrumbs, with the spare space at the end.
+- **Actual behaviour:** Each segment and separator is spaced out evenly
+  across the bar. Reading the code suggests one cause, not yet verified:
+  `Pane::updateBreadcrumbs()` in `src/app/pane.cpp` adds the segments to a
+  horizontal layout without a trailing stretch, so the layout shares the
+  spare width among them.
+- **Resolution:** Not resolved. Next steps: add a stretch after the last
+  segment or left-align the items, and cover the layout with a test.
 
 ### Slow startup and Preferences
 
@@ -439,6 +461,7 @@ Newest first, using the same fields as open reports.
 [issue-694]: https://github.com/mikepadiernos/plasma-opus/issues/694
 [issue-696]: https://github.com/mikepadiernos/plasma-opus/issues/696
 [issue-752]: https://github.com/mikepadiernos/plasma-opus/issues/752
+[issue-756]: https://github.com/mikepadiernos/plasma-opus/issues/756
 [pr-451]: https://github.com/mikepadiernos/plasma-opus/pull/451
 [pr-452]: https://github.com/mikepadiernos/plasma-opus/pull/452
 [pr-454]: https://github.com/mikepadiernos/plasma-opus/pull/454
