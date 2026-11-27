@@ -141,6 +141,8 @@ Q_SIGNALS:
      * settings are saved right after this signal.
      */
     void yaziDefaultsRestored();
+    /// Asks the main window to show local items, such as the MCP audit log, selected in a new tab of their folder.
+    void showItemsRequested(const QList<QUrl> &items);
 
 protected:
     void accept() override;
@@ -434,6 +436,11 @@ private:
      * on Local Network… starts with.
      */
     QWidget *createLanSharingIntegrationPage();
+    /**
+     * The Security › MCP tab: what the opus-file-manager-mcp server lets MCP
+     * clients do, the folders they may use and its audit log.
+     */
+    QWidget *createMcpIntegrationPage();
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.

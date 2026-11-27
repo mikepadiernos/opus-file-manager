@@ -19,6 +19,7 @@
 #include "filechooser.h"
 #include "filemanagerservice.h"
 #include "filetypeplaces.h"
+#include "foldergates.h"
 #include "indexbackend.h"
 #include "indexstatus.h"
 #include "kwinintegration.h"
@@ -26,6 +27,7 @@
 #include "lanshare.h"
 #include "mailhandoff.h"
 #include "mailmessage.h"
+#include "mcpsettings.h"
 #include "mediabackend.h"
 #include "officeapps.h"
 #include "onlineaccounts.h"
@@ -71,12 +73,14 @@
 
 #include <QApplication>
 #include <QCheckBox>
+#include <QClipboard>
 #include <QComboBox>
 #include <QDir>
 #include <QFileInfo>
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -87,6 +91,7 @@
 #include <QStandardItemModel>
 #include <QStandardPaths>
 #include <QTimer>
+#include <QUrl>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -3425,5 +3430,174 @@ QWidget *SettingsDialog::createLanSharingIntegrationPage()
     refreshConnection();
     reloadInterfaces();
     refreshUploads();
+    return page;
+}
+
+QWidget *SettingsDialog::createMcpIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("mcpIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *accessGroup = new StatusGroup(i18nc("@title:group", "Access"));
+    accessGroup->setObjectName(QStringLiteral("mcpAccessGroup"));
+    auto *accessLayout = new QVBoxLayout(accessGroup);
+    auto *accessForm = new QFormLayout;
+    auto *access = comboBox(QStringLiteral("McpAccess"),
+                            {i18nc("@item:inlistbox MCP access", "Off"),
+                             i18nc("@item:inlistbox MCP access", "Read files and folders"),
+                             i18nc("@item:inlistbox MCP access", "Read and change files and folders")});
+    access->setToolTip(i18nc("@info:tooltip",
+                             "What AI assistants, editors and other MCP clients may do through opus-file-manager-mcp. Nothing is ever deleted "
+                             "permanently; removed items go to the trash."));
+    accessForm->addRow(i18nc("@label:listbox", "MCP clients may:"), access);
+    accessLayout->addLayout(accessForm);
+    auto *accessStatus = statusLabel(QStringLiteral("mcpAccessStatus"));
+    accessLayout->addWidget(accessStatus);
+    auto *tokenNote = new QLabel(i18nc("@info",
+                                       "No access token is needed or offered: each MCP client starts the server itself, as you, and talks to it "
+                                       "over standard input and output, so no network port is opened and only programs that you run can use it. "
+                                       "Any of them can, so choose the access and folders for the least trusted client."));
+    tokenNote->setObjectName(QStringLiteral("mcpTokenNote"));
+    tokenNote->setWordWrap(true);
+    accessLayout->addWidget(tokenNote);
+    auto *clientForm = new QFormLayout;
+    auto *clientRow = new QHBoxLayout;
+    auto *clientConfiguration = new QLineEdit(McpSettings::clientConfiguration());
+    clientConfiguration->setObjectName(QStringLiteral("mcpClientConfiguration"));
+    clientConfiguration->setReadOnly(true);
+    clientConfiguration->setToolTip(i18nc("@info:tooltip",
+                                          "Add this to the MCP servers in the client's configuration; add --read-only to its arguments "
+                                          "to keep that client to reading"));
+    clientRow->addWidget(clientConfiguration, 1);
+    auto *copy = actionButton(QStringLiteral("mcpCopyConfiguration"), i18nc("@action:button", "Copy"));
+    copy->setIcon(SymbolicIcon::fromTheme(QStringLiteral("edit-copy")));
+    clientRow->addWidget(copy);
+    clientForm->addRow(i18nc("@label:textbox", "Client configuration:"), clientRow);
+    accessLayout->addLayout(clientForm);
+    layout->addWidget(accessGroup);
+
+    auto *foldersGroup = new StatusGroup(i18nc("@title:group", "Folders"));
+    foldersGroup->setObjectName(QStringLiteral("mcpFoldersGroup"));
+    auto *foldersLayout = new QVBoxLayout(foldersGroup);
+    foldersLayout->addWidget(new QLabel(i18nc("@label", "MCP clients may use these folders and everything inside them; with none, the home folder:")));
+    auto *folders = bound(new FolderListEditor(i18nc("@title:window", "Choose a Folder for MCP Clients")), QStringLiteral("McpFolders"), "folders");
+    folders->setToolTip(i18nc("@info:tooltip", "Symbolic links that lead outside these folders are refused"));
+    foldersLayout->addWidget(folders, 1);
+    auto *foldersStatus = statusLabel(QStringLiteral("mcpFoldersStatus"));
+    foldersLayout->addWidget(foldersStatus);
+    layout->addWidget(foldersGroup, 1);
+
+    auto *auditGroup = new StatusGroup(i18nc("@title:group", "Audit Log"));
+    auditGroup->setObjectName(QStringLiteral("mcpAuditGroup"));
+    auto *auditLayout = new QVBoxLayout(auditGroup);
+    auto *auditLog = checkBox(QStringLiteral("McpAuditLog"), i18nc("@option:check", "Record each tool call in the audit log"));
+    auditLog->setToolTip(i18nc("@info:tooltip", "The log records the time, the tool, its paths and whether it succeeded, but no file contents"));
+    auditLayout->addWidget(auditLog);
+    auto *showLog = actionButton(QStringLiteral("mcpShowAuditLog"), i18nc("@action:button", "Show Audit Log"));
+    showLog->setIcon(SymbolicIcon::fromTheme(QStringLiteral("document-open-folder")));
+    auditLayout->addLayout(buttonRow({showLog}));
+    auto *auditStatus = statusLabel(QStringLiteral("mcpAuditStatus"));
+    auditLayout->addWidget(auditStatus);
+    layout->addWidget(auditGroup);
+
+    const auto serverExecutable = [] {
+        const QString sibling = QCoreApplication::applicationDirPath() + QStringLiteral("/opus-file-manager-mcp");
+        return QFileInfo(sibling).isExecutable() ? sibling : QStandardPaths::findExecutable(QStringLiteral("opus-file-manager-mcp"));
+    };
+    const auto refreshAccess = [access, accessStatus, clientConfiguration, copy, serverExecutable] {
+        QStringList lines;
+        switch (access->currentIndex()) {
+        case int(Settings::EnumMcpAccess::Off):
+            lines.append(i18nc("@info", "The server offers no tools, so clients can't see or change files."));
+            break;
+        case int(Settings::EnumMcpAccess::Write):
+            lines.append(i18nc("@info",
+                               "Clients can list, read and search files, and also create folders, save text files, copy, move, rename and "
+                               "move items to the trash. They can replace a file only when they ask to overwrite it."));
+            break;
+        default:
+            lines.append(i18nc("@info", "Clients can list folders, read text files and search by name, but not change anything."));
+            break;
+        }
+        lines.append(i18nc("@info",
+                           "Running servers follow these settings from the next request; a client shows tools added by raising the access only "
+                           "after it restarts the server."));
+        if (serverExecutable().isEmpty()) {
+            lines.append(i18nc("@info", "opus-file-manager-mcp isn't installed, so MCP clients can't start the server."));
+        }
+        accessStatus->setText(lines.join(QLatin1Char('\n')));
+        const bool on = access->currentIndex() != int(Settings::EnumMcpAccess::Off);
+        clientConfiguration->setEnabled(on);
+        copy->setEnabled(on);
+    };
+    const auto refreshFolders = [access, folders, foldersStatus] {
+        folders->setEnabled(access->currentIndex() != int(Settings::EnumMcpAccess::Off));
+        const McpSettings::Folders resolved = McpSettings::resolveFolders(folders->folders(), FolderGates::instance()->folders());
+        QStringList lines;
+        if (folders->folders().isEmpty()) {
+            lines.append(i18nc("@info %1 is a folder", "Clients may use your home folder, %1.", QDir::toNativeSeparators(QDir::homePath())));
+        }
+        if (!resolved.skipped.isEmpty()) {
+            lines.append(i18nc("@info %1 is a list of folders",
+                               "The server skips %1, because it isn't an existing local folder.",
+                               QLocale().createSeparatedList(resolved.skipped)));
+        }
+        if (resolved.used.isEmpty()) {
+            lines.append(i18nc("@info", "No listed folder exists, so clients can't use any files."));
+        }
+        if (!resolved.gated.isEmpty()) {
+            lines.append(i18nc("@info %1 is a list of folders",
+                               "Clients are refused %1, because it is password-protected or inside a protected folder.",
+                               QLocale().createSeparatedList(resolved.gated)));
+        }
+        lines.append(i18nc("@info", "Clients are always refused password-protected folders and everything inside them, even when unlocked."));
+        foldersStatus->setText(lines.join(QLatin1Char('\n')));
+    };
+    const auto refreshAudit = [access, auditLog, showLog, auditStatus] {
+        const QFileInfo log(McpSettings::auditLogPath());
+        showLog->setEnabled(log.exists());
+        QStringList lines;
+        if (access->currentIndex() == int(Settings::EnumMcpAccess::Off)) {
+            lines.append(i18nc("@info", "Nothing is recorded while MCP access is off."));
+        } else if (!auditLog->isChecked()) {
+            lines.append(i18nc("@info", "Tool calls aren't recorded."));
+        }
+        if (log.exists()) {
+            lines.append(i18nc("@info %1 is a file, %2 its size",
+                               "The log is %1, %2. It grows until you delete it.",
+                               QDir::toNativeSeparators(log.filePath()),
+                               QLocale().formattedDataSize(log.size(), 1, QLocale::DataSizeIecFormat)));
+        } else {
+            lines.append(i18nc("@info %1 is a file", "No tool call has been recorded yet; the log will be %1.", QDir::toNativeSeparators(log.filePath())));
+        }
+        auditStatus->setText(lines.join(QLatin1Char('\n')));
+    };
+    accessGroup->refresh = refreshAccess;
+    foldersGroup->refresh = refreshFolders;
+    auditGroup->refresh = refreshAudit;
+    connect(copy, &QPushButton::clicked, page, [clientConfiguration] {
+        QGuiApplication::clipboard()->setText(clientConfiguration->text());
+    });
+    connect(showLog, &QPushButton::clicked, this, [this] {
+        Q_EMIT showItemsRequested({QUrl::fromLocalFile(McpSettings::auditLogPath())});
+    });
+    connect(access, &QComboBox::currentIndexChanged, page, [refreshAccess, refreshFolders, refreshAudit] {
+        refreshAccess();
+        refreshFolders();
+        refreshAudit();
+    });
+    connect(folders, &FolderListEditor::foldersChanged, page, refreshFolders);
+    connect(auditLog, &QCheckBox::toggled, page, refreshAudit);
+    connect(FolderGates::instance(), &FolderGates::changed, page, refreshFolders);
+    // Defaults and Reset change the widgets without user input.
+    connect(this, &KConfigDialog::widgetModified, page, [refreshAccess, refreshFolders, refreshAudit] {
+        refreshAccess();
+        refreshFolders();
+        refreshAudit();
+    });
+    refreshAccess();
+    refreshFolders();
+    refreshAudit();
     return page;
 }

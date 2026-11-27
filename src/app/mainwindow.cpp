@@ -8553,6 +8553,11 @@ void MainWindow::showSettings()
     connect(dialog, &KConfigDialog::settingsChanged, this, &MainWindow::applySettings);
     connect(dialog, &SettingsDialog::customCommandsChanged, this, &MainWindow::refreshCustomCommandActions);
     connect(dialog, &SettingsDialog::manageWorkspacesRequested, this, &MainWindow::showWorkspaces);
+    connect(dialog, &SettingsDialog::showItemsRequested, this, [this](const QList<QUrl> &items) {
+        showItems(items);
+        activateWindow();
+        raise();
+    });
     connect(this, &MainWindow::workspaceCatalogChanged, dialog, &SettingsDialog::reloadWorkspaces);
     // Library changes in Preferences apply at once, to every window.
     connect(dialog, &SettingsDialog::libraryChanged, this, [](const QString &root) {

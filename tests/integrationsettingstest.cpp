@@ -19,6 +19,7 @@
 #include "favoritesmodel.h"
 #include "filechooser.h"
 #include "filetypeplaces.h"
+#include "foldergates.h"
 #include "foldersyncdialog.h"
 #include "folderview.h"
 #include "fontpreview.h"
@@ -27,6 +28,7 @@
 #include "lansharedialog.h"
 #include "mailhandoff.h"
 #include "mainwindow.h"
+#include "mcpsettings.h"
 #include "mediabackend.h"
 #include "mediaview.h"
 #include "mountbackend.h"
@@ -68,6 +70,7 @@
 #include <KToolBar>
 #include <QAction>
 #include <QCheckBox>
+#include <QClipboard>
 #include <QComboBox>
 #include <QCoreApplication>
 #include <QDialogButtonBox>
@@ -75,6 +78,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QGroupBox>
+#include <QGuiApplication>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
@@ -3593,6 +3597,122 @@ private Q_SLOTS:
         QCOMPARE(options.uploadFolder, uploads.path());
         share.setAddresses(QList<LanShare::InterfaceAddress>{{QHostAddress(QStringLiteral("192.168.7.2")), QStringLiteral("opustest0")}});
         QCOMPARE(share.checkedAddresses().size(), 1);
+    }
+
+    void securityPageHasTheMcpTab()
+    {
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("mcpIntegrationPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->indexOf(page), 0);
+        QCOMPARE(tabs->tabText(0), QStringLiteral("MCP"));
+        auto *pages = dialog.findChild<KPageWidget *>();
+        QVERIFY(pages);
+        const QAbstractItemModel *model = pages->model();
+        QStringList titles;
+        for (int row = 0; row < model->rowCount(); ++row) {
+            titles.append(model->index(row, 0).data(Qt::DisplayRole).toString());
+        }
+        const qsizetype security = titles.indexOf(QStringLiteral("Security"));
+        QVERIFY2(security > 0, qPrintable(titles.join(u',')));
+        QCOMPARE(titles.at(security - 1), QStringLiteral("Remote and Cloud"));
+    }
+
+    void mcpTabSetsTheServerAccessFoldersAndAuditLog()
+    {
+        const auto config = KSharedConfig::openConfig();
+        const auto restore = qScopeGuard([config] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            config->reparseConfiguration();
+        });
+        QTemporaryDir folders;
+        QVERIFY(folders.isValid());
+        const QString work = QFileInfo(folders.path()).canonicalFilePath() + QStringLiteral("/work");
+        const QString secret = QFileInfo(folders.path()).canonicalFilePath() + QStringLiteral("/secret");
+        QVERIFY(QDir().mkpath(work));
+        QVERIFY(QDir().mkpath(secret));
+        const QString log = McpSettings::auditLogPath();
+        QFile::remove(log);
+
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("mcpIntegrationPage"));
+        auto *access = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_McpAccess"));
+        auto *list = dialog.findChild<FolderListEditor *>(QStringLiteral("kcfg_McpFolders"));
+        auto *auditLog = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_McpAuditLog"));
+        auto *accessStatus = dialog.findChild<QLabel *>(QStringLiteral("mcpAccessStatus"));
+        auto *foldersStatus = dialog.findChild<QLabel *>(QStringLiteral("mcpFoldersStatus"));
+        auto *auditStatus = dialog.findChild<QLabel *>(QStringLiteral("mcpAuditStatus"));
+        auto *tokenNote = dialog.findChild<QLabel *>(QStringLiteral("mcpTokenNote"));
+        auto *configuration = dialog.findChild<QLineEdit *>(QStringLiteral("mcpClientConfiguration"));
+        auto *copy = dialog.findChild<QPushButton *>(QStringLiteral("mcpCopyConfiguration"));
+        auto *showLog = dialog.findChild<QPushButton *>(QStringLiteral("mcpShowAuditLog"));
+        QVERIFY(page && access && list && auditLog && accessStatus && foldersStatus && auditStatus && tokenNote && configuration && copy && showLog);
+        for (QWidget *widget : std::initializer_list<QWidget *>{access, list, auditLog, tokenNote, configuration, copy, showLog}) {
+            QVERIFY(page->isAncestorOf(widget));
+        }
+
+        // The defaults keep what the server did before: reading the home folder, with a log.
+        QCOMPARE(access->currentIndex(), int(Settings::EnumMcpAccess::Read));
+        QVERIFY(list->folders().isEmpty());
+        QVERIFY(auditLog->isChecked());
+        QVERIFY2(accessStatus->text().contains(QStringLiteral("not change anything")), qPrintable(accessStatus->text()));
+        QVERIFY2(foldersStatus->text().contains(QStringLiteral("home folder")), qPrintable(foldersStatus->text()));
+        QVERIFY2(auditStatus->text().contains(QStringLiteral("No tool call has been recorded yet")), qPrintable(auditStatus->text()));
+        QVERIFY(!showLog->isEnabled());
+        QVERIFY(tokenNote->text().contains(QStringLiteral("No access token")));
+        QCOMPARE(configuration->text(), McpSettings::clientConfiguration());
+        copy->click();
+        QCOMPARE(QGuiApplication::clipboard()->text(), McpSettings::clientConfiguration());
+
+        // The status follows the choices.
+        access->setCurrentIndex(int(Settings::EnumMcpAccess::Off));
+        QVERIFY2(accessStatus->text().contains(QStringLiteral("no tools")), qPrintable(accessStatus->text()));
+        QVERIFY(!list->isEnabled());
+        QVERIFY(!copy->isEnabled());
+        QVERIFY2(auditStatus->text().contains(QStringLiteral("Nothing is recorded")), qPrintable(auditStatus->text()));
+        access->setCurrentIndex(int(Settings::EnumMcpAccess::Write));
+        QVERIFY2(accessStatus->text().contains(QStringLiteral("move items to the trash")), qPrintable(accessStatus->text()));
+        QVERIFY(list->isEnabled());
+        QVERIFY(list->addFolder(work));
+        QVERIFY(list->addFolder(folders.filePath(QStringLiteral("missing"))));
+        QVERIFY2(foldersStatus->text().contains(QStringLiteral("skips ") + folders.filePath(QStringLiteral("missing"))), qPrintable(foldersStatus->text()));
+        QVERIFY(list->addFolder(secret));
+        FolderGates::instance()->setIterations(10);
+        QVERIFY(FolderGates::instance()->protect(secret, QStringLiteral("pw")).isEmpty());
+        const auto unprotect = qScopeGuard([secret] {
+            FolderGates::instance()->removeProtection(secret, QStringLiteral("pw"));
+        });
+        QVERIFY2(foldersStatus->text().contains(QStringLiteral("refused ") + secret), qPrintable(foldersStatus->text()));
+        auditLog->setChecked(false);
+        QVERIFY2(auditStatus->text().contains(QStringLiteral("aren't recorded")), qPrintable(auditStatus->text()));
+
+        // Applying saves the settings that the server reads for each request.
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::mcpAccess(), Settings::EnumMcpAccess::Write);
+        QCOMPARE(Settings::mcpFolders(), (QStringList{work, folders.filePath(QStringLiteral("missing")), secret}));
+        QVERIFY(!Settings::mcpAuditLog());
+        config->reparseConfiguration();
+        QCOMPARE(config->group(QStringLiteral("Mcp")).readEntry("McpAccess"), QStringLiteral("Write"));
+
+        // Show Audit Log asks the window to select the log once there is one.
+        QVERIFY(QDir().mkpath(QFileInfo(log).path()));
+        write(log, QStringLiteral("2026-11-27T10:00:00Z list_folder ok\n"));
+        const auto removeLog = qScopeGuard([log] {
+            QFile::remove(log);
+        });
+        auditLog->setChecked(true);
+        QVERIFY(showLog->isEnabled());
+        QVERIFY2(auditStatus->text().contains(QDir::toNativeSeparators(log)), qPrintable(auditStatus->text()));
+        QSignalSpy shown(&dialog, &SettingsDialog::showItemsRequested);
+        showLog->click();
+        QCOMPARE(shown.size(), 1);
+        QCOMPARE(shown.at(0).at(0).value<QList<QUrl>>(), QList<QUrl>{QUrl::fromLocalFile(log)});
     }
 };
 
