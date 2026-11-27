@@ -265,9 +265,9 @@ Preferences also include
 
 > [!IMPORTANT]
 > Path-filter, saved-search, collection, rename-preset, automation, remote
-> connection and cloud sync pair management changes take effect immediately,
-> even if Preferences is cancelled. KDE File Associations changes shared
-> desktop settings.
+> connection, cloud sync pair and password-protected folder management changes
+> take effect immediately, even if Preferences is cancelled. KDE File
+> Associations changes shared desktop settings.
 
 ## Safety and limitations
 
