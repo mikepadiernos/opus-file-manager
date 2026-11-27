@@ -1787,7 +1787,7 @@ for some features are recorded in [pending tasks](TODO.md).
         and conflict handling when provided. Never contact a mail server.
         Plasma-session verification is a
         [pending handoff](TODO.md#mail-attachments-on-plasma-657). [#657]
-  - [ ] Mail file preview: show local `.eml` (`message/rfc822`) headers,
+  - [x] Mail file preview: show local `.eml` (`message/rfc822`) headers,
         plain-text body and attachment list in the preview panel without
         loading remote content, running scripts or decrypting messages. Offer
         explicit attachment extraction with normal conflict handling and
