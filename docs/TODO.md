@@ -20,7 +20,7 @@ Board statuses were last confirmed on 2026-11-27.
 
 | Handoff                                                                     | Milestone                                                                      | Issues         | Board status                                                                                                                                            |
 | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [mpv integration](#mpv-integration-563)                                     | [M27](ROADMAP.md#m27-integrations)                                             | [#563], [#578] | ![Review](https://img.shields.io/badge/Review-bf8700?style=flat-square) ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square)       |
+| [mpv integration](#mpv-integration-563)                                     | [M27](ROADMAP.md#m27-integrations)                                             | [#563], [#578] | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square) ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square) |
 | [Markdown editor and backlinks](#markdown-editor-and-backlinks-564)         | [M27](ROADMAP.md#m27-integrations)                                             | [#564]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
 | [Workspace vault editing](#workspace-vault-editing-565)                     | [M27](ROADMAP.md#m27-integrations), [M28](ROADMAP.md#m28-integration-settings) | [#565], [#566] | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square) ![Backlog](https://img.shields.io/badge/Backlog-6e7781?style=flat-square) |
 | [System file chooser on Plasma](#system-file-chooser-on-plasma-286)         | [M27](ROADMAP.md#m27-integrations)                                             | [#286]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
@@ -37,7 +37,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## mpv integration (#563)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#563]
-  (Review); its M28 setting is [#578] (Backlog).
+  (Completed); its M28 setting is [#578] (Backlog).
 - **Resolved blocker:** Fedora 44 packages `mpv-devel`, and embedded playback
   uses libmpv's OpenGL render API in a `QOpenGLWidget` rather than KDE's
   MpvQt, so there is no Qt Quick and no process-wide numeric locale change
