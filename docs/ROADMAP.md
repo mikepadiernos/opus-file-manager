@@ -1729,7 +1729,7 @@ for some features are recorded in [pending tasks](TODO.md).
   - [x] Support administrator mode through KIO's `admin:/` worker.
         Plasma-session verification is a
         [pending handoff](TODO.md#administrator-mode-on-plasma-288). [#288]
-  - [ ] Provide an MCP server [#287]
+  - [x] Provide an MCP server [#287]
   - [ ] Optional password-gated folders: let users require a password before
         opening selected local folders through Plasma Opus. This is a Plasma
         Opus-only convenience gate, not encryption or filesystem access control:
