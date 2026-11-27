@@ -8262,6 +8262,7 @@ void MainWindow::applySettings()
     // Hiding it also turns off its shortcut.
     actionCollection()->action(QStringLiteral("network_locations"))->setVisible(Settings::remoteShowNetwork());
     actionCollection()->action(QStringLiteral("cloud_storage"))->setVisible(Settings::rcloneEnabled());
+    actionCollection()->action(QStringLiteral("plasma_vaults"))->setVisible(Settings::plasmaVaultMenu());
     if (m_remoteMounts) {
         // Mounts already in place keep their folder and stay or stop at quit as they were started.
         m_remoteMounts->setMountFolder(RemoteMounts::defaultsFromSettings().folder);

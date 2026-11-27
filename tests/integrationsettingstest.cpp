@@ -36,6 +36,7 @@
 #include "onlineaccounts.h"
 #include "operationjob.h"
 #include "pane.h"
+#include "plasmavaultmenu.h"
 #include "portalsetup.h"
 #include "rclone.h"
 #include "remotemountdialog.h"
@@ -131,6 +132,27 @@ public:
     QMap<QString, QString> activities() const override
     {
         return names;
+    }
+};
+
+class FakeVaultClient : public VaultClient
+{
+public:
+    using VaultClient::VaultClient;
+
+    QList<PlasmaVaults::Vault> list;
+    mutable int reads = 0;
+
+    QList<PlasmaVaults::Vault> vaults(QString *error) const override
+    {
+        ++reads;
+        if (error) {
+            error->clear();
+        }
+        return list;
+    }
+    void request(Request, const QString &) override
+    {
     }
 };
 
@@ -3856,6 +3878,116 @@ private Q_SLOTS:
         enterPassword(QStringLiteral("folderGateRemoveDialog"), QStringLiteral("second password 2"), true);
         QVERIFY(!gates->isGate(secret));
         QCOMPARE(list->topLevelItemCount(), 0);
+    }
+
+    void encryptionTabChoosesTheVaultsAndTheirState()
+    {
+        const auto config = KSharedConfig::openConfig();
+        const auto restore = qScopeGuard([config] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            config->reparseConfiguration();
+        });
+        const auto vault = [](const QString &name, PlasmaVaults::Status status) {
+            PlasmaVaults::Vault result;
+            result.name = name;
+            result.device = QStringLiteral("/vaults/") + name + QStringLiteral(".enc");
+            result.mountPoint = QStringLiteral("/home/user/Vaults/") + name;
+            result.status = status;
+            return result;
+        };
+        MainWindow window;
+        auto *client = new FakeVaultClient;
+        client->list = {vault(QStringLiteral("Personal"), PlasmaVaults::Status::Opened),
+                        vault(QStringLiteral("Work"), PlasmaVaults::Status::Closed),
+                        vault(QStringLiteral("Old"), PlasmaVaults::Status::DeviceMissing)};
+        window.setVaultClient(client);
+        auto *vaultsAction = qobject_cast<KActionMenu *>(window.actionCollection()->action(QStringLiteral("plasma_vaults")));
+        QVERIFY(vaultsAction && vaultsAction->isVisible());
+        const auto menuTitles = [&window, vaultsAction] {
+            window.plasmaVaultMenu()->populate();
+            QStringList titles;
+            for (QAction *action : vaultsAction->menu()->actions()) {
+                if (!action->isSeparator() && action->objectName() != QStringLiteral("createVault")) {
+                    titles.append(action->text());
+                }
+            }
+            return titles;
+        };
+        QCOMPARE(menuTitles(),
+                 (QStringList{QStringLiteral("Personal (Open)"), QStringLiteral("Work (Closed)"), QStringLiteral("Old (Encrypted data missing)")}));
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("encryptionIntegrationPage"));
+        auto *enabled = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_PlasmaVaultMenu"));
+        auto *vaults = dialog.findChild<HiddenItemsList *>(QStringLiteral("kcfg_PlasmaVaultHidden"));
+        auto *showState = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_PlasmaVaultShowState"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("plasmaVaultStatus"));
+        auto *refresh = dialog.findChild<QPushButton *>(QStringLiteral("refreshPlasmaVaults"));
+        QVERIFY(page && enabled && vaults && showState && status && refresh);
+        QCOMPARE(tabTitleOf(enabled), QStringLiteral("Encryption"));
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QCOMPARE(tabs->indexOf(page), 2);
+        QVERIFY(enabled->isChecked());
+        QVERIFY(showState->isChecked());
+        // Plasma Vault is not asked for its vaults before the list is shown.
+        QCOMPARE(client->reads, 1);
+
+        refresh->click();
+        QCOMPARE(client->reads, 2);
+        QCOMPARE(vaults->count(), 3);
+        QCOMPARE(vaults->item(0)->text(), QStringLiteral("Personal (Open)"));
+        QCOMPARE(vaults->item(1)->text(), QStringLiteral("Work (Closed)"));
+        QVERIFY(vaults->item(1)->toolTip().contains(QStringLiteral("/vaults/Work.enc")));
+        QVERIFY2(status->text().contains(QStringLiteral("3 vaults")) && status->text().contains(QStringLiteral("One is open")), qPrintable(status->text()));
+
+        // A cleared vault is left out of Go › Plasma Vaults, and its messages out of the status bar.
+        vaults->item(1)->setCheckState(Qt::Unchecked);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::plasmaVaultHidden(), QStringList{QStringLiteral("/vaults/Work.enc")});
+        QCOMPARE(menuTitles(), (QStringList{QStringLiteral("Personal (Open)"), QStringLiteral("Old (Encrypted data missing)")}));
+        QSignalSpy messages(window.plasmaVaultMenu(), &PlasmaVaultMenu::statusMessage);
+        PlasmaVaults::Vault failed = client->list.at(1);
+        failed.message = QStringLiteral("Wrong password");
+        Q_EMIT client->vaultChanged(failed);
+        QCOMPARE(messages.size(), 0);
+        failed = client->list.at(0);
+        failed.message = QStringLiteral("Busy");
+        Q_EMIT client->vaultChanged(failed);
+        QCOMPARE(messages.size(), 1);
+
+        // Without the state, open and closed vaults show only their names; problems are still reported.
+        showState->setChecked(false);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::plasmaVaultShowState());
+        QCOMPARE(menuTitles(), (QStringList{QStringLiteral("Personal"), QStringLiteral("Old (Encrypted data missing)")}));
+
+        // Hiding every vault says so in the menu.
+        vaults->item(0)->setCheckState(Qt::Unchecked);
+        vaults->item(2)->setCheckState(Qt::Unchecked);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        const QStringList hiddenAll = menuTitles();
+        QCOMPARE(hiddenAll.size(), 1);
+        QVERIFY2(hiddenAll.first().contains(QStringLiteral("3 Vaults Hidden")), qPrintable(hiddenAll.first()));
+
+        // Hiding the menu hides Go › Plasma Vaults and stops asking Plasma Vault.
+        enabled->setChecked(false);
+        QVERIFY(!vaults->isEnabled());
+        QVERIFY(!showState->isEnabled());
+        QVERIFY(!refresh->isEnabled());
+        const int reads = client->reads;
+        refresh->click();
+        QCOMPARE(client->reads, reads);
+        QVERIFY2(status->text().contains(QStringLiteral("hidden")), qPrintable(status->text()));
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::plasmaVaultMenu());
+        QVERIFY(!vaultsAction->isVisible());
+        Q_EMIT client->vaultChanged(failed);
+        QCOMPARE(messages.size(), 1);
+        enabled->setChecked(true);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(vaultsAction->isVisible());
     }
 };
 

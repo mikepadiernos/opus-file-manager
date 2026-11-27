@@ -32,6 +32,8 @@
 #include "mediabackend.h"
 #include "officeapps.h"
 #include "onlineaccounts.h"
+#include "plasmavaultmenu.h"
+#include "plasmavaults.h"
 #include "portalsetup.h"
 #include "rclone.h"
 #include "remotemounts.h"
@@ -3769,4 +3771,118 @@ QWidget *SettingsDialog::createFolderGatesIntegrationPage()
     });
     reload();
     return page;
+}
+
+QWidget *SettingsDialog::createEncryptionIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("encryptionIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(createPlasmaVaultGroup(), 1);
+    return page;
+}
+
+QGroupBox *SettingsDialog::createPlasmaVaultGroup()
+{
+    auto *group = new StatusGroup(i18nc("@title:group", "Plasma Vault"));
+    group->setObjectName(QStringLiteral("plasmaVaultGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *enabled = checkBox(QStringLiteral("PlasmaVaultMenu"), i18nc("@option:check", "Offer Plasma Vault's encrypted vaults in Go › Plasma Vaults"));
+    layout->addWidget(enabled);
+    auto *listLabel = new QLabel(i18nc("@label", "Show these vaults:"));
+    layout->addWidget(listLabel);
+    auto *vaults = bound(new HiddenItemsList, QStringLiteral("PlasmaVaultHidden"), "hiddenItems");
+    layout->addWidget(vaults, 1);
+    auto *showState =
+        checkBox(QStringLiteral("PlasmaVaultShowState"), i18nc("@option:check", "Show whether each vault is open or closed beside its name and in its icon"));
+    layout->addWidget(showState);
+    auto *status = statusLabel(QStringLiteral("plasmaVaultStatus"));
+    layout->addWidget(status);
+    auto *refresh = actionButton(QStringLiteral("refreshPlasmaVaults"), i18nc("@action:button", "Refresh List"));
+    refresh->setIcon(QIcon::fromTheme(QStringLiteral("view-refresh")));
+    refresh->setToolTip(i18nc("@info:tooltip", "Read the vaults and their state from Plasma Vault again"));
+    layout->addLayout(buttonRow({refresh}));
+    auto *note = new QLabel(i18nc("@info",
+                                  "Plasma Opus lists the vaults that Plasma Vault knows and never stores their passwords. Clearing a vault "
+                                  "only leaves it out of Go › Plasma Vaults; it stays open or closed, and Plasma Vault's system tray applet "
+                                  "and other applications still show it. Vaults added later are shown until they are cleared here. Create, "
+                                  "configure or delete vaults with Plasma Vault."));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+
+    // Use the main window's client, so tests and the menu see the same vaults.
+    const auto *menu = parentWidget() ? parentWidget()->findChild<PlasmaVaultMenu *>() : nullptr;
+    QPointer<VaultClient> client = menu ? menu->client() : nullptr;
+    if (!client) {
+        client = new DBusVaultClient(group);
+    }
+    // Plasma Vault is asked for its vaults only while the list is shown, as the menu does when it opens.
+    const auto reload = [enabled, vaults, status, client] {
+        if (!enabled->isChecked()) {
+            status->setText(
+                i18nc("@info", "Go › Plasma Vaults is hidden, together with any shortcut, and Plasma Opus does not ask Plasma Vault for its vaults."));
+            return;
+        }
+        if (!client) {
+            return;
+        }
+        QString error;
+        const QList<PlasmaVaults::Vault> listed = client->vaults(&error);
+        if (!error.isEmpty()) {
+            status->setText(error);
+            return;
+        }
+        QList<std::pair<QString, QString>> items;
+        for (const PlasmaVaults::Vault &vault : listed) {
+            items.append({vault.device, i18nc("@item vault name and status", "%1 (%2)", vault.displayName(), PlasmaVaults::statusText(vault.status))});
+        }
+        vaults->setItems(items);
+        int open = 0;
+        for (int row = 0; row < vaults->count(); ++row) {
+            const PlasmaVaults::Vault &vault = listed.at(row);
+            vaults->item(row)->setIcon(QIcon::fromTheme(PlasmaVaults::iconName(vault)));
+            vaults->item(row)->setToolTip(i18nc("@info:tooltip %1 is the vault's folder, %2 its encrypted data folder",
+                                                "Folder: %1\nEncrypted data: %2",
+                                                QDir::toNativeSeparators(vault.mountPoint),
+                                                QDir::toNativeSeparators(vault.device)));
+            open += vault.isOpen() ? 1 : 0;
+        }
+        if (listed.isEmpty()) {
+            status->setText(i18nc("@info", "Plasma Vault has no vaults. Create one with Go › Plasma Vaults › Create Vault… or Plasma Vault's applet."));
+            return;
+        }
+        const QString count = i18ncp("@info", "Plasma Vault has one vault.", "Plasma Vault has %1 vaults.", listed.size());
+        const QString opened = open == 0 ? i18nc("@info", "None is open.") : i18ncp("@info", "One is open.", "%1 are open.", open);
+        status->setText(i18nc("@info %1 is the number of vaults, %2 the number that are open", "%1 %2", count, opened));
+    };
+    const auto update = [enabled, vaults, listLabel, showState, refresh] {
+        listLabel->setEnabled(enabled->isChecked());
+        vaults->setEnabled(enabled->isChecked());
+        showState->setEnabled(enabled->isChecked());
+        refresh->setEnabled(enabled->isChecked());
+    };
+    group->refresh = reload;
+    // Loading the settings toggles the box before the list is shown.
+    const auto follow = [group, reload] {
+        if (group->isVisible()) {
+            reload();
+        }
+    };
+    connect(enabled, &QCheckBox::toggled, group, [enabled, update, reload, follow] {
+        update();
+        // Turning the menu off needs no answer from Plasma Vault.
+        if (enabled->isChecked()) {
+            follow();
+        } else {
+            reload();
+        }
+    });
+    update();
+    connect(refresh, &QPushButton::clicked, group, reload);
+    if (client) {
+        // Follow vaults opened, closed, added or removed while the list is shown.
+        connect(client, &VaultClient::changed, group, follow);
+        connect(client, &VaultClient::vaultChanged, group, follow);
+    }
+    return group;
 }

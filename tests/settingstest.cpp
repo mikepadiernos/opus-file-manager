@@ -1350,6 +1350,9 @@ private Q_SLOTS:
         for (const QString &entry : {QStringLiteral("McpAccess"), QStringLiteral("McpFolders"), QStringLiteral("McpAuditLog")}) {
             QCOMPARE(tabOf(entry), QStringLiteral("MCP"));
         }
+        for (const QString &entry : {QStringLiteral("PlasmaVaultMenu"), QStringLiteral("PlasmaVaultHidden"), QStringLiteral("PlasmaVaultShowState")}) {
+            QCOMPARE(tabOf(entry), QStringLiteral("Encryption"));
+        }
         QCOMPARE(tabOf(QStringLiteral("SeparateTerminal")), QStringLiteral("Terminal"));
         QCOMPARE(tabOf(QStringLiteral("EmbeddedTerminal")), QStringLiteral("Terminal"));
         QCOMPARE(tabOf(QStringLiteral("AtuinHistory")), QStringLiteral("Terminal"));

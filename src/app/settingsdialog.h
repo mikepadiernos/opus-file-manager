@@ -448,6 +448,13 @@ private:
      * shows only after their password is entered, managed immediately.
      */
     QWidget *createFolderGatesIntegrationPage();
+    /**
+     * The Security › Encryption tab: the vaults Go › Plasma Vaults lists and
+     * whether it shows their state, and the file encryption actions.
+     */
+    QWidget *createEncryptionIntegrationPage();
+    /// The Plasma Vault group of Security › Encryption.
+    QGroupBox *createPlasmaVaultGroup();
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.

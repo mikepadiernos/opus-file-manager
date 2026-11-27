@@ -416,10 +416,11 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createLanSharingIntegrationPage(), i18nc("@title:tab", "LAN Sharing")}},
                   i18nc("@title:group", "Remote and Cloud"),
                   QStringLiteral("folder-cloud"));
-    addTabbedPage(
-        {{createMcpIntegrationPage(), i18nc("@title:tab", "MCP")}, {createFolderGatesIntegrationPage(), i18nc("@title:tab", "Password-Gated Folders")}},
-        i18nc("@title:group", "Security"),
-        QStringLiteral("security-high"));
+    addTabbedPage({{createMcpIntegrationPage(), i18nc("@title:tab", "MCP")},
+                   {createFolderGatesIntegrationPage(), i18nc("@title:tab", "Password-Gated Folders")},
+                   {createEncryptionIntegrationPage(), i18nc("@title:tab", "Encryption")}},
+                  i18nc("@title:group", "Security"),
+                  QStringLiteral("security-high"));
     // The Activities, KRunner and KWin tabs offer the workspaces too.
     reloadWorkspaces();
     applySidebarStyle();
