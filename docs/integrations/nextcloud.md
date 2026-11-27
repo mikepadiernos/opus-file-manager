@@ -5,7 +5,8 @@
 [![Roadmap: M30 Nextcloud settings](https://img.shields.io/badge/roadmap-M30%20Nextcloud%20settings-8957e5?style=flat-square)](../ROADMAP.md#m30-nextcloud-settings)
 
 ![Milestones M29–M30](https://img.shields.io/badge/milestones-M29%E2%80%93M30-8957e5?style=flat-square)
-![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)
+![M29 Merged](https://img.shields.io/badge/M29-Merged-8957e5?style=flat-square)
+![M30 Planned](https://img.shields.io/badge/M30-Planned-6e7781?style=flat-square)
 
 How Plasma Opus works with Nextcloud files and apps, the server interfaces it
 uses, its planned settings and ideas considered beyond the roadmap.
