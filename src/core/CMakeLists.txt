@@ -156,6 +156,8 @@ add_library(opusfm_core STATIC
     nextcloudassets.h
     nextcloudclient.cpp
     nextcloudclient.h
+    nextcloudorganize.cpp
+    nextcloudorganize.h
     namefilter.cpp
     notevault.cpp
     notevault.h
