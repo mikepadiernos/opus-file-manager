@@ -264,9 +264,10 @@ Preferences also include
 ([M28](docs/ROADMAP.md#m28-integration-settings)).
 
 > [!IMPORTANT]
-> Path-filter, saved-search, collection, rename-preset, automation and remote
-> connection management changes take effect immediately, even if Preferences
-> is cancelled. KDE File Associations changes shared desktop settings.
+> Path-filter, saved-search, collection, rename-preset, automation, remote
+> connection and cloud sync pair management changes take effect immediately,
+> even if Preferences is cancelled. KDE File Associations changes shared
+> desktop settings.
 
 ## Safety and limitations
 
