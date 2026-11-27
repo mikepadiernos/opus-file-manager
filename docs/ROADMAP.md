@@ -1914,7 +1914,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **Shortcuts**
 
-  - [ ] **Global:** enable or disable the integration's global shortcut and
+  - [x] **Global:** enable or disable the integration's global shortcut and
         choose its key combination through KDE facilities. Plasma-session
         verification is a
         [pending handoff](TODO.md#global-shortcut-on-plasma-291). [#291]
