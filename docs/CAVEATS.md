@@ -2306,6 +2306,25 @@ The M27 desktop integrations have these limits
   Workspace vault** setting
   ([#566](https://github.com/mikepadiernos/plasma-opus/issues/566)).
   ([#565](https://github.com/mikepadiernos/plasma-opus/issues/565))
+- **🎞️ Embedded mpv playback:** **Audio and video playback** under **Preferences
+  › Interface › Previews**, or the backend button beside the playback controls,
+  chooses Qt Multimedia, the default, or mpv for the preview panel and gallery.
+  mpv needs a build with libmpv and Qt OpenGL Widgets; otherwise the choice is
+  disabled and Qt Multimedia plays with a notice. Video through mpv also needs
+  OpenGL: when Plasma Opus can't create an OpenGL context, or libmpv can't draw
+  into it, Qt Multimedia plays the video and the notice says why. Audio needs no
+  OpenGL. The embedded player ignores your `mpv.conf`, scripts and `youtube-dl`
+  or `yt-dlp`, uses safe hardware decoding, and only plays local files: remote
+  previews play their temporary download, within the 128 MiB remote preview
+  limit. Its controls are play, pause and seeking; there is no volume, track,
+  subtitle or speed control, and mpv's keyboard shortcuts don't apply. If libmpv
+  only starts with the C numeric locale, Plasma Opus switches the C library's
+  number parsing to it; Qt's number formatting is unaffected. Playback errors
+  appear where the preview or video would be. The separate **Open with mpv**
+  action opens selected local audio and video in the mpv application. The
+  container used for development has no OpenGL, so drawing video on Wayland and
+  X11 awaits [verification on Plasma](TODO.md#mpv-integration-563).
+  ([#563](https://github.com/mikepadiernos/plasma-opus/issues/563))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -2543,6 +2562,10 @@ The M27 desktop integrations have these limits
     on a server, sync them to a local folder first. Save a note, or choose
     **Vault › Rescan Vault**, to refresh its links and tags. Use Obsidian or
     another Markdown application to rename tags or browse a graph.
+  - **Embedded mpv playback:** Use **Open with mpv** from the context menu
+    for volume, tracks, subtitles and mpv's own configuration. If video stays
+    black or the notice reports OpenGL, choose **Qt Multimedia** with the
+    backend button.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2578,6 +2601,10 @@ The M27 desktop integrations have these limits
     vault's note limit.
   - Refresh links and tags while typing, rename a tag across the vault,
     search notes by tag, a graph view, and a vault per window.
+  - Volume, track and subtitle controls and mpv's keyboard shortcuts in the
+    embedded player, an option to read the user's mpv configuration, playing
+    remote files without a full download, and the M28 **Media › Backend**
+    setting ([#578](https://github.com/mikepadiernos/plasma-opus/issues/578)).
   - Report files opened through **Open With** and from previews, exclude
     chosen folders from reporting, and an M28 **Plasma Activities** page
     option to report only while associations are on.
