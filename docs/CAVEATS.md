@@ -1961,14 +1961,14 @@ The M27 desktop integrations have these limits
   Rune, micro and nano, and finds them through `PATH`, so an editor
   installed only as a Flatpak shows as not installed. Rune is looked up as
   `rune` and hasn't been tested. Neovim, Rune, micro and nano open in a new
-  embedded terminal tab rather than a separate terminal window until the M28
-  editor settings choose a session type, so they need the Konsole or Kwi
-  component, and they only open local files; KWrite and Kate also open
-  remote files through KIO. Folders can't be opened. The editor's tab starts
-  in the first file's folder, but a terminal profile with its own start
-  folder takes precedence, and the tab closes when the editor exits. The
-  editors start with their own configuration, and the choice isn't
-  remembered between uses.
+  embedded terminal tab, so they need the Konsole or Kwi component, unless
+  **Terminal editors run in** under **Preferences › Applications › Editor**
+  chooses a separate terminal, and they only open local files; KWrite and
+  Kate also open remote files through KIO. Folders can't be opened. The
+  editor's tab starts in the first file's folder, but a terminal profile with
+  its own start folder takes precedence, and the tab closes when the editor
+  exits. The editors start with their own configuration, and the **Edit
+  With** choice isn't remembered between uses.
   ([#319](https://github.com/mikepadiernos/plasma-opus/issues/319))
 
 - **📄 Office documents:** Plasma Opus doesn't embed an office editor. The
@@ -1986,13 +1986,15 @@ The M27 desktop integrations have these limits
   ([#674](https://github.com/mikepadiernos/plasma-opus/issues/674))
 
 - **✏️ Edit action:** **Edit** chooses a tool by file type rather than by
-  the file associations in System Settings, and always takes the first
-  installed tool in a fixed order, so it can't be pointed at a preferred
-  editor. It covers text, office documents, SVG drawings, raster images and
-  audio; videos, PDF documents, archives and other types can be previewed
-  but not edited. Separate tools are found through `PATH`, so Flatpak and
-  AppImage installations show as not installed, and only the built-in
-  editor, KolourPaint and Calligra open remote files. It edits one file at a
+  the file associations in System Settings. Text files open in the editor
+  chosen under **Preferences › Applications › Editor**, the built-in editor
+  unless changed; other types take the first installed tool in a fixed
+  order, so their editor can't be chosen. It covers text, office documents,
+  SVG drawings, raster images and audio; videos, PDF documents, archives and
+  other types can be previewed but not edited. Separate tools are found
+  through `PATH`, so Flatpak and AppImage installations show as not
+  installed, and only the built-in editor, KWrite, Kate, KolourPaint and
+  Calligra open remote files. It edits one file at a
   time. The chosen tool handles saving: some image and audio editors save to
   their own format or export, and an image editor may not support every
   format the preview shows. Plasma Opus doesn't track whether a separate
@@ -2446,16 +2448,18 @@ The M27 desktop integrations have these limits
     `HISTCONTROL=ignorespace` in Bash, or `setopt HIST_IGNORE_SPACE` in Zsh.
   - **Editor integrations:** Install the editor from your distribution so
     its command is in `PATH`, and install the Konsole component for terminal
-    editors. To edit remote files in a terminal editor, copy them to a local
-    folder first, or use KWrite or Kate. Save your work before closing the
-    editor's terminal tab.
+    editors, or choose **Separate terminal** for them under **Preferences ›
+    Applications › Editor**. To edit remote files in a terminal editor, copy
+    them to a local folder first, or use KWrite or Kate. Save your work
+    before closing the editor's terminal tab.
   - **Office documents:** Install LibreOffice, Calligra or ONLYOFFICE from
     your distribution so its command is in `PATH`, and install Calligra for
     previews. To open remote documents in LibreOffice or
     ONLYOFFICE, copy them to a local folder first, or use Calligra. Open RTF
     and CSV files with **Open With**.
-  - **Edit action:** Install a listed tool from your distribution, use
-    **Edit With** or **Open in Office Application** to pick a specific
+  - **Edit action:** Install a listed tool from your distribution, choose
+    the editor for text files under **Preferences › Applications › Editor**,
+    use **Edit With** or **Open in Office Application** to pick a specific
     editor, or **Open With** for other applications. Copy remote files to a
     local folder before editing them in a local-only tool, and check the
     format when saving from an image or audio editor.
@@ -2659,9 +2663,7 @@ The M27 desktop integrations have these limits
   - Find Flatpak terminals, show Yakuake's window through a dedicated D-Bus
     call when it offers one, and open a selected folder rather than the
     pane's folder from its context menu.
-  - The M28 editor settings to choose a default editor, open terminal
-    editors in a separate terminal, find Flatpak editors and add other
-    editors.
+  - Find Flatpak editors and add other editors.
   - Find Flatpak office applications, remember the chosen application and
     offer RTF and CSV files to it.
   - An M28 setting to choose the tool for each file type, and use the file
@@ -2993,6 +2995,24 @@ The M28 integration settings have these limits
   shown. Plasma Opus never changes Atuin's history, sync, key binding or
   shell settings.
   ([#367](https://github.com/mikepadiernos/plasma-opus/issues/367))
+- **🖋️ Text editor settings:** **Text editor** under **Preferences ›
+  Applications › Editor** chooses what **Edit** opens text files in, including
+  Markdown notes, after **Apply** or **OK**; office documents, SVG drawings,
+  images and audio keep their own tools, and **Edit With** still offers every
+  editor. Only the built-in editor offers drafts, the Markdown preview and
+  vault links. The tab marks the editors that aren't installed, checking
+  `PATH` each time it is shown, so an editor installed only as a Flatpak
+  shows as not installed. A chosen editor that is later removed is reported
+  by **Edit** instead of replaced by the built-in editor, and a chosen
+  terminal editor reports remote files rather than opening them.
+  **Terminal editors run in** applies to **Edit** and **Edit With**.
+  **Separate terminal** opens the terminal chosen under **System Settings ›
+  Default Applications**, rather than the one chosen for **Open Terminal
+  Here**, starting in the first file's folder unless its profile sets
+  another; KDE starts Konsole with `--noclose`, so its window stays open
+  after the editor exits. Plasma Opus doesn't track whether an editor in a
+  separate window has unsaved changes.
+  ([#320](https://github.com/mikepadiernos/plasma-opus/issues/320))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3102,6 +3122,12 @@ The M28 integration settings have these limits
     with Atuin** if you use Atuin's own key binding, such as Ctrl+R, in the
     shell instead, and change Atuin's history and sync settings with `atuin`
     and its `config.toml`.
+  - **Text editor settings:** Keep **Built-in editor** under **Preferences ›
+    Applications › Editor** to keep drafts, the Markdown preview and vault
+    links, or choose the editor you use most, such as Kate, from those the
+    tab doesn't mark as not installed, and use **Edit With** for a one-off
+    choice. Choose **Separate terminal** for terminal editors if you prefer a
+    full-sized window or the Konsole component isn't installed.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3156,6 +3182,9 @@ The M28 integration settings have these limits
   - Close a session opened only for the search once it ends, place the chosen
     command at the prompt rather than printing it, and offer the search in a
     separate terminal as well as the embedded one.
+  - Fall back to the built-in editor when the chosen editor is removed,
+    choose an editor for each kind of text, such as Markdown, and close a
+    separate terminal when its editor exits.
 
 ## Embedded terminal
 
