@@ -274,9 +274,10 @@ feature [#402](https://github.com/mikepadiernos/plasma-opus/issues/402)):
   session. While it is locked, Plasma Opus shows the folder with a lock icon
   but does not list it, preview it, search inside it, open a terminal in it or
   copy, move, trash or delete it or anything inside it; its subfolders are
-  hidden from the tree and Yazi columns. Unlocking lasts until **Lock All
-  Protected Folders** or the end of the session; there is no idle auto-lock.
-  The MCP server treats every protected folder as locked.
+  hidden from the tree and Yazi columns. Unlocking lasts until **Lock
+  Protected Folders**, **Lock** or **Lock All** under **Preferences ›
+  Security › Password-Gated Folders**, or the end of the session; there is no
+  idle auto-lock. The MCP server treats every protected folder as locked.
 - **Not security:** The gate is not encryption or filesystem access control.
   Other file managers, terminals and processes with the same user
   permissions use the folder freely, and standard permissions and ACLs
@@ -2537,8 +2538,8 @@ The M27 desktop integrations have these limits
     time limit, and pass the link through the QR code or a private channel.
     If clients can't connect, choose a fixed port under **Preferences ›
     Remote and Cloud › LAN Sharing** and allow it, for example with `sudo
-    firewall-cmd --add-port=PORT/tcp` until the next restart or `sudo ufw
-    allow PORT/tcp`, removing the ufw rule afterwards. For paired phones, KDE
+firewall-cmd --add-port=PORT/tcp` until the next restart or `sudo ufw
+allow PORT/tcp`, removing the ufw rule afterwards. For paired phones, KDE
     Connect is simpler; for lasting shares, use Samba sharing in the folder's
     **Properties** dialog.
   - **KDE Online Accounts:** Install `kio-gdrive` for Google Drive and
@@ -3415,6 +3416,17 @@ The M28 integration settings have these limits
   selects the log in a new tab of the main window once a call is recorded; the
   log is never rotated or cleared.
   ([#294](https://github.com/mikepadiernos/plasma-opus/issues/294))
+- **🔒 Password-gated folder settings:** **Preferences › Security ›
+  Password-Gated Folders** protects, unlocks, locks, changes and removes
+  password-protected folders at once in every window, so cancelling Preferences
+  does not undo them. Its folder chooser is the standard KDE dialog, which does
+  not know about the gates and lists the contents of locked folders, as do the
+  other folder choosers in Preferences. A protected folder that no longer exists
+  stays listed as missing, and its protection applies to a new folder created
+  at the same path. The root folder, the home folder and the folders that
+  contain it can't be protected, and the state and passwords apply only inside
+  Plasma Opus; see [Password-gated folders](#password-gated-folders).
+  ([#403](https://github.com/mikepadiernos/plasma-opus/issues/403))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3659,6 +3671,11 @@ The M28 integration settings have these limits
     needs it, add `--read-only` to the configuration of clients that only
     read, and restart a client after raising the access. Keep the audit log on,
     check it with **Show Audit Log** and delete it when it grows large.
+  - **Password-gated folder settings:** Check **Preferences › Security ›
+    Password-Gated Folders** for folders left unlocked and choose **Lock All**
+    before leaving the desktop. Choose **Remove Protection…** before deleting
+    or moving a protected folder outside Plasma Opus, and keep confidential
+    files in a Plasma Vault instead.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3779,6 +3796,8 @@ The M28 integration settings have these limits
   - Announce tool changes to running MCP clients when the access changes,
     choose the access and folders for each client, and rotate or limit the
     audit log and view it in Preferences.
+  - Hide locked folders from the folder choosers in Preferences, offer to
+    remove the protection of a missing folder, and set an idle auto-lock there.
 
 ## Embedded terminal
 
