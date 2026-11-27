@@ -5,6 +5,7 @@
 
 #include "activityassociationsdialog.h"
 #include "activitycontroller.h"
+#include "activityreporting.h"
 #include "adminmode.h"
 #include "appearancedefaults.h"
 #include "appearancestyle.h"
@@ -4706,6 +4707,7 @@ void MainWindow::recordFolderVisit(Pane *pane, const QUrl &url)
         return;
     }
     const QUrl normalized = url.adjusted(QUrl::StripTrailingSlash);
+    ActivityReporting::reportUsed(normalized);
     const QString key = normalized.toString(QUrl::FullyEncoded);
     const QUrl previous = m_lastFolderByPane.value(pane);
     if (!m_jumpingBack && previous.isValid() && previous != normalized) {

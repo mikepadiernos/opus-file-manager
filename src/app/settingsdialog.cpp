@@ -565,6 +565,16 @@ QWidget *SettingsDialog::createWorkspaceActivitiesPage()
                             page);
     note->setWordWrap(true);
     layout->addWidget(note);
+    auto *report = checkBox(QStringLiteral("ReportActivityUsage"), i18nc("@option:check", "Report visited folders and opened files to Plasma Activities"));
+    layout->addWidget(report);
+    auto *reportNote = new QLabel(i18nc("@info",
+                                        "Plasma lists them in the current Activity's recent files and locations, where other applications, "
+                                        "such as Plasma Impresario, can offer them too. Temporary files, encrypted vaults, searches and "
+                                        "administrator locations are never reported. Choose what Plasma remembers, or clear it, in System "
+                                        "Settings › Recent Files."),
+                                  page);
+    reportNote->setWordWrap(true);
+    layout->addWidget(reportNote);
     layout->addStretch();
     connect(enabled, &QCheckBox::toggled, offer, &QWidget::setEnabled);
     offer->setEnabled(enabled->isChecked());

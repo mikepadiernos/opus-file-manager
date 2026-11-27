@@ -1343,6 +1343,7 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("RunnerWorkspaces")), QStringLiteral("Plasma Search"));
         QCOMPARE(tabOf(QStringLiteral("RunnerFavorites")), QStringLiteral("Plasma Search"));
         QCOMPARE(tabOf(QStringLiteral("OfferActivityAssociation")), QStringLiteral("Activities"));
+        QCOMPARE(tabOf(QStringLiteral("ReportActivityUsage")), QStringLiteral("Activities"));
         QCOMPARE(tabOf(QStringLiteral("NewLibraryStorage")), QStringLiteral("Privacy"));
         QCOMPARE(tabOf(QStringLiteral("LibraryExclusions")), QStringLiteral("Libraries"));
         QCOMPARE(tabOf(QStringLiteral("AutomaticLibraryRefresh")), QStringLiteral("Libraries"));

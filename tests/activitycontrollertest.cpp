@@ -2,6 +2,7 @@
 
 #include "activitycontroller.h"
 #include "activityassociationsdialog.h"
+#include "activityreporting.h"
 #include "mainwindow.h"
 #include "pane.h"
 #include "settings.h"
@@ -13,8 +14,11 @@
 #include <QAction>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDir>
+#include <QFile>
 #include <QListWidget>
 #include <QPushButton>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTabBar>
@@ -330,6 +334,50 @@ private Q_SLOTS:
         QCOMPARE(second->findChild<QTabBar *>()->count(), secondTabs + 1);
         QCOMPARE(first->url().adjusted(QUrl::StripTrailingSlash), plan.primaryFolder);
         QCOMPARE(second->url().adjusted(QUrl::StripTrailingSlash), plan.secondaryFolder);
+    }
+
+    void reportsVisitedFoldersAndOpenedFiles()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir(dir.path()).mkpath(QStringLiteral("visited")));
+        QVERIFY(QDir(dir.path()).mkpath(QStringLiteral("tmp")));
+        // The test folder is itself temporary, so point temporary files elsewhere.
+        const QByteArray tmpDir = qgetenv("TMPDIR");
+        qputenv("TMPDIR", QFile::encodeName(dir.filePath(QStringLiteral("tmp"))));
+        QList<QUrl> reported;
+        ActivityReporting::setReporter([&reported](const QUrl &url) {
+            reported.append(url);
+        });
+        const auto restore = qScopeGuard([&tmpDir] {
+            ActivityReporting::setReporter({});
+            Settings::setReportActivityUsage(true);
+            if (tmpDir.isNull()) {
+                qunsetenv("TMPDIR");
+            } else {
+                qputenv("TMPDIR", tmpDir);
+            }
+        });
+        const QUrl visited = QUrl::fromLocalFile(dir.filePath(QStringLiteral("visited")));
+
+        QVERIFY(Settings::reportActivityUsage());
+        ActivityReporting::reportUsed(visited);
+        ActivityReporting::reportUsed(QUrl::fromLocalFile(dir.filePath(QStringLiteral("tmp/mail/notes.txt"))));
+        ActivityReporting::reportUsed(QUrl(QStringLiteral("trash:/")));
+        ActivityReporting::reportUsed(QUrl(QStringLiteral("sftp://ada:secret@host/srv")));
+        QCOMPARE(reported, (QList<QUrl>{visited, QUrl(QStringLiteral("sftp://ada@host/srv"))}));
+
+        reported.clear();
+        MainWindow window;
+        window.activePane()->setUrl(visited);
+        QTRY_VERIFY(reported.contains(visited));
+
+        reported.clear();
+        Settings::setReportActivityUsage(false);
+        ActivityReporting::reportUsed(visited);
+        window.activePane()->setUrl(QUrl::fromLocalFile(dir.path()));
+        QTRY_COMPARE(window.activePane()->url().adjusted(QUrl::StripTrailingSlash), QUrl::fromLocalFile(dir.path()));
+        QVERIFY(reported.isEmpty());
     }
 };
 

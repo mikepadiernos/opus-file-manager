@@ -621,6 +621,10 @@
       <label>Offer to apply an Activity's association when the current Activity changes</label>
       <default>true</default>
     </entry>
+    <entry name="ReportActivityUsage" type="Bool">
+      <label>Report visited folders and opened files to Plasma Activities</label>
+      <default>true</default>
+    </entry>
   </group>
   <group name="KRunner">
     <entry name="RunnerWorkspaces" type="Bool">

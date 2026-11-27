@@ -2,6 +2,7 @@
 
 #include "fileoperations.h"
 
+#include "activityreporting.h"
 #include "executables.h"
 #include "foldergates.h"
 #include "librarymovetracker.h"
@@ -288,6 +289,7 @@ void FileOperations::open(const KFileItem &item, QWidget *window)
     if (item.isNull()) {
         return;
     }
+    ActivityReporting::reportUsed(item.mostLocalUrl());
     const auto action = Settings::executableAction();
     const QString path = item.localPath();
     const bool program = !path.isEmpty() && !item.isDir() && Executables::isProgram(item.mimetype(), QFileInfo(path).isExecutable());
