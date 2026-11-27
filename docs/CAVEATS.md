@@ -3061,6 +3061,20 @@ The M28 integration settings have these limits
   lists are the only relationship views; there is no graph view. Notes and
   drafts are never changed by these settings.
   ([#566](https://github.com/mikepadiernos/plasma-opus/issues/566))
+- **👁️ Preview editing settings:** The **Preview Editing** group under
+  **Preferences › Applications › Editor** applies to the preview panel after
+  **Apply** or **OK**; the compact Yazi-mode preview never offers editing.
+  Editing in the preview always uses the built-in editor, whichever editor is
+  chosen for **Edit**, and keeps the limits described under
+  [Editing in the preview](#editor). Turning editing off hides **Edit** but
+  leaves a file already being edited open until it is closed or moved to the
+  editor panel. With **Start editing when the preview is double-clicked** on,
+  a double-click in a text preview starts editing instead of selecting a
+  word, opens the whole file at its start rather than at the clicked line,
+  and reports files that can't be edited there, such as remote ones. With
+  **Return to the preview after saving** off, a saved file stays open for
+  editing until **Close Editor** or until another file is selected.
+  ([#730](https://github.com/mikepadiernos/plasma-opus/issues/730))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3190,6 +3204,14 @@ The M28 integration settings have these limits
     mode for plain notes. If its location is reported as unavailable, add the
     folder back to Favorites or Places, or reconnect its drive; its notes and
     drafts are kept.
+  - **Preview editing settings:** Keep **Offer Edit in text previews** on
+    under **Preferences › Applications › Editor** for quick changes to notes
+    and configuration files, and turn on **Start editing when the preview is
+    double-clicked** if you edit previews more often than you select words in
+    them. Turn off **Return to the preview after saving** when you save often
+    while editing, and choose **Close Editor** when you're done. Turn editing
+    off if you only read files in the preview; **Edit** still opens the
+    editor chosen above.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3253,6 +3275,8 @@ The M28 integration settings have these limits
   - Assign a location to a workspace from the **Workspace Vault** group,
     follow changes to the vault's notes while the group is open, and show a
     graph of how notes link.
+  - Start editing at the double-clicked line, offer editing in the Yazi-mode
+    preview, and open the editor chosen for **Edit** from the preview.
 
 ## Embedded terminal
 
