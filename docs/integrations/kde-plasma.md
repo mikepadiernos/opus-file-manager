@@ -502,9 +502,15 @@ behaves like the rest of the desktop and follows the user's choices.
   or folder changes, and **Preview Selection…**, hiding the panel or quitting
   asks to save, discard or keep editing. **Move to Editor** continues the
   session in the editor panel with its unsaved changes. Read-only, remote,
-  binary and very large files are reported rather than opened. See
-  [Editing in the preview](../CAVEATS.md#editor).
-  ([#729](https://github.com/mikepadiernos/plasma-opus/issues/729))
+  binary and very large files are reported rather than opened. Under
+  **Preferences › Applications › Editor**, **Preview Editing** chooses
+  whether text previews offer **Edit**, whether double-clicking the preview
+  starts editing and whether saving returns to the preview; editing in the
+  preview always uses the built-in editor. See
+  [Editing in the preview](../CAVEATS.md#editor) and
+  [Preview editing settings](../CAVEATS.md#integration-settings).
+  ([#729](https://github.com/mikepadiernos/plasma-opus/issues/729),
+  [#730](https://github.com/mikepadiernos/plasma-opus/issues/730))
 - **Markdown vault links:** The built-in editor's **Vault** menu chooses a
   local folder of Markdown notes, such as an Obsidian vault, without
   changing its notes or configuration. In a note inside that folder, the
