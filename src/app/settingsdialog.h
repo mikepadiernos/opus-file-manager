@@ -411,6 +411,12 @@ private:
      * rclone's remotes, which of them, and whether it mounts or serves them.
      */
     QWidget *createRcloneIntegrationPage();
+    /**
+     * Creates the Remote and Cloud › Remote Drives tab, which chooses how saved
+     * connections are mounted by default, where, and when they are mounted
+     * and unmounted automatically.
+     */
+    QWidget *createRemoteDrivesIntegrationPage();
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.

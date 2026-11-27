@@ -86,6 +86,23 @@ private Q_SLOTS:
         QCOMPARE(reopened.findChild<QLineEdit *>()->text(), QStringLiteral("/mnt/nas"));
     }
 
+    void startsFromTheRemoteDrivesDefaults()
+    {
+        KConfig config(m_root.filePath(QStringLiteral("defaults")), KConfig::SimpleConfig);
+        const KConfigGroup group = config.group(QStringLiteral("RemoteMounts"));
+        RemoteMounts::Defaults defaults;
+        defaults.backends.insert(Protocol::Sftp, Backend::Sshfs);
+        defaults.readOnly = true;
+        defaults.folder = QStringLiteral("/media/me/drives");
+        RemoteMountDialog dialog(profile(Protocol::Sftp), group, nullptr, all, defaults);
+        QCOMPARE(dialog.options().backend, Backend::Sshfs);
+        QVERIFY(dialog.options().readOnly);
+        QVERIFY(findCheck(dialog, QStringLiteral("Read-only"))->isChecked());
+        auto *location = dialog.findChild<QLineEdit *>();
+        QVERIFY2(location->placeholderText().contains(QStringLiteral("/media/me/drives/Server")), qPrintable(location->placeholderText()));
+        QVERIFY(location->text().isEmpty());
+    }
+
 private:
     static QString none(const QString &)
     {

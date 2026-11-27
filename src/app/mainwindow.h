@@ -229,8 +229,14 @@ public:
     void unmountRemoteProfile(const QString &id);
     /// Shows how @p profile is mounted as a folder.
     void showRemoteMountOptions(const RemoteProfiles::Profile &profile);
-    /// Removes Places entries left by earlier mounts and mounts the connections set to mount at startup.
+    /// Removes Places entries left by earlier mounts, mounts the connections set to mount at startup and takes over those still mounted.
     void mountRemoteProfilesAtStartup();
+    /**
+     * Mounts the saved connections holding the locations assigned to the
+     * workspace @p workspaceId, when Preferences › Remote and Cloud › Remote
+     * Drives chooses to.
+     */
+    void mountRemoteProfilesForWorkspace(const QString &workspaceId);
 
     /// The optional Plasma Opus KWin script and its D-Bus interface.
     KWinIntegration *kwinIntegration() const;

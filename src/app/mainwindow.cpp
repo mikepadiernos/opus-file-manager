@@ -982,6 +982,7 @@ void MainWindow::showWorkspaces()
         }
         m_currentWorkspaceId = id;
         refreshWorkspaceLocations();
+        mountRemoteProfilesForWorkspace(id);
         const auto workspace = std::find_if(m_workspaceCatalog.workspaces.cbegin(), m_workspaceCatalog.workspaces.cend(), [&id](const auto &entry) {
             return entry.id == id;
         });
@@ -6674,6 +6675,8 @@ RemoteMountManager *MainWindow::remoteMounts()
         return m_remoteMounts;
     }
     m_remoteMounts = new RemoteMountManager(this);
+    m_remoteMounts->setMountFolder(RemoteMounts::defaultsFromSettings().folder);
+    m_remoteMounts->setUnmountOnExit(Settings::remoteDriveUnmountOnExit());
     if (m_cloudActivityDialog) {
         m_cloudActivityDialog->setRemoteMounts(m_remoteMounts);
     }
@@ -6736,7 +6739,9 @@ void MainWindow::mountRemoteProfile(const RemoteProfiles::Profile &profile, bool
     if (open) {
         m_openAfterRemoteMount = profile.id;
     }
-    remoteMounts()->mount(profile, RemoteMounts::loadOptions(KSharedConfig::openConfig()->group(QStringLiteral("RemoteMounts")), profile));
+    remoteMounts()->mount(
+        profile,
+        RemoteMounts::loadOptions(KSharedConfig::openConfig()->group(QStringLiteral("RemoteMounts")), profile, RemoteMounts::defaultsFromSettings()));
 }
 
 void MainWindow::unmountRemoteProfile(const QString &id)
@@ -6765,15 +6770,55 @@ void MainWindow::showRemoteMountOptions(const RemoteProfiles::Profile &profile)
 
 void MainWindow::mountRemoteProfilesAtStartup()
 {
-    // Mounts end when Plasma Opus quits, so recorded entries are left from a session that didn't quit cleanly.
+    // Places entries are removed at quit, so recorded entries are left from a session that didn't quit cleanly.
     const QStringList places = remoteMountState().readEntry(remoteMountPlacesKey, QStringList());
     for (const QString &place : places) {
         removeRemoteMountPlace(m_placesModel, QUrl(place));
     }
     const KConfigGroup options = KSharedConfig::openConfig()->group(QStringLiteral("RemoteMounts"));
     const QList<RemoteProfiles::Profile> profiles = RemoteProfiles::load(KSharedConfig::openConfig()->group(QStringLiteral("RemoteProfiles")));
+    const RemoteMounts::Defaults defaults = RemoteMounts::defaultsFromSettings();
     for (const RemoteProfiles::Profile &profile : profiles) {
-        if (RemoteMounts::loadOptions(options, profile).atStartup) {
+        const RemoteMounts::Options profileOptions = RemoteMounts::loadOptions(options, profile, defaults);
+        // Mounts kept after an earlier session quit are taken over, so they can be opened and unmounted here.
+        if (profileOptions.atStartup || remoteMounts()->isMountedAt(profile, profileOptions)) {
+            mountRemoteProfile(profile, false);
+        }
+    }
+    // Starting in a workspace activates it.
+    mountRemoteProfilesForWorkspace(m_currentWorkspaceId);
+}
+
+void MainWindow::mountRemoteProfilesForWorkspace(const QString &workspaceId)
+{
+    if (!Settings::remoteDriveMountOnWorkspace() || workspaceId.isEmpty()) {
+        return;
+    }
+    QList<QUrl> locations;
+    const QList<WorkspaceLocations::Location> saved = m_workspaceLocations->locations();
+    for (const WorkspaceLocations::Location &location : saved) {
+        if (!location.ambiguous && m_workspaceCatalog.locationAssignments.value(location.id) == workspaceId) {
+            locations.append(location.url);
+        }
+    }
+    if (locations.isEmpty()) {
+        return;
+    }
+    const KConfigGroup options = KSharedConfig::openConfig()->group(QStringLiteral("RemoteMounts"));
+    const QList<RemoteProfiles::Profile> profiles = RemoteProfiles::load(KSharedConfig::openConfig()->group(QStringLiteral("RemoteProfiles")));
+    const RemoteMounts::Defaults defaults = RemoteMounts::defaultsFromSettings();
+    for (const RemoteProfiles::Profile &profile : profiles) {
+        if (remoteMounts()->isMounted(profile.id) || remoteMounts()->isStarting(profile.id)) {
+            continue;
+        }
+        const RemoteMounts::Options profileOptions = RemoteMounts::loadOptions(options, profile, defaults);
+        // KIO FUSE chooses its own folder, so only remote locations show that it is needed.
+        const QString mountPoint = profileOptions.backend == RemoteMounts::Backend::KioFuse
+            ? QString()
+            : RemoteMounts::mountPoint(profile, profileOptions, remoteMounts()->mountFolder());
+        if (std::any_of(locations.cbegin(), locations.cend(), [&profile, &mountPoint](const QUrl &url) {
+                return RemoteMounts::covers(profile, url, mountPoint);
+            })) {
             mountRemoteProfile(profile, false);
         }
     }
@@ -8207,6 +8252,18 @@ void MainWindow::applySettings()
     // Hiding it also turns off its shortcut.
     actionCollection()->action(QStringLiteral("network_locations"))->setVisible(Settings::remoteShowNetwork());
     actionCollection()->action(QStringLiteral("cloud_storage"))->setVisible(Settings::rcloneEnabled());
+    if (m_remoteMounts) {
+        // Mounts already in place keep their folder and stay or stop at quit as they were started.
+        m_remoteMounts->setMountFolder(RemoteMounts::defaultsFromSettings().folder);
+        m_remoteMounts->setUnmountOnExit(Settings::remoteDriveUnmountOnExit());
+    }
+    QString autostartError;
+    if (!RemoteMounts::setMountAtLogin(Settings::remoteDriveMountAtLogin(),
+                                       QCoreApplication::applicationFilePath(),
+                                       AppIdentity::desktopFileName(),
+                                       &autostartError)) {
+        showStatusMessage(autostartError);
+    }
     QAction *terminalHistory = actionCollection()->action(QStringLiteral("search_terminal_history"));
     terminalHistory->setVisible(Settings::atuinHistory());
     terminalHistory->setEnabled(Settings::atuinHistory());

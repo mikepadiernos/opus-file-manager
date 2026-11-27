@@ -7,6 +7,7 @@
 #include "appidentity.h"
 #include "apppackages.h"
 #include "atuin.h"
+#include "cloudsync.h"
 #include "defaultfilemanager.h"
 #include "desktoptray.h"
 #include "documentformats.h"
@@ -87,6 +88,7 @@
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <tuple>
 
 namespace
 {
@@ -2718,5 +2720,198 @@ QWidget *SettingsDialog::createRcloneIntegrationPage()
     update();
     updateMode();
     connect(refresh, &QPushButton::clicked, page, reload);
+    return page;
+}
+
+QWidget *SettingsDialog::createRemoteDrivesIntegrationPage()
+{
+    using RemoteMounts::Backend;
+    using RemoteProfiles::Protocol;
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("remoteDrivesIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *backendsGroup = new StatusGroup(i18nc("@title:group", "Mount Backends"));
+    backendsGroup->setObjectName(QStringLiteral("remoteDrivesBackendsGroup"));
+    auto *backendsLayout = new QVBoxLayout(backendsGroup);
+    auto *backendsForm = new QFormLayout;
+    // The choices of each entry follow RemoteMounts::backends() for its protocol.
+    const QList<std::tuple<QString, Protocol, QString>> entries{
+        {QStringLiteral("RemoteDriveSftpBackend"), Protocol::Sftp, i18nc("@label:listbox", "SFTP:")},
+        {QStringLiteral("RemoteDriveWebDavBackend"), Protocol::WebDav, i18nc("@label:listbox", "WebDAV:")},
+        {QStringLiteral("RemoteDriveSmbBackend"), Protocol::Smb, i18nc("@label:listbox", "SMB:")},
+    };
+    QList<std::pair<QComboBox *, Protocol>> combos;
+    for (const auto &[entry, protocol, label] : entries) {
+        QStringList names;
+        const QList<Backend> available = RemoteMounts::backends(protocol);
+        for (Backend backend : available) {
+            names.append(RemoteMounts::name(backend));
+        }
+        QComboBox *combo = comboBox(entry, names);
+        backendsForm->addRow(label, combo);
+        combos.append({combo, protocol});
+    }
+    auto *ftp = new QLabel(RemoteMounts::name(Backend::KioFuse));
+    ftp->setToolTip(i18nc("@info:tooltip", "Only KIO FUSE can mount FTP and FTPS connections"));
+    backendsForm->addRow(i18nc("@label", "FTP and FTPS:"), ftp);
+    backendsLayout->addLayout(backendsForm);
+    auto *backendsStatus = statusLabel(QStringLiteral("remoteDrivesBackendsStatus"));
+    backendsLayout->addWidget(backendsStatus);
+    auto *backendsNote = new QLabel(i18nc("@info",
+                                          "These settings apply when a saved connection is mounted with Mount as Folder in Go › Remote "
+                                          "Connections, unless its own Mount Options… were saved. KIO FUSE mounts through KDE and keeps "
+                                          "passwords in KDE Wallet; the others are the system's own clients."));
+    backendsNote->setWordWrap(true);
+    backendsLayout->addWidget(backendsNote);
+    layout->addWidget(backendsGroup);
+
+    auto *folderGroup = new StatusGroup(i18nc("@title:group", "Mount Folder and Access"));
+    folderGroup->setObjectName(QStringLiteral("remoteDrivesFolderGroup"));
+    auto *folderLayout = new QVBoxLayout(folderGroup);
+    auto *folderForm = new QFormLayout;
+    auto *folder = new KUrlRequester;
+    folder->setObjectName(QStringLiteral("kcfg_RemoteDriveMountFolder"));
+    folder->setMode(KFile::Directory | KFile::LocalOnly);
+    folder->setPlaceholderText(RemoteMounts::mountRoot());
+    folder->setToolTip(i18nc("@info:tooltip", "Each connection is mounted in a folder named after it inside this folder"));
+    folderForm->addRow(i18nc("@label:chooser", "Mount in:"), folder);
+    folderLayout->addLayout(folderForm);
+    auto *readOnly = checkBox(QStringLiteral("RemoteDriveReadOnly"), i18nc("@option:check", "Mount read-only, so applications can't change files"));
+    readOnly->setToolTip(i18nc("@info:tooltip", "Mount Options… can still make a connection writable"));
+    folderLayout->addWidget(readOnly);
+    auto *folderStatus = statusLabel(QStringLiteral("remoteDrivesFolderStatus"));
+    folderLayout->addWidget(folderStatus);
+    auto *folderNote = new QLabel(i18nc("@info",
+                                        "KIO FUSE chooses its own folder and can't mount read-only, so these settings apply to sshfs, davfs2 "
+                                        "and CIFS. A connection's own folder in Mount Options… is used instead."));
+    folderNote->setWordWrap(true);
+    folderLayout->addWidget(folderNote);
+    layout->addWidget(folderGroup);
+
+    auto *automaticGroup = new StatusGroup(i18nc("@title:group", "Automatic Mounting"));
+    automaticGroup->setObjectName(QStringLiteral("remoteDrivesAutomaticGroup"));
+    auto *automaticLayout = new QVBoxLayout(automaticGroup);
+    auto *atLogin = checkBox(QStringLiteral("RemoteDriveMountAtLogin"),
+                             i18nc("@option:check", "Start Plasma Opus in the system tray at login to mount the connections chosen to mount at startup"));
+    atLogin->setToolTip(i18nc("@info:tooltip", "Adds Plasma Opus to Plasma's Autostart settings, without a window"));
+    automaticLayout->addWidget(atLogin);
+    auto *onWorkspace = checkBox(QStringLiteral("RemoteDriveMountOnWorkspace"),
+                                 i18nc("@option:check", "Mount the connections holding a workspace's locations when it is activated"));
+    onWorkspace->setToolTip(i18nc("@info:tooltip",
+                                  "Mounts each saved connection that holds a Favorite or Place assigned to the workspace, or the folder it is "
+                                  "mounted on, when the workspace is activated or Plasma Opus starts in it"));
+    automaticLayout->addWidget(onWorkspace);
+    auto *unmountOnExit =
+        checkBox(QStringLiteral("RemoteDriveUnmountOnExit"), i18nc("@option:check", "Unmount sshfs, davfs2 and CIFS mounts when Plasma Opus quits"));
+    unmountOnExit->setToolTip(i18nc("@info:tooltip", "When cleared, mounts stay until you unmount them, and Plasma Opus takes them over when it starts again"));
+    automaticLayout->addWidget(unmountOnExit);
+    auto *automaticStatus = statusLabel(QStringLiteral("remoteDrivesAutomaticStatus"));
+    automaticLayout->addWidget(automaticStatus);
+    auto *autostart = actionButton(QStringLiteral("openAutostartSettings"), i18nc("@action:button", "Open Autostart Settings…"));
+    autostart->setIcon(QIcon::fromTheme(QStringLiteral("preferences-system-login")));
+    autostart->setToolTip(i18nc("@info:tooltip", "Review the applications Plasma starts at login"));
+    automaticLayout->addLayout(buttonRow({autostart}));
+    auto *message = messageWidget(QStringLiteral("remoteDrivesMessage"));
+    automaticLayout->addWidget(message);
+    layout->addWidget(automaticGroup);
+    layout->addStretch();
+
+    const auto refreshBackends = [combos, backendsStatus] {
+        QStringList problems;
+        bool fstab = false;
+        for (const auto &[combo, protocol] : combos) {
+            const QList<Backend> available = RemoteMounts::backends(protocol);
+            for (int index = 0; index < available.size() && index < combo->count(); ++index) {
+                const QString reason = RemoteMounts::unavailableReason(available.at(index));
+                combo->setItemText(index,
+                                   reason.isEmpty()
+                                       ? RemoteMounts::name(available.at(index))
+                                       : i18nc("@item:inlistbox %1 is a mount backend", "%1 (not installed)", RemoteMounts::name(available.at(index))));
+                combo->setItemData(index, reason, Qt::ToolTipRole);
+            }
+            const Backend chosen = available.value(combo->currentIndex(), Backend::KioFuse);
+            const QString reason = RemoteMounts::unavailableReason(chosen);
+            if (!reason.isEmpty() && !problems.contains(reason)) {
+                problems.append(reason);
+            }
+            fstab = fstab || chosen == Backend::Davfs2 || chosen == Backend::Cifs;
+        }
+        if (fstab) {
+            problems.append(i18nc("@info",
+                                  "davfs2 and CIFS mount only the connections an administrator adds to /etc/fstab; Mount Options… shows the "
+                                  "line to add."));
+        }
+        backendsStatus->setText(problems.isEmpty() ? i18nc("@info", "The chosen backends are installed.") : problems.join(QLatin1Char(' ')));
+    };
+    const auto refreshFolder = [folder, folderStatus] {
+        const QString chosen = folder->url().isLocalFile() ? folder->url().toLocalFile() : QString();
+        if (folder->url().isEmpty()) {
+            folderStatus->setText(i18nc("@info %1 is a folder",
+                                        "Mounts go in %1, a private folder that only you can open and that is emptied when you log out.",
+                                        QDir::toNativeSeparators(RemoteMounts::mountRoot())));
+        } else if (chosen.isEmpty() || !QDir::isAbsolutePath(chosen)) {
+            folderStatus->setText(
+                i18nc("@info %1 is a folder", "Choose a local folder. Until then, mounts go in %1.", QDir::toNativeSeparators(RemoteMounts::mountRoot())));
+        } else {
+            folderStatus->setText(i18nc("@info %1 is a folder",
+                                        "Mounts go in %1, which is created if needed. Other users can open them if the folder's permissions "
+                                        "allow it. Mounts already in place stay where they are.",
+                                        QDir::toNativeSeparators(QDir::cleanPath(chosen))));
+        }
+    };
+    const auto refreshAutomatic = [atLogin, unmountOnExit, automaticStatus] {
+        const KConfigGroup options = KSharedConfig::openConfig()->group(QStringLiteral("RemoteMounts"));
+        const QList<RemoteProfiles::Profile> profiles = RemoteProfiles::load(KSharedConfig::openConfig()->group(QStringLiteral("RemoteProfiles")));
+        const qsizetype atStartup = std::count_if(profiles.cbegin(), profiles.cend(), [&options](const RemoteProfiles::Profile &profile) {
+            return RemoteMounts::loadOptions(options, profile).atStartup;
+        });
+        QStringList lines;
+        lines.append(
+            atStartup == 0
+                ? i18nc("@info",
+                        "No saved connection mounts at startup. Choose Mount when Plasma Opus starts in its Mount Options… "
+                        "in Go › Remote Connections.")
+                : i18ncp("@info", "One saved connection mounts when Plasma Opus starts.", "%1 saved connections mount when Plasma Opus starts.", atStartup));
+        if (atLogin->isChecked()) {
+            lines.append(RemoteMounts::mountsAtLogin() ? i18nc("@info", "Plasma Opus starts at login, in the system tray.")
+                                                       : i18nc("@info", "Plasma Opus will start at login once you apply this."));
+        } else if (CloudSync::startsAtLogin()) {
+            lines.append(i18nc("@info", "Plasma Opus already starts at login for cloud sync, so these connections are mounted then too."));
+        }
+        if (!unmountOnExit->isChecked()) {
+            lines.append(i18nc("@info",
+                               "sshfs, davfs2 and CIFS mounts started from now on stay after Plasma Opus quits, until you unmount them in Go "
+                               "› Remote Connections or log out."));
+        }
+        lines.append(i18nc("@info", "KIO FUSE mounts stay until KIO FUSE stops, whichever you choose."));
+        automaticStatus->setText(lines.join(QLatin1Char('\n')));
+    };
+    backendsGroup->refresh = refreshBackends;
+    folderGroup->refresh = refreshFolder;
+    // Connections may have been chosen to mount at startup while the page was hidden.
+    automaticGroup->refresh = refreshAutomatic;
+    for (const auto &[combo, protocol] : std::as_const(combos)) {
+        connect(combo, &QComboBox::currentIndexChanged, page, refreshBackends);
+    }
+    connect(folder, &KUrlRequester::textChanged, page, refreshFolder);
+    connect(atLogin, &QCheckBox::toggled, page, refreshAutomatic);
+    connect(unmountOnExit, &QCheckBox::toggled, page, refreshAutomatic);
+    // Applying writes the autostart entry that the status reports, after this dialog's own handlers.
+    connect(this, &KConfigDialog::settingsChanged, page, [page, refreshAutomatic] {
+        QTimer::singleShot(0, page, refreshAutomatic);
+    });
+    // Defaults and Reset change the widgets without user input.
+    connect(this, &KConfigDialog::widgetModified, page, [refreshBackends, refreshFolder, refreshAutomatic] {
+        refreshBackends();
+        refreshFolder();
+        refreshAutomatic();
+    });
+    connect(autostart, &QPushButton::clicked, page, [message] {
+        openSettingsModule(QStringLiteral("kcm_autostart"), i18nc("@info", "Plasma's Autostart settings are not installed."), message);
+    });
+    refreshBackends();
+    refreshFolder();
+    refreshAutomatic();
     return page;
 }

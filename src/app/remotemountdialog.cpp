@@ -20,11 +20,16 @@
 
 using RemoteMounts::Backend;
 
-RemoteMountDialog::RemoteMountDialog(const RemoteProfiles::Profile &profile, const KConfigGroup &group, QWidget *parent, RemoteMounts::ExecutableLookup find)
+RemoteMountDialog::RemoteMountDialog(const RemoteProfiles::Profile &profile,
+                                     const KConfigGroup &group,
+                                     QWidget *parent,
+                                     RemoteMounts::ExecutableLookup find,
+                                     const RemoteMounts::Defaults &defaults)
     : QDialog(parent)
     , m_profile(profile)
     , m_group(group)
     , m_find(std::move(find))
+    , m_defaults(defaults)
     , m_backend(new QComboBox(this))
     , m_readOnly(new QCheckBox(i18nc("@option:check", "Read-only"), this))
     , m_location(new QLineEdit(this))
@@ -55,7 +60,9 @@ RemoteMountDialog::RemoteMountDialog(const RemoteProfiles::Profile &profile, con
     locationRow->addWidget(browse);
 
     m_readOnly->setToolTip(i18nc("@info:tooltip", "Applications can open files on the mount but not change them"));
-    m_atStartup->setToolTip(i18nc("@info:tooltip", "Mount this connection each time Plasma Opus starts, and unmount it when Plasma Opus quits"));
+    m_atStartup->setToolTip(i18nc("@info:tooltip",
+                                  "Mount this connection each time Plasma Opus starts, which can be at login under Preferences › Remote and Cloud › "
+                                  "Remote Drives"));
     m_hint->setWordWrap(true);
     m_hint->setTextInteractionFlags(Qt::TextSelectableByMouse);
     m_status->setWordWrap(true);
@@ -90,7 +97,7 @@ RemoteMountDialog::RemoteMountDialog(const RemoteProfiles::Profile &profile, con
     layout->addStretch();
     layout->addWidget(buttons);
 
-    const RemoteMounts::Options saved = RemoteMounts::loadOptions(m_group, profile);
+    const RemoteMounts::Options saved = RemoteMounts::loadOptions(m_group, profile, m_defaults);
     m_backend->setCurrentIndex(qMax(0, m_backend->findData(int(saved.backend))));
     m_readOnly->setChecked(saved.readOnly);
     m_location->setText(saved.location);
@@ -131,8 +138,9 @@ void RemoteMountDialog::updateState()
     m_location->setEnabled(!kioFuse);
     RemoteMounts::Options current = options();
     m_location->setPlaceholderText(
-        kioFuse ? i18nc("@info:placeholder", "Chosen by KIO FUSE")
-                : i18nc("@info:placeholder %1 is a folder", "Default: %1", RemoteMounts::mountPoint(m_profile, {backend, false, {}, false})));
+        kioFuse
+            ? i18nc("@info:placeholder", "Chosen by KIO FUSE")
+            : i18nc("@info:placeholder %1 is a folder", "Default: %1", RemoteMounts::mountPoint(m_profile, {backend, false, {}, false}, m_defaults.folder)));
 
     switch (backend) {
     case Backend::KioFuse:
@@ -147,10 +155,11 @@ void RemoteMountDialog::updateState()
         break;
     case Backend::Davfs2:
     case Backend::Cifs:
-        m_hint->setText(i18nc("@info %1 is an fstab line",
-                              "Mounting without administrator rights needs an fstab entry that an administrator adds, such as:\n%1\n"
-                              "Plasma Opus never changes fstab or stores passwords for it.",
-                              RemoteMounts::fstabExample(m_profile, backend, RemoteMounts::mountPoint(m_profile, current), current.readOnly)));
+        m_hint->setText(
+            i18nc("@info %1 is an fstab line",
+                  "Mounting without administrator rights needs an fstab entry that an administrator adds, such as:\n%1\n"
+                  "Plasma Opus never changes fstab or stores passwords for it.",
+                  RemoteMounts::fstabExample(m_profile, backend, RemoteMounts::mountPoint(m_profile, current, m_defaults.folder), current.readOnly)));
         break;
     }
 

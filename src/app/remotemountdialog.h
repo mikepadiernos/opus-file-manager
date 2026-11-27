@@ -22,10 +22,12 @@ class RemoteMountDialog : public QDialog
     Q_OBJECT
 
 public:
+    /// @param defaults the options of a connection that has none saved, and the folder holding mounts
     RemoteMountDialog(const RemoteProfiles::Profile &profile,
                       const KConfigGroup &group,
                       QWidget *parent = nullptr,
-                      RemoteMounts::ExecutableLookup find = RemoteMounts::findExecutable);
+                      RemoteMounts::ExecutableLookup find = RemoteMounts::findExecutable,
+                      const RemoteMounts::Defaults &defaults = RemoteMounts::defaultsFromSettings());
 
     /// The options described by the form, which may be unsaved.
     RemoteMounts::Options options() const;
@@ -41,6 +43,7 @@ private:
     RemoteProfiles::Profile m_profile;
     KConfigGroup m_group;
     RemoteMounts::ExecutableLookup m_find;
+    RemoteMounts::Defaults m_defaults;
     QComboBox *m_backend;
     QCheckBox *m_readOnly;
     QLineEdit *m_location;

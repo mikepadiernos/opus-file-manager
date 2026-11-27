@@ -170,13 +170,17 @@ int main(int argc, char **argv)
     const QCommandLineOption uninstallPortalOption(QStringLiteral("uninstall-portal"), i18n("Restore the previous XDG portal file chooser, then exit"));
     const QCommandLineOption backgroundSyncOption(QStringLiteral("background-sync"),
                                                   i18n("Start in the system tray without a window and synchronize cloud sync pairs"));
+    const QCommandLineOption backgroundMountOption(
+        QStringLiteral("background-mount"),
+        i18n("Start in the system tray without a window and mount the remote connections chosen to mount at startup"));
     parser.addOptions({resetAppearanceOption,
                        noWorkspaceAppearanceOption,
                        fileManagerServiceOption,
                        workspaceOption,
                        installPortalOption,
                        uninstallPortalOption,
-                       backgroundSyncOption});
+                       backgroundSyncOption,
+                       backgroundMountOption});
     parser.process(app);
     aboutData.processCommandLine(&parser);
 
@@ -267,9 +271,9 @@ int main(int argc, char **argv)
                 QApplication::quit();
             }
         });
-    } else if (parser.isSet(backgroundSyncOption)) {
-        // Started at login for cloud sync: the window stays hidden until the
-        // tray icon or another launch shows it.
+    } else if (parser.isSet(backgroundSyncOption) || parser.isSet(backgroundMountOption)) {
+        // Started at login for cloud sync or remote drives: the window stays
+        // hidden until the tray icon or another launch shows it.
         window->desktopTray()->startInBackground();
     } else {
         const QStringList paths = parser.positionalArguments();
@@ -294,13 +298,14 @@ int main(int argc, char **argv)
         const QCommandLineOption fileManagerService(QStringLiteral("file-manager-service"));
         const QCommandLineOption workspace(QStringLiteral("workspace"), QString(), QStringLiteral("id"));
         const QCommandLineOption backgroundSync(QStringLiteral("background-sync"));
+        const QCommandLineOption backgroundMount(QStringLiteral("background-mount"));
         instanceParser.addOptions(
-            {resetAppearance, QCommandLineOption(QStringLiteral("no-workspace-appearance")), fileManagerService, workspace, backgroundSync});
+            {resetAppearance, QCommandLineOption(QStringLiteral("no-workspace-appearance")), fileManagerService, workspace, backgroundSync, backgroundMount});
         instanceParser.parse(arguments);
-        if (instanceParser.isSet(fileManagerService) || instanceParser.isSet(backgroundSync)) {
+        if (instanceParser.isSet(fileManagerService) || instanceParser.isSet(backgroundSync) || instanceParser.isSet(backgroundMount)) {
             // Another process was activated for a request this instance
-            // does not serve, or to start background synchronization, which
-            // this instance already runs.
+            // does not serve, or to start background synchronization or
+            // mounting, which this instance already runs.
             return;
         }
         if (instanceParser.isSet(resetAppearance)) {

@@ -28,6 +28,7 @@
 #include "pane.h"
 #include "portalsetup.h"
 #include "rclone.h"
+#include "remotemountdialog.h"
 #include "remotemounts.h"
 #include "remoteprofiles.h"
 #include "remoteprofilesdialog.h"
@@ -2994,6 +2995,166 @@ private Q_SLOTS:
         enabled->setChecked(true);
         dialog.button(QDialogButtonBox::Apply)->click();
         QVERIFY(cloud->isVisible());
+    }
+
+    void remoteDrivesTabChoosesBackendsFolderAndAutomaticMounting()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        const QString drives = folder.filePath(QStringLiteral("drives"));
+        const auto config = KSharedConfig::openConfig();
+        const QStringList groups{QStringLiteral("RemoteProfiles"), QStringLiteral("RemoteMounts"), QStringLiteral("Favorites"), QStringLiteral("Workspaces")};
+        for (const QString &name : groups) {
+            config->group(name).deleteGroup();
+        }
+        QVERIFY(RemoteMounts::setMountAtLogin(false, {}, {}));
+        RemoteProfiles::Profile server;
+        server.id = QStringLiteral("9a4e7c1b-3f2d-4e8a-b6c5-1d0f2e3a4b5c");
+        server.name = QStringLiteral("Server");
+        server.protocol = RemoteProfiles::Protocol::Sftp;
+        server.host = QStringLiteral("example.org");
+        server.path = QStringLiteral("/srv/data");
+        QList<RemoteProfiles::Profile> profiles{server};
+        QVERIFY(RemoteProfiles::save(config->group(QStringLiteral("RemoteProfiles")), profiles));
+        // A Favorite on the connection is assigned to a workspace.
+        const QUrl location(QStringLiteral("sftp://example.org/srv/data/docs"));
+        WorkspaceCatalog::Catalog catalog;
+        QString error;
+        QVERIFY(WorkspaceCatalog::create(catalog, QStringLiteral("Work"), QStringLiteral("W"), error));
+        const QString workspace = catalog.workspaces.first().id;
+        QVERIFY(WorkspaceCatalog::assignLocation(catalog, WorkspaceCatalog::locationId(location), workspace, error));
+        QVERIFY2(WorkspaceCatalog::save(config->group(QStringLiteral("Workspaces")), catalog, error), qPrintable(error));
+        QVERIFY(config->sync());
+        const auto restore = qScopeGuard([config, groups] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            RemoteMounts::setMountAtLogin(false, {}, {});
+            config->reparseConfiguration();
+            for (const QString &name : groups) {
+                config->group(name).deleteGroup();
+            }
+            config->sync();
+        });
+
+        MainWindow window;
+        QVERIFY(window.favorites()->add(location));
+        QUrl requested;
+        window.remoteMounts()->setKioFuseMount([&requested](const QUrl &url, QObject *, const RemoteMountManager::KioFuseReply &reply) {
+            requested = url;
+            reply(QStringLiteral("/run/user/1000/kio-fuse-x/sftp/example.org/srv/data"), {});
+        });
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *sftp = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_RemoteDriveSftpBackend"));
+        auto *webDav = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_RemoteDriveWebDavBackend"));
+        auto *smb = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_RemoteDriveSmbBackend"));
+        auto *mountFolder = dialog.findChild<KUrlRequester *>(QStringLiteral("kcfg_RemoteDriveMountFolder"));
+        auto *readOnly = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_RemoteDriveReadOnly"));
+        auto *atLogin = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_RemoteDriveMountAtLogin"));
+        auto *onWorkspace = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_RemoteDriveMountOnWorkspace"));
+        auto *unmountOnExit = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_RemoteDriveUnmountOnExit"));
+        auto *backendsStatus = dialog.findChild<QLabel *>(QStringLiteral("remoteDrivesBackendsStatus"));
+        auto *folderStatus = dialog.findChild<QLabel *>(QStringLiteral("remoteDrivesFolderStatus"));
+        auto *automaticStatus = dialog.findChild<QLabel *>(QStringLiteral("remoteDrivesAutomaticStatus"));
+        QVERIFY(sftp && webDav && smb && mountFolder && readOnly && atLogin && onWorkspace && unmountOnExit);
+        QVERIFY(backendsStatus && folderStatus && automaticStatus);
+        QVERIFY(dialog.findChild<QPushButton *>(QStringLiteral("openAutostartSettings")));
+        QCOMPARE(tabTitleOf(sftp), QStringLiteral("Remote Drives"));
+        const auto apply = [&dialog] {
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+        };
+        const auto choose = [](QComboBox *combo, int index) {
+            combo->setCurrentIndex(index);
+            // The dialog tracks user selection in plain combo boxes.
+            Q_EMIT combo->activated(index);
+        };
+
+        // KIO FUSE mounts every protocol until another backend is chosen.
+        for (QComboBox *combo : {sftp, webDav, smb}) {
+            QCOMPARE(combo->count(), 2);
+            QCOMPARE(combo->currentIndex(), 0);
+            QCOMPARE(combo->itemText(0), QStringLiteral("KIO FUSE"));
+        }
+        QCOMPARE(sftp->itemText(1).contains(QStringLiteral("not installed")), !RemoteMounts::unavailableReason(RemoteMounts::Backend::Sshfs).isEmpty());
+        QVERIFY2(backendsStatus->text().contains(QStringLiteral("installed")), qPrintable(backendsStatus->text()));
+        QVERIFY2(folderStatus->text().contains(RemoteMounts::mountRoot()), qPrintable(folderStatus->text()));
+        QVERIFY2(automaticStatus->text().contains(QStringLiteral("No saved connection mounts at startup")), qPrintable(automaticStatus->text()));
+        QVERIFY(unmountOnExit->isChecked());
+        QVERIFY(window.remoteMounts()->unmountsOnExit());
+        QVERIFY(window.remoteMounts()->mountFolder().isEmpty());
+
+        // The chosen backends, folder and read-only access start connections without mount options of their own.
+        choose(sftp, 1);
+        choose(smb, 1);
+        QVERIFY2(backendsStatus->text().contains(QStringLiteral("/etc/fstab")), qPrintable(backendsStatus->text()));
+        mountFolder->setUrl(QUrl::fromLocalFile(drives));
+        QVERIFY2(folderStatus->text().contains(drives), qPrintable(folderStatus->text()));
+        readOnly->setChecked(true);
+        apply();
+        QCOMPARE(Settings::remoteDriveSftpBackend(), Settings::EnumRemoteDriveSftpBackend::Sshfs);
+        QCOMPARE(Settings::remoteDriveSmbBackend(), Settings::EnumRemoteDriveSmbBackend::Cifs);
+        const RemoteMounts::Defaults defaults = RemoteMounts::defaultsFromSettings();
+        QCOMPARE(defaults.backends.value(RemoteProfiles::Protocol::Sftp), RemoteMounts::Backend::Sshfs);
+        QCOMPARE(defaults.backends.value(RemoteProfiles::Protocol::Smb), RemoteMounts::Backend::Cifs);
+        QVERIFY(!defaults.backends.contains(RemoteProfiles::Protocol::WebDav));
+        QVERIFY(defaults.readOnly);
+        QCOMPARE(QDir::cleanPath(defaults.folder), QDir::cleanPath(drives));
+        QCOMPARE(QDir::cleanPath(window.remoteMounts()->mountFolder()), QDir::cleanPath(drives));
+        const KConfigGroup mountOptions = config->group(QStringLiteral("RemoteMounts"));
+        {
+            RemoteMountDialog options(server, mountOptions, &window);
+            QCOMPARE(options.options().backend, RemoteMounts::Backend::Sshfs);
+            QVERIFY(options.options().readOnly);
+            QVERIFY(options.options().location.isEmpty());
+        }
+        // Options saved for a connection win.
+        RemoteMounts::saveOptions(config->group(QStringLiteral("RemoteMounts")), server.id, {});
+        QCOMPARE(RemoteMounts::loadOptions(mountOptions, server, defaults).backend, RemoteMounts::Backend::KioFuse);
+        config->group(QStringLiteral("RemoteMounts")).deleteGroup();
+
+        // Mounts can stay after quitting.
+        unmountOnExit->setChecked(false);
+        QVERIFY2(automaticStatus->text().contains(QStringLiteral("stay after Plasma Opus quits")), qPrintable(automaticStatus->text()));
+        apply();
+        QVERIFY(!Settings::remoteDriveUnmountOnExit());
+        QVERIFY(!window.remoteMounts()->unmountsOnExit());
+
+        // Starting at login adds an autostart entry, and clearing it removes the entry.
+        atLogin->setChecked(true);
+        QVERIFY2(automaticStatus->text().contains(QStringLiteral("once you apply")), qPrintable(automaticStatus->text()));
+        apply();
+        QVERIFY(RemoteMounts::mountsAtLogin());
+        QFile entry(RemoteMounts::autostartPath());
+        QVERIFY(entry.open(QIODevice::ReadOnly));
+        QVERIFY(entry.readAll().contains(" --background-mount\n"));
+        entry.close();
+        QTRY_VERIFY2(automaticStatus->text().contains(QStringLiteral("starts at login")), qPrintable(automaticStatus->text()));
+        atLogin->setChecked(false);
+        apply();
+        QVERIFY(!RemoteMounts::mountsAtLogin());
+
+        // Activating the workspace mounts the connection holding its location.
+        choose(sftp, 0);
+        onWorkspace->setChecked(true);
+        apply();
+        QVERIFY(Settings::remoteDriveMountOnWorkspace());
+        window.mountRemoteProfilesForWorkspace(QStringLiteral("another"));
+        QVERIFY(requested.isEmpty());
+        window.mountRemoteProfilesForWorkspace(workspace);
+        QCOMPARE(requested, RemoteProfiles::url(server));
+        QVERIFY(window.remoteMounts()->isMounted(server.id));
+        // A connection already mounted isn't mounted again.
+        requested.clear();
+        window.mountRemoteProfilesForWorkspace(workspace);
+        QVERIFY(requested.isEmpty());
+        window.remoteMounts()->unmount(server.id);
+        QVERIFY(!window.remoteMounts()->isMounted(server.id));
+
+        onWorkspace->setChecked(false);
+        apply();
+        window.mountRemoteProfilesForWorkspace(workspace);
+        QVERIFY(requested.isEmpty());
     }
 };
 
