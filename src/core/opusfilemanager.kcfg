@@ -724,6 +724,56 @@
       <label>Apply the workspace assigned to a virtual desktop when it becomes current</label>
       <default>false</default>
     </entry>
+    <entry name="DropDownEnabled" type="Bool">
+      <label>Show and hide the main window as a drop-down window</label>
+      <default>false</default>
+    </entry>
+    <entry name="DropDownEdge" type="Enum">
+      <label>The screen edge the drop-down window slides in from</label>
+      <choices>
+        <choice name="Top" value="top"/>
+        <choice name="Bottom" value="bottom"/>
+        <choice name="Left" value="left"/>
+        <choice name="Right" value="right"/>
+      </choices>
+      <default>Top</default>
+    </entry>
+    <entry name="DropDownWidth" type="Int">
+      <label>The drop-down window's width, as a percentage of the screen</label>
+      <default>100</default>
+      <min>10</min>
+      <max>100</max>
+    </entry>
+    <entry name="DropDownHeight" type="Int">
+      <label>The drop-down window's height, as a percentage of the screen</label>
+      <default>50</default>
+      <min>10</min>
+      <max>100</max>
+    </entry>
+    <entry name="DropDownScreen" type="String">
+      <label>The screen the drop-down window opens on; empty for the active screen</label>
+      <default></default>
+    </entry>
+    <entry name="DropDownSlide" type="Bool">
+      <label>Slide the drop-down window in and out</label>
+      <default>true</default>
+    </entry>
+    <entry name="DropDownHideOnFocusLoss" type="Bool">
+      <label>Hide the drop-down window when another application is activated</label>
+      <default>false</default>
+    </entry>
+    <entry name="DropDownScreenEdge" type="Bool">
+      <label>Show or hide the drop-down window by pushing the pointer against its screen edge</label>
+      <default>false</default>
+    </entry>
+    <entry name="DropDownTouchEdge" type="Bool">
+      <label>Show or hide the drop-down window by swiping in from its screen edge</label>
+      <default>false</default>
+    </entry>
+    <entry name="DropDownWorkspace" type="String">
+      <label>The workspace applied when the drop-down window is shown; empty keeps the current layout</label>
+      <default></default>
+    </entry>
   </group>
   <group name="OnlineAccounts">
     <entry name="OnlineAccountsEnabled" type="Bool">
