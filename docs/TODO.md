@@ -26,6 +26,7 @@ Board statuses were last confirmed on 2026-11-26.
 | [System file chooser on Plasma](#system-file-chooser-on-plasma-286) | [M27](ROADMAP.md#m27-integrations)                                             | [#286]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [Mount manager on Plasma](#mount-manager-on-plasma-703)             | [M27](ROADMAP.md#m27-integrations)                                             | [#703]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
 | [KWin script on Plasma](#kwin-script-on-plasma-707-708)             | [M27](ROADMAP.md#m27-integrations)                                             | [#707], [#708] | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                       |
+| [Administrator mode on Plasma](#administrator-mode-on-plasma-288)   | [M27](ROADMAP.md#m27-integrations)                                             | [#288]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                   |
 
 ## mpv integration (#563)
 
@@ -184,9 +185,40 @@ Board statuses were last confirmed on 2026-11-26.
 5. Remove the script and confirm it is unloaded. Record any differences in
    [CAVEATS](CAVEATS.md), then remove this entry and its roadmap links.
 
+## Administrator mode on Plasma (#288)
+
+- **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#288]
+  (Development).
+- **Blocker:** The development container has no `kio-admin` worker, no
+  Polkit agent and no Plasma session, so the authorization prompt and
+  operations performed as root cannot be tried there.
+- **Confirmed state:** **File › Act as Administrator**, the warning, the
+  warning bar, the missing-worker report and session saving are implemented
+  and pass their tests in the container. The test that cancels the warning
+  is skipped there because it needs `kio-admin`. This verification does not
+  block the feature; it is recorded as a caveat under
+  [Desktop integration](CAVEATS.md#desktop-integration).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with `kio-admin` installed, run
+   `QT_QPA_PLATFORM=offscreen ctest --test-dir build -R adminmodeuitest
+   --output-on-failure` and confirm the cancel test runs and passes.
+2. Open `/etc` in Plasma Opus, choose **File › Act as Administrator**,
+   accept the warning and authenticate. Check that the warning bar appears
+   and the action is checked.
+3. Create, rename, edit through **Open With** and delete a test file in a
+   root-owned folder, then deny and cancel the authorization prompt in a new
+   window and check each failure is reported.
+4. Press **Stop Acting as Administrator**, then quit and restart Plasma Opus
+   and save and apply a workspace, confirming no tab reopens as `admin:`.
+   Record any differences in [CAVEATS](CAVEATS.md), then remove this entry
+   and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
+[#288]: https://github.com/mikepadiernos/plasma-opus/issues/288
 [#563]: https://github.com/mikepadiernos/plasma-opus/issues/563
 [#564]: https://github.com/mikepadiernos/plasma-opus/issues/564
 [#565]: https://github.com/mikepadiernos/plasma-opus/issues/565
