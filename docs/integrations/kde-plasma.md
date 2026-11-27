@@ -472,9 +472,16 @@ behaves like the rest of the desktop and follows the user's choices.
   aren't installed are disabled with a tooltip saying so. LibreOffice and
   ONLYOFFICE open a mixed selection together; Calligra opens each kind in
   Calligra Words, Sheets or Stage. Only Calligra opens remote files. The
-  application handles editing, saving and format conversion. See
-  [Office documents](../CAVEATS.md#desktop-integration).
-  ([#674](https://github.com/mikepadiernos/plasma-opus/issues/674))
+  application handles editing, saving and format conversion. Choose the
+  application that **Edit** opens office documents in, and whether the
+  preview panel shows them, under **Preferences › Applications › Office**,
+  which marks the applications that aren't installed and lists the viewer
+  component that previews each kind of document; a chosen application that
+  isn't installed is reported rather than replaced. See
+  [Office documents](../CAVEATS.md#desktop-integration) and
+  [Office settings](../CAVEATS.md#integration-settings).
+  ([#674](https://github.com/mikepadiernos/plasma-opus/issues/674),
+  [#676](https://github.com/mikepadiernos/plasma-opus/issues/676))
 - **Edit action:** **Tools › Edit**, <kbd>F4</kbd>, also in the context
   menu of a single editable file, opens the selected file in a suitable tool:
   text files in the built-in editor; office documents in LibreOffice,
@@ -491,7 +498,10 @@ behaves like the rest of the desktop and follows the user's choices.
   **Preferences › Applications › Editor**, which marks the editors that
   aren't installed; a chosen editor that isn't installed is reported rather
   than replaced
-  ([#320](https://github.com/mikepadiernos/plasma-opus/issues/320)). See
+  ([#320](https://github.com/mikepadiernos/plasma-opus/issues/320)). Choose
+  the office application likewise under **Preferences › Applications ›
+  Office** ([#676](https://github.com/mikepadiernos/plasma-opus/issues/676)).
+  See
   [Edit action](../CAVEATS.md#desktop-integration).
   ([#675](https://github.com/mikepadiernos/plasma-opus/issues/675))
 - **Editing in the preview:** When the preview panel shows a text file,
