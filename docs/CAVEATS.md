@@ -2125,6 +2125,22 @@ The M27 desktop integrations have these limits
   prompt and elevated operations await
   [verification on Plasma](TODO.md#administrator-mode-on-plasma-288).
   ([#288](https://github.com/mikepadiernos/plasma-opus/issues/288))
+- **🤖 MCP server:** `opus-file-manager-mcp` speaks only the stdio
+  transport, so a client must run on the same computer and start the server
+  itself; there is no HTTP transport or access token. Until the M28 settings
+  page, access, folders and the audit log are changed only in
+  `opus-file-managerrc`, and a running server keeps the settings it started
+  with. It reads only UTF-8 text, at most 1 MiB per call, and refuses binary
+  files and other encodings. Listings and searches return at most 1,000
+  items, and a search stops after visiting 200,000 entries. Moves work only
+  within one file system, and a failed folder copy leaves a partial copy.
+  Items outside the allowed folders, including the targets of symbolic links,
+  are refused, but links copied inside a folder keep pointing where they did.
+  Tools work on local files only, not KIO locations, and changes are made
+  directly rather than as Plasma Opus jobs, so they can't be undone in Plasma
+  Opus. The audit log records paths but no contents, and grows until it is
+  deleted.
+  ([#287](https://github.com/mikepadiernos/plasma-opus/issues/287))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -2316,6 +2332,13 @@ The M27 desktop integrations have these limits
     press **Stop Acting as Administrator**. For commands, use `sudo` in a
     normal terminal instead. Lock the screen when leaving the computer,
     because Polkit may keep the authorization for a short time.
+  - **MCP server:** Keep the default read-only access, and allow only the
+    folders a client needs, such as a single project folder. Turn on write
+    access only while a task needs it, start other clients with
+    `--read-only`, and restart the client after changing the settings.
+    Check `~/.local/state/opus-file-manager/mcp-audit.log` to see what a
+    client did, restore items from the trash, and move large files between
+    drives yourself.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2416,6 +2439,10 @@ The M27 desktop integrations have these limits
   - Mark administrator tabs in the tab bar, offer **Open as Administrator**
     for a selected folder in a new tab, and allow trash, checksums and other
     local-file actions through the `admin:` worker where KIO supports them.
+  - The M28 **MCP** settings page, with folder choices and an access token;
+    an optional Streamable HTTP transport on the loopback interface; reading
+    other text encodings and images; moving between file systems through KIO
+    jobs that can be undone; and a size limit for the audit log.
 
 ## Embedded terminal
 
