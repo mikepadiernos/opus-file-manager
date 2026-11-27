@@ -737,3 +737,8 @@ const Node &Query::root() const
 {
     return m_root;
 }
+
+QString SearchQuery::toString(const Node &node)
+{
+    return describe(node);
+}

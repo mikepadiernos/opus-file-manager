@@ -82,9 +82,9 @@ void countContent(const Node &node, QHash<QString, int> &counts)
         countContent(child, counts);
     }
 }
+}
 
-// Baloo records Folder for folders and these types for every MIME type with the prefix.
-QString balooType(const SearchQuery::Term &term)
+QString IndexedSearch::balooType(const SearchQuery::Term &term)
 {
     if (term.type == SearchQuery::TypeMatch::Folder) {
         return QStringLiteral("Folder");
@@ -105,8 +105,7 @@ QString balooType(const SearchQuery::Term &term)
     return {};
 }
 
-// Periods start at local midnight, as Baloo reads dates without a time.
-QString dateString(const SearchQuery::Term &term)
+QString IndexedSearch::balooDateString(const SearchQuery::Term &term)
 {
     const QString from = term.from.date().toString(Qt::ISODate);
     const QString to = term.to.date().toString(Qt::ISODate);
@@ -124,7 +123,6 @@ QString dateString(const SearchQuery::Term &term)
         break;
     }
     return QStringLiteral("modified>=") + from + QStringLiteral(" AND modified<") + to;
-}
 }
 
 IndexedSearch::Plan
@@ -166,7 +164,7 @@ IndexedSearch::plan(const SearchQuery::Query *query, const QString &text, LiveSe
                 result.types.append(type);
             }
         } else if (node->kind == Node::Kind::Term && node->term.field == Field::Modified) {
-            dates.append(dateString(node->term));
+            dates.append(balooDateString(node->term));
         }
     }
 

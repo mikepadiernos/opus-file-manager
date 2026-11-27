@@ -179,6 +179,8 @@ add_library(opusfm_core STATIC
     settingsbackup.h
     servicemenus.cpp
     servicemenus.h
+    sharedsearch.cpp
+    sharedsearch.h
     session.h
     tabcolors.cpp
     tabcolors.h

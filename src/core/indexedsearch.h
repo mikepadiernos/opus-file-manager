@@ -16,6 +16,15 @@ namespace IndexedSearch
 QString balooSearchString(const SearchQuery::Term &term, const QStringList &metadataKeys);
 
 /**
+ * The Baloo type every match of a type: @p term has, such as Folder or Image,
+ * or an empty string. A specific MIME type gives the broader Baloo type.
+ */
+QString balooType(const SearchQuery::Term &term);
+
+/// The Baloo search string for a modified: @p term, with periods starting at local midnight.
+QString balooDateString(const SearchQuery::Term &term);
+
+/**
  * How a search is split between Baloo and Plasma Opus. Baloo applies the
  * search string, types and folder; Plasma Opus checks every candidate against
  * the whole query and filter, so the plan only narrows candidates.

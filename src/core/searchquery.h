@@ -89,6 +89,9 @@ using TagMatcher = std::function<bool(const Term &term)>;
 /// Returns the entry's embedded metadata texts; entries without metadata return none.
 using MetadataReader = std::function<QStringList()>;
 
+/// Normalized form of @p node, as Query::toString() writes it.
+QString toString(const Node &node);
+
 class Query
 {
 public:
