@@ -72,6 +72,10 @@ action.
 > **Preferences › Applications › Mail** shows the default mail client, opens
 > Plasma's Default Applications settings to change it, and turns the action
 > on or off ([#666](https://github.com/mikepadiernos/plasma-opus/issues/666)).
+> Its **Remote files** setting chooses whether Send by Email asks before
+> downloading private local copies of remote files or skips them; it never
+> downloads them without asking
+> ([#667](https://github.com/mikepadiernos/plasma-opus/issues/667)).
 > Its limits are recorded under
 > [Desktop integration](../CAVEATS.md#desktop-integration) and
 > [Integration settings](../CAVEATS.md#integration-settings).
@@ -103,8 +107,11 @@ action.
 > [!TIP]
 > **Implemented:** files can be dragged from the **Send by Email** list into
 > any composer, including remote files once their private local copies are
-> ready. Its limits are recorded under
-> [Desktop integration](../CAVEATS.md#desktop-integration).
+> ready, unless **Preferences › Applications › Mail** is set to skip remote
+> files ([#667](https://github.com/mikepadiernos/plasma-opus/issues/667)).
+> Its limits are recorded under
+> [Desktop integration](../CAVEATS.md#desktop-integration) and
+> [Integration settings](../CAVEATS.md#integration-settings).
 
 - Plasma Opus drags already provide file URLs. Plasma Impresario attaches
   dropped local files, so local drags need verification rather than new
