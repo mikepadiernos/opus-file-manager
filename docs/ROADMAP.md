@@ -1792,7 +1792,8 @@ for some features are recorded in [pending tasks](TODO.md).
         loading remote content, running scripts or decrypting messages. Offer
         explicit attachment extraction with normal conflict handling and
         opening through the registered application; never import messages.
-        [#658]
+        Plasma-session verification is a
+        [pending handoff](TODO.md#mail-file-preview-on-plasma-658). [#658]
   - [ ] Shared context with Plasma Impresario: use Plasma Activities, not a
         private API, as the only shared context with its planned
         account-to-workspace associations. Each application follows Activity
