@@ -193,7 +193,12 @@ behaves like the rest of the desktop and follows the user's choices.
   choices. It supports opening one or several files or a folder, saving with
   the selected filter's extension after confirming an overwrite, and saving
   several files into a folder. It returns local files only, is placed over
-  the requesting window and remembers its size. The
+  the requesting window and remembers its size. When the application
+  suggests no folder, it starts in the home folder or, with **Start folder**
+  set to **Folder of the last choice** under **Preferences › KDE Plasma ›
+  File Manager**, in the folder of that application's last accepted choice,
+  kept in session state; **Forget Remembered Folders** clears them
+  ([#750](https://github.com/mikepadiernos/plasma-opus/issues/750)). The
   `opus-file-manager-portal` helper is started by D-Bus and exits after two
   idle minutes.
   ([#286](https://github.com/mikepadiernos/plasma-opus/issues/286))
