@@ -343,10 +343,12 @@ private:
     /**
      * The KDE Plasma › Baloo tab: which indexed search extras the search
      * panel offers, with the state of KDE's shared index, and KDE's File
-     * Search settings on request.
+     * Search settings on request; and which file-type categories Places lists.
      */
     QWidget *createBalooIntegrationPage();
     QGroupBox *createBalooSearchGroup();
+    /// The KDE Plasma › Baloo categories group: which file-type categories Places lists, and the large-file size.
+    QGroupBox *createFileTypeCategoriesGroup();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.
     ActivityController *activityController() const;
     void createSettingsBackup();

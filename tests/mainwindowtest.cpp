@@ -809,6 +809,7 @@ private Q_SLOTS:
         };
         KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("FileTypePlaces"));
         state.writeEntry("Added", false);
+        Settings::setFileTypeCategoriesHidden({});
         {
             MainWindow window;
             auto *model = qobject_cast<KFilePlacesModel *>(window.findChild<KFilePlacesView *>()->model());
@@ -822,6 +823,8 @@ private Q_SLOTS:
                 QCOMPARE(model->groupType(index), KFilePlacesModel::SearchForType);
             }
             model->removePlace(rowFor(rows, FileTypePlaces::Category::Ebooks));
+            // Removing the entry hides its category in Preferences too.
+            QTRY_COMPARE(Settings::fileTypeCategoriesHidden(), QStringList{QStringLiteral("ebooks")});
         }
         QVERIFY(state.readEntry("Added", false));
         {
@@ -831,14 +834,27 @@ private Q_SLOTS:
             const auto rows = placeRows(model);
             QCOMPARE(rows.size(), FileTypePlaces::categories().size() - 1);
             QVERIFY(!rowFor(rows, FileTypePlaces::Category::Ebooks).isValid());
+            QCOMPARE(Settings::fileTypeCategoriesHidden(), QStringList{QStringLiteral("ebooks")});
+
+            // Showing the category again in Preferences restores only the missing entry.
+            Settings::setFileTypeCategoriesHidden({});
+            window.applySettings();
+            QTRY_COMPARE(placeRows(model).size(), FileTypePlaces::categories().size());
         }
         state.writeEntry("Added", false);
+        Settings::setFileTypeCategoriesHidden({QStringLiteral("large-files")});
         {
-            // Adding again restores only the missing entry.
+            // Adding again adds only the shown categories, and removes the hidden ones.
             MainWindow window;
             auto *model = qobject_cast<KFilePlacesModel *>(window.findChild<KFilePlacesView *>()->model());
-            QCOMPARE(placeRows(model).size(), FileTypePlaces::categories().size());
+            const auto rows = placeRows(model);
+            QCOMPARE(rows.size(), FileTypePlaces::categories().size() - 1);
+            QVERIFY(!rowFor(rows, FileTypePlaces::Category::LargeFiles).isValid());
+            Settings::setFileTypeCategoriesHidden({});
+            window.applySettings();
+            QTRY_COMPARE(placeRows(model).size(), FileTypePlaces::categories().size());
         }
+        Settings::self()->save();
     }
 
     void opensFileTypePlaceAsLiveSearchWhenIndexingIsOff()

@@ -374,8 +374,16 @@ private:
     /// Keeps the search panel beside the terminal when their orientations match, otherwise in the outer search splitter.
     void updateSearchPlacement();
     void setupPlaces();
-    /// Adds the file-type places to Places once, so that removed entries stay removed.
+    /**
+     * Adds the shown file-type places to Places on first use, then keeps the
+     * FileTypeCategoriesHidden setting in step with the entries removed from
+     * or added to Places, so that removed entries stay removed.
+     */
     void addFileTypePlaces();
+    /// Adds the shown file-type places missing from Places and removes the hidden ones.
+    void syncFileTypePlaces();
+    /// Records the file-type places missing from Places as hidden.
+    void rememberFileTypePlaces();
     void setupPanels();
     void setupStatusBar();
     void applyPanelSettings();
@@ -588,6 +596,8 @@ private:
     IndexBackend *m_indexBackend = nullptr;
 
     KFilePlacesModel *m_placesModel = nullptr;
+    /// Set while syncFileTypePlaces() edits Places, so that its own changes aren't recorded one at a time.
+    bool m_syncingFileTypePlaces = false;
     DesktopTray *m_desktopTray = nullptr;
     CloudSync::Scheduler *m_cloudSync = nullptr;
     QPointer<CloudSyncDialog> m_cloudSyncDialog;

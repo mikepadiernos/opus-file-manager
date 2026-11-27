@@ -8,6 +8,7 @@
 #include "desktoptray.h"
 #include "favoritesmodel.h"
 #include "filechooser.h"
+#include "filetypeplaces.h"
 #include "kwinintegration.h"
 #include "mainwindow.h"
 #include "mountbackend.h"
@@ -278,6 +279,8 @@ private Q_SLOTS:
         KSharedConfig::openStateConfig()->deleteGroup(FileChooser::stateGroupName());
         KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("Tray"));
         KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("KdeConnectShare"));
+        // Each main window then adds the file-type places the settings show.
+        KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("FileTypePlaces"));
         KSharedConfig::openStateConfig()->sync();
         qputenv("XDG_CURRENT_DESKTOP", "KDE");
         Settings::self()->setDefaults();
@@ -1551,6 +1554,93 @@ private Q_SLOTS:
         auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("balooMessage"));
         QCOMPARE(message->messageType(), KMessageWidget::Error);
         QVERIFY(message->text().contains(QStringLiteral("File Search settings are not installed")));
+    }
+
+    void balooTabChoosesTheFileTypeCategories()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        KFilePlacesModel *places = placesOf(window);
+        SettingsDialog dialog(places, &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        const auto listed = [places] {
+            QStringList ids;
+            for (int row = 0; row < places->rowCount(); ++row) {
+                FileTypePlaces::Category category = FileTypePlaces::Category::Documents;
+                if (FileTypePlaces::fromPlaceUrl(places->url(places->index(row, 0)), &category)) {
+                    ids.append(FileTypePlaces::id(category));
+                }
+            }
+            ids.sort();
+            return ids;
+        };
+        const auto indexOf = [places](const QString &id) {
+            for (int row = 0; row < places->rowCount(); ++row) {
+                const QModelIndex index = places->index(row, 0);
+                FileTypePlaces::Category category = FileTypePlaces::Category::Documents;
+                if (FileTypePlaces::fromPlaceUrl(places->url(index), &category) && FileTypePlaces::id(category) == id) {
+                    return index;
+                }
+            }
+            return QModelIndex();
+        };
+        QCOMPARE(listed().size(), FileTypePlaces::categories().size());
+
+        auto *group = dialog.findChild<QGroupBox *>(QStringLiteral("fileTypeCategoriesGroup"));
+        QVERIFY(group);
+        QCOMPARE(tabTitleOf(group), QStringLiteral("Baloo"));
+        auto *list = group->findChild<HiddenItemsList *>(QStringLiteral("kcfg_FileTypeCategoriesHidden"));
+        auto *size = group->findChild<QSpinBox *>(QStringLiteral("kcfg_LargeFileSizeMiB"));
+        QVERIFY(list && size);
+        QCOMPARE(list->count(), FileTypePlaces::categories().size());
+        QCOMPARE(size->value(), 100);
+        const auto item = [list](const QString &id) -> QListWidgetItem * {
+            for (int row = 0; row < list->count(); ++row) {
+                if (list->item(row)->data(Qt::UserRole).toString() == id) {
+                    return list->item(row);
+                }
+            }
+            return nullptr;
+        };
+        QCOMPARE(item(QStringLiteral("large-files"))->text(), QStringLiteral("Large Files"));
+
+        item(QStringLiteral("audio"))->setCheckState(Qt::Unchecked);
+        item(QStringLiteral("large-files"))->setCheckState(Qt::Unchecked);
+        size->setValue(5);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::fileTypeCategoriesHidden(), (QStringList{QStringLiteral("audio"), QStringLiteral("large-files")}));
+        QCOMPARE(FileTypePlaces::liveQuery(FileTypePlaces::Category::LargeFiles), QStringLiteral("size>5M"));
+        QTRY_VERIFY(!listed().contains(QStringLiteral("audio")));
+        QVERIFY(!listed().contains(QStringLiteral("large-files")));
+        QCOMPARE(listed().size(), FileTypePlaces::categories().size() - 2);
+
+        // Removing an entry from Places clears it here too, keeping unsaved changes to the others.
+        item(QStringLiteral("audio"))->setCheckState(Qt::Checked);
+        places->removePlace(indexOf(QStringLiteral("images")));
+        QTRY_COMPARE(Settings::fileTypeCategoriesHidden(), (QStringList{QStringLiteral("images"), QStringLiteral("audio"), QStringLiteral("large-files")}));
+        QCOMPARE(item(QStringLiteral("images"))->checkState(), Qt::Unchecked);
+        QCOMPARE(item(QStringLiteral("audio"))->checkState(), Qt::Checked);
+        QCOMPARE(item(QStringLiteral("large-files"))->checkState(), Qt::Unchecked);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::fileTypeCategoriesHidden(), (QStringList{QStringLiteral("images"), QStringLiteral("large-files")}));
+        QTRY_VERIFY(listed().contains(QStringLiteral("audio")));
+        QVERIFY(!listed().contains(QStringLiteral("images")));
+
+        {
+            // Another window keeps the removed entries removed.
+            MainWindow second;
+            QCOMPARE(listed().size(), FileTypePlaces::categories().size() - 2);
+            QCOMPARE(Settings::fileTypeCategoriesHidden(), (QStringList{QStringLiteral("images"), QStringLiteral("large-files")}));
+        }
+
+        dialog.button(QDialogButtonBox::RestoreDefaults)->click();
+        QCOMPARE(size->value(), 100);
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QTRY_COMPARE(listed().size(), FileTypePlaces::categories().size());
+        QVERIFY(Settings::fileTypeCategoriesHidden().isEmpty());
     }
 };
 

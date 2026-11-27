@@ -10,6 +10,7 @@
 #include "favoritesmodel.h"
 #include "filechooser.h"
 #include "filemanagerservice.h"
+#include "filetypeplaces.h"
 #include "indexbackend.h"
 #include "indexstatus.h"
 #include "kwinintegration.h"
@@ -17,7 +18,9 @@
 #include "onlineaccounts.h"
 #include "portalsetup.h"
 #include "runnermatches.h"
+#include "settings.h"
 #include "settingswidgets.h"
+#include "symbolicicon.h"
 #include "traypolicy.h"
 
 #include <KActionCollection>
@@ -1342,7 +1345,7 @@ QWidget *SettingsDialog::createBalooIntegrationPage()
     page->setObjectName(QStringLiteral("balooIntegrationPage"));
     auto *layout = new QVBoxLayout(page);
     layout->addWidget(createBalooSearchGroup());
-    layout->addStretch();
+    layout->addWidget(createFileTypeCategoriesGroup(), 1);
     return page;
 }
 
@@ -1398,5 +1401,61 @@ QGroupBox *SettingsDialog::createBalooSearchGroup()
         setCurrentPage(m_toolsPage);
         m_toolsTabs->setCurrentWidget(findChild<QWidget *>(QStringLiteral("searchSettingsPage")));
     });
+    return group;
+}
+
+QGroupBox *SettingsDialog::createFileTypeCategoriesGroup()
+{
+    auto *group = new QGroupBox(i18nc("@title:group", "Categories"));
+    group->setObjectName(QStringLiteral("fileTypeCategoriesGroup"));
+    auto *layout = new QVBoxLayout(group);
+    layout->addWidget(new QLabel(i18nc("@label", "List these file-type categories under Search For in Places:")));
+    auto *categories = bound(new HiddenItemsList, QStringLiteral("FileTypeCategoriesHidden"), "hiddenItems");
+    for (const FileTypePlaces::Category category : FileTypePlaces::categories()) {
+        categories->addItem(FileTypePlaces::id(category), FileTypePlaces::title(category));
+        categories->item(categories->count() - 1)->setIcon(SymbolicIcon::fromTheme(FileTypePlaces::iconName(category)));
+    }
+    layout->addWidget(categories, 1);
+    auto *size = new QSpinBox;
+    size->setObjectName(QStringLiteral("kcfg_LargeFileSizeMiB"));
+    size->setRange(1, 1048576);
+    size->setSuffix(i18nc("@item:valuesuffix", " MiB"));
+    size->setToolTip(i18nc("@info:tooltip", "Large Files finds the files bigger than this"));
+    auto *form = new QFormLayout;
+    form->addRow(i18nc("@label:spinbox", "Large files are over:"), size);
+    layout->addLayout(form);
+    auto *note = new QLabel(i18nc("@info",
+                                  "The categories search KDE's file index, except Large Files, which searches a chosen folder live "
+                                  "because file sizes aren't indexed. The entries appear only in the Places of Plasma Opus. "
+                                  "Removing an entry from Places clears it here."));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+
+    // The main window records entries removed from Places in the setting; follow
+    // those changes here without dropping unsaved changes to other categories.
+    if (m_places) {
+        auto known = std::make_shared<QStringList>(Settings::fileTypeCategoriesHidden());
+        const auto follow = [categories, known] {
+            const QStringList saved = Settings::fileTypeCategoriesHidden();
+            if (saved == *known) {
+                return;
+            }
+            const QStringList current = categories->hiddenItems();
+            QStringList hidden;
+            for (const FileTypePlaces::Category category : FileTypePlaces::categories()) {
+                const QString id = FileTypePlaces::id(category);
+                // A category whose saved state changed follows it; the others keep their unsaved state.
+                const bool changed = saved.contains(id) != known->contains(id);
+                if (changed ? saved.contains(id) : current.contains(id)) {
+                    hidden.append(id);
+                }
+            }
+            *known = saved;
+            categories->setHiddenItems(hidden);
+        };
+        connect(m_places, &QAbstractItemModel::rowsInserted, categories, follow);
+        connect(m_places, &QAbstractItemModel::rowsRemoved, categories, follow);
+        connect(m_places, &QAbstractItemModel::modelReset, categories, follow);
+    }
     return group;
 }

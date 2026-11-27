@@ -2537,28 +2537,81 @@ void MainWindow::showIndexStatus()
     dialog->show();
 }
 
+namespace
+{
+/// The file-type places listed in @p model, with their rows.
+QList<std::pair<FileTypePlaces::Category, QModelIndex>> fileTypePlaceRows(const KFilePlacesModel *model)
+{
+    // The model lists only the entries this application can see, so another
+    // application's OnlyInApp entries for the same URLs don't count.
+    QList<std::pair<FileTypePlaces::Category, QModelIndex>> rows;
+    for (int row = 0; row < model->rowCount(); ++row) {
+        const QModelIndex index = model->index(row, 0);
+        FileTypePlaces::Category category = FileTypePlaces::Category::Documents;
+        if (FileTypePlaces::fromPlaceUrl(model->url(index), &category)) {
+            rows.append({category, index});
+        }
+    }
+    return rows;
+}
+
+QList<FileTypePlaces::Category> fileTypePlacesIn(const KFilePlacesModel *model)
+{
+    QList<FileTypePlaces::Category> present;
+    for (const auto &[category, index] : fileTypePlaceRows(model)) {
+        present.append(category);
+    }
+    return present;
+}
+}
+
 void MainWindow::addFileTypePlaces()
 {
     KConfigGroup state = KSharedConfig::openStateConfig()->group(QStringLiteral("FileTypePlaces"));
     if (state.readEntry("Added", false)) {
-        return;
+        rememberFileTypePlaces();
+    } else {
+        syncFileTypePlaces();
+        state.writeEntry("Added", true);
+        state.sync();
+    }
+    // Removing an entry from Places hides its category, as clearing it in Preferences does.
+    connect(m_placesModel, &QAbstractItemModel::rowsInserted, this, &MainWindow::rememberFileTypePlaces);
+    connect(m_placesModel, &QAbstractItemModel::rowsRemoved, this, &MainWindow::rememberFileTypePlaces);
+    connect(m_placesModel, &QAbstractItemModel::modelReset, this, &MainWindow::rememberFileTypePlaces);
+}
+
+void MainWindow::syncFileTypePlaces()
+{
+    m_syncingFileTypePlaces = true;
+    const FileTypePlaces::PlaceChanges changes = FileTypePlaces::placeChanges(Settings::fileTypeCategoriesHidden(), fileTypePlacesIn(m_placesModel));
+    for (const FileTypePlaces::Category category : changes.remove) {
+        // Each removal moves the later rows, so look the entry up again.
+        for (const auto &[present, index] : fileTypePlaceRows(m_placesModel)) {
+            if (present == category) {
+                m_placesModel->removePlace(index);
+                break;
+            }
+        }
     }
     // OnlyInApp keeps the entries out of other applications' Places, which can't open them.
     const QString appName = QCoreApplication::applicationName();
-    // The model lists only the entries this application can see, so another
-    // application's OnlyInApp entries for the same URLs don't count.
-    QSet<QUrl> existing;
-    for (int row = 0; row < m_placesModel->rowCount(); ++row) {
-        existing.insert(m_placesModel->url(m_placesModel->index(row, 0)));
+    for (const FileTypePlaces::Category category : changes.add) {
+        m_placesModel->addPlace(FileTypePlaces::title(category), FileTypePlaces::placeUrl(category), FileTypePlaces::iconName(category), appName);
     }
-    for (const FileTypePlaces::Category category : FileTypePlaces::categories()) {
-        const QUrl url = FileTypePlaces::placeUrl(category);
-        if (!existing.contains(url)) {
-            m_placesModel->addPlace(FileTypePlaces::title(category), url, FileTypePlaces::iconName(category), appName);
-        }
+    m_syncingFileTypePlaces = false;
+}
+
+void MainWindow::rememberFileTypePlaces()
+{
+    if (m_syncingFileTypePlaces) {
+        return;
     }
-    state.writeEntry("Added", true);
-    state.sync();
+    const QStringList hidden = FileTypePlaces::absentIds(fileTypePlacesIn(m_placesModel));
+    if (hidden != Settings::fileTypeCategoriesHidden()) {
+        Settings::setFileTypeCategoriesHidden(hidden);
+        Settings::self()->save();
+    }
 }
 
 void MainWindow::openFileTypePlace(Pane *pane, const QUrl &url, bool newTab)
@@ -8029,6 +8082,7 @@ void MainWindow::applySettings()
     scheduleWorkspaceSelectorRefresh();
     m_desktopTray->applySettings();
     m_activityController->applySettings();
+    syncFileTypePlaces();
     actionCollection()->action(QStringLiteral("kdeconnect_send"))->setVisible(Settings::kdeConnectSharing());
     actionCollection()->action(QStringLiteral("online_accounts"))->setVisible(Settings::onlineAccountsEnabled());
     if (m_mountBackend) {
