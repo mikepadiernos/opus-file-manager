@@ -175,7 +175,10 @@ under `~/.local`; use `./install.sh --help` for other options, such as
 default folder handler and lets it answer **Show in folder** requests from other
 applications through `org.freedesktop.FileManager1`. Installing also adds the
 Plasma Opus KRunner plugin and its `opus-file-manager-krunner` helper, which
-offer saved workspaces and Favorites in KRunner and Plasma Search.
+offer saved workspaces and Favorites in KRunner and Plasma Search, and the
+`opus-file-manager-mcp` server, which lets MCP clients such as AI assistants
+read files in your home folder; see
+[KDE Plasma integration](docs/integrations/kde-plasma.md).
 `./install.sh --file-chooser` also lets Plasma Opus answer the Open and Save
 dialogs that Flatpak, Snap and other portal-enabled applications request
 through the XDG file chooser portal, keeping KDE's chooser as the fallback;

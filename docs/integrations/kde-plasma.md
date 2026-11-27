@@ -570,6 +570,30 @@ behaves like the rest of the desktop and follows the user's choices.
   `kio-admin` package and remote locations are reported. See
   [Administrator mode](../CAVEATS.md#desktop-integration).
   ([#288](https://github.com/mikepadiernos/plasma-opus/issues/288))
+- **MCP server:** `opus-file-manager-mcp` is a Model Context Protocol server
+  that MCP clients, such as AI assistants and editors, start when they need
+  it. It speaks JSON-RPC 2.0 over standard input and output and offers tools
+  to list folders, describe items, read UTF-8 text files, search by name and
+  show a folder in Plasma Opus. Access is read-only by default and limited to
+  the home folder. With write access, clients can also create folders, save
+  text files, copy, move and rename items and move them to the trash; nothing
+  is deleted permanently, and an existing file is replaced only when the
+  client asks to overwrite it. Every path, and the target of every symbolic
+  link followed, must stay inside the allowed folders. Each call is recorded,
+  without file contents, in `~/.local/state/opus-file-manager/mcp-audit.log`.
+  To use it, add the command to the client's MCP servers:
+
+  ```json
+  { "mcpServers": { "plasma-opus": { "command": "opus-file-manager-mcp" } } }
+  ```
+
+  Until the M28 settings page, change the access level, folders and audit log
+  in the `[Mcp]` group of `~/.config/opus-file-managerrc`, for example with
+  `kwriteconfig6 --file opus-file-managerrc --group Mcp --key McpAccess Write`
+  (`Off`, `Read` or `Write`) or `--key McpFolders ~/Projects,~/Documents`.
+  The `--read-only` option keeps one client to reading. See
+  [MCP server](../CAVEATS.md#desktop-integration).
+  ([#287](https://github.com/mikepadiernos/plasma-opus/issues/287))
 
 ## Planned features
 
