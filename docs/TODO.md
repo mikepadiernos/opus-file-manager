@@ -41,6 +41,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Global shortcut on Plasma](#global-shortcut-on-plasma-291)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#291]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [Activity associations on Plasma](#activity-associations-on-plasma-391)     | [M28](ROADMAP.md#m28-integration-settings)                                     | [#391]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [KDE Connect settings on Plasma](#kde-connect-settings-on-plasma-393)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#393]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
+| [KRunner settings on Plasma](#krunner-settings-on-plasma-394)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#394]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 
 ## mpv integration (#563)
 
@@ -700,6 +701,36 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
    its roadmap link.
 
+## KRunner settings on Plasma (#394)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#394]
+  (Development).
+- **Blocker:** The development container has no KRunner, no Plasma session
+  and no System Settings, so the installed plugin cannot be searched and
+  **Configure Plasma Search…** cannot open Plasma's search settings there.
+- **Confirmed state:** `SettingsDialog::createKRunnerIntegrationPage()` in
+  `src/app/integrationsettingspages.cpp` stores the switch and the cleared
+  workspaces and Favorites, and opens the `kcm_plasmasearch` module through
+  `kcmshell6` or System Settings. `OpusRunner` in `src/runner/` reads them
+  again when a search session ends. Leaving out what is turned off or
+  cleared passes `runnermatchestest`, `opusrunnertest` and
+  `integrationsettingstest` in the container, calling the runner directly
+  rather than through KRunner. See
+  [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with Plasma Opus installed by `./install.sh`, open
+   **Preferences › KDE Plasma › KRunner**, clear one saved workspace and one
+   Favorite, apply, close KRunner and search for both; check that neither
+   is offered while the others still are.
+2. Clear **Offer saved workspaces and Favorites in KRunner and Plasma
+   Search**, apply, and check that a new search offers nothing from Plasma
+   Opus. Choose **Configure Plasma Search…** and check that Plasma's search
+   settings open rather than the tab reporting them as not installed.
+   Record any differences in [CAVEATS](CAVEATS.md#integration-settings),
+   then remove this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -711,6 +742,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#391]: https://github.com/mikepadiernos/plasma-opus/issues/391
 [#392]: https://github.com/mikepadiernos/plasma-opus/issues/392
 [#393]: https://github.com/mikepadiernos/plasma-opus/issues/393
+[#394]: https://github.com/mikepadiernos/plasma-opus/issues/394
 [#563]: https://github.com/mikepadiernos/plasma-opus/issues/563
 [#564]: https://github.com/mikepadiernos/plasma-opus/issues/564
 [#565]: https://github.com/mikepadiernos/plasma-opus/issues/565
