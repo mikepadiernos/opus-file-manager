@@ -14,12 +14,12 @@ interfaces it would use, and ideas considered beyond the roadmap.
 [Plasma Impresario](plasma-impresario.md)
 
 > [!NOTE]
-> **Implemented:** Nextcloud accounts, browsing, previews and asset search
-> from M29, described under [Implemented features](#implemented-features).
+> **Implemented:** Nextcloud accounts, browsing, previews, asset search and
+> Photos albums from M29, described under
+> [Implemented features](#implemented-features).
 > **Planned:** the rest of [M29](../ROADMAP.md#m29-nextcloud-integration) and
 > its settings in [M30](../ROADMAP.md#m30-nextcloud-settings), summarized under
-> [Planned features](#planned-features); of the app workflows, only
-> [Photos](#photos) is on the roadmap. Everything under
+> [Planned features](#planned-features). Everything under
 > [Considered features](#considered-features) is outside the roadmap.
 
 ## Contents
@@ -188,11 +188,48 @@ document describes how Plasma Opus could also work with Nextcloud apps.
   See [Nextcloud integration](../CAVEATS.md#nextcloud-integration).
   ([#590](https://github.com/mikepadiernos/plasma-opus/issues/590))
 
+- **Photos:** **Go › Nextcloud › *account* › Photos…** opens a window that
+  lists the account's Nextcloud Photos **Albums**, **Shared albums** or
+  **Places**, chosen under **Show**, as virtual folders; see
+  [Photos](#photos). A collection's tooltip gives its photo count, location,
+  dates and collaborators. Selecting one lists its photos with the capture
+  date and place the server read from them, without downloading the files.
+  **Sort** orders them newest or oldest first, by name or by place, and
+  **Group by** groups them by the month taken or by place; the window
+  remembers both. Photos without a capture date or place come last, and the
+  status line counts those without a capture date. Selecting a photo shows the
+  server's preview, and **Show in Pane**, or a double-click, reveals the file
+  in the active pane when it is in your own files.
+  - **Albums:** **New Album…** creates an album. **Remove from Album…** asks
+    for confirmation, saying that the files aren't deleted, then deletes only
+    the album's entry for each photo; Plasma Opus refuses to send a `DELETE`
+    for anything but a photo directly in an album. The context menu of files,
+    not folders, in a Nextcloud account adds **Nextcloud › Add to Nextcloud
+    Album…**, which lists your albums and the shared albums that accept
+    photos, and adds the files after confirmation. The question says that the
+    files stay where they are and, for a shared album, that everyone it is
+    shared with will see them.
+  - **Permissions and availability:** a shared album whose owner doesn't
+    allow adding photos is left out of **Add to Nextcloud Album…**, and one
+    that doesn't allow removing them disables **Remove from Album…**, with the
+    reason as its tooltip. Places are read-only server groupings. When the
+    server has no Photos app, the window says so and disables **New Album…**.
+  - **Server interfaces:** a `PROPFIND` of depth 1 on
+    `remote.php/dav/photos/<user>/albums/`, `sharedalbums/` and `places/`,
+    falling back to `locations/`, and on each collection, for `nc:nbItems`,
+    `nc:location`, `nc:dateRange`, `nc:collaborators`, `oc:permissions`,
+    `nc:file-name`, `nc:realpath` and `nc:metadata-photos-*`; `MKCOL` of
+    `albums/<name>`; `COPY` from `remote.php/dav/files/<user>/…` to
+    `albums/<name>/<file>` with `Overwrite: F`; and `DELETE` of
+    `albums/<name>/<entry>` or `sharedalbums/<name>/<entry>`.
+
+  See [Nextcloud integration](../CAVEATS.md#nextcloud-integration).
+  ([#671](https://github.com/mikepadiernos/plasma-opus/issues/671))
+
 ## Planned features
 
 | Feature         | Plan                                                                                                                                                        | Milestone                                      |
 | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| Photos          | Albums, shared albums and places as virtual folders; see [Photos](#photos).                                                                                 | [M29](../ROADMAP.md#m29-nextcloud-integration) |
 | Shares          | View and manage shares with explicit authorization; send a reviewed share link through the M27 **Send by Email** action.                                    | [M29](../ROADMAP.md#m29-nextcloud-integration) |
 | Sync folders    | Open configured local sync folders and the desktop client, showing remote, local, offline and unknown state; never start a second sync engine.              | [M29](../ROADMAP.md#m29-nextcloud-integration) |
 | Settings        | Account references, browsing and preview choices, asset metadata and search, sharing and desktop-client integration, stored in KConfig without credentials. | [M30](../ROADMAP.md#m30-nextcloud-settings)    |
@@ -200,16 +237,16 @@ document describes how Plasma Opus could also work with Nextcloud apps.
 
 ## Nextcloud app interfaces
 
-| App                | Interface                                                                                                                                                                                        |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Files              | WebDAV at `remote.php/dav/files/<user>/`, used by M29.                                                                                                                                           |
-| Photos             | WebDAV at `remote.php/dav/photos/<user>/` with `albums`, `sharedalbums` and `places` collections. Server metadata includes `nc:metadata-photos-original_date_time` and `nc:metadata-photos-gps`. |
-| Calendar and Tasks | CalDAV. Calendar stores event attachments as ordinary files, in `/Calendar` by default.                                                                                                          |
-| Maps               | Custom maps are folders, `/Maps` by default or any folder containing `.index.maps`, holding photos, `.gpx` tracks, contact vCards and `.favorites.json`.                                         |
-| Deck               | REST API at `index.php/apps/deck/api/v1.0` for boards, stacks, cards and labels. Since Deck 1.3, card attachments are ordinary files.                                                            |
-| Notes              | Markdown files in the folder reported by the `notes_path` capability (Notes 4.12 and later), `Notes` by default, with subfolders as categories.                                                  |
-| Text               | Rich workspaces show a folder's `Readme.md` above the Files listing.                                                                                                                             |
-| Versions and trash | WebDAV at `remote.php/dav/versions/<user>/` and `remote.php/dav/trashbin/<user>/`.                                                                                                               |
+| App                | Interface                                                                                                                                                                                                                                                                  |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Files              | WebDAV at `remote.php/dav/files/<user>/`, used by M29.                                                                                                                                                                                                                     |
+| Photos             | WebDAV at `remote.php/dav/photos/<user>/` with `albums`, `sharedalbums` and `places` collections, or `locations` in some versions. Server metadata includes `nc:metadata-photos-original_date_time`, `nc:metadata-photos-place` and `nc:metadata-photos-gps`. Used by M29. |
+| Calendar and Tasks | CalDAV. Calendar stores event attachments as ordinary files, in `/Calendar` by default.                                                                                                                                                                                    |
+| Maps               | Custom maps are folders, `/Maps` by default or any folder containing `.index.maps`, holding photos, `.gpx` tracks, contact vCards and `.favorites.json`.                                                                                                                   |
+| Deck               | REST API at `index.php/apps/deck/api/v1.0` for boards, stacks, cards and labels. Since Deck 1.3, card attachments are ordinary files.                                                                                                                                      |
+| Notes              | Markdown files in the folder reported by the `notes_path` capability (Notes 4.12 and later), `Notes` by default, with subfolders as categories.                                                                                                                            |
+| Text               | Rich workspaces show a folder's `Readme.md` above the Files listing.                                                                                                                                                                                                       |
+| Versions and trash | WebDAV at `remote.php/dav/versions/<user>/` and `remote.php/dav/trashbin/<user>/`.                                                                                                                                                                                         |
 
 > [!CAUTION]
 > Photos, Calendar, Maps, Deck and Notes were reviewed against their source or
@@ -219,23 +256,28 @@ document describes how Plasma Opus could also work with Nextcloud apps.
 
 ## Photos
 
-Planned in [M29](../ROADMAP.md#m29-nextcloud-integration), with settings in
+Implemented in [M29](../ROADMAP.md#m29-nextcloud-integration) as the
+**Photos…** window described under
+[Implemented features](#implemented-features), with settings planned in
 [M30](../ROADMAP.md#m30-nextcloud-settings):
 
-- Browse albums, shared albums and places as virtual folders in either pane.
-  Albums reference files without copying them, so label these folders clearly
-  and offer to reveal each photo's real location.
-- Sort and group photos by the server's capture date and location metadata
-  without downloading them, falling back to file dates and reporting photos
-  without metadata.
-- Add selected Nextcloud photos to an album, create or rename albums, and
-  remove photos from an album, each with confirmation. Removing a photo from
-  an album must never delete the file, and the action must say so; deleting a
-  file remains a separate, explicit Files action.
-- Respect shared-album permissions, and treat places as read-only server
-  groupings. Report when the Photos app is unavailable.
-- **With Plasma Impresario:** send selected album photos through the M27
-  **Send by Email** action, with the location warning described for the
+- Albums, shared albums and places are browsed as virtual folders in their
+  own window rather than in a pane, because albums reference files without
+  copying them. The window says so, and **Show in Pane** reveals each photo's
+  real location.
+- Photos are sorted and grouped by the server's capture date and place without
+  downloading them. Photos without a capture date or place are listed last and
+  counted; the server's modification date is only shown in a tooltip.
+- Adding files to an album, creating an album and removing photos from an
+  album each need an explicit action, and adding or removing needs
+  confirmation. Removing a photo from an album never deletes the file, and
+  the question says so; deleting a file remains a separate, explicit Files
+  action.
+- Shared-album permissions are respected, and places are read-only server
+  groupings. The window reports when the Photos app is unavailable.
+- **Not yet:** renaming albums, browsing albums in a pane, and, **with Plasma
+  Impresario**, sending selected album photos through the M27 **Send by
+  Email** action with the location warning described for the
   [map view](plasma-impresario.md#map).
 
 ## Considered features
