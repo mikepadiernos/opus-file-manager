@@ -1867,7 +1867,10 @@ Settings for M27 integrations, stored in KConfig.
 
   - [ ] **Search:** choose whether to offer fuzzy ranking and live-search
         fallback; reuse M10 and M22 settings and open KDE's shared indexing
-        controls rather than duplicating or silently changing them. [#443]
+        controls rather than duplicating or silently changing them.
+        Plasma-session verification is a
+        [pending handoff](TODO.md#baloo-search-settings-on-plasma-443).
+        [#443]
   - [ ] **Categories:** choose which file-type categories appear in Places and
         their criteria, such as the large-file size [#660]
 

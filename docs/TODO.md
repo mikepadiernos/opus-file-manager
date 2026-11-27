@@ -45,6 +45,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Online account settings on Plasma](#online-account-settings-on-plasma-371) | [M28](ROADMAP.md#m28-integration-settings)                                     | [#371]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [KWin script settings on Plasma](#kwin-script-settings-on-plasma-709)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#709]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [Drop-down settings on Plasma](#drop-down-settings-on-plasma-710)           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#710]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
+| [Baloo search settings on Plasma](#baloo-search-settings-on-plasma-443)     | [M28](ROADMAP.md#m28-integration-settings)                                     | [#443]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 
 ## mpv integration (#563)
 
@@ -839,6 +840,39 @@ Board statuses were last confirmed on 2026-11-27.
    Record any differences in [CAVEATS](CAVEATS.md#integration-settings),
    then remove this entry and its roadmap link.
 
+## Baloo search settings on Plasma (#443)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#443]
+  (Development).
+- **Blocker:** The development container has no running Baloo indexer or
+  System Settings, so the tab's indexer state can't be compared with a real
+  index there, and **Configure File Search…** cannot open KDE's File Search
+  settings.
+- **Confirmed state:** `SettingsDialog::createBalooSearchGroup()` in
+  `src/app/integrationsettingspages.cpp` stores `SearchOfferRanking` and
+  `SearchOfferLiveFallback` in the `Search` group, which `SearchDefaults::read()`
+  reads and `SearchWidget` applies when the settings are applied. The tab reads
+  the indexer's state through `IndexStatus::Config::read()` and
+  `SystemIndexBackend`, and opens the `kcm_baloofile` module through
+  `kcmshell6` or System Settings. The options pass `searchwidgettest` and
+  `integrationsettingstest` in the container. See
+  [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with file indexing on, open **Preferences › KDE
+   Plasma › Baloo** and check that the tab reports the indexer's state as
+   `balooctl6 status` does. Turn indexing off in KDE File Search settings and
+   check that the tab says so the next time it is shown.
+2. Choose **Configure File Search…** and check that KDE's File Search settings
+   open. Choose **Search Defaults…** and check that **Tools › Search** is
+   shown.
+3. Clear both options, apply, and run an indexed search in the search panel:
+   check that **Rank results by similarity** and **Search Current Folder
+   Live** are not shown. Check them again, apply, and check that both return.
+   Record any differences in [CAVEATS](CAVEATS.md#integration-settings),
+   then remove this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -852,6 +886,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#392]: https://github.com/mikepadiernos/plasma-opus/issues/392
 [#393]: https://github.com/mikepadiernos/plasma-opus/issues/393
 [#394]: https://github.com/mikepadiernos/plasma-opus/issues/394
+[#443]: https://github.com/mikepadiernos/plasma-opus/issues/443
 [#563]: https://github.com/mikepadiernos/plasma-opus/issues/563
 [#564]: https://github.com/mikepadiernos/plasma-opus/issues/564
 [#565]: https://github.com/mikepadiernos/plasma-opus/issues/565
