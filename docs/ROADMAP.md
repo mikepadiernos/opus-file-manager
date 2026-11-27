@@ -1946,7 +1946,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **Cloud storage**
 
-  - [ ] **rclone:** enable the integration, choose which remotes to show and
+  - [x] **rclone:** enable the integration, choose which remotes to show and
         whether to serve them over WebDAV or mount them. Plasma-session
         verification is a
         [pending handoff](TODO.md#rclone-settings-on-plasma-663). [#663]
