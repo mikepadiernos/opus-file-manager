@@ -2306,7 +2306,10 @@ The M27 desktop integrations have these limits
 - **🏷️ Workspace vaults and tags:** **Use as Editor Vault** in **Workspaces**
   makes one of a workspace's assigned locations the vault of every editor while
   that workspace is active; the editor's own choice is kept and returns when the
-  workspace has no vault or is left. Only one vault applies at a time, shared by
+  workspace has no vault, its vault is turned off or the workspace is left.
+  While the workspace's vault location can't be found, such as after it is
+  removed from Favorites, the editor says why instead of using its own vault.
+  Only one vault applies at a time, shared by
   all windows of a Plasma Opus process, and only local folders that resolve to a
   single saved location qualify, so remote locations and ambiguous saved names
   can't be chosen. While the workspace's vault applies, **Vault › Choose Vault
@@ -2316,9 +2319,10 @@ The M27 desktop integrations have these limits
   Tags are inline `#tag` or nested `#area/topic` words outside code, and `tags:`
   or `tag:` in YAML front matter; tags that are only digits are ignored and case
   is not significant. Tags can't be renamed or searched across the vault, and
-  there is no graph view. Vault options arrive with the M28 **Editor ›
-  Workspace vault** setting
-  ([#566](https://github.com/mikepadiernos/plasma-opus/issues/566)).
+  there is no graph view. **Workspace Vault** under **Preferences ›
+  Applications › Editor** turns a workspace's vault off or gives it its own
+  options; see **Workspace vault settings** under
+  [Integration settings](#integration-settings).
   ([#565](https://github.com/mikepadiernos/plasma-opus/issues/565))
 - **🎞️ Embedded mpv playback:** **Audio and video playback** under **Preferences
   › Interface › Previews**, or the backend button beside the playback controls,
@@ -3033,6 +3037,30 @@ The M28 integration settings have these limits
   still asks first, keeps a draft of the source and changes the file only on
   save. The 10,000-note limit is fixed.
   ([#577](https://github.com/mikepadiernos/plasma-opus/issues/577))
+- **📒 Workspace vault settings:** The **Workspace Vault** group under
+  **Preferences › Applications › Editor** stores each workspace's vault
+  switch, location and own Markdown options with the workspace after **Apply**
+  or **OK**; **Restore Defaults** leaves them alone, and a duplicated
+  workspace keeps the options but not the location. The location can only be
+  one of the workspace's assigned saved locations, assigned with **Manage
+  Workspaces…**; removed, remote and ambiguous ones can't be chosen, but the
+  workspace's current one stays shown with why it can't be used. Turning the
+  vault off keeps its location and options, and the editor uses the vault
+  folder from the **Markdown** group. While the active workspace's vault
+  location can't be found, the editor reports why rather than using another
+  vault; a missing folder is read again when settings are applied or the
+  vault is rescanned. The workspace's own options, the Markdown mode, preview
+  dialect, preview on open, wiki links and vault panel lists, apply only
+  while it is active with its vault on, and replace the **Markdown** group's
+  options and the default Markdown mode for its notes. The group counts the
+  vault's notes in the background, reporting the 10,000-file limit and
+  skipped notes, but doesn't follow changes to the notes while it stays open.
+  Changes not yet applied replace those made meanwhile to the same workspace
+  in **Workspaces**, and saving stops with a report if another window changed
+  the workspaces at the same moment. The **Backlinks**, **Links** and **Tags**
+  lists are the only relationship views; there is no graph view. Notes and
+  drafts are never changed by these settings.
+  ([#566](https://github.com/mikepadiernos/plasma-opus/issues/566))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3155,6 +3183,13 @@ The M28 integration settings have these limits
     Keep **Source** as the default Markdown mode under **Preferences › Editor
     › Editor** for notes with HTML or other formatting that visual editing
     can't keep.
+  - **Workspace vault settings:** Give each project's workspace its own vault
+    under **Preferences › Applications › Editor**, and turn it off rather
+    than choosing **None** when you want the editor's own vault for a while.
+    Give it its own options only where its notes differ, such as **Visual**
+    mode for plain notes. If its location is reported as unavailable, add the
+    folder back to Favorites or Places, or reconnect its drive; its notes and
+    drafts are kept.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3215,6 +3250,9 @@ The M28 integration settings have these limits
   - Follow a vault folder chosen in the editor while Preferences is open,
     keep a dialect chosen in the editor as the setting, and list recent vaults
     to switch between.
+  - Assign a location to a workspace from the **Workspace Vault** group,
+    follow changes to the vault's notes while the group is open, and show a
+    graph of how notes link.
 
 ## Embedded terminal
 
