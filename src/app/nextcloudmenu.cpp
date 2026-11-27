@@ -117,7 +117,7 @@ QMenu *addItemMenu(QMenu *menu, std::optional<bool> favorite, QObject *context, 
     QMenu *submenu = menu->addMenu(SymbolicIcon::fromTheme(QStringLiteral("folder-cloud")), i18nc("@menu", "Nextcloud"));
     submenu->setObjectName(QStringLiteral("nextcloudItemMenu"));
     submenu->setToolTipsVisible(true);
-    if (favorite != true) {
+    if (handlers.setFavorite && favorite != true) {
         QAction *add =
             submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("starred")), i18nc("@action:inmenu", "Add to Nextcloud Favourites"), context, [handlers] {
                 handlers.setFavorite(true);
@@ -125,7 +125,7 @@ QMenu *addItemMenu(QMenu *menu, std::optional<bool> favorite, QObject *context, 
         add->setObjectName(QStringLiteral("nextcloudAddFavorite"));
         add->setToolTip(i18nc("@info:tooltip", "Mark as a favourite on the Nextcloud server, separate from the Places panel"));
     }
-    if (favorite != false) {
+    if (handlers.setFavorite && favorite != false) {
         QAction *remove = submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("non-starred")),
                                              i18nc("@action:inmenu", "Remove from Nextcloud Favourites"),
                                              context,
@@ -134,10 +134,15 @@ QMenu *addItemMenu(QMenu *menu, std::optional<bool> favorite, QObject *context, 
                                              });
         remove->setObjectName(QStringLiteral("nextcloudRemoveFavorite"));
     }
-    QAction *tags = submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("tag")), i18nc("@action:inmenu", "Nextcloud Tags…"), context, handlers.editTags);
-    tags->setObjectName(QStringLiteral("nextcloudEditTags"));
-    tags->setToolTip(i18nc("@info:tooltip", "Assign the server's collaborative tags, which are separate from Plasma Opus tags"));
-    submenu->addSeparator();
+    if (handlers.editTags) {
+        QAction *tags =
+            submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("tag")), i18nc("@action:inmenu", "Nextcloud Tags…"), context, handlers.editTags);
+        tags->setObjectName(QStringLiteral("nextcloudEditTags"));
+        tags->setToolTip(i18nc("@info:tooltip", "Assign the server's collaborative tags, which are separate from Plasma Opus tags"));
+    }
+    if (!submenu->isEmpty()) {
+        submenu->addSeparator();
+    }
     QAction *organize = submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("system-search")),
                                            i18nc("@action:inmenu", "Search and Organize…"),
                                            context,
@@ -182,10 +187,11 @@ void populateDesktopClient(QMenu *menu,
     open->setToolTip(client.installed ? i18nc("@info:tooltip", "Show the Nextcloud desktop client, which synchronizes these folders")
                                       : i18nc("@info:tooltip", "The Nextcloud desktop client isn't installed."));
 
+    const bool checked = client.statusEnabled && client.statusChecked;
     QAction *status = nullptr;
-    if (!client.statusChecked) {
+    if (client.statusEnabled && !client.statusChecked) {
         status = menu->addAction(i18nc("@info:status", "Checking synchronization status…"));
-    } else if (!client.running) {
+    } else if (checked && !client.running) {
         status = menu->addAction(SymbolicIcon::fromTheme(QStringLiteral("state-offline")), i18nc("@info:status", "Desktop client not running"));
         status->setToolTip(i18nc("@info:tooltip", "Synchronization status is unavailable, and changes aren't synchronized until the desktop client starts."));
     }
@@ -212,9 +218,9 @@ void populateDesktopClient(QMenu *menu,
         if (name.isEmpty()) {
             name = folder.localPath;
         }
-        // While the status is being checked, nothing is claimed about the folder.
+        // While the status is being checked, or when it isn't, nothing is claimed about the folder.
         QString title = name;
-        if (client.statusChecked) {
+        if (checked) {
             title = state.sync == Sync::Unknown || state.sync == Sync::NotSynchronized
                 ? i18nc("@action:inmenu %1 is a folder name, %2 where its files are", "%1 (%2)", name, availabilityText(state.availability))
                 : i18nc("@action:inmenu %1 is a folder name, %2 where its files are, %3 its sync status",
@@ -224,7 +230,7 @@ void populateDesktopClient(QMenu *menu,
                         syncText(state.sync));
         }
         QString icon = QStringLiteral("folder-sync");
-        if (client.statusChecked) {
+        if (checked) {
             switch (state.sync) {
             case Sync::UpToDate:
                 icon = QStringLiteral("state-ok");
@@ -259,7 +265,13 @@ void populateDesktopClient(QMenu *menu,
                                  folder.targetPath.isEmpty() ? QStringLiteral("/") : folder.targetPath,
                                  server));
         }
-        tooltip.append(client.statusChecked ? state.description : i18nc("@info:tooltip", "Checking the desktop client's status…"));
+        if (checked) {
+            tooltip.append(state.description);
+        } else if (client.statusEnabled) {
+            tooltip.append(i18nc("@info:tooltip", "Checking the desktop client's status…"));
+        } else {
+            tooltip.append(i18nc("@info:tooltip", "The desktop client isn't asked for the synchronization status, as set in Preferences."));
+        }
         submenu->menuAction()->setToolTip(tooltip.join(QLatin1Char('\n')));
 
         QAction *openFolder = submenu->addAction(SymbolicIcon::fromTheme(QStringLiteral("document-open-folder")),
@@ -300,5 +312,15 @@ void populateDesktopClient(QMenu *menu,
                                      folder.server.toDisplayString()));
         }
     }
+}
+
+KService::Ptr desktopClientService()
+{
+    for (const QString &name : {QStringLiteral("com.nextcloud.desktopclient.nextcloud"), QStringLiteral("nextcloud"), QStringLiteral("Nextcloud")}) {
+        if (KService::Ptr service = KService::serviceByDesktopName(name)) {
+            return service;
+        }
+    }
+    return {};
 }
 }

@@ -136,6 +136,8 @@ public:
     void setMailComposer(const NextcloudShares::MailComposer &composer);
     /// Offers sending a link by email; off by default, as the Send by Email setting decides.
     void setSendByEmailEnabled(bool enabled);
+    /// New public links expire after @p days by default, or don't when it is 0; the server's maximum still applies.
+    void setDefaultLinkExpiryDays(int days);
     void setScope(Nextcloud::ShareScope scope);
     Nextcloud::ShareScope scope() const;
     /// Lists the shares of the current scope again.
@@ -169,6 +171,7 @@ private:
     NextcloudShares::ShareEditor m_editor;
     NextcloudShares::MailComposer m_composer;
     bool m_sendByEmail = false;
+    int m_linkExpiryDays = 0;
     QComboBox *m_scope;
     QTreeWidget *m_shares;
     QLabel *m_status;

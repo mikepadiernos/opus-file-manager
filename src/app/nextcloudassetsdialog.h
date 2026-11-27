@@ -36,7 +36,7 @@ public:
         Favorites,
         Tag,
     };
-    /// The most results listed at once.
+    /// The most results listed at once, unless setResultLimit() changes it.
     static constexpr int ResultLimit = 500;
 
     /// @param store where the account's app password is kept; not owned
@@ -48,6 +48,9 @@ public:
     void setCapabilities(const Nextcloud::Capabilities &capabilities);
     void setMode(Mode mode);
     Mode mode() const;
+    /// Lists at most @p limit results at once, from later searches and lists on.
+    void setResultLimit(int limit);
+    int resultLimit() const;
     /// Lists the results of the current mode.
     void run();
     /// The tags dialog the Nextcloud Tags button opened, if it is still open.
@@ -94,6 +97,7 @@ private:
     /// Why the server's tags can't be listed, or an empty string.
     QString m_tagsError;
     int m_request = 0;
+    int m_resultLimit = ResultLimit;
     bool m_listing = false;
     /// The favourites being changed, by item.
     QHash<QString, bool> m_favoritesPending;

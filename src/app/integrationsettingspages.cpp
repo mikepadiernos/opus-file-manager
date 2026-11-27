@@ -31,6 +31,10 @@
 #include "mailmessage.h"
 #include "mcpsettings.h"
 #include "mediabackend.h"
+#include "nextcloudaccount.h"
+#include "nextcloudaccountsdialog.h"
+#include "nextclouddesktop.h"
+#include "nextcloudmenu.h"
 #include "officeapps.h"
 #include "onlineaccounts.h"
 #include "plasmavaultmenu.h"
@@ -93,6 +97,7 @@
 #include <QLocale>
 #include <QPointer>
 #include <QPushButton>
+#include <QScrollArea>
 #include <QSpinBox>
 #include <QStandardItemModel>
 #include <QStandardPaths>
@@ -3117,6 +3122,233 @@ QWidget *SettingsDialog::createSyncIntegrationPage()
     });
     refreshBackground();
     return page;
+}
+
+QWidget *SettingsDialog::createNextcloudIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("nextcloudIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *accountsGroup = new StatusGroup(i18nc("@title:group", "Accounts"));
+    accountsGroup->setObjectName(QStringLiteral("nextcloudAccountsGroup"));
+    auto *accountsLayout = new QVBoxLayout(accountsGroup);
+    auto *accountsStatus = statusLabel(QStringLiteral("nextcloudAccountsStatus"));
+    accountsLayout->addWidget(accountsStatus);
+    auto *manage = actionButton(QStringLiteral("manageNextcloudAccounts"), i18nc("@action:button", "Manage Nextcloud Accounts…"));
+    manage->setIcon(SymbolicIcon::fromTheme(QStringLiteral("configure")));
+    manage->setToolTip(i18nc("@info:tooltip", "Add, edit, sign in to or remove the Nextcloud accounts of Plasma Opus, as in Go › Nextcloud"));
+    auto *onlineAccounts = actionButton(QStringLiteral("nextcloudShowOnlineAccounts"), i18nc("@action:button", "Go to KDE Plasma › Online Accounts"));
+    onlineAccounts->setToolTip(i18nc("@info:tooltip", "Choose whether the Nextcloud accounts of KDE Online Accounts are listed too"));
+    accountsLayout->addLayout(buttonRow({manage, onlineAccounts}));
+    auto *accountsNote = new QLabel(i18nc("@info",
+                                          "Plasma Opus keeps the server and user of each account in its configuration, and app passwords "
+                                          "only in KDE's password server, never in its configuration or in addresses."));
+    accountsNote->setWordWrap(true);
+    accountsLayout->addWidget(accountsNote);
+    layout->addWidget(accountsGroup);
+
+    auto *browsingGroup = new StatusGroup(i18nc("@title:group", "Browsing and Previews"));
+    browsingGroup->setObjectName(QStringLiteral("nextcloudBrowsingGroup"));
+    auto *browsingLayout = new QVBoxLayout(browsingGroup);
+    auto *serverPreviews =
+        checkBox(QStringLiteral("NextcloudServerPreviews"), i18nc("@option:check", "Show the server's previews of Nextcloud files in the preview panel"));
+    serverPreviews->setToolTip(i18nc("@info:tooltip",
+                                     "The server makes previews of images, documents and videos without sending the whole file. When "
+                                     "cleared, the preview panel downloads files to preview them, as in other remote folders."));
+    browsingLayout->addWidget(serverPreviews);
+    auto *permissions =
+        checkBox(QStringLiteral("NextcloudCheckPermissions"), i18nc("@option:check", "Disable the actions a folder's permissions on the server don't allow"));
+    permissions->setToolTip(i18nc("@info:tooltip",
+                                  "Reads the permissions of the folders open in the panes, such as of folders shared read-only. When "
+                                  "cleared, actions stay enabled and the server refuses what it doesn't allow."));
+    browsingLayout->addWidget(permissions);
+    auto *thumbnailsStatus = statusLabel(QStringLiteral("nextcloudThumbnailsStatus"));
+    browsingLayout->addWidget(thumbnailsStatus);
+    auto *showPreviews = actionButton(QStringLiteral("nextcloudShowPreviewSettings"), i18nc("@action:button", "Go to Interface › Previews"));
+    browsingLayout->addLayout(buttonRow({showPreviews}));
+    layout->addWidget(browsingGroup);
+
+    auto *metadataGroup = new QGroupBox(i18nc("@title:group", "Metadata and Search"));
+    metadataGroup->setObjectName(QStringLiteral("nextcloudMetadataGroup"));
+    auto *metadataLayout = new QVBoxLayout(metadataGroup);
+    auto *serverMetadata =
+        checkBox(QStringLiteral("NextcloudServerMetadata"), i18nc("@option:check", "Show the server's metadata of Nextcloud files in the information panel"));
+    serverMetadata->setToolTip(i18nc("@info:tooltip",
+                                     "Owner, sharing, favourite, server tags and photo details. When cleared, the information panel "
+                                     "shows only what any remote folder offers."));
+    metadataLayout->addWidget(serverMetadata);
+    auto *favoritesAndTags =
+        checkBox(QStringLiteral("NextcloudFavoritesAndTags"), i18nc("@option:check", "Offer favourites and tags in the context menu of Nextcloud files"));
+    favoritesAndTags->setToolTip(i18nc("@info:tooltip", "Search and Organize lists favourites and tags either way"));
+    metadataLayout->addWidget(favoritesAndTags);
+    auto *metadataForm = new QFormLayout;
+    auto *maxAge = new QSpinBox;
+    maxAge->setObjectName(QStringLiteral("kcfg_NextcloudMetadataMaxAge"));
+    maxAge->setRange(10, 3600);
+    maxAge->setSingleStep(10);
+    maxAge->setSuffix(i18nc("@item:valuesuffix", " seconds"));
+    maxAge->setToolTip(i18nc("@info:tooltip", "Selecting a file again within this time shows the metadata already read instead of asking the server"));
+    metadataForm->addRow(i18nc("@label:spinbox", "Read metadata again after:"), maxAge);
+    auto *resultLimit = new QSpinBox;
+    resultLimit->setObjectName(QStringLiteral("kcfg_NextcloudResultLimit"));
+    resultLimit->setRange(50, 5000);
+    resultLimit->setSingleStep(50);
+    resultLimit->setSuffix(i18nc("@item:valuesuffix", " results"));
+    resultLimit->setToolTip(
+        i18nc("@info:tooltip", "Search and Organize asks the server for at most this many files at once; refine the search to find others"));
+    metadataForm->addRow(i18nc("@label:spinbox", "Search and Organize lists at most:"), resultLimit);
+    metadataLayout->addLayout(metadataForm);
+    layout->addWidget(metadataGroup);
+
+    auto *sharingGroup = new StatusGroup(i18nc("@title:group", "Sharing"));
+    sharingGroup->setObjectName(QStringLiteral("nextcloudSharingGroup"));
+    auto *sharingLayout = new QVBoxLayout(sharingGroup);
+    auto *shares = checkBox(QStringLiteral("NextcloudShares"), i18nc("@option:check", "Offer Nextcloud shares in Go › Nextcloud and the context menu"));
+    shares->setToolTip(i18nc("@info:tooltip", "Share files with users, groups and public links, and change or revoke the shares"));
+    sharingLayout->addWidget(shares);
+    auto *sharingForm = new QFormLayout;
+    auto *linkExpiry = new QSpinBox;
+    linkExpiry->setObjectName(QStringLiteral("kcfg_NextcloudLinkExpiryDays"));
+    linkExpiry->setRange(0, 3650);
+    linkExpiry->setSpecialValueText(i18nc("@item:inrange link expiration", "Never"));
+    linkExpiry->setSuffix(i18nc("@item:valuesuffix", " days"));
+    linkExpiry->setToolTip(i18nc("@info:tooltip",
+                                 "The expiration date new public links start with; it can be changed before the link is created. A "
+                                 "server that enforces an earlier expiration date uses that instead."));
+    sharingForm->addRow(i18nc("@label:spinbox", "New public links expire after:"), linkExpiry);
+    sharingLayout->addLayout(sharingForm);
+    auto *sharingStatus = statusLabel(QStringLiteral("nextcloudSharingStatus"));
+    sharingLayout->addWidget(sharingStatus);
+    layout->addWidget(sharingGroup);
+
+    auto *desktopGroup = new StatusGroup(i18nc("@title:group", "Desktop Client"));
+    desktopGroup->setObjectName(QStringLiteral("nextcloudDesktopGroup"));
+    auto *desktopLayout = new QVBoxLayout(desktopGroup);
+    auto *desktopMenu = checkBox(QStringLiteral("NextcloudDesktopClientMenu"),
+                                 i18nc("@option:check", "Offer the folders the Nextcloud desktop client synchronizes in Go › Nextcloud"));
+    desktopMenu->setToolTip(i18nc("@info:tooltip", "Plasma Opus only reads the desktop client's configuration; it never changes it"));
+    desktopLayout->addWidget(desktopMenu);
+    auto *desktopStatus =
+        checkBox(QStringLiteral("NextcloudDesktopStatus"), i18nc("@option:check", "Ask the desktop client for the synchronization status of its folders"));
+    desktopStatus->setToolTip(i18nc("@info:tooltip", "Asked through the local socket of the running client when Go › Nextcloud opens"));
+    desktopLayout->addWidget(desktopStatus);
+    auto *clientStatus = statusLabel(QStringLiteral("nextcloudDesktopStatus"));
+    desktopLayout->addWidget(clientStatus);
+    layout->addWidget(desktopGroup);
+    layout->addStretch();
+
+    const auto refreshAccounts = [this, accountsStatus, onlineAccounts] {
+        QStringList lines;
+        if (const QString reason = RemoteProfiles::unavailableReason(RemoteProfiles::Protocol::WebDavs); !reason.isEmpty()) {
+            lines.append(reason);
+        }
+        QString error;
+        const QList<NextcloudAccounts::Account> saved = NextcloudAccounts::load(KSharedConfig::openConfig()->group(NextcloudAccounts::groupName()), &error);
+        if (!error.isEmpty()) {
+            lines.append(error);
+        }
+        lines.append(saved.isEmpty()
+                         ? i18nc("@info", "No Nextcloud account is saved in Plasma Opus.")
+                         : i18ncp("@info", "One Nextcloud account is saved in Plasma Opus.", "%1 Nextcloud accounts are saved in Plasma Opus.", saved.size()));
+        const auto *online = findChild<QCheckBox *>(QStringLiteral("kcfg_OnlineAccountsEnabled"));
+        const bool onlineEnabled = !online || online->isChecked();
+        lines.append(onlineEnabled
+                         ? i18nc("@info", "Nextcloud accounts of KDE Online Accounts are listed too, unless they are cleared on the Online Accounts tab.")
+                         : i18nc("@info", "KDE Online Accounts are not read, so only the Nextcloud accounts saved in Plasma Opus are listed."));
+        accountsStatus->setText(lines.join(QLatin1Char('\n')));
+        onlineAccounts->setEnabled(online != nullptr);
+    };
+    const auto refreshBrowsing = [this, thumbnailsStatus] {
+        const auto *remotePreviews = findChild<QCheckBox *>(QStringLiteral("kcfg_ShowRemotePreviews"));
+        thumbnailsStatus->setText(
+            !remotePreviews || remotePreviews->isChecked()
+                ? i18nc("@info", "Folder views show thumbnails of Nextcloud files, as Show previews in remote folders is checked in Interface › Previews.")
+                : i18nc("@info", "Folder views show no thumbnails of Nextcloud files, as Show previews in remote folders is cleared in Interface › Previews."));
+    };
+    const auto refreshMetadata = [serverMetadata, maxAge] {
+        maxAge->setEnabled(serverMetadata->isChecked());
+    };
+    const auto refreshSharing = [this, shares, linkExpiry, sharingStatus] {
+        linkExpiry->setEnabled(shares->isChecked());
+        const auto *email = findChild<QCheckBox *>(QStringLiteral("kcfg_SendByEmail"));
+        if (!shares->isChecked()) {
+            sharingStatus->setText(i18nc("@info", "Shares made on the server or in the web interface stay as they are."));
+        } else if (!email || email->isChecked()) {
+            sharingStatus->setText(i18nc("@info", "Links can also be sent by email, as Applications › Mail allows."));
+        } else {
+            sharingStatus->setText(i18nc("@info", "Links can't be sent by email, as Send by Email is turned off in Applications › Mail."));
+        }
+    };
+    const auto refreshDesktop = [desktopMenu, desktopStatus, clientStatus] {
+        desktopStatus->setEnabled(desktopMenu->isChecked());
+        const NextcloudDesktop::Configuration configuration = NextcloudDesktop::readConfiguration(NextcloudDesktop::defaultConfigurationPath());
+        const bool installed = NextcloudMenu::desktopClientService();
+        QString text;
+        if (!configuration.exists && !installed) {
+            text = i18nc("@info", "The Nextcloud desktop client is not installed, so Go › Nextcloud doesn't offer it.");
+        } else if (!configuration.error.isEmpty()) {
+            text = configuration.error;
+        } else if (!configuration.exists) {
+            text = i18nc("@info", "The Nextcloud desktop client is installed but has no account yet.");
+        } else {
+            text = i18ncp("@info",
+                          "The Nextcloud desktop client synchronizes one folder.",
+                          "The Nextcloud desktop client synchronizes %1 folders.",
+                          configuration.folders.size());
+        }
+        clientStatus->setText(text);
+    };
+    accountsGroup->refresh = refreshAccounts;
+    browsingGroup->refresh = refreshBrowsing;
+    sharingGroup->refresh = refreshSharing;
+    desktopGroup->refresh = refreshDesktop;
+    connect(serverMetadata, &QCheckBox::toggled, page, refreshMetadata);
+    connect(shares, &QCheckBox::toggled, page, refreshSharing);
+    connect(desktopMenu, &QCheckBox::toggled, desktopStatus, &QWidget::setEnabled);
+    // Defaults and Reset change the widgets without user input, and other tabs change Online Accounts, previews and mail.
+    connect(this, &KConfigDialog::widgetModified, page, [refreshAccounts, refreshBrowsing, refreshMetadata, refreshSharing] {
+        refreshAccounts();
+        refreshBrowsing();
+        refreshMetadata();
+        refreshSharing();
+    });
+    connect(manage, &QPushButton::clicked, page, [this, page, refreshAccounts] {
+        auto *window = qobject_cast<KXmlGuiWindow *>(parentWidget());
+        QAction *action = window ? window->actionCollection()->action(QStringLiteral("manage_nextcloud_accounts")) : nullptr;
+        if (!action) {
+            return;
+        }
+        action->trigger();
+        // The dialog is the main window's, so that it stays open after Preferences closes.
+        const QList<NextcloudAccountsDialog *> dialogs = window->findChildren<NextcloudAccountsDialog *>(Qt::FindDirectChildrenOnly);
+        if (!dialogs.isEmpty()) {
+            connect(dialogs.last(), &NextcloudAccountsDialog::accountsChanged, page, refreshAccounts);
+        }
+    });
+    connect(onlineAccounts, &QPushButton::clicked, page, [this] {
+        setCurrentPage(m_plasmaPage);
+        m_plasmaTabs->setCurrentWidget(findChild<QWidget *>(QStringLiteral("onlineAccountsIntegrationPage")));
+    });
+    connect(showPreviews, &QPushButton::clicked, page, [this] {
+        setCurrentPage(m_toolbarPage);
+        m_toolbarTabs->setCurrentWidget(findChild<QWidget *>(QStringLiteral("previewsPage")));
+    });
+    // The Manage button needs the main window's action.
+    manage->setEnabled(qobject_cast<KXmlGuiWindow *>(parentWidget())
+                       && qobject_cast<KXmlGuiWindow *>(parentWidget())->actionCollection()->action(QStringLiteral("manage_nextcloud_accounts")));
+    refreshAccounts();
+    refreshBrowsing();
+    refreshMetadata();
+    refreshSharing();
+    refreshDesktop();
+
+    auto *scroll = new QScrollArea;
+    scroll->setObjectName(QStringLiteral("nextcloudIntegrationScroll"));
+    scroll->setFrameShape(QFrame::NoFrame);
+    scroll->setWidgetResizable(true);
+    scroll->setWidget(page);
+    return scroll;
 }
 
 QWidget *SettingsDialog::createTransfersIntegrationPage()
