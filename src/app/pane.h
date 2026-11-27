@@ -15,6 +15,7 @@
 class FilterBar;
 class FolderView;
 class KFilePlacesModel;
+class KMessageWidget;
 class KUrlNavigator;
 class TabColors;
 class TabModel;
@@ -339,6 +340,8 @@ private:
     QList<QPair<QAction *, bool>> m_defaultToolbarActions;
     QString m_toolbarConfigId;
     QWidget *m_navigationBar = nullptr;
+    /// Warns while the current tab lists an admin: folder.
+    KMessageWidget *m_adminBar = nullptr;
     QBoxLayout *m_navigationLayout = nullptr;
     QWidget *m_statusBarWidget = nullptr;
     KUrlNavigator *m_navigator = nullptr;

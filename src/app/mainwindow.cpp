@@ -5,6 +5,7 @@
 
 #include "activityassociationsdialog.h"
 #include "activitycontroller.h"
+#include "adminmode.h"
 #include "appearancedefaults.h"
 #include "appearancestyle.h"
 #include "appfonts.h"
@@ -3040,6 +3041,10 @@ void MainWindow::setupActions()
     shareOnNetwork->setToolTip(
         i18nc("@info:tooltip", "Share the selected items, or the current folder, with browsers on the local network for a limited time"));
     shareOnNetwork->setIcon(SymbolicIcon::fromTheme(QStringLiteral("network-server")));
+    auto *actAsAdmin = new KToggleAction(SymbolicIcon::fromTheme(QStringLiteral("system-switch-user")), i18nc("@action", "Act as Administrator"), this);
+    actAsAdmin->setToolTip(i18nc("@info:tooltip", "Open the current local folder with administrator rights through KIO's admin worker"));
+    actions->addAction(QStringLiteral("act_as_admin"), actAsAdmin);
+    connect(actAsAdmin, &KToggleAction::triggered, this, &MainWindow::setActingAsAdministrator);
     QAction *mountManager = actions->addAction(QStringLiteral("mount_manager"), this, &MainWindow::showMountManager);
     mountManager->setText(i18nc("@action", "Mount Manager…"));
     mountManager->setToolTip(i18nc("@info:tooltip", "List file systems and mount, unmount or eject them"));
@@ -4228,6 +4233,9 @@ void MainWindow::updateActions()
     actions->action(stdName(KStandardAction::Cut))->setEnabled(hasSelection && props.supportsMoving());
     actions->action(stdName(KStandardAction::Copy))->setEnabled(hasSelection);
     actions->action(QStringLiteral("open_terminal"))->setEnabled(activePane()->url().isLocalFile());
+    QAction *actAsAdmin = actions->action(QStringLiteral("act_as_admin"));
+    actAsAdmin->setEnabled(AdminMode::canToggle(activePane()->url()));
+    actAsAdmin->setChecked(AdminMode::isAdminUrl(activePane()->url()));
     actions->action(QStringLiteral("open_terminal_with"))->setEnabled(activePane()->url().isLocalFile());
     actions->action(QStringLiteral("edit_with"))->setEnabled(hasSelection && std::none_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
                                                                  return item.isDir();
@@ -5714,6 +5722,52 @@ void MainWindow::sendToDevice()
     auto *dialog = new KdeConnectShareDialog(kdeConnectClient(), urlsOf(items), this);
     dialog->setAttribute(Qt::WA_DeleteOnClose);
     dialog->show();
+}
+
+void MainWindow::setActingAsAdministrator(bool enabled)
+{
+    Pane *pane = activePane();
+    const QUrl url = pane->url();
+    // The action follows the pane's URL, so it stays unchecked until the
+    // user accepts the risks and the pane opens the admin: folder.
+    updateActions();
+    if (enabled == AdminMode::isAdminUrl(url)) {
+        return;
+    }
+    if (!enabled) {
+        pane->setUrl(AdminMode::toUser(url));
+        return;
+    }
+    const QString title = i18nc("@title:window", "Act as Administrator");
+    if (!AdminMode::canToggle(url)) {
+        KMessageBox::error(this, i18nc("@info", "Only local folders can be opened as an administrator."), title);
+        return;
+    }
+    if (!AdminMode::isAvailable()) {
+        KMessageBox::error(this,
+                           i18nc("@info",
+                                 "Acting as an administrator needs KIO's admin worker, which the kio-admin package provides. Install kio-admin "
+                                 "with your distribution's package manager, then try again."),
+                           title);
+        return;
+    }
+    const int answer = KMessageBox::warningContinueCancel(
+        this,
+        i18nc("@info",
+              "While acting as an administrator, you can change, replace or delete any file or folder on this system, including the items "
+              "it needs to start and other users' data. A single mistake can make the system unusable, often without a warning or error.\n\n"
+              "KDE's authorization prompt asks for an administrator password before the folder opens, and deleted items skip the trash. "
+              "The pane stops acting as an administrator when you turn this off or open a location outside the admin view, and it never "
+              "reopens with administrator rights from a saved session or workspace."),
+        i18nc("@title:window", "Risks of Acting as an Administrator"),
+        KGuiItem(i18nc("@action:button", "Act as Administrator"), QStringLiteral("system-switch-user")),
+        KStandardGuiItem::cancel(),
+        QStringLiteral("ActAsAdministratorWarning"),
+        KMessageBox::Notify | KMessageBox::Dangerous);
+    if (answer != KMessageBox::Continue || activePane() != pane || pane->url() != url) {
+        return;
+    }
+    pane->setUrl(AdminMode::toAdmin(url));
 }
 
 void MainWindow::shareOnNetwork()

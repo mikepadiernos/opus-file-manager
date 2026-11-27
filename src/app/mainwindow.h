@@ -179,6 +179,12 @@ public:
     void sendToDevice();
     /// Shares the selected local items, or the current folder, on the local network.
     void shareOnNetwork();
+    /**
+     * Switches the active pane between a local folder and the same folder
+     * through KIO's admin: worker, after warning about the risks. Reports a
+     * missing kio-admin package and unsupported locations.
+     */
+    void setActingAsAdministrator(bool enabled);
 
     /// The file systems the mount manager and the Mount Points menu list, created when first needed.
     MountBackend *mountBackend();

@@ -2,6 +2,7 @@
 
 #include "pane.h"
 
+#include "adminmode.h"
 #include "appearancestyle.h"
 #include "colorschemes.h"
 
@@ -24,6 +25,7 @@
 #include <KFilePlacesModel>
 #include <KIO/Global>
 #include <KLocalizedString>
+#include <KMessageWidget>
 #include <KSharedConfig>
 #include <KUrlNavigator>
 
@@ -315,6 +317,21 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
     m_outerLayout->addLayout(m_layout, 1);
     m_layout->addWidget(m_tabStrip);
     m_layout->addWidget(m_navigationBar);
+    m_adminBar = new KMessageWidget(this);
+    m_adminBar->setObjectName(QStringLiteral("adminBar"));
+    m_adminBar->setMessageType(KMessageWidget::Warning);
+    m_adminBar->setIcon(SymbolicIcon::fromTheme(QStringLiteral("security-medium")));
+    m_adminBar->setWordWrap(true);
+    m_adminBar->setCloseButtonVisible(false);
+    m_adminBar->setText(i18nc("@info", "Acting as an administrator. Changes in this folder can affect the whole system, and deleted items skip the trash."));
+    auto *stopAdmin = new QAction(SymbolicIcon::fromTheme(QStringLiteral("dialog-close")), i18nc("@action:button", "Stop Acting as Administrator"), m_adminBar);
+    stopAdmin->setObjectName(QStringLiteral("stopAdmin"));
+    connect(stopAdmin, &QAction::triggered, this, [this] {
+        setUrl(AdminMode::toUser(url()));
+    });
+    m_adminBar->addAction(stopAdmin);
+    m_adminBar->hide();
+    m_layout->addWidget(m_adminBar);
     m_layout->addWidget(m_view, 1);
     m_yaziColumns = new YaziColumns(this);
     m_yaziColumns->hide();
@@ -398,6 +415,7 @@ Pane::Pane(KFilePlacesModel *places, TabColors *colors, QWidget *parent, const Q
         }
         m_navigator->setLocationUrl(url);
         updateBreadcrumbs(url);
+        m_adminBar->setVisible(AdminMode::isAdminUrl(url));
         if (m_view->url() == url && !m_pendingViewState.valid) {
             m_view->clearSelection();
             m_view->currentView()->verticalScrollBar()->setValue(0);
@@ -1831,7 +1849,11 @@ void Pane::updateTabStripVisibility()
 PaneSession Pane::saveState() const
 {
     PaneSession state;
-    state.tabs = m_tabs->urls();
+    // Administrator access is never restored: sessions and workspaces reopen
+    // admin: tabs as the user's own view of the same folder.
+    for (const QUrl &tab : m_tabs->urls()) {
+        state.tabs.append(AdminMode::toUser(tab));
+    }
     state.currentTab = m_tabs->currentIndex();
     state.pinnedCount = m_tabs->pinnedCount();
     for (int i = 0; i < m_tabs->count(); ++i) {
