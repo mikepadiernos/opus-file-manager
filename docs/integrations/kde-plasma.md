@@ -870,9 +870,14 @@ behaves like the rest of the desktop and follows the user's choices.
   pane; **Show Vault Contents**, **Close Vault**, **Configure Vault…** and
   **Create Vault…** use the same service. Before closing, Plasma Opus lists
   the programs using files in the vault and asks first. Plasma Opus stores no
-  vault passwords or settings, and reports a missing Plasma Vault in the
-  menu. See [Plasma Vault](../CAVEATS.md#desktop-integration).
-  ([#654](https://github.com/mikepadiernos/plasma-opus/issues/654))
+  vault passwords or vault configuration, and reports a missing Plasma Vault
+  in the menu. **Preferences › Security › Encryption** lists the vaults with their
+  state, hides the menu and its shortcut, leaves chosen vaults and their
+  messages out of it, and can leave out whether each vault is open or
+  closed. See [Plasma Vault](../CAVEATS.md#desktop-integration) and
+  [Plasma Vault settings](../CAVEATS.md#integration-settings).
+  ([#654](https://github.com/mikepadiernos/plasma-opus/issues/654),
+  [#669](https://github.com/mikepadiernos/plasma-opus/issues/669))
 - **File encryption:** **File › Encryption**, also in the context menu,
   encrypts selected files for OpenPGP keys or with a password, decrypts
   them, saves detached signatures and verifies signed files through GnuPG.
