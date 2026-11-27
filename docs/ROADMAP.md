@@ -1969,7 +1969,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **Application packages**
 
-  - [ ] **Integration:** independently enable AppImage, Flatpak and Snap actions
+  - [x] **Integration:** independently enable AppImage, Flatpak and Snap actions
         and configure optional AppImage desktop integration [#296]
 
 - **Archives**
