@@ -144,6 +144,7 @@ ecm_add_tests(
     nextcloudassetstest.cpp
     nextcloudclienttest.cpp
     nextcloudorganizetest.cpp
+    nextcloudphotostest.cpp
     notevaulttest.cpp
     officeappstest.cpp
     operationjobtest.cpp
