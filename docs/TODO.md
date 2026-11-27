@@ -59,6 +59,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [File encryption settings on Plasma](#file-encryption-settings-on-plasma-670)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#670]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
 | [Nextcloud accounts on a real server](#nextcloud-accounts-on-a-real-server-588)     | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#588]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 | [Nextcloud browsing on a real server](#nextcloud-browsing-on-a-real-server-365)     | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#365]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| [Nextcloud previews on a real server](#nextcloud-previews-on-a-real-server-589)     | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#589]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -1401,6 +1402,43 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#nextcloud-integration), then remove this entry and
    its roadmap link.
 
+## Nextcloud previews on a real server (#589)
+
+- **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#589]
+  (Development).
+- **Blocker:** The development container has no Nextcloud server, KDE Wallet
+  or Plasma session, so server previews and metadata are tested only against
+  a local fake server and recorded Nextcloud 26 and 29 responses.
+- **Confirmed state:** `NextcloudClient::fetchMetadata` and
+  `NextcloudClient::fetchPreview` in `src/core/nextcloudassets.cpp` read an
+  item's properties with a `PROPFIND` of depth 0 and its preview from
+  `index.php/core/preview`. `MainWindow` in `src/app/mainwindow.cpp` hands the
+  preview to `PreviewPanel::showServerPreview` and the metadata to
+  `InformationPanel::setServerMetadata`. `nextcloudassetstest` and
+  `nextcloudpreviewtest` pass in the container. See
+  [Nextcloud integration](CAVEATS.md#nextcloud-integration).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, KDE Wallet
+   enabled and a disposable Nextcloud server with a synthetic user and the
+   Photos app, upload photos with EXIF and GPS data, a PDF, a video and a
+   text file. Sign in under **Go › Nextcloud › Manage Nextcloud Accounts…**.
+2. Open the account from **Go › Nextcloud**, show **View › Preview Panel**
+   and select each file. Check that photos and the PDF show **Preview from
+   the server** without downloading the file, and that **Download Full
+   Preview** downloads it. Check that the video and text file fall back to
+   the usual download when the server has no preview.
+3. Show **View › Information Panel** and check the **Nextcloud server**
+   section: file ID, owner, size, modification time, ETag, favourite, server
+   tags, sharing and the photo metadata. Mark a file as a favourite in the
+   web interface and check that the panel shows it within a minute.
+4. Repeat with a shared file, a file on external storage and an account from
+   KDE Online Accounts, and note which properties the server withholds.
+   Record any differences in
+   [CAVEATS](CAVEATS.md#nextcloud-integration), then remove this entry and
+   its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -1424,6 +1462,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#566]: https://github.com/mikepadiernos/plasma-opus/issues/566
 [#578]: https://github.com/mikepadiernos/plasma-opus/issues/578
 [#588]: https://github.com/mikepadiernos/plasma-opus/issues/588
+[#589]: https://github.com/mikepadiernos/plasma-opus/issues/589
 [#654]: https://github.com/mikepadiernos/plasma-opus/issues/654
 [#655]: https://github.com/mikepadiernos/plasma-opus/issues/655
 [#656]: https://github.com/mikepadiernos/plasma-opus/issues/656
