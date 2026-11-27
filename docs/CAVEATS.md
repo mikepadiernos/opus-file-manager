@@ -405,8 +405,8 @@ tracked in its own issue:
 
 ## Editor
 
-The text editor's drafts and Markdown handling have these limits, each tracked
-in its own issue:
+The text editor's drafts, Markdown handling and editing in the preview have
+these limits, each tracked in its own issue:
 
 - **Draft storage:** Drafts are limited to 8 MiB of UTF-8 text and are stored in
   the application's private data directory, not in the original file. If draft
@@ -456,6 +456,22 @@ in its own issue:
   - **Planned:** [M27 editor integrations](ROADMAP.md#m27-integrations) do not
     change the built-in visual editor's Markdown limitations.
     - Comment: [#309.7021755164][comment-309]
+
+- **Editing in the preview:** The preview's **Edit** action edits only local,
+  writable text files up to 10 MiB. It refuses binary content and files that
+  KTextEditor opens read-only, such as unsupported encodings or very long
+  lines, and remote text previews report that they can't be edited there.
+  Moving a session to the editor panel keeps the text and its unsaved state,
+  but not the undo history, cursor position or visual Markdown mode. A file
+  open in both the preview and the editor panel is two independent documents.
+  ([#755][issue-755])
+
+  - **Recommendation:** Use the preview for quick edits to local text files,
+    and the editor panel or an external editor such as Kate or Neovim for
+    remote, large, binary or unusually encoded files. Move a session to the
+    editor panel before you need its undo history, and edit a file in only
+    one place at a time.
+    - Comment: [#755.7207460156][comment-755]
 
 ## File-list minimap
 
@@ -2531,6 +2547,7 @@ dependency and varies with the chosen output method.
 [issue-312]: https://github.com/mikepadiernos/plasma-opus/issues/312
 [issue-313]: https://github.com/mikepadiernos/plasma-opus/issues/313
 [issue-732]: https://github.com/mikepadiernos/plasma-opus/issues/732
+[issue-755]: https://github.com/mikepadiernos/plasma-opus/issues/755
 [comment-36]: https://github.com/mikepadiernos/plasma-opus/issues/36#issuecomment-7021740511
 [comment-255]: https://github.com/mikepadiernos/plasma-opus/issues/255#issuecomment-7021741358
 [comment-256]: https://github.com/mikepadiernos/plasma-opus/issues/256#issuecomment-7021742119
@@ -2570,3 +2587,4 @@ dependency and varies with the chosen output method.
 [comment-376]: https://github.com/mikepadiernos/plasma-opus/issues/376#issuecomment-7026216329
 [comment-377]: https://github.com/mikepadiernos/plasma-opus/issues/377#issuecomment-7026633904
 [comment-732]: https://github.com/mikepadiernos/plasma-opus/issues/732#issuecomment-7200937321
+[comment-755]: https://github.com/mikepadiernos/plasma-opus/issues/755#issuecomment-7207460156
