@@ -2736,6 +2736,20 @@ The M28 integration settings have these limits
   container has no session bus or Plasma session
   ([Plasma check](TODO.md#file-chooser-settings-on-plasma-292)).
   ([#292](https://github.com/mikepadiernos/plasma-opus/issues/292))
+- **🏠 System file chooser start folder:** **Start folder** applies only
+  when the application suggests no folder or file, and only to the Plasma
+  Opus chooser. Folders are remembered by the application ID that
+  xdg-desktop-portal passes on; applications it cannot identify, typically
+  unsandboxed ones, share one folder. Only local folders are remembered,
+  and only while **Folder of the last choice** is selected, so switching to
+  it starts from the home folder until the next accepted choice. A
+  remembered folder that no longer exists falls back to the home folder.
+  The folder of a chosen folder is the folder itself; for files, it is the
+  folder of the first file. The setting applies from the next request after
+  **Apply** or **OK**. The container has no xdg-desktop-portal, so it is
+  verified there over a private session bus only
+  ([Plasma check](TODO.md#chooser-start-folder-on-plasma-750)).
+  ([#750](https://github.com/mikepadiernos/plasma-opus/issues/750))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -2750,6 +2764,11 @@ The M28 integration settings have these limits
     › KDE Plasma › File Manager**. If the restart fails or applications still
     show KDE's chooser, log out and back in. Choose **Restore Previous
     Chooser** to go back.
+  - **System file chooser start folder:** Set **Start folder** to **Folder
+    of the last choice** under **Preferences › KDE Plasma › File Manager** to
+    return to where each application last opened or saved files. Choose
+    **Forget Remembered Folders** to clear the remembered folders, for
+    example after reorganizing them.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -2759,6 +2778,9 @@ The M28 integration settings have these limits
   - Check the xdg-desktop-portal version before setup, confirm that the
     restarted portal answers with Plasma Opus, and restart it without
     blocking the dialog.
+  - Remember remote folders through KIO, keep separate folders for opening
+    and saving, and keep remembering while **Home folder** is selected so
+    that switching options keeps the last folders.
 
 ## Embedded terminal
 
