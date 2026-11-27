@@ -512,8 +512,13 @@ behaves like the rest of the desktop and follows the user's choices.
   note in the editor, keeping unsaved changes as a draft, and the
   **Backlinks** list shows the notes that link to the open one. Missing,
   ambiguous and out-of-vault links, and incomplete scans, are reported
-  below the list. See [Markdown vault links](../CAVEATS.md#desktop-integration).
-  ([#564](https://github.com/mikepadiernos/plasma-opus/issues/564))
+  below the list. Choose the vault folder, the preview dialect, whether the
+  preview shows when a Markdown file opens, whether wiki links open notes and
+  which lists the vault panel shows under **Preferences › Applications ›
+  Editor**. See [Markdown vault links](../CAVEATS.md#desktop-integration) and
+  [Markdown settings](../CAVEATS.md#integration-settings).
+  ([#564](https://github.com/mikepadiernos/plasma-opus/issues/564),
+  [#577](https://github.com/mikepadiernos/plasma-opus/issues/577))
 - **Workspace vaults and tags:** In **Workspaces**, **Use as Editor Vault**
   makes one of a workspace's assigned local folders the vault of every
   editor while the workspace is active, and the editor's own vault returns
