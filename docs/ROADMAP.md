@@ -1596,7 +1596,7 @@ for some features are recorded in [pending tasks](TODO.md).
         requested, never save the truncated preview text, and report
         read-only files, remote locations, size limits, binary content or
         unsupported encodings, and save failures. [#729]
-  - [ ] Extend the built-in editor with CommonMark and Obsidian-like wiki links
+  - [x] Extend the built-in editor with CommonMark and Obsidian-like wiki links
         and backlinks within a user-selected local vault. Preserve source and
         drafts, respect vault boundaries, and report ambiguous, missing or
         inaccessible targets and incomplete scans. See the
