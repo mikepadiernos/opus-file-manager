@@ -14,7 +14,7 @@ interfaces it would use, and ideas considered beyond the roadmap.
 [Plasma Impresario](plasma-impresario.md)
 
 > [!NOTE]
-> **Implemented:** Nextcloud accounts from M29, described under
+> **Implemented:** Nextcloud accounts and browsing from M29, described under
 > [Implemented features](#implemented-features). **Planned:** the rest of
 > [M29](../ROADMAP.md#m29-nextcloud-integration) and its settings in
 > [M30](../ROADMAP.md#m30-nextcloud-settings), summarized under
@@ -104,11 +104,32 @@ document describes how Plasma Opus could also work with Nextcloud apps.
   See [Nextcloud integration](../CAVEATS.md#nextcloud-integration).
   ([#588](https://github.com/mikepadiernos/plasma-opus/issues/588))
 
+- **Browsing:** **Open** and **Open in Other Pane**, in **Go › Nextcloud** or
+  the **Manage Nextcloud Accounts** dialog, show the account's files in either
+  pane. Copying, moving, renaming, deleting, creating and pasting use the same
+  KIO jobs as other remote folders, with their confirmations, progress,
+  cancellation and error reports. When the server refuses an operation, or
+  some items of a larger one fail, KIO reports the error for each item.
+  - **Permissions:** after listing a folder, Plasma Opus reads the
+    `oc:permissions` of the folder and its items. It disables **Rename…**,
+    **Delete Permanently**, **Cut** and **Move to Other Pane** for selected
+    items that the server doesn't allow renaming, deleting or moving. It
+    disables **Paste**, **Create New** and **New Folder…** in a folder that
+    doesn't allow adding files or folders, and **Copy to Other Pane** and
+    **Move to Other Pane** when the other pane shows such a folder. The tooltip
+    of a disabled action gives the reason, and the status bar reports a folder
+    that doesn't allow adding items. When the permissions can't be read,
+    nothing is disabled and the server's own errors apply.
+  - **Server interfaces:** KIO WebDAV on `remote.php/dav/files/<user>/`, and a
+    `PROPFIND` of depth 1 for `oc:permissions`.
+
+  See [Nextcloud integration](../CAVEATS.md#nextcloud-integration).
+  ([#365](https://github.com/mikepadiernos/plasma-opus/issues/365))
+
 ## Planned features
 
 | Feature         | Plan                                                                                                                                                             | Milestone                                      |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| Browsing        | Browse Nextcloud files in either pane with supported KIO operations, confirmations, cancellation and error reporting; respect server permissions.                | [M29](../ROADMAP.md#m29-nextcloud-integration) |
 | Previews        | Preview supported remote assets and inspect server metadata within existing preview limits and remote-download policy.                                           | [M29](../ROADMAP.md#m29-nextcloud-integration) |
 | Asset search    | Search and organize assets by server metadata, tags and favorites, keeping server tags distinct from native local tags.                                          | [M29](../ROADMAP.md#m29-nextcloud-integration) |
 | Photos          | Albums, shared albums and places as virtual folders; see [Photos](#photos).                                                                                      | [M29](../ROADMAP.md#m29-nextcloud-integration) |
