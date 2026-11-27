@@ -1950,7 +1950,7 @@ Settings for M27 integrations, stored in KConfig.
         whether to serve them over WebDAV or mount them. Plasma-session
         verification is a
         [pending handoff](TODO.md#rclone-settings-on-plasma-663). [#663]
-  - [ ] **Remote drives:** choose the mount backend for each protocol from KIO
+  - [x] **Remote drives:** choose the mount backend for each protocol from KIO
         FUSE and installed alternatives, the mount folder, read-only by
         default, and whether to mount at login or workspace activation and
         unmount on exit. Plasma-session verification is a
