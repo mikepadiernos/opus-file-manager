@@ -112,6 +112,7 @@ add_library(opusfm_app STATIC
     imagebackground.h
     informationpanel.cpp
     informationpanel.h
+    integrationsettingspages.cpp
     librarymovetracker.cpp
     librarymovetracker.h
     libraryautorefresh.cpp

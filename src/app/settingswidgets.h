@@ -16,8 +16,26 @@
 #include <functional>
 #include <optional>
 
+class QCheckBox;
 class QLabel;
 class QLineEdit;
+
+/// Widgets that KConfigDialog binds to settings through their "kcfg_<Entry>" object names.
+namespace SettingsWidgets
+{
+QComboBox *comboBox(const QString &entry, const QStringList &choices);
+QCheckBox *checkBox(const QString &entry, const QString &text);
+QSpinBox *pixelSpinBox(const QString &entry, int minimum, int maximum);
+
+/// Binds @p editor to @p entry through its @p property.
+template<typename Editor>
+Editor *bound(Editor *editor, const QString &entry, const char *property)
+{
+    editor->setObjectName(QStringLiteral("kcfg_") + entry);
+    editor->setProperty("kcfg_property", QByteArray(property));
+    return editor;
+}
+}
 
 class InterfaceLanguageCombo : public QComboBox
 {

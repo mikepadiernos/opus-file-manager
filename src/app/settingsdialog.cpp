@@ -97,37 +97,10 @@ namespace
 /// Largest sidebar icon size, in pixels, that uses symbolic page icons.
 constexpr int SymbolicIconMaxSize = 24;
 
-QComboBox *comboBox(const QString &entry, const QStringList &choices)
-{
-    auto *combo = new QComboBox;
-    combo->setObjectName(QStringLiteral("kcfg_") + entry);
-    combo->addItems(choices);
-    return combo;
-}
-
-QCheckBox *checkBox(const QString &entry, const QString &text)
-{
-    auto *check = new QCheckBox(text);
-    check->setObjectName(QStringLiteral("kcfg_") + entry);
-    return check;
-}
-
-QSpinBox *pixelSpinBox(const QString &entry, int minimum, int maximum)
-{
-    auto *spin = new QSpinBox;
-    spin->setObjectName(QStringLiteral("kcfg_") + entry);
-    spin->setRange(minimum, maximum);
-    spin->setSuffix(i18nc("@item:valuesuffix pixels", " px"));
-    return spin;
-}
-
-template<typename Editor>
-Editor *bound(Editor *editor, const QString &entry, const char *property)
-{
-    editor->setObjectName(QStringLiteral("kcfg_") + entry);
-    editor->setProperty("kcfg_property", QByteArray(property));
-    return editor;
-}
+using SettingsWidgets::bound;
+using SettingsWidgets::checkBox;
+using SettingsWidgets::comboBox;
+using SettingsWidgets::pixelSpinBox;
 
 /// Adds a density choice and its custom space, enabled only for Custom.
 void addDensityRows(QFormLayout *form, const QString &densityEntry, const QString &spaceEntry)
@@ -410,6 +383,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createMetadataEditorPage(), i18nc("@title:tab", "Metadata Editor")}},
                   i18nc("@title:group", "Tools"),
                   QStringLiteral("utilities-terminal"));
+    addTabbedPage({{createFileManagerIntegrationPage(), i18nc("@title:tab", "File Manager")}}, i18nc("@title:group", "KDE Plasma"), QStringLiteral("plasma"));
     applySidebarStyle();
     connect(this, &KConfigDialog::settingsChanged, this, [this] {
         applySidebarStyle();

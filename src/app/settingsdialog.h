@@ -17,6 +17,7 @@ class KPageWidgetItem;
 class PreviewSizeSpinBox;
 class QCheckBox;
 class QComboBox;
+class QGroupBox;
 class QLabel;
 class QListWidget;
 class QPushButton;
@@ -267,6 +268,9 @@ private:
     QWidget *createWorkspaceBehaviorsPage();
     QWidget *createWorkspacePortabilityPage();
     QWidget *createWorkspaceActivitiesPage();
+    /// The KDE Plasma › File Manager tab: the default file manager and the system file chooser.
+    QWidget *createFileManagerIntegrationPage();
+    QGroupBox *createDefaultFileManagerGroup();
     void createSettingsBackup();
     void restoreSettingsBackup();
     void exportWorkspaceProfiles();

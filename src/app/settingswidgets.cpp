@@ -60,6 +60,33 @@
 #include <tuple>
 #include <utility>
 
+namespace SettingsWidgets
+{
+QComboBox *comboBox(const QString &entry, const QStringList &choices)
+{
+    auto *combo = new QComboBox;
+    combo->setObjectName(QStringLiteral("kcfg_") + entry);
+    combo->addItems(choices);
+    return combo;
+}
+
+QCheckBox *checkBox(const QString &entry, const QString &text)
+{
+    auto *check = new QCheckBox(text);
+    check->setObjectName(QStringLiteral("kcfg_") + entry);
+    return check;
+}
+
+QSpinBox *pixelSpinBox(const QString &entry, int minimum, int maximum)
+{
+    auto *spin = new QSpinBox;
+    spin->setObjectName(QStringLiteral("kcfg_") + entry);
+    spin->setRange(minimum, maximum);
+    spin->setSuffix(i18nc("@item:valuesuffix pixels", " px"));
+    return spin;
+}
+}
+
 namespace
 {
 constexpr qulonglong MiB = 1024 * 1024;

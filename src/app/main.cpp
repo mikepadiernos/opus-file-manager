@@ -2,8 +2,8 @@
 
 #include "appearancedefaults.h"
 #include "appidentity.h"
+#include "defaultfilemanager.h"
 #include "desktoptray.h"
-#include "filemanagerrequest.h"
 #include "filemanagerservice.h"
 #include "interfacelanguage.h"
 #include "localizednumbers.h"
@@ -246,7 +246,7 @@ int main(int argc, char **argv)
     // the request decides what to open, so the window waits for it.
     const bool serviceMode = parser.isSet(fileManagerServiceOption);
     auto *fileManager = new FileManagerService(window);
-    fileManager->registerOnBus(serviceMode || FileManagerRequest::shouldClaim(FileManagerService::defaultFolderHandler()));
+    fileManager->registerOnBus(serviceMode || DefaultFileManager::isPlasmaOpus(DefaultFileManager::folderHandler().desktopName));
     const auto showStartupMessage = [window, workspaceWarning, appearanceMessage] {
         if (!workspaceWarning.isEmpty()) {
             window->statusBar()->showMessage(workspaceWarning);
