@@ -1935,7 +1935,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **Remote connections**
 
-  - [ ] **Profiles:** manage SSH, SFTP, SMB, FTP or FTPS and WebDAV hosts,
+  - [x] **Profiles:** manage SSH, SFTP, SMB, FTP or FTPS and WebDAV hosts,
         ports, usernames and connection defaults; use KDE credential facilities
         instead of storing credentials in KConfig or URLs. Plasma-session
         verification is a
