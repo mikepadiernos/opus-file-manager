@@ -2179,6 +2179,23 @@ The M27 desktop integrations have these limits
   container used for development has no Plasma Vault, so the real service
   awaits [verification on Plasma](TODO.md#plasma-vault-on-plasma-654).
   ([#654](https://github.com/mikepadiernos/plasma-opus/issues/654))
+- **🔏 File encryption:** **File › Encryption** needs GnuPG for OpenPGP
+  files and the separate `aescrypt` tool for `.aes` files; Kleopatra's
+  entries appear only when Kleopatra is installed. Plasma Opus runs GnuPG
+  without asking questions, so it encrypts only for keys certified as
+  belonging to their owner and lists other keys as unavailable. Passwords
+  for keys and password-only encryption are asked for by GnuPG's own prompt,
+  and the AES Crypt password is held briefly in a private file, readable only
+  by you, under the runtime folder, then overwritten and removed. Results
+  are written as new files beside the originals, which are never replaced or
+  deleted. Binary OpenPGP and AES Crypt files are recognized by their suffix
+  and first bytes, and text (`.asc`) files only when they have an encryption
+  or signature suffix. Folders and remote files are not offered, and
+  verifying a signature checks it against the data file beside it with the
+  same name. The container used for development has no `aescrypt` or
+  Kleopatra, so both await
+  [verification on Plasma](TODO.md#file-encryption-on-plasma-655).
+  ([#655](https://github.com/mikepadiernos/plasma-opus/issues/655))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -2382,6 +2399,12 @@ The M27 desktop integrations have these limits
     before **Close Vault**; if Plasma Vault still refuses, use its system
     tray applet to force the vault closed. Leave other tabs showing a vault
     before closing it.
+  - **File encryption:** Certify the keys you encrypt for in Kleopatra
+    first, or use **Sign and Encrypt with Kleopatra…** for keys you have not
+    certified. Install `aescrypt` only when you exchange `.aes` files, and
+    delete the original yourself once you have checked the encrypted copy.
+    Keep a signature beside the file it signs, with the same name plus `.sig`
+    or `.asc`.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2399,6 +2422,10 @@ The M27 desktop integrations have these limits
   - Show only the current Activity's vaults, move tabs showing a vault away
     when it closes, and show or hide vaults in the M28 **Encryption**
     settings.
+  - Encrypt folders through an archive, offer to remove originals after a
+    checked encryption, pass AES Crypt passwords through a pipe where the
+    tool allows it, and the M28 **Encryption** settings to choose the
+    default key and the text format.
   - Reuse an open tab showing an Activity's default folder instead of
     opening another, and offer the current Activity's association at start
     as an option.
