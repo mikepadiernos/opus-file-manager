@@ -263,18 +263,21 @@ behaves like the rest of the desktop and follows the user's choices.
   ([#709](https://github.com/mikepadiernos/plasma-opus/issues/709)). See
   [KWin scripts](#kwin-scripts).
   ([#707](https://github.com/mikepadiernos/plasma-opus/issues/707))
-- **Drop-down window:** turned on under **Settings › Configure KWin
-  Integration…**, the main window slides in from a chosen screen edge, like
-  [Yakuake](https://apps.kde.org/yakuake/), with a width and height as
-  percentages of the screen, on the active or a chosen screen. **View › Show or
-  Hide Drop-Down Window** toggles it; its global shortcut is unassigned until
-  one is chosen in the dialog or in System Settings, and the script can also
+- **Drop-down window:** turned on in the **Drop-Down Window** group under
+  **Preferences › KDE Plasma › KWin**, which **Settings › Configure KWin
+  Integration…** also opens, the main window slides in from a chosen screen
+  edge, like [Yakuake](https://apps.kde.org/yakuake/), with a width and height
+  as percentages of the screen, on the active or a chosen screen. **View › Show
+  or Hide Drop-Down Window** toggles it; its global shortcut is unassigned until
+  one is chosen in that group or in System Settings, and the script can also
   register a screen edge or a touch-screen edge. While shown, it stays above
   other windows and out of the taskbar, pager and task switcher. It can hide
   when another application is activated, but not while a dialog, menu or another
   Plasma Opus window is active, and it can switch to an assigned workspace when
   shown. Without the script it shows and hides as a regular window and says so
-  once.
+  once. The group also chooses the slide animation and whether it hides on
+  focus loss, and says whether the global shortcut works
+  ([#710](https://github.com/mikepadiernos/plasma-opus/issues/710)).
   ([#708](https://github.com/mikepadiernos/plasma-opus/issues/708))
 - **Ark:** when [Ark](https://apps.kde.org/ark/) is installed, **File › Open
   in Ark** opens a local archive in Ark's window to add, rename or remove
