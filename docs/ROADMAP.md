@@ -1885,7 +1885,7 @@ Settings for M27 integrations, stored in KConfig.
   - [x] **Provider:** select the built-in editor or an available KWrite, Kate,
         Neovim, Rune, micro or nano integration, plus the session type for
         terminal editors [#320]
-  - [ ] **Markdown:** choose a local vault and the Markdown editing and preview
+  - [x] **Markdown:** choose a local vault and the Markdown editing and preview
         behaviour, retaining source and draft safeguards. [#577]
   - [ ] **Workspace vault:** enable vault editing for a workspace and choose an
         assigned local location. Configure available editing, preview,
