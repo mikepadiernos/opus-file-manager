@@ -1981,7 +1981,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **Atuin**
 
-  - [ ] **History:** enable the history action and select a supported terminal
+  - [x] **History:** enable the history action and select a supported terminal
         session without changing Atuin's history or sync settings [#367]
 
 - **Plasma Activities**
