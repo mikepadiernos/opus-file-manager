@@ -24,7 +24,20 @@ enum class Reason {
     Missing,
     Unreadable,
     NotRegularFile,
+    /// A remote file, while Send by Email is set not to prepare local copies.
+    Remote,
 };
+
+/// How Send by Email treats remote files.
+enum class RemoteFiles {
+    /// Offer private local copies, downloaded only after the user agrees each time.
+    AskToCopy,
+    /// Never prepare local copies; remote files are skipped.
+    Skip,
+};
+
+/// How remote files are treated, as chosen under Preferences › Applications › Mail.
+RemoteFiles remoteFiles();
 
 struct Rejected {
     QUrl url;
@@ -37,15 +50,16 @@ struct Selection {
     /// Readable local regular files, following symbolic links.
     QList<QUrl> files;
     /// Remote files, which need private local copies before they can be
-    /// attached.
+    /// attached. Empty when remote files are skipped.
     QList<QUrl> remote;
     QList<Rejected> rejected;
 };
 
 /// Splits @p items into local files, remote files and items that cannot be
-/// attached. Folders, missing, unreadable and special files are rejected.
-/// Duplicates are attached once.
-Selection classify(const KFileItemList &items);
+/// attached. Folders, missing, unreadable and special files are rejected, as
+/// are remote files when @p remote is RemoteFiles::Skip. Duplicates are
+/// attached once.
+Selection classify(const KFileItemList &items, RemoteFiles remote = RemoteFiles::AskToCopy);
 
 /// A short, localized description of why an item cannot be attached.
 QString reasonText(Reason reason);

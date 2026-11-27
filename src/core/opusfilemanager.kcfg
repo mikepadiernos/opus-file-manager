@@ -964,6 +964,14 @@
       <label>Whether Send by Email is offered for selected files</label>
       <default>true</default>
     </entry>
+    <entry name="MailRemoteFiles" type="Enum">
+      <label>Whether Send by Email offers private local copies of remote files, downloaded only after asking, or skips remote files</label>
+      <choices>
+        <choice name="Ask"/>
+        <choice name="Skip"/>
+      </choices>
+      <default>Ask</default>
+    </entry>
   </group>
   <group name="Gallery">
     <entry name="ImageBackground" type="Enum">

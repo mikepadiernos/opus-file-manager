@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "mailhandoff.h"
+#include "settings.h"
 
 #include <QDir>
 #include <QFile>
@@ -80,6 +81,39 @@ private Q_SLOTS:
         QVERIFY(selection.files.isEmpty());
         QCOMPARE(selection.rejected.size(), 1);
         QCOMPARE(selection.rejected.first().reason, Reason::Unreadable);
+    }
+
+    void skipsRemoteFilesWhenLocalCopiesAreOff()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString file = dir.filePath(QStringLiteral("report.pdf"));
+        QFile out(file);
+        QVERIFY(out.open(QIODevice::WriteOnly));
+        out.write("x");
+        out.close();
+        const QUrl remote(QStringLiteral("sftp://host/notes.txt"));
+        const KFileItemList items{
+            KFileItem(QUrl::fromLocalFile(file)),
+            KFileItem(remote, QStringLiteral("text/plain"), S_IFREG),
+            KFileItem(remote, QStringLiteral("text/plain"), S_IFREG),
+        };
+        const Selection selection = classify(items, RemoteFiles::Skip);
+        QCOMPARE(selection.files, QList<QUrl>{QUrl::fromLocalFile(file)});
+        QVERIFY(selection.remote.isEmpty());
+        QCOMPARE(selection.rejected.size(), 1);
+        QCOMPARE(selection.rejected.first().url, remote);
+        QCOMPARE(selection.rejected.first().reason, Reason::Remote);
+        QVERIFY(!reasonText(Reason::Remote).isEmpty());
+    }
+
+    void readsTheRemoteFilesSetting()
+    {
+        Settings::self()->setDefaults();
+        QCOMPARE(remoteFiles(), RemoteFiles::AskToCopy);
+        Settings::setMailRemoteFiles(Settings::EnumMailRemoteFiles::Skip);
+        QCOMPARE(remoteFiles(), RemoteFiles::Skip);
+        Settings::self()->setDefaults();
     }
 
     void hidesPasswordsInDisplayNames()
