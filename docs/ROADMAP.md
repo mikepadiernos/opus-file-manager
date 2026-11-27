@@ -2094,6 +2094,8 @@ considered Calendar, Maps, Deck and Notes workflows.
       without downloading files. Add photos to albums or remove them with
       confirmation; removing a photo from an album never deletes the file.
       Respect shared-album permissions and report when Photos is unavailable.
+      Real-server verification is a
+      [pending handoff](TODO.md#nextcloud-photos-on-a-real-server-671).
       [#671]
 - [ ] View and manage supported Nextcloud shares with explicit authorization and
       confirmation before broadening access or revoking a share. Offer to send
