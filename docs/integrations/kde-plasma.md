@@ -437,6 +437,17 @@ behaves like the rest of the desktop and follows the user's choices.
   them; activating an entry opens the note. See
   [Workspace vaults and tags](../CAVEATS.md#desktop-integration).
   ([#565](https://github.com/mikepadiernos/plasma-opus/issues/565))
+- **Embedded mpv playback:** When Plasma Opus is built with libmpv, the
+  preview panel and gallery can play audio and video through an embedded
+  [mpv](https://mpv.io/) player instead of Qt Multimedia. Choose it with the
+  backend button beside the playback controls, or with **Audio and video
+  playback** under **Preferences › Interface › Previews**. Video needs
+  OpenGL; when mpv is missing or can't draw, Qt Multimedia plays the file
+  and a notice says why. The embedded player ignores your `mpv.conf` and
+  scripts. **Open with mpv** in the context menu still opens local audio
+  and video in the mpv application. See
+  [Embedded mpv playback](../CAVEATS.md#desktop-integration).
+  ([#563](https://github.com/mikepadiernos/plasma-opus/issues/563))
 - **Ebooks, comics, help files and fonts:** The preview panel shows EPUB,
   MOBI, FictionBook, comic book archives such as CBZ and CBR, DjVu and CHM
   help files through [Okular](https://okular.kde.org/)'s viewer component
@@ -619,6 +630,7 @@ behaves like the rest of the desktop and follows the user's choices.
   The `--read-only` option keeps one client to reading. See
   [MCP server](../CAVEATS.md#desktop-integration).
   ([#287](https://github.com/mikepadiernos/plasma-opus/issues/287))
+
 - **Password-gated folders:** **File › Password Protection › Protect with
   Password…** asks for a password before Plasma Opus shows a local folder. A
   protected folder starts locked in each session: Plasma Opus shows it with a
