@@ -1765,8 +1765,9 @@ The M27 desktop integrations have these limits
   not. Plasma's job entry cannot bring the dialog back to the front; it offers
   only its own actions, such as opening the destination folder. Outside a
   Plasma session, with no job-view service running, nothing is reported and
-  the dialogs remain the only progress display. There is no Plasma Opus
-  setting to turn the reporting off yet.
+  the dialogs remain the only progress display. Choose which of these
+  operations report under **Preferences › KDE Plasma › Notifications**
+  ([Integration settings](#integration-settings)).
   ([#388](https://github.com/mikepadiernos/plasma-opus/issues/388))
 - **📌 System tray and global shortcut:** the tray icon is on by default;
   minimizing and closing to the tray are off until turned on under
@@ -2342,9 +2343,10 @@ The M27 desktop integrations have these limits
     shows which language is in effect.
   - **Notifications and jobs:** Keep the Plasma Opus dialog open, or switch
     to it from the task manager, to read error details or change options.
-    To hide the progress, turn off application progress in notifications
-    under **System Settings › Notifications**; this affects every
-    application.
+    To hide the progress of particular operations, clear them under
+    **Preferences › KDE Plasma › Notifications**. To hide it for every
+    application, turn off application progress in notifications under
+    **System Settings › Notifications**.
   - **System tray and global shortcut:** To hide the window instead of
     closing it, check **Hide the window in the system tray when it is
     closed** under **Settings › General › System Tray**; on Wayland, prefer
@@ -2578,8 +2580,6 @@ The M27 desktop integrations have these limits
     System Settings while Plasma Opus runs.
   - Watch `plasma-localerc` and offer a restart when Plasma's language list
     changes.
-  - An M28 setting to choose which operations report to Plasma, and to
-    report automatic library refreshes.
   - A job action that raises the dialog that started the operation.
   - An M28 **System tray** setting for starting hidden, with a notice when
     the global shortcut could not be assigned.
@@ -2750,6 +2750,21 @@ The M28 integration settings have these limits
   verified there over a private session bus only
   ([Plasma check](TODO.md#chooser-start-folder-on-plasma-750)).
   ([#750](https://github.com/mikepadiernos/plasma-opus/issues/750))
+- **📣 Operation notifications:** the checkboxes under **Preferences › KDE
+  Plasma › Notifications** cover only the seven Plasma Opus operations that
+  report to Plasma; file copies, moves and deletions are KIO jobs that only
+  Plasma's settings control. A change applies to operations started after
+  **Apply** or **OK**; a running operation keeps reporting, or not, until it
+  ends. An operation that does not report still shows its progress and
+  errors in its dialog, but nothing in Plasma tells you when it ends.
+  **Configure Plasma Notifications…** opens Plasma's Notifications settings
+  through `kcmshell6`, or System Settings without it, and asks for the
+  Plasma Opus entry. Plasma Opus has no notification events of its own, so
+  Plasma's options there apply to all of its reports together. When the
+  settings are not installed, the tab says so. The container has no Plasma
+  session, so opening the Plasma Opus entry and the reports are unverified
+  there ([Plasma check](TODO.md#operation-notifications-on-plasma-392)).
+  ([#392](https://github.com/mikepadiernos/plasma-opus/issues/392))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -2769,6 +2784,11 @@ The M28 integration settings have these limits
     return to where each application last opened or saved files. Choose
     **Forget Remembered Folders** to clear the remembered folders, for
     example after reorganizing them.
+  - **Operation notifications:** Clear the operations whose progress you do
+    not want in Plasma under **Preferences › KDE Plasma › Notifications**,
+    and follow them in their dialogs instead. Choose **Configure Plasma
+    Notifications…** to change how Plasma shows the remaining reports, for
+    example to keep finished operations out of the notification history.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -2781,6 +2801,8 @@ The M28 integration settings have these limits
   - Remember remote folders through KIO, keep separate folders for opening
     and saving, and keep remembering while **Home folder** is selected so
     that switching options keeps the last folders.
+  - Report automatic library refreshes to Plasma with their own setting,
+    and show Plasma's notification options for Plasma Opus in the tab.
 
 ## Embedded terminal
 
