@@ -2039,7 +2039,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **MCP**
 
-  - [ ] **Access:** configure server access (off, read or write), token and
+  - [x] **Access:** configure server access (off, read or write), token and
         audit log [#294]
 
 - **Password-gated folders**
