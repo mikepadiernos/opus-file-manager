@@ -5,20 +5,21 @@
 [![Roadmap: M30 Nextcloud settings](https://img.shields.io/badge/roadmap-M30%20Nextcloud%20settings-8957e5?style=flat-square)](../ROADMAP.md#m30-nextcloud-settings)
 
 ![Milestones M29–M30](https://img.shields.io/badge/milestones-M29%E2%80%93M30-8957e5?style=flat-square)
-![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)
+![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)
 
-How Plasma Opus plans to work with Nextcloud files and apps, the server
-interfaces it would use, and ideas considered beyond the roadmap.
+How Plasma Opus works with Nextcloud files and apps, the server interfaces it
+uses, its planned settings and ideas considered beyond the roadmap.
 
 **Integration plans:** [KDE Plasma](kde-plasma.md) · **Nextcloud** ·
 [Plasma Impresario](plasma-impresario.md)
 
 > [!NOTE]
-> **Implemented:** Nextcloud accounts, browsing, previews, asset search,
-> Photos albums and shares from M29, described under
-> [Implemented features](#implemented-features).
-> **Planned:** the rest of [M29](../ROADMAP.md#m29-nextcloud-integration) and
-> its settings in [M30](../ROADMAP.md#m30-nextcloud-settings), summarized under
+> **Implemented:** all of
+> [M29](../ROADMAP.md#m29-nextcloud-integration): Nextcloud accounts, browsing,
+> previews, asset search, Photos albums, shares and the desktop client's
+> folders, described under [Implemented features](#implemented-features).
+> **Planned:** only the settings in
+> [M30](../ROADMAP.md#m30-nextcloud-settings), summarized under
 > [Planned features](#planned-features). Everything under
 > [Considered features](#considered-features) is outside the roadmap.
 
@@ -55,7 +56,8 @@ document describes how Plasma Opus could also work with Nextcloud apps.
   delete app-owned data, such as albums, events, cards or app configuration
   files, without an explicit, confirmed user action.
 - Leave synchronization of the desktop client's folders to the Nextcloud
-  desktop client; see M29. Optional
+  desktop client: Plasma Opus only reads its configuration and asks it for
+  status. Optional
   [two-way cloud sync](../ROADMAP.md#m27-integrations) pairs can target
   other Nextcloud folders but never overlap the client's.
   ([#718](https://github.com/mikepadiernos/plasma-opus/issues/718))
@@ -269,13 +271,45 @@ document describes how Plasma Opus could also work with Nextcloud apps.
   See [Nextcloud integration](../CAVEATS.md#nextcloud-integration).
   ([#591](https://github.com/mikepadiernos/plasma-opus/issues/591))
 
+- **Desktop client:** when the Nextcloud desktop client is installed or
+  configured, **Go › Nextcloud › Desktop Client** offers **Open Desktop
+  Client**, then a submenu for each folder the client synchronizes, titled
+  with where its files are and its status, such as *Documents (Local, Up to
+  date)*. Each folder offers **Open**, **Open in Other Pane** and, when the
+  same user and server are added as a Plasma Opus account, **Open on Server**
+  for the server's copy. Its tooltip names the folder on the server, the
+  account and what its state means.
+  - **States:** **Local** folders hold full copies of their files. **Remote**
+    folders use virtual files, whose contents stay on the server until
+    opened. **Offline** means the client isn't running or the folder is
+    paused, so changes wait until it resumes. **Unknown** means the client
+    didn't report a status or the folder is missing. The status is **Up to
+    date**, **Synchronizing**, **Needs attention** or **Error**, as the client
+    reports it; while the client is asked, the menu shows **Checking
+    synchronization status…**, and **Desktop client not running** when it
+    can't be reached.
+  - **Boundaries:** Plasma Opus reads the client's configuration without
+    writing or locking it, never starts a second sync engine and never
+    changes the client's folders or settings; pause, resume and add folders
+    in the client. Files browsed over WebDAV are never described as available
+    offline. Two-way cloud sync still refuses pairs that overlap the client's
+    folders.
+  - **Interfaces:** the client's `Nextcloud/nextcloud.cfg` under the
+    configuration folder, read for the `[Accounts]` entries
+    `N\Folders\M\localPath`, `targetPath`, `virtualFilesMode` and `paused`,
+    and its local socket `Nextcloud/socket` under `XDG_RUNTIME_DIR`, asked
+    with `RETRIEVE_FILE_STATUS:<path>` and answered with
+    `STATUS:<status>:<path>`. The client is started from its desktop entry.
+
+  See [Nextcloud integration](../CAVEATS.md#nextcloud-integration).
+  ([#592](https://github.com/mikepadiernos/plasma-opus/issues/592))
+
 ## Planned features
 
-| Feature         | Plan                                                                                                                                                        | Milestone                                      |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| Sync folders    | Open configured local sync folders and the desktop client, showing remote, local, offline and unknown state; never start a second sync engine.              | [M29](../ROADMAP.md#m29-nextcloud-integration) |
-| Settings        | Account references, browsing and preview choices, asset metadata and search, sharing and desktop-client integration, stored in KConfig without credentials. | [M30](../ROADMAP.md#m30-nextcloud-settings)    |
-| Photos settings | Show or hide albums, shared albums and places, choose their default grouping and whether to confirm album changes.                                          | [M30](../ROADMAP.md#m30-nextcloud-settings)    |
+| Feature         | Plan                                                                                                                                                        | Milestone                                   |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Settings        | Account references, browsing and preview choices, asset metadata and search, sharing and desktop-client integration, stored in KConfig without credentials. | [M30](../ROADMAP.md#m30-nextcloud-settings) |
+| Photos settings | Show or hide albums, shared albums and places, choose their default grouping and whether to confirm album changes.                                          | [M30](../ROADMAP.md#m30-nextcloud-settings) |
 
 ## Nextcloud app interfaces
 
