@@ -1793,8 +1793,8 @@ for some features are recorded in [pending tasks](TODO.md).
 
 **Caveats:**
 [Desktop integration](CAVEATS.md#desktop-integration), tracked in [#728];
-[Password-gated folders](CAVEATS.md#planned-password-gated-folders) (planned),
-tracked in [#406].
+[Password-gated folders](CAVEATS.md#password-gated-folders), tracked in
+[#406].
 
 ### M28: Integration settings
 

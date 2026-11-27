@@ -27,7 +27,7 @@ are in [reported bugs](BUGS.md), and untested scenarios in
 
 - **🗂️ Browsing and viewing:** [Archives](#archives),
   [folder metadata and listings](#folder-metadata-and-listings),
-  [planned password-gated folders](#planned-password-gated-folders),
+  [password-gated folders](#password-gated-folders),
   [previews and gallery](#previews-and-gallery), [editor](#editor),
   [file-list minimap](#file-list-minimap), [Yazi mode](#yazi-mode),
   [Yazi mode settings](#yazi-mode-settings)
@@ -262,28 +262,47 @@ its own issue:
     - Comment:
       [#262.7029668154](https://github.com/mikepadiernos/plasma-opus/issues/262#issuecomment-7029668154)
 
-## Planned password-gated folders
+## Password-gated folders
 
-The [proposed Plasma Opus password gate](ROADMAP.md#m27-integrations) is not
-implemented ([#406](https://github.com/mikepadiernos/plasma-opus/issues/406);
-feature [#402](https://github.com/mikepadiernos/plasma-opus/issues/402)). As
-proposed, it has these limits:
+**File › Password Protection** gates local folders behind a password inside
+Plasma Opus only ([#406](https://github.com/mikepadiernos/plasma-opus/issues/406);
+feature [#402](https://github.com/mikepadiernos/plasma-opus/issues/402)):
 
-- **Not security:** It would be a Plasma Opus-only prompt, not encryption or
-  filesystem access control.
-- **Bypass:** Other file managers and processes with the same user permissions
-  could access the underlying folder without the password.
-- **Filesystem permissions:** Standard filesystem permissions and ACLs
+- **Current behaviour:** A protected folder starts locked in every new
+  session. While it is locked, Plasma Opus shows the folder with a lock icon
+  but does not list it, preview it, search inside it, open a terminal in it or
+  copy, move, trash or delete it or anything inside it; its subfolders are
+  hidden from the tree and Yazi columns. Unlocking lasts until **Lock All
+  Protected Folders** or the end of the session; there is no idle auto-lock.
+  The MCP server treats every protected folder as locked.
+- **Not security:** The gate is not encryption or filesystem access control.
+  Other file managers, terminals and processes with the same user
+  permissions use the folder freely, and standard permissions and ACLs
   distinguish users and groups, not applications running with the same
-  credentials.
+  credentials. Removing the folder's entry from `opus-file-managerrc` removes
+  the gate. Plasma Opus stores a salted PBKDF2-SHA256 verifier rather than the
+  password, and does not use KWallet.
+- **Leaks inside Plasma Opus:** A locked folder can still be dragged to
+  another application, which then copies or opens it. Folder sizes,
+  **Properties** counts, the trash, recent files, history, bookmarks and
+  search collections can show sizes or names from inside it, and thumbnails
+  cached before it was protected stay in the thumbnail cache.
+- **Paths, not folders:** A gate follows a folder moved or renamed in Plasma
+  Opus, but a folder moved by another application leaves its gate behind,
+  unprotected at the new path. A gate on a deleted folder stays and gates any
+  new folder created at the same path. Bind mounts, hard-linked files and
+  other paths to the same data are not gated.
 
-- **Recommendation:** For confidential files, use a separate encrypted vault
-  such as [KDE Plasma Vault](https://github.com/KDE/plasma-vault). Applications
-  with access can use files while the vault is unlocked and mounted; when it is
-  locked, the decrypted contents are unavailable through the mount. This uses
-  encryption, unlike the requested gate. Back up the data and protect the
-  passphrase; handle any original unencrypted copies separately. Backend
-  availability and behaviour vary.
+- **Recommendation:** Treat the gate as a privacy screen against casual
+  browsing in Plasma Opus, not as protection. For confidential files, use a
+  separate encrypted vault such as
+  [KDE Plasma Vault](https://github.com/KDE/plasma-vault): applications with
+  access can use files while the vault is unlocked and mounted, and the
+  decrypted contents are unavailable through the mount when it is locked.
+  Back up the data, protect the passphrase and handle any original
+  unencrypted copies separately. Lock protected folders before leaving the
+  desktop, move them only in Plasma Opus, and remove protection before
+  deleting a folder.
   - Comment:
     [#406.7040077820](https://github.com/mikepadiernos/plasma-opus/issues/406#issuecomment-7040077820)
 - **Alternatives:**
@@ -304,6 +323,9 @@ proposed, it has these limits:
     permissions vary, so this is not universal password enforcement.
     - Comment:
       [#406.7040079777](https://github.com/mikepadiernos/plasma-opus/issues/406#issuecomment-7040079777)
+- **Proposed improvements:** Gate locked folders when dragging them out,
+  hide their sizes and names in Properties, history and collections, add an
+  idle auto-lock, and offer Plasma Vault for folders that need encryption.
 
 ## Previews and gallery
 
