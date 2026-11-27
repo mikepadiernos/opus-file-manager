@@ -19,6 +19,7 @@
 #include "indexstatus.h"
 #include "kwinintegration.h"
 #include "kwinscript.h"
+#include "mailhandoff.h"
 #include "mediabackend.h"
 #include "officeapps.h"
 #include "onlineaccounts.h"
@@ -48,6 +49,7 @@
 #include <KParts/PartLoader>
 #include <KPluginMetaData>
 #include <KProtocolInfo>
+#include <KSandbox>
 #include <KService>
 #include <KSharedConfig>
 #include <KToolBar>
@@ -2307,5 +2309,67 @@ QGroupBox *SettingsDialog::createAppImageIntegrationGroup(QCheckBox *appImages)
         connect(check, &QCheckBox::toggled, group, refresh);
     }
     refresh();
+    return group;
+}
+
+QWidget *SettingsDialog::createMailIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("mailIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(createMailClientGroup());
+    layout->addStretch();
+    return page;
+}
+
+QGroupBox *SettingsDialog::createMailClientGroup()
+{
+    auto *group = new StatusGroup(i18nc("@title:group", "Client"));
+    group->setObjectName(QStringLiteral("mailClientGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *enabled = checkBox(QStringLiteral("SendByEmail"), i18nc("@option:check", "Offer Send by Email for selected files"));
+    enabled->setToolTip(i18nc("@info:tooltip", "Show Send by Email in the File menu and the context menus"));
+    layout->addWidget(enabled);
+    auto *status = statusLabel(QStringLiteral("mailClientStatus"));
+    layout->addWidget(status);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Send by Email opens a new message in the default mail client, with the selected files attached, for you to "
+                                  "review and send. Plasma Opus never sends mail itself. Choose the client in Plasma's Default Applications "
+                                  "settings."));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    auto *defaults = actionButton(QStringLiteral("openDefaultApplicationsSettings"), i18nc("@action:button", "Configure Default Applications…"));
+    defaults->setIcon(QIcon::fromTheme(QStringLiteral("preferences-desktop-default-applications")));
+    defaults->setToolTip(i18nc("@info:tooltip", "Open Plasma's Default Applications settings, which choose the mail client"));
+    layout->addLayout(buttonRow({defaults}));
+    auto *message = messageWidget(QStringLiteral("mailClientMessage"));
+    layout->addWidget(message);
+
+    // Reports the mail client that Send by Email opens.
+    const auto refresh = [enabled, status] {
+        QString text;
+        if (KSandbox::isInside()) {
+            text = i18nc("@info", "The desktop portal opens new messages in the mail client chosen in Plasma's Default Applications settings.");
+        } else if (const std::optional<MailHandoff::Client> client = MailHandoff::preferredClient(); !client) {
+            text = i18nc("@info", "No default mail client is set, so Send by Email can only list the files for dragging into a message.");
+        } else if (!client->acceptsAttachments) {
+            text = i18nc("@info %1 is an application name",
+                         "Default mail client: %1. It cannot receive attached files from other applications yet, so Send by Email "
+                         "opens a message without them, for you to drag the files in.",
+                         client->name);
+        } else {
+            text = i18nc("@info %1 is an application name", "Default mail client: %1.", client->name);
+        }
+        if (!enabled->isChecked()) {
+            text += QLatin1Char(' ') + i18nc("@info", "Send by Email is off, so the File menu and context menus don't offer it.");
+        }
+        status->setText(text);
+    };
+    group->refresh = refresh;
+    connect(enabled, &QCheckBox::toggled, group, refresh);
+    refresh();
+    connect(defaults, &QPushButton::clicked, message, [message] {
+        openSettingsModule(QStringLiteral("kcm_componentchooser"), i18nc("@info", "Plasma's Default Applications settings are not installed."), message);
+    });
     return group;
 }

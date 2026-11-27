@@ -17,6 +17,7 @@
 #include "folderview.h"
 #include "fontpreview.h"
 #include "kwinintegration.h"
+#include "mailhandoff.h"
 #include "mainwindow.h"
 #include "mediabackend.h"
 #include "mediaview.h"
@@ -27,6 +28,7 @@
 #include "pane.h"
 #include "portalsetup.h"
 #include "runnermatches.h"
+#include "sendbyemaildialog.h"
 #include "settings.h"
 #include "settingsdialog.h"
 #include "settingswidgets.h"
@@ -2462,6 +2464,101 @@ private Q_SLOTS:
         apply();
         QVERIFY(!AppPackages::isPackage(QStringLiteral("/tmp/MyApp.AppImage"), QStringLiteral("application/vnd.appimage")));
         QVERIFY(AppPackages::actions(package).isEmpty());
+    }
+
+    void mailTabChoosesTheClientAndSendByEmail()
+    {
+        QTemporaryDir folder;
+        QVERIFY(folder.isValid());
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        const QString file = folder.filePath(QStringLiteral("notes.txt"));
+        write(file, QStringLiteral("notes"));
+        const auto installClient = [this](const QString &desktopId, const QString &name) {
+            write(m_applications + QLatin1Char('/') + desktopId,
+                  QStringLiteral("[Desktop Entry]\nType=Application\nName=%1\nExec=true %u\nMimeType=x-scheme-handler/mailto;\n").arg(name));
+            write(m_configHome + QStringLiteral("/mimeapps.list"), QStringLiteral("[Default Applications]\nx-scheme-handler/mailto=%1;\n").arg(desktopId));
+            KSycoca::self()->ensureCacheValid();
+        };
+
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(folder.path())});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        view->selectUrls({QUrl::fromLocalFile(file)});
+        QAction *send = window.actionCollection()->action(QStringLiteral("send_by_email"));
+        QTRY_VERIFY(send->isEnabled());
+        QVERIFY(send->isVisible());
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("mailIntegrationPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        const int index = tabs->indexOf(page);
+        QCOMPARE(tabs->tabText(index), QStringLiteral("Mail"));
+        QCOMPARE(tabs->tabText(index - 1), QStringLiteral("Packages"));
+        auto *group = page->findChild<QGroupBox *>(QStringLiteral("mailClientGroup"));
+        QVERIFY(group);
+        auto *enabled = group->findChild<QCheckBox *>(QStringLiteral("kcfg_SendByEmail"));
+        auto *status = group->findChild<QLabel *>(QStringLiteral("mailClientStatus"));
+        QVERIFY(enabled && status && group->findChild<QPushButton *>(QStringLiteral("openDefaultApplicationsSettings")));
+        QVERIFY(enabled->isChecked());
+        if (!MailHandoff::preferredClient()) {
+            QCOMPARE(status->text(), QStringLiteral("No default mail client is set, so Send by Email can only list the files for dragging into a message."));
+        }
+
+        // The status reads the client again when it changes.
+        const auto reread = [enabled] {
+            enabled->setChecked(false);
+            enabled->setChecked(true);
+        };
+        installClient(QStringLiteral("fakemail.desktop"), QStringLiteral("Fake Mail"));
+        reread();
+        QCOMPARE(status->text(), QStringLiteral("Default mail client: Fake Mail."));
+        installClient(QStringLiteral("io.github.mikepadiernos.plasma_impresario.desktop"), QStringLiteral("Plasma Impresario"));
+        reread();
+        QVERIFY2(status->text().startsWith(QStringLiteral("Default mail client: Plasma Impresario. It cannot receive attached files")),
+                 qPrintable(status->text()));
+
+        enabled->setChecked(false);
+        QVERIFY2(status->text().startsWith(QStringLiteral("Default mail client: Plasma Impresario.")), qPrintable(status->text()));
+        QVERIFY(status->text().endsWith(QStringLiteral("Send by Email is off, so the File menu and context menus don't offer it.")));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(!Settings::sendByEmail());
+        QVERIFY(!send->isVisible());
+        QVERIFY(!send->isEnabled());
+        // The selection changing doesn't turn it back on.
+        view->selectUrls({});
+        view->selectUrls({QUrl::fromLocalFile(file)});
+        QTRY_VERIFY(window.actionCollection()->action(QStringLiteral("delete"))->isEnabled());
+        QVERIFY(!send->isEnabled());
+        window.sendByEmail();
+        QVERIFY(!window.findChild<SendByEmailDialog *>());
+
+        enabled->setChecked(true);
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QVERIFY(send->isVisible());
+        QVERIFY(send->isEnabled());
+    }
+
+    void reportsMissingDefaultApplicationsSettings()
+    {
+        for (const QString &kind : {QStringLiteral("systemsettings"), QStringLiteral("systemsettings_qwidgets")}) {
+            if (KPluginMetaData::findPluginById(QStringLiteral("plasma/kcms/") + kind, QStringLiteral("kcm_componentchooser")).isValid()) {
+                QSKIP("Plasma's Default Applications settings are installed on this system.");
+            }
+        }
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        dialog.findChild<QPushButton *>(QStringLiteral("openDefaultApplicationsSettings"))->click();
+        auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("mailClientMessage"));
+        QCOMPARE(message->messageType(), KMessageWidget::Error);
+        QVERIFY(message->text().contains(QStringLiteral("Default Applications settings are not installed")));
     }
 };
 

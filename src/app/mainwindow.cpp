@@ -4487,9 +4487,10 @@ void MainWindow::updateActions()
                             });
     actions->action(QStringLiteral("create_checksum"))->setEnabled(localFiles);
     actions->action(QStringLiteral("kdeconnect_send"))->setEnabled(hasSelection && Settings::kdeConnectSharing());
-    actions->action(QStringLiteral("send_by_email"))->setEnabled(std::any_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
-        return !item.isDir();
-    }));
+    actions->action(QStringLiteral("send_by_email"))
+        ->setEnabled(Settings::sendByEmail() && std::any_of(selected.cbegin(), selected.cend(), [](const KFileItem &item) {
+                         return !item.isDir();
+                     }));
     actions->action(QStringLiteral("share_on_network"))
         ->setEnabled(hasSelection ? std::all_of(selected.cbegin(),
                                                 selected.cend(),
@@ -6111,7 +6112,7 @@ void MainWindow::setKdeConnectClient(KdeConnectClient *client)
 void MainWindow::sendByEmail()
 {
     const KFileItemList items = activePane()->view()->selectedItems();
-    if (items.isEmpty()) {
+    if (items.isEmpty() || !Settings::sendByEmail()) {
         return;
     }
     auto *dialog = new SendByEmailDialog(items, this);
@@ -8122,6 +8123,7 @@ void MainWindow::applySettings()
     m_activityController->applySettings();
     syncFileTypePlaces();
     actionCollection()->action(QStringLiteral("kdeconnect_send"))->setVisible(Settings::kdeConnectSharing());
+    actionCollection()->action(QStringLiteral("send_by_email"))->setVisible(Settings::sendByEmail());
     actionCollection()->action(QStringLiteral("online_accounts"))->setVisible(Settings::onlineAccountsEnabled());
     QAction *terminalHistory = actionCollection()->action(QStringLiteral("search_terminal_history"));
     terminalHistory->setVisible(Settings::atuinHistory());

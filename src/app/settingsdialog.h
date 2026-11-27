@@ -389,6 +389,10 @@ private:
     QGroupBox *createPackageActionsGroup();
     /// The AppImage Menu Entries group of the Packages tab: whether and how AppImages are added to the application menu.
     QGroupBox *createAppImageIntegrationGroup(QCheckBox *appImages);
+    /// The Applications › Mail tab.
+    QWidget *createMailIntegrationPage();
+    /// The Client group of the Mail tab: the default mail client, and whether Send by Email is offered.
+    QGroupBox *createMailClientGroup();
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.
