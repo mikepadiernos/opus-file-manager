@@ -198,9 +198,10 @@ application; file and action icons follow the active desktop theme. See
 
 ### Optional integrations
 
-Baloo provides indexed search, Konsole provides the embedded terminal, and
-ExifTool supports media metadata editing. See the [caveats](docs/CAVEATS.md)
-for requirements and restrictions and the [translation guide](po/README.md) for
+Baloo provides indexed search, Konsole provides the embedded terminal,
+ExifTool supports media metadata editing, and libmpv offers embedded mpv
+playback in previews and the gallery. See the [caveats](docs/CAVEATS.md) for
+requirements and restrictions and the [translation guide](po/README.md) for
 language setup.
 
 ## Customize the interface

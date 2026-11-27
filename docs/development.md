@@ -42,7 +42,8 @@ Plasma Opus builds on Linux with:
 
 See `CMakeLists.txt` for the required components and
 [Development tooling](#development-tooling) for the versions used to
-reproduce builds. Baloo development files optionally enable indexed search.
+reproduce builds. Baloo development files optionally enable indexed search,
+and libmpv with Qt OpenGL Widgets optionally enables embedded mpv playback.
 Run `./install.sh --deps` to print the build and optional feature packages;
 it does not install them. For runtime dependencies such as Konsole and
 ExifTool, see [Optional integrations](../README.md#optional-integrations).
