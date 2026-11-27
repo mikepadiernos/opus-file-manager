@@ -468,7 +468,13 @@ bool EditorPanel::queryClose()
         KMessageBox::error(this, m_draftStatus->text());
         return false;
     }
-    return m_document->queryClose() && m_document->waitSaveComplete();
+    const bool modified = m_document->isModified();
+    if (!m_document->queryClose()) {
+        return false;
+    }
+    // waitSaveComplete() reports the last save, so only consult it when the
+    // user chose to save; discarding leaves the document modified.
+    return !modified || m_document->isModified() || m_document->waitSaveComplete();
 }
 
 KTextEditor::Document *EditorPanel::document() const
