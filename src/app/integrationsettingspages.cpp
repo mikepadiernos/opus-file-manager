@@ -8,6 +8,7 @@
 #include "atuin.h"
 #include "defaultfilemanager.h"
 #include "desktoptray.h"
+#include "editorproviders.h"
 #include "favoritesmodel.h"
 #include "filechooser.h"
 #include "filemanagerservice.h"
@@ -1611,4 +1612,107 @@ QGroupBox *SettingsDialog::createAtuinHistoryGroup(QComboBox *embedded)
     }
     refresh();
     return group;
+}
+
+QWidget *SettingsDialog::createEditorIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("editorIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+    layout->addWidget(createEditorProviderGroup());
+    layout->addStretch();
+    return page;
+}
+
+QGroupBox *SettingsDialog::createEditorProviderGroup()
+{
+    using EditorProviders::Editor;
+    auto *group = new StatusGroup(i18nc("@title:group", "Provider"));
+    group->setObjectName(QStringLiteral("editorProviderGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *form = new QFormLayout;
+    // The choices follow the built-in editor, then EditorProviders::editors().
+    const QList<Editor> editors = EditorProviders::editors();
+    QStringList names{i18nc("@item:inlistbox", "Built-in editor")};
+    for (const Editor editor : editors) {
+        names.append(EditorProviders::name(editor));
+    }
+    auto *provider = comboBox(QStringLiteral("TextEditorProvider"), names);
+    provider->setToolTip(i18nc("@info:tooltip", "The editor that Edit opens text files in"));
+    form->addRow(i18nc("@label:listbox", "Text editor:"), provider);
+    auto *session =
+        comboBox(QStringLiteral("TerminalEditorSession"), {i18nc("@item:inlistbox", "Embedded terminal"), i18nc("@item:inlistbox", "Separate terminal")});
+    session->setToolTip(i18nc("@info:tooltip",
+                              "Where Neovim, Rune, micro and nano run, from Edit and from Tools › Edit With: a session in the terminal panel, "
+                              "or a window of the terminal application chosen in System Settings"));
+    form->addRow(i18nc("@label:listbox", "Terminal editors run in:"), session);
+    layout->addLayout(form);
+    auto *status = statusLabel(QStringLiteral("editorProviderStatus"));
+    layout->addWidget(status);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Edit, with F4 or from the context menus, opens text files in this editor; office documents, images and "
+                                  "audio keep their own edit tools. Tools › Edit With still offers every editor. Terminal editors open only "
+                                  "local files."));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+    auto *builtIn = actionButton(QStringLiteral("showBuiltInEditorSettings"), i18nc("@action:button", "Built-in Editor Settings…"));
+    builtIn->setIcon(QIcon::fromTheme(QStringLiteral("view-pim-notes")));
+    builtIn->setToolTip(i18nc("@info:tooltip", "Show Editor › Editor, with the built-in editor's placement, font, drafts and Markdown mode"));
+    layout->addLayout(buttonRow({builtIn}));
+
+    // Marks the editors that are not installed, and reports the chosen one.
+    const auto refresh = [this, editors, provider, session, status] {
+        provider->setItemIcon(0, QIcon::fromTheme(QStringLiteral("view-pim-notes")));
+        for (int index = 0; index < editors.size() && index + 1 < provider->count(); ++index) {
+            const Editor editor = editors.at(index);
+            const QString reason = EditorProviders::unavailableReason(editor);
+            provider->setItemText(index + 1,
+                                  reason.isEmpty() ? EditorProviders::name(editor)
+                                                   : i18nc("@item:inlistbox %1 is a text editor", "%1 (not installed)", EditorProviders::name(editor)));
+            provider->setItemIcon(index + 1, QIcon::fromTheme(EditorProviders::iconName(editor)));
+            provider->setItemData(index + 1, reason.isEmpty() ? QVariant() : QVariant(reason), Qt::ToolTipRole);
+        }
+        const std::optional<Editor> chosen = provider->currentIndex() > 0 ? std::optional<Editor>(editors.value(provider->currentIndex() - 1)) : std::nullopt;
+        const bool separate = session->currentIndex() == Settings::EnumTerminalEditorSession::Separate;
+        if (!chosen) {
+            status->setText(i18nc("@info", "Edit opens text files in the built-in editor."));
+            return;
+        }
+        const QString name = EditorProviders::name(*chosen);
+        if (const QString reason = EditorProviders::unavailableReason(*chosen); !reason.isEmpty()) {
+            status->setText(reason + QLatin1Char(' ') + i18nc("@info", "Edit reports this instead of opening another editor."));
+            return;
+        }
+        if (!EditorProviders::runsInTerminal(*chosen)) {
+            status->setText(i18nc("@info %1 is a text editor", "Edit opens text files in %1.", name));
+            return;
+        }
+        if (separate) {
+            status->setText(i18nc("@info %1 is a text editor", "Edit opens text files with %1 in a separate terminal window.", name));
+            return;
+        }
+        // The Terminal tab's choice, when the dialog has it, or else the saved one.
+        const auto *embedded = findChild<QComboBox *>(QStringLiteral("kcfg_EmbeddedTerminal"));
+        const QList<TerminalProviders::Provider> embeddedProviders = TerminalProviders::embeddedProviders();
+        const TerminalProviders::Provider component =
+            embeddedProviders.value(embedded ? embedded->currentIndex() : static_cast<int>(Settings::embeddedTerminal()), TerminalProviders::Provider::Konsole);
+        if (const QString reason = TerminalProviders::partUnavailableReason(component); !reason.isEmpty()) {
+            status->setText(reason + QLatin1Char(' ')
+                            + i18nc("@info %1 is a text editor", "%1 can't open in the embedded terminal; choose a separate terminal instead.", name));
+            return;
+        }
+        status->setText(i18nc("@info %1 is a text editor", "Edit opens text files with %1 in the embedded terminal.", name));
+    };
+    group->refresh = refresh;
+    connect(provider, &QComboBox::currentIndexChanged, group, refresh);
+    connect(session, &QComboBox::currentIndexChanged, group, refresh);
+    refresh();
+    connect(builtIn, &QPushButton::clicked, this, &SettingsDialog::showBuiltInEditorSettings);
+    return group;
+}
+
+void SettingsDialog::showBuiltInEditorSettings()
+{
+    setCurrentPage(m_editorPage);
+    m_editorTabs->setCurrentWidget(findChild<QWidget *>(QStringLiteral("editorSettingsPage")));
 }

@@ -1349,6 +1349,10 @@ private Q_SLOTS:
         QCOMPARE(tabOf(QStringLiteral("EmbeddedTerminal")), QStringLiteral("Terminal"));
         QCOMPARE(tabOf(QStringLiteral("AtuinHistory")), QStringLiteral("Terminal"));
         QCOMPARE(tabOf(QStringLiteral("AtuinSession")), QStringLiteral("Terminal"));
+        for (const QString &entry : {QStringLiteral("TextEditorProvider"), QStringLiteral("TerminalEditorSession")}) {
+            QVERIFY(dialog.findChild<QWidget *>(QStringLiteral("editorIntegrationPage"))
+                        ->isAncestorOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_") + entry)));
+        }
         for (const QString &entry : {QStringLiteral("NotifyChecksums"),
                                      QStringLiteral("NotifyFolderSync"),
                                      QStringLiteral("NotifyDuplicateFinder"),

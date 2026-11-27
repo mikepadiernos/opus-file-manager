@@ -356,6 +356,12 @@ private:
     /// The Atuin group of the Terminal tab: the history search action and the session it opens in.
     /// @p embedded is the embedded terminal choice, whose component the search needs.
     QGroupBox *createAtuinHistoryGroup(QComboBox *embedded);
+    /// The Applications › Editor tab.
+    QWidget *createEditorIntegrationPage();
+    /// The Provider group of the Editor tab: the editor that Edit opens text files in, and where terminal editors run.
+    QGroupBox *createEditorProviderGroup();
+    /// Shows the Editor › Editor tab, with the built-in editor's settings.
+    void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.
     ActivityController *activityController() const;
     void createSettingsBackup();
@@ -374,6 +380,8 @@ private:
     QTabWidget *m_toolbarTabs = nullptr;
     KPageWidgetItem *m_workspacePage = nullptr;
     QTabWidget *m_workspaceTabs = nullptr;
+    KPageWidgetItem *m_editorPage = nullptr;
+    QTabWidget *m_editorTabs = nullptr;
     KPageWidgetItem *m_toolsPage = nullptr;
     QTabWidget *m_toolsTabs = nullptr;
     KPageWidgetItem *m_plasmaPage = nullptr;

@@ -144,6 +144,7 @@
 #include <KSelectAction>
 #include <KSharedConfig>
 #include <KStandardAction>
+#include <KTerminalLauncherJob>
 #include <KTextEditor/Document>
 #include <KToggleAction>
 #include <KToolBar>
@@ -3155,9 +3156,12 @@ void MainWindow::setupActions()
             if (!reason.isEmpty()) {
                 entry->setToolTip(reason);
             } else if (EditorProviders::runsInTerminal(editorProvider)) {
-                entry->setToolTip(i18nc("@info:tooltip %1 is a text editor",
-                                        "Open the selected files with %1 in the embedded terminal",
-                                        EditorProviders::name(editorProvider)));
+                entry->setToolTip(EditorProviders::usesSeparateTerminal() ? i18nc("@info:tooltip %1 is a text editor",
+                                                                                  "Open the selected files with %1 in a separate terminal",
+                                                                                  EditorProviders::name(editorProvider))
+                                                                          : i18nc("@info:tooltip %1 is a text editor",
+                                                                                  "Open the selected files with %1 in the embedded terminal",
+                                                                                  EditorProviders::name(editorProvider)));
             } else {
                 entry->setToolTip(i18nc("@info:tooltip %1 is a text editor", "Open the selected files in %1", EditorProviders::name(editorProvider)));
             }
@@ -4450,7 +4454,12 @@ void MainWindow::updateActions()
     QAction *editFile = actions->action(QStringLiteral("edit_file"));
     const bool editable = selected.size() == 1 && !selected.first().isDir() && EditTools::category(selected.first().mimetype()) != EditTools::Category::None;
     editFile->setEnabled(editable);
-    if (editable) {
+    const std::optional<EditorProviders::Editor> preferredEditor = EditorProviders::preferredEditor();
+    if (editable && preferredEditor && EditTools::category(selected.first().mimetype()) == EditTools::Category::Text) {
+        const QString reason = EditorProviders::unavailableReason(*preferredEditor);
+        editFile->setToolTip(
+            reason.isEmpty() ? i18nc("@info:tooltip %1 is a text editor", "Edit the selected file with %1", EditorProviders::name(*preferredEditor)) : reason);
+    } else if (editable) {
         QString error;
         const std::optional<EditTools::Choice> choice = EditTools::choose(selected.first().mostLocalUrl(), selected.first().mimetype(), &error);
         editFile->setToolTip(
@@ -5327,6 +5336,12 @@ void MainWindow::editFile()
     const KFileItem &item = items.first();
     const QUrl url = item.mostLocalUrl();
     const QString mimeType = item.mimetype();
+    // The editor chosen under Applications › Editor opens text; an unavailable one is reported rather than replaced.
+    if (const std::optional<EditorProviders::Editor> editor = EditorProviders::preferredEditor();
+        editor && EditTools::category(mimeType) == EditTools::Category::Text) {
+        editWithEditor(*editor);
+        return;
+    }
     QString error;
     const std::optional<EditTools::Choice> choice = EditTools::choose(url, mimeType, &error);
     if (!choice) {
@@ -5368,6 +5383,18 @@ void MainWindow::editWithEditor(EditorProviders::Editor editor)
         return;
     }
     const QString name = EditorProviders::name(editor);
+    if (EditorProviders::runsInTerminal(editor) && EditorProviders::usesSeparateTerminal()) {
+        // KDE's configured terminal application, as for Open Terminal Here.
+        auto *job = new KTerminalLauncherJob(EditorProviders::terminalCommand(executable, arguments), this);
+        job->setWorkingDirectory(EditorProviders::workingDirectory(urls));
+        connect(job, &KJob::result, this, [this, name](KJob *finished) {
+            if (finished->error()) {
+                showStatusMessage(i18nc("@info:status %1 is a text editor, %2 the error", "Could not start %1: %2", name, finished->errorString()));
+            }
+        });
+        job->start();
+        return;
+    }
     if (EditorProviders::runsInTerminal(editor)) {
         // Showing the panel through its action would also start a shell session.
         if (!m_terminalPanelAction->isChecked()) {

@@ -7,14 +7,17 @@
 #include "atuin.h"
 #include "defaultfilemanager.h"
 #include "desktoptray.h"
+#include "editorproviders.h"
 #include "favoritesmodel.h"
 #include "filechooser.h"
 #include "filetypeplaces.h"
+#include "folderview.h"
 #include "kwinintegration.h"
 #include "mainwindow.h"
 #include "mountbackend.h"
 #include "onlineaccounts.h"
 #include "operationjob.h"
+#include "pane.h"
 #include "portalsetup.h"
 #include "runnermatches.h"
 #include "settings.h"
@@ -1809,6 +1812,125 @@ private Q_SLOTS:
         QCOMPARE(Settings::atuinSession(), int(Settings::EnumAtuinSession::NewWhenBusy));
         QCOMPARE(Atuin::sessionMode(), Atuin::SessionMode::NewWhenBusy);
         QVERIFY(search->isVisible() && search->isEnabled());
+    }
+
+    void editorTabChoosesTheTextEditor()
+    {
+        QTemporaryDir bin;
+        QTemporaryDir folder;
+        QVERIFY(bin.isValid() && folder.isValid());
+        const QByteArray path = qgetenv("PATH");
+        KConfigGroup general = KSharedConfig::openConfig()->group(QStringLiteral("General"));
+        const auto restore = qScopeGuard([&path, &general] {
+            qputenv("PATH", path);
+            general.deleteEntry("TerminalApplication");
+            general.sync();
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        // Fake Kate, Neovim and terminal application record how they were started; KWrite is missing.
+        qputenv("PATH", bin.path().toLocal8Bit());
+        const QString output = bin.filePath(QStringLiteral("arguments"));
+        const auto install = [&bin, &output](const QString &name) {
+            QFile script(bin.filePath(name));
+            QVERIFY(script.open(QIODevice::WriteOnly));
+            script.write("#!/bin/sh\nprintf '%s\\n' \"$0\" \"$@\" \"$PWD\" > '" + output.toLocal8Bit() + "'\n");
+            script.close();
+            QVERIFY(script.setPermissions(script.permissions() | QFileDevice::ExeOwner));
+        };
+        install(QStringLiteral("kate"));
+        install(QStringLiteral("nvim"));
+        install(QStringLiteral("fake-terminal"));
+        general.writeEntry("TerminalApplication", bin.filePath(QStringLiteral("fake-terminal")));
+        general.sync();
+        const auto recorded = [&output] {
+            QFile file(output);
+            if (!file.open(QIODevice::ReadOnly)) {
+                return QStringList();
+            }
+            return QString::fromLocal8Bit(file.readAll()).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+        };
+        const QString notes = folder.filePath(QStringLiteral("notes.txt"));
+        QFile note(notes);
+        QVERIFY(note.open(QIODevice::WriteOnly));
+        note.close();
+
+        MainWindow window;
+        window.openUrls({QUrl::fromLocalFile(folder.path())});
+        FolderView *view = window.activePane()->view();
+        QTRY_COMPARE(view->itemCount(), 1);
+        view->selectUrls({QUrl::fromLocalFile(notes)});
+        QAction *edit = window.actionCollection()->action(QStringLiteral("edit_file"));
+        QTRY_VERIFY(edit->isEnabled());
+        QCOMPARE(edit->toolTip(), QStringLiteral("Edit the selected file with the built-in editor"));
+
+        SettingsDialog dialog(placesOf(window), &window);
+        connect(&dialog, &KConfigDialog::settingsChanged, &window, &MainWindow::applySettings);
+        auto *group = dialog.findChild<QGroupBox *>(QStringLiteral("editorProviderGroup"));
+        QVERIFY(group);
+        QCOMPARE(tabTitleOf(group), QStringLiteral("Editor"));
+        QVERIFY(dialog.findChild<QWidget *>(QStringLiteral("editorIntegrationPage"))->isAncestorOf(group));
+        auto *provider = group->findChild<QComboBox *>(QStringLiteral("kcfg_TextEditorProvider"));
+        auto *session = group->findChild<QComboBox *>(QStringLiteral("kcfg_TerminalEditorSession"));
+        auto *status = group->findChild<QLabel *>(QStringLiteral("editorProviderStatus"));
+        QVERIFY(provider && session && status);
+        QCOMPARE(provider->count(), EditorProviders::editors().size() + 1);
+        QCOMPARE(provider->itemText(0), QStringLiteral("Built-in editor"));
+        QCOMPARE(provider->itemText(1), QStringLiteral("KWrite (not installed)"));
+        QCOMPARE(provider->itemData(1, Qt::ToolTipRole).toString(), QStringLiteral("KWrite is not installed, or its kwrite command is not in PATH."));
+        QCOMPARE(provider->itemText(2), QStringLiteral("Kate"));
+        QCOMPARE(provider->itemText(3), QStringLiteral("Neovim"));
+        QCOMPARE(provider->itemText(6), QStringLiteral("nano (not installed)"));
+        QCOMPARE(status->text(), QStringLiteral("Edit opens text files in the built-in editor."));
+
+        const auto choose = [&dialog](QComboBox *combo, int index) {
+            combo->setCurrentIndex(index);
+            // The dialog tracks user selection in plain combo boxes.
+            Q_EMIT combo->activated(index);
+            QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+            dialog.button(QDialogButtonBox::Apply)->click();
+        };
+        // An unavailable editor is reported rather than replaced.
+        choose(provider, 1);
+        QCOMPARE(EditorProviders::preferredEditor(), std::optional(EditorProviders::Editor::KWrite));
+        QVERIFY(status->text().contains(QStringLiteral("KWrite is not installed, or its kwrite command is not in PATH. Edit reports this")));
+        view->selectUrls({});
+        view->selectUrls({QUrl::fromLocalFile(notes)});
+        QTRY_COMPARE(edit->toolTip(), QStringLiteral("KWrite is not installed, or its kwrite command is not in PATH."));
+        edit->trigger();
+        QCOMPARE(window.statusBar()->currentMessage(), QStringLiteral("KWrite is not installed, or its kwrite command is not in PATH."));
+        QVERIFY(!QFile::exists(output));
+
+        choose(provider, 2);
+        QCOMPARE(status->text(), QStringLiteral("Edit opens text files in Kate."));
+        view->selectUrls({});
+        view->selectUrls({QUrl::fromLocalFile(notes)});
+        QTRY_COMPARE(edit->toolTip(), QStringLiteral("Edit the selected file with Kate"));
+        edit->trigger();
+        QTRY_VERIFY(recorded().size() == 3);
+        QCOMPARE(recorded().mid(0, 2), (QStringList{bin.filePath(QStringLiteral("kate")), notes}));
+        QFile::remove(output);
+
+        // A terminal editor runs in KDE's terminal application when the session is separate.
+        choose(provider, 3);
+        QVERIFY(status->text().contains(QStringLiteral("Neovim")));
+        choose(session, 1);
+        QVERIFY(EditorProviders::usesSeparateTerminal());
+        QCOMPARE(status->text(), QStringLiteral("Edit opens text files with Neovim in a separate terminal window."));
+        edit->trigger();
+        QTRY_VERIFY(recorded().size() >= 4);
+        const QStringList terminal = recorded();
+        QCOMPARE(terminal.first(), bin.filePath(QStringLiteral("fake-terminal")));
+        QVERIFY(terminal.contains(QStringLiteral("-e")));
+        QCOMPARE(terminal.mid(terminal.indexOf(QStringLiteral("-e")) + 1, 2), (QStringList{bin.filePath(QStringLiteral("nvim")), notes}));
+        QCOMPARE(QFileInfo(terminal.last()).canonicalFilePath(), QFileInfo(folder.path()).canonicalFilePath());
+
+        // The built-in editor's settings stay on the Editor page.
+        dialog.show();
+        dialog.findChild<QPushButton *>(QStringLiteral("showBuiltInEditorSettings"))->click();
+        auto *builtIn = dialog.findChild<QWidget *>(QStringLiteral("editorSettingsPage"));
+        QTRY_VERIFY(builtIn->isVisible());
+        QVERIFY(builtIn->isAncestorOf(dialog.findChild<QWidget *>(QStringLiteral("kcfg_EditorMarkdownMode"))));
     }
 };
 

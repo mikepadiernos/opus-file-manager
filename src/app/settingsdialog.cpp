@@ -363,9 +363,10 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                    {createImageConversionPage(), i18nc("@title:tab", "Image Conversion")}},
                   i18nc("@title:group", "Gallery"),
                   QStringLiteral("view-preview"));
-    addTabbedPage({{createEditorPage(), i18nc("@title:tab", "Editor")}, {createTextEditorPage(), i18nc("@title:tab", "KTextEditor")}},
-                  i18nc("@title:group", "Editor"),
-                  QStringLiteral("view-pim-notes"));
+    m_editorPage = addTabbedPage({{createEditorPage(), i18nc("@title:tab", "Editor")}, {createTextEditorPage(), i18nc("@title:tab", "KTextEditor")}},
+                                 i18nc("@title:group", "Editor"),
+                                 QStringLiteral("view-pim-notes"),
+                                 &m_editorTabs);
     m_toolsPage = addTabbedPage({{createTerminalPage(), i18nc("@title:tab", "Embedded Terminal")},
                                  {createSearchPage(), i18nc("@title:tab", "Search")},
                                  {createDuplicateFinderPage(), i18nc("@title:tab", "Duplicate Finder")},
@@ -398,7 +399,7 @@ SettingsDialog::SettingsDialog(KFilePlacesModel *places, QWidget *parent)
                                  i18nc("@title:group", "KDE Plasma"),
                                  QStringLiteral("plasma"),
                                  &m_plasmaTabs);
-    addTabbedPage({{createTerminalIntegrationPage(), i18nc("@title:tab", "Terminal")}},
+    addTabbedPage({{createTerminalIntegrationPage(), i18nc("@title:tab", "Terminal")}, {createEditorIntegrationPage(), i18nc("@title:tab", "Editor")}},
                   i18nc("@title:group", "Applications"),
                   QStringLiteral("applications-other"));
     // The Activities, KRunner and KWin tabs offer the workspaces too.
@@ -1737,6 +1738,7 @@ QWidget *SettingsDialog::createTransferQueuePage()
 QWidget *SettingsDialog::createEditorPage()
 {
     auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("editorSettingsPage"));
     auto *form = new QFormLayout(page);
     auto *opening = comboBox(QStringLiteral("EditorOpening"),
                              {i18nc("@item:inlistbox", "Side panel"),
