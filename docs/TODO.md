@@ -57,13 +57,13 @@ Board statuses were last confirmed on 2026-11-27.
 | [LAN sharing settings on Plasma](#lan-sharing-settings-on-plasma-664)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#664]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
 | [Plasma Vault settings on Plasma](#plasma-vault-settings-on-plasma-669)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#669]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
 | [File encryption settings on Plasma](#file-encryption-settings-on-plasma-670)           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#670]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
-| [Nextcloud accounts on a real server](#nextcloud-accounts-on-a-real-server-588)         | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#588]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
-| [Nextcloud browsing on a real server](#nextcloud-browsing-on-a-real-server-365)         | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#365]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
-| [Nextcloud previews on a real server](#nextcloud-previews-on-a-real-server-589)         | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#589]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
-| [Nextcloud asset search on a real server](#nextcloud-asset-search-on-a-real-server-590) | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#590]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
-| [Nextcloud Photos on a real server](#nextcloud-photos-on-a-real-server-671)             | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#671]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
-| [Nextcloud shares on a real server](#nextcloud-shares-on-a-real-server-591)             | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#591]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
-| [Nextcloud desktop client on Plasma](#nextcloud-desktop-client-on-plasma-592)           | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#592]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
+| [Nextcloud accounts on a real server](#nextcloud-accounts-on-a-real-server-588)         | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#588]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Nextcloud browsing on a real server](#nextcloud-browsing-on-a-real-server-365)         | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#365]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Nextcloud previews on a real server](#nextcloud-previews-on-a-real-server-589)         | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#589]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Nextcloud asset search on a real server](#nextcloud-asset-search-on-a-real-server-590) | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#590]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Nextcloud Photos on a real server](#nextcloud-photos-on-a-real-server-671)             | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#671]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Nextcloud shares on a real server](#nextcloud-shares-on-a-real-server-591)             | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#591]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Nextcloud desktop client on Plasma](#nextcloud-desktop-client-on-plasma-592)           | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#592]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
 
 ## mpv integration (#563)
 
@@ -1321,7 +1321,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Nextcloud accounts on a real server (#588)
 
 - **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#588]
-  (Development).
+  (Completed).
 - **Blocker:** The development container has no Nextcloud server, web
   browser, KDE Wallet, Plasma session or KDE account providers, so Login
   Flow, the stored app password and accounts from KDE Online Accounts are
@@ -1368,7 +1368,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Nextcloud browsing on a real server (#365)
 
 - **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#365]
-  (Development).
+  (Completed).
 - **Blocker:** The development container has no Nextcloud server, KDE Wallet
   or Plasma session, so browsing and server permissions are tested only
   against a local fake server that answers `PROPFIND` without
@@ -1409,7 +1409,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Nextcloud previews on a real server (#589)
 
 - **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#589]
-  (Development).
+  (Completed).
 - **Blocker:** The development container has no Nextcloud server, KDE Wallet
   or Plasma session, so server previews and metadata are tested only against
   a local fake server and recorded Nextcloud 26 and 29 responses.
@@ -1446,7 +1446,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Nextcloud asset search on a real server (#590)
 
 - **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#590]
-  (Development).
+  (Completed).
 - **Blocker:** The development container has no Nextcloud server, KDE Wallet
   or Plasma session, so search, favourites and server tags are tested only
   against a local fake server and recorded Nextcloud responses.
@@ -1487,7 +1487,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Nextcloud Photos on a real server (#671)
 
 - **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#671]
-  (Development).
+  (Completed).
 - **Blocker:** The development container has no Nextcloud server, Photos app,
   KDE Wallet or Plasma session, so albums, shared albums and places are tested
   only against a local fake server. The `places` or `locations` collection,
@@ -1532,7 +1532,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Nextcloud shares on a real server (#591)
 
 - **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#591]
-  (Development).
+  (Completed).
 - **Blocker:** The development container has no Nextcloud server, mail client,
   desktop portal, KDE Wallet or Plasma session, so shares are tested only
   against a local fake server with recorded OCS responses, and **Send Link by
@@ -1576,7 +1576,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Nextcloud desktop client on Plasma (#592)
 
 - **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#592]
-  (Development).
+  (Completed).
 - **Blocker:** The development container has no Nextcloud desktop client,
   Nextcloud server or Plasma session, so the desktop client's folders are
   tested only with recorded configuration files and a fake local socket. The
