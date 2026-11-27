@@ -68,6 +68,8 @@
 #include "localizeddates.h"
 #include "mountbackend.h"
 #include "mountmanagerdialog.h"
+#include "nextcloudaccountsdialog.h"
+#include "nextcloudmenu.h"
 #include "onlineaccountsmenu.h"
 #include "packagetools.h"
 #include "pane.h"
@@ -3954,6 +3956,17 @@ void MainWindow::setupActions()
     manageAccounts->setToolTip(i18nc("@info:tooltip", "Add, remove or sign in to online accounts in System Settings"));
     manageAccounts->setIcon(SymbolicIcon::fromTheme(QStringLiteral("configure")));
 
+    auto *nextcloud = new KActionMenu(SymbolicIcon::fromTheme(QStringLiteral("folder-cloud")), i18nc("@action", "Nextcloud"), this);
+    nextcloud->setToolTip(i18nc("@info:tooltip", "Open the files of a Nextcloud account or add one"));
+    nextcloud->setPopupMode(QToolButton::InstantPopup);
+    m_nextcloudMenu = nextcloud->menu();
+    actions->addAction(QStringLiteral("nextcloud"), nextcloud);
+    connect(m_nextcloudMenu, &QMenu::aboutToShow, this, &MainWindow::populateNextcloud);
+    QAction *manageNextcloud = actions->addAction(QStringLiteral("manage_nextcloud_accounts"), this, &MainWindow::showNextcloudAccounts);
+    manageNextcloud->setText(i18nc("@action", "Manage Nextcloud Accounts…"));
+    manageNextcloud->setToolTip(i18nc("@info:tooltip", "Sign in to, check or remove Nextcloud accounts"));
+    manageNextcloud->setIcon(SymbolicIcon::fromTheme(QStringLiteral("configure")));
+
     auto *plasmaVaults = new KActionMenu(SymbolicIcon::fromTheme(QStringLiteral("folder-encrypted")), i18nc("@action", "Plasma Vaults"), this);
     plasmaVaults->setToolTip(i18nc("@info:tooltip", "Open, close or create an encrypted vault with Plasma Vault"));
     plasmaVaults->setPopupMode(QToolButton::InstantPopup);
@@ -6399,6 +6412,75 @@ void MainWindow::populateOnlineAccounts()
             }
             activePane()->setUrl(url);
         });
+}
+
+QList<NextcloudAccounts::Account> MainWindow::nextcloudAccounts(QString *error) const
+{
+    QString loadError;
+    const QList<NextcloudAccounts::Account> saved = NextcloudAccounts::load(KSharedConfig::openConfig()->group(NextcloudAccounts::groupName()), &loadError);
+    QString onlineError;
+    // Online Accounts are read only after opting in.
+    const QList<NextcloudAccounts::Account> online = Settings::onlineAccountsEnabled()
+        ? NextcloudAccounts::fromOnlineAccounts(OnlineAccounts::shownAccounts(OnlineAccounts::readAccounts(&onlineError), Settings::onlineAccountsHidden()))
+        : QList<NextcloudAccounts::Account>();
+    if (error) {
+        *error = !loadError.isEmpty() ? loadError : onlineError;
+    }
+    return NextcloudAccounts::merged(saved, online);
+}
+
+void MainWindow::populateNextcloud()
+{
+    QString error;
+    m_nextcloudAccounts = nextcloudAccounts(&error);
+    NextcloudMenu::populate(m_nextcloudMenu,
+                            m_nextcloudAccounts,
+                            error,
+                            RemoteProfiles::unavailableReason(RemoteProfiles::Protocol::WebDavs),
+                            isDualLayout() && !inactivePane()->isHidden(),
+                            actionCollection()->action(QStringLiteral("manage_nextcloud_accounts")),
+                            this,
+                            [this](const NextcloudAccounts::Account &account, bool otherPane) {
+                                openNextcloudAccount(account, otherPane);
+                            });
+}
+
+void MainWindow::showNextcloudAccounts()
+{
+    if (!m_nextcloudStore) {
+        m_nextcloudStore = std::make_unique<Nextcloud::PasswordServerStore>(winId());
+    }
+    auto *dialog = new NextcloudAccountsDialog(KSharedConfig::openConfig()->group(NextcloudAccounts::groupName()), m_nextcloudStore.get(), this);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    if (Settings::onlineAccountsEnabled()) {
+        QString error;
+        const QList<OnlineAccounts::Account> accounts = OnlineAccounts::readAccounts(&error);
+        dialog->setOnlineAccounts(NextcloudAccounts::fromOnlineAccounts(OnlineAccounts::shownAccounts(accounts, Settings::onlineAccountsHidden())), error);
+    }
+    dialog->setOtherPaneAvailable(isDualLayout() && !inactivePane()->isHidden());
+    connect(dialog, &NextcloudAccountsDialog::openRequested, this, &MainWindow::openNextcloudAccount);
+    connect(dialog, &NextcloudAccountsDialog::accountsChanged, this, [this] {
+        m_nextcloudAccounts = nextcloudAccounts();
+    });
+    dialog->show();
+}
+
+void MainWindow::openNextcloudAccount(const NextcloudAccounts::Account &account, bool otherPane)
+{
+    const QString unavailable = RemoteProfiles::unavailableReason(RemoteProfiles::Protocol::WebDavs);
+    if (!unavailable.isEmpty()) {
+        showStatusMessage(unavailable);
+        return;
+    }
+    const QUrl url = NextcloudAccounts::filesUrl(account);
+    if (!m_nextcloudAccounts.contains(account)) {
+        m_nextcloudAccounts = nextcloudAccounts();
+    }
+    if (otherPane && isDualLayout() && !inactivePane()->isHidden()) {
+        inactivePane()->setUrl(url);
+        return;
+    }
+    activePane()->setUrl(url);
 }
 
 void MainWindow::showRemoteConnections()

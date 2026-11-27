@@ -9,6 +9,7 @@
 #include "edittools.h"
 #include "fileencryption.h"
 #include "metadataeditdialog.h"
+#include "nextcloudclient.h"
 #include "officeapps.h"
 #include "previewpanel.h"
 #include "rclone.h"
@@ -209,6 +210,14 @@ public:
     void showRemoteConnections();
     /// Fills the Online Accounts menu with the folders of each KDE Online Account.
     void populateOnlineAccounts();
+    /// The saved Nextcloud accounts and, when enabled, those from KDE Online Accounts.
+    QList<NextcloudAccounts::Account> nextcloudAccounts(QString *error = nullptr) const;
+    /// Fills the Nextcloud menu with each Nextcloud account.
+    void populateNextcloud();
+    /// Shows the dialog that adds, checks and removes Nextcloud accounts.
+    void showNextcloudAccounts();
+    /// Opens the files of @p account in the active pane, or in the other pane when @p otherPane is set.
+    void openNextcloudAccount(const NextcloudAccounts::Account &account, bool otherPane);
     /// Opens @p profile in the active pane, or in the other pane when @p otherPane is set.
     void openRemoteProfile(const RemoteProfiles::Profile &profile, bool otherPane);
     /// Opens an SSH session for @p profile in the terminal panel.
@@ -621,6 +630,10 @@ private:
     RcloneMounts *m_rcloneMounts = nullptr;
     QMenu *m_cloudStorageMenu = nullptr;
     QMenu *m_onlineAccountsMenu = nullptr;
+    QMenu *m_nextcloudMenu = nullptr;
+    /// The Nextcloud accounts as last listed, to recognize their folders.
+    QList<NextcloudAccounts::Account> m_nextcloudAccounts;
+    std::unique_ptr<Nextcloud::PasswordServerStore> m_nextcloudStore;
     PlasmaVaultMenu *m_plasmaVaultMenu = nullptr;
     QList<Rclone::Remote> m_rcloneRemotes;
     QString m_rcloneError;
