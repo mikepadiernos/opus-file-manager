@@ -1823,7 +1823,8 @@ Settings for M27 integrations, stored in KConfig.
         [pending handoff](TODO.md#default-file-manager-on-plasma-293). [#293]
   - [ ] **System file chooser:** show whether Plasma Opus serves the XDG portal
         file chooser, with explicit actions to complete setup or restore the
-        previous chooser; report failures [#292]
+        previous chooser; report failures. Plasma-session verification is a
+        [pending handoff](TODO.md#file-chooser-settings-on-plasma-292). [#292]
   - [ ] **System file chooser start folder:** when an application suggests no
         folder, start in the home folder or in the folder of the last accepted
         choice. Remember the last folder per application where the portal
