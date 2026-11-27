@@ -156,6 +156,8 @@ add_library(opusfm_core STATIC
     nextcloudassets.h
     nextcloudclient.cpp
     nextcloudclient.h
+    nextclouddesktop.cpp
+    nextclouddesktop.h
     nextcloudorganize.cpp
     nextcloudorganize.h
     nextcloudphotos.cpp

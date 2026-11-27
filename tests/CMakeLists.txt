@@ -143,6 +143,7 @@ ecm_add_tests(
     nextcloudaccounttest.cpp
     nextcloudassetstest.cpp
     nextcloudclienttest.cpp
+    nextclouddesktoptest.cpp
     nextcloudorganizetest.cpp
     nextcloudphotostest.cpp
     nextcloudsharestest.cpp
