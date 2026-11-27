@@ -34,6 +34,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Mail file preview on Plasma](#mail-file-preview-on-plasma-658)             | [M27](ROADMAP.md#m27-integrations)                                             | [#658]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
 | [Shared Activity context on Plasma](#shared-activity-context-on-plasma-659) | [M27](ROADMAP.md#m27-integrations)                                             | [#659]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                           |
 | [Default file manager on Plasma](#default-file-manager-on-plasma-293)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#293]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
+| [File chooser settings on Plasma](#file-chooser-settings-on-plasma-292)     | [M28](ROADMAP.md#m28-integration-settings)                                     | [#292]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 
 ## mpv integration (#563)
 
@@ -463,10 +464,45 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and its
    roadmap link.
 
+## File chooser settings on Plasma (#292)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#292]
+  (Development).
+- **Blocker:** The development container has no Plasma session, no session
+  bus, no xdg-desktop-portal and no systemd user manager, so whether the
+  portal is found, the restart through `systemctl --user` and the chooser
+  that applications then show cannot be tried there.
+- **Confirmed state:** `PortalSetup::change()` in
+  `src/core/portalsetup.cpp` sets up or restores the chooser and restarts
+  xdg-desktop-portal for both **Preferences › KDE Plasma › File Manager**
+  and `--install-portal`/`--uninstall-portal`. `portalsetuptest` and
+  `integrationsettingstest`, which replaces the portal check, restart and
+  question, pass in the container. See
+  [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with xdg-desktop-portal 1.21.0 or later and
+   Plasma Opus installed by `./install.sh`, open **Preferences › KDE Plasma ›
+   File Manager** and check that the **System File Chooser** status says the
+   system's own chooser is used.
+2. Open a file dialog in a Flatpak application, choose **Set Up** and
+   confirm. Check that the dialog closes, that the next one is the Plasma
+   Opus chooser and that the status updates.
+3. Edit `~/.config/xdg-desktop-portal/kde-portals.conf` to prefer `kde`,
+   reopen the settings and check that **Complete Setup** appears and works.
+4. Choose **Restore Previous Chooser** and check that KDE's chooser returns
+   and the file matches its backup. Where xdg-desktop-portal does not run
+   as a systemd user service, check that the failed restart is reported
+   with the advice to log out and back in. Record any differences in
+   [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
+   its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
 [#288]: https://github.com/mikepadiernos/plasma-opus/issues/288
+[#292]: https://github.com/mikepadiernos/plasma-opus/issues/292
 [#293]: https://github.com/mikepadiernos/plasma-opus/issues/293
 [#563]: https://github.com/mikepadiernos/plasma-opus/issues/563
 [#564]: https://github.com/mikepadiernos/plasma-opus/issues/564
