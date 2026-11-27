@@ -2,17 +2,21 @@
 
 #include "lansharedialog.h"
 #include "mainwindow.h"
+#include "settings.h"
 
 #include <KActionCollection>
 #include <KConfigGroup>
 #include <KSharedConfig>
 
 #include <QCheckBox>
+#include <QComboBox>
+#include <QDir>
 #include <QFile>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QSignalSpy>
+#include <QSpinBox>
 #include <QStandardPaths>
 #include <QTcpSocket>
 #include <QTemporaryDir>
@@ -35,8 +39,15 @@ private Q_SLOTS:
 
     void init()
     {
-        KSharedConfig::openStateConfig()->deleteGroup(QStringLiteral("LanShare"));
-        KSharedConfig::openStateConfig()->group(QStringLiteral("LanShare")).writeEntry("Https", false);
+        Settings::self()->setDefaults();
+        Settings::setLanShareHttps(false);
+        Settings::self()->save();
+    }
+
+    void cleanupTestCase()
+    {
+        Settings::self()->setDefaults();
+        Settings::self()->save();
     }
 
     void checksOnlyLocalAddresses()
@@ -48,7 +59,7 @@ private Q_SLOTS:
         QVERIFY(addresses->item(1)->text().contains(QLatin1String("8.8.8.8")));
         QVERIFY(addresses->item(1)->text() != QLatin1String("8.8.8.8"));
 
-        dialog.setAddresses({});
+        dialog.setAddresses(QList<QHostAddress>{});
         QVERIFY(dialog.checkedAddresses().isEmpty());
         QVERIFY(!dialog.startSharing().isEmpty());
     }
@@ -95,7 +106,58 @@ private Q_SLOTS:
         QCOMPARE(dialog.startSharing(), QString());
         QCOMPARE(dialog.server()->roots().size(), 2);
         dialog.stopSharing();
-        QCOMPARE(KSharedConfig::openStateConfig()->group(QStringLiteral("LanShare")).readEntry("UploadFolder"), m_dir.path());
+        // A share's choices don't change the defaults in Preferences.
+        Settings::self()->load();
+        QVERIFY(!Settings::lanShareAllowUploads());
+        QVERIFY(Settings::lanShareUploadFolder().isEmpty());
+    }
+
+    void startsFromTheDefaults()
+    {
+        const QString uploads = m_dir.filePath(QStringLiteral("uploads"));
+        QVERIFY(QDir().mkpath(uploads));
+        Settings::setLanShareProtocol(Settings::EnumLanShareProtocol::Browsers);
+        Settings::setLanSharePort(0);
+        Settings::setLanShareTimeoutMinutes(5);
+        Settings::setLanShareAllowUploads(true);
+        Settings::setLanShareUploadFolder(QUrl::fromLocalFile(uploads));
+        Settings::setLanShareExcludedInterfaces({QStringLiteral("tun0")});
+        Settings::self()->save();
+
+        LanShareDialog dialog({m_dir.filePath(QStringLiteral("hello.txt"))});
+        QCOMPARE(dialog.findChild<QSpinBox *>(QStringLiteral("minutes"))->value(), 5);
+        QCOMPARE(dialog.findChild<QComboBox *>(QStringLiteral("protocol"))->currentIndex(), 1);
+        QVERIFY(dialog.findChild<QCheckBox *>(QStringLiteral("uploads"))->isChecked());
+        QVERIFY(!dialog.findChild<QCheckBox *>(QStringLiteral("tls"))->isChecked());
+
+        dialog.setAddresses(QList<LanShare::InterfaceAddress>{{QHostAddress(QStringLiteral("192.168.1.2")), QStringLiteral("wlan0")},
+                                                              {QHostAddress(QStringLiteral("10.8.0.2")), QStringLiteral("tun0")},
+                                                              {QHostAddress(QHostAddress::LocalHost), QString()}});
+        QCOMPARE(dialog.checkedAddresses(), (QList<QHostAddress>{QHostAddress(QStringLiteral("192.168.1.2")), QHostAddress(QHostAddress::LocalHost)}));
+        auto *addresses = dialog.findChild<QListWidget *>(QStringLiteral("addresses"));
+        QVERIFY(addresses->item(1)->text().contains(QLatin1String("tun0")));
+
+        const LanShareServer::Options options = dialog.options();
+        QCOMPARE(options.timeoutSeconds, 5 * 60);
+        QCOMPARE(options.protocol, LanShare::Protocol::Browsers);
+        QCOMPARE(options.uploadFolder, uploads);
+        QVERIFY(!options.tls);
+
+        dialog.setAddresses(QList<QHostAddress>{QHostAddress(QHostAddress::LocalHost)});
+        QCOMPARE(dialog.startSharing(), QString());
+        QVERIFY(dialog.server()->stopsAt() <= QDateTime::currentDateTime().addSecs(5 * 60 + 1));
+        QCOMPARE(dialog.server()->roots().size(), 2);
+        dialog.stopSharing();
+
+        Settings::setLanSharePort(43217);
+        Settings::setLanShareProtocol(Settings::EnumLanShareProtocol::WebDav);
+        Settings::setLanShareAllowUploads(false);
+        Settings::self()->save();
+        LanShareDialog other({m_dir.path()});
+        QCOMPARE(other.options().port, quint16(43217));
+        QCOMPARE(other.options().protocol, LanShare::Protocol::WebDav);
+        QVERIFY(other.options().uploadFolder.isEmpty());
+        QCOMPARE(other.findChild<QLineEdit *>(QStringLiteral("uploadFolder"))->text(), uploads);
     }
 
     void showsTheCertificateFingerprint()
@@ -103,7 +165,8 @@ private Q_SLOTS:
         if (const QString reason = LanShare::tlsUnavailableReason(); !reason.isEmpty()) {
             QSKIP(qPrintable(reason));
         }
-        KSharedConfig::openStateConfig()->group(QStringLiteral("LanShare")).writeEntry("Https", true);
+        Settings::setLanShareHttps(true);
+        Settings::self()->save();
         LanShareDialog dialog({m_dir.path()});
         dialog.setAddresses({QHostAddress(QHostAddress::LocalHost)});
         QVERIFY(dialog.options().tls);

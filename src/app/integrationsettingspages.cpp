@@ -23,6 +23,7 @@
 #include "indexstatus.h"
 #include "kwinintegration.h"
 #include "kwinscript.h"
+#include "lanshare.h"
 #include "mailhandoff.h"
 #include "mailmessage.h"
 #include "mediabackend.h"
@@ -3247,5 +3248,182 @@ QWidget *SettingsDialog::createTransfersIntegrationPage()
     refreshTransfers();
     refreshCache();
     refreshPanel();
+    return page;
+}
+
+QWidget *SettingsDialog::createLanSharingIntegrationPage()
+{
+    auto *page = new QWidget;
+    page->setObjectName(QStringLiteral("lanSharingIntegrationPage"));
+    auto *layout = new QVBoxLayout(page);
+
+    auto *connectionGroup = new StatusGroup(i18nc("@title:group", "Connections"));
+    connectionGroup->setObjectName(QStringLiteral("lanShareConnectionGroup"));
+    auto *connectionLayout = new QVBoxLayout(connectionGroup);
+    auto *connectionForm = new QFormLayout;
+    auto *protocol = comboBox(QStringLiteral("LanShareProtocol"),
+                              {i18nc("@item:inlistbox", "Browsers and file managers (WebDAV)"),
+                               i18nc("@item:inlistbox", "Browsers only"),
+                               i18nc("@item:inlistbox", "File managers only (WebDAV)")});
+    protocol->setToolTip(i18nc("@info:tooltip",
+                               "Browsers get a page listing each folder; file managers and other WebDAV clients can browse, download and "
+                               "upload like in a network folder"));
+    connectionForm->addRow(i18nc("@label:listbox", "Serve to:"), protocol);
+    auto *https = checkBox(QStringLiteral("LanShareHttps"), i18nc("@option:check", "Encrypt with HTTPS"));
+    https->setToolTip(i18nc("@info:tooltip", "Each share makes its own certificate, whose fingerprint clients compare before accepting it"));
+    connectionForm->addRow(QString(), https);
+    auto *port = new QSpinBox;
+    port->setObjectName(QStringLiteral("kcfg_LanSharePort"));
+    port->setRange(0, 65535);
+    port->setSpecialValueText(i18nc("@item:inrange port chosen automatically", "Automatic"));
+    port->setToolTip(i18nc("@info:tooltip", "The port that clients connect to. Choose a fixed port to open it in a firewall."));
+    connectionForm->addRow(i18nc("@label:spinbox", "Port:"), port);
+    auto *timeout = new QSpinBox;
+    timeout->setObjectName(QStringLiteral("kcfg_LanShareTimeoutMinutes"));
+    timeout->setRange(1, 24 * 60);
+    const auto updateTimeoutSuffix = [timeout](int minutes) {
+        timeout->setSuffix(i18ncp("@item:valuesuffix", " minute", " minutes", minutes));
+    };
+    updateTimeoutSuffix(timeout->value());
+    connect(timeout, &QSpinBox::valueChanged, timeout, updateTimeoutSuffix);
+    timeout->setToolTip(i18nc("@info:tooltip", "Sharing stops by itself after this time, when the window closes or when Plasma Opus quits"));
+    connectionForm->addRow(i18nc("@label:spinbox", "Stop after:"), timeout);
+    connectionLayout->addLayout(connectionForm);
+    auto *connectionStatus = statusLabel(QStringLiteral("lanShareConnectionStatus"));
+    connectionLayout->addWidget(connectionStatus);
+    layout->addWidget(connectionGroup);
+
+    auto *interfacesGroup = new StatusGroup(i18nc("@title:group", "Network Interfaces"));
+    interfacesGroup->setObjectName(QStringLiteral("lanShareInterfacesGroup"));
+    auto *interfacesLayout = new QVBoxLayout(interfacesGroup);
+    interfacesLayout->addWidget(new QLabel(i18nc("@label", "Choose the private addresses of these interfaces:")));
+    auto *interfaces = bound(new HiddenItemsList, QStringLiteral("LanShareExcludedInterfaces"), "hiddenItems");
+    interfaces->setToolTip(i18nc("@info:tooltip", "Addresses on cleared interfaces start unchecked, and the window can still check them"));
+    interfacesLayout->addWidget(interfaces, 1);
+    auto *interfacesStatus = statusLabel(QStringLiteral("lanShareInterfacesStatus"));
+    interfacesLayout->addWidget(interfacesStatus);
+    layout->addWidget(interfacesGroup, 1);
+
+    auto *uploadsGroup = new StatusGroup(i18nc("@title:group", "Uploads"));
+    uploadsGroup->setObjectName(QStringLiteral("lanShareUploadsGroup"));
+    auto *uploadsLayout = new QVBoxLayout(uploadsGroup);
+    auto *uploads = checkBox(QStringLiteral("LanShareAllowUploads"), i18nc("@option:check", "Allow uploads"));
+    uploads->setToolTip(i18nc("@info:tooltip", "Shares start with uploads allowed; uploads never replace existing files"));
+    uploadsLayout->addWidget(uploads);
+    auto *uploadsForm = new QFormLayout;
+    auto *folder = new KUrlRequester;
+    folder->setObjectName(QStringLiteral("kcfg_LanShareUploadFolder"));
+    folder->setMode(KFile::Directory | KFile::LocalOnly | KFile::ExistingOnly);
+    folder->setPlaceholderText(LanShare::defaultUploadFolder());
+    folder->setToolTip(i18nc("@info:tooltip", "Uploaded files are saved in this folder, which clients can also browse"));
+    uploadsForm->addRow(i18nc("@label:chooser", "Save uploads in:"), folder);
+    uploadsLayout->addLayout(uploadsForm);
+    auto *uploadsStatus = statusLabel(QStringLiteral("lanShareUploadsStatus"));
+    uploadsLayout->addWidget(uploadsStatus);
+    layout->addWidget(uploadsGroup);
+
+    auto *note = new QLabel(i18nc("@info",
+                                  "File › Share on Local Network… starts with these choices, and each share can change them before it starts. "
+                                  "Shares that are running keep their choices. Plasma Opus never opens firewall ports."));
+    note->setObjectName(QStringLiteral("lanShareDefaultsNote"));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+
+    const auto refreshConnection = [protocol, https, port, connectionStatus] {
+        QStringList lines;
+        const QString tlsUnavailable = LanShare::tlsUnavailableReason();
+        if (!https->isChecked()) {
+            lines.append(i18nc("@info", "Others on the network can see the links and what is transferred."));
+        } else if (!tlsUnavailable.isEmpty()) {
+            lines.append(i18nc("@info %1 explains what is missing", "Shares can't use HTTPS until this is fixed: %1", tlsUnavailable));
+        } else {
+            lines.append(i18nc("@info", "Browsers warn that each share's certificate isn't trusted; clients should compare its fingerprint."));
+        }
+        if (protocol->currentIndex() == int(Settings::EnumLanShareProtocol::Browsers)) {
+            lines.append(i18nc("@info", "File managers can still download files through their links, but can't browse folders."));
+        } else if (protocol->currentIndex() == int(Settings::EnumLanShareProtocol::WebDav)) {
+            lines.append(i18nc("@info", "Browsers can still download a shared file through its link, but get no folder pages or upload form."));
+        }
+        if (port->value() == 0) {
+            lines.append(i18nc("@info", "Each share uses a free port, which a firewall may block."));
+        } else if (port->value() < 1024) {
+            lines.append(i18nc("@info", "Ports below 1024 normally need administrator rights, so sharing may fail to start."));
+        } else {
+            lines.append(i18nc("@info %1 is a port number", "Open TCP port %1 in the firewall for other devices to connect.", QString::number(port->value())));
+        }
+        connectionStatus->setText(lines.join(QLatin1Char('\n')));
+    };
+    const auto refreshInterfaces = [interfaces, interfacesStatus] {
+        const QList<LanShare::NetworkInterface> available = LanShare::networkInterfaces();
+        const QStringList excluded = interfaces->hiddenItems();
+        QStringList connected;
+        const QList<LanShare::InterfaceAddress> addresses = LanShare::interfaceAddresses();
+        for (const LanShare::InterfaceAddress &address : addresses) {
+            if (LanShare::chosenByDefault(address, excluded) && !connected.contains(address.interface)) {
+                connected.append(address.interface);
+            }
+        }
+        QStringList lines;
+        if (available.isEmpty()) {
+            lines.append(i18nc("@info", "This computer has no network interfaces."));
+        } else if (connected.isEmpty()) {
+            lines.append(i18nc("@info", "No chosen interface has a private address now, so shares start with no address checked."));
+        } else {
+            lines.append(
+                i18nc("@info %1 is a list of network interfaces", "Shares start on the private addresses of %1.", QLocale().createSeparatedList(connected)));
+        }
+        lines.append(i18nc("@info", "Public addresses, which the internet may reach, always start unchecked."));
+        interfacesStatus->setText(lines.join(QLatin1Char('\n')));
+    };
+    const auto refreshUploads = [uploads, folder, uploadsStatus] {
+        folder->setEnabled(uploads->isChecked());
+        if (!uploads->isChecked()) {
+            uploadsStatus->setText(i18nc("@info", "Shares start read-only; each share can still allow uploads."));
+            return;
+        }
+        const QUrl url = folder->url();
+        const QString path = url.isLocalFile() && !url.toLocalFile().isEmpty() ? url.toLocalFile() : LanShare::defaultUploadFolder();
+        const QFileInfo info(path);
+        if (!info.isDir() || !info.isWritable()) {
+            uploadsStatus->setText(
+                i18nc("@info %1 is a folder", "%1 can't receive uploads; choose a folder you can write to.", QDir::toNativeSeparators(path)));
+            return;
+        }
+        uploadsStatus->setText(i18nc("@info %1 is a folder",
+                                     "Anyone with a link can upload to %1 and browse it, so choose a folder without private files.",
+                                     QDir::toNativeSeparators(path)));
+    };
+    // Rebuilding the list while one of its items reports a change would delete that item, so only
+    // showing the page and creating it list the interfaces again.
+    const auto reloadInterfaces = [interfaces, refreshInterfaces] {
+        QList<std::pair<QString, QString>> items;
+        const QList<LanShare::NetworkInterface> available = LanShare::networkInterfaces();
+        for (const LanShare::NetworkInterface &interface : available) {
+            items.append({interface.name, interface.up ? interface.label : i18nc("@item %1 is a network interface", "%1, not connected", interface.label)});
+        }
+        interfaces->setItems(items);
+        refreshInterfaces();
+    };
+    connectionGroup->refresh = refreshConnection;
+    interfacesGroup->refresh = reloadInterfaces;
+    uploadsGroup->refresh = refreshUploads;
+    connect(protocol, &QComboBox::currentIndexChanged, page, refreshConnection);
+    connect(https, &QCheckBox::toggled, page, refreshConnection);
+    connect(port, &QSpinBox::valueChanged, page, refreshConnection);
+    connect(interfaces, &HiddenItemsList::hiddenItemsChanged, page, refreshInterfaces);
+    connect(uploads, &QCheckBox::toggled, page, refreshUploads);
+    connect(folder, &KUrlRequester::textChanged, page, refreshUploads);
+    // Defaults and Reset change the widgets without user input.
+    connect(this, &KConfigDialog::widgetModified, page, [refreshConnection, refreshInterfaces, refreshUploads] {
+        refreshConnection();
+        refreshInterfaces();
+        refreshUploads();
+    });
+    connect(this, &KConfigDialog::settingsChanged, page, [page, refreshInterfaces] {
+        QTimer::singleShot(0, page, refreshInterfaces);
+    });
+    refreshConnection();
+    reloadInterfaces();
+    refreshUploads();
     return page;
 }

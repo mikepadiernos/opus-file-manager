@@ -23,6 +23,8 @@
 #include "folderview.h"
 #include "fontpreview.h"
 #include "kwinintegration.h"
+#include "lanshare.h"
+#include "lansharedialog.h"
 #include "mailhandoff.h"
 #include "mainwindow.h"
 #include "mediabackend.h"
@@ -3488,6 +3490,109 @@ private Q_SLOTS:
         QVERIFY(trayIcon);
         trayIcon->setChecked(false);
         QVERIFY2(panelStatus->text().contains(QStringLiteral("turned off")), qPrintable(panelStatus->text()));
+    }
+
+    void lanSharingTabSetsTheDefaultsOfSharing()
+    {
+        const auto config = KSharedConfig::openConfig();
+        const auto restore = qScopeGuard([config] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+            config->reparseConfiguration();
+        });
+        QTemporaryDir uploads;
+        QVERIFY(uploads.isValid());
+
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("lanSharingIntegrationPage"));
+        QVERIFY(page);
+        auto *tabs = qobject_cast<QTabWidget *>(page->parentWidget()->parentWidget());
+        QVERIFY(tabs);
+        QCOMPARE(tabs->count(), 6);
+        QCOMPARE(tabs->indexOf(page), 5);
+        const QStringList order{QStringLiteral("Connections"),
+                                QStringLiteral("rclone"),
+                                QStringLiteral("Remote Drives"),
+                                QStringLiteral("Sync"),
+                                QStringLiteral("Transfers and Cache"),
+                                QStringLiteral("LAN Sharing")};
+        for (int i = 0; i < order.size(); ++i) {
+            QCOMPARE(tabs->tabText(i), order.at(i));
+        }
+
+        auto *protocol = dialog.findChild<QComboBox *>(QStringLiteral("kcfg_LanShareProtocol"));
+        auto *https = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_LanShareHttps"));
+        auto *port = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_LanSharePort"));
+        auto *timeout = dialog.findChild<QSpinBox *>(QStringLiteral("kcfg_LanShareTimeoutMinutes"));
+        auto *interfaces = dialog.findChild<HiddenItemsList *>(QStringLiteral("kcfg_LanShareExcludedInterfaces"));
+        auto *allowUploads = dialog.findChild<QCheckBox *>(QStringLiteral("kcfg_LanShareAllowUploads"));
+        auto *folder = dialog.findChild<KUrlRequester *>(QStringLiteral("kcfg_LanShareUploadFolder"));
+        auto *connectionStatus = dialog.findChild<QLabel *>(QStringLiteral("lanShareConnectionStatus"));
+        auto *interfacesStatus = dialog.findChild<QLabel *>(QStringLiteral("lanShareInterfacesStatus"));
+        auto *uploadsStatus = dialog.findChild<QLabel *>(QStringLiteral("lanShareUploadsStatus"));
+        auto *note = dialog.findChild<QLabel *>(QStringLiteral("lanShareDefaultsNote"));
+        QVERIFY(protocol && https && port && timeout && interfaces && allowUploads && folder && connectionStatus && interfacesStatus && uploadsStatus && note);
+        for (QWidget *widget : std::initializer_list<QWidget *>{protocol, https, port, timeout, interfaces, allowUploads, folder, note}) {
+            QVERIFY(page->isAncestorOf(widget));
+        }
+
+        // The defaults match what File › Share on Local Network… started with before.
+        QCOMPARE(protocol->currentIndex(), int(Settings::EnumLanShareProtocol::BrowsersAndWebDav));
+        QVERIFY(https->isChecked());
+        QCOMPARE(port->value(), 0);
+        QCOMPARE(timeout->value(), 30);
+        QVERIFY(!allowUploads->isChecked());
+        QVERIFY(!folder->isEnabled());
+        QVERIFY(interfaces->hiddenItems().isEmpty());
+        QCOMPARE(interfaces->count(), LanShare::networkInterfaces().size());
+        QVERIFY2(interfacesStatus->text().contains(QStringLiteral("Public addresses")), qPrintable(interfacesStatus->text()));
+        QVERIFY2(uploadsStatus->text().contains(QStringLiteral("read-only")), qPrintable(uploadsStatus->text()));
+        QVERIFY(note->text().contains(QStringLiteral("File › Share on Local Network…")));
+
+        // The status follows the choices.
+        https->setChecked(false);
+        QVERIFY2(connectionStatus->text().contains(QStringLiteral("can see the links")), qPrintable(connectionStatus->text()));
+        port->setValue(80);
+        QVERIFY2(connectionStatus->text().contains(QStringLiteral("administrator")), qPrintable(connectionStatus->text()));
+        port->setValue(8765);
+        QVERIFY2(connectionStatus->text().contains(QStringLiteral("8765")), qPrintable(connectionStatus->text()));
+        protocol->setCurrentIndex(int(Settings::EnumLanShareProtocol::WebDav));
+        QVERIFY2(connectionStatus->text().contains(QStringLiteral("no folder pages")), qPrintable(connectionStatus->text()));
+        allowUploads->setChecked(true);
+        QVERIFY(folder->isEnabled());
+        folder->setUrl(QUrl::fromLocalFile(uploads.path()));
+        QVERIFY2(uploadsStatus->text().contains(QDir::toNativeSeparators(uploads.path())), qPrintable(uploadsStatus->text()));
+        folder->setUrl(QUrl::fromLocalFile(uploads.filePath(QStringLiteral("missing"))));
+        QVERIFY2(uploadsStatus->text().contains(QStringLiteral("can't receive uploads")), qPrintable(uploadsStatus->text()));
+        folder->setUrl(QUrl::fromLocalFile(uploads.path()));
+        timeout->setValue(45);
+        if (interfaces->count() > 0) {
+            interfaces->item(0)->setCheckState(Qt::Unchecked);
+        }
+        const QStringList excluded = interfaces->hiddenItems();
+
+        // Applying saves the defaults, and the next share starts from them.
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::lanShareProtocol(), Settings::EnumLanShareProtocol::WebDav);
+        QVERIFY(!Settings::lanShareHttps());
+        QCOMPARE(Settings::lanSharePort(), 8765);
+        QCOMPARE(Settings::lanShareTimeoutMinutes(), 45);
+        QVERIFY(Settings::lanShareAllowUploads());
+        QCOMPARE(Settings::lanShareExcludedInterfaces(), excluded);
+        config->reparseConfiguration();
+        QCOMPARE(config->group(QStringLiteral("LanShare")).readEntry("Port", 0), 8765);
+
+        LanShareDialog share({uploads.path()}, &window);
+        const LanShareServer::Options options = share.options();
+        QCOMPARE(options.protocol, LanShare::Protocol::WebDav);
+        QVERIFY(!options.tls);
+        QCOMPARE(options.port, quint16(8765));
+        QCOMPARE(options.timeoutSeconds, 45 * 60);
+        QCOMPARE(options.uploadFolder, uploads.path());
+        share.setAddresses(QList<LanShare::InterfaceAddress>{{QHostAddress(QStringLiteral("192.168.7.2")), QStringLiteral("opustest0")}});
+        QCOMPARE(share.checkedAddresses().size(), 1);
     }
 };
 

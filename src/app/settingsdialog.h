@@ -429,6 +429,11 @@ private:
      * whether the tray menu offers Cloud Activity….
      */
     QWidget *createTransfersIntegrationPage();
+    /**
+     * The Remote and Cloud › LAN Sharing tab: the choices that File › Share
+     * on Local Network… starts with.
+     */
+    QWidget *createLanSharingIntegrationPage();
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.
