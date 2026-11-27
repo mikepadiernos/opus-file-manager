@@ -64,6 +64,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [Nextcloud Photos on a real server](#nextcloud-photos-on-a-real-server-671)             | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#671]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
 | [Nextcloud shares on a real server](#nextcloud-shares-on-a-real-server-591)             | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#591]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
 | [Nextcloud desktop client on Plasma](#nextcloud-desktop-client-on-plasma-592)           | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#592]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Nextcloud settings on Plasma](#nextcloud-settings-on-plasma-368)                       | [M30](ROADMAP.md#m30-nextcloud-settings)                                       | [#368]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                               |
 
 ## mpv integration (#563)
 
@@ -1618,6 +1619,48 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#nextcloud-integration), then remove this entry and
    its roadmap link.
 
+## Nextcloud settings on Plasma (#368)
+
+- **Milestone and issue:** [M30](ROADMAP.md#m30-nextcloud-settings), [#368]
+  (Development).
+- **Blocker:** The development container has no Nextcloud server, Plasma
+  session, KDE Online Accounts or Nextcloud desktop client, so
+  **Preferences › Remote and Cloud › Nextcloud** is tested only with fake
+  servers, recorded client configuration and a fake socket. The tab's layout
+  and wording in Plasma, and its settings against a real server and client,
+  are unverified.
+- **Confirmed state:** The `Nextcloud` group in
+  `src/core/opusfilemanager.kcfg` holds the settings, and
+  `SettingsDialog::createNextcloudIntegrationPage` in
+  `src/app/integrationsettingspages.cpp` provides the tab. `MainWindow` reads
+  them for previews, metadata, permissions, the context menu, **Go ›
+  Nextcloud** and the desktop client; `NextcloudAssetsDialog::setResultLimit`
+  and `NextcloudSharesDialog::setDefaultLinkExpiryDays` apply the limit and
+  expiry. `settingstest`, `integrationsettingstest` and the `nextcloud` tests
+  pass in the container. See
+  [Nextcloud settings](CAVEATS.md#nextcloud-settings).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, a disposable
+   Nextcloud server with a synthetic account and the Nextcloud desktop
+   client, open **Preferences › Remote and Cloud › Nextcloud** and check that
+   the tab fits the dialog, scrolls when it is small and reports the saved
+   accounts, Online Accounts, thumbnails, mail and desktop client correctly.
+2. Choose **Manage Nextcloud Accounts…**, add the account and check that the
+   tab's count updates. Check that the two **Go to** buttons open the right
+   tabs.
+3. Clear and restore each setting, choosing **Apply** each time, and check
+   the preview panel, the information panel, actions in a read-only share,
+   the context menu, **Go › Nextcloud**, **Search and Organize…** and the
+   desktop client's folders against the descriptions under
+   [Settings](integrations/nextcloud.md#implemented-features).
+4. Set **New public links expire after** to 7 days and create a link, then
+   enforce a 3-day maximum on the server and check that new links start with
+   3 days. Record any differences in
+   [CAVEATS](CAVEATS.md#nextcloud-settings), then remove this entry and its
+   roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -1629,6 +1672,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#297]: https://github.com/mikepadiernos/plasma-opus/issues/297
 [#365]: https://github.com/mikepadiernos/plasma-opus/issues/365
 [#366]: https://github.com/mikepadiernos/plasma-opus/issues/366
+[#368]: https://github.com/mikepadiernos/plasma-opus/issues/368
 [#371]: https://github.com/mikepadiernos/plasma-opus/issues/371
 [#391]: https://github.com/mikepadiernos/plasma-opus/issues/391
 [#392]: https://github.com/mikepadiernos/plasma-opus/issues/392
