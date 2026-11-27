@@ -2032,6 +2032,27 @@ The M27 desktop integrations have these limits
   snapshot, runs aren't added to KIO's undo history, and canceling or an
   error leaves the files already transferred changed.
   ([#363](https://github.com/mikepadiernos/plasma-opus/issues/363))
+- **🔄 Cloud sync:** Pairs synchronize only while Plasma Opus runs;
+  **Synchronize in the background after login** starts it in the system
+  tray. Each run of a network-folder pair lists both folders in full and
+  compares sizes and modification times, not contents, so an edit that
+  keeps the size and time is missed, and a remote that changes modification
+  times, or an interrupted upload, can cause conflicts on the next run.
+  Renamed files are detected, but a renamed folder is copied anew and the old
+  one deleted. **Keep Both** saves the remote version beside the local file,
+  and the next run uploads that copy. A file and a folder with the same name
+  are left for you to rename, and a remote subfolder that can't be read is
+  skipped for that run. rclone pairs use `rclone bisync`: the first run and
+  any filter change need `--resync`, which copies newer files both ways
+  without deleting anything; the review shows a dry run, so changes made
+  after it are synchronized too; and the report gives no counts. Excluding a
+  nested pair whose folder name contains `*`, `?` or `[` fails for rclone
+  pairs. Only Nextcloud, ownCloud, Syncthing and Dropbox folders are
+  recognized as owned by another client. There are no desktop
+  notifications: runs that need review or found conflicts are shown in the
+  tray and the status bar. Pausing on metered connections relies on Qt's
+  network information, usually from NetworkManager.
+  ([#718](https://github.com/mikepadiernos/plasma-opus/issues/718))
 
 - **Recommendation:**
   - **FileManager1 service:** Run `./install.sh --default`, quit Dolphin if
@@ -2198,6 +2219,16 @@ The M27 desktop integrations have these limits
     changes in the confirmation's details, and compare again after each run;
     for changes in both directions, run two plans. Back up data whose
     permissions or ownership matter.
+  - **Cloud sync:** Add pairs under **File › Cloud Sync…** and check
+    **Synchronize in the background after login** so they run on their
+    intervals. Read the first run's review and any large deletion before
+    choosing **Synchronize**. Choose a backup mode when only one side should
+    change, keep pairs out of folders another client synchronizes, and
+    resolve conflicts in the review rather than leaving them skipped. Merge
+    and delete conflict copies once you have compared them. Rename one side
+    of a file-and-folder conflict, and move whole folders with the remote's
+    own tools to avoid copying them again. Check the tray icon or the dialog
+    for pairs that need attention.
   - Comment:
     [#728.7196797397](https://github.com/mikepadiernos/plasma-opus/issues/728#issuecomment-7196797397)
 - **Proposed improvements:**
@@ -2287,6 +2318,10 @@ The M27 desktop integrations have these limits
   - Share one SSH connection between rsync runs, offer to keep permissions
     and links, delete folders missing from the source, and the M28
     **rsync** settings page.
+  - Detect folder renames, compare checksums where the remote offers them,
+    watch local folders instead of waiting for the interval, send desktop
+    notifications, show transfers and quota per pair, and the M28 **Cloud
+    sync** settings page.
 
 ## Embedded terminal
 
