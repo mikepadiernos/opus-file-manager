@@ -419,6 +419,15 @@ behaves like the rest of the desktop and follows the user's choices.
   binary and very large files are reported rather than opened. See
   [Editing in the preview](../CAVEATS.md#editor).
   ([#729](https://github.com/mikepadiernos/plasma-opus/issues/729))
+- **Markdown vault links:** The built-in editor's **Vault** menu chooses a
+  local folder of Markdown notes, such as an Obsidian vault, without
+  changing its notes or configuration. In a note inside that folder, the
+  Markdown preview turns `[[wiki links]]` into links that open the named
+  note in the editor, keeping unsaved changes as a draft, and the
+  **Backlinks** list shows the notes that link to the open one. Missing,
+  ambiguous and out-of-vault links, and incomplete scans, are reported
+  below the list. See [Markdown vault links](../CAVEATS.md#desktop-integration).
+  ([#564](https://github.com/mikepadiernos/plasma-opus/issues/564))
 - **Ebooks, comics, help files and fonts:** The preview panel shows EPUB,
   MOBI, FictionBook, comic book archives such as CBZ and CBR, DjVu and CHM
   help files through [Okular](https://okular.kde.org/)'s viewer component
