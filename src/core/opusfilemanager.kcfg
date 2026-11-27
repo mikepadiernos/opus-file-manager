@@ -884,6 +884,14 @@
       <label>Show the Places panel</label>
       <default>false</default>
     </entry>
+    <entry name="FileTypeCategoriesHidden" type="StringList">
+      <label>The ids of the file-type categories, such as large-files, that Places does not list</label>
+      <default></default>
+    </entry>
+    <entry name="LargeFileSizeMiB" type="Int">
+      <label>The size in MiB above which the Large Files category in Places finds a file</label>
+      <default>100</default><min>1</min><max>1048576</max>
+    </entry>
   </group>
   <group name="PanelSettings">
     <entry name="PanelsVisible" key="Visible" type="Bool"><default>true</default></entry>
