@@ -2365,8 +2365,9 @@ The M27 desktop integrations have these limits
     **Compress…** and send the archive; copy remote files to a local folder
     before sending. Watch KDE Connect's notification to confirm delivery. If a
     paired device shows as offline, open KDE Connect on both devices and press
-    **Refresh**; if it shows file sharing as turned off, enable the **Share
-    and receive** plugin for it in KDE Connect's settings.
+    **Refresh**; if it shows file sharing as turned off, enable the **Share and
+    receive** plugin for it in KDE Connect's settings, which **Configure KDE
+    Connect…** under **Preferences › KDE Plasma › KDE Connect** opens.
   - **KRunner:** Install with `./install.sh`, then run `kquitapp6 krunner`
     or log out and back in if **Plasma Opus** is missing from **System
     Settings › Search › Plasma Search**. Turn off what should not be offered
@@ -2807,6 +2808,19 @@ The M28 integration settings have these limits
   settings are unverified there
   ([Plasma check](TODO.md#activity-associations-on-plasma-391)).
   ([#391](https://github.com/mikepadiernos/plasma-opus/issues/391))
+- **📲 KDE Connect sharing:** clearing **Offer File › Send to Device… to send
+  files with KDE Connect** under **Preferences › KDE Plasma › KDE Connect**
+  hides the action from the menus and toolbars; KDE Connect's own **Send to**
+  entry in the context menu, where installed, is not affected. When **Choose the
+  device the files were last sent to again** is cleared, the dialog chooses the
+  first device, by name, that can receive files, and the device used last is
+  forgotten once the change is applied. Only the device's KDE Connect identifier
+  is remembered, in the Plasma Opus state file. **Configure KDE Connect…** opens
+  KDE Connect's settings through `kcmshell6` or System Settings, and the tab
+  says so when they are not installed. The container has no KDE Connect, so
+  opening its settings is unverified there
+  ([Plasma check](TODO.md#kde-connect-settings-on-plasma-393)).
+  ([#393](https://github.com/mikepadiernos/plasma-opus/issues/393))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -2847,6 +2861,13 @@ The M28 integration settings have these limits
     folders in the list there, then choose **Apply**. Use **Configure Plasma
     Activities…** to add or rename Activities, and **Clear Association** to
     drop the association of an Activity that is not coming back.
+  - **KDE Connect sharing:** Clear **Choose the device the files were last
+    sent to again** under **Preferences › KDE Plasma › KDE Connect** when
+    several people or devices share the computer, so each send starts from
+    the first available device. Clear **Offer File › Send to Device… to send
+    files with KDE Connect** if you send files with KDE Connect's own **Send
+    to** entry instead, and use **Configure KDE Connect…** to pair devices or
+    turn on file sharing for them.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -2870,6 +2891,9 @@ The M28 integration settings have these limits
   - Clear all Activity associations at once, show the behaviours an
     association inherits from its workspace, and copy an association to
     another Activity.
+  - Show KDE Connect's paired devices and the remembered one in the
+    **KDE Connect** tab, with an action to forget it, and offer **Send to
+    Device…** in the file context menu as an option.
 
 ## Embedded terminal
 
