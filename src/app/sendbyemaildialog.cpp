@@ -99,7 +99,7 @@ void setDragUrl(QListWidgetItem *item, const QUrl &url)
 
 SendByEmailDialog::SendByEmailDialog(const KFileItemList &items, QWidget *parent)
     : QDialog(parent)
-    , m_selection(MailHandoff::classify(items))
+    , m_selection(MailHandoff::classify(items, MailHandoff::remoteFiles()))
     , m_client(KSandbox::isInside() ? std::nullopt : MailHandoff::preferredClient())
 {
     setObjectName(QStringLiteral("sendByEmailDialog"));

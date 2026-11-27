@@ -75,6 +75,8 @@
 #include <QTest>
 #include <QToolButton>
 
+#include <sys/stat.h>
+
 #ifdef OPUSFM_HAVE_ACCOUNTS
 #include <Accounts/Account>
 #include <Accounts/Manager>
@@ -2544,6 +2546,49 @@ private Q_SLOTS:
         dialog.button(QDialogButtonBox::Apply)->click();
         QVERIFY(send->isVisible());
         QVERIFY(send->isEnabled());
+    }
+
+    void mailTabSkipsOrAsksAboutRemoteFiles()
+    {
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        auto *page = dialog.findChild<QWidget *>(QStringLiteral("mailIntegrationPage"));
+        QVERIFY(page);
+        auto *group = page->findChild<QGroupBox *>(QStringLiteral("mailRemoteFilesGroup"));
+        QVERIFY(group);
+        auto *choice = group->findChild<QComboBox *>(QStringLiteral("kcfg_MailRemoteFiles"));
+        auto *status = group->findChild<QLabel *>(QStringLiteral("mailRemoteFilesStatus"));
+        QVERIFY(choice && status);
+        QCOMPARE(choice->currentIndex(), int(Settings::EnumMailRemoteFiles::Ask));
+        QVERIFY2(status->text().contains(QStringLiteral("only when you choose to")), qPrintable(status->text()));
+
+        // Remote files only matter while Send by Email is offered.
+        auto *enabled = page->findChild<QCheckBox *>(QStringLiteral("kcfg_SendByEmail"));
+        QVERIFY(group->isEnabled());
+        enabled->setChecked(false);
+        QVERIFY(!group->isEnabled());
+        enabled->setChecked(true);
+        QVERIFY(group->isEnabled());
+
+        choice->setCurrentIndex(Settings::EnumMailRemoteFiles::Skip);
+        QVERIFY2(status->text().contains(QStringLiteral("without downloading them")), qPrintable(status->text()));
+        QTRY_VERIFY(dialog.button(QDialogButtonBox::Apply)->isEnabled());
+        dialog.button(QDialogButtonBox::Apply)->click();
+        QCOMPARE(Settings::mailRemoteFiles(), int(Settings::EnumMailRemoteFiles::Skip));
+        QCOMPARE(MailHandoff::remoteFiles(), MailHandoff::RemoteFiles::Skip);
+
+        // Send by Email then skips remote files without offering to download them.
+        const QUrl remote(QStringLiteral("sftp://host/notes.txt"));
+        SendByEmailDialog send({KFileItem(remote, QStringLiteral("text/plain"), S_IFREG)});
+        QVERIFY(send.findChild<QCheckBox *>(QStringLiteral("mailPrepareCopies"))->isHidden());
+        auto *items = send.findChild<QListWidget *>(QStringLiteral("mailItems"));
+        QCOMPARE(items->count(), 1);
+        QVERIFY(!(items->item(0)->flags() & Qt::ItemIsEnabled));
+        QVERIFY(items->item(0)->text().contains(QStringLiteral("Preferences › Applications › Mail")));
     }
 
     void reportsMissingDefaultApplicationsSettings()

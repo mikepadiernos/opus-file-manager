@@ -2,6 +2,7 @@
 
 #include "sendbyemaildialog.h"
 #include "mainwindow.h"
+#include "settings.h"
 
 #include <KActionCollection>
 #include <KMessageWidget>
@@ -148,6 +149,33 @@ private Q_SLOTS:
         delete dialog;
         QVERIFY(QFile::exists(copy));
         QVERIFY(QFile::exists(m_dir.filePath(QStringLiteral("remote.tar"))));
+    }
+
+    void skipsRemoteFilesWhenLocalCopiesAreOff()
+    {
+        installClient(QStringLiteral("fakemail.desktop"), QStringLiteral("Fake Mail"));
+        Settings::setMailRemoteFiles(Settings::EnumMailRemoteFiles::Skip);
+        const QUrl remote = archiveMember(QStringLiteral("remote.txt"));
+        SendByEmailDialog dialog({KFileItem(QUrl::fromLocalFile(m_file)), KFileItem(remote, QStringLiteral("text/plain"), S_IFREG)});
+        Settings::self()->setDefaults();
+
+        auto *items = dialog.findChild<QListWidget *>(QStringLiteral("mailItems"));
+        QCOMPARE(items->count(), 2);
+        QVERIFY(!(items->item(1)->flags() & Qt::ItemIsEnabled));
+        QVERIFY2(items->item(1)->text().contains(QStringLiteral("Preferences")), qPrintable(items->item(1)->text()));
+        QVERIFY(dialog.findChild<QCheckBox *>(QStringLiteral("mailPrepareCopies"))->isHidden());
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("mailSummary"))->text().contains(QStringLiteral("skipped")));
+
+        auto *compose = dialog.findChild<QPushButton *>(QStringLiteral("mailCompose"));
+        QVERIFY(compose->isEnabled());
+        QSignalSpy finished(&dialog, &SendByEmailDialog::composeFinished);
+        compose->click();
+        QVERIFY(finished.wait(10000));
+        QCOMPARE(finished.first().first().toString(), QString());
+        QVERIFY(dialog.copiesPath().isEmpty());
+        const QString arguments = composerArguments();
+        QVERIFY2(arguments.contains(QStringLiteral("report.txt")), qPrintable(arguments));
+        QVERIFY2(!arguments.contains(QStringLiteral("remote.txt")), qPrintable(arguments));
     }
 
     void reportsAFailedCopyWithoutOpeningTheComposer()

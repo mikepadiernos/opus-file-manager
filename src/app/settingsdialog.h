@@ -393,6 +393,8 @@ private:
     QWidget *createMailIntegrationPage();
     /// The Client group of the Mail tab: the default mail client, and whether Send by Email is offered.
     QGroupBox *createMailClientGroup();
+    /// The Remote Files group of the Mail tab: whether Send by Email asks before preparing local copies of remote files or skips them.
+    QGroupBox *createMailRemoteFilesGroup();
     /// Shows the Editor › Editor tab, with the built-in editor's settings.
     void showBuiltInEditorSettings();
     /// The main window's Activity controller, which reads the Activities, if the dialog has one.

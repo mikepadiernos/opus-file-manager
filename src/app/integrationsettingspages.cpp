@@ -2317,8 +2317,15 @@ QWidget *SettingsDialog::createMailIntegrationPage()
     auto *page = new QWidget;
     page->setObjectName(QStringLiteral("mailIntegrationPage"));
     auto *layout = new QVBoxLayout(page);
-    layout->addWidget(createMailClientGroup());
+    auto *client = createMailClientGroup();
+    layout->addWidget(client);
+    auto *remote = createMailRemoteFilesGroup();
+    layout->addWidget(remote);
     layout->addStretch();
+    // Remote files only matter while Send by Email is offered.
+    auto *enabled = client->findChild<QCheckBox *>(QStringLiteral("kcfg_SendByEmail"));
+    remote->setEnabled(enabled->isChecked());
+    connect(enabled, &QCheckBox::toggled, remote, &QWidget::setEnabled);
     return page;
 }
 
@@ -2371,5 +2378,38 @@ QGroupBox *SettingsDialog::createMailClientGroup()
     connect(defaults, &QPushButton::clicked, message, [message] {
         openSettingsModule(QStringLiteral("kcm_componentchooser"), i18nc("@info", "Plasma's Default Applications settings are not installed."), message);
     });
+    return group;
+}
+
+QGroupBox *SettingsDialog::createMailRemoteFilesGroup()
+{
+    auto *group = new StatusGroup(i18nc("@title:group", "Remote Files"));
+    group->setObjectName(QStringLiteral("mailRemoteFilesGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *form = new QFormLayout;
+    auto *choice = comboBox(QStringLiteral("MailRemoteFiles"),
+                            {i18nc("@item:inlistbox remote files", "Ask before downloading private local copies"),
+                             i18nc("@item:inlistbox remote files", "Send only local files and skip remote files")});
+    choice->setToolTip(i18nc("@info:tooltip", "What Send by Email does with selected files on network locations or inside archives"));
+    form->addRow(i18nc("@label:listbox", "Remote files:"), choice);
+    layout->addLayout(form);
+    auto *status = statusLabel(QStringLiteral("mailRemoteFilesStatus"));
+    layout->addWidget(status);
+    auto *note = new QLabel(i18nc("@info",
+                                  "Mail clients attach only local files, so a file on a network location or inside an archive needs a local "
+                                  "copy first. Plasma Opus never downloads one without asking."));
+    note->setWordWrap(true);
+    layout->addWidget(note);
+
+    const auto refresh = [choice, status] {
+        status->setText(choice->currentIndex() == Settings::EnumMailRemoteFiles::Skip
+                            ? i18nc("@info", "Send by Email attaches only local files and lists remote files as skipped, without downloading them.")
+                            : i18nc("@info",
+                                    "Send by Email lists remote files and downloads private local copies only when you choose to in its "
+                                    "window, each time. The copies are removed when Plasma Opus quits."));
+    };
+    group->refresh = refresh;
+    connect(choice, &QComboBox::currentIndexChanged, group, refresh);
+    refresh();
     return group;
 }
