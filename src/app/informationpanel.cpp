@@ -14,7 +14,9 @@
 #include <KLocalizedString>
 
 #include <QDate>
+#include <QDateTime>
 #include <QDir>
+#include <QFont>
 #include <QFormLayout>
 #include <QLabel>
 #include <QMenu>
@@ -171,6 +173,106 @@ void InformationPanel::setItem(const KFileItem &item)
     refresh();
 }
 
+namespace
+{
+bool sameItem(const QUrl &first, const QUrl &second)
+{
+    constexpr auto options = QUrl::RemoveUserInfo | QUrl::StripTrailingSlash;
+    return first.adjusted(options) == second.adjusted(options);
+}
+}
+
+void InformationPanel::setServerMetadata(const QUrl &url, const std::optional<Nextcloud::FileMetadata> &metadata, const QString &status)
+{
+    // Answers can arrive after another item is shown.
+    if (m_item.isNull() || !sameItem(m_item.url(), url)) {
+        return;
+    }
+    m_serverUrl = url;
+    m_serverMetadata = metadata;
+    m_serverStatus = status;
+    refreshServerMetadata();
+}
+
+void InformationPanel::refreshServerMetadata()
+{
+    if (!m_serverHeading) {
+        return;
+    }
+    const bool shown = !m_item.isNull() && m_serverUrl.isValid() && sameItem(m_item.url(), m_serverUrl) && (m_serverMetadata || !m_serverStatus.isEmpty());
+    m_layout->setRowVisible(m_serverHeading, shown);
+    QHash<QString, QString> texts;
+    if (shown) {
+        QString status = m_serverStatus;
+        if (m_serverMetadata && !m_serverMetadata->unavailable.isEmpty()) {
+            const QString withheld = i18nc("@info %1 is a list of property names",
+                                           "The server withheld: %1",
+                                           m_serverMetadata->unavailable.join(i18nc("@item list separator", ", ")));
+            status = status.isEmpty() ? withheld : status + QLatin1Char('\n') + withheld;
+        }
+        texts.insert(QStringLiteral("status"), status);
+    }
+    if (shown && m_serverMetadata) {
+        const Nextcloud::FileMetadata &metadata = *m_serverMetadata;
+        const QString separator = i18nc("@item list separator", ", ");
+        texts.insert(QStringLiteral("fileId"), metadata.fileId);
+        if (!metadata.ownerDisplayName.isEmpty() && !metadata.ownerId.isEmpty() && metadata.ownerDisplayName != metadata.ownerId) {
+            texts.insert(QStringLiteral("owner"),
+                         i18nc("@info:file metadata owner display name and user ID", "%1 (%2)", metadata.ownerDisplayName, metadata.ownerId));
+        } else {
+            texts.insert(QStringLiteral("owner"), metadata.ownerDisplayName.isEmpty() ? metadata.ownerId : metadata.ownerDisplayName);
+        }
+        if (metadata.size) {
+            texts.insert(QStringLiteral("size"), LocalizedNumbers::shape(KIO::convertSize(KIO::filesize_t(*metadata.size))));
+        }
+        if (metadata.modified.isValid()) {
+            texts.insert(QStringLiteral("modified"), LocalizedDates::dateTime(metadata.modified.toLocalTime()));
+        }
+        texts.insert(QStringLiteral("etag"), metadata.etag);
+        if (metadata.favorite) {
+            texts.insert(QStringLiteral("favorite"), *metadata.favorite ? i18nc("@info:file metadata", "Yes") : i18nc("@info:file metadata", "No"));
+        }
+        texts.insert(QStringLiteral("tags"), metadata.serverTags.join(separator));
+        QStringList shares;
+        for (int type : metadata.shareTypes) {
+            shares.append(Nextcloud::describeShareType(type));
+        }
+        texts.insert(QStringLiteral("shares"), shares.join(separator));
+        if (metadata.hasPreview) {
+            texts.insert(QStringLiteral("preview"),
+                         *metadata.hasPreview ? i18nc("@info:file metadata server preview", "Available")
+                                              : i18nc("@info:file metadata server preview", "Not available"));
+        }
+        texts.insert(QStringLiteral("mount"), metadata.mountType);
+        // Photos report dozens of EXIF values; a cap keeps the panel usable.
+        constexpr qsizetype maximumLines = 60;
+        QStringList lines;
+        for (const Nextcloud::MetadataField &field : metadata.metadata) {
+            if (lines.size() == maximumLines) {
+                lines.append(i18nc("@info:file metadata", "…and %1 more", metadata.metadata.size() - maximumLines));
+                break;
+            }
+            QString value = field.value;
+            if (field.property == QLatin1String("metadata-photos-original_date_time") && field.key.isEmpty()) {
+                bool ok = false;
+                const qint64 seconds = value.toLongLong(&ok);
+                if (ok) {
+                    value = LocalizedDates::dateTime(QDateTime::fromSecsSinceEpoch(seconds).toLocalTime());
+                }
+            }
+            if (!value.isEmpty()) {
+                lines.append(i18nc("@info:file metadata field name and value", "%1: %2", Nextcloud::describeMetadataField(field), value));
+            }
+        }
+        texts.insert(QStringLiteral("metadata"), lines.join(QLatin1Char('\n')));
+    }
+    for (auto it = m_serverValues.cbegin(); it != m_serverValues.cend(); ++it) {
+        const QString text = texts.value(it.key());
+        it.value()->setText(text);
+        m_layout->setRowVisible(it.value(), shown && !text.isEmpty());
+    }
+}
+
 void InformationPanel::refresh()
 {
     for (const QString &field : m_fields) {
@@ -187,6 +289,7 @@ void InformationPanel::refresh()
         m_encryption->setText(text);
         m_layout->setRowVisible(m_encryption, !text.isEmpty());
     }
+    refreshServerMetadata();
 }
 
 void InformationPanel::refreshTags()
@@ -252,6 +355,8 @@ void InformationPanel::rebuild()
     m_tags = nullptr;
     m_libraryFields = nullptr;
     m_encryption = nullptr;
+    m_serverHeading = nullptr;
+    m_serverValues.clear();
     if (m_fields.isEmpty()) {
         auto *emptyMessage = new QLabel(i18nc("@info", "No metadata fields are enabled."), this);
         emptyMessage->setWordWrap(true);
@@ -289,5 +394,37 @@ void InformationPanel::rebuild()
     m_encryption->setTextFormat(Qt::PlainText);
     m_encryption->setWordWrap(true);
     m_layout->addRow(i18nc("@label:file information", "Encryption"), m_encryption);
+    m_serverHeading = new QLabel(i18nc("@title:group file information", "Nextcloud server"), this);
+    m_serverHeading->setObjectName(QStringLiteral("informationNextcloudHeading"));
+    QFont bold = m_serverHeading->font();
+    bold.setBold(true);
+    m_serverHeading->setFont(bold);
+    m_layout->addRow(m_serverHeading);
+    const QList<QPair<QString, QString>> serverFields = {
+        {QStringLiteral("status"), i18nc("@label:file information Nextcloud", "Status")},
+        {QStringLiteral("fileId"), i18nc("@label:file information Nextcloud", "File ID")},
+        {QStringLiteral("owner"), i18nc("@label:file information Nextcloud", "Owner")},
+        {QStringLiteral("size"), i18nc("@label:file information Nextcloud", "Size")},
+        {QStringLiteral("modified"), i18nc("@label:file information Nextcloud", "Modified")},
+        {QStringLiteral("etag"), i18nc("@label:file information Nextcloud", "ETag")},
+        {QStringLiteral("favorite"), i18nc("@label:file information Nextcloud", "Favourite")},
+        {QStringLiteral("tags"), i18nc("@label:file information Nextcloud", "Server tags")},
+        {QStringLiteral("shares"), i18nc("@label:file information Nextcloud", "Shared as")},
+        {QStringLiteral("preview"), i18nc("@label:file information Nextcloud", "Server preview")},
+        {QStringLiteral("mount"), i18nc("@label:file information Nextcloud", "Mount type")},
+        {QStringLiteral("metadata"), i18nc("@label:file information Nextcloud", "Metadata")},
+    };
+    for (const auto &[field, label] : serverFields) {
+        auto *value = new QLabel(this);
+        value->setObjectName(QStringLiteral("informationNextcloud_") + field);
+        value->setTextFormat(Qt::PlainText);
+        value->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        value->setWordWrap(true);
+        if (field == QLatin1String("tags")) {
+            value->setToolTip(i18nc("@info:tooltip", "Collaborative tags stored on the Nextcloud server, separate from Plasma Opus tags"));
+        }
+        m_layout->addRow(label, value);
+        m_serverValues.insert(field, value);
+    }
     refresh();
 }

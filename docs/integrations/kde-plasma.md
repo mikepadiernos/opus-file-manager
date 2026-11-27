@@ -730,6 +730,9 @@ behaves like the rest of the desktop and follows the user's choices.
   account only hides it in Plasma Opus, and **Manage Online Accounts…**
   there opens KDE's settings
   ([#371](https://github.com/mikepadiernos/plasma-opus/issues/371)).
+  Nextcloud and ownCloud accounts also appear under **Go › Nextcloud**; see
+  [Nextcloud accounts](nextcloud.md#implemented-features)
+  ([#588](https://github.com/mikepadiernos/plasma-opus/issues/588)).
   See [KDE Online Accounts](../CAVEATS.md#desktop-integration).
   ([#370](https://github.com/mikepadiernos/plasma-opus/issues/370))
 - **rsync backend:** **File › Compare and Synchronize Folders…** offers

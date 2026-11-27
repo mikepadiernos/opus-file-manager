@@ -9,6 +9,7 @@
 #include <QDialog>
 #include <QPointer>
 
+#include <functional>
 #include <memory>
 
 class KJob;
@@ -43,6 +44,12 @@ public:
 
     /// The file URLs a drag from the list of @p items carries.
     QList<QUrl> dragUrls(const QList<QListWidgetItem *> &items);
+
+    /// Opens a new message with @p subject and @p body, without attachments,
+    /// in the user's mail client or through the desktop portal, and never
+    /// sends it. Calls @p done with an error, or an empty string, while
+    /// @p context exists.
+    static void composeMessage(const QString &subject, const QString &body, QObject *context, const std::function<void(const QString &error)> &done = {});
 
 Q_SIGNALS:
     /// Emitted when every consented copy of a remote file is ready.

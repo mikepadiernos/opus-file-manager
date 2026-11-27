@@ -3,6 +3,7 @@
 #include "cloudsync.h"
 
 #include "appidentity.h"
+#include "nextclouddesktop.h"
 #include "rclone.h"
 
 #include <KIO/Global>
@@ -446,17 +447,15 @@ QStringList configuredFolders(const EngineLocations &locations, const QString &e
 {
     QStringList folders;
     if (engine == QLatin1String("Nextcloud") || engine == QLatin1String("ownCloud")) {
-        const QString file = engine == QLatin1String("Nextcloud") ? QStringLiteral("Nextcloud/nextcloud.cfg") : QStringLiteral("ownCloud/owncloud.cfg");
-        QFile config(QDir(locations.configHome).filePath(file));
-        if (locations.configHome.isEmpty() || !config.open(QIODevice::ReadOnly)) {
+        if (locations.configHome.isEmpty()) {
             return {};
         }
-        while (!config.atEnd()) {
-            const QString line = QString::fromUtf8(config.readLine()).trimmed();
-            const qsizetype key = line.indexOf(QLatin1String("\\localPath="));
-            if (key > 0) {
-                folders.append(line.mid(key + int(qstrlen("\\localPath="))));
-            }
+        // Both clients keep their folders in the same format.
+        const QString path = engine == QLatin1String("Nextcloud") ? NextcloudDesktop::configurationPath(locations.configHome)
+                                                                  : QDir(locations.configHome).filePath(QStringLiteral("ownCloud/owncloud.cfg"));
+        const QList<NextcloudDesktop::Folder> configured = NextcloudDesktop::readConfiguration(path).folders;
+        for (const NextcloudDesktop::Folder &folder : configured) {
+            folders.append(folder.localPath);
         }
         return folders;
     }

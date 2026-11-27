@@ -8,6 +8,8 @@
 #include <QSharedPointer>
 #include <QWidget>
 
+#include <functional>
+
 namespace KIO
 {
 class TransferJob;
@@ -87,6 +89,24 @@ public:
      */
     void endEditing();
 
+    /**
+     * Asks the host for a server-rendered preview of the remote @p item, wanted
+     * at @p size device pixels, before the panel downloads the file. Returns
+     * true when the host will answer with showServerPreview().
+     */
+    using ServerPreviewHandler = std::function<bool(const KFileItem &item, const QSize &size)>;
+    /// Lets the host offer server-rendered previews of remote files other than text.
+    void setServerPreviewHandler(ServerPreviewHandler handler);
+    /**
+     * Shows @p image, the server's preview of @p url, with a button that
+     * downloads the whole file instead. A null @p image downloads the file
+     * within the usual limits, as without a server preview. Answers for
+     * items no longer shown are ignored.
+     */
+    void showServerPreview(const QUrl &url, const QImage &image);
+    /// Whether the panel shows a server's preview instead of the file.
+    bool isShowingServerPreview() const;
+
 Q_SIGNALS:
     void busyChanged(bool busy);
     void closeRequested();
@@ -115,6 +135,7 @@ private:
     void updateFooter();
     void startPendingPreview();
     void startRemotePreview(const QUrl &url);
+    void downloadFullPreview();
     void finishRemotePreview();
     void clearRemotePreview();
     void showDocument(const QUrl &url, const QString &mimeType);
@@ -200,4 +221,9 @@ private:
     FolderPreview *m_folder = nullptr;
     bool m_showHiddenFiles = false;
     bool m_busy = false;
+    ServerPreviewHandler m_serverPreviewHandler;
+    /// Whether the host was asked for a server preview of m_url and hasn't answered.
+    bool m_awaitingServerPreview = false;
+    bool m_serverPreview = false;
+    QToolButton *m_downloadFull = nullptr;
 };

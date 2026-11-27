@@ -22,7 +22,7 @@ How Plasma Opus works today and how to set it up.
 
 | Guide                                | What it covers                                                  | Milestones                                                                                      |
 | ------------------------------------ | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| [Project README](../README.md)       | Features, installation, customization and safety                | [M01–M28](ROADMAP.md#at-a-glance)                                                               |
+| [Project README](../README.md)       | Features, installation, customization and safety                | [M01–M29](ROADMAP.md#at-a-glance)                                                               |
 | [Native tagging](tagging.md)         | Library format, tags, fields, search, backups and settings      | [M23](ROADMAP.md#m23-native-tagging)–[M24](ROADMAP.md#m24-tagging-settings)                     |
 | [Yazi mode](yazi-mode.md)            | Per-pane column browsing, keys, what it keeps, persistence      | [M25](ROADMAP.md#m25-yazi-mode)–[M26](ROADMAP.md#m26-yazi-mode-settings)                        |
 | [Translations](../po/README.md)      | Language settings, catalogue extraction, installation, fallback | [M13](ROADMAP.md#m13-translations)–[M14](ROADMAP.md#m14-translation-settings)                   |
@@ -86,14 +86,15 @@ flowchart TD
 
 ## Integrations
 
-![Planned](https://img.shields.io/badge/Planned-6e7781?style=flat-square)
+![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)
 
 These plans extend [M27](ROADMAP.md#m27-integrations),
 [M28](ROADMAP.md#m28-integration-settings) and the Nextcloud milestones
 [M29](ROADMAP.md#m29-nextcloud-integration) and
 [M30](ROADMAP.md#m30-nextcloud-settings). Each plan marks what is already
-implemented, such as the KDE foundations, the M27 integrations and their M28
-settings; the rest is not implemented yet.
+implemented, such as the KDE foundations, the M27 integrations, their M28
+settings and the M29 Nextcloud integration; the M30 Nextcloud settings are
+planned.
 
 | Plan                                                   | What it covers                                  |
 | ------------------------------------------------------ | ----------------------------------------------- |

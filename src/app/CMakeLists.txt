@@ -131,6 +131,18 @@ add_library(opusfm_app STATIC
     metadataeditdialog.h
     mediaview.cpp
     mediaview.h
+    nextcloudaccountsdialog.cpp
+    nextcloudaccountsdialog.h
+    nextcloudassetsdialog.cpp
+    nextcloudassetsdialog.h
+    nextcloudmenu.cpp
+    nextcloudmenu.h
+    nextcloudphotosdialog.cpp
+    nextcloudphotosdialog.h
+    nextcloudsharesdialog.cpp
+    nextcloudsharesdialog.h
+    nextcloudtagsdialog.cpp
+    nextcloudtagsdialog.h
     onlineaccountsmenu.cpp
     onlineaccountsmenu.h
     packagetools.cpp

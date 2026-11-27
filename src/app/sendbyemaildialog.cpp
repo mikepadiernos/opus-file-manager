@@ -463,6 +463,38 @@ void SendByEmailDialog::launchThroughPortal(const QList<QUrl> &attachments)
     });
 }
 
+void SendByEmailDialog::composeMessage(const QString &subject, const QString &body, QObject *context, const std::function<void(const QString &error)> &done)
+{
+    if (KSandbox::isInside()) {
+        QVariantMap options = MailHandoff::portalOptions({});
+        options.insert(QStringLiteral("subject"), subject);
+        options.insert(QStringLiteral("body"), body);
+        QDBusMessage message = QDBusMessage::createMethodCall(QStringLiteral("org.freedesktop.portal.Desktop"),
+                                                              QStringLiteral("/org/freedesktop/portal/desktop"),
+                                                              QStringLiteral("org.freedesktop.portal.Email"),
+                                                              QStringLiteral("ComposeEmail"));
+        message << QString() << options;
+        auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(message), context);
+        QObject::connect(watcher, &QDBusPendingCallWatcher::finished, context, [done](QDBusPendingCallWatcher *call) {
+            call->deleteLater();
+            const QDBusPendingReply<QDBusObjectPath> reply = *call;
+            if (done) {
+                done(reply.isError() ? reply.error().message() : QString());
+            }
+        });
+        return;
+    }
+    auto *job = new KEMailClientLauncherJob(context);
+    job->setSubject(subject);
+    job->setBody(body);
+    QObject::connect(job, &KJob::result, context, [job, done] {
+        if (done) {
+            done(job->error() ? job->errorString() : QString());
+        }
+    });
+    job->start();
+}
+
 void SendByEmailDialog::finish(const QString &error, int attached)
 {
     m_launching = false;

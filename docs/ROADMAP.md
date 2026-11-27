@@ -14,7 +14,7 @@ record the Max File Manager behaviour that informs its parity goals.
 > [!NOTE]
 > The latest published MVP is
 > [v0.2.0](https://github.com/mikepadiernos/plasma-opus/releases/tag/v0.2.0),
-> released after M14. M15–M28 have since been merged into `main`; M29–M32 are
+> released after M14. M15–M29 have since been merged into `main`; M30–M32 are
 > planned. See [pending tasks](TODO.md) for blocked work and branch-specific
 > handoffs.
 
@@ -24,8 +24,8 @@ Status reflects the milestones' parent issues on the
 [project board](https://github.com/users/mikepadiernos/projects/3): Merged
 groups have every feature checked and merged into `main`, Development groups
 have a milestone in progress, and Planned groups have not started. In the
-M27–M31 group, M27 and M28 are merged and their Plasma checks are recorded in
-[pending tasks](TODO.md); M29–M31 are planned.
+M27–M31 group, M27–M29 are merged and their Plasma checks are recorded in
+[pending tasks](TODO.md); M30–M31 are planned.
 
 | Milestones | Focus                                        | Status                                                                            | Jump to                         |
 | ---------- | -------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------- |
@@ -2066,31 +2066,49 @@ the Nextcloud desktop client or its synchronization engine. See the
 [Nextcloud integration](integrations/nextcloud.md) for app interfaces and
 considered Calendar, Maps, Deck and Notes workflows.
 
-- [ ] Connect supported accounts through KDE Online Accounts or an explicit
+- [x] Connect supported accounts through KDE Online Accounts or an explicit
       Nextcloud login. Use KDE credential facilities, verify TLS and report
-      expired access, unavailable providers and server capabilities. [#588]
-- [ ] Browse Nextcloud files in either pane and reuse supported KIO operations,
+      expired access, unavailable providers and server capabilities.
+      Real-server verification is a
+      [pending handoff](TODO.md#nextcloud-accounts-on-a-real-server-588).
+      [#588]
+- [x] Browse Nextcloud files in either pane and reuse supported KIO operations,
       confirmations, cancellation and error reporting. Respect server
-      permissions and report unsupported operations and partial failures. [#365]
-- [ ] Preview supported remote digital assets and inspect available server
+      permissions and report unsupported operations and partial failures.
+      Real-server verification is a
+      [pending handoff](TODO.md#nextcloud-browsing-on-a-real-server-365).
+      [#365]
+- [x] Preview supported remote digital assets and inspect available server
       metadata, respecting existing preview limits and remote-download policy.
+      Real-server verification is a
+      [pending handoff](TODO.md#nextcloud-previews-on-a-real-server-589).
       [#589]
-- [ ] Search and organize assets using supported server metadata, tags and
+- [x] Search and organize assets using supported server metadata, tags and
       favorites. Keep server tags distinct from native local tags; identify
-      unavailable features and incomplete results. [#590]
-- [ ] Browse Nextcloud Photos albums, shared albums and places as virtual
+      unavailable features and incomplete results. Real-server verification
+      is a
+      [pending handoff](TODO.md#nextcloud-asset-search-on-a-real-server-590).
+      [#590]
+- [x] Browse Nextcloud Photos albums, shared albums and places as virtual
       folders, sorting and grouping by server capture date and location
       without downloading files. Add photos to albums or remove them with
       confirmation; removing a photo from an album never deletes the file.
       Respect shared-album permissions and report when Photos is unavailable.
+      Real-server verification is a
+      [pending handoff](TODO.md#nextcloud-photos-on-a-real-server-671).
       [#671]
-- [ ] View and manage supported Nextcloud shares with explicit authorization and
+- [x] View and manage supported Nextcloud shares with explicit authorization and
       confirmation before broadening access or revoking a share. Offer to send
-      a reviewed share link through the M27 Send by Email action. [#591]
-- [ ] Open configured local sync folders and the existing desktop client,
+      a reviewed share link through the M27 Send by Email action.
+      Real-server verification is a
+      [pending handoff](TODO.md#nextcloud-shares-on-a-real-server-591).
+      [#591]
+- [x] Open configured local sync folders and the existing desktop client,
       showing available status and distinguishing remote, local, offline and
       unknown state. Never start a second sync engine or change the client's
-      configuration. [#592]
+      configuration. Plasma verification is a
+      [pending handoff](TODO.md#nextcloud-desktop-client-on-plasma-592).
+      [#592]
 
 ### M30: Nextcloud settings
 

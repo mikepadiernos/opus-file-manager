@@ -9,6 +9,7 @@
 #include "edittools.h"
 #include "fileencryption.h"
 #include "metadataeditdialog.h"
+#include "nextcloudclient.h"
 #include "officeapps.h"
 #include "previewpanel.h"
 #include "rclone.h"
@@ -24,8 +25,10 @@
 #include <QHash>
 #include <QList>
 #include <QPointer>
+#include <QSet>
 #include <QUrl>
 #include <memory>
+#include <optional>
 
 class ActivityController;
 class CloudActivityDialog;
@@ -38,6 +41,10 @@ struct Limits;
 namespace CloudSync
 {
 class Scheduler;
+}
+namespace NextcloudDesktop
+{
+class StatusQuery;
 }
 class KdeConnectClient;
 class PlasmaVaultMenu;
@@ -209,6 +216,41 @@ public:
     void showRemoteConnections();
     /// Fills the Online Accounts menu with the folders of each KDE Online Account.
     void populateOnlineAccounts();
+    /// The saved Nextcloud accounts and, when enabled, those from KDE Online Accounts.
+    QList<NextcloudAccounts::Account> nextcloudAccounts(QString *error = nullptr) const;
+    /// Fills the Nextcloud menu with each Nextcloud account.
+    void populateNextcloud();
+    /**
+     * Fills the Go › Nextcloud › Desktop Client submenu with the folders the
+     * Nextcloud desktop client synchronizes, asking the client for their
+     * status when @p refresh is set. The submenu is hidden when the client is
+     * neither installed nor configured.
+     */
+    void populateNextcloudDesktop(bool refresh);
+    /// Replaces where the Nextcloud desktop client's configuration and local socket are looked for.
+    void setNextcloudDesktopLocations(const QString &configuration, const QString &socket);
+    /// Shows the Nextcloud desktop client, starting it when it isn't running.
+    void openNextcloudDesktopClient();
+    /// Shows the dialog that adds, checks and removes Nextcloud accounts.
+    void showNextcloudAccounts();
+    /// Opens the files of @p account in the active pane, or in the other pane when @p otherPane is set.
+    void openNextcloudAccount(const NextcloudAccounts::Account &account, bool otherPane);
+    /// Shows the dialog that searches the files of @p account and lists its favourites and tagged files.
+    void showNextcloudAssets(const NextcloudAccounts::Account &account);
+    /// Shows the albums, shared albums and places of Nextcloud Photos of @p account.
+    void showNextcloudPhotos(const NextcloudAccounts::Account &account);
+    /// Opens the Nextcloud shares of @p account, starting with those of @p item when set.
+    void showNextcloudShares(const NextcloudAccounts::Account &account, const std::optional<QUrl> &item = std::nullopt, bool itemIsFolder = false);
+    /// Asks for a Nextcloud Photos album to add the Nextcloud files @p urls to.
+    void addToNextcloudAlbum(const QList<QUrl> &urls);
+    /// Reports in the status bar how many files were added to @p album.
+    void reportAddedToAlbum(const QString &album, int added, const QStringList &errors);
+    /// Shows the dialog that edits the collaborative tags of the Nextcloud items @p urls on their server.
+    void showNextcloudTags(const QList<QUrl> &urls);
+    /// Marks the Nextcloud items @p urls as favourites on their server, or no longer.
+    void setNextcloudFavorite(const QList<QUrl> &urls, bool favorite);
+    /// The server permissions of the Nextcloud folder @p url, when they have been read.
+    std::optional<Nextcloud::FolderPermissions> nextcloudPermissions(const QUrl &url) const;
     /// Opens @p profile in the active pane, or in the other pane when @p otherPane is set.
     void openRemoteProfile(const RemoteProfiles::Profile &profile, bool otherPane);
     /// Opens an SSH session for @p profile in the terminal panel.
@@ -400,6 +442,35 @@ private:
     void setActivePane(Pane *pane);
     void connectPane(Pane *pane);
     void updateActions();
+    /// Reads the server permissions of the folder shown in @p pane when it belongs to a Nextcloud account.
+    void fetchNextcloudPermissions(Pane *pane);
+    /// Stores the permissions of @p folder and applies them to the actions.
+    void nextcloudPermissionsFetched(const QUrl &folder, const Nextcloud::FolderPermissions &permissions, const QString &error);
+    /// Disables the actions that the Nextcloud server forbids for @p selected, explaining why.
+    void applyNextcloudPermissions(const KFileItemList &selected);
+    /// The Nextcloud account that @p url belongs to, reading the accounts the first time.
+    std::optional<NextcloudAccounts::Account> nextcloudAccountFor(const QUrl &url);
+    /// The client for Nextcloud server requests, created when first needed.
+    NextcloudClient *nextcloudClient();
+    /// The server metadata of @p item, when it was read since the item last changed.
+    std::optional<Nextcloud::FileMetadata> cachedNextcloudMetadata(const KFileItem &item) const;
+    /// Reads the server metadata of @p item unless it is already being read.
+    void fetchNextcloudMetadata(const KFileItem &item);
+    void nextcloudMetadataFetched(const QUrl &url, const Nextcloud::FileMetadata &metadata, const QString &error);
+    /**
+     * Asks the Nextcloud server for its preview of @p item, at @p size, for
+     * the preview panel. Returns false when @p item doesn't belong to a
+     * Nextcloud account, so the panel downloads it as usual.
+     */
+    bool requestNextcloudPreview(const KFileItem &item, const QSize &size);
+    /// Asks for the server preview of @p url with the file ID in @p metadata, or lets the panel download the file.
+    void fetchNextcloudPreview(const QUrl &url, const Nextcloud::FileMetadata &metadata);
+    /// Shows the server metadata of @p item in the information panel when it belongs to a Nextcloud account.
+    void updateNextcloudInformation(const KFileItem &item);
+    /// Forgets the server metadata of @p urls, which changed on the server, and shows it again.
+    void forgetNextcloudMetadata(const QList<QUrl> &urls);
+    /// Adds the Nextcloud submenu to the context menu of @p items when they all belong to one Nextcloud account.
+    void addNextcloudItemMenu(QMenu *menu, const KFileItemList &items);
     void updateFolderGateActions();
     void updateStatusBarIndicatorOrder();
     void updateStatusBar();
@@ -621,6 +692,43 @@ private:
     RcloneMounts *m_rcloneMounts = nullptr;
     QMenu *m_cloudStorageMenu = nullptr;
     QMenu *m_onlineAccountsMenu = nullptr;
+    QMenu *m_nextcloudMenu = nullptr;
+    /// The Nextcloud accounts as last listed, to recognize their folders.
+    QList<NextcloudAccounts::Account> m_nextcloudAccounts;
+    std::unique_ptr<Nextcloud::PasswordServerStore> m_nextcloudStore;
+    /// Whether m_nextcloudAccounts has been read.
+    bool m_nextcloudAccountsLoaded = false;
+    NextcloudClient *m_nextcloudClient = nullptr;
+    /// The Go › Nextcloud › Desktop Client submenu, created when the client is first found.
+    QPointer<QMenu> m_nextcloudDesktopMenu;
+    NextcloudDesktop::StatusQuery *m_nextcloudDesktopQuery = nullptr;
+    /// The desktop client's configuration and socket; empty strings use the client's own.
+    QString m_nextcloudDesktopConfiguration;
+    QString m_nextcloudDesktopSocket;
+    /// The desktop client's last reported folder status, and whether it was running then.
+    QHash<QString, QString> m_nextcloudDesktopStatuses;
+    bool m_nextcloudDesktopChecked = false;
+    bool m_nextcloudDesktopRunning = false;
+    /// The server permissions of the Nextcloud folders shown in the panes, by folder.
+    QHash<QString, Nextcloud::FolderPermissions> m_nextcloudPermissions;
+    /// The folders whose permissions are being read.
+    QSet<QString> m_nextcloudPermissionsPending;
+    struct NextcloudMetadataEntry {
+        /// The item's modification time in its listing when the metadata was read.
+        QDateTime itemModified;
+        QDateTime read;
+        Nextcloud::FileMetadata metadata;
+    };
+    /// Server metadata of Nextcloud items, by item.
+    QHash<QString, NextcloudMetadataEntry> m_nextcloudMetadata;
+    /// The items whose metadata is being read, with their modification time.
+    QHash<QString, QDateTime> m_nextcloudMetadataPending;
+    /// The items whose server preview the preview panel waits for, with their URL and the preview size.
+    QHash<QString, std::pair<QUrl, QSize>> m_nextcloudPreviewsWanted;
+    /// The favourites this window is changing on Nextcloud servers, by item.
+    QSet<QString> m_nextcloudFavoritesPending;
+    QStringList m_nextcloudFavoriteErrors;
+    int m_nextcloudFavoritesChanged = 0;
     PlasmaVaultMenu *m_plasmaVaultMenu = nullptr;
     QList<Rclone::Remote> m_rcloneRemotes;
     QString m_rcloneError;

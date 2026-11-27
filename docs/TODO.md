@@ -18,50 +18,57 @@ state and the steps to resume.
 
 Board statuses were last confirmed on 2026-11-27.
 
-| Handoff                                                                             | Milestone                                                                      | Issues         | Board status                                                                                                                                          |
-| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [mpv integration](#mpv-integration-563)                                             | [M27](ROADMAP.md#m27-integrations)                                             | [#563], [#578] | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square) |
-| [Markdown editor and backlinks](#markdown-editor-and-backlinks-564)                 | [M27](ROADMAP.md#m27-integrations)                                             | [#564]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
-| [Workspace vault editing](#workspace-vault-editing-565)                             | [M27](ROADMAP.md#m27-integrations), [M28](ROADMAP.md#m28-integration-settings) | [#565], [#566] | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square) |
-| [System file chooser on Plasma](#system-file-chooser-on-plasma-286)                 | [M27](ROADMAP.md#m27-integrations)                                             | [#286]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
-| [Mount manager on Plasma](#mount-manager-on-plasma-703)                             | [M27](ROADMAP.md#m27-integrations)                                             | [#703]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
-| [KWin script on Plasma](#kwin-script-on-plasma-707-708)                             | [M27](ROADMAP.md#m27-integrations)                                             | [#707], [#708] | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)       |
-| [Administrator mode on Plasma](#administrator-mode-on-plasma-288)                   | [M27](ROADMAP.md#m27-integrations)                                             | [#288]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
-| [Plasma Vault on Plasma](#plasma-vault-on-plasma-654)                               | [M27](ROADMAP.md#m27-integrations)                                             | [#654]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
-| [File encryption on Plasma](#file-encryption-on-plasma-655)                         | [M27](ROADMAP.md#m27-integrations)                                             | [#655]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
-| [Send by Email on Plasma](#send-by-email-on-plasma-656)                             | [M27](ROADMAP.md#m27-integrations)                                             | [#656]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
-| [Mail attachments on Plasma](#mail-attachments-on-plasma-657)                       | [M27](ROADMAP.md#m27-integrations)                                             | [#657]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
-| [Mail file preview on Plasma](#mail-file-preview-on-plasma-658)                     | [M27](ROADMAP.md#m27-integrations)                                             | [#658]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
-| [Shared Activity context on Plasma](#shared-activity-context-on-plasma-659)         | [M27](ROADMAP.md#m27-integrations)                                             | [#659]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                               |
-| [Default file manager on Plasma](#default-file-manager-on-plasma-293)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#293]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [File chooser settings on Plasma](#file-chooser-settings-on-plasma-292)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#292]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [Chooser start folder on Plasma](#chooser-start-folder-on-plasma-750)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#750]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [Operation notifications on Plasma](#operation-notifications-on-plasma-392)         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#392]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [Start hidden in tray on Plasma](#start-hidden-in-tray-on-plasma-290)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#290]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [Global shortcut on Plasma](#global-shortcut-on-plasma-291)                         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#291]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [Activity associations on Plasma](#activity-associations-on-plasma-391)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#391]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [KDE Connect settings on Plasma](#kde-connect-settings-on-plasma-393)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#393]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [KRunner settings on Plasma](#krunner-settings-on-plasma-394)                       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#394]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [Online account settings on Plasma](#online-account-settings-on-plasma-371)         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#371]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [KWin script settings on Plasma](#kwin-script-settings-on-plasma-709)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#709]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [Drop-down settings on Plasma](#drop-down-settings-on-plasma-710)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#710]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [Baloo search settings on Plasma](#baloo-search-settings-on-plasma-443)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#443]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [Office settings on Plasma](#office-settings-on-plasma-676)                         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#676]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [Mail client settings on Plasma](#mail-client-settings-on-plasma-666)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#666]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [Remote connection settings on Plasma](#remote-connection-settings-on-plasma-297)   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#297]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [rclone settings on Plasma](#rclone-settings-on-plasma-663)                         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#663]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [Remote drive settings on Plasma](#remote-drive-settings-on-plasma-704)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#704]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [Cloud sync settings on Plasma](#cloud-sync-settings-on-plasma-720)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#720]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [rsync settings on Plasma](#rsync-settings-on-plasma-366)                           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#366]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [Transfer and cache settings on Plasma](#transfer-and-cache-settings-on-plasma-721) | [M28](ROADMAP.md#m28-integration-settings)                                     | [#721]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [LAN sharing settings on Plasma](#lan-sharing-settings-on-plasma-664)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#664]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [Plasma Vault settings on Plasma](#plasma-vault-settings-on-plasma-669)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#669]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [File encryption settings on Plasma](#file-encryption-settings-on-plasma-670)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#670]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| Handoff                                                                                 | Milestone                                                                      | Issues         | Board status                                                                                                                                    |
+| --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| [mpv integration](#mpv-integration-563)                                                 | [M27](ROADMAP.md#m27-integrations)                                             | [#563], [#578] | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) |
+| [Markdown editor and backlinks](#markdown-editor-and-backlinks-564)                     | [M27](ROADMAP.md#m27-integrations)                                             | [#564]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Workspace vault editing](#workspace-vault-editing-565)                                 | [M27](ROADMAP.md#m27-integrations), [M28](ROADMAP.md#m28-integration-settings) | [#565], [#566] | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) |
+| [System file chooser on Plasma](#system-file-chooser-on-plasma-286)                     | [M27](ROADMAP.md#m27-integrations)                                             | [#286]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Mount manager on Plasma](#mount-manager-on-plasma-703)                                 | [M27](ROADMAP.md#m27-integrations)                                             | [#703]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [KWin script on Plasma](#kwin-script-on-plasma-707-708)                                 | [M27](ROADMAP.md#m27-integrations)                                             | [#707], [#708] | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square) |
+| [Administrator mode on Plasma](#administrator-mode-on-plasma-288)                       | [M27](ROADMAP.md#m27-integrations)                                             | [#288]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Plasma Vault on Plasma](#plasma-vault-on-plasma-654)                                   | [M27](ROADMAP.md#m27-integrations)                                             | [#654]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [File encryption on Plasma](#file-encryption-on-plasma-655)                             | [M27](ROADMAP.md#m27-integrations)                                             | [#655]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Send by Email on Plasma](#send-by-email-on-plasma-656)                                 | [M27](ROADMAP.md#m27-integrations)                                             | [#656]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Mail attachments on Plasma](#mail-attachments-on-plasma-657)                           | [M27](ROADMAP.md#m27-integrations)                                             | [#657]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Mail file preview on Plasma](#mail-file-preview-on-plasma-658)                         | [M27](ROADMAP.md#m27-integrations)                                             | [#658]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Shared Activity context on Plasma](#shared-activity-context-on-plasma-659)             | [M27](ROADMAP.md#m27-integrations)                                             | [#659]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Default file manager on Plasma](#default-file-manager-on-plasma-293)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#293]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [File chooser settings on Plasma](#file-chooser-settings-on-plasma-292)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#292]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Chooser start folder on Plasma](#chooser-start-folder-on-plasma-750)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#750]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Operation notifications on Plasma](#operation-notifications-on-plasma-392)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#392]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Start hidden in tray on Plasma](#start-hidden-in-tray-on-plasma-290)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#290]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Global shortcut on Plasma](#global-shortcut-on-plasma-291)                             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#291]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Activity associations on Plasma](#activity-associations-on-plasma-391)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#391]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [KDE Connect settings on Plasma](#kde-connect-settings-on-plasma-393)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#393]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [KRunner settings on Plasma](#krunner-settings-on-plasma-394)                           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#394]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Online account settings on Plasma](#online-account-settings-on-plasma-371)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#371]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [KWin script settings on Plasma](#kwin-script-settings-on-plasma-709)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#709]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Drop-down settings on Plasma](#drop-down-settings-on-plasma-710)                       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#710]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Baloo search settings on Plasma](#baloo-search-settings-on-plasma-443)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#443]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Office settings on Plasma](#office-settings-on-plasma-676)                             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#676]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Mail client settings on Plasma](#mail-client-settings-on-plasma-666)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#666]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Remote connection settings on Plasma](#remote-connection-settings-on-plasma-297)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#297]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [rclone settings on Plasma](#rclone-settings-on-plasma-663)                             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#663]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Remote drive settings on Plasma](#remote-drive-settings-on-plasma-704)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#704]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Cloud sync settings on Plasma](#cloud-sync-settings-on-plasma-720)                     | [M28](ROADMAP.md#m28-integration-settings)                                     | [#720]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [rsync settings on Plasma](#rsync-settings-on-plasma-366)                               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#366]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Transfer and cache settings on Plasma](#transfer-and-cache-settings-on-plasma-721)     | [M28](ROADMAP.md#m28-integration-settings)                                     | [#721]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [LAN sharing settings on Plasma](#lan-sharing-settings-on-plasma-664)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#664]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Plasma Vault settings on Plasma](#plasma-vault-settings-on-plasma-669)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#669]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [File encryption settings on Plasma](#file-encryption-settings-on-plasma-670)           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#670]         | ![Merged](https://img.shields.io/badge/Merged-8957e5?style=flat-square)                                                                         |
+| [Nextcloud accounts on a real server](#nextcloud-accounts-on-a-real-server-588)         | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#588]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Nextcloud browsing on a real server](#nextcloud-browsing-on-a-real-server-365)         | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#365]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Nextcloud previews on a real server](#nextcloud-previews-on-a-real-server-589)         | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#589]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Nextcloud asset search on a real server](#nextcloud-asset-search-on-a-real-server-590) | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#590]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Nextcloud Photos on a real server](#nextcloud-photos-on-a-real-server-671)             | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#671]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Nextcloud shares on a real server](#nextcloud-shares-on-a-real-server-591)             | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#591]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
+| [Nextcloud desktop client on Plasma](#nextcloud-desktop-client-on-plasma-592)           | [M29](ROADMAP.md#m29-nextcloud-integration)                                    | [#592]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                   |
 
 ## mpv integration (#563)
 
 - **Milestone and issue:** [M27](ROADMAP.md#m27-integrations), [#563]
-  (Merged); its M28 setting is [#578] (Completed).
+  (Merged); its M28 setting is [#578] (Merged).
 - **Resolved blocker:** Fedora 44 packages `mpv-devel`, and embedded playback
   uses libmpv's OpenGL render API in a `QOpenGLWidget` rather than KDE's
   MpvQt, so there is no Qt Quick and no process-wide numeric locale change
@@ -129,7 +136,7 @@ Board statuses were last confirmed on 2026-11-27.
 
 - **Milestone and issues:** [M27](ROADMAP.md#m27-integrations), [#565]
   (Merged); its settings belong to
-  [M28](ROADMAP.md#m28-integration-settings), [#566] (Completed).
+  [M28](ROADMAP.md#m28-integration-settings), [#566] (Merged).
 - **Resolved blocker:** The built-in Markdown and backlinks feature, [#564],
   is Completed, and workspace profiles and location assignments ([#200] and
   [#201]) are merged.
@@ -469,7 +476,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Default file manager on Plasma (#293)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#293]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no Plasma session, no System
   Settings, no running file manager and no dbus-broker, so the default that
   Plasma and other applications see, claiming `org.freedesktop.FileManager1`
@@ -505,7 +512,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## File chooser settings on Plasma (#292)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#292]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no Plasma session, no session
   bus, no xdg-desktop-portal and no systemd user manager, so whether the
   portal is found, the restart through `systemctl --user` and the chooser
@@ -539,7 +546,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Chooser start folder on Plasma (#750)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#750]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no xdg-desktop-portal, so the
   application IDs it passes for sandboxed and unsandboxed applications
   cannot be seen there.
@@ -570,7 +577,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Operation notifications on Plasma (#392)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#392]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no Plasma session, job-view
   service or System Settings, so Plasma's job reports and its Notifications
   settings cannot be seen there.
@@ -602,7 +609,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Start hidden in tray on Plasma (#290)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#290]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no Plasma session or system
   tray host, so starting hidden with Plasma's tray, at login or otherwise,
   cannot be seen there.
@@ -635,7 +642,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Global shortcut on Plasma (#291)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#291]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no KDE global shortcut
   service (kglobalaccel), so registering, removing and changing the
   shortcut cannot be seen there.
@@ -672,7 +679,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Activity associations on Plasma (#391)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#391]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no Plasma Activities service
   and no System Settings, so the Activity list and opening Plasma's
   Activities settings cannot be seen there.
@@ -706,7 +713,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## KDE Connect settings on Plasma (#393)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#393]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no KDE Connect and no System
   Settings, so **Configure KDE Connect…** cannot open KDE Connect's settings
   there.
@@ -735,7 +742,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## KRunner settings on Plasma (#394)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#394]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no KRunner, no Plasma session
   and no System Settings, so the installed plugin cannot be searched and
   **Configure Plasma Search…** cannot open Plasma's search settings there.
@@ -765,7 +772,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Online account settings on Plasma (#371)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#371]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no Plasma session and no KDE
   account providers, so accounts cannot be added through System Settings and
   **Manage Online Accounts…** cannot open its Online Accounts page there.
@@ -800,7 +807,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## KWin script settings on Plasma (#709)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#709]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no KWin, KGlobalAccel daemon or
   System Settings, so the script cannot be installed, enabled or removed there,
   and **Configure KWin Scripts…** and **Configure Window Rules…** cannot open
@@ -838,7 +845,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Drop-down settings on Plasma (#710)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#710]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no KWin or KGlobalAccel daemon,
   so the drop-down window cannot be placed by the script or toggled by a real
   global shortcut or screen edge there.
@@ -870,7 +877,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Baloo search settings on Plasma (#443)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#443]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no running Baloo indexer or
   System Settings, so the tab's indexer state can't be compared with a real
   index there, and **Configure File Search…** cannot open KDE's File Search
@@ -903,7 +910,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Office settings on Plasma (#676)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#676]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no office applications,
   document viewer components or System Settings, so the **Office** tab's list
   of viewers, previews through a real component and **File Associations…**
@@ -937,7 +944,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Mail client settings on Plasma (#666)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#666]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no mail client or System
   Settings, so the **Mail** tab's client report can only be checked with a
   fake `mailto:` handler, and **Configure Default Applications…** cannot open
@@ -969,7 +976,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Remote connection settings on Plasma (#297)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#297]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no KDE password server
   (`kpasswdserver6`), KDE Wallet or KDE Wallet Manager, so passwords for
   connections saved under **Preferences › Remote and Cloud › Connections**
@@ -1003,7 +1010,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## rclone settings on Plasma (#663)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#663]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no rclone, KDE password server
   (`kpasswdserver6`) or KDE Wallet, so serving a real remote over WebDAV, and
   KIO signing in with the password that the password server keeps, are tested
@@ -1037,7 +1044,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Remote drive settings on Plasma (#704)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#704]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no sshfs, FUSE, `fusermount3`,
   KIO FUSE, davfs2, CIFS client or Plasma session, so mounting with the chosen
   backends, keeping sshfs mounts after quitting, taking them over at startup,
@@ -1089,7 +1096,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Cloud sync settings on Plasma (#720)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#720]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no Plasma session, system tray,
   NetworkManager or rclone, so starting at login, pausing on metered
   connections and rclone's `--conflict-resolve` are tested only with a
@@ -1134,7 +1141,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## rsync settings on Plasma (#366)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#366]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has rsync but no SSH host, KIO
   `sftp:/` worker connection or ksshaskpass, so the settings are tested with
   local folders and an unreachable SSH address only.
@@ -1167,7 +1174,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Transfer and cache settings on Plasma (#721)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#721]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no rclone remote, FUSE device or
   system tray, so the settings are tested through the rclone options they
   produce and an offscreen tray menu only.
@@ -1204,7 +1211,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## LAN sharing settings on Plasma (#664)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#664]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has only loopback and its own network
   interface, with no Wi-Fi, VPN, firewall or phone client, so interfaces are
   tested with loopback and fake interfaces only.
@@ -1241,7 +1248,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Plasma Vault settings on Plasma (#669)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#669]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no Plasma Vault, no kded6
   module for it and no CryFS, gocryptfs or EncFS, so the settings are tested
   with a fake vault client only.
@@ -1276,7 +1283,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## File encryption settings on Plasma (#670)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#670]
-  (Completed).
+  (Merged).
 - **Blocker:** The development container has no Kleopatra, no `aescrypt`
   and no pinentry program, so the settings are tested with GnuPG keys
   without passwords and fake `aescrypt` and `kleopatra` scripts only.
@@ -1311,6 +1318,306 @@ Board statuses were last confirmed on 2026-11-27.
    [CAVEATS](CAVEATS.md#integration-settings), then remove this entry and
    its roadmap link.
 
+## Nextcloud accounts on a real server (#588)
+
+- **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#588]
+  (Completed).
+- **Blocker:** The development container has no Nextcloud server, web
+  browser, KDE Wallet, Plasma session or KDE account providers, so Login
+  Flow, the stored app password and accounts from KDE Online Accounts are
+  tested only against a local fake server and an in-memory password store.
+- **Confirmed state:** `NextcloudAccounts` in
+  `src/core/nextcloudaccount.cpp` saves account references in the
+  `NextcloudAccounts` group without credentials and merges those from KDE
+  Online Accounts. `NextcloudClient` in `src/core/nextcloudclient.cpp` runs
+  Login Flow v2, reads the capabilities, user and Photos folder, revokes app
+  passwords, and keeps them through `kpasswdserver` with
+  `Nextcloud::PasswordServerStore`. `NextcloudAccountsDialog` and
+  `NextcloudMenu` in `src/app/` provide **Go › Nextcloud** and **Manage
+  Nextcloud Accounts…**. `nextcloudaccounttest`, `nextcloudclienttest` and
+  `nextcloudaccountsdialogtest` pass in the container. See
+  [Nextcloud integration](CAVEATS.md#nextcloud-integration).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, KDE Wallet
+   enabled and a disposable Nextcloud server with a synthetic account,
+   check that **Go › Nextcloud** shows only **No Nextcloud accounts** and
+   **Manage Nextcloud Accounts…**.
+2. Enter the server address and choose **Sign In…**; check that the
+   browser opens Nextcloud's sign-in page, and that after granting access
+   the account is listed and **Check** reports the version, the user and the
+   available apps. Check that `~/.config/opus-file-managerrc` holds no
+   password and that KDE Wallet Manager shows the app password.
+3. Open the account from **Go › Nextcloud** and check that the files list
+   without a password prompt. If KIO asks for a password, note the realm in
+   the server's `WWW-Authenticate` header and the realm stored for the
+   account; the two must match.
+4. Revoke the app password in Nextcloud under **Settings › Security**,
+   choose **Check** and check that it reports expired access. Try a server
+   with a self-signed certificate and check that the dialog reports the
+   certificate problem.
+5. Add a Nextcloud account in **System Settings › Online Accounts**, opt in
+   under **Preferences › KDE Plasma › Online Accounts**, and check that it is
+   listed but can't be removed. Choose **Remove…** › **Revoke and Remove**
+   for the signed-in account and check that the server and KDE Wallet no
+   longer have the app password. Record any differences in
+   [CAVEATS](CAVEATS.md#nextcloud-integration), then remove this entry and
+   its roadmap link.
+
+## Nextcloud browsing on a real server (#365)
+
+- **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#365]
+  (Completed).
+- **Blocker:** The development container has no Nextcloud server, KDE Wallet
+  or Plasma session, so browsing and server permissions are tested only
+  against a local fake server that answers `PROPFIND` without
+  authentication.
+- **Confirmed state:** `MainWindow` in `src/app/mainwindow.cpp` reads the
+  `oc:permissions` of a Nextcloud folder with
+  `NextcloudClient::fetchPermissions` after each listing, and
+  `Nextcloud::deniedReason` in `src/core/nextcloudclient.cpp` decides which
+  of **Rename…**, **Delete Permanently**, **Cut**, **Paste**, **Create New**,
+  **New Folder…**, **Copy to Other Pane** and **Move to Other Pane** to
+  disable, with the reason as the tooltip. `nextcloudclienttest` and
+  `nextcloudaccountsdialogtest` pass in the container. See
+  [Nextcloud integration](CAVEATS.md#nextcloud-integration).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, KDE Wallet
+   enabled and a disposable Nextcloud server with two synthetic users, sign
+   in as the first user under **Go › Nextcloud › Manage Nextcloud
+   Accounts…**. As the second user, share a folder with the first user
+   read-only and another with every permission.
+2. Open the account in each pane from **Go › Nextcloud**. Copy, move,
+   rename and delete files in the user's own folders, cancel a large
+   transfer, and check KIO's confirmations, progress and error reports.
+3. Open the read-only share and check that **Paste**, **Create New** and
+   **New Folder…** are disabled with the server's reason, that the status
+   bar reports it, and that **Rename…**, **Delete Permanently** and **Cut**
+   are disabled for its items. Check that **Copy to Other Pane** is disabled
+   when the other pane shows it.
+4. Drag files into the read-only share and check how KIO reports the
+   refusal. Change the share to allow editing, reload the folder and check
+   that the actions are enabled again.
+5. Repeat with a Nextcloud account from KDE Online Accounts, and note
+   whether the permissions can be read. Record any differences in
+   [CAVEATS](CAVEATS.md#nextcloud-integration), then remove this entry and
+   its roadmap link.
+
+## Nextcloud previews on a real server (#589)
+
+- **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#589]
+  (Completed).
+- **Blocker:** The development container has no Nextcloud server, KDE Wallet
+  or Plasma session, so server previews and metadata are tested only against
+  a local fake server and recorded Nextcloud 26 and 29 responses.
+- **Confirmed state:** `NextcloudClient::fetchMetadata` and
+  `NextcloudClient::fetchPreview` in `src/core/nextcloudassets.cpp` read an
+  item's properties with a `PROPFIND` of depth 0 and its preview from
+  `index.php/core/preview`. `MainWindow` in `src/app/mainwindow.cpp` hands the
+  preview to `PreviewPanel::showServerPreview` and the metadata to
+  `InformationPanel::setServerMetadata`. `nextcloudassetstest` and
+  `nextcloudpreviewtest` pass in the container. See
+  [Nextcloud integration](CAVEATS.md#nextcloud-integration).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, KDE Wallet
+   enabled and a disposable Nextcloud server with a synthetic user and the
+   Photos app, upload photos with EXIF and GPS data, a PDF, a video and a
+   text file. Sign in under **Go › Nextcloud › Manage Nextcloud Accounts…**.
+2. Open the account from **Go › Nextcloud**, show **View › Preview Panel**
+   and select each file. Check that photos and the PDF show **Preview from
+   the server** without downloading the file, and that **Download Full
+   Preview** downloads it. Check that the video and text file fall back to
+   the usual download when the server has no preview.
+3. Show **View › Information Panel** and check the **Nextcloud server**
+   section: file ID, owner, size, modification time, ETag, favourite, server
+   tags, sharing and the photo metadata. Mark a file as a favourite in the
+   web interface and check that the panel shows it within a minute.
+4. Repeat with a shared file, a file on external storage and an account from
+   KDE Online Accounts, and note which properties the server withholds.
+   Record any differences in
+   [CAVEATS](CAVEATS.md#nextcloud-integration), then remove this entry and
+   its roadmap link.
+
+## Nextcloud asset search on a real server (#590)
+
+- **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#590]
+  (Completed).
+- **Blocker:** The development container has no Nextcloud server, KDE Wallet
+  or Plasma session, so search, favourites and server tags are tested only
+  against a local fake server and recorded Nextcloud responses.
+- **Confirmed state:** `NextcloudClient::search`,
+  `NextcloudClient::listFavorites`, `NextcloudClient::listTagged`,
+  `NextcloudClient::setFavorite` and the system tag requests in
+  `src/core/nextcloudorganize.cpp` send `SEARCH`, `REPORT`, `PROPPATCH`,
+  `PROPFIND`, `PUT`, `DELETE` and `POST` requests through KIO.
+  `NextcloudAssetsDialog` and `NextcloudTagsDialog` in `src/app/` and the
+  **Nextcloud** context submenu use them. `nextcloudorganizetest` and
+  `nextcloudorganizedialogtest` pass in the container. See
+  [Nextcloud integration](CAVEATS.md#nextcloud-integration).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, KDE Wallet
+   enabled and a disposable Nextcloud server with a synthetic user and the
+   Collaborative tags app, upload photos, documents and a folder, and sign in
+   under **Go › Nextcloud › Manage Nextcloud Accounts…**.
+2. Open **Go › Nextcloud › *account* › Search and Organize…**. Search by name
+   and by each kind, and check that **Show in Pane** opens the results. Search
+   for a common letter and check that more than 500 matches are reported as
+   cut short.
+3. From a file's context menu, choose **Nextcloud › Add to Nextcloud
+   Favourites**, check the star in the web interface and the **Favourites**
+   list, then remove it again.
+4. Choose **Nextcloud › Nextcloud Tags…** for several files, assign and
+   remove tags, create a tag after confirming, and check the changes in the
+   web interface and in the **Nextcloud tag (server)** list. Check that a
+   restricted tag is disabled for a user who isn't an administrator and that
+   no server tag appears in the **Tag Panel**.
+5. Repeat with Nextcloud 15, a server with the Collaborative tags app
+   disabled, a read-only share and an account from KDE Online Accounts, and
+   check the dialog's notices. Record any differences in
+   [CAVEATS](CAVEATS.md#nextcloud-integration), then remove this entry and
+   its roadmap link.
+
+## Nextcloud Photos on a real server (#671)
+
+- **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#671]
+  (Completed).
+- **Blocker:** The development container has no Nextcloud server, Photos app,
+  KDE Wallet or Plasma session, so albums, shared albums and places are tested
+  only against a local fake server. The `places` or `locations` collection,
+  the album entry names, the `nc:metadata-photos-*` properties and the
+  permissions of shared albums are unverified against a real server.
+- **Confirmed state:** `NextcloudClient::listPhotoCollections`,
+  `NextcloudClient::listPhotos`, `NextcloudClient::addToAlbum`,
+  `NextcloudClient::removeFromAlbum` and `NextcloudClient::createAlbum` in
+  `src/core/nextcloudphotos.cpp` send `PROPFIND`, `COPY`, `DELETE` and `MKCOL`
+  requests through KIO, and `Nextcloud::albumEntryUrl` refuses any `DELETE`
+  target but a photo directly in an album. `NextcloudPhotosDialog` and
+  `NextcloudAddToAlbumDialog` in `src/app/nextcloudphotosdialog.cpp` provide
+  **Go › Nextcloud › *account* › Photos…** and **Nextcloud › Add to
+  Nextcloud Album…**. `nextcloudphotostest` and `nextcloudphotosdialogtest`
+  pass in the container. See
+  [Nextcloud integration](CAVEATS.md#nextcloud-integration).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, KDE Wallet
+   enabled and a disposable Nextcloud server with the Photos app and two
+   synthetic users, upload photos with EXIF dates and GPS data and a photo
+   without them as the first user, and sign in under **Go › Nextcloud ›
+   Manage Nextcloud Accounts…**.
+2. Open **Go › Nextcloud › *account* › Photos…**, create an album with **New
+   Album…**, and add photos to it from a pane with **Nextcloud › Add to
+   Nextcloud Album…**. Check that the album lists them, sorted and grouped by
+   capture date and place, and that the undated photo is listed last.
+3. Select a photo and choose **Remove from Album…**. Check that the album no
+   longer lists it and that the file is still in its folder, in the web
+   interface's Files and in other albums.
+4. Show **Places** and check that the server's places are listed and
+   read-only. Share an album with the second user, read-only and with
+   adding allowed, and sign in as that user to check **Shared albums**, the
+   disabled **Remove from Album…** and the albums offered by **Add to
+   Nextcloud Album…**.
+5. Disable the Photos app and check that the window says Photos is
+   unavailable. Record any differences in
+   [CAVEATS](CAVEATS.md#nextcloud-integration), then remove this entry and
+   its roadmap link.
+
+## Nextcloud shares on a real server (#591)
+
+- **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#591]
+  (Completed).
+- **Blocker:** The development container has no Nextcloud server, mail client,
+  desktop portal, KDE Wallet or Plasma session, so shares are tested only
+  against a local fake server with recorded OCS responses, and **Send Link by
+  Email…** only with a fake composer. The permission combinations the server
+  accepts for links and user and group shares, its responses to `PUT` and
+  `DELETE`, and its error messages are unverified.
+- **Confirmed state:** `NextcloudClient::listShares`,
+  `NextcloudClient::fetchShareCapabilities`, `NextcloudClient::createShare`,
+  `NextcloudClient::updateShare` and `NextcloudClient::deleteShare` in
+  `src/core/nextcloudshares.cpp` send OCS requests through KIO and never keep
+  share passwords or password hashes. `NextcloudSharesDialog` and
+  `NextcloudShareEditor` in `src/app/nextcloudsharesdialog.cpp` provide **Go ›
+  Nextcloud › *account* › Shares…** and **Nextcloud › Nextcloud Shares…**,
+  confirm creating, broadening and revoking shares, and open a reviewed link
+  through `SendByEmailDialog::composeMessage`. `nextcloudsharestest` and
+  `nextcloudsharesdialogtest` pass in the container. See
+  [Nextcloud integration](CAVEATS.md#nextcloud-integration).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, KDE Wallet
+   enabled, a default mail client and a disposable Nextcloud server with two
+   synthetic users and a group, sign in as the first user under **Go ›
+   Nextcloud › Manage Nextcloud Accounts…**.
+2. In a pane, choose **Nextcloud › Nextcloud Shares…** on a folder. Create a
+   public link with a password and an expiry, a file drop link and a share
+   with the second user, confirming each, and check them in the web
+   interface's sharing sidebar. Check that the password isn't in
+   `~/.config/opus-file-managerrc` or `~/.local/state/opus-file-managerstaterc`.
+3. Narrow and widen a share with **Change…**, checking that only widening
+   asks first, then **Revoke…** a link and check that it stops working.
+4. Choose **Send Link by Email…**, review the link and check that the mail
+   client opens a message with the link and without the password. Repeat in
+   the Flatpak build through the desktop portal.
+5. Sign in as the second user and check **Shared with me**. Enforce link
+   passwords and expiry on the server, then disable public links and the
+   sharing app, and check the editor's rules and the window's notices.
+   Record any differences in [CAVEATS](CAVEATS.md#nextcloud-integration),
+   then remove this entry and its roadmap link.
+
+## Nextcloud desktop client on Plasma (#592)
+
+- **Milestone and issue:** [M29](ROADMAP.md#m29-nextcloud-integration), [#592]
+  (Completed).
+- **Blocker:** The development container has no Nextcloud desktop client,
+  Nextcloud server or Plasma session, so the desktop client's folders are
+  tested only with recorded configuration files and a fake local socket. The
+  configuration written by current client releases, the replies of a running
+  client, its socket and configuration paths in Flatpak and Snap builds, and
+  launching the client from its desktop entry are unverified.
+- **Confirmed state:** `NextcloudDesktop::readConfiguration` in
+  `src/core/nextclouddesktop.cpp` reads `nextcloud.cfg` read-only with
+  `QSettings`, and `NextcloudDesktop::StatusQuery` asks the client's socket for
+  each folder's status with `RETRIEVE_FILE_STATUS` and a timeout.
+  `CloudSync` reuses the same parser to recognize the client's folders.
+  `NextcloudMenu::populateDesktopClient` and
+  `MainWindow::populateNextcloudDesktop` provide **Go › Nextcloud › Desktop
+  Client**, and `MainWindow::openNextcloudDesktopClient` starts the client
+  from its desktop entry. `nextclouddesktoptest`, `nextclouddesktopmenutest`
+  and `cloudsynctest` pass in the container. See
+  [Nextcloud integration](CAVEATS.md#nextcloud-integration).
+
+**Steps to resume:**
+
+1. On Plasma 6 with Plasma Opus installed by `./install.sh`, a disposable
+   Nextcloud server and the distribution's Nextcloud desktop client, sign the
+   client in and add one folder with full copies and one with virtual files.
+   Note where it keeps `nextcloud.cfg`.
+2. Open **Go › Nextcloud › Desktop Client** and check that the folders show
+   **Local** and **Remote** with **Up to date**, then **Synchronizing** while
+   a large file uploads, and **Needs attention** or **Error** for a file the
+   server rejects. Check **Open**, **Open in Other Pane** and, after adding
+   the same account under **Manage Nextcloud Accounts…**, **Open on Server**.
+3. Pause a folder in the client and check **Offline**. Quit the client and
+   check **Desktop client not running**, then start it again with **Open
+   Desktop Client**. Remove a folder's local directory and check
+   **Unknown**.
+4. Repeat with the Flatpak client and with the Plasma Opus Flatpak build, and
+   record where each keeps its configuration and socket.
+5. Quit the client, open the menu several times and check that
+   `nextcloud.cfg` keeps its modification time and that no
+   `nextcloud.cfg.lock` is left behind. Record any differences in
+   [CAVEATS](CAVEATS.md#nextcloud-integration), then remove this entry and
+   its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -1320,6 +1627,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#292]: https://github.com/mikepadiernos/plasma-opus/issues/292
 [#293]: https://github.com/mikepadiernos/plasma-opus/issues/293
 [#297]: https://github.com/mikepadiernos/plasma-opus/issues/297
+[#365]: https://github.com/mikepadiernos/plasma-opus/issues/365
 [#366]: https://github.com/mikepadiernos/plasma-opus/issues/366
 [#371]: https://github.com/mikepadiernos/plasma-opus/issues/371
 [#391]: https://github.com/mikepadiernos/plasma-opus/issues/391
@@ -1332,6 +1640,11 @@ Board statuses were last confirmed on 2026-11-27.
 [#565]: https://github.com/mikepadiernos/plasma-opus/issues/565
 [#566]: https://github.com/mikepadiernos/plasma-opus/issues/566
 [#578]: https://github.com/mikepadiernos/plasma-opus/issues/578
+[#588]: https://github.com/mikepadiernos/plasma-opus/issues/588
+[#589]: https://github.com/mikepadiernos/plasma-opus/issues/589
+[#590]: https://github.com/mikepadiernos/plasma-opus/issues/590
+[#591]: https://github.com/mikepadiernos/plasma-opus/issues/591
+[#592]: https://github.com/mikepadiernos/plasma-opus/issues/592
 [#654]: https://github.com/mikepadiernos/plasma-opus/issues/654
 [#655]: https://github.com/mikepadiernos/plasma-opus/issues/655
 [#656]: https://github.com/mikepadiernos/plasma-opus/issues/656
@@ -1343,6 +1656,7 @@ Board statuses were last confirmed on 2026-11-27.
 [#666]: https://github.com/mikepadiernos/plasma-opus/issues/666
 [#669]: https://github.com/mikepadiernos/plasma-opus/issues/669
 [#670]: https://github.com/mikepadiernos/plasma-opus/issues/670
+[#671]: https://github.com/mikepadiernos/plasma-opus/issues/671
 [#676]: https://github.com/mikepadiernos/plasma-opus/issues/676
 [#703]: https://github.com/mikepadiernos/plasma-opus/issues/703
 [#704]: https://github.com/mikepadiernos/plasma-opus/issues/704

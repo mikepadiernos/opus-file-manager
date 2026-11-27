@@ -54,6 +54,7 @@ are in [reported bugs](BUGS.md), and untested scenarios in
   [translation format overrides](#translation-format-overrides)
 - **🛠️ Setup and tools:** [Desktop integration](#desktop-integration),
   [integration settings](#integration-settings),
+  [Nextcloud integration](#nextcloud-integration),
   [embedded terminal](#embedded-terminal),
   [settings backups](#settings-backups),
   [build and installation](#build-installation-and-references),
@@ -352,6 +353,9 @@ tracked in its own issue:
   previews use UTF-8 and default to the first 1 MiB; lines longer than 16,384
   characters are shown without syntax highlighting. Remote previews download to
   a temporary file and use the same limits, or 128 MiB for other file types.
+  Since M29, the preview panel first asks a Nextcloud account's server for its
+  preview image, up to 8 MiB, and downloads the file only when there is none
+  or on request ([Nextcloud integration](#nextcloud-integration)).
   ([#259][issue-259], [#264][issue-264])
 
   - **Recommendation:** Open files in a suitable external application when
@@ -2101,7 +2105,11 @@ The M27 desktop integrations have these limits
   service aren't listed as folders. Plasma Opus doesn't pass account
   credentials to KIO, so WebDAV storage asks for the password the first
   time unless Plasma's Online Accounts integration has already given it to
-  KDE's password server. Expired sign-ins and denied access appear as KIO
+  KDE's password server. Since M29, a Nextcloud account signed in under
+  **Go › Nextcloud › Manage Nextcloud Accounts…** gives KDE's password
+  server an app password instead
+  ([Nextcloud integration](#nextcloud-integration)). Expired sign-ins and
+  denied access appear as KIO
   errors in the pane, not in the menu. Accounts aren't shown in Places or
   offered as remote drives, and the menu reads accounts only when it opens,
   and only after opting in under **Preferences › KDE Plasma › Online
@@ -2548,8 +2556,10 @@ allow PORT/tcp`, removing the ufw rule afterwards. For paired phones, KDE
     KDE Online Accounts in Plasma Opus** under **Preferences › KDE Plasma ›
     Online Accounts**. When KIO reports an expired
     sign-in, sign in again on that page. For WebDAV storage, let KWallet
-    remember the password when KIO asks. For providers without a KDE file
-    service, use **Go › Cloud Storage** with rclone.
+    remember the password when KIO asks, or, for Nextcloud, sign in under
+    **Go › Nextcloud › Manage Nextcloud Accounts…** to use an app password.
+    For providers without a KDE file service, use **Go › Cloud Storage**
+    with rclone.
   - **rsync backend:** Install rsync on both computers. Use SSH keys with an
     agent, or install `ksshaskpass`, and connect to the host once in a
     terminal to accept its host key. Plan one direction per run, read rsync's
@@ -2724,8 +2734,9 @@ allow PORT/tcp`, removing the ufw rule afterwards. For paired phones, KDE
     keep connections alive, create folders over WebDAV, and refresh
     addresses when the network changes.
   - Show online account folders in Places, mount them as remote drives,
-    refresh the menu when accounts change, and hand Nextcloud app passwords
-    to KIO with consent.
+    refresh the menu when accounts change, and hand the app passwords of
+    Online Accounts' Nextcloud accounts to KIO with consent, as **Go ›
+    Nextcloud** already does for accounts signed in there.
   - Share one SSH connection between rsync runs, offer to keep permissions
     and links, and delete folders missing from the source.
   - Detect folder renames, compare checksums where the remote offers them,
@@ -3841,6 +3852,228 @@ The M28 integration settings have these limits
     Vault no longer has, and leave out vaults of other Activities.
   - Choose the default keys to encrypt for and sign with, decrypt into a
     chosen folder, and follow Kleopatra's own file name settings.
+
+## Nextcloud integration
+
+The M29 Nextcloud integration has these limits
+([#767](https://github.com/mikepadiernos/plasma-opus/issues/767)):
+
+- **🎫 Nextcloud accounts:** **Go › Nextcloud › Manage Nextcloud Accounts…**
+  adds accounts only with Nextcloud's Login Flow in a web browser; there is
+  no form for a user name and password. The app password goes to KDE's
+  password server, `kpasswdserver`, filed under the account's WebDAV address
+  and the realm that the server's theming name suggests, `Nextcloud` by
+  default. KIO's WebDAV worker finds it only when that realm matches the
+  server's `WWW-Authenticate` realm; otherwise KIO asks for the password once.
+  Nextcloud's OCS endpoints send no authentication challenge, so the dialog's
+  own requests send the app password themselves, through KIO, as a Basic
+  `Authorization` header. Those requests verify the certificate without
+  offering to accept an invalid one, so a self-signed server fails in the
+  dialog. Unencrypted `http` is allowed only for servers on the same
+  computer, and Login Flow is refused when the server's polling address is
+  unencrypted or on another host, as behind some reverse proxies. Sign-in
+  waits at most 20 minutes. Accounts from KDE Online Accounts are listed but
+  their credentials aren't handed to KIO, so **Check** sees only what the
+  server shows anonymously, and KIO asks for the password when their files
+  open. Photos is detected by reading its WebDAV folder, collaborative tags
+  and sharing from the capabilities, and file search is assumed from the
+  `dav` app on Nextcloud 15 or later without trying a search. **Remove…**
+  asks `kpasswdserver` to forget the app password; whether that also removes
+  the KDE Wallet entry is unverified. Accounts aren't added to Places, and
+  their settings wait for M30. The container has no Nextcloud server, KDE
+  Wallet or Plasma session
+  ([real-server check](TODO.md#nextcloud-accounts-on-a-real-server-588)).
+  ([#588](https://github.com/mikepadiernos/plasma-opus/issues/588))
+- **⛅ Nextcloud browsing:** Server permissions are read with a separate
+  `PROPFIND` once a folder's listing finishes, so actions stay enabled until
+  it answers, and changes made on the server apply only after the folder is
+  reloaded. Only the folder shown and its direct items are checked: items in
+  expanded subfolders and flat views aren't. Only the main window's actions
+  and their shortcuts are disabled; drag and drop and other ways of starting
+  an operation aren't checked, so the server refuses them and KIO reports
+  each failed item, usually as a generic access error without Nextcloud's
+  reason. When the permissions can't be read, for example when KDE's
+  password server has no app password for an account from KDE Online
+  Accounts, nothing is disabled. Accounts aren't added to Places. Checked
+  only against a fake server
+  ([real-server check](TODO.md#nextcloud-browsing-on-a-real-server-365)).
+  ([#365](https://github.com/mikepadiernos/plasma-opus/issues/365))
+- **🌄 Nextcloud previews:** Only the preview panel asks the server for
+  previews. Thumbnails in the panes, the gallery and Yazi mode's preview still
+  use KIO's thumbnailers or download the file, as for other remote folders.
+  Each item's first preview waits for a `PROPFIND` that reads its file ID
+  before the preview request. A server preview is a still image of at most
+  2,048 pixels, so animations, later pages, video and audio need **Download
+  Full Preview**, which applies the usual download limits. When the server
+  has no preview, its preview is over 8 MiB or the request fails, the panel
+  downloads the file as before, without saying why. The information panel
+  reads metadata for each item it shows, including hovered items when it
+  follows the pointer, and reads it again after a minute, so favourites and
+  tags changed elsewhere can take that long to appear. Which
+  `nc:metadata-*` properties exist depends on the server version and its
+  apps; values are shown as the server sends them, without units, up to 60
+  lines. Server tags appear only in the **Nextcloud server** section and are
+  never written to Plasma Opus tag libraries. Checked only against a fake
+  server and recorded Nextcloud 26 and 29 responses
+  ([real-server check](TODO.md#nextcloud-previews-on-a-real-server-589)).
+  ([#589](https://github.com/mikepadiernos/plasma-opus/issues/589))
+- **🔖 Nextcloud search and tags:** **Search and Organize…** searches only
+  file names, kinds and favourites, not photo metadata, EXIF values or
+  content, and lists at most 500 results, newest first, without sorting them
+  another way. Nextcloud doesn't report whether it supports WebDAV search, so
+  it is assumed from Nextcloud 15 and a missing search shows as an error.
+  Favourites and tag listings have no server-side limit, so the server sends
+  every match before the list is cut to 500. The context menu offers both
+  favourite actions until the item's metadata has been read, and the panes
+  don't mark favourites or show server tags. **Create Tag…** creates the tag
+  on the server as soon as it is confirmed, so it remains when the dialog is
+  cancelled. Changes made in the web interface appear after the next search
+  or after a minute in the information panel. Checked only against a fake
+  server and recorded Nextcloud responses
+  ([real-server check](TODO.md#nextcloud-asset-search-on-a-real-server-590)).
+  ([#590](https://github.com/mikepadiernos/plasma-opus/issues/590))
+- **📸 Nextcloud Photos:** **Photos…** browses albums, shared albums and
+  places in its own window, not in a pane, so pane actions, Plasma Opus tags
+  and the gallery don't apply there; **Show in Pane** reveals one photo's
+  file at a time, and only for photos in your own files. Each collection is
+  read with one `PROPFIND` of depth 1, without paging, so a large album takes
+  a while to list. Capture dates come from
+  `nc:metadata-photos-original_date_time` or the EXIF `DateTimeOriginal`, and
+  places from `nc:metadata-photos-place`; the server sets them only after
+  indexing a photo, so other photos are listed last as unknown, without
+  falling back to file dates. Places are read from `places/`, or from
+  `locations/` when that is missing. Albums can be created but not renamed or
+  deleted. Adding sends a `COPY` per file and counts a photo already in the
+  album as added; removing sends a `DELETE` per photo, only for an entry
+  directly in an album. Shared albums that don't report `oc:permissions` offer
+  adding and removing, and the server's refusal is shown. Property names,
+  entry names and shared-album permissions are unverified against a real
+  server; checked only against a fake server
+  ([real-server check](TODO.md#nextcloud-photos-on-a-real-server-671)).
+  ([#671](https://github.com/mikepadiernos/plasma-opus/issues/671))
+- **🤝 Nextcloud shares:** **Shares…** creates and changes only public links
+  and shares with users and groups; email, federated, team and Talk shares
+  are listed and can be revoked, but are managed in the web interface. User
+  and group IDs must be typed exactly, as names aren't suggested, and labels,
+  notes, hidden downloads and custom link tokens aren't offered. The editor
+  enforces the server's link password, link expiry and upload rules, but not
+  its expiry rules for user and group shares, which the server reports when
+  it refuses a share. KIO doesn't pass on the server's response to a change or
+  a revocation, so the list is read again afterwards to show the server's
+  state. Each view is read with one request, without paging, and shares with
+  you can't be declined or left here. **Send Link by Email…** only opens a
+  message with the link, and only while **Offer Send by Email for selected
+  files** is on; the password must be sent another way. Permission
+  combinations, such as file drops and editable file links, and the server's
+  error messages are unverified against a real server; checked only against
+  a fake server
+  ([real-server check](TODO.md#nextcloud-shares-on-a-real-server-591)).
+  ([#591](https://github.com/mikepadiernos/plasma-opus/issues/591))
+- **🖥️ Nextcloud desktop client:** **Go › Nextcloud › Desktop Client** reads
+  only the client's configuration in `~/.config/Nextcloud/nextcloud.cfg` and
+  its local socket in `$XDG_RUNTIME_DIR/Nextcloud/socket`, so the Flatpak and
+  Snap builds of the client, ownCloud's client and a client with another
+  configuration folder aren't found; the submenu is shown only when the
+  configuration exists or the client is installed. Each folder's status is
+  asked once each time **Go › Nextcloud** opens and isn't updated while the
+  menu stays open. It is the folder's overall status: files' status, conflicts,
+  the client's sign-in state and its error messages aren't shown, and a folder
+  reached through a symbolic link can report **Unknown**. A folder with
+  virtual files is called **Remote** even when some files are already
+  downloaded, and **Offline** covers both a client that isn't running and a
+  folder paused in the configuration, which the client may write only after a
+  while. **Open on Server** needs an account added to Plasma Opus with the
+  same server address and user. **Open Desktop Client** starts the client when
+  it isn't running; synchronization is paused, resumed and set up only in the
+  client. The configuration keys and socket messages follow the client's
+  source and are checked only against a recorded configuration and a fake
+  socket ([Plasma check](TODO.md#nextcloud-desktop-client-on-plasma-592)).
+  ([#592](https://github.com/mikepadiernos/plasma-opus/issues/592))
+
+- **Recommendation:**
+  - **Nextcloud accounts:** Sign in under **Go › Nextcloud › Manage
+    Nextcloud Accounts…** with an `https` address whose certificate the
+    system trusts, and keep KDE Wallet enabled so the app password survives
+    restarts. If KIO asks for a password when the files open, enter the
+    Nextcloud password, or an app password when two-factor authentication is
+    on, and let KDE Wallet remember it. Choose **Check** when files stop
+    opening, and sign in again when it reports expired access. To remove an
+    account, choose **Revoke and Remove** so its app password stops working.
+  - **Nextcloud browsing:** Open files from **Go › Nextcloud**, and read a
+    disabled action's tooltip as the server's answer: ask the share's owner
+    for more access, or copy the items to a folder you own. Reload the folder
+    after its sharing changes. If nothing is disabled in a read-only share,
+    choose **Check** under **Manage Nextcloud Accounts…** and sign in again
+    so the permissions can be read. Prefer the menu actions to drag and drop
+    in shared folders, and read KIO's error report when some items fail.
+  - **Nextcloud previews:** Keep the preview panel open to browse photos and
+    documents without downloading them, and choose **Download Full Preview**
+    only for the file you need to play or read in full. Show **View ›
+    Information Panel** to check a file's owner, sharing, tags and photo
+    metadata on the server; open the file in Nextcloud's web interface when a
+    property you need isn't listed.
+  - **Nextcloud search and tags:** Use **Search and Organize…** to find files
+    by name across the account and to list favourites or tagged files, then
+    **Show in Pane** to work with them. Narrow a search that reports only the
+    first 500 results. Check the tag list before choosing **Create Tag…**,
+    since every user sees a new tag, and remove unwanted tags in Nextcloud's
+    web interface. Use Plasma Opus tags for private labels and Nextcloud tags
+    only for labels to share with other users of the server.
+  - **Nextcloud Photos:** Use **Go › Nextcloud › *account* › Photos…** to
+    review albums and places by capture date and place, then **Show in
+    Pane** to work with a photo's file. Use **Remove from Album…**, which
+    never deletes the file, to tidy an album, and delete a file only from its
+    folder in a pane. Before adding files to a shared album, read who the
+    confirmation says will see them. Rename or delete albums and change their
+    collaborators in the Photos app of the web interface, and wait for photos
+    listed without a capture date to be indexed there.
+  - **Nextcloud shares:** Share an item with **Nextcloud › Nextcloud
+    Shares…** in its context menu, and read the confirmation's summary of who
+    gets which access and until when before agreeing. Prefer links with a
+    password and an expiry, send the password another way than the link, and
+    use **Send Link by Email…** to review a link before writing to someone.
+    Review **Shared by me** now and then and revoke links no longer needed.
+    Manage email, federated and Talk shares, labels and notes in the web
+    interface.
+  - **Nextcloud desktop client:** Open synchronized folders from **Go ›
+    Nextcloud › Desktop Client**, and read a folder's state before working
+    without a connection: only **Local** folders hold full copies, while files
+    in **Remote** folders open only when the server can be reached, unless the
+    client has made them available offline. When a folder shows **Offline**,
+    choose **Open Desktop Client** to start the client, and pause, resume or
+    add folders there. Add the same account under **Manage Nextcloud
+    Accounts…** to also open the server's copy, and keep two-way cloud sync
+    pairs out of the client's folders.
+  - Comment:
+    [#767.7225982354](https://github.com/mikepadiernos/plasma-opus/issues/767#issuecomment-7225982354)
+- **Proposed improvements:**
+  - Hand the app password to KIO under the realm the server announces, sign
+    in to accounts from KDE Online Accounts through their own credentials,
+    offer to trust a self-signed certificate after showing it, confirm file
+    search with a `SEARCH` request, and add accounts to Places.
+  - Check drag and drop against the same permissions, read them for flat
+    views and expanded subfolders, and show Nextcloud's own reason for a
+    refusal from the server's error response.
+  - Use server previews for the panes' thumbnails and the gallery, read the
+    file ID from the folder listing to save a request, say why a server
+    preview was unavailable, and refresh the metadata when the server's ETag
+    changes.
+  - Search photo metadata and tags on the server, page through results
+    beyond 500, sort them by any column, confirm search support with a
+    trial request, mark favourites and server tags in the panes, and offer
+    to delete a tag created in a cancelled dialog.
+  - Browse albums in a pane as virtual folders, rename and delete albums with
+    confirmation, page through large albums, fall back to file dates for
+    photos without a capture date, and send album photos through **Send by
+    Email** with a location warning.
+  - Suggest users and groups from the server's sharee search, manage labels,
+    notes, hidden downloads and email shares, enforce the server's expiry
+    rules for user and group shares, read the server's response to a change
+    directly, and accept or leave shares with you.
+  - Find the Flatpak and Snap builds of the desktop client, update folder
+    status while the menu is open, show files' status in the panes, report
+    the client's sign-in state and errors, and tell downloaded virtual files
+    from those still on the server.
 
 ## Embedded terminal
 
