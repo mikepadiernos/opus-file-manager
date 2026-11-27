@@ -1859,7 +1859,9 @@ Settings for M27 integrations, stored in KConfig.
         [#709]
   - [ ] **Drop-down window:** enable it and choose its screen edge, width,
         height, screen, animation and trigger, and whether it hides when it
-        loses focus [#710]
+        loses focus. Plasma-session verification is a
+        [pending handoff](TODO.md#drop-down-settings-on-plasma-710).
+        [#710]
 
 - **Baloo**
 

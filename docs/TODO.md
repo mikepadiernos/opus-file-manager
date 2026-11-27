@@ -44,6 +44,7 @@ Board statuses were last confirmed on 2026-11-27.
 | [KRunner settings on Plasma](#krunner-settings-on-plasma-394)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#394]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [Online account settings on Plasma](#online-account-settings-on-plasma-371) | [M28](ROADMAP.md#m28-integration-settings)                                     | [#371]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 | [KWin script settings on Plasma](#kwin-script-settings-on-plasma-709)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#709]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
+| [Drop-down settings on Plasma](#drop-down-settings-on-plasma-710)           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#710]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                       |
 
 ## mpv integration (#563)
 
@@ -203,17 +204,17 @@ Board statuses were last confirmed on 2026-11-27.
 - **Blocker:** The development container has no KWin, no KPackage script
   structure registered with a compositor and no KGlobalAccel daemon, so the
   script cannot be installed, loaded or driven by real windows there.
-- **Confirmed state:** The script package, the **Configure KWin Integration**
-  dialog, the workspace placements and the drop-down window are implemented and
-  pass their tests in the container, against a fake backend and a simulated
+- **Confirmed state:** The script package, the **KDE Plasma › KWin** tab of
+  Preferences, the workspace placements and the drop-down window are implemented
+  and pass their tests in the container, against a fake backend and a simulated
   KWin JavaScript API. This verification does not block the features; it is
   recorded as a caveat under
   [Desktop integration](CAVEATS.md#desktop-integration).
 
 **Steps to resume:**
 
-1. On a Plasma 6 session, open **Settings › Configure KWin Integration…**,
-   install and enable the script, and confirm the dialog reports it as
+1. On a Plasma 6 session, open **Preferences › KDE Plasma › KWin**,
+   install and enable the script, and confirm the tab reports it as
    running. Check `journalctl --user -b | grep -i opus` for script errors.
 2. Save and restore window placements across two workspaces on Wayland and
    X11: screen, virtual desktop, size, tile and keep-above state.
@@ -244,7 +245,7 @@ Board statuses were last confirmed on 2026-11-27.
 
 1. On a Plasma 6 session with `kio-admin` installed, run
    `QT_QPA_PLATFORM=offscreen ctest --test-dir build -R adminmodeuitest
-   --output-on-failure` and confirm the cancel test runs and passes.
+--output-on-failure` and confirm the cancel test runs and passes.
 2. Open `/etc` in Plasma Opus, choose **File › Act as Administrator**,
    accept the warning and authenticate. Check that the warning bar appears
    and the action is checked.
@@ -550,7 +551,7 @@ Board statuses were last confirmed on 2026-11-27.
   Plasma › Notifications**, and `OperationJob::track()` leaves operations
   whose setting is cleared unreported. **Configure Plasma Notifications…**
   runs `kcmshell6 kcm_notifications --args
-  --desktop-entry=org.kde.opusfilemanager`, or `systemsettings` with the
+--desktop-entry=org.kde.opusfilemanager`, or `systemsettings` with the
   same arguments. `operationjobtest` and `integrationsettingstest` pass in
   the container. See [Integration settings](CAVEATS.md#integration-settings).
 
@@ -806,6 +807,38 @@ Board statuses were last confirmed on 2026-11-27.
    Record any differences in [CAVEATS](CAVEATS.md#integration-settings),
    then remove this entry and its roadmap link.
 
+## Drop-down settings on Plasma (#710)
+
+- **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#710]
+  (Development).
+- **Blocker:** The development container has no KWin or KGlobalAccel daemon,
+  so the drop-down window cannot be placed by the script or toggled by a real
+  global shortcut or screen edge there.
+- **Confirmed state:** `SettingsDialog::createDropDownGroup()` in
+  `src/app/integrationsettingspages.cpp` stores the drop-down options in the
+  `KWinScript` group, which `KWinIntegration` sends to the script at its next
+  sync, and assigns the shortcut of the main window's `toggle_drop_down`
+  action through KGlobalAccel. **Settings › Configure KWin Integration…**
+  opens the tab. The options, the shortcut and the menu action pass
+  `kwinscripttest`, `integrationsettingstest` and `kwinintegrationtest` in the
+  container against a fake KWin backend and simulated shortcut hooks. See
+  [Integration settings](CAVEATS.md#integration-settings).
+
+**Steps to resume:**
+
+1. On a Plasma 6 session with the KWin script running, open **Preferences ›
+   KDE Plasma › KWin**, check **Slide the window in from a screen edge and hide
+   it again**, choose a global shortcut and apply. Check that the tab reports
+   the shortcut as working and that Plasma's Shortcuts settings list it.
+2. Press the shortcut from each **Screen edge** at several widths and heights,
+   on a chosen screen and on **Active screen**, with **Slide in and out**
+   checked and cleared.
+3. Check **Hide when another application is activated**, both triggers and a
+   workspace, apply, and check each. Choose **Restore Defaults** and apply,
+   and check that the shortcut is removed from Plasma's Shortcuts settings.
+   Record any differences in [CAVEATS](CAVEATS.md#integration-settings),
+   then remove this entry and its roadmap link.
+
 [#200]: https://github.com/mikepadiernos/plasma-opus/issues/200
 [#201]: https://github.com/mikepadiernos/plasma-opus/issues/201
 [#286]: https://github.com/mikepadiernos/plasma-opus/issues/286
@@ -834,4 +867,5 @@ Board statuses were last confirmed on 2026-11-27.
 [#707]: https://github.com/mikepadiernos/plasma-opus/issues/707
 [#708]: https://github.com/mikepadiernos/plasma-opus/issues/708
 [#709]: https://github.com/mikepadiernos/plasma-opus/issues/709
+[#710]: https://github.com/mikepadiernos/plasma-opus/issues/710
 [#750]: https://github.com/mikepadiernos/plasma-opus/issues/750
