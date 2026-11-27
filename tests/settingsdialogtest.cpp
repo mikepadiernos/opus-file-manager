@@ -43,6 +43,7 @@
 #include <KPageWidget>
 #include <KPageWidgetModel>
 #include <KPluginMetaData>
+#include <KProtocolInfo>
 #include <KSharedConfig>
 #include <KShortcutsDialog>
 #include <KToolBar>
@@ -3093,6 +3094,99 @@ private Q_SLOTS:
             manager->reject();
         });
         dialog.findChild<QPushButton *>(QStringLiteral("manageSavedSearches"))->click();
+    }
+
+    void sharesSavedSearchesWithPlaces()
+    {
+#ifndef OPUSFM_HAVE_BALOO
+        QSKIP("Plasma Opus was built without Baloo.");
+#endif
+        if (!KProtocolInfo::isKnownProtocol(QStringLiteral("baloosearch"))) {
+            QSKIP("KDE's baloosearch:/ location is not installed.");
+        }
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const auto config = KSharedConfig::openConfig(root.filePath(QStringLiteral("searchesrc")), KConfig::SimpleConfig);
+        const auto group = config->group(QStringLiteral("SavedSearches"));
+        SavedSearches::Search invoices{QStringLiteral("Opus shared invoices"),
+                                       QStringLiteral("content:invoice size>1M"),
+                                       QUrl::fromLocalFile(root.path()),
+                                       LiveSearch::Field::Query};
+        const SavedSearches::Search wildcard{QStringLiteral("Opus shared wildcard"),
+                                             QStringLiteral("*.pdf"),
+                                             QUrl::fromLocalFile(root.path()),
+                                             LiveSearch::Field::Query};
+        QString error;
+        QVERIFY(SavedSearches::save(group, {invoices, wildcard}, &error));
+        KFilePlacesModel places;
+        const auto shared = [&places] {
+            QList<QUrl> urls;
+            for (int row = 0; row < places.rowCount(); ++row) {
+                if (places.text(places.index(row, 0)) == QLatin1String("Opus shared invoices")) {
+                    urls.append(places.url(places.index(row, 0)));
+                }
+            }
+            return urls;
+        };
+        const auto cleanup = qScopeGuard([&places] {
+            for (int row = places.rowCount() - 1; row >= 0; --row) {
+                if (places.text(places.index(row, 0)).startsWith(QLatin1String("Opus shared"))) {
+                    places.removePlace(places.index(row, 0));
+                }
+            }
+        });
+        SearchStoreDialog dialog(nullptr, config, &places);
+        auto *searches = dialog.findChild<QListWidget *>(QStringLiteral("managedSearches"));
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("searchStoreStatus"));
+        auto *share = dialog.findChild<QPushButton *>(QStringLiteral("managedSearchShare"));
+        QVERIFY(searches && status && share);
+
+        searches->setCurrentRow(1);
+        share->click();
+        QVERIFY(status->text().contains(QStringLiteral("can't express")));
+        QVERIFY(shared().isEmpty());
+
+        searches->setCurrentRow(0);
+        QString details;
+        const auto answer = [&details](const QString &button) {
+            QTimer::singleShot(0, [&details, button] {
+                auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget());
+                QVERIFY(box);
+                details = box->informativeText();
+                if (button.isEmpty()) {
+                    box->button(QMessageBox::Cancel)->click();
+                } else {
+                    box->findChild<QPushButton *>(button)->click();
+                }
+            });
+        };
+        answer({});
+        share->click();
+        QVERIFY(details.contains(QStringLiteral("size>")));
+        QVERIFY(details.contains(root.path()));
+        QVERIFY(shared().isEmpty());
+
+        answer(QStringLiteral("shareSearchAdd"));
+        share->click();
+        const QList<QUrl> added = shared();
+        QCOMPARE(added.size(), 1);
+        QCOMPARE(added.first().scheme(), QStringLiteral("baloosearch"));
+        QVERIFY(status->text().contains(QStringLiteral("Added")));
+        share->click();
+        QVERIFY(status->text().contains(QStringLiteral("already in Places")));
+
+        // Changing the saved search leaves the shared place alone until it is replaced.
+        invoices.text = QStringLiteral("content:receipt");
+        QVERIFY(SavedSearches::save(group, {invoices, wildcard}, &error));
+        dialog.findChild<QPushButton *>(QStringLiteral("managedSearchRefresh"))->click();
+        QCOMPARE(shared(), added);
+        searches->setCurrentRow(0);
+        answer(QStringLiteral("shareSearchReplace"));
+        share->click();
+        QVERIFY(details.contains(QStringLiteral("already has a search")));
+        QCOMPARE(shared().size(), 1);
+        QVERIFY(shared().first() != added.first());
+        QVERIFY(status->text().contains(QStringLiteral("Replaced")));
     }
 
     void savedSearchManagerRejectsStaleDeletion()

@@ -143,6 +143,7 @@ ecm_add_tests(
     rsyncsynctest.cpp
     runnermatchestest.cpp
     servicemenustest.cpp
+    sharedsearchtest.cpp
     sessiontest.cpp
     savedpathfilterstest.cpp
     savedsearchestest.cpp
