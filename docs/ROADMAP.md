@@ -1912,7 +1912,7 @@ Settings for M27 integrations, stored in KConfig.
 
 - **Media**
 
-  - [ ] **Backend:** choose Qt Multimedia or the optional embedded mpv backend
+  - [x] **Backend:** choose Qt Multimedia or the optional embedded mpv backend
         for preview and gallery playback. Plasma-session verification is a
         [pending handoff](TODO.md#mpv-integration-563).
         [#578]
