@@ -428,6 +428,15 @@ behaves like the rest of the desktop and follows the user's choices.
   ambiguous and out-of-vault links, and incomplete scans, are reported
   below the list. See [Markdown vault links](../CAVEATS.md#desktop-integration).
   ([#564](https://github.com/mikepadiernos/plasma-opus/issues/564))
+- **Workspace vaults and tags:** In **Workspaces**, **Use as Editor Vault**
+  makes one of a workspace's assigned local folders the vault of every
+  editor while the workspace is active, and the editor's own vault returns
+  afterwards. Beside **Backlinks**, the **Links** tab lists the open note's
+  wiki links with whether each resolves, and the **Tags** tab lists its
+  inline `#tags` and front matter `tags:` with the other notes that share
+  them; activating an entry opens the note. See
+  [Workspace vaults and tags](../CAVEATS.md#desktop-integration).
+  ([#565](https://github.com/mikepadiernos/plasma-opus/issues/565))
 - **Ebooks, comics, help files and fonts:** The preview panel shows EPUB,
   MOBI, FictionBook, comic book archives such as CBZ and CBR, DjVu and CHM
   help files through [Okular](https://okular.kde.org/)'s viewer component
