@@ -152,25 +152,30 @@ print_deps() {
             echo "  Indexed search, at build and runtime: sudo pacman -S --needed baloo"
             echo "  Embedded terminal: sudo pacman -S --needed konsole"
             echo "  Media metadata editing: sudo pacman -S --needed perl-image-exiftool"
+            echo "  Embedded mpv playback, at build and runtime: sudo pacman -S --needed mpv"
             echo "  Qt Vulkan headers and loader: sudo pacman -S --needed vulkan-headers vulkan-icd-loader" ;;
         fedora)
             echo "  Indexed search, at build and runtime: sudo dnf install kf6-baloo-devel"
             echo "  Embedded terminal: sudo dnf install konsole"
             echo "  Media metadata editing: sudo dnf install perl-Image-ExifTool"
+            echo "  Embedded mpv playback, at build and runtime: sudo dnf install mpv-devel"
             echo "  Qt Vulkan headers and loader: sudo dnf install vulkan-headers vulkan-loader-devel" ;;
         debian)
             echo "  Indexed search, at build and runtime: sudo apt install libkf6baloo-dev"
             echo "  Embedded terminal: sudo apt install konsole"
             echo "  Media metadata editing: sudo apt install libimage-exiftool-perl"
+            echo "  Embedded mpv playback, at build and runtime: sudo apt install libmpv-dev"
             echo "  Qt Vulkan headers and loader: sudo apt install libvulkan-dev" ;;
         suse)
             echo "  Indexed search, at build and runtime: install the KF6 Baloo development and runtime packages."
             echo "  Embedded terminal: install Konsole."
             echo "  Media metadata editing: install perl-Image-ExifTool."
+            echo "  Embedded mpv playback, at build and runtime: install mpv-devel."
             echo "  Qt Vulkan support: install Vulkan headers and loader development files." ;;
         *)
             echo "  Baloo development and runtime packages enable indexed search."
             echo "  Konsole provides the embedded terminal; ExifTool enables media metadata editing."
+            echo "  libmpv development files enable embedded mpv playback."
             echo "  Vulkan headers and the loader enable Qt's optional Vulkan integration." ;;
     esac
     echo "  Document previews and media playback may need additional KParts or Qt Multimedia backends."
