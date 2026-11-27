@@ -120,8 +120,14 @@ behaves like the rest of the desktop and follows the user's choices.
   Associations are kept when their Activity is removed, their workspace is
   deleted or a folder is missing, and the missing parts are reported instead
   of applied. Plasma Opus only reads Activities: it never creates, removes or
-  switches them, and leaves recent-file history to KDE.
-  ([#387](https://github.com/mikepadiernos/plasma-opus/issues/387))
+  switches them, and leaves recent-file history to KDE. It reports visited
+  folders and opened files to the current Activity, as Dolphin does, so they
+  appear in Plasma's recent files and locations; turn this off under
+  **Settings › Workspaces › Activities**. Temporary files, open encrypted
+  vaults, searches, the trash and administrator locations are never
+  reported, nor are passwords in remote addresses.
+  ([#387](https://github.com/mikepadiernos/plasma-opus/issues/387),
+  [#659](https://github.com/mikepadiernos/plasma-opus/issues/659))
 - **KDE Connect:** **File › Send to Device…** sends the selected local files
   to a paired device through KDE Connect's share plugin. The dialog lists the
   files it will send and the items it cannot, such as folders, remote

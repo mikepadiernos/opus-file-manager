@@ -162,6 +162,12 @@ action.
 
 ### Workspaces and Plasma Activities
 
+> [!TIP]
+> **Implemented:** Plasma Opus follows Activity changes with its own
+> associations and reports visited folders and opened files to the current
+> Activity through Plasma Activities, which Plasma Impresario can read the
+> same way. It uses no private interface and none of Plasma Impresario's data.
+
 - Plasma Impresario plans to associate mail accounts with workspaces and their
   Plasma Activities. Use the Activity as the only shared context: each
   application follows Activity changes with its own associations. Do not read
