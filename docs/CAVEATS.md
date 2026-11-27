@@ -1825,16 +1825,15 @@ The M27 desktop integrations have these limits
   window, or by another application while the settings are open, appear only
   after the window is used again or the settings are reopened.
   ([#369](https://github.com/mikepadiernos/plasma-opus/issues/369))
-- **🗂️ System file chooser:** setup is per user and only through
-  `--install-portal` or `./install.sh --file-chooser`; the planned
-  [M28 settings row](ROADMAP.md#m28-integration-settings) does not exist yet.
-  It writes only `kde-portals.conf`, so it applies in Plasma sessions and not
-  in other desktops. xdg-desktop-portal reads per-user portal descriptions
-  only from version 1.21.0; older versions ignore Plasma Opus and fall back
-  to the next chooser in the preference, normally KDE's. Applications that
-  open their own dialog without the portal keep it, including most native
-  Qt and KDE applications. The chooser has no tabs,
-  previews, side panels or indexed search, only a name filter over the
+- **🗂️ System file chooser:** setup is per user, through
+  `--install-portal`, `./install.sh --file-chooser` or **Preferences › KDE
+  Plasma › File Manager**. It writes only `kde-portals.conf`, so it applies
+  in Plasma sessions and not in other desktops. xdg-desktop-portal reads
+  per-user portal descriptions only from version 1.21.0; older versions
+  ignore Plasma Opus and fall back to the next chooser in the preference,
+  normally KDE's. Applications that open their own dialog without the portal
+  keep it, including most native Qt and KDE applications. The chooser has no
+  tabs, previews, side panels or indexed search, only a name filter over the
   current folder, which also lists matching files when choosing a folder.
   Only local files are accepted; remote locations can be browsed but not
   returned. A modal request keeps the dialog over its window, but the
@@ -2377,14 +2376,15 @@ The M27 desktop integrations have these limits
     hide any unwanted action under **Settings › Context Menu › Service
     Menus** instead of removing it if Dolphin should keep it. Reopen the
     settings to see service menus installed by other means.
-  - **System file chooser:** Run `opus-file-manager --install-portal` from
-    an installed build in a Plasma session with xdg-desktop-portal 1.21.0 or
-    later, after closing open file dialogs. If applications still show KDE's
-    chooser, check `xdg-desktop-portal --version` and log out and back in.
-    Copy remote files to a local folder before choosing them. To go back,
-    run `opus-file-manager --uninstall-portal`, or
-    `./install.sh --uninstall`, which restores the previous
-    `kde-portals.conf`.
+  - **System file chooser:** Choose **Set Up** under **Preferences › KDE
+    Plasma › File Manager**, or run `opus-file-manager --install-portal`,
+    from an installed build in a Plasma session with xdg-desktop-portal
+    1.21.0 or later, after closing open file dialogs. If applications still
+    show KDE's chooser, check `xdg-desktop-portal --version` and log out and
+    back in. Copy remote files to a local folder before choosing them. To go
+    back, choose **Restore Previous Chooser**, or run
+    `opus-file-manager --uninstall-portal` or `./install.sh --uninstall`,
+    which restores the previous `kde-portals.conf`.
   - **Mount manager:** Press **Refresh** for current sizes. To power off a
     USB drive, use Plasma's **Disks & Devices** applet. To let Plasma Opus
     mount an fstab entry without root, add `user` or `users` to its options
@@ -2625,10 +2625,9 @@ The M27 desktop integrations have these limits
   - Ship a Plasma Opus provider and installer so downloads work without
     Dolphin, and watch the service-menu folders to refresh the list while
     the settings are open.
-  - The M28 **System file chooser** settings row, a version check that
-    warns before setup on xdg-desktop-portal older than 1.21.0, previews and
-    indexed search in the chooser, and returning remote files through a
-    local copy.
+  - A version check that warns before setup on xdg-desktop-portal older
+    than 1.21.0, previews and indexed search in the chooser, and returning
+    remote files through a local copy.
   - Watch mount changes instead of polling, refresh sizes periodically,
     power off USB drives after unmounting, and the M28 **Mount manager**
     display settings, including an option to show system file systems.
@@ -2723,6 +2722,20 @@ The M28 integration settings have these limits
   so the tab is verified only by tests there
   ([Plasma check](TODO.md#default-file-manager-on-plasma-293)).
   ([#293](https://github.com/mikepadiernos/plasma-opus/issues/293))
+- **🚪 System file chooser:** the **System File Chooser** group under
+  **Preferences › KDE Plasma › File Manager** reads the per-user setup only:
+  it cannot tell whether xdg-desktop-portal is 1.21.0 or later, which
+  per-user portal descriptions need, or whether it has already read the
+  change. **Set Up** needs an installed `opus-file-manager-portal` next to
+  Plasma Opus and a running or activatable xdg-desktop-portal; outside a
+  Plasma session it is allowed but takes effect only in Plasma sessions,
+  which the group notes. Both actions ask first, because restarting
+  xdg-desktop-portal through `systemctl --user` closes file dialogs open in
+  other applications; when the restart fails, the change stays and applies
+  after logging out and back in. The dialog waits for the restart. The
+  container has no session bus or Plasma session
+  ([Plasma check](TODO.md#file-chooser-settings-on-plasma-292)).
+  ([#292](https://github.com/mikepadiernos/plasma-opus/issues/292))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -2731,12 +2744,21 @@ The M28 integration settings have these limits
     keeps answering **Show in folder**, quit it and restart Plasma Opus. To
     hand folders back, choose another file manager with **Open Default
     Applications Settings**, then choose **Remove Activation File**.
+  - **System file chooser:** In a Plasma session with xdg-desktop-portal
+    1.21.0 or later, close open file dialogs, then choose **Set Up**, or
+    **Complete Setup** after editing `kde-portals.conf`, under **Preferences
+    › KDE Plasma › File Manager**. If the restart fails or applications still
+    show KDE's chooser, log out and back in. Choose **Restore Previous
+    Chooser** to go back.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
   - Remember the file manager that Plasma Opus replaced and offer to restore
     it, offer to remove a conflicting `kde-mimeapps.list` entry, and release
     the service when another default is chosen while Plasma Opus runs.
+  - Check the xdg-desktop-portal version before setup, confirm that the
+    restarted portal answers with Plasma Opus, and restart it without
+    blocking the dialog.
 
 ## Embedded terminal
 
