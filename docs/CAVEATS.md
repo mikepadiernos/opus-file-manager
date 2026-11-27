@@ -2065,12 +2065,14 @@ The M27 desktop integrations have these limits
   and credentials in the backend's own secrets file, and read-only comes
   from that entry. S3-compatible storage and KDE Online Accounts locations
   aren't offered; S3 works through **Cloud Storage** with an rclone remote.
-  Mounting at login means mounting when Plasma Opus starts, so it needs
-  Plasma Opus in autostart, and mounting when a workspace is activated isn't
-  offered. Changed mount options apply after unmounting. All mounts end
-  when Plasma Opus quits, and a connection mounted outside Plasma Opus opens
-  but can't be unmounted from it. Media streams only where the backend reads
-  ranges, which sshfs, CIFS and KIO FUSE's SFTP and SMB workers do.
+  Mounting at login means starting Plasma Opus in the system tray at login,
+  and mounting when a workspace is activated follows its assigned locations,
+  as described under [Remote drive settings](#integration-settings). Changed
+  mount options apply after unmounting. sshfs, davfs2 and CIFS mounts end
+  when Plasma Opus quits unless those settings keep them, and a connection
+  mounted outside Plasma Opus is taken over when it is mounted, so it can be
+  unmounted from it too. Media streams only where the backend reads ranges,
+  which sshfs, CIFS and KIO FUSE's SFTP and SMB workers do.
   ([#702](https://github.com/mikepadiernos/plasma-opus/issues/702))
 - **📡 Temporary LAN sharing:** Anyone who sees a link can use it until
   sharing stops: there is no password, and a single link can't be revoked.
@@ -2517,9 +2519,11 @@ The M27 desktop integrations have these limits
     for SSH servers that need read-only or a fixed folder. For WebDAV or
     Windows shares with a fixed folder, ask an administrator to add the line
     **Mount Options…** shows to `/etc/fstab`. Close files before unmounting.
-    If a folder is reported as stale, run `fusermount3 -u` on it. For mounts
-    that outlive Plasma Opus, use a systemd mount unit or fstab entry with
-    `auto`.
+    If a folder is reported as stale, run `fusermount3 -u` on it. To keep
+    sshfs, davfs2 and CIFS mounts after quitting or mount them at login,
+    choose so under **Preferences › Remote and Cloud › Remote Drives**; for
+    mounts needed before you log in, use a systemd mount unit or fstab entry
+    with `auto`.
   - **Temporary LAN sharing:** Keep HTTPS on and, before accepting the
     certificate, check that the fingerprint the browser shows matches the
     dialog's. Share only on trusted networks, with the shortest practical
@@ -2704,8 +2708,7 @@ The M27 desktop integrations have these limits
     when no worker handles it.
   - Keep mounts running in the tray, show mounts in Places, and choose
     rclone's cache mode in the M28 settings.
-  - Mount KDE Online Accounts and S3 locations, mount when a workspace is
-    activated, keep chosen mounts after quitting, remount with changed
+  - Mount KDE Online Accounts and S3 locations, remount with changed
     options, and pass KWallet passwords to davfs2 and CIFS with consent.
   - Keep sharing from the system tray after the dialog closes, announce
     shares over DNS-SD, add an optional password and revocable links,
@@ -3275,6 +3278,33 @@ The M28 integration settings have these limits
   hand-off are tested only with a fake rclone ([Plasma
   check](TODO.md#rclone-settings-on-plasma-663)).
   ([#663](https://github.com/mikepadiernos/plasma-opus/issues/663))
+- **🗄️ Remote drive settings:** The backends, mount folder and read-only choice
+  under **Preferences › Remote and Cloud › Remote Drives** apply to connections
+  whose **Mount Options…** were never saved; a connection with saved options
+  keeps them. KIO FUSE ignores the mount folder, read-only and unmount settings:
+  it chooses its own folder, can't mount read-only, and its mounts last until
+  KIO FUSE stops. A backend the tab marks as not installed fails when a
+  connection mounts, and davfs2 and CIFS still need an fstab entry for each
+  mount folder, so choosing another folder needs new entries. A changed folder
+  applies to new mounts, and a chosen folder isn't made private, so other users
+  can open the mounts if its permissions allow. While **Start Plasma Opus in the
+  system tray at login** is checked, each **Apply** or **OK** writes its
+  autostart entry again, even if it was removed in Plasma's Autostart settings,
+  and only connections chosen to **Mount when Plasma Opus starts** are mounted.
+  Activating a workspace mounts a connection only when a Favorite or Place
+  assigned to it is on the connection's server, port and folder, or inside the
+  folder an sshfs, davfs2 or CIFS mount uses; failures appear only in the status
+  bar and the Cloud Activity window. Clearing **Unmount sshfs, davfs2 and CIFS
+  mounts when Plasma Opus quits** lets sshfs mounts started afterwards run on
+  their own; sshfs mounts started before still end at quit, while davfs2 and
+  CIFS mounts follow the setting when Plasma Opus quits. A mount left in place
+  is taken over when Plasma Opus starts only if it is in the folder that its
+  options and the current mount folder give, and a mount taken over is never
+  unmounted at quit. A kept sshfs mount whose connection drops stays stale until
+  it is unmounted. The container has no sshfs, FUSE, KIO FUSE or Plasma session,
+  so mounting, keeping and taking over mounts and starting at login are tested
+  only with fakes ([Plasma check](TODO.md#remote-drive-settings-on-plasma-704)).
+  ([#704](https://github.com/mikepadiernos/plasma-opus/issues/704))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3473,6 +3503,16 @@ The M28 integration settings have these limits
     you don't open from Plasma Opus, such as those used only by cloud sync, and
     stop open remotes before turning the integration off. When KDE Wallet asks
     to open as a remote is served, allow it so that the password is kept.
+  - **Remote drive settings:** Keep KIO FUSE as the default backend, as it
+    reuses passwords saved in KDE Wallet, and choose sshfs for SSH servers whose
+    mounts must be read-only, in a fixed folder or kept after quitting. Choose a
+    mount folder only when applications expect a fixed path, and make it
+    readable only by you on a shared computer. Check **Start Plasma Opus in the
+    system tray at login** only when connections are set to **Mount when Plasma
+    Opus starts**, and assign a project's server locations to its workspace to
+    mount them when it is activated. Clear **Unmount sshfs, davfs2 and CIFS
+    mounts when Plasma Opus quits** only when applications use the mounts while
+    Plasma Opus is closed, and unmount them before leaving the network.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3569,6 +3609,10 @@ The M28 integration settings have these limits
   - Stop open remotes when the integration is turned off, follow remotes added
     with `rclone config` while the **rclone** tab is open, choose how each
     remote opens, and offer **Stop Serving** in the Cloud Activity window.
+  - Keep mounts after quitting for each connection, move mounts in place when
+    the mount folder changes, let sshfs mounts started before keeping mounts was
+    chosen stay, leave the login entry alone once it is removed in Plasma's
+    Autostart settings, and notify when a workspace's connection fails to mount.
 
 ## Embedded terminal
 
