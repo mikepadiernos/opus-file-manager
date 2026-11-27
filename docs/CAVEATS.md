@@ -1790,9 +1790,9 @@ The M27 desktop integrations have these limits
   open in new tabs, so tabs accumulate with each switch. Only local folders
   are checked before they are offered; a missing remote folder fails when
   its tab opens. Associations are kept for removed Activities and missing
-  workspaces until they are cleared under **View › Activity Associations**.
-  Without the Activities service, nothing is offered and removed Activities
-  cannot be told apart from existing ones.
+  workspaces until they are cleared under **Preferences › KDE Plasma ›
+  Activities**. Without the Activities service, nothing is offered and
+  removed Activities cannot be told apart from existing ones.
   ([#387](https://github.com/mikepadiernos/plasma-opus/issues/387))
 - **📱 KDE Connect sharing:** **File › Send to Device…** sends only local
   regular files; folders, remote KIO locations and special files are listed
@@ -2355,13 +2355,12 @@ The M27 desktop integrations have these limits
     key combination under **Preferences › KDE Plasma › Shortcuts**, and keep
     the icon always visible through the tray's **Configure System Tray…**
     entries.
-  - **Plasma Activities:** Turn associations on under **Settings ›
-    Workspaces › Activities**, then choose each Activity's workspace,
-    behaviours and folders under **View › Activity Associations**. To apply
-    the current Activity's association at any time, including at start or
-    after choosing **Not Now**, use **View › Apply Activity Association**.
-    Close default-folder tabs you no longer need, and clear associations of
-    removed Activities once they are not coming back.
+  - **Plasma Activities:** Turn associations on and choose each Activity's
+    workspace, behaviours and folders under **Preferences › KDE Plasma ›
+    Activities**. To apply the current Activity's association at any time,
+    including at start or after choosing **Not Now**, use **View › Apply
+    Activity Association**. Close default-folder tabs you no longer need, and
+    clear associations of removed Activities once they are not coming back.
   - **KDE Connect sharing:** To send a folder, compress it first with
     **Compress…** and send the archive; copy remote files to a local folder
     before sending. Watch KDE Connect's notification to confirm delivery. If a
@@ -2556,7 +2555,7 @@ The M27 desktop integrations have these limits
     attachment, because opened copies are removed when the window closes.
   - **Shared Activity context:** To keep a location out of Plasma's
     history, turn off **Report visited folders and opened files to Plasma
-    Activities** under **Settings › Workspaces › Activities**, or choose
+    Activities** under **Preferences › KDE Plasma › Activities**, or choose
     what Plasma remembers, and clear it, under **System Settings › Recent
     Files**. Keep private files in a Plasma Vault, whose open folders are
     never reported.
@@ -2608,13 +2607,12 @@ The M27 desktop integrations have these limits
     remote files without a full download, and the M28 **Media › Backend**
     setting ([#578](https://github.com/mikepadiernos/plasma-opus/issues/578)).
   - Report files opened through **Open With** and from previews, exclude
-    chosen folders from reporting, and an M28 **Plasma Activities** page
-    option to report only while associations are on.
+    chosen folders from reporting, and an option under **Preferences › KDE
+    Plasma › Activities** to report only while associations are on.
   - Reuse an open tab showing an Activity's default folder instead of
     opening another, and offer the current Activity's association at start
     as an option.
-  - Keep association behaviours with the session, and an M28
-    **Plasma Activities** page that manages associations in the settings.
+  - Keep association behaviours with the session.
   - Offer to compress a selected folder and send the archive, and report
     KDE Connect's transfer result in the dialog when its share plugin exposes
     one.
@@ -2791,6 +2789,24 @@ The M28 integration settings have these limits
   has no global shortcut service
   ([Plasma check](TODO.md#global-shortcut-on-plasma-291)).
   ([#291](https://github.com/mikepadiernos/plasma-opus/issues/291))
+- **🗺️ Activity associations:** the editor under **Preferences › KDE Plasma ›
+  Activities** lists the existing Activities only while Plasma's Activities
+  service is running; without it, only Activities with a saved association are
+  listed, under their saved names, and they can still be edited. The tab cannot
+  create, rename or remove Activities: **Configure Plasma Activities…** opens
+  Plasma's Activities settings for that, through `kcmshell6` or System Settings,
+  and the tab says so when they are not installed. Associations can be edited
+  only while **Associate workspaces and default folders with Plasma Activities**
+  is checked. Changes are saved with **Apply** or **OK** and discarded by
+  **Cancel**. **Restore Defaults** turns associations and their offers off but
+  keeps the associations, as it keeps workspaces, so they are cleared one at a
+  time with **Clear Association**. Individual behaviours can be chosen only for
+  an association that names a workspace, and a folder address that is not valid
+  is reported in the tab and not kept. The container has no Activities service
+  or System Settings, so the Activity list and opening Plasma's Activities
+  settings are unverified there
+  ([Plasma check](TODO.md#activity-associations-on-plasma-391)).
+  ([#391](https://github.com/mikepadiernos/plasma-opus/issues/391))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -2825,6 +2841,12 @@ The M28 integration settings have these limits
     KDE Plasma › Shortcuts**, and pick another one when the tab says no key
     is assigned. Clear **Show or hide Plasma Opus with a global shortcut**
     there if the key is needed elsewhere, and use the tray icon instead.
+  - **Activity associations:** Check **Associate workspaces and default
+    folders with Plasma Activities** under **Preferences › KDE Plasma ›
+    Activities**, choose each Activity's workspace, behaviours and default
+    folders in the list there, then choose **Apply**. Use **Configure Plasma
+    Activities…** to add or rename Activities, and **Clear Association** to
+    drop the association of an Activity that is not coming back.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -2845,6 +2867,9 @@ The M28 integration settings have these limits
   - Name the application that already uses a key when KDE leaves the
     shortcut unassigned, and check the chosen key against Plasma Opus's own
     window shortcuts.
+  - Clear all Activity associations at once, show the behaviours an
+    association inherits from its workspace, and copy an association to
+    another Activity.
 
 ## Embedded terminal
 
