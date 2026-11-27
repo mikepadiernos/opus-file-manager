@@ -440,7 +440,11 @@ behaves like the rest of the desktop and follows the user's choices.
   folders its installers use, and that its history exists, but never reads
   the history, changes shell configuration, or installs, initializes or syncs
   Atuin. A session running another program is reported instead of receiving
-  the search. See [Embedded terminal](../CAVEATS.md#embedded-terminal).
+  the search. Hide the action, or choose whether the search uses the current
+  session, a new one when it is busy or always a new one, under
+  **Preferences › Applications › Terminal**
+  ([#367](https://github.com/mikepadiernos/plasma-opus/issues/367)). See
+  [Embedded terminal](../CAVEATS.md#embedded-terminal).
   ([#364](https://github.com/mikepadiernos/plasma-opus/issues/364))
 
 - **Editor integrations:** **Tools › Edit With**, also in the context menu
