@@ -1610,6 +1610,9 @@ void MainWindow::setupPanes()
     m_right = new Pane(m_placesModel, m_tabColors, m_splitter, QStringLiteral("Right"));
     applyLocationPresentationDefaults();
     m_previewPanel = new PreviewPanel(m_splitter);
+    m_previewPanel->setServerPreviewHandler([this](const KFileItem &item, const QSize &size) {
+        return requestNextcloudPreview(item, size);
+    });
     m_splitter->addWidget(m_left);
     m_splitter->addWidget(m_right);
     m_splitter->addWidget(m_previewPanel);
@@ -1939,6 +1942,12 @@ void MainWindow::setupPanels()
         addDockWidget(area, m_informationDock);
     });
     connect(m_informationPanel, &InformationPanel::closeRequested, m_informationDock, &QDockWidget::hide);
+    connect(m_informationDock, &QDockWidget::visibilityChanged, this, [this](bool visible) {
+        // Server metadata is only read while the panel is shown.
+        if (visible) {
+            updateInformationPanel();
+        }
+    });
     m_informationDock->hide();
 
     m_tagPanel = new TagPanel;
@@ -6521,16 +6530,31 @@ void MainWindow::fetchNextcloudPermissions(Pane *pane)
     if (!mayBeNextcloudFolder(folder) || pane->view()->isFlat()) {
         return;
     }
-    std::optional<NextcloudAccounts::Account> account = NextcloudAccounts::accountForUrl(m_nextcloudAccounts, folder);
-    if (!account && !m_nextcloudAccountsLoaded) {
-        m_nextcloudAccounts = nextcloudAccounts();
-        m_nextcloudAccountsLoaded = true;
-        account = NextcloudAccounts::accountForUrl(m_nextcloudAccounts, folder);
-    }
+    const std::optional<NextcloudAccounts::Account> account = nextcloudAccountFor(folder);
     const QString key = nextcloudFolderKey(folder);
     if (!account || m_nextcloudPermissionsPending.contains(key)) {
         return;
     }
+    m_nextcloudPermissionsPending.insert(key);
+    nextcloudClient()->fetchPermissions(*account, folder);
+}
+
+std::optional<NextcloudAccounts::Account> MainWindow::nextcloudAccountFor(const QUrl &url)
+{
+    if (!mayBeNextcloudFolder(url)) {
+        return std::nullopt;
+    }
+    std::optional<NextcloudAccounts::Account> account = NextcloudAccounts::accountForUrl(m_nextcloudAccounts, url);
+    if (!account && !m_nextcloudAccountsLoaded) {
+        m_nextcloudAccounts = nextcloudAccounts();
+        m_nextcloudAccountsLoaded = true;
+        account = NextcloudAccounts::accountForUrl(m_nextcloudAccounts, url);
+    }
+    return account;
+}
+
+NextcloudClient *MainWindow::nextcloudClient()
+{
     if (!m_nextcloudClient) {
         if (!m_nextcloudStore) {
             m_nextcloudStore = std::make_unique<Nextcloud::PasswordServerStore>(winId());
@@ -6538,9 +6562,112 @@ void MainWindow::fetchNextcloudPermissions(Pane *pane)
         m_nextcloudClient = new NextcloudClient(this);
         m_nextcloudClient->setCredentialStore(m_nextcloudStore.get());
         connect(m_nextcloudClient, &NextcloudClient::permissionsFetched, this, &MainWindow::nextcloudPermissionsFetched);
+        connect(m_nextcloudClient, &NextcloudClient::metadataFetched, this, &MainWindow::nextcloudMetadataFetched);
+        connect(m_nextcloudClient, &NextcloudClient::previewFetched, this, [this](const QUrl &url, const QImage &image) {
+            // Without a server preview, the panel downloads the file within its usual limits.
+            if (m_previewPanel) {
+                m_previewPanel->showServerPreview(url, image);
+            }
+        });
     }
-    m_nextcloudPermissionsPending.insert(key);
-    m_nextcloudClient->fetchPermissions(*account, folder);
+    return m_nextcloudClient;
+}
+
+std::optional<Nextcloud::FileMetadata> MainWindow::cachedNextcloudMetadata(const KFileItem &item) const
+{
+    // Favourites and tags change without changing the file, so metadata is read again after a minute.
+    constexpr qint64 maximumAge = 60;
+    const auto cached = m_nextcloudMetadata.constFind(nextcloudFolderKey(item.url()));
+    if (cached == m_nextcloudMetadata.cend() || cached->itemModified != item.time(KFileItem::ModificationTime)
+        || cached->read.secsTo(QDateTime::currentDateTimeUtc()) > maximumAge) {
+        return std::nullopt;
+    }
+    return cached->metadata;
+}
+
+void MainWindow::fetchNextcloudMetadata(const KFileItem &item)
+{
+    const std::optional<NextcloudAccounts::Account> account = nextcloudAccountFor(item.url());
+    const QString key = nextcloudFolderKey(item.url());
+    if (!account || m_nextcloudMetadataPending.contains(key)) {
+        return;
+    }
+    m_nextcloudMetadataPending.insert(key, item.time(KFileItem::ModificationTime));
+    nextcloudClient()->fetchMetadata(*account, item.url());
+}
+
+void MainWindow::nextcloudMetadataFetched(const QUrl &url, const Nextcloud::FileMetadata &metadata, const QString &error)
+{
+    const QString key = nextcloudFolderKey(url);
+    const QDateTime modified = m_nextcloudMetadataPending.take(key);
+    if (error.isEmpty()) {
+        // Metadata is cheap to read again, so a bounded cache is enough.
+        constexpr qsizetype cacheLimit = 256;
+        if (m_nextcloudMetadata.size() >= cacheLimit) {
+            m_nextcloudMetadata.clear();
+        }
+        m_nextcloudMetadata.insert(key, {modified, QDateTime::currentDateTimeUtc(), metadata});
+    }
+    if (const auto wanted = m_nextcloudPreviewsWanted.constFind(key); wanted != m_nextcloudPreviewsWanted.cend()) {
+        if (error.isEmpty()) {
+            fetchNextcloudPreview(wanted->first, metadata);
+        } else {
+            const QUrl previewUrl = wanted->first;
+            m_nextcloudPreviewsWanted.remove(key);
+            m_previewPanel->showServerPreview(previewUrl, {});
+        }
+    }
+    if (m_informationPanel && m_informationDock->isVisible()) {
+        m_informationPanel->setServerMetadata(url, error.isEmpty() ? std::optional(metadata) : std::nullopt, error);
+    }
+}
+
+bool MainWindow::requestNextcloudPreview(const KFileItem &item, const QSize &size)
+{
+    if (item.isDir() || !nextcloudAccountFor(item.url())) {
+        return false;
+    }
+    const QString key = nextcloudFolderKey(item.url());
+    // Only the latest item matters to the panel.
+    m_nextcloudPreviewsWanted.clear();
+    m_nextcloudPreviewsWanted.insert(key, {item.url(), Nextcloud::previewRequestSize(size)});
+    if (const std::optional<Nextcloud::FileMetadata> cached = cachedNextcloudMetadata(item)) {
+        fetchNextcloudPreview(item.url(), *cached);
+    } else {
+        fetchNextcloudMetadata(item);
+    }
+    return true;
+}
+
+void MainWindow::fetchNextcloudPreview(const QUrl &url, const Nextcloud::FileMetadata &metadata)
+{
+    const QString key = nextcloudFolderKey(url);
+    const auto wanted = m_nextcloudPreviewsWanted.constFind(key);
+    if (wanted == m_nextcloudPreviewsWanted.cend()) {
+        return;
+    }
+    const auto [previewUrl, size] = *wanted;
+    m_nextcloudPreviewsWanted.remove(key);
+    const std::optional<NextcloudAccounts::Account> account = nextcloudAccountFor(previewUrl);
+    // Asking for a preview the server says it can't render would only fail.
+    if (!account || metadata.fileId.isEmpty() || metadata.hasPreview == false) {
+        m_previewPanel->showServerPreview(previewUrl, {});
+        return;
+    }
+    nextcloudClient()->fetchPreview(*account, metadata.fileId, size, previewUrl);
+}
+
+void MainWindow::updateNextcloudInformation(const KFileItem &item)
+{
+    if (item.isNull() || !m_informationDock->isVisible() || !nextcloudAccountFor(item.url())) {
+        return;
+    }
+    if (const std::optional<Nextcloud::FileMetadata> cached = cachedNextcloudMetadata(item)) {
+        m_informationPanel->setServerMetadata(item.url(), cached);
+        return;
+    }
+    m_informationPanel->setServerMetadata(item.url(), std::nullopt, i18nc("@info:status", "Loading server metadata…"));
+    fetchNextcloudMetadata(item);
 }
 
 void MainWindow::nextcloudPermissionsFetched(const QUrl &folder, const Nextcloud::FolderPermissions &permissions, const QString &error)
@@ -8261,18 +8388,16 @@ void MainWindow::updateInformationPanel()
     if (!m_informationPanel) {
         return;
     }
+    KFileItem item;
     if (Settings::informationHover() && !m_hoveredInformationItem.isNull()) {
-        m_informationPanel->setItem(m_hoveredInformationItem);
-        return;
-    }
-    const KFileItemList selected = activePane()->view()->selectedItems();
-    if (selected.size() == 1) {
-        m_informationPanel->setItem(selected.first());
+        item = m_hoveredInformationItem;
+    } else if (const KFileItemList selected = activePane()->view()->selectedItems(); selected.size() == 1) {
+        item = selected.first();
     } else if (selected.isEmpty()) {
-        m_informationPanel->setItem(activePane()->view()->currentItem());
-    } else {
-        m_informationPanel->setItem({});
+        item = activePane()->view()->currentItem();
     }
+    m_informationPanel->setItem(item);
+    updateNextcloudInformation(item);
 }
 
 bool MainWindow::isStackedLayout() const

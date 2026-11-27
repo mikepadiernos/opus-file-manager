@@ -419,6 +419,25 @@ private:
     void nextcloudPermissionsFetched(const QUrl &folder, const Nextcloud::FolderPermissions &permissions, const QString &error);
     /// Disables the actions that the Nextcloud server forbids for @p selected, explaining why.
     void applyNextcloudPermissions(const KFileItemList &selected);
+    /// The Nextcloud account that @p url belongs to, reading the accounts the first time.
+    std::optional<NextcloudAccounts::Account> nextcloudAccountFor(const QUrl &url);
+    /// The client for Nextcloud server requests, created when first needed.
+    NextcloudClient *nextcloudClient();
+    /// The server metadata of @p item, when it was read since the item last changed.
+    std::optional<Nextcloud::FileMetadata> cachedNextcloudMetadata(const KFileItem &item) const;
+    /// Reads the server metadata of @p item unless it is already being read.
+    void fetchNextcloudMetadata(const KFileItem &item);
+    void nextcloudMetadataFetched(const QUrl &url, const Nextcloud::FileMetadata &metadata, const QString &error);
+    /**
+     * Asks the Nextcloud server for its preview of @p item, at @p size, for
+     * the preview panel. Returns false when @p item doesn't belong to a
+     * Nextcloud account, so the panel downloads it as usual.
+     */
+    bool requestNextcloudPreview(const KFileItem &item, const QSize &size);
+    /// Asks for the server preview of @p url with the file ID in @p metadata, or lets the panel download the file.
+    void fetchNextcloudPreview(const QUrl &url, const Nextcloud::FileMetadata &metadata);
+    /// Shows the server metadata of @p item in the information panel when it belongs to a Nextcloud account.
+    void updateNextcloudInformation(const KFileItem &item);
     void updateFolderGateActions();
     void updateStatusBarIndicatorOrder();
     void updateStatusBar();
@@ -651,6 +670,18 @@ private:
     QHash<QString, Nextcloud::FolderPermissions> m_nextcloudPermissions;
     /// The folders whose permissions are being read.
     QSet<QString> m_nextcloudPermissionsPending;
+    struct NextcloudMetadataEntry {
+        /// The item's modification time in its listing when the metadata was read.
+        QDateTime itemModified;
+        QDateTime read;
+        Nextcloud::FileMetadata metadata;
+    };
+    /// Server metadata of Nextcloud items, by item.
+    QHash<QString, NextcloudMetadataEntry> m_nextcloudMetadata;
+    /// The items whose metadata is being read, with their modification time.
+    QHash<QString, QDateTime> m_nextcloudMetadataPending;
+    /// The items whose server preview the preview panel waits for, with their URL and the preview size.
+    QHash<QString, std::pair<QUrl, QSize>> m_nextcloudPreviewsWanted;
     PlasmaVaultMenu *m_plasmaVaultMenu = nullptr;
     QList<Rclone::Remote> m_rcloneRemotes;
     QString m_rcloneError;

@@ -434,6 +434,13 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     m_editClose->setToolTip(i18nc("@info:tooltip", "Return to the preview, asking to save unsaved changes"));
     m_editClose->hide();
     connect(m_editClose, &QToolButton::clicked, this, &PreviewPanel::queryClose);
+    m_downloadFull = new QToolButton(this);
+    m_downloadFull->setObjectName(QStringLiteral("previewDownloadFull"));
+    m_downloadFull->setText(i18nc("@action:button", "Download Full Preview"));
+    m_downloadFull->setToolTip(
+        i18nc("@info:tooltip", "Download the file to preview it instead of the server's preview image, within the usual preview limits"));
+    m_downloadFull->hide();
+    connect(m_downloadFull, &QToolButton::clicked, this, &PreviewPanel::downloadFullPreview);
     m_header->addWidget(m_previous);
     m_header->addWidget(m_next);
     m_header->addWidget(m_gallery);
@@ -475,6 +482,7 @@ PreviewPanel::PreviewPanel(QWidget *parent)
     m_footerLayout = new QHBoxLayout;
     m_footerLayout->setObjectName(QStringLiteral("previewFooterLayout"));
     m_footerLayout->addWidget(m_footer, 1);
+    m_footerLayout->addWidget(m_downloadFull);
     m_footerLayout->addWidget(m_open);
     layout->addLayout(m_footerLayout);
     clear();
@@ -828,6 +836,15 @@ void PreviewPanel::setItems(const KFileItemList &items, const QList<QUrl> &image
             showMessage(DocumentFormats::previewDisabledMessage(format));
             return;
         }
+        // A server preview avoids downloading the file; text is downloaded within its own limit.
+        if (m_serverPreviewHandler && !isTextMime(item.mimetype())) {
+            const QSize size = (m_content->size().isEmpty() ? QSize(512, 512) : m_content->size()) * devicePixelRatioF();
+            m_awaitingServerPreview = true;
+            if (m_serverPreviewHandler(item, size)) {
+                return;
+            }
+            m_awaitingServerPreview = false;
+        }
         startRemotePreview(m_url);
         return;
     }
@@ -1043,6 +1060,51 @@ void PreviewPanel::clearRemotePreview()
     m_remoteFile.clear();
     m_renderFile.clear();
     m_remoteMimeType.clear();
+    m_awaitingServerPreview = false;
+    m_serverPreview = false;
+    m_downloadFull->hide();
+}
+
+void PreviewPanel::setServerPreviewHandler(ServerPreviewHandler handler)
+{
+    m_serverPreviewHandler = std::move(handler);
+}
+
+bool PreviewPanel::isShowingServerPreview() const
+{
+    return m_serverPreview;
+}
+
+void PreviewPanel::showServerPreview(const QUrl &url, const QImage &image)
+{
+    if (!m_awaitingServerPreview || url != m_url) {
+        return;
+    }
+    m_awaitingServerPreview = false;
+    if (image.isNull()) {
+        startRemotePreview(m_url);
+        return;
+    }
+    m_serverPreview = true;
+    m_image = image;
+    m_content->setCurrentWidget(m_imageLabel);
+    updateImage();
+    m_downloadFull->setVisible(!m_compact);
+    updateFooter();
+    setBusy(false);
+}
+
+void PreviewPanel::downloadFullPreview()
+{
+    if (!m_serverPreview || m_url.isEmpty()) {
+        return;
+    }
+    m_serverPreview = false;
+    m_downloadFull->hide();
+    updateFooter();
+    showMessage(i18nc("@info", "Loading preview…"));
+    setBusy(true);
+    startRemotePreview(m_url);
 }
 
 void PreviewPanel::showMedia(const QUrl &url, bool video)
@@ -1342,6 +1404,9 @@ void PreviewPanel::startMetadata()
 void PreviewPanel::updateFooter()
 {
     QStringList parts{m_baseFooter};
+    if (m_serverPreview) {
+        parts.append(i18nc("@info", "Preview from the server"));
+    }
     parts.append(m_metadataLabels);
     if (m_truncated) {
         parts.append(i18nc("@info", "Preview truncated."));
