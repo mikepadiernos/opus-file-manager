@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "documentformats.h"
+#include "settings.h"
 
 #include <QFile>
 #include <QScopeGuard>
@@ -19,6 +20,11 @@ private Q_SLOTS:
     void initTestCase()
     {
         QStandardPaths::setTestModeEnabled(true);
+    }
+
+    void init()
+    {
+        Settings::self()->setDefaults();
     }
 
     void classifiesFormats_data()
@@ -62,6 +68,17 @@ private Q_SLOTS:
         QVERIFY(DocumentFormats::missingViewerMessage(Kind::Office).contains(QStringLiteral("Calligra")));
         QVERIFY(DocumentFormats::missingViewerMessage(Kind::Pdf).contains(QStringLiteral("Okular")));
         QCOMPARE(DocumentFormats::missingViewerMessage(Kind::None), QStringLiteral("No document viewer is installed for this file type."));
+    }
+
+    void followsThePreviewSettings()
+    {
+        QVERIFY(DocumentFormats::previewEnabled(Kind::Office));
+        QVERIFY(DocumentFormats::previewEnabled(Kind::Pdf));
+        Settings::setOfficePreviews(false);
+        QVERIFY(!DocumentFormats::previewEnabled(Kind::Office));
+        QVERIFY(DocumentFormats::previewEnabled(Kind::Pdf));
+        QVERIFY(DocumentFormats::previewDisabledMessage(Kind::Office).contains(QStringLiteral("Preferences › Applications › Office")));
+        QVERIFY(DocumentFormats::previewDisabledMessage(Kind::Pdf).isEmpty());
     }
 
     void findsTheFontInstaller()

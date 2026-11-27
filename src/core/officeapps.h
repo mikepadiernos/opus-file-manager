@@ -7,6 +7,8 @@
 #include <QStringList>
 #include <QUrl>
 
+#include <optional>
+
 /**
  * Office documents and the separate office applications that open them.
  * Plasma Opus only previews these documents; editing happens in the chosen
@@ -45,6 +47,9 @@ QString executable(App app, Kind kind);
 QString desktopName(App app, Kind kind);
 /// Whether the application opens remote files itself, through KIO.
 bool opensRemoteFiles(App app);
+
+/// The application chosen under Preferences › Applications › Office, or none when Edit chooses one automatically.
+std::optional<App> preferredApp();
 
 /// The application's executable path for @p kind, or an empty string when it is not in PATH.
 QString findExecutable(App app, Kind kind);

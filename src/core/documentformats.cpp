@@ -2,6 +2,7 @@
 
 #include "documentformats.h"
 #include "officeapps.h"
+#include "settings.h"
 
 #include <KLocalizedString>
 
@@ -99,6 +100,28 @@ QString missingViewerMessage(Kind kind)
         break;
     }
     return i18nc("@info", "No document viewer is installed for this file type.");
+}
+
+bool previewEnabled(Kind kind)
+{
+    switch (kind) {
+    case Kind::Office:
+        return Settings::officePreviews();
+    default:
+        return true;
+    }
+}
+
+QString previewDisabledMessage(Kind kind)
+{
+    switch (kind) {
+    case Kind::Office:
+        return i18nc("@info",
+                     "Office document previews are off. Turn them on under Preferences › Applications › Office, or use Open in Office "
+                     "Application.");
+    default:
+        return {};
+    }
 }
 
 bool isInstallableFont(const QString &mimeType)

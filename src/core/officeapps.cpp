@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "officeapps.h"
+#include "settings.h"
 
 #include <KLocalizedString>
 
@@ -174,6 +175,20 @@ QString findExecutable(App app, Kind kind)
         return QStandardPaths::findExecutable(QStringLiteral("soffice"));
     }
     return found;
+}
+
+std::optional<App> preferredApp()
+{
+    switch (Settings::officeEditor()) {
+    case Settings::EnumOfficeEditor::LibreOffice:
+        return App::LibreOffice;
+    case Settings::EnumOfficeEditor::Calligra:
+        return App::Calligra;
+    case Settings::EnumOfficeEditor::OnlyOffice:
+        return App::OnlyOffice;
+    default:
+        return std::nullopt;
+    }
 }
 
 QString unavailableReason(App app, const QList<Kind> &kinds)

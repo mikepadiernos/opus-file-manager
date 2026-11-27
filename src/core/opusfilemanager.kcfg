@@ -901,6 +901,22 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="Office">
+    <entry name="OfficeEditor" type="Enum">
+      <label>Office application that Edit opens documents in</label>
+      <choices>
+        <choice name="Automatic"/>
+        <choice name="LibreOffice"/>
+        <choice name="Calligra"/>
+        <choice name="OnlyOffice"/>
+      </choices>
+      <default>Automatic</default>
+    </entry>
+    <entry name="OfficePreviews" type="Bool">
+      <label>Whether the preview panel shows office documents with an installed document viewer part</label>
+      <default>true</default>
+    </entry>
+  </group>
   <group name="Gallery">
     <entry name="ImageBackground" type="Enum">
       <label>Background for transparent images in preview and gallery</label>

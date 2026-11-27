@@ -70,7 +70,10 @@ struct Choice {
 };
 
 /**
- * The first available tool that edits @p url.
+ * The first available tool that edits @p url. For office documents, only
+ * the application chosen under Preferences › Applications › Office is
+ * considered when there is one; when it is missing, the error says so
+ * rather than another application opening the document.
  * @param error receives why no tool can edit it, naming tools to install
  * when none is available; the result is then empty
  */

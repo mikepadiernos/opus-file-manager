@@ -30,6 +30,10 @@ Kind kind(const QString &mimeType);
 bool usesDocumentViewer(const QString &mimeType);
 /// What to install when no viewer part handles @p kind.
 QString missingViewerMessage(Kind kind);
+/// Whether the preview panel previews @p kind, as chosen under Preferences › Applications.
+bool previewEnabled(Kind kind);
+/// Why the preview panel doesn't preview @p kind, and where to turn its previews on.
+QString previewDisabledMessage(Kind kind);
 
 /// Fonts larger than this aren't previewed, as Qt loads the whole file.
 constexpr qint64 FontPreviewLimit = 64 * 1024 * 1024;
