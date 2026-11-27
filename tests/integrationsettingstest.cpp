@@ -3,6 +3,7 @@
 #include "appidentity.h"
 #include "defaultfilemanager.h"
 #include "mainwindow.h"
+#include "portalsetup.h"
 #include "settingsdialog.h"
 
 #include <KConfig>
@@ -11,6 +12,7 @@
 #include <KFilePlacesView>
 #include <KMessageWidget>
 #include <KService>
+#include <KSharedConfig>
 #include <KSycoca>
 
 #include <QCoreApplication>
@@ -84,6 +86,33 @@ private:
         return QCoreApplication::applicationDirPath() + QLatin1Char('/') + AppIdentity::componentName();
     }
 
+    static PortalSetup::Paths portalPaths()
+    {
+        return PortalSetup::Paths::fromEnvironment(QCoreApplication::applicationDirPath() + QStringLiteral("/opus-file-manager-portal"));
+    }
+
+    /// Hooks that find xdg-desktop-portal when @p available, count restarts and answer the restart question with @p confirm.
+    void setPortalHooks(SettingsDialog &dialog, bool available, bool confirm = true, const QString &restartError = {})
+    {
+        m_restarts = 0;
+        m_questions.clear();
+        dialog.setPortalSetupHooks(
+            [available] {
+                return available;
+            },
+            [this, restartError] {
+                ++m_restarts;
+                return restartError;
+            },
+            [this, confirm](const QString &question) {
+                m_questions.append(question);
+                return confirm;
+            });
+    }
+
+    int m_restarts = 0;
+    QStringList m_questions;
+
 private Q_SLOTS:
     void initTestCase()
     {
@@ -104,6 +133,13 @@ private Q_SLOTS:
         QFile::remove(m_configHome + QStringLiteral("/kde-mimeapps.list"));
         QFile::remove(activationFile());
         KSycoca::self()->ensureCacheValid();
+        const PortalSetup::Paths paths = portalPaths();
+        QFile::remove(paths.portalFile());
+        QFile::remove(paths.serviceFile());
+        QFile::remove(paths.configFile());
+        KSharedConfig::openStateConfig()->deleteGroup(PortalSetup::backupGroupName());
+        KSharedConfig::openStateConfig()->sync();
+        qputenv("XDG_CURRENT_DESKTOP", "KDE");
     }
 
     void fileManagerTabIsOnTheKdePlasmaPage()
@@ -205,6 +241,99 @@ private Q_SLOTS:
         QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("installFileManagerActivation"))->isEnabled());
         QVERIFY(!dialog.findChild<QPushButton *>(QStringLiteral("removeFileManagerActivation"))->isEnabled());
         QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("fileManagerActivationStatus"))->text().contains(QStringLiteral("leaves it unchanged")));
+    }
+
+    void setsUpAndRestoresTheFileChooser()
+    {
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        setPortalHooks(dialog, true);
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("fileChooserPortalStatus"));
+        auto *install = dialog.findChild<QPushButton *>(QStringLiteral("installFileChooserPortal"));
+        auto *restore = dialog.findChild<QPushButton *>(QStringLiteral("restoreFileChooserPortal"));
+        auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("fileChooserPortalMessage"));
+        QCOMPARE(tabTitleOf(install), QStringLiteral("File Manager"));
+        QVERIFY(status->text().contains(QStringLiteral("system's own file chooser")));
+        QVERIFY(!status->text().contains(QStringLiteral("not installed")));
+        QCOMPARE(install->text(), QStringLiteral("Set Up"));
+        QVERIFY(install->isEnabled());
+        QVERIFY(!restore->isEnabled());
+
+        install->click();
+        QCOMPARE(m_questions.size(), 1);
+        QVERIFY(m_questions.constFirst().contains(QStringLiteral("closes file dialogs")));
+        QCOMPARE(m_restarts, 1);
+        QCOMPARE(message->messageType(), KMessageWidget::Positive);
+        QCOMPARE(PortalSetup::state(portalPaths()), PortalSetup::State::Installed);
+        QVERIFY(status->text().contains(QStringLiteral("Plasma Opus serves the system file chooser")));
+        QVERIFY(!install->isEnabled());
+        QVERIFY(restore->isEnabled());
+
+        restore->click();
+        QCOMPARE(m_restarts, 2);
+        QCOMPARE(message->messageType(), KMessageWidget::Positive);
+        QVERIFY(message->text().contains(QStringLiteral("previous system file chooser")));
+        QCOMPARE(PortalSetup::state(portalPaths()), PortalSetup::State::NotInstalled);
+        QVERIFY(!KSharedConfig::openStateConfig()->hasGroup(PortalSetup::backupGroupName()));
+        QVERIFY(install->isEnabled());
+        QVERIFY(!restore->isEnabled());
+    }
+
+    void changesNothingWhenTheRestartIsCanceled()
+    {
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        setPortalHooks(dialog, true, false);
+        dialog.findChild<QPushButton *>(QStringLiteral("installFileChooserPortal"))->click();
+        QCOMPARE(m_questions.size(), 1);
+        QCOMPARE(m_restarts, 0);
+        QCOMPARE(PortalSetup::state(portalPaths()), PortalSetup::State::NotInstalled);
+        QVERIFY(dialog.findChild<KMessageWidget *>(QStringLiteral("fileChooserPortalMessage"))->isHidden());
+    }
+
+    void completesAndRestoresAPartialSetupWithoutThePortal()
+    {
+        write(portalPaths().portalFile(), PortalSetup::portalFileContent());
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        setPortalHooks(dialog, false);
+        auto *status = dialog.findChild<QLabel *>(QStringLiteral("fileChooserPortalStatus"));
+        auto *install = dialog.findChild<QPushButton *>(QStringLiteral("installFileChooserPortal"));
+        auto *restore = dialog.findChild<QPushButton *>(QStringLiteral("restoreFileChooserPortal"));
+        QCOMPARE(install->text(), QStringLiteral("Complete Setup"));
+        QVERIFY(!install->isEnabled());
+        QVERIFY(status->text().contains(QStringLiteral("partly set up")));
+        QVERIFY(status->text().contains(QStringLiteral("xdg-desktop-portal is not available")));
+
+        setPortalHooks(dialog, true);
+        QVERIFY(install->isEnabled());
+        QVERIFY(restore->isEnabled());
+        setPortalHooks(dialog, false);
+        restore->click();
+        QCOMPARE(m_restarts, 1);
+        QCOMPARE(PortalSetup::state(portalPaths()), PortalSetup::State::NotInstalled);
+    }
+
+    void reportsAFailedRestart()
+    {
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        setPortalHooks(dialog, true, true, QStringLiteral("Could not restart xdg-desktop-portal."));
+        dialog.findChild<QPushButton *>(QStringLiteral("installFileChooserPortal"))->click();
+        auto *message = dialog.findChild<KMessageWidget *>(QStringLiteral("fileChooserPortalMessage"));
+        QCOMPARE(message->messageType(), KMessageWidget::Warning);
+        QVERIFY(message->text().contains(QStringLiteral("Could not restart xdg-desktop-portal.")));
+        QVERIFY(message->text().contains(QStringLiteral("Log out")));
+        QCOMPARE(PortalSetup::state(portalPaths()), PortalSetup::State::Installed);
+    }
+
+    void notesASessionOutsidePlasma()
+    {
+        qputenv("XDG_CURRENT_DESKTOP", "GNOME");
+        MainWindow window;
+        SettingsDialog dialog(placesOf(window), &window);
+        setPortalHooks(dialog, true);
+        QVERIFY(dialog.findChild<QLabel *>(QStringLiteral("fileChooserPortalStatus"))->text().contains(QStringLiteral("not a Plasma session")));
     }
 };
 

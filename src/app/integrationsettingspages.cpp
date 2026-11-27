@@ -5,14 +5,19 @@
 #include "appidentity.h"
 #include "defaultfilemanager.h"
 #include "filemanagerservice.h"
+#include "portalsetup.h"
 
+#include <KConfigGroup>
 #include <KIO/CommandLauncherJob>
 #include <KLocalizedString>
+#include <KMessageBox>
 #include <KMessageWidget>
 #include <KPluginMetaData>
 #include <KService>
+#include <KSharedConfig>
 
-#include <QCoreApplication>
+#include <QApplication>
+#include <QFileInfo>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -136,6 +141,19 @@ QString activationStatus(DefaultFileManager::Activation state, const QString &ta
     }
     return {};
 }
+
+PortalSetup::Paths portalPaths()
+{
+    return PortalSetup::Paths::fromEnvironment(QCoreApplication::applicationDirPath() + QStringLiteral("/opus-file-manager-portal"));
+}
+
+/// The backup of the previous portal configuration, which opus-file-manager --install-portal may also have written.
+KConfigGroup portalBackup()
+{
+    const KSharedConfigPtr state = KSharedConfig::openStateConfig();
+    state->reparseConfiguration();
+    return state->group(PortalSetup::backupGroupName());
+}
 }
 
 QWidget *SettingsDialog::createFileManagerIntegrationPage()
@@ -144,6 +162,7 @@ QWidget *SettingsDialog::createFileManagerIntegrationPage()
     page->setObjectName(QStringLiteral("fileManagerIntegrationPage"));
     auto *layout = new QVBoxLayout(page);
     layout->addWidget(createDefaultFileManagerGroup());
+    layout->addWidget(createFileChooserGroup());
     layout->addStretch();
     return page;
 }
@@ -267,4 +286,119 @@ QGroupBox *SettingsDialog::createDefaultFileManagerGroup()
     });
     group->refresh();
     return group;
+}
+
+QGroupBox *SettingsDialog::createFileChooserGroup()
+{
+    if (!m_portalAvailable) {
+        m_portalAvailable = PortalSetup::portalServiceAvailable;
+        m_restartPortal = PortalSetup::restartPortal;
+        m_confirmPortalRestart = [this](const QString &question) {
+            return KMessageBox::warningContinueCancel(this,
+                                                      question,
+                                                      i18nc("@title:window", "Restart the File Chooser Service"),
+                                                      KGuiItem(i18nc("@action:button", "Restart"), QStringLiteral("view-refresh")))
+                == KMessageBox::Continue;
+        };
+    }
+    auto *group = new StatusGroup(i18nc("@title:group", "System File Chooser"));
+    group->setObjectName(QStringLiteral("fileChooserGroup"));
+    auto *layout = new QVBoxLayout(group);
+    auto *status = statusLabel(QStringLiteral("fileChooserPortalStatus"));
+    auto *install = actionButton(QStringLiteral("installFileChooserPortal"), i18nc("@action:button", "Set Up"));
+    install->setToolTip(i18nc("@info:tooltip", "Show the Plasma Opus file chooser when applications that use the XDG portal open or save files"));
+    auto *restore = actionButton(QStringLiteral("restoreFileChooserPortal"), i18nc("@action:button", "Restore Previous Chooser"));
+    restore->setToolTip(i18nc("@info:tooltip", "Show the file chooser that applications used before the Plasma Opus file chooser was set up"));
+    auto *message = messageWidget(QStringLiteral("fileChooserPortalMessage"));
+    layout->addWidget(status);
+    layout->addLayout(buttonRow({install, restore}));
+    layout->addWidget(message);
+
+    group->refresh = [=, this] {
+        const PortalSetup::Paths paths = portalPaths();
+        const PortalSetup::State state = PortalSetup::state(paths);
+        QStringList text;
+        switch (state) {
+        case PortalSetup::State::Installed:
+            text.append(i18nc("@info", "Plasma Opus serves the system file chooser, so applications that use the XDG portal show it to open and save files."));
+            break;
+        case PortalSetup::State::NotInstalled:
+            text.append(i18nc("@info",
+                              "Applications that use the XDG portal show the system's own file chooser. Set up the Plasma Opus file chooser to "
+                              "show it instead."));
+            break;
+        case PortalSetup::State::Partial:
+            text.append(i18nc("@info",
+                              "The Plasma Opus file chooser is only partly set up, for example because the portal configuration was changed after "
+                              "setup. Complete the setup, or restore the previous chooser."));
+            break;
+        }
+        const QFileInfo helper(paths.helperExecutable);
+        const bool helperInstalled = helper.isFile() && helper.isExecutable();
+        if (!helperInstalled) {
+            text.append(i18nc("@info", "The file chooser service %1 is not installed. Install Plasma Opus with install.sh first.", paths.helperExecutable));
+        }
+        const bool available = m_portalAvailable();
+        if (!available) {
+            text.append(i18nc("@info", "xdg-desktop-portal is not available on the session bus, so applications cannot use the Plasma Opus file chooser."));
+        }
+        if (!PortalSetup::readsKdeConfig(QString::fromLocal8Bit(qgetenv("XDG_CURRENT_DESKTOP")))) {
+            text.append(i18nc("@info",
+                              "This is not a Plasma session, and xdg-desktop-portal follows this setting only in Plasma sessions, so "
+                              "applications here keep their usual chooser."));
+        }
+        status->setText(text.join(QLatin1Char(' ')));
+        install->setText(state == PortalSetup::State::Partial ? i18nc("@action:button", "Complete Setup") : i18nc("@action:button", "Set Up"));
+        install->setEnabled(state != PortalSetup::State::Installed && helperInstalled && available);
+        restore->setEnabled(state != PortalSetup::State::NotInstalled || portalBackup().exists());
+    };
+
+    const auto apply = [=, this](PortalSetup::Change change) {
+        const bool installing = change == PortalSetup::Change::Install;
+        const QString question = installing ? i18nc("@info",
+                                                    "Setting up the file chooser restarts xdg-desktop-portal, which closes file dialogs that "
+                                                    "are open in other applications. Continue?")
+                                            : i18nc("@info",
+                                                    "Restoring the previous file chooser restarts xdg-desktop-portal, which closes file dialogs "
+                                                    "that are open in other applications. Continue?");
+        if (!m_confirmPortalRestart(question)) {
+            return;
+        }
+        KConfigGroup backup = portalBackup();
+        QApplication::setOverrideCursor(Qt::WaitCursor);
+        const PortalSetup::Outcome outcome = PortalSetup::change(change, portalPaths(), backup, !installing || m_portalAvailable(), m_restartPortal);
+        QApplication::restoreOverrideCursor();
+        const QString done = installing ? i18nc("@info", "Plasma Opus now serves the system file chooser for applications that use the XDG portal.")
+                                        : i18nc("@info", "The previous system file chooser was restored.");
+        if (!outcome.error.isEmpty()) {
+            report(message, KMessageWidget::Error, outcome.error);
+        } else if (!outcome.changed) {
+            report(message, KMessageWidget::Information, i18nc("@info", "The Plasma Opus file chooser is not set up. Nothing was changed."));
+        } else if (!outcome.restartError.isEmpty()) {
+            report(message,
+                   KMessageWidget::Warning,
+                   done + QLatin1Char(' ') + outcome.restartError + QLatin1Char(' ') + i18nc("@info", "Log out and back in to apply the change."));
+        } else {
+            report(message, KMessageWidget::Positive, done);
+        }
+        group->refresh();
+    };
+    connect(install, &QPushButton::clicked, group, [apply] {
+        apply(PortalSetup::Change::Install);
+    });
+    connect(restore, &QPushButton::clicked, group, [apply] {
+        apply(PortalSetup::Change::Uninstall);
+    });
+    group->refresh();
+    return group;
+}
+
+void SettingsDialog::setPortalSetupHooks(std::function<bool()> available, std::function<QString()> restart, std::function<bool(const QString &)> confirm)
+{
+    m_portalAvailable = std::move(available);
+    m_restartPortal = std::move(restart);
+    m_confirmPortalRestart = std::move(confirm);
+    if (auto *group = findChild<QGroupBox *>(QStringLiteral("fileChooserGroup"))) {
+        static_cast<StatusGroup *>(group)->refresh();
+    }
 }

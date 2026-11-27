@@ -88,6 +88,12 @@ public:
     void resetYaziModeToDefaults();
     /// Replaces the yes or no question asked before Restore Yazi Mode Defaults, for tests.
     void setYaziResetConfirmation(std::function<bool(const QString &)> confirm);
+    /**
+     * Replaces how KDE Plasma › File Manager checks for and restarts
+     * xdg-desktop-portal, and the question asked before restarting it, for tests.
+     * @p restart returns an error message, or an empty string on success.
+     */
+    void setPortalSetupHooks(std::function<bool()> available, std::function<QString()> restart, std::function<bool(const QString &)> confirm);
     /// The theme profile options shown in the dialog, which may not be applied yet.
     QVariantMap appearanceValues() const;
     /// Shows Themes options in the dialog without applying them.
@@ -271,6 +277,7 @@ private:
     /// The KDE Plasma › File Manager tab: the default file manager and the system file chooser.
     QWidget *createFileManagerIntegrationPage();
     QGroupBox *createDefaultFileManagerGroup();
+    QGroupBox *createFileChooserGroup();
     void createSettingsBackup();
     void restoreSettingsBackup();
     void exportWorkspaceProfiles();
@@ -318,6 +325,9 @@ private:
     int m_confirmedYaziKeyPreset = -1;
     std::function<bool(const QString &, const QStringList &)> m_confirmYaziKeys;
     std::function<bool(const QString &)> m_confirmYaziReset;
+    std::function<bool()> m_portalAvailable;
+    std::function<QString()> m_restartPortal;
+    std::function<bool(const QString &)> m_confirmPortalRestart;
     /// Whether Yazi mode defaults were restored since the settings were last applied or reloaded.
     bool m_yaziResetPending = false;
     /// A checkbox for a setting kept outside Settings, in config that KIO
