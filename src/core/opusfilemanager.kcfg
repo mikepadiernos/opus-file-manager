@@ -701,6 +701,16 @@
       <default></default>
     </entry>
   </group>
+  <group name="MountManager">
+    <entry name="MountRemovableOnly" type="Bool">
+      <label>List only removable devices in Go › Mount Points and when the Mount Manager opens</label>
+      <default>true</default>
+    </entry>
+    <entry name="MountHideSystem" type="Bool">
+      <label>Leave pseudo, snap, container and other system file systems out of the Mount Manager and Go › Mount Points</label>
+      <default>true</default>
+    </entry>
+  </group>
   <group name="OnlineAccounts">
     <entry name="OnlineAccountsEnabled" type="Bool">
       <label>Show the folders of KDE Online Accounts in Plasma Opus</label>

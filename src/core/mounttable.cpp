@@ -176,15 +176,17 @@ bool isUserMountable(const QStringList &options)
     });
 }
 
-QList<Entry> merge(const QList<Mounted> &mounted, const QList<Defined> &defined, const std::function<QString(const QString &)> &resolve)
+QList<Entry> merge(const QList<Mounted> &mounted, const QList<Defined> &defined, const std::function<QString(const QString &)> &resolve, bool includeSystem)
 {
     QList<Entry> entries;
     QHash<QString, qsizetype> byMountPoint;
     for (const Mounted &mount : mounted) {
-        if (isSystemMount(mount.type, mount.mountPoint)) {
+        const bool system = isSystemMount(mount.type, mount.mountPoint);
+        if (system && !includeSystem) {
             continue;
         }
         Entry entry;
+        entry.system = system;
         entry.device = mount.source;
         entry.mountPoint = mount.mountPoint;
         entry.type = mount.type;
@@ -196,7 +198,8 @@ QList<Entry> merge(const QList<Mounted> &mounted, const QList<Defined> &defined,
     }
     for (const Defined &definition : defined) {
         const QString mountPoint = QDir::cleanPath(definition.mountPoint);
-        if (isSystemMount(definition.type, mountPoint)) {
+        const bool system = isSystemMount(definition.type, mountPoint);
+        if (system && !includeSystem) {
             continue;
         }
         const auto existing = byMountPoint.constFind(mountPoint);
@@ -214,6 +217,7 @@ QList<Entry> merge(const QList<Mounted> &mounted, const QList<Defined> &defined,
         entry.kind = kindOf(definition.type);
         entry.inFstab = true;
         entry.userMountable = isUserMountable(definition.options);
+        entry.system = system;
         byMountPoint.insert(mountPoint, entries.size());
         entries.append(entry);
     }

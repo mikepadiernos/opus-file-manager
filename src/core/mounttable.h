@@ -56,6 +56,8 @@ struct Entry {
     bool inFstab = false;
     /// Whether fstab lets an ordinary user mount it, with user, users, owner or group.
     bool userMountable = false;
+    /// Whether it is a system mount, as isSystemMount() decides.
+    bool system = false;
 
     bool operator==(const Entry &other) const = default;
 };
@@ -84,10 +86,12 @@ bool isSystemMount(const QString &type, const QString &mountPoint);
 bool isUserMountable(const QStringList &options);
 
 /// Merges mounted and fstab-defined file systems by mount point, leaving out
-/// system mounts. @p resolve maps an fstab device, such as UUID=…, to the
-/// device node it names so it can be shown; it may be empty. Entries are
-/// sorted by mount point.
-QList<Entry> merge(const QList<Mounted> &mounted, const QList<Defined> &defined, const std::function<QString(const QString &)> &resolve = {});
+/// system mounts unless @p includeSystem is set, which marks them as system.
+/// @p resolve maps an fstab device, such as UUID=…, to the device node it
+/// names so it can be shown; it may be empty. Entries are sorted by mount
+/// point.
+QList<Entry>
+merge(const QList<Mounted> &mounted, const QList<Defined> &defined, const std::function<QString(const QString &)> &resolve = {}, bool includeSystem = false);
 
 /// Maps UUID=, LABEL=, PARTUUID= and PARTLABEL= to their /dev/disk/by-* link
 /// and resolves it to the device node, or returns @p spec unchanged.
