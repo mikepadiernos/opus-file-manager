@@ -1031,6 +1031,11 @@ void Scheduler::setRcloneOptions(const QStringList &options)
     m_rcloneOptions = options;
 }
 
+QStringList Scheduler::rcloneOptions() const
+{
+    return m_rcloneOptions;
+}
+
 bool Scheduler::pausesOnMeteredConnections() const
 {
     return m_config->group(QStringLiteral("CloudSync")).readEntry("PauseOnMeteredConnections", true);

@@ -316,6 +316,11 @@ void RcloneMounts::setMountOptions(const QStringList &options)
     m_options = options;
 }
 
+QStringList RcloneMounts::mountOptions() const
+{
+    return m_options;
+}
+
 void RcloneMounts::listRemotes()
 {
     if (m_lister) {

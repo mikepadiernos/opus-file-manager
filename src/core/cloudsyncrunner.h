@@ -204,6 +204,7 @@ public:
     void setBackgroundPaused(bool paused);
     /// Options added to the rclone commands of later runs.
     void setRcloneOptions(const QStringList &options);
+    QStringList rcloneOptions() const;
     /// Replaces how metered connections are detected, for tests.
     void setMeteredCheck(std::function<bool()> check);
     /// Adjusts each runner before it starts, for tests.

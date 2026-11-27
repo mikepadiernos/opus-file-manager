@@ -117,6 +117,7 @@ public:
     void setTimeout(int milliseconds);
     /// Sets the cache and transfer options of later mounts and servers.
     void setMountOptions(const QStringList &options);
+    QStringList mountOptions() const;
 
     /**
      * Mounts @p remote, emitting mounted() or failed(). Mounting a mounted

@@ -42,10 +42,16 @@ struct Limits {
     /// The size limit of the cache that keeps opened files of mounted remotes,
     /// in MiB, or 0 to cache only files being written.
     int cacheMiB = 0;
+    /// How long, in hours, files that aren't in use stay in that cache, as
+    /// long as it is under its size limit. Used only with a size limit.
+    int cacheMaxAgeHours = 1;
 
     bool operator==(const Limits &other) const = default;
 };
 
+/// The group of the main configuration that holds the limits, which
+/// Preferences › Remote and Cloud › Transfers and Cache also edits.
+QString limitsGroupName();
 Limits loadLimits(const KConfigGroup &group);
 void saveLimits(KConfigGroup group, const Limits &limits);
 

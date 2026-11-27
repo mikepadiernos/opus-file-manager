@@ -1923,4 +1923,35 @@
       <max>1440</max>
     </entry>
   </group>
+  <!-- The limit keys are also read and written by CloudActivity::loadLimits() and the Cloud Activity window. -->
+  <group name="CloudActivity">
+    <entry name="CloudBandwidthLimitKiB" key="BandwidthLimitKiB" type="Int">
+      <label>The bandwidth limit of rclone mounts and rclone sync pairs, in KiB/s, or 0 for no limit</label>
+      <default>0</default>
+      <min>0</min>
+      <max>1048576</max>
+    </entry>
+    <entry name="CloudParallelTransfers" key="ParallelTransfers" type="Int">
+      <label>The number of files rclone mounts and rclone sync pairs transfer at once</label>
+      <default>4</default>
+      <min>1</min>
+      <max>32</max>
+    </entry>
+    <entry name="CloudCacheSizeMiB" key="CacheSizeMiB" type="Int">
+      <label>The size limit of the cache that keeps opened files of mounted rclone remotes, in MiB, or 0 to cache only files being written</label>
+      <default>0</default>
+      <min>0</min>
+      <max>1048576</max>
+    </entry>
+    <entry name="CloudCacheMaxAgeHours" key="CacheMaxAgeHours" type="Int">
+      <label>How long, in hours, files not in use stay in the cache of mounted rclone remotes</label>
+      <default>1</default>
+      <min>1</min>
+      <max>8760</max>
+    </entry>
+    <entry name="CloudActivityInTray" key="ShowInTray" type="Bool">
+      <label>Whether the system tray menu offers Cloud Activity</label>
+      <default>true</default>
+    </entry>
+  </group>
 </kcfg>

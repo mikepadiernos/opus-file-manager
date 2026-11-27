@@ -4,6 +4,7 @@
 
 #include "cloudsyncrunner.h"
 #include "rclone.h"
+#include "settings.h"
 #include "transferqueue.h"
 
 #include <KConfig>
@@ -12,6 +13,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QScopeGuard>
 #include <QSignalSpy>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -97,13 +99,54 @@ private Q_SLOTS:
         limits.bandwidthKiB = 512;
         limits.parallelTransfers = 8;
         limits.cacheMiB = 2048;
+        limits.cacheMaxAgeHours = 168;
         CloudActivity::saveLimits(group, limits);
         QCOMPARE(CloudActivity::loadLimits(group), limits);
 
         group.writeEntry("ParallelTransfers", 0);
         group.writeEntry("BandwidthLimitKiB", -5);
+        group.writeEntry("CacheMaxAgeHours", 0);
         QCOMPARE(CloudActivity::loadLimits(group).parallelTransfers, 1);
         QCOMPARE(CloudActivity::loadLimits(group).bandwidthKiB, 0);
+        QCOMPARE(CloudActivity::loadLimits(group).cacheMaxAgeHours, 1);
+        group.writeEntry("CacheMaxAgeHours", 100000);
+        QCOMPARE(CloudActivity::loadLimits(group).cacheMaxAgeHours, 8760);
+    }
+
+    void sharesTheLimitsWithTheSettings()
+    {
+        // Preferences › Remote and Cloud › Transfers and Cache edits the same keys.
+        const auto restore = qScopeGuard([] {
+            Settings::self()->setDefaults();
+            Settings::self()->save();
+        });
+        const auto limits = [] {
+            return CloudActivity::loadLimits(KSharedConfig::openConfig()->group(CloudActivity::limitsGroupName()));
+        };
+        Settings::self()->setDefaults();
+        Settings::self()->save();
+        QCOMPARE(limits(), CloudActivity::Limits());
+        QCOMPARE(Settings::cloudBandwidthLimitKiB(), CloudActivity::Limits().bandwidthKiB);
+        QCOMPARE(Settings::cloudParallelTransfers(), CloudActivity::Limits().parallelTransfers);
+        QCOMPARE(Settings::cloudCacheSizeMiB(), CloudActivity::Limits().cacheMiB);
+        QCOMPARE(Settings::cloudCacheMaxAgeHours(), CloudActivity::Limits().cacheMaxAgeHours);
+
+        Settings::setCloudBandwidthLimitKiB(300);
+        Settings::setCloudParallelTransfers(6);
+        Settings::setCloudCacheSizeMiB(4096);
+        Settings::setCloudCacheMaxAgeHours(48);
+        Settings::self()->save();
+        QCOMPARE(limits().bandwidthKiB, 300);
+        QCOMPARE(limits().parallelTransfers, 6);
+        QCOMPARE(limits().cacheMiB, 4096);
+        QCOMPARE(limits().cacheMaxAgeHours, 48);
+
+        CloudActivity::Limits saved;
+        saved.bandwidthKiB = 128;
+        CloudActivity::saveLimits(KSharedConfig::openConfig()->group(CloudActivity::limitsGroupName()), saved);
+        Settings::self()->load();
+        QCOMPARE(Settings::cloudBandwidthLimitKiB(), 128);
+        QCOMPARE(Settings::cloudCacheMaxAgeHours(), 1);
     }
 
     void buildsRcloneOptions()
@@ -121,6 +164,7 @@ private Q_SLOTS:
         limits.bandwidthKiB = 256;
         limits.parallelTransfers = 2;
         limits.cacheMiB = 1024;
+        limits.cacheMaxAgeHours = 72;
         const QStringList mount = CloudActivity::rcloneMountOptions(limits, QStringLiteral("/cache"));
         QCOMPARE(mount,
                  (QStringList{QStringLiteral("--cache-dir"),
@@ -129,6 +173,8 @@ private Q_SLOTS:
                               QStringLiteral("full"),
                               QStringLiteral("--vfs-cache-max-size"),
                               QStringLiteral("1024M"),
+                              QStringLiteral("--vfs-cache-max-age"),
+                              QStringLiteral("72h"),
                               QStringLiteral("--transfers"),
                               QStringLiteral("2"),
                               QStringLiteral("--bwlimit"),
