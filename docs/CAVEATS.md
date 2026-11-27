@@ -2182,19 +2182,18 @@ The M27 desktop integrations have these limits
   ([#288](https://github.com/mikepadiernos/plasma-opus/issues/288))
 - **🤖 MCP server:** `opus-file-manager-mcp` speaks only the stdio
   transport, so a client must run on the same computer and start the server
-  itself; there is no HTTP transport or access token. Until the M28 settings
-  page, access, folders and the audit log are changed only in
-  `opus-file-managerrc`, and a running server keeps the settings it started
-  with. It reads only UTF-8 text, at most 1 MiB per call, and refuses binary
-  files and other encodings. Listings and searches return at most 1,000
-  items, and a search stops after visiting 200,000 entries. Moves work only
-  within one file system, and a failed folder copy leaves a partial copy.
-  Items outside the allowed folders, including the targets of symbolic links,
-  are refused, but links copied inside a folder keep pointing where they did.
-  Tools work on local files only, not KIO locations, and changes are made
-  directly rather than as Plasma Opus jobs, so they can't be undone in Plasma
-  Opus. The audit log records paths but no contents, and grows until it is
-  deleted.
+  itself; there is no HTTP transport, so no access token is used. Access,
+  folders and the audit log are set under **Preferences › Security › MCP**
+  ([MCP settings](#integration-settings)). It reads only UTF-8 text, at most
+  1 MiB per call, and refuses binary files and other encodings. Listings and
+  searches return at most 1,000 items, and a search stops after visiting
+  200,000 entries. Moves work only within one file system, and a failed folder
+  copy leaves a partial copy. Items outside the allowed folders, including the
+  targets of symbolic links, are refused, but links copied inside a folder keep
+  pointing where they did. Tools work on local files only, not KIO locations,
+  and changes are made directly rather than as Plasma Opus jobs, so they can't
+  be undone in Plasma Opus. The audit log records paths but no contents, and
+  grows until it is deleted.
   ([#287](https://github.com/mikepadiernos/plasma-opus/issues/287))
 - **🔐 Plasma Vault:** **Go › Plasma Vaults** needs Plasma Vault and its
   kded6 module, and reports Plasma Vault as unavailable without them; opening
@@ -2584,10 +2583,10 @@ The M27 desktop integrations have these limits
     normal terminal instead. Lock the screen when leaving the computer,
     because Polkit may keep the authorization for a short time.
   - **MCP server:** Keep the default read-only access, and allow only the
-    folders a client needs, such as a single project folder. Turn on write
-    access only while a task needs it, start other clients with
-    `--read-only`, and restart the client after changing the settings.
-    Check `~/.local/state/opus-file-manager/mcp-audit.log` to see what a
+    folders a client needs, such as a single project folder, under
+    **Preferences › Security › MCP**. Turn on write access only while a task
+    needs it, start other clients with `--read-only`, and restart the client
+    after raising the access. Choose **Show Audit Log** there to see what a
     client did, restore items from the trash, and move large files between
     drives yourself.
   - **Plasma Vault:** Install Plasma Vault and a backend such as gocryptfs
@@ -2739,10 +2738,10 @@ The M27 desktop integrations have these limits
   - Mark administrator tabs in the tab bar, offer **Open as Administrator**
     for a selected folder in a new tab, and allow trash, checksums and other
     local-file actions through the `admin:` worker where KIO supports them.
-  - The M28 **MCP** settings page, with folder choices and an access token;
-    an optional Streamable HTTP transport on the loopback interface; reading
-    other text encodings and images; moving between file systems through KIO
-    jobs that can be undone; and a size limit for the audit log.
+  - An optional Streamable HTTP transport on the loopback interface, with an
+    access token kept in KWallet; reading other text encodings and images;
+    moving between file systems through KIO jobs that can be undone; and a
+    size limit for the audit log.
 
 ## Integration settings
 
@@ -3402,6 +3401,20 @@ The M28 integration settings have these limits
   interfaces are tested with loopback and fake interfaces ([Plasma
   check](TODO.md#lan-sharing-settings-on-plasma-664)).
   ([#664](https://github.com/mikepadiernos/plasma-opus/issues/664))
+- **🛂 MCP settings:** **Preferences › Security › MCP** sets what
+  `opus-file-manager-mcp` lets MCP clients do, the folders they may use and the
+  audit log for every client at once; only the `--read-only` option limits a
+  single client. Running servers read the settings again for each request, so
+  lowering the access or removing a folder applies to the next request, but a
+  client lists the tools added by raising the access only after it restarts the
+  server, which does not announce tool changes. There is no access token: any
+  program running as you can start the server, and could read your files
+  anyway, so the settings limit what clients are offered rather than what local
+  programs can do. Folders that don't exist are skipped, and password-protected
+  folders are refused even while unlocked in Plasma Opus. **Show Audit Log**
+  selects the log in a new tab of the main window once a call is recorded; the
+  log is never rotated or cleared.
+  ([#294](https://github.com/mikepadiernos/plasma-opus/issues/294))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3640,6 +3653,12 @@ The M28 integration settings have these limits
     needs a rule for it, and allow uploads by default only if you often receive
     files, into a dedicated folder rather than Downloads. Choose **Browsers
     only** when no one connects with a file manager.
+  - **MCP settings:** Keep **Read files and folders** and add only the folders
+    a client needs, such as one project folder, under **Preferences › Security
+    › MCP**. Choose **Read and change files and folders** only while a task
+    needs it, add `--read-only` to the configuration of clients that only
+    read, and restart a client after raising the access. Keep the audit log on,
+    check it with **Show Audit Log** and delete it when it grows large.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3757,6 +3776,9 @@ The M28 integration settings have these limits
     the next port when the fixed port is in use, report in Preferences when the
     port is already taken, and offer sharing until the window closes without a
     time limit.
+  - Announce tool changes to running MCP clients when the access changes,
+    choose the access and folders for each client, and rotate or limit the
+    audit log and view it in Preferences.
 
 ## Embedded terminal
 
