@@ -3969,6 +3969,26 @@ The M29 Nextcloud integration has these limits
   a fake server
   ([real-server check](TODO.md#nextcloud-shares-on-a-real-server-591)).
   ([#591](https://github.com/mikepadiernos/plasma-opus/issues/591))
+- **🖥️ Nextcloud desktop client:** **Go › Nextcloud › Desktop Client** reads
+  only the client's configuration in `~/.config/Nextcloud/nextcloud.cfg` and
+  its local socket in `$XDG_RUNTIME_DIR/Nextcloud/socket`, so the Flatpak and
+  Snap builds of the client, ownCloud's client and a client with another
+  configuration folder aren't found; the submenu is shown only when the
+  configuration exists or the client is installed. Each folder's status is
+  asked once each time **Go › Nextcloud** opens and isn't updated while the
+  menu stays open. It is the folder's overall status: files' status, conflicts,
+  the client's sign-in state and its error messages aren't shown, and a folder
+  reached through a symbolic link can report **Unknown**. A folder with
+  virtual files is called **Remote** even when some files are already
+  downloaded, and **Offline** covers both a client that isn't running and a
+  folder paused in the configuration, which the client may write only after a
+  while. **Open on Server** needs an account added to Plasma Opus with the
+  same server address and user. **Open Desktop Client** starts the client when
+  it isn't running; synchronization is paused, resumed and set up only in the
+  client. The configuration keys and socket messages follow the client's
+  source and are checked only against a recorded configuration and a fake
+  socket ([Plasma check](TODO.md#nextcloud-desktop-client-on-plasma-592)).
+  ([#592](https://github.com/mikepadiernos/plasma-opus/issues/592))
 
 - **Recommendation:**
   - **Nextcloud accounts:** Sign in under **Go › Nextcloud › Manage
@@ -4015,6 +4035,15 @@ The M29 Nextcloud integration has these limits
     Review **Shared by me** now and then and revoke links no longer needed.
     Manage email, federated and Talk shares, labels and notes in the web
     interface.
+  - **Nextcloud desktop client:** Open synchronized folders from **Go ›
+    Nextcloud › Desktop Client**, and read a folder's state before working
+    without a connection: only **Local** folders hold full copies, while files
+    in **Remote** folders open only when the server can be reached, unless the
+    client has made them available offline. When a folder shows **Offline**,
+    choose **Open Desktop Client** to start the client, and pause, resume or
+    add folders there. Add the same account under **Manage Nextcloud
+    Accounts…** to also open the server's copy, and keep two-way cloud sync
+    pairs out of the client's folders.
   - Comment:
     [#767.7225982354](https://github.com/mikepadiernos/plasma-opus/issues/767#issuecomment-7225982354)
 - **Proposed improvements:**
@@ -4041,6 +4070,10 @@ The M29 Nextcloud integration has these limits
     notes, hidden downloads and email shares, enforce the server's expiry
     rules for user and group shares, read the server's response to a change
     directly, and accept or leave shares with you.
+  - Find the Flatpak and Snap builds of the desktop client, update folder
+    status while the menu is open, show files' status in the panes, report
+    the client's sign-in state and errors, and tell downloaded virtual files
+    from those still on the server.
 
 ## Embedded terminal
 
