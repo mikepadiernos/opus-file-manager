@@ -2121,26 +2121,26 @@ The M27 desktop integrations have these limits
   snapshot, runs aren't added to KIO's undo history, and canceling or an
   error leaves the files already transferred changed.
   ([#363](https://github.com/mikepadiernos/plasma-opus/issues/363))
-- **🔄 Cloud sync:** Pairs synchronize only while Plasma Opus runs;
-  **Synchronize in the background after login** starts it in the system
-  tray. Each run of a network-folder pair lists both folders in full and
-  compares sizes and modification times, not contents, so an edit that
-  keeps the size and time is missed, and a remote that changes modification
-  times, or an interrupted upload, can cause conflicts on the next run.
-  Renamed files are detected, but a renamed folder is copied anew and the old
-  one deleted. **Keep Both** saves the remote version beside the local file,
-  and the next run uploads that copy. A file and a folder with the same name
-  are left for you to rename, and a remote subfolder that can't be read is
-  skipped for that run. rclone pairs use `rclone bisync`: the first run and
-  any filter change need `--resync`, which copies newer files both ways
-  without deleting anything; the review shows a dry run, so changes made
-  after it are synchronized too; and the report gives no counts. Excluding a
-  nested pair whose folder name contains `*`, `?` or `[` fails for rclone
-  pairs. Only Nextcloud, ownCloud, Syncthing and Dropbox folders are
-  recognized as owned by another client. There are no desktop
-  notifications: runs that need review or found conflicts are shown in the
-  tray and the status bar. Pausing on metered connections relies on Qt's
-  network information, usually from NetworkManager.
+- **🔄 Cloud sync:** Pairs synchronize only while Plasma Opus runs; **Synchronize
+  in the background after login**, or the matching setting under **Preferences ›
+  Remote and Cloud › Sync**, starts it in the system tray, as described under
+  [Cloud sync settings](#integration-settings). Each run of a network-folder
+  pair lists both folders in full and compares sizes and modification times, not
+  contents, so an edit that keeps the size and time is missed, and a remote that
+  changes modification times, or an interrupted upload, can cause conflicts on
+  the next run. Renamed files are detected, but a renamed folder is copied anew
+  and the old one deleted. **Keep Both** saves the remote version beside the
+  local file, and the next run uploads that copy. A file and a folder with the
+  same name are left for you to rename, and a remote subfolder that can't be
+  read is skipped for that run. rclone pairs use `rclone bisync`: the first run
+  and any filter change need `--resync`, which copies newer files both ways
+  without deleting anything; the review shows a dry run, so changes made after
+  it are synchronized too; and the report gives no counts. Excluding a nested
+  pair whose folder name contains `*`, `?` or `[` fails for rclone pairs. Only
+  Nextcloud, ownCloud, Syncthing and Dropbox folders are recognized as owned by
+  another client. There are no desktop notifications: runs that need review or
+  found conflicts are shown in the tray and the status bar. Pausing on metered
+  connections relies on Qt's network information, usually from NetworkManager.
   ([#718](https://github.com/mikepadiernos/plasma-opus/issues/718))
 - **📊 Cloud activity:** Speeds and remaining times are shown only for
   transfers in the transfer queue; rclone mounts and sync runs show their
@@ -2547,16 +2547,16 @@ The M27 desktop integrations have these limits
     changes in the confirmation's details, and compare again after each run;
     for changes in both directions, run two plans. Back up data whose
     permissions or ownership matter.
-  - **Cloud sync:** Add pairs under **File › Cloud Sync…** and check
-    **Synchronize in the background after login** so they run on their
-    intervals. Read the first run's review and any large deletion before
-    choosing **Synchronize**. Choose a backup mode when only one side should
-    change, keep pairs out of folders another client synchronizes, and
-    resolve conflicts in the review rather than leaving them skipped. Merge
-    and delete conflict copies once you have compared them. Rename one side
-    of a file-and-folder conflict, and move whole folders with the remote's
-    own tools to avoid copying them again. Check the tray icon or the dialog
-    for pairs that need attention.
+  - **Cloud sync:** Add pairs under **File › Cloud Sync…** or **Preferences ›
+    Remote and Cloud › Sync**, and check **Synchronize in the background after
+    login** so they run on their intervals. Read the first run's review and any
+    large deletion before choosing **Synchronize**. Choose a backup mode when
+    only one side should change, keep pairs out of folders another client
+    synchronizes, and resolve conflicts in the review rather than leaving them
+    skipped. Merge and delete conflict copies once you have compared them.
+    Rename one side of a file-and-folder conflict, and move whole folders with
+    the remote's own tools to avoid copying them again. Check the tray icon or
+    the dialog for pairs that need attention.
   - **Cloud activity:** Open **File › Cloud Activity…**, or **Cloud
     Activity…** in the tray menu, to follow transfers and errors. Set a
     bandwidth limit when uploads slow other traffic and an offline cache large
@@ -2722,8 +2722,7 @@ The M27 desktop integrations have these limits
     **rsync** settings page.
   - Detect folder renames, compare checksums where the remote offers them,
     watch local folders instead of waiting for the interval, send desktop
-    notifications, show transfers and quota per pair, and the M28 **Cloud
-    sync** settings page.
+    notifications, and show transfers and quota per pair.
   - Show the speed of rclone mounts and sync runs through rclone's remote
     control, limit the bandwidth of KIO pairs, delay logout while uploads are
     pending, mark folders to keep available offline, and the M28 **Cloud
@@ -3305,6 +3304,34 @@ The M28 integration settings have these limits
   so mounting, keeping and taking over mounts and starting at login are tested
   only with fakes ([Plasma check](TODO.md#remote-drive-settings-on-plasma-704)).
   ([#704](https://github.com/mikepadiernos/plasma-opus/issues/704))
+- **🔃 Cloud sync settings:** The pair list under **Preferences › Remote and
+  Cloud › Sync** is the one in **File › Cloud Sync…**: adding, editing,
+  removing, pausing and synchronizing pairs take effect immediately, even if
+  Preferences is cancelled, and the list appears only when Preferences is opened
+  from a Plasma Opus window. No supported remote reports changes, so every pair
+  is checked on its interval, and each check of a network-folder pair lists both
+  folders in full; a short default interval means more traffic for large
+  folders. The default interval applies to pairs that use it, as new pairs do;
+  pairs made before it existed keep their own interval until edited. A pair's
+  conflict choice applies to background and **Sync Now** runs; the first run and
+  large deletions still stop for review, and conflicts between a file and a
+  folder still wait. **Keep Local Version** and **Keep Remote Version** replace
+  the other version without a copy in the trash. rclone pairs pass the choice to
+  `rclone bisync --conflict-resolve`, which needs rclone 1.66 or later and keeps
+  the replaced version under a conflict name, while **Ask When Reviewing** and
+  **Keep Both** keep both versions under bisync's conflict names without
+  stopping for review. Pausing on metered connections works only where Qt's
+  network information reports it, usually through NetworkManager; the tab says
+  when it isn't reported, and background runs then aren't paused. Starting at
+  login uses its own autostart entry beside the one **Remote Drives** writes;
+  both start the same tray instance. While the setting is checked, each
+  **Apply** or **OK** writes the entry again, even if it was removed in Plasma's
+  Autostart settings, and an entry made from **File › Cloud Sync…** before the
+  setting existed turns it on. The container has no Plasma session or
+  NetworkManager, so starting at login and metered detection are tested only
+  with a test-mode autostart folder and a fake check ([Plasma
+  check](TODO.md#cloud-sync-settings-on-plasma-720)).
+  ([#720](https://github.com/mikepadiernos/plasma-opus/issues/720))
 
 - **Recommendation:**
   - **Default file manager:** Install Plasma Opus with `./install.sh`, then
@@ -3513,6 +3540,16 @@ The M28 integration settings have these limits
     mount them when it is activated. Clear **Unmount sshfs, davfs2 and CIFS
     mounts when Plasma Opus quits** only when applications use the mounts while
     Plasma Opus is closed, and unmount them before leaving the network.
+  - **Cloud sync settings:** Keep **Ask When Reviewing** for pairs whose files
+    are edited on both sides, and choose **Keep Both** to keep background runs
+    going without losing either version; choose **Keep Local Version** or **Keep
+    Remote Version** only when one side is authoritative, with a backup of the
+    other. Use rclone 1.66 or later for rclone pairs. Keep the default interval
+    at 15 minutes or more for large folders and give busy pairs their own
+    shorter interval in **Edit…**. Check **Start Plasma Opus in the system tray
+    at login to synchronize pairs in the background** to run pairs without
+    opening a window, and keep pausing on metered connections checked on mobile
+    data.
   - Comment:
     [#759.7210936724](https://github.com/mikepadiernos/plasma-opus/issues/759#issuecomment-7210936724)
 - **Proposed improvements:**
@@ -3613,6 +3650,12 @@ The M28 integration settings have these limits
     the mount folder changes, let sshfs mounts started before keeping mounts was
     chosen stay, leave the login entry alone once it is removed in Plasma's
     Autostart settings, and notify when a workspace's connection fails to mount.
+  - Watch local folders and ask remotes that offer change notifications, such as
+    Nextcloud and rclone's polling backends, instead of checking on an interval;
+    keep a trash copy of the version a conflict choice replaces; check the
+    rclone version before offering a conflict choice for rclone pairs; and leave
+    the cloud sync login entry alone once it is removed in Plasma's Autostart
+    settings.
 
 ## Embedded terminal
 
