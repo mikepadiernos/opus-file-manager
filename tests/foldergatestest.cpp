@@ -3,6 +3,8 @@
 #include "foldergates.h"
 
 #include <KConfigGroup>
+#include <KFileItem>
+#include <KIO/UDSEntry>
 #include <KSharedConfig>
 
 #include <QDir>
@@ -13,6 +15,8 @@
 #include <QTest>
 #include <QUrl>
 #include <QUrlQuery>
+
+#include <sys/stat.h>
 
 class FolderGatesTest : public QObject
 {
@@ -245,6 +249,32 @@ private Q_SLOTS:
         QVERIFY(g->protect(secret, QStringLiteral("pw")).isEmpty());
         QVERIFY(!g->isLocked(QUrl(QStringLiteral("trash:/secret"))));
         QVERIFY(!g->hidesContents(QUrl()));
+    }
+
+    void hidesItems()
+    {
+        const QString secret = makeFolder(QStringLiteral("items/secret"));
+        auto g = gates(QStringLiteral("itemsrc"));
+        QVERIFY(g->protect(secret, QStringLiteral("pw")).isEmpty());
+        const KFileItem gate(QUrl::fromLocalFile(secret), QStringLiteral("inode/directory"), S_IFDIR);
+        const KFileItem inner(QUrl::fromLocalFile(secret + QStringLiteral("/note.txt")), QStringLiteral("text/plain"), S_IFREG);
+        KIO::UDSEntry entry;
+        entry.fastInsert(KIO::UDSEntry::UDS_NAME, QStringLiteral("note.txt"));
+        entry.fastInsert(KIO::UDSEntry::UDS_FILE_TYPE, S_IFREG);
+        entry.fastInsert(KIO::UDSEntry::UDS_TARGET_URL, QUrl::fromLocalFile(secret + QStringLiteral("/note.txt")).toString());
+        const KFileItem found(entry, QUrl(QStringLiteral("search:/results/note.txt")));
+
+        QVERIFY(!g->hidesItem(gate));
+        QVERIFY(g->isLockedGateItem(gate));
+        QVERIFY(g->hidesItem(inner));
+        QVERIFY(!g->isLockedGateItem(inner));
+        QVERIFY(g->hidesItem(found));
+        QVERIFY(!g->hidesItem(KFileItem()));
+
+        QCOMPARE(g->unlock(secret, QStringLiteral("pw")), FolderGates::Check::Unlocked);
+        QVERIFY(!g->hidesItem(inner));
+        QVERIFY(!g->hidesItem(found));
+        QVERIFY(!g->isLockedGateItem(gate));
     }
 
     void defaultIterations()

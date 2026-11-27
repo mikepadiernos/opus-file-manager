@@ -4,6 +4,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -368,6 +369,41 @@ private Q_SLOTS:
         QVERIFY(lines.at(2).contains("\tread_text_file\terror: "));
         QVERIFY(!readFile(m_log).contains("hunter2"));
         QVERIFY(!readFile(m_log).contains("private\n"));
+    }
+
+    void protectedFoldersAreRefused()
+    {
+        McpServer::Options options;
+        options.access = McpServer::Access::Write;
+        options.folders = {m_root};
+        options.protectedFolders = {path(QStringLiteral("docs/nested"))};
+        McpServer mcp(options);
+        QVERIFY(QFile::link(path(QStringLiteral("docs/nested")), path(QStringLiteral("shortcut"))));
+
+        const auto refused = [&mcp](const QString &tool, const QJsonObject &arguments) {
+            const QJsonObject result = call(mcp, tool, arguments);
+            return isError(result) && text(result).contains(QStringLiteral("password-protected"));
+        };
+        QVERIFY(refused(QStringLiteral("list_folder"), {{QStringLiteral("path"), path(QStringLiteral("docs/nested"))}}));
+        QVERIFY(refused(QStringLiteral("read_text_file"), {{QStringLiteral("path"), path(QStringLiteral("docs/nested/notes.md"))}}));
+        QVERIFY(refused(QStringLiteral("list_folder"), {{QStringLiteral("path"), path(QStringLiteral("shortcut"))}}));
+        QVERIFY(refused(QStringLiteral("write_text_file"),
+                        {{QStringLiteral("path"), path(QStringLiteral("docs/nested/new.md"))}, {QStringLiteral("content"), QStringLiteral("x")}}));
+        QVERIFY(refused(QStringLiteral("copy"),
+                        {{QStringLiteral("source"), path(QStringLiteral("docs"))}, {QStringLiteral("destination"), path(QStringLiteral("docs-copy"))}}));
+        QVERIFY(refused(QStringLiteral("move"),
+                        {{QStringLiteral("source"), path(QStringLiteral("docs"))}, {QStringLiteral("destination"), path(QStringLiteral("docs-moved"))}}));
+        QVERIFY(refused(QStringLiteral("move_to_trash"), {{QStringLiteral("path"), path(QStringLiteral("docs"))}}));
+        QVERIFY(QFileInfo::exists(path(QStringLiteral("docs/nested/notes.md"))));
+
+        const QJsonObject result =
+            call(mcp, QStringLiteral("search_files"), {{QStringLiteral("folder"), m_root}, {QStringLiteral("pattern"), QStringLiteral("*")}});
+        QVERIFY(!isError(result));
+        const QString found = QString::fromUtf8(QJsonDocument(structured(result)).toJson());
+        QVERIFY(found.contains(QStringLiteral("readme.md")));
+        QVERIFY(found.contains(QStringLiteral("docs/nested")));
+        QVERIFY(!found.contains(QStringLiteral("notes.md")));
+        QVERIFY(!isError(call(mcp, QStringLiteral("read_text_file"), {{QStringLiteral("path"), path(QStringLiteral("docs/readme.md"))}})));
     }
 };
 

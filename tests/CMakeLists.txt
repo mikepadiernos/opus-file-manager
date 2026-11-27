@@ -192,6 +192,12 @@ ecm_add_test(yazimodeuitest.cpp
     GUI
 )
 
+ecm_add_test(foldergateuitest.cpp
+    LINK_LIBRARIES opusfm_app Qt6::Test
+    NAME_PREFIX "opusfm-"
+    GUI
+)
+
 ecm_add_test(galleryeditingtest.cpp
     LINK_LIBRARIES opusfm_app Qt6::Test
     NAME_PREFIX "opusfm-"
