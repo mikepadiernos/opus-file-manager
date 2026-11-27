@@ -47,16 +47,16 @@ Board statuses were last confirmed on 2026-11-27.
 | [Drop-down settings on Plasma](#drop-down-settings-on-plasma-710)                   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#710]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
 | [Baloo search settings on Plasma](#baloo-search-settings-on-plasma-443)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#443]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
 | [Office settings on Plasma](#office-settings-on-plasma-676)                         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#676]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
-| [Mail client settings on Plasma](#mail-client-settings-on-plasma-666)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#666]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
-| [Remote connection settings on Plasma](#remote-connection-settings-on-plasma-297)   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#297]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
-| [rclone settings on Plasma](#rclone-settings-on-plasma-663)                         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#663]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
-| [Remote drive settings on Plasma](#remote-drive-settings-on-plasma-704)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#704]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
-| [Cloud sync settings on Plasma](#cloud-sync-settings-on-plasma-720)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#720]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
-| [rsync settings on Plasma](#rsync-settings-on-plasma-366)                           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#366]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
-| [Transfer and cache settings on Plasma](#transfer-and-cache-settings-on-plasma-721) | [M28](ROADMAP.md#m28-integration-settings)                                     | [#721]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
-| [LAN sharing settings on Plasma](#lan-sharing-settings-on-plasma-664)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#664]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
-| [Plasma Vault settings on Plasma](#plasma-vault-settings-on-plasma-669)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#669]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
-| [File encryption settings on Plasma](#file-encryption-settings-on-plasma-670)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#670]         | ![Development](https://img.shields.io/badge/Development-1f6feb?style=flat-square)                                                                     |
+| [Mail client settings on Plasma](#mail-client-settings-on-plasma-666)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#666]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Remote connection settings on Plasma](#remote-connection-settings-on-plasma-297)   | [M28](ROADMAP.md#m28-integration-settings)                                     | [#297]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [rclone settings on Plasma](#rclone-settings-on-plasma-663)                         | [M28](ROADMAP.md#m28-integration-settings)                                     | [#663]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Remote drive settings on Plasma](#remote-drive-settings-on-plasma-704)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#704]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Cloud sync settings on Plasma](#cloud-sync-settings-on-plasma-720)                 | [M28](ROADMAP.md#m28-integration-settings)                                     | [#720]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [rsync settings on Plasma](#rsync-settings-on-plasma-366)                           | [M28](ROADMAP.md#m28-integration-settings)                                     | [#366]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Transfer and cache settings on Plasma](#transfer-and-cache-settings-on-plasma-721) | [M28](ROADMAP.md#m28-integration-settings)                                     | [#721]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [LAN sharing settings on Plasma](#lan-sharing-settings-on-plasma-664)               | [M28](ROADMAP.md#m28-integration-settings)                                     | [#664]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [Plasma Vault settings on Plasma](#plasma-vault-settings-on-plasma-669)             | [M28](ROADMAP.md#m28-integration-settings)                                     | [#669]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
+| [File encryption settings on Plasma](#file-encryption-settings-on-plasma-670)       | [M28](ROADMAP.md#m28-integration-settings)                                     | [#670]         | ![Completed](https://img.shields.io/badge/Completed-2ea44f?style=flat-square)                                                                         |
 
 ## mpv integration (#563)
 
@@ -937,7 +937,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Mail client settings on Plasma (#666)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#666]
-  (Development).
+  (Completed).
 - **Blocker:** The development container has no mail client or System
   Settings, so the **Mail** tab's client report can only be checked with a
   fake `mailto:` handler, and **Configure Default Applications…** cannot open
@@ -969,7 +969,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Remote connection settings on Plasma (#297)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#297]
-  (Development).
+  (Completed).
 - **Blocker:** The development container has no KDE password server
   (`kpasswdserver6`), KDE Wallet or KDE Wallet Manager, so passwords for
   connections saved under **Preferences › Remote and Cloud › Connections**
@@ -1003,7 +1003,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## rclone settings on Plasma (#663)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#663]
-  (Development).
+  (Completed).
 - **Blocker:** The development container has no rclone, KDE password server
   (`kpasswdserver6`) or KDE Wallet, so serving a real remote over WebDAV, and
   KIO signing in with the password that the password server keeps, are tested
@@ -1037,7 +1037,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Remote drive settings on Plasma (#704)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#704]
-  (Development).
+  (Completed).
 - **Blocker:** The development container has no sshfs, FUSE, `fusermount3`,
   KIO FUSE, davfs2, CIFS client or Plasma session, so mounting with the chosen
   backends, keeping sshfs mounts after quitting, taking them over at startup,
@@ -1089,7 +1089,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Cloud sync settings on Plasma (#720)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#720]
-  (Development).
+  (Completed).
 - **Blocker:** The development container has no Plasma session, system tray,
   NetworkManager or rclone, so starting at login, pausing on metered
   connections and rclone's `--conflict-resolve` are tested only with a
@@ -1134,7 +1134,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## rsync settings on Plasma (#366)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#366]
-  (Development).
+  (Completed).
 - **Blocker:** The development container has rsync but no SSH host, KIO
   `sftp:/` worker connection or ksshaskpass, so the settings are tested with
   local folders and an unreachable SSH address only.
@@ -1167,7 +1167,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Transfer and cache settings on Plasma (#721)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#721]
-  (Development).
+  (Completed).
 - **Blocker:** The development container has no rclone remote, FUSE device or
   system tray, so the settings are tested through the rclone options they
   produce and an offscreen tray menu only.
@@ -1204,7 +1204,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## LAN sharing settings on Plasma (#664)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#664]
-  (Development).
+  (Completed).
 - **Blocker:** The development container has only loopback and its own network
   interface, with no Wi-Fi, VPN, firewall or phone client, so interfaces are
   tested with loopback and fake interfaces only.
@@ -1241,7 +1241,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## Plasma Vault settings on Plasma (#669)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#669]
-  (Development).
+  (Completed).
 - **Blocker:** The development container has no Plasma Vault, no kded6
   module for it and no CryFS, gocryptfs or EncFS, so the settings are tested
   with a fake vault client only.
@@ -1276,7 +1276,7 @@ Board statuses were last confirmed on 2026-11-27.
 ## File encryption settings on Plasma (#670)
 
 - **Milestone and issue:** [M28](ROADMAP.md#m28-integration-settings), [#670]
-  (Development).
+  (Completed).
 - **Blocker:** The development container has no Kleopatra, no `aescrypt`
   and no pinentry program, so the settings are tested with GnuPG keys
   without passwords and fake `aescrypt` and `kleopatra` scripts only.
