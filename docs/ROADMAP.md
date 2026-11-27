@@ -1690,7 +1690,7 @@ for some features are recorded in [pending tasks](TODO.md).
         partial results; a preview is a snapshot, not a guarantee against
         subsequent filesystem changes. Use safe argument handling and SSH
         host-key verification. [#363]
-  - [ ] Two-way cloud sync, like
+  - [x] Two-way cloud sync, like
         [Syncative](https://github.com/Santuzius/syncative): pair any local
         folder, not only a single sync root, with a folder on a Nextcloud,
         WebDAV, SFTP, SMB, S3-compatible or KDE Online Accounts location or an
