@@ -1431,4 +1431,23 @@
       <default>true</default>
     </entry>
   </group>
+  <group name="Mcp">
+    <entry name="McpAccess" type="Enum">
+      <label>What the opus-file-manager-mcp server lets MCP clients do: nothing, read files and folders, or also change them</label>
+      <choices>
+        <choice name="Off"/>
+        <choice name="Read"/>
+        <choice name="Write"/>
+      </choices>
+      <default>Read</default>
+    </entry>
+    <entry name="McpFolders" type="StringList">
+      <label>Local folders MCP clients may use; empty for the home folder</label>
+      <default></default>
+    </entry>
+    <entry name="McpAuditLog" type="Bool">
+      <label>Whether the MCP server records each tool call, without file contents, in its audit log</label>
+      <default>true</default>
+    </entry>
+  </group>
 </kcfg>
