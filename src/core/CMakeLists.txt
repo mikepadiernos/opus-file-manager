@@ -160,6 +160,8 @@ add_library(opusfm_core STATIC
     nextcloudorganize.h
     nextcloudphotos.cpp
     nextcloudphotos.h
+    nextcloudshares.cpp
+    nextcloudshares.h
     namefilter.cpp
     notevault.cpp
     notevault.h
